@@ -1,0 +1,29 @@
+import type { Positions } from '../core/positions'
+import type { Scene, SceneDirty } from '../core/scene'
+import type { StateBuffers } from '../core/state-buffers'
+import type { ResolvedTheme } from '../dom/theme'
+import type { View } from '../types'
+
+export interface RenderInput {
+  readonly scene: Scene
+  readonly dirty: SceneDirty
+  readonly positions: Positions
+  readonly positionsChanged: boolean
+  readonly states: StateBuffers
+  readonly full: boolean
+}
+
+export interface RenderFrame {
+  readonly view: View
+  readonly width: number
+  readonly height: number
+  readonly pixelRatio: number
+}
+
+export interface Renderer {
+  sync(input: RenderInput): void
+  setPalette(colors: Uint8Array, count: number): void
+  setTheme(theme: ResolvedTheme): void
+  render(frame: RenderFrame): boolean
+  destroy(): void
+}

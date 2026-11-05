@@ -18,12 +18,15 @@
     "typescript"
   ],
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "*.css"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },
   "files": [
@@ -38,13 +41,14 @@
     "provenance": true
   },
   "scripts": {
+    "dev": "vite",
     "build": "tsdown",
     "check": "biome check .",
     "format": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint:package": "publint && attw --pack . --profile esm-only",
+    "lint:package": "publint && attw --pack . --profile esm-only --exclude-entrypoints ./theme.css",
     "verify": "pnpm check && pnpm typecheck && pnpm test && pnpm build && pnpm lint:package"
   },
   "devDependencies": {
@@ -54,6 +58,7 @@
     "publint": "0.3.25",
     "tsdown": "0.23.4",
     "typescript": "7.0.2",
+    "vite": "8.3.5",
     "vitest": "5.0.5"
   },
   "dependencies": {

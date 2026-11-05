@@ -1,0 +1,47 @@
+@import "@bruno00o/graph/theme.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--graph-font);
+  background: var(--graph-paper);
+  color: var(--graph-ink);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--graph-grid);
+}
+
+header h1 {
+  font-size: 16px;
+  margin: 0 auto 0 0;
+}
+
+button,
+select {
+  font: inherit;
+  color: inherit;
+  background: var(--graph-paper-raised);
+  border: 1px solid var(--graph-group-line);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+main {
+  position: relative;
+  min-height: 0;
+}
+
+a {
+  color: var(--graph-accent);
+}
