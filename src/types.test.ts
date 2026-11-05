@@ -1,0 +1,87 @@
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
+import { describe, expectTypeOf, it } from 'vitest'
+import {
+  type Accessor,
+  defineGraph,
+  type EdgeMark,
+  edges,
+  type FieldOf,
+  type KeyFieldOf,
+  type Mark,
+  type NodeMark,
+  type NodeOptions,
+  nodes,
+} from './index'
+
+type Person = {
+  id: string
+  name: string
+  team: string
+  score: number
+  joined: Date
+  alias?: string
+}
+type Link = { id: string; from: string; to: string; weight: number }
+type Row = { name: string; parent: string | null }
+
+const people: Person[] = []
+const links: Link[] = []
+const rows: Row[] = []
+
+describe('public types', () => {
+  it('infers the datum type from the data', () => {
+    expectTypeOf(nodes(people, { color: 'team', size: 'score' })).toEqualTypeOf<NodeMark<Person>>()
+    expectTypeOf(edges(links, { source: 'from', target: 'to' })).toEqualTypeOf<EdgeMark<Link>>()
+  })
+
+  it('passes the datum type to accessors', () => {
+    nodes(people, {
+      label: (person) => {
+        expectTypeOf(person).toEqualTypeOf<Person>()
+        return person.name
+      },
+    })
+  })
+
+  it('offers only the fields whose values fit the channel', () => {
+    expectTypeOf<FieldOf<Person, number>>().toEqualTypeOf<'score'>()
+    expectTypeOf<FieldOf<Person, string>>().toEqualTypeOf<'id' | 'name' | 'team' | 'alias'>()
+    expectTypeOf<KeyFieldOf<Person>>().toEqualTypeOf<'id' | 'name' | 'team' | 'score'>()
+    expectTypeOf<KeyFieldOf<Row>>().toEqualTypeOf<'name'>()
+    expectTypeOf<Exclude<NodeOptions<Person>['size'], undefined>>().toEqualTypeOf<
+      'score' | Accessor<Person, number | null | undefined>
+    >()
+  })
+
+  it('rejects fields of the wrong type', () => {
+    // @ts-expect-error
+    nodes(people, { size: 'name' })
+    // @ts-expect-error
+    nodes(people, { color: 'joined' })
+    // @ts-expect-error
+    edges(rows, { key: 'name', source: 'parent', target: 'name' })
+  })
+
+  it('requires a key when the data has no id field', () => {
+    // @ts-expect-error
+    nodes(rows)
+    expectTypeOf(nodes(rows, { key: 'name' })).toEqualTypeOf<NodeMark<Row>>()
+    expectTypeOf(
+      edges(rows, { key: 'name', source: (row) => row.parent ?? row.name, target: 'name' }),
+    ).toEqualTypeOf<EdgeMark<Row>>()
+  })
+
+  it('accepts a TanStack DB collection as a live source', () => {
+    const collection = createCollection(
+      localOnlyCollectionOptions({ id: 'types', getKey: (person: Person) => person.id }),
+    )
+    const mark = nodes(collection, {
+      color: 'team',
+      label: (person) => {
+        expectTypeOf(person).toExtend<Person>()
+        return person.name
+      },
+    })
+    expectTypeOf(defineGraph({ marks: [mark] }).marks).toEqualTypeOf<readonly Mark[]>()
+  })
+})
