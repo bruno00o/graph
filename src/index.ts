@@ -25,6 +25,7 @@ export type {
   NodeOptions,
   NodeShape,
   NumberScale,
+  NumberScaleType,
   ResolvedInteraction,
   ScalesOptions,
   SelectMode,
