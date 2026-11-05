@@ -92,7 +92,7 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
   gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
-  const statesBlock = new ArrayBuffer(1024)
+  const statesBlock = new ArrayBuffer(2048)
   const statesBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, statesBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -341,8 +341,8 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     const states = next.states
     if (states.tableVersion !== tableVersion || next.full) {
       tableVersion = states.tableVersion
-      new Float32Array(statesBlock, 0, 128).set(states.numbers)
-      new Uint32Array(statesBlock, 512, 128).set(states.paint)
+      new Float32Array(statesBlock, 0, 256).set(states.numbers)
+      new Uint32Array(statesBlock, 1024, 256).set(states.paint)
       gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, statesBlock)
       labelsStale = true

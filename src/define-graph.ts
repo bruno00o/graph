@@ -1,3 +1,4 @@
+import { freeStateNames, maxFreeStates } from './core/state-names'
 import type {
   GraphDefinition,
   GraphDefinitionOptions,
@@ -27,6 +28,11 @@ export function defineGraph(options: GraphDefinitionOptions): GraphDefinition {
     if (mark?.type !== 'nodes' && mark?.type !== 'edges') {
       throw new TypeError('defineGraph: every mark must come from nodes() or edges()')
     }
+  }
+  if (freeStateNames(options.states ?? {}).length > maxFreeStates) {
+    throw new RangeError(
+      `defineGraph: at most ${maxFreeStates} states besides selected, hovered and focused`,
+    )
   }
   return Object.freeze({
     marks: Object.freeze([...options.marks]),

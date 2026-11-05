@@ -1,8 +1,10 @@
-import { createStore, type Store } from '@tanstack/store'
-import { createGraphModel, type GraphChanges } from '../core/graph-model'
+import { createStore } from '@tanstack/store'
+import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
+import { PickIndex, type PickSource } from '../core/pick-index'
 import { Positions, placeNodes } from '../core/positions'
 import { createScene } from '../core/scene'
-import { StateBuffers } from '../core/state-buffers'
+import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
+import { freeStateNames, isBuiltInState } from '../core/state-names'
 import {
   type Bounds,
   easeInOut,
@@ -15,14 +17,34 @@ import {
   zoomAround,
 } from '../core/view'
 import { observeTheme, ThemeResolver } from '../dom/theme'
-import type { GraphDefinition, Key, Point, View } from '../types'
+import { builtInStyles } from '../theme/tokens'
+import type { GraphDefinition, Key, Point, StateStyle, View } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
+import {
+  type ElementKeys,
+  type ElementKeysInput,
+  Emitter,
+  type GraphEventHandler,
+  type GraphEventName,
+  type GraphTarget,
+} from './events'
 import type { Renderer } from './renderer'
+import { StateRegistry } from './state-registry'
 
 export interface GraphState {
   readonly view: View
   readonly width: number
   readonly height: number
+  readonly hovered: GraphTarget | null
+  readonly selection: ElementKeys
+  readonly states: Readonly<Record<string, ElementKeys>>
+  readonly positionsVersion: number
+}
+
+export interface GraphStore {
+  readonly state: GraphState
+  get(): GraphState
+  subscribe(listener: (state: GraphState) => void): { unsubscribe(): void }
 }
 
 export interface ViewOptions {
@@ -42,6 +64,30 @@ export interface GraphView {
   toWorld(point: Point): Point
 }
 
+export interface GraphElement {
+  readonly kind: 'node' | 'edge'
+  readonly key: Key
+}
+
+export interface GraphSelection {
+  get(): ElementKeys
+  set(keys: ElementKeysInput): void
+  clear(): void
+}
+
+export interface GraphStates {
+  set(name: string, keys: ElementKeysInput): void
+  add(name: string, keys: ElementKeysInput): void
+  remove(name: string, keys: ElementKeysInput): void
+  clear(name?: string): void
+  has(name: string, element: GraphElement): boolean
+}
+
+export interface GraphPositions {
+  get(key: Key): Point | undefined
+  set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
+}
+
 export interface MountGraphOptions {
   readonly definition: GraphDefinition
   readonly ariaLabel: string
@@ -49,26 +95,80 @@ export interface MountGraphOptions {
 }
 
 export interface GraphInstance {
-  readonly store: Store<GraphState>
+  readonly store: GraphStore
   readonly view: GraphView
+  readonly selection: GraphSelection
+  readonly states: GraphStates
+  readonly positions: GraphPositions
   readonly element: HTMLElement
+  pick(point: Point): GraphTarget | null
+  neighbors(key: Key): Key[]
+  edgesOf(key: Key): Key[]
+  endpoints(key: Key): Endpoints | undefined
+  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
   update(options: Partial<Omit<MountGraphOptions, 'initialView'>>): void
   destroy(): void
 }
 
 export type RendererFactory = (canvas: HTMLCanvasElement) => Renderer
 
-interface Animation {
+interface ViewAnimation {
   readonly from: View
   readonly to: View
   readonly start: number
   readonly duration: number
 }
 
+interface PositionAnimation {
+  readonly indices: readonly number[]
+  readonly from: Float32Array
+  readonly to: Float32Array
+  readonly start: number
+  readonly duration: number
+}
+
+interface Gesture {
+  readonly id: number
+  readonly start: Point
+  readonly target: GraphTarget | null
+  readonly drag: NodeDrag | null
+  last: Point
+  moved: boolean
+}
+
+interface NodeDrag {
+  readonly target: GraphTarget & { readonly kind: 'node' }
+  readonly indices: readonly number[]
+  readonly keys: readonly Key[]
+  readonly offsets: Float32Array
+  started: boolean
+}
+
 const defaultPadding = 32
+const clickSlop = 4
+const pickTolerance = 4
+const highlightOrder = 2 ** 40
+const layerOrder = 2 ** 26
+const kindOf = { node: 'nodes', edge: 'edges' } as const satisfies Record<string, StateKind>
+const noKeys: ElementKeys = Object.freeze({ nodes: [], edges: [] })
 
 function reducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
+function sameTarget(a: GraphTarget | null, b: GraphTarget | null): boolean {
+  return a === b || (a !== null && b !== null && a.kind === b.kind && a.key === b.key)
+}
+
+function resolveStyle(style: StateStyle, id: (color: string) => number): ResolvedStateStyle {
+  return {
+    ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
+    ...(style.strokeWidth !== undefined ? { strokeWidth: style.strokeWidth } : {}),
+    ...(style.halo !== undefined ? { halo: style.halo } : {}),
+    ...(style.label !== undefined ? { label: style.label } : {}),
+    ...(style.fill !== undefined ? { fill: id(style.fill) } : {}),
+    ...(style.stroke !== undefined ? { stroke: id(style.stroke) } : {}),
+  }
 }
 
 export function createGraphHost(
@@ -96,21 +196,58 @@ export function createGraphHost(
   let positionsVersion = -1
   let paletteCount = 0
   let paletteColors = new Uint8Array(256 * 4)
-  let animation: Animation | null = null
+  let viewAnimation: ViewAnimation | null = null
+  let positionAnimations: PositionAnimation[] = []
   let pendingFit: FitOptions | null = options.initialView ? null : { padding: defaultPadding }
   let pixelRatio = window.devicePixelRatio || 1
+  let sceneVersion = 0
+  let pickedScene = -1
+  let pickedPositions = -1
+  let gesture: Gesture | null = null
 
+  const model = createGraphModel({ schedule: () => request(true) })
+  const scene = createScene()
+  const positions = new Positions()
+  const buffers = new StateBuffers()
+  const registry = new StateRegistry(model, buffers)
+  const emitter = new Emitter()
+  const pickIndex = new PickIndex()
+  const themeResolver = new ThemeResolver(element)
+  let renderer = createRenderer(canvas)
+
+  registry.define(freeStateNames(definition.states))
   const store = createStore<GraphState>({
     view: options.initialView ?? { x: 0, y: 0, zoom: 1 },
     width: 0,
     height: 0,
+    hovered: null,
+    selection: noKeys,
+    states: freeStates(),
+    positionsVersion: 0,
   })
-  const model = createGraphModel({ schedule: () => request(true) })
-  const scene = createScene()
-  const positions = new Positions()
-  const states = new StateBuffers()
-  const themeResolver = new ThemeResolver(element)
-  let renderer = createRenderer(canvas)
+
+  const layerPositions = { nodes: new Map<number, number>(), edges: new Map<number, number>() }
+  const pickSource: PickSource = {
+    nodes: scene.nodes,
+    edges: scene.edges,
+    positions,
+    order: (kind, index) => {
+      const slot = (kind === 'nodes' ? scene.nodes.slot[index] : scene.edges.slot[index]) ?? 0
+      const mask = (kind === 'nodes' ? buffers.nodeMask[index] : buffers.edgeMask[index]) ?? 0
+      const layer = layerPositions[kind].get(slot) ?? 0
+      return ((mask & 3) !== 0 ? highlightOrder : 0) + layer * layerOrder + index
+    },
+  }
+
+  function freeStates(): Record<string, ElementKeys> {
+    return Object.fromEntries(
+      freeStateNames(definition.states).map((name) => [name, registry.members(name)]),
+    )
+  }
+
+  function patch(next: Partial<GraphState>): void {
+    store.setState((state) => ({ ...state, ...next }))
+  }
 
   function request(flush = false): void {
     if (flush) needsFlush = true
@@ -118,8 +255,9 @@ export function createGraphHost(
     frameRequest = requestAnimationFrame(frame)
   }
 
-  function setView(view: View): void {
-    store.setState((state) => ({ ...state, view }))
+  function commitView(view: View): void {
+    patch({ view })
+    emitter.emit('viewchange', { view })
     request()
   }
 
@@ -144,6 +282,26 @@ export function createGraphHost(
     renderer.setTheme(themeResolver.theme())
     resolvePalette(0)
     request()
+  }
+
+  function applyStyles(): void {
+    const id = (color: string) => scene.palette.id(color)
+    for (const kind of ['nodes', 'edges'] as const) {
+      registry.names.forEach((name, bit) => {
+        const own = definition.states[name]
+        const style = isBuiltInState(name) ? { ...builtInStyles[kind][name], ...own } : own
+        buffers.setStyle(kind, bit, style ? resolveStyle(style, id) : null)
+      })
+      for (let bit = registry.names.length; bit < 32; bit++) buffers.setStyle(kind, bit, null)
+    }
+  }
+
+  function applyLayers(): void {
+    layerPositions.nodes.clear()
+    layerPositions.edges.clear()
+    scene.layers.forEach((layer, position) => {
+      layerPositions[layer.kind].set(layer.slot, position)
+    })
   }
 
   function bounds(keys?: Iterable<Key>): Bounds | null {
@@ -174,11 +332,11 @@ export function createGraphHost(
   function animateTo(target: View, duration = 0): void {
     const ms = reducedMotion() ? 0 : duration
     if (ms <= 0) {
-      animation = null
-      setView(target)
+      viewAnimation = null
+      commitView(target)
       return
     }
-    animation = { from: store.get().view, to: target, start: performance.now(), duration: ms }
+    viewAnimation = { from: store.get().view, to: target, start: performance.now(), duration: ms }
     request()
   }
 
@@ -190,9 +348,103 @@ export function createGraphHost(
     return true
   }
 
+  function target(kind: 'node' | 'edge', key: Key): GraphTarget | null {
+    const record = kind === 'node' ? model.node(key) : model.edge(key)
+    return record ? { kind, key, datum: record.datum } : null
+  }
+
+  function pickAt(point: Point): GraphTarget | null {
+    if (!gesture?.drag && (pickedScene !== sceneVersion || pickedPositions !== positions.version)) {
+      pickIndex.build(pickSource)
+      pickedScene = sceneVersion
+      pickedPositions = positions.version
+    }
+    const world = toWorld(store.get().view, viewport(), point)
+    const hit = pickIndex.pick(pickSource, world.x, world.y, store.get().view.zoom, pickTolerance)
+    if (!hit) return null
+    const key = hit.kind === 'node' ? scene.nodes.keys[hit.index] : scene.edges.keys[hit.index]
+    return key === undefined ? null : target(hit.kind, key)
+  }
+
+  function publishSelection(): void {
+    const selection = registry.members('selected')
+    patch({ selection })
+    emitter.emit('selectionchange', selection)
+    request()
+  }
+
+  function publishState(name: string): void {
+    patch({ states: { ...store.get().states, [name]: registry.members(name) } })
+    request()
+  }
+
+  function setHovered(next: GraphTarget | null, event: MouseEvent | null): void {
+    const current = store.get().hovered
+    if (sameTarget(current, next)) return
+    registry.set('hovered', next ? { [kindOf[next.kind]]: [next.key] } : {})
+    patch({ hovered: next })
+    if (current && event) emitter.emit('pointerleave', { target: current, originalEvent: event })
+    if (next && event) emitter.emit('pointerenter', { target: next, originalEvent: event })
+    updateCursor()
+    request()
+  }
+
+  function updateCursor(): void {
+    const interactive = definition.interaction.select !== false || definition.interaction.drag
+    if (gesture?.moved) canvas.style.cursor = 'grabbing'
+    else if (store.get().hovered && interactive) canvas.style.cursor = 'pointer'
+    else canvas.style.cursor = ''
+  }
+
+  function selectOnClick(clicked: GraphTarget | null, event: MouseEvent): void {
+    const mode = definition.interaction.select
+    if (mode === false) return
+    const additive = mode === 'multiple' && (event.shiftKey || event.metaKey || event.ctrlKey)
+    let changed: boolean
+    if (!clicked) {
+      changed = additive ? false : registry.clear('selected')
+    } else {
+      const kind = kindOf[clicked.kind]
+      const keys = { [kind]: [clicked.key] }
+      if (!additive) changed = registry.set('selected', keys)
+      else if (registry.has('selected', kind, clicked.key))
+        changed = registry.remove('selected', keys)
+      else changed = registry.add('selected', keys)
+    }
+    if (changed) publishSelection()
+  }
+
   function applyChanges(changes: GraphChanges): void {
     scene.apply(model, changes)
     placeNodes(model, positions, changes)
+    buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    const result = registry.apply(changes)
+    sceneVersion++
+    applyLayers()
+    if (result.selection) publishSelection()
+    const hovered = store.get().hovered
+    if (result.hovered) {
+      patch({ hovered: null })
+      updateCursor()
+    } else if (hovered) {
+      const fresh = target(hovered.kind, hovered.key)
+      if (fresh && fresh.datum !== hovered.datum) patch({ hovered: fresh })
+    }
+  }
+
+  function stepPositions(now: number): void {
+    positionAnimations = positionAnimations.filter((animation) => {
+      const t = Math.min(1, (now - animation.start) / animation.duration)
+      const k = easeInOut(t)
+      animation.indices.forEach((index, i) => {
+        const fromX = animation.from[i * 2] ?? 0
+        const fromY = animation.from[i * 2 + 1] ?? 0
+        const toX = animation.to[i * 2] ?? 0
+        const toY = animation.to[i * 2 + 1] ?? 0
+        positions.set(index, fromX + (toX - fromX) * k, fromY + (toY - fromY) * k)
+      })
+      return t < 1
+    })
   }
 
   function frame(now: number): void {
@@ -203,35 +455,35 @@ export function createGraphHost(
       applyChanges(model.flush())
     }
     if (pendingFit && fitTo(undefined, pendingFit)) pendingFit = null
-    if (animation) {
-      const t = Math.min(1, (now - animation.start) / animation.duration)
-      const view = interpolateView(animation.from, animation.to, easeInOut(t))
-      if (t >= 1) animation = null
-      store.setState((state) => ({ ...state, view }))
+    if (viewAnimation) {
+      const t = Math.min(1, (now - viewAnimation.start) / viewAnimation.duration)
+      const view = interpolateView(viewAnimation.from, viewAnimation.to, easeInOut(t))
+      if (t >= 1) viewAnimation = null
+      patch({ view })
+      emitter.emit('viewchange', { view })
     }
+    if (positionAnimations.length > 0) stepPositions(now)
+    registry.takeHighlighted()
     const dirty = scene.takeDirty()
     if (dirty.palette || scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
-    states.reserve(scene.nodes.capacity, scene.edges.capacity)
-    renderer.sync({
-      scene,
-      dirty,
-      positions,
-      positionsChanged: positions.version !== positionsVersion,
-      states,
-      full,
-    })
+    buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    const positionsChanged = positions.version !== positionsVersion
+    renderer.sync({ scene, dirty, positions, positionsChanged, states: buffers, full })
     full = false
-    positionsVersion = positions.version
+    if (positionsChanged) {
+      positionsVersion = positions.version
+      patch({ positionsVersion })
+    }
     const { view, width, height } = store.get()
     const pending = renderer.render({ view, width, height, pixelRatio })
-    if (pending || animation) request()
+    if (pending || viewAnimation || positionAnimations.length > 0) request()
   }
 
   function resize(width: number, height: number): void {
     pixelRatio = window.devicePixelRatio || 1
     canvas.width = Math.max(1, Math.round(width * pixelRatio))
     canvas.height = Math.max(1, Math.round(height * pixelRatio))
-    store.setState((state) => ({ ...state, width, height }))
+    patch({ width, height })
     request()
   }
 
@@ -242,42 +494,143 @@ export function createGraphHost(
   resizeObserver.observe(element)
   const stopTheme = observeTheme(element, refreshTheme)
 
-  let drag: { id: number; x: number; y: number } | null = null
-
-  function local(event: PointerEvent | WheelEvent): Point {
+  function local(event: MouseEvent): Point {
     const rect = canvas.getBoundingClientRect()
     return { x: event.clientX - rect.left, y: event.clientY - rect.top }
   }
 
+  function pointerEvent(event: MouseEvent, hit: GraphTarget | null) {
+    const point = local(event)
+    return {
+      target: hit,
+      point,
+      world: toWorld(store.get().view, viewport(), point),
+      originalEvent: event,
+    }
+  }
+
+  function startDrag(hit: GraphTarget, point: Point): NodeDrag | null {
+    if (hit.kind !== 'node' || !definition.interaction.drag) return null
+    const group = registry.has('selected', 'nodes', hit.key)
+      ? registry.members('selected').nodes
+      : [hit.key]
+    const world = toWorld(store.get().view, viewport(), point)
+    const keys: Key[] = []
+    const indices: number[] = []
+    for (const key of group) {
+      const record = model.node(key)
+      if (!record) continue
+      keys.push(key)
+      indices.push(record.index)
+    }
+    const offsets = new Float32Array(indices.length * 2)
+    indices.forEach((index, i) => {
+      offsets[i * 2] = positions.x(index) - world.x
+      offsets[i * 2 + 1] = positions.y(index) - world.y
+    })
+    return { target: { ...hit, kind: 'node' }, indices, keys, offsets, started: false }
+  }
+
+  function dragEvent(drag: NodeDrag, event: PointerEvent) {
+    const point = local(event)
+    return {
+      target: drag.target,
+      keys: drag.keys,
+      point,
+      world: toWorld(store.get().view, viewport(), point),
+      originalEvent: event,
+    }
+  }
+
   function onPointerDown(event: PointerEvent): void {
-    if (event.button !== 0 || !definition.interaction.pan) return
-    animation = null
-    drag = { id: event.pointerId, ...local(event) }
-    canvas.setPointerCapture(event.pointerId)
+    if (event.button !== 0 || gesture) return
+    viewAnimation = null
+    const point = local(event)
+    const hit = pickAt(point)
+    const drag = hit ? startDrag(hit, point) : null
+    gesture = { id: event.pointerId, start: point, last: point, target: hit, drag, moved: false }
+    canvas.setPointerCapture?.(event.pointerId)
   }
 
   function onPointerMove(event: PointerEvent): void {
-    if (!drag || drag.id !== event.pointerId) return
     const point = local(event)
-    const view = panBy(store.get().view, point.x - drag.x, point.y - drag.y)
-    drag = { id: drag.id, ...point }
-    setView(view)
+    if (!gesture) {
+      setHovered(pickAt(point), event)
+      return
+    }
+    if (gesture.id !== event.pointerId) return
+    if (
+      !gesture.moved &&
+      Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > clickSlop
+    ) {
+      gesture.moved = true
+      updateCursor()
+    }
+    const drag = gesture.drag
+    if (drag) {
+      if (!gesture.moved) return
+      if (!drag.started) {
+        drag.started = true
+        emitter.emit('dragstart', dragEvent(drag, event))
+      }
+      const world = toWorld(store.get().view, viewport(), point)
+      drag.indices.forEach((index, i) => {
+        positions.set(
+          index,
+          world.x + (drag.offsets[i * 2] ?? 0),
+          world.y + (drag.offsets[i * 2 + 1] ?? 0),
+        )
+      })
+      emitter.emit('drag', dragEvent(drag, event))
+      request()
+    } else if (definition.interaction.pan) {
+      commitView(panBy(store.get().view, point.x - gesture.last.x, point.y - gesture.last.y))
+    }
+    gesture.last = point
+  }
+
+  function endGesture(event: PointerEvent, cancelled: boolean): void {
+    if (!gesture || gesture.id !== event.pointerId) return
+    const ended = gesture
+    gesture = null
+    if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+    if (ended.drag?.started) emitter.emit('dragend', dragEvent(ended.drag, event))
+    if (!cancelled && !ended.moved) {
+      emitter.emit('click', pointerEvent(event, ended.target))
+      selectOnClick(ended.target, event)
+    }
+    if (!cancelled) setHovered(pickAt(local(event)), event)
+    updateCursor()
   }
 
   function onPointerUp(event: PointerEvent): void {
-    if (!drag || drag.id !== event.pointerId) return
-    drag = null
-    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+    endGesture(event, false)
+  }
+
+  function onPointerCancel(event: PointerEvent): void {
+    endGesture(event, true)
+  }
+
+  function onPointerLeave(event: PointerEvent): void {
+    if (!gesture) setHovered(null, event)
+  }
+
+  function onDoubleClick(event: MouseEvent): void {
+    emitter.emit('doubleclick', pointerEvent(event, pickAt(local(event))))
+  }
+
+  function onContextMenu(event: MouseEvent): void {
+    emitter.emit('contextmenu', pointerEvent(event, pickAt(local(event))))
   }
 
   function onWheel(event: WheelEvent): void {
     const zoom = definition.interaction.zoom
     if (!zoom) return
     event.preventDefault()
-    animation = null
+    viewAnimation = null
     const { view, height } = store.get()
     const factor = wheelFactor(event.deltaY, event.deltaMode, height, zoom.speed)
-    setView(zoomAround(view, viewport(), local(event), factor))
+    commitView(zoomAround(view, viewport(), local(event), factor))
   }
 
   function onContextLost(event: Event): void {
@@ -292,18 +645,37 @@ export function createGraphHost(
     refreshTheme()
   }
 
-  canvas.addEventListener('pointerdown', onPointerDown)
-  canvas.addEventListener('pointermove', onPointerMove)
-  canvas.addEventListener('pointerup', onPointerUp)
-  canvas.addEventListener('pointercancel', onPointerUp)
-  canvas.addEventListener('wheel', onWheel, { passive: false })
-  canvas.addEventListener('webglcontextlost', onContextLost)
-  canvas.addEventListener('webglcontextrestored', onContextRestored)
+  const listeners: ReadonlyArray<
+    readonly [string, (event: never) => void, AddEventListenerOptions?]
+  > = [
+    ['pointerdown', onPointerDown],
+    ['pointermove', onPointerMove],
+    ['pointerup', onPointerUp],
+    ['pointercancel', onPointerCancel],
+    ['pointerleave', onPointerLeave],
+    ['dblclick', onDoubleClick],
+    ['contextmenu', onContextMenu],
+    ['wheel', onWheel, { passive: false }],
+    ['webglcontextlost', onContextLost],
+    ['webglcontextrestored', onContextRestored],
+  ]
+  for (const [name, listener, listenerOptions] of listeners) {
+    canvas.addEventListener(name, listener as EventListener, listenerOptions)
+  }
 
   model.setMarks(definition.marks)
   scene.setDefinition(definition)
+  applyLayers()
+  applyStyles()
   refreshTheme()
   request(true)
+
+  function declared(name: string): string {
+    if (isBuiltInState(name) || !Object.hasOwn(definition.states, name)) {
+      throw new Error(`graph: unknown state "${name}"`)
+    }
+    return name
+  }
 
   const view: GraphView = {
     get: () => store.get().view,
@@ -320,16 +692,93 @@ export function createGraphHost(
     toWorld: (point) => toWorld(store.get().view, viewport(), point),
   }
 
+  const selection: GraphSelection = {
+    get: () => store.get().selection,
+    set: (keys) => {
+      if (registry.set('selected', keys)) publishSelection()
+    },
+    clear: () => {
+      if (registry.clear('selected')) publishSelection()
+    },
+  }
+
+  const states: GraphStates = {
+    set: (name, keys) => {
+      if (registry.set(declared(name), keys)) publishState(name)
+    },
+    add: (name, keys) => {
+      if (registry.add(declared(name), keys)) publishState(name)
+    },
+    remove: (name, keys) => {
+      if (registry.remove(declared(name), keys)) publishState(name)
+    },
+    clear: (name) => {
+      const names = name === undefined ? freeStateNames(definition.states) : [declared(name)]
+      for (const each of names) if (registry.clear(each)) publishState(each)
+    },
+    has: (name, element) => registry.has(declared(name), kindOf[element.kind], element.key),
+  }
+
+  const positionsApi: GraphPositions = {
+    get: (key) => {
+      const record = model.node(key)
+      return record ? { x: positions.x(record.index), y: positions.y(record.index) } : undefined
+    },
+    set: (entries, positionOptions = {}) => {
+      const indices: number[] = []
+      const to: number[] = []
+      for (const [key, point] of entries) {
+        const record = model.node(key)
+        if (!record) continue
+        indices.push(record.index)
+        to.push(point.x, point.y)
+      }
+      if (indices.length === 0) return
+      const duration = reducedMotion() ? 0 : (positionOptions.duration ?? 0)
+      if (duration <= 0) {
+        indices.forEach((index, i) => {
+          positions.set(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
+        })
+      } else {
+        const from = new Float32Array(indices.length * 2)
+        indices.forEach((index, i) => {
+          from[i * 2] = positions.x(index)
+          from[i * 2 + 1] = positions.y(index)
+        })
+        positionAnimations.push({
+          indices,
+          from,
+          to: Float32Array.from(to),
+          start: performance.now(),
+          duration,
+        })
+      }
+      request()
+    },
+  }
+
   return {
     store,
     view,
+    selection,
+    states,
+    positions: positionsApi,
     element,
+    pick: (point) => pickAt(point),
+    neighbors: (key) => model.neighbors(key),
+    edgesOf: (key) => model.edgesOf(key),
+    endpoints: (key) => model.endpoints(key),
+    on: (name, handler) => emitter.on(name, handler),
     update(next) {
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
       if (next.definition && next.definition !== definition) {
         definition = next.definition
         model.setMarks(definition.marks)
         scene.setDefinition(definition)
+        applyLayers()
+        if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
+        applyStyles()
+        updateCursor()
         request(true)
       }
     },
@@ -339,13 +788,10 @@ export function createGraphHost(
       if (frameRequest !== 0) cancelAnimationFrame(frameRequest)
       resizeObserver.disconnect()
       stopTheme()
-      canvas.removeEventListener('pointerdown', onPointerDown)
-      canvas.removeEventListener('pointermove', onPointerMove)
-      canvas.removeEventListener('pointerup', onPointerUp)
-      canvas.removeEventListener('pointercancel', onPointerUp)
-      canvas.removeEventListener('wheel', onWheel)
-      canvas.removeEventListener('webglcontextlost', onContextLost)
-      canvas.removeEventListener('webglcontextrestored', onContextRestored)
+      for (const [name, listener] of listeners) {
+        canvas.removeEventListener(name, listener as EventListener)
+      }
+      emitter.clear()
       model.destroy()
       renderer.destroy()
       themeResolver.destroy()
