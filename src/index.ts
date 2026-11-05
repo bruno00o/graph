@@ -26,6 +26,7 @@ export type {
   NodeShape,
   NumberScale,
   NumberScaleType,
+  Point,
   ResolvedInteraction,
   ScalesOptions,
   SelectMode,
@@ -33,4 +34,5 @@ export type {
   SourceSubscription,
   StateStyle,
   Style,
+  View,
 } from './types'

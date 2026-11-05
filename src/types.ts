@@ -1,5 +1,16 @@
 export type Key = string | number
 
+export interface Point {
+  readonly x: number
+  readonly y: number
+}
+
+export interface View {
+  readonly x: number
+  readonly y: number
+  readonly zoom: number
+}
+
 export type Accessor<T, V> = (datum: T) => V
 
 export type FieldOf<T, V> = {
