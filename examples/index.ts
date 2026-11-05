@@ -3,7 +3,10 @@ import { createPage } from './shared/page'
 
 const { main } = createPage(messages.title)
 const list = document.createElement('ul')
-for (const [href, text] of [['./vanilla/', messages.vanilla]] as const) {
+for (const [href, text] of [
+  ['./vanilla/', messages.vanilla],
+  ['./react/', messages.react],
+] as const) {
   const item = document.createElement('li')
   const link = document.createElement('a')
   link.href = href

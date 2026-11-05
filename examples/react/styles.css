@@ -1,0 +1,56 @@
+#root {
+  display: contents;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  min-height: 0;
+}
+
+.graph {
+  height: 100%;
+}
+
+.tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--graph-paper-raised);
+  border: 1px solid var(--graph-group-line);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.tooltip strong {
+  display: block;
+}
+
+.tooltip span {
+  color: var(--graph-ink-muted);
+}
+
+aside {
+  border-left: 1px solid var(--graph-grid);
+  padding: 12px 16px;
+  overflow: auto;
+}
+
+aside h2 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+aside p {
+  color: var(--graph-ink-muted);
+  font-size: 13px;
+}
+
+aside ul {
+  margin: 0;
+  padding-left: 18px;
+}
