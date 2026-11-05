@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition } from '../types'
 import type { GraphEventName } from './events'
 import { createGraphHost, type GraphInstance } from './mount-graph'
-import type { Renderer } from './renderer'
 
 interface Item {
   readonly id: string
@@ -38,25 +38,7 @@ function definition(data: readonly Item[] = items): GraphDefinition {
   })
 }
 
-let frames: FrameRequestCallback[] = []
-
-function flushFrames(): void {
-  for (let round = 0; round < 5 && frames.length > 0; round++) {
-    const pending = frames
-    frames = []
-    for (const callback of pending) callback(performance.now() + 10_000)
-  }
-}
-
-function fakeRenderer(): Renderer {
-  return {
-    sync: () => {},
-    setPalette: () => {},
-    setTheme: () => {},
-    render: () => false,
-    destroy: () => {},
-  }
-}
+let dom: FakeDom
 
 function mount(graphDefinition = definition()): GraphInstance {
   const container = document.createElement('div')
@@ -66,7 +48,7 @@ function mount(graphDefinition = definition()): GraphInstance {
     { definition: graphDefinition, ariaLabel: 'graphe' },
     fakeRenderer,
   )
-  flushFrames()
+  dom.flushFrames()
   return graph
 }
 
@@ -118,30 +100,11 @@ function record(graph: GraphInstance, names: readonly GraphEventName[]): string[
 }
 
 beforeEach(() => {
-  frames = []
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback))
-  vi.stubGlobal('cancelAnimationFrame', () => {})
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      readonly #callback: ResizeObserverCallback
-      constructor(callback: ResizeObserverCallback) {
-        this.#callback = callback
-      }
-      observe() {
-        this.#callback(
-          [{ contentRect: { width: 800, height: 600 } } as ResizeObserverEntry],
-          this as unknown as ResizeObserver,
-        )
-      }
-      disconnect() {}
-    },
-  )
+  dom = installDom()
 })
 
 afterEach(() => {
-  vi.unstubAllGlobals()
-  document.body.innerHTML = ''
+  dom.restore()
 })
 
 describe('createGraphHost', () => {
@@ -250,7 +213,7 @@ describe('createGraphHost', () => {
     graph.selection.set({ nodes: ['a', 'c'] })
     const seen = record(graph, ['selectionchange'])
     graph.update({ definition: definition(items.filter((item) => item.id !== 'a')) })
-    flushFrames()
+    dom.flushFrames()
     expect(graph.selection.get().nodes).toEqual(['c'])
     expect(seen).toEqual(['selectionchange'])
   })
@@ -262,7 +225,7 @@ describe('createGraphHost', () => {
     const views: number[] = []
     graph.on('viewchange', ({ view }) => views.push(view.zoom))
     graph.view.set({ x: 0, y: 0, zoom: 2 }, { duration: 200 })
-    flushFrames()
+    dom.flushFrames()
     expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 2 })
     expect(views.at(-1)).toBe(2)
   })

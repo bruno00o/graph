@@ -3,6 +3,7 @@
     "target": "es2023",
     "lib": ["es2023", "dom", "dom.iterable"],
     "module": "preserve",
+    "jsx": "react-jsx",
     "moduleResolution": "bundler",
     "strict": true,
     "noUncheckedIndexedAccess": true,

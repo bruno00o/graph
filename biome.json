@@ -19,6 +19,9 @@
   "linter": {
     "rules": {
       "preset": "recommended"
+    },
+    "domains": {
+      "react": "none"
     }
   },
   "assist": {
@@ -27,5 +30,15 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/react/**", "examples/**"],
+      "linter": {
+        "domains": {
+          "react": "recommended"
+        }
+      }
+    }
+  ]
 }

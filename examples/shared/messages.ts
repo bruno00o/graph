@@ -1,6 +1,10 @@
 export const messages = {
   title: 'Exemples de graphes',
   vanilla: 'Exemple vanilla',
+  react: 'Exemple React',
+  weight: 'Poids',
+  selected: 'Sélection',
+  empty: 'Cliquez sur un nœud, Maj pour en ajouter.',
   graphLabel: (nodes: string, edges: string) => `Graphe de ${nodes} nœuds et ${edges} arêtes`,
   fit: 'Recadrer',
   dark: 'Thème sombre',
