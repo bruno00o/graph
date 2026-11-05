@@ -103,14 +103,22 @@ export interface EdgeMark<T> extends Mark {
 export type ColorScale =
   | ((value: unknown) => string)
   | {
-      readonly type?: 'categorical' | 'sequential'
+      readonly type?: 'categorical'
       readonly domain?: readonly unknown[]
       readonly range?: readonly string[]
     }
+  | {
+      readonly type: 'sequential'
+      readonly domain?: readonly [number, number]
+      readonly range?: readonly string[]
+    }
+
+export type NumberScaleType = 'linear' | 'sqrt'
 
 export type NumberScale =
   | ((value: number) => number)
   | {
+      readonly type?: NumberScaleType
       readonly domain?: readonly [number, number]
       readonly range?: readonly [number, number]
     }
