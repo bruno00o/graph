@@ -1,0 +1,90 @@
+:root {
+  --graph-paper: #f7f7f4;
+  --graph-paper-raised: #ffffff;
+  --graph-grid: #c4e0dd;
+  --graph-ink: #191d22;
+  --graph-ink-muted: #5b6167;
+  --graph-node: #474e55;
+  --graph-edge: #7f858c;
+  --graph-group-fill: #e7efee;
+  --graph-group-line: #6e8d8b;
+  --graph-accent: #c93700;
+  --graph-on-accent: #ffffff;
+  --graph-focus-ring: #c93700;
+  --graph-halo: #c9370047;
+  --graph-label-halo: #f7f7f4;
+  --graph-node-ring: #f7f7f4;
+  --graph-badge-fill: #191d22;
+  --graph-badge-ink: #f7f7f4;
+  --graph-cat-1: #2769b7;
+  --graph-cat-2: #a47c13;
+  --graph-cat-3: #12867c;
+  --graph-cat-4: #9b357f;
+  --graph-cat-5: #4189ad;
+  --graph-cat-6: #448335;
+  --graph-cat-7: #5d4099;
+  --graph-cat-8: #745338;
+  --graph-font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+.dark,
+[data-theme="dark"] {
+  --graph-paper: #0f1113;
+  --graph-paper-raised: #171a1d;
+  --graph-grid: #1e3233;
+  --graph-ink: #efeeeb;
+  --graph-ink-muted: #a6abb1;
+  --graph-node: #b7bfc7;
+  --graph-edge: #6f757b;
+  --graph-group-fill: #131b1c;
+  --graph-group-line: #5d7b7b;
+  --graph-accent: #fa8054;
+  --graph-on-accent: #0f1113;
+  --graph-focus-ring: #fa8054;
+  --graph-halo: #fa805447;
+  --graph-label-halo: #0f1113;
+  --graph-node-ring: #0f1113;
+  --graph-badge-fill: #efeeeb;
+  --graph-badge-ink: #0f1113;
+  --graph-cat-1: #6fa7ee;
+  --graph-cat-2: #e7bf57;
+  --graph-cat-3: #5cc6b9;
+  --graph-cat-4: #e17eb9;
+  --graph-cat-5: #9cd3f1;
+  --graph-cat-6: #81ce70;
+  --graph-cat-7: #9e87e0;
+  --graph-cat-8: #aa8b74;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --graph-paper: #0f1113;
+    --graph-paper-raised: #171a1d;
+    --graph-grid: #1e3233;
+    --graph-ink: #efeeeb;
+    --graph-ink-muted: #a6abb1;
+    --graph-node: #b7bfc7;
+    --graph-edge: #6f757b;
+    --graph-group-fill: #131b1c;
+    --graph-group-line: #5d7b7b;
+    --graph-accent: #fa8054;
+    --graph-on-accent: #0f1113;
+    --graph-focus-ring: #fa8054;
+    --graph-halo: #fa805447;
+    --graph-label-halo: #0f1113;
+    --graph-node-ring: #0f1113;
+    --graph-badge-fill: #efeeeb;
+    --graph-badge-ink: #0f1113;
+    --graph-cat-1: #6fa7ee;
+    --graph-cat-2: #e7bf57;
+    --graph-cat-3: #5cc6b9;
+    --graph-cat-4: #e17eb9;
+    --graph-cat-5: #9cd3f1;
+    --graph-cat-6: #81ce70;
+    --graph-cat-7: #9e87e0;
+    --graph-cat-8: #aa8b74;
+    color-scheme: dark;
+  }
+}

@@ -1,4 +1,13 @@
 export { defineGraph } from './define-graph'
+export type {
+  FitOptions,
+  GraphInstance,
+  GraphState,
+  GraphView,
+  MountGraphOptions,
+  ViewOptions,
+} from './host/mount-graph'
+export { mountGraph } from './host/mount-graph'
 export { edges, nodes } from './marks'
 export type {
   Accessor,

@@ -14,7 +14,11 @@
     "declaration": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@bruno00o/graph": ["./src/index.ts"],
+      "@bruno00o/graph/react": ["./src/react/index.tsx"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "examples"]
 }
