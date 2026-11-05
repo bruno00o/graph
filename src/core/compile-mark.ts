@@ -6,6 +6,8 @@ export type Read = (datum: unknown) => unknown
 export interface CompiledNodeMark {
   readonly color: Read | null
   readonly size: Read | null
+  readonly x: Read | null
+  readonly y: Read | null
   readonly label: Read | null
   readonly secondary: Read | null
   readonly shape: Read | null
@@ -55,6 +57,8 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
   const compiled: CompiledNodeMark = {
     color: channel(options.color),
     size: channel(options.size),
+    x: channel(options.x),
+    y: channel(options.y),
     label: channel(typeof label === 'object' ? label.text : label),
     secondary: channel(typeof label === 'object' ? label.secondary : undefined),
     shape: style(options.shape),
