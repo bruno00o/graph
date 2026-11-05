@@ -1,4 +1,6 @@
+import type { BuiltInState } from '../core/state-names'
 import type { Extent } from '../scales/extent'
+import type { StateStyle } from '../types'
 
 export const lightTheme: Readonly<Record<string, string>> = {
   paper: '#f7f7f4',
@@ -60,4 +62,21 @@ export const defaults: Defaults = {
   edgeWidth: 1.5,
   edgeWidthRange: [1, 6],
   edgeColor: themeColor('edge'),
+}
+
+export const ringWidth = 2
+
+export type BuiltInStyles = Readonly<Record<BuiltInState, StateStyle>>
+
+export const builtInStyles: Readonly<Record<'nodes' | 'edges', BuiltInStyles>> = {
+  nodes: {
+    selected: { stroke: themeColor('accent'), strokeWidth: ringWidth, halo: true, label: true },
+    hovered: { stroke: themeColor('ink'), strokeWidth: ringWidth, label: true },
+    focused: { stroke: themeColor('focus-ring'), strokeWidth: ringWidth, label: true },
+  },
+  edges: {
+    selected: { stroke: themeColor('accent'), halo: true },
+    hovered: { stroke: themeColor('ink') },
+    focused: { stroke: themeColor('focus-ring') },
+  },
 }

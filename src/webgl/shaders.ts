@@ -16,8 +16,8 @@ layout(std140) uniform Frame {
   vec4 labelHalo;
 };
 layout(std140) uniform States {
-  vec4 stateNumbers[32];
-  uvec4 statePaint[32];
+  vec4 stateNumbers[64];
+  uvec4 statePaint[64];
 };
 uniform int layerSlot;
 uniform int overlay;
@@ -32,7 +32,7 @@ vec4 toClip(vec2 screen) {
 ivec2 texel(uint index) { return ivec2(int(index & 1023u), int(index >> 10u)); }
 vec4 paletteColor(uint id) { return texelFetch(palette, ivec2(int(id & 255u), int(id >> 8u)), 0); }
 struct Look { float opacity; float strokeWidth; float halo; float label; uint fill; uint stroke; };
-Look resolve(uint mask, Look look) {
+Look resolve(uint mask, Look look, int table) {
   bool opacity = false;
   bool strokeWidth = false;
   bool halo = false;
@@ -45,8 +45,8 @@ Look resolve(uint mask, Look look) {
     bool present = (mask & 1u) != 0u;
     mask >>= 1u;
     if (!present) continue;
-    vec4 numbers = stateNumbers[bit];
-    uvec4 paint = statePaint[bit];
+    vec4 numbers = stateNumbers[table + bit];
+    uvec4 paint = statePaint[table + bit];
     if (!opacity && numbers.x >= 0.0) { look.opacity = base * numbers.x; opacity = true; }
     if (!strokeWidth && numbers.y >= 0.0) { look.strokeWidth = numbers.y; strokeWidth = true; }
     if (!halo && numbers.z >= 0.0) { look.halo = numbers.z; halo = true; }
@@ -98,7 +98,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y));
+  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y), 0);
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
   float radius = nodeRadius(style);
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
@@ -174,7 +174,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z));
+  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z), 32);
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 ps = toScreen(texelFetch(nodePosition, s, 0).xy);
@@ -282,7 +282,7 @@ void main() {
   uvec4 paint = texelFetch(nodePaint, t, 0);
   uint flags = uint(style.w + 0.5);
   uint mask = texelFetch(nodeState, t, 0).r;
-  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y));
+  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y), 0);
   float primary = (flags & 4u) != 0u ? 12.0 : 12.0 * min(1.0, zoom);
   if ((flags & 8u) == 0u || look.label < 0.5 || primary < labelMin) {
     gl_Position = hidden;

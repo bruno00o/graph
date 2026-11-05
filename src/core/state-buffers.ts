@@ -1,6 +1,10 @@
 export const maxStates = 32
 export const noPaint = 0xffffffff
 
+export type StateKind = 'nodes' | 'edges'
+
+const tableOffset: Readonly<Record<StateKind, number>> = { nodes: 0, edges: maxStates }
+
 export interface ResolvedStateStyle {
   readonly opacity?: number
   readonly strokeWidth?: number
@@ -36,8 +40,8 @@ function grow(array: Uint32Array, capacity: number): Uint32Array {
 }
 
 export class StateBuffers {
-  readonly numbers: Float32Array = new Float32Array(maxStates * 4).fill(-1)
-  readonly paint: Uint32Array = new Uint32Array(maxStates * 4).fill(noPaint)
+  readonly numbers: Float32Array = new Float32Array(maxStates * 8).fill(-1)
+  readonly paint: Uint32Array = new Uint32Array(maxStates * 8).fill(noPaint)
   readonly labelFlags: Int8Array = new Int8Array(maxStates).fill(-1)
   readonly nodeDirty: DirtyRange = new DirtyRange()
   readonly edgeDirty: DirtyRange = new DirtyRange()
@@ -67,15 +71,15 @@ export class StateBuffers {
     this.edgeDirty.add(index)
   }
 
-  setStyle(bit: number, style: ResolvedStateStyle | null): void {
-    const at = bit * 4
+  setStyle(kind: StateKind, bit: number, style: ResolvedStateStyle | null): void {
+    const at = (tableOffset[kind] + bit) * 4
     this.numbers[at] = style?.opacity ?? -1
     this.numbers[at + 1] = style?.strokeWidth ?? -1
     this.numbers[at + 2] = style?.halo === undefined ? -1 : style.halo ? 1 : 0
     this.numbers[at + 3] = style?.label === undefined ? -1 : style.label ? 1 : 0
     this.paint[at] = style?.fill ?? noPaint
     this.paint[at + 1] = style?.stroke ?? noPaint
-    this.labelFlags[bit] = this.numbers[at + 3] ?? -1
+    if (kind === 'nodes') this.labelFlags[bit] = this.numbers[at + 3] ?? -1
     this.tableVersion++
   }
 

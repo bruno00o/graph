@@ -53,3 +53,9 @@ export function themeToggle(dark: string, light: string): HTMLButtonElement {
   sync()
   return element
 }
+
+export function status(): HTMLOutputElement {
+  const element = document.createElement('output')
+  element.setAttribute('aria-live', 'polite')
+  return element
+}

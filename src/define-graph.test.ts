@@ -41,4 +41,15 @@ describe('defineGraph', () => {
   it('rejects values that are not marks', () => {
     expect(() => defineGraph({ marks: [{ type: 'lines' } as unknown as Mark] })).toThrow(TypeError)
   })
+
+  it('limits the number of free states', () => {
+    const states = Object.fromEntries(
+      Array.from({ length: 30 }, (_, i) => [`s${i}`, { opacity: 0.5 }]),
+    )
+    expect(() => defineGraph({ marks: [], states })).toThrow(RangeError)
+    const { s29: _, ...fewer } = states
+    expect(() =>
+      defineGraph({ marks: [], states: { ...fewer, selected: { halo: false } } }),
+    ).not.toThrow()
+  })
 })

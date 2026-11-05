@@ -1,8 +1,24 @@
 export { defineGraph } from './define-graph'
 export type {
+  ElementKeys,
+  ElementKeysInput,
+  GraphDragEvent,
+  GraphEventHandler,
+  GraphEventName,
+  GraphEvents,
+  GraphPointerEvent,
+  GraphTarget,
+  GraphTargetEvent,
+} from './host/events'
+export type {
   FitOptions,
+  GraphElement,
   GraphInstance,
+  GraphPositions,
+  GraphSelection,
   GraphState,
+  GraphStates,
+  GraphStore,
   GraphView,
   MountGraphOptions,
   ViewOptions,
