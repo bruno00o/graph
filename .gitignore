@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.tgz
+.DS_Store
+*.md
+!README.md
+!CHANGELOG.md
+repos/
+spikes/
+.claude/worktrees/
+.env*

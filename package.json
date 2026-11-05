@@ -1,0 +1,58 @@
+{
+  "name": "@bruno00o/graph",
+  "version": "0.0.0",
+  "description": "Framework-agnostic, typed graph visualization rendered with WebGL2.",
+  "license": "MIT",
+  "author": "bruno00o",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bruno00o/graph.git"
+  },
+  "homepage": "https://github.com/bruno00o/graph#readme",
+  "bugs": "https://github.com/bruno00o/graph/issues",
+  "keywords": [
+    "graph",
+    "graph-visualization",
+    "visualization",
+    "webgl",
+    "typescript"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.28.7",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:package": "publint && attw --pack . --profile esm-only",
+    "verify": "pnpm check && pnpm typecheck && pnpm test && pnpm build && pnpm lint:package"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@biomejs/biome": "2.6.5",
+    "publint": "0.3.25",
+    "tsdown": "0.23.4",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
