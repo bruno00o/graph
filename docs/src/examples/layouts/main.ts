@@ -8,7 +8,7 @@ import {
 } from '@bruno00o/graph'
 import { grid, type LayersDirection, layers, radial, rings } from '@bruno00o/graph/layouts'
 import { force } from '@bruno00o/graph/layouts/force'
-import { createHierarchy, type Item, type Link } from '../shared/data'
+import { createHierarchy, type Item, type Link, nestHierarchy } from '../shared/data'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
 
@@ -27,7 +27,10 @@ function button(text: string, onClick: (button: HTMLButtonElement) => void): HTM
 }
 
 export function mount(container: HTMLElement): GraphInstance {
-  const { items, links } = createHierarchy(160, 220)
+  const sample = createHierarchy(160, 220)
+  const { links } = sample
+  const nested = nestHierarchy(sample)
+  let grouped = false
   let direction: LayersDirection = 'down'
   const layouts: Record<Kind, Layout> = {
     layers: layers({ direction }),
@@ -39,18 +42,28 @@ export function mount(container: HTMLElement): GraphInstance {
     radial: radial(),
   }
   let kind: Kind = 'layers'
+  const initial = layouts.layers
 
-  const graph = mountGraph(container, {
-    definition: defineGraph({
+  const define = () =>
+    defineGraph({
       marks: [
         edges<Link>(links, { source: 'from', target: 'to', arrow: 'target', opacity: 0.6 }),
-        nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' }),
+        nodes<Item>(grouped ? nested : sample.items, {
+          color: 'group',
+          size: 'weight',
+          label: 'label',
+          parent: 'parent',
+          container: { padding: 14 },
+        }),
       ],
       scales: { size: { range: [10, 26] } },
-      layout: layouts.layers,
+      layout: initial,
       interaction: { lasso: true },
-    }),
-    ariaLabel: messages.graphLabel(items.length, links.length),
+    })
+
+  const graph = mountGraph(container, {
+    definition: define(),
+    ariaLabel: messages.graphLabel(sample.items.length, links.length),
   })
 
   const kindButton = button(messages.layoutKind(messages.layoutKinds[kind]), (element) => {
@@ -69,6 +82,12 @@ export function mount(container: HTMLElement): GraphInstance {
       kind = 'layers'
       kindButton.textContent = messages.layoutKind(messages.layoutKinds[kind])
       void graph.layout.run(layouts.layers, { fit: true })
+    }),
+    button(messages.groupsOn, (element) => {
+      grouped = !grouped
+      element.textContent = grouped ? messages.groupsOff : messages.groupsOn
+      graph.update({ definition: define() })
+      void graph.layout.run(layouts[kind], { fit: true })
     }),
     button(messages.arrange, () => {
       const keys = graph.store.get().selection.nodes
