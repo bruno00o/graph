@@ -351,6 +351,7 @@ export function createWebglRenderer(
   let orderStale = true
   let lastLabelTime = Number.NEGATIVE_INFINITY
   let lastLabelView = ''
+  let labelTime = 0
   const imageOf: (string | null)[] = []
   const badged = new Set<number>()
   const badgeGlyphs = new GlyphBuffer()
@@ -700,7 +701,14 @@ export function createWebglRenderer(
     labelsMoved = false
     lastLabelTime = now
     lastLabelView = key
+    labelTime = performance.now() - now
     return -1
+  }
+
+  function textureBytes(): number {
+    let bytes = paletteRows * paletteWidth * 4 + atlasRows * atlasWidth + images.bytes
+    for (const texture of [...nodeTextures, ...edgeTextures]) bytes += texture.data.byteLength
+    return bytes
   }
 
   function draw(
@@ -843,6 +851,15 @@ export function createWebglRenderer(
       draw(labelProgram, vertexArrays.labelHighlight, labels.highlight.count, 0, 1)
       gl.bindVertexArray(null)
       return wait
+    },
+
+    stats() {
+      return {
+        nodeLabels: labels.nodeLabels,
+        edgeLabels: labels.edgeLabels,
+        labelTime,
+        textureBytes: textureBytes(),
+      }
     },
 
     destroy() {

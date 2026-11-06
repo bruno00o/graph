@@ -20,10 +20,18 @@ export interface RenderFrame {
   readonly pixelRatio: number
 }
 
+export interface RendererStats {
+  readonly nodeLabels: number
+  readonly edgeLabels: number
+  readonly labelTime: number
+  readonly textureBytes: number
+}
+
 export interface Renderer {
   sync(input: RenderInput): void
   setPalette(colors: Uint8Array, count: number): void
   setTheme(theme: ResolvedTheme): void
   render(frame: RenderFrame): number
+  stats?(): RendererStats
   destroy(): void
 }
