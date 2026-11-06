@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { gridInput } from '../core/background-grid'
+import { flowSpeed } from '../core/flow'
 import { createGraphModel } from '../core/graph-model'
 import { HullLayer } from '../core/hull-layer'
 import { Positions, placeNodes } from '../core/positions'
@@ -59,7 +60,12 @@ interface Setup {
 function render(
   options: GraphDefinitionOptions,
   setup: Setup = {},
-  extra: { labels?: LabelMode; frame?: Partial<ExportFrame>; background?: string } = {},
+  extra: {
+    labels?: LabelMode
+    frame?: Partial<ExportFrame>
+    background?: string
+    time?: number
+  } = {},
 ): string {
   const model = createGraphModel()
   const scene = createScene()
@@ -84,6 +90,7 @@ function render(
         ...(style.halo !== undefined ? { halo: style.halo } : {}),
         ...(style.label !== undefined ? { label: style.label } : {}),
         ...(style.stroke !== undefined ? { stroke: scene.palette.id(style.stroke) } : {}),
+        ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
       })
     }
     for (const key of setup.members?.[name] ?? []) {
@@ -140,6 +147,7 @@ function render(
     measure,
     images: new Map([['icon.svg', { href: 'data:image/svg+xml,%3Csvg%2F%3E', aspect: 2 }]]),
     title: 'Sample <graph>',
+    ...(extra.time !== undefined ? { time: extra.time } : {}),
   })
 }
 
@@ -382,6 +390,31 @@ describe('writeSvg', () => {
     expect(dotted).toContain(
       'stroke-width="2" stroke-linecap="round" stroke-dasharray="0 4" stroke-dashoffset="-2"',
     )
+  })
+
+  it('draws flowing edges as dashes moved to the time of the export', () => {
+    const flowing = (flow: boolean | number): GraphDefinitionOptions => ({
+      marks: [
+        edges<Link>([{ id: 'ab', from: 'a', to: 'b' }], { source: 'from', target: 'to', flow }),
+        nodes<Item>(
+          [
+            { id: 'a', x: -100, y: 0 },
+            { id: 'b', x: 100, y: 0 },
+          ],
+          { x: 'x', y: 'y' },
+        ),
+      ],
+    })
+    expect(render(flowing(true))).toContain('stroke-dasharray="4.8 3.2" stroke-dashoffset="0"')
+    expect(render(flowing(true), {}, { time: 0.05 })).toContain('stroke-dashoffset="6"')
+    expect(render(flowing(-40), {}, { time: 0.05 })).toContain('stroke-dashoffset="2"')
+    expect(render(flowing(false), {}, { time: 0.05 })).not.toContain('stroke-dasharray')
+    const stopped = render(
+      flowing(true),
+      { states: { still: { flow: false } }, members: { still: ['ab'] } },
+      { time: 0.05 },
+    )
+    expect(stopped).not.toContain('stroke-dasharray')
   })
 
   it('applies state styles and draws highlighted elements on top', () => {

@@ -82,7 +82,10 @@ for (const [id, count] of [
 type EdgeLabels = 'none' | 'plain' | 'plated'
 const edgeLabelModes: readonly EdgeLabels[] = ['none', 'plain', 'plated']
 
-const define = (mode: EdgeLabels) =>
+const flowOf = (route: Route): boolean | number =>
+  route.arrow === 'none' ? false : route.arrow === 'source' ? -40 : true
+
+const define = (mode: EdgeLabels, flowing: boolean) =>
   defineGraph({
     marks: [
       edges<Route>(routes, {
@@ -92,6 +95,7 @@ const define = (mode: EdgeLabels) =>
         width: () => 2.5,
         arrow: (route) => route.arrow,
         dash: (route) => route.dash,
+        ...(flowing ? { flow: flowOf } : {}),
         ...(mode === 'none' ? {} : { label: { text: 'name', background: mode === 'plated' } }),
       }),
       nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: () => 34, label: 'label' }),
@@ -100,7 +104,8 @@ const define = (mode: EdgeLabels) =>
   })
 
 let mode: EdgeLabels = 'plain'
-const definition = define(mode)
+let flowing = new URLSearchParams(location.search).has('flow')
+const definition = define(mode, flowing)
 
 const { header, main } = createPage(messages.edges)
 const graph = mountGraph(main, { definition, ariaLabel: messages.edgesLabel })
@@ -122,7 +127,11 @@ header.append(
   hovered,
   button(messages.edgeLabels, () => {
     mode = edgeLabelModes[(edgeLabelModes.indexOf(mode) + 1) % edgeLabelModes.length] ?? 'none'
-    graph.update({ definition: define(mode) })
+    graph.update({ definition: define(mode, flowing) })
+  }),
+  button(messages.flows, () => {
+    flowing = !flowing
+    graph.update({ definition: define(mode, flowing) })
   }),
   button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
   ...exportButtons(graph, 'edges', { png: messages.exportPng, svg: messages.exportSvg }),

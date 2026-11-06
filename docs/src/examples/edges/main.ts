@@ -83,7 +83,10 @@ for (const [id, count] of [
 type EdgeLabels = 'none' | 'plain' | 'plated'
 const edgeLabelModes: readonly EdgeLabels[] = ['none', 'plain', 'plated']
 
-const define = (mode: EdgeLabels) =>
+const flowOf = (route: Route): boolean | number =>
+  route.arrow === 'none' ? false : route.arrow === 'source' ? -40 : true
+
+const define = (mode: EdgeLabels, flowing: boolean) =>
   defineGraph({
     marks: [
       edges<Route>(routes, {
@@ -93,6 +96,7 @@ const define = (mode: EdgeLabels) =>
         width: () => 2.5,
         arrow: (route) => route.arrow,
         dash: (route) => route.dash,
+        ...(flowing ? { flow: flowOf } : {}),
         ...(mode === 'none' ? {} : { label: { text: 'name', background: mode === 'plated' } }),
       }),
       nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: () => 34, label: 'label' }),
@@ -102,7 +106,11 @@ const define = (mode: EdgeLabels) =>
 
 export function mount(container: HTMLElement): GraphInstance {
   let mode: EdgeLabels = 'plain'
-  const graph = mountGraph(container, { definition: define(mode), ariaLabel: messages.edgesLabel })
+  let flowing = false
+  const graph = mountGraph(container, {
+    definition: define(mode, flowing),
+    ariaLabel: messages.edgesLabel,
+  })
 
   const labels = document.createElement('button')
   labels.type = 'button'
@@ -111,11 +119,20 @@ export function mount(container: HTMLElement): GraphInstance {
   labels.addEventListener('click', () => {
     mode = edgeLabelModes[(edgeLabelModes.indexOf(mode) + 1) % edgeLabelModes.length] ?? 'none'
     labels.textContent = messages.edgeLabels(messages.edgeLabelModes[mode])
-    graph.update({ definition: define(mode) })
+    graph.update({ definition: define(mode, flowing) })
+  })
+  const flows = document.createElement('button')
+  flows.type = 'button'
+  flows.className = 'example-button'
+  flows.textContent = messages.flowsOn
+  flows.addEventListener('click', () => {
+    flowing = !flowing
+    flows.textContent = flowing ? messages.flowsOff : messages.flowsOn
+    graph.update({ definition: define(mode, flowing) })
   })
   const actions = document.createElement('div')
   actions.className = 'example-actions'
-  actions.append(labels)
+  actions.append(labels, flows)
   container.append(actions)
 
   const hovered = document.createElement('output')

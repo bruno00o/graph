@@ -135,10 +135,21 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./drawing/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'shortest-path',
+    title: 'Shortest path',
+    description:
+      'Select two nodes: the shortest path between them flows from one to the other, and the rest fades. Count the edges, or weigh each one by its drawn length.',
+    hint: 'Click a node, then Shift and click another. Switch the weight to compare.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph'],
+    files: ['paths/main.ts', ...shared],
+    load: () => import('./paths/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'parallel-edges',
     title: 'Parallel edges and loops',
     description:
-      'Several edges between the same two nodes bend apart, loops nest around their node, with arrows, dashes and labels per edge.',
+      'Several edges between the same two nodes bend apart, loops nest around their node, with arrows, dashes, flows and labels per edge.',
     hint: 'Drag a node: the curves and their labels follow. Hover an edge to read its direction.',
     tags: ['Vanilla'],
     modules: ['@bruno00o/graph'],

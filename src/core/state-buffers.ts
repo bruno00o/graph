@@ -15,6 +15,7 @@ export interface ResolvedStateStyle {
   readonly outline?: number
   readonly outlineWidth?: number
   readonly labelColor?: number
+  readonly flow?: number
 }
 
 export class DirtyRange {
@@ -43,6 +44,11 @@ export function floatWord(value: number): number {
   return word[0] ?? 0
 }
 
+export function wordFloat(value: number): number {
+  word[0] = value
+  return bits[0] ?? 0
+}
+
 function grow(array: Uint32Array, capacity: number): Uint32Array {
   if (capacity <= array.length) return array
   const next = new Uint32Array(Math.max(capacity, array.length * 2))
@@ -64,6 +70,8 @@ export class StateBuffers {
   highlightedEdges: readonly number[] = []
   tableVersion = 0
   highlightVersion = 0
+  edgeMaskVersion = 0
+  edgeFlowBits = 0
 
   reserve(nodeCapacity: number, edgeCapacity: number): void {
     this.nodeMask = grow(this.nodeMask, nodeCapacity)
@@ -82,6 +90,7 @@ export class StateBuffers {
     if (this.edgeMask[index] === mask >>> 0) return
     this.edgeMask[index] = mask >>> 0
     this.edgeDirty.add(index)
+    this.edgeMaskVersion++
   }
 
   setStyle(kind: StateKind, bit: number, style: ResolvedStateStyle | null): void {
@@ -96,6 +105,12 @@ export class StateBuffers {
     this.paint[at + 3] =
       style?.outlineWidth === undefined ? noPaint : floatWord(Math.max(0, style.outlineWidth))
     this.labels[at] = style?.labelColor ?? noPaint
+    this.labels[at + 1] = style?.flow === undefined ? noPaint : floatWord(style.flow)
+    if (kind === 'edges') {
+      const flag = (1 << bit) >>> 0
+      this.edgeFlowBits =
+        (style?.flow === undefined ? this.edgeFlowBits & ~flag : this.edgeFlowBits | flag) >>> 0
+    }
     const flags = kind === 'nodes' ? this.labelFlags : this.edgeLabelFlags
     flags[bit] = this.numbers[at + 3] ?? -1
     this.tableVersion++

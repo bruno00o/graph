@@ -11,6 +11,7 @@ export interface Look {
   outline: number
   outlineWidth: number
   labelColor: number
+  flow: number
 }
 
 export const highlightMask = 7
@@ -77,6 +78,11 @@ function resolve(states: StateBuffers, mask: number, look: Look, table: number):
       look.labelColor = labelColor
       found |= 256
     }
+    const flow = labels[at + 1] ?? noPaint
+    if (!(found & 512) && flow !== noPaint) {
+      look.flow = wordFloat(flow)
+      found |= 512
+    }
   }
   return look
 }
@@ -95,6 +101,7 @@ export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number
       outline: nodes.outline[index] ?? noPaint,
       outlineWidth: nodes.outlineWidth[index] ?? 0,
       labelColor: noPaint,
+      flow: 0,
     },
     0,
   )
@@ -114,6 +121,7 @@ export function edgeLook(edges: EdgeColumns, states: StateBuffers, index: number
       outline: noPaint,
       outlineWidth: 0,
       labelColor: noPaint,
+      flow: edges.flow[index] ?? 0,
     },
     maxStates,
   )

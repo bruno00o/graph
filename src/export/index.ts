@@ -49,6 +49,12 @@ export interface ExportOptions {
    * @default 'var(--graph-paper)'
    */
   readonly background?: string
+  /**
+   * Moment of the moving dashes of the `flow` option, in milliseconds after they start. The image
+   * is still: at `0`, every dash pattern starts at the source of its edge.
+   * @default 0
+   */
+  readonly time?: number
 }
 
 /** Options of `exportPng`. */
@@ -76,6 +82,7 @@ interface Prepared {
   readonly background: Rgba
   readonly labels: LabelMode
   readonly measure: GlyphAtlas
+  readonly time: number
 }
 
 async function prepare(graph: object, options: ExportOptions): Promise<Prepared> {
@@ -108,7 +115,9 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
     throw new RangeError('graph: nothing to export, the graph measures less than one pixel')
   }
   const background = snapshot.color(options.background ?? themeColor('paper'))
-  return { snapshot, frame, background, labels, measure }
+  const time = options.time ?? 0
+  if (!Number.isFinite(time)) throw new RangeError('graph: the time must be a finite number')
+  return { snapshot, frame, background, labels, measure, time: time / 1000 }
 }
 
 function readAsDataUrl(blob: Blob): Promise<string | null> {
@@ -182,7 +191,7 @@ export async function exportSvg<S extends string>(
   graph: GraphInstance<S>,
   options: SvgExportOptions = {},
 ): Promise<string> {
-  const { snapshot, frame, background, labels, measure } = await prepare(graph, options)
+  const { snapshot, frame, background, labels, measure, time } = await prepare(graph, options)
   const images = await imageSources(snapshot, options.embedImages ?? true)
   const current = takeSnapshot(graph)
   const { scene } = current
@@ -203,6 +212,7 @@ export async function exportSvg<S extends string>(
     measure,
     images,
     title: current.title,
+    time,
   })
 }
 
@@ -214,7 +224,7 @@ export async function exportPng<S extends string>(
   graph: GraphInstance<S>,
   options: PngExportOptions = {},
 ): Promise<Blob> {
-  const { snapshot, frame, background, labels } = await prepare(graph, options)
+  const { snapshot, frame, background, labels, time } = await prepare(graph, options)
   const pixelRatio = options.pixelRatio ?? snapshot.pixelRatio
   if (!(pixelRatio > 0) || !Number.isFinite(pixelRatio)) {
     throw new RangeError('graph: the pixel ratio must be a positive number')
@@ -224,5 +234,6 @@ export async function exportPng<S extends string>(
     pixelRatio,
     labels,
     background,
+    time,
   })
 }
