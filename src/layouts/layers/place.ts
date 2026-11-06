@@ -12,9 +12,20 @@ interface Scratch {
   readonly block: Float64Array
 }
 
-export function placeNodes(graph: Layered, spacing: number): Float64Array {
+export interface Borders {
+  readonly separation: Float64Array
+  readonly above: Int32Array
+  readonly below: Int32Array
+}
+
+export function placeNodes(
+  graph: Layered,
+  spacing: number,
+  borders: Borders | null = null,
+): Float64Array {
   const { count, slots, order, componentSlots, half } = graph
   const conflict = markConflicts(graph)
+  if (borders) markCrossings(graph, conflict, borders.above)
   const xs = [0, 1, 2, 3].map(() => new Float64Array(count))
   const scratch: Scratch = {
     root: new Int32Array(count),
@@ -41,8 +52,9 @@ export function placeNodes(graph: Layered, spacing: number): Float64Array {
       const downward = variant < 2
       const left = variant % 2 === 0
       const result = xs[variant] ?? x
-      alignBlocks(graph, conflict, first, last, downward, left, scratch)
-      compact(graph, first, last, left, spacing, scratch, result)
+      const chain = borders ? (downward ? borders.above : borders.below) : null
+      alignBlocks(graph, conflict, first, last, downward, left, scratch, chain)
+      compact(graph, first, last, left, spacing, scratch, result, borders?.separation ?? null)
       let min = Number.POSITIVE_INFINITY
       let max = Number.NEGATIVE_INFINITY
       for (let at = from; at < to; at++) {
@@ -94,7 +106,7 @@ function markConflicts(graph: Layered): Uint8Array {
       for (let at = start; at < end; at++) {
         const node = order[at] ?? 0
         let inner = -1
-        if (isDummy(graph, node)) {
+        if (isDummy(graph, node) && (up.start[node] ?? 0) < (up.start[node + 1] ?? 0)) {
           const source = upper[up.items[up.start[node] ?? 0] ?? 0] ?? 0
           if (isDummy(graph, source)) inner = source
         }
@@ -118,6 +130,35 @@ function markConflicts(graph: Layered): Uint8Array {
   return conflict
 }
 
+function markCrossings(graph: Layered, conflict: Uint8Array, above: Int32Array): void {
+  const { slots, order, position, up, upper, componentSlots } = graph
+  for (let c = 0; c + 1 < componentSlots.length; c++) {
+    const first = componentSlots[c] ?? 0
+    const last = componentSlots[c + 1] ?? 0
+    for (let slot = first; slot + 1 < last; slot++) {
+      const size = (slots[slot + 1] ?? 0) - (slots[slot] ?? 0)
+      const start = slots[slot + 1] ?? 0
+      const end = slots[slot + 2] ?? 0
+      let k0 = 0
+      let scan = start
+      for (let at = start; at < end; at++) {
+        const linked = above[order[at] ?? 0] ?? -1
+        if (at !== end - 1 && linked < 0) continue
+        const k1 = linked >= 0 ? (position[linked] ?? 0) : size - 1
+        for (; scan <= at; scan++) {
+          const below = order[scan] ?? 0
+          for (let k = up.start[below] ?? 0; k < (up.start[below + 1] ?? 0); k++) {
+            const segment = up.items[k] ?? 0
+            const p = position[upper[segment] ?? 0] ?? 0
+            if (p < k0 || p > k1) conflict[segment] = 1
+          }
+        }
+        k0 = k1
+      }
+    }
+  }
+}
+
 function alignBlocks(
   graph: Layered,
   conflict: Uint8Array,
@@ -126,6 +167,7 @@ function alignBlocks(
   downward: boolean,
   left: boolean,
   scratch: Scratch,
+  chain: Int32Array | null,
 ): void {
   const { slots, order, position, slotOf } = graph
   const { root, align } = scratch
@@ -148,6 +190,14 @@ function alignBlocks(
     let reached = -1
     for (let i = 0; i < end - start; i++) {
       const node = order[left ? start + i : end - 1 - i] ?? 0
+      const linked = chain ? (chain[node] ?? -1) : -1
+      if (linked >= 0) {
+        align[linked] = node
+        root[node] = root[linked] ?? linked
+        align[node] = root[node] ?? node
+        reached = rankOf(linked)
+        continue
+      }
       const a = lists.start[node] ?? 0
       const b = lists.start[node + 1] ?? 0
       const size = b - a
@@ -177,6 +227,7 @@ function compact(
   spacing: number,
   scratch: Scratch,
   x: Float64Array,
+  separation: Float64Array | null,
 ): void {
   const { slots, order, position, slotOf, half, real } = graph
   const { root, start, fill, target, weight, incoming, queue, block } = scratch
@@ -207,7 +258,9 @@ function compact(
       const after = local(root[v] ?? 0)
       const at = fill[before] ?? 0
       target[at] = after
-      weight[at] = (half[u] ?? 0) + (half[v] ?? 0) + (gap(u) + gap(v)) / 2
+      weight[at] = separation
+        ? (separation[left ? u : v] ?? 0)
+        : (half[u] ?? 0) + (half[v] ?? 0) + (gap(u) + gap(v)) / 2
       fill[before] = at + 1
       incoming[after] = (incoming[after] ?? 0) + 1
     }

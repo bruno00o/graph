@@ -18,7 +18,7 @@ import {
 
 export const glyphStride = 40
 export const lineHeight = 1.25
-const secondaryFactor = 11 / 12
+export const secondaryFactor: number = 11 / 12
 const primaryWeight = 500
 const secondaryWeight = 400
 const labelMin = 8
