@@ -132,6 +132,8 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   const edgeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const labelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const labelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
+  const warmIndex = createBuffer(gl, new Uint32Array(1), gl.STATIC_DRAW)
+  const warmGlyph = createBuffer(gl, new Uint8Array(glyphStride), gl.STATIC_DRAW)
   const buffers = [
     nodeCorner,
     edgeCorner,
@@ -142,12 +144,14 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     edgeOverlayIndices,
     labelMainBuffer,
     labelHighlightBuffer,
+    warmIndex,
+    warmGlyph,
   ]
 
-  const corner = (buffer: WebGLBuffer): Attribute => ({
+  const corner = (buffer: WebGLBuffer, size = 2): Attribute => ({
     name: 'corner',
     buffer,
-    size: 2,
+    size,
     type: gl.FLOAT,
     divisor: 0,
   })
@@ -207,14 +211,20 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       corner(nodeCorner),
       instance(nodeOverlayIndices),
     ]),
-    edges: createVertexArray(gl, edgeProgram, [corner(edgeCorner), instance(edgeIndices)]),
+    edges: createVertexArray(gl, edgeProgram, [corner(edgeCorner, 3), instance(edgeIndices)]),
     edgeOverlay: createVertexArray(gl, edgeProgram, [
-      corner(edgeCorner),
+      corner(edgeCorner, 3),
       instance(edgeOverlayIndices),
     ]),
     labels: createVertexArray(gl, labelProgram, glyphs(labelMainBuffer)),
     labelHighlight: createVertexArray(gl, labelProgram, glyphs(labelHighlightBuffer)),
   }
+  const vertexCounts = new Map<WebGLProgram, number>([
+    [nodeProgram, cornerNode.length / 2],
+    [edgeProgram, cornerEdge.length / 3],
+    [labelProgram, cornerLabel.length / 2],
+  ])
+  let warmed = false
 
   let nodeCapacity = 0
   let edgeCapacity = 0
@@ -225,7 +235,9 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   const labels = new LabelLayer()
   let labelOrder = new Uint32Array(0)
   let labelOrderLength = 0
+  let screenLabels = false
   let labelsStale = true
+  let labelsMoved = false
   let orderStale = true
   let lastLabelTime = Number.NEGATIVE_INFINITY
   let lastLabelView = ''
@@ -396,15 +408,18 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     )
   }
 
-  function selectLabels(frame: RenderFrame, now: number): boolean {
-    if (!input) return false
+  function selectLabels(frame: RenderFrame, now: number): number {
+    if (!input) return -1
     const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height}`
-    if (!labelsStale && key === lastLabelView) return false
-    if (!labelsStale && now - lastLabelTime < labelInterval) return true
+    if (!labelsStale && !labelsMoved && key === lastLabelView) return -1
+    const wait = labelInterval - (now - lastLabelTime)
+    if (!labelsStale && wait > 0) return wait
     const nodes = input.scene.nodes
     if (orderStale) {
       if (labelOrder.length < nodes.capacity) labelOrder = new Uint32Array(nodes.capacity)
-      labelOrderLength = sortBySize(nodes, labelOrder)
+      const sorted = sortBySize(nodes, labelOrder)
+      labelOrderLength = sorted.length
+      screenLabels = sorted.screenLabels
       orderStale = false
     }
     const generation = atlas.generation
@@ -420,6 +435,7 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
         highlighted: input.states.highlightedNodes,
         order: labelOrder,
         orderLength: labelOrderLength,
+        screenLabels,
       },
       atlas,
     )
@@ -438,9 +454,10 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       gl.DYNAMIC_DRAW,
     )
     labelsStale = false
+    labelsMoved = false
     lastLabelTime = now
     lastLabelView = key
-    return false
+    return -1
   }
 
   function draw(
@@ -456,7 +473,25 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     gl.uniform1i(location?.layerSlot ?? null, slot)
     gl.uniform1i(location?.overlay ?? null, overlay)
     gl.bindVertexArray(vao)
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertexCounts.get(program) ?? 4, count)
+  }
+
+  function warm(): void {
+    const passes: Array<readonly [WebGLProgram, Attribute[]]> = [
+      [nodeProgram, [corner(nodeCorner), instance(warmIndex)]],
+      [edgeProgram, [corner(edgeCorner, 3), instance(warmIndex)]],
+      [labelProgram, glyphs(warmGlyph)],
+    ]
+    gl.enable(gl.SCISSOR_TEST)
+    gl.scissor(0, 0, 0, 0)
+    for (const [program, attributes] of passes) {
+      const vao = createVertexArray(gl, program, attributes)
+      draw(program, vao, 1, 0, 0)
+      gl.bindVertexArray(null)
+      gl.deleteVertexArray(vao)
+    }
+    gl.disable(gl.SCISSOR_TEST)
+    warmed = true
   }
 
   return {
@@ -465,7 +500,8 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       syncNodes(next)
       syncEdges(next)
       syncStates(next)
-      if (next.dirty.nodes.size > 0 || next.positionsChanged || next.full) labelsStale = true
+      if (next.dirty.nodes.size > 0 || next.full) labelsStale = true
+      if (next.positionsChanged) labelsMoved = true
     },
 
     setPalette(colors, count) {
@@ -523,13 +559,14 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       frameBlock[7] = 8
       gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
-      const pending = selectLabels(frame, performance.now())
+      const wait = selectLabels(frame, performance.now())
       gl.viewport(0, 0, width, height)
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
+      if (!warmed) warm()
       for (const layer of input?.scene.layers ?? []) {
         if (layer.kind === 'edges')
           draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
@@ -540,7 +577,7 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
       draw(labelProgram, vertexArrays.labelHighlight, labels.highlight.count, 0, 1)
       gl.bindVertexArray(null)
-      return pending
+      return wait
     },
 
     destroy() {

@@ -23,6 +23,7 @@ export default defineConfig({
         index: resolve(import.meta.dirname, 'examples/index.html'),
         vanilla: resolve(import.meta.dirname, 'examples/vanilla/index.html'),
         react: resolve(import.meta.dirname, 'examples/react/index.html'),
+        bench: resolve(import.meta.dirname, 'examples/bench/index.html'),
       },
     },
   },

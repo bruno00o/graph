@@ -46,8 +46,9 @@ describe('sortBySize', () => {
       { size: 20, label: 'e' },
     ])
     const order = new Uint32Array(nodes.capacity)
-    const length = sortBySize(nodes, order)
+    const { length, screenLabels } = sortBySize(nodes, order)
     expect(Array.from(order.subarray(0, length))).toEqual([1, 4, 0])
+    expect(screenLabels).toBe(false)
   })
 })
 
