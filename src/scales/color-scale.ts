@@ -2,11 +2,19 @@ import { categoricalRange, sequentialRange } from '../theme/tokens'
 import type { ColorScale } from '../types'
 import type { Extent } from './extent'
 
+export type ColorScaleKind = 'categorical' | 'sequential' | 'function'
+
 export interface ResolvedColorScale {
-  readonly sequential: boolean
+  readonly kind: ColorScaleKind
   readonly needsExtent: boolean
+  readonly domain: Extent | null
+  readonly range: readonly string[]
+  readonly listed: readonly unknown[]
+  categories(): Iterable<unknown>
   map(value: unknown, extent: Extent | null): string | null
 }
+
+const none: readonly never[] = []
 
 function interpolate(stops: readonly string[], t: number): string | null {
   const last = stops.length - 1
@@ -27,8 +35,12 @@ function categorical(domain: readonly unknown[], range: readonly string[]): Reso
   let lastValue: unknown
   let lastColor: string | null = null
   return {
-    sequential: false,
+    kind: 'categorical',
     needsExtent: false,
+    domain: null,
+    range,
+    listed: domain,
+    categories: () => positions.keys(),
     map(value) {
       if (value === null || value === undefined || range.length === 0) return null
       if (value === lastValue) return lastColor
@@ -46,8 +58,12 @@ function categorical(domain: readonly unknown[], range: readonly string[]): Reso
 
 function sequential(domain: Extent | null, range: readonly string[]): ResolvedColorScale {
   return {
-    sequential: true,
+    kind: 'sequential',
     needsExtent: domain === null,
+    domain,
+    range,
+    listed: none,
+    categories: () => none,
     map(value, extent) {
       if (typeof value !== 'number' || !Number.isFinite(value)) return null
       const [d0, d1] = domain ?? extent ?? [value, value]
@@ -60,8 +76,12 @@ function sequential(domain: Extent | null, range: readonly string[]): ResolvedCo
 export function resolveColorScale(options: ColorScale | undefined): ResolvedColorScale {
   if (typeof options === 'function') {
     return {
-      sequential: false,
+      kind: 'function',
       needsExtent: false,
+      domain: null,
+      range: none,
+      listed: none,
+      categories: () => none,
       map: (value) => (value === null || value === undefined ? null : options(value)),
     }
   }

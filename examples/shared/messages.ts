@@ -144,6 +144,10 @@ export const messages = {
   volume: 'Volume',
   places: (count: number): string => `${formatNumber(count)} ${plural(count, 'lieu', 'lieux')}`,
   exporting: 'Export en cours…',
+  minimap: 'Minicarte',
+  minimapModes: { on: 'Affichée', off: 'Masquée' },
+  legendLabel: 'Légende',
+  legendTitles: { color: 'Groupe', size: 'Poids' },
 }
 
 function milliseconds(value: number): string {

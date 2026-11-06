@@ -63,6 +63,14 @@
       "types": "./dist/map.d.ts",
       "import": "./dist/map.js"
     },
+    "./minimap": {
+      "types": "./dist/minimap.d.ts",
+      "import": "./dist/minimap.js"
+    },
+    "./legend": {
+      "types": "./dist/legend.d.ts",
+      "import": "./dist/legend.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },

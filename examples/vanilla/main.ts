@@ -1,4 +1,6 @@
 import { defineGraph, edges, mountGraph, nodes, type WheelMode } from '@bruno00o/graph'
+import { createLegend, mountLegend } from '@bruno00o/graph/legend'
+import { createMinimap } from '@bruno00o/graph/minimap'
 import { createSample, type Item, type Link } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
@@ -27,6 +29,8 @@ const define = () =>
     states: {
       muted: { opacity: 0.15, label: false },
       path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true },
+      match: { outline: 'var(--graph-accent)', label: true },
+      faded: { opacity: 0.08, label: false },
     },
     interaction: { lasso: true, wheel },
     view: { bounds: bounds === 'nodes' ? { margin: 80 } : null },
@@ -37,6 +41,15 @@ const graph = mountGraph(main, {
   definition: define(),
   ariaLabel: messages.graphLabel(formatNumber(items.length), formatNumber(links.length)),
 })
+
+createMinimap(graph)
+const legend = createLegend(graph, { highlight: 'match', hidden: 'faded' })
+const legendView = mountLegend(legend, {
+  titles: messages.legendTitles,
+  ariaLabel: messages.legendLabel,
+})
+legendView.element.classList.add('legend')
+main.append(legendView.element)
 
 const zoomHint = document.createElement('div')
 zoomHint.className = 'zoom-hint'

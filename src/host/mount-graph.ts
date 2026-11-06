@@ -68,6 +68,7 @@ import {
 import { exposeSnapshot } from './export-source'
 import { createFlowWatch } from './flows'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
+import { exposeInternals, type GraphWatcher } from './internals'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
 import type { Renderer } from './renderer'
@@ -583,6 +584,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let framing = options.initialView === undefined && !viewControlled
   let framed: View | null = null
   let probe: GraphProbe | null = null
+  let paletteStamp = 0
+  const watchers = new Set<GraphWatcher>()
   let counted = -1
   let counts = { nodes: 0, edges: 0, pendingEdges: 0 }
 
@@ -769,6 +772,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     themeResolver.palette(colors, paletteColors, from)
     paletteCount = colors.length
+    paletteStamp++
     renderer?.setPalette(paletteColors, paletteCount)
   }
 
@@ -1814,6 +1818,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     if (!renderer) {
       decorations.place()
+      for (const watcher of watchers) watcher.frame()
       if (viewAnimation || autoPanning || positionAnimations.length > 0) request()
       return
     }
@@ -1843,6 +1848,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
+    for (const watcher of watchers) watcher.frame()
     if (
       viewAnimation ||
       autoPanning ||
@@ -2533,6 +2539,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       renderer = null
       themeResolver.destroy()
       decorations.destroy()
+      for (const watcher of [...watchers]) watcher.destroy()
+      watchers.clear()
       element.remove()
       surface?.release()
     },
@@ -2543,6 +2551,29 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     inspect: inspection,
     probe: (next) => {
       probe = next
+    },
+  })
+
+  exposeInternals(instance, {
+    scene,
+    positions,
+    definition: () => definition,
+    containers: () => (projection.active ? containerBoxes : null),
+    palette: () => paletteColors,
+    masks: () => buffers.nodeMask,
+    stamp: () => ({
+      scene: sceneVersion,
+      positions: positions.version,
+      palette: paletteStamp,
+      containers: projection.active ? containerBoxes.version : -1,
+    }),
+    watch(watcher) {
+      if (destroyed) return () => {}
+      watchers.add(watcher)
+      request()
+      return () => {
+        watchers.delete(watcher)
+      }
     },
   })
 

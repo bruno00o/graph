@@ -12,6 +12,9 @@ function count(value: number, one: string, other: string): string {
 }
 
 export const messages = {
+  legendLabel: 'Legend',
+  legendGroup: 'Group',
+  legendWeight: 'Weight',
   graphLabel: (nodes: number, edges: number) =>
     `Graph of ${count(nodes, 'node', 'nodes')} and ${count(edges, 'edge', 'edges')}`,
   selection: (nodes: number, edges: number): string => {
