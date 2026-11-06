@@ -7,14 +7,17 @@ import { createServer } from 'vite'
 
 const { values: options } = parseArgs({
   options: {
-    nodes: { type: 'string', default: '50000' },
-    edges: { type: 'string', default: '100000' },
+    nodes: { type: 'string' },
+    edges: { type: 'string' },
+    layout: { type: 'string' },
     out: { type: 'string', default: 'bench-results' },
     vsync: { type: 'boolean', default: false },
     headed: { type: 'boolean', default: false },
   },
 })
 
+const nodeCount = options.nodes ?? (options.layout ? '80000' : '50000')
+const edgeCount = options.edges ?? (options.layout ? '133000' : '100000')
 const width = 1280
 const height = 800
 const scale = 2
@@ -279,60 +282,11 @@ async function measureDrag(page) {
   })()`)
 }
 
-const server = await createServer({
-  configFile: resolve(root, 'vite.config.ts'),
-  logLevel: 'error',
-  server: { port: 5199, strictPort: false },
-})
-await server.listen()
-const base = server.resolvedUrls?.local[0] ?? 'http://localhost:5199/'
-const profile = mkdtempSync(join(tmpdir(), 'graph-bench-'))
-const flags = [
-  `--remote-debugging-port=${debugPort}`,
-  `--user-data-dir=${profile}`,
-  '--enable-gpu',
-  '--ignore-gpu-blocklist',
-  `--window-size=${width},${height}`,
-  `--force-device-scale-factor=${scale}`,
-  '--no-first-run',
-  '--no-default-browser-check',
-  ...(options.headed ? [] : ['--headless=new']),
-  ...(platform() === 'darwin' ? ['--use-angle=metal'] : []),
-  ...(options.vsync ? [] : ['--disable-gpu-vsync', '--disable-frame-rate-limit']),
-]
-const chrome = spawn(findChrome(), flags, { stdio: 'ignore' })
-
-try {
-  const target = await connect(debugPort)
-  const socket = new WebSocket(target.webSocketDebuggerUrl)
-  await new Promise((done) => socket.addEventListener('open', done, { once: true }))
-  const page = session(socket)
-  await page.send('Runtime.enable')
-  await page.send('Page.enable')
-  await page.send('Emulation.setDeviceMetricsOverride', {
-    width,
-    height,
-    deviceScaleFactor: scale,
-    mobile: false,
-  })
-  const url = `${base}bench/?nodes=${options.nodes}&edges=${options.edges}`
-  await page.send('Page.navigate', { url })
-  let ready = false
-  for (let attempt = 0; attempt < 600 && !ready; attempt++) {
-    await sleep(100)
-    ready = await page.evaluate('Boolean(window.bench)').catch(() => false)
-  }
-  if (!ready) throw new Error(`bench page did not start: ${page.errors.join('\n')}`)
-  await page.evaluate(helpers)
-
-  const out = resolve(root, options.out)
-  rmSync(out, { recursive: true, force: true })
-  mkdirSync(out, { recursive: true })
-
+async function benchRender(page, out) {
   const results = {
     date: new Date().toISOString(),
-    nodes: Number(options.nodes),
-    edges: Number(options.edges),
+    nodes: Number(nodeCount),
+    edges: Number(edgeCount),
     viewport: { width, height, scale },
     vsync: options.vsync,
     renderer: await page.evaluate(`(() => {
@@ -403,6 +357,99 @@ try {
       `results in ${out}`,
     ].join('\n'),
   )
+}
+
+async function benchLayout(page, out) {
+  await page.evaluate(`new Promise((done) => {
+    const check = () => (window.bench.layoutRuns.length > 0 ? done() : setTimeout(check, 20))
+    check()
+  })`)
+  await page.evaluate(helpers)
+  await page.evaluate('__bench.settle()')
+  const rerun = await page.evaluate(`(async () => {
+    const { graph, frameCosts, layoutRuns } = window.bench
+    const from = frameCosts.length
+    await graph.layout.run()
+    graph.view.fit()
+    return { run: layoutRuns.at(-1), cost: __bench.stats(frameCosts.slice(from)) }
+  })()`)
+  await page.evaluate('__bench.settle()')
+  await page.screenshot(join(out, 'layout-dark.png'))
+  const first = await page.evaluate('window.bench.layoutRuns[0]')
+  const results = {
+    date: new Date().toISOString(),
+    nodes: Number(nodeCount),
+    edges: Number(edgeCount),
+    engine: options.layout,
+    first,
+    rerun,
+    errors: page.errors,
+  }
+  writeFileSync(join(out, 'layout.json'), `${JSON.stringify(results, null, 2)}\n`)
+  const ms = (value) => `${value.toFixed(0)} ms`
+  console.log(
+    [
+      `${nodeCount} nodes, ${edgeCount} edges, force layout on ${options.layout}`,
+      `first run ${ms(first.ms)}, rerun ${ms(rerun.run.ms)}`,
+      `host per frame during the rerun: median ${rerun.cost.median.toFixed(1)} ms, p95 ${rerun.cost.p95.toFixed(1)} ms, ${rerun.cost.count} frames`,
+      `errors ${page.errors.length}, results in ${out}`,
+    ].join('\n'),
+  )
+}
+
+const server = await createServer({
+  configFile: resolve(root, 'vite.config.ts'),
+  logLevel: 'error',
+  server: { port: 5199, strictPort: false },
+})
+await server.listen()
+const base = server.resolvedUrls?.local[0] ?? 'http://localhost:5199/'
+const profile = mkdtempSync(join(tmpdir(), 'graph-bench-'))
+const flags = [
+  `--remote-debugging-port=${debugPort}`,
+  `--user-data-dir=${profile}`,
+  '--enable-gpu',
+  '--ignore-gpu-blocklist',
+  `--window-size=${width},${height}`,
+  `--force-device-scale-factor=${scale}`,
+  '--no-first-run',
+  '--no-default-browser-check',
+  ...(options.headed ? [] : ['--headless=new']),
+  ...(platform() === 'darwin' ? ['--use-angle=metal'] : []),
+  ...(options.vsync ? [] : ['--disable-gpu-vsync', '--disable-frame-rate-limit']),
+]
+const chrome = spawn(findChrome(), flags, { stdio: 'ignore' })
+
+try {
+  const target = await connect(debugPort)
+  const socket = new WebSocket(target.webSocketDebuggerUrl)
+  await new Promise((done) => socket.addEventListener('open', done, { once: true }))
+  const page = session(socket)
+  await page.send('Runtime.enable')
+  await page.send('Page.enable')
+  await page.send('Emulation.setDeviceMetricsOverride', {
+    width,
+    height,
+    deviceScaleFactor: scale,
+    mobile: false,
+  })
+  const layout = options.layout ? `&layout=${options.layout}` : ''
+  const url = `${base}bench/?nodes=${nodeCount}&edges=${edgeCount}${layout}`
+  await page.send('Page.navigate', { url })
+  let ready = false
+  for (let attempt = 0; attempt < 600 && !ready; attempt++) {
+    await sleep(100)
+    ready = await page.evaluate('Boolean(window.bench)').catch(() => false)
+  }
+  if (!ready) throw new Error(`bench page did not start: ${page.errors.join('\n')}`)
+  await page.evaluate(helpers)
+
+  const out = resolve(root, options.out)
+  rmSync(out, { recursive: true, force: true })
+  mkdirSync(out, { recursive: true })
+
+  if (options.layout) await benchLayout(page, out)
+  else await benchRender(page, out)
   socket.close()
 } finally {
   chrome.kill('SIGKILL')

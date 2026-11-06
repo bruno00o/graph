@@ -4,7 +4,7 @@ import { runForce } from './runner'
 import { type ForceOptions, type ForceSettings, resolveForce } from './simulation'
 import ForceWorker from './worker?worker&inline'
 
-export type { ForceOptions, ForceSettings } from './simulation'
+export type { ForceEngine, ForceOptions, ForceSettings } from './simulation'
 
 const inlineBudget = 8
 

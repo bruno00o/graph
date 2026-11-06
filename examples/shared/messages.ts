@@ -17,6 +17,8 @@ export const messages = {
   relaunch: 'Relancer',
   stop: 'Arrêter',
   grow: 'Ajouter dix nœuds',
+  engine: 'Calcul',
+  engines: { auto: 'Automatique', gpu: 'Carte graphique', cpu: 'Processeur' },
   mute: 'Atténuer la moitié',
   collabHint: 'Ouvrez cette page dans un second onglet : chaque déplacement s’y voit en direct.',
   reset: 'Réinitialiser les positions',

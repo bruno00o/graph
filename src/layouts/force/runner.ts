@@ -1,7 +1,13 @@
 import type { LayoutGraph, LayoutListener, LayoutRun } from '../../types'
+import { separate } from './collider'
+import type { GpuForce } from './gpu'
 import { type ForceSettings, ForceSimulation } from './simulation'
 
 export type Schedule = (task: () => void) => void
+
+const batchTarget = 32
+const maxBatch = 256
+const separationRounds = 10
 
 export function runForce(
   graph: LayoutGraph,
@@ -35,6 +41,57 @@ export function runForce(
     pin: (index, x, y) => simulation.pin(index, x, y),
     stop: () => {
       stopped = true
+    },
+  }
+}
+
+export function runGpuForce(
+  gpu: GpuForce,
+  graph: LayoutGraph,
+  settings: ForceSettings,
+  listener: LayoutListener,
+  rescue: (xy: Float32Array) => LayoutRun,
+): LayoutRun {
+  const current = Float32Array.from(graph.xy)
+  const pins = new Map<number, readonly [number, number]>()
+  let fallback: LayoutRun | null = null
+  let stopped = false
+  let batch = 4
+  const loop = async () => {
+    while (!stopped) {
+      const started = performance.now()
+      for (let k = 0; k < batch && !gpu.done; k++) gpu.step()
+      const read = await gpu.read(current)
+      if (stopped) return
+      if (!read || gpu.lost) {
+        gpu.destroy()
+        fallback = rescue(current.slice())
+        for (const [index, [x, y]] of pins) fallback.pin(index, x, y)
+        return
+      }
+      const elapsed = Math.max(performance.now() - started, 1)
+      batch = Math.max(1, Math.min(maxBatch, Math.round((batch * batchTarget) / elapsed)))
+      if (gpu.done) {
+        stopped = true
+        gpu.destroy()
+        separate(graph.radius, graph.alive, gpu.fixed, current, settings.spacing, separationRounds)
+        listener.end(current.slice())
+        return
+      }
+      listener.progress(current.slice(), gpu.progress)
+    }
+  }
+  void loop()
+  return {
+    pin(index, x, y) {
+      pins.set(index, [x, y])
+      if (fallback) fallback.pin(index, x, y)
+      else gpu.pin(index, x, y)
+    },
+    stop() {
+      stopped = true
+      fallback?.stop()
+      gpu.destroy()
     },
   }
 }

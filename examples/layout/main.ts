@@ -1,16 +1,18 @@
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
-import { force } from '@bruno00o/graph/layouts/force'
-import { createSample, type Item, type Link } from '../shared/data'
+import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
+import { createCommunities, type Item, type Link } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
 
-const sizes = [500, 2_000, 10_000, 50_000]
+const sizes = [500, 2_000, 10_000, 50_000, 80_000]
 const params = new URLSearchParams(location.search)
 const nodeCount = Number(params.get('nodes') ?? 2_000)
-const sample = createSample(nodeCount, Math.round(nodeCount * 1.3), 12, 7, 0.01)
+const sample = createCommunities(nodeCount, Math.round(nodeCount * 1.66))
 let items: Item[] = sample.items
 let links: Link[] = sample.links
-const layout = force()
+const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
+const engine = engines.find((value) => value === params.get('engine')) ?? 'auto'
+const layout = force({ engine })
 
 const define = () =>
   defineGraph({
@@ -18,7 +20,7 @@ const define = () =>
       edges<Link>(links, { source: 'from', target: 'to' }),
       nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' }),
     ],
-    scales: { size: { range: [6, 24] } },
+    scales: { size: { range: [6, 30] } },
     layout,
   })
 
@@ -71,7 +73,17 @@ header.append(
     sizes.map((size) => ({ value: String(size), text: formatNumber(size) })),
     String(nodeCount),
     (value) => {
-      location.search = `?nodes=${value}`
+      params.set('nodes', value)
+      location.search = params.toString()
+    },
+  ),
+  choice(
+    messages.engine,
+    engines.map((value) => ({ value, text: messages.engines[value] })),
+    engine,
+    (value) => {
+      params.set('engine', value)
+      location.search = params.toString()
     },
   ),
   button(messages.relaunch, () => void graph.layout.run()),
