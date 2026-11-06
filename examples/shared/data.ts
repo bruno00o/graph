@@ -32,7 +32,13 @@ export interface Sample {
   readonly links: Link[]
 }
 
-export function createSample(nodeCount: number, edgeCount: number, groups = 8, seed = 7): Sample {
+export function createSample(
+  nodeCount: number,
+  edgeCount: number,
+  groups = 8,
+  seed = 7,
+  mixing = 0.08,
+): Sample {
   const next = random(seed)
   const gaussian = () => Math.sqrt(-2 * Math.log(next() || 1e-9)) * Math.cos(2 * Math.PI * next())
   const spread = Math.sqrt(nodeCount) * 9
@@ -59,7 +65,7 @@ export function createSample(nodeCount: number, edgeCount: number, groups = 8, s
   const links: Link[] = []
   for (let index = 0; index < edgeCount; index++) {
     const source = Math.floor(next() * nodeCount)
-    const pool = next() < 0.92 ? members[groupOf[source] ?? 0] : undefined
+    const pool = next() >= mixing ? members[groupOf[source] ?? 0] : undefined
     const target =
       pool && pool.length > 0
         ? (pool[Math.floor(next() * pool.length)] ?? 0)

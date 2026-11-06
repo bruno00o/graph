@@ -196,10 +196,36 @@ export type FreeState<S extends string> = Exclude<S, BuiltInState>
 
 export type StateStyles<S extends string> = { readonly [K in S]: StateStyle }
 
+export interface LayoutGraph {
+  readonly capacity: number
+  readonly alive: Uint8Array
+  readonly movable: Uint8Array
+  readonly xy: Float32Array
+  readonly radius: Float32Array
+  readonly edges: Uint32Array
+}
+
+export interface LayoutListener {
+  progress(xy: Float32Array, progress: number): void
+  end(xy: Float32Array): void
+}
+
+export interface LayoutRun {
+  pin(index: number, x: number, y: number): void
+  stop(): void
+}
+
+export interface Layout {
+  readonly name: string
+  readonly options: object
+  start(graph: LayoutGraph, listener: LayoutListener): LayoutRun
+}
+
 export interface GraphDefinitionOptions<S extends string = string> {
   readonly marks: readonly Mark[]
   readonly scales?: ScalesOptions
   readonly states?: StateStyles<S>
+  readonly layout?: Layout | null
   readonly interaction?: InteractionOptions
   readonly transitions?: TransitionOptions
 }
@@ -208,6 +234,7 @@ export interface GraphDefinition<S extends string = string> {
   readonly marks: readonly Mark[]
   readonly scales: ScalesOptions
   readonly states: StateStyles<S>
+  readonly layout: Layout | null
   readonly interaction: ResolvedInteraction
   readonly transitions: ResolvedTransitions
 }

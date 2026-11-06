@@ -9,6 +9,14 @@ export const messages = {
   nodes: 'Images, badges et contours',
   nodesLabel: 'Graphe de douze nœuds avec des images, des icônes, des badges et des contours',
   labelBackgrounds: 'Fond des libellés',
+  layout: 'Layout de forces',
+  layoutHint: 'Glissez un nœud pendant le calcul pour l’épingler.',
+  layoutProgress: (value: number): string => `Calcul\u00a0: ${percent.format(value)}`,
+  layoutDone: (seconds: number): string => `Calculé en ${decimal.format(seconds)}\u00a0s`,
+  layoutStopped: 'Calcul arrêté',
+  relaunch: 'Relancer',
+  stop: 'Arrêter',
+  grow: 'Ajouter dix nœuds',
   mute: 'Atténuer la moitié',
   collabHint: 'Ouvrez cette page dans un second onglet : chaque déplacement s’y voit en direct.',
   reset: 'Réinitialiser les positions',
@@ -47,6 +55,8 @@ function plural(count: number, one: string, other: string): string {
 }
 
 const numbers = new Intl.NumberFormat('fr-FR')
+const percent = new Intl.NumberFormat('fr-FR', { style: 'percent' })
+const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
 
 export function formatNumber(value: number): string {
   return numbers.format(value)

@@ -42,6 +42,7 @@ export function defineGraph<S extends string = never>(
     marks: Object.freeze([...options.marks]),
     scales: Object.freeze({ ...options.scales }),
     states: Object.freeze({ ...options.states }) as StateStyles<S>,
+    layout: options.layout ?? null,
     interaction: resolveInteraction(options.interaction),
     transitions: Object.freeze({
       positions: Math.max(0, options.transitions?.positions ?? defaultPositionTransition),
