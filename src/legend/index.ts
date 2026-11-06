@@ -99,6 +99,7 @@ export function createLegend<S extends string, M extends Mark>(
   const known = new Map<string, LegendCategory>()
   let crowded: ReadonlySet<number> = new Set()
   let readScene = -1
+  let readDetail = -1
   let readDefinition: GraphDefinition | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastRead = Number.NEGATIVE_INFINITY
@@ -109,9 +110,12 @@ export function createLegend<S extends string, M extends Mark>(
     timer = undefined
     if (destroyed) return
     const start = performance.now()
-    readScene = internals.stamp().scene
+    const stamp = internals.stamp()
+    readScene = stamp.scene
+    readDetail = stamp.detail
     readDefinition = internals.definition()
-    const reading = readLegend(internals.scene, readDefinition.marks, off, known)
+    const zoom = graph.store.state.view.zoom
+    const reading = readLegend(internals.scene, readDefinition.marks, off, known, zoom)
     crowded = reading.crowded
     known.clear()
     if (reading.color?.type === 'categories') {
@@ -185,7 +189,12 @@ export function createLegend<S extends string, M extends Mark>(
 
   const stopWatch = internals.watch({
     frame() {
-      if (internals.stamp().scene !== readScene || internals.definition() !== readDefinition) {
+      const stamp = internals.stamp()
+      if (
+        stamp.scene !== readScene ||
+        stamp.detail !== readDetail ||
+        internals.definition() !== readDefinition
+      ) {
         schedule()
       }
     },

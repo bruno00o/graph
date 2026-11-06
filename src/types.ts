@@ -269,6 +269,17 @@ export interface NodeOptions<T, N extends MarkName = MarkName> {
    * @default 1
    */
   readonly opacity?: Style<T, number>
+  /**
+   * Zoom at and below which the node is hidden, in screen pixels per world unit, as in `View`.
+   * Above it, the node fades in over a quarter of a zoom doubling. A hidden node hides its label,
+   * its badges and its edges, and is neither picked, exported nor counted. Defaults to no limit.
+   */
+  readonly minZoom?: Style<T, number | null>
+  /**
+   * Zoom at and above which the node is hidden, in screen pixels per world unit. Below it, the
+   * node fades out over a quarter of a zoom halving. Defaults to no limit.
+   */
+  readonly maxZoom?: Style<T, number | null>
   /** Picture or icon inside the node: a URL, an image with options, or `null` for none. */
   readonly image?: Style<T, string | NodeImage | null>
   /** A function per corner that returns the badge of an item, or `null` for none. */
@@ -370,6 +381,18 @@ export interface EdgeOptions<T, N extends MarkName = MarkName> {
    * @default 1
    */
   readonly opacity?: Style<T, number>
+  /**
+   * Zoom at and below which the edge is hidden, in screen pixels per world unit, as in `View`.
+   * Above it, the edge fades in over a quarter of a zoom doubling. An edge is also hidden while
+   * one of its ends is. A hidden edge is neither picked, exported nor counted. Defaults to no
+   * limit.
+   */
+  readonly minZoom?: Style<T, number | null>
+  /**
+   * Zoom at and above which the edge is hidden, in screen pixels per world unit. Below it, the
+   * edge fades out over a quarter of a zoom halving. Defaults to no limit.
+   */
+  readonly maxZoom?: Style<T, number | null>
   /**
    * Dashes that move along the edge, from its source to its target: `true` at 40 screen pixels per
    * second, a speed in screen pixels per second, negative toward the source, or `false`, `0` or

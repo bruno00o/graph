@@ -1,0 +1,98 @@
+---
+title: Zoom and level of detail
+description: Show nodes and edges only within a range of zoom, fade them in and out, and keep large graphs fast from afar.
+---
+
+<LiveExample slug="zoom-detail" />
+
+## Show elements by zoom
+
+`minZoom` and `maxZoom` on `nodes()` and `edges()` limit the zoom at which an element is drawn. The zoom is the one of the [view](/docs/view): screen pixels per world unit. Both are styles: a constant, or a function of the item.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+
+const definition = defineGraph({
+  marks: [
+    edges<Link>(overview, { source: 'from', target: 'to', dash: 'dashed', maxZoom: 0.9 }),
+    edges<Link>(links, { source: 'from', target: 'to' }),
+    nodes<Item>(items, {
+      size: 'weight',
+      label: 'label',
+      minZoom: (item) => (item.tier === 'leaf' ? 1.3 : item.tier === 'branch' ? 0.55 : null),
+    }),
+  ],
+})
+```
+
+An element is hidden at and below `minZoom`, and at and above `maxZoom`. `null`, `0` or no option means no limit. The options are in the reference of [`nodes`](/docs/api/nodes#options) and [`edges`](/docs/api/edges#options).
+
+Nothing pops: inside its range, an element fades in over a quarter of a zoom doubling, about 19 % of zoom, and fades out the same way before `maxZoom`. The fade multiplies the opacity of the element and of its label.
+
+The limits are read when the data changes, like every other style. Zooming only compares the zoom with them on the GPU, so it costs nothing per element.
+
+## What a hidden element is
+
+A hidden element is gone, not only transparent:
+
+- an edge is hidden while one of its ends is hidden, whatever its own range;
+- a hidden node hides its label and its badges, and its anchors leave the screen;
+- it is not picked: hover, click, double click and the lasso pass through it, and the arrow keys move the focus over shown nodes only;
+- the [legend](/docs/minimap-and-legend) counts only shown elements, and the minimap draws only them;
+- envelopes wrap only shown nodes;
+- [exports](/docs/export) draw what is shown at the zoom of the export, the zoom of the view by default, and a `'graph'` region frames shown elements only.
+
+A hidden element stays in the data, in the selection and in states. Layouts still place hidden nodes and `view.fit` still frames them, so that the graph does not move or jump when an element appears.
+
+In a [group](/docs/groups), each node follows its own range: a hidden container does not hide its children. Edges drawn in place of edges that end in a folded group read `minZoom` and `maxZoom` from the `aggregate` options of their mark.
+
+## Recipes
+
+To show a node once it is at least 6 pixels wide on screen, divide by its diameter in world units. Here the size scale passes the diameter through:
+
+```ts
+defineGraph({
+  marks: [nodes<Item>(items, { size: 'diameter', minZoom: (item) => 6 / item.diameter })],
+  scales: { size: (value) => value },
+})
+```
+
+Groups do not fold by themselves with the zoom: folding changes the drawn nodes, their positions and the layout, so it stays your call. Fold and unfold them on `viewchange`, with two thresholds so that a zoom near one of them does not fold and unfold in turn:
+
+```ts
+let folded = graph.groups.folded().length > 0
+
+graph.on('viewchange', ({ view }) => {
+  if (!folded && view.zoom < 0.4) graph.groups.fold()
+  else if (folded && view.zoom > 0.6) graph.groups.unfold()
+  else return
+  folded = !folded
+})
+```
+
+With a controlled `folded` option, set your own state there instead of calling `graph.groups`.
+
+## Large graphs from afar
+
+Seen from afar, hundreds of thousands of edges cross every pixel. Without any option, the renderer:
+
+- skips nodes and edges that lie off screen before they reach the GPU rasterizer;
+- stops drawing edges on a pixel once enough of them cover it that one more could not change its color, from the faintest edge color and opacity in use;
+- measures and lays out a label only once it has found a free place on screen.
+
+Measured on a laptop, at 500,000 nodes and 1,000,000 edges, frame time:
+
+| View | Before | After |
+| --- | --- | --- |
+| Whole graph | 81 ms | 37 ms |
+| Zoomed in | 11.7 ms | 12.2 ms |
+
+Label selection, with every node labeled, while panning and zooming:
+
+| Nodes | Before | After |
+| --- | --- | --- |
+| 10,000 | 2 ms | 0.8 ms |
+| 100,000 | 25 to 50 ms | 6 to 7 ms |
+| 450,000 | 120 to 155 ms | 19 to 34 ms |
+
+`minZoom` on most edges does the rest: hidden edges cost no fill at all.

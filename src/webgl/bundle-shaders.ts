@@ -30,6 +30,11 @@ void main() {
     return;
   }
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 a = texelFetch(nodePosition, s, 0).xy;

@@ -41,6 +41,7 @@ import { flowSpeed } from './flow'
 import type { EdgeRecord, ElementKind, GraphChanges, NodeRecord } from './graph-model'
 import { IndexSet } from './index-set'
 import { Palette } from './palette'
+import { readMaxZoom, readMinZoom } from './zoom-range'
 
 export interface Layer {
   readonly kind: ElementKind
@@ -352,6 +353,7 @@ export function createScene(): Scene {
         ? 0
         : Math.max(0, finiteOr(mark.outlineWidth?.(datum), outline ? defaults.nodeOutlineWidth : 0))
     nodes.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
+    nodes.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     nodes.screenUnits[index] = mark.screenUnits ? 1 : 0
     nodes.label[index] = toText(mark.label?.(datum))
     nodes.secondary[index] = toText(mark.secondary?.(datum))
@@ -412,6 +414,7 @@ export function createScene(): Scene {
     edges.dash[index] = codeOf<EdgeDash>(dashCodes, mark.dash?.(datum))
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
+    edges.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     edges.setFlow(index, mark.flow ? flowSpeed(mark.flow(datum)) : 0)
     edges.bundle[index] =
       record.sourceIndex !== record.targetIndex && mark.bundle?.(datum) !== false ? 1 : 0

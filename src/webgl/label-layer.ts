@@ -3,6 +3,7 @@ import { containerShape, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import type { EdgePaths, PathPoint } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
+import { edgeShown } from '../core/zoom-range'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
@@ -588,7 +589,7 @@ export class LabelLayer {
     const place = (index: number, highlight: boolean, rank = -1, sx = 0, sy = 0): void => {
       const force = highlight && forced(index)
       const label = nodes.label[index]
-      if (!label || nodes.alive[index] !== 1) return
+      if (!label || nodes.alive[index] !== 1 || !nodes.zoom.shown(index, view.zoom)) return
       if (!labelVisible(frame.nodeMask[index] ?? 0, frame.labelFlags)) return
       const screenUnits = nodes.screenUnits[index] === 1
       const size = nodes.labelSize[index] || nodeLabelSize
@@ -682,7 +683,7 @@ export class LabelLayer {
     const anchor = this.#anchor
     const placeEdge = (index: number, highlight: boolean): void => {
       const label = edges.label[index]
-      if (!label || edges.alive[index] !== 1) return
+      if (!label || edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, view.zoom)) return
       const size = edges.labelSize[index] || edgeLabelSize
       const pixels = size * shrink
       if (pixels < minimumPixels) return
@@ -780,6 +781,7 @@ export class LabelLayer {
         const x = (xs ? xs[at] : xy[index * 2]) ?? 0
         const y = (ys ? ys[at] : xy[index * 2 + 1]) ?? 0
         if (x < left || x > right || y < top || y > bottom) continue
+        if (!nodes.zoom.shown(index, view.zoom)) continue
         if (!plan) {
           if (!highlighted.has(index)) place(index, false)
           continue

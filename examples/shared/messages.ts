@@ -160,6 +160,11 @@ export const messages = {
   bundlingRunning: 'Regroupement en cours…',
   bundlingDone: (ms: number): string => `Regroupé en ${milliseconds(ms)}`,
   rebundle: 'Regrouper maintenant',
+  zoomDetail: 'Détail selon le zoom',
+  zoomDetailHint:
+    'Zoomez\u00a0: les nœuds apparaissent par niveaux, les liens entre pôles s’effacent.',
+  zoomStatus: (zoom: number, shown: number): string =>
+    `Zoom ×${decimal.format(zoom)}, ${shown} ${plural(shown, 'niveau affiché', 'niveaux affichés')} sur 3`,
 }
 
 function milliseconds(value: number): string {

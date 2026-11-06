@@ -111,7 +111,7 @@ export function graphBounds(scene: RasterScene): RasterBox | null {
   let grouped = false
   let count = 0
   for (let index = 0; index < capacity; index++) {
-    if (alive[index] !== 1) continue
+    if (alive[index] === 0) continue
     if (shape[index] === containerShape) {
       grouped = true
       continue
@@ -138,7 +138,7 @@ export function graphBounds(scene: RasterScene): RasterBox | null {
   if (grouped && boxes && containers) {
     for (let slot = 0; slot < containers.count; slot++) {
       const index = containers.order[slot] ?? 0
-      if (alive[index] !== 1) continue
+      if (alive[index] === 0) continue
       const x = xy[index * 2] ?? 0
       const y = xy[index * 2 + 1] ?? 0
       const halfWidth = boxes[index * 4] ?? 0

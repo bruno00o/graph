@@ -50,9 +50,10 @@ export class ContainerBoxes implements ContainerFrame {
     return true
   }
 
-  pick(x: number, y: number, positions: Positions): number {
+  pick(x: number, y: number, positions: Positions, shown?: (index: number) => boolean): number {
     for (let slot = this.count - 1; slot >= 0; slot--) {
       const index = this.order[slot] ?? 0
+      if (shown && !shown(index)) continue
       const dx = Math.abs(x - positions.x(index))
       const dy = Math.abs(y - positions.y(index))
       const halfWidth = this.boxes[index * 4] ?? 0

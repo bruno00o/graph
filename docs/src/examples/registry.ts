@@ -85,6 +85,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./bundling/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'zoom-detail',
+    title: 'Zoom and level of detail',
+    description:
+      'Three tiers of nodes on fixed positions. Branches and leaves fade in as the view zooms in, and the dashed links between hubs fade out. Hidden elements are neither picked, labeled nor exported.',
+    hint: 'Scroll to zoom in on a hub.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph'],
+    files: ['zoom/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./zoom/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'layouts',
     title: 'Layouts',
     description:

@@ -1,5 +1,6 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { maxStates, noPaint } from '../core/state-buffers'
+import type { ZoomRanges } from '../core/zoom-range'
 import type { ResolvedTheme } from '../dom/theme'
 import type { LabelArea, Renderer, RenderInput } from '../host/renderer'
 import { createBackdrop } from './backdrop'
@@ -67,7 +68,10 @@ const units = {
   nodeDecor: 10,
   nodeBox: 11,
   ...bundleUnits,
+  nodeZoom: 14,
+  edgeZoom: 15,
 } as const
+const farZoom = 3e38
 
 function iota(length: number): Uint32Array {
   const values = new Uint32Array(length)
@@ -148,6 +152,9 @@ function createRenderer(
   const edgeTopology = new DataTexture(gl, format.rgba32ui, u32)
   const edgeStyle = new DataTexture(gl, format.rgba32f, f32)
   const edgeState = new DataTexture(gl, format.r32ui, u32)
+  const nodeZoom = new DataTexture(gl, format.rg32f, f32)
+  const edgeZoom = new DataTexture(gl, format.rg32f, f32)
+  let zoomUsed = false
   const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor, nodeBox]
   const images = new ImageAtlas(gl, invalidate)
   const floatBits = new Float32Array(1)
@@ -619,6 +626,40 @@ function createRenderer(
     syncContainers(next, grown)
   }
 
+  function packZoom(texture: DataTexture<Float32Array>, ranges: ZoomRanges, index: number): void {
+    texture.data[index * 2] = ranges.min[index] ?? 0
+    texture.data[index * 2 + 1] = Math.min(ranges.max[index] ?? farZoom, farZoom)
+  }
+
+  function syncZoom(next: RenderInput): void {
+    const { nodes, edges } = next.scene
+    let full = next.full
+    if (!zoomUsed) {
+      if (nodes.zoom.count === 0 && edges.zoom.count === 0) return
+      zoomUsed = true
+      full = true
+    }
+    const pairs = [
+      [nodeZoom, nodes.zoom, nodes.capacity, next.dirty.nodes],
+      [edgeZoom, edges.zoom, edges.capacity, next.dirty.edges],
+    ] as const
+    for (const [texture, ranges, capacity, dirty] of pairs) {
+      const all = texture.reserve(capacity) || full
+      let first = all ? 0 : Number.POSITIVE_INFINITY
+      let last = all ? capacity - 1 : -1
+      if (all) {
+        for (let index = 0; index < capacity; index++) packZoom(texture, ranges, index)
+      } else {
+        for (const index of dirty.indices()) {
+          packZoom(texture, ranges, index)
+          first = Math.min(first, index)
+          last = Math.max(last, index)
+        }
+      }
+      texture.upload(first, last)
+    }
+  }
+
   function syncContainers(next: RenderInput, grown: boolean): void {
     const containers = next.containers
     if (!containers || (containers.version === containerVersion && !grown && !next.full)) return
@@ -815,9 +856,10 @@ function createRenderer(
     return -1
   }
 
-  function edgeLayerCap(): number {
+  function edgeLayerCap(zoom: number): number {
     if (!input) return 0
     const edges = input.scene.edges
+    if (input.scene.nodes.zoom.fading(zoom) || edges.zoom.fading(zoom)) return 0
     if (coverStale) {
       coverStale = false
       for (let index = 0; index < edges.capacity; index++) {
@@ -844,7 +886,9 @@ function createRenderer(
   function textureBytes(): number {
     let bytes =
       paletteRows * paletteWidth * 4 + atlasRows * atlasWidth + images.bytes + bundles.bytes
-    for (const texture of [...nodeTextures, ...edgeTextures]) bytes += texture.data.byteLength
+    for (const texture of [...nodeTextures, ...edgeTextures, nodeZoom, edgeZoom]) {
+      bytes += texture.data.byteLength
+    }
     return bytes
   }
 
@@ -897,6 +941,7 @@ function createRenderer(
       syncNodes(next)
       refreshImages(next.scene.nodes)
       syncEdges(next)
+      syncZoom(next)
       syncStates(next)
       if (bundles.sync(next.bundles)) labelsMoved = true
       backdrop.sync(next)
@@ -963,6 +1008,8 @@ function createRenderer(
       frameBlock[3] = frame.height
       frameBlock[4] = frame.view.zoom
       frameBlock[5] = frame.pixelRatio
+      frameBlock[26] =
+        zoomUsed && input && input.scene.nodes.zoom.count + input.scene.edges.zoom.count > 0 ? 1 : 0
       flowTime = frame.time ?? 0
       const area: LabelArea = frame.labels ?? { ...frame, mode: 'visible' }
       frameBlock[6] = 6
@@ -986,7 +1033,7 @@ function createRenderer(
         gl.clear(gl.COLOR_BUFFER_BIT)
       }
       let stencilClean = false
-      const edgeLayers = capEdges ? edgeLayerCap() : 0
+      const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom) : 0
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
@@ -1054,7 +1101,8 @@ function createRenderer(
     ready: () => images.settled(),
 
     destroy() {
-      for (const texture of [...nodeTextures, ...edgeTextures]) texture.destroy()
+      for (const texture of [...nodeTextures, ...edgeTextures, nodeZoom, edgeZoom])
+        texture.destroy()
       gl.deleteTexture(palette)
       gl.deleteTexture(atlasTexture)
       images.destroy()
@@ -1084,6 +1132,8 @@ function createRenderer(
       [units.atlas, atlasTexture],
       [units.nodeDecor, nodeDecor.texture],
       [units.nodeBox, nodeBox.texture],
+      [units.nodeZoom, nodeZoom.texture],
+      [units.edgeZoom, edgeZoom.texture],
     ]
     for (const [unit, texture] of textures) {
       gl.activeTexture(gl.TEXTURE0 + unit)

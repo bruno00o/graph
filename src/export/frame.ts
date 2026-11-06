@@ -4,6 +4,7 @@ import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
+import { edgeShown } from '../core/zoom-range'
 import type { View } from '../types'
 
 export interface ExportFrame {
@@ -77,7 +78,7 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
   let maxX = Number.NEGATIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
   for (let index = 0; index < nodes.capacity; index++) {
-    if (nodes.alive[index] !== 1) continue
+    if (nodes.alive[index] !== 1 || !nodes.zoom.shown(index, zoom)) continue
     const outline = Math.max(0, nodes.outlineWidth[index] ?? 0)
     const reachX = screenExtent(nodes, boxes, index, zoom, 0) + outline
     const reachY = screenExtent(nodes, boxes, index, zoom, 1) + outline
@@ -93,6 +94,7 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
   for (let index = 0; index < edges.capacity; index++) {
     const node = edges.source[index] ?? 0
     if (edges.alive[index] !== 1 || edges.target[index] !== node) continue
+    if (!edgeShown(nodes, edges, index, zoom)) continue
     const radius = screenRadius(nodes, node, zoom)
     const width = Math.max(edges.width[index] ?? 0, 0.5)
     const reach = Math.max(
@@ -117,6 +119,7 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     const line = new Float64Array(maxPathPoints * 2)
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1 || bundles.count(index) < 2) continue
+      if (!edgeShown(nodes, edges, index, zoom)) continue
       const reach = Math.max(edges.width[index] ?? 0, 0.5) / 2
       const count = bundles.polyline(index, edges, positions, bundles.mix, line)
       for (let k = 1; k < count - 1; k++) {

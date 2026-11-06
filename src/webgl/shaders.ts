@@ -1,4 +1,5 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
+import { zoomFade } from '../core/zoom-range'
 import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
 
@@ -35,6 +36,8 @@ layout(std140) uniform Frame {
   vec4 labelMuted;
   vec4 labelHalo;
   vec2 centerLow;
+  float ranged;
+  float framePadding;
 };
 layout(std140) uniform States {
   vec4 stateNumbers[64];
@@ -94,9 +97,20 @@ uniform usampler2D nodePaint;
 uniform usampler2D nodeState;
 uniform usampler2D nodeDecor;
 uniform sampler2D nodeBox;
+uniform sampler2D nodeZoom;
+float zoomShown(vec2 range) {
+  if (!(zoom > range.x && zoom < range.y)) return 0.0;
+  float inside = min(range.x > 0.0 ? log2(zoom / range.x) : 1.0, log2(range.y / zoom));
+  return clamp(inside / ${zoomFade.toFixed(2)}, 0.0, 1.0);
+}
+float nodeShown(ivec2 t) {
+  return ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
+}
 Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
-  return resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
+  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
+  look.opacity *= nodeShown(t);
+  return look;
 }
 float nodeDiameter(vec4 style) {
   uint flags = uint(style.w + 0.5);
@@ -116,7 +130,13 @@ export const edgeData: string = `
 uniform usampler2D edgeTopology;
 uniform sampler2D edgeStyle;
 uniform usampler2D edgeState;
+uniform sampler2D edgeZoom;
 uniform float flowTime;
+float edgeShown(ivec2 t, uvec4 topology) {
+  if (ranged < 0.5) return 1.0;
+  float own = zoomShown(texelFetch(edgeZoom, t, 0).xy);
+  return min(own, min(nodeShown(texel(topology.x)), nodeShown(texel(topology.y))));
+}
 float edgeFlow(uint mask, float speed) {
   for (int bit = 0; bit < 32; bit++) {
     if (mask == 0u) break;
@@ -160,6 +180,10 @@ void main() {
     return;
   }
   Look look = nodeLook(t, style, paint, mask);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
   float radius = nodeRadius(style);
   vec2 extent = vec2(radius);
@@ -288,6 +312,11 @@ void main() {
     return;
   }
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 ps = toScreen(texelFetch(nodePosition, s, 0).xy);
@@ -401,6 +430,11 @@ void main() {
     return;
   }
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
@@ -585,6 +619,11 @@ void edgeGlyph(uint kind) {
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint mask = texelFetch(edgeState, t, 0).r;
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   float pixels = glyphSize * min(1.0, zoom);
   if ((topology.w & 16u) == 0u || look.label < 0.5 || pixels < labelMin) {
     gl_Position = hidden;
@@ -732,6 +771,10 @@ void main() {
     return;
   }
   Look look = nodeLook(t, style, paint, mask);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   bool text = (badgeInfo & 4u) != 0u && height >= ${badgeTextMin.toFixed(1)};
   float font = height * ${badgeFont.toFixed(2)};
   float width = text ? max(height, badgeText * font / ${atlasFontSize.toFixed(1)} + height * 0.6) : height;

@@ -22,6 +22,7 @@ export function nodesInside(
   polygon: readonly Point[],
   nodes: NodeColumns,
   positions: Positions,
+  zoom?: number,
 ): Key[] {
   if (polygon.length < 3) return []
   let left = Number.POSITIVE_INFINITY
@@ -37,6 +38,7 @@ export function nodesInside(
   const inside: Key[] = []
   for (let index = 0; index < nodes.capacity; index++) {
     if (nodes.alive[index] !== 1) continue
+    if (zoom !== undefined && !nodes.zoom.shown(index, zoom)) continue
     const x = positions.x(index)
     const y = positions.y(index)
     if (x < left || x > right || y < top || y > bottom) continue
