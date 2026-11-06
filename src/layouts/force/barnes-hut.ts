@@ -3,7 +3,8 @@ const empty = -1
 const leafSize = 8
 const maxDepth = 32
 const theta2 = 1.44
-const minDistance2 = 1
+const coincident = 1e-12
+export const softening = 4
 
 export class BarnesHut {
   #capacity = 0
@@ -60,58 +61,61 @@ export class BarnesHut {
     if (this.#count === 0) return
     const xi = x[i] ?? 0
     const yi = y[i] ?? 0
-    const child = this.#child
-    const point = this.#point
-    const next = this.#next
     const stack = this.#stack
-    const masses = this.#mass
-    const centersX = this.#cx
-    const centersY = this.#cy
+    const cx = this.#cx
+    const cy = this.#cy
     const sizes = this.#size
+    const mass = this.#mass
+    const point = this.#point
+    const child = this.#child
+    const next = this.#next
+    const left = this.#left
+    const top = this.#top
     let fx = 0
     let fy = 0
-    let top = 0
-    stack[top++] = 0
-    while (top > 0) {
-      const c = stack[--top] ?? 0
-      const mass = masses[c] ?? 0
-      if (mass === 0) continue
-      const dx = (centersX[c] ?? 0) - xi
-      const dy = (centersY[c] ?? 0) - yi
-      let l = dx * dx + dy * dy
-      const w = sizes[c] ?? 0
-      if ((w * w) / theta2 < l) {
-        if (l < minDistance2) l = Math.sqrt(minDistance2 * l)
-        const f = (strength * mass) / l
-        fx += dx * f
-        fy += dy * f
-        continue
+    let depth = 0
+    stack[depth++] = 0
+    while (depth > 0) {
+      const c = stack[--depth] ?? 0
+      const dx = (cx[c] ?? 0) - xi
+      const dy = (cy[c] ?? 0) - yi
+      const d2 = dx * dx + dy * dy
+      const size = sizes[c] ?? 0
+      if (size * size < theta2 * d2) {
+        const l = left[c] ?? 0
+        const t = top[c] ?? 0
+        if (xi < l || xi >= l + size || yi < t || yi >= t + size) {
+          const w = (mass[c] ?? 0) / (d2 + softening)
+          fx += dx * w
+          fy += dy * w
+          continue
+        }
       }
-      const p = point[c] ?? empty
-      if (p === internal) {
-        for (let q = 0; q < 4; q++) {
-          const k = child[c * 4 + q] ?? empty
-          if (k >= 0) stack[top++] = k
+      const head = point[c] ?? empty
+      if (head === internal) {
+        for (let q = c * 4; q < c * 4 + 4; q++) {
+          const k = child[q] ?? empty
+          if (k >= 0) stack[depth++] = k
         }
         continue
       }
-      for (let j = p; j >= 0; j = next[j] ?? empty) {
+      for (let j = head; j >= 0; j = next[j] ?? empty) {
         if (j === i) continue
         let ex = (x[j] ?? 0) - xi
         let ey = (y[j] ?? 0) - yi
-        if (ex === 0 && ey === 0) {
+        let e2 = ex * ex + ey * ey
+        if (e2 < coincident) {
           ex = jiggle()
           ey = jiggle()
+          e2 = ex * ex + ey * ey
         }
-        let m = ex * ex + ey * ey
-        if (m < minDistance2) m = Math.sqrt(minDistance2 * m)
-        const f = strength / m
-        fx += ex * f
-        fy += ey * f
+        const w = 1 / (e2 + softening)
+        fx += ex * w
+        fy += ey * w
       }
     }
-    vx[i] = (vx[i] ?? 0) + fx
-    vy[i] = (vy[i] ?? 0) + fy
+    vx[i] = (vx[i] ?? 0) + fx * strength
+    vy[i] = (vy[i] ?? 0) + fy * strength
   }
 
   #reserve(cells: number): void {
