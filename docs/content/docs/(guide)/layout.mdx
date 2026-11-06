@@ -66,7 +66,7 @@ radial({ root: 'hub' })
 - **`rings`** puts the first node in the middle and fills rings outward, each ring longer than the last. Nodes come by degree, the busiest first, unless `order` says otherwise. `center` picks the middle node.
 - **`radial`** walks the graph from `root` and places each node on the ring of its distance to the root, next to the node it was reached from. Each branch gets a slice of the circle in proportion to its size. Without `root`, it starts from the node with the most edges. Nodes it cannot reach go on an outer ring.
 
-The three are centered on the current center of the nodes they move, and space nodes by twice the largest diameter by default. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it.
+The three are centered on the current center of the nodes they move. Their `spacing` is the gap left between the borders of the largest nodes, as in every layout here; it defaults to the largest diameter, and at least 24. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it.
 
 These layouts, and `layers`, are not incremental: when nodes arrive, every free node is laid out again, so the layers, the grid or the rings stay whole. See [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) for every option.
 
