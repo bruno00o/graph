@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
-import type { GraphDefinition, GraphDefinitionOptions } from '../types'
+import type { GraphDefinition, GraphDefinitionOptions, LabelPlacement } from '../types'
 import { arrowCodes, cornerCodes, dashCodes, noColor, shapeCodes } from './columns'
 import { createGraphModel } from './graph-model'
 import { createScene } from './scene'
@@ -228,6 +228,45 @@ describe('createScene', () => {
     expect(read('ab')).toEqual(['ab', 'x'])
     expect(read('ba')).toEqual(['ba', 'var(--graph-label-background)'])
     expect(read('aa')).toEqual(['aa', null])
+  })
+
+  it('reads label styles for nodes and edges', () => {
+    const { scene, model, nodeIndex } = setup({
+      marks: [
+        nodes<Item>([{ id: 'a', score: 2 }, { id: 'b' }], {
+          label: {
+            text: 'id',
+            color: (item) => (item.score ? 'var(--graph-accent)' : ''),
+            size: (item) => item.score ?? -1,
+            weight: (item) => (item.score ? 'bold' : 650.4),
+            font: 'serif',
+            placement: (item) => (item.score ? 'right' : ('middle' as string as LabelPlacement)),
+            maxWidth: 80,
+            minScreenSize: (item) => item.score ?? Number.NaN,
+          },
+        }),
+        edges<Link>([{ id: 'ab', from: 'a', to: 'b' }], {
+          ...linkOptions,
+          label: { text: 'id', weight: 'normal', size: 9, color: 'red' },
+        }),
+      ],
+    })
+    const a = nodeIndex('a')
+    const b = nodeIndex('b')
+    const nodesOf = scene.nodes
+    expect(scene.palette.colors[nodesOf.labelColor[a] ?? -1]).toBe('var(--graph-accent)')
+    expect(nodesOf.labelColor[b]).toBe(noColor)
+    expect([nodesOf.labelSize[a], nodesOf.labelSize[b]]).toEqual([2, 0])
+    expect([nodesOf.labelWeight[a], nodesOf.labelWeight[b]]).toEqual([700, 650])
+    expect(nodesOf.labelFont[a]).toBe('serif')
+    expect([nodesOf.labelPlacement[a], nodesOf.labelPlacement[b]]).toEqual([2, 0])
+    expect(nodesOf.labelMaxWidth[a]).toBe(80)
+    expect([nodesOf.labelMinScreenSize[a], nodesOf.labelMinScreenSize[b]]).toEqual([2, 0])
+    const edge = model.edge('ab')?.index ?? -1
+    expect(scene.edges.labelWeight[edge]).toBe(400)
+    expect(scene.edges.labelSize[edge]).toBe(9)
+    expect(scene.palette.colors[scene.edges.labelColor[edge] ?? -1]).toBe('red')
+    expect(scene.edges.labelFont[edge]).toBeNull()
   })
 
   it('reads images as a source or with a scale and a color', () => {

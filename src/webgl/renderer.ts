@@ -107,7 +107,7 @@ export function createWebglRenderer(
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
   gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
-  const statesBlock = new ArrayBuffer(2048)
+  const statesBlock = new ArrayBuffer(3072)
   const statesBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, statesBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -237,6 +237,25 @@ export function createWebglRenderer(
       stride: glyphStride,
       offset: 24,
     },
+    {
+      name: 'glyphColor',
+      buffer,
+      size: 1,
+      type: gl.UNSIGNED_INT,
+      integer: true,
+      divisor: 1,
+      stride: glyphStride,
+      offset: 32,
+    },
+    {
+      name: 'glyphSize',
+      buffer,
+      size: 1,
+      type: gl.FLOAT,
+      divisor: 1,
+      stride: glyphStride,
+      offset: 36,
+    },
   ]
   const badgeField = (
     buffer: WebGLBuffer,
@@ -321,8 +340,10 @@ export function createWebglRenderer(
   let labelOrder = new Uint32Array(0)
   let labelOrderLength = 0
   let screenLabels = false
+  let largestLabel = 0
   let edgeLabelOrder = new Uint32Array(0)
   let edgeLabelOrderLength = 0
+  let largestEdgeLabel = 0
   let edgeOrderStale = true
   let labelsStale = true
   let labelsMoved = false
@@ -402,7 +423,7 @@ export function createWebglRenderer(
           words = new Uint32Array(badgeData)
           floats = new Float32Array(badgeData)
         }
-        const line = badge.text ? atlas.line(badge.text, '500') : null
+        const line = badge.text ? atlas.line(badge.text, 500) : null
         const at = badgeCount * (badgeStride / 4)
         words[at] = index
         words[at + 1] = badge.corner | (line ? 4 : 0)
@@ -410,7 +431,7 @@ export function createWebglRenderer(
         words[at + 3] = badge.ring
         floats[at + 4] = line?.width ?? 0
         if (line)
-          badgeGlyphs.push(index, 2 | (badge.corner << 2) | (badge.color << 4), line, atlas.height)
+          badgeGlyphs.push(index, 2 | (badge.corner << 2), line, atlas.height, 0, 0, 1, badge.color)
         badgeCount++
       }
     }
@@ -549,6 +570,7 @@ export function createWebglRenderer(
       tableVersion = states.tableVersion
       new Float32Array(statesBlock, 0, 256).set(states.numbers)
       new Uint32Array(statesBlock, 1024, 256).set(states.paint)
+      new Uint32Array(statesBlock, 2048, 256).set(states.labels)
       gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, statesBlock)
       labelsStale = true
@@ -614,12 +636,15 @@ export function createWebglRenderer(
       const sorted = sortBySize(nodes, labelOrder)
       labelOrderLength = sorted.length
       screenLabels = sorted.screenLabels
+      largestLabel = sorted.largest
       orderStale = false
     }
     const edges = input.scene.edges
     if (edgeOrderStale) {
       if (edgeLabelOrder.length < edges.capacity) edgeLabelOrder = new Uint32Array(edges.capacity)
-      edgeLabelOrderLength = sortEdgesByWidth(edges, edgeLabelOrder)
+      const sortedEdges = sortEdgesByWidth(edges, edgeLabelOrder)
+      edgeLabelOrderLength = sortedEdges.length
+      largestEdgeLabel = sortedEdges.largest
       edgeOrderStale = false
     }
     const generation = atlas.generation
@@ -636,12 +661,14 @@ export function createWebglRenderer(
         order: labelOrder,
         orderLength: labelOrderLength,
         screenLabels,
+        largestLabel,
         edges,
         edgeMask: input.states.edgeMask,
         edgeLabelFlags: input.states.edgeLabelFlags,
         highlightedEdges: input.states.highlightedEdges,
         edgeOrder: edgeLabelOrder,
         edgeOrderLength: edgeLabelOrderLength,
+        largestEdgeLabel,
       },
       atlas,
     )

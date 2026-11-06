@@ -1,4 +1,4 @@
-import type { BadgeCorner, EdgeMark, NodeMark } from '../types'
+import type { BadgeCorner, EdgeMark, LabelTextOptions, NodeMark } from '../types'
 import { toAccessor } from './accessor'
 
 export type Read = (datum: unknown) => unknown
@@ -11,6 +11,9 @@ export interface CompiledNodeMark {
   readonly label: Read | null
   readonly secondary: Read | null
   readonly labelBackground: Read | null
+  readonly labelText: CompiledLabelText
+  readonly labelPlacement: Read | null
+  readonly labelMinScreenSize: Read | null
   readonly shape: Read | null
   readonly fill: Read | null
   readonly stroke: Read | null
@@ -23,11 +26,20 @@ export interface CompiledNodeMark {
   readonly screenUnits: boolean
 }
 
+export interface CompiledLabelText {
+  readonly color: Read | null
+  readonly size: Read | null
+  readonly weight: Read | null
+  readonly font: Read | null
+  readonly maxWidth: Read | null
+}
+
 export interface CompiledEdgeMark {
   readonly color: Read | null
   readonly width: Read | null
   readonly label: Read | null
   readonly labelBackground: Read | null
+  readonly labelText: CompiledLabelText
   readonly dash: Read | null
   readonly arrow: Read | null
   readonly stroke: Read | null
@@ -41,6 +53,16 @@ function channel(value: string | Read | undefined): Read | null {
 function style(value: unknown): Read | null {
   if (value === undefined) return null
   return typeof value === 'function' ? (value as Read) : () => value
+}
+
+function labelText(options: LabelTextOptions<unknown> | null): CompiledLabelText {
+  return {
+    color: style(options?.color),
+    size: style(options?.size),
+    weight: style(options?.weight),
+    font: style(options?.font),
+    maxWidth: style(options?.maxWidth),
+  }
 }
 
 const badgeCorners: readonly BadgeCorner[] = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']
@@ -66,6 +88,9 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     label: channel(typeof label === 'object' ? label.text : label),
     secondary: channel(typeof label === 'object' ? label.secondary : undefined),
     labelBackground: style(typeof label === 'object' ? label.background : undefined),
+    labelText: labelText(typeof label === 'object' ? label : null),
+    labelPlacement: style(typeof label === 'object' ? label.placement : undefined),
+    labelMinScreenSize: style(typeof label === 'object' ? label.minScreenSize : undefined),
     shape: style(options.shape),
     fill: style(options.fill),
     stroke: style(options.stroke),
@@ -91,6 +116,7 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     width: channel(options.width),
     label: channel(typeof label === 'object' ? label.text : label),
     labelBackground: style(typeof label === 'object' ? label.background : undefined),
+    labelText: labelText(typeof label === 'object' ? label : null),
     dash: style(options.dash),
     arrow: style(options.arrow),
     stroke: style(options.stroke),

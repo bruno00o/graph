@@ -56,6 +56,10 @@ export type EdgeArrow = 'none' | 'source' | 'target' | 'both'
 
 export type BadgeCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
 
+export type LabelPlacement = 'bottom' | 'top' | 'right' | 'left' | 'center'
+
+export type LabelWeight = 'normal' | 'bold' | number
+
 export interface Badge {
   readonly text?: string | number
   readonly fill?: string
@@ -68,16 +72,23 @@ export interface NodeImage {
   readonly color?: string
 }
 
-export interface LabelOptions<T> {
+export interface LabelTextOptions<T> {
   readonly text: Channel<T, string>
-  readonly secondary?: Channel<T, string>
   readonly background?: Style<T, string | boolean | null>
+  readonly color?: Style<T, string>
+  readonly size?: Style<T, number>
+  readonly weight?: Style<T, LabelWeight>
+  readonly font?: Style<T, string>
+  readonly maxWidth?: Style<T, number>
 }
 
-export interface EdgeLabelOptions<T> {
-  readonly text: Channel<T, string>
-  readonly background?: Style<T, string | boolean | null>
+export interface LabelOptions<T> extends LabelTextOptions<T> {
+  readonly secondary?: Channel<T, string>
+  readonly placement?: Style<T, LabelPlacement>
+  readonly minScreenSize?: Style<T, number>
 }
+
+export interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
 
 export interface NodeOptions<T> {
   readonly key?: KeyChannel<T>
@@ -165,6 +176,7 @@ export interface StateStyle {
   readonly outlineWidth?: number
   readonly halo?: boolean
   readonly label?: boolean
+  readonly labelColor?: string
 }
 
 export type SelectMode = 'single' | 'multiple' | false
