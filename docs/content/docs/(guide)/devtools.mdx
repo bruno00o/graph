@@ -1,0 +1,94 @@
+---
+title: TanStack Devtools
+description: Inspect every graph on the page and time its frames in the TanStack Devtools panel.
+---
+
+`@bruno00o/graph/devtools` adds a Graph panel to [TanStack Devtools](https://tanstack.com/devtools). It lists the graphs mounted on the page and shows, for the one you pick, what it holds and how long it takes to draw.
+
+<LiveExample slug="devtools" />
+
+## Add the panel
+
+Install the devtools shell for your framework, then pass the plugin to it.
+
+```tsx tab="React" tab-group="framework"
+import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools/react'
+import { TanStackDevtools } from '@tanstack/react-devtools'
+
+const plugins = [graphDevtoolsPlugin()]
+
+export function App() {
+  return (
+    <>
+      <Page />
+      <TanStackDevtools plugins={plugins} />
+    </>
+  )
+}
+```
+
+```ts tab="Vanilla" tab-group="framework"
+import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools'
+import { TanStackDevtoolsCore } from '@tanstack/devtools'
+
+const devtools = new TanStackDevtoolsCore({ plugins: [graphDevtoolsPlugin()] })
+devtools.mount(document.body.appendChild(document.createElement('div')))
+```
+
+The React entry needs `@tanstack/devtools-utils`; the vanilla entry needs only `@tanstack/devtools`. Both are optional peer dependencies: nothing else in the package imports them.
+
+Graphs register themselves when they mount, whatever mounted them: `mountGraph`, `<Graph>`, or several of both. With more than one graph, a picker at the top of the panel switches between them, named after their `ariaLabel`.
+
+## What the panel shows
+
+| Section | Content |
+| --- | --- |
+| Performance | Frames per second, the time of the last frame, a chart of the last 120 frames against a 60 Hz budget, the last durations of `flush`, of the scene update and of the renderer `sync` and `render`, the time of the last label selection, the labels drawn and an estimate of texture memory |
+| Elements | Node and edge counts, pending edges (edges waiting for an endpoint) and the issues of the last flushes, such as duplicate keys |
+| View | Center, zoom and size of the canvas |
+| Interaction | Selection counts, hovered and focused element |
+| Named states | How many nodes and edges each state holds |
+| Layout | The running layout and its progress, then the name and duration of the last runs |
+
+Times are measured on the main thread around each step of a frame. They do not include the time the GPU takes to draw, and browsers round `performance.now()` to a tenth of a millisecond or more. A graph only draws when something changes, so the frame rate drops to idle when nothing moves.
+
+## Cost
+
+A graph measures nothing until a panel is open and visible. Until then, a frame only reads a null probe; the clock is not called. The panel reads the graph at most four times a second, and stops when it is closed, hidden or removed from the page. Its history of frames survives a close, so reopening it shows the frames timed before.
+
+Leave the panel out of production builds as you do for the rest of TanStack Devtools: the `@tanstack/devtools-vite` plugin removes it from builds, and other bundlers can import it in development only. See [Production](https://tanstack.com/devtools/latest/docs/production).
+
+## Without the devtools shell
+
+`GraphDevtoolsPanel` renders the same panel anywhere in a React tree, as in the example above. `GraphDevtoolsCore` mounts it into any element.
+
+```tsx tab="React" tab-group="framework"
+import { GraphDevtoolsPanel } from '@bruno00o/graph/devtools/react'
+
+<GraphDevtoolsPanel theme="light" />
+```
+
+```ts tab="Vanilla" tab-group="framework"
+import { GraphDevtoolsCore } from '@bruno00o/graph/devtools'
+
+const panel = new GraphDevtoolsCore()
+panel.mount(element, { theme: 'light' })
+panel.unmount()
+```
+
+## Translate the panel
+
+Every text of the panel, number formats included, comes from `messages`. Pass the ones to replace; the others stay in English.
+
+```ts
+const plugin = graphDevtoolsPlugin({
+  messages: {
+    title: 'Graphe',
+    nodes: 'Nœuds',
+    edges: 'Arêtes',
+    number: (value) => new Intl.NumberFormat('fr-FR').format(value),
+  },
+})
+```
+
+See [Devtools](/docs/api/devtools) for the full list.
