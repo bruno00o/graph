@@ -36,6 +36,12 @@ export class ImageAtlas {
     return this.#texture ?? this.#placeholder
   }
 
+  get bytes(): number {
+    let texels = 0
+    for (let level = 0; level < levels; level++) texels += (imageSize >> level) ** 2
+    return this.#capacity * texels * 4
+  }
+
   layer(src: string): number {
     return this.#entries.get(src)?.layer ?? -1
   }

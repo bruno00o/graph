@@ -280,6 +280,8 @@ export class LabelLayer {
   readonly highlight: GlyphBuffer = new GlyphBuffer()
   readonly edgeMain: GlyphBuffer = new GlyphBuffer()
   readonly edgeHighlight: GlyphBuffer = new GlyphBuffer()
+  nodeLabels = 0
+  edgeLabels = 0
   #occupancy: Uint8Array = new Uint8Array(0)
   #cols = 0
   #rows = 0
@@ -336,6 +338,8 @@ export class LabelLayer {
     this.highlight.clear()
     this.edgeMain.clear()
     this.edgeHighlight.clear()
+    this.nodeLabels = 0
+    this.edgeLabels = 0
     const { nodes, edges, positions, view, width, height } = frame
     this.#cols = Math.ceil(width / cell) + 1
     this.#rows = Math.ceil(height / cell) + 1
@@ -407,6 +411,7 @@ export class LabelLayer {
       const color = nodes.labelColor[index] ?? noColor
       emit(target, index, flags, block, atlas.height, top, align, shift, color, size)
       placed++
+      this.nodeLabels++
     }
 
     const anchor = this.#anchor
@@ -457,6 +462,7 @@ export class LabelLayer {
       const color = edges.labelColor[index] ?? noColor
       emit(target, index, flags, block, atlas.height, top, 0, 0, color, size)
       placed++
+      this.edgeLabels++
     }
 
     for (const index of highlighted) if (forced(index)) place(index, true)

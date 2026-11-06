@@ -22,7 +22,9 @@
       "@bruno00o/graph/db": ["./src/db/index.ts"],
       "@bruno00o/graph/query": ["./src/query/index.ts"],
       "@bruno00o/graph/layouts": ["./src/layouts/index.ts"],
-      "@bruno00o/graph/layouts/force": ["./src/layouts/force/index.ts"]
+      "@bruno00o/graph/layouts/force": ["./src/layouts/force/index.ts"],
+      "@bruno00o/graph/devtools": ["./src/devtools/index.ts"],
+      "@bruno00o/graph/devtools/react": ["./src/devtools/react.tsx"]
     }
   },
   "include": ["src", "examples"]

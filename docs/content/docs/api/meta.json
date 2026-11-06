@@ -22,6 +22,8 @@
     "layouts",
     "---@bruno00o/graph/layouts/force---",
     "force",
+    "---@bruno00o/graph/devtools---",
+    "devtools",
     "---@bruno00o/graph/theme.css---",
     "theme-tokens"
   ]

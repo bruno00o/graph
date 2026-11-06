@@ -1,7 +1,12 @@
 import type { GraphInstance } from '@bruno00o/graph'
 import type { ComponentType, Ref } from 'react'
 
-export type ExampleTag = 'Vanilla' | 'React' | 'TanStack DB' | 'TanStack Query'
+export type ExampleTag =
+  | 'Vanilla'
+  | 'React'
+  | 'TanStack DB'
+  | 'TanStack Query'
+  | 'TanStack Devtools'
 
 export type LoadedExample =
   | { readonly kind: 'vanilla'; readonly mount: (container: HTMLElement) => GraphInstance }
@@ -134,6 +139,17 @@ export const examples: readonly ExampleEntry[] = [
     files: ['explore/main.tsx', 'explore/api.ts', ...shared],
     load: () => import('./explore/main').then(({ Example }) => ({ kind: 'react', Example })),
   },
+  {
+    slug: 'devtools',
+    title: 'Devtools panel',
+    description:
+      'The panel of TanStack Devtools, inline under the graph: frame times, renderer timings, element counts, view and selection, updated as you interact.',
+    hint: 'Pan and zoom to fill the frame chart. Change the node count to time a flush.',
+    tags: ['React', 'TanStack Devtools'],
+    modules: ['@bruno00o/graph/react', '@bruno00o/graph/devtools/react'],
+    files: ['devtools/main.tsx', 'devtools/devtools.css', ...shared],
+    load: () => import('./devtools/main').then(({ Example }) => ({ kind: 'react', Example })),
+  },
 ]
 
 export const exampleTags: readonly ExampleTag[] = [
@@ -141,6 +157,7 @@ export const exampleTags: readonly ExampleTag[] = [
   'React',
   'TanStack DB',
   'TanStack Query',
+  'TanStack Devtools',
 ]
 
 export function findExample(slug: string): ExampleEntry | undefined {
