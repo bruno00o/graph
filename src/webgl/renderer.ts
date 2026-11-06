@@ -1,7 +1,9 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
+import { maxStates, noPaint } from '../core/state-buffers'
 import type { ResolvedTheme } from '../dom/theme'
 import type { LabelArea, Renderer, RenderInput } from '../host/renderer'
 import { createBackdrop } from './backdrop'
+import { EdgeCover, layerCap } from './edge-cover'
 import {
   type Attribute,
   createBuffer,
@@ -13,7 +15,14 @@ import {
 import { GlState } from './gl-state'
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
 import { ImageAtlas } from './image-atlas'
-import { GlyphBuffer, glyphStride, LabelLayer, sortBySize, sortEdgesByWidth } from './label-layer'
+import {
+  GlyphBuffer,
+  glyphStride,
+  LabelLayer,
+  LabelPlan,
+  sortBySize,
+  sortEdgesByWidth,
+} from './label-layer'
 import {
   badgeFragment,
   badgeVertex,
@@ -39,6 +48,7 @@ function blockBindings(
   return { Frame: count - 2, States: count - 1 }
 }
 const paletteWidth = 256
+const highlightBits = 3
 const labelInterval = 120
 const badgeStride = 20
 
@@ -74,6 +84,7 @@ export function createWebglRenderer(
   const context = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
+    stencil: true,
     premultipliedAlpha: true,
     preserveDrawingBuffer: false,
     powerPreference: 'high-performance',
@@ -121,6 +132,7 @@ function createRenderer(
   shared: boolean,
 ): Renderer {
   const blocks = blockBindings(gl, shared)
+  const capEdges = !shared && (gl.getContextAttributes()?.stencil ?? false)
   const format = formats(gl)
   const f32 = (length: number) => new Float32Array(length)
   const u32 = (length: number) => new Uint32Array(length)
@@ -139,6 +151,8 @@ function createRenderer(
   const floatBits = new Float32Array(1)
   const floatWord = new Uint32Array(floatBits.buffer)
   const edgeTextures = [edgeTopology, edgeStyle, edgeState]
+  const cover = new EdgeCover()
+  let coverStale = false
 
   const palette = gl.createTexture()
   let paletteRows = 0
@@ -402,6 +416,7 @@ function createRenderer(
   let input: RenderInput | null = null
   const atlas = new GlyphAtlas('system-ui, sans-serif')
   const labels = new LabelLayer()
+  const labelPlan = new LabelPlan()
   let labelOrder = new Uint32Array(0)
   let labelOrderLength = 0
   let screenLabels = false
@@ -427,6 +442,7 @@ function createRenderer(
   let badgeGeneration = -1
 
   function packNode(nodes: NodeColumns, index: number): void {
+    labels.forgetNode(index)
     const at = index * 4
     const flags =
       (nodes.shape[index] ?? 0) |
@@ -526,6 +542,7 @@ function createRenderer(
   }
 
   function packEdge(edges: EdgeColumns, index: number): void {
+    labels.forgetEdge(index)
     const at = index * 4
     edgeTopology.data[at] = edges.source[index] ?? 0
     edgeTopology.data[at + 1] = edges.target[index] ?? 0
@@ -540,6 +557,9 @@ function createRenderer(
     const bend = edges.bend[index] ?? 0
     edgeStyle.data[at + 2] = bend
     edgeStyle.data[at + 3] = edges.flow[index] ?? 0
+    if (capEdges) {
+      cover.set(index, edges.alive[index] === 1, edges.opacity[index] ?? 1, edges.color[index] ?? 0)
+    }
     const isCurved =
       edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
     if (isCurved !== (curvedFlags[index] === 1)) {
@@ -723,7 +743,7 @@ function createRenderer(
     const nodes = input.scene.nodes
     if (orderStale) {
       if (labelOrder.length < nodes.capacity) labelOrder = new Uint32Array(nodes.capacity)
-      const sorted = sortBySize(nodes, labelOrder)
+      const sorted = sortBySize(nodes, labelOrder, labelPlan)
       labelOrderLength = sorted.length
       screenLabels = sorted.screenLabels
       largestLabel = sorted.largest
@@ -751,6 +771,7 @@ function createRenderer(
         highlighted: input.states.highlightedNodes,
         order: labelOrder,
         orderLength: labelOrderLength,
+        plan: labelPlan,
         screenLabels,
         largestLabel,
         edges,
@@ -786,6 +807,32 @@ function createRenderer(
     lastLabelView = key
     labelTime = performance.now() - now
     return -1
+  }
+
+  function edgeLayerCap(): number {
+    if (!input) return 0
+    const edges = input.scene.edges
+    if (coverStale) {
+      coverStale = false
+      for (let index = 0; index < edges.capacity; index++) {
+        cover.set(
+          index,
+          edges.alive[index] === 1,
+          edges.opacity[index] ?? 1,
+          edges.color[index] ?? 0,
+        )
+      }
+    }
+    const { numbers, paint } = input.states
+    let opacity = 1
+    let alpha = 1
+    for (let at = (maxStates + highlightBits) * 4; at < maxStates * 8; at += 4) {
+      const factor = numbers[at] ?? -1
+      if (factor >= 0) opacity = Math.min(opacity, factor)
+      const stroke = paint[at + 1] ?? noPaint
+      if (stroke !== noPaint) alpha = Math.min(alpha, cover.alphaOf(stroke))
+    }
+    return layerCap(cover.lowest() * opacity * alpha)
   }
 
   function textureBytes(): number {
@@ -851,6 +898,8 @@ function createRenderer(
       const rows = Math.max(1, Math.ceil(count / paletteWidth))
       const data = new Uint8Array(rows * paletteWidth * 4)
       data.set(colors.subarray(0, Math.min(colors.length, data.length)))
+      cover.setPalette(data, count)
+      coverStale = capEdges
       gl.bindTexture(gl.TEXTURE_2D, palette)
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
       if (rows !== paletteRows) {
@@ -926,6 +975,8 @@ function createRenderer(
         gl.clearColor(0, 0, 0, 0)
         gl.clear(gl.COLOR_BUFFER_BIT)
       }
+      let stencilClean = false
+      const edgeLayers = capEdges ? edgeLayerCap() : 0
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
@@ -935,12 +986,26 @@ function createRenderer(
       backdrop.drawHulls()
       for (const layer of input?.scene.layers ?? []) {
         if (layer.kind === 'edges') {
+          if (edgeLayers > 0) {
+            if (!stencilClean) {
+              gl.clearStencil(0)
+              gl.clear(gl.STENCIL_BUFFER_BIT)
+              stencilClean = true
+            }
+            gl.enable(gl.STENCIL_TEST)
+            gl.stencilFunc(gl.GREATER, edgeLayers, 0xff)
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR)
+          }
           draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
           if (curved.size > 0) {
             const pass = curves()
             draw(pass.program, pass.main, curved.size, layer.slot, 0)
           }
-        } else draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
+          if (edgeLayers > 0) gl.disable(gl.STENCIL_TEST)
+        } else {
+          draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
+          stencilClean = false
+        }
       }
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
       draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
