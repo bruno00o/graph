@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.0](https://github.com/bruno00o/graph/compare/0.6.0...0.7.0) (2026-11-06)
+
+
+### Features
+
+* filter large graphs with tanstack db and load them on demand ([#38](https://github.com/bruno00o/graph/issues/38)) ([c4fb403](https://github.com/bruno00o/graph/commit/c4fb4039cabbca8e1d3479d62782495bba9ab10d))
+* inspect graphs and their render timings in tanstack devtools ([#36](https://github.com/bruno00o/graph/issues/36)) ([302b7ca](https://github.com/bruno00o/graph/commit/302b7cafcf0024a233798c242f42863b6e1163af))
+* lay out directed graphs in layers ([#39](https://github.com/bruno00o/graph/issues/39)) ([2b5f304](https://github.com/bruno00o/graph/commit/2b5f304ce0e97fa053a9e73d79aa0c2a18311b40))
+
 ## [0.6.0](https://github.com/bruno00o/graph/compare/0.5.1...0.6.0) (2026-11-06)
 
 
