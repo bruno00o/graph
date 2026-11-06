@@ -26,6 +26,8 @@ export interface Source<M extends AnyMark> {
   readonly queue: SourceChange<unknown>[]
   subscription: SourceSubscription | null
   retired: boolean
+  previous: ReadonlyMap<Key, unknown> | null
+  forced: boolean
 }
 
 export interface Owner<M extends AnyMark> {
@@ -41,7 +43,6 @@ export type DirtyVisitor<M extends AnyMark> = (
 ) => void
 
 export class SourceTable<M extends AnyMark> {
-  readonly remarked: Source<M>[] = []
   readonly #dirty: Map<Key, boolean> = new Map()
   readonly #fresh: Source<M>[] = []
   readonly #kind: ElementKind
@@ -62,7 +63,7 @@ export class SourceTable<M extends AnyMark> {
   }
 
   get pending(): boolean {
-    return this.#dirty.size > 0 || this.#fresh.length > 0 || this.remarked.length > 0
+    return this.#dirty.size > 0 || this.#fresh.length > 0
   }
 
   isDirty(key: Key): boolean {
@@ -99,14 +100,36 @@ export class SourceTable<M extends AnyMark> {
     this.#fresh.length = 0
   }
 
+  markAt(slot: number): M {
+    const source = this.#sources[slot]
+    if (!source) throw new Error(`graph: no ${this.#kind} mark at position ${slot}`)
+    return source.mark
+  }
+
   drain(): void {
     for (const source of this.#sources) {
+      const previous = source.previous
       for (const change of source.queue) {
-        if (change.type === 'delete') source.items.delete(change.key)
-        else source.items.set(change.key, change.value)
-        this.#markDirty(change.key)
+        if (change.type === 'delete') {
+          source.items.delete(change.key)
+          this.#markDirty(change.key)
+          continue
+        }
+        source.items.set(change.key, change.value)
+        if (
+          source.forced ||
+          !previous ||
+          previous.get(change.key) !== change.value ||
+          !previous.has(change.key)
+        ) {
+          this.#markDirty(change.key, source.forced)
+        }
       }
       source.queue.length = 0
+      if (!previous) continue
+      for (const key of previous.keys()) if (!source.items.has(key)) this.#markDirty(key)
+      source.previous = null
+      source.forced = false
     }
   }
 
@@ -132,7 +155,6 @@ export class SourceTable<M extends AnyMark> {
     }
     this.#sources = []
     this.clearDirty()
-    this.remarked.length = 0
   }
 
   #reconcile(slot: number, mark: M, old: Source<M> | undefined): Source<M> {
@@ -142,11 +164,15 @@ export class SourceTable<M extends AnyMark> {
     if (isLiveSource(data)) {
       if (old?.live === data) {
         old.mark = mark
-        this.#refresh(old, optionsChanged)
+        if (optionsChanged) for (const key of old.items.keys()) this.#markDirty(key, true)
         return old
       }
-      if (old) this.#retire(old)
       const source = this.#create(slot, mark, data)
+      if (old) {
+        source.previous = old.previous ?? old.items
+        source.forced = optionsChanged || old.forced
+        this.#notify()
+      }
       source.subscription = data.subscribeChanges(
         (changes) => {
           if (source.retired || changes.length === 0) return
@@ -155,6 +181,7 @@ export class SourceTable<M extends AnyMark> {
         },
         { includeInitialState: true },
       )
+      if (old) this.#retire(old, false)
       return source
     }
     const source = this.#create(slot, mark, null)
@@ -171,16 +198,7 @@ export class SourceTable<M extends AnyMark> {
         this.#markDirty(key, optionsChanged)
       }
     }
-    if (!optionsChanged) this.remarked.push(source)
     return source
-  }
-
-  #refresh(source: Source<M>, optionsChanged: boolean): void {
-    if (!optionsChanged) {
-      this.remarked.push(source)
-      return
-    }
-    for (const key of source.items.keys()) this.#markDirty(key, true)
   }
 
   #collect(source: Source<M>, data: Iterable<unknown>): void {
@@ -224,15 +242,27 @@ export class SourceTable<M extends AnyMark> {
   }
 
   #create(slot: number, mark: M, live: LiveSource<unknown> | null): Source<M> {
-    return { slot, mark, live, items: new Map(), queue: [], subscription: null, retired: false }
+    return {
+      slot,
+      mark,
+      live,
+      items: new Map(),
+      queue: [],
+      subscription: null,
+      retired: false,
+      previous: null,
+      forced: false,
+    }
   }
 
-  #retire(source: Source<M>): void {
+  #retire(source: Source<M>, forget = true): void {
     const fresh = this.#fresh.indexOf(source)
     if (fresh >= 0) this.#fresh.splice(fresh, 1)
     source.retired = true
     source.subscription?.unsubscribe()
     source.subscription = null
+    if (!forget && fresh < 0) return
+    for (const key of source.previous?.keys() ?? []) this.#markDirty(key)
     for (const key of source.items.keys()) this.#markDirty(key)
   }
 

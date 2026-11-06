@@ -1,7 +1,7 @@
 import type { EdgeMark, Key, Mark, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { IndexPool } from './index-pool'
-import { type AnyMark, type GraphIssue, type Source, SourceTable } from './source-table'
+import { type GraphIssue, type Source, SourceTable } from './source-table'
 
 export type { ElementKind, GraphIssue } from './source-table'
 
@@ -70,29 +70,46 @@ export interface GraphModel {
   destroy(): void
 }
 
-interface NodeEntry {
-  readonly key: Key
-  readonly index: number
-  datum: unknown
-  mark: NodeMark<unknown>
-  slot: number
+class NodeEntry implements NodeRecord {
   incident: EdgeEntry | null
+
+  constructor(
+    readonly key: Key,
+    readonly index: number,
+    public datum: unknown,
+    public slot: number,
+    readonly table: SourceTable<NodeMark<unknown>>,
+    incident: EdgeEntry | null,
+  ) {
+    this.incident = incident
+  }
+
+  get mark(): NodeMark<unknown> {
+    return this.table.markAt(this.slot)
+  }
 }
 
-interface EdgeEntry {
-  readonly key: Key
-  index: number
-  datum: unknown
-  mark: EdgeMark<unknown>
-  slot: number
-  source: Key | null
-  target: Key | null
-  sourceIndex: number
-  targetIndex: number
-  sourceNext: EdgeEntry | null
-  sourcePrev: EdgeEntry | null
-  targetNext: EdgeEntry | null
-  targetPrev: EdgeEntry | null
+class EdgeEntry {
+  sourceIndex = -1
+  targetIndex = -1
+  sourceNext: EdgeEntry | null = null
+  sourcePrev: EdgeEntry | null = null
+  targetNext: EdgeEntry | null = null
+  targetPrev: EdgeEntry | null = null
+
+  constructor(
+    readonly key: Key,
+    public index: number,
+    public datum: unknown,
+    public slot: number,
+    public source: Key | null,
+    public target: Key | null,
+    readonly table: SourceTable<EdgeMark<unknown>>,
+  ) {}
+
+  get mark(): EdgeMark<unknown> {
+    return this.table.markAt(this.slot)
+  }
 }
 
 type VisibleEdge = EdgeEntry & Endpoints
@@ -135,20 +152,6 @@ function setPreviousAt(entry: EdgeEntry, key: Key, previous: EdgeEntry | null): 
 
 function emptyChanges(): MutableChanges {
   return { added: [], updated: [], removed: [] }
-}
-
-function remark<M extends AnyMark>(
-  sources: Source<M>[],
-  entries: ReadonlyMap<Key, { slot: number; mark: M }>,
-): void {
-  for (const source of sources) {
-    if (source.retired) continue
-    for (const key of source.items.keys()) {
-      const entry = entries.get(key)
-      if (entry?.slot === source.slot) entry.mark = source.mark
-    }
-  }
-  sources.length = 0
 }
 
 export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
@@ -226,7 +229,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   }
 
   function flushNodes(changes: MutableChanges, touched: Set<Key>, freed: number[]): void {
-    remark(nodeSources.remarked, nodeEntries)
     const touch = (key: Key, head: EdgeEntry | null) => {
       for (let entry = head; entry !== null; entry = nextAt(entry, key)) touched.add(entry.key)
     }
@@ -245,12 +247,12 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         }
         return
       }
-      const { mark, slot } = source
+      const slot = source.slot
       if (!entry) {
         const index = nodePool.acquire()
         const incident = orphans.size > 0 ? (orphans.get(key) ?? null) : null
         if (incident) orphans.delete(key)
-        const created: NodeEntry = { key, index, datum, mark, slot, incident }
+        const created = new NodeEntry(key, index, datum, slot, nodeSources, incident)
         nodeEntries.set(key, created)
         nodesByIndex[index] = created
         changes.added.push({ key, index })
@@ -261,7 +263,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         changes.updated.push({ key, index: entry.index })
       }
       entry.datum = datum
-      entry.mark = mark
       entry.slot = slot
     })
     nodeSources.clearDirty()
@@ -272,7 +273,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     touched: Set<Key>,
     freed: number[],
   ): void {
-    remark(edgeSources.remarked, edgeEntries)
     let readMark: EdgeMark<unknown> | null = null
     let readSource: (datum: unknown) => unknown = () => undefined
     let readTarget: (datum: unknown) => unknown = () => undefined
@@ -335,21 +335,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
           from = sourceNode(source)
           to = targetNode(target)
           resolved = true
-          entry = {
-            key,
-            index: -1,
-            datum,
-            mark,
-            slot,
-            source,
-            target,
-            sourceIndex: -1,
-            targetIndex: -1,
-            sourceNext: null,
-            sourcePrev: null,
-            targetNext: null,
-            targetPrev: null,
-          }
+          entry = new EdgeEntry(key, -1, datum, slot, source, target, edgeSources)
           edgeEntries.set(key, entry)
           link(entry, from, to)
         } else {
@@ -366,7 +352,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
             link(entry, from, to)
           }
           entry.datum = datum
-          entry.mark = mark
           entry.slot = slot
         }
       }

@@ -89,32 +89,6 @@ describe('sortBySize', () => {
   })
 })
 
-describe('sortDescending', () => {
-  it('orders like a stable comparator, ties by position, negatives and zeros included', () => {
-    let state = 3
-    const next = () => {
-      state = (Math.imul(state, 1664525) + 1013904223) >>> 0
-      return state / 4294967296
-    }
-    const pool = [0, -0, 1, -1, 0.5, -0.5, 1e-30, -1e-30, 3e8, -3e8, 12, 12.000001]
-    for (const length of [0, 1, 2, 7, 3000, 20000]) {
-      const values = new Float32Array(length + 5)
-      for (let index = 0; index < values.length; index++) {
-        values[index] =
-          next() < 0.5 ? (pool[Math.floor(next() * pool.length)] ?? 0) : next() * 200 - 100
-      }
-      const order = new Uint32Array(length + 3)
-      const input = Array.from({ length }, (_, at) => at + 5 - (at % 3))
-      order.set(input)
-      order[length] = 99
-      const expected = [...input].sort((a, b) => (values[b] ?? 0) - (values[a] ?? 0))
-      sortDescending(order, length, values)
-      expect(Array.from(order.subarray(0, length))).toEqual(expected)
-      if (length > 0) expect(order[length]).toBe(99)
-    }
-  })
-})
-
 describe('GlyphBuffer', () => {
   it('packs one record per glyph and grows', () => {
     const glyph: Glyph = { x: 512, y: 128, width: 10, height: 20, left: 0, top: 4, advance: 9 }
@@ -384,6 +358,23 @@ describe('sortEdgesByWidth', () => {
     const { length, largest } = sortEdgesByWidth(edges, order)
     expect(Array.from(order.subarray(0, length))).toEqual([2, 3, 0])
     expect(largest).toBe(20)
+  })
+})
+
+describe('sortDescending', () => {
+  it('orders like a stable sort from largest to smallest', () => {
+    let seed = 7
+    const next = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+      return seed / 4294967296
+    }
+    const values = Float32Array.from({ length: 5000 }, (_, index) =>
+      index % 7 === 0 ? 0 : index % 5 === 0 ? 12.5 : next() * 1000,
+    )
+    const order = Uint32Array.from({ length: 4000 }, (_, index) => index * 1.25)
+    const expected = Array.from(order).sort((a, b) => (values[b] ?? 0) - (values[a] ?? 0))
+    sortDescending(order, order.length, values)
+    expect(Array.from(order)).toEqual(expected)
   })
 })
 

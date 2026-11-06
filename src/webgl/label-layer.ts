@@ -511,54 +511,6 @@ export class LabelLayer {
   }
 }
 
-const radixBits = 11
-const radixSize = 1 << radixBits
-
-export function sortDescending(order: Uint32Array, length: number, values: Float32Array): void {
-  if (length < 2) return
-  const bits = new Uint32Array(values.buffer, values.byteOffset, values.length)
-  let keys = new Uint32Array(length)
-  let spareKeys = new Uint32Array(length)
-  let items: Uint32Array = order.subarray(0, length)
-  let spareItems: Uint32Array = new Uint32Array(length)
-  for (let at = 0; at < length; at++) {
-    const word = bits[items[at] ?? 0] ?? 0
-    keys[at] = word > 0x80000000 ? word : ~word & 0x7fffffff
-  }
-  const counts = new Uint32Array(radixSize)
-  for (let shift = 0; shift < 32; shift += radixBits) {
-    counts.fill(0)
-    for (let at = 0; at < length; at++) {
-      const digit = ((keys[at] ?? 0) >>> shift) & (radixSize - 1)
-      counts[digit] = (counts[digit] ?? 0) + 1
-    }
-    let total = 0
-    let single = false
-    for (let digit = 0; digit < radixSize; digit++) {
-      const count = counts[digit] ?? 0
-      if (count === length) single = true
-      counts[digit] = total
-      total += count
-    }
-    if (single) continue
-    for (let at = 0; at < length; at++) {
-      const key = keys[at] ?? 0
-      const digit = (key >>> shift) & (radixSize - 1)
-      const position = counts[digit] ?? 0
-      counts[digit] = position + 1
-      spareKeys[position] = key
-      spareItems[position] = items[at] ?? 0
-    }
-    const sortedKeys = spareKeys
-    spareKeys = keys
-    keys = sortedKeys
-    const sortedItems = spareItems
-    spareItems = items
-    items = sortedItems
-  }
-  if (items.buffer !== order.buffer) order.set(items)
-}
-
 export interface EdgeLabelOrder {
   readonly length: number
   readonly largest: number
@@ -575,6 +527,49 @@ export function sortEdgesByWidth(edges: EdgeColumns, order: Uint32Array): EdgeLa
   }
   sortDescending(order, length, edges.width)
   return { length, largest }
+}
+
+const radixBits = 11
+const radixMask = (1 << radixBits) - 1
+const lastKey = 0xffffffff
+
+export function sortDescending(order: Uint32Array, length: number, values: Float32Array): void {
+  if (length < 2) return
+  const bits = new Uint32Array(values.buffer, values.byteOffset, values.length)
+  let keys = new Uint32Array(length)
+  let items = order.slice(0, length)
+  for (let at = 0; at < length; at++) {
+    const index = items[at] ?? 0
+    keys[at] = (values[index] ?? 0) > 0 ? lastKey - (bits[index] ?? 0) : lastKey
+  }
+  let nextKeys = new Uint32Array(length)
+  let nextItems = new Uint32Array(length)
+  const counts = new Uint32Array(radixMask + 1)
+  for (let shift = 0; shift < 32; shift += radixBits) {
+    counts.fill(0)
+    for (let at = 0; at < length; at++) {
+      const digit = ((keys[at] ?? 0) >>> shift) & radixMask
+      counts[digit] = (counts[digit] ?? 0) + 1
+    }
+    if (counts[((keys[0] ?? 0) >>> shift) & radixMask] === length) continue
+    let sum = 0
+    for (let digit = 0; digit <= radixMask; digit++) {
+      const count = counts[digit] ?? 0
+      counts[digit] = sum
+      sum += count
+    }
+    for (let at = 0; at < length; at++) {
+      const key = keys[at] ?? 0
+      const digit = (key >>> shift) & radixMask
+      const to = counts[digit] ?? 0
+      counts[digit] = to + 1
+      nextKeys[to] = key
+      nextItems[to] = items[at] ?? 0
+    }
+    ;[keys, nextKeys] = [nextKeys, keys]
+    ;[items, nextItems] = [nextItems, items]
+  }
+  order.set(items)
 }
 
 export interface LabelOrder {

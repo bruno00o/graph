@@ -1,0 +1,33 @@
+---
+title: subset
+description: Draw the rows of a TanStack DB collection that match a where expression.
+---
+
+```ts
+import { subset } from '@bruno00o/graph/db'
+
+function subset<T extends object, TKey extends string | number>(
+  collection: Collection<T, TKey>,
+  where: SubsetWhere<T, TKey>,
+): LiveSource<WithVirtualProps<T, TKey>>
+```
+
+Returns a live source to pass to `nodes()` or `edges()`. When the graph subscribes, it calls `collection.subscribeChanges` with your `where`, so it receives only the matching rows, then each insert, update and delete that enters, changes or leaves the subset.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `collection` | `Collection<T, TKey>` | Collection to read |
+| `where` | `SubsetWhere<T, TKey>` | Callback that receives a row proxy and returns an expression built with `eq`, `gte`, `inArray`, `and`, `or` and the other operators of `@tanstack/db` |
+
+`SubsetWhere<T, TKey>` is the type of the `where` option of `subscribeChanges`.
+
+## Behavior
+
+- No collection is created: the rows are those of the collection, the same objects in every subset.
+- Build a new subset when the filter changes, and pass it in a new definition. The graph subscribes to it before releasing the previous one and compares the two: nodes in both, with the same row, are left untouched.
+- On a collection with `syncMode: 'on-demand'`, the `where` reaches `loadSubset`, and releasing the subset calls `unloadSubset` with the same options.
+- Row fields are checked: `where` only accepts fields of `T`, and the mark options that follow too.
+
+See [TanStack DB](/docs/tanstack-db#filter-a-large-collection) for a walkthrough.

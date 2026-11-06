@@ -88,6 +88,76 @@ describe('PickIndex', () => {
     expect(pick(-500, -500)).toBeNull()
   })
 
+  it('refreshes only what changed and picks like a full build', () => {
+    const model = createGraphModel()
+    const scene = createScene()
+    const positions = new Positions()
+    const source: PickSource = {
+      nodes: scene.nodes,
+      edges: scene.edges,
+      positions,
+      order: (_kind, index) => index,
+    }
+    const grid = (count: number): Item[] =>
+      Array.from({ length: count }, (_, i) => ({
+        id: `n${i}`,
+        x: (i % 10) * 50,
+        y: Math.floor(i / 10) * 50,
+      }))
+    const apply = (items: Item[], links: Link[]) => {
+      const definition = defineGraph({
+        marks: [edges(links, { source: 'from', target: 'to' }), nodes(items, { x: 'x', y: 'y' })],
+      })
+      model.setMarks(definition.marks)
+      scene.setDefinition(definition)
+      const changes = model.flush()
+      scene.apply(model, changes)
+      const moves = placeNodes(model, positions, changes)
+      moves.indices.forEach((index, i) => {
+        positions.set(index, moves.to[i * 2] ?? 0, moves.to[i * 2 + 1] ?? 0)
+      })
+    }
+    const before = grid(100)
+    apply(before, [{ id: 'e', from: 'n0', to: 'n1' }])
+    const index = new PickIndex()
+    index.build(source)
+
+    const after = [
+      ...before.slice(2).map((node) => (node.id === 'n55' ? { ...node, x: 1000, y: 1000 } : node)),
+      { id: 'x', x: 225, y: 225 },
+    ]
+    apply(after, [
+      { id: 'f', from: 'n55', to: 'n56' },
+      { id: 'g', from: 'x', to: 'x' },
+    ])
+    index.refresh(source)
+    const fresh = new PickIndex()
+    fresh.build(source)
+    const keyOf = (hit: ReturnType<PickIndex['pick']>) =>
+      hit === null
+        ? null
+        : hit.kind === 'node'
+          ? scene.nodes.keys[hit.index]
+          : scene.edges.keys[hit.index]
+    const probes = [
+      [0, 0],
+      [25, 0],
+      [225, 225],
+      [250, 250],
+      [1000, 1000],
+      [800, 786],
+      [300, 250],
+      [234, 216],
+    ] as const
+    for (const [x, y] of probes) {
+      expect(keyOf(index.pick(source, x, y, 1, 4))).toBe(keyOf(fresh.pick(source, x, y, 1, 4)))
+    }
+    expect(keyOf(index.pick(source, 1000, 1000, 1, 4))).toBe('n55')
+    expect(keyOf(index.pick(source, 225, 225, 1, 4))).toBe('x')
+    expect(keyOf(index.pick(source, 0, 0, 1, 4))).toBeNull()
+    expect(keyOf(index.pick(source, 800, 786, 1, 4))).toBe('f')
+  })
+
   it('sizes screen-unit nodes by the zoom', () => {
     const { pick } = setup([{ id: 'a', x: 0, y: 0 }], [], { units: 'screen' })
     expect(pick(20, 0, 1)).toBeNull()

@@ -43,6 +43,7 @@ export default defineConfig({
         labels: resolve(import.meta.dirname, 'examples/labels/index.html'),
         layout: resolve(import.meta.dirname, 'examples/layout/index.html'),
         layouts: resolve(import.meta.dirname, 'examples/layouts/index.html'),
+        filter: resolve(import.meta.dirname, 'examples/filter/index.html'),
       },
     },
   },

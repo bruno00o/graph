@@ -21,22 +21,87 @@ export interface PickSource {
   readonly order: (kind: 'nodes' | 'edges', index: number) => number
 }
 
-interface Grid {
+interface Frame {
   readonly cell: number
   readonly minX: number
   readonly minY: number
   readonly cols: number
   readonly rows: number
+}
+
+interface Grid {
   readonly offsets: Uint32Array
   readonly items: Uint32Array
+}
+
+interface Extra {
+  readonly cells: Map<number, number[]>
+  readonly loose: number[]
 }
 
 const minimumPickRadius = 2
 const pickSegments = 16
 const indexSegments = 8
+const absent = 0xffffffff
+const extraFloor = 4096
+const extraShare = 8
+
+function emptyExtra(): Extra {
+  return { cells: new Map(), loose: [] }
+}
+
+function cellOf(frame: Frame, x: number, y: number): number {
+  const col = Math.floor((x - frame.minX) / frame.cell)
+  const row = Math.floor((y - frame.minY) / frame.cell)
+  if (col < 0 || row < 0 || col >= frame.cols || row >= frame.rows) return -1
+  return row * frame.cols + col
+}
+
+function insideFrame(frame: Frame, points: ArrayLike<number>): boolean {
+  for (let at = 0; at + 1 < points.length; at += 2) {
+    if (cellOf(frame, points[at] ?? 0, points[at + 1] ?? 0) < 0) return false
+  }
+  return true
+}
+
+function stamp(
+  cells: Map<number, number[]>,
+  cell: number,
+  index: number,
+  generation: number,
+): void {
+  const list = cells.get(cell)
+  if (list) list.push(index, generation)
+  else cells.set(cell, [index, generation])
+}
+
+function visitStamped(
+  list: readonly number[],
+  generations: Uint32Array,
+  visit: (item: number) => void,
+): void {
+  for (let at = 0; at + 1 < list.length; at += 2) {
+    const item = list[at] ?? 0
+    if (generations[item] === list[at + 1]) visit(item)
+  }
+}
+
+function grownFloat(array: Float32Array, length: number, fill: number): Float32Array {
+  if (array.length >= length) return array
+  const next = new Float32Array(length).fill(fill)
+  next.set(array)
+  return next
+}
+
+function grownUint(array: Uint32Array, length: number, fill: number): Uint32Array {
+  if (array.length >= length) return array
+  const next = new Uint32Array(length).fill(fill)
+  next.set(array)
+  return next
+}
 
 function createGrid(
-  frame: Omit<Grid, 'offsets' | 'items'>,
+  frame: Frame,
   count: number,
   visit: (index: number, emit: (cell: number) => void) => void,
 ): Grid {
@@ -59,11 +124,11 @@ function createGrid(
       cursor[cell] = at + 1
     })
   }
-  return { ...frame, offsets, items }
+  return { offsets, items }
 }
 
 function traverse(
-  grid: Omit<Grid, 'offsets' | 'items'>,
+  grid: Frame,
   ax: number,
   ay: number,
   bx: number,
@@ -99,12 +164,24 @@ function traverse(
 }
 
 export class PickIndex {
+  #frame: Frame | null = null
   #nodes: Grid | null = null
   #edges: Grid | null = null
   #maxWorldRadius = 0
   #maxScreenRadius = 0
   #maxEdgeHalfWidth = 0
   #loops: number[] = []
+  #indexedXy: Float32Array = new Float32Array(0)
+  #indexedFrom: Uint32Array = new Uint32Array(0)
+  #indexedTo: Uint32Array = new Uint32Array(0)
+  #indexedBend: Float32Array = new Float32Array(0)
+  #nodeGeneration: Uint32Array = new Uint32Array(0)
+  #edgeGeneration: Uint32Array = new Uint32Array(0)
+  #generation = 0
+  #extraNodes: Extra = emptyExtra()
+  #extraEdges: Extra = emptyExtra()
+  #extraLoops: number[] = []
+  #reindexed = 0
 
   build(source: PickSource): void {
     const { nodes, edges, positions } = source
@@ -115,10 +192,19 @@ export class PickIndex {
     let maxY = Number.NEGATIVE_INFINITY
     this.#maxWorldRadius = 0
     this.#maxScreenRadius = 0
+    this.#nodeGeneration = new Uint32Array(nodes.capacity)
+    this.#edgeGeneration = new Uint32Array(edges.capacity)
+    this.#extraNodes = emptyExtra()
+    this.#extraEdges = emptyExtra()
+    this.#extraLoops = []
+    this.#reindexed = 0
+    const indexedXy = new Float32Array(nodes.capacity * 2).fill(Number.NaN)
     for (let index = 0; index < nodes.capacity; index++) {
       if (nodes.alive[index] !== 1) continue
       const x = positions.x(index)
       const y = positions.y(index)
+      indexedXy[index * 2] = x
+      indexedXy[index * 2 + 1] = y
       const radius = (nodes.size[index] ?? 0) / 2
       if (nodes.screenUnits[index] === 1) {
         this.#maxScreenRadius = Math.max(this.#maxScreenRadius, radius)
@@ -131,15 +217,23 @@ export class PickIndex {
       maxY = Math.max(maxY, y)
       count++
     }
+    this.#indexedXy = indexedXy
     if (count === 0) {
+      this.#frame = null
       this.#nodes = null
       this.#edges = null
       this.#loops = []
       return
     }
     this.#loops = []
+    const indexedFrom = new Uint32Array(edges.capacity).fill(absent)
+    const indexedTo = new Uint32Array(edges.capacity).fill(absent)
+    const indexedBend = new Float32Array(edges.capacity)
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1) continue
+      indexedFrom[index] = edges.source[index] ?? 0
+      indexedTo[index] = edges.target[index] ?? 0
+      indexedBend[index] = edges.bend[index] ?? 0
       if (edges.source[index] === edges.target[index]) {
         this.#loops.push(index)
         continue
@@ -153,19 +247,23 @@ export class PickIndex {
         maxY = Math.max(maxY, points[at + 1] ?? maxY)
       }
     }
+    this.#indexedFrom = indexedFrom
+    this.#indexedTo = indexedTo
+    this.#indexedBend = indexedBend
     const spanX = Math.max(maxX - minX, 1)
     const spanY = Math.max(maxY - minY, 1)
     let cell = Math.max(this.#maxWorldRadius * 2, Math.sqrt((spanX * spanY) / count) * 2, 1e-3)
     const budget = count * 4 + 1024
     const cells = (spanX / cell + 1) * (spanY / cell + 1)
     if (cells > budget) cell *= Math.sqrt(cells / budget)
-    const frame = {
+    const frame: Frame = {
       cell,
       minX,
       minY,
       cols: Math.floor(spanX / cell) + 1,
       rows: Math.floor(spanY / cell) + 1,
     }
+    this.#frame = frame
     this.#nodes = createGrid(frame, nodes.capacity, (index, emit) => {
       if (nodes.alive[index] !== 1) return
       const col = Math.floor((positions.x(index) - minX) / cell)
@@ -176,32 +274,107 @@ export class PickIndex {
     this.#edges = createGrid(frame, edges.capacity, (index, emit) => {
       if (edges.alive[index] !== 1) return
       this.#maxEdgeHalfWidth = Math.max(this.#maxEdgeHalfWidth, (edges.width[index] ?? 0) / 2)
+      if (edges.source[index] === edges.target[index]) return
+      this.#route(source, frame, index, emit)
+    })
+  }
+
+  refresh(source: PickSource): void {
+    const frame = this.#frame
+    if (!frame) {
+      this.build(source)
+      return
+    }
+    const { nodes, edges, positions } = source
+    this.#indexedXy = grownFloat(this.#indexedXy, nodes.capacity * 2, Number.NaN)
+    this.#indexedFrom = grownUint(this.#indexedFrom, edges.capacity, absent)
+    this.#indexedTo = grownUint(this.#indexedTo, edges.capacity, absent)
+    this.#indexedBend = grownFloat(this.#indexedBend, edges.capacity, 0)
+    this.#nodeGeneration = grownUint(this.#nodeGeneration, nodes.capacity, 0)
+    this.#edgeGeneration = grownUint(this.#edgeGeneration, edges.capacity, 0)
+    const xy = this.#indexedXy
+    const moved = new Uint8Array(nodes.capacity)
+    const changedNodes: number[] = []
+    let total = 0
+    let worldRadius = 0
+    let screenRadius = 0
+    for (let index = 0; index < nodes.capacity; index++) {
+      if (nodes.alive[index] !== 1) continue
+      total++
+      const radius = (nodes.size[index] ?? 0) / 2
+      if (nodes.screenUnits[index] === 1) screenRadius = Math.max(screenRadius, radius)
+      else worldRadius = Math.max(worldRadius, radius)
+      if (xy[index * 2] === positions.x(index) && xy[index * 2 + 1] === positions.y(index)) continue
+      moved[index] = 1
+      changedNodes.push(index)
+    }
+    const changedEdges: number[] = []
+    let halfWidth = 0
+    for (let index = 0; index < edges.capacity; index++) {
+      if (edges.alive[index] !== 1) continue
+      total++
+      halfWidth = Math.max(halfWidth, (edges.width[index] ?? 0) / 2)
       const from = edges.source[index] ?? 0
       const to = edges.target[index] ?? 0
-      if (from === to) return
-      if ((edges.bend[index] ?? 0) === 0) {
-        traverse(
-          frame,
-          positions.x(from),
-          positions.y(from),
-          positions.x(to),
-          positions.y(to),
-          emit,
-        )
-        return
+      if (
+        this.#indexedFrom[index] === from &&
+        this.#indexedTo[index] === to &&
+        this.#indexedBend[index] === (edges.bend[index] ?? 0) &&
+        moved[from] !== 1 &&
+        moved[to] !== 1
+      ) {
+        continue
       }
-      const points = sampleCubic(this.#parallel(source, index), indexSegments)
-      for (let at = 0; at + 3 < points.length; at += 2) {
-        traverse(
-          frame,
-          points[at] ?? 0,
-          points[at + 1] ?? 0,
-          points[at + 2] ?? 0,
-          points[at + 3] ?? 0,
-          emit,
-        )
+      changedEdges.push(index)
+    }
+    this.#maxWorldRadius = worldRadius
+    this.#maxScreenRadius = screenRadius
+    this.#maxEdgeHalfWidth = halfWidth
+    const changed = changedNodes.length + changedEdges.length
+    if (changed === 0) return
+    this.#reindexed += changed
+    if (this.#reindexed > Math.max(extraFloor, total / extraShare)) {
+      this.build(source)
+      return
+    }
+    for (const index of changedNodes) {
+      const generation = ++this.#generation
+      this.#nodeGeneration[index] = generation
+      const x = positions.x(index)
+      const y = positions.y(index)
+      xy[index * 2] = x
+      xy[index * 2 + 1] = y
+      const cell = cellOf(frame, x, y)
+      if (cell < 0) this.#extraNodes.loose.push(index, generation)
+      else stamp(this.#extraNodes.cells, cell, index, generation)
+    }
+    for (const index of changedEdges) {
+      const generation = ++this.#generation
+      this.#edgeGeneration[index] = generation
+      const from = edges.source[index] ?? 0
+      const to = edges.target[index] ?? 0
+      this.#indexedFrom[index] = from
+      this.#indexedTo[index] = to
+      this.#indexedBend[index] = edges.bend[index] ?? 0
+      if (from === to) {
+        this.#extraLoops.push(index, generation)
+        continue
       }
-    })
+      const points =
+        (edges.bend[index] ?? 0) === 0
+          ? [positions.x(from), positions.y(from), positions.x(to), positions.y(to)]
+          : sampleCubic(this.#parallel(source, index), indexSegments)
+      if (!insideFrame(frame, points)) {
+        this.#extraEdges.loose.push(index, generation)
+        continue
+      }
+      this.#route(source, frame, index, (cell) =>
+        stamp(this.#extraEdges.cells, cell, index, generation),
+      )
+    }
+    if (this.#extraNodes.loose.length + this.#extraEdges.loose.length > extraFloor * 2) {
+      this.build(source)
+    }
   }
 
   pick(source: PickSource, x: number, y: number, zoom: number, tolerance: number): PickHit | null {
@@ -211,17 +384,54 @@ export class PickIndex {
     return edge >= 0 ? { kind: 'edge', index: edge } : null
   }
 
-  #cells(grid: Grid, x: number, y: number, reach: number, visit: (item: number) => void): void {
-    const c0 = Math.max(0, Math.floor((x - reach - grid.minX) / grid.cell))
-    const c1 = Math.min(grid.cols - 1, Math.floor((x + reach - grid.minX) / grid.cell))
-    const r0 = Math.max(0, Math.floor((y - reach - grid.minY) / grid.cell))
-    const r1 = Math.min(grid.rows - 1, Math.floor((y + reach - grid.minY) / grid.cell))
+  #around(
+    grid: Grid | null,
+    generations: Uint32Array,
+    extra: Extra,
+    x: number,
+    y: number,
+    reach: number,
+    visit: (item: number) => void,
+  ): void {
+    const frame = this.#frame
+    if (!frame || !grid) return
+    const c0 = Math.max(0, Math.floor((x - reach - frame.minX) / frame.cell))
+    const c1 = Math.min(frame.cols - 1, Math.floor((x + reach - frame.minX) / frame.cell))
+    const r0 = Math.max(0, Math.floor((y - reach - frame.minY) / frame.cell))
+    const r1 = Math.min(frame.rows - 1, Math.floor((y + reach - frame.minY) / frame.cell))
     for (let row = r0; row <= r1; row++) {
       for (let col = c0; col <= c1; col++) {
-        const cell = row * grid.cols + col
+        const cell = row * frame.cols + col
         const end = grid.offsets[cell + 1] ?? 0
-        for (let at = grid.offsets[cell] ?? 0; at < end; at++) visit(grid.items[at] ?? 0)
+        for (let at: number = grid.offsets[cell] ?? 0; at < end; at++) {
+          const item = grid.items[at] ?? 0
+          if ((generations[item] ?? 0) === 0) visit(item)
+        }
+        const stamped = extra.cells.get(cell)
+        if (stamped) visitStamped(stamped, generations, visit)
       }
+    }
+    visitStamped(extra.loose, generations, visit)
+  }
+
+  #route(source: PickSource, frame: Frame, index: number, emit: (cell: number) => void): void {
+    const { edges, positions } = source
+    const from = edges.source[index] ?? 0
+    const to = edges.target[index] ?? 0
+    if ((edges.bend[index] ?? 0) === 0) {
+      traverse(frame, positions.x(from), positions.y(from), positions.x(to), positions.y(to), emit)
+      return
+    }
+    const points = sampleCubic(this.#parallel(source, index), indexSegments)
+    for (let at = 0; at + 3 < points.length; at += 2) {
+      traverse(
+        frame,
+        points[at] ?? 0,
+        points[at + 1] ?? 0,
+        points[at + 2] ?? 0,
+        points[at + 3] ?? 0,
+        emit,
+      )
     }
   }
 
@@ -253,12 +463,10 @@ export class PickIndex {
   }
 
   #pickNode(source: PickSource, x: number, y: number, zoom: number): number {
-    const grid = this.#nodes
-    if (!grid) return -1
     const reach = Math.max(this.#maxWorldRadius, (this.#maxScreenRadius + minimumPickRadius) / zoom)
     let best = -1
     let bestOrder = Number.NEGATIVE_INFINITY
-    this.#cells(grid, x, y, reach, (index) => {
+    this.#around(this.#nodes, this.#nodeGeneration, this.#extraNodes, x, y, reach, (index) => {
       if (source.nodes.alive[index] !== 1) return
       const distance = Math.hypot(x - source.positions.x(index), y - source.positions.y(index))
       if (distance > this.#radius(source, index, zoom)) return
@@ -272,8 +480,6 @@ export class PickIndex {
   }
 
   #pickEdge(source: PickSource, x: number, y: number, zoom: number, tolerance: number): number {
-    const grid = this.#edges
-    if (!grid) return -1
     const { edges, positions } = source
     const reach = (this.#maxEdgeHalfWidth + tolerance) / zoom
     let best = -1
@@ -289,7 +495,7 @@ export class PickIndex {
       }
     }
     const seen = new Set<number>()
-    this.#cells(grid, x, y, reach, (index) => {
+    this.#around(this.#edges, this.#edgeGeneration, this.#extraEdges, x, y, reach, (index) => {
       if (edges.alive[index] !== 1) return
       const s = edges.source[index] ?? 0
       const t = edges.target[index] ?? 0
@@ -311,10 +517,12 @@ export class PickIndex {
       }
       consider(index, Math.abs((x - ax) * dy - (y - ay) * dx) / length)
     })
-    for (const index of this.#loops) {
-      if (edges.alive[index] !== 1) continue
+    const loop = (index: number) => {
+      if (edges.alive[index] !== 1) return
       consider(index, distanceToCubic(this.#loop(source, index, zoom), x, y, pickSegments))
     }
+    for (const index of this.#loops) if ((this.#edgeGeneration[index] ?? 0) === 0) loop(index)
+    visitStamped(this.#extraLoops, this.#edgeGeneration, loop)
     return best
   }
 }
