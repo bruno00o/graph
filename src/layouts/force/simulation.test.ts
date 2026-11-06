@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LayoutGraph } from '../../types'
 import { BarnesHut } from './barnes-hut'
-import { ForceSimulation, forceDefaults, resolveForce } from './simulation'
+import { ForceSimulation, forceDefaults, prefersGpu, resolveForce } from './simulation'
 
 function random(seed: number): () => number {
   let state = seed
@@ -86,6 +86,40 @@ describe('ForceSimulation', () => {
       ...forceDefaults,
       edgeLength: 80,
     })
+    expect(resolveForce({ steps: 120.4, engine: 'cpu' })).toMatchObject({
+      steps: 120,
+      engine: 'cpu',
+    })
+    expect(resolveForce({ steps: 0, engine: 'fast' as 'auto' })).toMatchObject({
+      steps: 1,
+      engine: 'auto',
+    })
+  })
+
+  it('prefers the graphics card for large graphs unless an engine is forced', () => {
+    const sized = (count: number) =>
+      graph(
+        Array.from({ length: count }, () => [0, 0] as const),
+        [],
+      )
+    expect(prefersGpu(sized(10), forceDefaults)).toBe(false)
+    expect(prefersGpu(sized(2000), forceDefaults)).toBe(true)
+    expect(prefersGpu(sized(10), { ...forceDefaults, engine: 'gpu' })).toBe(true)
+    expect(prefersGpu(sized(2000), { ...forceDefaults, engine: 'cpu' })).toBe(false)
+  })
+
+  it('cools down in the requested number of steps', () => {
+    const simulation = new ForceSimulation(
+      graph(
+        [
+          [0, 0],
+          [10, 0],
+        ],
+        [[0, 1]],
+      ),
+      { ...forceDefaults, steps: 50 },
+    )
+    expect(settle(simulation)).toBe(50)
   })
 
   it('cools down to completion in about three hundred steps', () => {

@@ -1,6 +1,8 @@
-import type { LayoutRun } from '../../types'
+import type { LayoutListener, LayoutRun } from '../../types'
+import { GpuForce } from './gpu'
 import type { FromWorker, ToWorker } from './protocol'
-import { runForce } from './runner'
+import { runForce, runGpuForce } from './runner'
+import { prefersGpu } from './simulation'
 
 interface WorkerScope {
   onmessage: ((event: MessageEvent<ToWorker>) => void) | null
@@ -24,18 +26,16 @@ scope.onmessage = (event) => {
     return
   }
   run?.stop()
-  run = runForce(
-    message.graph,
-    message.settings,
-    {
-      progress: (xy, progress) =>
-        scope.postMessage({ type: 'progress', xy, progress }, [xy.buffer]),
-      end: (xy) => scope.postMessage({ type: 'end', xy }, [xy.buffer]),
-    },
-    16,
-    (task) => {
-      queued = task
-      channel.port2.postMessage(null)
-    },
-  )
+  const { graph, settings } = message
+  const listener: LayoutListener = {
+    progress: (xy, progress) => scope.postMessage({ type: 'progress', xy, progress }, [xy.buffer]),
+    end: (xy) => scope.postMessage({ type: 'end', xy }, [xy.buffer]),
+  }
+  const schedule = (task: () => void) => {
+    queued = task
+    channel.port2.postMessage(null)
+  }
+  const cpu = (xy: Float32Array) => runForce({ ...graph, xy }, settings, listener, 16, schedule)
+  const gpu = prefersGpu(graph, settings) ? GpuForce.create(graph, settings) : null
+  run = gpu ? runGpuForce(gpu, graph, settings, listener, cpu) : cpu(graph.xy)
 }

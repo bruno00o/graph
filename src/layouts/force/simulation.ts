@@ -1,11 +1,16 @@
 import type { LayoutGraph } from '../../types'
 import { BarnesHut } from './barnes-hut'
+import { Collider } from './collider'
+
+export type ForceEngine = 'auto' | 'gpu' | 'cpu'
 
 export interface ForceOptions {
   readonly edgeLength?: number
   readonly repulsion?: number
   readonly gravity?: number
   readonly spacing?: number
+  readonly steps?: number
+  readonly engine?: ForceEngine
 }
 
 export interface ForceSettings {
@@ -13,6 +18,8 @@ export interface ForceSettings {
   readonly repulsion: number
   readonly gravity: number
   readonly spacing: number
+  readonly steps: number
+  readonly engine: ForceEngine
 }
 
 export const forceDefaults: ForceSettings = {
@@ -20,14 +27,27 @@ export const forceDefaults: ForceSettings = {
   repulsion: 80,
   gravity: 0.04,
   spacing: 6,
+  steps: 300,
+  engine: 'auto',
 }
 
-const alphaMin = 0.001
-const fullTicks = 300
-const cooling = alphaMin ** (1 / fullTicks)
-const keep = 0.6
-const partialAlpha = 0.5
-const collideStrength = 0.7
+export const alphaMin = 0.001
+export const keep = 0.6
+export const partialAlpha = 0.5
+const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
+
+const gpuFrom = 2000
+
+export function prefersGpu(graph: LayoutGraph, settings: ForceSettings): boolean {
+  if (settings.engine !== 'auto') return settings.engine === 'gpu'
+  let alive = 0
+  for (const flag of graph.alive) alive += flag
+  return alive >= gpuFrom
+}
+
+export function coolingOf(steps: number): number {
+  return alphaMin ** (1 / steps)
+}
 
 function positive(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
@@ -39,6 +59,10 @@ export function resolveForce(options: ForceOptions = {}): ForceSettings {
     repulsion: positive(options.repulsion, forceDefaults.repulsion),
     gravity: positive(options.gravity, forceDefaults.gravity),
     spacing: positive(options.spacing, forceDefaults.spacing),
+    steps: Math.max(1, Math.round(positive(options.steps, forceDefaults.steps))),
+    engine: engines.includes(options.engine as ForceEngine)
+      ? (options.engine as ForceEngine)
+      : forceDefaults.engine,
   }
 }
 
@@ -50,7 +74,6 @@ export class ForceSimulation {
   readonly #vx: Float64Array
   readonly #vy: Float64Array
   readonly #fixed: Uint8Array
-  readonly #radius: Float32Array
   readonly #nodes: Uint32Array
   readonly #movers: Uint32Array
   readonly #edges: Uint32Array
@@ -62,12 +85,8 @@ export class ForceSimulation {
   readonly #centerY: number
   readonly #gravity: number
   readonly #tree = new BarnesHut()
-  readonly #reach: number
-  #buckets: Int32Array = new Int32Array(0)
-  #items: Uint32Array = new Uint32Array(0)
-  #gx: Int32Array = new Int32Array(0)
-  #gy: Int32Array = new Int32Array(0)
-  #slot: Int32Array = new Int32Array(0)
+  readonly #collider: Collider
+  readonly #cooling: number
   #seed = 1
 
   constructor(graph: LayoutGraph, settings: ForceSettings) {
@@ -78,18 +97,15 @@ export class ForceSimulation {
     this.#vx = new Float64Array(capacity)
     this.#vy = new Float64Array(capacity)
     this.#fixed = new Uint8Array(capacity)
-    this.#radius = graph.radius
     const nodes: number[] = []
     const movers: number[] = []
     let sumX = 0
     let sumY = 0
-    let reach = 0
     for (let i = 0; i < capacity; i++) {
       this.x[i] = graph.xy[i * 2] ?? 0
       this.y[i] = graph.xy[i * 2 + 1] ?? 0
       if (graph.alive[i] !== 1) continue
       nodes.push(i)
-      reach = Math.max(reach, graph.radius[i] ?? 0)
       if (graph.movable[i] === 1) {
         movers.push(i)
         sumX += this.x[i] ?? 0
@@ -98,7 +114,8 @@ export class ForceSimulation {
     }
     this.#nodes = Uint32Array.from(nodes)
     this.#movers = Uint32Array.from(movers)
-    this.#reach = reach
+    this.#collider = new Collider(graph.radius, this.#nodes, settings.spacing)
+    this.#cooling = coolingOf(settings.steps)
     const partial = movers.length < nodes.length
     this.#start = partial ? partialAlpha : 1
     this.alpha = movers.length === 0 ? 0 : this.#start
@@ -152,7 +169,7 @@ export class ForceSimulation {
 
   step(): void {
     if (this.done) return
-    this.alpha *= cooling
+    this.alpha *= this.#cooling
     const alpha = this.alpha
     this.#link(alpha)
     this.#repel(alpha)
@@ -236,88 +253,15 @@ export class ForceSimulation {
   }
 
   #collide(): void {
-    const spacing = this.#settings.spacing
-    const cell = Math.max(2 * this.#reach + spacing, 1)
-    const nodes = this.#nodes
-    const size = 1 << Math.ceil(Math.log2(Math.max(16, nodes.length * 2)))
-    if (this.#buckets.length !== size + 1) this.#buckets = new Int32Array(size + 1)
-    else this.#buckets.fill(0)
-    if (this.#items.length < nodes.length) this.#items = new Uint32Array(nodes.length)
-    if (this.#gx.length < this.x.length) {
-      this.#gx = new Int32Array(this.x.length)
-      this.#gy = new Int32Array(this.x.length)
-      this.#slot = new Int32Array(this.x.length)
-    }
-    const buckets = this.#buckets
-    const items = this.#items
-    const gx = this.#gx
-    const gy = this.#gy
-    const slot = this.#slot
-    const { x, y } = this
-    const vx = this.#vx
-    const vy = this.#vy
-    const mask = size - 1
-    for (const i of nodes) {
-      const cx = Math.floor(((x[i] ?? 0) + (vx[i] ?? 0)) / cell)
-      const cy = Math.floor(((y[i] ?? 0) + (vy[i] ?? 0)) / cell)
-      const b = (Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663)) & mask
-      gx[i] = cx
-      gy[i] = cy
-      slot[i] = b
-      buckets[b + 1] = (buckets[b + 1] ?? 0) + 1
-    }
-    for (let b = 0; b < size; b++) buckets[b + 1] = (buckets[b + 1] ?? 0) + (buckets[b] ?? 0)
-    for (const i of nodes) {
-      const b = slot[i] ?? 0
-      const at = buckets[b] ?? 0
-      items[at] = i
-      buckets[b] = at + 1
-    }
-    for (let b = size; b > 0; b--) buckets[b] = buckets[b - 1] ?? 0
-    buckets[0] = 0
-    const fixed = this.#fixed
-    const radius = this.#radius
-    const half = spacing / 2
-    for (const i of this.#movers) {
-      if (fixed[i] === 1) continue
-      const ri = (radius[i] ?? 0) + half
-      const ci = gx[i] ?? 0
-      const cj = gy[i] ?? 0
-      for (let ox = -1; ox <= 1; ox++) {
-        const tx = ci + ox
-        for (let oy = -1; oy <= 1; oy++) {
-          const ty = cj + oy
-          const b = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663)) & mask
-          const end = buckets[b + 1] ?? 0
-          for (let at = buckets[b] ?? 0; at < end; at++) {
-            const j = items[at] ?? 0
-            if (j === i || gx[j] !== tx || gy[j] !== ty) continue
-            const jFixed = fixed[j] === 1
-            if (!jFixed && j < i) continue
-            const rj = (radius[j] ?? 0) + half
-            const r = ri + rj
-            let dx = (x[i] ?? 0) + (vx[i] ?? 0) - (x[j] ?? 0) - (vx[j] ?? 0)
-            let dy = (y[i] ?? 0) + (vy[i] ?? 0) - (y[j] ?? 0) - (vy[j] ?? 0)
-            let l = dx * dx + dy * dy
-            if (l >= r * r) continue
-            if (l === 0) {
-              dx = this.#jiggle()
-              l = dx * dx
-            }
-            l = Math.sqrt(l)
-            const f = ((r - l) / l) * collideStrength
-            dx *= f
-            dy *= f
-            const share = jFixed ? 1 : (rj * rj) / (ri * ri + rj * rj)
-            vx[i] = (vx[i] ?? 0) + dx * share
-            vy[i] = (vy[i] ?? 0) + dy * share
-            if (!jFixed) {
-              vx[j] = (vx[j] ?? 0) - dx * (1 - share)
-              vy[j] = (vy[j] ?? 0) - dy * (1 - share)
-            }
-          }
-        }
-      }
-    }
+    this.#collider.apply(
+      this.#nodes,
+      this.#movers,
+      this.#fixed,
+      this.x,
+      this.y,
+      this.#vx,
+      this.#vy,
+      this.#jiggle,
+    )
   }
 }
