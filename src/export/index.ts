@@ -21,7 +21,7 @@ export type ExportRegion = 'view' | 'graph'
  */
 export type ExportLabels = 'visible' | 'all' | 'none'
 
-/** Options shared by `exportPng` and `exportSvg`. */
+/** Options of `exportPng` and `exportSvg`. */
 export interface ExportOptions {
   /**
    * Part of the graph to export.
@@ -30,12 +30,11 @@ export interface ExportOptions {
   readonly region?: ExportRegion
   /**
    * Scale of the export, in CSS pixels per world unit. Sizes set in screen pixels, such as edge
-   * widths, labels and nodes with `units: 'screen'`, keep their size.
-   * @default the current zoom
+   * widths, labels and nodes with `units: 'screen'`, keep their size. Defaults to the current zoom.
    */
   readonly zoom?: number
   /**
-   * Margin around the nodes when `region` is `'graph'`, in CSS pixels.
+   * Margin around the nodes, labels and loops when `region` is `'graph'`, in CSS pixels.
    * @default 32
    */
   readonly padding?: number
@@ -56,8 +55,7 @@ export interface ExportOptions {
 export interface PngExportOptions extends ExportOptions {
   /**
    * Image pixels per CSS pixel. Large images are drawn in tiles, so the size is bounded by memory,
-   * not by the GPU.
-   * @default the device pixel ratio of the graph
+   * not by the GPU. Defaults to the device pixel ratio of the graph.
    */
   readonly pixelRatio?: number
 }
