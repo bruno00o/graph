@@ -1,11 +1,19 @@
-import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { defineGraph, type EdgeMark, edges, type NodeMark, nodes } from '@bruno00o/graph'
 import { persistPositions } from '@bruno00o/graph/db'
-import { Graph, type GraphInstance, useGraph, useGraphState } from '@bruno00o/graph/react'
+import {
+  Graph,
+  type GraphInstance,
+  type GraphState,
+  useGraph,
+  useGraphState,
+} from '@bruno00o/graph/react'
 import { createCollection, localStorageCollectionOptions } from '@tanstack/db'
 import { type Ref, useEffect } from 'react'
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
+
+type Marks = NodeMark<Item> | EdgeMark<Link>
 
 const sample = createSample(240, 360, 6, 11)
 const home = new Map(sample.items.map((item) => [item.id, item]))
@@ -46,8 +54,8 @@ function SharedPositions() {
 }
 
 function Hovered() {
-  const hovered = useGraphState((state) => state.hovered)
-  const label = hovered?.kind === 'node' ? (hovered.datum as Item).label : ''
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
+  const label = hovered?.kind === 'node' ? hovered.datum.label : ''
   return (
     <output className="example-status" aria-live="polite">
       {label}

@@ -1,18 +1,44 @@
-import type { AggregateEdge, Key, Point, View } from '../types'
+import type { AggregateEdge, EdgeMark, Key, Mark, MarkName, NodeMark, Point, View } from '../types'
 
-/** A node or an edge, with `datum`, the item it comes from in your data. Narrow on `kind`. */
-export type GraphTarget =
-  | { readonly kind: 'node'; readonly key: Key; readonly datum: unknown }
-  | {
-      readonly kind: 'edge'
-      readonly key: Key
-      readonly datum: unknown
-      /**
-       * Set when the edge stands for several edges between folded groups; `key` and `datum` are then
-       * those of its first edge.
-       */
-      readonly aggregate?: AggregateEdge
-    }
+/** A node, with `datum`, the item it comes from, of type `T`, and `mark`, the name of its mark. */
+export interface NodeTarget<T = unknown, N extends MarkName = MarkName> {
+  /** Always `'node'`. */
+  readonly kind: 'node'
+  /** Key of the node. */
+  readonly key: Key
+  /** The item the node comes from, as given to `nodes()`. */
+  readonly datum: T
+  /** `name` of the mark of the node, or `undefined` for a mark without one. */
+  readonly mark: N
+}
+
+/** An edge, with `datum`, the item it comes from, of type `T`, and `mark`, the name of its mark. */
+export interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
+  /** Always `'edge'`. */
+  readonly kind: 'edge'
+  /** Key of the edge. */
+  readonly key: Key
+  /** The item the edge comes from, as given to `edges()`. */
+  readonly datum: T
+  /** `name` of the mark of the edge, or `undefined` for a mark without one. */
+  readonly mark: N
+  /**
+   * Set when the edge stands for several edges between folded groups; `key` and `datum` are then
+   * those of its first edge.
+   */
+  readonly aggregate?: AggregateEdge<T>
+}
+
+/**
+ * A node or an edge of the marks `M`. Narrow on `kind`, then on `mark` to get the item type of one
+ * mark in `datum`. Without `M`, `datum` is `unknown`.
+ */
+export type GraphTarget<M extends Mark = Mark> =
+  M extends NodeMark<infer T, infer N>
+    ? NodeTarget<T, N>
+    : M extends EdgeMark<infer T, infer N>
+      ? EdgeTarget<T, N>
+      : NodeTarget | EdgeTarget
 
 /** Keys of nodes and of edges. */
 export interface ElementKeys {
@@ -30,10 +56,10 @@ export interface ElementKeysInput {
   readonly edges?: Iterable<Key>
 }
 
-/** Payload of `click`, `doubleclick` and `contextmenu`. */
-export interface GraphPointerEvent {
+/** Payload of `click`, `doubleclick` and `contextmenu`. `M` is the union of the marks. */
+export interface GraphPointerEvent<M extends Mark = Mark> {
   /** Element under the pointer, or `null` for the background. */
-  readonly target: GraphTarget | null
+  readonly target: GraphTarget<M> | null
   /** Pointer position in screen pixels, relative to the graph element. */
   readonly point: Point
   /** Pointer position in world units. */
@@ -42,18 +68,18 @@ export interface GraphPointerEvent {
   readonly originalEvent: MouseEvent
 }
 
-/** Payload of `pointerenter` and `pointerleave`. */
-export interface GraphTargetEvent {
+/** Payload of `pointerenter` and `pointerleave`. `M` is the union of the marks. */
+export interface GraphTargetEvent<M extends Mark = Mark> {
   /** Element the pointer entered or left. */
-  readonly target: GraphTarget
+  readonly target: GraphTarget<M>
   /** The DOM event. */
   readonly originalEvent: MouseEvent
 }
 
-/** Payload of `dragstart`, `drag` and `dragend`. */
-export interface GraphDragEvent {
+/** Payload of `dragstart`, `drag` and `dragend`. `M` is the union of the marks. */
+export interface GraphDragEvent<M extends Mark = Mark> {
   /** Node under the pointer. */
-  readonly target: GraphTarget & { readonly kind: 'node' }
+  readonly target: Extract<GraphTarget<M>, { readonly kind: 'node' }>
   /**
    * Every node the drag moves: the whole selection when the dragged node is selected, and the nodes
    * inside a dragged group.
@@ -67,10 +93,10 @@ export interface GraphDragEvent {
   readonly originalEvent: PointerEvent
 }
 
-/** Payload of `focuschange`. */
-export interface GraphFocusEvent {
+/** Payload of `focuschange`. `M` is the union of the marks. */
+export interface GraphFocusEvent<M extends Mark = Mark> {
   /** Element that has the keyboard focus, or `null`. */
-  readonly target: GraphTarget | null
+  readonly target: GraphTarget<M> | null
 }
 
 /** Payload of `layoutstart`. */
@@ -113,36 +139,36 @@ export interface GraphPositionEvent {
   readonly positions: ReadonlyMap<Key, Point>
 }
 
-/** Every event of the graph, by name, with its payload. */
-export interface GraphEvents {
+/** Every event of the graph, by name, with its payload. `M` is the union of the marks. */
+export interface GraphEvents<M extends Mark = Mark> {
   /**
    * A press released within 4 pixels of where it started, 10 for a touch, before the default
    * selection runs.
    */
-  readonly click: GraphPointerEvent
+  readonly click: GraphPointerEvent<M>
   /**
    * A double click. On a group it then folds or unfolds it, unless a handler calls
    * `originalEvent.preventDefault()`.
    */
-  readonly doubleclick: GraphPointerEvent
+  readonly doubleclick: GraphPointerEvent<M>
   /** A secondary click. */
-  readonly contextmenu: GraphPointerEvent
+  readonly contextmenu: GraphPointerEvent<M>
   /** The pointer enters an element. */
-  readonly pointerenter: GraphTargetEvent
+  readonly pointerenter: GraphTargetEvent<M>
   /** The pointer leaves an element. */
-  readonly pointerleave: GraphTargetEvent
+  readonly pointerleave: GraphTargetEvent<M>
   /** A node drag starts, once the pointer has moved 4 pixels. */
-  readonly dragstart: GraphDragEvent
+  readonly dragstart: GraphDragEvent<M>
   /** Dragged nodes move. */
-  readonly drag: GraphDragEvent
+  readonly drag: GraphDragEvent<M>
   /** A node drag ends. */
-  readonly dragend: GraphDragEvent
+  readonly dragend: GraphDragEvent<M>
   /** Nodes moved by a drag, by `positions.set` or by a layout run that ended. */
   readonly positionchange: GraphPositionEvent
   /** The selection changed, from the user or from code. */
   readonly selectionchange: ElementKeys
   /** The keyboard focus moved to another element, or left. */
-  readonly focuschange: GraphFocusEvent
+  readonly focuschange: GraphFocusEvent<M>
   /** Groups were folded or unfolded, from the user or from code. */
   readonly foldchange: GraphFoldEvent
   /** The view changed. */
@@ -161,8 +187,10 @@ export interface GraphEvents {
 /** Name of a graph event. */
 export type GraphEventName = keyof GraphEvents
 
-/** Function that receives the payload of event `K`. */
-export type GraphEventHandler<K extends GraphEventName> = (event: GraphEvents[K]) => void
+/** Function that receives the payload of event `K`. `M` is the union of the marks. */
+export type GraphEventHandler<K extends GraphEventName, M extends Mark = Mark> = (
+  event: GraphEvents<M>[K],
+) => void
 
 export class Emitter {
   readonly #handlers = new Map<GraphEventName, Set<(event: never) => void>>()

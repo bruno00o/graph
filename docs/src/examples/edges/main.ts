@@ -124,10 +124,10 @@ export function mount(container: HTMLElement): GraphInstance {
 
   graph.on('pointerenter', ({ target }) => {
     if (target.kind === 'edge') {
-      const route = target.datum as Route
+      const route = target.datum
       hovered.textContent = messages.route(route.from.toUpperCase(), route.to.toUpperCase())
     } else {
-      hovered.textContent = (target.datum as Spot).label
+      hovered.textContent = target.datum.label
     }
   })
   graph.on('pointerleave', () => {

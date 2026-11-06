@@ -1,5 +1,11 @@
 import { defineGraph, type ElementKeys, edges, type Key, nodes } from '@bruno00o/graph'
-import { Anchor, Graph, type GraphInstance, useGraphState } from '@bruno00o/graph/react'
+import {
+  Anchor,
+  Graph,
+  type GraphInstance,
+  type GraphState,
+  useGraphState,
+} from '@bruno00o/graph/react'
 import { type Ref, useState } from 'react'
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from '../shared/messages'
@@ -15,10 +21,12 @@ const definition = defineGraph({
   ],
 })
 
+type Marks = (typeof definition.marks)[number]
+
 function Tooltip() {
-  const hovered = useGraphState((state) => state.hovered)
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
   if (hovered?.kind !== 'node') return null
-  const item = hovered.datum as Item
+  const item = hovered.datum
   return (
     <Anchor node={hovered.key} side="right" align="start">
       <div className="example-tooltip">

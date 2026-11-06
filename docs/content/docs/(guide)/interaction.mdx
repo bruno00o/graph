@@ -157,7 +157,7 @@ A pointer press removes the focus. When the element loses the DOM focus, the foc
 
 ## Events
 
-Every event handler receives a typed object. Targets are `{ kind: 'node' | 'edge', key, datum }`, where `datum` is the item from your data.
+Every event handler receives a typed object. Targets are `{ kind: 'node' | 'edge', key, datum, mark }`, where `datum` is the item from your data, typed by its mark, and `mark` the name of that mark. See [TypeScript](/docs/typescript).
 
 ```ts
 const stop = graph.on('doubleclick', ({ target, point, world }) => {

@@ -4,12 +4,21 @@ description: A mark that draws one edge per item of its data.
 ---
 
 ```ts
-function edges<T>(data: LiveSource<T>, options: EdgeOptions<T>): EdgeMark<T>
-function edges<T extends { readonly id: Key }>(data: Iterable<T>, options: EdgeOptions<T>): EdgeMark<T>
-function edges<T>(data: Iterable<T>, options: EdgeOptions<T> & { key: KeyChannel<T> }): EdgeMark<T>
+function edges<T, N extends MarkName = undefined>(
+  data: LiveSource<T>,
+  options: EdgeOptions<T, N>,
+): EdgeMark<T, N>
+function edges<T extends { readonly id: Key }, N extends MarkName = undefined>(
+  data: Iterable<T>,
+  options: EdgeOptions<T, N>,
+): EdgeMark<T, N>
+function edges<T, N extends MarkName = undefined>(
+  data: Iterable<T>,
+  options: EdgeOptions<T, N> & { key: KeyChannel<T> },
+): EdgeMark<T, N>
 ```
 
-`source` and `target` are required. An edge whose two ends are not both present waits until they are.
+`source` and `target` are required. An edge whose two ends are not both present waits until they are. `T` is the item type and `N` the type of `name`: both type the targets of the edges, see [TypeScript](/docs/typescript).
 
 ## Options
 
@@ -56,7 +65,7 @@ interface AggregateEdge<T = unknown> {
 
 type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'key' | 'source' | 'target' | 'aggregate'
+  'name' | 'key' | 'source' | 'target' | 'aggregate'
 >
 ```
 

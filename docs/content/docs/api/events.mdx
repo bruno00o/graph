@@ -3,7 +3,7 @@ title: Events
 description: Every event of the graph and the payload it carries.
 ---
 
-Subscribe with `graph.on(name, handler)`, which returns the function that unsubscribes. In React, use the matching prop of `<Graph>` or `useGraphEvent`.
+Subscribe with `graph.on(name, handler)`, which returns the function that unsubscribes. In React, use the matching prop of `<Graph>` or `useGraphEvent`. Payloads take `M`, the union of the marks of the definition, which types their targets: `mountGraph` and `<Graph>` pass it for you.
 
 ## Event table
 
@@ -14,35 +14,54 @@ In React, each event has a prop of [`<Graph>`](/docs/api/graph-component#props) 
 ## Targets
 
 ```ts
-type GraphTarget =
-  | { readonly kind: 'node'; readonly key: Key; readonly datum: unknown }
-  | {
-      readonly kind: 'edge'
-      readonly key: Key
-      readonly datum: unknown
-      readonly aggregate?: AggregateEdge
-    }
+interface NodeTarget<T = unknown, N extends MarkName = MarkName> {
+  readonly kind: 'node'
+  readonly key: Key
+  readonly datum: T
+  readonly mark: N
+}
+
+interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
+  readonly kind: 'edge'
+  readonly key: Key
+  readonly datum: T
+  readonly mark: N
+  readonly aggregate?: AggregateEdge<T>
+}
+
+type GraphTarget<M extends Mark = Mark> =
+  M extends NodeMark<infer T, infer N>
+    ? NodeTarget<T, N>
+    : M extends EdgeMark<infer T, infer N>
+      ? EdgeTarget<T, N>
+      : NodeTarget | EdgeTarget
 ```
 
-`datum` is the item from your data. Narrow on `kind`, then cast `datum` to your type. An edge drawn for several edges between [folded groups](/docs/groups) carries `aggregate`, with the keys and data of every merged edge; `key` and `datum` are those of the first.
+`GraphTarget<M>` is a `NodeTarget` or an `EdgeTarget` for each mark of `M`, the union of the marks of the definition. `datum` is the item from your data, typed by its mark, and `mark` is the `name` of that mark, `undefined` without one. Narrow on `kind`, then on `mark` when several marks of one kind carry different types: see [TypeScript](/docs/typescript). Without `M`, `datum` is `unknown`.
+
+<api-table path="index.ts" name="NodeTarget" />
+
+<api-table path="index.ts" name="EdgeTarget" />
+
+An edge drawn for several edges between [folded groups](/docs/groups) carries `aggregate`, with the keys and data of every merged edge; `key` and `datum` are those of the first.
 
 ## Payloads
 
 ```ts
-interface GraphPointerEvent {
-  readonly target: GraphTarget | null
+interface GraphPointerEvent<M extends Mark = Mark> {
+  readonly target: GraphTarget<M> | null
   readonly point: Point
   readonly world: Point
   readonly originalEvent: MouseEvent
 }
 
-interface GraphTargetEvent {
-  readonly target: GraphTarget
+interface GraphTargetEvent<M extends Mark = Mark> {
+  readonly target: GraphTarget<M>
   readonly originalEvent: MouseEvent
 }
 
-interface GraphDragEvent {
-  readonly target: GraphTarget & { readonly kind: 'node' }
+interface GraphDragEvent<M extends Mark = Mark> {
+  readonly target: Extract<GraphTarget<M>, { readonly kind: 'node' }>
   readonly keys: readonly Key[]
   readonly point: Point
   readonly world: Point
@@ -54,8 +73,8 @@ interface GraphPositionEvent {
   readonly positions: ReadonlyMap<Key, Point>
 }
 
-interface GraphFocusEvent {
-  readonly target: GraphTarget | null
+interface GraphFocusEvent<M extends Mark = Mark> {
+  readonly target: GraphTarget<M> | null
 }
 
 interface GraphFoldEvent {

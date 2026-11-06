@@ -191,8 +191,19 @@ export interface LabelOptions<T> extends LabelTextOptions<T> {
 /** Text and style of an edge label, which sits halfway along the edge and turns with it. */
 export interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
 
-/** Options of `nodes()`. Channels go through a scale; styles are final values. */
-export interface NodeOptions<T> {
+/** Name of a mark: a string chosen in its options, or `undefined` for a mark without one. */
+export type MarkName = string | undefined
+
+/**
+ * Options of `nodes()`. Channels go through a scale; styles are final values. `N` is the type of
+ * `name`.
+ */
+export interface NodeOptions<T, N extends MarkName = MarkName> {
+  /**
+   * Name of the mark, reported as `mark` by the targets of its nodes. Compare it in event handlers
+   * to tell marks apart and narrow `datum` to the items of one mark.
+   */
+  readonly name?: N
   /**
    * Node key, unique across node marks. Required for an iterable whose items have no `id` field.
    * @default 'id'
@@ -296,8 +307,16 @@ export interface ContainerOptions<T> {
   readonly strokeWidth?: Style<T, number>
 }
 
-/** Options of `edges()`. Channels go through a scale; styles are final values. */
-export interface EdgeOptions<T> {
+/**
+ * Options of `edges()`. Channels go through a scale; styles are final values. `N` is the type of
+ * `name`.
+ */
+export interface EdgeOptions<T, N extends MarkName = MarkName> {
+  /**
+   * Name of the mark, reported as `mark` by the targets of its edges. Compare it in event handlers
+   * to tell marks apart and narrow `datum` to the items of one mark.
+   */
+  readonly name?: N
   /**
    * Edge key, unique across edge marks. Required for an iterable whose items have no `id` field.
    * @default 'id'
@@ -367,7 +386,7 @@ export interface AggregateEdge<T = unknown> {
  */
 export type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'key' | 'source' | 'target' | 'aggregate'
+  'name' | 'key' | 'source' | 'target' | 'aggregate'
 >
 
 /** A layer of the graph, made by `nodes()` or `edges()`. Marks draw in the order given. */
@@ -376,23 +395,41 @@ export interface Mark {
   readonly type: 'nodes' | 'edges'
 }
 
-/** A mark that draws one node per item of its data. */
-export interface NodeMark<T> extends Mark {
+/** A mark that draws one node per item of its data. `N` is the type of its `name`. */
+export interface NodeMark<T, N extends MarkName = MarkName> extends Mark {
   readonly type: 'nodes'
+  /** Name given in the options, or `undefined`. */
+  readonly name: N
   /** Items of the mark. */
   readonly data: GraphData<T>
   /** Options given to `nodes()`. */
-  readonly options: NodeOptions<T>
+  readonly options: NodeOptions<T, N>
 }
 
-/** A mark that draws one edge per item of its data. */
-export interface EdgeMark<T> extends Mark {
+/** A mark that draws one edge per item of its data. `N` is the type of its `name`. */
+export interface EdgeMark<T, N extends MarkName = MarkName> extends Mark {
   readonly type: 'edges'
+  /** Name given in the options, or `undefined`. */
+  readonly name: N
   /** Items of the mark. */
   readonly data: GraphData<T>
   /** Options given to `edges()`. */
-  readonly options: EdgeOptions<T>
+  readonly options: EdgeOptions<T, N>
 }
+
+/**
+ * Union of the item types of the node marks among `M`, a union of marks. `unknown` when `M` is the
+ * plain `Mark` type.
+ */
+export type NodeDatum<M extends Mark> =
+  M extends NodeMark<infer T, MarkName> ? T : M extends { readonly type: 'edges' } ? never : unknown
+
+/**
+ * Union of the item types of the edge marks among `M`, a union of marks. `unknown` when `M` is the
+ * plain `Mark` type.
+ */
+export type EdgeDatum<M extends Mark> =
+  M extends EdgeMark<infer T, MarkName> ? T : M extends { readonly type: 'nodes' } ? never : unknown
 
 /**
  * Turns `color` channel values into CSS colors: a function, a categorical scale (the default) or
@@ -633,9 +670,9 @@ export type StateStyles<S extends string> = { readonly [K in S]: StateStyle }
 
 /**
  * What a layout reads: copies of the graph in typed arrays, indexed by the internal index of each
- * node.
+ * node. `T` is the type of the items of the nodes.
  */
-export interface LayoutGraph {
+export interface LayoutGraph<T = unknown> {
   /** Length of the per-node arrays. */
   readonly capacity: number
   /** `1` for a node that exists, `0` for a free slot. */
@@ -656,7 +693,7 @@ export interface LayoutGraph {
   /** Key of each node, `undefined` for a free slot. */
   readonly keys: readonly (Key | undefined)[]
   /** Item a node comes from, as given to `nodes()`. `undefined` for a free slot. */
-  datum(index: number): unknown
+  datum(index: number): T | undefined
 }
 
 /** Receives the positions a layout computes. Every array holds `capacity × 2` numbers. */
@@ -677,9 +714,9 @@ export interface LayoutRun {
 
 /**
  * Places the nodes that have no `x` and `y`. Any object of this shape works, such as the result
- * of `force()` or `grid()`.
+ * of `force()` or `grid()`. `T` is the type of the items of the nodes it reads.
  */
-export interface Layout {
+export interface Layout<T = unknown> {
   /**
    * Name reported by layout events. With `options`, decides whether a new definition lays out
    * again.
@@ -693,13 +730,19 @@ export interface Layout {
    */
   readonly incremental?: boolean
   /** Starts a run. Nodes that are not movable must keep their place in every array it reports. */
-  start(graph: LayoutGraph, listener: LayoutListener): LayoutRun
+  start(graph: LayoutGraph<T>, listener: LayoutListener): LayoutRun
 }
 
-/** Options of `defineGraph`. */
-export interface GraphDefinitionOptions<S extends string = string> {
-  /** Results of `nodes()` and `edges()`, drawn in this order. */
-  readonly marks: readonly Mark[]
+/**
+ * Options of `defineGraph`. `S` is the union of the state names and `M` the union of the marks,
+ * both inferred.
+ */
+export interface GraphDefinitionOptions<S extends string = string, M extends Mark = Mark> {
+  /**
+   * Results of `nodes()` and `edges()`, drawn in this order. Their item types and names type the
+   * targets of events and of the state.
+   */
+  readonly marks: readonly M[]
   /** `color`, `size` and `width` scales, shared by every mark. */
   readonly scales?: ScalesOptions
   /** Free states, and overrides of `selected`, `hovered` and `focused`. At most 29 free states. */
@@ -708,7 +751,7 @@ export interface GraphDefinitionOptions<S extends string = string> {
    * Places nodes that have no `x` and `y`, at the first data and when nodes arrive.
    * @default null
    */
-  readonly layout?: Layout | null
+  readonly layout?: Layout<NodeDatum<M>> | null
   /** Pan, zoom, wheel, selection, drag, lasso and keyboard. */
   readonly interaction?: InteractionOptions
   /** Zoom range and area of the view. */
@@ -724,16 +767,19 @@ export interface GraphDefinitionOptions<S extends string = string> {
   readonly hulls?: readonly Hull<NoInfer<S> | BuiltInState>[]
 }
 
-/** A frozen graph definition, made by `defineGraph`, with every option resolved. */
-export interface GraphDefinition<S extends string = string> {
+/**
+ * A frozen graph definition, made by `defineGraph`, with every option resolved. `S` is the union of
+ * the state names and `M` the union of the marks.
+ */
+export interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
   /** Marks, drawn in this order. */
-  readonly marks: readonly Mark[]
+  readonly marks: readonly M[]
   /** Scales shared by every mark. */
   readonly scales: ScalesOptions
   /** Style of each declared state. */
   readonly states: StateStyles<S>
   /** Layout of the graph, or `null` for none. */
-  readonly layout: Layout | null
+  readonly layout: Layout<NodeDatum<M>> | null
   /** Interaction options, defaults applied. */
   readonly interaction: ResolvedInteraction
   /** View limits, defaults applied. */

@@ -116,13 +116,13 @@ const detail = document.createElement('span')
 tooltip.append(title, detail)
 graph.on('pointerenter', ({ target }) => {
   if (target.kind === 'node') {
-    const item = target.datum as Item
+    const item = target.datum
     title.textContent = item.label
     detail.textContent = messages.tooltipWeight(item.group, item.weight)
     graph.anchors.set(tooltip, { node: target.key, side: 'right', align: 'start', when: 'hovered' })
     return
   }
-  const link = target.datum as Link
+  const link = target.datum
   title.textContent = messages.link(
     byId.get(link.from)?.label ?? '',
     byId.get(link.to)?.label ?? '',

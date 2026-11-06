@@ -22,6 +22,7 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 
 - Smooth with 50,000 nodes and 100,000 edges, picking included
 - Declarative marks: map your fields to color, size, labels, arrows and dashes through shared scales, with types inferred from your data
+- Typed events and state: click, hover, drag and focus targets carry your own item types, narrowed by mark name, with nothing to cast
 - Live sources: pass a TanStack DB collection as is, or anything with `subscribeChanges`, and only what changed is redrawn
 - Named states (selection, hover, focus and your own) resolved on the GPU
 - Images and icons clipped to the node shape, corner badges, outlines, label backgrounds, parallel edges and self loops
@@ -76,7 +77,7 @@ const definition = defineGraph({
 const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
 
 graph.on('click', ({ target }) => {
-  if (target?.kind === 'node') graph.view.fit([target.key], { duration: 400 })
+  if (target?.kind === 'node') console.log(target.datum.label)
 })
 graph.states.set('muted', { nodes: ['n4', 'n7'] })
 ```

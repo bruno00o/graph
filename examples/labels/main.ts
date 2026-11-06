@@ -92,7 +92,7 @@ const graph = mountGraph(main, {
 
 const hovered = status()
 graph.on('pointerenter', ({ target }) => {
-  if (target.kind === 'node') hovered.textContent = (target.datum as Item).label
+  if (target.kind === 'node') hovered.textContent = target.datum.label
 })
 graph.on('pointerleave', () => {
   hovered.textContent = ''

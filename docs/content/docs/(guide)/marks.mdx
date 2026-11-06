@@ -25,6 +25,7 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 
 | Option | Family | Value |
 | --- | --- | --- |
+| `name` | constant | Name of the mark, reported by targets. See [TypeScript](/docs/typescript) |
 | `key` | channel | Node key, `id` by default |
 | `color` | channel | Category or number, through the `color` scale |
 | `size` | channel | Number, through the `size` scale. The size is a diameter |
@@ -47,6 +48,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 
 | Option | Family | Value |
 | --- | --- | --- |
+| `name` | constant | Name of the mark, reported by targets |
 | `key` | channel | Edge key, `id` by default |
 | `source`, `target` | channel | Key of the node at each end |
 | `color` | channel | Category or number, through the `color` scale |
