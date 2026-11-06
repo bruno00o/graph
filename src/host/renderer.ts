@@ -11,6 +11,14 @@ export interface RenderInput {
   readonly positionsChanged: boolean
   readonly states: StateBuffers
   readonly full: boolean
+  readonly containers?: ContainerFrame
+}
+
+export interface ContainerFrame {
+  readonly boxes: Float32Array
+  readonly order: Uint32Array
+  readonly count: number
+  readonly version: number
 }
 
 export interface RenderFrame {

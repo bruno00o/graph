@@ -39,6 +39,7 @@ export default defineConfig({
         collab: resolve(import.meta.dirname, 'examples/collab/index.html'),
         explore: resolve(import.meta.dirname, 'examples/explore/index.html'),
         edges: resolve(import.meta.dirname, 'examples/edges/index.html'),
+        groups: resolve(import.meta.dirname, 'examples/groups/index.html'),
         nodes: resolve(import.meta.dirname, 'examples/nodes/index.html'),
         labels: resolve(import.meta.dirname, 'examples/labels/index.html'),
         layout: resolve(import.meta.dirname, 'examples/layout/index.html'),

@@ -45,6 +45,7 @@ const units = {
   atlas: 8,
   images: 9,
   nodeDecor: 10,
+  nodeBox: 11,
 } as const
 
 function iota(length: number): Uint32Array {
@@ -79,10 +80,11 @@ export function createWebglRenderer(
   const nodePaint = new DataTexture(gl, format.rgba32ui, u32)
   const nodeState = new DataTexture(gl, format.r32ui, u32)
   const nodeDecor = new DataTexture(gl, format.rgba32ui, u32)
+  const nodeBox = new DataTexture(gl, format.rgba32f, f32)
   const edgeTopology = new DataTexture(gl, format.rgba32ui, u32)
   const edgeStyle = new DataTexture(gl, format.rgba32f, f32)
   const edgeState = new DataTexture(gl, format.r32ui, u32)
-  const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor]
+  const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor, nodeBox]
   const images = new ImageAtlas(gl, invalidate)
   const floatBits = new Float32Array(1)
   const floatWord = new Uint32Array(floatBits.buffer)
@@ -151,6 +153,7 @@ export function createWebglRenderer(
   const nodeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const edgeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const curveIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const containerIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const labelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const labelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const edgeLabelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
@@ -170,6 +173,7 @@ export function createWebglRenderer(
     nodeOverlayIndices,
     edgeOverlayIndices,
     curveIndices,
+    containerIndices,
     labelMainBuffer,
     labelHighlightBuffer,
     edgeLabelMainBuffer,
@@ -286,6 +290,10 @@ export function createWebglRenderer(
       corner(nodeCorner),
       instance(nodeOverlayIndices),
     ]),
+    containers: createVertexArray(gl, nodeProgram, [
+      corner(nodeCorner),
+      instance(containerIndices),
+    ]),
     edges: createVertexArray(gl, edgeProgram, [corner(edgeCorner, 3), instance(edgeIndices)]),
     edgeOverlay: createVertexArray(gl, edgeProgram, [
       corner(edgeCorner, 3),
@@ -331,6 +339,8 @@ export function createWebglRenderer(
   let nodeCapacity = 0
   let edgeCapacity = 0
   let nodeOverlayCount = 0
+  let containerCount = 0
+  let containerVersion = -1
   let edgeOverlayCount = 0
   const curved = new Set<number>()
   let curvedFlags = new Uint8Array(0)
@@ -524,6 +534,20 @@ export function createWebglRenderer(
       nodeState.upload(range[0], range[1])
     }
     if (next.dirty.nodes.size > 0 || next.full) orderStale = true
+    syncContainers(next, grown)
+  }
+
+  function syncContainers(next: RenderInput, grown: boolean): void {
+    const containers = next.containers
+    if (!containers || (containers.version === containerVersion && !grown && !next.full)) return
+    containerVersion = containers.version
+    const data = nodeBox.data
+    data.set(containers.boxes.subarray(0, Math.min(containers.boxes.length, data.length)))
+    nodeBox.upload(0, nodeCapacity - 1)
+    containerCount = containers.count
+    gl.bindBuffer(gl.ARRAY_BUFFER, containerIndices)
+    gl.bufferData(gl.ARRAY_BUFFER, containers.order.subarray(0, containerCount), gl.DYNAMIC_DRAW)
+    labelsMoved = true
   }
 
   function syncEdges(next: RenderInput): void {
@@ -665,6 +689,7 @@ export function createWebglRenderer(
         width: frame.width,
         height: frame.height,
         nodeMask: input.states.nodeMask,
+        boxes: input.containers?.boxes ?? null,
         labelFlags: input.states.labelFlags,
         highlighted: input.states.highlightedNodes,
         order: labelOrder,
@@ -825,6 +850,7 @@ export function createWebglRenderer(
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
       if (!warmed) warm()
+      draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
       for (const layer of input?.scene.layers ?? []) {
         if (layer.kind === 'edges') {
           draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
@@ -890,6 +916,7 @@ export function createWebglRenderer(
       [units.edgeState, edgeState.texture],
       [units.atlas, atlasTexture],
       [units.nodeDecor, nodeDecor.texture],
+      [units.nodeBox, nodeBox.texture],
     ]
     for (const [unit, texture] of textures) {
       gl.activeTexture(gl.TEXTURE0 + unit)

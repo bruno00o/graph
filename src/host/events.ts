@@ -1,8 +1,17 @@
-import type { Key, Point, View } from '../types'
+import type { AggregateEdge, Key, Point, View } from '../types'
 
 export type GraphTarget =
   | { readonly kind: 'node'; readonly key: Key; readonly datum: unknown }
-  | { readonly kind: 'edge'; readonly key: Key; readonly datum: unknown }
+  | {
+      readonly kind: 'edge'
+      readonly key: Key
+      readonly datum: unknown
+      /**
+       * Set when the edge stands for several edges between folded groups; `key` and `datum` are then
+       * those of its first edge.
+       */
+      readonly aggregate?: AggregateEdge
+    }
 
 export interface ElementKeys {
   readonly nodes: readonly Key[]
@@ -46,6 +55,12 @@ export interface GraphLayoutEndEvent extends GraphLayoutEvent {
   readonly completed: boolean
 }
 
+/** Payload of `foldchange` and of the controlled `onFoldChange` callback. */
+export interface GraphFoldEvent {
+  /** Keys of the folded groups. */
+  readonly folded: readonly Key[]
+}
+
 export type PositionOrigin = 'drag' | 'api' | 'layout'
 
 export interface GraphPositionEvent {
@@ -65,6 +80,7 @@ export interface GraphEvents {
   readonly positionchange: GraphPositionEvent
   readonly selectionchange: ElementKeys
   readonly focuschange: GraphFocusEvent
+  readonly foldchange: GraphFoldEvent
   readonly viewchange: { readonly view: View }
   readonly layoutstart: GraphLayoutEvent
   readonly layoutend: GraphLayoutEndEvent

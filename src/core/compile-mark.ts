@@ -24,6 +24,16 @@ export interface CompiledNodeMark {
   readonly image: Read | null
   readonly badges: ReadonlyArray<readonly [BadgeCorner, Read]>
   readonly screenUnits: boolean
+  readonly parent: Read | null
+  readonly container: CompiledContainer
+}
+
+export interface CompiledContainer {
+  readonly shape: Read | null
+  readonly padding: Read | null
+  readonly fill: Read | null
+  readonly stroke: Read | null
+  readonly strokeWidth: Read | null
 }
 
 export interface CompiledLabelText {
@@ -101,6 +111,14 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     image: style(options.image),
     badges,
     screenUnits: options.units === 'screen',
+    parent: channel(options.parent),
+    container: {
+      shape: style(options.container?.shape),
+      padding: style(options.container?.padding),
+      fill: style(options.container?.fill),
+      stroke: style(options.container?.stroke),
+      strokeWidth: style(options.container?.strokeWidth),
+    },
   }
   nodeCache.set(mark, compiled)
   return compiled

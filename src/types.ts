@@ -107,6 +107,27 @@ export interface NodeOptions<T> {
   readonly image?: Style<T, string | NodeImage | null>
   readonly badges?: Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined>>>>
   readonly units?: 'world' | 'screen'
+  /** Key of the group node that contains this node; `null` or absent for a top-level node. */
+  readonly parent?: Channel<T, Key>
+  /** Look of the node while it is an unfolded group drawn as a container behind its children. */
+  readonly container?: ContainerOptions<T>
+}
+
+/** Outline of an unfolded group. */
+export type ContainerShape = 'rectangle' | 'circle'
+
+/** Look of a group node while it is unfolded. */
+export interface ContainerOptions<T> {
+  /** Outline drawn around the children. @default 'rectangle' */
+  readonly shape?: Style<T, ContainerShape>
+  /** Space between the children and the outline, in world units. @default 16 */
+  readonly padding?: Style<T, number>
+  /** Fill color. @default 'var(--graph-group-fill)' */
+  readonly fill?: Style<T, string>
+  /** Outline color. @default 'var(--graph-group-line)' */
+  readonly stroke?: Style<T, string>
+  /** Outline width in screen pixels. @default 1 */
+  readonly strokeWidth?: Style<T, number>
 }
 
 export interface EdgeOptions<T> {
@@ -120,7 +141,32 @@ export interface EdgeOptions<T> {
   readonly arrow?: Style<T, EdgeArrow>
   readonly stroke?: Style<T, string>
   readonly opacity?: Style<T, number>
+  /** Look of the edges that stand for several edges of this mark between folded groups. */
+  readonly aggregate?: AggregateEdgeOptions<T>
 }
+
+/** Edges of one mark merged into a single drawn edge because an end lies in a folded group. */
+export interface AggregateEdge<T = unknown> {
+  /** Key of the visible node or folded group the merged edges start from. */
+  readonly source: Key
+  /** Key of the visible node or folded group the merged edges end at. */
+  readonly target: Key
+  /** Number of merged edges. */
+  readonly count: number
+  /** Keys of the merged edges. */
+  readonly keys: readonly Key[]
+  /** Data of the merged edges, in the order of `keys`. */
+  readonly data: readonly T[]
+}
+
+/**
+ * Channels and styles of an aggregated edge, read from its {@link AggregateEdge}. Without them, an
+ * aggregated edge looks like its first merged edge, and keeps its label only when it merges one edge.
+ */
+export type AggregateEdgeOptions<T> = Omit<
+  EdgeOptions<AggregateEdge<T>>,
+  'key' | 'source' | 'target' | 'aggregate'
+>
 
 export interface Mark {
   readonly type: 'nodes' | 'edges'
@@ -188,6 +234,8 @@ export interface InteractionOptions {
   readonly drag?: boolean
   readonly lasso?: boolean
   readonly keyboard?: boolean
+  /** Double-click on a group, or Enter on a focused group, folds or unfolds it. @default true */
+  readonly fold?: boolean
 }
 
 export interface ResolvedInteraction {
@@ -197,6 +245,7 @@ export interface ResolvedInteraction {
   readonly drag: boolean
   readonly lasso: boolean
   readonly keyboard: boolean
+  readonly fold: boolean
 }
 
 export interface TransitionOptions {
@@ -222,6 +271,11 @@ export interface LayoutGraph {
   readonly xy: Float32Array
   readonly radius: Float32Array
   readonly edges: Uint32Array
+  /**
+   * Pairs of node indices that share an unfolded group, for layouts that keep groups together: each
+   * member is paired with one other member of its group.
+   */
+  readonly groupLinks?: Uint32Array
   readonly keys: readonly (Key | undefined)[]
   datum(index: number): unknown
 }

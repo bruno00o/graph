@@ -17,6 +17,18 @@ export type AnyMark = NodeMark<unknown> | EdgeMark<unknown>
 export type GraphIssue =
   | { readonly type: 'missing-key'; readonly kind: ElementKind; readonly datum: unknown }
   | { readonly type: 'duplicate-key'; readonly kind: ElementKind; readonly key: Key }
+  | {
+      readonly type: 'missing-parent'
+      readonly kind: 'nodes'
+      readonly key: Key
+      readonly parent: Key
+    }
+  | {
+      readonly type: 'parent-cycle'
+      readonly kind: 'nodes'
+      readonly key: Key
+      readonly parent: Key
+    }
 
 export interface Source<M extends AnyMark> {
   readonly slot: number

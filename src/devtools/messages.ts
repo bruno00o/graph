@@ -108,10 +108,18 @@ export const defaultMessages: GraphDevtoolsMessages = {
   edges: 'Edges',
   pendingEdges: 'Pending edges',
   issues: 'Issues',
-  issue: (issue) =>
-    issue.type === 'duplicate-key'
-      ? `Duplicate ${issue.kind === 'nodes' ? 'node' : 'edge'} key ${String(issue.key)}`
-      : `${issue.kind === 'nodes' ? 'Node' : 'Edge'} without a key`,
+  issue: (issue) => {
+    switch (issue.type) {
+      case 'duplicate-key':
+        return `Duplicate ${issue.kind === 'nodes' ? 'node' : 'edge'} key ${String(issue.key)}`
+      case 'missing-key':
+        return `${issue.kind === 'nodes' ? 'Node' : 'Edge'} without a key`
+      case 'missing-parent':
+        return `Node ${String(issue.key)} has no parent ${String(issue.parent)}`
+      case 'parent-cycle':
+        return `Node ${String(issue.key)} would contain itself through ${String(issue.parent)}`
+    }
+  },
   view: 'View',
   center: 'Center',
   point: (x, y) => `${decimal.format(x)}, ${decimal.format(y)}`,
