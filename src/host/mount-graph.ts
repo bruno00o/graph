@@ -109,7 +109,7 @@ export interface GraphInstance<S extends string = string> {
   destroy(): void
 }
 
-export type RendererFactory = (canvas: HTMLCanvasElement) => Renderer
+export type RendererFactory = (canvas: HTMLCanvasElement, invalidate: () => void) => Renderer
 
 interface ViewAnimation {
   readonly from: View
@@ -236,7 +236,7 @@ export function createGraphHost<S extends string = string>(
   const emitter = new Emitter()
   const pickIndex = new PickIndex()
   const themeResolver = new ThemeResolver(element)
-  let renderer = createRenderer(canvas)
+  let renderer = createRenderer(canvas, () => request())
 
   registry.define(freeStateNames(definition.states))
   if (options.selection !== undefined) registry.set('selected', options.selection)
@@ -747,7 +747,7 @@ export function createGraphHost<S extends string = string>(
 
   function onContextRestored(): void {
     contextLost = false
-    renderer = createRenderer(canvas)
+    renderer = createRenderer(canvas, () => request())
     full = true
     refreshTheme()
   }

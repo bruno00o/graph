@@ -1,6 +1,21 @@
-import type { Badge, BadgeCorner, EdgeArrow, EdgeDash, Key, NodeShape } from '../types'
+import type { BadgeCorner, EdgeArrow, EdgeDash, Key, NodeShape } from '../types'
 
-export type NodeBadges = Readonly<Partial<Record<BadgeCorner, Badge>>>
+export interface NodeBadge {
+  readonly corner: number
+  readonly text: string | null
+  readonly fill: number
+  readonly color: number
+  readonly ring: number
+}
+
+export const noColor = 0xffffffff
+
+export const cornerCodes: Readonly<Record<BadgeCorner, number>> = {
+  topLeft: 0,
+  topRight: 1,
+  bottomLeft: 2,
+  bottomRight: 3,
+}
 
 export const shapeCodes: Readonly<Record<NodeShape, number>> = {
   circle: 0,
@@ -44,7 +59,9 @@ export class NodeColumns {
   label: (string | null)[] = []
   secondary: (string | null)[] = []
   image: (string | null)[] = []
-  badges: (NodeBadges | null)[] = []
+  imageScale: Float32Array = new Float32Array(0)
+  imageColor: Uint32Array = new Uint32Array(0)
+  badges: (readonly NodeBadge[] | null)[] = []
 
   reserve(index: number): void {
     if (index < this.capacity) return
@@ -58,6 +75,8 @@ export class NodeColumns {
     this.strokeWidth = grow(this.strokeWidth, capacity)
     this.opacity = grow(this.opacity, capacity)
     this.screenUnits = grow(this.screenUnits, capacity)
+    this.imageScale = grow(this.imageScale, capacity)
+    this.imageColor = grow(this.imageColor, capacity)
     this.capacity = capacity
   }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import type { GraphDefinition, GraphDefinitionOptions } from '../types'
-import { arrowCodes, dashCodes, shapeCodes } from './columns'
+import { arrowCodes, cornerCodes, dashCodes, noColor, shapeCodes } from './columns'
 import { createGraphModel } from './graph-model'
 import { createScene } from './scene'
 
@@ -122,7 +122,11 @@ describe('createScene', () => {
           fill: '#123456',
           shape: 'diamond',
           opacity: 3,
-          badges: { topRight: () => ({ text: '2' }), bottomLeft: () => null },
+          badges: {
+            topRight: () => ({ text: 2 }),
+            bottomLeft: () => null,
+            topLeft: () => ({ fill: '#00aa00' }),
+          },
         }),
         edges<Link>([{ id: 'aa', from: 'a', to: 'a' }], {
           ...linkOptions,
@@ -135,11 +139,56 @@ describe('createScene', () => {
     expect(fill('a')).toBe('#123456')
     expect(scene.nodes.shape[0]).toBe(shapeCodes.diamond)
     expect(scene.nodes.opacity[0]).toBe(1)
-    expect(scene.nodes.badges[0]).toEqual({ topRight: { text: '2' } })
+    const colors = scene.palette.colors
+    expect(
+      (scene.nodes.badges[0] ?? []).map((badge) => [
+        badge.corner,
+        badge.text,
+        colors[badge.fill],
+        colors[badge.color],
+      ]),
+    ).toEqual([
+      [cornerCodes.topLeft, null, '#00aa00', 'var(--graph-badge-ink)'],
+      [cornerCodes.topRight, '2', 'var(--graph-badge-fill)', 'var(--graph-badge-ink)'],
+    ])
     const edge = model.edge('aa')?.index ?? -1
     expect(scene.palette.colors[scene.edges.color[edge] ?? -1]).toBe('black')
     expect(scene.edges.dash[edge]).toBe(dashCodes.dotted)
     expect(scene.edges.arrow[edge]).toBe(arrowCodes.both)
+  })
+
+  it('reads images as a source or with a scale and a color', () => {
+    const { scene, nodeIndex } = setup({
+      marks: [
+        nodes<Item>(
+          [
+            { id: 'a', name: 'a.png' },
+            { id: 'b', name: 'b.svg' },
+            { id: 'c', name: '' },
+            { id: 'd' },
+          ],
+          {
+            image: (item) =>
+              item.id === 'b'
+                ? { src: item.name ?? '', scale: 0.6, color: 'var(--graph-paper)' }
+                : (item.name ?? null),
+          },
+        ),
+      ],
+    })
+    const image = (key: string) => {
+      const index = nodeIndex(key)
+      const color = scene.nodes.imageColor[index] ?? noColor
+      return [
+        scene.nodes.image[index],
+        scene.nodes.imageScale[index],
+        color === noColor ? null : scene.palette.colors[color],
+      ]
+    }
+    expect(image('a')).toEqual(['a.png', 1, null])
+    expect(image('b')).toEqual(['b.svg', Math.fround(0.6), 'var(--graph-paper)'])
+    expect(image('c')).toEqual([null, 1, null])
+    expect(image('d')).toEqual([null, 1, null])
   })
 
   it('rescales untouched elements when the data extent changes', () => {

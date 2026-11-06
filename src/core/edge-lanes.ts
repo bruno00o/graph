@@ -118,8 +118,8 @@ export function createEdgeLanes(): EdgeLanes {
 
   function link(index: number, source: number, target: number): void {
     reserve(index)
-    const low = source < target ? source : target
-    const high = source < target ? target : source
+    const low = Math.min(source, target)
+    const high = Math.max(source, target)
     const current = slots[index] ?? -1
     if (current >= 0) {
       if (lows[current] === low && highs[current] === high) return

@@ -50,6 +50,7 @@ export type {
   LabelOptions,
   LiveSource,
   Mark,
+  NodeImage,
   NodeMark,
   NodeOptions,
   NodeShape,

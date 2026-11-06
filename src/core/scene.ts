@@ -15,10 +15,12 @@ import type {
 } from '../types'
 import {
   arrowCodes,
+  cornerCodes,
   dashCodes,
   EdgeColumns,
-  type NodeBadges,
+  type NodeBadge,
   NodeColumns,
+  noColor,
   shapeCodes,
 } from './columns'
 import { type CompiledNodeMark, compileEdgeMark, compileNodeMark } from './compile-mark'
@@ -80,18 +82,30 @@ function codeOf<T extends string>(codes: Readonly<Record<T, number>>, value: unk
   return typeof value === 'string' && Object.hasOwn(codes, value) ? codes[value as T] : 0
 }
 
-function readBadges(mark: CompiledNodeMark, datum: unknown): NodeBadges | null {
+function readBadges(mark: CompiledNodeMark, datum: unknown, palette: Palette): NodeBadge[] | null {
   if (mark.badges.length === 0) return null
-  const badges: Record<string, unknown> = {}
-  let count = 0
+  const badges: NodeBadge[] = []
   for (const [corner, read] of mark.badges) {
     const badge = read(datum)
-    if (typeof badge === 'object' && badge !== null) {
-      badges[corner] = badge
-      count++
-    }
+    if (typeof badge !== 'object' || badge === null) continue
+    const { text, fill, color } = badge as Record<string, unknown>
+    badges.push({
+      corner: cornerCodes[corner],
+      text: typeof text === 'number' ? String(text) : toText(text) || null,
+      fill: palette.id(toColor(fill) ?? defaults.badgeFill),
+      color: palette.id(toColor(color) ?? defaults.badgeInk),
+      ring: palette.id(defaults.badgeRing),
+    })
   }
-  return count === 0 ? null : (badges as NodeBadges)
+  return badges.length === 0 ? null : badges
+}
+
+function readImage(value: unknown): { src: string; scale: number; color: string | null } | null {
+  if (typeof value === 'string') return value === '' ? null : { src: value, scale: 1, color: null }
+  if (typeof value !== 'object' || value === null) return null
+  const { src, scale, color } = value as Record<string, unknown>
+  if (typeof src !== 'string' || src === '') return null
+  return { src, scale: Math.max(0, finiteOr(scale, 1)), color: toColor(color) }
 }
 
 function layersOf(marks: readonly Mark[]): Layer[] {
@@ -184,8 +198,11 @@ export function createScene(): Scene {
     nodes.screenUnits[index] = mark.screenUnits ? 1 : 0
     nodes.label[index] = toText(mark.label?.(datum))
     nodes.secondary[index] = toText(mark.secondary?.(datum))
-    nodes.image[index] = toText(mark.image?.(datum))
-    nodes.badges[index] = readBadges(mark, datum)
+    const image = readImage(mark.image?.(datum))
+    nodes.image[index] = image?.src ?? null
+    nodes.imageScale[index] = image?.scale ?? 1
+    nodes.imageColor[index] = image?.color ? palette.id(image.color) : noColor
+    nodes.badges[index] = readBadges(mark, datum, palette)
     dirtyNodes.add(index)
   }
 

@@ -50,6 +50,9 @@ export interface Defaults {
   readonly edgeWidth: number
   readonly edgeWidthRange: Extent
   readonly edgeColor: string
+  readonly badgeFill: string
+  readonly badgeInk: string
+  readonly badgeRing: string
 }
 
 export const defaults: Defaults = {
@@ -61,6 +64,9 @@ export const defaults: Defaults = {
   edgeWidth: 1.5,
   edgeWidthRange: [1, 6],
   edgeColor: themeColor('edge'),
+  badgeFill: themeColor('badge-fill'),
+  badgeInk: themeColor('badge-ink'),
+  badgeRing: themeColor('node-ring'),
 }
 
 export const ringWidth = 2

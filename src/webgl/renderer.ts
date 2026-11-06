@@ -1,4 +1,4 @@
-import type { EdgeColumns, NodeColumns } from '../core/columns'
+import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import type { ResolvedTheme } from '../dom/theme'
 import type { Renderer, RenderFrame, RenderInput } from '../host/renderer'
 import {
@@ -10,8 +10,11 @@ import {
   formats,
 } from './gl'
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
-import { glyphStride, LabelLayer, sortBySize } from './label-layer'
+import { ImageAtlas } from './image-atlas'
+import { GlyphBuffer, glyphStride, LabelLayer, sortBySize } from './label-layer'
 import {
+  badgeFragment,
+  badgeVertex,
   cornerCurve,
   cornerEdge,
   cornerLabel,
@@ -28,6 +31,7 @@ import {
 const blocks = { Frame: 0, States: 1 }
 const paletteWidth = 256
 const labelInterval = 120
+const badgeStride = 20
 
 const units = {
   palette: 0,
@@ -39,6 +43,8 @@ const units = {
   edgeStyle: 6,
   edgeState: 7,
   atlas: 8,
+  images: 9,
+  nodeImage: 10,
 } as const
 
 function iota(length: number): Uint32Array {
@@ -51,7 +57,10 @@ function rgba(color: readonly number[]): readonly number[] {
   return color.map((channel) => channel / 255)
 }
 
-export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
+export function createWebglRenderer(
+  canvas: HTMLCanvasElement,
+  invalidate: () => void = () => {},
+): Renderer {
   const context = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
@@ -69,10 +78,14 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   const nodeStyle = new DataTexture(gl, format.rgba32f, f32)
   const nodePaint = new DataTexture(gl, format.rgba32ui, u32)
   const nodeState = new DataTexture(gl, format.r32ui, u32)
+  const nodeImage = new DataTexture(gl, format.rgba32ui, u32)
   const edgeTopology = new DataTexture(gl, format.rgba32ui, u32)
   const edgeStyle = new DataTexture(gl, format.rgba32f, f32)
   const edgeState = new DataTexture(gl, format.r32ui, u32)
-  const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState]
+  const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeImage]
+  const images = new ImageAtlas(gl, invalidate)
+  const scaleBits = new Float32Array(1)
+  const scaleWord = new Uint32Array(scaleBits.buffer)
   const edgeTextures = [edgeTopology, edgeStyle, edgeState]
 
   const palette = gl.createTexture()
@@ -105,7 +118,8 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   const nodeProgram = createProgram(gl, nodeVertex, nodeFragment, blocks)
   const edgeProgram = createProgram(gl, edgeVertex, edgeFragment, blocks)
   const labelProgram = createProgram(gl, labelVertex, labelFragment, blocks)
-  const programs = [nodeProgram, edgeProgram, labelProgram]
+  const badgeProgram = createProgram(gl, badgeVertex, badgeFragment, blocks)
+  const programs = [nodeProgram, edgeProgram, labelProgram, badgeProgram]
   const locations = new Map<
     WebGLProgram,
     {
@@ -139,8 +153,11 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   const curveIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const labelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const labelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
+  const badgeBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
+  const badgeGlyphBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const warmIndex = createBuffer(gl, new Uint32Array(1), gl.STATIC_DRAW)
   const warmGlyph = createBuffer(gl, new Uint8Array(glyphStride), gl.STATIC_DRAW)
+  const warmBadge = createBuffer(gl, new Uint8Array(badgeStride), gl.STATIC_DRAW)
   const buffers = [
     nodeCorner,
     edgeCorner,
@@ -153,8 +170,11 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     curveIndices,
     labelMainBuffer,
     labelHighlightBuffer,
+    badgeBuffer,
+    badgeGlyphBuffer,
     warmIndex,
     warmGlyph,
+    warmBadge,
   ]
 
   const corner = (buffer: WebGLBuffer, size = 2): Attribute => ({
@@ -214,6 +234,29 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       offset: 24,
     },
   ]
+  const badgeField = (
+    buffer: WebGLBuffer,
+    name: string,
+    offset: number,
+    type: number = gl.UNSIGNED_INT,
+  ): Attribute => ({
+    name,
+    buffer,
+    size: 1,
+    type,
+    integer: type === gl.UNSIGNED_INT,
+    divisor: 1,
+    stride: badgeStride,
+    offset,
+  })
+  const badgeAttributes = (buffer: WebGLBuffer): Attribute[] => [
+    corner(nodeCorner),
+    badgeField(buffer, 'badgeNode', 0),
+    badgeField(buffer, 'badgeInfo', 4),
+    badgeField(buffer, 'badgeFill', 8),
+    badgeField(buffer, 'badgeRingColor', 12),
+    badgeField(buffer, 'badgeText', 16, gl.FLOAT),
+  ]
   const vertexArrays = {
     nodes: createVertexArray(gl, nodeProgram, [corner(nodeCorner), instance(nodeIndices)]),
     nodeOverlay: createVertexArray(gl, nodeProgram, [
@@ -227,11 +270,14 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     ]),
     labels: createVertexArray(gl, labelProgram, glyphs(labelMainBuffer)),
     labelHighlight: createVertexArray(gl, labelProgram, glyphs(labelHighlightBuffer)),
+    badges: createVertexArray(gl, badgeProgram, badgeAttributes(badgeBuffer)),
+    badgeGlyphs: createVertexArray(gl, labelProgram, glyphs(badgeGlyphBuffer)),
   }
   const vertexCounts = new Map<WebGLProgram, number>([
     [nodeProgram, cornerNode.length / 2],
     [edgeProgram, cornerEdge.length / 3],
     [labelProgram, cornerLabel.length / 2],
+    [badgeProgram, cornerNode.length / 2],
   ])
   let warmed = false
   let curvePass: {
@@ -274,6 +320,13 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   let orderStale = true
   let lastLabelTime = Number.NEGATIVE_INFINITY
   let lastLabelView = ''
+  const imageOf: (string | null)[] = []
+  const badged = new Set<number>()
+  const badgeGlyphs = new GlyphBuffer()
+  let badgeData = new ArrayBuffer(badgeStride * 64)
+  let badgeCount = 0
+  let badgesStale = false
+  let badgeGeneration = -1
 
   function packNode(nodes: NodeColumns, index: number): void {
     const at = index * 4
@@ -288,6 +341,86 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     nodePaint.data[at] = nodes.fill[index] ?? 0
     nodePaint.data[at + 1] = nodes.stroke[index] ?? 0
     nodePaint.data[at + 2] = nodes.slot[index] ?? 0
+    const src = nodes.alive[index] === 1 ? (nodes.image[index] ?? null) : null
+    const previous = imageOf[index] ?? null
+    if (src !== previous) {
+      if (previous) images.release(previous)
+      if (src) images.acquire(src)
+      imageOf[index] = src
+    }
+    scaleBits[0] = nodes.imageScale[index] ?? 1
+    nodeImage.data[at] = src ? images.layer(src) + 1 : 0
+    nodeImage.data[at + 1] = nodes.imageColor[index] ?? noColor
+    nodeImage.data[at + 2] = scaleWord[0] ?? 0
+    const badges = nodes.alive[index] === 1 ? nodes.badges[index] : null
+    if (badges || badged.has(index)) badgesStale = true
+    if (badges) badged.add(index)
+    else badged.delete(index)
+  }
+
+  function refreshImages(nodes: NodeColumns): void {
+    const loaded = images.takeLoaded()
+    if (!loaded) return
+    let first = Number.POSITIVE_INFINITY
+    let last = -1
+    for (let index = 0; index < nodes.capacity; index++) {
+      const src = imageOf[index]
+      if (!src || !loaded.has(src)) continue
+      nodeImage.data[index * 4] = images.layer(src) + 1
+      first = Math.min(first, index)
+      last = Math.max(last, index)
+    }
+    nodeImage.upload(first, last)
+  }
+
+  function rebuildBadges(): void {
+    if (!input) return
+    const nodes = input.scene.nodes
+    const generation = atlas.generation
+    badgeGlyphs.clear()
+    badgeCount = 0
+    let words = new Uint32Array(badgeData)
+    let floats = new Float32Array(badgeData)
+    for (const index of badged) {
+      for (const badge of nodes.badges[index] ?? []) {
+        if ((badgeCount + 1) * badgeStride > badgeData.byteLength) {
+          const grown = new ArrayBuffer(badgeData.byteLength * 2)
+          new Uint8Array(grown).set(new Uint8Array(badgeData))
+          badgeData = grown
+          words = new Uint32Array(badgeData)
+          floats = new Float32Array(badgeData)
+        }
+        const line = badge.text ? atlas.line(badge.text, '500') : null
+        const at = badgeCount * (badgeStride / 4)
+        words[at] = index
+        words[at + 1] = badge.corner | (line ? 4 : 0)
+        words[at + 2] = badge.fill
+        words[at + 3] = badge.ring
+        floats[at + 4] = line?.width ?? 0
+        if (line)
+          badgeGlyphs.push(index, 2 | (badge.corner << 2) | (badge.color << 4), line, atlas.height)
+        badgeCount++
+      }
+    }
+    if (atlas.generation !== generation) {
+      labelsStale = true
+      rebuildBadges()
+      return
+    }
+    badgesStale = false
+    badgeGeneration = atlas.generation
+    gl.bindBuffer(gl.ARRAY_BUFFER, badgeBuffer)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Uint8Array(badgeData, 0, badgeCount * badgeStride),
+      gl.DYNAMIC_DRAW,
+    )
+    gl.bindBuffer(gl.ARRAY_BUFFER, badgeGlyphBuffer)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Uint8Array(badgeGlyphs.data, 0, badgeGlyphs.count * glyphStride),
+      gl.DYNAMIC_DRAW,
+    )
   }
 
   function packEdge(edges: EdgeColumns, index: number): void {
@@ -336,6 +469,7 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     }
     nodeStyle.upload(first, last)
     nodePaint.upload(first, last)
+    nodeImage.upload(first, last)
     if (next.positionsChanged || next.full || grown) {
       const xy = next.positions.xy
       nodePosition.data.set(xy.subarray(0, Math.min(xy.length, nodePosition.data.length)))
@@ -528,6 +662,7 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       [nodeProgram, [corner(nodeCorner), instance(warmIndex)]],
       [edgeProgram, [corner(edgeCorner, 3), instance(warmIndex)]],
       [labelProgram, glyphs(warmGlyph)],
+      [badgeProgram, badgeAttributes(warmBadge)],
     ]
     gl.enable(gl.SCISSOR_TEST)
     gl.scissor(0, 0, 0, 0)
@@ -545,6 +680,7 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     sync(next) {
       input = next
       syncNodes(next)
+      refreshImages(next.scene.nodes)
       syncEdges(next)
       syncStates(next)
       if (next.dirty.nodes.size > 0 || next.full) labelsStale = true
@@ -606,7 +742,12 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       frameBlock[7] = 8
       gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
+      if (badgesStale || badgeGeneration !== atlas.generation) rebuildBadges()
+      const generation = atlas.generation
       const wait = selectLabels(frame, performance.now())
+      if (atlas.generation !== generation) rebuildBadges()
+      syncAtlas()
+      images.prepare()
       gl.viewport(0, 0, width, height)
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
@@ -623,12 +764,18 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
           }
         } else draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
       }
+      draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
+      draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
       draw(labelProgram, vertexArrays.labels, labels.main.count, 0, 0)
       draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
       if (curvePass && curved.size > 0) {
         draw(curvePass.program, curvePass.overlay, edgeOverlayCount, 0, 1)
       }
       draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
+      if (nodeOverlayCount > 0) {
+        draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
+        draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
+      }
       draw(labelProgram, vertexArrays.labelHighlight, labels.highlight.count, 0, 1)
       gl.bindVertexArray(null)
       return wait
@@ -638,6 +785,7 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       for (const texture of [...nodeTextures, ...edgeTextures]) texture.destroy()
       gl.deleteTexture(palette)
       gl.deleteTexture(atlasTexture)
+      images.destroy()
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
       for (const vao of Object.values(vertexArrays)) gl.deleteVertexArray(vao)
       if (curvePass) {
@@ -660,10 +808,13 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       [units.edgeStyle, edgeStyle.texture],
       [units.edgeState, edgeState.texture],
       [units.atlas, atlasTexture],
+      [units.nodeImage, nodeImage.texture],
     ]
     for (const [unit, texture] of textures) {
       gl.activeTexture(gl.TEXTURE0 + unit)
       gl.bindTexture(gl.TEXTURE_2D, texture)
     }
+    gl.activeTexture(gl.TEXTURE0 + units.images)
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, images.texture)
   }
 }
