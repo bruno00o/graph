@@ -117,6 +117,53 @@ The layout reports positions through a `LayoutListener`:
 
 Every array passed to the listener holds `capacity × 2` numbers. Nodes that are not movable must keep their place.
 
+## Bundling
+
+`bundling` takes an `EdgeBundling`, such as the result of [`densityBundling()`](/docs/api/bundling), or `null`. The port is public: any object with this shape works. See [Edge bundling](/docs/bundling).
+
+```ts
+interface EdgeBundling<T = unknown> {
+  readonly name: string
+  readonly options: object
+  readonly strength: number
+  readonly maxEdges: number
+  start(graph: BundleGraph<T>, listener: BundleListener): BundleRun
+}
+
+interface BundleGraph<T = unknown> {
+  readonly xy: Float32Array
+  readonly edges: Uint32Array
+  readonly ends: Uint32Array
+  readonly keys: readonly (Key | undefined)[]
+  datum(index: number): T | undefined
+}
+
+interface BundlePaths {
+  readonly offsets: Uint32Array
+  readonly points: Float32Array
+}
+
+interface BundleListener {
+  end(paths: BundlePaths): void
+}
+
+interface BundleRun {
+  stop(): void
+}
+```
+
+<api-table path="index.ts" name="EdgeBundling" />
+
+`start` receives a `BundleGraph`: node positions by internal index, and the edges to bundle with their ends.
+
+<api-table path="index.ts" name="BundleGraph" />
+
+The bundling reports one polyline per listed edge, in the same order, through `end`:
+
+<api-table path="index.ts" name="BundlePaths" />
+
+`start` returns a `BundleRun`, which the graph stops when nodes move before the paths arrive or when the bundling changes. Two bundlings with the same `name`, `maxEdges` and `options`, compared one by one, are equal for the graph: a new definition with an equal bundling does not compute again, and a new `strength` alone eases the drawn edges to it.
+
 ## Interaction
 
 <api-table path="index.ts" name="InteractionOptions" />
@@ -168,7 +215,7 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 
 - `TypeError` when a mark does not come from `nodes()` or `edges()`, or when `interaction.wheel` is not `'zoom'`, `'pan'` or `'page'`.
 - `RangeError` when `view.minZoom` is not positive, `view.maxZoom` is not finite or is smaller than `minZoom`, or `view.bounds` holds a value that is not finite or a rectangle whose minimum exceeds its maximum.
-- `TypeError` when `background.grid` is not `'lines'` or `'dots'`, or when a hull does not come from `hull()`.
+- `TypeError` when `background.grid` is not `'lines'` or `'dots'`, when a hull does not come from `hull()`, or when `bundling` has no `start` function.
 - `RangeError` with more than 29 states besides `selected`, `hovered` and `focused`.
 
 ## Result
@@ -184,6 +231,7 @@ interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
   readonly transitions: ResolvedTransitions
   readonly background: ResolvedBackground | null
   readonly hulls: readonly Hull[]
+  readonly bundling: EdgeBundling<EdgeDatum<M>> | null
 }
 ```
 

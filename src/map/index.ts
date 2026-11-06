@@ -97,6 +97,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       layout: null,
       background: null,
       hulls: [],
+      bundling: null,
       view: { minZoom: 2 ** map.getMinZoom(), maxZoom: 2 ** map.getMaxZoom(), bounds: null },
     }
   }

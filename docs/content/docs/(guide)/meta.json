@@ -20,6 +20,7 @@
     "positions",
     "groups",
     "layout",
+    "bundling",
     "drawing-layers",
     "theming",
     "minimap-and-legend",

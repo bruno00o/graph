@@ -1,4 +1,5 @@
 import type { GridInput } from '../core/background-grid'
+import type { EdgePaths } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
 import type { Scene, SceneDirty } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
@@ -23,6 +24,7 @@ export interface RenderInput {
   readonly grid?: GridInput | null
   readonly hulls?: HullInput | null
   readonly containers?: ContainerFrame
+  readonly bundles?: EdgePaths | null
 }
 
 export interface ContainerFrame {

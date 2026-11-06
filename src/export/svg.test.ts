@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { gridInput } from '../core/background-grid'
+import type { EdgeColumns } from '../core/columns'
+import { EdgePaths } from '../core/edge-paths'
 import { flowSpeed } from '../core/flow'
 import { createGraphModel } from '../core/graph-model'
 import { HullLayer } from '../core/hull-layer'
@@ -45,6 +47,43 @@ function rgba(css: string): [number, number, number, number] {
   return [channel(0), channel(2), channel(4), digits.length === 8 ? channel(6) : 255]
 }
 
+function arches(edges: EdgeColumns, positions: Positions, height: number): EdgePaths {
+  const listed: number[] = []
+  const ends: number[] = []
+  const points: number[] = []
+  const offsets = [0]
+  for (let index = 0; index < edges.capacity; index++) {
+    const source = edges.source[index] ?? 0
+    const target = edges.target[index] ?? 0
+    if (edges.alive[index] !== 1 || source === target) continue
+    listed.push(index)
+    ends.push(source, target)
+    for (let k = 0; k <= 10; k++) {
+      const u = k / 10
+      points.push(
+        positions.x(source) + (positions.x(target) - positions.x(source)) * u,
+        positions.y(source) +
+          (positions.y(target) - positions.y(source)) * u +
+          Math.sin(Math.PI * u) * height,
+      )
+    }
+    offsets.push(points.length / 2)
+  }
+  const paths = new EdgePaths()
+  paths.reserve(edges.capacity)
+  paths.start(
+    {
+      edges: Uint32Array.from(listed),
+      ends: Uint32Array.from(ends),
+      paths: { offsets: Uint32Array.from(offsets), points: Float32Array.from(points) },
+    },
+    1,
+    positions,
+  )
+  paths.mix = 1
+  return paths
+}
+
 const measure: TextMeasure = {
   height: 256,
   generation: 0,
@@ -65,6 +104,7 @@ function render(
     frame?: Partial<ExportFrame>
     background?: string
     time?: number
+    arch?: number
   } = {},
 ): string {
   const model = createGraphModel()
@@ -148,6 +188,7 @@ function render(
     images: new Map([['icon.svg', { href: 'data:image/svg+xml,%3Csvg%2F%3E', aspect: 2 }]]),
     title: 'Sample <graph>',
     ...(extra.time !== undefined ? { time: extra.time } : {}),
+    ...(extra.arch !== undefined ? { bundles: arches(scene.edges, positions, extra.arch) } : {}),
   })
 }
 
@@ -559,6 +600,40 @@ describe('writeSvg', () => {
     })
     expect(svg).toContain('<g transform="translate(200 150) rotate(-45)">')
     expect(svg).toContain('>link</text>')
+  })
+})
+
+describe('bundled edges', () => {
+  const bundled = (label?: string): GraphDefinitionOptions => ({
+    marks: [
+      edges<Link>([{ id: 'ab', from: 'a', to: 'b', ...(label ? { label } : {}) }], {
+        source: 'from',
+        target: 'to',
+        arrow: 'target',
+        label: 'label',
+      }),
+      nodes<Item>(
+        [
+          { id: 'a', x: -100, y: 0 },
+          { id: 'b', x: 100, y: 0 },
+        ],
+        { x: 'x', y: 'y' },
+      ),
+    ],
+  })
+
+  it('draws a bundled edge along its path with its arrow head', () => {
+    const svg = render(bundled(), {}, { arch: 60 })
+    const body = svg.match(/<path d="(M[^"]+)" fill="none"/)?.[1] ?? ''
+    expect(count(body, /L/g)).toBeGreaterThan(4)
+    const ys = [...body.matchAll(/[ML][\d.-]+ ([\d.-]+)/g)].map((match) => Number(match[1]))
+    expect(Math.max(...ys)).toBeCloseTo(210, 0)
+    expect(count(svg, /<path d="M[^"]+Z" fill="#7f858c"\/>/)).toBe(1)
+  })
+
+  it('anchors the label of a bundled edge at the middle of its path', () => {
+    const svg = render(bundled('link'), {}, { arch: 60 })
+    expect(svg).toMatch(/<g transform="translate\(200 210\)/)
   })
 })
 

@@ -1,6 +1,7 @@
 import { gridDotScale, gridLevels } from '../core/background-grid'
 import { containerShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
+import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
@@ -38,6 +39,7 @@ export interface SvgScene {
   readonly grid?: GridInput | null
   readonly hulls?: readonly HullShape[]
   readonly containers?: ContainerFrame | null
+  readonly bundles?: EdgePaths | null
   readonly palette: Uint8Array
   readonly theme: ResolvedTheme
   readonly frame: ExportFrame
@@ -540,6 +542,78 @@ export function writeSvg(scene: SvgScene): string {
     }
   }
 
+  const line = new Float64Array(maxPathPoints * 2)
+  const lengths = new Float64Array(maxPathPoints)
+
+  function bundledShape(paths: EdgePaths, index: number, width: number): EdgeShape | null {
+    const count = paths.polyline(index, edges, positions, paths.mix, line)
+    for (let k = 0; k < count; k++) {
+      line[k * 2] = (line[k * 2] ?? 0) * zoom + offsetX
+      line[k * 2 + 1] = (line[k * 2 + 1] ?? 0) * zoom + offsetY
+      lengths[k] =
+        k === 0
+          ? 0
+          : (lengths[k - 1] ?? 0) +
+            Math.hypot(
+              (line[k * 2] ?? 0) - (line[k * 2 - 2] ?? 0),
+              (line[k * 2 + 1] ?? 0) - (line[k * 2 - 1] ?? 0),
+            )
+    }
+    const total = lengths[count - 1] ?? 0
+    const start = radius(edges.source[index] ?? 0)
+    const end = total - radius(edges.target[index] ?? 0)
+    const visible = end - start
+    if (visible <= 0.5) return null
+    const arrow = edges.arrow[index] ?? 0
+    const arrowLength = arrow !== 0 && visible > width * 8 ? Math.max(width * 4, 6) : 0
+    const arrowHalf = Math.max(width * 1.6, 3)
+    const startHead = arrow & 1 ? arrowLength : 0
+    const endHead = arrow & 2 ? arrowLength : 0
+    const at = (along: number): [number, number, number, number] => {
+      let k = 0
+      while (k < count - 2 && (lengths[k + 1] ?? 0) < along) k++
+      const from = lengths[k] ?? 0
+      const span = (lengths[k + 1] ?? from) - from
+      const t = span > 0 ? (along - from) / span : 0
+      const ax = line[k * 2] ?? 0
+      const ay = line[k * 2 + 1] ?? 0
+      const dx = (line[k * 2 + 2] ?? ax) - ax
+      const dy = (line[k * 2 + 3] ?? ay) - ay
+      const size = Math.hypot(dx, dy)
+      return [ax + dx * t, ay + dy * t, size > 0 ? -dy / size : 0, size > 0 ? dx / size : 1]
+    }
+    const piece = (from: number, to: number): string => {
+      const [fx, fy] = at(from)
+      let d = `M${num(fx)} ${num(fy)}`
+      for (let k = 1; k < count - 1; k++) {
+        const along = lengths[k] ?? 0
+        if (along > from && along < to)
+          d += `L${num(line[k * 2] ?? 0)} ${num(line[k * 2 + 1] ?? 0)}`
+      }
+      const [tx, ty] = at(to)
+      return `${d}L${num(tx)} ${num(ty)}`
+    }
+    const heads: string[] = []
+    if (startHead > 0) {
+      const [tx, ty] = at(start)
+      const [bx, by, nx, ny] = at(start + startHead)
+      heads.push(head(tx, ty, bx, by, nx, ny, arrowHalf))
+    }
+    if (endHead > 0) {
+      const [tx, ty] = at(end)
+      const [bx, by, nx, ny] = at(end - endHead)
+      heads.push(head(tx, ty, bx, by, nx, ny, arrowHalf))
+    }
+    const from = start + startHead
+    const to = end - endHead
+    return {
+      body: to > from ? piece(from, to) : null,
+      heads,
+      whole: piece(start, end),
+      startHead,
+    }
+  }
+
   function drawEdge(index: number): void {
     const source = edges.source[index] ?? 0
     const target = edges.target[index] ?? 0
@@ -551,9 +625,13 @@ export function writeSvg(scene: SvgScene): string {
     const ay = sy(source)
     const dx = sx(target)
     const dy = sy(target)
-    const spread = loop
-      ? loopReach(radius(source), bend, loopMinimum) * 1.5
-      : Math.abs(bend) * Math.hypot(dx - ax, dy - ay) * 2
+    const paths = scene.bundles
+    const bundled = paths !== undefined && paths !== null && paths.count(index) > 1
+    const spread =
+      (loop
+        ? loopReach(radius(source), bend, loopMinimum) * 1.5
+        : Math.abs(bend) * Math.hypot(dx - ax, dy - ay) * 2) +
+      (bundled ? (paths.reach[index] ?? 0) * zoom : 0)
     const pad = spread + width * 2 + haloWidth + 8
     if (
       outside(
@@ -564,7 +642,11 @@ export function writeSvg(scene: SvgScene): string {
       )
     )
       return
-    const shape = loop || bend !== 0 ? curvedShape(index, width) : straightShape(index, width)
+    const shape = bundled
+      ? bundledShape(paths, index, width)
+      : loop || bend !== 0
+        ? curvedShape(index, width)
+        : straightShape(index, width)
     if (!shape) return
     const color = paint(look.stroke)
     const parts: string[] = [open(look.opacity)]
@@ -598,8 +680,12 @@ export function writeSvg(scene: SvgScene): string {
     body.push(parts.join(''))
   }
 
-  const isCurved = (index: number) =>
-    edges.source[index] === edges.target[index] || (edges.bend[index] ?? 0) !== 0
+  const pass = (index: number) =>
+    (scene.bundles?.count(index) ?? 0) > 1
+      ? 2
+      : edges.source[index] === edges.target[index] || (edges.bend[index] ?? 0) !== 0
+        ? 1
+        : 0
   const highlighted = (mask: Uint32Array, index: number) =>
     ((mask[index] ?? 0) & highlightMask) !== 0
 
@@ -845,10 +931,10 @@ export function writeSvg(scene: SvgScene): string {
   if (scene.hulls) drawHulls(scene.hulls)
   for (const layer of scene.layers) {
     if (layer.kind === 'edges') {
-      for (const curved of [false, true]) {
+      for (const kind of [0, 1, 2]) {
         for (let index = 0; index < edges.capacity; index++) {
           if (edges.alive[index] !== 1 || edges.slot[index] !== layer.slot) continue
-          if (highlighted(states.edgeMask, index) || isCurved(index) !== curved) continue
+          if (highlighted(states.edgeMask, index) || pass(index) !== kind) continue
           drawEdge(index)
         }
       }
@@ -865,9 +951,9 @@ export function writeSvg(scene: SvgScene): string {
   }
   drawBadges(plain)
   drawLabels(0)
-  for (const curved of [false, true]) {
+  for (const kind of [0, 1, 2]) {
     for (const index of states.highlightedEdges) {
-      if (edges.alive[index] === 1 && isCurved(index) === curved) drawEdge(index)
+      if (edges.alive[index] === 1 && pass(index) === kind) drawEdge(index)
     }
   }
   for (const index of states.highlightedNodes) {

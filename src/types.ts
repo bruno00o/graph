@@ -379,6 +379,12 @@ export interface EdgeOptions<T, N extends MarkName = MarkName> {
    */
   readonly flow?: Style<T, boolean | number | null>
   /**
+   * Whether the edge joins the bundles of the `bundling` of the definition. Loops never do. With
+   * `false`, the edge stays straight and pulls no other edge.
+   * @default true
+   */
+  readonly bundle?: Style<T, boolean>
+  /**
    * Look of the edges drawn in place of the edges of this mark that end in a folded group, one per
    * pair of visible ends and direction.
    */
@@ -781,6 +787,66 @@ export interface Layout<T = unknown> {
 }
 
 /**
+ * What an edge bundling reads: the edges to bundle and a copy of the node positions, by internal
+ * index. `T` is the type of the items of the edges.
+ */
+export interface BundleGraph<T = unknown> {
+  /** Node positions in world units, `x` then `y` for each node index. */
+  readonly xy: Float32Array
+  /** Indices of the edges to bundle. Loops and edges with `bundle: false` are left out. */
+  readonly edges: Uint32Array
+  /** Source and target node index of each listed edge, in pairs, in the order of `edges`. */
+  readonly ends: Uint32Array
+  /** Key of the edge at each index, `undefined` for a free slot. */
+  readonly keys: readonly (Key | undefined)[]
+  /** Item an edge comes from, as given to `edges()`, by edge index. `undefined` otherwise. */
+  datum(index: number): T | undefined
+}
+
+/** Paths of the listed edges of a `BundleGraph`, one polyline per edge, in the same order. */
+export interface BundlePaths {
+  /** Index of the first point of each path, then the number of points: `edges.length + 1` values. */
+  readonly offsets: Uint32Array
+  /**
+   * Points in world units, `x` then `y`. Each path starts at its source and ends at its target; a
+   * path of two points stays straight.
+   */
+  readonly points: Float32Array
+}
+
+/** Receives the paths an edge bundling computes. */
+export interface BundleListener {
+  /** Reports the paths, once. */
+  end(paths: BundlePaths): void
+}
+
+/** A bundling computation in progress, as `EdgeBundling.start` returns it. */
+export interface BundleRun {
+  /** Called when the result is no longer wanted. Do not call the listener after it. */
+  stop(): void
+}
+
+/**
+ * Routes edges into bundles. Any object of this shape works, such as the result of
+ * `densityBundling()`. `T` is the type of the items of the edges it reads.
+ */
+export interface EdgeBundling<T = unknown> {
+  /** Name of the method. With `options`, decides whether a new definition computes again. */
+  readonly name: string
+  /** Settings, compared one by one with those of the previous definition. */
+  readonly options: object
+  /**
+   * Share of the bundled shape drawn, from 0, straight, to 1. A new strength alone eases the edges
+   * to it without computing again.
+   */
+  readonly strength: number
+  /** Most edges bundled. Above it, every edge stays straight. */
+  readonly maxEdges: number
+  /** Starts a computation. */
+  start(graph: BundleGraph<T>, listener: BundleListener): BundleRun
+}
+
+/**
  * Options of `defineGraph`. `S` is the union of the state names and `M` the union of the marks,
  * both inferred.
  */
@@ -812,6 +878,11 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
   readonly background?: BackgroundOptions | null
   /** Results of `hull()`: shapes around sets of nodes, drawn under edges and nodes, in order. */
   readonly hulls?: readonly Hull<NoInfer<S> | BuiltInState>[]
+  /**
+   * Routes edges into bundles once nodes stand still, such as the result of `densityBundling()`.
+   * @default null
+   */
+  readonly bundling?: EdgeBundling<EdgeDatum<M>> | null
 }
 
 /**
@@ -837,6 +908,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly background: ResolvedBackground | null
   /** Hulls drawn under edges and nodes. */
   readonly hulls: readonly Hull[]
+  /** Edge bundling, or `null` for none. */
+  readonly bundling: EdgeBundling<EdgeDatum<M>> | null
 }
 
 /** Pattern of the background grid: `'lines'`, or `'dots'` where the lines would cross. */

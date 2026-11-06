@@ -413,6 +413,8 @@ export function createScene(): Scene {
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     edges.setFlow(index, mark.flow ? flowSpeed(mark.flow(datum)) : 0)
+    edges.bundle[index] =
+      record.sourceIndex !== record.targetIndex && mark.bundle?.(datum) !== false ? 1 : 0
     edges.label[index] = toText(mark.label?.(datum))
     edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
     writeLabelText(edges, index, mark.labelText, datum, palette)
