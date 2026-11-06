@@ -9,6 +9,7 @@ import {
 import { subset } from '@bruno00o/graph/db'
 import {
   and,
+  BTreeIndex,
   type Collection,
   createCollection,
   createLiveQueryCollection,
@@ -54,18 +55,19 @@ export function mount(container: HTMLElement): GraphInstance {
 
   const load = () => {
     const { items, links } = createSample(size, size * 2)
-    const people = createCollection(
+    const records = createCollection(
       localOnlyCollectionOptions({
         id: 'filter-items',
         getKey: (item: Item) => item.id,
         initialData: items,
       }),
     )
+    records.createIndex((item) => item.weight, { indexType: BTreeIndex })
     const relations = createLinkCollection(links, () => {
       loaded = messages.linksLoaded(relations.size)
       show()
     })
-    return { people, relations }
+    return { records, relations }
   }
   let data = load()
 
@@ -73,7 +75,7 @@ export function mount(container: HTMLElement): GraphInstance {
     if (source === 'query') {
       return createLiveQueryCollection((q) =>
         q
-          .from({ item: data.people })
+          .from({ item: data.records })
           .where(({ item }) =>
             group
               ? and(gte(item.weight, minimum), eq(item.group, group))
@@ -81,7 +83,7 @@ export function mount(container: HTMLElement): GraphInstance {
           ),
       )
     }
-    return subset(data.people, (item) =>
+    return subset(data.records, (item) =>
       group ? and(gte(item.weight, minimum), eq(item.group, group)) : gte(item.weight, minimum),
     )
   }
@@ -174,7 +176,7 @@ export function mount(container: HTMLElement): GraphInstance {
       linked = []
       data = load()
       refilter()
-      void previous.people.cleanup()
+      void previous.records.cleanup()
       void previous.relations.cleanup()
       graph.states.clear('opened')
       graph.view.fit(undefined, { duration: 400 })

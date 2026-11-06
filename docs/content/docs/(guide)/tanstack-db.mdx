@@ -62,6 +62,14 @@ Measured on an Apple M4 Pro in Chrome, in production mode, with 500,000 rows of 
 
 The TanStack DB column is the time to read the matching rows when the new source is subscribed. Keep live queries for joins, `select` and ordering, and use `subset` to filter one collection.
 
+These rows were read without an index. Index the field you filter on, and TanStack DB reads the matching rows from the index instead of scanning the collection. In the [filter example](/examples/filter-at-scale), with 200,000 rows on an Apple M4 Pro, a range index on `weight` takes the TanStack DB side of a filter change from about 50 ms to 25 to 45 ms.
+
+```ts
+import { BTreeIndex } from '@tanstack/db'
+
+items.createIndex((item) => item.weight, { indexType: BTreeIndex })
+```
+
 ## Load on demand
 
 A collection with `syncMode: 'on-demand'` loads only the rows its subscribers ask for. Through `subset`, or a live query over that collection, the `where` reaches the `loadSubset` function of its sync, and the rows appear in the graph as they arrive. When the graph lets go of the source, after a new filter, a removed mark or `destroy`, TanStack DB calls `unloadSubset` with the same options, and the sync can delete the rows that no other subscription holds.
