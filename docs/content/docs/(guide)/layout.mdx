@@ -80,7 +80,7 @@ Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nest
 - **`layers`, `grid`, `rings` and `radial`.** Each group is laid out on its own with the same layout, from the deepest groups up. In the group above it, a group stands in as a single node the size of its container, and the nodes directly inside a group are laid out together first, as one more block. A grid of groups is a grid of blocks, layers of groups are layers of blocks. The blocks are then pushed apart where they still overlap.
 - **Unfolding.** With a layout in the definition, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`. Nodes it shows for the first time are laid out like new nodes.
 
-On 50,000 nodes in about 400 groups nested three deep, the force layout takes about twice as long on the GPU (1 second instead of 0.5) and 15 % longer on the CPU.
+On 50,000 nodes in about 400 groups nested three deep, the force layout takes about twice as long on the GPU (1 second instead of 0.5) and about 13% longer on the CPU (14 seconds instead of 12.5).
 
 ## When it runs
 
