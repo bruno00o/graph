@@ -94,6 +94,21 @@ export const messages = {
   linksLoaded: (count: number): string =>
     `${formatNumber(count)} ${plural(count, 'arête chargée', 'arêtes chargées')}`,
   unload: 'Décharger les arêtes',
+  drawing: 'Grille, enveloppes et ancres',
+  drawingHint: 'Cliquez sur un nœud pour afficher sa barre d’outils, Maj pour en ajouter.',
+  background: 'Fond',
+  backgrounds: { lines: 'Lignes', dots: 'Points', none: 'Aucun' },
+  hulls: 'Enveloppes',
+  hullModes: { groups: 'Par groupe', selection: 'Sélection', none: 'Aucune' },
+  hullShape: 'Forme',
+  hullShapes: { rounded: 'Arrondie', smooth: 'Lisse' },
+  frameSelection: 'Cadrer',
+  clearSelection: 'Désélectionner',
+  selectionCount: (count: number): string =>
+    `${formatNumber(count)} ${plural(count, 'nœud', 'nœuds')}`,
+  tooltipWeight: (group: string, weight: number): string =>
+    `${group}, poids ${formatNumber(weight)}`,
+  link: (from: string, to: string): string => `${from} vers ${to}`,
 }
 
 function milliseconds(value: number): string {

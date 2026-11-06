@@ -5,6 +5,7 @@ export const lightTheme: Readonly<Record<string, string>> = {
   paper: '#f7f7f4',
   'paper-raised': '#ffffff',
   grid: '#c4e0dd',
+  'grid-major': '#9fc8c4',
   ink: '#191d22',
   'ink-muted': '#5b6167',
   node: '#474e55',

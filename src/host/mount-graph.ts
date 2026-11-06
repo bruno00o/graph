@@ -23,6 +23,7 @@ import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles, defaults } from '../theme/tokens'
 import type {
+  BuiltInState,
   FreeState,
   GraphDefinition,
   Key,
@@ -33,6 +34,8 @@ import type {
   View,
 } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
+import type { GraphAnchors } from './anchors'
+import { createDecorations } from './decorations'
 import {
   type ElementKeys,
   type ElementKeysInput,
@@ -139,6 +142,7 @@ export interface GraphInstance<S extends string = string> {
   readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
   readonly layout: GraphLayout
+  readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   readonly element: HTMLElement
   pick(point: Point): GraphTarget | null
   neighbors(key: Key): Key[]
@@ -353,6 +357,16 @@ export function createGraphHost<S extends string = string>(
     layout: idleLayout,
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
+  const decorations = createDecorations({
+    element,
+    canvas,
+    model,
+    scene,
+    positions,
+    registry,
+    state: () => store.get(),
+    request: () => request(),
+  })
 
   const layerPositions = { nodes: new Map<number, number>(), edges: new Map<number, number>() }
   const pickSource: PickSource = {
@@ -778,6 +792,7 @@ export function createGraphHost<S extends string = string>(
     const result = registry.apply(changes)
     sceneVersion++
     applyLayers()
+    decorations.changed()
     if (result.selection) {
       publishSelection()
       if (controlled) onSelectionChange?.(registry.members('selected'))
@@ -1158,12 +1173,22 @@ export function createGraphHost<S extends string = string>(
     }
     if (positionAnimations.length > 0) stepPositions(now)
     registry.takeHighlighted()
+    decorations.prepare()
     const dirty = scene.takeDirty()
     if (dirty.palette || scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const positionsChanged = positions.version !== positionsVersion
     const syncStart = clock()
-    renderer.sync({ scene, dirty, positions, positionsChanged, states: buffers, full })
+    renderer.sync({
+      scene,
+      dirty,
+      positions,
+      positionsChanged,
+      states: buffers,
+      full,
+      grid: decorations.grid,
+      hulls: decorations.hulls,
+    })
     const synced = clock()
     full = false
     if (positionsChanged) {
@@ -1173,6 +1198,7 @@ export function createGraphHost<S extends string = string>(
     const { view, width, height } = store.get()
     const renderStart = clock()
     const wait = renderer.render({ view, width, height, pixelRatio })
+    decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
     if (viewAnimation || positionAnimations.length > 0) request()
@@ -1415,6 +1441,7 @@ export function createGraphHost<S extends string = string>(
 
   model.setMarks(definition.marks)
   scene.setDefinition(definition)
+  decorations.setDefinition(definition)
   applyLayers()
   applyStyles()
   refreshTheme()
@@ -1546,6 +1573,7 @@ export function createGraphHost<S extends string = string>(
     states,
     positions: positionsApi,
     layout: layoutApi,
+    anchors: decorations.anchors,
     element,
     pick: (point) => pickAt(point),
     neighbors: (key) => model.neighbors(key),
@@ -1567,6 +1595,7 @@ export function createGraphHost<S extends string = string>(
         }
         model.setMarks(definition.marks)
         scene.setDefinition(definition)
+        decorations.setDefinition(definition)
         applyLayers()
         if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
         applyStyles()
@@ -1598,6 +1627,7 @@ export function createGraphHost<S extends string = string>(
       model.destroy()
       renderer.destroy()
       themeResolver.destroy()
+      decorations.destroy()
       element.remove()
     },
   }

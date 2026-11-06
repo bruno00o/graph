@@ -33,6 +33,7 @@ export function installDom(width = 800, height = 600): FakeDom {
           this as unknown as ResizeObserver,
         )
       }
+      unobserve() {}
       disconnect() {}
     },
   )

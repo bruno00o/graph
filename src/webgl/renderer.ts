@@ -1,6 +1,7 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import type { ResolvedTheme } from '../dom/theme'
 import type { Renderer, RenderFrame, RenderInput } from '../host/renderer'
+import { createBackdrop } from './backdrop'
 import {
   type Attribute,
   createBuffer,
@@ -142,6 +143,7 @@ export function createWebglRenderer(
   gl.useProgram(labelProgram)
   gl.uniform1f(gl.getUniformLocation(labelProgram, 'atlasFontSize'), atlasFontSize)
 
+  const backdrop = createBackdrop(gl, blocks)
   const nodeCorner = createBuffer(gl, cornerNode, gl.STATIC_DRAW)
   const edgeCorner = createBuffer(gl, cornerEdge, gl.STATIC_DRAW)
   const curveCorner = createBuffer(gl, cornerCurve, gl.STATIC_DRAW)
@@ -753,6 +755,7 @@ export function createWebglRenderer(
       refreshImages(next.scene.nodes)
       syncEdges(next)
       syncStates(next)
+      backdrop.sync(next)
       if (next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full) labelsStale = true
       if (next.positionsChanged) labelsMoved = true
     },
@@ -825,6 +828,7 @@ export function createWebglRenderer(
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
       if (!warmed) warm()
+      backdrop.draw(frame)
       for (const layer of input?.scene.layers ?? []) {
         if (layer.kind === 'edges') {
           draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
@@ -867,6 +871,7 @@ export function createWebglRenderer(
       gl.deleteTexture(palette)
       gl.deleteTexture(atlasTexture)
       images.destroy()
+      backdrop.destroy()
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
       for (const vao of Object.values(vertexArrays)) gl.deleteVertexArray(vao)
       if (curvePass) {

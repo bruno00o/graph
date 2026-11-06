@@ -15,7 +15,7 @@ export const edgeLabelSize = 11
 export const edgeDescent = 3.6
 export const edgeLabelGap = 1.5
 
-const header = `#version 300 es
+export const header: string = `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2D;

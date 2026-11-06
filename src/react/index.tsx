@@ -13,6 +13,8 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
+import { createPortal } from 'react-dom'
+import type { AnchorOptions } from '../host/anchors'
 import type {
   ElementKeysInput,
   GraphEventHandler,
@@ -194,4 +196,23 @@ export function useGraphEvent<K extends GraphEventName>(
   )
 }
 
+/** Props of `Anchor`: where to pin the children, as in `graph.anchors.set`. */
+export interface AnchorProps<S extends string = string> extends AnchorOptions<S> {
+  /** Content pinned to the target. */
+  readonly children?: ReactNode
+}
+
+/** Pins its children to a node, a set of nodes, a state, an edge or a world point. Use it inside `<Graph>`: the children follow the view and the nodes without rendering again. */
+export function Anchor<S extends string = string>(props: AnchorProps<S>): ReactNode {
+  const { children, ...options } = props
+  const graph = useGraph()
+  const [element] = useState(() => document.createElement('div'))
+  useLayoutEffect(() => () => graph.anchors.remove(element), [graph, element])
+  useLayoutEffect(() => {
+    graph.anchors.set(element, options as AnchorOptions)
+  })
+  return createPortal(children, element)
+}
+
+export type { AnchorAlign, AnchorOptions, AnchorSide } from '../host/anchors'
 export type { GraphInstance, GraphState, GraphStore }

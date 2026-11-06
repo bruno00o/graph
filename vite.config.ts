@@ -44,6 +44,7 @@ export default defineConfig({
         layout: resolve(import.meta.dirname, 'examples/layout/index.html'),
         layouts: resolve(import.meta.dirname, 'examples/layouts/index.html'),
         filter: resolve(import.meta.dirname, 'examples/filter/index.html'),
+        drawing: resolve(import.meta.dirname, 'examples/drawing/index.html'),
       },
     },
   },

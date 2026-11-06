@@ -2,7 +2,20 @@ import type { Positions } from '../core/positions'
 import type { Scene, SceneDirty } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
 import type { ResolvedTheme } from '../dom/theme'
-import type { View } from '../types'
+import type { BackgroundGrid, View } from '../types'
+
+export interface GridInput {
+  readonly pattern: BackgroundGrid
+  readonly spacing: number
+  readonly color: number
+  readonly majorColor: number
+}
+
+export interface HullInput {
+  readonly data: ArrayBuffer
+  readonly count: number
+  readonly version: number
+}
 
 export interface RenderInput {
   readonly scene: Scene
@@ -11,6 +24,8 @@ export interface RenderInput {
   readonly positionsChanged: boolean
   readonly states: StateBuffers
   readonly full: boolean
+  readonly grid?: GridInput | null
+  readonly hulls?: HullInput | null
 }
 
 export interface RenderFrame {
