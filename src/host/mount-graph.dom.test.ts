@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { ReadonlyStore } from '@tanstack/store'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition } from '../types'
 import type { GraphEventName } from './events'
-import { createGraphHost, type GraphInstance } from './mount-graph'
+import { createGraphHost, type GraphInstance, type GraphState } from './mount-graph'
 
 interface Item {
   readonly id: string
@@ -117,6 +118,19 @@ describe('createGraphHost', () => {
     expect(view.x).toBeCloseTo(0)
     expect(view.y).toBeCloseTo(50)
     expect(graph.store.get().positionsVersion).toBeGreaterThan(0)
+  })
+
+  it('exposes host state as a read-only TanStack store', () => {
+    const graph = mount()
+    expectTypeOf(graph.store).toEqualTypeOf<ReadonlyStore<GraphState>>()
+    expect('setState' in graph.store).toBe(false)
+    const seen: number[] = []
+    const subscription = graph.store.subscribe((state) => seen.push(state.selection.nodes.length))
+    graph.selection.set({ nodes: ['a', 'b'] })
+    subscription.unsubscribe()
+    graph.selection.clear()
+    expect(seen).toEqual([2])
+    expect(graph.store.state.selection.nodes).toEqual([])
   })
 
   it('selects on click, adds with a modifier and clears on empty space', () => {
