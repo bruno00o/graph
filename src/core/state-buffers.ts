@@ -12,6 +12,8 @@ export interface ResolvedStateStyle {
   readonly label?: boolean
   readonly fill?: number
   readonly stroke?: number
+  readonly outline?: number
+  readonly outlineWidth?: number
 }
 
 export class DirtyRange {
@@ -30,6 +32,14 @@ export class DirtyRange {
     this.to = -1
     return range
   }
+}
+
+const bits = new Float32Array(1)
+const word = new Uint32Array(bits.buffer)
+
+export function floatWord(value: number): number {
+  bits[0] = value
+  return word[0] ?? 0
 }
 
 function grow(array: Uint32Array, capacity: number): Uint32Array {
@@ -79,6 +89,9 @@ export class StateBuffers {
     this.numbers[at + 3] = style?.label === undefined ? -1 : style.label ? 1 : 0
     this.paint[at] = style?.fill ?? noPaint
     this.paint[at + 1] = style?.stroke ?? noPaint
+    this.paint[at + 2] = style?.outline ?? noPaint
+    this.paint[at + 3] =
+      style?.outlineWidth === undefined ? noPaint : floatWord(Math.max(0, style.outlineWidth))
     if (kind === 'nodes') this.labelFlags[bit] = this.numbers[at + 3] ?? -1
     this.tableVersion++
   }

@@ -10,10 +10,13 @@ export interface CompiledNodeMark {
   readonly y: Read | null
   readonly label: Read | null
   readonly secondary: Read | null
+  readonly labelBackground: Read | null
   readonly shape: Read | null
   readonly fill: Read | null
   readonly stroke: Read | null
   readonly strokeWidth: Read | null
+  readonly outline: Read | null
+  readonly outlineWidth: Read | null
   readonly opacity: Read | null
   readonly image: Read | null
   readonly badges: ReadonlyArray<readonly [BadgeCorner, Read]>
@@ -61,10 +64,13 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     y: channel(options.y),
     label: channel(typeof label === 'object' ? label.text : label),
     secondary: channel(typeof label === 'object' ? label.secondary : undefined),
+    labelBackground: style(typeof label === 'object' ? label.background : undefined),
     shape: style(options.shape),
     fill: style(options.fill),
     stroke: style(options.stroke),
     strokeWidth: style(options.strokeWidth),
+    outline: style(options.outline),
+    outlineWidth: style(options.outlineWidth),
     opacity: style(options.opacity),
     image: style(options.image),
     badges,

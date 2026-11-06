@@ -13,6 +13,7 @@ interface Item {
   readonly count: number | null
   readonly flag: string | null
   readonly dot: boolean
+  readonly outline: string | null
 }
 
 interface Link {
@@ -57,7 +58,7 @@ function item(
   group: string,
   size: number,
   image: Item['image'],
-  badges: Partial<Pick<Item, 'count' | 'flag' | 'dot'>> = {},
+  badges: Partial<Pick<Item, 'count' | 'flag' | 'dot' | 'outline'>> = {},
 ): Item {
   return {
     id: `n${index}`,
@@ -70,13 +71,25 @@ function item(
     count: badges.count ?? null,
     flag: badges.flag ?? null,
     dot: badges.dot ?? false,
+    outline: badges.outline ?? null,
   }
 }
 
 const items: Item[] = [
-  item(0, 'A', 44, picture('#2769b7', '#12867c', '#f7f7f4', false), { count: 3, dot: true }),
-  item(1, 'B', 44, picture('#a47c13', '#9b357f', '#191d22', true), { count: 12, flag: 'N' }),
-  item(2, 'C', 36, picture('#448335', '#4189ad', '#f7f7f4', false), { dot: true }),
+  item(0, 'A', 44, picture('#2769b7', '#12867c', '#f7f7f4', false), {
+    count: 3,
+    dot: true,
+    outline: 'var(--graph-cat-1)',
+  }),
+  item(1, 'B', 44, picture('#a47c13', '#9b357f', '#191d22', true), {
+    count: 12,
+    flag: 'N',
+    outline: 'var(--graph-cat-2)',
+  }),
+  item(2, 'C', 36, picture('#448335', '#4189ad', '#f7f7f4', false), {
+    dot: true,
+    outline: 'var(--graph-cat-3)',
+  }),
   item(3, 'A', 36, icon(icons.grid), { count: 128 }),
   item(4, 'B', 36, icon(icons.bars), { count: 7, flag: 'B', dot: true }),
   item(5, 'C', 28, icon(icons.ring), { flag: 'C' }),
@@ -94,28 +107,34 @@ const links: Link[] = items.slice(1).map((item, index) => ({
   to: item.id,
 }))
 
-const definition = defineGraph({
-  marks: [
-    edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
-    nodes<Item>(items, {
-      x: 'x',
-      y: 'y',
-      color: 'group',
-      size: 'size',
-      label: 'label',
-      image: (item) => item.image,
-      badges: {
-        topRight: (item): Badge | null =>
-          item.count === null ? null : { text: item.count > 99 ? '99+' : item.count },
-        topLeft: (item): Badge | null =>
-          item.flag === null ? null : { text: item.flag, fill: 'var(--graph-accent)' },
-        bottomRight: (item): Badge | null => (item.dot ? { fill: 'var(--graph-cat-6)' } : null),
-      },
-    }),
-  ],
-  scales: { size: (value) => value },
-  states: { muted: { opacity: 0.25, label: false } },
-})
+const define = (background: boolean) =>
+  defineGraph({
+    marks: [
+      edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
+      nodes<Item>(items, {
+        x: 'x',
+        y: 'y',
+        color: 'group',
+        size: 'size',
+        label: { text: 'label', background },
+        outline: (item) => item.outline,
+        outlineWidth: 3,
+        image: (item) => item.image,
+        badges: {
+          topRight: (item): Badge | null =>
+            item.count === null ? null : { text: item.count > 99 ? '99+' : item.count },
+          topLeft: (item): Badge | null =>
+            item.flag === null ? null : { text: item.flag, fill: 'var(--graph-accent)' },
+          bottomRight: (item): Badge | null => (item.dot ? { fill: 'var(--graph-cat-6)' } : null),
+        },
+      }),
+    ],
+    scales: { size: (value) => value },
+    states: { muted: { opacity: 0.25, label: false } },
+  })
+
+let backgrounds = false
+const definition = define(backgrounds)
 
 const { header, main } = createPage(messages.nodes)
 const graph = mountGraph(main, { definition, ariaLabel: messages.nodesLabel })
@@ -136,6 +155,10 @@ header.append(
     graph.states.set('muted', {
       nodes: muted ? items.filter((_, at) => at % 2 === 1).map((item) => item.id) : [],
     })
+  }),
+  button(messages.labelBackgrounds, () => {
+    backgrounds = !backgrounds
+    graph.update({ definition: define(backgrounds) })
   }),
   button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
   themeToggle(messages.dark, messages.light),

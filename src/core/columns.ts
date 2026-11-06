@@ -40,6 +40,12 @@ function grow<A extends NumericArray>(array: A, length: number): A {
   return next
 }
 
+function growColor(array: Uint32Array, length: number): Uint32Array {
+  const next = new Uint32Array(length).fill(noColor)
+  next.set(array)
+  return next
+}
+
 function nextCapacity(capacity: number, index: number): number {
   return Math.max(64, capacity * 2, index + 1)
 }
@@ -54,10 +60,13 @@ export class NodeColumns {
   fill: Uint32Array = new Uint32Array(0)
   stroke: Uint32Array = new Uint32Array(0)
   strokeWidth: Float32Array = new Float32Array(0)
+  outline: Uint32Array = new Uint32Array(0)
+  outlineWidth: Float32Array = new Float32Array(0)
   opacity: Float32Array = new Float32Array(0)
   screenUnits: Uint8Array = new Uint8Array(0)
   label: (string | null)[] = []
   secondary: (string | null)[] = []
+  labelBackground: Uint32Array = new Uint32Array(0)
   image: (string | null)[] = []
   imageScale: Float32Array = new Float32Array(0)
   imageColor: Uint32Array = new Uint32Array(0)
@@ -73,10 +82,13 @@ export class NodeColumns {
     this.fill = grow(this.fill, capacity)
     this.stroke = grow(this.stroke, capacity)
     this.strokeWidth = grow(this.strokeWidth, capacity)
+    this.outline = grow(this.outline, capacity)
+    this.outlineWidth = grow(this.outlineWidth, capacity)
     this.opacity = grow(this.opacity, capacity)
     this.screenUnits = grow(this.screenUnits, capacity)
+    this.labelBackground = growColor(this.labelBackground, capacity)
     this.imageScale = grow(this.imageScale, capacity)
-    this.imageColor = grow(this.imageColor, capacity)
+    this.imageColor = growColor(this.imageColor, capacity)
     this.capacity = capacity
   }
 

@@ -66,6 +66,15 @@ describe('public types', () => {
       },
     })
     nodes(people, { image: 'avatar.png' })
+    nodes(people, {
+      outline: (person) => (person.alias ? 'red' : 'blue'),
+      outlineWidth: 3,
+      label: { text: 'name', background: (person) => (person.alias ? true : null) },
+    })
+    // @ts-expect-error
+    nodes(people, { outlineWidth: 'name' })
+    // @ts-expect-error
+    nodes(people, { label: { text: 'name', background: 3 } })
     // @ts-expect-error
     nodes(people, { image: { scale: 0.6 } })
     // @ts-expect-error

@@ -157,6 +157,55 @@ describe('createScene', () => {
     expect(scene.edges.arrow[edge]).toBe(arrowCodes.both)
   })
 
+  it('draws an outline only when asked, two pixels wide by default', () => {
+    const { scene, nodeIndex } = setup({
+      marks: [
+        nodes<Item>([{ id: 'a' }, { id: 'b' }], {
+          outline: (item) => (item.id === 'a' ? null : 'var(--graph-accent)'),
+        }),
+        nodes<Item>([{ id: 'c' }], { outline: 'var(--graph-accent)', outlineWidth: 5 }),
+        nodes<Item>([{ id: 'd' }], { outlineWidth: 3 }),
+        nodes<Item>([{ id: 'e' }], { outline: () => null, outlineWidth: 4 }),
+      ],
+    })
+    const outline = (key: string) => {
+      const index = nodeIndex(key)
+      return [
+        scene.palette.colors[scene.nodes.outline[index] ?? -1],
+        scene.nodes.outlineWidth[index],
+      ]
+    }
+    expect(outline('a')).toEqual(['var(--graph-node-ring)', 0])
+    expect(outline('b')).toEqual(['var(--graph-accent)', 2])
+    expect(outline('c')).toEqual(['var(--graph-accent)', 5])
+    expect(outline('d')).toEqual(['var(--graph-node-ring)', 3])
+    expect(outline('e')).toEqual(['var(--graph-node-ring)', 0])
+  })
+
+  it('reads label backgrounds as a color, the theme default or nothing', () => {
+    const { scene, nodeIndex } = setup({
+      marks: [
+        nodes<Item>([{ id: 'a' }, { id: 'b' }, { id: 'c', group: 'x' }, { id: 'd', group: '' }], {
+          label: {
+            text: 'id',
+            background: (item) =>
+              item.id === 'a' ? true : item.id === 'b' ? false : (item.group ?? null),
+          },
+        }),
+        nodes<Item>([{ id: 'e' }], { label: 'id' }),
+      ],
+    })
+    const background = (key: string) => {
+      const color = scene.nodes.labelBackground[nodeIndex(key)] ?? noColor
+      return color === noColor ? null : scene.palette.colors[color]
+    }
+    expect(background('a')).toBe('var(--graph-label-background)')
+    expect(background('b')).toBeNull()
+    expect(background('c')).toBe('x')
+    expect(background('d')).toBeNull()
+    expect(background('e')).toBeNull()
+  })
+
   it('reads images as a source or with a scale and a color', () => {
     const { scene, nodeIndex } = setup({
       marks: [

@@ -1,6 +1,7 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import type { ReadonlyStore } from '@tanstack/store'
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { noPaint, type StateBuffers } from '../core/state-buffers'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
@@ -157,6 +158,29 @@ describe('createGraphHost', () => {
     invalidate()
     dom.flushFrames()
     expect(renders).toBe(before + 1)
+  })
+
+  it('gives a state outline two pixels unless it sets a width', () => {
+    let states: StateBuffers | null = null
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graphDefinition = defineGraph({
+      marks: definition().marks,
+      states: { ringed: { outline: 'red' }, wide: { outlineWidth: 6 } },
+    })
+    createGraphHost(container, { definition: graphDefinition, ariaLabel: 'graphe' }, () => ({
+      ...fakeRenderer(),
+      sync: (input) => {
+        states = input.states
+      },
+    }))
+    dom.flushFrames()
+    const paint = (states as StateBuffers | null)?.paint ?? new Uint32Array(0)
+    const width = (bit: number) => new Float32Array(paint.buffer, (bit * 4 + 3) * 4, 1)[0]
+    expect(paint[3 * 4 + 2]).not.toBe(noPaint)
+    expect(width(3)).toBe(2)
+    expect(paint[4 * 4 + 2]).toBe(noPaint)
+    expect(width(4)).toBe(6)
   })
 
   it('exposes host state as a read-only TanStack store', () => {

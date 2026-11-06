@@ -20,7 +20,7 @@ import {
 } from '../core/view'
 import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
-import { builtInStyles } from '../theme/tokens'
+import { builtInStyles, defaults } from '../theme/tokens'
 import type { FreeState, GraphDefinition, Key, Point, StateStyle, View } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import {
@@ -207,6 +207,10 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
     ...(style.label !== undefined ? { label: style.label } : {}),
     ...(style.fill !== undefined ? { fill: id(style.fill) } : {}),
     ...(style.stroke !== undefined ? { stroke: id(style.stroke) } : {}),
+    ...(style.outline !== undefined ? { outline: id(style.outline) } : {}),
+    ...(style.outlineWidth !== undefined || style.outline !== undefined
+      ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
+      : {}),
   }
 }
 
