@@ -12,9 +12,11 @@ import {
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
 import { glyphStride, LabelLayer, sortBySize } from './label-layer'
 import {
+  cornerCurve,
   cornerEdge,
   cornerLabel,
   cornerNode,
+  curveVertex,
   edgeFragment,
   edgeVertex,
   labelFragment,
@@ -104,32 +106,37 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   const edgeProgram = createProgram(gl, edgeVertex, edgeFragment, blocks)
   const labelProgram = createProgram(gl, labelVertex, labelFragment, blocks)
   const programs = [nodeProgram, edgeProgram, labelProgram]
-  for (const program of programs) {
+  const locations = new Map<
+    WebGLProgram,
+    {
+      readonly layerSlot: WebGLUniformLocation | null
+      readonly overlay: WebGLUniformLocation | null
+    }
+  >()
+  function prepare(program: WebGLProgram): void {
     gl.useProgram(program)
     for (const [name, unit] of Object.entries(units)) {
       const location = gl.getUniformLocation(program, name)
       if (location) gl.uniform1i(location, unit)
     }
+    locations.set(program, {
+      layerSlot: gl.getUniformLocation(program, 'layerSlot'),
+      overlay: gl.getUniformLocation(program, 'overlay'),
+    })
   }
+  for (const program of programs) prepare(program)
   gl.useProgram(labelProgram)
   gl.uniform1f(gl.getUniformLocation(labelProgram, 'atlasFontSize'), atlasFontSize)
-  const locations = new Map(
-    programs.map((program) => [
-      program,
-      {
-        layerSlot: gl.getUniformLocation(program, 'layerSlot'),
-        overlay: gl.getUniformLocation(program, 'overlay'),
-      },
-    ]),
-  )
 
   const nodeCorner = createBuffer(gl, cornerNode, gl.STATIC_DRAW)
   const edgeCorner = createBuffer(gl, cornerEdge, gl.STATIC_DRAW)
+  const curveCorner = createBuffer(gl, cornerCurve, gl.STATIC_DRAW)
   const labelCorner = createBuffer(gl, cornerLabel, gl.STATIC_DRAW)
   const nodeIndices = createBuffer(gl, new Uint32Array(0), gl.STATIC_DRAW)
   const edgeIndices = createBuffer(gl, new Uint32Array(0), gl.STATIC_DRAW)
   const nodeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const edgeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const curveIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const labelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const labelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const warmIndex = createBuffer(gl, new Uint32Array(1), gl.STATIC_DRAW)
@@ -137,11 +144,13 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
   const buffers = [
     nodeCorner,
     edgeCorner,
+    curveCorner,
     labelCorner,
     nodeIndices,
     edgeIndices,
     nodeOverlayIndices,
     edgeOverlayIndices,
+    curveIndices,
     labelMainBuffer,
     labelHighlightBuffer,
     warmIndex,
@@ -225,11 +234,35 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     [labelProgram, cornerLabel.length / 2],
   ])
   let warmed = false
+  let curvePass: {
+    readonly program: WebGLProgram
+    readonly main: WebGLVertexArrayObject
+    readonly overlay: WebGLVertexArrayObject
+  } | null = null
+
+  function curves(): NonNullable<typeof curvePass> {
+    if (curvePass) return curvePass
+    const program = createProgram(gl, curveVertex, edgeFragment, blocks)
+    prepare(program)
+    programs.push(program)
+    vertexCounts.set(program, cornerCurve.length / 3)
+    curvePass = {
+      program,
+      main: createVertexArray(gl, program, [corner(curveCorner, 3), instance(curveIndices)]),
+      overlay: createVertexArray(gl, program, [
+        corner(curveCorner, 3),
+        instance(edgeOverlayIndices),
+      ]),
+    }
+    return curvePass
+  }
 
   let nodeCapacity = 0
   let edgeCapacity = 0
   let nodeOverlayCount = 0
   let edgeOverlayCount = 0
+  const curved = new Set<number>()
+  let curvedChanged = false
   let input: RenderInput | null = null
   const atlas = new GlyphAtlas('system-ui, sans-serif')
   const labels = new LabelLayer()
@@ -269,6 +302,15 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       ((edges.slot[index] ?? 0) << 5)
     edgeStyle.data[at] = edges.width[index] ?? 0
     edgeStyle.data[at + 1] = edges.opacity[index] ?? 1
+    const bend = edges.bend[index] ?? 0
+    edgeStyle.data[at + 2] = bend
+    const isCurved =
+      edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
+    if (isCurved !== curved.has(index)) {
+      if (isCurved) curved.add(index)
+      else curved.delete(index)
+      curvedChanged = true
+    }
   }
 
   function syncNodes(next: RenderInput): void {
@@ -336,6 +378,11 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
     }
     edgeTopology.upload(first, last)
     edgeStyle.upload(first, last)
+    if (curvedChanged) {
+      curvedChanged = false
+      gl.bindBuffer(gl.ARRAY_BUFFER, curveIndices)
+      gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(curved), gl.DYNAMIC_DRAW)
+    }
     const states = next.states
     const range = states.edgeDirty.take()
     if (next.full || grown) {
@@ -568,12 +615,19 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       bind()
       if (!warmed) warm()
       for (const layer of input?.scene.layers ?? []) {
-        if (layer.kind === 'edges')
+        if (layer.kind === 'edges') {
           draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
-        else draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
+          if (curved.size > 0) {
+            const pass = curves()
+            draw(pass.program, pass.main, curved.size, layer.slot, 0)
+          }
+        } else draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
       }
       draw(labelProgram, vertexArrays.labels, labels.main.count, 0, 0)
       draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
+      if (curvePass && curved.size > 0) {
+        draw(curvePass.program, curvePass.overlay, edgeOverlayCount, 0, 1)
+      }
       draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
       draw(labelProgram, vertexArrays.labelHighlight, labels.highlight.count, 0, 1)
       gl.bindVertexArray(null)
@@ -586,6 +640,10 @@ export function createWebglRenderer(canvas: HTMLCanvasElement): Renderer {
       gl.deleteTexture(atlasTexture)
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
       for (const vao of Object.values(vertexArrays)) gl.deleteVertexArray(vao)
+      if (curvePass) {
+        gl.deleteVertexArray(curvePass.main)
+        gl.deleteVertexArray(curvePass.overlay)
+      }
       for (const program of programs) gl.deleteProgram(program)
       gl.getExtension('WEBGL_lose_context')?.loseContext()
     },

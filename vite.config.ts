@@ -28,6 +28,7 @@ export default defineConfig({
         bench: resolve(import.meta.dirname, 'examples/bench/index.html'),
         collab: resolve(import.meta.dirname, 'examples/collab/index.html'),
         explore: resolve(import.meta.dirname, 'examples/explore/index.html'),
+        edges: resolve(import.meta.dirname, 'examples/edges/index.html'),
       },
     },
   },

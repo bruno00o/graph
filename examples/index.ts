@@ -8,6 +8,7 @@ for (const [href, text] of [
   ['./react/', messages.react],
   ['./collab/', messages.collab],
   ['./explore/', messages.explore],
+  ['./edges/', messages.edges],
 ] as const) {
   const item = document.createElement('li')
   const link = document.createElement('a')

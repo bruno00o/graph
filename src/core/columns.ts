@@ -84,6 +84,7 @@ export class EdgeColumns {
   dash: Uint8Array = new Uint8Array(0)
   arrow: Uint8Array = new Uint8Array(0)
   opacity: Float32Array = new Float32Array(0)
+  bend: Float32Array = new Float32Array(0)
   label: (string | null)[] = []
 
   reserve(index: number): void {
@@ -98,12 +99,14 @@ export class EdgeColumns {
     this.dash = grow(this.dash, capacity)
     this.arrow = grow(this.arrow, capacity)
     this.opacity = grow(this.opacity, capacity)
+    this.bend = grow(this.bend, capacity)
     this.capacity = capacity
   }
 
   clear(index: number): void {
     if (index >= this.capacity) return
     this.alive[index] = 0
+    this.bend[index] = 0
     this.keys[index] = undefined
     this.label[index] = null
   }

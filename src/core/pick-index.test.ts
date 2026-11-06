@@ -44,6 +44,25 @@ function setup(items: Item[], links: Link[], options: NodeOptions<Item> = {}) {
 }
 
 describe('PickIndex', () => {
+  it('picks parallel edges along their curve and loops around their node', () => {
+    const { pick } = setup(
+      [
+        { id: 'a', x: 0, y: 0 },
+        { id: 'b', x: 200, y: 0 },
+      ],
+      [
+        { id: 'ab', from: 'a', to: 'b' },
+        { id: 'ba', from: 'b', to: 'a' },
+        { id: 'aa', from: 'a', to: 'a' },
+      ],
+    )
+    expect(pick(100, -12)).toBe('ab')
+    expect(pick(100, 12)).toBe('ba')
+    expect(pick(100, 0)).toBeNull()
+    expect(pick(14.1, -14.1)).toBe('aa')
+    expect(pick(40, -40)).toBeNull()
+  })
+
   const items: Item[] = [
     { id: 'a', x: 0, y: 0 },
     { id: 'b', x: 200, y: 0 },
