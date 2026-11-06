@@ -1,6 +1,8 @@
 import type { EdgeMark, Key, Mark, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { IndexPool } from './index-pool'
+import { IndexSet } from './index-set'
+import { KeyIndex } from './key-index'
 import { type GraphIssue, type Source, SourceTable } from './source-table'
 
 export type { ElementKind, GraphIssue } from './source-table'
@@ -71,18 +73,13 @@ export interface GraphModel {
 }
 
 class NodeEntry implements NodeRecord {
-  incident: EdgeEntry | null
-
   constructor(
     readonly key: Key,
     readonly index: number,
     public datum: unknown,
     public slot: number,
     readonly table: SourceTable<NodeMark<unknown>>,
-    incident: EdgeEntry | null,
-  ) {
-    this.incident = incident
-  }
+  ) {}
 
   get mark(): NodeMark<unknown> {
     return this.table.markAt(this.slot)
@@ -92,13 +89,10 @@ class NodeEntry implements NodeRecord {
 class EdgeEntry {
   sourceIndex = -1
   targetIndex = -1
-  sourceNext: EdgeEntry | null = null
-  sourcePrev: EdgeEntry | null = null
-  targetNext: EdgeEntry | null = null
-  targetPrev: EdgeEntry | null = null
 
   constructor(
     readonly key: Key,
+    readonly id: number,
     public index: number,
     public datum: unknown,
     public slot: number,
@@ -132,26 +126,47 @@ function isVisible(entry: EdgeEntry): entry is VisibleEdge {
   return entry.index >= 0
 }
 
-function nextAt(entry: EdgeEntry, key: Key): EdgeEntry | null {
-  return entry.source === key ? entry.sourceNext : entry.targetNext
+function isIndexed(entry: NodeEntry): entry is NodeEntry {
+  return entry.index >= 0
 }
 
-function previousAt(entry: EdgeEntry, key: Key): EdgeEntry | null {
-  return entry.source === key ? entry.sourcePrev : entry.targetPrev
-}
+class Present<T, R extends T> implements IterableIterator<R> {
+  readonly #entries: readonly (T | undefined)[]
+  readonly #keep: (entry: T) => entry is R
+  #at = 0
 
-function setNextAt(entry: EdgeEntry, key: Key, next: EdgeEntry | null): void {
-  if (entry.source === key) entry.sourceNext = next
-  else entry.targetNext = next
-}
+  constructor(entries: readonly (T | undefined)[], keep: (entry: T) => entry is R) {
+    this.#entries = entries
+    this.#keep = keep
+  }
 
-function setPreviousAt(entry: EdgeEntry, key: Key, previous: EdgeEntry | null): void {
-  if (entry.source === key) entry.sourcePrev = previous
-  else entry.targetPrev = previous
+  next(): IteratorResult<R, undefined> {
+    const entries = this.#entries
+    while (this.#at < entries.length) {
+      const entry = entries[this.#at++]
+      if (entry !== undefined && this.#keep(entry)) return { value: entry, done: false }
+    }
+    return { value: undefined, done: true }
+  }
+
+  [Symbol.iterator](): this {
+    return this
+  }
 }
 
 function emptyChanges(): MutableChanges {
   return { added: [], updated: [], removed: [] }
+}
+
+const linkStride = 6
+const sourceSide = 2
+const targetSide = 4
+
+function grown(array: Int32Array<ArrayBuffer>, length: number): Int32Array<ArrayBuffer> {
+  if (length <= array.length) return array
+  const next = new Int32Array(Math.max(64, array.length * 2, length)).fill(-1)
+  next.set(array)
+  return next
 }
 
 export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
@@ -159,108 +174,184 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   const issues: GraphIssue[] = []
   const nodeSources = new SourceTable<NodeMark<unknown>>('nodes', issues, schedule)
   const edgeSources = new SourceTable<EdgeMark<unknown>>('edges', issues, schedule)
-  const nodeEntries = new Map<Key, NodeEntry>()
-  const edgeEntries = new Map<Key, EdgeEntry>()
-  const orphans = new Map<Key, EdgeEntry>()
+  const ends = new KeyIndex()
+  let endPool = new IndexPool()
+  const endKeys: (Key | undefined)[] = []
+  let endNode = new Int32Array(0)
+  let endHead = new Int32Array(0)
+  let endTail = new Int32Array(0)
+  const edgeIds = new KeyIndex()
+  let entryPool = new IndexPool()
+  const entries: (EdgeEntry | undefined)[] = []
+  let links = new Int32Array(0)
   const nodesByIndex: (NodeEntry | undefined)[] = []
   const edgesByIndex: (EdgeEntry | undefined)[] = []
   const nodePool = new IndexPool()
   const edgePool = new IndexPool()
+  const touched = new IndexSet()
+  const unused: number[] = []
+  let nodeCount = 0
 
-  function nodeOf(key: Key | null): NodeEntry | undefined {
-    return key === null ? undefined : nodeEntries.get(key)
+  function reserveEnds(capacity: number): void {
+    if (capacity <= endNode.length) return
+    endNode = grown(endNode, capacity)
+    endHead = grown(endHead, endNode.length)
+    endTail = grown(endTail, endNode.length)
   }
 
-  function headOf(key: Key, node: NodeEntry | undefined): EdgeEntry | null {
-    return node ? node.incident : (orphans.get(key) ?? null)
+  function reserveEntries(capacity: number): void {
+    links = grown(links, capacity * linkStride)
   }
 
-  function setHead(key: Key, node: NodeEntry | undefined, head: EdgeEntry | null): void {
-    if (node) node.incident = head
-    else if (head) orphans.set(key, head)
-    else orphans.delete(key)
-  }
-
-  function attach(key: Key, node: NodeEntry | undefined, entry: EdgeEntry): void {
-    setNextAt(entry, key, null)
-    const head = headOf(key, node)
-    if (head === null) {
-      setPreviousAt(entry, key, entry)
-      setHead(key, node, entry)
-      return
+  function intern(key: Key, absent = false): number {
+    if (!absent) {
+      const known = ends.get(key)
+      if (known !== -1) return known
     }
-    const tail = previousAt(head, key) ?? head
-    setNextAt(tail, key, entry)
-    setPreviousAt(entry, key, tail)
-    setPreviousAt(head, key, entry)
+    const end = endPool.acquire()
+    ends.add(key, end)
+    reserveEnds(end + 1)
+    endKeys[end] = key
+    endNode[end] = -1
+    endHead[end] = -1
+    endTail[end] = -1
+    return end
   }
 
-  function detach(key: Key, entry: EdgeEntry): void {
-    const node = nodeEntries.get(key)
-    const head = headOf(key, node)
-    const next = nextAt(entry, key)
-    const previous = previousAt(entry, key)
-    if (head === entry) {
-      if (next !== null) setPreviousAt(next, key, previous)
-      setHead(key, node, next)
-    } else if (previous !== null && head !== null) {
-      setNextAt(previous, key, next)
-      setPreviousAt(next ?? head, key, previous)
+  function endOf(key: Key): number {
+    return ends.get(key)
+  }
+
+  function forget(end: number): void {
+    if (endHead[end] === -1 && endNode[end] === -1) unused.push(end)
+  }
+
+  function releaseUnused(): void {
+    for (const end of unused) {
+      const key = endKeys[end]
+      if (key === undefined || endHead[end] !== -1 || endNode[end] !== -1) continue
+      ends.delete(key)
+      endKeys[end] = undefined
+      endPool.release(end)
     }
-    setNextAt(entry, key, null)
-    setPreviousAt(entry, key, null)
+    unused.length = 0
   }
 
-  function link(entry: EdgeEntry, from: NodeEntry | undefined, to: NodeEntry | undefined): void {
-    if (entry.source !== null) attach(entry.source, from, entry)
-    if (entry.target !== null && entry.target !== entry.source) attach(entry.target, to, entry)
+  function sideOf(id: number, end: number): number {
+    const at = id * linkStride
+    return at + (links[at] === end ? sourceSide : targetSide)
   }
 
-  function unlink(entry: EdgeEntry): void {
-    if (entry.source !== null) detach(entry.source, entry)
-    if (entry.target !== null && entry.target !== entry.source) detach(entry.target, entry)
+  function nextAt(id: number, end: number): number {
+    return links[sideOf(id, end)] ?? -1
+  }
+
+  function attach(end: number, id: number): void {
+    const at = sideOf(id, end)
+    const tail = endTail[end] ?? -1
+    links[at] = -1
+    links[at + 1] = tail
+    if (tail === -1) endHead[end] = id
+    else links[sideOf(tail, end)] = id
+    endTail[end] = id
+  }
+
+  function detach(end: number, id: number): void {
+    const at = sideOf(id, end)
+    const next = links[at] ?? -1
+    const previous = links[at + 1] ?? -1
+    if (previous === -1) endHead[end] = next
+    else links[sideOf(previous, end)] = next
+    if (next === -1) endTail[end] = previous
+    else links[sideOf(next, end) + 1] = previous
+    links[at] = -1
+    links[at + 1] = -1
+    forget(end)
+  }
+
+  function link(id: number): void {
+    const source = links[id * linkStride] ?? -1
+    const target = links[id * linkStride + 1] ?? -1
+    if (source !== -1) attach(source, id)
+    if (target !== -1 && target !== source) attach(target, id)
+  }
+
+  function unlink(id: number): void {
+    const source = links[id * linkStride] ?? -1
+    const target = links[id * linkStride + 1] ?? -1
+    if (source !== -1) detach(source, id)
+    if (target !== -1 && target !== source) detach(target, id)
+  }
+
+  function nodeOf(key: Key): NodeEntry | undefined {
+    const end = endOf(key)
+    const index = end === -1 ? -1 : (endNode[end] ?? -1)
+    return index === -1 ? undefined : nodesByIndex[index]
   }
 
   function visibleIncident(key: Key): VisibleEdge[] {
     const result: VisibleEdge[] = []
-    let entry = headOf(key, nodeEntries.get(key))
-    for (; entry !== null; entry = nextAt(entry, key)) if (isVisible(entry)) result.push(entry)
+    const end = endOf(key)
+    if (end === -1 || endNode[end] === -1) return result
+    for (let id = endHead[end] ?? -1; id !== -1; id = nextAt(id, end)) {
+      const entry = entries[id]
+      if (entry && isVisible(entry)) result.push(entry)
+    }
     return result
   }
 
-  function flushNodes(changes: MutableChanges, touched: Set<Key>, freed: number[]): void {
-    const touch = (key: Key, head: EdgeEntry | null) => {
-      for (let entry = head; entry !== null; entry = nextAt(entry, key)) touched.add(entry.key)
+  function touch(end: number): void {
+    for (let id = endHead[end] ?? -1; id !== -1; id = nextAt(id, end)) touched.add(id)
+  }
+
+  function flushNodes(changes: MutableChanges, freed: number[]): void {
+    const known = ends.size > 0
+    const sole = known || endPool.capacity > 0 ? null : nodeSources.sole()
+    if (sole) {
+      sole.items.copyIndex(ends)
+      endPool = new IndexPool(sole.items.size)
+      reserveEnds(sole.items.size)
+    } else if (!known) {
+      ends.reserve(nodeSources.pendingCount)
     }
-    const known = nodeEntries.size > 0
-    nodeSources.forEachDirty((key, forced, source, datum) => {
-      const entry = known ? nodeEntries.get(key) : undefined
+    nodeSources.forEachDirty((key, forced, source, datum, position) => {
+      if (sole && source === sole && position !== -1) {
+        const created = nodePool.acquire()
+        endKeys[position] = key
+        endNode[position] = created
+        nodesByIndex[created] = new NodeEntry(key, created, datum, sole.slot, nodeSources)
+        nodeCount++
+        changes.added.push({ key, index: created })
+        return
+      }
+      const end = known ? endOf(key) : -1
+      const index = end === -1 ? -1 : (endNode[end] ?? -1)
+      const entry = index === -1 ? undefined : nodesByIndex[index]
       if (!source) {
         if (entry) {
-          nodeEntries.delete(key)
-          nodesByIndex[entry.index] = undefined
-          changes.removed.push({ key, index: entry.index })
-          freed.push(entry.index)
-          touch(key, entry.incident)
-          if (entry.incident) orphans.set(key, entry.incident)
-          entry.incident = null
+          nodesByIndex[index] = undefined
+          endNode[end] = -1
+          nodeCount--
+          changes.removed.push({ key, index })
+          freed.push(index)
+          touch(end)
+          forget(end)
         }
         return
       }
       const slot = source.slot
       if (!entry) {
-        const index = nodePool.acquire()
-        const incident = orphans.size > 0 ? (orphans.get(key) ?? null) : null
-        if (incident) orphans.delete(key)
-        const created = new NodeEntry(key, index, datum, slot, nodeSources, incident)
-        nodeEntries.set(key, created)
-        nodesByIndex[index] = created
-        changes.added.push({ key, index })
-        touch(key, incident)
+        const created = nodePool.acquire()
+        const at = end === -1 ? intern(key, true) : end
+        endNode[at] = created
+        nodesByIndex[created] = new NodeEntry(key, created, datum, slot, nodeSources)
+        nodeCount++
+        changes.added.push({ key, index: created })
+        touch(at)
         return
       }
       if (forced || entry.datum !== datum || entry.slot !== slot) {
-        changes.updated.push({ key, index: entry.index })
+        changes.updated.push({ key, index })
       }
       entry.datum = datum
       entry.slot = slot
@@ -270,49 +361,73 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
 
   function flushEdges(
     changes: MutableChanges & { readonly pending: Key[] },
-    touched: Set<Key>,
     freed: number[],
+    freedEntries: number[],
   ): void {
     let readMark: EdgeMark<unknown> | null = null
     let readSource: (datum: unknown) => unknown = () => undefined
     let readTarget: (datum: unknown) => unknown = () => undefined
-    const known = edgeEntries.size > 0
+    const known = edgeIds.size > 0
+    const sole = known || entryPool.capacity > 0 ? null : edgeSources.sole()
+    if (sole) {
+      sole.items.copyIndex(edgeIds)
+      entryPool = new IndexPool(sole.items.size)
+      reserveEntries(sole.items.size)
+    } else if (!known) {
+      const count = edgeSources.pendingCount
+      edgeIds.reserve(count)
+      reserveEntries(count)
+    }
     let lastSource: Key | null = null
-    let lastSourceNode: NodeEntry | undefined
+    let lastSourceEnd = -1
     let lastTarget: Key | null = null
-    let lastTargetNode: NodeEntry | undefined
-    const sourceNode = (key: Key | null): NodeEntry | undefined => {
+    let lastTargetEnd = -1
+    const sourceEndOf = (key: Key | null): number => {
+      if (key === null) return -1
       if (key !== lastSource) {
         lastSource = key
-        lastSourceNode = nodeOf(key)
+        lastSourceEnd = intern(key)
       }
-      return lastSourceNode
+      return lastSourceEnd
     }
-    const targetNode = (key: Key | null): NodeEntry | undefined => {
+    const targetEndOf = (key: Key | null): number => {
+      if (key === null) return -1
       if (key !== lastTarget) {
         lastTarget = key
-        lastTargetNode = nodeOf(key)
+        lastTargetEnd = intern(key)
       }
-      return lastTargetNode
+      return lastTargetEnd
+    }
+    if (sole) {
+      const options = sole.mark.options
+      const readFrom = toAccessor<unknown, unknown>(options.source)
+      const readTo = toAccessor<unknown, unknown>(options.target)
+      sole.items.forEach((datum, _, position) => {
+        const source = readFrom(datum)
+        const target = readTo(datum)
+        links[position * linkStride] = isKey(source) ? sourceEndOf(source) : -1
+        links[position * linkStride + 1] = isKey(target) ? targetEndOf(target) : -1
+      })
     }
     const visit = (
       key: Key,
+      id: number,
       forced: boolean | undefined,
       owner: Source<EdgeMark<unknown>> | undefined,
       datum: unknown,
+      position: number,
     ): void => {
-      let entry = known ? edgeEntries.get(key) : undefined
+      let entry = id === -1 ? undefined : entries[id]
       const wasVisible = entry !== undefined && isVisible(entry)
       const wasPending = entry !== undefined && !wasVisible
       let changed = false
-      let resolved = false
-      let from: NodeEntry | undefined
-      let to: NodeEntry | undefined
       if (forced !== undefined) {
         if (!owner) {
           if (entry) {
-            unlink(entry)
-            edgeEntries.delete(key)
+            unlink(entry.id)
+            edgeIds.delete(key)
+            entries[entry.id] = undefined
+            freedEntries.push(entry.id)
             if (wasVisible) {
               edgesByIndex[entry.index] = undefined
               changes.removed.push({ key, index: entry.index })
@@ -331,39 +446,44 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         const targetValue = readTarget(datum)
         const source = isKey(sourceValue) ? sourceValue : null
         const target = isKey(targetValue) ? targetValue : null
-        if (!entry) {
-          from = sourceNode(source)
-          to = targetNode(target)
-          resolved = true
-          entry = new EdgeEntry(key, -1, datum, slot, source, target, edgeSources)
-          edgeEntries.set(key, entry)
-          link(entry, from, to)
+        if (!entry && position !== -1) {
+          entry = new EdgeEntry(key, position, -1, datum, slot, source, target, edgeSources)
+          entries[position] = entry
+          link(position)
+        } else if (!entry) {
+          const created = entryPool.acquire()
+          reserveEntries(created + 1)
+          entry = new EdgeEntry(key, created, -1, datum, slot, source, target, edgeSources)
+          edgeIds.add(key, created)
+          entries[created] = entry
+          links[created * linkStride] = sourceEndOf(source)
+          links[created * linkStride + 1] = targetEndOf(target)
+          link(created)
         } else {
           const moved = entry.source !== source || entry.target !== target
           changed = moved || forced || entry.datum !== datum
           changed ||= entry.slot !== slot
           if (moved) {
-            unlink(entry)
+            unlink(entry.id)
             entry.source = source
             entry.target = target
-            from = sourceNode(source)
-            to = targetNode(target)
-            resolved = true
-            link(entry, from, to)
+            links[entry.id * linkStride] = sourceEndOf(source)
+            links[entry.id * linkStride + 1] = targetEndOf(target)
+            link(entry.id)
           }
           entry.datum = datum
           entry.slot = slot
         }
       }
       if (!entry) return
-      if (!resolved) {
-        from = sourceNode(entry.source)
-        to = targetNode(entry.target)
-      }
-      const visible = from !== undefined && to !== undefined
-      if (from !== undefined && to !== undefined) {
-        entry.sourceIndex = from.index
-        entry.targetIndex = to.index
+      const from = links[entry.id * linkStride] ?? -1
+      const to = links[entry.id * linkStride + 1] ?? -1
+      const sourceIndex = from === -1 ? -1 : (endNode[from] ?? -1)
+      const targetIndex = to === -1 ? -1 : (endNode[to] ?? -1)
+      const visible = sourceIndex !== -1 && targetIndex !== -1
+      if (visible) {
+        entry.sourceIndex = sourceIndex
+        entry.targetIndex = targetIndex
       }
       if (visible && !wasVisible) {
         entry.index = edgePool.acquire()
@@ -381,10 +501,17 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         changes.pending.push(key)
       }
     }
-    edgeSources.forEachDirty(visit)
-    for (const key of touched) {
-      if (!edgeSources.isDirty(key)) visit(key, undefined, undefined, undefined)
+    edgeSources.forEachDirty((key, forced, owner, datum, position) => {
+      if (sole && owner === sole && position !== -1) visit(key, -1, forced, owner, datum, position)
+      else visit(key, known ? edgeIds.get(key) : -1, forced, owner, datum, -1)
+    })
+    for (const id of touched) {
+      const entry = entries[id]
+      if (entry && !edgeSources.isDirty(entry.key)) {
+        visit(entry.key, id, undefined, undefined, undefined, -1)
+      }
     }
+    touched.clear()
     edgeSources.clearDirty()
   }
 
@@ -400,22 +527,25 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       edgeSources.drain()
       const nodes = emptyChanges()
       const edges = { ...emptyChanges(), pending: [] as Key[] }
-      const touched = new Set<Key>()
       const freedNodes: number[] = []
       const freedEdges: number[] = []
-      flushNodes(nodes, touched, freedNodes)
-      flushEdges(edges, touched, freedEdges)
+      const freedEntries: number[] = []
+      flushNodes(nodes, freedNodes)
+      flushEdges(edges, freedEdges, freedEntries)
       for (const index of freedNodes) nodePool.release(index)
       for (const index of freedEdges) edgePool.release(index)
+      for (const id of freedEntries) entryPool.release(id)
+      releaseUnused()
       return { nodes, edges, issues: issues.splice(0) }
     },
 
     node(key) {
-      return nodeEntries.get(key)
+      return nodeOf(key)
     },
 
     edge(key) {
-      const entry = edgeEntries.get(key)
+      const id = edgeIds.get(key)
+      const entry = id === -1 ? undefined : entries[id]
       return entry && isVisible(entry) ? entry : undefined
     },
 
@@ -429,21 +559,22 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     },
 
     get nodeCount() {
-      return nodeEntries.size
+      return nodeCount
     },
 
     nodes() {
-      return nodeEntries.values()
+      return new Present(nodesByIndex, isIndexed)
     },
 
-    *edges() {
-      for (const entry of edgeEntries.values()) if (isVisible(entry)) yield entry
+    edges() {
+      return new Present(edgesByIndex, isVisible)
     },
 
     neighbors(key) {
       const result = new Set<Key>()
+      const end = endOf(key)
       for (const entry of visibleIncident(key)) {
-        result.add(entry.source === key ? entry.target : entry.source)
+        result.add(links[entry.id * linkStride] === end ? entry.target : entry.source)
       }
       return [...result]
     },
@@ -453,24 +584,28 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     },
 
     endpoints(key) {
-      const entry = edgeEntries.get(key)
+      const id = edgeIds.get(key)
+      const entry = id === -1 ? undefined : entries[id]
       return entry && isVisible(entry) ? { source: entry.source, target: entry.target } : undefined
     },
 
     pendingEdges() {
       const result: Key[] = []
-      for (const entry of edgeEntries.values()) if (!isVisible(entry)) result.push(entry.key)
+      for (const entry of entries) if (entry && !isVisible(entry)) result.push(entry.key)
       return result
     },
 
     destroy() {
       nodeSources.destroy()
       edgeSources.destroy()
-      nodeEntries.clear()
-      edgeEntries.clear()
-      orphans.clear()
+      ends.clear()
+      edgeIds.clear()
+      endKeys.length = 0
+      entries.length = 0
       nodesByIndex.length = 0
       edgesByIndex.length = 0
+      touched.clear()
+      nodeCount = 0
       issues.length = 0
     },
   }

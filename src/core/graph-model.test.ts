@@ -424,6 +424,48 @@ describe('createGraphModel', () => {
     }
   })
 
+  it('loads a single array per kind like any other batch', () => {
+    let state = 5
+    const next = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+      return state / 4294967296
+    }
+    const pick = (count: number) => Math.floor(next() * count)
+    const randomNodes = () =>
+      Array.from({ length: pick(40) }, () =>
+        next() < 0.05 ? ({ group: 'x' } as unknown as Item) : item(`n${pick(30)}`, `g${pick(3)}`),
+      )
+    const randomEdges = () =>
+      Array.from({ length: pick(60) }, () =>
+        next() < 0.05
+          ? ({ id: `e${pick(80)}`, from: 'n1' } as unknown as Link)
+          : link(`e${pick(80)}`, `n${pick(34)}`, `n${pick(34)}`),
+      )
+    const snapshot = (model: ReturnType<typeof createGraphModel>, changes: unknown) => ({
+      changes,
+      nodes: [...model.nodes()].map((node) => [node.key, node.index]),
+      edges: [...model.edges()].map((edge) => [edge.key, edge.sourceIndex, edge.targetIndex]),
+      pending: model.pendingEdges().sort(),
+      around: Array.from({ length: 34 }, (_, n) => [
+        model.edgesOf(`n${n}`).sort(),
+        model.neighbors(`n${n}`).sort(),
+      ]),
+    })
+    for (let run = 0; run < 60; run++) {
+      const alone = createGraphModel()
+      const shared = createGraphModel()
+      const empty = nodes<Item>([])
+      const none = edges<Link>([], linkOptions)
+      for (let round = 0; round < 4; round++) {
+        const nodeMark = nodes(randomNodes())
+        const edgeMark = edges(randomEdges(), linkOptions)
+        alone.setMarks([nodeMark, edgeMark])
+        shared.setMarks([nodeMark, empty, edgeMark, none])
+        expect(snapshot(alone, alone.flush())).toEqual(snapshot(shared, shared.flush()))
+      }
+    }
+  })
+
   it('releases everything on destroy', () => {
     const model = createGraphModel()
     const live = createLiveSource<Item>()

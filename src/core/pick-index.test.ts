@@ -158,6 +158,59 @@ describe('PickIndex', () => {
     expect(keyOf(index.pick(source, 800, 786, 1, 4))).toBe('f')
   })
 
+  it('picks long edges like a scan of every edge', () => {
+    const side = 60
+    const grid: Item[] = Array.from({ length: side * side }, (_, i) => ({
+      id: `n${i}`,
+      x: (i % side) * 10,
+      y: Math.floor(i / side) * 10,
+      size: 0.5,
+    }))
+    const long: Link[] = Array.from({ length: 3000 }, (_, i) => ({
+      id: `e${i}`,
+      from: `n${((i * 7919) % side) * side + (i % 6)}`,
+      to: `n${((i * 104729 + 17) % side) * side + side - 1 - (i % 6)}`,
+    })).filter(
+      (each, at, all) =>
+        all.findIndex((other) => other.from === each.from && other.to === each.to) === at,
+    )
+    const { pick } = setup(grid, long, { size: 'size' })
+    const at = new Map(grid.map((node) => [node.id, node]))
+    let state = 9
+    const next = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+      return state / 4294967296
+    }
+    let hits = 0
+    for (let probe = 0; probe < 600; probe++) {
+      const x = 5 + next() * 580
+      const y = 5 + next() * 580
+      let best: string | null = null
+      let bestDistance = Number.POSITIVE_INFINITY
+      long.forEach((each, order) => {
+        const a = at.get(each.from)
+        const b = at.get(each.to)
+        if (!a || !b) return
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const length = Math.hypot(dx, dy)
+        const along = ((x - a.x) * dx + (y - a.y) * dy) / length
+        if (along < 2 || along > length - 2) return
+        const distance = Math.abs((x - a.x) * dy - (y - a.y) * dx) / length
+        if (distance > 4.75 || distance > bestDistance) return
+        if (distance < bestDistance || order > long.findIndex((e) => e.id === best)) {
+          best = each.id
+          bestDistance = distance
+        }
+      })
+      const near = grid.some((node) => Math.hypot(node.x - x, node.y - y) < 3)
+      if (near) continue
+      expect(pick(x, y)).toBe(best)
+      if (best) hits++
+    }
+    expect(hits).toBeGreaterThan(100)
+  })
+
   it('sizes screen-unit nodes by the zoom', () => {
     const { pick } = setup([{ id: 'a', x: 0, y: 0 }], [], { units: 'screen' })
     expect(pick(20, 0, 1)).toBeNull()
