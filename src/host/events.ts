@@ -34,6 +34,10 @@ export interface GraphDragEvent {
   readonly originalEvent: PointerEvent
 }
 
+export interface GraphFocusEvent {
+  readonly target: GraphTarget | null
+}
+
 export type PositionOrigin = 'drag' | 'api'
 
 export interface GraphPositionEvent {
@@ -52,6 +56,7 @@ export interface GraphEvents {
   readonly dragend: GraphDragEvent
   readonly positionchange: GraphPositionEvent
   readonly selectionchange: ElementKeys
+  readonly focuschange: GraphFocusEvent
   readonly viewchange: { readonly view: View }
 }
 

@@ -87,6 +87,13 @@ function pointer(
   )
 }
 
+function press(graph: GraphInstance, key: string, init: KeyboardEventInit = {}): boolean {
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
+  graph.element.dispatchEvent(event)
+  dom.flushFrames()
+  return event.defaultPrevented
+}
+
 function click(graph: GraphInstance, x: number, y: number, init: PointerEventInit = {}) {
   pointer(graph, 'pointerdown', x, y, init)
   pointer(graph, 'pointerup', x, y, init)
@@ -120,7 +127,8 @@ afterEach(() => {
 describe('createGraphHost', () => {
   it('mounts an accessible element and fits the graph on the first frame', () => {
     const graph = mount()
-    expect(graph.element.getAttribute('role')).toBe('img')
+    expect(graph.element.getAttribute('role')).toBe('application')
+    expect(graph.element.tabIndex).toBe(0)
     expect(graph.element.getAttribute('aria-label')).toBe('graphe')
     const { view, width, height } = graph.store.get()
     expect([width, height]).toEqual([800, 600])
@@ -211,6 +219,71 @@ describe('createGraphHost', () => {
     pointer(graph, 'pointerup', 700, 60, { shiftKey: true })
     expect(graph.store.get().view).not.toEqual(view)
     expect(graph.selection.get().nodes).toEqual([])
+  })
+
+  it('moves the focus with arrows, selects with Enter and clears with Escape', () => {
+    const graph = mount()
+    const focused: Array<string | null> = []
+    graph.on('focuschange', ({ target }) => focused.push(target ? String(target.key) : null))
+    expect(press(graph, 'ArrowRight')).toBe(true)
+    expect(press(graph, 'ArrowLeft')).toBe(true)
+    expect(press(graph, 'ArrowRight')).toBe(true)
+    expect(focused).toEqual(['c', 'a', 'b'])
+    expect(graph.store.get().focused?.key).toBe('b')
+    expect(graph.element.querySelector('[aria-live]')?.textContent).toBe('b')
+    press(graph, 'Enter')
+    press(graph, 'ArrowLeft')
+    press(graph, ' ', { shiftKey: true })
+    expect(graph.selection.get().nodes).toEqual(['b', 'a'])
+    expect(press(graph, 'Escape')).toBe(true)
+    expect(graph.selection.get().nodes).toEqual([])
+    expect(press(graph, 'Escape')).toBe(true)
+    expect(graph.focus.get()).toBeNull()
+    expect(press(graph, 'Escape')).toBe(false)
+    expect(press(graph, 'ArrowRight', { metaKey: true })).toBe(false)
+  })
+
+  it('starts from the last selected node and zooms, pans and fits from the keyboard', () => {
+    const graph = mount()
+    graph.selection.set({ nodes: ['b'] })
+    press(graph, 'ArrowDown')
+    expect(graph.focus.get()?.key).toBe('b')
+    const fitted = graph.store.get().view
+    press(graph, '+')
+    expect(graph.store.get().view.zoom).toBeCloseTo(fitted.zoom * 1.5)
+    const zoomed = graph.store.get().view
+    press(graph, 'ArrowRight', { shiftKey: true })
+    expect(graph.store.get().view.x).toBeGreaterThan(zoomed.x)
+    press(graph, '0')
+    expect(graph.store.get().view.zoom).toBeCloseTo(fitted.zoom)
+  })
+
+  it('focuses programmatically, reveals the node and forgets removed nodes', () => {
+    const graph = mount()
+    graph.view.set({ x: 5000, y: 5000, zoom: 1 })
+    dom.flushFrames()
+    graph.focus.set({ kind: 'node', key: 'a' })
+    dom.flushFrames()
+    expect(graph.focus.get()?.key).toBe('a')
+    expect(graph.store.get().view).toMatchObject({ x: -100, y: 0 })
+    graph.focus.set({ kind: 'node', key: 'missing' })
+    expect(graph.focus.get()?.key).toBe('a')
+    const seen: Array<string | null> = []
+    graph.on('focuschange', ({ target }) => seen.push(target ? String(target.key) : null))
+    graph.update({ definition: definition(items.slice(1)) })
+    dom.flushFrames()
+    expect(graph.focus.get()).toBeNull()
+    expect(seen).toEqual([null])
+  })
+
+  it('leaves the keyboard alone when it is turned off', () => {
+    const graph = mount(
+      defineGraph({ marks: definition().marks, interaction: { keyboard: false } }),
+    )
+    expect(graph.element.getAttribute('role')).toBe('img')
+    expect(graph.element.hasAttribute('tabindex')).toBe(false)
+    expect(press(graph, 'ArrowRight')).toBe(false)
+    expect(graph.focus.get()).toBeNull()
   })
 
   it('reports the clicked target and picks edges', () => {

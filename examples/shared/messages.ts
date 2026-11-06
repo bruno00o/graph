@@ -22,7 +22,7 @@ export const messages = {
   weight: 'Poids',
   selected: 'Sélection',
   empty: 'Cliquez sur un nœud, Maj pour en ajouter.',
-  lassoHint: 'Maj et glisser dans le vide pour entourer des nœuds.',
+  vanillaHint: 'Maj et glisser pour entourer, flèches pour parcourir, Entrée pour sélectionner.',
   graphLabel: (nodes: string, edges: string) => `Graphe de ${nodes} nœuds et ${edges} arêtes`,
   fit: 'Recadrer',
   dark: 'Thème sombre',

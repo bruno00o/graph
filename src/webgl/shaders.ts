@@ -32,7 +32,7 @@ layout(std140) uniform States {
 uniform int layerSlot;
 uniform int overlay;
 uniform sampler2D palette;
-const uint highlightMask = 3u;
+const uint highlightMask = 7u;
 const uint none = 0xffffffffu;
 const vec4 hidden = vec4(2.0, 2.0, 2.0, 1.0);
 vec2 toScreen(vec2 world) { return (world - center) * zoom + viewport * 0.5; }

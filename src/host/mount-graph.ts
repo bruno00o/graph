@@ -4,6 +4,7 @@ import { nodesInside } from '../core/lasso'
 import { PickIndex, type PickSource } from '../core/pick-index'
 import { type PositionMoves, Positions, placeNodes } from '../core/positions'
 import { createScene } from '../core/scene'
+import { nearestNode, nodeToward } from '../core/spatial'
 import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import {
@@ -30,6 +31,7 @@ import {
   type GraphEventName,
   type GraphTarget,
 } from './events'
+import { keyAction } from './keyboard'
 import type { Renderer } from './renderer'
 import { StateRegistry } from './state-registry'
 
@@ -38,6 +40,7 @@ export interface GraphState<S extends string = string> {
   readonly width: number
   readonly height: number
   readonly hovered: GraphTarget | null
+  readonly focused: GraphTarget | null
   readonly selection: ElementKeys
   readonly states: { readonly [K in FreeState<S>]: ElementKeys }
   readonly positionsVersion: number
@@ -73,6 +76,11 @@ export interface GraphSelection {
   clear(): void
 }
 
+export interface GraphFocus {
+  get(): GraphTarget | null
+  set(element: GraphElement | null): void
+}
+
 export interface GraphStates<N extends string = string> {
   set(name: N, keys: ElementKeysInput): void
   add(name: N, keys: ElementKeysInput): void
@@ -98,6 +106,7 @@ export interface GraphInstance<S extends string = string> {
   readonly store: GraphStore<S>
   readonly view: GraphView
   readonly selection: GraphSelection
+  readonly focus: GraphFocus
   readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
   readonly element: HTMLElement
@@ -140,6 +149,12 @@ interface Gesture {
 
 const svgNamespace = 'http://www.w3.org/2000/svg'
 const lassoStep = 3
+const keyPan = 0.1
+const followMargin = 48
+const keyDuration = 200
+const visuallyHidden =
+  'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap'
+const focusOutline = '2px solid var(--graph-focus-ring,#c93700)'
 const lassoStyle =
   'fill:color-mix(in srgb,var(--graph-accent,#c93700) 10%,transparent);stroke:var(--graph-accent,#c93700);stroke-width:1.5;stroke-dasharray:4 3;stroke-linejoin:round'
 
@@ -208,12 +223,17 @@ export function createGraphHost<S extends string = string>(
   element.setAttribute('data-graph', '')
   element.setAttribute('role', 'img')
   element.setAttribute('aria-label', options.ariaLabel)
-  element.style.cssText = 'position:relative;width:100%;height:100%;overflow:hidden'
+  element.style.cssText =
+    'position:relative;width:100%;height:100%;overflow:hidden;outline:none;outline-offset:-2px'
   const canvas = document.createElement('canvas')
   canvas.style.cssText =
     'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none'
-  element.append(canvas)
+  const announcer = document.createElement('div')
+  announcer.setAttribute('aria-live', 'polite')
+  announcer.style.cssText = visuallyHidden
+  element.append(canvas, announcer)
   container.append(element)
+  let remembered: GraphTarget | null = null
 
   let frameRequest = 0
   let laterRequest: ReturnType<typeof setTimeout> | undefined
@@ -252,6 +272,7 @@ export function createGraphHost<S extends string = string>(
     width: 0,
     height: 0,
     hovered: null,
+    focused: null,
     selection: controlled ? registry.members('selected') : noKeys,
     states: freeStates(),
     positionsVersion: 0,
@@ -437,6 +458,167 @@ export function createGraphHost<S extends string = string>(
     request()
   }
 
+  function nodePoint(key: Key): Point | null {
+    const record = model.node(key)
+    return record ? { x: positions.x(record.index), y: positions.y(record.index) } : null
+  }
+
+  function focusPoint(focus: GraphTarget): Point | null {
+    if (focus.kind === 'node') return nodePoint(focus.key)
+    const ends = model.endpoints(focus.key)
+    const a = ends ? nodePoint(ends.source) : null
+    const b = ends ? nodePoint(ends.target) : null
+    return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null
+  }
+
+  function labelOf(focus: GraphTarget): string {
+    const record = focus.kind === 'node' ? model.node(focus.key) : model.edge(focus.key)
+    const labels = focus.kind === 'node' ? scene.nodes.label : scene.edges.label
+    return (record && labels[record.index]) || String(focus.key)
+  }
+
+  function announce(text: string): void {
+    announcer.textContent = announcer.textContent === text ? `${text}\u00a0` : text
+  }
+
+  function reveal(focus: GraphTarget): void {
+    const point = focusPoint(focus)
+    if (!point) return
+    const { view } = store.get()
+    const size = viewport()
+    const screen = toScreen(view, size, point)
+    const inside =
+      screen.x >= followMargin &&
+      screen.x <= size.width - followMargin &&
+      screen.y >= followMargin &&
+      screen.y <= size.height - followMargin
+    if (!inside) animateTo({ ...view, x: point.x, y: point.y }, keyDuration)
+  }
+
+  function setFocused(next: GraphTarget | null, follow = false): void {
+    if (sameTarget(store.get().focused, next)) return
+    registry.set('focused', next ? { [kindOf[next.kind]]: [next.key] } : {})
+    patch({ focused: next })
+    if (next) {
+      element.style.outline = 'none'
+      announce(labelOf(next))
+      if (follow) reveal(next)
+    }
+    emitter.emit('focuschange', { target: next })
+    request()
+  }
+
+  function moveFocus(direction: Point): void {
+    const current = store.get().focused
+    const from = current?.kind === 'node' ? (model.node(current.key)?.index ?? -1) : -1
+    let index = from >= 0 ? nodeToward(from, direction, scene.nodes, positions) : -1
+    if (from < 0) {
+      const selected = registry.members('selected').nodes
+      const last = selected[selected.length - 1]
+      const center = store.get().view
+      index =
+        last !== undefined
+          ? (model.node(last)?.index ?? -1)
+          : nearestNode((current && focusPoint(current)) ?? center, scene.nodes, positions)
+    }
+    const key = index >= 0 ? scene.nodes.keys[index] : undefined
+    const next = key !== undefined ? target('node', key) : null
+    if (next) setFocused(next, true)
+  }
+
+  function focusVisible(): boolean {
+    try {
+      return element.matches(':focus-visible')
+    } catch {
+      return true
+    }
+  }
+
+  function onFocus(): void {
+    if (!definition.interaction.keyboard || !focusVisible()) return
+    const restored = remembered ? target(remembered.kind, remembered.key) : null
+    remembered = null
+    if (restored) setFocused(restored, true)
+    else if (!store.get().focused) element.style.outline = focusOutline
+  }
+
+  function onBlur(): void {
+    element.style.outline = 'none'
+    const current = store.get().focused
+    if (!current) return
+    remembered = current
+    setFocused(null)
+  }
+
+  function cancelLasso(): boolean {
+    if (!gesture?.lasso) return false
+    if (canvas.hasPointerCapture?.(gesture.id)) canvas.releasePointerCapture(gesture.id)
+    gesture = null
+    drawLasso(null)
+    updateCursor()
+    return true
+  }
+
+  function runKey(event: KeyboardEvent): boolean {
+    const action = keyAction(event)
+    if (!action) return false
+    const { interaction } = definition
+    const { view, focused, selection } = store.get()
+    const size = viewport()
+    switch (action.type) {
+      case 'move':
+        moveFocus(action.direction)
+        return true
+      case 'pan': {
+        if (!interaction.pan) return false
+        const step = Math.min(size.width, size.height) * keyPan
+        commitView(panBy(view, -action.direction.x * step, -action.direction.y * step))
+        return true
+      }
+      case 'zoom': {
+        if (!interaction.zoom) return false
+        const point = focused ? focusPoint(focused) : null
+        const anchor = point
+          ? toScreen(view, size, point)
+          : { x: size.width / 2, y: size.height / 2 }
+        animateTo(zoomAround(view, size, anchor, action.factor), keyDuration)
+        return true
+      }
+      case 'fit':
+        return fitTo(undefined, { duration: keyDuration })
+      case 'activate':
+        if (!focused || interaction.select === false) return false
+        selectTarget(focused, action.additive)
+        return true
+      case 'escape':
+        if (cancelLasso()) return true
+        if (interaction.select !== false && selection.nodes.length + selection.edges.length > 0) {
+          requestSelection(noKeys)
+          return true
+        }
+        if (!focused) return false
+        setFocused(null)
+        return true
+    }
+  }
+
+  function onKeyDown(event: KeyboardEvent): void {
+    if (!definition.interaction.keyboard || event.target !== element) return
+    if (runKey(event)) event.preventDefault()
+  }
+
+  function applyKeyboard(): void {
+    if (definition.interaction.keyboard) {
+      element.tabIndex = 0
+      element.setAttribute('role', 'application')
+      return
+    }
+    element.removeAttribute('tabindex')
+    element.setAttribute('role', 'img')
+    element.style.outline = 'none'
+    setFocused(null)
+  }
+
   let lassoLayer: SVGSVGElement | null = null
 
   function drawLasso(points: readonly Point[] | null): void {
@@ -482,9 +664,13 @@ export function createGraphHost<S extends string = string>(
   }
 
   function selectOnClick(clicked: GraphTarget | null, event: MouseEvent): void {
+    selectTarget(clicked, event.shiftKey || event.metaKey || event.ctrlKey)
+  }
+
+  function selectTarget(clicked: GraphTarget | null, modifier: boolean): void {
     const mode = definition.interaction.select
     if (mode === false) return
-    const additive = mode === 'multiple' && (event.shiftKey || event.metaKey || event.ctrlKey)
+    const additive = mode === 'multiple' && modifier
     if (!clicked) {
       if (!additive) requestSelection(noKeys)
       return
@@ -515,6 +701,14 @@ export function createGraphHost<S extends string = string>(
     } else if (hovered) {
       const fresh = target(hovered.kind, hovered.key)
       if (fresh && fresh.datum !== hovered.datum) patch({ hovered: fresh })
+    }
+    const focused = store.get().focused
+    if (result.focused) {
+      patch({ focused: null })
+      emitter.emit('focuschange', { target: null })
+    } else if (focused) {
+      const fresh = target(focused.kind, focused.key)
+      if (fresh && fresh.datum !== focused.datum) patch({ focused: fresh })
     }
   }
 
@@ -688,6 +882,8 @@ export function createGraphHost<S extends string = string>(
   function onPointerDown(event: PointerEvent): void {
     if (event.button !== 0 || gesture) return
     viewAnimation = null
+    remembered = null
+    setFocused(null)
     const point = local(event)
     const hit = pickAt(point)
     const drag = hit ? startDrag(hit, point) : null
@@ -838,6 +1034,15 @@ export function createGraphHost<S extends string = string>(
   for (const [name, listener, listenerOptions] of listeners) {
     canvas.addEventListener(name, listener as EventListener, listenerOptions)
   }
+  const elementListeners: ReadonlyArray<readonly [string, (event: never) => void]> = [
+    ['keydown', onKeyDown],
+    ['focus', onFocus],
+    ['blur', onBlur],
+  ]
+  for (const [name, listener] of elementListeners) {
+    element.addEventListener(name, listener as EventListener)
+  }
+  applyKeyboard()
 
   model.setMarks(definition.marks)
   scene.setDefinition(definition)
@@ -872,6 +1077,16 @@ export function createGraphHost<S extends string = string>(
     get: () => store.get().selection,
     set: (keys) => requestSelection(toKeys(keys)),
     clear: () => requestSelection(noKeys),
+  }
+
+  const focus: GraphFocus = {
+    get: () => store.get().focused,
+    set: (next) => {
+      const resolved = next ? target(next.kind, next.key) : null
+      if (next && !resolved) return
+      if (resolved && definition.interaction.keyboard) element.focus({ preventScroll: true })
+      setFocused(resolved, true)
+    },
   }
 
   const states: GraphStates = {
@@ -916,6 +1131,7 @@ export function createGraphHost<S extends string = string>(
     store: readonlyStore,
     view,
     selection,
+    focus,
     states,
     positions: positionsApi,
     element,
@@ -937,6 +1153,7 @@ export function createGraphHost<S extends string = string>(
         applyLayers()
         if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
         applyStyles()
+        applyKeyboard()
         updateCursor()
         request(true)
       }
@@ -950,6 +1167,9 @@ export function createGraphHost<S extends string = string>(
       stopTheme()
       for (const [name, listener] of listeners) {
         canvas.removeEventListener(name, listener as EventListener)
+      }
+      for (const [name, listener] of elementListeners) {
+        element.removeEventListener(name, listener as EventListener)
       }
       emitter.clear()
       model.destroy()

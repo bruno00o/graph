@@ -53,7 +53,7 @@ graph.on('selectionchange', ({ nodes: selected }) => {
 
 const hint = document.createElement('span')
 hint.className = 'hint'
-hint.textContent = messages.lassoHint
+hint.textContent = messages.vanillaHint
 
 header.append(
   hint,
