@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/bruno00o/graph/compare/0.1.0...0.2.0) (2026-11-06)
+
+
+### Features
+
+* draw parallel edges as separate arcs and self loops around their node ([#16](https://github.com/bruno00o/graph/issues/16)) ([e9e5abf](https://github.com/bruno00o/graph/commit/e9e5abf92aa335fa4c86cb5ad0a438152240ab8f))
+
 ## 0.1.0 (2026-11-06)
 
 
