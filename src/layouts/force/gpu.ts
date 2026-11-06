@@ -13,14 +13,7 @@ import {
   springVertex,
   valueFragment,
 } from './gpu-shaders'
-import {
-  boxStiffness,
-  drift,
-  groupAlpha,
-  groupMasses,
-  leafStiffness,
-  liftOf,
-} from './groups'
+import { boxStiffness, drift, groupAlpha, groupMasses, leafStiffness, liftOf } from './groups'
 import {
   Cooling,
   type ForceGraph,

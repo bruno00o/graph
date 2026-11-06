@@ -242,7 +242,11 @@ class Blocks<T> {
       const dx = (result[at * 2] ?? box.x) - box.x
       const dy = (result[at * 2 + 1] ?? box.y) - box.y
       const moved =
-        unit.kind === 'leaf' ? [unit.id] : unit.kind === 'block' ? (this.#subtree[unit.id] ?? []) : loose
+        unit.kind === 'leaf'
+          ? [unit.id]
+          : unit.kind === 'block'
+            ? (this.#subtree[unit.id] ?? [])
+            : loose
       for (const index of moved) {
         this.#xy[index * 2] = (this.#xy[index * 2] ?? 0) + dx
         this.#xy[index * 2 + 1] = (this.#xy[index * 2 + 1] ?? 0) + dy

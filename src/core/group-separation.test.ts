@@ -9,6 +9,7 @@ interface Shape {
   readonly hw: number
   readonly hh: number
   readonly round: boolean
+  readonly leaf?: boolean
 }
 
 interface Case {
@@ -137,6 +138,7 @@ function smallestGap(input: Case, leaves: boolean): number {
             hw: input.radius[index] ?? 0,
             hh: input.radius[index] ?? 0,
             round: true,
+            leaf: true,
           }
         : null)
     if (!shape) continue
@@ -149,8 +151,7 @@ function smallestGap(input: Case, leaves: boolean): number {
       for (let b = a + 1; b < items.length; b++) {
         const first = items[a] as Shape
         const second = items[b] as Shape
-        const bothLeaves = first.round && second.round && first.hw <= 10 && second.hw <= 10
-        if (!leaves && bothLeaves) continue
+        if (!leaves && first.leaf && second.leaf) continue
         const gap = gapOf(first, second)
         smallest = Math.min(smallest, gap)
       }
@@ -169,7 +170,7 @@ describe('separateGroups', () => {
       separateGroups(tree, input.alive, input.radius, fixed, input.xy, {
         spacing: 2,
         groupSpacing: 10,
-        rounds: 256,
+        rounds: 64,
         nodes: 'all',
       })
       expect(smallestGap(input, false)).toBeGreaterThan(10 - 1e-3)

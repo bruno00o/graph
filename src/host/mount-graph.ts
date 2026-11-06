@@ -65,8 +65,8 @@ import { exposeSnapshot } from './export-source'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
-import { clearRoom } from './room'
 import type { Renderer } from './renderer'
+import { clearRoom } from './room'
 import { StateRegistry } from './state-registry'
 
 /** What the store of a graph holds. `S` is the union of the state names, `M` that of the marks. */

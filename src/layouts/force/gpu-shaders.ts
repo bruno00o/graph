@@ -191,7 +191,6 @@ void main() {
 }
 `
 
-
 export const groupSplatVertex: string = `${header}${nodes}${lanes}
 layout(location = 0) in vec4 pair;
 uniform int mode;

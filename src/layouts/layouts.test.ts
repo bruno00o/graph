@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { groupedGraph, smallestGap, spread } from '../testing/groups'
 import type { Key, Layout, LayoutGraph } from '../types'
-import { grid, radial, rings } from './index'
+import { grid, layers, radial, rings } from './index'
 
 interface Shape {
   readonly points: readonly (readonly [number, number])[]
@@ -171,5 +172,25 @@ describe('layout options', () => {
     radial({ root: ['a', 1] })
     // @ts-expect-error
     radial({ root: {} })
+  })
+})
+
+describe('instant layouts with groups', () => {
+  it('lays each group out as a block and keeps the containers apart', async () => {
+    for (const layout of [grid(), rings(), radial(), layers()]) {
+      const { graph, members } = groupedGraph()
+      const xy = await run(layout, graph)
+      expect(smallestGap(graph, xy)).toBeGreaterThan(8)
+      const group = members[3] ?? []
+      expect(spread(xy, group)).toBeLessThan(spread(xy, members[0] ?? []))
+    }
+  })
+
+  it('leaves fixed members and the slots of the containers in place', async () => {
+    const { graph } = groupedGraph()
+    graph.movable[6] = 0
+    const xy = await run(grid(), graph)
+    expect(point(xy, 6)).toEqual(point(graph.xy, 6))
+    expect(point(xy, 0)).toEqual(point(graph.xy, 0))
   })
 })

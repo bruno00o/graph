@@ -69,6 +69,7 @@ export function groupTree(
     countOf.push(count)
   }
   const count = order.length
+  if (count === 0) return null
   const node = Int32Array.from(order)
   const parent = new Int32Array(count).fill(-1)
   const depth = new Int32Array(count)
