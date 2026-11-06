@@ -137,6 +137,8 @@ export const messages = {
   exportSvg: 'Exporter en SVG',
   minimap: 'Minicarte',
   minimapModes: { on: 'Affichée', off: 'Masquée' },
+  legendLabel: 'Légende',
+  legendTitles: { color: 'Groupe', size: 'Poids' },
 }
 
 function milliseconds(value: number): string {

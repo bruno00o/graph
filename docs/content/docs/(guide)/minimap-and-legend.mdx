@@ -1,0 +1,128 @@
+---
+title: Minimap and legend
+description: Show the whole graph with the current view, and explain its colors and sizes.
+---
+
+## Minimap
+
+`@bruno00o/graph/minimap` draws an overview of the whole graph with the rectangle of the current view. Drag the rectangle to pan, press elsewhere to center the view there, and scroll to zoom the graph.
+
+```ts
+import { createMinimap } from '@bruno00o/graph/minimap'
+
+const minimap = createMinimap(graph, { corner: 'bottomRight', width: 200, height: 150 })
+```
+
+The minimap sits in a corner of the graph element. With `corner: null`, it leaves `minimap.element` to you, to place anywhere in the page. `minimap.update` replaces the options and `minimap.destroy` removes it; destroying the graph destroys it too. Every option is listed in the [API reference](/docs/api/minimap).
+
+### What it draws
+
+Nodes are drawn with their colors and shapes, group containers as frames, and edges as faint lines while the graph shows at most `maxEdges` of them. Past that, the minimap draws nodes only: at a few hundred thousand edges, lines fill the minimap without saying more. Selected nodes are drawn last, in `selectionColor`. Labels, badges, hulls and the background grid are left out.
+
+Nodes keep their size, between `nodeSize` and a cap that shrinks as nodes get more numerous, so that a large graph reads as density rather than as a solid shape.
+
+### Cost
+
+The minimap draws again when positions, data, the selection or the theme change, never more often than its own cost allows: it waits ten times as long as its last draw took on the page, and at least 32 ms. When the browser has workers and `OffscreenCanvas`, the drawing happens in a worker and the page only copies the columns it needs; otherwise it happens on the page. The rectangle of the view moves at every frame, without drawing again.
+
+With 500,000 nodes and 1,000,000 edges, a draw costs the page a few milliseconds at most, the time to copy the columns, and panning or a force layout keeps the same frame rate as without the minimap.
+
+### Accessibility
+
+The minimap is hidden from assistive technologies: it repeats what the graph shows, and the keyboard already moves the view (Shift and the arrows, `+`, `-` and `0`). It takes no focus.
+
+### React
+
+```tsx
+import { Graph, Minimap } from '@bruno00o/graph/react'
+
+<Graph definition={definition} ariaLabel="Graph">
+  <Minimap corner="bottomLeft" />
+</Graph>
+```
+
+## Legend
+
+`@bruno00o/graph/legend` reads a legend from the scales of the definition, in two parts: `createLegend` gives the data, `mountLegend` renders it.
+
+```ts
+import { createLegend, mountLegend } from '@bruno00o/graph/legend'
+
+const legend = createLegend(graph, { highlight: 'match', hidden: 'faded' })
+const view = mountLegend(legend, { titles: { color: 'Group', size: 'Weight' } })
+panel.append(view.element)
+```
+
+### Sections
+
+`legend.store` holds the state of the legend, updated when data or definition change:
+
+- `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges of each; for a sequential scale, a ramp with its domain and its stops.
+- `size` and `width`: the ends of the domain and a rounded value between them, with the diameter or the width each one becomes.
+- `looks`: the shapes and images of the nodes, and the line patterns of the edges, by mark.
+
+The default renderer writes no text of its own. Titles come from `titles`, values go through `format`, and looks show the `name` of their mark, or the text of `lookText`. Looks show only for nodes or edges drawn with more than one look.
+
+### Highlight and switch off
+
+Under the pointer, or with the keyboard focus, an item of the default renderer puts its elements in the `highlight` state. A click, Enter or Space switches it off: its elements go to the `hidden` state, and its button reads as not pressed. Declare both states in the definition with the style you want.
+
+```ts
+const definition = defineGraph({
+  marks: [...],
+  states: {
+    match: { outline: 'var(--graph-accent)', label: true },
+    faded: { opacity: 0.08, label: false },
+  },
+})
+```
+
+Without `hidden`, switching an item off only changes the state of the legend. Read `off` there to filter the data yourself:
+
+```ts
+let filtered = legend.store.state.off
+legend.store.subscribe(() => {
+  const { off, color } = legend.store.state
+  if (off === filtered) return
+  filtered = off
+  const items = color?.type === 'categories' ? color.items : []
+  const groups = new Set(items.filter((item) => item.off).map((item) => item.value))
+  graph.update({ definition: define(data.filter((item) => !groups.has(item.group))) })
+})
+```
+
+An item switched off stays in the legend, with no element, until it is switched on again.
+
+`legend.hover`, `legend.toggle`, `legend.reset` and `legend.keys` drive the same behavior from a renderer of your own.
+
+### Theming
+
+The default renderer is plain HTML styled inline with the [theme tokens](/docs/theming): `--graph-paper-raised`, `--graph-ink`, `--graph-font`, `--graph-node`, `--graph-edge`. Swatches use the colors of the scale as they are, so they follow the theme without drawing again. `[data-graph-legend]` marks the element, and `[data-item]` its items.
+
+### React
+
+`<Legend>` renders the default legend where it stands, inside `<Graph>`. `useLegend` returns the state and the legend, for a legend drawn by your components.
+
+```tsx
+import { Graph, Legend, useLegend } from '@bruno00o/graph/react'
+
+<Graph definition={definition} ariaLabel="Graph">
+  <Legend titles={{ color: 'Group' }} highlight="match" hidden="faded" />
+</Graph>
+
+function Swatches() {
+  const { state, legend } = useLegend({ highlight: 'match' })
+  if (state.color?.type !== 'categories') return null
+  return state.color.items.map((item) => (
+    <button key={item.id} type="button" onClick={() => legend?.toggle(item.id)}>
+      {String(item.value)}
+    </button>
+  ))
+}
+```
+
+<Cards>
+  <Card title="createMinimap" href="/docs/api/minimap" />
+  <Card title="createLegend" href="/docs/api/legend" />
+  <Card title="Example" href="/examples/minimap-and-legend" />
+</Cards>

@@ -1,4 +1,5 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
+import { dev } from '../dev'
 import type { ElementKeys } from '../host/events'
 import { internalsOf } from '../host/internals'
 import type { GraphInstance } from '../host/mount-graph'
@@ -125,15 +126,29 @@ export function createLegend<S extends string, M extends Mark>(
       hovered: previous.hovered,
       off: sameIds(previous.off, [...off]) ? previous.off : [...off],
     }))
-    applyHidden()
-    applyHighlight()
     lastRead = performance.now()
     cooldown = Math.max(minInterval, (lastRead - start) * costRatio)
   }
 
+  function refresh(): void {
+    read()
+    quietly(() => {
+      applyHidden()
+      applyHighlight()
+    })
+  }
+
+  function quietly(write: () => void): void {
+    try {
+      write()
+    } catch (error) {
+      if (dev) console.warn(error)
+    }
+  }
+
   function schedule(): void {
     if (timer !== undefined || destroyed) return
-    timer = setTimeout(read, Math.max(0, lastRead + cooldown - performance.now()))
+    timer = setTimeout(refresh, Math.max(0, lastRead + cooldown - performance.now()))
   }
 
   function applyHidden(): void {
@@ -182,11 +197,20 @@ export function createLegend<S extends string, M extends Mark>(
     destroyed = true
     clearTimeout(timer)
     stopWatch()
-    if (highlight !== null) states.clear(highlight)
-    if (hidden !== null) states.clear(hidden)
+    quietly(() => {
+      if (highlight !== null) states.clear(highlight)
+      if (hidden !== null) states.clear(hidden)
+    })
   }
 
-  read()
+  try {
+    read()
+    applyHidden()
+    applyHighlight()
+  } catch (error) {
+    destroy()
+    throw error
+  }
 
   return {
     store: readonlyStore,

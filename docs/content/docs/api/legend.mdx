@@ -1,0 +1,107 @@
+---
+title: createLegend and mountLegend
+description: A legend read from the scales and the marks of a graph, and its default renderer.
+---
+
+```ts
+import { createLegend, mountLegend } from '@bruno00o/graph/legend'
+
+function createLegend<S extends string, M extends Mark>(
+  graph: GraphInstance<S, M>,
+  options?: LegendOptions<S>,
+): Legend<S, M>
+
+function mountLegend<S extends string, M extends Mark>(
+  legend: Legend<S, M>,
+  options?: LegendViewOptions<M>,
+): LegendView<M>
+```
+
+`createLegend` reads the legend of a graph made by [`mountGraph`](/docs/api/mount-graph) and keeps it in a store. `mountLegend` renders a legend in a plain element. See [Minimap and legend](/docs/minimap-and-legend#legend) for a walkthrough.
+
+## createLegend options
+
+<api-table path="legend/index.ts" name="LegendOptions" />
+
+## Legend
+
+<api-table path="legend/index.ts" name="Legend" />
+
+## LegendState
+
+<api-table path="legend/index.ts" name="LegendState" />
+
+### Color
+
+```ts
+type LegendColor = LegendCategories | LegendRamp
+type LegendValue = string | number | boolean
+```
+
+<api-table path="legend/index.ts" name="LegendCategories" />
+
+<api-table path="legend/index.ts" name="LegendCategory" />
+
+<api-table path="legend/index.ts" name="LegendRamp" />
+
+### Size and width
+
+<api-table path="legend/index.ts" name="LegendSizes" />
+
+<api-table path="legend/index.ts" name="LegendSize" />
+
+### Looks
+
+```ts
+type LegendLook<M extends Mark = Mark> = LegendNodeLook<…> | LegendEdgeLook<…>
+type LegendItem<M extends Mark = Mark> = LegendCategory | LegendLook<M>
+```
+
+`LegendLook<M>` narrows on `kind`, then on `mark`, to the names of the marks of `M`.
+
+<api-table path="legend/index.ts" name="LegendNodeLook" />
+
+<api-table path="legend/index.ts" name="LegendEdgeLook" />
+
+## mountLegend options
+
+<api-table path="legend/index.ts" name="LegendViewOptions" />
+
+```ts
+type LegendSection = 'color' | 'size' | 'width' | 'looks'
+```
+
+## LegendView
+
+<api-table path="legend/index.ts" name="LegendView" />
+
+## React
+
+```ts
+import { Legend, useLegend } from '@bruno00o/graph/react'
+
+function Legend<S extends string = string, M extends Mark = Mark>(
+  props: LegendProps<S, M>,
+): ReactNode
+
+function useLegend<S extends string = string, M extends Mark = Mark>(
+  options?: LegendOptions<S>,
+): UseLegendResult<S, M>
+```
+
+Use both inside the children of [`<Graph>`](/docs/api/graph-component). `<Legend>` renders the default legend in a `div` where it stands; its props are the options of `createLegend` and of `mountLegend`. `useLegend` renders again when the state changes.
+
+<api-table path="react/index.tsx" name="UseLegendResult" />
+
+## Errors
+
+- A graph that was not created by `mountGraph` throws an `Error`.
+- A `highlight` or `hidden` state missing from `states` throws an `Error`, as in `graph.states.set`. A state that a later definition removes is left alone, with a warning in development.
+
+## Behavior
+
+- Counts and keys cover what the graph draws: nodes hidden in a folded group are left out, and an edge between folded groups counts once.
+- A categorical scale lists the values of its `domain` even without elements, and at most 64 categories. Items switched off stay listed while they have no element.
+- The legend reads the graph again after a change of data or definition, never more often than ten times its own cost allows, and at least 50 ms apart.
+- Destroying the legend empties its `highlight` and `hidden` states. Destroying the graph destroys its legends.
+- In the default renderer, items are toggle buttons with `aria-pressed` when `toggle` is on, plain rows otherwise. The element carries `data-graph-legend`, its items `data-item` with their id.

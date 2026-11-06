@@ -123,6 +123,11 @@ describe('createLegend', () => {
     expect(graph.store.state.states.faded).toEqual({ nodes: [], edges: [] })
   })
 
+  it('refuses a state missing from the definition', () => {
+    const graph = mount()
+    expect(() => createLegend(graph, { highlight: 'missing' as 'match' })).toThrow(/unknown state/)
+  })
+
   it('follows the data and keeps the switched off items', () => {
     const graph = mount()
     const legend = createLegend(graph, { hidden: 'faded' })

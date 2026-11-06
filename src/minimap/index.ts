@@ -74,12 +74,12 @@ export interface MinimapOptions {
   readonly background?: string
   /**
    * Color laid over the parts of the minimap outside the view.
-   * @default 'color-mix(in srgb, var(--graph-ink) 8%, transparent)'
+   * @default 'color-mix(in srgb, var(--graph-ink) 10%, transparent)'
    */
   readonly mask?: string
   /**
-   * Color of the rectangle of the view.
-   * @default 'var(--graph-ink-muted)'
+   * Color of the rectangle of the view, drawn at least 8 pixels wide and high.
+   * @default 'var(--graph-ink)'
    */
   readonly viewColor?: string
   /**
@@ -144,6 +144,7 @@ const minInterval = 32
 const costRatio = 10
 const edgeAlpha = 0.5
 const selectedDiameter = 5
+const minView = 8
 const borderColor = `color-mix(in srgb, ${themeColor('ink')} 16%, transparent)`
 
 function positive(value: number | undefined, fallback: number): number {
@@ -163,8 +164,8 @@ function settle(options: MinimapOptions): Settings {
     selectionColor:
       options.selectionColor === undefined ? themeColor('accent') : options.selectionColor,
     background: options.background ?? themeColor('paper-raised'),
-    mask: options.mask ?? `color-mix(in srgb, ${themeColor('ink')} 8%, transparent)`,
-    viewColor: options.viewColor ?? themeColor('ink-muted'),
+    mask: options.mask ?? `color-mix(in srgb, ${themeColor('ink')} 10%, transparent)`,
+    viewColor: options.viewColor ?? themeColor('ink'),
     pan: options.pan ?? true,
     zoom: options.zoom ?? true,
   }
@@ -465,12 +466,14 @@ export function createMinimap<S extends string, M extends Mark>(
     }
     const halfWidth = viewWidth / 2 / view.zoom
     const halfHeight = viewHeight / 2 / view.zoom
-    const left = (view.x - halfWidth - fit.minX) * fit.scale + fit.offsetX
-    const top = (view.y - halfHeight - fit.minY) * fit.scale + fit.offsetY
+    const width = Math.max(minView, halfWidth * 2 * fit.scale)
+    const height = Math.max(minView, halfHeight * 2 * fit.scale)
+    const left = (view.x - fit.minX) * fit.scale + fit.offsetX - width / 2
+    const top = (view.y - fit.minY) * fit.scale + fit.offsetY - height / 2
     frame.style.visibility = 'visible'
     frame.style.transform = `translate(${left}px,${top}px)`
-    frame.style.width = `${halfWidth * 2 * fit.scale}px`
-    frame.style.height = `${halfHeight * 2 * fit.scale}px`
+    frame.style.width = `${width}px`
+    frame.style.height = `${height}px`
   }
 
   function toWorld(event: MouseEvent): Point | null {
@@ -486,9 +489,10 @@ export function createMinimap<S extends string, M extends Mark>(
 
   function insideView(point: Point): boolean {
     const { view, width: viewWidth, height: viewHeight } = graph.store.state
+    const least = fit ? minView / 2 / fit.scale : 0
     return (
-      Math.abs(point.x - view.x) <= viewWidth / 2 / view.zoom &&
-      Math.abs(point.y - view.y) <= viewHeight / 2 / view.zoom
+      Math.abs(point.x - view.x) <= Math.max(least, viewWidth / 2 / view.zoom) &&
+      Math.abs(point.y - view.y) <= Math.max(least, viewHeight / 2 / view.zoom)
     )
   }
 

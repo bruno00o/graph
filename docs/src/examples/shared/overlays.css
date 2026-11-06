@@ -141,3 +141,11 @@
 .example-legend .loading {
   opacity: 0.45;
 }
+
+.example-legend {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  max-height: calc(100% - 28px);
+  overflow: auto;
+}
