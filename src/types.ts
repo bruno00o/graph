@@ -772,6 +772,13 @@ export interface BackgroundOptions {
    * @default 'var(--graph-grid-major)'
    */
   readonly majorColor?: string
+  /**
+   * Switches between levels of the grid as the zoom changes, so that the spacing on screen stays
+   * readable. With `false`, a single grid at `spacing` grows and shrinks with the zoom, dots grow
+   * as you zoom in, and the grid fades out before it gets too dense.
+   * @default true
+   */
+  readonly adaptive?: boolean
 }
 
 /** Background grid with every default applied, as `defineGraph` resolves it. */
@@ -784,6 +791,8 @@ export interface ResolvedBackground {
   readonly color: string
   /** Color of every fourth line. */
   readonly majorColor: string
+  /** Whether the grid switches between levels as the zoom changes. */
+  readonly adaptive: boolean
 }
 
 /**

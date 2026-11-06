@@ -1,4 +1,4 @@
-import { gridLevels } from '../core/background-grid'
+import { gridDotScale, gridLevels } from '../core/background-grid'
 import { hullInstanceWords } from '../core/hull-layer'
 import type { GridInput, RenderFrame, RenderInput } from '../host/renderer'
 import { gridFragment, gridVertex, hullFragment, hullVertex } from './backdrop-shaders'
@@ -17,6 +17,7 @@ interface GridPass {
   readonly levels: WebGLUniformLocation | null
   readonly colors: WebGLUniformLocation | null
   readonly dots: WebGLUniformLocation | null
+  readonly dotScale: WebGLUniformLocation | null
 }
 
 interface HullPass {
@@ -48,6 +49,7 @@ export function createBackdrop(
       levels: gl.getUniformLocation(program, 'gridLevels'),
       colors: gl.getUniformLocation(program, 'gridColors'),
       dots: gl.getUniformLocation(program, 'gridDots'),
+      dotScale: gl.getUniformLocation(program, 'gridDotScale'),
     }
     return gridPass
   }
@@ -108,13 +110,15 @@ export function createBackdrop(
     drawGrid(frame) {
       if (!grid) return
       const pass = gridProgram()
-      gridLevels(grid.spacing, frame.view, frame).forEach((level, i) => {
+      levels.fill(0)
+      gridLevels(grid.spacing, frame.view, frame, grid.adaptive).forEach((level, i) => {
         levels.set([level.pitch, level.offsetX, level.offsetY, level.weight], i * 4)
       })
       gl.useProgram(pass.program)
       gl.uniform4fv(pass.levels, levels)
       gl.uniform2ui(pass.colors, grid.color, grid.majorColor)
       gl.uniform1i(pass.dots, grid.pattern === 'dots' ? 1 : 0)
+      gl.uniform1f(pass.dotScale, gridDotScale(frame.view, grid.adaptive))
       gl.bindVertexArray(pass.vao)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindVertexArray(null)

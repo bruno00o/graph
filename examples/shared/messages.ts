@@ -103,7 +103,7 @@ export const messages = {
   drawing: 'Grille, enveloppes et ancres',
   drawingHint: 'Cliquez sur un nœud pour afficher sa barre d’outils, Maj pour en ajouter.',
   background: 'Fond',
-  backgrounds: { lines: 'Lignes', dots: 'Points', none: 'Aucun' },
+  backgrounds: { lines: 'Lignes', dots: 'Points', zoomDots: 'Points au zoom', none: 'Aucun' },
   hulls: 'Enveloppes',
   hullModes: { groups: 'Par groupe', selection: 'Sélection', none: 'Aucune' },
   hullShape: 'Forme',

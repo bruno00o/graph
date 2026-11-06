@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { gridLevels } from './background-grid'
+import { gridDotScale, gridLevels } from './background-grid'
 
 const viewport = { width: 800, height: 600 }
 
@@ -22,6 +22,24 @@ describe('gridLevels', () => {
     const [zoomedIn] = gridLevels(16, { x: 0, y: 0, zoom: 2 }, viewport)
     expect(zoomedIn?.pitch).toBe(8)
     expect(zoomedIn?.weight).toBeCloseTo(0.5)
+  })
+
+  it('draws a single level that follows the zoom when not adaptive', () => {
+    const levels = gridLevels(20, { x: 0, y: 0, zoom: 2 }, viewport, false)
+    expect(levels).toHaveLength(1)
+    expect(levels[0]).toMatchObject({ pitch: 40, weight: 1 })
+    const [dense] = gridLevels(20, { x: 0, y: 0, zoom: 0.3 }, viewport, false)
+    expect(dense?.pitch).toBeCloseTo(6)
+    expect(dense?.weight).toBeCloseTo(Math.log2(1.5))
+    const [hidden] = gridLevels(20, { x: 0, y: 0, zoom: 0.1 }, viewport, false)
+    expect(hidden?.weight).toBe(0)
+  })
+
+  it('scales dots with the zoom only when not adaptive', () => {
+    expect(gridDotScale({ x: 0, y: 0, zoom: 2 }, true)).toBe(1)
+    expect(gridDotScale({ x: 0, y: 0, zoom: 2 }, false)).toBe(2)
+    expect(gridDotScale({ x: 0, y: 0, zoom: 10 }, false)).toBe(3)
+    expect(gridDotScale({ x: 0, y: 0, zoom: 0.1 }, false)).toBe(1)
   })
 
   it('places lines on world multiples of the level spacing', () => {
