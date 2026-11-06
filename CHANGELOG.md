@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.0](https://github.com/bruno00o/graph/compare/0.10.0...0.11.0) (2026-11-06)
+
+
+### Features
+
+* add a minimap and a legend ([#63](https://github.com/bruno00o/graph/issues/63)) ([58e154a](https://github.com/bruno00o/graph/commit/58e154a5b4c77b57ab8b394f2df75221f965507a))
+* draw the graph inside a maplibre map and control the view ([#64](https://github.com/bruno00o/graph/issues/64)) ([aadb3b5](https://github.com/bruno00o/graph/commit/aadb3b596f7a0bd0af455006ea620248ccb0b416))
+* find shortest paths and nodes within reach, and move dashes along flowing edges ([#61](https://github.com/bruno00o/graph/issues/61)) ([97662e4](https://github.com/bruno00o/graph/commit/97662e4bc1840b1b6dc214c45d531ba3c61f2c29))
+
 ## [0.10.0](https://github.com/bruno00o/graph/compare/0.9.1...0.10.0) (2026-11-06)
 
 
