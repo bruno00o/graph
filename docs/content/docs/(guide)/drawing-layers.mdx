@@ -18,6 +18,12 @@ defineGraph({
 
 `grid` is `'lines'` or `'dots'`. The grid follows pan and zoom. Its lines fall on world multiples of `spacing`, 16 by default, times a power of 4: when you zoom out, the finest lines fade away before they crowd, and every fourth line is drawn darker. The canvas stays transparent, so the page still paints `--graph-paper` under the grid.
 
+With `adaptive: false`, the grid keeps a single level at `spacing`: it grows and shrinks with the zoom, its dots grow as you zoom in, up to three times their size, and it fades out once it gets denser than about 8 pixels. Give `majorColor` the same value as `color` for an even pattern.
+
+```ts
+background: { grid: 'dots', spacing: 20, adaptive: false, majorColor: 'var(--graph-grid)' }
+```
+
 The colors come from `--graph-grid` and `--graph-grid-major`, and follow the theme. Pass `color` and `majorColor` for others. The options are listed in [`defineGraph`](/docs/api/define-graph#background).
 
 ## Hulls

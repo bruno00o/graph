@@ -56,7 +56,12 @@ describe('defineGraph', () => {
       spacing: 16,
       color: 'var(--graph-grid)',
       majorColor: 'var(--graph-grid-major)',
+      adaptive: true,
     })
+    expect(
+      defineGraph({ marks: [], background: { grid: 'dots', adaptive: false } }).background
+        ?.adaptive,
+    ).toBe(false)
     expect(
       defineGraph({ marks: [], background: { grid: 'lines', spacing: -2, color: 'red' } })
         .background,

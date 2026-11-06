@@ -1,4 +1,4 @@
-import { gridLevels } from '../core/background-grid'
+import { gridDotScale, gridLevels } from '../core/background-grid'
 import { containerShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
 import { outlineStride } from '../core/hull-geometry'
@@ -770,7 +770,8 @@ export function writeSvg(scene: SvgScene): string {
     const minorRgba = paletteRgba(grid.color)
     const majorRgba = paletteRgba(grid.majorColor)
     const dots = grid.pattern === 'dots'
-    for (const level of gridLevels(grid.spacing, view, frame)) {
+    const dotScale = gridDotScale(view, grid.adaptive)
+    for (const level of gridLevels(grid.spacing, view, frame, grid.adaptive)) {
       if (level.weight <= 0) continue
       const strength = Math.min(1, Math.max(0, level.weight - 1))
       const tone =
@@ -781,7 +782,7 @@ export function writeSvg(scene: SvgScene): string {
       const id = `${prefix}g${defs.length}`
       const pitch = level.pitch
       const shape = dots
-        ? `<circle cx="${fine(pitch / 2)}" cy="${fine(pitch / 2)}" r="${fine(0.8 + 0.5 * strength)}"/>`
+        ? `<circle cx="${fine(pitch / 2)}" cy="${fine(pitch / 2)}" r="${fine((0.8 + 0.5 * strength) * dotScale)}"/>`
         : `<path d="M0 0H${fine(pitch)}V1H0ZM0 1H1V${fine(pitch)}H0Z"/>`
       const shift = dots ? pitch / 2 : 0.5
       defs.push(
