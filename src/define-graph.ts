@@ -5,6 +5,7 @@ import type {
   GraphDefinition,
   GraphDefinitionOptions,
   InteractionOptions,
+  Mark,
   ResolvedBackground,
   ResolvedInteraction,
   StateStyles,
@@ -44,16 +45,18 @@ function resolveBackground(
     spacing: Number.isFinite(spacing) && spacing > 0 ? spacing : defaultGridSpacing,
     color: options.color ?? themeColor('grid'),
     majorColor: options.majorColor ?? themeColor('grid-major'),
+    adaptive: options.adaptive !== false,
   })
 }
 
 /**
  * Builds a frozen graph definition from marks, scales, states and options. The names of `states`
- * become the state names accepted by the instance.
+ * become the state names accepted by the instance, and the item types and names of the marks type
+ * the targets of its events and state.
  */
-export function defineGraph<S extends string = never>(
-  options: GraphDefinitionOptions<S>,
-): GraphDefinition<S> {
+export function defineGraph<S extends string = never, M extends Mark = never>(
+  options: GraphDefinitionOptions<S, M>,
+): GraphDefinition<S, M> {
   for (const mark of options.marks) {
     if (mark?.type !== 'nodes' && mark?.type !== 'edges') {
       throw new TypeError('defineGraph: every mark must come from nodes() or edges()')

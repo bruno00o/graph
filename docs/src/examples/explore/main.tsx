@@ -1,6 +1,12 @@
-import { defineGraph, edges, type Key, nodes } from '@bruno00o/graph'
+import { defineGraph, type EdgeMark, edges, type Key, type NodeMark, nodes } from '@bruno00o/graph'
 import { createExploration, type Exploration } from '@bruno00o/graph/query'
-import { Graph, type GraphInstance, useGraph, useGraphState } from '@bruno00o/graph/react'
+import {
+  Graph,
+  type GraphInstance,
+  type GraphState,
+  useGraph,
+  useGraphState,
+} from '@bruno00o/graph/react'
 import {
   QueryClient,
   QueryClientProvider,
@@ -22,6 +28,7 @@ const neighbors = (key: Key) =>
   })
 
 type Explored = Exploration<Item, Link>
+type Marks = NodeMark<Item> | EdgeMark<Link>
 
 function ExplorationStates({ exploration }: { readonly exploration: Explored }) {
   const graph = useGraph()
@@ -35,8 +42,8 @@ function ExplorationStates({ exploration }: { readonly exploration: Explored }) 
 function Status({ exploration }: { readonly exploration: Explored }) {
   const expanded = useSelector(exploration.store, (state) => state.expanded.length)
   const loading = useSelector(exploration.store, (state) => state.loading.length > 0)
-  const hovered = useGraphState((state) => state.hovered)
-  const label = hovered?.kind === 'node' ? (hovered.datum as Item).label : null
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
+  const label = hovered?.kind === 'node' ? hovered.datum.label : null
   return (
     <output className="example-status" aria-live="polite">
       {label ?? (loading ? messages.loading : messages.explored(expanded))}

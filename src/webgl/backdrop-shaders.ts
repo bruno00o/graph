@@ -12,6 +12,7 @@ export const gridFragment: string = `${header}
 uniform vec4 gridLevels[${gridLevelCount}];
 uniform uvec2 gridColors;
 uniform int gridDots;
+uniform float gridDotScale;
 out vec4 fragColor;
 float lineDistance(float p, float offset, float pitch) {
   float m = mod(p - offset, pitch);
@@ -29,7 +30,7 @@ void main() {
     float strength = clamp(level.w - 1.0, 0.0, 1.0);
     float cover;
     if (gridDots == 1) {
-      float radius = mix(0.8, 1.3, strength);
+      float radius = mix(0.8, 1.3, strength) * gridDotScale;
       cover = clamp((radius - length(vec2(dx, dy))) * pixelRatio + 0.5, 0.0, 1.0);
     } else {
       cover = clamp((0.5 - min(dx, dy)) * pixelRatio + 0.5, 0.0, 1.0);

@@ -1,6 +1,7 @@
 export { defineGraph } from './define-graph'
 export type { AnchorAlign, AnchorOptions, AnchorSide, GraphAnchors } from './host/anchors'
 export type {
+  EdgeTarget,
   ElementKeys,
   ElementKeysInput,
   GraphDragEvent,
@@ -15,6 +16,7 @@ export type {
   GraphPositionEvent,
   GraphTarget,
   GraphTargetEvent,
+  NodeTarget,
   PositionOrigin,
 } from './host/events'
 export type {
@@ -53,6 +55,7 @@ export type {
   ContainerShape,
   EdgeArrow,
   EdgeDash,
+  EdgeDatum,
   EdgeLabelOptions,
   EdgeMark,
   EdgeOptions,
@@ -84,6 +87,8 @@ export type {
   LayoutRun,
   LiveSource,
   Mark,
+  MarkName,
+  NodeDatum,
   NodeImage,
   NodeMark,
   NodeOptions,

@@ -4,13 +4,13 @@ description: Mount a graph into an element and get its instance.
 ---
 
 ```ts
-function mountGraph<S extends string = string>(
+function mountGraph<S extends string = string, M extends Mark = Mark>(
   container: HTMLElement,
-  options: MountGraphOptions<S>,
-): GraphInstance<S>
+  options: MountGraphOptions<S, M>,
+): GraphInstance<S, M>
 ```
 
-Appends the graph element to `container` and returns its [instance](/docs/api/graph-instance). The graph fills the container; give the container a size.
+Appends the graph element to `container` and returns its [instance](/docs/api/graph-instance). The graph fills the container; give the container a size. `S` and `M` come from the definition.
 
 ## Options
 

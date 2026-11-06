@@ -1,5 +1,5 @@
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
-import { Graph, useGraph, useGraphState } from '@bruno00o/graph/react'
+import { Graph, type GraphState, useGraph, useGraphState } from '@bruno00o/graph/react'
 import type { JSX } from 'react'
 import { Icon } from '../components/icon'
 import { messages } from '../messages'
@@ -18,6 +18,8 @@ const definition = defineGraph({
     width: { range: [1, 3] },
   },
 })
+
+type Marks = (typeof definition.marks)[number]
 
 const zoomStep = 1.5
 
@@ -57,11 +59,11 @@ function Tools(): JSX.Element {
 
 function Tooltip(): JSX.Element | null {
   const graph = useGraph()
-  const hovered = useGraphState((state) => state.hovered)
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
   useGraphState((state) => state.view)
   useGraphState((state) => state.positionsVersion)
   if (hovered?.kind !== 'node') return null
-  const node = hovered.datum as HeroNode
+  const node = hovered.datum
   const position = graph.positions.get(hovered.key)
   if (!position) return null
   const point = graph.view.toScreen(position)

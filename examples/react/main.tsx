@@ -1,6 +1,20 @@
-import { defineGraph, type ElementKeys, edges, type Key, nodes } from '@bruno00o/graph'
+import {
+  defineGraph,
+  type EdgeMark,
+  type ElementKeys,
+  edges,
+  type Key,
+  type NodeMark,
+  nodes,
+} from '@bruno00o/graph'
 import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools/react'
-import { Anchor, Graph, type GraphInstance, useGraphState } from '@bruno00o/graph/react'
+import {
+  Anchor,
+  Graph,
+  type GraphInstance,
+  type GraphState,
+  useGraphState,
+} from '@bruno00o/graph/react'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { StrictMode, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -12,10 +26,12 @@ const sample = createSample(nodeCount, nodeCount * 2)
 const byId = new Map(sample.items.map((item) => [item.id, item]))
 const devtoolsPlugins = [graphDevtoolsPlugin({ defaultOpen: true })]
 
+type Marks = NodeMark<Item> | EdgeMark<Link>
+
 function Tooltip() {
-  const hovered = useGraphState((state) => state.hovered)
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
   if (hovered?.kind !== 'node') return null
-  const item = hovered.datum as Item
+  const item = hovered.datum
   return (
     <Anchor node={hovered.key} side="right" align="start">
       <div className="tooltip">

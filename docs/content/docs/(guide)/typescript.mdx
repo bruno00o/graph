@@ -1,0 +1,121 @@
+---
+title: TypeScript
+description: How the item types of your marks reach events, the state, the instance and the React hooks.
+---
+
+`defineGraph` infers the item type and the name of each mark. Every place that hands an element back types its `datum` with them: event targets, `hovered` and `focused` in the state, `graph.pick`, `graph.focus.get`, aggregated edges, the event props of `<Graph>`, and the items that layouts compare. There is nothing to annotate and nothing to cast.
+
+## One node mark and one edge mark
+
+```ts
+const definition = defineGraph({
+  marks: [edges(links, { source: 'from', target: 'to' }), nodes(items, { label: 'label' })],
+})
+const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+
+graph.on('click', ({ target }) => {
+  if (target?.kind === 'node') console.log(target.datum.label)
+  if (target?.kind === 'edge') console.log(target.datum.from, target.datum.to)
+})
+```
+
+Narrowing on `kind` is enough: `datum` is an `Item` for a node and a `Link` for an edge. With several node marks, `datum` of a node is the union of their item types, and the same goes for edges.
+
+## Several marks of one kind
+
+Give each mark a `name`. Targets carry it in `mark`, and comparing it narrows `datum` to the items of that mark.
+
+```ts
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { name: 'item', label: 'label' }),
+    nodes(groups, { name: 'group', label: 'title' }),
+  ],
+})
+const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+
+graph.on('click', ({ target }) => {
+  if (target?.kind !== 'node') return
+  switch (target.mark) {
+    case 'item':
+      return showItem(target.datum)
+    case 'group':
+      return showGroup(target.datum)
+  }
+})
+```
+
+- `mark` is the name as a literal type, or `undefined` for a mark without one. Comparing it with a name that no mark carries is a type error.
+- A node mark and an edge mark may share a name: `kind` tells them apart.
+- The name is a string, not the mark object, so a definition built again on each render keeps it.
+
+An edge drawn for several edges between [folded groups](/docs/groups) carries `aggregate`, whose `data` has the item type of the edge mark.
+
+## The instance and the state
+
+`mountGraph` returns a `GraphInstance<S, M>`: `S` is the union of the state names and `M` the union of the marks. The [store](/docs/api/graph-instance#graph-state) is typed the same way.
+
+```ts
+const hovered = graph.store.state.hovered
+if (hovered?.kind === 'node') console.log(hovered.datum.label)
+```
+
+`graph.update({ definition })` takes a definition of the same marks, or of fewer. To swap in marks of other item types later, give the first definition every mark, or type the instance as a plain `GraphInstance`, whose targets carry `unknown`.
+
+## Naming the types
+
+To write the types yourself, take the marks of a definition, or spell them out:
+
+```ts
+type Marks = (typeof definition.marks)[number]
+type SameMarks = NodeMark<Item, 'item'> | NodeMark<Group, 'group'> | EdgeMark<Link, undefined>
+```
+
+`GraphTarget<Marks>`, `GraphState<S, Marks>`, `GraphInstance<S, Marks>` and the event payloads, such as `GraphPointerEvent<Marks>`, accept them. `NodeDatum<Marks>` and `EdgeDatum<Marks>` are the unions of the item types, and `NodeTarget<Item>` and `EdgeTarget<Link>` the targets of a single type. Every one of these types without its parameters is the untyped form, where `datum` is `unknown`.
+
+## React
+
+`<Graph>` infers the types from `definition`, so its event props are typed. Its `ref` takes a `GraphInstance<S, M>`, or a ref object typed as a plain `GraphInstance`.
+
+```tsx
+<Graph
+  definition={definition}
+  ariaLabel="Sample graph"
+  onClick={({ target }) => {
+    if (target?.kind === 'node' && target.mark === 'item') select(target.datum)
+  }}
+/>
+```
+
+Components inside `<Graph>` cannot see its definition. Give the hooks the types: type arguments for `useGraph`, the type of the parameter for `useGraphState` and `useGraphEvent`. The hooks trust these types, so take them from the definition.
+
+```tsx
+function Tooltip() {
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
+  if (hovered?.kind !== 'node' || hovered.mark !== 'item') return null
+  return (
+    <Anchor node={hovered.key} side="right">
+      {hovered.datum.label}
+    </Anchor>
+  )
+}
+
+function Logger() {
+  const graph = useGraph<string, Marks>()
+  useGraphEvent('click', (event: GraphPointerEvent<Marks>) => console.log(event.target?.datum))
+  return null
+}
+```
+
+`string` stands for the state names when the component does not use them.
+
+## Layouts
+
+`grid` and `rings` take the item type of the nodes for `order`. `graph.layout.run` gives it to them, here with `items` as the only node mark:
+
+```ts
+graph.layout.run(grid({ order: (a, b) => a.label.localeCompare(b.label) }))
+```
+
+Inside `defineGraph`, TypeScript does not pass the types of `marks` to a layout of the same object: annotate one parameter, or give the type argument, as in `grid<Item>({ order })`. A comparator of another item type is refused. A layout of your own reads the items through `LayoutGraph<T>.datum`.

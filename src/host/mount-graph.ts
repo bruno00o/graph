@@ -37,6 +37,8 @@ import type {
   Key,
   Layout,
   LayoutRun,
+  Mark,
+  NodeDatum,
   Point,
   StateStyle,
   View,
@@ -61,8 +63,8 @@ import { layoutGraph } from './layout-graph'
 import type { Renderer } from './renderer'
 import { StateRegistry } from './state-registry'
 
-/** What the store of a graph holds. */
-export interface GraphState<S extends string = string> {
+/** What the store of a graph holds. `S` is the union of the state names, `M` that of the marks. */
+export interface GraphState<S extends string = string, M extends Mark = Mark> {
   /** Current view. */
   readonly view: View
   /** Width of the graph element, in CSS pixels. */
@@ -70,9 +72,9 @@ export interface GraphState<S extends string = string> {
   /** Height of the graph element, in CSS pixels. */
   readonly height: number
   /** Element under the pointer, or `null`. */
-  readonly hovered: GraphTarget | null
+  readonly hovered: GraphTarget<M> | null
   /** Element with the keyboard focus, or `null`. */
-  readonly focused: GraphTarget | null
+  readonly focused: GraphTarget<M> | null
   /** Selected nodes and edges. */
   readonly selection: ElementKeys
   /** Members of each free state, by name. */
@@ -94,7 +96,9 @@ export interface GraphLayoutStatus {
 }
 
 /** Read-only TanStack Store of the graph state. Write through the methods of the instance. */
-export type GraphStore<S extends string = string> = ReadonlyStore<GraphState<S>>
+export type GraphStore<S extends string = string, M extends Mark = Mark> = ReadonlyStore<
+  GraphState<S, M>
+>
 
 /** Options of an animated view change. */
 export interface ViewOptions {
@@ -151,10 +155,10 @@ export interface GraphSelection {
   clear(): void
 }
 
-/** The keyboard focus of a graph. */
-export interface GraphFocus {
+/** The keyboard focus of a graph. `M` is the union of the marks. */
+export interface GraphFocus<M extends Mark = Mark> {
   /** Element with the keyboard focus, or `null`. */
-  get(): GraphTarget | null
+  get(): GraphTarget<M> | null
   /**
    * Moves the focus to an element, or removes it with `null`. When the keyboard is on, the graph
    * element takes the DOM focus; an unknown key changes nothing.
@@ -218,14 +222,14 @@ export interface LayoutRunOptions {
   readonly duration?: number
 }
 
-/** Layout runs of a graph. */
-export interface GraphLayout {
+/** Layout runs of a graph. `M` is the union of the marks, whose node items layouts read. */
+export interface GraphLayout<M extends Mark = Mark> {
   /**
    * Applies pending data changes, then lays out every free node, or only `keys`, with `layout` or
    * the layout of the definition. Resolves to `true` when the run ends and `false` when it is
    * stopped or replaced, and rejects when there is no layout to run.
    */
-  run(layout?: Layout, options?: LayoutRunOptions): Promise<boolean>
+  run(layout?: Layout<NodeDatum<M>>, options?: LayoutRunOptions): Promise<boolean>
   /** Ends the current run and leaves nodes where they are. */
   stop(): void
 }
@@ -241,10 +245,10 @@ export interface GraphPositions {
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
 }
 
-/** Options of `mountGraph`. */
-export interface MountGraphOptions<S extends string = string> {
+/** Options of `mountGraph`. `S` and `M` come from the definition. */
+export interface MountGraphOptions<S extends string = string, M extends Mark = Mark> {
   /** What to draw: the result of `defineGraph`. */
-  readonly definition: GraphDefinition<S>
+  readonly definition: GraphDefinition<S, M>
   /** Accessible name of the graph element. */
   readonly ariaLabel: string
   /** View at mount. Without it, the first data is fitted with a 32 pixel margin. */
@@ -264,22 +268,25 @@ export interface MountGraphOptions<S extends string = string> {
   readonly onFoldChange?: (event: GraphFoldEvent) => void
 }
 
-/** A mounted graph, returned by `mountGraph` and by the ref of `<Graph>`. */
-export interface GraphInstance<S extends string = string> {
+/**
+ * A mounted graph, returned by `mountGraph` and by the ref of `<Graph>`. `S` is the union of the
+ * state names and `M` that of the marks, both taken from the definition.
+ */
+export interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   /** Read-only TanStack Store of the graph state. */
-  readonly store: GraphStore<S>
+  readonly store: GraphStore<S, M>
   /** The camera. */
   readonly view: GraphView
   /** The selection. */
   readonly selection: GraphSelection
   /** The keyboard focus. */
-  readonly focus: GraphFocus
+  readonly focus: GraphFocus<M>
   /** Members of the free states. */
   readonly states: GraphStates<FreeState<S>>
   /** Node positions. */
   readonly positions: GraphPositions
   /** Layout runs. */
-  readonly layout: GraphLayout
+  readonly layout: GraphLayout<M>
   /** HTML elements pinned to nodes, edges or points. */
   readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   /** Folding of nested groups. */
@@ -287,7 +294,7 @@ export interface GraphInstance<S extends string = string> {
   /** The `div` added to the container, which holds the canvas. */
   readonly element: HTMLElement
   /** Element under a point in screen pixels, nodes before edges, or `null`. */
-  pick(point: Point): GraphTarget | null
+  pick(point: Point): GraphTarget<M> | null
   /** Keys of the nodes connected to a node. */
   neighbors(key: Key): Key[]
   /** Keys of the edges of a node. */
@@ -295,12 +302,12 @@ export interface GraphInstance<S extends string = string> {
   /** Source and target keys of an edge, or `undefined` for an unknown or waiting edge. */
   endpoints(key: Key): Endpoints | undefined
   /** Subscribes to an event. Returns the function that unsubscribes. */
-  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
+  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
   /**
    * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, controlled
    * `selection` or controlled `folded`. Positions, view and selection stay.
    */
-  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView' | 'initialFolded'>>): void
+  update(options: Partial<Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded'>>): void
   /** Removes the element and frees every resource. A layout run in progress resolves to `false`. */
   destroy(): void
 }
@@ -431,11 +438,11 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
   }
 }
 
-export function createGraphHost<S extends string = string>(
+export function createGraphHost<S extends string = string, M extends Mark = Mark>(
   container: HTMLElement,
-  options: MountGraphOptions<S>,
+  options: MountGraphOptions<S, M>,
   createRenderer: RendererFactory,
-): GraphInstance<S> {
+): GraphInstance<S, M> {
   let definition: GraphDefinition = options.definition
   const controlled = options.selection !== undefined
   let onSelectionChange = options.onSelectionChange
@@ -691,7 +698,7 @@ export function createGraphHost<S extends string = string>(
 
   function target(kind: 'node' | 'edge', key: Key): GraphTarget | null {
     const record = kind === 'node' ? model.node(key) : model.edge(key)
-    return record ? { kind, key, datum: record.datum } : null
+    return record ? { kind, key, datum: record.datum, mark: record.mark.name } : null
   }
 
   function pickAt(point: Point): GraphTarget | null {
@@ -1197,7 +1204,9 @@ export function createGraphHost<S extends string = string>(
       updateCursor()
     } else if (hovered) {
       const fresh = target(hovered.kind, hovered.key)
-      if (fresh && fresh.datum !== hovered.datum) patch({ hovered: fresh })
+      if (fresh && (fresh.datum !== hovered.datum || fresh.mark !== hovered.mark)) {
+        patch({ hovered: fresh })
+      }
     }
     const focused = store.get().focused
     if (focused && !result.focused && concealed(focused)) {
@@ -1209,7 +1218,9 @@ export function createGraphHost<S extends string = string>(
       emitter.emit('focuschange', { target: null })
     } else if (focused) {
       const fresh = target(focused.kind, focused.key)
-      if (fresh && fresh.datum !== focused.datum) patch({ focused: fresh })
+      if (fresh && (fresh.datum !== focused.datum || fresh.mark !== focused.mark)) {
+        patch({ focused: fresh })
+      }
     }
     followLayout(changes, fresh)
   }
@@ -2138,16 +2149,16 @@ export function createGraphHost<S extends string = string>(
     }
   })
 
-  return instance
+  return instance as unknown as GraphInstance<S, M>
 }
 
 /**
  * Mounts a graph into `container` and returns its instance. The graph fills the container: give the
  * container a size.
  */
-export function mountGraph<S extends string = string>(
+export function mountGraph<S extends string = string, M extends Mark = Mark>(
   container: HTMLElement,
-  options: MountGraphOptions<S>,
-): GraphInstance<S> {
+  options: MountGraphOptions<S, M>,
+): GraphInstance<S, M> {
   return createGraphHost(container, options, createWebglRenderer)
 }
