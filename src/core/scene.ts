@@ -100,6 +100,12 @@ function readBadges(mark: CompiledNodeMark, datum: unknown, palette: Palette): N
   return badges.length === 0 ? null : badges
 }
 
+function readBackground(value: unknown, palette: Palette): number {
+  if (value === true) return palette.id(defaults.labelBackground)
+  const color = toColor(value)
+  return color ? palette.id(color) : noColor
+}
+
 function readImage(value: unknown): { src: string; scale: number; color: string | null } | null {
   if (typeof value === 'string') return value === '' ? null : { src: value, scale: 1, color: null }
   if (typeof value !== 'object' || value === null) return null
@@ -194,10 +200,17 @@ export function createScene(): Scene {
     nodes.fill[index] = palette.id(fill)
     nodes.stroke[index] = palette.id(toColor(mark.stroke?.(datum)) ?? defaults.nodeStroke)
     nodes.strokeWidth[index] = finiteOr(mark.strokeWidth?.(datum), defaults.nodeStrokeWidth)
+    const outline = mark.outline ? toColor(mark.outline(datum)) : null
+    nodes.outline[index] = palette.id(outline ?? defaults.nodeOutline)
+    nodes.outlineWidth[index] =
+      mark.outline && !outline
+        ? 0
+        : Math.max(0, finiteOr(mark.outlineWidth?.(datum), outline ? defaults.nodeOutlineWidth : 0))
     nodes.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     nodes.screenUnits[index] = mark.screenUnits ? 1 : 0
     nodes.label[index] = toText(mark.label?.(datum))
     nodes.secondary[index] = toText(mark.secondary?.(datum))
+    nodes.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
     const image = readImage(mark.image?.(datum))
     nodes.image[index] = image?.src ?? null
     nodes.imageScale[index] = image?.scale ?? 1

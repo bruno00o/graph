@@ -16,6 +16,7 @@ export const lightTheme: Readonly<Record<string, string>> = {
   'focus-ring': '#c93700',
   halo: '#c9370047',
   'label-halo': '#f7f7f4',
+  'label-background': '#ffffff',
   'node-ring': '#f7f7f4',
   'badge-fill': '#191d22',
   'badge-ink': '#f7f7f4',
@@ -47,6 +48,9 @@ export interface Defaults {
   readonly nodeFill: string
   readonly nodeStroke: string
   readonly nodeStrokeWidth: number
+  readonly nodeOutline: string
+  readonly nodeOutlineWidth: number
+  readonly labelBackground: string
   readonly edgeWidth: number
   readonly edgeWidthRange: Extent
   readonly edgeColor: string
@@ -61,6 +65,9 @@ export const defaults: Defaults = {
   nodeFill: themeColor('node'),
   nodeStroke: themeColor('node-ring'),
   nodeStrokeWidth: 1,
+  nodeOutline: themeColor('node-ring'),
+  nodeOutlineWidth: 2,
+  labelBackground: themeColor('label-background'),
   edgeWidth: 1.5,
   edgeWidthRange: [1, 6],
   edgeColor: themeColor('edge'),

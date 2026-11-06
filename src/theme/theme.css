@@ -13,6 +13,7 @@
   --graph-focus-ring: #c93700;
   --graph-halo: #c9370047;
   --graph-label-halo: #f7f7f4;
+  --graph-label-background: #ffffff;
   --graph-node-ring: #f7f7f4;
   --graph-badge-fill: #191d22;
   --graph-badge-ink: #f7f7f4;
@@ -44,6 +45,7 @@
   --graph-focus-ring: #fa8054;
   --graph-halo: #fa805447;
   --graph-label-halo: #0f1113;
+  --graph-label-background: #171a1d;
   --graph-node-ring: #0f1113;
   --graph-badge-fill: #efeeeb;
   --graph-badge-ink: #0f1113;
@@ -74,6 +76,7 @@
     --graph-focus-ring: #fa8054;
     --graph-halo: #fa805447;
     --graph-label-halo: #0f1113;
+    --graph-label-background: #171a1d;
     --graph-node-ring: #0f1113;
     --graph-badge-fill: #efeeeb;
     --graph-badge-ink: #0f1113;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NodeColumns } from '../core/columns'
+import { NodeColumns, noColor } from '../core/columns'
 import { Positions } from '../core/positions'
 import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
 import { GlyphBuffer, glyphStride, LabelLayer, labelVisible, sortBySize } from './label-layer'
@@ -123,5 +123,48 @@ describe('GlyphBuffer', () => {
       (_, at) => placed[at * (glyphStride / 4)],
     )
     expect(owners).toEqual([1, 3])
+  })
+
+  it('pushes a plate before a labelled node glyphs and keeps the padded box free', () => {
+    const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
+    const atlas = {
+      height: 256,
+      line: (): LineLayout => ({ width: 48, glyphs: [{ glyph, x: 0 }] }),
+    } as unknown as GlyphAtlas
+    const nodes = columns([
+      { size: 16, label: 'plated' },
+      { size: 16, label: 'beside' },
+    ])
+    nodes.keys.push('a', 'b')
+    nodes.labelBackground[0] = 5
+    nodes.outlineWidth[0] = 4
+    expect(nodes.labelBackground[1]).toBe(noColor)
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    positions.set(1, 30, 0)
+    const layer = new LabelLayer()
+    const order = new Uint32Array([0, 1])
+    layer.select(
+      {
+        nodes,
+        positions,
+        view: { x: 0, y: 0, zoom: 1 },
+        width: 800,
+        height: 600,
+        nodeMask: new Uint32Array(2),
+        labelFlags: new Int8Array(32).fill(-1),
+        highlighted: [],
+        order,
+        orderLength: 2,
+        screenLabels: false,
+      },
+      atlas,
+    )
+    const u32 = new Uint32Array(layer.main.data)
+    const f32 = new Float32Array(layer.main.data)
+    expect(layer.main.count).toBe(2)
+    expect(u32[1]).toBe(3 | (5 << 4))
+    expect(Array.from(f32.subarray(2, 4))).toEqual([48, 1])
+    expect(u32[glyphStride / 4 + 1]).toBe(4)
   })
 })

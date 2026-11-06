@@ -71,6 +71,7 @@ export interface NodeImage {
 export interface LabelOptions<T> {
   readonly text: Channel<T, string>
   readonly secondary?: Channel<T, string>
+  readonly background?: Style<T, string | boolean | null>
 }
 
 export interface NodeOptions<T> {
@@ -84,6 +85,8 @@ export interface NodeOptions<T> {
   readonly fill?: Style<T, string>
   readonly stroke?: Style<T, string>
   readonly strokeWidth?: Style<T, number>
+  readonly outline?: Style<T, string | null>
+  readonly outlineWidth?: Style<T, number>
   readonly opacity?: Style<T, number>
   readonly image?: Style<T, string | NodeImage | null>
   readonly badges?: Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined>>>>
@@ -153,6 +156,8 @@ export interface StateStyle {
   readonly fill?: string
   readonly stroke?: string
   readonly strokeWidth?: number
+  readonly outline?: string
+  readonly outlineWidth?: number
   readonly halo?: boolean
   readonly label?: boolean
 }

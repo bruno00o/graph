@@ -48,6 +48,16 @@ describe('StateBuffers', () => {
     expect(states.labelFlags[3]).toBe(-1)
   })
 
+  it('packs the outline color and its width as float bits', () => {
+    const states = new StateBuffers()
+    states.setStyle('nodes', 2, { outline: 7, outlineWidth: 3.5 })
+    expect(states.paint[10]).toBe(7)
+    expect(new Float32Array(states.paint.buffer, 11 * 4, 1)[0]).toBe(3.5)
+    states.setStyle('nodes', 2, { opacity: 1 })
+    expect(states.paint[10]).toBe(noPaint)
+    expect(states.paint[11]).toBe(noPaint)
+  })
+
   it('keeps edge styles in their own table', () => {
     const states = new StateBuffers()
     states.setStyle('edges', 1, { strokeWidth: 3, label: false, stroke: 4 })

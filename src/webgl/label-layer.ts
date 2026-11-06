@@ -1,7 +1,9 @@
 import type { NodeColumns } from '../core/columns'
+import { noColor } from '../core/columns'
 import type { Positions } from '../core/positions'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
+import { plateHalfOne, plateHalfTwo, platePadX } from './shaders'
 
 export const glyphStride = 32
 const primarySize = 12
@@ -56,6 +58,20 @@ export class GlyphBuffer {
     }
   }
 
+  pushPlate(node: number, color: number, width: number, lines: number): void {
+    if ((this.count + 1) * glyphStride > this.data.byteLength) this.#grow()
+    const at = this.count * (glyphStride / 4)
+    this.#u32[at] = node
+    this.#u32[at + 1] = 3 | (color << 4)
+    this.#f32[at + 2] = width
+    this.#f32[at + 3] = lines
+    this.#f32[at + 4] = 0
+    this.#f32[at + 5] = 0
+    this.#u32[at + 6] = 0
+    this.#u32[at + 7] = 0
+    this.count++
+  }
+
   #grow(): void {
     const data = new ArrayBuffer(this.data.byteLength * 2)
     new Uint8Array(data).set(new Uint8Array(this.data))
@@ -106,23 +122,28 @@ export class LabelLayer {
       const primary = screenUnits ? primarySize : worldPrimary
       if (primary < labelMin) return
       const diameter = screenUnits ? (nodes.size[index] ?? 0) : (nodes.size[index] ?? 0) * view.zoom
-      const radius = Math.max(diameter / 2, 1.25)
+      const radius = Math.max(diameter / 2, 1.25) + (nodes.outlineWidth[index] ?? 0)
       const x = (positions.x(index) - view.x) * view.zoom + width / 2
       const y = (positions.y(index) - view.y) * view.zoom + height / 2
       if (x < -cullMargin || x > width + cullMargin) return
-      if (y + radius > height || y + radius + primary * lineHeight * 2 < -3) return
+      if (y + radius > height || y + radius + primary * lineHeight * 3 < -3) return
       const line = atlas.line(label, '500')
       const secondaryText = nodes.secondary[index]
       const secondary = secondaryText ? atlas.line(secondaryText, '400') : null
       const scale = primary / atlasFontSize
-      const textWidth = Math.max(
-        line.width * scale,
-        secondary ? (secondary.width * scale * 11) / 12 : 0,
-      )
+      const textUnits = Math.max(line.width, secondary ? (secondary.width * 11) / 12 : 0)
+      const background = nodes.labelBackground[index] ?? noColor
+      const plated = background !== noColor
+      const pad = plated ? primary * platePadX : 0
+      const lines = secondary ? 2 : 1
       const top = y + radius + 3
-      const bottom = top + primary * lineHeight * (secondary ? 2 : 1)
-      const left = x - textWidth / 2
-      const right = x + textWidth / 2
+      const bottom =
+        top +
+        (plated
+          ? primary * 2 * (secondary ? plateHalfTwo : plateHalfOne)
+          : primary * lineHeight * lines)
+      const left = x - (textUnits * scale) / 2 - pad
+      const right = x + (textUnits * scale) / 2 + pad
       if (right < 0 || left > width || bottom < 0 || top > height) return
       const c0 = Math.max(0, Math.floor(left / cell))
       const c1 = Math.min(cols - 1, Math.floor(right / cell))
@@ -135,8 +156,10 @@ export class LabelLayer {
       }
       for (let row = r0; row <= r1; row++) occupancy.fill(1, row * cols + c0, row * cols + c1 + 1)
       const target = highlight ? this.highlight : this.main
-      target.push(index, 0, line, atlas.height)
-      if (secondary) target.push(index, 1, secondary, atlas.height)
+      const plate = plated ? 4 : 0
+      if (plated) target.pushPlate(index, background, textUnits, lines)
+      target.push(index, plate, line, atlas.height)
+      if (secondary) target.push(index, 1 | plate, secondary, atlas.height)
       placed++
     }
 

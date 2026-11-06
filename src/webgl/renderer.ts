@@ -44,7 +44,7 @@ const units = {
   edgeState: 7,
   atlas: 8,
   images: 9,
-  nodeImage: 10,
+  nodeDecor: 10,
 } as const
 
 function iota(length: number): Uint32Array {
@@ -78,14 +78,14 @@ export function createWebglRenderer(
   const nodeStyle = new DataTexture(gl, format.rgba32f, f32)
   const nodePaint = new DataTexture(gl, format.rgba32ui, u32)
   const nodeState = new DataTexture(gl, format.r32ui, u32)
-  const nodeImage = new DataTexture(gl, format.rgba32ui, u32)
+  const nodeDecor = new DataTexture(gl, format.rgba32ui, u32)
   const edgeTopology = new DataTexture(gl, format.rgba32ui, u32)
   const edgeStyle = new DataTexture(gl, format.rgba32f, f32)
   const edgeState = new DataTexture(gl, format.r32ui, u32)
-  const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeImage]
+  const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor]
   const images = new ImageAtlas(gl, invalidate)
-  const scaleBits = new Float32Array(1)
-  const scaleWord = new Uint32Array(scaleBits.buffer)
+  const floatBits = new Float32Array(1)
+  const floatWord = new Uint32Array(floatBits.buffer)
   const edgeTextures = [edgeTopology, edgeStyle, edgeState]
 
   const palette = gl.createTexture()
@@ -341,6 +341,7 @@ export function createWebglRenderer(
     nodePaint.data[at] = nodes.fill[index] ?? 0
     nodePaint.data[at + 1] = nodes.stroke[index] ?? 0
     nodePaint.data[at + 2] = nodes.slot[index] ?? 0
+    nodePaint.data[at + 3] = nodes.outline[index] ?? noColor
     const src = nodes.alive[index] === 1 ? (nodes.image[index] ?? null) : null
     const previous = imageOf[index] ?? null
     if (src !== previous) {
@@ -348,10 +349,12 @@ export function createWebglRenderer(
       if (src) images.acquire(src)
       imageOf[index] = src
     }
-    scaleBits[0] = nodes.imageScale[index] ?? 1
-    nodeImage.data[at] = src ? images.layer(src) + 1 : 0
-    nodeImage.data[at + 1] = nodes.imageColor[index] ?? noColor
-    nodeImage.data[at + 2] = scaleWord[0] ?? 0
+    floatBits[0] = nodes.imageScale[index] ?? 1
+    nodeDecor.data[at] = src ? images.layer(src) + 1 : 0
+    nodeDecor.data[at + 1] = nodes.imageColor[index] ?? noColor
+    nodeDecor.data[at + 2] = floatWord[0] ?? 0
+    floatBits[0] = nodes.outlineWidth[index] ?? 0
+    nodeDecor.data[at + 3] = floatWord[0] ?? 0
     const badges = nodes.alive[index] === 1 ? nodes.badges[index] : null
     if (badges || badged.has(index)) badgesStale = true
     if (badges) badged.add(index)
@@ -366,11 +369,11 @@ export function createWebglRenderer(
     for (let index = 0; index < nodes.capacity; index++) {
       const src = imageOf[index]
       if (!src || !loaded.has(src)) continue
-      nodeImage.data[index * 4] = images.layer(src) + 1
+      nodeDecor.data[index * 4] = images.layer(src) + 1
       first = Math.min(first, index)
       last = Math.max(last, index)
     }
-    nodeImage.upload(first, last)
+    nodeDecor.upload(first, last)
   }
 
   function rebuildBadges(): void {
@@ -469,7 +472,7 @@ export function createWebglRenderer(
     }
     nodeStyle.upload(first, last)
     nodePaint.upload(first, last)
-    nodeImage.upload(first, last)
+    nodeDecor.upload(first, last)
     if (next.positionsChanged || next.full || grown) {
       const xy = next.positions.xy
       nodePosition.data.set(xy.subarray(0, Math.min(xy.length, nodePosition.data.length)))
@@ -808,7 +811,7 @@ export function createWebglRenderer(
       [units.edgeStyle, edgeStyle.texture],
       [units.edgeState, edgeState.texture],
       [units.atlas, atlasTexture],
-      [units.nodeImage, nodeImage.texture],
+      [units.nodeDecor, nodeDecor.texture],
     ]
     for (const [unit, texture] of textures) {
       gl.activeTexture(gl.TEXTURE0 + unit)
