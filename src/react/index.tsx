@@ -40,6 +40,8 @@ export interface GraphEventProps {
   readonly onSelectionChange?: GraphEventHandler<'selectionchange'>
   readonly onFocusChange?: GraphEventHandler<'focuschange'>
   readonly onViewChange?: GraphEventHandler<'viewchange'>
+  readonly onLayoutStart?: GraphEventHandler<'layoutstart'>
+  readonly onLayoutEnd?: GraphEventHandler<'layoutend'>
 }
 
 const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
@@ -55,6 +57,8 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   selectionchange: 'onSelectionChange',
   focuschange: 'onFocusChange',
   viewchange: 'onViewChange',
+  layoutstart: 'onLayoutStart',
+  layoutend: 'onLayoutEnd',
 }
 
 export interface GraphProps<S extends string = string> extends GraphEventProps {

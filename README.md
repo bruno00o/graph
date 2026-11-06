@@ -25,7 +25,9 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 - Live sources: pass a TanStack DB collection as is, or anything with `subscribeChanges`, and only what changed is redrawn
 - Named states (selection, hover, focus and your own) resolved on the GPU
 - Images and icons clipped to the node shape, corner badges, outlines, label backgrounds, parallel edges and self loops
+- Labels with their own size, color, weight, font, placement, line breaks and truncation, on nodes and on edges, where edge labels follow their edge and stay upright; labels are placed only where they fit without overlapping
 - Drag, pan, zoom, multiple selection and lasso out of the box, plus keyboard navigation announced to screen readers
+- Force layout on the GPU in a Web Worker, with a CPU fallback: nodes settle in place while you keep panning, and dragging a node pins it
 - Themed with CSS variables, light and dark
 - A framework-agnostic core with a thin React adapter, plus TanStack DB and TanStack Query integrations
 
@@ -37,13 +39,14 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 pnpm add @bruno00o/graph
 ```
 
-| Entry point                 | Contents                                                         | Peer dependency        |
-| --------------------------- | ---------------------------------------------------------------- | ---------------------- |
-| `@bruno00o/graph`           | `defineGraph`, `nodes`, `edges`, `mountGraph`                    |                        |
-| `@bruno00o/graph/react`     | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent`          | `react` 19             |
-| `@bruno00o/graph/db`        | `persistPositions` for TanStack DB collections                   | `@tanstack/db`         |
-| `@bruno00o/graph/query`     | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core` |
-| `@bruno00o/graph/theme.css` | Default light and dark theme                                     |                        |
+| Entry point                     | Contents                                                         | Peer dependency        |
+| ------------------------------- | ---------------------------------------------------------------- | ---------------------- |
+| `@bruno00o/graph`               | `defineGraph`, `nodes`, `edges`, `mountGraph`                    |                        |
+| `@bruno00o/graph/react`         | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent`          | `react` 19             |
+| `@bruno00o/graph/db`            | `persistPositions` for TanStack DB collections                   | `@tanstack/db`         |
+| `@bruno00o/graph/query`         | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core` |
+| `@bruno00o/graph/layouts/force` | `force` layout, computed on the GPU in a Web Worker              |                        |
+| `@bruno00o/graph/theme.css`     | Default light and dark theme                                     |                        |
 
 ## Quick start
 
@@ -101,6 +104,22 @@ export function SampleGraph({ items, links }: { items: Item[]; links: Link[] }) 
 }
 ```
 
+Nodes without `x` and `y` are placed by the layout of the definition. It runs on the first nodes, then places new nodes near their neighbors without moving the others.
+
+```ts
+import { force } from '@bruno00o/graph/layouts/force'
+
+const definition = defineGraph({ marks, layout: force({ edgeLength: 60 }) })
+const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+
+button.addEventListener('click', async () => {
+  const completed = await graph.layout.run(undefined, { keys: graph.selection.get().nodes })
+  if (completed) graph.view.fit(graph.selection.get().nodes, { duration: 400 })
+})
+```
+
+Large graphs run on the GPU (WebGL2 in the worker) and smaller ones on the CPU; `force({ engine: 'gpu' })` or `'cpu'` forces the choice. `graph.layout.run()` lays out every node, or only `keys`, and resolves to `false` when stopped. Progress lives in the store (`state.layout.running` and `state.layout.progress`), and `layoutstart` and `layoutend` mark each run.
+
 A TanStack DB collection is a live source: pass it to a mark and its changes arrive without a new definition.
 
 ```ts
@@ -109,7 +128,7 @@ nodes(itemsCollection, { color: 'group', label: 'label' })
 
 ## Examples
 
-The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, collaboration across tabs with TanStack DB, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
+The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 80,000 nodes, collaboration across tabs with TanStack DB, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
 
 ## Get Involved
 

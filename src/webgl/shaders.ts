@@ -7,9 +7,13 @@ export const badgeTextMin = 12
 export const badgeFont = 0.66
 export const badgeRing = 1.5
 export const platePadX = 0.45
-export const plateHalfOne = 0.75
-export const plateHalfTwo = 1.32
 export const plateRadius = 0.25
+export const plateDrop = 6
+export const nodeLabelSize = 12
+export const labelGap = 3
+export const edgeLabelSize = 11
+export const edgeDescent = 3.6
+export const edgeLabelGap = 1.5
 
 const header = `#version 300 es
 precision highp float;
@@ -32,6 +36,7 @@ layout(std140) uniform Frame {
 layout(std140) uniform States {
   vec4 stateNumbers[64];
   uvec4 statePaint[64];
+  uvec4 stateLabel[64];
 };
 uniform int layerSlot;
 uniform int overlay;
@@ -45,7 +50,7 @@ vec4 toClip(vec2 screen) {
 }
 ivec2 texel(uint index) { return ivec2(int(index & 1023u), int(index >> 10u)); }
 vec4 paletteColor(uint id) { return texelFetch(palette, ivec2(int(id & 255u), int(id >> 8u)), 0); }
-struct Look { float opacity; float strokeWidth; float halo; float label; uint fill; uint stroke; uint outline; float outlineWidth; };
+struct Look { float opacity; float strokeWidth; float halo; float label; uint fill; uint stroke; uint outline; float outlineWidth; uint labelColor; };
 Look resolve(uint mask, Look look, int table) {
   bool opacity = false;
   bool strokeWidth = false;
@@ -55,6 +60,7 @@ Look resolve(uint mask, Look look, int table) {
   bool stroke = false;
   bool outline = false;
   bool outlineWidth = false;
+  bool labelColor = false;
   float base = look.opacity;
   for (int bit = 0; bit < 32; bit++) {
     if (mask == 0u) break;
@@ -71,6 +77,8 @@ Look resolve(uint mask, Look look, int table) {
     if (!stroke && paint.y != none) { look.stroke = paint.y; stroke = true; }
     if (!outline && paint.z != none) { look.outline = paint.z; outline = true; }
     if (!outlineWidth && paint.w != none) { look.outlineWidth = uintBitsToFloat(paint.w); outlineWidth = true; }
+    uint text = stateLabel[table + bit].x;
+    if (!labelColor && text != none) { look.labelColor = text; labelColor = true; }
   }
   return look;
 }
@@ -84,7 +92,7 @@ uniform usampler2D nodeState;
 uniform usampler2D nodeDecor;
 Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
-  return resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth), 0);
+  return resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
 }
 float nodeDiameter(vec4 style) {
   uint flags = uint(style.w + 0.5);
@@ -238,7 +246,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0), 32);
+  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 ps = toScreen(texelFetch(nodePosition, s, 0).xy);
@@ -342,7 +350,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0), 32);
+  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
@@ -478,30 +486,90 @@ void main() {
 }
 `
 
-export const labelVertex: string = `${header}${nodeData}
+export const labelVertex: string = `${header}${nodeData}${edgeData}
 uniform float atlasFontSize;
 in vec2 corner;
 in uint glyphNode;
 in uint glyphKind;
 in vec4 glyphRect;
 in vec4 glyphUv;
+in uint glyphColor;
+in float glyphSize;
 out vec2 vUv;
 out float vScale;
 flat out vec4 vInk;
 flat out float vHalo;
 flat out vec4 vPlate;
 flat out float vOpacity;
+vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor) {
+  float scale = pixels / atlasFontSize;
+  if (kind == 3u) {
+    vec2 extent = glyphRect.zw * scale;
+    vUv = (corner * 2.0 - 1.0) * (extent + 1.0);
+    vPlate = vec4(extent, pixels * ${plateRadius.toFixed(2)}, 1.0);
+    vScale = 1.0;
+    vInk = paletteColor(glyphColor);
+    vHalo = 0.0;
+    return glyphRect.xy * scale + vUv;
+  }
+  vScale = scale;
+  vInk = kind == 0u && stateColor != none ? paletteColor(stateColor)
+    : glyphColor != none ? paletteColor(glyphColor)
+    : kind == 0u ? labelInk : labelMuted;
+  vHalo = (glyphKind & 4u) != 0u ? 0.0 : 1.0;
+  return (glyphRect.xy + corner * glyphRect.zw) * scale - vec2(0.0, lift);
+}
+void edgeGlyph(uint kind) {
+  ivec2 t = texel(glyphNode);
+  uvec4 topology = texelFetch(edgeTopology, t, 0);
+  vec4 style = texelFetch(edgeStyle, t, 0);
+  uint mask = texelFetch(edgeState, t, 0).r;
+  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  float pixels = glyphSize * min(1.0, zoom);
+  if ((topology.w & 16u) == 0u || look.label < 0.5 || pixels < labelMin) {
+    gl_Position = hidden;
+    return;
+  }
+  vOpacity = look.opacity;
+  ivec2 s = texel(topology.x);
+  ivec2 e = texel(topology.y);
+  vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
+  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0));
+  vec2 spot;
+  vec2 axis;
+  if (topology.x == topology.y) {
+    float reach = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * style.z);
+    spot = a + reach * vec2(0.70710678, -0.70710678);
+    axis = vec2(0.70710678, 0.70710678);
+  } else {
+    vec2 d = toScreen(texelFetch(nodePosition, e, 0).xy);
+    float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0));
+    vec2 delta = d - a;
+    float len = length(delta);
+    vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
+    spot = (a + d) * 0.5 + dir * ((sourceRadius - targetRadius) * 0.5) + vec2(-dir.y, dir.x) * (style.z * len);
+    axis = dir.x < 0.0 || (dir.x == 0.0 && dir.y < 0.0) ? -dir : dir;
+  }
+  vec2 across = vec2(-axis.y, axis.x);
+  float lift = (glyphKind & 4u) != 0u ? 0.0 : max(look.strokeWidth, 0.5) * 0.5 + ${edgeLabelGap.toFixed(1)};
+  vec2 local = layoutGlyph(kind, pixels, lift, look.labelColor);
+  gl_Position = toClip(spot + axis * local.x + across * local.y);
+}
 void main() {
   vPlate = vec4(0.0);
+  uint kind = glyphKind & 3u;
+  vUv = mix(glyphUv.xy, glyphUv.zw, corner);
+  if (kind != 2u && (glyphKind & 8u) != 0u) {
+    edgeGlyph(kind);
+    return;
+  }
   ivec2 t = texel(glyphNode);
   vec4 style = texelFetch(nodeStyle, t, 0);
   uvec4 paint = texelFetch(nodePaint, t, 0);
   uint flags = uint(style.w + 0.5);
   uint mask = texelFetch(nodeState, t, 0).r;
   Look look = nodeLook(t, style, paint, mask);
-  vUv = mix(glyphUv.xy, glyphUv.zw, corner);
   vOpacity = look.opacity;
-  uint kind = glyphKind & 3u;
   if (kind == 2u) {
     bool highlighted = (mask & highlightMask) != 0u;
     float height = badgeHeight(style);
@@ -512,39 +580,25 @@ void main() {
     float font = height * ${badgeFont.toFixed(2)};
     vec2 center = badgeCenter(texelFetch(nodePosition, t, 0).xy, style, (glyphKind >> 2u) & 3u);
     vScale = font / atlasFontSize;
-    vInk = paletteColor(glyphKind >> 4u);
+    vInk = paletteColor(glyphColor);
     vHalo = 0.0;
     gl_Position = toClip(center - vec2(0.0, font * 0.65) + (glyphRect.xy + corner * glyphRect.zw) * vScale);
     return;
   }
-  float primary = (flags & 4u) != 0u ? 12.0 : 12.0 * min(1.0, zoom);
-  if ((flags & 8u) == 0u || look.label < 0.5 || primary < labelMin) {
+  float pixels = glyphSize * ((flags & 4u) != 0u ? 1.0 : min(1.0, zoom));
+  if ((flags & 8u) == 0u || look.label < 0.5 || pixels < labelMin) {
     gl_Position = hidden;
     return;
   }
-  float below = nodeRadius(style) + max(look.outlineWidth, 0.0) + 3.0;
-  vec2 top = toScreen(texelFetch(nodePosition, t, 0).xy) + vec2(0.0, below);
-  if (kind == 3u) {
-    bool two = glyphRect.y > 1.5;
-    vec2 extent = vec2(
-      glyphRect.x * primary / atlasFontSize * 0.5 + primary * ${platePadX.toFixed(2)},
-      primary * (two ? ${plateHalfTwo.toFixed(2)} : ${plateHalfOne.toFixed(2)})
-    );
-    vUv = (corner * 2.0 - 1.0) * (extent + 1.0);
-    vPlate = vec4(extent, primary * ${plateRadius.toFixed(2)}, 1.0);
-    vScale = 1.0;
-    vInk = paletteColor(glyphKind >> 4u);
-    vHalo = 0.0;
-    gl_Position = toClip(top + vec2(0.0, primary * (two ? ${plateHalfTwo.toFixed(2)} : ${plateHalfOne.toFixed(2)})) + vUv);
-    return;
-  }
-  float size = kind == 0u ? primary : primary * 11.0 / 12.0;
-  float scale = size / atlasFontSize;
-  vec2 anchor = top + vec2(0.0, kind == 1u ? primary * 1.25 : 0.0);
-  vScale = scale;
-  vInk = kind == 0u ? labelInk : labelMuted;
-  vHalo = (glyphKind & 4u) != 0u ? 0.0 : 1.0;
-  gl_Position = toClip(anchor + (glyphRect.xy + corner * glyphRect.zw) * scale);
+  uint placement = (glyphKind >> 4u) & 7u;
+  vec2 dir = placement == 0u ? vec2(0.0, 1.0)
+    : placement == 1u ? vec2(0.0, -1.0)
+    : placement == 2u ? vec2(1.0, 0.0)
+    : placement == 3u ? vec2(-1.0, 0.0)
+    : vec2(0.0);
+  float reach = placement == 4u ? 0.0 : nodeRadius(style) + max(look.outlineWidth, 0.0) + ${labelGap.toFixed(1)};
+  vec2 anchor = toScreen(texelFetch(nodePosition, t, 0).xy) + dir * reach;
+  gl_Position = toClip(anchor + layoutGlyph(kind, pixels, 0.0, look.labelColor));
 }
 `
 

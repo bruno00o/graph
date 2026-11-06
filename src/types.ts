@@ -56,6 +56,10 @@ export type EdgeArrow = 'none' | 'source' | 'target' | 'both'
 
 export type BadgeCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
 
+export type LabelPlacement = 'bottom' | 'top' | 'right' | 'left' | 'center'
+
+export type LabelWeight = 'normal' | 'bold' | number
+
 export interface Badge {
   readonly text?: string | number
   readonly fill?: string
@@ -68,11 +72,23 @@ export interface NodeImage {
   readonly color?: string
 }
 
-export interface LabelOptions<T> {
+export interface LabelTextOptions<T> {
   readonly text: Channel<T, string>
-  readonly secondary?: Channel<T, string>
   readonly background?: Style<T, string | boolean | null>
+  readonly color?: Style<T, string>
+  readonly size?: Style<T, number>
+  readonly weight?: Style<T, LabelWeight>
+  readonly font?: Style<T, string>
+  readonly maxWidth?: Style<T, number>
 }
+
+export interface LabelOptions<T> extends LabelTextOptions<T> {
+  readonly secondary?: Channel<T, string>
+  readonly placement?: Style<T, LabelPlacement>
+  readonly minScreenSize?: Style<T, number>
+}
+
+export interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
 
 export interface NodeOptions<T> {
   readonly key?: KeyChannel<T>
@@ -99,7 +115,7 @@ export interface EdgeOptions<T> {
   readonly target: KeyChannel<T>
   readonly color?: Channel<T, string | number | boolean>
   readonly width?: Channel<T, number>
-  readonly label?: Channel<T, string>
+  readonly label?: Channel<T, string> | EdgeLabelOptions<T>
   readonly dash?: Style<T, EdgeDash>
   readonly arrow?: Style<T, EdgeArrow>
   readonly stroke?: Style<T, string>
@@ -160,6 +176,7 @@ export interface StateStyle {
   readonly outlineWidth?: number
   readonly halo?: boolean
   readonly label?: boolean
+  readonly labelColor?: string
 }
 
 export type SelectMode = 'single' | 'multiple' | false
@@ -196,10 +213,36 @@ export type FreeState<S extends string> = Exclude<S, BuiltInState>
 
 export type StateStyles<S extends string> = { readonly [K in S]: StateStyle }
 
+export interface LayoutGraph {
+  readonly capacity: number
+  readonly alive: Uint8Array
+  readonly movable: Uint8Array
+  readonly xy: Float32Array
+  readonly radius: Float32Array
+  readonly edges: Uint32Array
+}
+
+export interface LayoutListener {
+  progress(xy: Float32Array, progress: number): void
+  end(xy: Float32Array): void
+}
+
+export interface LayoutRun {
+  pin(index: number, x: number, y: number): void
+  stop(): void
+}
+
+export interface Layout {
+  readonly name: string
+  readonly options: object
+  start(graph: LayoutGraph, listener: LayoutListener): LayoutRun
+}
+
 export interface GraphDefinitionOptions<S extends string = string> {
   readonly marks: readonly Mark[]
   readonly scales?: ScalesOptions
   readonly states?: StateStyles<S>
+  readonly layout?: Layout | null
   readonly interaction?: InteractionOptions
   readonly transitions?: TransitionOptions
 }
@@ -208,6 +251,7 @@ export interface GraphDefinition<S extends string = string> {
   readonly marks: readonly Mark[]
   readonly scales: ScalesOptions
   readonly states: StateStyles<S>
+  readonly layout: Layout | null
   readonly interaction: ResolvedInteraction
   readonly transitions: ResolvedTransitions
 }

@@ -38,7 +38,15 @@ export interface GraphFocusEvent {
   readonly target: GraphTarget | null
 }
 
-export type PositionOrigin = 'drag' | 'api'
+export interface GraphLayoutEvent {
+  readonly name: string
+}
+
+export interface GraphLayoutEndEvent extends GraphLayoutEvent {
+  readonly completed: boolean
+}
+
+export type PositionOrigin = 'drag' | 'api' | 'layout'
 
 export interface GraphPositionEvent {
   readonly origin: PositionOrigin
@@ -58,6 +66,8 @@ export interface GraphEvents {
   readonly selectionchange: ElementKeys
   readonly focuschange: GraphFocusEvent
   readonly viewchange: { readonly view: View }
+  readonly layoutstart: GraphLayoutEvent
+  readonly layoutend: GraphLayoutEndEvent
 }
 
 export type GraphEventName = keyof GraphEvents

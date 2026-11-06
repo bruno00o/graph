@@ -8,6 +8,7 @@ import type {
   EdgeDash,
   GraphDefinition,
   Key,
+  LabelPlacement,
   Mark,
   NodeShape,
   NumberScale,
@@ -21,9 +22,15 @@ import {
   type NodeBadge,
   NodeColumns,
   noColor,
+  placementCodes,
   shapeCodes,
 } from './columns'
-import { type CompiledNodeMark, compileEdgeMark, compileNodeMark } from './compile-mark'
+import {
+  type CompiledLabelText,
+  type CompiledNodeMark,
+  compileEdgeMark,
+  compileNodeMark,
+} from './compile-mark'
 import { createEdgeLanes } from './edge-lanes'
 import type { EdgeRecord, ElementKind, GraphChanges, GraphModel, NodeRecord } from './graph-model'
 import { Palette } from './palette'
@@ -104,6 +111,41 @@ function readBackground(value: unknown, palette: Palette): number {
   if (value === true) return palette.id(defaults.labelBackground)
   const color = toColor(value)
   return color ? palette.id(color) : noColor
+}
+
+function positive(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+function readWeight(value: unknown): number {
+  if (value === 'normal') return 400
+  if (value === 'bold') return 700
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(1000, Math.max(1, Math.round(value)))
+    : 0
+}
+
+interface LabelTextColumns {
+  readonly labelColor: Uint32Array
+  readonly labelSize: Float32Array
+  readonly labelWeight: Uint16Array
+  readonly labelFont: (string | null)[]
+  readonly labelMaxWidth: Float32Array
+}
+
+function writeLabelText(
+  columns: LabelTextColumns,
+  index: number,
+  text: CompiledLabelText,
+  datum: unknown,
+  palette: Palette,
+): void {
+  const color = text.color ? toColor(text.color(datum)) : null
+  columns.labelColor[index] = color ? palette.id(color) : noColor
+  columns.labelSize[index] = positive(text.size?.(datum))
+  columns.labelWeight[index] = readWeight(text.weight?.(datum))
+  columns.labelFont[index] = text.font ? toColor(text.font(datum)) : null
+  columns.labelMaxWidth[index] = positive(text.maxWidth?.(datum))
 }
 
 function readImage(value: unknown): { src: string; scale: number; color: string | null } | null {
@@ -211,6 +253,12 @@ export function createScene(): Scene {
     nodes.label[index] = toText(mark.label?.(datum))
     nodes.secondary[index] = toText(mark.secondary?.(datum))
     nodes.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
+    writeLabelText(nodes, index, mark.labelText, datum, palette)
+    nodes.labelPlacement[index] = codeOf<LabelPlacement>(
+      placementCodes,
+      mark.labelPlacement?.(datum),
+    )
+    nodes.labelMinScreenSize[index] = positive(mark.labelMinScreenSize?.(datum))
     const image = readImage(mark.image?.(datum))
     nodes.image[index] = image?.src ?? null
     nodes.imageScale[index] = image?.scale ?? 1
@@ -241,6 +289,8 @@ export function createScene(): Scene {
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     edges.label[index] = toText(mark.label?.(datum))
+    edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
+    writeLabelText(edges, index, mark.labelText, datum, palette)
     dirtyEdges.add(index)
   }
 

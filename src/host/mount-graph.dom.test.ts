@@ -166,7 +166,11 @@ describe('createGraphHost', () => {
     document.body.append(container)
     const graphDefinition = defineGraph({
       marks: definition().marks,
-      states: { ringed: { outline: 'red' }, wide: { outlineWidth: 6 } },
+      states: {
+        hovered: { labelColor: 'blue' },
+        ringed: { outline: 'red' },
+        wide: { outlineWidth: 6 },
+      },
     })
     createGraphHost(container, { definition: graphDefinition, ariaLabel: 'graphe' }, () => ({
       ...fakeRenderer(),
@@ -181,6 +185,9 @@ describe('createGraphHost', () => {
     expect(width(3)).toBe(2)
     expect(paint[4 * 4 + 2]).toBe(noPaint)
     expect(width(4)).toBe(6)
+    const labels = (states as StateBuffers | null)?.labels ?? new Uint32Array(0)
+    expect(labels[1 * 4]).not.toBe(noPaint)
+    expect(labels[3 * 4]).toBe(noPaint)
   })
 
   it('exposes host state as a read-only TanStack store', () => {

@@ -4,6 +4,7 @@ import { nodesInside } from '../core/lasso'
 import { PickIndex, type PickSource } from '../core/pick-index'
 import { type PositionMoves, Positions, placeNodes } from '../core/positions'
 import { createScene } from '../core/scene'
+import { shallowEqual } from '../core/shallow-equal'
 import { nearestNode, nodeToward } from '../core/spatial'
 import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
@@ -21,7 +22,16 @@ import {
 import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles, defaults } from '../theme/tokens'
-import type { FreeState, GraphDefinition, Key, Point, StateStyle, View } from '../types'
+import type {
+  FreeState,
+  GraphDefinition,
+  Key,
+  Layout,
+  LayoutRun,
+  Point,
+  StateStyle,
+  View,
+} from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import {
   type ElementKeys,
@@ -32,6 +42,7 @@ import {
   type GraphTarget,
 } from './events'
 import { keyAction } from './keyboard'
+import { layoutGraph } from './layout-graph'
 import type { Renderer } from './renderer'
 import { StateRegistry } from './state-registry'
 
@@ -44,6 +55,12 @@ export interface GraphState<S extends string = string> {
   readonly selection: ElementKeys
   readonly states: { readonly [K in FreeState<S>]: ElementKeys }
   readonly positionsVersion: number
+  readonly layout: GraphLayoutStatus
+}
+
+export interface GraphLayoutStatus {
+  readonly running: boolean
+  readonly progress: number
 }
 
 export type GraphStore<S extends string = string> = ReadonlyStore<GraphState<S>>
@@ -89,6 +106,15 @@ export interface GraphStates<N extends string = string> {
   has(name: N, element: GraphElement): boolean
 }
 
+export interface LayoutRunOptions {
+  readonly keys?: Iterable<Key>
+}
+
+export interface GraphLayout {
+  run(layout?: Layout, options?: LayoutRunOptions): Promise<boolean>
+  stop(): void
+}
+
 export interface GraphPositions {
   get(key: Key): Point | undefined
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
@@ -109,6 +135,7 @@ export interface GraphInstance<S extends string = string> {
   readonly focus: GraphFocus
   readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
+  readonly layout: GraphLayout
   readonly element: HTMLElement
   pick(point: Point): GraphTarget | null
   neighbors(key: Key): Key[]
@@ -157,6 +184,21 @@ const visuallyHidden =
 const focusOutline = '2px solid var(--graph-focus-ring,#c93700)'
 const lassoStyle =
   'fill:color-mix(in srgb,var(--graph-accent,#c93700) 10%,transparent);stroke:var(--graph-accent,#c93700);stroke-width:1.5;stroke-dasharray:4 3;stroke-linejoin:round'
+
+interface LayoutSession {
+  readonly layout: Layout
+  readonly movable: Uint8Array
+  readonly auto: boolean
+  readonly resolve: (completed: boolean) => void
+  run: LayoutRun | null
+}
+
+const idleLayout: GraphLayoutStatus = Object.freeze({ running: false, progress: 0 })
+
+function sameLayout(a: Layout | null, b: Layout | null): boolean {
+  if (a === b) return true
+  return a !== null && b !== null && a.name === b.name && shallowEqual(a.options, b.options)
+}
 
 interface NodeDrag {
   readonly target: GraphTarget & { readonly kind: 'node' }
@@ -208,6 +250,7 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
     ...(style.fill !== undefined ? { fill: id(style.fill) } : {}),
     ...(style.stroke !== undefined ? { stroke: id(style.stroke) } : {}),
     ...(style.outline !== undefined ? { outline: id(style.outline) } : {}),
+    ...(style.labelColor !== undefined ? { labelColor: id(style.labelColor) } : {}),
     ...(style.outlineWidth !== undefined || style.outline !== undefined
       ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
       : {}),
@@ -258,6 +301,11 @@ export function createGraphHost<S extends string = string>(
   let pickedScene = -1
   let pickedPositions = -1
   let gesture: Gesture | null = null
+  let session: LayoutSession | null = null
+  let laidOut = false
+  let relayout = false
+  let framing = options.initialView === undefined
+  let framed: View | null = null
 
   const model = createGraphModel({ schedule: () => request(true) })
   const scene = createScene()
@@ -280,6 +328,7 @@ export function createGraphHost<S extends string = string>(
     selection: controlled ? registry.members('selected') : noKeys,
     states: freeStates(),
     positionsVersion: 0,
+    layout: idleLayout,
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
 
@@ -714,6 +763,155 @@ export function createGraphHost<S extends string = string>(
       const fresh = target(focused.kind, focused.key)
       if (fresh && fresh.datum !== focused.datum) patch({ focused: fresh })
     }
+    followLayout(changes)
+  }
+
+  function followLayout(changes: GraphChanges): void {
+    const layout = definition.layout
+    if (!layout) return
+    const added = changes.nodes.added
+    if (relayout || !laidOut) {
+      if (!relayout && added.length === 0) return
+      relayout = false
+      laidOut = true
+      void beginLayout(layout, () => true, true)
+      return
+    }
+    if (added.length === 0) return
+    const fresh = new Set(added.map((ref) => ref.index))
+    const current = session
+    if (current) {
+      current.run?.stop()
+      session = null
+      const movable = (index: number) => current.movable[index] === 1 || fresh.has(index)
+      if (!launch(current.layout, movable, current)) settleLayout(current.layout, current.resolve)
+      return
+    }
+    void beginLayout(layout, (index) => fresh.has(index), true)
+  }
+
+  function frameLayout(): void {
+    if (!framing) return
+    if (framed !== null && store.get().view !== framed) {
+      framing = false
+      return
+    }
+    pendingFit = { padding: defaultPadding }
+  }
+
+  function placeLayout(current: LayoutSession, xy: Float32Array): void {
+    const dragged = gesture?.drag ? new Set(gesture.drag.indices) : null
+    const limit = Math.min(current.movable.length, xy.length / 2, scene.nodes.capacity)
+    for (let index = 0; index < limit; index++) {
+      if (current.movable[index] !== 1 || scene.nodes.alive[index] !== 1) continue
+      if (dragged?.has(index) || (animationOwner[index] ?? 0) !== 0) continue
+      if (!Number.isNaN(positions.source[index * 2] ?? Number.NaN)) continue
+      positions.set(index, xy[index * 2] ?? 0, xy[index * 2 + 1] ?? 0)
+    }
+  }
+
+  function finishLayout(current: LayoutSession, completed: boolean): void {
+    if (session !== current) return
+    session = null
+    patch({ layout: { running: false, progress: completed ? 1 : store.get().layout.progress } })
+    if (completed && emitter.has('positionchange')) {
+      const moved = new Map<Key, Point>()
+      const limit = Math.min(current.movable.length, scene.nodes.capacity)
+      for (let index = 0; index < limit; index++) {
+        const key = scene.nodes.keys[index]
+        if (current.movable[index] !== 1 || scene.nodes.alive[index] !== 1 || key === undefined)
+          continue
+        moved.set(key, { x: positions.x(index), y: positions.y(index) })
+      }
+      if (moved.size > 0) emitter.emit('positionchange', { origin: 'layout', positions: moved })
+    }
+    if (completed && framing) {
+      frameLayout()
+      framing = false
+    }
+    emitter.emit('layoutend', { name: current.layout.name, completed })
+    current.resolve(completed)
+    request()
+  }
+
+  function launch(
+    layout: Layout,
+    movable: (index: number) => boolean,
+    previous: Pick<LayoutSession, 'auto' | 'resolve'>,
+  ): boolean {
+    const dragged = gesture?.drag ? new Set(gesture.drag.indices) : null
+    const graph = layoutGraph(
+      scene.nodes,
+      scene.edges,
+      positions,
+      store.get().view.zoom,
+      (index) => movable(index) && !dragged?.has(index),
+    )
+    if (!graph.movable.includes(1)) return false
+    for (let index = 0; index < Math.min(graph.capacity, animationOwner.length); index++) {
+      if (graph.movable[index] === 1) animationOwner[index] = 0
+    }
+    const current: LayoutSession = {
+      layout,
+      movable: graph.movable,
+      auto: previous.auto,
+      resolve: previous.resolve,
+      run: null,
+    }
+    session = current
+    try {
+      const run = layout.start(graph, {
+        progress: (xy, progress) => {
+          if (session !== current) return
+          placeLayout(current, xy)
+          patch({ layout: { running: true, progress } })
+          frameLayout()
+          request()
+        },
+        end: (xy) => {
+          if (session !== current) return
+          placeLayout(current, xy)
+          finishLayout(current, true)
+        },
+      })
+      if (session === current) current.run = run
+    } catch (error) {
+      finishLayout(current, false)
+      throw error
+    }
+    return true
+  }
+
+  function beginLayout(
+    layout: Layout,
+    movable: (index: number) => boolean,
+    auto: boolean,
+  ): Promise<boolean> {
+    stopLayout()
+    return new Promise<boolean>((resolve) => {
+      patch({ layout: { running: true, progress: 0 } })
+      emitter.emit('layoutstart', { name: layout.name })
+      if (!launch(layout, movable, { auto, resolve })) settleLayout(layout, resolve)
+    })
+  }
+
+  function settleLayout(layout: Layout, resolve: (completed: boolean) => void): void {
+    patch({ layout: { running: false, progress: 1 } })
+    emitter.emit('layoutend', { name: layout.name, completed: true })
+    resolve(true)
+  }
+
+  function stopLayout(): void {
+    const current = session
+    if (!current) return
+    current.run?.stop()
+    finishLayout(current, false)
+  }
+
+  function pinLayout(indices: readonly number[]): void {
+    const run = session?.run
+    if (!run) return
+    for (const index of indices) run.pin(index, positions.x(index), positions.y(index))
   }
 
   function movePositions(
@@ -789,7 +987,10 @@ export function createGraphHost<S extends string = string>(
       needsFlush = false
       applyChanges(model.flush())
     }
-    if (pendingFit && fitTo(undefined, pendingFit)) pendingFit = null
+    if (pendingFit && fitTo(undefined, pendingFit)) {
+      pendingFit = null
+      framed = store.get().view
+    }
     if (viewAnimation) {
       const t = Math.min(1, (now - viewAnimation.start) / viewAnimation.duration)
       const view = interpolateView(viewAnimation.from, viewAnimation.to, easeInOut(t))
@@ -945,6 +1146,7 @@ export function createGraphHost<S extends string = string>(
           world.y + (drag.offsets[i * 2 + 1] ?? 0),
         )
       })
+      pinLayout(drag.indices)
       emitter.emit('drag', dragEvent(drag, event))
       if (emitter.has('positionchange')) {
         const moved = new Map<Key, Point>()
@@ -1126,9 +1328,34 @@ export function createGraphHost<S extends string = string>(
         to.push(point.x, point.y)
         moved.set(key, { x: point.x, y: point.y })
       }
+      const run = session?.run
+      if (run) {
+        for (const [i, index] of indices.entries())
+          run.pin(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
+      }
       movePositions(indices, to, positionOptions.duration ?? 0)
       if (moved.size > 0) emitter.emit('positionchange', { origin: 'api', positions: moved })
     },
+  }
+
+  const layoutApi: GraphLayout = {
+    run: (layout, runOptions = {}) => {
+      const chosen = layout ?? definition.layout
+      if (!chosen) return Promise.reject(new Error('graph: no layout to run'))
+      if (needsFlush) {
+        needsFlush = false
+        applyChanges(model.flush())
+      }
+      const keys = runOptions.keys
+      if (!keys) return beginLayout(chosen, () => true, false)
+      const indices = new Set<number>()
+      for (const key of keys) {
+        const record = model.node(key)
+        if (record) indices.add(record.index)
+      }
+      return beginLayout(chosen, (index) => indices.has(index), false)
+    },
+    stop: () => stopLayout(),
   }
 
   return {
@@ -1138,6 +1365,7 @@ export function createGraphHost<S extends string = string>(
     focus,
     states,
     positions: positionsApi,
+    layout: layoutApi,
     element,
     pick: (point) => pickAt(point),
     neighbors: (key) => model.neighbors(key),
@@ -1151,7 +1379,12 @@ export function createGraphHost<S extends string = string>(
         publishSelection()
       }
       if (next.definition && next.definition !== definition) {
+        const previous = definition.layout
         definition = next.definition
+        if (!sameLayout(previous, definition.layout)) {
+          if (session?.auto) stopLayout()
+          relayout = definition.layout !== null
+        }
         model.setMarks(definition.marks)
         scene.setDefinition(definition)
         applyLayers()
@@ -1165,6 +1398,10 @@ export function createGraphHost<S extends string = string>(
     destroy() {
       if (destroyed) return
       destroyed = true
+      const current = session
+      session = null
+      current?.run?.stop()
+      current?.resolve(false)
       if (frameRequest !== 0) cancelAnimationFrame(frameRequest)
       clearTimeout(laterRequest)
       resizeObserver.disconnect()
