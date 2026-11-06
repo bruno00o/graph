@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/bruno00o/graph/compare/0.5.1...0.6.0) (2026-11-06)
+
+
+### Features
+
+* lay out nodes on a grid, in rings or around a root, and glide them to the result ([#34](https://github.com/bruno00o/graph/issues/34)) ([fdc7c9d](https://github.com/bruno00o/graph/commit/fdc7c9d347fdc8196e54d46311c696921e5ae6a8))
+
 ## [0.5.1](https://github.com/bruno00o/graph/compare/0.5.0...0.5.1) (2026-11-06)
 
 
