@@ -1,5 +1,6 @@
 import { containerShape, type EdgeColumns, type NodeColumns } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach } from '../core/edge-curve'
+import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
@@ -20,6 +21,7 @@ export interface FrameSource {
   readonly width: number
   readonly height: number
   readonly hulls?: readonly HullShape[]
+  readonly bundles?: EdgePaths | null
 }
 
 export interface FrameOptions {
@@ -108,6 +110,23 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
       minY = Math.min(minY, y - reach)
       maxX = Math.max(maxX, x + reach)
       maxY = Math.max(maxY, y + reach)
+    }
+  }
+  const bundles = source.bundles
+  if (bundles && bundles.bundled > 0) {
+    const line = new Float64Array(maxPathPoints * 2)
+    for (let index = 0; index < edges.capacity; index++) {
+      if (edges.alive[index] !== 1 || bundles.count(index) < 2) continue
+      const reach = Math.max(edges.width[index] ?? 0, 0.5) / 2
+      const count = bundles.polyline(index, edges, positions, bundles.mix, line)
+      for (let k = 1; k < count - 1; k++) {
+        const x = (line[k * 2] ?? 0) * zoom
+        const y = (line[k * 2 + 1] ?? 0) * zoom
+        minX = Math.min(minX, x - reach)
+        minY = Math.min(minY, y - reach)
+        maxX = Math.max(maxX, x + reach)
+        maxY = Math.max(maxY, y + reach)
+      }
     }
   }
   for (const shape of source.hulls ?? []) {

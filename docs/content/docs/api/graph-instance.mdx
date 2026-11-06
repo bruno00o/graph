@@ -15,6 +15,7 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   readonly groups: GraphGroups
   readonly paths: GraphPaths<M>
+  readonly bundling: GraphBundling
   readonly element: HTMLElement
   pick(point: Point): GraphTarget<M> | null
   neighbors(key: Key): Key[]
@@ -124,6 +125,18 @@ interface LayoutRunOptions {
 
 <api-table path="index.ts" name="LayoutRunOptions" />
 
+## Bundling
+
+```ts
+interface GraphBundling {
+  run(): Promise<boolean>
+}
+```
+
+<api-table path="index.ts" name="GraphBundling" />
+
+Bundles are computed on their own once nodes stand still. `run` computes them now, without waiting, from the current positions. It resolves to `false` when the definition has no `bundling`, when more edges than `maxEdges` would be bundled, or when the run is replaced. See [Edge bundling](/docs/bundling).
+
 ## Anchors
 
 ```ts
@@ -192,14 +205,19 @@ interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly positionsVersion: number
   readonly layout: GraphLayoutStatus
   readonly folded: readonly Key[]
+  readonly bundling: GraphBundlingStatus
 }
 
 interface GraphLayoutStatus {
   readonly running: boolean
   readonly progress: number
 }
+
+interface GraphBundlingStatus {
+  readonly running: boolean
+}
 ```
 
 <api-table path="index.ts" name="GraphState" />
 
-`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run.
+`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed.

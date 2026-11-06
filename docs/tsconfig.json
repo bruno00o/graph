@@ -28,7 +28,8 @@
       "@bruno00o/graph/export": ["../src/export/index.ts"],
       "@bruno00o/graph/map": ["../src/map/index.ts"],
       "@bruno00o/graph/minimap": ["../src/minimap/index.ts"],
-      "@bruno00o/graph/legend": ["../src/legend/index.ts"]
+      "@bruno00o/graph/legend": ["../src/legend/index.ts"],
+      "@bruno00o/graph/bundling": ["../src/bundling/index.ts"]
     }
   },
   "include": ["src", "source.config.ts", "vite.config.ts"]

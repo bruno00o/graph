@@ -123,4 +123,12 @@ export const messages = {
   flowsOff: 'Stop flows',
   exported: (format: string, bytes: number, duration: number) =>
     `${format}, ${formatNumber(Math.max(1, Math.round(bytes / 1024)))} kB in ${formatNumber(Math.round(duration))} ms`,
+  bundlingOn: 'Bundling: on',
+  bundlingOff: 'Bundling: off',
+  bundleStrength: (name: string) => `Strength: ${name}`,
+  bundleStrengths: { '0.5': 'low', '0.85': 'medium', '1': 'full' },
+  bundleReach: (name: string) => `Reach: ${name}`,
+  bundleReaches: { '0.03': 'short', '0.06': 'medium', '0.12': 'long' },
+  bundling: 'Bundling…',
+  bundled: (duration: number) => `Bundled in ${formatNumber(Math.round(duration))} ms`,
 }

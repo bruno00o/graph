@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { defineGraph, edges, type Hull, hull, type Mark, nodes } from './index'
+import { densityBundling } from './bundling'
+import { defineGraph, type EdgeBundling, edges, type Hull, hull, type Mark, nodes } from './index'
 
 const items = [{ id: 'a' }, { id: 'b' }]
 const links = [{ id: 'ab', from: 'a', to: 'b' }]
@@ -113,6 +114,22 @@ describe('defineGraph', () => {
     expect(Object.isFrozen(definition.hulls)).toBe(true)
     expect(() =>
       defineGraph({ marks: [], hulls: [{ nodes: ['a'] } as unknown as Hull<never>] }),
+    ).toThrow(TypeError)
+  })
+
+  it('keeps the edge bundling and rejects other values', () => {
+    expect(defineGraph({ marks: [] }).bundling).toBeNull()
+    const bundling = densityBundling({ strength: 0.5 })
+    expect(defineGraph({ marks: [], bundling }).bundling).toBe(bundling)
+    expect(bundling.strength).toBe(0.5)
+    expect(bundling.options).toEqual({ radius: 0.06, iterations: 12 })
+    expect(densityBundling({ strength: 4, radius: Number.NaN }).strength).toBe(1)
+    expect(densityBundling({ radius: Number.NaN }).options).toEqual({
+      radius: 0.06,
+      iterations: 12,
+    })
+    expect(() =>
+      defineGraph({ marks: [], bundling: { name: 'other' } as unknown as EdgeBundling }),
     ).toThrow(TypeError)
   })
 

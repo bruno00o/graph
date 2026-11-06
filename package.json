@@ -71,6 +71,10 @@
       "types": "./dist/legend.d.ts",
       "import": "./dist/legend.js"
     },
+    "./bundling": {
+      "types": "./dist/bundling.d.ts",
+      "import": "./dist/bundling.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },

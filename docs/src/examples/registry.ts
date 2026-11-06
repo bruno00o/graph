@@ -74,6 +74,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./layout/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'edge-bundling',
+    title: 'Edge bundling',
+    description:
+      'Edges between communities of a force layout merge into bundles once nodes stand still, computed by density in a Web Worker. Change the strength and the reach, or turn bundling off: edges glide between shapes.',
+    hint: 'Drag a node: edges bundle again once it stops.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/bundling', '@bruno00o/graph/layouts/force'],
+    files: ['bundling/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./bundling/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'layouts',
     title: 'Layouts',
     description:

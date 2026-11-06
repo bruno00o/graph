@@ -1,3 +1,4 @@
+import type { EdgePaths } from '../core/edge-paths'
 import type { HullLayer } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
@@ -13,6 +14,7 @@ export interface GraphSnapshot {
   readonly grid: GridInput | null
   readonly hulls: HullLayer
   readonly containers: ContainerFrame | null
+  readonly bundles: EdgePaths | null
   readonly palette: Uint8Array
   readonly theme: ResolvedTheme
   readonly view: View

@@ -1,6 +1,7 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import { containerShape, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
+import type { EdgePaths, PathPoint } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
@@ -54,6 +55,7 @@ export interface LabelFrame {
   readonly largestEdgeLabel: number
   readonly mode?: LabelMode
   readonly sink?: LabelSink
+  readonly paths?: EdgePaths | null
 }
 
 export type TextMeasure = Pick<GlyphAtlas, 'height' | 'generation' | 'line' | 'fit'>
@@ -260,12 +262,56 @@ function emit(
   }
 }
 
-export function edgeAnchor(
+const pathPoints: [PathPoint, PathPoint, PathPoint] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+]
+
+function pathAnchor(
   frame: Pick<LabelFrame, 'nodes' | 'edges' | 'positions' | 'view' | 'width' | 'height'>,
+  paths: EdgePaths,
   index: number,
   out: EdgeAnchor,
 ): boolean {
   const { nodes, edges, positions, view, width, height } = frame
+  const source = edges.source[index] ?? 0
+  const target = edges.target[index] ?? 0
+  const sx = positions.x(source)
+  const sy = positions.y(source)
+  const tx = positions.x(target)
+  const ty = positions.y(target)
+  const bend = edges.bend[index] ?? 0
+  const middle = (paths.count(index) - 1) >> 1
+  const [before, at, after] = pathPoints
+  paths.point(index, middle - 1, sx, sy, tx, ty, bend, paths.mix, before)
+  paths.point(index, middle, sx, sy, tx, ty, bend, paths.mix, at)
+  paths.point(index, middle + 1, sx, sy, tx, ty, bend, paths.mix, after)
+  const dx = after.x - before.x
+  const dy = after.y - before.y
+  const length = Math.hypot(dx, dy)
+  if (length === 0) return false
+  const ux = dx / length
+  const uy = dy / length
+  out.x = (at.x - view.x) * view.zoom + width / 2
+  out.y = (at.y - view.y) * view.zoom + height / 2
+  const flip = ux < -uprightSlack || (Math.abs(ux) <= uprightSlack && uy < 0)
+  out.ax = flip ? -ux : ux
+  out.ay = flip ? -uy : uy
+  out.room =
+    paths.length(index) * view.zoom -
+    screenRadius(nodes, source, view.zoom) -
+    screenRadius(nodes, target, view.zoom)
+  return true
+}
+
+export function edgeAnchor(
+  frame: Pick<LabelFrame, 'nodes' | 'edges' | 'positions' | 'view' | 'width' | 'height' | 'paths'>,
+  index: number,
+  out: EdgeAnchor,
+): boolean {
+  const { nodes, edges, positions, view, width, height, paths } = frame
+  if (paths && paths.count(index) > 1) return pathAnchor(frame, paths, index, out)
   const source = edges.source[index] ?? 0
   const target = edges.target[index] ?? 0
   const sx = (positions.x(source) - view.x) * view.zoom + width / 2
@@ -571,12 +617,17 @@ export class LabelLayer {
       const index = frame.edgeOrder[at] ?? 0
       const from = (source[index] ?? 0) * 2
       const to = (target[index] ?? 0) * 2
+      const slack = frame.paths?.reach[index] ?? 0
       const ax = xy[from] ?? 0
       const bx = xy[to] ?? 0
-      if ((ax < left && bx < left) || (ax > right && bx > right)) continue
+      if ((ax < left - slack && bx < left - slack) || (ax > right + slack && bx > right + slack)) {
+        continue
+      }
       const ay = xy[from + 1] ?? 0
       const by = xy[to + 1] ?? 0
-      if ((ay < top && by < top) || (ay > bottom && by > bottom)) continue
+      if ((ay < top - slack && by < top - slack) || (ay > bottom + slack && by > bottom + slack)) {
+        continue
+      }
       if (!highlightedEdges.has(index)) placeEdge(index, false)
     }
   }

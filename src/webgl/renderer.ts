@@ -2,6 +2,7 @@ import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import type { ResolvedTheme } from '../dom/theme'
 import type { LabelArea, Renderer, RenderInput } from '../host/renderer'
 import { createBackdrop } from './backdrop'
+import { bundleUnits, createBundlePass } from './bundle-pass'
 import {
   type Attribute,
   createBuffer,
@@ -55,6 +56,7 @@ const units = {
   images: 9,
   nodeDecor: 10,
   nodeBox: 11,
+  ...bundleUnits,
 } as const
 
 function iota(length: number): Uint32Array {
@@ -178,6 +180,7 @@ function createRenderer(
       readonly layerSlot: WebGLUniformLocation | null
       readonly overlay: WebGLUniformLocation | null
       readonly flowTime: WebGLUniformLocation | null
+      readonly bundleMix: WebGLUniformLocation | null
     }
   >()
   let flowTime = 0
@@ -191,6 +194,7 @@ function createRenderer(
       layerSlot: gl.getUniformLocation(program, 'layerSlot'),
       overlay: gl.getUniformLocation(program, 'overlay'),
       flowTime: gl.getUniformLocation(program, 'flowTime'),
+      bundleMix: gl.getUniformLocation(program, 'bundleMix'),
     })
   }
   for (const program of programs) prepare(program)
@@ -367,6 +371,7 @@ function createRenderer(
     [badgeProgram, cornerNode.length / 2],
   ])
   let warmed = false
+  const bundles = createBundlePass(gl, blocks, prepare, edgeOverlayIndices)
   let curvePass: {
     readonly program: WebGLProgram
     readonly main: WebGLVertexArrayObject
@@ -761,6 +766,7 @@ function createRenderer(
         edgeOrderLength: edgeLabelOrderLength,
         largestEdgeLabel,
         mode: frame.mode,
+        paths: input.bundles ?? null,
       },
       atlas,
     )
@@ -789,7 +795,8 @@ function createRenderer(
   }
 
   function textureBytes(): number {
-    let bytes = paletteRows * paletteWidth * 4 + atlasRows * atlasWidth + images.bytes
+    let bytes =
+      paletteRows * paletteWidth * 4 + atlasRows * atlasWidth + images.bytes + bundles.bytes
     for (const texture of [...nodeTextures, ...edgeTextures]) bytes += texture.data.byteLength
     return bytes
   }
@@ -800,6 +807,7 @@ function createRenderer(
     count: number,
     slot: number,
     overlay: number,
+    vertices: number = vertexCounts.get(program) ?? 4,
   ): void {
     if (count === 0) return
     const location = locations.get(program)
@@ -807,8 +815,9 @@ function createRenderer(
     gl.uniform1i(location?.layerSlot ?? null, slot)
     gl.uniform1i(location?.overlay ?? null, overlay)
     if (location?.flowTime) gl.uniform1f(location.flowTime, flowTime)
+    if (location?.bundleMix) gl.uniform1f(location.bundleMix, bundles.mix)
     gl.bindVertexArray(vao)
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertexCounts.get(program) ?? 4, count)
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, count)
   }
 
   function warm(): void {
@@ -842,6 +851,7 @@ function createRenderer(
       refreshImages(next.scene.nodes)
       syncEdges(next)
       syncStates(next)
+      if (bundles.sync(next.bundles)) labelsMoved = true
       backdrop.sync(next)
       if (next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full) labelsStale = true
       if (next.positionsChanged) labelsMoved = true
@@ -940,6 +950,9 @@ function createRenderer(
             const pass = curves()
             draw(pass.program, pass.main, curved.size, layer.slot, 0)
           }
+          bundles.draw((program, vao, count, vertices) =>
+            draw(program, vao, count, layer.slot, 0, vertices),
+          )
         } else draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
       }
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
@@ -950,6 +963,9 @@ function createRenderer(
       if (curvePass && curved.size > 0) {
         draw(curvePass.program, curvePass.overlay, edgeOverlayCount, 0, 1)
       }
+      bundles.overlay(edgeOverlayCount, (program, vao, count, vertices) =>
+        draw(program, vao, count, 0, 1, vertices),
+      )
       draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
       if (nodeOverlayCount > 0) {
         draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
@@ -978,6 +994,7 @@ function createRenderer(
       gl.deleteTexture(atlasTexture)
       images.destroy()
       backdrop.destroy()
+      bundles.destroy()
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
       for (const vao of Object.values(vertexArrays)) gl.deleteVertexArray(vao)
       if (curvePass) {
@@ -1007,6 +1024,7 @@ function createRenderer(
       gl.activeTexture(gl.TEXTURE0 + unit)
       gl.bindTexture(gl.TEXTURE_2D, texture)
     }
+    bundles.bind()
     gl.activeTexture(gl.TEXTURE0 + units.images)
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, images.texture)
   }

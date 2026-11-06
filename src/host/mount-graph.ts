@@ -52,6 +52,7 @@ import type {
 } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import type { GraphAnchors } from './anchors'
+import { BundleHost } from './bundles'
 import { ContainerBoxes } from './containers'
 import { createDecorations } from './decorations'
 import {
@@ -97,6 +98,14 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly layout: GraphLayoutStatus
   /** Keys of the folded groups. */
   readonly folded: readonly Key[]
+  /** Status of edge bundling. */
+  readonly bundling: GraphBundlingStatus
+}
+
+/** Status of edge bundling. */
+export interface GraphBundlingStatus {
+  /** `true` while bundles are computed. */
+  readonly running: boolean
 }
 
 /** Status of the current layout run. */
@@ -249,6 +258,19 @@ export interface GraphLayout<M extends Mark = Mark> {
   stop(): void
 }
 
+/**
+ * Edge bundling, set by the `bundling` of the definition. Bundles are computed once nodes stand
+ * still: after a layout run, a drag or a change of edges.
+ */
+export interface GraphBundling {
+  /**
+   * Applies pending data changes, then bundles the edges now, from the current positions. Resolves
+   * to `true` once the new bundles are drawn and `false` when the run is replaced or there is no
+   * bundling to run.
+   */
+  run(): Promise<boolean>
+}
+
 /** Node positions, in world units. */
 export interface GraphPositions {
   /** Position of a node, or `undefined` for an unknown key. */
@@ -323,6 +345,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly groups: GraphGroups
   /** Shortest paths and reachable nodes, on the data or on the graph as drawn. */
   readonly paths: GraphPaths<M>
+  /** Edge bundling. */
+  readonly bundling: GraphBundling
   /** The `div` added to the container, which holds the canvas. */
   readonly element: HTMLElement
   /** Element under a point in screen pixels, nodes before edges, or `null`. */
@@ -434,6 +458,7 @@ interface LayoutSession extends LayoutSettings {
 }
 
 const idleLayout: GraphLayoutStatus = Object.freeze({ running: false, progress: 0 })
+const idleBundling: GraphBundlingStatus = Object.freeze({ running: false })
 
 function sameLayout(a: Layout | null, b: Layout | null): boolean {
   if (a === b) return true
@@ -573,6 +598,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let sceneVersion = 0
   let pickedScene = -1
   let pickedPositions = -1
+  let pickedPaths = 0
   let gesture: Gesture | null = null
   let pinch: Pinch | null = null
   let autoPanning = false
@@ -620,8 +646,26 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     positionsVersion: 0,
     layout: idleLayout,
     folded: [...projection.folded],
+    bundling: idleBundling,
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
+  const bundles = new BundleHost(
+    {
+      edges: scene.edges,
+      positions,
+      datum: (index) => {
+        const key = scene.edges.keys[index]
+        return key === undefined ? undefined : model.edge(key)?.datum
+      },
+      busy: () => session !== null || positionAnimations.length > 0 || Boolean(gesture?.drag),
+      duration: () => definition.transitions.layout,
+      request: () => request(),
+      running: (running) => {
+        if (store.get().bundling.running !== running) patch({ bundling: { running } })
+      },
+    },
+    reducedMotion,
+  )
   const decorations = createDecorations({
     element,
     canvas,
@@ -633,6 +677,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     request: () => request(),
     containers: () => (projection.active ? containerBoxes : null),
     edgeIndex: (key) => projection.edgeIndexOf(key),
+    paths: bundles.paths,
   })
 
   const layerPositions = { nodes: new Map<number, number>(), edges: new Map<number, number>() }
@@ -646,6 +691,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       const layer = layerPositions[kind].get(slot) ?? 0
       return ((mask & 3) !== 0 ? highlightOrder : 0) + layer * layerOrder + index
     },
+    paths: bundles.paths,
   }
 
   function freeStates(): Record<string, ElementKeys> {
@@ -880,7 +926,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function pickAt(point: Point): GraphTarget | null {
     syncContainers()
-    if (!gesture?.drag && (pickedScene !== sceneVersion || pickedPositions !== positions.version)) {
+    if (!gesture?.drag && pickedPaths !== bundles.paths.version) {
+      pickIndex.build(pickSource)
+      pickedPaths = bundles.paths.version
+      pickedScene = sceneVersion
+      pickedPositions = positions.version
+    } else if (
+      !gesture?.drag &&
+      (pickedScene !== sceneVersion || pickedPositions !== positions.version)
+    ) {
       pickIndex.refresh(pickSource)
       pickedScene = sceneVersion
       pickedPositions = positions.version
@@ -1401,6 +1455,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const result = registry.apply(changes)
     registry.refreshEdges(projected.edges)
+    bundles.changed(
+      projected.scene.edges.added.length > 0 || projected.scene.edges.removed.length > 0,
+    )
     sceneVersion++
     applyLayers()
     decorations.changed()
@@ -1611,6 +1668,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       projection.active ? { indices: projection.containers, hierarchy } : undefined,
     )
     if (!graph.movable.includes(1)) return false
+    let moving = 0
+    for (const flag of graph.movable) moving += flag
+    if (moving * 2 > countAlive(scene.nodes.alive, scene.nodes.capacity)) bundles.fade()
     for (let index = 0; index < Math.min(graph.capacity, animationOwner.length); index++) {
       if (graph.movable[index] === 1) animationOwner[index] = 0
     }
@@ -1810,6 +1870,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (autoPanning) stepAutoPan(now)
     sendView()
     if (positionAnimations.length > 0) stepPositions(now)
+    const easing = bundles.frame(now)
     registry.takeHighlighted()
     syncContainers()
     decorations.prepare()
@@ -1819,7 +1880,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (!renderer) {
       decorations.place()
       for (const watcher of watchers) watcher.frame()
-      if (viewAnimation || autoPanning || positionAnimations.length > 0) request()
+      if (viewAnimation || autoPanning || positionAnimations.length > 0 || easing) request()
       return
     }
     const positionsChanged = positions.version !== positionsVersion
@@ -1834,6 +1895,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       grid: decorations.grid,
       hulls: decorations.hulls,
       ...(projection.active ? { containers: containerBoxes } : {}),
+      bundles: bundles.paths,
     })
     const synced = clock()
     full = false
@@ -1853,6 +1915,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       viewAnimation ||
       autoPanning ||
       positionAnimations.length > 0 ||
+      easing ||
       flows.moving(view, width, height)
     ) {
       request()
@@ -1888,6 +1951,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     element,
     version: () => sceneVersion,
     wake: () => request(),
+    paths: bundles.paths,
   })
 
   function local(event: MouseEvent): Point {
@@ -2288,6 +2352,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   model.setMarks(definition.marks)
   scene.setDefinition(definition)
   decorations.setDefinition(definition)
+  bundles.setBundling(definition.bundling)
   applyLayers()
   applyStyles()
   refreshTheme()
@@ -2477,6 +2542,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     anchors: decorations.anchors,
     groups,
     paths,
+    bundling: {
+      run: () => {
+        if (needsFlush) {
+          needsFlush = false
+          flushChanges()
+        }
+        return bundles.run()
+      },
+    },
     element,
     pick: (point) => pickAt(point),
     neighbors: (key) => model.neighbors(key),
@@ -2504,6 +2578,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         model.setMarks(definition.marks)
         scene.setDefinition(definition)
         decorations.setDefinition(definition)
+        bundles.setBundling(definition.bundling)
         applyLayers()
         if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
         applyStyles()
@@ -2527,6 +2602,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       resizeObserver.disconnect()
       stopTheme()
       flows.destroy()
+      bundles.destroy()
       for (const [name, listener] of listeners) {
         canvas.removeEventListener(name, listener as EventListener)
       }
@@ -2597,6 +2673,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       grid: decorations.grid,
       hulls: decorations.hulls,
       containers: projection.active ? containerBoxes : null,
+      bundles: bundles.paths.bundled > 0 ? bundles.paths : null,
       palette: paletteColors,
       theme: themeResolver.theme(),
       view,

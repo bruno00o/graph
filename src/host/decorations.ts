@@ -1,5 +1,6 @@
 import { type GridInput, gridInput } from '../core/background-grid'
 import { containerShape } from '../core/columns'
+import type { EdgePaths } from '../core/edge-paths'
 import type { GraphModel } from '../core/graph-model'
 import { type ContainerSource, HullLayer } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
@@ -25,6 +26,7 @@ export interface DecorationContext {
   readonly request: () => void
   readonly containers: () => ContainerSource | null
   readonly edgeIndex: (key: Key) => number
+  readonly paths?: EdgePaths
 }
 
 export interface Decorations {
@@ -112,6 +114,7 @@ export function createDecorations(context: DecorationContext): Decorations {
           view: view(),
           width,
           height,
+          paths: context.paths ?? null,
         }
         if (!edgeAnchor(frame, index, edgePoint)) return false
         box.x0 = box.x1 = edgePoint.x

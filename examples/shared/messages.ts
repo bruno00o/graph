@@ -149,6 +149,17 @@ export const messages = {
   minimapModes: { on: 'Affichée', off: 'Masquée' },
   legendLabel: 'Légende',
   legendTitles: { color: 'Groupe', size: 'Poids' },
+  bundling: 'Regroupement des arêtes',
+  bundlingHint: 'Glissez un nœud\u00a0: les arêtes se regroupent de nouveau à l’arrêt.',
+  bundlingMode: 'Regroupement',
+  bundlingModes: { on: 'Activé', off: 'Désactivé' },
+  strength: 'Intensité',
+  strengths: { '0.5': 'Faible', '0.85': 'Moyenne', '1': 'Forte' },
+  reach: 'Portée',
+  reaches: { '0.03': 'Courte', '0.06': 'Moyenne', '0.12': 'Longue' },
+  bundlingRunning: 'Regroupement en cours…',
+  bundlingDone: (ms: number): string => `Regroupé en ${milliseconds(ms)}`,
+  rebundle: 'Regrouper maintenant',
 }
 
 function milliseconds(value: number): string {
