@@ -27,7 +27,7 @@ const definition = defineGraph({
 
 An element is hidden at and below `minZoom`, and at and above `maxZoom`. `null`, `0` or no option means no limit. The options are in the reference of [`nodes`](/docs/api/nodes#options) and [`edges`](/docs/api/edges#options).
 
-Nothing pops: inside its range, an element fades in over a quarter of a zoom doubling, about 19 % of zoom, and fades out the same way before `maxZoom`. The fade multiplies the opacity of the element and of its label.
+Nothing pops: inside its range, an element fades in over a quarter of a zoom doubling, about 19% of zoom, and fades out the same way before `maxZoom`. The fade multiplies the opacity of the element and of its label.
 
 The limits are read when the data changes, like every other style. Zooming only compares the zoom with them on the GPU, so it costs nothing per element.
 
@@ -44,7 +44,7 @@ A hidden element is gone, not only transparent:
 
 A hidden element stays in the data, in the selection and in states. Layouts still place hidden nodes and `view.fit` still frames them, so that the graph does not move or jump when an element appears.
 
-In a [group](/docs/groups), each node follows its own range: a hidden container does not hide its children. Edges drawn in place of edges that end in a folded group read `minZoom` and `maxZoom` from the `aggregate` options of their mark.
+In a [group](/docs/groups), each node follows its own range: a hidden container does not hide its children. An edge drawn in place of edges that end in a folded group takes `minZoom` and `maxZoom` from the `aggregate` options of its mark, or else from its first merged edge.
 
 ## Recipes
 
