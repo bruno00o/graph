@@ -1,0 +1,98 @@
+---
+title: nodes
+description: A mark that draws one node per item of its data.
+---
+
+```ts
+function nodes<T>(data: LiveSource<T>, options?: NodeOptions<T>): NodeMark<T>
+function nodes<T extends { readonly id: Key }>(data: Iterable<T>, options?: NodeOptions<T>): NodeMark<T>
+function nodes<T>(data: Iterable<T>, options: NodeOptions<T> & { key: KeyChannel<T> }): NodeMark<T>
+```
+
+`key` is required for an iterable whose items have no `id` field. A live source carries its keys in its changes.
+
+## Options
+
+A **channel** is a field name or a function, and goes through a scale. A **style** is a constant or a function, with no scale. See [Marks and channels](/docs/marks).
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `key` | `KeyChannel<T>` | `'id'` | Node key, unique across node marks |
+| `color` | `Channel<T, string \| number \| boolean>` | `--graph-node` | Value passed to the `color` scale |
+| `size` | `Channel<T, number>` | `16` | Value passed to the `size` scale. The size is a diameter |
+| `label` | `Channel<T, string> \| LabelOptions<T>` | | Label text, or text, second line and background |
+| `x`, `y` | `Channel<T, number>` | | Position in world units, followed when it changes |
+| `shape` | `Style<T, 'circle' \| 'square' \| 'diamond'>` | `'circle'` | Node shape |
+| `fill` | `Style<T, string>` | | Fill color, wins over `color` |
+| `stroke` | `Style<T, string>` | `--graph-node-ring` | Inner contour color |
+| `strokeWidth` | `Style<T, number>` | `1` | Inner contour width in pixels |
+| `outline` | `Style<T, string \| null>` | | Ring outside the shape. `null` draws none |
+| `outlineWidth` | `Style<T, number>` | `2` | Width of the outer ring in screen pixels |
+| `opacity` | `Style<T, number>` | `1` | Opacity from 0 to 1 |
+| `image` | `Style<T, string \| NodeImage \| null>` | | Picture or icon inside the node |
+| `badges` | `Partial<Record<BadgeCorner, (datum: T) => Badge \| null \| undefined>>` | | Badge per corner |
+| `units` | `'world' \| 'screen'` | `'world'` | `'screen'` keeps the size constant at every zoom |
+
+`outline` alone draws a 2 pixel ring. `outlineWidth` alone draws the ring in `--graph-node-ring`.
+
+## Labels
+
+```ts
+interface LabelOptions<T> {
+  readonly text: Channel<T, string>
+  readonly secondary?: Channel<T, string>
+  readonly background?: Style<T, string | boolean | null>
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `text` | Main line |
+| `secondary` | Smaller second line |
+| `background` | Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null` for none. A plated label has no halo |
+
+## Images
+
+```ts
+interface NodeImage {
+  readonly src: string
+  readonly scale?: number
+  readonly color?: string
+}
+```
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `src` | | Image URL |
+| `scale` | `1` | Size relative to the node diameter |
+| `color` | | Draws the image as a mask of this color |
+
+## Badges
+
+```ts
+type BadgeCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
+
+interface Badge {
+  readonly text?: string | number
+  readonly fill?: string
+  readonly color?: string
+}
+```
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `text` | | Text in the pill. Without it, the badge is a dot |
+| `fill` | `--graph-badge-fill` | Pill color |
+| `color` | `--graph-badge-ink` | Text color |
+
+## Types
+
+```ts
+type Key = string | number
+type Accessor<T, V> = (datum: T) => V
+type Channel<T, V> = FieldOf<T, V> | Accessor<T, V | null | undefined>
+type KeyChannel<T> = KeyFieldOf<T> | Accessor<T, Key>
+type Style<T, V> = V | Accessor<T, V>
+```
+
+`FieldOf<T, V>` is the union of the keys of `T` whose values are `V`, `null` or `undefined`. `KeyFieldOf<T>` is the union of the required keys of `T` whose values are keys.

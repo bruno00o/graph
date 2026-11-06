@@ -1,0 +1,22 @@
+---
+title: Large graph
+---
+
+## How it works
+
+The data is generated in the page: 50,000 nodes in eight groups and 100,000 edges, mostly inside each group. The definition is the same as for a small graph. Nothing is tuned for size.
+
+Positions, colors and states live in typed arrays read by WebGL2. Labels are chosen on the CPU, largest node first, from what is visible on screen, and at most 4,000 are drawn at once. Picking uses a uniform grid, built on the first hover after a change.
+
+## Try it
+
+- Scroll to zoom in until labels appear.
+- Drag the background to pan, and drag a node to move it.
+- Hover a node: it is drawn on top of the others with its label.
+
+The [benchmark](/benchmark) gives frame times for this graph on a known machine.
+
+<Cards>
+  <Card title="Benchmark" href="/benchmark" />
+  <Card title="Data" href="/docs/data" />
+</Cards>

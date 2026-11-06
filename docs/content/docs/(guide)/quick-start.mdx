@@ -1,0 +1,137 @@
+---
+title: Quick start
+description: Draw a first graph from two arrays and respond to clicks.
+---
+
+## Describe your data
+
+A graph reads plain objects. Nodes need a key, `id` by default. Edges need a key and the keys of their two ends.
+
+```ts title="data.ts"
+export type Item = { id: string; label: string; group: string; weight: number }
+export type Link = { id: string; from: string; to: string }
+
+export const items: Item[] = [
+  { id: 'n1', label: 'Node 1', group: 'A', weight: 4 },
+  { id: 'n2', label: 'Node 2', group: 'A', weight: 2 },
+  { id: 'n3', label: 'Node 3', group: 'B', weight: 7 },
+  { id: 'n4', label: 'Node 4', group: 'C', weight: 1 },
+]
+
+export const links: Link[] = [
+  { id: 'e1', from: 'n1', to: 'n2' },
+  { id: 'e2', from: 'n1', to: 'n3' },
+  { id: 'e3', from: 'n3', to: 'n4' },
+]
+```
+
+## Define and mount the graph
+
+`defineGraph` takes a list of marks. `edges()` and `nodes()` map fields to visual channels: here the group picks a color, the weight a size, and edges get an arrow at their target. Marks draw in order, so edges come first and sit under the nodes.
+
+```ts tab="Vanilla" tab-group="framework" title="main.ts"
+import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
+import '@bruno00o/graph/theme.css'
+import { items, links } from './data'
+
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to', arrow: 'target' }),
+    nodes(items, { color: 'group', size: 'weight', label: 'label' }),
+  ],
+})
+
+const container = document.querySelector<HTMLElement>('#graph')
+if (container) {
+  const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+  graph.on('click', ({ target }) => {
+    if (target?.kind === 'node') graph.view.fit([target.key], { duration: 400 })
+  })
+}
+```
+
+```tsx tab="React" tab-group="framework" title="App.tsx"
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { Graph, useGraph, useGraphEvent } from '@bruno00o/graph/react'
+import '@bruno00o/graph/theme.css'
+import { items, links } from './data'
+
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to', arrow: 'target' }),
+    nodes(items, { color: 'group', size: 'weight', label: 'label' }),
+  ],
+})
+
+function FitOnClick() {
+  const graph = useGraph()
+  useGraphEvent('click', ({ target }) => {
+    if (target?.kind === 'node') graph.view.fit([target.key], { duration: 400 })
+  })
+  return null
+}
+
+export function App() {
+  return (
+    <Graph definition={definition} ariaLabel="Sample graph" style={{ height: 480 }}>
+      <FitOnClick />
+    </Graph>
+  )
+}
+```
+
+The container needs a size: the graph fills it. Without an initial view, the graph fits all nodes in view with a 32 pixel margin as soon as the first data arrives.
+
+## What you get
+
+- Scroll or pinch to zoom, drag the background to pan, drag a node to move it.
+- Click a node to select it. Hold Shift, Cmd or Ctrl to add to the selection.
+- Tab into the graph and use the arrow keys to move the focus, Enter to select.
+- Hover a node to see its label even where labels would overlap.
+
+## Add a state
+
+States style a set of elements by key. Declare one in the definition, then set its members at runtime.
+
+```ts tab="Vanilla" tab-group="framework"
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { color: 'group', label: 'label' }),
+  ],
+  states: { muted: { opacity: 0.2, label: false } },
+})
+
+const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+graph.states.set('muted', { nodes: ['n2', 'n4'] })
+```
+
+```tsx tab="React" tab-group="framework"
+function MuteButton() {
+  const graph = useGraph()
+  return (
+    <button type="button" onClick={() => graph.states.set('muted', { nodes: ['n2', 'n4'] })}>
+      Mute
+    </button>
+  )
+}
+```
+
+State names flow into the types of the instance that `mountGraph` returns: with this definition, `graph.states.set('mutd', …)` does not compile. Inside `<Graph>`, `useGraph()` returns an instance typed with plain strings.
+
+## Next steps
+
+<Cards>
+  <Card title="Data and live sources" href="/docs/data">
+    Arrays, keys, and collections that stream their changes.
+  </Card>
+  <Card title="Marks and channels" href="/docs/marks">
+    Every option of `nodes()` and `edges()`.
+  </Card>
+  <Card title="States" href="/docs/states">
+    Declare, style and set states.
+  </Card>
+  <Card title="React" href="/docs/react">
+    The `Graph` component, overlays and hooks.
+  </Card>
+</Cards>

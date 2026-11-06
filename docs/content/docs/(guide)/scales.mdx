@@ -1,0 +1,72 @@
+---
+title: Scales
+description: Turn data values into colors, sizes and widths, shared by every mark.
+---
+
+## Shared scales
+
+Channels go through three scales: `color`, `size` and `width`. A scale is shared by every mark of the definition, so a group keeps the same color on nodes and edges. Configure them in `defineGraph`.
+
+```ts
+defineGraph({
+  marks: [edges(links, { source: 'from', target: 'to' }), nodes(items, { color: 'group', size: 'weight' })],
+  scales: {
+    color: { domain: ['A', 'B', 'C'], range: ['var(--graph-cat-3)', 'var(--graph-cat-1)', 'var(--graph-cat-7)'] },
+    size: { type: 'linear', range: [10, 40] },
+  },
+})
+```
+
+| Scale | Default | Options |
+| --- | --- | --- |
+| `color` | Categorical, `--graph-cat-1` to `--graph-cat-8` in order of appearance, cycling | `{ domain, range }`, or `{ type: 'sequential', domain, range }` |
+| `size` | Square root from the data extent to `[8, 32]`, so the area follows the value | `{ type: 'linear' \| 'sqrt', domain, range }` |
+| `width` | Linear from the data extent to `[1, 6]` | `{ type: 'linear' \| 'sqrt', domain, range }` |
+
+## Color
+
+The color scale is categorical by default, even for numbers: nothing is guessed. A category keeps its color as long as the scale does not change, even when the data changes.
+
+For a gradient, ask for a sequential scale. It interpolates from `--graph-cat-5` to `--graph-cat-1` by default, in steps of one percent.
+
+```ts
+scales: {
+  color: { type: 'sequential', domain: [0, 100] },
+}
+```
+
+Values outside an explicit domain are clamped to it. Without a domain, the scale uses the extent of the data and follows it as the data changes.
+
+## Size and width
+
+`size` is a diameter. The default square root scale makes the area of a node proportional to its value. `width` sets the edge width in screen pixels.
+
+```ts
+scales: {
+  size: { type: 'sqrt', domain: [0, 1000], range: [6, 48] },
+  width: { range: [0.5, 4] },
+}
+```
+
+## Functions
+
+Any scale can be a function, which makes D3 scales work as is.
+
+```ts
+import { scaleLog } from 'd3-scale'
+
+scales: {
+  size: scaleLog().domain([1, 1e6]).range([8, 40]),
+  color: (value) => (value === 'A' ? 'var(--graph-cat-4)' : 'var(--graph-node)'),
+}
+```
+
+An identity function uses the channel values as they are: `size: (value) => value` makes `size: 'weight'` a diameter in pixels.
+
+## Missing values
+
+A channel that returns `null` or `undefined`, or a mark without that channel, takes the theme default: `--graph-node` and 16 for nodes, `--graph-edge` and 1.5 for edges.
+
+## When a scale changes
+
+Scale options are compared by content: a definition rebuilt with the same scales rewrites nothing. A changed scale restyles every element that uses it and resets the categories.

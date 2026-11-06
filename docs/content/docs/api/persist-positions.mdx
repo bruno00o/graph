@@ -1,0 +1,35 @@
+---
+title: persistPositions
+description: Write the positions of dragged nodes to a TanStack DB collection.
+---
+
+```ts
+import { persistPositions } from '@bruno00o/graph/db'
+
+function persistPositions<T extends object, TKey extends string | number>(
+  graph: GraphInstance,
+  options: PersistPositionsOptions<T, TKey>,
+): () => void
+```
+
+Listens to `positionchange` and writes `x` and `y` into the collection. Returns a function that stops listening and writes the last pending move at once.
+
+## Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `collection` | `Collection<T, TKey>` | | Required. Collection to write to |
+| `x` | `FieldOf<T, number>` | `'x'` | Field of the horizontal position |
+| `y` | `FieldOf<T, number>` | `'y'` | Field of the vertical position |
+| `key` | `(key: Key) => TKey` | identity | Maps a node key to a row key |
+| `create` | `(key: Key, point: Point) => T` | | Builds the row of a node that has none. Without it, such nodes are skipped |
+| `mutationFn` | `MutationFn<T>` | | Persists through `createPacedMutations`, with an optimistic write |
+| `strategy` | `Strategy` | `throttleStrategy({ wait: 100, leading: true, trailing: true })` | Pacing of the writes |
+
+## Behavior
+
+- Without `mutationFn`, rows are updated with `collection.update`, paced by the `wait` of the strategy. The collection persists them through its own handlers.
+- With `mutationFn`, `createPacedMutations` writes optimistically and calls your function at the pace of the strategy. A failed mutation rolls back the optimistic write.
+- Moves that come from the collection do not emit `positionchange`, so writes never echo.
+
+See [TanStack DB](/docs/tanstack-db) for a walkthrough.

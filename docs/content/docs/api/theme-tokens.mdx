@@ -1,0 +1,38 @@
+---
+title: Theme tokens
+description: Every CSS variable of the default theme, with its light and dark values.
+---
+
+`@bruno00o/graph/theme.css` sets these variables on `:root` for the light theme, and on `.dark`, `[data-theme="dark"]` or under `prefers-color-scheme: dark` for the dark theme. Override any of them in your own CSS. See [Theming](/docs/theming).
+
+| Token | Light | Dark | Used for |
+| --- | --- | --- | --- |
+| `--graph-paper` | `#f7f7f4` | `#0f1113` | Page background |
+| `--graph-paper-raised` | `#ffffff` | `#171a1d` | Raised surfaces |
+| `--graph-grid` | `#c4e0dd` | `#1e3233` | Background grid, for your own page |
+| `--graph-ink` | `#191d22` | `#efeeeb` | Text, hover ring |
+| `--graph-ink-muted` | `#5b6167` | `#a6abb1` | Secondary text |
+| `--graph-node` | `#474e55` | `#b7bfc7` | Default node fill |
+| `--graph-edge` | `#7f858c` | `#6f757b` | Default edge color |
+| `--graph-group-fill` | `#e7efee` | `#131b1c` | Group surfaces, for your own page |
+| `--graph-group-line` | `#6e8d8b` | `#5d7b7b` | Group borders, for your own page |
+| `--graph-accent` | `#c93700` | `#fa8054` | Selection and lasso |
+| `--graph-on-accent` | `#ffffff` | `#0f1113` | Content on the accent |
+| `--graph-focus-ring` | `#c93700` | `#fa8054` | Keyboard focus |
+| `--graph-halo` | `#c9370047` | `#fa805447` | Glow of selected elements |
+| `--graph-label-halo` | `#f7f7f4` | `#0f1113` | Halo behind label text |
+| `--graph-label-background` | `#ffffff` | `#171a1d` | Plate behind labels with `background: true` |
+| `--graph-node-ring` | `#f7f7f4` | `#0f1113` | Node contour, badge ring, default outline |
+| `--graph-badge-fill` | `#191d22` | `#efeeeb` | Default badge fill |
+| `--graph-badge-ink` | `#f7f7f4` | `#0f1113` | Default badge text |
+| `--graph-cat-1` | `#2769b7` | `#6fa7ee` | Categorical color 1, end of the sequential scale |
+| `--graph-cat-2` | `#a47c13` | `#e7bf57` | Categorical color 2 |
+| `--graph-cat-3` | `#12867c` | `#5cc6b9` | Categorical color 3 |
+| `--graph-cat-4` | `#9b357f` | `#e17eb9` | Categorical color 4 |
+| `--graph-cat-5` | `#4189ad` | `#9cd3f1` | Categorical color 5, start of the sequential scale |
+| `--graph-cat-6` | `#448335` | `#81ce70` | Categorical color 6 |
+| `--graph-cat-7` | `#5d4099` | `#9e87e0` | Categorical color 7 |
+| `--graph-cat-8` | `#745338` | `#aa8b74` | Categorical color 8 |
+| `--graph-font` | `"Atkinson Hyperlegible Next", system-ui, sans-serif` | same | Font of labels |
+
+Every color the graph reads falls back to its light value when the stylesheet is missing.

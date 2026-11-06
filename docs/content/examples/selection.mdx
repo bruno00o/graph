@@ -1,0 +1,23 @@
+---
+title: Selection and lasso
+---
+
+## How it works
+
+The graph reads two plain arrays of a thousand nodes and two thousand edges. Each node has a position in its `x` and `y` fields, so nothing moves on load.
+
+The definition declares a free state, `muted`, with a low opacity and no label, and turns the lasso on with `interaction: { lasso: true }`.
+
+On `selectionchange`, the example collects the selected nodes, their neighbors from `graph.neighbors(key)` and their edges from `graph.edgesOf(key)`. Everything else goes into `muted` with `graph.states.set`. An empty selection clears the state.
+
+## Try it
+
+- Click a node: only its neighborhood stays visible.
+- Hold Shift and drag from an empty area to draw a lasso. The nodes inside join the selection.
+- Press Tab to focus the graph, then use the arrow keys to move the focus and Enter to select.
+- Press Escape to clear the selection.
+
+<Cards>
+  <Card title="Named states" href="/docs/states" />
+  <Card title="Interaction" href="/docs/interaction" />
+</Cards>

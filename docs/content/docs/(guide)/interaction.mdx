@@ -1,0 +1,117 @@
+---
+title: Interaction
+description: Pan, zoom, drag, selection, lasso and keyboard navigation.
+---
+
+## Options
+
+Interaction is configured in the definition. Everything is on by default except the lasso.
+
+```ts
+defineGraph({
+  marks,
+  interaction: { select: 'single', zoom: { speed: 0.5 }, lasso: false, drag: true },
+})
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `pan` | `true` | Drag the background to move the view |
+| `zoom` | `true` | Wheel and pinch zoom. `{ speed }` scales the wheel speed, `1` by default |
+| `select` | `'multiple'` | `'single'`, `'multiple'`, or `false` to turn selection off |
+| `drag` | `true` | Drag nodes |
+| `lasso` | `false` | Shift and drag from the background to select the nodes inside a drawn shape |
+| `keyboard` | `true` | Focus, select and move the view from the keyboard |
+
+## Clicks and selection
+
+A press released within 4 pixels of where it started is a click. The `click` event fires first, then the default selection runs.
+
+- A click on an element selects it alone.
+- In `'multiple'` mode, Shift, Cmd or Ctrl adds the element to the selection, or removes it if it was already selected.
+- A click on the background without a modifier clears the selection.
+
+```ts
+graph.selection.set({ nodes: ['n1', 'n2'] })
+graph.selection.get()
+graph.selection.clear()
+graph.on('selectionchange', ({ nodes, edges }) => console.log(nodes, edges))
+```
+
+`selectionchange` fires on every change, whether it comes from the user or from code.
+
+## Controlled selection
+
+To keep the selection in your own state, pass `selection` when you mount the graph. From then on, clicks, `graph.selection.set` and `clear` change nothing: they call `onSelectionChange` with the requested selection, and only a new `selection` updates the graph.
+
+```ts tab="Vanilla" tab-group="framework"
+let selection = { nodes: [], edges: [] }
+const graph = mountGraph(container, {
+  definition,
+  ariaLabel: 'Sample graph',
+  selection,
+  onSelectionChange: (next) => {
+    selection = { ...next, nodes: next.nodes.slice(0, 3) }
+    graph.update({ selection })
+  },
+})
+```
+
+```tsx tab="React" tab-group="framework"
+const [selection, setSelection] = useState<ElementKeysInput>({ nodes: [] })
+
+return (
+  <Graph
+    definition={definition}
+    ariaLabel="Sample graph"
+    selection={selection}
+    onSelectionChange={setSelection}
+  />
+)
+```
+
+The mode is fixed at mount: a graph mounted with `selection` stays controlled for its whole life. When an element is removed from the data, it leaves the selection and `onSelectionChange` reports it.
+
+## Drag
+
+Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions. See [Positions](/docs/positions).
+
+## Lasso
+
+With `lasso: true` and `select: 'multiple'`, Shift and drag from the background draws a lasso. The nodes inside are added to the selection when you release; edges are not taken. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress.
+
+## Keyboard
+
+With `keyboard: true`, the graph element is focusable (`tabindex="0"`, `role="application"`). Keys pressed while a child element has the focus, such as an input in an overlay, are left alone.
+
+| Key | Action |
+| --- | --- |
+| Arrow keys | Move the focus to the nearest node in that direction |
+| Enter or Space | Select the focused node. With Shift, Cmd or Ctrl, add it |
+| Escape | Cancel the lasso, then clear the selection, then remove the focus |
+| Shift and arrow keys | Pan the view by a tenth of its size |
+| `+` and `-` | Zoom in and out |
+| `0` | Fit the whole graph |
+
+Without a focused node, the arrows start from the last selected node, or from the node nearest the center. The view follows the focused node when it gets within 48 pixels of the edge. The focused node's label, or its key, is announced to screen readers through a live region.
+
+```ts
+graph.focus.set({ kind: 'node', key: 'n3' })
+graph.focus.get()
+graph.on('focuschange', ({ target }) => console.log(target))
+```
+
+A pointer press removes the focus. When the element loses the DOM focus, the focused node is remembered and comes back with the keyboard.
+
+## Events
+
+Every event handler receives a typed object. Targets are `{ kind: 'node' | 'edge', key, datum }`, where `datum` is the item from your data.
+
+```ts
+const stop = graph.on('doubleclick', ({ target, point, world }) => {
+  if (target?.kind === 'node') graph.view.fit([target.key, ...graph.neighbors(target.key)])
+})
+stop()
+```
+
+See [Events](/docs/api/events) for the full list.

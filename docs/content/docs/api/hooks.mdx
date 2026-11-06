@@ -1,0 +1,51 @@
+---
+title: Hooks
+description: useGraph, useGraphState and useGraphEvent, for components inside Graph.
+---
+
+The hooks only work inside the children of `<Graph>`.
+
+## useGraph
+
+```ts
+function useGraph(): GraphInstance
+```
+
+Returns the [instance](/docs/api/graph-instance) of the enclosing graph. Throws outside `<Graph>`.
+
+## useGraphState
+
+```ts
+function useGraphState<T>(
+  selector: (state: GraphState) => T,
+  options?: { compare?: (a: T, b: T) => boolean },
+): T
+```
+
+Subscribes to the [graph state](/docs/api/graph-instance#graph-state) and returns the selected slice. The component renders again only when `compare` tells that the slice changed. `compare` defaults to `Object.is`; use `shallow` from `@tanstack/store` for selectors that build objects or arrays.
+
+```tsx
+const hovered = useGraphState((state) => state.hovered)
+const zoom = useGraphState((state) => state.view.zoom)
+```
+
+## useGraphEvent
+
+```ts
+function useGraphEvent<K extends GraphEventName>(name: K, handler: (event: GraphEvents[K]) => void): void
+```
+
+Subscribes to an [event](/docs/api/events) while the component is mounted. The latest handler is always called, without subscribing again.
+
+```tsx
+useGraphEvent('dragend', ({ keys }) => save(keys))
+```
+
+## With TanStack Store
+
+`graph.store` is a `ReadonlyStore` from `@tanstack/store`, so `useSelector` from `@tanstack/react-store` accepts it.
+
+```tsx
+const graph = useGraph()
+const selected = useSelector(graph.store, (state) => state.selection.nodes.length)
+```

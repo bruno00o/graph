@@ -1,0 +1,130 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/preset.css";
+@import "@bruno00o/graph/theme.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-400.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-500.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-600.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-700.css";
+@import "@fontsource/atkinson-hyperlegible-mono/latin-400.css";
+@import "@fontsource/atkinson-hyperlegible-mono/latin-600.css";
+@import "./pages.css";
+
+@theme {
+  --font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 6px;
+
+  --color-fd-background: var(--graph-paper);
+  --color-fd-foreground: var(--graph-ink);
+  --color-fd-muted: color-mix(in srgb, var(--graph-ink) 5%, var(--graph-paper));
+  --color-fd-muted-foreground: var(--graph-ink-muted);
+  --color-fd-popover: var(--graph-paper-raised);
+  --color-fd-popover-foreground: var(--graph-ink);
+  --color-fd-card: var(--graph-paper-raised);
+  --color-fd-card-foreground: var(--graph-ink);
+  --color-fd-border: var(--rule);
+  --color-fd-primary: var(--graph-ink);
+  --color-fd-primary-foreground: var(--graph-paper);
+  --color-fd-secondary: color-mix(in srgb, var(--graph-ink) 6%, var(--graph-paper));
+  --color-fd-secondary-foreground: var(--graph-ink);
+  --color-fd-accent: var(--hover);
+  --color-fd-accent-foreground: var(--graph-ink);
+  --color-fd-ring: var(--graph-ink-muted);
+  --color-fd-overlay: color-mix(in srgb, var(--graph-ink) 18%, transparent);
+  --color-fd-article: var(--graph-paper);
+
+  --color-fd-info: var(--graph-group-line);
+  --color-fd-warning: var(--graph-cat-2);
+  --color-fd-error: var(--graph-cat-4);
+  --color-fd-success: var(--graph-cat-6);
+  --color-fd-idea: var(--graph-cat-2);
+  --color-fd-diff-remove: color-mix(in srgb, var(--graph-cat-4) 12%, transparent);
+  --color-fd-diff-remove-symbol: var(--graph-cat-4);
+  --color-fd-diff-add: color-mix(in srgb, var(--graph-cat-6) 12%, transparent);
+  --color-fd-diff-add-symbol: var(--graph-cat-6);
+}
+
+:root {
+  --rule: color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  --hover: color-mix(in srgb, var(--graph-ink) 7%, transparent);
+  --code-ink: var(--graph-ink);
+  --code-muted: var(--graph-ink-muted);
+  --code-literal: var(--graph-cat-1);
+  --code-paper: var(--graph-paper-raised);
+  --fd-layout-width: 1440px;
+}
+
+html {
+  background: var(--graph-paper);
+  color: var(--graph-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--graph-ink);
+  outline-offset: 2px;
+}
+
+figure.shiki {
+  background: var(--code-paper);
+}
+
+.ulink {
+  text-decoration: underline;
+  text-decoration-color: var(--graph-edge);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.ulink:hover {
+  text-decoration-color: var(--graph-ink);
+}
+
+.edit-link {
+  align-self: flex-start;
+  font-size: 14px;
+  color: var(--graph-ink-muted);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brand-version {
+  padding: 1px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--graph-ink-muted);
+}
+
+.search-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--graph-ink-muted);
+}
+
+.live-example {
+  margin: 24px 0;
+}
+
+.live-caption {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--graph-ink-muted);
+}

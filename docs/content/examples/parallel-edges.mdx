@@ -1,0 +1,22 @@
+---
+title: Parallel edges and loops
+---
+
+## How it works
+
+Five nodes are joined by several edges per pair, some in each direction. Edges between the same two nodes bend apart in symmetric arcs, and an edge alone on its pair stays straight. Edges from a node to itself draw loops that nest around it.
+
+Each edge takes its own `arrow` and `dash` from its data. The `width` and `size` scales are identity functions, so the values in the definition are pixels.
+
+The example listens to `pointerenter` and `pointerleave` to show the hovered edge or node below the graph.
+
+## Try it
+
+- Drag a node: the curves and loops follow it.
+- Hover an edge to read its direction. Picking follows the curve, not a straight line.
+- Zoom in and out: curves keep their shape.
+
+<Cards>
+  <Card title="Marks and channels" href="/docs/marks" />
+  <Card title="Events" href="/docs/api/events" />
+</Cards>

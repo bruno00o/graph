@@ -1,0 +1,24 @@
+{
+  "title": "API reference",
+  "description": "Every export, by entry point",
+  "root": true,
+  "pages": [
+    "index",
+    "---@bruno00o/graph---",
+    "define-graph",
+    "nodes",
+    "edges",
+    "mount-graph",
+    "graph-instance",
+    "events",
+    "---@bruno00o/graph/react---",
+    "graph-component",
+    "hooks",
+    "---@bruno00o/graph/db---",
+    "persist-positions",
+    "---@bruno00o/graph/query---",
+    "create-exploration",
+    "---@bruno00o/graph/theme.css---",
+    "theme-tokens"
+  ]
+}

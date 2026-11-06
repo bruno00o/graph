@@ -1,0 +1,68 @@
+---
+title: Benchmark
+description: Frame times for 50,000 nodes and 100,000 edges, measured in a real browser on a known machine.
+---
+
+## Conditions
+
+| Condition | Value |
+| --- | --- |
+| Date | November 6, 2026 |
+| Machine | Apple M4 Pro, macOS |
+| Browser | Chrome for Testing, headless, WebGL2 through ANGLE on Metal |
+| Graph | 50,000 nodes in eight groups, 100,000 edges with arrows, one label per node |
+| Viewport | 1280 × 800 CSS pixels at a device pixel ratio of 2 |
+| Frame rate | Vertical sync and the frame rate limit turned off |
+
+The graph is the [Large graph](/examples/large-graph) example: generated data, the default theme and no tuning for size.
+
+## Loading
+
+| Step | Time |
+| --- | --- |
+| Generate the data | 32.7 ms |
+| `mountGraph` | 54.2 ms |
+| First frame on screen | 223.4 ms |
+
+The first frame includes uploading the columns to the GPU and compiling the shaders.
+
+## Frames
+
+Each scenario runs 240 frames. A frame is measured from the view change to the end of the next animation frame, followed by a one pixel `readPixels`, so the time includes the GPU work. The host column is the time spent in the library's own frame callback on the main thread.
+
+| Scenario | Median | p95 | p99 | Max | Host median | Host p95 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Pan over the whole graph | 8.5 ms | 9.9 ms | 13.9 ms | 42.0 ms | 0.0 ms | 0.1 ms |
+| Zoom sweep | 9.6 ms | 15.2 ms | 15.9 ms | 36.8 ms | 0.0 ms | 0.1 ms |
+| Pan at zoom 1.5 | 3.3 ms | 5.1 ms | 6.6 ms | 33.9 ms | 0.0 ms | 0.1 ms |
+
+- **Pan over the whole graph** starts from the view that fits the graph and moves sideways along a sine wave.
+- **Zoom sweep** starts from the same view and multiplies the zoom by 1.012 on each frame, so it ends about 17 times closer.
+- **Pan at zoom 1.5** moves across the graph closer in, with part of it off screen.
+
+In all three scenarios, the slowest frame is the first one.
+
+## Picking and states
+
+| Operation | Time |
+| --- | --- |
+| First pick, including the picking index | 44.1 ms |
+| 1,000 picks at random points, median | 0.0 ms |
+| 1,000 picks at random points, max | 0.3 ms |
+| Select a node | 0.5 ms |
+| Mute everything outside its neighborhood | 33.1 ms |
+| Clear the muted state | 22.9 ms |
+| Drag a node, host time per frame, median | 0.2 ms |
+| Drag a node, host time per frame, p95 | 2.6 ms |
+
+Muting sets a free state on about 150,000 elements in one call. JavaScript heap after the run: 129 MB. No errors were logged.
+
+## Run it yourself
+
+The benchmark lives in the repository. It starts Vite, opens the page in Chrome for Testing over the DevTools protocol and writes its results to `bench-results/`.
+
+```bash
+pnpm bench
+```
+
+`pnpm bench --vsync` keeps vertical sync on to check that frames hold 60 per second. Results depend on the machine, the browser and the screen resolution: compare runs on the same machine.

@@ -1,0 +1,86 @@
+---
+title: defineGraph
+description: Build a frozen graph definition from marks, scales, states and options.
+---
+
+```ts
+function defineGraph<S extends string = never>(options: GraphDefinitionOptions<S>): GraphDefinition<S>
+```
+
+Returns a frozen definition. `S` is inferred from the keys of `states` and types the state methods of the instance.
+
+## Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `marks` | `readonly Mark[]` | | Results of `nodes()` and `edges()`, drawn in this order |
+| `scales` | `ScalesOptions` | `{}` | `color`, `size` and `width` scales. See [Scales](/docs/scales) |
+| `states` | `StateStyles<S>` | `{}` | Free states, and overrides of `selected`, `hovered`, `focused` |
+| `interaction` | `InteractionOptions` | see below | Pan, zoom, selection, drag, lasso, keyboard |
+| `transitions` | `TransitionOptions` | `{ positions: 120 }` | Duration in milliseconds of moves that come from the data |
+
+## Scales
+
+```ts
+interface ScalesOptions {
+  color?: ColorScale
+  size?: NumberScale
+  width?: NumberScale
+}
+
+type ColorScale =
+  | ((value: unknown) => string)
+  | { type?: 'categorical'; domain?: readonly unknown[]; range?: readonly string[] }
+  | { type: 'sequential'; domain?: readonly [number, number]; range?: readonly string[] }
+
+type NumberScale =
+  | ((value: number) => number)
+  | { type?: 'linear' | 'sqrt'; domain?: readonly [number, number]; range?: readonly [number, number] }
+```
+
+## State styles
+
+```ts
+interface StateStyle {
+  opacity?: number
+  fill?: string
+  stroke?: string
+  strokeWidth?: number
+  outline?: string
+  outlineWidth?: number
+  halo?: boolean
+  label?: boolean
+}
+```
+
+`outline` and `outlineWidth` apply to nodes only. See [States](/docs/states#style-options).
+
+## Interaction
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `pan` | `boolean` | `true` |
+| `zoom` | `boolean \| { speed?: number }` | `true`, speed `1` |
+| `select` | `'single' \| 'multiple' \| false` | `'multiple'` |
+| `drag` | `boolean` | `true` |
+| `lasso` | `boolean` | `false` |
+| `keyboard` | `boolean` | `true` |
+
+## Errors
+
+- `TypeError` when a mark does not come from `nodes()` or `edges()`.
+- `RangeError` with more than 29 states besides `selected`, `hovered` and `focused`.
+
+## Result
+
+```ts
+interface GraphDefinition<S extends string = string> {
+  readonly marks: readonly Mark[]
+  readonly scales: ScalesOptions
+  readonly states: StateStyles<S>
+  readonly interaction: ResolvedInteraction
+  readonly transitions: ResolvedTransitions
+}
+```
+
+Options are resolved: `interaction.zoom` is `false` or `{ speed }`, and `transitions.positions` is a number of milliseconds.

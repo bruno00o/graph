@@ -1,0 +1,49 @@
+---
+title: Positions
+description: Where nodes start, how they follow your data, and how to move them from code.
+---
+
+## Initial placement
+
+A node gets its first position in this order:
+
+1. From the `x` and `y` channels, when the mark has them.
+2. Near its neighbors that are already placed, on a ring around them. A node that arrives while you explore appears next to what it connects to.
+3. Otherwise on a spiral around the origin. A first batch without coordinates starts as a compact disc.
+
+## Positions from your data
+
+`x` and `y` are channels like the others: a field or a function, in world units. When an update changes them, the node moves there.
+
+```ts
+const definition = defineGraph({
+  marks: [nodes(items, { label: 'label', x: 'x', y: 'y' })],
+  transitions: { positions: 200 },
+})
+```
+
+The move is animated over `transitions.positions` milliseconds, 120 by default, and 0 with `prefers-reduced-motion`. Updates spaced by a paced write stay smooth.
+
+A node only moves when its own `x` or `y` value changes. A node dragged by the user does not jump back when another field of its data changes, and incoming updates are ignored while the user is dragging it.
+
+## Move nodes from code
+
+```ts
+graph.positions.get('n1')
+graph.positions.set([['n1', { x: 0, y: 0 }], ['n2', { x: 80, y: 0 }]], { duration: 300 })
+graph.positions.set(new Map([['n3', { x: 40, y: 60 }]]))
+```
+
+`set` takes any iterable of `[key, point]` pairs; a `Map` works. Without a duration, the nodes move at once.
+
+## Listen to moves
+
+`positionchange` fires when nodes are moved by a drag or by `positions.set`, with their target positions. Moves that come from your data do not emit it, so writing the positions back to the data never loops.
+
+```ts
+graph.on('positionchange', ({ origin, positions }) => {
+  if (origin === 'drag') save(positions)
+})
+```
+
+To write positions to a TanStack DB collection, use [`persistPositions`](/docs/tanstack-db).

@@ -1,0 +1,37 @@
+---
+title: Graph
+description: The React component that mounts a graph and renders overlays above it.
+---
+
+```tsx
+import { Graph } from '@bruno00o/graph/react'
+
+<Graph definition={definition} ariaLabel="Sample graph" style={{ height: 480 }} />
+```
+
+```ts
+function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element
+```
+
+## Props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `definition` | `GraphDefinition<S>` | Required. Applied with `update` when it changes |
+| `ariaLabel` | `string` | Required. Applied with `update` when it changes |
+| `initialView` | `View` | Read once, at mount |
+| `selection` | `ElementKeysInput` | Makes the selection controlled when given at mount |
+| `className` | `string` | Class of the wrapping `div` |
+| `style` | `CSSProperties` | Style of the wrapping `div`, merged with `position: relative` |
+| `ref` | `Ref<GraphInstance<S> \| null>` | Receives the instance |
+| `children` | `ReactNode` | Overlays, rendered once the graph is mounted |
+
+Event props: `onClick`, `onDoubleClick`, `onContextMenu`, `onPointerEnter`, `onPointerLeave`, `onDragStart`, `onDrag`, `onDragEnd`, `onPositionChange`, `onSelectionChange`, `onFocusChange`, `onViewChange`. Each receives the payload of the matching [event](/docs/api/events). The latest function passed is always called.
+
+With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does.
+
+## Behavior
+
+- The wrapping `div` is positioned relative. The graph fills it, and children render above the canvas.
+- The graph mounts once, in a layout effect, and is destroyed on unmount. Under StrictMode, one instance remains.
+- Children only render once the graph exists, so `useGraph` always returns an instance.

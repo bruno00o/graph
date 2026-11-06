@@ -1,0 +1,117 @@
+---
+title: Marks and channels
+description: Map fields of your data to color, size, labels, shapes, outlines and arrows.
+---
+
+## Channels and styles
+
+A mark is a list of data and a set of options. Every option belongs to one of two families:
+
+- **Channels** go through a scale. A channel is a field name or a function `(datum) => value`. Field names are filtered by type: `size` only accepts numeric fields.
+- **Styles** are final values with no scale. A style is a constant or a function, never a field name. A style wins over the channel it overrides: `fill` wins over `color`.
+
+```ts
+nodes<Item>(items, {
+  color: 'group',
+  size: (item) => item.weight * 2,
+  opacity: (item) => (item.weight > 2 ? 1 : 0.5),
+  shape: 'diamond',
+})
+```
+
+Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They are resolved by the browser, so a color given as a CSS variable follows the theme.
+
+## Node options
+
+| Option | Family | Value |
+| --- | --- | --- |
+| `key` | channel | Node key, `id` by default |
+| `color` | channel | Category or number, through the `color` scale |
+| `size` | channel | Number, through the `size` scale. The size is a diameter |
+| `label` | channel | Text, or `{ text, secondary, background }` |
+| `x`, `y` | channel | Position in world units, followed when it changes |
+| `shape` | style | `'circle'`, `'square'` or `'diamond'` |
+| `fill` | style | Fill color, wins over `color` |
+| `stroke` | style | Color of the inner contour |
+| `strokeWidth` | style | Width of the inner contour in pixels |
+| `outline` | style | Color of a ring drawn outside the shape, or `null` for none |
+| `outlineWidth` | style | Width of that ring in screen pixels |
+| `opacity` | style | Opacity from 0 to 1 |
+| `image` | style | URL, or `{ src, scale, color }`, or `null` |
+| `badges` | function per corner | `{ text, fill, color }` or `null` |
+| `units` | constant | `'world'` (default) or `'screen'` |
+
+Without a color or a size, nodes take the theme color `--graph-node` and a diameter of 16.
+
+## Edge options
+
+| Option | Family | Value |
+| --- | --- | --- |
+| `key` | channel | Edge key, `id` by default |
+| `source`, `target` | channel | Key of the node at each end |
+| `color` | channel | Category or number, through the `color` scale |
+| `width` | channel | Number, through the `width` scale, in screen pixels |
+| `label` | channel | Text |
+| `dash` | style | `'solid'`, `'dashed'` or `'dotted'` |
+| `arrow` | style | `'none'`, `'source'`, `'target'` or `'both'` |
+| `stroke` | style | Line color, wins over `color` |
+| `opacity` | style | Opacity from 0 to 1 |
+
+Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels.
+
+## Labels
+
+`label` takes a field or a function for the text. For more control, pass an object:
+
+```ts
+nodes<Item>(items, {
+  label: { text: 'label', secondary: (item) => `Group ${item.group}`, background: true },
+})
+```
+
+- `text` is the main line, `secondary` a smaller second line.
+- `background` draws a rounded plate behind the label: a CSS color, `true` for the theme color `--graph-label-background`, or `false` and `null` for none. A plated label drops its halo, and label placement keeps room for the whole plate.
+
+Labels are placed largest node first and never overlap. The hovered and focused nodes always show theirs; selected and other highlighted nodes come next and still avoid overlaps.
+
+## Outlines
+
+`stroke` and `strokeWidth` draw the contour inside the shape. `outline` and `outlineWidth` draw a ring outside it, in screen pixels, which reads well around images and dense colors.
+
+```ts
+nodes<Item>(items, {
+  outline: (item) => (item.weight > 5 ? 'var(--graph-cat-2)' : null),
+  outlineWidth: 3,
+})
+```
+
+- `outline` alone draws a 2 pixel ring.
+- `outlineWidth` alone draws the ring in `--graph-node-ring`.
+- A function that returns `null` draws no ring for that node.
+
+The selection halo starts outside the outline, and the label moves down by its width.
+
+## Screen units
+
+By default a node grows when you zoom in. With `units: 'screen'`, its size stays the same on screen at every zoom level, which suits markers and icons.
+
+```ts
+defineGraph({
+  marks: [nodes<Item>(items, { size: () => 12, units: 'screen' })],
+  scales: { size: (value) => value },
+})
+```
+
+The identity scale passes the channel value through, so every node is 12 pixels wide.
+
+Edge widths are always in screen pixels.
+
+## Parallel edges and loops
+
+Edges between the same two nodes, in either direction, bend apart in symmetric arcs. An edge alone on its pair stays straight. An edge from a node to itself draws a loop at the top right of the node, and several loops nest around it. Curves keep their shape at every zoom level, and picking follows the curve.
+
+<LiveExample slug="parallel-edges" />
+
+## Drawing order
+
+Shapes draw in mark order, then all labels, then a final pass for hovered, selected and focused elements so they stay visible inside a dense cluster. Put edges first to keep them under the nodes.

@@ -1,0 +1,66 @@
+---
+title: createExploration
+description: Load neighborhoods on demand with TanStack Query and expose them as live sources.
+---
+
+```ts
+import { createExploration } from '@bruno00o/graph/query'
+
+function createExploration<TNode, TEdge>(
+  client: QueryClient,
+  options: ExplorationOptions<TNode, TEdge>,
+): Exploration<TNode, TEdge>
+```
+
+## Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `roots` | `Iterable<Key>` | | Required. Nodes expanded at once and never removed |
+| `neighbors` | `(key: Key) => QueryObserverOptions` | | Required. Query options whose data is `{ nodes, edges }` |
+| `nodeKey` | `(node: TNode) => Key` | `node.id` | Key of a node |
+| `edgeKey` | `(edge: TEdge) => Key` | `edge.id` | Key of an edge |
+
+```ts
+interface ExplorationData<TNode, TEdge> {
+  readonly nodes: readonly TNode[]
+  readonly edges: readonly TEdge[]
+}
+```
+
+A query may return another shape and map it with `select`, as long as the selected data is `ExplorationData`.
+
+## Result
+
+```ts
+interface Exploration<TNode, TEdge> {
+  readonly nodes: LiveSource<TNode>
+  readonly edges: LiveSource<TEdge>
+  readonly store: ReadonlyStore<ExplorationState>
+  expand(key: Key): void
+  collapse(key: Key): void
+  toggle(key: Key): void
+  reset(): void
+  destroy(): void
+}
+
+interface ExplorationState {
+  readonly expanded: readonly Key[]
+  readonly loading: readonly Key[]
+  readonly errors: ReadonlyMap<Key, unknown>
+}
+```
+
+| Member | Description |
+| --- | --- |
+| `nodes`, `edges` | Live sources to pass to `nodes()` and `edges()` |
+| `store` | Expanded keys, keys being fetched, errors by key |
+| `expand(key)` | Starts a query observer for the neighborhood of a node |
+| `collapse(key)` | Stops it and removes what no other expansion holds |
+| `toggle(key)` | Expands or collapses |
+| `reset()` | Collapses every expansion but the roots, and expands the roots |
+| `destroy()` | Stops every observer for good |
+
+Observers only run while a source has a subscriber, so creating an exploration fetches nothing until a mark using it is mounted.
+
+See [TanStack Query](/docs/tanstack-query) for a walkthrough.

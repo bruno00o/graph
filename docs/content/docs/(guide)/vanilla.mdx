@@ -1,0 +1,76 @@
+---
+title: Vanilla
+description: Mount, update and destroy a graph without a framework.
+---
+
+The core needs no framework. `mountGraph` inserts the graph into an element and returns an instance that you keep for the life of the graph.
+
+## Mount
+
+```ts title="main.ts"
+import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
+import '@bruno00o/graph/theme.css'
+
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { color: 'group', label: 'label' }),
+  ],
+})
+
+const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+```
+
+| Option | Required | Effect |
+| --- | --- | --- |
+| `definition` | yes | The result of `defineGraph` |
+| `ariaLabel` | yes | Accessible name of the graph |
+| `initialView` | no | `{ x, y, zoom }`. Without it, the graph fits its first data |
+| `selection` | no | Makes the selection controlled. See [Interaction](/docs/interaction#controlled-selection) |
+| `onSelectionChange` | no | Receives selection requests in controlled mode |
+
+The graph adds a `div` to the container, available as `graph.element`. It carries `aria-label`, a `data-graph` attribute, and `role="application"` with `tabindex="0"` when the keyboard is on, or `role="img"` otherwise. Position your overlays against it.
+
+## Update
+
+`update` takes a new definition, a new accessible name, or a new controlled selection. Everything else stays: positions, view, selection and states.
+
+```ts
+graph.update({ definition: defineGraph({ marks: [edges(nextLinks, linkOptions), nodes(nextItems, itemOptions)] }) })
+graph.update({ ariaLabel: 'Sample graph, filtered' })
+```
+
+## Subscribe to the store
+
+`graph.store` is a read-only TanStack Store. It holds the view, the size of the graph, the hovered and focused targets, the selection, the members of every state, and a counter that changes when positions change.
+
+```ts
+const subscription = graph.store.subscribe(() => {
+  const { hovered, selection } = graph.store.get()
+  status.textContent = hovered?.kind === 'node' ? String(hovered.key) : `${selection.nodes.length} selected`
+})
+subscription.unsubscribe()
+```
+
+Positions are not in the store: read them with `graph.positions.get(key)` when `positionsVersion` changes.
+
+## Read the structure
+
+```ts
+graph.neighbors('n1')
+graph.edgesOf('n1')
+graph.endpoints('e1')
+graph.pick({ x: 120, y: 80 })
+```
+
+`neighbors` and `edgesOf` return keys. `endpoints` returns `{ source, target }` for an edge key. `pick` returns the element under a point in screen pixels, nodes before edges, or `null`.
+
+## Destroy
+
+`destroy` removes the element, stops every listener and frees the GPU resources.
+
+```ts
+graph.destroy()
+```
+
+<LiveExample slug="large-graph" />

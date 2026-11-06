@@ -1,0 +1,128 @@
+---
+title: GraphInstance
+description: The object returned by mountGraph, and by the ref of the Graph component.
+---
+
+```ts
+interface GraphInstance<S extends string = string> {
+  readonly store: GraphStore<S>
+  readonly view: GraphView
+  readonly selection: GraphSelection
+  readonly focus: GraphFocus
+  readonly states: GraphStates<FreeState<S>>
+  readonly positions: GraphPositions
+  readonly element: HTMLElement
+  pick(point: Point): GraphTarget | null
+  neighbors(key: Key): Key[]
+  edgesOf(key: Key): Key[]
+  endpoints(key: Key): { source: Key; target: Key } | undefined
+  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
+  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView'>>): void
+  destroy(): void
+}
+```
+
+## Members
+
+| Member | Description |
+| --- | --- |
+| `store` | Read-only TanStack Store of the [graph state](#graph-state) |
+| `view` | Camera: [`GraphView`](#view) |
+| `selection` | [`GraphSelection`](#selection) |
+| `focus` | Keyboard focus: [`GraphFocus`](#focus) |
+| `states` | Free states: [`GraphStates`](#states) |
+| `positions` | Node positions: [`GraphPositions`](#positions) |
+| `element` | The `div` that holds the canvas |
+| `pick(point)` | Element under a point in screen pixels, nodes before edges, or `null` |
+| `neighbors(key)` | Keys of the nodes connected to a node |
+| `edgesOf(key)` | Keys of the edges of a node |
+| `endpoints(key)` | Source and target keys of an edge |
+| `on(name, handler)` | Subscribes to an [event](/docs/api/events). Returns the function that unsubscribes |
+| `update(options)` | Applies a new `definition`, `ariaLabel` or controlled `selection` |
+| `destroy()` | Removes the element and frees every resource |
+
+## View
+
+```ts
+interface GraphView {
+  get(): View
+  set(view: View, options?: { duration?: number }): void
+  fit(keys?: Iterable<Key>, options?: { padding?: number; duration?: number }): void
+  zoomBy(factor: number, options?: { duration?: number }): void
+  toScreen(point: Point): Point
+  toWorld(point: Point): Point
+}
+
+interface View {
+  readonly x: number
+  readonly y: number
+  readonly zoom: number
+}
+```
+
+`fit` without keys frames every node. `padding` defaults to 32 pixels. Durations are in milliseconds, and zero with `prefers-reduced-motion`.
+
+## Selection
+
+```ts
+interface GraphSelection {
+  get(): ElementKeys
+  set(keys: ElementKeysInput): void
+  clear(): void
+}
+```
+
+In controlled mode, `set` and `clear` call `onSelectionChange` instead of changing the selection.
+
+## Focus
+
+```ts
+interface GraphFocus {
+  get(): GraphTarget | null
+  set(element: { kind: 'node' | 'edge'; key: Key } | null): void
+}
+```
+
+`set` also moves the DOM focus to the graph element when the keyboard is on. An unknown key changes nothing.
+
+## States
+
+```ts
+interface GraphStates<N extends string> {
+  set(name: N, keys: ElementKeysInput): void
+  add(name: N, keys: ElementKeysInput): void
+  remove(name: N, keys: ElementKeysInput): void
+  clear(name?: N): void
+  has(name: N, element: { kind: 'node' | 'edge'; key: Key }): boolean
+}
+```
+
+`N` is the union of the free state names of the definition. Built-in and undeclared names are refused, at compile time and at runtime. `clear()` without a name empties every free state.
+
+## Positions
+
+```ts
+interface GraphPositions {
+  get(key: Key): Point | undefined
+  set(entries: Iterable<readonly [Key, Point]>, options?: { duration?: number }): void
+}
+```
+
+Positions are in world units. `set` emits `positionchange` with the origin `'api'`.
+
+## Graph state
+
+```ts
+interface GraphState<S extends string = string> {
+  readonly view: View
+  readonly width: number
+  readonly height: number
+  readonly hovered: GraphTarget | null
+  readonly focused: GraphTarget | null
+  readonly selection: ElementKeys
+  readonly states: { readonly [K in FreeState<S>]: ElementKeys }
+  readonly positionsVersion: number
+}
+```
+
+`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`.
