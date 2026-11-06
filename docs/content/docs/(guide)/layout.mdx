@@ -46,7 +46,7 @@ layers({ direction: 'right', root: 'start', layerSpacing: 80, nodeSpacing: 16 })
 - **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart.
 - **Components.** Separate parts of the graph and lone nodes sit side by side, the largest first, wrapped in rows.
 
-The result is centered on the current center of the nodes it moves. Nodes with `x` and `y` in your data keep their place, and their edges are left out. A graph shaped like a tree, with 10,000 nodes and 15,000 edges, is laid out in a few tens of milliseconds. Edges that skip many layers cost more.
+The result is centered on the current center of the nodes it moves. Nodes with `x` and `y` in your data keep their place, and their edges are left out. A graph with 10,000 nodes and 15,000 edges is laid out in a few tens of milliseconds, and one with 50,000 nodes in a few hundred. Edges that skip many layers cost more.
 
 ## Grid, rings and radial
 

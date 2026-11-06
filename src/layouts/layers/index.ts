@@ -1,10 +1,10 @@
 import type { Key, Layout, LayoutGraph } from '../../types'
 import { centroid, instant, movers } from '../shared'
-import { distinct } from './adjacency'
+import { components, distinct } from './adjacency'
 import { acyclicRanks } from './cycles'
 import { orderLayers } from './order'
 import { placeNodes } from './place'
-import { components, layerNodes } from './ranks'
+import { layerNodes } from './ranks'
 import { expand, type Layered, sortAdjacency } from './structure'
 
 /** Where edges point. `'down'` puts the first layer at the top, `'right'` at the left. */
