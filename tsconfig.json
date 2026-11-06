@@ -21,6 +21,7 @@
       "@bruno00o/graph/react": ["./src/react/index.tsx"],
       "@bruno00o/graph/db": ["./src/db/index.ts"],
       "@bruno00o/graph/query": ["./src/query/index.ts"],
+      "@bruno00o/graph/layouts": ["./src/layouts/index.ts"],
       "@bruno00o/graph/layouts/force": ["./src/layouts/force/index.ts"]
     }
   },

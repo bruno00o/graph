@@ -58,6 +58,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./layout/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'layouts',
+    title: 'Layouts',
+    description:
+      'The same graph laid out with forces, on a grid sorted by group, in rings by degree and as a radial tree. Nodes glide to their new place and the view frames the result.',
+    hint: 'Switch the layout. Shift and drag around some nodes, then arrange only them.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/layouts', '@bruno00o/graph/layouts/force'],
+    files: ['layouts/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./layouts/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'react-overlays',
     title: 'React overlays',
     description:

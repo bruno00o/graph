@@ -1,0 +1,28 @@
+import type { Layout } from '../types'
+import { centroid, instant, movers, type NodeOrder, ordered, spacingOf } from './shared'
+
+export interface GridOptions<T = unknown> {
+  readonly columns?: number
+  readonly spacing?: number
+  readonly order?: NodeOrder<T>
+}
+
+export function grid<T = unknown>(options: GridOptions<T> = {}): Layout {
+  return instant('grid', options, (graph) => {
+    const xy = Float32Array.from(graph.xy)
+    const indices = movers(graph)
+    if (indices.length === 0) return xy
+    const sorted = ordered(graph, indices, options.order)
+    const columns = Math.max(1, Math.floor(options.columns ?? Math.ceil(Math.sqrt(sorted.length))))
+    const rows = Math.ceil(sorted.length / columns)
+    const spacing = spacingOf(graph, indices, options.spacing)
+    const [x, y] = centroid(graph, indices)
+    const left = x - ((Math.min(columns, sorted.length) - 1) * spacing) / 2
+    const top = y - ((rows - 1) * spacing) / 2
+    sorted.forEach((index, at) => {
+      xy[index * 2] = left + (at % columns) * spacing
+      xy[index * 2 + 1] = top + Math.floor(at / columns) * spacing
+    })
+    return xy
+  })
+}

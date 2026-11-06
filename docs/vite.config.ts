@@ -20,6 +20,7 @@ export default defineConfig({
         find: '@bruno00o/graph/layouts/force',
         replacement: resolve(library, 'layouts/force/index.ts'),
       },
+      { find: /^@bruno00o\/graph\/layouts$/, replacement: resolve(library, 'layouts/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(library, 'index.ts') },
     ],
     dedupe: [

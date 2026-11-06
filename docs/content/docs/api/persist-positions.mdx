@@ -31,6 +31,6 @@ Listens to `positionchange` and writes `x` and `y` into the collection: drags, `
 - Without `mutationFn`, rows are updated with `collection.update`, paced by the `wait` of the strategy. The collection persists them through its own handlers.
 - With `mutationFn`, `createPacedMutations` writes optimistically and calls your function at the pace of the strategy. A failed mutation rolls back the optimistic write.
 - Moves that come from the collection do not emit `positionchange`, so writes never echo.
-- Once written, layout results are data: nodes with `x` and `y` channels no longer move in later layout runs. See [Force layout](/docs/layout#save-the-result).
+- Once written, layout results are data: nodes with `x` and `y` channels no longer move in later layout runs. See [Layouts](/docs/layout#save-the-result).
 
 See [TanStack DB](/docs/tanstack-db) for a walkthrough.

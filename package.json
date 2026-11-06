@@ -38,6 +38,10 @@
       "types": "./dist/query.d.ts",
       "import": "./dist/query.js"
     },
+    "./layouts": {
+      "types": "./dist/layouts.d.ts",
+      "import": "./dist/layouts.js"
+    },
     "./layouts/force": {
       "types": "./dist/layouts/force.d.ts",
       "import": "./dist/layouts/force.js"

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { LayoutGraph, LayoutRun } from '../../types'
+import type { LayoutRun } from '../../types'
 import type { GpuForce } from './gpu'
 import { runGpuForce, snapshotInterval } from './runner'
-import { forceDefaults } from './simulation'
+import { type ForceGraph, forceDefaults } from './simulation'
 
-function graph(): LayoutGraph {
+function graph(): ForceGraph {
   return {
     capacity: 3,
     alive: Uint8Array.from([1, 1, 1]),
@@ -53,7 +53,7 @@ describe('snapshotInterval', () => {
   it('spaces snapshots out as the graph grows', () => {
     expect(snapshotInterval(graph())).toBe(32)
     const capacity = 400_000
-    const large: LayoutGraph = {
+    const large: ForceGraph = {
       ...graph(),
       capacity,
       alive: new Uint8Array(capacity).fill(1),

@@ -1,6 +1,6 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import type { Positions } from '../core/positions'
-import type { LayoutGraph } from '../types'
+import type { Key, LayoutGraph } from '../types'
 
 export function layoutGraph(
   nodes: NodeColumns,
@@ -8,6 +8,7 @@ export function layoutGraph(
   positions: Positions,
   zoom: number,
   movable: (index: number) => boolean,
+  datum: (key: Key) => unknown,
 ): LayoutGraph {
   const capacity = nodes.capacity
   const alive = nodes.alive.slice(0, capacity)
@@ -30,5 +31,18 @@ export function layoutGraph(
     const target = edges.target[index] ?? 0
     if (source !== target) pairs.push(source, target)
   }
-  return { capacity, alive, movable: mobile, xy, radius, edges: Uint32Array.from(pairs) }
+  const keys = nodes.keys.slice(0, capacity)
+  return {
+    capacity,
+    alive,
+    movable: mobile,
+    xy,
+    radius,
+    edges: Uint32Array.from(pairs),
+    keys,
+    datum: (index) => {
+      const key = keys[index]
+      return key === undefined || alive[index] !== 1 ? undefined : datum(key)
+    },
+  }
 }

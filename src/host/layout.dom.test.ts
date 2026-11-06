@@ -189,6 +189,7 @@ describe('layouts in the host', () => {
     const done = graph.layout.run(layout, { keys: ['b', 'c', 'missing'] })
     expect(movers(runs[0])).toEqual([1])
     runs[0]?.listener.end(spread(runs[0] as FakeRun))
+    dom.flushFrames()
     await expect(done).resolves.toBe(true)
     const ends: boolean[] = []
     graph.on('layoutend', ({ completed }) => ends.push(completed))
@@ -199,6 +200,53 @@ describe('layouts in the host', () => {
     expect(ends).toEqual([false])
     runs[1]?.listener.end(spread(runs[1] as FakeRun, 9))
     expect(graph.positions.get('b')).toEqual({ x: 100, y: 100 })
+  })
+
+  it('glides to a result delivered at once, then frames it when asked', async () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    let ended: boolean | null = null
+    const done = graph.layout.run(layout, { fit: true }).then((completed) => {
+      ended = completed
+    })
+    const run = runs[0] as FakeRun
+    run.listener.end(spread(run))
+    expect(graph.store.get().layout).toEqual({ running: true, progress: 1 })
+    expect(graph.positions.get('b')).not.toEqual({ x: 100, y: 100 })
+    await Promise.resolve()
+    expect(ended).toBeNull()
+    dom.flushFrames()
+    await done
+    expect(ended).toBe(true)
+    expect(graph.positions.get('b')).toEqual({ x: 100, y: 100 })
+    expect(graph.store.get().layout).toEqual({ running: false, progress: 1 })
+    const view = graph.view.get()
+    expect(view.x).toBeCloseTo(50, 0)
+    expect(view.y).toBeCloseTo(50, 0)
+  })
+
+  it('freezes the glide where it is when stopped', async () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    const before = graph.positions.get('b')
+    const done = graph.layout.run(layout)
+    runs[0]?.listener.end(spread(runs[0] as FakeRun))
+    graph.layout.stop()
+    await expect(done).resolves.toBe(false)
+    dom.flushFrames()
+    expect(graph.positions.get('b')).toEqual(before)
+  })
+
+  it('redoes every node when nodes arrive for a layout that is not incremental', () => {
+    const { layout, runs } = fakeLayout()
+    const whole: Layout = { ...layout, incremental: false }
+    const graph = mount(whole, loose)
+    runs[0]?.listener.end(spread(runs[0] as FakeRun))
+    dom.flushFrames()
+    graph.update({ definition: definition(whole, [...loose, { id: 'd' }]) })
+    dom.flushFrames()
+    expect(runs).toHaveLength(2)
+    expect(movers(runs[1])).toEqual([0, 1, 3])
   })
 
   it('pins dragged nodes and nodes moved through the API', () => {
