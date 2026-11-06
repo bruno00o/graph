@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.0](https://github.com/bruno00o/graph/compare/0.9.1...0.10.0) (2026-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* infer the item types of marks in events, state and react props ([#58](https://github.com/bruno00o/graph/issues/58))
+
+### Features
+
+* configure the wheel, bound the zoom and the view, pinch on touch screens and pan at the edges while dragging ([#59](https://github.com/bruno00o/graph/issues/59)) ([39b6ce3](https://github.com/bruno00o/graph/commit/39b6ce3bdc0cc65620393edd761b068d70631506))
+* infer the item types of marks in events, state and react props ([#58](https://github.com/bruno00o/graph/issues/58)) ([3f8a23e](https://github.com/bruno00o/graph/commit/3f8a23edb1c4526bf4dc7109deb5fb62a354cdcb))
+* keep group containers apart in layouts ([#60](https://github.com/bruno00o/graph/issues/60)) ([4b560cd](https://github.com/bruno00o/graph/commit/4b560cd61d14ec69742656a842f2a71b1433a8fa))
+* let the background grid follow the zoom with a single level ([#56](https://github.com/bruno00o/graph/issues/56)) ([5b220ee](https://github.com/bruno00o/graph/commit/5b220eeb10318ee3fbb5626e9222f988e651ec67))
+
 ## [0.9.1](https://github.com/bruno00o/graph/compare/0.9.0...0.9.1) (2026-11-06)
 
 
