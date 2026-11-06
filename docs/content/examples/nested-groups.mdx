@@ -1,0 +1,26 @@
+---
+title: Nested groups
+---
+
+## How it works
+
+Each node names its group in a `parent` field, read by the `parent` channel. Groups A and C hold two subgroups each, groups B and D hold their nodes directly, and two nodes belong to no group. Positions come from the data, so every group keeps its place.
+
+An unfolded group draws as a container behind its children, sized to them. A folded group hides everything inside it and draws as a node, with the color of its own data. Group C starts folded, through `initialFolded`.
+
+The edges that cross a folded group merge: one edge per pair of visible ends and direction. The `aggregate` option of the edge mark reads an `AggregateEdge`, so the merged edge gets wider with `count`, and shows the count as its label when it merges more than one edge. An edge between two nodes of the same folded group disappears.
+
+The example listens to `pointerenter` to describe the hovered node or edge, and to `foldchange` to count the folded groups.
+
+## Try it
+
+- Double-click a group, on a container or on a folded node, to fold or unfold it.
+- Press **Fold all**, then unfold the groups one by one: nested groups stay folded until you open them.
+- Hover a merged edge to read how many edges it stands for. Click it to select them all.
+- Drag a group by the space around its children: everything inside moves with it.
+- Focus the graph, move to a group with the arrow keys, and press Enter.
+
+<Cards>
+  <Card title="Groups" href="/docs/groups" />
+  <Card title="edges" href="/docs/api/edges" />
+</Cards>

@@ -240,6 +240,48 @@ export interface NodeOptions<T> {
    * @default 'world'
    */
   readonly units?: 'world' | 'screen'
+  /**
+   * Key of the group that contains the node, `null` for a top-level node. A node with children is a
+   * group: unfolded, it draws as a container behind them; folded, it hides them and draws as a node.
+   */
+  readonly parent?: Channel<T, Key>
+  /** Look of the node while it is an unfolded group, drawn as a container behind its children. */
+  readonly container?: ContainerOptions<T>
+}
+
+/** Outline of an unfolded group: `'rectangle'`, with rounded corners, or `'circle'`. */
+export type ContainerShape = 'rectangle' | 'circle'
+
+/**
+ * Options of the `container` option of `nodes()`: the look of a group while it is unfolded. The
+ * container fits its children and follows them as they move.
+ */
+export interface ContainerOptions<T> {
+  /**
+   * Outline around the children: `'rectangle'`, with rounded corners, or `'circle'`.
+   * @default 'rectangle'
+   */
+  readonly shape?: Style<T, ContainerShape>
+  /**
+   * Space between the children and the outline, in world units.
+   * @default 16
+   */
+  readonly padding?: Style<T, number>
+  /**
+   * Fill color.
+   * @default --graph-group-fill
+   */
+  readonly fill?: Style<T, string>
+  /**
+   * Outline color.
+   * @default --graph-group-line
+   */
+  readonly stroke?: Style<T, string>
+  /**
+   * Outline width, in screen pixels.
+   * @default 1
+   */
+  readonly strokeWidth?: Style<T, number>
 }
 
 /** Options of `edges()`. Channels go through a scale; styles are final values. */
@@ -282,7 +324,39 @@ export interface EdgeOptions<T> {
    * @default 1
    */
   readonly opacity?: Style<T, number>
+  /**
+   * Look of the edges drawn in place of the edges of this mark that end in a folded group, one per
+   * pair of visible ends and direction.
+   */
+  readonly aggregate?: AggregateEdgeOptions<T>
 }
+
+/**
+ * Edges of one mark drawn as a single edge because an end lies in a folded group: the datum of the
+ * `aggregate` channels and styles, and of a picked aggregated edge.
+ */
+export interface AggregateEdge<T = unknown> {
+  /** Key of the visible node or folded group the merged edges start from. */
+  readonly source: Key
+  /** Key of the visible node or folded group the merged edges end at. */
+  readonly target: Key
+  /** Number of merged edges. */
+  readonly count: number
+  /** Keys of the merged edges. */
+  readonly keys: readonly Key[]
+  /** Data of the merged edges, in the order of `keys`. */
+  readonly data: readonly T[]
+}
+
+/**
+ * Options of the `aggregate` option of `edges()`: channels and styles read from an `AggregateEdge`.
+ * Without them, an aggregated edge looks like its first merged edge, and keeps its label only when
+ * it merges one edge.
+ */
+export type AggregateEdgeOptions<T> = Omit<
+  EdgeOptions<AggregateEdge<T>>,
+  'key' | 'source' | 'target' | 'aggregate'
+>
 
 /** A layer of the graph, made by `nodes()` or `edges()`. Marks draw in the order given. */
 export interface Mark {
@@ -424,6 +498,11 @@ export interface InteractionOptions {
    * @default true
    */
   readonly keyboard?: boolean
+  /**
+   * Double-click on a group, or Enter on a focused group, folds or unfolds it.
+   * @default true
+   */
+  readonly fold?: boolean
 }
 
 /** Interaction options with every default applied, as `defineGraph` resolves them. */
@@ -440,6 +519,8 @@ export interface ResolvedInteraction {
   readonly lasso: boolean
   /** Whether the keyboard drives the graph. */
   readonly keyboard: boolean
+  /** Whether double-click and Enter fold and unfold groups. */
+  readonly fold: boolean
 }
 
 /** Durations of animated moves, in milliseconds. Negative values count as 0. */
@@ -490,6 +571,11 @@ export interface LayoutGraph {
   readonly radius: Float32Array
   /** Pairs of node indices, one pair per edge, loops left out. */
   readonly edges: Uint32Array
+  /**
+   * Pairs of node indices that share an unfolded group, for layouts that keep groups together: each
+   * member is paired with one other member of its group.
+   */
+  readonly groupLinks?: Uint32Array
   /** Key of each node, `undefined` for a free slot. */
   readonly keys: readonly (Key | undefined)[]
   /** Item a node comes from, as given to `nodes()`. `undefined` for a free slot. */

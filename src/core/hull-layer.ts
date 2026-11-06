@@ -1,7 +1,7 @@
 import { themeColor } from '../theme/tokens'
 import type { Hull, HullOptions, Key, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
-import type { NodeColumns } from './columns'
+import { containerShape, type NodeColumns } from './columns'
 import type { GraphModel } from './graph-model'
 import {
   HullScratch,
@@ -18,13 +18,21 @@ export const hullInstanceWords = 16
 const defaultPadding = 16
 const defaultStrokeWidth = 1
 const fillShare = 12
+const snapshotStride = 4
+const flat = 1e-6
 
 export interface HullSource {
   readonly model: GraphModel
   readonly nodes: NodeColumns
   readonly positions: Positions
   readonly palette: Palette
+  readonly containers?: ContainerSource | null
   stateNodes(name: string): readonly Key[]
+}
+
+export interface ContainerSource {
+  readonly boxes: Float32Array
+  readonly version: number
 }
 
 export interface HullShape {
@@ -120,6 +128,7 @@ export class HullLayer {
   #groups: Group[] = []
   #membership = true
   #positionsVersion = -1
+  #boxVersion = -1
   #packed = true
   readonly #scratch = new HullScratch()
 
@@ -166,8 +175,14 @@ export class HullLayer {
         groupsChanged = true
       }
     }
-    if (groupsChanged || source.positions.version !== this.#positionsVersion) {
+    const boxVersion = source.containers?.version ?? -1
+    if (
+      groupsChanged ||
+      source.positions.version !== this.#positionsVersion ||
+      boxVersion !== this.#boxVersion
+    ) {
       this.#positionsVersion = source.positions.version
+      this.#boxVersion = boxVersion
       for (const group of this.#groups) if (!group.dirty) group.dirty = this.#moved(group, source)
     }
     let pending = false
@@ -271,14 +286,18 @@ export class HullLayer {
 
   #moved(group: Group, source: HullSource): boolean {
     const { nodes, positions } = source
+    const boxes = source.containers?.boxes
     const snapshot = group.snapshot
-    if (snapshot.length !== group.members.length * 3) return true
+    if (snapshot.length !== group.members.length * snapshotStride) return true
     for (let i = 0; i < group.members.length; i++) {
       const index = group.members[i] ?? 0
+      const at = i * snapshotStride
+      const box = boxes && nodes.shape[index] === containerShape
       if (
-        snapshot[i * 3] !== positions.xy[index * 2] ||
-        snapshot[i * 3 + 1] !== positions.xy[index * 2 + 1] ||
-        snapshot[i * 3 + 2] !== nodes.size[index]
+        snapshot[at] !== positions.xy[index * 2] ||
+        snapshot[at + 1] !== positions.xy[index * 2 + 1] ||
+        snapshot[at + 2] !== (box ? boxes[index * 4] : nodes.size[index]) ||
+        snapshot[at + 3] !== (box ? boxes[index * 4 + 1] : 0)
       ) {
         return true
       }
@@ -288,27 +307,54 @@ export class HullLayer {
 
   #compute(group: Group, source: HullSource): void {
     const { nodes, positions } = source
+    const boxes = source.containers?.boxes
     const scratch = this.#scratch
     const count = group.members.length
-    scratch.reserve(count)
-    scratch.count = count
-    if (group.snapshot.length !== count * 3) group.snapshot = new Float32Array(count * 3)
+    let disks = 0
+    for (const index of group.members) {
+      disks += boxes && nodes.shape[index] === containerShape ? 4 : 1
+    }
+    scratch.reserve(disks)
+    const size = count * snapshotStride
+    if (group.snapshot.length !== size) group.snapshot = new Float32Array(size)
     const snapshot = group.snapshot
     let screen = 0
+    let disk = 0
+    const add = (x: number, y: number, r: number) => {
+      scratch.x[disk] = x
+      scratch.y[disk] = y
+      scratch.r[disk] = r
+      disk++
+    }
     for (let i = 0; i < count; i++) {
       const index = group.members[i] ?? 0
+      const at = i * snapshotStride
       const x = positions.xy[index * 2] ?? 0
       const y = positions.xy[index * 2 + 1] ?? 0
-      const size = nodes.size[index] ?? 0
-      snapshot[i * 3] = x
-      snapshot[i * 3 + 1] = y
-      snapshot[i * 3 + 2] = size
-      scratch.x[i] = x
-      scratch.y[i] = y
+      snapshot[at] = x
+      snapshot[at + 1] = y
+      if (boxes && nodes.shape[index] === containerShape) {
+        const halfWidth = boxes[index * 4] ?? 0
+        const halfHeight = boxes[index * 4 + 1] ?? 0
+        const corner = boxes[index * 4 + 2] ?? 0
+        snapshot[at + 2] = halfWidth
+        snapshot[at + 3] = halfHeight
+        const dx = halfWidth - corner > flat ? halfWidth - corner : 0
+        const dy = halfHeight - corner > flat ? halfHeight - corner : 0
+        add(x - dx, y - dy, corner)
+        if (dx > 0) add(x + dx, y - dy, corner)
+        if (dy > 0) add(x - dx, y + dy, corner)
+        if (dx > 0 && dy > 0) add(x + dx, y + dy, corner)
+        continue
+      }
+      const nodeSize = nodes.size[index] ?? 0
+      snapshot[at + 2] = nodeSize
+      snapshot[at + 3] = 0
       const onScreen = nodes.screenUnits[index] === 1
-      scratch.r[i] = onScreen ? 0 : size / 2
-      screen = Math.max(screen, (onScreen ? size / 2 : 0) + (nodes.outlineWidth[index] ?? 0))
+      add(x, y, onScreen ? 0 : nodeSize / 2)
+      screen = Math.max(screen, (onScreen ? nodeSize / 2 : 0) + (nodes.outlineWidth[index] ?? 0))
     }
+    scratch.count = disk
     hullOutline(scratch, group.spec.shape, group.outline)
     group.padding = group.spec.padding + screen
     group.dirty = false

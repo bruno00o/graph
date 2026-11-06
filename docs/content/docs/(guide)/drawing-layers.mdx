@@ -42,6 +42,10 @@ A hull can enclose:
 - the nodes of a mark grouped by a field or a function: `hull({ nodes: people, by: 'team' })`, one hull per value;
 - the nodes in a state: `hull({ state: 'selected' })`, updated when the state changes.
 
+Hulls and [group containers](/docs/groups) both draw a shape around nodes. Use group containers when the structure is in the data, through the `parent` channel, and the reader folds and unfolds it; use hulls for any set of nodes, for sets that overlap, and for states such as the selection.
+
+Hulls are drawn over group containers and under edges and nodes. A hull that holds a group encloses its whole box.
+
 Hulls follow their nodes as they move, through a layout, a drag or a transition. Only hulls whose nodes moved are computed again, within a time budget per frame, so a few hundred hulls over tens of thousands of nodes stay smooth.
 
 ### Shape and style

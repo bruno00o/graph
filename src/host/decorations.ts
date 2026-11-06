@@ -1,6 +1,7 @@
 import { type GridInput, gridInput } from '../core/background-grid'
+import { containerShape } from '../core/columns'
 import type { GraphModel } from '../core/graph-model'
-import { HullLayer } from '../core/hull-layer'
+import { type ContainerSource, HullLayer } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { isBuiltInState } from '../core/state-names'
@@ -22,6 +23,8 @@ export interface DecorationContext {
   readonly registry: StateRegistry
   readonly state: () => GraphState
   readonly request: () => void
+  readonly containers: () => ContainerSource | null
+  readonly edgeIndex: (key: Key) => number
 }
 
 export interface Decorations {
@@ -41,6 +44,17 @@ export function createDecorations(context: DecorationContext): Decorations {
   let definition: GraphDefinition | null = null
   const hulls = new HullLayer()
   const edgePoint: EdgeAnchor = { x: 0, y: 0, ax: 0, ay: 0, room: 0 }
+
+  function source() {
+    return {
+      model,
+      nodes: scene.nodes,
+      positions,
+      palette: scene.palette,
+      containers: context.containers(),
+      stateNodes,
+    }
+  }
 
   function view(): View {
     return context.state().view
@@ -72,21 +86,24 @@ export function createDecorations(context: DecorationContext): Decorations {
         const index = record.index
         const { width, height } = context.state()
         const current = view()
+        const boxes = nodes.shape[index] === containerShape ? context.containers()?.boxes : null
         const size = nodes.size[index] ?? 0
         const radius =
           (nodes.screenUnits[index] === 1 ? size / 2 : (size / 2) * current.zoom) +
           (nodes.outlineWidth[index] ?? 0)
+        const halfWidth = boxes ? (boxes[index * 4] ?? 0) * current.zoom : radius
+        const halfHeight = boxes ? (boxes[index * 4 + 1] ?? 0) * current.zoom : radius
         const x = (positions.x(index) - current.x) * current.zoom + width / 2
         const y = (positions.y(index) - current.y) * current.zoom + height / 2
-        box.x0 = x - radius
-        box.x1 = x + radius
-        box.y0 = y - radius
-        box.y1 = y + radius
+        box.x0 = x - halfWidth
+        box.x1 = x + halfWidth
+        box.y0 = y - halfHeight
+        box.y1 = y + halfHeight
         return true
       },
       edgePoint(key: Key, box: AnchorBox): boolean {
-        const record = model.edge(key)
-        if (!record || scene.edges.alive[record.index] !== 1) return false
+        const index = context.edgeIndex(key)
+        if (index < 0 || scene.edges.alive[index] !== 1) return false
         const { width, height } = context.state()
         const frame = {
           nodes: scene.nodes,
@@ -96,7 +113,7 @@ export function createDecorations(context: DecorationContext): Decorations {
           width,
           height,
         }
-        if (!edgeAnchor(frame, record.index, edgePoint)) return false
+        if (!edgeAnchor(frame, index, edgePoint)) return false
         box.x0 = box.x1 = edgePoint.x
         box.y0 = box.y1 = edgePoint.y
         return true
@@ -129,12 +146,10 @@ export function createDecorations(context: DecorationContext): Decorations {
     prepare() {
       if (hulls.empty && hulls.count === 0) return
       const start = performance.now()
-      const source = { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes }
-      if (hulls.update(source, start + hullBudget, () => performance.now())) context.request()
+      if (hulls.update(source(), start + hullBudget, () => performance.now())) context.request()
     },
     settle() {
-      const source = { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes }
-      hulls.update(source, Number.POSITIVE_INFINITY, () => 0)
+      hulls.update(source(), Number.POSITIVE_INFINITY, () => 0)
     },
     place() {
       layer.update()

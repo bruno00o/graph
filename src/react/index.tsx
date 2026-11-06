@@ -27,7 +27,7 @@ import {
   type GraphStore,
   mountGraph,
 } from '../host/mount-graph'
-import type { GraphDefinition, View } from '../types'
+import type { GraphDefinition, Key, View } from '../types'
 
 /** Event props of `<Graph>`. The latest function passed is always called. */
 export interface GraphEventProps {
@@ -53,6 +53,8 @@ export interface GraphEventProps {
   readonly onSelectionChange?: GraphEventHandler<'selectionchange'>
   /** Receives `focuschange`: the keyboard focus moved. */
   readonly onFocusChange?: GraphEventHandler<'focuschange'>
+  /** Receives `foldchange`, or the fold requests when `folded` is given. */
+  readonly onFoldChange?: GraphEventHandler<'foldchange'>
   /** Receives `viewchange`: the view changed. */
   readonly onViewChange?: GraphEventHandler<'viewchange'>
   /** Receives `layoutstart`: a layout run starts. */
@@ -73,6 +75,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   positionchange: 'onPositionChange',
   selectionchange: 'onSelectionChange',
   focuschange: 'onFocusChange',
+  foldchange: 'onFoldChange',
   viewchange: 'onViewChange',
   layoutstart: 'onLayoutStart',
   layoutend: 'onLayoutEnd',
@@ -91,6 +94,13 @@ export interface GraphProps<S extends string = string> extends GraphEventProps {
    * and only this prop changes the selection.
    */
   readonly selection?: ElementKeysInput
+  /** Groups folded at mount, read once. */
+  readonly initialFolded?: Iterable<Key>
+  /**
+   * Makes folding controlled when given at mount: `onFoldChange` receives the requests, and only
+   * this prop changes the folded groups.
+   */
+  readonly folded?: Iterable<Key>
   /** Class of the wrapping `div`. */
   readonly className?: string
   /** Style of the wrapping `div`, merged with `position: relative`. */
@@ -118,7 +128,7 @@ function useLatest<T>(value: T): { readonly current: T } {
  * graph mounts once and is destroyed on unmount.
  */
 export function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element {
-  const { definition, ariaLabel, selection, className, style, ref, children } = props
+  const { definition, ariaLabel, selection, folded, className, style, ref, children } = props
   const host = useRef<HTMLDivElement>(null)
   const [graph, setGraph] = useState<GraphInstance<S> | null>(null)
   const latest = useLatest(props)
@@ -137,6 +147,13 @@ export function Graph<S extends string = string>(props: GraphProps<S>): JSX.Elem
             onSelectionChange: (next) => latest.current.onSelectionChange?.(next),
           }
         : {}),
+      ...(initial.initialFolded !== undefined ? { initialFolded: initial.initialFolded } : {}),
+      ...(initial.folded !== undefined
+        ? {
+            folded: initial.folded,
+            onFoldChange: (next) => latest.current.onFoldChange?.(next),
+          }
+        : {}),
     })
     setGraph(instance)
     return () => {
@@ -146,14 +163,20 @@ export function Graph<S extends string = string>(props: GraphProps<S>): JSX.Elem
   }, [latest])
 
   useLayoutEffect(() => {
-    graph?.update({ definition, ariaLabel, ...(selection !== undefined ? { selection } : {}) })
-  }, [graph, definition, ariaLabel, selection])
+    graph?.update({
+      definition,
+      ariaLabel,
+      ...(selection !== undefined ? { selection } : {}),
+      ...(folded !== undefined ? { folded } : {}),
+    })
+  }, [graph, definition, ariaLabel, selection, folded])
 
   useEffect(() => {
     if (!graph) return
     const stops = (Object.keys(eventProps) as GraphEventName[]).map((name) =>
       graph.on(name, (event) => {
         if (name === 'selectionchange' && latest.current.selection !== undefined) return
+        if (name === 'foldchange' && latest.current.folded !== undefined) return
         const handler = latest.current[eventProps[name]] as ((event: unknown) => void) | undefined
         handler?.(event)
       }),

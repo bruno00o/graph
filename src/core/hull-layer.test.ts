@@ -3,6 +3,7 @@ import { defineGraph } from '../define-graph'
 import { hull } from '../hulls'
 import { nodes } from '../marks'
 import type { Hull, Key } from '../types'
+import { containerShape } from './columns'
 import { createGraphModel } from './graph-model'
 import { outlineStride } from './hull-geometry'
 import { HullLayer, type HullSource, hullInstanceWords } from './hull-layer'
@@ -23,11 +24,13 @@ function setup(items: Item[], build: (mark: ReturnType<typeof nodes<Item>>) => H
   scene.apply(model, changes)
   placeNodes(model, positions, changes)
   let states: Record<string, readonly Key[]> = {}
+  const containers = { boxes: new Float32Array(scene.nodes.capacity * 4), version: 0 }
   const source: HullSource = {
     model,
     nodes: scene.nodes,
     positions,
     palette: scene.palette,
+    containers,
     stateNodes: (name) => states[name] ?? [],
   }
   const layer = new HullLayer()
@@ -42,6 +45,12 @@ function setup(items: Item[], build: (mark: ReturnType<typeof nodes<Item>>) => H
     move(key: Key, x: number, y: number) {
       const index = model.node(key)?.index ?? -1
       positions.set(index, x, y)
+    },
+    box(key: Key, halfWidth: number, halfHeight: number, corner: number) {
+      const index = model.node(key)?.index ?? -1
+      scene.nodes.shape[index] = containerShape
+      containers.boxes.set([halfWidth, halfHeight, corner], index * 4)
+      containers.version++
     },
     setState(name: string, keys: readonly Key[]) {
       states = { ...states, [name]: keys }
@@ -165,6 +174,22 @@ describe('HullLayer', () => {
       ['var(--graph-group-fill)', 'var(--graph-group-line)'],
     ])
     expect(layer.shapes[2]?.strokeWidth).toBe(0)
+  })
+
+  it('wraps the box of a group container and follows its size', () => {
+    const { layer, update, box } = setup(items, () => [hull({ nodes: ['a', 'b'] })])
+    box('a', 40, 20, 10)
+    update()
+    expect(bounds(layer, 0)).toEqual({ x0: expect.closeTo(-40, 3), x1: expect.closeTo(105, 3) })
+    const version = layer.version
+    update()
+    expect(layer.version).toBe(version)
+    box('a', 60, 20, 20)
+    update()
+    expect(bounds(layer, 0).x0).toBeCloseTo(-60, 3)
+    box('a', 30, 30, 30)
+    update()
+    expect(bounds(layer, 0).x0).toBeCloseTo(-30, 3)
   })
 
   it('drops everything when the hulls are removed', () => {

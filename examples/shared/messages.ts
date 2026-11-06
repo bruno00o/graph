@@ -109,6 +109,16 @@ export const messages = {
   tooltipWeight: (group: string, weight: number): string =>
     `${group}, poids ${formatNumber(weight)}`,
   link: (from: string, to: string): string => `${from} vers ${to}`,
+  groups: 'Groupes imbriqués',
+  groupsLabel: 'Graphe de nœuds rangés dans des groupes imbriqués',
+  groupsHint: 'Double-cliquez sur un groupe pour le replier ou le déplier.',
+  subgroup: (index: string) => `Sous-groupe ${index}`,
+  foldAll: 'Tout replier',
+  unfoldAll: 'Tout déplier',
+  foldedGroups: (count: number): string =>
+    `${formatNumber(count)} ${plural(count, 'groupe replié', 'groupes repliés')}`,
+  mergedEdges: (count: number, from: string, to: string): string =>
+    `${formatNumber(count)} ${plural(count, 'arête', 'arêtes')} de ${from} vers ${to}`,
   exportPng: 'Exporter en PNG',
   exportSvg: 'Exporter en SVG',
 }

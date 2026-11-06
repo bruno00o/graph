@@ -8,6 +8,7 @@ export type {
   GraphEventName,
   GraphEvents,
   GraphFocusEvent,
+  GraphFoldEvent,
   GraphLayoutEndEvent,
   GraphLayoutEvent,
   GraphPointerEvent,
@@ -20,6 +21,7 @@ export type {
   FitOptions,
   GraphElement,
   GraphFocus,
+  GraphGroups,
   GraphInstance,
   GraphLayout,
   GraphLayoutStatus,
@@ -38,6 +40,8 @@ export { hull } from './hulls'
 export { edges, nodes } from './marks'
 export type {
   Accessor,
+  AggregateEdge,
+  AggregateEdgeOptions,
   BackgroundGrid,
   BackgroundOptions,
   Badge,
@@ -45,6 +49,8 @@ export type {
   BuiltInState,
   Channel,
   ColorScale,
+  ContainerOptions,
+  ContainerShape,
   EdgeArrow,
   EdgeDash,
   EdgeLabelOptions,

@@ -22,6 +22,14 @@ export interface RenderInput {
   readonly full: boolean
   readonly grid?: GridInput | null
   readonly hulls?: HullInput | null
+  readonly containers?: ContainerFrame
+}
+
+export interface ContainerFrame {
+  readonly boxes: Float32Array
+  readonly order: Uint32Array
+  readonly count: number
+  readonly version: number
 }
 
 export interface RenderFrame {

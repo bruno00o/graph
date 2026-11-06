@@ -45,6 +45,6 @@ type ExportLabels = 'visible' | 'all' | 'none'
 - The export reads the graph as it is when the call starts: pending data is flushed first. Moves during an export do not tear the image.
 - Sizes set in screen pixels, such as edge widths, labels and nodes with `units: 'screen'`, keep their size whatever the `zoom` of the export.
 - `region: 'graph'` frames every node, plus the labels, loops and hulls that reach past them, with `padding` around them.
-- The background grid and the hulls are drawn as on screen. HTML anchors are not part of the scene and stay out of both exports.
+- The background grid and the hulls are drawn as on screen: grid, group containers, hulls, then edges and nodes. HTML anchors are not part of the scene and stay out of both exports.
 - Past 4,096 pixels on a side, the PNG is drawn in tiles and encoded strip by strip. Labels are chosen once for the whole image.
 - The PNG records its pixel density in a `pHYs` chunk, at 96 dots per inch times `pixelRatio`.

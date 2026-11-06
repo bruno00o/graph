@@ -6,7 +6,8 @@ import { type Attribute, createProgram, createVertexArray } from './gl'
 
 export interface Backdrop {
   sync(input: RenderInput): void
-  draw(frame: RenderFrame): void
+  drawGrid(frame: RenderFrame): void
+  drawHulls(): void
   destroy(): void
 }
 
@@ -104,26 +105,28 @@ export function createBackdrop(
       )
     },
 
-    draw(frame) {
-      if (grid) {
-        const pass = gridProgram()
-        gridLevels(grid.spacing, frame.view, frame).forEach((level, i) => {
-          levels.set([level.pitch, level.offsetX, level.offsetY, level.weight], i * 4)
-        })
-        gl.useProgram(pass.program)
-        gl.uniform4fv(pass.levels, levels)
-        gl.uniform2ui(pass.colors, grid.color, grid.majorColor)
-        gl.uniform1i(pass.dots, grid.pattern === 'dots' ? 1 : 0)
-        gl.bindVertexArray(pass.vao)
-        gl.drawArrays(gl.TRIANGLES, 0, 3)
-      }
-      if (hullPass && hullCount > 0) {
-        gl.useProgram(hullPass.program)
-        gl.bindVertexArray(hullPass.vao)
-        for (const stroke of [0, 1]) {
-          gl.uniform1i(hullPass.stroke, stroke)
-          gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, hullCount)
-        }
+    drawGrid(frame) {
+      if (!grid) return
+      const pass = gridProgram()
+      gridLevels(grid.spacing, frame.view, frame).forEach((level, i) => {
+        levels.set([level.pitch, level.offsetX, level.offsetY, level.weight], i * 4)
+      })
+      gl.useProgram(pass.program)
+      gl.uniform4fv(pass.levels, levels)
+      gl.uniform2ui(pass.colors, grid.color, grid.majorColor)
+      gl.uniform1i(pass.dots, grid.pattern === 'dots' ? 1 : 0)
+      gl.bindVertexArray(pass.vao)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+      gl.bindVertexArray(null)
+    },
+
+    drawHulls() {
+      if (!hullPass || hullCount === 0) return
+      gl.useProgram(hullPass.program)
+      gl.bindVertexArray(hullPass.vao)
+      for (const stroke of [0, 1]) {
+        gl.uniform1i(hullPass.stroke, stroke)
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, hullCount)
       }
       gl.bindVertexArray(null)
     },

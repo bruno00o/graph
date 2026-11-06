@@ -3,14 +3,16 @@ import { gridInput } from '../core/background-grid'
 import { createGraphModel } from '../core/graph-model'
 import { HullLayer } from '../core/hull-layer'
 import { Positions, placeNodes } from '../core/positions'
+import { Projection } from '../core/projection'
 import { createScene } from '../core/scene'
 import { StateBuffers } from '../core/state-buffers'
 import { defineGraph } from '../define-graph'
+import { ContainerBoxes } from '../host/containers'
 import type { LabelMode } from '../host/renderer'
 import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
 import { lightTheme } from '../theme/tokens'
-import type { GraphDefinitionOptions, StateStyle } from '../types'
+import type { GraphDefinitionOptions, Hull, Key, StateStyle } from '../types'
 import type { LineLayout } from '../webgl/glyph-atlas'
 import type { TextMeasure } from '../webgl/label-layer'
 import { type ExportFrame, exportFrame } from './frame'
@@ -152,6 +154,116 @@ const pair: GraphDefinitionOptions = {
       { x: 'x', y: 'y', label: 'label' },
     ),
   ],
+}
+
+type Member = {
+  id: string
+  x?: number
+  y?: number
+  parent?: string
+  shape?: 'rectangle' | 'circle'
+}
+
+const members: Member[] = [
+  { id: 'g' },
+  { id: 'h', shape: 'circle' },
+  { id: 'a', parent: 'g', x: -100, y: 0 },
+  { id: 'b', parent: 'g', x: -40, y: 0 },
+  { id: 'c', parent: 'h', x: 100, y: 0 },
+]
+
+function renderGroups(folded: Key[] = [], hulls: Hull<never>[] = []) {
+  const model = createGraphModel()
+  const scene = createScene()
+  const projection = new Projection(model)
+  projection.setFolded(folded)
+  const definition = defineGraph({
+    marks: [
+      edges<Link>([{ id: 'ac', from: 'a', to: 'c' }], { source: 'from', target: 'to' }),
+      nodes<Member>(members, {
+        x: 'x',
+        y: 'y',
+        parent: 'parent',
+        label: 'id',
+        container: { shape: (member) => member.shape ?? 'rectangle' },
+      }),
+    ],
+    hulls,
+  })
+  model.setMarks(definition.marks)
+  scene.setDefinition(definition)
+  const changes = model.flush()
+  const projected = projection.apply(changes)
+  scene.apply(projection.view, projected.scene)
+  const positions = new Positions()
+  placeNodes(model, positions, changes)
+  const containers = new ContainerBoxes()
+  containers.sync(
+    projection.containers,
+    projection.containerVersion,
+    projection.hierarchy,
+    scene.nodes,
+    positions,
+    1,
+    1,
+  )
+  const layer = new HullLayer()
+  layer.setHulls(definition.hulls)
+  layer.update(
+    {
+      model,
+      nodes: scene.nodes,
+      positions,
+      palette: scene.palette,
+      containers,
+      stateNodes: () => [],
+    },
+    Number.POSITIVE_INFINITY,
+    () => 0,
+  )
+  const states = new StateBuffers()
+  states.reserve(scene.nodes.capacity, scene.edges.capacity)
+  const palette = new Uint8Array(scene.palette.colors.length * 4)
+  scene.palette.colors.forEach((color, id) => {
+    palette.set(rgba(color), id * 4)
+  })
+  const svg = writeSvg({
+    nodes: scene.nodes,
+    edges: scene.edges,
+    layers: scene.layers,
+    positions,
+    states,
+    containers,
+    hulls: layer.shapes,
+    palette,
+    theme: {
+      labelInk: rgba('#191d22'),
+      labelMuted: rgba('#5b6167'),
+      labelHalo: rgba('#f7f7f4'),
+      halo: rgba('#c9370047'),
+      font: 'sans-serif',
+    },
+    frame: { view: { x: 0, y: 0, zoom: 1 }, width: 400, height: 300 },
+    background: rgba('#f7f7f4'),
+    labels: 'all',
+    measure,
+    images: new Map(),
+    title: null,
+  })
+  const frame = exportFrame(
+    {
+      nodes: scene.nodes,
+      edges: scene.edges,
+      positions,
+      boxes: containers.boxes,
+      hulls: layer.shapes,
+      view: { x: 0, y: 0, zoom: 1 },
+      width: 400,
+      height: 300,
+    },
+    { region: 'graph', zoom: 1, padding: 0 },
+  )
+  return { svg, frame }
 }
 
 function count(svg: string, pattern: RegExp): number {
@@ -354,6 +466,45 @@ describe('writeSvg', () => {
     expect(svg).toMatch(
       /scale\(0.495\)" text-anchor="middle" font-size="24" font-weight="500" fill="#f7f7f4">7<\/text>/,
     )
+  })
+
+  it('draws unfolded groups as containers behind the edges and the nodes', () => {
+    const { svg, frame } = renderGroups()
+    const box = '<rect x="76" y="126" width="108" height="48" rx="16" fill="#e7efee"/>'
+    const border =
+      '<rect x="76.5" y="126.5" width="107" height="47" rx="15.5" fill="none" stroke="#6e8d8b" stroke-width="1"/>'
+    const ring = '<circle cx="300" cy="150" r="24" fill="#e7efee"/>'
+    expect(svg).toContain(box)
+    expect(svg).toContain(border)
+    expect(svg).toContain(ring)
+    expect(svg).toContain(
+      '<circle cx="300" cy="150" r="23.5" fill="none" stroke="#6e8d8b" stroke-width="1"/>',
+    )
+    const edge = svg.indexOf('<path d="M')
+    expect(svg.indexOf(box)).toBeLessThan(edge)
+    expect(svg.indexOf(ring)).toBeLessThan(edge)
+    expect(count(svg, /fill="#e7efee"/)).toBe(2)
+    const title = /translate\(130 ([\d.]+)\) scale/.exec(svg)
+    expect(Number(title?.[1])).toBeLessThan(126)
+    expect(frame).toEqual({ view: { x: 0, y: 0, zoom: 1 }, width: 248, height: 48 })
+  })
+
+  it('draws hulls over the containers and under the edges, around the container boxes', () => {
+    const { svg, frame } = renderGroups([], [hull({ nodes: ['g', 'c'], fill: '#ff0000' })])
+    const path = svg.match(/<path d="([^"]+)" fill="#ff0000"\/>/)?.[1] ?? ''
+    const xs = [...path.matchAll(/-?\d+(?:\.\d+)?/g)].map(Number).filter((_, at) => at % 2 === 0)
+    expect(Math.min(...xs)).toBeCloseTo(76 - 16, 0)
+    const at = svg.indexOf('fill="#ff0000"')
+    expect(svg.indexOf('<circle cx="300" cy="150" r="24" fill="#e7efee"/>')).toBeLessThan(at)
+    expect(svg.indexOf('rx="16" fill="#e7efee"')).toBeLessThan(at)
+    expect(at).toBeLessThan(svg.indexOf('<path d="M', at + 1))
+    expect(frame.width).toBeGreaterThan(248 + 16)
+  })
+
+  it('draws a folded group as a node, without a container', () => {
+    const { svg } = renderGroups(['g'])
+    expect(svg).not.toContain('rx="16"')
+    expect(count(svg, /fill="#e7efee"/)).toBe(1)
   })
 
   it('rotates edge labels along their edge and keeps them upright', () => {

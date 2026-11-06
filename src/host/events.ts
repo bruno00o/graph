@@ -1,9 +1,18 @@
-import type { Key, Point, View } from '../types'
+import type { AggregateEdge, Key, Point, View } from '../types'
 
 /** A node or an edge, with `datum`, the item it comes from in your data. Narrow on `kind`. */
 export type GraphTarget =
   | { readonly kind: 'node'; readonly key: Key; readonly datum: unknown }
-  | { readonly kind: 'edge'; readonly key: Key; readonly datum: unknown }
+  | {
+      readonly kind: 'edge'
+      readonly key: Key
+      readonly datum: unknown
+      /**
+       * Set when the edge stands for several edges between folded groups; `key` and `datum` are then
+       * those of its first edge.
+       */
+      readonly aggregate?: AggregateEdge
+    }
 
 /** Keys of nodes and of edges. */
 export interface ElementKeys {
@@ -45,7 +54,10 @@ export interface GraphTargetEvent {
 export interface GraphDragEvent {
   /** Node under the pointer. */
   readonly target: GraphTarget & { readonly kind: 'node' }
-  /** Every node the drag moves: the whole selection when the dragged node is selected. */
+  /**
+   * Every node the drag moves: the whole selection when the dragged node is selected, and the nodes
+   * inside a dragged group.
+   */
   readonly keys: readonly Key[]
   /** Pointer position in screen pixels, relative to the graph element. */
   readonly point: Point
@@ -73,6 +85,12 @@ export interface GraphLayoutEndEvent extends GraphLayoutEvent {
   readonly completed: boolean
 }
 
+/** Payload of `foldchange` and of the controlled `onFoldChange` callback. */
+export interface GraphFoldEvent {
+  /** Keys of the folded groups. */
+  readonly folded: readonly Key[]
+}
+
 /** What moved the nodes: a drag, `positions.set`, or the end of a layout run. */
 export type PositionOrigin = 'drag' | 'api' | 'layout'
 
@@ -88,7 +106,10 @@ export interface GraphPositionEvent {
 export interface GraphEvents {
   /** A press released within 4 pixels of where it started, before the default selection runs. */
   readonly click: GraphPointerEvent
-  /** A double click. */
+  /**
+   * A double click. On a group it then folds or unfolds it, unless a handler calls
+   * `originalEvent.preventDefault()`.
+   */
   readonly doubleclick: GraphPointerEvent
   /** A secondary click. */
   readonly contextmenu: GraphPointerEvent
@@ -108,6 +129,8 @@ export interface GraphEvents {
   readonly selectionchange: ElementKeys
   /** The keyboard focus moved to another element, or left. */
   readonly focuschange: GraphFocusEvent
+  /** Groups were folded or unfolded, from the user or from code. */
+  readonly foldchange: GraphFoldEvent
   /** The view changed. */
   readonly viewchange: { readonly view: View }
   /** A layout run starts. Nodes that join a run do not start another. */

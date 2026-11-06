@@ -13,13 +13,14 @@ interface GraphInstance<S extends string = string> {
   readonly positions: GraphPositions
   readonly layout: GraphLayout
   readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
+  readonly groups: GraphGroups
   readonly element: HTMLElement
   pick(point: Point): GraphTarget | null
   neighbors(key: Key): Key[]
   edgesOf(key: Key): Key[]
   endpoints(key: Key): { source: Key; target: Key } | undefined
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
-  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView'>>): void
+  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView' | 'initialFolded'>>): void
   destroy(): void
 }
 ```
@@ -144,6 +145,25 @@ Without `interactive`, the element lets every pointer event through to the graph
 
 In React, use [`<Anchor>`](/docs/api/anchor).
 
+## Groups
+
+```ts
+interface GraphGroups {
+  folded(): readonly Key[]
+  isFolded(key: Key): boolean
+  fold(keys?: Iterable<Key>): void
+  unfold(keys?: Iterable<Key>): void
+  toggle(key: Key): void
+  set(keys: Iterable<Key>): void
+  parent(key: Key): Key | undefined
+  children(key: Key): Key[]
+}
+```
+
+<api-table path="index.ts" name="GraphGroups" />
+
+`fold`, `unfold`, `toggle` and `set` emit `foldchange`. In controlled mode, they call `onFoldChange` instead of changing the folded groups. See [Groups](/docs/groups).
+
 ## Graph state
 
 ```ts
@@ -157,6 +177,7 @@ interface GraphState<S extends string = string> {
   readonly states: { readonly [K in FreeState<S>]: ElementKeys }
   readonly positionsVersion: number
   readonly layout: GraphLayoutStatus
+  readonly folded: readonly Key[]
 }
 
 interface GraphLayoutStatus {
