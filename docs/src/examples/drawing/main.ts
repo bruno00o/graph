@@ -1,0 +1,159 @@
+import {
+  defineGraph,
+  edges,
+  type GraphInstance,
+  type Hull,
+  type HullShape,
+  hull,
+  type Key,
+  mountGraph,
+  nodes,
+} from '@bruno00o/graph'
+import { force } from '@bruno00o/graph/layouts/force'
+import { createSample, type Item, type Link } from '../shared/data'
+import { messages } from '../shared/messages'
+import '../shared/overlays.css'
+import './drawing.css'
+
+type Background = keyof typeof messages.backgrounds
+type HullMode = keyof typeof messages.hullModes
+
+const backgrounds = Object.keys(messages.backgrounds) as Background[]
+const modes = Object.keys(messages.hullModes) as HullMode[]
+const shapes = Object.keys(messages.hullShapes) as HullShape[]
+
+function button(text: string, onClick: (button: HTMLButtonElement) => void): HTMLButtonElement {
+  const element = document.createElement('button')
+  element.type = 'button'
+  element.className = 'example-button'
+  element.textContent = text
+  element.addEventListener('click', () => onClick(element))
+  return element
+}
+
+function cycle<T>(values: readonly T[], value: T): T {
+  return values[(values.indexOf(value) + 1) % values.length] ?? value
+}
+
+export function mount(container: HTMLElement): GraphInstance {
+  const { items, links } = createSample(150, 330, 5, 3, 0.01)
+  const byId = new Map(items.map((item) => [item.id, item]))
+  const itemMark = nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' })
+  const linkMark = edges<Link>(links, { source: 'from', target: 'to', opacity: 0.7 })
+  const layout = force()
+  let background: Background = 'lines'
+  let mode: HullMode = 'groups'
+  let shape: HullShape = 'rounded'
+
+  const hulls = (): Hull<'selected'>[] => {
+    if (mode === 'groups') return [hull<Item>({ nodes: itemMark, by: 'group', shape })]
+    if (mode === 'selection') {
+      return [hull({ state: 'selected', shape, color: 'var(--graph-accent)', padding: 12 })]
+    }
+    return []
+  }
+  const define = () =>
+    defineGraph({
+      marks: [linkMark, itemMark],
+      scales: { size: { range: [8, 22] } },
+      layout,
+      background: background === 'none' ? null : { grid: background },
+      hulls: hulls(),
+      interaction: { lasso: true },
+    })
+
+  container.classList.add('drawing-stage')
+  const graph = mountGraph(container, {
+    definition: define(),
+    ariaLabel: messages.graphLabel(items.length, links.length),
+  })
+  const redraw = () => graph.update({ definition: define() })
+
+  const count = document.createElement('span')
+  const toolbar = document.createElement('div')
+  toolbar.className = 'drawing-toolbar'
+  toolbar.append(
+    count,
+    button(messages.frameSelection, () =>
+      graph.view.fit(graph.selection.get().nodes, { duration: 400 }),
+    ),
+    button(messages.clearSelection, () => graph.selection.clear()),
+  )
+  graph.anchors.set(toolbar, {
+    state: 'selected',
+    side: 'top',
+    offset: { x: 0, y: -8 },
+    interactive: true,
+  })
+  graph.on('selectionchange', ({ nodes: selected }) => {
+    count.textContent = messages.selectionCount(selected.length)
+  })
+
+  const tooltip = document.createElement('div')
+  tooltip.className = 'drawing-tooltip'
+  const title = document.createElement('strong')
+  const detail = document.createElement('span')
+  tooltip.append(title, detail)
+  graph.on('pointerenter', ({ target }) => {
+    if (target.kind === 'node') {
+      const item = target.datum as Item
+      title.textContent = item.label
+      detail.textContent = messages.weight(item.group, item.weight)
+      graph.anchors.set(tooltip, {
+        node: target.key,
+        side: 'right',
+        align: 'start',
+        when: 'hovered',
+      })
+      return
+    }
+    const link = target.datum as Link
+    title.textContent = messages.route(
+      byId.get(link.from)?.label ?? '',
+      byId.get(link.to)?.label ?? '',
+    )
+    detail.textContent = ''
+    graph.anchors.set(tooltip, { edge: target.key, side: 'top', when: 'hovered' })
+  })
+
+  const groups = new Map<string, Key[]>()
+  for (const item of items) groups.set(item.group, [...(groups.get(item.group) ?? []), item.id])
+  const names = [...groups].map(([group, keys]) => {
+    const name = document.createElement('div')
+    name.className = 'drawing-group'
+    name.textContent = messages.group(group)
+    return { name, keys }
+  })
+  const showNames = () => {
+    for (const { name, keys } of names) {
+      if (mode === 'groups') {
+        graph.anchors.set(name, { nodes: keys, side: 'top', offset: { x: 0, y: -18 } })
+      } else graph.anchors.remove(name)
+    }
+  }
+  showNames()
+
+  const actions = document.createElement('div')
+  actions.className = 'example-actions'
+  actions.append(
+    button(messages.background(messages.backgrounds[background]), (element) => {
+      background = cycle(backgrounds, background)
+      element.textContent = messages.background(messages.backgrounds[background])
+      redraw()
+    }),
+    button(messages.hulls(messages.hullModes[mode]), (element) => {
+      mode = cycle(modes, mode)
+      element.textContent = messages.hulls(messages.hullModes[mode])
+      showNames()
+      redraw()
+    }),
+    button(messages.hullShape(messages.hullShapes[shape]), (element) => {
+      shape = cycle(shapes, shape)
+      element.textContent = messages.hullShape(messages.hullShapes[shape])
+      redraw()
+    }),
+  )
+  container.append(actions)
+
+  return graph
+}

@@ -1,40 +1,69 @@
 import type { Key, Point, View } from '../types'
 
-/** Side of the target where an anchored element sits. `center` centers it on the target. */
+/**
+ * Side of the target where an anchored element sits: `'top'`, `'right'`, `'bottom'`, `'left'`,
+ * or `'center'` on the target.
+ */
 export type AnchorSide = 'top' | 'right' | 'bottom' | 'left' | 'center'
 
-/** Alignment of an anchored element along the side of its target. */
+/**
+ * Alignment of an anchored element along the side of its target: `'start'` lines up the left or
+ * top edges, `'center'` centers it, `'end'` lines up the right or bottom edges.
+ */
 export type AnchorAlign = 'start' | 'center' | 'end'
 
-/** Where an element is pinned and when it shows. Give one target: `node`, `nodes`, `state`, `edge` or `point`. */
+/**
+ * Options of `graph.anchors.set`: where an element is pinned and when it shows. Give one target:
+ * `node`, `nodes`, `state`, `edge` or `point`. The element is hidden while its target is missing
+ * or off screen.
+ */
 export interface AnchorOptions<S extends string = string> {
   /** Key of the node to follow. */
   readonly node?: Key
   /** Keys of nodes to follow together: the element is placed on their bounding box. */
   readonly nodes?: Iterable<Key>
-  /** A state whose nodes are followed together, on their bounding box. Hidden while the state holds no node. */
+  /** A state whose nodes are followed together, on their bounding box. */
   readonly state?: S
   /** Key of the edge to follow, at the anchor of its label. */
   readonly edge?: Key
   /** Point to follow, in world units. */
   readonly point?: Point
-  /** Side of the target where the element sits, 4 pixels away from it. @default 'center' */
+  /**
+   * Side of the target where the element sits, 4 pixels away from the node edge and outline.
+   * @default 'center'
+   */
   readonly side?: AnchorSide
-  /** Alignment along the side: `start` lines up the left or top edges. @default 'center' */
+  /**
+   * Alignment along the side.
+   * @default 'center'
+   */
   readonly align?: AnchorAlign
   /** Extra shift in screen pixels. */
   readonly offset?: Point
-  /** Shows the element only while its node, edge, or one of its nodes, is in this state. */
+  /**
+   * Shows the element only while its node, its edge, or one of its nodes is in this state, such
+   * as `'selected'` or `'hovered'`. Applies to `node`, `nodes` and `edge`.
+   */
   readonly when?: S
-  /** Scales the element with the zoom, as if it were drawn in the world at zoom 1. @default false */
+  /**
+   * Scales the element with the zoom, as if it were drawn in the world at zoom 1.
+   * @default false
+   */
   readonly scale?: boolean
-  /** Lets the element receive the pointer. Otherwise clicks, drags and the wheel go through to the graph. @default false */
+  /**
+   * Lets the element take the pointer. Otherwise clicks and drags go through to the graph. The
+   * wheel always zooms the graph, unless the element under the pointer can scroll.
+   * @default false
+   */
   readonly interactive?: boolean
 }
 
-/** HTML elements pinned to nodes, edges or points, moved with the view without a render per frame. */
+/** HTML elements pinned to nodes, edges or points, moved with the view without a render. */
 export interface GraphAnchors<S extends string = string> {
-  /** Pins an element, or changes the options of an element already pinned. The element moves into the graph. Returns the function that removes it. */
+  /**
+   * Pins an element, or changes the options of an element already pinned. The element moves
+   * into a layer over the canvas. Returns the function that removes it.
+   */
   set(element: HTMLElement, options: AnchorOptions<S>): () => void
   /** Takes a pinned element out of the graph. */
   remove(element: HTMLElement): void

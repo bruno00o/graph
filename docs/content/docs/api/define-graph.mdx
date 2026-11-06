@@ -112,9 +112,22 @@ Durations in milliseconds. Negative values count as 0, and every duration is 0 w
 
 <api-table path="index.ts" name="TransitionOptions" />
 
+## Background
+
+`background: { grid }` draws a grid under everything, on the canvas, so it follows pan and zoom. The canvas stays transparent: the page still paints `--graph-paper` behind it.
+
+<api-table path="index.ts" name="BackgroundOptions" />
+
+The grid has three levels, `spacing` times a power of 4 apart, chosen from the zoom. The finest level fades in as its lines grow from 4 to 16 pixels apart, and lines of the coarser levels blend into `majorColor`, so zooming never shows a jump. See [Drawing layers](/docs/drawing-layers#background-grid).
+
+## Hulls
+
+`hulls` takes the results of [`hull()`](/docs/api/hull), drawn under edges and nodes in their order. A hull that follows a state must name a declared state, or `selected`, `hovered` or `focused`.
+
 ## Errors
 
 - `TypeError` when a mark does not come from `nodes()` or `edges()`.
+- `TypeError` when `background.grid` is not `'lines'` or `'dots'`, or when a hull does not come from `hull()`.
 - `RangeError` with more than 29 states besides `selected`, `hovered` and `focused`.
 
 ## Result
@@ -127,7 +140,9 @@ interface GraphDefinition<S extends string = string> {
   readonly layout: Layout | null
   readonly interaction: ResolvedInteraction
   readonly transitions: ResolvedTransitions
+  readonly background: ResolvedBackground | null
+  readonly hulls: readonly Hull[]
 }
 ```
 
-Options are resolved: `interaction.zoom` is `false` or `{ speed }`, and `transitions.positions` and `transitions.layout` are numbers of milliseconds.
+Options are resolved: `interaction.zoom` is `false` or `{ speed }`, `transitions.positions` and `transitions.layout` are numbers of milliseconds, and `background` is `null` or carries its spacing and colors.

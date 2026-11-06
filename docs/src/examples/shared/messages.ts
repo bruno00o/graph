@@ -72,4 +72,13 @@ export const messages = {
     `TanStack DB ${formatNumber(Math.round(database))} ms, graph ${formatNumber(Math.round(graph))} ms`,
   linksLoaded: (value: number) => count(value, 'edge loaded', 'edges loaded'),
   unload: 'Unload edges',
+  background: (name: string) => `Background: ${name}`,
+  backgrounds: { lines: 'lines', dots: 'dots', none: 'none' },
+  hulls: (name: string) => `Hulls: ${name}`,
+  hullModes: { groups: 'by group', selection: 'selection', none: 'none' },
+  hullShape: (name: string) => `Shape: ${name}`,
+  hullShapes: { rounded: 'rounded', smooth: 'smooth' },
+  frameSelection: 'Frame',
+  clearSelection: 'Clear',
+  selectionCount: (value: number) => count(value, 'node', 'nodes'),
 }

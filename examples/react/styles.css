@@ -13,12 +13,8 @@
 }
 
 .tooltip {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--graph-paper-raised);
   border: 1px solid var(--graph-group-line);
   font-size: 13px;

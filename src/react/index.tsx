@@ -248,7 +248,10 @@ export interface AnchorProps<S extends string = string> extends AnchorOptions<S>
   readonly children?: ReactNode
 }
 
-/** Pins its children to a node, a set of nodes, a state, an edge or a world point. Use it inside `<Graph>`: the children follow the view and the nodes without rendering again. */
+/**
+ * Pins its children to a node, a set of nodes, a state, an edge or a world point. Use it inside
+ * `<Graph>`: the children follow the view and the nodes without rendering again.
+ */
 export function Anchor<S extends string = string>(props: AnchorProps<S>): ReactNode {
   const { children, ...options } = props
   const graph = useGraph()

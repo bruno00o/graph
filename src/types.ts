@@ -550,9 +550,12 @@ export interface GraphDefinitionOptions<S extends string = string> {
   readonly interaction?: InteractionOptions
   /** Durations of animated node moves. */
   readonly transitions?: TransitionOptions
-  /** Grid drawn under the graph. */
+  /**
+   * Grid drawn under everything, which follows the view and adapts its spacing to the zoom.
+   * @default null
+   */
   readonly background?: BackgroundOptions | null
-  /** Shapes drawn under edges and nodes around sets of nodes, in this order. */
+  /** Results of `hull()`: shapes around sets of nodes, drawn under edges and nodes, in order. */
   readonly hulls?: readonly Hull<NoInfer<S> | BuiltInState>[]
 }
 
@@ -576,86 +579,124 @@ export interface GraphDefinition<S extends string = string> {
   readonly hulls: readonly Hull[]
 }
 
-/** Pattern of the background grid: thin lines, or dots where lines would cross. */
+/** Pattern of the background grid: `'lines'`, or `'dots'` where the lines would cross. */
 export type BackgroundGrid = 'lines' | 'dots'
 
-/** Background grid options. Lines fall on world multiples of `spacing` times a power of 4 chosen from the zoom: the finest lines fade in as they grow from 4 to 16 pixels apart, and every fourth line takes `majorColor`. */
+/**
+ * Options of the `background` of `defineGraph`. Lines fall on world multiples of `spacing` times
+ * a power of 4 chosen from the zoom: the finest lines fade in as they grow from 4 to 16 pixels
+ * apart, and every fourth line takes `majorColor`.
+ */
 export interface BackgroundOptions {
-  /** Draws lines or dots. */
+  /** Draws `'lines'` or `'dots'`. */
   readonly grid: BackgroundGrid
-  /** Distance between lines in world units, before the zoom picks a power of 4 of it. @default 16 */
+  /**
+   * Distance between lines in world units, before the zoom picks a power of 4 of it.
+   * @default 16
+   */
   readonly spacing?: number
-  /** Color of the grid, any CSS color. @default 'var(--graph-grid)' */
+  /**
+   * Color of the grid, any CSS color.
+   * @default 'var(--graph-grid)'
+   */
   readonly color?: string
-  /** Color of every fourth line, where the next coarser level of the grid falls. @default 'var(--graph-grid-major)' */
+  /**
+   * Color of every fourth line, where the next coarser level of the grid falls.
+   * @default 'var(--graph-grid-major)'
+   */
   readonly majorColor?: string
 }
 
-/** Background grid with its defaults applied. */
+/** Background grid with every default applied, as `defineGraph` resolves it. */
 export interface ResolvedBackground {
+  /** `'lines'` or `'dots'`. */
   readonly grid: BackgroundGrid
+  /** Distance between lines in world units, before the zoom picks a power of 4 of it. */
   readonly spacing: number
+  /** Color of the grid. */
   readonly color: string
+  /** Color of every fourth line. */
   readonly majorColor: string
 }
 
-/** Outline of a hull: `rounded` follows the convex hull of the nodes with round corners, `smooth` also bends the sides into curves. */
+/**
+ * Outline of a hull: `'rounded'` follows the convex hull of the nodes with round corners,
+ * `'smooth'` also bends the sides outward into arcs.
+ */
 export type HullShape = 'rounded' | 'smooth'
 
-/** Drawing options of a hull. `C` is the type of a color option. */
+/** Drawing options shared by every hull. `C` is the type of a color option. */
 export interface HullStyle<C> {
-  /** Outline shape. @default 'rounded' */
+  /**
+   * Outline shape, `'rounded'` or `'smooth'`.
+   * @default 'rounded'
+   */
   readonly shape?: HullShape
-  /** Space between the outline and the edge of the nodes, in screen pixels. @default 16 */
+  /**
+   * Space between the outline and the edge of the nodes, in screen pixels.
+   * @default 16
+   */
   readonly padding?: number
-  /** Color of the outline, also used at 12% for the fill. Without it, the hull takes `--graph-group-fill` and `--graph-group-line`. */
+  /**
+   * Color of the outline, also used at 12% for the fill. Without it, the hull takes
+   * `--graph-group-fill` and `--graph-group-line`.
+   */
   readonly color?: C
-  /** Fill color. Defaults to `color` at 12%, or `var(--graph-group-fill)`. */
+  /** Fill color. Defaults to `color` at 12%, or to `var(--graph-group-fill)`. */
   readonly fill?: C
-  /** Outline color. Defaults to `color`, or `var(--graph-group-line)`. */
+  /** Outline color. Defaults to `color`, or to `var(--graph-group-line)`. */
   readonly stroke?: C
-  /** Width of the outline in screen pixels, `0` for none. @default 1 */
+  /**
+   * Width of the outline in screen pixels, `0` for none.
+   * @default 1
+   */
   readonly strokeWidth?: number
 }
 
-/** A hull around the nodes of a list of keys. Keys of missing nodes are skipped. */
+/** Options of `hull()` around a list of keys. Keys of missing nodes are skipped. */
 export interface HullKeysOptions extends HullStyle<string> {
   /** Keys of the nodes to enclose. */
   readonly nodes: Iterable<Key>
 }
 
-/** A hull around the nodes in a state, updated when the state changes. */
+/** Options of `hull()` around the nodes in a state, updated when the state changes. */
 export interface HullStateOptions<N extends string> extends HullStyle<string> {
-  /** A free state of the definition, or `selected`, `hovered` or `focused`. */
+  /** A free state of the definition, or `'selected'`, `'hovered'` or `'focused'`. */
   readonly state: N
 }
 
-/** A hull around every node of a mark. */
+/** Options of `hull()` around every node of a mark. */
 export interface HullMarkOptions<T> extends HullStyle<string> {
   /** The mark whose nodes are enclosed, as passed to `marks`. */
   readonly nodes: NodeMark<T>
+  /** Leave out to draw a single hull. */
   readonly by?: undefined
 }
 
-/** One hull per value of a channel, around the nodes of a mark that share it. */
+/** Options of `hull()` with one hull per value of a channel. */
 export interface HullGroupOptions<T> extends HullStyle<Style<Key, string>> {
   /** The mark whose nodes are grouped, as passed to `marks`. */
   readonly nodes: NodeMark<T>
-  /** Field or function giving the group of a node. Nodes without a value are left out. Color functions receive this value. */
+  /**
+   * Field or function giving the group of a node. Nodes without a value are left out, and color
+   * functions receive the value.
+   */
   readonly by: Channel<T, Key>
 }
 
-/** Options of any hull. */
+/** Options of `hull()`, in any of its four forms. */
 export type HullOptions<T = unknown, N extends string = string> =
   | HullKeysOptions
   | HullStateOptions<N>
   | HullMarkOptions<T>
   | HullGroupOptions<T>
 
-/** A hull definition, made by `hull()` and passed to `hulls`. `N` is the state it follows, if any. */
+/** A hull definition, made by `hull()` and passed to `hulls`. `N` is the state it follows. */
 export interface Hull<N extends string = string> {
+  /** Always `'hull'`. */
   readonly type: 'hull'
   /** The state the hull follows, or `null`. */
   readonly state: N | null
+  /** The options given to `hull()`. */
   readonly options: HullOptions<unknown, string>
 }

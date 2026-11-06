@@ -59,4 +59,4 @@ if (point) {
 
 `toWorld` does the reverse, for example to drop a new node where the user clicked. Pointer events already carry both: `point` in screen pixels and `world` in world units.
 
-The store holds the view, the width and the height of the graph, so overlays can subscribe to them. See the [React overlays](/examples/react-overlays) example.
+The store holds the view, the width and the height of the graph, so overlays can subscribe to them. To keep an element on a node without any code per frame, pin it with [`graph.anchors.set`](/docs/drawing-layers#anchored-html).

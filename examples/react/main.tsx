@@ -1,6 +1,6 @@
 import { defineGraph, type ElementKeys, edges, type Key, nodes } from '@bruno00o/graph'
 import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools/react'
-import { Graph, type GraphInstance, useGraph, useGraphState } from '@bruno00o/graph/react'
+import { Anchor, Graph, type GraphInstance, useGraphState } from '@bruno00o/graph/react'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { StrictMode, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -13,25 +13,18 @@ const byId = new Map(sample.items.map((item) => [item.id, item]))
 const devtoolsPlugins = [graphDevtoolsPlugin({ defaultOpen: true })]
 
 function Tooltip() {
-  const graph = useGraph()
   const hovered = useGraphState((state) => state.hovered)
-  useGraphState((state) => state.view)
-  useGraphState((state) => state.positionsVersion)
   if (hovered?.kind !== 'node') return null
   const item = hovered.datum as Item
-  const position = graph.positions.get(hovered.key)
-  if (!position) return null
-  const point = graph.view.toScreen(position)
   return (
-    <div
-      className="tooltip"
-      style={{ transform: `translate(${point.x + 12}px, ${point.y + 12}px)` }}
-    >
-      <strong>{item.label}</strong>
-      <span>
-        {item.group}, {messages.weight.toLowerCase()} {formatNumber(item.weight)}
-      </span>
-    </div>
+    <Anchor node={hovered.key} side="right" align="start">
+      <div className="tooltip">
+        <strong>{item.label}</strong>
+        <span>
+          {item.group}, {messages.weight.toLowerCase()} {formatNumber(item.weight)}
+        </span>
+      </div>
+    </Anchor>
   )
 }
 

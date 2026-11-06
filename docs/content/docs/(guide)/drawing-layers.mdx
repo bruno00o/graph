@@ -1,0 +1,118 @@
+---
+title: Drawing layers
+description: A background grid, hulls around sets of nodes, and HTML pinned to the graph.
+---
+
+<LiveExample slug="drawing-layers" />
+
+Besides nodes and edges, a graph can draw a grid under everything, shapes around sets of nodes, and carry HTML elements that follow nodes, edges or points. The grid and the hulls are drawn with WebGL on the same canvas. Anchored elements are plain HTML in a layer over the canvas.
+
+## Background grid
+
+```ts
+defineGraph({
+  marks: [people, links],
+  background: { grid: 'lines' },
+})
+```
+
+`grid` is `'lines'` or `'dots'`. The grid follows pan and zoom. Its lines fall on world multiples of `spacing`, 16 by default, times a power of 4: when you zoom out, the finest lines fade away before they crowd, and every fourth line is drawn darker. The canvas stays transparent, so the page still paints `--graph-paper` under the grid.
+
+The colors come from `--graph-grid` and `--graph-grid-major`, and follow the theme. Pass `color` and `majorColor` for others. The options are listed in [`defineGraph`](/docs/api/define-graph#background).
+
+## Hulls
+
+A hull is a shape drawn under edges and nodes around a set of nodes. Build it with [`hull()`](/docs/api/hull) and list it in `hulls`.
+
+```ts
+import { defineGraph, hull, nodes } from '@bruno00o/graph'
+
+const people = nodes(rows, { color: 'team' })
+
+defineGraph({
+  marks: [links, people],
+  hulls: [hull({ nodes: people, by: 'team' })],
+})
+```
+
+A hull can enclose:
+
+- the nodes of a list of keys: `hull({ nodes: ['a', 'b'] })`;
+- every node of a mark: `hull({ nodes: people })`;
+- the nodes of a mark grouped by a field or a function: `hull({ nodes: people, by: 'team' })`, one hull per value;
+- the nodes in a state: `hull({ state: 'selected' })`, updated when the state changes.
+
+Hulls follow their nodes as they move, through a layout, a drag or a transition. Only hulls whose nodes moved are computed again, within a time budget per frame, so a few hundred hulls over tens of thousands of nodes stay smooth.
+
+### Shape and style
+
+```ts
+hull({
+  nodes: people,
+  by: 'team',
+  shape: 'smooth',
+  padding: 24,
+  color: (team) => (team === 'core' ? 'var(--graph-cat-1)' : 'var(--graph-cat-2)'),
+})
+```
+
+- `shape: 'rounded'`, the default, keeps straight sides and rounds each corner around its node. `'smooth'` bends the sides outward into arcs.
+- `padding` is the room between the outline and the nodes, in screen pixels, 16 by default.
+- Without colors, a hull is filled with `--graph-group-fill` and outlined with `--graph-group-line`. `color` sets the outline and a 12% fill; `fill` and `stroke` set each one. With `by`, each color option can be a function of the group value.
+- `strokeWidth` is in screen pixels, 1 by default, `0` for no outline.
+
+## Anchored HTML
+
+`graph.anchors.set(element, options)` pins an HTML element to the graph. The graph places it at each frame with a CSS transform, so it follows pan, zoom and node moves with no code of yours and no React render.
+
+```ts
+const tooltip = document.createElement('div')
+graph.on('pointerenter', ({ target }) => {
+  if (target.kind !== 'node') return
+  tooltip.textContent = String(target.key)
+  graph.anchors.set(tooltip, { node: target.key, side: 'right', when: 'hovered' })
+})
+```
+
+An element follows one target:
+
+| Option | Follows |
+| --- | --- |
+| `node` | A node |
+| `nodes` | The bounding box of several nodes, such as a group |
+| `state` | The bounding box of the nodes in a state, such as the selection |
+| `edge` | The anchor of the edge label, at the middle of the visible line |
+| `point` | A point in world units |
+
+`side` puts the element above, below, beside or on its target, 4 pixels away from the node edge, and `align` slides it along that side. `offset` shifts it by a number of pixels. `scale: true` makes the element grow and shrink with the zoom, as if drawn in the world.
+
+### Visibility
+
+An element is hidden while its target is gone or off screen. `when` hides it too while its node or edge is not in a state: `when: 'hovered'` makes a tooltip, `when: 'selected'` a menu that shows on selection. An anchor on `state: 'selected'` shows one toolbar for the whole selection, and hides while nothing is selected.
+
+### Pointer
+
+By default, an anchored element lets every pointer event through: hovering, clicking or dragging over a label still acts on the graph. `interactive: true` lets it take clicks, for buttons and menus. The wheel over an interactive element still zooms the graph, unless the element under the pointer can scroll.
+
+### In React
+
+`<Anchor>` takes the same options as props and renders its children into the anchor layer through a portal.
+
+```tsx
+import { Anchor, Graph, useGraphState } from '@bruno00o/graph/react'
+
+function Toolbar() {
+  const count = useGraphState((state) => state.selection.nodes.length)
+  return (
+    <Anchor state="selected" side="top" interactive>
+      <div className="toolbar">{count} selected</div>
+    </Anchor>
+  )
+}
+
+<Graph definition={definition} ariaLabel="Team graph">
+  <Toolbar />
+</Graph>
+```
+
+The children render when their own state changes, never because the view moved. See [`Anchor`](/docs/api/anchor) and [`GraphAnchors`](/docs/api/graph-instance#anchors).

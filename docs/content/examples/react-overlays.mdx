@@ -6,7 +6,7 @@ title: React overlays
 
 `<Graph>` mounts the graph and renders its children above the canvas. Every child can call `useGraph()` for the instance and `useGraphState(selector)` for a slice of the graph store.
 
-The tooltip reads `hovered`, then converts the node position to screen coordinates with `graph.view.toScreen`. It also subscribes to `view` and `positionsVersion`, so it follows the node when the view changes or the node moves.
+The tooltip reads `hovered` and renders inside `<Anchor node={hovered.key} side="right">`. The anchor pins it beside the node: it follows the view and the node as it moves, without rendering the tooltip again.
 
 The selection panel is plain React state, filled by `onSelectionChange`.
 

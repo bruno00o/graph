@@ -50,8 +50,7 @@
 }
 
 .example-tooltip {
-  top: 0;
-  left: 0;
+  position: static;
   display: flex;
   flex-direction: column;
   padding: 6px 10px;

@@ -12,6 +12,7 @@ interface GraphInstance<S extends string = string> {
   readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
   readonly layout: GraphLayout
+  readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   readonly element: HTMLElement
   pick(point: Point): GraphTarget | null
   neighbors(key: Key): Key[]
@@ -118,6 +119,30 @@ interface LayoutRunOptions {
 `run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
 
 <api-table path="index.ts" name="LayoutRunOptions" />
+
+## Anchors
+
+```ts
+interface GraphAnchors<S extends string> {
+  set(element: HTMLElement, options: AnchorOptions<S>): () => void
+  remove(element: HTMLElement): void
+}
+```
+
+`set` moves the element into a layer over the canvas, inside `graph.element`, and places it from then on at each frame, with a CSS transform: no code of yours runs while the view or the nodes move. Calling `set` again on the same element changes its options. `destroy` removes every pinned element.
+
+```ts
+const menu = document.createElement('div')
+graph.anchors.set(menu, { state: 'selected', side: 'top', interactive: true })
+```
+
+<api-table path="index.ts" name="AnchorOptions" />
+
+The element keeps its own size: the anchor reads it with a `ResizeObserver`. It is hidden with `visibility: hidden` while its target is missing, off screen, or out of the `when` state. A state given to `state` or `when` must be declared in the definition, or be `selected`, `hovered` or `focused`; otherwise `set` throws.
+
+Without `interactive`, the element lets every pointer event through to the graph. With it, the element takes clicks and drags, and the wheel still zooms the graph unless the element under the pointer can scroll. Keys pressed inside the element do not reach the graph shortcuts.
+
+In React, use [`<Anchor>`](/docs/api/anchor).
 
 ## Graph state
 

@@ -37,27 +37,23 @@ Event props always call the latest function you pass, without subscribing again.
 
 ## Overlays
 
-Children of `<Graph>` are HTML drawn over the canvas. They can read and drive the graph through the hooks.
+Children of `<Graph>` are HTML drawn over the canvas. They can read and drive the graph through the hooks. To pin an element to a node, an edge or a point, wrap it in `<Anchor>`: it follows the view and the node without rendering again.
 
 ```tsx title="Tooltip.tsx"
-import { useGraph, useGraphState } from '@bruno00o/graph/react'
+import { Anchor, useGraphState } from '@bruno00o/graph/react'
 
 export function Tooltip() {
-  const graph = useGraph()
   const hovered = useGraphState((state) => state.hovered)
-  useGraphState((state) => state.view)
-  useGraphState((state) => state.positionsVersion)
   if (hovered?.kind !== 'node') return null
-  const point = graph.positions.get(hovered.key)
-  if (!point) return null
-  const { x, y } = graph.view.toScreen(point)
   return (
-    <div className="tooltip" style={{ transform: `translate(${x}px, ${y}px)` }}>
-      {(hovered.datum as Item).label}
-    </div>
+    <Anchor node={hovered.key} side="right" align="start">
+      <div className="tooltip">{(hovered.datum as Item).label}</div>
+    </Anchor>
   )
 }
 ```
+
+See [Drawing layers](/docs/drawing-layers#anchored-html) for every target and option.
 
 <LiveExample slug="react-overlays" />
 
