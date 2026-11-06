@@ -9,6 +9,8 @@ import type { GraphPositionEvent } from '../host/events'
 import type { GraphInstance } from '../host/mount-graph'
 import type { FieldOf, Key, Point } from '../types'
 
+export { type SubsetWhere, subset } from './subset'
+
 export interface PersistPositionsOptions<T extends object, TKey extends string | number> {
   readonly collection: Collection<T, TKey>
   readonly x?: FieldOf<T, number>

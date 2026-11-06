@@ -43,7 +43,7 @@ pnpm add @bruno00o/graph
 | -------------------------------- | ---------------------------------------------------------------- | -------------------------------------- |
 | `@bruno00o/graph`                | `defineGraph`, `nodes`, `edges`, `mountGraph`                    |                                        |
 | `@bruno00o/graph/react`          | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent`          | `react` 19                             |
-| `@bruno00o/graph/db`             | `persistPositions` for TanStack DB collections                   | `@tanstack/db`                         |
+| `@bruno00o/graph/db`             | `persistPositions` and `subset` for TanStack DB collections      | `@tanstack/db`                         |
 | `@bruno00o/graph/query`          | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core`                 |
 | `@bruno00o/graph/layouts`        | `grid`, `rings` and `radial` layouts                             |                                        |
 | `@bruno00o/graph/layouts/force`  | `force` layout, computed on the GPU in a Web Worker              |                                        |
@@ -140,9 +140,19 @@ A TanStack DB collection is a live source: pass it to a mark and its changes arr
 nodes(itemsCollection, { color: 'group', label: 'label' })
 ```
 
+To filter a large collection, `subset` subscribes to it with a `where` expression: a new filter only moves the rows that enter or leave it, and an on-demand collection loads only what the graph asks for.
+
+```ts
+import { subset } from '@bruno00o/graph/db'
+import { gte } from '@tanstack/db'
+
+const heavy = subset(itemsCollection, (item) => gte(item.weight, 40))
+nodes(heavy, { color: 'group' })
+```
+
 ## Examples
 
-The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 500,000 nodes, grid, rings and radial layouts, collaboration across tabs with TanStack DB, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
+The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 500,000 nodes, grid, rings and radial layouts, collaboration across tabs with TanStack DB, filtering 500,000 TanStack DB rows with edges loaded on demand, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
 
 ## Get Involved
 

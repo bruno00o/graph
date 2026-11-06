@@ -11,6 +11,7 @@ import {
   LabelLayer,
   labelVisible,
   sortBySize,
+  sortDescending,
   sortEdgesByWidth,
 } from './label-layer'
 
@@ -357,6 +358,23 @@ describe('sortEdgesByWidth', () => {
     const { length, largest } = sortEdgesByWidth(edges, order)
     expect(Array.from(order.subarray(0, length))).toEqual([2, 3, 0])
     expect(largest).toBe(20)
+  })
+})
+
+describe('sortDescending', () => {
+  it('orders like a stable sort from largest to smallest', () => {
+    let seed = 7
+    const next = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+      return seed / 4294967296
+    }
+    const values = Float32Array.from({ length: 5000 }, (_, index) =>
+      index % 7 === 0 ? 0 : index % 5 === 0 ? 12.5 : next() * 1000,
+    )
+    const order = Uint32Array.from({ length: 4000 }, (_, index) => index * 1.25)
+    const expected = Array.from(order).sort((a, b) => (values[b] ?? 0) - (values[a] ?? 0))
+    sortDescending(order, order.length, values)
+    expect(Array.from(order)).toEqual(expected)
   })
 })
 

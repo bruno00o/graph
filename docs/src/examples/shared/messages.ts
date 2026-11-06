@@ -59,4 +59,15 @@ export const messages = {
   loading: 'Loading',
   explored: (value: number) => count(value, 'node unfolded', 'nodes unfolded'),
   expanded: 'expanded',
+  filterLabel: 'Graph filtered by a TanStack DB collection',
+  filterWeight: (value: number) => `Minimum weight: ${formatNumber(value)}`,
+  raiseWeight: 'Raise by one',
+  filterGroup: (name: string) => `Group: ${name}`,
+  allGroups: 'all',
+  filterSource: (name: string) => `Source: ${name}`,
+  filterSources: { subset: 'filtered subscription', query: 'live query' },
+  filterTiming: (database: number, graph: number) =>
+    `TanStack DB ${formatNumber(Math.round(database))} ms, graph ${formatNumber(Math.round(graph))} ms`,
+  linksLoaded: (value: number) => count(value, 'edge loaded', 'edges loaded'),
+  unload: 'Unload edges',
 }

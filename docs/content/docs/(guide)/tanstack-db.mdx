@@ -1,6 +1,6 @@
 ---
 title: TanStack DB
-description: Draw a collection as it changes, and write node positions back to it.
+description: Draw a collection as it changes, filter it at scale, load it on demand, and write node positions back to it.
 ---
 
 ## A collection is a live source
@@ -23,6 +23,61 @@ const definition = defineGraph({
 ```
 
 The definition never needs to change: new rows appear, updated rows restyle, deleted rows leave. With `x` and `y` channels, a row whose coordinates change moves its node, animated over `transitions.positions`. See [Positions](/docs/positions).
+
+## Filter a large collection
+
+A live query collection is a collection too: pass it to a mark. To draw only part of one collection, `subset` from `@bruno00o/graph/db` is lighter. It subscribes to the collection with a `where` expression, without building an intermediate collection.
+
+```ts
+import { defineGraph, nodes } from '@bruno00o/graph'
+import { subset } from '@bruno00o/graph/db'
+import { gte } from '@tanstack/db'
+
+const heavy = (minimum: number) => subset(items, (item) => gte(item.weight, minimum))
+
+graph.update({
+  definition: defineGraph({
+    marks: [nodes(heavy(40), { x: 'x', y: 'y', color: 'group', size: 'weight' })],
+  }),
+})
+```
+
+When the filter changes, build a new source and pass it in a new definition. The graph subscribes to the new source before it releases the old one, then compares their rows by key: nodes that leave the filter are removed, nodes that enter it are added, and nodes in both stay as they are when their row is the same object. Rows from `subset` are the rows of the collection, so only the difference moves. A live query collection hands out new row objects, so every node that stays is restyled.
+
+In React, build the source in a `useMemo` that depends on the filter, so a render that does not change the filter keeps the same subscription.
+
+```tsx
+const shown = useMemo(() => subset(items, (item) => gte(item.weight, minimum)), [minimum])
+```
+
+Measured on an Apple M4 Pro in Chrome, in production mode, with 500,000 rows of which about 450,000 match the filter, and 1,000,000 edges from a second collection:
+
+| Change | TanStack DB | Graph |
+| --- | --- | --- |
+| New `subset`, a handful of nodes enter or leave | 160 to 210 ms | 40 to 60 ms |
+| New `subset`, 25,000 nodes leave | 160 ms | 150 to 170 ms |
+| New `subset`, 25,000 nodes enter | 160 to 190 ms | 300 ms |
+| New live query collection, a handful of nodes change | 2.3 s | 280 ms |
+| `collection.update` on 1 row, then on 20,000 rows | | 4 ms, then 36 ms |
+
+The TanStack DB column is the time to read the matching rows when the new source is subscribed. Keep live queries for joins, `select` and ordering, and use `subset` to filter one collection.
+
+## Load on demand
+
+A collection with `syncMode: 'on-demand'` loads only the rows its subscribers ask for. Through `subset`, or a live query over that collection, the `where` reaches the `loadSubset` function of its sync, and the rows appear in the graph as they arrive. When the graph lets go of the source, after a new filter, a removed mark or `destroy`, TanStack DB calls `unloadSubset` with the same options, and the sync can delete the rows that no other subscription holds.
+
+Edges can be loaded around chosen nodes only:
+
+```ts
+import { inArray, or } from '@tanstack/db'
+
+const around = (keys: string[]) =>
+  subset(links, (link) => or(inArray(link.from, keys), inArray(link.to, keys)))
+```
+
+- An edge whose other end is not loaded, or filtered out, waits without being drawn. It appears as soon as that node arrives, and waits again if the node leaves.
+- Pass a `subset`, not the on-demand collection itself: a subscription without `where` asks the collection for every row.
+- The graph subscribes to the next source before releasing the previous one. A sync that counts, row by row, the requests that hold it keeps the rows both sources need.
 
 ## Write positions back
 
@@ -89,3 +144,7 @@ persistPositions(graph, {
 The collaboration example stores positions in a local storage collection. Open it in two windows and drag a node in one: it moves in the other.
 
 <LiveExample slug="collaboration" />
+
+The filtering example draws up to 500,000 rows through `subset`, times each change, and loads the edges of a node from an on-demand collection when you double-click it.
+
+<LiveExample slug="filter-at-scale" />

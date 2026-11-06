@@ -1,0 +1,9 @@
+header {
+  flex-wrap: wrap;
+}
+
+header h1,
+header output,
+header label {
+  white-space: nowrap;
+}

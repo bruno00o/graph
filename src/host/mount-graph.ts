@@ -494,7 +494,7 @@ export function createGraphHost<S extends string = string>(
 
   function pickAt(point: Point): GraphTarget | null {
     if (!gesture?.drag && (pickedScene !== sceneVersion || pickedPositions !== positions.version)) {
-      pickIndex.build(pickSource)
+      pickIndex.refresh(pickSource)
       pickedScene = sceneVersion
       pickedPositions = positions.version
     }

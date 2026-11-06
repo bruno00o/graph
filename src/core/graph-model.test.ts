@@ -219,6 +219,87 @@ describe('createGraphModel', () => {
     expect(keys(changes.nodes.added)).toEqual(['b'])
   })
 
+  it('reports only what differs when a live source replaces another', () => {
+    const model = createGraphModel()
+    const a = item('a')
+    const b = item('b')
+    const c = item('c')
+    const first = createLiveSource<Item>([
+      { type: 'insert', key: 'a', value: a },
+      { type: 'insert', key: 'b', value: b },
+    ])
+    model.setMarks([nodes(first.source), edges([link('bc', 'b', 'c')], linkOptions)])
+    const initial = model.flush()
+    const index = model.node('a')?.index
+    expect(initial.edges.pending).toEqual(['bc'])
+
+    const second = createLiveSource<Item>([
+      { type: 'insert', key: 'a', value: a },
+      { type: 'insert', key: 'c', value: c },
+    ])
+    model.setMarks([nodes(second.source), edges([link('bc', 'b', 'c')], linkOptions)])
+    expect(first.subscribed).toBe(false)
+    const changes = model.flush()
+    expect(keys(changes.nodes.added)).toEqual(['c'])
+    expect(keys(changes.nodes.removed)).toEqual(['b'])
+    expect(changes.nodes.updated).toEqual([])
+    expect(changes.edges.added).toEqual([])
+    expect(model.node('a')?.index).toBe(index)
+  })
+
+  it('subscribes the next live source before releasing the previous one', () => {
+    const model = createGraphModel()
+    const order: string[] = []
+    const tracked = (name: string): LiveSource<Item> => ({
+      subscribeChanges() {
+        order.push(`subscribe ${name}`)
+        return { unsubscribe: () => order.push(`unsubscribe ${name}`) }
+      },
+    })
+    model.setMarks([nodes(tracked('first'))])
+    model.setMarks([nodes(tracked('second'))])
+    expect(order).toEqual(['subscribe first', 'subscribe second', 'unsubscribe first'])
+  })
+
+  it('diffs against the last flushed source after several replacements', () => {
+    const schedule = vi.fn()
+    const model = createGraphModel({ schedule })
+    const a = item('a')
+    model.setMarks([nodes(createLiveSource<Item>([{ type: 'insert', key: 'a', value: a }]).source)])
+    model.flush()
+    schedule.mockClear()
+    const empty = createLiveSource<Item>()
+    model.setMarks([nodes(empty.source)])
+    expect(schedule).toHaveBeenCalled()
+    model.setMarks([nodes(createLiveSource<Item>([{ type: 'insert', key: 'a', value: a }]).source)])
+    expect(model.flush().nodes).toEqual({ added: [], updated: [], removed: [] })
+    model.setMarks([nodes(empty.source)])
+    expect(keys(model.flush().nodes.removed)).toEqual(['a'])
+  })
+
+  it('updates every element when a live source is replaced with new options', () => {
+    const model = createGraphModel()
+    const a = item('a')
+    const live = () => createLiveSource<Item>([{ type: 'insert', key: 'a', value: a }]).source
+    model.setMarks([nodes(live(), { color: 'group' })])
+    model.flush()
+    model.setMarks([nodes(live(), { label: 'id' })])
+    const changes = model.flush()
+    expect(keys(changes.nodes.updated)).toEqual(['a'])
+    expect(model.node('a')?.mark.options).toEqual({ label: 'id' })
+  })
+
+  it('reads the current mark of a rebuilt definition without touching its elements', () => {
+    const model = createGraphModel()
+    const list = [item('a'), item('b')]
+    model.setMarks([nodes(list, { color: 'group' })])
+    model.flush()
+    const mark = nodes(list, { color: 'group' })
+    model.setMarks([mark])
+    expect(model.flush().nodes.updated).toEqual([])
+    expect(model.node('b')?.mark).toBe(mark)
+  })
+
   it('schedules a flush whenever work is queued', () => {
     const schedule = vi.fn()
     const model = createGraphModel({ schedule })
