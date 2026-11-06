@@ -48,34 +48,36 @@ void main() {
 }
 `
 
-export const boundsVertex: string = `${header}${nodes}
-uniform int side;
-flat out vec4 value;
+export const boundsBlockFragment: string = `${header}${nodes}
+out vec4 color;
 
 void main() {
-  ivec2 t = texel(gl_VertexID);
-  gl_PointSize = 1.0;
-  value = vec4(0.0);
-  if (texelFetch(props, t, 0).y < 0.5) {
-    gl_Position = outside;
-    return;
+  ivec2 origin = ivec2(gl_FragCoord.xy) * 4;
+  ivec2 end = min(origin + 4, ivec2(width, height));
+  vec4 extent = vec4(-3.0e38);
+  for (int y = origin.y; y < end.y; y++) {
+    for (int x = origin.x; x < end.x; x++) {
+      ivec2 t = ivec2(x, y);
+      if (texelFetch(props, t, 0).y < 0.5) continue;
+      vec2 p = texelFetch(state, t, 0).xy;
+      extent = max(extent, vec4(p, -p));
+    }
   }
-  vec2 p = texelFetch(state, t, 0).xy;
-  int cell = gl_VertexID % (side * side);
-  gl_Position = clipOf(vec2(cell % side, cell / side), vec2(side));
-  value = vec4(p, -p);
+  color = extent;
 }
 `
 
 export const boundsFragment: string = `${header}
 uniform sampler2D partial;
-uniform int side;
+uniform ivec2 size;
 out vec4 color;
 
 void main() {
+  ivec2 origin = ivec2(gl_FragCoord.xy) * 4;
+  ivec2 end = min(origin + 4, size);
   vec4 extent = vec4(-3.0e38);
-  for (int y = 0; y < side; y++) {
-    for (int x = 0; x < side; x++) extent = max(extent, texelFetch(partial, ivec2(x, y), 0));
+  for (int y = origin.y; y < end.y; y++) {
+    for (int x = origin.x; x < end.x; x++) extent = max(extent, texelFetch(partial, ivec2(x, y), 0));
   }
   color = extent;
 }
