@@ -84,7 +84,7 @@ The SVG is written from the scene, without reading pixels back, so it stays shar
 - the state styles in force, such as selection, hover and your own states;
 - colors of the current theme, as hex values.
 
-Images are copied into the document as data URLs, so the file stands alone. Pass `embedImages: false` to keep links to their URLs instead. An image that cannot be fetched, for lack of CORS headers for instance, stays linked.
+Images are copied into the document as data URLs, so the file stands alone. Pass `embedImages: false` to keep links to their URLs instead. An image the browser cannot load, for lack of CORS headers for instance, is left out, as it is on screen.
 
 Text uses the font of the theme. A viewer without that font falls back to another one, so labels may be a little wider or narrower than on screen.
 

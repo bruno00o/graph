@@ -63,8 +63,8 @@ export interface PngExportOptions extends ExportOptions {
 /** Options of `exportSvg`. */
 export interface SvgExportOptions extends ExportOptions {
   /**
-   * Copies every node image into the document as a data URL, so the file stands alone. An image
-   * that cannot be fetched stays linked by its URL.
+   * Copies every node image into the document as a data URL, so the file stands alone. Without it,
+   * images stay linked by their URL.
    * @default true
    */
   readonly embedImages?: boolean
