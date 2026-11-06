@@ -241,6 +241,7 @@ export function createScene(): Scene {
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     edges.label[index] = toText(mark.label?.(datum))
+    edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
     dirtyEdges.add(index)
   }
 

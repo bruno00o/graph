@@ -74,6 +74,11 @@ export interface LabelOptions<T> {
   readonly background?: Style<T, string | boolean | null>
 }
 
+export interface EdgeLabelOptions<T> {
+  readonly text: Channel<T, string>
+  readonly background?: Style<T, string | boolean | null>
+}
+
 export interface NodeOptions<T> {
   readonly key?: KeyChannel<T>
   readonly color?: Channel<T, string | number | boolean>
@@ -99,7 +104,7 @@ export interface EdgeOptions<T> {
   readonly target: KeyChannel<T>
   readonly color?: Channel<T, string | number | boolean>
   readonly width?: Channel<T, number>
-  readonly label?: Channel<T, string>
+  readonly label?: Channel<T, string> | EdgeLabelOptions<T>
   readonly dash?: Style<T, EdgeDash>
   readonly arrow?: Style<T, EdgeArrow>
   readonly stroke?: Style<T, string>

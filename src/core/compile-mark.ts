@@ -27,6 +27,7 @@ export interface CompiledEdgeMark {
   readonly color: Read | null
   readonly width: Read | null
   readonly label: Read | null
+  readonly labelBackground: Read | null
   readonly dash: Read | null
   readonly arrow: Read | null
   readonly stroke: Read | null
@@ -84,10 +85,12 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
   const cached = edgeCache.get(mark)
   if (cached) return cached
   const options = mark.options
+  const label = options.label
   const compiled: CompiledEdgeMark = {
     color: channel(options.color),
     width: channel(options.width),
-    label: channel(options.label),
+    label: channel(typeof label === 'object' ? label.text : label),
+    labelBackground: style(typeof label === 'object' ? label.background : undefined),
     dash: style(options.dash),
     arrow: style(options.arrow),
     stroke: style(options.stroke),

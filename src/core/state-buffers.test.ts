@@ -65,6 +65,7 @@ describe('StateBuffers', () => {
     expect(states.paint[(32 + 1) * 4 + 1]).toBe(4)
     expect(states.numbers[4 + 1]).toBe(-1)
     expect(states.labelFlags[1]).toBe(-1)
+    expect(states.edgeLabelFlags[1]).toBe(0)
   })
 
   it('versions the highlighted lists', () => {

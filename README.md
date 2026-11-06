@@ -25,6 +25,7 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 - Live sources: pass a TanStack DB collection as is, or anything with `subscribeChanges`, and only what changed is redrawn
 - Named states (selection, hover, focus and your own) resolved on the GPU
 - Images and icons clipped to the node shape, corner badges, outlines, label backgrounds, parallel edges and self loops
+- Edge labels that follow their edge and stay upright, placed only where they fit without overlapping
 - Drag, pan, zoom, multiple selection and lasso out of the box, plus keyboard navigation announced to screen readers
 - Force layout on the GPU in a Web Worker, with a CPU fallback: nodes settle in place while you keep panning, and dragging a node pins it
 - Themed with CSS variables, light and dark

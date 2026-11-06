@@ -79,6 +79,16 @@ describe('public types', () => {
     nodes(people, { image: { scale: 0.6 } })
     // @ts-expect-error
     nodes(people, { badges: { middle: () => ({ text: 'x' }) } })
+    edges(links, { source: 'from', target: 'to', label: 'id' })
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      label: { text: (link) => String(link.weight), background: (link) => link.weight > 1 },
+    })
+    // @ts-expect-error
+    edges(links, { source: 'from', target: 'to', label: 'weight' })
+    // @ts-expect-error
+    edges(links, { source: 'from', target: 'to', label: { text: 'id', background: 2 } })
   })
 
   it('rejects fields of the wrong type', () => {

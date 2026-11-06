@@ -43,6 +43,7 @@ export type {
   ColorScale,
   EdgeArrow,
   EdgeDash,
+  EdgeLabelOptions,
   EdgeMark,
   EdgeOptions,
   FieldOf,

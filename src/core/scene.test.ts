@@ -206,6 +206,30 @@ describe('createScene', () => {
     expect(background('e')).toBeNull()
   })
 
+  it('reads edge labels as text or with a background', () => {
+    const { scene, model } = setup({
+      marks: [
+        nodes<Item>([{ id: 'a' }, { id: 'b' }]),
+        edges<Link>(
+          [
+            { id: 'ab', from: 'a', to: 'b', kind: 'x' },
+            { id: 'ba', from: 'b', to: 'a' },
+          ],
+          { ...linkOptions, label: { text: 'id', background: (link) => link.kind ?? true } },
+        ),
+        edges<Link>([{ id: 'aa', from: 'a', to: 'a' }], { ...linkOptions, label: 'id' }),
+      ],
+    })
+    const read = (key: string) => {
+      const index = model.edge(key)?.index ?? -1
+      const color = scene.edges.labelBackground[index] ?? noColor
+      return [scene.edges.label[index], color === noColor ? null : scene.palette.colors[color]]
+    }
+    expect(read('ab')).toEqual(['ab', 'x'])
+    expect(read('ba')).toEqual(['ba', 'var(--graph-label-background)'])
+    expect(read('aa')).toEqual(['aa', null])
+  })
+
   it('reads images as a source or with a scale and a color', () => {
     const { scene, nodeIndex } = setup({
       marks: [
