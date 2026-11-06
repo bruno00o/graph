@@ -15,6 +15,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { shallowEqual } from '../core/shallow-equal'
 import type { AnchorOptions } from '../host/anchors'
 import type {
   ElementKeysInput,
@@ -28,6 +29,20 @@ import {
   type GraphStore,
   mountGraph,
 } from '../host/mount-graph'
+import {
+  createLegend,
+  type Legend as LegendInstance,
+  type LegendOptions,
+  type LegendState,
+  type LegendView,
+  type LegendViewOptions,
+  mountLegend,
+} from '../legend/index'
+import {
+  createMinimap,
+  type Minimap as MinimapInstance,
+  type MinimapOptions,
+} from '../minimap/index'
 import type { GraphDefinition, Key, Mark, View } from '../types'
 
 /** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
@@ -301,6 +316,136 @@ export function Anchor<S extends string = string>(props: AnchorProps<S>): ReactN
     graph.anchors.set(element, options as AnchorOptions)
   })
   return createPortal(children, element)
+}
+
+/** Props of `Minimap`: the options of `createMinimap`. */
+export interface MinimapProps extends MinimapOptions {}
+
+/**
+ * Draws a minimap of the enclosing `<Graph>`, in a corner of the graph, or where the component
+ * stands when `corner` is `null`.
+ */
+export function Minimap(props: MinimapProps): ReactNode {
+  const graph = useGraph()
+  const slot = useRef<HTMLDivElement>(null)
+  const minimap = useRef<MinimapInstance | null>(null)
+  const applied = useRef<MinimapProps>(props)
+  const latest = useLatest(props)
+  useLayoutEffect(() => {
+    const created = createMinimap(graph, latest.current)
+    applied.current = latest.current
+    minimap.current = created
+    return () => {
+      created.destroy()
+      minimap.current = null
+    }
+  }, [graph, latest])
+  useLayoutEffect(() => {
+    const current = minimap.current
+    if (!current) return
+    if (!shallowEqual(applied.current, props)) {
+      applied.current = props
+      current.update(props)
+    }
+    const host = slot.current
+    if (props.corner === null && host && current.element.parentElement !== host) {
+      host.append(current.element)
+    }
+  })
+  return props.corner === null ? <div ref={slot} /> : null
+}
+
+/** What `useLegend` returns. `M` types the looks. */
+export interface UseLegendResult<S extends string = string, M extends Mark = Mark> {
+  /** State of the legend, empty until the first layout effect. */
+  readonly state: LegendState<M>
+  /** The legend, to hover or switch items, or `null` until the first layout effect. */
+  readonly legend: LegendInstance<S, M> | null
+}
+
+const emptyLegend: LegendState = {
+  color: null,
+  size: null,
+  width: null,
+  looks: [],
+  hovered: null,
+  off: [],
+}
+
+function useLegendInstance<S extends string, M extends Mark>(
+  options: LegendOptions<S>,
+): LegendInstance<S, M> | null {
+  const graph = useGraph<S, M>()
+  const [legend, setLegend] = useState<LegendInstance<S, M> | null>(null)
+  const latest = useLatest(options)
+  useLayoutEffect(() => {
+    const created = createLegend(graph, latest.current)
+    setLegend(created)
+    return () => {
+      created.destroy()
+      setLegend(null)
+    }
+  }, [graph, latest])
+  const highlight = options.highlight ?? null
+  const hidden = options.hidden ?? null
+  useLayoutEffect(() => {
+    legend?.update({ highlight, hidden })
+  }, [legend, highlight, hidden])
+  return legend
+}
+
+/**
+ * Reads a legend of the enclosing `<Graph>` and renders again when it changes, for a legend drawn
+ * by the application. Pass the state names and the marks as type arguments to type the looks.
+ */
+export function useLegend<S extends string = string, M extends Mark = Mark>(
+  options: LegendOptions<S> = {},
+): UseLegendResult<S, M> {
+  const legend = useLegendInstance<S, M>(options)
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      if (!legend) return () => {}
+      const subscription = legend.store.subscribe(() => notify())
+      return () => subscription.unsubscribe()
+    },
+    [legend],
+  )
+  const snapshot = (): LegendState<M> => legend?.store.state ?? (emptyLegend as LegendState<M>)
+  const state = useSyncExternalStore(subscribe, snapshot, snapshot)
+  return { state, legend }
+}
+
+/** Props of `Legend`: the options of `createLegend` and of `mountLegend`. */
+export interface LegendProps<S extends string = string, M extends Mark = Mark>
+  extends LegendOptions<S>,
+    LegendViewOptions<M> {}
+
+/** Renders the default legend of the enclosing `<Graph>` where the component stands. */
+export function Legend<S extends string = string, M extends Mark = Mark>(
+  props: LegendProps<S, M>,
+): ReactNode {
+  const { highlight, hidden, ...view } = props
+  const legend = useLegendInstance<S, M>({ highlight: highlight ?? null, hidden: hidden ?? null })
+  const slot = useRef<HTMLDivElement>(null)
+  const mounted = useRef<{ readonly view: LegendView<M>; options: object } | null>(null)
+  const latest = useLatest(view)
+  useLayoutEffect(() => {
+    if (!legend || !slot.current) return
+    const created = mountLegend(legend, latest.current)
+    mounted.current = { view: created, options: latest.current }
+    slot.current.append(created.element)
+    return () => {
+      created.destroy()
+      mounted.current = null
+    }
+  }, [legend, latest])
+  useLayoutEffect(() => {
+    const current = mounted.current
+    if (!current || shallowEqual(current.options, view)) return
+    current.options = view
+    current.view.update(view)
+  })
+  return <div ref={slot} />
 }
 
 export type { AnchorAlign, AnchorOptions, AnchorSide } from '../host/anchors'

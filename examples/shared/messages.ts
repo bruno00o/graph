@@ -135,6 +135,10 @@ export const messages = {
     `${formatNumber(count)} ${plural(count, 'arête', 'arêtes')} de ${from} vers ${to}`,
   exportPng: 'Exporter en PNG',
   exportSvg: 'Exporter en SVG',
+  minimap: 'Minicarte',
+  minimapModes: { on: 'Affichée', off: 'Masquée' },
+  legendLabel: 'Légende',
+  legendTitles: { color: 'Groupe', size: 'Poids' },
 }
 
 function milliseconds(value: number): string {

@@ -168,6 +168,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./groups/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'minimap-and-legend',
+    title: 'Minimap and legend',
+    description:
+      '5,000 nodes with a minimap in a corner and a legend read from the color and size scales. The legend highlights a group under the pointer and fades it out on click.',
+    hint: 'Drag the rectangle of the minimap to pan. Hover a group in the legend, click it to fade it out.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/minimap', '@bruno00o/graph/legend'],
+    files: ['overview/main.ts', ...shared],
+    load: () => import('./overview/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'export',
     title: 'Export to PNG and SVG',
     description:

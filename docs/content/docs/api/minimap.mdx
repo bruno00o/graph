@@ -1,0 +1,48 @@
+---
+title: createMinimap
+description: An overview of the whole graph with the rectangle of the view, that moves the view.
+---
+
+```ts
+import { createMinimap } from '@bruno00o/graph/minimap'
+
+function createMinimap<S extends string, M extends Mark>(
+  graph: GraphInstance<S, M>,
+  options?: MinimapOptions,
+): Minimap
+```
+
+Creates the minimap of a graph made by [`mountGraph`](/docs/api/mount-graph). See [Minimap and legend](/docs/minimap-and-legend#minimap) for a walkthrough.
+
+## Options
+
+<api-table path="minimap/index.ts" name="MinimapOptions" />
+
+```ts
+type MinimapCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
+```
+
+## Minimap
+
+<api-table path="minimap/index.ts" name="Minimap" />
+
+## Minimap component
+
+```ts
+import { Minimap } from '@bruno00o/graph/react'
+
+function Minimap(props: MinimapProps): ReactNode
+```
+
+Use it inside the children of [`<Graph>`](/docs/api/graph-component). Its props are the options above. With a `corner`, it renders nothing where it stands and sits in the graph element; with `corner={null}`, it renders a `div` that holds the minimap.
+
+## Errors
+
+- A graph that was not created by `mountGraph` throws an `Error`.
+
+## Behavior
+
+- The element carries `data-graph-minimap` and `aria-hidden="true"`. The rectangle of the view carries `data-view`.
+- Colors are CSS colors, `--graph-…` tokens included, resolved with the current theme and again when it changes.
+- The minimap frames every node and group container. A view larger than the graph shows its rectangle cut by the edges of the minimap.
+- Drawing happens in a worker when the browser has `Worker` and `OffscreenCanvas` and the page allows `worker-src blob:`; otherwise on the page, at the same pace.

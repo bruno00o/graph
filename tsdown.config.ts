@@ -46,6 +46,8 @@ export default defineConfig({
     devtools: 'src/devtools/index.ts',
     'devtools/react': 'src/devtools/react.tsx',
     export: 'src/export/index.ts',
+    minimap: 'src/minimap/index.ts',
+    legend: 'src/legend/index.ts',
   },
   format: 'esm',
   platform: 'neutral',
