@@ -47,6 +47,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./large/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'force-layout',
+    title: 'Force layout',
+    description:
+      'Nodes without coordinates settle into communities with a force simulation, on the GPU from 2,000 nodes and on the CPU below, in a Web Worker.',
+    hint: 'Drag a node while it runs to pin it. Add nodes: only the new ones move.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/layouts/force'],
+    files: ['layout/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./layout/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'react-overlays',
     title: 'React overlays',
     description:
@@ -69,11 +80,22 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./images/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'labels',
+    title: 'Label styles',
+    description:
+      'Labels with their own size, color, weight and placement, a second line, line breaks, truncation, and labels along the edges.',
+    hint: 'Change the placement, then zoom out: small nodes drop their labels first.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph'],
+    files: ['labels/main.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./labels/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'parallel-edges',
     title: 'Parallel edges and loops',
     description:
-      'Several edges between the same two nodes bend apart, loops nest around their node, with arrows and dashes per edge.',
-    hint: 'Drag a node: the curves follow. Hover an edge to read its direction.',
+      'Several edges between the same two nodes bend apart, loops nest around their node, with arrows, dashes and labels per edge.',
+    hint: 'Drag a node: the curves and their labels follow. Hover an edge to read its direction.',
     tags: ['Vanilla'],
     modules: ['@bruno00o/graph'],
     files: ['edges/main.ts', 'shared/messages.ts', 'shared/overlays.css'],

@@ -11,6 +11,7 @@ interface GraphInstance<S extends string = string> {
   readonly focus: GraphFocus
   readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
+  readonly layout: GraphLayout
   readonly element: HTMLElement
   pick(point: Point): GraphTarget | null
   neighbors(key: Key): Key[]
@@ -32,6 +33,7 @@ interface GraphInstance<S extends string = string> {
 | `focus` | Keyboard focus: [`GraphFocus`](#focus) |
 | `states` | Free states: [`GraphStates`](#states) |
 | `positions` | Node positions: [`GraphPositions`](#positions) |
+| `layout` | Layout runs: [`GraphLayout`](#layout) |
 | `element` | The `div` that holds the canvas |
 | `pick(point)` | Element under a point in screen pixels, nodes before edges, or `null` |
 | `neighbors(key)` | Keys of the nodes connected to a node |
@@ -108,7 +110,22 @@ interface GraphPositions {
 }
 ```
 
-Positions are in world units. `set` emits `positionchange` with the origin `'api'`.
+Positions are in world units. `set` emits `positionchange` with the origin `'api'`. During a layout run, the nodes moved by `set` are pinned until the run ends.
+
+## Layout
+
+```ts
+interface GraphLayout {
+  run(layout?: Layout, options?: LayoutRunOptions): Promise<boolean>
+  stop(): void
+}
+
+interface LayoutRunOptions {
+  readonly keys?: Iterable<Key>
+}
+```
+
+`run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Force layout](/docs/layout).
 
 ## Graph state
 
@@ -122,7 +139,13 @@ interface GraphState<S extends string = string> {
   readonly selection: ElementKeys
   readonly states: { readonly [K in FreeState<S>]: ElementKeys }
   readonly positionsVersion: number
+  readonly layout: GraphLayoutStatus
+}
+
+interface GraphLayoutStatus {
+  readonly running: boolean
+  readonly progress: number
 }
 ```
 
-`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`.
+`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run.

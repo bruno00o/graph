@@ -16,6 +16,7 @@ Returns a frozen definition. `S` is inferred from the keys of `states` and types
 | `marks` | `readonly Mark[]` | | Results of `nodes()` and `edges()`, drawn in this order |
 | `scales` | `ScalesOptions` | `{}` | `color`, `size` and `width` scales. See [Scales](/docs/scales) |
 | `states` | `StateStyles<S>` | `{}` | Free states, and overrides of `selected`, `hovered`, `focused` |
+| `layout` | `Layout \| null` | `null` | Places nodes that have no `x` and `y`. See [Layout](#layout) |
 | `interaction` | `InteractionOptions` | see below | Pan, zoom, selection, drag, lasso, keyboard |
 | `transitions` | `TransitionOptions` | `{ positions: 120 }` | Duration in milliseconds of moves that come from the data |
 
@@ -50,10 +51,58 @@ interface StateStyle {
   outlineWidth?: number
   halo?: boolean
   label?: boolean
+  labelColor?: string
 }
 ```
 
-`outline` and `outlineWidth` apply to nodes only. See [States](/docs/states#style-options).
+`outline` and `outlineWidth` apply to nodes only. `labelColor` colors the main text of node and edge labels. See [States](/docs/states#style-options).
+
+## Layout
+
+`layout` takes a `Layout`, such as the result of [`force()`](/docs/api/force), or `null`. The port is public: any object with this shape works. See [Write your own layout](/docs/layout#write-your-own-layout).
+
+```ts
+interface Layout {
+  readonly name: string
+  readonly options: object
+  start(graph: LayoutGraph, listener: LayoutListener): LayoutRun
+}
+
+interface LayoutGraph {
+  readonly capacity: number
+  readonly alive: Uint8Array
+  readonly movable: Uint8Array
+  readonly xy: Float32Array
+  readonly radius: Float32Array
+  readonly edges: Uint32Array
+}
+
+interface LayoutListener {
+  progress(xy: Float32Array, progress: number): void
+  end(xy: Float32Array): void
+}
+
+interface LayoutRun {
+  pin(index: number, x: number, y: number): void
+  stop(): void
+}
+```
+
+| Member | Description |
+| --- | --- |
+| `name`, `options` | Compared one by one when the definition changes. A different layout lays out every node again |
+| `capacity` | Length of the per-node arrays. Arrays are indexed by the internal index of each node |
+| `alive` | `1` for a node that exists, `0` for a free slot |
+| `movable` | `1` for a node the layout may move |
+| `xy` | Current positions, `x` then `y` for each index, in world units |
+| `radius` | Radius of each node in world units |
+| `edges` | Pairs of node indices, one pair per edge, loops left out |
+| `progress(xy, progress)` | Reports intermediate positions and progress from 0 to 1 |
+| `end(xy)` | Reports the final positions. Call it once |
+| `pin(index, x, y)` | Called when a node is dragged or set during the run: keep it there |
+| `stop()` | Called when the run is stopped or replaced. Do not call the listener after it |
+
+Every array passed to the listener holds `capacity × 2` numbers. Nodes that are not movable must keep their place.
 
 ## Interaction
 
@@ -78,6 +127,7 @@ interface GraphDefinition<S extends string = string> {
   readonly marks: readonly Mark[]
   readonly scales: ScalesOptions
   readonly states: StateStyles<S>
+  readonly layout: Layout | null
   readonly interaction: ResolvedInteraction
   readonly transitions: ResolvedTransitions
 }

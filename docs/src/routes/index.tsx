@@ -13,7 +13,7 @@ import {
   Swatches,
   TypedFigure,
 } from '../home/figures'
-import { describeReact, describeVanilla, reactSnippet } from '../home/snippets'
+import { describeReact, describeVanilla, labelsSnippet, reactSnippet } from '../home/snippets'
 import { homeOptions } from '../lib/layout'
 import { formatNumber, messages } from '../messages'
 import { benchmark } from '../site'
@@ -23,6 +23,9 @@ const HeroGraph = lazy(() =>
 )
 const DenseGraph = lazy(() =>
   import('../home/dense-graph').then(({ DenseGraph }) => ({ default: DenseGraph })),
+)
+const LayoutGraph = lazy(() =>
+  import('../home/layout-graph').then(({ LayoutGraph }) => ({ default: LayoutGraph })),
 )
 
 export const Route = createFileRoute('/')({
@@ -165,6 +168,23 @@ function Covers(): JSX.Element {
           <Cell title={features.react.title} tag={features.react.tag} text={features.react.text}>
             <div className="cell-code">
               <SourceCode code={reactSnippet} language="tsx" />
+            </div>
+          </Cell>
+          <Cell
+            className="span2"
+            title={features.layout.title}
+            tag={features.layout.tag}
+            text={features.layout.text}
+          >
+            <div className="cell-visual sheet">
+              <Suspense>
+                <LayoutGraph />
+              </Suspense>
+            </div>
+          </Cell>
+          <Cell title={features.labels.title} text={features.labels.text}>
+            <div className="cell-code">
+              <SourceCode code={labelsSnippet} language="ts" />
             </div>
           </Cell>
         </div>

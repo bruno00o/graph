@@ -26,7 +26,7 @@ function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element
 | `ref` | `Ref<GraphInstance<S> \| null>` | Receives the instance |
 | `children` | `ReactNode` | Overlays, rendered once the graph is mounted |
 
-Event props: `onClick`, `onDoubleClick`, `onContextMenu`, `onPointerEnter`, `onPointerLeave`, `onDragStart`, `onDrag`, `onDragEnd`, `onPositionChange`, `onSelectionChange`, `onFocusChange`, `onViewChange`. Each receives the payload of the matching [event](/docs/api/events). The latest function passed is always called.
+Event props: `onClick`, `onDoubleClick`, `onContextMenu`, `onPointerEnter`, `onPointerLeave`, `onDragStart`, `onDrag`, `onDragEnd`, `onPositionChange`, `onSelectionChange`, `onFocusChange`, `onViewChange`, `onLayoutStart`, `onLayoutEnd`. Each receives the payload of the matching [event](/docs/api/events). The latest function passed is always called.
 
 With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does.
 

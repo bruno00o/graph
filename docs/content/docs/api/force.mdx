@@ -1,0 +1,67 @@
+---
+title: force
+description: A force layout computed in a Web Worker, on the GPU or the CPU.
+---
+
+```ts
+import { force } from '@bruno00o/graph/layouts/force'
+
+function force(options?: ForceOptions): Layout
+```
+
+Returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'force'`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Force layout](/docs/layout) for a walkthrough.
+
+## Options
+
+```ts
+type ForceEngine = 'auto' | 'gpu' | 'cpu'
+
+interface ForceOptions {
+  readonly edgeLength?: number
+  readonly repulsion?: number
+  readonly gravity?: number
+  readonly spacing?: number
+  readonly steps?: number
+  readonly engine?: ForceEngine
+}
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `edgeLength` | `number` | `40` | Length an edge tends to, between the borders of its nodes, in world units |
+| `repulsion` | `number` | `80` | Strength of the push between nodes. `0` turns it off |
+| `gravity` | `number` | `0.04` | Pull toward the center of the moving nodes. Applies to full runs only |
+| `spacing` | `number` | `6` | Smallest gap between two nodes, in world units |
+| `steps` | `number` | `300` | Steps of a full run. A run on part of the graph starts with half the energy and takes fewer |
+| `engine` | `ForceEngine` | `'auto'` | `'auto'` uses the GPU from 2,000 nodes and the CPU below |
+
+A negative or non-finite value falls back to its default. `steps` is rounded and at least 1.
+
+## Result
+
+```ts
+interface ForceSettings {
+  readonly edgeLength: number
+  readonly repulsion: number
+  readonly gravity: number
+  readonly spacing: number
+  readonly steps: number
+  readonly engine: ForceEngine
+}
+```
+
+`layout.options` holds the resolved `ForceSettings`. Two `force()` calls with the same settings are equal for the graph: a new definition with an equal layout does not run it again.
+
+## Behavior
+
+- The simulation runs in a Web Worker shipped inside the package, created from a `blob:` URL. No bundler setup is needed.
+- On the GPU, it runs in WebGL2 on an `OffscreenCanvas` inside the worker, and needs `EXT_color_buffer_float` and `EXT_float_blend`. Without them, or when the context is lost, the CPU takes over from the last positions.
+- Without `Worker`, when the content security policy refuses `worker-src blob:`, or when the worker fails, the simulation continues on the main thread in slices of 8 milliseconds.
+- Nodes with `x` and `y` channels never move. Pinned nodes, dragged or set through `positions.set` during the run, keep their place.
+
+## Exports
+
+| Export | Kind |
+| --- | --- |
+| `force` | function |
+| `ForceOptions`, `ForceSettings`, `ForceEngine` | types |

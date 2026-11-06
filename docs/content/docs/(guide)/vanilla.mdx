@@ -42,7 +42,7 @@ graph.update({ ariaLabel: 'Sample graph, filtered' })
 
 ## Subscribe to the store
 
-`graph.store` is a read-only TanStack Store. It holds the view, the size of the graph, the hovered and focused targets, the selection, the members of every state, and a counter that changes when positions change.
+`graph.store` is a read-only TanStack Store. It holds the view, the size of the graph, the hovered and focused targets, the selection, the members of every state, the status of the layout, and a counter that changes when positions change.
 
 ```ts
 const subscription = graph.store.subscribe(() => {

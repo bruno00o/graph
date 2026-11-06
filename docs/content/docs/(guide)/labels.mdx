@@ -1,0 +1,144 @@
+---
+title: Labels
+description: Text on nodes and edges, with its own size, color, weight, font, placement, line breaks and truncation.
+---
+
+<LiveExample slug="labels" />
+
+## Node labels
+
+`label` takes a field or a function for the text. Pass an object to style it.
+
+```ts
+nodes<Item>(items, {
+  label: {
+    text: 'label',
+    secondary: 'group',
+    size: (item) => 10 + item.weight / 2,
+    weight: (item) => (item.weight > 8 ? 'bold' : 'normal'),
+    color: (item) => (item.pinned ? 'var(--graph-accent)' : 'var(--graph-ink)'),
+    placement: 'right',
+    maxWidth: 120,
+    minScreenSize: 16,
+  },
+})
+```
+
+`text` and `secondary` are channels: a field name or a function. Every other option is a style: a constant or a function of the item, never a field name.
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `text` | | Main text. `\n` starts a new line |
+| `secondary` | | A second line, at eleven twelfths of the size, in normal weight and `--graph-ink-muted` |
+| `size` | `12` | Font size in pixels at zoom 1 |
+| `color` | `--graph-ink` | Color of the main text |
+| `weight` | `500` | `'normal'`, `'bold'`, or a number from 1 to 1000 |
+| `font` | `--graph-font` | CSS font family |
+| `placement` | `'bottom'` | `'bottom'`, `'top'`, `'right'`, `'left'` or `'center'` |
+| `maxWidth` | | Width in pixels past which each line ends with an ellipsis |
+| `minScreenSize` | | Hides the label while the node measures less than this diameter on screen, in pixels |
+| `background` | | Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null` for none |
+
+The text must be a string: an empty string, a number, `null` or `undefined` draws no label. Convert numbers with `String` or a formatter.
+
+### Size and zoom
+
+`size` is the size at zoom 1. When you zoom out, labels shrink with the graph, and a label smaller than 8 pixels is hidden. When you zoom in, they keep their size. Nodes with `units: 'screen'` keep their labels at the same size at every zoom level.
+
+`minScreenSize` hides the labels of small nodes first. With `minScreenSize: 16`, a node of diameter 8 shows its label from zoom 2 onwards.
+
+### Lines and truncation
+
+`\n` in the text, or in `secondary`, starts a new line. Lines are centered for `'bottom'`, `'top'` and `'center'`, aligned on the node side for `'right'` and `'left'`.
+
+```ts
+nodes<Item>(items, {
+  label: { text: (item) => `${item.name}\n${item.city}`, maxWidth: 140 },
+})
+```
+
+`maxWidth` cuts each line on its own, the second line included, and ends it with an ellipsis. It is in the same unit as `size`, so it shrinks with the label when you zoom out.
+
+### Placement
+
+`'bottom'` puts the label under the node, `'top'` above it, `'right'` and `'left'` beside it, centered vertically. `'center'` puts it on the node, which suits large nodes with short names. The gap from the node counts its outline.
+
+### Fonts
+
+`font` takes a CSS font family, such as `'Georgia, serif'`. Glyphs are drawn into a texture the first time they appear, with the font the browser has at that moment, so load web fonts before mounting the graph, for example after `document.fonts.ready`. Without `font`, labels use the `--graph-font` variable of the theme.
+
+### Backgrounds
+
+`background: true` draws a rounded plate in `--graph-label-background` behind the label; a CSS color picks another one. A plated label drops its halo, and placement keeps room for the whole plate.
+
+```ts
+nodes<Item>(items, {
+  label: { text: 'label', background: (item) => (item.flagged ? 'var(--graph-cat-2)' : true) },
+})
+```
+
+## Edge labels
+
+Edges take a label too: a field, a function, or an object with fewer options than nodes.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  label: { text: 'name', size: 10, color: 'var(--graph-ink-muted)', background: true },
+})
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `text` | | Text of the label |
+| `size` | `11` | Font size in pixels at zoom 1 |
+| `color` | `--graph-ink` | Text color |
+| `weight` | `500` | `'normal'`, `'bold'`, or a number from 1 to 1000 |
+| `font` | `--graph-font` | CSS font family |
+| `maxWidth` | | Width in pixels past which each line ends with an ellipsis |
+| `background` | | Plate behind the label, as for nodes |
+
+- The label sits halfway along the edge, on the arc when parallel edges bend apart, and at the outer end of a loop.
+- It turns with the edge and flips to stay upright, so it always reads from left to right.
+- Without a background, it sits just above the line. With a background, it is centered on the line, on its plate.
+- It only shows when it fits between the two nodes. Zoom in to read the labels of short edges.
+
+<LiveExample slug="parallel-edges" />
+
+## Which labels are drawn
+
+Labels never overlap. They are chosen again as the view changes, at most every 120 milliseconds, from what is on screen:
+
+1. The hovered and focused node or edge first. Their labels skip the overlap test and `minScreenSize`, so they show over others. An edge label still needs room between its nodes.
+2. Selected elements next, as long as they do not overlap.
+3. Then node labels, largest node first.
+4. Then edge labels, widest edge first.
+
+At most 4,000 labels are drawn at once.
+
+## Labels in states
+
+Two state properties act on labels. `label` shows or hides them while the state applies. `labelColor` changes the color of the main text, for nodes and edges.
+
+```ts
+const definition = defineGraph({
+  marks: [nodes<Item>(items, { label: 'label' })],
+  states: {
+    hovered: { labelColor: 'var(--graph-accent)' },
+    muted: { opacity: 0.2, label: false },
+  },
+})
+```
+
+The second line of a node label keeps `--graph-ink-muted`. When an element is in several states, the first one that sets the property wins. See [States](/docs/states#priority).
+
+## Theme
+
+| Token | Used for |
+| --- | --- |
+| `--graph-ink` | Main text |
+| `--graph-ink-muted` | Second line of node labels |
+| `--graph-label-halo` | Halo that keeps text readable over edges |
+| `--graph-label-background` | Plate with `background: true` |
+| `--graph-font` | Font, unless `font` is set |

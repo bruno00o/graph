@@ -22,6 +22,7 @@ interface Route {
   readonly id: string
   readonly from: string
   readonly to: string
+  readonly name: string
   readonly group: string
   readonly arrow: EdgeArrow
   readonly dash: EdgeDash
@@ -54,6 +55,7 @@ for (const [from, to, count] of pairs) {
       id: `${from}${to}${at}`,
       from: forward ? from : to,
       to: forward ? to : from,
+      name: messages.edgeName(routes.length + 1),
       group: String.fromCharCode(65 + at),
       arrow: arrows[at % arrows.length] ?? 'target',
       dash: dashes[at % dashes.length] ?? 'solid',
@@ -70,6 +72,7 @@ for (const [id, count] of [
       id: `${id}${id}${at}`,
       from: id,
       to: id,
+      name: messages.edgeName(routes.length + 1),
       group: String.fromCharCode(65 + at),
       arrow: 'target',
       dash: 'solid',
@@ -77,23 +80,43 @@ for (const [id, count] of [
   }
 }
 
-const definition = defineGraph({
-  marks: [
-    edges<Route>(routes, {
-      source: 'from',
-      target: 'to',
-      color: 'group',
-      width: () => 2.5,
-      arrow: (route) => route.arrow,
-      dash: (route) => route.dash,
-    }),
-    nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: () => 34, label: 'label' }),
-  ],
-  scales: { size: (value) => value, width: (value) => value },
-})
+type EdgeLabels = 'none' | 'plain' | 'plated'
+const edgeLabelModes: readonly EdgeLabels[] = ['none', 'plain', 'plated']
+
+const define = (mode: EdgeLabels) =>
+  defineGraph({
+    marks: [
+      edges<Route>(routes, {
+        source: 'from',
+        target: 'to',
+        color: 'group',
+        width: () => 2.5,
+        arrow: (route) => route.arrow,
+        dash: (route) => route.dash,
+        ...(mode === 'none' ? {} : { label: { text: 'name', background: mode === 'plated' } }),
+      }),
+      nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: () => 34, label: 'label' }),
+    ],
+    scales: { size: (value) => value, width: (value) => value },
+  })
 
 export function mount(container: HTMLElement): GraphInstance {
-  const graph = mountGraph(container, { definition, ariaLabel: messages.edgesLabel })
+  let mode: EdgeLabels = 'plain'
+  const graph = mountGraph(container, { definition: define(mode), ariaLabel: messages.edgesLabel })
+
+  const labels = document.createElement('button')
+  labels.type = 'button'
+  labels.className = 'example-button'
+  labels.textContent = messages.edgeLabels(messages.edgeLabelModes[mode])
+  labels.addEventListener('click', () => {
+    mode = edgeLabelModes[(edgeLabelModes.indexOf(mode) + 1) % edgeLabelModes.length] ?? 'none'
+    labels.textContent = messages.edgeLabels(messages.edgeLabelModes[mode])
+    graph.update({ definition: define(mode) })
+  })
+  const actions = document.createElement('div')
+  actions.className = 'example-actions'
+  actions.append(labels)
+  container.append(actions)
 
   const hovered = document.createElement('output')
   hovered.className = 'example-status'

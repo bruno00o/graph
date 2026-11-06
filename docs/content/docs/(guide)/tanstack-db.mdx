@@ -46,7 +46,8 @@ function SharedPositions() {
 }
 ```
 
-- Only drags and `positions.set` are written. Moves that come from the collection itself do not emit `positionchange`, so nothing echoes back.
+- Drags, `positions.set` and the result of each layout run that ends are written. Moves that come from the collection itself do not emit `positionchange`, so nothing echoes back.
+- A written layout result becomes data. When the node mark reads `x` and `y` from the collection, those nodes now have coordinates, and later layout runs leave them in place. See [Force layout](/docs/layout#save-the-result).
 - Without `mutationFn`, rows are updated with `collection.update` at most every 100 milliseconds, first and last move included. The collection persists them through its own handlers, as an Electric, Query or local storage collection does. Stopping writes the last pending move at once.
 - With `mutationFn`, the writes go through `createPacedMutations`: `x` and `y` are written optimistically, and the strategy, `throttleStrategy` of 100 milliseconds by default, paces the calls to your function. When the mutation fails, the optimistic write is rolled back and the node follows its data again.
 

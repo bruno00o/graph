@@ -28,7 +28,7 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | `key` | channel | Node key, `id` by default |
 | `color` | channel | Category or number, through the `color` scale |
 | `size` | channel | Number, through the `size` scale. The size is a diameter |
-| `label` | channel | Text, or `{ text, secondary, background }` |
+| `label` | channel | Text, or an object with `text` and its style. See [Labels](/docs/labels) |
 | `x`, `y` | channel | Position in world units, followed when it changes |
 | `shape` | style | `'circle'`, `'square'` or `'diamond'` |
 | `fill` | style | Fill color, wins over `color` |
@@ -51,7 +51,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `source`, `target` | channel | Key of the node at each end |
 | `color` | channel | Category or number, through the `color` scale |
 | `width` | channel | Number, through the `width` scale, in screen pixels |
-| `label` | channel | Text |
+| `label` | channel | Text, or an object with `text` and its style. See [Labels](/docs/labels#edge-labels) |
 | `dash` | style | `'solid'`, `'dashed'` or `'dotted'` |
 | `arrow` | style | `'none'`, `'source'`, `'target'` or `'both'` |
 | `stroke` | style | Line color, wins over `color` |
@@ -65,14 +65,25 @@ Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels.
 
 ```ts
 nodes<Item>(items, {
-  label: { text: 'label', secondary: (item) => `Group ${item.group}`, background: true },
+  label: {
+    text: 'label',
+    secondary: (item) => `Group ${item.group}`,
+    size: 14,
+    weight: 'bold',
+    placement: 'right',
+    background: true,
+  },
 })
+
+edges<Link>(links, { source: 'from', target: 'to', label: { text: 'name', size: 10 } })
 ```
 
-- `text` is the main line, `secondary` a smaller second line.
-- `background` draws a rounded plate behind the label: a CSS color, `true` for the theme color `--graph-label-background`, or `false` and `null` for none. A plated label drops its halo, and label placement keeps room for the whole plate.
+- `text` is the main line, and `\n` breaks it. `secondary` adds a smaller second line, on nodes only.
+- `size`, `color`, `weight` and `font` style the text, `maxWidth` truncates it with an ellipsis.
+- `placement` puts a node label below, above, beside or on the node, and `minScreenSize` hides it on small nodes.
+- `background` draws a rounded plate behind the label: a CSS color, `true` for the theme color `--graph-label-background`, or `false` and `null` for none.
 
-Labels are placed largest node first and never overlap. The hovered and focused nodes always show theirs; selected and other highlighted nodes come next and still avoid overlaps.
+Labels never overlap. Node labels are placed largest node first, then edge labels, widest edge first. The hovered and focused elements always show theirs; selected elements come next and still avoid overlaps. See [Labels](/docs/labels).
 
 ## Outlines
 

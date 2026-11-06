@@ -20,7 +20,7 @@ A **channel** is a field name or a function, and goes through a scale. A **style
 | `key` | `KeyChannel<T>` | `'id'` | Node key, unique across node marks |
 | `color` | `Channel<T, string \| number \| boolean>` | `--graph-node` | Value passed to the `color` scale |
 | `size` | `Channel<T, number>` | `16` | Value passed to the `size` scale. The size is a diameter |
-| `label` | `Channel<T, string> \| LabelOptions<T>` | | Label text, or text, second line and background |
+| `label` | `Channel<T, string> \| LabelOptions<T>` | | Label text, or text with its style. See [Labels](#labels) |
 | `x`, `y` | `Channel<T, number>` | | Position in world units, followed when it changes |
 | `shape` | `Style<T, 'circle' \| 'square' \| 'diamond'>` | `'circle'` | Node shape |
 | `fill` | `Style<T, string>` | | Fill color, wins over `color` |
@@ -38,18 +38,40 @@ A **channel** is a field name or a function, and goes through a scale. A **style
 ## Labels
 
 ```ts
-interface LabelOptions<T> {
+type LabelPlacement = 'bottom' | 'top' | 'right' | 'left' | 'center'
+type LabelWeight = 'normal' | 'bold' | number
+
+interface LabelTextOptions<T> {
   readonly text: Channel<T, string>
-  readonly secondary?: Channel<T, string>
   readonly background?: Style<T, string | boolean | null>
+  readonly color?: Style<T, string>
+  readonly size?: Style<T, number>
+  readonly weight?: Style<T, LabelWeight>
+  readonly font?: Style<T, string>
+  readonly maxWidth?: Style<T, number>
+}
+
+interface LabelOptions<T> extends LabelTextOptions<T> {
+  readonly secondary?: Channel<T, string>
+  readonly placement?: Style<T, LabelPlacement>
+  readonly minScreenSize?: Style<T, number>
 }
 ```
 
-| Field | Description |
-| --- | --- |
-| `text` | Main line |
-| `secondary` | Smaller second line |
-| `background` | Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null` for none. A plated label has no halo |
+| Field | Default | Description |
+| --- | --- | --- |
+| `text` | | Main text. `\n` starts a new line |
+| `secondary` | | Second line, at eleven twelfths of the size, in normal weight and `--graph-ink-muted` |
+| `size` | `12` | Font size in pixels at zoom 1. Labels shrink when you zoom out, not when you zoom in |
+| `color` | `--graph-ink` | Color of the main text |
+| `weight` | `500` | `'normal'` (400), `'bold'` (700), or a number from 1 to 1000 |
+| `font` | `--graph-font` | CSS font family |
+| `placement` | `'bottom'` | Side of the node where the label sits. `'center'` puts it on the node |
+| `maxWidth` | | Width in pixels at zoom 1 past which each line ends with an ellipsis |
+| `minScreenSize` | | Smallest diameter of the node on screen, in pixels, for its label to show. Hovered and focused nodes ignore it |
+| `background` | | Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null` for none. A plated label has no halo |
+
+The text must be a string; anything else draws no label. See [Labels](/docs/labels) for placement rules and examples.
 
 ## Images
 

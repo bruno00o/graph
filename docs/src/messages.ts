@@ -105,6 +105,15 @@ export const messages = {
         tag: '/react',
         text: '`<Graph>` mounts once and holds up under StrictMode. `useGraphState` reads hover, selection, view and states from the graph store.',
       },
+      layout: {
+        title: 'Force layout',
+        tag: '/layouts/force',
+        text: 'Nodes without coordinates settle in a Web Worker, on the GPU for large graphs, while the page keeps panning. New nodes land next to their neighbors, and a dragged node stays where you drop it.',
+      },
+      labels: {
+        title: 'Styled labels',
+        text: 'Size, color, weight, font and placement for each label, with line breaks and truncation. Edge labels follow their edge, and no two labels overlap.',
+      },
     },
     figures: {
       statesFigure: 'A node in four states: default, hovered, selected and dimmed',
@@ -120,6 +129,7 @@ export const messages = {
       swatchNames: ['paper', 'ink', 'edge', 'accent', 'cat-1 to cat-8'],
     },
     denseLabel: 'Five thousand nodes in eight groups',
+    layoutLabel: 'Three thousand nodes settling into communities with a force layout',
     nodesFigure: 'nodes',
     edgesFigure: 'edges',
     figuresLink: 'See how these figures were measured',
@@ -137,7 +147,7 @@ export const messages = {
       },
       {
         title: 'Examples',
-        text: 'Seven live examples, each next to its full source.',
+        text: 'Nine live examples, each next to its full source.',
         href: '/examples',
       },
     ],

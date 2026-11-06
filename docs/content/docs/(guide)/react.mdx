@@ -44,6 +44,7 @@ export function SampleGraph({ items, links }: { items: Item[]; links: Link[] }) 
 | `onPointerEnter`, `onPointerLeave` | Hover on an element |
 | `onDragStart`, `onDrag`, `onDragEnd`, `onPositionChange` | Node moves |
 | `onSelectionChange`, `onFocusChange`, `onViewChange` | State changes |
+| `onLayoutStart`, `onLayoutEnd` | Layout runs |
 
 Event props always call the latest function you pass, without subscribing again.
 

@@ -53,6 +53,17 @@ export function App() {
 }
 `
 
+export const labelsSnippet = `nodes<Item>(items, {
+  label: {
+    text: 'label',
+    secondary: 'group',
+    size: 14,
+    weight: 'bold',
+    placement: 'right',
+    maxWidth: 120,
+  },
+})`
+
 export const reactSnippet = `function Selected() {
   const count = useGraphState((state) => state.selection.nodes.length)
   return <span>{count} selected</span>

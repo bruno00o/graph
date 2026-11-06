@@ -66,3 +66,64 @@ export function createSample(nodeCount: number, edgeCount: number, groups = 8, s
   }
   return { items, links }
 }
+
+export function createCommunities(nodeCount: number, edgeCount: number, seed = 11): Sample {
+  const next = random(seed)
+  const sizes: number[] = []
+  let total = 0
+  while (total < nodeCount) {
+    const size = Math.round(12 / (next() || 1e-9) ** 0.75)
+    sizes.push(Math.min(nodeCount - total, Math.max(4, size)))
+    total += sizes.at(-1) ?? 0
+  }
+  const degree = new Uint32Array(nodeCount)
+  const links: Link[] = []
+  const link = (from: number, to: number) => {
+    if (from === to) return
+    links.push({ id: `e${links.length}`, from: `n${from}`, to: `n${to}` })
+    degree[from] = (degree[from] ?? 0) + 1
+    degree[to] = (degree[to] ?? 0) + 1
+  }
+  const inside = (edgeCount * 0.92) / nodeCount
+  const starts: number[] = []
+  const groupOf = new Uint32Array(nodeCount)
+  let first = 0
+  sizes.forEach((size, community) => {
+    const ends: number[] = []
+    for (let offset = 0; offset < size; offset++) {
+      const node = first + offset
+      groupOf[node] = community
+      if (offset === 0) continue
+      const count = Math.floor(inside) + (next() < inside % 1 ? 1 : 0)
+      for (let k = 0; k < Math.max(1, count); k++) {
+        const target =
+          ends.length > 0 && next() < 0.8
+            ? (ends[Math.floor(next() * ends.length)] ?? first)
+            : first + Math.floor(next() * offset)
+        link(node, target)
+        ends.push(node, target)
+      }
+    }
+    starts.push(first)
+    first += size
+  })
+  const parent = sizes.map((_, community) => Math.floor(next() * community))
+  const member = (community: number) =>
+    (starts[community] ?? 0) + Math.floor(next() ** 3 * (sizes[community] ?? 1))
+  for (let community = 1; community < sizes.length; community++) {
+    link(starts[community] ?? 0, member(parent[community] ?? 0))
+  }
+  while (links.length < edgeCount && sizes.length > 1) {
+    const community = 1 + Math.floor(next() * (sizes.length - 1))
+    link(member(community), member(parent[community] ?? 0))
+  }
+  const items: Item[] = Array.from({ length: nodeCount }, (_, index) => ({
+    id: `n${index}`,
+    label: `Node ${index + 1}`,
+    group: String.fromCharCode(65 + ((groupOf[index] ?? 0) % 12)),
+    weight: Math.min(100, 1 + (degree[index] ?? 0)),
+    x: 0,
+    y: 0,
+  }))
+  return { items, links }
+}

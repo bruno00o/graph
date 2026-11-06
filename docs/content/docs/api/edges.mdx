@@ -20,11 +20,31 @@ function edges<T>(data: Iterable<T>, options: EdgeOptions<T> & { key: KeyChannel
 | `target` | `KeyChannel<T>` | | Key of the target node |
 | `color` | `Channel<T, string \| number \| boolean>` | `--graph-edge` | Value passed to the `color` scale |
 | `width` | `Channel<T, number>` | `1.5` | Value passed to the `width` scale, in screen pixels |
-| `label` | `Channel<T, string>` | | Label text |
+| `label` | `Channel<T, string> \| EdgeLabelOptions<T>` | | Label text, or text with its style. See [Labels](#labels) |
 | `dash` | `Style<T, 'solid' \| 'dashed' \| 'dotted'>` | `'solid'` | Line pattern |
 | `arrow` | `Style<T, 'none' \| 'source' \| 'target' \| 'both'>` | `'none'` | Arrow heads |
 | `stroke` | `Style<T, string>` | | Line color, wins over `color` |
 | `opacity` | `Style<T, number>` | `1` | Opacity from 0 to 1 |
+
+## Labels
+
+```ts
+interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
+```
+
+`EdgeLabelOptions` has the text options of a node label: `text`, `background`, `color`, `size`, `weight`, `font` and `maxWidth`. See [`LabelTextOptions`](/docs/api/nodes#labels). The default size is 11.
+
+- The label sits halfway along the edge, on the arc of a curved edge, and turns with it while staying upright.
+- Without a background, it sits above the line. With one, it is centered on the line.
+- It shows only when it fits between the two nodes. The hovered or focused edge shows it over other labels.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  label: { text: 'name', size: 10, color: 'var(--graph-ink-muted)', background: true },
+})
+```
 
 ## Parallel edges and loops
 
