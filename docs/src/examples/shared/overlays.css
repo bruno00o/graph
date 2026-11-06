@@ -28,6 +28,25 @@
   display: none;
 }
 
+.example-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  padding: 10px 16px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--graph-ink) 82%, transparent);
+  color: var(--graph-paper);
+  font-family: var(--graph-font);
+  font-size: 14px;
+  font-weight: 500;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.example-hint[hidden] {
+  display: none;
+}
+
 .example-actions {
   position: absolute;
   top: 14px;

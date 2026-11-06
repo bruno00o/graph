@@ -117,6 +117,17 @@ export interface GraphFoldEvent {
   readonly folded: readonly Key[]
 }
 
+/** Key that makes the wheel zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. */
+export type ZoomKey = 'Meta' | 'Control'
+
+/** Payload of `zoomhint`. */
+export interface GraphZoomHintEvent {
+  /** Key to hold while scrolling to zoom, for the hint the application shows. */
+  readonly key: ZoomKey
+  /** The DOM event, left to the page. */
+  readonly originalEvent: WheelEvent
+}
+
 /** What moved the nodes: a drag, `positions.set`, or the end of a layout run. */
 export type PositionOrigin = 'drag' | 'api' | 'layout'
 
@@ -130,7 +141,10 @@ export interface GraphPositionEvent {
 
 /** Every event of the graph, by name, with its payload. `M` is the union of the marks. */
 export interface GraphEvents<M extends Mark = Mark> {
-  /** A press released within 4 pixels of where it started, before the default selection runs. */
+  /**
+   * A press released within 4 pixels of where it started, 10 for a touch, before the default
+   * selection runs.
+   */
   readonly click: GraphPointerEvent<M>
   /**
    * A double click. On a group it then folds or unfolds it, unless a handler calls
@@ -159,6 +173,11 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly foldchange: GraphFoldEvent
   /** The view changed. */
   readonly viewchange: { readonly view: View }
+  /**
+   * A wheel event without Cmd or Ctrl went to the page, in `'page'` wheel mode with zoom on: the
+   * application can show how to zoom. Fires for every such event.
+   */
+  readonly zoomhint: GraphZoomHintEvent
   /** A layout run starts. Nodes that join a run do not start another. */
   readonly layoutstart: GraphLayoutEvent
   /** A layout run ends, is stopped or is replaced. */

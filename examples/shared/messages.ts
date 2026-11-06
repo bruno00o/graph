@@ -62,6 +62,12 @@ export const messages = {
   vanillaHint: 'Maj et glisser pour entourer, flèches pour parcourir, Entrée pour sélectionner.',
   graphLabel: (nodes: string, edges: string) => `Graphe de ${nodes} nœuds et ${edges} arêtes`,
   fit: 'Recadrer',
+  wheel: 'Molette',
+  wheelModes: { zoom: 'Zoomer', pan: 'Déplacer la vue', page: 'Faire défiler la page' },
+  bounds: 'Limites',
+  boundsModes: { none: 'Aucune', nodes: 'Autour des nœuds' },
+  zoomHint: (key: 'Meta' | 'Control'): string =>
+    `Maintenez ${key === 'Meta' ? '⌘' : 'Ctrl'} et faites défiler pour zoomer`,
   dark: 'Thème sombre',
   light: 'Thème clair',
   size: 'Taille',

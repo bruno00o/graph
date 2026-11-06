@@ -52,7 +52,7 @@ interface View {
 
 <api-table path="index.ts" name="GraphView" />
 
-`fit` without keys frames every node. `padding` defaults to 32 pixels. Durations are in milliseconds, and zero with `prefers-reduced-motion`.
+`fit` without keys frames every node. `padding` defaults to 32 pixels. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`.
 
 ## Selection
 
@@ -143,7 +143,7 @@ graph.anchors.set(menu, { state: 'selected', side: 'top', interactive: true })
 
 The element keeps its own size: the anchor reads it with a `ResizeObserver`. It is hidden with `visibility: hidden` while its target is missing, off screen, or out of the `when` state. A state given to `state` or `when` must be declared in the definition, or be `selected`, `hovered` or `focused`; otherwise `set` throws.
 
-Without `interactive`, the element lets every pointer event through to the graph. With it, the element takes clicks and drags, and the wheel still zooms the graph unless the element under the pointer can scroll. Keys pressed inside the element do not reach the graph shortcuts.
+Without `interactive`, the element lets every pointer event through to the graph. With it, the element takes clicks and drags, and the wheel still goes to the graph unless the element under the pointer can scroll. Keys pressed inside the element do not reach the graph shortcuts.
 
 In React, use [`<Anchor>`](/docs/api/anchor).
 

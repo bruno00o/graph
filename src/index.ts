@@ -16,8 +16,10 @@ export type {
   GraphPositionEvent,
   GraphTarget,
   GraphTargetEvent,
+  GraphZoomHintEvent,
   NodeTarget,
   PositionOrigin,
+  ZoomKey,
 } from './host/events'
 export type {
   FitOptions,
@@ -48,6 +50,7 @@ export type {
   BackgroundOptions,
   Badge,
   BadgeCorner,
+  Bounds,
   BuiltInState,
   Channel,
   ColorScale,
@@ -98,6 +101,7 @@ export type {
   ResolvedBackground,
   ResolvedInteraction,
   ResolvedTransitions,
+  ResolvedViewLimits,
   ScalesOptions,
   SelectMode,
   SourceChange,
@@ -107,4 +111,7 @@ export type {
   Style,
   TransitionOptions,
   View,
+  ViewBounds,
+  ViewLimitOptions,
+  WheelMode,
 } from './types'

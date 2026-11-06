@@ -8,28 +8,70 @@ import type {
   Mark,
   ResolvedBackground,
   ResolvedInteraction,
+  ResolvedViewLimits,
   StateStyles,
+  ViewBounds,
+  ViewLimitOptions,
+  WheelMode,
 } from './types'
 
 const defaultZoomSpeed = 1
+const defaultAutoPanSpeed = 1
+const defaultMinZoom = 1e-3
+const defaultMaxZoom = 64
+const wheelModes: readonly WheelMode[] = ['zoom', 'pan', 'page']
 const defaultPositionTransition = 120
 const defaultLayoutTransition = 400
 const defaultGridSpacing = 16
 
+function resolveSpeed(
+  option: boolean | { readonly speed?: number },
+  fallback: number,
+): false | { readonly speed: number } {
+  if (option === false) return false
+  return Object.freeze({ speed: (option === true ? undefined : option.speed) ?? fallback })
+}
+
 function resolveInteraction(options: InteractionOptions = {}): ResolvedInteraction {
-  const zoom = options.zoom ?? true
+  const wheel = options.wheel ?? 'zoom'
+  if (!wheelModes.includes(wheel)) {
+    throw new TypeError("defineGraph: interaction.wheel must be 'zoom', 'pan' or 'page'")
+  }
   return Object.freeze({
     pan: options.pan ?? true,
-    zoom:
-      zoom === false
-        ? false
-        : Object.freeze({ speed: (zoom === true ? undefined : zoom.speed) ?? defaultZoomSpeed }),
+    zoom: resolveSpeed(options.zoom ?? true, defaultZoomSpeed),
+    wheel,
+    autoPan: resolveSpeed(options.autoPan ?? true, defaultAutoPanSpeed),
     select: options.select ?? 'multiple',
     drag: options.drag ?? true,
     lasso: options.lasso ?? false,
     keyboard: options.keyboard ?? true,
     fold: options.fold ?? true,
   })
+}
+
+function resolveBounds(bounds: ViewBounds | null): ViewBounds | null {
+  if (bounds === null) return null
+  if ('margin' in bounds) {
+    if (!Number.isFinite(bounds.margin)) {
+      throw new RangeError('defineGraph: view.bounds.margin must be a finite number')
+    }
+    return Object.freeze({ margin: bounds.margin })
+  }
+  const { minX, minY, maxX, maxY } = bounds
+  if (![minX, minY, maxX, maxY].every(Number.isFinite) || minX > maxX || minY > maxY) {
+    throw new RangeError('defineGraph: view.bounds must be finite and not inverted')
+  }
+  return Object.freeze({ minX, minY, maxX, maxY })
+}
+
+function resolveView(options: ViewLimitOptions = {}): ResolvedViewLimits {
+  const minZoom = options.minZoom ?? defaultMinZoom
+  const maxZoom = options.maxZoom ?? defaultMaxZoom
+  if (!(minZoom > 0) || !Number.isFinite(maxZoom) || !(minZoom <= maxZoom)) {
+    throw new RangeError('defineGraph: view zoom limits must be positive, with minZoom ≤ maxZoom')
+  }
+  return Object.freeze({ minZoom, maxZoom, bounds: resolveBounds(options.bounds ?? null) })
 }
 
 function resolveBackground(
@@ -76,6 +118,7 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     states: Object.freeze({ ...options.states }) as StateStyles<S>,
     layout: options.layout ?? null,
     interaction: resolveInteraction(options.interaction),
+    view: resolveView(options.view),
     transitions: Object.freeze({
       positions: Math.max(0, options.transitions?.positions ?? defaultPositionTransition),
       layout: Math.max(0, options.transitions?.layout ?? defaultLayoutTransition),
