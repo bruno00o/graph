@@ -2,6 +2,7 @@ export const messages = {
   title: 'Exemples de graphes',
   vanilla: 'Exemple vanilla',
   react: 'Exemple React',
+  bench: (nodes: string, edges: string) => `Banc d’essai, ${nodes} nœuds et ${edges} arêtes`,
   weight: 'Poids',
   selected: 'Sélection',
   empty: 'Cliquez sur un nœud, Maj pour en ajouter.',

@@ -24,6 +24,6 @@ export interface Renderer {
   sync(input: RenderInput): void
   setPalette(colors: Uint8Array, count: number): void
   setTheme(theme: ResolvedTheme): void
-  render(frame: RenderFrame): boolean
+  render(frame: RenderFrame): number
   destroy(): void
 }

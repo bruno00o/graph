@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-examples/
+bench-results*/
 coverage/
 *.tsbuildinfo
 *.tgz

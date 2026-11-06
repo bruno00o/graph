@@ -11,7 +11,7 @@ export function fakeRenderer(): Renderer {
     sync: () => {},
     setPalette: () => {},
     setTheme: () => {},
-    render: () => false,
+    render: () => -1,
     destroy: () => {},
   }
 }

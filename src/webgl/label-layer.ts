@@ -9,6 +9,7 @@ const lineHeight = 1.25
 const labelMin = 8
 const cell = 8
 const maxLabels = 4000
+const cullMargin = 400
 
 export interface LabelFrame {
   readonly nodes: NodeColumns
@@ -21,6 +22,7 @@ export interface LabelFrame {
   readonly highlighted: readonly number[]
   readonly order: Uint32Array
   readonly orderLength: number
+  readonly screenLabels: boolean
 }
 
 export class GlyphBuffer {
@@ -103,6 +105,8 @@ export class LabelLayer {
       const radius = Math.max(diameter / 2, 1.25)
       const x = (positions.x(index) - view.x) * view.zoom + width / 2
       const y = (positions.y(index) - view.y) * view.zoom + height / 2
+      if (x < -cullMargin || x > width + cullMargin) return
+      if (y + radius > height || y + radius + primary * lineHeight * 2 < -3) return
       const line = atlas.line(label, '500')
       const secondaryText = nodes.secondary[index]
       const secondary = secondaryText ? atlas.line(secondaryText, '400') : null
@@ -133,19 +137,40 @@ export class LabelLayer {
     }
 
     for (const index of highlighted) place(index, true)
+    if (worldPrimary < labelMin && !frame.screenLabels) return
+    const xy = positions.xy
+    const order = frame.order
+    const left = view.x - (width / 2 + cullMargin) / view.zoom
+    const right = view.x + (width / 2 + cullMargin) / view.zoom
+    const largest = nodes.size[order[0] ?? 0] ?? 0
+    const reach = cullMargin + (frame.screenLabels ? largest : largest * view.zoom) / 2
+    const top = view.y - (height / 2 + reach) / view.zoom
+    const bottom = view.y + height / 2 / view.zoom
     for (let at = 0; at < frame.orderLength && placed < maxLabels; at++) {
-      const index = frame.order[at] ?? 0
+      const index = order[at] ?? 0
+      const x = xy[index * 2] ?? 0
+      const y = xy[index * 2 + 1] ?? 0
+      if (x < left || x > right || y < top || y > bottom) continue
       if (!highlighted.has(index)) place(index, false)
     }
   }
 }
 
-export function sortBySize(nodes: NodeColumns, order: Uint32Array): number {
+export interface LabelOrder {
+  readonly length: number
+  readonly screenLabels: boolean
+}
+
+export function sortBySize(nodes: NodeColumns, order: Uint32Array): LabelOrder {
   let length = 0
+  let screenLabels = false
   for (let index = 0; index < nodes.capacity; index++) {
-    if (nodes.alive[index] === 1 && nodes.label[index]) order[length++] = index
+    if (nodes.alive[index] === 1 && nodes.label[index]) {
+      order[length++] = index
+      if (nodes.screenUnits[index] === 1) screenLabels = true
+    }
   }
   const sizes = nodes.size
   order.subarray(0, length).sort((a, b) => (sizes[b] ?? 0) - (sizes[a] ?? 0))
-  return length
+  return { length, screenLabels }
 }

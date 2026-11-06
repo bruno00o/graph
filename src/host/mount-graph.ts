@@ -152,8 +152,11 @@ const layerOrder = 2 ** 26
 const kindOf = { node: 'nodes', edge: 'edges' } as const satisfies Record<string, StateKind>
 const noKeys: ElementKeys = Object.freeze({ nodes: [], edges: [] })
 
+let reducedMotionQuery: MediaQueryList | undefined
+
 function reducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  reducedMotionQuery ??= window.matchMedia?.('(prefers-reduced-motion: reduce)')
+  return reducedMotionQuery?.matches ?? false
 }
 
 function sameTarget(a: GraphTarget | null, b: GraphTarget | null): boolean {
@@ -189,6 +192,7 @@ export function createGraphHost(
   container.append(element)
 
   let frameRequest = 0
+  let laterRequest: ReturnType<typeof setTimeout> | undefined
   let needsFlush = false
   let full = true
   let destroyed = false
@@ -253,6 +257,14 @@ export function createGraphHost(
     if (flush) needsFlush = true
     if (frameRequest !== 0 || destroyed) return
     frameRequest = requestAnimationFrame(frame)
+  }
+
+  function requestLater(delay: number): void {
+    if (laterRequest !== undefined || destroyed) return
+    laterRequest = setTimeout(() => {
+      laterRequest = undefined
+      request()
+    }, delay)
   }
 
   function commitView(view: View): void {
@@ -475,8 +487,9 @@ export function createGraphHost(
       patch({ positionsVersion })
     }
     const { view, width, height } = store.get()
-    const pending = renderer.render({ view, width, height, pixelRatio })
-    if (pending || viewAnimation || positionAnimations.length > 0) request()
+    const wait = renderer.render({ view, width, height, pixelRatio })
+    if (viewAnimation || positionAnimations.length > 0) request()
+    else if (wait >= 0) requestLater(wait)
   }
 
   function resize(width: number, height: number): void {
@@ -786,6 +799,7 @@ export function createGraphHost(
       if (destroyed) return
       destroyed = true
       if (frameRequest !== 0) cancelAnimationFrame(frameRequest)
+      clearTimeout(laterRequest)
       resizeObserver.disconnect()
       stopTheme()
       for (const [name, listener] of listeners) {

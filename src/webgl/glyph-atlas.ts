@@ -34,7 +34,10 @@ export class GlyphAtlas {
   dirtyFrom: number = Number.POSITIVE_INFINITY
   dirtyTo = -1
   readonly #glyphs = new Map<string, Glyph>()
-  readonly #lines = new Map<string, LineLayout>()
+  readonly #lines: Readonly<Record<FontWeight, Map<string, LineLayout>>> = {
+    '400': new Map(),
+    '500': new Map(),
+  }
   readonly #renderers = new Map<FontWeight, TinySDF>()
   #font: string
   #penX = 0
@@ -49,7 +52,8 @@ export class GlyphAtlas {
     if (font === this.#font) return false
     this.#font = font
     this.#glyphs.clear()
-    this.#lines.clear()
+    this.#lines['400'].clear()
+    this.#lines['500'].clear()
     this.#renderers.clear()
     this.#penX = 0
     this.#penY = 0
@@ -60,8 +64,8 @@ export class GlyphAtlas {
   }
 
   line(text: string, weight: FontWeight): LineLayout {
-    const key = `${weight}\u0000${text}`
-    const cached = this.#lines.get(key)
+    const lines = this.#lines[weight]
+    const cached = lines.get(text)
     if (cached) return cached
     const glyphs: PlacedGlyph[] = []
     let pen = 0
@@ -73,7 +77,7 @@ export class GlyphAtlas {
       pen += glyph.advance
     }
     const layout = { width: pen, glyphs: glyphs.map((g) => ({ glyph: g.glyph, x: g.x - pen / 2 })) }
-    this.#lines.set(key, layout)
+    lines.set(text, layout)
     return layout
   }
 

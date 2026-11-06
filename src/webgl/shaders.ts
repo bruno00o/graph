@@ -150,7 +150,7 @@ void main() {
 `
 
 export const edgeVertex: string = `${header}${nodeData}${edgeData}
-in vec2 corner;
+in vec3 corner;
 in uint instance;
 out vec2 vPos;
 out float vStart;
@@ -191,9 +191,19 @@ void main() {
   float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
   float arrowHalf = max(width * 1.6, 3.0);
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
-  float halfExtent = max(width * 0.5, arrowLength > 0.0 ? arrowHalf : 0.0) + halo + 1.0;
-  float along = mix(start - 1.0, end + 1.0, corner.x);
-  float across = corner.y * halfExtent;
+  float margin = 0.5 / pixelRatio + 0.5;
+  float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
+  float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
+  float body = width * 0.5 + halo + margin;
+  float head = max(body, arrowHalf + halo + margin);
+  float along = corner.x < 0.5 ? start - margin
+    : corner.x < 1.5 ? start + startHead
+    : corner.x < 2.5 ? end - endHead
+    : end + margin;
+  float extent = corner.z < 0.5 ? body
+    : corner.z < 1.5 ? (startHead > 0.0 ? head : body)
+    : (endHead > 0.0 ? head : body);
+  float across = corner.y * extent;
   vPos = vec2(along, across);
   vStart = start;
   vEnd = end;
@@ -321,5 +331,8 @@ void main() {
 `
 
 export const cornerNode: Float32Array = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1])
-export const cornerEdge: Float32Array = new Float32Array([0, -1, 1, -1, 0, 1, 1, 1])
+export const cornerEdge: Float32Array = new Float32Array([
+  0, -1, 1, 0, 1, 1, 1, -1, 1, 1, 1, 1, 1, -1, 0, 1, 1, 0, 2, -1, 0, 2, 1, 0, 2, -1, 2, 2, 1, 2, 3,
+  -1, 2, 3, 1, 2,
+])
 export const cornerLabel: Float32Array = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1])
