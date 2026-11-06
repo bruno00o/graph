@@ -1,6 +1,8 @@
+import { type GroupTree, groupTree } from '../../core/group-tree'
 import type { LayoutGraph } from '../../types'
 import { BarnesHut } from './barnes-hut'
 import { Collider } from './collider'
+import { GroupForces, liftOf } from './groups'
 import { jitterOf, xorshift32 } from './random'
 
 export type ForceGraph = Omit<LayoutGraph, 'keys' | 'datum'>
@@ -31,6 +33,17 @@ export interface ForceOptions {
    */
   readonly spacing?: number
   /**
+   * Pull of the members of an unfolded group toward the center of the group. `0` turns it off.
+   * @default 0.1
+   */
+  readonly cohesion?: number
+  /**
+   * Smallest gap between the container of an unfolded group and the nodes and containers next to
+   * it, in world units.
+   * @default 16
+   */
+  readonly groupSpacing?: number
+  /**
    * Steps of a full run, rounded and at least 1. A run on part of the graph takes fewer.
    * @default 300
    */
@@ -52,6 +65,10 @@ export interface ForceSettings {
   readonly gravity: number
   /** Smallest gap between two nodes, in world units. */
   readonly spacing: number
+  /** Pull of the members of an unfolded group toward the center of the group. */
+  readonly cohesion: number
+  /** Smallest gap between a container and the nodes and containers next to it, in world units. */
+  readonly groupSpacing: number
   /** Steps of a full run. */
   readonly steps: number
   /** Where the simulation runs. */
@@ -63,6 +80,8 @@ export const forceDefaults: ForceSettings = {
   repulsion: 80,
   gravity: 0.04,
   spacing: 6,
+  cohesion: 0.1,
+  groupSpacing: 16,
   steps: 300,
   engine: 'auto',
 }
@@ -93,6 +112,8 @@ export function resolveForce(options: ForceOptions = {}): ForceSettings {
     repulsion: positive(options.repulsion, forceDefaults.repulsion),
     gravity: positive(options.gravity, forceDefaults.gravity),
     spacing: positive(options.spacing, forceDefaults.spacing),
+    cohesion: positive(options.cohesion, forceDefaults.cohesion),
+    groupSpacing: positive(options.groupSpacing, forceDefaults.groupSpacing),
     steps: Math.max(1, Math.round(positive(options.steps, forceDefaults.steps))),
     engine: engines.includes(options.engine as ForceEngine)
       ? (options.engine as ForceEngine)
@@ -175,9 +196,12 @@ export function springsOf(graph: ForceGraph, edgeLength: number): Springs {
 export class ForceSimulation {
   readonly x: Float64Array
   readonly y: Float64Array
+  readonly tree: GroupTree | null
   readonly #vx: Float64Array
   readonly #vy: Float64Array
   readonly #fixed: Uint8Array
+  readonly #groups: GroupForces | null
+  readonly #lift: Int32Array | null
   readonly #nodes: Uint32Array
   readonly #movers: Uint32Array
   readonly #springs: Springs
@@ -226,6 +250,23 @@ export class ForceSimulation {
     this.#springs = springsOf(graph, settings.edgeLength)
     this.#collider = new Collider(graph.radius, this.#nodes, settings.spacing)
     this.#jiggle = jitterOf(xorshift32(), jitterScale)
+    this.tree = groupTree(capacity, graph.alive, graph.groups)
+    this.#groups = this.tree
+      ? new GroupForces(
+          this.tree,
+          graph.alive,
+          graph.movable,
+          graph.radius,
+          settings.cohesion,
+          settings.groupSpacing,
+          settings.edgeLength,
+        )
+      : null
+    this.#lift = this.tree ? liftOf(this.tree, this.#springs.ends, this.#springs.count) : null
+  }
+
+  get fixed(): Uint8Array {
+    return this.#fixed
   }
 
   get alpha(): number {
@@ -255,6 +296,7 @@ export class ForceSimulation {
     this.#stretch(alpha)
     this.#repel(alpha)
     this.#attract(alpha)
+    this.#groups?.apply(alpha, this.x, this.y, this.#vx, this.#vy, this.#fixed)
     this.#damp()
     this.#collider.apply(
       this.#nodes,
@@ -284,6 +326,8 @@ export class ForceSimulation {
     const vx = this.#vx
     const vy = this.#vy
     const fixed = this.#fixed
+    const lift = this.#lift
+    const lifted = this.#groups?.pull
     for (let k = 0; k < count; k++) {
       const s = ends[k * 2] ?? 0
       const t = ends[k * 2 + 1] ?? 0
@@ -301,11 +345,19 @@ export class ForceSimulation {
       }
       const pull = ((length - (rest[k] ?? 0)) / length) * alpha * (stiffness[k] ?? 0)
       const ws = share[k] ?? 0.5
-      if (!fs) {
+      const ls = lift ? (lift[k * 2] ?? -1) : -1
+      const lt = lift ? (lift[k * 2 + 1] ?? -1) : -1
+      if (ls >= 0 && lifted) {
+        lifted[ls * 2] = (lifted[ls * 2] ?? 0) + dx * pull * ws
+        lifted[ls * 2 + 1] = (lifted[ls * 2 + 1] ?? 0) + dy * pull * ws
+      } else if (!fs) {
         vx[s] = (vx[s] ?? 0) + dx * pull * ws
         vy[s] = (vy[s] ?? 0) + dy * pull * ws
       }
-      if (!ft) {
+      if (lt >= 0 && lifted) {
+        lifted[lt * 2] = (lifted[lt * 2] ?? 0) - dx * pull * (1 - ws)
+        lifted[lt * 2 + 1] = (lifted[lt * 2 + 1] ?? 0) - dy * pull * (1 - ws)
+      } else if (!ft) {
         vx[t] = (vx[t] ?? 0) - dx * pull * (1 - ws)
         vy[t] = (vy[t] ?? 0) - dy * pull * (1 - ws)
       }

@@ -1,3 +1,5 @@
+import { type GroupTree, groupTree } from '../../core/group-tree'
+import { separateGroups } from '../../core/group-separation'
 import type { LayoutListener, LayoutRun } from '../../types'
 import { separate } from './collider'
 import type { GpuForce } from './gpu'
@@ -9,6 +11,26 @@ const batchTarget = 32
 const elementsPerTarget = 200_000
 const maxBatch = 256
 const separationRounds = 10
+const groupRounds = 64
+
+export function settle(
+  graph: ForceGraph,
+  tree: GroupTree | null,
+  fixed: Uint8Array,
+  xy: Float32Array,
+  settings: ForceSettings,
+): void {
+  if (!tree) {
+    separate(graph.radius, graph.alive, fixed, xy, settings.spacing, separationRounds)
+    return
+  }
+  separateGroups(tree, graph.alive, graph.radius, fixed, xy, {
+    spacing: settings.spacing,
+    groupSpacing: settings.groupSpacing,
+    rounds: groupRounds,
+    nodes: 'all',
+  })
+}
 
 export function snapshotInterval(graph: ForceGraph): number {
   let alive = 0
@@ -38,7 +60,9 @@ export function runForce(
     while (!simulation.done && performance.now() < until)
     if (simulation.done) {
       stopped = true
-      listener.end(snapshot())
+      const xy = snapshot()
+      if (simulation.tree) settle(graph, simulation.tree, simulation.fixed, xy, settings)
+      listener.end(xy)
       return
     }
     listener.progress(snapshot(), simulation.progress)
@@ -83,7 +107,7 @@ export function runGpuForce(
       if (gpu.done) {
         stopped = true
         gpu.destroy()
-        separate(graph.radius, graph.alive, gpu.fixed, current, settings.spacing, separationRounds)
+        settle(graph, groupTree(graph.capacity, graph.alive, graph.groups), gpu.fixed, current, settings)
         listener.end(current.slice())
         return
       }

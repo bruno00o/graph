@@ -1386,6 +1386,7 @@ export function createGraphHost<S extends string = string>(
       (index) => movable(index) && !dragged?.has(index),
       (key) => model.node(key)?.datum,
       projection.active ? groupLinks() : undefined,
+      projection.active ? { indices: projection.containers, hierarchy } : undefined,
     )
     if (!graph.movable.includes(1)) return false
     for (let index = 0; index < Math.min(graph.capacity, animationOwner.length); index++) {

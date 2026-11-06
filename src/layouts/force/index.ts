@@ -21,17 +21,7 @@ function spawn(): Worker | null {
   }
 }
 
-function withGroupLinks(graph: LayoutGraph): LayoutGraph {
-  const links = graph.groupLinks
-  if (!links || links.length === 0) return graph
-  const edges = new Uint32Array(graph.edges.length + links.length)
-  edges.set(graph.edges)
-  edges.set(links, graph.edges.length)
-  return { ...graph, edges }
-}
-
-function start(source: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
-  const graph = withGroupLinks(source)
+function start(graph: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
   const worker = spawn()
   if (!worker) return inline(graph, settings, listener)
   const pins = new Map<number, readonly [number, number]>()
@@ -58,8 +48,12 @@ function start(source: LayoutGraph, settings: ForceSettings, listener: LayoutLis
     fallback = inline({ ...graph, xy: latest ?? graph.xy }, settings, listener)
     for (const [index, [x, y]] of pins) fallback.pin(index, x, y)
   }
-  const { capacity, alive, movable, xy, radius, edges } = graph
-  post({ type: 'start', graph: { capacity, alive, movable, xy, radius, edges }, settings })
+  const { capacity, alive, movable, xy, radius, edges, groups } = graph
+  post({
+    type: 'start',
+    graph: { capacity, alive, movable, xy, radius, edges, ...(groups ? { groups } : {}) },
+    settings,
+  })
   return {
     pin(index, x, y) {
       pins.set(index, [x, y])
