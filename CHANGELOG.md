@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0](https://github.com/bruno00o/graph/compare/0.7.1...0.8.0) (2026-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* measure the spacing of grid, rings and radial between node borders, like every other layout ([#43](https://github.com/bruno00o/graph/issues/43))
+
+### Features
+
+* measure the spacing of grid, rings and radial between node borders, like every other layout ([#43](https://github.com/bruno00o/graph/issues/43)) ([9184a35](https://github.com/bruno00o/graph/commit/9184a35a19a55af9a40266df45a6cfaf5a55169b))
+
 ## [0.7.1](https://github.com/bruno00o/graph/compare/0.7.0...0.7.1) (2026-11-06)
 
 
