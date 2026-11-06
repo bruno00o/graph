@@ -1,3 +1,6 @@
+import type { GraphInstance } from '@bruno00o/graph'
+import { exportPng, exportSvg } from '@bruno00o/graph/export'
+
 export interface Page {
   readonly header: HTMLElement
   readonly main: HTMLElement
@@ -58,4 +61,31 @@ export function status(): HTMLOutputElement {
   const element = document.createElement('output')
   element.setAttribute('aria-live', 'polite')
   return element
+}
+
+export function download(blob: Blob, name: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export function exportButtons<S extends string>(
+  graph: GraphInstance<S>,
+  name: string,
+  texts: { readonly png: string; readonly svg: string },
+): HTMLButtonElement[] {
+  Object.assign(window, { exportPng, exportSvg })
+  return [
+    button(texts.png, () => {
+      void exportPng(graph, { pixelRatio: 2 }).then((blob) => download(blob, `${name}.png`))
+    }),
+    button(texts.svg, () => {
+      void exportSvg(graph).then((text) =>
+        download(new Blob([text], { type: 'image/svg+xml' }), `${name}.svg`),
+      )
+    }),
+  ]
 }

@@ -14,6 +14,7 @@ export const labelGap = 3
 export const edgeLabelSize = 11
 export const edgeDescent = 3.6
 export const edgeLabelGap = 1.5
+export const uprightSlack = 1e-4
 
 const header = `#version 300 es
 precision highp float;
@@ -564,7 +565,7 @@ void edgeGlyph(uint kind) {
     float len = length(delta);
     vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
     spot = (a + d) * 0.5 + dir * ((sourceRadius - targetRadius) * 0.5) + vec2(-dir.y, dir.x) * (style.z * len);
-    axis = dir.x < 0.0 || (dir.x == 0.0 && dir.y < 0.0) ? -dir : dir;
+    axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
   }
   vec2 across = vec2(-axis.y, axis.x);
   float lift = (glyphKind & 4u) != 0u ? 0.0 : max(look.strokeWidth, 0.5) * 0.5 + ${edgeLabelGap.toFixed(1)};

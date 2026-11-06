@@ -104,6 +104,8 @@ export const messages = {
     `${formatNumber(count)} ${plural(count, 'groupe replié', 'groupes repliés')}`,
   mergedEdges: (count: number, from: string, to: string): string =>
     `${formatNumber(count)} ${plural(count, 'arête', 'arêtes')} de ${from} vers ${to}`,
+  exportPng: 'Exporter en PNG',
+  exportSvg: 'Exporter en SVG',
 }
 
 function milliseconds(value: number): string {

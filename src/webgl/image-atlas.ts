@@ -19,6 +19,7 @@ export class ImageAtlas {
   #capacity = 0
   #next = 0
   #loaded = new Set<string>()
+  readonly #loading = new Set<Promise<void>>()
   #mipsStale = false
   #canvas: HTMLCanvasElement | null = null
   #warnedFull = false
@@ -57,10 +58,16 @@ export class ImageAtlas {
     image.crossOrigin = 'anonymous'
     image.decoding = 'async'
     image.src = src
-    image.decode().then(
+    const loading = image.decode().then(
       () => this.#store(src, image),
       () => this.#fail(src),
     )
+    this.#loading.add(loading)
+    void loading.finally(() => this.#loading.delete(loading))
+  }
+
+  async settled(): Promise<void> {
+    while (this.#loading.size > 0) await Promise.all(this.#loading)
   }
 
   release(src: string): void {

@@ -19,6 +19,8 @@
     "subset",
     "---@bruno00o/graph/query---",
     "create-exploration",
+    "---@bruno00o/graph/export---",
+    "export",
     "---@bruno00o/graph/layouts---",
     "layouts",
     "---@bruno00o/graph/layouts/force---",
