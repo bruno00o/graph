@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.0](https://github.com/bruno00o/graph/compare/0.8.0...0.9.0) (2026-11-06)
+
+
+### Features
+
+* draw a background grid, hulls around nodes and html anchors ([#50](https://github.com/bruno00o/graph/issues/50)) ([6eca3bb](https://github.com/bruno00o/graph/commit/6eca3bbfd3e70cac130a25b88d7f60e45aaab287))
+* export graphs as png and svg ([#47](https://github.com/bruno00o/graph/issues/47)) ([b22e801](https://github.com/bruno00o/graph/commit/b22e8015e7f7b21ee650ddb4a6a49af8ffdc37fe))
+* fold and unfold nested groups and merge the edges between them ([#48](https://github.com/bruno00o/graph/issues/48)) ([31764fb](https://github.com/bruno00o/graph/commit/31764fb61103bf361146dd5bc6c4910727b887a9))
+
+
+### Bug Fixes
+
+* load very large graphs and their picking index about twice as fast ([#51](https://github.com/bruno00o/graph/issues/51)) ([e54347b](https://github.com/bruno00o/graph/commit/e54347bf65d4e559d81aba0546073945cf8b4d4c))
+
 ## [0.8.0](https://github.com/bruno00o/graph/compare/0.7.1...0.8.0) (2026-11-06)
 
 
