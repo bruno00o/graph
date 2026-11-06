@@ -88,7 +88,7 @@ function Explorer() {
         scales: { size: { range: [10, 28] } },
         interaction: { select: false },
         states: {
-          expanded: { stroke: 'var(--graph-accent)', strokeWidth: 3 },
+          expanded: { stroke: 'var(--graph-ink)', strokeWidth: 3 },
           loading: { opacity: 0.45 },
         },
       }),
