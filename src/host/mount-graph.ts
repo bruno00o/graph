@@ -1,7 +1,7 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
 import { PickIndex, type PickSource } from '../core/pick-index'
-import { Positions, placeNodes } from '../core/positions'
+import { type PositionMoves, Positions, placeNodes } from '../core/positions'
 import { createScene } from '../core/scene'
 import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
@@ -119,6 +119,7 @@ interface ViewAnimation {
 }
 
 interface PositionAnimation {
+  readonly id: number
   readonly indices: readonly number[]
   readonly from: Float32Array
   readonly to: Float32Array
@@ -218,6 +219,8 @@ export function createGraphHost<S extends string = string>(
   let paletteColors = new Uint8Array(256 * 4)
   let viewAnimation: ViewAnimation | null = null
   let positionAnimations: PositionAnimation[] = []
+  let animationOwner = new Uint32Array(0)
+  let animationSerial = 0
   let pendingFit: FitOptions | null = options.initialView ? null : { padding: defaultPadding }
   let pixelRatio = window.devicePixelRatio || 1
   let sceneVersion = 0
@@ -452,7 +455,7 @@ export function createGraphHost<S extends string = string>(
 
   function applyChanges(changes: GraphChanges): void {
     scene.apply(model, changes)
-    placeNodes(model, positions, changes)
+    followPositions(placeNodes(model, positions, changes))
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const result = registry.apply(changes)
     sceneVersion++
@@ -471,11 +474,62 @@ export function createGraphHost<S extends string = string>(
     }
   }
 
+  function movePositions(
+    indices: readonly number[],
+    to: readonly number[],
+    duration: number,
+  ): void {
+    if (indices.length === 0) return
+    const ms = reducedMotion() ? 0 : duration
+    if (ms <= 0) {
+      indices.forEach((index, i) => {
+        if (index < animationOwner.length) animationOwner[index] = 0
+        positions.set(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
+      })
+    } else {
+      if (positions.capacity > animationOwner.length) {
+        const owner = new Uint32Array(positions.capacity)
+        owner.set(animationOwner)
+        animationOwner = owner
+      }
+      const id = ++animationSerial
+      const from = new Float32Array(indices.length * 2)
+      indices.forEach((index, i) => {
+        animationOwner[index] = id
+        from[i * 2] = positions.x(index)
+        from[i * 2 + 1] = positions.y(index)
+      })
+      positionAnimations.push({
+        id,
+        indices,
+        from,
+        to: Float32Array.from(to),
+        start: performance.now(),
+        duration: ms,
+      })
+    }
+    request()
+  }
+
+  function followPositions(moves: PositionMoves): void {
+    if (moves.indices.length === 0) return
+    const dragged = new Set(gesture?.drag?.indices)
+    const indices: number[] = []
+    const to: number[] = []
+    moves.indices.forEach((index, i) => {
+      if (dragged.has(index)) return
+      indices.push(index)
+      to.push(moves.to[i * 2] ?? 0, moves.to[i * 2 + 1] ?? 0)
+    })
+    movePositions(indices, to, definition.transitions.positions)
+  }
+
   function stepPositions(now: number): void {
     positionAnimations = positionAnimations.filter((animation) => {
-      const t = Math.min(1, (now - animation.start) / animation.duration)
+      const t = Math.max(0, Math.min(1, (now - animation.start) / animation.duration))
       const k = easeInOut(t)
       animation.indices.forEach((index, i) => {
+        if (animationOwner[index] !== animation.id) return
         const fromX = animation.from[i * 2] ?? 0
         const fromY = animation.from[i * 2 + 1] ?? 0
         const toX = animation.to[i * 2] ?? 0
@@ -569,6 +623,7 @@ export function createGraphHost<S extends string = string>(
     }
     const offsets = new Float32Array(indices.length * 2)
     indices.forEach((index, i) => {
+      if (index < animationOwner.length) animationOwner[index] = 0
       offsets[i * 2] = positions.x(index) - world.x
       offsets[i * 2 + 1] = positions.y(index) - world.y
     })
@@ -773,27 +828,7 @@ export function createGraphHost<S extends string = string>(
         indices.push(record.index)
         to.push(point.x, point.y)
       }
-      if (indices.length === 0) return
-      const duration = reducedMotion() ? 0 : (positionOptions.duration ?? 0)
-      if (duration <= 0) {
-        indices.forEach((index, i) => {
-          positions.set(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
-        })
-      } else {
-        const from = new Float32Array(indices.length * 2)
-        indices.forEach((index, i) => {
-          from[i * 2] = positions.x(index)
-          from[i * 2 + 1] = positions.y(index)
-        })
-        positionAnimations.push({
-          indices,
-          from,
-          to: Float32Array.from(to),
-          start: performance.now(),
-          duration,
-        })
-      }
-      request()
+      movePositions(indices, to, positionOptions.duration ?? 0)
     },
   }
 
