@@ -109,6 +109,8 @@ export const messages = {
   tooltipWeight: (group: string, weight: number): string =>
     `${group}, poids ${formatNumber(weight)}`,
   link: (from: string, to: string): string => `${from} vers ${to}`,
+  exportPng: 'Exporter en PNG',
+  exportSvg: 'Exporter en SVG',
 }
 
 function milliseconds(value: number): string {

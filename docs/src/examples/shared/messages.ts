@@ -81,4 +81,13 @@ export const messages = {
   frameSelection: 'Frame',
   clearSelection: 'Clear',
   selectionCount: (value: number) => count(value, 'node', 'nodes'),
+  exportLabel: 'Graph of ten nodes with icons, badges, parallel edges and a loop',
+  downloadPng: 'Download PNG',
+  downloadSvg: 'Download SVG',
+  exportRegion: (name: string) => `Region: ${name}`,
+  exportRegions: { view: 'view', graph: 'whole graph' },
+  exportLabels: (name: string) => `Labels: ${name}`,
+  exportLabelModes: { visible: 'as shown', all: 'all' },
+  exported: (format: string, bytes: number, duration: number) =>
+    `${format}, ${formatNumber(Math.max(1, Math.round(bytes / 1024)))} kB in ${formatNumber(Math.round(duration))} ms`,
 }

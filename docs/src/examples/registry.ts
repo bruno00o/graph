@@ -135,6 +135,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./edges/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'export',
+    title: 'Export to PNG and SVG',
+    description:
+      'Download the graph as a PNG drawn offscreen at twice the pixel density, or as a standalone SVG document, for the current view or the whole graph.',
+    hint: 'Pan or zoom, then download: the file shows what you see. Switch the region to frame every node.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/export'],
+    files: ['export/main.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./export/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'collaboration',
     title: 'Collaboration across tabs',
     description:

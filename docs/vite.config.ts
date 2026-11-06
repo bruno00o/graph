@@ -26,6 +26,7 @@ export default defineConfig({
         replacement: resolve(library, 'devtools/react.tsx'),
       },
       { find: /^@bruno00o\/graph\/devtools$/, replacement: resolve(library, 'devtools/index.ts') },
+      { find: /^@bruno00o\/graph\/export$/, replacement: resolve(library, 'export/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(library, 'index.ts') },
     ],
     dedupe: [

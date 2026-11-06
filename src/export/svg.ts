@@ -1,0 +1,744 @@
+import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
+import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
+import type { Positions } from '../core/positions'
+import type { Layer } from '../core/scene'
+import type { StateBuffers } from '../core/state-buffers'
+import type { ResolvedTheme, Rgba } from '../dom/theme'
+import type { LabelMode } from '../host/renderer'
+import { atlasFontSize } from '../webgl/glyph-atlas'
+import {
+  type EdgeAnchor,
+  lineHeight,
+  type PlacedLabel,
+  type TextMeasure,
+} from '../webgl/label-layer'
+import {
+  badgeFont,
+  badgeLimit,
+  badgeMin,
+  badgeRing,
+  badgeTextMin,
+  edgeLabelGap,
+  labelGap,
+  plateRadius,
+} from '../webgl/shaders'
+import { type ExportFrame, screenRadius } from './frame'
+import { placementDirections, selectLabels } from './labels'
+import { edgeLook, highlightMask, type Look, nodeLook } from './look'
+
+export interface SvgScene {
+  readonly nodes: NodeColumns
+  readonly edges: EdgeColumns
+  readonly layers: readonly Layer[]
+  readonly positions: Positions
+  readonly states: StateBuffers
+  readonly palette: Uint8Array
+  readonly theme: ResolvedTheme
+  readonly frame: ExportFrame
+  readonly background: Rgba
+  readonly labels: LabelMode
+  readonly measure: TextMeasure
+  readonly images: ReadonlyMap<string, SvgImage>
+  readonly title: string | null
+}
+
+export interface SvgImage {
+  readonly href: string
+  readonly aspect: number
+}
+
+interface Paint {
+  readonly hex: string
+  readonly alpha: number
+}
+
+interface QueuedLabel {
+  readonly index: number
+  readonly label: PlacedLabel
+  readonly anchor: EdgeAnchor | null
+}
+
+const haloWidth = 6
+const haloBands = [6, 4, 2] as const
+const haloLevels = [5 / 6, 3 / 6, 1 / 6] as const
+const haloStroke = 2 * 1.6
+const diamondReach = 1.2
+const squareReach = 0.86
+const badgeReach = [Math.SQRT1_2, squareReach, 0.6] as const
+const anchors = ['middle', 'start', 'end'] as const
+const transparent: Paint = { hex: '#000000', alpha: 0 }
+const markup = /[&<>"']/g
+const entities: Readonly<Record<string, string>> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&apos;',
+}
+let documents = 0
+
+function allowed(code: number): boolean {
+  return code >= 32 ? code !== 0xfffe && code !== 0xffff : code === 9 || code === 10 || code === 13
+}
+
+function stripInvalid(text: string): string {
+  let clean = true
+  for (let at = 0; at < text.length && clean; at++) clean = allowed(text.charCodeAt(at))
+  if (clean) return text
+  let result = ''
+  for (let at = 0; at < text.length; at++) {
+    if (allowed(text.charCodeAt(at))) result += text[at]
+  }
+  return result
+}
+
+export function escapeXml(text: string): string {
+  return stripInvalid(text).replace(markup, (char) => entities[char] ?? char)
+}
+
+function num(value: number): string {
+  return String(Math.round(value * 100) / 100)
+}
+
+function fine(value: number): string {
+  return String(Math.round(value * 10000) / 10000)
+}
+
+function hexOf(r: number, g: number, b: number): string {
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`
+}
+
+export function paintOf(color: Rgba): Paint {
+  return { hex: hexOf(color[0], color[1], color[2]), alpha: color[3] / 255 }
+}
+
+function paintAttribute(name: 'fill' | 'stroke', paint: Paint): string {
+  return paint.alpha >= 0.999
+    ? ` ${name}="${paint.hex}"`
+    : ` ${name}="${paint.hex}" ${name}-opacity="${fine(paint.alpha)}"`
+}
+
+function smoothstep(x: number): number {
+  const t = Math.min(1, Math.max(0, x))
+  return t * t * (3 - 2 * t)
+}
+
+function bandAlphas(alpha: number): readonly number[] {
+  const result: number[] = []
+  let below = 1
+  for (const level of haloLevels) {
+    const target = alpha * (1 - smoothstep(level))
+    const layer = below <= 0 ? 0 : Math.max(0, 1 - (1 - target) / below)
+    result.push(layer)
+    below *= 1 - layer
+  }
+  return result
+}
+
+function cubicPoint(curve: Cubic, t: number): readonly [number, number] {
+  const u = 1 - t
+  const a = u * u * u
+  const b = 3 * u * u * t
+  const c = 3 * u * t * t
+  const d = t * t * t
+  return [
+    a * curve.ax + b * curve.bx + c * curve.cx + d * curve.dx,
+    a * curve.ay + b * curve.by + c * curve.cy + d * curve.dy,
+  ]
+}
+
+function cubicTangent(curve: Cubic, t: number): readonly [number, number] {
+  const u = 1 - t
+  return [
+    3 * u * u * (curve.bx - curve.ax) +
+      6 * u * t * (curve.cx - curve.bx) +
+      3 * t * t * (curve.dx - curve.cx),
+    3 * u * u * (curve.by - curve.ay) +
+      6 * u * t * (curve.cy - curve.by) +
+      3 * t * t * (curve.dy - curve.cy),
+  ]
+}
+
+function crossing(
+  curve: Cubic,
+  x: number,
+  y: number,
+  radius: number,
+  low: number,
+  high: number,
+  rising: boolean,
+): number {
+  let lo = low
+  let hi = high
+  for (let step = 0; step < 14; step++) {
+    const mid = (lo + hi) / 2
+    const [px, py] = cubicPoint(curve, mid)
+    const inside = Math.hypot(px - x, py - y) < radius
+    if (inside === rising) lo = mid
+    else hi = mid
+  }
+  return (lo + hi) / 2
+}
+
+function arcLength(curve: Cubic, from: number, to: number): number {
+  let total = 0
+  let [px, py] = cubicPoint(curve, from)
+  for (let step = 1; step <= 8; step++) {
+    const [nx, ny] = cubicPoint(curve, from + ((to - from) * step) / 8)
+    total += Math.hypot(nx - px, ny - py)
+    px = nx
+    py = ny
+  }
+  return total
+}
+
+function subCurve(curve: Cubic, from: number, to: number): string {
+  const [ax, ay] = cubicPoint(curve, from)
+  const [dx, dy] = cubicPoint(curve, to)
+  const [sx, sy] = cubicTangent(curve, from)
+  const [ex, ey] = cubicTangent(curve, to)
+  const k = (to - from) / 3
+  return `M${num(ax)} ${num(ay)}C${num(ax + sx * k)} ${num(ay + sy * k)} ${num(dx - ex * k)} ${num(dy - ey * k)} ${num(dx)} ${num(dy)}`
+}
+
+function head(
+  tipX: number,
+  tipY: number,
+  baseX: number,
+  baseY: number,
+  nx: number,
+  ny: number,
+  half: number,
+): string {
+  return `M${num(tipX)} ${num(tipY)}L${num(baseX + nx * half)} ${num(baseY + ny * half)}L${num(baseX - nx * half)} ${num(baseY - ny * half)}Z`
+}
+
+interface EdgeShape {
+  readonly body: string | null
+  readonly heads: readonly string[]
+  readonly whole: string
+  readonly startHead: number
+}
+
+export function writeSvg(scene: SvgScene): string {
+  const { nodes, edges, positions, states, frame, theme, measure } = scene
+  const { view, width, height } = frame
+  const zoom = view.zoom
+  const offsetX = width / 2 - view.x * zoom
+  const offsetY = height / 2 - view.y * zoom
+  const prefix = `graph${++documents}-`
+  const body: string[] = []
+  const defs: string[] = []
+  const paints: Paint[] = []
+  const imageIds = new Map<string, string>()
+  const clipIds = new Map<string, string>()
+  const tintIds = new Map<number, string>()
+  const ink = paintOf(theme.labelInk)
+  const muted = paintOf(theme.labelMuted)
+  const labelHalo = paintOf(theme.labelHalo)
+  const halo = paintOf(theme.halo)
+  const halos = bandAlphas(halo.alpha)
+  const margin = 64
+
+  const sx = (index: number) => (positions.xy[index * 2] ?? 0) * zoom + offsetX
+  const sy = (index: number) => (positions.xy[index * 2 + 1] ?? 0) * zoom + offsetY
+  const radius = (index: number) => screenRadius(nodes, index, zoom)
+  const outside = (left: number, top: number, right: number, bottom: number) =>
+    right < -margin || left > width + margin || bottom < -margin || top > height + margin
+
+  function paint(id: number): Paint {
+    if (id === noColor || id * 4 + 3 >= scene.palette.length) return transparent
+    let cached = paints[id]
+    if (!cached) {
+      const at = id * 4
+      cached = paintOf([
+        scene.palette[at] ?? 0,
+        scene.palette[at + 1] ?? 0,
+        scene.palette[at + 2] ?? 0,
+        scene.palette[at + 3] ?? 0,
+      ])
+      paints[id] = cached
+    }
+    return cached
+  }
+
+  function shapeTag(shape: number, x: number, y: number, r: number, offset: number): string {
+    if (shape === 1) {
+      const half = r * squareReach + offset
+      const round = offset > 0 ? ` rx="${num(offset)}"` : ''
+      return `<rect x="${num(x - half)}" y="${num(y - half)}" width="${num(half * 2)}" height="${num(half * 2)}"${round}`
+    }
+    if (shape === 2) {
+      const reach = r * diamondReach + offset * Math.SQRT2
+      return `<path d="M${num(x)} ${num(y - reach)}L${num(x + reach)} ${num(y)}L${num(x)} ${num(y + reach)}L${num(x - reach)} ${num(y)}Z"`
+    }
+    return `<circle cx="${num(x)}" cy="${num(y)}" r="${num(r + offset)}"`
+  }
+
+  function imageId(src: string, image: SvgImage): string {
+    let id = imageIds.get(src)
+    if (!id) {
+      id = `${prefix}i${imageIds.size}`
+      imageIds.set(src, id)
+      const aspect = image.aspect > 0 && Number.isFinite(image.aspect) ? image.aspect : 1
+      const width = Math.max(1, aspect)
+      const height = Math.max(1, 1 / aspect)
+      defs.push(
+        `<symbol id="${id}" viewBox="0 0 1 1"><image x="${fine((1 - width) / 2)}" y="${fine((1 - height) / 2)}" width="${fine(width)}" height="${fine(height)}" preserveAspectRatio="none" href="${escapeXml(image.href)}"/></symbol>`,
+      )
+    }
+    return id
+  }
+
+  function clipId(shape: number, scale: number): string {
+    const key = `${shape}:${scale}`
+    let id = clipIds.get(key)
+    if (!id) {
+      id = `${prefix}c${clipIds.size}`
+      clipIds.set(key, id)
+      const unit = 0.5 / scale
+      const inner =
+        shape === 1
+          ? `<rect x="${fine(0.5 - unit * squareReach)}" y="${fine(0.5 - unit * squareReach)}" width="${fine(unit * squareReach * 2)}" height="${fine(unit * squareReach * 2)}"/>`
+          : shape === 2
+            ? `<path d="M0.5 ${fine(0.5 - unit * diamondReach)}L${fine(0.5 + unit * diamondReach)} 0.5L0.5 ${fine(0.5 + unit * diamondReach)}L${fine(0.5 - unit * diamondReach)} 0.5Z"/>`
+            : `<circle cx="0.5" cy="0.5" r="${fine(unit)}"/>`
+      defs.push(`<clipPath id="${id}">${inner}</clipPath>`)
+    }
+    return id
+  }
+
+  function tintId(color: number): string {
+    let id = tintIds.get(color)
+    if (!id) {
+      id = `${prefix}t${tintIds.size}`
+      tintIds.set(color, id)
+      const tint = paint(color)
+      const opacity = tint.alpha < 0.999 ? ` flood-opacity="${fine(tint.alpha)}"` : ''
+      defs.push(
+        `<filter id="${id}" filterUnits="userSpaceOnUse" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB"><feFlood flood-color="${tint.hex}"${opacity}/><feComposite in2="SourceGraphic" operator="in"/></filter>`,
+      )
+    }
+    return id
+  }
+
+  function open(opacity: number): string {
+    return opacity < 0.999 ? `<g opacity="${fine(Math.max(0, opacity))}">` : '<g>'
+  }
+
+  function drawNode(index: number): void {
+    const x = sx(index)
+    const y = sy(index)
+    const r = radius(index)
+    const look = nodeLook(nodes, states, index)
+    const outlineWidth = Math.max(look.outlineWidth, 0)
+    const haloReach = look.halo ? haloWidth : 0
+    const extent = r * diamondReach + outlineWidth * Math.SQRT2 + haloReach
+    if (outside(x - extent, y - extent, x + extent, y + extent)) return
+    const shape = nodes.shape[index] ?? 0
+    const parts: string[] = [open(look.opacity)]
+    if (look.halo) {
+      haloBands.forEach((band, at) => {
+        const alpha = halos[at] ?? 0
+        if (alpha <= 0) return
+        parts.push(
+          `${shapeTag(shape, x, y, r, outlineWidth + band / 2)} fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(band)}"/>`,
+        )
+      })
+    }
+    if (outlineWidth > 0) {
+      parts.push(
+        `${shapeTag(shape, x, y, r, outlineWidth / 2)} fill="none"${paintAttribute('stroke', paint(look.outline))} stroke-width="${num(outlineWidth)}"/>`,
+      )
+    }
+    parts.push(`${shapeTag(shape, x, y, r, 0)}${paintAttribute('fill', paint(look.fill))}/>`)
+    const src = nodes.image[index]
+    const image = src ? scene.images.get(src) : undefined
+    if (src && image) {
+      const scale = Math.max(nodes.imageScale[index] ?? 1, 0.001)
+      const side = r * 2 * scale
+      const color = nodes.imageColor[index] ?? noColor
+      const tint = color === noColor ? '' : ` filter="url(#${tintId(color)})"`
+      parts.push(
+        `<use href="#${imageId(src, image)}" width="1" height="1" transform="translate(${num(x - side / 2)} ${num(y - side / 2)}) scale(${fine(side)})" clip-path="url(#${clipId(shape, scale)})"${tint}/>`,
+      )
+    }
+    const strokeWidth = Math.min(look.strokeWidth, r * 0.5)
+    if (strokeWidth > 0) {
+      parts.push(
+        `${shapeTag(shape, x, y, r, -strokeWidth / 2)} fill="none"${paintAttribute('stroke', paint(look.stroke))} stroke-width="${num(strokeWidth)}"/>`,
+      )
+    }
+    parts.push('</g>')
+    body.push(parts.join(''))
+  }
+
+  function straightShape(index: number, width: number): EdgeShape | null {
+    const source = edges.source[index] ?? 0
+    const target = edges.target[index] ?? 0
+    const ax = sx(source)
+    const ay = sy(source)
+    const dx = sx(target)
+    const dy = sy(target)
+    const length = Math.hypot(dx - ax, dy - ay)
+    const ux = length > 0 ? (dx - ax) / length : 1
+    const uy = length > 0 ? (dy - ay) / length : 0
+    const start = radius(source)
+    const end = length - radius(target)
+    const visible = end - start
+    if (visible <= 0.5) return null
+    const arrow = edges.arrow[index] ?? 0
+    const arrowLength = arrow !== 0 && visible > width * 8 ? Math.max(width * 4, 6) : 0
+    const arrowHalf = Math.max(width * 1.6, 3)
+    const startHead = arrow & 1 ? arrowLength : 0
+    const endHead = arrow & 2 ? arrowLength : 0
+    const at = (along: number) => [ax + ux * along, ay + uy * along] as const
+    const heads: string[] = []
+    if (startHead > 0) {
+      const [tx, ty] = at(start)
+      const [bx, by] = at(start + startHead)
+      heads.push(head(tx, ty, bx, by, -uy, ux, arrowHalf))
+    }
+    if (endHead > 0) {
+      const [tx, ty] = at(end)
+      const [bx, by] = at(end - endHead)
+      heads.push(head(tx, ty, bx, by, -uy, ux, arrowHalf))
+    }
+    const from = start + startHead
+    const to = end - endHead
+    const [fx, fy] = at(from)
+    const [tx, ty] = at(to)
+    const [sx0, sy0] = at(start)
+    const [ex, ey] = at(end)
+    return {
+      body: to > from ? `M${num(fx)} ${num(fy)}L${num(tx)} ${num(ty)}` : null,
+      heads,
+      whole: `M${num(sx0)} ${num(sy0)}L${num(ex)} ${num(ey)}`,
+      startHead,
+    }
+  }
+
+  function curvedShape(index: number, width: number): EdgeShape | null {
+    const source = edges.source[index] ?? 0
+    const target = edges.target[index] ?? 0
+    const ax = sx(source)
+    const ay = sy(source)
+    const dx = sx(target)
+    const dy = sy(target)
+    const sourceRadius = radius(source)
+    const targetRadius = radius(target)
+    const bend = edges.bend[index] ?? 0
+    const curve =
+      source === target
+        ? loopCurve(ax, ay, loopReach(sourceRadius, bend, loopMinimum))
+        : parallelCurve(ax, ay, dx, dy, bend)
+    const t0 = crossing(curve, ax, ay, sourceRadius, 0, 0.5, true)
+    const t1 = crossing(curve, dx, dy, targetRadius, 0.5, 1, false)
+    const visible = arcLength(curve, t0, t1)
+    if (visible <= 0.5) return null
+    const arrow = edges.arrow[index] ?? 0
+    const arrowLength = arrow !== 0 && visible > width * 8 ? Math.max(width * 4, 6) : 0
+    const arrowHalf = Math.max(width * 1.6, 3)
+    const startHead = arrow & 1 ? arrowLength : 0
+    const endHead = arrow & 2 ? arrowLength : 0
+    const [fx, fy] = cubicPoint(curve, t0)
+    const [lx, ly] = cubicPoint(curve, t1)
+    const ta = startHead > 0 ? crossing(curve, fx, fy, startHead, t0, t1, true) : t0
+    const tb = endHead > 0 ? crossing(curve, lx, ly, endHead, t0, t1, false) : t1
+    const heads: string[] = []
+    const base = (t: number, tipX: number, tipY: number) => {
+      const [bx, by] = cubicPoint(curve, t)
+      const [vx, vy] = cubicTangent(curve, t)
+      const length = Math.hypot(vx, vy)
+      const nx = length > 0 ? -vy / length : 0
+      const ny = length > 0 ? vx / length : 1
+      heads.push(head(tipX, tipY, bx, by, nx, ny, arrowHalf))
+    }
+    if (startHead > 0) base(ta, fx, fy)
+    if (endHead > 0) base(tb, lx, ly)
+    return {
+      body: tb > ta ? subCurve(curve, ta, tb) : null,
+      heads,
+      whole: subCurve(curve, t0, t1),
+      startHead,
+    }
+  }
+
+  function drawEdge(index: number): void {
+    const source = edges.source[index] ?? 0
+    const target = edges.target[index] ?? 0
+    const loop = source === target
+    const bend = edges.bend[index] ?? 0
+    const look = edgeLook(edges, states, index)
+    const width = Math.max(look.strokeWidth, 0.5)
+    const ax = sx(source)
+    const ay = sy(source)
+    const dx = sx(target)
+    const dy = sy(target)
+    const spread = loop
+      ? loopReach(radius(source), bend, loopMinimum) * 1.5
+      : Math.abs(bend) * Math.hypot(dx - ax, dy - ay) * 2
+    const pad = spread + width * 2 + haloWidth + 8
+    if (
+      outside(
+        Math.min(ax, dx) - pad,
+        Math.min(ay, dy) - pad,
+        Math.max(ax, dx) + pad,
+        Math.max(ay, dy) + pad,
+      )
+    )
+      return
+    const shape = loop || bend !== 0 ? curvedShape(index, width) : straightShape(index, width)
+    if (!shape) return
+    const color = paint(look.stroke)
+    const parts: string[] = [open(look.opacity)]
+    if (look.halo) {
+      haloBands.forEach((band, at) => {
+        const alpha = halos[at] ?? 0
+        if (alpha <= 0) return
+        parts.push(
+          `<path d="${shape.whole}" fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(width + band * 2)}"/>`,
+        )
+      })
+    }
+    if (shape.body) {
+      const dash = edges.dash[index] ?? 0
+      let style = ` stroke-width="${num(width)}"`
+      if (dash === 1) {
+        const period = Math.max(width * 5, 8)
+        style += ` stroke-dasharray="${num(period * 0.6)} ${num(period * 0.4)}" stroke-dashoffset="${num(shape.startHead)}"`
+      } else if (dash === 2) {
+        const period = Math.max(width * 2.5, 4)
+        const dot = Math.max(width * 0.6, 1)
+        style = ` stroke-width="${num(dot * 2)}" stroke-linecap="round" stroke-dasharray="0 ${num(period)}" stroke-dashoffset="${num(shape.startHead - period / 2)}"`
+      }
+      parts.push(`<path d="${shape.body}" fill="none"${paintAttribute('stroke', color)}${style}/>`)
+    }
+    for (const tip of shape.heads) parts.push(`<path d="${tip}"${paintAttribute('fill', color)}/>`)
+    parts.push('</g>')
+    body.push(parts.join(''))
+  }
+
+  const isCurved = (index: number) =>
+    edges.source[index] === edges.target[index] || (edges.bend[index] ?? 0) !== 0
+  const highlighted = (mask: Uint32Array, index: number) =>
+    ((mask[index] ?? 0) & highlightMask) !== 0
+
+  function drawBadges(indices: Iterable<number>): void {
+    const pills: string[] = []
+    const texts: string[] = []
+    for (const index of indices) {
+      const badges = nodes.badges[index]
+      if (!badges || nodes.alive[index] !== 1) continue
+      const size = nodes.size[index] ?? 0
+      const diameter = nodes.screenUnits[index] === 1 ? size : size * zoom
+      const height = Math.min(diameter * 0.55, badgeLimit)
+      if (height < badgeMin) continue
+      const x = sx(index)
+      const y = sy(index)
+      const r = radius(index)
+      if (outside(x - r - 40, y - r - 20, x + r + 40, y + r + 20)) continue
+      const look: Look = nodeLook(nodes, states, index)
+      const opacity = look.opacity < 0.999 ? ` opacity="${fine(Math.max(0, look.opacity))}"` : ''
+      const reach = (badgeReach[nodes.shape[index] ?? 0] ?? Math.SQRT1_2) * r
+      const font = height * badgeFont
+      for (const badge of badges) {
+        const cx = x + (badge.corner & 1 ? 1 : -1) * reach
+        const cy = y + (badge.corner & 2 ? 1 : -1) * reach
+        const text = badge.text && height >= badgeTextMin ? badge.text : null
+        const textWidth = text ? measure.line(text, 500).width : 0
+        const pill = text
+          ? Math.max(height, (textWidth * font) / atlasFontSize + height * 0.6)
+          : height
+        const ring = badgeRing / 2
+        pills.push(
+          `<rect x="${num(cx - pill / 2 - ring)}" y="${num(cy - height / 2 - ring)}" width="${num(pill + badgeRing)}" height="${num(height + badgeRing)}" rx="${num(height / 2 + ring)}"${paintAttribute('fill', paint(badge.fill))}${paintAttribute('stroke', paint(badge.ring))} stroke-width="${num(badgeRing)}"${opacity}/>`,
+        )
+        if (text) {
+          texts.push(
+            `<text transform="translate(${num(cx)} ${num(cy + font * 0.35)}) scale(${fine(font / atlasFontSize)})" text-anchor="middle" font-size="${atlasFontSize}" font-weight="500"${paintAttribute('fill', paint(badge.color))}${opacity}>${escapeXml(text)}</text>`,
+          )
+        }
+      }
+    }
+    body.push(...pills, ...texts)
+  }
+
+  function textLine(
+    x: number,
+    y: number,
+    align: number,
+    factor: number,
+    weight: number,
+    font: string | null,
+    color: Paint,
+    haloed: boolean,
+    text: string,
+  ): string {
+    const anchor = anchors[align === 1 ? 1 : align === -1 ? 2 : 0]
+    const family = font ? ` font-family="${escapeXml(font)}"` : ''
+    const outline = haloed
+      ? `${paintAttribute('stroke', labelHalo)} stroke-width="${num(factor * haloStroke)}" stroke-linejoin="round" paint-order="stroke"`
+      : ''
+    const anchorAttribute = anchor === 'start' ? '' : ` text-anchor="${anchor}"`
+    const weightAttribute = weight === 400 ? '' : ` font-weight="${weight}"`
+    return `<text x="${num(x)}" y="${num(y)}"${anchorAttribute} font-size="${num(atlasFontSize * factor)}"${weightAttribute}${family}${paintAttribute('fill', color)}${outline}>${escapeXml(text)}</text>`
+  }
+
+  function labelParts(
+    label: PlacedLabel,
+    ox: number,
+    oy: number,
+    lift: number,
+    pixels: number,
+    look: Look,
+    weight: number,
+    font: string | null,
+  ): string {
+    const scale = pixels / atlasFontSize
+    const parts: string[] = [
+      `<g transform="translate(${num(ox)} ${num(oy - lift)}) scale(${fine(scale)})">`,
+    ]
+    const plate = label.plate
+    if (plate) {
+      const round = Math.min(atlasFontSize * plateRadius, plate.hx, plate.hy)
+      parts.push(
+        `<rect x="${num(plate.cx - plate.hx)}" y="${num(plate.cy - plate.hy)}" width="${num(plate.hx * 2)}" height="${num(plate.hy * 2)}" rx="${num(round)}"${paintAttribute('fill', paint(label.background))}/>`,
+      )
+    }
+    let top = label.top
+    for (const line of label.block.lines) {
+      const primary = line.kind === 0
+      const color = primary
+        ? look.labelColor !== noColor
+          ? paint(look.labelColor)
+          : label.color !== noColor
+            ? paint(label.color)
+            : ink
+        : muted
+      parts.push(
+        textLine(
+          label.shift,
+          top + atlasFontSize * line.factor,
+          label.align,
+          line.factor,
+          primary ? weight : 400,
+          font,
+          color,
+          !plate,
+          line.text,
+        ),
+      )
+      top += lineHeight * atlasFontSize * line.factor
+    }
+    parts.push('</g>')
+    return parts.join('')
+  }
+
+  function drawNodeLabel(index: number, label: PlacedLabel): void {
+    const look = nodeLook(nodes, states, index)
+    const pixels = label.size * (nodes.screenUnits[index] === 1 ? 1 : Math.min(1, zoom))
+    const [dx, dy] = placementDirections[label.placement] ?? [0, 1]
+    const reach =
+      label.placement === 4 ? 0 : radius(index) + Math.max(look.outlineWidth, 0) + labelGap
+    const parts = labelParts(
+      label,
+      sx(index) + dx * reach,
+      sy(index) + dy * reach,
+      0,
+      pixels,
+      look,
+      nodes.labelWeight[index] || 500,
+      nodes.labelFont[index] ?? null,
+    )
+    body.push(`${open(look.opacity)}${parts}</g>`)
+  }
+
+  function drawEdgeLabel(index: number, label: PlacedLabel, anchor: EdgeAnchor): void {
+    const look = edgeLook(edges, states, index)
+    const pixels = label.size * Math.min(1, zoom)
+    const lift = label.plate ? 0 : Math.max(look.strokeWidth, 0.5) * 0.5 + edgeLabelGap
+    const angle = (Math.atan2(anchor.ay, anchor.ax) * 180) / Math.PI
+    const parts = labelParts(
+      label,
+      0,
+      0,
+      lift,
+      pixels,
+      look,
+      edges.labelWeight[index] || 500,
+      edges.labelFont[index] ?? null,
+    )
+    const opacity = look.opacity < 0.999 ? ` opacity="${fine(Math.max(0, look.opacity))}"` : ''
+    const rotation = Math.abs(angle) > 1e-6 ? ` rotate(${fine(angle)})` : ''
+    body.push(
+      `<g transform="translate(${num(anchor.x)} ${num(anchor.y)})${rotation}"${opacity}>${parts}</g>`,
+    )
+  }
+
+  const queued = {
+    nodes: [[], []] as QueuedLabel[][],
+    edges: [[], []] as QueuedLabel[][],
+  }
+  selectLabels(scene, scene.frame, scene.labels, measure, {
+    node: (index, label) => {
+      queued.nodes[label.highlight ? 1 : 0]?.push({ index, label, anchor: null })
+    },
+    edge: (index, label, anchor) => {
+      queued.edges[label.highlight ? 1 : 0]?.push({ index, label, anchor: { ...anchor } })
+    },
+  })
+
+  function drawLabels(pass: 0 | 1): void {
+    for (const { index, label, anchor } of queued.edges[pass] ?? []) {
+      if (anchor) drawEdgeLabel(index, label, anchor)
+    }
+    for (const { index, label } of queued.nodes[pass] ?? []) drawNodeLabel(index, label)
+  }
+
+  for (const layer of scene.layers) {
+    if (layer.kind === 'edges') {
+      for (const curved of [false, true]) {
+        for (let index = 0; index < edges.capacity; index++) {
+          if (edges.alive[index] !== 1 || edges.slot[index] !== layer.slot) continue
+          if (highlighted(states.edgeMask, index) || isCurved(index) !== curved) continue
+          drawEdge(index)
+        }
+      }
+    } else {
+      for (let index = 0; index < nodes.capacity; index++) {
+        if (nodes.alive[index] !== 1 || nodes.slot[index] !== layer.slot) continue
+        if (!highlighted(states.nodeMask, index)) drawNode(index)
+      }
+    }
+  }
+  const plain: number[] = []
+  for (let index = 0; index < nodes.capacity; index++) {
+    if (nodes.badges[index] && !highlighted(states.nodeMask, index)) plain.push(index)
+  }
+  drawBadges(plain)
+  drawLabels(0)
+  for (const curved of [false, true]) {
+    for (const index of states.highlightedEdges) {
+      if (edges.alive[index] === 1 && isCurved(index) === curved) drawEdge(index)
+    }
+  }
+  for (const index of states.highlightedNodes) if (nodes.alive[index] === 1) drawNode(index)
+  drawBadges(states.highlightedNodes)
+  drawLabels(1)
+
+  const size = `width="${num(width)}" height="${num(height)}"`
+  const background =
+    scene.background[3] > 0
+      ? `<rect ${size}${paintAttribute('fill', paintOf(scene.background))}/>`
+      : ''
+  const title = scene.title ? `<title>${escapeXml(scene.title)}</title>` : ''
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" ${size} viewBox="0 0 ${num(width)} ${num(height)}" font-family="${escapeXml(theme.font)}" xml:space="preserve">`,
+    title,
+    defs.length > 0 ? `<defs>${defs.join('')}</defs>` : '',
+    background,
+    body.join(''),
+    '</svg>',
+  ].join('')
+}

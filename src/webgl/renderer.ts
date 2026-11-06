@@ -1,6 +1,6 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import type { ResolvedTheme } from '../dom/theme'
-import type { Renderer, RenderFrame, RenderInput } from '../host/renderer'
+import type { LabelArea, Renderer, RenderInput } from '../host/renderer'
 import { createBackdrop } from './backdrop'
 import {
   type Attribute,
@@ -635,9 +635,9 @@ export function createWebglRenderer(
     )
   }
 
-  function selectLabels(frame: RenderFrame, now: number): number {
+  function selectLabels(frame: LabelArea, now: number): number {
     if (!input) return -1
-    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height}`
+    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode}`
     if (!labelsStale && !labelsMoved && key === lastLabelView) return -1
     const wait = labelInterval - (now - lastLabelTime)
     if (!labelsStale && wait > 0) return wait
@@ -680,6 +680,7 @@ export function createWebglRenderer(
         edgeOrder: edgeLabelOrder,
         edgeOrderLength: edgeLabelOrderLength,
         largestEdgeLabel,
+        mode: frame.mode,
       },
       atlas,
     )
@@ -811,13 +812,14 @@ export function createWebglRenderer(
       frameBlock[3] = frame.height
       frameBlock[4] = frame.view.zoom
       frameBlock[5] = frame.pixelRatio
+      const area: LabelArea = frame.labels ?? { ...frame, mode: 'visible' }
       frameBlock[6] = 6
-      frameBlock[7] = 8
+      frameBlock[7] = area.mode === 'all' ? 0 : 8
       gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
       if (badgesStale || badgeGeneration !== atlas.generation) rebuildBadges()
       const generation = atlas.generation
-      const wait = selectLabels(frame, performance.now())
+      const wait = selectLabels(area, performance.now())
       if (atlas.generation !== generation) rebuildBadges()
       syncAtlas()
       images.prepare()
@@ -865,6 +867,8 @@ export function createWebglRenderer(
         textureBytes: textureBytes(),
       }
     },
+
+    ready: () => images.settled(),
 
     destroy() {
       for (const texture of [...nodeTextures, ...edgeTextures]) texture.destroy()
