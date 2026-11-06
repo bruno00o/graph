@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/bruno00o/graph/compare/0.5.0...0.5.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* lay out graphs of several hundred thousand nodes on the gpu in seconds ([#32](https://github.com/bruno00o/graph/issues/32)) ([3a9cf62](https://github.com/bruno00o/graph/commit/3a9cf62d1cc4d27733dd06129382da1367b3baa6))
+
 ## [0.5.0](https://github.com/bruno00o/graph/compare/0.4.0...0.5.0) (2026-11-06)
 
 
