@@ -22,6 +22,7 @@ Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`
 - A negative or non-finite spacing falls back to its default. `0` is allowed: the largest nodes touch.
 - The result ends without progress, in a microtask: nodes glide to it over `transitions.layout`, or the `duration` of the run.
 - When nodes arrive, every free node is laid out again.
+- Unfolded groups are laid out as blocks, from the deepest up: each group with the same layout, then its blocks in the group above, each standing in as one node the size of its container. Containers that still overlap are then pushed apart, 16 units from their neighbors. See [groups in layouts](/docs/layout#groups).
 
 ## layers
 

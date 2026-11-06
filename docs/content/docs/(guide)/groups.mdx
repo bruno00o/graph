@@ -120,7 +120,8 @@ graph.on('click', ({ target }) => {
 - Dragging a container moves every node inside it. Dragging a folded group moves only the group.
 - Hidden nodes keep their positions. When a group unfolds, its nodes come back where they were, shifted by how far the group moved while folded, and glide out of the group over `transitions.layout`. Nodes placed by their `x` and `y` channels stay where the data puts them.
 - A node that was never shown appears around its group when the group unfolds, then the layout of the definition places it like any new node.
-- Layouts see a folded group as a single node and leave containers out. The force layout pulls the members of an unfolded group together.
+- With a layout in the definition, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`, and so does the group when it is the smaller one. Nodes placed by the data and the node being dragged never move.
+- Layouts see a folded group as a single node. Unfolded groups are kept whole at every level of nesting: no container overlaps another container or a node next to it, padding included. See [groups in layouts](/docs/layout#groups) for how each layout does it.
 - Fitting the view frames containers whole.
 
 ## Performance
