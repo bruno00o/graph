@@ -1,7 +1,7 @@
 import type { EdgeMark, Key, Mark, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { IndexPool } from './index-pool'
-import { type AnyMark, type GraphIssue, type Source, SourceTable } from './source-table'
+import { type GraphIssue, SourceTable } from './source-table'
 
 export type { ElementKind, GraphIssue } from './source-table'
 
@@ -65,22 +65,34 @@ export interface GraphModel {
   destroy(): void
 }
 
-interface NodeEntry {
-  readonly key: Key
-  readonly index: number
-  datum: unknown
-  mark: NodeMark<unknown>
-  slot: number
+class NodeEntry implements NodeRecord {
+  constructor(
+    readonly key: Key,
+    readonly index: number,
+    public datum: unknown,
+    public slot: number,
+    readonly table: SourceTable<NodeMark<unknown>>,
+  ) {}
+
+  get mark(): NodeMark<unknown> {
+    return this.table.markAt(this.slot)
+  }
 }
 
-interface EdgeEntry {
-  readonly key: Key
-  index: number
-  datum: unknown
-  mark: EdgeMark<unknown>
-  slot: number
-  source: Key | null
-  target: Key | null
+class EdgeEntry {
+  constructor(
+    readonly key: Key,
+    public index: number,
+    public datum: unknown,
+    public slot: number,
+    public source: Key | null,
+    public target: Key | null,
+    readonly table: SourceTable<EdgeMark<unknown>>,
+  ) {}
+
+  get mark(): EdgeMark<unknown> {
+    return this.table.markAt(this.slot)
+  }
 }
 
 type VisibleEdge = EdgeEntry & Endpoints
@@ -110,20 +122,6 @@ function endpoint(channel: EdgeMark<unknown>['options']['source'], datum: unknow
 
 function emptyChanges(): MutableChanges {
   return { added: [], updated: [], removed: [] }
-}
-
-function remark<M extends AnyMark>(
-  sources: Source<M>[],
-  entries: ReadonlyMap<Key, { slot: number; mark: M }>,
-): void {
-  for (const source of sources) {
-    if (source.retired) continue
-    for (const key of source.items.keys()) {
-      const entry = entries.get(key)
-      if (entry?.slot === source.slot) entry.mark = source.mark
-    }
-  }
-  sources.length = 0
 }
 
 export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
@@ -168,7 +166,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   }
 
   function flushNodes(changes: MutableChanges, touched: Set<Key>, freed: number[]): void {
-    remark(nodeSources.remarked, nodeEntries)
     const touch = (key: Key) => {
       for (const edgeKey of incident.get(key) ?? []) touched.add(edgeKey)
     }
@@ -184,10 +181,10 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         }
         continue
       }
-      const { mark, slot } = owner.source
+      const slot = owner.source.slot
       if (!entry) {
         const index = nodePool.acquire()
-        nodeEntries.set(key, { key, index, datum: owner.datum, mark, slot })
+        nodeEntries.set(key, new NodeEntry(key, index, owner.datum, slot, nodeSources))
         changes.added.push({ key, index })
         touch(key)
         continue
@@ -196,7 +193,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         changes.updated.push({ key, index: entry.index })
       }
       entry.datum = owner.datum
-      entry.mark = mark
       entry.slot = slot
     }
     nodeSources.dirty.clear()
@@ -207,7 +203,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     touched: Set<Key>,
     freed: number[],
   ): void {
-    remark(edgeSources.remarked, edgeEntries)
     const dirty = edgeSources.dirty
     for (const key of new Set([...dirty.keys(), ...touched])) {
       let entry = edgeEntries.get(key)
@@ -231,7 +226,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         const source = endpoint(mark.options.source, owner.datum)
         const target = endpoint(mark.options.target, owner.datum)
         if (!entry) {
-          entry = { key, index: -1, datum: owner.datum, mark, slot, source, target }
+          entry = new EdgeEntry(key, -1, owner.datum, slot, source, target, edgeSources)
           edgeEntries.set(key, entry)
           link(entry)
         } else {
@@ -245,7 +240,6 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
             link(entry)
           }
           entry.datum = owner.datum
-          entry.mark = mark
           entry.slot = slot
         }
       }
@@ -276,12 +270,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     setMarks(marks) {
       nodeSources.setMarks(marks.filter(isNodeMark))
       edgeSources.setMarks(marks.filter(isEdgeMark))
-      const pending =
-        nodeSources.dirty.size > 0 ||
-        edgeSources.dirty.size > 0 ||
-        nodeSources.remarked.length > 0 ||
-        edgeSources.remarked.length > 0 ||
-        issues.length > 0
+      const pending = nodeSources.dirty.size > 0 || edgeSources.dirty.size > 0 || issues.length > 0
       if (pending) schedule()
     },
 

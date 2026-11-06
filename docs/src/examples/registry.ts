@@ -150,6 +150,17 @@ export const examples: readonly ExampleEntry[] = [
     files: ['devtools/main.tsx', 'devtools/devtools.css', ...shared],
     load: () => import('./devtools/main').then(({ Example }) => ({ kind: 'react', Example })),
   },
+  {
+    slug: 'filter-at-scale',
+    title: 'Filtering at scale',
+    description:
+      'Nodes come from a TanStack DB collection through a filtered subscription, so a new filter only moves the rows that enter or leave it. Edges load on demand from a simulated server, a few at a time.',
+    hint: 'Change the filter and read the timings. Double-click a node to load its edges.',
+    tags: ['Vanilla', 'TanStack DB'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/db'],
+    files: ['filter/main.ts', 'filter/links.ts', 'shared/data.ts', 'shared/messages.ts'],
+    load: () => import('./filter/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
 ]
 
 export const exampleTags: readonly ExampleTag[] = [

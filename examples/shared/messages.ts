@@ -81,6 +81,23 @@ export const messages = {
     right: 'Vers la droite',
     left: 'Vers la gauche',
   },
+  filter: 'Filtre TanStack DB',
+  filterLabel: 'Graphe filtré par une collection TanStack DB',
+  filterHint: 'Double-cliquez sur un nœud pour charger ses arêtes.',
+  minimumWeight: 'Poids minimal',
+  groupFilter: 'Groupe',
+  allGroups: 'Tous',
+  filterSource: 'Source',
+  filterSources: { subset: 'Abonnement filtré', query: 'Requête vivante' },
+  filterTiming: (database: number, graph: number): string =>
+    `TanStack DB : ${milliseconds(database)}, graphe : ${milliseconds(graph)}`,
+  linksLoaded: (count: number): string =>
+    `${formatNumber(count)} ${plural(count, 'arête chargée', 'arêtes chargées')}`,
+  unload: 'Décharger les arêtes',
+}
+
+function milliseconds(value: number): string {
+  return `${formatNumber(Math.round(value))} ms`
 }
 
 const plurals = new Intl.PluralRules('fr-FR')
