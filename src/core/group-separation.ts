@@ -324,10 +324,7 @@ export class GroupSeparation {
       for (let at = 0; at < level.count; at++) {
         const half = level.half[at] ?? 0
         const extent = level.kind[at] === box ? Math.hypot(half, level.tall[at] ?? 0) : half
-        reach = Math.max(
-          reach,
-          Math.hypot((level.x[at] ?? 0) - x, (level.y[at] ?? 0) - y) + extent,
-        )
+        reach = Math.max(reach, Math.hypot((level.x[at] ?? 0) - x, (level.y[at] ?? 0) - y) + extent)
       }
       shapes.halfWidth[slot] = shapes.halfHeight[slot] = reach + padding
       this.#kind[slot] = disc
@@ -376,7 +373,9 @@ export class GroupSeparation {
     const sorted = level.sorted
     for (let k = 0; k < count; k++) sorted[k] = first + k
     const order = sorted.subarray(0, count)
-    order.sort((a, b) => (level.x[a] ?? 0) - (level.half[a] ?? 0) - (level.x[b] ?? 0) + (level.half[b] ?? 0))
+    order.sort(
+      (a, b) => (level.x[a] ?? 0) - (level.half[a] ?? 0) - (level.x[b] ?? 0) + (level.half[b] ?? 0),
+    )
     for (let k = 0; k < count; k++) {
       const a = order[k] ?? 0
       for (let m = k + 1; m < count; m++) {

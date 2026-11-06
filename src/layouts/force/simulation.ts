@@ -34,7 +34,7 @@ export interface ForceOptions {
   readonly spacing?: number
   /**
    * Pull of the members of an unfolded group toward the center of the group. `0` turns it off.
-   * @default 0.1
+   * @default 0.5
    */
   readonly cohesion?: number
   /**
@@ -80,7 +80,7 @@ export const forceDefaults: ForceSettings = {
   repulsion: 80,
   gravity: 0.04,
   spacing: 6,
-  cohesion: 0.1,
+  cohesion: 0.5,
   groupSpacing: 16,
   steps: 300,
   engine: 'auto',
@@ -347,14 +347,14 @@ export class ForceSimulation {
       const ws = share[k] ?? 0.5
       const ls = lift ? (lift[k * 2] ?? -1) : -1
       const lt = lift ? (lift[k * 2 + 1] ?? -1) : -1
-      if (ls >= 0 && lifted) {
+      if (ls >= 0 && lifted && !fs) {
         lifted[ls * 2] = (lifted[ls * 2] ?? 0) + dx * pull * ws
         lifted[ls * 2 + 1] = (lifted[ls * 2 + 1] ?? 0) + dy * pull * ws
       } else if (!fs) {
         vx[s] = (vx[s] ?? 0) + dx * pull * ws
         vy[s] = (vy[s] ?? 0) + dy * pull * ws
       }
-      if (lt >= 0 && lifted) {
+      if (lt >= 0 && lifted && !ft) {
         lifted[lt * 2] = (lifted[lt * 2] ?? 0) - dx * pull * (1 - ws)
         lifted[lt * 2 + 1] = (lifted[lt * 2 + 1] ?? 0) - dy * pull * (1 - ws)
       } else if (!ft) {

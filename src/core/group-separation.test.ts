@@ -52,7 +52,14 @@ function nested(seed: number, leaves: number, circles = false): Case {
     padding[index] = 4 + next() * 12
     circle[index] = circles && index % 2 === 0 ? 1 : 0
   }
-  const order = Uint32Array.from([leaves, leaves + 1, leaves + 5, leaves + 2, leaves + 3, leaves + 4])
+  const order = Uint32Array.from([
+    leaves,
+    leaves + 1,
+    leaves + 5,
+    leaves + 2,
+    leaves + 3,
+    leaves + 4,
+  ])
   return { capacity, alive, radius, xy, groups: { order, parent, padding, circle } }
 }
 
@@ -82,7 +89,8 @@ function shapesOf(input: Case): Map<number, Shape> {
       const reach = Math.max(
         ...items.map(
           (item) =>
-            Math.hypot(item.x - x, item.y - y) + (item.round ? item.hw : Math.hypot(item.hw, item.hh)),
+            Math.hypot(item.x - x, item.y - y) +
+            (item.round ? item.hw : Math.hypot(item.hw, item.hh)),
         ),
       )
       shapes.set(container, { x, y, hw: reach + pad, hh: reach + pad, round: true })

@@ -1,14 +1,18 @@
 import type { GroupTree } from '../../core/group-tree'
 
-const tune = (globalThis as unknown as { tune?: Record<string, number> }).tune ?? {}
-export const groupStiffness = tune.stiffness ?? 0.5
-export const groupAlpha = tune.alpha ?? 0.5
-const ramp = tune.ramp ?? 0
+export const boxStiffness = 0.1
+export const leafStiffness = 0.4
+export const groupAlpha = 0.5
+export const drift = 0.75
 
-export function pushStrength(alpha: number, push: number, limit: number): number {
+export function pushStrength(
+  alpha: number,
+  push: number,
+  limit: number,
+  stiffness: number,
+): number {
   if (alpha > groupAlpha || push === 0) return 0
-  const k = ramp > 0 ? Math.min(1, ((groupAlpha - alpha) / groupAlpha) * ramp) : 1
-  return (k * groupStiffness * Math.min(push, (tune.limit ?? 1) * limit)) / push
+  return (stiffness * Math.min(push, limit)) / push
 }
 
 const primeX = 73856093
@@ -124,6 +128,7 @@ export class GroupForces {
   readonly #limit: number
   readonly #largest: number
   readonly #sum: Float64Array
+  readonly #direct: Float64Array
   readonly #box: Float64Array
   readonly #motion: Float64Array
   readonly #order: Int32Array
@@ -162,6 +167,7 @@ export class GroupForces {
     this.#gap = gap
     this.#limit = limit
     this.#sum = new Float64Array(tree.count * 3)
+    this.#direct = new Float64Array(tree.count * 3)
     this.#box = new Float64Array(tree.count * 4)
     this.#motion = new Float64Array(tree.count * 2)
     this.pull = new Float64Array(tree.count * 2)
@@ -193,12 +199,17 @@ export class GroupForces {
       let dy = 0
       if (slot >= 0) {
         const count = sum[slot * 3 + 2] ?? 0
-        dx += ((sum[slot * 3] ?? 0) / count - px) * pull + (motion[slot * 2] ?? 0)
-        dy += ((sum[slot * 3 + 1] ?? 0) / count - py) * pull + (motion[slot * 2 + 1] ?? 0)
+        const cx = (sum[slot * 3] ?? 0) / count
+        const cy = (sum[slot * 3 + 1] ?? 0) / count
+        const direct = this.#direct
+        const n = direct[slot * 3 + 2] ?? 1
+        const bx = (direct[slot * 3] ?? 0) / n
+        const by = (direct[slot * 3 + 1] ?? 0) / n
+        dx += (bx - px) * pull + (cx - bx) * pull * drift + (motion[slot * 2] ?? 0)
+        dy += (by - py) * pull + (cy - by) * pull * drift + (motion[slot * 2 + 1] ?? 0)
       }
       const push = this.#escape(slot, px, py, (this.#radius[i] ?? 0) + this.#gap)
-      const strength =
-        pushStrength(alpha, Math.hypot(push[0], push[1]), this.#limit) * (tune.leaf ?? 1)
+      const strength = pushStrength(alpha, Math.hypot(push[0], push[1]), this.#limit, leafStiffness)
       vx[i] = (vx[i] ?? 0) + dx + push[0] * strength
       vy[i] = (vy[i] ?? 0) + dy + push[1] * strength
     }
@@ -229,6 +240,7 @@ export class GroupForces {
       box[slot * 4 + 2] = Math.max(box[slot * 4 + 2] ?? 0, px + r)
       box[slot * 4 + 3] = Math.max(box[slot * 4 + 3] ?? 0, py + r)
     }
+    this.#direct.set(sum)
     for (let slot = tree.count - 1; slot >= 0; slot--) {
       if ((sum[slot * 3 + 2] ?? 0) === 0) continue
       const padding = tree.padding[slot] ?? 0
@@ -238,7 +250,8 @@ export class GroupForces {
       box[slot * 4 + 3] = (box[slot * 4 + 3] ?? 0) + padding
       const parent = tree.parent[slot] ?? -1
       if (parent < 0) continue
-      for (let k = 0; k < 3; k++) sum[parent * 3 + k] = (sum[parent * 3 + k] ?? 0) + (sum[slot * 3 + k] ?? 0)
+      for (let k = 0; k < 3; k++)
+        sum[parent * 3 + k] = (sum[parent * 3 + k] ?? 0) + (sum[slot * 3 + k] ?? 0)
       box[parent * 4] = Math.min(box[parent * 4] ?? 0, box[slot * 4] ?? 0)
       box[parent * 4 + 1] = Math.min(box[parent * 4 + 1] ?? 0, box[slot * 4 + 1] ?? 0)
       box[parent * 4 + 2] = Math.max(box[parent * 4 + 2] ?? 0, box[slot * 4 + 2] ?? 0)
@@ -258,9 +271,8 @@ export class GroupForces {
     const lifted = this.pull
     for (let slot = 0; slot < tree.count; slot++) {
       if (rigid[slot] !== 1) continue
-      const share = tune.lift ?? 1
-      motion[slot * 2] = ((lifted[slot * 2] ?? 0) / (mass[slot] ?? 1)) * share
-      motion[slot * 2 + 1] = ((lifted[slot * 2 + 1] ?? 0) / (mass[slot] ?? 1)) * share
+      motion[slot * 2] = (lifted[slot * 2] ?? 0) / (mass[slot] ?? 1)
+      motion[slot * 2 + 1] = (lifted[slot * 2 + 1] ?? 0) / (mass[slot] ?? 1)
     }
     lifted.fill(0)
     for (let slot = 0; slot < tree.count; slot++) {
@@ -270,10 +282,10 @@ export class GroupForces {
       const total = sum[parent * 3 + 2] ?? 0
       motion[slot * 2] =
         (motion[slot * 2] ?? 0) +
-        ((sum[parent * 3] ?? 0) / total - (sum[slot * 3] ?? 0) / count) * pull
+        ((sum[parent * 3] ?? 0) / total - (sum[slot * 3] ?? 0) / count) * pull * drift
       motion[slot * 2 + 1] =
         (motion[slot * 2 + 1] ?? 0) +
-        ((sum[parent * 3 + 1] ?? 0) / total - (sum[slot * 3 + 1] ?? 0) / count) * pull
+        ((sum[parent * 3 + 1] ?? 0) / total - (sum[slot * 3 + 1] ?? 0) / count) * pull * drift
     }
     const order = this.#order
     const sweep = (first: number, count: number) => {
@@ -307,7 +319,12 @@ export class GroupForces {
           const ma = mass[a] ?? 0
           const mb = mass[b] ?? 0
           const share = !ra ? 0 : !rb ? 1 : mb / (ma + mb)
-          const strength = pushStrength(alpha, Math.abs(push[0] + push[1]), this.#limit)
+          const strength = pushStrength(
+            alpha,
+            Math.abs(push[0] + push[1]),
+            this.#limit,
+            boxStiffness,
+          )
           motion[a * 2] = (motion[a * 2] ?? 0) - push[0] * strength * share
           motion[a * 2 + 1] = (motion[a * 2 + 1] ?? 0) - push[1] * strength * share
           motion[b * 2] = (motion[b * 2] ?? 0) + push[0] * strength * (1 - share)
@@ -340,7 +357,11 @@ export class GroupForces {
     let filled = 0
     for (let slot = 0; slot < tree.count; slot++) {
       if ((sum[slot * 3 + 2] ?? 0) === 0) continue
-      side += (box[slot * 4 + 2] ?? 0) - (box[slot * 4] ?? 0) + (box[slot * 4 + 3] ?? 0) - (box[slot * 4 + 1] ?? 0)
+      side +=
+        (box[slot * 4 + 2] ?? 0) -
+        (box[slot * 4] ?? 0) +
+        (box[slot * 4 + 3] ?? 0) -
+        (box[slot * 4 + 1] ?? 0)
       filled++
     }
     if (filled === 0) {

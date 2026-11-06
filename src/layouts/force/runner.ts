@@ -1,5 +1,5 @@
-import { type GroupTree, groupTree } from '../../core/group-tree'
 import { separateGroups } from '../../core/group-separation'
+import { type GroupTree, groupTree } from '../../core/group-tree'
 import type { LayoutListener, LayoutRun } from '../../types'
 import { separate } from './collider'
 import type { GpuForce } from './gpu'
@@ -107,7 +107,13 @@ export function runGpuForce(
       if (gpu.done) {
         stopped = true
         gpu.destroy()
-        settle(graph, groupTree(graph.capacity, graph.alive, graph.groups), gpu.fixed, current, settings)
+        settle(
+          graph,
+          groupTree(graph.capacity, graph.alive, graph.groups),
+          gpu.fixed,
+          current,
+          settings,
+        )
         listener.end(current.slice())
         return
       }
