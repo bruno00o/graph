@@ -4,6 +4,7 @@ import {
   type JSX,
   type ReactNode,
   type Ref,
+  type RefObject,
   useCallback,
   useContext,
   useEffect,
@@ -27,40 +28,40 @@ import {
   type GraphStore,
   mountGraph,
 } from '../host/mount-graph'
-import type { GraphDefinition, Key, View } from '../types'
+import type { GraphDefinition, Key, Mark, View } from '../types'
 
-/** Event props of `<Graph>`. The latest function passed is always called. */
-export interface GraphEventProps {
+/** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
+export interface GraphEventProps<M extends Mark = Mark> {
   /** Receives `click`: a press released within 4 pixels. */
-  readonly onClick?: GraphEventHandler<'click'>
+  readonly onClick?: GraphEventHandler<'click', M>
   /** Receives `doubleclick`. */
-  readonly onDoubleClick?: GraphEventHandler<'doubleclick'>
+  readonly onDoubleClick?: GraphEventHandler<'doubleclick', M>
   /** Receives `contextmenu`: a secondary click. */
-  readonly onContextMenu?: GraphEventHandler<'contextmenu'>
+  readonly onContextMenu?: GraphEventHandler<'contextmenu', M>
   /** Receives `pointerenter`: the pointer enters an element. */
-  readonly onPointerEnter?: GraphEventHandler<'pointerenter'>
+  readonly onPointerEnter?: GraphEventHandler<'pointerenter', M>
   /** Receives `pointerleave`: the pointer leaves an element. */
-  readonly onPointerLeave?: GraphEventHandler<'pointerleave'>
+  readonly onPointerLeave?: GraphEventHandler<'pointerleave', M>
   /** Receives `dragstart`: a node drag starts. */
-  readonly onDragStart?: GraphEventHandler<'dragstart'>
+  readonly onDragStart?: GraphEventHandler<'dragstart', M>
   /** Receives `drag`: dragged nodes move. */
-  readonly onDrag?: GraphEventHandler<'drag'>
+  readonly onDrag?: GraphEventHandler<'drag', M>
   /** Receives `dragend`: a node drag ends. */
-  readonly onDragEnd?: GraphEventHandler<'dragend'>
+  readonly onDragEnd?: GraphEventHandler<'dragend', M>
   /** Receives `positionchange`: nodes moved by a drag, by code or by a layout run. */
-  readonly onPositionChange?: GraphEventHandler<'positionchange'>
+  readonly onPositionChange?: GraphEventHandler<'positionchange', M>
   /** Receives `selectionchange`, or the selection requests when `selection` is given. */
-  readonly onSelectionChange?: GraphEventHandler<'selectionchange'>
+  readonly onSelectionChange?: GraphEventHandler<'selectionchange', M>
   /** Receives `focuschange`: the keyboard focus moved. */
-  readonly onFocusChange?: GraphEventHandler<'focuschange'>
+  readonly onFocusChange?: GraphEventHandler<'focuschange', M>
   /** Receives `foldchange`, or the fold requests when `folded` is given. */
-  readonly onFoldChange?: GraphEventHandler<'foldchange'>
+  readonly onFoldChange?: GraphEventHandler<'foldchange', M>
   /** Receives `viewchange`: the view changed. */
-  readonly onViewChange?: GraphEventHandler<'viewchange'>
+  readonly onViewChange?: GraphEventHandler<'viewchange', M>
   /** Receives `layoutstart`: a layout run starts. */
-  readonly onLayoutStart?: GraphEventHandler<'layoutstart'>
+  readonly onLayoutStart?: GraphEventHandler<'layoutstart', M>
   /** Receives `layoutend`: a layout run ends or stops. */
-  readonly onLayoutEnd?: GraphEventHandler<'layoutend'>
+  readonly onLayoutEnd?: GraphEventHandler<'layoutend', M>
 }
 
 const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
@@ -81,10 +82,11 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   layoutend: 'onLayoutEnd',
 }
 
-/** Props of `<Graph>`. */
-export interface GraphProps<S extends string = string> extends GraphEventProps {
+/** Props of `<Graph>`. `S` and `M` come from the definition. */
+export interface GraphProps<S extends string = string, M extends Mark = Mark>
+  extends GraphEventProps<M> {
   /** What to draw: the result of `defineGraph`. Applied with `update` when it changes. */
-  readonly definition: GraphDefinition<S>
+  readonly definition: GraphDefinition<S, M>
   /** Accessible name of the graph element. Applied with `update` when it changes. */
   readonly ariaLabel: string
   /** View at mount, read once. Without it, the first data is fitted. */
@@ -105,8 +107,11 @@ export interface GraphProps<S extends string = string> extends GraphEventProps {
   readonly className?: string
   /** Style of the wrapping `div`, merged with `position: relative`. */
   readonly style?: CSSProperties
-  /** Receives the graph instance. */
-  readonly ref?: Ref<GraphInstance<S> | null>
+  /**
+   * Receives the graph instance. Its type comes from the definition: a ref typed as a plain
+   * `GraphInstance` works too.
+   */
+  readonly ref?: Ref<GraphInstance<NoInfer<S>, NoInfer<M>> | null> | RefObject<GraphInstance | null>
   /** Overlays drawn above the canvas, rendered once the graph is mounted. */
   readonly children?: ReactNode
 }
@@ -127,10 +132,12 @@ function useLatest<T>(value: T): { readonly current: T } {
  * Mounts a graph in a `div` positioned relative, and renders its children above the canvas. The
  * graph mounts once and is destroyed on unmount.
  */
-export function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element {
+export function Graph<S extends string = string, M extends Mark = Mark>(
+  props: GraphProps<S, M>,
+): JSX.Element {
   const { definition, ariaLabel, selection, folded, className, style, ref, children } = props
   const host = useRef<HTMLDivElement>(null)
-  const [graph, setGraph] = useState<GraphInstance<S> | null>(null)
+  const [graph, setGraph] = useState<GraphInstance<S, M> | null>(null)
   const latest = useLatest(props)
 
   useLayoutEffect(() => {
@@ -186,7 +193,9 @@ export function Graph<S extends string = string>(props: GraphProps<S>): JSX.Elem
     }
   }, [graph, latest])
 
-  useImperativeHandle<GraphInstance<S> | null, GraphInstance<S> | null>(ref, () => graph, [graph])
+  useImperativeHandle<GraphInstance<S, M> | null, GraphInstance<S, M> | null>(ref, () => graph, [
+    graph,
+  ])
 
   return (
     <div className={className} style={{ position: 'relative', ...style }}>
@@ -196,16 +205,19 @@ export function Graph<S extends string = string>(props: GraphProps<S>): JSX.Elem
   )
 }
 
-/** Instance of the enclosing `<Graph>`. Throws outside it. */
-export function useGraph(): GraphInstance {
+/**
+ * Instance of the enclosing `<Graph>`. Throws outside it. Pass the state names and the marks of its
+ * definition as type arguments to type the instance.
+ */
+export function useGraph<S extends string = string, M extends Mark = Mark>(): GraphInstance<S, M> {
   const graph = useContext(GraphContext)
   if (!graph) throw new Error('useGraph: call it inside <Graph>')
-  return graph
+  return graph as unknown as GraphInstance<S, M>
 }
 
-interface Selected<T> {
-  readonly state: GraphState
-  readonly selector: (state: GraphState) => T
+interface Selected<T, S extends string, M extends Mark> {
+  readonly state: GraphState<S, M>
+  readonly selector: (state: GraphState<S, M>) => T
   readonly value: T
 }
 
@@ -221,15 +233,16 @@ export interface UseGraphStateOptions<T> {
 
 /**
  * Subscribes to the state of the enclosing graph and returns the selected slice. The component
- * renders again only when the slice changes.
+ * renders again only when the slice changes. Annotate the parameter of the selector as
+ * `GraphState<S, M>` to type the targets.
  */
-export function useGraphState<T>(
-  selector: (state: GraphState) => T,
+export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
   options: UseGraphStateOptions<T> = {},
 ): T {
   const compare = options.compare ?? Object.is
-  const graph = useGraph()
-  const cache = useRef<Selected<T> | null>(null)
+  const graph = useGraph<S, M>()
+  const cache = useRef<Selected<T, S, M> | null>(null)
   const subscribe = useCallback(
     (notify: () => void) => {
       const subscription = graph.store.subscribe(() => notify())
@@ -251,16 +264,17 @@ export function useGraphState<T>(
 
 /**
  * Subscribes to an event of the enclosing graph while the component is mounted. The latest handler
- * is always called, without subscribing again.
+ * is always called, without subscribing again. Annotate its parameter with the payload type, such
+ * as `GraphPointerEvent<M>`, to type the targets.
  */
-export function useGraphEvent<K extends GraphEventName>(
+export function useGraphEvent<K extends GraphEventName, E extends GraphEvents[K] = GraphEvents[K]>(
   name: K,
-  handler: GraphEventHandler<K>,
+  handler: (event: E) => void,
 ): void {
   const graph = useGraph()
   const latest = useLatest(handler)
   useEffect(
-    () => graph.on(name, (event: GraphEvents[K]) => latest.current(event)),
+    () => graph.on(name, (event: GraphEvents[K]) => latest.current(event as E)),
     [graph, name, latest],
   )
 }

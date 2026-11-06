@@ -108,10 +108,10 @@ const graph = mountGraph(main, { definition, ariaLabel: messages.edgesLabel })
 const hovered = status()
 graph.on('pointerenter', ({ target }) => {
   if (target.kind === 'edge') {
-    const route = target.datum as Route
+    const route = target.datum
     hovered.textContent = messages.route(route.from.toUpperCase(), route.to.toUpperCase())
   } else {
-    hovered.textContent = (target.datum as Spot).label
+    hovered.textContent = target.datum.label
   }
 })
 graph.on('pointerleave', () => {

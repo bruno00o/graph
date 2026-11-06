@@ -10,8 +10,10 @@ import { Graph } from '@bruno00o/graph/react'
 ```
 
 ```ts
-function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element
+function Graph<S extends string = string, M extends Mark = Mark>(props: GraphProps<S, M>): JSX.Element
 ```
+
+`S` and `M` come from `definition`: they type the targets of the event props and the instance given to `ref`. A ref object typed as a plain `GraphInstance` works too.
 
 ## Props
 

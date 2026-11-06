@@ -24,7 +24,7 @@ export interface RingsOptions<T = unknown> {
  * A layout that puts the first node in the middle and fills rings outward, each longer than the
  * last. It ends at once, and nodes glide to their place.
  */
-export function rings<T = unknown>(options: RingsOptions<T> = {}): Layout {
+export function rings<T = unknown>(options: RingsOptions<T> = {}): Layout<T> {
   return instant('rings', options, (graph) => {
     const xy = Float32Array.from(graph.xy)
     const indices = movers(graph)

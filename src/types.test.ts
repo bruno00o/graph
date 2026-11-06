@@ -15,6 +15,7 @@ import {
   hull,
   type KeyFieldOf,
   type Mark,
+  type NodeDatum,
   type NodeMark,
   type NodeOptions,
   nodes,
@@ -37,8 +38,12 @@ const rows: Row[] = []
 
 describe('public types', () => {
   it('infers the datum type from the data', () => {
-    expectTypeOf(nodes(people, { color: 'team', size: 'score' })).toEqualTypeOf<NodeMark<Person>>()
-    expectTypeOf(edges(links, { source: 'from', target: 'to' })).toEqualTypeOf<EdgeMark<Link>>()
+    expectTypeOf(nodes(people, { color: 'team', size: 'score' })).toEqualTypeOf<
+      NodeMark<Person, undefined>
+    >()
+    expectTypeOf(edges(links, { source: 'from', target: 'to' })).toEqualTypeOf<
+      EdgeMark<Link, undefined>
+    >()
   })
 
   it('passes the datum type to accessors', () => {
@@ -125,10 +130,10 @@ describe('public types', () => {
   it('requires a key when the data has no id field', () => {
     // @ts-expect-error
     nodes(rows)
-    expectTypeOf(nodes(rows, { key: 'name' })).toEqualTypeOf<NodeMark<Row>>()
+    expectTypeOf(nodes(rows, { key: 'name' })).toEqualTypeOf<NodeMark<Row, undefined>>()
     expectTypeOf(
       edges(rows, { key: 'name', source: (row) => row.parent ?? row.name, target: 'name' }),
-    ).toEqualTypeOf<EdgeMark<Row>>()
+    ).toEqualTypeOf<EdgeMark<Row, undefined>>()
   })
 
   it('accepts a TanStack DB collection as a live source', () => {
@@ -142,7 +147,10 @@ describe('public types', () => {
         return person.name
       },
     })
-    expectTypeOf(defineGraph({ marks: [mark] }).marks).toEqualTypeOf<readonly Mark[]>()
+    const definition = defineGraph({ marks: [mark] })
+    expectTypeOf(definition.marks).toEqualTypeOf<readonly (typeof mark)[]>()
+    expectTypeOf(definition.marks).toExtend<readonly Mark[]>()
+    expectTypeOf<NodeDatum<(typeof definition.marks)[number]>>().toExtend<Person>()
   })
 
   it('types state names from the definition', () => {
@@ -150,14 +158,14 @@ describe('public types', () => {
       marks: [],
       states: { muted: { opacity: 0.2 }, selected: { stroke: 'red' } },
     })
-    expectTypeOf(definition).toEqualTypeOf<GraphDefinition<'muted' | 'selected'>>()
+    expectTypeOf(definition).toEqualTypeOf<GraphDefinition<'muted' | 'selected', never>>()
     type Instance = GraphInstance<'muted' | 'selected'>
     expectTypeOf<Parameters<Instance['states']['set']>[0]>().toEqualTypeOf<'muted'>()
     expectTypeOf<GraphState<'muted' | 'selected'>['states']>().toEqualTypeOf<{
       readonly muted: ElementKeys
     }>()
     expectTypeOf<Parameters<GraphInstance<never>['states']['set']>[0]>().toBeNever()
-    expectTypeOf(defineGraph({ marks: [] })).toEqualTypeOf<GraphDefinition<never>>()
+    expectTypeOf(defineGraph({ marks: [] })).toEqualTypeOf<GraphDefinition<never, never>>()
     expectTypeOf(definition).toExtend<GraphDefinition>()
     expectTypeOf<Instance>().toExtend<GraphInstance>()
   })
@@ -168,7 +176,7 @@ describe('public types', () => {
       states: { muted: { opacity: 0.2 } },
       hulls: [hull({ state: 'muted' }), hull({ state: 'selected' }), hull({ nodes: ['a'] })],
     })
-    expectTypeOf(definition).toEqualTypeOf<GraphDefinition<'muted'>>()
+    expectTypeOf(definition).toEqualTypeOf<GraphDefinition<'muted', never>>()
     defineGraph({
       marks: [],
       states: { muted: { opacity: 0.2 } },

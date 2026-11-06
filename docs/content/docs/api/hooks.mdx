@@ -3,12 +3,12 @@ title: Hooks
 description: useGraph, useGraphState and useGraphEvent, for components inside Graph.
 ---
 
-The hooks only work inside the children of `<Graph>`.
+The hooks only work inside the children of `<Graph>`. They cannot see its definition: give them its state names `S` and marks `M` to type the targets, as type arguments of `useGraph` or as the type of the parameter of `useGraphState` and `useGraphEvent`. The hooks trust these types. See [TypeScript](/docs/typescript#react).
 
 ## useGraph
 
 ```ts
-function useGraph(): GraphInstance
+function useGraph<S extends string = string, M extends Mark = Mark>(): GraphInstance<S, M>
 ```
 
 Returns the [instance](/docs/api/graph-instance) of the enclosing graph. Throws outside `<Graph>`.
@@ -16,8 +16,8 @@ Returns the [instance](/docs/api/graph-instance) of the enclosing graph. Throws 
 ## useGraphState
 
 ```ts
-function useGraphState<T>(
-  selector: (state: GraphState) => T,
+function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
   options?: { compare?: (a: T, b: T) => boolean },
 ): T
 ```
@@ -27,20 +27,24 @@ function useGraphState<T>(
 Subscribes to the [graph state](/docs/api/graph-instance#graph-state) and returns the selected slice. The component renders again only when `compare` tells that the slice changed. `compare` defaults to `Object.is`; use `shallow` from `@tanstack/store` for selectors that build objects or arrays.
 
 ```tsx
-const hovered = useGraphState((state) => state.hovered)
 const zoom = useGraphState((state) => state.view.zoom)
+const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
 ```
 
 ## useGraphEvent
 
 ```ts
-function useGraphEvent<K extends GraphEventName>(name: K, handler: (event: GraphEvents[K]) => void): void
+function useGraphEvent<K extends GraphEventName, E extends GraphEvents[K] = GraphEvents[K]>(
+  name: K,
+  handler: (event: E) => void,
+): void
 ```
 
 Subscribes to an [event](/docs/api/events) while the component is mounted. The latest handler is always called, without subscribing again.
 
 ```tsx
 useGraphEvent('dragend', ({ keys }) => save(keys))
+useGraphEvent('click', (event: GraphPointerEvent<Marks>) => show(event.target?.datum))
 ```
 
 ## With TanStack Store

@@ -40,18 +40,23 @@ Event props always call the latest function you pass, without subscribing again.
 Children of `<Graph>` are HTML drawn over the canvas. They can read and drive the graph through the hooks. To pin an element to a node, an edge or a point, wrap it in `<Anchor>`: it follows the view and the node without rendering again.
 
 ```tsx title="Tooltip.tsx"
-import { Anchor, useGraphState } from '@bruno00o/graph/react'
+import type { EdgeMark, NodeMark } from '@bruno00o/graph'
+import { Anchor, type GraphState, useGraphState } from '@bruno00o/graph/react'
+
+type Marks = NodeMark<Item> | EdgeMark<Link>
 
 export function Tooltip() {
-  const hovered = useGraphState((state) => state.hovered)
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
   if (hovered?.kind !== 'node') return null
   return (
     <Anchor node={hovered.key} side="right" align="start">
-      <div className="tooltip">{(hovered.datum as Item).label}</div>
+      <div className="tooltip">{hovered.datum.label}</div>
     </Anchor>
   )
 }
 ```
+
+The event props of `<Graph>` are typed from its definition. Components inside it cannot see the definition, so the selector names the marks it reads: see [TypeScript](/docs/typescript#react).
 
 See [Drawing layers](/docs/drawing-layers#anchored-html) for every target and option.
 

@@ -5,6 +5,21 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.10.0
+
+### Data types flow from the marks
+
+`defineGraph` now infers the item type and the name of each mark, and types every target with them: events, `hovered` and `focused` in the state, `graph.pick`, `graph.focus.get`, aggregated edges and the event props of `<Graph>`. Casts of `datum` to its own type keep compiling and can go. Give marks a `name` to tell several marks of one kind apart: see [TypeScript](/docs/typescript).
+
+What may need a change:
+
+- `graph.update({ definition })` refuses a definition whose marks have item types the mounted definition does not have, and so does `defineGraph({ marks: [] })` mounted first and replaced later. Give the first definition every mark, or type the instance as a plain `GraphInstance`: `const graph: GraphInstance<'muted'> = mountGraph(...)`.
+- Targets carry a new `mark` key, the name of their mark, `undefined` without one. Strict equality checks on targets in your tests see it.
+- Components inside `<Graph>` still get untyped targets from the hooks. Type them with `useGraph<S, M>()`, or by typing the parameter of the selector of `useGraphState` or of the handler of `useGraphEvent`.
+- Type parameters, if you write them: `GraphDefinition`, `GraphDefinitionOptions`, `MountGraphOptions`, `GraphInstance`, `GraphState`, `GraphStore` and `GraphProps` take the union of the marks as a second parameter. `GraphTarget`, `GraphEvents`, `GraphFocus`, `GraphLayout`, `GraphEventProps` and the event payloads take it as their first, and `GraphEventHandler` as its second. Without it, every type keeps its untyped form.
+- `NodeMark`, `EdgeMark`, `NodeOptions` and `EdgeOptions` take the type of the name as a second parameter: `nodes(items)` is a `NodeMark<Item, undefined>`. `Layout` and `LayoutGraph` take the item type of the nodes, and `grid` and `rings` return a `Layout<T>`.
+- The second type parameter of `useGraphEvent` is now the payload type, inferred from the handler.
+
 ## 0.8.0
 
 ### Layout spacing is a gap between node borders
