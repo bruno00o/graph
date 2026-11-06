@@ -4,7 +4,7 @@ import { createCommunities, type Item, type Link } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
 
-const sizes = [500, 2_000, 10_000, 50_000, 80_000]
+const sizes = [500, 2_000, 10_000, 50_000, 80_000, 200_000, 500_000]
 const params = new URLSearchParams(location.search)
 const nodeCount = Number(params.get('nodes') ?? 2_000)
 const sample = createCommunities(nodeCount, Math.round(nodeCount * 1.66))

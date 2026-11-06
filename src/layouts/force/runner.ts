@@ -6,8 +6,16 @@ import { type ForceSettings, ForceSimulation } from './simulation'
 export type Schedule = (task: () => void) => void
 
 const batchTarget = 32
+const elementsPerTarget = 200_000
 const maxBatch = 256
 const separationRounds = 10
+
+export function snapshotInterval(graph: LayoutGraph): number {
+  let alive = 0
+  for (let index = 0; index < graph.capacity; index++) alive += graph.alive[index] ?? 0
+  const elements = alive + graph.edges.length / 2
+  return Math.max(batchTarget, (elements / elementsPerTarget) * batchTarget)
+}
 
 export function runForce(
   graph: LayoutGraph,
@@ -57,6 +65,7 @@ export function runGpuForce(
   let fallback: LayoutRun | null = null
   let stopped = false
   let batch = 4
+  const interval = snapshotInterval(graph)
   const loop = async () => {
     while (!stopped) {
       const started = performance.now()
@@ -70,7 +79,7 @@ export function runGpuForce(
         return
       }
       const elapsed = Math.max(performance.now() - started, 1)
-      batch = Math.max(1, Math.min(maxBatch, Math.round((batch * batchTarget) / elapsed)))
+      batch = Math.max(1, Math.min(maxBatch, Math.round((batch * interval) / elapsed)))
       if (gpu.done) {
         stopped = true
         gpu.destroy()

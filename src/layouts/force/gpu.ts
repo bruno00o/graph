@@ -1,8 +1,8 @@
 import type { LayoutGraph } from '../../types'
 import { createProgram } from '../../webgl/gl'
 import {
+  boundsBlockFragment,
   boundsFragment,
-  boundsVertex,
   fullVertex,
   integrateFragment,
   reduceFragment,
@@ -12,14 +12,18 @@ import {
 } from './gpu-shaders'
 import { alphaMin, coolingOf, type ForceSettings, keep, partialAlpha } from './simulation'
 
-const boundsSide = 16
+const boundsBlock = 4
 const maxLevels = 11
-const lowest = new Float32Array([-3e38, -3e38, -3e38, -3e38])
 const zero = new Float32Array(4)
 
 interface Target {
   readonly texture: WebGLTexture
   readonly framebuffer: WebGLFramebuffer
+}
+
+interface SizedTarget extends Target {
+  readonly width: number
+  readonly height: number
 }
 
 type Programs = Record<
@@ -45,8 +49,9 @@ export class GpuForce {
   readonly #programs: Programs
   readonly #states: [Target, Target]
   readonly #props: WebGLTexture
-  readonly #partial: Target
+  readonly #boundsChain: readonly SizedTarget[]
   readonly #bounds: Target
+  readonly #sizeAt: WebGLUniformLocation | null
   readonly #springs: Target
   readonly #pyramid: WebGLTexture
   readonly #levelBuffers: WebGLFramebuffer[]
@@ -126,7 +131,7 @@ export class GpuForce {
     this.#cells = 1 << this.#levels
 
     this.#programs = {
-      bounds: createProgram(gl, boundsVertex, valueFragment, {}),
+      bounds: createProgram(gl, fullVertex, boundsBlockFragment, {}),
       boundsReduce: createProgram(gl, fullVertex, boundsFragment, {}),
       splat: createProgram(gl, splatVertex, valueFragment, {}),
       reduce: createProgram(gl, fullVertex, reduceFragment, {}),
@@ -138,8 +143,21 @@ export class GpuForce {
       this.#target(this.#width, this.#height, state),
     ]
     this.#props = this.#texture(this.#width, this.#height, props)
-    this.#partial = this.#target(boundsSide, boundsSide, null)
-    this.#bounds = this.#target(1, 1, null)
+    const chain: SizedTarget[] = []
+    let chainWidth = this.#width
+    let chainHeight = this.#height
+    do {
+      chainWidth = Math.ceil(chainWidth / boundsBlock)
+      chainHeight = Math.ceil(chainHeight / boundsBlock)
+      chain.push({
+        ...this.#target(chainWidth, chainHeight, null),
+        width: chainWidth,
+        height: chainHeight,
+      })
+    } while (chainWidth > 1 || chainHeight > 1)
+    this.#boundsChain = chain
+    this.#bounds = chain[chain.length - 1] as SizedTarget
+    this.#sizeAt = gl.getUniformLocation(this.#programs.boundsReduce, 'size')
     this.#springs = this.#target(this.#width, this.#height, null)
     const pyramid = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, pyramid)
@@ -231,23 +249,23 @@ export class GpuForce {
     this.#bind(2, this.#bounds.texture)
     this.#bind(3, this.#pyramid)
     this.#bind(4, this.#springs.texture)
-    this.#bind(5, this.#partial.texture)
+
+    gl.bindVertexArray(this.#empty)
+    let source = this.#boundsChain[0] as SizedTarget
+    this.#use(source.framebuffer, source.width, source.height)
+    gl.useProgram(programs.bounds)
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+    gl.useProgram(programs.boundsReduce)
+    for (const target of this.#boundsChain.slice(1)) {
+      this.#bind(5, source.texture)
+      gl.uniform2i(this.#sizeAt, source.width, source.height)
+      this.#use(target.framebuffer, target.width, target.height)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+      source = target
+    }
 
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE)
-    gl.blendEquation(gl.MAX)
-    this.#use(this.#partial.framebuffer, boundsSide, boundsSide)
-    gl.clearBufferfv(gl.COLOR, 0, lowest)
-    gl.useProgram(programs.bounds)
-    gl.bindVertexArray(this.#empty)
-    gl.drawArrays(gl.POINTS, 0, this.capacity)
-
-    gl.disable(gl.BLEND)
-    this.#use(this.#bounds.framebuffer, 1, 1)
-    gl.useProgram(programs.boundsReduce)
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
-
-    gl.enable(gl.BLEND)
     gl.blendEquation(gl.FUNC_ADD)
     this.#use(this.#levelBuffers[0] ?? null, this.#cells, this.#cells)
     gl.clearBufferfv(gl.COLOR, 0, zero)
@@ -359,7 +377,6 @@ export class GpuForce {
       }
       set('width', this.#width)
       set('height', this.#height)
-      set('side', boundsSide)
       set('cells', this.#cells)
       set('levels', this.#levels)
       set('count', this.capacity)
