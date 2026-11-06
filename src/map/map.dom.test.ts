@@ -125,7 +125,20 @@ function fakeMap() {
     const layer = layers.get('graph')
     layer?.render?.({} as WebGL2RenderingContext, {} as never)
   }
-  return { map: map as unknown as MapLibreMap, fake: map, camera, state, layers, render, canvas }
+  const emit = (name: string) => {
+    for (const listener of listeners.get(name) ?? []) listener()
+  }
+  return {
+    map: map as unknown as MapLibreMap,
+    fake: map,
+    camera,
+    state,
+    layers,
+    listeners,
+    emit,
+    render,
+    canvas,
+  }
 }
 
 function definition() {
@@ -165,6 +178,19 @@ describe('mountMapGraph', () => {
     expect(fake.touchPitch.enabled).toBe(true)
     expect(state.maxPitch).toBe(60)
     expect(graph.element.isConnected).toBe(false)
+  })
+
+  it('adds the layer again when the style changes, until destroy', () => {
+    const { map, layers, listeners, emit } = fakeMap()
+    const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })
+    layers.clear()
+    emit('style.load')
+    expect(layers.has('graph')).toBe(true)
+    graph.destroy()
+    emit('style.load')
+    emit('data')
+    expect(layers.size).toBe(0)
+    expect([...listeners.values()].every((set) => set.size === 0)).toBe(true)
   })
 
   it('follows the map camera in Web Mercator', () => {

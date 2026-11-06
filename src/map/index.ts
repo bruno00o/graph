@@ -133,8 +133,12 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   }
 
   function addLayer(): void {
-    if (destroyed || !map.isStyleLoaded() || map.getLayer(id)) return
+    if (destroyed || map.getLayer(id)) return
     map.addLayer(layer, beforeId !== undefined && map.getLayer(beforeId) ? beforeId : undefined)
+  }
+
+  function addWhenLoaded(): void {
+    if (!destroyed && !map.getLayer(id) && map.isStyleLoaded()) addLayer()
   }
 
   const surface: HostSurface = {
@@ -175,8 +179,8 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       destroyed = true
       if (doubleClick) map.doubleClickZoom.enable()
       surface.claim(false)
-      map.off('styledata', addLayer)
-      map.off('load', addLayer)
+      map.off('style.load', addLayer)
+      map.off('data', addWhenLoaded)
       graph.element.removeEventListener('keydown', keepKeys)
       if (map.getLayer(id)) map.removeLayer(id)
       driver = null
@@ -200,8 +204,8 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   map.getCanvasContainer().after(graph.element)
   bindMap(graph, map)
   graph.element.addEventListener('keydown', keepKeys)
-  map.on('styledata', addLayer)
-  map.on('load', addLayer)
-  addLayer()
+  map.on('style.load', addLayer)
+  map.on('data', addWhenLoaded)
+  addWhenLoaded()
   return graph
 }

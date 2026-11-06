@@ -26,6 +26,7 @@ export class GlState {
   }
 
   guard<T>(run: () => T): T {
+    if (this.#gl.isContextLost()) return run()
     const saved = this.#save()
     try {
       return run()

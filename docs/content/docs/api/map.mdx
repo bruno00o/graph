@@ -53,4 +53,4 @@ function worldToGeo(point: Point): GeoPoint
 - `graph.view.set`, `fit`, `zoomBy` and the keyboard move the map with `jumpTo`, one step per frame for animated calls. `update({ view })` is ignored.
 - During a node drag or a lasso, the map's drag pan and box zoom are off. Over a node, its double click zoom is off. They come back as they were.
 - `destroy` removes the layer and the graph element, and gives back rotation, pitch and the largest pitch of the map. When the style changes, the layer is added again.
-- A layout, `background` and `hulls` in the definition are ignored. Groups made with the `parent` channel are not supported.
+- A layout, `background` and `hulls` in the definition are ignored. Groups made with the `parent` channel and the minimap are not supported. The legend works unchanged.
