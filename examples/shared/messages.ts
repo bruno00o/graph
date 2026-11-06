@@ -129,6 +129,8 @@ export const messages = {
     `${formatNumber(count)} ${plural(count, 'arête', 'arêtes')} de ${from} vers ${to}`,
   exportPng: 'Exporter en PNG',
   exportSvg: 'Exporter en SVG',
+  minimap: 'Minicarte',
+  minimapModes: { on: 'Affichée', off: 'Masquée' },
 }
 
 function milliseconds(value: number): string {

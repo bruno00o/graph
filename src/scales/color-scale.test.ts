@@ -14,6 +14,9 @@ describe('resolveColorScale', () => {
     const scale = resolveColorScale({ domain: ['x', 'y'], range: ['red', 'blue'] })
     expect(scale.map('y', null)).toBe('blue')
     expect(scale.map('z', null)).toBe('red')
+    expect(scale.kind).toBe('categorical')
+    expect(scale.listed).toEqual(['x', 'y'])
+    expect([...scale.categories()]).toEqual(['x', 'y', 'z'])
   })
 
   it('interpolates sequential values between stops', () => {
@@ -32,6 +35,8 @@ describe('resolveColorScale', () => {
       range: ['red', 'green', 'blue'],
     })
     expect(scale.needsExtent).toBe(false)
+    expect(scale.kind).toBe('sequential')
+    expect(scale.domain).toEqual([0, 1])
     expect(scale.map(0.5, null)).toBe('green')
     expect(scale.map(0.75, null)).toBe('color-mix(in oklab, green, blue 50%)')
   })
@@ -40,5 +45,7 @@ describe('resolveColorScale', () => {
     const scale = resolveColorScale((value) => (value === 'on' ? 'green' : 'gray'))
     expect(scale.map('on', null)).toBe('green')
     expect(scale.map(undefined, null)).toBeNull()
+    expect(scale.kind).toBe('function')
+    expect([...scale.categories()]).toEqual([])
   })
 })

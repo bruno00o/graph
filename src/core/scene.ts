@@ -68,11 +68,23 @@ export interface SceneModel {
   edgeAt(index: number): SceneEdgeRecord | undefined
 }
 
+export interface SceneScales {
+  readonly color: ResolvedColorScale
+  readonly colorExtent: Extent | null
+  readonly size: ResolvedNumberScale
+  readonly sizeExtent: Extent | null
+  readonly width: ResolvedNumberScale
+  readonly widthExtent: Extent | null
+  readonly nodeColor: readonly unknown[]
+  readonly edgeColor: readonly unknown[]
+}
+
 export interface Scene {
   readonly nodes: NodeColumns
   readonly edges: EdgeColumns
   readonly palette: Palette
   readonly layers: readonly Layer[]
+  scales(): SceneScales
   setDefinition(definition: GraphDefinition): void
   apply(model: SceneModel, changes: GraphChanges): void
   takeDirty(): SceneDirty
@@ -443,6 +455,19 @@ export function createScene(): Scene {
 
     get layers() {
       return layers
+    },
+
+    scales() {
+      return {
+        color: colorScale,
+        colorExtent: combineExtents(nodeColorExtent.extent, edgeColorExtent.extent),
+        size: sizeScale,
+        sizeExtent: sizeExtent.extent,
+        width: widthScale,
+        widthExtent: widthExtent.extent,
+        nodeColor: nodeColorValues,
+        edgeColor: edgeColorValues,
+      }
     },
 
     setDefinition(definition) {

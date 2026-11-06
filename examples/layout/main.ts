@@ -1,5 +1,6 @@
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
 import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
+import { createMinimap } from '@bruno00o/graph/minimap'
 import { createCommunities, type Item, type Link, nestCommunities } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
@@ -7,7 +8,10 @@ import { button, choice, createPage, status, themeToggle } from '../shared/page'
 const sizes = [500, 2_000, 10_000, 50_000, 80_000, 200_000, 500_000]
 const params = new URLSearchParams(location.search)
 const nodeCount = Number(params.get('nodes') ?? 2_000)
-const sample = createCommunities(nodeCount, Math.round(nodeCount * 1.66))
+const sample = createCommunities(
+  nodeCount,
+  Number(params.get('edges') ?? Math.round(nodeCount * 1.66)),
+)
 const grouped = params.get('groups') === 'nested'
 let items: Item[] = grouped ? nestCommunities(sample, 24, 3) : sample.items
 let links: Link[] = sample.links
@@ -36,6 +40,9 @@ const graph = mountGraph(main, {
   definition: define(),
   ariaLabel: messages.graphLabel(formatNumber(items.length), formatNumber(links.length)),
 })
+
+const withMinimap = params.get('minimap') !== 'off'
+if (withMinimap) createMinimap(graph)
 
 const progress = status()
 let started = performance.now()
@@ -99,6 +106,15 @@ header.append(
     grouped ? 'nested' : 'none',
     (value) => {
       params.set('groups', value)
+      location.search = params.toString()
+    },
+  ),
+  choice(
+    messages.minimap,
+    (['on', 'off'] as const).map((value) => ({ value, text: messages.minimapModes[value] })),
+    withMinimap ? 'on' : 'off',
+    (value) => {
+      params.set('minimap', value)
       location.search = params.toString()
     },
   ),

@@ -14,6 +14,7 @@ describe('resolveNumberScale', () => {
   it('clamps values outside the domain', () => {
     const scale = resolveNumberScale({ domain: [0, 10] }, fallback)
     expect(scale.needsExtent).toBe(false)
+    expect(scale.domain).toEqual([0, 10])
     expect(scale.map(-5, null)).toBe(0)
     expect(scale.map(50, null)).toBe(100)
   })
