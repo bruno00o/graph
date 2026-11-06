@@ -19,6 +19,7 @@ export class ImageAtlas {
   #capacity = 0
   #next = 0
   #loaded = new Set<string>()
+  #decoded: Array<readonly [string, HTMLImageElement]> = []
   readonly #loading = new Set<Promise<void>>()
   #mipsStale = false
   #canvas: HTMLCanvasElement | null = null
@@ -59,7 +60,7 @@ export class ImageAtlas {
     image.decoding = 'async'
     image.src = src
     const loading = image.decode().then(
-      () => this.#store(src, image),
+      () => this.#receive(src, image),
       () => this.#fail(src),
     )
     this.#loading.add(loading)
@@ -75,6 +76,13 @@ export class ImageAtlas {
     if (!entry || --entry.count > 0) return
     this.#entries.delete(src)
     if (entry.layer >= 0) this.#free.push(entry.layer)
+  }
+
+  flush(): void {
+    if (this.#decoded.length === 0) return
+    const decoded = this.#decoded
+    this.#decoded = []
+    for (const [src, image] of decoded) this.#store(src, image)
   }
 
   takeLoaded(): ReadonlySet<string> | null {
@@ -96,6 +104,12 @@ export class ImageAtlas {
     this.#destroyed = true
     this.#gl.deleteTexture(this.#placeholder)
     if (this.#texture) this.#gl.deleteTexture(this.#texture)
+  }
+
+  #receive(src: string, image: HTMLImageElement): void {
+    if (this.#destroyed) return
+    this.#decoded.push([src, image])
+    this.#invalidate()
   }
 
   #fail(src: string): void {
@@ -143,7 +157,6 @@ export class ImageAtlas {
     entry.layer = layer
     this.#mipsStale = true
     this.#loaded.add(src)
-    this.#invalidate()
   }
 
   #draw(image: HTMLImageElement): HTMLCanvasElement {

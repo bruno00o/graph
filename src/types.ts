@@ -9,6 +9,14 @@ export interface Point {
   readonly y: number
 }
 
+/** A place on Earth, in degrees. */
+export interface GeoPoint {
+  /** Longitude, from -180 to 180 degrees, growing eastward. */
+  readonly longitude: number
+  /** Latitude, from -90 to 90 degrees, growing northward. */
+  readonly latitude: number
+}
+
 /** The camera: the world point at the center of the graph element, and a zoom factor. */
 export interface View {
   /** Horizontal coordinate of the center, in world units. */
@@ -226,6 +234,13 @@ export interface NodeOptions<T, N extends MarkName = MarkName> {
   /** Vertical position in world units. The node follows it, and layouts leave it in place. */
   readonly y?: Channel<T, number>
   /**
+   * Longitude in degrees. With `latitude`, it places the node with Web Mercator, where the world
+   * spans 512 units, as on a map. Ignored when `x` and `y` are given.
+   */
+  readonly longitude?: Channel<T, number>
+  /** Latitude in degrees, from -85.05 to 85.05. Goes with `longitude`. */
+  readonly latitude?: Channel<T, number>
+  /**
    * Node shape: `'circle'`, `'square'` or `'diamond'`.
    * @default 'circle'
    */
@@ -259,8 +274,8 @@ export interface NodeOptions<T, N extends MarkName = MarkName> {
   /** A function per corner that returns the badge of an item, or `null` for none. */
   readonly badges?: Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined>>>>
   /**
-   * `'screen'` keeps the size of the node, in pixels, the same at every zoom.
-   * @default 'world'
+   * `'screen'` keeps the size of the node, in pixels, the same at every zoom; `'world'` scales it
+   * with the zoom. Defaults to `'screen'` with `longitude` and `latitude`, `'world'` otherwise.
    */
   readonly units?: 'world' | 'screen'
   /**

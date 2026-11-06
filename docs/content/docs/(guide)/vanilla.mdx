@@ -21,13 +21,13 @@ const definition = defineGraph({
 const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
 ```
 
-Every option is listed in [`mountGraph`](/docs/api/mount-graph#options). Passing `selection` makes the selection controlled: see [Interaction](/docs/interaction#controlled-selection).
+Every option is listed in [`mountGraph`](/docs/api/mount-graph#options). Passing `selection` makes the selection controlled: see [Interaction](/docs/interaction#controlled-selection). Passing `view` does the same for the view: see [Controlled view](/docs/view#controlled-view).
 
 The graph adds a `div` to the container, available as `graph.element`. It carries `aria-label`, a `data-graph` attribute, and `role="application"` with `tabindex="0"` when the keyboard is on, or `role="img"` otherwise. Position your overlays against it.
 
 ## Update
 
-`update` takes a new definition, a new accessible name, or a new controlled selection. Everything else stays: positions, view, selection and states.
+`update` takes a new definition, a new accessible name, or a new controlled selection, folded groups or view. Everything else stays: positions, view, selection and states.
 
 ```ts
 graph.update({ definition: defineGraph({ marks: [edges(nextLinks, linkOptions), nodes(nextItems, itemOptions)] }) })

@@ -1,0 +1,56 @@
+---
+title: mountMapGraph and exportMapPng
+description: Draw a graph inside a MapLibre map, and export the map and the graph as one PNG.
+---
+
+```ts
+import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
+
+function mountMapGraph<S extends string = string, M extends Mark = Mark>(
+  map: Map,
+  options: MapGraphOptions<S, M>,
+): GraphInstance<S, M>
+
+function exportMapPng<S extends string>(
+  graph: GraphInstance<S>,
+  options?: MapPngOptions,
+): Promise<Blob>
+```
+
+`map` is a MapLibre GL JS `Map`, version 6 or later. `mountMapGraph` adds a custom layer to its style and returns a [`GraphInstance`](/docs/api/graph-instance). See [Map](/docs/map) for a walkthrough.
+
+## mountMapGraph options
+
+<api-table path="map/index.ts" name="MapGraphOptions" />
+
+The other options are those of [`mountGraph`](/docs/api/mount-graph#options), except `initialView`, `view` and `onViewChange`: the map holds the view.
+
+## exportMapPng options
+
+<api-table path="map/index.ts" name="MapPngOptions" />
+
+## Coordinates
+
+Exported by `@bruno00o/graph`, for nodes placed by `longitude` and `latitude` with or without a map.
+
+```ts
+import { geoToWorld, worldToGeo } from '@bruno00o/graph'
+
+function geoToWorld(point: GeoPoint): Point
+function worldToGeo(point: Point): GeoPoint
+```
+
+<api-table path="index.ts" name="GeoPoint" />
+
+## Errors
+
+- `exportMapPng` throws an `Error` for a graph not mounted by `mountMapGraph`, and a `RangeError` for a `pixelRatio` that is not a positive number or a map smaller than one pixel.
+- `exportMapPng` rejects when the hidden map fails to load its style. Tiles that are still missing after `timeout` are left out of the image.
+
+## Behavior
+
+- The graph follows the map's camera at every frame of the map, and draws nothing when the map does not render: an idle map costs nothing.
+- `graph.view.set`, `fit`, `zoomBy` and the keyboard move the map with `jumpTo`, one step per frame for animated calls. `update({ view })` is ignored.
+- During a node drag or a lasso, the map's drag pan and box zoom are off. Over a node, its double click zoom is off. They come back as they were.
+- `destroy` removes the layer and the graph element, and gives back rotation, pitch and the largest pitch of the map. When the style changes, the layer is added again.
+- A layout, `background` and `hulls` in the definition are ignored. Groups made with the `parent` channel and the minimap are not supported. The legend works unchanged.

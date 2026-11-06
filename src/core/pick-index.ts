@@ -99,6 +99,13 @@ function grownFloat(array: Float32Array, length: number, fill: number): Float32A
   return next
 }
 
+function grownDouble(array: Float64Array, length: number, fill: number): Float64Array {
+  if (array.length >= length) return array
+  const next = new Float64Array(length).fill(fill)
+  next.set(array)
+  return next
+}
+
 function grownUint(array: Uint32Array, length: number, fill: number): Uint32Array {
   if (array.length >= length) return array
   const next = new Uint32Array(length).fill(fill)
@@ -242,7 +249,7 @@ export class PickIndex {
   #maxScreenRadius = 0
   #maxEdgeHalfWidth = 0
   #loops: number[] = []
-  #indexedXy: Float32Array = new Float32Array(0)
+  #indexedXy: Float64Array = new Float64Array(0)
   #indexedFrom: Uint32Array = new Uint32Array(0)
   #indexedTo: Uint32Array = new Uint32Array(0)
   #indexedBend: Float32Array = new Float32Array(0)
@@ -269,7 +276,7 @@ export class PickIndex {
     this.#extraEdges = emptyExtra()
     this.#extraLoops = []
     this.#reindexed = 0
-    const indexedXy = new Float32Array(nodes.capacity * 2).fill(Number.NaN)
+    const indexedXy = new Float64Array(nodes.capacity * 2).fill(Number.NaN)
     for (let index = 0; index < nodes.capacity; index++) {
       if (!pickable(nodes, index)) continue
       const x = positions.x(index)
@@ -425,7 +432,7 @@ export class PickIndex {
       return
     }
     const { nodes, edges, positions } = source
-    this.#indexedXy = grownFloat(this.#indexedXy, nodes.capacity * 2, Number.NaN)
+    this.#indexedXy = grownDouble(this.#indexedXy, nodes.capacity * 2, Number.NaN)
     this.#indexedFrom = grownUint(this.#indexedFrom, edges.capacity, absent)
     this.#indexedTo = grownUint(this.#indexedTo, edges.capacity, absent)
     this.#indexedBend = grownFloat(this.#indexedBend, edges.capacity, 0)

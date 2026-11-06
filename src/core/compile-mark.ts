@@ -8,6 +8,8 @@ export interface CompiledNodeMark {
   readonly size: Read | null
   readonly x: Read | null
   readonly y: Read | null
+  readonly longitude: Read | null
+  readonly latitude: Read | null
   readonly label: Read | null
   readonly secondary: Read | null
   readonly labelBackground: Read | null
@@ -96,6 +98,8 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     size: channel(options.size),
     x: channel(options.x),
     y: channel(options.y),
+    longitude: channel(options.longitude),
+    latitude: channel(options.latitude),
     label: channel(typeof label === 'object' ? label.text : label),
     secondary: channel(typeof label === 'object' ? label.secondary : undefined),
     labelBackground: style(typeof label === 'object' ? label.background : undefined),
@@ -111,7 +115,11 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     opacity: style(options.opacity),
     image: style(options.image),
     badges,
-    screenUnits: options.units === 'screen',
+    screenUnits:
+      options.units === 'screen' ||
+      (options.units === undefined &&
+        options.longitude !== undefined &&
+        options.latitude !== undefined),
     parent: channel(options.parent),
     container: {
       shape: style(options.container?.shape),

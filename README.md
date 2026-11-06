@@ -34,6 +34,8 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 - A background grid that adapts to the zoom, hulls around groups, states or lists of nodes, and HTML pinned to nodes, edges or points without a render per frame
 - Themed with CSS variables, light and dark
 - Export to PNG, tiled past the GPU limits, or to a standalone SVG document
+- Nodes placed by longitude and latitude, drawn inside a MapLibre map in its own WebGL context, with a PNG export of the map, the graph and the attribution
+- A view your application can control, as the selection, without a frame of lag
 - A framework-agnostic core with a thin React adapter, plus TanStack DB and TanStack Query integrations
 
 > Early development: the API may still change before 1.0.
@@ -51,6 +53,7 @@ pnpm add @bruno00o/graph
 | `@bruno00o/graph/db`             | `persistPositions` and `subset` for TanStack DB collections         | `@tanstack/db`                         |
 | `@bruno00o/graph/query`          | `createExploration` for neighborhoods loaded with TanStack Query    | `@tanstack/query-core`                 |
 | `@bruno00o/graph/export`         | `exportPng` and `exportSvg`                                         |                                        |
+| `@bruno00o/graph/map`            | `mountMapGraph` and `exportMapPng` for MapLibre maps                | `maplibre-gl` 6                        |
 | `@bruno00o/graph/layouts`        | `layers`, `grid`, `rings` and `radial` layouts                      |                                        |
 | `@bruno00o/graph/layouts/force`  | `force` layout, computed on the GPU in a Web Worker                 |                                        |
 | `@bruno00o/graph/devtools`       | Graph panel and render timings for TanStack Devtools                | `@tanstack/devtools`                   |
@@ -158,7 +161,7 @@ nodes(heavy, { color: 'group' })
 
 ## Examples
 
-The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, nested groups that fold and unfold, a background grid with hulls and anchored HTML, a force layout up to 500,000 nodes, layered, grid, rings and radial layouts, collaboration across tabs with TanStack DB, filtering 500,000 TanStack DB rows with edges loaded on demand, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
+The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, nested groups that fold and unfold, a background grid with hulls and anchored HTML, a force layout up to 500,000 nodes, layered, grid, rings and radial layouts, collaboration across tabs with TanStack DB, filtering 500,000 TanStack DB rows with edges loaded on demand, neighborhood exploration with TanStack Query, and places drawn on a MapLibre map. Run them with `pnpm install && pnpm dev`.
 
 ## Get Involved
 

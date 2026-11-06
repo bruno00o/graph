@@ -77,6 +77,10 @@ interface GraphFocusEvent<M extends Mark = Mark> {
   readonly target: GraphTarget<M> | null
 }
 
+interface GraphViewEvent {
+  readonly view: View
+}
+
 interface GraphFoldEvent {
   readonly folded: readonly Key[]
 }
@@ -105,7 +109,7 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 
 ## Order
 
-`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`.
+`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`, and `viewchange` and `onViewChange` with `view`.
 
 A `doubleclick` on a group folds or unfolds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 

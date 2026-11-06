@@ -26,6 +26,7 @@
       "@bruno00o/graph/devtools": ["../src/devtools/index.ts"],
       "@bruno00o/graph/devtools/react": ["../src/devtools/react.tsx"],
       "@bruno00o/graph/export": ["../src/export/index.ts"],
+      "@bruno00o/graph/map": ["../src/map/index.ts"],
       "@bruno00o/graph/minimap": ["../src/minimap/index.ts"],
       "@bruno00o/graph/legend": ["../src/legend/index.ts"]
     }

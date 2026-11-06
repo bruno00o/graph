@@ -7,7 +7,7 @@ description: Where nodes start, how they follow your data, and how to move them 
 
 A node gets its first position in this order:
 
-1. From the `x` and `y` channels, when the mark has them.
+1. From the `x` and `y` channels, when the mark has them, or else from `longitude` and `latitude`.
 2. Near its neighbors that are already placed, on a ring around them. A node that arrives while you explore appears next to what it connects to.
 3. Otherwise on a spiral around the origin. A first batch without coordinates starts as a compact disc.
 
@@ -26,7 +26,17 @@ const definition = defineGraph({
 
 The move is animated over `transitions.positions` milliseconds, 120 by default, and 0 with `prefers-reduced-motion`. Updates spaced by a paced write stay smooth.
 
-A node only moves when its own `x` or `y` value changes. A node dragged by the user does not jump back when another field of its data changes, and incoming updates are ignored while the user is dragging it.
+A node only moves when its own `x` or `y` value changes, or its `longitude` or `latitude`. A node dragged by the user does not jump back when another field of its data changes, and incoming updates are ignored while the user is dragging it.
+
+## Longitude and latitude
+
+`longitude` and `latitude`, in degrees, place a node with Web Mercator, the projection of web maps. The world spans 512 units, from longitude -180 at `x` 0 to longitude 180 at `x` 512, and from latitude 85.05 at `y` 0 to latitude -85.05 at `y` 512. Nodes placed this way default to `units: 'screen'`, so their size does not change with the zoom.
+
+```ts
+nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' })
+```
+
+`geoToWorld` and `worldToGeo` convert between degrees and world units, for example to read where the user clicked. To draw the nodes over a basemap, see [Map](/docs/map).
 
 ## Move nodes from code
 

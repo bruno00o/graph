@@ -73,6 +73,30 @@ defineGraph({ marks, view: { bounds: { minX: -1000, minY: -600, maxX: 1000, maxY
 
 Bounds apply when the view moves, when the element is resized and when the definition changes. Data changes do not move the view: with `{ margin }`, nodes that arrive or leave widen or narrow the area at the next move. See [`ViewLimitOptions`](/docs/api/define-graph#view) for the full option list.
 
+## Controlled view
+
+To keep the view in your own state, pass `view` when you mount the graph, with `onViewChange`. The graph then draws the view you give it, as given. Gestures, keys, `view.set`, `fit`, `zoomBy` and every frame of their animations become requests, kept within the view limits: `onViewChange` receives them, at most once per frame and before the frame is drawn. Apply a request with `update({ view })`, change it first, or drop it.
+
+```ts
+let view: View = { x: 0, y: 0, zoom: 1 }
+
+const graph = mountGraph(container, {
+  definition,
+  ariaLabel: 'Sample graph',
+  view,
+  onViewChange: (event) => {
+    view = { ...event.view, y: 0 }
+    graph.update({ view })
+  },
+})
+```
+
+Here the application keeps the view on a horizontal line: vertical moves are dropped, the rest goes through.
+
+A view applied inside `onViewChange` is drawn in the same frame, so a controlled view follows the pointer without lag. An application that answers later still gets smooth gestures: each new request starts from the last request it has not answered yet, and a view it applies that matches none of them replaces them all.
+
+The mode is fixed at mount: a graph mounted with `view` stays controlled for its whole life. The first fit does not run in controlled mode, and `viewchange` fires only when an applied view differs from the current one. In React, pass the `view` and `onViewChange` props: see [React](/docs/react#controlled-view).
+
 ## Screen and world coordinates
 
 Positions live in world units. To place an HTML overlay over a node, convert its position to screen pixels relative to the graph element.

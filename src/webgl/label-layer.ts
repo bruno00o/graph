@@ -540,15 +540,17 @@ export class LabelLayer {
     for (const index of highlightedEdges) if (!edgeForced(index)) placeEdge(index, true)
 
     const xy = positions.xy
+    const centerX = view.x - positions.originX
+    const centerY = view.y - positions.originY
     if (all || frame.screenLabels || frame.largestLabel * shrink >= labelMin) {
       const order = frame.order
       const largest = nodes.size[order[0] ?? 0] ?? 0
       const reach =
         (cullMargin + (frame.screenLabels ? largest : largest * view.zoom) / 2) / view.zoom
-      const left = view.x - width / 2 / view.zoom - reach
-      const right = view.x + width / 2 / view.zoom + reach
-      const top = view.y - height / 2 / view.zoom - reach
-      const bottom = view.y + height / 2 / view.zoom + reach
+      const left = centerX - width / 2 / view.zoom - reach
+      const right = centerX + width / 2 / view.zoom + reach
+      const top = centerY - height / 2 / view.zoom - reach
+      const bottom = centerY + height / 2 / view.zoom + reach
       for (let at = 0; at < frame.orderLength && placed < limit; at++) {
         const index = order[at] ?? 0
         const x = xy[index * 2] ?? 0
@@ -561,10 +563,10 @@ export class LabelLayer {
     if (!all && frame.largestEdgeLabel * shrink < labelMin) return
     const { source, target } = edges
     const reach = cullMargin / view.zoom
-    const left = view.x - width / 2 / view.zoom - reach
-    const right = view.x + width / 2 / view.zoom + reach
-    const top = view.y - height / 2 / view.zoom - reach
-    const bottom = view.y + height / 2 / view.zoom + reach
+    const left = centerX - width / 2 / view.zoom - reach
+    const right = centerX + width / 2 / view.zoom + reach
+    const top = centerY - height / 2 / view.zoom - reach
+    const bottom = centerY + height / 2 / view.zoom + reach
     for (let at = 0; at < frame.edgeOrderLength && placed < limit; at++) {
       const index = frame.edgeOrder[at] ?? 0
       const from = (source[index] ?? 0) * 2

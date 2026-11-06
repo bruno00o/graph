@@ -98,3 +98,13 @@ const [selection, setSelection] = useState<ElementKeysInput>({ nodes: [] })
 ```
 
 In controlled mode, `onSelectionChange` receives every request, from clicks, the keyboard, the lasso or code, and only the `selection` prop changes the graph. Whether a graph is controlled is decided at mount.
+
+## Controlled view
+
+```tsx
+const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
+
+<Graph definition={definition} ariaLabel="Sample graph" view={view} onViewChange={(event) => setView(event.view)} />
+```
+
+With `view`, `onViewChange` receives the view requests of gestures, keys and `graph.view` calls, and only the `view` prop moves the graph. `<Graph>` renders the state set in `onViewChange` before the frame is drawn, so the view never lags behind the pointer. See [Controlled view](/docs/view#controlled-view).

@@ -1,5 +1,6 @@
 import type { Key, NodeMark } from '../types'
 import { type CompiledNodeMark, compileNodeMark } from './compile-mark'
+import { projectLatitude, projectLongitude } from './geo'
 import type { GraphChanges, GraphModel } from './graph-model'
 
 export const goldenAngle: number = Math.PI * (3 - Math.sqrt(5))
@@ -17,6 +18,8 @@ export class Positions {
   xy: Float32Array = new Float32Array(0)
   placed: Uint8Array = new Uint8Array(0)
   source: Float64Array = new Float64Array(0)
+  originX = 0
+  originY = 0
   #spiral = 0
   readonly #rings = new Map<number, number>()
 
@@ -36,18 +39,44 @@ export class Positions {
   }
 
   x(index: number): number {
-    return this.xy[index * 2] ?? 0
+    return (this.xy[index * 2] ?? 0) + this.originX
   }
 
   y(index: number): number {
-    return this.xy[index * 2 + 1] ?? 0
+    return (this.xy[index * 2 + 1] ?? 0) + this.originY
   }
 
   set(index: number, x: number, y: number): void {
     this.reserve(index)
-    this.xy[index * 2] = x
-    this.xy[index * 2 + 1] = y
+    this.xy[index * 2] = x - this.originX
+    this.xy[index * 2 + 1] = y - this.originY
     this.placed[index] = 1
+    this.version++
+  }
+
+  holds(index: number, x: number, y: number): boolean {
+    return (
+      this.xy[index * 2] === Math.fround(x - this.originX) &&
+      this.xy[index * 2 + 1] === Math.fround(y - this.originY)
+    )
+  }
+
+  rebase(x: number, y: number): void {
+    const { xy, source, placed } = this
+    for (let index = 0; index < this.capacity; index++) {
+      if (placed[index] !== 1) continue
+      const sx = source[index * 2] ?? Number.NaN
+      const sy = source[index * 2 + 1] ?? Number.NaN
+      if (!Number.isNaN(sx) && this.holds(index, sx, sy)) {
+        xy[index * 2] = sx - x
+        xy[index * 2 + 1] = sy - y
+      } else {
+        xy[index * 2] = (xy[index * 2] ?? 0) + this.originX - x
+        xy[index * 2 + 1] = (xy[index * 2 + 1] ?? 0) + this.originY - y
+      }
+    }
+    this.originX = x
+    this.originY = y
     this.version++
   }
 
@@ -96,10 +125,17 @@ function pointReader(): (
       lastMark = mark
       compiled = compileNodeMark(mark)
     }
-    if (!compiled?.x || !compiled.y) return null
-    const x = finite(compiled.x(datum))
-    const y = finite(compiled.y(datum))
-    return x !== null && y !== null ? [x, y] : null
+    if (!compiled) return null
+    if (compiled.x && compiled.y) {
+      const x = finite(compiled.x(datum))
+      const y = finite(compiled.y(datum))
+      return x !== null && y !== null ? [x, y] : null
+    }
+    if (!compiled.longitude || !compiled.latitude) return null
+    const longitude = finite(compiled.longitude(datum))
+    const latitude = finite(compiled.latitude(datum))
+    if (longitude === null || latitude === null) return null
+    return [projectLongitude(longitude), projectLatitude(latitude)]
   }
 }
 
@@ -117,11 +153,7 @@ export function placeNodes(
     if (!record) continue
     const point = channelPoint(record.mark, record.datum)
     if (!point || !positions.follow(index, point)) continue
-    if (
-      positions.x(index) === Math.fround(point[0]) &&
-      positions.y(index) === Math.fround(point[1])
-    )
-      continue
+    if (positions.holds(index, point[0], point[1])) continue
     indices.push(index)
     to.push(point[0], point[1])
   }

@@ -10,6 +10,7 @@ import {
   DataTexture,
   formats,
 } from './gl'
+import { GlState } from './gl-state'
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
 import { ImageAtlas } from './image-atlas'
 import { GlyphBuffer, glyphStride, LabelLayer, sortBySize, sortEdgesByWidth } from './label-layer'
@@ -29,7 +30,14 @@ import {
   nodeVertex,
 } from './shaders'
 
-const blocks = { Frame: 0, States: 1 }
+function blockBindings(
+  gl: WebGL2RenderingContext,
+  shared: boolean,
+): { readonly Frame: number; readonly States: number } {
+  if (!shared) return { Frame: 0, States: 1 }
+  const count = gl.getParameter(gl.MAX_UNIFORM_BUFFER_BINDINGS) as number
+  return { Frame: count - 2, States: count - 1 }
+}
 const paletteWidth = 256
 const labelInterval = 120
 const badgeStride = 20
@@ -71,7 +79,48 @@ export function createWebglRenderer(
     powerPreference: 'high-performance',
   })
   if (!context) throw new Error('graph: WebGL2 is not available')
-  const gl = context
+  return createRenderer(context, invalidate, false)
+}
+
+export function createSharedRenderer(
+  gl: WebGL2RenderingContext,
+  invalidate: () => void = () => {},
+): Renderer {
+  const state = new GlState(gl)
+  const inner = state.guard(() => createRenderer(gl, invalidate, true))
+  let palette: { readonly colors: Uint8Array; readonly count: number } | null = null
+  const applyPalette = () => {
+    if (!palette) return
+    inner.setPalette(palette.colors, palette.count)
+    palette = null
+  }
+  return {
+    sync: (input) =>
+      state.guard(() => {
+        applyPalette()
+        inner.sync(input)
+      }),
+    setPalette: (colors, count) => {
+      palette = { colors, count }
+    },
+    setTheme: (theme) => inner.setTheme(theme),
+    render: (frame) =>
+      state.guard(() => {
+        applyPalette()
+        return inner.render(frame)
+      }),
+    stats: () => inner.stats?.() ?? { nodeLabels: 0, edgeLabels: 0, labelTime: 0, textureBytes: 0 },
+    ready: () => inner.ready?.() ?? Promise.resolve(),
+    destroy: () => state.guard(() => inner.destroy()),
+  }
+}
+
+function createRenderer(
+  gl: WebGL2RenderingContext,
+  invalidate: () => void,
+  shared: boolean,
+): Renderer {
+  const blocks = blockBindings(gl, shared)
   const format = formats(gl)
   const f32 = (length: number) => new Float32Array(length)
   const u32 = (length: number) => new Uint32Array(length)
@@ -105,7 +154,7 @@ export function createWebglRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
   }
 
-  const frameBlock = new Float32Array(24)
+  const frameBlock = new Float32Array(28)
   const frameBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -362,6 +411,8 @@ export function createWebglRenderer(
   let largestEdgeLabel = 0
   let edgeOrderStale = true
   let labelsStale = true
+  let originX = 0
+  let originY = 0
   let labelsMoved = false
   let orderStale = true
   let lastLabelTime = Number.NEGATIVE_INFINITY
@@ -767,6 +818,7 @@ export function createWebglRenderer(
       [labelProgram, glyphs(warmGlyph)],
       [badgeProgram, badgeAttributes(warmBadge)],
     ]
+    const box = shared ? (gl.getParameter(gl.SCISSOR_BOX) as Int32Array) : null
     gl.enable(gl.SCISSOR_TEST)
     gl.scissor(0, 0, 0, 0)
     for (const [program, attributes] of passes) {
@@ -776,12 +828,16 @@ export function createWebglRenderer(
       gl.deleteVertexArray(vao)
     }
     gl.disable(gl.SCISSOR_TEST)
+    if (box) gl.scissor(box[0] ?? 0, box[1] ?? 0, box[2] ?? 0, box[3] ?? 0)
     warmed = true
   }
 
   return {
     sync(next) {
+      originX = next.positions.originX
+      originY = next.positions.originY
       input = next
+      images.flush()
       syncNodes(next)
       refreshImages(next.scene.nodes)
       syncEdges(next)
@@ -836,8 +892,14 @@ export function createWebglRenderer(
     render(frame) {
       const width = gl.drawingBufferWidth
       const height = gl.drawingBufferHeight
-      frameBlock[0] = frame.view.x
-      frameBlock[1] = frame.view.y
+      const viewX = frame.view.x - originX
+      const viewY = frame.view.y - originY
+      const centerX = Math.fround(viewX)
+      const centerY = Math.fround(viewY)
+      frameBlock[0] = centerX
+      frameBlock[1] = centerY
+      frameBlock[24] = viewX - centerX
+      frameBlock[25] = viewY - centerY
       frameBlock[2] = frame.width
       frameBlock[3] = frame.height
       frameBlock[4] = frame.view.zoom
@@ -846,6 +908,8 @@ export function createWebglRenderer(
       const area: LabelArea = frame.labels ?? { ...frame, mode: 'visible' }
       frameBlock[6] = 6
       frameBlock[7] = area.mode === 'all' ? 0 : 8
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.States, statesBuffer)
       gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
       if (badgesStale || badgeGeneration !== atlas.generation) rebuildBadges()
@@ -855,8 +919,13 @@ export function createWebglRenderer(
       syncAtlas()
       images.prepare()
       gl.viewport(0, 0, width, height)
-      gl.clearColor(0, 0, 0, 0)
-      gl.clear(gl.COLOR_BUFFER_BIT)
+      if (shared) {
+        for (const capability of [gl.DEPTH_TEST, gl.STENCIL_TEST, gl.CULL_FACE, gl.SCISSOR_TEST])
+          gl.disable(capability)
+      } else {
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+      }
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
@@ -916,7 +985,7 @@ export function createWebglRenderer(
         gl.deleteVertexArray(curvePass.overlay)
       }
       for (const program of programs) gl.deleteProgram(program)
-      gl.getExtension('WEBGL_lose_context')?.loseContext()
+      if (!shared) gl.getExtension('WEBGL_lose_context')?.loseContext()
     },
   }
 

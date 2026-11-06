@@ -107,10 +107,12 @@ export function createFlowWatch(options: FlowWatchOptions): FlowWatch {
       list()
       if (flowingCount === 0) return false
       const margin = screenMargin / view.zoom
-      const left = view.x - width / 2 / view.zoom - margin
-      const right = view.x + width / 2 / view.zoom + margin
-      const top = view.y - height / 2 / view.zoom - margin
-      const bottom = view.y + height / 2 / view.zoom + margin
+      const centerX = view.x - positions.originX
+      const centerY = view.y - positions.originY
+      const left = centerX - width / 2 / view.zoom - margin
+      const right = centerX + width / 2 / view.zoom + margin
+      const top = centerY - height / 2 / view.zoom - margin
+      const bottom = centerY + height / 2 / view.zoom + margin
       for (let step = 0; step < flowingCount; step++) {
         const at = (lastVisible + step) % flowingCount
         if (!seen(flowing[at] ?? 0, left, top, right, bottom)) continue

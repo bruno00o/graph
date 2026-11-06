@@ -135,6 +135,15 @@ export const messages = {
     `${formatNumber(count)} ${plural(count, 'arête', 'arêtes')} de ${from} vers ${to}`,
   exportPng: 'Exporter en PNG',
   exportSvg: 'Exporter en SVG',
+  map: 'Carte',
+  mapLabel: (places: number, routes: number): string =>
+    `Carte de ${formatNumber(places)} ${plural(places, 'lieu', 'lieux')} et ${formatNumber(routes)} ${plural(routes, 'liaison', 'liaisons')}`,
+  mapHint:
+    'Maj\u00a0+\u00a0glisser entoure des lieux, la carte se déplace et zoome comme d’habitude.',
+  place: (index: string): string => `Lieu ${index}`,
+  volume: 'Volume',
+  places: (count: number): string => `${formatNumber(count)} ${plural(count, 'lieu', 'lieux')}`,
+  exporting: 'Export en cours…',
   minimap: 'Minicarte',
   minimapModes: { on: 'Affichée', off: 'Masquée' },
   legendLabel: 'Légende',
