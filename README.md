@@ -29,6 +29,7 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 - Drag, pan, zoom, multiple selection and lasso out of the box, plus keyboard navigation announced to screen readers
 - Force layout on the GPU in a Web Worker, with a CPU fallback: nodes settle in place while you keep panning, and dragging a node pins it
 - Themed with CSS variables, light and dark
+- Export to PNG, tiled past the GPU limits, or to a standalone SVG document
 - A framework-agnostic core with a thin React adapter, plus TanStack DB and TanStack Query integrations
 
 > Early development: the API may still change before 1.0.
@@ -45,6 +46,7 @@ pnpm add @bruno00o/graph
 | `@bruno00o/graph/react`          | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent`          | `react` 19                             |
 | `@bruno00o/graph/db`             | `persistPositions` and `subset` for TanStack DB collections      | `@tanstack/db`                         |
 | `@bruno00o/graph/query`          | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core`                 |
+| `@bruno00o/graph/export`         | `exportPng` and `exportSvg`                                      |                                        |
 | `@bruno00o/graph/layouts`        | `layers`, `grid`, `rings` and `radial` layouts                   |                                        |
 | `@bruno00o/graph/layouts/force`  | `force` layout, computed on the GPU in a Web Worker              |                                        |
 | `@bruno00o/graph/devtools`       | Graph panel and render timings for TanStack Devtools             | `@tanstack/devtools`                   |

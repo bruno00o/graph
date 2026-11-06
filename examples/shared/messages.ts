@@ -94,6 +94,8 @@ export const messages = {
   linksLoaded: (count: number): string =>
     `${formatNumber(count)} ${plural(count, 'arête chargée', 'arêtes chargées')}`,
   unload: 'Décharger les arêtes',
+  exportPng: 'Exporter en PNG',
+  exportSvg: 'Exporter en SVG',
 }
 
 function milliseconds(value: number): string {

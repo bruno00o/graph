@@ -54,6 +54,10 @@
       "types": "./dist/devtools/react.d.ts",
       "import": "./dist/devtools/react.js"
     },
+    "./export": {
+      "types": "./dist/export.d.ts",
+      "import": "./dist/export.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },

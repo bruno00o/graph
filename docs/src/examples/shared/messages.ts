@@ -72,4 +72,13 @@ export const messages = {
     `TanStack DB ${formatNumber(Math.round(database))} ms, graph ${formatNumber(Math.round(graph))} ms`,
   linksLoaded: (value: number) => count(value, 'edge loaded', 'edges loaded'),
   unload: 'Unload edges',
+  exportLabel: 'Graph of ten nodes with icons, badges, parallel edges and a loop',
+  downloadPng: 'Download PNG',
+  downloadSvg: 'Download SVG',
+  exportRegion: (name: string) => `Region: ${name}`,
+  exportRegions: { view: 'view', graph: 'whole graph' },
+  exportLabels: (name: string) => `Labels: ${name}`,
+  exportLabelModes: { visible: 'as shown', all: 'all' },
+  exported: (format: string, bytes: number, duration: number) =>
+    `${format}, ${formatNumber(Math.max(1, Math.round(bytes / 1024)))} kB in ${formatNumber(Math.round(duration))} ms`,
 }

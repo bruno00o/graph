@@ -45,6 +45,7 @@ export default defineConfig({
     'layouts/force': 'src/layouts/force/index.ts',
     devtools: 'src/devtools/index.ts',
     'devtools/react': 'src/devtools/react.tsx',
+    export: 'src/export/index.ts',
   },
   format: 'esm',
   platform: 'neutral',
