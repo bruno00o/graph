@@ -117,6 +117,7 @@ export class EdgeColumns {
   opacity: Float32Array = new Float32Array(0)
   bend: Float32Array = new Float32Array(0)
   label: (string | null)[] = []
+  labelBackground: Uint32Array = new Uint32Array(0)
 
   reserve(index: number): void {
     if (index < this.capacity) return
@@ -131,6 +132,7 @@ export class EdgeColumns {
     this.arrow = grow(this.arrow, capacity)
     this.opacity = grow(this.opacity, capacity)
     this.bend = grow(this.bend, capacity)
+    this.labelBackground = growColor(this.labelBackground, capacity)
     this.capacity = capacity
   }
 

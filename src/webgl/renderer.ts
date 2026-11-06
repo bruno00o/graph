@@ -11,7 +11,7 @@ import {
 } from './gl'
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
 import { ImageAtlas } from './image-atlas'
-import { GlyphBuffer, glyphStride, LabelLayer, sortBySize } from './label-layer'
+import { GlyphBuffer, glyphStride, LabelLayer, sortBySize, sortEdgesByWidth } from './label-layer'
 import {
   badgeFragment,
   badgeVertex,
@@ -153,6 +153,8 @@ export function createWebglRenderer(
   const curveIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const labelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const labelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
+  const edgeLabelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
+  const edgeLabelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const badgeBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const badgeGlyphBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const warmIndex = createBuffer(gl, new Uint32Array(1), gl.STATIC_DRAW)
@@ -170,6 +172,8 @@ export function createWebglRenderer(
     curveIndices,
     labelMainBuffer,
     labelHighlightBuffer,
+    edgeLabelMainBuffer,
+    edgeLabelHighlightBuffer,
     badgeBuffer,
     badgeGlyphBuffer,
     warmIndex,
@@ -270,6 +274,8 @@ export function createWebglRenderer(
     ]),
     labels: createVertexArray(gl, labelProgram, glyphs(labelMainBuffer)),
     labelHighlight: createVertexArray(gl, labelProgram, glyphs(labelHighlightBuffer)),
+    edgeLabels: createVertexArray(gl, labelProgram, glyphs(edgeLabelMainBuffer)),
+    edgeLabelHighlight: createVertexArray(gl, labelProgram, glyphs(edgeLabelHighlightBuffer)),
     badges: createVertexArray(gl, badgeProgram, badgeAttributes(badgeBuffer)),
     badgeGlyphs: createVertexArray(gl, labelProgram, glyphs(badgeGlyphBuffer)),
   }
@@ -315,6 +321,9 @@ export function createWebglRenderer(
   let labelOrder = new Uint32Array(0)
   let labelOrderLength = 0
   let screenLabels = false
+  let edgeLabelOrder = new Uint32Array(0)
+  let edgeLabelOrderLength = 0
+  let edgeOrderStale = true
   let labelsStale = true
   let labelsMoved = false
   let orderStale = true
@@ -531,6 +540,7 @@ export function createWebglRenderer(
       edgeState.data.set(states.edgeMask.subarray(range[0], range[1] + 1), range[0])
       edgeState.upload(range[0], range[1])
     }
+    if (next.dirty.edges.size > 0 || next.full) edgeOrderStale = true
   }
 
   function syncStates(next: RenderInput): void {
@@ -606,6 +616,12 @@ export function createWebglRenderer(
       screenLabels = sorted.screenLabels
       orderStale = false
     }
+    const edges = input.scene.edges
+    if (edgeOrderStale) {
+      if (edgeLabelOrder.length < edges.capacity) edgeLabelOrder = new Uint32Array(edges.capacity)
+      edgeLabelOrderLength = sortEdgesByWidth(edges, edgeLabelOrder)
+      edgeOrderStale = false
+    }
     const generation = atlas.generation
     labels.select(
       {
@@ -620,23 +636,31 @@ export function createWebglRenderer(
         order: labelOrder,
         orderLength: labelOrderLength,
         screenLabels,
+        edges,
+        edgeMask: input.states.edgeMask,
+        edgeLabelFlags: input.states.edgeLabelFlags,
+        highlightedEdges: input.states.highlightedEdges,
+        edgeOrder: edgeLabelOrder,
+        edgeOrderLength: edgeLabelOrderLength,
       },
       atlas,
     )
     if (atlas.generation !== generation) return selectLabels(frame, now)
     syncAtlas()
-    gl.bindBuffer(gl.ARRAY_BUFFER, labelMainBuffer)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Uint8Array(labels.main.data, 0, labels.main.count * glyphStride),
-      gl.DYNAMIC_DRAW,
-    )
-    gl.bindBuffer(gl.ARRAY_BUFFER, labelHighlightBuffer)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Uint8Array(labels.highlight.data, 0, labels.highlight.count * glyphStride),
-      gl.DYNAMIC_DRAW,
-    )
+    const uploads = [
+      [labelMainBuffer, labels.main],
+      [labelHighlightBuffer, labels.highlight],
+      [edgeLabelMainBuffer, labels.edgeMain],
+      [edgeLabelHighlightBuffer, labels.edgeHighlight],
+    ] as const
+    for (const [buffer, glyphs] of uploads) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Uint8Array(glyphs.data, 0, glyphs.count * glyphStride),
+        gl.DYNAMIC_DRAW,
+      )
+    }
     labelsStale = false
     labelsMoved = false
     lastLabelTime = now
@@ -686,7 +710,7 @@ export function createWebglRenderer(
       refreshImages(next.scene.nodes)
       syncEdges(next)
       syncStates(next)
-      if (next.dirty.nodes.size > 0 || next.full) labelsStale = true
+      if (next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full) labelsStale = true
       if (next.positionsChanged) labelsMoved = true
     },
 
@@ -769,6 +793,7 @@ export function createWebglRenderer(
       }
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
       draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
+      draw(labelProgram, vertexArrays.edgeLabels, labels.edgeMain.count, 0, 0)
       draw(labelProgram, vertexArrays.labels, labels.main.count, 0, 0)
       draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
       if (curvePass && curved.size > 0) {
@@ -779,6 +804,7 @@ export function createWebglRenderer(
         draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
         draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
       }
+      draw(labelProgram, vertexArrays.edgeLabelHighlight, labels.edgeHighlight.count, 0, 1)
       draw(labelProgram, vertexArrays.labelHighlight, labels.highlight.count, 0, 1)
       gl.bindVertexArray(null)
       return wait

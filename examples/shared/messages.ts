@@ -6,6 +6,8 @@ export const messages = {
   edges: 'Arêtes parallèles et boucles',
   edgesLabel: 'Graphe de cinq nœuds reliés par des arêtes parallèles et des boucles',
   route: (from: string, to: string): string => `Arête de ${from} vers ${to}`,
+  edgeName: (index: number): string => `lien ${index}`,
+  edgeLabels: 'Libellés des arêtes',
   nodes: 'Images, badges et contours',
   nodesLabel: 'Graphe de douze nœuds avec des images, des icônes, des badges et des contours',
   labelBackgrounds: 'Fond des libellés',

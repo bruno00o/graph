@@ -53,6 +53,7 @@ export class StateBuffers {
   readonly numbers: Float32Array = new Float32Array(maxStates * 8).fill(-1)
   readonly paint: Uint32Array = new Uint32Array(maxStates * 8).fill(noPaint)
   readonly labelFlags: Int8Array = new Int8Array(maxStates).fill(-1)
+  readonly edgeLabelFlags: Int8Array = new Int8Array(maxStates).fill(-1)
   readonly nodeDirty: DirtyRange = new DirtyRange()
   readonly edgeDirty: DirtyRange = new DirtyRange()
   nodeMask: Uint32Array = new Uint32Array(0)
@@ -92,7 +93,8 @@ export class StateBuffers {
     this.paint[at + 2] = style?.outline ?? noPaint
     this.paint[at + 3] =
       style?.outlineWidth === undefined ? noPaint : floatWord(Math.max(0, style.outlineWidth))
-    if (kind === 'nodes') this.labelFlags[bit] = this.numbers[at + 3] ?? -1
+    const flags = kind === 'nodes' ? this.labelFlags : this.edgeLabelFlags
+    flags[bit] = this.numbers[at + 3] ?? -1
     this.tableVersion++
   }
 

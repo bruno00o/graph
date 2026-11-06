@@ -10,6 +10,10 @@ export const platePadX = 0.45
 export const plateHalfOne = 0.75
 export const plateHalfTwo = 1.32
 export const plateRadius = 0.25
+export const textMiddle = 0.65
+export const edgeLabelSize = 11
+export const edgeLift = 1.1
+export const edgeLabelGap = 1.5
 
 const header = `#version 300 es
 precision highp float;
@@ -478,7 +482,7 @@ void main() {
 }
 `
 
-export const labelVertex: string = `${header}${nodeData}
+export const labelVertex: string = `${header}${nodeData}${edgeData}
 uniform float atlasFontSize;
 in vec2 corner;
 in uint glyphNode;
@@ -491,8 +495,68 @@ flat out vec4 vInk;
 flat out float vHalo;
 flat out vec4 vPlate;
 flat out float vOpacity;
+void edgeGlyph(uint kind) {
+  ivec2 t = texel(glyphNode);
+  uvec4 topology = texelFetch(edgeTopology, t, 0);
+  vec4 style = texelFetch(edgeStyle, t, 0);
+  uint mask = texelFetch(edgeState, t, 0).r;
+  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0), 32);
+  float size = ${edgeLabelSize.toFixed(1)} * min(1.0, zoom);
+  if ((topology.w & 16u) == 0u || look.label < 0.5 || size < labelMin) {
+    gl_Position = hidden;
+    return;
+  }
+  vOpacity = look.opacity;
+  ivec2 s = texel(topology.x);
+  ivec2 e = texel(topology.y);
+  vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
+  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0));
+  vec2 spot;
+  vec2 axis;
+  if (topology.x == topology.y) {
+    float reach = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * style.z);
+    spot = a + reach * vec2(0.70710678, -0.70710678);
+    axis = vec2(0.70710678, 0.70710678);
+  } else {
+    vec2 d = toScreen(texelFetch(nodePosition, e, 0).xy);
+    float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0));
+    vec2 delta = d - a;
+    float len = length(delta);
+    vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
+    spot = (a + d) * 0.5 + dir * ((sourceRadius - targetRadius) * 0.5) + vec2(-dir.y, dir.x) * (style.z * len);
+    axis = dir.x < 0.0 || (dir.x == 0.0 && dir.y < 0.0) ? -dir : dir;
+  }
+  vec2 across = vec2(-axis.y, axis.x);
+  vec2 local;
+  if (kind == 3u) {
+    vec2 extent = vec2(
+      glyphRect.x * size / atlasFontSize * 0.5 + size * ${platePadX.toFixed(2)},
+      size * ${plateHalfOne.toFixed(2)}
+    );
+    vUv = (corner * 2.0 - 1.0) * (extent + 1.0);
+    vPlate = vec4(extent, size * ${plateRadius.toFixed(2)}, 1.0);
+    vScale = 1.0;
+    vInk = paletteColor(glyphKind >> 4u);
+    vHalo = 0.0;
+    local = vec2(0.0, size * ${(plateHalfOne - textMiddle).toFixed(2)}) + vUv;
+  } else {
+    vScale = size / atlasFontSize;
+    bool plated = (glyphKind & 4u) != 0u;
+    float lift = plated ? size * ${textMiddle.toFixed(2)} : size * ${edgeLift.toFixed(2)} + max(look.strokeWidth, 0.5) * 0.5 + ${edgeLabelGap.toFixed(1)};
+    vInk = labelInk;
+    vHalo = plated ? 0.0 : 1.0;
+    local = (glyphRect.xy + corner * glyphRect.zw) * vScale - vec2(0.0, lift);
+  }
+  gl_Position = toClip(spot + axis * local.x + across * local.y);
+}
 void main() {
   vPlate = vec4(0.0);
+  uint kind = glyphKind & 3u;
+  if (kind != 2u && (glyphKind & 8u) != 0u) {
+    vUv = mix(glyphUv.xy, glyphUv.zw, corner);
+    edgeGlyph(kind);
+    return;
+  }
   ivec2 t = texel(glyphNode);
   vec4 style = texelFetch(nodeStyle, t, 0);
   uvec4 paint = texelFetch(nodePaint, t, 0);
@@ -501,7 +565,6 @@ void main() {
   Look look = nodeLook(t, style, paint, mask);
   vUv = mix(glyphUv.xy, glyphUv.zw, corner);
   vOpacity = look.opacity;
-  uint kind = glyphKind & 3u;
   if (kind == 2u) {
     bool highlighted = (mask & highlightMask) != 0u;
     float height = badgeHeight(style);

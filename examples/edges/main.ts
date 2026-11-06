@@ -21,6 +21,7 @@ interface Route {
   readonly id: string
   readonly from: string
   readonly to: string
+  readonly name: string
   readonly group: string
   readonly arrow: EdgeArrow
   readonly dash: EdgeDash
@@ -53,6 +54,7 @@ for (const [from, to, count] of pairs) {
       id: `${from}${to}${at}`,
       from: forward ? from : to,
       to: forward ? to : from,
+      name: messages.edgeName(routes.length + 1),
       group: messages.group(String.fromCharCode(65 + at)),
       arrow: arrows[at % arrows.length] ?? 'target',
       dash: dashes[at % dashes.length] ?? 'solid',
@@ -69,6 +71,7 @@ for (const [id, count] of [
       id: `${id}${id}${at}`,
       from: id,
       to: id,
+      name: messages.edgeName(routes.length + 1),
       group: messages.group(String.fromCharCode(65 + at)),
       arrow: 'target',
       dash: 'solid',
@@ -76,20 +79,28 @@ for (const [id, count] of [
   }
 }
 
-const definition = defineGraph({
-  marks: [
-    edges<Route>(routes, {
-      source: 'from',
-      target: 'to',
-      color: 'group',
-      width: () => 2.5,
-      arrow: (route) => route.arrow,
-      dash: (route) => route.dash,
-    }),
-    nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: () => 34, label: 'label' }),
-  ],
-  scales: { size: (value) => value, width: (value) => value },
-})
+type EdgeLabels = 'none' | 'plain' | 'plated'
+const edgeLabelModes: readonly EdgeLabels[] = ['none', 'plain', 'plated']
+
+const define = (mode: EdgeLabels) =>
+  defineGraph({
+    marks: [
+      edges<Route>(routes, {
+        source: 'from',
+        target: 'to',
+        color: 'group',
+        width: () => 2.5,
+        arrow: (route) => route.arrow,
+        dash: (route) => route.dash,
+        ...(mode === 'none' ? {} : { label: { text: 'name', background: mode === 'plated' } }),
+      }),
+      nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: () => 34, label: 'label' }),
+    ],
+    scales: { size: (value) => value, width: (value) => value },
+  })
+
+let mode: EdgeLabels = 'plain'
+const definition = define(mode)
 
 const { header, main } = createPage(messages.edges)
 const graph = mountGraph(main, { definition, ariaLabel: messages.edgesLabel })
@@ -109,6 +120,10 @@ graph.on('pointerleave', () => {
 
 header.append(
   hovered,
+  button(messages.edgeLabels, () => {
+    mode = edgeLabelModes[(edgeLabelModes.indexOf(mode) + 1) % edgeLabelModes.length] ?? 'none'
+    graph.update({ definition: define(mode) })
+  }),
   button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
   themeToggle(messages.dark, messages.light),
 )
