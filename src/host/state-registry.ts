@@ -12,9 +12,11 @@ interface Members {
 export interface RegistryChanges {
   readonly selection: boolean
   readonly hovered: boolean
+  readonly focused: boolean
 }
 
-const highlightBits = 0b11
+const highlightBits = 0b111
+const highlightStates: readonly string[] = ['selected', 'hovered', 'focused']
 const kinds: readonly StateKind[] = ['nodes', 'edges']
 
 function members(): Members {
@@ -103,6 +105,7 @@ export class StateRegistry {
   apply(changes: GraphChanges): RegistryChanges {
     let selection = false
     let hovered = false
+    let focused = false
     const forget = (kind: StateKind, removed: readonly ElementRef[]) => {
       for (const { key, index } of removed) {
         this.#setMask(kind, index, 0)
@@ -110,6 +113,7 @@ export class StateRegistry {
           if (!this.#members.get(name)?.[kind].delete(key)) continue
           if (name === 'selected') selection = true
           if (name === 'hovered') hovered = true
+          if (name === 'focused') focused = true
         }
       }
     }
@@ -120,7 +124,7 @@ export class StateRegistry {
     forget('edges', changes.edges.removed)
     learn('nodes', changes.nodes.added)
     learn('edges', changes.edges.added)
-    return { selection, hovered }
+    return { selection, hovered, focused }
   }
 
   takeHighlighted(): void {
@@ -128,7 +132,7 @@ export class StateRegistry {
     this.#highlightDirty = false
     const indices = (kind: StateKind) => {
       const found = new Set<number>()
-      for (const name of ['selected', 'hovered']) {
+      for (const name of highlightStates) {
         for (const key of this.#members.get(name)?.[kind] ?? []) {
           const index = this.#index(kind, key)
           if (index >= 0) found.add(index)

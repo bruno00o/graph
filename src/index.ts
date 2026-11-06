@@ -6,6 +6,7 @@ export type {
   GraphEventHandler,
   GraphEventName,
   GraphEvents,
+  GraphFocusEvent,
   GraphPointerEvent,
   GraphPositionEvent,
   GraphTarget,
@@ -15,6 +16,7 @@ export type {
 export type {
   FitOptions,
   GraphElement,
+  GraphFocus,
   GraphInstance,
   GraphPositions,
   GraphSelection,
