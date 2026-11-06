@@ -223,6 +223,42 @@ describe('groups', () => {
     expect(graph.positions.get('b')?.y).toBeCloseTo((b?.y ?? 0) + 30 / zoom)
   })
 
+  it('starts a folded group at the center of its placed descendants', () => {
+    const graph = mount(definition(), { initialFolded: ['g'] })
+    expect(graph.positions.get('g')?.x).toBeCloseTo(-150)
+    expect(graph.positions.get('g')?.y).toBeCloseTo(0)
+    graph.groups.unfold(['g'])
+    dom.flushFrames()
+    graph.groups.fold(['g'])
+    dom.flushFrames()
+    expect(graph.positions.get('g')?.x).toBeCloseTo(-150)
+    expect(graph.positions.get('g')?.y).toBeCloseTo(0)
+  })
+
+  it('places a nested folded group at its descendants when its parent unfolds', () => {
+    const nested: Item[] = [
+      { id: 'top' },
+      { id: 'g', parent: 'top' },
+      { id: 'a', parent: 'g', x: 100, y: 40 },
+      { id: 'b', parent: 'g', x: 300, y: 80 },
+      { id: 'c', parent: 'top', x: -100, y: 0 },
+    ]
+    const graph = mount(definition(nested), { initialFolded: ['top', 'g'] })
+    graph.groups.unfold(['top'])
+    dom.flushFrames()
+    expect(graph.positions.get('g')?.x).toBeCloseTo(200)
+    expect(graph.positions.get('g')?.y).toBeCloseTo(60)
+  })
+
+  it('keeps the placement of a folded group whose descendants have no known position', () => {
+    const graph = mount(definition(placed.map(({ x: _x, y: _y, ...item }) => item)), {
+      initialFolded: ['g'],
+    })
+    const g = graph.positions.get('g')
+    expect(Number.isFinite(g?.x)).toBe(true)
+    expect(Number.isFinite(g?.y)).toBe(true)
+  })
+
   it('keeps children positions and follows the group when it unfolds', () => {
     const graph = mount(definition(placed.map(({ x: _x, y: _y, ...item }) => item)))
     const a = graph.positions.get('a')

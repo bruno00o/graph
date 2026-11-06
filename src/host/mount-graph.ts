@@ -1065,7 +1065,43 @@ export function createGraphHost<S extends string = string>(
     probe?.flushed(flushed - start, applied - flushed, projected.scene.issues)
   }
 
-  function revealPositions(projected: ProjectionChanges): number[] {
+  function placeFoldedGroups(
+    changes: GraphChanges,
+    projected: ProjectionChanges,
+    tracked: (index: number) => boolean,
+  ): Set<number> {
+    const grouped = new Set<number>()
+    let added: Set<number> | null = null
+    const fresh = new Set(projected.fresh)
+    for (const { index } of projected.scene.nodes.added) {
+      if (hierarchy.folded[index] !== 1 || (hierarchy.childCount[index] ?? 0) === 0) continue
+      added ??= new Set(changes.nodes.added.map((ref) => ref.index))
+      if (!tracked(index) && (added.has(index) || fresh.has(index))) {
+        let minX = Number.POSITIVE_INFINITY
+        let minY = Number.POSITIVE_INFINITY
+        let maxX = Number.NEGATIVE_INFINITY
+        let maxY = Number.NEGATIVE_INFINITY
+        hierarchy.forEachDescendant(index, (descendant) => {
+          if (!tracked(descendant) && !projection.seen(descendant)) return
+          const x = positions.x(descendant)
+          const y = positions.y(descendant)
+          minX = Math.min(minX, x)
+          minY = Math.min(minY, y)
+          maxX = Math.max(maxX, x)
+          maxY = Math.max(maxY, y)
+        })
+        if (maxX >= minX) {
+          positions.set(index, (minX + maxX) / 2, (minY + maxY) / 2)
+          grouped.add(index)
+        }
+      }
+      if (!foldOrigins.has(index)) foldOrigins.set(index, [positions.x(index), positions.y(index)])
+    }
+    return grouped
+  }
+
+  function revealPositions(changes: GraphChanges, projected: ProjectionChanges): number[] {
+    for (const { index } of changes.nodes.removed) foldOrigins.delete(index)
     for (const group of projected.folded) {
       foldOrigins.set(group, [positions.x(group), positions.y(group)])
     }
@@ -1085,6 +1121,9 @@ export function createGraphHost<S extends string = string>(
         if (!tracked(index)) positions.set(index, positions.x(index) + dx, positions.y(index) + dy)
       })
     }
+    const grouped = projection.active
+      ? placeFoldedGroups(changes, projected, tracked)
+      : new Set<number>()
     if (projected.revealed.length === 0) return []
     const fresh = new Set(projected.fresh)
     const anchorOf = (index: number): number => {
@@ -1101,7 +1140,7 @@ export function createGraphHost<S extends string = string>(
       if (anchor < 0 || tracked(index) || scene.nodes.shape[index] === containerShape) continue
       const ax = positions.x(anchor)
       const ay = positions.y(anchor)
-      if (fresh.has(index)) {
+      if (fresh.has(index) && !grouped.has(index)) {
         const ring = positions.nextRing(anchor)
         const angle = ring * goldenAngle
         const radius = placementSpacing * Math.sqrt(ring + 1)
@@ -1119,7 +1158,7 @@ export function createGraphHost<S extends string = string>(
 
   function applyChanges(changes: GraphChanges, projected: ProjectionChanges): void {
     followPositions(placeNodes(model, positions, changes))
-    const fresh = revealPositions(projected)
+    const fresh = revealPositions(changes, projected)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const result = registry.apply(changes)
     registry.refreshEdges(projected.edges)

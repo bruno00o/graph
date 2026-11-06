@@ -213,6 +213,10 @@ export class Projection {
     return this.aggregateAt(index)?.keys ?? null
   }
 
+  seen(index: number): boolean {
+    return this.#seen[index] === 1
+  }
+
   markSeen(index: number): void {
     if (index < this.#seen.length) this.#seen[index] = 1
   }
