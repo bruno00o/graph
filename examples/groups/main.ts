@@ -7,7 +7,7 @@ import {
   mountGraph,
   nodes,
 } from '@bruno00o/graph'
-import { grid, layers, radial, rings } from '@bruno00o/graph/layouts'
+import { grid, type LayersDirection, layers, radial, rings } from '@bruno00o/graph/layouts'
 import { force } from '@bruno00o/graph/layouts/force'
 import { messages } from '../shared/messages'
 import { button, choice, createPage, exportButtons, status, themeToggle } from '../shared/page'
@@ -143,18 +143,33 @@ const hint = status()
 hint.textContent = messages.groupsHint
 
 const kinds = Object.keys(messages.layoutKinds) as Kind[]
+const directions = Object.keys(messages.directions) as LayersDirection[]
+
+const kindChoice = choice(
+  messages.layoutKind,
+  kinds.map((value) => ({ value, text: messages.layoutKinds[value] })),
+  'force',
+  (value) => {
+    const kind = kinds.find((candidate) => candidate === value) ?? 'force'
+    void graph.layout.run(layouts[kind], { fit: true })
+  },
+)
 
 header.append(
   hint,
   hovered,
   folded,
+  kindChoice,
   choice(
-    messages.layoutKind,
-    kinds.map((value) => ({ value, text: messages.layoutKinds[value] })),
-    'force',
+    messages.direction,
+    directions.map((value) => ({ value, text: messages.directions[value] })),
+    'down',
     (value) => {
-      const kind = kinds.find((candidate) => candidate === value) ?? 'force'
-      void graph.layout.run(layouts[kind], { fit: true })
+      const direction = directions.find((candidate) => candidate === value) ?? 'down'
+      layouts.layers = layers({ direction })
+      const select = kindChoice.querySelector('select')
+      if (select) select.value = 'layers'
+      void graph.layout.run(layouts.layers, { fit: true })
     },
   ),
   button(messages.foldAll, () => graph.groups.fold()),

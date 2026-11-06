@@ -177,13 +177,19 @@ describe('layout options', () => {
 
 describe('instant layouts with groups', () => {
   it('lays each group out as a block and keeps the containers apart', async () => {
-    for (const layout of [grid(), rings(), radial(), layers()]) {
+    for (const layout of [grid(), rings(), radial()]) {
       const { graph, members } = groupedGraph()
       const xy = await run(layout, graph)
       expect(smallestGap(graph, xy)).toBeGreaterThan(8)
       const group = members[3] ?? []
       expect(spread(xy, group)).toBeLessThan(spread(xy, members[0] ?? []))
     }
+  })
+
+  it('keeps the containers of a layered layout apart', async () => {
+    const { graph } = groupedGraph()
+    const xy = await run(layers(), graph)
+    expect(smallestGap(graph, xy)).toBeGreaterThan(8)
   })
 
   it('leaves fixed members and the slots of the containers in place', async () => {

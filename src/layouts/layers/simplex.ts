@@ -11,7 +11,7 @@ interface Reduction {
   readonly offset: Int32Array
 }
 
-function reduce(count: number, successors: Adjacency): Reduction {
+function reduce(count: number, successors: Adjacency, lengths: Int32Array | null): Reduction {
   const edgeCount = successors.items.length
   const capacity = edgeCount + count
   const tail = new Int32Array(capacity)
@@ -52,7 +52,7 @@ function reduce(count: number, successors: Adjacency): Reduction {
   for (let node = 0; node < count; node++) {
     for (let k = successors.start[node] ?? 0; k < (successors.start[node + 1] ?? 0); k++) {
       const target = successors.items[k] ?? 0
-      if (target !== node) link(node, target, 1)
+      if (target !== node) link(node, target, lengths ? (lengths[k] ?? 1) : 1)
     }
   }
   const stack = new Int32Array(count)
@@ -684,8 +684,13 @@ export function simplex(
   successors: Adjacency,
   topological: Int32Array,
   budget: number,
+  lengths: Int32Array | null = null,
 ): Int32Array {
-  const { kept, local, tail, head, length, removed, anchor, offset } = reduce(count, successors)
+  const { kept, local, tail, head, length, removed, anchor, offset } = reduce(
+    count,
+    successors,
+    lengths,
+  )
   const reducedCount = kept.length
   const order = new Int32Array(reducedCount)
   let at = 0

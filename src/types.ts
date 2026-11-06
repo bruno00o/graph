@@ -741,6 +741,11 @@ export interface LayoutGroups {
   readonly padding: Float32Array
   /** `1` for a group drawn as a circle, `0` for a rectangle. */
   readonly circle: Uint8Array
+  /**
+   * Space the label of each group takes outside its container, in world units at zoom 1: four
+   * numbers per index, above, right of, below and left of the container. Missing when unknown.
+   */
+  readonly labelSpace?: Float32Array
 }
 
 /** Receives the positions a layout computes. Every array holds `capacity × 2` numbers. */

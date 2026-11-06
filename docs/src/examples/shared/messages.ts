@@ -44,6 +44,8 @@ export const messages = {
   layoutKind: (name: string) => `Layout: ${name}`,
   layoutKinds: { layers: 'layers', force: 'force', grid: 'grid', rings: 'rings', radial: 'radial' },
   arrange: 'Arrange the selection',
+  groupsOn: 'Nest the branches in groups',
+  groupsOff: 'Remove the groups',
   node: (index: number) => `Node ${formatNumber(index)}`,
   labelsLabel: 'Graph of twelve nodes with labels of varied sizes, colors and placements',
   longLabel: (index: number) => `Node with a particularly long label ${index}`,
