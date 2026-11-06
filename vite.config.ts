@@ -11,6 +11,7 @@ export default defineConfig({
     alias: [
       { find: '@bruno00o/graph/theme.css', replacement: resolve(source, 'theme/theme.css') },
       { find: '@bruno00o/graph/react', replacement: resolve(source, 'react/index.tsx') },
+      { find: '@bruno00o/graph/db', replacement: resolve(source, 'db/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(source, 'index.ts') },
     ],
   },
@@ -24,6 +25,7 @@ export default defineConfig({
         vanilla: resolve(import.meta.dirname, 'examples/vanilla/index.html'),
         react: resolve(import.meta.dirname, 'examples/react/index.html'),
         bench: resolve(import.meta.dirname, 'examples/bench/index.html'),
+        collab: resolve(import.meta.dirname, 'examples/collab/index.html'),
       },
     },
   },

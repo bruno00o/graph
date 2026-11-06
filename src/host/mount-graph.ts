@@ -681,6 +681,14 @@ export function createGraphHost<S extends string = string>(
         )
       })
       emitter.emit('drag', dragEvent(drag, event))
+      if (emitter.has('positionchange')) {
+        const moved = new Map<Key, Point>()
+        drag.keys.forEach((key, i) => {
+          const index = drag.indices[i] ?? 0
+          moved.set(key, { x: positions.x(index), y: positions.y(index) })
+        })
+        emitter.emit('positionchange', { origin: 'drag', positions: moved })
+      }
       request()
     } else if (definition.interaction.pan) {
       commitView(panBy(store.get().view, point.x - gesture.last.x, point.y - gesture.last.y))
@@ -822,13 +830,16 @@ export function createGraphHost<S extends string = string>(
     set: (entries, positionOptions = {}) => {
       const indices: number[] = []
       const to: number[] = []
+      const moved = new Map<Key, Point>()
       for (const [key, point] of entries) {
         const record = model.node(key)
         if (!record) continue
         indices.push(record.index)
         to.push(point.x, point.y)
+        moved.set(key, { x: point.x, y: point.y })
       }
       movePositions(indices, to, positionOptions.duration ?? 0)
+      if (moved.size > 0) emitter.emit('positionchange', { origin: 'api', positions: moved })
     },
   }
 

@@ -18,7 +18,8 @@
     "noEmit": true,
     "paths": {
       "@bruno00o/graph": ["./src/index.ts"],
-      "@bruno00o/graph/react": ["./src/react/index.tsx"]
+      "@bruno00o/graph/react": ["./src/react/index.tsx"],
+      "@bruno00o/graph/db": ["./src/db/index.ts"]
     }
   },
   "include": ["src", "examples"]

@@ -7,8 +7,10 @@ export type {
   GraphEventName,
   GraphEvents,
   GraphPointerEvent,
+  GraphPositionEvent,
   GraphTarget,
   GraphTargetEvent,
+  PositionOrigin,
 } from './host/events'
 export type {
   FitOptions,
