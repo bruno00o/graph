@@ -129,7 +129,7 @@ export function mount(container: HTMLElement): GraphInstance {
   tooltip.append(title, detail)
   graph.on('pointerenter', ({ target }) => {
     if (target.kind === 'node') {
-      const item = target.datum as Item
+      const item = target.datum
       title.textContent = item.label
       detail.textContent = messages.weight(item.group, item.weight)
       graph.anchors.set(tooltip, {
@@ -140,7 +140,7 @@ export function mount(container: HTMLElement): GraphInstance {
       })
       return
     }
-    const link = target.datum as Link
+    const link = target.datum
     title.textContent = messages.route(
       byId.get(link.from)?.label ?? '',
       byId.get(link.to)?.label ?? '',

@@ -1,6 +1,12 @@
-import { defineGraph, edges, type Key, nodes } from '@bruno00o/graph'
+import { defineGraph, type EdgeMark, edges, type Key, type NodeMark, nodes } from '@bruno00o/graph'
 import { createExploration, type Exploration } from '@bruno00o/graph/query'
-import { Graph, type GraphInstance, useGraph, useGraphState } from '@bruno00o/graph/react'
+import {
+  Graph,
+  type GraphInstance,
+  type GraphState,
+  useGraph,
+  useGraphState,
+} from '@bruno00o/graph/react'
 import {
   QueryClient,
   QueryClientProvider,
@@ -42,6 +48,7 @@ const neighbors = (key: Key) =>
   })
 
 type Explorer = Exploration<Item, Link>
+type Marks = NodeMark<Item> | EdgeMark<Link>
 
 function ExplorationStates({ exploration }: { readonly exploration: Explorer }) {
   const graph = useGraph()
@@ -53,8 +60,8 @@ function ExplorationStates({ exploration }: { readonly exploration: Explorer }) 
 }
 
 function Hovered() {
-  const hovered = useGraphState((state) => state.hovered)
-  const label = hovered?.kind === 'node' ? (hovered.datum as Item).label : ''
+  const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
+  const label = hovered?.kind === 'node' ? hovered.datum.label : ''
   return (
     <output className="hovered" aria-live="polite">
       {label}

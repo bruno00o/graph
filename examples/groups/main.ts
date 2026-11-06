@@ -139,7 +139,7 @@ graph.on('pointerenter', ({ target }) => {
     return
   }
   const aggregate: AggregateEdge | undefined = target.aggregate
-  const link = target.datum as Link
+  const link = target.datum
   hovered.textContent = aggregate
     ? messages.mergedEdges(aggregate.count, labelOf(aggregate.source), labelOf(aggregate.target))
     : messages.route(labelOf(link.from), labelOf(link.to))

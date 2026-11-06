@@ -21,7 +21,7 @@ export interface GridOptions<T = unknown> {
  * A layout that lines the free nodes up in rows, centered on where they are. It ends at once, and
  * nodes glide to their place.
  */
-export function grid<T = unknown>(options: GridOptions<T> = {}): Layout {
+export function grid<T = unknown>(options: GridOptions<T> = {}): Layout<T> {
   return instant('grid', options, (graph) => {
     const xy = Float32Array.from(graph.xy)
     const indices = movers(graph)

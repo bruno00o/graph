@@ -7,8 +7,8 @@ description: Layouts computed at once, on the main thread, that glide nodes to t
 import { grid, layers, radial, rings } from '@bruno00o/graph/layouts'
 
 function layers(options?: LayersOptions): Layout
-function grid<T = unknown>(options?: GridOptions<T>): Layout
-function rings<T = unknown>(options?: RingsOptions<T>): Layout
+function grid<T = unknown>(options?: GridOptions<T>): Layout<T>
+function rings<T = unknown>(options?: RingsOptions<T>): Layout<T>
 function radial(options?: RadialOptions): Layout
 ```
 
@@ -52,7 +52,7 @@ interface LayersOptions {
 type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
 ```
 
-`'degree'` puts the nodes with the most edges first. A function compares the items of two nodes, as given to `nodes()`; ties keep the internal order. `T` is the item type of the node mark: pass it as the type argument of `grid` or `rings`.
+`'degree'` puts the nodes with the most edges first. A function compares the items of two nodes, as given to `nodes()`; ties keep the internal order. `T` is the item type of the node marks. `graph.layout.run` infers it from the definition; inside `defineGraph`, pass it as the type argument of `grid` or `rings`, or annotate a parameter.
 
 ## grid
 

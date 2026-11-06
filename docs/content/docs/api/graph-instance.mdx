@@ -4,26 +4,28 @@ description: The object returned by mountGraph, and by the ref of the Graph comp
 ---
 
 ```ts
-interface GraphInstance<S extends string = string> {
-  readonly store: GraphStore<S>
+interface GraphInstance<S extends string = string, M extends Mark = Mark> {
+  readonly store: GraphStore<S, M>
   readonly view: GraphView
   readonly selection: GraphSelection
-  readonly focus: GraphFocus
+  readonly focus: GraphFocus<M>
   readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
-  readonly layout: GraphLayout
+  readonly layout: GraphLayout<M>
   readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   readonly groups: GraphGroups
   readonly element: HTMLElement
-  pick(point: Point): GraphTarget | null
+  pick(point: Point): GraphTarget<M> | null
   neighbors(key: Key): Key[]
   edgesOf(key: Key): Key[]
   endpoints(key: Key): { source: Key; target: Key } | undefined
-  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
-  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView' | 'initialFolded'>>): void
+  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
+  update(options: Partial<Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded'>>): void
   destroy(): void
 }
 ```
+
+`S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
 ## Members
 
@@ -167,12 +169,12 @@ interface GraphGroups {
 ## Graph state
 
 ```ts
-interface GraphState<S extends string = string> {
+interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly view: View
   readonly width: number
   readonly height: number
-  readonly hovered: GraphTarget | null
-  readonly focused: GraphTarget | null
+  readonly hovered: GraphTarget<M> | null
+  readonly focused: GraphTarget<M> | null
   readonly selection: ElementKeys
   readonly states: { readonly [K in FreeState<S>]: ElementKeys }
   readonly positionsVersion: number

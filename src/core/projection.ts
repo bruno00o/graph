@@ -99,6 +99,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
   if (options.label !== undefined) fallback.label = liftedLabel(options.label)
   const look = Object.freeze({
     type: 'edges',
+    name: mark.name,
     data: [],
     options: Object.freeze({
       ...fallback,

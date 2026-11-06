@@ -4,10 +4,12 @@ description: Build a frozen graph definition from marks, scales, states and opti
 ---
 
 ```ts
-function defineGraph<S extends string = never>(options: GraphDefinitionOptions<S>): GraphDefinition<S>
+function defineGraph<S extends string = never, M extends Mark = never>(
+  options: GraphDefinitionOptions<S, M>,
+): GraphDefinition<S, M>
 ```
 
-Returns a frozen definition. `S` is inferred from the keys of `states` and types the state methods of the instance.
+Returns a frozen definition. `S` is inferred from the keys of `states` and types the state methods of the instance. `M` is inferred from `marks`, the union of their types: the item types and names of the marks type the targets of events and of the state. See [TypeScript](/docs/typescript).
 
 ## Options
 
@@ -133,11 +135,11 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 ## Result
 
 ```ts
-interface GraphDefinition<S extends string = string> {
-  readonly marks: readonly Mark[]
+interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
+  readonly marks: readonly M[]
   readonly scales: ScalesOptions
   readonly states: StateStyles<S>
-  readonly layout: Layout | null
+  readonly layout: Layout<NodeDatum<M>> | null
   readonly interaction: ResolvedInteraction
   readonly transitions: ResolvedTransitions
   readonly background: ResolvedBackground | null
