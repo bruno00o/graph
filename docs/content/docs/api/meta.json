@@ -16,6 +16,7 @@
     "hooks",
     "---@bruno00o/graph/db---",
     "persist-positions",
+    "subset",
     "---@bruno00o/graph/query---",
     "create-exploration",
     "---@bruno00o/graph/layouts---",
