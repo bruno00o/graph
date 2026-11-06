@@ -22,6 +22,7 @@ import {
   shapeCodes,
 } from './columns'
 import { type CompiledNodeMark, compileEdgeMark, compileNodeMark } from './compile-mark'
+import { createEdgeLanes } from './edge-lanes'
 import type { EdgeRecord, ElementKind, GraphChanges, GraphModel, NodeRecord } from './graph-model'
 import { Palette } from './palette'
 
@@ -102,6 +103,7 @@ export function createScene(): Scene {
   const nodes = new NodeColumns()
   const edges = new EdgeColumns()
   const palette = new Palette()
+  const lanes = createEdgeLanes()
   const slots = new Map<Mark, number>()
   let layers: Layer[] = []
   let layersDirty = false
@@ -200,6 +202,7 @@ export function createScene(): Scene {
     edges.slot[index] = slots.get(record.mark) ?? 0
     edges.source[index] = model.node(record.source)?.index ?? 0
     edges.target[index] = model.node(record.target)?.index ?? 0
+    lanes.link(index, edges.source[index] ?? 0, edges.target[index] ?? 0)
     edges.color[index] = palette.id(color)
     edges.width[index] = Number.isNaN(width)
       ? defaults.edgeWidth
@@ -221,6 +224,7 @@ export function createScene(): Scene {
   }
 
   function removeEdge(index: number): void {
+    lanes.unlink(index)
     edges.clear(index)
     widthValues[index] = Number.NaN
     edgeColorValues[index] = undefined
@@ -329,6 +333,7 @@ export function createScene(): Scene {
 
       for (const record of nodeRecords.values()) writeNode(record)
       for (const record of edgeRecords.values()) writeEdge(model, record)
+      lanes.write(edges, dirtyEdges)
     },
 
     takeDirty() {

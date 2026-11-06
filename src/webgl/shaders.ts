@@ -1,3 +1,5 @@
+import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
+
 const header = `#version 300 es
 precision highp float;
 precision highp int;
@@ -174,6 +176,10 @@ void main() {
     gl_Position = hidden;
     return;
   }
+  if (topology.x == topology.y || style.z != 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z), 32);
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
@@ -216,6 +222,145 @@ void main() {
   vColor = paletteColor(look.stroke);
   vOpacity = look.opacity;
   gl_Position = visible > 0.5 ? toClip(ps + dir * along + normal * across) : hidden;
+}
+`
+
+const segments = curveSegments.toFixed(1)
+
+export const curveVertex: string = `${header}${nodeData}${edgeData}
+in vec3 corner;
+in uint instance;
+out vec2 vPos;
+out float vStart;
+out float vEnd;
+out float vHalfWidth;
+out float vArrowLength;
+out float vArrowHalf;
+out float vHaloWidth;
+flat out uint vDash;
+flat out uint vArrow;
+flat out vec4 vColor;
+flat out float vOpacity;
+vec2 cubicAt(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
+  float u = 1.0 - t;
+  return u * u * u * a + 3.0 * u * u * t * b + 3.0 * u * t * t * c + t * t * t * d;
+}
+vec2 cubicTangent(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
+  float u = 1.0 - t;
+  return 3.0 * u * u * (b - a) + 6.0 * u * t * (c - b) + 3.0 * t * t * (d - c);
+}
+float crossing(vec2 a, vec2 b, vec2 c, vec2 d, vec2 point, float radius, float lo, float hi, bool rising) {
+  for (int i = 0; i < 14; i++) {
+    float mid = (lo + hi) * 0.5;
+    bool inside = distance(cubicAt(a, b, c, d, mid), point) < radius;
+    if (inside == rising) lo = mid; else hi = mid;
+  }
+  return (lo + hi) * 0.5;
+}
+float arcLength(vec2 a, vec2 b, vec2 c, vec2 d, float from, float to) {
+  float total = 0.0;
+  vec2 previous = cubicAt(a, b, c, d, from);
+  for (int i = 1; i <= 8; i++) {
+    vec2 next = cubicAt(a, b, c, d, mix(from, to, float(i) / 8.0));
+    total += distance(previous, next);
+    previous = next;
+  }
+  return total;
+}
+vec2 turn(vec2 v, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+  return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+void main() {
+  ivec2 t = texel(instance);
+  uvec4 topology = texelFetch(edgeTopology, t, 0);
+  vec4 style = texelFetch(edgeStyle, t, 0);
+  uint packed = topology.w;
+  uint mask = texelFetch(edgeState, t, 0).r;
+  bool highlighted = (mask & highlightMask) != 0u;
+  bool loop = topology.x == topology.y;
+  if ((packed & 16u) == 0u || (!loop && style.z == 0.0) || (overlay == 0 && (int(packed >> 5u) != layerSlot || highlighted))) {
+    gl_Position = hidden;
+    return;
+  }
+  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z), 32);
+  ivec2 s = texel(topology.x);
+  ivec2 e = texel(topology.y);
+  vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
+  vec2 d = toScreen(texelFetch(nodePosition, e, 0).xy);
+  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0));
+  float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0));
+  vec2 b;
+  vec2 c;
+  if (loop) {
+    float reach = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * style.z);
+    float arm = reach / (0.75 * cos(${loopTurn.toFixed(4)}));
+    vec2 u = vec2(0.70710678, -0.70710678);
+    b = a + arm * turn(u, ${loopTurn.toFixed(4)});
+    c = a + arm * turn(u, -${loopTurn.toFixed(4)});
+  } else {
+    vec2 delta = d - a;
+    float len = length(delta);
+    vec2 side = len > 0.0 ? vec2(-delta.y, delta.x) / len : vec2(0.0, 1.0);
+    vec2 control = (a + d) * 0.5 + side * (2.0 * style.z * len);
+    b = a + (control - a) * (2.0 / 3.0);
+    c = d + (control - d) * (2.0 / 3.0);
+  }
+  float t0 = crossing(a, b, c, d, a, sourceRadius, 0.0, 0.5, true);
+  float t1 = crossing(a, b, c, d, d, targetRadius, 0.5, 1.0, false);
+  float visible = arcLength(a, b, c, d, t0, t1);
+  float width = max(look.strokeWidth, 0.5);
+  uint arrow = (packed >> 2u) & 3u;
+  float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
+  float arrowHalf = max(width * 1.6, 3.0);
+  float halo = look.halo > 0.5 ? haloWidth : 0.0;
+  float margin = 0.5 / pixelRatio + 0.5;
+  float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
+  float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
+  vec2 first = cubicAt(a, b, c, d, t0);
+  vec2 last = cubicAt(a, b, c, d, t1);
+  float ta = startHead > 0.0 ? crossing(a, b, c, d, first, startHead, t0, t1, true) : t0;
+  float tb = endHead > 0.0 ? crossing(a, b, c, d, last, endHead, t0, t1, false) : t1;
+  float body = width * 0.5 + halo + margin;
+  float head = max(body, arrowHalf + halo + margin);
+  int station = int(corner.x + 0.5);
+  float at;
+  float along;
+  float push = 0.0;
+  if (station == 0) {
+    at = t0;
+    along = -margin;
+    push = -margin;
+  } else if (station > int(${segments}) + 1) {
+    at = t1;
+    along = visible + margin;
+    push = margin;
+  } else {
+    float f = float(station - 1) / ${segments};
+    at = mix(ta, tb, f);
+    along = mix(startHead, visible - endHead, f);
+  }
+  vec2 tangent = cubicTangent(a, b, c, d, at);
+  float tangentLength = length(tangent);
+  vec2 dir = tangentLength > 0.0 ? tangent / tangentLength : vec2(1.0, 0.0);
+  vec2 normal = vec2(-dir.y, dir.x);
+  float extent = corner.z < 0.5 ? body
+    : corner.z < 1.5 ? (startHead > 0.0 ? head : body)
+    : (endHead > 0.0 ? head : body);
+  float across = corner.y * extent;
+  vPos = vec2(along, across);
+  vStart = 0.0;
+  vEnd = visible;
+  vHalfWidth = width * 0.5;
+  vArrowLength = arrowLength;
+  vArrowHalf = arrowHalf;
+  vHaloWidth = halo;
+  vDash = packed & 3u;
+  vArrow = arrow;
+  vColor = paletteColor(look.stroke);
+  vOpacity = look.opacity;
+  gl_Position = visible > 0.5 ? toClip(cubicAt(a, b, c, d, at) + dir * push + normal * across) : hidden;
 }
 `
 
@@ -335,4 +480,14 @@ export const cornerEdge: Float32Array = new Float32Array([
   0, -1, 1, 0, 1, 1, 1, -1, 1, 1, 1, 1, 1, -1, 0, 1, 1, 0, 2, -1, 0, 2, 1, 0, 2, -1, 2, 2, 1, 2, 3,
   -1, 2, 3, 1, 2,
 ])
+function curveCorners(): Float32Array {
+  const values: number[] = [0, -1, 1, 0, 1, 1, 1, -1, 1, 1, 1, 1]
+  for (let station = 1; station <= curveSegments + 1; station++)
+    values.push(station, -1, 0, station, 1, 0)
+  const end = curveSegments + 1
+  values.push(end, -1, 2, end, 1, 2, end + 1, -1, 2, end + 1, 1, 2)
+  return new Float32Array(values)
+}
+
+export const cornerCurve: Float32Array = curveCorners()
 export const cornerLabel: Float32Array = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1])

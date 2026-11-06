@@ -29,6 +29,46 @@ function setup(options: GraphDefinitionOptions) {
 const linkOptions = { source: 'from', target: 'to' } as const
 
 describe('createScene', () => {
+  it('bends parallel edges into lanes and orders loops', () => {
+    const { scene, model, render } = setup({
+      marks: [
+        nodes<Item>([{ id: 'a' }, { id: 'b' }, { id: 'c' }]),
+        edges<Link>(
+          [
+            { id: 'ab', from: 'a', to: 'b' },
+            { id: 'ba', from: 'b', to: 'a' },
+            { id: 'bc', from: 'b', to: 'c' },
+            { id: 'aa', from: 'a', to: 'a' },
+            { id: 'aa2', from: 'a', to: 'a' },
+          ],
+          linkOptions,
+        ),
+      ],
+    })
+    const bend = (key: string) => scene.edges.bend[model.edge(key)?.index ?? -1]
+    expect(bend('ab')).toBeCloseTo(-0.06)
+    expect(bend('ba')).toBeCloseTo(-0.06)
+    expect(bend('bc')).toBe(0)
+    expect([bend('aa'), bend('aa2')]).toEqual([0, 1])
+    const dirty = render({
+      marks: [
+        nodes<Item>([{ id: 'a' }, { id: 'b' }, { id: 'c' }]),
+        edges<Link>(
+          [
+            { id: 'ab', from: 'a', to: 'b' },
+            { id: 'bc', from: 'b', to: 'c' },
+            { id: 'aa2', from: 'a', to: 'a' },
+          ],
+          linkOptions,
+        ),
+      ],
+    })
+    expect(bend('ab')).toBe(0)
+    expect(bend('aa2')).toBe(0)
+    expect(dirty.edges.has(model.edge('ab')?.index ?? -1)).toBe(true)
+    expect(dirty.edges.has(model.edge('aa2')?.index ?? -1)).toBe(true)
+  })
+
   it('applies theme defaults', () => {
     const { scene, model, fill, size } = setup({
       marks: [
