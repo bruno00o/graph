@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { LayoutGraph, LayoutRun } from '../../types'
 import type { GpuForce } from './gpu'
-import { runGpuForce } from './runner'
+import { runGpuForce, snapshotInterval } from './runner'
 import { forceDefaults } from './simulation'
 
 function graph(): LayoutGraph {
@@ -48,6 +48,20 @@ function fakeGpu(steps: number, failAt = -1) {
   }
   return fake
 }
+
+describe('snapshotInterval', () => {
+  it('spaces snapshots out as the graph grows', () => {
+    expect(snapshotInterval(graph())).toBe(32)
+    const capacity = 400_000
+    const large: LayoutGraph = {
+      ...graph(),
+      capacity,
+      alive: new Uint8Array(capacity).fill(1),
+      edges: new Uint32Array(800_000),
+    }
+    expect(snapshotInterval(large)).toBe(128)
+  })
+})
 
 describe('runGpuForce', () => {
   it('streams snapshots, then separates and ends', async () => {

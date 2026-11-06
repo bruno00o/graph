@@ -128,7 +128,7 @@ nodes(itemsCollection, { color: 'group', label: 'label' })
 
 ## Examples
 
-The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 80,000 nodes, collaboration across tabs with TanStack DB, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
+The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 500,000 nodes, collaboration across tabs with TanStack DB, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
 
 ## Get Involved
 
