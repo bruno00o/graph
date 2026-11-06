@@ -1,3 +1,4 @@
+import { type GridInput, gridInput } from '../core/background-grid'
 import type { GraphModel } from '../core/graph-model'
 import { HullLayer } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
@@ -7,7 +8,6 @@ import type { GraphDefinition, Key, View } from '../types'
 import { type EdgeAnchor, edgeAnchor } from '../webgl/label-layer'
 import { type AnchorBox, AnchorLayer, type GraphAnchors } from './anchors'
 import type { GraphState } from './mount-graph'
-import type { GridInput } from './renderer'
 import type { StateRegistry } from './state-registry'
 
 const hullBudget = 6
@@ -31,6 +31,7 @@ export interface Decorations {
   setDefinition(definition: GraphDefinition): void
   changed(): void
   prepare(): void
+  settle(): void
   place(): void
   destroy(): void
 }
@@ -120,15 +121,7 @@ export function createDecorations(context: DecorationContext): Decorations {
     setDefinition(next) {
       definition = next
       hulls.setHulls(next.hulls)
-      const background = next.background
-      decorations.grid = background
-        ? {
-            pattern: background.grid,
-            spacing: background.spacing,
-            color: scene.palette.id(background.color),
-            majorColor: scene.palette.id(background.majorColor),
-          }
-        : null
+      decorations.grid = gridInput(next.background, scene.palette)
     },
     changed() {
       hulls.changed()
@@ -138,6 +131,10 @@ export function createDecorations(context: DecorationContext): Decorations {
       const start = performance.now()
       const source = { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes }
       if (hulls.update(source, start + hullBudget, () => performance.now())) context.request()
+    },
+    settle() {
+      const source = { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes }
+      hulls.update(source, Number.POSITIVE_INFINITY, () => 0)
     },
     place() {
       layer.update()

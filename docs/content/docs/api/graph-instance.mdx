@@ -129,7 +129,7 @@ interface GraphAnchors<S extends string> {
 }
 ```
 
-`set` moves the element into a layer over the canvas, inside `graph.element`, and places it from then on at each frame, with a CSS transform: no code of yours runs while the view or the nodes move. Calling `set` again on the same element changes its options. `destroy` removes every pinned element.
+`set` moves the element into a layer over the canvas, inside `graph.element`, and places it from then on at each frame, with a CSS transform: no code of yours runs while the view or the nodes move. Calling `set` again on the same element changes its options. `destroy` removes every pinned element. Pinned elements are HTML, not part of the scene: [exports](/docs/export) leave them out.
 
 ```ts
 const menu = document.createElement('div')

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { gridInput } from '../core/background-grid'
 import { createGraphModel } from '../core/graph-model'
+import { HullLayer } from '../core/hull-layer'
 import { Positions, placeNodes } from '../core/positions'
 import { createScene } from '../core/scene'
 import { StateBuffers } from '../core/state-buffers'
 import { defineGraph } from '../define-graph'
 import type { LabelMode } from '../host/renderer'
+import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
 import { lightTheme } from '../theme/tokens'
 import type { GraphDefinitionOptions, StateStyle } from '../types'
@@ -95,6 +98,14 @@ function render(
     }
   })
   states.setHighlighted(highlightedNodes, highlightedEdges)
+  const hulls = new HullLayer()
+  hulls.setHulls(definition.hulls)
+  hulls.update(
+    { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes: () => [] },
+    Number.POSITIVE_INFINITY,
+    () => 0,
+  )
+  const grid = gridInput(definition.background, scene.palette)
   const colors = scene.palette.colors
   const palette = new Uint8Array(colors.length * 4)
   colors.forEach((color, id) => {
@@ -106,6 +117,8 @@ function render(
     layers: scene.layers,
     positions,
     states,
+    grid,
+    hulls: hulls.shapes,
     palette,
     theme: {
       labelInk: rgba('#191d22'),
@@ -416,6 +429,22 @@ describe('exportFrame', () => {
     })
     expect(() => exportFrame(source, { region: 'graph', zoom: 0, padding: 10 })).toThrow(RangeError)
   })
+
+  it('frames hulls with their screen padding and outline', () => {
+    const hulls = new HullLayer()
+    hulls.setHulls([hull({ nodes: ['a', 'b'], padding: 20, strokeWidth: 4 })])
+    hulls.update(
+      { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes: () => [] },
+      Number.POSITIVE_INFINITY,
+      () => 0,
+    )
+    const framed = exportFrame(
+      { ...source, hulls: hulls.shapes },
+      { region: 'graph', zoom: 1, padding: 10 },
+    )
+    expect(framed.width).toBeCloseTo(400 + (10 + 20 + 2) * 2 + 20, 0)
+    expect(framed.view.x).toBeCloseTo(100, 1)
+  })
 })
 
 describe('fitLabels', () => {
@@ -478,5 +507,65 @@ describe('fitLabels', () => {
     expect(fitted.width).toBeGreaterThan(50)
     expect(fitted.view.x).toBeGreaterThan(5)
     expect(fitted.view.y).toBeLessThan(-5)
+  })
+})
+
+describe('background grid and hulls', () => {
+  const numbers = (path: string) => [...path.matchAll(/-?\d+(?:\.\d+)?/g)].map(Number)
+
+  it('draws the grid levels as patterns under everything, in the theme colors', () => {
+    const svg = render({ ...pair, background: { grid: 'lines' } })
+    const patterns = [...svg.matchAll(/<pattern [^>]*width="(\d+)"[^>]*><g fill="(#[0-9a-f]{6})"/g)]
+    expect(patterns.map((match) => [match[1], match[2]])).toEqual([
+      ['16', '#c4e0dd'],
+      ['64', '#9fc8c4'],
+      ['256', '#9fc8c4'],
+    ])
+    expect(svg).toContain('x="7.5" y="5.5" width="16"')
+    expect(svg.indexOf('fill="url(#')).toBeLessThan(svg.indexOf('<circle'))
+  })
+
+  it('fades the finest level in and grows the dots of coarser levels', () => {
+    const svg = render(
+      { ...pair, background: { grid: 'dots', spacing: 10 } },
+      {},
+      { frame: { view: { x: 0, y: 0, zoom: 0.8 } } },
+    )
+    const first = svg.match(
+      /<pattern [^>]*><g fill="#c4e0dd" fill-opacity="([\d.]+)"><circle [^>]*r="([\d.]+)"/,
+    )
+    expect(Number(first?.[1])).toBeCloseTo(Math.log(8 / 4) / Math.log(4), 3)
+    expect(first?.[2]).toBe('0.8')
+    expect(svg).toMatch(/<g fill="#9fc8c4"><circle [^>]*r="1.3"\/>/)
+  })
+
+  it('draws hull fills, then outlines, under the edges and nodes', () => {
+    const svg = render({ ...pair, hulls: [hull({ nodes: ['a', 'b'] })] })
+    const fill = svg.match(/<path d="([^"]+)" fill="#e7efee"\/>/)
+    const stroke = svg.match(/<path d="([^"]+)" fill="none" stroke="#6e8d8b" stroke-width="1"/)
+    expect(fill?.[1]).toBe(stroke?.[1])
+    const xs = numbers(fill?.[1] ?? '').filter((_, at) => at % 2 === 0)
+    expect(Math.min(...xs)).toBeCloseTo(200 - 124, 0)
+    expect(Math.max(...xs)).toBeCloseTo(200 + 124, 0)
+    expect(svg.indexOf('fill="#e7efee"')).toBeLessThan(svg.indexOf('stroke="#6e8d8b"'))
+    expect(svg.indexOf('stroke="#6e8d8b"')).toBeLessThan(svg.indexOf('<circle'))
+  })
+
+  it('keeps the hull padding in screen pixels at any zoom', () => {
+    const svg = render(
+      { ...pair, hulls: [hull({ nodes: ['a'], padding: 10, strokeWidth: 0, fill: '#ff0000' })] },
+      {},
+      { frame: { view: { x: 0, y: 0, zoom: 2 } } },
+    )
+    const path = svg.match(/<path d="([^"]+)" fill="#ff0000"\/>/)?.[1] ?? ''
+    const xs = numbers(path).filter((_, at) => at % 2 === 0)
+    expect(Math.min(...xs)).toBeCloseTo(200 - 200 - 16 - 10, 0)
+    expect(svg).not.toContain('stroke-linejoin="round"/>')
+  })
+
+  it('draws neither without a background or hulls', () => {
+    const svg = render(pair)
+    expect(svg).not.toContain('<pattern')
+    expect(svg).not.toContain('stroke-linejoin="round"/>')
   })
 })

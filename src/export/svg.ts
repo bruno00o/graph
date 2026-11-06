@@ -1,10 +1,13 @@
+import { gridLevels } from '../core/background-grid'
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
+import { outlineStride } from '../core/hull-geometry'
+import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
-import type { LabelMode } from '../host/renderer'
+import type { GridInput, LabelMode } from '../host/renderer'
 import { atlasFontSize } from '../webgl/glyph-atlas'
 import {
   type EdgeAnchor,
@@ -32,6 +35,8 @@ export interface SvgScene {
   readonly layers: readonly Layer[]
   readonly positions: Positions
   readonly states: StateBuffers
+  readonly grid?: GridInput | null
+  readonly hulls?: readonly HullShape[]
   readonly palette: Uint8Array
   readonly theme: ResolvedTheme
   readonly frame: ExportFrame
@@ -106,6 +111,11 @@ function fine(value: number): string {
 
 function hexOf(r: number, g: number, b: number): string {
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`
+}
+
+function mixRgba(from: Rgba, to: Rgba, amount: number): Rgba {
+  const channel = (at: 0 | 1 | 2 | 3) => Math.round(from[at] + (to[at] - from[at]) * amount)
+  return [channel(0), channel(1), channel(2), channel(3)]
 }
 
 export function paintOf(color: Rgba): Paint {
@@ -245,6 +255,17 @@ export function writeSvg(scene: SvgScene): string {
   const radius = (index: number) => screenRadius(nodes, index, zoom)
   const outside = (left: number, top: number, right: number, bottom: number) =>
     right < -margin || left > width + margin || bottom < -margin || top > height + margin
+
+  function paletteRgba(id: number): Rgba {
+    if (id === noColor || id * 4 + 3 >= scene.palette.length) return [0, 0, 0, 0]
+    const at = id * 4
+    return [
+      scene.palette[at] ?? 0,
+      scene.palette[at + 1] ?? 0,
+      scene.palette[at + 2] ?? 0,
+      scene.palette[at + 3] ?? 0,
+    ]
+  }
 
   function paint(id: number): Paint {
     if (id === noColor || id * 4 + 3 >= scene.palette.length) return transparent
@@ -696,6 +717,66 @@ export function writeSvg(scene: SvgScene): string {
     for (const { index, label } of queued.nodes[pass] ?? []) drawNodeLabel(index, label)
   }
 
+  function drawGrid(grid: GridInput): void {
+    const minor = paint(grid.color)
+    const minorRgba = paletteRgba(grid.color)
+    const majorRgba = paletteRgba(grid.majorColor)
+    const dots = grid.pattern === 'dots'
+    for (const level of gridLevels(grid.spacing, view, frame)) {
+      if (level.weight <= 0) continue
+      const strength = Math.min(1, Math.max(0, level.weight - 1))
+      const tone =
+        level.weight <= 1
+          ? { hex: minor.hex, alpha: minor.alpha * level.weight }
+          : paintOf(mixRgba(minorRgba, majorRgba, strength))
+      if (tone.alpha <= 0) continue
+      const id = `${prefix}g${defs.length}`
+      const pitch = level.pitch
+      const shape = dots
+        ? `<circle cx="${fine(pitch / 2)}" cy="${fine(pitch / 2)}" r="${fine(0.8 + 0.5 * strength)}"/>`
+        : `<path d="M0 0H${fine(pitch)}V1H0ZM0 1H1V${fine(pitch)}H0Z"/>`
+      const shift = dots ? pitch / 2 : 0.5
+      defs.push(
+        `<pattern id="${id}" patternUnits="userSpaceOnUse" x="${fine(level.offsetX - shift)}" y="${fine(level.offsetY - shift)}" width="${fine(pitch)}" height="${fine(pitch)}"><g${paintAttribute('fill', tone)}>${shape}</g></pattern>`,
+      )
+      body.push(`<rect width="${num(width)}" height="${num(height)}" fill="url(#${id})"/>`)
+    }
+  }
+
+  function hullPath(shape: HullShape): string {
+    const { data, length } = shape.outline
+    const reach = shape.padding / zoom
+    let path = ''
+    for (let k = 0; k < length; k++) {
+      const at = k * outlineStride
+      const extent = (data[at + 4] ?? 0) + reach
+      const x = ((data[at] ?? 0) + (data[at + 2] ?? 0) * extent) * zoom + offsetX
+      const y = ((data[at + 1] ?? 0) + (data[at + 3] ?? 0) * extent) * zoom + offsetY
+      path += `${k === 0 ? 'M' : 'L'}${num(x)} ${num(y)}`
+    }
+    return `${path}Z`
+  }
+
+  function drawHulls(shapes: readonly HullShape[]): void {
+    const paths = shapes.map((shape) => (shape.outline.length > 0 ? hullPath(shape) : ''))
+    shapes.forEach((shape, at) => {
+      const fill = paint(shape.fill)
+      if (paths[at] && fill.alpha > 0) {
+        body.push(`<path d="${paths[at]}"${paintAttribute('fill', fill)}/>`)
+      }
+    })
+    shapes.forEach((shape, at) => {
+      const stroke = paint(shape.stroke)
+      if (paths[at] && shape.strokeWidth > 0 && stroke.alpha > 0) {
+        body.push(
+          `<path d="${paths[at]}" fill="none"${paintAttribute('stroke', stroke)} stroke-width="${num(shape.strokeWidth)}" stroke-linejoin="round"/>`,
+        )
+      }
+    })
+  }
+
+  if (scene.grid) drawGrid(scene.grid)
+  if (scene.hulls) drawHulls(scene.hulls)
   for (const layer of scene.layers) {
     if (layer.kind === 'edges') {
       for (const curved of [false, true]) {

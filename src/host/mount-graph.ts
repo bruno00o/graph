@@ -1753,6 +1753,7 @@ export function createGraphHost<S extends string = string>(
       flushChanges()
     }
     registry.takeHighlighted()
+    decorations.settle()
     if (scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     request()
@@ -1761,6 +1762,8 @@ export function createGraphHost<S extends string = string>(
       scene,
       positions,
       states: buffers,
+      grid: decorations.grid,
+      hulls: decorations.hulls,
       palette: paletteColors,
       theme: themeResolver.theme(),
       view,

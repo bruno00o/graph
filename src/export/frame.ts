@@ -1,5 +1,7 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach } from '../core/edge-curve'
+import { outlineStride } from '../core/hull-geometry'
+import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { View } from '../types'
 
@@ -16,6 +18,7 @@ export interface FrameSource {
   readonly view: View
   readonly width: number
   readonly height: number
+  readonly hulls?: readonly HullShape[]
 }
 
 export interface FrameOptions {
@@ -91,6 +94,21 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
       minY = Math.min(minY, y - reach)
       maxX = Math.max(maxX, x + reach)
       maxY = Math.max(maxY, y + reach)
+    }
+  }
+  for (const shape of source.hulls ?? []) {
+    const { data, length } = shape.outline
+    const reach = shape.padding / zoom
+    const stroke = shape.strokeWidth / 2
+    for (let k = 0; k < length; k++) {
+      const at = k * outlineStride
+      const extent = (data[at + 4] ?? 0) + reach
+      const x = ((data[at] ?? 0) + (data[at + 2] ?? 0) * extent) * zoom
+      const y = ((data[at + 1] ?? 0) + (data[at + 3] ?? 0) * extent) * zoom
+      minX = Math.min(minX, x - stroke)
+      minY = Math.min(minY, y - stroke)
+      maxX = Math.max(maxX, x + stroke)
+      maxY = Math.max(maxY, y + stroke)
     }
   }
   const padding = Math.max(0, options.padding)

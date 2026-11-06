@@ -32,7 +32,9 @@ download(new Blob([await exportSvg(graph)], { type: 'image/svg+xml' }), 'graph.s
 
 ## Region and scale
 
-By default, the file shows what the graph shows: the same area, the same zoom, the same labels. `region: 'graph'` frames every node instead, with the labels and loops that reach past them, and a `padding` in CSS pixels around them.
+By default, the file shows what the graph shows: the same area, the same zoom, the same labels, the background grid and the hulls. `region: 'graph'` frames every node instead, with the labels, loops and hulls that reach past them, and a `padding` in CSS pixels around them.
+
+Elements pinned with [`graph.anchors`](/docs/drawing-layers#anchored-html) or `<Anchor>` are HTML over the canvas, not part of the scene: no export draws them.
 
 ```ts
 await exportPng(graph, { region: 'graph', padding: 48 })
@@ -81,6 +83,7 @@ The SVG is written from the scene, without reading pixels back, so it stays shar
 - badges with their text;
 - straight and curved edges, loops, dashes, dots and arrows;
 - labels with their placement, color, weight, second line and background;
+- the background grid, as one pattern per level, and the fills and outlines of hulls;
 - the state styles in force, such as selection, hover and your own states;
 - colors of the current theme, as hex values.
 

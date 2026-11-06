@@ -11,7 +11,7 @@ import {
 import { force } from '@bruno00o/graph/layouts/force'
 import { createSample, type Item, type Link } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
-import { button, choice, createPage, themeToggle } from '../shared/page'
+import { button, choice, createPage, exportButtons, themeToggle } from '../shared/page'
 
 type Background = keyof typeof messages.backgrounds
 type HullMode = keyof typeof messages.hullModes
@@ -153,6 +153,7 @@ header.append(
     },
   ),
   button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  ...exportButtons(graph, 'drawing', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )
 

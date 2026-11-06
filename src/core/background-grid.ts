@@ -1,9 +1,30 @@
-import type { View } from '../types'
+import type { BackgroundGrid, ResolvedBackground, View } from '../types'
+import type { Palette } from './palette'
 import type { Viewport } from './view'
 
 export const gridLevelCount = 3
 export const gridRatio = 4
 export const gridFadeStart = 4
+
+export interface GridInput {
+  readonly pattern: BackgroundGrid
+  readonly spacing: number
+  readonly color: number
+  readonly majorColor: number
+}
+
+export function gridInput(
+  background: ResolvedBackground | null,
+  palette: Palette,
+): GridInput | null {
+  if (!background) return null
+  return {
+    pattern: background.grid,
+    spacing: background.spacing,
+    color: palette.id(background.color),
+    majorColor: palette.id(background.majorColor),
+  }
+}
 
 export interface GridLevel {
   readonly pitch: number
