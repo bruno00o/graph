@@ -1,0 +1,122 @@
+---
+title: Paths
+description: Find the shortest path between two nodes, or every node within reach, and highlight it.
+---
+
+`graph.paths` answers two questions on the nodes and edges of the graph: which path joins two nodes at the lowest cost, and which nodes can be reached from one. It reads the same adjacency the graph draws from, so a query needs no copy of your data.
+
+<LiveExample slug="shortest-path" />
+
+## Shortest path
+
+```ts
+const path = graph.paths.shortest('a', 'f')
+// { nodes: ['a', 'c', 'f'], edges: ['ac', 'cf'], costs: [0, 1, 2], cost: 2 }
+```
+
+The result lists the keys of the nodes along the path, from the start to the end, and the keys of the edges between them, one fewer. When two nodes are joined by several edges, `edges` tells which one the path takes. `costs` holds the cost from the start to each node, and `cost` the total.
+
+`shortest` returns `null` when no path joins the two nodes, or when a key is unknown. From a node to itself, the path is that node alone, at cost 0.
+
+Without options, every edge costs 1: the path has the fewest edges. Edges are crossed both ways.
+
+## Weights and direction
+
+```ts
+graph.paths.shortest('a', 'f', { weight: 'distance', directed: true })
+graph.paths.shortest('a', 'f', { weight: (link) => link.delay + link.wait })
+```
+
+- `weight` is a field of the edge items, or a function of an item. The path is the one with the lowest sum of weights.
+- An edge whose weight is missing, not a number or infinite cannot be crossed. A negative weight throws a `RangeError`: shortest paths need weights of 0 or more.
+- `directed: true` follows each edge from its source to its target only.
+
+Field names and function arguments are typed from the items of your edge marks, as in the definition. See [TypeScript](/docs/typescript).
+
+## Keep to some nodes and edges
+
+```ts
+graph.paths.shortest('a', 'f', {
+  nodes: (item) => item.status !== 'closed',
+  edges: (link, key) => !blocked.has(key),
+})
+```
+
+`nodes` and `edges` choose what the search may enter or cross. The two ends must pass `nodes`, or there is no path.
+
+## Within reach
+
+```ts
+const near = graph.paths.reach('a', { maxCost: 2 })
+graph.states.set('near', near)
+```
+
+`reach` lists the nodes the start leads to, by increasing cost, with the cost of each, and the edges between two reached nodes that the search may cross. Without `weight`, `maxCost` counts edges: `{ maxCost: 1 }` is the start and its neighbors. Without `maxCost`, `reach` returns the whole connected component of the start, or with `directed`, every node it leads to. It takes the same options as `shortest`.
+
+## Groups
+
+By default, queries run on the data: every node and edge, inside a folded group or not. With `visible: true`, they run on the graph as drawn:
+
+- a folded group stands for the nodes it hides, and an end hidden in a folded group is replaced by the group;
+- the edges inside a folded group are left out;
+- an edge between two groups, drawn as one merged edge, is reported by the key of one of its members. Put that key in a state and the merged edge takes the state.
+
+```ts
+graph.paths.shortest('a', 'f', { visible: true })
+```
+
+See [Groups](/docs/groups).
+
+## Highlight a path
+
+A path is a set of node and edge keys, the shape `states.set` takes. Declare a state, style it, and put the path in it. A [flow](/docs/marks#flows) shows its direction.
+
+```ts
+const graph = mountGraph(container, {
+  definition: defineGraph({
+    marks: [edges<Link>(links, { source: 'from', target: 'to' }), nodes<Item>(items)],
+    states: {
+      path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true },
+      muted: { opacity: 0.15, label: false },
+    },
+  }),
+  ariaLabel: 'Network',
+})
+
+graph.on('selectionchange', ({ nodes: [from, to] }) => {
+  const path = from !== undefined && to !== undefined ? graph.paths.shortest(from, to) : null
+  if (!path) return graph.states.clear()
+  const onPath = new Set(path.nodes)
+  graph.states.set('path', path)
+  graph.states.set('muted', { nodes: items.map((item) => item.id).filter((id) => !onPath.has(id)) })
+})
+```
+
+To step along the path, walk `path.nodes` with [`graph.focus.set`](/docs/interaction#keyboard) or [`graph.view.fit`](/docs/view), and frame the whole path with `graph.view.fit(path.nodes)`.
+
+## Without a graph
+
+`createPathFinder` runs the same queries on marks, without mounting anything: on a server, in a worker or in tests.
+
+```ts
+import { createPathFinder, edges, nodes } from '@bruno00o/graph'
+
+const paths = createPathFinder({
+  marks: [nodes<Item>(items), edges<Link>(links, { source: 'from', target: 'to' })],
+})
+paths.shortest('a', 'f', { weight: 'distance' })
+paths.destroy()
+```
+
+It reads the marks at the first query. Live sources, such as a TanStack DB collection, are read again after each change. `destroy` stops listening to them.
+
+## Cost
+
+Queries run on the adjacency of the graph, stored in typed arrays, and allocate only their result. `shortest` searches from both ends at once, a breadth-first search without weights and Dijkstra's algorithm with them, and stops when the two searches meet. Pending data changes are applied first.
+
+On 500,000 nodes and 1,000,000 edges, in the browser, a path between two far nodes takes about 1 millisecond without weights and 2 to 3 milliseconds with them, under 10 at worst. On a graph of communities linked in a tree, where paths cross few bridges, weighted searches take 5 to 30 milliseconds, and up to 100. A `reach` over the whole graph takes 0.1 to 0.8 seconds: bound it with `maxCost` in interactive code.
+
+## API
+
+- [`GraphPaths`](/docs/api/paths#graphpaths), on [`GraphInstance`](/docs/api/graph-instance)
+- [`createPathFinder`](/docs/api/paths#createpathfinder)

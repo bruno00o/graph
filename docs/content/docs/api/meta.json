@@ -9,6 +9,7 @@
     "nodes",
     "edges",
     "hull",
+    "paths",
     "mount-graph",
     "graph-instance",
     "events",

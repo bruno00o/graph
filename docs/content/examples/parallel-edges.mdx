@@ -10,6 +10,8 @@ Each edge takes its own `arrow` and `dash` from its data. The `width` and `size`
 
 Each edge also has a label, `label: { text: 'name' }`. It sits halfway along the edge, on the arc when the edge is curved, turned in the direction of the edge and kept upright: above the line, or centered on a plate with `background: true`.
 
+**Start flows** adds `flow` to the edges: dashes move from source to target, at 40 pixels per second, and toward the source on the edges whose arrow points back, with a negative speed. Solid edges flow as dashes, dotted edges move their dots, and arrowheads stay still.
+
 The example listens to `pointerenter` and `pointerleave` to show the hovered edge or node below the graph.
 
 ## Try it
@@ -18,6 +20,7 @@ The example listens to `pointerenter` and `pointerleave` to show the hovered edg
 - Press **Edge labels** to hide the labels, draw them along the line, or put them on a plate.
 - Hover an edge to read its direction. Picking follows the curve, not a straight line.
 - Zoom in and out: curves keep their shape.
+- Press **Start flows** to move the dashes along each edge.
 
 <Cards>
   <Card title="Marks and channels" href="/docs/marks" />

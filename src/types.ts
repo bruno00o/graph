@@ -356,6 +356,14 @@ export interface EdgeOptions<T, N extends MarkName = MarkName> {
    */
   readonly opacity?: Style<T, number>
   /**
+   * Dashes that move along the edge, from its source to its target: `true` at 40 screen pixels per
+   * second, a speed in screen pixels per second, negative toward the source, or `false`, `0` or
+   * `null` for none. A solid edge flows as dashes, a dashed or dotted edge moves its own pattern.
+   * The dashes stand still with `prefers-reduced-motion`.
+   * @default false
+   */
+  readonly flow?: Style<T, boolean | number | null>
+  /**
    * Look of the edges drawn in place of the edges of this mark that end in a folded group, one per
    * pair of visible ends and direction.
    */
@@ -508,6 +516,11 @@ export interface StateStyle {
   readonly label?: boolean
   /** Color of the main text of the label, for nodes and edges. */
   readonly labelColor?: string
+  /**
+   * Moving dashes of an edge, as the `flow` option of `edges()`: `true`, a speed in screen pixels
+   * per second, or `false` to stop them. Edges only.
+   */
+  readonly flow?: boolean | number
 }
 
 /** How clicks select: one element, several with a modifier key, or nothing. */
@@ -940,4 +953,88 @@ export interface Hull<N extends string = string> {
   readonly state: N | null
   /** The options given to `hull()`. */
   readonly options: HullOptions<unknown, string>
+}
+
+/**
+ * Cost of crossing an edge, for path queries: a field of the edge items or a function of an item.
+ * Any field name when the item type is unknown.
+ */
+export type PathWeight<T> = unknown extends T
+  ? string | Accessor<T, number | null | undefined>
+  : Channel<T, number>
+
+/** Options of `paths.shortest`. `M` is the union of the marks, whose items the functions read. */
+export interface PathOptions<M extends Mark = Mark> {
+  /**
+   * Follows each edge from its source to its target only. Otherwise edges are crossed both ways.
+   * @default false
+   */
+  readonly directed?: boolean
+  /**
+   * Cost of crossing an edge: a field or a function of its item. An edge without a finite weight
+   * cannot be crossed, and a negative weight throws a `RangeError`. Without it, every edge costs 1.
+   */
+  readonly weight?: PathWeight<EdgeDatum<M>>
+  /** Nodes the search may enter, the two ends included: a function of the item and the key. */
+  readonly nodes?: (datum: NodeDatum<M>, key: Key) => boolean
+  /** Edges the search may cross: a function of the item and the key. */
+  readonly edges?: (datum: EdgeDatum<M>, key: Key) => boolean
+  /**
+   * Searches the graph as drawn: a folded group stands for the nodes it hides, the edges inside it
+   * are left out, and an end hidden in a folded group is replaced by the group. Otherwise the search
+   * runs on every node and edge of the data, folded or not.
+   * @default false
+   */
+  readonly visible?: boolean
+}
+
+/** Options of `paths.reach`. `M` is the union of the marks, whose items the functions read. */
+export interface ReachOptions<M extends Mark = Mark> extends PathOptions<M> {
+  /**
+   * Largest cost from the start, which counts edges without `weight`. Defaults to no limit: the
+   * whole connected component, or every node the start leads to with `directed`.
+   */
+  readonly maxCost?: number
+}
+
+/** A path found by `paths.shortest`. Pass it to `states.set` to highlight it. */
+export interface GraphPath {
+  /** Keys of the nodes along the path, from the start to the end. */
+  readonly nodes: readonly Key[]
+  /** Keys of the edges along the path, one fewer than the nodes. */
+  readonly edges: readonly Key[]
+  /** Cost from the start to each node, in the order of `nodes`. */
+  readonly costs: readonly number[]
+  /** Cost of the whole path: the sum of the weights, or the number of edges without `weight`. */
+  readonly cost: number
+}
+
+/** Nodes found by `paths.reach`, and the edges between them. Pass it to `states.set`. */
+export interface GraphReach {
+  /** Keys of the reached nodes, the start first, by increasing cost. */
+  readonly nodes: readonly Key[]
+  /** Cost of the cheapest path from the start to each node, in the order of `nodes`. */
+  readonly costs: readonly number[]
+  /** Keys of the edges between two reached nodes that the search may cross. */
+  readonly edges: readonly Key[]
+}
+
+/** Path queries on the nodes and edges of a graph. `M` is the union of the marks. */
+export interface GraphPaths<M extends Mark = Mark> {
+  /**
+   * Cheapest path between two nodes, or `null` when none joins them or a key is unknown. Without
+   * `weight`, the path with the fewest edges.
+   */
+  shortest(from: Key, to: Key, options?: PathOptions<M>): GraphPath | null
+  /**
+   * Nodes the start leads to, by increasing cost, up to `maxCost`, and the edges between them.
+   * Empty for an unknown key.
+   */
+  reach(from: Key, options?: ReachOptions<M>): GraphReach
+}
+
+/** Path queries on the data of marks, without a mounted graph. `M` is the union of the marks. */
+export interface PathFinder<M extends Mark = Mark> extends GraphPaths<M> {
+  /** Stops listening to live sources and frees the memory. Later queries find nothing. */
+  destroy(): void
 }

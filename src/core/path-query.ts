@@ -1,0 +1,96 @@
+import type { GraphPath, GraphPaths, GraphReach, Key, PathOptions } from '../types'
+import { toAccessor } from './accessor'
+import type { Adjacency, GraphModel } from './graph-model'
+import { type PathGroups, type PathRules, PathSearch } from './paths'
+
+export interface PathSource {
+  readonly model: GraphModel
+  prepare(): void
+  groups(): PathGroups | null
+}
+
+const noReach: GraphReach = Object.freeze({ nodes: [], costs: [], edges: [] })
+
+export function createPathQueries(source: PathSource): GraphPaths {
+  const { model } = source
+  const search = new PathSearch()
+
+  function rulesOf(adjacency: Adjacency, options: PathOptions): PathRules {
+    const read = options.weight === undefined ? null : toAccessor<unknown, unknown>(options.weight)
+    const keepEdge = options.edges ?? null
+    const keepNode = options.nodes ?? null
+    const cost =
+      read || keepEdge
+        ? (id: number): number => {
+            const record = adjacency.edgeAt(id)
+            if (!record || (keepEdge && !keepEdge(record.datum, record.key))) return Number.NaN
+            if (!read) return 1
+            const value = read(record.datum)
+            if (typeof value !== 'number' || !Number.isFinite(value)) return Number.NaN
+            if (value < 0) {
+              throw new RangeError(`graph: edge "${String(record.key)}" has a negative weight`)
+            }
+            return value
+          }
+        : null
+    const node = keepNode
+      ? (index: number): boolean => {
+          const record = model.nodeAt(index)
+          return record !== undefined && keepNode(record.datum, record.key)
+        }
+      : null
+    return {
+      directed: options.directed === true,
+      weighted: read !== null,
+      cost,
+      node,
+      groups: options.visible ? source.groups() : null,
+    }
+  }
+
+  function nodeKey(index: number): Key {
+    const record = model.nodeAt(index)
+    if (!record) throw new Error('graph: a path reached a missing node')
+    return record.key
+  }
+
+  function edgeKeys(adjacency: Adjacency, ids: readonly number[]): Key[] {
+    return ids.map((id) => {
+      const record = adjacency.edgeAt(id)
+      if (!record) throw new Error('graph: a path crossed a missing edge')
+      return record.key
+    })
+  }
+
+  return {
+    shortest(from, to, options = {}): GraphPath | null {
+      source.prepare()
+      const start = model.node(from)?.index ?? -1
+      const goal = model.node(to)?.index ?? -1
+      if (start < 0 || goal < 0) return null
+      const adjacency = model.adjacency()
+      const found = search.shortest(adjacency, rulesOf(adjacency, options), start, goal)
+      if (!found) return null
+      return {
+        nodes: found.nodes.map(nodeKey),
+        edges: edgeKeys(adjacency, found.edges),
+        costs: found.costs,
+        cost: found.costs[found.costs.length - 1] ?? 0,
+      }
+    },
+
+    reach(from, options = {}): GraphReach {
+      source.prepare()
+      const start = model.node(from)?.index ?? -1
+      if (start < 0) return noReach
+      const adjacency = model.adjacency()
+      const limit = options.maxCost ?? Number.POSITIVE_INFINITY
+      const found = search.reach(adjacency, rulesOf(adjacency, options), start, limit)
+      return {
+        nodes: found.nodes.map(nodeKey),
+        costs: found.costs,
+        edges: edgeKeys(adjacency, found.edges),
+      }
+    },
+  }
+}

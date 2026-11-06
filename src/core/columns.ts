@@ -158,6 +158,8 @@ export class EdgeColumns {
   arrow: Uint8Array = new Uint8Array(0)
   opacity: Float32Array = new Float32Array(0)
   bend: Float32Array = new Float32Array(0)
+  flow: Float32Array = new Float32Array(0)
+  flowCount = 0
   label: (string | null)[] = []
   labelBackground: Uint32Array = new Uint32Array(0)
   labelColor: Uint32Array = new Uint32Array(0)
@@ -179,6 +181,7 @@ export class EdgeColumns {
     this.arrow = grow(this.arrow, capacity)
     this.opacity = grow(this.opacity, capacity)
     this.bend = grow(this.bend, capacity)
+    this.flow = grow(this.flow, capacity)
     this.labelBackground = growColor(this.labelBackground, capacity)
     this.labelColor = growColor(this.labelColor, capacity)
     this.labelSize = grow(this.labelSize, capacity)
@@ -191,8 +194,17 @@ export class EdgeColumns {
     if (index >= this.capacity) return
     this.alive[index] = 0
     this.bend[index] = 0
+    this.setFlow(index, 0)
     this.keys[index] = undefined
     this.label[index] = null
     this.labelFont[index] = null
+  }
+
+  setFlow(index: number, speed: number): void {
+    const before = this.flow[index] ?? 0
+    if (before === speed) return
+    if (before === 0) this.flowCount++
+    else if (speed === 0) this.flowCount--
+    this.flow[index] = speed
   }
 }

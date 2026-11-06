@@ -4,6 +4,7 @@ import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
 
 type BoundsMode = keyof typeof messages.boundsModes
+type PathMode = keyof typeof messages.pathModes
 
 const sizes = [1_000, 10_000, 50_000]
 const params = new URLSearchParams(location.search)
@@ -14,6 +15,8 @@ const wheelModes = Object.keys(messages.wheelModes) as WheelMode[]
 const boundsModes = Object.keys(messages.boundsModes) as BoundsMode[]
 let wheel = wheelModes.find((mode) => mode === params.get('wheel')) ?? 'zoom'
 let bounds = boundsModes.find((mode) => mode === params.get('bounds')) ?? 'none'
+const pathModes = Object.keys(messages.pathModes) as PathMode[]
+let pathMode: PathMode = 'hops'
 
 const define = () =>
   defineGraph({
@@ -23,6 +26,7 @@ const define = () =>
     ],
     states: {
       muted: { opacity: 0.15, label: false },
+      path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true },
     },
     interaction: { lasso: true, wheel },
     view: { bounds: bounds === 'nodes' ? { margin: 80 } : null },
@@ -55,8 +59,36 @@ const showSelection = () => {
 }
 showSelection()
 
+const pathStatus = status()
+
+function trace(): boolean {
+  const selected = graph.selection.get().nodes
+  const [from, to] = selected
+  if (selected.length !== 2 || from === undefined || to === undefined) return false
+  const start = performance.now()
+  const path = graph.paths.shortest(
+    from,
+    to,
+    pathMode === 'strength' ? { weight: (link) => 1 - link.strength } : {},
+  )
+  const ms = performance.now() - start
+  pathStatus.textContent = path ? messages.pathFound(path.edges.length, ms) : messages.noPath(ms)
+  const onPath = { nodes: path?.nodes ?? [from, to], edges: path?.edges ?? [] }
+  const keepNodes = new Set(onPath.nodes)
+  const keepEdges = new Set(onPath.edges)
+  graph.states.set('path', onPath)
+  graph.states.set('muted', {
+    nodes: items.filter((item) => !keepNodes.has(item.id)).map((item) => item.id),
+    edges: links.filter((link) => !keepEdges.has(link.id)).map((link) => link.id),
+  })
+  return true
+}
+
 graph.on('selectionchange', ({ nodes: selected }) => {
   showSelection()
+  if (trace()) return
+  graph.states.clear('path')
+  pathStatus.textContent = ''
   if (selected.length === 0) {
     graph.states.clear('muted')
     return
@@ -80,6 +112,16 @@ hint.textContent = messages.vanillaHint
 header.append(
   hint,
   selectionStatus,
+  pathStatus,
+  choice(
+    messages.pathMode,
+    pathModes.map((mode) => ({ value: mode, text: messages.pathModes[mode] })),
+    pathMode,
+    (value) => {
+      pathMode = pathModes.find((mode) => mode === value) ?? 'hops'
+      trace()
+    },
+  ),
   choice(
     messages.size,
     [...new Set([...sizes, nodeCount])].map((size) => ({

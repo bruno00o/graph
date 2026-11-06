@@ -13,6 +13,7 @@ description: Typed graph visualization for any framework, rendered with WebGL2.
 - **Styled labels.** Each label has its own size, color, weight, font and placement, with line breaks and truncation. Edge labels follow their edge and stay upright, and no two labels overlap.
 - **Live sources.** Pass an array, or anything with `subscribeChanges`, such as a TanStack DB collection. Only what changed is redrawn.
 - **Named states.** Selection, hover and keyboard focus are built in. You declare your own states, style them, and set their members by key.
+- **Paths and flows.** Find the shortest path between two nodes, or every node within reach, on the data or on the graph as drawn, in milliseconds on a million edges. Edges can carry moving dashes, drawn on the GPU.
 - **WebGL2 rendering.** 50,000 nodes and 100,000 edges stay smooth, with picking, labels and images. See the [benchmark](/benchmark).
 - **Force layout.** Nodes without coordinates settle with a force simulation in a Web Worker, on the GPU for large graphs. New nodes settle next to their neighbors, and dragging a node pins it.
 - **Interaction out of the box.** Pan, zoom, pinch on touch screens, drag with edge scrolling, single or multiple selection, lasso and keyboard navigation announced to screen readers. The wheel can zoom, pan or leave the page scrolling, and the view can be bounded.
@@ -22,7 +23,7 @@ description: Typed graph visualization for any framework, rendered with WebGL2.
 
 | Entry point | Contents | Peer dependency |
 | --- | --- | --- |
-| `@bruno00o/graph` | `defineGraph`, `nodes`, `edges`, `mountGraph` | |
+| `@bruno00o/graph` | `defineGraph`, `nodes`, `edges`, `mountGraph`, `createPathFinder` | |
 | `@bruno00o/graph/react` | `Graph`, `useGraph`, `useGraphState`, `useGraphEvent` | `react` 19 |
 | `@bruno00o/graph/db` | `persistPositions`, `subset` | `@tanstack/db` |
 | `@bruno00o/graph/query` | `createExploration` | `@tanstack/query-core` |

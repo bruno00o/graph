@@ -114,6 +114,18 @@ const edgeData = `
 uniform usampler2D edgeTopology;
 uniform sampler2D edgeStyle;
 uniform usampler2D edgeState;
+uniform float flowTime;
+float edgeFlow(uint mask, float speed) {
+  for (int bit = 0; bit < 32; bit++) {
+    if (mask == 0u) break;
+    bool present = (mask & 1u) != 0u;
+    mask >>= 1u;
+    if (!present) continue;
+    uint flow = stateLabel[32 + bit].y;
+    if (flow != none) return uintBitsToFloat(flow);
+  }
+  return speed;
+}
 `
 
 export const nodeVertex: string = `${header}${nodeData}
@@ -248,6 +260,7 @@ flat out uint vDash;
 flat out uint vArrow;
 flat out vec4 vColor;
 flat out float vOpacity;
+flat out float vFlow;
 void main() {
   ivec2 t = texel(instance);
   uvec4 topology = texelFetch(edgeTopology, t, 0);
@@ -300,7 +313,9 @@ void main() {
   vArrowLength = arrowLength;
   vArrowHalf = arrowHalf;
   vHaloWidth = halo;
-  vDash = packed & 3u;
+  float flow = edgeFlow(mask, style.w);
+  vDash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  vFlow = flow * flowTime;
   vArrow = arrow;
   vColor = paletteColor(look.stroke);
   vOpacity = look.opacity;
@@ -324,6 +339,7 @@ flat out uint vDash;
 flat out uint vArrow;
 flat out vec4 vColor;
 flat out float vOpacity;
+flat out float vFlow;
 vec2 cubicAt(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
   float u = 1.0 - t;
   return u * u * u * a + 3.0 * u * u * t * b + 3.0 * u * t * t * c + t * t * t * d;
@@ -439,7 +455,9 @@ void main() {
   vArrowLength = arrowLength;
   vArrowHalf = arrowHalf;
   vHaloWidth = halo;
-  vDash = packed & 3u;
+  float flow = edgeFlow(mask, style.w);
+  vDash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  vFlow = flow * flowTime;
   vArrow = arrow;
   vColor = paletteColor(look.stroke);
   vOpacity = look.opacity;
@@ -459,6 +477,7 @@ flat in uint vDash;
 flat in uint vArrow;
 flat in vec4 vColor;
 flat in float vOpacity;
+flat in float vFlow;
 out vec4 fragColor;
 void main() {
   float aa = 0.5 / pixelRatio + 0.25;
@@ -479,7 +498,7 @@ void main() {
   float coverage = (1.0 - smoothstep(halfWidth - aa, halfWidth + aa, abs(vPos.y))) * span;
   if (!head && vDash != 0u) {
     float width = vHalfWidth * 2.0;
-    float offset = along - vStart;
+    float offset = along - vStart - vFlow;
     if (vDash == 1u) {
       float period = max(width * 5.0, 8.0);
       float m = mod(offset, period);
