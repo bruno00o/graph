@@ -122,10 +122,18 @@ interface GraphLayout {
 
 interface LayoutRunOptions {
   readonly keys?: Iterable<Key>
+  readonly fit?: boolean | FitOptions
+  readonly duration?: number
 }
 ```
 
-`run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Force layout](/docs/layout).
+`run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
+
+| Option | Description |
+| --- | --- |
+| `keys` | Nodes to lay out. The others stay still |
+| `fit` | Frames every node on the result, with `true` or `FitOptions` (`padding` and `duration`, as for [`view.fit`](#view)). A result reported at once is framed where nodes land, while they glide |
+| `duration` | Glide to a result reported at once, in milliseconds. Defaults to `transitions.layout`. `0` places nodes at once |
 
 ## Graph state
 

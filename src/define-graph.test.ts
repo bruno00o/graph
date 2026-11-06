@@ -32,8 +32,9 @@ describe('defineGraph', () => {
   })
 
   it('fills transition defaults and clamps negative durations', () => {
-    expect(defineGraph({ marks: [] }).transitions).toEqual({ positions: 120 })
-    expect(defineGraph({ marks: [], transitions: { positions: -5 } }).transitions.positions).toBe(0)
+    expect(defineGraph({ marks: [] }).transitions).toEqual({ positions: 120, layout: 400 })
+    const clamped = defineGraph({ marks: [], transitions: { positions: -5, layout: -1 } })
+    expect(clamped.transitions).toEqual({ positions: 0, layout: 0 })
   })
 
   it('returns a frozen definition', () => {

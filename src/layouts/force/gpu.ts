@@ -1,4 +1,3 @@
-import type { LayoutGraph } from '../../types'
 import { createProgram } from '../../webgl/gl'
 import {
   boundsBlockFragment,
@@ -10,7 +9,14 @@ import {
   springVertex,
   valueFragment,
 } from './gpu-shaders'
-import { alphaMin, coolingOf, type ForceSettings, keep, partialAlpha } from './simulation'
+import {
+  alphaMin,
+  coolingOf,
+  type ForceGraph,
+  type ForceSettings,
+  keep,
+  partialAlpha,
+} from './simulation'
 
 const boundsBlock = 4
 const maxLevels = 11
@@ -63,7 +69,7 @@ export class GpuForce {
   #current: 0 | 1 = 0
   #lost = false
 
-  static create(graph: LayoutGraph, settings: ForceSettings): GpuForce | null {
+  static create(graph: ForceGraph, settings: ForceSettings): GpuForce | null {
     if (typeof OffscreenCanvas === 'undefined') return null
     const canvas = new OffscreenCanvas(1, 1)
     const gl = canvas.getContext('webgl2', {
@@ -86,7 +92,7 @@ export class GpuForce {
     }
   }
 
-  private constructor(gl: WebGL2RenderingContext, graph: LayoutGraph, settings: ForceSettings) {
+  private constructor(gl: WebGL2RenderingContext, graph: ForceGraph, settings: ForceSettings) {
     this.#gl = gl
     const capacity = graph.capacity
     this.capacity = capacity
@@ -428,7 +434,7 @@ export class GpuForce {
 }
 
 function edgeVertices(
-  graph: LayoutGraph,
+  graph: ForceGraph,
   edgeLength: number,
 ): { vertices: Float32Array; count: number } {
   const degree = new Uint32Array(graph.capacity)

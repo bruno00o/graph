@@ -1,7 +1,7 @@
-import type { LayoutGraph, LayoutListener, LayoutRun } from '../../types'
+import type { LayoutListener, LayoutRun } from '../../types'
 import { separate } from './collider'
 import type { GpuForce } from './gpu'
-import { type ForceSettings, ForceSimulation } from './simulation'
+import { type ForceGraph, type ForceSettings, ForceSimulation } from './simulation'
 
 export type Schedule = (task: () => void) => void
 
@@ -10,7 +10,7 @@ const elementsPerTarget = 200_000
 const maxBatch = 256
 const separationRounds = 10
 
-export function snapshotInterval(graph: LayoutGraph): number {
+export function snapshotInterval(graph: ForceGraph): number {
   let alive = 0
   for (let index = 0; index < graph.capacity; index++) alive += graph.alive[index] ?? 0
   const elements = alive + graph.edges.length / 2
@@ -18,7 +18,7 @@ export function snapshotInterval(graph: LayoutGraph): number {
 }
 
 export function runForce(
-  graph: LayoutGraph,
+  graph: ForceGraph,
   settings: ForceSettings,
   listener: LayoutListener,
   budget: number,
@@ -55,7 +55,7 @@ export function runForce(
 
 export function runGpuForce(
   gpu: GpuForce,
-  graph: LayoutGraph,
+  graph: ForceGraph,
   settings: ForceSettings,
   listener: LayoutListener,
   rescue: (xy: Float32Array) => LayoutRun,

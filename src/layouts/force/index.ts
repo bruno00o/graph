@@ -48,7 +48,8 @@ function start(graph: LayoutGraph, settings: ForceSettings, listener: LayoutList
     fallback = inline({ ...graph, xy: latest ?? graph.xy }, settings, listener)
     for (const [index, [x, y]] of pins) fallback.pin(index, x, y)
   }
-  post({ type: 'start', graph, settings })
+  const { capacity, alive, movable, xy, radius, edges } = graph
+  post({ type: 'start', graph: { capacity, alive, movable, xy, radius, edges }, settings })
   return {
     pin(index, x, y) {
       pins.set(index, [x, y])

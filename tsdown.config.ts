@@ -41,6 +41,7 @@ export default defineConfig({
     react: 'src/react/index.tsx',
     db: 'src/db/index.ts',
     query: 'src/query/index.ts',
+    layouts: 'src/layouts/index.ts',
     'layouts/force': 'src/layouts/force/index.ts',
   },
   format: 'esm',

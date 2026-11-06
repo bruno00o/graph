@@ -45,6 +45,7 @@ pnpm add @bruno00o/graph
 | `@bruno00o/graph/react`         | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent`          | `react` 19             |
 | `@bruno00o/graph/db`            | `persistPositions` for TanStack DB collections                   | `@tanstack/db`         |
 | `@bruno00o/graph/query`         | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core` |
+| `@bruno00o/graph/layouts`       | `grid`, `rings` and `radial` layouts                             |                        |
 | `@bruno00o/graph/layouts/force` | `force` layout, computed on the GPU in a Web Worker              |                        |
 | `@bruno00o/graph/theme.css`     | Default light and dark theme                                     |                        |
 
@@ -120,6 +121,17 @@ button.addEventListener('click', async () => {
 
 Large graphs run on the GPU (WebGL2 in the worker) and smaller ones on the CPU; `force({ engine: 'gpu' })` or `'cpu'` forces the choice. `graph.layout.run()` lays out every node, or only `keys`, and resolves to `false` when stopped. Progress lives in the store (`state.layout.running` and `state.layout.progress`), and `layoutstart` and `layoutend` mark each run.
 
+`grid`, `rings` and `radial` compute their result at once. Nodes glide to it over `transitions.layout` (400 ms by default), and `fit` frames where they land.
+
+```ts
+import { grid, radial } from '@bruno00o/graph/layouts'
+
+await graph.layout.run(grid<Item>({ order: (a, b) => a.group.localeCompare(b.group) }), {
+  fit: true,
+})
+await graph.layout.run(radial({ root: 'hub' }), { duration: 600 })
+```
+
 A TanStack DB collection is a live source: pass it to a mark and its changes arrive without a new definition.
 
 ```ts
@@ -128,7 +140,7 @@ nodes(itemsCollection, { color: 'group', label: 'label' })
 
 ## Examples
 
-The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 500,000 nodes, collaboration across tabs with TanStack DB, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
+The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 500,000 nodes, grid, rings and radial layouts, collaboration across tabs with TanStack DB, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
 
 ## Get Involved
 

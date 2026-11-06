@@ -1,6 +1,6 @@
 ---
-title: Force layout
-description: Place nodes that have no coordinates with a force simulation, on the GPU or the CPU, in a Web Worker.
+title: Layouts
+description: Place nodes that have no coordinates with a force simulation, on a grid, in rings or around a root, and frame the result.
 ---
 
 <LiveExample slug="force-layout" />
@@ -26,10 +26,34 @@ Nodes push each other apart, edges pull their ends together like springs, and a 
 
 The entry point has no peer dependency, and the worker ships inside the package: there is nothing to configure in your bundler.
 
+## Grid, rings and radial
+
+`@bruno00o/graph/layouts` holds layouts that compute their result at once, on the main thread, in a few milliseconds for thousands of nodes.
+
+<LiveExample slug="layouts" />
+
+```ts
+import { grid, radial, rings } from '@bruno00o/graph/layouts'
+
+grid<Item>({ order: (a, b) => a.group.localeCompare(b.group) })
+
+rings({ center: 'hub' })
+
+radial({ root: 'hub' })
+```
+
+- **`grid`** lines nodes up in rows, as many columns as rows by default. `order` sorts them, either `'degree'` or a function that compares the data of two nodes.
+- **`rings`** puts the first node in the middle and fills rings outward, each ring longer than the last. Nodes come by degree, the busiest first, unless `order` says otherwise. `center` picks the middle node.
+- **`radial`** walks the graph from `root` and places each node on the ring of its distance to the root, next to the node it was reached from. Each branch gets a slice of the circle in proportion to its size. Without `root`, it starts from the node with the most edges. Nodes it cannot reach go on an outer ring.
+
+The three are centered on the current center of the nodes they move, and space nodes by twice the largest diameter by default. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it.
+
+These layouts are not incremental: when nodes arrive, every free node is laid out again, so the grid or the rings stay whole. See [`grid`, `rings`, `radial`](/docs/api/layouts) for every option.
+
 ## When it runs
 
 - **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.
-- **New nodes.** Nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it.
+- **New nodes.** With `force`, nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it. With `grid`, `rings` and `radial`, every free node is laid out again.
 - **New layout.** A definition with another layout, or the same layout with other options, lays out every node again on the next frame. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
 - **No layout.** `layout: null`, the default, turns it off. An automatic run in progress stops, and nodes stay where they are.
 
@@ -51,14 +75,31 @@ await graph.layout.run(undefined, { keys: graph.selection.get().nodes })
 
 await graph.layout.run(force({ edgeLength: 100 }))
 
+await graph.layout.run(grid(), { fit: true, duration: 600 })
+
 graph.layout.stop()
 ```
 
 - `run()` lays out every free node with the layout of the definition, from the current positions. Pending data changes are applied first.
 - `keys` limits the run to these nodes. The others stay still and act as anchors. A run on part of the graph starts with less energy and without the pull to the center, so the moved nodes stay near the rest.
 - A layout passed to `run` is used for this run only. The definition keeps its own.
+- `fit` frames the result. With `true`, the view fits every node; pass [fit options](/docs/view#fit) for padding or a duration. It aims at the final positions, so the view moves while the nodes do.
 - The promise resolves to `true` when the run ends, and to `false` when it is stopped, replaced by another run, or when the graph is destroyed. It rejects when neither the call nor the definition has a layout.
 - `stop()` ends the current run and leaves every node where it is.
+
+## Glide to the result
+
+A layout that reports its result at once, without progress, such as `grid`, `rings` and `radial`, does not make nodes jump: they glide from where they are to where they go. The run, and its promise, end when they arrive.
+
+The glide lasts `transitions.layout` milliseconds, 400 by default. `duration` in the run options overrides it for one run, and `0` places nodes at once.
+
+```ts
+defineGraph({ marks, layout: grid(), transitions: { layout: 600 } })
+
+await graph.layout.run(rings(), { duration: 0 })
+```
+
+Dragged nodes and nodes with `x` and `y` in your data do not glide. `stop()` during the glide leaves nodes where they are at that moment.
 
 ## Follow the progress
 
@@ -100,7 +141,7 @@ Nodes that arrive during a run join it without a new `layoutstart`.
 
 ## Save the result
 
-When a run ends, `positionchange` fires with the origin `'layout'` and the positions of the nodes it moved. A stopped run does not emit it.
+When a run ends, `positionchange` fires with the origin `'layout'` and the positions of the nodes it moved, after the glide if there is one. A stopped run does not emit it.
 
 [`persistPositions`](/docs/tanstack-db) writes these positions to your collection, as it does for a drag. The layout then becomes data, shared with every client that reads the collection. When the node mark reads `x` and `y` from it, those nodes now have coordinates and later runs leave them in place. To save only what users move by hand, filter on the origin.
 
@@ -110,7 +151,7 @@ graph.on('positionchange', ({ origin, positions }) => {
 })
 ```
 
-## Options
+## Force options
 
 ```ts
 force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto' })
@@ -169,9 +210,10 @@ export function circle(radius = 300): Layout {
 }
 ```
 
-- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out.
-- It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place.
+- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. `keys[index]` is the key of a node, and `datum(index)` the item it comes from.
+- It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place. Ending without progress makes nodes glide to the result.
 - It returns `pin(index, x, y)`, called when a node is dragged or set during the run, and `stop()`, after which it must not call the listener again.
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.
+- `incremental: false` lays out every free node again when nodes arrive, instead of the new ones only.
 
-See [`force`](/docs/api/force) and [`defineGraph`](/docs/api/define-graph#layout) for the types.
+See [`force`](/docs/api/force), [`grid`, `rings`, `radial`](/docs/api/layouts) and [`defineGraph`](/docs/api/define-graph#layout) for the types.

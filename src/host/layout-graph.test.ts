@@ -20,12 +20,23 @@ describe('layoutGraph', () => {
     positions.set(1, 3, 4)
     positions.set(3, 5, 6)
     positions.follow(1, [3, 4])
-    const graph = layoutGraph(nodes, edges, positions, 2, (index) => index !== 3)
+    nodes.keys.push('a', 'b', 'c', 'd')
+    const graph = layoutGraph(
+      nodes,
+      edges,
+      positions,
+      2,
+      (index) => index !== 3,
+      (key) => ({ key }),
+    )
     expect(graph.capacity).toBe(nodes.capacity)
     expect(Array.from(graph.alive.subarray(0, 4))).toEqual([1, 1, 0, 1])
     expect(Array.from(graph.movable.subarray(0, 4))).toEqual([1, 0, 0, 0])
     expect(Array.from(graph.xy.subarray(0, 8))).toEqual([1, 2, 3, 4, 0, 0, 5, 6])
     expect(Array.from(graph.radius.subarray(0, 4))).toEqual([8, 10, 0, 10])
     expect(Array.from(graph.edges)).toEqual([0, 1])
+    expect(graph.keys.slice(0, 4)).toEqual(['a', 'b', 'c', 'd'])
+    expect(graph.datum(1)).toEqual({ key: 'b' })
+    expect(graph.datum(2)).toBeUndefined()
   })
 })

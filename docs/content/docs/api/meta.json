@@ -18,6 +18,8 @@
     "persist-positions",
     "---@bruno00o/graph/query---",
     "create-exploration",
+    "---@bruno00o/graph/layouts---",
+    "layouts",
     "---@bruno00o/graph/layouts/force---",
     "force",
     "---@bruno00o/graph/theme.css---",

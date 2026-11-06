@@ -2,6 +2,8 @@ import type { LayoutGraph } from '../../types'
 import { BarnesHut } from './barnes-hut'
 import { Collider } from './collider'
 
+export type ForceGraph = Omit<LayoutGraph, 'keys' | 'datum'>
+
 export type ForceEngine = 'auto' | 'gpu' | 'cpu'
 
 export interface ForceOptions {
@@ -38,7 +40,7 @@ const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 
 const gpuFrom = 2000
 
-export function prefersGpu(graph: LayoutGraph, settings: ForceSettings): boolean {
+export function prefersGpu(graph: ForceGraph, settings: ForceSettings): boolean {
   if (settings.engine !== 'auto') return settings.engine === 'gpu'
   let alive = 0
   for (const flag of graph.alive) alive += flag
@@ -89,7 +91,7 @@ export class ForceSimulation {
   readonly #cooling: number
   #seed = 1
 
-  constructor(graph: LayoutGraph, settings: ForceSettings) {
+  constructor(graph: ForceGraph, settings: ForceSettings) {
     const capacity = graph.capacity
     this.#settings = settings
     this.x = new Float64Array(capacity)

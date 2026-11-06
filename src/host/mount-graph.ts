@@ -108,6 +108,8 @@ export interface GraphStates<N extends string = string> {
 
 export interface LayoutRunOptions {
   readonly keys?: Iterable<Key>
+  readonly fit?: boolean | FitOptions
+  readonly duration?: number
 }
 
 export interface GraphLayout {
@@ -162,6 +164,7 @@ interface PositionAnimation {
   readonly to: Float32Array
   readonly start: number
   readonly duration: number
+  readonly done: (() => void) | null
 }
 
 interface Gesture {
@@ -185,12 +188,20 @@ const focusOutline = '2px solid var(--graph-focus-ring,#c93700)'
 const lassoStyle =
   'fill:color-mix(in srgb,var(--graph-accent,#c93700) 10%,transparent);stroke:var(--graph-accent,#c93700);stroke-width:1.5;stroke-dasharray:4 3;stroke-linejoin:round'
 
-interface LayoutSession {
+interface LayoutSettings {
+  readonly fit: FitOptions | null
+  readonly duration: number
+}
+
+interface LayoutSession extends LayoutSettings {
   readonly layout: Layout
   readonly movable: Uint8Array
   readonly auto: boolean
   readonly resolve: (completed: boolean) => void
   run: LayoutRun | null
+  progressed: boolean
+  animation: number
+  fitted: boolean
 }
 
 const idleLayout: GraphLayoutStatus = Object.freeze({ running: false, progress: 0 })
@@ -774,20 +785,29 @@ export function createGraphHost<S extends string = string>(
       if (!relayout && added.length === 0) return
       relayout = false
       laidOut = true
-      void beginLayout(layout, () => true, true)
+      void beginLayout(layout, () => true, true, autoSettings())
       return
     }
     if (added.length === 0) return
+    if (layout.incremental === false) {
+      void beginLayout(layout, () => true, true, autoSettings())
+      return
+    }
     const fresh = new Set(added.map((ref) => ref.index))
     const current = session
     if (current) {
       current.run?.stop()
       session = null
       const movable = (index: number) => current.movable[index] === 1 || fresh.has(index)
-      if (!launch(current.layout, movable, current)) settleLayout(current.layout, current.resolve)
+      if (!launch(current.layout, movable, current))
+        settleLayout(current.layout, current, current.resolve)
       return
     }
-    void beginLayout(layout, (index) => fresh.has(index), true)
+    void beginLayout(layout, (index) => fresh.has(index), true, autoSettings())
+  }
+
+  function autoSettings(): LayoutSettings {
+    return { fit: null, duration: definition.transitions.layout }
   }
 
   function frameLayout(): void {
@@ -810,9 +830,70 @@ export function createGraphHost<S extends string = string>(
     }
   }
 
+  function glideLayout(current: LayoutSession, xy: Float32Array): void {
+    const dragged = gesture?.drag ? new Set(gesture.drag.indices) : null
+    const indices: number[] = []
+    const to: number[] = []
+    const limit = Math.min(current.movable.length, xy.length / 2, scene.nodes.capacity)
+    for (let index = 0; index < limit; index++) {
+      if (current.movable[index] !== 1 || scene.nodes.alive[index] !== 1) continue
+      if (dragged?.has(index)) continue
+      if (!Number.isNaN(positions.source[index * 2] ?? Number.NaN)) continue
+      indices.push(index)
+      to.push(xy[index * 2] ?? 0, xy[index * 2 + 1] ?? 0)
+    }
+    patch({ layout: { running: true, progress: 1 } })
+    let fit = current.fit
+    if (framing) {
+      if (framed === null || store.get().view === framed) fit = fit ?? { padding: defaultPadding }
+      framing = false
+    }
+    if (fit) {
+      const box = boundsAfter(indices, to)
+      const size = viewport()
+      if (box && size.width > 0 && size.height > 0) {
+        pendingFit = null
+        animateTo(
+          fitBounds(box, size, fit.padding ?? defaultPadding),
+          fit.duration ?? current.duration,
+        )
+        current.fitted = true
+      }
+    }
+    current.animation = movePositions(indices, to, current.duration, () =>
+      finishLayout(current, true),
+    )
+  }
+
+  function boundsAfter(indices: readonly number[], to: readonly number[]): Bounds | null {
+    const nodes = scene.nodes
+    const moving = new Uint8Array(nodes.capacity)
+    for (const index of indices) moving[index] = 1
+    let minX = Number.POSITIVE_INFINITY
+    let minY = Number.POSITIVE_INFINITY
+    let maxX = Number.NEGATIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+    const include = (index: number, x: number, y: number) => {
+      const radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
+      minX = Math.min(minX, x - radius)
+      minY = Math.min(minY, y - radius)
+      maxX = Math.max(maxX, x + radius)
+      maxY = Math.max(maxY, y + radius)
+    }
+    for (let index = 0; index < nodes.capacity; index++) {
+      if (nodes.alive[index] === 1 && moving[index] !== 1)
+        include(index, positions.x(index), positions.y(index))
+    }
+    indices.forEach((index, i) => {
+      include(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
+    })
+    return maxX < minX ? null : { minX, minY, maxX, maxY }
+  }
+
   function finishLayout(current: LayoutSession, completed: boolean): void {
     if (session !== current) return
     session = null
+    if (current.animation !== 0) cancelAnimation(current.animation)
     patch({ layout: { running: false, progress: completed ? 1 : store.get().layout.progress } })
     if (completed && emitter.has('positionchange')) {
       const moved = new Map<Key, Point>()
@@ -829,6 +910,7 @@ export function createGraphHost<S extends string = string>(
       frameLayout()
       framing = false
     }
+    if (completed && current.fit && !current.fitted) pendingFit = current.fit
     emitter.emit('layoutend', { name: current.layout.name, completed })
     current.resolve(completed)
     request()
@@ -837,7 +919,7 @@ export function createGraphHost<S extends string = string>(
   function launch(
     layout: Layout,
     movable: (index: number) => boolean,
-    previous: Pick<LayoutSession, 'auto' | 'resolve'>,
+    previous: LayoutSettings & Pick<LayoutSession, 'auto' | 'resolve'>,
   ): boolean {
     const dragged = gesture?.drag ? new Set(gesture.drag.indices) : null
     const graph = layoutGraph(
@@ -846,6 +928,7 @@ export function createGraphHost<S extends string = string>(
       positions,
       store.get().view.zoom,
       (index) => movable(index) && !dragged?.has(index),
+      (key) => model.node(key)?.datum,
     )
     if (!graph.movable.includes(1)) return false
     for (let index = 0; index < Math.min(graph.capacity, animationOwner.length); index++) {
@@ -856,13 +939,19 @@ export function createGraphHost<S extends string = string>(
       movable: graph.movable,
       auto: previous.auto,
       resolve: previous.resolve,
+      fit: previous.fit,
+      duration: previous.duration,
       run: null,
+      progressed: false,
+      animation: 0,
+      fitted: false,
     }
     session = current
     try {
       const run = layout.start(graph, {
         progress: (xy, progress) => {
           if (session !== current) return
+          current.progressed = true
           placeLayout(current, xy)
           patch({ layout: { running: true, progress } })
           frameLayout()
@@ -870,8 +959,12 @@ export function createGraphHost<S extends string = string>(
         },
         end: (xy) => {
           if (session !== current) return
-          placeLayout(current, xy)
-          finishLayout(current, true)
+          if (current.progressed || current.duration <= 0) {
+            placeLayout(current, xy)
+            finishLayout(current, true)
+          } else {
+            glideLayout(current, xy)
+          }
         },
       })
       if (session === current) current.run = run
@@ -886,16 +979,24 @@ export function createGraphHost<S extends string = string>(
     layout: Layout,
     movable: (index: number) => boolean,
     auto: boolean,
+    settings: LayoutSettings,
   ): Promise<boolean> {
     stopLayout()
     return new Promise<boolean>((resolve) => {
       patch({ layout: { running: true, progress: 0 } })
       emitter.emit('layoutstart', { name: layout.name })
-      if (!launch(layout, movable, { auto, resolve })) settleLayout(layout, resolve)
+      if (!launch(layout, movable, { ...settings, auto, resolve })) {
+        settleLayout(layout, settings, resolve)
+      }
     })
   }
 
-  function settleLayout(layout: Layout, resolve: (completed: boolean) => void): void {
+  function settleLayout(
+    layout: Layout,
+    settings: LayoutSettings,
+    resolve: (completed: boolean) => void,
+  ): void {
+    if (settings.fit) pendingFit = settings.fit
     patch({ layout: { running: false, progress: 1 } })
     emitter.emit('layoutend', { name: layout.name, completed: true })
     resolve(true)
@@ -914,41 +1015,59 @@ export function createGraphHost<S extends string = string>(
     for (const index of indices) run.pin(index, positions.x(index), positions.y(index))
   }
 
+  function cancelAnimation(id: number): void {
+    positionAnimations = positionAnimations.filter((animation) => {
+      if (animation.id !== id) return true
+      for (const index of animation.indices) {
+        if (animationOwner[index] === id) animationOwner[index] = 0
+      }
+      return false
+    })
+  }
+
   function movePositions(
     indices: readonly number[],
     to: readonly number[],
     duration: number,
-  ): void {
-    if (indices.length === 0) return
+    done: (() => void) | null = null,
+  ): number {
+    if (indices.length === 0) {
+      done?.()
+      return 0
+    }
     const ms = reducedMotion() ? 0 : duration
     if (ms <= 0) {
       indices.forEach((index, i) => {
         if (index < animationOwner.length) animationOwner[index] = 0
         positions.set(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
       })
-    } else {
-      if (positions.capacity > animationOwner.length) {
-        const owner = new Uint32Array(positions.capacity)
-        owner.set(animationOwner)
-        animationOwner = owner
-      }
-      const id = ++animationSerial
-      const from = new Float32Array(indices.length * 2)
-      indices.forEach((index, i) => {
-        animationOwner[index] = id
-        from[i * 2] = positions.x(index)
-        from[i * 2 + 1] = positions.y(index)
-      })
-      positionAnimations.push({
-        id,
-        indices,
-        from,
-        to: Float32Array.from(to),
-        start: performance.now(),
-        duration: ms,
-      })
+      request()
+      done?.()
+      return 0
     }
+    if (positions.capacity > animationOwner.length) {
+      const owner = new Uint32Array(positions.capacity)
+      owner.set(animationOwner)
+      animationOwner = owner
+    }
+    const id = ++animationSerial
+    const from = new Float32Array(indices.length * 2)
+    indices.forEach((index, i) => {
+      animationOwner[index] = id
+      from[i * 2] = positions.x(index)
+      from[i * 2 + 1] = positions.y(index)
+    })
+    positionAnimations.push({
+      id,
+      indices,
+      from,
+      to: Float32Array.from(to),
+      start: performance.now(),
+      duration: ms,
+      done,
+    })
     request()
+    return id
   }
 
   function followPositions(moves: PositionMoves): void {
@@ -965,6 +1084,7 @@ export function createGraphHost<S extends string = string>(
   }
 
   function stepPositions(now: number): void {
+    const finished: (() => void)[] = []
     positionAnimations = positionAnimations.filter((animation) => {
       const t = Math.max(0, Math.min(1, (now - animation.start) / animation.duration))
       const k = easeInOut(t)
@@ -976,8 +1096,11 @@ export function createGraphHost<S extends string = string>(
         const toY = animation.to[i * 2 + 1] ?? 0
         positions.set(index, fromX + (toX - fromX) * k, fromY + (toY - fromY) * k)
       })
-      return t < 1
+      if (t < 1) return true
+      if (animation.done) finished.push(animation.done)
+      return false
     })
+    for (const done of finished) done()
   }
 
   function frame(now: number): void {
@@ -1346,14 +1469,19 @@ export function createGraphHost<S extends string = string>(
         needsFlush = false
         applyChanges(model.flush())
       }
+      const fit = runOptions.fit === true ? {} : runOptions.fit || null
+      const settings: LayoutSettings = {
+        fit,
+        duration: Math.max(0, runOptions.duration ?? definition.transitions.layout),
+      }
       const keys = runOptions.keys
-      if (!keys) return beginLayout(chosen, () => true, false)
+      if (!keys) return beginLayout(chosen, () => true, false, settings)
       const indices = new Set<number>()
       for (const key of keys) {
         const record = model.node(key)
         if (record) indices.add(record.index)
       }
-      return beginLayout(chosen, (index) => indices.has(index), false)
+      return beginLayout(chosen, (index) => indices.has(index), false, settings)
     },
     stop: () => stopLayout(),
   }

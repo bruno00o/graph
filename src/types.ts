@@ -201,10 +201,12 @@ export interface ResolvedInteraction {
 
 export interface TransitionOptions {
   readonly positions?: number
+  readonly layout?: number
 }
 
 export interface ResolvedTransitions {
   readonly positions: number
+  readonly layout: number
 }
 
 export type BuiltInState = 'selected' | 'hovered' | 'focused'
@@ -220,6 +222,8 @@ export interface LayoutGraph {
   readonly xy: Float32Array
   readonly radius: Float32Array
   readonly edges: Uint32Array
+  readonly keys: readonly (Key | undefined)[]
+  datum(index: number): unknown
 }
 
 export interface LayoutListener {
@@ -235,6 +239,7 @@ export interface LayoutRun {
 export interface Layout {
   readonly name: string
   readonly options: object
+  readonly incremental?: boolean
   start(graph: LayoutGraph, listener: LayoutListener): LayoutRun
 }
 

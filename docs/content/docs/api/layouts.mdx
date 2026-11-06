@@ -1,0 +1,88 @@
+---
+title: grid, rings, radial
+description: Layouts computed at once, on the main thread, that glide nodes to their place.
+---
+
+```ts
+import { grid, radial, rings } from '@bruno00o/graph/layouts'
+
+function grid<T = unknown>(options?: GridOptions<T>): Layout
+function rings<T = unknown>(options?: RingsOptions<T>): Layout
+function radial(options?: RadialOptions): Layout
+```
+
+Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'grid'`, `'rings'` or `'radial'`, with `incremental: false`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Layouts](/docs/layout#grid-rings-and-radial) for a walkthrough.
+
+## Shared behavior
+
+- Only free nodes move: alive, without `x` and `y` in the data, chosen by the run, and not being dragged.
+- Moved nodes are centered on their current center, so a run on part of the graph stays where that part was.
+- `spacing` is the distance between two neighboring places, in world units. Without it, or when it is not above 0, it is twice the largest diameter among the moved nodes, and at least that diameter plus 24.
+- The result ends without progress, in a microtask: nodes glide to it over `transitions.layout`, or the `duration` of the run.
+- When nodes arrive, every free node is laid out again.
+
+## Order
+
+```ts
+type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
+```
+
+`'degree'` puts the nodes with the most edges first. A function compares the items of two nodes, as given to `nodes()`; ties keep the internal order. `T` is the item type of the node mark: pass it as the type argument of `grid` or `rings`.
+
+## grid
+
+```ts
+interface GridOptions<T = unknown> {
+  readonly columns?: number
+  readonly spacing?: number
+  readonly order?: NodeOrder<T>
+}
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `columns` | `number` | Square root of the count, rounded up | Nodes per row. Rounded down, at least 1 |
+| `spacing` | `number` | See above | Distance between rows and between columns |
+| `order` | `NodeOrder<T>` | Internal order | Order of the nodes, row by row from the top left |
+
+## rings
+
+```ts
+interface RingsOptions<T = unknown> {
+  readonly center?: Key
+  readonly order?: NodeOrder<T>
+  readonly spacing?: number
+}
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `center` | `Key` | First node in `order` | Node in the middle. A fixed center keeps its place and the rings form around it |
+| `order` | `NodeOrder<T>` | `'degree'` | Order from the middle outward. Ring `n` holds up to `⌊2πn⌋` nodes |
+| `spacing` | `number` | See above | Distance between two rings |
+
+## radial
+
+```ts
+interface RadialOptions {
+  readonly root?: Key | readonly Key[]
+  readonly spacing?: number
+}
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `root` | `Key \| readonly Key[]` | Free node with the most edges | Start of the walk. Several roots share the inner ring and each grows its own branch |
+| `spacing` | `number` | See above | Smallest distance between two rings, and between two nodes of a ring |
+
+- A breadth-first walk from the roots, through free nodes only, gives each node its ring and the node it was reached from. Edges count in both directions.
+- Each branch gets a slice of the circle in proportion to its number of leaves, and each node sits in the middle of its slice. When a ring is crowded, it grows and its nodes spread apart in the same order.
+- A single fixed root keeps its place and the rings form around it. A single free root goes to the center of the moved nodes.
+- Nodes the walk does not reach go on an outer ring, evenly spaced.
+
+## Exports
+
+| Export | Kind |
+| --- | --- |
+| `grid`, `rings`, `radial` | functions |
+| `GridOptions`, `RingsOptions`, `RadialOptions`, `NodeOrder` | types |

@@ -11,6 +11,8 @@ function graph(): LayoutGraph {
     xy: Float32Array.from([0, 0, 1, 0, 2, 0]),
     radius: new Float32Array(3).fill(8),
     edges: Uint32Array.from([0, 1, 1, 2]),
+    keys: ['a', 'b', 'c'],
+    datum: () => undefined,
   }
 }
 
@@ -41,6 +43,8 @@ describe('force', () => {
       xy: Float32Array.from({ length: count * 2 }, (_, at) => (at * 7919) % 1000),
       radius: new Float32Array(count).fill(8),
       edges: Uint32Array.from({ length: count * 2 }, (_, at) => (at * 31) % count),
+      keys: [],
+      datum: () => undefined,
     }
     const progress: number[] = []
     let ended = false

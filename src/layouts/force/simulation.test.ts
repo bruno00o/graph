@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { LayoutGraph } from '../../types'
 import { BarnesHut } from './barnes-hut'
-import { ForceSimulation, forceDefaults, prefersGpu, resolveForce } from './simulation'
+import {
+  type ForceGraph,
+  ForceSimulation,
+  forceDefaults,
+  prefersGpu,
+  resolveForce,
+} from './simulation'
 
 function random(seed: number): () => number {
   let state = seed
@@ -16,7 +21,7 @@ function graph(
   edges: readonly (readonly [number, number])[],
   fixed: readonly number[] = [],
   radius = 8,
-): LayoutGraph {
+): ForceGraph {
   const capacity = points.length
   return {
     capacity,
