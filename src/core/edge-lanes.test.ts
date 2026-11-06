@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { EdgeColumns } from './columns'
 import { laneBend } from './edge-curve'
 import { createEdgeLanes } from './edge-lanes'
+import { IndexSet } from './index-set'
 
 function random(seed: number): () => number {
   let state = seed >>> 0
@@ -44,7 +45,7 @@ describe('createEdgeLanes', () => {
     const alive: number[] = []
     const free: number[] = Array.from({ length: 4_000 }, (_, index) => 3_999 - index)
     for (let round = 0; round < 40; round++) {
-      const dirty = new Set<number>()
+      const dirty = new IndexSet()
       for (let step = 0; step < 150; step++) {
         const roll = next()
         if (roll < 0.55 && free.length > 0) {

@@ -118,6 +118,7 @@ export class StateRegistry {
       }
     }
     const learn = (kind: StateKind, added: readonly ElementRef[]) => {
+      if (!this.#hasMembers(kind)) return
       for (const { key, index } of added) this.#setMask(kind, index, this.#maskOf(kind, key))
     }
     forget('nodes', changes.nodes.removed)
@@ -162,6 +163,11 @@ export class StateRegistry {
   #index(kind: StateKind, key: Key): number {
     const record = kind === 'nodes' ? this.#model.node(key) : this.#model.edge(key)
     return record?.index ?? -1
+  }
+
+  #hasMembers(kind: StateKind): boolean {
+    for (const entry of this.#members.values()) if (entry[kind].size > 0) return true
+    return false
   }
 
   #maskOf(kind: StateKind, key: Key): number {

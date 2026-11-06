@@ -24,17 +24,22 @@ function interpolate(stops: readonly string[], t: number): string | null {
 function categorical(domain: readonly unknown[], range: readonly string[]): ResolvedColorScale {
   const positions = new Map<unknown, number>()
   for (const value of domain) if (!positions.has(value)) positions.set(value, positions.size)
+  let lastValue: unknown
+  let lastColor: string | null = null
   return {
     sequential: false,
     needsExtent: false,
     map(value) {
       if (value === null || value === undefined || range.length === 0) return null
+      if (value === lastValue) return lastColor
       let position = positions.get(value)
       if (position === undefined) {
         position = positions.size
         positions.set(value, position)
       }
-      return range[position % range.length] ?? null
+      lastValue = value
+      lastColor = range[position % range.length] ?? null
+      return lastColor
     },
   }
 }

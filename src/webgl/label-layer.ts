@@ -505,6 +505,54 @@ export class LabelLayer {
   }
 }
 
+const radixBits = 11
+const radixSize = 1 << radixBits
+
+export function sortDescending(order: Uint32Array, length: number, values: Float32Array): void {
+  if (length < 2) return
+  const bits = new Uint32Array(values.buffer, values.byteOffset, values.length)
+  let keys = new Uint32Array(length)
+  let spareKeys = new Uint32Array(length)
+  let items: Uint32Array = order.subarray(0, length)
+  let spareItems: Uint32Array = new Uint32Array(length)
+  for (let at = 0; at < length; at++) {
+    const word = bits[items[at] ?? 0] ?? 0
+    keys[at] = word > 0x80000000 ? word : ~word & 0x7fffffff
+  }
+  const counts = new Uint32Array(radixSize)
+  for (let shift = 0; shift < 32; shift += radixBits) {
+    counts.fill(0)
+    for (let at = 0; at < length; at++) {
+      const digit = ((keys[at] ?? 0) >>> shift) & (radixSize - 1)
+      counts[digit] = (counts[digit] ?? 0) + 1
+    }
+    let total = 0
+    let single = false
+    for (let digit = 0; digit < radixSize; digit++) {
+      const count = counts[digit] ?? 0
+      if (count === length) single = true
+      counts[digit] = total
+      total += count
+    }
+    if (single) continue
+    for (let at = 0; at < length; at++) {
+      const key = keys[at] ?? 0
+      const digit = (key >>> shift) & (radixSize - 1)
+      const position = counts[digit] ?? 0
+      counts[digit] = position + 1
+      spareKeys[position] = key
+      spareItems[position] = items[at] ?? 0
+    }
+    const sortedKeys = spareKeys
+    spareKeys = keys
+    keys = sortedKeys
+    const sortedItems = spareItems
+    spareItems = items
+    items = sortedItems
+  }
+  if (items.buffer !== order.buffer) order.set(items)
+}
+
 export interface EdgeLabelOrder {
   readonly length: number
   readonly largest: number
@@ -519,8 +567,7 @@ export function sortEdgesByWidth(edges: EdgeColumns, order: Uint32Array): EdgeLa
       largest = Math.max(largest, edges.labelSize[index] || edgeLabelSize)
     }
   }
-  const widths = edges.width
-  order.subarray(0, length).sort((a, b) => (widths[b] ?? 0) - (widths[a] ?? 0) || a - b)
+  sortDescending(order, length, edges.width)
   return { length, largest }
 }
 
@@ -541,7 +588,6 @@ export function sortBySize(nodes: NodeColumns, order: Uint32Array): LabelOrder {
       largest = Math.max(largest, nodes.labelSize[index] || nodeLabelSize)
     }
   }
-  const sizes = nodes.size
-  order.subarray(0, length).sort((a, b) => (sizes[b] ?? 0) - (sizes[a] ?? 0))
+  sortDescending(order, length, nodes.size)
   return { length, screenLabels, largest }
 }

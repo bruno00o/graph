@@ -333,6 +333,7 @@ export function createWebglRenderer(
   let nodeOverlayCount = 0
   let edgeOverlayCount = 0
   const curved = new Set<number>()
+  let curvedFlags = new Uint8Array(0)
   let curvedChanged = false
   let input: RenderInput | null = null
   const atlas = new GlyphAtlas('system-ui, sans-serif')
@@ -386,6 +387,7 @@ export function createWebglRenderer(
     floatBits[0] = nodes.outlineWidth[index] ?? 0
     nodeDecor.data[at + 3] = floatWord[0] ?? 0
     const badges = nodes.alive[index] === 1 ? nodes.badges[index] : null
+    if (!badges && badged.size === 0) return
     if (badges || badged.has(index)) badgesStale = true
     if (badges) badged.add(index)
     else badged.delete(index)
@@ -472,7 +474,8 @@ export function createWebglRenderer(
     edgeStyle.data[at + 2] = bend
     const isCurved =
       edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
-    if (isCurved !== curved.has(index)) {
+    if (isCurved !== (curvedFlags[index] === 1)) {
+      curvedFlags[index] = isCurved ? 1 : 0
       if (isCurved) curved.add(index)
       else curved.delete(index)
       curvedChanged = true
@@ -494,7 +497,7 @@ export function createWebglRenderer(
       first = 0
       last = nodes.capacity - 1
     } else {
-      for (const index of next.dirty.nodes) {
+      for (const index of next.dirty.nodes.indices()) {
         packNode(nodes, index)
         first = Math.min(first, index)
         last = Math.max(last, index)
@@ -525,6 +528,11 @@ export function createWebglRenderer(
   function syncEdges(next: RenderInput): void {
     const edges = next.scene.edges
     const grown = edgeTextures.map((texture) => texture.reserve(edges.capacity)).some(Boolean)
+    if (curvedFlags.length < edges.capacity) {
+      const flags = new Uint8Array(edges.capacity)
+      flags.set(curvedFlags)
+      curvedFlags = flags
+    }
     if (edges.capacity > edgeCapacity) {
       edgeCapacity = edges.capacity
       gl.bindBuffer(gl.ARRAY_BUFFER, edgeIndices)
@@ -537,7 +545,7 @@ export function createWebglRenderer(
       first = 0
       last = edges.capacity - 1
     } else {
-      for (const index of next.dirty.edges) {
+      for (const index of next.dirty.edges.indices()) {
         packEdge(edges, index)
         first = Math.min(first, index)
         last = Math.max(last, index)

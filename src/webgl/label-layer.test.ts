@@ -11,6 +11,7 @@ import {
   LabelLayer,
   labelVisible,
   sortBySize,
+  sortDescending,
   sortEdgesByWidth,
 } from './label-layer'
 
@@ -85,6 +86,32 @@ describe('sortBySize', () => {
     const { length, screenLabels } = sortBySize(nodes, order)
     expect(Array.from(order.subarray(0, length))).toEqual([1, 4, 0])
     expect(screenLabels).toBe(false)
+  })
+})
+
+describe('sortDescending', () => {
+  it('orders like a stable comparator, ties by position, negatives and zeros included', () => {
+    let state = 3
+    const next = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+      return state / 4294967296
+    }
+    const pool = [0, -0, 1, -1, 0.5, -0.5, 1e-30, -1e-30, 3e8, -3e8, 12, 12.000001]
+    for (const length of [0, 1, 2, 7, 3000, 20000]) {
+      const values = new Float32Array(length + 5)
+      for (let index = 0; index < values.length; index++) {
+        values[index] =
+          next() < 0.5 ? (pool[Math.floor(next() * pool.length)] ?? 0) : next() * 200 - 100
+      }
+      const order = new Uint32Array(length + 3)
+      const input = Array.from({ length }, (_, at) => at + 5 - (at % 3))
+      order.set(input)
+      order[length] = 99
+      const expected = [...input].sort((a, b) => (values[b] ?? 0) - (values[a] ?? 0))
+      sortDescending(order, length, values)
+      expect(Array.from(order.subarray(0, length))).toEqual(expected)
+      if (length > 0) expect(order[length]).toBe(99)
+    }
   })
 })
 

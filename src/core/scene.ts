@@ -6,10 +6,11 @@ import type {
   ColorScale,
   EdgeArrow,
   EdgeDash,
+  EdgeMark,
   GraphDefinition,
-  Key,
   LabelPlacement,
   Mark,
+  NodeMark,
   NodeShape,
   NumberScale,
   ScalesOptions,
@@ -26,6 +27,7 @@ import {
   shapeCodes,
 } from './columns'
 import {
+  type CompiledEdgeMark,
   type CompiledLabelText,
   type CompiledNodeMark,
   compileEdgeMark,
@@ -33,6 +35,7 @@ import {
 } from './compile-mark'
 import { createEdgeLanes } from './edge-lanes'
 import type { EdgeRecord, ElementKind, GraphChanges, GraphModel, NodeRecord } from './graph-model'
+import { IndexSet } from './index-set'
 import { Palette } from './palette'
 
 export interface Layer {
@@ -41,8 +44,8 @@ export interface Layer {
 }
 
 export interface SceneDirty {
-  readonly nodes: ReadonlySet<number>
-  readonly edges: ReadonlySet<number>
+  readonly nodes: IndexSet
+  readonly edges: IndexSet
   readonly palette: boolean
   readonly layers: boolean
 }
@@ -156,6 +159,40 @@ function readImage(value: unknown): { src: string; scale: number; color: string 
   return { src, scale: Math.max(0, finiteOr(scale, 1)), color: toColor(color) }
 }
 
+class RecordBatch<R extends { readonly index: number }> {
+  readonly records: R[] = []
+  maxIndex = -1
+  #stamps: Uint32Array = new Uint32Array(0)
+  #generation = 0
+
+  reset(): void {
+    this.records.length = 0
+    this.maxIndex = -1
+    this.#generation = (this.#generation + 1) >>> 0
+    if (this.#generation === 0) {
+      this.#stamps.fill(0)
+      this.#generation = 1
+    }
+  }
+
+  has(index: number): boolean {
+    return this.#stamps[index] === this.#generation
+  }
+
+  add(record: R): void {
+    const index = record.index
+    if (index >= this.#stamps.length) {
+      const stamps = new Uint32Array(Math.max(64, this.#stamps.length * 2, index + 1))
+      stamps.set(this.#stamps)
+      this.#stamps = stamps
+    }
+    if (this.#stamps[index] === this.#generation) return
+    this.#stamps[index] = this.#generation
+    if (index > this.maxIndex) this.maxIndex = index
+    this.records.push(record)
+  }
+}
+
 function layersOf(marks: readonly Mark[]): Layer[] {
   const slots = { nodes: 0, edges: 0 }
   return marks.map((mark) => ({ kind: mark.type, slot: slots[mark.type]++ }))
@@ -167,11 +204,21 @@ export function createScene(): Scene {
   const palette = new Palette()
   const lanes = createEdgeLanes()
   const slots = new Map<Mark, number>()
+  const nodeBatch = new RecordBatch<NodeRecord>()
+  const edgeBatch = new RecordBatch<EdgeRecord>()
+  let compiledNodeMark: NodeMark<unknown> | null = null
+  let compiledNode: CompiledNodeMark | null = null
+  let compiledEdgeMark: EdgeMark<unknown> | null = null
+  let compiledEdge: CompiledEdgeMark | null = null
+  let slotMark: Mark | null = null
+  let slotOfMark = 0
   let layers: Layer[] = []
   let layersDirty = false
   let paletteVersion = 0
-  let dirtyNodes = new Set<number>()
-  let dirtyEdges = new Set<number>()
+  let dirtyNodes = new IndexSet()
+  let dirtyEdges = new IndexSet()
+  let spareNodes = new IndexSet()
+  let spareEdges = new IndexSet()
   let scales: ScalesOptions = {}
   let colorScale: ResolvedColorScale = resolveColorScale(undefined)
   let sizeScale: ResolvedNumberScale = resolveNumberScale(undefined, {
@@ -200,9 +247,33 @@ export function createScene(): Scene {
     else tracker.delete(index)
   }
 
+  function nodeMarkOf(record: NodeRecord): CompiledNodeMark {
+    if (record.mark !== compiledNodeMark || !compiledNode) {
+      compiledNodeMark = record.mark
+      compiledNode = compileNodeMark(record.mark)
+    }
+    return compiledNode
+  }
+
+  function edgeMarkOf(record: EdgeRecord): CompiledEdgeMark {
+    if (record.mark !== compiledEdgeMark || !compiledEdge) {
+      compiledEdgeMark = record.mark
+      compiledEdge = compileEdgeMark(record.mark)
+    }
+    return compiledEdge
+  }
+
+  function slotOf(mark: Mark): number {
+    if (mark !== slotMark) {
+      slotMark = mark
+      slotOfMark = slots.get(mark) ?? 0
+    }
+    return slotOfMark
+  }
+
   function readNode(record: NodeRecord): void {
     const index = record.index
-    const mark = compileNodeMark(record.mark)
+    const mark = nodeMarkOf(record)
     nodes.reserve(index)
     nodes.keys[index] = record.key
     const size = mark.size ? toNumber(mark.size(record.datum)) : Number.NaN
@@ -215,7 +286,7 @@ export function createScene(): Scene {
 
   function readEdge(record: EdgeRecord): void {
     const index = record.index
-    const mark = compileEdgeMark(record.mark)
+    const mark = edgeMarkOf(record)
     edges.reserve(index)
     edges.keys[index] = record.key
     const width = mark.width ? toNumber(mark.width(record.datum)) : Number.NaN
@@ -228,7 +299,7 @@ export function createScene(): Scene {
 
   function writeNode(record: NodeRecord): void {
     const index = record.index
-    const mark = compileNodeMark(record.mark)
+    const mark = nodeMarkOf(record)
     const datum = record.datum
     const size = sizeValues[index] ?? Number.NaN
     const fill =
@@ -236,7 +307,7 @@ export function createScene(): Scene {
       colorScale.map(nodeColorValues[index], colorExtent) ??
       defaults.nodeFill
     nodes.alive[index] = 1
-    nodes.slot[index] = slots.get(record.mark) ?? 0
+    nodes.slot[index] = slotOf(record.mark)
     nodes.size[index] = Number.isNaN(size) ? defaults.nodeSize : sizeScale.map(size, sizeDomain)
     nodes.shape[index] = codeOf<NodeShape>(shapeCodes, mark.shape?.(datum))
     nodes.fill[index] = palette.id(fill)
@@ -267,9 +338,9 @@ export function createScene(): Scene {
     dirtyNodes.add(index)
   }
 
-  function writeEdge(model: GraphModel, record: EdgeRecord): void {
+  function writeEdge(record: EdgeRecord): void {
     const index = record.index
-    const mark = compileEdgeMark(record.mark)
+    const mark = edgeMarkOf(record)
     const datum = record.datum
     const width = widthValues[index] ?? Number.NaN
     const color =
@@ -277,10 +348,10 @@ export function createScene(): Scene {
       colorScale.map(edgeColorValues[index], colorExtent) ??
       defaults.edgeColor
     edges.alive[index] = 1
-    edges.slot[index] = slots.get(record.mark) ?? 0
-    edges.source[index] = model.node(record.source)?.index ?? 0
-    edges.target[index] = model.node(record.target)?.index ?? 0
-    lanes.link(index, edges.source[index] ?? 0, edges.target[index] ?? 0)
+    edges.slot[index] = slotOf(record.mark)
+    edges.source[index] = record.sourceIndex
+    edges.target[index] = record.targetIndex
+    lanes.link(index, record.sourceIndex, record.targetIndex)
     edges.color[index] = palette.id(color)
     edges.width[index] = Number.isNaN(width)
       ? defaults.edgeWidth
@@ -313,18 +384,16 @@ export function createScene(): Scene {
     dirtyEdges.add(index)
   }
 
-  function include<R>(
-    target: Map<number, R>,
-    ids: Iterable<number>,
-    keys: readonly (Key | undefined)[],
-    lookup: (key: Key) => R | undefined,
+  function include<R extends { readonly index: number }>(
+    batch: RecordBatch<R>,
+    tracker: ExtentTracker,
+    lookup: (index: number) => R | undefined,
   ): void {
-    for (const index of ids) {
-      const key = keys[index]
-      if (target.has(index) || key === undefined) continue
-      const record = lookup(key)
-      if (record) target.set(index, record)
-    }
+    tracker.forEachId((index) => {
+      if (batch.has(index)) return
+      const record = lookup(index)
+      if (record) batch.add(record)
+    })
   }
 
   return {
@@ -356,6 +425,7 @@ export function createScene(): Scene {
       scales = next
       const nextLayers = layersOf(definition.marks)
       slots.clear()
+      slotMark = null
       definition.marks.forEach((mark, position) => {
         slots.set(mark, nextLayers[position]?.slot ?? 0)
       })
@@ -374,45 +444,53 @@ export function createScene(): Scene {
       for (const { index } of changes.nodes.removed) removeNode(index)
       for (const { index } of changes.edges.removed) removeEdge(index)
 
-      const nodeRecords = new Map<number, NodeRecord>()
-      const edgeRecords = new Map<number, EdgeRecord>()
+      nodeBatch.reset()
+      edgeBatch.reset()
       if (full) {
-        for (const record of model.nodes()) nodeRecords.set(record.index, record)
-        for (const record of model.edges()) edgeRecords.set(record.index, record)
+        for (const record of model.nodes()) nodeBatch.add(record)
+        for (const record of model.edges()) edgeBatch.add(record)
         full = false
+      } else {
+        for (const refs of [changes.nodes.added, changes.nodes.updated]) {
+          for (const { index } of refs) {
+            const record = model.nodeAt(index)
+            if (record) nodeBatch.add(record)
+          }
+        }
+        for (const refs of [changes.edges.added, changes.edges.updated]) {
+          for (const { index } of refs) {
+            const record = model.edgeAt(index)
+            if (record) edgeBatch.add(record)
+          }
+        }
       }
-      for (const ref of [...changes.nodes.added, ...changes.nodes.updated]) {
-        const record = model.node(ref.key)
-        if (record) nodeRecords.set(record.index, record)
-      }
-      for (const ref of [...changes.edges.added, ...changes.edges.updated]) {
-        const record = model.edge(ref.key)
-        if (record) edgeRecords.set(record.index, record)
-      }
-      for (const record of nodeRecords.values()) readNode(record)
-      for (const record of edgeRecords.values()) readEdge(record)
+      if (nodeBatch.maxIndex >= 0) nodes.reserve(nodeBatch.maxIndex)
+      if (edgeBatch.maxIndex >= 0) edges.reserve(edgeBatch.maxIndex)
+      for (const record of nodeBatch.records) readNode(record)
+      for (const record of edgeBatch.records) readEdge(record)
 
       const nextColor = colorScale.needsExtent
         ? combineExtents(nodeColorExtent.extent, edgeColorExtent.extent)
         : null
       if (!sameExtent(nextColor, colorExtent)) {
         colorExtent = nextColor
-        include(nodeRecords, nodeColorExtent.ids(), nodes.keys, (key) => model.node(key))
-        include(edgeRecords, edgeColorExtent.ids(), edges.keys, (key) => model.edge(key))
+        include(nodeBatch, nodeColorExtent, (index) => model.nodeAt(index))
+        include(edgeBatch, edgeColorExtent, (index) => model.edgeAt(index))
       }
       const nextSize = sizeScale.needsExtent ? sizeExtent.extent : null
       if (!sameExtent(nextSize, sizeDomain)) {
         sizeDomain = nextSize
-        include(nodeRecords, sizeExtent.ids(), nodes.keys, (key) => model.node(key))
+        include(nodeBatch, sizeExtent, (index) => model.nodeAt(index))
       }
       const nextWidth = widthScale.needsExtent ? widthExtent.extent : null
       if (!sameExtent(nextWidth, widthDomain)) {
         widthDomain = nextWidth
-        include(edgeRecords, widthExtent.ids(), edges.keys, (key) => model.edge(key))
+        include(edgeBatch, widthExtent, (index) => model.edgeAt(index))
       }
 
-      for (const record of nodeRecords.values()) writeNode(record)
-      for (const record of edgeRecords.values()) writeEdge(model, record)
+      for (const record of nodeBatch.records) writeNode(record)
+      lanes.reserve(changes.edges.added.length)
+      for (const record of edgeBatch.records) writeEdge(record)
       lanes.write(edges, dirtyEdges)
     },
 
@@ -423,8 +501,12 @@ export function createScene(): Scene {
         palette: palette.version !== paletteVersion,
         layers: layersDirty,
       }
-      dirtyNodes = new Set()
-      dirtyEdges = new Set()
+      spareNodes.clear()
+      spareEdges.clear()
+      dirtyNodes = spareNodes
+      dirtyEdges = spareEdges
+      spareNodes = dirty.nodes
+      spareEdges = dirty.edges
       paletteVersion = palette.version
       layersDirty = false
       return dirty

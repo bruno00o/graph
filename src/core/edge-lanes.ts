@@ -1,5 +1,6 @@
 import type { EdgeColumns } from './columns'
 import { laneBend } from './edge-curve'
+import type { IndexSet } from './index-set'
 
 const empty = -1
 const removed = -2
@@ -17,9 +18,10 @@ function grown(array: Int32Array, length: number): Int32Array<ArrayBuffer> {
 }
 
 export interface EdgeLanes {
+  reserve(count: number): void
   link(index: number, source: number, target: number): void
   unlink(index: number): void
-  write(edges: EdgeColumns, dirty: Set<number>): void
+  write(edges: EdgeColumns, dirty: IndexSet): void
 }
 
 export function createEdgeLanes(): EdgeLanes {
@@ -38,7 +40,7 @@ export function createEdgeLanes(): EdgeLanes {
   let prevs = new Int32Array(0)
   let touched: number[] = []
 
-  function reserve(index: number): void {
+  function reserveIndex(index: number): void {
     if (index < slots.length) return
     const length = Math.max(64, slots.length * 2, index + 1)
     slots = grown(slots, length)
@@ -116,8 +118,12 @@ export function createEdgeLanes(): EdgeLanes {
     }
   }
 
+  function reservePairs(count: number): void {
+    if ((used + count) * 2 > mask + 1) resize(Math.max(16, (live + count) * 2))
+  }
+
   function link(index: number, source: number, target: number): void {
-    reserve(index)
+    reserveIndex(index)
     const low = Math.min(source, target)
     const high = Math.max(source, target)
     const current = slots[index] ?? -1
@@ -125,7 +131,7 @@ export function createEdgeLanes(): EdgeLanes {
       if (lows[current] === low && highs[current] === high) return
       unlink(index)
     }
-    if ((used + 1) * 2 > mask + 1) resize(Math.max(16, (live + 1) * 4))
+    reservePairs(1)
     const found = locate(low, high)
     prevs[index] = -1
     nexts[index] = -1
@@ -150,7 +156,7 @@ export function createEdgeLanes(): EdgeLanes {
     touched.push(index)
   }
 
-  function write(edges: EdgeColumns, dirty: Set<number>): void {
+  function write(edges: EdgeColumns, dirty: IndexSet): void {
     if (touched.length === 0) return
     generation = (generation + 1) >>> 0
     if (generation === 0) {
@@ -189,5 +195,5 @@ export function createEdgeLanes(): EdgeLanes {
     touched = []
   }
 
-  return { link, unlink, write }
+  return { reserve: reservePairs, link, unlink, write }
 }

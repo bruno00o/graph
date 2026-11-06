@@ -13,7 +13,9 @@ describe('ExtentTracker', () => {
     expect(tracker.extent).toEqual([1, 5])
     tracker.set(1, 3)
     expect(tracker.extent).toEqual([3, 5])
-    expect([...tracker.ids()]).toEqual([0, 1])
+    const ids: number[] = []
+    tracker.forEachId((id) => ids.push(id))
+    expect(ids).toEqual([0, 1])
   })
 
   it('combines extents', () => {
