@@ -36,13 +36,13 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 pnpm add @bruno00o/graph
 ```
 
-| Entry point | Contents | Peer dependency |
-| --- | --- | --- |
-| `@bruno00o/graph` | `defineGraph`, `nodes`, `edges`, `mountGraph` | |
-| `@bruno00o/graph/react` | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent` | `react` 19 |
-| `@bruno00o/graph/db` | `persistPositions` for TanStack DB collections | `@tanstack/db` |
-| `@bruno00o/graph/query` | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core` |
-| `@bruno00o/graph/theme.css` | Default light and dark theme | |
+| Entry point                 | Contents                                                         | Peer dependency        |
+| --------------------------- | ---------------------------------------------------------------- | ---------------------- |
+| `@bruno00o/graph`           | `defineGraph`, `nodes`, `edges`, `mountGraph`                    |                        |
+| `@bruno00o/graph/react`     | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent`          | `react` 19             |
+| `@bruno00o/graph/db`        | `persistPositions` for TanStack DB collections                   | `@tanstack/db`         |
+| `@bruno00o/graph/query`     | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core` |
+| `@bruno00o/graph/theme.css` | Default light and dark theme                                     |                        |
 
 ## Quick start
 
