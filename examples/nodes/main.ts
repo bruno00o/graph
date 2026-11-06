@@ -1,6 +1,6 @@
 import { type Badge, defineGraph, edges, mountGraph, type NodeImage, nodes } from '@bruno00o/graph'
 import { messages } from '../shared/messages'
-import { button, createPage, status, themeToggle } from '../shared/page'
+import { button, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
 interface Item {
   readonly id: string
@@ -161,6 +161,7 @@ header.append(
     graph.update({ definition: define(backgrounds) })
   }),
   button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  ...exportButtons(graph, 'nodes', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )
 

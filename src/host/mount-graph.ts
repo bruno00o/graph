@@ -41,6 +41,7 @@ import {
   type GraphEventName,
   type GraphTarget,
 } from './events'
+import { exposeSnapshot } from './export-source'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
@@ -1608,6 +1609,33 @@ export function createGraphHost<S extends string = string>(
     probe: (next) => {
       probe = next
     },
+  })
+
+  exposeSnapshot(instance, () => {
+    if (destroyed) throw new Error('graph: cannot export a destroyed graph')
+    if (needsFlush) {
+      needsFlush = false
+      flushChanges()
+    }
+    registry.takeHighlighted()
+    if (scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
+    buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    request()
+    const { view, width, height } = store.get()
+    return {
+      scene,
+      positions,
+      states: buffers,
+      palette: paletteColors,
+      theme: themeResolver.theme(),
+      view,
+      width,
+      height,
+      pixelRatio,
+      title: element.getAttribute('aria-label'),
+      color: (css) => themeResolver.color(css),
+      createRenderer,
+    }
   })
 
   return instance
