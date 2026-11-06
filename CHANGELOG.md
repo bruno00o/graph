@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1](https://github.com/bruno00o/graph/compare/0.9.0...0.9.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* assign layers much faster on large graphs ([#55](https://github.com/bruno00o/graph/issues/55)) ([6118399](https://github.com/bruno00o/graph/commit/611839966f9b6432ba4ca5e54da205fd249c285a))
+* rewrite the force layout physics ([#53](https://github.com/bruno00o/graph/issues/53)) ([35812cf](https://github.com/bruno00o/graph/commit/35812cfb5adbf541750a3e86df767e875a1efb16))
+
 ## [0.9.0](https://github.com/bruno00o/graph/compare/0.8.0...0.9.0) (2026-11-06)
 
 
