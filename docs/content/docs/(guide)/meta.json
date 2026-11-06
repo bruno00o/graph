@@ -25,6 +25,7 @@
     "---Integrations---",
     "tanstack-db",
     "tanstack-query",
+    "devtools",
     "---Reference---",
     "[API reference](/docs/api)",
     "[Examples](/examples)",

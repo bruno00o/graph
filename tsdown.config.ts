@@ -43,6 +43,8 @@ export default defineConfig({
     query: 'src/query/index.ts',
     layouts: 'src/layouts/index.ts',
     'layouts/force': 'src/layouts/force/index.ts',
+    devtools: 'src/devtools/index.ts',
+    'devtools/react': 'src/devtools/react.tsx',
   },
   format: 'esm',
   platform: 'neutral',
