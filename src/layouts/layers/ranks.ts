@@ -10,7 +10,7 @@ export function layerNodes(
   component: Int32Array,
   pinned: Uint8Array,
 ): Int32Array {
-  const layer = simplex(count, successors, topological, component, maxIterations * count + 100)
+  const layer = simplex(count, successors, topological, maxIterations * count + 100)
   const top = new Int32Array(count).fill(Number.MAX_SAFE_INTEGER)
   for (let node = 0; node < count; node++) {
     const c = component[node] ?? 0

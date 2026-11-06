@@ -4,6 +4,7 @@ import { distinct } from './adjacency'
 import { acyclicRanks } from './cycles'
 import { type LayersOptions, layers } from './index'
 import { components, layerNodes } from './ranks'
+import { simplex } from './simplex'
 
 interface Shape {
   readonly count: number
@@ -287,6 +288,94 @@ describe('layer assignment', () => {
       const layer = layerNodes(count, successors, topological, component, new Uint8Array(count))
       expect(total(successors, layer)).toBe(shortest(count, successors))
     }
+  })
+
+  interface Prepared {
+    readonly count: number
+    readonly successors: ReturnType<typeof distinct>
+    readonly topological: Int32Array
+    readonly component: Int32Array
+  }
+
+  function prepare(count: number, extra: number, seed: number, cyclic: boolean): Prepared {
+    const next = random(seed)
+    const from: number[] = []
+    const to: number[] = []
+    for (let node = 1; node < count; node++) {
+      from.push(Math.floor(next() * node))
+      to.push(node)
+    }
+    for (let k = 0; k < extra; k++) {
+      const a = Math.floor(next() * count)
+      const b = Math.floor(next() * count)
+      if (a === b) continue
+      from.push(cyclic ? a : Math.min(a, b))
+      to.push(cyclic ? b : Math.max(a, b))
+    }
+    const tails = Int32Array.from(from)
+    const heads = Int32Array.from(to)
+    const rank = acyclicRanks(count, tails, heads, new Int32Array(0))
+    for (let edge = 0; edge < tails.length; edge++) {
+      const tail = tails[edge] ?? 0
+      const head = heads[edge] ?? 0
+      if ((rank[tail] ?? 0) > (rank[head] ?? 0)) {
+        tails[edge] = head
+        heads[edge] = tail
+      }
+    }
+    const successors = distinct(count, tails, heads, tails.length)
+    const topological = new Int32Array(count)
+    for (let node = 0; node < count; node++) topological[rank[node] ?? 0] = node
+    return { count, successors, topological, component: components(count, successors) }
+  }
+
+  function assign({ count, successors, topological, component }: Prepared): Int32Array {
+    return layerNodes(count, successors, topological, component, new Uint8Array(count))
+  }
+
+  function downward(successors: ReturnType<typeof distinct>, layer: Int32Array): boolean {
+    for (let node = 0; node + 1 < successors.start.length; node++) {
+      for (let k = successors.start[node] ?? 0; k < (successors.start[node + 1] ?? 0); k++) {
+        if ((layer[successors.items[k] ?? 0] ?? 0) <= (layer[node] ?? 0)) return false
+      }
+    }
+    return true
+  }
+
+  it('reaches the minimum total edge length on larger graphs, with or without cycles', () => {
+    const cases = [
+      { count: 2000, extra: 1000, seed: 31, cyclic: false, minimum: 5106 },
+      { count: 2000, extra: 1000, seed: 32, cyclic: true, minimum: 20048 },
+      { count: 3000, extra: 4500, seed: 33, cyclic: false, minimum: 20924 },
+    ]
+    for (const { count, extra, seed, cyclic, minimum } of cases) {
+      const prepared = prepare(count, extra, seed, cyclic)
+      const layer = assign(prepared)
+      expect(downward(prepared.successors, layer)).toBe(true)
+      expect(total(prepared.successors, layer)).toBe(minimum)
+    }
+  })
+
+  it('gives every edge of a tree a span of one layer', () => {
+    const prepared = prepare(3000, 0, 35, false)
+    const layer = assign(prepared)
+    expect(downward(prepared.successors, layer)).toBe(true)
+    expect(total(prepared.successors, layer)).toBe(2999)
+  })
+
+  it('still points every edge down when the pivot budget runs out', () => {
+    const { count, successors, topological } = prepare(1500, 1500, 36, true)
+    for (const budget of [0, 1, 10, 100]) {
+      expect(downward(successors, simplex(count, successors, topological, budget))).toBe(true)
+    }
+  })
+
+  it('layers a random acyclic graph of 20,000 nodes and 30,000 edges in well under a second', () => {
+    const prepared = prepare(20000, 10000, 34, false)
+    const started = performance.now()
+    const layer = assign(prepared)
+    expect(performance.now() - started).toBeLessThan(1000)
+    expect(total(prepared.successors, layer)).toBe(51333)
   })
 
   it('orders an acyclic graph topologically and puts roots first', () => {
