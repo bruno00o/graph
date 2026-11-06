@@ -106,6 +106,31 @@ Every array passed to the listener holds `capacity × 2` numbers. Nodes that are
 
 <api-table path="index.ts" name="InteractionOptions" />
 
+`wheel` takes `'zoom'`, `'pan'` or `'page'`. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad), [Touch](/docs/interaction#touch) and [Auto-pan](/docs/interaction#auto-pan).
+
+## View
+
+```ts
+interface ViewLimitOptions {
+  minZoom?: number
+  maxZoom?: number
+  bounds?: ViewBounds | null
+}
+
+type ViewBounds = Bounds | { readonly margin: number }
+
+interface Bounds {
+  readonly minX: number
+  readonly minY: number
+  readonly maxX: number
+  readonly maxY: number
+}
+```
+
+<api-table path="index.ts" name="ViewLimitOptions" />
+
+`bounds` is a rectangle in world units, or `{ margin }` for the box of every node grown by `margin` screen pixels. See [View limits](/docs/view#view-limits).
+
 ## Transitions
 
 Durations in milliseconds. Negative values count as 0, and every duration is 0 with `prefers-reduced-motion`.
@@ -126,7 +151,8 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 
 ## Errors
 
-- `TypeError` when a mark does not come from `nodes()` or `edges()`.
+- `TypeError` when a mark does not come from `nodes()` or `edges()`, or when `interaction.wheel` is not `'zoom'`, `'pan'` or `'page'`.
+- `RangeError` when `view.minZoom` is not positive, `view.maxZoom` is not finite or is smaller than `minZoom`, or `view.bounds` holds a value that is not finite or a rectangle whose minimum exceeds its maximum.
 - `TypeError` when `background.grid` is not `'lines'` or `'dots'`, or when a hull does not come from `hull()`.
 - `RangeError` with more than 29 states besides `selected`, `hovered` and `focused`.
 
@@ -139,10 +165,11 @@ interface GraphDefinition<S extends string = string> {
   readonly states: StateStyles<S>
   readonly layout: Layout | null
   readonly interaction: ResolvedInteraction
+  readonly view: ResolvedViewLimits
   readonly transitions: ResolvedTransitions
   readonly background: ResolvedBackground | null
   readonly hulls: readonly Hull[]
 }
 ```
 
-Options are resolved: `interaction.zoom` is `false` or `{ speed }`, `transitions.positions` and `transitions.layout` are numbers of milliseconds, and `background` is `null` or carries its spacing and colors.
+Options are resolved: `interaction.zoom` and `interaction.autoPan` are `false` or `{ speed }`, `view` holds `minZoom`, `maxZoom` and `bounds` (`null` without bounds), `transitions.positions` and `transitions.layout` are numbers of milliseconds, and `background` is `null` or carries its spacing and colors.

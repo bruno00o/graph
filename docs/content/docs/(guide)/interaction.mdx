@@ -1,6 +1,6 @@
 ---
 title: Interaction
-description: Pan, zoom, drag, selection, lasso and keyboard navigation.
+description: Pan, zoom, wheel, touch, drag, selection, lasso and keyboard navigation.
 ---
 
 ## Options
@@ -10,15 +10,15 @@ Interaction is configured in the definition. Everything is on by default except 
 ```ts
 defineGraph({
   marks,
-  interaction: { select: 'single', zoom: { speed: 0.5 }, lasso: false, drag: true },
+  interaction: { select: 'single', zoom: { speed: 0.5 }, wheel: 'page', lasso: false },
 })
 ```
 
-Every option, with its default, is listed in [`InteractionOptions`](/docs/api/define-graph#interaction).
+Every option, with its default, is listed in [`InteractionOptions`](/docs/api/define-graph#interaction). The zoom range and the area the view may cover are set apart, in the `view` of the definition: see [View limits](/docs/view#view-limits).
 
 ## Clicks and selection
 
-A press released within 4 pixels of where it started is a click. The `click` event fires first, then the default selection runs.
+A press released within 4 pixels of where it started is a click, or within 10 pixels for a touch, so a tap selects like a click. The `click` event fires first, then the default selection runs.
 
 - A click on an element selects it alone.
 - In `'multiple'` mode, Shift, Cmd or Ctrl adds the element to the selection, or removes it if it was already selected.
@@ -71,7 +71,65 @@ Drag a node to move it. The drag starts after 4 pixels and does not emit a click
 
 ## Lasso
 
-With `lasso: true` and `select: 'multiple'`, Shift and drag from the background draws a lasso. The nodes inside are added to the selection when you release; edges are not taken. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress.
+With `lasso: true` and `select: 'multiple'`, Shift and drag from the background draws a lasso. The nodes inside are added to the selection when you release; edges are not taken. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress. A long press never starts a lasso: only Shift does.
+
+## Wheel and trackpad
+
+`wheel` decides what a wheel, or a two-finger scroll on a trackpad, does without a modifier key:
+
+| `wheel` | Wheel or two-finger scroll | Cmd or Ctrl and wheel, trackpad pinch |
+| --- | --- | --- |
+| `'zoom'`, the default | Zooms around the pointer | Zooms |
+| `'pan'` | Moves the view, sideways with Shift and a mouse wheel | Zooms |
+| `'page'` | Scrolls the page | Zooms |
+
+`'zoom'` suits a graph that fills the window. `'pan'` suits trackpads: scroll to move, pinch to zoom. `'page'` suits a graph inside a page that scrolls, so that the wheel never traps the reader.
+
+A pinch on a trackpad reaches the page as a wheel event with Ctrl held: it zooms in every mode, faster than a wheel step so that the graph follows the fingers. In `'zoom'` mode, the graph takes the wheel even at the zoom limits, so the page does not jump at the end of a zoom. Wheel events the graph does not use, such as any wheel with `zoom: false`, go to the page.
+
+In `'page'` mode, each wheel event left to the page emits `zoomhint`, so your application can say how to zoom. The graph shows no text itself: the event carries `key`, `'Meta'` on Apple systems (Cmd) and `'Control'` elsewhere.
+
+```ts
+const definition = defineGraph({ marks, interaction: { wheel: 'page' } })
+const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+
+let timer: ReturnType<typeof setTimeout> | undefined
+graph.on('zoomhint', ({ key }) => {
+  hint.textContent = key === 'Meta' ? 'Hold Cmd and scroll to zoom' : 'Hold Ctrl and scroll to zoom'
+  hint.hidden = false
+  clearTimeout(timer)
+  timer = setTimeout(() => {
+    hint.hidden = true
+  }, 1500)
+})
+```
+
+In React, pass `onZoomHint` to [`<Graph>`](/docs/api/graph-component#props).
+
+## Touch
+
+One finger pans the background and drags nodes, like the mouse. Two fingers pinch: the view zooms with the distance between them and follows their midpoint, so the point under your fingers stays under them. A second finger that lands during a node drag or a lasso ends it, and the pinch takes over; lifting one finger of a pinch goes on panning with the other.
+
+A tap selects like a click. The canvas sets `touch-action: none`, so the browser neither scrolls nor zooms the page under the graph.
+
+## Auto-pan
+
+While you drag a node or draw a lasso within 40 pixels of the edge of the graph element, the view scrolls toward that edge: slowly at 40 pixels, faster closer to it, and at full speed past the edge. It stops when the pointer moves back inside or the gesture ends. Dragged nodes stay under the pointer while the view moves, and the lasso keeps the area it covered.
+
+```ts
+defineGraph({ marks, interaction: { autoPan: { speed: 0.5 } } })
+```
+
+`autoPan: false` turns it off. It needs `pan`.
+
+## Turn gestures off
+
+`pan: false` and `zoom: false` stop the user from moving or zooming the view, with the pointer, fingers, wheel and keyboard alike. Your code still moves the view with [`graph.view`](/docs/view): this keeps a view fixed on screen while a script tours the graph.
+
+```ts
+defineGraph({ marks, interaction: { pan: false, zoom: false } })
+graph.view.fit(['n1', 'n2'], { duration: 400 })
+```
 
 ## Keyboard
 
@@ -83,11 +141,11 @@ With `keyboard: true`, the graph element is focusable (`tabindex="0"`, `role="ap
 | Enter or Space | Select the focused node. With Shift, Cmd or Ctrl, add it |
 | Enter on a group | Fold or unfold the focused [group](/docs/groups), with `fold: true` |
 | Escape | Cancel the lasso, then clear the selection, then remove the focus |
-| Shift and arrow keys | Pan the view by a tenth of its size |
-| `+` and `-` | Zoom in and out |
+| Shift and arrow keys | Pan the view by a tenth of its size, with `pan: true` |
+| `+` and `-` | Zoom in and out, with `zoom: true` |
 | `0` | Fit the whole graph |
 
-Without a focused node, the arrows start from the last selected node, or from the node nearest the center. The view follows the focused node when it gets within 48 pixels of the edge. The focused node's label, or its key, is announced to screen readers through a live region.
+Without a focused node, the arrows start from the last selected node, or from the node nearest the center. The view follows the focused node when it gets within 48 pixels of the edge. Keys stay within the [view limits](/docs/view#view-limits), like every other move. The focused node's label, or its key, is announced to screen readers through a live region.
 
 ```ts
 graph.focus.set({ kind: 'node', key: 'n3' })

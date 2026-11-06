@@ -62,6 +62,11 @@ interface GraphFoldEvent {
   readonly folded: readonly Key[]
 }
 
+interface GraphZoomHintEvent {
+  readonly key: 'Meta' | 'Control'
+  readonly originalEvent: WheelEvent
+}
+
 interface GraphLayoutEvent {
   readonly name: string
 }
@@ -74,6 +79,7 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 - `point` is in screen pixels relative to the graph element, `world` in world units.
 - `keys` lists every node moved by the drag: the whole selection when the dragged node is selected, and the nodes inside a dragged group.
 - `folded` lists the keys of every folded group after the change.
+- `zoomhint` fires in `'page'` wheel mode for each wheel event left to the page. `key` is the key to hold to zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. Show your own hint: the graph shows none. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad).
 - `positions` holds the target positions. Moves that come from your data do not emit `positionchange`.
 - With the origin `'layout'`, `positions` holds every node the run moved. A stopped run emits nothing.
 - `name` is the name of the layout, `'force'` for [`force()`](/docs/api/force). `completed` is `false` when the run was stopped or replaced.

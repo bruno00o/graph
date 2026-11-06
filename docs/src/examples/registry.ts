@@ -52,6 +52,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./large/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'navigation',
+    title: 'Navigation',
+    description:
+      'A graph inside a page that scrolls: the wheel scrolls the page, Cmd or Ctrl and the wheel zooms, and the view cannot leave the nodes. Switch the wheel mode and the bounds.',
+    hint: 'Scroll over the graph, then hold Cmd or Ctrl to zoom. Pinch to zoom. Drag a node to the edge.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph'],
+    files: ['navigation/main.ts', ...shared],
+    load: () => import('./navigation/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'force-layout',
     title: 'Force layout',
     description:

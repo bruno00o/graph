@@ -52,7 +52,7 @@ export interface AnchorOptions<S extends string = string> {
   readonly scale?: boolean
   /**
    * Lets the element take the pointer. Otherwise clicks and drags go through to the graph. The
-   * wheel always zooms the graph, unless the element under the pointer can scroll.
+   * wheel always goes to the graph, unless the element under the pointer can scroll.
    * @default false
    */
   readonly interactive?: boolean

@@ -27,7 +27,8 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 - Images and icons clipped to the node shape, corner badges, outlines, label backgrounds, parallel edges and self loops
 - Nested groups drawn as containers, folded into a single node on double-click, with the edges that cross them merged and styled by their count
 - Labels with their own size, color, weight, font, placement, line breaks and truncation, on nodes and on edges, where edge labels follow their edge and stay upright; labels are placed only where they fit without overlapping
-- Drag, pan, zoom, multiple selection and lasso out of the box, plus keyboard navigation announced to screen readers
+- Drag, pan, zoom, pinch on touch screens, multiple selection and lasso out of the box, plus keyboard navigation announced to screen readers
+- A wheel that zooms, pans or leaves the page scrolling, zoom limits and bounds the view cannot leave, and edge scrolling while dragging
 - Force layout on the GPU in a Web Worker, with a CPU fallback: nodes settle in place while you keep panning, and dragging a node pins it
 - A background grid that adapts to the zoom, hulls around groups, states or lists of nodes, and HTML pinned to nodes, edges or points without a render per frame
 - Themed with CSS variables, light and dark
