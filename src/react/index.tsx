@@ -32,7 +32,7 @@ import type { GraphDefinition, Key, Mark, View } from '../types'
 
 /** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
 export interface GraphEventProps<M extends Mark = Mark> {
-  /** Receives `click`: a press released within 4 pixels. */
+  /** Receives `click`: a press released within 4 pixels, 10 for a touch. */
   readonly onClick?: GraphEventHandler<'click', M>
   /** Receives `doubleclick`. */
   readonly onDoubleClick?: GraphEventHandler<'doubleclick', M>
@@ -58,6 +58,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onFoldChange?: GraphEventHandler<'foldchange', M>
   /** Receives `viewchange`: the view changed. */
   readonly onViewChange?: GraphEventHandler<'viewchange', M>
+  /** Receives `zoomhint`: a wheel event went to the page in `'page'` wheel mode. */
+  readonly onZoomHint?: GraphEventHandler<'zoomhint', M>
   /** Receives `layoutstart`: a layout run starts. */
   readonly onLayoutStart?: GraphEventHandler<'layoutstart', M>
   /** Receives `layoutend`: a layout run ends or stops. */
@@ -78,6 +80,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   focuschange: 'onFocusChange',
   foldchange: 'onFoldChange',
   viewchange: 'onViewChange',
+  zoomhint: 'onZoomHint',
   layoutstart: 'onLayoutStart',
   layoutend: 'onLayoutEnd',
 }

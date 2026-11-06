@@ -1,26 +1,54 @@
-import type { Point, View } from '../types'
+import type { Bounds, Point, View } from '../types'
+
+export type { Bounds }
 
 export interface Viewport {
   readonly width: number
   readonly height: number
 }
 
-export interface Bounds {
-  readonly minX: number
-  readonly minY: number
-  readonly maxX: number
-  readonly maxY: number
-}
-
 export interface ZoomLimits {
-  readonly min: number
-  readonly max: number
+  readonly minZoom: number
+  readonly maxZoom: number
 }
 
-export const defaultZoomLimits: ZoomLimits = { min: 1e-3, max: 64 }
+export interface PanLimits {
+  readonly box: Bounds
+  readonly margin: number
+}
+
+export const defaultZoomLimits: ZoomLimits = { minZoom: 1e-3, maxZoom: 64 }
+
+const lineHeight = 16
+const wheelLimit = 120
+const wheelRate = 0.0025
+const pinchLimit = 30
+const pinchRate = 0.01
 
 export function clampZoom(zoom: number, limits: ZoomLimits = defaultZoomLimits): number {
-  return Math.min(limits.max, Math.max(limits.min, zoom))
+  return Math.min(limits.maxZoom, Math.max(limits.minZoom, zoom))
+}
+
+function clampCenter(center: number, min: number, max: number, half: number): number {
+  const low = min + half
+  const high = max - half
+  return low <= high ? Math.min(high, Math.max(low, center)) : Math.min(low, Math.max(high, center))
+}
+
+export function constrainView(
+  view: View,
+  viewport: Viewport,
+  limits: ZoomLimits,
+  pan: PanLimits | null,
+): View {
+  const zoom = clampZoom(view.zoom, limits)
+  let { x, y } = view
+  if (pan) {
+    const margin = pan.margin / zoom
+    x = clampCenter(x, pan.box.minX - margin, pan.box.maxX + margin, viewport.width / 2 / zoom)
+    y = clampCenter(y, pan.box.minY - margin, pan.box.maxY + margin, viewport.height / 2 / zoom)
+  }
+  return x === view.x && y === view.y && zoom === view.zoom ? view : { x, y, zoom }
 }
 
 export function toScreen(view: View, viewport: Viewport, point: Point): Point {
@@ -71,15 +99,29 @@ export function fitBounds(
   }
 }
 
+export function wheelPixels(delta: number, deltaMode: number, length: number): number {
+  return delta * (deltaMode === 1 ? lineHeight : deltaMode === 2 ? length : 1)
+}
+
 export function wheelFactor(
   deltaY: number,
   deltaMode: number,
   viewportHeight: number,
   speed: number,
+  pinch = false,
 ): number {
-  const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? viewportHeight : 1
-  const delta = Math.max(-120, Math.min(120, deltaY * unit))
-  return Math.exp(-delta * 0.0025 * speed)
+  const pixels = wheelPixels(deltaY, deltaMode, viewportHeight)
+  const limit = pinch ? pinchLimit : wheelLimit
+  const delta = Math.max(-limit, Math.min(limit, pixels))
+  return Math.exp(-delta * (pinch ? pinchRate : wheelRate) * speed)
+}
+
+export function edgePush(position: number, length: number, zone: number): number {
+  const size = Math.min(zone, length / 4)
+  if (!(size > 0)) return 0
+  if (position < size) return -Math.min(1, (size - position) / size)
+  if (position > length - size) return Math.min(1, (position - length + size) / size)
+  return 0
 }
 
 export function easeInOut(t: number): number {

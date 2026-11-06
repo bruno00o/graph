@@ -19,6 +19,18 @@ export interface View {
   readonly zoom: number
 }
 
+/** A rectangle in world units. */
+export interface Bounds {
+  /** Left edge. */
+  readonly minX: number
+  /** Top edge. */
+  readonly minY: number
+  /** Right edge. */
+  readonly maxX: number
+  /** Bottom edge. */
+  readonly maxY: number
+}
+
 /** A function that reads a value from an item of the data. */
 export type Accessor<T, V> = (datum: T) => V
 
@@ -501,18 +513,39 @@ export interface StateStyle {
 /** How clicks select: one element, several with a modifier key, or nothing. */
 export type SelectMode = 'single' | 'multiple' | false
 
+/**
+ * What a wheel or a two-finger trackpad scroll does without Cmd or Ctrl: `'zoom'` zooms the view,
+ * `'pan'` moves it, and `'page'` leaves the event to the page, which scrolls.
+ */
+export type WheelMode = 'zoom' | 'pan' | 'page'
+
 /** What the user can do with the pointer and the keyboard. */
 export interface InteractionOptions {
   /**
-   * Drag the background to move the view.
+   * Move the view by dragging the background, with two fingers, with the wheel in `'pan'` mode,
+   * and with Shift and the arrow keys. Code still moves it.
    * @default true
    */
   readonly pan?: boolean
   /**
-   * Wheel and pinch zoom. `{ speed }` multiplies the wheel zoom speed, 1 by default.
+   * Zoom with the wheel, a pinch and the keyboard. `{ speed }` multiplies the wheel and trackpad
+   * zoom speed, 1 by default. Code still zooms.
    * @default true
    */
   readonly zoom?: boolean | { readonly speed?: number }
+  /**
+   * What the wheel does without Cmd or Ctrl: `'zoom'`, `'pan'` or `'page'`. With Cmd or Ctrl,
+   * and on a trackpad pinch, it always zooms. In `'page'` mode, each wheel event left to the page
+   * emits `zoomhint`.
+   * @default 'zoom'
+   */
+  readonly wheel?: WheelMode
+  /**
+   * Scrolls the view while a node drag or a lasso nears the edge of the element, faster closer to
+   * it. `{ speed }` multiplies the speed, 1 by default. Needs `pan`.
+   * @default true
+   */
+  readonly autoPan?: boolean | { readonly speed?: number }
   /**
    * Selection mode, `false` for none. In `'multiple'` mode, Shift, Cmd or Ctrl adds to the
    * selection.
@@ -544,10 +577,14 @@ export interface InteractionOptions {
 
 /** Interaction options with every default applied, as `defineGraph` resolves them. */
 export interface ResolvedInteraction {
-  /** Whether dragging the background moves the view. */
+  /** Whether gestures move the view. */
   readonly pan: boolean
   /** `false`, or the wheel zoom speed. */
   readonly zoom: false | { readonly speed: number }
+  /** What the wheel does without Cmd or Ctrl. */
+  readonly wheel: WheelMode
+  /** `false`, or the auto-pan speed factor. */
+  readonly autoPan: false | { readonly speed: number }
   /** Selection mode. */
   readonly select: SelectMode
   /** Whether nodes can be dragged. */
@@ -558,6 +595,46 @@ export interface ResolvedInteraction {
   readonly keyboard: boolean
   /** Whether double-click and Enter fold and unfold groups. */
   readonly fold: boolean
+}
+
+/**
+ * Area the view cannot leave: a rectangle in world units, or `{ margin }`, the box of every node
+ * grown by `margin` screen pixels.
+ */
+export type ViewBounds = Bounds | { readonly margin: number }
+
+/**
+ * Options of the `view` of `defineGraph`. Gestures, the keyboard, `view.set`, `view.fit`,
+ * `view.zoomBy` and animations stay within them.
+ */
+export interface ViewLimitOptions {
+  /**
+   * Smallest zoom, in screen pixels per world unit.
+   * @default 0.001
+   */
+  readonly minZoom?: number
+  /**
+   * Largest zoom, in screen pixels per world unit.
+   * @default 64
+   */
+  readonly maxZoom?: number
+  /**
+   * Area the view cannot leave. Where the area is narrower than the view, the area cannot leave
+   * the view instead. Applied when the view moves, when the element is resized and when the
+   * definition changes, not when the data changes.
+   * @default null
+   */
+  readonly bounds?: ViewBounds | null
+}
+
+/** View limits with every default applied, as `defineGraph` resolves them. */
+export interface ResolvedViewLimits {
+  /** Smallest zoom. */
+  readonly minZoom: number
+  /** Largest zoom. */
+  readonly maxZoom: number
+  /** Area the view cannot leave, or `null`. */
+  readonly bounds: ViewBounds | null
 }
 
 /** Durations of animated moves, in milliseconds. Negative values count as 0. */
@@ -694,8 +771,10 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly layout?: Layout<NodeDatum<M>> | null
-  /** Pan, zoom, selection, drag, lasso and keyboard. */
+  /** Pan, zoom, wheel, selection, drag, lasso and keyboard. */
   readonly interaction?: InteractionOptions
+  /** Zoom range and area of the view. */
+  readonly view?: ViewLimitOptions
   /** Durations of animated node moves. */
   readonly transitions?: TransitionOptions
   /**
@@ -722,6 +801,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly layout: Layout<NodeDatum<M>> | null
   /** Interaction options, defaults applied. */
   readonly interaction: ResolvedInteraction
+  /** View limits, defaults applied. */
+  readonly view: ResolvedViewLimits
   /** Transition durations in milliseconds, defaults applied. */
   readonly transitions: ResolvedTransitions
   /** Grid drawn under the graph, or `null` for none. */

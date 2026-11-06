@@ -1,6 +1,6 @@
 ---
 title: View and camera
-description: Fit, zoom and move the view, and convert between screen and world coordinates.
+description: Fit, zoom and move the view, limit its zoom and area, and convert between screen and world coordinates.
 ---
 
 ## The view
@@ -44,6 +44,34 @@ graph.view.zoomBy(1 / 1.5, { duration: 200 })
 ```
 
 Animated calls interrupt each other: the last one wins. With `prefers-reduced-motion`, every duration is zero.
+
+How the wheel, a trackpad and fingers move the view is set in the [interaction options](/docs/interaction#wheel-and-trackpad).
+
+## View limits
+
+The `view` of the definition bounds the zoom and the area the view can show. Every move stays within them: gestures, keys, `view.set`, `view.fit`, `view.zoomBy`, `initialView`, and each frame of an animation.
+
+```ts
+defineGraph({
+  marks,
+  view: { minZoom: 0.1, maxZoom: 8, bounds: { margin: 120 } },
+})
+```
+
+`minZoom` and `maxZoom` are in screen pixels per world unit, 0.001 and 64 by default. `fit` frames as closely as `maxZoom` allows, so fitting a single node does not zoom past it.
+
+`bounds` takes one of two forms:
+
+- A rectangle in world units, `{ minX, minY, maxX, maxY }`: the view cannot show past it, as on a map with an edge.
+- `{ margin }`: the box of every node, grown by `margin` screen pixels on each side. The graph cannot be pushed off screen, and you can pan until its edge sits `margin` pixels from the edge of the element.
+
+Where the area is narrower than the view, for example once you zoom out, the rule turns around: the area cannot leave the view, but it can move inside it.
+
+```ts
+defineGraph({ marks, view: { bounds: { minX: -1000, minY: -600, maxX: 1000, maxY: 600 } } })
+```
+
+Bounds apply when the view moves, when the element is resized and when the definition changes. Data changes do not move the view: with `{ margin }`, nodes that arrive or leave widen or narrow the area at the next move. See [`ViewLimitOptions`](/docs/api/define-graph#view) for the full option list.
 
 ## Screen and world coordinates
 

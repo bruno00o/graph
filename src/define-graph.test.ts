@@ -15,6 +15,8 @@ describe('defineGraph', () => {
     expect(defineGraph({ marks: [] }).interaction).toEqual({
       pan: true,
       zoom: { speed: 1 },
+      wheel: 'zoom',
+      autoPan: { speed: 1 },
       select: 'multiple',
       drag: true,
       lasso: false,
@@ -30,6 +32,38 @@ describe('defineGraph', () => {
     ).toEqual({
       speed: 2,
     })
+  })
+
+  it('resolves the wheel mode and auto-pan', () => {
+    const definition = defineGraph({ marks: [], interaction: { wheel: 'page', autoPan: false } })
+    expect(definition.interaction.wheel).toBe('page')
+    expect(definition.interaction.autoPan).toBe(false)
+    expect(
+      defineGraph({ marks: [], interaction: { autoPan: { speed: 2 } } }).interaction.autoPan,
+    ).toEqual({ speed: 2 })
+    expect(() => defineGraph({ marks: [], interaction: { wheel: 'scroll' as 'page' } })).toThrow(
+      TypeError,
+    )
+  })
+
+  it('resolves view limits and rejects invalid ones', () => {
+    expect(defineGraph({ marks: [] }).view).toEqual({ minZoom: 0.001, maxZoom: 64, bounds: null })
+    const rect = { minX: -10, minY: -20, maxX: 30, maxY: 40 }
+    const limited = defineGraph({ marks: [], view: { minZoom: 0.5, maxZoom: 4, bounds: rect } })
+    expect(limited.view).toEqual({ minZoom: 0.5, maxZoom: 4, bounds: rect })
+    expect(Object.isFrozen(limited.view.bounds)).toBe(true)
+    expect(defineGraph({ marks: [], view: { bounds: { margin: 80 } } }).view.bounds).toEqual({
+      margin: 80,
+    })
+    expect(() => defineGraph({ marks: [], view: { minZoom: 2, maxZoom: 1 } })).toThrow(RangeError)
+    expect(() => defineGraph({ marks: [], view: { minZoom: 0 } })).toThrow(RangeError)
+    expect(() => defineGraph({ marks: [], view: { maxZoom: Number.NaN } })).toThrow(RangeError)
+    expect(() =>
+      defineGraph({ marks: [], view: { bounds: { minX: 1, minY: 0, maxX: 0, maxY: 1 } } }),
+    ).toThrow(RangeError)
+    expect(() =>
+      defineGraph({ marks: [], view: { bounds: { margin: Number.POSITIVE_INFINITY } } }),
+    ).toThrow(RangeError)
   })
 
   it('fills transition defaults and clamps negative durations', () => {

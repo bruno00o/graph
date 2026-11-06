@@ -18,13 +18,17 @@ import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/s
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import {
   type Bounds,
+  constrainView,
   easeInOut,
+  edgePush,
   fitBounds,
   interpolateView,
+  type PanLimits,
   panBy,
   toScreen,
   toWorld,
   wheelFactor,
+  wheelPixels,
   zoomAround,
 } from '../core/view'
 import { dev } from '../dev'
@@ -55,6 +59,7 @@ import {
   type GraphEventName,
   type GraphFoldEvent,
   type GraphTarget,
+  type ZoomKey,
 } from './events'
 import { exposeSnapshot } from './export-source'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
@@ -118,7 +123,10 @@ export interface FitOptions extends ViewOptions {
   readonly padding?: number
 }
 
-/** The camera of a graph. The last animated call wins. */
+/**
+ * The camera of a graph. The last animated call wins, and every call stays within the `view`
+ * limits of the definition.
+ */
 export interface GraphView {
   /** Current view. */
   get(): View
@@ -129,7 +137,7 @@ export interface GraphView {
    * waits for one.
    */
   fit(keys?: Iterable<Key>, options?: FitOptions): void
-  /** Multiplies the zoom around the center of the view. */
+  /** Multiplies the zoom around the center of the view, up to the zoom limits. */
   zoomBy(factor: number, options?: ViewOptions): void
   /** Converts a point in world units to screen pixels, relative to the graph element. */
   toScreen(point: Point): Point
@@ -251,7 +259,10 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
   readonly definition: GraphDefinition<S, M>
   /** Accessible name of the graph element. */
   readonly ariaLabel: string
-  /** View at mount. Without it, the first data is fitted with a 32 pixel margin. */
+  /**
+   * View at mount, within the `view` limits of the definition. Without it, the first data is
+   * fitted with a 32 pixel margin.
+   */
   readonly initialView?: View
   /** Initial selection. Passing it makes the selection controlled for the life of the graph. */
   readonly selection?: ElementKeysInput
@@ -333,12 +344,26 @@ interface PositionAnimation {
 
 interface Gesture {
   readonly id: number
+  readonly touch: boolean
   readonly start: Point
   readonly target: GraphTarget | null
   readonly drag: NodeDrag | null
   readonly lasso: Point[] | null
   last: Point
+  event: PointerEvent
   moved: boolean
+}
+
+interface Pinch {
+  readonly points: Map<number, Point>
+  center: Point
+  distance: number
+}
+
+interface LimitBox {
+  readonly scene: number
+  readonly positions: number
+  readonly box: Bounds | null
 }
 
 const svgNamespace = 'http://www.w3.org/2000/svg'
@@ -385,6 +410,11 @@ interface NodeDrag {
 
 const defaultPadding = 32
 const clickSlop = 4
+const touchSlop = 10
+const autoPanZone = 40
+const autoPanSpeed = 900
+const autoPanFirstStep = 16
+const autoPanLongestStep = 50
 const pickTolerance = 4
 const highlightOrder = 2 ** 40
 const layerOrder = 2 ** 26
@@ -485,6 +515,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let pickedScene = -1
   let pickedPositions = -1
   let gesture: Gesture | null = null
+  let pinch: Pinch | null = null
+  let autoPanning = false
+  let autoPanTime = -1
+  let limitBox: LimitBox | null = null
   let session: LayoutSession | null = null
   let laidOut = false
   let relayout = false
@@ -581,10 +615,37 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }, delay)
   }
 
-  function commitView(view: View): void {
+  function panLimits(): PanLimits | null {
+    const area = definition.view.bounds
+    if (!area) return null
+    if (!('margin' in area)) return { box: area, margin: 0 }
+    if (limitBox?.scene !== sceneVersion || limitBox.positions !== positions.version) {
+      limitBox = { scene: sceneVersion, positions: positions.version, box: bounds() }
+    }
+    return limitBox.box ? { box: limitBox.box, margin: area.margin } : null
+  }
+
+  function constrain(view: View): View {
+    return constrainView(view, viewport(), definition.view, panLimits())
+  }
+
+  function publishView(view: View): void {
     patch({ view })
     emitter.emit('viewchange', { view })
+    if (gesture?.lasso) drawLasso(gesture.lasso)
+  }
+
+  function commitView(view: View): void {
+    const next = constrain(view)
+    const current = store.get().view
+    if (next.x === current.x && next.y === current.y && next.zoom === current.zoom) return
+    publishView(next)
     request()
+  }
+
+  function reconstrain(): void {
+    const current = store.get().view
+    if (constrain(current) !== current) commitView(current)
   }
 
   function viewport(): { width: number; height: number } {
@@ -684,15 +745,20 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       commitView(target)
       return
     }
-    viewAnimation = { from: store.get().view, to: target, start: performance.now(), duration: ms }
+    const to = constrain(target)
+    viewAnimation = { from: store.get().view, to, start: performance.now(), duration: ms }
     request()
+  }
+
+  function frameBox(box: Bounds, padding: number): View {
+    return fitBounds(box, viewport(), padding, definition.view)
   }
 
   function fitTo(keys: Iterable<Key> | undefined, fitOptions: FitOptions): boolean {
     const box = bounds(keys)
     const size = viewport()
     if (!box || size.width === 0 || size.height === 0) return false
-    animateTo(fitBounds(box, size, fitOptions.padding ?? defaultPadding), fitOptions.duration)
+    animateTo(frameBox(box, fitOptions.padding ?? defaultPadding), fitOptions.duration)
     return true
   }
 
@@ -934,6 +1000,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (!gesture?.lasso) return false
     if (canvas.hasPointerCapture?.(gesture.id)) canvas.releasePointerCapture(gesture.id)
     gesture = null
+    autoPanning = false
     drawLasso(null)
     updateCursor()
     return true
@@ -961,7 +1028,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         const anchor = point
           ? toScreen(view, size, point)
           : { x: size.width / 2, y: size.height / 2 }
-        animateTo(zoomAround(view, size, anchor, action.factor), keyDuration)
+        animateTo(zoomAround(view, size, anchor, action.factor, definition.view), keyDuration)
         return true
       }
       case 'fit':
@@ -1021,16 +1088,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       lassoLayer.append(path)
       element.append(lassoLayer)
     }
-    lassoLayer.firstElementChild?.setAttribute(
-      'd',
-      `M${points.map((point) => `${point.x} ${point.y}`).join('L')}Z`,
-    )
-  }
-
-  function selectInside(points: readonly Point[]): void {
     const view = store.get().view
     const size = viewport()
-    const polygon = points.map((point) => toWorld(view, size, point))
+    const path = points.map((point) => {
+      const screen = toScreen(view, size, point)
+      return `${screen.x} ${screen.y}`
+    })
+    lassoLayer.firstElementChild?.setAttribute('d', `M${path.join('L')}Z`)
+  }
+
+  function selectInside(polygon: readonly Point[]): void {
     const inside = nodesInside(polygon, scene.nodes, positions).filter(
       (key) =>
         !registry.has('selected', 'nodes', key) &&
@@ -1312,10 +1379,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       const size = viewport()
       if (box && size.width > 0 && size.height > 0) {
         pendingFit = null
-        animateTo(
-          fitBounds(box, size, fit.padding ?? defaultPadding),
-          fit.duration ?? current.duration,
-        )
+        animateTo(frameBox(box, fit.padding ?? defaultPadding), fit.duration ?? current.duration)
         current.fitted = true
       } else if (box) {
         pendingFit = null
@@ -1582,7 +1646,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     const size = viewport()
     if (pendingBounds && size.width > 0 && size.height > 0) {
-      animateTo(fitBounds(pendingBounds.box, size, pendingBounds.padding))
+      animateTo(frameBox(pendingBounds.box, pendingBounds.padding))
       pendingBounds = null
       framed = store.get().view
     }
@@ -1592,11 +1656,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     if (viewAnimation) {
       const t = Math.min(1, (now - viewAnimation.start) / viewAnimation.duration)
-      const view = interpolateView(viewAnimation.from, viewAnimation.to, easeInOut(t))
+      const view = constrain(interpolateView(viewAnimation.from, viewAnimation.to, easeInOut(t)))
       if (t >= 1) viewAnimation = null
-      patch({ view })
-      emitter.emit('viewchange', { view })
+      publishView(view)
     }
+    if (autoPanning) stepAutoPan(now)
     if (positionAnimations.length > 0) stepPositions(now)
     registry.takeHighlighted()
     syncContainers()
@@ -1629,7 +1693,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
-    if (viewAnimation || positionAnimations.length > 0) request()
+    if (viewAnimation || autoPanning || positionAnimations.length > 0) request()
     else if (wait >= 0) requestLater(wait)
   }
 
@@ -1642,6 +1706,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       console.warn('graph: the container measures 0 px; give it a width and a height')
     }
     patch({ width, height })
+    reconstrain()
     request()
   }
 
@@ -1649,6 +1714,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const entry = entries[entries.length - 1]
     if (entry) resize(entry.contentRect.width, entry.contentRect.height)
   })
+  reconstrain()
   resizeObserver.observe(element)
   const stopTheme = observeTheme(element, refreshTheme)
 
@@ -1712,7 +1778,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function onPointerDown(event: PointerEvent): void {
-    if (event.button !== 0 || gesture) return
+    if (pinch) return
+    if (gesture) {
+      if (gesture.touch && event.pointerType === 'touch' && event.pointerId !== gesture.id) {
+        beginPinch(gesture, event)
+      }
+      return
+    }
+    if (event.button !== 0) return
     viewAnimation = null
     remembered = null
     setFocused(null)
@@ -1723,77 +1796,206 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const lassoing = !hit && event.shiftKey && lasso && select === 'multiple'
     gesture = {
       id: event.pointerId,
+      touch: event.pointerType === 'touch',
       start: point,
       last: point,
+      event,
       target: hit,
       drag,
-      lasso: lassoing ? [point] : null,
+      lasso: lassoing ? [toWorld(store.get().view, viewport(), point)] : null,
       moved: false,
     }
     canvas.setPointerCapture?.(event.pointerId)
     if (lassoing) updateCursor()
   }
 
+  function pinchShape(points: ReadonlyMap<number, Point>): { center: Point; distance: number } {
+    const [a, b] = [...points.values()]
+    if (!a || !b) return { center: a ?? { x: 0, y: 0 }, distance: 0 }
+    return {
+      center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      distance: Math.hypot(a.x - b.x, a.y - b.y),
+    }
+  }
+
+  function beginPinch(current: Gesture, event: PointerEvent): void {
+    gesture = null
+    autoPanning = false
+    viewAnimation = null
+    if (current.drag?.started) emitter.emit('dragend', dragEvent(current.drag, current.event))
+    if (current.lasso) drawLasso(null)
+    const points = new Map([
+      [current.id, current.last],
+      [event.pointerId, local(event)],
+    ])
+    pinch = { points, ...pinchShape(points) }
+    canvas.setPointerCapture?.(event.pointerId)
+    updateCursor()
+  }
+
+  function movePinch(current: Pinch): void {
+    const { center, distance } = pinchShape(current.points)
+    const { zoom, pan } = definition.interaction
+    const size = viewport()
+    let view = store.get().view
+    if (zoom && current.distance > 0 && distance > 0) {
+      view = zoomAround(view, size, current.center, distance / current.distance, definition.view)
+    }
+    if (pan) view = panBy(view, center.x - current.center.x, center.y - current.center.y)
+    current.center = center
+    current.distance = distance
+    commitView(view)
+  }
+
+  function endPinch(current: Pinch, event: PointerEvent): void {
+    current.points.delete(event.pointerId)
+    if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+    pinch = null
+    const [rest] = current.points
+    if (rest) {
+      const [id, point] = rest
+      gesture = {
+        id,
+        touch: true,
+        start: point,
+        last: point,
+        event,
+        target: null,
+        drag: null,
+        lasso: null,
+        moved: true,
+      }
+    }
+    updateCursor()
+  }
+
+  function moveDrag(drag: NodeDrag, point: Point, event: PointerEvent): void {
+    if (!drag.started) {
+      drag.started = true
+      emitter.emit('dragstart', dragEvent(drag, event))
+    }
+    const world = toWorld(store.get().view, viewport(), point)
+    drag.indices.forEach((index, i) => {
+      positions.set(
+        index,
+        world.x + (drag.offsets[i * 2] ?? 0),
+        world.y + (drag.offsets[i * 2 + 1] ?? 0),
+      )
+    })
+    pinLayout(drag.indices)
+    emitter.emit('drag', dragEvent(drag, event))
+    if (emitter.has('positionchange')) {
+      const moved = new Map<Key, Point>()
+      drag.keys.forEach((key, i) => {
+        const index = drag.indices[i] ?? 0
+        moved.set(key, { x: positions.x(index), y: positions.y(index) })
+      })
+      emitter.emit('positionchange', { origin: 'drag', positions: moved })
+    }
+    request()
+  }
+
+  function extendLasso(current: Gesture, lasso: Point[], point: Point): void {
+    const view = store.get().view
+    const size = viewport()
+    const end = lasso[lasso.length - 1]
+    const last = end ? toScreen(view, size, end) : current.start
+    if (current.moved && Math.hypot(point.x - last.x, point.y - last.y) >= lassoStep) {
+      lasso.push(toWorld(view, size, point))
+      drawLasso(lasso)
+    }
+  }
+
+  function autoPanVelocity(): Point | null {
+    const current = gesture
+    const { autoPan, pan } = definition.interaction
+    if (!current || !autoPan || !pan) return null
+    if (!current.drag?.started && !(current.lasso && current.moved)) return null
+    const { width, height } = viewport()
+    const x = edgePush(current.last.x, width, autoPanZone)
+    const y = edgePush(current.last.y, height, autoPanZone)
+    if (x === 0 && y === 0) return null
+    const speed = autoPanSpeed * autoPan.speed
+    return { x: x * speed, y: y * speed }
+  }
+
+  function followEdge(): void {
+    if (autoPanning || !autoPanVelocity()) return
+    autoPanning = true
+    autoPanTime = -1
+    request()
+  }
+
+  function stepAutoPan(now: number): void {
+    const velocity = autoPanVelocity()
+    const current = gesture
+    if (!velocity || !current) {
+      autoPanning = false
+      return
+    }
+    const elapsed =
+      autoPanTime < 0
+        ? autoPanFirstStep
+        : Math.min(autoPanLongestStep, Math.max(0, now - autoPanTime))
+    autoPanTime = now
+    const before = store.get().view
+    commitView(panBy(before, (-velocity.x * elapsed) / 1000, (-velocity.y * elapsed) / 1000))
+    if (store.get().view === before) {
+      if (elapsed > 0) autoPanning = false
+      return
+    }
+    if (current.drag) moveDrag(current.drag, current.last, current.event)
+    else if (current.lasso) extendLasso(current, current.lasso, current.last)
+  }
+
   function onPointerMove(event: PointerEvent): void {
+    if (pinch) {
+      if (!pinch.points.has(event.pointerId)) return
+      pinch.points.set(event.pointerId, local(event))
+      movePinch(pinch)
+      return
+    }
     const point = local(event)
     if (!gesture) {
       setHovered(pickAt(point), event)
       return
     }
     if (gesture.id !== event.pointerId) return
-    if (
-      !gesture.moved &&
-      Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > clickSlop
-    ) {
+    gesture.event = event
+    const slop = gesture.touch ? touchSlop : clickSlop
+    if (!gesture.moved && Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > slop) {
       gesture.moved = true
       updateCursor()
     }
-    const lasso = gesture.lasso
+    const { lasso, drag } = gesture
     if (lasso) {
-      const last = lasso[lasso.length - 1] ?? gesture.start
-      if (gesture.moved && Math.hypot(point.x - last.x, point.y - last.y) >= lassoStep) {
-        lasso.push(point)
-        drawLasso(lasso)
-      }
+      extendLasso(gesture, lasso, point)
       gesture.last = point
+      followEdge()
       return
     }
-    const drag = gesture.drag
     if (drag) {
+      gesture.last = point
       if (!gesture.moved) return
-      if (!drag.started) {
-        drag.started = true
-        emitter.emit('dragstart', dragEvent(drag, event))
-      }
-      const world = toWorld(store.get().view, viewport(), point)
-      drag.indices.forEach((index, i) => {
-        positions.set(
-          index,
-          world.x + (drag.offsets[i * 2] ?? 0),
-          world.y + (drag.offsets[i * 2 + 1] ?? 0),
-        )
-      })
-      pinLayout(drag.indices)
-      emitter.emit('drag', dragEvent(drag, event))
-      if (emitter.has('positionchange')) {
-        const moved = new Map<Key, Point>()
-        drag.keys.forEach((key, i) => {
-          const index = drag.indices[i] ?? 0
-          moved.set(key, { x: positions.x(index), y: positions.y(index) })
-        })
-        emitter.emit('positionchange', { origin: 'drag', positions: moved })
-      }
-      request()
-    } else if (definition.interaction.pan) {
+      moveDrag(drag, point, event)
+      followEdge()
+      return
+    }
+    if (definition.interaction.pan) {
       commitView(panBy(store.get().view, point.x - gesture.last.x, point.y - gesture.last.y))
     }
     gesture.last = point
   }
 
   function endGesture(event: PointerEvent, cancelled: boolean): void {
+    if (pinch?.points.has(event.pointerId)) {
+      endPinch(pinch, event)
+      return
+    }
     if (!gesture || gesture.id !== event.pointerId) return
     const ended = gesture
     gesture = null
+    autoPanning = false
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     if (ended.drag?.started) emitter.emit('dragend', dragEvent(ended.drag, event))
     if (ended.lasso) {
@@ -1804,7 +2006,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       emitter.emit('click', pointerEvent(event, ended.target))
       selectOnClick(ended.target, event)
     }
-    if (!cancelled) setHovered(pickAt(local(event)), event)
+    if (!cancelled && !ended.touch) setHovered(pickAt(local(event)), event)
     updateCursor()
   }
 
@@ -1817,7 +2019,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function onPointerLeave(event: PointerEvent): void {
-    if (!gesture) setHovered(null, event)
+    if (!gesture && !pinch) setHovered(null, event)
   }
 
   function onDoubleClick(event: MouseEvent): void {
@@ -1831,14 +2033,34 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     emitter.emit('contextmenu', pointerEvent(event, pickAt(local(event))))
   }
 
+  function zoomKey(): ZoomKey {
+    const agent = navigator as Navigator & { userAgentData?: { platform?: string } }
+    const platform = agent.userAgentData?.platform || agent.platform || ''
+    return /mac|iphone|ipad|ipod/i.test(platform) ? 'Meta' : 'Control'
+  }
+
   function onWheel(event: WheelEvent): void {
-    const zoom = definition.interaction.zoom
-    if (!zoom) return
-    event.preventDefault()
-    viewAnimation = null
-    const { view, height } = store.get()
-    const factor = wheelFactor(event.deltaY, event.deltaMode, height, zoom.speed)
-    commitView(zoomAround(view, viewport(), local(event), factor))
+    const { zoom, pan, wheel } = definition.interaction
+    const command = event.ctrlKey || event.metaKey
+    const { view, width, height } = store.get()
+    if (zoom && (command || wheel === 'zoom')) {
+      event.preventDefault()
+      viewAnimation = null
+      const factor = wheelFactor(event.deltaY, event.deltaMode, height, zoom.speed, event.ctrlKey)
+      commitView(zoomAround(view, viewport(), local(event), factor, definition.view))
+      return
+    }
+    if (command) return
+    if (wheel === 'pan' && pan) {
+      event.preventDefault()
+      viewAnimation = null
+      let dx = wheelPixels(event.deltaX, event.deltaMode, width)
+      let dy = wheelPixels(event.deltaY, event.deltaMode, height)
+      if (event.shiftKey && dx === 0) [dx, dy] = [dy, 0]
+      commitView(panBy(view, -dx, -dy))
+      return
+    }
+    if (wheel === 'page' && zoom) emitter.emit('zoomhint', { key: zoomKey(), originalEvent: event })
   }
 
   function onContextLost(event: Event): void {
@@ -1904,7 +2126,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     zoomBy: (factor, viewOptions = {}) => {
       const size = viewport()
       const center = { x: size.width / 2, y: size.height / 2 }
-      animateTo(zoomAround(store.get().view, size, center, factor), viewOptions.duration)
+      animateTo(
+        zoomAround(store.get().view, size, center, factor, definition.view),
+        viewOptions.duration,
+      )
     },
     toScreen: (point) => toScreen(store.get().view, viewport(), point),
     toWorld: (point) => toWorld(store.get().view, viewport(), point),
@@ -2078,6 +2303,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         applyStyles()
         applyKeyboard()
         updateCursor()
+        reconstrain()
         request(true)
       }
     },

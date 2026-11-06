@@ -1,6 +1,7 @@
 const numbers = new Intl.NumberFormat('en-US')
 const percent = new Intl.NumberFormat('en-US', { style: 'percent' })
 const seconds = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
+const zoomFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 
 export function formatNumber(value: number): string {
   return numbers.format(value)
@@ -96,6 +97,13 @@ export const messages = {
   exportRegions: { view: 'view', graph: 'whole graph' },
   exportLabels: (name: string) => `Labels: ${name}`,
   exportLabelModes: { visible: 'as shown', all: 'all' },
+  wheelMode: (name: string) => `Wheel: ${name}`,
+  wheelModes: { page: 'scrolls the page', pan: 'moves the view', zoom: 'zooms' },
+  boundsMode: (name: string) => `Bounds: ${name}`,
+  boundsModes: { nodes: 'around the nodes', none: 'none' },
+  zoomHint: (key: 'Meta' | 'Control') =>
+    key === 'Meta' ? 'Hold ⌘ and scroll to zoom' : 'Hold Ctrl and scroll to zoom',
+  zoomLevel: (zoom: number) => `Zoom ×${zoomFormat.format(zoom)}`,
   exported: (format: string, bytes: number, duration: number) =>
     `${format}, ${formatNumber(Math.max(1, Math.round(bytes / 1024)))} kB in ${formatNumber(Math.round(duration))} ms`,
 }
