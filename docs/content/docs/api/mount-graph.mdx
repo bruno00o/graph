@@ -14,13 +14,7 @@ Appends the graph element to `container` and returns its [instance](/docs/api/gr
 
 ## Options
 
-| Option | Type | Required | Description |
-| --- | --- | --- | --- |
-| `definition` | `GraphDefinition<S>` | yes | The result of `defineGraph` |
-| `ariaLabel` | `string` | yes | Accessible name of the graph |
-| `initialView` | `View` | no | `{ x, y, zoom }`. Without it, the first data is fitted with a 32 pixel margin |
-| `selection` | `ElementKeysInput` | no | Initial selection. Its presence makes the selection controlled |
-| `onSelectionChange` | `(selection: ElementKeys) => void` | no | Receives selection requests in controlled mode |
+<api-table path="index.ts" name="MountGraphOptions" />
 
 ```ts
 interface ElementKeysInput {

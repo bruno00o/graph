@@ -11,13 +11,33 @@ import type { FieldOf, Key, Point } from '../types'
 
 export { type SubsetWhere, subset } from './subset'
 
+/** Options of `persistPositions`. */
 export interface PersistPositionsOptions<T extends object, TKey extends string | number> {
+  /** Collection to write to. */
   readonly collection: Collection<T, TKey>
+  /**
+   * Field of the horizontal position.
+   * @default 'x'
+   */
   readonly x?: FieldOf<T, number>
+  /**
+   * Field of the vertical position.
+   * @default 'y'
+   */
   readonly y?: FieldOf<T, number>
+  /** Maps a node key to a row key. Defaults to the node key itself. */
   readonly key?: (key: Key) => TKey
+  /** Builds the row of a node that has none. Without it, such nodes are skipped. */
   readonly create?: (key: Key, point: Point) => T
+  /**
+   * Persists through `createPacedMutations`, with an optimistic write that a failure rolls back.
+   * Without it, the collection persists the updates through its own handlers.
+   */
   readonly mutationFn?: MutationFn<T>
+  /**
+   * Pacing of the writes. Without `mutationFn`, only its `wait` is read.
+   * @default throttleStrategy({ wait: 100, leading: true, trailing: true })
+   */
   readonly strategy?: Strategy
 }
 
@@ -51,6 +71,10 @@ function pace(
   }
 }
 
+/**
+ * Writes the positions of moved nodes to a TanStack DB collection: drags, `positions.set` and
+ * layout results. Returns a function that stops listening and writes the last pending move at once.
+ */
 export function persistPositions<T extends object, TKey extends string | number>(
   graph: GraphInstance,
   options: PersistPositionsOptions<T, TKey>,

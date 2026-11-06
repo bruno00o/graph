@@ -31,20 +31,7 @@ export function SampleGraph({ items, links }: { items: Item[]; links: Link[] }) 
 - Build the definition with `useMemo`, or outside the component. A new definition is applied with `update`, so positions, view and selection stay.
 - The graph is mounted once and destroyed on unmount. StrictMode mounts, destroys and mounts again: one instance remains.
 
-| Prop | Effect |
-| --- | --- |
-| `definition` | The result of `defineGraph` |
-| `ariaLabel` | Accessible name of the graph |
-| `initialView` | `{ x, y, zoom }`, read at mount |
-| `selection` | Makes the selection controlled, together with `onSelectionChange` |
-| `className`, `style` | Applied to the wrapping `div` |
-| `ref` | Receives the `GraphInstance` |
-| `children` | Overlays drawn above the graph, with access to the hooks |
-| `onClick`, `onDoubleClick`, `onContextMenu` | Pointer events |
-| `onPointerEnter`, `onPointerLeave` | Hover on an element |
-| `onDragStart`, `onDrag`, `onDragEnd`, `onPositionChange` | Node moves |
-| `onSelectionChange`, `onFocusChange`, `onViewChange` | State changes |
-| `onLayoutStart`, `onLayoutEnd` | Layout runs |
+Every prop, with the event props, is listed in [`<Graph>`](/docs/api/graph-component#props).
 
 Event props always call the latest function you pass, without subscribing again.
 

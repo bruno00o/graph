@@ -4,23 +4,56 @@ import { Collider } from './collider'
 
 export type ForceGraph = Omit<LayoutGraph, 'keys' | 'datum'>
 
+/** Where the simulation runs. `'auto'` uses the GPU from 2,000 nodes and the CPU below. */
 export type ForceEngine = 'auto' | 'gpu' | 'cpu'
 
+/** Options of `force`. A negative or non-finite value falls back to its default. */
 export interface ForceOptions {
+  /**
+   * Length an edge tends to, between the borders of its two nodes, in world units.
+   * @default 40
+   */
   readonly edgeLength?: number
+  /**
+   * Strength of the push between nodes. `0` turns it off.
+   * @default 80
+   */
   readonly repulsion?: number
+  /**
+   * Pull toward the center of the moving nodes, on full runs only.
+   * @default 0.04
+   */
   readonly gravity?: number
+  /**
+   * Smallest gap between two nodes, in world units.
+   * @default 6
+   */
   readonly spacing?: number
+  /**
+   * Steps of a full run, rounded and at least 1. A run on part of the graph takes fewer.
+   * @default 300
+   */
   readonly steps?: number
+  /**
+   * Where the simulation runs: `'auto'` uses the GPU from 2,000 nodes and the CPU below.
+   * @default 'auto'
+   */
   readonly engine?: ForceEngine
 }
 
+/** Force options with every default applied, as `layout.options` holds them. */
 export interface ForceSettings {
+  /** Length an edge tends to, between the borders of its two nodes, in world units. */
   readonly edgeLength: number
+  /** Strength of the push between nodes. */
   readonly repulsion: number
+  /** Pull toward the center of the moving nodes. */
   readonly gravity: number
+  /** Smallest gap between two nodes, in world units. */
   readonly spacing: number
+  /** Steps of a full run. */
   readonly steps: number
+  /** Where the simulation runs. */
   readonly engine: ForceEngine
 }
 

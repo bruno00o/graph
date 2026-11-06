@@ -22,6 +22,12 @@ export const messages = {
   docs: {
     edit: 'Edit this page on GitHub',
   },
+  apiTable: {
+    name: 'Name',
+    type: 'Type',
+    default: 'Default',
+    description: 'Description',
+  },
   code: {
     copy: 'Copy the code',
     copied: 'Copied',
