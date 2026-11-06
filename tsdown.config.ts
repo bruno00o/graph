@@ -1,7 +1,12 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: { index: 'src/index.ts', react: 'src/react/index.tsx', db: 'src/db/index.ts' },
+  entry: {
+    index: 'src/index.ts',
+    react: 'src/react/index.tsx',
+    db: 'src/db/index.ts',
+    query: 'src/query/index.ts',
+  },
   format: 'esm',
   platform: 'neutral',
   target: 'es2023',

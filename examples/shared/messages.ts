@@ -5,6 +5,13 @@ export const messages = {
   collab: 'Exemple collaboratif',
   collabHint: 'Ouvrez cette page dans un second onglet : chaque déplacement s’y voit en direct.',
   reset: 'Réinitialiser les positions',
+  explore: 'Exemple d’exploration',
+  exploreHint: 'Double-cliquez sur un nœud pour déplier ou replier son voisinage.',
+  exploreLabel: 'Graphe exploré pas à pas',
+  restart: 'Recommencer',
+  loading: 'Chargement…',
+  explored: (count: number): string =>
+    `${formatNumber(count)} ${plural(count, 'nœud déplié', 'nœuds dépliés')}`,
   bench: (nodes: string, edges: string) => `Banc d’essai, ${nodes} nœuds et ${edges} arêtes`,
   weight: 'Poids',
   selected: 'Sélection',

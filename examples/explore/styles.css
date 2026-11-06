@@ -1,0 +1,20 @@
+#root {
+  display: contents;
+}
+
+.graph {
+  height: 100%;
+}
+
+.hint {
+  color: var(--graph-ink-muted);
+  font-size: 13px;
+}
+
+.hovered {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  font-size: 13px;
+  color: var(--graph-ink-muted);
+}
