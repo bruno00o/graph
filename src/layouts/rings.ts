@@ -1,12 +1,29 @@
 import type { Key, Layout } from '../types'
 import { centroid, indexOfKey, instant, movers, type NodeOrder, ordered, spacingOf } from './shared'
 
+/** Options of `rings`. */
 export interface RingsOptions<T = unknown> {
+  /**
+   * Node in the middle, the first node in `order` by default. A fixed center keeps its place and
+   * the rings form around it.
+   */
   readonly center?: Key
+  /**
+   * Order from the middle outward. Ring `n` holds up to `⌊2πn⌋` nodes.
+   * @default 'degree'
+   */
   readonly order?: NodeOrder<T>
+  /**
+   * Gap between two rings, from the borders of the largest nodes, in world units. Defaults to the
+   * largest diameter, and at least 24.
+   */
   readonly spacing?: number
 }
 
+/**
+ * A layout that puts the first node in the middle and fills rings outward, each longer than the
+ * last. It ends at once, and nodes glide to their place.
+ */
 export function rings<T = unknown>(options: RingsOptions<T> = {}): Layout {
   return instant('rings', options, (graph) => {
     const xy = Float32Array.from(graph.xy)

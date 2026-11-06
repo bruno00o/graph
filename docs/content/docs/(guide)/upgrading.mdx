@@ -1,0 +1,18 @@
+---
+title: Upgrading
+description: What changes in your code from one version to the next.
+---
+
+Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
+
+## 0.8.0
+
+### Layout spacing is a gap between node borders
+
+`spacing` in [`grid`, `rings` and `radial`](/docs/api/layouts) used to be the distance between the centers of two neighboring places. It is now the gap left between the borders of the largest moved nodes, like `spacing` in `force` and `layerSpacing` and `nodeSpacing` in `layers`.
+
+Without an explicit `spacing`, nothing moves: the default gap is the largest diameter, at least 24, which gives the same distances as before.
+
+With an explicit value, subtract the largest node diameter to keep the same result. With nodes at most 20 world units across, `grid({ spacing: 60 })` becomes `grid({ spacing: 40 })`.
+
+`0` is now allowed and makes the largest nodes touch. A negative or non-finite value falls back to the default.

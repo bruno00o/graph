@@ -26,18 +26,7 @@ nodes<Item>(items, {
 
 `text` and `secondary` are channels: a field name or a function. Every other option is a style: a constant or a function of the item, never a field name.
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `text` | | Main text. `\n` starts a new line |
-| `secondary` | | A second line, at eleven twelfths of the size, in normal weight and `--graph-ink-muted` |
-| `size` | `12` | Font size in pixels at zoom 1 |
-| `color` | `--graph-ink` | Color of the main text |
-| `weight` | `500` | `'normal'`, `'bold'`, or a number from 1 to 1000 |
-| `font` | `--graph-font` | CSS font family |
-| `placement` | `'bottom'` | `'bottom'`, `'top'`, `'right'`, `'left'` or `'center'` |
-| `maxWidth` | | Width in pixels past which each line ends with an ellipsis |
-| `minScreenSize` | | Hides the label while the node measures less than this diameter on screen, in pixels |
-| `background` | | Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null` for none |
+Every option, with its default, is listed in [`LabelOptions`](/docs/api/nodes#labels).
 
 The text must be a string: an empty string, a number, `null` or `undefined` draws no label. Convert numbers with `String` or a formatter.
 
@@ -89,15 +78,7 @@ edges<Link>(links, {
 })
 ```
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `text` | | Text of the label |
-| `size` | `11` | Font size in pixels at zoom 1 |
-| `color` | `--graph-ink` | Text color |
-| `weight` | `500` | `'normal'`, `'bold'`, or a number from 1 to 1000 |
-| `font` | `--graph-font` | CSS font family |
-| `maxWidth` | | Width in pixels past which each line ends with an ellipsis |
-| `background` | | Plate behind the label, as for nodes |
+Edge labels take the same options as node labels, without `secondary`, `placement` and `minScreenSize`, at 11 pixels by default. See [`EdgeLabelOptions`](/docs/api/edges#labels).
 
 - The label sits halfway along the edge, on the arc when parallel edges bend apart, and at the outer end of a loop.
 - It turns with the edge and flips to stay upright, so it always reads from left to right.

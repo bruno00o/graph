@@ -11,14 +11,7 @@ Returns a frozen definition. `S` is inferred from the keys of `states` and types
 
 ## Options
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `marks` | `readonly Mark[]` | | Results of `nodes()` and `edges()`, drawn in this order |
-| `scales` | `ScalesOptions` | `{}` | `color`, `size` and `width` scales. See [Scales](/docs/scales) |
-| `states` | `StateStyles<S>` | `{}` | Free states, and overrides of `selected`, `hovered`, `focused` |
-| `layout` | `Layout \| null` | `null` | Places nodes that have no `x` and `y`. See [Layout](#layout) |
-| `interaction` | `InteractionOptions` | see below | Pan, zoom, selection, drag, lasso, keyboard |
-| `transitions` | `TransitionOptions` | `{ positions: 120, layout: 400 }` | Durations in milliseconds: `positions` for moves that come from the data, `layout` for the glide to a layout result. Negative values count as 0 |
+<api-table path="index.ts" name="GraphDefinitionOptions" />
 
 ## Scales
 
@@ -55,7 +48,9 @@ interface StateStyle {
 }
 ```
 
-`outline` and `outlineWidth` apply to nodes only. `labelColor` colors the main text of node and edge labels. See [States](/docs/states#style-options).
+<api-table path="index.ts" name="StateStyle" />
+
+See [States](/docs/states#priority) for the order in which states apply.
 
 ## Layout
 
@@ -91,35 +86,31 @@ interface LayoutRun {
 }
 ```
 
-| Member | Description |
-| --- | --- |
-| `name`, `options` | Compared one by one when the definition changes. A different layout lays out every node again |
-| `incremental` | `false` lays out every free node again when nodes arrive. Otherwise only the new nodes run |
-| `capacity` | Length of the per-node arrays. Arrays are indexed by the internal index of each node |
-| `alive` | `1` for a node that exists, `0` for a free slot |
-| `movable` | `1` for a node the layout may move |
-| `xy` | Current positions, `x` then `y` for each index, in world units |
-| `radius` | Radius of each node in world units |
-| `edges` | Pairs of node indices, one pair per edge, loops left out |
-| `keys` | Key of each node, `undefined` for a free slot |
-| `datum(index)` | Item the node comes from, as given to `nodes()`. `undefined` for a free slot |
-| `progress(xy, progress)` | Reports intermediate positions and progress from 0 to 1 |
-| `end(xy)` | Reports the final positions. Call it once. Without a `progress` before it, nodes glide to them |
-| `pin(index, x, y)` | Called when a node is dragged or set during the run: keep it there |
-| `stop()` | Called when the run is stopped or replaced. Do not call the listener after it |
+<api-table path="index.ts" name="Layout" />
+
+`start` receives a `LayoutGraph`, whose arrays are indexed by the internal index of each node:
+
+<api-table path="index.ts" name="LayoutGraph" />
+
+The layout reports positions through a `LayoutListener`:
+
+<api-table path="index.ts" name="LayoutListener" />
+
+`start` returns a `LayoutRun`, which the graph calls back:
+
+<api-table path="index.ts" name="LayoutRun" />
 
 Every array passed to the listener holds `capacity × 2` numbers. Nodes that are not movable must keep their place.
 
 ## Interaction
 
-| Option | Type | Default |
-| --- | --- | --- |
-| `pan` | `boolean` | `true` |
-| `zoom` | `boolean \| { speed?: number }` | `true`, speed `1` |
-| `select` | `'single' \| 'multiple' \| false` | `'multiple'` |
-| `drag` | `boolean` | `true` |
-| `lasso` | `boolean` | `false` |
-| `keyboard` | `boolean` | `true` |
+<api-table path="index.ts" name="InteractionOptions" />
+
+## Transitions
+
+Durations in milliseconds. Negative values count as 0, and every duration is 0 with `prefers-reduced-motion`.
+
+<api-table path="index.ts" name="TransitionOptions" />
 
 ## Errors
 

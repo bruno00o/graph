@@ -48,7 +48,7 @@ describe('grid', () => {
     const graph = graphOf({ points: origin(3), data: [{ rank: 3 }, { rank: 1 }, { rank: 2 }] })
     const layout = grid<{ rank: number }>({
       columns: 1,
-      spacing: 10,
+      spacing: 0,
       order: (a, b) => a.rank - b.rank,
     })
     const xy = await run(layout, graph)
@@ -57,6 +57,14 @@ describe('grid', () => {
       [0, 0],
       [0, 10],
     ])
+  })
+
+  it('spaces places by the gap between the borders of the largest nodes', async () => {
+    const graph = graphOf({ points: origin(2) })
+    const gap = await run(grid({ columns: 2, spacing: 6 }), graph)
+    expect(point(gap, 1)[0] - point(gap, 0)[0]).toBe(16)
+    const fallback = await run(grid({ columns: 2, spacing: -1 }), graph)
+    expect(point(fallback, 1)[0] - point(fallback, 0)[0]).toBe(34)
   })
 
   it('describes itself as a layout that redoes every node when nodes arrive', () => {
@@ -84,7 +92,7 @@ describe('rings', () => {
   it('puts the busiest node in the middle and fills rings outward', async () => {
     const points = origin(8)
     const edges = [3, 0, 3, 1, 3, 2]
-    const xy = await run(rings({ spacing: 10 }), graphOf({ points, edges }))
+    const xy = await run(rings({ spacing: 0 }), graphOf({ points, edges }))
     expect(point(xy, 3)).toEqual([0, 0])
     for (const index of [0, 1, 2, 4, 5, 6]) {
       const [x, y] = point(xy, index)
@@ -103,7 +111,7 @@ describe('rings', () => {
       ],
       fixed: [0],
     })
-    const xy = await run(rings({ center: 'n0', spacing: 10 }), graph)
+    const xy = await run(rings({ center: 'n0', spacing: 0 }), graph)
     expect(point(xy, 0)).toEqual([100, 0])
     for (const index of [1, 2]) {
       const [x, y] = point(xy, index)
@@ -115,7 +123,7 @@ describe('rings', () => {
 describe('radial', () => {
   it('places nodes on rings by their distance from the root, children beside their parent', async () => {
     const graph = graphOf({ points: origin(4), edges: [0, 1, 1, 2] })
-    const xy = await run(radial({ root: 'n0', spacing: 10 }), graph)
+    const xy = await run(radial({ root: 'n0', spacing: 0 }), graph)
     const [ax, ay] = point(xy, 0)
     const [bx, by] = point(xy, 1)
     const [cx, cy] = point(xy, 2)
@@ -128,7 +136,7 @@ describe('radial', () => {
 
   it('starts from the busiest moving node', async () => {
     const graph = graphOf({ points: origin(4), edges: [2, 0, 2, 1, 2, 3] })
-    const xy = await run(radial({ spacing: 10 }), graph)
+    const xy = await run(radial({ spacing: 0 }), graph)
     expect(point(xy, 2)).toEqual([0, 0])
   })
 
@@ -144,7 +152,7 @@ describe('radial', () => {
       edges: [1, 0, 1, 2, 1, 3, 4, 0],
       fixed: [1, 4],
     })
-    const xy = await run(radial({ root: 'n1', spacing: 10 }), graph)
+    const xy = await run(radial({ root: 'n1', spacing: 0 }), graph)
     expect(point(xy, 1)).toEqual([50, 50])
     expect(point(xy, 4)).toEqual([-80, 0])
     for (const index of [0, 2, 3]) {

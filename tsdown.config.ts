@@ -53,6 +53,7 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
+  outputOptions: { comments: { jsdoc: false } },
   plugins: [inlineWorker()],
   copy: [{ from: 'src/theme/theme.css', to: 'dist', flatten: true }],
 })
