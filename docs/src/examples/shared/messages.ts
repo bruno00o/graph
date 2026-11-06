@@ -72,4 +72,12 @@ export const messages = {
     `TanStack DB ${formatNumber(Math.round(database))} ms, graph ${formatNumber(Math.round(graph))} ms`,
   linksLoaded: (value: number) => count(value, 'edge loaded', 'edges loaded'),
   unload: 'Unload edges',
+  groupsLabel: 'Graph of nodes in nested groups',
+  subgroup: (name: string) => `Subgroup ${name}`,
+  member: (name: string) => `Node ${name}`,
+  foldAll: 'Fold all',
+  unfoldAll: 'Unfold all',
+  foldedGroups: (value: number) => count(value, 'group folded', 'groups folded'),
+  mergedEdges: (value: number, from: string, to: string) =>
+    `${count(value, 'edge', 'edges')} from ${from} to ${to}`,
 }

@@ -19,7 +19,7 @@ function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element
 
 Each event prop receives the payload of the matching [event](/docs/api/events). The latest function passed is always called.
 
-With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does.
+With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does. `folded` and `onFoldChange` work the same way for [groups](/docs/groups).
 
 ## Behavior
 

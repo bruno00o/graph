@@ -19,6 +19,27 @@ A **channel** is a field name or a function, and goes through a scale. A **style
 
 `outline` alone draws a 2 pixel ring. `outlineWidth` alone draws the ring in `--graph-node-ring`.
 
+## Groups
+
+A node whose `parent` is the key of another node is a child of that node, which becomes a group. Groups nest. See [Groups](/docs/groups).
+
+```ts
+type ContainerShape = 'rectangle' | 'circle'
+
+interface ContainerOptions<T> {
+  readonly shape?: Style<T, ContainerShape>
+  readonly padding?: Style<T, number>
+  readonly fill?: Style<T, string>
+  readonly stroke?: Style<T, string>
+  readonly strokeWidth?: Style<T, number>
+}
+```
+
+<api-table path="index.ts" name="ContainerOptions" />
+
+- An unfolded group draws its container behind its children, sized to them and moved with them. Its label sits above the container by default. Its other options apply when it is folded.
+- A `parent` that names no node is reported in `issues` as `missing-parent`, and the node stays at the top level until that node arrives. A `parent` that would make a node contain itself is reported as `parent-cycle`, and that node stays at the top level.
+
 ## Labels
 
 ```ts
