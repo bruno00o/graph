@@ -33,6 +33,7 @@ import {
   wheelPixels,
   zoomAround,
 } from '../core/view'
+import { detailStep } from '../core/zoom-range'
 import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles, defaults } from '../theme/tokens'
@@ -940,9 +941,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       pickedPositions = positions.version
     }
     const world = toWorld(store.get().view, viewport(), point)
-    const hit = pickIndex.pick(pickSource, world.x, world.y, store.get().view.zoom, pickTolerance)
+    const zoom = store.get().view.zoom
+    const hit = pickIndex.pick(pickSource, world.x, world.y, zoom, pickTolerance)
     if (!hit) {
-      const index = projection.active ? containerBoxes.pick(world.x, world.y, positions) : -1
+      const shown = (index: number) => scene.nodes.zoom.shown(index, zoom)
+      const index = projection.active ? containerBoxes.pick(world.x, world.y, positions, shown) : -1
       const key = index >= 0 ? scene.nodes.keys[index] : undefined
       return key === undefined ? null : target('node', key)
     }
@@ -1122,7 +1125,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function moveFocus(direction: Point): void {
     const current = store.get().focused
     const from = current?.kind === 'node' ? (model.node(current.key)?.index ?? -1) : -1
-    let index = from >= 0 ? nodeToward(from, direction, scene.nodes, positions) : -1
+    const zoom = store.get().view.zoom
+    let index = from >= 0 ? nodeToward(from, direction, scene.nodes, positions, zoom) : -1
     if (from < 0) {
       const selected = registry.members('selected').nodes
       const last = selected[selected.length - 1]
@@ -1130,7 +1134,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       index =
         last !== undefined
           ? (model.node(last)?.index ?? -1)
-          : nearestNode((current && focusPoint(current)) ?? center, scene.nodes, positions)
+          : nearestNode((current && focusPoint(current)) ?? center, scene.nodes, positions, zoom)
     }
     const key = index >= 0 ? scene.nodes.keys[index] : undefined
     const next = key !== undefined ? target('node', key) : null
@@ -1265,7 +1269,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function selectInside(polygon: readonly Point[]): void {
-    const inside = nodesInside(polygon, scene.nodes, positions).filter(
+    const zoom = store.get().view.zoom
+    const inside = nodesInside(polygon, scene.nodes, positions, zoom).filter(
       (key) =>
         !registry.has('selected', 'nodes', key) &&
         scene.nodes.shape[model.node(key)?.index ?? -1] !== containerShape,
@@ -2642,6 +2647,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       positions: positions.version,
       palette: paletteStamp,
       containers: projection.active ? containerBoxes.version : -1,
+      detail: detailStep(scene.nodes, scene.edges, store.get().view.zoom),
     }),
     watch(watcher) {
       if (destroyed) return () => {}

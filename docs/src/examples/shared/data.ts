@@ -257,3 +257,55 @@ export function nestHierarchy(sample: Hierarchy, seed = 3): Item[] {
   })
   return [...groups, ...members]
 }
+
+export const tierWeights = { hub: 90, branch: 40, leaf: 10 } as const
+
+export function createTiers(hubs = 6, branches = 8, leaves = 10, seed = 9): Sample {
+  const next = random(seed)
+  const items: Item[] = []
+  const links: Link[] = []
+  const place = (x: number, y: number, radius: number, angle: number) => ({
+    x: x + Math.cos(angle) * radius,
+    y: y + Math.sin(angle) * radius,
+  })
+  for (let hub = 0; hub < hubs; hub++) {
+    const group = String.fromCharCode(65 + hub)
+    const angle = (hub / hubs) * Math.PI * 2
+    const center = place(0, 0, 720, angle)
+    const hubId = `h${hub}`
+    items.push({
+      id: hubId,
+      label: `Group ${group}`,
+      group: `Group ${group}`,
+      weight: tierWeights.hub,
+      ...center,
+    })
+    links.push({ id: `r${hub}`, from: hubId, to: `h${(hub + 1) % hubs}` })
+    for (let branch = 0; branch < branches; branch++) {
+      const turn = angle + ((branch + 0.5) / branches) * Math.PI * 2 + (next() - 0.5) * 0.3
+      const middle = place(center.x, center.y, 230 + next() * 30, turn)
+      const branchId = `${hubId}-${branch}`
+      items.push({
+        id: branchId,
+        label: `Node ${items.length + 1}`,
+        group: `Group ${group}`,
+        weight: tierWeights.branch,
+        ...middle,
+      })
+      links.push({ id: `t${branchId}`, from: hubId, to: branchId })
+      for (let leaf = 0; leaf < leaves; leaf++) {
+        const spot = place(middle.x, middle.y, 50 + next() * 22, (leaf / leaves) * Math.PI * 2)
+        const leafId = `${branchId}-${leaf}`
+        items.push({
+          id: leafId,
+          label: `Node ${items.length + 1}`,
+          group: `Group ${group}`,
+          weight: tierWeights.leaf,
+          ...spot,
+        })
+        links.push({ id: `t${leafId}`, from: branchId, to: leafId })
+      }
+    }
+  }
+  return { items, links }
+}

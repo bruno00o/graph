@@ -23,6 +23,8 @@ export interface CompiledNodeMark {
   readonly outline: Read | null
   readonly outlineWidth: Read | null
   readonly opacity: Read | null
+  readonly minZoom: Read | null
+  readonly maxZoom: Read | null
   readonly image: Read | null
   readonly badges: ReadonlyArray<readonly [BadgeCorner, Read]>
   readonly screenUnits: boolean
@@ -56,6 +58,8 @@ export interface CompiledEdgeMark {
   readonly arrow: Read | null
   readonly stroke: Read | null
   readonly opacity: Read | null
+  readonly minZoom: Read | null
+  readonly maxZoom: Read | null
   readonly flow: Read | null
   readonly bundle: Read | null
 }
@@ -114,6 +118,8 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     outline: style(options.outline),
     outlineWidth: style(options.outlineWidth),
     opacity: style(options.opacity),
+    minZoom: style(options.minZoom),
+    maxZoom: style(options.maxZoom),
     image: style(options.image),
     badges,
     screenUnits:
@@ -149,6 +155,8 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     arrow: style(options.arrow),
     stroke: style(options.stroke),
     opacity: style(options.opacity),
+    minZoom: style(options.minZoom),
+    maxZoom: style(options.maxZoom),
     flow: style(options.flow),
     bundle: style(options.bundle),
   }

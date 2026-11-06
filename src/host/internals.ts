@@ -8,6 +8,7 @@ export interface GraphStamp {
   readonly positions: number
   readonly palette: number
   readonly containers: number
+  readonly detail: number
 }
 
 export interface GraphWatcher {

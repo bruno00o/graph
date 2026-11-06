@@ -27,6 +27,8 @@ export interface HullSource {
   readonly positions: Positions
   readonly palette: Palette
   readonly containers?: ContainerSource | null
+  readonly zoom?: number
+  readonly detail?: number
   stateNodes(name: string): readonly Key[]
 }
 
@@ -129,6 +131,7 @@ export class HullLayer {
   #membership = true
   #positionsVersion = -1
   #boxVersion = -1
+  #detail = 0
   #packed = true
   readonly #scratch = new HullScratch()
 
@@ -159,6 +162,10 @@ export class HullLayer {
       return false
     }
     let groupsChanged = false
+    if ((source.detail ?? 0) !== this.#detail) {
+      this.#detail = source.detail ?? 0
+      this.#membership = true
+    }
     if (this.#membership) {
       this.#membership = false
       this.#rebuild(source, () => true)
@@ -229,9 +236,10 @@ export class HullLayer {
   }
 
   #members(spec: Spec, source: HullSource): Map<Key | undefined, number[]> {
-    const { model, nodes } = source
+    const { model, nodes, zoom } = source
     const result = new Map<Key | undefined, number[]>()
     const add = (value: Key | undefined, index: number) => {
+      if (zoom !== undefined && !nodes.zoom.shown(index, zoom)) return
       let list = result.get(value)
       if (!list) {
         list = []

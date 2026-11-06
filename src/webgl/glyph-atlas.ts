@@ -44,6 +44,9 @@ export class GlyphAtlas {
   #penX = 0
   #penY = 0
   #rowHeight = 0
+  #lastFace: FontFace | null = null
+  #lastWeight = 0
+  #lastFont: string | null = null
 
   constructor(font: string) {
     this.#font = font
@@ -54,6 +57,7 @@ export class GlyphAtlas {
     this.#font = font
     this.#glyphs.clear()
     this.#faces.clear()
+    this.#lastFace = null
     this.#penX = 0
     this.#penY = 0
     this.#rowHeight = 0
@@ -112,6 +116,16 @@ export class GlyphAtlas {
   }
 
   #face(weight: number, font: string | null): FontFace {
+    const last = this.#lastFace
+    if (last && weight === this.#lastWeight && font === this.#lastFont) return last
+    const face = this.#findFace(weight, font)
+    this.#lastFace = face
+    this.#lastWeight = weight
+    this.#lastFont = font
+    return face
+  }
+
+  #findFace(weight: number, font: string | null): FontFace {
     const key = `${weight}\u0000${font ?? ''}`
     let face = this.#faces.get(key)
     if (!face) {

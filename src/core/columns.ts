@@ -7,6 +7,7 @@ import type {
   LabelPlacement,
   NodeShape,
 } from '../types'
+import { ZoomRanges } from './zoom-range'
 
 export interface NodeBadge {
   readonly corner: number
@@ -103,10 +104,12 @@ export class NodeColumns {
   badges: (readonly NodeBadge[] | null)[] = []
   container: Uint8Array = new Uint8Array(0)
   padding: Float32Array = new Float32Array(0)
+  readonly zoom: ZoomRanges = new ZoomRanges()
 
   reserve(index: number): void {
     if (index < this.capacity) return
     const capacity = nextCapacity(this.capacity, index)
+    this.zoom.reserve(capacity)
     this.container = grow(this.container, capacity)
     this.padding = grow(this.padding, capacity)
     this.alive = grow(this.alive, capacity)
@@ -136,6 +139,7 @@ export class NodeColumns {
     if (index >= this.capacity) return
     this.alive[index] = 0
     this.container[index] = 0
+    this.zoom.clear(index)
     this.keys[index] = undefined
     this.label[index] = null
     this.secondary[index] = null
@@ -168,10 +172,12 @@ export class EdgeColumns {
   labelWeight: Uint16Array = new Uint16Array(0)
   labelFont: (string | null)[] = []
   labelMaxWidth: Float32Array = new Float32Array(0)
+  readonly zoom: ZoomRanges = new ZoomRanges()
 
   reserve(index: number): void {
     if (index < this.capacity) return
     const capacity = nextCapacity(this.capacity, index)
+    this.zoom.reserve(capacity)
     this.alive = grow(this.alive, capacity)
     this.slot = grow(this.slot, capacity)
     this.source = grow(this.source, capacity)
@@ -197,6 +203,7 @@ export class EdgeColumns {
     this.alive[index] = 0
     this.bend[index] = 0
     this.bundle[index] = 0
+    this.zoom.clear(index)
     this.setFlow(index, 0)
     this.keys[index] = undefined
     this.label[index] = null

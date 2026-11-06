@@ -131,4 +131,6 @@ export const messages = {
   bundleReaches: { '0.03': 'short', '0.06': 'medium', '0.12': 'long' },
   bundling: 'Bundling…',
   bundled: (duration: number) => `Bundled in ${formatNumber(Math.round(duration))} ms`,
+  zoomTiers: (zoom: number, shown: number) =>
+    `Zoom ${zoomFormat.format(zoom)}, ${shown} of 3 ${shown === 1 ? 'tier' : 'tiers'} shown`,
 }

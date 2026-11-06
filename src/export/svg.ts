@@ -7,6 +7,7 @@ import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
+import { edgeOpacity } from '../core/zoom-range'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { ContainerFrame, GridInput, LabelMode } from '../host/renderer'
 import { atlasFontSize } from '../webgl/glyph-atlas'
@@ -246,6 +247,12 @@ export function writeSvg(scene: SvgScene): string {
   const zoom = view.zoom
   const offsetX = width / 2 - view.x * zoom
   const offsetY = height / 2 - view.y * zoom
+  const nodeFade = (index: number) => nodes.zoom.opacity(index, zoom)
+  const edgeFade = (index: number) => edgeOpacity(nodes, edges, index, zoom)
+  const faded = (look: Look, fade: number): Look =>
+    fade === 1 ? look : { ...look, opacity: look.opacity * fade }
+  const nodeLookAt = (index: number) => faded(nodeLook(nodes, states, index), nodeFade(index))
+  const edgeLookAt = (index: number) => faded(edgeLook(edges, states, index), edgeFade(index))
   const prefix = `graph${++documents}-`
   const body: string[] = []
   const defs: string[] = []
@@ -410,7 +417,7 @@ export function writeSvg(scene: SvgScene): string {
     const x = sx(index)
     const y = sy(index)
     const r = radius(index)
-    const look = nodeLook(nodes, states, index)
+    const look = nodeLookAt(index)
     const outlineWidth = Math.max(look.outlineWidth, 0)
     const haloReach = look.halo ? haloWidth : 0
     const extent = r * diamondReach + outlineWidth * Math.SQRT2 + haloReach
@@ -436,7 +443,7 @@ export function writeSvg(scene: SvgScene): string {
     const halfHeight = Math.max((frame[index * 4 + 1] ?? 0) * zoom, 1.25)
     const r = Math.min(halfWidth, halfHeight)
     const corner = Math.min((frame[index * 4 + 2] ?? 0) * zoom, r)
-    const look = nodeLook(nodes, states, index)
+    const look = nodeLookAt(index)
     const reach = Math.max(look.outlineWidth, 0) + (look.halo ? haloWidth : 0)
     if (
       outside(
@@ -619,7 +626,7 @@ export function writeSvg(scene: SvgScene): string {
     const target = edges.target[index] ?? 0
     const loop = source === target
     const bend = edges.bend[index] ?? 0
-    const look = edgeLook(edges, states, index)
+    const look = edgeLookAt(index)
     const width = Math.max(look.strokeWidth, 0.5)
     const ax = sx(source)
     const ay = sy(source)
@@ -694,7 +701,7 @@ export function writeSvg(scene: SvgScene): string {
     const texts: string[] = []
     for (const index of indices) {
       const badges = nodes.badges[index]
-      if (!badges || nodes.alive[index] !== 1) continue
+      if (!badges || nodes.alive[index] !== 1 || nodeFade(index) === 0) continue
       const size = nodes.size[index] ?? 0
       const diameter = nodes.screenUnits[index] === 1 ? size : size * zoom
       const height = Math.min(diameter * 0.55, badgeLimit)
@@ -703,7 +710,7 @@ export function writeSvg(scene: SvgScene): string {
       const y = sy(index)
       const r = radius(index)
       if (outside(x - r - 40, y - r - 20, x + r + 40, y + r + 20)) continue
-      const look: Look = nodeLook(nodes, states, index)
+      const look: Look = nodeLookAt(index)
       const opacity = look.opacity < 0.999 ? ` opacity="${fine(Math.max(0, look.opacity))}"` : ''
       const reach = (badgeReach[nodes.shape[index] ?? 0] ?? Math.SQRT1_2) * r
       const font = height * badgeFont
@@ -801,7 +808,7 @@ export function writeSvg(scene: SvgScene): string {
   }
 
   function drawNodeLabel(index: number, label: PlacedLabel): void {
-    const look = nodeLook(nodes, states, index)
+    const look = nodeLookAt(index)
     const pixels = label.size * (nodes.screenUnits[index] === 1 ? 1 : Math.min(1, zoom))
     const [dx, dy] = placementDirections[label.placement] ?? [0, 1]
     const edge = screenExtent(nodes, boxes, index, zoom, dx !== 0 ? 0 : 1)
@@ -820,7 +827,7 @@ export function writeSvg(scene: SvgScene): string {
   }
 
   function drawEdgeLabel(index: number, label: PlacedLabel, anchor: EdgeAnchor): void {
-    const look = edgeLook(edges, states, index)
+    const look = edgeLookAt(index)
     const pixels = label.size * Math.min(1, zoom)
     const lift = label.plate ? 0 : Math.max(look.strokeWidth, 0.5) * 0.5 + edgeLabelGap
     const angle = (Math.atan2(anchor.ay, anchor.ax) * 180) / Math.PI
@@ -925,7 +932,8 @@ export function writeSvg(scene: SvgScene): string {
   if (containers) {
     for (let slot = 0; slot < containers.count; slot++) {
       const index = containers.order[slot] ?? 0
-      if (nodes.alive[index] === 1 && isContainer(index)) drawContainer(index, containers.boxes)
+      if (nodes.alive[index] !== 1 || !isContainer(index) || nodeFade(index) === 0) continue
+      drawContainer(index, containers.boxes)
     }
   }
   if (scene.hulls) drawHulls(scene.hulls)
@@ -934,6 +942,7 @@ export function writeSvg(scene: SvgScene): string {
       for (const kind of [0, 1, 2]) {
         for (let index = 0; index < edges.capacity; index++) {
           if (edges.alive[index] !== 1 || edges.slot[index] !== layer.slot) continue
+          if (edgeFade(index) === 0) continue
           if (highlighted(states.edgeMask, index) || pass(index) !== kind) continue
           drawEdge(index)
         }
@@ -941,6 +950,7 @@ export function writeSvg(scene: SvgScene): string {
     } else {
       for (let index = 0; index < nodes.capacity; index++) {
         if (nodes.alive[index] !== 1 || nodes.slot[index] !== layer.slot) continue
+        if (nodeFade(index) === 0) continue
         if (!highlighted(states.nodeMask, index) && !isContainer(index)) drawNode(index)
       }
     }
@@ -953,11 +963,11 @@ export function writeSvg(scene: SvgScene): string {
   drawLabels(0)
   for (const kind of [0, 1, 2]) {
     for (const index of states.highlightedEdges) {
-      if (edges.alive[index] === 1 && pass(index) === kind) drawEdge(index)
+      if (edges.alive[index] === 1 && pass(index) === kind && edgeFade(index) > 0) drawEdge(index)
     }
   }
   for (const index of states.highlightedNodes) {
-    if (nodes.alive[index] === 1 && !isContainer(index)) drawNode(index)
+    if (nodes.alive[index] === 1 && !isContainer(index) && nodeFade(index) > 0) drawNode(index)
   }
   drawBadges(states.highlightedNodes)
   drawLabels(1)

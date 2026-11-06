@@ -3,6 +3,7 @@ import { containerShape, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import type { EdgePaths, PathPoint } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
+import { edgeShown } from '../core/zoom-range'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
@@ -31,6 +32,10 @@ const edgeGlyph = 8
 const platedGlyph = 4
 const edgeGap = 8
 const padUnits = platePadX * atlasFontSize
+const planPlacement = 7
+const planScreen = 8
+const planContainer = 16
+const planPlated = 32
 
 export interface LabelFrame {
   readonly nodes: NodeColumns
@@ -44,6 +49,7 @@ export interface LabelFrame {
   readonly highlighted: readonly number[]
   readonly order: Uint32Array
   readonly orderLength: number
+  readonly plan?: LabelPlan | null
   readonly screenLabels: boolean
   readonly largestLabel: number
   readonly edges: EdgeColumns
@@ -352,6 +358,75 @@ const placementDirections: ReadonlyArray<readonly [number, number]> = [
   [0, 0],
 ]
 
+class TextExtents {
+  #sizes: Float32Array = new Float32Array(0)
+  #generation = -1
+
+  prepare(capacity: number, generation: number): void {
+    if (generation !== this.#generation) {
+      this.#generation = generation
+      this.#sizes.fill(Number.NaN)
+    }
+    if (this.#sizes.length >= capacity * 2) return
+    const sizes = new Float32Array(Math.max(128, capacity * 2)).fill(Number.NaN)
+    sizes.set(this.#sizes)
+    this.#sizes = sizes
+  }
+
+  has(index: number): boolean {
+    return !Number.isNaN(this.#sizes[index * 2] ?? Number.NaN)
+  }
+
+  width(index: number): number {
+    return this.#sizes[index * 2] ?? 0
+  }
+
+  height(index: number): number {
+    return this.#sizes[index * 2 + 1] ?? 0
+  }
+
+  set(index: number, block: TextBlock): void {
+    if (index * 2 + 1 >= this.#sizes.length) return
+    this.#sizes[index * 2] = block.width
+    this.#sizes[index * 2 + 1] = block.height
+  }
+
+  forget(index: number): void {
+    if (index * 2 < this.#sizes.length) this.#sizes[index * 2] = Number.NaN
+  }
+}
+
+interface BoxEdges {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+function boxEdges(
+  out: BoxEdges,
+  ox: number,
+  oy: number,
+  placement: number,
+  plated: boolean,
+  blockWidth: number,
+  blockHeight: number,
+  scale: number,
+): void {
+  const total = blockHeight + (plated ? plateDrop : 0)
+  const top = placement === 0 ? 0 : placement === 1 ? -total : -total / 2
+  const align = placement === 2 ? 1 : placement === 3 ? -1 : 0
+  const shift = plated ? align * padUnits : 0
+  const textLeft = shift + (align - 1) * (blockWidth / 2)
+  const textRight = shift + (align + 1) * (blockWidth / 2)
+  const hx = blockWidth / 2 + padUnits
+  const cx = (textLeft + textRight) / 2
+  out.left = ox + (plated ? cx - hx : textLeft) * scale
+  out.right = ox + (plated ? cx + hx : textRight) * scale
+  out.top = oy + top * scale
+  out.bottom = oy + (top + (plated ? total : blockHeight)) * scale
+}
+
 export class LabelLayer {
   readonly main: GlyphBuffer = new GlyphBuffer()
   readonly highlight: GlyphBuffer = new GlyphBuffer()
@@ -363,6 +438,17 @@ export class LabelLayer {
   #cols = 0
   #rows = 0
   readonly #anchor: EdgeAnchor = { x: 0, y: 0, ax: 1, ay: 0, room: 0 }
+  readonly #box: BoxEdges = { left: 0, top: 0, right: 0, bottom: 0 }
+  readonly #nodeExtents: TextExtents = new TextExtents()
+  readonly #edgeExtents: TextExtents = new TextExtents()
+
+  forgetNode(index: number): void {
+    this.#nodeExtents.forget(index)
+  }
+
+  forgetEdge(index: number): void {
+    this.#edgeExtents.forget(index)
+  }
 
   #claimBox(left: number, top: number, right: number, bottom: number, force: boolean): boolean {
     const cols = this.#cols
@@ -373,12 +459,28 @@ export class LabelLayer {
     if (c1 < c0 || r1 < r0) return false
     const occupancy = this.#occupancy
     if (!force) {
+      if (occupancy[((r0 + r1) >> 1) * cols + ((c0 + c1) >> 1)] === 1) return false
       for (let row = r0; row <= r1; row++) {
         for (let col = c0; col <= c1; col++) if (occupancy[row * cols + col] === 1) return false
       }
     }
     for (let row = r0; row <= r1; row++) occupancy.fill(1, row * cols + c0, row * cols + c1 + 1)
     return true
+  }
+
+  #taken(left: number, top: number, right: number, bottom: number): boolean {
+    const cols = this.#cols
+    const c0 = Math.max(0, Math.floor(left / cell))
+    const c1 = Math.min(cols - 1, Math.floor(right / cell))
+    const r0 = Math.max(0, Math.floor(top / cell))
+    const r1 = Math.min(this.#rows - 1, Math.floor(bottom / cell))
+    if (c1 < c0 || r1 < r0) return true
+    const occupancy = this.#occupancy
+    if (occupancy[((r0 + r1) >> 1) * cols + ((c0 + c1) >> 1)] === 1) return true
+    for (let row = r0; row <= r1; row++) {
+      for (let col = c0; col <= c1; col++) if (occupancy[row * cols + col] === 1) return true
+    }
+    return false
   }
 
   #claim(anchor: EdgeAnchor, half: number, low: number, high: number, force: boolean): boolean {
@@ -410,6 +512,51 @@ export class LabelLayer {
     return true
   }
 
+  #blocked(
+    plan: LabelPlan,
+    at: number,
+    x: number,
+    y: number,
+    zoom: number,
+    shrink: number,
+  ): boolean {
+    const meta = plan.meta[at] ?? 0
+    if ((meta & planContainer) !== 0) return false
+    const screenUnits = (meta & planScreen) !== 0
+    const pixels = (plan.pixels[at] ?? nodeLabelSize) * (screenUnits ? 1 : shrink)
+    if (pixels < labelMin) return true
+    const size = plan.size[at] ?? 0
+    const diameter = screenUnits ? size : size * zoom
+    const minimum = plan.minimum[at] ?? 0
+    if (minimum > 0 && diameter < minimum) return true
+    const placement = meta & planPlacement
+    const [dx, dy] = placementDirections[placement] ?? [0, 1]
+    const reach = placement === 4 ? 0 : Math.max(diameter / 2, 1.25) + (plan.lift[at] ?? 0)
+    const blockWidth = plan.width[at] ?? Number.NaN
+    if (!Number.isNaN(blockWidth)) {
+      const box = this.#box
+      const plated = (meta & planPlated) !== 0
+      boxEdges(
+        box,
+        x + dx * reach,
+        y + dy * reach,
+        placement,
+        plated,
+        blockWidth,
+        plan.height[at] ?? 0,
+        pixels / atlasFontSize,
+      )
+      return this.#taken(box.left, box.top, box.right, box.bottom)
+    }
+    const px = x + dx * (reach + 1)
+    const py = y + dy * (reach + 1)
+    if (px < 0 || py < 0) return false
+    const col = Math.floor(px / cell)
+    const row = Math.floor(py / cell)
+    if (col >= this.#cols || row >= this.#rows) return false
+    return this.#occupancy[row * this.#cols + col] === 1
+  }
+
   select(frame: LabelFrame, atlas: TextMeasure): void {
     this.main.clear()
     this.highlight.clear()
@@ -418,6 +565,8 @@ export class LabelLayer {
     this.nodeLabels = 0
     this.edgeLabels = 0
     const { nodes, edges, positions, view, width, height } = frame
+    this.#nodeExtents.prepare(nodes.capacity, atlas.generation)
+    this.#edgeExtents.prepare(edges.capacity, atlas.generation)
     this.#cols = Math.ceil(width / cell) + 1
     this.#rows = Math.ceil(height / cell) + 1
     const cells = this.#cols * this.#rows
@@ -436,10 +585,11 @@ export class LabelLayer {
     const forced = (index: number) => ((frame.nodeMask[index] ?? 0) & forcedStates) !== 0
     const edgeForced = (index: number) => ((frame.edgeMask[index] ?? 0) & forcedStates) !== 0
 
-    const place = (index: number, highlight: boolean): void => {
+    const plan = all ? null : (frame.plan ?? null)
+    const place = (index: number, highlight: boolean, rank = -1, sx = 0, sy = 0): void => {
       const force = highlight && forced(index)
       const label = nodes.label[index]
-      if (!label || nodes.alive[index] !== 1) return
+      if (!label || nodes.alive[index] !== 1 || !nodes.zoom.shown(index, view.zoom)) return
       if (!labelVisible(frame.nodeMask[index] ?? 0, frame.labelFlags)) return
       const screenUnits = nodes.screenUnits[index] === 1
       const size = nodes.labelSize[index] || nodeLabelSize
@@ -447,31 +597,41 @@ export class LabelLayer {
       if (pixels < minimumPixels) return
       const minimum = nodes.labelMinScreenSize[index] ?? 0
       if (!force && !all && minimum > 0 && screenDiameter(nodes, index, view.zoom) < minimum) return
-      const x = (positions.x(index) - view.x) * view.zoom + width / 2
-      const y = (positions.y(index) - view.y) * view.zoom + height / 2
+      const x = rank >= 0 ? sx : (positions.x(index) - view.x) * view.zoom + width / 2
+      const y = rank >= 0 ? sy : (positions.y(index) - view.y) * view.zoom + height / 2
       const box = nodes.shape[index] === containerShape ? frame.boxes : null
       if (!box && (x < -cullMargin || x > width + cullMargin)) return
       if (!box && (y < -cullMargin || y > height + cullMargin)) return
-      const block = textBlock(
-        atlas,
-        label,
-        nodes.secondary[index] ?? null,
-        nodes.labelWeight[index] || primaryWeight,
-        nodes.labelFont[index] ?? null,
-        nodes.labelMaxWidth[index] ?? 0,
-        size,
-      )
+      const measure = (): TextBlock =>
+        textBlock(
+          atlas,
+          label,
+          nodes.secondary[index] ?? null,
+          nodes.labelWeight[index] || primaryWeight,
+          nodes.labelFont[index] ?? null,
+          nodes.labelMaxWidth[index] ?? 0,
+          size,
+        )
+      const extents = this.#nodeExtents
+      let measured = extents.has(index) ? null : measure()
+      if (measured) extents.set(index, measured)
+      const blockWidth = extents.width(index)
+      const blockHeight = extents.height(index)
+      if (plan && rank >= 0) {
+        plan.width[rank] = blockWidth
+        plan.height[rank] = blockHeight
+      }
       const background = nodes.labelBackground[index] ?? noColor
       const plated = background !== noColor
       const placement = nodes.labelPlacement[index] ?? 0
       const [dx, dy] = placementDirections[placement] ?? [0, 1]
-      const total = block.height + (plated ? plateDrop : 0)
+      const total = blockHeight + (plated ? plateDrop : 0)
       const top = placement === 0 ? 0 : placement === 1 ? -total : -total / 2
       const align = placement === 2 ? 1 : placement === 3 ? -1 : 0
       const shift = plated ? align * padUnits : 0
-      const textLeft = shift + (align - 1) * (block.width / 2)
-      const textRight = shift + (align + 1) * (block.width / 2)
-      const hx = block.width / 2 + padUnits
+      const textLeft = shift + (align - 1) * (blockWidth / 2)
+      const textRight = shift + (align + 1) * (blockWidth / 2)
+      const hx = blockWidth / 2 + padUnits
       const hy = total / 2
       const cx = (textLeft + textRight) / 2
       const cy = top + hy
@@ -481,17 +641,24 @@ export class LabelLayer {
           : (box
               ? (box[index * 4 + (dx !== 0 ? 0 : 1)] ?? 0) * view.zoom
               : screenRadius(nodes, index, view.zoom)) +
-            (nodes.outlineWidth[index] ?? 0) +
-            labelGap
-      const ox = x + dx * reach
-      const oy = y + dy * reach
+            ((nodes.outlineWidth[index] ?? 0) + labelGap)
       const scale = pixels / atlasFontSize
-      const left = ox + (plated ? cx - hx : textLeft) * scale
-      const right = ox + (plated ? cx + hx : textRight) * scale
-      const boxTop = oy + top * scale
-      const boxBottom = oy + (top + (plated ? total : block.height)) * scale
+      const edges = this.#box
+      boxEdges(
+        edges,
+        x + dx * reach,
+        y + dy * reach,
+        placement,
+        plated,
+        blockWidth,
+        blockHeight,
+        scale,
+      )
+      const { left, right, top: boxTop, bottom: boxBottom } = edges
       if (right < 0 || left > width || boxBottom < 0 || boxTop > height) return
       if (!this.#claimBox(left, boxTop, right, boxBottom, force || all)) return
+      measured ??= measure()
+      const block = measured
       const target = highlight ? this.highlight : this.main
       const flags = (placement << 4) | (plated ? platedGlyph : 0)
       if (plated) target.pushPlate(index, flags, cx, cy, hx, hy, background, size)
@@ -516,7 +683,7 @@ export class LabelLayer {
     const anchor = this.#anchor
     const placeEdge = (index: number, highlight: boolean): void => {
       const label = edges.label[index]
-      if (!label || edges.alive[index] !== 1) return
+      if (!label || edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, view.zoom)) return
       const size = edges.labelSize[index] || edgeLabelSize
       const pixels = size * shrink
       if (pixels < minimumPixels) return
@@ -524,26 +691,34 @@ export class LabelLayer {
       if (!edgeAnchor(frame, index, anchor)) return
       if (anchor.x < -cullMargin || anchor.x > width + cullMargin) return
       if (anchor.y < -cullMargin || anchor.y > height + cullMargin) return
-      const block = textBlock(
-        atlas,
-        label,
-        null,
-        edges.labelWeight[index] || primaryWeight,
-        edges.labelFont[index] ?? null,
-        edges.labelMaxWidth[index] ?? 0,
-        size,
-      )
+      const measure = (): TextBlock =>
+        textBlock(
+          atlas,
+          label,
+          null,
+          edges.labelWeight[index] || primaryWeight,
+          edges.labelFont[index] ?? null,
+          edges.labelMaxWidth[index] ?? 0,
+          size,
+        )
+      const extents = this.#edgeExtents
+      let measured = extents.has(index) ? null : measure()
+      if (measured) extents.set(index, measured)
+      const blockWidth = extents.width(index)
+      const blockHeight = extents.height(index)
       const background = edges.labelBackground[index] ?? noColor
       const plated = background !== noColor
       const scale = pixels / atlasFontSize
-      const half = (block.width / 2 + (plated ? padUnits : 0)) * scale
+      const half = (blockWidth / 2 + (plated ? padUnits : 0)) * scale
       if (!all && half * 2 + edgeGap > anchor.room) return
-      const total = block.height + plateDrop
-      const top = plated ? -total / 2 : edgeDescent - block.height
+      const total = blockHeight + plateDrop
+      const top = plated ? -total / 2 : edgeDescent - blockHeight
       const above = plated ? 0 : Math.max(edges.width[index] ?? 0, 0.5) / 2 + edgeLabelGap
       const low = plated ? (-total / 2) * scale : top * scale - above
-      const high = plated ? (total / 2) * scale : (top + block.height) * scale - above
+      const high = plated ? (total / 2) * scale : (top + blockHeight) * scale - above
       if (!this.#claim(anchor, half, low, high, (highlight && edgeForced(index)) || all)) return
+      measured ??= measure()
+      const block = measured
       const target = highlight ? this.edgeHighlight : this.edgeMain
       const flags = edgeGlyph | (plated ? platedGlyph : 0)
       if (plated) {
@@ -597,12 +772,24 @@ export class LabelLayer {
       const right = centerX + width / 2 / view.zoom + reach
       const top = centerY - height / 2 / view.zoom - reach
       const bottom = centerY + height / 2 / view.zoom + reach
+      plan?.locate(positions, order)
+      plan?.measured(atlas.generation)
+      const xs = plan?.x
+      const ys = plan?.y
       for (let at = 0; at < frame.orderLength && placed < limit; at++) {
         const index = order[at] ?? 0
-        const x = xy[index * 2] ?? 0
-        const y = xy[index * 2 + 1] ?? 0
+        const x = (xs ? xs[at] : xy[index * 2]) ?? 0
+        const y = (ys ? ys[at] : xy[index * 2 + 1]) ?? 0
         if (x < left || x > right || y < top || y > bottom) continue
-        if (!highlighted.has(index)) place(index, false)
+        if (!nodes.zoom.shown(index, view.zoom)) continue
+        if (!plan) {
+          if (!highlighted.has(index)) place(index, false)
+          continue
+        }
+        const screenX = (x - centerX) * view.zoom + width / 2
+        const screenY = (y - centerY) * view.zoom + height / 2
+        if (this.#blocked(plan, at, screenX, screenY, view.zoom, shrink)) continue
+        if (!highlighted.has(index)) place(index, false, at, screenX, screenY)
       }
     }
 
@@ -700,7 +887,71 @@ export interface LabelOrder {
   readonly largest: number
 }
 
-export function sortBySize(nodes: NodeColumns, order: Uint32Array): LabelOrder {
+export class LabelPlan {
+  size: Float32Array = new Float32Array(0)
+  pixels: Float32Array = new Float32Array(0)
+  lift: Float32Array = new Float32Array(0)
+  minimum: Float32Array = new Float32Array(0)
+  meta: Uint8Array = new Uint8Array(0)
+  x: Float32Array = new Float32Array(0)
+  y: Float32Array = new Float32Array(0)
+  width: Float32Array = new Float32Array(0)
+  height: Float32Array = new Float32Array(0)
+  #length = 0
+  #located = -1
+  #source: Positions | null = null
+  #generation = -1
+
+  measured(generation: number): void {
+    if (generation === this.#generation) return
+    this.#generation = generation
+    this.width.fill(Number.NaN, 0, this.#length)
+  }
+
+  locate(positions: Positions, order: Uint32Array): void {
+    if (positions === this.#source && positions.version === this.#located) return
+    this.#source = positions
+    this.#located = positions.version
+    const xy = positions.xy
+    for (let at = 0; at < this.#length; at++) {
+      const index = order[at] ?? 0
+      this.x[at] = xy[index * 2] ?? 0
+      this.y[at] = xy[index * 2 + 1] ?? 0
+    }
+  }
+
+  fill(nodes: NodeColumns, order: Uint32Array, length: number): void {
+    this.#length = length
+    this.#located = -1
+    if (this.meta.length < length) {
+      const capacity = Math.max(64, length)
+      this.x = new Float32Array(capacity)
+      this.y = new Float32Array(capacity)
+      this.width = new Float32Array(capacity)
+      this.height = new Float32Array(capacity)
+      this.size = new Float32Array(capacity)
+      this.pixels = new Float32Array(capacity)
+      this.lift = new Float32Array(capacity)
+      this.minimum = new Float32Array(capacity)
+      this.meta = new Uint8Array(capacity)
+    }
+    for (let at = 0; at < length; at++) {
+      const index = order[at] ?? 0
+      this.size[at] = nodes.size[index] ?? 0
+      this.pixels[at] = nodes.labelSize[index] || nodeLabelSize
+      this.lift[at] = (nodes.outlineWidth[index] ?? 0) + labelGap
+      this.minimum[at] = nodes.labelMinScreenSize[index] ?? 0
+      this.meta[at] =
+        (nodes.labelPlacement[index] ?? 0) |
+        (nodes.screenUnits[index] === 1 ? planScreen : 0) |
+        (nodes.shape[index] === containerShape ? planContainer : 0) |
+        ((nodes.labelBackground[index] ?? noColor) !== noColor ? planPlated : 0)
+    }
+    this.width.fill(Number.NaN, 0, length)
+  }
+}
+
+export function sortBySize(nodes: NodeColumns, order: Uint32Array, plan?: LabelPlan): LabelOrder {
   let length = 0
   let screenLabels = false
   let largest = 0
@@ -712,5 +963,6 @@ export function sortBySize(nodes: NodeColumns, order: Uint32Array): LabelOrder {
     }
   }
   sortDescending(order, length, nodes.size)
+  plan?.fill(nodes, order, length)
   return { length, screenLabels, largest }
 }

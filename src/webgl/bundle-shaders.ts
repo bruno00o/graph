@@ -5,12 +5,12 @@ export const bundleVertex: string = `${header}${nodeData}${edgeData}${bundlePath
 in vec2 corner;
 in uint instance;
 out vec2 vPos;
-out float vStart;
-out float vEnd;
-out float vHalfWidth;
-out float vArrowLength;
-out float vArrowHalf;
-out float vHaloWidth;
+flat out float vStart;
+flat out float vEnd;
+flat out float vHalfWidth;
+flat out float vArrowLength;
+flat out float vArrowHalf;
+flat out float vHaloWidth;
 flat out uint vDash;
 flat out uint vArrow;
 flat out vec4 vColor;
@@ -30,6 +30,11 @@ void main() {
     return;
   }
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 a = texelFetch(nodePosition, s, 0).xy;
@@ -52,10 +57,12 @@ void main() {
   float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
   float arrowHalf = max(width * 1.6, 3.0);
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
-  float margin = 0.5 / pixelRatio + 0.5;
+  float margin = 0.5 / pixelRatio + 0.25;
   float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
   float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
-  float body = width * 0.5 + halo + margin;
+  float flow = edgeFlow(mask, style.w);
+  uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
   float head = max(body, arrowHalf + halo + margin);
   bool wide = (startHead > 0.0 && float(previous) * spacing <= start + startHead)
     || (endHead > 0.0 && float(next) * spacing >= end - endHead);
@@ -67,8 +74,7 @@ void main() {
   vArrowLength = arrowLength;
   vArrowHalf = arrowHalf;
   vHaloWidth = halo;
-  float flow = edgeFlow(mask, style.w);
-  vDash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  vDash = dash;
   vFlow = flow * flowTime;
   vArrow = arrow;
   vColor = paletteColor(look.stroke);

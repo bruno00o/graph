@@ -18,6 +18,7 @@ for (const [href, text] of [
   ['./drawing/', messages.drawing],
   ['./map/', messages.map],
   ['./bundling/', messages.bundling],
+  ['./zoom/', messages.zoomDetail],
 ] as const) {
   const item = document.createElement('li')
   const link = document.createElement('a')

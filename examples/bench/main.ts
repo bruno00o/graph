@@ -10,6 +10,9 @@ const edgeCount = Number(params.get('edges') ?? 100_000)
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 const engine = engines.find((value) => value === params.get('layout'))
 const flow = params.has('flow')
+const decor = params.has('decor')
+const screen = params.has('screen')
+const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
 const frameCosts: number[] = []
@@ -30,13 +33,28 @@ const generated = performance.now()
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(links, { source: 'from', target: 'to', arrow: 'target', flow }),
-    nodes<Item>(
-      items,
-      engine
-        ? { color: 'group', size: 'weight', label: 'label' }
-        : { x: 'x', y: 'y', color: 'group', size: 'weight', label: 'label' },
-    ),
+    edges<Link>(links, {
+      source: 'from',
+      target: 'to',
+      arrow: 'target',
+      flow,
+      ...(decor ? { dash: (link) => (link.strength > 0.6 ? 'dashed' : 'solid') } : {}),
+    }),
+    nodes<Item>(items, {
+      ...(engine ? {} : { x: 'x', y: 'y' }),
+      ...(screen ? { units: 'screen' as const } : {}),
+      color: 'group',
+      size: 'weight',
+      label: 'label',
+      ...(decor
+        ? {
+            outline: (item) => (item.weight > 20 ? 'var(--graph-accent)' : null),
+            image: (item) =>
+              item.weight % 3 === 0 ? { src: icon, scale: 0.7, color: 'white' } : null,
+            badges: { topRight: (item) => (item.weight > 50 ? { text: item.weight } : null) },
+          }
+        : {}),
+    }),
   ],
   states: { muted: { opacity: 0.06, label: false } },
   layout: engine ? force({ engine }) : null,

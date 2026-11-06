@@ -1,4 +1,5 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
+import { zoomFade } from '../core/zoom-range'
 import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
 
@@ -35,6 +36,8 @@ layout(std140) uniform Frame {
   vec4 labelMuted;
   vec4 labelHalo;
   vec2 centerLow;
+  float ranged;
+  float framePadding;
 };
 layout(std140) uniform States {
   vec4 stateNumbers[64];
@@ -94,9 +97,20 @@ uniform usampler2D nodePaint;
 uniform usampler2D nodeState;
 uniform usampler2D nodeDecor;
 uniform sampler2D nodeBox;
+uniform sampler2D nodeZoom;
+float zoomShown(vec2 range) {
+  if (!(zoom > range.x && zoom < range.y)) return 0.0;
+  float inside = min(range.x > 0.0 ? log2(zoom / range.x) : 1.0, log2(range.y / zoom));
+  return clamp(inside / ${zoomFade.toFixed(2)}, 0.0, 1.0);
+}
+float nodeShown(ivec2 t) {
+  return ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
+}
 Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
-  return resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
+  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
+  look.opacity *= nodeShown(t);
+  return look;
 }
 float nodeDiameter(vec4 style) {
   uint flags = uint(style.w + 0.5);
@@ -116,7 +130,13 @@ export const edgeData: string = `
 uniform usampler2D edgeTopology;
 uniform sampler2D edgeStyle;
 uniform usampler2D edgeState;
+uniform sampler2D edgeZoom;
 uniform float flowTime;
+float edgeShown(ivec2 t, uvec4 topology) {
+  if (ranged < 0.5) return 1.0;
+  float own = zoomShown(texelFetch(edgeZoom, t, 0).xy);
+  return min(own, min(nodeShown(texel(topology.x)), nodeShown(texel(topology.y))));
+}
 float edgeFlow(uint mask, float speed) {
   for (int bit = 0; bit < 32; bit++) {
     if (mask == 0u) break;
@@ -137,10 +157,10 @@ out vec2 vLocal;
 flat out float vImageLayer;
 flat out float vImageScale;
 flat out vec4 vImageColor;
-out float vRadius;
-out float vStrokeWidth;
-out float vHaloWidth;
-out float vOutlineWidth;
+flat out float vRadius;
+flat out float vStrokeWidth;
+flat out float vHaloWidth;
+flat out float vOutlineWidth;
 flat out uint vShape;
 flat out vec3 vBox;
 flat out vec4 vFill;
@@ -160,6 +180,10 @@ void main() {
     return;
   }
   Look look = nodeLook(t, style, paint, mask);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
   float radius = nodeRadius(style);
   vec2 extent = vec2(radius);
@@ -172,7 +196,16 @@ void main() {
   }
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float outline = max(look.outlineWidth, 0.0);
-  vLocal = corner * (extent + outline + halo + 1.5);
+  float aa = 0.5 / pixelRatio + 0.25;
+  uint shape = flags & 3u;
+  vec2 reach = shape == 2u ? (extent * 1.2 + outline + halo + aa) * 1.4143
+    : (shape == 1u ? extent * 0.86 : extent) + outline + halo + aa;
+  vec2 center = toScreen(xy);
+  if (any(lessThan(center + reach, vec2(0.0))) || any(greaterThan(center - reach, viewport))) {
+    gl_Position = hidden;
+    return;
+  }
+  vLocal = corner * reach;
   vRadius = radius;
   vStrokeWidth = min(look.strokeWidth, radius * 0.5);
   vHaloWidth = halo;
@@ -186,7 +219,7 @@ void main() {
   vImageLayer = float(image.x) - 1.0;
   vImageScale = max(uintBitsToFloat(image.z), 0.001);
   vImageColor = image.y == none ? vec4(-1.0) : paletteColor(image.y);
-  gl_Position = toClip(toScreen(xy) + vLocal);
+  gl_Position = toClip(center + vLocal);
 }
 `
 
@@ -196,10 +229,10 @@ in vec2 vLocal;
 flat in float vImageLayer;
 flat in float vImageScale;
 flat in vec4 vImageColor;
-in float vRadius;
-in float vStrokeWidth;
-in float vHaloWidth;
-in float vOutlineWidth;
+flat in float vRadius;
+flat in float vStrokeWidth;
+flat in float vHaloWidth;
+flat in float vOutlineWidth;
 flat in uint vShape;
 flat in vec3 vBox;
 flat in vec4 vFill;
@@ -252,12 +285,12 @@ export const edgeVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 in vec3 corner;
 in uint instance;
 out vec2 vPos;
-out float vStart;
-out float vEnd;
-out float vHalfWidth;
-out float vArrowLength;
-out float vArrowHalf;
-out float vHaloWidth;
+flat out float vStart;
+flat out float vEnd;
+flat out float vHalfWidth;
+flat out float vArrowLength;
+flat out float vArrowHalf;
+flat out float vHaloWidth;
 flat out uint vDash;
 flat out uint vArrow;
 flat out vec4 vColor;
@@ -279,27 +312,39 @@ void main() {
     return;
   }
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 ps = toScreen(texelFetch(nodePosition, s, 0).xy);
   vec2 pt = toScreen(texelFetch(nodePosition, e, 0).xy);
+  float width = max(look.strokeWidth, 0.5);
+  float halo = look.halo > 0.5 ? haloWidth : 0.0;
+  float margin = 0.5 / pixelRatio + 0.25;
+  float arrowHalf = max(width * 1.6, 3.0);
+  float head = max(width * 0.5, arrowHalf) + halo + margin;
+  if (any(lessThan(max(ps, pt) + head, vec2(0.0))) || any(greaterThan(min(ps, pt) - head, viewport))) {
+    gl_Position = hidden;
+    return;
+  }
   vec2 delta = pt - ps;
   float len = length(delta);
   vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
   vec2 normal = vec2(-dir.y, dir.x);
-  float width = max(look.strokeWidth, 0.5);
   float start = nodeRadius(texelFetch(nodeStyle, s, 0));
   float end = len - nodeRadius(texelFetch(nodeStyle, e, 0));
   float visible = end - start;
   uint arrow = (packed >> 2u) & 3u;
   float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
-  float arrowHalf = max(width * 1.6, 3.0);
-  float halo = look.halo > 0.5 ? haloWidth : 0.0;
-  float margin = 0.5 / pixelRatio + 0.5;
   float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
   float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
-  float body = width * 0.5 + halo + margin;
-  float head = max(body, arrowHalf + halo + margin);
+  float flow = edgeFlow(mask, style.w);
+  uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
+  head = max(body, head);
   float along = corner.x < 0.5 ? start - margin
     : corner.x < 1.5 ? start + startHead
     : corner.x < 2.5 ? end - endHead
@@ -315,8 +360,7 @@ void main() {
   vArrowLength = arrowLength;
   vArrowHalf = arrowHalf;
   vHaloWidth = halo;
-  float flow = edgeFlow(mask, style.w);
-  vDash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  vDash = dash;
   vFlow = flow * flowTime;
   vArrow = arrow;
   vColor = paletteColor(look.stroke);
@@ -331,12 +375,12 @@ export const curveVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 in vec3 corner;
 in uint instance;
 out vec2 vPos;
-out float vStart;
-out float vEnd;
-out float vHalfWidth;
-out float vArrowLength;
-out float vArrowHalf;
-out float vHaloWidth;
+flat out float vStart;
+flat out float vEnd;
+flat out float vHalfWidth;
+flat out float vArrowLength;
+flat out float vArrowHalf;
+flat out float vHaloWidth;
 flat out uint vDash;
 flat out uint vArrow;
 flat out vec4 vColor;
@@ -386,6 +430,11 @@ void main() {
     return;
   }
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
   vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
@@ -408,22 +457,31 @@ void main() {
     b = a + (control - a) * (2.0 / 3.0);
     c = d + (control - d) * (2.0 / 3.0);
   }
+  float width = max(look.strokeWidth, 0.5);
+  float halo = look.halo > 0.5 ? haloWidth : 0.0;
+  float margin = 0.5 / pixelRatio + 0.25;
+  float arrowHalf = max(width * 1.6, 3.0);
+  float pad = max(width * 0.5, arrowHalf) + halo + margin;
+  vec2 low = min(min(a, b), min(c, d)) - pad;
+  vec2 high = max(max(a, b), max(c, d)) + pad;
+  if (any(lessThan(high, vec2(0.0))) || any(greaterThan(low, viewport))) {
+    gl_Position = hidden;
+    return;
+  }
   float t0 = crossing(a, b, c, d, a, sourceRadius, 0.0, 0.5, true);
   float t1 = crossing(a, b, c, d, d, targetRadius, 0.5, 1.0, false);
   float visible = arcLength(a, b, c, d, t0, t1);
-  float width = max(look.strokeWidth, 0.5);
   uint arrow = (packed >> 2u) & 3u;
   float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
-  float arrowHalf = max(width * 1.6, 3.0);
-  float halo = look.halo > 0.5 ? haloWidth : 0.0;
-  float margin = 0.5 / pixelRatio + 0.5;
   float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
   float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
   vec2 first = cubicAt(a, b, c, d, t0);
   vec2 last = cubicAt(a, b, c, d, t1);
   float ta = startHead > 0.0 ? crossing(a, b, c, d, first, startHead, t0, t1, true) : t0;
   float tb = endHead > 0.0 ? crossing(a, b, c, d, last, endHead, t0, t1, false) : t1;
-  float body = width * 0.5 + halo + margin;
+  float flow = edgeFlow(mask, style.w);
+  uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
   float head = max(body, arrowHalf + halo + margin);
   int station = int(corner.x + 0.5);
   float at;
@@ -457,8 +515,7 @@ void main() {
   vArrowLength = arrowLength;
   vArrowHalf = arrowHalf;
   vHaloWidth = halo;
-  float flow = edgeFlow(mask, style.w);
-  vDash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
+  vDash = dash;
   vFlow = flow * flowTime;
   vArrow = arrow;
   vColor = paletteColor(look.stroke);
@@ -469,12 +526,12 @@ void main() {
 
 export const edgeFragment: string = `${header}
 in vec2 vPos;
-in float vStart;
-in float vEnd;
-in float vHalfWidth;
-in float vArrowLength;
-in float vArrowHalf;
-in float vHaloWidth;
+flat in float vStart;
+flat in float vEnd;
+flat in float vHalfWidth;
+flat in float vArrowLength;
+flat in float vArrowHalf;
+flat in float vHaloWidth;
 flat in uint vDash;
 flat in uint vArrow;
 flat in vec4 vColor;
@@ -519,7 +576,6 @@ void main() {
     float h = haloColor.a * (1.0 - smoothstep(0.0, vHaloWidth, distance)) * span * vOpacity;
     result += vec4(haloColor.rgb * h, h) * (1.0 - result.a);
   }
-  if (result.a < 0.002) discard;
   fragColor = result;
 }
 `
@@ -563,6 +619,11 @@ void edgeGlyph(uint kind) {
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint mask = texelFetch(edgeState, t, 0).r;
   Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  look.opacity *= edgeShown(t, topology);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   float pixels = glyphSize * min(1.0, zoom);
   if ((topology.w & 16u) == 0u || look.label < 0.5 || pixels < labelMin) {
     gl_Position = hidden;
@@ -710,6 +771,10 @@ void main() {
     return;
   }
   Look look = nodeLook(t, style, paint, mask);
+  if (look.opacity <= 0.0) {
+    gl_Position = hidden;
+    return;
+  }
   bool text = (badgeInfo & 4u) != 0u && height >= ${badgeTextMin.toFixed(1)};
   float font = height * ${badgeFont.toFixed(2)};
   float width = text ? max(height, badgeText * font / ${atlasFontSize.toFixed(1)} + height * 0.6) : height;

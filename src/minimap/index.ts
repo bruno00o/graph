@@ -1,4 +1,5 @@
 import { wheelFactor } from '../core/view'
+import { edgeShown } from '../core/zoom-range'
 import { ThemeResolver } from '../dom/theme'
 import { type GraphInternals, internalsOf } from '../host/internals'
 import type { GraphInstance } from '../host/mount-graph'
@@ -179,14 +180,32 @@ function fewerThan(alive: Uint8Array, capacity: number, limit: number): boolean 
   return true
 }
 
-function nodesOf(internals: GraphInternals, copy: boolean): RasterNodes {
+function shownNodes(internals: GraphInternals, zoom: number): Uint8Array {
+  const nodes = internals.scene.nodes
+  const alive = nodes.alive.slice(0, nodes.capacity)
+  for (let index = 0; index < alive.length; index++) {
+    if (alive[index] === 1 && !nodes.zoom.shown(index, zoom)) alive[index] = 2
+  }
+  return alive
+}
+
+function shownEdges(internals: GraphInternals, zoom: number): Uint8Array {
+  const { nodes, edges } = internals.scene
+  const alive = edges.alive.slice(0, edges.capacity)
+  for (let index = 0; index < alive.length; index++) {
+    if (alive[index] === 1 && !edgeShown(nodes, edges, index, zoom)) alive[index] = 0
+  }
+  return alive
+}
+
+function nodesOf(internals: GraphInternals, copy: boolean, zoom: number): RasterNodes {
   const nodes = internals.scene.nodes
   const capacity = nodes.capacity
   const take = <A extends { slice(start: number, end: number): A }>(array: A): A =>
     copy ? array.slice(0, capacity) : array
   return {
     capacity,
-    alive: take(nodes.alive),
+    alive: nodes.zoom.count > 0 ? shownNodes(internals, zoom) : take(nodes.alive),
     shape: take(nodes.shape),
     size: take(nodes.size),
     fill: take(nodes.fill),
@@ -198,14 +217,15 @@ function nodesOf(internals: GraphInternals, copy: boolean): RasterNodes {
   }
 }
 
-function edgesOf(internals: GraphInternals, copy: boolean): RasterEdges {
-  const edges = internals.scene.edges
+function edgesOf(internals: GraphInternals, copy: boolean, zoom: number): RasterEdges {
+  const { nodes, edges } = internals.scene
   const capacity = edges.capacity
   const take = <A extends { slice(start: number, end: number): A }>(array: A): A =>
     copy ? array.slice(0, capacity) : array
+  const ranged = nodes.zoom.count > 0 || edges.zoom.count > 0
   return {
     capacity,
-    alive: take(edges.alive),
+    alive: ranged ? shownEdges(internals, zoom) : take(edges.alive),
     source: take(edges.source),
     target: take(edges.target),
     color: take(edges.color),
@@ -402,10 +422,11 @@ export function createMinimap<S extends string, M extends Mark>(
       const edges = internals.scene.edges
       const withEdges =
         settings.maxEdges > 0 && fewerThan(edges.alive, edges.capacity, settings.maxEdges)
+      const zoom = graph.store.state.view.zoom
       request = {
         ...request,
-        nodes: nodesOf(internals, copy),
-        edges: withEdges ? edgesOf(internals, copy) : null,
+        nodes: nodesOf(internals, copy, zoom),
+        edges: withEdges ? edgesOf(internals, copy, zoom) : null,
       }
     }
     if (pending.colors || pending.scene) {
@@ -559,7 +580,7 @@ export function createMinimap<S extends string, M extends Mark>(
   const stopWatch = internals.watch({
     frame() {
       const stamp = internals.stamp()
-      if (stamp.scene !== drawn.scene) pending.scene = true
+      if (stamp.scene !== drawn.scene || stamp.detail !== drawn.detail) pending.scene = true
       if (stamp.palette !== drawn.palette) pending.colors = true
       if (stamp.positions !== drawn.positions || stamp.containers !== drawn.containers) {
         pending.positions = true
