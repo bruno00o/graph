@@ -1,4 +1,5 @@
 export { type GridOptions, grid } from './grid'
+export { type LayersDirection, type LayersOptions, layers } from './layers'
 export { type RadialOptions, radial } from './radial'
 export { type RingsOptions, rings } from './rings'
 export type { NodeOrder } from './shared'

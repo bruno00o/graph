@@ -66,8 +66,8 @@ export const examples: readonly ExampleEntry[] = [
     slug: 'layouts',
     title: 'Layouts',
     description:
-      'The same graph laid out with forces, on a grid sorted by group, in rings by degree and as a radial tree. Nodes glide to their new place and the view frames the result.',
-    hint: 'Switch the layout. Shift and drag around some nodes, then arrange only them.',
+      'A directed graph laid out in layers, in any direction, then with forces, on a grid sorted by group, in rings by degree and as a radial tree. Nodes glide to their new place and the view frames the result.',
+    hint: 'Switch the layout or the direction. Shift and drag around some nodes, then arrange only them.',
     tags: ['Vanilla'],
     modules: ['@bruno00o/graph', '@bruno00o/graph/layouts', '@bruno00o/graph/layouts/force'],
     files: ['layouts/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
