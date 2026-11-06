@@ -30,6 +30,10 @@
       "types": "./dist/react.d.ts",
       "import": "./dist/react.js"
     },
+    "./db": {
+      "types": "./dist/db.d.ts",
+      "import": "./dist/db.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },
@@ -53,9 +57,13 @@
     "@tanstack/store": "0.11.2"
   },
   "peerDependencies": {
+    "@tanstack/db": "^1.0.0-rc.1.3",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@tanstack/db": {
+      "optional": true
+    },
     "react": {
       "optional": true
     }

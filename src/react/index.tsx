@@ -36,6 +36,7 @@ export interface GraphEventProps {
   readonly onDragStart?: GraphEventHandler<'dragstart'>
   readonly onDrag?: GraphEventHandler<'drag'>
   readonly onDragEnd?: GraphEventHandler<'dragend'>
+  readonly onPositionChange?: GraphEventHandler<'positionchange'>
   readonly onSelectionChange?: GraphEventHandler<'selectionchange'>
   readonly onViewChange?: GraphEventHandler<'viewchange'>
 }
@@ -49,6 +50,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   dragstart: 'onDragStart',
   drag: 'onDrag',
   dragend: 'onDragEnd',
+  positionchange: 'onPositionChange',
   selectionchange: 'onSelectionChange',
   viewchange: 'onViewChange',
 }

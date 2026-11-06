@@ -6,6 +6,7 @@ const list = document.createElement('ul')
 for (const [href, text] of [
   ['./vanilla/', messages.vanilla],
   ['./react/', messages.react],
+  ['./collab/', messages.collab],
 ] as const) {
   const item = document.createElement('li')
   const link = document.createElement('a')

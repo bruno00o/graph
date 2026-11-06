@@ -34,6 +34,13 @@ export interface GraphDragEvent {
   readonly originalEvent: PointerEvent
 }
 
+export type PositionOrigin = 'drag' | 'api'
+
+export interface GraphPositionEvent {
+  readonly origin: PositionOrigin
+  readonly positions: ReadonlyMap<Key, Point>
+}
+
 export interface GraphEvents {
   readonly click: GraphPointerEvent
   readonly doubleclick: GraphPointerEvent
@@ -43,6 +50,7 @@ export interface GraphEvents {
   readonly dragstart: GraphDragEvent
   readonly drag: GraphDragEvent
   readonly dragend: GraphDragEvent
+  readonly positionchange: GraphPositionEvent
   readonly selectionchange: ElementKeys
   readonly viewchange: { readonly view: View }
 }
