@@ -1,3 +1,5 @@
+import { softening } from './barnes-hut'
+
 const header = `#version 300 es
 precision highp float;
 precision highp int;
@@ -121,24 +123,26 @@ uniform float alpha;
 flat out vec4 value;
 
 void main() {
-  int self = int(edge.x);
-  int other = int(edge.y);
-  ivec2 ts = texel(self);
-  ivec2 to = texel(other);
+  int own = int(edge.x);
+  int peer = int(edge.y);
+  ivec2 t = texel(own);
   gl_PointSize = 1.0;
   value = vec4(0.0);
-  if (texelFetch(props, ts, 0).z < 0.5) {
+  if (texelFetch(props, t, 0).z < 0.5) {
     gl_Position = outside;
     return;
   }
-  vec4 s = texelFetch(state, ts, 0);
-  vec4 o = texelFetch(state, to, 0);
-  vec2 d = s.xy + s.zw - o.xy - o.zw;
-  if (d.x == 0.0 && d.y == 0.0) d = vec2(1.0e-6 * (0.25 + fract(float(self) * 0.618034)), 0.0);
-  float l = length(d);
-  float share = texelFetch(props, to, 0).z < 0.5 ? 1.0 : edge.w;
-  value = vec4(-d * ((l - rest) / l * alpha * edge.z * share), 0.0, 0.0);
-  gl_Position = clipOf(vec2(ts), vec2(width, height));
+  vec4 a = texelFetch(state, t, 0);
+  vec4 b = texelFetch(state, texel(peer), 0);
+  vec2 d = b.xy + b.zw - a.xy - a.zw;
+  float span = length(d);
+  if (span < 1.0e-6) {
+    float turn = float(min(own, peer)) * 2.399963;
+    d = vec2(cos(turn), sin(turn)) * (own < peer ? 1.0e-3 : -1.0e-3);
+    span = 1.0e-3;
+  }
+  value = vec4(d * ((span - rest) / span * alpha * edge.z * edge.w), 0.0, 0.0);
+  gl_Position = clipOf(vec2(t), vec2(width, height));
 }
 `
 
@@ -150,13 +154,12 @@ uniform int count;
 uniform float strength;
 uniform float pull;
 uniform vec2 center;
-uniform float keep;
+uniform float retention;
 out vec4 color;
+const float softening = ${softening.toFixed(1)};
 
 vec2 push(vec2 d, float mass) {
-  float l = dot(d, d);
-  if (l < 1.0) l = sqrt(l);
-  return d * (mass / l);
+  return d * (mass / (dot(d, d) + softening));
 }
 
 void main() {
@@ -199,7 +202,7 @@ void main() {
     }
   }
   vec2 v = s.zw + texelFetch(springs, t, 0).xy + force * strength + (center - position) * pull;
-  v *= keep;
+  v *= retention;
   color = vec4(position + v, v);
 }
 `

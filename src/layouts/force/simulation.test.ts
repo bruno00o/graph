@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { BarnesHut } from './barnes-hut'
+import { xorshift32 } from './random'
 import {
+  Cooling,
   type ForceGraph,
   ForceSimulation,
   forceDefaults,
   prefersGpu,
   resolveForce,
+  springsOf,
 } from './simulation'
 
 function random(seed: number): () => number {
@@ -243,5 +246,60 @@ describe('ForceSimulation', () => {
     const simulation = new ForceSimulation(graph([[0, 0]], [], [0]), forceDefaults)
     expect(simulation.done).toBe(true)
     expect(simulation.progress).toBe(1)
+  })
+
+  it('softens hubs and moves the end with fewer edges more', () => {
+    const springs = springsOf(
+      graph(
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [3, 0],
+          [4, 0],
+        ],
+        [
+          [0, 1],
+          [0, 2],
+          [0, 3],
+          [3, 4],
+          [4, 4],
+        ],
+      ),
+      40,
+    )
+    expect(springs.count).toBe(4)
+    expect(Array.from(springs.ends)).toEqual([0, 1, 0, 2, 0, 3, 3, 4])
+    expect(Array.from(springs.stiffness)).toEqual([1, 1, 0.5, 1])
+    expect(Array.from(springs.share)).toEqual([0.25, 0.25, 0.4, 1 / 3])
+    expect(Array.from(springs.rest)).toEqual([56, 56, 56, 56])
+  })
+})
+
+describe('Cooling', () => {
+  it('reaches the floor after the requested steps, sooner from a cooler start', () => {
+    const count = (cooling: Cooling) => {
+      let steps = 0
+      while (!cooling.done) {
+        expect(cooling.alpha).toBeGreaterThan(0.001)
+        cooling.advance()
+        steps++
+      }
+      return steps
+    }
+    expect(count(new Cooling(1, 300))).toBe(300)
+    expect(count(new Cooling(0.5, 300))).toBe(270)
+    expect(count(new Cooling(0, 300))).toBe(0)
+  })
+})
+
+describe('xorshift32', () => {
+  it('repeats its sequence for a seed and stays in [0, 1)', () => {
+    const a = xorshift32(42)
+    const b = xorshift32(42)
+    const values = Array.from({ length: 1000 }, () => a())
+    expect(Array.from({ length: 1000 }, () => b())).toEqual(values)
+    expect(values.every((value) => value >= 0 && value < 1)).toBe(true)
+    expect(new Set(values).size).toBe(1000)
   })
 })
