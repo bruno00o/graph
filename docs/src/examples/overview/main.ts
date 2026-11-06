@@ -29,7 +29,7 @@ export function mount(container: HTMLElement): GraphInstance {
     titles: { color: messages.legendGroup, size: messages.legendWeight },
     ariaLabel: messages.legendLabel,
   })
-  view.element.classList.add('example-legend')
+  view.element.classList.add('example-scale-legend')
   container.append(view.element)
   return graph
 }
