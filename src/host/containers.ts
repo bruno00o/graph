@@ -161,8 +161,7 @@ export class ContainerBoxes implements ContainerFrame {
       boxes[index * 4] = halfWidth
       boxes[index * 4 + 1] = halfHeight
       boxes[index * 4 + 2] = corner
-      if (positions.x(index) !== Math.fround(x) || positions.y(index) !== Math.fround(y))
-        positions.set(index, x, y)
+      if (!positions.holds(index, x, y)) positions.set(index, x, y)
     }
     this.#screenUnits = screenUnits
   }

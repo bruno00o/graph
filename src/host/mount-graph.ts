@@ -340,6 +340,23 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
 
 export type RendererFactory = (canvas: HTMLCanvasElement, invalidate: () => void) => Renderer
 
+export interface HostDriver {
+  frame(now: number): void
+  follow(view: View, pixelRatio: number, width: number, height: number): void
+  attach(create: (invalidate: () => void) => Renderer): void
+  detach(): void
+}
+
+export interface HostSurface {
+  readonly events: HTMLCanvasElement
+  schedule(): void
+  claim(active: boolean): void
+  move(view: View): void
+  adapt(definition: GraphDefinition): GraphDefinition
+  bind(driver: HostDriver): void
+  release(): void
+}
+
 interface ViewAnimation {
   readonly from: View
   readonly to: View
@@ -425,6 +442,7 @@ interface NodeDrag {
 
 const defaultPadding = 32
 const requestMemory = 8
+const rebaseDistance = 2 ** 20
 const clickSlop = 4
 const touchSlop = 10
 const autoPanZone = 40
@@ -492,8 +510,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   container: HTMLElement,
   options: MountGraphOptions<S, M>,
   createRenderer: RendererFactory,
+  surface: HostSurface | null = null,
 ): GraphInstance<S, M> {
-  let definition: GraphDefinition = options.definition
+  let given: GraphDefinition = options.definition
+  let definition: GraphDefinition = surface ? surface.adapt(given) : given
   const controlled = options.selection !== undefined
   let onSelectionChange = options.onSelectionChange
   const foldControlled = options.folded !== undefined
@@ -502,21 +522,25 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let onViewChange = options.onViewChange
   let outgoingView: View | null = null
   let sentViews: View[] = []
-  let answering = false
+  let quiet = false
   let warnedEmpty = false
   const element = document.createElement('div')
   element.setAttribute('data-graph', '')
   element.setAttribute('role', 'img')
   element.setAttribute('aria-label', options.ariaLabel)
-  element.style.cssText =
-    'position:relative;width:100%;height:100%;overflow:hidden;outline:none;outline-offset:-2px'
-  const canvas = document.createElement('canvas')
-  canvas.style.cssText =
-    'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none'
+  element.style.cssText = surface
+    ? 'position:absolute;inset:0;overflow:hidden;outline:none;outline-offset:-2px;pointer-events:none'
+    : 'position:relative;width:100%;height:100%;overflow:hidden;outline:none;outline-offset:-2px'
+  const canvas = surface?.events ?? document.createElement('canvas')
   const announcer = document.createElement('div')
   announcer.setAttribute('aria-live', 'polite')
   announcer.style.cssText = visuallyHidden
-  element.append(canvas, announcer)
+  if (surface) element.append(announcer)
+  else {
+    canvas.style.cssText =
+      'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none'
+    element.append(canvas, announcer)
+  }
   container.append(element)
   let remembered: GraphTarget | null = null
 
@@ -569,7 +593,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const emitter = new Emitter()
   const pickIndex = new PickIndex()
   const themeResolver = new ThemeResolver(element)
-  let renderer = createRenderer(canvas, () => request())
+  let renderer: Renderer | null = surface ? null : createRenderer(canvas, () => request())
 
   registry.define(freeStateNames(definition.states))
   if (options.selection !== undefined) registry.set('selected', options.selection)
@@ -625,8 +649,23 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function request(flush = false): void {
     if (flush) needsFlush = true
-    if (frameRequest !== 0 || destroyed || (answering && !flush)) return
-    frameRequest = requestAnimationFrame(frame)
+    if (frameRequest !== 0 || destroyed || (quiet && !flush)) return
+    if (!surface) {
+      frameRequest = requestAnimationFrame(frame)
+      return
+    }
+    frameRequest = -1
+    surface.schedule()
+  }
+
+  function hush(run: () => void): void {
+    const was = quiet
+    quiet = true
+    try {
+      run()
+    } finally {
+      quiet = was
+    }
   }
 
   function clock(): number {
@@ -688,12 +727,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     outgoingView = null
     sentViews.push(view)
     if (sentViews.length > requestMemory) sentViews.shift()
-    answering = true
-    try {
-      onViewChange?.({ view })
-    } finally {
-      answering = false
-    }
+    hush(() => (surface ? surface.move(view) : onViewChange?.({ view })))
   }
 
   function applyView(view: View): void {
@@ -727,11 +761,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     themeResolver.palette(colors, paletteColors, from)
     paletteCount = colors.length
-    renderer.setPalette(paletteColors, paletteCount)
+    renderer?.setPalette(paletteColors, paletteCount)
   }
 
   function refreshTheme(): void {
-    renderer.setTheme(themeResolver.theme())
+    renderer?.setTheme(themeResolver.theme())
     resolvePalette(0)
     request()
   }
@@ -1066,6 +1100,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (canvas.hasPointerCapture?.(gesture.id)) canvas.releasePointerCapture(gesture.id)
     gesture = null
     autoPanning = false
+    surface?.claim(false)
     drawLasso(null)
     updateCursor()
     return true
@@ -1768,6 +1803,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const dirty = scene.takeDirty()
     if (dirty.palette || scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    if (!renderer) {
+      decorations.place()
+      if (viewAnimation || autoPanning || positionAnimations.length > 0) request()
+      return
+    }
     const positionsChanged = positions.version !== positionsVersion
     const syncStart = clock()
     renderer.sync({
@@ -1798,9 +1838,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function resize(width: number, height: number): void {
-    pixelRatio = window.devicePixelRatio || 1
-    canvas.width = Math.max(1, Math.round(width * pixelRatio))
-    canvas.height = Math.max(1, Math.round(height * pixelRatio))
+    if (!surface) {
+      pixelRatio = window.devicePixelRatio || 1
+      canvas.width = Math.max(1, Math.round(width * pixelRatio))
+      canvas.height = Math.max(1, Math.round(height * pixelRatio))
+    }
     if (dev && !warnedEmpty && (width === 0 || height === 0)) {
       warnedEmpty = true
       console.warn('graph: the container measures 0 px; give it a width and a height')
@@ -1906,6 +1948,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       moved: false,
     }
     canvas.setPointerCapture?.(event.pointerId)
+    if (drag || lassoing) surface?.claim(true)
     if (lassoing) updateCursor()
   }
 
@@ -1920,6 +1963,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function beginPinch(current: Gesture, event: PointerEvent): void {
     gesture = null
+    surface?.claim(false)
     autoPanning = false
     viewAnimation = null
     if (current.drag?.started) emitter.emit('dragend', dragEvent(current.drag, current.event))
@@ -1934,6 +1978,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function movePinch(current: Pinch): void {
+    if (surface) return
     const { center, distance } = pinchShape(current.points)
     const { zoom, pan } = definition.interaction
     const size = viewport()
@@ -2082,7 +2127,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       followEdge()
       return
     }
-    if (definition.interaction.pan) {
+    if (definition.interaction.pan && !surface) {
       commitView(panBy(baseView(), point.x - gesture.last.x, point.y - gesture.last.y))
     }
     gesture.last = point
@@ -2097,6 +2142,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const ended = gesture
     gesture = null
     autoPanning = false
+    surface?.claim(false)
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     if (ended.drag?.started) emitter.emit('dragend', dragEvent(ended.drag, event))
     if (ended.lasso) {
@@ -2141,6 +2187,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function onWheel(event: WheelEvent): void {
+    if (surface) return
     const { zoom, pan, wheel } = definition.interaction
     const command = event.ctrlKey || event.metaKey
     const { width, height } = store.get()
@@ -2188,8 +2235,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     ['dblclick', onDoubleClick],
     ['contextmenu', onContextMenu],
     ['wheel', onWheel, { passive: false }],
-    ['webglcontextlost', onContextLost],
-    ['webglcontextrestored', onContextRestored],
+    ...(surface
+      ? []
+      : ([
+          ['webglcontextlost', onContextLost],
+          ['webglcontextrestored', onContextRestored],
+        ] as const)),
   ]
   for (const [name, listener, listenerOptions] of listeners) {
     canvas.addEventListener(name, listener as EventListener, listenerOptions)
@@ -2360,7 +2411,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         pendingEdges: model.pendingEdges().length,
       }
     }
-    return { ...counts, layout: session?.layout.name ?? null, renderer: renderer.stats?.() ?? null }
+    return {
+      ...counts,
+      layout: session?.layout.name ?? null,
+      renderer: renderer?.stats?.() ?? null,
+    }
   }
 
   const instance: GraphInstance<S> = {
@@ -2387,11 +2442,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       }
       if (next.onFoldChange !== undefined) onFoldChange = next.onFoldChange
       if (foldControlled && next.folded !== undefined) applyFolded(next.folded)
-      if (next.onViewChange !== undefined) onViewChange = next.onViewChange
-      if (viewControlled && next.view !== undefined) applyView(next.view)
-      if (next.definition && next.definition !== definition) {
+      if (next.onViewChange !== undefined && !surface) onViewChange = next.onViewChange
+      if (viewControlled && next.view !== undefined && !surface) applyView(next.view)
+      if (next.definition && next.definition !== given) {
         const previous = definition.layout
-        definition = next.definition
+        given = next.definition
+        definition = surface ? surface.adapt(given) : given
         if (!sameLayout(previous, definition.layout)) {
           if (session?.auto) stopLayout()
           relayout = definition.layout !== null
@@ -2417,7 +2473,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       session = null
       current?.run?.stop()
       current?.resolve(false)
-      if (frameRequest !== 0) cancelAnimationFrame(frameRequest)
+      if (frameRequest > 0) cancelAnimationFrame(frameRequest)
       clearTimeout(laterRequest)
       resizeObserver.disconnect()
       stopTheme()
@@ -2429,10 +2485,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       }
       emitter.clear()
       model.destroy()
-      renderer.destroy()
+      renderer?.destroy()
+      renderer = null
       themeResolver.destroy()
       decorations.destroy()
       element.remove()
+      surface?.release()
     },
   }
 
@@ -2474,6 +2532,38 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       color: (css) => themeResolver.color(css),
       createRenderer,
     }
+  })
+
+  surface?.bind({
+    frame,
+    follow: (next, ratio, width, height) => {
+      pixelRatio = ratio
+      hush(() => {
+        const state = store.get()
+        if (state.width !== width || state.height !== height) patch({ width, height })
+        sentViews = []
+        const far = Math.max(
+          Math.abs(next.x - positions.originX),
+          Math.abs(next.y - positions.originY),
+        )
+        if (far * next.zoom > rebaseDistance) {
+          positions.rebase(next.x, next.y)
+          request()
+        }
+        if (!sameView(next, state.view)) publishView(next)
+      })
+    },
+    attach: (create) => {
+      renderer?.destroy()
+      renderer = create(() => request())
+      full = true
+      refreshTheme()
+    },
+    detach: () => {
+      renderer?.destroy()
+      renderer = null
+      full = true
+    },
   })
 
   return instance as unknown as GraphInstance<S, M>

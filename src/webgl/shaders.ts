@@ -33,6 +33,7 @@ layout(std140) uniform Frame {
   vec4 labelInk;
   vec4 labelMuted;
   vec4 labelHalo;
+  vec2 centerLow;
 };
 layout(std140) uniform States {
   vec4 stateNumbers[64];
@@ -45,7 +46,7 @@ uniform sampler2D palette;
 const uint highlightMask = 7u;
 const uint none = 0xffffffffu;
 const vec4 hidden = vec4(2.0, 2.0, 2.0, 1.0);
-vec2 toScreen(vec2 world) { return (world - center) * zoom + viewport * 0.5; }
+vec2 toScreen(vec2 world) { return (world - center - centerLow) * zoom + viewport * 0.5; }
 vec4 toClip(vec2 screen) {
   return vec4(screen.x / viewport.x * 2.0 - 1.0, 1.0 - screen.y / viewport.y * 2.0, 0.0, 1.0);
 }

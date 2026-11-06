@@ -7,7 +7,8 @@
     "graph-visualization",
     "visualization",
     "webgl",
-    "typescript"
+    "typescript",
+    "maplibre"
   ],
   "license": "MIT",
   "author": "bruno00o",
@@ -58,6 +59,10 @@
       "types": "./dist/export.d.ts",
       "import": "./dist/export.js"
     },
+    "./map": {
+      "types": "./dist/map.d.ts",
+      "import": "./dist/map.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },
@@ -87,6 +92,7 @@
     "@tanstack/devtools": ">=0.16.0",
     "@tanstack/devtools-utils": ">=0.7.0",
     "@tanstack/query-core": "^5.0.0",
+    "maplibre-gl": "^6.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -101,6 +107,9 @@
       "optional": true
     },
     "@tanstack/query-core": {
+      "optional": true
+    },
+    "maplibre-gl": {
       "optional": true
     },
     "react": {
@@ -124,6 +133,7 @@
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.2.1",
     "happy-dom": "21.0.4",
+    "maplibre-gl": "6.16.0",
     "publint": "0.3.25",
     "react": "19.2.9",
     "react-dom": "19.2.9",

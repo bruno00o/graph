@@ -251,8 +251,8 @@ export function writeSvg(scene: SvgScene): string {
   const halos = bandAlphas(halo.alpha)
   const margin = 64
 
-  const sx = (index: number) => (positions.xy[index * 2] ?? 0) * zoom + offsetX
-  const sy = (index: number) => (positions.xy[index * 2 + 1] ?? 0) * zoom + offsetY
+  const sx = (index: number) => positions.x(index) * zoom + offsetX
+  const sy = (index: number) => positions.y(index) * zoom + offsetY
   const radius = (index: number) => screenRadius(nodes, index, zoom)
   const boxes = scene.containers?.boxes ?? null
   const isContainer = (index: number) => nodes.shape[index] === containerShape

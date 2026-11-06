@@ -7,6 +7,7 @@ const source = resolve(import.meta.dirname, 'src')
 export default defineConfig({
   root: resolve(import.meta.dirname, 'examples'),
   plugins: [react()],
+  optimizeDeps: { exclude: ['maplibre-gl'] },
   resolve: {
     alias: [
       { find: '@bruno00o/graph/theme.css', replacement: resolve(source, 'theme/theme.css') },
@@ -24,6 +25,7 @@ export default defineConfig({
       },
       { find: /^@bruno00o\/graph\/devtools$/, replacement: resolve(source, 'devtools/index.ts') },
       { find: /^@bruno00o\/graph\/export$/, replacement: resolve(source, 'export/index.ts') },
+      { find: /^@bruno00o\/graph\/map$/, replacement: resolve(source, 'map/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(source, 'index.ts') },
     ],
   },
@@ -47,6 +49,7 @@ export default defineConfig({
         layouts: resolve(import.meta.dirname, 'examples/layouts/index.html'),
         filter: resolve(import.meta.dirname, 'examples/filter/index.html'),
         drawing: resolve(import.meta.dirname, 'examples/drawing/index.html'),
+        map: resolve(import.meta.dirname, 'examples/map/index.html'),
       },
     },
   },
