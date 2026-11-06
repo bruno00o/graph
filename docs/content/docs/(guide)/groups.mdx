@@ -1,0 +1,128 @@
+---
+title: Groups
+description: Nest nodes in groups, fold a group into a single node, and merge the edges that cross it.
+---
+
+<LiveExample slug="nested-groups" />
+
+## Declare groups
+
+A group is a node like any other. A node joins it through the `parent` channel, which reads the key of its group. A node whose `parent` is `null` or missing sits at the top level. Groups nest to any depth.
+
+```ts
+type Item = { id: string; label: string; parent: string | null }
+
+const items: Item[] = [
+  { id: 'g', label: 'Group', parent: null },
+  { id: 'h', label: 'Inner group', parent: 'g' },
+  { id: 'a', label: 'A', parent: 'g' },
+  { id: 'b', label: 'B', parent: 'h' },
+]
+
+const definition = defineGraph({
+  marks: [
+    edges<Link>(links, { source: 'from', target: 'to' }),
+    nodes<Item>(items, { parent: 'parent', label: 'label' }),
+  ],
+})
+```
+
+A node becomes a group as soon as another node names it. A `parent` that names no node is reported in `issues` as `missing-parent`, and the node waits at the top level until its group arrives. A `parent` that would make a node contain itself is reported as `parent-cycle`, and that node stays at the top level.
+
+## Containers
+
+An unfolded group draws as a container behind its children: a rounded rectangle, or a circle, that fits their discs plus a padding, and follows them as they move. Its label sits above the container. Style it with the `container` option of `nodes()`.
+
+```ts
+nodes<Item>(items, {
+  parent: 'parent',
+  label: 'label',
+  container: {
+    shape: 'rectangle',
+    padding: 24,
+    fill: 'var(--graph-group-fill)',
+    stroke: 'var(--graph-group-line)',
+    strokeWidth: 1,
+  },
+})
+```
+
+The fill and outline default to the `--graph-group-fill` and `--graph-group-line` tokens. States apply to containers too: hovering a container, or selecting it, styles it like a node.
+
+## Fold and unfold
+
+A folded group hides every node inside it and draws as a node, with the options of its mark: color, size, shape, label, badges. Fold groups from code with `graph.groups`, or at mount with `initialFolded`.
+
+```ts
+const graph = mountGraph(element, { definition, ariaLabel: 'Groups', initialFolded: ['g'] })
+
+graph.groups.fold(['h'])
+graph.groups.unfold(['g'])
+graph.groups.toggle('g')
+graph.groups.fold()
+graph.groups.unfold()
+graph.groups.folded()
+graph.on('foldchange', ({ folded }) => console.log(folded))
+```
+
+`fold()` without keys folds every group, nested ones included, and `unfold()` unfolds them all. A folded group inside a folded group stays folded when its parent opens. A folded key that names no node yet applies when the group arrives.
+
+With `interaction.fold`, on by default, double-clicking a group, or pressing Enter on a focused group, folds or unfolds it. A `doubleclick` handler that calls `originalEvent.preventDefault()` keeps the group as it is.
+
+### Controlled folding
+
+Pass `folded` at mount to own the folded groups: every request, from a double-click, Enter or `graph.groups`, calls `onFoldChange`, and only `update({ folded })` changes what is drawn. In React, pass `folded` and `onFoldChange` to `<Graph>`.
+
+```tsx
+const [folded, setFolded] = useState<Key[]>(['g'])
+
+<Graph
+  definition={definition}
+  ariaLabel="Groups"
+  folded={folded}
+  onFoldChange={(event) => setFolded([...event.folded])}
+/>
+```
+
+The folded groups are also in the store, as `folded`, for `useGraphState`.
+
+## Merged edges
+
+An edge whose end lies inside a folded group is drawn to the outermost folded group that holds it. The edges of one mark that land on the same two ends, in the same direction, draw as a single aggregated edge. An edge whose two ends land in the same folded group disappears. Unfolding brings every edge back as it was.
+
+The `aggregate` option of `edges()` styles aggregated edges. Its channels and styles read an `AggregateEdge`: the two visible ends, the number of merged edges, their keys and their data.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  color: 'kind',
+  aggregate: {
+    width: (aggregate) => aggregate.count,
+    color: (aggregate) => aggregate.data[0]?.kind,
+    label: (aggregate) => `${aggregate.count}`,
+  },
+})
+```
+
+Without `aggregate`, an aggregated edge takes the look of its first merged edge, and shows a label only when it stands for a single edge.
+
+Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and an aggregated edge shows the states of any of its edges.
+
+```ts
+graph.on('click', ({ target }) => {
+  if (target?.kind === 'edge' && target.aggregate) console.log(target.aggregate.keys)
+})
+```
+
+## Positions and layouts
+
+- Dragging a container moves every node inside it. Dragging a folded group moves only the group.
+- Hidden nodes keep their positions. When a group unfolds, its nodes come back where they were, shifted by how far the group moved while folded, and glide out of the group over `transitions.layout`. Nodes placed by their `x` and `y` channels stay where the data puts them.
+- A node that was never shown appears around its group when the group unfolds, then the layout of the definition places it like any new node.
+- Layouts see a folded group as a single node and leave containers out. The force layout pulls the members of an unfolded group together.
+- Fitting the view frames containers whole.
+
+## Performance
+
+The visible graph is computed from the changes only: folding or unfolding one group costs in proportion to the nodes it hides or shows and to their edges. On 50,000 nodes in 500 groups with 99,000 edges, folding one group takes under a millisecond, and folding all 500 at once about 30 milliseconds plus the redraw of the scene.

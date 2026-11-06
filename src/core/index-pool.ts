@@ -1,6 +1,10 @@
 export class IndexPool {
-  #next = 0
+  #next: number
   #free: number[] = []
+
+  constructor(used = 0) {
+    this.#next = used
+  }
 
   get capacity(): number {
     return this.#next

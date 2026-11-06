@@ -41,6 +41,40 @@ edges<Link>(links, {
 
 Edges that share the same two nodes, in either direction, bend apart in symmetric arcs; an edge alone on its pair stays straight. An edge from a node to itself is a loop, and several loops nest. There is no option for the curvature yet.
 
+## Edges of folded groups
+
+An end inside a folded group is drawn at the outermost folded group that holds it. The edges of one mark that land on the same two ends, in the same direction, draw as one aggregated edge; an edge whose two ends land in the same group is hidden. `aggregate` styles the aggregated edges from an `AggregateEdge`, the merged edges with their count.
+
+```ts
+interface AggregateEdge<T = unknown> {
+  readonly source: Key
+  readonly target: Key
+  readonly count: number
+  readonly keys: readonly Key[]
+  readonly data: readonly T[]
+}
+
+type AggregateEdgeOptions<T> = Omit<
+  EdgeOptions<AggregateEdge<T>>,
+  'key' | 'source' | 'target' | 'aggregate'
+>
+```
+
+<api-table path="index.ts" name="AggregateEdge" />
+
+Without `aggregate`, an aggregated edge looks like its first merged edge, and shows a label only when it merges a single edge.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  aggregate: {
+    width: (aggregate) => aggregate.count,
+    label: (aggregate) => (aggregate.count > 1 ? String(aggregate.count) : null),
+  },
+})
+```
+
 ## Example
 
 ```ts

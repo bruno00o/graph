@@ -3,7 +3,7 @@ import type { Point } from '../types'
 export type KeyAction =
   | { readonly type: 'move'; readonly direction: Point }
   | { readonly type: 'pan'; readonly direction: Point }
-  | { readonly type: 'activate'; readonly additive: boolean }
+  | { readonly type: 'activate'; readonly additive: boolean; readonly toggle: boolean }
   | { readonly type: 'escape' }
   | { readonly type: 'zoom'; readonly factor: number }
   | { readonly type: 'fit' }
@@ -27,8 +27,10 @@ export function keyAction(event: KeyboardEvent): KeyAction | null {
   }
   switch (event.key) {
     case 'Enter':
-    case ' ':
-      return { type: 'activate', additive: event.shiftKey || command }
+    case ' ': {
+      const additive = event.shiftKey || command
+      return { type: 'activate', additive, toggle: event.key === 'Enter' && !additive }
+    }
     case 'Escape':
       return { type: 'escape' }
   }

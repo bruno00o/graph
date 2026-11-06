@@ -2,6 +2,7 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import { describe, expectTypeOf, it } from 'vitest'
 import {
   type Accessor,
+  type AggregateEdge,
   defineGraph,
   type EdgeMark,
   type ElementKeys,
@@ -157,5 +158,31 @@ describe('public types', () => {
     expectTypeOf(defineGraph({ marks: [] })).toEqualTypeOf<GraphDefinition<never>>()
     expectTypeOf(definition).toExtend<GraphDefinition>()
     expectTypeOf<Instance>().toExtend<GraphInstance>()
+  })
+
+  it('types the parent channel and the aggregate options', () => {
+    nodes(rows, { key: 'name', parent: 'parent', container: { shape: 'circle', padding: 8 } })
+    // @ts-expect-error
+    nodes(rows, { key: 'name', parent: 'missing' })
+    // @ts-expect-error
+    nodes(rows, { key: 'name', container: { shape: 'hexagon' } })
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      aggregate: {
+        width: (aggregate) => {
+          expectTypeOf(aggregate).toEqualTypeOf<AggregateEdge<Link>>()
+          expectTypeOf(aggregate.data).toEqualTypeOf<readonly Link[]>()
+          return aggregate.count
+        },
+        label: (aggregate) => `${aggregate.count}`,
+      },
+    })
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      // @ts-expect-error
+      aggregate: { source: 'from' },
+    })
   })
 })

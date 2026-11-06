@@ -9,6 +9,11 @@ interface Members {
   readonly edges: Set<Key>
 }
 
+export interface EdgeDisplay {
+  indexOf(key: Key): number
+  keysAt(index: number): readonly Key[] | null
+}
+
 export interface RegistryChanges {
   readonly selection: boolean
   readonly hovered: boolean
@@ -27,12 +32,15 @@ export class StateRegistry {
   readonly #model: GraphModel
   readonly #buffers: StateBuffers
   readonly #members = new Map<string, Members>()
+  readonly #display: EdgeDisplay | null
   #names: readonly string[] = builtInStates
   #highlightDirty = true
+  #pending: Set<number> | null = null
 
-  constructor(model: GraphModel, buffers: StateBuffers) {
+  constructor(model: GraphModel, buffers: StateBuffers, display: EdgeDisplay | null = null) {
     this.#model = model
     this.#buffers = buffers
+    this.#display = display
     for (const name of builtInStates) this.#members.set(name, members())
   }
 
@@ -69,33 +77,47 @@ export class StateRegistry {
 
   set(name: string, input: ElementKeysInput): boolean {
     const entry = this.#entry(name)
-    let changed = false
-    for (const kind of kinds) {
-      const next = new Set(input[kind] ?? [])
-      for (const key of [...entry[kind]]) {
-        if (!next.has(key)) changed = this.#toggle(name, kind, key, false) || changed
+    return this.#batch(() => {
+      let changed = false
+      for (const kind of kinds) {
+        const next = new Set(input[kind] ?? [])
+        for (const key of [...entry[kind]]) {
+          if (!next.has(key)) changed = this.#toggle(name, kind, key, false) || changed
+        }
+        for (const key of next) changed = this.#toggle(name, kind, key, true) || changed
       }
-      for (const key of next) changed = this.#toggle(name, kind, key, true) || changed
-    }
-    return changed
+      return changed
+    })
   }
 
   add(name: string, input: ElementKeysInput): boolean {
     this.#entry(name)
-    let changed = false
-    for (const kind of kinds) {
-      for (const key of input[kind] ?? []) changed = this.#toggle(name, kind, key, true) || changed
-    }
-    return changed
+    return this.#batch(() => {
+      let changed = false
+      for (const kind of kinds) {
+        for (const key of input[kind] ?? [])
+          changed = this.#toggle(name, kind, key, true) || changed
+      }
+      return changed
+    })
   }
 
   remove(name: string, input: ElementKeysInput): boolean {
     this.#entry(name)
-    let changed = false
-    for (const kind of kinds) {
-      for (const key of input[kind] ?? []) changed = this.#toggle(name, kind, key, false) || changed
-    }
-    return changed
+    return this.#batch(() => {
+      let changed = false
+      for (const kind of kinds) {
+        for (const key of input[kind] ?? [])
+          changed = this.#toggle(name, kind, key, false) || changed
+      }
+      return changed
+    })
+  }
+
+  refreshEdges(indices: readonly number[]): void {
+    if (!this.#display || indices.length === 0) return
+    this.#highlightDirty = true
+    for (const index of indices) this.#writeEdge(index)
   }
 
   clear(name: string): boolean {
@@ -119,7 +141,10 @@ export class StateRegistry {
     }
     const learn = (kind: StateKind, added: readonly ElementRef[]) => {
       if (!this.#hasMembers(kind)) return
-      for (const { key, index } of added) this.#setMask(kind, index, this.#maskOf(kind, key))
+      for (const { key, index } of added) {
+        if (kind === 'edges' && this.#display) this.#writeEdge(index)
+        else this.#setMask(kind, index, this.#maskOf(kind, key))
+      }
     }
     forget('nodes', changes.nodes.removed)
     forget('edges', changes.edges.removed)
@@ -156,11 +181,39 @@ export class StateRegistry {
     if (on) set.add(key)
     else set.delete(key)
     const index = this.#index(kind, key)
-    if (index >= 0) this.#setMask(kind, index, this.#maskOf(kind, key))
+    if (index < 0) return true
+    if (kind === 'nodes' || !this.#display) this.#setMask(kind, index, this.#maskOf(kind, key))
+    else if (this.#pending) this.#pending.add(index)
+    else this.#writeEdge(index)
     return true
   }
 
+  #batch(run: () => boolean): boolean {
+    if (!this.#display || this.#pending) return run()
+    const pending = new Set<number>()
+    this.#pending = pending
+    try {
+      return run()
+    } finally {
+      this.#pending = null
+      for (const index of pending) this.#writeEdge(index)
+    }
+  }
+
+  #writeEdge(index: number): void {
+    const keys = this.#display?.keysAt(index)
+    if (!keys) {
+      const key = this.#model.edgeAt(index)?.key
+      if (key !== undefined) this.#setMask('edges', index, this.#maskOf('edges', key))
+      return
+    }
+    let mask = 0
+    for (const key of keys) mask |= this.#maskOf('edges', key)
+    this.#setMask('edges', index, mask >>> 0)
+  }
+
   #index(kind: StateKind, key: Key): number {
+    if (kind === 'edges' && this.#display) return this.#display.indexOf(key)
     const record = kind === 'nodes' ? this.#model.node(key) : this.#model.edge(key)
     return record?.index ?? -1
   }
@@ -186,10 +239,15 @@ export class StateRegistry {
   }
 
   #rebuild(): void {
-    for (const kind of kinds) {
-      const records = kind === 'nodes' ? this.#model.nodes() : this.#model.edges()
-      for (const record of records)
-        this.#setMask(kind, record.index, this.#maskOf(kind, record.key))
+    for (const record of this.#model.nodes())
+      this.#setMask('nodes', record.index, this.#maskOf('nodes', record.key))
+    for (const record of this.#model.edges()) {
+      if (!this.#display) {
+        this.#setMask('edges', record.index, this.#maskOf('edges', record.key))
+        continue
+      }
+      const index = this.#display.indexOf(record.key)
+      if (index >= 0) this.#writeEdge(index)
     }
   }
 }

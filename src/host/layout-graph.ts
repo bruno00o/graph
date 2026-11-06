@@ -1,4 +1,4 @@
-import type { EdgeColumns, NodeColumns } from '../core/columns'
+import { containerShape, type EdgeColumns, type NodeColumns } from '../core/columns'
 import type { Positions } from '../core/positions'
 import type { Key, LayoutGraph } from '../types'
 
@@ -9,9 +9,13 @@ export function layoutGraph(
   zoom: number,
   movable: (index: number) => boolean,
   datum: (key: Key) => unknown,
+  groupLinks?: Uint32Array,
 ): LayoutGraph {
   const capacity = nodes.capacity
   const alive = nodes.alive.slice(0, capacity)
+  for (let index = 0; index < capacity; index++) {
+    if (nodes.shape[index] === containerShape) alive[index] = 0
+  }
   const mobile = new Uint8Array(capacity)
   const xy = new Float32Array(capacity * 2)
   const radius = new Float32Array(capacity)
@@ -24,17 +28,22 @@ export function layoutGraph(
     const tracked = !Number.isNaN(positions.source[index * 2] ?? Number.NaN)
     if (!tracked && movable(index)) mobile[index] = 1
   }
+  const linked = (index: number): boolean => {
+    if (edges.alive[index] !== 1) return false
+    const source = edges.source[index] ?? 0
+    const target = edges.target[index] ?? 0
+    return source !== target && alive[source] === 1 && alive[target] === 1
+  }
   let count = 0
   for (let index = 0; index < edges.capacity; index++) {
-    if (edges.alive[index] === 1 && edges.source[index] !== edges.target[index]) count++
+    if (linked(index)) count++
   }
   const pairs = new Uint32Array(count * 2)
   let at = 0
   for (let index = 0; index < edges.capacity; index++) {
-    if (edges.alive[index] !== 1) continue
+    if (!linked(index)) continue
     const source = edges.source[index] ?? 0
     const target = edges.target[index] ?? 0
-    if (source === target) continue
     pairs[at++] = source
     pairs[at++] = target
   }
@@ -46,6 +55,7 @@ export function layoutGraph(
     xy,
     radius,
     edges: pairs,
+    ...(groupLinks && groupLinks.length > 0 ? { groupLinks } : {}),
     keys,
     datum: (index) => {
       const key = keys[index]

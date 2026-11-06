@@ -1,0 +1,94 @@
+---
+title: Export
+description: Save the graph as a PNG image or a standalone SVG document.
+---
+
+## PNG and SVG
+
+`@bruno00o/graph/export` turns a mounted graph into a file. Both functions are asynchronous and leave the graph on screen untouched.
+
+```ts
+import { exportPng, exportSvg } from '@bruno00o/graph/export'
+
+const png = await exportPng(graph)
+const svg = await exportSvg(graph)
+```
+
+`exportPng` returns a `Blob` of type `image/png`. `exportSvg` returns the text of an SVG document: wrap it in a `Blob` to download it, or insert it in a page.
+
+```ts
+function download(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+download(await exportPng(graph), 'graph.png')
+download(new Blob([await exportSvg(graph)], { type: 'image/svg+xml' }), 'graph.svg')
+```
+
+## Region and scale
+
+By default, the file shows what the graph shows: the same area, the same zoom, the same labels. `region: 'graph'` frames every node instead, with the labels and loops that reach past them, and a `padding` in CSS pixels around them.
+
+```ts
+await exportPng(graph, { region: 'graph', padding: 48 })
+```
+
+`zoom` sets the scale of the file in CSS pixels per world unit. Nodes sized in world units grow with it, while edge widths, labels and nodes with `units: 'screen'` keep their size in pixels, as they do when you zoom on screen. A larger zoom gives a larger file.
+
+```ts
+await exportSvg(graph, { region: 'graph', zoom: 2 })
+```
+
+## Pixel ratio
+
+`pixelRatio` is the number of image pixels per CSS pixel. It defaults to the device pixel ratio of the graph, so the image is as sharp as the screen. Raise it for print.
+
+```ts
+await exportPng(graph, { region: 'graph', pixelRatio: 4 })
+```
+
+The image is drawn in a WebGL context of its own, freed at the end. Past 4,096 pixels on a side it is drawn in tiles, so its size is bounded by memory rather than by the GPU. Labels are chosen once for the whole image, so none is cut or doubled at a tile edge. The PNG records its pixel density, so a viewer shows it at its CSS size.
+
+## Labels
+
+`labels: 'visible'`, the default, keeps the labels of the screen: small labels are hidden and overlapping labels give way, as on screen. `'all'` draws every label, whatever its size or overlaps. `'none'` draws none.
+
+```ts
+await exportSvg(graph, { labels: 'all' })
+```
+
+## Background
+
+The background is `--graph-paper` by default, resolved with the current theme. Pass any CSS color, a `--graph-…` token or `'transparent'`.
+
+```ts
+await exportPng(graph, { background: 'transparent' })
+await exportPng(graph, { background: 'var(--graph-paper)' })
+await exportSvg(graph, { background: '#ffffff' })
+```
+
+## What the SVG contains
+
+The SVG is written from the scene, without reading pixels back, so it stays sharp at any size and its text can be selected and searched. It draws:
+
+- node shapes, fills, inner strokes, outlines, halos and opacity;
+- pictures cut to the node shape, and icons tinted with their `color`;
+- badges with their text;
+- unfolded groups as containers behind their children, rectangles or circles, and folded groups as nodes;
+- straight and curved edges, loops, dashes, dots and arrows;
+- labels with their placement, color, weight, second line and background;
+- the state styles in force, such as selection, hover and your own states;
+- colors of the current theme, as hex values.
+
+Images are copied into the document as data URLs, so the file stands alone. Pass `embedImages: false` to keep links to their URLs instead. An image the browser cannot load, for lack of CORS headers for instance, is left out, as it is on screen.
+
+Text uses the font of the theme. A viewer without that font falls back to another one, so labels may be a little wider or narrower than on screen.
+
+## Large graphs
+
+Both functions read the scene in a single pass and build their output in memory. On 50,000 nodes and 100,000 edges, an SVG of the view takes about half a second and weighs about 25 MB; a PNG of the view takes about the same time. For very large images, the PNG is encoded strip by strip.

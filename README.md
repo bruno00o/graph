@@ -25,10 +25,12 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 - Live sources: pass a TanStack DB collection as is, or anything with `subscribeChanges`, and only what changed is redrawn
 - Named states (selection, hover, focus and your own) resolved on the GPU
 - Images and icons clipped to the node shape, corner badges, outlines, label backgrounds, parallel edges and self loops
+- Nested groups drawn as containers, folded into a single node on double-click, with the edges that cross them merged and styled by their count
 - Labels with their own size, color, weight, font, placement, line breaks and truncation, on nodes and on edges, where edge labels follow their edge and stay upright; labels are placed only where they fit without overlapping
 - Drag, pan, zoom, multiple selection and lasso out of the box, plus keyboard navigation announced to screen readers
 - Force layout on the GPU in a Web Worker, with a CPU fallback: nodes settle in place while you keep panning, and dragging a node pins it
 - Themed with CSS variables, light and dark
+- Export to PNG, tiled past the GPU limits, or to a standalone SVG document
 - A framework-agnostic core with a thin React adapter, plus TanStack DB and TanStack Query integrations
 
 > Early development: the API may still change before 1.0.
@@ -45,6 +47,7 @@ pnpm add @bruno00o/graph
 | `@bruno00o/graph/react`          | `<Graph>`, `useGraph`, `useGraphState`, `useGraphEvent`          | `react` 19                             |
 | `@bruno00o/graph/db`             | `persistPositions` and `subset` for TanStack DB collections      | `@tanstack/db`                         |
 | `@bruno00o/graph/query`          | `createExploration` for neighborhoods loaded with TanStack Query | `@tanstack/query-core`                 |
+| `@bruno00o/graph/export`         | `exportPng` and `exportSvg`                                      |                                        |
 | `@bruno00o/graph/layouts`        | `layers`, `grid`, `rings` and `radial` layouts                   |                                        |
 | `@bruno00o/graph/layouts/force`  | `force` layout, computed on the GPU in a Web Worker              |                                        |
 | `@bruno00o/graph/devtools`       | Graph panel and render timings for TanStack Devtools             | `@tanstack/devtools`                   |
@@ -152,7 +155,7 @@ nodes(heavy, { color: 'group' })
 
 ## Examples
 
-The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, a force layout up to 500,000 nodes, layered, grid, rings and radial layouts, collaboration across tabs with TanStack DB, filtering 500,000 TanStack DB rows with edges loaded on demand, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
+The [`examples`](./examples) folder holds runnable examples: vanilla and React graphs, images, badges and outlines, parallel edges and loops, nested groups that fold and unfold, a force layout up to 500,000 nodes, layered, grid, rings and radial layouts, collaboration across tabs with TanStack DB, filtering 500,000 TanStack DB rows with edges loaded on demand, and neighborhood exploration with TanStack Query. Run them with `pnpm install && pnpm dev`.
 
 ## Get Involved
 

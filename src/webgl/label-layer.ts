@@ -1,7 +1,8 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
-import { noColor } from '../core/columns'
+import { containerShape, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import type { Positions } from '../core/positions'
+import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
 import {
@@ -12,10 +13,11 @@ import {
   nodeLabelSize,
   plateDrop,
   platePadX,
+  uprightSlack,
 } from './shaders'
 
 export const glyphStride = 40
-const lineHeight = 1.25
+export const lineHeight = 1.25
 const secondaryFactor = 11 / 12
 const primaryWeight = 500
 const secondaryWeight = 400
@@ -36,6 +38,7 @@ export interface LabelFrame {
   readonly width: number
   readonly height: number
   readonly nodeMask: Uint32Array
+  readonly boxes?: Float32Array | null
   readonly labelFlags: Int8Array
   readonly highlighted: readonly number[]
   readonly order: Uint32Array
@@ -49,6 +52,33 @@ export interface LabelFrame {
   readonly edgeOrder: Uint32Array
   readonly edgeOrderLength: number
   readonly largestEdgeLabel: number
+  readonly mode?: LabelMode
+  readonly sink?: LabelSink
+}
+
+export type TextMeasure = Pick<GlyphAtlas, 'height' | 'generation' | 'line' | 'fit'>
+
+export interface PlacedLabel {
+  readonly block: TextBlock
+  readonly top: number
+  readonly align: number
+  readonly shift: number
+  readonly placement: number
+  readonly plate: {
+    readonly cx: number
+    readonly cy: number
+    readonly hx: number
+    readonly hy: number
+  } | null
+  readonly background: number
+  readonly color: number
+  readonly size: number
+  readonly highlight: boolean
+}
+
+export interface LabelSink {
+  node(index: number, label: PlacedLabel): void
+  edge(index: number, label: PlacedLabel, anchor: Readonly<EdgeAnchor>): void
 }
 
 export interface EdgeAnchor {
@@ -59,13 +89,14 @@ export interface EdgeAnchor {
   room: number
 }
 
-interface TextLine {
+export interface TextLine {
+  readonly text: string
   readonly layout: LineLayout
   readonly factor: number
   readonly kind: number
 }
 
-interface TextBlock {
+export interface TextBlock {
   readonly lines: readonly TextLine[]
   readonly width: number
   readonly height: number
@@ -169,7 +200,7 @@ function screenRadius(nodes: NodeColumns, index: number, zoom: number): number {
 }
 
 function textBlock(
-  atlas: GlyphAtlas,
+  atlas: TextMeasure,
   primary: string,
   secondary: string | null,
   weight: number,
@@ -187,7 +218,7 @@ function textBlock(
           ? atlas.fit(part, lineWeight, font, (maxWidth / size) * (atlasFontSize / factor))
           : part
       const layout = atlas.line(fitted, lineWeight, font)
-      lines.push({ layout, factor, kind })
+      lines.push({ text: fitted, layout, factor, kind })
       width = Math.max(width, layout.width * factor)
       height += lineHeight * atlasFontSize * factor
     }
@@ -260,7 +291,7 @@ export function edgeAnchor(
   const shift = (sourceRadius - targetRadius) / 2
   out.x = (sx + tx) / 2 + ux * shift - uy * bend * length
   out.y = (sy + ty) / 2 + uy * shift + ux * bend * length
-  const flip = ux < 0 || (ux === 0 && uy < 0)
+  const flip = ux < -uprightSlack || (Math.abs(ux) <= uprightSlack && uy < 0)
   out.ax = flip ? -ux : ux
   out.ay = flip ? -uy : uy
   out.room = length - sourceRadius - targetRadius
@@ -333,7 +364,7 @@ export class LabelLayer {
     return true
   }
 
-  select(frame: LabelFrame, atlas: GlyphAtlas): void {
+  select(frame: LabelFrame, atlas: TextMeasure): void {
     this.main.clear()
     this.highlight.clear()
     this.edgeMain.clear()
@@ -349,7 +380,12 @@ export class LabelLayer {
     const highlighted = new Set(frame.highlighted)
     const highlightedEdges = new Set(frame.highlightedEdges)
     const shrink = Math.min(1, view.zoom)
+    const all = frame.mode === 'all'
+    const sink = frame.sink
+    const limit = all ? Number.POSITIVE_INFINITY : maxLabels
+    const minimumPixels = all ? 0 : labelMin
     let placed = 0
+    if (frame.mode === 'none') return
 
     const forced = (index: number) => ((frame.nodeMask[index] ?? 0) & forcedStates) !== 0
     const edgeForced = (index: number) => ((frame.edgeMask[index] ?? 0) & forcedStates) !== 0
@@ -362,13 +398,14 @@ export class LabelLayer {
       const screenUnits = nodes.screenUnits[index] === 1
       const size = nodes.labelSize[index] || nodeLabelSize
       const pixels = screenUnits ? size : size * shrink
-      if (pixels < labelMin) return
+      if (pixels < minimumPixels) return
       const minimum = nodes.labelMinScreenSize[index] ?? 0
-      if (!force && minimum > 0 && screenDiameter(nodes, index, view.zoom) < minimum) return
+      if (!force && !all && minimum > 0 && screenDiameter(nodes, index, view.zoom) < minimum) return
       const x = (positions.x(index) - view.x) * view.zoom + width / 2
       const y = (positions.y(index) - view.y) * view.zoom + height / 2
-      if (x < -cullMargin || x > width + cullMargin) return
-      if (y < -cullMargin || y > height + cullMargin) return
+      const box = nodes.shape[index] === containerShape ? frame.boxes : null
+      if (!box && (x < -cullMargin || x > width + cullMargin)) return
+      if (!box && (y < -cullMargin || y > height + cullMargin)) return
       const block = textBlock(
         atlas,
         label,
@@ -395,7 +432,11 @@ export class LabelLayer {
       const reach =
         placement === 4
           ? 0
-          : screenRadius(nodes, index, view.zoom) + (nodes.outlineWidth[index] ?? 0) + labelGap
+          : (box
+              ? (box[index * 4 + (dx !== 0 ? 0 : 1)] ?? 0) * view.zoom
+              : screenRadius(nodes, index, view.zoom)) +
+            (nodes.outlineWidth[index] ?? 0) +
+            labelGap
       const ox = x + dx * reach
       const oy = y + dy * reach
       const scale = pixels / atlasFontSize
@@ -404,12 +445,24 @@ export class LabelLayer {
       const boxTop = oy + top * scale
       const boxBottom = oy + (top + (plated ? total : block.height)) * scale
       if (right < 0 || left > width || boxBottom < 0 || boxTop > height) return
-      if (!this.#claimBox(left, boxTop, right, boxBottom, force)) return
+      if (!this.#claimBox(left, boxTop, right, boxBottom, force || all)) return
       const target = highlight ? this.highlight : this.main
       const flags = (placement << 4) | (plated ? platedGlyph : 0)
       if (plated) target.pushPlate(index, flags, cx, cy, hx, hy, background, size)
       const color = nodes.labelColor[index] ?? noColor
       emit(target, index, flags, block, atlas.height, top, align, shift, color, size)
+      sink?.node(index, {
+        block,
+        top,
+        align,
+        shift,
+        placement,
+        plate: plated ? { cx, cy, hx, hy } : null,
+        background,
+        color,
+        size,
+        highlight,
+      })
       placed++
       this.nodeLabels++
     }
@@ -420,7 +473,7 @@ export class LabelLayer {
       if (!label || edges.alive[index] !== 1) return
       const size = edges.labelSize[index] || edgeLabelSize
       const pixels = size * shrink
-      if (pixels < labelMin) return
+      if (pixels < minimumPixels) return
       if (!labelVisible(frame.edgeMask[index] ?? 0, frame.edgeLabelFlags)) return
       if (!edgeAnchor(frame, index, anchor)) return
       if (anchor.x < -cullMargin || anchor.x > width + cullMargin) return
@@ -438,13 +491,13 @@ export class LabelLayer {
       const plated = background !== noColor
       const scale = pixels / atlasFontSize
       const half = (block.width / 2 + (plated ? padUnits : 0)) * scale
-      if (half * 2 + edgeGap > anchor.room) return
+      if (!all && half * 2 + edgeGap > anchor.room) return
       const total = block.height + plateDrop
       const top = plated ? -total / 2 : edgeDescent - block.height
       const above = plated ? 0 : Math.max(edges.width[index] ?? 0, 0.5) / 2 + edgeLabelGap
       const low = plated ? (-total / 2) * scale : top * scale - above
       const high = plated ? (total / 2) * scale : (top + block.height) * scale - above
-      if (!this.#claim(anchor, half, low, high, highlight && edgeForced(index))) return
+      if (!this.#claim(anchor, half, low, high, (highlight && edgeForced(index)) || all)) return
       const target = highlight ? this.edgeHighlight : this.edgeMain
       const flags = edgeGlyph | (plated ? platedGlyph : 0)
       if (plated) {
@@ -461,6 +514,22 @@ export class LabelLayer {
       }
       const color = edges.labelColor[index] ?? noColor
       emit(target, index, flags, block, atlas.height, top, 0, 0, color, size)
+      sink?.edge(
+        index,
+        {
+          block,
+          top,
+          align: 0,
+          shift: 0,
+          placement: 0,
+          plate: plated ? { cx: 0, cy: 0, hx: block.width / 2 + padUnits, hy: total / 2 } : null,
+          background,
+          color,
+          size,
+          highlight,
+        },
+        anchor,
+      )
       placed++
       this.edgeLabels++
     }
@@ -471,7 +540,7 @@ export class LabelLayer {
     for (const index of highlightedEdges) if (!edgeForced(index)) placeEdge(index, true)
 
     const xy = positions.xy
-    if (frame.screenLabels || frame.largestLabel * shrink >= labelMin) {
+    if (all || frame.screenLabels || frame.largestLabel * shrink >= labelMin) {
       const order = frame.order
       const largest = nodes.size[order[0] ?? 0] ?? 0
       const reach =
@@ -480,7 +549,7 @@ export class LabelLayer {
       const right = view.x + width / 2 / view.zoom + reach
       const top = view.y - height / 2 / view.zoom - reach
       const bottom = view.y + height / 2 / view.zoom + reach
-      for (let at = 0; at < frame.orderLength && placed < maxLabels; at++) {
+      for (let at = 0; at < frame.orderLength && placed < limit; at++) {
         const index = order[at] ?? 0
         const x = xy[index * 2] ?? 0
         const y = xy[index * 2 + 1] ?? 0
@@ -489,14 +558,14 @@ export class LabelLayer {
       }
     }
 
-    if (frame.largestEdgeLabel * shrink < labelMin) return
+    if (!all && frame.largestEdgeLabel * shrink < labelMin) return
     const { source, target } = edges
     const reach = cullMargin / view.zoom
     const left = view.x - width / 2 / view.zoom - reach
     const right = view.x + width / 2 / view.zoom + reach
     const top = view.y - height / 2 / view.zoom - reach
     const bottom = view.y + height / 2 / view.zoom + reach
-    for (let at = 0; at < frame.edgeOrderLength && placed < maxLabels; at++) {
+    for (let at = 0; at < frame.edgeOrderLength && placed < limit; at++) {
       const index = frame.edgeOrder[at] ?? 0
       const from = (source[index] ?? 0) * 2
       const to = (target[index] ?? 0) * 2
