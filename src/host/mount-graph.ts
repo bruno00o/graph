@@ -31,6 +31,7 @@ import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles, defaults } from '../theme/tokens'
 import type {
+  BuiltInState,
   FreeState,
   GraphDefinition,
   Key,
@@ -41,7 +42,9 @@ import type {
   View,
 } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
+import type { GraphAnchors } from './anchors'
 import { ContainerBoxes } from './containers'
+import { createDecorations } from './decorations'
 import {
   type ElementKeys,
   type ElementKeysInput,
@@ -277,6 +280,8 @@ export interface GraphInstance<S extends string = string> {
   readonly positions: GraphPositions
   /** Layout runs. */
   readonly layout: GraphLayout
+  /** HTML elements pinned to nodes, edges or points. */
+  readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   /** Folding of nested groups. */
   readonly groups: GraphGroups
   /** The `div` added to the container, which holds the canvas. */
@@ -515,6 +520,18 @@ export function createGraphHost<S extends string = string>(
     folded: [...projection.folded],
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
+  const decorations = createDecorations({
+    element,
+    canvas,
+    model,
+    scene,
+    positions,
+    registry,
+    state: () => store.get(),
+    request: () => request(),
+    containers: () => (projection.active ? containerBoxes : null),
+    edgeIndex: (key) => projection.edgeIndexOf(key),
+  })
 
   const layerPositions = { nodes: new Map<number, number>(), edges: new Map<number, number>() }
   const pickSource: PickSource = {
@@ -1165,6 +1182,7 @@ export function createGraphHost<S extends string = string>(
     registry.refreshEdges(projected.edges)
     sceneVersion++
     applyLayers()
+    decorations.changed()
     if (result.selection) {
       publishSelection()
       if (controlled) onSelectionChange?.(registry.members('selected'))
@@ -1569,10 +1587,11 @@ export function createGraphHost<S extends string = string>(
     }
     if (positionAnimations.length > 0) stepPositions(now)
     registry.takeHighlighted()
+    syncContainers()
+    decorations.prepare()
     const dirty = scene.takeDirty()
     if (dirty.palette || scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
-    syncContainers()
     const positionsChanged = positions.version !== positionsVersion
     const syncStart = clock()
     renderer.sync({
@@ -1582,6 +1601,8 @@ export function createGraphHost<S extends string = string>(
       positionsChanged,
       states: buffers,
       full,
+      grid: decorations.grid,
+      hulls: decorations.hulls,
       ...(projection.active ? { containers: containerBoxes } : {}),
     })
     const synced = clock()
@@ -1593,6 +1614,7 @@ export function createGraphHost<S extends string = string>(
     const { view, width, height } = store.get()
     const renderStart = clock()
     const wait = renderer.render({ view, width, height, pixelRatio })
+    decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
     if (viewAnimation || positionAnimations.length > 0) request()
@@ -1848,6 +1870,7 @@ export function createGraphHost<S extends string = string>(
 
   model.setMarks(definition.marks)
   scene.setDefinition(definition)
+  decorations.setDefinition(definition)
   applyLayers()
   applyStyles()
   refreshTheme()
@@ -1864,7 +1887,7 @@ export function createGraphHost<S extends string = string>(
     get: () => store.get().view,
     set: (next, viewOptions = {}) => animateTo(next, viewOptions.duration),
     fit: (keys, fitOptions = {}) => {
-      if (!fitTo(keys, fitOptions)) pendingFit = keys ? null : fitOptions
+      pendingFit = fitTo(keys, fitOptions) || keys ? null : fitOptions
     },
     zoomBy: (factor, viewOptions = {}) => {
       const size = viewport()
@@ -2012,6 +2035,7 @@ export function createGraphHost<S extends string = string>(
     states,
     positions: positionsApi,
     layout: layoutApi,
+    anchors: decorations.anchors,
     groups,
     element,
     pick: (point) => pickAt(point),
@@ -2036,6 +2060,7 @@ export function createGraphHost<S extends string = string>(
         }
         model.setMarks(definition.marks)
         scene.setDefinition(definition)
+        decorations.setDefinition(definition)
         applyLayers()
         if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
         applyStyles()
@@ -2067,6 +2092,7 @@ export function createGraphHost<S extends string = string>(
       model.destroy()
       renderer.destroy()
       themeResolver.destroy()
+      decorations.destroy()
       element.remove()
     },
   }
@@ -2086,15 +2112,18 @@ export function createGraphHost<S extends string = string>(
       flushChanges()
     }
     registry.takeHighlighted()
+    syncContainers()
+    decorations.settle()
     if (scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
-    syncContainers()
     request()
     const { view, width, height } = store.get()
     return {
       scene,
       positions,
       states: buffers,
+      grid: decorations.grid,
+      hulls: decorations.hulls,
       containers: projection.active ? containerBoxes : null,
       palette: paletteColors,
       theme: themeResolver.theme(),

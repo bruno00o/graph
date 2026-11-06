@@ -1,0 +1,42 @@
+.hint {
+  color: var(--graph-ink-muted);
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 4px 4px 10px;
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  border: 1px solid var(--graph-group-line);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.toolbar button {
+  padding: 2px 8px;
+}
+
+.tooltip {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  border: 1px solid var(--graph-group-line);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.tooltip span {
+  display: block;
+  color: var(--graph-ink-muted);
+}
+
+.group-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--graph-ink-muted);
+  white-space: nowrap;
+}

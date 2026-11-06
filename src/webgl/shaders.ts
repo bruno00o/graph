@@ -16,7 +16,7 @@ export const edgeDescent = 3.6
 export const edgeLabelGap = 1.5
 export const uprightSlack = 1e-4
 
-const header = `#version 300 es
+export const header: string = `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2D;

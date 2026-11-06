@@ -1,0 +1,32 @@
+---
+title: Anchor
+description: A component that pins its children to a node, an edge or a point of the graph.
+---
+
+```ts
+function Anchor<S extends string = string>(props: AnchorProps<S>): ReactNode
+```
+
+Use it inside the children of [`<Graph>`](/docs/api/graph-component). It renders its children through a portal into the anchor layer of the graph, and calls [`graph.anchors.set`](/docs/api/graph-instance#anchors) with its props. The children follow the view and the nodes without rendering again; they render only when their own props or state change.
+
+```tsx
+import { Anchor, useGraphState } from '@bruno00o/graph/react'
+
+function Tooltip() {
+  const hovered = useGraphState((state) => state.hovered)
+  if (hovered?.kind !== 'node') return null
+  return (
+    <Anchor node={hovered.key} side="right" align="start">
+      <div className="tooltip">{(hovered.datum as Item).label}</div>
+    </Anchor>
+  )
+}
+```
+
+## Props
+
+<api-table path="react/index.tsx" name="AnchorProps" />
+
+Give one target: `node`, `nodes`, `state`, `edge` or `point`. The children are hidden while the target is missing or off screen, and while it is not in the `when` state.
+
+`react-dom` is needed for the portal. It is an optional peer dependency, like `react`.

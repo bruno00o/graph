@@ -3,6 +3,7 @@ import { describe, expectTypeOf, it } from 'vitest'
 import {
   type Accessor,
   type AggregateEdge,
+  type BuiltInState,
   defineGraph,
   type EdgeMark,
   type ElementKeys,
@@ -11,6 +12,7 @@ import {
   type GraphDefinition,
   type GraphInstance,
   type GraphState,
+  hull,
   type KeyFieldOf,
   type Mark,
   type NodeMark,
@@ -158,6 +160,30 @@ describe('public types', () => {
     expectTypeOf(defineGraph({ marks: [] })).toEqualTypeOf<GraphDefinition<never>>()
     expectTypeOf(definition).toExtend<GraphDefinition>()
     expectTypeOf<Instance>().toExtend<GraphInstance>()
+  })
+
+  it('types hull and anchor states from the definition', () => {
+    const definition = defineGraph({
+      marks: [],
+      states: { muted: { opacity: 0.2 } },
+      hulls: [hull({ state: 'muted' }), hull({ state: 'selected' }), hull({ nodes: ['a'] })],
+    })
+    expectTypeOf(definition).toEqualTypeOf<GraphDefinition<'muted'>>()
+    defineGraph({
+      marks: [],
+      states: { muted: { opacity: 0.2 } },
+      // @ts-expect-error
+      hulls: [hull({ state: 'other' })],
+    })
+    const mark = nodes(people)
+    hull({ nodes: mark, by: 'team', color: (team) => `var(--${String(team)})` })
+    hull({ nodes: mark, shape: 'smooth', padding: 8 })
+    // @ts-expect-error
+    hull({ nodes: mark, by: 'joined' })
+    // @ts-expect-error
+    hull({ nodes: ['a'], shape: 'square' })
+    type Options = Parameters<GraphInstance<'muted'>['anchors']['set']>[1]
+    expectTypeOf<NonNullable<Options['when']>>().toEqualTypeOf<'muted' | BuiltInState>()
   })
 
   it('types the parent channel and the aggregate options', () => {

@@ -143,6 +143,19 @@ describe('layouts in the host', () => {
     expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 3 })
   })
 
+  it('lets a fit asked at the end of the first run replace the automatic framing', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    const run = runs[0]
+    if (!run) throw new Error('no run')
+    graph.on('layoutend', () => graph.view.fit(['a'], { padding: 0 }))
+    run.listener.progress(spread(run, 500), 0.5)
+    dom.flushFrames()
+    run.listener.end(spread(run, 1000))
+    dom.flushFrames()
+    expect(graph.view.get()).toMatchObject({ x: 0, y: 0 })
+  })
+
   it('moves only new nodes once laid out, and merges arrivals into a running layout', () => {
     const { layout, runs } = fakeLayout()
     const graph = mount(layout, loose)

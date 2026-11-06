@@ -87,7 +87,8 @@
     "@tanstack/devtools": ">=0.16.0",
     "@tanstack/devtools-utils": ">=0.7.0",
     "@tanstack/query-core": "^5.0.0",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "@tanstack/db": {
@@ -103,6 +104,9 @@
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     }
   },

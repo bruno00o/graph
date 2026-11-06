@@ -96,6 +96,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       view: snapshot.view,
       width: snapshot.width,
       height: snapshot.height,
+      hulls: snapshot.hulls.shapes,
     },
     { region, zoom: options.zoom, padding },
   )
@@ -191,6 +192,8 @@ export async function exportSvg<S extends string>(
     layers: scene.layers,
     positions: current.positions,
     states: current.states,
+    grid: current.grid,
+    hulls: current.hulls.shapes,
     containers: current.containers,
     palette: current.palette,
     theme: current.theme,

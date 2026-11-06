@@ -1,0 +1,57 @@
+---
+title: hull
+description: A shape drawn under the graph around a set of nodes.
+---
+
+```ts
+function hull<T>(options: HullGroupOptions<T>): Hull<never>
+function hull<T>(options: HullMarkOptions<T>): Hull<never>
+function hull<const N extends string>(options: HullStateOptions<N>): Hull<N>
+function hull(options: HullKeysOptions): Hull<never>
+```
+
+Pass the result to `hulls` in [`defineGraph`](/docs/api/define-graph#hulls). Hulls are drawn under edges and nodes, in the order of the array, fills first and outlines after. See [Drawing layers](/docs/drawing-layers#hulls).
+
+```ts
+const people = nodes(rows, { color: 'team' })
+
+defineGraph({
+  marks: [people],
+  states: { flagged: { stroke: 'var(--graph-accent)' } },
+  hulls: [
+    hull({ nodes: people, by: 'team' }),
+    hull({ state: 'flagged', color: 'var(--graph-accent)', shape: 'smooth' }),
+    hull({ nodes: ['a', 'b', 'c'], strokeWidth: 0 }),
+  ],
+})
+```
+
+## Which nodes
+
+Each form takes the drawing options below, and one way to choose its nodes.
+
+| Form | Draws |
+| --- | --- |
+| `{ nodes: keys }` | One hull around the nodes of these keys. Missing keys are skipped |
+| `{ nodes: mark }` | One hull around every node of the mark |
+| `{ nodes: mark, by }` | One hull per value of `by`, a field or a function of the datum. Color options can be functions of that value |
+| `{ state }` | One hull around the nodes in a state, `selected`, `hovered`, `focused` or a free state of the definition. It follows the state as it changes |
+
+A hull with no node draws nothing. A hull with one node is a circle around it.
+
+## Drawing options
+
+<api-table path="index.ts" name="HullStyle" />
+
+The padding counts from the edge of each node and its outline, in screen pixels: hulls keep their margin at every zoom level.
+
+## Shapes
+
+- `rounded` is the convex hull of the node disks, grown by the padding: straight sides, and round corners that follow each node.
+- `smooth` bends every side outward into an arc, up to 24 degrees, for a softer outline that still encloses every node.
+
+Both are convex. A hull never cuts through one of its nodes, but it may cover nodes of other groups.
+
+## Cost
+
+Outlines are computed on the CPU and only for hulls whose nodes moved or changed size, within a budget of 6 milliseconds per frame: past it, the remaining hulls update in the next frames. With 300 hulls over 50,000 nodes, a drag costs about 0.2 milliseconds per frame, and a layout that moves every node about 4.5 milliseconds for `smooth` and 7 for `rounded`.

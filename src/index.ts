@@ -1,4 +1,5 @@
 export { defineGraph } from './define-graph'
+export type { AnchorAlign, AnchorOptions, AnchorSide, GraphAnchors } from './host/anchors'
 export type {
   ElementKeys,
   ElementKeysInput,
@@ -35,11 +36,14 @@ export type {
   ViewOptions,
 } from './host/mount-graph'
 export { mountGraph } from './host/mount-graph'
+export { hull } from './hulls'
 export { edges, nodes } from './marks'
 export type {
   Accessor,
   AggregateEdge,
   AggregateEdgeOptions,
+  BackgroundGrid,
+  BackgroundOptions,
   Badge,
   BadgeCorner,
   BuiltInState,
@@ -57,6 +61,14 @@ export type {
   GraphData,
   GraphDefinition,
   GraphDefinitionOptions,
+  Hull,
+  HullGroupOptions,
+  HullKeysOptions,
+  HullMarkOptions,
+  HullOptions,
+  HullShape,
+  HullStateOptions,
+  HullStyle,
   InteractionOptions,
   Key,
   KeyChannel,
@@ -78,6 +90,7 @@ export type {
   NumberScale,
   NumberScaleType,
   Point,
+  ResolvedBackground,
   ResolvedInteraction,
   ResolvedTransitions,
   ScalesOptions,
