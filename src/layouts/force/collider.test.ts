@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { separate } from './collider'
+import { Collider, separate } from './collider'
 
 function overlaps(xy: Float32Array, radius: Float32Array): number {
   let count = 0
@@ -45,5 +45,22 @@ describe('separate', () => {
       10,
     )
     expect(Array.from(xy)).toEqual([0, 0, 0, 0])
+  })
+})
+
+describe('Collider', () => {
+  it('pushes overlapping nodes apart, the larger one less, and leaves fixed nodes alone', () => {
+    const radius = Float32Array.from([10, 5, 5])
+    const nodes = Uint32Array.from([0, 1, 2])
+    const fixed = Uint8Array.from([0, 0, 1])
+    const x = Float64Array.from([0, 12, 100])
+    const y = Float64Array.from([0, 0, 100])
+    const vx = new Float64Array(3)
+    const vy = new Float64Array(3)
+    new Collider(radius, nodes, 2).apply(nodes, fixed, x, y, vx, vy, 1, () => 0)
+    expect(vx[0]).toBeCloseTo(-1)
+    expect(vx[1]).toBeCloseTo(4)
+    expect(Array.from(vy)).toEqual([0, 0, 0])
+    expect(vx[2]).toBe(0)
   })
 })

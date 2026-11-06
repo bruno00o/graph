@@ -10,12 +10,12 @@ import {
   valueFragment,
 } from './gpu-shaders'
 import {
-  alphaMin,
-  coolingOf,
+  Cooling,
   type ForceGraph,
   type ForceSettings,
-  keep,
   partialAlpha,
+  retention,
+  springsOf,
 } from './simulation'
 
 const boundsBlock = 4
@@ -38,7 +38,6 @@ type Programs = Record<
 >
 
 export class GpuForce {
-  alpha: number
   readonly capacity: number
   readonly fixed: Uint8Array
   readonly #gl: WebGL2RenderingContext
@@ -46,8 +45,7 @@ export class GpuForce {
   readonly #height: number
   readonly #levels: number
   readonly #cells: number
-  readonly #start: number
-  readonly #cooling: number
+  readonly #cooling: Cooling
   readonly #gravity: number
   readonly #center: readonly [number, number]
   readonly #repulsion: number
@@ -124,9 +122,7 @@ export class GpuForce {
     }
     for (let i = 0; i < capacity; i++) if (graph.alive[i] !== 1) this.fixed[i] = 1
     const partial = movers < alive
-    this.#start = partial ? partialAlpha : 1
-    this.alpha = movers === 0 ? 0 : this.#start
-    this.#cooling = coolingOf(settings.steps)
+    this.#cooling = new Cooling(movers === 0 ? 0 : partial ? partialAlpha : 1, settings.steps)
     this.#gravity = partial ? 0 : settings.gravity
     this.#repulsion = settings.repulsion
     this.#center = movers > 0 ? [sumX / movers, sumY / movers] : [0, 0]
@@ -206,8 +202,12 @@ export class GpuForce {
     }
   }
 
+  get alpha(): number {
+    return this.#cooling.alpha
+  }
+
   get done(): boolean {
-    return this.#lost || this.alpha < alphaMin
+    return this.#lost || this.#cooling.done
   }
 
   get lost(): boolean {
@@ -215,9 +215,7 @@ export class GpuForce {
   }
 
   get progress(): number {
-    if (this.alpha <= 0) return 1
-    const value = Math.log(this.alpha / this.#start) / Math.log(alphaMin / this.#start)
-    return Math.min(1, Math.max(0, value))
+    return this.#cooling.progress
   }
 
   pin(index: number, x: number, y: number): void {
@@ -245,7 +243,7 @@ export class GpuForce {
 
   step(): void {
     if (this.done) return
-    this.alpha *= this.#cooling
+    const alpha = this.#cooling.alpha
     const gl = this.#gl
     const programs = this.#programs
     const state = this.#states[this.#current]
@@ -296,7 +294,7 @@ export class GpuForce {
     if (this.#edgeVertices > 0) {
       gl.enable(gl.BLEND)
       gl.useProgram(programs.spring)
-      gl.uniform1f(gl.getUniformLocation(programs.spring, 'alpha'), this.alpha)
+      gl.uniform1f(gl.getUniformLocation(programs.spring, 'alpha'), alpha)
       gl.bindVertexArray(this.#edges)
       gl.drawArrays(gl.POINTS, 0, this.#edgeVertices)
       gl.bindVertexArray(this.#empty)
@@ -306,10 +304,11 @@ export class GpuForce {
     const integrate = programs.integrate
     this.#use(next.framebuffer, this.#width, this.#height)
     gl.useProgram(integrate)
-    gl.uniform1f(gl.getUniformLocation(integrate, 'strength'), -this.#repulsion * this.alpha)
-    gl.uniform1f(gl.getUniformLocation(integrate, 'pull'), this.#gravity * this.alpha)
+    gl.uniform1f(gl.getUniformLocation(integrate, 'strength'), -this.#repulsion * alpha)
+    gl.uniform1f(gl.getUniformLocation(integrate, 'pull'), this.#gravity * alpha)
     gl.drawArrays(gl.TRIANGLES, 0, 3)
     this.#current = this.#current === 0 ? 1 : 0
+    this.#cooling.advance()
   }
 
   read(target: Float32Array): Promise<boolean> {
@@ -386,8 +385,8 @@ export class GpuForce {
       set('cells', this.#cells)
       set('levels', this.#levels)
       set('count', this.capacity)
-      const keepAt = gl.getUniformLocation(program, 'keep')
-      if (keepAt) gl.uniform1f(keepAt, keep)
+      const retentionAt = gl.getUniformLocation(program, 'retention')
+      if (retentionAt) gl.uniform1f(retentionAt, retention)
       const centerAt = gl.getUniformLocation(program, 'center')
       if (centerAt) gl.uniform2f(centerAt, this.#center[0], this.#center[1])
     }
@@ -437,27 +436,15 @@ function edgeVertices(
   graph: ForceGraph,
   edgeLength: number,
 ): { vertices: Float32Array; count: number } {
-  const degree = new Uint32Array(graph.capacity)
-  const pairs: number[] = []
-  for (let e = 0; e + 1 < graph.edges.length; e += 2) {
-    const s = graph.edges[e] ?? 0
-    const t = graph.edges[e + 1] ?? 0
-    if (s === t || graph.alive[s] !== 1 || graph.alive[t] !== 1) continue
-    pairs.push(s, t)
-    degree[s] = (degree[s] ?? 0) + 1
-    degree[t] = (degree[t] ?? 0) + 1
+  const { count, ends, stiffness, share, rest } = springsOf(graph, edgeLength)
+  const vertices = new Float32Array(count * 10)
+  for (let k = 0; k < count; k++) {
+    const s = ends[k * 2] ?? 0
+    const t = ends[k * 2 + 1] ?? 0
+    const k0 = stiffness[k] ?? 0
+    const ws = share[k] ?? 0.5
+    const length = rest[k] ?? 0
+    vertices.set([s, t, k0, ws, length, t, s, k0, 1 - ws, length], k * 10)
   }
-  const edges = pairs.length / 2
-  const vertices = new Float32Array(edges * 10)
-  for (let e = 0; e < edges; e++) {
-    const s = pairs[e * 2] ?? 0
-    const t = pairs[e * 2 + 1] ?? 0
-    const ds = degree[s] ?? 1
-    const dt = degree[t] ?? 1
-    const strength = 1 / Math.min(ds, dt)
-    const bias = ds / (ds + dt)
-    const rest = edgeLength + (graph.radius[s] ?? 0) + (graph.radius[t] ?? 0)
-    vertices.set([t, s, strength, bias, rest, s, t, strength, 1 - bias, rest], e * 10)
-  }
-  return { vertices, count: edges * 2 }
+  return { vertices, count: count * 2 }
 }
