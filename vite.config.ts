@@ -13,6 +13,10 @@ export default defineConfig({
       { find: '@bruno00o/graph/react', replacement: resolve(source, 'react/index.tsx') },
       { find: '@bruno00o/graph/db', replacement: resolve(source, 'db/index.ts') },
       { find: '@bruno00o/graph/query', replacement: resolve(source, 'query/index.ts') },
+      {
+        find: '@bruno00o/graph/layouts/force',
+        replacement: resolve(source, 'layouts/force/index.ts'),
+      },
       { find: /^@bruno00o\/graph$/, replacement: resolve(source, 'index.ts') },
     ],
   },
@@ -30,6 +34,7 @@ export default defineConfig({
         explore: resolve(import.meta.dirname, 'examples/explore/index.html'),
         edges: resolve(import.meta.dirname, 'examples/edges/index.html'),
         nodes: resolve(import.meta.dirname, 'examples/nodes/index.html'),
+        layout: resolve(import.meta.dirname, 'examples/layout/index.html'),
       },
     },
   },

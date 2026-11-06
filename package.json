@@ -38,6 +38,10 @@
       "types": "./dist/query.d.ts",
       "import": "./dist/query.js"
     },
+    "./layouts/force": {
+      "types": "./dist/layouts/force.d.ts",
+      "import": "./dist/layouts/force.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },
@@ -90,6 +94,7 @@
     "publint": "0.3.25",
     "react": "19.2.9",
     "react-dom": "19.2.9",
+    "rolldown": "1.2.16",
     "tsdown": "0.23.4",
     "typescript": "7.0.2",
     "vite": "8.3.5",

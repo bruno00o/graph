@@ -1,0 +1,231 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { defineGraph } from '../define-graph'
+import { edges, nodes } from '../marks'
+import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
+import type { Layout, LayoutGraph, LayoutListener } from '../types'
+import type { GraphPositionEvent } from './events'
+import { createGraphHost, type GraphInstance } from './mount-graph'
+
+interface Item {
+  readonly id: string
+  readonly x?: number
+  readonly y?: number
+}
+
+interface Link {
+  readonly id: string
+  readonly from: string
+  readonly to: string
+}
+
+interface FakeRun {
+  readonly graph: LayoutGraph
+  readonly listener: LayoutListener
+  readonly pins: (readonly [number, number, number])[]
+  stopped: boolean
+}
+
+function fakeLayout(options: object = {}) {
+  const runs: FakeRun[] = []
+  const layout: Layout = {
+    name: 'fake',
+    options,
+    start(graph, listener) {
+      const run: FakeRun = { graph, listener, pins: [], stopped: false }
+      runs.push(run)
+      return {
+        pin: (index, x, y) => run.pins.push([index, x, y]),
+        stop: () => {
+          run.stopped = true
+        },
+      }
+    },
+  }
+  return { layout, runs }
+}
+
+const links: Link[] = [
+  { id: 'ab', from: 'a', to: 'b' },
+  { id: 'bc', from: 'b', to: 'c' },
+]
+
+function definition(layout: Layout | null, items: readonly Item[]) {
+  return defineGraph({
+    marks: [
+      edges<Link>(links, { source: 'from', target: 'to' }),
+      nodes<Item>(items, { x: 'x', y: 'y' }),
+    ],
+    layout,
+  })
+}
+
+function movers(run: FakeRun | undefined): number[] {
+  return Array.from(run?.graph.movable ?? []).flatMap((flag, index) => (flag === 1 ? [index] : []))
+}
+
+function spread(run: FakeRun, step = 100): Float32Array {
+  const xy = new Float32Array(run.graph.capacity * 2)
+  for (let index = 0; index < run.graph.capacity; index++) {
+    xy[index * 2] = run.graph.movable[index] === 1 ? index * step : (run.graph.xy[index * 2] ?? 0)
+    xy[index * 2 + 1] =
+      run.graph.movable[index] === 1 ? index * step : (run.graph.xy[index * 2 + 1] ?? 0)
+  }
+  return xy
+}
+
+let dom: FakeDom
+
+function mount(layout: Layout | null, items: readonly Item[]): GraphInstance {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const graph = createGraphHost(
+    container,
+    { definition: definition(layout, items), ariaLabel: 'graphe' },
+    fakeRenderer,
+  )
+  dom.flushFrames()
+  return graph
+}
+
+beforeEach(() => {
+  dom = installDom()
+})
+
+afterEach(() => {
+  dom.restore()
+})
+
+const loose: Item[] = [{ id: 'a' }, { id: 'b' }, { id: 'c', x: 7, y: 9 }]
+
+describe('layouts in the host', () => {
+  it('runs the definition layout on the first nodes and follows it to the end', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    const seen: string[] = []
+    let moved: GraphPositionEvent | null = null
+    graph.on('layoutend', ({ completed }) => seen.push(`end ${completed}`))
+    graph.on('positionchange', (event) => {
+      moved = event
+    })
+    const run = runs[0]
+    if (!run) throw new Error('no run')
+    expect(runs).toHaveLength(1)
+    expect(movers(run)).toEqual([0, 1])
+    expect(graph.store.get().layout).toEqual({ running: true, progress: 0 })
+    run.listener.progress(spread(run, 50), 0.5)
+    dom.flushFrames()
+    expect(graph.positions.get('b')).toEqual({ x: 50, y: 50 })
+    expect(graph.positions.get('c')).toEqual({ x: 7, y: 9 })
+    expect(graph.store.get().layout).toEqual({ running: true, progress: 0.5 })
+    run.listener.end(spread(run))
+    dom.flushFrames()
+    expect(graph.positions.get('b')).toEqual({ x: 100, y: 100 })
+    expect(graph.store.get().layout).toEqual({ running: false, progress: 1 })
+    expect(seen).toEqual(['end true'])
+    expect(moved).toMatchObject({ origin: 'layout' })
+    expect([...((moved as GraphPositionEvent | null)?.positions.keys() ?? [])]).toEqual(['a', 'b'])
+  })
+
+  it('keeps the view framed during the first run until the user moves it', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    const run = runs[0]
+    if (!run) throw new Error('no run')
+    const before = graph.view.get()
+    run.listener.progress(spread(run, 1000), 0.3)
+    dom.flushFrames()
+    const framed = graph.view.get()
+    expect(framed.zoom).toBeLessThan(before.zoom)
+    graph.view.set({ x: 0, y: 0, zoom: 3 })
+    dom.flushFrames()
+    run.listener.progress(spread(run, 2000), 0.6)
+    dom.flushFrames()
+    expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 3 })
+  })
+
+  it('moves only new nodes once laid out, and merges arrivals into a running layout', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    const first = runs[0]
+    if (!first) throw new Error('no run')
+    first.listener.end(spread(first))
+    dom.flushFrames()
+    const starts: string[] = []
+    graph.on('layoutstart', ({ name }) => starts.push(name))
+    graph.update({ definition: definition(layout, [...loose, { id: 'd' }]) })
+    dom.flushFrames()
+    expect(movers(runs[1])).toEqual([3])
+    graph.update({ definition: definition(layout, [...loose, { id: 'd' }, { id: 'e' }]) })
+    dom.flushFrames()
+    expect(runs[1]?.stopped).toBe(true)
+    expect(movers(runs[2])).toEqual([3, 4])
+    expect(starts).toEqual(['fake'])
+  })
+
+  it('reruns everything when the layout options change, not for an equal layout', () => {
+    const first = fakeLayout({ strength: 1 })
+    const graph = mount(first.layout, loose)
+    first.runs[0]?.listener.end(spread(first.runs[0] as FakeRun))
+    dom.flushFrames()
+    const same = fakeLayout({ strength: 1 })
+    graph.update({ definition: definition(same.layout, loose) })
+    dom.flushFrames()
+    expect(same.runs).toHaveLength(0)
+    const other = fakeLayout({ strength: 2 })
+    graph.update({ definition: definition(other.layout, loose) })
+    dom.flushFrames()
+    expect(movers(other.runs[0])).toEqual([0, 1])
+    graph.update({ definition: definition(null, loose) })
+    dom.flushFrames()
+    expect(other.runs[0]?.stopped).toBe(true)
+    expect(graph.store.get().layout.running).toBe(false)
+  })
+
+  it('runs on demand for chosen keys, resolves on completion and on stop', async () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    expect(runs).toHaveLength(0)
+    await expect(graph.layout.run()).rejects.toThrow('no layout')
+    const done = graph.layout.run(layout, { keys: ['b', 'c', 'missing'] })
+    expect(movers(runs[0])).toEqual([1])
+    runs[0]?.listener.end(spread(runs[0] as FakeRun))
+    await expect(done).resolves.toBe(true)
+    const ends: boolean[] = []
+    graph.on('layoutend', ({ completed }) => ends.push(completed))
+    const stopped = graph.layout.run(layout)
+    graph.layout.stop()
+    await expect(stopped).resolves.toBe(false)
+    expect(runs[1]?.stopped).toBe(true)
+    expect(ends).toEqual([false])
+    runs[1]?.listener.end(spread(runs[1] as FakeRun, 9))
+    expect(graph.positions.get('b')).toEqual({ x: 100, y: 100 })
+  })
+
+  it('pins dragged nodes and nodes moved through the API', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    const run = runs[0]
+    if (!run) throw new Error('no run')
+    run.listener.progress(spread(run), 0.2)
+    dom.flushFrames()
+    graph.positions.set([['a', { x: -40, y: -40 }]])
+    expect(run.pins).toEqual([[0, -40, -40]])
+    const canvas = graph.element.querySelector('canvas')
+    const b = graph.view.toScreen(graph.positions.get('b') ?? { x: 0, y: 0 })
+    const down = { clientX: b.x, clientY: b.y, button: 0, pointerId: 1, bubbles: true }
+    canvas?.dispatchEvent(new PointerEvent('pointerdown', down))
+    canvas?.dispatchEvent(new PointerEvent('pointermove', { ...down, clientX: b.x + 30 }))
+    run.listener.progress(spread(run, 500), 0.4)
+    expect(run.pins.at(-1)?.[0]).toBe(1)
+    expect(graph.positions.get('b')?.x).not.toBe(500)
+    canvas?.dispatchEvent(new PointerEvent('pointerup', { ...down, clientX: b.x + 30 }))
+  })
+
+  it('stops quietly when destroyed', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    graph.destroy()
+    expect(runs[0]?.stopped).toBe(true)
+    expect(() => runs[0]?.listener.progress(spread(runs[0] as FakeRun), 0.5)).not.toThrow()
+  })
+})
