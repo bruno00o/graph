@@ -16,6 +16,39 @@ import { button, choice, createPage, exportButtons, themeToggle } from '../share
 type Background = keyof typeof messages.backgrounds
 type HullMode = keyof typeof messages.hullModes
 
+const nameGap = 16
+const framePadding = 48
+
+function nameSide(
+  keys: readonly Key[],
+  others: readonly Key[],
+  point: (key: Key) => { readonly x: number; readonly y: number } | undefined,
+  reach: number,
+): 'top' | 'bottom' {
+  let minX = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  for (const key of keys) {
+    const at = point(key)
+    if (!at) continue
+    minX = Math.min(minX, at.x)
+    maxX = Math.max(maxX, at.x)
+    minY = Math.min(minY, at.y)
+    maxY = Math.max(maxY, at.y)
+  }
+  if (maxX < minX) return 'top'
+  const room = (y: number) => {
+    let nearest = Number.POSITIVE_INFINITY
+    for (const key of others) {
+      const at = point(key)
+      if (at) nearest = Math.min(nearest, Math.hypot(at.x - (minX + maxX) / 2, at.y - y))
+    }
+    return nearest
+  }
+  return room(minY - reach) >= room(maxY + reach) ? 'top' : 'bottom'
+}
+
 const { items, links } = createSample(150, 330, 5, 3, 0.01)
 const byId = new Map(items.map((item) => [item.id, item]))
 const itemMark = nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' })
@@ -57,7 +90,7 @@ toolbar.className = 'toolbar'
 toolbar.append(
   count,
   button(messages.frameSelection, () =>
-    graph.view.fit(graph.selection.get().nodes, { duration: 400 }),
+    graph.view.fit(graph.selection.get().nodes, { duration: 400, padding: framePadding }),
   ),
   button(messages.clearSelection, () => graph.selection.clear()),
 )
@@ -102,18 +135,28 @@ const names = [...groups].map(([group, keys]) => {
   return { name, keys }
 })
 const showNames = () => {
+  const point = (key: Key) => graph.positions.get(key)
+  const reach = 40 / graph.view.get().zoom
   for (const { name, keys } of names) {
-    if (mode === 'groups') {
-      graph.anchors.set(name, {
-        nodes: keys,
-        side: 'top',
-        align: 'start',
-        offset: { x: 0, y: -18 },
-      })
-    } else graph.anchors.remove(name)
+    if (mode !== 'groups') {
+      graph.anchors.remove(name)
+      continue
+    }
+    const others = items.filter((item) => !keys.includes(item.id)).map((item) => item.id)
+    const side = nameSide(keys, others, point, reach)
+    graph.anchors.set(name, {
+      nodes: keys,
+      side,
+      offset: { x: 0, y: side === 'top' ? -nameGap : nameGap },
+    })
   }
 }
 showNames()
+graph.on('layoutend', () => {
+  showNames()
+  graph.view.fit(undefined, { duration: 300, padding: framePadding })
+})
+graph.on('positionchange', showNames)
 
 const backgrounds = Object.keys(messages.backgrounds) as Background[]
 const modes = Object.keys(messages.hullModes) as HullMode[]
@@ -152,7 +195,7 @@ header.append(
       redraw()
     },
   ),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit(undefined, { duration: 400, padding: framePadding })),
   ...exportButtons(graph, 'drawing', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )
