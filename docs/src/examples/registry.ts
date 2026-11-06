@@ -74,11 +74,22 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./layout/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'edge-bundling',
+    title: 'Edge bundling',
+    description:
+      'Edges between communities of a force layout merge into bundles once nodes stand still, computed by density in a Web Worker. Change the strength and the reach, or turn bundling off: edges glide between shapes.',
+    hint: 'Drag a node: edges bundle again once it stops.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/bundling', '@bruno00o/graph/layouts/force'],
+    files: ['bundling/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./bundling/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'layouts',
     title: 'Layouts',
     description:
-      'A directed graph laid out in layers, in any direction, then with forces, on a grid sorted by group, in rings by degree and as a radial tree. Nodes glide to their new place and the view frames the result.',
-    hint: 'Switch the layout or the direction. Shift and drag around some nodes, then arrange only them.',
+      'A directed graph laid out in layers, in any direction, then with forces, on a grid sorted by group, in rings by degree and as a radial tree. Nest its branches in groups: the layers keep flowing across them. Nodes glide to their new place and the view frames the result.',
+    hint: 'Switch the layout, the direction or the groups. Shift and drag around some nodes, then arrange only them.',
     tags: ['Vanilla'],
     modules: ['@bruno00o/graph', '@bruno00o/graph/layouts', '@bruno00o/graph/layouts/force'],
     files: ['layouts/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
@@ -160,10 +171,10 @@ export const examples: readonly ExampleEntry[] = [
     slug: 'nested-groups',
     title: 'Nested groups',
     description:
-      'Nodes in nested groups, laid out by forces that keep every container whole. Fold a group into a single node: the edges that cross it merge into one edge per pair, styled by their count.',
-    hint: 'Double-click a group to fold or unfold it. Drag a group by its border to move everything inside.',
+      'Nodes in nested groups, laid out by forces or in layers, with every container kept whole. Fold a group into a single node: the edges that cross it merge into one edge per pair, styled by their count.',
+    hint: 'Double-click a group to fold or unfold it. Drag a group by its border to move everything inside. Switch to layers to see the edges flow across the groups.',
     tags: ['Vanilla'],
-    modules: ['@bruno00o/graph', '@bruno00o/graph/layouts/force'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/layouts', '@bruno00o/graph/layouts/force'],
     files: ['groups/main.ts', 'shared/messages.ts', 'shared/overlays.css'],
     load: () => import('./groups/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },

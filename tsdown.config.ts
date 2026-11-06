@@ -49,6 +49,7 @@ export default defineConfig({
     map: 'src/map/index.ts',
     minimap: 'src/minimap/index.ts',
     legend: 'src/legend/index.ts',
+    bundling: 'src/bundling/index.ts',
   },
   format: 'esm',
   platform: 'neutral',

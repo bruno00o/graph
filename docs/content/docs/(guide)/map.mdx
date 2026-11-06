@@ -55,7 +55,7 @@ Positions are stored relative to an origin that follows the camera, so nodes sit
 On a map, the definition keeps its marks, states, scales, labels, images, badges, flows and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
 
 - `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units.
-- `background` and `hulls`.
+- `background`, `hulls` and `bundling`: edges stay straight.
 - Groups: the `parent` channel is not supported on a map.
 - The [minimap](/docs/minimap-and-legend#minimap): the map has its own navigation, and the minimap does not support a map graph.
 - The globe projection and terrain: the graph draws on a flat Mercator map. In development, it warns when the map is tilted, rotated or turned into a globe.

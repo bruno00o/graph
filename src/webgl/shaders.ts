@@ -1,4 +1,5 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
+import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
 
 export const badgeLimit = 18
@@ -86,7 +87,7 @@ Look resolve(uint mask, Look look, int table) {
 }
 `
 
-const nodeData = `
+export const nodeData: string = `
 uniform sampler2D nodePosition;
 uniform sampler2D nodeStyle;
 uniform usampler2D nodePaint;
@@ -111,7 +112,7 @@ vec2 badgeCenter(vec2 xy, vec4 style, uint corner) {
 }
 `
 
-const edgeData = `
+export const edgeData: string = `
 uniform usampler2D edgeTopology;
 uniform sampler2D edgeStyle;
 uniform usampler2D edgeState;
@@ -256,7 +257,7 @@ void main() {
 }
 `
 
-export const edgeVertex: string = `${header}${nodeData}${edgeData}
+export const edgeVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 in vec3 corner;
 in uint instance;
 out vec2 vPos;
@@ -282,7 +283,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  if (topology.x == topology.y || style.z != 0.0) {
+  if (topology.x == topology.y || style.z != 0.0 || pathOf(instance).y > 1u) {
     gl_Position = hidden;
     return;
   }
@@ -341,7 +342,7 @@ void main() {
 
 const segments = curveSegments.toFixed(1)
 
-export const curveVertex: string = `${header}${nodeData}${edgeData}
+export const curveVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 in vec3 corner;
 in uint instance;
 out vec2 vPos;
@@ -395,7 +396,7 @@ void main() {
   uint mask = texelFetch(edgeState, t, 0).r;
   bool highlighted = (mask & highlightMask) != 0u;
   bool loop = topology.x == topology.y;
-  if ((packed & 16u) == 0u || (!loop && style.z == 0.0) || (overlay == 0 && (int(packed >> 5u) != layerSlot || highlighted))) {
+  if ((packed & 16u) == 0u || (!loop && style.z == 0.0) || (overlay == 0 && (int(packed >> 5u) != layerSlot || highlighted)) || pathOf(instance).y > 1u) {
     gl_Position = hidden;
     return;
   }
@@ -545,7 +546,7 @@ void main() {
 }
 `
 
-export const labelVertex: string = `${header}${nodeData}${edgeData}
+export const labelVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 uniform float atlasFontSize;
 in vec2 corner;
 in uint glyphNode;
@@ -596,7 +597,17 @@ void edgeGlyph(uint kind) {
   float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0));
   vec2 spot;
   vec2 axis;
-  if (topology.x == topology.y) {
+  uvec4 path = pathOf(glyphNode);
+  if (path.y > 1u) {
+    vec2 a0 = texelFetch(nodePosition, s, 0).xy;
+    vec2 d0 = texelFetch(nodePosition, e, 0).xy;
+    int middle = (int(path.y) - 1) / 2;
+    spot = toScreen(pathPoint(path, middle, a0, d0, style.z));
+    vec2 tangent = toScreen(pathPoint(path, middle + 1, a0, d0, style.z)) - toScreen(pathPoint(path, middle - 1, a0, d0, style.z));
+    float tangentLength = length(tangent);
+    vec2 dir = tangentLength > 0.0 ? tangent / tangentLength : vec2(1.0, 0.0);
+    axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
+  } else if (topology.x == topology.y) {
     float reach = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * style.z);
     spot = a + reach * vec2(0.70710678, -0.70710678);
     axis = vec2(0.70710678, 0.70710678);

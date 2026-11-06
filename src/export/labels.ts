@@ -1,4 +1,5 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
+import type { EdgePaths } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
 import type { StateBuffers } from '../core/state-buffers'
 import type { LabelMode } from '../host/renderer'
@@ -21,6 +22,7 @@ export interface LabelSource {
   readonly positions: Positions
   readonly states: StateBuffers
   readonly boxes?: Float32Array | null
+  readonly bundles?: EdgePaths | null
 }
 
 export interface Box {
@@ -77,6 +79,7 @@ export function selectLabels(
       largestEdgeLabel: sortedEdges.largest,
       mode,
       sink,
+      paths: source.bundles ?? null,
     },
     measure,
   )

@@ -1,9 +1,51 @@
-import { containerShape, type EdgeColumns, type NodeColumns } from '../core/columns'
+import {
+  containerShape,
+  type EdgeColumns,
+  type NodeColumns,
+  noColor,
+  placementCodes,
+} from '../core/columns'
 import type { Hierarchy } from '../core/hierarchy'
 import type { Positions } from '../core/positions'
 import type { Key, LayoutGraph, LayoutGroups } from '../types'
+import { atlasFontSize } from '../webgl/glyph-atlas'
+import { lineHeight, secondaryFactor } from '../webgl/label-layer'
+import { labelGap, nodeLabelSize, plateDrop } from '../webgl/shaders'
 
 const circle = 2
+const characterWidth = 0.6
+
+function labelSpace(nodes: NodeColumns, order: readonly number[]): Float32Array | undefined {
+  let space: Float32Array | undefined
+  for (const index of order) {
+    const label = nodes.label[index]
+    const placement = nodes.labelPlacement[index] ?? placementCodes.top
+    if (!label || placement === placementCodes.center) continue
+    const size = nodes.labelSize[index] || nodeLabelSize
+    const lines = label.split('\n')
+    const secondary = nodes.secondary[index]?.split('\n') ?? []
+    const gap = labelGap + (nodes.outlineWidth[index] ?? 0)
+    const plated = (nodes.labelBackground[index] ?? noColor) !== noColor
+    const drop = plated ? (plateDrop * size) / atlasFontSize : 0
+    const height = (lines.length + secondary.length * secondaryFactor) * lineHeight * size
+    let longest = 0
+    for (const line of [...lines, ...secondary]) longest = Math.max(longest, line.length)
+    const limit = nodes.labelMaxWidth[index] ?? 0
+    const wide = longest * characterWidth * size
+    const width = limit > 0 ? Math.min(wide, limit) : wide
+    space ??= new Float32Array(nodes.capacity * 4)
+    const side =
+      placement === placementCodes.top
+        ? 0
+        : placement === placementCodes.right
+          ? 1
+          : placement === placementCodes.bottom
+            ? 2
+            : 3
+    space[index * 4 + side] = gap + (side % 2 === 0 ? height + drop : width)
+  }
+  return space
+}
 
 export interface LayoutContainers {
   readonly indices: ReadonlySet<number>
@@ -44,7 +86,14 @@ function groupsOf(
     padding[index] = nodes.padding[index] ?? 0
     round[index] = nodes.container[index] === circle ? 1 : 0
   }
-  return { order: Uint32Array.from(order), parent, padding, circle: round }
+  const space = labelSpace(nodes, order)
+  return {
+    order: Uint32Array.from(order),
+    parent,
+    padding,
+    circle: round,
+    ...(space ? { labelSpace: space } : {}),
+  }
 }
 
 export function layoutGraph(

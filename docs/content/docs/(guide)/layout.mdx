@@ -45,8 +45,9 @@ layers({ direction: 'right', root: 'start', layerSpacing: 80, nodeSpacing: 16 })
 - **Order.** The nodes of each layer are sorted to cross as few edges as possible, and each sits close to its neighbors in the layers next to it. Edges are drawn straight. An edge that skips layers holds a place in each layer it crosses, so other nodes tend to keep clear of it.
 - **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart.
 - **Components.** Separate parts of the graph and lone nodes sit side by side, the largest first, wrapped in rows.
+- **Groups.** Unfolded groups share the layers of the rest of the graph, and each one stays a single box on every layer it spans. See [groups in layouts](#groups).
 
-The result is centered on the current center of the nodes it moves. Nodes with `x` and `y` in your data keep their place, and their edges are left out. A graph with 10,000 nodes and 15,000 edges is laid out in a few tens of milliseconds, and one with 50,000 nodes in a few hundred. Edges that skip many layers cost more.
+The result is centered on the current center of the nodes it moves. Nodes with `x` and `y` in your data keep their place, and their edges are left out. A graph with 10,000 nodes and 15,000 edges is laid out in a few tens of milliseconds, and one with 50,000 nodes in a few hundred. Edges that skip many layers cost more. Groups add about half: 40 milliseconds instead of 28 for 10,000 nodes in about 100 groups nested three deep, half a second instead of a quarter for 50,000 nodes in 500 groups.
 
 ## Grid, rings and radial
 
@@ -77,7 +78,9 @@ Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nest
 <LiveExample slug="nested-groups" />
 
 - **`force`.** The members of a group pull toward its center, `cohesion` sets how hard. Edges between groups pull whole groups toward each other rather than tearing members out. As the layout cools, containers push each other apart, and nodes outside a group are pushed out of its container. A last pass removes the remaining overlaps, deepest groups first, keeping `groupSpacing` around each container. Both engines do the same.
-- **`layers`, `grid`, `rings` and `radial`.** Each group is laid out on its own with the same layout, from the deepest groups up. In the group above it, a group stands in as a single node the size of its container, and the nodes directly inside a group are laid out together first, as one more block. A grid of groups is a grid of blocks, layers of groups are layers of blocks. The blocks are then pushed apart where they still overlap.
+- **`layers`.** The whole graph shares one set of layers, so edges between groups point in the layer direction like the others. A group spans the layers from its first member to its last, and on each of them its members sit side by side, nested groups inside, with room for the padding and the label of every container. An edge that leaves a group goes out through the side its layers flow toward and comes into the next group from the other side: it crosses container borders only where it has to. Groups keep their members close in the direction of the layers, so a long chain makes a tall group.
+- **`grid`, `rings` and `radial`.** Each group is laid out on its own with the same layout, from the deepest groups up. In the group above it, a group stands in as a single node the size of its container, and the nodes directly inside a group are laid out together first, as one more block. A grid of groups is a grid of blocks. The blocks are then pushed apart where they still overlap.
+- **Fixed nodes and circles.** With `layers`, when some nodes do not move, because they have `x` and `y` in your data or were left out of the run, or when a container is a circle, the containers are pushed apart after the layout, as with the other layouts.
 - **Unfolding.** With a layout in the definition, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`. Nodes it shows for the first time are laid out like new nodes.
 
 On 50,000 nodes in about 400 groups nested three deep, the force layout takes about twice as long on the GPU (1 second instead of 0.5) and about 13% longer on the CPU (14 seconds instead of 12.5).
@@ -235,7 +238,7 @@ export function circle(radius = 300): Layout {
 }
 ```
 
-- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. `keys[index]` is the key of a node, and `datum(index)` the item it comes from. With unfolded groups, `groups` gives the group of each node and the padding of each container; a layout that ignores it still works, but it does not keep containers apart.
+- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. `keys[index]` is the key of a node, and `datum(index)` the item it comes from. With unfolded groups, `groups` gives the group of each node, the padding of each container and the room its label takes outside it; a layout that ignores it still works, but it does not keep containers apart.
 - It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place. Ending without progress makes nodes glide to the result.
 - It returns `pin(index, x, y)`, called when a node is dragged or set during the run, and `stop()`, after which it must not call the listener again.
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.

@@ -1,13 +1,17 @@
 import { defineGraph, edges, type Layout, mountGraph, nodes } from '@bruno00o/graph'
 import { grid, type LayersDirection, layers, radial, rings } from '@bruno00o/graph/layouts'
 import { force } from '@bruno00o/graph/layouts/force'
-import { createHierarchy, type Item, type Link } from '../shared/data'
+import { createHierarchy, type Item, type Link, nestHierarchy } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
 
 type Kind = keyof typeof messages.layoutKinds
 
-const { items, links } = createHierarchy(160, 220)
+const params = new URLSearchParams(location.search)
+const grouped = params.get('groups') === 'nested'
+const sample = createHierarchy(160, 220)
+const { links } = sample
+const items = grouped ? nestHierarchy(sample) : sample.items
 const directions = Object.keys(messages.directions) as LayersDirection[]
 let direction: LayersDirection = 'down'
 const layouts: Record<Kind, Layout> = {
@@ -26,13 +30,19 @@ const graph = mountGraph(main, {
   definition: defineGraph({
     marks: [
       edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
-      nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' }),
+      nodes<Item>(items, {
+        color: 'group',
+        size: 'weight',
+        label: 'label',
+        parent: 'parent',
+        container: { padding: 14 },
+      }),
     ],
     scales: { size: { range: [10, 26] } },
     layout: layouts.layers,
     interaction: { lasso: true },
   }),
-  ariaLabel: messages.graphLabel(formatNumber(items.length), formatNumber(links.length)),
+  ariaLabel: messages.graphLabel(formatNumber(sample.items.length), formatNumber(links.length)),
 })
 
 const progress = status()
@@ -77,6 +87,18 @@ header.append(
       const select = kindChoice.querySelector('select')
       if (select) select.value = kind
       void graph.layout.run(layouts.layers, { fit: true })
+    },
+  ),
+  choice(
+    messages.groupMode,
+    (['none', 'nested'] as const).map((value) => ({
+      value,
+      text: messages.hierarchyGroupModes[value],
+    })),
+    grouped ? 'nested' : 'none',
+    (value) => {
+      params.set('groups', value)
+      location.search = params.toString()
     },
   ),
   button(messages.arrange, () => {

@@ -8,6 +8,7 @@ import {
   parallelCurve,
   sampleCubic,
 } from './edge-curve'
+import { type EdgePaths, maxPathPoints } from './edge-paths'
 import type { Positions } from './positions'
 
 export type PickHit =
@@ -19,6 +20,7 @@ export interface PickSource {
   readonly edges: EdgeColumns
   readonly positions: Positions
   readonly order: (kind: 'nodes' | 'edges', index: number) => number
+  readonly paths?: EdgePaths | null
 }
 
 interface Frame {
@@ -47,6 +49,20 @@ const extraFloor = 4096
 const extraShare = 8
 const edgeShare = 24
 const maxLevel = 31
+
+function distanceToPolyline(points: Float64Array, count: number, x: number, y: number): number {
+  let best = Number.POSITIVE_INFINITY
+  for (let k = 0; k + 1 < count; k++) {
+    const ax = points[k * 2] ?? 0
+    const ay = points[k * 2 + 1] ?? 0
+    const dx = (points[k * 2 + 2] ?? 0) - ax
+    const dy = (points[k * 2 + 3] ?? 0) - ay
+    const squared = dx * dx + dy * dy
+    const t = squared > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / squared)) : 0
+    best = Math.min(best, Math.hypot(x - ax - dx * t, y - ay - dy * t))
+  }
+  return best
+}
 
 function pickable(nodes: NodeColumns, index: number): boolean {
   return nodes.alive[index] === 1 && nodes.shape[index] !== containerShape
@@ -260,6 +276,7 @@ export class PickIndex {
   #extraEdges: Extra = emptyExtra()
   #extraLoops: number[] = []
   #reindexed = 0
+  #polyline: Float64Array = new Float64Array(maxPathPoints * 2)
 
   build(source: PickSource): void {
     const { nodes, edges, positions } = source
@@ -318,8 +335,8 @@ export class PickIndex {
         this.#loops.push(index)
         continue
       }
-      if ((edges.bend[index] ?? 0) === 0) continue
-      const points = sampleCubic(this.#parallel(source, index), indexSegments)
+      const points = this.#shape(source, index)
+      if (!points) continue
       for (let at = 0; at < points.length; at += 2) {
         minX = Math.min(minX, points[at] ?? minX)
         maxX = Math.max(maxX, points[at] ?? maxX)
@@ -408,13 +425,13 @@ export class PickIndex {
       const frame = this.#levels[level]
       const base = this.#bases[level] ?? 0
       if (!frame) continue
-      if ((edges.bend[index] ?? 0) === 0) {
+      const points = this.#shape(source, index)
+      if (!points) {
         const ax = positions.x(from)
         const ay = positions.y(from)
         spread(frame, base, ax, ay, positions.x(to), positions.y(to), counts, items, index)
         continue
       }
-      const points = sampleCubic(this.#parallel(source, index), indexSegments)
       for (let at = 0; at + 3 < points.length; at += 2) {
         const ax = points[at] ?? 0
         const ay = points[at + 1] ?? 0
@@ -506,10 +523,12 @@ export class PickIndex {
         this.#extraLoops.push(index, generation)
         continue
       }
-      const points =
-        (edges.bend[index] ?? 0) === 0
-          ? [positions.x(from), positions.y(from), positions.x(to), positions.y(to)]
-          : sampleCubic(this.#parallel(source, index), indexSegments)
+      const points = this.#shape(source, index) ?? [
+        positions.x(from),
+        positions.y(from),
+        positions.x(to),
+        positions.y(to),
+      ]
       if (!insideFrame(frame, points)) {
         this.#extraEdges.loose.push(index, generation)
         continue
@@ -565,13 +584,13 @@ export class PickIndex {
     const { edges, positions } = source
     const from = edges.source[index] ?? 0
     const to = edges.target[index] ?? 0
-    if ((edges.bend[index] ?? 0) === 0) {
+    const points = this.#shape(source, index)
+    if (!points) {
       return (
         Math.abs(positions.x(to) - positions.x(from)) +
         Math.abs(positions.y(to) - positions.y(from))
       )
     }
-    const points = sampleCubic(this.#parallel(source, index), indexSegments)
     let length = 0
     for (let at = 0; at + 3 < points.length; at += 2) {
       length +=
@@ -585,11 +604,11 @@ export class PickIndex {
     const { edges, positions } = source
     const from = edges.source[index] ?? 0
     const to = edges.target[index] ?? 0
-    if ((edges.bend[index] ?? 0) === 0) {
+    const points = this.#shape(source, index)
+    if (!points) {
       traverse(frame, positions.x(from), positions.y(from), positions.x(to), positions.y(to), emit)
       return
     }
-    const points = sampleCubic(this.#parallel(source, index), indexSegments)
     for (let at = 0; at + 3 < points.length; at += 2) {
       traverse(
         frame,
@@ -600,6 +619,16 @@ export class PickIndex {
         emit,
       )
     }
+  }
+
+  #shape(source: PickSource, index: number): ArrayLike<number> | null {
+    const paths = source.paths
+    if (paths && paths.count(index) > 1) {
+      const count = paths.polyline(index, source.edges, source.positions, paths.mix, this.#polyline)
+      return this.#polyline.subarray(0, count * 2)
+    }
+    if ((source.edges.bend[index] ?? 0) === 0) return null
+    return sampleCubic(this.#parallel(source, index), indexSegments)
   }
 
   #parallel(source: PickSource, index: number): Cubic {
@@ -668,6 +697,14 @@ export class PickIndex {
       if (edges.alive[index] !== 1) return
       const s = edges.source[index] ?? 0
       const t = edges.target[index] ?? 0
+      const paths = source.paths
+      if (paths && paths.count(index) > 1) {
+        if (seen.has(index)) return
+        seen.add(index)
+        const count = paths.polyline(index, edges, positions, paths.mix, this.#polyline)
+        consider(index, distanceToPolyline(this.#polyline, count, x, y))
+        return
+      }
       if ((edges.bend[index] ?? 0) !== 0) {
         if (seen.has(index)) return
         seen.add(index)

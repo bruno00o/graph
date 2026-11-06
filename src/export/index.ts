@@ -104,11 +104,19 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       width: snapshot.width,
       height: snapshot.height,
       hulls: snapshot.hulls.shapes,
+      bundles: snapshot.bundles,
     },
     { region, zoom: options.zoom, padding },
   )
   if (region === 'graph' && labels !== 'none') {
-    const source = { nodes: scene.nodes, edges: scene.edges, positions, states, boxes }
+    const source = {
+      nodes: scene.nodes,
+      edges: scene.edges,
+      positions,
+      states,
+      boxes,
+      bundles: snapshot.bundles,
+    }
     frame = fitLabels(source, frame, labels, measure, padding)
   }
   if (!(frame.width >= 1 && frame.height >= 1)) {
@@ -204,6 +212,7 @@ export async function exportSvg<S extends string>(
     grid: current.grid,
     hulls: current.hulls.shapes,
     containers: current.containers,
+    bundles: current.bundles,
     palette: current.palette,
     theme: current.theme,
     frame,

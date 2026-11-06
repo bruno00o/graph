@@ -75,6 +75,7 @@ export function instant(
   name: string,
   options: object,
   compute: (graph: LayoutGraph) => Float32Array,
+  blocks = true,
 ): Layout {
   return Object.freeze({
     name,
@@ -83,7 +84,7 @@ export function instant(
     start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
       let stopped = false
       queueMicrotask(() => {
-        if (!stopped) listener.end(inBlocks(graph, compute))
+        if (!stopped) listener.end(blocks ? inBlocks(graph, compute) : compute(graph))
       })
       return {
         pin() {},

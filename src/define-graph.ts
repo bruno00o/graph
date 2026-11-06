@@ -107,6 +107,10 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
   for (const hull of options.hulls ?? []) {
     if (hull?.type !== 'hull') throw new TypeError('defineGraph: every hull must come from hull()')
   }
+  const bundling = options.bundling ?? null
+  if (bundling !== null && typeof bundling.start !== 'function') {
+    throw new TypeError('defineGraph: bundling must have a start function')
+  }
   if (freeStateNames(options.states ?? {}).length > maxFreeStates) {
     throw new RangeError(
       `defineGraph: at most ${maxFreeStates} states besides selected, hovered and focused`,
@@ -125,5 +129,6 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     }),
     background: resolveBackground(options.background),
     hulls: Object.freeze([...(options.hulls ?? [])]),
+    bundling,
   })
 }

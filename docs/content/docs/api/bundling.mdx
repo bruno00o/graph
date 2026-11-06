@@ -1,0 +1,54 @@
+---
+title: densityBundling
+description: Edge bundling by density, computed in a Web Worker.
+---
+
+```ts
+import { densityBundling } from '@bruno00o/graph/bundling'
+
+function densityBundling(options?: DensityBundlingOptions): EdgeBundling
+```
+
+Returns a frozen [`EdgeBundling`](/docs/api/define-graph#bundling) named `'density'`. Pass it as `bundling` to `defineGraph`. See [Edge bundling](/docs/bundling) for a walkthrough.
+
+## Options
+
+```ts
+interface DensityBundlingOptions {
+  readonly strength?: number
+  readonly radius?: number
+  readonly iterations?: number
+  readonly maxEdges?: number
+}
+```
+
+<api-table path="bundling/index.ts" name="DensityBundlingOptions" />
+
+`strength` and `radius` are clamped between 0 and 1, `iterations` is rounded and at most 64. A non-finite value falls back to its default.
+
+## Result
+
+```ts
+interface DensityBundlingSettings {
+  readonly radius: number
+  readonly iterations: number
+}
+```
+
+<api-table path="bundling/index.ts" name="DensityBundlingSettings" />
+
+`bundling.options` holds the resolved settings, and `bundling.strength` and `bundling.maxEdges` the other two options. Two `densityBundling()` calls with the same settings and `maxEdges` are equal for the graph: a new definition with an equal bundling does not compute again, and one that only changes `strength` eases the drawn edges to it.
+
+## Behavior
+
+- Each edge is cut into points about 1/120 of the larger side of the graph apart. Every pass spreads the points into a density grid, blurs it over the current reach, moves each point up the density slope, smooths each edge and spaces its points evenly again. The reach shrinks at each pass, so wide bundles form first and tighten after.
+- Points near the ends of an edge move less, and edges shorter than one and a half times the first reach move less in proportion: short edges stay close to straight.
+- The result is the same for the same positions.
+- The computation runs in a Web Worker shipped inside the package, created from a `blob:` URL. Without `Worker`, when the content security policy refuses `worker-src blob:`, or when the worker fails, it runs on the main thread in slices of 8 milliseconds.
+
+## Exports
+
+| Export | Kind |
+| --- | --- |
+| `densityBundling` | function |
+| `DensityBundlingOptions`, `DensityBundlingSettings` | types |

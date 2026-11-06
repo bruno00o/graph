@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { densityBundling } from './bundling'
 import {
   type AggregateEdge,
   defineGraph,
+  type EdgeBundling,
   type EdgeDatum,
   type EdgeMark,
   type EdgeTarget,
@@ -218,6 +220,38 @@ describe('typed data', () => {
     graph.update({ definition: defineGraph({ marks: [] }) })
     // @ts-expect-error
     graph.update({ definition: defineGraph({ marks: [nodes(companies)] }) })
+  })
+
+  it('types the edge items that a bundling reads', () => {
+    const reading: EdgeBundling<Link | Ownership> = {
+      name: 'reading',
+      options: {},
+      strength: 1,
+      maxEdges: 10,
+      start(graph, listener) {
+        expectTypeOf(graph.datum(0)).toEqualTypeOf<Link | Ownership | undefined>()
+        listener.end({ offsets: new Uint32Array(1), points: new Float32Array(0) })
+        return { stop: () => {} }
+      },
+    }
+    defineGraph({
+      marks: [
+        nodes(people),
+        edges(links, { source: 'from', target: 'to' }),
+        edges(ownerships, { source: 'owner', target: 'company' }),
+      ],
+      bundling: reading,
+    })
+    defineGraph({
+      marks: [nodes(people), edges(links, { source: 'from', target: 'to' })],
+      bundling: densityBundling(),
+    })
+    const companyBundling = densityBundling() as EdgeBundling<Company>
+    defineGraph({
+      marks: [nodes(people), edges(links, { source: 'from', target: 'to' })],
+      // @ts-expect-error
+      bundling: companyBundling,
+    })
   })
 
   it('types the items that layouts compare', () => {

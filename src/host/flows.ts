@@ -1,3 +1,4 @@
+import type { EdgePaths } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { type StateBuffers, wordFloat } from '../core/state-buffers'
@@ -10,6 +11,7 @@ export interface FlowWatchOptions {
   readonly element: HTMLElement
   readonly version: () => number
   readonly wake: () => void
+  readonly paths?: EdgePaths
 }
 
 export interface FlowWatch {
@@ -86,7 +88,9 @@ export function createFlowWatch(options: FlowWatchOptions): FlowWatch {
     const y1 = xy[source * 2 + 1] ?? 0
     const x2 = xy[target * 2] ?? 0
     const y2 = xy[target * 2 + 1] ?? 0
-    const reach = (edges.bend[index] ?? 0) !== 0 ? Math.hypot(x2 - x1, y2 - y1) * curveReach : 0
+    const reach =
+      ((edges.bend[index] ?? 0) !== 0 ? Math.hypot(x2 - x1, y2 - y1) * curveReach : 0) +
+      (options.paths?.reach[index] ?? 0)
     return (
       Math.max(x1, x2) + reach >= left &&
       Math.min(x1, x2) - reach <= right &&

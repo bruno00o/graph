@@ -5,6 +5,7 @@ export interface Item {
   readonly weight: number
   readonly x: number
   readonly y: number
+  readonly parent?: string | null
 }
 
 export interface Link {
@@ -134,7 +135,12 @@ export function createCommunities(nodeCount: number, edgeCount: number, seed = 1
   return { items, links }
 }
 
-export function createHierarchy(nodeCount: number, edgeCount: number, seed = 5): Sample {
+export interface Hierarchy extends Sample {
+  readonly level: Uint32Array
+  readonly place: Float64Array
+}
+
+export function createHierarchy(nodeCount: number, edgeCount: number, seed = 5): Hierarchy {
   const next = random(seed)
   const depth = Math.max(2, Math.round(Math.log2(Math.max(nodeCount, 2)) * 1.3))
   const roots = Math.max(1, Math.min(nodeCount, Math.round(nodeCount / 50)))
@@ -156,6 +162,14 @@ export function createHierarchy(nodeCount: number, edgeCount: number, seed = 5):
   })
   const groupOf = new Uint32Array(nodeCount)
   const degree = new Uint32Array(nodeCount)
+  const level = new Uint32Array(nodeCount)
+  const place = new Float64Array(nodeCount)
+  levels.forEach((nodes, depthAt) => {
+    nodes.forEach((node, at) => {
+      level[node] = depthAt
+      place[node] = (at + 0.5) / nodes.length
+    })
+  })
   const seen = new Set<string>()
   const links: Link[] = []
   const link = (from: number, to: number) => {
@@ -199,5 +213,47 @@ export function createHierarchy(nodeCount: number, edgeCount: number, seed = 5):
     x: 0,
     y: 0,
   }))
-  return { items, links }
+  return { items, links, level, place }
+}
+
+export function nestHierarchy(sample: Hierarchy, seed = 3): Item[] {
+  const next = random(seed)
+  const tops = Math.max(2, Math.round(sample.items.length / 700))
+  const groups: Item[] = []
+  const letterOf = (top: number) => String.fromCharCode(65 + (top % 26))
+  const container = (id: string, label: string, top: number, parent: string | null): Item => ({
+    id,
+    label,
+    group: letterOf(top),
+    weight: 1,
+    x: 0,
+    y: 0,
+    parent,
+  })
+  for (let top = 0; top < tops; top++) {
+    const letter = letterOf(top)
+    groups.push(container(`h${top}`, `Group ${letter}`, top, null))
+    for (let half = 0; half < 2; half++) {
+      const name = `${letter}${half + 1}`
+      groups.push(container(`h${top}-${half}`, `Subgroup ${name}`, top, `h${top}`))
+      for (let quarter = 0; quarter < 2; quarter++) {
+        const inner = `${name}.${quarter + 1}`
+        groups.push(
+          container(`h${top}-${half}-${quarter}`, `Subgroup ${inner}`, top, `h${top}-${half}`),
+        )
+      }
+    }
+  }
+  const members = sample.items.map((item, index): Item => {
+    if ((sample.level[index] ?? 0) === 0) return item
+    const spot = (sample.place[index] ?? 0) * tops
+    const top = Math.min(tops - 1, Math.floor(spot))
+    const quarter = Math.min(3, Math.floor((spot - top) * 4))
+    const half = quarter >> 1
+    const roll = next()
+    const parent =
+      roll < 0.15 ? `h${top}` : roll < 0.35 ? `h${top}-${half}` : `h${top}-${half}-${quarter & 1}`
+    return { ...item, group: letterOf(top), parent }
+  })
+  return [...groups, ...members]
 }
