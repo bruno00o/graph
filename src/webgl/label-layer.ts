@@ -1,5 +1,5 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
-import { noColor } from '../core/columns'
+import { containerShape, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import type { Positions } from '../core/positions'
 import type { LabelMode } from '../host/renderer'
@@ -38,6 +38,7 @@ export interface LabelFrame {
   readonly width: number
   readonly height: number
   readonly nodeMask: Uint32Array
+  readonly boxes?: Float32Array | null
   readonly labelFlags: Int8Array
   readonly highlighted: readonly number[]
   readonly order: Uint32Array
@@ -402,8 +403,9 @@ export class LabelLayer {
       if (!force && !all && minimum > 0 && screenDiameter(nodes, index, view.zoom) < minimum) return
       const x = (positions.x(index) - view.x) * view.zoom + width / 2
       const y = (positions.y(index) - view.y) * view.zoom + height / 2
-      if (x < -cullMargin || x > width + cullMargin) return
-      if (y < -cullMargin || y > height + cullMargin) return
+      const box = nodes.shape[index] === containerShape ? frame.boxes : null
+      if (!box && (x < -cullMargin || x > width + cullMargin)) return
+      if (!box && (y < -cullMargin || y > height + cullMargin)) return
       const block = textBlock(
         atlas,
         label,
@@ -430,7 +432,11 @@ export class LabelLayer {
       const reach =
         placement === 4
           ? 0
-          : screenRadius(nodes, index, view.zoom) + (nodes.outlineWidth[index] ?? 0) + labelGap
+          : (box
+              ? (box[index * 4 + (dx !== 0 ? 0 : 1)] ?? 0) * view.zoom
+              : screenRadius(nodes, index, view.zoom)) +
+            (nodes.outlineWidth[index] ?? 0) +
+            labelGap
       const ox = x + dx * reach
       const oy = y + dy * reach
       const scale = pixels / atlasFontSize

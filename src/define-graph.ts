@@ -23,6 +23,7 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
     drag: options.drag ?? true,
     lasso: options.lasso ?? false,
     keyboard: options.keyboard ?? true,
+    fold: options.fold ?? true,
   })
 }
 

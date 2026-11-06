@@ -1,4 +1,4 @@
-import type { EdgeColumns, NodeColumns } from '../core/columns'
+import { containerShape, type EdgeColumns, type NodeColumns } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach } from '../core/edge-curve'
 import type { Positions } from '../core/positions'
 import type { View } from '../types'
@@ -13,6 +13,7 @@ export interface FrameSource {
   readonly nodes: NodeColumns
   readonly edges: EdgeColumns
   readonly positions: Positions
+  readonly boxes?: Float32Array | null
   readonly view: View
   readonly width: number
   readonly height: number
@@ -27,6 +28,17 @@ export interface FrameOptions {
 export function screenRadius(nodes: NodeColumns, index: number, zoom: number): number {
   const size = nodes.size[index] ?? 0
   return Math.max((nodes.screenUnits[index] === 1 ? size : size * zoom) / 2, 1.25)
+}
+
+export function screenExtent(
+  nodes: NodeColumns,
+  boxes: Float32Array | null | undefined,
+  index: number,
+  zoom: number,
+  axis: 0 | 1,
+): number {
+  if (!boxes || nodes.shape[index] !== containerShape) return screenRadius(nodes, index, zoom)
+  return Math.max((boxes[index * 4 + axis] ?? 0) * zoom, 1.25)
 }
 
 function point(curve: Cubic, t: number): [number, number] {
@@ -54,20 +66,22 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     height: (source.height * zoom) / source.view.zoom,
   }
   if (options.region === 'view') return viewFrame
-  const { nodes, positions } = source
+  const { nodes, positions, boxes } = source
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
   for (let index = 0; index < nodes.capacity; index++) {
     if (nodes.alive[index] !== 1) continue
-    const reach = screenRadius(nodes, index, zoom) + Math.max(0, nodes.outlineWidth[index] ?? 0)
+    const outline = Math.max(0, nodes.outlineWidth[index] ?? 0)
+    const reachX = screenExtent(nodes, boxes, index, zoom, 0) + outline
+    const reachY = screenExtent(nodes, boxes, index, zoom, 1) + outline
     const x = positions.x(index) * zoom
     const y = positions.y(index) * zoom
-    minX = Math.min(minX, x - reach)
-    minY = Math.min(minY, y - reach)
-    maxX = Math.max(maxX, x + reach)
-    maxY = Math.max(maxY, y + reach)
+    minX = Math.min(minX, x - reachX)
+    minY = Math.min(minY, y - reachY)
+    maxX = Math.max(maxX, x + reachX)
+    maxY = Math.max(maxY, y + reachY)
   }
   if (maxX < minX) return viewFrame
   const { edges } = source

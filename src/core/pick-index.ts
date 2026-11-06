@@ -1,4 +1,4 @@
-import type { EdgeColumns, NodeColumns } from './columns'
+import { containerShape, type EdgeColumns, type NodeColumns } from './columns'
 import {
   type Cubic,
   distanceToCubic,
@@ -45,6 +45,10 @@ const indexSegments = 8
 const absent = 0xffffffff
 const extraFloor = 4096
 const extraShare = 8
+
+function pickable(nodes: NodeColumns, index: number): boolean {
+  return nodes.alive[index] === 1 && nodes.shape[index] !== containerShape
+}
 
 function emptyExtra(): Extra {
   return { cells: new Map(), loose: [] }
@@ -200,7 +204,7 @@ export class PickIndex {
     this.#reindexed = 0
     const indexedXy = new Float32Array(nodes.capacity * 2).fill(Number.NaN)
     for (let index = 0; index < nodes.capacity; index++) {
-      if (nodes.alive[index] !== 1) continue
+      if (!pickable(nodes, index)) continue
       const x = positions.x(index)
       const y = positions.y(index)
       indexedXy[index * 2] = x
@@ -265,7 +269,7 @@ export class PickIndex {
     }
     this.#frame = frame
     this.#nodes = createGrid(frame, nodes.capacity, (index, emit) => {
-      if (nodes.alive[index] !== 1) return
+      if (!pickable(nodes, index)) return
       const col = Math.floor((positions.x(index) - minX) / cell)
       const row = Math.floor((positions.y(index) - minY) / cell)
       emit(row * frame.cols + col)
@@ -299,7 +303,7 @@ export class PickIndex {
     let worldRadius = 0
     let screenRadius = 0
     for (let index = 0; index < nodes.capacity; index++) {
-      if (nodes.alive[index] !== 1) continue
+      if (!pickable(nodes, index)) continue
       total++
       const radius = (nodes.size[index] ?? 0) / 2
       if (nodes.screenUnits[index] === 1) screenRadius = Math.max(screenRadius, radius)
@@ -467,7 +471,7 @@ export class PickIndex {
     let best = -1
     let bestOrder = Number.NEGATIVE_INFINITY
     this.#around(this.#nodes, this.#nodeGeneration, this.#extraNodes, x, y, reach, (index) => {
-      if (source.nodes.alive[index] !== 1) return
+      if (!pickable(source.nodes, index)) return
       const distance = Math.hypot(x - source.positions.x(index), y - source.positions.y(index))
       if (distance > this.#radius(source, index, zoom)) return
       const order = source.order('nodes', index)

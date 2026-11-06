@@ -13,13 +13,14 @@ import {
   type TextMeasure,
 } from '../webgl/label-layer'
 import { edgeLabelGap, labelGap } from '../webgl/shaders'
-import { type ExportFrame, screenRadius } from './frame'
+import { type ExportFrame, screenExtent } from './frame'
 
 export interface LabelSource {
   readonly nodes: NodeColumns
   readonly edges: EdgeColumns
   readonly positions: Positions
   readonly states: StateBuffers
+  readonly boxes?: Float32Array | null
 }
 
 export interface Box {
@@ -56,6 +57,7 @@ export function selectLabels(
     {
       nodes,
       positions,
+      boxes: source.boxes ?? null,
       view: frame.view,
       width: frame.width,
       height: frame.height,
@@ -132,7 +134,7 @@ export function fitLabels(
       const reach =
         label.placement === 4
           ? 0
-          : screenRadius(nodes, index, zoom) +
+          : screenExtent(nodes, source.boxes, index, zoom, dx !== 0 ? 0 : 1) +
             Math.max(0, nodes.outlineWidth[index] ?? 0) +
             labelGap
       const ox = x(index) + dx * reach

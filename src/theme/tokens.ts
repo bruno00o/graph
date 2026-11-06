@@ -57,6 +57,10 @@ export interface Defaults {
   readonly badgeFill: string
   readonly badgeInk: string
   readonly badgeRing: string
+  readonly groupFill: string
+  readonly groupStroke: string
+  readonly groupStrokeWidth: number
+  readonly groupPadding: number
 }
 
 export const defaults: Defaults = {
@@ -74,6 +78,10 @@ export const defaults: Defaults = {
   badgeFill: themeColor('badge-fill'),
   badgeInk: themeColor('badge-ink'),
   badgeRing: themeColor('node-ring'),
+  groupFill: themeColor('group-fill'),
+  groupStroke: themeColor('group-line'),
+  groupStrokeWidth: 1,
+  groupPadding: 16,
 }
 
 export const ringWidth = 2

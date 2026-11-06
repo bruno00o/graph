@@ -1,4 +1,12 @@
-import type { BadgeCorner, EdgeArrow, EdgeDash, Key, LabelPlacement, NodeShape } from '../types'
+import type {
+  BadgeCorner,
+  ContainerShape,
+  EdgeArrow,
+  EdgeDash,
+  Key,
+  LabelPlacement,
+  NodeShape,
+} from '../types'
 
 export interface NodeBadge {
   readonly corner: number
@@ -9,6 +17,13 @@ export interface NodeBadge {
 }
 
 export const noColor = 0xffffffff
+
+export const containerShape = 3
+
+export const containerCodes: Readonly<Record<ContainerShape, number>> = {
+  rectangle: 1,
+  circle: 2,
+}
 
 export const cornerCodes: Readonly<Record<BadgeCorner, number>> = {
   topLeft: 0,
@@ -86,10 +101,14 @@ export class NodeColumns {
   imageScale: Float32Array = new Float32Array(0)
   imageColor: Uint32Array = new Uint32Array(0)
   badges: (readonly NodeBadge[] | null)[] = []
+  container: Uint8Array = new Uint8Array(0)
+  padding: Float32Array = new Float32Array(0)
 
   reserve(index: number): void {
     if (index < this.capacity) return
     const capacity = nextCapacity(this.capacity, index)
+    this.container = grow(this.container, capacity)
+    this.padding = grow(this.padding, capacity)
     this.alive = grow(this.alive, capacity)
     this.slot = grow(this.slot, capacity)
     this.size = grow(this.size, capacity)
@@ -116,6 +135,7 @@ export class NodeColumns {
   clear(index: number): void {
     if (index >= this.capacity) return
     this.alive[index] = 0
+    this.container[index] = 0
     this.keys[index] = undefined
     this.label[index] = null
     this.secondary[index] = null

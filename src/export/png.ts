@@ -39,6 +39,7 @@ function load(renderer: Renderer, snapshot: GraphSnapshot): void {
     positionsChanged: true,
     states: copyStates(snapshot.states),
     full: true,
+    ...(snapshot.containers ? { containers: snapshot.containers } : {}),
   }
   renderer.sync(input)
 }

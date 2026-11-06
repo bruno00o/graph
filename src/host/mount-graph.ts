@@ -1,8 +1,16 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
+import { containerShape } from '../core/columns'
 import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
 import { nodesInside } from '../core/lasso'
 import { PickIndex, type PickSource } from '../core/pick-index'
-import { type PositionMoves, Positions, placeNodes } from '../core/positions'
+import {
+  goldenAngle,
+  type PositionMoves,
+  Positions,
+  placementSpacing,
+  placeNodes,
+} from '../core/positions'
+import { Projection, type ProjectionChanges } from '../core/projection'
 import { createScene } from '../core/scene'
 import { shallowEqual } from '../core/shallow-equal'
 import { nearestNode, nodeToward } from '../core/spatial'
@@ -33,12 +41,14 @@ import type {
   View,
 } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
+import { ContainerBoxes } from './containers'
 import {
   type ElementKeys,
   type ElementKeysInput,
   Emitter,
   type GraphEventHandler,
   type GraphEventName,
+  type GraphFoldEvent,
   type GraphTarget,
 } from './events'
 import { exposeSnapshot } from './export-source'
@@ -68,6 +78,8 @@ export interface GraphState<S extends string = string> {
   readonly positionsVersion: number
   /** Status of the current layout run. */
   readonly layout: GraphLayoutStatus
+  /** Keys of the folded groups. */
+  readonly folded: readonly Key[]
 }
 
 /** Status of the current layout run. */
@@ -164,6 +176,29 @@ export interface GraphStates<N extends string = string> {
   has(name: N, element: GraphElement): boolean
 }
 
+/**
+ * Folding of the groups declared by the `parent` channel of `nodes()`. A folded key with no node yet
+ * applies when the group arrives. When `folded` is controlled, changes go to `onFoldChange`.
+ */
+export interface GraphGroups {
+  /** Keys of the folded groups. */
+  folded(): readonly Key[]
+  /** Whether the group is folded. */
+  isFolded(key: Key): boolean
+  /** Folds the given groups, or every group, nested ones included, without argument. */
+  fold(keys?: Iterable<Key>): void
+  /** Unfolds the given groups, or every group without argument. */
+  unfold(keys?: Iterable<Key>): void
+  /** Folds the group if it is unfolded, unfolds it otherwise. */
+  toggle(key: Key): void
+  /** Replaces the folded groups. */
+  set(keys: Iterable<Key>): void
+  /** Key of the group that contains the node, if any. */
+  parent(key: Key): Key | undefined
+  /** Keys of the nodes the group contains directly. */
+  children(key: Key): Key[]
+}
+
 /** Options of `layout.run`. */
 export interface LayoutRunOptions {
   /** Nodes to lay out. The others stay still and act as anchors. */
@@ -215,6 +250,15 @@ export interface MountGraphOptions<S extends string = string> {
   readonly selection?: ElementKeysInput
   /** Receives every selection request in controlled mode, instead of the selection changing. */
   readonly onSelectionChange?: (selection: ElementKeys) => void
+  /** Groups folded at mount, by key. Later changes go through `groups`. */
+  readonly initialFolded?: Iterable<Key>
+  /**
+   * Folded groups. Passing it makes folding controlled for the life of the graph: requests go to
+   * `onFoldChange` and only `update({ folded })` applies them.
+   */
+  readonly folded?: Iterable<Key>
+  /** Receives every fold request in controlled mode, instead of the folded groups changing. */
+  readonly onFoldChange?: (event: GraphFoldEvent) => void
 }
 
 /** A mounted graph, returned by `mountGraph` and by the ref of `<Graph>`. */
@@ -233,6 +277,8 @@ export interface GraphInstance<S extends string = string> {
   readonly positions: GraphPositions
   /** Layout runs. */
   readonly layout: GraphLayout
+  /** Folding of nested groups. */
+  readonly groups: GraphGroups
   /** The `div` added to the container, which holds the canvas. */
   readonly element: HTMLElement
   /** Element under a point in screen pixels, nodes before edges, or `null`. */
@@ -246,10 +292,10 @@ export interface GraphInstance<S extends string = string> {
   /** Subscribes to an event. Returns the function that unsubscribes. */
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
   /**
-   * Applies a new `definition`, `ariaLabel`, `onSelectionChange` or controlled `selection`.
-   * Positions, view and selection stay.
+   * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, controlled
+   * `selection` or controlled `folded`. Positions, view and selection stay.
    */
-  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView'>>): void
+  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView' | 'initialFolded'>>): void
   /** Removes the element and frees every resource. A layout run in progress resolves to `false`. */
   destroy(): void
 }
@@ -388,6 +434,8 @@ export function createGraphHost<S extends string = string>(
   let definition: GraphDefinition = options.definition
   const controlled = options.selection !== undefined
   let onSelectionChange = options.onSelectionChange
+  const foldControlled = options.folded !== undefined
+  let onFoldChange = options.onFoldChange
   let warnedEmpty = false
   const element = document.createElement('div')
   element.setAttribute('data-graph', '')
@@ -438,7 +486,14 @@ export function createGraphHost<S extends string = string>(
   const scene = createScene()
   const positions = new Positions()
   const buffers = new StateBuffers()
-  const registry = new StateRegistry(model, buffers)
+  const projection = new Projection(model)
+  const hierarchy = projection.hierarchy
+  const containerBoxes = new ContainerBoxes()
+  const foldOrigins = new Map<number, readonly [number, number]>()
+  const registry = new StateRegistry(model, buffers, {
+    indexOf: (key) => projection.edgeIndexOf(key),
+    keysAt: (index) => projection.keysAt(index),
+  })
   const emitter = new Emitter()
   const pickIndex = new PickIndex()
   const themeResolver = new ThemeResolver(element)
@@ -446,6 +501,7 @@ export function createGraphHost<S extends string = string>(
 
   registry.define(freeStateNames(definition.states))
   if (options.selection !== undefined) registry.set('selected', options.selection)
+  projection.setFolded(options.folded ?? options.initialFolded ?? [])
   const store = createStore<GraphState>({
     view: options.initialView ?? { x: 0, y: 0, zoom: 1 },
     width: 0,
@@ -456,6 +512,7 @@ export function createGraphHost<S extends string = string>(
     states: freeStates(),
     positionsVersion: 0,
     layout: idleLayout,
+    folded: [...projection.folded],
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
 
@@ -549,14 +606,36 @@ export function createGraphHost<S extends string = string>(
     })
   }
 
+  function syncContainers(): void {
+    if (!projection.active) return
+    containerBoxes.sync(
+      projection.containers,
+      projection.containerVersion,
+      hierarchy,
+      scene.nodes,
+      positions,
+      sceneVersion,
+      store.get().view.zoom,
+    )
+  }
+
   function bounds(keys?: Iterable<Key>): Bounds | null {
     const nodes = scene.nodes
+    syncContainers()
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY
     let maxY = Number.NEGATIVE_INFINITY
     const include = (index: number) => {
       if (nodes.alive[index] !== 1) return
+      if (nodes.shape[index] === containerShape) {
+        const box = containerBoxes.bounds(index, positions)
+        minX = Math.min(minX, box.minX)
+        minY = Math.min(minY, box.minY)
+        maxX = Math.max(maxX, box.maxX)
+        maxY = Math.max(maxY, box.maxY)
+        return
+      }
       const radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
       minX = Math.min(minX, positions.x(index) - radius)
       minY = Math.min(minY, positions.y(index) - radius)
@@ -599,6 +678,7 @@ export function createGraphHost<S extends string = string>(
   }
 
   function pickAt(point: Point): GraphTarget | null {
+    syncContainers()
     if (!gesture?.drag && (pickedScene !== sceneVersion || pickedPositions !== positions.version)) {
       pickIndex.refresh(pickSource)
       pickedScene = sceneVersion
@@ -606,9 +686,96 @@ export function createGraphHost<S extends string = string>(
     }
     const world = toWorld(store.get().view, viewport(), point)
     const hit = pickIndex.pick(pickSource, world.x, world.y, store.get().view.zoom, pickTolerance)
-    if (!hit) return null
+    if (!hit) {
+      const index = projection.active ? containerBoxes.pick(world.x, world.y, positions) : -1
+      const key = index >= 0 ? scene.nodes.keys[index] : undefined
+      return key === undefined ? null : target('node', key)
+    }
     const key = hit.kind === 'node' ? scene.nodes.keys[hit.index] : scene.edges.keys[hit.index]
-    return key === undefined ? null : target(hit.kind, key)
+    if (key === undefined) return null
+    const aggregate = hit.kind === 'edge' ? projection.aggregateAt(hit.index) : null
+    const found = target(hit.kind, key)
+    return found && aggregate ? { ...found, kind: 'edge', aggregate } : found
+  }
+
+  function groupLinks(): Uint32Array {
+    const nodes = scene.nodes
+    const pairs: number[] = []
+    const member = (index: number): number => {
+      let at = index
+      while (at >= 0 && nodes.shape[at] === containerShape) {
+        let next = -1
+        for (
+          let child = hierarchy.firstChild[at] ?? -1;
+          child >= 0 && next < 0;
+          child = hierarchy.nextSibling[child] ?? -1
+        ) {
+          if (nodes.alive[child] === 1) next = child
+        }
+        at = next
+      }
+      return at >= 0 && nodes.alive[at] === 1 ? at : -1
+    }
+    for (const container of projection.containers) {
+      let hub = -1
+      for (
+        let child = hierarchy.firstChild[container] ?? -1;
+        child >= 0;
+        child = hierarchy.nextSibling[child] ?? -1
+      ) {
+        const found = member(child)
+        if (found < 0) continue
+        if (hub < 0) hub = found
+        else pairs.push(hub, found)
+      }
+    }
+    return Uint32Array.from(pairs)
+  }
+
+  function isGroup(key: Key): boolean {
+    const index = model.node(key)?.index ?? -1
+    return index >= 0 && (hierarchy.childCount[index] ?? 0) > 0
+  }
+
+  function applyFolded(next: Iterable<Key>): void {
+    const folded = [...new Set(next)]
+    if (sameList(store.get().folded, folded)) return
+    projection.setFolded(folded)
+    patch({ folded })
+    emitter.emit('foldchange', { folded })
+    request(true)
+  }
+
+  function requestFolded(next: Iterable<Key>): void {
+    const folded = [...new Set(next)]
+    if (!foldControlled) {
+      applyFolded(folded)
+      return
+    }
+    if (!sameList(store.get().folded, folded)) onFoldChange?.({ folded })
+  }
+
+  function allGroups(): Key[] {
+    const keys: Key[] = []
+    for (let index = 0; index < hierarchy.capacity; index++) {
+      const key = hierarchy.keys[index]
+      if (
+        hierarchy.present[index] === 1 &&
+        (hierarchy.childCount[index] ?? 0) > 0 &&
+        key !== undefined
+      )
+        keys.push(key)
+    }
+    return keys
+  }
+
+  function toggleFold(key: Key): void {
+    const folded = store.get().folded
+    requestFolded(
+      projection.folded.has(key)
+        ? folded.filter((each) => !Object.is(each, key))
+        : [...folded, key],
+    )
   }
 
   function publishSelection(): void {
@@ -634,12 +801,17 @@ export function createGraphHost<S extends string = string>(
   function setHovered(next: GraphTarget | null, event: MouseEvent | null): void {
     const current = store.get().hovered
     if (sameTarget(current, next)) return
-    registry.set('hovered', next ? { [kindOf[next.kind]]: [next.key] } : {})
+    registry.set('hovered', next ? keysOf(next) : {})
     patch({ hovered: next })
     if (current && event) emitter.emit('pointerleave', { target: current, originalEvent: event })
     if (next && event) emitter.emit('pointerenter', { target: next, originalEvent: event })
     updateCursor()
     request()
+  }
+
+  function keysOf(element: GraphTarget): ElementKeysInput {
+    if (element.kind === 'edge' && element.aggregate) return { edges: element.aggregate.keys }
+    return { [kindOf[element.kind]]: [element.key] }
   }
 
   function nodePoint(key: Key): Point | null {
@@ -771,6 +943,10 @@ export function createGraphHost<S extends string = string>(
       case 'fit':
         return fitTo(undefined, { duration: keyDuration })
       case 'activate':
+        if (action.toggle && interaction.fold && focused?.kind === 'node' && isGroup(focused.key)) {
+          toggleFold(focused.key)
+          return true
+        }
         if (!focused || interaction.select === false) return false
         selectTarget(focused, action.additive)
         return true
@@ -832,7 +1008,9 @@ export function createGraphHost<S extends string = string>(
     const size = viewport()
     const polygon = points.map((point) => toWorld(view, size, point))
     const inside = nodesInside(polygon, scene.nodes, positions).filter(
-      (key) => !registry.has('selected', 'nodes', key),
+      (key) =>
+        !registry.has('selected', 'nodes', key) &&
+        scene.nodes.shape[model.node(key)?.index ?? -1] !== containerShape,
     )
     if (inside.length === 0) return
     const current = registry.members('selected')
@@ -861,6 +1039,16 @@ export function createGraphHost<S extends string = string>(
     }
     const kind = kindOf[clicked.kind]
     const current = registry.members('selected')
+    const merged = clicked.kind === 'edge' ? clicked.aggregate?.keys : undefined
+    if (merged) {
+      const all = merged.every((key) => registry.has('selected', 'edges', key))
+      const others = additive ? current.edges.filter((key) => !merged.includes(key)) : []
+      requestSelection({
+        nodes: additive ? current.nodes : [],
+        edges: additive && all ? others : [...others, ...merged],
+      })
+      return
+    }
     if (!additive) requestSelection({ ...noKeys, [kind]: [clicked.key] })
     else if (registry.has('selected', kind, clicked.key))
       requestSelection({ ...current, [kind]: current[kind].filter((key) => key !== clicked.key) })
@@ -870,17 +1058,111 @@ export function createGraphHost<S extends string = string>(
   function flushChanges(): void {
     const start = clock()
     const changes = model.flush()
+    const projected = projection.apply(changes)
     const flushed = clock()
-    scene.apply(model, changes)
+    scene.apply(projection.view, projected.scene)
     const applied = clock()
-    applyChanges(changes)
-    probe?.flushed(flushed - start, applied - flushed, changes.issues)
+    applyChanges(changes, projected)
+    probe?.flushed(flushed - start, applied - flushed, projected.scene.issues)
   }
 
-  function applyChanges(changes: GraphChanges): void {
+  function placeFoldedGroups(
+    changes: GraphChanges,
+    projected: ProjectionChanges,
+    tracked: (index: number) => boolean,
+  ): Set<number> {
+    const grouped = new Set<number>()
+    let added: Set<number> | null = null
+    const fresh = new Set(projected.fresh)
+    for (const { index } of projected.scene.nodes.added) {
+      if (hierarchy.folded[index] !== 1 || (hierarchy.childCount[index] ?? 0) === 0) continue
+      added ??= new Set(changes.nodes.added.map((ref) => ref.index))
+      if (!tracked(index) && (added.has(index) || fresh.has(index))) {
+        let minX = Number.POSITIVE_INFINITY
+        let minY = Number.POSITIVE_INFINITY
+        let maxX = Number.NEGATIVE_INFINITY
+        let maxY = Number.NEGATIVE_INFINITY
+        hierarchy.forEachDescendant(index, (descendant) => {
+          if (!tracked(descendant) && !projection.seen(descendant)) return
+          const x = positions.x(descendant)
+          const y = positions.y(descendant)
+          minX = Math.min(minX, x)
+          minY = Math.min(minY, y)
+          maxX = Math.max(maxX, x)
+          maxY = Math.max(maxY, y)
+        })
+        if (maxX >= minX) {
+          positions.set(index, (minX + maxX) / 2, (minY + maxY) / 2)
+          grouped.add(index)
+        }
+      }
+      if (!foldOrigins.has(index)) foldOrigins.set(index, [positions.x(index), positions.y(index)])
+    }
+    return grouped
+  }
+
+  function revealPositions(changes: GraphChanges, projected: ProjectionChanges): number[] {
+    for (const { index } of changes.nodes.removed) foldOrigins.delete(index)
+    for (const group of projected.folded) {
+      foldOrigins.set(group, [positions.x(group), positions.y(group)])
+    }
+    const tracked = (index: number) => !Number.isNaN(positions.source[index * 2] ?? Number.NaN)
+    const opened = new Set<number>()
+    for (const group of projected.unfolded) {
+      opened.add(group)
+      const origin = foldOrigins.get(group)
+      foldOrigins.delete(group)
+      if (!origin) continue
+      const dx = positions.x(group) - origin[0]
+      const dy = positions.y(group) - origin[1]
+      if (dx === 0 && dy === 0) continue
+      hierarchy.forEachDescendant(group, (index) => {
+        const nested = foldOrigins.get(index)
+        if (nested) foldOrigins.set(index, [nested[0] + dx, nested[1] + dy])
+        if (!tracked(index)) positions.set(index, positions.x(index) + dx, positions.y(index) + dy)
+      })
+    }
+    const grouped = projection.active
+      ? placeFoldedGroups(changes, projected, tracked)
+      : new Set<number>()
+    if (projected.revealed.length === 0) return []
+    const fresh = new Set(projected.fresh)
+    const anchorOf = (index: number): number => {
+      for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
+        if (opened.has(at)) return at
+      }
+      return -1
+    }
+    const indices: number[] = []
+    const to: number[] = []
+    const placed: number[] = []
+    for (const index of projected.revealed) {
+      const anchor = anchorOf(index)
+      if (anchor < 0 || tracked(index) || scene.nodes.shape[index] === containerShape) continue
+      const ax = positions.x(anchor)
+      const ay = positions.y(anchor)
+      if (fresh.has(index) && !grouped.has(index)) {
+        const ring = positions.nextRing(anchor)
+        const angle = ring * goldenAngle
+        const radius = placementSpacing * Math.sqrt(ring + 1)
+        positions.set(index, ax + radius * Math.cos(angle), ay + radius * Math.sin(angle))
+        placed.push(index)
+        continue
+      }
+      indices.push(index)
+      to.push(positions.x(index), positions.y(index))
+      positions.set(index, ax, ay)
+    }
+    movePositions(indices, to, definition.transitions.layout)
+    return placed
+  }
+
+  function applyChanges(changes: GraphChanges, projected: ProjectionChanges): void {
     followPositions(placeNodes(model, positions, changes))
+    const fresh = revealPositions(changes, projected)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const result = registry.apply(changes)
+    registry.refreshEdges(projected.edges)
     sceneVersion++
     applyLayers()
     if (result.selection) {
@@ -888,7 +1170,11 @@ export function createGraphHost<S extends string = string>(
       if (controlled) onSelectionChange?.(registry.members('selected'))
     }
     const hovered = store.get().hovered
-    if (result.hovered) {
+    if (hovered && !result.hovered && concealed(hovered)) {
+      registry.set('hovered', {})
+      patch({ hovered: null })
+      updateCursor()
+    } else if (result.hovered) {
       patch({ hovered: null })
       updateCursor()
     } else if (hovered) {
@@ -896,20 +1182,35 @@ export function createGraphHost<S extends string = string>(
       if (fresh && fresh.datum !== hovered.datum) patch({ hovered: fresh })
     }
     const focused = store.get().focused
-    if (result.focused) {
+    if (focused && !result.focused && concealed(focused)) {
+      const index = focused.kind === 'node' ? (model.node(focused.key)?.index ?? -1) : -1
+      const holder = index >= 0 ? hierarchy.keys[hierarchy.representative(index)] : undefined
+      setFocused(holder !== undefined ? target('node', holder) : null)
+    } else if (result.focused) {
       patch({ focused: null })
       emitter.emit('focuschange', { target: null })
     } else if (focused) {
       const fresh = target(focused.kind, focused.key)
       if (fresh && fresh.datum !== focused.datum) patch({ focused: fresh })
     }
-    followLayout(changes)
+    followLayout(changes, fresh)
   }
 
-  function followLayout(changes: GraphChanges): void {
+  function concealed(element: GraphTarget): boolean {
+    if (element.kind === 'node') {
+      const index = model.node(element.key)?.index ?? -1
+      return index >= 0 && !projection.nodeShown(index)
+    }
+    return model.edge(element.key) !== undefined && projection.edgeIndexOf(element.key) < 0
+  }
+
+  function followLayout(changes: GraphChanges, revealed: readonly number[]): void {
     const layout = definition.layout
     if (!layout) return
-    const added = changes.nodes.added
+    const added = [
+      ...changes.nodes.added.filter((ref) => projection.nodeShown(ref.index)),
+      ...revealed.map((index) => ({ index })),
+    ]
     if (relayout || !laidOut) {
       if (!relayout && added.length === 0) return
       relayout = false
@@ -1007,7 +1308,11 @@ export function createGraphHost<S extends string = string>(
     let maxX = Number.NEGATIVE_INFINITY
     let maxY = Number.NEGATIVE_INFINITY
     const include = (index: number, x: number, y: number) => {
-      const radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
+      if (nodes.shape[index] === containerShape) return
+      let radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
+      for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
+        if (nodes.shape[at] === containerShape) radius += nodes.padding[at] ?? 0
+      }
       minX = Math.min(minX, x - radius)
       minY = Math.min(minY, y - radius)
       maxX = Math.max(maxX, x + radius)
@@ -1062,6 +1367,7 @@ export function createGraphHost<S extends string = string>(
       store.get().view.zoom,
       (index) => movable(index) && !dragged?.has(index),
       (key) => model.node(key)?.datum,
+      projection.active ? groupLinks() : undefined,
     )
     if (!graph.movable.includes(1)) return false
     for (let index = 0; index < Math.min(graph.capacity, animationOwner.length); index++) {
@@ -1266,9 +1572,18 @@ export function createGraphHost<S extends string = string>(
     const dirty = scene.takeDirty()
     if (dirty.palette || scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    syncContainers()
     const positionsChanged = positions.version !== positionsVersion
     const syncStart = clock()
-    renderer.sync({ scene, dirty, positions, positionsChanged, states: buffers, full })
+    renderer.sync({
+      scene,
+      dirty,
+      positions,
+      positionsChanged,
+      states: buffers,
+      full,
+      ...(projection.active ? { containers: containerBoxes } : {}),
+    })
     const synced = clock()
     full = false
     if (positionsChanged) {
@@ -1326,11 +1641,21 @@ export function createGraphHost<S extends string = string>(
     const world = toWorld(store.get().view, viewport(), point)
     const keys: Key[] = []
     const indices: number[] = []
+    const taken = new Set<number>()
+    const take = (index: number) => {
+      const key = scene.nodes.keys[index]
+      if (taken.has(index) || key === undefined || scene.nodes.alive[index] !== 1) return
+      taken.add(index)
+      if (scene.nodes.shape[index] === containerShape) {
+        hierarchy.forEachDescendant(index, take)
+        return
+      }
+      keys.push(key)
+      indices.push(index)
+    }
     for (const key of group) {
       const record = model.node(key)
-      if (!record) continue
-      keys.push(key)
-      indices.push(record.index)
+      if (record) take(record.index)
     }
     const offsets = new Float32Array(indices.length * 2)
     indices.forEach((index, i) => {
@@ -1462,7 +1787,10 @@ export function createGraphHost<S extends string = string>(
   }
 
   function onDoubleClick(event: MouseEvent): void {
-    emitter.emit('doubleclick', pointerEvent(event, pickAt(local(event))))
+    const hit = pickAt(local(event))
+    emitter.emit('doubleclick', pointerEvent(event, hit))
+    if (event.defaultPrevented || !definition.interaction.fold) return
+    if (hit?.kind === 'node' && isGroup(hit.key)) toggleFold(hit.key)
   }
 
   function onContextMenu(event: MouseEvent): void {
@@ -1557,7 +1885,7 @@ export function createGraphHost<S extends string = string>(
     get: () => store.get().focused,
     set: (next) => {
       const resolved = next ? target(next.kind, next.key) : null
-      if (next && !resolved) return
+      if (next && (!resolved || concealed(resolved))) return
       if (resolved && definition.interaction.keyboard) element.focus({ preventScroll: true })
       setFocused(resolved, true)
     },
@@ -1595,6 +1923,7 @@ export function createGraphHost<S extends string = string>(
         indices.push(record.index)
         to.push(point.x, point.y)
         moved.set(key, { x: point.x, y: point.y })
+        projection.markSeen(record.index)
       }
       const run = session?.run
       if (run) {
@@ -1631,6 +1960,38 @@ export function createGraphHost<S extends string = string>(
     stop: () => stopLayout(),
   }
 
+  const groups: GraphGroups = {
+    folded: () => store.get().folded,
+    isFolded: (key) => projection.folded.has(key),
+    fold: (keys) => requestFolded([...store.get().folded, ...(keys ?? allGroups())]),
+    unfold: (keys) => {
+      if (!keys) return requestFolded([])
+      const removed = new Set(keys)
+      requestFolded(store.get().folded.filter((key) => !removed.has(key)))
+    },
+    toggle: (key) => toggleFold(key),
+    set: (keys) => requestFolded(keys),
+    parent: (key) => {
+      const index = model.node(key)?.index ?? -1
+      const parent = index >= 0 ? (hierarchy.parent[index] ?? -1) : -1
+      return parent >= 0 ? hierarchy.keys[parent] : undefined
+    },
+    children: (key) => {
+      const index = model.node(key)?.index ?? -1
+      const children: Key[] = []
+      if (index < 0) return children
+      for (
+        let child = hierarchy.firstChild[index] ?? -1;
+        child >= 0;
+        child = hierarchy.nextSibling[child] ?? -1
+      ) {
+        const childKey = hierarchy.keys[child]
+        if (childKey !== undefined) children.push(childKey)
+      }
+      return children.reverse()
+    },
+  }
+
   function inspection(): GraphInspection {
     if (counted !== sceneVersion) {
       counted = sceneVersion
@@ -1651,6 +2012,7 @@ export function createGraphHost<S extends string = string>(
     states,
     positions: positionsApi,
     layout: layoutApi,
+    groups,
     element,
     pick: (point) => pickAt(point),
     neighbors: (key) => model.neighbors(key),
@@ -1663,6 +2025,8 @@ export function createGraphHost<S extends string = string>(
       if (controlled && next.selection !== undefined && registry.set('selected', next.selection)) {
         publishSelection()
       }
+      if (next.onFoldChange !== undefined) onFoldChange = next.onFoldChange
+      if (foldControlled && next.folded !== undefined) applyFolded(next.folded)
       if (next.definition && next.definition !== definition) {
         const previous = definition.layout
         definition = next.definition
@@ -1724,12 +2088,14 @@ export function createGraphHost<S extends string = string>(
     registry.takeHighlighted()
     if (scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    syncContainers()
     request()
     const { view, width, height } = store.get()
     return {
       scene,
       positions,
       states: buffers,
+      containers: projection.active ? containerBoxes : null,
       palette: paletteColors,
       theme: themeResolver.theme(),
       view,

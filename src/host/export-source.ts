@@ -3,12 +3,13 @@ import type { Scene } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { View } from '../types'
-import type { Renderer } from './renderer'
+import type { ContainerFrame, Renderer } from './renderer'
 
 export interface GraphSnapshot {
   readonly scene: Scene
   readonly positions: Positions
   readonly states: StateBuffers
+  readonly containers: ContainerFrame | null
   readonly palette: Uint8Array
   readonly theme: ResolvedTheme
   readonly view: View
