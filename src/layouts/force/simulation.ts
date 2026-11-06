@@ -262,7 +262,10 @@ export class ForceSimulation {
           settings.edgeLength,
         )
       : null
-    this.#lift = this.tree ? liftOf(this.tree, this.#springs.ends, this.#springs.count) : null
+    this.#lift =
+      this.tree && this.#groups
+        ? liftOf(this.tree, this.#groups.rigid, this.#springs.ends, this.#springs.count)
+        : null
   }
 
   get fixed(): Uint8Array {

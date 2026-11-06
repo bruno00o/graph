@@ -88,7 +88,12 @@ export function discPush(
   return [(qx / d) * (reach - d), (qy / d) * (reach - d)]
 }
 
-export function liftOf(tree: GroupTree, ends: Uint32Array, count: number): Int32Array {
+export function liftOf(
+  tree: GroupTree,
+  rigid: Uint8Array,
+  ends: Uint32Array,
+  count: number,
+): Int32Array {
   const lift = new Int32Array(count * 2).fill(-1)
   const depthOf = (slot: number) => (slot < 0 ? -1 : (tree.depth[slot] ?? 0))
   for (let k = 0; k < count; k++) {
@@ -110,14 +115,15 @@ export function liftOf(tree: GroupTree, ends: Uint32Array, count: number): Int32
       above = b
       b = tree.parent[b] ?? -1
     }
-    lift[k * 2] = below
-    lift[k * 2 + 1] = above
+    lift[k * 2] = below >= 0 && rigid[below] === 1 ? below : -1
+    lift[k * 2 + 1] = above >= 0 && rigid[above] === 1 ? above : -1
   }
   return lift
 }
 
 export class GroupForces {
   readonly pull: Float64Array
+  readonly rigid: Uint8Array
   readonly #tree: GroupTree
   readonly #leaves: Uint32Array
   readonly #radius: Float32Array
@@ -163,6 +169,7 @@ export class GroupForces {
     const { mass, rigid } = groupMasses(tree, alive, movable)
     this.#mass = mass
     this.#rigid = rigid
+    this.rigid = rigid
     this.#cohesion = cohesion
     this.#gap = gap
     this.#limit = limit

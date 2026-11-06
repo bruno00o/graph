@@ -7,6 +7,7 @@ export interface Item {
   readonly weight: number
   readonly x: number
   readonly y: number
+  readonly parent?: string | null
 }
 
 export interface Link {
@@ -30,6 +31,12 @@ function random(seed: number): () => number {
 export interface Sample {
   readonly items: Item[]
   readonly links: Link[]
+}
+
+export interface Communities extends Sample {
+  readonly community: Uint32Array
+  readonly sizes: readonly number[]
+  readonly parent: readonly number[]
 }
 
 export function createSample(
@@ -76,7 +83,7 @@ export function createSample(
   return { items, links }
 }
 
-export function createCommunities(nodeCount: number, edgeCount: number, seed = 11): Sample {
+export function createCommunities(nodeCount: number, edgeCount: number, seed = 11): Communities {
   const next = random(seed)
   const sizes: number[] = []
   let total = 0
@@ -134,7 +141,36 @@ export function createCommunities(nodeCount: number, edgeCount: number, seed = 1
     x: 0,
     y: 0,
   }))
-  return { items, links }
+  return { items, links, community: groupOf, sizes, parent }
+}
+
+export function nestCommunities(sample: Communities, smallest: number, depth: number): Item[] {
+  const { sizes, parent, community } = sample
+  const level = new Int32Array(sizes.length).fill(-1)
+  const holder = new Int32Array(sizes.length).fill(-1)
+  const groups: Item[] = []
+  sizes.forEach((size, at) => {
+    if (size < smallest) return
+    let up = at > 0 ? (parent[at] ?? 0) : -1
+    while (up >= 0 && level[up] === -1) up = up > 0 ? (parent[up] ?? 0) : -1
+    if (up >= 0 && (level[up] ?? 0) + 1 >= depth) up = holder[up] ?? -1
+    level[at] = up >= 0 ? (level[up] ?? 0) + 1 : 0
+    holder[at] = up
+    groups.push({
+      id: `c${at}`,
+      label: messages.group(formatNumber(at + 1)),
+      group: messages.group(String.fromCharCode(65 + (at % 12))),
+      weight: 1,
+      x: 0,
+      y: 0,
+      parent: up >= 0 ? `c${up}` : null,
+    })
+  })
+  const members = sample.items.map((item, index) => {
+    const at = community[index] ?? 0
+    return level[at] === -1 ? item : { ...item, parent: `c${at}` }
+  })
+  return [...groups, ...members]
 }
 
 export function createHierarchy(nodeCount: number, edgeCount: number, seed = 5): Sample {
