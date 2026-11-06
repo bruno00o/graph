@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/bruno00o/graph/compare/0.2.0...0.3.0) (2026-11-06)
+
+
+### Features
+
+* draw images, icons and corner badges on nodes ([#20](https://github.com/bruno00o/graph/issues/20)) ([6493446](https://github.com/bruno00o/graph/commit/649344638faa2640b5e3c3ecb1d33b506e867b78))
+* navigate, select and zoom from the keyboard ([#23](https://github.com/bruno00o/graph/issues/23)) ([b58c13e](https://github.com/bruno00o/graph/commit/b58c13ea4c77bdc79f6403d3d96541ec9a924cb2))
+* select nodes with a lasso drawn with shift and drag ([#22](https://github.com/bruno00o/graph/issues/22)) ([7be468e](https://github.com/bruno00o/graph/commit/7be468e3f894db0398eec12b9912ef0c9a51dff3))
+
 ## [0.2.0](https://github.com/bruno00o/graph/compare/0.1.0...0.2.0) (2026-11-06)
 
 
