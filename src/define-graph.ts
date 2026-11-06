@@ -45,6 +45,7 @@ function resolveBackground(
     spacing: Number.isFinite(spacing) && spacing > 0 ? spacing : defaultGridSpacing,
     color: options.color ?? themeColor('grid'),
     majorColor: options.majorColor ?? themeColor('grid-major'),
+    adaptive: options.adaptive !== false,
   })
 }
 

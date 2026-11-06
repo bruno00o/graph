@@ -72,7 +72,12 @@ const define = () =>
     marks: [linkMark, itemMark],
     scales: { size: { range: [8, 22] } },
     layout,
-    background: background === 'none' ? null : { grid: background },
+    background:
+      background === 'none'
+        ? null
+        : background === 'zoomDots'
+          ? { grid: 'dots', spacing: 20, adaptive: false, majorColor: 'var(--graph-grid)' }
+          : { grid: background },
     hulls: hulls(),
     interaction: { lasso: true },
   })
