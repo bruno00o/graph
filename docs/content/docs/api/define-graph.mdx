@@ -73,8 +73,17 @@ interface LayoutGraph {
   readonly xy: Float32Array
   readonly radius: Float32Array
   readonly edges: Uint32Array
+  readonly groupLinks?: Uint32Array
+  readonly groups?: LayoutGroups
   readonly keys: readonly (Key | undefined)[]
   datum(index: number): unknown
+}
+
+interface LayoutGroups {
+  readonly order: Uint32Array
+  readonly parent: Int32Array
+  readonly padding: Float32Array
+  readonly circle: Uint8Array
 }
 
 interface LayoutListener {
@@ -93,6 +102,10 @@ interface LayoutRun {
 `start` receives a `LayoutGraph`, whose arrays are indexed by the internal index of each node:
 
 <api-table path="index.ts" name="LayoutGraph" />
+
+When groups are unfolded, `groups` describes them. Their containers are not nodes of the layout (`alive` is `0` at their index), but their index has a key and an item. A layout that ignores `groups` still works: the graph does not move containers apart for it.
+
+<api-table path="index.ts" name="LayoutGroups" />
 
 The layout reports positions through a `LayoutListener`:
 

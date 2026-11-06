@@ -149,10 +149,10 @@ export const examples: readonly ExampleEntry[] = [
     slug: 'nested-groups',
     title: 'Nested groups',
     description:
-      'Nodes in nested groups. Fold a group into a single node: the edges that cross it merge into one edge per pair, styled by their count.',
+      'Nodes in nested groups, laid out by forces that keep every container whole. Fold a group into a single node: the edges that cross it merge into one edge per pair, styled by their count.',
     hint: 'Double-click a group to fold or unfold it. Drag a group by its border to move everything inside.',
     tags: ['Vanilla'],
-    modules: ['@bruno00o/graph'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/layouts/force'],
     files: ['groups/main.ts', 'shared/messages.ts', 'shared/overlays.css'],
     load: () => import('./groups/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },

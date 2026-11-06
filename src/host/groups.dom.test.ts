@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import type { GraphDefinition, Key } from '../types'
+import type { GraphDefinition, Key, Layout } from '../types'
 import type { GraphTarget } from './events'
 import { createGraphHost, type GraphInstance, type MountGraphOptions } from './mount-graph'
 import type { RenderInput } from './renderer'
@@ -270,5 +270,47 @@ describe('groups', () => {
     dom.flushFrames()
     expect(graph.positions.get('a')?.x).toBeCloseTo((a?.x ?? 0) + 300)
     expect(graph.positions.get('a')?.y).toBeCloseTo((a?.y ?? 0) - 40)
+  })
+})
+
+describe('groups with a layout', () => {
+  it('pushes free nodes out of a group that unfolds', async () => {
+    const still: Layout = {
+      name: 'still',
+      options: {},
+      start: (graph, listener) => {
+        queueMicrotask(() => listener.end(graph.xy))
+        return { pin: () => {}, stop: () => {} }
+      },
+    }
+    const items: Item[] = [
+      { id: 'g' },
+      { id: 'a', parent: 'g' },
+      { id: 'b', parent: 'g' },
+      { id: 'e' },
+    ]
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>(items, { parent: 'parent', container: { padding: 10 } })],
+        transitions: { layout: 0 },
+        layout: still,
+      }),
+    )
+    await Promise.resolve()
+    graph.groups.fold(['g'])
+    dom.flushFrames()
+    await Promise.resolve()
+    const a = graph.positions.get('a') ?? { x: 0, y: 0 }
+    const b = graph.positions.get('b') ?? { x: 0, y: 0 }
+    graph.positions.set([['e', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }]])
+    graph.groups.unfold(['g'])
+    dom.flushFrames()
+    const after = ['a', 'b'].map((key) => graph.positions.get(key) ?? { x: 0, y: 0 })
+    const e = graph.positions.get('e') ?? { x: 0, y: 0 }
+    const minX = Math.min(...after.map((point) => point.x))
+    const maxX = Math.max(...after.map((point) => point.x))
+    const minY = Math.min(...after.map((point) => point.y))
+    const maxY = Math.max(...after.map((point) => point.y))
+    expect(Math.max(minX - e.x, e.x - maxX, minY - e.y, e.y - maxY)).toBeGreaterThan(20)
   })
 })

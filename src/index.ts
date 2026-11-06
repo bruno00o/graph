@@ -85,6 +85,7 @@ export type {
   LabelWeight,
   Layout,
   LayoutGraph,
+  LayoutGroups,
   LayoutListener,
   LayoutRun,
   LiveSource,

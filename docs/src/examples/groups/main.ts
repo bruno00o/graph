@@ -7,6 +7,7 @@ import {
   mountGraph,
   nodes,
 } from '@bruno00o/graph'
+import { force } from '@bruno00o/graph/layouts/force'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
 
@@ -15,8 +16,6 @@ interface Item {
   readonly label: string
   readonly parent: string | null
   readonly tone: string
-  readonly x?: number
-  readonly y?: number
 }
 
 interface Link {
@@ -39,8 +38,6 @@ for (const [at, name] of ['A', 'B', 'C', 'D'].entries()) {
   const group = `g${name}`
   items.push({ id: group, label: messages.group(name), parent: null, tone: name })
   const nested = at % 2 === 0 ? 2 : 1
-  const centerX = at % 2 === 0 ? -300 : 300
-  const centerY = at < 2 ? -200 : 200
   for (let inner = 1; inner <= nested; inner++) {
     const subgroup = `${group}${inner}`
     const parent = nested > 1 ? subgroup : group
@@ -54,19 +51,9 @@ for (const [at, name] of ['A', 'B', 'C', 'D'].entries()) {
     }
     const members: string[] = []
     const count = 4 + Math.floor(random() * 4)
-    const x = nested > 1 ? centerX + (inner === 1 ? -120 : 120) : centerX
-    const radius = 30 + count * 8
     for (let index = 1; index <= count; index++) {
       const id = `${parent}-${index}`
-      const angle = (index / count) * Math.PI * 2
-      items.push({
-        id,
-        label: messages.member(`${name}${inner}-${index}`),
-        parent,
-        tone: name,
-        x: x + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
-      })
+      items.push({ id, label: messages.member(`${name}${inner}-${index}`), parent, tone: name })
       members.push(id)
     }
     for (const [index, id] of members.entries()) {
@@ -76,15 +63,8 @@ for (const [at, name] of ['A', 'B', 'C', 'D'].entries()) {
     leaves.push(members)
   }
 }
-for (const [at, id] of ['x', 'y'].entries()) {
-  items.push({
-    id,
-    label: messages.member(id.toUpperCase()),
-    parent: null,
-    tone: 'E',
-    x: 0,
-    y: at === 0 ? -20 : 20,
-  })
+for (const id of ['x', 'y']) {
+  items.push({ id, label: messages.member(id.toUpperCase()), parent: null, tone: 'E' })
   leaves.push([id])
 }
 for (let at = 0; at < 12; at++) {
@@ -107,8 +87,6 @@ const definition = defineGraph({
       },
     }),
     nodes<Item>(items, {
-      x: 'x',
-      y: 'y',
       parent: 'parent',
       color: 'tone',
       label: 'label',
@@ -116,6 +94,7 @@ const definition = defineGraph({
     }),
   ],
   scales: { width: (value) => 1 + value },
+  layout: force(),
 })
 
 function button(text: string, onClick: () => void): HTMLButtonElement {

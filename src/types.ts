@@ -690,10 +690,29 @@ export interface LayoutGraph<T = unknown> {
    * member is paired with one other member of its group.
    */
   readonly groupLinks?: Uint32Array
-  /** Key of each node, `undefined` for a free slot. */
+  /**
+   * Unfolded groups, drawn as containers around their members. Missing when no group is unfolded.
+   */
+  readonly groups?: LayoutGroups
+  /** Key of each node or unfolded group, `undefined` for a free slot. */
   readonly keys: readonly (Key | undefined)[]
-  /** Item a node comes from, as given to `nodes()`. `undefined` for a free slot. */
+  /** Item a node or an unfolded group comes from, as given to `nodes()`. `undefined` otherwise. */
   datum(index: number): T | undefined
+}
+
+/**
+ * Unfolded groups of a `LayoutGraph`, by internal index. An unfolded group is not a node of the
+ * layout: its `alive` is `0`, and its container fits its members plus its padding.
+ */
+export interface LayoutGroups {
+  /** Indices of the unfolded groups, each after the group that holds it. */
+  readonly order: Uint32Array
+  /** Unfolded group that directly holds each node or group, `-1` at the top level. */
+  readonly parent: Int32Array
+  /** Space between the members of each group and its outline, in world units. */
+  readonly padding: Float32Array
+  /** `1` for a group drawn as a circle, `0` for a rectangle. */
+  readonly circle: Uint8Array
 }
 
 /** Receives the positions a layout computes. Every array holds `capacity × 2` numbers. */

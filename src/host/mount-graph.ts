@@ -66,6 +66,7 @@ import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
 import type { Renderer } from './renderer'
+import { clearRoom } from './room'
 import { StateRegistry } from './state-registry'
 
 /** What the store of a graph holds. `S` is the union of the state names, `M` that of the marks. */
@@ -1245,7 +1246,40 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       positions.set(index, ax, ay)
     }
     movePositions(indices, to, definition.transitions.layout)
+    if (definition.layout && indices.length > 0) makeRoom(indices, to)
     return placed
+  }
+
+  function makeRoom(moving: readonly number[], to: readonly number[]): void {
+    const keep = new Set(moving)
+    const dragged = gesture?.drag ? new Set(gesture.drag.indices) : null
+    const graph = layoutGraph(
+      scene.nodes,
+      scene.edges,
+      positions,
+      store.get().view.zoom,
+      (index) => !dragged?.has(index) && (keep.has(index) || (animationOwner[index] ?? 0) === 0),
+      (key) => model.node(key)?.datum,
+      undefined,
+      { indices: projection.containers, hierarchy },
+    )
+    moving.forEach((index, at) => {
+      graph.xy[index * 2] = to[at * 2] ?? 0
+      graph.xy[index * 2 + 1] = to[at * 2 + 1] ?? 0
+    })
+    const xy = clearRoom(graph)
+    if (!xy) return
+    const indices: number[] = []
+    const targets: number[] = []
+    for (let index = 0; index < graph.capacity; index++) {
+      if (graph.movable[index] !== 1) continue
+      const x = xy[index * 2] ?? 0
+      const y = xy[index * 2 + 1] ?? 0
+      if (x === graph.xy[index * 2] && y === graph.xy[index * 2 + 1]) continue
+      indices.push(index)
+      targets.push(x, y)
+    }
+    movePositions(indices, targets, definition.transitions.layout)
   }
 
   function applyChanges(changes: GraphChanges, projected: ProjectionChanges): void {
@@ -1461,6 +1495,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       (index) => movable(index) && !dragged?.has(index),
       (key) => model.node(key)?.datum,
       projection.active ? groupLinks() : undefined,
+      projection.active ? { indices: projection.containers, hierarchy } : undefined,
     )
     if (!graph.movable.includes(1)) return false
     for (let index = 0; index < Math.min(graph.capacity, animationOwner.length); index++) {

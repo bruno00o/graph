@@ -1,6 +1,6 @@
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
 import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
-import { createCommunities, type Item, type Link } from '../shared/data'
+import { createCommunities, type Item, type Link, nestCommunities } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
 
@@ -8,7 +8,8 @@ const sizes = [500, 2_000, 10_000, 50_000, 80_000, 200_000, 500_000]
 const params = new URLSearchParams(location.search)
 const nodeCount = Number(params.get('nodes') ?? 2_000)
 const sample = createCommunities(nodeCount, Math.round(nodeCount * 1.66))
-let items: Item[] = sample.items
+const grouped = params.get('groups') === 'nested'
+let items: Item[] = grouped ? nestCommunities(sample, 24, 3) : sample.items
 let links: Link[] = sample.links
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 const engine = engines.find((value) => value === params.get('engine')) ?? 'auto'
@@ -18,7 +19,13 @@ const define = () =>
   defineGraph({
     marks: [
       edges<Link>(links, { source: 'from', target: 'to' }),
-      nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' }),
+      nodes<Item>(items, {
+        color: 'group',
+        size: 'weight',
+        label: 'label',
+        parent: 'parent',
+        container: { padding: 16 },
+      }),
     ],
     scales: { size: { range: [6, 30] } },
     layout,
@@ -83,6 +90,15 @@ header.append(
     engine,
     (value) => {
       params.set('engine', value)
+      location.search = params.toString()
+    },
+  ),
+  choice(
+    messages.groupMode,
+    (['none', 'nested'] as const).map((value) => ({ value, text: messages.groupModes[value] })),
+    grouped ? 'nested' : 'none',
+    (value) => {
+      params.set('groups', value)
       location.search = params.toString()
     },
   ),

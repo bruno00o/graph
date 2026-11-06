@@ -23,6 +23,49 @@ vec4 clipOf(vec2 cell, vec2 size) {
 const vec4 outside = vec4(2.0, 2.0, 0.0, 1.0);
 `
 
+const groups = `
+uniform sampler2D groupInfo;
+uniform sampler2D groupSums;
+uniform sampler2D groupBoxes;
+uniform int groupWidth;
+uniform int groupHeight;
+uniform int groups;
+uniform int roots;
+uniform float gap;
+uniform float limit;
+uniform float pushing;
+
+ivec2 groupTexel(int slot) {
+  return ivec2(slot % groupWidth, slot / groupWidth);
+}
+
+vec4 boxOf(int slot) {
+  vec4 b = texelFetch(groupBoxes, groupTexel(slot), 0);
+  return vec4(b.z - b.x, b.w - b.y, b.z + b.x, b.w + b.y) * 0.5;
+}
+
+bool filled(int slot) {
+  return texelFetch(groupSums, groupTexel(slot), 0).z > 0.5;
+}
+
+ivec2 childrenOf(int slot) {
+  if (slot < 0) return ivec2(0, roots);
+  vec4 info = texelFetch(groupInfo, groupTexel(slot), 0);
+  return ivec2(int(info.y), int(info.y) + int(info.z));
+}
+`
+
+const lanes = `
+uniform int lanes;
+uniform int laneWidth;
+uniform int laneHeight;
+
+vec4 laneOf(int slot, int item) {
+  int at = slot * lanes + item % lanes;
+  return clipOf(vec2(at % laneWidth, at / laneWidth), vec2(laneWidth, laneHeight));
+}
+`
+
 const frame = `
 uniform sampler2D bounds;
 
@@ -116,10 +159,12 @@ void main() {
 }
 `
 
-export const springVertex: string = `${header}${nodes}
+export const springVertex: string = `${header}${nodes}${lanes}
 layout(location = 0) in vec4 edge;
 layout(location = 1) in float rest;
+layout(location = 2) in float lift;
 uniform float alpha;
+uniform int lifted;
 flat out vec4 value;
 
 void main() {
@@ -128,7 +173,7 @@ void main() {
   ivec2 t = texel(own);
   gl_PointSize = 1.0;
   value = vec4(0.0);
-  if (texelFetch(props, t, 0).z < 0.5) {
+  if (texelFetch(props, t, 0).z < 0.5 || (lift >= 0.0) != (lifted == 1)) {
     gl_Position = outside;
     return;
   }
@@ -142,11 +187,104 @@ void main() {
     span = 1.0e-3;
   }
   value = vec4(d * ((span - rest) / span * alpha * edge.z * edge.w), 0.0, 0.0);
-  gl_Position = clipOf(vec2(t), vec2(width, height));
+  gl_Position = lifted == 1 ? laneOf(int(lift), own) : clipOf(vec2(t), vec2(width, height));
 }
 `
 
-export const integrateFragment: string = `${header}${nodes}${frame}
+export const groupSplatVertex: string = `${header}${nodes}${lanes}
+layout(location = 0) in vec4 pair;
+uniform int mode;
+uniform int groups;
+flat out vec4 value;
+
+void main() {
+  gl_PointSize = 1.0;
+  value = vec4(0.0);
+  if (mode == 1 && pair.w < 0.5) {
+    gl_Position = outside;
+    return;
+  }
+  int slot = int(pair.y);
+  vec2 p = texelFetch(state, texel(int(pair.x)), 0).xy;
+  value = mode == 2 ? vec4(pair.z - p, p + pair.z) : vec4(p, 1.0, 0.0);
+  gl_Position = laneOf(mode == 1 ? groups + slot : slot, int(pair.x));
+}
+`
+
+export const groupReduceFragment: string = `${header}
+uniform sampler2D partialLanes;
+uniform int lanes;
+uniform int laneWidth;
+uniform int groupWidth;
+uniform int entries;
+uniform int mode;
+out vec4 color;
+
+void main() {
+  ivec2 t = ivec2(gl_FragCoord.xy);
+  int slot = t.y * groupWidth + t.x;
+  vec4 total = mode == 1 ? vec4(-3.0e38) : vec4(0.0);
+  if (slot < entries) {
+    for (int lane = 0; lane < lanes; lane++) {
+      int at = slot * lanes + lane;
+      vec4 value = texelFetch(partialLanes, ivec2(at % laneWidth, at / laneWidth), 0);
+      total = mode == 1 ? max(total, value) : total + value;
+    }
+  }
+  color = total;
+}
+`
+
+export const groupSolveFragment: string = `${header}${groups}
+uniform sampler2D groupSprings;
+uniform float drift;
+uniform float boxStiffness;
+out vec4 color;
+
+void main() {
+  ivec2 t = ivec2(gl_FragCoord.xy);
+  int slot = t.y * groupWidth + t.x;
+  color = vec4(0.0);
+  if (slot >= groups) return;
+  vec4 info = texelFetch(groupInfo, t, 0);
+  vec4 sum = texelFetch(groupSums, t, 0);
+  if (info.w <= 0.0 || sum.z < 0.5) return;
+  float mass = info.w;
+  vec2 move = texelFetch(groupSprings, t, 0).xy / mass;
+  int parent = int(info.x);
+  if (parent >= 0) {
+    vec4 up = texelFetch(groupSums, groupTexel(parent), 0);
+    move += (up.xy / up.z - sum.xy / sum.z) * drift;
+  }
+  if (pushing > 0.5) {
+    vec4 a = boxOf(slot);
+    ivec2 range = childrenOf(parent);
+    for (int k = range.x; k < range.y; k++) {
+      if (k == slot || !filled(k)) continue;
+      vec4 b = boxOf(k);
+      vec2 d = b.xy - a.xy;
+      vec2 o = a.zw + b.zw + gap - abs(d);
+      if (o.x <= 0.0 || o.y <= 0.0) continue;
+      vec2 side = vec2(
+        d.x < 0.0 || (d.x == 0.0 && k < slot) ? -1.0 : 1.0,
+        d.y < 0.0 || (d.y == 0.0 && k < slot) ? -1.0 : 1.0
+      );
+      vec2 push = o.x <= o.y ? vec2(o.x * side.x, 0.0) : vec2(0.0, o.y * side.y);
+      float size = o.x <= o.y ? o.x : o.y;
+      float other = texelFetch(groupInfo, groupTexel(k), 0).w;
+      float share = other <= 0.0 ? 1.0 : other / (mass + other);
+      move -= push * (boxStiffness * min(size, limit) / size * share);
+    }
+  }
+  color = vec4(move, 0.0, 0.0);
+}
+`
+
+export const integrateFragment: string = `${header}${nodes}${frame}${groups}
+uniform sampler2D groupMotion;
+uniform float cohesion;
+uniform float drift;
+uniform float leafStiffness;
 uniform sampler2D springs;
 uniform sampler2D pyramid;
 uniform int levels;
@@ -160,6 +298,48 @@ const float softening = ${softening.toFixed(1)};
 
 vec2 push(vec2 d, float mass) {
   return d * (mass / (dot(d, d) + softening));
+}
+
+vec2 grouped(int slot, vec2 position, float radius) {
+  vec2 v = vec2(0.0);
+  if (groups == 0) return v;
+  if (slot >= 0) {
+    vec4 sum = texelFetch(groupSums, groupTexel(slot), 0);
+    vec4 direct = texelFetch(groupSums, groupTexel(groups + slot), 0);
+    vec2 c = sum.xy / max(sum.z, 1.0);
+    vec2 b = direct.xy / max(direct.z, 1.0);
+    v += (b - position) * cohesion + (c - b) * drift;
+    int at = slot;
+    for (int depth = 0; depth < 64 && at >= 0; depth++) {
+      ivec2 g = groupTexel(at);
+      v += texelFetch(groupMotion, g, 0).xy;
+      at = int(texelFetch(groupInfo, g, 0).x);
+    }
+  }
+  if (pushing < 0.5) return v;
+  ivec2 range = childrenOf(slot);
+  float reach = radius + gap;
+  vec2 away = vec2(0.0);
+  for (int k = range.x; k < range.y; k++) {
+    if (!filled(k)) continue;
+    vec4 box = boxOf(k);
+    vec2 e = position - box.xy;
+    if (abs(e.x) <= box.z && abs(e.y) <= box.w) {
+      vec2 o = box.zw - abs(e) + reach;
+      away += o.x <= o.y
+        ? vec2(e.x < 0.0 ? -o.x : o.x, 0.0)
+        : vec2(0.0, e.y < 0.0 ? -o.y : o.y);
+      continue;
+    }
+    vec2 q = e - clamp(e, -box.zw, box.zw);
+    float d2 = dot(q, q);
+    if (d2 >= reach * reach) continue;
+    float d = sqrt(d2);
+    away += q / d * (reach - d);
+  }
+  float size = length(away);
+  if (size > 0.0) v += away * (leafStiffness * min(size, limit) / size);
+  return v;
 }
 
 void main() {
@@ -201,7 +381,8 @@ void main() {
       force += push(d, cell.z);
     }
   }
-  vec2 v = s.zw + texelFetch(springs, t, 0).xy + force * strength + (center - position) * pull;
+  vec2 v = s.zw + texelFetch(springs, t, 0).xy + force * strength + (center - position) * pull
+    + grouped(int(p.w), position, p.x);
   v *= retention;
   color = vec4(position + v, v);
 }

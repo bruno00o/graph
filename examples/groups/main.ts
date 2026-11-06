@@ -3,19 +3,22 @@ import {
   defineGraph,
   edges,
   type Key,
+  type Layout,
   mountGraph,
   nodes,
 } from '@bruno00o/graph'
+import { grid, layers, radial, rings } from '@bruno00o/graph/layouts'
+import { force } from '@bruno00o/graph/layouts/force'
 import { messages } from '../shared/messages'
-import { button, createPage, exportButtons, status, themeToggle } from '../shared/page'
+import { button, choice, createPage, exportButtons, status, themeToggle } from '../shared/page'
+
+type Kind = keyof typeof messages.layoutKinds
 
 interface Item {
   readonly id: string
   readonly label: string
   readonly parent: string | null
   readonly tone: string
-  readonly x?: number
-  readonly y?: number
 }
 
 interface Link {
@@ -39,8 +42,6 @@ for (const [at, name] of tones.entries()) {
   const group = `g${name}`
   items.push({ id: group, label: messages.group(name), parent: null, tone: name })
   const nested = at % 2 === 0 ? 2 : 1
-  const centerX = at % 2 === 0 ? -300 : 300
-  const centerY = at < 2 ? -200 : 200
   for (let inner = 1; inner <= nested; inner++) {
     const subgroup = `${group}${inner}`
     const parent = nested > 1 ? subgroup : group
@@ -54,19 +55,9 @@ for (const [at, name] of tones.entries()) {
     }
     const members: string[] = []
     const count = 4 + Math.floor(random() * 4)
-    const x = nested > 1 ? centerX + (inner === 1 ? -120 : 120) : centerX
-    const radius = 30 + count * 8
     for (let index = 1; index <= count; index++) {
       const id = `${parent}-${index}`
-      const angle = (index / count) * Math.PI * 2
-      items.push({
-        id,
-        label: messages.node(`${name}${inner}-${index}`),
-        parent,
-        tone: name,
-        x: x + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
-      })
+      items.push({ id, label: messages.node(`${name}${inner}-${index}`), parent, tone: name })
       members.push(id)
     }
     for (const [index, id] of members.entries()) {
@@ -76,15 +67,8 @@ for (const [at, name] of tones.entries()) {
     leaves.push(members)
   }
 }
-for (const [at, id] of ['x', 'y'].entries()) {
-  items.push({
-    id,
-    label: messages.node(id.toUpperCase()),
-    parent: null,
-    tone: 'E',
-    x: 0,
-    y: at === 0 ? -20 : 20,
-  })
+for (const id of ['x', 'y']) {
+  items.push({ id, label: messages.node(id.toUpperCase()), parent: null, tone: 'E' })
   leaves.push([id])
 }
 for (let at = 0; at < 12; at++) {
@@ -94,6 +78,14 @@ for (let at = 0; at < 12; at++) {
   const target = to[Math.floor(random() * to.length)]
   if (source && target && source !== target)
     links.push({ id: `${source}~${target}~${at}`, from: source, to: target })
+}
+
+const layouts: Record<Kind, Layout> = {
+  force: force(),
+  layers: layers(),
+  grid: grid(),
+  rings: rings(),
+  radial: radial(),
 }
 
 const definition = defineGraph({
@@ -107,8 +99,6 @@ const definition = defineGraph({
       },
     }),
     nodes<Item>(items, {
-      x: 'x',
-      y: 'y',
       parent: 'parent',
       color: 'tone',
       label: 'label',
@@ -116,6 +106,7 @@ const definition = defineGraph({
     }),
   ],
   scales: { width: (value) => 1 + value },
+  layout: layouts.force,
 })
 
 const { header, main } = createPage(messages.groups)
@@ -151,10 +142,21 @@ graph.on('pointerleave', () => {
 const hint = status()
 hint.textContent = messages.groupsHint
 
+const kinds = Object.keys(messages.layoutKinds) as Kind[]
+
 header.append(
   hint,
   hovered,
   folded,
+  choice(
+    messages.layoutKind,
+    kinds.map((value) => ({ value, text: messages.layoutKinds[value] })),
+    'force',
+    (value) => {
+      const kind = kinds.find((candidate) => candidate === value) ?? 'force'
+      void graph.layout.run(layouts[kind], { fit: true })
+    },
+  ),
   button(messages.foldAll, () => graph.groups.fold()),
   button(messages.unfoldAll, () => graph.groups.unfold()),
   button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),

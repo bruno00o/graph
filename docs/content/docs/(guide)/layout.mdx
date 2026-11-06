@@ -70,6 +70,18 @@ The three are centered on the current center of the nodes they move. Their `spac
 
 These layouts, and `layers`, are not incremental: when nodes arrive, every free node is laid out again, so the layers, the grid or the rings stay whole. See [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) for every option.
 
+## Groups
+
+Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nesting: when it ends, no container overlaps another container or a node next to it, padding included. A folded group is one node like any other.
+
+<LiveExample slug="nested-groups" />
+
+- **`force`.** The members of a group pull toward its center, `cohesion` sets how hard. Edges between groups pull whole groups toward each other rather than tearing members out. As the layout cools, containers push each other apart, and nodes outside a group are pushed out of its container. A last pass removes the remaining overlaps, deepest groups first, keeping `groupSpacing` around each container. Both engines do the same.
+- **`layers`, `grid`, `rings` and `radial`.** Each group is laid out on its own with the same layout, from the deepest groups up. In the group above it, a group stands in as a single node the size of its container, and the nodes directly inside a group are laid out together first, as one more block. A grid of groups is a grid of blocks, layers of groups are layers of blocks. The blocks are then pushed apart where they still overlap.
+- **Unfolding.** With a layout in the definition, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`. Nodes it shows for the first time are laid out like new nodes.
+
+On 50,000 nodes in about 400 groups nested three deep, the force layout takes about twice as long on the GPU (1 second instead of 0.5) and about 13% longer on the CPU (14 seconds instead of 12.5).
+
 ## When it runs
 
 - **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.
@@ -223,7 +235,7 @@ export function circle(radius = 300): Layout {
 }
 ```
 
-- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. `keys[index]` is the key of a node, and `datum(index)` the item it comes from.
+- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. `keys[index]` is the key of a node, and `datum(index)` the item it comes from. With unfolded groups, `groups` gives the group of each node and the padding of each container; a layout that ignores it still works, but it does not keep containers apart.
 - It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place. Ending without progress makes nodes glide to the result.
 - It returns `pin(index, x, y)`, called when a node is dragged or set during the run, and `stop()`, after which it must not call the listener again.
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.
