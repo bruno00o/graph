@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/bruno00o/graph/compare/0.7.0...0.7.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* draw the first frame of large graphs about twice as fast ([#41](https://github.com/bruno00o/graph/issues/41)) ([8db8f65](https://github.com/bruno00o/graph/commit/8db8f650b20b1ad30beaf61940c52705352bec5f))
+
 ## [0.7.0](https://github.com/bruno00o/graph/compare/0.6.0...0.7.0) (2026-11-06)
 
 
