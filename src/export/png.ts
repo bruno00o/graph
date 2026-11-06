@@ -14,6 +14,7 @@ export interface PngRequest {
   readonly pixelRatio: number
   readonly labels: LabelMode
   readonly background: Rgba
+  readonly time: number
 }
 
 function copyStates(states: StateBuffers): StateBuffers {
@@ -83,7 +84,7 @@ export async function renderPng(
   first: GraphSnapshot,
   request: PngRequest,
 ): Promise<Blob> {
-  const { frame, pixelRatio, labels } = request
+  const { frame, pixelRatio, labels, time } = request
   const width = Math.max(1, Math.round(frame.width * pixelRatio))
   const height = Math.max(1, Math.round(frame.height * pixelRatio))
   const canvas = document.createElement('canvas')
@@ -130,6 +131,7 @@ export async function renderPng(
           height: tileHeight / pixelRatio,
           pixelRatio,
           labels: area,
+          time,
         })
         const pixels = tile.subarray(0, tileWidth * tileHeight * 4)
         gl.readPixels(0, 0, tileWidth, tileHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels)

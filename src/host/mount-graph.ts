@@ -1,7 +1,9 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { containerShape } from '../core/columns'
+import { flowSpeed } from '../core/flow'
 import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
 import { nodesInside } from '../core/lasso'
+import { createPathQueries } from '../core/path-query'
 import { PickIndex, type PickSource } from '../core/pick-index'
 import {
   goldenAngle,
@@ -38,6 +40,7 @@ import type {
   BuiltInState,
   FreeState,
   GraphDefinition,
+  GraphPaths,
   Key,
   Layout,
   LayoutRun,
@@ -62,6 +65,7 @@ import {
   type ZoomKey,
 } from './events'
 import { exposeSnapshot } from './export-source'
+import { createFlowWatch } from './flows'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
@@ -303,6 +307,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   /** Folding of nested groups. */
   readonly groups: GraphGroups
+  /** Shortest paths and reachable nodes, on the data or on the graph as drawn. */
+  readonly paths: GraphPaths<M>
   /** The `div` added to the container, which holds the canvas. */
   readonly element: HTMLElement
   /** Element under a point in screen pixels, nodes before edges, or `null`. */
@@ -463,6 +469,7 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
     ...(style.stroke !== undefined ? { stroke: id(style.stroke) } : {}),
     ...(style.outline !== undefined ? { outline: id(style.outline) } : {}),
     ...(style.labelColor !== undefined ? { labelColor: id(style.labelColor) } : {}),
+    ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
     ...(style.outlineWidth !== undefined || style.outline !== undefined
       ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
       : {}),
@@ -1723,12 +1730,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     const { view, width, height } = store.get()
     const renderStart = clock()
-    const wait = renderer.render({ view, width, height, pixelRatio })
+    const time = flows.time(now)
+    const wait = renderer.render({ view, width, height, pixelRatio, time })
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
-    if (viewAnimation || autoPanning || positionAnimations.length > 0) request()
-    else if (wait >= 0) requestLater(wait)
+    if (
+      viewAnimation ||
+      autoPanning ||
+      positionAnimations.length > 0 ||
+      flows.moving(view, width, height)
+    ) {
+      request()
+    } else if (wait >= 0) requestLater(wait)
   }
 
   function resize(width: number, height: number): void {
@@ -1751,6 +1765,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   reconstrain()
   resizeObserver.observe(element)
   const stopTheme = observeTheme(element, refreshTheme)
+  const flows = createFlowWatch({
+    scene,
+    buffers,
+    positions,
+    element,
+    version: () => sceneVersion,
+    wake: () => request(),
+  })
 
   function local(event: MouseEvent): Point {
     const rect = canvas.getBoundingClientRect()
@@ -2286,6 +2308,24 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
   }
 
+  const paths = createPathQueries({
+    model,
+    prepare: () => {
+      if (!needsFlush) return
+      needsFlush = false
+      flushChanges()
+    },
+    groups: () =>
+      projection.active
+        ? {
+            representative: (index) => hierarchy.representative(index),
+            forEachMember: (index, visit) => {
+              if (hierarchy.folded[index] === 1) hierarchy.forEachDescendant(index, visit)
+            },
+          }
+        : null,
+  })
+
   function inspection(): GraphInspection {
     if (counted !== sceneVersion) {
       counted = sceneVersion
@@ -2308,6 +2348,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     layout: layoutApi,
     anchors: decorations.anchors,
     groups,
+    paths,
     element,
     pick: (point) => pickAt(point),
     neighbors: (key) => model.neighbors(key),
@@ -2354,6 +2395,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       clearTimeout(laterRequest)
       resizeObserver.disconnect()
       stopTheme()
+      flows.destroy()
       for (const [name, listener] of listeners) {
         canvas.removeEventListener(name, listener as EventListener)
       }

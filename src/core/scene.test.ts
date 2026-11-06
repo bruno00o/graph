@@ -29,6 +29,26 @@ function setup(options: GraphDefinitionOptions) {
 const linkOptions = { source: 'from', target: 'to' } as const
 
 describe('createScene', () => {
+  it('writes the flow speed of edges and counts the flowing ones', () => {
+    const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    const links: Link[] = [
+      { id: 'ab', from: 'a', to: 'b', weight: 25 },
+      { id: 'bc', from: 'b', to: 'c' },
+      { id: 'ca', from: 'c', to: 'a', kind: 'still' },
+    ]
+    const flow = (link: Link) => (link.kind === 'still' ? false : (link.weight ?? true))
+    const { scene, model, render } = setup({
+      marks: [nodes<Item>(items), edges<Link>(links, { ...linkOptions, flow })],
+    })
+    const speed = (key: string) => scene.edges.flow[model.edge(key)?.index ?? -1]
+    expect([speed('ab'), speed('bc'), speed('ca')]).toEqual([25, 40, 0])
+    expect(scene.edges.flowCount).toBe(2)
+    render({ marks: [nodes<Item>(items), edges<Link>(links.slice(1), { ...linkOptions, flow })] })
+    expect(scene.edges.flowCount).toBe(1)
+    render({ marks: [nodes<Item>(items), edges<Link>(links, linkOptions)] })
+    expect(scene.edges.flowCount).toBe(0)
+  })
+
   it('bends parallel edges into lanes and orders loops', () => {
     const { scene, model, render } = setup({
       marks: [

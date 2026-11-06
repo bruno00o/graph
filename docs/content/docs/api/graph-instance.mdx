@@ -14,6 +14,7 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   readonly layout: GraphLayout<M>
   readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   readonly groups: GraphGroups
+  readonly paths: GraphPaths<M>
   readonly element: HTMLElement
   pick(point: Point): GraphTarget<M> | null
   neighbors(key: Key): Key[]
@@ -165,6 +166,17 @@ interface GraphGroups {
 <api-table path="index.ts" name="GraphGroups" />
 
 `fold`, `unfold`, `toggle` and `set` emit `foldchange`. In controlled mode, they call `onFoldChange` instead of changing the folded groups. See [Groups](/docs/groups).
+
+## Paths
+
+```ts
+interface GraphPaths<M extends Mark = Mark> {
+  shortest(from: Key, to: Key, options?: PathOptions<M>): GraphPath | null
+  reach(from: Key, options?: ReachOptions<M>): GraphReach
+}
+```
+
+Shortest paths and reachable nodes, on the data or, with `visible: true`, on the graph as drawn. The results hold node and edge keys, ready for `states.set`. See [Paths](/docs/paths) and the [reference](/docs/api/paths).
 
 ## Graph state
 

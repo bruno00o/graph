@@ -74,6 +74,14 @@ await exportPng(graph, { background: 'var(--graph-paper)' })
 await exportSvg(graph, { background: '#ffffff' })
 ```
 
+## Flows
+
+An export is a still image: edges with a [`flow`](/docs/marks#flows) are drawn as dashes, at the moment `time`, in milliseconds after the dashes start. At `0`, the default, every pattern starts at the source of its edge, so two exports of the same graph match. The SVG holds no animation.
+
+```ts
+await exportPng(graph, { time: 250 })
+```
+
 ## What the SVG contains
 
 The SVG is written from the scene, without reading pixels back, so it stays sharp at any size and its text can be selected and searched. It draws:
@@ -82,7 +90,7 @@ The SVG is written from the scene, without reading pixels back, so it stays shar
 - pictures cut to the node shape, and icons tinted with their `color`;
 - badges with their text;
 - unfolded groups as containers behind their children, rectangles or circles, and folded groups as nodes;
-- straight and curved edges, loops, dashes, dots and arrows;
+- straight and curved edges, loops, dashes, dots, flows as still dashes, and arrows;
 - labels with their placement, color, weight, second line and background;
 - the background grid, as one pattern per level, and the fills and outlines of hulls, over the containers and under the edges;
 - the state styles in force, such as selection, hover and your own states;

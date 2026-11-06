@@ -104,6 +104,15 @@ export const messages = {
   zoomHint: (key: 'Meta' | 'Control') =>
     key === 'Meta' ? 'Hold ⌘ and scroll to zoom' : 'Hold Ctrl and scroll to zoom',
   zoomLevel: (zoom: number) => `Zoom ×${zoomFormat.format(zoom)}`,
+  pathsLabel: 'Graph of a thousand nodes where a path joins two selected nodes',
+  pathHint: 'Click a node, then Shift and click another.',
+  pathFound: (edges: number, duration: number) =>
+    `Path of ${count(edges, 'edge', 'edges')}, found in ${seconds.format(duration)} ms`,
+  noPath: (duration: number) => `No path, searched in ${seconds.format(duration)} ms`,
+  pathMode: (name: string) => `Path: ${name}`,
+  pathModes: { hops: 'fewest edges', distance: 'shortest distance' },
+  flowsOn: 'Start flows',
+  flowsOff: 'Stop flows',
   exported: (format: string, bytes: number, duration: number) =>
     `${format}, ${formatNumber(Math.max(1, Math.round(bytes / 1024)))} kB in ${formatNumber(Math.round(duration))} ms`,
 }

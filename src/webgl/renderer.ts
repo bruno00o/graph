@@ -128,8 +128,10 @@ export function createWebglRenderer(
     {
       readonly layerSlot: WebGLUniformLocation | null
       readonly overlay: WebGLUniformLocation | null
+      readonly flowTime: WebGLUniformLocation | null
     }
   >()
+  let flowTime = 0
   function prepare(program: WebGLProgram): void {
     gl.useProgram(program)
     for (const [name, unit] of Object.entries(units)) {
@@ -139,6 +141,7 @@ export function createWebglRenderer(
     locations.set(program, {
       layerSlot: gl.getUniformLocation(program, 'layerSlot'),
       overlay: gl.getUniformLocation(program, 'overlay'),
+      flowTime: gl.getUniformLocation(program, 'flowTime'),
     })
   }
   for (const program of programs) prepare(program)
@@ -485,6 +488,7 @@ export function createWebglRenderer(
     edgeStyle.data[at + 1] = edges.opacity[index] ?? 1
     const bend = edges.bend[index] ?? 0
     edgeStyle.data[at + 2] = bend
+    edgeStyle.data[at + 3] = edges.flow[index] ?? 0
     const isCurved =
       edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
     if (isCurved !== (curvedFlags[index] === 1)) {
@@ -751,6 +755,7 @@ export function createWebglRenderer(
     gl.useProgram(program)
     gl.uniform1i(location?.layerSlot ?? null, slot)
     gl.uniform1i(location?.overlay ?? null, overlay)
+    if (location?.flowTime) gl.uniform1f(location.flowTime, flowTime)
     gl.bindVertexArray(vao)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertexCounts.get(program) ?? 4, count)
   }
@@ -837,6 +842,7 @@ export function createWebglRenderer(
       frameBlock[3] = frame.height
       frameBlock[4] = frame.view.zoom
       frameBlock[5] = frame.pixelRatio
+      flowTime = frame.time ?? 0
       const area: LabelArea = frame.labels ?? { ...frame, mode: 'visible' }
       frameBlock[6] = 6
       frameBlock[7] = area.mode === 'all' ? 0 : 8

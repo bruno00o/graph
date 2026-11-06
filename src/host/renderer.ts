@@ -38,6 +38,7 @@ export interface RenderFrame {
   readonly height: number
   readonly pixelRatio: number
   readonly labels?: LabelArea
+  readonly time?: number
 }
 
 export type LabelMode = 'visible' | 'all' | 'none'

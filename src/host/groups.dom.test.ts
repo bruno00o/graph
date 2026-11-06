@@ -273,6 +273,25 @@ describe('groups', () => {
   })
 })
 
+describe('paths on groups', () => {
+  it('runs on the data, or on the graph as drawn with visible', () => {
+    const graph = mount(definition(), { initialFolded: ['g'] })
+    expect(graph.paths.shortest('a', 'd')).toMatchObject({ nodes: ['a', 'b', 'd'], cost: 2 })
+    expect(graph.paths.shortest('a', 'd', { visible: true })).toEqual({
+      nodes: ['g', 'd'],
+      edges: ['bd'],
+      costs: [0, 1],
+      cost: 1,
+    })
+    const reached = graph.paths.reach('b', { visible: true })
+    expect(reached.nodes).toEqual(['g', 'c', 'd'])
+    expect(new Set(reached.edges)).toEqual(new Set(['ac', 'bd']))
+    graph.groups.unfold(['g'])
+    expect(graph.paths.shortest('a', 'd', { visible: true })?.nodes).toEqual(['a', 'b', 'd'])
+    graph.destroy()
+  })
+})
+
 describe('groups with a layout', () => {
   it('pushes free nodes out of a group that unfolds', async () => {
     const still: Layout = {

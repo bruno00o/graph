@@ -58,6 +58,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `arrow` | style | `'none'`, `'source'`, `'target'` or `'both'` |
 | `stroke` | style | Line color, wins over `color` |
 | `opacity` | style | Opacity from 0 to 1 |
+| `flow` | style | Moving dashes: `true`, a speed in pixels per second, or `false` |
 
 Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels. Defaults and details are in [`edges`](/docs/api/edges#options).
 
@@ -103,6 +104,26 @@ nodes<Item>(items, {
 - A function that returns `null` draws no ring for that node.
 
 The selection halo starts outside the outline, and the label moves down by its width.
+
+## Flows
+
+`flow` moves dashes along an edge, from its source to its target. It shows a direction, or a movement, without a second shape to draw.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  flow: (link) => (link.active ? 60 : false),
+})
+```
+
+- `true` moves at 40 pixels per second, a number at that speed in screen pixels per second, and a negative number toward the source. `false`, `0` and `null` stop the edge.
+- A solid edge flows as dashes, and a dashed or dotted edge moves its own pattern. Arrowheads stay still.
+- A [state](/docs/states) can start or stop flows with its own `flow`, without touching the data: `states: { path: { flow: true } }`.
+
+The graph draws frames only while a flowing edge is on screen, in a visible page. Without flows, it draws nothing until something changes. With `prefers-reduced-motion`, the dashes stand still. Each frame moves the dashes on the GPU: 100,000 flowing edges hold 60 frames per second, for well under a millisecond of CPU per frame.
+
+[Exports](/docs/export#flows) draw the dashes at a given moment.
 
 ## Screen units
 
