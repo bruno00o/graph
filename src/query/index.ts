@@ -8,11 +8,15 @@ import {
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import type { Key, LiveSource, SourceChange, SourceSubscription } from '../types'
 
+/** Data of a neighborhood query: the nodes and edges around the expanded node. */
 export interface ExplorationData<TNode, TEdge> {
+  /** Nodes of the neighborhood. */
   readonly nodes: readonly TNode[]
+  /** Edges of the neighborhood. */
   readonly edges: readonly TEdge[]
 }
 
+/** Options of `createExploration`. */
 export interface ExplorationOptions<
   TNode,
   TEdge,
@@ -20,7 +24,12 @@ export interface ExplorationOptions<
   TError = DefaultError,
   TQueryKey extends QueryKey = QueryKey,
 > {
+  /** Nodes expanded at once and never removed. */
   readonly roots: Iterable<Key>
+  /**
+   * Query options for the neighborhood of a node, whose data, or `select` result, is
+   * `{ nodes, edges }`.
+   */
   readonly neighbors: (
     key: Key,
   ) => QueryObserverOptions<
@@ -30,24 +39,42 @@ export interface ExplorationOptions<
     TQueryFnData,
     TQueryKey
   >
+  /** Key of a node. Defaults to its `id` field. */
   readonly nodeKey?: (node: TNode) => Key
+  /** Key of an edge. Defaults to its `id` field. */
   readonly edgeKey?: (edge: TEdge) => Key
 }
 
+/** What the store of an exploration holds. */
 export interface ExplorationState {
+  /** Keys of the expanded nodes. */
   readonly expanded: readonly Key[]
+  /** Keys whose query is fetching. */
   readonly loading: readonly Key[]
+  /** Error of each failed query, by key. */
   readonly errors: ReadonlyMap<Key, unknown>
 }
 
+/**
+ * Neighborhoods loaded on demand, exposed as two live sources. Queries only run while a source has
+ * a subscriber.
+ */
 export interface Exploration<TNode, TEdge> {
+  /** Live source of the loaded nodes, to pass to `nodes()`. */
   readonly nodes: LiveSource<TNode>
+  /** Live source of the loaded edges, to pass to `edges()`. */
   readonly edges: LiveSource<TEdge>
+  /** Read-only TanStack Store of the expanded keys, the keys being fetched and the errors. */
   readonly store: ReadonlyStore<ExplorationState>
+  /** Starts a query observer for the neighborhood of a node, and adds its result. */
   expand(key: Key): void
+  /** Stops the query of a node and removes what no other expansion holds. Roots stay. */
   collapse(key: Key): void
+  /** Expands or collapses a node. */
   toggle(key: Key): void
+  /** Collapses every expansion but the roots, then expands the roots again. */
   reset(): void
+  /** Stops every query observer for good. */
   destroy(): void
 }
 
@@ -119,6 +146,10 @@ function defaultKey(item: unknown): Key {
   return (item as { readonly id: Key }).id
 }
 
+/**
+ * Loads the neighborhood of a node with a TanStack Query when it is expanded, and exposes what is
+ * loaded as live sources. Creating it fetches nothing until a mark subscribes.
+ */
 export function createExploration<
   TNode,
   TEdge,

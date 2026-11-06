@@ -1,5 +1,9 @@
 import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 
+/**
+ * Order of the nodes: `'degree'` puts the nodes with the most edges first, a function compares the
+ * items of two nodes, as given to `nodes()`. Ties keep the internal order.
+ */
 export type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
 
 export function movers(graph: LayoutGraph): number[] {

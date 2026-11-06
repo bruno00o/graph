@@ -33,7 +33,7 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | `shape` | style | `'circle'`, `'square'` or `'diamond'` |
 | `fill` | style | Fill color, wins over `color` |
 | `stroke` | style | Color of the inner contour |
-| `strokeWidth` | style | Width of the inner contour in pixels |
+| `strokeWidth` | style | Width of the inner contour in screen pixels |
 | `outline` | style | Color of a ring drawn outside the shape, or `null` for none |
 | `outlineWidth` | style | Width of that ring in screen pixels |
 | `opacity` | style | Opacity from 0 to 1 |
@@ -41,7 +41,7 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | `badges` | function per corner | `{ text, fill, color }` or `null` |
 | `units` | constant | `'world'` (default) or `'screen'` |
 
-Without a color or a size, nodes take the theme color `--graph-node` and a diameter of 16.
+Without a color or a size, nodes take the theme color `--graph-node` and a diameter of 16. Defaults and details are in [`nodes`](/docs/api/nodes#options).
 
 ## Edge options
 
@@ -57,7 +57,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `stroke` | style | Line color, wins over `color` |
 | `opacity` | style | Opacity from 0 to 1 |
 
-Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels.
+Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels. Defaults and details are in [`edges`](/docs/api/edges#options).
 
 ## Labels
 

@@ -1,8 +1,17 @@
 import type { Key, Layout, LayoutGraph } from '../types'
 import { centroid, degrees, indexOfKey, instant, movers, spacingOf } from './shared'
 
+/** Options of `radial`. */
 export interface RadialOptions {
+  /**
+   * Start of the walk, the free node with the most edges by default. Several roots share the inner
+   * ring, and a single fixed root keeps its place.
+   */
   readonly root?: Key | readonly Key[]
+  /**
+   * Smallest gap between two rings, and between two nodes of a ring, from the borders of the
+   * largest nodes, in world units. Defaults to the largest diameter, and at least 24.
+   */
   readonly spacing?: number
 }
 
@@ -111,6 +120,10 @@ function spread(layer: readonly number[], angle: Float64Array, gap: number): num
   return placed
 }
 
+/**
+ * A layout that walks the graph from its roots and puts each node on the ring of its distance,
+ * next to the node it was reached from. It ends at once, and nodes glide to their place.
+ */
 export function radial(options: RadialOptions = {}): Layout {
   return instant('radial', options, (graph) => {
     const xy = Float32Array.from(graph.xy)

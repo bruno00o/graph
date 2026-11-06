@@ -7,12 +7,30 @@ import { placeNodes } from './place'
 import { components, layerNodes } from './ranks'
 import { expand, type Layered, sortAdjacency } from './structure'
 
+/** Where edges point. `'down'` puts the first layer at the top, `'right'` at the left. */
 export type LayersDirection = 'down' | 'up' | 'right' | 'left'
 
+/** Options of `layers`. */
 export interface LayersOptions {
+  /**
+   * Where edges point: `'down'` puts the first layer at the top, `'right'` at the left.
+   * @default 'down'
+   */
   readonly direction?: LayersDirection
+  /**
+   * Nodes forced onto the first layer, the nodes without incoming edges by default. Edges into them
+   * are turned around, and edges between two roots are left out.
+   */
   readonly root?: Key | readonly Key[]
+  /**
+   * Gap between two layers, from the borders of their largest nodes, in world units. Defaults to
+   * twice the largest diameter, and at least that diameter plus 24.
+   */
   readonly layerSpacing?: number
+  /**
+   * Gap between the borders of two neighboring nodes of a layer, in world units. Defaults to the
+   * largest diameter, and at least 8.
+   */
   readonly nodeSpacing?: number
 }
 
@@ -160,6 +178,10 @@ function pack(layered: Layered, across: Float64Array, layerSpacing: number): Flo
   return placed
 }
 
+/**
+ * A layout that draws a directed graph in layers, every edge pointing from one layer to a later
+ * one. It ends at once, and nodes glide to their place.
+ */
 export function layers(options: LayersOptions = {}): Layout {
   return instant('layers', options, (graph) => {
     const xy = Float32Array.from(graph.xy)

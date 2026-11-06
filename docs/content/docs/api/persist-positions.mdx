@@ -16,15 +16,7 @@ Listens to `positionchange` and writes `x` and `y` into the collection: drags, `
 
 ## Options
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `collection` | `Collection<T, TKey>` | | Required. Collection to write to |
-| `x` | `FieldOf<T, number>` | `'x'` | Field of the horizontal position |
-| `y` | `FieldOf<T, number>` | `'y'` | Field of the vertical position |
-| `key` | `(key: Key) => TKey` | identity | Maps a node key to a row key |
-| `create` | `(key: Key, point: Point) => T` | | Builds the row of a node that has none. Without it, such nodes are skipped |
-| `mutationFn` | `MutationFn<T>` | | Persists through `createPacedMutations`, with an optimistic write |
-| `strategy` | `Strategy` | `throttleStrategy({ wait: 100, leading: true, trailing: true })` | Pacing of the writes |
+<api-table path="db/index.ts" name="PersistPositionsOptions" />
 
 ## Behavior
 

@@ -3,10 +3,16 @@ import { graphReports, inspectGraphs } from './inspector'
 import { type GraphDevtoolsMessages, resolveMessages } from './messages'
 import { createView, type PanelView, rateWindow } from './view'
 
+/** Options shared by every form of the devtools panel. */
 export interface GraphDevtoolsOptions {
+  /** Texts and formats that replace the English defaults. */
   readonly messages?: Partial<GraphDevtoolsMessages>
 }
 
+/**
+ * Props of `GraphDevtoolsCore.mount`: `theme`, `'dark'` by default, and `devtoolsOpen`, `true` by
+ * default, as the devtools shell passes them, with `messages`.
+ */
 export interface GraphDevtoolsProps
   extends Partial<TanStackDevtoolsPluginProps>,
     GraphDevtoolsOptions {}
@@ -14,6 +20,7 @@ export interface GraphDevtoolsProps
 const refreshInterval = 250
 let selected: number | null = null
 
+/** The devtools panel in plain DOM, to mount into any element. */
 export class GraphDevtoolsCore {
   #root: HTMLDivElement | null = null
   #view: PanelView | null = null
@@ -24,6 +31,10 @@ export class GraphDevtoolsCore {
   #open = true
   #visible = true
 
+  /**
+   * Mounts the panel into an element, after unmounting it from any previous one. The panel
+   * unmounts itself once its element leaves the page.
+   */
   mount(element: HTMLElement, props: GraphDevtoolsProps = {}): void {
     this.unmount()
     const root = document.createElement('div')
@@ -48,6 +59,7 @@ export class GraphDevtoolsCore {
     this.#watch()
   }
 
+  /** Removes the panel and stops watching the graphs. */
   unmount(): void {
     this.#observer?.disconnect()
     this.#observer = null

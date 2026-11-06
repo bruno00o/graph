@@ -1,12 +1,26 @@
 import type { Layout } from '../types'
 import { centroid, instant, movers, type NodeOrder, ordered, spacingOf } from './shared'
 
+/** Options of `grid`. */
 export interface GridOptions<T = unknown> {
+  /**
+   * Nodes per row, rounded down and at least 1. Defaults to the square root of the count, rounded
+   * up.
+   */
   readonly columns?: number
+  /**
+   * Gap between rows and between columns, from the borders of the largest nodes, in world units.
+   * Defaults to the largest diameter, and at least 24.
+   */
   readonly spacing?: number
+  /** Order of the nodes, row by row from the top left. Defaults to the internal order. */
   readonly order?: NodeOrder<T>
 }
 
+/**
+ * A layout that lines the free nodes up in rows, centered on where they are. It ends at once, and
+ * nodes glide to their place.
+ */
 export function grid<T = unknown>(options: GridOptions<T> = {}): Layout {
   return instant('grid', options, (graph) => {
     const xy = Float32Array.from(graph.xy)

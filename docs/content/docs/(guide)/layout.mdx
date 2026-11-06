@@ -177,14 +177,7 @@ graph.on('positionchange', ({ origin, positions }) => {
 force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto' })
 ```
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `edgeLength` | `40` | Length an edge tends to, between the borders of its two nodes, in world units |
-| `repulsion` | `80` | How hard nodes push each other apart. `0` turns it off |
-| `gravity` | `0.04` | Pull toward the center of the moving nodes, on full runs only |
-| `spacing` | `6` | Smallest gap between two nodes, in world units |
-| `steps` | `300` | Steps of a full run. More steps settle further and take longer |
-| `engine` | `'auto'` | `'gpu'`, `'cpu'`, or `'auto'` to choose from the size of the graph |
+Every option, with its default, is listed in [`ForceOptions`](/docs/api/force#options).
 
 A negative or non-finite value falls back to its default.
 
