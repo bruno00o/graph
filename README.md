@@ -25,7 +25,7 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 - Live sources: pass a TanStack DB collection as is, or anything with `subscribeChanges`, and only what changed is redrawn
 - Named states (selection, hover, focus and your own) resolved on the GPU
 - Images and icons clipped to the node shape, corner badges, parallel edges and self loops
-- Drag, pan and zoom out of the box
+- Drag, pan, zoom, multiple selection and lasso out of the box
 - Themed with CSS variables, light and dark
 - A framework-agnostic core with a thin React adapter, plus TanStack DB and TanStack Query integrations
 

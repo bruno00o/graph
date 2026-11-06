@@ -17,6 +17,7 @@ const definition = defineGraph({
   states: {
     muted: { opacity: 0.15, label: false },
   },
+  interaction: { lasso: true },
 })
 
 const { header, main } = createPage(messages.vanilla)
@@ -50,7 +51,12 @@ graph.on('selectionchange', ({ nodes: selected }) => {
   })
 })
 
+const hint = document.createElement('span')
+hint.className = 'hint'
+hint.textContent = messages.lassoHint
+
 header.append(
+  hint,
   selectionStatus,
   choice(
     messages.size,
