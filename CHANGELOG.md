@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/bruno00o/graph/compare/0.4.0...0.5.0) (2026-11-06)
+
+
+### Features
+
+* draw edge labels along their edges ([#30](https://github.com/bruno00o/graph/issues/30)) ([04dd797](https://github.com/bruno00o/graph/commit/04dd7973c5c9c509f8b8d8afe6df972f7153dca4))
+* lay out nodes with a force simulation in a web worker ([#27](https://github.com/bruno00o/graph/issues/27)) ([9b68feb](https://github.com/bruno00o/graph/commit/9b68febc7223fbddc654077f7d17b86c2cc02885))
+* run the force layout on the gpu for large graphs ([#29](https://github.com/bruno00o/graph/issues/29)) ([06389d6](https://github.com/bruno00o/graph/commit/06389d60a54e032aeab00048f1523a648cbedd55))
+* style labels per element with size, color, weight, font, placement and truncation ([#31](https://github.com/bruno00o/graph/issues/31)) ([eb9cfb3](https://github.com/bruno00o/graph/commit/eb9cfb32ea94e469f9cb808c250f17afdb01eaba))
+
 ## [0.4.0](https://github.com/bruno00o/graph/compare/0.3.0...0.4.0) (2026-11-06)
 
 
