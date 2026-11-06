@@ -1,6 +1,6 @@
 ---
 title: Layouts
-description: Place nodes that have no coordinates with a force simulation, on a grid, in rings or around a root, and frame the result.
+description: Place nodes that have no coordinates with a force simulation, in layers, on a grid, in rings or around a root, and frame the result.
 ---
 
 <LiveExample slug="force-layout" />
@@ -26,11 +26,31 @@ Nodes push each other apart, edges pull their ends together like springs, and a 
 
 The entry point has no peer dependency, and the worker ships inside the package: there is nothing to configure in your bundler.
 
-## Grid, rings and radial
+## Layers
 
-`@bruno00o/graph/layouts` holds layouts that compute their result at once, on the main thread, in a few milliseconds for thousands of nodes.
+`@bruno00o/graph/layouts` holds layouts that compute their result at once, on the main thread. `layers` draws a directed graph in layers: every edge points from one layer to a later one, in the direction you choose.
 
 <LiveExample slug="layouts" />
+
+```ts
+import { layers } from '@bruno00o/graph/layouts'
+
+layers()
+
+layers({ direction: 'right', root: 'start', layerSpacing: 80, nodeSpacing: 16 })
+```
+
+- **Layers.** Each node goes on a layer so that its edges point to later layers and stay as short as they can: a node that only feeds deeper ones moves down next to them. `root` puts nodes on the first layer, even when edges lead into them.
+- **Cycles.** When edges form a cycle, as few of them as possible are turned around to break it. They are still drawn, pointing back.
+- **Order.** The nodes of each layer are sorted to cross as few edges as possible, and each sits close to its neighbors in the layers next to it. Edges are drawn straight. An edge that skips layers holds a place in each layer it crosses, so other nodes tend to keep clear of it.
+- **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart.
+- **Components.** Separate parts of the graph and lone nodes sit side by side, the largest first, wrapped in rows.
+
+The result is centered on the current center of the nodes it moves. Nodes with `x` and `y` in your data keep their place, and their edges are left out. A graph shaped like a tree, with 10,000 nodes and 15,000 edges, is laid out in a few tens of milliseconds. Edges that skip many layers cost more.
+
+## Grid, rings and radial
+
+The other layouts of `@bruno00o/graph/layouts` take no account of edge direction, and lay out thousands of nodes in a few milliseconds.
 
 ```ts
 import { grid, radial, rings } from '@bruno00o/graph/layouts'
@@ -48,12 +68,12 @@ radial({ root: 'hub' })
 
 The three are centered on the current center of the nodes they move, and space nodes by twice the largest diameter by default. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it.
 
-These layouts are not incremental: when nodes arrive, every free node is laid out again, so the grid or the rings stay whole. See [`grid`, `rings`, `radial`](/docs/api/layouts) for every option.
+These layouts, and `layers`, are not incremental: when nodes arrive, every free node is laid out again, so the layers, the grid or the rings stay whole. See [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) for every option.
 
 ## When it runs
 
 - **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.
-- **New nodes.** With `force`, nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it. With `grid`, `rings` and `radial`, every free node is laid out again.
+- **New nodes.** With `force`, nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it. With `layers`, `grid`, `rings` and `radial`, every free node is laid out again.
 - **New layout.** A definition with another layout, or the same layout with other options, lays out every node again on the next frame. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
 - **No layout.** `layout: null`, the default, turns it off. An automatic run in progress stops, and nodes stay where they are.
 
@@ -89,7 +109,7 @@ graph.layout.stop()
 
 ## Glide to the result
 
-A layout that reports its result at once, without progress, such as `grid`, `rings` and `radial`, does not make nodes jump: they glide from where they are to where they go. The run, and its promise, end when they arrive.
+A layout that reports its result at once, without progress, such as `layers`, `grid`, `rings` and `radial`, does not make nodes jump: they glide from where they are to where they go. The run, and its promise, end when they arrive.
 
 The glide lasts `transitions.layout` milliseconds, 400 by default. `duration` in the run options overrides it for one run, and `0` places nodes at once.
 
@@ -216,4 +236,4 @@ export function circle(radius = 300): Layout {
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.
 - `incremental: false` lays out every free node again when nodes arrive, instead of the new ones only.
 
-See [`force`](/docs/api/force), [`grid`, `rings`, `radial`](/docs/api/layouts) and [`defineGraph`](/docs/api/define-graph#layout) for the types.
+See [`force`](/docs/api/force), [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) and [`defineGraph`](/docs/api/define-graph#layout) for the types.

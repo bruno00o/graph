@@ -2,6 +2,7 @@ import { defineGraph, edges, type LiveSource, mountGraph, nodes } from '@bruno00
 import { subset } from '@bruno00o/graph/db'
 import {
   and,
+  BTreeIndex,
   type Collection,
   createCollection,
   createLiveQueryCollection,
@@ -28,13 +29,14 @@ let minimum = 20
 let group = ''
 let opened: string[] = []
 
-const people = createCollection(
+const records = createCollection(
   localOnlyCollectionOptions({
     id: 'filter-items',
     getKey: (item: Item) => item.id,
     initialData: items,
   }),
 )
+records.createIndex((item) => item.weight, { indexType: BTreeIndex })
 const loaded = status()
 const relations = createLinkCollection(links, () => {
   loaded.textContent = messages.linksLoaded(relations.size)
@@ -44,13 +46,13 @@ const filtered = (): LiveSource<Item> | Collection<Item, string> => {
   if (mode === 'query') {
     return createLiveQueryCollection((q) =>
       q
-        .from({ item: people })
+        .from({ item: records })
         .where(({ item }) =>
           group ? and(gte(item.weight, minimum), eq(item.group, group)) : gte(item.weight, minimum),
         ),
     )
   }
-  return subset(people, (item) =>
+  return subset(records, (item) =>
     group ? and(gte(item.weight, minimum), eq(item.group, group)) : gte(item.weight, minimum),
   )
 }
@@ -176,4 +178,4 @@ header.append(
   themeToggle(messages.dark, messages.light),
 )
 
-Object.assign(window, { graph, people, relations })
+Object.assign(window, { graph, records, relations })

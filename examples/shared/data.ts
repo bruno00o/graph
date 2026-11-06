@@ -136,3 +136,71 @@ export function createCommunities(nodeCount: number, edgeCount: number, seed = 1
   }))
   return { items, links }
 }
+
+export function createHierarchy(nodeCount: number, edgeCount: number, seed = 5): Sample {
+  const next = random(seed)
+  const depth = Math.max(2, Math.round(Math.log2(Math.max(nodeCount, 2)) * 1.3))
+  const roots = Math.max(1, Math.min(nodeCount, Math.round(nodeCount / 50)))
+  const weights = Array.from({ length: depth - 1 }, (_, level) =>
+    Math.sin(((level + 0.7) / depth) * Math.PI),
+  )
+  const sum = weights.reduce((total, weight) => total + weight, 0)
+  const levels: number[][] = [Array.from({ length: roots }, (_, index) => index)]
+  let made = roots
+  weights.forEach((weight, at) => {
+    const last = at === weights.length - 1
+    const size = last ? nodeCount - made : Math.round(((nodeCount - roots) * weight) / sum)
+    const level = Array.from(
+      { length: Math.max(0, Math.min(size, nodeCount - made)) },
+      (_, k) => made + k,
+    )
+    made += level.length
+    if (level.length > 0) levels.push(level)
+  })
+  const groupOf = new Uint32Array(nodeCount)
+  const degree = new Uint32Array(nodeCount)
+  const seen = new Set<string>()
+  const links: Link[] = []
+  const link = (from: number, to: number) => {
+    const key = `${from}>${to}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    links.push({ id: `e${links.length}`, from: `n${from}`, to: `n${to}`, strength: next() })
+    degree[from] = (degree[from] ?? 0) + 1
+    degree[to] = (degree[to] ?? 0) + 1
+    return true
+  }
+  const near = (level: readonly number[], ratio: number, spread: number) => {
+    const at = Math.round(ratio * (level.length - 1) + (next() - 0.5) * spread * level.length)
+    return level[Math.min(level.length - 1, Math.max(0, at))] ?? 0
+  }
+  levels[0]?.forEach((node, at) => {
+    groupOf[node] = at
+  })
+  for (let depthAt = 1; depthAt < levels.length; depthAt++) {
+    const level = levels[depthAt] ?? []
+    const above = levels[depthAt - 1] ?? []
+    level.forEach((node, at) => {
+      const parent = near(above, (at + 0.5) / level.length, 0.1)
+      groupOf[node] = depthAt === 1 ? at : (groupOf[parent] ?? 0)
+      link(parent, node)
+    })
+  }
+  for (let attempt = 0; links.length < edgeCount && attempt < edgeCount * 20; attempt++) {
+    const depthAt = 1 + Math.floor(next() * (levels.length - 1))
+    const level = levels[depthAt] ?? []
+    const node = level[Math.floor(next() * level.length)] ?? 0
+    const jump = depthAt > 1 && next() < 0.3 ? 2 : 1
+    const above = levels[depthAt - jump] ?? []
+    link(near(above, level.indexOf(node) / Math.max(1, level.length - 1), 0.15), node)
+  }
+  const items: Item[] = Array.from({ length: nodeCount }, (_, index) => ({
+    id: `n${index}`,
+    label: messages.node(formatNumber(index + 1)),
+    group: messages.group(String.fromCharCode(65 + ((groupOf[index] ?? 0) % 12))),
+    weight: Math.min(100, 1 + (degree[index] ?? 0)),
+    x: 0,
+    y: 0,
+  }))
+  return { items, links }
+}

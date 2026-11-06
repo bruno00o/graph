@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
@@ -220,6 +220,36 @@ describe('layouts in the host', () => {
     expect(ended).toBe(true)
     expect(graph.positions.get('b')).toEqual({ x: 100, y: 100 })
     expect(graph.store.get().layout).toEqual({ running: false, progress: 1 })
+    const view = graph.view.get()
+    expect(view.x).toBeCloseTo(50, 0)
+    expect(view.y).toBeCloseTo(50, 0)
+  })
+
+  it('frames the first glide once the element has a size', () => {
+    let report = () => {}
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        readonly #callback: ResizeObserverCallback
+        constructor(callback: ResizeObserverCallback) {
+          this.#callback = callback
+        }
+        observe() {
+          report = () =>
+            this.#callback(
+              [{ contentRect: { width: 800, height: 600 } } as ResizeObserverEntry],
+              this as unknown as ResizeObserver,
+            )
+        }
+        disconnect() {}
+      },
+    )
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    runs[0]?.listener.end(spread(runs[0] as FakeRun))
+    report()
+    dom.flushFrames()
+    expect(graph.positions.get('b')).toEqual({ x: 100, y: 100 })
     const view = graph.view.get()
     expect(view.x).toBeCloseTo(50, 0)
     expect(view.y).toBeCloseTo(50, 0)
