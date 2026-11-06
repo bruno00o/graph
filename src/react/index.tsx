@@ -14,7 +14,12 @@ import {
   useSyncExternalStore,
 } from 'react'
 import type { GraphEventHandler, GraphEventName, GraphEvents } from '../host/events'
-import { type GraphInstance, type GraphState, mountGraph } from '../host/mount-graph'
+import {
+  type GraphInstance,
+  type GraphState,
+  type GraphStore,
+  mountGraph,
+} from '../host/mount-graph'
 import type { GraphDefinition, View } from '../types'
 
 export interface GraphEventProps {
@@ -126,10 +131,15 @@ interface Selected<T> {
   readonly value: T
 }
 
+export interface UseGraphStateOptions<T> {
+  readonly compare?: (a: T, b: T) => boolean
+}
+
 export function useGraphState<T>(
   selector: (state: GraphState) => T,
-  equal: (a: T, b: T) => boolean = Object.is,
+  options: UseGraphStateOptions<T> = {},
 ): T {
+  const compare = options.compare ?? Object.is
   const graph = useGraph()
   const cache = useRef<Selected<T> | null>(null)
   const subscribe = useCallback(
@@ -144,7 +154,7 @@ export function useGraphState<T>(
     const cached = cache.current
     if (cached && cached.state === state && cached.selector === selector) return cached.value
     const value = selector(state)
-    const kept = cached && equal(cached.value, value) ? cached.value : value
+    const kept = cached && compare(cached.value, value) ? cached.value : value
     cache.current = { state, selector, value: kept }
     return kept
   }
@@ -163,4 +173,4 @@ export function useGraphEvent<K extends GraphEventName>(
   )
 }
 
-export type { GraphInstance, GraphState }
+export type { GraphInstance, GraphState, GraphStore }

@@ -1,10 +1,12 @@
+import { useSelector } from '@tanstack/react-store'
+import { shallow } from '@tanstack/store'
 import { act, type ReactNode, StrictMode, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import type { GraphDefinition } from '../types'
+import type { GraphDefinition, View } from '../types'
 import { Graph, type GraphInstance, useGraph, useGraphEvent, useGraphState } from './index'
 
 vi.mock('../webgl/renderer', () => ({ createWebglRenderer: () => fakeRenderer() }))
@@ -42,6 +44,26 @@ function Selection() {
   const count = useGraphState((state) => state.selection.nodes.length)
   captured.renders.push(count)
   return <output>{count}</output>
+}
+
+function Counts() {
+  captured.graph = useGraph()
+  const counts = useGraphState(
+    (state) => ({ nodes: state.selection.nodes.length, edges: state.selection.edges.length }),
+    { compare: shallow },
+  )
+  captured.renders.push(counts.nodes)
+  return null
+}
+
+function StoreSelection() {
+  const graph = useGraph()
+  const count = useSelector(graph.store, (state) => state.selection.nodes.length)
+  const view = useSelector(graph.store, (state) => state.view)
+  expectTypeOf(view).toEqualTypeOf<View>()
+  captured.graph = graph
+  captured.renders.push(count)
+  return null
 }
 
 function Listener({ tag }: { readonly tag: string }) {
@@ -154,6 +176,31 @@ describe('hooks', () => {
       captured.graph?.view.set({ x: 10, y: 0, zoom: 2 })
     })
     expect(captured.renders.length).toBe(before)
+    act(() => {
+      captured.graph?.selection.set({ nodes: ['a', 'b'] })
+    })
+    expect(captured.renders.at(-1)).toBe(2)
+  })
+
+  it('keeps a selected object while compare finds it equal', () => {
+    render(
+      <Graph definition={definition()} ariaLabel="graphe">
+        <Counts />
+      </Graph>,
+    )
+    const before = captured.renders.length
+    act(() => {
+      captured.graph?.view.set({ x: 10, y: 0, zoom: 2 })
+    })
+    expect(captured.renders.length).toBe(before)
+  })
+
+  it('works with useSelector from @tanstack/react-store', () => {
+    render(
+      <Graph definition={definition()} ariaLabel="graphe">
+        <StoreSelection />
+      </Graph>,
+    )
     act(() => {
       captured.graph?.selection.set({ nodes: ['a', 'b'] })
     })

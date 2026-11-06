@@ -1,4 +1,4 @@
-import { createStore } from '@tanstack/store'
+import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
 import { PickIndex, type PickSource } from '../core/pick-index'
 import { Positions, placeNodes } from '../core/positions'
@@ -41,11 +41,7 @@ export interface GraphState {
   readonly positionsVersion: number
 }
 
-export interface GraphStore {
-  readonly state: GraphState
-  get(): GraphState
-  subscribe(listener: (state: GraphState) => void): { unsubscribe(): void }
-}
+export type GraphStore = ReadonlyStore<GraphState>
 
 export interface ViewOptions {
   readonly duration?: number
@@ -229,6 +225,7 @@ export function createGraphHost(
     states: freeStates(),
     positionsVersion: 0,
   })
+  const readonlyStore: GraphStore = createStore(() => store.state)
 
   const layerPositions = { nodes: new Map<number, number>(), edges: new Map<number, number>() }
   const pickSource: PickSource = {
@@ -771,7 +768,7 @@ export function createGraphHost(
   }
 
   return {
-    store,
+    store: readonlyStore,
     view,
     selection,
     states,
