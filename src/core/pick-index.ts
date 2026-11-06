@@ -344,27 +344,23 @@ export class PickIndex {
       emit(row * frame.cols + col)
     })
     this.#maxEdgeHalfWidth = 0
-    const lengths = new Float32Array(edges.capacity)
+    const buckets = new Uint8Array(edges.capacity)
     const sums = new Float64Array(maxLevel + 1)
     let routed = 0
+    let longest = 0
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1) continue
       this.#maxEdgeHalfWidth = Math.max(this.#maxEdgeHalfWidth, (edges.width[index] ?? 0) / 2)
       if (edges.source[index] === edges.target[index]) continue
       const length = this.#length(source, index) / cell
-      lengths[index] = length
       const bucket = bucketOf(length)
+      buckets[index] = bucket
       sums[bucket] = (sums[bucket] ?? 0) + length
+      if (bucket > longest) longest = bucket
       routed++
     }
     const span = levelSpanFor(sums, routed, routed * edgeShare)
-    const levelOf = new Uint8Array(edges.capacity)
-    let top = 0
-    for (let index = 0; index < edges.capacity; index++) {
-      const level = Math.max(0, bucketOf(lengths[index] ?? 0) - span)
-      levelOf[index] = level
-      if (level > top) top = level
-    }
+    const top = Math.max(0, longest - span)
     const levels: Frame[] = []
     const bases: number[] = []
     let levelCells = 0
@@ -379,18 +375,19 @@ export class PickIndex {
     this.#levels = levels
     this.#bases = bases
     const offsets = new Uint32Array(levelCells + 1)
-    this.#spreadEdges(source, levelOf, offsets, null)
+    this.#spreadEdges(source, buckets, span, offsets, null)
     for (let at = 0; at < levelCells; at++) {
       offsets[at + 1] = (offsets[at + 1] ?? 0) + (offsets[at] ?? 0)
     }
     const items = new Uint32Array(offsets[levelCells] ?? 0)
-    this.#spreadEdges(source, levelOf, offsets.slice(0, levelCells), items)
+    this.#spreadEdges(source, buckets, span, offsets.slice(0, levelCells), items)
     this.#edges = { offsets, items }
   }
 
   #spreadEdges(
     source: PickSource,
-    levelOf: Uint8Array,
+    buckets: Uint8Array,
+    span: number,
     counts: Uint32Array,
     items: Uint32Array | null,
   ): void {
@@ -400,7 +397,7 @@ export class PickIndex {
       const from = edges.source[index] ?? 0
       const to = edges.target[index] ?? 0
       if (from === to) continue
-      const level = levelOf[index] ?? 0
+      const level = Math.max(0, (buckets[index] ?? 0) - span)
       const frame = this.#levels[level]
       const base = this.#bases[level] ?? 0
       if (!frame) continue
