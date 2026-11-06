@@ -1,0 +1,22 @@
+---
+title: React overlays
+---
+
+## How it works
+
+`<Graph>` mounts the graph and renders its children above the canvas. Every child can call `useGraph()` for the instance and `useGraphState(selector)` for a slice of the graph store.
+
+The tooltip reads `hovered`, then converts the node position to screen coordinates with `graph.view.toScreen`. It also subscribes to `view` and `positionsVersion`, so it follows the node when the view changes or the node moves.
+
+The selection panel is plain React state, filled by `onSelectionChange`.
+
+## Try it
+
+- Hover a node to show its tooltip, then drag it: the tooltip follows.
+- Click a node, then hold Shift and click others to add them to the panel.
+- Click an empty area to clear the selection.
+
+<Cards>
+  <Card title="React" href="/docs/react" />
+  <Card title="Hooks" href="/docs/api/hooks" />
+</Cards>

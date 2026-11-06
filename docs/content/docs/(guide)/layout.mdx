@@ -1,0 +1,177 @@
+---
+title: Force layout
+description: Place nodes that have no coordinates with a force simulation, on the GPU or the CPU, in a Web Worker.
+---
+
+<LiveExample slug="force-layout" />
+
+## Add a layout
+
+Pass a layout to `defineGraph`. The force layout comes from its own entry point, `@bruno00o/graph/layouts/force`, so a graph that does not use it carries none of its code.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { force } from '@bruno00o/graph/layouts/force'
+
+const definition = defineGraph({
+  marks: [
+    edges<Link>(links, { source: 'from', target: 'to' }),
+    nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' }),
+  ],
+  layout: force({ edgeLength: 60 }),
+})
+```
+
+Nodes push each other apart, edges pull their ends together like springs, and a light pull toward the center keeps separate components close. A collision force keeps a small gap between nodes.
+
+The entry point has no peer dependency, and the worker ships inside the package: there is nothing to configure in your bundler.
+
+## When it runs
+
+- **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.
+- **New nodes.** Nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it.
+- **New layout.** A definition with another layout, or the same layout with other options, lays out every node again on the next frame. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
+- **No layout.** `layout: null`, the default, turns it off. An automatic run in progress stops, and nodes stay where they are.
+
+## Which nodes move
+
+- **Positions from your data win.** Nodes whose mark has `x` and `y` channels, with finite values, never move. They still push and pull the others, so free nodes settle around them. A node whose `x` or `y` is `null` is free.
+- **Dragging pins.** A node dragged during a run stays where you drop it, and the others settle around it. `graph.positions.set` pins its nodes the same way. The pin lasts until the end of the run.
+
+To keep a node in place for good, give it coordinates in your data.
+
+## Run it from code
+
+`graph.layout` starts and stops runs.
+
+```ts
+const completed = await graph.layout.run()
+
+await graph.layout.run(undefined, { keys: graph.selection.get().nodes })
+
+await graph.layout.run(force({ edgeLength: 100 }))
+
+graph.layout.stop()
+```
+
+- `run()` lays out every free node with the layout of the definition, from the current positions. Pending data changes are applied first.
+- `keys` limits the run to these nodes. The others stay still and act as anchors. A run on part of the graph starts with less energy and without the pull to the center, so the moved nodes stay near the rest.
+- A layout passed to `run` is used for this run only. The definition keeps its own.
+- The promise resolves to `true` when the run ends, and to `false` when it is stopped, replaced by another run, or when the graph is destroyed. It rejects when neither the call nor the definition has a layout.
+- `stop()` ends the current run and leaves every node where it is.
+
+## Follow the progress
+
+The store holds the status of the current run, and two events frame it.
+
+```ts tab="Vanilla" tab-group="framework"
+graph.store.subscribe(() => {
+  const { running, progress } = graph.store.get().layout
+  bar.hidden = !running
+  bar.value = progress
+})
+
+graph.on('layoutend', ({ completed }) => {
+  if (completed) graph.view.fit(undefined, { duration: 400 })
+})
+```
+
+```tsx tab="React" tab-group="framework"
+import { useGraphState } from '@bruno00o/graph/react'
+
+function LayoutProgress() {
+  const { running, progress } = useGraphState((state) => state.layout)
+  return running ? <progress value={progress} /> : null
+}
+
+<Graph definition={definition} ariaLabel="Sample graph" onLayoutEnd={({ completed }) => setSettled(completed)}>
+  <LayoutProgress />
+</Graph>
+```
+
+| Name | Value |
+| --- | --- |
+| `state.layout.running` | `true` while a run is in progress |
+| `state.layout.progress` | From 0 to 1 |
+| `layoutstart` | `{ name }`, when a run starts |
+| `layoutend` | `{ name, completed }`, when a run ends or stops |
+
+Nodes that arrive during a run join it without a new `layoutstart`.
+
+## Save the result
+
+When a run ends, `positionchange` fires with the origin `'layout'` and the positions of the nodes it moved. A stopped run does not emit it.
+
+[`persistPositions`](/docs/tanstack-db) writes these positions to your collection, as it does for a drag. The layout then becomes data, shared with every client that reads the collection. When the node mark reads `x` and `y` from it, those nodes now have coordinates and later runs leave them in place. To save only what users move by hand, filter on the origin.
+
+```ts
+graph.on('positionchange', ({ origin, positions }) => {
+  if (origin !== 'layout') save(positions)
+})
+```
+
+## Options
+
+```ts
+force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto' })
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `edgeLength` | `40` | Length an edge tends to, between the borders of its two nodes, in world units |
+| `repulsion` | `80` | How hard nodes push each other apart. `0` turns it off |
+| `gravity` | `0.04` | Pull toward the center of the moving nodes, on full runs only |
+| `spacing` | `6` | Smallest gap between two nodes, in world units |
+| `steps` | `300` | Steps of a full run. More steps settle further and take longer |
+| `engine` | `'auto'` | `'gpu'`, `'cpu'`, or `'auto'` to choose from the size of the graph |
+
+A negative or non-finite value falls back to its default.
+
+## Engines
+
+`'auto'` uses the GPU from 2,000 nodes, and the CPU below. Both run in a Web Worker, so the page keeps panning and zooming while the layout runs.
+
+- **CPU.** Repulsion is approximated with a quadtree, collisions are tested on a grid. The same graph and the same positions always give the same result.
+- **GPU.** The same forces run in WebGL2 on an `OffscreenCanvas` inside the worker, with a density pyramid for repulsion. A last pass on the CPU removes the remaining overlaps. Results can differ by rounding from one run to the next.
+
+The GPU engine needs WebGL2 in workers and the `EXT_color_buffer_float` and `EXT_float_blend` extensions. Without them, the CPU takes over. If the GPU context is lost during a run, the CPU resumes from the last positions.
+
+<Callout title="Content security policy">
+The worker is created from a `blob:` URL. When `Worker` is missing, when your policy refuses `worker-src blob:`, or when the worker fails, the simulation continues on the main thread in slices of 8 milliseconds, from where it was. Dragged nodes stay pinned.
+</Callout>
+
+## Write your own layout
+
+`layout` takes any object that implements the `Layout` port, exported as types from `@bruno00o/graph`.
+
+```ts
+import type { Layout } from '@bruno00o/graph'
+
+export function circle(radius = 300): Layout {
+  return {
+    name: 'circle',
+    options: { radius },
+    start(graph, listener) {
+      const xy = graph.xy.slice()
+      const free: number[] = []
+      for (let index = 0; index < graph.capacity; index++) {
+        if (graph.movable[index] === 1) free.push(index)
+      }
+      free.forEach((index, at) => {
+        const angle = (at / free.length) * Math.PI * 2
+        xy[index * 2] = Math.cos(angle) * radius
+        xy[index * 2 + 1] = Math.sin(angle) * radius
+      })
+      listener.end(xy)
+      return { pin: () => {}, stop: () => {} }
+    },
+  }
+}
+```
+
+- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out.
+- It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place.
+- It returns `pin(index, x, y)`, called when a node is dragged or set during the run, and `stop()`, after which it must not call the listener again.
+- `name` and `options` decide whether a new definition lays out again: they are compared one by one.
+
+See [`force`](/docs/api/force) and [`defineGraph`](/docs/api/define-graph#layout) for the types.

@@ -1,0 +1,73 @@
+---
+title: Images and badges
+description: Pictures and tinted icons inside nodes, badges in their corners.
+---
+
+<LiveExample slug="images-and-badges" />
+
+## Images
+
+`image` draws a picture inside the node, cropped to cover its shape. Pass a URL, or an object for more control.
+
+```ts
+nodes<Item>(items, {
+  size: 40,
+  image: (item) => ({ src: item.picture, scale: 1 }),
+})
+```
+
+| Field | Effect |
+| --- | --- |
+| `src` | Image URL. SVG, PNG, JPEG and anything the browser can draw |
+| `scale` | Size relative to the node diameter, `1` by default |
+| `color` | Draws the image as a mask of that color |
+
+The image sits on the fill, under the contour, clipped by the shape. Return `null` to draw no image for a node.
+
+Images load in the background and appear when ready. Each one is stored once, however many nodes use it, in a texture of up to 256 images of 256 by 256 pixels. Past that, extra images are not drawn and a warning is printed in development.
+
+## Tinted icons
+
+With `color`, the image becomes a mask: its alpha channel is painted with that color. A single-color SVG icon then follows the theme.
+
+```ts
+nodes<Item>(items, {
+  fill: 'var(--graph-paper-raised)',
+  image: { src: '/icons/circle.svg', scale: 0.6, color: 'var(--graph-ink)' },
+})
+```
+
+## Badges
+
+`badges` puts a small pill in any corner of the node. Each corner takes a function that returns a badge, or `null` for none.
+
+```ts
+nodes<Item>(items, {
+  badges: {
+    topRight: (item) => (item.weight > 5 ? { text: item.weight } : null),
+    bottomLeft: (item) => (item.group === 'A' ? { fill: 'var(--graph-cat-4)' } : null),
+  },
+})
+```
+
+| Field | Effect |
+| --- | --- |
+| `text` | Text or number in the pill. Without it, the badge is a dot |
+| `fill` | Pill color, `--graph-badge-fill` by default |
+| `color` | Text color, `--graph-badge-ink` by default |
+
+Corners are `topLeft`, `topRight`, `bottomLeft` and `bottomRight`. A badge is surrounded by a ring of `--graph-node-ring` so it reads on any fill.
+
+A badge is about half the node's diameter on screen, up to 18 pixels high. On small nodes, badges hide, and their text appears only once there is room for it. Badges are not picked: a click on a badge reaches the node.
+
+## Outlines and label backgrounds
+
+`outline` draws a ring outside the shape, which separates a picture from its neighbors. `label.background` puts a plate behind the label, which keeps it readable over images and edges. See [Marks and channels](/docs/marks#outlines).
+
+```ts
+nodes<Item>(items, {
+  image: (item) => item.picture,
+  outline: 'var(--graph-cat-1)',
+  label: { text: 'label', background: true },
+})
+```

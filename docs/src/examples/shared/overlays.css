@@ -1,0 +1,125 @@
+.example-graph {
+  position: relative;
+  height: 100%;
+}
+
+.example-panel,
+.example-status,
+.example-button,
+.example-tooltip {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.example-status {
+  left: 14px;
+  bottom: 14px;
+  padding: 6px 10px;
+  pointer-events: none;
+}
+
+.example-status:empty {
+  display: none;
+}
+
+.example-actions {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.example-button {
+  position: static;
+  height: 32px;
+  padding: 0 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.example-button:hover {
+  border-color: var(--graph-edge);
+}
+
+.example-tooltip {
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.example-tooltip span {
+  color: var(--graph-ink-muted);
+}
+
+.example-panel {
+  top: 14px;
+  right: 14px;
+  width: 200px;
+  max-height: calc(100% - 28px);
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.example-panel h2 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.example-panel p {
+  margin: 0;
+  color: var(--graph-ink-muted);
+}
+
+.example-panel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.example-legend {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  gap: 16px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.example-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.example-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--graph-cat-2);
+}
+
+.example-legend .expanded {
+  box-shadow: inset 0 0 0 2.5px var(--graph-ink);
+}
+
+.example-legend .loading {
+  opacity: 0.45;
+}

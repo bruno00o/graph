@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!CHANGELOG.md"]
+    "includes": ["**", "!CHANGELOG.md", "!docs/src/routeTree.gen.ts"]
   },
   "formatter": {
     "indentStyle": "space",
@@ -17,6 +17,11 @@
     "formatter": {
       "quoteStyle": "single",
       "semicolons": "asNeeded"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
     }
   },
   "linter": {
@@ -36,7 +41,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/react/**", "examples/**"],
+      "includes": ["src/react/**", "examples/**", "docs/**"],
       "linter": {
         "domains": {
           "react": "recommended"

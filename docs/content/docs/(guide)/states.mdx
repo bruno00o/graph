@@ -1,0 +1,109 @@
+---
+title: States
+description: Style named sets of nodes and edges, and set their members by key.
+---
+
+A state is a named set of nodes and edges drawn with its own style. Three come built in: `selected`, `hovered` and `focused`. You declare the others in `defineGraph` and fill them from code. States are resolved on the GPU, so setting thousands of members costs one buffer update.
+
+## Declare a state
+
+Add a `states` object to the definition. Each key names a state and each value is its style.
+
+```ts
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { color: 'group', label: 'label' }),
+  ],
+  states: {
+    muted: { opacity: 0.2, label: false },
+    pinned: { outline: 'var(--graph-ink)', outlineWidth: 3 },
+  },
+})
+```
+
+The names become types. `mountGraph` returns an instance whose `states` methods accept `'muted'` and `'pinned'` only: a misspelled name, or a built-in name, does not compile.
+
+## Set the members
+
+`graph.states` changes membership by key.
+
+```ts
+graph.on('click', ({ target }) => {
+  if (target?.kind !== 'node') {
+    graph.states.clear('muted')
+    return
+  }
+  const keep = new Set([target.key, ...graph.neighbors(target.key)])
+  graph.states.set('muted', { nodes: items.filter((item) => !keep.has(item.id)).map((item) => item.id) })
+})
+
+graph.states.add('pinned', { nodes: ['n12'] })
+graph.states.has('pinned', { kind: 'node', key: 'n12' })
+```
+
+| Method | Effect |
+| --- | --- |
+| `set(name, { nodes, edges })` | Replaces the members of the state |
+| `add(name, { nodes, edges })` | Adds members |
+| `remove(name, { nodes, edges })` | Removes members |
+| `clear(name)` | Empties the state, or every free state without a name |
+| `has(name, { kind, key })` | Tells whether an element is a member |
+
+<Callout title="Keys before elements">
+A key can join a state before its element exists. The element takes the style as soon as it arrives, which suits data that loads in steps. A removed element keeps its states and gets them back if it returns.
+</Callout>
+
+The selection is not a free state: change it through `graph.selection`. See [Interaction](/docs/interaction).
+
+## Style options
+
+A style sets any of these properties. Leave a property out and the element keeps its own value.
+
+| Option | Type | Effect |
+| --- | --- | --- |
+| `opacity` | `number` | Multiplies the element opacity. `0.2` pushes it into the background |
+| `fill` | `string` | Fill color of a node |
+| `stroke` | `string` | Inner contour of a node, line color of an edge |
+| `strokeWidth` | `number` | Inner contour width of a node, in pixels |
+| `outline` | `string` | Ring outside a node. Nodes only |
+| `outlineWidth` | `number` | Width of that ring in screen pixels. Nodes only |
+| `halo` | `boolean` | Draws the soft `--graph-halo` glow behind the element |
+| `label` | `boolean` | Shows or hides the label while the state applies |
+| `labelColor` | `string` | Color of the main text of the label, for nodes and edges |
+
+## Override the built-in states
+
+Declare a built-in name to change its style, property by property.
+
+```ts
+states: {
+  selected: { stroke: 'var(--graph-cat-1)' },
+  hovered: { outline: 'var(--graph-ink)' },
+}
+```
+
+By default, a selected node gets an accent ring, a halo and its label; a hovered node an ink ring; a focused node a focus ring. A selected edge changes color and gets a halo but keeps its width.
+
+## Priority
+
+An element can be in several states at once. Each property comes from the first state that sets it, in this order: `selected`, `hovered`, `focused`, then your states in the order you declared them. The opacity of the winning state multiplies the element's own.
+
+Selected, hovered and focused elements are drawn again above all others, so they stay visible inside a dense cluster.
+
+<Callout title="Limit">
+A definition holds up to 29 states besides the three built-in ones. Past that, `defineGraph` throws a `RangeError`.
+</Callout>
+
+## Read states in React
+
+`useGraphState` subscribes to the graph store. Select only what you render: the component updates when that slice changes.
+
+```tsx title="MutedCount.tsx"
+import { useGraphState } from '@bruno00o/graph/react'
+
+export function MutedCount() {
+  const count = useGraphState((state) => state.states.muted?.nodes.length ?? 0)
+  return <output>{count} nodes muted</output>
+}
+```

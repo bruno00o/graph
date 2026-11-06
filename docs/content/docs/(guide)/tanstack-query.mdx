@@ -1,0 +1,84 @@
+---
+title: TanStack Query
+description: Explore a large graph one neighborhood at a time, with queries you already know.
+---
+
+`createExploration` from `@bruno00o/graph/query` loads the neighborhood of a node with a TanStack Query, on demand, and exposes the result as two live sources. Expand a node to fetch its neighbors; collapse it to remove what no other expansion holds.
+
+## Create an exploration
+
+`neighbors(key)` returns query options whose data is `{ nodes, edges }`: a plain object, or `queryOptions` from any TanStack Query adapter. The node and edge types are inferred from it.
+
+```ts
+import { defineGraph, edges, type Key, nodes } from '@bruno00o/graph'
+import { createExploration } from '@bruno00o/graph/query'
+import { QueryClient } from '@tanstack/query-core'
+
+const neighbors = (key: Key) => ({
+  queryKey: ['neighbors', key],
+  queryFn: () => fetchNeighbors(key),
+})
+
+const exploration = createExploration(new QueryClient(), { roots: ['n1'], neighbors })
+
+const definition = defineGraph({
+  marks: [
+    edges(exploration.edges, { source: 'from', target: 'to' }),
+    nodes(exploration.nodes, { color: 'group', label: 'label' }),
+  ],
+})
+
+graph.on('doubleclick', ({ target }) => {
+  if (target?.kind === 'node') exploration.toggle(target.key)
+})
+```
+
+- Roots are expanded at once and never removed.
+- The response for a node usually contains the node itself: that is how a root gets its data. An expanded node holds itself while its expansion exists.
+- Keys are the `id` field by default. Pass `nodeKey` and `edgeKey` when your data differs.
+- New nodes appear next to the neighbors they connect to.
+
+## Queries do the caching
+
+Each expansion is a `QueryObserver`. Caching, deduplication, `staleTime` and retries come from TanStack Query. Invalidate `['neighbors', key]` and the graph updates by difference.
+
+The observers only run while something listens to the sources, that is while a mark using them is mounted. Creating an exploration has no side effect, StrictMode does not fetch twice, and a remount resumes from the cache. `destroy` stops everything for good.
+
+## Read the exploration state
+
+`exploration.store` is a read-only TanStack Store.
+
+| Field | Content |
+| --- | --- |
+| `expanded` | Keys of the expanded nodes |
+| `loading` | Keys whose query is fetching |
+| `errors` | A `ReadonlyMap` from key to error |
+
+Mirror it into graph states to show what is expanded and what is loading.
+
+```tsx
+import { useSelector } from '@tanstack/react-store'
+
+function ExplorationStates({ exploration }: { exploration: Exploration<Item, Link> }) {
+  const graph = useGraph()
+  const expanded = useSelector(exploration.store, (state) => state.expanded)
+  const loading = useSelector(exploration.store, (state) => state.loading)
+  useEffect(() => graph.states.set('expanded', { nodes: expanded }), [graph, expanded])
+  useEffect(() => graph.states.set('loading', { nodes: loading }), [graph, loading])
+  return null
+}
+```
+
+## Methods
+
+| Method | Effect |
+| --- | --- |
+| `expand(key)` | Fetches the neighborhood of a node and adds it |
+| `collapse(key)` | Removes what only this expansion holds. Roots stay |
+| `toggle(key)` | Expands or collapses |
+| `reset()` | Collapses every expansion but the roots, then expands the roots again |
+| `destroy()` | Stops every query observer |
+
+In React, create the exploration once with `useState(() => createExploration(…))` and build the definition from its sources in a `useMemo`.
+
+<LiveExample slug="neighborhood-exploration" />

@@ -1,0 +1,33 @@
+{
+  "title": "Docs",
+  "description": "Guides and concepts",
+  "root": true,
+  "pages": [
+    "---Getting started---",
+    "index",
+    "installation",
+    "quick-start",
+    "---Guides---",
+    "data",
+    "marks",
+    "labels",
+    "scales",
+    "states",
+    "images-and-badges",
+    "interaction",
+    "view",
+    "positions",
+    "layout",
+    "theming",
+    "---Frameworks---",
+    "vanilla",
+    "react",
+    "---Integrations---",
+    "tanstack-db",
+    "tanstack-query",
+    "---Reference---",
+    "[API reference](/docs/api)",
+    "[Examples](/examples)",
+    "[Benchmark](/benchmark)"
+  ]
+}

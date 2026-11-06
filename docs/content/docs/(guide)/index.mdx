@@ -1,0 +1,57 @@
+---
+title: Overview
+description: Typed graph visualization for any framework, rendered with WebGL2.
+---
+
+`@bruno00o/graph` draws nodes and edges from your data. You describe the graph once with marks that map fields to visual channels, mount it in an element, and talk to it through a small typed API. The core has no framework dependency; a thin React adapter, two TanStack integrations and a force layout come as separate entry points.
+
+<LiveExample slug="selection" />
+
+## What it does
+
+- **Declarative marks.** `nodes()` and `edges()` map fields of your data to color, size, labels, arrows and dashes through shared scales. Field names are checked against your data type.
+- **Styled labels.** Each label has its own size, color, weight, font and placement, with line breaks and truncation. Edge labels follow their edge and stay upright, and no two labels overlap.
+- **Live sources.** Pass an array, or anything with `subscribeChanges`, such as a TanStack DB collection. Only what changed is redrawn.
+- **Named states.** Selection, hover and keyboard focus are built in. You declare your own states, style them, and set their members by key.
+- **WebGL2 rendering.** 50,000 nodes and 100,000 edges stay smooth, with picking, labels and images. See the [benchmark](/benchmark).
+- **Force layout.** Nodes without coordinates settle with a force simulation in a Web Worker, on the GPU for large graphs. New nodes settle next to their neighbors, and dragging a node pins it.
+- **Interaction out of the box.** Pan, zoom, drag, single or multiple selection, lasso and keyboard navigation announced to screen readers.
+- **Themed with CSS variables.** Light and dark themes ship as a stylesheet; every color in your options can be a CSS variable.
+
+## Entry points
+
+| Entry point | Contents | Peer dependency |
+| --- | --- | --- |
+| `@bruno00o/graph` | `defineGraph`, `nodes`, `edges`, `mountGraph` | |
+| `@bruno00o/graph/react` | `Graph`, `useGraph`, `useGraphState`, `useGraphEvent` | `react` 19 |
+| `@bruno00o/graph/db` | `persistPositions` | `@tanstack/db` |
+| `@bruno00o/graph/query` | `createExploration` | `@tanstack/query-core` |
+| `@bruno00o/graph/layouts/force` | `force` | |
+| `@bruno00o/graph/theme.css` | Default light and dark theme | |
+
+## How it fits together
+
+1. **Describe** the graph with `defineGraph`: marks, scales, states, interaction options. The definition is a frozen, plain value.
+2. **Mount** it with `mountGraph(container, { definition, ariaLabel })`, or render `<Graph>` in React.
+3. **Respond** to events such as `click` or `selectionchange`, read the store, and drive the view, the selection and your states through the instance.
+
+<Callout title="Early development">
+The API may still change before 1.0. Each release lists its changes in the changelog.
+</Callout>
+
+## Next steps
+
+<Cards>
+  <Card title="Installation" href="/docs/installation">
+    Add the package, its stylesheet and the peer dependencies you need.
+  </Card>
+  <Card title="Quick start" href="/docs/quick-start">
+    Draw a first graph and respond to clicks, in vanilla TypeScript or React.
+  </Card>
+  <Card title="Marks and channels" href="/docs/marks">
+    Map your fields to color, size, labels, images and arrows.
+  </Card>
+  <Card title="Examples" href="/examples">
+    Live examples next to their full source.
+  </Card>
+</Cards>

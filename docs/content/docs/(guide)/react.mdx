@@ -1,0 +1,112 @@
+---
+title: React
+description: The Graph component, overlays as children, and hooks that read the graph.
+---
+
+`@bruno00o/graph/react` wraps the core in a component and three hooks. It needs React 19.
+
+## The Graph component
+
+```tsx title="SampleGraph.tsx"
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { Graph } from '@bruno00o/graph/react'
+import { useMemo } from 'react'
+
+export function SampleGraph({ items, links }: { items: Item[]; links: Link[] }) {
+  const definition = useMemo(
+    () =>
+      defineGraph({
+        marks: [
+          edges(links, { source: 'from', target: 'to' }),
+          nodes(items, { color: 'group', label: 'label' }),
+        ],
+      }),
+    [items, links],
+  )
+  return <Graph definition={definition} ariaLabel="Sample graph" style={{ height: 480 }} />
+}
+```
+
+- `<Graph>` renders a `div` in relative position, sized by your `className` or `style`, with the graph inside.
+- Build the definition with `useMemo`, or outside the component. A new definition is applied with `update`, so positions, view and selection stay.
+- The graph is mounted once and destroyed on unmount. StrictMode mounts, destroys and mounts again: one instance remains.
+
+| Prop | Effect |
+| --- | --- |
+| `definition` | The result of `defineGraph` |
+| `ariaLabel` | Accessible name of the graph |
+| `initialView` | `{ x, y, zoom }`, read at mount |
+| `selection` | Makes the selection controlled, together with `onSelectionChange` |
+| `className`, `style` | Applied to the wrapping `div` |
+| `ref` | Receives the `GraphInstance` |
+| `children` | Overlays drawn above the graph, with access to the hooks |
+| `onClick`, `onDoubleClick`, `onContextMenu` | Pointer events |
+| `onPointerEnter`, `onPointerLeave` | Hover on an element |
+| `onDragStart`, `onDrag`, `onDragEnd`, `onPositionChange` | Node moves |
+| `onSelectionChange`, `onFocusChange`, `onViewChange` | State changes |
+| `onLayoutStart`, `onLayoutEnd` | Layout runs |
+
+Event props always call the latest function you pass, without subscribing again.
+
+## Overlays
+
+Children of `<Graph>` are HTML drawn over the canvas. They can read and drive the graph through the hooks.
+
+```tsx title="Tooltip.tsx"
+import { useGraph, useGraphState } from '@bruno00o/graph/react'
+
+export function Tooltip() {
+  const graph = useGraph()
+  const hovered = useGraphState((state) => state.hovered)
+  useGraphState((state) => state.view)
+  useGraphState((state) => state.positionsVersion)
+  if (hovered?.kind !== 'node') return null
+  const point = graph.positions.get(hovered.key)
+  if (!point) return null
+  const { x, y } = graph.view.toScreen(point)
+  return (
+    <div className="tooltip" style={{ transform: `translate(${x}px, ${y}px)` }}>
+      {(hovered.datum as Item).label}
+    </div>
+  )
+}
+```
+
+<LiveExample slug="react-overlays" />
+
+## Hooks
+
+| Hook | Returns |
+| --- | --- |
+| `useGraph()` | The `GraphInstance`. Throws outside `<Graph>` |
+| `useGraphState(selector, { compare })` | A slice of the graph state. Updates only when the slice changes |
+| `useGraphEvent(name, handler)` | Nothing. Subscribes to an event for the life of the component |
+
+`useGraphState` compares with `Object.is` by default. When your selector builds an object, pass `shallow` from `@tanstack/store` as `compare`.
+
+```tsx
+import { shallow } from '@tanstack/store'
+
+const counts = useGraphState(
+  (state) => ({ nodes: state.selection.nodes.length, edges: state.selection.edges.length }),
+  { compare: shallow },
+)
+```
+
+`graph.store` is a TanStack Store, so `useSelector` from `@tanstack/react-store` works too.
+
+```tsx
+import { useSelector } from '@tanstack/react-store'
+
+const zoom = useSelector(graph.store, (state) => state.view.zoom)
+```
+
+## Controlled selection
+
+```tsx
+const [selection, setSelection] = useState<ElementKeysInput>({ nodes: [] })
+
+<Graph definition={definition} ariaLabel="Sample graph" selection={selection} onSelectionChange={setSelection} />
+```
+
+In controlled mode, `onSelectionChange` receives every request, from clicks, the keyboard, the lasso or code, and only the `selection` prop changes the graph. Whether a graph is controlled is decided at mount.

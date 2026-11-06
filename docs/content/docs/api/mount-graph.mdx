@@ -1,0 +1,46 @@
+---
+title: mountGraph
+description: Mount a graph into an element and get its instance.
+---
+
+```ts
+function mountGraph<S extends string = string>(
+  container: HTMLElement,
+  options: MountGraphOptions<S>,
+): GraphInstance<S>
+```
+
+Appends the graph element to `container` and returns its [instance](/docs/api/graph-instance). The graph fills the container; give the container a size.
+
+## Options
+
+| Option | Type | Required | Description |
+| --- | --- | --- | --- |
+| `definition` | `GraphDefinition<S>` | yes | The result of `defineGraph` |
+| `ariaLabel` | `string` | yes | Accessible name of the graph |
+| `initialView` | `View` | no | `{ x, y, zoom }`. Without it, the first data is fitted with a 32 pixel margin |
+| `selection` | `ElementKeysInput` | no | Initial selection. Its presence makes the selection controlled |
+| `onSelectionChange` | `(selection: ElementKeys) => void` | no | Receives selection requests in controlled mode |
+
+```ts
+interface ElementKeysInput {
+  readonly nodes?: Iterable<Key>
+  readonly edges?: Iterable<Key>
+}
+
+interface ElementKeys {
+  readonly nodes: readonly Key[]
+  readonly edges: readonly Key[]
+}
+```
+
+## The graph element
+
+`graph.element` is the `div` added to the container. It holds the canvas and carries:
+
+- `aria-label` from `ariaLabel`,
+- `data-graph`,
+- `role="application"` and `tabindex="0"` when the keyboard is on, `role="img"` otherwise,
+- an outline in `--graph-focus-ring` when it has the keyboard focus and no node is focused.
+
+The canvas is transparent: the page behind it is the background.

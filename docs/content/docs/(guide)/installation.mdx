@@ -1,0 +1,60 @@
+---
+title: Installation
+description: Add the package, its theme and the peer dependencies of the entry points you use.
+---
+
+## Install the package
+
+```npm
+npm install @bruno00o/graph
+```
+
+The package ships ES modules only, with TypeScript declarations. It needs a browser with WebGL2.
+
+## Import the theme
+
+The default theme is a stylesheet of CSS variables for light and dark. Import it once, next to your other global styles.
+
+```ts title="main.ts"
+import '@bruno00o/graph/theme.css'
+```
+
+Without it, every color falls back to its light value, so the graph stays readable. The stylesheet is never injected for you, which keeps server rendering and strict content security policies working. See [Theming](/docs/theming) to change the colors.
+
+## Peer dependencies
+
+The React and TanStack entry points each have an optional peer dependency. Install only the ones you import. `@bruno00o/graph/layouts/force` needs none.
+
+| Entry point | Install |
+| --- | --- |
+| `@bruno00o/graph/react` | `react` 19 and `react-dom` 19 |
+| `@bruno00o/graph/db` | `@tanstack/db` 1.0 (release candidate 1.3 or later) |
+| `@bruno00o/graph/query` | `@tanstack/query-core` 5, or any TanStack Query adapter |
+
+```npm
+npm install react react-dom
+```
+
+## Give the graph a size
+
+The graph fills its container and never sets its own size. Give the container a width and a height in your CSS.
+
+```css title="styles.css"
+.graph {
+  height: 480px;
+}
+```
+
+In development, the graph warns once when its container measures 0 pixels in either direction.
+
+## TypeScript
+
+The types follow your data. Strict mode is recommended: field names given to channels are checked against your data type, and state names are checked against your definition.
+
+```ts
+type Item = { id: string; label: string; weight: number }
+
+nodes<Item>(items, { size: 'weight', label: 'label' })
+```
+
+`size` takes a numeric field: `size: 'label'` would not compile.

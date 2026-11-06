@@ -1,0 +1,88 @@
+---
+title: Events
+description: Every event of the graph and the payload it carries.
+---
+
+Subscribe with `graph.on(name, handler)`, which returns the function that unsubscribes. In React, use the matching prop of `<Graph>` or `useGraphEvent`.
+
+## Event table
+
+| Event | React prop | Payload | When |
+| --- | --- | --- | --- |
+| `click` | `onClick` | `GraphPointerEvent` | A press released within 4 pixels |
+| `doubleclick` | `onDoubleClick` | `GraphPointerEvent` | A double click |
+| `contextmenu` | `onContextMenu` | `GraphPointerEvent` | A secondary click |
+| `pointerenter` | `onPointerEnter` | `GraphTargetEvent` | The pointer enters an element |
+| `pointerleave` | `onPointerLeave` | `GraphTargetEvent` | The pointer leaves an element |
+| `dragstart` | `onDragStart` | `GraphDragEvent` | A node drag starts, after 4 pixels |
+| `drag` | `onDrag` | `GraphDragEvent` | A dragged node moves |
+| `dragend` | `onDragEnd` | `GraphDragEvent` | A node drag ends |
+| `positionchange` | `onPositionChange` | `GraphPositionEvent` | Nodes moved by a drag, by `positions.set` or by a layout run that ended |
+| `selectionchange` | `onSelectionChange` | `ElementKeys` | The selection changed |
+| `focuschange` | `onFocusChange` | `GraphFocusEvent` | The keyboard focus changed |
+| `viewchange` | `onViewChange` | `{ view: View }` | The view changed |
+| `layoutstart` | `onLayoutStart` | `GraphLayoutEvent` | A layout run starts |
+| `layoutend` | `onLayoutEnd` | `GraphLayoutEndEvent` | A layout run ends or stops |
+
+## Targets
+
+```ts
+type GraphTarget =
+  | { readonly kind: 'node'; readonly key: Key; readonly datum: unknown }
+  | { readonly kind: 'edge'; readonly key: Key; readonly datum: unknown }
+```
+
+`datum` is the item from your data. Narrow on `kind`, then cast `datum` to your type.
+
+## Payloads
+
+```ts
+interface GraphPointerEvent {
+  readonly target: GraphTarget | null
+  readonly point: Point
+  readonly world: Point
+  readonly originalEvent: MouseEvent
+}
+
+interface GraphTargetEvent {
+  readonly target: GraphTarget
+  readonly originalEvent: MouseEvent
+}
+
+interface GraphDragEvent {
+  readonly target: GraphTarget & { readonly kind: 'node' }
+  readonly keys: readonly Key[]
+  readonly point: Point
+  readonly world: Point
+  readonly originalEvent: PointerEvent
+}
+
+interface GraphPositionEvent {
+  readonly origin: 'drag' | 'api' | 'layout'
+  readonly positions: ReadonlyMap<Key, Point>
+}
+
+interface GraphFocusEvent {
+  readonly target: GraphTarget | null
+}
+
+interface GraphLayoutEvent {
+  readonly name: string
+}
+
+interface GraphLayoutEndEvent extends GraphLayoutEvent {
+  readonly completed: boolean
+}
+```
+
+- `point` is in screen pixels relative to the graph element, `world` in world units.
+- `keys` lists every node moved by the drag: the whole selection when the dragged node is selected.
+- `positions` holds the target positions. Moves that come from your data do not emit `positionchange`.
+- With the origin `'layout'`, `positions` holds every node the run moved. A stopped run emits nothing.
+- `name` is the name of the layout, `'force'` for [`force()`](/docs/api/force). `completed` is `false` when the run was stopped or replaced.
+
+## Order
+
+`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events.
+
+At the end of a layout run, `positionchange` fires before `layoutend`. Nodes that arrive during a run join it without a new `layoutstart`, and a run replaced by another ends with `completed: false` before the next `layoutstart`.

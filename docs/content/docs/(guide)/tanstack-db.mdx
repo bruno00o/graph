@@ -1,0 +1,91 @@
+---
+title: TanStack DB
+description: Draw a collection as it changes, and write node positions back to it.
+---
+
+## A collection is a live source
+
+A TanStack DB collection, or a live query, has `subscribeChanges`: pass it to a mark as is. Inserts, updates and deletes reach the graph in batches, and only what changed is redrawn. The core imports nothing from TanStack DB.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { createCollection } from '@tanstack/db'
+
+const items = createCollection(itemCollectionOptions)
+const links = createCollection(linkCollectionOptions)
+
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { x: 'x', y: 'y', color: 'group', label: 'label' }),
+  ],
+})
+```
+
+The definition never needs to change: new rows appear, updated rows restyle, deleted rows leave. With `x` and `y` channels, a row whose coordinates change moves its node, animated over `transitions.positions`. See [Positions](/docs/positions).
+
+## Write positions back
+
+`persistPositions` from `@bruno00o/graph/db` listens to `positionchange` and writes `x` and `y` into the collection. It returns a function that stops listening.
+
+```ts tab="Vanilla" tab-group="framework"
+import { persistPositions } from '@bruno00o/graph/db'
+
+const stop = persistPositions(graph, { collection: items })
+```
+
+```tsx tab="React" tab-group="framework"
+import { persistPositions } from '@bruno00o/graph/db'
+import { useGraph } from '@bruno00o/graph/react'
+import { useEffect } from 'react'
+
+function SharedPositions() {
+  const graph = useGraph()
+  useEffect(() => persistPositions(graph, { collection: items }), [graph])
+  return null
+}
+```
+
+- Drags, `positions.set` and the result of each layout run that ends are written. Moves that come from the collection itself do not emit `positionchange`, so nothing echoes back.
+- A written layout result becomes data. When the node mark reads `x` and `y` from the collection, those nodes now have coordinates, and later layout runs leave them in place. See [Force layout](/docs/layout#save-the-result).
+- Without `mutationFn`, rows are updated with `collection.update` at most every 100 milliseconds, first and last move included. The collection persists them through its own handlers, as an Electric, Query or local storage collection does. Stopping writes the last pending move at once.
+- With `mutationFn`, the writes go through `createPacedMutations`: `x` and `y` are written optimistically, and the strategy, `throttleStrategy` of 100 milliseconds by default, paces the calls to your function. When the mutation fails, the optimistic write is rolled back and the node follows its data again.
+
+```ts
+import { throttleStrategy } from '@tanstack/db'
+
+persistPositions(graph, {
+  collection: items,
+  mutationFn: async ({ transaction }) => {
+    await savePositions(transaction.mutations)
+  },
+  strategy: throttleStrategy({ wait: 250, leading: true, trailing: true }),
+})
+```
+
+## Positions in another collection
+
+When positions live in their own collection, map node keys to row keys with `key`, and create missing rows with `create`. Read them with a live query that joins nodes and positions.
+
+```ts
+persistPositions(graph, {
+  collection: positions,
+  key: (nodeKey) => `position:${nodeKey}`,
+  create: (nodeKey, point) => ({ id: `position:${nodeKey}`, node: String(nodeKey), ...point }),
+})
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `collection` | | Collection to write to |
+| `x`, `y` | `'x'`, `'y'` | Numeric fields that hold the position |
+| `key` | node key | Maps a node key to a row key |
+| `create` | | Builds a row for a node that has none |
+| `mutationFn` | | Persists through `createPacedMutations` |
+| `strategy` | throttle, 100 ms | Pacing of the writes |
+
+## Try it
+
+The collaboration example stores positions in a local storage collection. Open it in two windows and drag a node in one: it moves in the other.
+
+<LiveExample slug="collaboration" />

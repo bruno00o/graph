@@ -1,0 +1,62 @@
+---
+title: View and camera
+description: Fit, zoom and move the view, and convert between screen and world coordinates.
+---
+
+## The view
+
+The view is a center point in world units and a zoom factor: `{ x, y, zoom }`. At zoom 1, one world unit is one CSS pixel.
+
+```ts
+graph.view.get()
+graph.view.set({ x: 0, y: 0, zoom: 2 }, { duration: 300 })
+graph.on('viewchange', ({ view }) => console.log(view.zoom))
+```
+
+## The first view
+
+Without `initialView`, the graph fits all its nodes with a 32 pixel margin as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted. Only that first batch is fitted: later data does not move the view.
+
+To start somewhere else, pass `initialView` when you mount.
+
+```ts
+mountGraph(container, { definition, ariaLabel: 'Sample graph', initialView: { x: 0, y: 0, zoom: 1 } })
+```
+
+## Fit
+
+`fit` frames the given nodes, or every node without keys.
+
+```ts
+graph.view.fit()
+graph.view.fit(['n1', 'n2', 'n3'], { padding: 64, duration: 400 })
+```
+
+`padding` is in screen pixels, 32 by default. A `fit` called before the graph has measured its container waits for that measure.
+
+## Zoom
+
+`zoomBy` multiplies the zoom around the center of the view.
+
+```ts
+graph.view.zoomBy(1.5, { duration: 200 })
+graph.view.zoomBy(1 / 1.5, { duration: 200 })
+```
+
+Animated calls interrupt each other: the last one wins. With `prefers-reduced-motion`, every duration is zero.
+
+## Screen and world coordinates
+
+Positions live in world units. To place an HTML overlay over a node, convert its position to screen pixels relative to the graph element.
+
+```ts
+const point = graph.positions.get('n1')
+if (point) {
+  const { x, y } = graph.view.toScreen(point)
+  tooltip.style.transform = `translate(${x}px, ${y}px)`
+}
+```
+
+`toWorld` does the reverse, for example to drop a new node where the user clicked. Pointer events already carry both: `point` in screen pixels and `world` in world units.
+
+The store holds the view, the width and the height of the graph, so overlays can subscribe to them. See the [React overlays](/examples/react-overlays) example.

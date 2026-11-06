@@ -1,0 +1,76 @@
+---
+title: Data and live sources
+description: Arrays, keys, and sources that stream their changes.
+---
+
+## Two kinds of data
+
+A mark reads one of two things:
+
+- **An iterable**, such as an array or the result of a query. Every new definition is reconciled by key: only the differences reach the screen, and positions stay where they are.
+- **A live source**: any object with a `subscribeChanges(callback, options)` method. Its inserts, updates and deletes are applied in batches, once per frame. A TanStack DB collection or live query is a live source as is, with no adapter.
+
+```ts
+import type { LiveSource } from '@bruno00o/graph'
+
+const source: LiveSource<Item> = {
+  subscribeChanges(callback, options) {
+    if (options?.includeInitialState) callback(initialRows.map((row) => ({ type: 'insert', key: row.id, value: row })))
+    const stop = listen((change) => callback([change]))
+    return { unsubscribe: stop }
+  },
+}
+```
+
+A source is recognized by its `subscribeChanges` method before anything else, so a collection that is also iterable is still read as live.
+
+## Keys
+
+Keys are strings or numbers.
+
+- **Nodes.** By default the key is the `id` field. When your data has no `id`, the `key` option is required: a field name or a function.
+- **Edges.** Same rule for the edge key. `source` and `target` take a field holding a node key, or a function.
+- **Live sources** carry the key in each change, so `key` is optional.
+
+```ts
+type Row = { code: number; name: string }
+type Pair = { start: number; end: number; kind: string }
+
+nodes<Row>(rows, { key: 'code', label: 'name' })
+edges<Pair>(pairs, {
+  key: (pair) => `${pair.kind}:${pair.start}:${pair.end}`,
+  source: 'start',
+  target: 'end',
+})
+```
+
+Node keys are unique across all node marks. When two items share a key, the first one wins, in mark order then data order, and the others are skipped.
+
+## Edges that arrive first
+
+An edge whose ends are not both present yet waits. It appears as soon as its second end arrives, which suits sources that load nodes and edges separately.
+
+## Update the data
+
+Never change an array in place: the graph does not read the same mark object twice. Build a new array and a new definition instead.
+
+```ts tab="Vanilla" tab-group="framework"
+items = [...items, { id: 'n5', label: 'Node 5', group: 'D', weight: 3 }]
+graph.update({ definition: defineGraph({ marks: [edges(links, linkOptions), nodes(items, itemOptions)] }) })
+```
+
+```tsx tab="React" tab-group="framework"
+const definition = useMemo(
+  () => defineGraph({ marks: [edges(links, linkOptions), nodes(items, itemOptions)] }),
+  [items, links],
+)
+return <Graph definition={definition} ariaLabel="Sample graph" />
+```
+
+When a mark keeps its place and its options are shallowly equal, only the items that changed are rewritten. When options change, every item of that mark is restyled.
+
+With a live source, there is nothing to update: changes arrive through the subscription.
+
+## Removed elements
+
+An element removed from the data leaves the selection and the hover. Your own states keep its key, and their style applies again if the element comes back.
