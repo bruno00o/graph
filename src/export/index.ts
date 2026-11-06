@@ -82,6 +82,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
   await document.fonts?.ready
   const snapshot = takeSnapshot(graph)
   const { scene, positions, states } = snapshot
+  const boxes = snapshot.containers?.boxes ?? null
   const region = options.region ?? 'view'
   const labels = options.labels ?? 'visible'
   const padding = Math.max(0, options.padding ?? 32)
@@ -91,6 +92,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       nodes: scene.nodes,
       edges: scene.edges,
       positions,
+      boxes,
       view: snapshot.view,
       width: snapshot.width,
       height: snapshot.height,
@@ -98,7 +100,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
     { region, zoom: options.zoom, padding },
   )
   if (region === 'graph' && labels !== 'none') {
-    const source = { nodes: scene.nodes, edges: scene.edges, positions, states }
+    const source = { nodes: scene.nodes, edges: scene.edges, positions, states, boxes }
     frame = fitLabels(source, frame, labels, measure, padding)
   }
   if (!(frame.width >= 1 && frame.height >= 1)) {
@@ -172,8 +174,8 @@ async function imageSources(
 
 /**
  * Serializes the graph into a standalone SVG document, without reading pixels back: shapes,
- * images, badges, edges, arrows and labels, with state styles and colors of the current theme.
- * Text uses the theme font, which the viewer needs to have.
+ * images, badges, group containers, edges, arrows and labels, with state styles and colors of the
+ * current theme. Text uses the theme font, which the viewer needs to have.
  */
 export async function exportSvg<S extends string>(
   graph: GraphInstance<S>,
@@ -189,6 +191,7 @@ export async function exportSvg<S extends string>(
     layers: scene.layers,
     positions: current.positions,
     states: current.states,
+    containers: current.containers,
     palette: current.palette,
     theme: current.theme,
     frame,

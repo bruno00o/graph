@@ -2088,12 +2088,14 @@ export function createGraphHost<S extends string = string>(
     registry.takeHighlighted()
     if (scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    syncContainers()
     request()
     const { view, width, height } = store.get()
     return {
       scene,
       positions,
       states: buffers,
+      containers: projection.active ? containerBoxes : null,
       palette: paletteColors,
       theme: themeResolver.theme(),
       view,

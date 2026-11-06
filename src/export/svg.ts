@@ -1,10 +1,10 @@
-import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
+import { containerShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
-import type { LabelMode } from '../host/renderer'
+import type { ContainerFrame, LabelMode } from '../host/renderer'
 import { atlasFontSize } from '../webgl/glyph-atlas'
 import {
   type EdgeAnchor,
@@ -22,7 +22,7 @@ import {
   labelGap,
   plateRadius,
 } from '../webgl/shaders'
-import { type ExportFrame, screenRadius } from './frame'
+import { type ExportFrame, screenExtent, screenRadius } from './frame'
 import { placementDirections, selectLabels } from './labels'
 import { edgeLook, highlightMask, type Look, nodeLook } from './look'
 
@@ -32,6 +32,7 @@ export interface SvgScene {
   readonly layers: readonly Layer[]
   readonly positions: Positions
   readonly states: StateBuffers
+  readonly containers?: ContainerFrame | null
   readonly palette: Uint8Array
   readonly theme: ResolvedTheme
   readonly frame: ExportFrame
@@ -243,6 +244,8 @@ export function writeSvg(scene: SvgScene): string {
   const sx = (index: number) => (positions.xy[index * 2] ?? 0) * zoom + offsetX
   const sy = (index: number) => (positions.xy[index * 2 + 1] ?? 0) * zoom + offsetY
   const radius = (index: number) => screenRadius(nodes, index, zoom)
+  const boxes = scene.containers?.boxes ?? null
+  const isContainer = (index: number) => nodes.shape[index] === containerShape
   const outside = (left: number, top: number, right: number, bottom: number) =>
     right < -margin || left > width + margin || bottom < -margin || top > height + margin
 
@@ -273,6 +276,24 @@ export function writeSvg(scene: SvgScene): string {
       return `<path d="M${num(x)} ${num(y - reach)}L${num(x + reach)} ${num(y)}L${num(x)} ${num(y + reach)}L${num(x - reach)} ${num(y)}Z"`
     }
     return `<circle cx="${num(x)}" cy="${num(y)}" r="${num(r + offset)}"`
+  }
+
+  function boxTag(
+    x: number,
+    y: number,
+    halfWidth: number,
+    halfHeight: number,
+    corner: number,
+    offset: number,
+  ): string {
+    const width = halfWidth + offset
+    const height = halfHeight + offset
+    const round = Math.min(Math.max(corner + offset, 0), width, height)
+    if (Math.abs(width - height) < 0.01 && round >= width - 0.01) {
+      return `<circle cx="${num(x)}" cy="${num(y)}" r="${num(width)}"`
+    }
+    const rounded = round > 0 ? ` rx="${num(round)}"` : ''
+    return `<rect x="${num(x - width)}" y="${num(y - height)}" width="${num(width * 2)}" height="${num(height * 2)}"${rounded}`
   }
 
   function imageId(src: string, image: SvgImage): string {
@@ -326,6 +347,35 @@ export function writeSvg(scene: SvgScene): string {
     return opacity < 0.999 ? `<g opacity="${fine(Math.max(0, opacity))}">` : '<g>'
   }
 
+  function drawShape(look: Look, tag: (offset: number) => string, r: number, image: string): void {
+    const outlineWidth = Math.max(look.outlineWidth, 0)
+    const parts: string[] = [open(look.opacity)]
+    if (look.halo) {
+      haloBands.forEach((band, at) => {
+        const alpha = halos[at] ?? 0
+        if (alpha <= 0) return
+        parts.push(
+          `${tag(outlineWidth + band / 2)} fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(band)}"/>`,
+        )
+      })
+    }
+    if (outlineWidth > 0) {
+      parts.push(
+        `${tag(outlineWidth / 2)} fill="none"${paintAttribute('stroke', paint(look.outline))} stroke-width="${num(outlineWidth)}"/>`,
+      )
+    }
+    parts.push(`${tag(0)}${paintAttribute('fill', paint(look.fill))}/>`)
+    if (image) parts.push(image)
+    const strokeWidth = Math.min(look.strokeWidth, r * 0.5)
+    if (strokeWidth > 0) {
+      parts.push(
+        `${tag(-strokeWidth / 2)} fill="none"${paintAttribute('stroke', paint(look.stroke))} stroke-width="${num(strokeWidth)}"/>`,
+      )
+    }
+    parts.push('</g>')
+    body.push(parts.join(''))
+  }
+
   function drawNode(index: number): void {
     const x = sx(index)
     const y = sy(index)
@@ -336,41 +386,39 @@ export function writeSvg(scene: SvgScene): string {
     const extent = r * diamondReach + outlineWidth * Math.SQRT2 + haloReach
     if (outside(x - extent, y - extent, x + extent, y + extent)) return
     const shape = nodes.shape[index] ?? 0
-    const parts: string[] = [open(look.opacity)]
-    if (look.halo) {
-      haloBands.forEach((band, at) => {
-        const alpha = halos[at] ?? 0
-        if (alpha <= 0) return
-        parts.push(
-          `${shapeTag(shape, x, y, r, outlineWidth + band / 2)} fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(band)}"/>`,
-        )
-      })
-    }
-    if (outlineWidth > 0) {
-      parts.push(
-        `${shapeTag(shape, x, y, r, outlineWidth / 2)} fill="none"${paintAttribute('stroke', paint(look.outline))} stroke-width="${num(outlineWidth)}"/>`,
-      )
-    }
-    parts.push(`${shapeTag(shape, x, y, r, 0)}${paintAttribute('fill', paint(look.fill))}/>`)
     const src = nodes.image[index]
     const image = src ? scene.images.get(src) : undefined
+    let picture = ''
     if (src && image) {
       const scale = Math.max(nodes.imageScale[index] ?? 1, 0.001)
       const side = r * 2 * scale
       const color = nodes.imageColor[index] ?? noColor
       const tint = color === noColor ? '' : ` filter="url(#${tintId(color)})"`
-      parts.push(
-        `<use href="#${imageId(src, image)}" width="1" height="1" transform="translate(${num(x - side / 2)} ${num(y - side / 2)}) scale(${fine(side)})" clip-path="url(#${clipId(shape, scale)})"${tint}/>`,
-      )
+      picture = `<use href="#${imageId(src, image)}" width="1" height="1" transform="translate(${num(x - side / 2)} ${num(y - side / 2)}) scale(${fine(side)})" clip-path="url(#${clipId(shape, scale)})"${tint}/>`
     }
-    const strokeWidth = Math.min(look.strokeWidth, r * 0.5)
-    if (strokeWidth > 0) {
-      parts.push(
-        `${shapeTag(shape, x, y, r, -strokeWidth / 2)} fill="none"${paintAttribute('stroke', paint(look.stroke))} stroke-width="${num(strokeWidth)}"/>`,
+    drawShape(look, (offset) => shapeTag(shape, x, y, r, offset), r, picture)
+  }
+
+  function drawContainer(index: number, frame: Float32Array): void {
+    const x = sx(index)
+    const y = sy(index)
+    const halfWidth = Math.max((frame[index * 4] ?? 0) * zoom, 1.25)
+    const halfHeight = Math.max((frame[index * 4 + 1] ?? 0) * zoom, 1.25)
+    const r = Math.min(halfWidth, halfHeight)
+    const corner = Math.min((frame[index * 4 + 2] ?? 0) * zoom, r)
+    const look = nodeLook(nodes, states, index)
+    const reach = Math.max(look.outlineWidth, 0) + (look.halo ? haloWidth : 0)
+    if (
+      outside(
+        x - halfWidth - reach,
+        y - halfHeight - reach,
+        x + halfWidth + reach,
+        y + halfHeight + reach,
       )
+    ) {
+      return
     }
-    parts.push('</g>')
-    body.push(parts.join(''))
+    drawShape(look, (offset) => boxTag(x, y, halfWidth, halfHeight, corner, offset), r, '')
   }
 
   function straightShape(index: number, width: number): EdgeShape | null {
@@ -639,8 +687,8 @@ export function writeSvg(scene: SvgScene): string {
     const look = nodeLook(nodes, states, index)
     const pixels = label.size * (nodes.screenUnits[index] === 1 ? 1 : Math.min(1, zoom))
     const [dx, dy] = placementDirections[label.placement] ?? [0, 1]
-    const reach =
-      label.placement === 4 ? 0 : radius(index) + Math.max(look.outlineWidth, 0) + labelGap
+    const edge = screenExtent(nodes, boxes, index, zoom, dx !== 0 ? 0 : 1)
+    const reach = label.placement === 4 ? 0 : edge + Math.max(look.outlineWidth, 0) + labelGap
     const parts = labelParts(
       label,
       sx(index) + dx * reach,
@@ -680,7 +728,7 @@ export function writeSvg(scene: SvgScene): string {
     nodes: [[], []] as QueuedLabel[][],
     edges: [[], []] as QueuedLabel[][],
   }
-  selectLabels(scene, scene.frame, scene.labels, measure, {
+  selectLabels({ ...scene, boxes }, scene.frame, scene.labels, measure, {
     node: (index, label) => {
       queued.nodes[label.highlight ? 1 : 0]?.push({ index, label, anchor: null })
     },
@@ -696,6 +744,13 @@ export function writeSvg(scene: SvgScene): string {
     for (const { index, label } of queued.nodes[pass] ?? []) drawNodeLabel(index, label)
   }
 
+  const containers = scene.containers
+  if (containers) {
+    for (let slot = 0; slot < containers.count; slot++) {
+      const index = containers.order[slot] ?? 0
+      if (nodes.alive[index] === 1 && isContainer(index)) drawContainer(index, containers.boxes)
+    }
+  }
   for (const layer of scene.layers) {
     if (layer.kind === 'edges') {
       for (const curved of [false, true]) {
@@ -708,7 +763,7 @@ export function writeSvg(scene: SvgScene): string {
     } else {
       for (let index = 0; index < nodes.capacity; index++) {
         if (nodes.alive[index] !== 1 || nodes.slot[index] !== layer.slot) continue
-        if (!highlighted(states.nodeMask, index)) drawNode(index)
+        if (!highlighted(states.nodeMask, index) && !isContainer(index)) drawNode(index)
       }
     }
   }
@@ -723,7 +778,9 @@ export function writeSvg(scene: SvgScene): string {
       if (edges.alive[index] === 1 && isCurved(index) === curved) drawEdge(index)
     }
   }
-  for (const index of states.highlightedNodes) if (nodes.alive[index] === 1) drawNode(index)
+  for (const index of states.highlightedNodes) {
+    if (nodes.alive[index] === 1 && !isContainer(index)) drawNode(index)
+  }
   drawBadges(states.highlightedNodes)
   drawLabels(1)
 
