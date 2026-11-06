@@ -111,6 +111,9 @@ export const messages = {
   noPath: (duration: number) => `No path, searched in ${seconds.format(duration)} ms`,
   pathMode: (name: string) => `Path: ${name}`,
   pathModes: { hops: 'fewest edges', distance: 'shortest distance' },
+  mapLabel: (places: number) =>
+    `Map of ${count(places, 'place', 'places')} and the routes between them`,
+  place: (index: number) => `Place ${formatNumber(index)}`,
   flowsOn: 'Start flows',
   flowsOff: 'Stop flows',
   exported: (format: string, bytes: number, duration: number) =>

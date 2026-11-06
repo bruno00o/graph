@@ -21,7 +21,7 @@ function Graph<S extends string = string, M extends Mark = Mark>(props: GraphPro
 
 Each event prop receives the payload of the matching [event](/docs/api/events). The latest function passed is always called.
 
-With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does. `folded` and `onFoldChange` work the same way for [groups](/docs/groups).
+With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does. `folded` and `onFoldChange` work the same way for [groups](/docs/groups), and `view` and `onViewChange` for the [view](/docs/view#controlled-view).
 
 ## Behavior
 

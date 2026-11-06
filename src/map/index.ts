@@ -47,6 +47,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   let pendingView: View | null = null
   let warned = false
   const claimed = { dragPan: false, boxZoom: false }
+  let doubleClick = false
   const turned = {
     rotate: map.dragRotate.isEnabled(),
     pitch: map.touchPitch.isEnabled(),
@@ -152,6 +153,15 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       claimed.dragPan = false
       claimed.boxZoom = false
     },
+    hover: (active) => {
+      if (active && !doubleClick && map.doubleClickZoom.isEnabled()) {
+        doubleClick = true
+        map.doubleClickZoom.disable()
+      } else if (!active && doubleClick) {
+        doubleClick = false
+        map.doubleClickZoom.enable()
+      }
+    },
     move: (view) => {
       const first = pendingView === null
       pendingView = view
@@ -163,6 +173,8 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
     },
     release: () => {
       destroyed = true
+      if (doubleClick) map.doubleClickZoom.enable()
+      surface.claim(false)
       map.off('styledata', addLayer)
       map.off('load', addLayer)
       graph.element.removeEventListener('keydown', keepKeys)

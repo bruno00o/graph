@@ -1,9 +1,12 @@
 import { type Badge, defineGraph, edges, nodes } from '@bruno00o/graph'
 import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
-import { Map as MapLibreMap } from 'maplibre-gl'
+import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { messages } from '../shared/messages'
 import { button, choice, createPage, download, status, themeToggle } from '../shared/page'
 import { createPlaces, type Place, placeCount, type Route } from './places'
+
+setWorkerUrl(workerUrl)
 
 const params = new URLSearchParams(location.search)
 const counts = [placeCount, 10_000, 100_000]
@@ -28,7 +31,7 @@ const definition = defineGraph({
       },
     }),
   ],
-  states: { muted: { opacity: 0.2, label: false } },
+  states: { muted: { opacity: 0.2, label: false }, active: { flow: true } },
   interaction: { lasso: true },
 })
 
@@ -58,12 +61,15 @@ graph.on('selectionchange', ({ nodes: selected, edges: selectedEdges }) => {
   selection.textContent = messages.selection(selected.length, selectedEdges.length)
   const chosen = new Set<string>(selected.map(String))
   const keep = new Set(chosen)
+  const active: string[] = []
   for (const route of routes) {
     if (chosen.has(route.from) || chosen.has(route.to)) {
       keep.add(route.from)
       keep.add(route.to)
+      active.push(route.id)
     }
   }
+  graph.states.set('active', { edges: active })
   graph.states.set('muted', {
     nodes:
       selected.length === 0

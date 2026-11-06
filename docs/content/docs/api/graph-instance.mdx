@@ -53,7 +53,7 @@ interface View {
 
 <api-table path="index.ts" name="GraphView" />
 
-`fit` without keys frames every node. `padding` defaults to 32 pixels. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`.
+`fit` without keys frames every node. `padding` defaults to 32 pixels. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view.
 
 ## Selection
 

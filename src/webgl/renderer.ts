@@ -30,7 +30,14 @@ import {
   nodeVertex,
 } from './shaders'
 
-const blocks = { Frame: 0, States: 1 }
+function blockBindings(
+  gl: WebGL2RenderingContext,
+  shared: boolean,
+): { readonly Frame: number; readonly States: number } {
+  if (!shared) return { Frame: 0, States: 1 }
+  const count = gl.getParameter(gl.MAX_UNIFORM_BUFFER_BINDINGS) as number
+  return { Frame: count - 2, States: count - 1 }
+}
 const paletteWidth = 256
 const labelInterval = 120
 const badgeStride = 20
@@ -113,6 +120,7 @@ function createRenderer(
   invalidate: () => void,
   shared: boolean,
 ): Renderer {
+  const blocks = blockBindings(gl, shared)
   const format = formats(gl)
   const f32 = (length: number) => new Float32Array(length)
   const u32 = (length: number) => new Uint32Array(length)
@@ -810,6 +818,7 @@ function createRenderer(
       [labelProgram, glyphs(warmGlyph)],
       [badgeProgram, badgeAttributes(warmBadge)],
     ]
+    const box = shared ? (gl.getParameter(gl.SCISSOR_BOX) as Int32Array) : null
     gl.enable(gl.SCISSOR_TEST)
     gl.scissor(0, 0, 0, 0)
     for (const [program, attributes] of passes) {
@@ -819,6 +828,7 @@ function createRenderer(
       gl.deleteVertexArray(vao)
     }
     gl.disable(gl.SCISSOR_TEST)
+    if (box) gl.scissor(box[0] ?? 0, box[1] ?? 0, box[2] ?? 0, box[3] ?? 0)
     warmed = true
   }
 
@@ -912,7 +922,6 @@ function createRenderer(
       if (shared) {
         for (const capability of [gl.DEPTH_TEST, gl.STENCIL_TEST, gl.CULL_FACE, gl.SCISSOR_TEST])
           gl.disable(capability)
-        gl.colorMask(true, true, true, true)
       } else {
         gl.clearColor(0, 0, 0, 0)
         gl.clear(gl.COLOR_BUFFER_BIT)

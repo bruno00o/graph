@@ -7,7 +7,6 @@ const source = resolve(import.meta.dirname, 'src')
 export default defineConfig({
   root: resolve(import.meta.dirname, 'examples'),
   plugins: [react()],
-  optimizeDeps: { exclude: ['maplibre-gl'] },
   resolve: {
     alias: [
       { find: '@bruno00o/graph/theme.css', replacement: resolve(source, 'theme/theme.css') },

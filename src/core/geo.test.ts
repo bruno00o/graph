@@ -95,3 +95,25 @@ describe('longitude and latitude channels', () => {
     expect(at('a').tracked).toBeNaN()
   })
 })
+
+describe('position origin', () => {
+  it('moves the origin without moving the nodes', () => {
+    const positions = new Positions()
+    const tracked: [number, number] = [300.000001234, 150.000005678]
+    positions.follow(1, tracked)
+    positions.set(1, tracked[0], tracked[1])
+    positions.set(0, 270.123456789, 170.987654321)
+    expect(Math.abs(positions.x(1) - tracked[0])).toBeGreaterThan(1e-7)
+    const version = positions.version
+    positions.rebase(300, 150)
+    expect(positions.version).toBeGreaterThan(version)
+    expect(positions.x(1)).toBeCloseTo(tracked[0], 11)
+    expect(positions.y(1)).toBeCloseTo(tracked[1], 11)
+    expect(positions.holds(1, tracked[0], tracked[1])).toBe(true)
+    expect(positions.x(0)).toBeCloseTo(270.123456789, 4)
+    expect(positions.y(0)).toBeCloseTo(170.987654321, 4)
+    positions.set(2, 300.5, 150.25)
+    expect(positions.x(2)).toBe(300.5)
+    expect(positions.xy[4]).toBe(0.5)
+  })
+})

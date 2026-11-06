@@ -21,6 +21,11 @@ export interface MapPngOptions {
    */
   readonly labels?: ExportLabels
   /**
+   * Text burned into the bottom right corner, or `''` for none. Defaults to the attribution the map
+   * shows, or else to the attribution of its sources.
+   */
+  readonly attribution?: string
+  /**
    * Longest wait for the map tiles, in milliseconds. Past it, the export draws what has loaded.
    * @default 20000
    */
@@ -41,6 +46,11 @@ function plainText(html: string): string {
   return (document.body.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 
+function shownAttribution(map: MapLibreMap): string {
+  const shown = map.getContainer().querySelector('.maplibregl-ctrl-attrib-inner')
+  return (shown?.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
 function attributionOf(map: MapLibreMap): string {
   const parts: string[] = []
   for (const name of Object.keys(map.getStyle().sources)) {
@@ -53,16 +63,21 @@ function attributionOf(map: MapLibreMap): string {
 
 function idle(map: MapLibreMap, timeout: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => resolve(), timeout)
-    map.once('idle', () => {
+    const finish = (error: unknown) => {
       clearTimeout(timer)
-      resolve()
-    })
-    map.once('error', (event: { error?: unknown }) => {
-      if (map.loaded()) return
-      clearTimeout(timer)
-      reject(event.error ?? new Error('graph: the map failed to load for the export'))
-    })
+      map.off('idle', done)
+      map.off('error', failed)
+      if (error === null) resolve()
+      else reject(error)
+    }
+    const done = () => finish(null)
+    const failed = (event: { error?: unknown }) => {
+      if (map.isStyleLoaded()) return
+      finish(event.error ?? new Error('graph: the map failed to load for the export'))
+    }
+    const timer = setTimeout(done, timeout)
+    map.on('idle', done)
+    map.on('error', failed)
   })
 }
 
@@ -106,7 +121,7 @@ async function drawMap(
   }
   return {
     canvas: hidden.getCanvas(),
-    attribution: attributionOf(hidden) || attributionOf(live),
+    attribution: shownAttribution(live) || attributionOf(hidden) || attributionOf(live),
     done: () => {
       hidden.remove()
       container.remove()
@@ -187,7 +202,7 @@ export async function exportMapPng<S extends string>(
     context.drawImage(graphImage, 0, 0, canvas.width, canvas.height)
     burnAttribution(
       context,
-      drawn.attribution,
+      options.attribution ?? drawn.attribution,
       canvas.width,
       canvas.height,
       pixelRatio,

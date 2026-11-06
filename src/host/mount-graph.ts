@@ -357,6 +357,7 @@ export interface HostSurface {
   readonly events: HTMLCanvasElement
   schedule(): void
   claim(active: boolean): void
+  hover(active: boolean): void
   move(view: View): void
   adapt(definition: GraphDefinition): GraphDefinition
   bind(driver: HostDriver): void
@@ -1222,6 +1223,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     else if (gesture?.moved) canvas.style.cursor = 'grabbing'
     else if (store.get().hovered && interactive) canvas.style.cursor = 'pointer'
     else canvas.style.cursor = ''
+    surface?.hover(store.get().hovered !== null)
   }
 
   function selectOnClick(clicked: GraphTarget | null, event: MouseEvent): void {
