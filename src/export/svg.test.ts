@@ -690,6 +690,18 @@ describe('background grid and hulls', () => {
     expect(svg).toMatch(/<g fill="#9fc8c4"><circle [^>]*r="1.3"\/>/)
   })
 
+  it('draws a single level of dots that grow with the zoom when not adaptive', () => {
+    const svg = render(
+      { ...pair, background: { grid: 'dots', spacing: 20, adaptive: false } },
+      {},
+      { frame: { view: { x: 0, y: 0, zoom: 2 } } },
+    )
+    const patterns = [
+      ...svg.matchAll(/<pattern [^>]*width="([\d.]+)"[^>]*><g[^>]*><circle [^>]*r="([\d.]+)"/g),
+    ]
+    expect(patterns.map((match) => [match[1], match[2]])).toEqual([['40', '1.6']])
+  })
+
   it('draws hull fills, then outlines, under the edges and nodes', () => {
     const svg = render({ ...pair, hulls: [hull({ nodes: ['a', 'b'] })] })
     const fill = svg.match(/<path d="([^"]+)" fill="#e7efee"\/>/)
