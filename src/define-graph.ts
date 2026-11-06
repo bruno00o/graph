@@ -4,6 +4,7 @@ import type {
   GraphDefinitionOptions,
   InteractionOptions,
   ResolvedInteraction,
+  StateStyles,
 } from './types'
 
 const defaultZoomSpeed = 1
@@ -23,7 +24,9 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
   })
 }
 
-export function defineGraph(options: GraphDefinitionOptions): GraphDefinition {
+export function defineGraph<S extends string = never>(
+  options: GraphDefinitionOptions<S>,
+): GraphDefinition<S> {
   for (const mark of options.marks) {
     if (mark?.type !== 'nodes' && mark?.type !== 'edges') {
       throw new TypeError('defineGraph: every mark must come from nodes() or edges()')
@@ -37,7 +40,7 @@ export function defineGraph(options: GraphDefinitionOptions): GraphDefinition {
   return Object.freeze({
     marks: Object.freeze([...options.marks]),
     scales: Object.freeze({ ...options.scales }),
-    states: Object.freeze({ ...options.states }),
+    states: Object.freeze({ ...options.states }) as StateStyles<S>,
     interaction: resolveInteraction(options.interaction),
   })
 }

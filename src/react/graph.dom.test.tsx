@@ -4,6 +4,7 @@ import { act, type ReactNode, StrictMode, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
+import type { ElementKeys } from '../host/events'
 import { nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition, View } from '../types'
@@ -70,6 +71,24 @@ function Listener({ tag }: { readonly tag: string }) {
   captured.graph = useGraph()
   useGraphEvent('viewchange', () => captured.seen.push(tag))
   return null
+}
+
+const stableDefinition = definition()
+
+function Controlled() {
+  const [selection, setSelection] = useState<ElementKeys>({ nodes: [], edges: [] })
+  return (
+    <Graph
+      definition={stableDefinition}
+      ariaLabel="graphe"
+      ref={capture}
+      selection={selection}
+      onSelectionChange={(next) => {
+        captured.seen.push(next.nodes.join())
+        setSelection(next)
+      }}
+    />
+  )
 }
 
 function Retagging() {
@@ -161,6 +180,38 @@ describe('<Graph>', () => {
       root.render(null)
     })
     expect(container.querySelector('canvas')).toBeNull()
+  })
+})
+
+describe('controlled selection', () => {
+  it('follows the selection prop updated from onSelectionChange', () => {
+    render(<Controlled />)
+    act(() => {
+      captured.graph?.selection.set({ nodes: ['a', 'b'] })
+    })
+    expect(captured.graph?.selection.get().nodes).toEqual(['a', 'b'])
+    expect(captured.seen).toEqual(['a,b'])
+  })
+
+  it('keeps the prop when the parent ignores the change', () => {
+    const onSelectionChange = vi.fn()
+    const view = () => (
+      <Graph
+        definition={stableDefinition}
+        ariaLabel="graphe"
+        ref={capture}
+        selection={{ nodes: ['b'] }}
+        onSelectionChange={onSelectionChange}
+      />
+    )
+    render(view())
+    act(() => {
+      captured.graph?.selection.set({ nodes: ['a'] })
+    })
+    render(view())
+    expect(onSelectionChange).toHaveBeenCalledTimes(1)
+    expect(onSelectionChange).toHaveBeenCalledWith({ nodes: ['a'], edges: [] })
+    expect(captured.graph?.selection.get().nodes).toEqual(['b'])
   })
 })
 

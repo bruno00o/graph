@@ -169,16 +169,22 @@ export interface ResolvedInteraction {
   readonly keyboard: boolean
 }
 
-export interface GraphDefinitionOptions {
+export type BuiltInState = 'selected' | 'hovered' | 'focused'
+
+export type FreeState<S extends string> = Exclude<S, BuiltInState>
+
+export type StateStyles<S extends string> = { readonly [K in S]: StateStyle }
+
+export interface GraphDefinitionOptions<S extends string = string> {
   readonly marks: readonly Mark[]
   readonly scales?: ScalesOptions
-  readonly states?: Readonly<Record<string, StateStyle>>
+  readonly states?: StateStyles<S>
   readonly interaction?: InteractionOptions
 }
 
-export interface GraphDefinition {
+export interface GraphDefinition<S extends string = string> {
   readonly marks: readonly Mark[]
   readonly scales: ScalesOptions
-  readonly states: Readonly<Record<string, StateStyle>>
+  readonly states: StateStyles<S>
   readonly interaction: ResolvedInteraction
 }

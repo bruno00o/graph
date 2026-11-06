@@ -16,9 +16,10 @@ import {
   wheelFactor,
   zoomAround,
 } from '../core/view'
+import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles } from '../theme/tokens'
-import type { GraphDefinition, Key, Point, StateStyle, View } from '../types'
+import type { FreeState, GraphDefinition, Key, Point, StateStyle, View } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import {
   type ElementKeys,
@@ -31,17 +32,17 @@ import {
 import type { Renderer } from './renderer'
 import { StateRegistry } from './state-registry'
 
-export interface GraphState {
+export interface GraphState<S extends string = string> {
   readonly view: View
   readonly width: number
   readonly height: number
   readonly hovered: GraphTarget | null
   readonly selection: ElementKeys
-  readonly states: Readonly<Record<string, ElementKeys>>
+  readonly states: { readonly [K in FreeState<S>]: ElementKeys }
   readonly positionsVersion: number
 }
 
-export type GraphStore = ReadonlyStore<GraphState>
+export type GraphStore<S extends string = string> = ReadonlyStore<GraphState<S>>
 
 export interface ViewOptions {
   readonly duration?: number
@@ -71,12 +72,12 @@ export interface GraphSelection {
   clear(): void
 }
 
-export interface GraphStates {
-  set(name: string, keys: ElementKeysInput): void
-  add(name: string, keys: ElementKeysInput): void
-  remove(name: string, keys: ElementKeysInput): void
-  clear(name?: string): void
-  has(name: string, element: GraphElement): boolean
+export interface GraphStates<N extends string = string> {
+  set(name: N, keys: ElementKeysInput): void
+  add(name: N, keys: ElementKeysInput): void
+  remove(name: N, keys: ElementKeysInput): void
+  clear(name?: N): void
+  has(name: N, element: GraphElement): boolean
 }
 
 export interface GraphPositions {
@@ -84,17 +85,19 @@ export interface GraphPositions {
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
 }
 
-export interface MountGraphOptions {
-  readonly definition: GraphDefinition
+export interface MountGraphOptions<S extends string = string> {
+  readonly definition: GraphDefinition<S>
   readonly ariaLabel: string
   readonly initialView?: View
+  readonly selection?: ElementKeysInput
+  readonly onSelectionChange?: (selection: ElementKeys) => void
 }
 
-export interface GraphInstance {
-  readonly store: GraphStore
+export interface GraphInstance<S extends string = string> {
+  readonly store: GraphStore<S>
   readonly view: GraphView
   readonly selection: GraphSelection
-  readonly states: GraphStates
+  readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
   readonly element: HTMLElement
   pick(point: Point): GraphTarget | null
@@ -102,7 +105,7 @@ export interface GraphInstance {
   edgesOf(key: Key): Key[]
   endpoints(key: Key): Endpoints | undefined
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
-  update(options: Partial<Omit<MountGraphOptions, 'initialView'>>): void
+  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView'>>): void
   destroy(): void
 }
 
@@ -155,6 +158,20 @@ function reducedMotion(): boolean {
   return reducedMotionQuery?.matches ?? false
 }
 
+function toKeys(input: ElementKeysInput): ElementKeys {
+  return { nodes: [...(input.nodes ?? [])], edges: [...(input.edges ?? [])] }
+}
+
+function sameList(a: readonly Key[], b: readonly Key[]): boolean {
+  if (a.length !== b.length) return false
+  const set = new Set(a)
+  return b.every((key) => set.has(key))
+}
+
+function sameKeys(a: ElementKeys, b: ElementKeys): boolean {
+  return sameList(a.nodes, b.nodes) && sameList(a.edges, b.edges)
+}
+
 function sameTarget(a: GraphTarget | null, b: GraphTarget | null): boolean {
   return a === b || (a !== null && b !== null && a.kind === b.kind && a.key === b.key)
 }
@@ -170,12 +187,15 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
   }
 }
 
-export function createGraphHost(
+export function createGraphHost<S extends string = string>(
   container: HTMLElement,
-  options: MountGraphOptions,
+  options: MountGraphOptions<S>,
   createRenderer: RendererFactory,
-): GraphInstance {
-  let definition = options.definition
+): GraphInstance<S> {
+  let definition: GraphDefinition = options.definition
+  const controlled = options.selection !== undefined
+  let onSelectionChange = options.onSelectionChange
+  let warnedEmpty = false
   const element = document.createElement('div')
   element.setAttribute('data-graph', '')
   element.setAttribute('role', 'img')
@@ -216,12 +236,13 @@ export function createGraphHost(
   let renderer = createRenderer(canvas)
 
   registry.define(freeStateNames(definition.states))
+  if (options.selection !== undefined) registry.set('selected', options.selection)
   const store = createStore<GraphState>({
     view: options.initialView ?? { x: 0, y: 0, zoom: 1 },
     width: 0,
     height: 0,
     hovered: null,
-    selection: noKeys,
+    selection: controlled ? registry.members('selected') : noKeys,
     states: freeStates(),
     positionsVersion: 0,
   })
@@ -382,6 +403,14 @@ export function createGraphHost(
     request()
   }
 
+  function requestSelection(next: ElementKeys): void {
+    if (controlled) {
+      if (!sameKeys(registry.members('selected'), next)) onSelectionChange?.(next)
+    } else if (registry.set('selected', next)) {
+      publishSelection()
+    }
+  }
+
   function publishState(name: string): void {
     patch({ states: { ...store.get().states, [name]: registry.members(name) } })
     request()
@@ -409,18 +438,16 @@ export function createGraphHost(
     const mode = definition.interaction.select
     if (mode === false) return
     const additive = mode === 'multiple' && (event.shiftKey || event.metaKey || event.ctrlKey)
-    let changed: boolean
     if (!clicked) {
-      changed = additive ? false : registry.clear('selected')
-    } else {
-      const kind = kindOf[clicked.kind]
-      const keys = { [kind]: [clicked.key] }
-      if (!additive) changed = registry.set('selected', keys)
-      else if (registry.has('selected', kind, clicked.key))
-        changed = registry.remove('selected', keys)
-      else changed = registry.add('selected', keys)
+      if (!additive) requestSelection(noKeys)
+      return
     }
-    if (changed) publishSelection()
+    const kind = kindOf[clicked.kind]
+    const current = registry.members('selected')
+    if (!additive) requestSelection({ ...noKeys, [kind]: [clicked.key] })
+    else if (registry.has('selected', kind, clicked.key))
+      requestSelection({ ...current, [kind]: current[kind].filter((key) => key !== clicked.key) })
+    else requestSelection({ ...current, [kind]: [...current[kind], clicked.key] })
   }
 
   function applyChanges(changes: GraphChanges): void {
@@ -430,7 +457,10 @@ export function createGraphHost(
     const result = registry.apply(changes)
     sceneVersion++
     applyLayers()
-    if (result.selection) publishSelection()
+    if (result.selection) {
+      publishSelection()
+      if (controlled) onSelectionChange?.(registry.members('selected'))
+    }
     const hovered = store.get().hovered
     if (result.hovered) {
       patch({ hovered: null })
@@ -493,6 +523,10 @@ export function createGraphHost(
     pixelRatio = window.devicePixelRatio || 1
     canvas.width = Math.max(1, Math.round(width * pixelRatio))
     canvas.height = Math.max(1, Math.round(height * pixelRatio))
+    if (dev && !warnedEmpty && (width === 0 || height === 0)) {
+      warnedEmpty = true
+      console.warn('graph: the container measures 0 px; give it a width and a height')
+    }
     patch({ width, height })
     request()
   }
@@ -704,12 +738,8 @@ export function createGraphHost(
 
   const selection: GraphSelection = {
     get: () => store.get().selection,
-    set: (keys) => {
-      if (registry.set('selected', keys)) publishSelection()
-    },
-    clear: () => {
-      if (registry.clear('selected')) publishSelection()
-    },
+    set: (keys) => requestSelection(toKeys(keys)),
+    clear: () => requestSelection(noKeys),
   }
 
   const states: GraphStates = {
@@ -781,6 +811,10 @@ export function createGraphHost(
     on: (name, handler) => emitter.on(name, handler),
     update(next) {
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
+      if (next.onSelectionChange !== undefined) onSelectionChange = next.onSelectionChange
+      if (controlled && next.selection !== undefined && registry.set('selected', next.selection)) {
+        publishSelection()
+      }
       if (next.definition && next.definition !== definition) {
         definition = next.definition
         model.setMarks(definition.marks)
@@ -811,6 +845,9 @@ export function createGraphHost(
   }
 }
 
-export function mountGraph(container: HTMLElement, options: MountGraphOptions): GraphInstance {
+export function mountGraph<S extends string = string>(
+  container: HTMLElement,
+  options: MountGraphOptions<S>,
+): GraphInstance<S> {
   return createGraphHost(container, options, createWebglRenderer)
 }

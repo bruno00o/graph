@@ -13,7 +13,12 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
-import type { GraphEventHandler, GraphEventName, GraphEvents } from '../host/events'
+import type {
+  ElementKeysInput,
+  GraphEventHandler,
+  GraphEventName,
+  GraphEvents,
+} from '../host/events'
 import {
   type GraphInstance,
   type GraphState,
@@ -48,13 +53,14 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   viewchange: 'onViewChange',
 }
 
-export interface GraphProps extends GraphEventProps {
-  readonly definition: GraphDefinition
+export interface GraphProps<S extends string = string> extends GraphEventProps {
+  readonly definition: GraphDefinition<S>
   readonly ariaLabel: string
   readonly initialView?: View
+  readonly selection?: ElementKeysInput
   readonly className?: string
   readonly style?: CSSProperties
-  readonly ref?: Ref<GraphInstance | null>
+  readonly ref?: Ref<GraphInstance<S> | null>
   readonly children?: ReactNode
 }
 
@@ -70,20 +76,26 @@ function useLatest<T>(value: T): { readonly current: T } {
   return latest
 }
 
-export function Graph(props: GraphProps): JSX.Element {
-  const { definition, ariaLabel, className, style, ref, children } = props
+export function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element {
+  const { definition, ariaLabel, selection, className, style, ref, children } = props
   const host = useRef<HTMLDivElement>(null)
-  const [graph, setGraph] = useState<GraphInstance | null>(null)
+  const [graph, setGraph] = useState<GraphInstance<S> | null>(null)
   const latest = useLatest(props)
 
   useLayoutEffect(() => {
     const element = host.current
     if (!element) return
-    const { definition: initialDefinition, ariaLabel: initialLabel, initialView } = latest.current
+    const initial = latest.current
     const instance = mountGraph(element, {
-      definition: initialDefinition,
-      ariaLabel: initialLabel,
-      ...(initialView ? { initialView } : {}),
+      definition: initial.definition,
+      ariaLabel: initial.ariaLabel,
+      ...(initial.initialView ? { initialView: initial.initialView } : {}),
+      ...(initial.selection !== undefined
+        ? {
+            selection: initial.selection,
+            onSelectionChange: (next) => latest.current.onSelectionChange?.(next),
+          }
+        : {}),
     })
     setGraph(instance)
     return () => {
@@ -93,13 +105,14 @@ export function Graph(props: GraphProps): JSX.Element {
   }, [latest])
 
   useLayoutEffect(() => {
-    graph?.update({ definition, ariaLabel })
-  }, [graph, definition, ariaLabel])
+    graph?.update({ definition, ariaLabel, ...(selection !== undefined ? { selection } : {}) })
+  }, [graph, definition, ariaLabel, selection])
 
   useEffect(() => {
     if (!graph) return
     const stops = (Object.keys(eventProps) as GraphEventName[]).map((name) =>
       graph.on(name, (event) => {
+        if (name === 'selectionchange' && latest.current.selection !== undefined) return
         const handler = latest.current[eventProps[name]] as ((event: unknown) => void) | undefined
         handler?.(event)
       }),
@@ -109,7 +122,7 @@ export function Graph(props: GraphProps): JSX.Element {
     }
   }, [graph, latest])
 
-  useImperativeHandle<GraphInstance | null, GraphInstance | null>(ref, () => graph, [graph])
+  useImperativeHandle<GraphInstance<S> | null, GraphInstance<S> | null>(ref, () => graph, [graph])
 
   return (
     <div className={className} style={{ position: 'relative', ...style }}>

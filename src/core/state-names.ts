@@ -1,6 +1,6 @@
-export const builtInStates = ['selected', 'hovered', 'focused'] as const
+import type { BuiltInState } from '../types'
 
-export type BuiltInState = (typeof builtInStates)[number]
+export const builtInStates: readonly BuiltInState[] = ['selected', 'hovered', 'focused']
 
 export const maxFreeStates: number = 32 - builtInStates.length
 
