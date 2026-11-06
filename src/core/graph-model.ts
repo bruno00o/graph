@@ -46,8 +46,11 @@ export interface EdgeRecord {
   readonly targetIndex: number
 }
 
+/** The two ends of an edge. */
 export interface Endpoints {
+  /** Key of the source node. */
   readonly source: Key
+  /** Key of the target node. */
   readonly target: Key
 }
 

@@ -21,7 +21,17 @@ function spawn(): Worker | null {
   }
 }
 
-function start(graph: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+function withGroupLinks(graph: LayoutGraph): LayoutGraph {
+  const links = graph.groupLinks
+  if (!links || links.length === 0) return graph
+  const edges = new Uint32Array(graph.edges.length + links.length)
+  edges.set(graph.edges)
+  edges.set(links, graph.edges.length)
+  return { ...graph, edges }
+}
+
+function start(source: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+  const graph = withGroupLinks(source)
   const worker = spawn()
   if (!worker) return inline(graph, settings, listener)
   const pins = new Map<number, readonly [number, number]>()
@@ -64,6 +74,10 @@ function start(graph: LayoutGraph, settings: ForceSettings, listener: LayoutList
   }
 }
 
+/**
+ * A force layout: nodes push each other apart and edges pull their ends together. It runs in a Web
+ * Worker, on the GPU or the CPU, and falls back to the main thread.
+ */
 export function force(options: ForceOptions = {}): Layout {
   const settings = resolveForce(options)
   return Object.freeze({

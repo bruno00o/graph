@@ -94,6 +94,18 @@ export const messages = {
   linksLoaded: (count: number): string =>
     `${formatNumber(count)} ${plural(count, 'arête chargée', 'arêtes chargées')}`,
   unload: 'Décharger les arêtes',
+  groups: 'Groupes imbriqués',
+  groupsLabel: 'Graphe de nœuds rangés dans des groupes imbriqués',
+  groupsHint: 'Double-cliquez sur un groupe pour le replier ou le déplier.',
+  subgroup: (index: string) => `Sous-groupe ${index}`,
+  foldAll: 'Tout replier',
+  unfoldAll: 'Tout déplier',
+  foldedGroups: (count: number): string =>
+    `${formatNumber(count)} ${plural(count, 'groupe replié', 'groupes repliés')}`,
+  mergedEdges: (count: number, from: string, to: string): string =>
+    `${formatNumber(count)} ${plural(count, 'arête', 'arêtes')} de ${from} vers ${to}`,
+  exportPng: 'Exporter en PNG',
+  exportSvg: 'Exporter en SVG',
 }
 
 function milliseconds(value: number): string {

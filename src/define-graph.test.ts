@@ -19,6 +19,7 @@ describe('defineGraph', () => {
       drag: true,
       lasso: false,
       keyboard: true,
+      fold: true,
     })
   })
 

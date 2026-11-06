@@ -13,18 +13,7 @@ function edges<T>(data: Iterable<T>, options: EdgeOptions<T> & { key: KeyChannel
 
 ## Options
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `key` | `KeyChannel<T>` | `'id'` | Edge key |
-| `source` | `KeyChannel<T>` | | Key of the source node |
-| `target` | `KeyChannel<T>` | | Key of the target node |
-| `color` | `Channel<T, string \| number \| boolean>` | `--graph-edge` | Value passed to the `color` scale |
-| `width` | `Channel<T, number>` | `1.5` | Value passed to the `width` scale, in screen pixels |
-| `label` | `Channel<T, string> \| EdgeLabelOptions<T>` | | Label text, or text with its style. See [Labels](#labels) |
-| `dash` | `Style<T, 'solid' \| 'dashed' \| 'dotted'>` | `'solid'` | Line pattern |
-| `arrow` | `Style<T, 'none' \| 'source' \| 'target' \| 'both'>` | `'none'` | Arrow heads |
-| `stroke` | `Style<T, string>` | | Line color, wins over `color` |
-| `opacity` | `Style<T, number>` | `1` | Opacity from 0 to 1 |
+<api-table path="index.ts" name="EdgeOptions" />
 
 ## Labels
 
@@ -33,6 +22,8 @@ interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
 ```
 
 `EdgeLabelOptions` has the text options of a node label: `text`, `background`, `color`, `size`, `weight`, `font` and `maxWidth`. See [`LabelTextOptions`](/docs/api/nodes#labels). The default size is 11.
+
+<api-table path="index.ts" name="EdgeLabelOptions" />
 
 - The label sits halfway along the edge, on the arc of a curved edge, and turns with it while staying upright.
 - Without a background, it sits above the line. With one, it is centered on the line.
@@ -49,6 +40,40 @@ edges<Link>(links, {
 ## Parallel edges and loops
 
 Edges that share the same two nodes, in either direction, bend apart in symmetric arcs; an edge alone on its pair stays straight. An edge from a node to itself is a loop, and several loops nest. There is no option for the curvature yet.
+
+## Edges of folded groups
+
+An end inside a folded group is drawn at the outermost folded group that holds it. The edges of one mark that land on the same two ends, in the same direction, draw as one aggregated edge; an edge whose two ends land in the same group is hidden. `aggregate` styles the aggregated edges from an `AggregateEdge`, the merged edges with their count.
+
+```ts
+interface AggregateEdge<T = unknown> {
+  readonly source: Key
+  readonly target: Key
+  readonly count: number
+  readonly keys: readonly Key[]
+  readonly data: readonly T[]
+}
+
+type AggregateEdgeOptions<T> = Omit<
+  EdgeOptions<AggregateEdge<T>>,
+  'key' | 'source' | 'target' | 'aggregate'
+>
+```
+
+<api-table path="index.ts" name="AggregateEdge" />
+
+Without `aggregate`, an aggregated edge looks like its first merged edge, and shows a label only when it merges a single edge.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  aggregate: {
+    width: (aggregate) => aggregate.count,
+    label: (aggregate) => (aggregate.count > 1 ? String(aggregate.count) : null),
+  },
+})
+```
 
 ## Example
 

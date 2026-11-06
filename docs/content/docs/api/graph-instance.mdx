@@ -12,36 +12,21 @@ interface GraphInstance<S extends string = string> {
   readonly states: GraphStates<FreeState<S>>
   readonly positions: GraphPositions
   readonly layout: GraphLayout
+  readonly groups: GraphGroups
   readonly element: HTMLElement
   pick(point: Point): GraphTarget | null
   neighbors(key: Key): Key[]
   edgesOf(key: Key): Key[]
   endpoints(key: Key): { source: Key; target: Key } | undefined
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
-  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView'>>): void
+  update(options: Partial<Omit<MountGraphOptions<S>, 'initialView' | 'initialFolded'>>): void
   destroy(): void
 }
 ```
 
 ## Members
 
-| Member | Description |
-| --- | --- |
-| `store` | Read-only TanStack Store of the [graph state](#graph-state) |
-| `view` | Camera: [`GraphView`](#view) |
-| `selection` | [`GraphSelection`](#selection) |
-| `focus` | Keyboard focus: [`GraphFocus`](#focus) |
-| `states` | Free states: [`GraphStates`](#states) |
-| `positions` | Node positions: [`GraphPositions`](#positions) |
-| `layout` | Layout runs: [`GraphLayout`](#layout) |
-| `element` | The `div` that holds the canvas |
-| `pick(point)` | Element under a point in screen pixels, nodes before edges, or `null` |
-| `neighbors(key)` | Keys of the nodes connected to a node |
-| `edgesOf(key)` | Keys of the edges of a node |
-| `endpoints(key)` | Source and target keys of an edge |
-| `on(name, handler)` | Subscribes to an [event](/docs/api/events). Returns the function that unsubscribes |
-| `update(options)` | Applies a new `definition`, `ariaLabel` or controlled `selection` |
-| `destroy()` | Removes the element and frees every resource |
+<api-table path="index.ts" name="GraphInstance" />
 
 ## View
 
@@ -61,6 +46,8 @@ interface View {
   readonly zoom: number
 }
 ```
+
+<api-table path="index.ts" name="GraphView" />
 
 `fit` without keys frames every node. `padding` defaults to 32 pixels. Durations are in milliseconds, and zero with `prefers-reduced-motion`.
 
@@ -99,6 +86,8 @@ interface GraphStates<N extends string> {
 }
 ```
 
+<api-table path="index.ts" name="GraphStates" />
+
 `N` is the union of the free state names of the definition. Built-in and undeclared names are refused, at compile time and at runtime. `clear()` without a name empties every free state.
 
 ## Positions
@@ -129,11 +118,26 @@ interface LayoutRunOptions {
 
 `run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
 
-| Option | Description |
-| --- | --- |
-| `keys` | Nodes to lay out. The others stay still |
-| `fit` | Frames every node on the result, with `true` or `FitOptions` (`padding` and `duration`, as for [`view.fit`](#view)). A result reported at once is framed where nodes land, while they glide |
-| `duration` | Glide to a result reported at once, in milliseconds. Defaults to `transitions.layout`. `0` places nodes at once |
+<api-table path="index.ts" name="LayoutRunOptions" />
+
+## Groups
+
+```ts
+interface GraphGroups {
+  folded(): readonly Key[]
+  isFolded(key: Key): boolean
+  fold(keys?: Iterable<Key>): void
+  unfold(keys?: Iterable<Key>): void
+  toggle(key: Key): void
+  set(keys: Iterable<Key>): void
+  parent(key: Key): Key | undefined
+  children(key: Key): Key[]
+}
+```
+
+<api-table path="index.ts" name="GraphGroups" />
+
+`fold`, `unfold`, `toggle` and `set` emit `foldchange`. In controlled mode, they call `onFoldChange` instead of changing the folded groups. See [Groups](/docs/groups).
 
 ## Graph state
 
@@ -148,6 +152,7 @@ interface GraphState<S extends string = string> {
   readonly states: { readonly [K in FreeState<S>]: ElementKeys }
   readonly positionsVersion: number
   readonly layout: GraphLayoutStatus
+  readonly folded: readonly Key[]
 }
 
 interface GraphLayoutStatus {
@@ -155,5 +160,7 @@ interface GraphLayoutStatus {
   readonly progress: number
 }
 ```
+
+<api-table path="index.ts" name="GraphState" />
 
 `width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run.

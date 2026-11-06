@@ -14,12 +14,7 @@ function createExploration<TNode, TEdge>(
 
 ## Options
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `roots` | `Iterable<Key>` | | Required. Nodes expanded at once and never removed |
-| `neighbors` | `(key: Key) => QueryObserverOptions` | | Required. Query options whose data is `{ nodes, edges }` |
-| `nodeKey` | `(node: TNode) => Key` | `node.id` | Key of a node |
-| `edgeKey` | `(edge: TEdge) => Key` | `edge.id` | Key of an edge |
+<api-table path="query/index.ts" name="ExplorationOptions" />
 
 ```ts
 interface ExplorationData<TNode, TEdge> {
@@ -51,15 +46,11 @@ interface ExplorationState {
 }
 ```
 
-| Member | Description |
-| --- | --- |
-| `nodes`, `edges` | Live sources to pass to `nodes()` and `edges()` |
-| `store` | Expanded keys, keys being fetched, errors by key |
-| `expand(key)` | Starts a query observer for the neighborhood of a node |
-| `collapse(key)` | Stops it and removes what no other expansion holds |
-| `toggle(key)` | Expands or collapses |
-| `reset()` | Collapses every expansion but the roots, and expands the roots |
-| `destroy()` | Stops every observer for good |
+<api-table path="query/index.ts" name="Exploration" />
+
+`store` holds:
+
+<api-table path="query/index.ts" name="ExplorationState" />
 
 Observers only run while a source has a subscriber, so creating an exploration fetches nothing until a mark using it is mounted.
 

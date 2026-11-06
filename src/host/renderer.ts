@@ -11,6 +11,14 @@ export interface RenderInput {
   readonly positionsChanged: boolean
   readonly states: StateBuffers
   readonly full: boolean
+  readonly containers?: ContainerFrame
+}
+
+export interface ContainerFrame {
+  readonly boxes: Float32Array
+  readonly order: Uint32Array
+  readonly count: number
+  readonly version: number
 }
 
 export interface RenderFrame {
@@ -18,6 +26,16 @@ export interface RenderFrame {
   readonly width: number
   readonly height: number
   readonly pixelRatio: number
+  readonly labels?: LabelArea
+}
+
+export type LabelMode = 'visible' | 'all' | 'none'
+
+export interface LabelArea {
+  readonly view: View
+  readonly width: number
+  readonly height: number
+  readonly mode: LabelMode
 }
 
 export interface RendererStats {
@@ -33,5 +51,6 @@ export interface Renderer {
   setTheme(theme: ResolvedTheme): void
   render(frame: RenderFrame): number
   stats?(): RendererStats
+  ready?(): Promise<void>
   destroy(): void
 }

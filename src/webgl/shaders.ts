@@ -14,6 +14,7 @@ export const labelGap = 3
 export const edgeLabelSize = 11
 export const edgeDescent = 3.6
 export const edgeLabelGap = 1.5
+export const uprightSlack = 1e-4
 
 const header = `#version 300 es
 precision highp float;
@@ -90,6 +91,7 @@ uniform sampler2D nodeStyle;
 uniform usampler2D nodePaint;
 uniform usampler2D nodeState;
 uniform usampler2D nodeDecor;
+uniform sampler2D nodeBox;
 Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
   return resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
@@ -126,6 +128,7 @@ out float vStrokeWidth;
 out float vHaloWidth;
 out float vOutlineWidth;
 flat out uint vShape;
+flat out vec3 vBox;
 flat out vec4 vFill;
 flat out vec4 vStroke;
 flat out vec4 vOutline;
@@ -137,16 +140,25 @@ void main() {
   uint flags = uint(style.w + 0.5);
   uint mask = texelFetch(nodeState, t, 0).r;
   bool highlighted = (mask & highlightMask) != 0u;
-  if ((flags & 8u) == 0u || (overlay == 0 && (int(paint.z) != layerSlot || highlighted))) {
+  bool container = (flags & 3u) == 3u;
+  if ((flags & 8u) == 0u || container != (overlay == 2) || (overlay == 0 && (int(paint.z) != layerSlot || highlighted))) {
     gl_Position = hidden;
     return;
   }
   Look look = nodeLook(t, style, paint, mask);
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
   float radius = nodeRadius(style);
+  vec2 extent = vec2(radius);
+  vBox = vec3(0.0);
+  if (container) {
+    vec4 box = texelFetch(nodeBox, t, 0);
+    extent = max(box.xy * zoom, vec2(1.25));
+    radius = min(extent.x, extent.y);
+    vBox = vec3(extent, min(box.z * zoom, radius));
+  }
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float outline = max(look.outlineWidth, 0.0);
-  vLocal = corner * (radius + outline + halo + 1.5);
+  vLocal = corner * (extent + outline + halo + 1.5);
   vRadius = radius;
   vStrokeWidth = min(look.strokeWidth, radius * 0.5);
   vHaloWidth = halo;
@@ -175,6 +187,7 @@ in float vStrokeWidth;
 in float vHaloWidth;
 in float vOutlineWidth;
 flat in uint vShape;
+flat in vec3 vBox;
 flat in vec4 vFill;
 flat in vec4 vStroke;
 flat in vec4 vOutline;
@@ -182,6 +195,10 @@ flat in float vOpacity;
 out vec4 fragColor;
 float shapeDistance(vec2 p, float r) {
   if (vShape == 0u) return length(p) - r;
+  if (vShape == 3u) {
+    vec2 q = abs(p) - vBox.xy + vBox.z;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - vBox.z;
+  }
   if (vShape == 1u) {
     vec2 q = abs(p) - vec2(r * 0.86);
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
@@ -548,7 +565,7 @@ void edgeGlyph(uint kind) {
     float len = length(delta);
     vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
     spot = (a + d) * 0.5 + dir * ((sourceRadius - targetRadius) * 0.5) + vec2(-dir.y, dir.x) * (style.z * len);
-    axis = dir.x < 0.0 || (dir.x == 0.0 && dir.y < 0.0) ? -dir : dir;
+    axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
   }
   vec2 across = vec2(-axis.y, axis.x);
   float lift = (glyphKind & 4u) != 0u ? 0.0 : max(look.strokeWidth, 0.5) * 0.5 + ${edgeLabelGap.toFixed(1)};
@@ -596,7 +613,12 @@ void main() {
     : placement == 2u ? vec2(1.0, 0.0)
     : placement == 3u ? vec2(-1.0, 0.0)
     : vec2(0.0);
-  float reach = placement == 4u ? 0.0 : nodeRadius(style) + max(look.outlineWidth, 0.0) + ${labelGap.toFixed(1)};
+  float edge = nodeRadius(style);
+  if ((flags & 3u) == 3u) {
+    vec2 extent = texelFetch(nodeBox, t, 0).xy * zoom;
+    edge = abs(dir.x) > 0.5 ? extent.x : extent.y;
+  }
+  float reach = placement == 4u ? 0.0 : edge + max(look.outlineWidth, 0.0) + ${labelGap.toFixed(1)};
   vec2 anchor = toScreen(texelFetch(nodePosition, t, 0).xy) + dir * reach;
   gl_Position = toClip(anchor + layoutGlyph(kind, pixels, 0.0, look.labelColor));
 }

@@ -15,25 +15,30 @@ function nodes<T>(data: Iterable<T>, options: NodeOptions<T> & { key: KeyChannel
 
 A **channel** is a field name or a function, and goes through a scale. A **style** is a constant or a function, with no scale. See [Marks and channels](/docs/marks).
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `key` | `KeyChannel<T>` | `'id'` | Node key, unique across node marks |
-| `color` | `Channel<T, string \| number \| boolean>` | `--graph-node` | Value passed to the `color` scale |
-| `size` | `Channel<T, number>` | `16` | Value passed to the `size` scale. The size is a diameter |
-| `label` | `Channel<T, string> \| LabelOptions<T>` | | Label text, or text with its style. See [Labels](#labels) |
-| `x`, `y` | `Channel<T, number>` | | Position in world units, followed when it changes |
-| `shape` | `Style<T, 'circle' \| 'square' \| 'diamond'>` | `'circle'` | Node shape |
-| `fill` | `Style<T, string>` | | Fill color, wins over `color` |
-| `stroke` | `Style<T, string>` | `--graph-node-ring` | Inner contour color |
-| `strokeWidth` | `Style<T, number>` | `1` | Inner contour width in pixels |
-| `outline` | `Style<T, string \| null>` | | Ring outside the shape. `null` draws none |
-| `outlineWidth` | `Style<T, number>` | `2` | Width of the outer ring in screen pixels |
-| `opacity` | `Style<T, number>` | `1` | Opacity from 0 to 1 |
-| `image` | `Style<T, string \| NodeImage \| null>` | | Picture or icon inside the node |
-| `badges` | `Partial<Record<BadgeCorner, (datum: T) => Badge \| null \| undefined>>` | | Badge per corner |
-| `units` | `'world' \| 'screen'` | `'world'` | `'screen'` keeps the size constant at every zoom |
+<api-table path="index.ts" name="NodeOptions" />
 
 `outline` alone draws a 2 pixel ring. `outlineWidth` alone draws the ring in `--graph-node-ring`.
+
+## Groups
+
+A node whose `parent` is the key of another node is a child of that node, which becomes a group. Groups nest. See [Groups](/docs/groups).
+
+```ts
+type ContainerShape = 'rectangle' | 'circle'
+
+interface ContainerOptions<T> {
+  readonly shape?: Style<T, ContainerShape>
+  readonly padding?: Style<T, number>
+  readonly fill?: Style<T, string>
+  readonly stroke?: Style<T, string>
+  readonly strokeWidth?: Style<T, number>
+}
+```
+
+<api-table path="index.ts" name="ContainerOptions" />
+
+- An unfolded group draws its container behind its children, sized to them and moved with them. Its label sits above the container by default. Its other options apply when it is folded.
+- A `parent` that names no node is reported in `issues` as `missing-parent`, and the node stays at the top level until that node arrives. A `parent` that would make a node contain itself is reported as `parent-cycle`, and that node stays at the top level.
 
 ## Labels
 
@@ -58,18 +63,7 @@ interface LabelOptions<T> extends LabelTextOptions<T> {
 }
 ```
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `text` | | Main text. `\n` starts a new line |
-| `secondary` | | Second line, at eleven twelfths of the size, in normal weight and `--graph-ink-muted` |
-| `size` | `12` | Font size in pixels at zoom 1. Labels shrink when you zoom out, not when you zoom in |
-| `color` | `--graph-ink` | Color of the main text |
-| `weight` | `500` | `'normal'` (400), `'bold'` (700), or a number from 1 to 1000 |
-| `font` | `--graph-font` | CSS font family |
-| `placement` | `'bottom'` | Side of the node where the label sits. `'center'` puts it on the node |
-| `maxWidth` | | Width in pixels at zoom 1 past which each line ends with an ellipsis |
-| `minScreenSize` | | Smallest diameter of the node on screen, in pixels, for its label to show. Hovered and focused nodes ignore it |
-| `background` | | Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null` for none. A plated label has no halo |
+<api-table path="index.ts" name="LabelOptions" />
 
 The text must be a string; anything else draws no label. See [Labels](/docs/labels) for placement rules and examples.
 
@@ -83,11 +77,7 @@ interface NodeImage {
 }
 ```
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `src` | | Image URL |
-| `scale` | `1` | Size relative to the node diameter |
-| `color` | | Draws the image as a mask of this color |
+<api-table path="index.ts" name="NodeImage" />
 
 ## Badges
 
@@ -101,11 +91,7 @@ interface Badge {
 }
 ```
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `text` | | Text in the pill. Without it, the badge is a dot |
-| `fill` | `--graph-badge-fill` | Pill color |
-| `color` | `--graph-badge-ink` | Text color |
+<api-table path="index.ts" name="Badge" />
 
 ## Types
 

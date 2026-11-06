@@ -1,0 +1,23 @@
+---
+title: Export to PNG and SVG
+---
+
+## How it works
+
+`exportPng` draws the graph again in a WebGL context of its own, at the pixel ratio you choose, and encodes the pixels as a PNG. Past 4,096 pixels the image is drawn in tiles, and labels are chosen once for the whole image, so none is cut or doubled at a tile edge.
+
+`exportSvg` writes a standalone SVG document from the scene, without reading pixels back: shapes, pictures cut to the node shape, tinted icons, badges, curved edges, loops, arrows and labels, with the colors of the current theme.
+
+Both read the same options: `region` is `'view'` for what you see or `'graph'` to frame every node, label and loop, and `labels` is `'visible'` for the labels on screen or `'all'` for every label.
+
+## Try it
+
+- Zoom in on a few nodes, then download: the file shows the same area.
+- Switch the region to **whole graph**: the file frames every node, whatever the view.
+- Switch the labels to **all**: labels hidden on screen by their size or by an overlap appear in the file.
+- Switch the theme in the header, then download again: colors and icons follow it.
+
+<Cards>
+  <Card title="Export" href="/docs/export" />
+  <Card title="exportPng and exportSvg" href="/docs/api/export" />
+</Cards>

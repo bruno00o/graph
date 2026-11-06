@@ -26,14 +26,7 @@ interface ForceOptions {
 }
 ```
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `edgeLength` | `number` | `40` | Length an edge tends to, between the borders of its nodes, in world units |
-| `repulsion` | `number` | `80` | Strength of the push between nodes. `0` turns it off |
-| `gravity` | `number` | `0.04` | Pull toward the center of the moving nodes. Applies to full runs only |
-| `spacing` | `number` | `6` | Smallest gap between two nodes, in world units |
-| `steps` | `number` | `300` | Steps of a full run. A run on part of the graph starts with half the energy and takes fewer |
-| `engine` | `ForceEngine` | `'auto'` | `'auto'` uses the GPU from 2,000 nodes and the CPU below |
+<api-table path="layouts/force/index.ts" name="ForceOptions" />
 
 A negative or non-finite value falls back to its default. `steps` is rounded and at least 1.
 

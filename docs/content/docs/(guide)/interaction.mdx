@@ -14,14 +14,7 @@ defineGraph({
 })
 ```
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `pan` | `true` | Drag the background to move the view |
-| `zoom` | `true` | Wheel and pinch zoom. `{ speed }` scales the wheel speed, `1` by default |
-| `select` | `'multiple'` | `'single'`, `'multiple'`, or `false` to turn selection off |
-| `drag` | `true` | Drag nodes |
-| `lasso` | `false` | Shift and drag from the background to select the nodes inside a drawn shape |
-| `keyboard` | `true` | Focus, select and move the view from the keyboard |
+Every option, with its default, is listed in [`InteractionOptions`](/docs/api/define-graph#interaction).
 
 ## Clicks and selection
 
@@ -74,7 +67,7 @@ The mode is fixed at mount: a graph mounted with `selection` stays controlled fo
 
 ## Drag
 
-Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions. During a layout run, a dragged node stays where you drop it and the others settle around it. See [Positions](/docs/positions).
+Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection, and dragging a [group](/docs/groups) by its container moves every node inside it. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions. During a layout run, a dragged node stays where you drop it and the others settle around it. See [Positions](/docs/positions).
 
 ## Lasso
 
@@ -88,6 +81,7 @@ With `keyboard: true`, the graph element is focusable (`tabindex="0"`, `role="ap
 | --- | --- |
 | Arrow keys | Move the focus to the nearest node in that direction |
 | Enter or Space | Select the focused node. With Shift, Cmd or Ctrl, add it |
+| Enter on a group | Fold or unfold the focused [group](/docs/groups), with `fold: true` |
 | Escape | Cancel the lasso, then clear the selection, then remove the focus |
 | Shift and arrow keys | Pan the view by a tenth of its size |
 | `+` and `-` | Zoom in and out |

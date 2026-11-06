@@ -22,7 +22,7 @@ const definition = defineGraph({
 })
 ```
 
-Nodes push each other apart, edges pull their ends together like springs, and a light pull toward the center keeps separate components close. A collision force keeps a small gap between nodes.
+Nodes push each other apart, edges pull their ends together like springs, and a light pull toward the center keeps separate components close. A collision force keeps a small gap between nodes. The members of an unfolded [group](/docs/groups) also pull together, and a folded group counts as one node.
 
 The entry point has no peer dependency, and the worker ships inside the package: there is nothing to configure in your bundler.
 
@@ -66,7 +66,7 @@ radial({ root: 'hub' })
 - **`rings`** puts the first node in the middle and fills rings outward, each ring longer than the last. Nodes come by degree, the busiest first, unless `order` says otherwise. `center` picks the middle node.
 - **`radial`** walks the graph from `root` and places each node on the ring of its distance to the root, next to the node it was reached from. Each branch gets a slice of the circle in proportion to its size. Without `root`, it starts from the node with the most edges. Nodes it cannot reach go on an outer ring.
 
-The three are centered on the current center of the nodes they move, and space nodes by twice the largest diameter by default. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it.
+The three are centered on the current center of the nodes they move. Their `spacing` is the gap left between the borders of the largest nodes, as in every layout here; it defaults to the largest diameter, and at least 24. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it.
 
 These layouts, and `layers`, are not incremental: when nodes arrive, every free node is laid out again, so the layers, the grid or the rings stay whole. See [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) for every option.
 
@@ -177,14 +177,7 @@ graph.on('positionchange', ({ origin, positions }) => {
 force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto' })
 ```
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `edgeLength` | `40` | Length an edge tends to, between the borders of its two nodes, in world units |
-| `repulsion` | `80` | How hard nodes push each other apart. `0` turns it off |
-| `gravity` | `0.04` | Pull toward the center of the moving nodes, on full runs only |
-| `spacing` | `6` | Smallest gap between two nodes, in world units |
-| `steps` | `300` | Steps of a full run. More steps settle further and take longer |
-| `engine` | `'auto'` | `'gpu'`, `'cpu'`, or `'auto'` to choose from the size of the graph |
+Every option, with its default, is listed in [`ForceOptions`](/docs/api/force#options).
 
 A negative or non-finite value falls back to its default.
 

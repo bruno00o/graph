@@ -1,5 +1,9 @@
 import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 
+/**
+ * Order of the nodes: `'degree'` puts the nodes with the most edges first, a function compares the
+ * items of two nodes, as given to `nodes()`. Ties keep the internal order.
+ */
 export type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
 
 export function movers(graph: LayoutGraph): number[] {
@@ -24,10 +28,10 @@ export function spacingOf(
   indices: readonly number[],
   spacing?: number,
 ): number {
-  if (spacing !== undefined && spacing > 0) return spacing
   let largest = 0
   for (const index of indices) largest = Math.max(largest, (graph.radius[index] ?? 0) * 2)
-  return Math.max(largest * 2, largest + 24)
+  const gap = spacing !== undefined && Number.isFinite(spacing) && spacing >= 0 ? spacing : null
+  return largest + (gap ?? Math.max(largest, 24))
 }
 
 export function centroid(

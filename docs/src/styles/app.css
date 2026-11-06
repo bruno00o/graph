@@ -128,3 +128,35 @@ figure.shiki {
   font-size: 13px;
   color: var(--graph-ink-muted);
 }
+
+.api-table td {
+  vertical-align: top;
+}
+
+.api-table td:first-child {
+  white-space: nowrap;
+}
+
+.api-table th:nth-child(2) {
+  width: 32%;
+}
+
+.api-table td:nth-child(2) code {
+  overflow-wrap: anywhere;
+}
+
+.api-table th:last-child {
+  width: 48%;
+}
+
+.api-table td > p {
+  margin: 0;
+}
+
+.api-table td > p + p {
+  margin-top: 0.5em;
+}
+
+.api-default {
+  color: var(--graph-ink-muted);
+}

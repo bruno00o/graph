@@ -23,9 +23,14 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
     drag: options.drag ?? true,
     lasso: options.lasso ?? false,
     keyboard: options.keyboard ?? true,
+    fold: options.fold ?? true,
   })
 }
 
+/**
+ * Builds a frozen graph definition from marks, scales, states and options. The names of `states`
+ * become the state names accepted by the instance.
+ */
 export function defineGraph<S extends string = never>(
   options: GraphDefinitionOptions<S>,
 ): GraphDefinition<S> {

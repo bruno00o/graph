@@ -2,7 +2,7 @@ import type { Key, NodeMark } from '../types'
 import { type CompiledNodeMark, compileNodeMark } from './compile-mark'
 import type { GraphChanges, GraphModel } from './graph-model'
 
-const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+export const goldenAngle: number = Math.PI * (3 - Math.sqrt(5))
 
 export const placementSpacing = 24
 

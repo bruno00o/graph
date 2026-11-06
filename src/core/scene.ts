@@ -4,6 +4,7 @@ import { type ResolvedNumberScale, resolveNumberScale } from '../scales/number-s
 import { defaults } from '../theme/tokens'
 import type {
   ColorScale,
+  ContainerShape,
   EdgeArrow,
   EdgeDash,
   EdgeMark,
@@ -17,6 +18,8 @@ import type {
 } from '../types'
 import {
   arrowCodes,
+  containerCodes,
+  containerShape,
   cornerCodes,
   dashCodes,
   EdgeColumns,
@@ -34,7 +37,7 @@ import {
   compileNodeMark,
 } from './compile-mark'
 import { createEdgeLanes } from './edge-lanes'
-import type { EdgeRecord, ElementKind, GraphChanges, GraphModel, NodeRecord } from './graph-model'
+import type { EdgeRecord, ElementKind, GraphChanges, NodeRecord } from './graph-model'
 import { IndexSet } from './index-set'
 import { Palette } from './palette'
 
@@ -50,13 +53,28 @@ export interface SceneDirty {
   readonly layers: boolean
 }
 
+export interface SceneNodeRecord extends NodeRecord {
+  readonly container?: boolean
+}
+
+export interface SceneEdgeRecord extends EdgeRecord {
+  readonly look?: EdgeMark<unknown>
+}
+
+export interface SceneModel {
+  nodes(): Iterable<SceneNodeRecord>
+  edges(): Iterable<SceneEdgeRecord>
+  nodeAt(index: number): SceneNodeRecord | undefined
+  edgeAt(index: number): SceneEdgeRecord | undefined
+}
+
 export interface Scene {
   readonly nodes: NodeColumns
   readonly edges: EdgeColumns
   readonly palette: Palette
   readonly layers: readonly Layer[]
   setDefinition(definition: GraphDefinition): void
-  apply(model: GraphModel, changes: GraphChanges): void
+  apply(model: SceneModel, changes: GraphChanges): void
   takeDirty(): SceneDirty
 }
 
@@ -204,8 +222,8 @@ export function createScene(): Scene {
   const palette = new Palette()
   const lanes = createEdgeLanes()
   const slots = new Map<Mark, number>()
-  const nodeBatch = new RecordBatch<NodeRecord>()
-  const edgeBatch = new RecordBatch<EdgeRecord>()
+  const nodeBatch = new RecordBatch<SceneNodeRecord>()
+  const edgeBatch = new RecordBatch<SceneEdgeRecord>()
   let compiledNodeMark: NodeMark<unknown> | null = null
   let compiledNode: CompiledNodeMark | null = null
   let compiledEdgeMark: EdgeMark<unknown> | null = null
@@ -255,10 +273,11 @@ export function createScene(): Scene {
     return compiledNode
   }
 
-  function edgeMarkOf(record: EdgeRecord): CompiledEdgeMark {
-    if (record.mark !== compiledEdgeMark || !compiledEdge) {
-      compiledEdgeMark = record.mark
-      compiledEdge = compileEdgeMark(record.mark)
+  function edgeMarkOf(record: SceneEdgeRecord): CompiledEdgeMark {
+    const look = record.look ?? record.mark
+    if (look !== compiledEdgeMark || !compiledEdge) {
+      compiledEdgeMark = look
+      compiledEdge = compileEdgeMark(look)
     }
     return compiledEdge
   }
@@ -297,7 +316,7 @@ export function createScene(): Scene {
     track(edgeColorExtent, index, color)
   }
 
-  function writeNode(record: NodeRecord): void {
+  function writeNode(record: SceneNodeRecord): void {
     const index = record.index
     const mark = nodeMarkOf(record)
     const datum = record.datum
@@ -335,10 +354,31 @@ export function createScene(): Scene {
     nodes.imageScale[index] = image?.scale ?? 1
     nodes.imageColor[index] = image?.color ? palette.id(image.color) : noColor
     nodes.badges[index] = readBadges(mark, datum, palette)
+    nodes.container[index] = 0
+    if (record.container) writeContainer(index, mark, datum)
     dirtyNodes.add(index)
   }
 
-  function writeEdge(record: EdgeRecord): void {
+  function writeContainer(index: number, mark: CompiledNodeMark, datum: unknown): void {
+    const look = mark.container
+    nodes.container[index] = codeOf<ContainerShape>(containerCodes, look.shape?.(datum)) || 1
+    nodes.padding[index] = Math.max(0, finiteOr(look.padding?.(datum), defaults.groupPadding))
+    nodes.shape[index] = containerShape
+    nodes.fill[index] = palette.id(toColor(look.fill?.(datum)) ?? defaults.groupFill)
+    nodes.stroke[index] = palette.id(toColor(look.stroke?.(datum)) ?? defaults.groupStroke)
+    nodes.strokeWidth[index] = Math.max(
+      0,
+      finiteOr(look.strokeWidth?.(datum), defaults.groupStrokeWidth),
+    )
+    nodes.outlineWidth[index] = 0
+    nodes.screenUnits[index] = 0
+    nodes.image[index] = null
+    nodes.imageColor[index] = noColor
+    nodes.badges[index] = null
+    if (!mark.labelPlacement) nodes.labelPlacement[index] = placementCodes.top
+  }
+
+  function writeEdge(record: SceneEdgeRecord): void {
     const index = record.index
     const mark = edgeMarkOf(record)
     const datum = record.datum

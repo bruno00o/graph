@@ -1,6 +1,6 @@
 {
   "name": "@bruno00o/graph",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Framework-agnostic, typed graph visualization rendered with WebGL2.",
   "keywords": [
     "graph",
@@ -53,6 +53,10 @@
     "./devtools/react": {
       "types": "./dist/devtools/react.d.ts",
       "import": "./dist/devtools/react.js"
+    },
+    "./export": {
+      "types": "./dist/export.d.ts",
+      "import": "./dist/export.js"
     },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"

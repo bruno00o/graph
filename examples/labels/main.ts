@@ -1,6 +1,6 @@
 import { defineGraph, edges, type LabelPlacement, mountGraph, nodes } from '@bruno00o/graph'
 import { messages } from '../shared/messages'
-import { button, createPage, status, themeToggle } from '../shared/page'
+import { button, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
 interface Item {
   readonly id: string
@@ -116,6 +116,7 @@ header.append(
   button(messages.labelBackgrounds, () => change({ background: !settings.background })),
   button(messages.truncate, () => change({ truncate: !settings.truncate })),
   button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  ...exportButtons(graph, 'labels', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )
 

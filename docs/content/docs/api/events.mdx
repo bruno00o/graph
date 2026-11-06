@@ -7,32 +7,24 @@ Subscribe with `graph.on(name, handler)`, which returns the function that unsubs
 
 ## Event table
 
-| Event | React prop | Payload | When |
-| --- | --- | --- | --- |
-| `click` | `onClick` | `GraphPointerEvent` | A press released within 4 pixels |
-| `doubleclick` | `onDoubleClick` | `GraphPointerEvent` | A double click |
-| `contextmenu` | `onContextMenu` | `GraphPointerEvent` | A secondary click |
-| `pointerenter` | `onPointerEnter` | `GraphTargetEvent` | The pointer enters an element |
-| `pointerleave` | `onPointerLeave` | `GraphTargetEvent` | The pointer leaves an element |
-| `dragstart` | `onDragStart` | `GraphDragEvent` | A node drag starts, after 4 pixels |
-| `drag` | `onDrag` | `GraphDragEvent` | A dragged node moves |
-| `dragend` | `onDragEnd` | `GraphDragEvent` | A node drag ends |
-| `positionchange` | `onPositionChange` | `GraphPositionEvent` | Nodes moved by a drag, by `positions.set` or by a layout run that ended |
-| `selectionchange` | `onSelectionChange` | `ElementKeys` | The selection changed |
-| `focuschange` | `onFocusChange` | `GraphFocusEvent` | The keyboard focus changed |
-| `viewchange` | `onViewChange` | `{ view: View }` | The view changed |
-| `layoutstart` | `onLayoutStart` | `GraphLayoutEvent` | A layout run starts |
-| `layoutend` | `onLayoutEnd` | `GraphLayoutEndEvent` | A layout run ends or stops |
+<api-table path="index.ts" name="GraphEvents" />
+
+In React, each event has a prop of [`<Graph>`](/docs/api/graph-component#props) named after it: `onClick`, `onDoubleClick`, `onPositionChange`, `onLayoutEnd` and so on.
 
 ## Targets
 
 ```ts
 type GraphTarget =
   | { readonly kind: 'node'; readonly key: Key; readonly datum: unknown }
-  | { readonly kind: 'edge'; readonly key: Key; readonly datum: unknown }
+  | {
+      readonly kind: 'edge'
+      readonly key: Key
+      readonly datum: unknown
+      readonly aggregate?: AggregateEdge
+    }
 ```
 
-`datum` is the item from your data. Narrow on `kind`, then cast `datum` to your type.
+`datum` is the item from your data. Narrow on `kind`, then cast `datum` to your type. An edge drawn for several edges between [folded groups](/docs/groups) carries `aggregate`, with the keys and data of every merged edge; `key` and `datum` are those of the first.
 
 ## Payloads
 
@@ -66,6 +58,10 @@ interface GraphFocusEvent {
   readonly target: GraphTarget | null
 }
 
+interface GraphFoldEvent {
+  readonly folded: readonly Key[]
+}
+
 interface GraphLayoutEvent {
   readonly name: string
 }
@@ -76,13 +72,16 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 ```
 
 - `point` is in screen pixels relative to the graph element, `world` in world units.
-- `keys` lists every node moved by the drag: the whole selection when the dragged node is selected.
+- `keys` lists every node moved by the drag: the whole selection when the dragged node is selected, and the nodes inside a dragged group.
+- `folded` lists the keys of every folded group after the change.
 - `positions` holds the target positions. Moves that come from your data do not emit `positionchange`.
 - With the origin `'layout'`, `positions` holds every node the run moved. A stopped run emits nothing.
 - `name` is the name of the layout, `'force'` for [`force()`](/docs/api/force). `completed` is `false` when the run was stopped or replaced.
 
 ## Order
 
-`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events.
+`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`.
+
+A `doubleclick` on a group folds or unfolds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 
 At the end of a layout run, `positionchange` fires before `layoutend`. Nodes that arrive during a run join it without a new `layoutstart`, and a run replaced by another ends with `completed: false` before the next `layoutstart`.

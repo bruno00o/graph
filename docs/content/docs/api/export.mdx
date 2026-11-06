@@ -1,0 +1,49 @@
+---
+title: exportPng and exportSvg
+description: Save a mounted graph as a PNG image or a standalone SVG document.
+---
+
+```ts
+import { exportPng, exportSvg } from '@bruno00o/graph/export'
+
+function exportPng<S extends string>(
+  graph: GraphInstance<S>,
+  options?: PngExportOptions,
+): Promise<Blob>
+
+function exportSvg<S extends string>(
+  graph: GraphInstance<S>,
+  options?: SvgExportOptions,
+): Promise<string>
+```
+
+`exportPng` draws the graph offscreen in a WebGL context of its own and resolves to a `Blob` of type `image/png`. `exportSvg` writes an SVG document from the scene, without reading pixels back, and resolves to its text. Both wait for the images of the nodes and for the fonts of the page. See [Export](/docs/export) for a walkthrough.
+
+## Types
+
+```ts
+type ExportRegion = 'view' | 'graph'
+type ExportLabels = 'visible' | 'all' | 'none'
+```
+
+## exportPng options
+
+<api-table path="export/index.ts" name="PngExportOptions" />
+
+## exportSvg options
+
+<api-table path="export/index.ts" name="SvgExportOptions" />
+
+## Errors
+
+- A graph that was not created by `mountGraph`, or that is destroyed, throws an `Error`.
+- A `zoom` or a `pixelRatio` that is not a positive number throws a `RangeError`, as does an area smaller than one pixel.
+- Without WebGL2, or when the browser refuses a drawing buffer, `exportPng` rejects with an `Error`.
+
+## Behavior
+
+- The export reads the graph as it is when the call starts: pending data is flushed first. Moves during an export do not tear the image.
+- Sizes set in screen pixels, such as edge widths, labels and nodes with `units: 'screen'`, keep their size whatever the `zoom` of the export.
+- `region: 'graph'` frames every node, plus the labels and loops that reach past them, with `padding` around them.
+- Past 4,096 pixels on a side, the PNG is drawn in tiles and encoded strip by strip. Labels are chosen once for the whole image.
+- The PNG records its pixel density in a `pHYs` chunk, at 96 dots per inch times `pixelRatio`.

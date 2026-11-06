@@ -17,8 +17,10 @@
     "interaction",
     "view",
     "positions",
+    "groups",
     "layout",
     "theming",
+    "export",
     "---Frameworks---",
     "vanilla",
     "react",
@@ -27,6 +29,7 @@
     "tanstack-query",
     "devtools",
     "---Reference---",
+    "upgrading",
     "[API reference](/docs/api)",
     "[Examples](/examples)",
     "[Benchmark](/benchmark)"
