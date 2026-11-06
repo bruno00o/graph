@@ -1,6 +1,6 @@
 {
   "name": "@bruno00o/graph",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Framework-agnostic, typed graph visualization rendered with WebGL2.",
   "keywords": [
     "graph",
