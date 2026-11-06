@@ -16,11 +16,7 @@ nodes<Item>(items, {
 })
 ```
 
-| Field | Effect |
-| --- | --- |
-| `src` | Image URL. SVG, PNG, JPEG and anything the browser can draw |
-| `scale` | Size relative to the node diameter, `1` by default |
-| `color` | Draws the image as a mask of that color |
+The fields of the object are listed in [`NodeImage`](/docs/api/nodes#images).
 
 The image sits on the fill, under the contour, clipped by the shape. Return `null` to draw no image for a node.
 
@@ -50,11 +46,7 @@ nodes<Item>(items, {
 })
 ```
 
-| Field | Effect |
-| --- | --- |
-| `text` | Text or number in the pill. Without it, the badge is a dot |
-| `fill` | Pill color, `--graph-badge-fill` by default |
-| `color` | Text color, `--graph-badge-ink` by default |
+A badge has a `text`, a `fill` and a text `color`: see [`Badge`](/docs/api/nodes#badges).
 
 Corners are `topLeft`, `topRight`, `bottomLeft` and `bottomRight`. A badge is surrounded by a ring of `--graph-node-ring` so it reads on any fill.
 

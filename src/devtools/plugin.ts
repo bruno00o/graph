@@ -2,12 +2,15 @@ import type { TanStackDevtoolsPlugin, TanStackDevtoolsPluginProps } from '@tanst
 import { GraphDevtoolsCore, type GraphDevtoolsOptions } from './core'
 import { resolveMessages } from './messages'
 
+/** Options of `graphDevtoolsPlugin`. */
 export interface GraphDevtoolsPluginOptions extends GraphDevtoolsOptions {
+  /** Opens the panel the first time the devtools open. */
   readonly defaultOpen?: boolean
 }
 
 export const graphDevtoolsId = 'bruno00o-graph'
 
+/** The Graph panel, as a plugin of `TanStackDevtoolsCore` from `@tanstack/devtools`. */
 export function graphDevtoolsPlugin(
   options: GraphDevtoolsPluginOptions = {},
 ): TanStackDevtoolsPlugin {

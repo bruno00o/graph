@@ -27,6 +27,7 @@
     "tanstack-query",
     "devtools",
     "---Reference---",
+    "upgrading",
     "[API reference](/docs/api)",
     "[Examples](/examples)",
     "[Benchmark](/benchmark)"

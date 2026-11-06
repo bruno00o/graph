@@ -57,75 +57,134 @@ import { layoutGraph } from './layout-graph'
 import type { Renderer } from './renderer'
 import { StateRegistry } from './state-registry'
 
+/** What the store of a graph holds. */
 export interface GraphState<S extends string = string> {
+  /** Current view. */
   readonly view: View
+  /** Width of the graph element, in CSS pixels. */
   readonly width: number
+  /** Height of the graph element, in CSS pixels. */
   readonly height: number
+  /** Element under the pointer, or `null`. */
   readonly hovered: GraphTarget | null
+  /** Element with the keyboard focus, or `null`. */
   readonly focused: GraphTarget | null
+  /** Selected nodes and edges. */
   readonly selection: ElementKeys
+  /** Members of each free state, by name. */
   readonly states: { readonly [K in FreeState<S>]: ElementKeys }
+  /** Changes whenever a node position changes. Read the positions with `positions.get`. */
   readonly positionsVersion: number
+  /** Status of the current layout run. */
   readonly layout: GraphLayoutStatus
   /** Keys of the folded groups. */
   readonly folded: readonly Key[]
 }
 
+/** Status of the current layout run. */
 export interface GraphLayoutStatus {
+  /** `true` while a run is in progress. */
   readonly running: boolean
+  /** Progress of the run, from 0 to 1. */
   readonly progress: number
 }
 
+/** Read-only TanStack Store of the graph state. Write through the methods of the instance. */
 export type GraphStore<S extends string = string> = ReadonlyStore<GraphState<S>>
 
+/** Options of an animated view change. */
 export interface ViewOptions {
+  /**
+   * Animation duration in milliseconds, zero with `prefers-reduced-motion`.
+   * @default 0
+   */
   readonly duration?: number
 }
 
+/** Options of `view.fit`. */
 export interface FitOptions extends ViewOptions {
+  /**
+   * Margin around the framed nodes, in screen pixels.
+   * @default 32
+   */
   readonly padding?: number
 }
 
+/** The camera of a graph. The last animated call wins. */
 export interface GraphView {
+  /** Current view. */
   get(): View
+  /** Moves the view, at once or over `duration`. */
   set(view: View, options?: ViewOptions): void
+  /**
+   * Frames the given nodes, or every node without keys. Called before the element has a size, it
+   * waits for one.
+   */
   fit(keys?: Iterable<Key>, options?: FitOptions): void
+  /** Multiplies the zoom around the center of the view. */
   zoomBy(factor: number, options?: ViewOptions): void
+  /** Converts a point in world units to screen pixels, relative to the graph element. */
   toScreen(point: Point): Point
+  /** Converts a point in screen pixels, relative to the graph element, to world units. */
   toWorld(point: Point): Point
 }
 
+/** A node or an edge, by key. */
 export interface GraphElement {
+  /** Kind of element. */
   readonly kind: 'node' | 'edge'
+  /** Key of the element. */
   readonly key: Key
 }
 
+/** The selection of a graph. In controlled mode, changes go to `onSelectionChange` instead. */
 export interface GraphSelection {
+  /** Selected nodes and edges. */
   get(): ElementKeys
+  /** Replaces the selection. */
   set(keys: ElementKeysInput): void
+  /** Empties the selection. */
   clear(): void
 }
 
+/** The keyboard focus of a graph. */
 export interface GraphFocus {
+  /** Element with the keyboard focus, or `null`. */
   get(): GraphTarget | null
+  /**
+   * Moves the focus to an element, or removes it with `null`. When the keyboard is on, the graph
+   * element takes the DOM focus; an unknown key changes nothing.
+   */
   set(element: GraphElement | null): void
 }
 
+/**
+ * Members of the free states, by key. Built-in and undeclared names are refused. A key can join a
+ * state before its element exists.
+ */
 export interface GraphStates<N extends string = string> {
+  /** Replaces the members of a state. */
   set(name: N, keys: ElementKeysInput): void
+  /** Adds members to a state. */
   add(name: N, keys: ElementKeysInput): void
+  /** Removes members from a state. */
   remove(name: N, keys: ElementKeysInput): void
+  /** Empties a state, or every free state without a name. */
   clear(name?: N): void
+  /** Whether an element is a member of a state. */
   has(name: N, element: GraphElement): boolean
 }
 
-/** Folding of nested groups, declared by the `parent` channel of node marks. */
+/**
+ * Folding of the groups declared by the `parent` channel of `nodes()`. A folded key with no node yet
+ * applies when the group arrives. When `folded` is controlled, changes go to `onFoldChange`.
+ */
 export interface GraphGroups {
   /** Keys of the folded groups. */
   folded(): readonly Key[]
   /** Whether the group is folded. */
   isFolded(key: Key): boolean
-  /** Folds the given groups, or every group without argument. */
+  /** Folds the given groups, or every group, nested ones included, without argument. */
   fold(keys?: Iterable<Key>): void
   /** Unfolds the given groups, or every group without argument. */
   unfold(keys?: Iterable<Key>): void
@@ -139,52 +198,104 @@ export interface GraphGroups {
   children(key: Key): Key[]
 }
 
+/** Options of `layout.run`. */
 export interface LayoutRunOptions {
+  /** Nodes to lay out. The others stay still and act as anchors. */
   readonly keys?: Iterable<Key>
+  /**
+   * Frames every node on the result, with `true` or fit options. A result reported at once is
+   * framed where nodes land, while they glide.
+   */
   readonly fit?: boolean | FitOptions
+  /**
+   * Glide to a result reported at once, in milliseconds, `transitions.layout` by default. `0`
+   * places nodes at once.
+   */
   readonly duration?: number
 }
 
+/** Layout runs of a graph. */
 export interface GraphLayout {
+  /**
+   * Applies pending data changes, then lays out every free node, or only `keys`, with `layout` or
+   * the layout of the definition. Resolves to `true` when the run ends and `false` when it is
+   * stopped or replaced, and rejects when there is no layout to run.
+   */
   run(layout?: Layout, options?: LayoutRunOptions): Promise<boolean>
+  /** Ends the current run and leaves nodes where they are. */
   stop(): void
 }
 
+/** Node positions, in world units. */
 export interface GraphPositions {
+  /** Position of a node, or `undefined` for an unknown key. */
   get(key: Key): Point | undefined
+  /**
+   * Moves nodes, at once or over `duration`, and emits `positionchange` with the origin `'api'`.
+   * During a layout run, the moved nodes stay pinned until it ends.
+   */
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
 }
 
+/** Options of `mountGraph`. */
 export interface MountGraphOptions<S extends string = string> {
+  /** What to draw: the result of `defineGraph`. */
   readonly definition: GraphDefinition<S>
+  /** Accessible name of the graph element. */
   readonly ariaLabel: string
+  /** View at mount. Without it, the first data is fitted with a 32 pixel margin. */
   readonly initialView?: View
+  /** Initial selection. Passing it makes the selection controlled for the life of the graph. */
   readonly selection?: ElementKeysInput
+  /** Receives every selection request in controlled mode, instead of the selection changing. */
   readonly onSelectionChange?: (selection: ElementKeys) => void
-  /** Groups folded at mount; later changes go through `graph.groups`. */
+  /** Groups folded at mount, by key. Later changes go through `groups`. */
   readonly initialFolded?: Iterable<Key>
-  /** Controlled folded groups: requests go to `onFoldChange`, only `update({ folded })` applies them. */
+  /**
+   * Folded groups. Passing it makes folding controlled for the life of the graph: requests go to
+   * `onFoldChange` and only `update({ folded })` applies them.
+   */
   readonly folded?: Iterable<Key>
-  /** Receives the requested folded groups in controlled mode. */
+  /** Receives every fold request in controlled mode, instead of the folded groups changing. */
   readonly onFoldChange?: (event: GraphFoldEvent) => void
 }
 
+/** A mounted graph, returned by `mountGraph` and by the ref of `<Graph>`. */
 export interface GraphInstance<S extends string = string> {
+  /** Read-only TanStack Store of the graph state. */
   readonly store: GraphStore<S>
+  /** The camera. */
   readonly view: GraphView
+  /** The selection. */
   readonly selection: GraphSelection
+  /** The keyboard focus. */
   readonly focus: GraphFocus
+  /** Members of the free states. */
   readonly states: GraphStates<FreeState<S>>
+  /** Node positions. */
   readonly positions: GraphPositions
+  /** Layout runs. */
   readonly layout: GraphLayout
+  /** Folding of nested groups. */
   readonly groups: GraphGroups
+  /** The `div` added to the container, which holds the canvas. */
   readonly element: HTMLElement
+  /** Element under a point in screen pixels, nodes before edges, or `null`. */
   pick(point: Point): GraphTarget | null
+  /** Keys of the nodes connected to a node. */
   neighbors(key: Key): Key[]
+  /** Keys of the edges of a node. */
   edgesOf(key: Key): Key[]
+  /** Source and target keys of an edge, or `undefined` for an unknown or waiting edge. */
   endpoints(key: Key): Endpoints | undefined
+  /** Subscribes to an event. Returns the function that unsubscribes. */
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K>): () => void
+  /**
+   * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, controlled
+   * `selection` or controlled `folded`. Positions, view and selection stay.
+   */
   update(options: Partial<Omit<MountGraphOptions<S>, 'initialView' | 'initialFolded'>>): void
+  /** Removes the element and frees every resource. A layout run in progress resolves to `false`. */
   destroy(): void
 }
 
@@ -1931,6 +2042,10 @@ export function createGraphHost<S extends string = string>(
   return instance
 }
 
+/**
+ * Mounts a graph into `container` and returns its instance. The graph fills the container: give the
+ * container a size.
+ */
 export function mountGraph<S extends string = string>(
   container: HTMLElement,
   options: MountGraphOptions<S>,

@@ -22,6 +22,8 @@ function useGraphState<T>(
 ): T
 ```
 
+<api-table path="react/index.tsx" name="UseGraphStateOptions" />
+
 Subscribes to the [graph state](/docs/api/graph-instance#graph-state) and returns the selected slice. The component renders again only when `compare` tells that the slice changed. `compare` defaults to `Object.is`; use `shallow` from `@tanstack/store` for selectors that build objects or arrays.
 
 ```tsx

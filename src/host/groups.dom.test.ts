@@ -91,7 +91,7 @@ function doubleClick(graph: GraphInstance, x: number, y: number) {
   dom.flushFrames()
 }
 
-function alive(graph: GraphInstance, key: Key): boolean {
+function alive(key: Key): boolean {
   const scene = frame?.scene
   if (!scene) return false
   const index = scene.nodes.keys.indexOf(key)
@@ -119,8 +119,8 @@ describe('groups', () => {
     dom.flushFrames()
     expect(graph.groups.isFolded('g')).toBe(true)
     expect(graph.store.get().folded).toEqual(['g'])
-    expect(alive(graph, 'a')).toBe(false)
-    expect(alive(graph, 'g')).toBe(true)
+    expect(alive('a')).toBe(false)
+    expect(alive('g')).toBe(true)
     expect(frame?.containers?.count).toBe(1)
     graph.groups.fold()
     graph.groups.unfold(['g'])
@@ -128,7 +128,7 @@ describe('groups', () => {
     expect(graph.groups.folded()).toEqual(['h'])
     graph.groups.unfold()
     dom.flushFrames()
-    expect(alive(graph, 'a')).toBe(true)
+    expect(alive('a')).toBe(true)
     expect(seen).toEqual([['g'], ['g', 'h'], ['h'], []])
   })
 
@@ -204,7 +204,7 @@ describe('groups', () => {
     graph.update({ folded: ['g'] })
     dom.flushFrames()
     expect(graph.groups.isFolded('g')).toBe(true)
-    expect(alive(graph, 'a')).toBe(false)
+    expect(alive('a')).toBe(false)
   })
 
   it('moves the descendants of a dragged container', () => {

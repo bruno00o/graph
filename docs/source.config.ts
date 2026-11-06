@@ -1,4 +1,36 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'fumadocs-mdx/config'
+import {
+  createGenerator,
+  type DocEntry,
+  type RemarkAutoTypeTableOptions,
+  remarkAutoTypeTable,
+} from 'fumadocs-typescript'
+
+const library = resolve(import.meta.dirname, '../src')
+
+function readableType(type: string): string {
+  return type.replace(/"([^"\\]*)"/g, "'$1'").replaceAll('<ArrayBufferLike>', '')
+}
+
+const apiTables: RemarkAutoTypeTableOptions = {
+  name: 'api-table',
+  outputName: 'ApiTable',
+  generator: createGenerator({ tsconfigPath: resolve(library, '../tsconfig.json') }),
+  renderType: (value) => ({
+    type: 'element',
+    tagName: 'code',
+    properties: {},
+    children: [{ type: 'text', value }],
+  }),
+  options: {
+    basePath: library,
+    transform(entry: DocEntry) {
+      entry.type = readableType(entry.type)
+      entry.simplifiedType = entry.type
+    },
+  },
+}
 
 function inkTheme(name: string, type: 'light' | 'dark') {
   return {
@@ -55,6 +87,7 @@ function inkTheme(name: string, type: 'light' | 'dark') {
 
 export default defineConfig({
   mdxOptions: {
+    remarkPlugins: [[remarkAutoTypeTable, apiTables]],
     rehypeCodeOptions: {
       themes: {
         light: inkTheme('graph-ink-light', 'light'),

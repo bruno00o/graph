@@ -23,13 +23,15 @@ Without it, every color falls back to its light value, so the graph stays readab
 
 ## Peer dependencies
 
-The React and TanStack entry points each have an optional peer dependency. Install only the ones you import. `@bruno00o/graph/layouts/force` needs none.
+The React and TanStack entry points each have an optional peer dependency. Install only the ones you import. `@bruno00o/graph/layouts` and `@bruno00o/graph/layouts/force` need none.
 
 | Entry point | Install |
 | --- | --- |
 | `@bruno00o/graph/react` | `react` 19 and `react-dom` 19 |
 | `@bruno00o/graph/db` | `@tanstack/db` 1.0 (release candidate 1.3 or later) |
 | `@bruno00o/graph/query` | `@tanstack/query-core` 5, or any TanStack Query adapter |
+| `@bruno00o/graph/devtools` | `@tanstack/devtools` |
+| `@bruno00o/graph/devtools/react` | `@tanstack/devtools-utils` and `react` 19 |
 
 ```npm
 npm install react react-dom

@@ -14,6 +14,7 @@ export type ElementKind = 'nodes' | 'edges'
 
 export type AnyMark = NodeMark<unknown> | EdgeMark<unknown>
 
+/** A problem in the data: an item without a key, or a key already taken by an earlier item. */
 export type GraphIssue =
   | { readonly type: 'missing-key'; readonly kind: ElementKind; readonly datum: unknown }
   | { readonly type: 'duplicate-key'; readonly kind: ElementKind; readonly key: Key }

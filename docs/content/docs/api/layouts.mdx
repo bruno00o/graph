@@ -36,12 +36,7 @@ interface LayersOptions {
 }
 ```
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `direction` | `LayersDirection` | `'down'` | Where edges point: the first layer is at the top for `'down'`, at the left for `'right'` |
-| `root` | `Key \| readonly Key[]` | Nodes without incoming edges | Nodes forced onto the first layer. Edges into them are turned around, and edges between two roots are left out |
-| `layerSpacing` | `number` | Twice the largest diameter, at least that diameter plus 24 | Gap between two layers, from the borders of their largest nodes, in world units |
-| `nodeSpacing` | `number` | The largest diameter, at least 8 | Gap between the borders of two neighboring nodes of a layer, in world units |
+<api-table path="layouts/index.ts" name="LayersOptions" />
 
 - **Cycles.** Edges that close a cycle are turned around, as few as a greedy pass can find. They are still drawn, pointing back. Duplicate edges count once.
 - **Layers.** Each node gets a layer so that every edge goes to a later one, with the smallest total length (network simplex). Each component starts at the first layer.
@@ -69,11 +64,7 @@ interface GridOptions<T = unknown> {
 }
 ```
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `columns` | `number` | Square root of the count, rounded up | Nodes per row. Rounded down, at least 1 |
-| `spacing` | `number` | See above | Gap between rows and between columns |
-| `order` | `NodeOrder<T>` | Internal order | Order of the nodes, row by row from the top left |
+<api-table path="layouts/index.ts" name="GridOptions" />
 
 ## rings
 
@@ -85,11 +76,7 @@ interface RingsOptions<T = unknown> {
 }
 ```
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `center` | `Key` | First node in `order` | Node in the middle. A fixed center keeps its place and the rings form around it |
-| `order` | `NodeOrder<T>` | `'degree'` | Order from the middle outward. Ring `n` holds up to `⌊2πn⌋` nodes |
-| `spacing` | `number` | See above | Gap between two rings |
+<api-table path="layouts/index.ts" name="RingsOptions" />
 
 ## radial
 
@@ -100,10 +87,7 @@ interface RadialOptions {
 }
 ```
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `root` | `Key \| readonly Key[]` | Free node with the most edges | Start of the walk. Several roots share the inner ring and each grows its own branch |
-| `spacing` | `number` | See above | Smallest gap between two rings, and between two nodes of a ring |
+<api-table path="layouts/index.ts" name="RadialOptions" />
 
 - A breadth-first walk from the roots, through free nodes only, gives each node its ring and the node it was reached from. Edges count in both directions.
 - Each branch gets a slice of the circle in proportion to its number of leaves, and each node sits in the middle of its slice. When a ring is crowded, it grows and its nodes spread apart in the same order.
