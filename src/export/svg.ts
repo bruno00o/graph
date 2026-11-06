@@ -46,6 +46,7 @@ export interface SvgScene {
   readonly measure: TextMeasure
   readonly images: ReadonlyMap<string, SvgImage>
   readonly title: string | null
+  readonly time?: number
 }
 
 export interface SvgImage {
@@ -100,6 +101,12 @@ function stripInvalid(text: string): string {
 
 export function escapeXml(text: string): string {
   return stripInvalid(text).replace(markup, (char) => entities[char] ?? char)
+}
+
+function dashOffset(start: number, shift: number, period: number): number {
+  if (shift === 0) return start
+  const value = start - shift
+  return value - Math.floor(value / period) * period
 }
 
 function num(value: number): string {
@@ -571,15 +578,18 @@ export function writeSvg(scene: SvgScene): string {
       })
     }
     if (shape.body) {
-      const dash = edges.dash[index] ?? 0
+      const dash = edges.dash[index] || (look.flow !== 0 ? 1 : 0)
+      const shift = look.flow * (scene.time ?? 0)
       let style = ` stroke-width="${num(width)}"`
       if (dash === 1) {
         const period = Math.max(width * 5, 8)
-        style += ` stroke-dasharray="${num(period * 0.6)} ${num(period * 0.4)}" stroke-dashoffset="${num(shape.startHead)}"`
+        const offset = num(dashOffset(shape.startHead, shift, period))
+        style += ` stroke-dasharray="${num(period * 0.6)} ${num(period * 0.4)}" stroke-dashoffset="${offset}"`
       } else if (dash === 2) {
         const period = Math.max(width * 2.5, 4)
         const dot = Math.max(width * 0.6, 1)
-        style = ` stroke-width="${num(dot * 2)}" stroke-linecap="round" stroke-dasharray="0 ${num(period)}" stroke-dashoffset="${num(shape.startHead - period / 2)}"`
+        const offset = num(dashOffset(shape.startHead - period / 2, shift, period))
+        style = ` stroke-width="${num(dot * 2)}" stroke-linecap="round" stroke-dasharray="0 ${num(period)}" stroke-dashoffset="${offset}"`
       }
       parts.push(`<path d="${shape.body}" fill="none"${paintAttribute('stroke', color)}${style}/>`)
     }

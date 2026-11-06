@@ -37,6 +37,7 @@ import {
   compileNodeMark,
 } from './compile-mark'
 import { createEdgeLanes } from './edge-lanes'
+import { flowSpeed } from './flow'
 import type { EdgeRecord, ElementKind, GraphChanges, NodeRecord } from './graph-model'
 import { IndexSet } from './index-set'
 import { Palette } from './palette'
@@ -399,6 +400,7 @@ export function createScene(): Scene {
     edges.dash[index] = codeOf<EdgeDash>(dashCodes, mark.dash?.(datum))
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
+    edges.setFlow(index, mark.flow ? flowSpeed(mark.flow(datum)) : 0)
     edges.label[index] = toText(mark.label?.(datum))
     edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
     writeLabelText(edges, index, mark.labelText, datum, palette)

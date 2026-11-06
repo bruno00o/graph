@@ -9,6 +9,7 @@ const nodeCount = Number(params.get('nodes') ?? 50_000)
 const edgeCount = Number(params.get('edges') ?? 100_000)
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 const engine = engines.find((value) => value === params.get('layout'))
+const flow = params.has('flow')
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
 const frameCosts: number[] = []
@@ -29,7 +30,7 @@ const generated = performance.now()
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
+    edges<Link>(links, { source: 'from', target: 'to', arrow: 'target', flow }),
     nodes<Item>(
       items,
       engine

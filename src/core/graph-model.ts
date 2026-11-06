@@ -54,6 +54,16 @@ export interface Endpoints {
   readonly target: Key
 }
 
+export interface Adjacency {
+  readonly endNode: Int32Array
+  readonly endHead: Int32Array
+  readonly nodeEnd: Int32Array
+  readonly links: Int32Array
+  edgeAt(id: number): EdgeRecord | undefined
+}
+
+export const linkStride = 6
+
 export interface GraphModelOptions {
   readonly schedule?: () => void
 }
@@ -72,6 +82,7 @@ export interface GraphModel {
   edgesOf(key: Key): Key[]
   endpoints(key: Key): Endpoints | undefined
   pendingEdges(): Key[]
+  adjacency(): Adjacency
   destroy(): void
 }
 
@@ -161,7 +172,6 @@ function emptyChanges(): MutableChanges {
   return { added: [], updated: [], removed: [] }
 }
 
-const linkStride = 6
 const sourceSide = 2
 const targetSide = 4
 
@@ -183,6 +193,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   let endNode = new Int32Array(0)
   let endHead = new Int32Array(0)
   let endTail = new Int32Array(0)
+  let nodeEnd = new Int32Array(0)
   const edgeIds = new KeyIndex()
   let entryPool = new IndexPool()
   const entries: (EdgeEntry | undefined)[] = []
@@ -219,6 +230,11 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     endHead[end] = -1
     endTail[end] = -1
     return end
+  }
+
+  function bindNode(index: number, end: number): void {
+    if (index >= nodeEnd.length) nodeEnd = grown(nodeEnd, index + 1)
+    nodeEnd[index] = end
   }
 
   function endOf(key: Key): number {
@@ -322,6 +338,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         const created = nodePool.acquire()
         endKeys[position] = key
         endNode[position] = created
+        bindNode(created, position)
         nodesByIndex[created] = new NodeEntry(key, created, datum, sole.slot, nodeSources)
         nodeCount++
         changes.added.push({ key, index: created })
@@ -347,6 +364,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         const created = nodePool.acquire()
         const at = end === -1 ? intern(key, true) : end
         endNode[at] = created
+        bindNode(created, at)
         nodesByIndex[created] = new NodeEntry(key, created, datum, slot, nodeSources)
         nodeCount++
         changes.added.push({ key, index: created })
@@ -596,6 +614,19 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       const result: Key[] = []
       for (const entry of entries) if (entry && !isVisible(entry)) result.push(entry.key)
       return result
+    },
+
+    adjacency() {
+      return {
+        endNode,
+        endHead,
+        nodeEnd,
+        links,
+        edgeAt(id) {
+          const entry = entries[id]
+          return entry && isVisible(entry) ? entry : undefined
+        },
+      }
     },
 
     destroy() {

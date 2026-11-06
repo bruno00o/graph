@@ -54,6 +54,7 @@ export interface CompiledEdgeMark {
   readonly arrow: Read | null
   readonly stroke: Read | null
   readonly opacity: Read | null
+  readonly flow: Read | null
 }
 
 function channel(value: string | Read | undefined): Read | null {
@@ -139,6 +140,7 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     arrow: style(options.arrow),
     stroke: style(options.stroke),
     opacity: style(options.opacity),
+    flow: style(options.flow),
   }
   edgeCache.set(mark, compiled)
   return compiled

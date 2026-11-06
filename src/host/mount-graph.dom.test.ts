@@ -126,6 +126,30 @@ afterEach(() => {
 })
 
 describe('createGraphHost', () => {
+  it('finds paths on data changes not drawn yet', () => {
+    const graph = mount()
+    expect(graph.paths.shortest('a', 'c')).toMatchObject({ nodes: ['a', 'b', 'c'], cost: 2 })
+    graph.update({
+      definition: defineGraph({
+        marks: [
+          edges<Link>([...links, { id: 'ca', from: 'c', to: 'a' }], {
+            source: 'from',
+            target: 'to',
+          }),
+          nodes<Item>(items, { x: 'x', y: 'y' }),
+        ],
+      }),
+    })
+    expect(graph.paths.shortest('a', 'c')).toEqual({
+      nodes: ['a', 'c'],
+      edges: ['ca'],
+      costs: [0, 1],
+      cost: 1,
+    })
+    expect(graph.paths.shortest('a', 'c', { directed: true })?.edges).toEqual(['ab', 'bc'])
+    expect(graph.paths.reach('a', { maxCost: 1 }).nodes).toEqual(['a', 'b', 'c'])
+  })
+
   it('mounts an accessible element and fits the graph on the first frame', () => {
     const graph = mount()
     expect(graph.element.getAttribute('role')).toBe('application')

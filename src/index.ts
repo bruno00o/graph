@@ -42,6 +42,7 @@ export type {
 export { mountGraph } from './host/mount-graph'
 export { hull } from './hulls'
 export { edges, nodes } from './marks'
+export { createPathFinder } from './paths'
 export type {
   Accessor,
   AggregateEdge,
@@ -67,6 +68,9 @@ export type {
   GraphData,
   GraphDefinition,
   GraphDefinitionOptions,
+  GraphPath,
+  GraphPaths,
+  GraphReach,
   Hull,
   HullGroupOptions,
   HullKeysOptions,
@@ -98,7 +102,11 @@ export type {
   NodeShape,
   NumberScale,
   NumberScaleType,
+  PathFinder,
+  PathOptions,
+  PathWeight,
   Point,
+  ReachOptions,
   ResolvedBackground,
   ResolvedInteraction,
   ResolvedTransitions,

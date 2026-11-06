@@ -1,0 +1,57 @@
+---
+title: Paths
+description: Shortest paths and reachable nodes, on a mounted graph or on marks alone.
+---
+
+```ts
+interface GraphPaths<M extends Mark = Mark> {
+  shortest(from: Key, to: Key, options?: PathOptions<M>): GraphPath | null
+  reach(from: Key, options?: ReachOptions<M>): GraphReach
+}
+
+function createPathFinder<M extends Mark>(definition: { marks: readonly M[] }): PathFinder<M>
+```
+
+`graph.paths` is a `GraphPaths` on every [`GraphInstance`](/docs/api/graph-instance). `M` is the union of the marks: it types the fields and the items that `weight`, `nodes` and `edges` read. See [Paths](/docs/paths).
+
+## GraphPaths
+
+<api-table path="index.ts" name="GraphPaths" />
+
+`shortest` searches from both ends at once: breadth-first without `weight`, Dijkstra's algorithm with it. Both apply pending data changes first.
+
+## Options
+
+<api-table path="index.ts" name="PathOptions" />
+
+`reach` takes `ReachOptions`, the same options and `maxCost`:
+
+<api-table path="index.ts" name="ReachOptions" />
+
+## Results
+
+### GraphPath
+
+<api-table path="index.ts" name="GraphPath" />
+
+### GraphReach
+
+<api-table path="index.ts" name="GraphReach" />
+
+Both have `nodes` and `edges` arrays of keys, the shape [`states.set`](/docs/api/graph-instance#states) takes.
+
+## createPathFinder
+
+```ts
+import { createPathFinder, edges, nodes } from '@bruno00o/graph'
+
+const paths = createPathFinder({
+  marks: [nodes<Item>(items), edges<Link>(links, { source: 'from', target: 'to' })],
+})
+const path = paths.shortest('a', 'f', { weight: 'distance' })
+paths.destroy()
+```
+
+It takes the marks of a definition, or a definition itself, and runs the same queries without mounting a graph. `visible` has no effect: there is nothing drawn.
+
+<api-table path="index.ts" name="PathFinder" />

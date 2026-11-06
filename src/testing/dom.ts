@@ -3,6 +3,7 @@ import type { Renderer } from '../host/renderer'
 
 export interface FakeDom {
   flushFrames(): void
+  pendingFrames(): number
   restore(): void
 }
 
@@ -44,6 +45,9 @@ export function installDom(width = 800, height = 600): FakeDom {
         frames = []
         for (const callback of pending) callback(performance.now() + 10_000)
       }
+    },
+    pendingFrames() {
+      return frames.length
     },
     restore() {
       vi.unstubAllGlobals()

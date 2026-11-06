@@ -93,7 +93,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
     {}
   if (options.color !== undefined) fallback.color = first(toAccessor(options.color))
   if (options.width !== undefined) fallback.width = first(toAccessor(options.width))
-  for (const name of ['dash', 'arrow', 'stroke', 'opacity'] as const) {
+  for (const name of ['dash', 'arrow', 'stroke', 'opacity', 'flow'] as const) {
     if (options[name] !== undefined) fallback[name] = lifted(options[name])
   }
   if (options.label !== undefined) fallback.label = liftedLabel(options.label)
