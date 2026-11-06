@@ -1,5 +1,7 @@
 import type { GroupTree } from './group-tree'
 
+export const groupGap = 16
+
 export interface SeparationOptions {
   readonly spacing: number
   readonly groupSpacing: number

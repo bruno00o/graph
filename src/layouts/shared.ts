@@ -1,4 +1,5 @@
 import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
+import { inBlocks } from './blocks'
 
 /**
  * Order of the nodes: `'degree'` puts the nodes with the most edges first, a function compares the
@@ -82,7 +83,7 @@ export function instant(
     start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
       let stopped = false
       queueMicrotask(() => {
-        if (!stopped) listener.end(compute(graph))
+        if (!stopped) listener.end(inBlocks(graph, compute))
       })
       return {
         pin() {},
