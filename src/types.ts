@@ -57,7 +57,15 @@ export type EdgeArrow = 'none' | 'source' | 'target' | 'both'
 export type BadgeCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
 
 export interface Badge {
-  readonly text?: string
+  readonly text?: string | number
+  readonly fill?: string
+  readonly color?: string
+}
+
+export interface NodeImage {
+  readonly src: string
+  readonly scale?: number
+  readonly color?: string
 }
 
 export interface LabelOptions<T> {
@@ -77,7 +85,7 @@ export interface NodeOptions<T> {
   readonly stroke?: Style<T, string>
   readonly strokeWidth?: Style<T, number>
   readonly opacity?: Style<T, number>
-  readonly image?: Style<T, string | null>
+  readonly image?: Style<T, string | NodeImage | null>
   readonly badges?: Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined>>>>
   readonly units?: 'world' | 'screen'
 }

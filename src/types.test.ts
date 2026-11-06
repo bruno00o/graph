@@ -57,6 +57,21 @@ describe('public types', () => {
     >()
   })
 
+  it('accepts an image as a source or with a scale and a color, and badges per corner', () => {
+    nodes(people, {
+      image: (person) => (person.alias ? { src: person.alias, scale: 0.6, color: 'white' } : null),
+      badges: {
+        topRight: (person) => ({ text: person.score }),
+        bottomLeft: (person) => (person.alias ? { fill: 'red' } : null),
+      },
+    })
+    nodes(people, { image: 'avatar.png' })
+    // @ts-expect-error
+    nodes(people, { image: { scale: 0.6 } })
+    // @ts-expect-error
+    nodes(people, { badges: { middle: () => ({ text: 'x' }) } })
+  })
+
   it('rejects fields of the wrong type', () => {
     // @ts-expect-error
     nodes(people, { size: 'name' })

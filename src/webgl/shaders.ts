@@ -1,10 +1,18 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
+import { atlasFontSize } from './glyph-atlas'
+
+export const badgeLimit = 18
+export const badgeMin = 10
+export const badgeTextMin = 12
+export const badgeFont = 0.66
+export const badgeRing = 1.5
 
 const header = `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2D;
 precision highp usampler2D;
+precision highp sampler2DArray;
 layout(std140) uniform Frame {
   vec2 center;
   vec2 viewport;
@@ -70,6 +78,13 @@ float nodeDiameter(vec4 style) {
   return (flags & 4u) != 0u ? style.x : style.x * zoom;
 }
 float nodeRadius(vec4 style) { return max(nodeDiameter(style) * 0.5, 1.25); }
+float badgeHeight(vec4 style) { return min(nodeDiameter(style) * 0.55, ${badgeLimit.toFixed(1)}); }
+vec2 badgeCenter(vec2 xy, vec4 style, uint corner) {
+  uint shape = uint(style.w + 0.5) & 3u;
+  float reach = shape == 0u ? 0.70710678 : shape == 1u ? 0.86 : 0.6;
+  vec2 side = vec2((corner & 1u) != 0u ? 1.0 : -1.0, (corner & 2u) != 0u ? 1.0 : -1.0);
+  return toScreen(xy) + side * reach * nodeRadius(style);
+}
 `
 
 const edgeData = `
@@ -79,9 +94,13 @@ uniform usampler2D edgeState;
 `
 
 export const nodeVertex: string = `${header}${nodeData}
+uniform usampler2D nodeImage;
 in vec2 corner;
 in uint instance;
 out vec2 vLocal;
+flat out float vImageLayer;
+flat out float vImageScale;
+flat out vec4 vImageColor;
 out float vRadius;
 out float vStrokeWidth;
 out float vHaloWidth;
@@ -112,12 +131,20 @@ void main() {
   vFill = paletteColor(look.fill);
   vStroke = paletteColor(look.stroke);
   vOpacity = look.opacity;
+  uvec4 image = texelFetch(nodeImage, t, 0);
+  vImageLayer = float(image.x) - 1.0;
+  vImageScale = max(uintBitsToFloat(image.z), 0.001);
+  vImageColor = image.y == none ? vec4(-1.0) : paletteColor(image.y);
   gl_Position = toClip(toScreen(xy) + vLocal);
 }
 `
 
 export const nodeFragment: string = `${header}
+uniform sampler2DArray images;
 in vec2 vLocal;
+flat in float vImageLayer;
+flat in float vImageScale;
+flat in vec4 vImageColor;
 in float vRadius;
 in float vStrokeWidth;
 in float vHaloWidth;
@@ -139,9 +166,17 @@ void main() {
   float d = shapeDistance(vLocal, vRadius);
   float inside = 1.0 - smoothstep(-aa, aa, d);
   float ring = vStrokeWidth > 0.0 ? smoothstep(-vStrokeWidth - aa, -vStrokeWidth + aa, d) : 0.0;
-  vec4 color = mix(vFill, vStroke, ring);
-  float alpha = color.a * inside * vOpacity;
-  vec4 result = vec4(color.rgb * alpha, alpha);
+  vec4 fill = vec4(vFill.rgb * vFill.a, vFill.a);
+  if (vImageLayer >= 0.0) {
+    vec2 uv = vLocal / (vRadius * 2.0 * vImageScale) + 0.5;
+    vec4 picture = texture(images, vec3(uv, vImageLayer));
+    vec2 within = step(vec2(0.0), uv) * step(uv, vec2(1.0));
+    picture *= within.x * within.y;
+    if (vImageColor.a >= 0.0) picture = vec4(vImageColor.rgb * vImageColor.a, vImageColor.a) * picture.a;
+    fill = picture + fill * (1.0 - picture.a);
+  }
+  vec4 color = mix(fill, vec4(vStroke.rgb * vStroke.a, vStroke.a), ring);
+  vec4 result = color * inside * vOpacity;
   if (vHaloWidth > 0.0) {
     float h = haloColor.a * (1.0 - smoothstep(0.0, vHaloWidth, d)) * vOpacity;
     result += vec4(haloColor.rgb * h, h) * (1.0 - result.a);
@@ -429,7 +464,8 @@ in vec4 glyphRect;
 in vec4 glyphUv;
 out vec2 vUv;
 out float vScale;
-flat out uint vKind;
+flat out vec4 vInk;
+flat out float vHalo;
 flat out float vOpacity;
 void main() {
   ivec2 t = texel(glyphNode);
@@ -438,19 +474,36 @@ void main() {
   uint flags = uint(style.w + 0.5);
   uint mask = texelFetch(nodeState, t, 0).r;
   Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y), 0);
+  vUv = mix(glyphUv.xy, glyphUv.zw, corner);
+  vOpacity = look.opacity;
+  uint kind = glyphKind & 3u;
+  if (kind == 2u) {
+    bool highlighted = (mask & highlightMask) != 0u;
+    float height = badgeHeight(style);
+    if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeTextMin.toFixed(1)}) {
+      gl_Position = hidden;
+      return;
+    }
+    float font = height * ${badgeFont.toFixed(2)};
+    vec2 center = badgeCenter(texelFetch(nodePosition, t, 0).xy, style, (glyphKind >> 2u) & 3u);
+    vScale = font / atlasFontSize;
+    vInk = paletteColor(glyphKind >> 4u);
+    vHalo = 0.0;
+    gl_Position = toClip(center - vec2(0.0, font * 0.65) + (glyphRect.xy + corner * glyphRect.zw) * vScale);
+    return;
+  }
   float primary = (flags & 4u) != 0u ? 12.0 : 12.0 * min(1.0, zoom);
   if ((flags & 8u) == 0u || look.label < 0.5 || primary < labelMin) {
     gl_Position = hidden;
     return;
   }
-  float size = glyphKind == 0u ? primary : primary * 11.0 / 12.0;
+  float size = kind == 0u ? primary : primary * 11.0 / 12.0;
   float scale = size / atlasFontSize;
-  float below = nodeRadius(style) + 3.0 + (glyphKind == 1u ? primary * 1.25 : 0.0);
+  float below = nodeRadius(style) + 3.0 + (kind == 1u ? primary * 1.25 : 0.0);
   vec2 anchor = toScreen(texelFetch(nodePosition, t, 0).xy) + vec2(0.0, below);
-  vUv = mix(glyphUv.xy, glyphUv.zw, corner);
   vScale = scale;
-  vKind = glyphKind;
-  vOpacity = look.opacity;
+  vInk = kind == 0u ? labelInk : labelMuted;
+  vHalo = 1.0;
   gl_Position = toClip(anchor + (glyphRect.xy + corner * glyphRect.zw) * scale);
 }
 `
@@ -459,19 +512,78 @@ export const labelFragment: string = `${header}
 uniform sampler2D atlas;
 in vec2 vUv;
 in float vScale;
-flat in uint vKind;
+flat in vec4 vInk;
+flat in float vHalo;
 flat in float vOpacity;
 out vec4 fragColor;
 void main() {
   float d = texture(atlas, vUv).r;
   float gamma = 0.08 / max(vScale * pixelRatio, 0.05);
   float ink = smoothstep(0.75 - gamma, 0.75 + gamma, d);
-  float halo = smoothstep(0.55 - gamma, 0.55 + gamma, d);
-  vec4 inkColor = vKind == 0u ? labelInk : labelMuted;
-  vec3 rgb = mix(labelHalo.rgb, inkColor.rgb, ink);
-  float alpha = max(halo * labelHalo.a, ink * inkColor.a) * vOpacity;
+  float halo = smoothstep(0.55 - gamma, 0.55 + gamma, d) * vHalo;
+  vec3 rgb = vHalo > 0.5 ? mix(labelHalo.rgb, vInk.rgb, ink) : vInk.rgb;
+  float alpha = max(halo * labelHalo.a, ink * vInk.a) * vOpacity;
   if (alpha < 0.002) discard;
   fragColor = vec4(rgb * alpha, alpha);
+}
+`
+
+export const badgeVertex: string = `${header}${nodeData}
+in vec2 corner;
+in uint badgeNode;
+in uint badgeInfo;
+in uint badgeFill;
+in uint badgeRingColor;
+in float badgeText;
+out vec2 vLocal;
+flat out vec2 vHalf;
+flat out vec4 vFill;
+flat out vec4 vRing;
+flat out float vOpacity;
+void main() {
+  ivec2 t = texel(badgeNode);
+  vec4 style = texelFetch(nodeStyle, t, 0);
+  uvec4 paint = texelFetch(nodePaint, t, 0);
+  uint flags = uint(style.w + 0.5);
+  uint mask = texelFetch(nodeState, t, 0).r;
+  bool highlighted = (mask & highlightMask) != 0u;
+  float height = badgeHeight(style);
+  if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeMin.toFixed(1)}) {
+    gl_Position = hidden;
+    return;
+  }
+  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y), 0);
+  bool text = (badgeInfo & 4u) != 0u && height >= ${badgeTextMin.toFixed(1)};
+  float font = height * ${badgeFont.toFixed(2)};
+  float width = text ? max(height, badgeText * font / ${atlasFontSize.toFixed(1)} + height * 0.6) : height;
+  vec2 center = badgeCenter(texelFetch(nodePosition, t, 0).xy, style, badgeInfo & 3u);
+  vHalf = vec2(width, height) * 0.5;
+  vLocal = corner * (vHalf + ${badgeRing.toFixed(1)} + 1.0);
+  vFill = paletteColor(badgeFill);
+  vRing = paletteColor(badgeRingColor);
+  vOpacity = look.opacity;
+  gl_Position = toClip(center + vLocal);
+}
+`
+
+export const badgeFragment: string = `${header}
+in vec2 vLocal;
+flat in vec2 vHalf;
+flat in vec4 vFill;
+flat in vec4 vRing;
+flat in float vOpacity;
+out vec4 fragColor;
+void main() {
+  float aa = 0.5 / pixelRatio + 0.25;
+  vec2 q = vec2(max(abs(vLocal.x) - (vHalf.x - vHalf.y), 0.0), vLocal.y);
+  float d = length(q) - vHalf.y;
+  float inner = 1.0 - smoothstep(-aa, aa, d);
+  float outer = 1.0 - smoothstep(${badgeRing.toFixed(1)} - aa, ${badgeRing.toFixed(1)} + aa, d);
+  vec4 fill = vec4(vFill.rgb * vFill.a, vFill.a);
+  vec4 ring = vec4(vRing.rgb * vRing.a, vRing.a);
+  vec4 result = mix(ring, fill, inner) * outer * vOpacity;
+  if (result.a < 0.002) discard;
+  fragColor = result;
 }
 `
 

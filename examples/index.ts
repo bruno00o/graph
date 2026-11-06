@@ -9,6 +9,7 @@ for (const [href, text] of [
   ['./collab/', messages.collab],
   ['./explore/', messages.explore],
   ['./edges/', messages.edges],
+  ['./nodes/', messages.nodes],
 ] as const) {
   const item = document.createElement('li')
   const link = document.createElement('a')

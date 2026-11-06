@@ -129,6 +129,28 @@ describe('createGraphHost', () => {
     expect(graph.store.get().positionsVersion).toBeGreaterThan(0)
   })
 
+  it('draws a new frame when the renderer asks for one', () => {
+    let invalidate = () => {}
+    let renders = 0
+    const container = document.createElement('div')
+    document.body.append(container)
+    createGraphHost(container, { definition: definition(), ariaLabel: 'graphe' }, (_, request) => {
+      invalidate = request
+      return {
+        ...fakeRenderer(),
+        render: () => {
+          renders++
+          return -1
+        },
+      }
+    })
+    dom.flushFrames()
+    const before = renders
+    invalidate()
+    dom.flushFrames()
+    expect(renders).toBe(before + 1)
+  })
+
   it('exposes host state as a read-only TanStack store', () => {
     const graph = mount()
     expectTypeOf(graph.store).toEqualTypeOf<ReadonlyStore<GraphState>>()
