@@ -64,6 +64,10 @@ function start(graph: LayoutGraph, settings: ForceSettings, listener: LayoutList
   }
 }
 
+/**
+ * A force layout: nodes push each other apart and edges pull their ends together. It runs in a Web
+ * Worker, on the GPU or the CPU, and falls back to the main thread.
+ */
 export function force(options: ForceOptions = {}): Layout {
   const settings = resolveForce(options)
   return Object.freeze({

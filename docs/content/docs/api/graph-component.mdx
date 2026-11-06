@@ -15,18 +15,9 @@ function Graph<S extends string = string>(props: GraphProps<S>): JSX.Element
 
 ## Props
 
-| Prop | Type | Description |
-| --- | --- | --- |
-| `definition` | `GraphDefinition<S>` | Required. Applied with `update` when it changes |
-| `ariaLabel` | `string` | Required. Applied with `update` when it changes |
-| `initialView` | `View` | Read once, at mount |
-| `selection` | `ElementKeysInput` | Makes the selection controlled when given at mount |
-| `className` | `string` | Class of the wrapping `div` |
-| `style` | `CSSProperties` | Style of the wrapping `div`, merged with `position: relative` |
-| `ref` | `Ref<GraphInstance<S> \| null>` | Receives the instance |
-| `children` | `ReactNode` | Overlays, rendered once the graph is mounted |
+<api-table path="react/index.tsx" name="GraphProps" />
 
-Event props: `onClick`, `onDoubleClick`, `onContextMenu`, `onPointerEnter`, `onPointerLeave`, `onDragStart`, `onDrag`, `onDragEnd`, `onPositionChange`, `onSelectionChange`, `onFocusChange`, `onViewChange`, `onLayoutStart`, `onLayoutEnd`. Each receives the payload of the matching [event](/docs/api/events). The latest function passed is always called.
+Each event prop receives the payload of the matching [event](/docs/api/events). The latest function passed is always called.
 
 With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does.
 

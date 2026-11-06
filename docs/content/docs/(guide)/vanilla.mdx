@@ -21,13 +21,7 @@ const definition = defineGraph({
 const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
 ```
 
-| Option | Required | Effect |
-| --- | --- | --- |
-| `definition` | yes | The result of `defineGraph` |
-| `ariaLabel` | yes | Accessible name of the graph |
-| `initialView` | no | `{ x, y, zoom }`. Without it, the graph fits its first data |
-| `selection` | no | Makes the selection controlled. See [Interaction](/docs/interaction#controlled-selection) |
-| `onSelectionChange` | no | Receives selection requests in controlled mode |
+Every option is listed in [`mountGraph`](/docs/api/mount-graph#options). Passing `selection` makes the selection controlled: see [Interaction](/docs/interaction#controlled-selection).
 
 The graph adds a `div` to the container, available as `graph.element`. It carries `aria-label`, a `data-graph` attribute, and `role="application"` with `tabindex="0"` when the keyboard is on, or `role="img"` otherwise. Position your overlays against it.
 

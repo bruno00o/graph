@@ -7,22 +7,9 @@ Subscribe with `graph.on(name, handler)`, which returns the function that unsubs
 
 ## Event table
 
-| Event | React prop | Payload | When |
-| --- | --- | --- | --- |
-| `click` | `onClick` | `GraphPointerEvent` | A press released within 4 pixels |
-| `doubleclick` | `onDoubleClick` | `GraphPointerEvent` | A double click |
-| `contextmenu` | `onContextMenu` | `GraphPointerEvent` | A secondary click |
-| `pointerenter` | `onPointerEnter` | `GraphTargetEvent` | The pointer enters an element |
-| `pointerleave` | `onPointerLeave` | `GraphTargetEvent` | The pointer leaves an element |
-| `dragstart` | `onDragStart` | `GraphDragEvent` | A node drag starts, after 4 pixels |
-| `drag` | `onDrag` | `GraphDragEvent` | A dragged node moves |
-| `dragend` | `onDragEnd` | `GraphDragEvent` | A node drag ends |
-| `positionchange` | `onPositionChange` | `GraphPositionEvent` | Nodes moved by a drag, by `positions.set` or by a layout run that ended |
-| `selectionchange` | `onSelectionChange` | `ElementKeys` | The selection changed |
-| `focuschange` | `onFocusChange` | `GraphFocusEvent` | The keyboard focus changed |
-| `viewchange` | `onViewChange` | `{ view: View }` | The view changed |
-| `layoutstart` | `onLayoutStart` | `GraphLayoutEvent` | A layout run starts |
-| `layoutend` | `onLayoutEnd` | `GraphLayoutEndEvent` | A layout run ends or stops |
+<api-table path="index.ts" name="GraphEvents" />
+
+In React, each event has a prop of [`<Graph>`](/docs/api/graph-component#props) named after it: `onClick`, `onDoubleClick`, `onPositionChange`, `onLayoutEnd` and so on.
 
 ## Targets
 

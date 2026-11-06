@@ -46,6 +46,10 @@ function resolveBackground(
   })
 }
 
+/**
+ * Builds a frozen graph definition from marks, scales, states and options. The names of `states`
+ * become the state names accepted by the instance.
+ */
 export function defineGraph<S extends string = never>(
   options: GraphDefinitionOptions<S>,
 ): GraphDefinition<S> {

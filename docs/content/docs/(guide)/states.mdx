@@ -42,13 +42,7 @@ graph.states.add('pinned', { nodes: ['n12'] })
 graph.states.has('pinned', { kind: 'node', key: 'n12' })
 ```
 
-| Method | Effect |
-| --- | --- |
-| `set(name, { nodes, edges })` | Replaces the members of the state |
-| `add(name, { nodes, edges })` | Adds members |
-| `remove(name, { nodes, edges })` | Removes members |
-| `clear(name)` | Empties the state, or every free state without a name |
-| `has(name, { kind, key })` | Tells whether an element is a member |
+The methods are listed in [`GraphStates`](/docs/api/graph-instance#states).
 
 <Callout title="Keys before elements">
 A key can join a state before its element exists. The element takes the style as soon as it arrives, which suits data that loads in steps. A removed element keeps its states and gets them back if it returns.
@@ -58,19 +52,7 @@ The selection is not a free state: change it through `graph.selection`. See [Int
 
 ## Style options
 
-A style sets any of these properties. Leave a property out and the element keeps its own value.
-
-| Option | Type | Effect |
-| --- | --- | --- |
-| `opacity` | `number` | Multiplies the element opacity. `0.2` pushes it into the background |
-| `fill` | `string` | Fill color of a node |
-| `stroke` | `string` | Inner contour of a node, line color of an edge |
-| `strokeWidth` | `number` | Inner contour width of a node, in pixels |
-| `outline` | `string` | Ring outside a node. Nodes only |
-| `outlineWidth` | `number` | Width of that ring in screen pixels. Nodes only |
-| `halo` | `boolean` | Draws the soft `--graph-halo` glow behind the element |
-| `label` | `boolean` | Shows or hides the label while the state applies |
-| `labelColor` | `string` | Color of the main text of the label, for nodes and edges |
+A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label` and `labelColor`. Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.
 
 ## Override the built-in states
 
