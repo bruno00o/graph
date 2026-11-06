@@ -91,6 +91,22 @@ function Controlled() {
   )
 }
 
+function ControlledView({ follow }: { readonly follow: boolean }) {
+  const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
+  return (
+    <Graph
+      definition={stableDefinition}
+      ariaLabel="graphe"
+      ref={capture}
+      view={view}
+      onViewChange={(event) => {
+        captured.seen.push(`${event.view.x},${event.view.zoom}`)
+        if (follow) setView(event.view)
+      }}
+    />
+  )
+}
+
 function Retagging() {
   const [tag, setTag] = useState('first')
   return (
@@ -212,6 +228,36 @@ describe('controlled selection', () => {
     expect(onSelectionChange).toHaveBeenCalledTimes(1)
     expect(onSelectionChange).toHaveBeenCalledWith({ nodes: ['a'], edges: [] })
     expect(captured.graph?.selection.get().nodes).toEqual(['b'])
+  })
+})
+
+describe('controlled view', () => {
+  it('draws the view set in onViewChange within the frame of the request', () => {
+    render(<ControlledView follow />)
+    const drawn: View[] = []
+    captured.graph?.on('viewchange', ({ view }) => drawn.push(view))
+    act(() => {
+      captured.graph?.view.set({ x: 40, y: 0, zoom: 2 })
+    })
+    expect(captured.graph?.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })
+    act(() => {
+      dom.flushFrames()
+    })
+    expect(captured.seen).toEqual(['40,2'])
+    expect(drawn).toEqual([{ x: 40, y: 0, zoom: 2 }])
+    expect(captured.graph?.view.get()).toEqual({ x: 40, y: 0, zoom: 2 })
+  })
+
+  it('keeps the prop when the parent ignores the request', () => {
+    render(<ControlledView follow={false} />)
+    act(() => {
+      captured.graph?.view.zoomBy(2)
+    })
+    act(() => {
+      dom.flushFrames()
+    })
+    expect(captured.seen).toEqual(['0,2'])
+    expect(captured.graph?.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })
   })
 })
 

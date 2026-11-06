@@ -16,6 +16,7 @@ export type {
   GraphPositionEvent,
   GraphTarget,
   GraphTargetEvent,
+  GraphViewEvent,
   GraphZoomHintEvent,
   NodeTarget,
   PositionOrigin,

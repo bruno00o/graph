@@ -14,7 +14,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import type { AnchorOptions } from '../host/anchors'
 import type {
   ElementKeysInput,
@@ -56,7 +56,10 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onFocusChange?: GraphEventHandler<'focuschange', M>
   /** Receives `foldchange`, or the fold requests when `folded` is given. */
   readonly onFoldChange?: GraphEventHandler<'foldchange', M>
-  /** Receives `viewchange`: the view changed. */
+  /**
+   * Receives `viewchange`, or the view requests when `view` is given. Requests are rendered
+   * synchronously, so a state update in the handler draws in the same frame.
+   */
   readonly onViewChange?: GraphEventHandler<'viewchange', M>
   /** Receives `zoomhint`: a wheel event went to the page in `'page'` wheel mode. */
   readonly onZoomHint?: GraphEventHandler<'zoomhint', M>
@@ -92,8 +95,13 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
   readonly definition: GraphDefinition<S, M>
   /** Accessible name of the graph element. Applied with `update` when it changes. */
   readonly ariaLabel: string
-  /** View at mount, read once. Without it, the first data is fitted. */
+  /** View at mount, read once. Without it and without `view`, the first data is fitted. */
   readonly initialView?: View
+  /**
+   * Makes the view controlled when given at mount: `onViewChange` receives the requests of
+   * gestures, keys, `view` calls and animation steps, and only this prop moves the view.
+   */
+  readonly view?: View
   /**
    * Makes the selection controlled when given at mount: `onSelectionChange` receives the requests,
    * and only this prop changes the selection.
@@ -138,7 +146,7 @@ function useLatest<T>(value: T): { readonly current: T } {
 export function Graph<S extends string = string, M extends Mark = Mark>(
   props: GraphProps<S, M>,
 ): JSX.Element {
-  const { definition, ariaLabel, selection, folded, className, style, ref, children } = props
+  const { definition, ariaLabel, selection, folded, view, className, style, ref, children } = props
   const host = useRef<HTMLDivElement>(null)
   const [graph, setGraph] = useState<GraphInstance<S, M> | null>(null)
   const latest = useLatest(props)
@@ -151,6 +159,12 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       definition: initial.definition,
       ariaLabel: initial.ariaLabel,
       ...(initial.initialView ? { initialView: initial.initialView } : {}),
+      ...(initial.view !== undefined
+        ? {
+            view: initial.view,
+            onViewChange: (next) => flushSync(() => latest.current.onViewChange?.(next)),
+          }
+        : {}),
       ...(initial.selection !== undefined
         ? {
             selection: initial.selection,
@@ -178,8 +192,9 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       ariaLabel,
       ...(selection !== undefined ? { selection } : {}),
       ...(folded !== undefined ? { folded } : {}),
+      ...(view !== undefined ? { view } : {}),
     })
-  }, [graph, definition, ariaLabel, selection, folded])
+  }, [graph, definition, ariaLabel, selection, folded, view])
 
   useEffect(() => {
     if (!graph) return
@@ -187,6 +202,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       graph.on(name, (event) => {
         if (name === 'selectionchange' && latest.current.selection !== undefined) return
         if (name === 'foldchange' && latest.current.folded !== undefined) return
+        if (name === 'viewchange' && latest.current.view !== undefined) return
         const handler = latest.current[eventProps[name]] as ((event: unknown) => void) | undefined
         handler?.(event)
       }),

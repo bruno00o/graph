@@ -117,6 +117,12 @@ export interface GraphFoldEvent {
   readonly folded: readonly Key[]
 }
 
+/** Payload of `viewchange` and of the controlled `onViewChange` callback. */
+export interface GraphViewEvent {
+  /** The view. */
+  readonly view: View
+}
+
 /** Key that makes the wheel zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. */
 export type ZoomKey = 'Meta' | 'Control'
 
@@ -171,8 +177,8 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly focuschange: GraphFocusEvent<M>
   /** Groups were folded or unfolded, from the user or from code. */
   readonly foldchange: GraphFoldEvent
-  /** The view changed. */
-  readonly viewchange: { readonly view: View }
+  /** The view changed. In controlled mode, only when `update({ view })` moves it. */
+  readonly viewchange: GraphViewEvent
   /**
    * A wheel event without Cmd or Ctrl went to the page, in `'page'` wheel mode with zoom on: the
    * application can show how to zoom. Fires for every such event.
