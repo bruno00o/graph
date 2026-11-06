@@ -58,6 +58,16 @@ describe('StateBuffers', () => {
     expect(states.paint[11]).toBe(noPaint)
   })
 
+  it('writes the label color of a state', () => {
+    const states = new StateBuffers()
+    states.setStyle('nodes', 1, { labelColor: 12 })
+    expect(states.labels[4]).toBe(12)
+    states.setStyle('edges', 0, { labelColor: 3 })
+    expect(states.labels[32 * 4]).toBe(3)
+    states.setStyle('nodes', 1, null)
+    expect(states.labels[4]).toBe(noPaint)
+  })
+
   it('keeps edge styles in their own table', () => {
     const states = new StateBuffers()
     states.setStyle('edges', 1, { strokeWidth: 3, label: false, stroke: 4 })

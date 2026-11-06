@@ -4,6 +4,7 @@ export const atlasFontSize = 24
 export const atlasWidth = 1024
 const glyphBuffer = 3
 const maxHeight = 4096
+const ellipsis = '…'
 
 export interface Glyph {
   readonly x: number
@@ -25,7 +26,11 @@ export interface LineLayout {
   readonly glyphs: readonly PlacedGlyph[]
 }
 
-export type FontWeight = '400' | '500'
+interface FontFace {
+  readonly renderer: TinySDF
+  readonly lines: Map<string, LineLayout>
+  readonly fitted: Map<string, string>
+}
 
 export class GlyphAtlas {
   pixels: Uint8Array = new Uint8Array(atlasWidth * 256)
@@ -34,11 +39,7 @@ export class GlyphAtlas {
   dirtyFrom: number = Number.POSITIVE_INFINITY
   dirtyTo = -1
   readonly #glyphs = new Map<string, Glyph>()
-  readonly #lines: Readonly<Record<FontWeight, Map<string, LineLayout>>> = {
-    '400': new Map(),
-    '500': new Map(),
-  }
-  readonly #renderers = new Map<FontWeight, TinySDF>()
+  readonly #faces = new Map<string, FontFace>()
   #font: string
   #penX = 0
   #penY = 0
@@ -52,9 +53,7 @@ export class GlyphAtlas {
     if (font === this.#font) return false
     this.#font = font
     this.#glyphs.clear()
-    this.#lines['400'].clear()
-    this.#lines['500'].clear()
-    this.#renderers.clear()
+    this.#faces.clear()
     this.#penX = 0
     this.#penY = 0
     this.#rowHeight = 0
@@ -63,22 +62,45 @@ export class GlyphAtlas {
     return true
   }
 
-  line(text: string, weight: FontWeight): LineLayout {
-    const lines = this.#lines[weight]
-    const cached = lines.get(text)
+  line(text: string, weight: number, font: string | null = null): LineLayout {
+    const face = this.#face(weight, font)
+    const cached = face.lines.get(text)
     if (cached) return cached
     const glyphs: PlacedGlyph[] = []
     let pen = 0
     for (const char of text) {
-      const glyph = this.#glyph(char, weight)
+      const glyph = this.#glyph(char, weight, font, face)
       if (glyph.width > 0 && char.trim() !== '') {
         glyphs.push({ glyph, x: pen + glyph.left - glyphBuffer })
       }
       pen += glyph.advance
     }
     const layout = { width: pen, glyphs: glyphs.map((g) => ({ glyph: g.glyph, x: g.x - pen / 2 })) }
-    lines.set(text, layout)
+    face.lines.set(text, layout)
     return layout
+  }
+
+  fit(text: string, weight: number, font: string | null, width: number): string {
+    const face = this.#face(weight, font)
+    const key = `${width}\u0000${text}`
+    const cached = face.fitted.get(key)
+    if (cached !== undefined) return cached
+    let result = text
+    if (this.line(text, weight, font).width > width) {
+      const room = width - this.#glyph(ellipsis, weight, font, face).advance
+      let pen = 0
+      let end = 0
+      const chars = Array.from(text)
+      for (const char of chars) {
+        const advance = this.#glyph(char, weight, font, face).advance
+        if (pen + advance > room) break
+        pen += advance
+        end++
+      }
+      result = `${chars.slice(0, end).join('').trimEnd()}${ellipsis}`
+    }
+    face.fitted.set(key, result)
+    return result
   }
 
   takeDirty(): readonly [number, number] | null {
@@ -89,27 +111,32 @@ export class GlyphAtlas {
     return range
   }
 
-  #renderer(weight: FontWeight): TinySDF {
-    let renderer = this.#renderers.get(weight)
-    if (!renderer) {
-      renderer = new TinySDF({
-        fontSize: atlasFontSize,
-        buffer: glyphBuffer,
-        radius: 8,
-        cutoff: 0.25,
-        fontFamily: this.#font,
-        fontWeight: weight,
-      })
-      this.#renderers.set(weight, renderer)
+  #face(weight: number, font: string | null): FontFace {
+    const key = `${weight}\u0000${font ?? ''}`
+    let face = this.#faces.get(key)
+    if (!face) {
+      face = {
+        renderer: new TinySDF({
+          fontSize: atlasFontSize,
+          buffer: glyphBuffer,
+          radius: 8,
+          cutoff: 0.25,
+          fontFamily: font ?? this.#font,
+          fontWeight: String(weight),
+        }),
+        lines: new Map(),
+        fitted: new Map(),
+      }
+      this.#faces.set(key, face)
     }
-    return renderer
+    return face
   }
 
-  #glyph(char: string, weight: FontWeight): Glyph {
-    const key = `${weight}${char}`
+  #glyph(char: string, weight: number, font: string | null, face: FontFace): Glyph {
+    const key = `${weight}\u0000${font ?? ''}\u0000${char}`
     const cached = this.#glyphs.get(key)
     if (cached) return cached
-    const drawn = this.#renderer(weight).draw(char)
+    const drawn = face.renderer.draw(char)
     if (this.#penX + drawn.width > atlasWidth) {
       this.#penX = 0
       this.#penY += this.#rowHeight + 1

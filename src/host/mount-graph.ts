@@ -250,6 +250,7 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
     ...(style.fill !== undefined ? { fill: id(style.fill) } : {}),
     ...(style.stroke !== undefined ? { stroke: id(style.stroke) } : {}),
     ...(style.outline !== undefined ? { outline: id(style.outline) } : {}),
+    ...(style.labelColor !== undefined ? { labelColor: id(style.labelColor) } : {}),
     ...(style.outlineWidth !== undefined || style.outline !== undefined
       ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
       : {}),

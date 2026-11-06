@@ -32,6 +32,7 @@ const noEdges = {
   highlightedEdges: [],
   edgeOrder: new Uint32Array(0),
   edgeOrderLength: 0,
+  largestEdgeLabel: 0,
 }
 
 function links(
@@ -148,6 +149,7 @@ describe('GlyphBuffer', () => {
         order: new Uint32Array(0),
         orderLength: 0,
         screenLabels: false,
+        largestLabel: 12,
         ...noEdges,
       },
       atlas,
@@ -192,6 +194,7 @@ describe('GlyphBuffer', () => {
         order,
         orderLength: 2,
         screenLabels: false,
+        largestLabel: 12,
         ...noEdges,
       },
       atlas,
@@ -199,9 +202,11 @@ describe('GlyphBuffer', () => {
     const u32 = new Uint32Array(layer.main.data)
     const f32 = new Float32Array(layer.main.data)
     expect(layer.main.count).toBe(2)
-    expect(u32[1]).toBe(3 | (5 << 4))
-    expect(Array.from(f32.subarray(2, 4))).toEqual([48, 1])
+    expect(u32[1]).toBe(3 | 4)
+    expect(u32[8]).toBe(5)
+    expect(Array.from(f32.subarray(2, 6))).toEqual([0, 18, expect.closeTo(34.8, 4), 18])
     expect(u32[glyphStride / 4 + 1]).toBe(4)
+    expect(u32[glyphStride / 4 + 8]).toBe(noColor)
   })
 })
 
@@ -220,7 +225,7 @@ describe('edge labels', () => {
     extra: { edgeMask?: Uint32Array; highlightedEdges?: number[] } = {},
   ) {
     const order = new Uint32Array(edges.capacity)
-    const edgeOrderLength = sortEdgesByWidth(edges, order)
+    const sorted = sortEdgesByWidth(edges, order)
     return {
       nodes,
       positions,
@@ -233,12 +238,14 @@ describe('edge labels', () => {
       order: new Uint32Array(0),
       orderLength: 0,
       screenLabels: false,
+      largestLabel: 12,
       edges,
       edgeMask: extra.edgeMask ?? new Uint32Array(edges.capacity),
       edgeLabelFlags: new Int8Array(32).fill(-1),
       highlightedEdges: extra.highlightedEdges ?? [],
       edgeOrder: order,
-      edgeOrderLength,
+      edgeOrderLength: sorted.length,
+      largestEdgeLabel: sorted.largest,
     }
   }
 
@@ -310,7 +317,8 @@ describe('edge labels', () => {
     const u32 = new Uint32Array(layer.edgeMain.data)
     expect(layer.edgeMain.count).toBe(2)
     expect(u32[0]).toBe(0)
-    expect(u32[1]).toBe(3 | 8 | (6 << 4))
+    expect(u32[1]).toBe(3 | 8 | 4)
+    expect(u32[8]).toBe(6)
     expect(u32[glyphStride / 4 + 1]).toBe(8 | 4)
   })
 
@@ -345,7 +353,117 @@ describe('sortEdgesByWidth', () => {
       { from: 0, to: 1, label: 'd', width: 4 },
     ])
     const order = new Uint32Array(edges.capacity)
-    const length = sortEdgesByWidth(edges, order)
+    edges.labelSize[3] = 20
+    const { length, largest } = sortEdgesByWidth(edges, order)
     expect(Array.from(order.subarray(0, length))).toEqual([2, 3, 0])
+    expect(largest).toBe(20)
+  })
+})
+
+describe('label styles', () => {
+  const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
+  const fitted: string[] = []
+  const atlas = {
+    height: 256,
+    line: (text: string): LineLayout => ({ width: text.length * 10, glyphs: [{ glyph, x: 0 }] }),
+    fit: (text: string, _weight: number, _font: string | null, width: number) => {
+      fitted.push(`${text}:${width}`)
+      return text.slice(0, 3)
+    },
+  } as unknown as GlyphAtlas
+
+  function frameOf(nodes: NodeColumns, positions: Positions, zoom = 1) {
+    const order = new Uint32Array(nodes.capacity)
+    const sorted = sortBySize(nodes, order)
+    return {
+      nodes,
+      positions,
+      view: { x: 0, y: 0, zoom },
+      width: 800,
+      height: 600,
+      nodeMask: new Uint32Array(nodes.capacity),
+      labelFlags: new Int8Array(32).fill(-1),
+      highlighted: [],
+      order,
+      orderLength: sorted.length,
+      screenLabels: sorted.screenLabels,
+      largestLabel: sorted.largest,
+      ...noEdges,
+    }
+  }
+
+  function records(buffer: GlyphBuffer) {
+    const u32 = new Uint32Array(buffer.data)
+    const f32 = new Float32Array(buffer.data)
+    return Array.from({ length: buffer.count }, (_, at) => {
+      const base = at * (glyphStride / 4)
+      return {
+        owner: u32[base],
+        kind: u32[base + 1],
+        x: f32[base + 2],
+        y: f32[base + 3],
+        color: u32[base + 8],
+        size: f32[base + 9],
+      }
+    })
+  }
+
+  it('stacks explicit lines and aligns them to the placement', () => {
+    const nodes = columns([{ size: 20, label: 'ab\nabcd' }])
+    nodes.keys.push('a')
+    nodes.labelPlacement[0] = 2
+    nodes.labelSize[0] = 18
+    nodes.labelColor[0] = 7
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    const layer = new LabelLayer()
+    layer.select(frameOf(nodes, positions), atlas)
+    const [first, second] = records(layer.main)
+    expect(first).toEqual({ owner: 0, kind: 2 << 4, x: 10, y: 4 - 30, color: 7, size: 18 })
+    expect(second).toEqual({ owner: 0, kind: 2 << 4, x: 20, y: 4, color: 7, size: 18 })
+  })
+
+  it('cuts long lines to the maximum width in atlas units', () => {
+    fitted.length = 0
+    const nodes = columns([{ size: 20, label: 'abcdef' }])
+    nodes.keys.push('a')
+    nodes.labelMaxWidth[0] = 60
+    nodes.labelSize[0] = 12
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    new LabelLayer().select(frameOf(nodes, positions), atlas)
+    expect(fitted).toEqual(['abcdef:120'])
+  })
+
+  it('hides a label while its node is smaller than the threshold on screen, unless hovered', () => {
+    const nodes = columns([{ size: 20, label: 'small' }])
+    nodes.keys.push('a')
+    nodes.labelMinScreenSize[0] = 30
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    const layer = new LabelLayer()
+    layer.select(frameOf(nodes, positions), atlas)
+    expect(layer.main.count).toBe(0)
+    layer.select(frameOf(nodes, positions, 1.6), atlas)
+    expect(layer.main.count).toBe(1)
+    layer.select(
+      { ...frameOf(nodes, positions), nodeMask: new Uint32Array([0b10]), highlighted: [0] },
+      atlas,
+    )
+    expect(layer.highlight.count).toBe(1)
+  })
+
+  it('keeps large labels when zoomed out past the default size', () => {
+    const nodes = columns([{ size: 20, label: 'big' }])
+    nodes.keys.push('a')
+    nodes.labelSize[0] = 24
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    const layer = new LabelLayer()
+    layer.select(frameOf(nodes, positions, 0.5), atlas)
+    expect(layer.main.count).toBe(1)
+    nodes.labelSize[0] = 0
+    layer.select(frameOf(nodes, positions, 0.5), atlas)
+    expect(layer.main.count).toBe(0)
   })
 })

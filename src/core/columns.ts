@@ -1,4 +1,4 @@
-import type { BadgeCorner, EdgeArrow, EdgeDash, Key, NodeShape } from '../types'
+import type { BadgeCorner, EdgeArrow, EdgeDash, Key, LabelPlacement, NodeShape } from '../types'
 
 export interface NodeBadge {
   readonly corner: number
@@ -21,6 +21,14 @@ export const shapeCodes: Readonly<Record<NodeShape, number>> = {
   circle: 0,
   square: 1,
   diamond: 2,
+}
+
+export const placementCodes: Readonly<Record<LabelPlacement, number>> = {
+  bottom: 0,
+  top: 1,
+  right: 2,
+  left: 3,
+  center: 4,
 }
 
 export const dashCodes: Readonly<Record<EdgeDash, number>> = { solid: 0, dashed: 1, dotted: 2 }
@@ -67,6 +75,13 @@ export class NodeColumns {
   label: (string | null)[] = []
   secondary: (string | null)[] = []
   labelBackground: Uint32Array = new Uint32Array(0)
+  labelColor: Uint32Array = new Uint32Array(0)
+  labelSize: Float32Array = new Float32Array(0)
+  labelWeight: Uint16Array = new Uint16Array(0)
+  labelFont: (string | null)[] = []
+  labelPlacement: Uint8Array = new Uint8Array(0)
+  labelMaxWidth: Float32Array = new Float32Array(0)
+  labelMinScreenSize: Float32Array = new Float32Array(0)
   image: (string | null)[] = []
   imageScale: Float32Array = new Float32Array(0)
   imageColor: Uint32Array = new Uint32Array(0)
@@ -87,6 +102,12 @@ export class NodeColumns {
     this.opacity = grow(this.opacity, capacity)
     this.screenUnits = grow(this.screenUnits, capacity)
     this.labelBackground = growColor(this.labelBackground, capacity)
+    this.labelColor = growColor(this.labelColor, capacity)
+    this.labelSize = grow(this.labelSize, capacity)
+    this.labelWeight = grow(this.labelWeight, capacity)
+    this.labelPlacement = grow(this.labelPlacement, capacity)
+    this.labelMaxWidth = grow(this.labelMaxWidth, capacity)
+    this.labelMinScreenSize = grow(this.labelMinScreenSize, capacity)
     this.imageScale = grow(this.imageScale, capacity)
     this.imageColor = growColor(this.imageColor, capacity)
     this.capacity = capacity
@@ -98,6 +119,7 @@ export class NodeColumns {
     this.keys[index] = undefined
     this.label[index] = null
     this.secondary[index] = null
+    this.labelFont[index] = null
     this.image[index] = null
     this.badges[index] = null
   }
@@ -118,6 +140,11 @@ export class EdgeColumns {
   bend: Float32Array = new Float32Array(0)
   label: (string | null)[] = []
   labelBackground: Uint32Array = new Uint32Array(0)
+  labelColor: Uint32Array = new Uint32Array(0)
+  labelSize: Float32Array = new Float32Array(0)
+  labelWeight: Uint16Array = new Uint16Array(0)
+  labelFont: (string | null)[] = []
+  labelMaxWidth: Float32Array = new Float32Array(0)
 
   reserve(index: number): void {
     if (index < this.capacity) return
@@ -133,6 +160,10 @@ export class EdgeColumns {
     this.opacity = grow(this.opacity, capacity)
     this.bend = grow(this.bend, capacity)
     this.labelBackground = growColor(this.labelBackground, capacity)
+    this.labelColor = growColor(this.labelColor, capacity)
+    this.labelSize = grow(this.labelSize, capacity)
+    this.labelWeight = grow(this.labelWeight, capacity)
+    this.labelMaxWidth = grow(this.labelMaxWidth, capacity)
     this.capacity = capacity
   }
 
@@ -142,5 +173,6 @@ export class EdgeColumns {
     this.bend[index] = 0
     this.keys[index] = undefined
     this.label[index] = null
+    this.labelFont[index] = null
   }
 }
