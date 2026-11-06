@@ -41,6 +41,7 @@ import {
   type GraphEventName,
   type GraphTarget,
 } from './events'
+import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
 import type { Renderer } from './renderer'
@@ -252,6 +253,12 @@ function sameTarget(a: GraphTarget | null, b: GraphTarget | null): boolean {
   return a === b || (a !== null && b !== null && a.kind === b.kind && a.key === b.key)
 }
 
+function countAlive(alive: Uint8Array, capacity: number): number {
+  let count = 0
+  for (let index = 0; index < capacity; index++) if (alive[index] === 1) count++
+  return count
+}
+
 function resolveStyle(style: StateStyle, id: (color: string) => number): ResolvedStateStyle {
   return {
     ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
@@ -318,6 +325,9 @@ export function createGraphHost<S extends string = string>(
   let relayout = false
   let framing = options.initialView === undefined
   let framed: View | null = null
+  let probe: GraphProbe | null = null
+  let counted = -1
+  let counts = { nodes: 0, edges: 0, pendingEdges: 0 }
 
   const model = createGraphModel({ schedule: () => request(true) })
   const scene = createScene()
@@ -371,6 +381,10 @@ export function createGraphHost<S extends string = string>(
     if (flush) needsFlush = true
     if (frameRequest !== 0 || destroyed) return
     frameRequest = requestAnimationFrame(frame)
+  }
+
+  function clock(): number {
+    return probe ? performance.now() : 0
   }
 
   function requestLater(delay: number): void {
@@ -748,8 +762,17 @@ export function createGraphHost<S extends string = string>(
     else requestSelection({ ...current, [kind]: [...current[kind], clicked.key] })
   }
 
-  function applyChanges(changes: GraphChanges): void {
+  function flushChanges(): void {
+    const start = clock()
+    const changes = model.flush()
+    const flushed = clock()
     scene.apply(model, changes)
+    const applied = clock()
+    applyChanges(changes)
+    probe?.flushed(flushed - start, applied - flushed, changes.issues)
+  }
+
+  function applyChanges(changes: GraphChanges): void {
     followPositions(placeNodes(model, positions, changes))
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const result = registry.apply(changes)
@@ -1111,9 +1134,10 @@ export function createGraphHost<S extends string = string>(
   function frame(now: number): void {
     frameRequest = 0
     if (destroyed || contextLost) return
+    const start = clock()
     if (needsFlush) {
       needsFlush = false
-      applyChanges(model.flush())
+      flushChanges()
     }
     const size = viewport()
     if (pendingBounds && size.width > 0 && size.height > 0) {
@@ -1138,14 +1162,19 @@ export function createGraphHost<S extends string = string>(
     if (dirty.palette || scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const positionsChanged = positions.version !== positionsVersion
+    const syncStart = clock()
     renderer.sync({ scene, dirty, positions, positionsChanged, states: buffers, full })
+    const synced = clock()
     full = false
     if (positionsChanged) {
       positionsVersion = positions.version
       patch({ positionsVersion })
     }
     const { view, width, height } = store.get()
+    const renderStart = clock()
     const wait = renderer.render({ view, width, height, pixelRatio })
+    const end = clock()
+    probe?.framed(start, end - start, synced - syncStart, end - renderStart)
     if (viewAnimation || positionAnimations.length > 0) request()
     else if (wait >= 0) requestLater(wait)
   }
@@ -1478,7 +1507,7 @@ export function createGraphHost<S extends string = string>(
       if (!chosen) return Promise.reject(new Error('graph: no layout to run'))
       if (needsFlush) {
         needsFlush = false
-        applyChanges(model.flush())
+        flushChanges()
       }
       const fit = runOptions.fit === true ? {} : runOptions.fit || null
       const settings: LayoutSettings = {
@@ -1497,7 +1526,19 @@ export function createGraphHost<S extends string = string>(
     stop: () => stopLayout(),
   }
 
-  return {
+  function inspection(): GraphInspection {
+    if (counted !== sceneVersion) {
+      counted = sceneVersion
+      counts = {
+        nodes: countAlive(scene.nodes.alive, scene.nodes.capacity),
+        edges: countAlive(scene.edges.alive, scene.edges.capacity),
+        pendingEdges: model.pendingEdges().length,
+      }
+    }
+    return { ...counts, layout: session?.layout.name ?? null, renderer: renderer.stats?.() ?? null }
+  }
+
+  const instance: GraphInstance<S> = {
     store: readonlyStore,
     view,
     selection,
@@ -1537,6 +1578,8 @@ export function createGraphHost<S extends string = string>(
     destroy() {
       if (destroyed) return
       destroyed = true
+      unregister()
+      probe = null
       const current = session
       session = null
       current?.run?.stop()
@@ -1558,6 +1601,16 @@ export function createGraphHost<S extends string = string>(
       element.remove()
     },
   }
+
+  const unregister = registerGraph({
+    graph: instance as GraphInstance,
+    inspect: inspection,
+    probe: (next) => {
+      probe = next
+    },
+  })
+
+  return instance
 }
 
 export function mountGraph<S extends string = string>(

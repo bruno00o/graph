@@ -1,0 +1,11 @@
+.devtools-example {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 46%;
+}
+
+.devtools-example > :last-child {
+  min-height: 0;
+  border-top: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  background: var(--graph-paper-raised);
+  font-family: var(--graph-font);
+}

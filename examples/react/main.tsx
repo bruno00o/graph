@@ -1,5 +1,7 @@
 import { defineGraph, type ElementKeys, edges, type Key, nodes } from '@bruno00o/graph'
+import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools/react'
 import { Graph, type GraphInstance, useGraph, useGraphState } from '@bruno00o/graph/react'
+import { TanStackDevtools } from '@tanstack/react-devtools'
 import { StrictMode, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createSample, type Item, type Link } from '../shared/data'
@@ -8,6 +10,7 @@ import { formatNumber, messages } from '../shared/messages'
 const nodeCount = Number(new URLSearchParams(location.search).get('nodes') ?? 2_000)
 const sample = createSample(nodeCount, nodeCount * 2)
 const byId = new Map(sample.items.map((item) => [item.id, item]))
+const devtoolsPlugins = [graphDevtoolsPlugin({ defaultOpen: true })]
 
 function Tooltip() {
   const graph = useGraph()
@@ -112,6 +115,7 @@ function App() {
         </Graph>
         <SelectionPanel selected={selection.nodes} />
       </main>
+      <TanStackDevtools plugins={devtoolsPlugins} />
     </>
   )
 }

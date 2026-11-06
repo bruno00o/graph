@@ -1,0 +1,108 @@
+---
+title: Devtools
+description: graphDevtoolsPlugin, GraphDevtoolsPanel and GraphDevtoolsCore, the Graph panel of TanStack Devtools.
+---
+
+See [TanStack Devtools](/docs/devtools) for a walkthrough.
+
+## graphDevtoolsPlugin
+
+```ts
+import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools'
+
+function graphDevtoolsPlugin(options?: GraphDevtoolsPluginOptions): TanStackDevtoolsPlugin
+```
+
+```ts
+import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools/react'
+
+function graphDevtoolsPlugin(options?: GraphDevtoolsPluginOptions): GraphDevtoolsReactPlugin
+```
+
+Returns the plugin to pass to `TanStackDevtoolsCore` from `@tanstack/devtools`, or to `<TanStackDevtools>` from `@tanstack/react-devtools` for the React entry. Its id is `bruno00o-graph` and its name is `messages.title`.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `defaultOpen` | `boolean` | | Opens the panel the first time the devtools open |
+| `messages` | `Partial<GraphDevtoolsMessages>` | | Texts and formats that replace the English defaults |
+
+## GraphDevtoolsPanel
+
+```tsx
+import { GraphDevtoolsPanel } from '@bruno00o/graph/devtools/react'
+
+function GraphDevtoolsPanel(props: GraphDevtoolsPanelProps): JSX.Element
+```
+
+Renders the panel in a React tree, outside the devtools shell. It fills the height of its parent and scrolls.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `theme` | `'light' \| 'dark'` | `'dark'` | Colors of the panel |
+| `devtoolsOpen` | `boolean` | `true` | Measures nothing while `false` |
+| `messages` | `Partial<GraphDevtoolsMessages>` | | Texts and formats. Keep the object stable: a new one mounts the panel again |
+
+## GraphDevtoolsCore
+
+```ts
+import { GraphDevtoolsCore } from '@bruno00o/graph/devtools'
+
+class GraphDevtoolsCore {
+  mount(element: HTMLElement, props?: GraphDevtoolsProps): void
+  unmount(): void
+}
+```
+
+Mounts the panel into an element, with the same `theme`, `devtoolsOpen` and `messages` as `GraphDevtoolsPanel`. `mount` on a mounted panel unmounts it first. The panel unmounts itself once its element leaves the page.
+
+## Measurements
+
+A panel watches the graphs only while it is mounted, open and visible. The first panel to watch attaches a probe to every mounted graph and to every graph mounted later; the last one to leave detaches them.
+
+| Value | Measured |
+| --- | --- |
+| Frame rate | Frames drawn during the last second. Idle when no frame was drawn |
+| Last frame, frame chart | Main-thread time of each frame, from the start of the frame to the end of `render`, for the last 120 frames. The dashed line is 1000 / 60 ms |
+| Flush | `flush` of the graph model, the last time the data changed |
+| Scene apply | Update of the render columns that followed |
+| Renderer sync, Render | Upload of changed columns, and the draw calls, in the last frame |
+| Label selection | The last selection of visible labels, run at most every 120 ms |
+| Labels drawn | Node and edge labels kept by that selection |
+| Texture memory | Size of the textures the renderer allocated: data, palette, glyph atlas and image atlas with its mipmaps |
+| Issues | Count of the issues reported by the flushes timed while a panel watched, and the last 20 |
+| Last runs | Name, duration and outcome of the last 5 layout runs |
+
+## GraphDevtoolsMessages
+
+Every text the panel shows. Strings are labels; functions format values.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `title` | `string` | `'Graph'` |
+| `empty` | `string` | `'No graph is mounted on this page.'` |
+| `graph` | `string` | `'Graph'`, label of the picker |
+| `graphName` | `(position: number, label: string) => string` | `'#1 label'`, numbered in mount order |
+| `performance`, `elements`, `view`, `interaction`, `states`, `layout` | `string` | Section titles |
+| `frameRate`, `frame`, `flush`, `apply`, `sync`, `render`, `labelSelection`, `labelsDrawn`, `textureMemory` | `string` | Row labels of Performance |
+| `nodes`, `edges`, `pendingEdges`, `issues` | `string` | Row labels of Elements |
+| `center`, `zoom`, `size` | `string` | Row labels of View |
+| `selection`, `hovered`, `focused` | `string` | Row labels of Interaction |
+| `framesPerSecond` | `(value: number) => string` | `'60 fps'` |
+| `idle` | `string` | `'Idle'` |
+| `frameChart` | `(count: number, max: number) => string` | Accessible name of the frame chart |
+| `frameNote` | `(count: number, mean: number, max: number, budget: number) => string` | Caption of the frame chart |
+| `labelCounts`, `elementCounts` | `(nodes: number, edges: number) => string` | `'3 nodes, 0 edges'` |
+| `issue` | `(issue: GraphIssue) => string` | `'Duplicate node key a'` |
+| `point` | `(x: number, y: number) => string` | `'12.5, -4'` |
+| `dimensions` | `(width: number, height: number) => string` | `'800 × 600 px'` |
+| `target` | `(kind: 'node' \| 'edge', key: Key) => string` | `'node a'` |
+| `noStates` | `string` | `'No named state'` |
+| `running` | `(name: string, progress: number) => string` | `'force, 40%'` |
+| `lastRuns` | `string` | `'Last runs'` |
+| `run` | `(name: string, time: number, completed: boolean) => string` | `'force, 1.2 s'` |
+| `none`, `unknown`, `notMeasured` | `string` | `'None'`, `'Unknown'`, `'Not measured yet'` |
+| `number` | `(value: number) => string` | `'1,234'` |
+| `duration` | `(milliseconds: number) => string` | `'0.4 ms'`, `'1.2 s'` |
+| `bytes` | `(value: number) => string` | `'8.5 MB'` |
+
+`defaultMessages` from `@bruno00o/graph/devtools` holds the English defaults.

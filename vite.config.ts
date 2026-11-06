@@ -18,6 +18,11 @@ export default defineConfig({
         replacement: resolve(source, 'layouts/force/index.ts'),
       },
       { find: /^@bruno00o\/graph\/layouts$/, replacement: resolve(source, 'layouts/index.ts') },
+      {
+        find: /^@bruno00o\/graph\/devtools\/react$/,
+        replacement: resolve(source, 'devtools/react.tsx'),
+      },
+      { find: /^@bruno00o\/graph\/devtools$/, replacement: resolve(source, 'devtools/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(source, 'index.ts') },
     ],
   },
