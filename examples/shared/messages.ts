@@ -28,7 +28,13 @@ export const messages = {
   layouts: 'Layouts',
   layoutsHint: 'Maj\u00a0+\u00a0glisser entoure des nœuds à réarranger.',
   layoutKind: 'Layout',
-  layoutKinds: { force: 'Forces', grid: 'Grille', rings: 'Anneaux', radial: 'Radial' },
+  layoutKinds: {
+    layers: 'Couches',
+    force: 'Forces',
+    grid: 'Grille',
+    rings: 'Anneaux',
+    radial: 'Radial',
+  },
   arrange: 'Arranger la sélection',
   layoutHint: 'Glissez un nœud pendant le calcul pour l’épingler.',
   layoutProgress: (value: number): string => `Calcul\u00a0: ${percent.format(value)}`,
@@ -67,6 +73,13 @@ export const messages = {
     if (nodes > 0) parts.push(`${formatNumber(nodes)} ${plural(nodes, 'nœud', 'nœuds')}`)
     if (edges > 0) parts.push(`${formatNumber(edges)} ${plural(edges, 'arête', 'arêtes')}`)
     return `${parts.join(' et ')} ${plural(nodes + edges, 'sélectionné', 'sélectionnés')}`
+  },
+  direction: 'Sens',
+  directions: {
+    down: 'Vers le bas',
+    up: 'Vers le haut',
+    right: 'Vers la droite',
+    left: 'Vers la gauche',
   },
 }
 

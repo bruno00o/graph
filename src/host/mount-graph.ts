@@ -307,6 +307,7 @@ export function createGraphHost<S extends string = string>(
   let animationOwner = new Uint32Array(0)
   let animationSerial = 0
   let pendingFit: FitOptions | null = options.initialView ? null : { padding: defaultPadding }
+  let pendingBounds: { readonly box: Bounds; readonly padding: number } | null = null
   let pixelRatio = window.devicePixelRatio || 1
   let sceneVersion = 0
   let pickedScene = -1
@@ -858,6 +859,10 @@ export function createGraphHost<S extends string = string>(
           fit.duration ?? current.duration,
         )
         current.fitted = true
+      } else if (box) {
+        pendingFit = null
+        pendingBounds = { box, padding: fit.padding ?? defaultPadding }
+        current.fitted = true
       }
     }
     current.animation = movePositions(indices, to, current.duration, () =>
@@ -1109,6 +1114,12 @@ export function createGraphHost<S extends string = string>(
     if (needsFlush) {
       needsFlush = false
       applyChanges(model.flush())
+    }
+    const size = viewport()
+    if (pendingBounds && size.width > 0 && size.height > 0) {
+      animateTo(fitBounds(pendingBounds.box, size, pendingBounds.padding))
+      pendingBounds = null
+      framed = store.get().view
     }
     if (pendingFit && fitTo(undefined, pendingFit)) {
       pendingFit = null

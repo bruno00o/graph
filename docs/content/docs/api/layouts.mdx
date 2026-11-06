@@ -1,25 +1,56 @@
 ---
-title: grid, rings, radial
+title: layers, grid, rings, radial
 description: Layouts computed at once, on the main thread, that glide nodes to their place.
 ---
 
 ```ts
-import { grid, radial, rings } from '@bruno00o/graph/layouts'
+import { grid, layers, radial, rings } from '@bruno00o/graph/layouts'
 
+function layers(options?: LayersOptions): Layout
 function grid<T = unknown>(options?: GridOptions<T>): Layout
 function rings<T = unknown>(options?: RingsOptions<T>): Layout
 function radial(options?: RadialOptions): Layout
 ```
 
-Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'grid'`, `'rings'` or `'radial'`, with `incremental: false`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Layouts](/docs/layout#grid-rings-and-radial) for a walkthrough.
+Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`, `'grid'`, `'rings'` or `'radial'`, with `incremental: false`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Layouts](/docs/layout#layers) for a walkthrough.
 
 ## Shared behavior
 
 - Only free nodes move: alive, without `x` and `y` in the data, chosen by the run, and not being dragged.
 - Moved nodes are centered on their current center, so a run on part of the graph stays where that part was.
-- `spacing` is the distance between two neighboring places, in world units. Without it, or when it is not above 0, it is twice the largest diameter among the moved nodes, and at least that diameter plus 24.
+- `spacing`, in `grid`, `rings` and `radial`, is the distance between two neighboring places, in world units. Without it, or when it is not above 0, it is twice the largest diameter among the moved nodes, and at least that diameter plus 24.
 - The result ends without progress, in a microtask: nodes glide to it over `transitions.layout`, or the `duration` of the run.
 - When nodes arrive, every free node is laid out again.
+
+## layers
+
+```ts
+type LayersDirection = 'down' | 'up' | 'right' | 'left'
+
+interface LayersOptions {
+  readonly direction?: LayersDirection
+  readonly root?: Key | readonly Key[]
+  readonly layerSpacing?: number
+  readonly nodeSpacing?: number
+}
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `direction` | `LayersDirection` | `'down'` | Where edges point: the first layer is at the top for `'down'`, at the left for `'right'` |
+| `root` | `Key \| readonly Key[]` | Nodes without incoming edges | Nodes forced onto the first layer. Edges into them are turned around, and edges between two roots are left out |
+| `layerSpacing` | `number` | Twice the largest diameter, at least that diameter plus 24 | Gap between two layers, from the borders of their largest nodes, in world units |
+| `nodeSpacing` | `number` | The largest diameter, at least 8 | Gap between the borders of two neighboring nodes of a layer, in world units |
+
+A negative or non-finite spacing falls back to its default. `0` is allowed.
+
+- **Cycles.** Edges that close a cycle are turned around, as few as a greedy pass can find. They are still drawn, pointing back. Duplicate edges count once.
+- **Layers.** Each node gets a layer so that every edge goes to a later one, with the smallest total length (network simplex). Each component starts at the first layer.
+- **Order.** Nodes of a layer are sorted by the mean position of their neighbors, sweeping down and up while crossings drop. An edge that skips layers holds a place in each layer it crosses.
+- **Placement.** Each node is aligned with its neighbors where it can be, and pushed aside by its radius and `nodeSpacing` where it cannot. The four alignments, from each side and each direction, are balanced.
+- **Components.** Separate components and lone nodes are packed in rows, the largest first, `layerSpacing` apart.
+- Edges to nodes that do not move, because they have `x` and `y` in the data or were left out of the run, are ignored.
+- The same graph always gives the same result.
 
 ## Order
 
@@ -84,5 +115,5 @@ interface RadialOptions {
 
 | Export | Kind |
 | --- | --- |
-| `grid`, `rings`, `radial` | functions |
-| `GridOptions`, `RingsOptions`, `RadialOptions`, `NodeOrder` | types |
+| `layers`, `grid`, `rings`, `radial` | functions |
+| `LayersOptions`, `LayersDirection`, `GridOptions`, `RingsOptions`, `RadialOptions`, `NodeOrder` | types |
