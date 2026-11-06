@@ -4,7 +4,7 @@ import { createCommunities, type Item, type Link } from '../shared/data'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
 
-const sizes = [1_000, 5_000, 20_000, 80_000]
+const sizes = [1_000, 5_000, 20_000, 80_000, 200_000, 500_000]
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 
 const generate = (count: number) => createCommunities(count, Math.round(count * 1.66))
