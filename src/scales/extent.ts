@@ -11,51 +11,71 @@ export function combineExtents(a: Extent | null, b: Extent | null): Extent | nul
 }
 
 export class ExtentTracker {
-  #values = new Map<number, number>()
+  #values: Float64Array = new Float64Array(0)
+  #count = 0
+  #min = Number.POSITIVE_INFINITY
+  #max = Number.NEGATIVE_INFINITY
   #extent: Extent | null = null
   #stale = false
 
   get extent(): Extent | null {
     if (this.#stale) {
       this.#stale = false
-      this.#extent = null
-      for (const value of this.#values.values()) this.#include(value)
+      this.#min = Number.POSITIVE_INFINITY
+      this.#max = Number.NEGATIVE_INFINITY
+      const values = this.#values
+      for (let id = 0; id < values.length; id++) {
+        const value = values[id] ?? Number.NaN
+        if (value < this.#min) this.#min = value
+        if (value > this.#max) this.#max = value
+      }
+    }
+    if (this.#count === 0) this.#extent = null
+    else if (this.#extent?.[0] !== this.#min || this.#extent[1] !== this.#max) {
+      this.#extent = [this.#min, this.#max]
     }
     return this.#extent
   }
 
-  ids(): IterableIterator<number> {
-    return this.#values.keys()
+  forEachId(visit: (id: number) => void): void {
+    const values = this.#values
+    for (let id = 0; id < values.length; id++) {
+      if (!Number.isNaN(values[id] ?? Number.NaN)) visit(id)
+    }
   }
 
   set(id: number, value: number): void {
-    const previous = this.#values.get(id)
-    this.#values.set(id, value)
-    if (previous !== undefined && this.#isBound(previous)) this.#stale = true
-    if (!this.#stale) this.#include(value)
+    if (id >= this.#values.length) this.#grow(id)
+    const previous = this.#values[id] ?? Number.NaN
+    this.#values[id] = value
+    if (Number.isNaN(previous)) this.#count++
+    else if (previous === this.#min || previous === this.#max) this.#stale = true
+    if (!this.#stale) {
+      if (value < this.#min) this.#min = value
+      if (value > this.#max) this.#max = value
+    }
   }
 
   delete(id: number): void {
-    const previous = this.#values.get(id)
-    if (previous === undefined) return
-    this.#values.delete(id)
-    if (this.#isBound(previous)) this.#stale = true
+    const previous = this.#values[id] ?? Number.NaN
+    if (Number.isNaN(previous)) return
+    this.#values[id] = Number.NaN
+    this.#count--
+    if (previous === this.#min || previous === this.#max) this.#stale = true
   }
 
   clear(): void {
-    this.#values.clear()
+    this.#values.fill(Number.NaN)
+    this.#count = 0
+    this.#min = Number.POSITIVE_INFINITY
+    this.#max = Number.NEGATIVE_INFINITY
     this.#extent = null
     this.#stale = false
   }
 
-  #isBound(value: number): boolean {
-    return this.#extent !== null && (value === this.#extent[0] || value === this.#extent[1])
-  }
-
-  #include(value: number): void {
-    this.#extent =
-      this.#extent === null
-        ? [value, value]
-        : [Math.min(this.#extent[0], value), Math.max(this.#extent[1], value)]
+  #grow(id: number): void {
+    const next = new Float64Array(Math.max(64, this.#values.length * 2, id + 1)).fill(Number.NaN)
+    next.set(this.#values)
+    this.#values = next
   }
 }

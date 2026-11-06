@@ -24,12 +24,19 @@ export function layoutGraph(
     const tracked = !Number.isNaN(positions.source[index * 2] ?? Number.NaN)
     if (!tracked && movable(index)) mobile[index] = 1
   }
-  const pairs: number[] = []
+  let count = 0
+  for (let index = 0; index < edges.capacity; index++) {
+    if (edges.alive[index] === 1 && edges.source[index] !== edges.target[index]) count++
+  }
+  const pairs = new Uint32Array(count * 2)
+  let at = 0
   for (let index = 0; index < edges.capacity; index++) {
     if (edges.alive[index] !== 1) continue
     const source = edges.source[index] ?? 0
     const target = edges.target[index] ?? 0
-    if (source !== target) pairs.push(source, target)
+    if (source === target) continue
+    pairs[at++] = source
+    pairs[at++] = target
   }
   const keys = nodes.keys.slice(0, capacity)
   return {
@@ -38,7 +45,7 @@ export function layoutGraph(
     movable: mobile,
     xy,
     radius,
-    edges: Uint32Array.from(pairs),
+    edges: pairs,
     keys,
     datum: (index) => {
       const key = keys[index]

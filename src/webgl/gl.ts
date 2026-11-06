@@ -99,7 +99,6 @@ export class DataTexture<A extends Float32Array | Uint32Array | Uint8Array> {
     this.#rows = rows
     const gl = this.#gl
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
@@ -109,7 +108,7 @@ export class DataTexture<A extends Float32Array | Uint32Array | Uint8Array> {
       0,
       this.#format.format,
       this.#format.type,
-      data,
+      null,
     )
     return true
   }

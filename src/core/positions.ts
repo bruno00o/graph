@@ -1,5 +1,5 @@
 import type { Key, NodeMark } from '../types'
-import { compileNodeMark } from './compile-mark'
+import { type CompiledNodeMark, compileNodeMark } from './compile-mark'
 import type { GraphChanges, GraphModel } from './graph-model'
 
 const goldenAngle = Math.PI * (3 - Math.sqrt(5))
@@ -85,11 +85,22 @@ function finite(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function channelPoint(mark: NodeMark<unknown>, datum: unknown): readonly [number, number] | null {
-  const compiled = compileNodeMark(mark)
-  const x = finite(compiled.x?.(datum))
-  const y = finite(compiled.y?.(datum))
-  return x !== null && y !== null ? [x, y] : null
+function pointReader(): (
+  mark: NodeMark<unknown>,
+  datum: unknown,
+) => readonly [number, number] | null {
+  let lastMark: NodeMark<unknown> | null = null
+  let compiled: CompiledNodeMark | null = null
+  return (mark, datum) => {
+    if (mark !== lastMark) {
+      lastMark = mark
+      compiled = compileNodeMark(mark)
+    }
+    if (!compiled?.x || !compiled.y) return null
+    const x = finite(compiled.x(datum))
+    const y = finite(compiled.y(datum))
+    return x !== null && y !== null ? [x, y] : null
+  }
 }
 
 export function placeNodes(
@@ -98,10 +109,11 @@ export function placeNodes(
   changes: GraphChanges,
 ): PositionMoves {
   for (const { index } of changes.nodes.removed) positions.release(index)
+  const channelPoint = pointReader()
   const indices: number[] = []
   const to: number[] = []
-  for (const { key, index } of changes.nodes.updated) {
-    const record = model.node(key)
+  for (const { index } of changes.nodes.updated) {
+    const record = model.nodeAt(index)
     if (!record) continue
     const point = channelPoint(record.mark, record.datum)
     if (!point || !positions.follow(index, point)) continue
@@ -113,9 +125,12 @@ export function placeNodes(
     indices.push(index)
     to.push(point[0], point[1])
   }
-  const batch = new Set<Key>(changes.nodes.added.map((ref) => ref.key))
-  for (const { key, index } of changes.nodes.added) {
-    const record = model.node(key)
+  const added = changes.nodes.added
+  const last = added[added.length - 1]
+  if (last) positions.reserve(last.index)
+  const batch = model.nodeCount === added.length ? null : new Set<Key>(added.map((ref) => ref.key))
+  for (const { key, index } of added) {
+    const record = model.nodeAt(index)
     if (!record) continue
     const point = channelPoint(record.mark, record.datum)
     positions.follow(index, point)
@@ -127,14 +142,16 @@ export function placeNodes(
     let sumY = 0
     let count = 0
     let anchor = -1
-    for (const neighbor of model.neighbors(key)) {
-      if (batch.has(neighbor)) continue
-      const other = model.node(neighbor)
-      if (!other || positions.placed[other.index] !== 1) continue
-      sumX += positions.x(other.index)
-      sumY += positions.y(other.index)
-      count++
-      if (anchor < 0) anchor = other.index
+    if (batch !== null) {
+      for (const neighbor of model.neighbors(key)) {
+        if (batch.has(neighbor)) continue
+        const other = model.node(neighbor)
+        if (!other || positions.placed[other.index] !== 1) continue
+        sumX += positions.x(other.index)
+        sumY += positions.y(other.index)
+        count++
+        if (anchor < 0) anchor = other.index
+      }
     }
     if (count === 0) {
       const [sx, sy] = positions.nextSpiral()

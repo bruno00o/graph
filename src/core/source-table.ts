@@ -35,8 +35,16 @@ export interface Owner<M extends AnyMark> {
   readonly datum: unknown
 }
 
+export type DirtyVisitor<M extends AnyMark> = (
+  key: Key,
+  forced: boolean,
+  source: Source<M> | undefined,
+  datum: unknown,
+) => void
+
 export class SourceTable<M extends AnyMark> {
-  readonly dirty: Map<Key, boolean> = new Map()
+  readonly #dirty: Map<Key, boolean> = new Map()
+  readonly #fresh: Source<M>[] = []
   readonly #kind: ElementKind
   readonly #issues: GraphIssue[]
   readonly #notify: () => void
@@ -52,6 +60,44 @@ export class SourceTable<M extends AnyMark> {
     const previous = this.#sources
     this.#sources = marks.map((mark, slot) => this.#reconcile(slot, mark, previous[slot]))
     for (const old of previous.slice(marks.length)) this.#retire(old)
+  }
+
+  get pending(): boolean {
+    return this.#dirty.size > 0 || this.#fresh.length > 0
+  }
+
+  isDirty(key: Key): boolean {
+    if (this.#dirty.has(key)) return true
+    for (const source of this.#fresh) if (source.items.has(key)) return true
+    return false
+  }
+
+  forEachDirty(visit: DirtyVisitor<M>): void {
+    const dirty = this.#dirty
+    for (const [key, forced] of dirty) {
+      const owner = this.owner(key)
+      visit(key, forced, owner?.source, owner?.datum)
+    }
+    const fresh = this.#fresh
+    fresh.forEach((source, position) => {
+      if (this.#sources.length === 1 && dirty.size === 0) {
+        source.items.forEach((datum, key) => {
+          visit(key, false, source, datum)
+        })
+        return
+      }
+      source.items.forEach((_, key) => {
+        if (dirty.has(key)) return
+        if (fresh.some((other, at) => at < position && other.items.has(key))) return
+        const owner = this.owner(key)
+        visit(key, false, owner?.source, owner?.datum)
+      })
+    })
+  }
+
+  clearDirty(): void {
+    this.#dirty.clear()
+    this.#fresh.length = 0
   }
 
   markAt(slot: number): M {
@@ -90,12 +136,13 @@ export class SourceTable<M extends AnyMark> {
   owner(key: Key): Owner<M> | undefined {
     let owner: Owner<M> | undefined
     for (const source of this.#sources) {
-      if (!source.items.has(key)) continue
+      const datum = source.items.get(key)
+      if (datum === undefined && !source.items.has(key)) continue
       if (owner) {
         this.#issues.push({ type: 'duplicate-key', kind: this.#kind, key })
         break
       }
-      owner = { source, datum: source.items.get(key) }
+      owner = { source, datum }
     }
     return owner
   }
@@ -107,7 +154,7 @@ export class SourceTable<M extends AnyMark> {
       source.subscription = null
     }
     this.#sources = []
-    this.dirty.clear()
+    this.clearDirty()
   }
 
   #reconcile(slot: number, mark: M, old: Source<M> | undefined): Source<M> {
@@ -139,9 +186,9 @@ export class SourceTable<M extends AnyMark> {
     }
     const source = this.#create(slot, mark, null)
     this.#collect(source, data)
-    if (!old || old.live) {
+    if (!old || old.live || this.#fresh.includes(old)) {
       if (old) this.#retire(old)
-      for (const key of source.items.keys()) this.#markDirty(key)
+      this.#fresh.push(source)
       return source
     }
     old.retired = true
@@ -156,6 +203,7 @@ export class SourceTable<M extends AnyMark> {
 
   #collect(source: Source<M>, data: Iterable<unknown>): void {
     const keyOf = toAccessor<unknown, unknown>(source.mark.options.key ?? 'id')
+    if (Array.isArray(data) && this.#collectUnique(source.items, data, keyOf)) return
     for (const datum of data) {
       const key = keyOf(datum)
       if (!isKey(key)) {
@@ -168,6 +216,29 @@ export class SourceTable<M extends AnyMark> {
       }
       source.items.set(key, datum)
     }
+  }
+
+  #collectUnique(
+    items: Map<Key, unknown>,
+    data: readonly unknown[],
+    keyOf: (datum: unknown) => unknown,
+  ): boolean {
+    const issues = this.#issues.length
+    for (const datum of data) {
+      const key = keyOf(datum)
+      if (!isKey(key)) {
+        this.#issues.push({ type: 'missing-key', kind: this.#kind, datum })
+        continue
+      }
+      const size = items.size
+      items.set(key, datum)
+      if (items.size === size) {
+        items.clear()
+        this.#issues.length = issues
+        return false
+      }
+    }
+    return true
   }
 
   #create(slot: number, mark: M, live: LiveSource<unknown> | null): Source<M> {
@@ -185,15 +256,17 @@ export class SourceTable<M extends AnyMark> {
   }
 
   #retire(source: Source<M>, forget = true): void {
+    const fresh = this.#fresh.indexOf(source)
+    if (fresh >= 0) this.#fresh.splice(fresh, 1)
     source.retired = true
     source.subscription?.unsubscribe()
     source.subscription = null
-    if (!forget) return
+    if (!forget && fresh < 0) return
     for (const key of source.previous?.keys() ?? []) this.#markDirty(key)
     for (const key of source.items.keys()) this.#markDirty(key)
   }
 
   #markDirty(key: Key, forced = false): void {
-    this.dirty.set(key, forced || this.dirty.get(key) === true)
+    this.#dirty.set(key, forced || this.#dirty.get(key) === true)
   }
 }

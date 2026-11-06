@@ -247,6 +247,21 @@ describe('createGraphModel', () => {
     expect(model.node('a')?.index).toBe(index)
   })
 
+  it('keeps the rows of an unflushed array that a live source replaces', () => {
+    const model = createGraphModel()
+    const a = item('a')
+    const b = item('b')
+    model.setMarks([nodes([a, b])])
+    const live = createLiveSource<Item>([
+      { type: 'insert', key: 'a', value: a },
+      { type: 'insert', key: 'b', value: b },
+    ])
+    model.setMarks([nodes(live.source)])
+    const changes = model.flush()
+    expect(keys(changes.nodes.added).sort()).toEqual(['a', 'b'])
+    expect(model.node('b')?.datum).toBe(b)
+  })
+
   it('subscribes the next live source before releasing the previous one', () => {
     const model = createGraphModel()
     const order: string[] = []
@@ -312,6 +327,101 @@ describe('createGraphModel', () => {
     model.flush()
     model.setMarks([mark])
     expect(schedule).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps adjacency, indices and pending edges consistent through random batches', () => {
+    let state = 7
+    const next = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+      return state / 4294967296
+    }
+    const pick = (count: number) => Math.floor(next() * count)
+    const randomNodes = () =>
+      Array.from({ length: pick(12) }, () => item(`n${pick(16)}`, `g${pick(3)}`))
+    const randomEdges = () =>
+      Array.from({ length: pick(20) }, () => link(`e${pick(30)}`, `n${pick(18)}`, `n${pick(18)}`))
+    const model = createGraphModel()
+    const live = createLiveSource<Item>()
+    const liveItems = new Map<string, Item>()
+    const liveMark = nodes(live.source)
+    let firstItems: Item[] = []
+    let secondItems: Item[] = []
+    let links: Link[] = []
+    let moreLinks: Link[] = []
+    let first = nodes(firstItems)
+    let second = nodes(secondItems)
+    let linkMark = edges(links, linkOptions)
+    let moreLinkMark = edges(moreLinks, linkOptions)
+    const apply = () => model.setMarks([first, second, liveMark, linkMark, moreLinkMark])
+    apply()
+    for (let round = 0; round < 300; round++) {
+      for (let batch = 0; batch < 1 + pick(2); batch++) {
+        const roll = next()
+        if (roll < 0.3) {
+          firstItems = randomNodes()
+          first = nodes(firstItems)
+        } else if (roll < 0.45) {
+          secondItems = randomNodes()
+          second = nodes(secondItems)
+        } else if (roll < 0.75) {
+          links = randomEdges()
+          linkMark = edges(links, linkOptions)
+        } else if (roll < 0.85) {
+          moreLinks = randomEdges()
+          moreLinkMark = edges(moreLinks, linkOptions)
+        } else {
+          const key = `n${pick(16)}`
+          const known = liveItems.get(key)
+          if (known && next() < 0.5) {
+            live.emit([{ type: 'delete', key, value: known }])
+            liveItems.delete(key)
+          } else {
+            const value = item(key, `g${pick(3)}`)
+            live.emit([{ type: known ? 'update' : 'insert', key, value }])
+            liveItems.set(key, value)
+          }
+        }
+        if (next() < 0.5) {
+          secondItems = [...secondItems]
+          second = nodes(secondItems)
+        }
+        if (next() < 0.5) {
+          links = [...links]
+          linkMark = edges(links, linkOptions)
+        }
+        apply()
+      }
+      model.flush()
+      const present = new Map<string, Item>()
+      for (const list of [firstItems, secondItems, liveItems.values()]) {
+        for (const each of list) if (!present.has(each.id)) present.set(each.id, each)
+      }
+      const known = new Map<string, Link>()
+      for (const list of [links, moreLinks]) {
+        for (const each of list) if (!known.has(each.id)) known.set(each.id, each)
+      }
+      const visible = [...known.values()].filter(
+        (each) => present.has(each.from) && present.has(each.to),
+      )
+      expect(new Set([...model.nodes()].map((node) => node.key))).toEqual(new Set(present.keys()))
+      for (const node of model.nodes()) expect(model.nodeAt(node.index)).toBe(node)
+      expect(new Set([...model.edges()].map((edge) => edge.key))).toEqual(
+        new Set(visible.map((each) => each.id)),
+      )
+      const pending = [...known.keys()].filter((key) => !visible.some((each) => each.id === key))
+      expect(new Set(model.pendingEdges())).toEqual(new Set(pending))
+      for (const edge of model.edges()) {
+        expect(model.edgeAt(edge.index)).toBe(edge)
+        expect(edge.sourceIndex).toBe(model.node(edge.source)?.index)
+        expect(edge.targetIndex).toBe(model.node(edge.target)?.index)
+      }
+      for (const key of present.keys()) {
+        const touching = visible.filter((each) => each.from === key || each.to === key)
+        expect(model.edgesOf(key).sort()).toEqual(touching.map((each) => each.id).sort())
+        const around = new Set(touching.map((each) => (each.from === key ? each.to : each.from)))
+        expect(model.neighbors(key).sort()).toEqual([...around].sort())
+      }
+    }
   })
 
   it('releases everything on destroy', () => {
