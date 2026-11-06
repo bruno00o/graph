@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import type { GraphDefinition, Key, Layout } from '../types'
+import type { GraphDefinition, Key, Layout, LayoutGraph } from '../types'
 import type { GraphTarget } from './events'
 import { createGraphHost, type GraphInstance, type MountGraphOptions } from './mount-graph'
 import type { RenderInput } from './renderer'
@@ -293,6 +293,55 @@ describe('paths on groups', () => {
 })
 
 describe('groups with a layout', () => {
+  it('tells layouts how much room the label of each group takes', async () => {
+    const seen: LayoutGraph[] = []
+    const capture: Layout = {
+      name: 'capture',
+      options: {},
+      start: (graph, listener) => {
+        seen.push(graph)
+        queueMicrotask(() => listener.end(graph.xy))
+        return { pin: () => {}, stop: () => {} }
+      },
+    }
+    const items: Item[] = [
+      { id: 'g' },
+      { id: 'a', parent: 'g' },
+      { id: 'side' },
+      { id: 'b', parent: 'side' },
+      { id: 'plain' },
+      { id: 'c', parent: 'plain' },
+    ]
+    const graph = mount(
+      defineGraph({
+        marks: [
+          nodes<Item>(items, {
+            parent: 'parent',
+            label: {
+              text: (item) => (item.id === 'plain' ? null : item.id),
+              placement: (item) => (item.id === 'side' ? 'left' : 'top'),
+              size: 16,
+            },
+          }),
+        ],
+        transitions: { layout: 0 },
+        layout: capture,
+      }),
+    )
+    await Promise.resolve()
+    const run = seen.at(-1)
+    const space = run?.groups?.labelSpace
+    const at = (key: Key) => run?.keys.indexOf(key) ?? -1
+    expect(Array.from(space?.subarray(at('g') * 4, at('g') * 4 + 4) ?? [])).toEqual([23, 0, 0, 0])
+    const side = Array.from(space?.subarray(at('side') * 4, at('side') * 4 + 4) ?? [])
+    expect(side.slice(0, 3)).toEqual([0, 0, 0])
+    expect(side[3]).toBeCloseTo(3 + 4 * 0.6 * 16, 4)
+    expect(Array.from(space?.subarray(at('plain') * 4, at('plain') * 4 + 4) ?? [])).toEqual([
+      0, 0, 0, 0,
+    ])
+    graph.destroy()
+  })
+
   it('pushes free nodes out of a group that unfolds', async () => {
     const still: Layout = {
       name: 'still',

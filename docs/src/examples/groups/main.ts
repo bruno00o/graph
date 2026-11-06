@@ -7,6 +7,7 @@ import {
   mountGraph,
   nodes,
 } from '@bruno00o/graph'
+import { layers } from '@bruno00o/graph/layouts'
 import { force } from '@bruno00o/graph/layouts/force'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
@@ -97,13 +98,18 @@ const definition = defineGraph({
   layout: force(),
 })
 
-function button(text: string, onClick: () => void): HTMLButtonElement {
+function button(text: string, onClick: (button: HTMLButtonElement) => void): HTMLButtonElement {
   const element = document.createElement('button')
   element.type = 'button'
   element.className = 'example-button'
   element.textContent = text
-  element.addEventListener('click', onClick)
+  element.addEventListener('click', () => onClick(element))
   return element
+}
+
+const arrangements = {
+  force: force(),
+  layers: layers(),
 }
 
 export function mount(container: HTMLElement): GraphInstance {
@@ -115,7 +121,13 @@ export function mount(container: HTMLElement): GraphInstance {
 
   const actions = document.createElement('div')
   actions.className = 'example-actions'
+  let kind: keyof typeof arrangements = 'force'
   actions.append(
+    button(messages.layoutKind(messages.layoutKinds.force), (element) => {
+      kind = kind === 'force' ? 'layers' : 'force'
+      element.textContent = messages.layoutKind(messages.layoutKinds[kind])
+      void graph.layout.run(arrangements[kind], { fit: true })
+    }),
     button(messages.foldAll, () => graph.groups.fold()),
     button(messages.unfoldAll, () => graph.groups.unfold()),
   )

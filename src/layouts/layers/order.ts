@@ -5,6 +5,13 @@ const minSweeps = 4
 const budget = 4_000_000
 const patience = 4
 
+export function sweepCount(graph: Layered): number {
+  return Math.max(
+    minSweeps,
+    Math.min(maxSweeps, Math.floor(budget / (graph.count + graph.upper.length + 1))),
+  )
+}
+
 export function orderLayers(graph: Layered): void {
   const { slots, order, position, slotOf, componentSlots } = graph
   let widest = 0
@@ -17,10 +24,7 @@ export function orderLayers(graph: Layered): void {
   const precision = 2 ** 52 / (span * span)
   const scratch = new Int32Array(widest)
   const best = new Int32Array(order.length)
-  const sweeps = Math.max(
-    minSweeps,
-    Math.min(maxSweeps, Math.floor(budget / (graph.count + graph.upper.length + 1))),
-  )
+  const sweeps = sweepCount(graph)
   for (let c = 0; c + 1 < componentSlots.length; c++) {
     const first = componentSlots[c] ?? 0
     const last = componentSlots[c + 1] ?? 0

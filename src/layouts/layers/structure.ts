@@ -60,6 +60,47 @@ export function expand(
       segment++
     }
   }
+  const { componentSlots, slots, slotOf, order, position } = slotted(
+    real,
+    count,
+    layer,
+    component,
+    layers,
+    components,
+  )
+  const ids = Int32Array.from({ length: segments }, (_, at) => at)
+  return {
+    real,
+    count,
+    half,
+    upper,
+    lower,
+    up: adjacency(count, lower, ids),
+    down: adjacency(count, upper, ids),
+    slots,
+    slotOf,
+    order,
+    position,
+    componentSlots,
+  }
+}
+
+export interface Slotted {
+  readonly componentSlots: Int32Array
+  readonly slots: Int32Array
+  readonly slotOf: Int32Array
+  readonly order: Int32Array
+  readonly position: Int32Array
+}
+
+export function slotted(
+  real: number,
+  count: number,
+  layer: Int32Array,
+  component: Int32Array,
+  layers: Int32Array,
+  components: Int32Array,
+): Slotted {
   let componentCount = 0
   for (let node = 0; node < real; node++) {
     componentCount = Math.max(componentCount, (component[node] ?? 0) + 1)
@@ -94,21 +135,7 @@ export function expand(
     position[node] = at - (slots[slot] ?? 0)
     fill[slot] = at + 1
   }
-  const ids = Int32Array.from({ length: segments }, (_, at) => at)
-  return {
-    real,
-    count,
-    half,
-    upper,
-    lower,
-    up: adjacency(count, lower, ids),
-    down: adjacency(count, upper, ids),
-    slots,
-    slotOf,
-    order,
-    position,
-    componentSlots,
-  }
+  return { componentSlots, slots, slotOf, order, position }
 }
 
 export function sortAdjacency(graph: Layered): void {
