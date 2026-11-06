@@ -18,7 +18,8 @@ Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`
 
 - Only free nodes move: alive, without `x` and `y` in the data, chosen by the run, and not being dragged.
 - Moved nodes are centered on their current center, so a run on part of the graph stays where that part was.
-- `spacing`, in `grid`, `rings` and `radial`, is the distance between two neighboring places, in world units. Without it, or when it is not above 0, it is twice the largest diameter among the moved nodes, and at least that diameter plus 24.
+- Every spacing option is a gap between node borders, in world units, as in `force`. `grid`, `rings` and `radial` give every node a place of the same size, so their `spacing` is the gap between two of the largest moved nodes: neighboring places are that diameter plus `spacing` apart. It defaults to the largest diameter, and at least 24.
+- A negative or non-finite spacing falls back to its default. `0` is allowed: the largest nodes touch.
 - The result ends without progress, in a microtask: nodes glide to it over `transitions.layout`, or the `duration` of the run.
 - When nodes arrive, every free node is laid out again.
 
@@ -41,8 +42,6 @@ interface LayersOptions {
 | `root` | `Key \| readonly Key[]` | Nodes without incoming edges | Nodes forced onto the first layer. Edges into them are turned around, and edges between two roots are left out |
 | `layerSpacing` | `number` | Twice the largest diameter, at least that diameter plus 24 | Gap between two layers, from the borders of their largest nodes, in world units |
 | `nodeSpacing` | `number` | The largest diameter, at least 8 | Gap between the borders of two neighboring nodes of a layer, in world units |
-
-A negative or non-finite spacing falls back to its default. `0` is allowed.
 
 - **Cycles.** Edges that close a cycle are turned around, as few as a greedy pass can find. They are still drawn, pointing back. Duplicate edges count once.
 - **Layers.** Each node gets a layer so that every edge goes to a later one, with the smallest total length (network simplex). Each component starts at the first layer.
@@ -73,7 +72,7 @@ interface GridOptions<T = unknown> {
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `columns` | `number` | Square root of the count, rounded up | Nodes per row. Rounded down, at least 1 |
-| `spacing` | `number` | See above | Distance between rows and between columns |
+| `spacing` | `number` | See above | Gap between rows and between columns |
 | `order` | `NodeOrder<T>` | Internal order | Order of the nodes, row by row from the top left |
 
 ## rings
@@ -90,7 +89,7 @@ interface RingsOptions<T = unknown> {
 | --- | --- | --- | --- |
 | `center` | `Key` | First node in `order` | Node in the middle. A fixed center keeps its place and the rings form around it |
 | `order` | `NodeOrder<T>` | `'degree'` | Order from the middle outward. Ring `n` holds up to `⌊2πn⌋` nodes |
-| `spacing` | `number` | See above | Distance between two rings |
+| `spacing` | `number` | See above | Gap between two rings |
 
 ## radial
 
@@ -104,7 +103,7 @@ interface RadialOptions {
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `root` | `Key \| readonly Key[]` | Free node with the most edges | Start of the walk. Several roots share the inner ring and each grows its own branch |
-| `spacing` | `number` | See above | Smallest distance between two rings, and between two nodes of a ring |
+| `spacing` | `number` | See above | Smallest gap between two rings, and between two nodes of a ring |
 
 - A breadth-first walk from the roots, through free nodes only, gives each node its ring and the node it was reached from. Edges count in both directions.
 - Each branch gets a slice of the circle in proportion to its number of leaves, and each node sits in the middle of its slice. When a ring is crowded, it grows and its nodes spread apart in the same order.
