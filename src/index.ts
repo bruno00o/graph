@@ -55,6 +55,7 @@ export type {
   NumberScaleType,
   Point,
   ResolvedInteraction,
+  ResolvedTransitions,
   ScalesOptions,
   SelectMode,
   SourceChange,
@@ -62,5 +63,6 @@ export type {
   StateStyle,
   StateStyles,
   Style,
+  TransitionOptions,
   View,
 } from './types'

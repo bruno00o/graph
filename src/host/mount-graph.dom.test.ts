@@ -1,3 +1,4 @@
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import type { ReadonlyStore } from '@tanstack/store'
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
@@ -250,6 +251,50 @@ describe('createGraphHost', () => {
     dom.flushFrames()
     expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 2 })
     expect(views.at(-1)).toBe(2)
+  })
+
+  it('follows x and y changes from the data', () => {
+    const graph = mount()
+    const moved = items.map((item) => (item.id === 'a' ? { ...item, x: -300 } : item))
+    graph.update({ definition: definition(moved) })
+    dom.flushFrames()
+    expect(graph.positions.get('a')).toEqual({ x: -300, y: 0 })
+    expect(graph.positions.get('b')).toEqual({ x: 100, y: 0 })
+  })
+
+  it('follows positions written to a TanStack DB collection', async () => {
+    const collection = createCollection(
+      localOnlyCollectionOptions({
+        id: 'moving',
+        getKey: (item: Item) => item.id,
+        initialData: items,
+      }),
+    )
+    const graph = mount(defineGraph({ marks: [nodes(collection, { x: 'x', y: 'y' })] }))
+    await vi.waitFor(() => {
+      dom.flushFrames()
+      expect(graph.positions.get('a')).toEqual({ x: -100, y: 0 })
+    })
+    collection.update('a', (draft) => {
+      draft.x = 250
+    })
+    await vi.waitFor(() => {
+      dom.flushFrames()
+      expect(graph.positions.get('a')).toEqual({ x: 250, y: 0 })
+    })
+  })
+
+  it('keeps a dragged node under the pointer when its data moves', () => {
+    const graph = mount()
+    const a = screenOf(graph, 'a')
+    pointer(graph, 'pointerdown', a.x, a.y)
+    pointer(graph, 'pointermove', a.x + 40, a.y)
+    const dragged = graph.positions.get('a')
+    const moved = items.map((item) => (item.id === 'a' ? { ...item, x: 500 } : item))
+    graph.update({ definition: definition(moved) })
+    dom.flushFrames()
+    expect(graph.positions.get('a')).toEqual(dragged)
+    pointer(graph, 'pointerup', a.x + 40, a.y)
   })
 
   it('reads the neighborhood', () => {

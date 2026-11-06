@@ -169,6 +169,14 @@ export interface ResolvedInteraction {
   readonly keyboard: boolean
 }
 
+export interface TransitionOptions {
+  readonly positions?: number
+}
+
+export interface ResolvedTransitions {
+  readonly positions: number
+}
+
 export type BuiltInState = 'selected' | 'hovered' | 'focused'
 
 export type FreeState<S extends string> = Exclude<S, BuiltInState>
@@ -180,6 +188,7 @@ export interface GraphDefinitionOptions<S extends string = string> {
   readonly scales?: ScalesOptions
   readonly states?: StateStyles<S>
   readonly interaction?: InteractionOptions
+  readonly transitions?: TransitionOptions
 }
 
 export interface GraphDefinition<S extends string = string> {
@@ -187,4 +196,5 @@ export interface GraphDefinition<S extends string = string> {
   readonly scales: ScalesOptions
   readonly states: StateStyles<S>
   readonly interaction: ResolvedInteraction
+  readonly transitions: ResolvedTransitions
 }

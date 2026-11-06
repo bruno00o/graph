@@ -31,6 +31,11 @@ describe('defineGraph', () => {
     })
   })
 
+  it('fills transition defaults and clamps negative durations', () => {
+    expect(defineGraph({ marks: [] }).transitions).toEqual({ positions: 120 })
+    expect(defineGraph({ marks: [], transitions: { positions: -5 } }).transitions.positions).toBe(0)
+  })
+
   it('returns a frozen definition', () => {
     const definition = defineGraph({ marks: [nodes(items)], states: { dimmed: { opacity: 0.2 } } })
     expect(Object.isFrozen(definition)).toBe(true)

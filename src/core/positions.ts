@@ -1,4 +1,4 @@
-import type { Key } from '../types'
+import type { Key, NodeMark } from '../types'
 import { compileNodeMark } from './compile-mark'
 import type { GraphChanges, GraphModel } from './graph-model'
 
@@ -6,11 +6,17 @@ const goldenAngle = Math.PI * (3 - Math.sqrt(5))
 
 export const placementSpacing = 24
 
+export interface PositionMoves {
+  readonly indices: readonly number[]
+  readonly to: readonly number[]
+}
+
 export class Positions {
   capacity = 0
   version = 0
   xy: Float32Array = new Float32Array(0)
   placed: Uint8Array = new Uint8Array(0)
+  source: Float64Array = new Float64Array(0)
   #spiral = 0
   readonly #rings = new Map<number, number>()
 
@@ -21,8 +27,11 @@ export class Positions {
     xy.set(this.xy)
     const placed = new Uint8Array(capacity)
     placed.set(this.placed)
+    const source = new Float64Array(capacity * 2).fill(Number.NaN)
+    source.set(this.source)
     this.xy = xy
     this.placed = placed
+    this.source = source
     this.capacity = capacity
   }
 
@@ -44,7 +53,19 @@ export class Positions {
 
   release(index: number): void {
     if (index < this.capacity) this.placed[index] = 0
+    this.follow(index, null)
     this.#rings.delete(index)
+  }
+
+  follow(index: number, point: readonly [number, number] | null): boolean {
+    this.reserve(index)
+    const x = point ? point[0] : Number.NaN
+    const y = point ? point[1] : Number.NaN
+    const changed =
+      point !== null && (this.source[index * 2] !== x || this.source[index * 2 + 1] !== y)
+    this.source[index * 2] = x
+    this.source[index * 2 + 1] = y
+    return changed
   }
 
   nextSpiral(): readonly [number, number] {
@@ -64,17 +85,42 @@ function finite(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-export function placeNodes(model: GraphModel, positions: Positions, changes: GraphChanges): void {
+function channelPoint(mark: NodeMark<unknown>, datum: unknown): readonly [number, number] | null {
+  const compiled = compileNodeMark(mark)
+  const x = finite(compiled.x?.(datum))
+  const y = finite(compiled.y?.(datum))
+  return x !== null && y !== null ? [x, y] : null
+}
+
+export function placeNodes(
+  model: GraphModel,
+  positions: Positions,
+  changes: GraphChanges,
+): PositionMoves {
   for (const { index } of changes.nodes.removed) positions.release(index)
+  const indices: number[] = []
+  const to: number[] = []
+  for (const { key, index } of changes.nodes.updated) {
+    const record = model.node(key)
+    if (!record) continue
+    const point = channelPoint(record.mark, record.datum)
+    if (!point || !positions.follow(index, point)) continue
+    if (
+      positions.x(index) === Math.fround(point[0]) &&
+      positions.y(index) === Math.fround(point[1])
+    )
+      continue
+    indices.push(index)
+    to.push(point[0], point[1])
+  }
   const batch = new Set<Key>(changes.nodes.added.map((ref) => ref.key))
   for (const { key, index } of changes.nodes.added) {
     const record = model.node(key)
     if (!record) continue
-    const mark = compileNodeMark(record.mark)
-    const x = finite(mark.x?.(record.datum))
-    const y = finite(mark.y?.(record.datum))
-    if (x !== null && y !== null) {
-      positions.set(index, x, y)
+    const point = channelPoint(record.mark, record.datum)
+    positions.follow(index, point)
+    if (point) {
+      positions.set(index, point[0], point[1])
       continue
     }
     let sumX = 0
@@ -104,4 +150,5 @@ export function placeNodes(model: GraphModel, positions: Positions, changes: Gra
       sumY / count + radius * Math.sin(angle),
     )
   }
+  return { indices, to }
 }

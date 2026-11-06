@@ -8,6 +8,7 @@ import type {
 } from './types'
 
 const defaultZoomSpeed = 1
+const defaultPositionTransition = 120
 
 function resolveInteraction(options: InteractionOptions = {}): ResolvedInteraction {
   const zoom = options.zoom ?? true
@@ -42,5 +43,8 @@ export function defineGraph<S extends string = never>(
     scales: Object.freeze({ ...options.scales }),
     states: Object.freeze({ ...options.states }) as StateStyles<S>,
     interaction: resolveInteraction(options.interaction),
+    transitions: Object.freeze({
+      positions: Math.max(0, options.transitions?.positions ?? defaultPositionTransition),
+    }),
   })
 }
