@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/bruno00o/graph/compare/0.3.0...0.4.0) (2026-11-06)
+
+
+### Features
+
+* draw node outlines and label backgrounds ([#24](https://github.com/bruno00o/graph/issues/24)) ([3e703fa](https://github.com/bruno00o/graph/commit/3e703fa0d283e26fb3bb8779e1fab59da6accaf0))
+
 ## [0.3.0](https://github.com/bruno00o/graph/compare/0.2.0...0.3.0) (2026-11-06)
 
 
