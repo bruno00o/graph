@@ -1,5 +1,6 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
+import { nodesInside } from '../core/lasso'
 import { PickIndex, type PickSource } from '../core/pick-index'
 import { type PositionMoves, Positions, placeNodes } from '../core/positions'
 import { createScene } from '../core/scene'
@@ -132,9 +133,15 @@ interface Gesture {
   readonly start: Point
   readonly target: GraphTarget | null
   readonly drag: NodeDrag | null
+  readonly lasso: Point[] | null
   last: Point
   moved: boolean
 }
+
+const svgNamespace = 'http://www.w3.org/2000/svg'
+const lassoStep = 3
+const lassoStyle =
+  'fill:color-mix(in srgb,var(--graph-accent,#c93700) 10%,transparent);stroke:var(--graph-accent,#c93700);stroke-width:1.5;stroke-dasharray:4 3;stroke-linejoin:round'
 
 interface NodeDrag {
   readonly target: GraphTarget & { readonly kind: 'node' }
@@ -430,9 +437,46 @@ export function createGraphHost<S extends string = string>(
     request()
   }
 
+  let lassoLayer: SVGSVGElement | null = null
+
+  function drawLasso(points: readonly Point[] | null): void {
+    if (!points) {
+      lassoLayer?.remove()
+      lassoLayer = null
+      return
+    }
+    if (!lassoLayer) {
+      lassoLayer = document.createElementNS(svgNamespace, 'svg')
+      lassoLayer.setAttribute('aria-hidden', 'true')
+      lassoLayer.style.cssText =
+        'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible'
+      const path = document.createElementNS(svgNamespace, 'path')
+      path.style.cssText = lassoStyle
+      lassoLayer.append(path)
+      element.append(lassoLayer)
+    }
+    lassoLayer.firstElementChild?.setAttribute(
+      'd',
+      `M${points.map((point) => `${point.x} ${point.y}`).join('L')}Z`,
+    )
+  }
+
+  function selectInside(points: readonly Point[]): void {
+    const view = store.get().view
+    const size = viewport()
+    const polygon = points.map((point) => toWorld(view, size, point))
+    const inside = nodesInside(polygon, scene.nodes, positions).filter(
+      (key) => !registry.has('selected', 'nodes', key),
+    )
+    if (inside.length === 0) return
+    const current = registry.members('selected')
+    requestSelection({ ...current, nodes: [...current.nodes, ...inside] })
+  }
+
   function updateCursor(): void {
     const interactive = definition.interaction.select !== false || definition.interaction.drag
-    if (gesture?.moved) canvas.style.cursor = 'grabbing'
+    if (gesture?.lasso) canvas.style.cursor = 'crosshair'
+    else if (gesture?.moved) canvas.style.cursor = 'grabbing'
     else if (store.get().hovered && interactive) canvas.style.cursor = 'pointer'
     else canvas.style.cursor = ''
   }
@@ -647,8 +691,19 @@ export function createGraphHost<S extends string = string>(
     const point = local(event)
     const hit = pickAt(point)
     const drag = hit ? startDrag(hit, point) : null
-    gesture = { id: event.pointerId, start: point, last: point, target: hit, drag, moved: false }
+    const { lasso, select } = definition.interaction
+    const lassoing = !hit && event.shiftKey && lasso && select === 'multiple'
+    gesture = {
+      id: event.pointerId,
+      start: point,
+      last: point,
+      target: hit,
+      drag,
+      lasso: lassoing ? [point] : null,
+      moved: false,
+    }
     canvas.setPointerCapture?.(event.pointerId)
+    if (lassoing) updateCursor()
   }
 
   function onPointerMove(event: PointerEvent): void {
@@ -664,6 +719,16 @@ export function createGraphHost<S extends string = string>(
     ) {
       gesture.moved = true
       updateCursor()
+    }
+    const lasso = gesture.lasso
+    if (lasso) {
+      const last = lasso[lasso.length - 1] ?? gesture.start
+      if (gesture.moved && Math.hypot(point.x - last.x, point.y - last.y) >= lassoStep) {
+        lasso.push(point)
+        drawLasso(lasso)
+      }
+      gesture.last = point
+      return
     }
     const drag = gesture.drag
     if (drag) {
@@ -702,6 +767,10 @@ export function createGraphHost<S extends string = string>(
     gesture = null
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     if (ended.drag?.started) emitter.emit('dragend', dragEvent(ended.drag, event))
+    if (ended.lasso) {
+      drawLasso(null)
+      if (!cancelled && ended.moved) selectInside(ended.lasso)
+    }
     if (!cancelled && !ended.moved) {
       emitter.emit('click', pointerEvent(event, ended.target))
       selectOnClick(ended.target, event)

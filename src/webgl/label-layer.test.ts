@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { NodeColumns } from '../core/columns'
-import type { Glyph, LineLayout } from './glyph-atlas'
-import { GlyphBuffer, glyphStride, labelVisible, sortBySize } from './label-layer'
+import { Positions } from '../core/positions'
+import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
+import { GlyphBuffer, glyphStride, LabelLayer, labelVisible, sortBySize } from './label-layer'
 
 function columns(entries: readonly { size: number; label: string | null; alive?: boolean }[]) {
   const nodes = new NodeColumns()
@@ -79,5 +80,48 @@ describe('GlyphBuffer', () => {
     ])
     buffer.clear()
     expect(buffer.count).toBe(0)
+  })
+
+  it('forces only hovered and focused labels, other highlighted labels avoid overlaps', () => {
+    const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
+    const atlas = {
+      height: 256,
+      line: (text: string): LineLayout => ({ width: 90, glyphs: [{ glyph, x: text.length }] }),
+    } as unknown as GlyphAtlas
+    const nodes = columns([
+      { size: 16, label: 'selected' },
+      { size: 16, label: 'hovered' },
+      { size: 16, label: 'also' },
+      { size: 16, label: 'apart' },
+    ])
+    nodes.keys.push('a', 'b', 'c', 'd')
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    positions.set(1, 0, 0)
+    positions.set(2, 0, 0)
+    positions.set(3, 0, 200)
+    const layer = new LabelLayer()
+    layer.select(
+      {
+        nodes,
+        positions,
+        view: { x: 0, y: 0, zoom: 1 },
+        width: 800,
+        height: 600,
+        nodeMask: new Uint32Array([0b01, 0b10, 0b01, 0b01]),
+        labelFlags: new Int8Array(32).fill(-1),
+        highlighted: [0, 1, 2, 3],
+        order: new Uint32Array(0),
+        orderLength: 0,
+        screenLabels: false,
+      },
+      atlas,
+    )
+    const placed = new Uint32Array(layer.highlight.data)
+    const owners = Array.from(
+      { length: layer.highlight.count },
+      (_, at) => placed[at * (glyphStride / 4)],
+    )
+    expect(owners).toEqual([1, 3])
   })
 })

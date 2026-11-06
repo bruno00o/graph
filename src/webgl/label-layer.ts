@@ -10,6 +10,7 @@ const labelMin = 8
 const cell = 8
 const maxLabels = 4000
 const cullMargin = 400
+const forcedStates = 0b110
 
 export interface LabelFrame {
   readonly nodes: NodeColumns
@@ -94,7 +95,10 @@ export class LabelLayer {
     const worldPrimary = primarySize * Math.min(1, view.zoom)
     let placed = 0
 
-    const place = (index: number, force: boolean): void => {
+    const forced = (index: number) => ((frame.nodeMask[index] ?? 0) & forcedStates) !== 0
+
+    const place = (index: number, highlight: boolean): void => {
+      const force = highlight && forced(index)
       const label = nodes.label[index]
       if (!label || nodes.alive[index] !== 1) return
       if (!labelVisible(frame.nodeMask[index] ?? 0, frame.labelFlags)) return
@@ -130,13 +134,14 @@ export class LabelLayer {
         }
       }
       for (let row = r0; row <= r1; row++) occupancy.fill(1, row * cols + c0, row * cols + c1 + 1)
-      const target = force ? this.highlight : this.main
+      const target = highlight ? this.highlight : this.main
       target.push(index, 0, line, atlas.height)
       if (secondary) target.push(index, 1, secondary, atlas.height)
       placed++
     }
 
-    for (const index of highlighted) place(index, true)
+    for (const index of highlighted) if (forced(index)) place(index, true)
+    for (const index of highlighted) if (!forced(index)) place(index, true)
     if (worldPrimary < labelMin && !frame.screenLabels) return
     const xy = positions.xy
     const order = frame.order

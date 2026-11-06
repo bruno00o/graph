@@ -180,6 +180,39 @@ describe('createGraphHost', () => {
     expect(changes).toEqual([['a'], ['a', 'b'], ['b'], []])
   })
 
+  it('adds the nodes inside a lasso drawn with Shift on empty space', () => {
+    const graph = mount(defineGraph({ marks: definition().marks, interaction: { lasso: true } }))
+    const a = screenOf(graph, 'a')
+    const c = screenOf(graph, 'c')
+    graph.selection.set({ nodes: ['a'] })
+    const corners = [
+      [a.x - 40, a.y - 40],
+      [c.x + 40, a.y - 40],
+      [c.x + 40, c.y + 40],
+      [a.x - 40, c.y + 40],
+    ] as const
+    const [start] = corners
+    pointer(graph, 'pointerdown', start[0], start[1], { shiftKey: true })
+    expect(canvasOf(graph).style.cursor).toBe('crosshair')
+    for (const [x, y] of corners.slice(1)) pointer(graph, 'pointermove', x, y, { shiftKey: true })
+    expect(graph.element.querySelector('svg path')?.getAttribute('d')).toMatch(/^M.*Z$/)
+    const view = graph.store.get().view
+    pointer(graph, 'pointerup', start[0], start[1] + 1, { shiftKey: true })
+    expect(graph.selection.get().nodes).toEqual(['a', 'c'])
+    expect(graph.store.get().view).toEqual(view)
+    expect(graph.element.querySelector('svg')).toBeNull()
+  })
+
+  it('pans on Shift and drag when the lasso is off', () => {
+    const graph = mount()
+    const view = graph.store.get().view
+    pointer(graph, 'pointerdown', 790, 10, { shiftKey: true })
+    pointer(graph, 'pointermove', 700, 60, { shiftKey: true })
+    pointer(graph, 'pointerup', 700, 60, { shiftKey: true })
+    expect(graph.store.get().view).not.toEqual(view)
+    expect(graph.selection.get().nodes).toEqual([])
+  })
+
   it('reports the clicked target and picks edges', () => {
     const graph = mount()
     const targets: unknown[] = []
