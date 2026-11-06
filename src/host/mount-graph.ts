@@ -1887,7 +1887,7 @@ export function createGraphHost<S extends string = string>(
     get: () => store.get().view,
     set: (next, viewOptions = {}) => animateTo(next, viewOptions.duration),
     fit: (keys, fitOptions = {}) => {
-      if (!fitTo(keys, fitOptions)) pendingFit = keys ? null : fitOptions
+      pendingFit = fitTo(keys, fitOptions) || keys ? null : fitOptions
     },
     zoomBy: (factor, viewOptions = {}) => {
       const size = viewport()
