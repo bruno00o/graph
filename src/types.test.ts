@@ -4,8 +4,12 @@ import {
   type Accessor,
   defineGraph,
   type EdgeMark,
+  type ElementKeys,
   edges,
   type FieldOf,
+  type GraphDefinition,
+  type GraphInstance,
+  type GraphState,
   type KeyFieldOf,
   type Mark,
   type NodeMark,
@@ -83,5 +87,22 @@ describe('public types', () => {
       },
     })
     expectTypeOf(defineGraph({ marks: [mark] }).marks).toEqualTypeOf<readonly Mark[]>()
+  })
+
+  it('types state names from the definition', () => {
+    const definition = defineGraph({
+      marks: [],
+      states: { muted: { opacity: 0.2 }, selected: { stroke: 'red' } },
+    })
+    expectTypeOf(definition).toEqualTypeOf<GraphDefinition<'muted' | 'selected'>>()
+    type Instance = GraphInstance<'muted' | 'selected'>
+    expectTypeOf<Parameters<Instance['states']['set']>[0]>().toEqualTypeOf<'muted'>()
+    expectTypeOf<GraphState<'muted' | 'selected'>['states']>().toEqualTypeOf<{
+      readonly muted: ElementKeys
+    }>()
+    expectTypeOf<Parameters<GraphInstance<never>['states']['set']>[0]>().toBeNever()
+    expectTypeOf(defineGraph({ marks: [] })).toEqualTypeOf<GraphDefinition<never>>()
+    expectTypeOf(definition).toExtend<GraphDefinition>()
+    expectTypeOf<Instance>().toExtend<GraphInstance>()
   })
 })

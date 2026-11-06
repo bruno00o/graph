@@ -29,6 +29,7 @@ export type {
   Accessor,
   Badge,
   BadgeCorner,
+  BuiltInState,
   Channel,
   ColorScale,
   EdgeArrow,
@@ -36,6 +37,7 @@ export type {
   EdgeMark,
   EdgeOptions,
   FieldOf,
+  FreeState,
   GraphData,
   GraphDefinition,
   GraphDefinitionOptions,
@@ -58,6 +60,7 @@ export type {
   SourceChange,
   SourceSubscription,
   StateStyle,
+  StateStyles,
   Style,
   View,
 } from './types'

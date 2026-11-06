@@ -1,6 +1,5 @@
-import type { BuiltInState } from '../core/state-names'
 import type { Extent } from '../scales/extent'
-import type { StateStyle } from '../types'
+import type { BuiltInState, StateStyle } from '../types'
 
 export const lightTheme: Readonly<Record<string, string>> = {
   paper: '#f7f7f4',

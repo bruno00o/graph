@@ -1,11 +1,16 @@
 import type { ReadonlyStore } from '@tanstack/store'
-import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition } from '../types'
-import type { GraphEventName } from './events'
-import { createGraphHost, type GraphInstance, type GraphState } from './mount-graph'
+import type { ElementKeys, GraphEventName } from './events'
+import {
+  createGraphHost,
+  type GraphInstance,
+  type GraphState,
+  type MountGraphOptions,
+} from './mount-graph'
 
 interface Item {
   readonly id: string
@@ -41,12 +46,15 @@ function definition(data: readonly Item[] = items): GraphDefinition {
 
 let dom: FakeDom
 
-function mount(graphDefinition = definition()): GraphInstance {
+function mount(
+  graphDefinition = definition(),
+  options: Partial<MountGraphOptions> = {},
+): GraphInstance {
   const container = document.createElement('div')
   document.body.append(container)
   const graph = createGraphHost(
     container,
-    { definition: graphDefinition, ariaLabel: 'graphe' },
+    { definition: graphDefinition, ariaLabel: 'graphe', ...options },
     fakeRenderer,
   )
   dom.flushFrames()
@@ -256,5 +264,64 @@ describe('createGraphHost', () => {
     const container = graph.element.parentElement
     graph.destroy()
     expect(container?.querySelector('[data-graph]')).toBeNull()
+  })
+})
+
+describe('controlled selection', () => {
+  function controlled(selection: ElementKeys = { nodes: [], edges: [] }) {
+    const requests: ElementKeys[] = []
+    const graph = mount(definition(), {
+      selection,
+      onSelectionChange: (next) => requests.push(next),
+    })
+    return { graph, requests }
+  }
+
+  it('asks for the clicked selection without applying it', () => {
+    const { graph, requests } = controlled()
+    const seen = record(graph, ['selectionchange'])
+    const a = screenOf(graph, 'a')
+    const b = screenOf(graph, 'b')
+    click(graph, a.x, a.y)
+    expect(requests).toEqual([{ nodes: ['a'], edges: [] }])
+    expect(graph.selection.get().nodes).toEqual([])
+    graph.update({ selection: { nodes: ['a'] } })
+    expect(graph.selection.get().nodes).toEqual(['a'])
+    click(graph, b.x, b.y, { shiftKey: true })
+    expect(requests.at(-1)).toEqual({ nodes: ['a', 'b'], edges: [] })
+    expect(seen).toEqual(['selectionchange'])
+  })
+
+  it('routes selection calls through the request and skips no-ops', () => {
+    const { graph, requests } = controlled({ nodes: ['b'], edges: [] })
+    expect(graph.store.state.selection.nodes).toEqual(['b'])
+    graph.selection.set({ nodes: ['b'] })
+    graph.selection.set({ edges: ['ab'] })
+    graph.selection.clear()
+    expect(requests).toEqual([
+      { nodes: [], edges: ['ab'] },
+      { nodes: [], edges: [] },
+    ])
+    expect(graph.selection.get().nodes).toEqual(['b'])
+  })
+
+  it('reports elements that leave the data', () => {
+    const { graph, requests } = controlled({ nodes: ['a', 'c'], edges: [] })
+    graph.update({ definition: definition(items.filter((item) => item.id !== 'a')) })
+    dom.flushFrames()
+    expect(requests).toEqual([{ nodes: ['c'], edges: [] }])
+  })
+})
+
+describe('container size', () => {
+  it('warns once in development when the container has no height', () => {
+    dom.restore()
+    dom = installDom(800, 0)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mount()
+    mount()
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(warn.mock.calls[0]?.[0]).toContain('0 px')
+    warn.mockRestore()
   })
 })
