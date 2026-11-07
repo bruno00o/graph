@@ -395,6 +395,142 @@ describe('createGraphModel', () => {
     expect(model.node('b')?.mark).toBe(mark)
   })
 
+  it('restyles a key that leaves and comes back under new options before the flush', () => {
+    const model = createGraphModel()
+    const a = item('a')
+    const b = item('b')
+    model.setMarks([nodes([a, b], { color: 'group' })])
+    model.flush()
+    model.setMarks([nodes([a], { color: 'id' })])
+    model.setMarks([nodes([a, b], { color: 'id' })])
+    expect(keys(model.flush().nodes.updated).sort()).toEqual(['a', 'b'])
+  })
+
+  it('restyles the rows of a replaced live source whose options change before the flush', () => {
+    const model = createGraphModel()
+    const a = item('a')
+    const rows = () => createLiveSource<Item>([{ type: 'insert', key: 'a', value: a }]).source
+    model.setMarks([nodes(rows(), { color: 'group' })])
+    model.flush()
+    const next = rows()
+    model.setMarks([nodes(next, { color: 'group' })])
+    model.setMarks([nodes(next, { color: 'id' })])
+    expect(keys(model.flush().nodes.updated)).toEqual(['a'])
+  })
+
+  it('restyles the rows when an array with new options replaces a live source', () => {
+    const model = createGraphModel()
+    const a = item('a')
+    const ab = link('ab', 'a', 'b')
+    const live = createLiveSource<Item>([{ type: 'insert', key: 'a', value: a }])
+    const liveLinks = createLiveSource<Link>([{ type: 'insert', key: 'ab', value: ab }])
+    const others = nodes([item('b')])
+    model.setMarks([
+      others,
+      nodes(live.source, { color: 'group' }),
+      edges(liveLinks.source, linkOptions),
+    ])
+    model.flush()
+    model.setMarks([others, nodes([a], { color: 'id' }), edges([ab], { ...linkOptions, width: 4 })])
+    const changes = model.flush()
+    expect(keys(changes.nodes.updated)).toEqual(['a'])
+    expect(keys(changes.edges.updated)).toEqual(['ab'])
+  })
+
+  it('restyles nothing when options change and change back before the flush', () => {
+    const model = createGraphModel()
+    const data = [item('a')]
+    model.setMarks([nodes(data, { color: 'group' })])
+    model.flush()
+    model.setMarks([nodes(data, { color: 'id' })])
+    model.setMarks([nodes(data, { color: 'group' })])
+    expect(model.flush().nodes.updated).toEqual([])
+  })
+
+  it('compares nested options by content and functions by identity', () => {
+    const model = createGraphModel()
+    const data = [item('a')]
+    const links = [link('aa', 'a', 'a')]
+    const color = (datum: Item) => datum.group
+    const marks = (size: number, read: (datum: Item) => string) => [
+      nodes(data, { label: { text: 'id', size }, image: { src: 'a.svg' }, color: read }),
+      edges(links, { ...linkOptions, ends: { source: { width: 2, label: { text: 'id' } } } }),
+    ]
+    model.setMarks(marks(12, color))
+    model.flush()
+    model.setMarks(marks(12, color))
+    const same = model.flush()
+    expect(same.nodes.updated).toEqual([])
+    expect(same.edges.updated).toEqual([])
+    model.setMarks(marks(14, color))
+    expect(keys(model.flush().nodes.updated)).toEqual(['a'])
+    model.setMarks(marks(14, (datum) => datum.group))
+    expect(keys(model.flush().nodes.updated)).toEqual(['a'])
+  })
+
+  it('reads the mark of the last flush for the records of a mark that left', () => {
+    const model = createGraphModel()
+    const second = nodes([item('b')])
+    model.setMarks([nodes([item('a')]), second])
+    model.flush()
+    model.setMarks([nodes([item('a')])])
+    expect(model.node('b')?.mark).toBe(second)
+    model.flush()
+    expect(model.node('b')).toBeUndefined()
+  })
+
+  it('reports live changes without a valid key and keeps flushing', () => {
+    const schedule = vi.fn()
+    const model = createGraphModel({ schedule })
+    const unkeyed = item('x')
+    const live = createLiveSource<Item>([
+      { type: 'insert', key: undefined as unknown as Key, value: unkeyed },
+      { type: 'insert', key: 'b', value: item('b') },
+    ])
+    model.setMarks([nodes(live.source)])
+    expect(() => model.flush()).not.toThrow()
+    expect(model.node('b')).toBeDefined()
+    expect(issuesOf(model)).toEqual([{ type: 'missing-key', kind: 'nodes', datum: unkeyed }])
+    schedule.mockClear()
+    const version = model.issueVersion
+    live.emit([{ type: 'update', key: Number.NaN, value: unkeyed }])
+    expect(schedule).toHaveBeenCalled()
+    expect(() => model.flush()).not.toThrow()
+    expect(model.issueVersion).toBeGreaterThan(version)
+    expect(issuesOf(model)).toHaveLength(2)
+    live.emit([
+      { type: 'delete', key: undefined as unknown as Key, value: unkeyed },
+      { type: 'delete', key: Number.NaN, value: unkeyed },
+    ])
+    model.flush()
+    expect(issuesOf(model)).toEqual([])
+    expect(model.node('b')).toBeDefined()
+  })
+
+  it('leaves its sources as they were when a live source fails to subscribe', () => {
+    const model = createGraphModel()
+    const kept = createLiveSource<Item>([{ type: 'insert', key: 'a', value: item('a') }])
+    const fresh = createLiveSource<Item>()
+    const failing = <T>(): LiveSource<T> => ({
+      subscribeChanges() {
+        throw new Error('offline')
+      },
+    })
+    model.setMarks([nodes(kept.source), edges([link('ab', 'a', 'b')], linkOptions)])
+    model.flush()
+    expect(() => model.setMarks([nodes(fresh.source), nodes(failing<Item>())])).toThrow('offline')
+    expect(fresh.subscribed).toBe(false)
+    expect(kept.subscribed).toBe(true)
+    expect(() =>
+      model.setMarks([nodes(fresh.source), edges(failing<Link>(), linkOptions)]),
+    ).toThrow('offline')
+    expect(fresh.subscribed).toBe(false)
+    kept.emit([{ type: 'insert', key: 'b', value: item('b') }])
+    const changes = model.flush()
+    expect(keys(changes.nodes.added)).toEqual(['b'])
+    expect(keys(changes.edges.added)).toEqual(['ab'])
+  })
+
   it('schedules a flush whenever work is queued', () => {
     const schedule = vi.fn()
     const model = createGraphModel({ schedule })

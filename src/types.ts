@@ -295,6 +295,7 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   readonly layer?: L | undefined
   /**
    * Node key, unique across node marks. Required for an iterable whose items have no `id` field.
+   * A live source keys its items by the `key` of its changes and takes no `key` option.
    * @default 'id'
    */
   readonly key?: KeyChannel<T> | undefined
@@ -447,6 +448,7 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   readonly layer?: L | undefined
   /**
    * Edge key, unique across edge marks. Required for an iterable whose items have no `id` field.
+   * A live source keys its items by the `key` of its changes and takes no `key` option.
    * @default 'id'
    */
   readonly key?: KeyChannel<T> | undefined
@@ -978,7 +980,8 @@ export interface InteractionOptions {
   readonly pan?: boolean | undefined
   /**
    * Zoom with the wheel, a pinch and the keyboard. `{ speed }` multiplies the wheel and trackpad
-   * zoom speed, 1 by default. Code still zooms.
+   * zoom speed, 1 by default: a finite number, 0 or more, or `defineGraph` throws a `RangeError`.
+   * Code still zooms.
    * @default true
    */
   readonly zoom?: boolean | { readonly speed?: number | undefined } | undefined
@@ -991,7 +994,8 @@ export interface InteractionOptions {
   readonly wheel?: WheelMode | undefined
   /**
    * Scrolls the view while a node drag or a lasso nears the edge of the element, faster closer to
-   * it. `{ speed }` multiplies the speed, 1 by default. Needs `pan`.
+   * it. `{ speed }` multiplies the speed, 1 by default: a finite number, 0 or more, or
+   * `defineGraph` throws a `RangeError`. Needs `pan`.
    * @default true
    */
   readonly autoPan?: boolean | { readonly speed?: number | undefined } | undefined
@@ -1157,10 +1161,10 @@ export interface ViewLimitOptions {
   /**
    * When the view frames the nodes on its own, with `padding`. `'first'` frames the first data
    * and follows the first layout run until the view moves, unless the graph mounts with
-   * `initialView` or `view`. `'layouts'` does the same, then follows every layout run and frames
-   * its end, as long as the view has not moved since the last fit: a gesture, `view.set` or
-   * `view.zoomBy` stops it until the next `view.fit`. `'never'` frames nothing. A controlled view receives the
-   * fits as requests.
+   * `initialView` or `view`; a gesture before the first data cancels that first fit. `'layouts'`
+   * does the same, then follows every layout run and frames its end, as long as the view has not
+   * moved since the last fit: a gesture, `view.set` or `view.zoomBy` stops it until the next
+   * `view.fit`. `'never'` frames nothing. A controlled view receives the fits as requests.
    * @default 'first'
    */
   readonly autoFit?: AutoFit | undefined
@@ -1180,7 +1184,10 @@ export interface ResolvedViewLimits {
   readonly autoFit: AutoFit
 }
 
-/** Durations of animated moves, in milliseconds. Negative values count as 0. */
+/**
+ * Durations of animated moves, in milliseconds: finite numbers, 0 or more, or `defineGraph` throws
+ * a `RangeError`.
+ */
 export interface TransitionOptions {
   /**
    * Moves of nodes whose `x` or `y` changes in the data.
@@ -1414,14 +1421,16 @@ export interface BridgeOptions {
    */
   readonly shape?: BridgeShape | undefined
   /**
-   * Width of each jump along the jumping edge, in screen pixels. Below zoom 1 it shrinks with the
-   * zoom, and under 2 pixels the edges cross plainly.
+   * Width of each jump along the jumping edge, in screen pixels: a positive number, or
+   * `defineGraph` throws a `RangeError`. Below zoom 1 it shrinks with the zoom, and under 2 pixels
+   * the edges cross plainly.
    * @default 8
    */
   readonly size?: number | undefined
   /**
-   * Most edges checked for crossings. Above it, no edge jumps and a warning is logged in
-   * development.
+   * Most edges checked for crossings, 0 or more, `Infinity` for no limit; a negative or `NaN`
+   * value makes `defineGraph` throw a `RangeError`. Above it, no edge jumps and a warning is
+   * logged in development.
    * @default 100000
    */
   readonly maxEdges?: number | undefined
@@ -1544,8 +1553,9 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
 export interface TimeOptions {
   /**
    * Duration over which an element fades in after the window reaches it and fades out before the
-   * window leaves it, in the milliseconds of the data. With a fade, an element at the very edge of
-   * the window has faded out and counts as hidden.
+   * window leaves it, in the milliseconds of the data: a finite number, 0 or more, or
+   * `defineGraph` throws a `RangeError`. With a fade, an element at the very edge of the window
+   * has faded out and counts as hidden.
    * @default 0
    */
   readonly fade?: number | undefined
@@ -1569,7 +1579,8 @@ export interface BackgroundOptions {
   /** Draws `'lines'` or `'dots'`. */
   readonly grid: BackgroundGrid
   /**
-   * Distance between lines in world units, before the zoom picks a power of 4 of it.
+   * Distance between lines in world units, before the zoom picks a power of 4 of it. A positive
+   * number, or `defineGraph` throws a `RangeError`.
    * @default 16
    */
   readonly spacing?: number | undefined
@@ -1732,9 +1743,10 @@ export interface PathOptions<M extends Mark = Mark> {
 /** Options of `paths.reach`. `M` is the union of the marks, whose items the functions read. */
 export interface ReachOptions<M extends Mark = Mark> extends PathOptions<M> {
   /**
-   * Largest cost from the start, which counts edges without `weight`. Defaults to no limit: the
-   * whole connected component, every node the start leads to with `'forward'`, or every node that
-   * leads to the start with `'backward'`.
+   * Largest cost from the start, which counts edges without `weight`: a number, 0 or more, or
+   * `reach` throws a `RangeError`. Defaults to no limit: the whole connected component, every
+   * node the start leads to with `'forward'`, or every node that leads to the start with
+   * `'backward'`.
    */
   readonly maxCost?: number | undefined
 }
@@ -1785,7 +1797,7 @@ export interface PathFinder<M extends Mark = Mark> extends GraphPaths<M> {
 export interface SupportWalkOptions {
   /**
    * Most support steps from the start: `1` keeps the edges that carry it, or that it carries,
-   * directly. Defaults to no limit.
+   * directly. A number, 0 or more, or the walk throws a `RangeError`. Defaults to no limit.
    */
   readonly maxDepth?: number | undefined
 }

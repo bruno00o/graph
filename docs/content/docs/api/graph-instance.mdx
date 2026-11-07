@@ -100,9 +100,23 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `layout.run`, `bundling.run`, `routing.run` | Resolve to `false`. A layout run in progress at `destroy` resolves to `false` too |
 | `drawn` | Rejects with `signal.reason` |
 | [`exportPng`, `exportSvg`](/docs/api/export) and [`exportMapPng`](/docs/api/map) | Reject with an error |
-| [`createMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Create an empty companion that never changes |
+| [`createMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Return a companion already destroyed: empty, it holds no worker, observer or timer, never changes and never plays |
 
 A graph mounted with a signal already aborted comes back in this state: nothing is mounted, its element is never added to the page, and a warning is logged in development. Its store holds the view, the selection, the states, the folded groups, the time window and the hidden layers of the options.
+
+An event handler, a store subscriber or a controlled callback can call `destroy`: the graph stops at once and changes nothing after it. See [Errors in handlers](/docs/api/events#errors-in-handlers).
+
+## Numbers
+
+Numbers given to the graph must be finite. A call with one that is not, such as `NaN` from a division by zero, throws a `RangeError` and changes nothing:
+
+- the `x`, `y` and `zoom` of `view.set`, and the factor of `view.zoomBy`, which must also be above 0;
+- the `padding` and `maxZoom` of `view.fit`, and of the `fit` of `layout.run`;
+- every `duration`;
+- the `at`, `radius` and `zoom` of `lens.set`, whose `radius` must also be above 0;
+- the ends of the window of `time.set`.
+
+`layout.run` rejects with that error instead of throwing. `positions.set` reads its entries as data, the way the `x` and `y` channels ignore a value that is not finite: an entry whose `x` or `y` is not finite is skipped, with a warning in development, its node stays where it is, and the other entries apply. Once the graph is destroyed, no call throws.
 
 ## View
 
@@ -125,7 +139,7 @@ interface View {
 
 <api-table path="index.ts" name="GraphView" />
 
-`fit` frames its `nodes` and `edges`, or every node when it names neither; a path or the selection fits as is. `padding` defaults to the `padding` of the [view of the definition](/docs/view#padding), 32 pixels unless set. Called before the element has a size, `fit` waits for one. During the first layout run, the view keeps framing the nodes of the last `fit` while they move, until the view is moved. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view.
+`fit` frames its `nodes` and `edges`, or every node when it names neither; a path or the selection fits as is. `padding` defaults to the `padding` of the [view of the definition](/docs/view#padding), 32 pixels unless set. Called before the element has a size, `fit` waits for one. During the first layout run, the view keeps framing the nodes of the last `fit` while they move, until the view is moved. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view. A view, a factor or an option that is not finite throws a `RangeError`: see [Numbers](#numbers).
 
 ## Selection
 
@@ -179,7 +193,7 @@ interface GraphPositions {
 
 <api-table path="index.ts" name="GraphPositions" />
 
-Positions are in world units. `set` emits `positionchange` with the origin `'api'`. During a layout run, the nodes moved by `set` are pinned until the run ends.
+Positions are in world units. `set` emits `positionchange` with the origin `'api'`. During a layout run, the nodes moved by `set` are pinned until the run ends. An entry whose `x` or `y` is not finite is skipped, with a warning in development: see [Numbers](#numbers).
 
 `snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it.
 

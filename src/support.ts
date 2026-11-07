@@ -1,12 +1,11 @@
 import { createGraphModel } from './core/graph-model'
-import { SupportIndex } from './core/support'
-import type { Mark, SupportFinder, SupportWalk } from './types'
-
-const noWalk: SupportWalk = Object.freeze({ edges: [], depths: [], nodes: [] })
+import { noWalk, SupportIndex } from './core/support'
+import type { Mark, SupportFinder } from './types'
 
 /**
  * Support queries on the data of marks, without mounting a graph: on a server, in a worker or in
- * tests. The marks are read at the first query, and live sources again after each change.
+ * tests. It reads the arrays and subscribes to the live sources at once, then applies their
+ * changes at the next query.
  */
 export function createSupportFinder(definition: {
   readonly marks: readonly Mark[]

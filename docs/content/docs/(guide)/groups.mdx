@@ -73,7 +73,7 @@ With `interaction.fold`, on by default, double-clicking a group, or pressing Ent
 
 ### Controlled folding
 
-Pass `folded` at mount to own the folded groups: every request, from a double-click, Enter or `graph.groups`, calls `onFoldChange`, and only `update({ folded })` changes what is drawn. In React, pass `folded` and `onFoldChange` to `<Graph>`.
+Pass `folded` at mount to own the folded groups: every request, from a double-click, Enter or `graph.groups`, calls `onFoldChange`, and only `update({ folded })` changes what is drawn. As for the [selection](/docs/interaction#controlled-selection), each request starts from the last one not answered yet. In React, pass `folded` and `onFoldChange` to `<Graph>`.
 
 ```tsx
 const [folded, setFolded] = useState<Key[]>(['g'])

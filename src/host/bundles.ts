@@ -301,6 +301,10 @@ export class BundleHost {
     const name = method.kind === 'route' ? 'routing' : 'bundling'
     this.#running = method.kind
     this.#context.running(true, method.kind)
+    if (this.#method !== method) {
+      this.#context.running(false, method.kind)
+      return
+    }
     const listener: BundleListener = {
       end: (paths) => {
         if (serial !== this.#serial) return

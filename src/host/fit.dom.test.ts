@@ -146,6 +146,37 @@ describe('automatic framing', () => {
     expect(graph.view.get().y).toBeCloseTo(50)
   })
 
+  it('leaves the first fit to a user who moved the view before the data came', () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const placed = (data: readonly Item[]) =>
+      defineGraph({ marks: [nodes<Item>(data, { x: 'x', y: 'y' })] })
+    const graph = createGraphHost(
+      container,
+      { definition: placed([]), ariaLabel: 'graphe' },
+      fakeRenderer,
+    )
+    dom.flushFrames()
+    wheel(graph, -120)
+    dom.flushFrames()
+    const moved = graph.view.get()
+    expect(moved.zoom).toBeGreaterThan(1)
+    graph.update({ definition: placed(items) })
+    dom.flushFrames()
+    expect(graph.view.get()).toEqual(moved)
+    const other = createGraphHost(
+      container,
+      { definition: placed([]), ariaLabel: 'graphe' },
+      fakeRenderer,
+    )
+    dom.flushFrames()
+    other.view.set({ x: 9, y: 9, zoom: 2 })
+    dom.flushFrames()
+    other.update({ definition: placed(items) })
+    dom.flushFrames()
+    expect(other.view.get().y).toBeCloseTo(50)
+  })
+
   it('keeps the view of the mount with autoFit never', () => {
     const graph = mount({ autoFit: 'never' })
     expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })

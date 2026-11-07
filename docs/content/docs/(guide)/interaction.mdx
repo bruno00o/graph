@@ -63,11 +63,13 @@ return (
 )
 ```
 
+An application that answers later loses no click: each request starts from the last request it has not answered yet, so two Shift-clicks before an answer ask for both elements. Applying a request drops it and the ones before it, and applying any other selection drops them all.
+
 The mode is fixed at mount: a graph mounted with `selection` stays controlled for its whole life. When an element is removed from the data, it leaves the selection and `onSelectionChange` reports it. See the [selection synced with a list](/examples/controlled-selection) example.
 
 ## Drag
 
-Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection, and dragging a [group](/docs/groups) by its container moves every node inside it. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions on every move of the drag. During a layout run, a dragged node stays where you drop it and the others settle around it. See [Positions](/docs/positions).
+Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection, and dragging a [group](/docs/groups) by its container moves every node inside it. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions on every move of the drag. A node that leaves the data during its drag ends the drag with `dragend`, and the rest of the press moves nothing; a node of a dragged selection that leaves drops out, and the others go on. During a layout run, a dragged node stays where you drop it and the others settle around it. See [Positions](/docs/positions).
 
 ## Lasso
 
@@ -124,7 +126,7 @@ defineGraph({ marks, interaction: { autoPan: { speed: 0.5 } } })
 
 ## Turn gestures off
 
-`pan: false` and `zoom: false` stop the user from moving or zooming the view, with the pointer, fingers, wheel and keyboard alike. Your code still moves the view with [`graph.view`](/docs/view): this keeps a view fixed on screen while a script tours the graph.
+`pan: false` and `zoom: false` stop the user from moving or zooming the view, with the pointer, fingers, wheel and keyboard alike: the `0` key fits nothing unless both are on, and with `pan: false` the view no longer follows the node focused from the keyboard. Your code still moves the view with [`graph.view`](/docs/view) and `graph.focus.set`: this keeps a view fixed on screen while a script tours the graph.
 
 ```ts
 defineGraph({ marks, interaction: { pan: false, zoom: false } })
@@ -143,10 +145,10 @@ With `keyboard: true`, the graph element is focusable (`tabindex="0"`, `role="ap
 | Escape | Cancel the lasso, then clear the selection, then remove the focus |
 | Shift and arrow keys | Pan the view by a tenth of its size, with `pan: true` |
 | `+` and `-` | Zoom in and out, with `zoom: true` |
-| `0` | Fit the whole graph |
+| `0` | Fit the whole graph, with `pan: true` and `zoom: true` |
 | Alt, held | Show the [lens](/docs/lens) on the focused node, with `lens` on |
 
-Without a focused node, the arrows start from the last selected node, or from the node nearest the center. The view follows the focused node when it gets within 48 pixels of the edge. Keys stay within the [view limits](/docs/view#view-limits), like every other move. The focused node's label, or its key, is announced to screen readers through a live region.
+Without a focused node, the arrows start from the last selected node, or from the node nearest the center. The view follows the focused node when it gets within 48 pixels of the edge, with `pan: true`. Keys stay within the [view limits](/docs/view#view-limits), like every other move. The focused node's label, or its key, is announced to screen readers through a live region.
 
 ```ts
 graph.focus.set({ kind: 'node', key: 'n3' })
@@ -200,5 +202,7 @@ graph.on('pointermove', ({ target, world }) => {
   readout.textContent = target ? String(target.key) : `${world.x.toFixed(0)}, ${world.y.toFixed(0)}`
 })
 ```
+
+A handler that throws stops neither the other handlers nor the graph: its error is reported as an uncaught error, and the click still selects. See [Errors in handlers](/docs/api/events#errors-in-handlers).
 
 See [Events](/docs/api/events) for the full list, and the examples: the [event log](/examples/event-log) prints every event as it fires, the [context menu](/examples/context-menu) opens on `contextmenu`, and the [neighborhood on hover](/examples/hover-neighborhood) lights the neighbors on `pointerenter`.

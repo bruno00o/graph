@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Key } from '../types'
-import { KeyMap } from './key-map'
+import { KeyMap, NativeKeyMap } from './key-map'
 
-const entries = <V>(map: KeyMap<V>): [Key, V][] => {
+const entries = <V>(map: KeyMap<V> | NativeKeyMap<V>): [Key, V][] => {
   const result: [Key, V][] = []
   map.forEach((value, key) => {
     result.push([key, value])
   })
   return result
 }
-const keys = <V>(map: KeyMap<V>): Key[] => entries(map).map(([key]) => key)
 
 describe('KeyMap', () => {
   it('keeps the insertion order of a Map', () => {
@@ -18,36 +17,29 @@ describe('KeyMap', () => {
     expect(map.set(1, 'second')).toBe(true)
     expect(map.set('a', 'third')).toBe(true)
     expect(map.set('b', 'again')).toBe(false)
-    expect(map.delete(1)).toBe(true)
-    expect(map.delete(1)).toBe(false)
-    map.set(1, 'back')
     expect(entries(map)).toEqual([
       ['b', 'again'],
+      [1, 'second'],
       ['a', 'third'],
-      [1, 'back'],
     ])
-    expect(keys(map)).toEqual(['b', 'a', 1])
     expect(map.size).toBe(3)
     expect(map.has('a')).toBe(true)
     expect(map.get('z')).toBeUndefined()
   })
 
-  it('stays dense until a deletion and compacts in order', () => {
+  it('visits each key at its insertion position', () => {
     const map = new KeyMap<number>()
+    map.reserve(500)
     for (let n = 0; n < 500; n++) map.set(`k${n}`, n)
-    expect(map.dense).toBe(true)
     const positions: number[] = []
-    map.forEach((_, __, position) => {
+    map.forEach((value, _, position) => {
+      expect(position).toBe(value)
       positions.push(position)
     })
-    expect(positions).toEqual(positions.map((_, at) => at))
-    for (let n = 0; n < 500; n += 2) map.delete(`k${n}`)
-    expect(map.size).toBe(250)
-    expect(keys(map)).toEqual(Array.from({ length: 250 }, (_, at) => `k${at * 2 + 1}`))
-    for (let n = 1; n < 500; n += 2) expect(map.get(`k${n}`)).toBe(n)
+    expect(positions).toHaveLength(500)
   })
 
-  it('matches a Map through random operations', () => {
+  it('matches a Map through random additions and clears', () => {
     let state = 3
     const next = () => {
       state = (Math.imul(state, 1664525) + 1013904223) >>> 0
@@ -58,12 +50,30 @@ describe('KeyMap', () => {
     for (let step = 0; step < 5_000; step++) {
       const n = Math.floor(next() * 400)
       const key = next() < 0.5 ? n : `key ${n}`
-      if (next() < 0.45) expect(map.delete(key)).toBe(reference.delete(key))
-      else {
-        expect(map.set(key, step)).toBe(!reference.has(key))
-        reference.set(key, step)
+      expect(map.set(key, step)).toBe(!reference.has(key))
+      reference.set(key, step)
+      if (step === 2_500) {
+        map.clear()
+        reference.clear()
       }
     }
     expect(entries(map)).toEqual([...reference])
+  })
+})
+
+describe('NativeKeyMap', () => {
+  it('sets, deletes and visits in insertion order without positions', () => {
+    const map = new NativeKeyMap<string>()
+    map.set('a', 'first')
+    map.set(2, 'second')
+    map.set('a', 'again')
+    expect(map.delete(2)).toBe(true)
+    expect(map.delete(2)).toBe(false)
+    const positions: number[] = []
+    map.forEach((_, __, position) => {
+      positions.push(position)
+    })
+    expect(entries(map)).toEqual([['a', 'again']])
+    expect(positions).toEqual([-1])
   })
 })

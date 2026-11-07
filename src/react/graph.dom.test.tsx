@@ -1,6 +1,6 @@
 import { useSelector } from '@tanstack/react-store'
 import { shallow } from '@tanstack/store'
-import { act, type ReactNode, StrictMode, useState } from 'react'
+import { act, type ReactNode, StrictMode, useEffect, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
@@ -9,7 +9,7 @@ import type { RenderInput } from '../host/renderer'
 import { grid } from '../layouts'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import type { GraphDefinition, View } from '../types'
+import type { GraphDefinition, TimeWindowInput, View } from '../types'
 import { Graph, type GraphInstance, useGraph, useGraphEvent, useGraphState } from './index'
 
 const written = vi.hoisted(() => ({ nodes: 0, edges: 0 }))
@@ -117,6 +117,60 @@ function ControlledView({ follow }: { readonly follow: boolean }) {
       }}
     />
   )
+}
+
+const bump = { render: () => {} }
+
+function BusyView() {
+  const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
+  const [, setTick] = useState(0)
+  bump.render = () => setTick((tick) => tick + 1)
+  return (
+    <Graph
+      definition={stableDefinition}
+      ariaLabel="graphe"
+      ref={capture}
+      view={view}
+      onViewChange={(event) => setView(event.view)}
+      selection={{ nodes: [] }}
+    />
+  )
+}
+
+const timed = defineGraph({
+  marks: [
+    nodes(
+      [
+        { id: 'a', x: 0, y: 0, at: 5 },
+        { id: 'b', x: 50, y: 0, at: 10 },
+      ],
+      { x: 'x', y: 'y', time: 'at' },
+    ),
+  ],
+})
+
+function TimeFromEffect() {
+  const [time, setTime] = useState<TimeWindowInput | null>(null)
+  const [graph, setGraph] = useState<GraphInstance | null>(null)
+  useEffect(() => {
+    graph?.time.set({ start: 0, end: 7 })
+  }, [graph])
+  return (
+    <Graph
+      definition={timed}
+      ariaLabel="graphe"
+      ref={setGraph}
+      time={time}
+      onTimeChange={(event) => setTime(event.window)}
+    >
+      <Grab />
+    </Graph>
+  )
+}
+
+function Grab() {
+  captured.graph = useGraph()
+  return null
 }
 
 function Retagging() {
@@ -332,6 +386,29 @@ describe('controlled view', () => {
     expect(captured.graph?.view.get()).toEqual({ x: 40, y: 0, zoom: 2 })
   })
 
+  it('does not lose a pan step when the parent renders for another reason', () => {
+    render(<BusyView />)
+    const canvas = container.querySelector('canvas')
+    const send = (type: string, x: number) =>
+      canvas?.dispatchEvent(
+        new PointerEvent(type, {
+          clientX: x,
+          clientY: 500,
+          button: 0,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      )
+    act(() => {
+      send('pointerdown', 400)
+      send('pointermove', 450)
+    })
+    act(() => bump.render())
+    act(() => dom.flushFrames())
+    act(() => send('pointerup', 450))
+    expect(captured.graph?.view.get()).toEqual({ x: -50, y: 0, zoom: 1 })
+  })
+
   it('keeps the prop when the parent ignores the request', () => {
     render(<ControlledView follow={false} />)
     act(() => {
@@ -342,6 +419,18 @@ describe('controlled view', () => {
     })
     expect(captured.seen).toEqual(['0,2'])
     expect(captured.graph?.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })
+  })
+})
+
+describe('controlled time', () => {
+  it('takes a window asked from an effect without a warning from React', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await act(async () => {
+      root.render(<TimeFromEffect />)
+    })
+    expect(captured.graph?.time.get()).toEqual({ start: 0, end: 7 })
+    expect(errors).not.toHaveBeenCalled()
+    errors.mockRestore()
   })
 })
 

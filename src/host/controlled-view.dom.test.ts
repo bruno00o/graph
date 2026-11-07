@@ -146,6 +146,39 @@ describe('controlled view', () => {
     expect(requests.at(-1)?.view.x).toBe(-490)
   })
 
+  it('keeps a pending gesture request when update repeats the current view', () => {
+    const requests: View[] = []
+    const graph = mount({ view: origin, onViewChange: (event) => requests.push(event.view) })
+    step(0)
+    const canvas = graph.element.querySelector('canvas')
+    const send = (type: string, x: number) =>
+      canvas?.dispatchEvent(
+        new PointerEvent(type, {
+          clientX: x,
+          clientY: 300,
+          button: 0,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      )
+    send('pointerdown', 400)
+    send('pointermove', 450)
+    graph.update({ view: graph.view.get() })
+    step(16)
+    send('pointerup', 450)
+    expect(requests).toEqual([{ x: -50, y: 0, zoom: 1 }])
+  })
+
+  it('refuses a view that is not finite and applies nothing of the update', () => {
+    const graph = mount({ view: origin, onViewChange: () => {} })
+    step(0)
+    expect(() =>
+      graph.update({ view: { x: Number.NaN, y: 0, zoom: 1 }, ariaLabel: 'autre' }),
+    ).toThrow(RangeError)
+    expect(graph.view.get()).toEqual(origin)
+    expect(graph.element.getAttribute('aria-label')).toBe('graphe')
+  })
+
   it('applies the given view as is and does not fit the data', () => {
     const graph = mount({ view: { x: 9, y: 9, zoom: 100 } }, { maxZoom: 4 })
     step(0)

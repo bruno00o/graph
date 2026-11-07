@@ -14,6 +14,7 @@ import type {
   TimeWindow,
   View,
 } from '../types'
+import { report } from './isolate'
 import type { GraphLensState } from './lens'
 
 /** A node, with `datum`, the item it comes from, of type `T`, and `mark`, the name of its mark. */
@@ -314,12 +315,20 @@ export class Emitter {
   }
 
   emit<K extends GraphEventName>(name: K, event: GraphEvents[K]): void {
-    const set = this.#handlers.get(name)
+    const set = this.#handlers.get(name) as Set<GraphEventHandler<K>> | undefined
     if (!set) return
-    for (const handler of [...set]) (handler as GraphEventHandler<K>)(event)
+    for (const handler of [...set]) {
+      if (!set.has(handler)) continue
+      try {
+        handler(event)
+      } catch (error) {
+        report(error)
+      }
+    }
   }
 
   clear(): void {
+    for (const set of this.#handlers.values()) set.clear()
     this.#handlers.clear()
   }
 }

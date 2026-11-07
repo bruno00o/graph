@@ -598,26 +598,14 @@ export function createMinimap<S extends string, M extends Mark>(
   })
   resizeObserver.observe(element)
 
-  const stopWatch = internals.watch({
-    frame() {
-      const stamp = internals.stamp()
-      if (stamp.scene !== drawn.scene || stamp.detail !== drawn.detail) pending.scene = true
-      if (stamp.palette !== drawn.palette) pending.colors = true
-      if (stamp.positions !== drawn.positions || stamp.containers !== drawn.containers) {
-        pending.positions = true
-      }
-      if (graph.store.state.selection !== drawnSelection) pending.masks = true
-      schedule()
-    },
-    destroy: () => destroy(),
-  })
   const subscription = graph.store.subscribe(() => placeView())
+  let stopWatch: (() => void) | null = null
 
   function destroy(): void {
     if (destroyed) return
     destroyed = true
     clearTimeout(timer)
-    stopWatch()
+    stopWatch?.()
     subscription.unsubscribe()
     resizeObserver.disconnect()
     for (const [name, listener] of listeners) {
@@ -632,6 +620,19 @@ export function createMinimap<S extends string, M extends Mark>(
 
   style()
   schedule()
+  stopWatch = internals.watch({
+    frame() {
+      const stamp = internals.stamp()
+      if (stamp.scene !== drawn.scene || stamp.detail !== drawn.detail) pending.scene = true
+      if (stamp.palette !== drawn.palette) pending.colors = true
+      if (stamp.positions !== drawn.positions || stamp.containers !== drawn.containers) {
+        pending.positions = true
+      }
+      if (graph.store.state.selection !== drawnSelection) pending.masks = true
+      schedule()
+    },
+    destroy: () => destroy(),
+  })
 
   return {
     element,
