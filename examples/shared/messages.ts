@@ -202,6 +202,15 @@ export const messages = {
   lensFactor: (zoom: number): string => `×${decimal.format(zoom)}`,
   lensStatus: (zoom: number): string => `Loupe ×${decimal.format(zoom)}`,
   lensOff: 'Loupe masquée',
+  ends: 'Extrémités des arêtes',
+  endsLabel: 'Graphe de six nœuds reliés par des échanges dans les deux sens',
+  endsHint: 'Chaque moitié d’arête suit l’envoi du nœud dont elle part.',
+  endSplit: 'Partage',
+  endSplits: { half: 'Au milieu', share: 'Selon les volumes' },
+  endLabels: 'Libellés',
+  endLabelModes: { none: 'Aucun', plain: 'Texte', plated: 'Pastilles' },
+  sent: (node: string, value: number): string => `${node} envoie ${formatNumber(value)}`,
+  units: (value: number): string => formatNumber(value),
 }
 
 function milliseconds(value: number): string {

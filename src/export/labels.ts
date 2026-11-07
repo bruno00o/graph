@@ -151,7 +151,9 @@ export function fitLabels(
     },
     edge: (index, label, anchor: Readonly<EdgeAnchor>) => {
       const scale = (label.size * shrink) / atlasFontSize
-      const lift = label.plate ? 0 : Math.max(edges.width[index] ?? 0, 0.5) / 2 + edgeLabelGap
+      const width =
+        label.end === 0 ? edges.width[index] : edges.ends?.width[index * 2 + label.end - 1]
+      const lift = label.plate ? 0 : Math.max(width ?? 0, 0.5) / 2 + edgeLabelGap
       labelBox(label, local)
       for (const along of [local.left, local.right]) {
         for (const across of [local.top, local.bottom]) {

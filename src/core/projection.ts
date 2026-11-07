@@ -1,5 +1,7 @@
 import type {
   AggregateEdge,
+  EdgeEndOptions,
+  EdgeEndsOptions,
   EdgeLabelOptions,
   EdgeMark,
   EdgeOptions,
@@ -104,6 +106,25 @@ function liftedLabel(label: EdgeOptions<unknown>['label']): unknown {
   }
 }
 
+function liftedEnd(end: EdgeEndOptions<unknown> | undefined): unknown {
+  if (!end) return undefined
+  return {
+    ...(end.color !== undefined ? { color: first(toAccessor(end.color)) } : {}),
+    ...(end.width !== undefined ? { width: first(toAccessor(end.width)) } : {}),
+    ...(end.stroke !== undefined ? { stroke: lifted(end.stroke) } : {}),
+    ...(end.dash !== undefined ? { dash: lifted(end.dash) } : {}),
+    ...(end.label !== undefined ? { label: liftedLabel(end.label) } : {}),
+  }
+}
+
+function liftedEnds(ends: EdgeEndsOptions<unknown>): unknown {
+  return {
+    ...(ends.split !== undefined ? { split: lifted(ends.split) } : {}),
+    ...(ends.source ? { source: liftedEnd(ends.source) } : {}),
+    ...(ends.target ? { target: liftedEnd(ends.target) } : {}),
+  }
+}
+
 export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
   const cached = looks.get(mark)
   if (cached) return cached
@@ -114,6 +135,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
     width?: unknown
     label?: unknown
     time?: unknown
+    ends?: unknown
   } = {}
   if (options.color !== undefined) fallback.color = first(toAccessor(options.color))
   if (options.width !== undefined) fallback.width = first(toAccessor(options.width))
@@ -130,6 +152,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
   }
   if (options.time !== undefined) fallback.time = spanning(toAccessor(options.time))
   if (options.label !== undefined) fallback.label = liftedLabel(options.label)
+  if (options.ends !== undefined) fallback.ends = liftedEnds(options.ends)
   const look = Object.freeze({
     type: 'edges',
     name: mark.name,

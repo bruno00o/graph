@@ -1,5 +1,6 @@
 import type {
   AggregateEdge,
+  EdgeEnd,
   EdgeMark,
   Key,
   Mark,
@@ -38,6 +39,11 @@ export interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
    * those of its first edge.
    */
   readonly aggregate?: AggregateEdge<T>
+  /**
+   * End of the edge under the pointer, on either side of the `split` of its `ends` option:
+   * `'source'` or `'target'`. Set only on edges of a mark with `ends`, found under a point.
+   */
+  readonly end?: EdgeEnd
 }
 
 /**
@@ -182,9 +188,9 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly doubleclick: GraphPointerEvent<M>
   /** A secondary click. */
   readonly contextmenu: GraphPointerEvent<M>
-  /** The pointer enters an element. */
+  /** The pointer enters an element, or crosses the split of an edge into its other end. */
   readonly pointerenter: GraphTargetEvent<M>
-  /** The pointer leaves an element. */
+  /** The pointer leaves an element, or crosses the split of an edge out of one end. */
   readonly pointerleave: GraphTargetEvent<M>
   /** A node drag starts, once the pointer has moved 4 pixels. */
   readonly dragstart: GraphDragEvent<M>

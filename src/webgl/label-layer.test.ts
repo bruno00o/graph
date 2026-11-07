@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { EdgeColumns, NodeColumns, noColor } from '../core/columns'
+import { arrowCodes, EdgeColumns, NodeColumns, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import { Positions } from '../core/positions'
 import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
 import {
   type EdgeAnchor,
   edgeAnchor,
+  endAnchor,
   GlyphBuffer,
   glyphStride,
   LabelLayer,
@@ -387,6 +388,90 @@ describe('edge labels', () => {
     )
     expect(layer.edgeMain.count).toBe(0)
     expect(layer.edgeHighlight.count).toBe(1)
+  })
+})
+
+describe('end labels', () => {
+  const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
+  const atlas = {
+    height: 256,
+    line: (text: string): LineLayout => ({ width: text.length * 12, glyphs: [{ glyph, x: 0 }] }),
+  } as unknown as GlyphAtlas
+  const view = { x: 0, y: 0, zoom: 1 }
+
+  function pair(from: number, to: number) {
+    const nodes = columns([
+      { size: 20, label: null },
+      { size: 20, label: null },
+    ])
+    const positions = new Positions()
+    positions.set(0, -100, 0)
+    positions.set(1, 100, 0)
+    const edges = links([{ from, to, label: null }])
+    return { nodes, edges, positions, view, width: 800, height: 600 }
+  }
+
+  it('anchors each end label at its distance from the node, upright', () => {
+    const frame = pair(0, 1)
+    const anchor: EdgeAnchor = { x: 0, y: 0, ax: 0, ay: 0, room: 0 }
+    expect(endAnchor(frame, 0, true, 30, anchor)).toBe(true)
+    expect([anchor.x, anchor.y, anchor.ax, anchor.ay]).toEqual([330, 300, 1, 0])
+    expect(endAnchor(frame, 0, false, 30, anchor)).toBe(true)
+    expect([anchor.x, anchor.y]).toEqual([470, 300])
+    const reversed = pair(1, 0)
+    expect(endAnchor(reversed, 0, true, 30, anchor)).toBe(true)
+    expect([anchor.x, anchor.ax, anchor.ay]).toEqual([470, 1, -0])
+  })
+
+  it('follows a parallel curve and gives up beyond the top of a loop', () => {
+    const frame = pair(0, 1)
+    frame.edges.bend[0] = 0.1
+    const anchor: EdgeAnchor = { x: 0, y: 0, ax: 0, ay: 0, room: 0 }
+    expect(endAnchor(frame, 0, true, 30, anchor)).toBe(true)
+    expect(Math.hypot(anchor.x - 300, anchor.y - 300)).toBeCloseTo(30, 1)
+    expect(anchor.y).toBeGreaterThan(300)
+    const loop = pair(0, 0)
+    const reach = loopReach(10, 0, loopMinimum)
+    expect(endAnchor(loop, 0, true, reach - 5, anchor)).toBe(true)
+    expect(endAnchor(loop, 0, true, reach + 5, anchor)).toBe(false)
+  })
+
+  it('places end labels after the middle one, with their end and line width in the glyph kind', () => {
+    const frame = pair(0, 1)
+    const ends = frame.edges.useEnds()
+    ends.setLabel(0, 'in')
+    ends.setLabel(1, 'out')
+    ends.width[0] = 2
+    ends.width[1] = 4
+    frame.edges.arrow[0] = arrowCodes.target
+    const order = new Uint32Array(1)
+    const sorted = sortEdgesByWidth(frame.edges, order)
+    expect(sorted.length).toBe(1)
+    const layer = new LabelLayer()
+    layer.select(
+      {
+        ...frame,
+        nodeMask: new Uint32Array(2),
+        labelFlags: new Int8Array(32).fill(-1),
+        highlighted: [],
+        order: new Uint32Array(0),
+        orderLength: 0,
+        screenLabels: false,
+        largestLabel: 12,
+        edgeMask: new Uint32Array(1),
+        edgeLabelFlags: new Int8Array(32).fill(-1),
+        highlightedEdges: [],
+        edgeOrder: order,
+        edgeOrderLength: sorted.length,
+        largestEdgeLabel: sorted.largest,
+      },
+      atlas,
+    )
+    const u32 = new Uint32Array(layer.edgeMain.data)
+    const stride = glyphStride / 4
+    expect(layer.edgeMain.count).toBe(2)
+    expect(u32[1]).toBe(8 | (1 << 4) | (12 << 8) | (32 << 20))
+    expect(u32[stride + 1]).toBe((8 | (2 << 4) | (18 << 8) | (64 << 20)) >>> 0)
   })
 })
 

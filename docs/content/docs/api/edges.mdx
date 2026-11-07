@@ -62,6 +62,49 @@ edges<Link>(links, {
 })
 ```
 
+## Ends
+
+`ends` gives each end of an edge its own look and label, on either side of `split`. See [Edge ends](/docs/marks#edge-ends).
+
+```ts
+type EdgeEnd = 'source' | 'target'
+
+interface EdgeEndsOptions<T> {
+  readonly split?: Style<T, number>
+  readonly source?: EdgeEndOptions<T>
+  readonly target?: EdgeEndOptions<T>
+}
+
+interface EdgeEndOptions<T> {
+  readonly color?: Channel<T, string | number | boolean>
+  readonly stroke?: Style<T, string>
+  readonly width?: Channel<T, number>
+  readonly dash?: Style<T, EdgeDash>
+  readonly label?: Channel<T, string> | EdgeLabelOptions<T>
+}
+```
+
+<api-table path="index.ts" name="EdgeEndsOptions" />
+
+<api-table path="index.ts" name="EdgeEndOptions" />
+
+- The widest end gives the width used for picking and for the middle label.
+- An aggregated edge takes the ends of its first merged edge, and keeps their labels only when it merges a single edge.
+- `target.end` reports the end under the pointer, measured along the visible length. It is set only on edges of a mark with `ends`, `{}` included.
+
+```ts
+type Link = { id: string; from: string; to: string; out: number; back: number; backLabel: string }
+
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  ends: {
+    source: { color: 'out', dash: 'dashed' },
+    target: { color: 'back', label: { text: 'backLabel', background: true } },
+  },
+})
+```
+
 ## Parallel edges and loops
 
 Edges that share the same two nodes, in either direction, bend apart in symmetric arcs; an edge alone on its pair stays straight. An edge from a node to itself is a loop, and several loops nest. There is no option for the curvature yet.

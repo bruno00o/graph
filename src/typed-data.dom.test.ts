@@ -5,6 +5,7 @@ import {
   defineGraph,
   type EdgeBundling,
   type EdgeDatum,
+  type EdgeEnd,
   type EdgeMark,
   type EdgeTarget,
   edges,
@@ -74,6 +75,38 @@ describe('typed data', () => {
     const unnamed = graph.pick(at('c'))
     expect(unnamed).toMatchObject({ kind: 'node', key: 'c' })
     expect(unnamed && 'mark' in unnamed && unnamed.mark === undefined).toBe(true)
+  })
+
+  it('types the options of edge ends and the end under the pointer', () => {
+    const graph = mount(
+      defineGraph({
+        marks: [
+          edges(links, {
+            source: 'from',
+            target: 'to',
+            ends: {
+              split: (link) => link.weight,
+              source: { color: 'weight', label: { text: (link) => link.id, background: true } },
+              target: { width: 'weight', dash: () => 'dotted' },
+            },
+          }),
+          nodes(people),
+        ],
+      }),
+    )
+    graph.on('click', ({ target }) => {
+      if (target?.kind === 'edge') expectTypeOf(target.end).toEqualTypeOf<EdgeEnd | undefined>()
+    })
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      ends: {
+        source: {
+          // @ts-expect-error
+          color: 'missing',
+        },
+      },
+    })
   })
 
   it('infers the targets of one node mark and one edge mark without annotations', () => {

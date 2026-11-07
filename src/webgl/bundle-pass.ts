@@ -40,7 +40,7 @@ export interface BundlePass {
 export function createBundlePass(
   gl: WebGL2RenderingContext,
   blocks: Readonly<Record<string, number>>,
-  prepare: (program: WebGLProgram) => void,
+  prepare: (program: WebGLProgram, sources?: readonly [string, string]) => void,
   overlayIndices: WebGLBuffer,
 ): BundlePass {
   let pass: Program | null = null
@@ -74,7 +74,7 @@ export function createBundlePass(
   function program(): Program {
     if (pass) return pass
     const created = createProgram(gl, bundleVertex, edgeFragment, blocks)
-    prepare(created)
+    prepare(created, [bundleVertex, edgeFragment])
     const strips = pathClasses.map((stations) => {
       const corners = createBuffer(gl, bundleCorners(stations), gl.STATIC_DRAW)
       const indices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)

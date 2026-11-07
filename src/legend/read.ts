@@ -195,7 +195,8 @@ export function markNames(marks: readonly Mark[]): {
 
 function countValues(scene: Scene, sight: Sight): Map<unknown, Count> {
   const { nodes, edges } = scene
-  const { nodeColor, edgeColor } = scene.scales()
+  const { nodeColor, edgeColor, endColor } = scene.scales()
+  const split = endColor.length > 0
   const counts = new Map<unknown, Count>()
   let last: unknown
   let lastCount: Count | undefined
@@ -219,7 +220,10 @@ function countValues(scene: Scene, sight: Sight): Map<unknown, Count> {
   for (let index = 0; index < edges.capacity; index++) {
     if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, sight)) continue
     const value = edgeColor[index]
-    if (value !== null && value !== undefined) entry(value).edges++
+    const near = split ? (endColor[index * 2] ?? value) : value
+    const far = split ? (endColor[index * 2 + 1] ?? value) : value
+    if (near !== null && near !== undefined) entry(near).edges++
+    if (far !== near && far !== null && far !== undefined) entry(far).edges++
   }
   return counts
 }
@@ -389,7 +393,8 @@ export function keysOf(
   crowded: ReadonlySet<number>,
 ): LegendKeys {
   const { nodes, edges } = scene
-  const { nodeColor, edgeColor } = scene.scales()
+  const { nodeColor, edgeColor, endColor } = scene.scales()
+  const split = endColor.length > 0
   const keys: LegendKeys = { nodes: [], edges: [] }
   if (ids.size === 0) return keys
   let looks = false
@@ -417,7 +422,11 @@ export function keysOf(
     const key = edges.keys[index]
     if (key === undefined) continue
     const look = looks && ids.has(edgeLookId(edges.slot[index] ?? 0, edges.dash[index] ?? 0))
-    if (look || matches(edgeColor[index])) keys.edges.push(key)
+    const value = edgeColor[index]
+    const hit = split
+      ? matches(endColor[index * 2] ?? value) || matches(endColor[index * 2 + 1] ?? value)
+      : matches(value)
+    if (look || hit) keys.edges.push(key)
   }
   return keys
 }

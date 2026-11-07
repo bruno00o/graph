@@ -1,6 +1,14 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import { containerShape, noColor } from '../core/columns'
-import { loopMinimum, loopReach } from '../core/edge-curve'
+import {
+  crossCubic,
+  loopCurve,
+  loopMinimum,
+  loopReach,
+  parallelCurve,
+  pointOnCubic,
+  tangentOnCubic,
+} from '../core/edge-curve'
 import type { EdgePaths, PathPoint } from '../core/edge-paths'
 import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
@@ -13,6 +21,8 @@ import {
   edgeDescent,
   edgeLabelGap,
   edgeLabelSize,
+  endLabelGap,
+  endLabelWidthUnit,
   labelGap,
   nodeLabelSize,
   plateDrop,
@@ -39,6 +49,8 @@ const planPlacement = 7
 const planScreen = 8
 const planContainer = 16
 const planPlated = 32
+const maxExtentUnits = 4095
+const arcSamples = 16
 
 export interface LabelFrame {
   readonly nodes: NodeColumns
@@ -89,6 +101,7 @@ export interface PlacedLabel {
   readonly color: number
   readonly size: number
   readonly highlight: boolean
+  readonly end: number
 }
 
 export interface LabelSink {
@@ -437,6 +450,125 @@ export function edgeAnchor(
   return true
 }
 
+const endPoints: [PathPoint, PathPoint, PathPoint, PathPoint] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+]
+
+function aim(out: EdgeAnchor, x: number, y: number, dx: number, dy: number): boolean {
+  const length = Math.hypot(dx, dy)
+  if (length === 0) return false
+  const ux = dx / length
+  const uy = dy / length
+  const flip = ux < -uprightSlack || (Math.abs(ux) <= uprightSlack && uy < 0)
+  out.x = x
+  out.y = y
+  out.ax = flip ? -ux : ux
+  out.ay = flip ? -uy : uy
+  return true
+}
+
+export function endAnchor(
+  frame: Pick<
+    LabelFrame,
+    'nodes' | 'edges' | 'positions' | 'view' | 'width' | 'height' | 'paths' | 'globe'
+  >,
+  index: number,
+  first: boolean,
+  reach: number,
+  out: EdgeAnchor,
+): boolean {
+  const { edges, positions, view, width, height, paths } = frame
+  const source = edges.source[index] ?? 0
+  const target = edges.target[index] ?? 0
+  const globe = frame.globe && frame.globe.mix > 0 ? frame.globe : null
+  const [a, d, point, previous] = endPoints
+  const project = (x: number, y: number, at: PathPoint): boolean => {
+    if (globe) return globeScreen(globe, x, y, at) >= 0
+    at.x = (x - view.x) * view.zoom + width / 2
+    at.y = (y - view.y) * view.zoom + height / 2
+    return true
+  }
+  const ax = positions.x(source)
+  const ay = positions.y(source)
+  const dx = positions.x(target)
+  const dy = positions.y(target)
+  const frontA = project(ax, ay, a)
+  const frontD = project(dx, dy, d)
+  if (!(first ? frontA : frontD)) return false
+  const cx = first ? a.x : d.x
+  const cy = first ? a.y : d.y
+  out.room = Number.POSITIVE_INFINITY
+  const bend = edges.bend[index] ?? 0
+  const geodesic = edges.geodesic[index] === 1
+  const bundled = paths !== null && paths !== undefined && paths.count(index) > 1
+  let route = 0
+  if (!bundled && source !== target && (globe || geodesic)) {
+    const arc: ArcFrame = { x: view.x, y: view.y, zoom: view.zoom, width, height, globe }
+    route = edgeRoute(arc, ax, ay, dx, dy, geodesic)
+    if (route === 2) return false
+  }
+  if (bundled || route === 1) {
+    const arc: ArcFrame = { x: view.x, y: view.y, zoom: view.zoom, width, height, globe }
+    const count = bundled ? paths.count(index) : arcSamples + 1
+    const shift = bundled || first ? 0 : dx - arcPoint(ax, ay, dx, dy, 1, bend, geodesic, point).x
+    previous.x = cx
+    previous.y = cy
+    let before = 0
+    for (let k = 1; k < count; k++) {
+      const at = first ? k : count - 1 - k
+      if (bundled) {
+        paths.point(index, at, ax, ay, dx, dy, bend, paths.mix, point)
+        point.x = (point.x - view.x) * view.zoom + width / 2
+        point.y = (point.y - view.y) * view.zoom + height / 2
+      } else {
+        arcPoint(ax, ay, dx, dy, at / (count - 1), bend, geodesic, point)
+        screenOf(arc, point.x + shift, point.y, point)
+      }
+      const gap = Math.hypot(point.x - cx, point.y - cy)
+      if (gap >= reach || k === count - 1) {
+        const f = gap > before ? Math.min(1, Math.max(0, (reach - before) / (gap - before))) : 1
+        const sx = first ? point.x - previous.x : previous.x - point.x
+        const sy = first ? point.y - previous.y : previous.y - point.y
+        return aim(
+          out,
+          previous.x + (point.x - previous.x) * f,
+          previous.y + (point.y - previous.y) * f,
+          sx,
+          sy,
+        )
+      }
+      previous.x = point.x
+      previous.y = point.y
+      before = gap
+    }
+    return false
+  }
+  if (source === target || bend !== 0) {
+    const radius = screenRadius(frame.nodes, source, globe ? globeScale(globe, ay) : view.zoom)
+    const curve =
+      source === target
+        ? loopCurve(a.x, a.y, loopReach(radius, bend, loopMinimum))
+        : parallelCurve(a.x, a.y, d.x, d.y, bend)
+    const apex = pointOnCubic(curve, 0.5)
+    if (source === target && Math.hypot(apex.x - a.x, apex.y - a.y) < reach) return false
+    const t = first
+      ? crossCubic(curve, a.x, a.y, reach, 0, 0.5, true)
+      : crossCubic(curve, d.x, d.y, reach, 0.5, 1, false)
+    const at = pointOnCubic(curve, t)
+    const tangent = tangentOnCubic(curve, t)
+    return aim(out, at.x, at.y, tangent.x, tangent.y)
+  }
+  const ux = d.x - a.x
+  const uy = d.y - a.y
+  const length = Math.hypot(ux, uy)
+  if (length === 0) return false
+  const side = first ? reach : -reach
+  return aim(out, cx + (ux / length) * side, cy + (uy / length) * side, ux, uy)
+}
+
 const placementDirections: ReadonlyArray<readonly [number, number]> = [
   [0, 1],
   [0, -1],
@@ -525,9 +657,11 @@ export class LabelLayer {
   #cols = 0
   #rows = 0
   readonly #anchor: EdgeAnchor = { x: 0, y: 0, ax: 1, ay: 0, room: 0 }
+  readonly #end: EdgeAnchor = { x: 0, y: 0, ax: 1, ay: 0, room: 0 }
   readonly #box: BoxEdges = { left: 0, top: 0, right: 0, bottom: 0 }
   readonly #nodeExtents: TextExtents = new TextExtents()
   readonly #edgeExtents: TextExtents = new TextExtents()
+  readonly #endExtents: TextExtents = new TextExtents()
 
   forgetNode(index: number): void {
     this.#nodeExtents.forget(index)
@@ -535,6 +669,8 @@ export class LabelLayer {
 
   forgetEdge(index: number): void {
     this.#edgeExtents.forget(index)
+    this.#endExtents.forget(index * 2)
+    this.#endExtents.forget(index * 2 + 1)
   }
 
   #claimBox(left: number, top: number, right: number, bottom: number, force: boolean): boolean {
@@ -655,6 +791,7 @@ export class LabelLayer {
     const sight: Sight = frame.sight ?? { zoom: view.zoom, time: null }
     this.#nodeExtents.prepare(nodes.capacity, atlas.generation)
     this.#edgeExtents.prepare(edges.capacity, atlas.generation)
+    if (edges.ends) this.#endExtents.prepare(edges.capacity * 2, atlas.generation)
     this.#cols = Math.ceil(width / cell) + 1
     this.#rows = Math.ceil(height / cell) + 1
     const cells = this.#cols * this.#rows
@@ -775,20 +912,108 @@ export class LabelLayer {
         color,
         size,
         highlight,
+        end: 0,
       })
       placed++
       this.nodeLabels++
     }
 
     const anchor = this.#anchor
+    const endSpot = this.#end
+    const placeEnd = (index: number, highlight: boolean, end: 1 | 2, room: number): void => {
+      const ends = edges.ends
+      const id = index * 2 + end - 1
+      const label = ends?.label[id]
+      if (!ends || !label || placed >= limit) return
+      const size = ends.labelSize[id] || edgeLabelSize
+      const pixels = size * shrink
+      if (pixels < minimumPixels) return
+      const measure = (): TextBlock =>
+        textBlock(
+          atlas,
+          label,
+          null,
+          ends.labelWeight[id] || primaryWeight,
+          ends.labelFont[id] ?? null,
+          ends.labelMaxWidth[id] ?? 0,
+          size,
+        )
+      const extents = this.#endExtents
+      let measured = extents.has(id) ? null : measure()
+      if (measured) extents.set(id, measured)
+      const blockWidth = extents.width(id)
+      const blockHeight = extents.height(id)
+      const background = ends.labelBackground[id] ?? noColor
+      const plated = background !== noColor
+      const scale = pixels / atlasFontSize
+      const units = Math.min(maxExtentUnits, Math.ceil(blockWidth / 2 + (plated ? padUnits : 0)))
+      const half = units * scale
+      const lineWidth = Math.max(ends.width[id] ?? 0, 0.5)
+      const widthBits = Math.min(maxExtentUnits, Math.round(lineWidth * endLabelWidthUnit))
+      const headed = ((edges.arrow[index] ?? 0) & end) !== 0
+      const arrow = headed ? Math.max((widthBits / endLabelWidthUnit) * 4, 6) : 0
+      if (!all && endLabelGap + arrow + half * 2 > room) return
+      const node = (end === 1 ? edges.source[index] : edges.target[index]) ?? 0
+      const zoom = globe ? globeScale(globe, positions.y(node)) : view.zoom
+      const reach = screenRadius(nodes, node, zoom) + endLabelGap + arrow + half
+      if (!endAnchor(frame, index, end === 1, reach, endSpot)) return
+      if (endSpot.x < -cullMargin || endSpot.x > width + cullMargin) return
+      if (endSpot.y < -cullMargin || endSpot.y > height + cullMargin) return
+      const total = blockHeight + plateDrop
+      const top = plated ? -total / 2 : edgeDescent - blockHeight
+      const above = plated ? 0 : Math.max(widthBits / endLabelWidthUnit, 0.5) / 2 + edgeLabelGap
+      const low = plated ? (-total / 2) * scale : top * scale - above
+      const high = plated ? (total / 2) * scale : (top + blockHeight) * scale - above
+      if (!this.#claim(endSpot, half, low, high, (highlight && edgeForced(index)) || all)) return
+      measured ??= measure()
+      const block = measured
+      const target = highlight ? this.edgeHighlight : this.edgeMain
+      const flags =
+        edgeGlyph | (plated ? platedGlyph : 0) | (end << 4) | (units << 8) | (widthBits << 20)
+      const hx = block.width / 2 + padUnits
+      if (plated) target.pushPlate(index, flags, 0, 0, hx, total / 2, background, size)
+      const color = ends.labelColor[id] ?? noColor
+      emit(target, index, flags, block, atlas.height, top, 0, 0, color, size)
+      sink?.edge(
+        index,
+        {
+          block,
+          top,
+          align: 0,
+          shift: 0,
+          placement: 0,
+          plate: plated ? { cx: 0, cy: 0, hx, hy: total / 2 } : null,
+          background,
+          color,
+          size,
+          highlight,
+          end,
+        },
+        endSpot,
+      )
+      placed++
+      this.edgeLabels++
+    }
     const placeEdge = (index: number, highlight: boolean): void => {
       const label = edges.label[index]
-      if (!label || edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, sight)) return
+      const ends = edges.ends
+      const endLabels =
+        ends !== null && ends.labeled > 0 && !!(ends.label[index * 2] || ends.label[index * 2 + 1])
+      if (!label && !endLabels) return
+      if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, sight)) return
+      if (!labelVisible(frame.edgeMask[index] ?? 0, frame.edgeLabelFlags)) return
+      if (!edgeAnchor(frame, index, anchor)) return
+      const room = anchor.room
+      if (label) placeMiddle(index, highlight, label)
+      if (endLabels) {
+        placeEnd(index, highlight, 1, room)
+        placeEnd(index, highlight, 2, room)
+      }
+    }
+    const placeMiddle = (index: number, highlight: boolean, label: string): void => {
       const size = edges.labelSize[index] || edgeLabelSize
       const pixels = size * shrink
       if (pixels < minimumPixels) return
-      if (!labelVisible(frame.edgeMask[index] ?? 0, frame.edgeLabelFlags)) return
-      if (!edgeAnchor(frame, index, anchor)) return
       if (anchor.x < -cullMargin || anchor.x > width + cullMargin) return
       if (anchor.y < -cullMargin || anchor.y > height + cullMargin) return
       const measure = (): TextBlock =>
@@ -848,6 +1073,7 @@ export class LabelLayer {
           color,
           size,
           highlight,
+          end: 0,
         },
         anchor,
       )
@@ -943,11 +1169,17 @@ export interface EdgeLabelOrder {
 export function sortEdgesByWidth(edges: EdgeColumns, order: Uint32Array): EdgeLabelOrder {
   let length = 0
   let largest = 0
+  const ends = edges.ends?.labeled ? edges.ends : null
   for (let index = 0; index < edges.capacity; index++) {
-    if (edges.alive[index] === 1 && edges.label[index]) {
-      order[length++] = index
-      largest = Math.max(largest, edges.labelSize[index] || edgeLabelSize)
-    }
+    if (edges.alive[index] !== 1) continue
+    const own = !!edges.label[index]
+    const source = ends?.label[index * 2] ? 1 : 0
+    const target = ends?.label[index * 2 + 1] ? 1 : 0
+    if (!own && source + target === 0) continue
+    order[length++] = index
+    if (own) largest = Math.max(largest, edges.labelSize[index] || edgeLabelSize)
+    if (source) largest = Math.max(largest, ends?.labelSize[index * 2] || edgeLabelSize)
+    if (target) largest = Math.max(largest, ends?.labelSize[index * 2 + 1] || edgeLabelSize)
   }
   sortDescending(order, length, edges.width)
   return { length, largest }
