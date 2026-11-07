@@ -787,6 +787,14 @@ export interface StateStyle {
    * to `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
    */
   readonly raise?: boolean
+  /**
+   * Removes the members from the drawing while they keep their position, selection and other
+   * states: they are neither drawn, labeled, picked, exported nor counted, as elements outside the
+   * zoom range, and the edges of a hidden node hide with it. An aggregated edge hides when all its
+   * merged edges do.
+   * @default false
+   */
+  readonly hide?: boolean
 }
 
 /** How clicks select: one element, several with a modifier key, or nothing. */

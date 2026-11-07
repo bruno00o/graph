@@ -1,4 +1,5 @@
 import type { LayerFilter } from './mark-layers'
+import type { HideFilter } from './state-buffers'
 import type { TimeFilter, TimeSpans } from './time-range'
 import type { ZoomRanges } from './zoom-range'
 
@@ -6,6 +7,7 @@ export interface Sight {
   readonly zoom: number
   readonly time: TimeFilter | null
   readonly layers: LayerFilter | null
+  readonly hide: HideFilter | null
 }
 
 interface Shown {
@@ -23,15 +25,17 @@ export function sightOf(
   zoom: number,
   time: TimeFilter | null = null,
   layers: LayerFilter | null = null,
+  hide: HideFilter | null = null,
 ): Sight {
-  return { zoom, time, layers }
+  return { zoom, time, layers, hide }
 }
 
 export function filtered(columns: Shown, sight: Sight): boolean {
   return (
     columns.zoom.count > 0 ||
     (sight.time !== null && columns.time.count > 0) ||
-    sight.layers !== null
+    sight.layers !== null ||
+    sight.hide !== null
   )
 }
 
@@ -48,16 +52,32 @@ function layerHidden(flags: Uint8Array | undefined, columns: Shown, index: numbe
   return flags !== undefined && flags[columns.slot[index] ?? 0] === 1
 }
 
+function nodeHidden(nodes: Shown, index: number, sight: Sight): boolean {
+  const hide = sight.hide
+  return (
+    layerHidden(sight.layers?.nodes, nodes, index) ||
+    (hide !== null && ((hide.masks.nodeMask[index] ?? 0) & hide.nodes) !== 0)
+  )
+}
+
+function edgeHidden(edges: Shown, index: number, sight: Sight): boolean {
+  const hide = sight.hide
+  return (
+    layerHidden(sight.layers?.edges, edges, index) ||
+    (hide !== null && ((hide.masks.edgeMask[index] ?? 0) & hide.edges) !== 0)
+  )
+}
+
 export function nodeShown(nodes: Shown, index: number, sight: Sight): boolean {
-  return !layerHidden(sight.layers?.nodes, nodes, index) && ownShown(nodes, index, sight)
+  return !nodeHidden(nodes, index, sight) && ownShown(nodes, index, sight)
 }
 
 export function nodeOpacity(nodes: Shown, index: number, sight: Sight): number {
-  return layerHidden(sight.layers?.nodes, nodes, index) ? 0 : ownOpacity(nodes, index, sight)
+  return nodeHidden(nodes, index, sight) ? 0 : ownOpacity(nodes, index, sight)
 }
 
 export function edgeOwnShown(edges: Shown, index: number, sight: Sight): boolean {
-  return !layerHidden(sight.layers?.edges, edges, index) && ownShown(edges, index, sight)
+  return !edgeHidden(edges, index, sight) && ownShown(edges, index, sight)
 }
 
 export function edgeShown(nodes: Shown, edges: ShownEdges, index: number, sight: Sight): boolean {
@@ -70,7 +90,7 @@ export function edgeShown(nodes: Shown, edges: ShownEdges, index: number, sight:
 
 export function edgeOpacity(nodes: Shown, edges: ShownEdges, index: number, sight: Sight): number {
   if (!filtered(nodes, sight) && !filtered(edges, sight)) return 1
-  if (layerHidden(sight.layers?.edges, edges, index)) return 0
+  if (edgeHidden(edges, index, sight)) return 0
   return Math.min(
     ownOpacity(edges, index, sight),
     nodeOpacity(nodes, edges.source[index] ?? 0, sight),
@@ -89,5 +109,6 @@ export function detailStep(nodes: Shown, edges: Shown, sight: Sight): number {
   hash = mix(hash, nodes.time.step(sight.time))
   hash = mix(hash, edges.time.step(sight.time))
   hash = mix(hash, sight.layers?.serial ?? 0)
+  hash = mix(hash, sight.hide?.serial ?? 0)
   return hash >>> 0
 }

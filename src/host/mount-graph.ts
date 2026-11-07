@@ -24,7 +24,12 @@ import { Projection, type ProjectionChanges } from '../core/projection'
 import { createScene } from '../core/scene'
 import { shallowEqual } from '../core/shallow-equal'
 import { nearestNode, nodeToward } from '../core/spatial'
-import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
+import {
+  type HideFilter,
+  type ResolvedStateStyle,
+  StateBuffers,
+  type StateKind,
+} from '../core/state-buffers'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import { SupportIndex } from '../core/support'
 import { readWindow, sameWindow, type TimeFilter, timeFilter } from '../core/time-range'
@@ -662,6 +667,7 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
     ...(style.labelColor !== undefined ? { labelColor: id(style.labelColor) } : {}),
     ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
     ...(style.raise !== undefined ? { raise: style.raise } : {}),
+    ...(style.hide !== undefined ? { hide: style.hide } : {}),
     ...(style.outlineWidth !== undefined || style.outline !== undefined
       ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
       : {}),
@@ -694,6 +700,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     ...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? []),
   ]
   let layerFilter: LayerFilter | null = null
+  let hideChecked = 0
   let litStates: readonly string[] = []
   let outgoingView: View | null = null
   let sentViews: View[] = []
@@ -853,8 +860,24 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     paths: bundles.paths,
   }
 
-  function sight(): Sight {
-    return { zoom: store.get().view.zoom, time: filter, layers: layerFilter }
+  function sight(except: string | null = null): Sight {
+    return {
+      zoom: store.get().view.zoom,
+      time: filter,
+      layers: layerFilter,
+      hide: hideFilter(except),
+    }
+  }
+
+  function hideFilter(except: string | null): HideFilter | null {
+    const hide = buffers.hide
+    const bit = hide && except !== null ? registry.bit(except) : -1
+    if (!hide || bit < 0) return hide
+    const flag = (1 << bit) >>> 0
+    if (((hide.nodes | hide.edges) & flag) === 0) return hide
+    const nodes = (hide.nodes & ~flag) >>> 0
+    const edges = (hide.edges & ~flag) >>> 0
+    return nodes === 0 && edges === 0 ? null : { ...hide, nodes, edges }
   }
 
   function orderLayers(names: Iterable<string>): string[] {
@@ -870,15 +893,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const next = scene.markLayers.filter(new Set(hiddenLayers))
     if (next === layerFilter) return
     layerFilter = next
+    dropHidden()
+    request()
+  }
+
+  function dropHidden(): void {
     const hovered = store.get().hovered
     if (hovered && !targetShown(hovered)) setHovered(null, null)
     const focused = store.get().focused
     if (focused && !targetShown(focused)) setFocused(null)
-    request()
   }
 
   function targetShown(element: GraphTarget): boolean {
-    if (!layerFilter) return true
+    if (!layerFilter && !buffers.hide) return true
     const seen = sight()
     if (element.kind === 'node') {
       const index = model.node(element.key)?.index ?? -1
@@ -1102,6 +1129,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function applyStyles(): void {
+    const edgeHide = buffers.edgeHide
     const id = (color: string) => scene.palette.id(color)
     for (const kind of ['nodes', 'edges'] as const) {
       registry.names.forEach((name, bit) => {
@@ -1111,6 +1139,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       })
       for (let bit = registry.names.length; bit < 32; bit++) buffers.setStyle(kind, bit, null)
     }
+    if (buffers.edgeHide !== edgeHide && projection.active) registry.refresh()
   }
 
   function applyLayers(): void {
@@ -1351,7 +1380,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       ? globeWorld(camera, point.x, point.y)
       : toWorld(lensView, viewport(), point)
     if (!world) return null
-    const seen: Sight = { zoom: lensView.zoom, time: filter, layers: layerFilter }
+    const seen: Sight = {
+      zoom: lensView.zoom,
+      time: filter,
+      layers: layerFilter,
+      hide: buffers.hide,
+    }
     const surfaceOf = camera ? { scale: globeScale(camera, world.y), visible: facing } : null
     const hit = pickIndex.pick(pickSource, world.x, world.y, seen, pickTolerance, surfaceOf)
     if (!hit) {
@@ -2308,6 +2342,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (positionAnimations.length > 0) stepPositions(now)
     if (wantedLens?.follow === 'focus') updateLens()
     const easing = bundles.frame(now)
+    if (buffers.hideVersion !== hideChecked) {
+      hideChecked = buffers.hideVersion
+      dropHidden()
+    }
     registry.takeHighlighted()
     syncContainers()
     decorations.prepare()
@@ -3176,7 +3214,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     containers: () => (projection.active ? containerBoxes : null),
     palette: () => paletteColors,
     masks: () => buffers.nodeMask,
-    sight: () => sight(),
+    sight: (except) => sight(except ?? null),
     stamp: () => ({
       scene: sceneVersion,
       positions: positions.version,
