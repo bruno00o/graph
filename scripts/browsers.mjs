@@ -41,17 +41,34 @@ for (const name of names) {
   if (!(name in engines)) throw new Error(`Unknown browser ${name}: chromium, firefox or webkit`)
 }
 
+const examples = join(root, 'dist-examples')
+const buildExamples = ['pnpm', ['exec', 'vite', 'build']]
+const lowCapsPages = ['vanilla', 'routing', 'ends', 'bundling', 'layout']
+
+function examplePages(directory) {
+  return readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== 'assets' && entry.name !== 'bench')
+    .filter((entry) => existsSync(join(directory, entry.name, 'index.html')))
+    .map((entry) => ({ name: entry.name, path: `/${entry.name}/` }))
+}
+
 const suites = [
   {
     name: 'examples',
     port: 5501,
-    directory: join(root, 'dist-examples'),
-    build: ['pnpm', ['exec', 'vite', 'build']],
+    directory: examples,
+    build: buildExamples,
+    pages: examplePages,
+  },
+  {
+    name: 'low',
+    port: 5501,
+    directory: examples,
+    build: buildExamples,
     pages: (directory) =>
-      readdirSync(directory, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && entry.name !== 'assets' && entry.name !== 'bench')
-        .filter((entry) => existsSync(join(directory, entry.name, 'index.html')))
-        .map((entry) => ({ name: entry.name, path: `/${entry.name}/` })),
+      examplePages(directory)
+        .filter((entry) => lowCapsPages.includes(entry.name))
+        .map((entry) => ({ ...entry, path: `${entry.path}?caps=low` })),
   },
   {
     name: 'docs',
@@ -284,6 +301,15 @@ function install() {
       }
       return null
     },
+    locate(key) {
+      const graph = window.graph
+      const host = graph.element.getBoundingClientRect()
+      const frame = host.width > 0 ? host : window.__harness.canvas().getBoundingClientRect()
+      const position = graph.positions.get(key)
+      if (!position) return null
+      const center = graph.view.toScreen(position)
+      return { x: Math.round(frame.left + center.x), y: Math.round(frame.top + center.y), key }
+    },
     find() {
       const graph = window.graph
       const canvas = window.__harness.canvas()
@@ -314,13 +340,9 @@ function install() {
         const target = graph.pick({ x, y })
         if (target?.kind !== 'node' || tried.has(target.key)) continue
         tried.add(target.key)
-        const position = graph.positions.get(target.key)
-        if (!position) continue
-        const center = graph.view.toScreen(position)
-        const clientX = Math.round(frame.left + center.x)
-        const clientY = Math.round(frame.top + center.y)
-        if (!picks(clientX, clientY, target.key)) continue
-        const found = { x: clientX, y: clientY, key: target.key }
+        const found = window.__harness.locate(target.key)
+        if (!found || !picks(found.x, found.y, target.key)) continue
+        const { x: clientX, y: clientY } = found
         const around = [
           [1, 0],
           [-1, 0],
@@ -464,7 +486,15 @@ async function visit(browser, name, suite, entry) {
         throw new Failure('hover did not pick the node')
       })
     if (expect.select !== false) {
-      await page.mouse.click(node.x, node.y)
+      let point = node
+      for (let attempt = 0; attempt < 4; attempt++) {
+        await page.evaluate(() => window.__harness.frames(2))
+        const next = await page.evaluate((key) => window.__harness.locate(key), node.key)
+        if (!next || (next.x === point.x && next.y === point.y)) break
+        point = next
+        await page.mouse.move(point.x, point.y, { steps: 2 })
+      }
+      await page.mouse.click(point.x, point.y)
       await page
         .waitForFunction(
           (key) => window.graph.store.get().selection.nodes.includes(key),
@@ -527,7 +557,9 @@ async function run(name, pages) {
   try {
     browser = await engines[name].launch({ headless: !options.headed, args: browserArgs(name) })
   } catch (error) {
-    const reason = `launch failed: ${String(error?.message ?? error).split('\n')[0]}`
+    const lines = String(error?.message ?? error).split('\n')
+    const cause = lines.find((line) => /\[err\]/.test(line) && !/headless mode/.test(line))
+    const reason = `launch failed: ${(cause ?? lines[0]).replace(/^.*\[err\]\s*/, '')}`
     console.log(`${name}: ${reason}`)
     return every(pages, name, 'fail', reason)
   }
@@ -571,9 +603,10 @@ function table(results, pages) {
   return [header, rule, ...rows].join('\n')
 }
 
-const servers = []
+const servers = new Map()
 try {
   const pages = []
+  const built = new Set()
   for (const suite of suites) {
     const wanted = (options.example ?? []).length === 0
     if (
@@ -582,15 +615,16 @@ try {
     ) {
       continue
     }
-    if (options.build || !existsSync(suite.directory)) {
+    if (!built.has(suite.build) && (options.build || !existsSync(suite.directory))) {
       const [command, args] = suite.build
-      const built = spawnSync(command, args, { cwd: root, stdio: 'inherit' })
-      if (built.status !== 0) throw new Error(`${suite.name} build failed`)
+      const result = spawnSync(command, args, { cwd: root, stdio: 'inherit' })
+      if (result.status !== 0) throw new Error(`${suite.name} build failed`)
+      built.add(suite.build)
     }
     for (const entry of suite.pages(suite.directory)) {
       if (matches(`${suite.name}/${entry.name}`, options.example)) pages.push({ suite, entry })
     }
-    servers.push(await serve(suite.directory, suite.port))
+    if (!servers.has(suite.port)) servers.set(suite.port, await serve(suite.directory, suite.port))
   }
   if (pages.length === 0) throw new Error('No page matches the filter')
   rmSync(out, { recursive: true, force: true })
@@ -606,5 +640,5 @@ try {
   console.log(`${passed} passed, ${failed} failed, ${results.length - passed - failed} skipped`)
   process.exitCode = failed > 0 ? 1 : 0
 } finally {
-  for (const server of servers) server.close()
+  for (const server of servers.values()) server.close()
 }
