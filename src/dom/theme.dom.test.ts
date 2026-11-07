@@ -44,6 +44,33 @@ describe('observeTheme', () => {
     expect(changed).toHaveBeenCalledTimes(3)
   })
 
+  it('ignores the style of the element itself but follows its class and data-theme', async () => {
+    const { inner } = nest()
+    const host = document.createElement('div')
+    inner.append(host)
+    const changed = vi.fn()
+    const watch = observeTheme(host, changed)
+    host.style.outline = '2px solid red'
+    host.style.setProperty('--graph-cat-1', 'red')
+    await settle()
+    expect(changed).not.toHaveBeenCalled()
+    host.classList.add('palette-x')
+    await settle()
+    expect(changed).toHaveBeenCalledTimes(1)
+    host.setAttribute('data-theme', 'dark')
+    await settle()
+    expect(changed).toHaveBeenCalledTimes(2)
+    watch.stop()
+  })
+
+  it('watches without matchMedia', () => {
+    vi.stubGlobal('matchMedia', undefined)
+    const host = document.createElement('div')
+    document.body.append(host)
+    expect(() => observeTheme(host, () => {}).stop()).not.toThrow()
+    vi.unstubAllGlobals()
+  })
+
   it('follows the element when it moves to another parent', async () => {
     const first = nest()
     const second = nest()

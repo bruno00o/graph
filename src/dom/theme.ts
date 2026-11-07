@@ -84,6 +84,7 @@ export interface ThemeWatch {
 }
 
 const themeAttributes = ['class', 'style', 'data-theme']
+const hostAttributes = ['class', 'data-theme']
 
 function ancestry(host: HTMLElement): Element[] {
   const chain: Element[] = []
@@ -120,22 +121,22 @@ export function observeTheme(host: HTMLElement, onChange: () => void): ThemeWatc
     for (const element of chain) {
       observer.observe(element, {
         attributes: true,
-        attributeFilter: themeAttributes,
+        attributeFilter: element === host ? hostAttributes : themeAttributes,
         childList: element !== host,
       })
     }
     return true
   }
   rewatch()
-  const media = window.matchMedia('(prefers-color-scheme: dark)')
-  media.addEventListener('change', onChange)
+  const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+  media?.addEventListener('change', onChange)
   return {
     check: () => {
       if (rewatch()) onChange()
     },
     stop: () => {
       observer.disconnect()
-      media.removeEventListener('change', onChange)
+      media?.removeEventListener('change', onChange)
     },
   }
 }

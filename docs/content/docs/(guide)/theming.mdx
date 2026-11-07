@@ -17,7 +17,7 @@ The dark theme applies in three cases:
 - or it has `data-theme="dark"`,
 - or the system prefers a dark scheme and the root has neither the `light` class nor `data-theme="light"`.
 
-Switching themes rewrites no data on the GPU: the graph resolves its colors again when a class, a `data-theme` attribute, a `style` attribute or the color scheme preference changes.
+Switching themes rewrites no data on the GPU: the graph resolves its colors again when a class or a `data-theme` attribute changes on the graph element or above it, a `style` attribute changes above it, or the color scheme preference changes.
 
 ## Override a token
 
