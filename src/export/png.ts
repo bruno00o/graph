@@ -28,6 +28,7 @@ function copyStates(states: StateBuffers): StateBuffers {
   copy.edgeRaise = states.edgeRaise
   copy.nodeMask = states.nodeMask.slice()
   copy.edgeMask = states.edgeMask.slice()
+  copy.copyHide(states)
   copy.setHighlighted([...states.highlightedNodes], [...states.highlightedEdges])
   return copy
 }

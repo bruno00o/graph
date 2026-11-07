@@ -8,6 +8,7 @@
     "define-graph",
     "nodes",
     "edges",
+    "groups",
     "hull",
     "paths",
     "support",

@@ -1,12 +1,17 @@
+import { toAccessor } from './core/accessor'
+import { GroupIndex, GroupSource, type GroupSpec, registerGrouping } from './core/group-index'
+import { isLiveSource } from './core/live-source'
 import type {
   EdgeMark,
   EdgeOptions,
   GraphData,
+  GroupOptions,
   Key,
   KeyChannel,
   LiveSource,
   MarkLayer,
   MarkName,
+  NodeGroup,
   NodeMark,
   NodeOptions,
 } from './types'
@@ -76,4 +81,89 @@ export function edges<T>(
     data,
     options: Object.freeze({ ...options }),
   })
+}
+
+interface Derived {
+  readonly name: string
+  readonly by: unknown
+  readonly key: unknown
+  readonly parent: unknown
+  readonly min: number
+  readonly data: readonly NodeGroup<unknown>[] | GroupSource<unknown>
+  readonly index: GroupIndex<unknown>
+}
+
+const derivations = new WeakMap<object, Derived[]>()
+
+const valueLabel = (group: NodeGroup<unknown>): string => String(group.value)
+
+function derive(data: GraphData<unknown>, spec: GroupSpec, given: GroupOptions<unknown>): Derived {
+  const list = derivations.get(data) ?? []
+  const found = list.find(
+    (known) =>
+      known.name === spec.name &&
+      Object.is(known.by, given.by) &&
+      Object.is(known.key, given.key) &&
+      Object.is(known.parent, given.parent) &&
+      known.min === spec.min,
+  )
+  if (found) return found
+  const common = {
+    name: spec.name,
+    by: given.by,
+    key: given.key,
+    parent: given.parent,
+    min: spec.min,
+  }
+  let derived: Derived
+  if (isLiveSource(data)) {
+    const source = new GroupSource(data, spec)
+    derived = { ...common, data: source, index: source.index }
+  } else {
+    const index = new GroupIndex<unknown>(spec)
+    for (const datum of data) index.add(datum)
+    index.takeMoved()
+    index.takeTouched()
+    derived = { ...common, data: Object.freeze(index.items()), index }
+  }
+  derivations.set(data, [...list.slice(-3), derived])
+  return derived
+}
+
+/**
+ * A mark that adds one group node per value of `by` among the items, and moves the nodes of those
+ * items into it, folded at first. Put it in `marks` next to the mark of the items, and leave it
+ * out to ungroup them.
+ */
+export function groups<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
+  data: GraphData<T>,
+  options: GroupOptions<NoInfer<T>, N, L>,
+): NodeMark<NodeGroup<T>, N, L>
+export function groups<T>(
+  data: GraphData<T>,
+  options: GroupOptions<T>,
+): NodeMark<NodeGroup<T>, MarkName, MarkLayer> {
+  const { by, key, parent, min, folded, ...look } = options as GroupOptions<unknown>
+  const spec: GroupSpec = {
+    name: options.name ?? (typeof by === 'function' ? '' : String(by)),
+    by: toAccessor<unknown, unknown>(by),
+    key: toAccessor<unknown, unknown>(key ?? 'id'),
+    parent: parent === undefined ? null : toAccessor<unknown, unknown>(parent),
+    min: min !== undefined && Number.isFinite(min) ? Math.max(1, Math.floor(min)) : 1,
+  }
+  const derived = derive(data as GraphData<unknown>, spec, options as GroupOptions<unknown>)
+  const mark = Object.freeze({
+    type: 'nodes',
+    name: options.name,
+    layer: options.layer,
+    data: derived.data,
+    options: Object.freeze({
+      label: valueLabel,
+      ...look,
+      key: 'key',
+      ...(parent !== undefined ? { parent: 'parent' } : {}),
+    }),
+  }) as NodeMark<NodeGroup<T>, MarkName, MarkLayer>
+  registerGrouping(mark, { index: derived.index, folded: folded !== false })
+  return mark
 }

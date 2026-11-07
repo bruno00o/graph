@@ -97,7 +97,7 @@ interface EdgeEndOptions<T> {
 <api-table path="index.ts" name="EdgeEndOptions" />
 
 - The widest end gives the width used for picking and for the middle label.
-- An aggregated edge takes the ends of its first merged edge, and keeps their labels only when it merges a single edge.
+- An aggregated edge takes the ends of `aggregate.ends`, read from the `AggregateEdge`, or else those of its first merged edge, whose labels show only when it merges a single edge. See [both directions on one line](/docs/transformations#both-directions-on-one-line).
 - `target.end` reports the end under the pointer, measured along the visible length. It is set only on edges of a mark with `ends`, `{}` included.
 
 ```ts
@@ -124,9 +124,21 @@ edges<Link>(links, {
 
 Edges that share the same two nodes, in either direction, bend apart in symmetric arcs; an edge alone on its pair stays straight. An edge from a node to itself is a loop, and several loops nest. There is no option for the curvature yet.
 
-## Edges of folded groups
+## Merged edges
 
-An end inside a folded group is drawn at the outermost folded group that holds it. The edges of one mark that land on the same two ends, in the same direction, draw as one aggregated edge; an edge whose two ends land in the same group is hidden. `aggregate` styles the aggregated edges from an `AggregateEdge`, the merged edges with their count.
+An end inside a folded group is drawn at the outermost folded group that holds it. The edges of one mark that land on the same two ends, in the same direction, draw as one aggregated edge; an edge whose two ends land in the same group is hidden. `merge` merges the parallel edges between visible nodes too. See [Transformations](/docs/transformations#merge-parallel-edges).
+
+```ts
+interface EdgeMergeOptions<T> {
+  readonly by?: Channel<T, Key>
+  readonly directed?: boolean
+  readonly min?: number
+}
+```
+
+<api-table path="index.ts" name="EdgeMergeOptions" />
+
+`aggregate` styles the aggregated edges from an `AggregateEdge`: the merged edges with their count, split by direction.
 
 ```ts
 interface AggregateEdge<T = unknown> {
@@ -135,25 +147,43 @@ interface AggregateEdge<T = unknown> {
   readonly count: number
   readonly keys: readonly Key[]
   readonly data: readonly T[]
+  readonly forward: AggregateDirection<T>
+  readonly backward: AggregateDirection<T>
+  readonly value?: Key
+}
+
+interface AggregateDirection<T = unknown> {
+  readonly count: number
+  readonly keys: readonly Key[]
+  readonly data: readonly T[]
 }
 
 type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'name' | 'key' | 'source' | 'target' | 'aggregate'
+  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate'
 >
 ```
 
 <api-table path="index.ts" name="AggregateEdge" />
 
-Without `aggregate`, an aggregated edge looks like its first merged edge, and shows a label only when it merges a single edge. Its `time` goes from the earliest start to the latest end of the merged edges, or is missing when one of them has none.
+<api-table path="index.ts" name="AggregateDirection" />
+
+- With `directed: false`, an aggregated edge points the way of the first edge in its `keys`: `forward` holds the edges that go that way, `backward` the others. Otherwise `forward` holds every merged edge and `backward` none.
+- Without `aggregate`, an aggregated edge looks like its first merged edge. An option that `aggregate` leaves out takes the value of the first merged edge, `ends` included. Labels, end labels included, show only when it merges a single edge.
+- Arrows join the arrow of the first edge of each direction, turned to the orientation of the aggregated edge: two opposite edges with `arrow: 'target'` give an arrow at each end.
+- Its `time` goes from the earliest start to the latest end of the merged edges, or is missing when one of them has none.
 
 ```ts
 edges<Link>(links, {
   source: 'from',
   target: 'to',
+  merge: { directed: false },
   aggregate: {
     width: (aggregate) => aggregate.count,
-    label: (aggregate) => (aggregate.count > 1 ? String(aggregate.count) : null),
+    ends: {
+      target: { color: (aggregate) => aggregate.forward.count },
+      source: { color: (aggregate) => aggregate.backward.count },
+    },
   },
 })
 ```

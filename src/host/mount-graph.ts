@@ -9,6 +9,7 @@ import {
   type GraphChanges,
   type GraphIssue,
 } from '../core/graph-model'
+import { groupingOf } from '../core/group-index'
 import { nodesInside } from '../core/lasso'
 import type { LayerFilter } from '../core/mark-layers'
 import { createPathQueries } from '../core/path-query'
@@ -24,7 +25,12 @@ import { Projection, type ProjectionChanges } from '../core/projection'
 import { createScene } from '../core/scene'
 import { shallowEqual } from '../core/shallow-equal'
 import { nearestNode, nodeToward } from '../core/spatial'
-import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
+import {
+  type HideFilter,
+  type ResolvedStateStyle,
+  StateBuffers,
+  type StateKind,
+} from '../core/state-buffers'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import { SupportIndex } from '../core/support'
 import { readWindow, sameWindow, type TimeFilter, timeFilter } from '../core/time-range'
@@ -687,6 +693,7 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
     ...(style.labelColor !== undefined ? { labelColor: id(style.labelColor) } : {}),
     ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
     ...(style.raise !== undefined ? { raise: style.raise } : {}),
+    ...(style.hide !== undefined ? { hide: style.hide } : {}),
     ...(style.outlineWidth !== undefined || style.outline !== undefined
       ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
       : {}),
@@ -719,6 +726,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     ...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? []),
   ]
   let layerFilter: LayerFilter | null = null
+  let hideChecked = 0
   let litStates: readonly string[] = []
   let outgoingView: View | null = null
   let sentViews: View[] = []
@@ -905,8 +913,24 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     paths: bundles.paths,
   }
 
-  function sight(): Sight {
-    return { zoom: store.get().view.zoom, time: filter, layers: layerFilter }
+  function sight(except: string | null = null): Sight {
+    return {
+      zoom: store.get().view.zoom,
+      time: filter,
+      layers: layerFilter,
+      hide: hideFilter(except),
+    }
+  }
+
+  function hideFilter(except: string | null): HideFilter | null {
+    const hide = buffers.hide
+    const bit = hide && except !== null ? registry.bit(except) : -1
+    if (!hide || bit < 0) return hide
+    const flag = (1 << bit) >>> 0
+    if (((hide.nodes | hide.edges) & flag) === 0) return hide
+    const nodes = (hide.nodes & ~flag) >>> 0
+    const edges = (hide.edges & ~flag) >>> 0
+    return nodes === 0 && edges === 0 ? null : { ...hide, nodes, edges }
   }
 
   function orderLayers(names: Iterable<string>): string[] {
@@ -924,15 +948,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     layerFilter = next
     bundles.layered()
     bridges.changed()
+    dropHidden()
+    request()
+  }
+
+  function dropHidden(): void {
     const hovered = store.get().hovered
     if (hovered && !targetShown(hovered)) setHovered(null, null)
     const focused = store.get().focused
     if (focused && !targetShown(focused)) setFocused(null)
-    request()
   }
 
   function targetShown(element: GraphTarget): boolean {
-    if (!layerFilter) return true
+    if (!layerFilter && !buffers.hide) return true
     const seen = sight()
     if (element.kind === 'node') {
       const index = model.node(element.key)?.index ?? -1
@@ -1156,6 +1184,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function applyStyles(): void {
+    const edgeHide = buffers.edgeHide
     const id = (color: string) => scene.palette.id(color)
     for (const kind of ['nodes', 'edges'] as const) {
       registry.names.forEach((name, bit) => {
@@ -1165,6 +1194,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       })
       for (let bit = registry.names.length; bit < 32; bit++) buffers.setStyle(kind, bit, null)
     }
+    if (buffers.edgeHide !== edgeHide && projection.active) registry.refresh()
   }
 
   function applyLayers(): void {
@@ -1405,7 +1435,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       ? globeWorld(camera, point.x, point.y)
       : toWorld(lensView, viewport(), point)
     if (!world) return null
-    const seen: Sight = { zoom: lensView.zoom, time: filter, layers: layerFilter }
+    const seen: Sight = {
+      zoom: lensView.zoom,
+      time: filter,
+      layers: layerFilter,
+      hide: buffers.hide,
+    }
     const surfaceOf = camera ? { scale: globeScale(camera, world.y), visible: facing } : null
     const hit = pickIndex.pick(pickSource, world.x, world.y, seen, pickTolerance, surfaceOf)
     if (!hit) {
@@ -1793,6 +1828,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function flushChanges(): void {
     const start = clock()
     const changes = model.flush()
+    if (projection.grouping) foldNewGroups(changes)
     const carriers: GraphIssue[] = []
     const supported = support.apply(changes, carriers)
     const projected = projection.apply(changes)
@@ -1807,6 +1843,23 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       applied - flushed,
       carriers.length > 0 ? [...issues, ...carriers] : issues,
     )
+  }
+
+  function foldNewGroups(changes: GraphChanges): void {
+    const born: Key[] = []
+    for (const { key, index } of changes.nodes.added) {
+      const record = model.nodeAt(index)
+      if (record && groupingOf(record.mark)?.folded) born.push(key)
+    }
+    if (born.length === 0) return
+    const folded = [...new Set([...store.get().folded, ...born])]
+    if (foldControlled) {
+      onFoldChange?.({ folded })
+      return
+    }
+    projection.setFolded(folded)
+    patch({ folded })
+    emitter.emit('foldchange', { folded })
   }
 
   function flushPending(): void {
@@ -1987,6 +2040,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         patch({ focused: fresh })
       }
     }
+    if (projected.reshaped && definition.relayout && laidOut) relayout = true
     followLayout(changes, fresh)
   }
 
@@ -2367,6 +2421,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (wantedLens?.follow === 'focus') updateLens()
     const easing = bundles.frame(now)
     bridges.frame()
+    if (buffers.hideVersion !== hideChecked) {
+      hideChecked = buffers.hideVersion
+      dropHidden()
+    }
     registry.takeHighlighted()
     syncContainers()
     decorations.prepare()
@@ -2889,6 +2947,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   applyKeyboard()
 
   model.setMarks(definition.marks)
+  projection.setMarks(definition.marks)
   support.setMarks(definition.marks)
   scene.setDefinition(definition)
   decorations.setDefinition(definition)
@@ -3176,6 +3235,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
           relayout = definition.layout !== null
         }
         model.setMarks(definition.marks)
+        projection.setMarks(definition.marks)
         support.setMarks(definition.marks)
         scene.setDefinition(definition)
         decorations.setDefinition(definition)
@@ -3246,7 +3306,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     containers: () => (projection.active ? containerBoxes : null),
     palette: () => paletteColors,
     masks: () => buffers.nodeMask,
-    sight: () => sight(),
+    sight: (except) => sight(except ?? null),
     stamp: () => ({
       scene: sceneVersion,
       positions: positions.version,

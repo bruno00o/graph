@@ -71,6 +71,10 @@ export class StateRegistry {
     return true
   }
 
+  refresh(): void {
+    this.#rebuild()
+  }
+
   bit(name: string): number {
     return this.#names.indexOf(name)
   }
@@ -254,9 +258,15 @@ export class StateRegistry {
       if (key !== undefined) this.#setMask('edges', index, this.#maskOf('edges', key))
       return
     }
-    let mask = 0
-    for (const key of keys) mask |= this.#maskOf('edges', key)
-    this.#setMask('edges', index, mask >>> 0)
+    let any = 0
+    let all = -1
+    for (const key of keys) {
+      const mask = this.#maskOf('edges', key)
+      any |= mask
+      all &= mask
+    }
+    const hide = this.#buffers.edgeHide
+    this.#setMask('edges', index, ((any & ~hide) | (all & hide)) >>> 0)
   }
 
   #index(kind: StateKind, key: Key): number {

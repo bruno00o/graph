@@ -791,7 +791,7 @@ export class LabelLayer {
     this.nodeLabels = 0
     this.edgeLabels = 0
     const { nodes, edges, positions, view, width, height } = frame
-    const sight: Sight = frame.sight ?? { zoom: view.zoom, time: null, layers: null }
+    const sight: Sight = frame.sight ?? { zoom: view.zoom, time: null, layers: null, hide: null }
     this.#nodeExtents.prepare(nodes.capacity, atlas.generation)
     this.#edgeExtents.prepare(edges.capacity, atlas.generation)
     if (edges.ends) this.#endExtents.prepare(edges.capacity * 2, atlas.generation)

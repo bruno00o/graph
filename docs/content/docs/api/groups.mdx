@@ -1,0 +1,53 @@
+---
+title: groups
+description: A mark of group nodes, one per value of a field among the items.
+---
+
+```ts
+function groups<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
+  data: GraphData<T>,
+  options: GroupOptions<T, N, L>,
+): NodeMark<NodeGroup<T>, N, L>
+```
+
+Pass the data of the mark of the items, array or live source. The result is a mark of nodes whose items are `NodeGroup` objects, one per value of `by`: put it in `marks` next to the mark of the items, and leave it out to ungroup them. Its nodes are [groups](/docs/groups) like any other, folded at first. See [Group items by a field](/docs/transformations#group-items-by-a-field).
+
+```ts
+const sectors = groups(items, {
+  by: 'sector',
+  name: 'sectors',
+  label: (group) => `Sector ${group.value}`,
+  size: (group) => 20 + Math.sqrt(group.count) * 6,
+})
+
+defineGraph({ marks: [edges(links, { source: 'from', target: 'to' }), nodes(items), sectors] })
+```
+
+## Options
+
+`GroupOptions` takes the options of [`nodes()`](/docs/api/nodes), read from a `NodeGroup`, apart from `key` and `parent`, which apply to the items.
+
+<api-table path="index.ts" name="GroupOptions" />
+
+## NodeGroup
+
+```ts
+interface NodeGroup<T = unknown> {
+  readonly key: Key
+  readonly value: Key
+  readonly parent?: Key
+  readonly count: number
+  readonly keys: readonly Key[]
+  readonly data: readonly T[]
+}
+```
+
+<api-table path="index.ts" name="NodeGroup" />
+
+## Behavior
+
+- The key of a group node is made from the `name` of the mark, or the name of the `by` field, and the value, kept apart from the keys of the data. Read it from `group.key`.
+- `groups()` called again with the same data, `name`, `by`, `key`, `parent` and `min` reuses its groups, so a definition rebuilt on every render does not regroup. Functions compare by identity: declare a `by` function once, outside the render.
+- With a live source, an item that changes its value moves to its new group, and a group left with fewer than `min` members disappears.
+- Without `parent`, a grouped item leaves the group of the data it belongs to. With the same `parent` as its nodes, groups are made within each group of the data, and nest in it.
+- New group nodes start folded, unless `folded` is `false`. In controlled mode, folding them goes through `onFoldChange`.

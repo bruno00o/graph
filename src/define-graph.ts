@@ -219,6 +219,7 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     scales: Object.freeze({ ...options.scales }),
     states: Object.freeze({ ...options.states }) as StateStyles<S>,
     layout: options.layout ?? null,
+    relayout: options.relayout ?? false,
     interaction: resolveInteraction(options.interaction),
     view: resolveView(options.view),
     transitions: Object.freeze({

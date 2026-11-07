@@ -28,7 +28,7 @@ import {
   labelGap,
   plateRadius,
 } from '../webgl/shaders'
-import { type ExportFrame, screenExtent, screenRadius } from './frame'
+import { type ExportFrame, frameSight, screenExtent, screenRadius } from './frame'
 import { placementDirections, selectLabels } from './labels'
 import { type EdgeLine, edgeLine, edgeLook, type Look, nodeLook } from './look'
 
@@ -297,7 +297,7 @@ export function writeSvg(scene: SvgScene): string {
   const zoom = view.zoom
   const offsetX = width / 2 - view.x * zoom
   const offsetY = height / 2 - view.y * zoom
-  const sight: Sight = { zoom, time: frame.window ?? null, layers: frame.layers ?? null }
+  const sight: Sight = { ...frameSight(frame), zoom }
   const nodeFade = (index: number) => nodeOpacity(nodes, index, sight)
   const edgeFade = (index: number) => edgeOpacity(nodes, edges, index, sight)
   const faded = (look: Look, fade: number): Look =>

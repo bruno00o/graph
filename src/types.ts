@@ -509,10 +509,40 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly supportedBy?: Channel<T, Key | readonly Key[]>
   /**
-   * Look of the edges drawn in place of the edges of this mark that end in a folded group, one per
-   * pair of visible ends and direction.
+   * Merges the parallel edges of this mark between two visible nodes into one aggregated edge,
+   * styled by `aggregate`: `true`, or options that split the merge by a value, merge both
+   * directions or set the fewest edges merged. A new definition that only changes it redraws the
+   * merged edges alone. Defaults to `false`: only edges that end in a folded group merge.
+   */
+  readonly merge?: boolean | EdgeMergeOptions<T>
+  /**
+   * Look of the edges drawn in place of the edges of this mark that end in a folded group, or that
+   * `merge` merges: one per pair of visible ends, direction and merge value.
    */
   readonly aggregate?: AggregateEdgeOptions<T>
+}
+
+/** Options of the `merge` option of `edges()`: which parallel edges draw as one. */
+export interface EdgeMergeOptions<T> {
+  /**
+   * Field or function whose value splits the merge: edges with different values between the same
+   * two nodes draw as separate aggregated edges, side by side. Edges without a value merge
+   * together. Defaults to no split.
+   */
+  readonly by?: Channel<T, Key>
+  /**
+   * Merges only the edges that go the same way. With `false`, edges in both directions merge into
+   * one line that points the way of the first edge in its `keys`; `forward` and `backward` of the
+   * `AggregateEdge` then tell the two directions apart, for example to style each end on its own.
+   * @default true
+   */
+  readonly directed?: boolean
+  /**
+   * Fewest parallel edges that merge between two visible nodes: fewer edges draw one by one. Edges
+   * that end in a folded group always merge.
+   * @default 2
+   */
+  readonly min?: number
 }
 
 /**
@@ -562,8 +592,9 @@ export interface EdgeEndOptions<T> {
 }
 
 /**
- * Edges of one mark drawn as a single edge because an end lies in a folded group: the datum of the
- * `aggregate` channels and styles, and of a picked aggregated edge.
+ * Edges of one mark drawn as a single edge, because an end lies in a folded group or because the
+ * mark merges its parallel edges: the datum of the `aggregate` channels and styles, and of a picked
+ * aggregated edge.
  */
 export interface AggregateEdge<T = unknown> {
   /** Key of the visible node or folded group the merged edges start from. */
@@ -576,16 +607,38 @@ export interface AggregateEdge<T = unknown> {
   readonly keys: readonly Key[]
   /** Data of the merged edges, in the order of `keys`. */
   readonly data: readonly T[]
+  /**
+   * Merged edges that go from `source` to `target`: all of them, unless `merge` sets `directed` to
+   * `false`.
+   */
+  readonly forward: AggregateDirection<T>
+  /**
+   * Merged edges that go from `target` to `source`: none, unless `merge` sets `directed` to
+   * `false`.
+   */
+  readonly backward: AggregateDirection<T>
+  /** Value of the `by` option of `merge` that the merged edges share. Missing without one. */
+  readonly value?: Key
+}
+
+/** Merged edges of an `AggregateEdge` that go one way. */
+export interface AggregateDirection<T = unknown> {
+  /** Number of these edges. */
+  readonly count: number
+  /** Keys of these edges, in the order of the `keys` of the aggregated edge. */
+  readonly keys: readonly Key[]
+  /** Data of these edges, in the order of `keys`. */
+  readonly data: readonly T[]
 }
 
 /**
  * Options of the `aggregate` option of `edges()`: channels and styles read from an `AggregateEdge`.
- * Without them, an aggregated edge looks like its first merged edge, and keeps its label only when
- * it merges one edge.
+ * An option left out takes the value of the first merged edge, and labels, end labels included,
+ * show only for a single merged edge. Arrows join those of the first edge of each direction.
  */
 export type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'aggregate'
+  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate'
 >
 
 /** A set of nodes or edges, made by `nodes()` or `edges()`. Marks draw in the order given. */
@@ -609,6 +662,53 @@ export interface NodeMark<T, N extends MarkName = MarkName, L extends MarkLayer 
   readonly data: GraphData<T>
   /** Options given to `nodes()`. */
   readonly options: NodeOptions<T, N, L>
+}
+
+/**
+ * Group node that `groups()` adds for one value of its `by` option: the datum of its channels and
+ * styles, and of a picked group.
+ */
+export interface NodeGroup<T = unknown> {
+  /** Key of the group node, made from the name of the mark and the value, apart from data keys. */
+  readonly key: Key
+  /** Value of `by` that the members share. */
+  readonly value: Key
+  /** Value of `parent` that the members share, for a group nested in a group of the data. */
+  readonly parent?: Key
+  /** Number of members. */
+  readonly count: number
+  /** Keys of the members. */
+  readonly keys: readonly Key[]
+  /** Data of the members, in the order of `keys`. */
+  readonly data: readonly T[]
+}
+
+/**
+ * Options of `groups()`: which items group together, and the look of the group nodes, read from a
+ * `NodeGroup`. A group node folds and unfolds as any group, and edges into a folded group merge.
+ */
+export interface GroupOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer>
+  extends Omit<NodeOptions<NodeGroup<T>, N, L>, 'key' | 'parent'> {
+  /**
+   * Field or function whose value groups the items: one group node per value. An item without a
+   * value stays out of any group.
+   */
+  readonly by: Channel<T, Key>
+  /** Field or function that gives the key of an item, the key of its node. Defaults to `id`. */
+  readonly key?: KeyChannel<T>
+  /**
+   * Group of the data an item belongs to, as the `parent` option of its nodes: groups are then made
+   * within each group of the data and nest in it. Defaults to none: a grouped item leaves the
+   * group of the data it belongs to.
+   */
+  readonly parent?: Channel<T, Key>
+  /** Fewest items that make a group; the items of a smaller group stay in place. @default 1 */
+  readonly min?: number
+  /**
+   * Whether a group node starts folded when it appears, hiding its members.
+   * @default true
+   */
+  readonly folded?: boolean
 }
 
 /**
@@ -746,6 +846,14 @@ export interface StateStyle {
    * to `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
    */
   readonly raise?: boolean
+  /**
+   * Removes the members from the drawing while they keep their position, selection and other
+   * states: they are neither drawn, labeled, picked, exported nor counted, as elements outside the
+   * zoom range, and the edges of a hidden node hide with it. An aggregated edge hides when all its
+   * merged edges do.
+   * @default false
+   */
+  readonly hide?: boolean
 }
 
 /** How clicks select: one element, several with a modifier key, or nothing. */
@@ -1195,6 +1303,13 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly layout?: Layout<NodeDatum<M>> | null
+  /**
+   * Runs the layout again over every node it may move after a fold or unfold, or when `groups()`
+   * or the `merge` option of a mark changes, so that the drawing closes gaps and makes room. With
+   * `false`, only nodes that appear are placed, and an unfolded group pushes its neighbors aside.
+   * @default false
+   */
+  readonly relayout?: boolean
   /** Pan, zoom, wheel, selection, drag, lasso and keyboard. */
   readonly interaction?: InteractionOptions
   /** Zoom range and area of the view. */
@@ -1248,6 +1363,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly states: StateStyles<S>
   /** Layout of the graph, or `null` for none. */
   readonly layout: Layout<NodeDatum<M>> | null
+  /** Whether the layout runs again after a fold, an unfold, or a change of groups or merges. */
+  readonly relayout: boolean
   /** Interaction options, defaults applied. */
   readonly interaction: ResolvedInteraction
   /** View limits, defaults applied. */

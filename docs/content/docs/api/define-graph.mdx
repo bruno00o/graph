@@ -47,10 +47,15 @@ interface StateStyle {
   halo?: boolean
   label?: boolean
   labelColor?: string
+  flow?: boolean | number
+  raise?: boolean
+  hide?: boolean
 }
 ```
 
 <api-table path="index.ts" name="StateStyle" />
+
+`hide` takes the members out of the drawing while they keep their states. See [Hide without losing state](/docs/transformations#hide-without-losing-state).
 
 See [States](/docs/states#priority) for the order in which states apply.
 

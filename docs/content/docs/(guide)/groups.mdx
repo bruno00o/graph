@@ -27,6 +27,8 @@ const definition = defineGraph({
 })
 ```
 
+To group items by a field of their data rather than by a `parent` key, use [`groups()`](/docs/transformations#group-items-by-a-field).
+
 A node becomes a group as soon as another node names it. A `parent` that names no node is reported in `issues` as `missing-parent`, and the node waits at the top level until its group arrives. A `parent` that would make a node contain itself is reported as `parent-cycle`, and that node stays at the top level.
 
 ## Containers
@@ -105,7 +107,7 @@ edges<Link>(links, {
 })
 ```
 
-Without `aggregate`, an aggregated edge takes the look of its first merged edge, and shows a label only when it stands for a single edge.
+Without `aggregate`, an aggregated edge takes the look of its first merged edge, and shows a label only when it stands for a single edge. `merge` also merges the parallel edges between visible nodes, both directions on one line if you want: see [Merge parallel edges](/docs/transformations#merge-parallel-edges).
 
 Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and an aggregated edge shows the states of any of its edges.
 

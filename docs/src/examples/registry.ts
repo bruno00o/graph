@@ -234,6 +234,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./ends/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'transformations',
+    title: 'Merges, groups and filters',
+    description:
+      'Items in four sectors linked by parallel exchanges. Merge the exchanges of each pair into one line whose halves show each direction, group the items by sector into folded group nodes, and hide a family from the legend without losing the selection.',
+    hint: 'Switch the merge and the sectors. Double-click a sector to unfold it. Click a family in the legend to hide it.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/legend'],
+    files: ['transforms/main.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./transforms/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'nested-groups',
     title: 'Nested groups',
     description:
