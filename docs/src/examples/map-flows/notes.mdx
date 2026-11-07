@@ -1,0 +1,13 @@
+## How it works
+
+Each hub sends edges to the nodes around it, with a `volume` in the data. `flow: (route) => 20 + route.volume` moves the dashes faster on busier edges, and `width: 'volume'` makes them wider. Flows work on a map as on any graph: the dashes move on the GPU, in screen pixels per second, at any zoom.
+
+The long edges from hub to hub set `geodesic: true`: they follow great circles, bend toward the poles on the flat map, and the one that crosses the Pacific is cut at the antimeridian. `stroke` colors them with `--graph-accent`.
+
+**Stop flows** rebuilds the definition with `flow` set to `false`: without a moving edge on screen, the graph draws no frames.
+
+## Try it
+
+- Zoom in on a hub: the dashes keep their speed on screen.
+- Press **Stop flows**, then start them again.
+- Pan to the Pacific to see both parts of the cut edge.

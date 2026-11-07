@@ -1,0 +1,12 @@
+## How it works
+
+Ten groups sit on a circle, on fixed positions, and 900 edges link them at random. `densityBundling` bundles the edges once nodes stand still, in a Web Worker.
+
+`strength` is the share of the bundled shape that is drawn: 0 draws straight lines, 1 the bundles as computed. The slider builds a new definition with `densityBundling({ strength })` at each move. Its other options are the same, so the graph keeps the bundles it has and eases the edges to the new strength, without computing again.
+
+The status counts the computations from `bundling.running` in the store: it stays at one while the slider moves.
+
+## Try it
+
+- Drag the slider from 1 to 0 and back.
+- Drag a node: its edges follow, then bundle again once it stops, and the count goes up.

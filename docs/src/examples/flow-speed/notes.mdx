@@ -1,0 +1,13 @@
+## How it works
+
+Each edge has a `rate` in its data, in screen pixels per second. `flow: (pipe) => pipe.rate` moves the dashes at that speed, from source to target, and a negative rate moves them toward the source. The arrow points the way the dashes go, and the color tells forward edges from backward ones.
+
+`width` reads the absolute rate through the `width` scale, from 1.5 to 5 pixels, so faster edges are wider. A solid edge flows as dashes; arrowheads stay still.
+
+The buttons rebuild the definition: **Reverse every flow** negates every speed, **Speed** multiplies them, **Pause** returns `false` for every edge. With `prefers-reduced-motion`, the dashes stand still.
+
+## Try it
+
+- Press **Reverse every flow**: dashes, arrows and colors turn around.
+- Press **Speed** to halve or double every speed. The labels follow.
+- Press **Pause**: the graph stops drawing frames until a flow starts again.

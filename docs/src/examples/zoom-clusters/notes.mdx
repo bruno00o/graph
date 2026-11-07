@@ -1,0 +1,16 @@
+## How it works
+
+The graph has two marks of nodes and two marks of edges for the same data:
+
+- a disc per group, at the center of its nodes and as wide as them, with the edges between groups counted on one line, both with `maxZoom`;
+- the nodes themselves and their own edges, with `minZoom`.
+
+Both limits sit around the same zoom, 0.9, a quarter of a zoom doubling apart: the nodes fade in while the discs fade out, so one never pops in place of the other. Both marks share the `group` field, so a group keeps its color from afar and up close.
+
+Labels are sized at zoom 1 and shrink with the view, so the group labels are larger: they are read from afar.
+
+## Try it
+
+- Scroll to zoom in on a group: the disc opens into its nodes.
+- Zoom out: the nodes gather again into discs.
+- Hover a disc or a node: only shown elements are picked.
