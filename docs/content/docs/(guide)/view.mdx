@@ -13,6 +13,8 @@ graph.view.set({ x: 0, y: 0, zoom: 2 }, { duration: 300 })
 graph.on('viewchange', ({ view }) => console.log(view.zoom))
 ```
 
+The [view controls](/examples/view-controls) example calls each method of this page from buttons.
+
 ## The first view
 
 Without `initialView`, the graph fits all its nodes with a 32 pixel margin as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted. Only that first batch is fitted: later data does not move the view.
@@ -32,7 +34,7 @@ graph.view.fit()
 graph.view.fit(['n1', 'n2', 'n3'], { padding: 64, duration: 400 })
 ```
 
-`padding` is in screen pixels, 32 by default. A `fit` called before the graph has measured its container waits for that measure.
+`padding` is in screen pixels, 32 by default. A `fit` called before the graph has measured its container waits for that measure. To frame the result of a layout, fit on `layoutend`: see [Layouts](/docs/layout#when-it-runs). The [click to zoom](/examples/click-to-zoom) example fits a node and its neighbors on a click.
 
 ## Zoom
 
@@ -95,7 +97,7 @@ Here the application keeps the view on a horizontal line: vertical moves are dro
 
 A view applied inside `onViewChange` is drawn in the same frame, so a controlled view follows the pointer without lag. An application that answers later still gets smooth gestures: each new request starts from the last request it has not answered yet, and a view it applies that matches none of them replaces them all.
 
-The mode is fixed at mount: a graph mounted with `view` stays controlled for its whole life. The first fit does not run in controlled mode, and `viewchange` fires only when an applied view differs from the current one. In React, pass the `view` and `onViewChange` props: see [React](/docs/react#controlled-view).
+The mode is fixed at mount: a graph mounted with `view` stays controlled for its whole life. The first fit does not run in controlled mode, and `viewchange` fires only when an applied view differs from the current one. In React, pass the `view` and `onViewChange` props: see [React](/docs/react#controlled-view) and the [controlled view](/examples/controlled-view) example.
 
 ## Screen and world coordinates
 

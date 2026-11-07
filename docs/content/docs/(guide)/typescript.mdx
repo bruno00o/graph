@@ -52,6 +52,24 @@ graph.on('click', ({ target }) => {
 
 An edge drawn for several edges between [folded groups](/docs/groups) carries `aggregate`, whose `data` has the item type of the edge mark.
 
+## Type the data, not the call
+
+Give your arrays, or your collection, their type, and let each mark infer the rest. TypeScript infers all the type arguments of a call or none of them: `nodes<Item>(items, { name: 'item' })` sets the item type and leaves the name to its default, `undefined`, so the name `'item'` is refused. The same goes for `layer`.
+
+```ts
+const items: Item[] = await loadItems()
+const links: Link[] = await loadLinks()
+
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to', layer: 'links' }),
+    nodes(items, { name: 'item', label: 'label' }),
+  ],
+})
+```
+
+When the data comes untyped, from `JSON.parse` or a fetch, type the variable that holds it rather than the call to `nodes` or `edges`.
+
 ## The instance and the state
 
 `mountGraph` returns a `GraphInstance<S, M>`: `S` is the union of the state names and `M` the union of the marks. The [store](/docs/api/graph-instance#graph-state) is typed the same way.

@@ -24,13 +24,22 @@ const source: LiveSource<Item> = {
 
 A source is recognized by its `subscribeChanges` method before anything else, so a collection that is also iterable is still read as live.
 
+The graph holds a live source to this contract:
+
+- It subscribes with `includeInitialState: true`, so the items already there come first, as inserts.
+- The key of an element is the `key` of its change. The `key` option of the mark is not read.
+- An insert or an update sets the item under its key; a delete removes the element with that key. A batch without changes is ignored.
+- Everything else, edge ends included, is read from the item through the options of the mark.
+
+Examples: [a live source of your own](/examples/live-source) streams nodes and edges without TanStack DB, and [a collection as the source](/examples/collection-source) reads two TanStack DB collections.
+
 ## Keys
 
 Keys are strings or numbers.
 
 - **Nodes.** By default the key is the `id` field. When your data has no `id`, the `key` option is required: a field name or a function.
 - **Edges.** Same rule for the edge key. `source` and `target` take a field holding a node key, or a function.
-- **Live sources** carry the key in each change, so `key` is optional.
+- **Live sources** carry the key in each change, and the `key` option is not read.
 
 ```ts
 type Row = { code: number; name: string }
@@ -44,7 +53,7 @@ edges<Pair>(pairs, {
 })
 ```
 
-Node keys are unique across all node marks. When two items share a key, the first one wins, in mark order then data order, and the others are skipped.
+Node keys are unique across all node marks. When two items share a key, the first one wins, in mark order then data order, and the others are skipped. The [devtools](/docs/devtools) panel lists each skipped item: see the [problems in the data](/examples/data-issues) example.
 
 ## Edges that arrive first
 
@@ -70,6 +79,8 @@ return <Graph definition={definition} ariaLabel="Sample graph" />
 When a mark keeps its place and its options are shallowly equal, only the items that changed are rewritten. When options change, every item of that mark is restyled.
 
 With a live source, there is nothing to update: changes arrive through the subscription.
+
+Examples: [changing data](/examples/changing-data) replaces the array on a timer, [expand on double-click](/examples/expand-on-double-click) adds the neighbors of a node, [edges in batches](/examples/edges-in-batches) adds 50,000 edges at a time, and [positions from data](/examples/positions-from-data) moves nodes by their `x` and `y`.
 
 ## Removed elements
 

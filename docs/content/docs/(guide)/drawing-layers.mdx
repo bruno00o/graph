@@ -24,7 +24,7 @@ With `adaptive: false`, the grid keeps a single level at `spacing`: it grows and
 background: { grid: 'dots', spacing: 20, adaptive: false, majorColor: 'var(--graph-grid)' }
 ```
 
-The colors come from `--graph-grid` and `--graph-grid-major`, and follow the theme. Pass `color` and `majorColor` for others. The options are listed in [`defineGraph`](/docs/api/define-graph#background).
+The colors come from `--graph-grid` and `--graph-grid-major`, and follow the theme. Pass `color` and `majorColor` for others. The options are listed in [`defineGraph`](/docs/api/define-graph#background). The [snap to a grid](/examples/snap-to-grid) example drops dragged nodes on the lines of a fixed grid.
 
 ## Hulls
 
@@ -95,6 +95,8 @@ An element follows one target:
 | `point` | A point in world units |
 
 `side` puts the element above, below, beside or on its target, 4 pixels away from the node edge, and `align` slides it along that side. `offset` shifts it by a number of pixels. `scale: true` makes the element grow and shrink with the zoom, as if drawn in the world.
+
+Examples: [context menu](/examples/context-menu) anchors an interactive menu to a node or a point, [path costs](/examples/weighted-path) shows the cost to reach each node of a path, and [path through waypoints](/examples/waypoints) numbers its stops.
 
 ### Visibility
 

@@ -33,6 +33,8 @@ graph.paths.shortest('a', 'f', { weight: (link) => link.delay + link.wait })
 
 Field names and function arguments are typed from the items of your edge marks, as in the definition. See [TypeScript](/docs/typescript).
 
+Examples: [path costs](/examples/weighted-path) weighs each edge, and [upstream and downstream](/examples/upstream-downstream) follows edges both ways with `directed`, through a second path finder on reversed edges.
+
 ## Keep to some nodes and edges
 
 ```ts
@@ -42,7 +44,7 @@ graph.paths.shortest('a', 'f', {
 })
 ```
 
-`nodes` and `edges` choose what the search may enter or cross. The two ends must pass `nodes`, or there is no path.
+`nodes` and `edges` choose what the search may enter or cross. The two ends must pass `nodes`, or there is no path. See the [detour around blocked nodes](/examples/detour) example.
 
 ## Within reach
 
@@ -52,6 +54,8 @@ graph.states.set('near', near)
 ```
 
 `reach` lists the nodes the start leads to, by increasing cost, with the cost of each, and the edges between two reached nodes that the search may cross. Without `weight`, `maxCost` counts edges: `{ maxCost: 1 }` is the start and its neighbors. Without `maxCost`, `reach` returns the whole connected component of the start, or with `directed`, every node it leads to. It takes the same options as `shortest`.
+
+Examples: [neighborhood by hops](/examples/k-hop-neighborhood), [within a cost budget](/examples/cost-budget) and [connected components](/examples/connected-components).
 
 ## Groups
 
@@ -99,7 +103,7 @@ graph.on('selectionchange', ({ nodes: [from, to] }) => {
 })
 ```
 
-To step along the path, walk `path.nodes` with [`graph.focus.set`](/docs/interaction#keyboard) or [`graph.view.fit`](/docs/view), and frame the whole path with `graph.view.fit(path.nodes)`.
+To step along the path, walk `path.nodes` with [`graph.focus.set`](/docs/interaction#keyboard) or [`graph.view.fit`](/docs/view), and frame the whole path with `graph.view.fit(path.nodes)`. The [path through waypoints](/examples/waypoints) example chains shortest paths through stops you click.
 
 ## Without a graph
 

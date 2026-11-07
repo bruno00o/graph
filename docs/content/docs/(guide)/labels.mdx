@@ -114,6 +114,8 @@ const definition = defineGraph({
 
 The second line of a node label keeps `--graph-ink-muted`. When an element is in several states, the first one that sets the property wins. See [States](/docs/states#priority).
 
+`label: true` does not lift the [size threshold](#size-and-zoom): zoom out until the text is under 8 pixels and the label of a member hides like any other, hovered and focused elements included. A larger `size` keeps it readable from further away.
+
 ## Theme
 
 | Token | Used for |

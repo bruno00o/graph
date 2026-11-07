@@ -22,7 +22,9 @@ const definition = defineGraph({
 })
 ```
 
-The definition never needs to change: new rows appear, updated rows restyle, deleted rows leave. With `x` and `y` channels, a row whose coordinates change moves its node, animated over `transitions.positions`. See [Positions](/docs/positions).
+The definition never needs to change: new rows appear, updated rows restyle, deleted rows leave. With `x` and `y` channels, a row whose coordinates change moves its node, animated over `transitions.positions`. See [Positions](/docs/positions) and the [collection as the source](/examples/collection-source) example.
+
+The key of a node is the key of its row, as the collection reports it in each change: the `key` option of the mark is not read. See [Data](/docs/data#two-kinds-of-data) for the whole contract.
 
 ## Filter a large collection
 
@@ -61,6 +63,24 @@ Measured on an Apple M4 Pro in Chrome, in production mode, with 500,000 rows of 
 | `collection.update` on 1 row, then on 20,000 rows | | 4 ms, then 36 ms |
 
 The TanStack DB column is the time to read the matching rows when the new source is subscribed. Keep live queries for joins, `select` and ordering, and use `subset` to filter one collection.
+
+A live query with a join keys its rows by the pair of joined keys, which edges cannot point to. Give it a `getKey` that returns the node key:
+
+```ts
+import { createLiveQueryCollection, eq, gte } from '@tanstack/db'
+
+const matching = createLiveQueryCollection({
+  getKey: (row) => row.id,
+  query: (q) =>
+    q
+      .from({ item: items })
+      .innerJoin({ score: scores }, ({ item, score }) => eq(item.id, score.node))
+      .where(({ score }) => gte(score.score, 50))
+      .select(({ item, score }) => ({ id: item.id, label: item.label, score: score.score })),
+})
+```
+
+See the [live query with a join](/examples/live-query) example.
 
 These rows were read without an index. Index the field you filter on, and TanStack DB reads the matching rows from the index instead of scanning the collection. In the [filter example](/examples/filter-at-scale), with 200,000 rows on an Apple M4 Pro, a range index on `weight` takes the TanStack DB side of a filter change from about 50 ms to 25 to 45 ms.
 
@@ -125,6 +145,8 @@ persistPositions(graph, {
   strategy: throttleStrategy({ wait: 250, leading: true, trailing: true }),
 })
 ```
+
+The [optimistic position writes](/examples/optimistic-positions) example saves through a slow server that can refuse a write.
 
 ## Positions in another collection
 

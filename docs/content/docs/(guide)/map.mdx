@@ -38,6 +38,15 @@ The layer comes back by itself after `setStyle`, and after the browser restores 
 
 Node sizes are in screen pixels, so a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map, unless they follow [great circles](#great-circles).
 
+The map keeps its own camera at mount: the graph does not frame its nodes by itself. To frame them, call `fit` right after mounting; it waits until the graph has measured the map.
+
+```ts
+const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
+graph.view.fit(undefined, { padding: 40 })
+```
+
+See the [nodes on a flat map](/examples/flat-map) example.
+
 ## Globe
 
 The graph follows the projection of the map. Set the globe projection of MapLibre, in the style or at any time, and nodes, edges, labels, badges, images, hulls and the lasso go with it:
@@ -62,6 +71,8 @@ edges(routes, { source: 'from', target: 'to', geodesic: (route) => route.long })
 
 On the globe, such an edge is an arc of the sphere. On a flat map, it bends toward the poles, and an edge that crosses the antimeridian is cut in two, each part reaching the edge of the world. Arrows, dashes, flows, labels and picking follow the path. Geodesic edges are never bundled, and the option has the same effect on a graph without a map. See [`EdgeOptions`](/docs/api/edges#options).
 
+Examples: [great circles without a map](/examples/great-circles), and [flows on a map](/examples/map-flows).
+
 ## Who moves what
 
 The map owns the camera. Dragging the background, the wheel, pinches and double clicks on the background move the map as usual, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera, in [world units](/docs/positions#longitude-and-latitude).
@@ -71,6 +82,21 @@ The graph owns its elements: hover, clicks, the selection, the lasso and node dr
 `graph.view.set`, `fit` and `zoomBy` move the map, animations included, and the keyboard of the graph does too: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit. `update({ view })` has no effect: move the map instead.
 
 The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch, and gives them back on `destroy`. On a flat map, the graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
+
+## Time
+
+The [time window](/docs/time) works on a map as on any graph. `<Timeline>` reads the graph of the `<Graph>` around it, which a map graph does not have: create the timeline with `createTimeline(graph)` and draw it with `mountTimeline`, or from its store.
+
+```ts
+import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
+
+const graph = mountMapGraph(map, { definition, ariaLabel: 'Places in time' })
+const timeline = createTimeline(graph, { mode: 'grow' })
+const view = mountTimeline(timeline, { ariaLabel: 'Timeline', labels })
+footer.append(view.element)
+```
+
+Destroy them in the reverse order: `view.destroy()`, `timeline.destroy()`, `graph.destroy()`, then `map.remove()`. See the [map in time](/examples/map-time-window) example.
 
 ## Precision
 
