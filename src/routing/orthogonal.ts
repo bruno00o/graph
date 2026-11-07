@@ -82,6 +82,25 @@ function free(obstacles: Obstacles, values: readonly number[]): boolean {
   return true
 }
 
+function crossesSides(
+  values: readonly number[],
+  axis: RouteAxis,
+  source: readonly [number, number, number, number],
+  target: readonly [number, number, number, number],
+): boolean {
+  const [sx, sy, shw, shh] = source
+  const [tx, ty, thw, thh] = target
+  const n = values.length
+  const fx = values[2] ?? sx
+  const fy = values[3] ?? sy
+  const lx = values[n - 4] ?? tx
+  const ly = values[n - 3] ?? ty
+  if (axis === 'horizontal' && (Math.abs(fy - sy) > eps || Math.abs(ly - ty) > eps)) return false
+  if (axis === 'vertical' && (Math.abs(fx - sx) > eps || Math.abs(lx - tx) > eps)) return false
+  const out = Math.abs(fx - sx) > shw + eps || Math.abs(fy - sy) > shh + eps
+  return out && (Math.abs(lx - tx) > thw + eps || Math.abs(ly - ty) > thh + eps)
+}
+
 function middle(a: number, ha: number, b: number, hb: number): number {
   const from = b > a ? a + ha : a - ha
   const to = b > a ? b - hb : b + hb
@@ -102,6 +121,7 @@ export class OrthogonalRouter {
   readonly #path: Path = new Path()
   readonly #candidate: Path = new Path()
   readonly #ignore: number[] = [0, 0]
+  readonly #ends: Float64Array = new Float64Array(8)
   #edge = 0
   #result: RouteOutput | null = null
 
@@ -176,10 +196,16 @@ export class OrthogonalRouter {
       const order =
         settings.axis === 'auto' ? (vertical ? [0, 2, 3, 1] : [1, 3, 2, 0]) : vertical ? [0] : [1]
       const axis = settings.axis === 'auto' ? 0 : vertical ? 1 : 2
+      const from = [sx, sy, shw, shh] as const
+      const into = [tx, ty, thw, thh] as const
       let chosen: readonly number[] | null = null
       for (const at of order) {
         const shape = shapes[at]?.()
-        if (shape && free(obstacles, shape.values)) {
+        if (
+          shape &&
+          crossesSides(shape.values, settings.axis, from, into) &&
+          free(obstacles, shape.values)
+        ) {
           chosen = shape.values
           break
         }
@@ -189,9 +215,10 @@ export class OrthogonalRouter {
       } else {
         const narrow = Math.min(Math.abs(tx - sx), Math.abs(ty - sy))
         const near = bend * 2 + narrow * 0.25
+        const ends = this.#endBoxes(source, target, sx, sy, tx, ty)
         chosen =
-          this.#maze.route(obstacles, sx, sy, tx, ty, near, bend, axis, limits) ??
-          this.#maze.route(obstacles, sx, sy, tx, ty, near * 4, bend, axis, limits)
+          this.#maze.route(obstacles, sx, sy, tx, ty, near, bend, axis, limits, ends) ??
+          this.#maze.route(obstacles, sx, sy, tx, ty, near * 4, bend, axis, limits, ends)
         if (chosen) {
           if (stats) stats.searched++
         } else {
@@ -204,6 +231,23 @@ export class OrthogonalRouter {
     }
     this.#offsets[edge] = this.#points.length >> 1
     for (const value of path.values) this.#points.push(value)
+  }
+
+  #endBoxes(
+    source: number,
+    target: number,
+    sx: number,
+    sy: number,
+    tx: number,
+    ty: number,
+  ): Float64Array {
+    const { boxes, present } = this.#obstacles
+    const ends = this.#ends
+    if (present[source] === 1) ends.set(boxes.subarray(source * 4, source * 4 + 4), 0)
+    else ends.set([sx, sy, sx, sy], 0)
+    if (present[target] === 1) ends.set(boxes.subarray(target * 4, target * 4 + 4), 4)
+    else ends.set([tx, ty, tx, ty], 4)
+    return ends
   }
 
   #finish(): RouteOutput {

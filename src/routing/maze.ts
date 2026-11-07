@@ -41,6 +41,7 @@ export class Maze {
   #ys: Float64Array = new Float64Array(64)
   #ids: number[] = []
   #cover: Uint8Array = new Uint8Array(0)
+  #guard: Uint8Array = new Uint8Array(0)
   #cost: Float64Array = new Float64Array(0)
   #parent: Int32Array = new Int32Array(0)
   #seen: Uint32Array = new Uint32Array(0)
@@ -112,6 +113,7 @@ export class Maze {
     bend: number,
     axis: number,
     limits: MazeLimits,
+    ends: Float64Array,
   ): number[] | null {
     const x0 = Math.min(sx, tx) - margin
     const x1 = Math.max(sx, tx) + margin
@@ -127,7 +129,7 @@ export class Maze {
       return overflow
     })
     if (overflow) return null
-    const room = ids.length * 2 + 4
+    const room = ids.length * 2 + 8
     if (this.#xs.length < room) {
       this.#xs = new Float64Array(room * 2)
       this.#ys = new Float64Array(room * 2)
@@ -152,31 +154,64 @@ export class Maze {
       ys[ny++] = Math.min(y1, Math.max(y0, boxes[box + 1] ?? 0))
       ys[ny++] = Math.min(y1, Math.max(y0, boxes[box + 3] ?? 0))
     }
+    for (let box = 0; box < 8; box += 4) {
+      xs[nx++] = Math.min(x1, Math.max(x0, ends[box] ?? 0))
+      xs[nx++] = Math.min(x1, Math.max(x0, ends[box + 2] ?? 0))
+      ys[ny++] = Math.min(y1, Math.max(y0, ends[box + 1] ?? 0))
+      ys[ny++] = Math.min(y1, Math.max(y0, ends[box + 3] ?? 0))
+    }
     nx = unique(xs, nx)
     ny = unique(ys, ny)
     const points = nx * ny
     if (points > limits.points) return null
     const cols = nx - 1
     const cells = cols * (ny - 1)
-    if (this.#cover.length < cells)
+    if (this.#cover.length < cells) {
       this.#cover = new Uint8Array(Math.max(cells, this.#cover.length * 2))
-    const cover = this.#cover
-    cover.fill(0, 0, cells)
-    for (const index of ids) {
-      const box = index * 4
-      const i0 = lowerBound(xs, nx, boxes[box] ?? 0)
-      const i1 = lowerBound(xs, nx, boxes[box + 2] ?? 0)
-      const j0 = lowerBound(ys, ny, boxes[box + 1] ?? 0)
-      const j1 = lowerBound(ys, ny, boxes[box + 3] ?? 0)
-      for (let j = j0; j < j1; j++) cover.fill(1, j * cols + i0, j * cols + i1)
+      this.#guard = new Uint8Array(this.#cover.length)
     }
-    const covered = (i: number, j: number): boolean =>
-      i >= 0 && j >= 0 && i < cols && j < ny - 1 && cover[j * cols + i] === 1
+    const cover = this.#cover
+    const guard = this.#guard
+    cover.fill(0, 0, cells)
+    guard.fill(0, 0, cells)
+    const fill = (target: Uint8Array, source: Float64Array, box: number, bit: number) => {
+      const i0 = lowerBound(xs, nx, source[box] ?? 0)
+      const i1 = lowerBound(xs, nx, source[box + 2] ?? 0)
+      const j0 = lowerBound(ys, ny, source[box + 1] ?? 0)
+      const j1 = lowerBound(ys, ny, source[box + 3] ?? 0)
+      for (let j = j0; j < j1; j++) {
+        for (let i = i0; i < i1; i++) target[j * cols + i] = (target[j * cols + i] ?? 0) | bit
+      }
+    }
+    for (const index of ids) fill(cover, boxes, index * 4, 1)
+    fill(guard, ends, 0, 1)
+    fill(guard, ends, 4, 2)
+    const inside = (i: number, j: number): boolean => i >= 0 && j >= 0 && i < cols && j < ny - 1
+    const covered = (i: number, j: number): boolean => inside(i, j) && cover[j * cols + i] === 1
+    const guarded = (i: number, j: number): number =>
+      inside(i, j) ? (guard[j * cols + i] ?? 0) : 0
+    const level = (value: number, line: number): boolean => Math.abs(value - line) <= 1e-9
+    const leaves = (ai: number, aj: number, bi: number, bj: number, along: boolean, at: number) => {
+      const both = guarded(ai, aj) & guarded(bi, bj)
+      if (both === 0) return true
+      if ((both & 1) !== 0 && level(at, along ? sy : sx)) return true
+      return (both & 2) !== 0 && level(at, along ? ty : tx)
+    }
     const open = (i: number, j: number, direction: number): boolean => {
-      if (direction === 0) return !(covered(i, j - 1) && covered(i, j))
-      if (direction === 2) return !(covered(i - 1, j - 1) && covered(i - 1, j))
-      if (direction === 1) return !(covered(i - 1, j) && covered(i, j))
-      return !(covered(i - 1, j - 1) && covered(i, j - 1))
+      const x = xs[i] ?? 0
+      const y = ys[j] ?? 0
+      if (direction === 0)
+        return !(covered(i, j - 1) && covered(i, j)) && leaves(i, j - 1, i, j, true, y)
+      if (direction === 2) {
+        return (
+          !(covered(i - 1, j - 1) && covered(i - 1, j)) && leaves(i - 1, j - 1, i - 1, j, true, y)
+        )
+      }
+      if (direction === 1)
+        return !(covered(i - 1, j) && covered(i, j)) && leaves(i - 1, j, i, j, false, x)
+      return (
+        !(covered(i - 1, j - 1) && covered(i, j - 1)) && leaves(i - 1, j - 1, i, j - 1, false, x)
+      )
     }
     const start = lowerBound(ys, ny, sy) * nx + lowerBound(xs, nx, sx)
     const goal = lowerBound(ys, ny, ty) * nx + lowerBound(xs, nx, tx)
@@ -236,6 +271,7 @@ export class Maze {
       const j = (point - i) / nx
       const base = cost[state] ?? 0
       for (let turn = -1; turn <= 1; turn++) {
+        if (turn !== 0 && point === start) continue
         const next = (direction + turn + 4) & 3
         const ni = i + (stepX[next] ?? 0)
         const nj = j + (stepY[next] ?? 0)
