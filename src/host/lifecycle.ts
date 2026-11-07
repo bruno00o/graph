@@ -1,9 +1,11 @@
 import { createStore } from '@tanstack/store'
 import { groupKey } from '../core/group-index'
 import type { GraphIssue } from '../core/issues'
+import { noReach } from '../core/path-query'
 import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
 import { freeStateNames } from '../core/state-names'
+import { noWalk } from '../core/support'
 import { readWindow } from '../core/time-range'
 import { toScreen, toWorld } from '../core/view'
 import { dev } from '../dev'
@@ -28,8 +30,6 @@ interface Waiter {
 const noKeys: ElementKeys = Object.freeze({ nodes: [], edges: [] })
 const idle = Object.freeze({ running: false })
 const idleLayout = Object.freeze({ running: false, progress: 0 })
-const noWalk = Object.freeze({ edges: [], depths: [], nodes: [] })
-const noReach = Object.freeze({ nodes: [], costs: [], edges: [] })
 const noIssues: readonly GraphIssue[] = Object.freeze([])
 const noCount: GraphCount = Object.freeze({
   nodes: 0,
@@ -259,7 +259,10 @@ export function stillborn<S extends string, M extends Mark>(
     masks: () => new Uint32Array(0),
     sight: () => ({ zoom: 1, time: null, layers: null, hide: null }),
     stamp: () => ({ scene: 0, positions: 0, palette: 0, containers: -1, detail: 0 }),
-    watch: () => nothing,
+    watch: (watcher) => {
+      watcher.destroy()
+      return nothing
+    },
   })
   exposeSnapshot(graph, () => {
     throw destroyedError()

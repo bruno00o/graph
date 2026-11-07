@@ -4,7 +4,7 @@ import { IndexPool } from './index-pool'
 import { IndexSet } from './index-set'
 import type { GraphIssue } from './issues'
 import { KeyIndex } from './key-index'
-import { type Source, SourceTable } from './source-table'
+import { type Source, type SourcePlan, SourceTable } from './source-table'
 
 export type { GraphIssue } from './issues'
 export type { ElementKind } from './source-table'
@@ -539,7 +539,9 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       if (sole && owner === sole && position !== -1) visit(key, -1, forced, owner, datum, position)
       else visit(key, known ? edgeIds.get(key) : -1, forced, owner, datum, -1)
     })
-    for (const id of touched) {
+    const touchedIds = touched.indices()
+    for (let at = 0; at < touchedIds.length; at++) {
+      const id = touchedIds[at] ?? 0
       const entry = entries[id]
       if (entry && !edgeSources.isDirty(entry.key)) {
         visit(entry.key, id, undefined, undefined, undefined, -1)
@@ -551,8 +553,16 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
 
   return {
     setMarks(marks) {
-      nodeSources.setMarks(marks.filter(isNodeMark))
-      edgeSources.setMarks(marks.filter(isEdgeMark))
+      const nodePlan = nodeSources.prepare(marks.filter(isNodeMark))
+      let edgePlan: SourcePlan<EdgeMark<unknown>>
+      try {
+        edgePlan = edgeSources.prepare(marks.filter(isEdgeMark))
+      } catch (error) {
+        nodeSources.abandon(nodePlan)
+        throw error
+      }
+      nodeSources.commit(nodePlan)
+      edgeSources.commit(edgePlan)
       if (nodeSources.pending || edgeSources.pending || issueVersion() !== flushedIssues) schedule()
     },
 

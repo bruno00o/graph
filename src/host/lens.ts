@@ -40,7 +40,10 @@ export interface LensInput {
 export interface GraphLens {
   /** Current lens, or `null` when hidden. */
   get(): GraphLensState | null
-  /** Shows, moves or resizes the lens, or hides it with `null`. */
+  /**
+   * Shows, moves or resizes the lens, or hides it with `null`. Throws a `RangeError` for an `at`,
+   * a `radius` or a `zoom` that is not finite, or a `radius` of 0 or less.
+   */
   set(lens: LensInput | null): void
   /** Converts a screen point to world units, through the lens inside it and the view elsewhere. */
   toWorld(point: Point): Point

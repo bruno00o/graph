@@ -7,14 +7,18 @@ import type {
   SourceSubscription,
 } from '../types'
 import { isKey, toAccessor } from './accessor'
-import type { GraphIssue } from './issues'
+import type { GraphIssue, MissingKeyIssue } from './issues'
 import { type KeyedItems, KeyMap, NativeKeyMap } from './key-map'
 import { isLiveSource } from './live-source'
-import { shallowEqual } from './shallow-equal'
+import { sameOptions } from './same-options'
 
 export type ElementKind = 'nodes' | 'edges'
 
 const comparedApart: ReadonlySet<string> = new Set(['merge', 'aggregate', 'scales'])
+
+const queueFloor = 1024
+
+const noItems: KeyedItems<unknown> = new NativeKeyMap()
 
 export type AnyMark = NodeMark<unknown> | EdgeMark<unknown>
 
@@ -24,26 +28,65 @@ export interface Source<M extends AnyMark> {
   readonly slot: number
   mark: M
   readonly live: LiveSource<unknown> | null
-  readonly items: KeyedItems<unknown>
+  readonly items: KeyMap<unknown> | NativeKeyMap<unknown>
   readonly queue: SourceChange<unknown>[]
   subscription: SourceSubscription | null
   retired: boolean
   previous: KeyedItems<unknown> | null
-  forced: boolean
   readonly issues: GraphIssue[]
+  rejected: Map<unknown, MissingKeyIssue> | null
 }
 
 export interface PackedSource<M extends AnyMark> extends Source<M> {
   readonly items: KeyMap<unknown>
 }
 
+interface LiveState<M extends AnyMark> extends Source<M> {
+  readonly live: LiveSource<unknown>
+  readonly items: NativeKeyMap<unknown>
+}
+
+export interface SourcePlan<M extends AnyMark> {
+  readonly marks: readonly M[]
+  readonly next: readonly Source<M>[]
+}
+
 function isPacked<M extends AnyMark>(source: Source<M>): source is PackedSource<M> {
-  return source.items instanceof KeyMap && source.items.dense
+  return source.items instanceof KeyMap
+}
+
+function isLive<M extends AnyMark>(source: Source<M>): source is LiveState<M> {
+  return source.live !== null
 }
 
 function holds(items: KeyedItems<unknown>, key: Key, datum: unknown): boolean {
   const known = items.get(key)
   return known === datum && (known !== undefined || items.has(key))
+}
+
+function createSource<
+  M extends AnyMark,
+  L extends LiveSource<unknown> | null,
+  I extends KeyMap<unknown> | NativeKeyMap<unknown>,
+>(slot: number, mark: M, live: L, items: I): Source<M> & { readonly live: L; readonly items: I } {
+  return {
+    slot,
+    mark,
+    live,
+    items,
+    queue: [],
+    subscription: null,
+    retired: false,
+    previous: null,
+    issues: [],
+    rejected: null,
+  }
+}
+
+function release<M extends AnyMark>(source: Source<M>): void {
+  source.retired = true
+  source.subscription?.unsubscribe()
+  source.subscription = null
 }
 
 export interface Owner<M extends AnyMark> {
@@ -66,6 +109,9 @@ export class SourceTable<M extends AnyMark> {
   readonly #duplicates: Map<Key, GraphIssue> = new Map()
   readonly #notify: () => void
   #sources: Source<M>[] = []
+  #settled: M[] = []
+  #restyled: Set<number> | null = null
+  #draining = false
   #issueVersion = 0
 
   constructor(kind: ElementKind, notify: () => void) {
@@ -78,19 +124,76 @@ export class SourceTable<M extends AnyMark> {
   }
 
   collectIssues(into: GraphIssue[]): void {
-    for (const source of this.#sources) for (const issue of source.issues) into.push(issue)
+    for (const source of this.#sources) {
+      for (const issue of source.issues) into.push(issue)
+      if (source.rejected) for (const issue of source.rejected.values()) into.push(issue)
+    }
     for (const issue of this.#duplicates.values()) into.push(issue)
   }
 
-  setMarks(marks: readonly M[]): void {
+  prepare(marks: readonly M[]): SourcePlan<M> {
+    const next: Source<M>[] = []
+    try {
+      marks.forEach((mark, slot) => {
+        next.push(this.#prepare(slot, mark, this.#sources[slot]))
+      })
+    } catch (error) {
+      this.abandon({ marks, next })
+      throw error
+    }
+    return { marks, next }
+  }
+
+  abandon(plan: SourcePlan<M>): void {
+    plan.next.forEach((source, slot) => {
+      if (source !== this.#sources[slot]) release(source)
+    })
+  }
+
+  commit(plan: SourcePlan<M>): void {
     const previous = this.#sources
-    this.#sources = marks.map((mark, slot) => this.#reconcile(slot, mark, previous[slot]))
-    for (const old of previous.slice(marks.length)) this.#retire(old)
-    for (const old of previous) if (old.retired && old.issues.length > 0) this.#issueVersion++
+    const { marks, next } = plan
+    const replaced: Source<M>[] = []
+    this.#sources = [...next]
+    next.forEach((source, slot) => {
+      const old = previous[slot]
+      if (source === old) {
+        old.mark = marks[slot] as M
+        return
+      }
+      if (old) replaced.push(old)
+      if (isLive(source)) {
+        if (!old) return
+        source.previous = old.previous ?? (this.#fresh.includes(old) ? noItems : old.items)
+        this.#notify()
+        this.#retire(old, false)
+        return
+      }
+      if (!old || old.live || this.#fresh.includes(old)) {
+        if (old) this.#retire(old)
+        this.#fresh.push(source)
+        return
+      }
+      old.retired = true
+      old.items.forEach((_, key) => {
+        if (!source.items.has(key)) this.#markDirty(key)
+      })
+      source.items.forEach((datum, key) => {
+        if (!holds(old.items, key, datum)) this.#markDirty(key)
+      })
+    })
+    for (const old of previous.slice(next.length)) {
+      replaced.push(old)
+      this.#retire(old)
+    }
+    for (const old of replaced) {
+      if (old.issues.length > 0 || (old.rejected?.size ?? 0) > 0) this.#issueVersion++
+    }
+    this.#restyled = this.#restyledSlots()
   }
 
   get pending(): boolean {
-    return this.#dirty.size > 0 || this.#fresh.length > 0
+    return this.#dirty.size > 0 || this.#fresh.length > 0 || this.#restyled !== null
   }
 
   get pendingCount(): number {
@@ -139,36 +242,34 @@ export class SourceTable<M extends AnyMark> {
   clearDirty(): void {
     this.#dirty.clear()
     this.#fresh.length = 0
+    this.#restyled = null
+    this.#draining = false
+    this.#settled = this.#sources.map((source) => source.mark)
   }
 
   markAt(slot: number): M {
-    const source = this.#sources[slot]
-    if (!source) throw new Error(`graph: no ${this.#kind} mark at position ${slot}`)
-    return source.mark
+    const mark = this.#sources[slot]?.mark ?? this.#settled[slot]
+    if (!mark) throw new Error(`graph: no ${this.#kind} mark at position ${slot}`)
+    return mark
   }
 
   drain(): void {
+    this.#draining = true
+    const restyled = this.#restyled
     for (const source of this.#sources) {
+      if (isLive(source)) this.#apply(source)
       const previous = source.previous
-      if (source.queue.length > 64) source.items.reserve(source.items.size + source.queue.length)
-      for (const change of source.queue) {
-        if (change.type === 'delete') {
-          source.items.delete(change.key)
-          this.#markDirty(change.key)
-          continue
-        }
-        source.items.set(change.key, change.value)
-        if (source.forced || !previous || !holds(previous, change.key, change.value)) {
-          this.#markDirty(change.key, source.forced)
-        }
+      if (previous) {
+        previous.forEach((_, key) => {
+          if (!source.items.has(key)) this.#markDirty(key)
+        })
+        source.previous = null
       }
-      source.queue.length = 0
-      if (!previous) continue
-      previous.forEach((_, key) => {
-        if (!source.items.has(key)) this.#markDirty(key)
-      })
-      source.previous = null
-      source.forced = false
+      if (restyled?.has(source.slot)) {
+        source.items.forEach((_, key) => {
+          this.#markDirty(key, true)
+        })
+      }
     }
   }
 
@@ -191,72 +292,101 @@ export class SourceTable<M extends AnyMark> {
   }
 
   destroy(): void {
-    for (const source of this.#sources) {
-      source.retired = true
-      source.subscription?.unsubscribe()
-      source.subscription = null
-    }
+    for (const source of this.#sources) release(source)
     this.#sources = []
     this.#duplicates.clear()
     this.#issueVersion++
     this.clearDirty()
   }
 
-  #reconcile(slot: number, mark: M, old: Source<M> | undefined): Source<M> {
-    if (old?.mark === mark) return old
-    const optionsChanged =
-      old !== undefined && !shallowEqual(old.mark.options, mark.options, comparedApart)
+  #prepare(slot: number, mark: M, old: Source<M> | undefined): Source<M> {
+    if (old && (old.mark === mark || (old.live !== null && old.live === mark.data))) return old
     const data = mark.data
-    if (isLiveSource(data)) {
-      if (old?.live === data) {
-        old.mark = mark
-        if (optionsChanged) {
-          old.items.forEach((_, key) => {
-            this.#markDirty(key, true)
-          })
-        }
-        return old
-      }
-      const source = this.#create(slot, mark, data)
-      if (old) {
-        source.previous = old.previous ?? old.items
-        source.forced = optionsChanged || old.forced
-        this.#notify()
-      }
+    if (!isLiveSource(data)) {
+      const source = createSource(slot, mark, null, new KeyMap<unknown>())
+      this.#collect(source, data)
+      return source
+    }
+    const source: LiveState<M> = createSource(slot, mark, data, new NativeKeyMap<unknown>())
+    try {
       source.subscription = data.subscribeChanges(
         (changes) => {
-          if (source.retired || changes.length === 0) return
-          for (const change of changes) source.queue.push(change)
-          this.#notify()
+          this.#receive(source, changes)
         },
         { includeInitialState: true },
       )
-      if (old) this.#retire(old, false)
-      return source
+    } catch (error) {
+      source.retired = true
+      throw error
     }
-    const source = this.#create(slot, mark, null)
-    this.#collect(source, data)
-    if (!old || old.live || this.#fresh.includes(old)) {
-      if (old) this.#retire(old)
-      this.#fresh.push(source)
-      return source
-    }
-    old.retired = true
-    old.items.forEach((_, key) => {
-      if (!source.items.has(key)) this.#markDirty(key)
-    })
-    source.items.forEach((datum, key) => {
-      if (optionsChanged || !holds(old.items, key, datum)) {
-        this.#markDirty(key, optionsChanged)
-      }
-    })
     return source
   }
 
-  #collect(source: Source<M>, data: Iterable<unknown>): void {
+  #receive(source: LiveState<M>, changes: ReadonlyArray<SourceChange<unknown>>): void {
+    if (source.retired || changes.length === 0) return
+    const queue = source.queue
+    const queued = queue.length
+    let rejected = false
+    for (const change of changes) {
+      if (isKey(change.key)) queue.push(change)
+      else if (this.#reject(source, change)) rejected = true
+    }
+    if (queue.length === queued && !rejected) return
+    if (
+      !this.#draining &&
+      this.#sources[source.slot] === source &&
+      queue.length > Math.max(queueFloor, source.items.size)
+    ) {
+      this.#apply(source)
+    }
+    this.#notify()
+  }
+
+  #reject(source: LiveState<M>, change: SourceChange<unknown>): boolean {
+    const rejected = source.rejected ?? new Map<unknown, MissingKeyIssue>()
+    source.rejected = rejected
+    if (change.type === 'delete') {
+      if (!rejected.delete(change.key)) return false
+    } else {
+      if (rejected.get(change.key)?.datum === change.value) return false
+      rejected.set(change.key, { type: 'missing-key', kind: this.#kind, datum: change.value })
+    }
+    this.#issueVersion++
+    return true
+  }
+
+  #apply(source: LiveState<M>): void {
+    const { queue, items, previous } = source
+    for (const change of queue) {
+      const key = change.key
+      if (change.type === 'delete') {
+        items.delete(key)
+        this.#markDirty(key)
+        continue
+      }
+      items.set(key, change.value)
+      if (!previous || !holds(previous, key, change.value)) this.#markDirty(key)
+    }
+    queue.length = 0
+  }
+
+  #restyledSlots(): Set<number> | null {
+    let restyled: Set<number> | null = null
+    this.#sources.forEach((source, slot) => {
+      const settled = this.#settled[slot]
+      if (settled === undefined || settled === source.mark) return
+      if (sameOptions(settled.options, source.mark.options, comparedApart)) return
+      restyled ??= new Set()
+      restyled.add(slot)
+    })
+    return restyled
+  }
+
+  #collect(source: PackedSource<M>, data: Iterable<unknown>): void {
+    const items = source.items
     const keyOf = toAccessor<unknown, unknown>(source.mark.options.key ?? 'id')
     if (Array.isArray(data)) {
-      source.items.reserve(data.length)
+      items.reserve(data.length)
       if (this.#collectUnique(source, data, keyOf)) {
         if (source.issues.length > 0) this.#issueVersion++
         return
@@ -270,7 +400,7 @@ export class SourceTable<M extends AnyMark> {
         issues.push({ type: 'missing-key', kind: this.#kind, datum })
         continue
       }
-      if (source.items.has(key)) {
+      if (items.has(key)) {
         repeated ??= new Set()
         if (!repeated.has(key)) {
           repeated.add(key)
@@ -278,13 +408,13 @@ export class SourceTable<M extends AnyMark> {
         }
         continue
       }
-      source.items.set(key, datum)
+      items.set(key, datum)
     }
     if (issues.length > 0) this.#issueVersion++
   }
 
   #collectUnique(
-    source: Source<M>,
+    source: PackedSource<M>,
     data: readonly unknown[],
     keyOf: (datum: unknown) => unknown,
   ): boolean {
@@ -304,28 +434,11 @@ export class SourceTable<M extends AnyMark> {
     return true
   }
 
-  #create(slot: number, mark: M, live: LiveSource<unknown> | null): Source<M> {
-    return {
-      slot,
-      mark,
-      live,
-      items: live ? new NativeKeyMap() : new KeyMap(),
-      queue: [],
-      subscription: null,
-      retired: false,
-      previous: null,
-      forced: false,
-      issues: [],
-    }
-  }
-
   #retire(source: Source<M>, forget = true): void {
     const fresh = this.#fresh.indexOf(source)
     if (fresh >= 0) this.#fresh.splice(fresh, 1)
-    source.retired = true
-    source.subscription?.unsubscribe()
-    source.subscription = null
-    if (!forget && fresh < 0) return
+    release(source)
+    if (fresh >= 0 || !forget) return
     const markKey = (_: unknown, key: Key) => {
       this.#markDirty(key)
     }

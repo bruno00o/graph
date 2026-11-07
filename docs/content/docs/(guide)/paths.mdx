@@ -53,7 +53,7 @@ const near = graph.paths.reach('a', { maxCost: 2 })
 graph.states.set('near', near)
 ```
 
-`reach` lists the nodes the start leads to, by increasing cost, with the cost of each, and the edges between two reached nodes that the search may cross. Without `weight`, `maxCost` counts edges: `{ maxCost: 1 }` is the start and its neighbors. Without `maxCost`, `reach` returns the whole connected component of the start; with `direction: 'forward'`, every node it leads to, and with `'backward'`, every node that leads to it. It takes the same options as `shortest`.
+`reach` lists the nodes the start leads to, by increasing cost, with the cost of each, and the edges between two reached nodes that the search may cross. Without `weight`, `maxCost` counts edges: `{ maxCost: 1 }` is the start and its neighbors. Without `maxCost`, `reach` returns the whole connected component of the start; with `direction: 'forward'`, every node it leads to, and with `'backward'`, every node that leads to it. A negative or `NaN` `maxCost` throws a `RangeError`. It takes the same options as `shortest`.
 
 Examples: [neighborhood by hops](/examples/k-hop-neighborhood), [within a cost budget](/examples/cost-budget) and [connected components](/examples/connected-components).
 
@@ -118,7 +118,7 @@ paths.shortest('a', 'f', { weight: 'distance' })
 paths.destroy()
 ```
 
-It reads the marks at the first query. Live sources, such as a TanStack DB collection, are read again after each change. `destroy` stops listening to them.
+It reads the arrays and subscribes to the live sources, such as a TanStack DB collection, as soon as it is created, and applies their changes at the next query. `destroy` stops listening to them; later queries find nothing.
 
 ## Cost
 

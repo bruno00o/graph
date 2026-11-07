@@ -2,6 +2,7 @@ import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { dev } from '../dev'
 import type { ElementKeys } from '../host/events'
 import { internalsOf } from '../host/internals'
+import { isolateSubscribers } from '../host/isolate'
 import type { GraphInstance } from '../host/mount-graph'
 import type { FreeState, GraphDefinition, LayerName, Mark } from '../types'
 import {
@@ -145,7 +146,9 @@ export function createLegend<S extends string, M extends Mark>(
   let highlight: string | null = options.highlight ?? null
   let hidden: string | null = options.hidden ?? null
   const store = createStore<LegendState<M>>(emptyState as LegendState<M>)
-  const readonlyStore: ReadonlyStore<LegendState<M>> = createStore(() => store.state)
+  const readonlyStore: ReadonlyStore<LegendState<M>> = isolateSubscribers(
+    createStore(() => store.state),
+  )
   const off = new Set<string>()
   const layers = graph.layers as unknown as {
     names(): readonly string[]
@@ -272,7 +275,22 @@ export function createLegend<S extends string, M extends Mark>(
     applyHidden()
   }
 
-  const stopWatch = internals.watch({
+  const layerSubscription = graph.store.subscribe(syncLayers)
+  let stopWatch: (() => void) | null = null
+
+  function destroy(): void {
+    if (destroyed) return
+    destroyed = true
+    clearTimeout(timer)
+    stopWatch?.()
+    layerSubscription.unsubscribe()
+    quietly(() => {
+      if (highlight !== null) states.clear(highlight)
+      if (hidden !== null) states.clear(hidden)
+    })
+  }
+
+  stopWatch = internals.watch({
     frame() {
       const stamp = internals.stamp()
       if (
@@ -285,19 +303,6 @@ export function createLegend<S extends string, M extends Mark>(
     },
     destroy: () => destroy(),
   })
-  const layerSubscription = graph.store.subscribe(syncLayers)
-
-  function destroy(): void {
-    if (destroyed) return
-    destroyed = true
-    clearTimeout(timer)
-    stopWatch()
-    layerSubscription.unsubscribe()
-    quietly(() => {
-      if (highlight !== null) states.clear(highlight)
-      if (hidden !== null) states.clear(hidden)
-    })
-  }
 
   try {
     read()
