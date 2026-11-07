@@ -25,8 +25,8 @@ const upper: Item[] = [{ id: 'e', x: 0, y: 200 }]
 
 const definition = defineGraph({
   marks: [
-    nodes<Item>(grouped, { x: 'x', y: 'y', parent: 'parent', layer: 'lower' }),
-    nodes<Item>(upper, { x: 'x', y: 'y', layer: 'upper' }),
+    nodes(grouped, { x: 'x', y: 'y', parent: 'parent', layer: 'lower' }),
+    nodes(upper, { x: 'x', y: 'y', layer: 'upper' }),
   ],
   layout: null,
 })

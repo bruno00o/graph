@@ -48,3 +48,4 @@ Use it inside the children of [`<Graph>`](/docs/api/graph-component), or anywher
 - Colors are CSS colors, `--graph-…` tokens included, resolved with the current theme and again when it changes.
 - The minimap frames every node and group container. A view larger than the graph shows its rectangle cut by the edges of the minimap.
 - Drawing happens in a worker when the browser has `Worker`, `OffscreenCanvas` and `ImageBitmapRenderingContext` and the page allows `worker-src blob:`; otherwise on the page, at the same pace.
+- Destroying the graph destroys its minimaps. A minimap created on a destroyed graph comes back destroyed: it holds no worker, observer or timer, and draws nothing.

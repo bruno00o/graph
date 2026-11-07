@@ -259,7 +259,10 @@ export function stillborn<S extends string, M extends Mark>(
     masks: () => new Uint32Array(0),
     sight: () => ({ zoom: 1, time: null, layers: null, hide: null }),
     stamp: () => ({ scene: 0, positions: 0, palette: 0, containers: -1, detail: 0 }),
-    watch: () => nothing,
+    watch: (watcher) => {
+      watcher.destroy()
+      return nothing
+    },
   })
   exposeSnapshot(graph, () => {
     throw destroyedError()

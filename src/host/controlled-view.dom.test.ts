@@ -169,6 +169,16 @@ describe('controlled view', () => {
     expect(requests).toEqual([{ x: -50, y: 0, zoom: 1 }])
   })
 
+  it('refuses a view that is not finite and applies nothing of the update', () => {
+    const graph = mount({ view: origin, onViewChange: () => {} })
+    step(0)
+    expect(() =>
+      graph.update({ view: { x: Number.NaN, y: 0, zoom: 1 }, ariaLabel: 'autre' }),
+    ).toThrow(RangeError)
+    expect(graph.view.get()).toEqual(origin)
+    expect(graph.element.getAttribute('aria-label')).toBe('graphe')
+  })
+
   it('applies the given view as is and does not fit the data', () => {
     const graph = mount({ view: { x: 9, y: 9, zoom: 100 } }, { maxZoom: 4 })
     step(0)

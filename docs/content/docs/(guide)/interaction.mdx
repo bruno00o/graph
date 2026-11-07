@@ -203,4 +203,6 @@ graph.on('pointermove', ({ target, world }) => {
 })
 ```
 
+A handler that throws stops neither the other handlers nor the graph: its error is reported as an uncaught error, and the click still selects. See [Errors in handlers](/docs/api/events#errors-in-handlers).
+
 See [Events](/docs/api/events) for the full list, and the examples: the [event log](/examples/event-log) prints every event as it fires, the [context menu](/examples/context-menu) opens on `contextmenu`, and the [neighborhood on hover](/examples/hover-neighborhood) lights the neighbors on `pointerenter`.
