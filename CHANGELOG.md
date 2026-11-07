@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.0](https://github.com/bruno00o/graph/compare/0.11.0...0.12.0) (2026-11-06)
+
+
+### Features
+
+* bundle edges by density once nodes stand still ([#67](https://github.com/bruno00o/graph/issues/67)) ([a5a7716](https://github.com/bruno00o/graph/commit/a5a771609ac81fead0a33ddc43f8b9adb910916d))
+* lay out nested groups in layers that flow across groups ([#65](https://github.com/bruno00o/graph/issues/65)) ([b000e8b](https://github.com/bruno00o/graph/commit/b000e8b78cf4f3fb0d08496747aa8c849f00f5ca))
+* show nodes and edges by zoom and draw far views faster ([#68](https://github.com/bruno00o/graph/issues/68)) ([32fd211](https://github.com/bruno00o/graph/commit/32fd211aaed12105facc2206f29daa0507a4c9a3))
+
 ## [0.11.0](https://github.com/bruno00o/graph/compare/0.10.0...0.11.0) (2026-11-06)
 
 
