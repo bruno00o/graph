@@ -16,7 +16,7 @@ import {
   useGraphState,
 } from '@bruno00o/graph/react'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { StrictMode, useMemo, useRef, useState } from 'react'
+import { StrictMode, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createSample, type Item, type Link } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
@@ -80,6 +80,9 @@ function ThemeButton() {
 
 function App() {
   const graph = useRef<GraphInstance | null>(null)
+  useEffect(() => {
+    Object.defineProperty(window, 'graph', { configurable: true, get: () => graph.current })
+  }, [])
   const [selection, setSelection] = useState<ElementKeys>({ nodes: [], edges: [] })
   const definition = useMemo(
     () =>

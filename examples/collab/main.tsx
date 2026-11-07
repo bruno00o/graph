@@ -58,6 +58,9 @@ function Hovered() {
 
 function App() {
   const graph = useRef<GraphInstance | null>(null)
+  useEffect(() => {
+    Object.defineProperty(window, 'graph', { configurable: true, get: () => graph.current })
+  }, [])
   const definition = useMemo(
     () =>
       defineGraph({
