@@ -119,6 +119,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       hide: snapshot.states.hide,
       hulls: snapshot.hulls.shapes,
       bundles: snapshot.bundles,
+      states,
     },
     { region, zoom: options.zoom, padding },
   )

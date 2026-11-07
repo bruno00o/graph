@@ -94,3 +94,43 @@ describe('placeNodes', () => {
     expect(positions.source[index * 2]).toBe(10)
   })
 })
+
+describe('Positions.changedSince', () => {
+  function ranges(positions: Positions, version: number): number[][] {
+    const found: number[][] = []
+    positions.changedSince(version, (first, last) => found.push([first, last]))
+    return found
+  }
+
+  it('lists the blocks of 1,024 indices moved since a version, merged when they touch', () => {
+    const positions = new Positions()
+    positions.reserve(5000)
+    expect(ranges(positions, 0)).toEqual([])
+    positions.set(10, 1, 2)
+    const seen = positions.version
+    positions.set(1500, 1, 2)
+    positions.set(2100, 1, 2)
+    positions.set(4100, 1, 2)
+    expect(ranges(positions, seen)).toEqual([
+      [1024, 3071],
+      [4096, positions.capacity - 1],
+    ])
+    expect(ranges(positions, 0)).toEqual([
+      [0, 3071],
+      [4096, positions.capacity - 1],
+    ])
+    expect(ranges(positions, positions.version)).toEqual([])
+  })
+
+  it('lists every index after a rebase and keeps the stamps when it grows', () => {
+    const positions = new Positions()
+    positions.set(3, 0, 0)
+    const seen = positions.version
+    positions.rebase(10, 10)
+    expect(ranges(positions, seen)).toEqual([[0, positions.capacity - 1]])
+    const before = positions.version
+    positions.set(2, 4, 4)
+    positions.reserve(3000)
+    expect(ranges(positions, before)).toEqual([[0, 1023]])
+  })
+})

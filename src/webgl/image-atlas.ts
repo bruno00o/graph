@@ -21,6 +21,7 @@ export class ImageAtlas {
   #next = 0
   #loaded = new Set<string>()
   #decoded: Array<readonly [string, HTMLImageElement]> = []
+  readonly #waiting = new Map<string, HTMLImageElement>()
   readonly #loading = new Set<Promise<void>>()
   #mipsStale = false
   #canvas: HTMLCanvasElement | null = null
@@ -77,7 +78,13 @@ export class ImageAtlas {
     const entry = this.#entries.get(src)
     if (!entry || --entry.count > 0) return
     this.#entries.delete(src)
-    if (entry.layer >= 0) this.#free.push(entry.layer)
+    this.#waiting.delete(src)
+    if (entry.layer < 0) return
+    this.#free.push(entry.layer)
+    if (this.#waiting.size === 0) return
+    this.#decoded.push(...this.#waiting)
+    this.#waiting.clear()
+    this.#invalidate()
   }
 
   flush(): void {
@@ -124,10 +131,11 @@ export class ImageAtlas {
     if (this.#destroyed || !entry || entry.layer >= 0) return
     const layer = this.#free.pop() ?? this.#next
     if (layer >= this.#capacity && !this.#grow()) {
+      this.#waiting.set(src, image)
       if (dev && !this.#warnedFull) {
         this.#warnedFull = true
         console.warn(
-          `graph: more than ${this.#maxLayers} distinct images, the others are not drawn`,
+          `graph: more than ${this.#maxLayers} distinct images in use, the others are not drawn until one is freed`,
         )
       }
       return
