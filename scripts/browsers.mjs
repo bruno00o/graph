@@ -3,6 +3,7 @@ import {
   appendFileSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
@@ -10,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { createServer } from 'node:http'
-import { platform } from 'node:os'
+import { platform, tmpdir } from 'node:os'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { inflateSync } from 'node:zlib'
@@ -234,6 +235,11 @@ function browserArgs(name) {
   if (options.software) return ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
   if (platform() === 'darwin') return ['--use-angle=metal', '--enable-gpu']
   return ['--enable-unsafe-swiftshader']
+}
+
+function browserEnv(name) {
+  if (name !== 'firefox' || platform() !== 'darwin') return process.env
+  return { ...process.env, CFFIXED_USER_HOME: mkdtempSync(join(tmpdir(), 'graph-firefox-')) }
 }
 
 function install() {
@@ -555,7 +561,11 @@ async function run(name, pages) {
   if (skip) return every(pages, name, 'skip', skip.reason)
   let browser
   try {
-    browser = await engines[name].launch({ headless: !options.headed, args: browserArgs(name) })
+    browser = await engines[name].launch({
+      headless: !options.headed,
+      args: browserArgs(name),
+      env: browserEnv(name),
+    })
   } catch (error) {
     const lines = String(error?.message ?? error).split('\n')
     const cause = lines.find((line) => /\[err\]/.test(line) && !/headless mode/.test(line))
