@@ -14,7 +14,7 @@ import {
   type TextMeasure,
 } from '../webgl/label-layer'
 import { edgeLabelGap, labelGap } from '../webgl/shaders'
-import { type ExportFrame, screenExtent } from './frame'
+import { type ExportFrame, frameSight, screenExtent } from './frame'
 
 export interface LabelSource {
   readonly nodes: NodeColumns
@@ -61,6 +61,7 @@ export function selectLabels(
       positions,
       boxes: source.boxes ?? null,
       view: frame.view,
+      sight: frameSight(frame),
       width: frame.width,
       height: frame.height,
       nodeMask: states.nodeMask,

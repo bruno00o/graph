@@ -1,5 +1,6 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { maxStates, noPaint } from '../core/state-buffers'
+import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
 import type { ZoomRanges } from '../core/zoom-range'
 import type { ResolvedTheme } from '../dom/theme'
 import type { LabelArea, Renderer, RenderInput } from '../host/renderer'
@@ -70,6 +71,8 @@ const units = {
   ...bundleUnits,
   nodeZoom: 14,
   edgeZoom: 15,
+  nodeTime: 16,
+  edgeTime: 17,
 } as const
 const farZoom = 3e38
 
@@ -154,7 +157,11 @@ function createRenderer(
   const edgeState = new DataTexture(gl, format.r32ui, u32)
   const nodeZoom = new DataTexture(gl, format.rg32f, f32)
   const edgeZoom = new DataTexture(gl, format.rg32f, f32)
+  const nodeTime = new DataTexture(gl, format.rgba32f, f32)
+  const edgeTime = new DataTexture(gl, format.rgba32f, f32)
+  const rangeTextures = [nodeZoom, edgeZoom, nodeTime, edgeTime]
   let zoomUsed = false
+  let timeUsed = false
   const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor, nodeBox]
   const images = new ImageAtlas(gl, invalidate)
   const floatBits = new Float32Array(1)
@@ -177,7 +184,7 @@ function createRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
   }
 
-  const frameBlock = new Float32Array(28)
+  const frameBlock = new Float32Array(36)
   const frameBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -660,6 +667,58 @@ function createRenderer(
     }
   }
 
+  function packSpan(texture: DataTexture<Float32Array>, spans: TimeSpans, index: number): void {
+    const at = index * 4
+    const data = texture.data
+    if (at + 3 < spans.packed.length) {
+      data[at] = spans.packed[at] ?? -openTime
+      data[at + 1] = spans.packed[at + 1] ?? 0
+      data[at + 2] = spans.packed[at + 2] ?? openTime
+      data[at + 3] = spans.packed[at + 3] ?? 0
+    } else {
+      data[at] = -openTime
+      data[at + 1] = 0
+      data[at + 2] = openTime
+      data[at + 3] = 0
+    }
+  }
+
+  function syncTime(next: RenderInput): void {
+    const { nodes, edges } = next.scene
+    let full = next.full
+    if (!timeUsed) {
+      if (nodes.time.count === 0 && edges.time.count === 0) return
+      timeUsed = true
+      full = true
+    }
+    const pairs = [
+      [nodeTime, nodes.time, nodes.capacity, next.dirty.nodes],
+      [edgeTime, edges.time, edges.capacity, next.dirty.edges],
+    ] as const
+    for (const [texture, spans, capacity, dirty] of pairs) {
+      const all = texture.reserve(capacity) || full
+      let first = all ? 0 : Number.POSITIVE_INFINITY
+      let last = all ? capacity - 1 : -1
+      if (all) {
+        const length = Math.min(spans.packed.length, capacity * 4)
+        texture.data.set(spans.packed.subarray(0, length))
+        for (let index = length / 4; index < capacity; index++) packSpan(texture, spans, index)
+      } else {
+        for (const index of dirty.indices()) {
+          packSpan(texture, spans, index)
+          first = Math.min(first, index)
+          last = Math.max(last, index)
+        }
+      }
+      texture.upload(first, last)
+    }
+  }
+
+  function windowFading(window: TimeFilter | null | undefined): boolean {
+    if (!window || window.fade <= 0 || !input) return false
+    return input.scene.nodes.time.count + input.scene.edges.time.count > 0
+  }
+
   function syncContainers(next: RenderInput, grown: boolean): void {
     const containers = next.containers
     if (!containers || (containers.version === containerVersion && !grown && !next.full)) return
@@ -780,9 +839,9 @@ function createRenderer(
     )
   }
 
-  function selectLabels(frame: LabelArea, now: number): number {
+  function selectLabels(frame: LabelArea, window: TimeFilter | null, now: number): number {
     if (!input) return -1
-    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode}`
+    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode},${window?.serial ?? 0}`
     if (!labelsStale && !labelsMoved && key === lastLabelView) return -1
     const wait = labelInterval - (now - lastLabelTime)
     if (!labelsStale && wait > 0) return wait
@@ -809,6 +868,7 @@ function createRenderer(
         nodes,
         positions: input.positions,
         view: frame.view,
+        sight: { zoom: frame.view.zoom, time: window },
         width: frame.width,
         height: frame.height,
         nodeMask: input.states.nodeMask,
@@ -832,7 +892,7 @@ function createRenderer(
       },
       atlas,
     )
-    if (atlas.generation !== generation) return selectLabels(frame, now)
+    if (atlas.generation !== generation) return selectLabels(frame, window, now)
     syncAtlas()
     const uploads = [
       [labelMainBuffer, labels.main],
@@ -856,8 +916,8 @@ function createRenderer(
     return -1
   }
 
-  function edgeLayerCap(zoom: number): number {
-    if (!input) return 0
+  function edgeLayerCap(zoom: number, window: TimeFilter | null): number {
+    if (!input || windowFading(window)) return 0
     const edges = input.scene.edges
     if (input.scene.nodes.zoom.fading(zoom) || edges.zoom.fading(zoom)) return 0
     if (coverStale) {
@@ -886,7 +946,7 @@ function createRenderer(
   function textureBytes(): number {
     let bytes =
       paletteRows * paletteWidth * 4 + atlasRows * atlasWidth + images.bytes + bundles.bytes
-    for (const texture of [...nodeTextures, ...edgeTextures, nodeZoom, edgeZoom]) {
+    for (const texture of [...nodeTextures, ...edgeTextures, ...rangeTextures]) {
       bytes += texture.data.byteLength
     }
     return bytes
@@ -942,6 +1002,7 @@ function createRenderer(
       refreshImages(next.scene.nodes)
       syncEdges(next)
       syncZoom(next)
+      syncTime(next)
       syncStates(next)
       if (bundles.sync(next.bundles)) labelsMoved = true
       backdrop.sync(next)
@@ -1010,6 +1071,16 @@ function createRenderer(
       frameBlock[5] = frame.pixelRatio
       frameBlock[26] =
         zoomUsed && input && input.scene.nodes.zoom.count + input.scene.edges.zoom.count > 0 ? 1 : 0
+      const window = frame.window ?? null
+      const timed =
+        window !== null &&
+        timeUsed &&
+        input !== null &&
+        input.scene.nodes.time.count + input.scene.edges.time.count > 0
+      if (window) frameBlock.set(window.packed, 28)
+      frameBlock[32] = timed ? 1 : 0
+      frameBlock[33] = window?.fade ?? 0
+      frameBlock[34] = window?.point ? 1 : 0
       flowTime = frame.time ?? 0
       const area: LabelArea = frame.labels ?? { ...frame, mode: 'visible' }
       frameBlock[6] = 6
@@ -1020,7 +1091,7 @@ function createRenderer(
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
       if (badgesStale || badgeGeneration !== atlas.generation) rebuildBadges()
       const generation = atlas.generation
-      const wait = selectLabels(area, performance.now())
+      const wait = selectLabels(area, window, performance.now())
       if (atlas.generation !== generation) rebuildBadges()
       syncAtlas()
       images.prepare()
@@ -1033,7 +1104,7 @@ function createRenderer(
         gl.clear(gl.COLOR_BUFFER_BIT)
       }
       let stencilClean = false
-      const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom) : 0
+      const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom, window) : 0
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
@@ -1101,8 +1172,7 @@ function createRenderer(
     ready: () => images.settled(),
 
     destroy() {
-      for (const texture of [...nodeTextures, ...edgeTextures, nodeZoom, edgeZoom])
-        texture.destroy()
+      for (const texture of [...nodeTextures, ...edgeTextures, ...rangeTextures]) texture.destroy()
       gl.deleteTexture(palette)
       gl.deleteTexture(atlasTexture)
       images.destroy()
@@ -1134,6 +1204,8 @@ function createRenderer(
       [units.nodeBox, nodeBox.texture],
       [units.nodeZoom, nodeZoom.texture],
       [units.edgeZoom, edgeZoom.texture],
+      [units.nodeTime, nodeTime.texture],
+      [units.edgeTime, edgeTime.texture],
     ]
     for (const [unit, texture] of textures) {
       gl.activeTexture(gl.TEXTURE0 + unit)

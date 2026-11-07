@@ -165,6 +165,30 @@ export const messages = {
     'Zoomez\u00a0: les nœuds apparaissent par niveaux, les liens entre pôles s’effacent.',
   zoomStatus: (zoom: number, shown: number): string =>
     `Zoom ×${decimal.format(zoom)}, ${shown} ${plural(shown, 'niveau affiché', 'niveaux affichés')} sur 3`,
+  time: 'Évolution dans le temps',
+  timeHint: 'Lancez la lecture, ou glissez sur l’histogramme pour choisir une période.',
+  timeLabel: 'Frise chronologique des nœuds et des arêtes',
+  timeLabels: {
+    play: 'Lecture',
+    start: 'Début de la période',
+    end: 'Fin de la période',
+    window: 'Période',
+  },
+  timeRange: (start: string, end: string): string => `du ${start} au ${end}`,
+  timeAll: 'Toute la période',
+  timeStatus: (start: number | null, end: number | null): string =>
+    start === null && end === null
+      ? 'Toute la période'
+      : start === null
+        ? `Jusqu’au ${longDate.format(end ?? 0)}`
+        : end === null
+          ? `Depuis le ${longDate.format(start)}`
+          : `Du ${longDate.format(start)} au ${longDate.format(end)}`,
+  timeMode: 'Lecture',
+  timeModes: { slide: 'Fenêtre glissante', grow: 'Cumul' },
+  speed: 'Vitesse',
+  speeds: { '0.5': '×0,5', '1': '×1', '2': '×2', '4': '×4' },
+  showAll: 'Tout afficher',
 }
 
 function milliseconds(value: number): string {
@@ -180,6 +204,7 @@ function plural(count: number, one: string, other: string): string {
 const numbers = new Intl.NumberFormat('fr-FR')
 const percent = new Intl.NumberFormat('fr-FR', { style: 'percent' })
 const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
+const longDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' })
 
 export function formatNumber(value: number): string {
   return numbers.format(value)

@@ -4,13 +4,19 @@ import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
-import { edgeShown } from '../core/zoom-range'
+import type { TimeFilter } from '../core/time-range'
+import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { View } from '../types'
 
 export interface ExportFrame {
   readonly view: View
   readonly width: number
   readonly height: number
+  readonly window?: TimeFilter | null
+}
+
+export function frameSight(frame: ExportFrame): Sight {
+  return { zoom: frame.view.zoom, time: frame.window ?? null }
 }
 
 export interface FrameSource {
@@ -21,6 +27,7 @@ export interface FrameSource {
   readonly view: View
   readonly width: number
   readonly height: number
+  readonly window?: TimeFilter | null
   readonly hulls?: readonly HullShape[]
   readonly bundles?: EdgePaths | null
 }
@@ -70,15 +77,17 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     view: { x: source.view.x, y: source.view.y, zoom },
     width: (source.width * zoom) / source.view.zoom,
     height: (source.height * zoom) / source.view.zoom,
+    ...(source.window ? { window: source.window } : {}),
   }
   if (options.region === 'view') return viewFrame
+  const sight: Sight = { zoom, time: source.window ?? null }
   const { nodes, positions, boxes } = source
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
   for (let index = 0; index < nodes.capacity; index++) {
-    if (nodes.alive[index] !== 1 || !nodes.zoom.shown(index, zoom)) continue
+    if (nodes.alive[index] !== 1 || !nodeShown(nodes, index, sight)) continue
     const outline = Math.max(0, nodes.outlineWidth[index] ?? 0)
     const reachX = screenExtent(nodes, boxes, index, zoom, 0) + outline
     const reachY = screenExtent(nodes, boxes, index, zoom, 1) + outline
@@ -94,7 +103,7 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
   for (let index = 0; index < edges.capacity; index++) {
     const node = edges.source[index] ?? 0
     if (edges.alive[index] !== 1 || edges.target[index] !== node) continue
-    if (!edgeShown(nodes, edges, index, zoom)) continue
+    if (!edgeShown(nodes, edges, index, sight)) continue
     const radius = screenRadius(nodes, node, zoom)
     const width = Math.max(edges.width[index] ?? 0, 0.5)
     const reach = Math.max(
@@ -119,7 +128,7 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     const line = new Float64Array(maxPathPoints * 2)
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1 || bundles.count(index) < 2) continue
-      if (!edgeShown(nodes, edges, index, zoom)) continue
+      if (!edgeShown(nodes, edges, index, sight)) continue
       const reach = Math.max(edges.width[index] ?? 0, 0.5) / 2
       const count = bundles.polyline(index, edges, positions, bundles.mix, line)
       for (let k = 1; k < count - 1; k++) {
@@ -152,5 +161,6 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     view: { x: (minX + maxX) / 2 / zoom, y: (minY + maxY) / 2 / zoom, zoom },
     width: maxX - minX + padding * 2,
     height: maxY - minY + padding * 2,
+    ...(source.window ? { window: source.window } : {}),
   }
 }

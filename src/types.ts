@@ -97,6 +97,48 @@ export interface LiveSource<T> {
 /** Data of a mark: an iterable, reconciled by key on each new definition, or a live source. */
 export type GraphData<T> = Iterable<T> | LiveSource<T>
 
+/**
+ * A moment, in milliseconds since 1 January 1970 UTC as `Date.getTime()` gives it, or a `Date`.
+ */
+export type TimeInstant = number | Date
+
+/**
+ * A period of time: from `start`, included, to `end`, excluded. A missing or `null` end leaves the
+ * period open on that side.
+ */
+export interface TimeSpan {
+  /** First moment of the period. Defaults to no start: the period has always existed. */
+  readonly start?: TimeInstant | null
+  /** First moment after the period. Defaults to no end: the period goes on forever. */
+  readonly end?: TimeInstant | null
+}
+
+/** When an element exists: a single moment, or a period with optional open ends. */
+export type TimeValue = TimeInstant | TimeSpan
+
+/**
+ * A time window, as the graph holds it: from `start`, included, to `end`, excluded, in
+ * milliseconds. A `null` end leaves the window open on that side.
+ */
+export interface TimeWindow {
+  /** First moment of the window, or `null` for no start. */
+  readonly start: number | null
+  /** First moment after the window, or `null` for no end. */
+  readonly end: number | null
+}
+
+/**
+ * A time window to apply: from `start`, included, to `end`, excluded. A missing or `null` end
+ * leaves the window open on that side. With `start` equal to `end`, the window is that single
+ * moment.
+ */
+export interface TimeWindowInput {
+  /** First moment of the window. Defaults to no start. */
+  readonly start?: TimeInstant | null
+  /** First moment after the window. Defaults to no end. */
+  readonly end?: TimeInstant | null
+}
+
 /** Shape of a node. */
 export type NodeShape = 'circle' | 'square' | 'diamond'
 
@@ -280,6 +322,12 @@ export interface NodeOptions<T, N extends MarkName = MarkName> {
    * node fades out over a quarter of a zoom halving. Defaults to no limit.
    */
   readonly maxZoom?: Style<T, number | null>
+  /**
+   * When the node exists: a moment, or a period with optional open ends, in milliseconds or as
+   * `Date`. With a time window set, the node shows only while it exists in the window, and hides
+   * its label, its badges and its edges otherwise. `null` or no value: the node always exists.
+   */
+  readonly time?: Channel<T, TimeValue>
   /** Picture or icon inside the node: a URL, an image with options, or `null` for none. */
   readonly image?: Style<T, string | NodeImage | null>
   /** A function per corner that returns the badge of an item, or `null` for none. */
@@ -393,6 +441,12 @@ export interface EdgeOptions<T, N extends MarkName = MarkName> {
    * edge fades out over a quarter of a zoom halving. Defaults to no limit.
    */
   readonly maxZoom?: Style<T, number | null>
+  /**
+   * When the edge exists: a moment, or a period with optional open ends, in milliseconds or as
+   * `Date`. With a time window set, the edge shows only while it and both of its ends exist in the
+   * window. `null` or no value: the edge exists whenever its ends do.
+   */
+  readonly time?: Channel<T, TimeValue>
   /**
    * Dashes that move along the edge, from its source to its target: `true` at 40 screen pixels per
    * second, a speed in screen pixels per second, negative toward the source, or `false`, `0` or
@@ -911,6 +965,8 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly bundling?: EdgeBundling<EdgeDatum<M>> | null
+  /** How elements with a `time` enter and leave the time window. */
+  readonly time?: TimeOptions
 }
 
 /**
@@ -938,6 +994,25 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly hulls: readonly Hull[]
   /** Edge bundling, or `null` for none. */
   readonly bundling: EdgeBundling<EdgeDatum<M>> | null
+  /** Time options, defaults applied. */
+  readonly time: ResolvedTimeOptions
+}
+
+/** Options of the `time` of `defineGraph`. */
+export interface TimeOptions {
+  /**
+   * Duration over which an element fades in after the window reaches it and fades out before the
+   * window leaves it, in the milliseconds of the data. With a fade, an element at the very edge of
+   * the window has faded out and counts as hidden.
+   * @default 0
+   */
+  readonly fade?: number
+}
+
+/** Time options with every default applied, as `defineGraph` resolves them. */
+export interface ResolvedTimeOptions {
+  /** Fade duration, in milliseconds of the data. */
+  readonly fade: number
 }
 
 /** Pattern of the background grid: `'lines'`, or `'dots'` where the lines would cross. */
@@ -1096,9 +1171,10 @@ export interface PathOptions<M extends Mark = Mark> {
   /** Edges the search may cross: a function of the item and the key. */
   readonly edges?: (datum: EdgeDatum<M>, key: Key) => boolean
   /**
-   * Searches the graph as drawn: a folded group stands for the nodes it hides, the edges inside it
-   * are left out, and an end hidden in a folded group is replaced by the group. Otherwise the search
-   * runs on every node and edge of the data, folded or not.
+   * Searches the graph as drawn: nodes and edges hidden by the time window or by their zoom range
+   * are left out, a folded group stands for the nodes it hides, the edges inside it are left out,
+   * and an end hidden in a folded group is replaced by the group. Otherwise the search runs on
+   * every node and edge of the data, folded, filtered or not.
    * @default false
    */
   readonly visible?: boolean

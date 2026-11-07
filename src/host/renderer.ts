@@ -3,6 +3,7 @@ import type { EdgePaths } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
 import type { Scene, SceneDirty } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
+import type { TimeFilter } from '../core/time-range'
 import type { ResolvedTheme } from '../dom/theme'
 import type { View } from '../types'
 
@@ -41,6 +42,7 @@ export interface RenderFrame {
   readonly pixelRatio: number
   readonly labels?: LabelArea
   readonly time?: number
+  readonly window?: TimeFilter | null
 }
 
 export type LabelMode = 'visible' | 'all' | 'none'

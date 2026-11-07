@@ -1,8 +1,10 @@
+import { readWindow, timeFilter } from '../core/time-range'
 import type { Rgba } from '../dom/theme'
 import { type GraphSnapshot, takeSnapshot } from '../host/export-source'
 import type { GraphInstance } from '../host/mount-graph'
 import type { LabelMode } from '../host/renderer'
 import { themeColor } from '../theme/tokens'
+import type { TimeWindowInput } from '../types'
 import { GlyphAtlas } from '../webgl/glyph-atlas'
 import { type ExportFrame, exportFrame } from './frame'
 import { fitLabels } from './labels'
@@ -55,6 +57,11 @@ export interface ExportOptions {
    * @default 0
    */
   readonly time?: number
+  /**
+   * Time window of the export: elements with a `time` show only while they exist in it, as on
+   * screen. `null` draws every element whatever its time. Defaults to the window of the graph.
+   */
+  readonly window?: TimeWindowInput | null
 }
 
 /** Options of `exportPng`. */
@@ -94,6 +101,10 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
   const labels = options.labels ?? 'visible'
   const padding = Math.max(0, options.padding ?? 32)
   const measure = new GlyphAtlas(snapshot.theme.font)
+  const shownWindow =
+    options.window === undefined
+      ? snapshot.window
+      : timeFilter(readWindow(options.window), snapshot.fade)
   let frame = exportFrame(
     {
       nodes: scene.nodes,
@@ -103,6 +114,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       view: snapshot.view,
       width: snapshot.width,
       height: snapshot.height,
+      window: shownWindow,
       hulls: snapshot.hulls.shapes,
       bundles: snapshot.bundles,
     },

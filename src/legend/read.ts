@@ -1,6 +1,6 @@
 import { containerShape, noColor } from '../core/columns'
 import type { Scene } from '../core/scene'
-import { edgeShown } from '../core/zoom-range'
+import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { Extent } from '../scales/extent'
 import type { ResolvedNumberScale } from '../scales/number-scale'
 import type { EdgeDash, EdgeMark, Key, Mark, MarkName, NodeMark, NodeShape } from '../types'
@@ -193,7 +193,7 @@ export function markNames(marks: readonly Mark[]): {
   return names
 }
 
-function countValues(scene: Scene, zoom: number): Map<unknown, Count> {
+function countValues(scene: Scene, sight: Sight): Map<unknown, Count> {
   const { nodes, edges } = scene
   const { nodeColor, edgeColor } = scene.scales()
   const counts = new Map<unknown, Count>()
@@ -212,12 +212,12 @@ function countValues(scene: Scene, zoom: number): Map<unknown, Count> {
   }
   for (let index = 0; index < nodes.capacity; index++) {
     if (nodes.alive[index] !== 1 || nodes.shape[index] === containerShape) continue
-    if (!nodes.zoom.shown(index, zoom)) continue
+    if (!nodeShown(nodes, index, sight)) continue
     const value = nodeColor[index]
     if (value !== null && value !== undefined) entry(value).nodes++
   }
   for (let index = 0; index < edges.capacity; index++) {
-    if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, zoom)) continue
+    if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, sight)) continue
     const value = edgeColor[index]
     if (value !== null && value !== undefined) entry(value).edges++
   }
@@ -228,7 +228,7 @@ function readColor(
   scene: Scene,
   off: ReadonlySet<string>,
   known: ReadonlyMap<string, LegendCategory>,
-  zoom: number,
+  sight: Sight,
 ): LegendColor | null {
   const scales = scene.scales()
   const scale = scales.color
@@ -236,7 +236,7 @@ function readColor(
     const domain = scale.domain ?? scales.colorExtent
     return domain ? { type: 'ramp', domain: [domain[0], domain[1]], stops: scale.range } : null
   }
-  const counts = countValues(scene, zoom)
+  const counts = countValues(scene, sight)
   const items: LegendCategory[] = []
   const seen = new Set<string>()
   const push = (value: unknown, listed: boolean, color: string | null) => {
@@ -306,13 +306,13 @@ function readLooks(
   marks: readonly Mark[],
   off: ReadonlySet<string>,
   crowded: ReadonlySet<number>,
-  zoom: number,
+  sight: Sight,
 ): (LegendNodeLook | LegendEdgeLook)[] {
   const names = markNames(marks)
   const { nodes, edges, palette } = scene
   const nodeLooks = new Map<string, NodeLookCount>()
   for (let index = 0; index < nodes.capacity; index++) {
-    if (nodes.alive[index] !== 1 || !nodes.zoom.shown(index, zoom)) continue
+    if (nodes.alive[index] !== 1 || !nodeShown(nodes, index, sight)) continue
     const shape = nodes.shape[index] ?? 0
     if (shape === containerShape) continue
     const id = nodeLookOf(nodes, index, crowded)
@@ -328,7 +328,7 @@ function readLooks(
   }
   const edgeLooks = new Map<string, EdgeLookCount>()
   for (let index = 0; index < edges.capacity; index++) {
-    if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, zoom)) continue
+    if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, sight)) continue
     const slot = edges.slot[index] ?? 0
     const dash = edges.dash[index] ?? 0
     const id = edgeLookId(slot, dash)
@@ -370,15 +370,15 @@ export function readLegend(
   marks: readonly Mark[],
   off: ReadonlySet<string>,
   known: ReadonlyMap<string, LegendCategory>,
-  zoom: number,
+  sight: Sight,
 ): LegendReading {
   const scales = scene.scales()
   const crowded = crowdedSlots(scene)
   return {
-    color: readColor(scene, off, known, zoom),
+    color: readColor(scene, off, known, sight),
     size: readSizes(scales.size, scales.sizeExtent),
     width: readSizes(scales.width, scales.widthExtent),
-    looks: readLooks(scene, marks, off, crowded, zoom),
+    looks: readLooks(scene, marks, off, crowded, sight),
     crowded,
   }
 }

@@ -1,4 +1,14 @@
-import type { AggregateEdge, EdgeMark, Key, Mark, MarkName, NodeMark, Point, View } from '../types'
+import type {
+  AggregateEdge,
+  EdgeMark,
+  Key,
+  Mark,
+  MarkName,
+  NodeMark,
+  Point,
+  TimeWindow,
+  View,
+} from '../types'
 
 /** A node, with `datum`, the item it comes from, of type `T`, and `mark`, the name of its mark. */
 export interface NodeTarget<T = unknown, N extends MarkName = MarkName> {
@@ -123,6 +133,12 @@ export interface GraphViewEvent {
   readonly view: View
 }
 
+/** Payload of `timechange` and of the controlled `onTimeChange` callback. */
+export interface GraphTimeEvent {
+  /** The time window, or `null` when every element shows. */
+  readonly window: TimeWindow | null
+}
+
 /** Key that makes the wheel zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. */
 export type ZoomKey = 'Meta' | 'Control'
 
@@ -179,6 +195,8 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly foldchange: GraphFoldEvent
   /** The view changed. In controlled mode, only when `update({ view })` moves it. */
   readonly viewchange: GraphViewEvent
+  /** The time window changed. In controlled mode, only when `update({ time })` moves it. */
+  readonly timechange: GraphTimeEvent
   /**
    * A wheel event without Cmd or Ctrl went to the page, in `'page'` wheel mode with zoom on: the
    * application can show how to zoom. Fires for every such event.

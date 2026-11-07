@@ -7,7 +7,7 @@ import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
-import { edgeOpacity } from '../core/zoom-range'
+import { edgeOpacity, nodeOpacity, type Sight } from '../core/visibility'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { ContainerFrame, GridInput, LabelMode } from '../host/renderer'
 import { atlasFontSize } from '../webgl/glyph-atlas'
@@ -247,8 +247,9 @@ export function writeSvg(scene: SvgScene): string {
   const zoom = view.zoom
   const offsetX = width / 2 - view.x * zoom
   const offsetY = height / 2 - view.y * zoom
-  const nodeFade = (index: number) => nodes.zoom.opacity(index, zoom)
-  const edgeFade = (index: number) => edgeOpacity(nodes, edges, index, zoom)
+  const sight: Sight = { zoom, time: frame.window ?? null }
+  const nodeFade = (index: number) => nodeOpacity(nodes, index, sight)
+  const edgeFade = (index: number) => edgeOpacity(nodes, edges, index, sight)
   const faded = (look: Look, fade: number): Look =>
     fade === 1 ? look : { ...look, opacity: look.opacity * fade }
   const nodeLookAt = (index: number) => faded(nodeLook(nodes, states, index), nodeFade(index))

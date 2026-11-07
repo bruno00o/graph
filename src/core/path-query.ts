@@ -3,10 +3,16 @@ import { toAccessor } from './accessor'
 import type { Adjacency, GraphModel } from './graph-model'
 import { type PathGroups, type PathRules, PathSearch } from './paths'
 
+export interface PathShown {
+  node(index: number): boolean
+  edge(index: number): boolean
+}
+
 export interface PathSource {
   readonly model: GraphModel
   prepare(): void
   groups(): PathGroups | null
+  shown(): PathShown | null
 }
 
 const noReach: GraphReach = Object.freeze({ nodes: [], costs: [], edges: [] })
@@ -19,11 +25,13 @@ export function createPathQueries(source: PathSource): GraphPaths {
     const read = options.weight === undefined ? null : toAccessor<unknown, unknown>(options.weight)
     const keepEdge = options.edges ?? null
     const keepNode = options.nodes ?? null
+    const shown = options.visible ? source.shown() : null
     const cost =
-      read || keepEdge
+      read || keepEdge || shown
         ? (id: number): number => {
             const record = adjacency.edgeAt(id)
-            if (!record || (keepEdge && !keepEdge(record.datum, record.key))) return Number.NaN
+            if (!record || (shown && !shown.edge(record.index))) return Number.NaN
+            if (keepEdge && !keepEdge(record.datum, record.key)) return Number.NaN
             if (!read) return 1
             const value = read(record.datum)
             if (typeof value !== 'number' || !Number.isFinite(value)) return Number.NaN
@@ -33,12 +41,15 @@ export function createPathQueries(source: PathSource): GraphPaths {
             return value
           }
         : null
-    const node = keepNode
-      ? (index: number): boolean => {
-          const record = model.nodeAt(index)
-          return record !== undefined && keepNode(record.datum, record.key)
-        }
-      : null
+    const node =
+      keepNode || shown
+        ? (index: number): boolean => {
+            if (shown && !shown.node(index)) return false
+            if (!keepNode) return true
+            const record = model.nodeAt(index)
+            return record !== undefined && keepNode(record.datum, record.key)
+          }
+        : null
     return {
       directed: options.directed === true,
       weighted: read !== null,
