@@ -1,5 +1,6 @@
 import { type GroupTree, groupTree } from '../../core/group-tree'
-import { createProgram, drawsInSoftware } from '../../webgl/gl'
+import { isSoftware } from '../../webgl/caps'
+import { createProgram } from '../../webgl/gl'
 import {
   boundsBlockFragment,
   boundsFragment,
@@ -112,11 +113,12 @@ export class GpuForce {
       stencil: false,
       powerPreference: 'high-performance',
     }) as WebGL2RenderingContext | null
-    if (gl && settings.engine === 'auto' && drawsInSoftware(gl)) {
-      gl.getExtension('WEBGL_lose_context')?.loseContext()
-      return null
-    }
-    if (!gl?.getExtension('EXT_color_buffer_float') || !gl.getExtension('EXT_float_blend')) {
+    if (
+      !gl?.getExtension('EXT_color_buffer_float') ||
+      !gl.getExtension('EXT_float_blend') ||
+      (settings.engine === 'auto' && isSoftware(gl))
+    ) {
+      if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext()
       return null
     }
     try {
@@ -250,6 +252,7 @@ export class GpuForce {
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
       throw new Error('graph: incomplete layout framebuffer')
     }
+    if (gl.getError() !== gl.NO_ERROR) throw new Error('graph: the layout does not fit the GPU')
   }
 
   get alpha(): number {

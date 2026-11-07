@@ -1,9 +1,10 @@
 import TinySDF from '@mapbox/tiny-sdf'
+import { warnLimit } from './caps'
 
 export const atlasFontSize = 24
 export const atlasWidth = 1024
 const glyphBuffer = 3
-const maxHeight = 4096
+const heightLimit = 4096
 const ellipsis = '…'
 
 export interface Glyph {
@@ -41,6 +42,7 @@ export class GlyphAtlas {
   readonly #glyphs = new Map<string, Glyph>()
   readonly #faces = new Map<string, FontFace>()
   #font: string
+  readonly #maxHeight: number
   #penX = 0
   #penY = 0
   #rowHeight = 0
@@ -48,8 +50,9 @@ export class GlyphAtlas {
   #lastWeight = 0
   #lastFont: string | null = null
 
-  constructor(font: string) {
+  constructor(font: string, maxHeight: number = heightLimit) {
     this.#font = font
+    this.#maxHeight = Math.max(256, Math.min(heightLimit, maxHeight))
   }
 
   setFont(font: string): boolean {
@@ -175,6 +178,8 @@ export class GlyphAtlas {
       }
       this.dirtyFrom = Math.min(this.dirtyFrom, glyph.y)
       this.dirtyTo = Math.max(this.dirtyTo, glyph.y + drawn.height - 1)
+    } else {
+      warnLimit('glyphs', 'the glyph atlas is full, further characters are not drawn')
     }
     this.#penX += drawn.width + 1
     this.#rowHeight = Math.max(this.#rowHeight, drawn.height)
@@ -184,7 +189,7 @@ export class GlyphAtlas {
 
   #grow(required: number): void {
     let height = this.height
-    while (height < required && height < maxHeight) height *= 2
+    while (height < required && height < this.#maxHeight) height *= 2
     if (height === this.height) return
     const pixels = new Uint8Array(atlasWidth * height)
     pixels.set(this.pixels)

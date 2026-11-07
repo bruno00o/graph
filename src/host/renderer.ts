@@ -76,12 +76,19 @@ export interface RendererStats {
   readonly textureBytes: number
 }
 
+export interface RendererLimits {
+  readonly drawingBuffer: number
+  readonly pathPoints: number
+  readonly software: boolean
+}
+
 export interface Renderer {
   sync(input: RenderInput): void
   setPalette(colors: Uint8Array, count: number): void
   setTheme(theme: ResolvedTheme): void
   render(frame: RenderFrame): number
   stats?(): RendererStats
+  limits?(): RendererLimits
   ready?(): Promise<void>
   destroy(): void
 }

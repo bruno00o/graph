@@ -1,5 +1,6 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { containerShape } from '../core/columns'
+import { defaultPointBudget } from '../core/edge-paths'
 import { flowSpeed } from '../core/flow'
 import { sideOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen, globeWorld } from '../core/globe'
@@ -758,6 +759,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let needsFlush = false
   let full = true
   let destroyed = false
+  let settled = false
   let contextLost = false
   let positionsVersion = -1
   let paletteCount = 0
@@ -770,6 +772,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     options.initialView || viewControlled ? null : { padding: defaultPadding }
   let pendingBounds: { readonly box: Bounds; readonly padding: number } | null = null
   let pixelRatio = window.devicePixelRatio || 1
+  let drawingLimit = Number.POSITIVE_INFINITY
+  let ratioLimit = Number.POSITIVE_INFINITY
   let sceneVersion = 0
   let pickedScene = -1
   let pickedPositions = -1
@@ -869,6 +873,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
     reducedMotion,
   )
+  adoptLimits()
   const routeBoxes = (): Float32Array | null => {
     if (!projection.active) return null
     syncContainers()
@@ -1174,6 +1179,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     paletteCount = colors.length
     paletteStamp++
     renderer?.setPalette(paletteColors, paletteCount)
+  }
+
+  function adoptLimits(): void {
+    const limits = renderer?.limits?.()
+    bundles.paths.pointBudget = Math.min(
+      defaultPointBudget,
+      limits?.pathPoints ?? defaultPointBudget,
+    )
+    drawingLimit = limits?.drawingBuffer ?? Number.POSITIVE_INFINITY
+    ratioLimit = limits?.software ? 1 : Number.POSITIVE_INFINITY
   }
 
   function refreshTheme(): void {
@@ -2492,10 +2507,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function resize(width: number, height: number): void {
+    let cleared = false
     if (!surface) {
-      pixelRatio = window.devicePixelRatio || 1
-      canvas.width = Math.max(1, Math.round(width * pixelRatio))
-      canvas.height = Math.max(1, Math.round(height * pixelRatio))
+      const side = Math.max(width, height, 1)
+      pixelRatio = Math.min(window.devicePixelRatio || 1, ratioLimit, drawingLimit / side)
+      const across = Math.min(drawingLimit, Math.max(1, Math.round(width * pixelRatio)))
+      const down = Math.min(drawingLimit, Math.max(1, Math.round(height * pixelRatio)))
+      cleared = canvas.width !== across || canvas.height !== down
+      if (canvas.width !== across) canvas.width = across
+      if (canvas.height !== down) canvas.height = down
     }
     if (dev && !warnedEmpty && (width === 0 || height === 0)) {
       warnedEmpty = true
@@ -2503,15 +2523,38 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     patch({ width, height })
     reconstrain()
+    if (cleared && settled && renderer) {
+      drawNow()
+      return
+    }
     request()
+  }
+
+  function drawNow(): void {
+    if (frameRequest > 0) cancelAnimationFrame(frameRequest)
+    frameRequest = 0
+    frame(performance.now())
   }
 
   const resizeObserver = new ResizeObserver((entries) => {
     const entry = entries[entries.length - 1]
     if (entry) resize(entry.contentRect.width, entry.contentRect.height)
   })
+  let ratioQuery: MediaQueryList | null = null
+  function watchRatio(): void {
+    ratioQuery?.removeEventListener('change', onRatio)
+    const ratio = window.devicePixelRatio || 1
+    ratioQuery = surface ? null : (window.matchMedia?.(`(resolution: ${ratio}dppx)`) ?? null)
+    ratioQuery?.addEventListener('change', onRatio)
+  }
+  function onRatio(): void {
+    watchRatio()
+    const { width, height } = store.get()
+    resize(width, height)
+  }
   reconstrain()
   resizeObserver.observe(element)
+  watchRatio()
   const stopTheme = observeTheme(element, refreshTheme)
   const flows = createFlowWatch({
     scene,
@@ -2905,13 +2948,24 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function onContextLost(event: Event): void {
     event.preventDefault()
     contextLost = true
+    renderer?.destroy()
+    renderer = null
   }
 
   function onContextRestored(): void {
+    if (destroyed) return
+    try {
+      renderer = createRenderer(canvas, () => request())
+    } catch (error) {
+      if (dev) console.warn('graph: cannot restore the WebGL context', error)
+      return
+    }
     contextLost = false
-    renderer = createRenderer(canvas, () => request())
     full = true
+    adoptLimits()
     refreshTheme()
+    const { width, height } = store.get()
+    resize(width, height)
   }
 
   const listeners: ReadonlyArray<
@@ -3272,6 +3326,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (frameRequest > 0) cancelAnimationFrame(frameRequest)
       clearTimeout(laterRequest)
       resizeObserver.disconnect()
+      ratioQuery?.removeEventListener('change', onRatio)
       stopTheme()
       flows.destroy()
       bundles.destroy()
@@ -3393,6 +3448,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       renderer?.destroy()
       renderer = create(() => request())
       full = true
+      adoptLimits()
       refreshTheme()
     },
     detach: () => {
@@ -3402,6 +3458,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
   })
 
+  settled = true
   return instance as unknown as GraphInstance<S, M>
 }
 

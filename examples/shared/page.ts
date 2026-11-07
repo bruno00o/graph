@@ -1,5 +1,15 @@
 import type { GraphInstance } from '@bruno00o/graph'
 import { exportPng, exportSvg } from '@bruno00o/graph/export'
+import { capsFromQuery, type LimitedWebgl, limitWebgl } from '../../src/testing/webgl-caps'
+
+declare global {
+  interface Window {
+    graphCaps?: LimitedWebgl
+  }
+}
+
+const simulated = capsFromQuery(window.location.search)
+if (simulated) window.graphCaps = limitWebgl(simulated)
 
 export interface Page {
   readonly header: HTMLElement

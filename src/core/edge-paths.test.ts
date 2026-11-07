@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EdgeColumns } from './columns'
 import { EdgePaths, type PathPoint, type PathResult, pathClasses } from './edge-paths'
 import { Positions } from './positions'
@@ -170,5 +170,53 @@ describe('EdgePaths', () => {
     expect(line[(count - 1) * 2 + 1]).toBeCloseTo(100)
     paths.start(arch(100), 1, positions)
     expect(paths.lanes).toBe(true)
+  })
+
+  it('keeps the paths within the point budget and draws the others straight', () => {
+    const { positions } = setup()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const two: PathResult = {
+      edges: new Uint32Array([0, 1]),
+      ends: new Uint32Array([0, 1, 0, 2]),
+      paths: {
+        offsets: new Uint32Array([0, 11, 22]),
+        points: new Float32Array([...arch(100).paths.points, ...arch(80).paths.points]),
+      },
+    }
+    const roomy = new EdgePaths()
+    roomy.reserve(2)
+    roomy.start(two, 1, positions)
+    expect(roomy.bundled).toBe(2)
+    const coarse = new EdgePaths()
+    coarse.pointBudget = roomy.count(0)
+    coarse.reserve(2)
+    coarse.start(two, 1, positions)
+    expect(coarse.bundled).toBe(2)
+    expect(coarse.count(0) + coarse.count(1)).toBeLessThanOrEqual(roomy.count(0))
+    const tight = new EdgePaths()
+    tight.pointBudget = pathClasses[0] ?? 5
+    tight.reserve(2)
+    tight.start(two, 1, positions)
+    expect(tight.bundled).toBe(1)
+    expect(tight.count(1)).toBe(0)
+    expect(tight.data.length / 4).toBeLessThanOrEqual(1024)
+    const routed = new EdgePaths()
+    routed.pointBudget = 1
+    routed.reserve(2)
+    routed.route(
+      {
+        edges: new Uint32Array([0]),
+        ends: new Uint32Array([0, 1]),
+        paths: {
+          offsets: new Uint32Array([0, 4]),
+          points: new Float32Array([0, 0, 0, 200, 1000, 200, 1000, 0]),
+        },
+      },
+      0,
+      (index, out) => Object.assign(out, { x: positions.x(index), y: positions.y(index) }),
+      positions,
+    )
+    expect(routed.bundled).toBe(0)
+    warn.mockRestore()
   })
 })

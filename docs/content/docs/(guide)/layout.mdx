@@ -198,7 +198,7 @@ A negative or non-finite value falls back to its default.
 
 ## Engines
 
-`'auto'` uses the GPU from 2,000 nodes, and the CPU below. On a machine without GPU acceleration, where the browser draws WebGL in software, `'auto'` keeps the CPU: the GPU engine would be many times slower there. `'gpu'` still uses it. Both run in a Web Worker, so the page keeps panning and zooming while the layout runs.
+`'auto'` uses the GPU from 2,000 nodes, and the CPU below or when WebGL runs in software, where the CPU engine is several times faster. Both run in a Web Worker, so the page keeps panning and zooming while the layout runs.
 
 - **CPU.** Repulsion is approximated with a quadtree, collisions are tested on a grid. The same graph and the same positions always give the same result.
 - **GPU.** The same forces run in WebGL2 on an `OffscreenCanvas` inside the worker, with a density pyramid for repulsion. A last pass on the CPU removes the remaining overlaps. Results can differ by rounding from one run to the next.

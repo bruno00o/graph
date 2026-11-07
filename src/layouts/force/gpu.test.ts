@@ -1,27 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GpuForce } from './gpu'
-import { type ForceEngine, type ForceGraph, forceDefaults } from './simulation'
-
-const rendererParameter = 0x1f01
+import { type ForceGraph, forceDefaults } from './simulation'
 
 const graph: ForceGraph = {
   capacity: 2,
   alive: Uint8Array.from([1, 1]),
   movable: Uint8Array.from([1, 1]),
   xy: Float32Array.from([0, 0, 10, 0]),
-  radius: new Float32Array(2).fill(4),
+  radius: Float32Array.from([4, 4]),
   edges: Uint32Array.from([0, 1]),
 }
 
-function canvasDrawnBy(renderer: string) {
-  const asked: string[] = []
-  const loseContext = vi.fn()
+function offscreen(extensions: readonly string[], renderer = 'Apple M4 Pro') {
+  const released: string[] = []
   const gl = {
-    RENDERER: rendererParameter,
-    getParameter: (parameter: number) => (parameter === rendererParameter ? renderer : null),
+    RENDERER: 0x1f01,
+    getParameter: (parameter: number) => (parameter === 0x1f01 ? renderer : null),
     getExtension: (name: string) => {
-      asked.push(name)
-      return name === 'WEBGL_lose_context' ? { loseContext } : null
+      if (name === 'WEBGL_lose_context') return { loseContext: () => released.push('lost') }
+      return extensions.includes(name) ? {} : null
     },
   }
   vi.stubGlobal(
@@ -33,35 +30,37 @@ function canvasDrawnBy(renderer: string) {
       addEventListener() {}
     },
   )
-  return { asked, loseContext }
+  return released
 }
 
-function create(engine: ForceEngine) {
-  return GpuForce.create(graph, { ...forceDefaults, engine })
-}
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('GpuForce.create', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
+  it('declines without offscreen canvases', () => {
+    vi.stubGlobal('OffscreenCanvas', undefined)
+    expect(GpuForce.create(graph, forceDefaults)).toBeNull()
   })
 
-  it('leaves a software renderer to the CPU engine in automatic mode', () => {
-    const canvas = canvasDrawnBy('llvmpipe, or similar')
-    expect(create('auto')).toBeNull()
-    expect(canvas.loseContext).toHaveBeenCalledOnce()
-    expect(canvas.asked).not.toContain('EXT_color_buffer_float')
+  it.each([[[]], [['EXT_color_buffer_float']], [['EXT_float_blend']]])(
+    'declines and releases the context without float render targets and blending (%j)',
+    (names) => {
+      const released = offscreen(names)
+      expect(GpuForce.create(graph, forceDefaults)).toBeNull()
+      expect(released).toEqual(['lost'])
+    },
+  )
+
+  it('leaves a software renderer to the CPU engine', () => {
+    const released = offscreen(['EXT_color_buffer_float', 'EXT_float_blend'], 'SwiftShader driver')
+    expect(GpuForce.create(graph, forceDefaults)).toBeNull()
+    expect(released).toEqual(['lost'])
   })
 
-  it('still tries a software renderer when the GPU engine is asked for', () => {
-    const canvas = canvasDrawnBy('llvmpipe, or similar')
-    expect(create('gpu')).toBeNull()
-    expect(canvas.asked).toContain('EXT_color_buffer_float')
-  })
-
-  it('tries a hardware renderer in automatic mode', () => {
-    const canvas = canvasDrawnBy('Generic GPU, or similar')
-    expect(create('auto')).toBeNull()
-    expect(canvas.loseContext).not.toHaveBeenCalled()
-    expect(canvas.asked).toContain('EXT_color_buffer_float')
+  it('declines when the context cannot build the layout', () => {
+    const released = offscreen(['EXT_color_buffer_float', 'EXT_float_blend'])
+    expect(GpuForce.create(graph, forceDefaults)).toBeNull()
+    expect(released).toEqual(['lost'])
   })
 })

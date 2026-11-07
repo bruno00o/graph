@@ -2,7 +2,7 @@ import { dev } from '../dev'
 
 export const imageSize = 256
 const levels = Math.log2(imageSize) + 1
-const maxLayers = 256
+const layerLimit = 256
 
 interface Entry {
   count: number
@@ -12,6 +12,7 @@ interface Entry {
 export class ImageAtlas {
   readonly #gl: WebGL2RenderingContext
   readonly #invalidate: () => void
+  readonly #maxLayers: number
   readonly #entries = new Map<string, Entry>()
   readonly #free: number[] = []
   readonly #placeholder: WebGLTexture
@@ -26,9 +27,10 @@ export class ImageAtlas {
   #warnedFull = false
   #destroyed = false
 
-  constructor(gl: WebGL2RenderingContext, invalidate: () => void) {
+  constructor(gl: WebGL2RenderingContext, invalidate: () => void, maxLayers: number = layerLimit) {
     this.#gl = gl
     this.#invalidate = invalidate
+    this.#maxLayers = Math.max(1, Math.min(layerLimit, maxLayers))
     this.#placeholder = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.#placeholder)
     gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 1)
@@ -124,7 +126,9 @@ export class ImageAtlas {
     if (layer >= this.#capacity && !this.#grow()) {
       if (dev && !this.#warnedFull) {
         this.#warnedFull = true
-        console.warn(`graph: more than ${maxLayers} distinct images, the others are not drawn`)
+        console.warn(
+          `graph: more than ${this.#maxLayers} distinct images, the others are not drawn`,
+        )
       }
       return
     }
@@ -184,9 +188,9 @@ export class ImageAtlas {
   }
 
   #grow(): boolean {
-    if (this.#capacity >= maxLayers) return false
+    if (this.#capacity >= this.#maxLayers) return false
     const gl = this.#gl
-    const capacity = Math.min(maxLayers, Math.max(4, this.#capacity * 2))
+    const capacity = Math.min(this.#maxLayers, Math.max(4, this.#capacity * 2))
     const texture = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture)
     gl.texStorage3D(gl.TEXTURE_2D_ARRAY, levels, gl.RGBA8, imageSize, imageSize, capacity)

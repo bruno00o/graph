@@ -1,18 +1,5 @@
 export const textureWidth = 1024
 
-const softwareRenderers = /swiftshader|llvmpipe|softpipe|software|basic render driver/i
-const maskedRenderer = 'WebKit WebGL'
-
-export function drawsInSoftware(gl: WebGL2RenderingContext): boolean {
-  const renderer = String(gl.getParameter(gl.RENDERER))
-  if (softwareRenderers.test(renderer)) return true
-  if (renderer !== maskedRenderer) return false
-  const info = gl.getExtension('WEBGL_debug_renderer_info')
-  return (
-    info !== null && softwareRenderers.test(String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)))
-  )
-}
-
 export function createProgram(
   gl: WebGL2RenderingContext,
   vertex: string,
@@ -29,14 +16,14 @@ export function createProgram(
     if (!shader) throw new Error('graph: cannot create a WebGL shader')
     gl.shaderSource(shader, source)
     gl.compileShader(shader)
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS) && !gl.isContextLost()) {
       throw new Error(`graph: shader compilation failed\n${gl.getShaderInfoLog(shader) ?? ''}`)
     }
     gl.attachShader(program, shader)
     shaders.push(shader)
   }
   gl.linkProgram(program)
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS) && !gl.isContextLost()) {
     throw new Error(`graph: program link failed\n${gl.getProgramInfoLog(program) ?? ''}`)
   }
   for (const shader of shaders) {
@@ -83,13 +70,20 @@ export class DataTexture<A extends Float32Array | Uint32Array | Uint8Array> {
   readonly #gl: WebGL2RenderingContext
   readonly #format: TextureFormat
   readonly #create: (length: number) => A
+  readonly #maxRows: number
   #rows = 0
   data: A
 
-  constructor(gl: WebGL2RenderingContext, format: TextureFormat, create: (length: number) => A) {
+  constructor(
+    gl: WebGL2RenderingContext,
+    format: TextureFormat,
+    create: (length: number) => A,
+    maxRows: number = Number.POSITIVE_INFINITY,
+  ) {
     this.#gl = gl
     this.#format = format
     this.#create = create
+    this.#maxRows = Math.max(1, maxRows)
     this.data = create(0)
     this.texture = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
@@ -103,8 +97,12 @@ export class DataTexture<A extends Float32Array | Uint32Array | Uint8Array> {
     return this.#rows
   }
 
+  get capacity(): number {
+    return this.#maxRows * textureWidth
+  }
+
   reserve(capacity: number): boolean {
-    const rows = Math.max(1, Math.ceil(capacity / textureWidth))
+    const rows = Math.min(this.#maxRows, Math.max(1, Math.ceil(capacity / textureWidth)))
     if (rows <= this.#rows) return false
     const data = this.#create(rows * textureWidth * this.#format.components)
     data.set(this.data)
@@ -131,6 +129,7 @@ export class DataTexture<A extends Float32Array | Uint32Array | Uint8Array> {
     const gl = this.#gl
     const startRow = Math.floor(first / textureWidth)
     const endRow = Math.min(this.#rows - 1, Math.floor(last / textureWidth))
+    if (startRow > endRow) return
     const stride = textureWidth * this.#format.components
     gl.bindTexture(gl.TEXTURE_2D, this.texture)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
