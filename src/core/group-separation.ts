@@ -7,6 +7,7 @@ export interface SeparationOptions {
   readonly groupSpacing: number
   readonly rounds: number
   readonly nodes: 'all' | 'moved'
+  readonly axis?: 'x' | 'y' | undefined
 }
 
 export interface ContainerShapes {
@@ -24,6 +25,7 @@ const primeX = 73856093
 const primeY = 19349663
 const forward = [0, 0, 1, 0, -1, 1, 0, 1, 1, 1]
 const boxArea = 4 / Math.PI
+const leanSlack = 1e-9
 
 function grow<A extends Float64Array | Int32Array | Uint8Array>(array: A, length: number): A {
   if (array.length >= length) return array
@@ -43,6 +45,8 @@ class Level {
   ref: Int32Array = new Int32Array(16)
   active: Uint8Array = new Uint8Array(16)
   moved: Uint8Array = new Uint8Array(16)
+  leanX: Float64Array = new Float64Array(16)
+  leanY: Float64Array = new Float64Array(16)
   cx: Int32Array = new Int32Array(16)
   cy: Int32Array = new Int32Array(16)
   start: Int32Array = new Int32Array(32)
@@ -64,6 +68,8 @@ class Level {
     this.ref = grow(this.ref, count)
     this.active = grow(this.active, count)
     this.moved = grow(this.moved, count)
+    this.leanX = grow(this.leanX, count)
+    this.leanY = grow(this.leanY, count)
     this.cx = grow(this.cx, count)
     this.cy = grow(this.cy, count)
     this.items = grow(this.items, count)
@@ -86,6 +92,8 @@ class Level {
     this.tall[at] = tall
     this.kind[at] = kind
     this.fixed[at] = fixed ? 1 : 0
+    this.leanX[at] = 0
+    this.leanY[at] = 0
     this.ref[at] = ref
     this.area[at] = kind === box ? half * tall * boxArea : half * half
   }
@@ -161,10 +169,13 @@ export class GroupSeparation {
   readonly shapes: ContainerShapes
   readonly #kind: Uint8Array
   readonly #fixed: Uint8Array
+  readonly #blocked: Uint8Array
   readonly #offset: Float64Array
   #options: SeparationOptions = { spacing: 0, groupSpacing: 0, rounds: 1, nodes: 'all' }
   #changes = 0
   #weight = 1
+  #nx = 0
+  #ny = 0
   readonly #visit = (a: number, b: number) => this.#pair(a, b)
 
   constructor(tree: GroupTree, alive: Uint8Array) {
@@ -199,6 +210,7 @@ export class GroupSeparation {
     }
     this.#kind = new Uint8Array(count)
     this.#fixed = new Uint8Array(count)
+    this.#blocked = new Uint8Array(count)
     this.#offset = new Float64Array(count * 2)
   }
 
@@ -212,6 +224,7 @@ export class GroupSeparation {
     this.#options = options
     this.#offset.fill(0)
     this.#fixed.fill(0)
+    this.#blocked.fill(0)
     for (const index of this.#leafItems) {
       const slot = tree.groupOf[index] ?? -1
       if (slot >= 0 && fixed[index] === 1) this.#fixed[slot] = 1
@@ -243,6 +256,35 @@ export class GroupSeparation {
       if (slot < 0 || fixed[index] === 1) continue
       xy[index * 2] = (xy[index * 2] ?? 0) + (total[slot * 2] ?? 0)
       xy[index * 2 + 1] = (xy[index * 2 + 1] ?? 0) + (total[slot * 2 + 1] ?? 0)
+    }
+    return changes + this.#loosen(radius, fixed, xy)
+  }
+
+  #loosen(radius: Float32Array, fixed: Uint8Array, xy: Float32Array): number {
+    const tree = this.#tree
+    const blocked = this.#blocked
+    if (!blocked.includes(1)) return 0
+    for (let slot = 0; slot < tree.count; slot++) {
+      const parent = tree.parent[slot] ?? -1
+      if (parent >= 0 && blocked[parent] === 1) blocked[slot] = 1
+    }
+    const level = this.#level
+    level.reset(this.#leafItems.length)
+    let largest = 0
+    for (const index of this.#leafItems) {
+      const slot = tree.groupOf[index] ?? -1
+      const free = fixed[index] !== 1 && slot >= 0 && blocked[slot] === 1
+      const r = Math.max(0, radius[index] ?? 0)
+      largest = Math.max(largest, r)
+      level.push(xy[index * 2] ?? 0, xy[index * 2 + 1] ?? 0, r, r, disc, !free, index)
+    }
+    level.leaves = level.count
+    const changes = this.#rounds(largest, true)
+    for (let at = 0; at < level.count; at++) {
+      if (level.fixed[at] === 1) continue
+      const index = level.ref[at] ?? 0
+      xy[index * 2] = level.x[at] ?? 0
+      xy[index * 2 + 1] = level.y[at] ?? 0
     }
     return changes
   }
@@ -276,7 +318,7 @@ export class GroupSeparation {
         child,
       )
     }
-    const changes = this.#rounds(largest)
+    const changes = this.#rounds(largest, this.#options.nodes === 'all')
     for (let at = 0; at < level.leaves; at++) {
       const index = level.ref[at] ?? 0
       if (level.fixed[at] === 1) continue
@@ -337,12 +379,12 @@ export class GroupSeparation {
     this.#kind[slot] = box
   }
 
-  #rounds(largest: number): number {
+  #rounds(largest: number, all: boolean): number {
     const level = this.#level
-    const { spacing, groupSpacing, rounds, nodes } = this.#options
+    const { spacing, groupSpacing, rounds } = this.#options
     if (level.count < 2) return 0
     for (let at = 0; at < level.count; at++) {
-      level.active[at] = at >= level.leaves || nodes === 'all' ? 1 : 0
+      level.active[at] = at >= level.leaves || all ? 1 : 0
     }
     const reach = largest + Math.max(spacing, groupSpacing)
     const cell = Math.max(2 * largest + spacing, 1)
@@ -416,11 +458,53 @@ export class GroupSeparation {
     if (level.active[a] !== 1 && level.active[b] !== 1) return
     const fa = level.fixed[a] === 1
     const fb = level.fixed[b] === 1
-    if (fa && fb) return
+    const leaves = a < level.leaves && b < level.leaves
+    if (fa && fb && leaves) return
+    const gap = leaves ? this.#options.spacing : this.#options.groupSpacing
+    const depth = this.#options.axis ? this.#across(a, b, gap) : this.#apart(a, b, gap)
+    if (!(depth > 0)) return
+    if (fa && fb) {
+      if (a >= level.leaves) this.#blocked[level.ref[a] ?? 0] = 1
+      if (b >= level.leaves) this.#blocked[level.ref[b] ?? 0] = 1
+      return
+    }
+    const nx = this.#nx
+    const ny = this.#ny
+    const held = fa ? -1 : fb ? 1 : this.#held(a, b, nx, ny)
+    const areaA = (level.area[a] ?? 0) ** this.#weight
+    const areaB = (level.area[b] ?? 0) ** this.#weight
+    const share = held < 0 ? 0 : held > 0 ? 1 : areaA + areaB > 0 ? areaB / (areaA + areaB) : 0.5
+    if (share > 0) {
+      level.x[a] = (level.x[a] ?? 0) - nx * depth * share
+      level.y[a] = (level.y[a] ?? 0) - ny * depth * share
+      level.moved[a] = 1
+    }
+    if (share < 1) {
+      level.x[b] = (level.x[b] ?? 0) + nx * depth * (1 - share)
+      level.y[b] = (level.y[b] ?? 0) + ny * depth * (1 - share)
+      level.moved[b] = 1
+    }
+    if (held < 0) {
+      level.leanX[b] = nx
+      level.leanY[b] = ny
+    } else if (held > 0) {
+      level.leanX[a] = -nx
+      level.leanY[a] = -ny
+    }
+    this.#changes++
+  }
+
+  #held(a: number, b: number, nx: number, ny: number): number {
+    const level = this.#level
+    const heldA = (level.leanX[a] ?? 0) * nx + (level.leanY[a] ?? 0) * ny > leanSlack
+    const heldB = (level.leanX[b] ?? 0) * nx + (level.leanY[b] ?? 0) * ny < -leanSlack
+    return heldA === heldB ? 0 : heldA ? -1 : 1
+  }
+
+  #apart(a: number, b: number, gap: number): number {
+    const level = this.#level
     const ka = level.kind[a] ?? disc
     const kb = level.kind[b] ?? disc
-    const leaves = a < level.leaves && b < level.leaves
-    const gap = leaves ? this.#options.spacing : this.#options.groupSpacing
     const dx = (level.x[b] ?? 0) - (level.x[a] ?? 0)
     const dy = (level.y[b] ?? 0) - (level.y[a] ?? 0)
     let nx = 0
@@ -429,7 +513,7 @@ export class GroupSeparation {
     if (ka === disc && kb === disc) {
       const reach = (level.half[a] ?? 0) + (level.half[b] ?? 0) + gap
       const d2 = dx * dx + dy * dy
-      if (d2 >= reach * reach) return
+      if (d2 >= reach * reach) return 0
       if (d2 === 0) {
         const turn = Math.min(level.ref[a] ?? 0, level.ref[b] ?? 0) * goldenTurn
         nx = Math.cos(turn)
@@ -444,7 +528,7 @@ export class GroupSeparation {
     } else if (ka === box && kb === box) {
       const ox = (level.half[a] ?? 0) + (level.half[b] ?? 0) + gap - Math.abs(dx)
       const oy = (level.tall[a] ?? 0) + (level.tall[b] ?? 0) + gap - Math.abs(dy)
-      if (ox <= 0 || oy <= 0) return
+      if (ox <= 0 || oy <= 0) return 0
       if (ox <= oy) {
         nx = dx < 0 ? -1 : 1
         depth = ox
@@ -475,7 +559,7 @@ export class GroupSeparation {
         const qx = ex - Math.max(-half, Math.min(half, ex))
         const qy = ey - Math.max(-tall, Math.min(tall, ey))
         const d2 = qx * qx + qy * qy
-        if (d2 >= reach * reach) return
+        if (d2 >= reach * reach) return 0
         const d = Math.sqrt(d2)
         nx = qx / d
         ny = qy / d
@@ -484,20 +568,56 @@ export class GroupSeparation {
       nx *= flip
       ny *= flip
     }
-    const areaA = (level.area[a] ?? 0) ** this.#weight
-    const areaB = (level.area[b] ?? 0) ** this.#weight
-    const share = fa ? 0 : fb ? 1 : areaA + areaB > 0 ? areaB / (areaA + areaB) : 0.5
-    if (share > 0) {
-      level.x[a] = (level.x[a] ?? 0) - nx * depth * share
-      level.y[a] = (level.y[a] ?? 0) - ny * depth * share
-      level.moved[a] = 1
+    this.#nx = nx
+    this.#ny = ny
+    return depth
+  }
+
+  #across(a: number, b: number, gap: number): number {
+    const level = this.#level
+    const sideways = this.#options.axis === 'x'
+    const ka = level.kind[a] ?? disc
+    const kb = level.kind[b] ?? disc
+    const du = sideways
+      ? (level.x[b] ?? 0) - (level.x[a] ?? 0)
+      : (level.y[b] ?? 0) - (level.y[a] ?? 0)
+    const dv = sideways
+      ? (level.y[b] ?? 0) - (level.y[a] ?? 0)
+      : (level.x[b] ?? 0) - (level.x[a] ?? 0)
+    const wide = (at: number) => (sideways ? level.half[at] : level.tall[at]) ?? 0
+    const long = (at: number) => (sideways ? level.tall[at] : level.half[at]) ?? 0
+    let need = 0
+    if (ka === disc && kb === disc) {
+      const reach = (level.half[a] ?? 0) + (level.half[b] ?? 0) + gap
+      if (Math.abs(dv) >= reach) return 0
+      need = Math.sqrt(reach * reach - dv * dv)
+    } else if (ka === box && kb === box) {
+      if (Math.abs(dv) >= long(a) + long(b) + gap) return 0
+      need = wide(a) + wide(b) + gap
+    } else {
+      const container = ka === box ? a : b
+      const reach = (level.half[ka === box ? b : a] ?? 0) + gap
+      const beyond = Math.abs(dv) - long(container)
+      if (beyond >= reach) return 0
+      need = wide(container) + (beyond > 0 ? Math.sqrt(reach * reach - beyond * beyond) : reach)
     }
-    if (share < 1) {
-      level.x[b] = (level.x[b] ?? 0) + nx * depth * (1 - share)
-      level.y[b] = (level.y[b] ?? 0) + ny * depth * (1 - share)
-      level.moved[b] = 1
+    const fa = level.fixed[a] === 1
+    const fb = level.fixed[b] === 1
+    if (Math.abs(du) >= need) return 0
+    let sign = du > 0 || (du === 0 && a < b) ? 1 : -1
+    let depth = need - Math.abs(du)
+    if (fa !== fb) {
+      const free = fa ? b : a
+      const away = fa ? sign : -sign
+      const lean = Math.sign((sideways ? level.leanX[free] : level.leanY[free]) ?? 0)
+      if (lean === -away) {
+        sign = -sign
+        depth = need + Math.abs(du)
+      }
     }
-    this.#changes++
+    this.#nx = sideways ? sign : 0
+    this.#ny = sideways ? 0 : sign
+    return depth
   }
 }
 

@@ -96,6 +96,7 @@ export class GpuForce {
   readonly #pack: WebGLBuffer
   readonly #pixels: Float32Array
   readonly #radius: Float32Array
+  readonly #alive: Uint8Array
   readonly #slot: Float32Array
   readonly #groups: GroupPasses | null
   readonly #cohesion: number
@@ -137,6 +138,7 @@ export class GpuForce {
     const capacity = graph.capacity
     this.capacity = capacity
     this.#radius = graph.radius
+    this.#alive = graph.alive.slice(0, capacity)
     this.#width = Math.max(1, Math.ceil(Math.sqrt(capacity)))
     this.#height = Math.max(1, Math.ceil(capacity / this.#width))
     this.fixed = new Uint8Array(capacity)
@@ -274,7 +276,7 @@ export class GpuForce {
   }
 
   pin(index: number, x: number, y: number): void {
-    if (index >= this.capacity || this.#lost) return
+    if (this.#lost || this.#alive[index] !== 1 || !Number.isFinite(x) || !Number.isFinite(y)) return
     const gl = this.#gl
     this.fixed[index] = 1
     const tx = index % this.#width

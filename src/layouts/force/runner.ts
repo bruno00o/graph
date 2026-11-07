@@ -90,6 +90,11 @@ export function runGpuForce(
   let stopped = false
   let batch = 4
   const interval = snapshotInterval(graph)
+  const fall = () => {
+    gpu.destroy()
+    fallback = rescue(current.slice())
+    for (const [index, [x, y]] of pins) fallback.pin(index, x, y)
+  }
   const loop = async () => {
     while (!stopped) {
       const started = performance.now()
@@ -97,9 +102,7 @@ export function runGpuForce(
       const read = await gpu.read(current)
       if (stopped) return
       if (!read || gpu.lost) {
-        gpu.destroy()
-        fallback = rescue(current.slice())
-        for (const [index, [x, y]] of pins) fallback.pin(index, x, y)
+        fall()
         return
       }
       const elapsed = Math.max(performance.now() - started, 1)
@@ -120,7 +123,10 @@ export function runGpuForce(
       listener.progress(current.slice(), gpu.progress)
     }
   }
-  void loop()
+  loop().catch((error: unknown) => {
+    if (stopped || fallback) throw error
+    fall()
+  })
   return {
     pin(index, x, y) {
       pins.set(index, [x, y])

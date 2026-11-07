@@ -239,8 +239,9 @@ function pack(
 }
 
 /**
- * A layout that draws a directed graph in layers, every edge pointing from one layer to a later
- * one. It ends at once, and nodes glide to their place.
+ * A layout that draws a directed graph in layers, every edge between moving nodes pointing from one
+ * layer to a later one. It ends at once, and nodes glide to their place. Fixed nodes stay put and
+ * push moving nodes aside across the layers; where they leave too little room, overlaps may remain.
  */
 export function layers(options: LayersOptions = {}): Layout {
   return instant(
@@ -277,7 +278,9 @@ export function layers(options: LayersOptions = {}): Layout {
         xy[index * 2] = (placed[at * 2] ?? 0) + dx
         xy[index * 2 + 1] = (placed[at * 2 + 1] ?? 0) + dy
       })
-      if (clusters && (clusters.round || indices.length < countAlive(graph))) separate(graph, xy)
+      if (clusters && (clusters.round || indices.length < countAlive(graph))) {
+        separate(graph, xy, sideways ? 'y' : 'x')
+      }
       return xy
     },
     false,
@@ -290,7 +293,7 @@ function countAlive(graph: LayoutGraph): number {
   return count
 }
 
-function separate(graph: LayoutGraph, xy: Float32Array): void {
+function separate(graph: LayoutGraph, xy: Float32Array, axis: 'x' | 'y'): void {
   const tree = groupTree(graph.capacity, graph.alive, graph.groups)
   if (!tree) return
   const fixed = new Uint8Array(graph.capacity)
@@ -302,5 +305,6 @@ function separate(graph: LayoutGraph, xy: Float32Array): void {
     groupSpacing: groupGap,
     rounds: 64,
     nodes: 'moved',
+    axis,
   })
 }

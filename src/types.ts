@@ -1236,11 +1236,6 @@ export interface LayoutGraph<T = unknown> {
   /** Pairs of node indices, one pair per edge, loops left out. */
   readonly edges: Uint32Array
   /**
-   * Pairs of node indices that share an unfolded group, for layouts that keep groups together: each
-   * member is paired with one other member of its group.
-   */
-  readonly groupLinks?: Uint32Array
-  /**
    * Unfolded groups, drawn as containers around their members. Missing when no group is unfolded.
    */
   readonly groups?: LayoutGroups

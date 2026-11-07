@@ -39,4 +39,37 @@ describe('layoutGraph', () => {
     expect(graph.datum(1)).toEqual({ key: 'b' })
     expect(graph.datum(2)).toBeUndefined()
   })
+
+  it('places moving nodes at non-finite positions and leaves fixed ones out', () => {
+    const nodes = new NodeColumns()
+    nodes.reserve(3)
+    nodes.alive.set([1, 1, 1, 1])
+    nodes.size.set([10, 10, 10, 10])
+    const edges = new EdgeColumns()
+    edges.reserve(2)
+    edges.alive.set([1, 1, 1])
+    edges.source.set([0, 1, 2])
+    edges.target.set([1, 2, 3])
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    positions.set(1, Number.NaN, 4)
+    positions.set(2, 20, 0)
+    positions.set(3, 30, Number.POSITIVE_INFINITY)
+    nodes.keys.push('a', 'b', 'c', 'd')
+    const graph = layoutGraph(
+      nodes,
+      edges,
+      positions,
+      1,
+      (index) => index !== 3,
+      () => undefined,
+    )
+    expect(Array.from(graph.alive.subarray(0, 4))).toEqual([1, 1, 1, 0])
+    expect(Array.from(graph.movable.subarray(0, 4))).toEqual([1, 1, 1, 0])
+    expect(Array.from(graph.edges)).toEqual([0, 1, 1, 2])
+    const x = graph.xy[2] ?? Number.NaN
+    const y = graph.xy[3] ?? Number.NaN
+    expect(Number.isFinite(x) && Number.isFinite(y)).toBe(true)
+    expect(Math.hypot(x - 10, y)).toBeLessThan(20)
+  })
 })

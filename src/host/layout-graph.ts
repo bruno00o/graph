@@ -5,6 +5,7 @@ import {
   noColor,
   placementCodes,
 } from '../core/columns'
+import { withFinitePositions } from '../core/finite-positions'
 import type { Hierarchy } from '../core/hierarchy'
 import type { PositionReader } from '../core/positions'
 import type { Key, LayoutGraph, LayoutGroups } from '../types'
@@ -103,7 +104,6 @@ export function layoutGraph(
   zoom: number,
   movable: (index: number) => boolean,
   datum: (key: Key) => unknown,
-  groupLinks?: Uint32Array,
   containers?: LayoutContainers,
 ): LayoutGraph {
   const capacity = nodes.capacity
@@ -145,19 +145,18 @@ export function layoutGraph(
   }
   const keys = nodes.keys.slice(0, capacity)
   const groups = containers ? groupsOf(nodes, alive, containers) : undefined
-  return {
+  return withFinitePositions({
     capacity,
     alive,
     movable: mobile,
     xy,
     radius,
     edges: pairs,
-    ...(groupLinks && groupLinks.length > 0 ? { groupLinks } : {}),
     ...(groups ? { groups } : {}),
     keys,
     datum: (index) => {
       const key = keys[index]
       return key === undefined || present[index] !== 1 ? undefined : datum(key)
     },
-  }
+  })
 }
