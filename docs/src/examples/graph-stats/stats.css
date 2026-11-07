@@ -1,0 +1,51 @@
+.stats-panel {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  gap: 10px;
+  width: 220px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.stats-panel h2 {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stats-panel small {
+  color: var(--graph-ink-muted);
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-panel dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+}
+
+.stats-panel dt {
+  color: var(--graph-ink-muted);
+}
+
+.stats-panel dd {
+  margin: 0;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,15 @@
+.saved-json {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  pointer-events: none;
+}
