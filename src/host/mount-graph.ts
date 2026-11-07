@@ -1854,40 +1854,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
   }
 
-  function groupLinks(): Uint32Array {
-    const nodes = scene.nodes
-    const pairs: number[] = []
-    const member = (index: number): number => {
-      let at = index
-      while (at >= 0 && nodes.shape[at] === containerShape) {
-        let next = -1
-        for (
-          let child = hierarchy.firstChild[at] ?? -1;
-          child >= 0 && next < 0;
-          child = hierarchy.nextSibling[child] ?? -1
-        ) {
-          if (nodes.alive[child] === 1) next = child
-        }
-        at = next
-      }
-      return at >= 0 && nodes.alive[at] === 1 ? at : -1
-    }
-    for (const container of projection.containers) {
-      let hub = -1
-      for (
-        let child = hierarchy.firstChild[container] ?? -1;
-        child >= 0;
-        child = hierarchy.nextSibling[child] ?? -1
-      ) {
-        const found = member(child)
-        if (found < 0) continue
-        if (hub < 0) hub = found
-        else pairs.push(hub, found)
-      }
-    }
-    return Uint32Array.from(pairs)
-  }
-
   function isGroup(key: Key): boolean {
     const index = model.node(key)?.index ?? -1
     return index >= 0 && (hierarchy.childCount[index] ?? 0) > 0
@@ -2448,7 +2414,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       store.get().view.zoom,
       (index) => !dragged?.has(index) && (keep.has(index) || (animationOwner[index] ?? 0) === 0),
       (key) => model.node(key)?.datum,
-      undefined,
       { indices: projection.containers, hierarchy },
     )
     moving.forEach((index, at) => {
@@ -2717,7 +2682,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       store.get().view.zoom,
       (index) => movable(index) && !dragged?.has(index),
       (key) => model.node(key)?.datum,
-      projection.active ? groupLinks() : undefined,
       projection.active ? { indices: projection.containers, hierarchy } : undefined,
     )
     if (!graph.movable.includes(1)) return false

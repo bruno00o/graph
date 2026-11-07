@@ -1,3 +1,4 @@
+import { withFinitePositions } from '../../core/finite-positions'
 import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../../types'
 import type { FromWorker, ToWorker } from './protocol'
 import { runForce } from './runner'
@@ -21,7 +22,8 @@ function spawn(): Worker | null {
   }
 }
 
-function start(graph: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+  const graph = withFinitePositions(given)
   const worker = spawn()
   if (!worker) return inline(graph, settings, listener)
   const pins = new Map<number, readonly [number, number]>()

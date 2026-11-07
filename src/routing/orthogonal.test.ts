@@ -196,4 +196,27 @@ describe('routeOrthogonal', () => {
     expect(Array.from(result.offsets)).toEqual(Array.from(whole.offsets))
     expect(Array.from(result.points)).toEqual(Array.from(whole.points))
   })
+
+  it('spreads the channels over several slices and gives the same result', () => {
+    const boxes: Box[] = []
+    const ends: number[] = []
+    for (let k = 0; k < 10; k++) {
+      boxes.push({ x: k * 100, y: 0 }, { x: k * 100, y: 300 })
+      for (let copy = 0; copy < 5; copy++) ends.push(k * 2, k * 2 + 1)
+    }
+    const whole = routeOrthogonal(input(boxes, ends), settings)
+    const router = new OrthogonalRouter(input(boxes, ends), settings)
+    let result: RouteOutput | null = null
+    let slices = 0
+    while (!result) {
+      result = router.step(performance.now() - 1)
+      slices++
+    }
+    const sliced = result
+    expect(slices).toBeGreaterThan(10)
+    expect(Array.from(sliced.points)).toEqual(Array.from(whole.points))
+    expect(new Set(Array.from({ length: 5 }, (_, edge) => route(sliced, edge)[0]?.[0])).size).toBe(
+      5,
+    )
+  })
 })

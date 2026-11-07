@@ -19,6 +19,16 @@ const eps = 1e-6
 const lookBack = 512
 const maxTurns = 64
 
+interface Pass {
+  readonly axis: number
+  readonly starts: readonly number[]
+  readonly at: Float64Array
+  readonly lo: Float64Array
+  readonly hi: Float64Array
+  readonly order: readonly number[]
+  first: number
+}
+
 function sign(value: number): number {
   return value > eps ? 1 : value < -eps ? -1 : 0
 }
@@ -27,6 +37,7 @@ export class Nudger {
   readonly #routes: RouteSet
   readonly #options: NudgeOptions
   readonly #route: Uint32Array
+  #pass: Pass | null = null
 
   constructor(routes: RouteSet, options: NudgeOptions) {
     this.#routes = routes
@@ -101,6 +112,11 @@ export class Nudger {
   }
 
   run(axis: number): void {
+    this.begin(axis)
+    this.advance(Number.POSITIVE_INFINITY)
+  }
+
+  begin(axis: number): void {
     const across = 1 - axis
     const { offsets } = this.#routes
     const starts: number[] = []
@@ -126,8 +142,16 @@ export class Nudger {
     })
     const order = Array.from({ length: count }, (_, s) => s)
     order.sort((p, q) => (at[p] ?? 0) - (at[q] ?? 0) || (lo[p] ?? 0) - (lo[q] ?? 0))
-    let first = 0
-    while (first < count) {
+    this.#pass = { axis, starts, at, lo, hi, order, first: 0 }
+  }
+
+  advance(until: number): boolean {
+    const pass = this.#pass
+    if (!pass) return true
+    const { axis, starts, at, lo, hi, order } = pass
+    const count = order.length
+    while (pass.first < count) {
+      const first = pass.first
       const head = order[first] ?? 0
       const line = at[head] ?? 0
       let reach = hi[head] ?? 0
@@ -148,8 +172,12 @@ export class Nudger {
           axis,
         )
       }
-      first = last
+      pass.first = last
+      if (last - first > 1 && performance.now() >= until) break
     }
+    if (pass.first < count) return false
+    this.#pass = null
+    return true
   }
 
   #portRange(k: number, axis: number): [number, number] {

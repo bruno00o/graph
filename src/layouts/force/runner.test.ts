@@ -123,4 +123,22 @@ describe('runGpuForce', () => {
     expect(listener.end).not.toHaveBeenCalled()
     expect(gpu.destroyed).toBe(true)
   })
+
+  it('falls back to the processor when a step throws', async () => {
+    const gpu = fakeGpu(1000)
+    gpu.step = () => {
+      throw new Error('driver error')
+    }
+    const pinned: number[][] = []
+    const rescue = vi.fn(
+      (): LayoutRun => ({ pin: (index, x, y) => pinned.push([index, x, y]), stop: () => {} }),
+    )
+    const listener = { progress: vi.fn(), end: vi.fn() }
+    const run = runGpuForce(gpu as unknown as GpuForce, graph(), forceDefaults, listener, rescue)
+    run.pin(1, 7, 8)
+    await vi.waitFor(() => expect(rescue).toHaveBeenCalledTimes(1))
+    expect(gpu.destroyed).toBe(true)
+    expect(pinned).toEqual([[1, 7, 8]])
+    expect(listener.end).not.toHaveBeenCalled()
+  })
 })

@@ -2,38 +2,55 @@ const primeX = 73856093
 const primeY = 19349663
 const goldenTurn = 2.399963229728653
 const forward = [0, 0, 1, 0, -1, 1, 0, 1, 1, 1]
+const tierSpread = 2
+
+type Visit = (a: number, b: number) => void
 
 class SpatialHash {
   readonly #cell: number
+  readonly #largest: number
   readonly #mask: number
   readonly #start: Int32Array
   readonly #items: Int32Array
+  readonly #members: Int32Array
   readonly #cx: Int32Array
   readonly #cy: Int32Array
 
-  constructor(cell: number, count: number, capacity: number) {
+  constructor(cell: number, largest: number, members: Int32Array, cx: Int32Array, cy: Int32Array) {
+    const count = members.length
     let size = 16
     while (size < count * 2) size *= 2
     this.#cell = cell
+    this.#largest = largest
     this.#mask = size - 1
     this.#start = new Int32Array(size + 1)
     this.#items = new Int32Array(Math.max(count, 1))
-    this.#cx = new Int32Array(capacity)
-    this.#cy = new Int32Array(capacity)
+    this.#members = members
+    this.#cx = cx
+    this.#cy = cy
+  }
+
+  get largest(): number {
+    return this.#largest
+  }
+
+  get members(): Int32Array {
+    return this.#members
   }
 
   #bucket(cx: number, cy: number): number {
     return (Math.imul(cx, primeX) ^ Math.imul(cy, primeY)) & this.#mask
   }
 
-  fill(nodes: ArrayLike<number>, count: number, px: Float64Array, py: Float64Array): void {
+  fill(px: Float64Array, py: Float64Array): void {
     const start = this.#start
     const cxs = this.#cx
     const cys = this.#cy
+    const members = this.#members
     start.fill(0)
     const cell = this.#cell
-    for (let k = 0; k < count; k++) {
-      const i = nodes[k] ?? 0
+    for (let k = 0; k < members.length; k++) {
+      const i = members[k] ?? 0
       const cx = Math.floor((px[i] ?? 0) / cell)
       const cy = Math.floor((py[i] ?? 0) / cell)
       cxs[i] = cx
@@ -42,8 +59,8 @@ class SpatialHash {
       start[b] = (start[b] ?? 0) + 1
     }
     for (let b = 1; b < start.length; b++) start[b] = (start[b] ?? 0) + (start[b - 1] ?? 0)
-    for (let k = 0; k < count; k++) {
-      const i = nodes[k] ?? 0
+    for (let k = 0; k < members.length; k++) {
+      const i = members[k] ?? 0
       const b = this.#bucket(cxs[i] ?? 0, cys[i] ?? 0)
       const at = start[b] ?? 0
       this.#items[at] = i
@@ -53,18 +70,14 @@ class SpatialHash {
     start[0] = 0
   }
 
-  pairs(
-    nodes: ArrayLike<number>,
-    count: number,
-    visit: (a: number, b: number) => void,
-    skip: Uint8Array | null,
-  ): void {
+  pairs(visit: Visit, skip: Uint8Array | null): void {
     const start = this.#start
     const items = this.#items
     const cxs = this.#cx
     const cys = this.#cy
-    for (let k = 0; k < count; k++) {
-      const a = nodes[k] ?? 0
+    const members = this.#members
+    for (let k = 0; k < members.length; k++) {
+      const a = members[k] ?? 0
       const ax = cxs[a] ?? 0
       const ay = cys[a] ?? 0
       const still = skip !== null && skip[a] === 1 ? skip : null
@@ -83,17 +96,124 @@ class SpatialHash {
       }
     }
   }
+
+  near(
+    a: number,
+    x: number,
+    y: number,
+    reach: number,
+    visit: Visit,
+    skip: Uint8Array | null,
+  ): void {
+    const still = skip !== null && skip[a] === 1 ? skip : null
+    const cell = this.#cell
+    const x0 = Math.floor((x - reach) / cell)
+    const x1 = Math.floor((x + reach) / cell)
+    const y0 = Math.floor((y - reach) / cell)
+    const y1 = Math.floor((y + reach) / cell)
+    const members = this.#members
+    if (!((x1 - x0 + 1) * (y1 - y0 + 1) <= members.length)) {
+      for (let k = 0; k < members.length; k++) {
+        const b = members[k] ?? 0
+        if (still === null || still[b] !== 1) visit(b, a)
+      }
+      return
+    }
+    const start = this.#start
+    const items = this.#items
+    const cxs = this.#cx
+    const cys = this.#cy
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        const b0 = this.#bucket(tx, ty)
+        const end = start[b0 + 1] ?? 0
+        for (let at = start[b0] ?? 0; at < end; at++) {
+          const b = items[at] ?? 0
+          if (cxs[b] !== tx || cys[b] !== ty) continue
+          if (still !== null && still[b] === 1) continue
+          visit(b, a)
+        }
+      }
+    }
+  }
 }
 
-function cellOf(
-  radius: Float32Array,
-  nodes: ArrayLike<number>,
-  count: number,
-  gap: number,
-): number {
-  let largest = 0
-  for (let k = 0; k < count; k++) largest = Math.max(largest, radius[nodes[k] ?? 0] ?? 0)
-  return Math.max(2 * largest + gap, 1)
+function sizeOf(radius: Float32Array, index: number): number {
+  const r = radius[index] ?? 0
+  return Math.max(r, 0) || 0
+}
+
+class TieredHash {
+  readonly #tiers: SpatialHash[]
+  readonly #radius: Float32Array
+  readonly #gap: number
+
+  constructor(radius: Float32Array, nodes: ArrayLike<number>, count: number, gap: number) {
+    this.#radius = radius
+    this.#gap = gap
+    const sorted = new Float32Array(count)
+    for (let k = 0; k < count; k++) sorted[k] = sizeOf(radius, nodes[k] ?? 0)
+    sorted.sort()
+    const caps: number[] = []
+    let from = 0
+    while (from < count) {
+      const cap = (sorted[from + ((count - from) >> 1)] ?? 0) * tierSpread
+      let to = from
+      while (to < count && (sorted[to] ?? 0) <= cap) to++
+      caps.push(cap)
+      from = to
+    }
+    if (caps.length === 0) caps.push(0)
+    const tierOf = new Uint8Array(count)
+    const sizes = new Int32Array(caps.length)
+    const largest = new Float64Array(caps.length)
+    for (let k = 0; k < count; k++) {
+      const r = sizeOf(radius, nodes[k] ?? 0)
+      let tier = 0
+      while (tier < caps.length - 1 && r > (caps[tier] ?? 0)) tier++
+      tierOf[k] = tier
+      sizes[tier] = (sizes[tier] ?? 0) + 1
+      largest[tier] = Math.max(largest[tier] ?? 0, r)
+    }
+    const members = Array.from(sizes, (size) => new Int32Array(size))
+    const filled = new Int32Array(caps.length)
+    for (let k = 0; k < count; k++) {
+      const tier = tierOf[k] ?? 0
+      const at = filled[tier] ?? 0
+      const list = members[tier] as Int32Array
+      list[at] = nodes[k] ?? 0
+      filled[tier] = at + 1
+    }
+    const capacity = radius.length
+    const cx = new Int32Array(capacity)
+    const cy = new Int32Array(capacity)
+    this.#tiers = members.map((list, tier) => {
+      const r = largest[tier] ?? 0
+      return new SpatialHash(Math.max(2 * r + gap, 1), r, list, cx, cy)
+    })
+  }
+
+  fill(px: Float64Array, py: Float64Array): void {
+    for (const tier of this.#tiers) tier.fill(px, py)
+  }
+
+  pairs(px: Float64Array, py: Float64Array, visit: Visit, skip: Uint8Array | null): void {
+    const tiers = this.#tiers
+    for (const tier of tiers) tier.pairs(visit, skip)
+    for (let t = 1; t < tiers.length; t++) {
+      const members = (tiers[t] as SpatialHash).members
+      for (let k = 0; k < members.length; k++) {
+        const a = members[k] ?? 0
+        const x = px[a] ?? 0
+        const y = py[a] ?? 0
+        const r = sizeOf(this.#radius, a) + this.#gap
+        for (let s = 0; s < t; s++) {
+          const lower = tiers[s] as SpatialHash
+          lower.near(a, x, y, r + lower.largest, visit, skip)
+        }
+      }
+    }
+  }
 }
 
 function shareOf(ra: number, rb: number): number {
@@ -105,7 +225,7 @@ function shareOf(ra: number, rb: number): number {
 export class Collider {
   readonly #radius: Float32Array
   readonly #gap: number
-  readonly #hash: SpatialHash
+  readonly #hash: TieredHash
   readonly #px: Float64Array
   readonly #py: Float64Array
   readonly #visit: (a: number, b: number) => void
@@ -118,11 +238,7 @@ export class Collider {
   constructor(radius: Float32Array, nodes: Uint32Array, gap: number) {
     this.#radius = radius
     this.#gap = gap
-    this.#hash = new SpatialHash(
-      cellOf(radius, nodes, nodes.length, gap),
-      nodes.length,
-      radius.length,
-    )
+    this.#hash = new TieredHash(radius, nodes, nodes.length, gap)
     this.#px = new Float64Array(radius.length)
     this.#py = new Float64Array(radius.length)
     this.#visit = (a, b) => this.#resolve(a, b)
@@ -149,8 +265,8 @@ export class Collider {
     this.#vy = vy
     this.#stiffness = stiffness
     this.#jiggle = jiggle
-    this.#hash.fill(nodes, nodes.length, px, py)
-    this.#hash.pairs(nodes, nodes.length, this.#visit, null)
+    this.#hash.fill(px, py)
+    this.#hash.pairs(px, py, this.#visit, null)
   }
 
   #resolve(a: number, b: number): void {
@@ -218,7 +334,7 @@ export function separate(
     px[i] = xy[i * 2] ?? 0
     py[i] = xy[i * 2 + 1] ?? 0
   }
-  const hash = new SpatialHash(cellOf(radius, nodes, count, spacing), count, capacity)
+  const hash = new TieredHash(radius, nodes, count, spacing)
   let still = new Uint8Array(capacity)
   let next = new Uint8Array(capacity)
   let changes = 0
@@ -252,10 +368,10 @@ export function separate(
     changes++
   }
   for (let round = 0; round < rounds; round++) {
-    hash.fill(nodes, count, px, py)
+    hash.fill(px, py)
     changes = 0
     next.fill(1)
-    hash.pairs(nodes, count, visit, round === 0 ? null : still)
+    hash.pairs(px, py, visit, round === 0 ? null : still)
     if (changes === 0) break
     const swap = still
     still = next
