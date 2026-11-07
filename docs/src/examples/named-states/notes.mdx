@@ -1,0 +1,18 @@
+## How it works
+
+`states` in the definition declares two states by name, each with the style its members take:
+
+- `linked` recolors the contour of nodes and the line of edges with `--graph-accent`, widens both to 2 pixels, shows the label and colors it.
+- `muted` multiplies the opacity by 0.3 and hides the label.
+
+A state holds no data: the application decides who belongs to it. On `selectionchange`, `graph.paths.reach(key, { maxCost: 1 })` returns the selected node, its neighbors and the edges between them. They go to `linked` with `graph.states.set`, and every other key goes to `muted`. An empty selection clears both states.
+
+A free state is drawn in place, so the nodes of the faded graph cover the edges of the neighborhood. `raise: true` on `linked` draws its members again above every mark, as the selection is, and places their labels first. The button rebuilds the definition with `raise` on or off and passes it to `graph.update`. The marks are the same objects, so only the styles of the states change.
+
+The selected node is in both `selected` and `linked`: each property comes from the first state that sets it, so it keeps the halo of the selection.
+
+## Try it
+
+- Click a node in another group: the neighborhood moves and the status counts it.
+- Switch to drawn in place, then zoom in: faded nodes now cover the accent edges.
+- Click the background to clear the selection and both states.

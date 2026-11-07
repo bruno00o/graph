@@ -1,0 +1,90 @@
+.palette-dusk,
+.palette-meadow {
+  background: var(--graph-paper);
+}
+
+.palette-dusk {
+  --graph-paper: #f3eff6;
+  --graph-paper-raised: #fbf9fc;
+  --graph-ink: #2a2433;
+  --graph-ink-muted: #6c6377;
+  --graph-node: #5a4f7c;
+  --graph-edge: #b9b0c6;
+  --graph-accent: #c2185b;
+  --graph-on-accent: #ffffff;
+  --graph-focus-ring: #c2185b;
+  --graph-halo: #c2185b40;
+  --graph-label-halo: #f3eff6;
+  --graph-node-ring: #f3eff6;
+  --graph-cat-1: #5a4f7c;
+  --graph-cat-2: #c8702f;
+  --graph-cat-3: #d9a40b;
+  --graph-cat-4: #2e7d8c;
+  --graph-cat-5: #8e5aa8;
+  --graph-cat-6: #7a8c2e;
+  --graph-font: ui-serif, Georgia, serif;
+}
+
+.dark .palette-dusk {
+  --graph-paper: #19151f;
+  --graph-paper-raised: #221d2a;
+  --graph-ink: #efe9f5;
+  --graph-ink-muted: #a89db5;
+  --graph-node: #b3a6dc;
+  --graph-edge: #4d4459;
+  --graph-accent: #ff6f9f;
+  --graph-on-accent: #19151f;
+  --graph-focus-ring: #ff6f9f;
+  --graph-halo: #ff6f9f47;
+  --graph-label-halo: #19151f;
+  --graph-node-ring: #19151f;
+  --graph-cat-1: #b3a6dc;
+  --graph-cat-2: #f29a5c;
+  --graph-cat-3: #f2cf5b;
+  --graph-cat-4: #5fc4d4;
+  --graph-cat-5: #d39cf0;
+  --graph-cat-6: #c3d46a;
+}
+
+.palette-meadow {
+  --graph-paper: #eef3ea;
+  --graph-paper-raised: #f8fbf6;
+  --graph-ink: #1f2b1d;
+  --graph-ink-muted: #5d6b59;
+  --graph-node: #3f6b3a;
+  --graph-edge: #a9b8a3;
+  --graph-accent: #0057b8;
+  --graph-on-accent: #ffffff;
+  --graph-focus-ring: #0057b8;
+  --graph-halo: #0057b83d;
+  --graph-label-halo: #eef3ea;
+  --graph-node-ring: #eef3ea;
+  --graph-cat-1: #3f6b3a;
+  --graph-cat-2: #b5651d;
+  --graph-cat-3: #0f7c8a;
+  --graph-cat-4: #8a8a12;
+  --graph-cat-5: #6d4c8f;
+  --graph-cat-6: #a33b3b;
+  --graph-font: ui-monospace, Menlo, monospace;
+}
+
+.dark .palette-meadow {
+  --graph-paper: #121a11;
+  --graph-paper-raised: #1a2418;
+  --graph-ink: #e6efe2;
+  --graph-ink-muted: #9fae99;
+  --graph-node: #8fc486;
+  --graph-edge: #3e4d3b;
+  --graph-accent: #6fb2ff;
+  --graph-on-accent: #121a11;
+  --graph-focus-ring: #6fb2ff;
+  --graph-halo: #6fb2ff47;
+  --graph-label-halo: #121a11;
+  --graph-node-ring: #121a11;
+  --graph-cat-1: #8fc486;
+  --graph-cat-2: #f0a35e;
+  --graph-cat-3: #4fc9d6;
+  --graph-cat-4: #d6d65a;
+  --graph-cat-5: #b996e0;
+  --graph-cat-6: #f07f7f;
+}

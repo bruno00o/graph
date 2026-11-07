@@ -1,0 +1,15 @@
+## How it works
+
+Every color the graph draws comes from a CSS variable: `--graph-node` and `--graph-edge` by default, `--graph-cat-1` to `--graph-cat-8` for the categorical scale, `--graph-accent` and `--graph-halo` for the selection, `--graph-label-halo` behind labels, and `--graph-font` for the label font.
+
+`palettes.css` sets them in two classes, `palette-dusk` and `palette-meadow`, and again under `.dark` for the dark theme of the docs. The graph element is transparent, so each palette also paints its own `--graph-paper` as a background.
+
+The button moves the class on `graph.element`. The graph watches the classes, `style` and `data-theme` of that element, of `<html>` and of `<body>`, and resolves its colors again when one changes. No data is read again and no definition changes: the GPU keeps the same color ids and only the palette behind them changes.
+
+The definition never names a color. `color: 'group'` goes through the categorical scale, which hands out `var(--graph-cat-1)`, `var(--graph-cat-2)` and so on, so the same definition reads well in every palette.
+
+## Try it
+
+- Press **Palette** to cycle between the two palettes and the library default.
+- Switch the docs theme: each palette has a dark variant.
+- The selected nodes show `--graph-accent` and `--graph-halo`. Click another node to see them move.

@@ -1,0 +1,19 @@
+## How it works
+
+On every update, the example builds a new array of nodes and passes a new definition to `graph.update`. The graph reconciles it by key: nodes whose key is new appear, nodes whose key is gone leave, and the others keep their position, their selection and their states.
+
+Three choices keep each update small:
+
+- **The edge mark is built once.** `linkMark` is the same object in every definition, so the graph does not read its array again. Edges whose ends are not both shown wait, and appear as soon as the missing node comes back.
+- **The node options are a constant.** When a mark keeps its place and its options are shallowly equal, only the items that changed are restyled. Options written inline, with a new function each time, would restyle every node.
+- **Unchanged items keep their object.** An item is replaced only when its weight or its trend changes.
+
+The size follows `weight` through a size scale with a fixed `domain`, so a node does not grow when another one shrinks. The color follows `trend` through a categorical scale whose `domain` pins `up`, `steady` and `down` to three colors.
+
+The timer starts paused when the system asks for reduced motion, and stops once the graph leaves the page.
+
+## Try it
+
+- Drag a node: it stays where you put it, since its `x` and `y` do not change, while its size and color follow its weight.
+- Select a node that sits near the edge of the spiral: when it leaves, it leaves the selection too.
+- Read the status: a node that left takes its edges with it, and they come back with it.

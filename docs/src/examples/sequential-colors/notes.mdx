@@ -1,0 +1,20 @@
+## How it works
+
+The color scale is categorical by default, even for numbers: nothing is guessed. `{ type: 'sequential' }` turns `color: 'value'` into a gradient. Nodes read their own value, edges the mean of their two ends, and both go through the same scale.
+
+The button swaps the scale:
+
+- **Two stops** from a pale shade to `--graph-cat-1`. The pale shade is a `color-mix` of the same token with `--graph-paper`, so the low end stays readable on both docs themes.
+- **Three stops**: `range` takes any number of colors, spread evenly over the domain.
+- **Over 40 to 60**: values outside the `domain` are clamped to it, so the whole gradient goes to the slopes and the flat parts take the end colors.
+- **Default range**: without a `range`, the scale runs from `--graph-cat-5` to `--graph-cat-1`, and without a `domain`, over the extent of the data, which it follows as the data changes.
+
+Colors are interpolated in steps of one percent, so a gradient costs at most a hundred colors in the palette, whatever the number of elements.
+
+The legend from `@bruno00o/graph/legend` shows the ramp and its domain as the graph drew them.
+
+## Try it
+
+- Cycle the colors and compare the legend with the lattice.
+- Switch the docs theme: every stop is a CSS variable, so the gradient follows it.
+- Zoom in until the values show under the nodes.

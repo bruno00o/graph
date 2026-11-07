@@ -1,0 +1,20 @@
+## How it works
+
+`color: 'group'` on the nodes and `color: (link) => groupOf.get(link.from)` on the edges send a category to the same `color` scale. The scale is shared by every mark, so group C has one color on nodes and edges alike.
+
+The button swaps the scale and passes a new definition to `graph.update`:
+
+- **In order of appearance**, with no scale: the categorical default hands out `--graph-cat-1` to `--graph-cat-8` to categories as they appear in the data, nodes before edges. The legend lists them in that order.
+- **Pinned by a domain**: `{ domain: ['A', 'B', 'C', 'D', 'E', 'F'] }` gives the first colors to these categories, in this order, whatever the order of the data.
+- **A range of shades**: `range` replaces the theme colors. Each shade is a `color-mix` of a theme token and `--graph-paper`, so the shades follow the docs theme.
+- **A function for one group**: any function from a value to a CSS color is a scale. This one draws group C in `--graph-accent` and the rest in `--graph-edge`.
+
+A category keeps its color while the scale stays the same, even when the data changes. A new scale resets the categories.
+
+The legend comes from `@bruno00o/graph/legend`, limited to its color section. It reads the colors the graph drew, so it follows every mode.
+
+## Try it
+
+- Cycle the modes and compare the order of the legend.
+- Switch the docs theme in the range of shades: every shade is mixed again from the new tokens.
+- In the last mode, hover an edge between group C and another group: edges take the group of their source.

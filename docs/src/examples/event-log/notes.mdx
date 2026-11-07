@@ -1,0 +1,20 @@
+## How it works
+
+`graph.on(name, handler)` subscribes to one event and returns the function that unsubscribes. Each handler receives a typed payload:
+
+- Pointer events, `click`, `doubleclick` and `contextmenu`, carry the `target` under the pointer, or `null` for the background, the pointer in screen pixels as `point` and in world units as `world`, and the DOM event.
+- `pointerenter` and `pointerleave` fire when the pointer crosses a node or an edge.
+- `dragstart`, `drag` and `dragend` carry the dragged node and `keys`, every node the drag moves: the whole selection when the dragged node is selected.
+- `positionchange` reports nodes moved by a drag, by `positions.set` or by a layout, never by your data.
+- `selectionchange`, `focuschange` and `viewchange` fire on every change, from the user or from code.
+
+A target is `{ kind, key, datum, mark }`. The definition types it: once `kind` says `'node'`, `datum` is an `Item`; for `'edge'`, a `Link`. No cast is needed to read `datum.label`.
+
+The `contextmenu` handler calls `originalEvent.preventDefault()`, which keeps the browser menu closed, the first step of a menu of your own. The log merges an event that repeats, such as `viewchange` during a zoom, into one line with a count.
+
+## Try it
+
+- Move across nodes and edges, then click one: `click` fires before `selectionchange`.
+- Drag a node, then select several with Shift and drag one of them: `dragstart` counts every node that moves.
+- Press Tab, then the arrow keys: `focuschange` follows the keyboard focus.
+- Scroll to zoom: `viewchange` repeats on every frame of the gesture.

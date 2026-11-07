@@ -1,0 +1,51 @@
+.event-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  height: 100%;
+}
+
+.event-graph {
+  position: relative;
+  min-width: 0;
+}
+
+.event-log {
+  overflow: hidden;
+  padding: 8px 0;
+  border-left: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.event-log ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-log li {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px;
+}
+
+.event-log li:first-child {
+  background: color-mix(in srgb, var(--graph-accent) 10%, transparent);
+}
+
+.event-log code {
+  color: var(--graph-accent);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.event-log span {
+  overflow: hidden;
+  color: var(--graph-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
