@@ -23,6 +23,7 @@
     "lens",
     "positions",
     "groups",
+    "transformations",
     "layout",
     "bundling",
     "drawing-layers",

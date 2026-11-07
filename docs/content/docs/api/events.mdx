@@ -43,7 +43,7 @@ type GraphTarget<M extends Mark = Mark> =
 
 <api-table path="index.ts" name="EdgeTarget" />
 
-An edge drawn for several edges between [folded groups](/docs/groups) carries `aggregate`, with the keys and data of every merged edge; `key` and `datum` are those of the first.
+An edge drawn for several edges, between [folded groups](/docs/groups) or [merged](/docs/transformations#merge-parallel-edges) by `merge`, carries `aggregate`, with the keys and data of every merged edge, split by direction; `key` and `datum` are those of the first.
 
 ## Payloads
 

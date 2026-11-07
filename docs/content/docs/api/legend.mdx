@@ -106,7 +106,7 @@ Use both inside the children of [`<Graph>`](/docs/api/graph-component). `<Legend
 
 ## Behavior
 
-- Counts and keys cover what the graph draws: nodes hidden in a folded group are left out, and an edge between folded groups counts once.
+- Counts and keys cover what the graph draws: nodes hidden in a folded group or by a state with `hide` are left out, and an edge between folded groups counts once. The legend reads past its own `hidden` state, so the items it switches off stay listed even when that state hides its members.
 - A categorical scale lists the values of its `domain` even without elements, and at most 64 categories. Items switched off stay listed while they have no element.
 - The legend reads the graph again after a change of data or definition, never more often than ten times its own cost allows, and at least 50 ms apart.
 - Destroying the legend empties its `highlight` and `hidden` states. Destroying the graph destroys its legends.

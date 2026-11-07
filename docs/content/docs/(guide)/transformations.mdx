@@ -1,0 +1,180 @@
+---
+title: Transformations
+description: Merge parallel edges, group items by a field and hide elements, without touching the data.
+---
+
+<LiveExample slug="transformations" />
+
+Three options change what the graph draws while the data stays as it is:
+
+- `merge` on `edges()` draws the parallel edges of a pair as one aggregated edge;
+- `groups()` adds a group node per value of a field and folds the items into it;
+- a state with `hide: true` takes its members out of the drawing, and they keep their selection and other states.
+
+Each one is computed from the changes only, and a graph that uses none of them pays nothing for them. They work with [groups of the data](/docs/groups), [layers](/docs/multilayer), the [legend](/docs/minimap-and-legend#legend), [layouts](/docs/layout) and [exports](/docs/export).
+
+## Merge parallel edges
+
+`merge: true` draws the edges of a mark that join the same two visible nodes, in the same direction, as one aggregated edge. `aggregate` styles it from an [`AggregateEdge`](/docs/api/edges#merged-edges): its two ends, the number of merged edges, their keys and their data.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  merge: true,
+  aggregate: {
+    width: (aggregate) => aggregate.count,
+    label: (aggregate) => String(aggregate.count),
+  },
+})
+```
+
+The options of `merge` are in [`EdgeMergeOptions`](/docs/api/edges#merged-edges):
+
+- `by` splits the merge by a value: edges of two kinds between the same nodes draw as two aggregated edges, side by side, and `aggregate.value` gives the kind.
+- `directed: false` merges both directions of a pair into one line.
+- `min` is the fewest edges that merge: with `min: 3`, a pair joined by two edges keeps them apart.
+
+Edges merge mark by mark: two marks never share an aggregated edge, so an aggregated edge stays in the layer of its mark. A pair of opposite edges without `merge` stays two curves, as any parallel edges.
+
+Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
+
+### Both directions on one line
+
+With `directed: false`, an aggregated edge points the way of the first edge in its `keys`. `source` and `target` follow that orientation, and the merged edges split by direction relative to it:
+
+- `forward` holds the edges that go from `source` to `target`;
+- `backward` holds the edges that go from `target` to `source`.
+
+The two halves of the line can then show one direction each, through the [edge ends](/docs/marks#edge-ends) of `aggregate`: the `target` end draws the half next to the target node, and the `source` end the half next to the source node.
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  arrow: 'target',
+  merge: { directed: false },
+  aggregate: {
+    width: (aggregate) => aggregate.count,
+    ends: {
+      target: {
+        stroke: 'var(--graph-cat-2)',
+        label: { text: (aggregate) => String(aggregate.forward.count), background: true },
+      },
+      source: {
+        stroke: 'var(--graph-cat-4)',
+        label: { text: (aggregate) => String(aggregate.backward.count), background: true },
+      },
+    },
+  },
+})
+```
+
+An aggregated edge with edges in both directions gets an arrow at each end: arrows join the arrow of the first edge of each direction. Hovering it sets `target.end` to the half under the pointer, and exports draw both halves.
+
+Without `aggregate.ends`, an aggregated edge takes the ends of its first merged edge. Without `aggregate` at all, it takes the look of its first merged edge. In both cases, labels, end labels included, show only when it stands for a single edge.
+
+## Group items by a field
+
+`groups()` makes a mark of group nodes: one per value of `by` among the items. The nodes of those items move into their group, which starts folded. Put the mark next to the mark of the items, and leave it out to ungroup them.
+
+```ts
+type Item = { id: string; label: string; sector: string }
+
+const sectors = groups(items, {
+  by: 'sector',
+  name: 'sectors',
+  size: (group) => 20 + Math.sqrt(group.count) * 6,
+  label: (group) => `Sector ${group.value}`,
+})
+
+const define = (grouped: boolean) =>
+  defineGraph({
+    marks: [
+      edges<Link>(links, { source: 'from', target: 'to' }),
+      nodes<Item>(items, { label: 'label' }),
+      ...(grouped ? [sectors] : []),
+    ],
+  })
+```
+
+The options of the group nodes read a [`NodeGroup`](/docs/api/groups#nodegroup): the value, the number of members, their keys and their data. A group node is a group like any other: it folds and unfolds with a double-click and through [`graph.groups`](/docs/groups#fold-and-unfold), it draws as a container when unfolded, and the edges into a folded group merge.
+
+- Pass the same array, or the same live source, as the mark of the items. With a live source, groups follow its changes: an item that changes its value moves to its new group, and a group without members disappears.
+- The key of a group node is made from the `name` of the mark and the value, apart from the keys of the data. Read it from `group.key`, for example in `initialFolded` or `graph.groups.unfold`.
+- `min` is the fewest items that make a group: the items of a smaller group stay where they are.
+- `folded: false` shows new groups unfolded.
+- An item without a value stays out of every group.
+
+### With groups of the data
+
+An item that has a `parent` in the data leaves that group for its group by value. Give `groups()` the same `parent` to make groups within each group of the data instead: a group by value then nests in the group of its members.
+
+```ts
+groups(items, { by: 'sector', parent: 'team' })
+```
+
+## Hide without losing state
+
+A state with `hide: true` takes its members out of the drawing. They keep their position, their selection and their other states, and they come back as they were when they leave the state.
+
+```ts
+const definition = defineGraph({
+  marks: [...],
+  states: { off: { hide: true } },
+})
+
+graph.states.set('off', { nodes: ['a', 'b'] })
+graph.states.clear('off')
+```
+
+A hidden element is absent, as an element outside its [zoom range](/docs/zoom):
+
+- it is neither drawn, labeled, picked, reached by the keyboard or the lasso, nor exported;
+- the legend, the minimap and the hulls leave it out;
+- the edges of a hidden node hide with it, and an aggregated edge hides when all its merged edges do;
+- a hidden container still shows its children.
+
+It stays in the data, in the selection, in its other states and in layouts. Paths with `visible: true` go around it; other paths still cross it.
+
+### From the legend
+
+The legend puts the elements of an item switched off in its `hidden` state. Declare that state with `hide: true` to filter the graph from the legend: the items switched off stay listed, and the selection survives.
+
+```ts
+const definition = defineGraph({
+  marks: [...],
+  states: { off: { hide: true } },
+})
+
+const legend = createLegend(graph, { hidden: 'off' })
+```
+
+## Layout after a change
+
+A fold, an unfold, a change of `groups()` or of `merge` changes the graph that the layout sees. By default, only the nodes that appear are placed, and an unfolded group pushes its neighbors aside. `relayout: true` runs the layout of the definition again over every node it may move, so that the drawing closes the gaps and makes room.
+
+```ts
+defineGraph({
+  marks: [...],
+  layout: force(),
+  relayout: true,
+})
+```
+
+Nodes placed by their `x` and `y` channels, and the node being dragged, never move.
+
+## Performance
+
+Merges and groups are measured in Node, for the model, the merges and the scene; hiding in Chrome, with the frame that draws the change.
+
+| Change | Graph | Time |
+| --- | --- | --- |
+| Merge on | 250,000 nodes, 1,000,000 edges | 440 to 690 ms |
+| Merge off | 250,000 nodes, 1,000,000 edges | 380 to 430 ms |
+| Groups on, folded | 100,000 nodes in 1,000 groups, 200,000 edges | 290 ms |
+| Fold all | 100,000 nodes in 1,000 groups, 200,000 edges | 280 ms |
+| Unfold one | 100,000 nodes in 1,000 groups, 200,000 edges | 4 ms |
+| Hide 100,000 nodes | 200,000 nodes, 400,000 edges | 24 ms, plus a 9 ms frame |
+
+A hidden element costs nothing on later frames: the graph draws less.
