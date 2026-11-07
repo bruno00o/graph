@@ -41,6 +41,8 @@ import { Graph, Minimap } from '@bruno00o/graph/react'
 </Graph>
 ```
 
+Outside `<Graph>`, pass the graph: `<Minimap graph={graph} corner={null} />`.
+
 ## Legend
 
 `@bruno00o/graph/legend` reads a legend from the scales of the definition, in two parts: `createLegend` gives the data, `mountLegend` renders it.
@@ -111,7 +113,7 @@ The default renderer is plain HTML styled inline with the [theme tokens](/docs/t
 
 ### React
 
-`<Legend>` renders the default legend where it stands, inside `<Graph>`. `useLegend` returns the state and the legend, for a legend drawn by your components.
+`<Legend>` renders the default legend where it stands, inside `<Graph>` or `<MapGraph>`, or anywhere with its `graph` prop. `useLegend` returns the state and the legend, for a legend drawn by your components; it takes the graph in its `graph` option.
 
 ```tsx
 import { Graph, Legend, useLegend } from '@bruno00o/graph/react'

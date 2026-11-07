@@ -3,7 +3,7 @@ title: React
 description: The Graph component, overlays as children, and hooks that read the graph.
 ---
 
-`@bruno00o/graph/react` wraps the core in a component and three hooks. It needs React 19.
+`@bruno00o/graph/react` wraps the core in a component and three hooks. It needs React 19. `@bruno00o/graph/map/react` adds [`<MapGraph>`](#maps), for a graph inside a MapLibre map.
 
 ## The Graph component
 
@@ -66,7 +66,7 @@ See [Drawing layers](/docs/drawing-layers#anchored-html) for every target and op
 
 | Hook | Returns |
 | --- | --- |
-| `useGraph()` | The `GraphInstance`. Throws outside `<Graph>` |
+| `useGraph()` | The `GraphInstance`. Throws outside `<Graph>` and `<MapGraph>` |
 | `useGraphState(selector, { compare })` | A slice of the graph state. Updates only when the slice changes |
 | `useGraphEvent(name, handler)` | Nothing. Subscribes to an event for the life of the component |
 
@@ -90,6 +90,33 @@ const zoom = useSelector(graph.store, (state) => state.view.zoom)
 ```
 
 The [live statistics from the store](/examples/graph-stats) example reads the view, the hovered element, the selection and the layout with `useGraphState`, and clicks with `useGraphEvent`.
+
+## Companions beside the graph
+
+`<Minimap>`, `<Legend>`, `<Timeline>`, `useLegend` and `useTimeline` follow the `<Graph>` around them. To place one elsewhere in the page, pass the graph in its `graph` prop or option. Keep the instance in state with the `ref` of `<Graph>`, so the companion renders once the graph exists:
+
+```tsx
+const [graph, setGraph] = useState<GraphInstance | null>(null)
+
+<>
+  <Graph definition={definition} ariaLabel="Sample graph" ref={setGraph} />
+  <aside>{graph ? <Legend graph={graph} highlight="match" /> : null}</aside>
+</>
+```
+
+The `graph` prop wins over the graph in context. Without either, the component throws. A new `graph` destroys the companion and creates it again on the new graph.
+
+## Maps
+
+`<MapGraph>`, from `@bruno00o/graph/map/react`, mounts the graph inside a MapLibre map that you create. It takes the props of `<Graph>` without the view, which belongs to the map, plus the `map`, and the `id` and `beforeId` of its layer. It renders no element: its children render where it stands, and the hooks, `<Anchor>`, `<Legend>`, `<Timeline>` and the `ref` work as with `<Graph>`.
+
+```tsx
+<MapGraph map={map} definition={definition} ariaLabel="Places and routes" ref={setGraph}>
+  <Timeline mode="grow" />
+</MapGraph>
+```
+
+The entry point does not import MapLibre: pass the map you created. See [Map](/docs/map#react) for the full component, and the [map component](/examples/map-component) example.
 
 ## Controlled selection
 

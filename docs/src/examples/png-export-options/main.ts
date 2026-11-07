@@ -69,7 +69,6 @@ export function mount(container: HTMLElement): GraphInstance {
   })
   let pending = 0
   const refresh = async () => {
-    if (!graph.element.isConnected) return theme.disconnect()
     const ticket = ++pending
     const start = performance.now()
     const next = await exportPng(graph, options())
@@ -95,6 +94,10 @@ export function mount(container: HTMLElement): GraphInstance {
   theme.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['class'],
+  })
+  graph.signal.addEventListener('abort', () => {
+    clearTimeout(timer)
+    theme.disconnect()
   })
 
   const actions = document.createElement('div')

@@ -24,6 +24,10 @@ export default defineConfig({
       },
       { find: /^@bruno00o\/graph\/devtools$/, replacement: resolve(source, 'devtools/index.ts') },
       { find: /^@bruno00o\/graph\/export$/, replacement: resolve(source, 'export/index.ts') },
+      {
+        find: /^@bruno00o\/graph\/map\/react$/,
+        replacement: resolve(source, 'map/react.tsx'),
+      },
       { find: /^@bruno00o\/graph\/map$/, replacement: resolve(source, 'map/index.ts') },
       { find: /^@bruno00o\/graph\/minimap$/, replacement: resolve(source, 'minimap/index.ts') },
       { find: /^@bruno00o\/graph\/legend$/, replacement: resolve(source, 'legend/index.ts') },

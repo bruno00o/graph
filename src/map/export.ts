@@ -3,6 +3,7 @@ import { worldSize, worldToGeo } from '../core/geo'
 import type { Rgba } from '../dom/theme'
 import { type ExportLabels, exportPng } from '../export'
 import { takeSnapshot } from '../host/export-source'
+import { destroyedError } from '../host/lifecycle'
 import type { GraphInstance } from '../host/mount-graph'
 import { themeColor } from '../theme/tokens'
 import type { View } from '../types'
@@ -175,6 +176,7 @@ export async function exportMapPng<S extends string>(
   graph: GraphInstance<S>,
   options: MapPngOptions = {},
 ): Promise<Blob> {
+  if (graph.destroyed) throw destroyedError()
   const live = mapOf(graph)
   const pixelRatio = options.pixelRatio ?? live.getPixelRatio()
   if (!(pixelRatio > 0) || !Number.isFinite(pixelRatio)) {

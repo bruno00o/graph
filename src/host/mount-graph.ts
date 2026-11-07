@@ -94,6 +94,7 @@ import {
   Emitter,
   type GraphEventHandler,
   type GraphEventName,
+  type GraphEventOptions,
   type GraphFoldEvent,
   type GraphLayerEvent,
   type GraphSelectionEvent,
@@ -120,6 +121,7 @@ import {
   lensView,
   sameLens,
 } from './lens'
+import { afterDestroy, destroyedReason, FrameWaiters, stillborn, untilDestroyed } from './lifecycle'
 import type { Renderer } from './renderer'
 import { clearRoom } from './room'
 import { StateRegistry } from './state-registry'
@@ -476,7 +478,7 @@ export interface GraphShownCount {
 export type GraphUpdateOptions<S extends string = string, M extends Mark = Mark> = {
   readonly [K in Exclude<
     keyof MountGraphOptions<S, M>,
-    'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers'
+    'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers' | 'signal'
   >]?: MountGraphOptions<S, M>[K] | undefined
 }
 
@@ -535,6 +537,11 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
   readonly hiddenLayers?: Iterable<LayerName<M>> | undefined
   /** Receives every layer request in controlled mode, instead of the hidden layers changing. */
   readonly onLayerChange?: ((event: GraphLayerEvent<M>) => void) | undefined
+  /**
+   * Destroys the graph when it aborts. A signal already aborted mounts nothing: the graph comes
+   * back destroyed, and a warning is logged in development.
+   */
+  readonly signal?: AbortSignal | undefined
 }
 
 /**
@@ -577,6 +584,14 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   /** The `div` added to the container, which holds the canvas. */
   readonly element: HTMLElement
   /**
+   * Aborted when the graph is destroyed, with an `AbortError` `DOMException`, or with the reason of
+   * the `signal` of the mount when it destroyed the graph. Pass it to `fetch`, `addEventListener`
+   * or `on` to stop the work tied to the graph.
+   */
+  readonly signal: AbortSignal
+  /** `true` once the graph is destroyed. */
+  readonly destroyed: boolean
+  /**
    * Element under a point in screen pixels, nodes before edges, or `null`. Inside the lens, the
    * element it shows there.
    */
@@ -606,15 +621,32 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * The same object is returned until the counts can change.
    */
   count(): GraphCount
-  /** Subscribes to an event. Returns the function that unsubscribes. */
-  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
+  /**
+   * Subscribes to an event until the returned function is called or the `signal` of the options
+   * aborts. Subscribes nothing once the graph is destroyed.
+   */
+  on<K extends GraphEventName>(
+    name: K,
+    handler: GraphEventHandler<K, M>,
+    options?: GraphEventOptions,
+  ): () => void
+  /**
+   * Resolves after the next frame is drawn, the first one included. When no frame is due, it
+   * resolves on the next animation frame, without drawing one. Rejects with the reason of `signal`
+   * once the graph is destroyed.
+   */
+  drawn(): Promise<void>
   /**
    * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
    * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled
    * `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and selection stay.
    */
   update(options: GraphUpdateOptions<S, M>): void
-  /** Removes the element and frees every resource. A layout run in progress resolves to `false`. */
+  /**
+   * Removes the element, frees every resource and aborts `signal`. A layout run in progress
+   * resolves to `false`. Afterwards, reads return the last state or nothing, and actions do
+   * nothing.
+   */
   destroy(): void
 }
 
@@ -972,6 +1004,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let lensMemory: { radius: number; zoom: number } | null = null
   let warnedLens = false
   let flowTime = 0
+  const lifetime = new AbortController()
+  let endReason: unknown = null
+  const waiters = new FrameWaiters(() => frameRequest !== 0 || !renderer || contextLost)
 
   const model = createGraphModel({ schedule: () => request(true) })
   const scene = createScene()
@@ -2861,6 +2896,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (viewAnimation || autoPanning || positionAnimations.length > 0 || easing || flowing) {
       request()
     } else if (wait >= 0) requestLater(wait)
+    waiters.drawn()
   }
 
   function resize(width: number, height: number): void {
@@ -3692,6 +3728,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       },
     },
     element,
+    signal: lifetime.signal,
+    get destroyed() {
+      return destroyed
+    },
     lens: {
       get: () => lens,
       set: setLens,
@@ -3723,7 +3763,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       const record = element.kind === 'node' ? model.node(element.key) : model.edge(element.key)
       return record?.datum as never
     },
-    on: (name, handler) => emitter.on(name, handler),
+    on: (name, handler, listen) => {
+      const until = listen?.signal
+      if (until?.aborted) return () => {}
+      const off = emitter.on(name, handler)
+      if (!until) return off
+      const stop = () => {
+        off()
+        until.removeEventListener('abort', stop)
+      }
+      until.addEventListener('abort', stop, { once: true, signal: lifetime.signal })
+      return stop
+    },
+    drawn: () => waiters.wait(),
     update(next) {
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
       if (next.onSelectionChange !== undefined) onSelectionChange = next.onSelectionChange
@@ -3768,6 +3820,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     destroy() {
       if (destroyed) return
       destroyed = true
+      endReason ??= destroyedReason()
       unregister()
       probe = null
       const current = session
@@ -3804,18 +3857,35 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       watchers.clear()
       element.remove()
       surface?.release()
+      waiters.reject(endReason)
+      lifetime.abort(endReason)
     },
   }
 
+  const guarded = untilDestroyed(
+    instance,
+    afterDestroy<S, Mark>(readonlyStore, element, lifetime.signal, () => endReason),
+    () => destroyed,
+  )
+  const mountSignal = options.signal
+  mountSignal?.addEventListener(
+    'abort',
+    () => {
+      endReason = mountSignal.reason
+      guarded.destroy()
+    },
+    { once: true, signal: lifetime.signal },
+  )
+
   const unregister = registerGraph({
-    graph: instance as GraphInstance,
+    graph: guarded as GraphInstance,
     inspect: inspection,
     probe: (next) => {
       probe = next
     },
   })
 
-  exposeInternals(instance, {
+  exposeInternals(guarded, {
     scene,
     positions,
     definition: () => definition,
@@ -3840,7 +3910,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
   })
 
-  exposeSnapshot(instance, () => {
+  exposeSnapshot(guarded, () => {
     if (destroyed) throw new Error('graph: cannot export a destroyed graph')
     flushPending()
     registry.takeHighlighted()
@@ -3911,7 +3981,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   })
 
   settled = true
-  return instance as unknown as GraphInstance<S, M>
+  return guarded as unknown as GraphInstance<S, M>
 }
 
 /**
@@ -3922,5 +3992,6 @@ export function mountGraph<S extends string = string, M extends Mark = Mark>(
   container: HTMLElement,
   options: MountGraphOptions<S, M>,
 ): GraphInstance<S, M> {
+  if (options.signal?.aborted) return stillborn(options, options.signal)
   return createGraphHost(container, options, createWebglRenderer)
 }

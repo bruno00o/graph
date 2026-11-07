@@ -10,7 +10,7 @@ Three choices keep each update small:
 
 The size follows `weight` through a size scale with a fixed `domain`, so a node does not grow when another one shrinks. The color follows `trend` through a categorical scale whose `domain` pins `up`, `steady` and `down` to three colors.
 
-The timer starts paused when the system asks for reduced motion, and stops once the graph leaves the page.
+The timer starts paused when the system asks for reduced motion, and stops with the graph: `graph.signal` aborts when the graph is destroyed.
 
 ## Try it
 

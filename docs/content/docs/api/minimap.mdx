@@ -34,7 +34,9 @@ import { Minimap } from '@bruno00o/graph/react'
 function Minimap(props: MinimapProps): ReactNode
 ```
 
-Use it inside the children of [`<Graph>`](/docs/api/graph-component). Its props are the options above. With a `corner`, it renders nothing where it stands and sits in the graph element; with `corner={null}`, it renders a `div` that holds the minimap.
+Use it inside the children of [`<Graph>`](/docs/api/graph-component), or anywhere with the `graph` prop, which wins over the graph in context. Without a graph from either, it throws. Its props are the options above, and `graph`. With a `corner`, it renders nothing where it stands and sits in the graph element; with `corner={null}`, it renders a `div` that holds the minimap.
+
+<api-table path="react/index.tsx" name="MinimapProps" />
 
 ## Errors
 
