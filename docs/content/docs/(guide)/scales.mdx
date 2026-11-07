@@ -78,11 +78,11 @@ A mark with `scales` of its own keeps its values apart: its own extent, its own 
 ```ts
 defineGraph({
   marks: [
-    edges(links, { source: 'from', target: 'to', width: 'traffic', scales: { width: { range: [1, 12] } } }),
+    edges(links, { source: 'from', target: 'to', width: 'amount', scales: { width: { range: [1, 12] } } }),
     nodes(items, { color: 'group', size: 'weight' }),
-    nodes(sites, {
+    nodes(topics, {
       color: 'kind',
-      size: 'capacity',
+      size: 'score',
       scales: {
         color: { range: ['var(--graph-cat-9)', 'var(--graph-cat-11)'] },
         size: { range: [24, 64] },
@@ -92,7 +92,7 @@ defineGraph({
 })
 ```
 
-The capacities of `sites` span their own extent, so a large capacity does not shrink the other nodes, and their kinds take colors without sharing categories with the groups of `items`. A scale of a mark takes the same options as a shared one, a function included, and `groups()` takes `scales` like `nodes()`. Types: [`NodeScalesOptions`](/docs/api/nodes#scales) and [`EdgeScalesOptions`](/docs/api/edges#scales). In the [legend](/docs/minimap-and-legend#sections), each mark with scales of its own has its own sections.
+The scores of `topics` span their own extent, so a large score does not shrink the other nodes, and their kinds take colors without sharing categories with the groups of `items`. A scale of a mark takes the same options as a shared one, a function included, and `groups()` takes `scales` like `nodes()`. Types: [`NodeScalesOptions`](/docs/api/nodes#scales) and [`EdgeScalesOptions`](/docs/api/edges#scales). In the [legend](/docs/minimap-and-legend#sections), each mark with scales of its own has its own sections.
 
 ## Functions
 
