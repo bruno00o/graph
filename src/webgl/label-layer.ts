@@ -655,7 +655,7 @@ export class LabelLayer {
     this.nodeLabels = 0
     this.edgeLabels = 0
     const { nodes, edges, positions, view, width, height } = frame
-    const sight: Sight = frame.sight ?? { zoom: view.zoom, time: null }
+    const sight: Sight = frame.sight ?? { zoom: view.zoom, time: null, layers: null }
     this.#nodeExtents.prepare(nodes.capacity, atlas.generation)
     this.#edgeExtents.prepare(edges.capacity, atlas.generation)
     this.#cols = Math.ceil(width / cell) + 1

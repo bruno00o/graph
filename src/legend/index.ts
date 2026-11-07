@@ -3,13 +3,14 @@ import { dev } from '../dev'
 import type { ElementKeys } from '../host/events'
 import { internalsOf } from '../host/internals'
 import type { GraphInstance } from '../host/mount-graph'
-import type { FreeState, GraphDefinition, Mark } from '../types'
+import type { FreeState, GraphDefinition, LayerName, Mark } from '../types'
 import {
   keysOf,
   type LegendCategory,
   type LegendColor,
   type LegendLook,
   type LegendSizes,
+  layerPrefix,
   readLegend,
 } from './read'
 
@@ -28,6 +29,16 @@ export interface LegendOptions<S extends string = string> {
   readonly hidden?: FreeState<S> | null
 }
 
+/** A layer of the graph in its legend. Switching it off hides the layer in the graph. */
+export interface LegendLayer<M extends Mark = Mark> {
+  /** Identifies the item across updates: `l:` followed by the name. */
+  readonly id: string
+  /** Name of the layer. */
+  readonly name: LayerName<M>
+  /** Whether the layer is hidden. */
+  readonly off: boolean
+}
+
 /** State of a legend: its sections, the item under the pointer and the items switched off. */
 export interface LegendState<M extends Mark = Mark> {
   /** Legend of the `color` scale, or `null` when no element has a color value. */
@@ -38,9 +49,11 @@ export interface LegendState<M extends Mark = Mark> {
   readonly width: LegendSizes | null
   /** Looks of the elements, by mark: shape and image of nodes, line pattern of edges. */
   readonly looks: readonly LegendLook<M>[]
+  /** Layers of the graph, in the order of their first mark, hidden ones included. */
+  readonly layers: readonly LegendLayer<M>[]
   /** Id of the item under the pointer or the keyboard, or `null`. */
   readonly hovered: string | null
-  /** Ids of the items switched off. */
+  /** Ids of the items switched off, hidden layers included. */
   readonly off: readonly string[]
 }
 
@@ -50,9 +63,12 @@ export interface Legend<S extends string = string, M extends Mark = Mark> {
   readonly store: ReadonlyStore<LegendState<M>>
   /** Puts an item under the pointer, or none with `null`, and highlights its elements. */
   hover(id: string | null): void
-  /** Switches an item off, or on again. Without `off`, flips it. */
+  /**
+   * Switches an item off, or on again. Without `off`, flips it. A layer item hides or shows the
+   * layer through `layers` of the graph.
+   */
   toggle(id: string, off?: boolean): void
-  /** Switches every item on again. */
+  /** Switches every item on again, layers included. */
   reset(): void
   /** Keys of the nodes and edges an item stands for, among those the graph draws. */
   keys(id: string): ElementKeys
@@ -69,8 +85,26 @@ const emptyState: LegendState = {
   size: null,
   width: null,
   looks: [],
+  layers: [],
   hovered: null,
   off: [],
+}
+
+function readLayers<M extends Mark>(
+  names: readonly string[],
+  hidden: readonly string[],
+  previous: readonly LegendLayer<M>[],
+): readonly LegendLayer<M>[] {
+  const next = names.map((name) => {
+    const off = hidden.includes(name)
+    const before = previous.find((layer) => layer.name === name)
+    return before && before.off === off
+      ? before
+      : { id: layerPrefix + name, name: name as LayerName<M>, off }
+  })
+  return next.length === previous.length && next.every((layer, at) => layer === previous[at])
+    ? previous
+    : next
 }
 
 function sameIds(a: readonly string[], b: readonly string[]): boolean {
@@ -96,6 +130,12 @@ export function createLegend<S extends string, M extends Mark>(
   const store = createStore<LegendState<M>>(emptyState as LegendState<M>)
   const readonlyStore: ReadonlyStore<LegendState<M>> = createStore(() => store.state)
   const off = new Set<string>()
+  const layers = graph.layers as unknown as {
+    names(): readonly string[]
+    hidden(): readonly string[]
+    hide(names: Iterable<string>): void
+    show(names?: Iterable<string>): void
+  }
   const known = new Map<string, LegendCategory>()
   let crowded: ReadonlySet<number> = new Set()
   let readScene = -1
@@ -121,16 +161,36 @@ export function createLegend<S extends string, M extends Mark>(
       for (const item of reading.color.items) known.set(item.id, item)
     }
     const previous = store.state
+    const nextLayers = readLayers(layers.names(), layers.hidden(), previous.layers)
+    const ids = offIds(nextLayers)
     store.setState(() => ({
       color: reading.color,
       size: reading.size,
       width: reading.width,
       looks: reading.looks as readonly LegendLook<M>[],
+      layers: nextLayers,
       hovered: previous.hovered,
-      off: sameIds(previous.off, [...off]) ? previous.off : [...off],
+      off: sameIds(previous.off, ids) ? previous.off : ids,
     }))
     lastRead = performance.now()
     cooldown = Math.max(minInterval, (lastRead - start) * costRatio)
+  }
+
+  function offIds(list: readonly LegendLayer<M>[]): string[] {
+    return [...off, ...list.filter((layer) => layer.off).map((layer) => layer.id)]
+  }
+
+  function syncLayers(): void {
+    if (destroyed) return
+    const state = store.state
+    const nextLayers = readLayers(layers.names(), layers.hidden(), state.layers)
+    if (nextLayers === state.layers) return
+    const ids = offIds(nextLayers)
+    store.setState((current) => ({
+      ...current,
+      layers: nextLayers,
+      off: sameIds(current.off, ids) ? current.off : ids,
+    }))
   }
 
   function refresh(): void {
@@ -166,7 +226,7 @@ export function createLegend<S extends string, M extends Mark>(
   }
 
   function publishOff(): void {
-    const ids = [...off]
+    const ids = offIds(store.state.layers)
     store.setState((state) => ({
       ...state,
       off: ids,
@@ -199,12 +259,14 @@ export function createLegend<S extends string, M extends Mark>(
     },
     destroy: () => destroy(),
   })
+  const layerSubscription = graph.store.subscribe(syncLayers)
 
   function destroy(): void {
     if (destroyed) return
     destroyed = true
     clearTimeout(timer)
     stopWatch()
+    layerSubscription.unsubscribe()
     quietly(() => {
       if (highlight !== null) states.clear(highlight)
       if (hidden !== null) states.clear(hidden)
@@ -229,6 +291,13 @@ export function createLegend<S extends string, M extends Mark>(
     },
     toggle(id, value) {
       if (destroyed) return
+      const layer = store.state.layers.find((each) => each.id === id)
+      if (layer) {
+        if ((value ?? !layer.off) === layer.off) return
+        if (layer.off) layers.show([layer.name])
+        else layers.hide([layer.name])
+        return
+      }
       const next = value ?? !off.has(id)
       if (next === off.has(id)) return
       if (next) off.add(id)
@@ -236,7 +305,9 @@ export function createLegend<S extends string, M extends Mark>(
       publishOff()
     },
     reset() {
-      if (destroyed || off.size === 0) return
+      if (destroyed) return
+      if (store.state.layers.some((layer) => layer.off)) layers.show()
+      if (off.size === 0) return
       off.clear()
       publishOff()
     },

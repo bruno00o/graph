@@ -1,6 +1,7 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
+import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
 import { maxStates, noPaint } from '../core/state-buffers'
 import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
 import type { ZoomRanges } from '../core/zoom-range'
@@ -240,7 +241,8 @@ function createRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
   }
 
-  const frameBlock = new Float32Array(68)
+  const frameBlock = new Float32Array(76)
+  const frameWords = new Uint32Array(frameBlock.buffer)
   const frameBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -579,6 +581,7 @@ function createRenderer(
   let orderStale = true
   let contentVersion = 0
   let timeWindow: TimeFilter | null = null
+  let layerFilter: LayerFilter | null = null
   let cachedVersion = -1
   let cachedKey = ''
   let cache: Target | null = null
@@ -636,7 +639,8 @@ function createRenderer(
     const flags =
       (nodes.shape[index] ?? 0) |
       ((nodes.screenUnits[index] ?? 0) << 2) |
-      ((nodes.alive[index] ?? 0) << 3)
+      ((nodes.alive[index] ?? 0) << 3) |
+      (Math.min(nodes.slot[index] ?? 0, maxLayerSlots) << 4)
     nodeStyle.data[at] = nodes.size[index] ?? 0
     nodeStyle.data[at + 1] = nodes.strokeWidth[index] ?? 0
     nodeStyle.data[at + 2] = nodes.opacity[index] ?? 1
@@ -1038,7 +1042,7 @@ function createRenderer(
 
   function selectLabels(set: LabelSet, frame: LabelArea, now: number): number {
     if (!input) return -1
-    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode},${timeWindow?.serial ?? 0},${frame.globe?.mix ?? 0}`
+    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode},${timeWindow?.serial ?? 0},${layerFilter?.serial ?? 0},${frame.globe?.mix ?? 0}`
     if (!set.stale && !set.moved && key === set.view) return -1
     const wait = labelInterval - (now - set.time)
     if (!set.stale && wait > 0) return wait
@@ -1066,7 +1070,7 @@ function createRenderer(
         nodes,
         positions: input.positions,
         view: frame.view,
-        sight: { zoom: frame.view.zoom, time: timeWindow },
+        sight: { zoom: frame.view.zoom, time: timeWindow, layers: layerFilter },
         width: frame.width,
         height: frame.height,
         nodeMask: input.states.nodeMask,
@@ -1242,6 +1246,8 @@ function createRenderer(
     frameBlock[63] = globe?.depth ?? 1
     frameBlock[64] = globe?.scale ?? view.zoom
     frameBlock[65] = globe ? Math.min(arcSpan(globe), 3e38) : 3e38
+    if (layerFilter) frameWords.set(layerFilter.masks, 68)
+    else frameWords.fill(0, 68, 76)
     gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
   }
@@ -1271,6 +1277,7 @@ function createRenderer(
     draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
     backdrop.drawHulls()
     for (const layer of input?.scene.layers ?? []) {
+      if (layerFilter && layerFilter[layer.kind][layer.slot] === 1) continue
       if (layer.kind === 'edges') {
         if (edgeLayers > 0) {
           if (!stencilClean) {
@@ -1502,6 +1509,11 @@ function createRenderer(
       const window = frame.window ?? null
       if (window !== timeWindow) {
         timeWindow = window
+        touch()
+      }
+      const layers = frame.layers ?? null
+      if (layers !== layerFilter) {
+        layerFilter = layers
         touch()
       }
       flowTime = frame.time ?? 0

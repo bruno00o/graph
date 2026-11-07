@@ -15,6 +15,8 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   readonly groups: GraphGroups
   readonly paths: GraphPaths<M>
+  readonly layers: GraphLayers<LayerName<M>>
+  readonly support: GraphSupport
   readonly bundling: GraphBundling
   readonly time: GraphTime
   readonly element: HTMLElement
@@ -24,7 +26,12 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   endpoints(key: Key): { source: Key; target: Key } | undefined
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
   update(
-    options: Partial<Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded' | 'initialTime'>>,
+    options: Partial<
+      Omit<
+        MountGraphOptions<S, M>,
+        'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers'
+      >
+    >,
   ): void
   destroy(): void
 }
@@ -239,6 +246,35 @@ interface GraphPaths<M extends Mark = Mark> {
 
 Shortest paths and reachable nodes, on the data or, with `visible: true`, on the graph as drawn. The results hold node and edge keys, ready for `states.set`. See [Paths](/docs/paths) and the [reference](/docs/api/paths).
 
+## Layers
+
+```ts
+interface GraphLayers<L extends string = string> {
+  names(): readonly L[]
+  hidden(): readonly L[]
+  isHidden(name: L): boolean
+  hide(names?: Iterable<L>): void
+  show(names?: Iterable<L>): void
+  toggle(name: L): void
+  set(hidden: Iterable<L>): void
+}
+```
+
+<api-table path="index.ts" name="GraphLayers" />
+
+`L` is the union of the `layer` names of the marks. `hide`, `show`, `toggle` and `set` emit `layerchange` and update `hiddenLayers` in the store. In controlled mode, they call `onLayerChange` instead. See [Multilayer graphs](/docs/multilayer).
+
+## Support
+
+```ts
+interface GraphSupport {
+  carriers(key: Key, options?: SupportWalkOptions): SupportWalk
+  carried(key: Key, options?: SupportWalkOptions): SupportWalk
+}
+```
+
+Walks the `supportedBy` links of edges, down to the edges that carry an edge and up to the edges it carries. Both apply pending data changes first. See [Multilayer graphs](/docs/multilayer#support) and the [reference](/docs/api/support).
+
 ## Graph state
 
 ```ts
@@ -256,6 +292,7 @@ interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly bundling: GraphBundlingStatus
   readonly lens: GraphLensState | null
   readonly time: TimeWindow | null
+  readonly hiddenLayers: readonly LayerName<M>[]
 }
 
 interface GraphLayoutStatus {

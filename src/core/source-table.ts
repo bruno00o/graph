@@ -31,6 +31,12 @@ export type GraphIssue =
       readonly key: Key
       readonly parent: Key
     }
+  | {
+      readonly type: 'missing-carrier'
+      readonly kind: 'edges'
+      readonly key: Key
+      readonly carrier: Key
+    }
 
 export interface Source<M extends AnyMark> {
   readonly slot: number

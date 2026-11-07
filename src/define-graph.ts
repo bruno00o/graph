@@ -1,3 +1,4 @@
+import { maxLayerSlots } from './core/mark-layers'
 import { freeStateNames, maxFreeStates } from './core/state-names'
 import { themeColor } from './theme/tokens'
 import type {
@@ -12,9 +13,11 @@ import type {
   ResolvedBridges,
   ResolvedInteraction,
   ResolvedLens,
+  ResolvedSupportStates,
   ResolvedTimeOptions,
   ResolvedViewLimits,
   StateStyles,
+  SupportStateOptions,
   TimeOptions,
   ViewBounds,
   ViewLimitOptions,
@@ -141,6 +144,40 @@ function resolveTime(options: TimeOptions = {}): ResolvedTimeOptions {
   return Object.freeze({ fade })
 }
 
+function checkLayers(marks: readonly Mark[]): void {
+  const slots = { nodes: 0, edges: 0 }
+  for (const mark of marks) {
+    const slot = slots[mark.type]++
+    const layer = (mark as { readonly layer?: unknown }).layer
+    if (layer === undefined) continue
+    if (typeof layer !== 'string' || layer === '') {
+      throw new TypeError('defineGraph: a layer must be a non-empty string')
+    }
+    if (slot >= maxLayerSlots) {
+      throw new RangeError(
+        `defineGraph: only the first ${maxLayerSlots} node marks and edge marks can join a layer`,
+      )
+    }
+  }
+}
+
+function resolveSupport(
+  options: SupportStateOptions | null | undefined,
+  states: readonly string[],
+): ResolvedSupportStates | null {
+  if (!options) return null
+  const name = (value: string | null | undefined): string | null => {
+    if (value === undefined || value === null) return null
+    if (!states.includes(value)) {
+      throw new TypeError(`defineGraph: support state "${value}" must be a free state of states`)
+    }
+    return value
+  }
+  const carriers = name(options.carriers)
+  const carried = name(options.carried)
+  return carriers === null && carried === null ? null : Object.freeze({ carriers, carried })
+}
+
 /**
  * Builds a frozen graph definition from marks, scales, states and options. The names of `states`
  * become the state names accepted by the instance, and the item types and names of the marks type
@@ -168,7 +205,9 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
   if (routing !== null && bundling !== null) {
     throw new TypeError('defineGraph: use bundling or routing, not both')
   }
-  if (freeStateNames(options.states ?? {}).length > maxFreeStates) {
+  checkLayers(options.marks)
+  const free = freeStateNames(options.states ?? {})
+  if (free.length > maxFreeStates) {
     throw new RangeError(
       `defineGraph: at most ${maxFreeStates} states besides selected, hovered and focused`,
     )
@@ -190,5 +229,6 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     routing,
     bridges: resolveBridges(options.bridges),
     time: resolveTime(options.time),
+    support: resolveSupport(options.support as SupportStateOptions | null | undefined, free),
   })
 }

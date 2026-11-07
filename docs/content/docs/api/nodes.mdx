@@ -4,21 +4,25 @@ description: A mark that draws one node per item of its data.
 ---
 
 ```ts
-function nodes<T, N extends MarkName = undefined>(
+function nodes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options?: NodeOptions<T, N>,
-): NodeMark<T, N>
-function nodes<T extends { readonly id: Key }, N extends MarkName = undefined>(
+  options?: NodeOptions<T, N, L>,
+): NodeMark<T, N, L>
+function nodes<
+  T extends { readonly id: Key },
+  N extends MarkName = undefined,
+  L extends MarkLayer = undefined,
+>(
   data: Iterable<T>,
-  options?: NodeOptions<T, N>,
-): NodeMark<T, N>
-function nodes<T, N extends MarkName = undefined>(
+  options?: NodeOptions<T, N, L>,
+): NodeMark<T, N, L>
+function nodes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: Iterable<T>,
-  options: NodeOptions<T, N> & { key: KeyChannel<T> },
-): NodeMark<T, N>
+  options: NodeOptions<T, N, L> & { key: KeyChannel<T> },
+): NodeMark<T, N, L>
 ```
 
-`T` is the item type, inferred from `data`, and `N` the type of `name`, `undefined` without one. Both type the targets of the nodes in events and in the state: see [TypeScript](/docs/typescript).
+`T` is the item type, inferred from `data`, and `N` the type of `name`, `undefined` without one. Both type the targets of the nodes in events and in the state: see [TypeScript](/docs/typescript). `L` is the type of `layer`, `undefined` without one: it types the layer names of the instance, see [Multilayer graphs](/docs/multilayer).
 
 `key` is required for an iterable whose items have no `id` field. A live source carries its keys in its changes.
 

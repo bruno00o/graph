@@ -72,6 +72,8 @@ type Marks = (typeof definition.marks)[number]
 type SameMarks = NodeMark<Item, 'item'> | NodeMark<Group, 'group'> | EdgeMark<Link, undefined>
 ```
 
+A mark with a `layer` takes its name as a third parameter: `EdgeMark<Link, undefined, 'routes'>`. Left out, it is `undefined`, a mark outside any layer. `LayerName<Marks>` is the union of the layer names, which `graph.layers` accepts.
+
 `GraphTarget<Marks>`, `GraphState<S, Marks>`, `GraphInstance<S, Marks>` and the event payloads, such as `GraphPointerEvent<Marks>`, accept them. `NodeDatum<Marks>` and `EdgeDatum<Marks>` are the unions of the item types, and `NodeTarget<Item>` and `EdgeTarget<Link>` the targets of a single type. Every one of these types without its parameters is the untyped form, where `datum` is `unknown`.
 
 ## React

@@ -30,9 +30,9 @@ interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
 }
 
 type GraphTarget<M extends Mark = Mark> =
-  M extends NodeMark<infer T, infer N>
+  M extends NodeMark<infer T, infer N, MarkLayer>
     ? NodeTarget<T, N>
-    : M extends EdgeMark<infer T, infer N>
+    : M extends EdgeMark<infer T, infer N, MarkLayer>
       ? EdgeTarget<T, N>
       : NodeTarget | EdgeTarget
 ```
@@ -93,6 +93,10 @@ interface GraphTimeEvent {
   readonly window: TimeWindow | null
 }
 
+interface GraphLayerEvent<M extends Mark = Mark> {
+  readonly hidden: readonly LayerName<M>[]
+}
+
 interface GraphZoomHintEvent {
   readonly key: 'Meta' | 'Control'
   readonly originalEvent: WheelEvent
@@ -113,13 +117,14 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 - `zoomhint` fires in `'page'` wheel mode for each wheel event left to the page. `key` is the key to hold to zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. Show your own hint: the graph shows none. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad).
 - `lens` is the lens after the change, `null` when it hides. See [Lens](/docs/lens).
 - `window` is the time window after the change, in milliseconds, `null` when every element shows. See [Time](/docs/time).
+- `hidden` lists the names of the hidden layers after the change, in the order of the marks. See [Multilayer graphs](/docs/multilayer).
 - `positions` holds the target positions. Moves that come from your data do not emit `positionchange`.
 - With the origin `'layout'`, `positions` holds every node the run moved. A stopped run emits nothing.
 - `name` is the name of the layout, `'force'` for [`force()`](/docs/api/force). `completed` is `false` when the run was stopped or replaced.
 
 ## Order
 
-`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`, `viewchange` and `onViewChange` with `view`, and `timechange` and `onTimeChange` with `time`.
+`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`, `viewchange` and `onViewChange` with `view`, `timechange` and `onTimeChange` with `time`, and `layerchange` and `onLayerChange` with `hiddenLayers`.
 
 A `doubleclick` on a group folds or unfolds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 

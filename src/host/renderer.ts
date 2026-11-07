@@ -2,6 +2,7 @@ import type { GridInput } from '../core/background-grid'
 import type { BridgeSet } from '../core/bridges'
 import type { EdgePaths } from '../core/edge-paths'
 import type { GlobeCamera } from '../core/globe'
+import type { LayerFilter } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import type { Scene, SceneDirty } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
@@ -54,6 +55,7 @@ export interface RenderFrame {
   readonly time?: number
   readonly globe?: GlobeCamera | null
   readonly window?: TimeFilter | null
+  readonly layers?: LayerFilter | null
   readonly lens?: LensFrame | null
 }
 

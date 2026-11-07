@@ -1,0 +1,61 @@
+---
+title: Support
+description: Walk the edges that carry an edge and the edges it carries, on a mounted graph or on marks alone.
+---
+
+```ts
+interface GraphSupport {
+  carriers(key: Key, options?: SupportWalkOptions): SupportWalk
+  carried(key: Key, options?: SupportWalkOptions): SupportWalk
+}
+
+function createSupportFinder(definition: { marks: readonly Mark[] }): SupportFinder
+```
+
+`graph.support` is a `GraphSupport` on every [`GraphInstance`](/docs/api/graph-instance). It reads the `supportedBy` option of [`edges()`](/docs/api/edges#layers-and-support): the keys of the edges that carry each edge. See [Multilayer graphs](/docs/multilayer#support).
+
+## GraphSupport
+
+<api-table path="index.ts" name="GraphSupport" />
+
+Both walks go breadth-first, one level of support at a time, and list each edge once, at the depth where they first meet it. A cycle of support stops where it comes back; the edge you start from is never listed. Keys that name no edge are skipped. Both apply pending data changes first.
+
+## Options
+
+<api-table path="index.ts" name="SupportWalkOptions" />
+
+## Result
+
+<api-table path="index.ts" name="SupportWalk" />
+
+`nodes` and `edges` are arrays of keys, the shape [`states.set`](/docs/api/graph-instance#states) takes. `nodes` holds the ends of the edges found, so the ends of the edge you start from appear only when a found edge ends there too.
+
+## Lighting from the selection
+
+`support` in [`defineGraph`](/docs/api/define-graph#support) gives two free states to the walks of the selected edges, updated when the selection or the data change:
+
+<api-table path="index.ts" name="SupportStateOptions" />
+
+## createSupportFinder
+
+```ts
+import { createSupportFinder, edges, nodes } from '@bruno00o/graph'
+
+const support = createSupportFinder({
+  marks: [
+    nodes(places),
+    edges(segments, { source: 'from', target: 'to' }),
+    edges(routes, { source: 'from', target: 'to', supportedBy: 'over' }),
+  ],
+})
+const below = support.carriers('route-1')
+support.destroy()
+```
+
+It takes the marks of a definition, or a definition itself, and runs the same walks without mounting a graph: on a server, in a worker or in tests. Live sources are read again after each change.
+
+<api-table path="index.ts" name="SupportFinder" />
+
+## Errors
+
+- `RangeError` when `maxDepth` is not a number of 0 or more.

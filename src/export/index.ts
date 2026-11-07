@@ -115,6 +115,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       width: snapshot.width,
       height: snapshot.height,
       window: shownWindow,
+      layers: snapshot.layers,
       hulls: snapshot.hulls.shapes,
       bundles: snapshot.bundles,
     },

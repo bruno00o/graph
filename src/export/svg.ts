@@ -249,7 +249,7 @@ export function writeSvg(scene: SvgScene): string {
   const zoom = view.zoom
   const offsetX = width / 2 - view.x * zoom
   const offsetY = height / 2 - view.y * zoom
-  const sight: Sight = { zoom, time: frame.window ?? null }
+  const sight: Sight = { zoom, time: frame.window ?? null, layers: frame.layers ?? null }
   const nodeFade = (index: number) => nodeOpacity(nodes, index, sight)
   const edgeFade = (index: number) => edgeOpacity(nodes, edges, index, sight)
   const faded = (look: Look, fade: number): Look =>

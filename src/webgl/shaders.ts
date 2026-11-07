@@ -50,6 +50,8 @@ layout(std140) uniform Frame {
   vec4 globeFrame;
   vec4 globeInfo;
   vec4 globeMore;
+  uvec4 hiddenNodes;
+  uvec4 hiddenEdges;
 };
 layout(std140) uniform States {
   vec4 stateNumbers[64];
@@ -96,6 +98,13 @@ vec4 toClip(vec2 screen) {
   return vec4(screen.x / viewport.x * 2.0 - 1.0, 1.0 - screen.y / viewport.y * 2.0, 0.0, 1.0);
 }
 ivec2 texel(uint index) { return ivec2(int(index & 1023u), int(index >> 10u)); }
+bool anyHidden(uvec4 mask) { return (mask.x | mask.y | mask.z | mask.w) != 0u; }
+bool slotHidden(uvec4 mask, uint slot) {
+  if (slot >= 128u) return false;
+  uint word = slot >> 5u;
+  uint bits = word == 0u ? mask.x : word == 1u ? mask.y : word == 2u ? mask.z : mask.w;
+  return (bits & (1u << (slot & 31u))) != 0u;
+}
 vec4 paletteColor(uint id) { return texelFetch(palette, ivec2(int(id & 255u), int(id >> 8u)), 0); }
 struct Look { float opacity; float strokeWidth; float halo; float label; uint fill; uint stroke; uint outline; float outlineWidth; uint labelColor; };
 Look resolve(uint mask, Look look, int table) {
@@ -162,6 +171,7 @@ float timeShown(vec4 span) {
   return timeBefore(ws, e) || (timeSame(s, e) && timeSame(e, ws)) ? 1.0 : 0.0;
 }
 float nodeShown(ivec2 t) {
+  if (anyHidden(hiddenNodes) && slotHidden(hiddenNodes, uint(texelFetch(nodeStyle, t, 0).w + 0.5) >> 4u)) return 0.0;
   float shown = ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
   return timed > 0.5 && shown > 0.0 ? shown * timeShown(texelFetch(nodeTime, t, 0)) : shown;
 }
@@ -193,7 +203,9 @@ uniform sampler2D edgeZoom;
 uniform sampler2D edgeTime;
 uniform float flowTime;
 float edgeShown(ivec2 t, uvec4 topology) {
-  if (ranged < 0.5 && timed < 0.5) return 1.0;
+  bool layered = anyHidden(hiddenNodes) || anyHidden(hiddenEdges);
+  if (ranged < 0.5 && timed < 0.5 && !layered) return 1.0;
+  if (slotHidden(hiddenEdges, topology.w >> 6u)) return 0.0;
   float own = ranged > 0.5 ? zoomShown(texelFetch(edgeZoom, t, 0).xy) : 1.0;
   if (timed > 0.5 && own > 0.0) own *= timeShown(texelFetch(edgeTime, t, 0));
   return min(own, min(nodeShown(texel(topology.x)), nodeShown(texel(topology.y))));
