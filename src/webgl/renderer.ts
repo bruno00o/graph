@@ -1427,6 +1427,7 @@ function createRenderer(
     let stencilClean = false
     const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom) : 0
     bridgeShown = bridgeRadiusAt(bridgeRadius * 2, frame.view.zoom)
+    const jumping = bridgeSet !== null && bridgeShown > 0
     backdrop.drawGrid(frame)
     draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
     backdrop.drawHulls()
@@ -1443,7 +1444,7 @@ function createRenderer(
           gl.stencilFunc(gl.GREATER, edgeLayers, 0xff)
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR)
         }
-        if (bridgeSet) draw(bridged().program, bridged().main, edgeCapacity, layer.slot, 0)
+        if (jumping) draw(bridged().program, bridged().main, edgeCapacity, layer.slot, 0)
         else draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
         if (curved.size > 0) {
           const pass = curves()
@@ -1451,7 +1452,7 @@ function createRenderer(
         }
         bundles.draw(
           (program, vao, count, vertices) => draw(program, vao, count, layer.slot, 0, vertices),
-          bridgeSet !== null,
+          jumping,
         )
         if (spans > 0) draw(arcs().program, arcs().spans, spans, layer.slot, 0)
         if (geodesics.size > 0) drawGeodesics(arcs().geodesic, geodesics.size, layer.slot, 0, globe)
@@ -1466,7 +1467,7 @@ function createRenderer(
     draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
     draw(labelProgram, set.edgeMain, layer.edgeMain.count, 0, 0)
     draw(labelProgram, set.main, layer.main.count, 0, 0)
-    if (bridgeSet) draw(bridged().program, bridged().overlay, edgeOverlayCount, 0, 1)
+    if (jumping) draw(bridged().program, bridged().overlay, edgeOverlayCount, 0, 1)
     else draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
     if (curvePass && curved.size > 0) {
       draw(curvePass.program, curvePass.overlay, edgeOverlayCount, 0, 1)
@@ -1474,7 +1475,7 @@ function createRenderer(
     bundles.overlay(
       edgeOverlayCount,
       (program, vao, count, vertices) => draw(program, vao, count, 0, 1, vertices),
-      bridgeSet !== null,
+      jumping,
     )
     if (globe || geodesics.size > 0) {
       drawGeodesics(arcs().overlay, edgeOverlayCount, 0, 1, globe)
