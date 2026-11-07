@@ -1,0 +1,15 @@
+## How it works
+
+`shape` is a style, not a channel: it takes a constant, `'circle'`, `'square'` or `'diamond'`, or a function of the item, and never a field name. Here the function reads the level of each node in the tree, and the button swaps it for a constant.
+
+The size follows the level too, through `size: (item) => sizes[item.level]`. The definition sets `scales: { size: (value) => value }`, an identity function, so these numbers are diameters in world units: 44 for the root, 30 for branches and 18 for leaves. The three shapes of one size cover about the same area: a square is a little narrower than the circle, and a diamond reaches a little past it.
+
+Every part of a node follows its shape: the fill, the contour, the selection and hover rings, and the outline.
+
+The color comes from `branch`, a category, so each branch takes the next theme color in order of appearance.
+
+## Try it
+
+- Press **Shape** to cycle from shapes by level to a single shape for every node.
+- Click a node, then hold Shift and click another: the selection ring takes their shapes.
+- Switch the docs theme: the shapes keep their contour in the color of the page.

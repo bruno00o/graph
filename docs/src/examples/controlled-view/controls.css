@@ -1,0 +1,40 @@
+.view-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  max-width: calc(100% - 28px);
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+}
+
+.view-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-controls label span,
+.view-controls output {
+  min-width: 72px;
+  font-variant-numeric: tabular-nums;
+}
+
+.view-controls input {
+  width: 160px;
+  accent-color: var(--graph-accent);
+}
+
+.view-controls .example-button[aria-pressed="true"] {
+  border-color: var(--graph-accent);
+  color: var(--graph-accent);
+}

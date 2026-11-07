@@ -1,0 +1,19 @@
+## How it works
+
+Every node is 48 world units wide, and three styles of `nodes()` draw around its fill:
+
+- `stroke` and `strokeWidth` draw a contour **inside** the shape, in screen pixels. The first row widens it from 1 to 10 pixels: the node keeps its size and the fill shrinks.
+- `outline` and `outlineWidth` draw a ring **outside** the shape, in screen pixels too. The second row widens it from 1 to 10: the node grows on screen, its label moves down by the width of the ring, and labels never overlap it.
+- Both together, in the third row, give a contour against the fill and a ring against the page.
+
+All three are styles, so each takes a constant or a function of the item. `outline` returns `null` on the first row: a node without a ring.
+
+Contours are in screen pixels while the node is in world units: zoom out, and the 10 pixel contours take a larger share of each node.
+
+The built-in `selected` state recolors the inner contour with `--graph-accent` and adds a halo, which starts past the outline. A `selected` entry in `states` would restyle it, property by property.
+
+## Try it
+
+- Click a node of each row: the selection takes the stroke, never the outline.
+- Zoom out until the nodes are small: the stroke row turns to rings, the outline row keeps its fill.
+- Switch the docs theme: the contours use `--graph-ink` and `--graph-node-ring`, which keep their contrast with the page.

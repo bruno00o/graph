@@ -1,0 +1,21 @@
+## How it works
+
+`<Graph>` receives `view` and `onViewChange`, so the view is controlled: the graph draws the view of the prop, and nothing else. A pan, a zoom, a key or a call to `graph.view` becomes a request, kept within the `view` limits of the definition, that `onViewChange` receives at most once per frame. The component decides what to keep:
+
+- unlocked, it stores the request as is;
+- locked, it keeps the `y` it had when you pressed the button, so the view only moves sideways.
+
+The slider writes the zoom to the same state, on a log scale from the `minZoom` to the `maxZoom` of the definition, and the readouts render from that state. There is a single source of truth, and it is React's.
+
+`<Graph>` renders the state set in `onViewChange` before the frame is drawn, so the graph does not lag behind the pointer.
+
+A controlled graph does not fit its nodes on its own at the start. `FitOnMount`, a child of `<Graph>`, calls `graph.view.fit()` once: like any other move, the fit arrives as a request, and the state takes it.
+
+The mode is fixed at mount: a graph mounted with `view` stays controlled for its whole life.
+
+## Try it
+
+- Drag the slider: the graph zooms around the center of the view.
+- Scroll over the graph: the slider follows the wheel.
+- Press **Lock the vertical position**, then drag the background up and down: only the horizontal move goes through.
+- Press the fit button of the frame: the fit is a request too, and the lock applies to it.

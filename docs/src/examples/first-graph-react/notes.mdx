@@ -1,0 +1,13 @@
+## How it works
+
+The data and the definition are the same as in [First graph](/examples/first-graph). The definition is built once, outside the component: a new definition on every render would be compared and applied again for nothing. When the data comes from props or state, build it with `useMemo`.
+
+`<Graph>` renders a `div` sized by its `className` or `style`, mounts the graph inside it once, and destroys it on unmount. Its `ref` gives the `GraphInstance`, as `mountGraph` does.
+
+Children of `<Graph>` are HTML drawn over the canvas. `HoverStatus` calls `useGraphState` with a selector: the component renders again only when the hovered element changes, not on every frame. The selector names the type of the state, `GraphState<string, Marks>`, so that `datum` is an `Item` on nodes and a `Link` on edges: a child cannot see the definition by itself.
+
+## Try it
+
+- Hover a node, then an edge: the status reads the item from your data.
+- Drag a node: the status keeps the node while the pointer holds it.
+- Switch the docs theme: the graph follows without rendering the component again.

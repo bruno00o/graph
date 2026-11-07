@@ -1,0 +1,16 @@
+## How it works
+
+The data is two plain arrays. A node needs a key, `id` by default; an edge needs a key and the keys of its two ends, read here from `from` and `to`.
+
+`defineGraph` takes a list of marks. `edges()` and `nodes()` map fields to visual channels: `color: 'group'` goes through the color scale, which gives each group a theme color in order of appearance, and `size: 'weight'` through the size scale, a square root so that the area follows the weight. Marks draw in order, so the edges sit under the nodes.
+
+`x` and `y` place each node in world units. Without them, the graph places nodes on a spiral, or a [layout](/docs/layout) places them.
+
+`mountGraph` fills its container, so the container needs a size. Without an initial view, the graph fits every node with a 32 pixel margin.
+
+## Try it
+
+- Hover a node: its label shows even where labels would overlap.
+- Drag a node, then drag the background to pan.
+- Click a node to select it, and hold Shift, Cmd or Ctrl to add another.
+- Press Tab, then the arrow keys to move the focus from node to node, and Enter to select.

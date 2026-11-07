@@ -1,0 +1,19 @@
+## How it works
+
+`size: 'value'` is a channel: the value goes through the `size` scale of the definition, which turns it into a diameter in world units. The scale is shared by every node mark.
+
+The button swaps the scale and passes a new definition to `graph.update`. The three scales:
+
+- `{ type: 'sqrt', domain: [0, 100], range: [6, 96] }`, the default type: the area of a node follows its value, so a value twice as large looks twice as heavy, and small values stay visible.
+- `{ type: 'linear', … }`: the diameter follows the value, so the area grows with its square and large values dominate.
+- `(value) => value`, a function: the value is the diameter, with no domain and no range.
+
+The `domain` is fixed to `[0, 100]`. Without it, the scale would stretch over the extent of the data, and would follow it as the data changes. Values outside an explicit domain are clamped to it.
+
+A changed scale restyles every node that uses it. A definition rebuilt with the same scale options rewrites nothing, since scales are compared by content.
+
+## Try it
+
+- Switch between square root and linear, and watch the first row.
+- With the identity, the value 96 fills almost the 120 units between two nodes.
+- Zoom in and out: sizes are in world units, so nodes grow and shrink with the view.
