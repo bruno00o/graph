@@ -1,4 +1,5 @@
 import type { EdgePaths } from '../core/edge-paths'
+import type { GlobeCamera } from '../core/globe'
 import type { HullLayer } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
@@ -21,6 +22,7 @@ export interface GraphSnapshot {
   readonly width: number
   readonly height: number
   readonly pixelRatio: number
+  readonly globe?: GlobeCamera | null
   readonly title: string | null
   color(css: string): Rgba
   createRenderer(canvas: HTMLCanvasElement, invalidate: () => void): Renderer

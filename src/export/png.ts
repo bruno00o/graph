@@ -109,7 +109,17 @@ export async function renderPng(
     const cssWidth = width / pixelRatio
     const cssHeight = height / pixelRatio
     const { view } = frame
-    const area: LabelArea = { view, width: cssWidth, height: cssHeight, mode: labels }
+    const camera = first.globe
+    const globe =
+      camera &&
+      Math.abs(camera.view.x - view.x) * view.zoom < 0.01 &&
+      Math.abs(camera.view.y - view.y) * view.zoom < 0.01 &&
+      Math.abs(camera.view.zoom / view.zoom - 1) < 1e-6 &&
+      Math.abs(camera.width - cssWidth) < 0.5 &&
+      Math.abs(camera.height - cssHeight) < 0.5
+        ? camera
+        : null
+    const area: LabelArea = { view, width: cssWidth, height: cssHeight, mode: labels, globe }
     const writer = new PngWriter(width, height, pixelRatio)
     const rows = new Uint8Array(width * strip * 4)
     const tile = new Uint8Array(Math.min(limit, width) * strip * 4)
@@ -133,6 +143,7 @@ export async function renderPng(
           pixelRatio,
           labels: area,
           time,
+          globe,
         })
         const pixels = tile.subarray(0, tileWidth * tileHeight * 4)
         gl.readPixels(0, 0, tileWidth, tileHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels)

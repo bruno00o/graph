@@ -1,5 +1,10 @@
-import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl'
+import type {
+  CustomLayerInterface,
+  CustomRenderMethodInput,
+  Map as MapLibreMap,
+} from 'maplibre-gl'
 import { projectLatitude, projectLongitude, worldSize, worldToGeo } from '../core/geo'
+import { createGlobeCamera, type GlobeCamera } from '../core/globe'
 import { dev } from '../dev'
 import {
   createGraphHost,
@@ -32,9 +37,10 @@ export interface MapGraphOptions<S extends string = string, M extends Mark = Mar
 
 /**
  * Draws a graph inside a MapLibre map, as a custom layer that shares the map's WebGL context. Nodes
- * placed by `longitude` and `latitude` follow the map; the map owns pan, zoom and their gestures,
- * and `view` calls move the map. The map stays north up and flat: rotation and pitch are turned
- * off until `destroy`. Layouts, hulls and the background grid of the definition are ignored.
+ * placed by `longitude` and `latitude` follow the map, flat or on the globe projection; the map owns
+ * pan, zoom and their gestures, and `view` calls move the map. The map stays north up and without
+ * pitch: rotation and pitch are turned off until `destroy`. Layouts and the background grid of the
+ * definition are ignored.
  */
 export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   map: MapLibreMap,
@@ -104,11 +110,31 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
 
   function warnTilted(): void {
     if (!dev || warned) return
-    const tilted = map.getBearing() !== 0 || map.getPitch() !== 0
-    const globe = map.getProjection()?.type === 'globe'
-    if (!tilted && !globe) return
+    if (map.getBearing() === 0 && map.getPitch() === 0) return
     warned = true
-    console.warn('graph: the map layer draws on a flat, north-up Mercator map only')
+    console.warn('graph: the map layer draws on a north-up map without pitch only')
+  }
+
+  function globeOf(
+    input: CustomRenderMethodInput,
+    view: View,
+    width: number,
+    height: number,
+  ): GlobeCamera | null {
+    const data = input.defaultProjectionData
+    const mix = data.projectionTransition
+    if (!(mix > 0) || input.shaderData.variantName === 'mercator') return null
+    const fallback = data.fallbackMatrix
+    const depth = ((fallback[3] ?? 0) + (fallback[7] ?? 0)) / 2 + (fallback[15] ?? 0)
+    return createGlobeCamera({
+      matrix: data.mainMatrix,
+      plane: data.clippingPlane,
+      mix: Math.min(1, mix),
+      depth: depth > 0 ? depth : 1,
+      view,
+      width,
+      height,
+    })
   }
 
   const layer: CustomLayerInterface = {
@@ -121,10 +147,14 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
     onRemove: () => {
       driver?.detach()
     },
-    render: () => {
+    render: (_, input) => {
       if (!driver) return
       warnTilted()
-      driver.follow(camera(), map.getPixelRatio(), canvas.clientWidth, canvas.clientHeight)
+      const view = camera()
+      const width = canvas.clientWidth
+      const height = canvas.clientHeight
+      const globe = globeOf(input, view, width, height)
+      driver.follow(view, map.getPixelRatio(), width, height, globe)
       driver.frame(performance.now())
     },
   }

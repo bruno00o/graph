@@ -1,4 +1,5 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
+import { arcThreshold } from '../core/geo-arc'
 import { zoomFade } from '../core/zoom-range'
 import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
@@ -38,6 +39,11 @@ layout(std140) uniform Frame {
   vec2 centerLow;
   float ranged;
   float framePadding;
+  mat4 globeMatrix;
+  vec4 globePlane;
+  vec4 globeFrame;
+  vec4 globeInfo;
+  vec4 globeMore;
 };
 layout(std140) uniform States {
   vec4 stateNumbers[64];
@@ -50,7 +56,36 @@ uniform sampler2D palette;
 const uint highlightMask = 7u;
 const uint none = 0xffffffffu;
 const vec4 hidden = vec4(2.0, 2.0, 2.0, 1.0);
-vec2 toScreen(vec2 world) { return (world - center - centerLow) * zoom + viewport * 0.5; }
+const float worldTurn = 0.01227184630308513;
+vec2 ringAt(float y) {
+  float e = exp(clamp(3.14159265 - (y + globeInfo.y) * worldTurn, -30.0, 30.0));
+  float f = 1.0 / e;
+  return vec2(2.0, e - f) / (e + f);
+}
+vec3 spherePoint(vec2 world) {
+  vec2 ring = ringAt(world.y);
+  float lng = (world.x + globeInfo.x) * worldTurn - 3.14159265;
+  return vec3(ring.x * sin(lng), ring.y, ring.x * cos(lng));
+}
+vec2 flatScreen(vec2 world) { return (world - center - centerLow) * zoom + viewport * 0.5; }
+vec2 sphereScreen(vec3 p, vec2 flatPoint) {
+  vec4 sphereClip = globeMatrix * vec4(p, 1.0);
+  vec2 full = flatPoint - globeFrame.xy;
+  float depth = globeInfo.w;
+  vec4 flatClip = vec4((full.x / globeFrame.z * 2.0 - 1.0) * depth, (1.0 - full.y / globeFrame.w * 2.0) * depth, 0.0, depth);
+  vec4 c = mix(flatClip, sphereClip, globeInfo.z);
+  vec2 ndc = c.xy / c.w;
+  return vec2((ndc.x + 1.0) * 0.5 * globeFrame.z, (1.0 - ndc.y) * 0.5 * globeFrame.w) + globeFrame.xy;
+}
+vec2 toScreen(vec2 world) {
+  vec2 flatPoint = flatScreen(world);
+  return globeInfo.z > 0.0 ? sphereScreen(spherePoint(world), flatPoint) : flatPoint;
+}
+float sideOf(vec3 p) { return dot(globePlane.xyz, p) + globePlane.w; }
+float worldSide(vec2 world) { return globeInfo.z > 0.0 ? sideOf(spherePoint(world)) : 1.0; }
+float scaleAt(vec2 world) {
+  return globeInfo.z > 0.0 ? mix(zoom, globeMore.x * ringAt(world.y).x, globeInfo.z) : zoom;
+}
 vec4 toClip(vec2 screen) {
   return vec4(screen.x / viewport.x * 2.0 - 1.0, 1.0 - screen.y / viewport.y * 2.0, 0.0, 1.0);
 }
@@ -112,17 +147,17 @@ Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   look.opacity *= nodeShown(t);
   return look;
 }
-float nodeDiameter(vec4 style) {
+float nodeDiameter(vec4 style, float scale) {
   uint flags = uint(style.w + 0.5);
-  return (flags & 4u) != 0u ? style.x : style.x * zoom;
+  return (flags & 4u) != 0u ? style.x : style.x * scale;
 }
-float nodeRadius(vec4 style) { return max(nodeDiameter(style) * 0.5, 1.25); }
-float badgeHeight(vec4 style) { return min(nodeDiameter(style) * 0.55, ${badgeLimit.toFixed(1)}); }
+float nodeRadius(vec4 style, float scale) { return max(nodeDiameter(style, scale) * 0.5, 1.25); }
+float badgeHeight(vec4 style, float scale) { return min(nodeDiameter(style, scale) * 0.55, ${badgeLimit.toFixed(1)}); }
 vec2 badgeCenter(vec2 xy, vec4 style, uint corner) {
   uint shape = uint(style.w + 0.5) & 3u;
   float reach = shape == 0u ? 0.70710678 : shape == 1u ? 0.86 : 0.6;
   vec2 side = vec2((corner & 1u) != 0u ? 1.0 : -1.0, (corner & 2u) != 0u ? 1.0 : -1.0);
-  return toScreen(xy) + side * reach * nodeRadius(style);
+  return toScreen(xy) + side * reach * nodeRadius(style, scaleAt(xy));
 }
 `
 
@@ -147,6 +182,106 @@ float edgeFlow(uint mask, float speed) {
     if (flow != none) return uintBitsToFloat(flow);
   }
   return speed;
+}
+bool geodesicOf(uint packed) { return (packed & 32u) != 0u; }
+float wrapDelta(float dx) { return dx > 256.0 ? dx - 512.0 : dx < -256.0 ? dx + 512.0 : dx; }
+float arcRise(vec3 p, vec3 q) {
+  float best = max(sideOf(p), sideOf(q));
+  float c = clamp(dot(p, q), -1.0, 1.0);
+  vec3 t = q - p * c;
+  float span = length(t);
+  if (span < 1e-7) return best;
+  t /= span;
+  float x = dot(globePlane.xyz, p);
+  float y = dot(globePlane.xyz, t);
+  float theta = atan(y, x);
+  return theta > 0.0 && theta < acos(c) ? max(best, length(vec2(x, y)) + globePlane.w) : best;
+}
+int edgeRouteOf(vec2 a, vec2 d, vec3 p, vec3 q, bool geodesic) {
+  bool globe = globeInfo.z > 0.0;
+  if (!globe && !geodesic) return 0;
+  vec2 delta = d - a;
+  if (geodesic && abs(delta.x) > 256.0) return 1;
+  vec2 ring = ringAt((a.y + d.y) * 0.5);
+  if (globe && !geodesic && length(delta) * ring.x <= globeMore.y) return 0;
+  float len = length(delta) * worldTurn;
+  if (globe && (sideOf(p) < 0.0 || sideOf(q) < 0.0)) {
+    if (!geodesic && abs(delta.x) > 128.0) return 1;
+    float slack = geodesic ? 1e-4 : abs(delta.x * worldTurn) * len * 0.25 + 1e-4;
+    return arcRise(p, q) + slack < 0.0 ? 2 : 1;
+  }
+  if (!geodesic) return 1;
+  float bulge = abs(ring.y) * abs(delta.x * worldTurn) * len / 8.0 / worldTurn * zoom;
+  float span = len * ring.x;
+  if (globe) bulge += globeInfo.z * globeMore.x * span * span / 8.0 / worldTurn;
+  return bulge > ${arcThreshold.toFixed(2)} ? 1 : 0;
+}
+int edgeRoute(vec2 a, vec2 d, bool geodesic) {
+  bool globe = globeInfo.z > 0.0;
+  vec3 p = globe ? spherePoint(a) : vec3(0.0);
+  vec3 q = globe ? spherePoint(d) : vec3(0.0);
+  return edgeRouteOf(a, d, p, q, geodesic);
+}
+struct Arc {
+  vec2 a;
+  vec2 d;
+  float bend;
+  bool geodesic;
+  vec3 p;
+  vec3 q;
+  float omega;
+  float sine;
+  float lngA;
+  float shiftX;
+};
+Arc arcOf(vec2 a, vec2 d, float bend, bool geodesic, float shiftX) {
+  Arc arc;
+  arc.a = a;
+  arc.d = d;
+  arc.bend = bend;
+  arc.geodesic = geodesic;
+  arc.shiftX = shiftX;
+  arc.p = spherePoint(a);
+  arc.q = spherePoint(d);
+  arc.omega = acos(clamp(dot(arc.p, arc.q), -1.0, 1.0));
+  arc.sine = sin(arc.omega);
+  arc.lngA = atan(arc.p.x, arc.p.z);
+  return arc;
+}
+vec2 arcWorld(Arc arc, float u, out vec3 sphere, out bool exact) {
+  vec2 delta = arc.d - arc.a;
+  vec2 world = mix(arc.a, arc.d, u);
+  exact = false;
+  if (arc.geodesic) {
+    if (u <= 0.0) world = arc.a;
+    else if (u >= 1.0) world = vec2(arc.a.x + wrapDelta(delta.x), arc.d.y);
+    else if (arc.sine > 1e-6) {
+      vec3 r = (sin((1.0 - u) * arc.omega) * arc.p + sin(u * arc.omega) * arc.q) / arc.sine;
+      float turn = atan(r.x, r.z) - arc.lngA;
+      turn -= 6.28318531 * floor((turn + 3.14159265) / 6.28318531);
+      float sine = clamp(r.y, -0.9999999, 0.9999999);
+      world = vec2(arc.a.x + turn / worldTurn, (0.5 - log((1.0 + sine) / (1.0 - sine)) / 12.56637061) * 512.0 - globeInfo.y);
+      sphere = r;
+      exact = arc.bend == 0.0 && arc.shiftX == 0.0;
+    }
+  }
+  world += vec2(-delta.y, delta.x) * (arc.bend * 4.0 * u * (1.0 - u));
+  world.x += arc.shiftX;
+  return world;
+}
+vec2 arcScreen(Arc arc, float u, out float clip) {
+  vec3 sphere = vec3(0.0);
+  bool exact;
+  vec2 world = arcWorld(arc, u, sphere, exact);
+  vec2 flatPoint = flatScreen(world);
+  if (globeInfo.z > 0.0) {
+    if (!exact) sphere = spherePoint(world);
+    clip = sideOf(sphere);
+    return sphereScreen(sphere, flatPoint);
+  }
+  float x = world.x + globeInfo.x;
+  clip = arc.geodesic ? min(x, 512.0 - x) : 1.0;
+  return flatPoint;
 }
 `
 
@@ -185,14 +320,19 @@ void main() {
     return;
   }
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
-  float radius = nodeRadius(style);
+  if (worldSide(xy) < 0.0) {
+    gl_Position = hidden;
+    return;
+  }
+  float scale = scaleAt(xy);
+  float radius = nodeRadius(style, scale);
   vec2 extent = vec2(radius);
   vBox = vec3(0.0);
   if (container) {
     vec4 box = texelFetch(nodeBox, t, 0);
-    extent = max(box.xy * zoom, vec2(1.25));
+    extent = max(box.xy * scale, vec2(1.25));
     radius = min(extent.x, extent.y);
-    vBox = vec3(extent, min(box.z * zoom, radius));
+    vBox = vec3(extent, min(box.z * scale, radius));
   }
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float outline = max(look.outlineWidth, 0.0);
@@ -285,6 +425,7 @@ export const edgeVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 in vec3 corner;
 in uint instance;
 out vec2 vPos;
+out float vClip;
 flat out float vStart;
 flat out float vEnd;
 flat out float vHalfWidth;
@@ -303,7 +444,7 @@ void main() {
   uint packed = topology.w;
   uint mask = texelFetch(edgeState, t, 0).r;
   bool highlighted = (mask & highlightMask) != 0u;
-  if ((packed & 16u) == 0u || (overlay == 0 && (int(packed >> 5u) != layerSlot || highlighted))) {
+  if ((packed & 16u) == 0u || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted))) {
     gl_Position = hidden;
     return;
   }
@@ -319,8 +460,19 @@ void main() {
   }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
-  vec2 ps = toScreen(texelFetch(nodePosition, s, 0).xy);
-  vec2 pt = toScreen(texelFetch(nodePosition, e, 0).xy);
+  vec2 a0 = texelFetch(nodePosition, s, 0).xy;
+  vec2 d0 = texelFetch(nodePosition, e, 0).xy;
+  bool globe = globeInfo.z > 0.0;
+  vec3 pa = globe ? spherePoint(a0) : vec3(0.0);
+  vec3 pd = globe ? spherePoint(d0) : vec3(0.0);
+  float sa = globe ? sideOf(pa) : 1.0;
+  float sd = globe ? sideOf(pd) : 1.0;
+  if ((sa < 0.0 && sd < 0.0) || edgeRouteOf(a0, d0, pa, pd, geodesicOf(packed)) != 0) {
+    gl_Position = hidden;
+    return;
+  }
+  vec2 ps = globe ? sphereScreen(pa, flatScreen(a0)) : flatScreen(a0);
+  vec2 pt = globe ? sphereScreen(pd, flatScreen(d0)) : flatScreen(d0);
   float width = max(look.strokeWidth, 0.5);
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float margin = 0.5 / pixelRatio + 0.25;
@@ -334,8 +486,8 @@ void main() {
   float len = length(delta);
   vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
   vec2 normal = vec2(-dir.y, dir.x);
-  float start = nodeRadius(texelFetch(nodeStyle, s, 0));
-  float end = len - nodeRadius(texelFetch(nodeStyle, e, 0));
+  float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a0));
+  float end = len - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
   float visible = end - start;
   uint arrow = (packed >> 2u) & 3u;
   float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
@@ -354,6 +506,7 @@ void main() {
     : (endHead > 0.0 ? head : body);
   float across = corner.y * extent;
   vPos = vec2(along, across);
+  vClip = len > 0.0 ? mix(sa, sd, along / len) : 1.0;
   vStart = start;
   vEnd = end;
   vHalfWidth = width * 0.5;
@@ -375,6 +528,7 @@ export const curveVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 in vec3 corner;
 in uint instance;
 out vec2 vPos;
+out float vClip;
 flat out float vStart;
 flat out float vEnd;
 flat out float vHalfWidth;
@@ -425,7 +579,7 @@ void main() {
   uint mask = texelFetch(edgeState, t, 0).r;
   bool highlighted = (mask & highlightMask) != 0u;
   bool loop = topology.x == topology.y;
-  if ((packed & 16u) == 0u || (!loop && style.z == 0.0) || (overlay == 0 && (int(packed >> 5u) != layerSlot || highlighted)) || pathOf(instance).y > 1u) {
+  if ((packed & 16u) == 0u || (!loop && style.z == 0.0) || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted)) || pathOf(instance).y > 1u) {
     gl_Position = hidden;
     return;
   }
@@ -437,10 +591,21 @@ void main() {
   }
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
-  vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
-  vec2 d = toScreen(texelFetch(nodePosition, e, 0).xy);
-  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0));
-  float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0));
+  vec2 a0 = texelFetch(nodePosition, s, 0).xy;
+  vec2 d0 = texelFetch(nodePosition, e, 0).xy;
+  bool globe = globeInfo.z > 0.0;
+  vec3 pa = globe ? spherePoint(a0) : vec3(0.0);
+  vec3 pd = globe ? spherePoint(d0) : vec3(0.0);
+  float sa = globe ? sideOf(pa) : 1.0;
+  float sd = globe ? sideOf(pd) : 1.0;
+  if (loop ? sa < 0.0 : (sa < 0.0 && sd < 0.0) || edgeRouteOf(a0, d0, pa, pd, geodesicOf(packed)) != 0) {
+    gl_Position = hidden;
+    return;
+  }
+  vec2 a = globe ? sphereScreen(pa, flatScreen(a0)) : flatScreen(a0);
+  vec2 d = globe ? sphereScreen(pd, flatScreen(d0)) : flatScreen(d0);
+  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a0));
+  float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
   vec2 b;
   vec2 c;
   if (loop) {
@@ -509,6 +674,7 @@ void main() {
     : (endHead > 0.0 ? head : body);
   float across = corner.y * extent;
   vPos = vec2(along, across);
+  vClip = loop ? 1.0 : mix(sa, sd, at);
   vStart = 0.0;
   vEnd = visible;
   vHalfWidth = width * 0.5;
@@ -524,8 +690,9 @@ void main() {
 }
 `
 
-export const edgeFragment: string = `${header}
-in vec2 vPos;
+function edgeFragmentOf(clipped: boolean): string {
+  return `${header}
+in vec2 vPos;${clipped ? '\nin float vClip;' : ''}
 flat in float vStart;
 flat in float vEnd;
 flat in float vHalfWidth;
@@ -538,7 +705,7 @@ flat in vec4 vColor;
 flat in float vOpacity;
 flat in float vFlow;
 out vec4 fragColor;
-void main() {
+void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
   float aa = 0.5 / pixelRatio + 0.25;
   float along = vPos.x;
   float halfWidth = vHalfWidth;
@@ -579,6 +746,10 @@ void main() {
   fragColor = result;
 }
 `
+}
+
+export const edgeFragment: string = edgeFragmentOf(false)
+export const clippedEdgeFragment: string = edgeFragmentOf(true)
 
 export const labelVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
 uniform float atlasFontSize;
@@ -632,27 +803,51 @@ void edgeGlyph(uint kind) {
   vOpacity = look.opacity;
   ivec2 s = texel(topology.x);
   ivec2 e = texel(topology.y);
-  vec2 a = toScreen(texelFetch(nodePosition, s, 0).xy);
-  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0));
+  vec2 a0 = texelFetch(nodePosition, s, 0).xy;
+  vec2 d0 = texelFetch(nodePosition, e, 0).xy;
+  vec2 a = toScreen(a0);
+  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a0));
   vec2 spot;
   vec2 axis;
   uvec4 path = pathOf(glyphNode);
-  if (path.y > 1u) {
-    vec2 a0 = texelFetch(nodePosition, s, 0).xy;
-    vec2 d0 = texelFetch(nodePosition, e, 0).xy;
+  bool loop = topology.x == topology.y;
+  if (loop && worldSide(a0) < 0.0) {
+    gl_Position = hidden;
+    return;
+  }
+  int route = loop || path.y > 1u ? 0 : edgeRoute(a0, d0, geodesicOf(topology.w));
+  if (route == 2) {
+    gl_Position = hidden;
+    return;
+  }
+  if (route == 1) {
+    Arc arc = arcOf(a0, d0, style.z, geodesicOf(topology.w), 0.0);
+    float clip;
+    float before;
+    float after;
+    spot = arcScreen(arc, 0.5, clip);
+    vec2 tangent = arcScreen(arc, ${(0.5 + 1 / 16).toFixed(4)}, after) - arcScreen(arc, ${(0.5 - 1 / 16).toFixed(4)}, before);
+    if (clip < 0.0) {
+      gl_Position = hidden;
+      return;
+    }
+    float tangentLength = length(tangent);
+    vec2 dir = tangentLength > 0.0 ? tangent / tangentLength : vec2(1.0, 0.0);
+    axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
+  } else if (path.y > 1u) {
     int middle = (int(path.y) - 1) / 2;
     spot = toScreen(pathPoint(path, middle, a0, d0, style.z));
     vec2 tangent = toScreen(pathPoint(path, middle + 1, a0, d0, style.z)) - toScreen(pathPoint(path, middle - 1, a0, d0, style.z));
     float tangentLength = length(tangent);
     vec2 dir = tangentLength > 0.0 ? tangent / tangentLength : vec2(1.0, 0.0);
     axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
-  } else if (topology.x == topology.y) {
+  } else if (loop) {
     float reach = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * style.z);
     spot = a + reach * vec2(0.70710678, -0.70710678);
     axis = vec2(0.70710678, 0.70710678);
   } else {
-    vec2 d = toScreen(texelFetch(nodePosition, e, 0).xy);
-    float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0));
+    vec2 d = toScreen(d0);
+    float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
     vec2 delta = d - a;
     float len = length(delta);
     vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
@@ -681,13 +876,14 @@ void main() {
   vOpacity = look.opacity;
   if (kind == 2u) {
     bool highlighted = (mask & highlightMask) != 0u;
-    float height = badgeHeight(style);
-    if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeTextMin.toFixed(1)}) {
+    vec2 xy = texelFetch(nodePosition, t, 0).xy;
+    float height = badgeHeight(style, scaleAt(xy));
+    if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeTextMin.toFixed(1)} || worldSide(xy) < 0.0) {
       gl_Position = hidden;
       return;
     }
     float font = height * ${badgeFont.toFixed(2)};
-    vec2 center = badgeCenter(texelFetch(nodePosition, t, 0).xy, style, (glyphKind >> 2u) & 3u);
+    vec2 center = badgeCenter(xy, style, (glyphKind >> 2u) & 3u);
     vScale = font / atlasFontSize;
     vInk = paletteColor(glyphColor);
     vHalo = 0.0;
@@ -695,7 +891,8 @@ void main() {
     return;
   }
   float pixels = glyphSize * ((flags & 4u) != 0u ? 1.0 : min(1.0, zoom));
-  if ((flags & 8u) == 0u || look.label < 0.5 || pixels < labelMin) {
+  vec2 xy = texelFetch(nodePosition, t, 0).xy;
+  if ((flags & 8u) == 0u || look.label < 0.5 || pixels < labelMin || worldSide(xy) < 0.0) {
     gl_Position = hidden;
     return;
   }
@@ -705,13 +902,14 @@ void main() {
     : placement == 2u ? vec2(1.0, 0.0)
     : placement == 3u ? vec2(-1.0, 0.0)
     : vec2(0.0);
-  float edge = nodeRadius(style);
+  float scale = scaleAt(xy);
+  float edge = nodeRadius(style, scale);
   if ((flags & 3u) == 3u) {
-    vec2 extent = texelFetch(nodeBox, t, 0).xy * zoom;
+    vec2 extent = texelFetch(nodeBox, t, 0).xy * scale;
     edge = abs(dir.x) > 0.5 ? extent.x : extent.y;
   }
   float reach = placement == 4u ? 0.0 : edge + max(look.outlineWidth, 0.0) + ${labelGap.toFixed(1)};
-  vec2 anchor = toScreen(texelFetch(nodePosition, t, 0).xy) + dir * reach;
+  vec2 anchor = toScreen(xy) + dir * reach;
   gl_Position = toClip(anchor + layoutGlyph(kind, pixels, 0.0, look.labelColor));
 }
 `
@@ -765,8 +963,9 @@ void main() {
   uint flags = uint(style.w + 0.5);
   uint mask = texelFetch(nodeState, t, 0).r;
   bool highlighted = (mask & highlightMask) != 0u;
-  float height = badgeHeight(style);
-  if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeMin.toFixed(1)}) {
+  vec2 xy = texelFetch(nodePosition, t, 0).xy;
+  float height = badgeHeight(style, scaleAt(xy));
+  if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeMin.toFixed(1)} || worldSide(xy) < 0.0) {
     gl_Position = hidden;
     return;
   }
@@ -778,7 +977,7 @@ void main() {
   bool text = (badgeInfo & 4u) != 0u && height >= ${badgeTextMin.toFixed(1)};
   float font = height * ${badgeFont.toFixed(2)};
   float width = text ? max(height, badgeText * font / ${atlasFontSize.toFixed(1)} + height * 0.6) : height;
-  vec2 center = badgeCenter(texelFetch(nodePosition, t, 0).xy, style, badgeInfo & 3u);
+  vec2 center = badgeCenter(xy, style, badgeInfo & 3u);
   vHalf = vec2(width, height) * 0.5;
   vLocal = corner * (vHalf + ${badgeRing.toFixed(1)} + 1.0);
   vFill = paletteColor(badgeFill);

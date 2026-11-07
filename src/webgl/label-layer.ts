@@ -2,6 +2,8 @@ import type { EdgeColumns, NodeColumns } from '../core/columns'
 import { containerShape, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import type { EdgePaths, PathPoint } from '../core/edge-paths'
+import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
+import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
 import type { Positions } from '../core/positions'
 import { edgeShown } from '../core/zoom-range'
 import type { LabelMode } from '../host/renderer'
@@ -62,6 +64,7 @@ export interface LabelFrame {
   readonly mode?: LabelMode
   readonly sink?: LabelSink
   readonly paths?: EdgePaths | null
+  readonly globe?: GlobeCamera | null
 }
 
 export type TextMeasure = Pick<GlyphAtlas, 'height' | 'generation' | 'line' | 'fit'>
@@ -311,8 +314,65 @@ function pathAnchor(
   return true
 }
 
+const arcPoints: [PathPoint, PathPoint, PathPoint, PathPoint] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+]
+
+function arcAnchor(
+  frame: Pick<LabelFrame, 'nodes' | 'edges' | 'positions'>,
+  arc: ArcFrame,
+  index: number,
+  geodesic: boolean,
+  out: EdgeAnchor,
+): boolean {
+  const { nodes, edges, positions } = frame
+  const source = edges.source[index] ?? 0
+  const target = edges.target[index] ?? 0
+  const ax = positions.x(source)
+  const ay = positions.y(source)
+  const dx = positions.x(target)
+  const dy = positions.y(target)
+  const bend = edges.bend[index] ?? 0
+  const [point, before, after, previous] = arcPoints
+  let length = 0
+  for (let k = 0; k <= 4; k++) {
+    arcPoint(ax, ay, dx, dy, k / 4, bend, geodesic, point)
+    screenOf(arc, point.x, point.y, point)
+    if (k > 0) length += Math.hypot(point.x - previous.x, point.y - previous.y)
+    previous.x = point.x
+    previous.y = point.y
+  }
+  arcPoint(ax, ay, dx, dy, 0.5, bend, geodesic, point)
+  if (screenOf(arc, point.x, point.y, point) < 0) return false
+  arcPoint(ax, ay, dx, dy, 0.5 - 1 / 16, bend, geodesic, before)
+  screenOf(arc, before.x, before.y, before)
+  arcPoint(ax, ay, dx, dy, 0.5 + 1 / 16, bend, geodesic, after)
+  screenOf(arc, after.x, after.y, after)
+  const tx = after.x - before.x
+  const ty = after.y - before.y
+  const span = Math.hypot(tx, ty)
+  if (span === 0) return false
+  const ux = tx / span
+  const uy = ty / span
+  out.x = point.x
+  out.y = point.y
+  const flip = ux < -uprightSlack || (Math.abs(ux) <= uprightSlack && uy < 0)
+  out.ax = flip ? -ux : ux
+  out.ay = flip ? -uy : uy
+  const scale = (y: number) => (arc.globe ? globeScale(arc.globe, y) : arc.zoom)
+  out.room =
+    length - screenRadius(nodes, source, scale(ay)) - screenRadius(nodes, target, scale(dy))
+  return true
+}
+
 export function edgeAnchor(
-  frame: Pick<LabelFrame, 'nodes' | 'edges' | 'positions' | 'view' | 'width' | 'height' | 'paths'>,
+  frame: Pick<
+    LabelFrame,
+    'nodes' | 'edges' | 'positions' | 'view' | 'width' | 'height' | 'paths' | 'globe'
+  >,
   index: number,
   out: EdgeAnchor,
 ): boolean {
@@ -320,9 +380,27 @@ export function edgeAnchor(
   if (paths && paths.count(index) > 1) return pathAnchor(frame, paths, index, out)
   const source = edges.source[index] ?? 0
   const target = edges.target[index] ?? 0
-  const sx = (positions.x(source) - view.x) * view.zoom + width / 2
-  const sy = (positions.y(source) - view.y) * view.zoom + height / 2
-  const sourceRadius = screenRadius(nodes, source, view.zoom)
+  const globe = frame.globe && frame.globe.mix > 0 ? frame.globe : null
+  const geodesic = edges.geodesic[index] === 1
+  if (source !== target && (globe || geodesic)) {
+    const arc: ArcFrame = { x: view.x, y: view.y, zoom: view.zoom, width, height, globe }
+    const ax = positions.x(source)
+    const ay = positions.y(source)
+    const dx = positions.x(target)
+    const dy = positions.y(target)
+    const route = edgeRoute(arc, ax, ay, dx, dy, geodesic)
+    if (route === 2) return false
+    if (route === 1) return arcAnchor(frame, arc, index, geodesic, out)
+  }
+  const at = arcPoints[0]
+  if (globe && globeScreen(globe, positions.x(source), positions.y(source), at) < 0) return false
+  const sx = globe ? at.x : (positions.x(source) - view.x) * view.zoom + width / 2
+  const sy = globe ? at.y : (positions.y(source) - view.y) * view.zoom + height / 2
+  const sourceRadius = screenRadius(
+    nodes,
+    source,
+    globe ? globeScale(globe, positions.y(source)) : view.zoom,
+  )
   const bend = edges.bend[index] ?? 0
   if (source === target) {
     const reach = loopReach(sourceRadius, bend, loopMinimum)
@@ -333,13 +411,18 @@ export function edgeAnchor(
     out.room = Number.POSITIVE_INFINITY
     return true
   }
-  const tx = (positions.x(target) - view.x) * view.zoom + width / 2
-  const ty = (positions.y(target) - view.y) * view.zoom + height / 2
+  if (globe && globeScreen(globe, positions.x(target), positions.y(target), at) < 0) return false
+  const tx = globe ? at.x : (positions.x(target) - view.x) * view.zoom + width / 2
+  const ty = globe ? at.y : (positions.y(target) - view.y) * view.zoom + height / 2
   const length = Math.hypot(tx - sx, ty - sy)
   if (length === 0) return false
   const ux = (tx - sx) / length
   const uy = (ty - sy) / length
-  const targetRadius = screenRadius(nodes, target, view.zoom)
+  const targetRadius = screenRadius(
+    nodes,
+    target,
+    globe ? globeScale(globe, positions.y(target)) : view.zoom,
+  )
   const shift = (sourceRadius - targetRadius) / 2
   out.x = (sx + tx) / 2 + ux * shift - uy * bend * length
   out.y = (sy + ty) / 2 + uy * shift + ux * bend * length
@@ -586,6 +669,8 @@ export class LabelLayer {
     const edgeForced = (index: number) => ((frame.edgeMask[index] ?? 0) & forcedStates) !== 0
 
     const plan = all ? null : (frame.plan ?? null)
+    const globe = frame.globe && frame.globe.mix > 0 ? frame.globe : null
+    const projected = { x: 0, y: 0 }
     const place = (index: number, highlight: boolean, rank = -1, sx = 0, sy = 0): void => {
       const force = highlight && forced(index)
       const label = nodes.label[index]
@@ -595,10 +680,16 @@ export class LabelLayer {
       const size = nodes.labelSize[index] || nodeLabelSize
       const pixels = screenUnits ? size : size * shrink
       if (pixels < minimumPixels) return
+      const zoom = globe ? globeScale(globe, positions.y(index)) : view.zoom
       const minimum = nodes.labelMinScreenSize[index] ?? 0
-      if (!force && !all && minimum > 0 && screenDiameter(nodes, index, view.zoom) < minimum) return
-      const x = rank >= 0 ? sx : (positions.x(index) - view.x) * view.zoom + width / 2
-      const y = rank >= 0 ? sy : (positions.y(index) - view.y) * view.zoom + height / 2
+      if (!force && !all && minimum > 0 && screenDiameter(nodes, index, zoom) < minimum) return
+      if (rank < 0 && globe) {
+        if (globeScreen(globe, positions.x(index), positions.y(index), projected) < 0) return
+      }
+      const flatX = (positions.x(index) - view.x) * view.zoom + width / 2
+      const flatY = (positions.y(index) - view.y) * view.zoom + height / 2
+      const x = rank >= 0 ? sx : globe ? projected.x : flatX
+      const y = rank >= 0 ? sy : globe ? projected.y : flatY
       const box = nodes.shape[index] === containerShape ? frame.boxes : null
       if (!box && (x < -cullMargin || x > width + cullMargin)) return
       if (!box && (y < -cullMargin || y > height + cullMargin)) return
@@ -639,8 +730,8 @@ export class LabelLayer {
         placement === 4
           ? 0
           : (box
-              ? (box[index * 4 + (dx !== 0 ? 0 : 1)] ?? 0) * view.zoom
-              : screenRadius(nodes, index, view.zoom)) +
+              ? (box[index * 4 + (dx !== 0 ? 0 : 1)] ?? 0) * zoom
+              : screenRadius(nodes, index, zoom)) +
             ((nodes.outlineWidth[index] ?? 0) + labelGap)
       const scale = pixels / atlasFontSize
       const edges = this.#box
@@ -780,8 +871,22 @@ export class LabelLayer {
         const index = order[at] ?? 0
         const x = (xs ? xs[at] : xy[index * 2]) ?? 0
         const y = (ys ? ys[at] : xy[index * 2 + 1]) ?? 0
-        if (x < left || x > right || y < top || y > bottom) continue
+        if (!globe && (x < left || x > right || y < top || y > bottom)) continue
         if (!nodes.zoom.shown(index, view.zoom)) continue
+        if (globe) {
+          const absoluteY = y + positions.originY
+          if (globeScreen(globe, x + positions.originX, absoluteY, projected) < 0) continue
+          if (projected.x < -cullMargin || projected.x > width + cullMargin) continue
+          if (projected.y < -cullMargin || projected.y > height + cullMargin) continue
+          if (!plan) {
+            if (!highlighted.has(index)) place(index, false)
+            continue
+          }
+          const scale = globeScale(globe, absoluteY)
+          if (this.#blocked(plan, at, projected.x, projected.y, scale, shrink)) continue
+          if (!highlighted.has(index)) place(index, false, at, projected.x, projected.y)
+          continue
+        }
         if (!plan) {
           if (!highlighted.has(index)) place(index, false)
           continue
@@ -807,14 +912,15 @@ export class LabelLayer {
       const slack = frame.paths?.reach[index] ?? 0
       const ax = xy[from] ?? 0
       const bx = xy[to] ?? 0
-      if ((ax < left - slack && bx < left - slack) || (ax > right + slack && bx > right + slack)) {
-        continue
-      }
+      const free = globe !== null || edges.geodesic[index] === 1
+      const left2 = left - slack
+      const right2 = right + slack
+      if (!free && ((ax < left2 && bx < left2) || (ax > right2 && bx > right2))) continue
       const ay = xy[from + 1] ?? 0
       const by = xy[to + 1] ?? 0
-      if ((ay < top - slack && by < top - slack) || (ay > bottom + slack && by > bottom + slack)) {
-        continue
-      }
+      const top2 = top - slack
+      const bottom2 = bottom + slack
+      if (!free && ((ay < top2 && by < top2) || (ay > bottom2 && by > bottom2))) continue
       if (!highlightedEdges.has(index)) placeEdge(index, false)
     }
   }

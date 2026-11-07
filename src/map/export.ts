@@ -100,6 +100,7 @@ async function drawMap(
     container,
     style: {
       ...style,
+      projection: live.getProjection() ?? style.projection,
       layers: style.layers.filter((layer) => (layer.type as string) !== 'custom'),
     },
     center: [center.longitude, center.latitude],
@@ -198,6 +199,8 @@ export async function exportMapPng<S extends string>(
     canvas.height = Math.max(1, Math.round(height * pixelRatio))
     const context = canvas.getContext('2d')
     if (!context) throw new Error('graph: the browser refused a 2D canvas for the map export')
+    context.fillStyle = css(snapshot.color(themeColor('paper')))
+    context.fillRect(0, 0, canvas.width, canvas.height)
     context.drawImage(drawn.canvas, 0, 0, canvas.width, canvas.height)
     context.drawImage(graphImage, 0, 0, canvas.width, canvas.height)
     burnAttribution(

@@ -416,8 +416,12 @@ export function createScene(): Scene {
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     edges.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     edges.setFlow(index, mark.flow ? flowSpeed(mark.flow(datum)) : 0)
+    const geodesic = mark.geodesic?.(datum) === true
+    edges.geodesic[index] = geodesic ? 1 : 0
     edges.bundle[index] =
-      record.sourceIndex !== record.targetIndex && mark.bundle?.(datum) !== false ? 1 : 0
+      record.sourceIndex !== record.targetIndex && !geodesic && mark.bundle?.(datum) !== false
+        ? 1
+        : 0
     edges.label[index] = toText(mark.label?.(datum))
     edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
     writeLabelText(edges, index, mark.labelText, datum, palette)

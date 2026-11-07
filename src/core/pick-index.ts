@@ -9,6 +9,8 @@ import {
   sampleCubic,
 } from './edge-curve'
 import { type EdgePaths, maxPathPoints } from './edge-paths'
+import { worldSize } from './geo'
+import { arcPolyline } from './geo-arc'
 import type { Positions } from './positions'
 import { edgeShown } from './zoom-range'
 
@@ -22,6 +24,11 @@ export interface PickSource {
   readonly positions: Positions
   readonly order: (kind: 'nodes' | 'edges', index: number) => number
   readonly paths?: EdgePaths | null
+}
+
+export interface PickLens {
+  readonly scale: number
+  readonly visible: (index: number) => boolean
 }
 
 interface Frame {
@@ -278,9 +285,11 @@ export class PickIndex {
   #extraLoops: number[] = []
   #reindexed = 0
   #polyline: Float64Array = new Float64Array(maxPathPoints * 2)
+  #wraps = false
 
   build(source: PickSource): void {
     const { nodes, edges, positions } = source
+    this.#wraps = false
     let count = 0
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
@@ -543,10 +552,20 @@ export class PickIndex {
     }
   }
 
-  pick(source: PickSource, x: number, y: number, zoom: number, tolerance: number): PickHit | null {
-    const node = this.#pickNode(source, x, y, zoom)
+  pick(
+    source: PickSource,
+    x: number,
+    y: number,
+    zoom: number,
+    tolerance: number,
+    lens: PickLens | null = null,
+  ): PickHit | null {
+    const scale = lens?.scale ?? zoom
+    const node = this.#pickNode(source, x, y, zoom, scale, lens)
     if (node >= 0) return { kind: 'node', index: node }
-    const edge = this.#pickEdge(source, x, y, zoom, tolerance)
+    let edge = this.#pickEdge(source, x, y, zoom, scale, tolerance)
+    if (edge < 0 && this.#wraps) edge = this.#pickEdge(source, x + worldSize, y, zoom, scale, tolerance)
+    if (edge < 0 && this.#wraps) edge = this.#pickEdge(source, x - worldSize, y, zoom, scale, tolerance)
     return edge >= 0 ? { kind: 'edge', index: edge } : null
   }
 
@@ -628,8 +647,28 @@ export class PickIndex {
       const count = paths.polyline(index, source.edges, source.positions, paths.mix, this.#polyline)
       return this.#polyline.subarray(0, count * 2)
     }
+    if (source.edges.geodesic[index] === 1) return this.#arc(source, index)
     if ((source.edges.bend[index] ?? 0) === 0) return null
     return sampleCubic(this.#parallel(source, index), indexSegments)
+  }
+
+  #arc(source: PickSource, index: number): Float64Array {
+    const { edges, positions } = source
+    const from = edges.source[index] ?? 0
+    const to = edges.target[index] ?? 0
+    const points = this.#polyline
+    const count = arcPolyline(
+      positions.x(from),
+      positions.y(from),
+      positions.x(to),
+      positions.y(to),
+      edges.bend[index] ?? 0,
+      true,
+      points,
+    )
+    const last = points[(count - 1) * 2] ?? 0
+    if (last < 0 || last > worldSize) this.#wraps = true
+    return points.subarray(0, count * 2)
   }
 
   #parallel(source: PickSource, index: number): Cubic {
@@ -659,16 +698,27 @@ export class PickIndex {
     return Math.max(radius, minimumPickRadius / zoom)
   }
 
-  #pickNode(source: PickSource, x: number, y: number, zoom: number): number {
-    const reach = Math.max(this.#maxWorldRadius, (this.#maxScreenRadius + minimumPickRadius) / zoom)
+  #pickNode(
+    source: PickSource,
+    x: number,
+    y: number,
+    zoom: number,
+    scale: number,
+    lens: PickLens | null,
+  ): number {
+    const reach = Math.max(
+      this.#maxWorldRadius,
+      (this.#maxScreenRadius + minimumPickRadius) / scale,
+    )
     let best = -1
     let bestOrder = Number.NEGATIVE_INFINITY
     const nodeGrid = this.#nodes
     const generations = this.#nodeGeneration
     this.#around(this.#frame, 0, nodeGrid, generations, this.#extraNodes, x, y, reach, (index) => {
       if (!pickable(source.nodes, index) || !source.nodes.zoom.shown(index, zoom)) return
+      if (lens && !lens.visible(index)) return
       const distance = Math.hypot(x - source.positions.x(index), y - source.positions.y(index))
-      if (distance > this.#radius(source, index, zoom)) return
+      if (distance > this.#radius(source, index, scale)) return
       const order = source.order('nodes', index)
       if (order > bestOrder) {
         best = index
@@ -678,14 +728,21 @@ export class PickIndex {
     return best
   }
 
-  #pickEdge(source: PickSource, x: number, y: number, zoom: number, tolerance: number): number {
+  #pickEdge(
+    source: PickSource,
+    x: number,
+    y: number,
+    zoom: number,
+    scale: number,
+    tolerance: number,
+  ): number {
     const { edges, positions } = source
-    const reach = (this.#maxEdgeHalfWidth + tolerance) / zoom
+    const reach = (this.#maxEdgeHalfWidth + tolerance) / scale
     let best = -1
     let bestDistance = Number.POSITIVE_INFINITY
     let bestOrder = Number.NEGATIVE_INFINITY
     const consider = (index: number, distance: number) => {
-      if (distance > ((edges.width[index] ?? 0) / 2 + tolerance) / zoom) return
+      if (distance > ((edges.width[index] ?? 0) / 2 + tolerance) / scale) return
       const order = source.order('edges', index)
       if (distance < bestDistance || (distance === bestDistance && order > bestOrder)) {
         best = index
@@ -706,6 +763,13 @@ export class PickIndex {
         consider(index, distanceToPolyline(this.#polyline, count, x, y))
         return
       }
+      if (edges.geodesic[index] === 1) {
+        if (seen.has(index)) return
+        seen.add(index)
+        const points = this.#arc(source, index)
+        consider(index, distanceToPolyline(points, points.length / 2, x, y))
+        return
+      }
       if ((edges.bend[index] ?? 0) !== 0) {
         if (seen.has(index)) return
         seen.add(index)
@@ -719,7 +783,7 @@ export class PickIndex {
       const length = Math.hypot(dx, dy)
       if (length === 0) return
       const along = ((x - ax) * dx + (y - ay) * dy) / length
-      if (along < this.#radius(source, s, zoom) || along > length - this.#radius(source, t, zoom)) {
+      if (along < this.#radius(source, s, scale) || along > length - this.#radius(source, t, scale)) {
         return
       }
       consider(index, Math.abs((x - ax) * dy - (y - ay) * dx) / length)
@@ -731,7 +795,7 @@ export class PickIndex {
     })
     const loop = (index: number) => {
       if (edges.alive[index] !== 1 || !edgeShown(source.nodes, edges, index, zoom)) return
-      consider(index, distanceToCubic(this.#loop(source, index, zoom), x, y, pickSegments))
+      consider(index, distanceToCubic(this.#loop(source, index, scale), x, y, pickSegments))
     }
     for (const index of this.#loops) if ((this.#edgeGeneration[index] ?? 0) === 0) loop(index)
     visitStamped(this.#extraLoops, this.#edgeGeneration, loop)

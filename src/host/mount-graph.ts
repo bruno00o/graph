@@ -1,6 +1,8 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { containerShape } from '../core/columns'
 import { flowSpeed } from '../core/flow'
+import { sideOf } from '../core/geo-arc'
+import { type GlobeCamera, globeScale, globeScreen, globeWorld } from '../core/globe'
 import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
 import { nodesInside } from '../core/lasso'
 import { createPathQueries } from '../core/path-query'
@@ -374,7 +376,13 @@ export type RendererFactory = (canvas: HTMLCanvasElement, invalidate: () => void
 
 export interface HostDriver {
   frame(now: number): void
-  follow(view: View, pixelRatio: number, width: number, height: number): void
+  follow(
+    view: View,
+    pixelRatio: number,
+    width: number,
+    height: number,
+    globe?: GlobeCamera | null,
+  ): void
   attach(create: (invalidate: () => void) => Renderer): void
   detach(): void
 }
@@ -615,6 +623,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const watchers = new Set<GraphWatcher>()
   let counted = -1
   let counts = { nodes: 0, edges: 0, pendingEdges: 0 }
+  let globe: GlobeCamera | null = null
 
   const model = createGraphModel({ schedule: () => request(true) })
   const scene = createScene()
@@ -925,6 +934,29 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return record ? { kind, key, datum: record.datum, mark: record.mark.name } : null
   }
 
+  function sphere(): GlobeCamera | null {
+    return globe && globe.mix > 0 ? globe : null
+  }
+
+  function worldAt(point: Point): Point {
+    const camera = sphere()
+    const found = camera ? globeWorld(camera, point.x, point.y) : null
+    return found ?? toWorld(store.get().view, viewport(), point)
+  }
+
+  function screenAt(point: Point): Point {
+    const camera = sphere()
+    if (!camera) return toScreen(store.get().view, viewport(), point)
+    const out = { x: 0, y: 0 }
+    globeScreen(camera, point.x, point.y, out)
+    return out
+  }
+
+  function seen(index: number): boolean {
+    const camera = sphere()
+    return !camera || sideOf(camera, positions.x(index), positions.y(index)) >= 0
+  }
+
   function pickAt(point: Point): GraphTarget | null {
     syncContainers()
     if (!gesture?.drag && pickedPaths !== bundles.paths.version) {
@@ -940,9 +972,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       pickedScene = sceneVersion
       pickedPositions = positions.version
     }
-    const world = toWorld(store.get().view, viewport(), point)
+    const camera = sphere()
+    const world = camera ? globeWorld(camera, point.x, point.y) : worldAt(point)
+    if (!world) return null
     const zoom = store.get().view.zoom
-    const hit = pickIndex.pick(pickSource, world.x, world.y, zoom, pickTolerance)
+    const lens = camera ? { scale: globeScale(camera, world.y), visible: seen } : null
+    const hit = pickIndex.pick(pickSource, world.x, world.y, zoom, pickTolerance, lens)
     if (!hit) {
       const shown = (index: number) => scene.nodes.zoom.shown(index, zoom)
       const index = projection.active ? containerBoxes.pick(world.x, world.y, positions, shown) : -1
@@ -1100,7 +1135,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (!point) return
     const view = baseView()
     const size = viewport()
-    const screen = toScreen(view, size, point)
+    const screen = sphere() ? screenAt(point) : toScreen(view, size, point)
     const inside =
       screen.x >= followMargin &&
       screen.x <= size.width - followMargin &&
@@ -1259,10 +1294,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       lassoLayer.append(path)
       element.append(lassoLayer)
     }
-    const view = store.get().view
-    const size = viewport()
     const path = points.map((point) => {
-      const screen = toScreen(view, size, point)
+      const screen = screenAt(point)
       return `${screen.x} ${screen.y}`
     })
     lassoLayer.firstElementChild?.setAttribute('d', `M${path.join('L')}Z`)
@@ -1273,6 +1306,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const inside = nodesInside(polygon, scene.nodes, positions, zoom).filter(
       (key) =>
         !registry.has('selected', 'nodes', key) &&
+        seen(model.node(key)?.index ?? -1) &&
         scene.nodes.shape[model.node(key)?.index ?? -1] !== containerShape,
     )
     if (inside.length === 0) return
@@ -1911,7 +1945,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const { view, width, height } = store.get()
     const renderStart = clock()
     const time = flows.time(now)
-    const wait = renderer.render({ view, width, height, pixelRatio, time })
+    const wait = renderer.render({ view, width, height, pixelRatio, time, globe })
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
@@ -1969,7 +2003,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return {
       target: hit,
       point,
-      world: toWorld(store.get().view, viewport(), point),
+      world: worldAt(point),
       originalEvent: event,
     }
   }
@@ -1979,7 +2013,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const group = registry.has('selected', 'nodes', hit.key)
       ? registry.members('selected').nodes
       : [hit.key]
-    const world = toWorld(store.get().view, viewport(), point)
+    const world = worldAt(point)
     const keys: Key[] = []
     const indices: number[] = []
     const taken = new Set<number>()
@@ -2013,7 +2047,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       target: drag.target,
       keys: drag.keys,
       point,
-      world: toWorld(store.get().view, viewport(), point),
+      world: worldAt(point),
       originalEvent: event,
     }
   }
@@ -2043,7 +2077,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       event,
       target: hit,
       drag,
-      lasso: lassoing ? [toWorld(store.get().view, viewport(), point)] : null,
+      lasso: lassoing ? [worldAt(point)] : null,
       moved: false,
     }
     canvas.setPointerCapture?.(event.pointerId)
@@ -2118,7 +2152,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       drag.started = true
       emitter.emit('dragstart', dragEvent(drag, event))
     }
-    const world = toWorld(store.get().view, viewport(), point)
+    const camera = sphere()
+    const world = camera ? globeWorld(camera, point.x, point.y) : worldAt(point)
+    if (!world) return
     drag.indices.forEach((index, i) => {
       positions.set(
         index,
@@ -2140,12 +2176,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function extendLasso(current: Gesture, lasso: Point[], point: Point): void {
-    const view = store.get().view
-    const size = viewport()
     const end = lasso[lasso.length - 1]
-    const last = end ? toScreen(view, size, end) : current.start
+    const last = end ? screenAt(end) : current.start
     if (current.moved && Math.hypot(point.x - last.x, point.y - last.y) >= lassoStep) {
-      lasso.push(toWorld(view, size, point))
+      lasso.push(worldAt(point))
       drawLasso(lasso)
     }
   }
@@ -2382,7 +2416,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       animateTo(zoomAround(baseView(), size, center, factor, definition.view), viewOptions.duration)
     },
     toScreen: (point) => toScreen(store.get().view, viewport(), point),
-    toWorld: (point) => toWorld(store.get().view, viewport(), point),
+    toWorld: (point) => worldAt(point),
   }
 
   const selection: GraphSelection = {
@@ -2686,6 +2720,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       width,
       height,
       pixelRatio,
+      globe: sphere(),
       title: element.getAttribute('aria-label'),
       color: (css) => themeResolver.color(css),
       createRenderer,
@@ -2694,8 +2729,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   surface?.bind({
     frame,
-    follow: (next, ratio, width, height) => {
+    follow: (next, ratio, width, height, camera = null) => {
       pixelRatio = ratio
+      globe = camera
       hush(() => {
         const state = store.get()
         if (state.width !== width || state.height !== height) patch({ width, height })
