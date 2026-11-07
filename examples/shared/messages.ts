@@ -228,6 +228,28 @@ export const messages = {
     `${carriers} ${plural(carriers, 'porteur', 'porteurs')}, ${carried} ${plural(carried, 'lien porté', 'liens portés')}`,
   layersStatus: (edges: string, shown: number): string =>
     `${edges} liens, ${shown} ${plural(shown, 'couche affichée', 'couches affichées')} sur 3`,
+  transforms: 'Fusions, secteurs et filtres',
+  transformsLabel: (items: number, links: number): string =>
+    `Graphe de ${formatNumber(items)} éléments en quatre secteurs, reliés par ${formatNumber(links)} échanges`,
+  transformsHint:
+    'Double-cliquez sur un secteur pour le déplier ; la légende masque une famille sans perdre la sélection.',
+  mergeMode: 'Échanges parallèles',
+  mergeModes: { merged: 'Fusionnés', split: 'Séparés' },
+  sectorMode: 'Secteurs',
+  sectorModes: { items: 'Éléments', grouped: 'Regroupés' },
+  familiesTitle: 'Familles',
+  familiesLabel: 'Familles des éléments',
+  family: (value: string): string => `Famille ${value}`,
+  item: (index: number): string => `Élément ${index}`,
+  sector: (value: string): string => `Secteur ${value}`,
+  sectorStatus: (value: string, count: number): string =>
+    `Secteur ${value} : ${formatNumber(count)} ${plural(count, 'élément', 'éléments')}`,
+  exchanges: (from: string, to: string, forward: number, backward: number): string =>
+    backward === 0
+      ? `${from} vers ${to} : ${formatNumber(forward)} ${plural(forward, 'échange', 'échanges')}`
+      : `${from} vers ${to} : ${formatNumber(forward)}, retour : ${formatNumber(backward)}`,
+  exchange: (from: string, to: string): string => `Échange de ${from} vers ${to}`,
+  count: (value: number): string => formatNumber(value),
 }
 
 function milliseconds(value: number): string {
