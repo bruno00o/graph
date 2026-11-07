@@ -4,25 +4,33 @@ description: A mark that draws one edge per item of its data.
 ---
 
 ```ts
-function edges<T, N extends MarkName = undefined>(
+function edges<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options: EdgeOptions<T, N>,
-): EdgeMark<T, N>
-function edges<T extends { readonly id: Key }, N extends MarkName = undefined>(
+  options: EdgeOptions<T, N, L>,
+): EdgeMark<T, N, L>
+function edges<
+  T extends { readonly id: Key },
+  N extends MarkName = undefined,
+  L extends MarkLayer = undefined,
+>(
   data: Iterable<T>,
-  options: EdgeOptions<T, N>,
-): EdgeMark<T, N>
-function edges<T, N extends MarkName = undefined>(
+  options: EdgeOptions<T, N, L>,
+): EdgeMark<T, N, L>
+function edges<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: Iterable<T>,
-  options: EdgeOptions<T, N> & { key: KeyChannel<T> },
-): EdgeMark<T, N>
+  options: EdgeOptions<T, N, L> & { key: KeyChannel<T> },
+): EdgeMark<T, N, L>
 ```
 
-`source` and `target` are required. An edge whose two ends are not both present waits until they are. `T` is the item type and `N` the type of `name`: both type the targets of the edges, see [TypeScript](/docs/typescript).
+`source` and `target` are required. An edge whose two ends are not both present waits until they are. `T` is the item type and `N` the type of `name`: both type the targets of the edges, see [TypeScript](/docs/typescript). `L` is the type of `layer`, `undefined` without one.
 
 ## Options
 
 <api-table path="index.ts" name="EdgeOptions" />
+
+## Layers and support
+
+`layer` puts the edges of the mark in a layer that `graph.layers` hides and shows at run time. Between the same two nodes, edges of different layers form one band per layer, in the order of the marks. `supportedBy` gives, for each edge, the keys of the edges that carry it, in path order. A key that names no edge is reported in `issues` as `missing-carrier`, and the walk skips it until that edge arrives. See [Multilayer graphs](/docs/multilayer).
 
 ## Time
 

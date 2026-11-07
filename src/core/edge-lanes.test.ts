@@ -79,4 +79,57 @@ describe('createEdgeLanes', () => {
       }
     }
   })
+
+  it('groups the edges of a pair in one band per rank, in rank order, with a gap between bands', () => {
+    const edges = new EdgeColumns()
+    edges.reserve(8)
+    const lanes = createEdgeLanes()
+    const slots = [2, 0, 1, 0, 2]
+    slots.forEach((slot, index) => {
+      edges.slot[index] = slot
+      edges.source[index] = 3
+      edges.target[index] = 7
+      lanes.link(index, 3, 7)
+    })
+    edges.slot[5] = 1
+    edges.source[5] = 4
+    edges.target[5] = 4
+    lanes.link(5, 4, 4)
+    edges.slot[6] = 2
+    edges.source[6] = 4
+    edges.target[6] = 4
+    lanes.link(6, 4, 4)
+    lanes.setRanks(Uint16Array.of(1, 0, 2))
+    lanes.write(edges, new IndexSet())
+    const total = 5 + 2
+    const bend = (position: number) => Math.fround(laneBend(position, total))
+    expect(edges.bend[2]).toBe(bend(0))
+    expect(edges.bend[1]).toBe(bend(2))
+    expect(edges.bend[3]).toBe(bend(3))
+    expect(edges.bend[0]).toBe(bend(5))
+    expect(edges.bend[4]).toBe(bend(6))
+    expect([edges.bend[5], edges.bend[6]]).toEqual([0, 2])
+    lanes.setRanks(null)
+    lanes.write(edges, new IndexSet())
+    expect([0, 1, 2, 3, 4].map((index) => edges.bend[index])).toEqual(
+      [0, 1, 2, 3, 4].map((position) => Math.fround(laneBend(position, 5))),
+    )
+  })
+
+  it('keeps a pair of one rank as it was', () => {
+    const edges = new EdgeColumns()
+    edges.reserve(4)
+    const lanes = createEdgeLanes()
+    lanes.setRanks(Uint16Array.of(0, 1))
+    for (let index = 0; index < 3; index++) {
+      edges.slot[index] = 1
+      edges.source[index] = 0
+      edges.target[index] = 1
+      lanes.link(index, 0, 1)
+    }
+    lanes.write(edges, new IndexSet())
+    expect([0, 1, 2].map((index) => edges.bend[index])).toEqual(
+      [0, 1, 2].map((position) => Math.fround(laneBend(position, 3))),
+    )
+  })
 })

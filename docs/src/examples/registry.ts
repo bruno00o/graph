@@ -118,6 +118,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./lens/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'multilayer',
+    title: 'Multilayer graph',
+    description:
+      'Three layers of edges between the same places: segments, paths that run along segments, and routes that run along paths. Hide a layer from the legend, and click an edge to light what carries it and what it carries.',
+    hint: 'Click an edge. Click a layer in the legend to hide it.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/legend'],
+    files: ['multilayer/main.ts', ...shared],
+    load: () => import('./multilayer/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'layouts',
     title: 'Layouts',
     description:

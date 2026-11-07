@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import type { LayerFilter } from './mark-layers'
 import { TimeSpans, timeFilter } from './time-range'
 import { detailStep, edgeOpacity, edgeShown, filtered, nodeShown, sightOf } from './visibility'
 import { ZoomRanges, zoomFade } from './zoom-range'
 
 function columns() {
-  const nodes = { zoom: new ZoomRanges(), time: new TimeSpans() }
+  const nodes = { zoom: new ZoomRanges(), time: new TimeSpans(), slot: Uint16Array.of(0, 1) }
   const edges = {
     zoom: new ZoomRanges(),
     time: new TimeSpans(),
+    slot: Uint16Array.of(1),
     source: Uint32Array.of(0),
     target: Uint32Array.of(1),
   }
@@ -53,5 +55,26 @@ describe('edges', () => {
     edges.time.write(0, [0, 100])
     const sight = sightOf(1, timeFilter({ start: 90, end: 95 }, 20))
     expect(edgeOpacity(nodes, edges, 0, sight)).toBeCloseTo(0.5)
+  })
+
+  it('hides an edge whose mark or one of whose end marks belongs to a hidden layer', () => {
+    const { nodes, edges } = columns()
+    const hide = (node: number[], edge: number[], serial: number): LayerFilter => ({
+      nodes: Uint8Array.from([0, 1], (slot) => (node.includes(slot) ? 1 : 0)),
+      edges: Uint8Array.from([0, 1], (slot) => (edge.includes(slot) ? 1 : 0)),
+      masks: new Uint32Array(8),
+      serial,
+    })
+    const edgeLayer = sightOf(1, null, hide([], [1], 1))
+    expect(filtered(nodes, edgeLayer)).toBe(true)
+    expect(edgeShown(nodes, edges, 0, edgeLayer)).toBe(false)
+    expect(edgeOpacity(nodes, edges, 0, edgeLayer)).toBe(0)
+    expect(nodeShown(nodes, 1, edgeLayer)).toBe(true)
+    const nodeLayer = sightOf(1, null, hide([1], [], 2))
+    expect(nodeShown(nodes, 0, nodeLayer)).toBe(true)
+    expect(nodeShown(nodes, 1, nodeLayer)).toBe(false)
+    expect(edgeShown(nodes, edges, 0, nodeLayer)).toBe(false)
+    expect(edgeShown(nodes, edges, 0, sightOf(1, null, hide([], [0], 3)))).toBe(true)
+    expect(detailStep(nodes, edges, edgeLayer)).not.toBe(detailStep(nodes, edges, nodeLayer))
   })
 })

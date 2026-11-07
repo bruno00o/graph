@@ -1,0 +1,152 @@
+---
+title: Multilayer graphs
+description: Put the marks of a graph in layers that show and hide at run time, draw the edges of each layer in their own band, and walk the edges that carry other edges.
+---
+
+<LiveExample slug="multilayer" />
+
+A multilayer graph has several kinds of links between the same nodes: each kind is a layer. Here, segments join neighboring places, paths run along segments, and routes run along paths. Each kind is an edge mark with a `layer`:
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+
+const link = { source: 'from', target: 'to', supportedBy: 'over' } as const
+
+const definition = defineGraph({
+  marks: [
+    edges(segments, { ...link, layer: 'segments' }),
+    edges(paths, { ...link, layer: 'paths', stroke: 'var(--graph-cat-1)' }),
+    edges(routes, { ...link, layer: 'routes', stroke: 'var(--graph-cat-2)', dash: 'dashed' }),
+    nodes(places, { label: 'name' }),
+  ],
+})
+```
+
+A layer is a name shared by any number of marks, node marks included. Marks without a `layer` belong to no layer and always show. The names come from the marks: with literal names, TypeScript knows them, and `graph.layers` refuses a name no mark gives.
+
+## Show and hide layers
+
+```ts
+graph.layers.names()
+graph.layers.hide(['routes'])
+graph.layers.toggle('paths')
+graph.layers.show()
+graph.layers.set(['segments'])
+graph.layers.hidden()
+```
+
+`names` lists the layers in the order of the first mark of each, `hidden` the hidden ones. `hide` and `show` without a list act on every layer. A hidden name that no mark gives yet applies when a mark gives it. Each change emits `layerchange` and updates `hiddenLayers` in the [store](/docs/api/graph-instance#graph-state):
+
+```ts tab="Vanilla" tab-group="framework"
+const graph = mountGraph(container, { definition, initialHiddenLayers: ['routes'] })
+graph.on('layerchange', ({ hidden }) => {
+  status.textContent = hidden.join(', ')
+})
+```
+
+```tsx tab="React" tab-group="framework"
+<Graph definition={definition} ariaLabel="Graph" initialHiddenLayers={['routes']} />
+
+const hidden = useGraphState((state) => state.hiddenLayers)
+```
+
+To own the hidden layers, pass `hiddenLayers`, as for the [time window](/docs/time#controlled-window): `graph.layers` and the legend then call `onLayerChange`, and only a new `hiddenLayers` changes what shows.
+
+```tsx
+const [hidden, setHidden] = useState<string[]>([])
+
+<Graph
+  definition={definition}
+  ariaLabel="Graph"
+  hiddenLayers={hidden}
+  onLayerChange={(event) => setHidden([...event.hidden])}
+/>
+```
+
+The [legend](/docs/minimap-and-legend#legend) has a `layers` section with one toggle per layer, which hides and shows the layer through `graph.layers`. Give the layers a text of your own with `layerText`:
+
+```ts
+const legend = createLegend(graph)
+mountLegend(legend, {
+  sections: ['layers'],
+  titles: { layers: 'Layers' },
+  layerText: (layer) => texts[layer.name],
+})
+```
+
+## What a hidden layer is
+
+Hiding a layer hides its nodes, its edges, and the edges of other layers that end on its nodes. Its elements behave like elements out of their [zoom range](/docs/zoom#what-a-hidden-element-is) or out of the [time window](/docs/time#what-a-hidden-element-is):
+
+- they are not drawn, nor their labels and badges, and their anchors leave the screen;
+- they are not picked: hover, click and the lasso pass through them, and the arrow keys skip them. A hovered or focused element that hides loses the hover or the focus;
+- the legend counts only shown elements, the minimap draws only them, and hulls wrap only them;
+- [exports](/docs/export) draw what shows, and a `'graph'` region frames shown elements only;
+- [`graph.paths`](/docs/paths) with `visible: true` walks over shown elements only, so the graph that remains is a flat view of the shown layers.
+
+A hidden element stays in the data, in the selection and in states. Layouts still place it and `view.fit` still frames it, so that nothing moves when a layer shows or hides. To leave a layer out of the data itself, filter its data or leave its mark out.
+
+Hiding and showing a layer reads no data: the graph keeps one mask of hidden marks per kind of element and the GPU tests it, so a toggle costs about one frame, however large the layer.
+
+## Bands between the same nodes
+
+Edges between the same two nodes curve apart, as [parallel edges](/docs/marks#parallel-edges-and-loops) do. When they come from marks of different layers, they gather in one band per layer, in the order of the marks, with a gap between bands: the edges of one layer stay together and every pair of nodes shows its layers in the same order. Edges of marks without a layer form a band of their own. A pair whose edges all share a layer is drawn as before.
+
+A band keeps its place when another layer hides: the edges that show do not move.
+
+In a [folded group](/docs/groups), edges merge mark by mark, so an aggregated edge never mixes layers, and it takes the layer of its mark.
+
+## Support
+
+An edge of one layer often stands for a path of edges of another: a route runs along paths, a path along segments. `supportedBy` gives the keys of the edges that carry each edge, in the order of the path they form:
+
+```ts
+edges(routes, { source: 'from', target: 'to', layer: 'routes', supportedBy: 'over' })
+```
+
+It is a channel: a field or a function that gives a key or a list of keys. Carriers usually belong to another layer, but any edge can carry any other. Support is resolved as data changes, edge by edge. A key that names no edge is reported in `issues` as `missing-carrier`; the edge waits for it, and the walks skip it until it arrives.
+
+### Walk down and up
+
+```ts
+const below = graph.support.carriers('route-7')
+const above = graph.support.carried('segment-12', { maxDepth: 1 })
+graph.states.set('trace', below)
+```
+
+`carriers` goes down: the edges that carry an edge, then the edges that carry those, and so on. `carried` goes up: the edges an edge carries, then the edges those carry. Each returns the edges found, by depth, the depth of each, and the nodes at their ends, ready for `states.set`. `maxDepth: 1` keeps the direct carriers or carried edges. A cycle of support stops where it comes back. See the [reference](/docs/api/support).
+
+`createSupportFinder` runs the same walks on marks alone, without mounting a graph, as [`createPathFinder`](/docs/api/paths#createpathfinder) does for paths.
+
+### Light the support
+
+`support` in `defineGraph` names two free states. When the selection holds edges, the graph gives the first to everything that carries them and the second to everything they carry, ends included, and keeps both up to date as the selection and the data change:
+
+```ts
+defineGraph({
+  marks,
+  states: {
+    carrier: { stroke: 'var(--graph-accent)', strokeWidth: 3, raise: true },
+    carried: { stroke: 'var(--graph-cat-4)', strokeWidth: 3, raise: true },
+  },
+  support: { carriers: 'carrier', carried: 'carried' },
+})
+```
+
+With `raise: true`, the lit edges are drawn above the other marks, labels first. The graph owns these two states: it replaces their members at each change of the selection. Leave one out, or pass `null`, to light one direction only.
+
+## Performance
+
+Measured in Chrome on a laptop, with 33,180 nodes and 101,201 edges in three layers, 34,288 of them carried by 2.5 edges on average:
+
+| Step | Time |
+| --- | --- |
+| First frame, without layers or support | 145 to 180 ms |
+| First frame, with layers and support | 170 to 195 ms |
+| Frame that hides or shows a layer | 4.5 ms, as any frame |
+| `support.carriers` | under 0.01 ms |
+| `support.carried`, first call | 8 ms, to index support upward |
+| `support.carried`, later calls | under 0.01 ms |
+| Frame that lights the support of a selected edge | 5 ms |
+
+A graph without `layer` or `supportedBy` reads nothing more and draws as before.

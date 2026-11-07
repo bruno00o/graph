@@ -166,4 +166,10 @@ export const messages = {
   showAll: 'Show all',
   zoomTiers: (zoom: number, shown: number) =>
     `Zoom ${zoomFormat.format(zoom)}, ${shown} of 3 ${shown === 1 ? 'tier' : 'tiers'} shown`,
+  layersTitle: 'Layers',
+  layersLabel: 'Layers of the graph',
+  layerNames: { lower: 'Segments', middle: 'Paths', upper: 'Routes' } as Record<string, string>,
+  supportHint: 'Click an edge: what carries it lights below, what it carries lights above.',
+  supportStatus: (carriers: number, carried: number) =>
+    `${count(carriers, 'carrier', 'carriers')}, ${count(carried, 'carried edge', 'carried edges')}`,
 }

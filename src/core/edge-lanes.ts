@@ -4,6 +4,7 @@ import type { IndexSet } from './index-set'
 
 const empty = -1
 const removed = -2
+const bandGap = 1
 
 function hash(low: number, high: number): number {
   let h = Math.imul(low, 0x9e3779b1) ^ Math.imul(high + 0x7f4a7c15, 0x85ebca77)
@@ -22,6 +23,7 @@ export interface EdgeLanes {
   link(index: number, source: number, target: number): void
   unlink(index: number): void
   write(edges: EdgeColumns, dirty: IndexSet): void
+  setRanks(ranks: Uint16Array | null): void
 }
 
 export function createEdgeLanes(): EdgeLanes {
@@ -39,6 +41,8 @@ export function createEdgeLanes(): EdgeLanes {
   let nexts = new Int32Array(0)
   let prevs = new Int32Array(0)
   let touched: number[] = []
+  let ranks: Uint16Array | null = null
+  const members: number[] = []
 
   function reserveIndex(index: number): void {
     if (index < slots.length) return
@@ -128,7 +132,10 @@ export function createEdgeLanes(): EdgeLanes {
     const high = Math.max(source, target)
     const current = slots[index] ?? -1
     if (current >= 0) {
-      if (lows[current] === low && highs[current] === high) return
+      if (lows[current] === low && highs[current] === high) {
+        if (ranks) touched.push(index)
+        return
+      }
       unlink(index)
     }
     reservePairs(1)
@@ -156,6 +163,63 @@ export function createEdgeLanes(): EdgeLanes {
     touched.push(index)
   }
 
+  function setRanks(next: Uint16Array | null): void {
+    ranks = next
+    for (let slot = 0; slot < heads.length; slot++) {
+      const head = heads[slot] ?? empty
+      if (head >= 0) touched.push(head)
+    }
+  }
+
+  function writeBands(
+    slot: number,
+    count: number,
+    loop: boolean,
+    edges: EdgeColumns,
+    dirty: IndexSet,
+  ): boolean {
+    const rankOf = ranks
+    if (!rankOf) return false
+    members.length = 0
+    let first = -1
+    let mixed = false
+    for (let at = heads[slot] ?? -1; at >= 0; at = nexts[at] ?? -1) {
+      const rank = rankOf[edges.slot[at] ?? 0] ?? 0
+      if (first < 0) first = rank
+      else if (rank !== first) mixed = true
+      members.push(at)
+    }
+    if (!mixed) return false
+    const rank = (edge: number) => rankOf[edges.slot[edge] ?? 0] ?? 0
+    members.sort((a, b) => rank(a) - rank(b))
+    let bands = 1
+    for (let at = 1; at < members.length; at++) {
+      if (rank(members[at] ?? 0) !== rank(members[at - 1] ?? 0)) bands++
+    }
+    const total = count + (bands - 1) * bandGap
+    let position = 0
+    let previous = rank(members[0] ?? 0)
+    const bends = edges.bend
+    for (const at of members) {
+      const current = rank(at)
+      if (current !== previous) {
+        position += bandGap
+        previous = current
+      }
+      const source = edges.source[at] ?? 0
+      const target = edges.target[at] ?? 0
+      const bend = loop
+        ? position
+        : Math.fround(laneBend(position, total) * (source < target ? 1 : -1)) || 0
+      if (bends[at] !== bend) {
+        bends[at] = bend
+        dirty.add(at)
+      }
+      position++
+    }
+    return true
+  }
+
   function write(edges: EdgeColumns, dirty: IndexSet): void {
     if (touched.length === 0) return
     generation = (generation + 1) >>> 0
@@ -178,6 +242,7 @@ export function createEdgeLanes(): EdgeLanes {
         }
         continue
       }
+      if (writeBands(slot, count, loop, edges, dirty)) continue
       let position = 0
       for (let at = heads[slot] ?? -1; at >= 0; at = nexts[at] ?? -1) {
         const source = edges.source[at] ?? 0
@@ -195,5 +260,5 @@ export function createEdgeLanes(): EdgeLanes {
     touched = []
   }
 
-  return { reserve: reservePairs, link, unlink, write }
+  return { reserve: reservePairs, link, unlink, write, setRanks }
 }

@@ -202,6 +202,23 @@ export const messages = {
   lensFactor: (zoom: number): string => `×${decimal.format(zoom)}`,
   lensStatus: (zoom: number): string => `Loupe ×${decimal.format(zoom)}`,
   lensOff: 'Loupe masquée',
+  multilayer: 'Graphe multicouche',
+  multilayerHint:
+    'Cliquez sur un lien : ses porteurs sont surlignés vers le bas, les liens qu’il porte vers le haut.',
+  layersTitle: 'Couches',
+  layerNames: {
+    lower: 'Tronçons',
+    middle: 'Chemins',
+    upper: 'Itinéraires',
+  } as Record<string, string>,
+  layersLabel: 'Couches du graphe',
+  placeCount: 'Lieux',
+  showLayers: 'Toutes les couches',
+  supportNone: 'Aucun lien sélectionné',
+  supportStatus: (carriers: number, carried: number): string =>
+    `${carriers} ${plural(carriers, 'porteur', 'porteurs')}, ${carried} ${plural(carried, 'lien porté', 'liens portés')}`,
+  layersStatus: (edges: string, shown: number): string =>
+    `${edges} liens, ${shown} ${plural(shown, 'couche affichée', 'couches affichées')} sur 3`,
 }
 
 function milliseconds(value: number): string {

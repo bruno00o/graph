@@ -3,8 +3,14 @@ import { containerShape } from '../core/columns'
 import { flowSpeed } from '../core/flow'
 import { sideOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen, globeWorld } from '../core/globe'
-import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
+import {
+  createGraphModel,
+  type Endpoints,
+  type GraphChanges,
+  type GraphIssue,
+} from '../core/graph-model'
 import { nodesInside } from '../core/lasso'
+import type { LayerFilter } from '../core/mark-layers'
 import { createPathQueries } from '../core/path-query'
 import { PickIndex, type PickSource } from '../core/pick-index'
 import {
@@ -20,6 +26,7 @@ import { shallowEqual } from '../core/shallow-equal'
 import { nearestNode, nodeToward } from '../core/spatial'
 import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
+import { SupportIndex } from '../core/support'
 import { readWindow, sameWindow, type TimeFilter, timeFilter } from '../core/time-range'
 import {
   type Bounds,
@@ -36,7 +43,7 @@ import {
   wheelPixels,
   zoomAround,
 } from '../core/view'
-import { detailStep, filtered, nodeShown, ownShown, type Sight } from '../core/visibility'
+import { detailStep, edgeOwnShown, filtered, nodeShown, type Sight } from '../core/visibility'
 import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles, defaults } from '../theme/tokens'
@@ -45,13 +52,16 @@ import type {
   FreeState,
   GraphDefinition,
   GraphPaths,
+  GraphSupport,
   Key,
+  LayerName,
   Layout,
   LayoutRun,
   Mark,
   NodeDatum,
   Point,
   StateStyle,
+  SupportWalk,
   TimeWindow,
   TimeWindowInput,
   View,
@@ -68,6 +78,7 @@ import {
   type GraphEventHandler,
   type GraphEventName,
   type GraphFoldEvent,
+  type GraphLayerEvent,
   type GraphTarget,
   type GraphTimeEvent,
   type GraphViewEvent,
@@ -122,6 +133,8 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly time: TimeWindow | null
   /** The magnifying lens, or `null` when hidden. */
   readonly lens: GraphLensState | null
+  /** Names of the hidden layers. */
+  readonly hiddenLayers: readonly LayerName<M>[]
 }
 
 /** Status of edge bundling. */
@@ -258,6 +271,30 @@ export interface GraphGroups {
   children(key: Key): Key[]
 }
 
+/**
+ * Visibility of the layers named by the `layer` option of `nodes()` and `edges()`. A hidden layer
+ * hides its nodes, its edges and the edges of its nodes from drawing, picking, labels, the legend,
+ * the minimap, hulls, exports and path queries on the visible graph. A hidden name with no layer
+ * yet applies when a mark names it. When `hiddenLayers` is controlled, changes go to
+ * `onLayerChange`. `L` is the union of the layer names.
+ */
+export interface GraphLayers<L extends string = string> {
+  /** Names of the layers, in the order of the first mark of each. */
+  names(): readonly L[]
+  /** Names of the hidden layers. */
+  hidden(): readonly L[]
+  /** Whether the layer is hidden. */
+  isHidden(name: L): boolean
+  /** Hides the given layers, or every layer without argument. */
+  hide(names?: Iterable<L>): void
+  /** Shows the given layers, or every layer without argument. */
+  show(names?: Iterable<L>): void
+  /** Hides the layer if it shows, shows it otherwise. */
+  toggle(name: L): void
+  /** Replaces the hidden layers. */
+  set(hidden: Iterable<L>): void
+}
+
 /** Options of `layout.run`. */
 export interface LayoutRunOptions {
   /** Nodes to lay out. The others stay still and act as anchors. */
@@ -369,6 +406,15 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
   readonly time?: TimeWindowInput | null
   /** Receives every window request in controlled mode, instead of the window changing. */
   readonly onTimeChange?: (event: GraphTimeEvent) => void
+  /** Layers hidden at mount, by name. Later changes go through `layers`. */
+  readonly initialHiddenLayers?: Iterable<LayerName<M>>
+  /**
+   * Hidden layers. Passing it makes their visibility controlled for the life of the graph:
+   * requests go to `onLayerChange` and only `update({ hiddenLayers })` applies them.
+   */
+  readonly hiddenLayers?: Iterable<LayerName<M>>
+  /** Receives every layer request in controlled mode, instead of the hidden layers changing. */
+  readonly onLayerChange?: (event: GraphLayerEvent<M>) => void
 }
 
 /**
@@ -396,6 +442,10 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly groups: GraphGroups
   /** Shortest paths and reachable nodes, on the data or on the graph as drawn. */
   readonly paths: GraphPaths<M>
+  /** Visibility of the layers. */
+  readonly layers: GraphLayers<LayerName<M>>
+  /** Edges that carry an edge, and edges an edge carries, from `supportedBy`. */
+  readonly support: GraphSupport
   /** Edge bundling. */
   readonly bundling: GraphBundling
   /** The time window that filters elements with a `time`. */
@@ -419,12 +469,15 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
   /**
    * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
-   * `onTimeChange`, controlled `selection`, controlled `folded`, controlled `view` or controlled
-   * `time`. Positions, view and selection stay.
+   * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled
+   * `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and selection stay.
    */
   update(
     options: Partial<
-      Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded' | 'initialTime'>
+      Omit<
+        MountGraphOptions<S, M>,
+        'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers'
+      >
     >,
   ): void
   /** Removes the element and frees every resource. A layout run in progress resolves to `false`. */
@@ -630,6 +683,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let timeWindow = readWindow(options.time ?? options.initialTime ?? null)
   let filter: TimeFilter | null = timeFilter(timeWindow, definition.time.fade)
   let filterFade = definition.time.fade
+  const layersControlled = options.hiddenLayers !== undefined
+  type LayerListener = ((event: GraphLayerEvent) => void) | undefined
+  let onLayerChange = options.onLayerChange as LayerListener
+  let hiddenLayers: readonly string[] = [
+    ...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? []),
+  ]
+  let layerFilter: LayerFilter | null = null
+  let litStates: readonly string[] = []
   let outgoingView: View | null = null
   let sentViews: View[] = []
   let quiet = false
@@ -704,6 +765,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const positions = new Positions()
   const buffers = new StateBuffers()
   const projection = new Projection(model)
+  const support = new SupportIndex(model)
   const hierarchy = projection.hierarchy
   const containerBoxes = new ContainerBoxes()
   const foldOrigins = new Map<number, readonly [number, number]>()
@@ -738,6 +800,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     bundling: idleBundling,
     time: timeWindow,
     lens: null,
+    hiddenLayers,
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
   const bundles = new BundleHost(
@@ -787,7 +850,89 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function sight(): Sight {
-    return { zoom: store.get().view.zoom, time: filter }
+    return { zoom: store.get().view.zoom, time: filter, layers: layerFilter }
+  }
+
+  function orderLayers(names: Iterable<string>): string[] {
+    const wanted = new Set(names)
+    const known = scene.markLayers.names
+    return [
+      ...known.filter((name) => wanted.has(name)),
+      ...[...wanted].filter((name) => !known.includes(name)),
+    ]
+  }
+
+  function refreshLayers(): void {
+    const next = scene.markLayers.filter(new Set(hiddenLayers))
+    if (next === layerFilter) return
+    layerFilter = next
+    const hovered = store.get().hovered
+    if (hovered && !targetShown(hovered)) setHovered(null, null)
+    const focused = store.get().focused
+    if (focused && !targetShown(focused)) setFocused(null)
+    request()
+  }
+
+  function targetShown(element: GraphTarget): boolean {
+    if (!layerFilter) return true
+    const seen = sight()
+    if (element.kind === 'node') {
+      const index = model.node(element.key)?.index ?? -1
+      return index < 0 || nodeShown(scene.nodes, index, seen)
+    }
+    const index = projection.edgeIndexOf(element.key)
+    return (
+      index < 0 ||
+      scene.edges.alive[index] !== 1 ||
+      (edgeOwnShown(scene.edges, index, seen) &&
+        nodeShown(scene.nodes, scene.edges.source[index] ?? 0, seen) &&
+        nodeShown(scene.nodes, scene.edges.target[index] ?? 0, seen))
+    )
+  }
+
+  function applyHidden(next: Iterable<string>): void {
+    const list = orderLayers(next)
+    if (sameList(list, hiddenLayers)) return
+    hiddenLayers = list
+    refreshLayers()
+    patch({ hiddenLayers: list })
+    emitter.emit('layerchange', { hidden: list })
+    request()
+  }
+
+  function requestHidden(next: Iterable<string>): void {
+    const list = orderLayers(next)
+    if (!layersControlled) {
+      applyHidden(list)
+      return
+    }
+    if (!sameList(list, hiddenLayers)) onLayerChange?.({ hidden: list })
+  }
+
+  function lightSupport(): void {
+    const lit = definition.support
+    const names = lit ? [lit.carriers, lit.carried] : [null, null]
+    for (const name of litStates) {
+      if (!names.includes(name) && registry.names.includes(name) && registry.set(name, {})) {
+        publishState(name)
+      }
+    }
+    litStates = names.filter((name): name is string => name !== null)
+    if (!lit || !support.active) return
+    const selected = registry.members('selected').edges
+    const light = (name: string | null, walk: (key: Key) => SupportWalk) => {
+      if (name === null) return
+      const nodes = new Set<Key>()
+      const edges = new Set<Key>()
+      for (const key of selected) {
+        const found = walk(key)
+        for (const edge of found.edges) edges.add(edge)
+        for (const node of found.nodes) nodes.add(node)
+      }
+      if (registry.set(name, { nodes, edges })) publishState(name)
+    }
+    light(lit.carriers, (key) => support.carriers(key))
+    light(lit.carried, (key) => support.carried(key))
   }
 
   function applyTime(next: TimeWindow | null): void {
@@ -1202,7 +1347,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       ? globeWorld(camera, point.x, point.y)
       : toWorld(lensView, viewport(), point)
     if (!world) return null
-    const seen: Sight = { zoom: lensView.zoom, time: filter }
+    const seen: Sight = { zoom: lensView.zoom, time: filter, layers: layerFilter }
     const surfaceOf = camera ? { scale: globeScale(camera, world.y), visible: facing } : null
     const hit = pickIndex.pick(pickSource, world.x, world.y, seen, pickTolerance, surfaceOf)
     if (!hit) {
@@ -1301,6 +1446,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function publishSelection(): void {
     const selection = registry.members('selected')
     patch({ selection })
+    lightSupport()
     emitter.emit('selectionchange', selection)
     request()
   }
@@ -1582,12 +1728,26 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function flushChanges(): void {
     const start = clock()
     const changes = model.flush()
+    const carriers: GraphIssue[] = []
+    const supported = support.apply(changes, carriers)
     const projected = projection.apply(changes)
     const flushed = clock()
     scene.apply(projection.view, projected.scene)
     const applied = clock()
     applyChanges(changes, projected)
-    probe?.flushed(flushed - start, applied - flushed, projected.scene.issues)
+    if (supported) lightSupport()
+    const issues = projected.scene.issues
+    probe?.flushed(
+      flushed - start,
+      applied - flushed,
+      carriers.length > 0 ? [...issues, ...carriers] : issues,
+    )
+  }
+
+  function flushPending(): void {
+    if (!needsFlush) return
+    needsFlush = false
+    flushChanges()
   }
 
   function placeFoldedGroups(
@@ -2183,6 +2343,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       time,
       lens: shown,
       window: filter,
+      layers: layerFilter,
       globe,
     })
     decorations.place()
@@ -2657,10 +2818,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   applyKeyboard()
 
   model.setMarks(definition.marks)
+  support.setMarks(definition.marks)
   scene.setDefinition(definition)
   decorations.setDefinition(definition)
   bundles.setBundling(definition.bundling)
   applyLayers()
+  refreshLayers()
   applyStyles()
   refreshTheme()
   request(true)
@@ -2812,7 +2975,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (!filtered(scene.nodes, seen) && !filtered(scene.edges, seen)) return null
       return {
         node: (index) => nodeShown(scene.nodes, index, seen),
-        edge: (index) => ownShown(scene.edges, index, seen),
+        edge: (index) => edgeOwnShown(scene.edges, index, seen),
       }
     },
     prepare: () => {
@@ -2862,6 +3025,33 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       get: () => timeWindow,
       set: (next) => requestTime(readWindow(next)),
     },
+    layers: {
+      names: () => scene.markLayers.names,
+      hidden: () => hiddenLayers,
+      isHidden: (name) => hiddenLayers.includes(name),
+      hide: (names) => requestHidden([...hiddenLayers, ...(names ?? scene.markLayers.names)]),
+      show: (names) => {
+        const shown = new Set<string>(names ?? [...scene.markLayers.names, ...hiddenLayers])
+        requestHidden(hiddenLayers.filter((name) => !shown.has(name)))
+      },
+      toggle: (name) =>
+        requestHidden(
+          hiddenLayers.includes(name)
+            ? hiddenLayers.filter((each) => each !== name)
+            : [...hiddenLayers, name],
+        ),
+      set: (names) => requestHidden(names),
+    },
+    support: {
+      carriers: (key, walk) => {
+        flushPending()
+        return support.carriers(key, walk)
+      },
+      carried: (key, walk) => {
+        flushPending()
+        return support.carried(key, walk)
+      },
+    },
     bundling: {
       run: () => {
         if (needsFlush) {
@@ -2894,6 +3084,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (viewControlled && next.view !== undefined && !surface) applyView(next.view)
       if (next.onTimeChange !== undefined) onTimeChange = next.onTimeChange
       if (timeControlled && next.time !== undefined) applyTime(readWindow(next.time))
+      if (next.onLayerChange !== undefined) onLayerChange = next.onLayerChange as LayerListener
+      if (layersControlled && next.hiddenLayers !== undefined) applyHidden(next.hiddenLayers)
       if (next.definition && next.definition !== given) {
         const previous = definition.layout
         given = next.definition
@@ -2903,12 +3095,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
           relayout = definition.layout !== null
         }
         model.setMarks(definition.marks)
+        support.setMarks(definition.marks)
         scene.setDefinition(definition)
         decorations.setDefinition(definition)
         bundles.setBundling(definition.bundling)
         refreshFade()
         applyLayers()
+        refreshLayers()
         if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
+        lightSupport()
         applyStyles()
         applyKeyboard()
         updateCursor()
@@ -3011,6 +3206,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       theme: themeResolver.theme(),
       view,
       window: filter,
+      layers: layerFilter,
       fade: filterFade,
       width,
       height,

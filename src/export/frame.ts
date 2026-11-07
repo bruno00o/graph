@@ -3,6 +3,7 @@ import { type Cubic, loopCurve, loopMinimum, loopReach } from '../core/edge-curv
 import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
+import type { LayerFilter } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import type { TimeFilter } from '../core/time-range'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
@@ -13,10 +14,11 @@ export interface ExportFrame {
   readonly width: number
   readonly height: number
   readonly window?: TimeFilter | null
+  readonly layers?: LayerFilter | null
 }
 
 export function frameSight(frame: ExportFrame): Sight {
-  return { zoom: frame.view.zoom, time: frame.window ?? null }
+  return { zoom: frame.view.zoom, time: frame.window ?? null, layers: frame.layers ?? null }
 }
 
 export interface FrameSource {
@@ -28,6 +30,7 @@ export interface FrameSource {
   readonly width: number
   readonly height: number
   readonly window?: TimeFilter | null
+  readonly layers?: LayerFilter | null
   readonly hulls?: readonly HullShape[]
   readonly bundles?: EdgePaths | null
 }
@@ -78,9 +81,11 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     width: (source.width * zoom) / source.view.zoom,
     height: (source.height * zoom) / source.view.zoom,
     ...(source.window ? { window: source.window } : {}),
+    ...(source.layers ? { layers: source.layers } : {}),
+    ...(source.layers ? { layers: source.layers } : {}),
   }
   if (options.region === 'view') return viewFrame
-  const sight: Sight = { zoom, time: source.window ?? null }
+  const sight: Sight = { zoom, time: source.window ?? null, layers: source.layers ?? null }
   const { nodes, positions, boxes } = source
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
@@ -162,5 +167,6 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     width: maxX - minX + padding * 2,
     height: maxY - minY + padding * 2,
     ...(source.window ? { window: source.window } : {}),
+    ...(source.layers ? { layers: source.layers } : {}),
   }
 }
