@@ -27,7 +27,7 @@ The largest texture, drawing buffer and array texture differ from one device to 
 - **Lens.** The [lens](/docs/lens) radius shrinks to fit the drawing buffer.
 - **Images.** The image atlas holds as many images as the device has array texture layers, 256 at most. Further images are not drawn until a stored image is no longer used.
 - **Edge paths.** [Bundled](/docs/bundling) and [routed](/docs/routing) edges sample their paths more coarsely when the points would not fit, then draw the last edges straight.
-- **Labels.** The glyph atlas grows up to the largest texture size, about 2,000 characters at the minimum, each weight and font counted apart. When it is full, it starts over with the characters of the labels on screen; characters that still do not fit are not drawn.
+- **Labels.** The glyph atlas grows up to the largest texture size, about 2,000 characters at the minimum, each weight and font counted apart. When it is full, it starts over with the characters of the labels on screen. If those do not fit either, the extra characters are not drawn and the atlas waits 8 frames before it starts over again.
 
 ## Optional extensions
 
