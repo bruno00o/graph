@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.14.0](https://github.com/bruno00o/graph/compare/0.13.0...0.14.0) (2026-11-07)
+
+
+### Features
+
+* merge parallel edges, group items by a field and hide states without losing them ([#76](https://github.com/bruno00o/graph/issues/76)) ([0a6fde9](https://github.com/bruno00o/graph/commit/0a6fde912d1e0b6e2702df013c37986229c17a69))
+* route edges around nodes and jump over crossings ([#77](https://github.com/bruno00o/graph/issues/77)) ([782cec4](https://github.com/bruno00o/graph/commit/782cec4d0a807c8f0dcf06bac2ca22493862a7f9))
+* show and hide layers of marks, band edges by layer and walk edge support ([#73](https://github.com/bruno00o/graph/issues/73)) ([eb4b4fd](https://github.com/bruno00o/graph/commit/eb4b4fd59dd511a9feda4c387fb7665296ad54ce))
+* style each end of an edge on its own ([#75](https://github.com/bruno00o/graph/issues/75)) ([07f2796](https://github.com/bruno00o/graph/commit/07f279630070dbb8e9915475f78054355207346f))
+
 ## [0.13.0](https://github.com/bruno00o/graph/compare/0.12.0...0.13.0) (2026-11-07)
 
 
