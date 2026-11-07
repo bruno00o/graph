@@ -67,6 +67,13 @@ What remains costs about 10 microseconds per node or edge drawn, at any canvas s
 
 The first frame takes about 3 seconds more while the shaders compile, and the graph draws nothing at rest. Software rendering suits graphs of a few thousand elements; past that, filter or aggregate the data first.
 
+## Tested browsers
+
+Every pull request opens each example of this site and of the repository in Chromium, Firefox and WebKit, on Linux without a GPU, and a few of them again with the WebGL2 minimum limits. Each page must draw, pick the node under the pointer, select it on click and zoom on the wheel, with no error in the console.
+
+- **Firefox on Linux** creates no WebGL context without a display server, even when headless. To test a page with a graph in headless Firefox on Linux, run it under a virtual display.
+- **WebKit on Linux** has no WebGL2 in workers, so the [force layout](/docs/layout) runs on the CPU there.
+
 ## Device pixel ratio and size
 
 The canvas follows the device pixel ratio, including when a window moves to a screen with another one. A resized graph is drawn again before the browser paints, so dragging a window edge never shows an empty frame. A container of 0 pixels is allowed; the graph warns once in development and draws nothing until it gets a size.
