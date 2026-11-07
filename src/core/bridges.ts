@@ -18,6 +18,7 @@ export interface BridgeSource {
   readonly positions: Positions
   readonly paths: EdgePaths | null
   readonly radius: (node: number) => number
+  readonly shown: (edge: number) => boolean
   readonly maxEdges: number
 }
 
@@ -117,7 +118,7 @@ export class BridgeFinder {
       if (edges.alive[edge] !== 1 || edges.bridge[edge] !== 1) continue
       const source = edges.source[edge] ?? 0
       const target = edges.target[edge] ?? 0
-      if (source === target || edges.geodesic[edge] === 1) continue
+      if (source === target || edges.geodesic[edge] === 1 || !this.#source.shown(edge)) continue
       const count = paths ? paths.count(edge) : 0
       const sx = positions.x(source)
       const sy = positions.y(source)

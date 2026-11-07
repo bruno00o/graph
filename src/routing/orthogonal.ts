@@ -71,7 +71,12 @@ class Path {
 function free(obstacles: Obstacles, values: readonly number[]): boolean {
   for (let at = 0; at + 3 < values.length; at += 2) {
     if (
-      obstacles.blocked(values[at] ?? 0, values[at + 1] ?? 0, values[at + 2] ?? 0, values[at + 3] ?? 0)
+      obstacles.blocked(
+        values[at] ?? 0,
+        values[at + 1] ?? 0,
+        values[at + 2] ?? 0,
+        values[at + 3] ?? 0,
+      )
     ) {
       return false
     }
@@ -196,7 +201,8 @@ export class OrthogonalRouter {
           if (stats) stats.blocked++
         }
       }
-      for (let at = 2; at + 1 < chosen.length; at += 2) path.to(chosen[at] ?? 0, chosen[at + 1] ?? 0)
+      for (let at = 2; at + 1 < chosen.length; at += 2)
+        path.to(chosen[at] ?? 0, chosen[at + 1] ?? 0)
     }
     this.#offsets[edge] = this.#points.length >> 1
     for (const value of path.values) this.#points.push(value)

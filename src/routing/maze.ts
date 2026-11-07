@@ -1,5 +1,7 @@
 import type { Obstacles } from './obstacles'
 
+const sideCost = 24
+
 export interface MazeLimits {
   readonly obstacles: number
   readonly points: number
@@ -156,7 +158,8 @@ export class Maze {
     if (points > limits.points) return null
     const cols = nx - 1
     const cells = cols * (ny - 1)
-    if (this.#cover.length < cells) this.#cover = new Uint8Array(Math.max(cells, this.#cover.length * 2))
+    if (this.#cover.length < cells)
+      this.#cover = new Uint8Array(Math.max(cells, this.#cover.length * 2))
     const cover = this.#cover
     cover.fill(0, 0, cells)
     for (const index of ids) {
@@ -207,7 +210,7 @@ export class Maze {
       return Math.abs(dx) + Math.abs(dy) + turns * bend
     }
     const away = (direction: number): number =>
-      axis === 0 ? 0 : (direction & 1) === (axis === 1 ? 1 : 0) ? 0 : bend
+      axis === 0 ? 0 : (direction & 1) === (axis === 1 ? 1 : 0) ? 0 : bend * sideCost
     this.#size = 0
     for (let direction = 0; direction < 4; direction++) {
       const state = start * 4 + direction
@@ -237,12 +240,10 @@ export class Maze {
         const ni = i + (stepX[next] ?? 0)
         const nj = j + (stepY[next] ?? 0)
         if (ni < 0 || nj < 0 || ni >= nx || nj >= ny || !open(i, j, next)) continue
-        const length = Math.abs((xs[ni] ?? 0) - (xs[i] ?? 0)) + Math.abs((ys[nj] ?? 0) - (ys[j] ?? 0))
+        const length =
+          Math.abs((xs[ni] ?? 0) - (xs[i] ?? 0)) + Math.abs((ys[nj] ?? 0) - (ys[j] ?? 0))
         const total =
-          base +
-          length +
-          (turn !== 0 ? bend : 0) +
-          (nj * nx + ni === goal ? away(next) : 0)
+          base + length + (turn !== 0 ? bend : 0) + (nj * nx + ni === goal ? away(next) : 0)
         const target = (nj * nx + ni) * 4 + next
         if (closed[target] === generation) continue
         if (seen[target] === generation && (cost[target] ?? 0) <= total) continue

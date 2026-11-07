@@ -48,7 +48,14 @@ export class Nudger {
     return k === this.#routes.offsets[r] || k === (this.#routes.offsets[r + 1] ?? 0) - 1
   }
 
-  #walk(fa: number, stepA: number, fb: number, stepB: number, axis: number, travel: number): number {
+  #walk(
+    fa: number,
+    stepA: number,
+    fb: number,
+    stepB: number,
+    axis: number,
+    travel: number,
+  ): number {
     let factor = 1
     let a = axis
     let s = travel
@@ -155,13 +162,7 @@ export class Nudger {
     return [center - reach, center + reach]
   }
 
-  #arrange(
-    segments: number[],
-    lows: number[],
-    highs: number[],
-    line: number,
-    axis: number,
-  ): void {
+  #arrange(segments: number[], lows: number[], highs: number[], line: number, axis: number): void {
     const m = segments.length
     const rank = Array.from({ length: m }, (_, s) => s)
     rank.sort((p, q) => this.#compare(segments[p] ?? 0, segments[q] ?? 0, axis))

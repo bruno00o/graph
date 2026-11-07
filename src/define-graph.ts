@@ -120,7 +120,9 @@ function resolveBackground(
   })
 }
 
-function resolveBridges(options: BridgeOptions | boolean | null | undefined): ResolvedBridges | null {
+function resolveBridges(
+  options: BridgeOptions | boolean | null | undefined,
+): ResolvedBridges | null {
   if (!options) return null
   const given = options === true ? {} : options
   const shape = given.shape ?? 'arc'

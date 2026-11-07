@@ -14,7 +14,7 @@ export const squareShare = 0.86
 export const diamondShare = 1.2
 export const maxStations = 33
 
-const arcSteps = 4
+const arcSteps = 8
 const searchSteps = 24
 const tiny = 1e-9
 
@@ -56,7 +56,14 @@ function inside(outline: Outline, x: number, y: number): boolean {
   return dx < outline.halfWidth && dy < outline.halfHeight
 }
 
-function exit(outline: Outline, x: number, y: number, ux: number, uy: number, limit: number): number {
+function exit(
+  outline: Outline,
+  x: number,
+  y: number,
+  ux: number,
+  uy: number,
+  limit: number,
+): number {
   if (!inside(outline, x, y)) return 0
   let lo = 0
   let hi = limit

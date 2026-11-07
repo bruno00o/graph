@@ -1,4 +1,6 @@
+import type { BridgeSet } from '../core/bridges'
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
+import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
 import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
@@ -10,6 +12,7 @@ import type { LabelArea, LensFrame, Renderer, RenderFrame, RenderInput } from '.
 import type { View } from '../types'
 import { arcVertex } from './arc-shaders'
 import { createBackdrop } from './backdrop'
+import { bridgeUnit } from './bridge-glsl'
 import { bundleUnits, createBundlePass } from './bundle-pass'
 import { bundleCorners } from './bundle-shaders'
 import { EdgeCover, layerCap } from './edge-cover'
@@ -42,7 +45,9 @@ import {
   cornerLabel,
   cornerNode,
   curveVertex,
+  edgeFragmentOf,
   edgeVertex,
+  edgeVertexOf,
   labelFragment,
   labelVertex,
   lensFragment,
@@ -84,6 +89,7 @@ const units = {
   edgeZoom: 15,
   nodeTime: 16,
   edgeTime: 17,
+  bridgeData: bridgeUnit,
 } as const
 const farZoom = 3e38
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -269,6 +275,7 @@ function createRenderer(
       readonly bundleMix: WebGLUniformLocation | null
       readonly pathLanes: WebGLUniformLocation | null
       readonly pathMeasured: WebGLUniformLocation | null
+      readonly bridgeLook: WebGLUniformLocation | null
       readonly arcPiece: WebGLUniformLocation | null
     }
   >()
@@ -287,6 +294,7 @@ function createRenderer(
       bundleMix: gl.getUniformLocation(program, 'bundleMix'),
       pathLanes: gl.getUniformLocation(program, 'pathLanes'),
       pathMeasured: gl.getUniformLocation(program, 'pathMeasured'),
+      bridgeLook: gl.getUniformLocation(program, 'bridgeLook'),
       arcPiece: gl.getUniformLocation(program, 'arcPiece'),
     })
   }
@@ -533,6 +541,71 @@ function createRenderer(
     readonly main: WebGLVertexArrayObject
     readonly overlay: WebGLVertexArrayObject
   } | null = null
+
+  let bridgePass: {
+    readonly program: WebGLProgram
+    readonly main: WebGLVertexArrayObject
+    readonly overlay: WebGLVertexArrayObject
+  } | null = null
+  let bridgeTexture: WebGLTexture | null = null
+  let bridgeVersion = -1
+  let bridgeSet: BridgeSet | null = null
+  let bridgeRadius = 0
+  let bridgeGap = 0
+  let bridgeBytes = 0
+
+  function bridged(): NonNullable<typeof bridgePass> {
+    if (bridgePass) return bridgePass
+    const program = createProgram(gl, edgeVertexOf(true), edgeFragmentOf(true, true), blocks)
+    prepare(program)
+    programs.push(program)
+    vertexCounts.set(program, cornerEdge.length / 3)
+    bridgePass = {
+      program,
+      main: createVertexArray(gl, program, [corner(edgeCorner, 3), instance(edgeIndices)]),
+      overlay: createVertexArray(gl, program, [
+        corner(edgeCorner, 3),
+        instance(edgeOverlayIndices),
+      ]),
+    }
+    return bridgePass
+  }
+
+  function syncBridges(set: BridgeSet | null | undefined): boolean {
+    const next = set && set.count > 0 ? set : null
+    const radius = next ? next.size / 2 : 0
+    const gap = next?.shape === 'gap' ? 1 : 0
+    let changed = next !== bridgeSet || radius !== bridgeRadius || gap !== bridgeGap
+    bridgeSet = next
+    bridgeRadius = radius
+    bridgeGap = gap
+    if (next && next.version !== bridgeVersion) {
+      bridgeVersion = next.version
+      if (!bridgeTexture) {
+        bridgeTexture = gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D, bridgeTexture)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+      }
+      gl.bindTexture(gl.TEXTURE_2D, bridgeTexture)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      const rows = next.data.length / 4 / pathTextureWidth
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA32UI,
+        pathTextureWidth,
+        rows,
+        0,
+        gl.RGBA_INTEGER,
+        gl.UNSIGNED_INT,
+        next.data,
+      )
+      bridgeBytes = next.data.byteLength
+      changed = true
+    }
+    return changed
+  }
 
   function curves(): NonNullable<typeof curvePass> {
     if (curvePass) return curvePass
@@ -1151,7 +1224,11 @@ function createRenderer(
 
   function textureBytes(): number {
     let bytes =
-      paletteRows * paletteWidth * 4 + atlasRows * atlasWidth + images.bytes + bundles.bytes
+      paletteRows * paletteWidth * 4 +
+      atlasRows * atlasWidth +
+      images.bytes +
+      bundles.bytes +
+      bridgeBytes
     for (const texture of [...nodeTextures, ...edgeTextures, ...rangeTextures]) {
       bytes += texture.data.byteLength
     }
@@ -1175,6 +1252,7 @@ function createRenderer(
     if (location?.bundleMix) gl.uniform1f(location.bundleMix, bundles.mix)
     if (location?.pathLanes) gl.uniform1f(location.pathLanes, bundles.lanes)
     if (location?.pathMeasured) gl.uniform1f(location.pathMeasured, bundles.measured)
+    if (location?.bridgeLook) gl.uniform2f(location.bridgeLook, bridgeRadius, bridgeGap)
     if (location?.arcPiece) gl.uniform1f(location.arcPiece, arcPiece)
     gl.bindVertexArray(vao)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, count)
@@ -1289,13 +1367,15 @@ function createRenderer(
           gl.stencilFunc(gl.GREATER, edgeLayers, 0xff)
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR)
         }
-        draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
+        if (bridgeSet) draw(bridged().program, bridged().main, edgeCapacity, layer.slot, 0)
+        else draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
         if (curved.size > 0) {
           const pass = curves()
           draw(pass.program, pass.main, curved.size, layer.slot, 0)
         }
-        bundles.draw((program, vao, count, vertices) =>
-          draw(program, vao, count, layer.slot, 0, vertices),
+        bundles.draw(
+          (program, vao, count, vertices) => draw(program, vao, count, layer.slot, 0, vertices),
+          bridgeSet !== null,
         )
         if (spans > 0) draw(arcs().program, arcs().spans, spans, layer.slot, 0)
         if (geodesics.size > 0) drawGeodesics(arcs().geodesic, geodesics.size, layer.slot, 0, globe)
@@ -1310,12 +1390,15 @@ function createRenderer(
     draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
     draw(labelProgram, set.edgeMain, layer.edgeMain.count, 0, 0)
     draw(labelProgram, set.main, layer.main.count, 0, 0)
-    draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
+    if (bridgeSet) draw(bridged().program, bridged().overlay, edgeOverlayCount, 0, 1)
+    else draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
     if (curvePass && curved.size > 0) {
       draw(curvePass.program, curvePass.overlay, edgeOverlayCount, 0, 1)
     }
-    bundles.overlay(edgeOverlayCount, (program, vao, count, vertices) =>
-      draw(program, vao, count, 0, 1, vertices),
+    bundles.overlay(
+      edgeOverlayCount,
+      (program, vao, count, vertices) => draw(program, vao, count, 0, 1, vertices),
+      bridgeSet !== null,
     )
     if (globe || geodesics.size > 0) {
       drawGeodesics(arcs().overlay, edgeOverlayCount, 0, 1, globe)
@@ -1445,6 +1528,7 @@ function createRenderer(
         moveLabels()
         touch()
       }
+      if (syncBridges(next.bridges)) touch()
       if (backdrop.sync(next)) touch()
       const changed = next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full
       if (changed) invalidateLabels()
@@ -1599,6 +1683,11 @@ function createRenderer(
       images.destroy()
       backdrop.destroy()
       bundles.destroy()
+      if (bridgeTexture) gl.deleteTexture(bridgeTexture)
+      if (bridgePass) {
+        gl.deleteVertexArray(bridgePass.main)
+        gl.deleteVertexArray(bridgePass.overlay)
+      }
       releaseLens()
       for (const set of labelSets) destroyLabelSet(set)
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
@@ -1644,6 +1733,10 @@ function createRenderer(
       gl.bindTexture(gl.TEXTURE_2D, texture)
     }
     bundles.bind()
+    if (bridgeTexture) {
+      gl.activeTexture(gl.TEXTURE0 + units.bridgeData)
+      gl.bindTexture(gl.TEXTURE_2D, bridgeTexture)
+    }
     gl.activeTexture(gl.TEXTURE0 + units.images)
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, images.texture)
   }

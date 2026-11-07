@@ -1,7 +1,9 @@
+import { bridgeData, pathBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
 import { edgeData, header, nodeData } from './shaders'
 
-export const bundleVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
+export function bundleVertexOf(bridged: boolean): string {
+  return `${header}${nodeData}${edgeData}${bundlePath}${bridged ? bridgeData : ''}
 uniform sampler2D pathStations;
 uniform float pathMeasured;
 float stationOf(uvec4 path, int k, float total, float spacing) {
@@ -73,7 +75,7 @@ void main() {
   float flow = edgeFlow(mask, style.w);
   uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
   float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
-  float head = max(body, arrowHalf + halo + margin);
+  float head = max(body, arrowHalf + halo + margin);${bridged ? pathBridges : ''}
   bool wide = (startHead > 0.0 && before <= start + startHead)
     || (endHead > 0.0 && after >= end - endHead);
   float across = corner.y * (wide ? head : body);
@@ -92,6 +94,9 @@ void main() {
   gl_Position = visible > 0.5 ? toClip(here + normal * across) : hidden;
 }
 `
+}
+
+export const bundleVertex: string = bundleVertexOf(false)
 
 export function bundleCorners(stations: number): Float32Array {
   const values = new Float32Array(stations * 4)

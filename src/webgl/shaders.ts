@@ -2,6 +2,7 @@ import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-c
 import { arcThreshold } from '../core/geo-arc'
 import { leastFade } from '../core/time-range'
 import { zoomFade } from '../core/zoom-range'
+import { bridgeData, bridgeFragment, straightBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
 
@@ -459,7 +460,8 @@ void main() {
 }
 `
 
-export const edgeVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
+export function edgeVertexOf(bridged: boolean): string {
+  return `${header}${nodeData}${edgeData}${bundlePath}${bridged ? bridgeData : ''}
 in vec3 corner;
 in uint instance;
 out vec2 vPos;
@@ -534,7 +536,7 @@ void main() {
   float flow = edgeFlow(mask, style.w);
   uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
   float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
-  head = max(body, head);
+  head = max(body, head);${bridged ? straightBridges : ''}
   float along = corner.x < 0.5 ? start - margin
     : corner.x < 1.5 ? start + startHead
     : corner.x < 2.5 ? end - endHead
@@ -559,6 +561,9 @@ void main() {
   gl_Position = visible > 0.5 ? toClip(ps + dir * along + normal * across) : hidden;
 }
 `
+}
+
+export const edgeVertex: string = edgeVertexOf(false)
 
 const segments = curveSegments.toFixed(1)
 
@@ -728,8 +733,8 @@ void main() {
 }
 `
 
-function edgeFragmentOf(clipped: boolean): string {
-  return `${header}
+export function edgeFragmentOf(clipped: boolean, bridged = false): string {
+  return `${header}${bridged ? bridgeFragment : ''}
 in vec2 vPos;${clipped ? '\nin float vClip;' : ''}
 flat in float vStart;
 flat in float vEnd;
@@ -758,8 +763,10 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
       head = true;
     }
   }
-  float span = smoothstep(vStart - aa, vStart + aa, along) * (1.0 - smoothstep(vEnd - aa, vEnd + aa, along));
-  float coverage = (1.0 - smoothstep(halfWidth - aa, halfWidth + aa, abs(vPos.y))) * span;
+  float keep = 1.0;
+  float across = ${bridged ? 'bridgeAcross(along, vPos.y, aa, keep)' : 'abs(vPos.y)'};
+  float span = smoothstep(vStart - aa, vStart + aa, along) * (1.0 - smoothstep(vEnd - aa, vEnd + aa, along)) * keep;
+  float coverage = (1.0 - smoothstep(halfWidth - aa, halfWidth + aa, across)) * span;
   if (!head && vDash != 0u) {
     float width = vHalfWidth * 2.0;
     float offset = along - vStart - vFlow;
@@ -771,13 +778,13 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
       float period = max(width * 2.5, 4.0);
       float m = mod(offset, period) - period * 0.5;
       float radius = max(width * 0.6, 1.0);
-      coverage = (1.0 - smoothstep(radius - aa, radius + aa, length(vec2(m, vPos.y)))) * span;
+      coverage = (1.0 - smoothstep(radius - aa, radius + aa, length(vec2(m, across)))) * span;
     }
   }
   float alpha = vColor.a * coverage * vOpacity;
   vec4 result = vec4(vColor.rgb * alpha, alpha);
   if (vHaloWidth > 0.0) {
-    float distance = max(abs(vPos.y) - halfWidth, 0.0);
+    float distance = max(across - halfWidth, 0.0);
     float h = haloColor.a * (1.0 - smoothstep(0.0, vHaloWidth, distance)) * span * vOpacity;
     result += vec4(haloColor.rgb * h, h) * (1.0 - result.a);
   }

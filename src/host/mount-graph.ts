@@ -847,6 +847,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       },
       zoom: () => store.get().view.zoom,
       boxes: () => routeBoxes(),
+      layers: () => layerFilter,
       holder: (index) => {
         if (!projection.active) return -1
         const above = hierarchy.parent[index] ?? -1
@@ -869,6 +870,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     boxes: routeBoxes,
     busy: () => session !== null || positionAnimations.length > 0 || Boolean(gesture?.drag),
     request: () => request(),
+    layers: () => layerFilter,
   })
   const decorations = createDecorations({
     element,
@@ -916,6 +918,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const next = scene.markLayers.filter(new Set(hiddenLayers))
     if (next === layerFilter) return
     layerFilter = next
+    bundles.layered()
+    bridges.changed()
     const hovered = store.get().hovered
     if (hovered && !targetShown(hovered)) setHovered(null, null)
     const focused = store.get().focused

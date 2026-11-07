@@ -209,7 +209,9 @@ export class EdgePaths {
     out.y = ay + (by - ay) * t
     if (!old.measured) return u
     const stations = old.stations
-    const sa = (stations[first * 2] ?? 0) + ((stations[first * 2 + 1] ?? 0) - (stations[first * 2] ?? 0)) * mix
+    const sa =
+      (stations[first * 2] ?? 0) +
+      ((stations[first * 2 + 1] ?? 0) - (stations[first * 2] ?? 0)) * mix
     const sb =
       (stations[first * 2 + 2] ?? 0) +
       ((stations[first * 2 + 3] ?? 0) - (stations[first * 2 + 2] ?? 0)) * mix
@@ -422,12 +424,7 @@ export class EdgePaths {
     this.#finish(data, stations, old.measured)
   }
 
-  route(
-    result: PathResult | null,
-    radius: number,
-    outline: OutlineOf,
-    positions: Positions,
-  ): void {
+  route(result: PathResult | null, radius: number, outline: OutlineOf, positions: Positions): void {
     const listed = result?.edges ?? new Uint32Array(0)
     const offsets = result?.paths.offsets
     const points = result?.paths.points
