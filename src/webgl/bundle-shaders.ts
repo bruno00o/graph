@@ -1,9 +1,9 @@
 import { bridgeData, pathBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
-import { edgeData, header, nodeData } from './shaders'
+import { edgeData, endData, header, nodeData } from './shaders'
 
 export function bundleVertexOf(bridged: boolean): string {
-  return `${header}${nodeData}${edgeData}${bundlePath}${bridged ? bridgeData : ''}
+  return `${header}${nodeData}${edgeData}${endData}${bundlePath}${bridged ? bridgeData : ''}
 uniform sampler2D pathStations;
 uniform float pathMeasured;
 float stationOf(uvec4 path, int k, float total, float spacing) {
@@ -11,8 +11,8 @@ float stationOf(uvec4 path, int k, float total, float spacing) {
   vec2 station = texelFetch(pathStations, texel(path.x + uint(k)), 0).xy;
   return mix(station.x, station.y, bundleMix) * total;
 }
-in vec2 corner;
-in uint instance;
+layout(location = 0) in vec2 corner;
+layout(location = 1) in uint instance;
 out vec2 vPos;
 flat out float vStart;
 flat out float vEnd;
@@ -22,7 +22,13 @@ flat out float vArrowHalf;
 flat out float vHaloWidth;
 flat out uint vDash;
 flat out uint vArrow;
+#ifdef ENDS
+flat out uint vNear;
+flat out uint vFar;
+flat out vec3 vSplit;
+#else
 flat out vec4 vColor;
+#endif
 flat out float vOpacity;
 flat out float vFlow;
 void main() {
@@ -38,7 +44,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  Look look = lineLook(mask, style);
   look.opacity *= edgeShown(t, topology);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
@@ -64,17 +70,17 @@ void main() {
   float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a));
   float end = total - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d));
   float visible = end - start;
-  float width = max(look.strokeWidth, 0.5);
+  float flow = edgeFlow(mask, style.w);
+  Line line = edgeLine(t, topology, style, look, flow);
+  float width = max(line.width, line.farWidth);
   uint arrow = (packed >> 2u) & 3u;
-  float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
   float arrowHalf = max(width * 1.6, 3.0);
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float margin = 0.5 / pixelRatio + 0.25;
-  float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
-  float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
-  float flow = edgeFlow(mask, style.w);
-  uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
-  float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
+  float startHead = (arrow & 1u) != 0u && visible > line.width * 8.0 ? max(line.width * 4.0, 6.0) : 0.0;
+  float endHead = (arrow & 2u) != 0u && visible > line.farWidth * 8.0 ? max(line.farWidth * 4.0, 6.0) : 0.0;
+  bool dotted = line.dash == 2u || line.farDash == 2u;
+  float body = (dotted ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
   float head = max(body, arrowHalf + halo + margin);${bridged ? pathBridges : ''}
   bool wide = (startHead > 0.0 && before <= start + startHead)
     || (endHead > 0.0 && after >= end - endHead);
@@ -82,14 +88,20 @@ void main() {
   vPos = vec2(along, across);
   vStart = start;
   vEnd = end;
-  vHalfWidth = width * 0.5;
-  vArrowLength = arrowLength;
-  vArrowHalf = arrowHalf;
+  vHalfWidth = line.width * 0.5;
+  vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
+  vArrowHalf = max(line.width * 1.6, 3.0);
   vHaloWidth = halo;
-  vDash = dash;
+  vDash = line.dash | (line.farDash << 2u);
   vFlow = flow * flowTime;
   vArrow = arrow;
-  vColor = paletteColor(look.stroke);
+#ifdef ENDS
+  vNear = packColor(paletteColor(line.color));
+  vFar = line.farColor == line.color ? vNear : packColor(paletteColor(line.farColor));
+  vSplit = splitOf(line, start, end, endHead);
+#else
+  vColor = paletteColor(line.color);
+#endif
   vOpacity = look.opacity;
   gl_Position = visible > 0.5 ? toClip(here + normal * across) : hidden;
 }

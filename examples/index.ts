@@ -9,6 +9,7 @@ for (const [href, text] of [
   ['./collab/', messages.collab],
   ['./explore/', messages.explore],
   ['./edges/', messages.edges],
+  ['./ends/', messages.ends],
   ['./groups/', messages.groups],
   ['./nodes/', messages.nodes],
   ['./labels/', messages.labels],

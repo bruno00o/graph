@@ -123,6 +123,42 @@ describe('createLegend', () => {
     expect(graph.store.state.states.faded).toEqual({ nodes: [], edges: [] })
   })
 
+  it('counts each end of an edge under its own category', () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [
+            edges<Link>(links, {
+              source: 'from',
+              target: 'to',
+              color: 'group',
+              ends: { target: { color: () => 'east' } },
+            }),
+            nodes<Item>(items, { color: 'group' }),
+          ],
+          states: { match: {} },
+        }),
+        ariaLabel: 'graph',
+      },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const legend = createLegend(graph as unknown as GraphInstance<'match'>, { highlight: 'match' })
+    const state = legend.store.state
+    const categories = state.color?.type === 'categories' ? state.color.items : []
+    expect(categories.map((item) => [item.value, item.nodes, item.edges])).toEqual([
+      ['north', 2, 0],
+      ['south', 1, 1],
+      ['east', 0, 1],
+    ])
+    expect(legend.keys('c:string:east')).toEqual({ nodes: [], edges: ['ab'] })
+    legend.destroy()
+    graph.destroy()
+  })
+
   it('refuses a state missing from the definition', () => {
     const graph = mount()
     expect(() => createLegend(graph, { highlight: 'missing' as 'match' })).toThrow(/unknown state/)

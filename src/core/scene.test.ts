@@ -441,4 +441,102 @@ describe('createScene', () => {
     expect(again.layers).toBe(false)
     expect(again.palette).toBe(false)
   })
+
+  it('writes the look and labels of each end of an edge', () => {
+    type Pair = { id: string; from: string; to: string; out: number; back: number }
+    const { scene, model } = setup({
+      marks: [
+        nodes<Item>([{ id: 'a' }, { id: 'b' }]),
+        edges<Pair>([{ id: 'ab', from: 'a', to: 'b', out: 0, back: 10 }], {
+          ...linkOptions,
+          ends: {
+            split: () => 1.4,
+            source: { color: 'out', width: 'out', dash: () => 'dashed', label: () => 'out' },
+            target: {
+              color: 'back',
+              stroke: () => 'red',
+              width: 'back',
+              label: { text: () => 'back', background: true, size: 14 },
+            },
+          },
+        }),
+      ],
+      scales: {
+        color: { type: 'sequential', range: ['white', 'black'] },
+        width: (value) => 1 + value / 2,
+      },
+    })
+    const index = model.edge('ab')?.index ?? -1
+    const ends = scene.edges.ends
+    if (!ends) throw new Error('no ends')
+    const color = (id: number) => scene.palette.colors[ends.color[id] ?? -1]
+    expect(ends.styled[index]).toBe(1)
+    expect(ends.styledCount).toBe(1)
+    expect(ends.split[index]).toBe(1)
+    expect(color(index * 2)).toBe('white')
+    expect(color(index * 2 + 1)).toBe('red')
+    expect([ends.width[index * 2], ends.width[index * 2 + 1]]).toEqual([1, 6])
+    expect(scene.edges.width[index]).toBe(6)
+    expect([ends.dash[index * 2], ends.dash[index * 2 + 1]]).toEqual([dashCodes.dashed, 0])
+    expect([ends.label[index * 2], ends.label[index * 2 + 1]]).toEqual(['out', 'back'])
+    expect(ends.labelBackground[index * 2]).toBe(noColor)
+    expect(ends.labelBackground[index * 2 + 1]).not.toBe(noColor)
+    expect(ends.labelSize[index * 2 + 1]).toBe(14)
+    expect(scene.scales().endColor.slice(index * 2, index * 2 + 2)).toEqual([0, 10])
+  })
+
+  it('falls back to the edge look and clears ends when a mark drops them', () => {
+    const items = nodes<Item>([{ id: 'a' }, { id: 'b' }])
+    const link: Link = { id: 'ab', from: 'a', to: 'b', kind: 'x' }
+    const { scene, model, render } = setup({
+      marks: [
+        items,
+        edges<Link>([link], {
+          ...linkOptions,
+          color: 'kind',
+          dash: 'dotted',
+          ends: { target: { label: 'id' } },
+        }),
+      ],
+    })
+    const index = model.edge('ab')?.index ?? -1
+    const ends = scene.edges.ends
+    if (!ends) throw new Error('no ends')
+    expect(ends.styled[index]).toBe(0)
+    expect(ends.color[index * 2 + 1]).toBe(scene.edges.color[index])
+    expect(ends.dash[index * 2 + 1]).toBe(dashCodes.dotted)
+    expect(ends.label[index * 2 + 1]).toBe('ab')
+    expect(ends.labeled).toBe(1)
+    render({ marks: [items, edges<Link>([link], linkOptions)] })
+    expect(ends.label[index * 2 + 1]).toBeNull()
+    expect(ends.labeled).toBe(0)
+    expect(ends.split[index]).toBeNaN()
+  })
+
+  it('shares the color and width extents with the values of the ends', () => {
+    type Pair = { id: string; from: string; to: string; out: number }
+    const items = nodes<Item>(
+      [
+        { id: 'a', score: 0 },
+        { id: 'b', score: 10 },
+      ],
+      { color: 'score' },
+    )
+    const pair = (out: number) =>
+      edges<Pair>([{ id: 'ab', from: 'a', to: 'b', out }], {
+        ...linkOptions,
+        ends: { source: { color: 'out', width: 'out' } },
+      })
+    const scales = {
+      color: { type: 'sequential', range: ['white', 'black'] },
+      width: { range: [1, 5] },
+    } as const
+    const { render, fill, scene, model } = setup({ marks: [items, pair(20)], scales })
+    expect(fill('b')).not.toBe('black')
+    expect(scene.scales().widthExtent).toEqual([20, 20])
+    const index = model.edge('ab')?.index ?? -1
+    render({ marks: [items, pair(10)], scales })
+    expect(fill('b')).toBe('black')
+    expect(scene.palette.colors[scene.edges.ends?.color[index * 2] ?? -1]).toBe('black')
+  })
 })

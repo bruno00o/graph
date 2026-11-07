@@ -25,7 +25,7 @@ export class EdgeCover {
     this.#paletteCount = count
   }
 
-  set(index: number, alive: boolean, opacity: number, color: number): void {
+  set(index: number, alive: boolean, opacity: number, color: number, other: number = color): void {
     if (index >= this.#levels.length) {
       const levels = new Uint16Array(Math.max(64, this.#levels.length * 2, index + 1)).fill(absent)
       levels.set(this.#levels)
@@ -33,7 +33,13 @@ export class EdgeCover {
     }
     const before = this.#levels[index] ?? absent
     const level = alive
-      ? Math.max(0, Math.min(255, Math.floor(opacity * this.alphaOf(color) * 255)))
+      ? Math.max(
+          0,
+          Math.min(
+            255,
+            Math.floor(opacity * Math.min(this.alphaOf(color), this.alphaOf(other)) * 255),
+          ),
+        )
       : absent
     if (before === level) return
     if (before !== absent) this.#counts[before] = (this.#counts[before] ?? 1) - 1

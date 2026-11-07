@@ -105,6 +105,59 @@ export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number
   )
 }
 
+export interface EdgeLine {
+  readonly color: number
+  readonly farColor: number
+  readonly width: number
+  readonly farWidth: number
+  readonly dash: number
+  readonly farDash: number
+  readonly split: number
+}
+
+export function edgeLine(edges: EdgeColumns, states: StateBuffers, index: number): EdgeLine {
+  const probe = resolve(
+    states,
+    states.edgeMask[index] ?? 0,
+    {
+      opacity: 1,
+      strokeWidth: -1,
+      halo: false,
+      label: true,
+      fill: noPaint,
+      stroke: noPaint,
+      outline: noPaint,
+      outlineWidth: 0,
+      labelColor: noPaint,
+      flow: 0,
+    },
+    maxStates,
+  )
+  const ends = edges.ends
+  const split = ends !== null && ends.styled[index] === 1
+  const painted = probe.stroke !== noPaint
+  const sized = probe.strokeWidth >= 0
+  const color = painted
+    ? probe.stroke
+    : split
+      ? (ends.color[index * 2] ?? 0)
+      : (edges.color[index] ?? 0)
+  const width = Math.max(
+    sized ? probe.strokeWidth : split ? (ends.width[index * 2] ?? 0) : (edges.width[index] ?? 0),
+    0.5,
+  )
+  const dash = split ? (ends.dash[index * 2] ?? 0) : (edges.dash[index] ?? 0)
+  return {
+    color,
+    farColor: painted || !split ? color : (ends.color[index * 2 + 1] ?? 0),
+    width,
+    farWidth: sized || !split ? width : Math.max(ends.width[index * 2 + 1] ?? 0, 0.5),
+    dash,
+    farDash: split ? (ends.dash[index * 2 + 1] ?? 0) : dash,
+    split: split ? (ends.split[index] ?? 0.5) : -1,
+  }
+}
+
 export function edgeLook(edges: EdgeColumns, states: StateBuffers, index: number): Look {
   return resolve(
     states,

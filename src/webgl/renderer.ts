@@ -48,12 +48,15 @@ import {
   edgeFragmentOf,
   edgeVertex,
   edgeVertexOf,
+  endSplitFlag,
+  endWidthUnit,
   labelFragment,
   labelVertex,
   lensFragment,
   lensVertex,
   nodeFragment,
   nodeVertex,
+  withEnds,
 } from './shaders'
 
 function blockBindings(
@@ -89,6 +92,7 @@ const units = {
   edgeZoom: 15,
   nodeTime: 16,
   edgeTime: 17,
+  edgeEnds: 18,
   bridgeData: bridgeUnit,
 } as const
 const farZoom = 3e38
@@ -222,7 +226,9 @@ function createRenderer(
   const edgeZoom = new DataTexture(gl, format.rg32f, f32)
   const nodeTime = new DataTexture(gl, format.rgba32f, f32)
   const edgeTime = new DataTexture(gl, format.rgba32f, f32)
-  const rangeTextures = [nodeZoom, edgeZoom, nodeTime, edgeTime]
+  const edgeEnds = new DataTexture(gl, format.rgba32ui, u32)
+  const rangeTextures = [nodeZoom, edgeZoom, nodeTime, edgeTime, edgeEnds]
+  let endsUsed = false
   let zoomUsed = false
   let timeUsed = false
   const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor, nodeBox]
@@ -281,7 +287,10 @@ function createRenderer(
   >()
   let arcPiece = 0
   let flowTime = 0
-  function prepare(program: WebGLProgram): void {
+  const endSources = new Map<WebGLProgram, readonly [string, string]>()
+  const endPrograms = new Map<WebGLProgram, WebGLProgram>()
+  function prepare(program: WebGLProgram, sources?: readonly [string, string]): void {
+    if (sources) endSources.set(program, sources)
     gl.useProgram(program)
     for (const [name, unit] of Object.entries(units)) {
       const location = gl.getUniformLocation(program, name)
@@ -299,6 +308,18 @@ function createRenderer(
     })
   }
   for (const program of programs) prepare(program)
+  endSources.set(edgeProgram, [edgeVertex, clippedEdgeFragment])
+  function withEndsOf(program: WebGLProgram): WebGLProgram {
+    const made = endPrograms.get(program)
+    if (made) return made
+    const sources = endSources.get(program)
+    if (!sources) return program
+    const created = createProgram(gl, withEnds(sources[0]), withEnds(sources[1]), blocks)
+    prepare(created)
+    programs.push(created)
+    endPrograms.set(program, created)
+    return created
+  }
   gl.useProgram(labelProgram)
   gl.uniform1f(gl.getUniformLocation(labelProgram, 'atlasFontSize'), atlasFontSize)
 
@@ -523,7 +544,7 @@ function createRenderer(
   function arcs(): NonNullable<typeof arcPass> {
     if (arcPass) return arcPass
     const program = createProgram(gl, arcVertex, clippedEdgeFragment, blocks)
-    prepare(program)
+    prepare(program, [arcVertex, clippedEdgeFragment])
     programs.push(program)
     vertexCounts.set(program, arcStations * 2)
     const strip = corner(arcCorner)
@@ -557,8 +578,10 @@ function createRenderer(
 
   function bridged(): NonNullable<typeof bridgePass> {
     if (bridgePass) return bridgePass
-    const program = createProgram(gl, edgeVertexOf(true), edgeFragmentOf(true, true), blocks)
-    prepare(program)
+    const vertex = edgeVertexOf(true)
+    const fragment = edgeFragmentOf(true, true)
+    const program = createProgram(gl, vertex, fragment, blocks)
+    prepare(program, [vertex, fragment])
     programs.push(program)
     vertexCounts.set(program, cornerEdge.length / 3)
     bridgePass = {
@@ -611,7 +634,7 @@ function createRenderer(
   function curves(): NonNullable<typeof curvePass> {
     if (curvePass) return curvePass
     const program = createProgram(gl, curveVertex, clippedEdgeFragment, blocks)
-    prepare(program)
+    prepare(program, [curveVertex, clippedEdgeFragment])
     programs.push(program)
     vertexCounts.set(program, cornerCurve.length / 3)
     curvePass = {
@@ -828,9 +851,7 @@ function createRenderer(
     const bend = edges.bend[index] ?? 0
     edgeStyle.data[at + 2] = bend
     edgeStyle.data[at + 3] = edges.flow[index] ?? 0
-    if (capEdges) {
-      cover.set(index, edges.alive[index] === 1, edges.opacity[index] ?? 1, edges.color[index] ?? 0)
-    }
+    if (capEdges) coverEdge(edges, index)
     const isCurved =
       edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
     const isGeodesic = edges.alive[index] === 1 && edges.geodesic[index] === 1
@@ -845,6 +866,65 @@ function createRenderer(
       else curved.delete(index)
       curvedChanged = true
     }
+  }
+
+  function coverEdge(edges: EdgeColumns, index: number): void {
+    const ends = edges.ends
+    const split = ends !== null && ends.styled[index] === 1
+    cover.set(
+      index,
+      edges.alive[index] === 1,
+      edges.opacity[index] ?? 1,
+      split ? (ends.color[index * 2] ?? 0) : (edges.color[index] ?? 0),
+      split ? (ends.color[index * 2 + 1] ?? 0) : (edges.color[index] ?? 0),
+    )
+  }
+
+  function packEnds(edges: EdgeColumns, index: number): void {
+    const data = edgeEnds.data
+    const at = index * 4
+    const ends = edges.ends
+    if (ends?.styled[index] !== 1) {
+      data[at] = 0
+      data[at + 1] = 0
+      data[at + 2] = 0
+      data[at + 3] = 0
+      return
+    }
+    const fixed = (width: number) => Math.min(65535, Math.max(0, Math.round(width * endWidthUnit)))
+    data[at] = ends.color[index * 2] ?? 0
+    data[at + 1] = ends.color[index * 2 + 1] ?? 0
+    data[at + 2] =
+      (fixed(ends.width[index * 2] ?? 0) | (fixed(ends.width[index * 2 + 1] ?? 0) << 16)) >>> 0
+    data[at + 3] =
+      (Math.round((ends.split[index] ?? 0.5) * 65535) |
+        ((ends.dash[index * 2] ?? 0) << 16) |
+        ((ends.dash[index * 2 + 1] ?? 0) << 18) |
+        endSplitFlag) >>>
+      0
+  }
+
+  function syncEnds(next: RenderInput): void {
+    const edges = next.scene.edges
+    let full = next.full
+    if (!endsUsed) {
+      if (!edges.ends || edges.ends.styledCount === 0) return
+      endsUsed = true
+      full = true
+    }
+    const all = edgeEnds.reserve(edges.capacity) || full
+    let first = all ? 0 : Number.POSITIVE_INFINITY
+    let last = all ? edges.capacity - 1 : -1
+    if (all) {
+      for (let index = 0; index < edges.capacity; index++) packEnds(edges, index)
+    } else {
+      for (const index of next.dirty.edges.indices()) {
+        packEnds(edges, index)
+        first = Math.min(first, index)
+        last = Math.max(last, index)
+      }
+    }
+    edgeEnds.upload(first, last)
   }
 
   function syncNodes(next: RenderInput): void {
@@ -1200,14 +1280,7 @@ function createRenderer(
     if (input.scene.nodes.zoom.fading(zoom) || edges.zoom.fading(zoom)) return 0
     if (coverStale) {
       coverStale = false
-      for (let index = 0; index < edges.capacity; index++) {
-        cover.set(
-          index,
-          edges.alive[index] === 1,
-          edges.opacity[index] ?? 1,
-          edges.color[index] ?? 0,
-        )
-      }
+      for (let index = 0; index < edges.capacity; index++) coverEdge(edges, index)
     }
     const { numbers, paint, edgeRaise } = input.states
     let opacity = 1
@@ -1245,8 +1318,9 @@ function createRenderer(
     vertices: number = vertexCounts.get(program) ?? 4,
   ): void {
     if (count === 0) return
-    const location = locations.get(program)
-    gl.useProgram(program)
+    const used = endsUsed ? withEndsOf(program) : program
+    const location = locations.get(used)
+    gl.useProgram(used)
     gl.uniform1i(location?.layerSlot ?? null, slot)
     gl.uniform1i(location?.overlay ?? null, overlay)
     if (location?.flowTime) gl.uniform1f(location.flowTime, flowTime)
@@ -1525,6 +1599,7 @@ function createRenderer(
       syncEdges(next)
       syncZoom(next)
       syncTime(next)
+      syncEnds(next)
       syncStates(next)
       if (bundles.sync(next.bundles)) {
         moveLabels()
@@ -1729,6 +1804,7 @@ function createRenderer(
       [units.edgeZoom, edgeZoom.texture],
       [units.nodeTime, nodeTime.texture],
       [units.edgeTime, edgeTime.texture],
+      [units.edgeEnds, edgeEnds.texture],
     ]
     for (const [unit, texture] of textures) {
       gl.activeTexture(gl.TEXTURE0 + unit)

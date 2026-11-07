@@ -153,6 +153,66 @@ export class NodeColumns {
   }
 }
 
+export class EdgeEnds {
+  capacity = 0
+  styled: Uint8Array = new Uint8Array(0)
+  split: Float32Array = new Float32Array(0)
+  color: Uint32Array = new Uint32Array(0)
+  width: Float32Array = new Float32Array(0)
+  dash: Uint8Array = new Uint8Array(0)
+  label: (string | null)[] = []
+  labelBackground: Uint32Array = new Uint32Array(0)
+  labelColor: Uint32Array = new Uint32Array(0)
+  labelSize: Float32Array = new Float32Array(0)
+  labelWeight: Uint16Array = new Uint16Array(0)
+  labelFont: (string | null)[] = []
+  labelMaxWidth: Float32Array = new Float32Array(0)
+  styledCount = 0
+  labeled = 0
+
+  reserve(capacity: number): void {
+    if (capacity <= this.capacity) return
+    const pairs = capacity * 2
+    this.styled = grow(this.styled, capacity)
+    const split = new Float32Array(capacity).fill(Number.NaN)
+    split.set(this.split)
+    this.split = split
+    this.color = growColor(this.color, pairs)
+    this.width = grow(this.width, pairs)
+    this.dash = grow(this.dash, pairs)
+    this.labelBackground = growColor(this.labelBackground, pairs)
+    this.labelColor = growColor(this.labelColor, pairs)
+    this.labelSize = grow(this.labelSize, pairs)
+    this.labelWeight = grow(this.labelWeight, pairs)
+    this.labelMaxWidth = grow(this.labelMaxWidth, pairs)
+    this.capacity = capacity
+  }
+
+  setStyled(index: number, styled: boolean): void {
+    const before = this.styled[index] === 1
+    if (before === styled) return
+    this.styledCount += styled ? 1 : -1
+    this.styled[index] = styled ? 1 : 0
+  }
+
+  setLabel(id: number, text: string | null): void {
+    const before = (this.label[id] ?? null) !== null
+    if (before !== (text !== null)) this.labeled += text === null ? -1 : 1
+    this.label[id] = text
+  }
+
+  clear(index: number): void {
+    if (index >= this.capacity) return
+    this.setStyled(index, false)
+    this.split[index] = Number.NaN
+    for (let id = index * 2; id < index * 2 + 2; id++) {
+      this.setLabel(id, null)
+      this.labelFont[id] = null
+      this.color[id] = noColor
+    }
+  }
+}
+
 export class EdgeColumns {
   capacity = 0
   keys: (Key | undefined)[] = []
@@ -179,14 +239,22 @@ export class EdgeColumns {
   labelWeight: Uint16Array = new Uint16Array(0)
   labelFont: (string | null)[] = []
   labelMaxWidth: Float32Array = new Float32Array(0)
+  ends: EdgeEnds | null = null
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
+
+  useEnds(): EdgeEnds {
+    this.ends ??= new EdgeEnds()
+    this.ends.reserve(this.capacity)
+    return this.ends
+  }
 
   reserve(index: number): void {
     if (index < this.capacity) return
     const capacity = nextCapacity(this.capacity, index)
     this.zoom.reserve(capacity)
     this.time.reserve(capacity)
+    this.ends?.reserve(capacity)
     this.alive = grow(this.alive, capacity)
     this.slot = grow(this.slot, capacity)
     this.source = grow(this.source, capacity)
@@ -224,6 +292,7 @@ export class EdgeColumns {
     this.keys[index] = undefined
     this.label[index] = null
     this.labelFont[index] = null
+    this.ends?.clear(index)
   }
 
   setFlow(index: number, speed: number): void {

@@ -3,7 +3,7 @@ import { bundleCorners, bundleVertexOf } from './bundle-shaders'
 import { type Attribute, createBuffer, createProgram, createVertexArray } from './gl'
 import { edgeFragmentOf } from './shaders'
 
-export const bundleUnits = { edgePath: 12, bundlePoints: 13, pathStations: 18 } as const
+export const bundleUnits = { edgePath: 12, bundlePoints: 13, pathStations: 19 } as const
 
 type Draw = (
   program: WebGLProgram,
@@ -45,7 +45,7 @@ export interface BundlePass {
 export function createBundlePass(
   gl: WebGL2RenderingContext,
   blocks: Readonly<Record<string, number>>,
-  prepare: (program: WebGLProgram) => void,
+  prepare: (program: WebGLProgram, sources?: readonly [string, string]) => void,
   overlayIndices: WebGLBuffer,
 ): BundlePass {
   const variants: Array<Program | null> = [null, null]
@@ -96,13 +96,10 @@ export function createBundlePass(
   function program(bridged: boolean): Program {
     const existing = variants[bridged ? 1 : 0]
     if (existing) return existing
-    const created = createProgram(
-      gl,
-      bundleVertexOf(bridged),
-      edgeFragmentOf(false, bridged),
-      blocks,
-    )
-    prepare(created)
+    const vertex = bundleVertexOf(bridged)
+    const fragment = edgeFragmentOf(false, bridged)
+    const created = createProgram(gl, vertex, fragment, blocks)
+    prepare(created, [vertex, fragment])
     const { strips, overlay: corners } = buffers()
     const vaos = strips.map((strip) =>
       createVertexArray(gl, created, [

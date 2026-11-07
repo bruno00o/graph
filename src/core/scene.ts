@@ -23,6 +23,7 @@ import {
   cornerCodes,
   dashCodes,
   EdgeColumns,
+  type EdgeEnds,
   type NodeBadge,
   NodeColumns,
   noColor,
@@ -31,6 +32,7 @@ import {
 } from './columns'
 import {
   type CompiledEdgeMark,
+  type CompiledEnd,
   type CompiledLabelText,
   type CompiledNodeMark,
   compileEdgeMark,
@@ -80,6 +82,7 @@ export interface SceneScales {
   readonly widthExtent: Extent | null
   readonly nodeColor: readonly unknown[]
   readonly edgeColor: readonly unknown[]
+  readonly endColor: readonly unknown[]
 }
 
 export interface Scene {
@@ -267,12 +270,17 @@ export function createScene(): Scene {
   let full = false
   const nodeColorValues: unknown[] = []
   const edgeColorValues: unknown[] = []
+  const endColorValues: unknown[] = []
   const sizeValues: number[] = []
   const widthValues: number[] = []
+  const endWidthValues: number[] = []
   const nodeColorExtent = new ExtentTracker()
   const edgeColorExtent = new ExtentTracker()
+  const endColorExtent = new ExtentTracker()
   const sizeExtent = new ExtentTracker()
   const widthExtent = new ExtentTracker()
+  const endWidthExtent = new ExtentTracker()
+  let endsSeen = false
   let colorExtent: Extent | null = null
   let sizeDomain: Extent | null = null
   let widthDomain: Extent | null = null
@@ -331,6 +339,31 @@ export function createScene(): Scene {
     edgeColorValues[index] = color
     track(widthExtent, index, width)
     track(edgeColorExtent, index, color)
+    if (mark.ends) {
+      endsSeen = true
+      readEnd(index * 2, mark.ends.source, record.datum)
+      readEnd(index * 2 + 1, mark.ends.target, record.datum)
+    } else if (endsSeen) {
+      forgetEnds(index)
+    }
+  }
+
+  function readEnd(id: number, end: CompiledEnd, datum: unknown): void {
+    const width = end.width ? toNumber(end.width(datum)) : Number.NaN
+    const color = end.color?.(datum)
+    endWidthValues[id] = width
+    endColorValues[id] = color
+    track(endWidthExtent, id, width)
+    track(endColorExtent, id, color)
+  }
+
+  function forgetEnds(index: number): void {
+    for (let id = index * 2; id < index * 2 + 2; id++) {
+      endWidthValues[id] = Number.NaN
+      endColorValues[id] = undefined
+      endWidthExtent.delete(id)
+      endColorExtent.delete(id)
+    }
   }
 
   function writeNode(record: SceneNodeRecord): void {
@@ -438,7 +471,45 @@ export function createScene(): Scene {
     edges.label[index] = toText(mark.label?.(datum))
     edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
     writeLabelText(edges, index, mark.labelText, datum, palette)
+    if (mark.ends) writeEnds(index, mark, datum, color)
+    else edges.ends?.clear(index)
     dirtyEdges.add(index)
+  }
+
+  function writeEnds(index: number, mark: CompiledEdgeMark, datum: unknown, color: string): void {
+    const compiled = mark.ends
+    if (!compiled) return
+    const ends = edges.useEnds()
+    ends.split[index] = Math.min(1, Math.max(0, finiteOr(compiled.split?.(datum), 0.5)))
+    const near = writeEnd(ends, index * 2, compiled.source, datum, color, index)
+    const far = writeEnd(ends, index * 2 + 1, compiled.target, datum, color, index)
+    ends.setStyled(index, compiled.styled)
+    if (compiled.styled) edges.width[index] = Math.max(near, far)
+  }
+
+  function writeEnd(
+    ends: EdgeEnds,
+    id: number,
+    end: CompiledEnd,
+    datum: unknown,
+    color: string,
+    index: number,
+  ): number {
+    const value = endWidthValues[id] ?? Number.NaN
+    const endColor =
+      toColor(end.stroke?.(datum)) ?? colorScale.map(endColorValues[id], colorExtent) ?? color
+    ends.color[id] = palette.id(endColor)
+    const width = Number.isNaN(value)
+      ? (edges.width[index] ?? defaults.edgeWidth)
+      : widthScale.map(value, widthDomain)
+    ends.width[id] = width
+    ends.dash[id] = end.dash
+      ? codeOf<EdgeDash>(dashCodes, end.dash(datum))
+      : (edges.dash[index] ?? 0)
+    ends.setLabel(id, toText(end.label?.(datum)) || null)
+    ends.labelBackground[id] = readBackground(end.labelBackground?.(datum), palette)
+    writeLabelText(ends, id, end.labelText, datum, palette)
+    return width
   }
 
   function removeNode(index: number): void {
@@ -458,15 +529,23 @@ export function createScene(): Scene {
     edgeColorValues[index] = undefined
     widthExtent.delete(index)
     edgeColorExtent.delete(index)
+    if (endsSeen) forgetEnds(index)
     dirtyEdges.add(index)
+  }
+
+  function colorExtentOf(): Extent | null {
+    const own = combineExtents(nodeColorExtent.extent, edgeColorExtent.extent)
+    return endsSeen ? combineExtents(own, endColorExtent.extent) : own
   }
 
   function include<R extends { readonly index: number }>(
     batch: RecordBatch<R>,
     tracker: ExtentTracker,
     lookup: (index: number) => R | undefined,
+    shift = 0,
   ): void {
-    tracker.forEachId((index) => {
+    tracker.forEachId((id) => {
+      const index = id >> shift
       if (batch.has(index)) return
       const record = lookup(index)
       if (record) batch.add(record)
@@ -486,13 +565,14 @@ export function createScene(): Scene {
     scales() {
       return {
         color: colorScale,
-        colorExtent: combineExtents(nodeColorExtent.extent, edgeColorExtent.extent),
+        colorExtent: colorExtentOf(),
         size: sizeScale,
         sizeExtent: sizeExtent.extent,
         width: widthScale,
-        widthExtent: widthExtent.extent,
+        widthExtent: combineExtents(widthExtent.extent, endWidthExtent.extent),
         nodeColor: nodeColorValues,
         edgeColor: edgeColorValues,
+        endColor: endColorValues,
       }
     },
 
@@ -561,23 +641,25 @@ export function createScene(): Scene {
       for (const record of nodeBatch.records) readNode(record)
       for (const record of edgeBatch.records) readEdge(record)
 
-      const nextColor = colorScale.needsExtent
-        ? combineExtents(nodeColorExtent.extent, edgeColorExtent.extent)
-        : null
+      const nextColor = colorScale.needsExtent ? colorExtentOf() : null
       if (!sameExtent(nextColor, colorExtent)) {
         colorExtent = nextColor
         include(nodeBatch, nodeColorExtent, (index) => model.nodeAt(index))
         include(edgeBatch, edgeColorExtent, (index) => model.edgeAt(index))
+        include(edgeBatch, endColorExtent, (index) => model.edgeAt(index), 1)
       }
       const nextSize = sizeScale.needsExtent ? sizeExtent.extent : null
       if (!sameExtent(nextSize, sizeDomain)) {
         sizeDomain = nextSize
         include(nodeBatch, sizeExtent, (index) => model.nodeAt(index))
       }
-      const nextWidth = widthScale.needsExtent ? widthExtent.extent : null
+      const nextWidth = widthScale.needsExtent
+        ? combineExtents(widthExtent.extent, endWidthExtent.extent)
+        : null
       if (!sameExtent(nextWidth, widthDomain)) {
         widthDomain = nextWidth
         include(edgeBatch, widthExtent, (index) => model.edgeAt(index))
+        include(edgeBatch, endWidthExtent, (index) => model.edgeAt(index), 1)
       }
 
       for (const record of nodeBatch.records) writeNode(record)
