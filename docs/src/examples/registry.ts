@@ -85,6 +85,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./bundling/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'edge-routing',
+    title: 'Edge routing',
+    description:
+      'A layered graph whose edges run in horizontal and vertical segments around the nodes, with rounded corners, ends spread along the sides of each node and side by side routes kept apart. Where two edges cross, one hops over the other.',
+    hint: 'Drag a node: its routes follow, then go around the nodes again once it stops.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/layouts', '@bruno00o/graph/routing'],
+    files: ['routing/main.ts', 'shared/data.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./routing/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'zoom-detail',
     title: 'Zoom and level of detail',
     description:

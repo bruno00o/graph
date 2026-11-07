@@ -7,7 +7,7 @@ function outline(x: number, y: number, shape: number, radius: number): Outline {
 }
 
 function shaped(points: readonly number[], radius: number): RouteShape {
-  const shape: RouteShape = { xs: [], ys: [], count: 0, room: 0 }
+  const shape: RouteShape = { xs: [], ys: [], curved: [], count: 0, room: 0 }
   shapeRoute(
     points,
     0,
@@ -66,7 +66,7 @@ describe('shapeRoute', () => {
     const points: number[] = [0, 0]
     for (let k = 1; k <= 20; k++)
       points.push(k * 40, (k - 1) % 2 === 0 ? 0 : 40, k * 40, k % 2 === 0 ? 0 : 40)
-    const shape: RouteShape = { xs: [], ys: [], count: 0, room: 0 }
+    const shape: RouteShape = { xs: [], ys: [], curved: [], count: 0, room: 0 }
     shapeRoute(points, 0, points.length / 2, 6, outline(0, 0, 0, 5), outline(800, 0, 0, 5), shape)
     expect(shape.count).toBeLessThanOrEqual(maxStations)
     expect(shape.count).toBeGreaterThan(2)

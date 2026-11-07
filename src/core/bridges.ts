@@ -15,8 +15,9 @@ const sliceCells = 512
 const maxCells = 1 << 22
 const maxEntries = 1 << 23
 const maxTests = 60_000_000
-const straightShare = 1e-6
 const edgeShare = 1e-6
+const axisShare = 1e-6
+const sliceEvents = 4096
 
 export interface BridgeSource {
   readonly edges: EdgeColumns
@@ -75,6 +76,13 @@ export class BridgeFinder {
   readonly #coords = new Growing()
   readonly #owners = new Growing()
   readonly #found = new Growing()
+  #axes: Uint8Array = new Uint8Array(0)
+  #others = 0
+  #events: Float64Array | null = null
+  #order: Uint32Array = new Uint32Array(0)
+  #event = 0
+  #activeY: number[] = []
+  #activeSegment: number[] = []
   #phase = 0
   #cell = 0
   #tests = 0
@@ -99,18 +107,116 @@ export class BridgeFinder {
     if (this.#phase === 0) {
       this.#collect()
       if (this.over || this.#segments < 2) return this.#finish(into)
-      this.#grid()
-      this.#phase = 1
+      this.#phase = this.#others > 0 ? 1 : 2
+      if (this.#phase === 1) this.#grid()
     }
-    const cells = this.#columns * this.#rows
-    while (this.#cell < cells) {
-      const last = Math.min(cells, this.#cell + sliceCells)
-      for (let cell = this.#cell; cell < last; cell++) this.#scan(cell)
-      this.#cell = last
-      if (this.#tests > maxTests) break
-      if (performance.now() >= until) return null
+    if (this.#phase === 1) {
+      const cells = this.#columns * this.#rows
+      while (this.#cell < cells && this.#tests <= maxTests) {
+        const last = Math.min(cells, this.#cell + sliceCells)
+        for (let cell = this.#cell; cell < last; cell++) this.#scan(cell)
+        this.#cell = last
+        if (performance.now() >= until) return null
+      }
+      this.#phase = 2
+    }
+    const events = this.#events ?? this.#prepareSweep()
+    const total = events.length / 4
+    while (this.#event < total) {
+      const last = Math.min(total, this.#event + sliceEvents)
+      for (let at = this.#event; at < last; at++) this.#sweep(this.#order[at] ?? 0)
+      this.#event = last
+      if (this.#event < total && performance.now() >= until) return null
     }
     return this.#finish(into)
+  }
+
+  #prepareSweep(): Float64Array {
+    const coords = this.#coords.values
+    const axes = this.#axes
+    let count = 0
+    for (let segment = 0; segment < this.#segments; segment++) {
+      count += axes[segment] === 1 ? 2 : axes[segment] === 2 ? 1 : 0
+    }
+    const events = new Float64Array(count * 4)
+    let at = 0
+    for (let segment = 0; segment < this.#segments; segment++) {
+      const x0 = coords[segment * 4] ?? 0
+      const y0 = coords[segment * 4 + 1] ?? 0
+      const x1 = coords[segment * 4 + 2] ?? 0
+      const y1 = coords[segment * 4 + 3] ?? 0
+      if (axes[segment] === 1) {
+        const y = (y0 + y1) / 2
+        events.set([Math.min(x0, x1), 2, segment, y], at)
+        events.set([Math.max(x0, x1), 0, segment, y], at + 4)
+        at += 8
+      } else if (axes[segment] === 2) {
+        events.set([(x0 + x1) / 2, 1, segment, 0], at)
+        at += 4
+      }
+    }
+    const order = new Uint32Array(count)
+    for (let k = 0; k < count; k++) order[k] = k
+    order.sort(
+      (p, q) =>
+        (events[p * 4] ?? 0) - (events[q * 4] ?? 0) ||
+        (events[p * 4 + 1] ?? 0) - (events[q * 4 + 1] ?? 0),
+    )
+    this.#events = events
+    this.#order = order
+    return events
+  }
+
+  #lowerBound(y: number): number {
+    const ys = this.#activeY
+    let lo = 0
+    let hi = ys.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if ((ys[mid] ?? 0) < y) lo = mid + 1
+      else hi = mid
+    }
+    return lo
+  }
+
+  #sweep(event: number): void {
+    const events = this.#events
+    if (!events) return
+    const kind = events[event * 4 + 1] ?? 0
+    const segment = events[event * 4 + 2] ?? 0
+    const ys = this.#activeY
+    const segments = this.#activeSegment
+    if (kind === 2) {
+      const y = events[event * 4 + 3] ?? 0
+      const at = this.#lowerBound(y)
+      ys.splice(at, 0, y)
+      segments.splice(at, 0, segment)
+      return
+    }
+    if (kind === 0) {
+      const y = events[event * 4 + 3] ?? 0
+      let at = this.#lowerBound(y)
+      while (at < segments.length && segments[at] !== segment) at++
+      ys.splice(at, 1)
+      segments.splice(at, 1)
+      return
+    }
+    const coords = this.#coords.values
+    const x = events[event * 4] ?? 0
+    const low = Math.min(coords[segment * 4 + 1] ?? 0, coords[segment * 4 + 3] ?? 0)
+    const high = Math.max(coords[segment * 4 + 1] ?? 0, coords[segment * 4 + 3] ?? 0)
+    const y0 = coords[segment * 4 + 1] ?? 0
+    const span = (coords[segment * 4 + 3] ?? 0) - y0
+    for (let at = this.#lowerBound(low); at < ys.length; at++) {
+      const y = ys[at] ?? 0
+      if (y >= high) break
+      if (y <= low) continue
+      const horizontal = segments[at] ?? 0
+      const hx = coords[horizontal * 4] ?? 0
+      const length = (coords[horizontal * 4 + 2] ?? 0) - hx
+      if (x <= Math.min(hx, hx + length) || x >= Math.max(hx, hx + length)) continue
+      this.#record(horizontal, segment, (x - hx) / length, (y - y0) / span, x, y)
+    }
   }
 
   #collect(): void {
@@ -138,7 +244,7 @@ export class BridgeFinder {
         paths.point(edge, 0, sx, sy, tx, ty, 0, 1, point)
         for (let k = 1; k < count; k++) {
           paths.point(edge, k, sx, sy, tx, ty, 0, 1, next)
-          if (next.x !== point.x || next.y !== point.y) {
+          if ((next.x !== point.x || next.y !== point.y) && !paths.curvedAt(edge, k - 1)) {
             coords.push(point.x)
             coords.push(point.y)
             coords.push(next.x)
@@ -164,6 +270,26 @@ export class BridgeFinder {
       owners.push(0)
     }
     this.#segments = owners.length >> 1
+    const values = coords.values
+    const axes = new Uint8Array(this.#segments)
+    let others = 0
+    for (let segment = 0; segment < this.#segments; segment++) {
+      const x0 = values[segment * 4] ?? 0
+      const y0 = values[segment * 4 + 1] ?? 0
+      const x1 = values[segment * 4 + 2] ?? 0
+      const y1 = values[segment * 4 + 3] ?? 0
+      const slack = axisShare * (Math.abs(x0) + Math.abs(y0) + Math.abs(x1) + Math.abs(y1))
+      const axis =
+        Math.abs(y1 - y0) <= slack && Math.abs(x1 - x0) > slack
+          ? 1
+          : Math.abs(x1 - x0) <= slack && Math.abs(y1 - y0) > slack
+            ? 2
+            : 0
+      axes[segment] = axis
+      if (axis === 0) others++
+    }
+    this.#axes = axes
+    this.#others = others
   }
 
   #grid(): void {
@@ -187,7 +313,7 @@ export class BridgeFinder {
     }
     const width = Math.max(maxX - minX, 1e-9)
     const height = Math.max(maxY - minY, 1e-9)
-    let size = Math.max(total / segments, Math.sqrt((width * height) / segments), 1e-9)
+    let size = Math.max(Math.min(total / segments, Math.sqrt((width * height) / segments)), 1e-9)
     for (;;) {
       this.#originX = minX
       this.#originY = minY
@@ -290,10 +416,11 @@ export class BridgeFinder {
     const entries = this.#entries
     const coords = this.#coords.values
     const owners = this.#owners.values
-    const { edges, radius, positions } = this.#source
-    this.#tests += ((to - from) * (to - from - 1)) / 2
+    const axes = this.#axes
     for (let a = from; a < to; a++) {
       const i = entries[a] ?? 0
+      if (axes[i] !== 0) continue
+      this.#tests += to - from
       const edgeA = owners[i * 2] ?? 0
       const ax0 = coords[i * 4] ?? 0
       const ay0 = coords[i * 4 + 1] ?? 0
@@ -301,8 +428,9 @@ export class BridgeFinder {
       const ay1 = coords[i * 4 + 3] ?? 0
       const rx = ax1 - ax0
       const ry = ay1 - ay0
-      for (let b = a + 1; b < to; b++) {
+      for (let b = from; b < to; b++) {
         const j = entries[b] ?? 0
+        if (b === a || (b < a && axes[j] === 0)) continue
         const edgeB = owners[j * 2] ?? 0
         if (edgeA === edgeB) continue
         const bx0 = coords[j * 4] ?? 0
@@ -330,41 +458,47 @@ export class BridgeFinder {
         const x = ax0 + rx * t
         const y = ay0 + ry * t
         if (this.#cellY(y) * this.#columns + this.#cellX(x) !== cell) continue
-        if (
-          inside(positions, radius, edges.source[edgeA] ?? 0, x, y) ||
-          inside(positions, radius, edges.target[edgeA] ?? 0, x, y) ||
-          inside(positions, radius, edges.source[edgeB] ?? 0, x, y) ||
-          inside(positions, radius, edges.target[edgeB] ?? 0, x, y)
-        ) {
-          continue
-        }
-        const horizontalA = Math.abs(ry) <= Math.abs(rx) * straightShare
-        const verticalA = Math.abs(rx) <= Math.abs(ry) * straightShare
-        const horizontalB = Math.abs(sy) <= Math.abs(sx) * straightShare
-        const verticalB = Math.abs(sx) <= Math.abs(sy) * straightShare
-        let jumpsA: boolean
-        if (horizontalA && verticalB) jumpsA = true
-        else if (verticalA && horizontalB) jumpsA = false
-        else {
-          const slotA = edges.slot[edgeA] ?? 0
-          const slotB = edges.slot[edgeB] ?? 0
-          jumpsA = slotA !== slotB ? slotA > slotB : edgeA > edgeB
-        }
-        const found = this.#found
-        if (jumpsA) {
-          found.push(edgeA)
-          found.push(owners[i * 2 + 1] ?? 0)
-          found.push(edgeB)
-          found.push(owners[j * 2 + 1] ?? 0)
-          found.push(t)
-        } else {
-          found.push(edgeB)
-          found.push(owners[j * 2 + 1] ?? 0)
-          found.push(edgeA)
-          found.push(owners[i * 2 + 1] ?? 0)
-          found.push(u)
-        }
+        this.#record(i, j, t, u, x, y)
       }
+    }
+  }
+
+  #record(i: number, j: number, t: number, u: number, x: number, y: number): void {
+    const { edges, radius, positions } = this.#source
+    const owners = this.#owners.values
+    const axes = this.#axes
+    const edgeA = owners[i * 2] ?? 0
+    const edgeB = owners[j * 2] ?? 0
+    if (edgeA === edgeB) return
+    if (
+      inside(positions, radius, edges.source[edgeA] ?? 0, x, y) ||
+      inside(positions, radius, edges.target[edgeA] ?? 0, x, y) ||
+      inside(positions, radius, edges.source[edgeB] ?? 0, x, y) ||
+      inside(positions, radius, edges.target[edgeB] ?? 0, x, y)
+    ) {
+      return
+    }
+    let jumpsA: boolean
+    if (axes[i] === 1 && axes[j] === 2) jumpsA = true
+    else if (axes[i] === 2 && axes[j] === 1) jumpsA = false
+    else {
+      const slotA = edges.slot[edgeA] ?? 0
+      const slotB = edges.slot[edgeB] ?? 0
+      jumpsA = slotA !== slotB ? slotA > slotB : edgeA > edgeB
+    }
+    const found = this.#found
+    if (jumpsA) {
+      found.push(edgeA)
+      found.push(owners[i * 2 + 1] ?? 0)
+      found.push(edgeB)
+      found.push(owners[j * 2 + 1] ?? 0)
+      found.push(t)
+    } else {
+      found.push(edgeB)
+      found.push(owners[j * 2 + 1] ?? 0)
+      found.push(edgeA)
+      found.push(owners[i * 2 + 1] ?? 0)
+      found.push(u)
     }
   }
 

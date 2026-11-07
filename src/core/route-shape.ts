@@ -79,6 +79,7 @@ function exit(
 export interface RouteShape {
   xs: number[]
   ys: number[]
+  curved: number[]
   count: number
   room: number
 }
@@ -109,6 +110,7 @@ function build(
   const m = px.length - 1
   const xs: number[] = [px[0] ?? 0]
   const ys: number[] = [py[0] ?? 0]
+  const curved: number[] = [0]
   const pieces: number[] = [0]
   for (let k = 1; k < m; k++) {
     const x = px[k] ?? 0
@@ -125,6 +127,7 @@ function build(
     if (steps === 0 || reach < tiny || la < tiny || lb < tiny) {
       xs.push(x)
       ys.push(y)
+      curved.push(0)
       pieces.push(xs.length - 1, xs.length - 1)
       continue
     }
@@ -141,8 +144,10 @@ function build(
     const cy = y + (uay + uby) * reach
     xs.push(sx)
     ys.push(sy)
+    curved.push(1)
     pieces.push(xs.length - 1)
     for (let step = 1; step < steps; step++) {
+      curved.push(1)
       const t = step / steps
       if (square) {
         const angle = (t * Math.PI) / 2
@@ -158,10 +163,12 @@ function build(
     }
     xs.push(ex)
     ys.push(ey)
+    curved.push(0)
     pieces.push(xs.length - 1)
   }
   xs.push(px[m] ?? 0)
   ys.push(py[m] ?? 0)
+  curved.push(0)
   pieces.push(xs.length - 1)
   let best = -1
   let bestLength = -1
@@ -190,6 +197,7 @@ function build(
   const anchorY = (ys[a] ?? 0) + ((ys[b] ?? 0) - (ys[a] ?? 0)) * middle
   xs.splice(a + 1, 0, anchorX)
   ys.splice(a + 1, 0, anchorY)
+  curved.splice(a + 1, 0, curved[a] ?? 0)
   const anchor = a + 1
   const pad = (first: number, last: number, extra: number): void => {
     let longest = first
@@ -214,6 +222,7 @@ function build(
     }
     xs.splice(longest + 1, 0, ...insertX)
     ys.splice(longest + 1, 0, ...insertY)
+    curved.splice(longest + 1, 0, ...insertX.map(() => curved[longest] ?? 0))
   }
   const left = anchor
   const right = xs.length - 1 - anchor
@@ -221,6 +230,7 @@ function build(
   else if (right < left) pad(anchor, xs.length - 1, left - right)
   shape.xs = xs
   shape.ys = ys
+  shape.curved = curved
   shape.count = xs.length
   shape.room = Math.max(0, bestLength)
 }
@@ -248,6 +258,7 @@ function uniform(px: readonly number[], py: readonly number[], shape: RouteShape
   }
   shape.xs = xs
   shape.ys = ys
+  shape.curved = []
   shape.count = maxStations
   shape.room = total
 }
@@ -276,6 +287,7 @@ export function shapeRoute(
   if (px.length < 2) {
     shape.xs = [start.x, end.x]
     shape.ys = [start.y, end.y]
+    shape.curved = []
     shape.count = 2
     shape.room = 0
     return

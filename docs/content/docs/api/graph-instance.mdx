@@ -18,6 +18,7 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   readonly layers: GraphLayers<LayerName<M>>
   readonly support: GraphSupport
   readonly bundling: GraphBundling
+  readonly routing: GraphRouting
   readonly time: GraphTime
   readonly element: HTMLElement
   pick(point: Point): GraphTarget<M> | null
@@ -146,6 +147,18 @@ interface GraphBundling {
 <api-table path="index.ts" name="GraphBundling" />
 
 Bundles are computed on their own once nodes stand still. `run` computes them now, without waiting, from the current positions. It resolves to `false` when the definition has no `bundling`, when more edges than `maxEdges` would be bundled, or when the run is replaced. See [Edge bundling](/docs/bundling).
+
+## Routing
+
+```ts
+interface GraphRouting {
+  run(): Promise<boolean>
+}
+```
+
+<api-table path="index.ts" name="GraphRouting" />
+
+Routes are computed on their own once nodes stand still. `run` routes now, from the current positions, and resolves to `false` when the definition has no `routing`, when more edges than `maxEdges` would be routed, or when the run is replaced. See [Edge routing](/docs/routing).
 
 ## Time
 
@@ -290,6 +303,7 @@ interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly layout: GraphLayoutStatus
   readonly folded: readonly Key[]
   readonly bundling: GraphBundlingStatus
+  readonly routing: GraphRoutingStatus
   readonly lens: GraphLensState | null
   readonly time: TimeWindow | null
   readonly hiddenLayers: readonly LayerName<M>[]
@@ -303,8 +317,12 @@ interface GraphLayoutStatus {
 interface GraphBundlingStatus {
   readonly running: boolean
 }
+
+interface GraphRoutingStatus {
+  readonly running: boolean
+}
 ```
 
 <api-table path="index.ts" name="GraphState" />
 
-`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed.
+`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are.

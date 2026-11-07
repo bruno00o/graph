@@ -53,6 +53,7 @@ export class EdgePaths {
   lengths: Float32Array = new Float32Array(0)
   data: Float32Array = new Float32Array(0)
   stations: Float32Array = new Float32Array(0)
+  curved: Uint8Array = new Uint8Array(0)
   ends: Uint32Array = new Uint32Array(0)
   reach: Float32Array = new Float32Array(0)
   rooms: Float32Array = new Float32Array(0)
@@ -95,6 +96,10 @@ export class EdgePaths {
     const at = ((this.info[edge * 4] ?? 0) + k) * 2
     const from = this.stations[at] ?? u
     return from + ((this.stations[at + 1] ?? u) - from) * mix
+  }
+
+  curvedAt(edge: number, k: number): boolean {
+    return this.curved[(this.info[edge * 4] ?? 0) + k] === 1
   }
 
   clear(edge: number): void {
@@ -422,6 +427,7 @@ export class EdgePaths {
     })
     this.#fade(old, kept, cursor, data, stations, positions)
     this.#finish(data, stations, old.measured)
+    this.curved = new Uint8Array(0)
   }
 
   route(result: PathResult | null, radius: number, outline: OutlineOf, positions: Positions): void {
@@ -449,7 +455,7 @@ export class EdgePaths {
       }
       outline(source, start)
       outline(target, end)
-      const shape: RouteShape = { xs: [], ys: [], count: 0, room: 0 }
+      const shape: RouteShape = { xs: [], ys: [], curved: [], count: 0, room: 0 }
       shapeRoute(points, first, last, radius, start, end, shape)
       shapes.push(shape)
       needed += shape.count
@@ -459,6 +465,7 @@ export class EdgePaths {
     }
     const data = new Float32Array(padded(needed) * 4)
     const stations = new Float32Array(padded(needed) * 2)
+    const curved = new Uint8Array(padded(needed))
     const info = this.info
     const lengths = this.lengths
     info.fill(0)
@@ -474,6 +481,7 @@ export class EdgePaths {
       const shape = shapes[index]
       if (!shape) return
       const { xs, ys, count } = shape
+      for (let k = 0; k < shape.curved.length; k++) curved[cursor + k] = shape.curved[k] ?? 0
       const ax = positions.x(source)
       const ay = positions.y(source)
       const bx = positions.x(target)
@@ -512,6 +520,7 @@ export class EdgePaths {
     })
     this.#fade(old, kept, cursor, data, stations, positions)
     this.#finish(data, stations, true)
+    this.curved = curved
   }
 
   settle(): void {
