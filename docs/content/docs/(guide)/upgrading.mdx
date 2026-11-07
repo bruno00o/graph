@@ -66,6 +66,18 @@ await act(async () => graph.time.set({ start, end }))
 
 With a controlled `selection`, `folded` or `hiddenLayers`, a request now starts from the last request not answered yet, as view requests already did, instead of the applied value. Two Shift-clicks before the application answers ask for both elements, where the second used to drop the first. An application that applies every request sees no change.
 
+### `LayoutGraph` has no `groupLinks`
+
+The `groupLinks` field of `LayoutGraph`, pairs of members of the same unfolded group, is removed: no layout read it. A custom layout that keeps groups together reads `groups` instead, whose `parent` gives the group of each node.
+
+```ts
+// Before
+const links = graph.groupLinks
+
+// After: the index of the group holding a node, or -1
+const group = graph.groups?.parent[index] ?? -1
+```
+
 ## 0.15.0
 
 ### Anchors take a single target
