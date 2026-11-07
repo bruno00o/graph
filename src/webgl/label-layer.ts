@@ -324,10 +324,13 @@ function pathAnchor(
   const flip = ux < -uprightSlack || (Math.abs(ux) <= uprightSlack && uy < 0)
   out.ax = flip ? -ux : ux
   out.ay = flip ? -uy : uy
+  const room = paths.rooms[index] ?? 0
   out.room =
-    paths.length(index) * view.zoom -
-    screenRadius(nodes, source, view.zoom) -
-    screenRadius(nodes, target, view.zoom)
+    room > 0
+      ? room * view.zoom
+      : paths.length(index) * view.zoom -
+        screenRadius(nodes, source, view.zoom) -
+        screenRadius(nodes, target, view.zoom)
   return true
 }
 

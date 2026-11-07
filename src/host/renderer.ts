@@ -1,4 +1,5 @@
 import type { GridInput } from '../core/background-grid'
+import type { BridgeSet } from '../core/bridges'
 import type { EdgePaths } from '../core/edge-paths'
 import type { GlobeCamera } from '../core/globe'
 import type { LayerFilter } from '../core/mark-layers'
@@ -28,6 +29,7 @@ export interface RenderInput {
   readonly hulls?: HullInput | null
   readonly containers?: ContainerFrame
   readonly bundles?: EdgePaths | null
+  readonly bridges?: BridgeSet | null
 }
 
 export interface ContainerFrame {

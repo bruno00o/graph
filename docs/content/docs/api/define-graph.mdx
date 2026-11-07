@@ -170,6 +170,49 @@ The bundling reports one polyline per listed edge, in the same order, through `e
 
 `start` returns a `BundleRun`, which the graph stops when nodes move before the paths arrive or when the bundling changes. Two bundlings with the same `name`, `maxEdges` and `options`, compared one by one, are equal for the graph: a new definition with an equal bundling does not compute again, and a new `strength` alone eases the drawn edges to it.
 
+## Routing
+
+`routing` takes an `EdgeRouting`, such as the result of [`orthogonalRouting()`](/docs/api/routing), or `null`. A definition takes `bundling` or `routing`, not both. The port is public: any object with this shape works. See [Edge routing](/docs/routing).
+
+```ts
+interface EdgeRouting<T = unknown> {
+  readonly name: string
+  readonly options: object
+  readonly radius: number
+  readonly maxEdges: number
+  start(graph: RouteGraph<T>, listener: BundleListener): BundleRun
+}
+
+interface RouteGraph<T = unknown> extends BundleGraph<T> {
+  readonly extents: Float32Array
+  readonly parents: Int32Array
+}
+```
+
+<api-table path="index.ts" name="EdgeRouting" />
+
+`start` receives a `RouteGraph`: what a bundling receives, plus the box of each node and the group that holds it.
+
+<api-table path="index.ts" name="RouteGraph" />
+
+The routing reports one polyline per listed edge through `end`, from the center of the source to the center of the target, as a [bundling](#bundling) does. The graph cuts each route where it leaves the shape of its node, rounds its corners by `radius` and draws it through its points, without resampling. Two routings with the same `name`, `maxEdges` and `options` are equal for the graph, and a new `radius` alone redraws the corners without computing again.
+
+## Bridges
+
+`bridges` draws a bridge where two edges cross: `true` for the defaults, an object to set them, `false` or `null` for none.
+
+```ts
+type BridgeShape = 'arc' | 'gap'
+
+interface BridgeOptions {
+  readonly shape?: BridgeShape
+  readonly size?: number
+  readonly maxEdges?: number
+}
+```
+
+<api-table path="index.ts" name="BridgeOptions" />
+
 ## Interaction
 
 <api-table path="index.ts" name="InteractionOptions" />
@@ -237,7 +280,8 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 
 - `TypeError` when a mark does not come from `nodes()` or `edges()`, or when `interaction.wheel` is not `'zoom'`, `'pan'` or `'page'`.
 - `RangeError` when `view.minZoom` is not positive, `view.maxZoom` is not finite or is smaller than `minZoom`, or `view.bounds` holds a value that is not finite or a rectangle whose minimum exceeds its maximum.
-- `TypeError` when `background.grid` is not `'lines'` or `'dots'`, when a hull does not come from `hull()`, or when `bundling` has no `start` function.
+- `TypeError` when `background.grid` is not `'lines'` or `'dots'`, when a hull does not come from `hull()`, or when `bundling` or `routing` has no `start` function.
+- `TypeError` when both `bundling` and `routing` are given, or when `bridges.shape` is not `'arc'` or `'gap'`.
 - `RangeError` with more than 29 states besides `selected`, `hovered` and `focused`.
 - `TypeError` when a `layer` is not a non-empty string, or when a state of `support` is not a free state of `states`.
 - `RangeError` when a mark beyond the first 128 node marks or the first 128 edge marks names a layer.
@@ -256,6 +300,8 @@ interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
   readonly background: ResolvedBackground | null
   readonly hulls: readonly Hull[]
   readonly bundling: EdgeBundling<EdgeDatum<M>> | null
+  readonly routing: EdgeRouting<EdgeDatum<M>> | null
+  readonly bridges: ResolvedBridges | null
   readonly time: ResolvedTimeOptions
   readonly support: ResolvedSupportStates | null
 }

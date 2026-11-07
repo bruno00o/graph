@@ -40,6 +40,8 @@
     "force",
     "---@bruno00o/graph/bundling---",
     "bundling",
+    "---@bruno00o/graph/routing---",
+    "routing",
     "---@bruno00o/graph/devtools---",
     "devtools",
     "---@bruno00o/graph/theme.css---",

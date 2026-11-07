@@ -30,6 +30,7 @@
       "@bruno00o/graph/minimap": ["../src/minimap/index.ts"],
       "@bruno00o/graph/legend": ["../src/legend/index.ts"],
       "@bruno00o/graph/bundling": ["../src/bundling/index.ts"],
+      "@bruno00o/graph/routing": ["../src/routing/index.ts"],
       "@bruno00o/graph/timeline": ["../src/timeline/index.ts"]
     }
   },

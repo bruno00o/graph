@@ -29,6 +29,9 @@ description: Every export of the package, by entry point.
 | `GraphDefinition`, `NodeOptions`, `EdgeOptions`, `StateStyle`, `ScalesOptions`, `InteractionOptions` and related | types | [defineGraph](/docs/api/define-graph), [nodes](/docs/api/nodes), [edges](/docs/api/edges) |
 | `LabelOptions`, `LabelTextOptions`, `EdgeLabelOptions`, `LabelPlacement`, `LabelWeight` | types | [nodes](/docs/api/nodes#labels), [edges](/docs/api/edges#labels) |
 | `Layout`, `LayoutGraph`, `LayoutGroups`, `LayoutListener`, `LayoutRun` | types | [defineGraph](/docs/api/define-graph#layout) |
+| `EdgeBundling`, `BundleGraph`, `BundleListener`, `BundlePaths`, `BundleRun`, `GraphBundling`, `GraphBundlingStatus` | types | [defineGraph](/docs/api/define-graph#bundling), [GraphInstance](/docs/api/graph-instance#bundling) |
+| `EdgeRouting`, `RouteGraph`, `GraphRouting`, `GraphRoutingStatus` | types | [defineGraph](/docs/api/define-graph#routing), [GraphInstance](/docs/api/graph-instance#routing) |
+| `BridgeOptions`, `BridgeShape`, `ResolvedBridges` | types | [defineGraph](/docs/api/define-graph#bridges) |
 | `LiveSource`, `SourceChange`, `GraphData`, `Key` | types | [Data and live sources](/docs/data) |
 
 ## `@bruno00o/graph/react`
@@ -105,6 +108,20 @@ description: Every export of the package, by entry point.
 | --- | --- | --- |
 | `force` | function | [force](/docs/api/force) |
 | `ForceOptions`, `ForceSettings`, `ForceEngine` | types | [force](/docs/api/force) |
+
+## `@bruno00o/graph/bundling`
+
+| Export | Kind | Page |
+| --- | --- | --- |
+| `densityBundling` | function | [densityBundling](/docs/api/bundling) |
+| `DensityBundlingOptions`, `DensityBundlingSettings` | types | [densityBundling](/docs/api/bundling) |
+
+## `@bruno00o/graph/routing`
+
+| Export | Kind | Page |
+| --- | --- | --- |
+| `orthogonalRouting` | function | [orthogonalRouting](/docs/api/routing) |
+| `OrthogonalRoutingOptions`, `OrthogonalRoutingSettings`, `RouteAxis` | types | [orthogonalRouting](/docs/api/routing) |
 
 ## `@bruno00o/graph/devtools`
 

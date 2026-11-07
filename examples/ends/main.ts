@@ -1,4 +1,5 @@
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
+import { orthogonalRouting } from '@bruno00o/graph/routing'
 import { messages } from '../shared/messages'
 import { button, choice, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
@@ -51,7 +52,7 @@ const endLabel = (labels: Labels, value: (exchange: Exchange) => number) =>
         },
       }
 
-const define = (split: Split, labels: Labels, flowing: boolean) =>
+const define = (split: Split, labels: Labels, flowing: boolean, routed: boolean) =>
   defineGraph({
     marks: [
       edges<Exchange>(exchanges, {
@@ -87,19 +88,22 @@ const define = (split: Split, labels: Labels, flowing: boolean) =>
       },
       width: { domain: [0, 100], range: [1.5, 9] },
     },
+    routing: routed ? orthogonalRouting({ spacing: 12 }) : null,
+    bridges: routed,
   })
 
 const params = new URLSearchParams(location.search)
 let split: Split = params.get('split') === 'share' ? 'share' : 'half'
 let labels: Labels = params.get('labels') === 'plated' ? 'plated' : 'plain'
 let flowing = params.has('flow')
+let routed = params.get('routing') === 'orthogonal'
 
 const { header, main } = createPage(messages.ends)
 const graph = mountGraph(main, {
-  definition: define(split, labels, flowing),
+  definition: define(split, labels, flowing, routed),
   ariaLabel: messages.endsLabel,
 })
-const redraw = () => graph.update({ definition: define(split, labels, flowing) })
+const redraw = () => graph.update({ definition: define(split, labels, flowing, routed) })
 
 const hovered = status()
 hovered.textContent = messages.endsHint
@@ -136,6 +140,18 @@ header.append(
     labels,
     (value) => {
       labels = value === 'none' || value === 'plated' ? value : 'plain'
+      redraw()
+    },
+  ),
+  choice(
+    messages.routingMode,
+    (['straight', 'orthogonal'] as const).map((value) => ({
+      value,
+      text: messages.routingModes[value],
+    })),
+    routed ? 'orthogonal' : 'straight',
+    (value) => {
+      routed = value === 'orthogonal'
       redraw()
     },
   ),

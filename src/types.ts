@@ -479,6 +479,18 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly bundle?: Style<T, boolean>
   /**
+   * Whether the `routing` of the definition draws the edge along a route around nodes. Loops and
+   * geodesic edges never route. With `false`, the edge stays straight.
+   * @default true
+   */
+  readonly route?: Style<T, boolean>
+  /**
+   * Whether the edge takes part in the `bridges` of the definition: it jumps over the edges it
+   * crosses, or is jumped over. With `false`, it crosses others plainly.
+   * @default true
+   */
+  readonly bridge?: Style<T, boolean>
+  /**
    * Whether the edge follows the shortest path over the Earth, a great circle, between nodes placed
    * by `longitude` and `latitude`, instead of a straight line on the flat map. Such an edge bends
    * toward the poles on a flat map, is cut where it crosses the antimeridian and is never bundled.
@@ -1147,24 +1159,28 @@ export interface BundleGraph<T = unknown> {
   datum(index: number): T | undefined
 }
 
-/** Paths of the listed edges of a `BundleGraph`, one polyline per edge, in the same order. */
+/**
+ * Paths of the listed edges of a `BundleGraph` or a `RouteGraph`, one polyline per edge, in the
+ * same order.
+ */
 export interface BundlePaths {
   /** Index of the first point of each path, then the number of points: `edges.length + 1` values. */
   readonly offsets: Uint32Array
   /**
    * Points in world units, `x` then `y`. Each path starts at its source and ends at its target; a
-   * path of two points stays straight.
+   * path of two points stays straight. A route may start and end anywhere inside its nodes: the
+   * drawn edge starts where the path leaves its source and ends where it enters its target.
    */
   readonly points: Float32Array
 }
 
-/** Receives the paths an edge bundling computes. */
+/** Receives the paths an edge bundling or an edge routing computes. */
 export interface BundleListener {
   /** Reports the paths, once. */
   end(paths: BundlePaths): void
 }
 
-/** A bundling computation in progress, as `EdgeBundling.start` returns it. */
+/** A bundling or routing computation in progress, as `start` returns it. */
 export interface BundleRun {
   /** Called when the result is no longer wanted. Do not call the listener after it. */
   stop(): void
@@ -1188,6 +1204,84 @@ export interface EdgeBundling<T = unknown> {
   readonly maxEdges: number
   /** Starts a computation. */
   start(graph: BundleGraph<T>, listener: BundleListener): BundleRun
+}
+
+/**
+ * What an edge routing reads: the edges to route, a copy of the node positions and the boxes to go
+ * around, by internal index. `T` is the type of the items of the edges.
+ */
+export interface RouteGraph<T = unknown> extends BundleGraph<T> {
+  /**
+   * Indices of the edges to route. Loops, geodesic edges, hidden edges and edges with
+   * `route: false` are left out.
+   */
+  readonly edges: Uint32Array
+  /**
+   * Half width and half height of the box of each node, in world units, `0` for a free slot or a
+   * hidden node. An unfolded group has the box of its container, centered on its position.
+   */
+  readonly extents: Float32Array
+  /** Unfolded group that directly holds each node or group, `-1` at the top level. */
+  readonly parents: Int32Array
+}
+
+/**
+ * Routes edges around nodes. Any object of this shape works, such as the result of
+ * `orthogonalRouting()`. `T` is the type of the items of the edges it reads.
+ */
+export interface EdgeRouting<T = unknown> {
+  /** Name of the method. With `options`, decides whether a new definition computes again. */
+  readonly name: string
+  /** Settings, compared one by one with those of the previous definition. */
+  readonly options: object
+  /**
+   * Radius of the rounded corners the graph draws at the bends of each route, in world units. A
+   * new radius alone redraws the routes without computing again.
+   */
+  readonly radius: number
+  /** Most edges routed. Above it, every edge stays straight. */
+  readonly maxEdges: number
+  /** Starts a computation. Edges of the `edges` list are those with `route` left on. */
+  start(graph: RouteGraph<T>, listener: BundleListener): BundleRun
+}
+
+/** Look of a bridge: `'arc'`, a half circle over the crossed edge, or `'gap'`, a break in the line. */
+export type BridgeShape = 'arc' | 'gap'
+
+/**
+ * Options of the `bridges` of `defineGraph`. Where two straight or routed edges cross, one of them
+ * jumps over the other, so that a crossing does not read as a connection. On routes, the
+ * horizontal segment jumps; otherwise the edge drawn later jumps.
+ */
+export interface BridgeOptions {
+  /**
+   * Look of each jump: `'arc'`, a half circle over the crossed edge, or `'gap'`, a break in the
+   * jumping edge.
+   * @default 'arc'
+   */
+  readonly shape?: BridgeShape
+  /**
+   * Width of each jump along the jumping edge, in screen pixels. Below zoom 1 it shrinks with the
+   * zoom, and under 2 pixels the edges cross plainly.
+   * @default 8
+   */
+  readonly size?: number
+  /**
+   * Most edges checked for crossings. Above it, no edge jumps and a warning is logged in
+   * development.
+   * @default 100000
+   */
+  readonly maxEdges?: number
+}
+
+/** Bridge options with every default applied, as `defineGraph` resolves them. */
+export interface ResolvedBridges {
+  /** Look of each jump. */
+  readonly shape: BridgeShape
+  /** Width of each jump, in screen pixels. */
+  readonly size: number
+  /** Most edges checked for crossings. */
+  readonly maxEdges: number
 }
 
 /**
@@ -1234,6 +1328,18 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly bundling?: EdgeBundling<EdgeDatum<M>> | null
+  /**
+   * Routes edges around nodes once nodes stand still, such as the result of
+   * `orthogonalRouting()`. Not with `bundling`.
+   * @default null
+   */
+  readonly routing?: EdgeRouting<EdgeDatum<M>> | null
+  /**
+   * Jumps where two straight or routed edges cross: `true` for the default look, options, or
+   * `null` for none.
+   * @default null
+   */
+  readonly bridges?: BridgeOptions | boolean | null
   /** How elements with a `time` enter and leave the time window. */
   readonly time?: TimeOptions
   /**
@@ -1271,6 +1377,10 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly hulls: readonly Hull[]
   /** Edge bundling, or `null` for none. */
   readonly bundling: EdgeBundling<EdgeDatum<M>> | null
+  /** Edge routing, or `null` for none. */
+  readonly routing: EdgeRouting<EdgeDatum<M>> | null
+  /** Bridges at edge crossings, defaults applied, or `null` for none. */
+  readonly bridges: ResolvedBridges | null
   /** Time options, defaults applied. */
   readonly time: ResolvedTimeOptions
   /** Free states that light the support of the selected edges, or `null` for none. */

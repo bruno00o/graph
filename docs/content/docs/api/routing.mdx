@@ -1,0 +1,59 @@
+---
+title: orthogonalRouting
+description: Edge routing in horizontal and vertical segments around nodes, computed in a Web Worker.
+---
+
+```ts
+import { orthogonalRouting } from '@bruno00o/graph/routing'
+
+function orthogonalRouting(options?: OrthogonalRoutingOptions): EdgeRouting
+```
+
+Returns a frozen [`EdgeRouting`](/docs/api/define-graph#routing) named `'orthogonal'`. Pass it as `routing` to `defineGraph`. See [Edge routing](/docs/routing) for a walkthrough.
+
+## Options
+
+```ts
+type RouteAxis = 'auto' | 'vertical' | 'horizontal'
+
+interface OrthogonalRoutingOptions {
+  readonly gap?: number
+  readonly spacing?: number
+  readonly radius?: number
+  readonly axis?: RouteAxis
+  readonly maxEdges?: number
+}
+```
+
+<api-table path="routing/index.ts" name="OrthogonalRoutingOptions" />
+
+`gap`, `spacing` and `radius` take values of 0 or more; a negative value is raised to 0 and a non-finite value falls back to its default. `maxEdges` is rounded down. Any other `axis` throws a `TypeError`.
+
+## Result
+
+```ts
+interface OrthogonalRoutingSettings {
+  readonly gap: number
+  readonly spacing: number
+  readonly axis: RouteAxis
+}
+```
+
+<api-table path="routing/index.ts" name="OrthogonalRoutingSettings" />
+
+`routing.options` holds the resolved settings, and `routing.radius` and `routing.maxEdges` the other two options. Two `orthogonalRouting()` calls with the same settings and `maxEdges` are equal for the graph: a new definition with an equal routing does not compute again, and one that only changes `radius` redraws the corners.
+
+## Behavior
+
+- Each node and group container is an obstacle, grown by `gap`. An edge may cross the containers that hold its source or its target, and goes around every other box.
+- An edge first tries the routes with one or two bends between the chosen sides of its ends. When they are blocked, it searches a grid drawn from the sides of the obstacles around its ends for the route of least cost: its length, plus a fixed cost for each bend and a larger one for entering or leaving a node through a side off the `axis`. The search covers a window around both ends, widened once when it finds nothing. An edge with no free route keeps its first simple route, across the boxes in its way.
+- Segments that share a line are then moved apart by `spacing`, in an order that keeps routes from crossing where it can, within the free space of their channel. Ends spread along the middle of their side.
+- The result is the same for the same positions, sizes and edges.
+- The computation runs in a Web Worker shipped inside the package, created from a `blob:` URL. Without `Worker`, when the content security policy refuses `worker-src blob:`, or when the worker fails, it runs on the main thread in slices of 8 milliseconds.
+
+## Exports
+
+| Export | Kind |
+| --- | --- |
+| `orthogonalRouting` | function |
+| `OrthogonalRoutingOptions`, `OrthogonalRoutingSettings`, `RouteAxis` | types |

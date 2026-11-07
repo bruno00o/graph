@@ -71,6 +71,8 @@ export interface CompiledEdgeMark {
   readonly time: Read | null
   readonly flow: Read | null
   readonly bundle: Read | null
+  readonly route: Read | null
+  readonly bridge: Read | null
   readonly geodesic: Read | null
   readonly ends: CompiledEnds | null
 }
@@ -215,6 +217,8 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     time: channel(options.time),
     flow: style(options.flow),
     bundle: style(options.bundle),
+    route: style(options.route),
+    bridge: style(options.bridge),
     geodesic: style(options.geodesic),
     ends: compileEnds(options.ends),
   }

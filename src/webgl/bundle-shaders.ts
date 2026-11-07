@@ -1,7 +1,16 @@
+import { bridgeData, pathBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
 import { edgeData, endData, header, nodeData } from './shaders'
 
-export const bundleVertex: string = `${header}${nodeData}${edgeData}${endData}${bundlePath}
+export function bundleVertexOf(bridged: boolean): string {
+  return `${header}${nodeData}${edgeData}${endData}${bundlePath}${bridged ? bridgeData : ''}
+uniform sampler2D pathStations;
+uniform float pathMeasured;
+float stationOf(uvec4 path, int k, float total, float spacing) {
+  if (pathMeasured < 0.5) return float(k) * spacing;
+  vec2 station = texelFetch(pathStations, texel(path.x + uint(k)), 0).xy;
+  return mix(station.x, station.y, bundleMix) * total;
+}
 layout(location = 0) in vec2 corner;
 layout(location = 1) in uint instance;
 out vec2 vPos;
@@ -55,6 +64,9 @@ void main() {
   vec2 normal = vec2(-dir.y, dir.x);
   float total = pathLength(path) * zoom;
   float spacing = total / float(count - 1);
+  float along = stationOf(path, k, total, spacing);
+  float before = stationOf(path, previous, total, spacing);
+  float after = stationOf(path, next, total, spacing);
   float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a));
   float end = total - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d));
   float visible = end - start;
@@ -69,11 +81,11 @@ void main() {
   float endHead = (arrow & 2u) != 0u && visible > line.farWidth * 8.0 ? max(line.farWidth * 4.0, 6.0) : 0.0;
   bool dotted = line.dash == 2u || line.farDash == 2u;
   float body = (dotted ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
-  float head = max(body, arrowHalf + halo + margin);
-  bool wide = (startHead > 0.0 && float(previous) * spacing <= start + startHead)
-    || (endHead > 0.0 && float(next) * spacing >= end - endHead);
+  float head = max(body, arrowHalf + halo + margin);${bridged ? pathBridges : ''}
+  bool wide = (startHead > 0.0 && before <= start + startHead)
+    || (endHead > 0.0 && after >= end - endHead);
   float across = corner.y * (wide ? head : body);
-  vPos = vec2(float(k) * spacing, across);
+  vPos = vec2(along, across);
   vStart = start;
   vEnd = end;
   vHalfWidth = line.width * 0.5;
@@ -94,6 +106,9 @@ void main() {
   gl_Position = visible > 0.5 ? toClip(here + normal * across) : hidden;
 }
 `
+}
+
+export const bundleVertex: string = bundleVertexOf(false)
 
 export function bundleCorners(stations: number): Float32Array {
   const values = new Float32Array(stations * 4)

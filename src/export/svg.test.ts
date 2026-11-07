@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { gridInput } from '../core/background-grid'
+import { BridgeFinder, BridgeSet } from '../core/bridges'
 import type { EdgeColumns } from '../core/columns'
 import { EdgePaths } from '../core/edge-paths'
 import { flowSpeed } from '../core/flow'
@@ -15,7 +16,7 @@ import type { LabelMode } from '../host/renderer'
 import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
 import { lightTheme } from '../theme/tokens'
-import type { GraphDefinitionOptions, Hull, Key, StateStyle } from '../types'
+import type { BridgeShape, GraphDefinitionOptions, Hull, Key, StateStyle } from '../types'
 import type { LineLayout } from '../webgl/glyph-atlas'
 import type { TextMeasure } from '../webgl/label-layer'
 import { type ExportFrame, exportFrame } from './frame'
@@ -105,6 +106,7 @@ function render(
     background?: string
     time?: number
     arch?: number
+    bridges?: BridgeShape
   } = {},
 ): string {
   const model = createGraphModel()
@@ -155,6 +157,18 @@ function render(
     Number.POSITIVE_INFINITY,
     () => 0,
   )
+  const bridges = new BridgeSet()
+  if (extra.bridges) {
+    bridges.shape = extra.bridges
+    new BridgeFinder({
+      edges: scene.edges,
+      positions,
+      paths: null,
+      radius: () => 5,
+      shown: () => true,
+      maxEdges: 100,
+    }).step(Number.POSITIVE_INFINITY, bridges)
+  }
   const grid = gridInput(definition.background, scene.palette)
   const colors = scene.palette.colors
   const palette = new Uint8Array(colors.length * 4)
@@ -193,6 +207,7 @@ function render(
     title: 'Sample <graph>',
     ...(extra.time !== undefined ? { time: extra.time } : {}),
     ...(extra.arch !== undefined ? { bundles: arches(scene.edges, positions, extra.arch) } : {}),
+    ...(extra.bridges ? { bridges } : {}),
   })
 }
 
@@ -667,6 +682,48 @@ describe('writeSvg', () => {
     })
     expect(svg).toContain('<g transform="translate(200 150) rotate(-45)">')
     expect(svg).toContain('>link</text>')
+  })
+})
+
+describe('bridges', () => {
+  const crossing: GraphDefinitionOptions = {
+    marks: [
+      edges<Link>(
+        [
+          { id: 'ab', from: 'a', to: 'b' },
+          { id: 'cd', from: 'c', to: 'd' },
+        ],
+        { source: 'from', target: 'to' },
+      ),
+      nodes<Item>(
+        [
+          { id: 'a', x: -100, y: 0 },
+          { id: 'b', x: 100, y: 0 },
+          { id: 'c', x: 0, y: -100 },
+          { id: 'd', x: 0, y: 100 },
+        ],
+        { x: 'x', y: 'y' },
+      ),
+    ],
+  }
+
+  const bodies = (svg: string) =>
+    [...svg.matchAll(/<path d="(M[^"]+)" fill="none"/g)].map((match) => match[1] ?? '')
+
+  it('hops the horizontal edge over the vertical one with a half circle', () => {
+    const [horizontal, vertical] = bodies(render(crossing, {}, { bridges: 'arc' }))
+    expect(horizontal).toMatch(/L196 150A4 4 0 0 1 204 150L/)
+    expect(vertical).not.toMatch(/A/)
+  })
+
+  it('breaks the line for a gap', () => {
+    const [horizontal] = bodies(render(crossing, {}, { bridges: 'gap' }))
+    expect(horizontal).toMatch(/L196 150M204 150L/)
+  })
+
+  it('draws plain lines without bridges', () => {
+    const [horizontal] = bodies(render(crossing))
+    expect(count(horizontal ?? '', /[AM]/g)).toBe(1)
   })
 })
 

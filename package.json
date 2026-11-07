@@ -75,6 +75,10 @@
       "types": "./dist/bundling.d.ts",
       "import": "./dist/bundling.js"
     },
+    "./routing": {
+      "types": "./dist/routing.d.ts",
+      "import": "./dist/routing.js"
+    },
     "./timeline": {
       "types": "./dist/timeline.d.ts",
       "import": "./dist/timeline.js"

@@ -3,12 +3,14 @@ import { freeStateNames, maxFreeStates } from './core/state-names'
 import { themeColor } from './theme/tokens'
 import type {
   BackgroundOptions,
+  BridgeOptions,
   GraphDefinition,
   GraphDefinitionOptions,
   InteractionOptions,
   LensOptions,
   Mark,
   ResolvedBackground,
+  ResolvedBridges,
   ResolvedInteraction,
   ResolvedLens,
   ResolvedSupportStates,
@@ -33,6 +35,8 @@ const defaultGridSpacing = 16
 const defaultLensRadius = 120
 const defaultLensZoom = 3
 const defaultLensKey = 'Alt'
+const defaultBridgeSize = 8
+const defaultBridgeEdges = 100_000
 
 function resolveSpeed(
   option: boolean | { readonly speed?: number },
@@ -116,6 +120,24 @@ function resolveBackground(
   })
 }
 
+function resolveBridges(
+  options: BridgeOptions | boolean | null | undefined,
+): ResolvedBridges | null {
+  if (!options) return null
+  const given = options === true ? {} : options
+  const shape = given.shape ?? 'arc'
+  if (shape !== 'arc' && shape !== 'gap') {
+    throw new TypeError("defineGraph: bridges.shape must be 'arc' or 'gap'")
+  }
+  const size = given.size ?? defaultBridgeSize
+  const maxEdges = given.maxEdges ?? defaultBridgeEdges
+  return Object.freeze({
+    shape,
+    size: Number.isFinite(size) && size > 0 ? size : defaultBridgeSize,
+    maxEdges: maxEdges >= 0 ? Math.floor(Math.min(maxEdges, 2 ** 31)) : defaultBridgeEdges,
+  })
+}
+
 function resolveTime(options: TimeOptions = {}): ResolvedTimeOptions {
   const fade = options.fade ?? 0
   if (!(fade >= 0) || !Number.isFinite(fade)) {
@@ -178,6 +200,13 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
   if (bundling !== null && typeof bundling.start !== 'function') {
     throw new TypeError('defineGraph: bundling must have a start function')
   }
+  const routing = options.routing ?? null
+  if (routing !== null && typeof routing.start !== 'function') {
+    throw new TypeError('defineGraph: routing must have a start function')
+  }
+  if (routing !== null && bundling !== null) {
+    throw new TypeError('defineGraph: use bundling or routing, not both')
+  }
   checkLayers(options.marks)
   const free = freeStateNames(options.states ?? {})
   if (free.length > maxFreeStates) {
@@ -200,6 +229,8 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     background: resolveBackground(options.background),
     hulls: Object.freeze([...(options.hulls ?? [])]),
     bundling,
+    routing,
+    bridges: resolveBridges(options.bridges),
     time: resolveTime(options.time),
     support: resolveSupport(options.support as SupportStateOptions | null | undefined, free),
   })

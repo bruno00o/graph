@@ -227,6 +227,7 @@ export async function exportSvg<S extends string>(
     hulls: current.hulls.shapes,
     containers: current.containers,
     bundles: current.bundles,
+    bridges: current.bridges ?? null,
     palette: current.palette,
     theme: current.theme,
     frame,
