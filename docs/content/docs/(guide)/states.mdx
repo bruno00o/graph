@@ -52,7 +52,7 @@ The selection is not a free state: change it through `graph.selection`. See [Int
 
 ## Style options
 
-A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor` and `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.
+A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), and `raise` (see [Raise a state](#raise-a-state)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.
 
 ## Override the built-in states
 
@@ -72,6 +72,25 @@ By default, a selected node gets an accent ring, a halo and its label; a hovered
 An element can be in several states at once. Each property comes from the first state that sets it, in this order: `selected`, `hovered`, `focused`, then your states in the order you declared them. The opacity of the winning state multiplies the element's own.
 
 Selected, hovered and focused elements are drawn again above all others, so they stay visible inside a dense cluster.
+
+## Raise a state
+
+A free state is drawn in place: inside a dense cluster, other nodes and edges cover its members. `raise: true` draws them above every mark, as the selection is:
+
+```ts
+states: {
+  path: { stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true, raise: true },
+}
+```
+
+A raised element:
+
+- is drawn in a last pass, above every mark, with the selected, hovered and focused elements, in the order of its mark, then of its index;
+- places its label before the labels of other elements, as selected elements do: it may still give way to the hovered and focused labels, and to another raised label in the same place;
+- is picked before the elements it covers, so a click hits what is drawn on top;
+- is drawn on top in [exports](/docs/export) too.
+
+An element is raised when any of its states raises it. `raise` is `true` for `selected`, `hovered` and `focused`: set `raise: false` on one of them to draw its members in place. Raising costs one more draw of the raised elements, about the cost of selecting them: 100,000 raised edges redraw faster than 100,000 selected edges, whose halo costs more.
 
 <Callout title="Limit">
 A definition holds up to 29 states besides the three built-in ones. Past that, `defineGraph` throws a `RangeError`.

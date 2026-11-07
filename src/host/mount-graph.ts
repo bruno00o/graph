@@ -73,6 +73,17 @@ import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import { exposeInternals, type GraphWatcher } from './internals'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
+import {
+  clampLensZoom,
+  editableTarget,
+  type GraphLens,
+  type GraphLensState,
+  type LensInput,
+  lensContains,
+  lensFrame,
+  lensView,
+  sameLens,
+} from './lens'
 import type { Renderer } from './renderer'
 import { clearRoom } from './room'
 import { StateRegistry } from './state-registry'
@@ -101,6 +112,8 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly folded: readonly Key[]
   /** Status of edge bundling. */
   readonly bundling: GraphBundlingStatus
+  /** The magnifying lens, or `null` when hidden. */
+  readonly lens: GraphLensState | null
 }
 
 /** Status of edge bundling. */
@@ -348,9 +361,14 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly paths: GraphPaths<M>
   /** Edge bundling. */
   readonly bundling: GraphBundling
+  /** The magnifying lens. */
+  readonly lens: GraphLens
   /** The `div` added to the container, which holds the canvas. */
   readonly element: HTMLElement
-  /** Element under a point in screen pixels, nodes before edges, or `null`. */
+  /**
+   * Element under a point in screen pixels, nodes before edges, or `null`. Inside the lens, the
+   * element it shows there.
+   */
   pick(point: Point): GraphTarget<M> | null
   /** Keys of the nodes connected to a node. */
   neighbors(key: Key): Key[]
@@ -414,6 +432,7 @@ interface Gesture {
   readonly target: GraphTarget | null
   readonly drag: NodeDrag | null
   readonly lasso: Point[] | null
+  readonly lens: Point | null
   last: Point
   event: PointerEvent
   moved: boolean
@@ -471,6 +490,7 @@ interface NodeDrag {
   readonly indices: readonly number[]
   readonly keys: readonly Key[]
   readonly offsets: Float32Array
+  readonly inLens: boolean
   started: boolean
 }
 
@@ -535,6 +555,7 @@ function resolveStyle(style: StateStyle, id: (color: string) => number): Resolve
     ...(style.outline !== undefined ? { outline: id(style.outline) } : {}),
     ...(style.labelColor !== undefined ? { labelColor: id(style.labelColor) } : {}),
     ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
+    ...(style.raise !== undefined ? { raise: style.raise } : {}),
     ...(style.outlineWidth !== undefined || style.outline !== undefined
       ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
       : {}),
@@ -615,6 +636,13 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const watchers = new Set<GraphWatcher>()
   let counted = -1
   let counts = { nodes: 0, edges: 0, pendingEdges: 0 }
+  let lens: GraphLensState | null = null
+  let wantedLens: GraphLensState | null = null
+  let keyLens = false
+  let pointer: Point | null = null
+  let lensMemory: { radius: number; zoom: number } | null = null
+  let warnedLens = false
+  let flowTime = 0
 
   const model = createGraphModel({ schedule: () => request(true) })
   const scene = createScene()
@@ -624,10 +652,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const hierarchy = projection.hierarchy
   const containerBoxes = new ContainerBoxes()
   const foldOrigins = new Map<number, readonly [number, number]>()
-  const registry = new StateRegistry(model, buffers, {
-    indexOf: (key) => projection.edgeIndexOf(key),
-    keysAt: (index) => projection.keysAt(index),
-  })
+  const registry = new StateRegistry(
+    model,
+    buffers,
+    {
+      indexOf: (key) => projection.edgeIndexOf(key),
+      keysAt: (index) => projection.keysAt(index),
+    },
+    (kind, index) => layerPosition(kind, index),
+  )
   const emitter = new Emitter()
   const pickIndex = new PickIndex()
   const themeResolver = new ThemeResolver(element)
@@ -648,6 +681,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     layout: idleLayout,
     folded: [...projection.folded],
     bundling: idleBundling,
+    lens: null,
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
   const bundles = new BundleHost(
@@ -682,17 +716,22 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   })
 
   const layerPositions = { nodes: new Map<number, number>(), edges: new Map<number, number>() }
+  let layerShape = ''
   const pickSource: PickSource = {
     nodes: scene.nodes,
     edges: scene.edges,
     positions,
     order: (kind, index) => {
-      const slot = (kind === 'nodes' ? scene.nodes.slot[index] : scene.edges.slot[index]) ?? 0
       const mask = (kind === 'nodes' ? buffers.nodeMask[index] : buffers.edgeMask[index]) ?? 0
-      const layer = layerPositions[kind].get(slot) ?? 0
-      return ((mask & 3) !== 0 ? highlightOrder : 0) + layer * layerOrder + index
+      const raised = (mask & buffers.raised(kind)) !== 0
+      return (raised ? highlightOrder : 0) + layerPosition(kind, index) * layerOrder + index
     },
     paths: bundles.paths,
+  }
+
+  function layerPosition(kind: StateKind, index: number): number {
+    const slot = (kind === 'nodes' ? scene.nodes.slot[index] : scene.edges.slot[index]) ?? 0
+    return layerPositions[kind].get(slot) ?? 0
   }
 
   function freeStates(): Record<string, ElementKeys> {
@@ -842,11 +881,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function applyLayers(): void {
+    const shape = scene.layers.map((layer) => `${layer.kind}${layer.slot}`).join()
+    if (shape === layerShape) return
+    layerShape = shape
     layerPositions.nodes.clear()
     layerPositions.edges.clear()
     scene.layers.forEach((layer, position) => {
       layerPositions[layer.kind].set(layer.slot, position)
     })
+    registry.reorder()
   }
 
   function syncContainers(): void {
@@ -925,6 +968,111 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return record ? { kind, key, datum: record.datum, mark: record.mark.name } : null
   }
 
+  function viewAt(point: Point): View {
+    const current = store.get().view
+    return lens && lensContains(lens, point) ? lensView(current, viewport(), lens) : current
+  }
+
+  function dragView(drag: NodeDrag): View {
+    const current = store.get().view
+    return drag.inLens && lens ? lensView(current, viewport(), lens) : current
+  }
+
+  function lensFocus(): Point {
+    const focused = store.get().focused
+    const point = focused ? focusPoint(focused) : null
+    const size = viewport()
+    return point
+      ? toScreen(store.get().view, size, point)
+      : { x: size.width / 2, y: size.height / 2 }
+  }
+
+  function updateLens(): void {
+    let next: GraphLensState | null = null
+    if (wantedLens && !surface) {
+      const { follow } = wantedLens
+      const at = follow === 'pointer' ? pointer : follow === 'focus' ? lensFocus() : wantedLens.at
+      if (at) next = { ...wantedLens, at }
+    }
+    if (next) lensMemory = { radius: next.radius, zoom: next.zoom }
+    if (sameLens(lens, next)) return
+    lens = next
+    patch({ lens })
+    emitter.emit('lenschange', { lens })
+    request()
+  }
+
+  function setLens(input: LensInput | null): void {
+    keyLens = false
+    if (surface && input && dev && !warnedLens) {
+      warnedLens = true
+      console.warn('graph: the lens does not work on a map')
+    }
+    if (!input) {
+      wantedLens = null
+      updateLens()
+      return
+    }
+    const options = definition.interaction.lens
+    const size = viewport()
+    const place = input.at ?? wantedLens?.at ?? { x: size.width / 2, y: size.height / 2 }
+    const radius = input.radius ?? wantedLens?.radius ?? lensMemory?.radius ?? options.radius
+    const zoom = input.zoom ?? wantedLens?.zoom ?? lensMemory?.zoom ?? options.zoom
+    if (!(radius > 0) || !Number.isFinite(radius)) {
+      throw new RangeError('graph: lens radius must be a positive number')
+    }
+    if (!Number.isFinite(zoom)) throw new RangeError('graph: lens zoom must be a finite number')
+    wantedLens = {
+      at:
+        typeof place === 'string' ? (lens?.at ?? { x: size.width / 2, y: size.height / 2 }) : place,
+      radius,
+      zoom: clampLensZoom(zoom),
+      follow: typeof place === 'string' ? place : null,
+    }
+    updateLens()
+  }
+
+  function trackPointer(point: Point): void {
+    pointer = point
+    if (keyLens && wantedLens?.follow === 'focus') wantedLens = { ...wantedLens, follow: 'pointer' }
+    if (wantedLens?.follow === 'pointer') updateLens()
+  }
+
+  function lensKeyFor(event: KeyboardEvent): boolean {
+    const key = definition.interaction.lens.key
+    if (key === null || event.key !== key || surface || destroyed) return false
+    if (event.target !== element && editableTarget(event.target)) return false
+    return pointer !== null || document.activeElement === element
+  }
+
+  function onLensKeyDown(event: KeyboardEvent): void {
+    if (event.repeat || keyLens || !lensKeyFor(event)) return
+    const options = definition.interaction.lens
+    keyLens = true
+    wantedLens = {
+      at: pointer ?? lensFocus(),
+      radius: lensMemory?.radius ?? options.radius,
+      zoom: lensMemory?.zoom ?? options.zoom,
+      follow: pointer ? 'pointer' : 'focus',
+    }
+    updateLens()
+  }
+
+  function onLensKeyUp(event: KeyboardEvent): void {
+    if (!keyLens || event.key !== definition.interaction.lens.key) return
+    event.preventDefault()
+    keyLens = false
+    wantedLens = null
+    updateLens()
+  }
+
+  function onLensBlur(): void {
+    if (!keyLens) return
+    keyLens = false
+    wantedLens = null
+    updateLens()
+  }
+
   function pickAt(point: Point): GraphTarget | null {
     syncContainers()
     if (!gesture?.drag && pickedPaths !== bundles.paths.version) {
@@ -940,8 +1088,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       pickedScene = sceneVersion
       pickedPositions = positions.version
     }
-    const world = toWorld(store.get().view, viewport(), point)
-    const zoom = store.get().view.zoom
+    const seen = viewAt(point)
+    const world = toWorld(seen, viewport(), point)
+    const zoom = seen.zoom
     const hit = pickIndex.pick(pickSource, world.x, world.y, zoom, pickTolerance)
     if (!hit) {
       const shown = (index: number) => scene.nodes.zoom.shown(index, zoom)
@@ -1875,6 +2024,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (autoPanning) stepAutoPan(now)
     sendView()
     if (positionAnimations.length > 0) stepPositions(now)
+    if (wantedLens?.follow === 'focus') updateLens()
     const easing = bundles.frame(now)
     registry.takeHighlighted()
     syncContainers()
@@ -1910,19 +2060,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     const { view, width, height } = store.get()
     const renderStart = clock()
-    const time = flows.time(now)
-    const wait = renderer.render({ view, width, height, pixelRatio, time })
+    const flowing = flows.moving(view, width, height)
+    if (flowing) flowTime = flows.time(now)
+    const time = flowTime
+    const shown = lens ? lensFrame(view, { width, height }, lens) : null
+    const wait = renderer.render({ view, width, height, pixelRatio, time, lens: shown })
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
     for (const watcher of watchers) watcher.frame()
-    if (
-      viewAnimation ||
-      autoPanning ||
-      positionAnimations.length > 0 ||
-      easing ||
-      flows.moving(view, width, height)
-    ) {
+    if (viewAnimation || autoPanning || positionAnimations.length > 0 || easing || flowing) {
       request()
     } else if (wait >= 0) requestLater(wait)
   }
@@ -1969,7 +2116,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return {
       target: hit,
       point,
-      world: toWorld(store.get().view, viewport(), point),
+      world: toWorld(viewAt(point), viewport(), point),
       originalEvent: event,
     }
   }
@@ -1979,7 +2126,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const group = registry.has('selected', 'nodes', hit.key)
       ? registry.members('selected').nodes
       : [hit.key]
-    const world = toWorld(store.get().view, viewport(), point)
+    const inLens = lens !== null && lens.follow === null && lensContains(lens, point)
+    const world = toWorld(viewAt(point), viewport(), point)
     const keys: Key[] = []
     const indices: number[] = []
     const taken = new Set<number>()
@@ -2004,7 +2152,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       offsets[i * 2] = positions.x(index) - world.x
       offsets[i * 2 + 1] = positions.y(index) - world.y
     })
-    return { target: { ...hit, kind: 'node' }, indices, keys, offsets, started: false }
+    return { target: { ...hit, kind: 'node' }, indices, keys, offsets, inLens, started: false }
   }
 
   function dragEvent(drag: NodeDrag, event: PointerEvent) {
@@ -2013,7 +2161,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       target: drag.target,
       keys: drag.keys,
       point,
-      world: toWorld(store.get().view, viewport(), point),
+      world: toWorld(dragView(drag), viewport(), point),
       originalEvent: event,
     }
   }
@@ -2031,10 +2179,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     remembered = null
     setFocused(null)
     const point = local(event)
+    trackPointer(point)
     const hit = pickAt(point)
     const drag = hit ? startDrag(hit, point) : null
     const { lasso, select } = definition.interaction
     const lassoing = !hit && event.shiftKey && lasso && select === 'multiple'
+    const moveLens = !hit && !lassoing && lens?.follow === null && lensContains(lens, point)
     gesture = {
       id: event.pointerId,
       touch: event.pointerType === 'touch',
@@ -2044,6 +2194,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       target: hit,
       drag,
       lasso: lassoing ? [toWorld(store.get().view, viewport(), point)] : null,
+      lens: moveLens && lens ? lens.at : null,
       moved: false,
     }
     canvas.setPointerCapture?.(event.pointerId)
@@ -2107,6 +2258,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         target: null,
         drag: null,
         lasso: null,
+        lens: null,
         moved: true,
       }
     }
@@ -2118,7 +2270,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       drag.started = true
       emitter.emit('dragstart', dragEvent(drag, event))
     }
-    const world = toWorld(store.get().view, viewport(), point)
+    const world = toWorld(dragView(drag), viewport(), point)
     drag.indices.forEach((index, i) => {
       positions.set(
         index,
@@ -2201,6 +2353,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return
     }
     const point = local(event)
+    if (!gesture || gesture.id === event.pointerId) trackPointer(point)
     if (!gesture) {
       setHovered(pickAt(point), event)
       return
@@ -2213,6 +2366,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       updateCursor()
     }
     const { lasso, drag } = gesture
+    if (gesture.lens && wantedLens) {
+      const from = gesture.lens
+      const at = { x: from.x + point.x - gesture.start.x, y: from.y + point.y - gesture.start.y }
+      wantedLens = { ...wantedLens, at }
+      updateLens()
+      gesture.last = point
+      return
+    }
     if (lasso) {
       extendLasso(gesture, lasso, point)
       gesture.last = point
@@ -2265,7 +2426,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function onPointerLeave(event: PointerEvent): void {
-    if (!gesture && !pinch) setHovered(null, event)
+    if (gesture || pinch) return
+    setHovered(null, event)
+    pointer = null
+    updateLens()
   }
 
   function onDoubleClick(event: MouseEvent): void {
@@ -2291,6 +2455,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const command = event.ctrlKey || event.metaKey
     const { width, height } = store.get()
     const view = baseView()
+    if (lens && wantedLens && (command || wheel === 'zoom') && lensContains(lens, local(event))) {
+      event.preventDefault()
+      const speed = zoom ? zoom.speed : 1
+      const factor = wheelFactor(event.deltaY, event.deltaMode, height, speed, event.ctrlKey)
+      wantedLens = { ...wantedLens, zoom: clampLensZoom(wantedLens.zoom * factor) }
+      updateLens()
+      return
+    }
     if (zoom && (command || wheel === 'zoom')) {
       event.preventDefault()
       viewAnimation = null
@@ -2351,6 +2523,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   ]
   for (const [name, listener] of elementListeners) {
     element.addEventListener(name, listener as EventListener)
+  }
+  const windowListeners: ReadonlyArray<readonly [string, (event: never) => void]> = [
+    ['keydown', onLensKeyDown],
+    ['keyup', onLensKeyUp],
+    ['blur', onLensBlur],
+  ]
+  for (const [name, listener] of windowListeners) {
+    window.addEventListener(name, listener as EventListener)
   }
   applyKeyboard()
 
@@ -2557,6 +2737,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       },
     },
     element,
+    lens: {
+      get: () => lens,
+      set: setLens,
+      toWorld: (point) => toWorld(viewAt(point), viewport(), point),
+    },
     pick: (point) => pickAt(point),
     neighbors: (key) => model.neighbors(key),
     edgesOf: (key) => model.edgesOf(key),
@@ -2613,6 +2798,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       }
       for (const [name, listener] of elementListeners) {
         element.removeEventListener(name, listener as EventListener)
+      }
+      for (const [name, listener] of windowListeners) {
+        window.removeEventListener(name, listener as EventListener)
       }
       emitter.clear()
       model.destroy()

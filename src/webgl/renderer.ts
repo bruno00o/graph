@@ -2,7 +2,8 @@ import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { maxStates, noPaint } from '../core/state-buffers'
 import type { ZoomRanges } from '../core/zoom-range'
 import type { ResolvedTheme } from '../dom/theme'
-import type { LabelArea, Renderer, RenderInput } from '../host/renderer'
+import type { LabelArea, LensFrame, Renderer, RenderFrame, RenderInput } from '../host/renderer'
+import type { View } from '../types'
 import { createBackdrop } from './backdrop'
 import { bundleUnits, createBundlePass } from './bundle-pass'
 import { EdgeCover, layerCap } from './edge-cover'
@@ -37,6 +38,8 @@ import {
   edgeVertex,
   labelFragment,
   labelVertex,
+  lensFragment,
+  lensVertex,
   nodeFragment,
   nodeVertex,
 } from './shaders'
@@ -50,9 +53,11 @@ function blockBindings(
   return { Frame: count - 2, States: count - 1 }
 }
 const paletteWidth = 256
-const highlightBits = 3
 const labelInterval = 120
 const badgeStride = 20
+const lensRing = 1.5
+const lensShadow = 10
+const lensMargin = 2
 
 const units = {
   palette: 0,
@@ -72,6 +77,50 @@ const units = {
   edgeZoom: 15,
 } as const
 const farZoom = 3e38
+
+interface LabelSet {
+  readonly layer: LabelLayer
+  readonly buffers: readonly [WebGLBuffer, WebGLBuffer, WebGLBuffer, WebGLBuffer]
+  readonly main: WebGLVertexArrayObject
+  readonly highlight: WebGLVertexArrayObject
+  readonly edgeMain: WebGLVertexArrayObject
+  readonly edgeHighlight: WebGLVertexArrayObject
+  stale: boolean
+  moved: boolean
+  time: number
+  view: string
+  duration: number
+}
+
+interface Target {
+  readonly framebuffer: WebGLFramebuffer
+  readonly color: WebGLTexture
+  readonly depth: WebGLRenderbuffer
+  readonly width: number
+  readonly height: number
+}
+
+interface LensArea extends RenderFrame {
+  readonly x0: number
+  readonly y0: number
+  readonly size: number
+}
+
+interface LensPass {
+  readonly program: WebGLProgram
+  readonly vao: WebGLVertexArrayObject
+  readonly box: WebGLUniformLocation | null
+  readonly canvas: WebGLUniformLocation | null
+  readonly origin: WebGLUniformLocation | null
+  readonly ring: WebGLUniformLocation | null
+  readonly colors: WebGLUniformLocation | null
+}
+
+function waitOf(a: number, b: number): number {
+  if (a < 0) return b
+  if (b < 0) return a
+  return Math.min(a, b)
+}
 
 function iota(length: number): Uint32Array {
   const values = new Uint32Array(length)
@@ -182,7 +231,7 @@ function createRenderer(
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
   gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
-  const statesBlock = new ArrayBuffer(3072)
+  const statesBlock = new ArrayBuffer(3088)
   const statesBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, statesBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -233,10 +282,6 @@ function createRenderer(
   const edgeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const curveIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const containerIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
-  const labelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
-  const labelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
-  const edgeLabelMainBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
-  const edgeLabelHighlightBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const badgeBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const badgeGlyphBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
   const warmIndex = createBuffer(gl, new Uint32Array(1), gl.STATIC_DRAW)
@@ -253,10 +298,6 @@ function createRenderer(
     edgeOverlayIndices,
     curveIndices,
     containerIndices,
-    labelMainBuffer,
-    labelHighlightBuffer,
-    edgeLabelMainBuffer,
-    edgeLabelHighlightBuffer,
     badgeBuffer,
     badgeGlyphBuffer,
     warmIndex,
@@ -378,10 +419,6 @@ function createRenderer(
       corner(edgeCorner, 3),
       instance(edgeOverlayIndices),
     ]),
-    labels: createVertexArray(gl, labelProgram, glyphs(labelMainBuffer)),
-    labelHighlight: createVertexArray(gl, labelProgram, glyphs(labelHighlightBuffer)),
-    edgeLabels: createVertexArray(gl, labelProgram, glyphs(edgeLabelMainBuffer)),
-    edgeLabelHighlight: createVertexArray(gl, labelProgram, glyphs(edgeLabelHighlightBuffer)),
     badges: createVertexArray(gl, badgeProgram, badgeAttributes(badgeBuffer)),
     badgeGlyphs: createVertexArray(gl, labelProgram, glyphs(badgeGlyphBuffer)),
   }
@@ -427,7 +464,9 @@ function createRenderer(
   let curvedChanged = false
   let input: RenderInput | null = null
   const atlas = new GlyphAtlas('system-ui, sans-serif')
-  const labels = new LabelLayer()
+  const mainLabels = createLabelSet()
+  let lensLabels: LabelSet | null = null
+  const labelSets: LabelSet[] = [mainLabels]
   const labelPlan = new LabelPlan()
   let labelOrder = new Uint32Array(0)
   let labelOrderLength = 0
@@ -437,14 +476,53 @@ function createRenderer(
   let edgeLabelOrderLength = 0
   let largestEdgeLabel = 0
   let edgeOrderStale = true
-  let labelsStale = true
   let originX = 0
   let originY = 0
-  let labelsMoved = false
   let orderStale = true
-  let lastLabelTime = Number.NEGATIVE_INFINITY
-  let lastLabelView = ''
-  let labelTime = 0
+  let contentVersion = 0
+  let cachedVersion = -1
+  let cachedKey = ''
+  let cache: Target | null = null
+  let lensTarget: Target | null = null
+  let lensPass: LensPass | null = null
+  const lensColors = new Float32Array(12)
+
+  function createLabelSet(): LabelSet {
+    const empty = () => createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
+    const buffers = [empty(), empty(), empty(), empty()] as const
+    const vao = (buffer: WebGLBuffer) => createVertexArray(gl, labelProgram, glyphs(buffer))
+    return {
+      layer: new LabelLayer(),
+      buffers,
+      main: vao(buffers[0]),
+      highlight: vao(buffers[1]),
+      edgeMain: vao(buffers[2]),
+      edgeHighlight: vao(buffers[3]),
+      stale: true,
+      moved: false,
+      time: Number.NEGATIVE_INFINITY,
+      view: '',
+      duration: 0,
+    }
+  }
+
+  function destroyLabelSet(set: LabelSet): void {
+    for (const buffer of set.buffers) gl.deleteBuffer(buffer)
+    for (const vao of [set.main, set.highlight, set.edgeMain, set.edgeHighlight])
+      gl.deleteVertexArray(vao)
+  }
+
+  function invalidateLabels(): void {
+    for (const set of labelSets) set.stale = true
+  }
+
+  function moveLabels(): void {
+    for (const set of labelSets) set.moved = true
+  }
+
+  function touch(): void {
+    contentVersion++
+  }
   const imageOf: (string | null)[] = []
   const badged = new Set<number>()
   const badgeGlyphs = new GlyphBuffer()
@@ -454,7 +532,7 @@ function createRenderer(
   let badgeGeneration = -1
 
   function packNode(nodes: NodeColumns, index: number): void {
-    labels.forgetNode(index)
+    for (const set of labelSets) set.layer.forgetNode(index)
     const at = index * 4
     const flags =
       (nodes.shape[index] ?? 0) |
@@ -501,10 +579,12 @@ function createRenderer(
       last = Math.max(last, index)
     }
     nodeDecor.upload(first, last)
+    touch()
   }
 
   function rebuildBadges(): void {
     if (!input) return
+    touch()
     const nodes = input.scene.nodes
     const generation = atlas.generation
     badgeGlyphs.clear()
@@ -533,10 +613,11 @@ function createRenderer(
       }
     }
     if (atlas.generation !== generation) {
-      labelsStale = true
+      invalidateLabels()
       rebuildBadges()
       return
     }
+    touch()
     badgesStale = false
     badgeGeneration = atlas.generation
     gl.bindBuffer(gl.ARRAY_BUFFER, badgeBuffer)
@@ -554,7 +635,7 @@ function createRenderer(
   }
 
   function packEdge(edges: EdgeColumns, index: number): void {
-    labels.forgetEdge(index)
+    for (const set of labelSets) set.layer.forgetEdge(index)
     const at = index * 4
     edgeTopology.data[at] = edges.source[index] ?? 0
     edgeTopology.data[at + 1] = edges.target[index] ?? 0
@@ -606,6 +687,7 @@ function createRenderer(
     nodeStyle.upload(first, last)
     nodePaint.upload(first, last)
     nodeDecor.upload(first, last)
+    if (last >= first) touch()
     if (next.positionsChanged || next.full || grown) {
       const xy = next.positions.xy
       nodePosition.data.set(xy.subarray(0, Math.min(xy.length, nodePosition.data.length)))
@@ -621,6 +703,7 @@ function createRenderer(
     } else if (range) {
       nodeState.data.set(states.nodeMask.subarray(range[0], range[1] + 1), range[0])
       nodeState.upload(range[0], range[1])
+      touch()
     }
     if (next.dirty.nodes.size > 0 || next.full) orderStale = true
     syncContainers(next, grown)
@@ -657,6 +740,7 @@ function createRenderer(
         }
       }
       texture.upload(first, last)
+      if (last >= first) touch()
     }
   }
 
@@ -670,7 +754,8 @@ function createRenderer(
     containerCount = containers.count
     gl.bindBuffer(gl.ARRAY_BUFFER, containerIndices)
     gl.bufferData(gl.ARRAY_BUFFER, containers.order.subarray(0, containerCount), gl.DYNAMIC_DRAW)
-    labelsMoved = true
+    moveLabels()
+    touch()
   }
 
   function syncEdges(next: RenderInput): void {
@@ -701,6 +786,7 @@ function createRenderer(
     }
     edgeTopology.upload(first, last)
     edgeStyle.upload(first, last)
+    if (last >= first) touch()
     if (curvedChanged) {
       curvedChanged = false
       gl.bindBuffer(gl.ARRAY_BUFFER, curveIndices)
@@ -716,6 +802,7 @@ function createRenderer(
     } else if (range) {
       edgeState.data.set(states.edgeMask.subarray(range[0], range[1] + 1), range[0])
       edgeState.upload(range[0], range[1])
+      touch()
     }
     if (next.dirty.edges.size > 0 || next.full) edgeOrderStale = true
   }
@@ -727,9 +814,11 @@ function createRenderer(
       new Float32Array(statesBlock, 0, 256).set(states.numbers)
       new Uint32Array(statesBlock, 1024, 256).set(states.paint)
       new Uint32Array(statesBlock, 2048, 256).set(states.labels)
+      new Uint32Array(statesBlock, 3072, 4).set([states.nodeRaise, states.edgeRaise, 0, 0])
       gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, statesBlock)
-      labelsStale = true
+      invalidateLabels()
+      touch()
     }
     if (states.highlightVersion !== highlightVersion || next.full) {
       highlightVersion = states.highlightVersion
@@ -739,7 +828,8 @@ function createRenderer(
       gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(states.highlightedNodes), gl.DYNAMIC_DRAW)
       gl.bindBuffer(gl.ARRAY_BUFFER, edgeOverlayIndices)
       gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(states.highlightedEdges), gl.DYNAMIC_DRAW)
-      labelsStale = true
+      invalidateLabels()
+      touch()
     }
   }
 
@@ -761,10 +851,12 @@ function createRenderer(
         gl.UNSIGNED_BYTE,
         atlas.pixels,
       )
+      touch()
       return
     }
     const range = atlas.takeDirty()
     if (!range) return
+    touch()
     gl.bindTexture(gl.TEXTURE_2D, atlasTexture)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
     gl.texSubImage2D(
@@ -780,12 +872,12 @@ function createRenderer(
     )
   }
 
-  function selectLabels(frame: LabelArea, now: number): number {
+  function selectLabels(set: LabelSet, frame: LabelArea, now: number): number {
     if (!input) return -1
     const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode}`
-    if (!labelsStale && !labelsMoved && key === lastLabelView) return -1
-    const wait = labelInterval - (now - lastLabelTime)
-    if (!labelsStale && wait > 0) return wait
+    if (!set.stale && !set.moved && key === set.view) return -1
+    const wait = labelInterval - (now - set.time)
+    if (!set.stale && wait > 0) return wait
     const nodes = input.scene.nodes
     if (orderStale) {
       if (labelOrder.length < nodes.capacity) labelOrder = new Uint32Array(nodes.capacity)
@@ -804,7 +896,8 @@ function createRenderer(
       edgeOrderStale = false
     }
     const generation = atlas.generation
-    labels.select(
+    const layer = set.layer
+    layer.select(
       {
         nodes,
         positions: input.positions,
@@ -815,6 +908,7 @@ function createRenderer(
         boxes: input.containers?.boxes ?? null,
         labelFlags: input.states.labelFlags,
         highlighted: input.states.highlightedNodes,
+        raise: input.states.nodeRaise,
         order: labelOrder,
         orderLength: labelOrderLength,
         plan: labelPlan,
@@ -824,6 +918,7 @@ function createRenderer(
         edgeMask: input.states.edgeMask,
         edgeLabelFlags: input.states.edgeLabelFlags,
         highlightedEdges: input.states.highlightedEdges,
+        edgeRaise: input.states.edgeRaise,
         edgeOrder: edgeLabelOrder,
         edgeOrderLength: edgeLabelOrderLength,
         largestEdgeLabel,
@@ -832,27 +927,26 @@ function createRenderer(
       },
       atlas,
     )
-    if (atlas.generation !== generation) return selectLabels(frame, now)
+    if (atlas.generation !== generation) {
+      invalidateLabels()
+      return selectLabels(set, frame, now)
+    }
     syncAtlas()
-    const uploads = [
-      [labelMainBuffer, labels.main],
-      [labelHighlightBuffer, labels.highlight],
-      [edgeLabelMainBuffer, labels.edgeMain],
-      [edgeLabelHighlightBuffer, labels.edgeHighlight],
-    ] as const
-    for (const [buffer, glyphs] of uploads) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    const uploads = [layer.main, layer.highlight, layer.edgeMain, layer.edgeHighlight] as const
+    uploads.forEach((glyphs, at) => {
+      gl.bindBuffer(gl.ARRAY_BUFFER, set.buffers[at] ?? null)
       gl.bufferData(
         gl.ARRAY_BUFFER,
         new Uint8Array(glyphs.data, 0, glyphs.count * glyphStride),
         gl.DYNAMIC_DRAW,
       )
-    }
-    labelsStale = false
-    labelsMoved = false
-    lastLabelTime = now
-    lastLabelView = key
-    labelTime = performance.now() - now
+    })
+    set.stale = false
+    set.moved = false
+    set.time = now
+    set.view = key
+    set.duration = performance.now() - now
+    if (set === mainLabels) touch()
     return -1
   }
 
@@ -871,10 +965,12 @@ function createRenderer(
         )
       }
     }
-    const { numbers, paint } = input.states
+    const { numbers, paint, edgeRaise } = input.states
     let opacity = 1
     let alpha = 1
-    for (let at = (maxStates + highlightBits) * 4; at < maxStates * 8; at += 4) {
+    for (let bit = 0; bit < maxStates; bit++) {
+      if (((edgeRaise >>> bit) & 1) === 1) continue
+      const at = (maxStates + bit) * 4
       const factor = numbers[at] ?? -1
       if (factor >= 0) opacity = Math.min(opacity, factor)
       const stroke = paint[at + 1] ?? noPaint
@@ -932,6 +1028,181 @@ function createRenderer(
     warmed = true
   }
 
+  function writeFrame(view: View, width: number, height: number, pixelRatio: number, all: boolean) {
+    const viewX = view.x - originX
+    const viewY = view.y - originY
+    const centerX = Math.fround(viewX)
+    const centerY = Math.fround(viewY)
+    frameBlock[0] = centerX
+    frameBlock[1] = centerY
+    frameBlock[24] = viewX - centerX
+    frameBlock[25] = viewY - centerY
+    frameBlock[2] = width
+    frameBlock[3] = height
+    frameBlock[4] = view.zoom
+    frameBlock[5] = pixelRatio
+    frameBlock[26] =
+      zoomUsed && input && input.scene.nodes.zoom.count + input.scene.edges.zoom.count > 0 ? 1 : 0
+    frameBlock[6] = 6
+    frameBlock[7] = all ? 0 : 8
+    gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
+  }
+
+  function drawScene(frame: RenderFrame, set: LabelSet, all: boolean): void {
+    writeFrame(frame.view, frame.width, frame.height, frame.pixelRatio, all)
+    let stencilClean = false
+    const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom) : 0
+    backdrop.drawGrid(frame)
+    draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
+    backdrop.drawHulls()
+    for (const layer of input?.scene.layers ?? []) {
+      if (layer.kind === 'edges') {
+        if (edgeLayers > 0) {
+          if (!stencilClean) {
+            gl.clearStencil(0)
+            gl.clear(gl.STENCIL_BUFFER_BIT)
+            stencilClean = true
+          }
+          gl.enable(gl.STENCIL_TEST)
+          gl.stencilFunc(gl.GREATER, edgeLayers, 0xff)
+          gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR)
+        }
+        draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
+        if (curved.size > 0) {
+          const pass = curves()
+          draw(pass.program, pass.main, curved.size, layer.slot, 0)
+        }
+        bundles.draw((program, vao, count, vertices) =>
+          draw(program, vao, count, layer.slot, 0, vertices),
+        )
+        if (edgeLayers > 0) gl.disable(gl.STENCIL_TEST)
+      } else {
+        draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
+        stencilClean = false
+      }
+    }
+    const layer = set.layer
+    draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
+    draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
+    draw(labelProgram, set.edgeMain, layer.edgeMain.count, 0, 0)
+    draw(labelProgram, set.main, layer.main.count, 0, 0)
+    draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
+    if (curvePass && curved.size > 0) {
+      draw(curvePass.program, curvePass.overlay, edgeOverlayCount, 0, 1)
+    }
+    bundles.overlay(edgeOverlayCount, (program, vao, count, vertices) =>
+      draw(program, vao, count, 0, 1, vertices),
+    )
+    draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
+    if (nodeOverlayCount > 0) {
+      draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
+      draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
+    }
+    draw(labelProgram, set.edgeHighlight, layer.edgeHighlight.count, 0, 1)
+    draw(labelProgram, set.highlight, layer.highlight.count, 0, 1)
+    gl.bindVertexArray(null)
+  }
+
+  function createTarget(previous: Target | null, width: number, height: number): Target {
+    if (previous && previous.width === width && previous.height === height) return previous
+    if (previous) destroyTarget(previous)
+    const color = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, color)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, width, height)
+    const depth = gl.createRenderbuffer()
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth)
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, width, height)
+    const framebuffer = gl.createFramebuffer()
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0)
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depth)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+    return { framebuffer, color, depth, width, height }
+  }
+
+  function destroyTarget(target: Target): void {
+    gl.deleteFramebuffer(target.framebuffer)
+    gl.deleteTexture(target.color)
+    gl.deleteRenderbuffer(target.depth)
+  }
+
+  function releaseLens(): void {
+    if (cache) destroyTarget(cache)
+    if (lensTarget) destroyTarget(lensTarget)
+    cache = null
+    lensTarget = null
+    cachedVersion = -1
+  }
+
+  function lensProgram(): LensPass {
+    if (lensPass) return lensPass
+    const program = createProgram(gl, lensVertex, lensFragment, {})
+    gl.useProgram(program)
+    gl.uniform1i(gl.getUniformLocation(program, 'lensImage'), 0)
+    lensPass = {
+      program,
+      vao: createVertexArray(gl, program, [corner(nodeCorner)]),
+      box: gl.getUniformLocation(program, 'lensBox'),
+      canvas: gl.getUniformLocation(program, 'lensCanvas'),
+      origin: gl.getUniformLocation(program, 'lensOrigin'),
+      ring: gl.getUniformLocation(program, 'lensRing'),
+      colors: gl.getUniformLocation(program, 'lensColors'),
+    }
+    return lensPass
+  }
+
+  function lensFrame(lens: LensFrame, ratio: number): LensArea {
+    const reach = Math.ceil(lens.radius * ratio) + lensMargin
+    const size = reach * 2
+    const x0 = Math.floor(lens.x * ratio) - reach
+    const y0 = Math.floor(lens.y * ratio) - reach
+    const zoom = lens.view.zoom
+    return {
+      view: {
+        x: lens.view.x + ((x0 + reach) / ratio - lens.x) / zoom,
+        y: lens.view.y + ((y0 + reach) / ratio - lens.y) / zoom,
+        zoom,
+      },
+      width: size / ratio,
+      height: size / ratio,
+      pixelRatio: ratio,
+      x0,
+      y0,
+      size,
+    }
+  }
+
+  function drawLens(lens: LensFrame, ratio: number, area: LensArea, target: Target): void {
+    const width = gl.drawingBufferWidth
+    const height = gl.drawingBufferHeight
+    const pass = lensProgram()
+    const radius = lens.radius * ratio
+    gl.useProgram(pass.program)
+    gl.uniform4f(
+      pass.box,
+      lens.x * ratio,
+      height - lens.y * ratio,
+      radius,
+      radius + lensShadow * ratio,
+    )
+    gl.uniform2f(pass.canvas, width, height)
+    gl.uniform2i(pass.origin, area.x0, height - target.height - area.y0)
+    gl.uniform2f(pass.ring, lensRing * ratio, 0.5 * ratio)
+    gl.uniform4fv(pass.colors, lensColors)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, target.color)
+    gl.bindVertexArray(pass.vao)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    gl.bindVertexArray(null)
+    gl.bindTexture(gl.TEXTURE_2D, palette)
+  }
+
   return {
     sync(next) {
       originX = next.positions.originX
@@ -943,13 +1214,19 @@ function createRenderer(
       syncEdges(next)
       syncZoom(next)
       syncStates(next)
-      if (bundles.sync(next.bundles)) labelsMoved = true
-      backdrop.sync(next)
-      if (next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full) labelsStale = true
-      if (next.positionsChanged) labelsMoved = true
+      if (bundles.sync(next.bundles)) {
+        moveLabels()
+        touch()
+      }
+      if (backdrop.sync(next)) touch()
+      const changed = next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full
+      if (changed) invalidateLabels()
+      if (next.positionsChanged) moveLabels()
+      if (changed || next.positionsChanged || next.dirty.layers) touch()
     },
 
     setPalette(colors, count) {
+      touch()
       const rows = Math.max(1, Math.ceil(count / paletteWidth))
       const data = new Uint8Array(rows * paletteWidth * 4)
       data.set(colors.subarray(0, Math.min(colors.length, data.length)))
@@ -986,114 +1263,92 @@ function createRenderer(
     },
 
     setTheme(theme: ResolvedTheme) {
+      touch()
       frameBlock.set(rgba(theme.halo), 8)
       frameBlock.set(rgba(theme.labelInk), 12)
       frameBlock.set(rgba(theme.labelMuted), 16)
       frameBlock.set(rgba(theme.labelHalo), 20)
-      if (atlas.setFont(theme.font)) labelsStale = true
+      lensColors.set(rgba(theme.lensFill), 0)
+      lensColors.set(rgba(theme.lensRing), 4)
+      lensColors.set(rgba(theme.lensShadow), 8)
+      if (atlas.setFont(theme.font)) invalidateLabels()
     },
 
     render(frame) {
       const width = gl.drawingBufferWidth
       const height = gl.drawingBufferHeight
-      const viewX = frame.view.x - originX
-      const viewY = frame.view.y - originY
-      const centerX = Math.fround(viewX)
-      const centerY = Math.fround(viewY)
-      frameBlock[0] = centerX
-      frameBlock[1] = centerY
-      frameBlock[24] = viewX - centerX
-      frameBlock[25] = viewY - centerY
-      frameBlock[2] = frame.width
-      frameBlock[3] = frame.height
-      frameBlock[4] = frame.view.zoom
-      frameBlock[5] = frame.pixelRatio
-      frameBlock[26] =
-        zoomUsed && input && input.scene.nodes.zoom.count + input.scene.edges.zoom.count > 0 ? 1 : 0
+      const lens = shared ? null : (frame.lens ?? null)
+      const ratio = frame.pixelRatio
       flowTime = frame.time ?? 0
       const area: LabelArea = frame.labels ?? { ...frame, mode: 'visible' }
-      frameBlock[6] = 6
-      frameBlock[7] = area.mode === 'all' ? 0 : 8
+      const all = area.mode === 'all'
       gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
       gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.States, statesBuffer)
-      gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
-      gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
       if (badgesStale || badgeGeneration !== atlas.generation) rebuildBadges()
+      const inLens = lens ? lensFrame(lens, ratio) : null
+      if (inLens && !lensLabels) {
+        lensLabels = createLabelSet()
+        labelSets.push(lensLabels)
+      }
       const generation = atlas.generation
-      const wait = selectLabels(area, performance.now())
+      const now = performance.now()
+      let wait = selectLabels(mainLabels, area, now)
+      if (inLens && lensLabels) {
+        wait = waitOf(wait, selectLabels(lensLabels, { ...inLens, mode: 'visible' }, now))
+        if (mainLabels.stale) selectLabels(mainLabels, area, now)
+      }
       if (atlas.generation !== generation) rebuildBadges()
       syncAtlas()
       images.prepare()
-      gl.viewport(0, 0, width, height)
       if (shared) {
         for (const capability of [gl.DEPTH_TEST, gl.STENCIL_TEST, gl.CULL_FACE, gl.SCISSOR_TEST])
           gl.disable(capability)
-      } else {
-        gl.clearColor(0, 0, 0, 0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
       }
-      let stencilClean = false
-      const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom) : 0
       gl.enable(gl.BLEND)
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       bind()
       if (!warmed) warm()
-      backdrop.drawGrid(frame)
-      draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
-      backdrop.drawHulls()
-      for (const layer of input?.scene.layers ?? []) {
-        if (layer.kind === 'edges') {
-          if (edgeLayers > 0) {
-            if (!stencilClean) {
-              gl.clearStencil(0)
-              gl.clear(gl.STENCIL_BUFFER_BIT)
-              stencilClean = true
-            }
-            gl.enable(gl.STENCIL_TEST)
-            gl.stencilFunc(gl.GREATER, edgeLayers, 0xff)
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR)
-          }
-          draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
-          if (curved.size > 0) {
-            const pass = curves()
-            draw(pass.program, pass.main, curved.size, layer.slot, 0)
-          }
-          bundles.draw((program, vao, count, vertices) =>
-            draw(program, vao, count, layer.slot, 0, vertices),
-          )
-          if (edgeLayers > 0) gl.disable(gl.STENCIL_TEST)
-        } else {
-          draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
-          stencilClean = false
+      if (!lens || !inLens) {
+        if (cache || lensTarget) releaseLens()
+        gl.viewport(0, 0, width, height)
+        if (!shared) {
+          gl.clearColor(0, 0, 0, 0)
+          gl.clear(gl.COLOR_BUFFER_BIT)
         }
+        drawScene(frame, mainLabels, all)
+        return wait
       }
-      draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
-      draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
-      draw(labelProgram, vertexArrays.edgeLabels, labels.edgeMain.count, 0, 0)
-      draw(labelProgram, vertexArrays.labels, labels.main.count, 0, 0)
-      draw(edgeProgram, vertexArrays.edgeOverlay, edgeOverlayCount, 0, 1)
-      if (curvePass && curved.size > 0) {
-        draw(curvePass.program, curvePass.overlay, edgeOverlayCount, 0, 1)
+      gl.clearColor(0, 0, 0, 0)
+      cache = createTarget(cache, width, height)
+      const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${ratio},${flowTime},${bundles.mix}`
+      if (cachedVersion !== contentVersion || cachedKey !== key) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, cache.framebuffer)
+        gl.viewport(0, 0, width, height)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        drawScene(frame, mainLabels, all)
+        cachedVersion = contentVersion
+        cachedKey = key
       }
-      bundles.overlay(edgeOverlayCount, (program, vao, count, vertices) =>
-        draw(program, vao, count, 0, 1, vertices),
-      )
-      draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
-      if (nodeOverlayCount > 0) {
-        draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
-        draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
-      }
-      draw(labelProgram, vertexArrays.edgeLabelHighlight, labels.edgeHighlight.count, 0, 1)
-      draw(labelProgram, vertexArrays.labelHighlight, labels.highlight.count, 0, 1)
-      gl.bindVertexArray(null)
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, cache.framebuffer)
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+      gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null)
+      lensTarget = createTarget(lensTarget, inLens.size, inLens.size)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, lensTarget.framebuffer)
+      gl.viewport(0, 0, inLens.size, inLens.size)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      if (lensLabels) drawScene(inLens, lensLabels, false)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.viewport(0, 0, width, height)
+      drawLens(lens, ratio, inLens, lensTarget)
       return wait
     },
 
     stats() {
       return {
-        nodeLabels: labels.nodeLabels,
-        edgeLabels: labels.edgeLabels,
-        labelTime,
+        nodeLabels: mainLabels.layer.nodeLabels,
+        edgeLabels: mainLabels.layer.edgeLabels,
+        labelTime: mainLabels.duration,
         textureBytes: textureBytes(),
       }
     },
@@ -1108,11 +1363,17 @@ function createRenderer(
       images.destroy()
       backdrop.destroy()
       bundles.destroy()
+      releaseLens()
+      for (const set of labelSets) destroyLabelSet(set)
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
       for (const vao of Object.values(vertexArrays)) gl.deleteVertexArray(vao)
       if (curvePass) {
         gl.deleteVertexArray(curvePass.main)
         gl.deleteVertexArray(curvePass.overlay)
+      }
+      if (lensPass) {
+        gl.deleteVertexArray(lensPass.vao)
+        gl.deleteProgram(lensPass.program)
       }
       for (const program of programs) gl.deleteProgram(program)
       if (!shared) gl.getExtension('WEBGL_lose_context')?.loseContext()

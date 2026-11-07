@@ -163,6 +163,51 @@ describe('GlyphBuffer', () => {
     expect(owners).toEqual([1, 3])
   })
 
+  it('places the labels of a raised free state before larger labels', () => {
+    const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
+    const atlas = {
+      height: 256,
+      line: (): LineLayout => ({ width: 90, glyphs: [{ glyph, x: 0 }] }),
+    } as unknown as GlyphAtlas
+    const nodes = columns([
+      { size: 40, label: 'large' },
+      { size: 16, label: 'raised' },
+    ])
+    nodes.keys.push('a', 'b')
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    positions.set(1, 0, 0)
+    const owners = (raise: number) => {
+      const layer = new LabelLayer()
+      layer.select(
+        {
+          nodes,
+          positions,
+          view: { x: 0, y: 0, zoom: 1 },
+          width: 800,
+          height: 600,
+          nodeMask: new Uint32Array([0, 0b1000]),
+          labelFlags: new Int8Array(32).fill(-1),
+          highlighted: raise & 0b1000 ? [1] : [],
+          raise,
+          order: new Uint32Array([0, 1]),
+          orderLength: 2,
+          screenLabels: false,
+          largestLabel: 12,
+          ...noEdges,
+        },
+        atlas,
+      )
+      const read = (glyphs: GlyphBuffer) => {
+        const words = new Uint32Array(glyphs.data)
+        return Array.from({ length: glyphs.count }, (_, at) => words[at * (glyphStride / 4)])
+      }
+      return { main: read(layer.main), highlight: read(layer.highlight) }
+    }
+    expect(owners(0b111)).toEqual({ main: [0], highlight: [] })
+    expect(owners(0b1111)).toEqual({ main: [], highlight: [1] })
+  })
+
   it('pushes a plate before a labelled node glyphs and keeps the padded box free', () => {
     const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
     const atlas = {

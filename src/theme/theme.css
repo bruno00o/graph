@@ -18,6 +18,9 @@
   --graph-node-ring: #f7f7f4;
   --graph-badge-fill: #191d22;
   --graph-badge-ink: #f7f7f4;
+  --graph-lens-fill: #f7f7f4;
+  --graph-lens-ring: #5b6167;
+  --graph-lens-shadow: #191d2229;
   --graph-cat-1: #2769b7;
   --graph-cat-2: #a47c13;
   --graph-cat-3: #12867c;
@@ -51,6 +54,9 @@
   --graph-node-ring: #0f1113;
   --graph-badge-fill: #efeeeb;
   --graph-badge-ink: #0f1113;
+  --graph-lens-fill: #0f1113;
+  --graph-lens-ring: #a6abb1;
+  --graph-lens-shadow: #00000099;
   --graph-cat-1: #6fa7ee;
   --graph-cat-2: #e7bf57;
   --graph-cat-3: #5cc6b9;
@@ -83,6 +89,9 @@
     --graph-node-ring: #0f1113;
     --graph-badge-fill: #efeeeb;
     --graph-badge-ink: #0f1113;
+    --graph-lens-fill: #0f1113;
+    --graph-lens-ring: #a6abb1;
+    --graph-lens-shadow: #00000099;
     --graph-cat-1: #6fa7ee;
     --graph-cat-2: #e7bf57;
     --graph-cat-3: #5cc6b9;

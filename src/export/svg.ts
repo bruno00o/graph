@@ -29,7 +29,7 @@ import {
 } from '../webgl/shaders'
 import { type ExportFrame, screenExtent, screenRadius } from './frame'
 import { placementDirections, selectLabels } from './labels'
-import { edgeLook, highlightMask, type Look, nodeLook } from './look'
+import { edgeLook, type Look, nodeLook } from './look'
 
 export interface SvgScene {
   readonly nodes: NodeColumns
@@ -693,8 +693,8 @@ export function writeSvg(scene: SvgScene): string {
       : edges.source[index] === edges.target[index] || (edges.bend[index] ?? 0) !== 0
         ? 1
         : 0
-  const highlighted = (mask: Uint32Array, index: number) =>
-    ((mask[index] ?? 0) & highlightMask) !== 0
+  const nodeRaised = (index: number) => ((states.nodeMask[index] ?? 0) & states.nodeRaise) !== 0
+  const edgeRaised = (index: number) => ((states.edgeMask[index] ?? 0) & states.edgeRaise) !== 0
 
   function drawBadges(indices: Iterable<number>): void {
     const pills: string[] = []
@@ -943,7 +943,7 @@ export function writeSvg(scene: SvgScene): string {
         for (let index = 0; index < edges.capacity; index++) {
           if (edges.alive[index] !== 1 || edges.slot[index] !== layer.slot) continue
           if (edgeFade(index) === 0) continue
-          if (highlighted(states.edgeMask, index) || pass(index) !== kind) continue
+          if (edgeRaised(index) || pass(index) !== kind) continue
           drawEdge(index)
         }
       }
@@ -951,13 +951,13 @@ export function writeSvg(scene: SvgScene): string {
       for (let index = 0; index < nodes.capacity; index++) {
         if (nodes.alive[index] !== 1 || nodes.slot[index] !== layer.slot) continue
         if (nodeFade(index) === 0) continue
-        if (!highlighted(states.nodeMask, index) && !isContainer(index)) drawNode(index)
+        if (!nodeRaised(index) && !isContainer(index)) drawNode(index)
       }
     }
   }
   const plain: number[] = []
   for (let index = 0; index < nodes.capacity; index++) {
-    if (nodes.badges[index] && !highlighted(states.nodeMask, index)) plain.push(index)
+    if (nodes.badges[index] && !nodeRaised(index)) plain.push(index)
   }
   drawBadges(plain)
   drawLabels(0)
