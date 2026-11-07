@@ -1,8 +1,8 @@
 ## How it works
 
-The example keeps its pins in a `Set`. Each time it changes, `graph.layout.run(undefined, { keys })` runs the force layout again on every node that is not pinned, so pinned nodes stay put and the others settle around them. A free state, `pinned`, outlines them.
+The example keeps its pins in a `Map` of positions, read by the `x` and `y` channels: a pinned node has a position in the data, a free node has none. A layout never moves a node placed by its data, so each time the pins change, the example passes a new definition to `graph.update` and `graph.layout.run()` settles the free nodes around the pinned ones. A free state, `pinned`, outlines them.
 
-On `dragend`, the dragged nodes join the set. On `doubleclick`, a pinned node leaves it. When the first layout ends, `graph.positions.set` places the three largest nodes on a triangle and pins them.
+On `dragend`, the dragged nodes join the map at the position where they were dropped. On `doubleclick`, a pinned node leaves it: its `x` and `y` become empty, and the layout moves it again. When the first layout ends, the three largest nodes are pinned on a triangle: they glide there, and the layout already arranges the other nodes around their final places.
 
 ## Try it
 

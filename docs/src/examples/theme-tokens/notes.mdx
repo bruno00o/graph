@@ -4,7 +4,7 @@ Every color the graph draws comes from a CSS variable: `--graph-node` and `--gra
 
 `palettes.css` sets them in two classes, `palette-dusk` and `palette-meadow`, and again under `.dark` for the dark theme of the docs. The graph element is transparent, so each palette also paints its own `--graph-paper` as a background.
 
-The button moves the class on `graph.element`. The graph watches the classes, `style` and `data-theme` of that element, of `<html>` and of `<body>`, and resolves its colors again when one changes. No data is read again and no definition changes: the GPU keeps the same color ids and only the palette behind them changes.
+The button moves the class on the container of the graph, so the overlays take the palette too. The graph watches the classes, `style` and `data-theme` of its element and of every ancestor up to `<html>`, and resolves its colors again when one changes. No data is read again and no definition changes: the GPU keeps the same color ids and only the palette behind them changes.
 
 The definition never names a color. `color: 'group'` goes through the categorical scale, which hands out `var(--graph-cat-1)`, `var(--graph-cat-2)` and so on, so the same definition reads well in every palette.
 

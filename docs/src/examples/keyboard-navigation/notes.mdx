@@ -2,7 +2,7 @@
 
 `interaction: { keyboard: true }` makes the element focusable and moves the focus with the arrow keys, toward the nearest node in that direction. The built-in `focused` state is overridden with a wider outline, a halo and a label, so the focus is easy to follow.
 
-The example listens to `focuschange` and `selectionchange` to describe the focused node in the status. After the first frame, `graph.focus.set` puts the focus on a node so the graph is ready for the keys.
+The example listens to `focuschange` and `selectionchange` to describe the focused node in the status. Right after mounting, `graph.focus.set` puts the focus on a node so the graph is ready for the keys.
 
 ## Try it
 
