@@ -176,6 +176,42 @@ The [`examples`](./examples) folder holds runnable examples: vanilla and React g
   - On Linux, Firefox creates a WebGL context only with a display: run `xvfb-run pnpm test:browsers` on a machine without one, as the CI does.
   - Each example page exposes its graph as `window.graph`, which the checks read.
 
+### Adding an example
+
+The docs gallery reads every folder of `docs/src/examples`, so an example touches only its own folder:
+
+```
+docs/src/examples/<slug>/
+  meta.ts               title, description, hint, category, order, tags, api, guides
+  main.ts               exports mount(container), which returns the graph
+  main.tsx              or exports a React Example that passes its ref to <Graph>
+  messages.ts           every text the example shows
+  notes.mdx             optional prose under the demo: how it works, what to try
+  thumbnail.webp        generated, light theme
+  thumbnail-dark.webp   generated, dark theme
+```
+
+- `pnpm docs:new-example <slug> <category>` creates the folder with a small graph to start from, `--react` for a React example. The folder name is the slug and the address, `/examples/<slug>`: never rename a published one.
+- `meta.ts` exports an object that `satisfies ExampleMeta`, and imports types only:
+  - `title`, `description` (one or two sentences, on the card and the page) and `hint` (what to try, above the demo);
+  - `category`, one of the categories of `docs/src/examples/categories.ts`: `basics`, `style`, `layouts`, `structure`, `interaction`, `analysis`, `edges`, `time-and-maps`, `data`, `tools`;
+  - `order` within the category, in steps of ten so that a new example fits between two others; equal orders sort by title;
+  - `tags`: `Vanilla` or `React` after the entry file, plus `TanStack DB`, `TanStack Query` and `TanStack Devtools` when the example imports them;
+  - `api`, the pages of `/docs/api` the example uses, such as `define-graph`, and `guides`, pages of `/docs` such as `states` or `view#view-limits`: the page links to both;
+  - `harness: { select: false }` when a click on a node does not select it.
+- The code viewer shows every file of the folder, then the shared files they import from `../shared`. The modules listed on the page come from the imports.
+- `pnpm docs:thumbnails <slug>` builds the docs, opens the page in Chromium, waits for the first render and the end of layouts, and saves the stage as two 640 by 400 WebP images, light and dark, of about 25 KB each. Without a slug it captures every example; `--no-build` reuses the last build. Commit both images.
+- `pnpm test` fails on malformed metadata, an unknown category, a duplicate slug, a link to a missing docs page, tags that do not match the imports, a missing thumbnail, an import outside the folder, `../shared` and the public entry points, or text left from the scaffold. Then `pnpm test:browsers --example 'docs/<slug>'` checks the page in the three browsers.
+- `pnpm docs:dev` serves the docs on port 5192; `pnpm --dir docs exec vite dev --port <port>` picks another one.
+
+Conventions:
+
+- One example, one idea, in about 50 to 150 lines.
+- Neutral generated data with a fixed seed, so that every run and every thumbnail is the same: no business domain, and no real-world dataset that implies one. `../shared/data` holds seeded generators.
+- Every text on screen comes from the example's `messages.ts`. An example pull request does not edit `../shared` or any file outside its folder.
+- No cast of `datum`: typed marks infer it.
+- Public entry points only: `@bruno00o/graph`, `@bruno00o/graph/react`, `@bruno00o/graph/layouts` and the other subpaths.
+
 ## License
 
 [MIT](./LICENSE)

@@ -1,0 +1,14 @@
+## How it works
+
+`image` takes a URL, or `{ src, scale, color }`. Pictures are cut to the node shape. With `color`, the image becomes a mask of that color, so an icon drawn in `var(--graph-paper)` follows the theme.
+
+`badges` takes one function per corner. A badge with `text` shows a count or a letter, a badge without text is a dot. `outline` and `outlineWidth` draw a colored ring outside the shape.
+
+The **Add label backgrounds** button rebuilds the definition with `label: { text: 'label', background: true }` and passes it to `graph.update`. Labels then sit on a plate in `--graph-label-background`.
+
+## Try it
+
+- Switch the theme in the header: tinted icons, badges and outlines follow it.
+- Press **Add label backgrounds** to draw plates behind the labels.
+- Press **Fade half the nodes**: they fade with their images and badges.
+- Zoom out: badge text disappears first, then the badges.

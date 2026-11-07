@@ -1,23 +1,57 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import Link from 'fumadocs-core/link'
+import { Card, Cards } from 'fumadocs-ui/components/card'
 import { HomeLayout } from 'fumadocs-ui/layouts/home'
-import { type JSX, useState } from 'react'
+import { type JSX, Suspense, useState } from 'react'
 import { ExampleFrame, ExampleSource, toggleFullScreen } from '../../components/example-frame'
 import { SiteFooter } from '../../components/footer'
 import { Icon } from '../../components/icon'
 import { mdxComponents } from '../../components/mdx'
-import { type ExampleEntry, examples, findExample } from '../../examples/registry'
+import { categoryOf, findExample, neighborsOf } from '../../examples/catalog'
+import { exampleNotes } from '../../examples/notes'
 import { sourcesOf } from '../../examples/sources'
+import type { Example } from '../../examples/types'
 import { homeOptions } from '../../lib/layout'
-import { exampleNotes } from '../../lib/notes'
+import { source } from '../../lib/source'
 import { messages } from '../../messages'
 import { sourceUrl } from '../../site'
 
+interface RelatedPage {
+  readonly href: string
+  readonly title: string
+  readonly kind: 'guide' | 'api'
+}
+
+function relatedPage(slug: string, page: string, kind: RelatedPage['kind']): RelatedPage {
+  const [path = '', anchor] = page.split('#')
+  const found = source.getPage([...(kind === 'api' ? ['api'] : []), ...path.split('/')])
+  if (!found) throw new Error(`${slug}: no docs page for "${page}" in ${kind}`)
+  return {
+    href: anchor ? `${found.url}#${anchor}` : found.url,
+    title: found.data.title ?? page,
+    kind,
+  }
+}
+
 export const Route = createFileRoute('/examples/$slug')({
-  loader: ({ params }) => {
+  loader: async ({ params }) => {
     const example = findExample(params.slug)
     if (!example) throw notFound()
-    return { title: example.title, description: example.description }
+    const [sources] = await Promise.all([
+      sourcesOf(example),
+      exampleNotes.get(`${example.slug}/notes.mdx`)?.preload(),
+    ])
+    return {
+      slug: example.slug,
+      title: example.title,
+      description: example.description,
+      files: sources.files,
+      modules: sources.modules,
+      related: [
+        ...example.guides.map((page) => relatedPage(example.slug, page, 'guide')),
+        ...example.api.map((page) => relatedPage(example.slug, page, 'api')),
+      ],
+    }
   },
   head: ({ loaderData }) => ({
     meta: loaderData
@@ -30,10 +64,8 @@ export const Route = createFileRoute('/examples/$slug')({
   component: ExamplePage,
 })
 
-function Pager({ example }: { readonly example: ExampleEntry }): JSX.Element {
-  const index = examples.indexOf(example)
-  const previous = examples[index - 1]
-  const next = examples[index + 1]
+function Pager({ example }: { readonly example: Example }): JSX.Element {
+  const { previous, next } = neighborsOf(example)
   return (
     <nav className="pager" aria-label={messages.examples.pager}>
       {previous ? (
@@ -58,15 +90,48 @@ function Pager({ example }: { readonly example: ExampleEntry }): JSX.Element {
   )
 }
 
-function Example({ example }: { readonly example: ExampleEntry }): JSX.Element {
+function Notes({ slug }: { readonly slug: string }): JSX.Element | null {
+  const Body = exampleNotes.get(`${slug}/notes.mdx`)?.body
+  if (!Body) return null
+  return (
+    <div className="prose example-notes">
+      <Suspense>
+        <Body components={mdxComponents()} />
+      </Suspense>
+    </div>
+  )
+}
+
+function Related({ pages }: { readonly pages: readonly RelatedPage[] }): JSX.Element | null {
+  if (pages.length === 0) return null
+  return (
+    <section className="example-related" aria-labelledby="example-related">
+      <h2 id="example-related">{messages.examples.related}</h2>
+      <Cards>
+        {pages.map((page) => (
+          <Card
+            key={page.href}
+            href={page.href}
+            title={page.title}
+            description={page.kind === 'api' ? messages.examples.api : messages.examples.guide}
+          />
+        ))}
+      </Cards>
+    </section>
+  )
+}
+
+function ExampleView({ example }: { readonly example: Example }): JSX.Element {
+  const { files, modules, related } = Route.useLoaderData()
   const [frame, setFrame] = useState<HTMLDivElement | null>(null)
-  const Notes = exampleNotes.get(`${example.slug}.mdx`)?.body
-  const main = example.files[0] ?? ''
+  const category = categoryOf(example)
   return (
     <main id="content" className="wrap">
       <div className="example-head">
         <nav className="crumbs" aria-label={messages.examples.breadcrumb}>
           <Link href="/examples">{messages.examples.title}</Link>
+          <span aria-hidden="true">/</span>
+          <Link href={`/examples#${category.id}`}>{category.title}</Link>
           <span aria-hidden="true">/</span>
           <span aria-current="page">{example.title}</span>
         </nav>
@@ -75,18 +140,20 @@ function Example({ example }: { readonly example: ExampleEntry }): JSX.Element {
             <h1>{example.title}</h1>
             <p className="lead">{example.description}</p>
             <ul className="tags">
-              {[
-                ...example.tags,
-                ...example.modules.filter((module) => module.includes('/graph/')),
-              ].map((item) => (
-                <li className="tag" key={item}>
-                  {item}
-                </li>
-              ))}
+              {[...example.tags, ...modules.filter((module) => module.includes('/graph/'))].map(
+                (item) => (
+                  <li className="tag" key={item}>
+                    {item}
+                  </li>
+                ),
+              )}
             </ul>
           </div>
           <div className="actions">
-            <a className="btn btn-line" href={sourceUrl(`docs/src/examples/${main}`)}>
+            <a
+              className="btn btn-line"
+              href={sourceUrl(`docs/src/examples/${example.slug}/${example.entry}`)}
+            >
               {messages.examples.sourceOnGithub}
               <Icon name="external" />
             </a>
@@ -99,14 +166,11 @@ function Example({ example }: { readonly example: ExampleEntry }): JSX.Element {
       <div className="example-body">
         <div className="example-main">
           <ExampleFrame example={example} frame={frame} onFrame={setFrame} />
-          {Notes ? (
-            <div className="prose example-notes">
-              <Notes components={mdxComponents()} />
-            </div>
-          ) : null}
+          <Notes slug={example.slug} />
+          <Related pages={related} />
         </div>
         <div className="example-code">
-          <ExampleSource files={sourcesOf(example.files)} />
+          <ExampleSource files={files} />
         </div>
       </div>
       <Pager example={example} />
@@ -114,12 +178,12 @@ function Example({ example }: { readonly example: ExampleEntry }): JSX.Element {
   )
 }
 
-function ExamplePage(): JSX.Element | null {
-  const { slug } = Route.useParams()
+function ExamplePage(): JSX.Element {
+  const { slug } = Route.useLoaderData()
   const example = findExample(slug)
   return (
     <HomeLayout {...homeOptions()}>
-      {example ? <Example key={example.slug} example={example} /> : null}
+      {example ? <ExampleView key={example.slug} example={example} /> : null}
       <SiteFooter />
     </HomeLayout>
   )

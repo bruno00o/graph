@@ -1,6 +1,6 @@
 import Link from 'fumadocs-core/link'
 import { type JSX, useState } from 'react'
-import { findExample } from '../examples/registry'
+import { findExample } from '../examples/catalog'
 import { messages } from '../messages'
 import { ExampleFrame } from './example-frame'
 

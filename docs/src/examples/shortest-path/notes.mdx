@@ -1,0 +1,14 @@
+## How it works
+
+The graph reads two plain arrays of a thousand nodes and two thousand edges, placed by their `x` and `y` fields. The definition declares two free states: `path`, with the accent color, a wider line and `flow: true`, and `muted`, with a low opacity.
+
+On `selectionchange`, when two nodes are selected, the example calls `graph.paths.shortest(from, to)`. The result lists the keys of the nodes and edges along the path, so it goes straight into `graph.states.set('path', …)`, and everything else into `muted`. The dashes of the path move from the first node toward the second.
+
+**Path** switches the cost of an edge. With fewest edges, every edge costs 1. With shortest distance, `weight` is a function of the edge item that returns its drawn length, and the path follows the shortest route on screen, even through more edges.
+
+## Try it
+
+- Click a node, then hold Shift and click another: the path between them flows and the rest fades.
+- Press **Path** to compare the path with the fewest edges and the shortest one.
+- Select two nodes in different parts of the graph: the status shows the time of the search.
+- Click the background to clear the selection.

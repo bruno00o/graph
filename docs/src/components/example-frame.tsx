@@ -1,7 +1,7 @@
 import type { GraphInstance } from '@bruno00o/graph'
 import { type JSX, useEffect, useRef, useState } from 'react'
-import type { ExampleEntry } from '../examples/registry'
 import type { SourceFile } from '../examples/sources'
+import type { Example } from '../examples/types'
 import { messages } from '../messages'
 import { CodeTabs } from './code'
 import { ExampleStage } from './example-stage'
@@ -30,7 +30,7 @@ export function ExampleFrame({
   frame,
   onFrame,
 }: {
-  readonly example: ExampleEntry
+  readonly example: Example
   readonly frame: HTMLDivElement | null
   readonly onFrame: (element: HTMLDivElement | null) => void
 }): JSX.Element {

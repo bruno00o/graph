@@ -1,6 +1,6 @@
 import type { GraphInstance } from '@bruno00o/graph'
 import { type JSX, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ExampleEntry, LoadedExample } from '../examples/registry'
+import type { Example, LoadedExample } from '../examples/types'
 import { messages } from '../messages'
 
 function VanillaStage({
@@ -49,7 +49,7 @@ export function ExampleStage({
   example,
   graphRef,
 }: {
-  readonly example: ExampleEntry
+  readonly example: Example
   readonly graphRef: RefObject<GraphInstance | null>
 }): JSX.Element {
   const [loaded, setLoaded] = useState<LoadedExample | null>(null)

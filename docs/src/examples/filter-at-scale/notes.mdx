@@ -1,0 +1,14 @@
+## How it works
+
+Nodes live in a local TanStack DB collection, up to 500,000 rows. The node mark reads them through `subset(items, where)`, a subscription filtered by weight and group. Each change of filter builds a new subset: the graph subscribes to it, compares its rows with the previous ones, and only adds or removes the nodes that enter or leave.
+
+The status shows two times for each change: TanStack DB reading the matching rows, then the graph applying the difference and drawing the next frame. Switch the source to a live query to compare with `createLiveQueryCollection` and the same filter.
+
+Edges come from a second collection with `syncMode: 'on-demand'`, backed by a simulated server with 150 ms of latency. A double-click adds the node to a list, and the edge mark becomes `subset(links, (link) => or(inArray(link.from, keys), inArray(link.to, keys)))`: TanStack DB passes that `where` to `loadSubset`, and only those edges are loaded. An edge whose other end is filtered out waits, and appears when the filter lets that node back in. **Unload edges** releases the subset, and `unloadSubset` deletes the rows.
+
+## Try it
+
+- Raise the minimum weight by one, then jump to another threshold: compare the times.
+- Switch the source to the live query and change the filter again.
+- Double-click a node, then lower the minimum weight to bring back the ends of its edges.
+- Change the node count to 500,000.
