@@ -1,6 +1,7 @@
 import type { EdgePaths } from '../core/edge-paths'
 import type { GlobeCamera } from '../core/globe'
 import type { HullLayer } from '../core/hull-layer'
+import type { LayerFilter } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
@@ -21,6 +22,7 @@ export interface GraphSnapshot {
   readonly theme: ResolvedTheme
   readonly view: View
   readonly window: TimeFilter | null
+  readonly layers: LayerFilter | null
   readonly fade: number
   readonly width: number
   readonly height: number

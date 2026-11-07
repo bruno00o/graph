@@ -163,4 +163,34 @@ describe('defineGraph', () => {
       defineGraph({ marks: [], states: { ...fewer, selected: { halo: false } } }),
     ).not.toThrow()
   })
+
+  it('checks layer names and their count', () => {
+    const link = { source: 'from', target: 'to' } as const
+    expect(() => defineGraph({ marks: [edges(links, { ...link, layer: '' })] })).toThrow(TypeError)
+    expect(() => defineGraph({ marks: [nodes(items, { layer: 1 as unknown as string })] })).toThrow(
+      TypeError,
+    )
+    const many = Array.from({ length: 129 }, (_, at) =>
+      edges(links, { ...link, layer: at === 128 ? 'last' : undefined }),
+    )
+    expect(() => defineGraph({ marks: many })).toThrow(RangeError)
+    expect(() => defineGraph({ marks: many.slice(1) })).not.toThrow()
+  })
+
+  it('resolves the support states among the free states', () => {
+    const states = { carrier: { halo: true }, carried: { opacity: 0.5 } }
+    expect(defineGraph({ marks: [] }).support).toBeNull()
+    expect(defineGraph({ marks: [], states, support: { carriers: 'carrier' } }).support).toEqual({
+      carriers: 'carrier',
+      carried: null,
+    })
+    expect(defineGraph({ marks: [], states, support: { carried: null } }).support).toBeNull()
+    expect(() =>
+      defineGraph({
+        marks: [],
+        states,
+        support: { carriers: 'selected' as unknown as 'carrier' },
+      }),
+    ).toThrow(TypeError)
+  })
 })

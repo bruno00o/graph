@@ -11,6 +11,7 @@ export type {
   GraphEvents,
   GraphFocusEvent,
   GraphFoldEvent,
+  GraphLayerEvent,
   GraphLayoutEndEvent,
   GraphLayoutEvent,
   GraphLensEvent,
@@ -34,6 +35,7 @@ export type {
   GraphFocus,
   GraphGroups,
   GraphInstance,
+  GraphLayers,
   GraphLayout,
   GraphLayoutStatus,
   GraphPositions,
@@ -51,6 +53,7 @@ export { mountGraph } from './host/mount-graph'
 export { hull } from './hulls'
 export { edges, nodes } from './marks'
 export { createPathFinder } from './paths'
+export { createSupportFinder } from './support'
 export type {
   Accessor,
   AggregateEdge,
@@ -88,6 +91,7 @@ export type {
   GraphPath,
   GraphPaths,
   GraphReach,
+  GraphSupport,
   Hull,
   HullGroupOptions,
   HullKeysOptions,
@@ -104,6 +108,7 @@ export type {
   LabelPlacement,
   LabelTextOptions,
   LabelWeight,
+  LayerName,
   Layout,
   LayoutGraph,
   LayoutGroups,
@@ -112,6 +117,7 @@ export type {
   LensOptions,
   LiveSource,
   Mark,
+  MarkLayer,
   MarkName,
   NodeDatum,
   NodeImage,
@@ -128,6 +134,7 @@ export type {
   ResolvedBackground,
   ResolvedInteraction,
   ResolvedLens,
+  ResolvedSupportStates,
   ResolvedTimeOptions,
   ResolvedTransitions,
   ResolvedViewLimits,
@@ -138,6 +145,10 @@ export type {
   StateStyle,
   StateStyles,
   Style,
+  SupportFinder,
+  SupportStateOptions,
+  SupportWalk,
+  SupportWalkOptions,
   TimeInstant,
   TimeOptions,
   TimeSpan,

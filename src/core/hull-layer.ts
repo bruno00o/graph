@@ -1,5 +1,5 @@
 import { themeColor } from '../theme/tokens'
-import type { Hull, HullOptions, Key, NodeMark } from '../types'
+import type { Hull, HullOptions, Key, MarkLayer, MarkName, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { containerShape, type NodeColumns } from './columns'
 import type { GraphModel } from './graph-model'
@@ -53,7 +53,7 @@ interface Spec {
   readonly options: HullOptions
   readonly keys: readonly Key[]
   readonly state: string | null
-  readonly mark: NodeMark<unknown> | null
+  readonly mark: NodeMark<unknown, MarkName, MarkLayer> | null
   readonly by: ((datum: unknown) => unknown) | null
   readonly shape: OutlineShape
   readonly padding: number
@@ -78,7 +78,7 @@ class Group implements HullShape {
   ) {}
 }
 
-function isMark(value: unknown): value is NodeMark<unknown> {
+function isMark(value: unknown): value is NodeMark<unknown, MarkName, MarkLayer> {
   return (
     typeof value === 'object' && value !== null && (value as NodeMark<unknown>).type === 'nodes'
   )

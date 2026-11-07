@@ -441,3 +441,106 @@ export function createHistory(nodeCount: number, edgeCount: number, years = 4, s
   }
   return { items, links, start, end }
 }
+
+export interface LayeredLink {
+  readonly id: string
+  readonly from: string
+  readonly to: string
+  readonly over: readonly string[]
+}
+
+export interface Strata {
+  readonly places: Item[]
+  readonly lower: LayeredLink[]
+  readonly middle: LayeredLink[]
+  readonly upper: LayeredLink[]
+}
+
+export function createStrata(columns: number, rows: number, seed = 23): Strata {
+  const next = random(seed)
+  const spacing = 80
+  const count = columns * rows
+  const places: Item[] = Array.from({ length: count }, (_, index) => {
+    const column = index % columns
+    const row = Math.floor(index / columns)
+    return {
+      id: `p${index}`,
+      label: messages.node(formatNumber(index + 1)),
+      group: messages.group(String.fromCharCode(65 + (((column >> 3) + (row >> 3)) % 8))),
+      weight: 1,
+      x: (column - (columns - 1) / 2) * spacing + (next() - 0.5) * spacing * 0.3,
+      y: (row - (rows - 1) / 2) * spacing + (next() - 0.5) * spacing * 0.3,
+    }
+  })
+  const pairKey = (a: number, b: number) => (a < b ? a * count + b : b * count + a)
+  const segments = new Map<number, string>()
+  const lower: LayeredLink[] = []
+  const addSegment = (a: number, b: number) => {
+    const id = `s${lower.length}`
+    lower.push({ id, from: `p${a}`, to: `p${b}`, over: [] })
+    if (!segments.has(pairKey(a, b))) segments.set(pairKey(a, b), id)
+  }
+  for (let index = 0; index < count; index++) {
+    const column = index % columns
+    if (column + 1 < columns) addSegment(index, index + 1)
+    if (index + columns < count) addSegment(index, index + columns)
+    if (next() < 0.03 && column + 1 < columns) addSegment(index + 1, index)
+  }
+  const neighbors = (index: number): number[] => {
+    const column = index % columns
+    const around: number[] = []
+    if (column > 0) around.push(index - 1)
+    if (column + 1 < columns) around.push(index + 1)
+    if (index >= columns) around.push(index - columns)
+    if (index + columns < count) around.push(index + columns)
+    return around
+  }
+  const middle: LayeredLink[] = []
+  const middleEnds: [number, number][] = []
+  const ends = new Map<number, number[]>()
+  for (let attempt = 0; attempt < count * 0.8; attempt++) {
+    const start = Math.floor(next() * count)
+    const steps = 1 + Math.floor(next() * 4)
+    const visited = new Set([start])
+    const over: string[] = []
+    let at = start
+    for (let step = 0; step < steps; step++) {
+      const options = neighbors(at).filter((place) => !visited.has(place))
+      const to = options[Math.floor(next() * options.length)]
+      if (to === undefined) break
+      over.push(segments.get(pairKey(at, to)) ?? '')
+      visited.add(to)
+      at = to
+    }
+    if (at === start) continue
+    const order = middle.length
+    middle.push({ id: `m${order}`, from: `p${start}`, to: `p${at}`, over })
+    middleEnds.push([start, at])
+    for (const end of [start, at]) {
+      const list = ends.get(end) ?? []
+      list.push(order)
+      ends.set(end, list)
+    }
+  }
+  const upper: LayeredLink[] = []
+  for (let attempt = 0; attempt < count * 0.3 && middle.length > 0; attempt++) {
+    const first = Math.floor(next() * middle.length)
+    const [start = 0, firstEnd = 0] = middleEnds[first] ?? []
+    const over = [`m${first}`]
+    const used = new Set([first])
+    let at = firstEnd
+    const hops = 1 + Math.floor(next() * 2)
+    for (let hop = 0; hop < hops; hop++) {
+      const options = (ends.get(at) ?? []).filter((order) => !used.has(order))
+      const chosen = options[Math.floor(next() * options.length)]
+      if (chosen === undefined) break
+      const [a = 0, b = 0] = middleEnds[chosen] ?? []
+      used.add(chosen)
+      over.push(`m${chosen}`)
+      at = a === at ? b : a
+    }
+    if (over.length < 2 || at === start) continue
+    upper.push({ id: `u${upper.length}`, from: `p${start}`, to: `p${at}`, over })
+  }
+  return { places, lower, middle, upper }
+}

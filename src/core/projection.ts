@@ -156,6 +156,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
   const look = Object.freeze({
     type: 'edges',
     name: mark.name,
+    layer: mark.layer,
     data: [],
     options: Object.freeze({
       ...fallback,

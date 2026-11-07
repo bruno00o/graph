@@ -42,6 +42,7 @@ import { createEdgeLanes } from './edge-lanes'
 import { flowSpeed } from './flow'
 import type { EdgeRecord, ElementKind, GraphChanges, NodeRecord } from './graph-model'
 import { IndexSet } from './index-set'
+import { MarkLayers } from './mark-layers'
 import { Palette } from './palette'
 import { readMaxZoom, readMinZoom } from './zoom-range'
 
@@ -89,6 +90,7 @@ export interface Scene {
   readonly edges: EdgeColumns
   readonly palette: Palette
   readonly layers: readonly Layer[]
+  readonly markLayers: MarkLayers
   scales(): SceneScales
   setDefinition(definition: GraphDefinition): void
   apply(model: SceneModel, changes: GraphChanges): void
@@ -238,6 +240,7 @@ export function createScene(): Scene {
   const edges = new EdgeColumns()
   const palette = new Palette()
   const lanes = createEdgeLanes()
+  const markLayers = new MarkLayers()
   const slots = new Map<Mark, number>()
   const nodeBatch = new RecordBatch<SceneNodeRecord>()
   const edgeBatch = new RecordBatch<SceneEdgeRecord>()
@@ -553,6 +556,7 @@ export function createScene(): Scene {
     nodes,
     edges,
     palette,
+    markLayers,
 
     get layers() {
       return layers
@@ -590,6 +594,7 @@ export function createScene(): Scene {
         full = true
       }
       scales = next
+      if (markLayers.setMarks(definition.marks)) lanes.setRanks(markLayers.edgeRanks)
       const nextLayers = layersOf(definition.marks)
       slots.clear()
       slotMark = null

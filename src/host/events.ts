@@ -3,7 +3,9 @@ import type {
   EdgeEnd,
   EdgeMark,
   Key,
+  LayerName,
   Mark,
+  MarkLayer,
   MarkName,
   NodeMark,
   Point,
@@ -51,9 +53,9 @@ export interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
  * mark in `datum`. Without `M`, `datum` is `unknown`.
  */
 export type GraphTarget<M extends Mark = Mark> =
-  M extends NodeMark<infer T, infer N>
+  M extends NodeMark<infer T, infer N, MarkLayer>
     ? NodeTarget<T, N>
-    : M extends EdgeMark<infer T, infer N>
+    : M extends EdgeMark<infer T, infer N, MarkLayer>
       ? EdgeTarget<T, N>
       : NodeTarget | EdgeTarget
 
@@ -146,6 +148,12 @@ export interface GraphTimeEvent {
   readonly window: TimeWindow | null
 }
 
+/** Payload of `layerchange` and of the controlled `onLayerChange` callback. */
+export interface GraphLayerEvent<M extends Mark = Mark> {
+  /** Names of the hidden layers. */
+  readonly hidden: readonly LayerName<M>[]
+}
+
 /** Payload of `lenschange`. */
 export interface GraphLensEvent {
   /** The lens, or `null` when it hides. */
@@ -210,6 +218,11 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly viewchange: GraphViewEvent
   /** The time window changed. In controlled mode, only when `update({ time })` moves it. */
   readonly timechange: GraphTimeEvent
+  /**
+   * Layers were hidden or shown. In controlled mode, only when `update({ hiddenLayers })` changes
+   * them.
+   */
+  readonly layerchange: GraphLayerEvent<M>
   /** The lens shows, moves, changes size or magnification, or hides. */
   readonly lenschange: GraphLensEvent
   /**

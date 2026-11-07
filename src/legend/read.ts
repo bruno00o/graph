@@ -3,7 +3,16 @@ import type { Scene } from '../core/scene'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { Extent } from '../scales/extent'
 import type { ResolvedNumberScale } from '../scales/number-scale'
-import type { EdgeDash, EdgeMark, Key, Mark, MarkName, NodeMark, NodeShape } from '../types'
+import type {
+  EdgeDash,
+  EdgeMark,
+  Key,
+  Mark,
+  MarkLayer,
+  MarkName,
+  NodeMark,
+  NodeShape,
+} from '../types'
 
 /** A value of the `color` channel, as read from an item. */
 export type LegendValue = string | number | boolean
@@ -104,9 +113,9 @@ export interface LegendEdgeLook<N extends MarkName = MarkName> {
 
 /** Look of the elements of one mark of `M`: shape and image for nodes, line pattern for edges. */
 export type LegendLook<M extends Mark = Mark> =
-  M extends NodeMark<infer _T, infer N>
+  M extends NodeMark<infer _T, infer N, MarkLayer>
     ? LegendNodeLook<N>
-    : M extends EdgeMark<infer _T, infer N>
+    : M extends EdgeMark<infer _T, infer N, MarkLayer>
       ? LegendEdgeLook<N>
       : LegendNodeLook | LegendEdgeLook
 
@@ -387,6 +396,14 @@ export function readLegend(
   }
 }
 
+export const layerPrefix = 'l:'
+
+function layerSlots(layers: Int32Array, names: readonly string[], ids: ReadonlySet<string>) {
+  return Uint8Array.from(layers, (layer) =>
+    layer >= 0 && ids.has(layerPrefix + names[layer]) ? 1 : 0,
+  )
+}
+
 export function keysOf(
   scene: Scene,
   ids: ReadonlySet<string>,
@@ -398,7 +415,10 @@ export function keysOf(
   const keys: LegendKeys = { nodes: [], edges: [] }
   if (ids.size === 0) return keys
   let looks = false
-  for (const id of ids) if (!id.startsWith('c:')) looks = true
+  for (const id of ids) if (!id.startsWith('c:') && !id.startsWith(layerPrefix)) looks = true
+  const { names, nodeLayers, edgeLayers } = scene.markLayers
+  const nodeSlots = layerSlots(nodeLayers, names, ids)
+  const edgeSlots = layerSlots(edgeLayers, names, ids)
   let lastValue: unknown
   let lastMatch = false
   const matches = (value: unknown) => {
@@ -413,7 +433,11 @@ export function keysOf(
     if (nodes.alive[index] !== 1 || nodes.shape[index] === containerShape) continue
     const key = nodes.keys[index]
     if (key === undefined) continue
-    if (matches(nodeColor[index]) || (looks && ids.has(nodeLookOf(nodes, index, crowded)))) {
+    if (
+      nodeSlots[nodes.slot[index] ?? 0] === 1 ||
+      matches(nodeColor[index]) ||
+      (looks && ids.has(nodeLookOf(nodes, index, crowded)))
+    ) {
       keys.nodes.push(key)
     }
   }
@@ -421,12 +445,13 @@ export function keysOf(
     if (edges.alive[index] !== 1) continue
     const key = edges.keys[index]
     if (key === undefined) continue
-    const look = looks && ids.has(edgeLookId(edges.slot[index] ?? 0, edges.dash[index] ?? 0))
+    const slot = edges.slot[index] ?? 0
+    const look = looks && ids.has(edgeLookId(slot, edges.dash[index] ?? 0))
     const value = edgeColor[index]
     const hit = split
       ? matches(endColor[index * 2] ?? value) || matches(endColor[index * 2 + 1] ?? value)
       : matches(value)
-    if (look || hit) keys.edges.push(key)
+    if (edgeSlots[slot] === 1 || look || hit) keys.edges.push(key)
   }
   return keys
 }

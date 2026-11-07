@@ -218,6 +218,12 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 
 <api-table path="index.ts" name="TimeOptions" />
 
+## Support
+
+`support` names the free states that the graph gives, from the selected edges, to the edges that carry them and to the edges they carry, through `supportedBy`. See [Multilayer graphs](/docs/multilayer#light-the-support).
+
+<api-table path="index.ts" name="SupportStateOptions" />
+
 ## Hulls
 
 `hulls` takes the results of [`hull()`](/docs/api/hull), drawn under edges and nodes in their order. A hull that follows a state must name a declared state, or `selected`, `hovered` or `focused`.
@@ -228,6 +234,8 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 - `RangeError` when `view.minZoom` is not positive, `view.maxZoom` is not finite or is smaller than `minZoom`, or `view.bounds` holds a value that is not finite or a rectangle whose minimum exceeds its maximum.
 - `TypeError` when `background.grid` is not `'lines'` or `'dots'`, when a hull does not come from `hull()`, or when `bundling` has no `start` function.
 - `RangeError` with more than 29 states besides `selected`, `hovered` and `focused`.
+- `TypeError` when a `layer` is not a non-empty string, or when a state of `support` is not a free state of `states`.
+- `RangeError` when a mark beyond the first 128 node marks or the first 128 edge marks names a layer.
 
 ## Result
 
@@ -244,7 +252,8 @@ interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
   readonly hulls: readonly Hull[]
   readonly bundling: EdgeBundling<EdgeDatum<M>> | null
   readonly time: ResolvedTimeOptions
+  readonly support: ResolvedSupportStates | null
 }
 ```
 
-Options are resolved: `interaction.zoom` and `interaction.autoPan` are `false` or `{ speed }`, `view` holds `minZoom`, `maxZoom` and `bounds` (`null` without bounds), `transitions.positions` and `transitions.layout` are numbers of milliseconds, and `background` is `null` or carries its spacing and colors.
+Options are resolved: `interaction.zoom` and `interaction.autoPan` are `false` or `{ speed }`, `view` holds `minZoom`, `maxZoom` and `bounds` (`null` without bounds), `transitions.positions` and `transitions.layout` are numbers of milliseconds, `background` is `null` or carries its spacing and colors, and `support` is `null` or names its two states, `null` for one left out.

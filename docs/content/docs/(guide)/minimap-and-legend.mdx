@@ -60,8 +60,9 @@ panel.append(view.element)
 - `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges of each; for a sequential scale, a ramp with its domain and its stops.
 - `size` and `width`: the ends of the domain and a rounded value between them, with the diameter or the width each one becomes.
 - `looks`: the shapes and images of the nodes, and the line patterns of the edges, by mark.
+- `layers`: the [layers](/docs/multilayer) of the marks, hidden ones included. Switching a layer off hides it in the graph.
 
-The default renderer writes no text of its own. Titles come from `titles`, values go through `format`, and looks show the `name` of their mark, or the text of `lookText`. Looks show only for nodes or edges drawn with more than one look.
+The default renderer writes no text of its own. Titles come from `titles`, values go through `format`, looks show the `name` of their mark, or the text of `lookText`, and layers their name, or the text of `layerText`. Looks show only for nodes or edges drawn with more than one look.
 
 ### Highlight and switch off
 
