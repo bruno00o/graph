@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.16.0](https://github.com/bruno00o/graph/compare/0.15.0...0.16.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* keep layouts sound with fixed nodes, large nodes and missing positions ([#102](https://github.com/bruno00o/graph/issues/102))
+* keep controlled requests, drags, keys and hover consistent ([#101](https://github.com/bruno00o/graph/issues/101))
+* restyle elements after several definition updates and refuse invalid keys and numbers ([#100](https://github.com/bruno00o/graph/issues/100))
+
+### Bug Fixes
+
+* isolate event handlers and stop host work once the graph is destroyed ([#98](https://github.com/bruno00o/graph/issues/98)) ([5e2bb32](https://github.com/bruno00o/graph/commit/5e2bb323fae806206ef731f13bdefacc26a83b29))
+* keep colors, categories, merged edges and states of the scene consistent ([#104](https://github.com/bruno00o/graph/issues/104)) ([2bdd6fa](https://github.com/bruno00o/graph/commit/2bdd6fa1f00b144cff45e9da107553a2d4608ef5))
+* keep controlled requests, drags, keys and hover consistent ([#101](https://github.com/bruno00o/graph/issues/101)) ([c71b2c0](https://github.com/bruno00o/graph/commit/c71b2c0b32a9cd31c833fd13eb3f194521893ddc))
+* keep export filters, recycle the glyph atlas and upload only moved positions ([#103](https://github.com/bruno00o/graph/issues/103)) ([185e343](https://github.com/bruno00o/graph/commit/185e34341ab7c0e191be2fd26b72e787cfa163fd))
+* keep layouts sound with fixed nodes, large nodes and missing positions ([#102](https://github.com/bruno00o/graph/issues/102)) ([f3d0322](https://github.com/bruno00o/graph/commit/f3d0322a33d3495225cf3fdab8aa1b145d18bf9d))
+* restyle elements after several definition updates and refuse invalid keys and numbers ([#100](https://github.com/bruno00o/graph/issues/100)) ([a7fef3f](https://github.com/bruno00o/graph/commit/a7fef3fe2ced8890b24deded93621d14672728f5))
+
 ## [0.15.0](https://github.com/bruno00o/graph/compare/0.14.2...0.15.0) (2026-11-07)
 
 
