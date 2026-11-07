@@ -37,6 +37,12 @@ export function ExampleFrame({
   const graph = useRef<GraphInstance | null>(null)
   const [run, setRun] = useState(0)
   const fullScreen = useFullScreen(frame)
+  useEffect(() => {
+    Object.defineProperty(window, 'graph', { configurable: true, get: () => graph.current })
+    return () => {
+      Reflect.deleteProperty(window, 'graph')
+    }
+  }, [])
   return (
     <div className="frame" ref={onFrame}>
       <div className="frame-bar">

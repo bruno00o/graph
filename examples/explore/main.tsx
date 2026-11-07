@@ -85,6 +85,9 @@ function Explorer() {
     createExploration(queryClient, { roots: [world.items[0]?.id ?? 'n0'], neighbors }),
   )
   const graph = useRef<GraphInstance | null>(null)
+  useEffect(() => {
+    Object.defineProperty(window, 'graph', { configurable: true, get: () => graph.current })
+  }, [])
   const definition = useMemo(
     () =>
       defineGraph({

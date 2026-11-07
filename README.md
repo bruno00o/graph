@@ -168,6 +168,12 @@ The [`examples`](./examples) folder holds runnable examples: vanilla and React g
 
 - Issues and pull requests are welcome.
 - `pnpm verify` runs lint, types, tests, the build and package checks.
+- `pnpm test:browsers` builds the examples and the docs, then opens every example page in Chromium, Firefox and WebKit with Playwright. Each page must log no error, draw on its canvas, pick a node on hover, select it on click and zoom on wheel. It prints a table of pages by browser and saves a screenshot of each page in `browser-results`. Run `pnpm exec playwright install` once to download the browsers.
+  - `--browser firefox` or `--browser chromium,webkit` runs some browsers only.
+  - `--example nodes`, `--example 'docs/*'` or `--example examples/labels` runs some pages only.
+  - `--no-build` reuses the last builds, `--software` draws Chromium with its software renderer as on a machine without a GPU, `--headed` shows the windows.
+  - On Linux, Firefox creates a WebGL context only with a display: run `xvfb-run pnpm test:browsers` on a machine without one, as the CI does.
+  - Each example page exposes its graph as `window.graph`, which the checks read.
 
 ## License
 

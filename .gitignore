@@ -4,6 +4,7 @@ dist-examples/
 .source/
 .tanstack/
 bench-results*/
+browser-results*/
 coverage/
 *.tsbuildinfo
 *.tgz
