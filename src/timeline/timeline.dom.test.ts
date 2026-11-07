@@ -253,4 +253,35 @@ describe('mountTimeline', () => {
     expect(view.element.isConnected).toBe(false)
     timeline.destroy()
   })
+
+  it('zooms by lines of the wheel and by a pinch on the bar', () => {
+    const graph = mount()
+    const timeline = createTimeline(graph, { bins: 50 })
+    const view = mountTimeline(timeline)
+    document.body.append(view.element)
+    const track = view.element.querySelector('[data-part=window]')?.parentElement
+    const span = () => {
+      const range = timeline.store.state.range
+      return range ? range.end - range.start : 0
+    }
+    const full = span()
+    const lines = new WheelEvent('wheel', { deltaY: -3, deltaMode: 1, cancelable: true })
+    track?.dispatchEvent(lines)
+    expect(lines.defaultPrevented).toBe(true)
+    expect(span()).toBeCloseTo(full / 2 ** (48 / 300), -3)
+    timeline.fit()
+    for (const [type, scale] of [
+      ['gesturestart', 1],
+      ['gesturechange', 4],
+      ['gestureend', 4],
+    ] as const) {
+      const event = new Event(type, { cancelable: true })
+      Object.defineProperty(event, 'scale', { value: scale })
+      track?.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+    }
+    expect(span()).toBeCloseTo(full / 4, -3)
+    view.destroy()
+    timeline.destroy()
+  })
 })

@@ -193,3 +193,36 @@ export function createVertexArray(
   gl.bindVertexArray(null)
   return vao
 }
+
+export const coverVertex: string = `layout(location = 0) in vec2 cover;
+void main() {
+  gl_Position = vec4(cover, 0.0, 1.0);
+}
+`
+
+export function createCoverArray(gl: WebGL2RenderingContext): WebGLVertexArrayObject {
+  const vao = gl.createVertexArray()
+  gl.bindVertexArray(vao)
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
+  gl.enableVertexAttribArray(0)
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
+  gl.bindVertexArray(null)
+  return vao
+}
+
+export function createIndexArray(
+  gl: WebGL2RenderingContext,
+  count: number,
+): WebGLVertexArrayObject {
+  const indices = new Uint32Array(count)
+  for (let index = 0; index < count; index++) indices[index] = index
+  const vao = gl.createVertexArray()
+  gl.bindVertexArray(vao)
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
+  gl.bufferData(gl.ARRAY_BUFFER, indices, gl.STATIC_DRAW)
+  gl.enableVertexAttribArray(0)
+  gl.vertexAttribIPointer(0, 1, gl.UNSIGNED_INT, 0, 0)
+  gl.bindVertexArray(null)
+  return vao
+}

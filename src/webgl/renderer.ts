@@ -1738,8 +1738,9 @@ function createRenderer(
         cachedVersion = contentVersion
         cachedKey = key
       }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.clear(gl.COLOR_BUFFER_BIT)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, cache.framebuffer)
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
       gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null)
       lensTarget = createTarget(lensTarget, inLens.size, inLens.size)

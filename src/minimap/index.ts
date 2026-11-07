@@ -1,12 +1,13 @@
 import { wheelFactor } from '../core/view'
 import { edgeShown, filtered, nodeShown, type Sight } from '../core/visibility'
+import { listenPinch } from '../dom/gestures'
 import { ThemeResolver } from '../dom/theme'
 import { type GraphInternals, internalsOf } from '../host/internals'
 import type { GraphInstance } from '../host/mount-graph'
 import { themeColor } from '../theme/tokens'
 import type { Mark, Point } from '../types'
 import { MinimapPainter } from './painter'
-import type { DrawnMessage, DrawRequest, MinimapPaint, ToMinimapWorker } from './protocol'
+import type { DrawnMessage, DrawRequest, MinimapPaint } from './protocol'
 import {
   packColor,
   packPalette,
@@ -267,19 +268,30 @@ function workerChannel(
   if (
     typeof Worker === 'undefined' ||
     typeof OffscreenCanvas === 'undefined' ||
-    typeof canvas.transferControlToOffscreen !== 'function'
+    typeof ImageBitmapRenderingContext === 'undefined'
   ) {
     return null
   }
   let worker: Worker
   try {
     worker = new MinimapWorker({ name: 'graph-minimap' })
-    const offscreen = canvas.transferControlToOffscreen()
-    worker.postMessage({ type: 'canvas', canvas: offscreen } satisfies ToMinimapWorker, [offscreen])
   } catch {
     return null
   }
-  worker.onmessage = (event: MessageEvent<DrawnMessage>) => drawn(event.data.fit)
+  const renderer = canvas.getContext('bitmaprenderer')
+  if (!renderer) {
+    worker.terminate()
+    return null
+  }
+  worker.onmessage = (event: MessageEvent<DrawnMessage>) => {
+    const { fit, frame } = event.data
+    if (canvas.width !== frame.width || canvas.height !== frame.height) {
+      canvas.width = frame.width
+      canvas.height = frame.height
+    }
+    renderer.transferFromImageBitmap(frame)
+    drawn(fit)
+  }
   worker.onerror = (event) => {
     event.preventDefault()
     worker.terminate()
@@ -570,6 +582,10 @@ export function createMinimap<S extends string, M extends Mark>(
     element.addEventListener(name, listener as EventListener)
   }
   element.addEventListener('wheel', onWheel, { passive: false })
+  const pinchGestures = listenPinch(element, {
+    start: () => settings.zoom,
+    change: ({ factor }) => graph.view.zoomBy(factor),
+  })
 
   const resizeObserver = new ResizeObserver(() => {
     pending.paint = true
@@ -603,6 +619,7 @@ export function createMinimap<S extends string, M extends Mark>(
       element.removeEventListener(name, listener as EventListener)
     }
     element.removeEventListener('wheel', onWheel)
+    pinchGestures.stop()
     channel.destroy()
     resolver.destroy()
     element.remove()

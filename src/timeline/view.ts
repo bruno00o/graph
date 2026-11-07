@@ -1,3 +1,5 @@
+import { wheelPixels } from '../core/view'
+import { listenPinch } from '../dom/gestures'
 import { themeColor } from '../theme/tokens'
 import type { TimeWindow } from '../types'
 import type { TimeUnit } from './calendar'
@@ -425,15 +427,23 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     if (settings.wheel === false || !timeline.store.state.range) return
     event.preventDefault()
     const range = timeline.store.state.range
-    const horizontal = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    const box = track.getBoundingClientRect()
+    const deltaX = wheelPixels(event.deltaX, event.deltaMode, box.width)
+    const deltaY = wheelPixels(event.deltaY, event.deltaMode, box.height)
+    const horizontal = event.shiftKey || Math.abs(deltaX) > Math.abs(deltaY)
     if (horizontal) {
-      const box = track.getBoundingClientRect()
-      const delta = event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX
+      const delta = event.shiftKey && deltaX === 0 ? deltaY : deltaX
       if (box.width > 0) timeline.pan((delta / box.width) * (range.end - range.start))
       return
     }
-    timeline.zoom(2 ** (-event.deltaY / wheelScale), timeAt(event.clientX))
+    timeline.zoom(2 ** (-deltaY / wheelScale), timeAt(event.clientX))
   }
+
+  const pinchGestures = listenPinch(track, {
+    start: () => settings.wheel !== false && timeline.store.state.range !== null,
+    change: ({ factor, clientX }) =>
+      timeline.zoom(factor, clientX === null ? undefined : timeAt(clientX)),
+  })
 
   function keyEnd(part: string | null): TimelineEnd | null {
     if (part === 'start' || part === 'end') return part
@@ -498,6 +508,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
       track.removeEventListener('pointerup', onPointerUp)
       track.removeEventListener('pointercancel', onPointerUp)
       track.removeEventListener('wheel', onWheel)
+      pinchGestures.stop()
       track.removeEventListener('keydown', onKeyDown)
       button.removeEventListener('click', onClick)
       root.remove()

@@ -51,6 +51,7 @@ import {
 } from '../core/view'
 import { detailStep, edgeOwnShown, filtered, nodeShown, type Sight } from '../core/visibility'
 import { dev } from '../dev'
+import { listenPinch, type PinchGesture } from '../dom/gestures'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles, defaults } from '../theme/tokens'
 import type {
@@ -2868,8 +2869,42 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return /mac|iphone|ipad|ipod/i.test(platform) ? 'Meta' : 'Control'
   }
 
+  function pinchPoint(change: PinchGesture): Point {
+    if (change.clientX !== null && change.clientY !== null) {
+      const rect = canvas.getBoundingClientRect()
+      return { x: change.clientX - rect.left, y: change.clientY - rect.top }
+    }
+    if (pointer) return pointer
+    const { width, height } = viewport()
+    return { x: width / 2, y: height / 2 }
+  }
+
+  function onPinchStart(): boolean {
+    if (surface || destroyed) return false
+    return Boolean(definition.interaction.zoom) || Boolean(lens && wantedLens)
+  }
+
+  function onPinchChange(change: PinchGesture): void {
+    if (pinch || gesture?.touch) return
+    const { zoom } = definition.interaction
+    const at = pinchPoint(change)
+    if (lens && wantedLens && lensContains(lens, at)) {
+      const factor = change.factor ** (zoom ? zoom.speed : 1)
+      wantedLens = { ...wantedLens, zoom: clampLensZoom(wantedLens.zoom * factor) }
+      updateLens()
+      return
+    }
+    if (!zoom) return
+    viewAnimation = null
+    commitView(zoomAround(baseView(), viewport(), at, change.factor ** zoom.speed, definition.view))
+  }
+
   function onWheel(event: WheelEvent): void {
     if (surface) return
+    if (event.ctrlKey && pinchGestures.active) {
+      event.preventDefault()
+      return
+    }
     const { zoom, pan, wheel } = definition.interaction
     const command = event.ctrlKey || event.metaKey
     const { width, height } = store.get()
@@ -2951,6 +2986,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   for (const [name, listener] of windowListeners) {
     window.addEventListener(name, listener as EventListener)
   }
+  const pinchGestures = listenPinch(canvas, { start: onPinchStart, change: onPinchChange })
   applyKeyboard()
 
   model.setMarks(definition.marks)
@@ -3276,6 +3312,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       flows.destroy()
       bundles.destroy()
       bridges.destroy()
+      pinchGestures.stop()
       for (const [name, listener] of listeners) {
         canvas.removeEventListener(name, listener as EventListener)
       }
