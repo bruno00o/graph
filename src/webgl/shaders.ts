@@ -19,6 +19,10 @@ export const edgeLabelSize = 11
 export const edgeDescent = 3.6
 export const edgeLabelGap = 1.5
 export const uprightSlack = 1e-4
+export const endLabelGap = 4
+export const endWidthUnit = 64
+export const endSplitFlag: number = 1 << 20
+export const endLabelWidthUnit = 16
 
 export const header: string = `#version 300 es
 precision highp float;
@@ -323,6 +327,70 @@ vec2 arcScreen(Arc arc, float u, out float clip) {
 }
 `
 
+export function withEnds(source: string): string {
+  return source.replace('#version 300 es\n', '#version 300 es\n#define ENDS\n')
+}
+
+export const endData: string = `
+#ifdef ENDS
+uniform usampler2D edgeEnds;
+#endif
+struct Line { uint color; uint farColor; float width; float farWidth; uint dash; uint farDash; float split; };
+Look lineLook(uint mask, vec4 style) {
+  return resolve(mask, Look(style.y, -1.0, 0.0, 1.0, none, none, none, 0.0, none), 32);
+}
+Line edgeLine(ivec2 t, uvec4 topology, vec4 style, Look look, float flow) {
+#ifdef ENDS
+  uvec4 ends = texelFetch(edgeEnds, t, 0);
+#else
+  uvec4 ends = uvec4(0u);
+#endif
+  bool split = (ends.w & ${endSplitFlag}u) != 0u;
+  bool painted = look.stroke != none;
+  bool sized = look.strokeWidth >= 0.0;
+  Line line;
+  line.color = painted ? look.stroke : split ? ends.x : topology.z;
+  line.farColor = painted || !split ? line.color : ends.y;
+  line.width = max(sized ? look.strokeWidth : split ? float(ends.z & 65535u) / ${endWidthUnit.toFixed(1)} : style.x, 0.5);
+  line.farWidth = sized || !split ? line.width : max(float(ends.z >> 16u) / ${endWidthUnit.toFixed(1)}, 0.5);
+  uint dash = split ? (ends.w >> 16u) & 3u : topology.w & 3u;
+  uint farDash = split ? (ends.w >> 18u) & 3u : dash;
+  line.dash = dash == 0u && flow != 0.0 ? 1u : dash;
+  line.farDash = farDash == 0u && flow != 0.0 ? 1u : farDash;
+  line.split = split ? float(ends.w & 65535u) / 65535.0 : -1.0;
+  return line;
+}
+#ifdef ENDS
+vec3 splitOf(Line line, float start, float end, float endHead) {
+  float at = line.split < 0.0 ? 3.0e38 : mix(start, end, line.split);
+  return vec3(at, line.farWidth * 0.5, endHead);
+}
+uint packColor(vec4 color) {
+  uvec4 bytes = uvec4(round(clamp(color, 0.0, 1.0) * 255.0));
+  return bytes.r | (bytes.g << 8u) | (bytes.b << 16u) | (bytes.a << 24u);
+}
+#endif
+`
+
+export const curveData: string = `
+vec2 cubicAt(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
+  float u = 1.0 - t;
+  return u * u * u * a + 3.0 * u * u * t * b + 3.0 * u * t * t * c + t * t * t * d;
+}
+vec2 cubicTangent(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
+  float u = 1.0 - t;
+  return 3.0 * u * u * (b - a) + 6.0 * u * t * (c - b) + 3.0 * t * t * (d - c);
+}
+float crossing(vec2 a, vec2 b, vec2 c, vec2 d, vec2 point, float radius, float lo, float hi, bool rising) {
+  for (int i = 0; i < 14; i++) {
+    float mid = (lo + hi) * 0.5;
+    bool inside = distance(cubicAt(a, b, c, d, mid), point) < radius;
+    if (inside == rising) lo = mid; else hi = mid;
+  }
+  return (lo + hi) * 0.5;
+}
+`
+
 export const nodeVertex: string = `${header}${nodeData}
 in vec2 corner;
 in uint instance;
@@ -459,9 +527,9 @@ void main() {
 }
 `
 
-export const edgeVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
-in vec3 corner;
-in uint instance;
+export const edgeVertex: string = `${header}${nodeData}${edgeData}${endData}${bundlePath}
+layout(location = 0) in vec3 corner;
+layout(location = 1) in uint instance;
 out vec2 vPos;
 out float vClip;
 flat out float vStart;
@@ -472,7 +540,13 @@ flat out float vArrowHalf;
 flat out float vHaloWidth;
 flat out uint vDash;
 flat out uint vArrow;
+#ifdef ENDS
+flat out uint vNear;
+flat out uint vFar;
+flat out vec3 vSplit;
+#else
 flat out vec4 vColor;
+#endif
 flat out float vOpacity;
 flat out float vFlow;
 void main() {
@@ -490,7 +564,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  Look look = lineLook(mask, style);
   look.opacity *= edgeShown(t, topology);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
@@ -511,7 +585,9 @@ void main() {
   }
   vec2 ps = globe ? sphereScreen(pa, flatScreen(a0)) : flatScreen(a0);
   vec2 pt = globe ? sphereScreen(pd, flatScreen(d0)) : flatScreen(d0);
-  float width = max(look.strokeWidth, 0.5);
+  float flow = edgeFlow(mask, style.w);
+  Line line = edgeLine(t, topology, style, look, flow);
+  float width = max(line.width, line.farWidth);
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float margin = 0.5 / pixelRatio + 0.25;
   float arrowHalf = max(width * 1.6, 3.0);
@@ -528,12 +604,10 @@ void main() {
   float end = len - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
   float visible = end - start;
   uint arrow = (packed >> 2u) & 3u;
-  float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
-  float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
-  float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
-  float flow = edgeFlow(mask, style.w);
-  uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
-  float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
+  float startHead = (arrow & 1u) != 0u && visible > line.width * 8.0 ? max(line.width * 4.0, 6.0) : 0.0;
+  float endHead = (arrow & 2u) != 0u && visible > line.farWidth * 8.0 ? max(line.farWidth * 4.0, 6.0) : 0.0;
+  bool dotted = line.dash == 2u || line.farDash == 2u;
+  float body = (dotted ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
   head = max(body, head);
   float along = corner.x < 0.5 ? start - margin
     : corner.x < 1.5 ? start + startHead
@@ -547,14 +621,20 @@ void main() {
   vClip = len > 0.0 ? mix(sa, sd, along / len) : 1.0;
   vStart = start;
   vEnd = end;
-  vHalfWidth = width * 0.5;
-  vArrowLength = arrowLength;
-  vArrowHalf = arrowHalf;
+  vHalfWidth = line.width * 0.5;
+  vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
+  vArrowHalf = max(line.width * 1.6, 3.0);
   vHaloWidth = halo;
-  vDash = dash;
+  vDash = line.dash | (line.farDash << 2u);
   vFlow = flow * flowTime;
   vArrow = arrow;
-  vColor = paletteColor(look.stroke);
+#ifdef ENDS
+  vNear = packColor(paletteColor(line.color));
+  vFar = line.farColor == line.color ? vNear : packColor(paletteColor(line.farColor));
+  vSplit = splitOf(line, start, end, endHead);
+#else
+  vColor = paletteColor(line.color);
+#endif
   vOpacity = look.opacity;
   gl_Position = visible > 0.5 ? toClip(ps + dir * along + normal * across) : hidden;
 }
@@ -562,9 +642,9 @@ void main() {
 
 const segments = curveSegments.toFixed(1)
 
-export const curveVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
-in vec3 corner;
-in uint instance;
+export const curveVertex: string = `${header}${nodeData}${edgeData}${endData}${curveData}${bundlePath}
+layout(location = 0) in vec3 corner;
+layout(location = 1) in uint instance;
 out vec2 vPos;
 out float vClip;
 flat out float vStart;
@@ -575,25 +655,15 @@ flat out float vArrowHalf;
 flat out float vHaloWidth;
 flat out uint vDash;
 flat out uint vArrow;
+#ifdef ENDS
+flat out uint vNear;
+flat out uint vFar;
+flat out vec3 vSplit;
+#else
 flat out vec4 vColor;
+#endif
 flat out float vOpacity;
 flat out float vFlow;
-vec2 cubicAt(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
-  float u = 1.0 - t;
-  return u * u * u * a + 3.0 * u * u * t * b + 3.0 * u * t * t * c + t * t * t * d;
-}
-vec2 cubicTangent(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
-  float u = 1.0 - t;
-  return 3.0 * u * u * (b - a) + 6.0 * u * t * (c - b) + 3.0 * t * t * (d - c);
-}
-float crossing(vec2 a, vec2 b, vec2 c, vec2 d, vec2 point, float radius, float lo, float hi, bool rising) {
-  for (int i = 0; i < 14; i++) {
-    float mid = (lo + hi) * 0.5;
-    bool inside = distance(cubicAt(a, b, c, d, mid), point) < radius;
-    if (inside == rising) lo = mid; else hi = mid;
-  }
-  return (lo + hi) * 0.5;
-}
 float arcLength(vec2 a, vec2 b, vec2 c, vec2 d, float from, float to) {
   float total = 0.0;
   vec2 previous = cubicAt(a, b, c, d, from);
@@ -621,7 +691,7 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  Look look = lineLook(mask, style);
   look.opacity *= edgeShown(t, topology);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
@@ -660,7 +730,9 @@ void main() {
     b = a + (control - a) * (2.0 / 3.0);
     c = d + (control - d) * (2.0 / 3.0);
   }
-  float width = max(look.strokeWidth, 0.5);
+  float flow = edgeFlow(mask, style.w);
+  Line line = edgeLine(t, topology, style, look, flow);
+  float width = max(line.width, line.farWidth);
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float margin = 0.5 / pixelRatio + 0.25;
   float arrowHalf = max(width * 1.6, 3.0);
@@ -675,16 +747,14 @@ void main() {
   float t1 = crossing(a, b, c, d, d, targetRadius, 0.5, 1.0, false);
   float visible = arcLength(a, b, c, d, t0, t1);
   uint arrow = (packed >> 2u) & 3u;
-  float arrowLength = arrow != 0u && visible > width * 8.0 ? max(width * 4.0, 6.0) : 0.0;
-  float startHead = (arrow & 1u) != 0u ? arrowLength : 0.0;
-  float endHead = (arrow & 2u) != 0u ? arrowLength : 0.0;
+  float startHead = (arrow & 1u) != 0u && visible > line.width * 8.0 ? max(line.width * 4.0, 6.0) : 0.0;
+  float endHead = (arrow & 2u) != 0u && visible > line.farWidth * 8.0 ? max(line.farWidth * 4.0, 6.0) : 0.0;
   vec2 first = cubicAt(a, b, c, d, t0);
   vec2 last = cubicAt(a, b, c, d, t1);
   float ta = startHead > 0.0 ? crossing(a, b, c, d, first, startHead, t0, t1, true) : t0;
   float tb = endHead > 0.0 ? crossing(a, b, c, d, last, endHead, t0, t1, false) : t1;
-  float flow = edgeFlow(mask, style.w);
-  uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
-  float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
+  bool dotted = line.dash == 2u || line.farDash == 2u;
+  float body = (dotted ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
   float head = max(body, arrowHalf + halo + margin);
   int station = int(corner.x + 0.5);
   float at;
@@ -715,14 +785,20 @@ void main() {
   vClip = loop ? 1.0 : mix(sa, sd, at);
   vStart = 0.0;
   vEnd = visible;
-  vHalfWidth = width * 0.5;
-  vArrowLength = arrowLength;
-  vArrowHalf = arrowHalf;
+  vHalfWidth = line.width * 0.5;
+  vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
+  vArrowHalf = max(line.width * 1.6, 3.0);
   vHaloWidth = halo;
-  vDash = dash;
+  vDash = line.dash | (line.farDash << 2u);
   vFlow = flow * flowTime;
   vArrow = arrow;
-  vColor = paletteColor(look.stroke);
+#ifdef ENDS
+  vNear = packColor(paletteColor(line.color));
+  vFar = line.farColor == line.color ? vNear : packColor(paletteColor(line.farColor));
+  vSplit = splitOf(line, 0.0, visible, endHead);
+#else
+  vColor = paletteColor(line.color);
+#endif
   vOpacity = look.opacity;
   gl_Position = visible > 0.5 ? toClip(cubicAt(a, b, c, d, at) + dir * push + normal * across) : hidden;
 }
@@ -739,7 +815,16 @@ flat in float vArrowHalf;
 flat in float vHaloWidth;
 flat in uint vDash;
 flat in uint vArrow;
+#ifdef ENDS
+flat in uint vNear;
+flat in uint vFar;
+flat in vec3 vSplit;
+vec4 unpackColor(uint packed) {
+  return vec4(uvec4(packed, packed >> 8u, packed >> 16u, packed >> 24u) & 255u) / 255.0;
+}
+#else
 flat in vec4 vColor;
+#endif
 flat in float vOpacity;
 flat in float vFlow;
 out vec4 fragColor;
@@ -747,35 +832,56 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
   float aa = 0.5 / pixelRatio + 0.25;
   float along = vPos.x;
   float halfWidth = vHalfWidth;
+  float lineWidth = vHalfWidth;
+  uint dash = vDash & 3u;
   bool head = false;
-  if (vArrowLength > 0.0) {
-    if ((vArrow & 2u) != 0u && along > vEnd - vArrowLength) {
-      halfWidth = vArrowHalf * (vEnd - along) / vArrowLength;
-      head = true;
-    }
-    if ((vArrow & 1u) != 0u && along < vStart + vArrowLength) {
-      halfWidth = vArrowHalf * (along - vStart) / vArrowLength;
-      head = true;
-    }
+#ifdef ENDS
+  bool far = along >= vSplit.x;
+  if (far) {
+    halfWidth = vSplit.y;
+    dash = vDash >> 2u;
   }
+  lineWidth = max(vHalfWidth, vSplit.y);
+  if ((vArrow & 2u) != 0u && vSplit.z > 0.0 && along > vEnd - vSplit.z) {
+    halfWidth = max(vSplit.y * 3.2, 3.0) * (vEnd - along) / vSplit.z;
+    head = true;
+    far = true;
+  }
+  if ((vArrow & 1u) != 0u && vArrowLength > 0.0 && along < vStart + vArrowLength) {
+    halfWidth = vArrowHalf * (along - vStart) / vArrowLength;
+    head = true;
+    far = false;
+  }
+  vec4 color = unpackColor(far ? vFar : vNear);
+#else
+  vec4 color = vColor;
+  if ((vArrow & 2u) != 0u && vArrowLength > 0.0 && along > vEnd - vArrowLength) {
+    halfWidth = vArrowHalf * (vEnd - along) / vArrowLength;
+    head = true;
+  }
+  if ((vArrow & 1u) != 0u && vArrowLength > 0.0 && along < vStart + vArrowLength) {
+    halfWidth = vArrowHalf * (along - vStart) / vArrowLength;
+    head = true;
+  }
+#endif
   float span = smoothstep(vStart - aa, vStart + aa, along) * (1.0 - smoothstep(vEnd - aa, vEnd + aa, along));
   float coverage = (1.0 - smoothstep(halfWidth - aa, halfWidth + aa, abs(vPos.y))) * span;
-  if (!head && vDash != 0u) {
-    float width = vHalfWidth * 2.0;
+  if (!head && dash != 0u) {
+    float width = lineWidth * 2.0;
     float offset = along - vStart - vFlow;
-    if (vDash == 1u) {
+    if (dash == 1u) {
       float period = max(width * 5.0, 8.0);
       float m = mod(offset, period);
       coverage *= smoothstep(0.0, aa, m) * (1.0 - smoothstep(period * 0.6 - aa, period * 0.6 + aa, m));
     } else {
       float period = max(width * 2.5, 4.0);
       float m = mod(offset, period) - period * 0.5;
-      float radius = max(width * 0.6, 1.0);
+      float radius = max(halfWidth * 1.2, 1.0);
       coverage = (1.0 - smoothstep(radius - aa, radius + aa, length(vec2(m, vPos.y)))) * span;
     }
   }
-  float alpha = vColor.a * coverage * vOpacity;
-  vec4 result = vec4(vColor.rgb * alpha, alpha);
+  float alpha = color.a * coverage * vOpacity;
+  vec4 result = vec4(color.rgb * alpha, alpha);
   if (vHaloWidth > 0.0) {
     float distance = max(abs(vPos.y) - halfWidth, 0.0);
     float h = haloColor.a * (1.0 - smoothstep(0.0, vHaloWidth, distance)) * span * vOpacity;
@@ -789,7 +895,7 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
 export const edgeFragment: string = edgeFragmentOf(false)
 export const clippedEdgeFragment: string = edgeFragmentOf(true)
 
-export const labelVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
+export const labelVertex: string = `${header}${nodeData}${edgeData}${curveData}${bundlePath}
 uniform float atlasFontSize;
 in vec2 corner;
 in uint glyphNode;
@@ -822,12 +928,68 @@ vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor) {
   vHalo = (glyphKind & 4u) != 0u ? 0.0 : 1.0;
   return (glyphRect.xy + corner * glyphRect.zw) * scale - vec2(0.0, lift);
 }
+vec2 upright(vec2 dir) {
+  return dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
+}
+vec4 endSpot(bool first, float reach, vec2 a0, vec2 d0, vec2 a, vec2 d, float bend, uvec4 path, int route, bool loop, bool geodesic, float sourceRadius) {
+  vec2 center = first ? a : d;
+  if (route == 1 || path.y > 1u) {
+    int count = route == 1 ? 17 : int(path.y);
+    Arc arc = arcOf(a0, d0, bend, geodesic, first ? 0.0 : d0.x - a0.x - wrapDelta(d0.x - a0.x));
+    vec2 previous = center;
+    float before = 0.0;
+    for (int k = 1; k < 64; k++) {
+      if (k >= count) break;
+      int at = first ? k : count - 1 - k;
+      float clip;
+      vec2 point = route == 1 ? arcScreen(arc, float(at) / float(count - 1), clip) : toScreen(pathPoint(path, at, a0, d0, bend));
+      float gap = length(point - center);
+      if (gap >= reach || k == count - 1) {
+        float f = gap > before ? clamp((reach - before) / (gap - before), 0.0, 1.0) : 1.0;
+        vec2 step = first ? point - previous : previous - point;
+        return vec4(mix(previous, point, f), step / max(length(step), 1e-6));
+      }
+      previous = point;
+      before = gap;
+    }
+    return vec4(center, 1.0, 0.0);
+  }
+  if (loop || bend != 0.0) {
+    vec2 b;
+    vec2 c;
+    if (loop) {
+      float apex = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * bend);
+      float arm = apex / (0.75 * cos(${loopTurn.toFixed(4)}));
+      float cs = cos(${loopTurn.toFixed(4)});
+      float sn = sin(${loopTurn.toFixed(4)});
+      vec2 u = vec2(0.70710678, -0.70710678);
+      b = a + arm * vec2(u.x * cs - u.y * sn, u.x * sn + u.y * cs);
+      c = a + arm * vec2(u.x * cs + u.y * sn, -u.x * sn + u.y * cs);
+    } else {
+      vec2 delta = d - a;
+      float len = length(delta);
+      vec2 side = len > 0.0 ? vec2(-delta.y, delta.x) / len : vec2(0.0, 1.0);
+      vec2 control = (a + d) * 0.5 + side * (2.0 * bend * len);
+      b = a + (control - a) * (2.0 / 3.0);
+      c = d + (control - d) * (2.0 / 3.0);
+    }
+    float at = first ? crossing(a, b, c, d, a, reach, 0.0, 0.5, true) : crossing(a, b, c, d, d, reach, 0.5, 1.0, false);
+    vec2 tangent = cubicTangent(a, b, c, d, at);
+    return vec4(cubicAt(a, b, c, d, at), tangent / max(length(tangent), 1e-6));
+  }
+  vec2 delta = d - a;
+  float len = length(delta);
+  vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
+  return vec4(first ? a + dir * reach : d - dir * reach, dir);
+}
 void edgeGlyph(uint kind) {
   ivec2 t = texel(glyphNode);
   uvec4 topology = texelFetch(edgeTopology, t, 0);
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint mask = texelFetch(edgeState, t, 0).r;
-  Look look = resolve(mask, Look(style.y, style.x, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  uint end = (glyphKind >> 4u) & 3u;
+  float base = end == 0u ? style.x : float(glyphKind >> 20u) / ${endLabelWidthUnit.toFixed(1)};
+  Look look = resolve(mask, Look(style.y, base, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
   look.opacity *= edgeShown(t, topology);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
@@ -858,7 +1020,21 @@ void edgeGlyph(uint kind) {
     gl_Position = hidden;
     return;
   }
-  if (route == 1) {
+  if (end != 0u) {
+    vec2 near = end == 1u ? a0 : d0;
+    if (worldSide(near) < 0.0) {
+      gl_Position = hidden;
+      return;
+    }
+    float radius = end == 1u ? sourceRadius : nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
+    float width = max(look.strokeWidth, 0.5);
+    bool headed = (((topology.w >> 2u) & 3u) & end) != 0u;
+    float extent = float((glyphKind >> 8u) & 4095u) * pixels / atlasFontSize;
+    float reach = radius + ${endLabelGap.toFixed(1)} + (headed ? max(width * 4.0, 6.0) : 0.0) + extent;
+    vec4 found = endSpot(end == 1u, reach, a0, d0, a, toScreen(d0), style.z, path, route, loop, geodesicOf(topology.w), sourceRadius);
+    spot = found.xy;
+    axis = upright(found.zw);
+  } else if (route == 1) {
     Arc arc = arcOf(a0, d0, style.z, geodesicOf(topology.w), 0.0);
     float clip;
     float before;

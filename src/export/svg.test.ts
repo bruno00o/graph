@@ -440,6 +440,48 @@ describe('writeSvg', () => {
     )
   })
 
+  it('draws each end in its own color and width, with a continuous dash pattern', () => {
+    const split = (states: Setup = {}) =>
+      render(
+        {
+          marks: [
+            edges<Link>([{ id: 'ab', from: 'a', to: 'b' }], {
+              source: 'from',
+              target: 'to',
+              arrow: 'target',
+              dash: 'dashed',
+              ends: {
+                split: () => 0.25,
+                source: { stroke: () => '#ff0000', width: () => 2 },
+                target: { stroke: () => '#0000ff', width: () => 4, label: () => 'end' },
+              },
+            }),
+            nodes<Item>(
+              [
+                { id: 'a', x: -100, y: 0 },
+                { id: 'b', x: 100, y: 0 },
+              ],
+              { x: 'x', y: 'y', size: () => 20 },
+            ),
+          ],
+          scales: { size: (value) => value, width: (value) => value },
+        },
+        states,
+      )
+    const svg = split()
+    const piece =
+      /<path d="M([\d.-]+) [\d.-]+L([\d.-]+) [\d.-]+" fill="none" stroke="(#[0-9a-f]+)" stroke-width="(\d+)" stroke-dasharray="12 8" stroke-dashoffset="([\d.]+)"/g
+    expect([...svg.matchAll(piece)].map((match) => match.slice(1))).toEqual([
+      ['110', '155', '#ff0000', '2', '0'],
+      ['155', '274', '#0000ff', '4', '45'],
+    ])
+    expect(svg).toContain('fill="#0000ff"/>')
+    expect(svg).toContain('>end</text>')
+    const lit = split({ states: { lit: { stroke: '#00ff00' } }, members: { lit: ['ab'] } })
+    expect(lit).not.toContain('#ff0000')
+    expect(lit).not.toContain('stroke="#0000ff"')
+  })
+
   it('draws flowing edges as dashes moved to the time of the export', () => {
     const flowing = (flow: boolean | number): GraphDefinitionOptions => ({
       marks: [

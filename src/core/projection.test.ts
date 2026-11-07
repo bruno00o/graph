@@ -144,6 +144,31 @@ describe('Projection', () => {
     expect(width).toBeGreaterThan(scene.edges.width[single] ?? 0)
   })
 
+  it('keeps the ends of the first merged edge and their labels for a single member', () => {
+    const { fold, scene, projection } = setup({
+      marks: [
+        edges<Link>(links, {
+          ...linkOptions,
+          ends: {
+            split: (link) => (link.weight ?? 1) / 4,
+            source: { width: 'weight', label: (link) => link.id },
+          },
+        }),
+        nodes<Item>(tree, { parent: 'parent' }),
+      ],
+      scales: { width: (value: number) => value },
+    })
+    fold(['g', 'h'])
+    const pair = projection.edgeIndexOf('ac')
+    const ends = scene.edges.ends
+    expect(ends?.split[pair]).toBe(0.5)
+    expect(ends?.width[pair * 2]).toBe(2)
+    expect(ends?.label[pair * 2]).toBeNull()
+    fold(['g'])
+    const single = projection.edgeIndexOf('ac')
+    expect(ends?.label[single * 2]).toBe('ac')
+  })
+
   it('restores the original edges on unfold', () => {
     const { fold, alive, container, drawnEdges, projection } = setup(graph())
     fold(['g', 'h'])

@@ -1,3 +1,4 @@
+import type { EdgeEnd } from '../types'
 import { containerShape, type EdgeColumns, type NodeColumns } from './columns'
 import {
   type Cubic,
@@ -16,7 +17,7 @@ import { edgeShown, nodeShown, type Sight } from './visibility'
 
 export type PickHit =
   | { readonly kind: 'node'; readonly index: number }
-  | { readonly kind: 'edge'; readonly index: number }
+  | { readonly kind: 'edge'; readonly index: number; readonly end: EdgeEnd | null }
 
 export interface PickSource {
   readonly nodes: NodeColumns
@@ -563,12 +564,68 @@ export class PickIndex {
     const scale = lens?.scale ?? sight.zoom
     const node = this.#pickNode(source, x, y, sight, scale, lens)
     if (node >= 0) return { kind: 'node', index: node }
-    let edge = this.#pickEdge(source, x, y, sight, scale, tolerance)
-    if (edge < 0 && this.#wraps)
-      edge = this.#pickEdge(source, x + worldSize, y, sight, scale, tolerance)
-    if (edge < 0 && this.#wraps)
-      edge = this.#pickEdge(source, x - worldSize, y, sight, scale, tolerance)
-    return edge >= 0 ? { kind: 'edge', index: edge } : null
+    let at = x
+    let edge = this.#pickEdge(source, at, y, sight, scale, tolerance)
+    if (edge < 0 && this.#wraps) {
+      at = x + worldSize
+      edge = this.#pickEdge(source, at, y, sight, scale, tolerance)
+    }
+    if (edge < 0 && this.#wraps) {
+      at = x - worldSize
+      edge = this.#pickEdge(source, at, y, sight, scale, tolerance)
+    }
+    return edge >= 0
+      ? { kind: 'edge', index: edge, end: this.#endOf(source, edge, at, y, scale) }
+      : null
+  }
+
+  #endOf(source: PickSource, index: number, x: number, y: number, scale: number): EdgeEnd | null {
+    const { edges, positions } = source
+    const split = edges.ends?.split[index] ?? Number.NaN
+    if (Number.isNaN(split)) return null
+    const from = edges.source[index] ?? 0
+    const to = edges.target[index] ?? 0
+    const start = this.#border(source, from, scale)
+    const finish = this.#border(source, to, scale)
+    const points =
+      from === to
+        ? sampleCubic(this.#loop(source, index, scale), pickSegments)
+        : this.#shape(source, index)
+    let along = 0
+    let total = 0
+    if (!points) {
+      const ax = positions.x(from)
+      const ay = positions.y(from)
+      const dx = positions.x(to) - ax
+      const dy = positions.y(to) - ay
+      total = Math.hypot(dx, dy)
+      along = total > 0 ? ((x - ax) * dx + (y - ay) * dy) / total : 0
+    } else {
+      let best = Number.POSITIVE_INFINITY
+      for (let at = 0; at + 3 < points.length; at += 2) {
+        const ax = points[at] ?? 0
+        const ay = points[at + 1] ?? 0
+        const dx = (points[at + 2] ?? 0) - ax
+        const dy = (points[at + 3] ?? 0) - ay
+        const length = Math.hypot(dx, dy)
+        const t =
+          length > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / length ** 2)) : 0
+        const distance = Math.hypot(x - ax - dx * t, y - ay - dy * t)
+        if (distance < best) {
+          best = distance
+          along = total + length * t
+        }
+        total += length
+      }
+    }
+    const visible = total - start - finish
+    const share = visible > 0 ? (along - start) / visible : 0.5
+    return share < split ? 'source' : 'target'
+  }
+
+  #border(source: PickSource, index: number, zoom: number): number {
+    const size = (source.nodes.size[index] ?? 0) / 2
+    return Math.max(source.nodes.screenUnits[index] === 1 ? size / zoom : size, 1.25 / zoom)
   }
 
   #around(

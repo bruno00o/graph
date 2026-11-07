@@ -99,3 +99,41 @@ export function distanceToCubic(curve: Cubic, x: number, y: number, segments: nu
   }
   return best
 }
+
+export function tangentOnCubic(
+  curve: Cubic,
+  t: number,
+): { readonly x: number; readonly y: number } {
+  const u = 1 - t
+  return {
+    x:
+      3 * u * u * (curve.bx - curve.ax) +
+      6 * u * t * (curve.cx - curve.bx) +
+      3 * t * t * (curve.dx - curve.cx),
+    y:
+      3 * u * u * (curve.by - curve.ay) +
+      6 * u * t * (curve.cy - curve.by) +
+      3 * t * t * (curve.dy - curve.cy),
+  }
+}
+
+export function crossCubic(
+  curve: Cubic,
+  x: number,
+  y: number,
+  radius: number,
+  low: number,
+  high: number,
+  rising: boolean,
+): number {
+  let lo = low
+  let hi = high
+  for (let step = 0; step < 14; step++) {
+    const mid = (lo + hi) / 2
+    const point = pointOnCubic(curve, mid)
+    const inside = Math.hypot(point.x - x, point.y - y) < radius
+    if (inside === rising) lo = mid
+    else hi = mid
+  }
+  return (lo + hi) / 2
+}

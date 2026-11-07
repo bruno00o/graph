@@ -148,6 +148,9 @@ export type EdgeDash = 'solid' | 'dashed' | 'dotted'
 /** Ends of an edge that carry an arrow head. */
 export type EdgeArrow = 'none' | 'source' | 'target' | 'both'
 
+/** One end of an edge: `'source'` or `'target'`. */
+export type EdgeEnd = 'source' | 'target'
+
 /** Corner of a node that holds a badge. */
 export type BadgeCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
 
@@ -483,6 +486,11 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly geodesic?: Style<T, boolean>
   /**
+   * Styles each end of the edge on its own: the line from the source node to the split takes the
+   * `source` options, the rest takes the `target` options, and each end can carry a label.
+   */
+  readonly ends?: EdgeEndsOptions<T>
+  /**
    * Keys of the edges that carry this edge, in the order of the path they form, such as the
    * segments a route runs along: a key or a list of keys. Carriers usually belong to another
    * layer. A key that names no edge is reported in `issues` as `missing-carrier`.
@@ -493,6 +501,52 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * pair of visible ends and direction.
    */
   readonly aggregate?: AggregateEdgeOptions<T>
+}
+
+/**
+ * Options of the `ends` option of `edges()`. The edge splits into two parts at `split`, each drawn
+ * with the options of its end; an option an end leaves out keeps the value of the edge.
+ */
+export interface EdgeEndsOptions<T> {
+  /**
+   * Where the source part ends, as a share of the visible length of the edge, from the border of
+   * the source node: 0 gives the whole edge to the target end, 1 to the source end.
+   * @default 0.5
+   */
+  readonly split?: Style<T, number>
+  /** Look of the part next to the source node, and label near the source node. */
+  readonly source?: EdgeEndOptions<T>
+  /** Look of the part next to the target node, and label near the target node. */
+  readonly target?: EdgeEndOptions<T>
+}
+
+/**
+ * Look of one end of an edge. Selection, hover and state styles that set `stroke` or `strokeWidth`
+ * apply to both ends.
+ */
+export interface EdgeEndOptions<T> {
+  /**
+   * Value passed to the `color` scale, as the `color` channel of the edge. Defaults to the color of
+   * the edge.
+   */
+  readonly color?: Channel<T, string | number | boolean>
+  /** Line color of this end. Wins over `color`. */
+  readonly stroke?: Style<T, string>
+  /**
+   * Value passed to the `width` scale, in screen pixels. Defaults to the width of the edge. An arrow
+   * head at this end follows it.
+   */
+  readonly width?: Channel<T, number>
+  /**
+   * Line pattern of this end: `'solid'`, `'dashed'` or `'dotted'`. The pattern runs on across the
+   * split. Defaults to the pattern of the edge.
+   */
+  readonly dash?: Style<T, EdgeDash>
+  /**
+   * Label near the node of this end, along the edge, or the text with its style. With a
+   * `background`, it reads as a badge on the line.
+   */
+  readonly label?: Channel<T, string> | EdgeLabelOptions<T>
 }
 
 /**

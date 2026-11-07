@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import type { NodeOptions } from '../types'
+import { loopCurve, loopMinimum, loopReach, pointOnCubic } from './edge-curve'
 import { geoToWorld } from './geo'
 import { geodesicPoint } from './geo-arc'
 import { createGraphModel } from './graph-model'
@@ -290,5 +291,63 @@ describe('PickIndex', () => {
     expect(pick(6, 0, 2)).toBeNull()
     expect(pick(30, 0, 0.25)).toBe('a')
     expect(pick(40, 0, 0.25)).toBeNull()
+  })
+
+  it('reports the end of the edge under the point, along its visible length', () => {
+    const model = createGraphModel()
+    const scene = createScene()
+    const positions = new Positions()
+    const definition = defineGraph({
+      marks: [
+        edges<Link>(
+          [
+            { id: 'ab', from: 'a', to: 'b' },
+            { id: 'cd', from: 'c', to: 'd' },
+            { id: 'cc', from: 'c', to: 'c' },
+          ],
+          {
+            source: 'from',
+            target: 'to',
+            ends: { split: (link) => (link.id === 'cd' ? 0.2 : 0.5) },
+          },
+        ),
+        nodes<Item>(
+          [
+            { id: 'a', x: 0, y: 0, size: 20 },
+            { id: 'b', x: 200, y: 0, size: 60 },
+            { id: 'c', x: 0, y: 100, size: 20 },
+            { id: 'd', x: 200, y: 100, size: 20 },
+          ],
+          { x: 'x', y: 'y', size: 'size' },
+        ),
+      ],
+      scales: { size: (value) => value },
+    })
+    model.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    const changes = model.flush()
+    scene.apply(model, changes)
+    placeNodes(model, positions, changes)
+    const source: PickSource = {
+      nodes: scene.nodes,
+      edges: scene.edges,
+      positions,
+      order: (_kind, index) => index,
+    }
+    const index = new PickIndex()
+    index.build(source)
+    const end = (x: number, y: number) => {
+      const hit = index.pick(source, x, y, sightOf(1), 4)
+      return hit?.kind === 'edge' ? `${scene.edges.keys[hit.index]}:${hit.end}` : null
+    }
+    expect(end(80, 0)).toBe('ab:source')
+    expect(end(95, 0)).toBe('ab:target')
+    expect(end(40, 100)).toBe('cd:source')
+    expect(end(60, 100)).toBe('cd:target')
+    const loop = loopCurve(0, 100, loopReach(10, 0, loopMinimum))
+    const first = pointOnCubic(loop, 0.3)
+    const last = pointOnCubic(loop, 0.7)
+    expect(end(first.x, first.y)).toBe('cc:source')
+    expect(end(last.x, last.y)).toBe('cc:target')
   })
 })

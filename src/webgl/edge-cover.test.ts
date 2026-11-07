@@ -23,5 +23,7 @@ describe('EdgeCover', () => {
     expect(cover.lowest()).toBeCloseTo(25 / 255)
     cover.set(1, false, 0.5, 1)
     expect(cover.lowest()).toBe(1)
+    cover.set(2, true, 1, 0, 1)
+    expect(cover.lowest()).toBeCloseTo(51 / 255)
   })
 })
