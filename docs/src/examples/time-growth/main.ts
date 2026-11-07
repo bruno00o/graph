@@ -1,6 +1,7 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
+import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -17,14 +18,6 @@ interface Tie {
   readonly from: string
   readonly to: string
   readonly born: number
-}
-
-function random(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0
-    return state / 4294967296
-  }
 }
 
 const day = 86_400_000

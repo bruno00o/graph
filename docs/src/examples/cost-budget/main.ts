@@ -9,7 +9,7 @@ import {
 import { createMesh, type Link, type Spot } from './mesh'
 import { messages } from './messages'
 import '../shared/overlays.css'
-import './range.css'
+import '../shared/controls.css'
 
 const { spots, links } = createMesh(32, 20, 7)
 const nodeKeys = spots.map((spot) => spot.id)

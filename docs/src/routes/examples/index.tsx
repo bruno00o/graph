@@ -71,11 +71,11 @@ function Card({ example }: { readonly example: Example }): JSX.Element {
   return (
     <li className="card">
       <div className="thumb sheet">
-        {example.thumbnail ? (
+        {example.images ? (
           <>
             <img
               className="thumb-light"
-              src={example.thumbnail.light}
+              src={example.images.light}
               alt={alt}
               width={640}
               height={400}
@@ -84,7 +84,7 @@ function Card({ example }: { readonly example: Example }): JSX.Element {
             />
             <img
               className="thumb-dark"
-              src={example.thumbnail.dark}
+              src={example.images.dark}
               alt={alt}
               width={640}
               height={400}

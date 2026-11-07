@@ -10,4 +10,5 @@ export default {
   tags: ['Vanilla'],
   api: ['nodes', 'define-graph'],
   guides: ['states#hide-members', 'scales#size-and-width'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

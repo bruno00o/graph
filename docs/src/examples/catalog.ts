@@ -34,6 +34,7 @@ const metaKeys = new Set([
   'api',
   'guides',
   'harness',
+  'thumbnail',
 ])
 const categoryIds = new Set<string>(categories.map((category) => category.id))
 const knownTags = new Set<string>(exampleTags)
@@ -68,7 +69,7 @@ function checkMeta(slug: string, value: unknown, kind: ExampleKind | null): stri
   for (const key of Object.keys(value)) {
     if (!metaKeys.has(key)) report(`unknown field "${key}" in meta.ts`)
   }
-  const { title, description, hint, category, order, tags, api, guides, harness } = value
+  const { title, description, hint, category, order, tags, api, guides, harness, thumbnail } = value
   for (const [key, field] of Object.entries({ title, description, hint })) {
     if (!isText(field)) report(`"${key}" must be a non-empty string`)
   }
@@ -98,6 +99,13 @@ function checkMeta(slug: string, value: unknown, kind: ExampleKind | null): stri
     if (Object.keys(rest).length > 0) report('"harness" only takes { select?: boolean }')
     else if (select !== undefined && typeof select !== 'boolean') {
       report('"harness.select" must be a boolean')
+    }
+  }
+  if (thumbnail !== undefined) {
+    const { panels, ...rest } = isRecord(thumbnail) ? thumbnail : { panels: null, invalid: true }
+    if (Object.keys(rest).length > 0) report('"thumbnail" only takes { panels?: boolean }')
+    else if (panels !== undefined && typeof panels !== 'boolean') {
+      report('"thumbnail.panels" must be a boolean')
     }
   }
   return problems
@@ -146,10 +154,11 @@ export function createCatalog(input: CatalogInput): Catalog {
     }
     const vanilla = input.entries[`./${slug}/main.ts`]
     const react = input.entries[`./${slug}/main.tsx`]
-    if (vanilla && react) problems.push(`${slug}: keep main.ts or main.tsx, not both`)
-    const kind: ExampleKind | null = vanilla ? 'vanilla' : react ? 'react' : null
-    const load = vanilla ?? react
-    if (!kind || !load) problems.push(`${slug}: missing main.ts or main.tsx`)
+    const both = Boolean(vanilla && react)
+    if (both) problems.push(`${slug}: keep main.ts or main.tsx, not both`)
+    const kind: ExampleKind | null = both ? null : vanilla ? 'vanilla' : react ? 'react' : null
+    const load = both ? undefined : (vanilla ?? react)
+    if (!both && (!kind || !load)) problems.push(`${slug}: missing main.ts or main.tsx`)
     const path = `./${slug}/meta.ts`
     if (!(path in input.metas)) {
       problems.push(`${slug}: missing meta.ts`)
@@ -168,7 +177,7 @@ export function createCatalog(input: CatalogInput): Catalog {
       slug,
       kind,
       entry: kind === 'vanilla' ? 'main.ts' : 'main.tsx',
-      thumbnail: light && dark ? { light, dark } : null,
+      images: light && dark ? { light, dark } : null,
       load: loader(slug, kind, load),
     })
   }
@@ -187,7 +196,13 @@ export const catalog: Catalog = createCatalog({
 })
 
 if (catalog.problems.length > 0) {
-  throw new Error(`Invalid examples:\n${catalog.problems.join('\n')}`)
+  const message = `Invalid examples:\n${catalog.problems.join('\n')}`
+  if (!import.meta.env.DEV) throw new Error(message)
+  console.error(message)
+}
+
+export function problemsOf(slug: string): readonly string[] {
+  return catalog.problems.filter((problem) => problem.startsWith(`${slug}: `))
 }
 
 export const examples: readonly Example[] = catalog.examples

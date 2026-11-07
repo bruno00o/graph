@@ -9,5 +9,5 @@ export default {
   order: 50,
   tags: ['Vanilla', 'TanStack DB'],
   api: ['nodes', 'edges', 'force'],
-  guides: ['tanstack-db', 'data'],
+  guides: ['tanstack-db#a-collection-is-a-live-source', 'data#two-kinds-of-data'],
 } satisfies ExampleMeta

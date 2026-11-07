@@ -9,5 +9,5 @@ export default {
   order: 70,
   tags: ['Vanilla'],
   api: ['edges'],
-  guides: ['zoom'],
+  guides: ['zoom#show-elements-by-zoom'],
 } satisfies ExampleMeta

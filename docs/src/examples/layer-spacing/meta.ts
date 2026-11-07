@@ -10,4 +10,5 @@ export default {
   tags: ['Vanilla'],
   api: ['layouts'],
   guides: ['layout#layers'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

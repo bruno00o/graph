@@ -10,4 +10,5 @@ export default {
   tags: ['Vanilla'],
   api: ['paths', 'define-graph'],
   guides: ['paths#within-reach', 'scales#color'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

@@ -9,5 +9,5 @@ export default {
   order: 40,
   tags: ['Vanilla'],
   api: ['nodes', 'define-graph'],
-  guides: ['marks#channels-and-styles', 'scales#functions'],
+  guides: ['marks#node-options', 'marks#channels-and-styles', 'scales#functions'],
 } satisfies ExampleMeta

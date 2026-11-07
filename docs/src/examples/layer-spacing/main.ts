@@ -3,7 +3,7 @@ import { type LayersDirection, layers } from '@bruno00o/graph/layouts'
 import { createHierarchy, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
-import './controls.css'
+import '../shared/controls.css'
 
 const directions = Object.keys(messages.directions) as LayersDirection[]
 
@@ -63,7 +63,7 @@ export function mount(container: HTMLElement): GraphInstance {
   actions.append(turn)
 
   const panel = document.createElement('div')
-  panel.className = 'example-panel spacing-panel'
+  panel.className = 'example-panel example-sliders'
   panel.append(
     slider(messages.layerSpacing, layerSpacing, 240, (value) => {
       layerSpacing = value

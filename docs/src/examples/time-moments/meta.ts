@@ -9,5 +9,5 @@ export default {
   order: 60,
   tags: ['Vanilla'],
   api: ['timeline', 'define-graph', 'edges'],
-  guides: ['time#fade'],
+  guides: ['time#give-elements-a-time', 'time#fade'],
 } satisfies ExampleMeta

@@ -9,5 +9,5 @@ export default {
   order: 70,
   tags: ['Vanilla'],
   api: ['graph-instance', 'events'],
-  guides: ['drawing-layers#anchored-html', 'states#hide-members'],
+  guides: ['interaction#events', 'drawing-layers#anchored-html', 'states#hide-members'],
 } satisfies ExampleMeta

@@ -9,5 +9,5 @@ export default {
   order: 40,
   tags: ['Vanilla'],
   api: ['nodes', 'edges'],
-  guides: ['zoom'],
+  guides: ['zoom#recipes', 'zoom#show-elements-by-zoom'],
 } satisfies ExampleMeta

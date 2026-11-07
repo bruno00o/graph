@@ -9,5 +9,5 @@ export default {
   order: 60,
   tags: ['Vanilla'],
   api: ['nodes', 'edges', 'force'],
-  guides: ['data#two-kinds-of-data'],
+  guides: ['data#two-kinds-of-data', 'layout#when-it-runs'],
 } satisfies ExampleMeta

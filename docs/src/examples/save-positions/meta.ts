@@ -9,5 +9,5 @@ export default {
   order: 50,
   tags: ['Vanilla'],
   api: ['graph-instance', 'force'],
-  guides: ['positions#move-nodes-from-code', 'layout'],
+  guides: ['positions#move-nodes-from-code', 'layout#save-the-result'],
 } satisfies ExampleMeta

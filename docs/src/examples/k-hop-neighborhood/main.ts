@@ -10,7 +10,7 @@ import { force } from '@bruno00o/graph/layouts/force'
 import { createCommunities, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
-import './range.css'
+import '../shared/controls.css'
 
 const { items, links } = createCommunities(300, 460, 47)
 const nodeKeys = items.map((item) => item.id)

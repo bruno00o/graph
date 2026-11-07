@@ -9,5 +9,5 @@ export default {
   order: 100,
   tags: ['React'],
   api: ['map', 'timeline'],
-  guides: ['map', 'time'],
+  guides: ['map#time', 'time#timeline'],
 } satisfies ExampleMeta
