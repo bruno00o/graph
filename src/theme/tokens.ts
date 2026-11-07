@@ -21,6 +21,9 @@ export const lightTheme: Readonly<Record<string, string>> = {
   'node-ring': '#f7f7f4',
   'badge-fill': '#191d22',
   'badge-ink': '#f7f7f4',
+  'lens-fill': '#f7f7f4',
+  'lens-ring': '#5b6167',
+  'lens-shadow': '#191d2229',
   'cat-1': '#2769b7',
   'cat-2': '#a47c13',
   'cat-3': '#12867c',
@@ -91,13 +94,19 @@ export type BuiltInStyles = Readonly<Record<BuiltInState, StateStyle>>
 
 export const builtInStyles: Readonly<Record<'nodes' | 'edges', BuiltInStyles>> = {
   nodes: {
-    selected: { stroke: themeColor('accent'), strokeWidth: ringWidth, halo: true, label: true },
-    hovered: { stroke: themeColor('ink'), strokeWidth: ringWidth, label: true },
-    focused: { stroke: themeColor('focus-ring'), strokeWidth: ringWidth, label: true },
+    selected: {
+      stroke: themeColor('accent'),
+      strokeWidth: ringWidth,
+      halo: true,
+      label: true,
+      raise: true,
+    },
+    hovered: { stroke: themeColor('ink'), strokeWidth: ringWidth, label: true, raise: true },
+    focused: { stroke: themeColor('focus-ring'), strokeWidth: ringWidth, label: true, raise: true },
   },
   edges: {
-    selected: { stroke: themeColor('accent'), halo: true },
-    hovered: { stroke: themeColor('ink') },
-    focused: { stroke: themeColor('focus-ring') },
+    selected: { stroke: themeColor('accent'), halo: true, raise: true },
+    hovered: { stroke: themeColor('ink'), raise: true },
+    focused: { stroke: themeColor('focus-ring'), raise: true },
   },
 }

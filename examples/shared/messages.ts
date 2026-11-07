@@ -189,6 +189,15 @@ export const messages = {
   speed: 'Vitesse',
   speeds: { '0.5': '×0,5', '1': '×1', '2': '×2', '4': '×4' },
   showAll: 'Tout afficher',
+  lens: 'Loupe',
+  lensHint:
+    'Maintenez Alt (⌥) au-dessus du graphe pour voir la loupe sous le pointeur ; la molette sur la loupe règle son grossissement.',
+  lensFixed: 'Loupe fixe',
+  lensHide: 'Masquer la loupe',
+  lensZoom: 'Grossissement',
+  lensFactor: (zoom: number): string => `×${decimal.format(zoom)}`,
+  lensStatus: (zoom: number): string => `Loupe ×${decimal.format(zoom)}`,
+  lensOff: 'Loupe masquée',
 }
 
 function milliseconds(value: number): string {

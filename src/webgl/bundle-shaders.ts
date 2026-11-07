@@ -22,7 +22,7 @@ void main() {
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint packed = topology.w;
   uint mask = texelFetch(edgeState, t, 0).r;
-  bool highlighted = (mask & highlightMask) != 0u;
+  bool highlighted = (mask & stateRaise.y) != 0u;
   uvec4 path = pathOf(instance);
   int count = int(path.y);
   if ((packed & 16u) == 0u || count < 2 || (overlay == 0 && (int(packed >> 5u) != layerSlot || highlighted))) {

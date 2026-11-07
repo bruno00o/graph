@@ -20,9 +20,10 @@ export interface RegistryChanges {
   readonly focused: boolean
 }
 
-const highlightBits = 0b111
-const highlightStates: readonly string[] = ['selected', 'hovered', 'focused']
+export type LayerOf = (kind: StateKind, index: number) => number
+
 const kinds: readonly StateKind[] = ['nodes', 'edges']
+const scanShare = 16
 
 function members(): Members {
   return { nodes: new Set(), edges: new Set() }
@@ -33,14 +34,22 @@ export class StateRegistry {
   readonly #buffers: StateBuffers
   readonly #members = new Map<string, Members>()
   readonly #display: EdgeDisplay | null
+  readonly #layerOf: LayerOf | null
   #names: readonly string[] = builtInStates
   #highlightDirty = true
+  #raised: readonly [number, number] = [-1, -1]
   #pending: Set<number> | null = null
 
-  constructor(model: GraphModel, buffers: StateBuffers, display: EdgeDisplay | null = null) {
+  constructor(
+    model: GraphModel,
+    buffers: StateBuffers,
+    display: EdgeDisplay | null = null,
+    layerOf: LayerOf | null = null,
+  ) {
     this.#model = model
     this.#buffers = buffers
     this.#display = display
+    this.#layerOf = layerOf
     for (const name of builtInStates) this.#members.set(name, members())
   }
 
@@ -153,20 +162,58 @@ export class StateRegistry {
     return { selection, hovered, focused }
   }
 
+  reorder(): void {
+    this.#highlightDirty = true
+  }
+
   takeHighlighted(): void {
-    if (!this.#highlightDirty) return
+    const buffers = this.#buffers
+    const raised = [buffers.nodeRaise, buffers.edgeRaise] as const
+    if (!this.#highlightDirty && raised[0] === this.#raised[0] && raised[1] === this.#raised[1]) {
+      return
+    }
     this.#highlightDirty = false
-    const indices = (kind: StateKind) => {
-      const found = new Set<number>()
-      for (const name of highlightStates) {
+    this.#raised = raised
+    buffers.setHighlighted(this.#raisedIndices('nodes'), this.#raisedIndices('edges'))
+  }
+
+  #raisedIndices(kind: StateKind): number[] {
+    const raise = this.#buffers.raised(kind)
+    if (raise === 0) return []
+    const masks = kind === 'nodes' ? this.#buffers.nodeMask : this.#buffers.edgeMask
+    let members = 0
+    this.#names.forEach((name, bit) => {
+      if ((raise & (1 << bit)) !== 0) members += this.#members.get(name)?.[kind].size ?? 0
+    })
+    let found: number[]
+    if (members * scanShare < masks.length) {
+      const seen = new Set<number>()
+      this.#names.forEach((name, bit) => {
+        if ((raise & (1 << bit)) === 0) return
         for (const key of this.#members.get(name)?.[kind] ?? []) {
           const index = this.#index(kind, key)
-          if (index >= 0) found.add(index)
+          if (index >= 0 && ((masks[index] ?? 0) & raise) !== 0) seen.add(index)
         }
+      })
+      found = [...seen].sort((a, b) => a - b)
+    } else {
+      found = []
+      for (let index = 0; index < masks.length; index++) {
+        if (((masks[index] ?? 0) & raise) !== 0) found.push(index)
       }
-      return [...found]
     }
-    this.#buffers.setHighlighted(indices('nodes'), indices('edges'))
+    return this.#byLayer(kind, found)
+  }
+
+  #byLayer(kind: StateKind, indices: number[]): number[] {
+    const layerOf = this.#layerOf
+    if (!layerOf || indices.length < 2) return indices
+    const layers = indices.map((index) => layerOf(kind, index))
+    const first = layers[0]
+    if (layers.every((layer) => layer === first)) return indices
+    const order = indices.map((_, at) => at)
+    order.sort((a, b) => (layers[a] ?? 0) - (layers[b] ?? 0) || a - b)
+    return order.map((at) => indices[at] ?? 0)
   }
 
   #entry(name: string): Members {
@@ -233,7 +280,9 @@ export class StateRegistry {
 
   #setMask(kind: StateKind, index: number, mask: number): void {
     const current = kind === 'nodes' ? this.#buffers.nodeMask : this.#buffers.edgeMask
-    if ((((current[index] ?? 0) ^ mask) & highlightBits) !== 0) this.#highlightDirty = true
+    if ((((current[index] ?? 0) ^ mask) & this.#buffers.raised(kind)) !== 0) {
+      this.#highlightDirty = true
+    }
     if (kind === 'nodes') this.#buffers.setNode(index, mask)
     else this.#buffers.setEdge(index, mask)
   }

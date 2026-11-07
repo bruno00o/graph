@@ -69,14 +69,20 @@ See [Groups](/docs/groups).
 
 ## Highlight a path
 
-A path is a set of node and edge keys, the shape `states.set` takes. Declare a state, style it, and put the path in it. A [flow](/docs/marks#flows) shows its direction.
+A path is a set of node and edge keys, the shape `states.set` takes. Declare a state, style it, and put the path in it. A [flow](/docs/marks#flows) shows its direction, and [`raise`](/docs/states#raise-a-state) draws it above the other edges.
 
 ```ts
 const graph = mountGraph(container, {
   definition: defineGraph({
     marks: [edges<Link>(links, { source: 'from', target: 'to' }), nodes<Item>(items)],
     states: {
-      path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true },
+      path: {
+        flow: true,
+        stroke: 'var(--graph-accent)',
+        strokeWidth: 2.5,
+        label: true,
+        raise: true,
+      },
       muted: { opacity: 0.15, label: false },
     },
   }),

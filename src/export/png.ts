@@ -24,6 +24,8 @@ function copyStates(states: StateBuffers): StateBuffers {
   copy.labels.set(states.labels)
   copy.labelFlags.set(states.labelFlags)
   copy.edgeLabelFlags.set(states.edgeLabelFlags)
+  copy.nodeRaise = states.nodeRaise
+  copy.edgeRaise = states.edgeRaise
   copy.nodeMask = states.nodeMask.slice()
   copy.edgeMask = states.edgeMask.slice()
   copy.setHighlighted([...states.highlightedNodes], [...states.highlightedEdges])

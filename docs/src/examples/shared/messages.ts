@@ -116,6 +116,10 @@ export const messages = {
   noPath: (duration: number) => `No path, searched in ${seconds.format(duration)} ms`,
   pathMode: (name: string) => `Path: ${name}`,
   pathModes: { hops: 'fewest edges', distance: 'shortest distance' },
+  lensHint: 'Hold Alt (⌥) over the graph. Scroll over the lens to change its magnification.',
+  lensShown: (zoom: number) => `Lens ×${zoomFormat.format(zoom)}`,
+  lensFixed: 'Fixed lens',
+  lensHide: 'Hide the lens',
   mapLabel: (places: number) =>
     `Map of ${count(places, 'place', 'places')} and the routes between them`,
   place: (index: number) => `Place ${formatNumber(index)}`,

@@ -7,6 +7,9 @@ export interface ResolvedTheme {
   readonly labelMuted: Rgba
   readonly labelHalo: Rgba
   readonly halo: Rgba
+  readonly lensFill: Rgba
+  readonly lensRing: Rgba
+  readonly lensShadow: Rgba
   readonly font: string
 }
 
@@ -63,6 +66,9 @@ export class ThemeResolver {
       labelMuted: this.color(themeColor('ink-muted')),
       labelHalo: this.color(themeColor('label-halo')),
       halo: this.color(themeColor('halo')),
+      lensFill: this.color(themeColor('lens-fill')),
+      lensRing: this.color(themeColor('lens-ring')),
+      lensShadow: this.color(themeColor('lens-shadow')),
       font: font === '' ? defaultFont : font,
     }
   }

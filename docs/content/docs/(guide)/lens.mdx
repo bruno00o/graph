@@ -1,0 +1,75 @@
+---
+title: Lens
+description: Magnify the area under the pointer, or at a fixed point, to read a dense region without moving the view.
+---
+
+<LiveExample slug="lens" />
+
+The lens is a circle that draws the graph under it again, at a higher zoom. The view does not move and nothing is distorted: what you read inside the lens is the graph at its true positions, only larger. Labels too small or too crowded to show in the view appear in the lens.
+
+## Show the lens
+
+The lens is off by default. Turn on `interaction.lens` and hold <kbd>Alt</kbd> (<kbd>⌥</kbd> on a Mac) over the graph: the lens follows the pointer until the key is released.
+
+```ts
+const definition = defineGraph({
+  marks,
+  interaction: { lens: { radius: 140, zoom: 4 } },
+})
+```
+
+`radius` is in screen pixels, 120 by default. `zoom` multiplies the zoom of the view, 3 by default. The wheel over the lens changes its magnification, from 1 to 32, and the next lens starts from it. In `'page'` wheel mode, hold Cmd or Ctrl as for the view. `key` takes any [`KeyboardEvent.key`](https://developer.mozilla.org/docs/Web/API/KeyboardEvent/key) value; the key does nothing while a text field has the focus. Every option is in [`LensOptions`](/docs/api/define-graph#interaction).
+
+## Show it from code
+
+`graph.lens.set` shows the lens, moves it or changes it, with or without `interaction.lens`. Omitted fields keep their current value.
+
+```ts
+graph.lens.set({ at: { x: 200, y: 160 } })
+graph.lens.set({ at: 'pointer', zoom: 5 })
+graph.lens.set({ at: 'focus' })
+graph.lens.set(null)
+```
+
+- A point, in screen pixels relative to the graph element, gives a fixed lens. Drag its empty inside to move it, with the mouse or a finger. On a touch screen, show it from a button of your application.
+- `'pointer'` follows the pointer over the graph, and hides while the pointer is outside.
+- `'focus'` follows the node with the [keyboard focus](/docs/interaction#keyboard), or stays at the center of the graph without one.
+
+Holding the key while the graph has the keyboard focus and the pointer is elsewhere shows the lens on the focused node: the arrow keys then move it from node to node.
+
+Each change emits `lenschange` and updates `lens` in the [store](/docs/api/graph-instance#graph-state):
+
+```ts tab="Vanilla" tab-group="framework"
+graph.on('lenschange', ({ lens }) => {
+  status.textContent = lens ? `×${lens.zoom}` : ''
+})
+```
+
+```tsx tab="React" tab-group="framework"
+const lens = useGraphState((state) => state.lens)
+```
+
+In React, `<Graph>` also takes `onLensChange`.
+
+## Inside the lens
+
+The lens is a second view of the same scene. Node sizes in world units grow with the magnification; edge widths, outlines, halos and nodes in `units: 'screen'` keep their size in screen pixels, so crossings that merged in the view come apart. Labels are chosen for the area and the zoom of the lens, with the same rules as the view.
+
+Pointer events hit what the lens shows: hover, click, double click and `graph.pick` find the element drawn under the pointer inside the lens. A node dragged from a fixed lens moves at the scale of the lens. In event payloads, `point` stays in screen pixels and `world` is the point under the pointer through the lens. `graph.lens.toWorld` makes the same conversion.
+
+The lens draws with the theme: `--graph-lens-fill` behind the graph, `--graph-lens-ring` for its border, 1.5 pixels wide, and `--graph-lens-shadow` around it. See [Theme tokens](/docs/api/theme-tokens).
+
+## What the lens leaves out
+
+- [Exports](/docs/export) and the [minimap](/docs/minimap-and-legend) never show the lens.
+- [Anchors](/docs/api/graph-instance#anchors) stay where the view puts them, above the lens.
+- The lasso and the keyboard keep working on the view.
+- On a [map](/docs/map), the lens is not available: `graph.lens.set` does nothing, and warns in development.
+
+## Cost
+
+While a lens is shown, the view is drawn once into a texture. Moving the lens copies that texture and draws the graph once more, cut to the lens; the view is drawn again only when it changes. With 500,000 nodes and 1,000,000 edges, a frame that moves the lens takes about 9 milliseconds, against 34 for a redraw of the view. Without a lens, rendering is unchanged, and an idle graph draws no frame, with or without a fixed lens.
+
+## Why a magnifier
+
+A distortion lens, or fisheye, grows the focus and squeezes its surroundings into the same circle. It shows context, but it moves every node in the lens and bends edges, so lengths and directions read inside it are false, and picking must invert the distortion. A magnifier hides a ring of context under the circle instead, keeps every position true, and reuses the renderer as is: one view, at another zoom.

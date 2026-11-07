@@ -137,6 +137,24 @@ interface GraphBundling {
 
 Bundles are computed on their own once nodes stand still. `run` computes them now, without waiting, from the current positions. It resolves to `false` when the definition has no `bundling`, when more edges than `maxEdges` would be bundled, or when the run is replaced. See [Edge bundling](/docs/bundling).
 
+## Lens
+
+```ts
+interface GraphLens {
+  get(): GraphLensState | null
+  set(lens: LensInput | null): void
+  toWorld(point: Point): Point
+}
+```
+
+<api-table path="index.ts" name="GraphLens" />
+
+`set` shows the lens, or changes the one shown: omitted fields keep their value, then the `interaction.lens` options. Each change emits `lenschange` and updates `lens` in the store. See [Lens](/docs/lens).
+
+<api-table path="index.ts" name="LensInput" />
+
+<api-table path="index.ts" name="GraphLensState" />
+
 ## Anchors
 
 ```ts
@@ -206,6 +224,7 @@ interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly layout: GraphLayoutStatus
   readonly folded: readonly Key[]
   readonly bundling: GraphBundlingStatus
+  readonly lens: GraphLensState | null
 }
 
 interface GraphLayoutStatus {

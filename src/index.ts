@@ -13,6 +13,7 @@ export type {
   GraphFoldEvent,
   GraphLayoutEndEvent,
   GraphLayoutEvent,
+  GraphLensEvent,
   GraphPointerEvent,
   GraphPositionEvent,
   GraphTarget,
@@ -24,6 +25,7 @@ export type {
   PositionOrigin,
   ZoomKey,
 } from './host/events'
+export type { GraphLens, GraphLensState, LensFollow, LensInput } from './host/lens'
 export type {
   FitOptions,
   GraphBundling,
@@ -104,6 +106,7 @@ export type {
   LayoutGroups,
   LayoutListener,
   LayoutRun,
+  LensOptions,
   LiveSource,
   Mark,
   MarkName,
@@ -121,6 +124,7 @@ export type {
   ReachOptions,
   ResolvedBackground,
   ResolvedInteraction,
+  ResolvedLens,
   ResolvedTimeOptions,
   ResolvedTransitions,
   ResolvedViewLimits,

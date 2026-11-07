@@ -5,7 +5,7 @@ import { gridFragment, gridVertex, hullFragment, hullVertex } from './backdrop-s
 import { type Attribute, createProgram, createVertexArray } from './gl'
 
 export interface Backdrop {
-  sync(input: RenderInput): void
+  sync(input: RenderInput): boolean
   drawGrid(frame: RenderFrame): void
   drawHulls(): void
   destroy(): void
@@ -92,12 +92,14 @@ export function createBackdrop(
 
   return {
     sync(input) {
-      grid = input.grid ?? null
+      const nextGrid = input.grid ?? null
+      const gridChanged = nextGrid !== grid
+      grid = nextGrid
       const hulls = input.hulls
-      if (!hulls || hulls.version === hullVersion) return
+      if (!hulls || hulls.version === hullVersion) return gridChanged
       hullVersion = hulls.version
       hullCount = hulls.count
-      if (hullCount === 0 && !hullPass) return
+      if (hullCount === 0 && !hullPass) return true
       const pass = hullProgram()
       gl.bindBuffer(gl.ARRAY_BUFFER, pass.buffer)
       gl.bufferData(
@@ -105,6 +107,7 @@ export function createBackdrop(
         new Uint8Array(hulls.data, 0, hullCount * stride),
         gl.DYNAMIC_DRAW,
       )
+      return true
     },
 
     drawGrid(frame) {

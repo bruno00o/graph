@@ -131,6 +131,7 @@ function render(
         ...(style.label !== undefined ? { label: style.label } : {}),
         ...(style.stroke !== undefined ? { stroke: scene.palette.id(style.stroke) } : {}),
         ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
+        raise: style.raise ?? bit < 3,
       })
     }
     for (const key of setup.members?.[name] ?? []) {
@@ -138,11 +139,11 @@ function render(
       const edge = model.edge(key)
       if (node) {
         states.setNode(node.index, (states.nodeMask[node.index] ?? 0) | (1 << bit))
-        if (bit < 3) highlightedNodes.push(node.index)
+        if (style.raise ?? bit < 3) highlightedNodes.push(node.index)
       }
       if (edge) {
         states.setEdge(edge.index, (states.edgeMask[edge.index] ?? 0) | (1 << bit))
-        if (bit < 3) highlightedEdges.push(edge.index)
+        if (style.raise ?? bit < 3) highlightedEdges.push(edge.index)
       }
     }
   })
@@ -174,6 +175,9 @@ function render(
       labelMuted: rgba('#5b6167'),
       labelHalo: rgba('#f7f7f4'),
       halo: rgba('#c9370047'),
+      lensFill: rgba('#f7f7f4'),
+      lensRing: rgba('#5b6167'),
+      lensShadow: rgba('#191d2229'),
       font: '"Display Face", sans-serif',
     },
     frame: {
@@ -290,6 +294,9 @@ function renderGroups(folded: Key[] = [], hulls: Hull<never>[] = []) {
       labelMuted: rgba('#5b6167'),
       labelHalo: rgba('#f7f7f4'),
       halo: rgba('#c9370047'),
+      lensFill: rgba('#f7f7f4'),
+      lensRing: rgba('#5b6167'),
+      lensShadow: rgba('#191d2229'),
       font: 'sans-serif',
     },
     frame: { view: { x: 0, y: 0, zoom: 1 }, width: 400, height: 300 },
@@ -477,6 +484,24 @@ describe('writeSvg', () => {
     )
     expect(svg).toContain('>Alpha</text>')
     expect(svg).not.toContain('>Beta</text>')
+  })
+
+  it('draws the members of a raised free state on top, as on screen', () => {
+    const plain = { selected: {}, hovered: {}, focused: {} }
+    const drawn = (raise: boolean) =>
+      render(pair, {
+        states: { ...plain, path: { stroke: '#c93700', raise } },
+        members: { path: ['a'] },
+      })
+    const order = (svg: string) => [
+      svg.indexOf('<circle cx="100" cy="150"'),
+      svg.indexOf('<circle cx="300" cy="150"'),
+    ]
+    const [below, above] = order(drawn(false))
+    expect(below).toBeGreaterThan(-1)
+    expect(below).toBeLessThan(above ?? 0)
+    const [raised, other] = order(drawn(true))
+    expect(raised).toBeGreaterThan(other ?? 0)
   })
 
   it('keeps visible labels apart and draws them all on demand', () => {

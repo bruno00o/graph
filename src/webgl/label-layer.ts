@@ -28,6 +28,7 @@ const cell = 8
 const maxLabels = 4000
 const cullMargin = 400
 const forcedStates = 0b110
+const builtInRaise = 0b111
 const edgeGlyph = 8
 const platedGlyph = 4
 const edgeGap = 8
@@ -48,6 +49,7 @@ export interface LabelFrame {
   readonly boxes?: Float32Array | null
   readonly labelFlags: Int8Array
   readonly highlighted: readonly number[]
+  readonly raise?: number
   readonly order: Uint32Array
   readonly orderLength: number
   readonly plan?: LabelPlan | null
@@ -57,6 +59,7 @@ export interface LabelFrame {
   readonly edgeMask: Uint32Array
   readonly edgeLabelFlags: Int8Array
   readonly highlightedEdges: readonly number[]
+  readonly edgeRaise?: number
   readonly edgeOrder: Uint32Array
   readonly edgeOrderLength: number
   readonly largestEdgeLabel: number
@@ -574,8 +577,12 @@ export class LabelLayer {
     const cells = this.#cols * this.#rows
     if (this.#occupancy.length < cells) this.#occupancy = new Uint8Array(cells)
     else this.#occupancy.fill(0, 0, cells)
-    const highlighted = new Set(frame.highlighted)
-    const highlightedEdges = new Set(frame.highlightedEdges)
+    const highlighted = frame.highlighted
+    const highlightedEdges = frame.highlightedEdges
+    const raise = frame.raise ?? builtInRaise
+    const edgeRaise = frame.edgeRaise ?? builtInRaise
+    const raised = (index: number) => ((frame.nodeMask[index] ?? 0) & raise) !== 0
+    const edgeRaised = (index: number) => ((frame.edgeMask[index] ?? 0) & edgeRaise) !== 0
     const shrink = Math.min(1, view.zoom)
     const all = frame.mode === 'all'
     const sink = frame.sink
@@ -785,13 +792,13 @@ export class LabelLayer {
         if (x < left || x > right || y < top || y > bottom) continue
         if (!nodeShown(nodes, index, sight)) continue
         if (!plan) {
-          if (!highlighted.has(index)) place(index, false)
+          if (!raised(index)) place(index, false)
           continue
         }
         const screenX = (x - centerX) * view.zoom + width / 2
         const screenY = (y - centerY) * view.zoom + height / 2
         if (this.#blocked(plan, at, screenX, screenY, view.zoom, shrink)) continue
-        if (!highlighted.has(index)) place(index, false, at, screenX, screenY)
+        if (!raised(index)) place(index, false, at, screenX, screenY)
       }
     }
 
@@ -817,7 +824,7 @@ export class LabelLayer {
       if ((ay < top - slack && by < top - slack) || (ay > bottom + slack && by > bottom + slack)) {
         continue
       }
-      if (!highlightedEdges.has(index)) placeEdge(index, false)
+      if (!edgeRaised(index)) placeEdge(index, false)
     }
   }
 }
