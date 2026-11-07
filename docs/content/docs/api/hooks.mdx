@@ -1,9 +1,9 @@
 ---
 title: Hooks
-description: useGraph, useGraphState and useGraphEvent, for components inside Graph.
+description: useGraph, useGraphState and useGraphEvent, for components inside Graph or MapGraph.
 ---
 
-The hooks only work inside the children of `<Graph>`. They cannot see its definition: give them its state names `S` and marks `M` to type the targets, as type arguments of `useGraph` or as the type of the parameter of `useGraphState` and `useGraphEvent`. The hooks trust these types. See [TypeScript](/docs/typescript#react).
+The hooks only work inside the children of `<Graph>` or [`<MapGraph>`](/docs/api/map-graph). They cannot see its definition: give them its state names `S` and marks `M` to type the targets, as type arguments of `useGraph` or as the type of the parameter of `useGraphState` and `useGraphEvent`. The hooks trust these types. See [TypeScript](/docs/typescript#react).
 
 ## useGraph
 
@@ -11,7 +11,7 @@ The hooks only work inside the children of `<Graph>`. They cannot see its defini
 function useGraph<S extends string = string, M extends Mark = Mark>(): GraphInstance<S, M>
 ```
 
-Returns the [instance](/docs/api/graph-instance) of the enclosing graph. Throws outside `<Graph>`.
+Returns the [instance](/docs/api/graph-instance) of the enclosing graph. Throws outside `<Graph>` and `<MapGraph>`.
 
 ## useGraphState
 

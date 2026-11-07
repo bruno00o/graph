@@ -34,6 +34,8 @@
     "export",
     "---@bruno00o/graph/map---",
     "map",
+    "---@bruno00o/graph/map/react---",
+    "map-graph",
     "---@bruno00o/graph/layouts---",
     "layouts",
     "---@bruno00o/graph/layouts/force---",

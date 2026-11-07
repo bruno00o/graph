@@ -1,0 +1,34 @@
+---
+title: MapGraph
+description: The React component that mounts a graph inside a MapLibre map.
+---
+
+```tsx
+import { MapGraph } from '@bruno00o/graph/map/react'
+
+<MapGraph map={map} definition={definition} ariaLabel="Places and routes">
+  <Timeline mode="grow" />
+</MapGraph>
+```
+
+```ts
+function MapGraph<S extends string = string, M extends Mark = Mark>(
+  props: MapGraphProps<S, M>,
+): ReactNode
+```
+
+Mounts the graph on `map` with [`mountMapGraph`](/docs/api/map), and destroys it on unmount. `S` and `M` come from `definition`, as with [`<Graph>`](/docs/api/graph-component). See [Map](/docs/map#react) for a walkthrough.
+
+## Props
+
+<api-table path="map/react.tsx" name="MapGraphProps" />
+
+The props are those of `<Graph>` except `initialView`, `view` and `onViewChange`, since the map holds the view, and `className` and `style`, since the component renders no element. The event props, the controlled selection, groups, layers and time window, and `ref` work as with `<Graph>`.
+
+## Behavior
+
+- The graph mounts in a layout effect, once `map` is given. Under StrictMode, one instance remains.
+- Another `map`, `id` or `beforeId` destroys the graph and mounts a new one. The other props go through `update`.
+- Children render where the component stands, once the graph exists, with the graph in the context of `<Graph>`: `useGraph`, `useGraphState`, `useGraphEvent`, `<Anchor>`, `<Legend>` and `<Timeline>` work inside it. `<Anchor>` pins its element over the map.
+- The entry point imports no MapLibre code: the map you create is the only one.
+- Remove the map after the graph: create it in `useEffect`, whose cleanup runs after the layout cleanup of `<MapGraph>`.

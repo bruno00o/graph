@@ -32,7 +32,7 @@ const map = new Map({ container, style: 'https://demotiles.maplibre.org/style.js
 const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
 ```
 
-`mountMapGraph` takes any map, with any style, before or after its style loads. It adds a custom layer to the style and draws in the map's own WebGL context, on top of the style or under the layer named by `beforeId`, such as the place labels of the basemap. It returns the same [`GraphInstance`](/docs/api/graph-instance) as `mountGraph`: data updates, states, selection, events, anchors and the store work the same way. Call `graph.destroy()` before `map.remove()`.
+`mountMapGraph` takes any map, with any style, before or after its style loads. It adds a custom layer to the style and draws in the map's own WebGL context, on top of the style or under the layer named by `beforeId`, such as the place labels of the basemap. It returns the same [`GraphInstance`](/docs/api/graph-instance) as `mountGraph`: data updates, states, selection, events, anchors and the store work the same way. Call `graph.destroy()` before `map.remove()`, or pass a `signal` that you abort before removing the map.
 
 The layer comes back by itself after `setStyle`, and after the browser restores a lost WebGL context: MapLibre then warns that it cannot restore custom layers, and the graph adds its own back. See [Browser support](/docs/browser-support#context-loss).
 
@@ -48,6 +48,44 @@ graph.view.fit({ padding: 40 })
 The map sets the zoom limits, and the `view` of the definition does not apply: `padding` and `autoFit` there change nothing, and each `fit` takes its own `padding`, 32 pixels by default.
 
 See the [nodes on a flat map](/examples/flat-map) example.
+
+## React
+
+`@bruno00o/graph/map/react` exports [`<MapGraph>`](/docs/api/map-graph). It mounts the graph on the map you pass, and destroys it on unmount or when `map`, `id` or `beforeId` change. It takes the props of [`<Graph>`](/docs/api/graph-component) without the view, which belongs to the map. It renders no element of its own: its children render where it stands, with the graph in context, so the hooks, `<Anchor>`, `<Legend>` and `<Timeline>` work inside it as inside `<Graph>`.
+
+```tsx title="Places.tsx"
+import { MapGraph } from '@bruno00o/graph/map/react'
+import { Timeline } from '@bruno00o/graph/react'
+import { Map } from 'maplibre-gl'
+import { useEffect, useRef, useState } from 'react'
+
+export function Places() {
+  const host = useRef<HTMLDivElement>(null)
+  const [map, setMap] = useState<Map | null>(null)
+  useEffect(() => {
+    if (!host.current) return
+    const created = new Map({ container: host.current, style, center: [10, 48], zoom: 3 })
+    setMap(created)
+    return () => created.remove()
+  }, [])
+  return (
+    <div className="stage">
+      <div ref={host} className="map" />
+      {map ? (
+        <MapGraph map={map} definition={definition} ariaLabel="Places and routes">
+          <Timeline mode="grow" />
+        </MapGraph>
+      ) : null}
+    </div>
+  )
+}
+```
+
+Create the map in `useEffect`, not `useLayoutEffect`: on unmount, React runs the layout cleanup of `<MapGraph>` before the passive cleanup that removes the map, so the graph leaves the map first. Outside `<MapGraph>`, give the graph to `<Legend>`, `<Timeline>`, `useLegend` or `useTimeline` with their `graph` prop or option: see [React](/docs/react#companions-beside-the-graph).
+
+See the [map component](/examples/map-component) example.
+
+<LiveExample slug="map-component" />
 
 ## Globe
 
@@ -87,7 +125,7 @@ The map stays north up and without pitch: `mountMapGraph` turns off rotation and
 
 ## Time
 
-The [time window](/docs/time) works on a map as on any graph. `<Timeline>` reads the graph of the `<Graph>` around it, which a map graph does not have: create the timeline with `createTimeline(graph)` and draw it with `mountTimeline`, or from its store.
+The [time window](/docs/time) works on a map as on any graph. In React, put `<Timeline>` inside [`<MapGraph>`](#react), or pass it the graph with `<Timeline graph={graph} />`. Without React, create the timeline with `createTimeline(graph)` and draw it with `mountTimeline`, or from its store.
 
 ```ts
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'

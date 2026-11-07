@@ -1,11 +1,10 @@
-import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { geoToWorld } from '../core/geo'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import { globeMatrices } from '../testing/globe'
-import { mountMapGraph } from '.'
+import { fakeMap, globeInput } from '../testing/map'
+import { exportMapPng, mountMapGraph } from '.'
 
 const shared = vi.hoisted(() => ({ made: 0, destroyed: 0 }))
 
@@ -39,142 +38,6 @@ const places: Place[] = [
   { id: 'b', longitude: 13.4, latitude: 52.52 },
 ]
 const routes: Route[] = [{ id: 'ab', from: 'a', to: 'b' }]
-
-const flatInput = {
-  defaultProjectionData: { projectionTransition: 0 },
-  shaderData: { variantName: 'mercator' },
-}
-
-function globeInput(longitude: number, latitude: number, zoom: number) {
-  const { matrix, plane, fallback } = globeMatrices({
-    longitude,
-    latitude,
-    zoom,
-    width: 800,
-    height: 600,
-  })
-  return {
-    defaultProjectionData: {
-      mainMatrix: matrix,
-      fallbackMatrix: fallback,
-      clippingPlane: plane,
-      projectionTransition: 1,
-    },
-    shaderData: { variantName: 'globe' },
-  }
-}
-
-function toggle(enabled = true) {
-  const handler = {
-    enabled,
-    isEnabled: () => handler.enabled,
-    enable: () => {
-      handler.enabled = true
-    },
-    disable: () => {
-      handler.enabled = false
-    },
-    enableRotation: () => {
-      handler.enabled = true
-    },
-    disableRotation: () => {
-      handler.enabled = false
-    },
-  }
-  return handler
-}
-
-function fakeMap() {
-  const container = document.createElement('div')
-  const canvasContainer = document.createElement('div')
-  const canvas = document.createElement('canvas')
-  Object.defineProperty(canvas, 'clientWidth', { value: 800 })
-  Object.defineProperty(canvas, 'clientHeight', { value: 600 })
-  canvasContainer.append(canvas)
-  container.append(canvasContainer)
-  document.body.append(container)
-  const layers = new Map<string, CustomLayerInterface>()
-  const listeners = new Map<string, Set<() => void>>()
-  const camera = { lng: 2.35, lat: 48.86, zoom: 4, bearing: 0, pitch: 0 }
-  const state = {
-    maxPitch: 60,
-    repaints: 0,
-    jumps: [] as { center: [number, number]; zoom: number }[],
-  }
-  const map = {
-    dragRotate: toggle(),
-    touchZoomRotate: toggle(),
-    keyboard: toggle(),
-    touchPitch: toggle(),
-    dragPan: toggle(),
-    boxZoom: toggle(),
-    doubleClickZoom: toggle(),
-    getCanvas: () => canvas,
-    getContainer: () => container,
-    getCanvasContainer: () => canvasContainer,
-    getCenter: () => ({ wrap: () => ({ lng: camera.lng, lat: camera.lat }) }),
-    getZoom: () => camera.zoom,
-    getBearing: () => camera.bearing,
-    getPitch: () => camera.pitch,
-    getPadding: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    getMinZoom: () => 0,
-    getMaxZoom: () => 22,
-    getMaxPitch: () => state.maxPitch,
-    setMaxPitch: (value: number) => {
-      state.maxPitch = value
-    },
-    getPixelRatio: () => 2,
-    getProjection: () => ({ type: 'mercator' }),
-    jumpTo: (options: { center?: [number, number]; zoom?: number; bearing?: number }) => {
-      if (options.center) {
-        state.jumps.push({ center: options.center, zoom: options.zoom ?? camera.zoom })
-        camera.lng = options.center[0]
-        camera.lat = options.center[1]
-      }
-      if (options.zoom !== undefined) camera.zoom = options.zoom
-      if (options.bearing !== undefined) camera.bearing = options.bearing
-    },
-    isStyleLoaded: () => true,
-    getLayer: (id: string) => layers.get(id),
-    addLayer: (layer: CustomLayerInterface) => {
-      layers.set(layer.id, layer)
-      layer.onAdd?.(map as unknown as MapLibreMap, {} as WebGL2RenderingContext)
-    },
-    removeLayer: (id: string) => {
-      layers.get(id)?.onRemove?.(map as unknown as MapLibreMap, {} as WebGL2RenderingContext)
-      layers.delete(id)
-    },
-    on: (name: string, listener: () => void) => {
-      const set = listeners.get(name) ?? new Set()
-      set.add(listener)
-      listeners.set(name, set)
-    },
-    off: (name: string, listener: () => void) => {
-      listeners.get(name)?.delete(listener)
-    },
-    triggerRepaint: () => {
-      state.repaints++
-    },
-  }
-  const render = (input: unknown = flatInput) => {
-    const layer = layers.get('graph')
-    layer?.render?.({} as WebGL2RenderingContext, input as never)
-  }
-  const emit = (name: string) => {
-    for (const listener of listeners.get(name) ?? []) listener()
-  }
-  return {
-    map: map as unknown as MapLibreMap,
-    fake: map,
-    camera,
-    state,
-    layers,
-    listeners,
-    emit,
-    render,
-    canvas,
-  }
-}
 
 function definition() {
   return defineGraph({
@@ -406,5 +269,48 @@ describe('mountMapGraph', () => {
     expect(graph.store.get().hovered).toBeNull()
     expect(fake.doubleClickZoom.enabled).toBe(true)
     graph.destroy()
+  })
+
+  it('resolves drawn after the map draws the layer', async () => {
+    const { map, render } = fakeMap()
+    const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })
+    let drawn = false
+    void graph.drawn().then(() => {
+      drawn = true
+    })
+    dom.flushFrames()
+    await Promise.resolve()
+    expect(drawn).toBe(false)
+    render()
+    await Promise.resolve()
+    expect(drawn).toBe(true)
+    graph.destroy()
+  })
+
+  it('leaves the map alone with an aborted signal, and gives it back when the signal aborts', async () => {
+    const { map, fake, layers, state } = fakeMap()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const stillborn = mountMapGraph(map, {
+      definition: definition(),
+      ariaLabel: 'carte',
+      signal: AbortSignal.abort(),
+    })
+    expect(stillborn.destroyed).toBe(true)
+    expect(layers.size).toBe(0)
+    expect(fake.dragRotate.enabled).toBe(true)
+    expect(state.maxPitch).toBe(60)
+    await expect(exportMapPng(stillborn)).rejects.toThrow('graph: cannot export a destroyed graph')
+    const controller = new AbortController()
+    const graph = mountMapGraph(map, {
+      definition: definition(),
+      ariaLabel: 'carte',
+      signal: controller.signal,
+    })
+    expect(layers.has('graph')).toBe(true)
+    controller.abort()
+    expect(graph.destroyed).toBe(true)
+    expect(layers.size).toBe(0)
+    expect(fake.dragRotate.enabled).toBe(true)
+    await expect(exportMapPng(graph)).rejects.toThrow('graph: cannot export a destroyed graph')
   })
 })

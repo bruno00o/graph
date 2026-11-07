@@ -21,6 +21,8 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   readonly routing: GraphRouting
   readonly time: GraphTime
   readonly element: HTMLElement
+  readonly signal: AbortSignal
+  readonly destroyed: boolean
   pick(point: Point): GraphTarget<M> | null
   neighbors(key: Key): Key[]
   edgesOf(key: Key): Key[]
@@ -29,7 +31,12 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
     kind: K
     key: Key
   }): (K extends 'node' ? NodeDatum<M> : EdgeDatum<M>) | undefined
-  on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
+  on<K extends GraphEventName>(
+    name: K,
+    handler: GraphEventHandler<K, M>,
+    options?: GraphEventOptions,
+  ): () => void
+  drawn(): Promise<void>
   update(options: GraphUpdateOptions<S, M>): void
   destroy(): void
 }
@@ -42,6 +49,56 @@ Data changes, from `update` or from a live source, are applied at the next frame
 ## Members
 
 <api-table path="index.ts" name="GraphInstance" />
+
+## Lifecycle
+
+`destroy` removes the element, frees the WebGL resources, the workers and the listeners, then aborts `signal`. It runs once; later calls do nothing. A graph also ends when the `signal` passed to [`mountGraph`](/docs/api/mount-graph#signal) aborts.
+
+### Signal
+
+`signal` aborts once the graph is destroyed, with an `AbortError` `DOMException` whose message is `graph: the graph was destroyed`, or with the reason of the `signal` of the mount when that signal destroyed the graph. Its listeners run once `destroy` is done: `destroyed` is `true` and the element is gone. Pass it to the work that should end with the graph:
+
+```ts
+const timer = setInterval(refresh, 1000)
+graph.signal.addEventListener('abort', () => clearInterval(timer))
+window.addEventListener('resize', fit, { signal: graph.signal })
+const response = await fetch(url, { signal: graph.signal })
+```
+
+`destroyed` is `true` from the call to `destroy` on.
+
+### Drawn
+
+`drawn()` resolves after the next frame the graph draws, the first one included. It never asks for a frame of its own: when no frame is due, it resolves on the next animation frame, without drawing. While the WebGL context is lost, it waits for the context to come back. On a [map](/docs/map), it resolves once the map has drawn the layer of the graph. Once the graph is destroyed, it rejects with the reason of `signal`.
+
+```ts
+graph.update({ definition: next })
+await graph.drawn()
+const canvas = graph.element.querySelector('canvas')
+```
+
+### After destroy
+
+Every member stays callable after `destroy`, and none throws. Reads answer from the last state of the store or return nothing, actions do nothing, and promises resolve to `false` or reject.
+
+| Member | After `destroy` |
+| --- | --- |
+| `store` | Keeps its last state and notifies no one again |
+| `element` | Removed from the page |
+| `view.get`, `view.toScreen`, `view.toWorld`, `selection.get`, `focus.get`, `states.get`, `states.has`, `groups.folded`, `groups.isFolded`, `layers.hidden`, `layers.isHidden`, `time.get`, `lens.get`, `lens.toWorld` | Answer from the last state of the store |
+| `groups.keyOf` | Returns the key, as before |
+| `pick`, `paths.shortest` | `null` |
+| `endpoints`, `datumOf`, `positions.get`, `groups.parent` | `undefined` |
+| `neighbors`, `edgesOf`, `groups.children`, `layers.names` | An empty array |
+| `paths.reach`, `support.carriers`, `support.carried` | An empty result |
+| `on`, `anchors.set` | Register nothing and return a function that does nothing |
+| `update`, `destroy`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
+| `layout.run`, `bundling.run`, `routing.run` | Resolve to `false`. A layout run in progress at `destroy` resolves to `false` too |
+| `drawn` | Rejects with `signal.reason` |
+| [`exportPng`, `exportSvg`](/docs/api/export) and [`exportMapPng`](/docs/api/map) | Reject with an error |
+| [`createMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Create an empty companion that never changes |
+
+A graph mounted with a signal already aborted comes back in this state: nothing is mounted, its element is never added to the page, and a warning is logged in development. Its store holds the view, the selection, the states, the folded groups, the time window and the hidden layers of the options.
 
 ## View
 

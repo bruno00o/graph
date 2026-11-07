@@ -35,6 +35,7 @@ import type {
   FitOptions,
   FitPadding,
   GraphDefinitionOptions,
+  GraphEventOptions,
   GroupOptions,
   HullGroupOptions,
   HullKeysOptions,
@@ -75,6 +76,7 @@ import type { GridOptions, LayersOptions, RadialOptions, RingsOptions } from './
 import type { ForceOptions } from './layouts/force'
 import type { LegendOptions, LegendViewOptions } from './legend'
 import type { MapGraphOptions, MapPngOptions } from './map'
+import type { MapGraphProps } from './map/react'
 import type { MinimapOptions } from './minimap'
 import type { ExplorationOptions } from './query'
 import type {
@@ -85,6 +87,8 @@ import type {
   MinimapProps,
   TimelineProps,
   UseGraphStateOptions,
+  UseLegendOptions,
+  UseTimelineOptions,
 } from './react'
 import type { OrthogonalRoutingOptions } from './routing'
 import type { TimelineLabels, TimelineOptions, TimelineViewOptions } from './timeline'
@@ -150,6 +154,7 @@ interface Inputs {
   GraphDevtoolsPanelProps: GraphDevtoolsPanelProps
   GraphDevtoolsPluginOptions: GraphDevtoolsPluginOptions
   GraphDevtoolsProps: GraphDevtoolsProps
+  GraphEventOptions: GraphEventOptions
   GraphEventProps: GraphEventProps<Marks>
   GraphProps: GraphProps<'muted', Marks>
   GridOptions: GridOptions<Item>
@@ -173,6 +178,7 @@ interface Inputs {
   LensInput: LensInput
   LensOptions: LensOptions
   MapGraphOptions: MapGraphOptions<'muted', Marks>
+  MapGraphProps: MapGraphProps<'muted', Marks>
   MapPngOptions: MapPngOptions
   MinimapOptions: MinimapOptions
   MinimapProps: MinimapProps
@@ -205,6 +211,8 @@ interface Inputs {
   TimeWindowInput: TimeWindowInput
   TransitionOptions: TransitionOptions
   UseGraphStateOptions: UseGraphStateOptions<number>
+  UseLegendOptions: UseLegendOptions<'muted', Marks>
+  UseTimelineOptions: UseTimelineOptions
   ViewLimitOptions: ViewLimitOptions
   ViewOptions: ViewOptions
   Zoom: Exclude<InteractionOptions['zoom'], boolean | undefined>

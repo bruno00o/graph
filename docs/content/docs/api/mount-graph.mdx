@@ -28,6 +28,20 @@ interface ElementKeys {
 }
 ```
 
+## Signal
+
+`signal` ties the graph to an `AbortController` of your own: the graph is destroyed when it aborts, and `graph.signal` aborts with the same reason. One controller can end a graph and the work around it at once.
+
+```ts
+const controller = new AbortController()
+const graph = mountGraph(container, { definition, signal: controller.signal })
+fetch(url, { signal: controller.signal })
+
+controller.abort()
+```
+
+A signal already aborted mounts nothing: `mountGraph` returns a destroyed graph, adds no element to the container, and logs a warning in development. See [after destroy](/docs/api/graph-instance#after-destroy).
+
 ## The graph element
 
 `graph.element` is the `div` added to the container. It holds the canvas and carries:

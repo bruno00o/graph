@@ -164,7 +164,7 @@ import { Graph, Timeline, useTimeline } from '@bruno00o/graph/react'
 </Graph>
 ```
 
-`<Timeline>` renders the default timeline where it stands. `useTimeline` returns the state and the timeline, for a timeline drawn by your components, as in the [time slider of your own](/examples/time-slider) example.
+`<Timeline>` renders the default timeline where it stands. `useTimeline` returns the state and the timeline, for a timeline drawn by your components, as in the [time slider of your own](/examples/time-slider) example. Both read the graph of the `<Graph>` or [`<MapGraph>`](/docs/map#react) around them; elsewhere, pass it with `<Timeline graph={graph} />` or `useTimeline({ graph })`.
 
 ## Performance
 

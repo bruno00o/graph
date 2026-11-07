@@ -28,3 +28,4 @@ With `selection`, `onSelectionChange` receives selection requests and the graph 
 - The wrapping `div` is positioned relative. The graph fills it, and children render above the canvas. To pin a child to a node or an edge, wrap it in [`<Anchor>`](/docs/api/anchor).
 - The graph mounts once, in a layout effect, and is destroyed on unmount. Under StrictMode, one instance remains.
 - Children only render once the graph exists, so `useGraph` always returns an instance.
+- For a graph inside a MapLibre map, use [`<MapGraph>`](/docs/api/map-graph), which shares the same context.
