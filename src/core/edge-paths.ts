@@ -1,6 +1,7 @@
 import type { BundlePaths } from '../types'
 import type { EdgeColumns } from './columns'
 import type { Positions } from './positions'
+import { type Outline, type RouteShape, shapeRoute } from './route-shape'
 
 export const pathClasses: readonly number[] = [5, 9, 17, 33]
 export const maxPathPoints = 33
@@ -21,8 +22,23 @@ export interface PathResult {
   readonly paths: BundlePaths
 }
 
+export type OutlineOf = (index: number, out: Outline) => Outline
+
+interface Previous {
+  readonly info: Uint32Array
+  readonly lengths: Float32Array
+  readonly data: Float32Array
+  readonly stations: Float32Array
+  readonly measured: boolean
+  readonly mix: number
+}
+
 function padded(points: number): number {
   return Math.max(1, Math.ceil(points / pathTextureWidth)) * pathTextureWidth
+}
+
+function emptyOutline(): Outline {
+  return { x: 0, y: 0, shape: 0, radius: 0, halfWidth: 0, halfHeight: 0, trim: 0 }
 }
 
 export class EdgePaths {
@@ -31,11 +47,15 @@ export class EdgePaths {
   pointsVersion = 0
   mix = 1
   bundled = 0
+  lanes = true
+  measured = false
   info: Uint32Array = new Uint32Array(0)
   lengths: Float32Array = new Float32Array(0)
   data: Float32Array = new Float32Array(0)
+  stations: Float32Array = new Float32Array(0)
   ends: Uint32Array = new Uint32Array(0)
   reach: Float32Array = new Float32Array(0)
+  rooms: Float32Array = new Float32Array(0)
 
   reserve(capacity: number): void {
     if (capacity <= this.capacity) return
@@ -51,6 +71,9 @@ export class EdgePaths {
     const reach = new Float32Array(size)
     reach.set(this.reach)
     this.reach = reach
+    const rooms = new Float32Array(size)
+    rooms.set(this.rooms)
+    this.rooms = rooms
     this.capacity = size
     this.version++
   }
@@ -65,21 +88,31 @@ export class EdgePaths {
     return from + (to - from) * mix
   }
 
+  station(edge: number, k: number, mix: number = this.mix): number {
+    const count = this.count(edge)
+    const u = count > 1 ? k / (count - 1) : 0
+    if (!this.measured) return u
+    const at = ((this.info[edge * 4] ?? 0) + k) * 2
+    const from = this.stations[at] ?? u
+    return from + ((this.stations[at + 1] ?? u) - from) * mix
+  }
+
   clear(edge: number): void {
     if (this.count(edge) === 0) return
     this.info[edge * 4 + 1] = 0
     this.reach[edge] = 0
+    this.rooms[edge] = 0
     this.bundled--
     this.version++
   }
 
-  validateAll(edges: EdgeColumns): void {
+  validateAll(edges: EdgeColumns, column: Uint8Array = edges.bundle): void {
     if (this.bundled === 0) return
     for (let edge = 0; edge < this.capacity; edge++) {
       if ((this.info[edge * 4 + 1] ?? 0) === 0) continue
       if (
         edges.alive[edge] !== 1 ||
-        edges.bundle[edge] !== 1 ||
+        column[edge] !== 1 ||
         edges.source[edge] !== this.ends[edge * 2] ||
         edges.target[edge] !== this.ends[edge * 2 + 1]
       ) {
@@ -106,7 +139,7 @@ export class EdgePaths {
     const fy = this.data[at + 1] ?? 0
     let x = sx + (tx - sx) * u + fx + ((this.data[at + 2] ?? 0) - fx) * mix
     let y = sy + (ty - sy) * u + fy + ((this.data[at + 3] ?? 0) - fy) * mix
-    if (bend !== 0) {
+    if (bend !== 0 && this.lanes) {
       const chord = Math.hypot(tx - sx, ty - sy)
       if (chord > 0) {
         const lift = bend * 4 * u * (1 - u)
@@ -142,6 +175,104 @@ export class EdgePaths {
     return count
   }
 
+  #snapshot(): Previous {
+    const info = this.info.slice()
+    return {
+      info,
+      lengths: new Float32Array(info.buffer),
+      data: this.data,
+      stations: this.stations,
+      measured: this.measured,
+      mix: this.mix,
+    }
+  }
+
+  #previous(old: Previous, edge: number, u: number, out: PathPoint): number {
+    const count = old.info[edge * 4 + 1] ?? 0
+    if (count < 2) {
+      out.x = 0
+      out.y = 0
+      return u
+    }
+    const f = u * (count - 1)
+    const k = Math.min(count - 2, Math.floor(f))
+    const t = f - k
+    const first = (old.info[edge * 4] ?? 0) + k
+    const at = first * 4
+    const data = old.data
+    const mix = old.mix
+    const ax = (data[at] ?? 0) + ((data[at + 2] ?? 0) - (data[at] ?? 0)) * mix
+    const ay = (data[at + 1] ?? 0) + ((data[at + 3] ?? 0) - (data[at + 1] ?? 0)) * mix
+    const bx = (data[at + 4] ?? 0) + ((data[at + 6] ?? 0) - (data[at + 4] ?? 0)) * mix
+    const by = (data[at + 5] ?? 0) + ((data[at + 7] ?? 0) - (data[at + 5] ?? 0)) * mix
+    out.x = ax + (bx - ax) * t
+    out.y = ay + (by - ay) * t
+    if (!old.measured) return u
+    const stations = old.stations
+    const sa = (stations[first * 2] ?? 0) + ((stations[first * 2 + 1] ?? 0) - (stations[first * 2] ?? 0)) * mix
+    const sb =
+      (stations[first * 2 + 2] ?? 0) +
+      ((stations[first * 2 + 3] ?? 0) - (stations[first * 2 + 2] ?? 0)) * mix
+    return sa + (sb - sa) * t
+  }
+
+  #oldLength(old: Previous, edge: number, chord: number): number {
+    if ((old.info[edge * 4 + 1] ?? 0) === 0) return chord
+    const from = old.lengths[edge * 4 + 2] ?? chord
+    const to = old.lengths[edge * 4 + 3] ?? chord
+    return from + (to - from) * old.mix
+  }
+
+  #fade(
+    old: Previous,
+    kept: Uint8Array,
+    cursor: number,
+    data: Float32Array,
+    stations: Float32Array,
+    positions: Positions,
+  ): number {
+    const before: PathPoint = { x: 0, y: 0 }
+    let next = cursor
+    for (let edge = 0; edge < kept.length; edge++) {
+      const count = old.info[edge * 4 + 1] ?? 0
+      if (count === 0 || kept[edge] === 1) continue
+      const source = this.ends[edge * 2] ?? 0
+      const target = this.ends[edge * 2 + 1] ?? 0
+      const chord = Math.hypot(
+        positions.x(target) - positions.x(source),
+        positions.y(target) - positions.y(source),
+      )
+      const at = next
+      for (let k = 0; k < count; k++) {
+        const u = k / (count - 1)
+        const s = this.#previous(old, edge, u, before)
+        data[(at + k) * 4] = before.x
+        data[(at + k) * 4 + 1] = before.y
+        data[(at + k) * 4 + 2] = 0
+        data[(at + k) * 4 + 3] = 0
+        stations[(at + k) * 2] = s
+        stations[(at + k) * 2 + 1] = u
+      }
+      this.info[edge * 4] = at
+      this.info[edge * 4 + 1] = count
+      this.lengths[edge * 4 + 2] = this.#oldLength(old, edge, chord)
+      this.lengths[edge * 4 + 3] = chord
+      this.rooms[edge] = 0
+      next += count
+      this.bundled++
+    }
+    return next
+  }
+
+  #finish(data: Float32Array, stations: Float32Array, measured: boolean): void {
+    this.data = data
+    this.stations = stations
+    this.measured = measured
+    this.mix = 0
+    this.version++
+    this.pointsVersion++
+  }
+
   start(result: PathResult | null, strength: number, positions: Positions): void {
     const listed = result?.edges ?? new Uint32Array(0)
     const offsets = result?.paths.offsets
@@ -166,10 +297,7 @@ export class EdgePaths {
     let largest = 0
     for (const edge of listed) largest = Math.max(largest, edge + 1)
     this.reserve(largest)
-    const old = { info: this.info.slice(), lengths: null as Float32Array | null }
-    old.lengths = new Float32Array(old.info.buffer)
-    const oldData = this.data
-    const oldMix = this.mix
+    const old = this.#snapshot()
     const counts = new Uint8Array(listed.length)
     let needed = 0
     let cumulative = new Float64Array(64)
@@ -206,35 +334,13 @@ export class EdgePaths {
       measure()
     }
     const data = new Float32Array(padded(needed) * 4)
+    const stations = new Float32Array(padded(needed) * 2)
     const info = this.info
     const lengths = this.lengths
     info.fill(0)
     let cursor = 0
-    let bundled = 0
-    const previous = (edge: number, u: number, out: PathPoint): void => {
-      const count = old.info[edge * 4 + 1] ?? 0
-      if (count < 2) {
-        out.x = 0
-        out.y = 0
-        return
-      }
-      const f = u * (count - 1)
-      const k = Math.min(count - 2, Math.floor(f))
-      const t = f - k
-      const at = ((old.info[edge * 4] ?? 0) + k) * 4
-      const ax = (oldData[at] ?? 0) + ((oldData[at + 2] ?? 0) - (oldData[at] ?? 0)) * oldMix
-      const ay = (oldData[at + 1] ?? 0) + ((oldData[at + 3] ?? 0) - (oldData[at + 1] ?? 0)) * oldMix
-      const bx = (oldData[at + 4] ?? 0) + ((oldData[at + 6] ?? 0) - (oldData[at + 4] ?? 0)) * oldMix
-      const by = (oldData[at + 5] ?? 0) + ((oldData[at + 7] ?? 0) - (oldData[at + 5] ?? 0)) * oldMix
-      out.x = ax + (bx - ax) * t
-      out.y = ay + (by - ay) * t
-    }
-    const oldLength = (edge: number, chord: number): number => {
-      if ((old.info[edge * 4 + 1] ?? 0) === 0) return chord
-      const from = old.lengths?.[edge * 4 + 2] ?? chord
-      const to = old.lengths?.[edge * 4 + 3] ?? chord
-      return from + (to - from) * oldMix
-    }
+    this.bundled = 0
+    if (result) this.lanes = true
     const before: PathPoint = { x: 0, y: 0 }
     listed.forEach((edge, index) => {
       const size = counts[index] ?? 0
@@ -293,51 +399,122 @@ export class EdgePaths {
         if (k > 0) length += Math.hypot(drawnX - lastX, drawnY - lastY)
         lastX = drawnX
         lastY = drawnY
-        previous(edge, u, before)
+        const s = this.#previous(old, edge, u, before)
         reach = Math.max(reach, Math.hypot(before.x, before.y))
         data[(at + k) * 4] = before.x
         data[(at + k) * 4 + 1] = before.y
         data[(at + k) * 4 + 2] = dx
         data[(at + k) * 4 + 3] = dy
+        stations[(at + k) * 2] = s
+        stations[(at + k) * 2 + 1] = u
       }
       if (reach < flat) return
       info[edge * 4] = at
       info[edge * 4 + 1] = size
-      lengths[edge * 4 + 2] = oldLength(edge, chord)
+      lengths[edge * 4 + 2] = this.#oldLength(old, edge, chord)
       lengths[edge * 4 + 3] = Math.max(length, chord)
       this.reach[edge] = reach
+      this.rooms[edge] = 0
       cursor += size
-      bundled++
+      this.bundled++
     })
-    for (let edge = 0; edge < kept.length; edge++) {
-      const count = old.info[edge * 4 + 1] ?? 0
-      if (count === 0 || kept[edge] === 1) continue
-      const source = this.ends[edge * 2] ?? 0
-      const target = this.ends[edge * 2 + 1] ?? 0
-      const chord = Math.hypot(
-        positions.x(target) - positions.x(source),
-        positions.y(target) - positions.y(source),
-      )
+    this.#fade(old, kept, cursor, data, stations, positions)
+    this.#finish(data, stations, old.measured)
+  }
+
+  route(
+    result: PathResult | null,
+    radius: number,
+    outline: OutlineOf,
+    positions: Positions,
+  ): void {
+    const listed = result?.edges ?? new Uint32Array(0)
+    const offsets = result?.paths.offsets
+    const points = result?.paths.points
+    let largest = 0
+    for (const edge of listed) largest = Math.max(largest, edge + 1)
+    this.reserve(largest)
+    const old = this.#snapshot()
+    const shapes: (RouteShape | null)[] = []
+    const kept = new Uint8Array(this.capacity)
+    const start = emptyOutline()
+    const end = emptyOutline()
+    let needed = 0
+    listed.forEach((edge, index) => {
+      kept[edge] = 1
+      const source = result?.ends[index * 2] ?? 0
+      const target = result?.ends[index * 2 + 1] ?? 0
+      const first = offsets?.[index] ?? 0
+      const last = offsets?.[index + 1] ?? first
+      if (!points || last - first < 2) {
+        shapes.push(null)
+        return
+      }
+      outline(source, start)
+      outline(target, end)
+      const shape: RouteShape = { xs: [], ys: [], count: 0, room: 0 }
+      shapeRoute(points, first, last, radius, start, end, shape)
+      shapes.push(shape)
+      needed += shape.count
+    })
+    for (let edge = 0; edge < this.capacity; edge++) {
+      if (kept[edge] !== 1) needed += old.info[edge * 4 + 1] ?? 0
+    }
+    const data = new Float32Array(padded(needed) * 4)
+    const stations = new Float32Array(padded(needed) * 2)
+    const info = this.info
+    const lengths = this.lengths
+    info.fill(0)
+    this.bundled = 0
+    this.lanes = false
+    let cursor = 0
+    const before: PathPoint = { x: 0, y: 0 }
+    listed.forEach((edge, index) => {
+      const source = result?.ends[index * 2] ?? 0
+      const target = result?.ends[index * 2 + 1] ?? 0
+      this.ends[edge * 2] = source
+      this.ends[edge * 2 + 1] = target
+      const shape = shapes[index]
+      if (!shape) return
+      const { xs, ys, count } = shape
+      const ax = positions.x(source)
+      const ay = positions.y(source)
+      const bx = positions.x(target)
+      const by = positions.y(target)
+      let total = 0
+      for (let k = 1; k < count; k++) {
+        total += Math.hypot((xs[k] ?? 0) - (xs[k - 1] ?? 0), (ys[k] ?? 0) - (ys[k - 1] ?? 0))
+      }
       const at = cursor
+      let reach = 0
+      let along = 0
       for (let k = 0; k < count; k++) {
-        previous(edge, k / (count - 1), before)
+        if (k > 0) {
+          along += Math.hypot((xs[k] ?? 0) - (xs[k - 1] ?? 0), (ys[k] ?? 0) - (ys[k - 1] ?? 0))
+        }
+        const u = k / (count - 1)
+        const dx = (xs[k] ?? 0) - (ax + (bx - ax) * u)
+        const dy = (ys[k] ?? 0) - (ay + (by - ay) * u)
+        const s = this.#previous(old, edge, u, before)
+        reach = Math.max(reach, Math.hypot(dx, dy), Math.hypot(before.x, before.y))
         data[(at + k) * 4] = before.x
         data[(at + k) * 4 + 1] = before.y
-        data[(at + k) * 4 + 2] = 0
-        data[(at + k) * 4 + 3] = 0
+        data[(at + k) * 4 + 2] = dx
+        data[(at + k) * 4 + 3] = dy
+        stations[(at + k) * 2] = s
+        stations[(at + k) * 2 + 1] = total > 0 ? along / total : u
       }
       info[edge * 4] = at
       info[edge * 4 + 1] = count
-      lengths[edge * 4 + 2] = oldLength(edge, chord)
-      lengths[edge * 4 + 3] = chord
+      lengths[edge * 4 + 2] = this.#oldLength(old, edge, Math.hypot(bx - ax, by - ay))
+      lengths[edge * 4 + 3] = total
+      this.reach[edge] = reach
+      this.rooms[edge] = shape.room
       cursor += count
-      bundled++
-    }
-    this.data = data
-    this.bundled = bundled
-    this.mix = 0
-    this.version++
-    this.pointsVersion++
+      this.bundled++
+    })
+    this.#fade(old, kept, cursor, data, stations, positions)
+    this.#finish(data, stations, true)
   }
 
   settle(): void {
@@ -351,6 +528,10 @@ export class EdgePaths {
         flat = this.data[at + 2] === 0 && this.data[at + 3] === 0
       }
       if (flat) this.clear(edge)
+    }
+    if (this.lanes && this.measured) {
+      this.measured = false
+      this.pointsVersion++
     }
   }
 }

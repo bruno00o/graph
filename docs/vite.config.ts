@@ -31,6 +31,7 @@ export default defineConfig({
       { find: /^@bruno00o\/graph\/minimap$/, replacement: resolve(library, 'minimap/index.ts') },
       { find: /^@bruno00o\/graph\/legend$/, replacement: resolve(library, 'legend/index.ts') },
       { find: /^@bruno00o\/graph\/bundling$/, replacement: resolve(library, 'bundling/index.ts') },
+      { find: /^@bruno00o\/graph\/routing$/, replacement: resolve(library, 'routing/index.ts') },
       { find: /^@bruno00o\/graph\/timeline$/, replacement: resolve(library, 'timeline/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(library, 'index.ts') },
     ],

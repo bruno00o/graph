@@ -50,6 +50,7 @@ export default defineConfig({
     minimap: 'src/minimap/index.ts',
     legend: 'src/legend/index.ts',
     bundling: 'src/bundling/index.ts',
+    routing: 'src/routing/index.ts',
     timeline: 'src/timeline/index.ts',
   },
   format: 'esm',

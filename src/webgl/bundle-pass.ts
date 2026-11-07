@@ -3,7 +3,7 @@ import { bundleCorners, bundleVertex } from './bundle-shaders'
 import { type Attribute, createBuffer, createProgram, createVertexArray } from './gl'
 import { edgeFragment } from './shaders'
 
-export const bundleUnits = { edgePath: 12, bundlePoints: 13 } as const
+export const bundleUnits = { edgePath: 12, bundlePoints: 13, pathStations: 18 } as const
 
 type Draw = (
   program: WebGLProgram,
@@ -29,6 +29,8 @@ interface Program {
 
 export interface BundlePass {
   readonly mix: number
+  readonly lanes: number
+  readonly measured: number
   readonly bytes: number
   sync(paths: EdgePaths | null | undefined): boolean
   bind(): void
@@ -46,6 +48,9 @@ export function createBundlePass(
   let pass: Program | null = null
   let pathTexture: WebGLTexture | null = null
   let pointTexture: WebGLTexture | null = null
+  let stationTexture: WebGLTexture | null = null
+  let lanes = 1
+  let measured = 0
   let infoVersion = -1
   let pointsVersion = -1
   let mix = -1
@@ -99,10 +104,11 @@ export function createBundlePass(
     format: number,
     type: number,
     data: Uint32Array | Float32Array,
+    channels = 4,
   ): void {
     gl.bindTexture(gl.TEXTURE_2D, target)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    const rows = data.length / 4 / pathTextureWidth
+    const rows = data.length / channels / pathTextureWidth
     gl.texImage2D(gl.TEXTURE_2D, 0, internal, pathTextureWidth, rows, 0, format, type, data)
   }
 
@@ -128,6 +134,14 @@ export function createBundlePass(
       return mix
     },
 
+    get lanes() {
+      return lanes
+    },
+
+    get measured() {
+      return measured
+    },
+
     get bytes() {
       return bytes
     },
@@ -137,6 +151,11 @@ export function createBundlePass(
       let changed = next !== mix
       mix = next
       if (!paths || mix < 0) return changed
+      const nextLanes = paths.lanes ? 1 : 0
+      const nextMeasured = paths.measured ? 1 : 0
+      if (nextLanes !== lanes || nextMeasured !== measured) changed = true
+      lanes = nextLanes
+      measured = nextMeasured
       if (paths.version !== infoVersion) {
         infoVersion = paths.version
         pathTexture ??= texture()
@@ -149,9 +168,13 @@ export function createBundlePass(
         pointsVersion = paths.pointsVersion
         pointTexture ??= texture()
         upload(pointTexture, gl.RGBA32F, gl.RGBA, gl.FLOAT, paths.data)
+        if (paths.measured) {
+          stationTexture ??= texture()
+          upload(stationTexture, gl.RG32F, gl.RG, gl.FLOAT, paths.stations, 2)
+        }
         changed = true
       }
-      bytes = pathBytes + paths.data.byteLength
+      bytes = pathBytes + paths.data.byteLength + (measured ? paths.stations.byteLength : 0)
       return changed
     },
 
@@ -161,6 +184,9 @@ export function createBundlePass(
       gl.bindTexture(gl.TEXTURE_2D, pathTexture)
       gl.activeTexture(gl.TEXTURE0 + bundleUnits.bundlePoints)
       gl.bindTexture(gl.TEXTURE_2D, pointTexture)
+      if (!stationTexture) return
+      gl.activeTexture(gl.TEXTURE0 + bundleUnits.pathStations)
+      gl.bindTexture(gl.TEXTURE_2D, stationTexture)
     },
 
     draw(run) {
@@ -178,6 +204,7 @@ export function createBundlePass(
     destroy() {
       if (pathTexture) gl.deleteTexture(pathTexture)
       if (pointTexture) gl.deleteTexture(pointTexture)
+      if (stationTexture) gl.deleteTexture(stationTexture)
       if (!pass) return
       for (const strip of pass.strips) {
         gl.deleteVertexArray(strip.vao)

@@ -265,6 +265,8 @@ function createRenderer(
       readonly overlay: WebGLUniformLocation | null
       readonly flowTime: WebGLUniformLocation | null
       readonly bundleMix: WebGLUniformLocation | null
+      readonly pathLanes: WebGLUniformLocation | null
+      readonly pathMeasured: WebGLUniformLocation | null
       readonly arcPiece: WebGLUniformLocation | null
     }
   >()
@@ -281,6 +283,8 @@ function createRenderer(
       overlay: gl.getUniformLocation(program, 'overlay'),
       flowTime: gl.getUniformLocation(program, 'flowTime'),
       bundleMix: gl.getUniformLocation(program, 'bundleMix'),
+      pathLanes: gl.getUniformLocation(program, 'pathLanes'),
+      pathMeasured: gl.getUniformLocation(program, 'pathMeasured'),
       arcPiece: gl.getUniformLocation(program, 'arcPiece'),
     })
   }
@@ -1165,6 +1169,8 @@ function createRenderer(
     gl.uniform1i(location?.overlay ?? null, overlay)
     if (location?.flowTime) gl.uniform1f(location.flowTime, flowTime)
     if (location?.bundleMix) gl.uniform1f(location.bundleMix, bundles.mix)
+    if (location?.pathLanes) gl.uniform1f(location.pathLanes, bundles.lanes)
+    if (location?.pathMeasured) gl.uniform1f(location.pathMeasured, bundles.measured)
     if (location?.arcPiece) gl.uniform1f(location.arcPiece, arcPiece)
     gl.bindVertexArray(vao)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, count)

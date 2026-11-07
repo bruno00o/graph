@@ -58,6 +58,7 @@ import type {
 } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import type { GraphAnchors } from './anchors'
+import { BridgeHost } from './bridges'
 import { BundleHost } from './bundles'
 import { ContainerBoxes } from './containers'
 import { createDecorations } from './decorations'
@@ -118,6 +119,8 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly folded: readonly Key[]
   /** Status of edge bundling. */
   readonly bundling: GraphBundlingStatus
+  /** Status of edge routing. */
+  readonly routing: GraphRoutingStatus
   /** Time window, or `null` when every element shows whatever its `time`. */
   readonly time: TimeWindow | null
   /** The magnifying lens, or `null` when hidden. */
@@ -127,6 +130,12 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
 /** Status of edge bundling. */
 export interface GraphBundlingStatus {
   /** `true` while bundles are computed. */
+  readonly running: boolean
+}
+
+/** Status of edge routing. */
+export interface GraphRoutingStatus {
+  /** `true` while routes are computed. */
   readonly running: boolean
 }
 
@@ -300,6 +309,20 @@ export interface GraphBundling {
 }
 
 /**
+ * Edge routing, set by the `routing` of the definition. Routes are computed once nodes stand
+ * still: after a layout run, a drag or a change of nodes or edges. Until then, routes follow their
+ * moving ends.
+ */
+export interface GraphRouting {
+  /**
+   * Applies pending data changes, then routes the edges now, from the current positions. Resolves
+   * to `true` once the new routes are drawn and `false` when the run is replaced or there is no
+   * routing to run.
+   */
+  run(): Promise<boolean>
+}
+
+/**
  * The time window of a graph. Nodes and edges with a `time` show only while they exist in the
  * window; without a window, every element shows. In controlled mode, changes go to `onTimeChange`.
  */
@@ -398,6 +421,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly paths: GraphPaths<M>
   /** Edge bundling. */
   readonly bundling: GraphBundling
+  /** Edge routing. */
+  readonly routing: GraphRouting
   /** The time window that filters elements with a `time`. */
   readonly time: GraphTime
   /** The magnifying lens. */
@@ -736,6 +761,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     layout: idleLayout,
     folded: [...projection.folded],
     bundling: idleBundling,
+    routing: idleBundling,
     time: timeWindow,
     lens: null,
   })
@@ -743,6 +769,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const bundles = new BundleHost(
     {
       edges: scene.edges,
+      nodes: scene.nodes,
       positions,
       datum: (index) => {
         const key = scene.edges.keys[index]
@@ -751,12 +778,35 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       busy: () => session !== null || positionAnimations.length > 0 || Boolean(gesture?.drag),
       duration: () => definition.transitions.layout,
       request: () => request(),
-      running: (running) => {
-        if (store.get().bundling.running !== running) patch({ bundling: { running } })
+      running: (running, kind) => {
+        const status = kind === 'route' ? 'routing' : 'bundling'
+        if (store.get()[status].running !== running) patch({ [status]: { running } })
+      },
+      zoom: () => store.get().view.zoom,
+      boxes: () => routeBoxes(),
+      holder: (index) => {
+        if (!projection.active) return -1
+        const above = hierarchy.parent[index] ?? -1
+        return above >= 0 && projection.containers.has(above) ? above : -1
       },
     },
     reducedMotion,
   )
+  const routeBoxes = (): Float32Array | null => {
+    if (!projection.active) return null
+    syncContainers()
+    return containerBoxes.boxes
+  }
+  const bridges = new BridgeHost({
+    edges: scene.edges,
+    nodes: scene.nodes,
+    positions,
+    paths: bundles.paths,
+    zoom: () => store.get().view.zoom,
+    boxes: routeBoxes,
+    busy: () => session !== null || positionAnimations.length > 0 || Boolean(gesture?.drag),
+    request: () => request(),
+  })
   const decorations = createDecorations({
     element,
     canvas,
@@ -1722,7 +1772,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     registry.refreshEdges(projected.edges)
     bundles.changed(
       projected.scene.edges.added.length > 0 || projected.scene.edges.removed.length > 0,
+      projected.scene.nodes.added.length > 0 ||
+        projected.scene.nodes.removed.length > 0 ||
+        projected.scene.nodes.updated.length > 0,
     )
+    bridges.changed()
     sceneVersion++
     applyLayers()
     decorations.changed()
@@ -2137,6 +2191,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (positionAnimations.length > 0) stepPositions(now)
     if (wantedLens?.follow === 'focus') updateLens()
     const easing = bundles.frame(now)
+    bridges.frame()
     registry.takeHighlighted()
     syncContainers()
     decorations.prepare()
@@ -2162,6 +2217,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       hulls: decorations.hulls,
       ...(projection.active ? { containers: containerBoxes } : {}),
       bundles: bundles.paths,
+      bridges: bridges.active ? bridges.set : null,
     })
     const synced = clock()
     full = false
@@ -2659,7 +2715,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   model.setMarks(definition.marks)
   scene.setDefinition(definition)
   decorations.setDefinition(definition)
-  bundles.setBundling(definition.bundling)
+  bundles.setBundling(definition.bundling, definition.routing)
+  bridges.setOptions(definition.bridges)
   applyLayers()
   applyStyles()
   refreshTheme()
@@ -2868,7 +2925,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
           needsFlush = false
           flushChanges()
         }
-        return bundles.run()
+        return bundles.run('bundle')
+      },
+    },
+    routing: {
+      run: () => {
+        if (needsFlush) {
+          needsFlush = false
+          flushChanges()
+        }
+        return bundles.run('route')
       },
     },
     element,
@@ -2905,7 +2971,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         model.setMarks(definition.marks)
         scene.setDefinition(definition)
         decorations.setDefinition(definition)
-        bundles.setBundling(definition.bundling)
+        bundles.setBundling(definition.bundling, definition.routing)
+        bridges.setOptions(definition.bridges)
         refreshFade()
         applyLayers()
         if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
@@ -2931,6 +2998,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       stopTheme()
       flows.destroy()
       bundles.destroy()
+      bridges.destroy()
       for (const [name, listener] of listeners) {
         canvas.removeEventListener(name, listener as EventListener)
       }
@@ -3007,6 +3075,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       hulls: decorations.hulls,
       containers: projection.active ? containerBoxes : null,
       bundles: bundles.paths.bundled > 0 ? bundles.paths : null,
+      bridges: bridges.active ? bridges.set : null,
       palette: paletteColors,
       theme: themeResolver.theme(),
       view,

@@ -46,6 +46,7 @@ function load(renderer: Renderer, snapshot: GraphSnapshot): void {
     hulls: snapshot.hulls,
     ...(snapshot.containers ? { containers: snapshot.containers } : {}),
     bundles: snapshot.bundles,
+    bridges: snapshot.bridges ?? null,
   }
   renderer.sync(input)
 }

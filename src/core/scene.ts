@@ -428,10 +428,10 @@ export function createScene(): Scene {
     edges.setFlow(index, mark.flow ? flowSpeed(mark.flow(datum)) : 0)
     const geodesic = mark.geodesic?.(datum) === true
     edges.geodesic[index] = geodesic ? 1 : 0
-    edges.bundle[index] =
-      record.sourceIndex !== record.targetIndex && !geodesic && mark.bundle?.(datum) !== false
-        ? 1
-        : 0
+    const loop = record.sourceIndex === record.targetIndex
+    edges.bundle[index] = !loop && !geodesic && mark.bundle?.(datum) !== false ? 1 : 0
+    edges.route[index] = !loop && !geodesic && mark.route?.(datum) !== false ? 1 : 0
+    edges.bridge[index] = !loop && !geodesic && mark.bridge?.(datum) !== false ? 1 : 0
     edges.label[index] = toText(mark.label?.(datum))
     edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
     writeLabelText(edges, index, mark.labelText, datum, palette)

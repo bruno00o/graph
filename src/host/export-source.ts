@@ -1,3 +1,4 @@
+import type { BridgeSet } from '../core/bridges'
 import type { EdgePaths } from '../core/edge-paths'
 import type { GlobeCamera } from '../core/globe'
 import type { HullLayer } from '../core/hull-layer'
@@ -17,6 +18,7 @@ export interface GraphSnapshot {
   readonly hulls: HullLayer
   readonly containers: ContainerFrame | null
   readonly bundles: EdgePaths | null
+  readonly bridges?: BridgeSet | null
   readonly palette: Uint8Array
   readonly theme: ResolvedTheme
   readonly view: View

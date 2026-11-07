@@ -2,6 +2,13 @@ import { bundlePath } from './bundle-glsl'
 import { edgeData, header, nodeData } from './shaders'
 
 export const bundleVertex: string = `${header}${nodeData}${edgeData}${bundlePath}
+uniform sampler2D pathStations;
+uniform float pathMeasured;
+float stationOf(uvec4 path, int k, float total, float spacing) {
+  if (pathMeasured < 0.5) return float(k) * spacing;
+  vec2 station = texelFetch(pathStations, texel(path.x + uint(k)), 0).xy;
+  return mix(station.x, station.y, bundleMix) * total;
+}
 in vec2 corner;
 in uint instance;
 out vec2 vPos;
@@ -49,6 +56,9 @@ void main() {
   vec2 normal = vec2(-dir.y, dir.x);
   float total = pathLength(path) * zoom;
   float spacing = total / float(count - 1);
+  float along = stationOf(path, k, total, spacing);
+  float before = stationOf(path, previous, total, spacing);
+  float after = stationOf(path, next, total, spacing);
   float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a));
   float end = total - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d));
   float visible = end - start;
@@ -64,10 +74,10 @@ void main() {
   uint dash = (packed & 3u) == 0u && flow != 0.0 ? 1u : packed & 3u;
   float body = (dash == 2u ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
   float head = max(body, arrowHalf + halo + margin);
-  bool wide = (startHead > 0.0 && float(previous) * spacing <= start + startHead)
-    || (endHead > 0.0 && float(next) * spacing >= end - endHead);
+  bool wide = (startHead > 0.0 && before <= start + startHead)
+    || (endHead > 0.0 && after >= end - endHead);
   float across = corner.y * (wide ? head : body);
-  vPos = vec2(float(k) * spacing, across);
+  vPos = vec2(along, across);
   vStart = start;
   vEnd = end;
   vHalfWidth = width * 0.5;

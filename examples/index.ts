@@ -18,6 +18,7 @@ for (const [href, text] of [
   ['./drawing/', messages.drawing],
   ['./map/', messages.map],
   ['./bundling/', messages.bundling],
+  ['./routing/', messages.routing],
   ['./zoom/', messages.zoomDetail],
   ['./time/', messages.time],
   ['./lens/', messages.lens],

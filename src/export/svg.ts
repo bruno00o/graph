@@ -1,4 +1,5 @@
 import { gridDotScale, gridLevels } from '../core/background-grid'
+import type { BridgeSet } from '../core/bridges'
 import { containerShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
 import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
@@ -41,6 +42,7 @@ export interface SvgScene {
   readonly hulls?: readonly HullShape[]
   readonly containers?: ContainerFrame | null
   readonly bundles?: EdgePaths | null
+  readonly bridges?: BridgeSet | null
   readonly palette: Uint8Array
   readonly theme: ResolvedTheme
   readonly frame: ExportFrame

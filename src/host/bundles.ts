@@ -1,24 +1,43 @@
-import type { EdgeColumns } from '../core/columns'
+import type { EdgeColumns, NodeColumns } from '../core/columns'
 import { EdgePaths, type PathResult } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
+import { nodeOutline, type Outline } from '../core/route-shape'
 import { shallowEqual } from '../core/shallow-equal'
 import { easeInOut } from '../core/view'
 import { dev } from '../dev'
-import type { BundleGraph, BundlePaths, BundleRun, EdgeBundling } from '../types'
+import type {
+  BundleGraph,
+  BundleListener,
+  BundlePaths,
+  BundleRun,
+  EdgeBundling,
+  EdgeRouting,
+} from '../types'
 
 export interface BundleContext {
   readonly edges: EdgeColumns
+  readonly nodes: NodeColumns
   readonly positions: Positions
   readonly datum: (index: number) => unknown
   readonly busy: () => boolean
   readonly duration: () => number
   readonly request: () => void
-  readonly running: (running: boolean) => void
+  readonly running: (running: boolean, kind: PathKind) => void
+  readonly zoom: () => number
+  readonly boxes: () => Float32Array | null
+  readonly holder: (index: number) => number
 }
 
-const quiet = 150
+export type PathKind = 'bundle' | 'route'
 
-function sameSettings(a: EdgeBundling, b: EdgeBundling): boolean {
+type Method =
+  | { readonly kind: 'bundle'; readonly bundling: EdgeBundling }
+  | { readonly kind: 'route'; readonly routing: EdgeRouting }
+
+const quiet = 150
+const zoomDrift = 1.5
+
+function sameSettings(a: EdgeBundling | EdgeRouting, b: EdgeBundling | EdgeRouting): boolean {
   return (
     a.name === b.name &&
     a.maxEdges === b.maxEdges &&
@@ -31,10 +50,29 @@ function fits(paths: BundlePaths, count: number): boolean {
   return paths.offsets.length === count + 1 && end * 2 <= paths.points.length
 }
 
+function methodOf(
+  bundling: EdgeBundling | null,
+  routing: EdgeRouting | null,
+): Method | null {
+  if (routing) return { kind: 'route', routing }
+  return bundling ? { kind: 'bundle', bundling } : null
+}
+
 export class BundleHost {
   readonly paths: EdgePaths = new EdgePaths()
   readonly #context: BundleContext
-  #bundling: EdgeBundling | null = null
+  readonly #outline: Outline = {
+    x: 0,
+    y: 0,
+    shape: 0,
+    radius: 0,
+    halfWidth: 0,
+    halfHeight: 0,
+    trim: 0,
+  }
+  #method: Method | null = null
+  #routedZoom = 0
+  #shapedZoom = 0
   #run: BundleRun | null = null
   #serial = 0
   #timer: ReturnType<typeof setTimeout> | undefined
@@ -43,6 +81,7 @@ export class BundleHost {
   #positionsVersion = -1
   #waiters: Array<(done: boolean) => void> = []
   #warned = false
+  #running: PathKind = 'bundle'
   #reduced: () => boolean
 
   constructor(context: BundleContext, reduced: () => boolean) {
@@ -54,41 +93,54 @@ export class BundleHost {
     return this.#run !== null
   }
 
-  setBundling(next: EdgeBundling | null): void {
-    const previous = this.#bundling
-    this.#bundling = next
+  get kind(): PathKind | null {
+    return this.#method?.kind ?? null
+  }
+
+  setBundling(bundling: EdgeBundling | null, routing: EdgeRouting | null = null): void {
+    const previous = this.#method
+    const next = methodOf(bundling, routing)
+    this.#method = next
     if (!next) {
       this.#halt(false)
       this.#result = null
       this.fade()
       return
     }
-    if (previous && sameSettings(previous, next)) {
-      if (previous.strength !== next.strength && this.#result) this.#ease(this.#result)
-      return
+    if (previous && previous.kind === next.kind) {
+      const before = previous.kind === 'bundle' ? previous.bundling : previous.routing
+      const after = next.kind === 'bundle' ? next.bundling : next.routing
+      if (sameSettings(before, after)) {
+        if (this.#result && this.#look(previous) !== this.#look(next)) this.#ease(this.#result)
+        return
+      }
+    } else if (previous) {
+      this.#halt(false)
     }
     this.#result = null
     this.#schedule(0)
   }
 
-  changed(structural: boolean): void {
+  changed(structural: boolean, nodes = false): void {
     const { edges } = this.#context
     this.paths.reserve(edges.capacity)
-    if (!this.#bundling && this.paths.bundled === 0) return
+    if (!this.#method && this.paths.bundled === 0) return
     const before = this.paths.version
-    this.paths.validateAll(edges)
-    if (structural || this.paths.version !== before) this.#schedule()
+    this.paths.validateAll(edges, this.#column())
+    const routed = this.#method?.kind === 'route' && nodes
+    if (structural || routed || this.paths.version !== before) this.#schedule()
   }
 
   frame(now: number): boolean {
     const { positions } = this.#context
     if (positions.version !== this.#positionsVersion) {
       this.#positionsVersion = positions.version
-      if (this.#bundling) {
+      if (this.#method) {
         if (this.#run) this.#halt(null)
         this.#schedule()
       }
     }
+    if (this.#method?.kind === 'route' && this.#result) this.#follow()
     const animation = this.#animation
     if (!animation) return false
     const t = animation.duration > 0 ? Math.min(1, (now - animation.start) / animation.duration) : 1
@@ -107,8 +159,8 @@ export class BundleHost {
     this.#animate()
   }
 
-  run(): Promise<boolean> {
-    if (!this.#bundling) return Promise.resolve(false)
+  run(kind: PathKind = 'bundle'): Promise<boolean> {
+    if (this.#method?.kind !== kind) return Promise.resolve(false)
     const done = new Promise<boolean>((resolve) => this.#waiters.push(resolve))
     clearTimeout(this.#timer)
     this.#timer = undefined
@@ -118,7 +170,46 @@ export class BundleHost {
 
   destroy(): void {
     this.#halt(false)
-    this.#bundling = null
+    this.#method = null
+  }
+
+  #column(): Uint8Array {
+    const { edges } = this.#context
+    return this.#method?.kind === 'route' || (!this.#method && !this.paths.lanes)
+      ? edges.route
+      : edges.bundle
+  }
+
+  #look(method: Method): number {
+    return method.kind === 'bundle' ? method.bundling.strength : method.routing.radius
+  }
+
+  #screenUnits(): boolean {
+    const { nodes } = this.#context
+    for (let index = 0; index < nodes.capacity; index++) {
+      if (nodes.alive[index] === 1 && nodes.screenUnits[index] === 1) return true
+    }
+    return false
+  }
+
+  #follow(): void {
+    const zoom = this.#context.zoom()
+    if (zoom === this.#shapedZoom || this.#animation || this.#context.busy()) return
+    if (!this.#screenUnits()) {
+      this.#shapedZoom = zoom
+      return
+    }
+    const drift = Math.max(zoom / this.#routedZoom, this.#routedZoom / zoom)
+    if (drift > zoomDrift) {
+      this.#shapedZoom = zoom
+      this.#schedule()
+      return
+    }
+    const result = this.#result
+    if (!result) return
+    this.#shape(result)
+    this.paths.mix = 1
+    this.#context.request()
   }
 
   #halt(outcome: boolean | null): void {
@@ -128,7 +219,7 @@ export class BundleHost {
       this.#run.stop()
       this.#run = null
       this.#serial++
-      this.#context.running(false)
+      this.#context.running(false, this.#running)
     }
     if (outcome !== null) this.#settle(outcome)
   }
@@ -140,7 +231,7 @@ export class BundleHost {
   }
 
   #schedule(delay = quiet): void {
-    if (!this.#bundling) return
+    if (!this.#method) return
     clearTimeout(this.#timer)
     this.#timer = setTimeout(() => {
       this.#timer = undefined
@@ -150,22 +241,25 @@ export class BundleHost {
   }
 
   #compute(): void {
-    const bundling = this.#bundling
-    if (!bundling) return
+    const method = this.#method
+    if (!method) return
     if (this.#run) {
       this.#run.stop()
       this.#run = null
     }
     const { edges, positions } = this.#context
+    const column = method.kind === 'route' ? edges.route : edges.bundle
+    const limit = method.kind === 'route' ? method.routing.maxEdges : method.bundling.maxEdges
     const listed: number[] = []
     for (let index = 0; index < edges.capacity; index++) {
-      if (edges.alive[index] === 1 && edges.bundle[index] === 1) listed.push(index)
+      if (edges.alive[index] === 1 && column[index] === 1) listed.push(index)
     }
-    if (listed.length === 0 || listed.length > bundling.maxEdges) {
+    if (listed.length === 0 || listed.length > limit) {
       if (dev && listed.length > 0 && !this.#warned) {
         this.#warned = true
+        const verb = method.kind === 'route' ? 'route' : 'bundle'
         console.warn(
-          `graph: ${listed.length} edges to bundle, more than maxEdges (${bundling.maxEdges}); edges stay straight`,
+          `graph: ${listed.length} edges to ${verb}, more than maxEdges (${limit}); edges stay straight`,
         )
       }
       this.#result = null
@@ -173,9 +267,9 @@ export class BundleHost {
       this.#settle(false)
       return
     }
-    const capacity = positions.capacity
+    const capacity = Math.max(positions.capacity, this.#context.nodes.capacity)
     const xy = new Float32Array(capacity * 2)
-    for (let index = 0; index < capacity; index++) {
+    for (let index = 0; index < positions.capacity; index++) {
       xy[index * 2] = positions.x(index)
       xy[index * 2 + 1] = positions.y(index)
     }
@@ -193,15 +287,17 @@ export class BundleHost {
       datum: this.#context.datum,
     }
     const serial = ++this.#serial
-    this.#context.running(true)
-    const run = bundling.start(graph, {
+    const name = method.kind === 'route' ? 'routing' : 'bundling'
+    this.#running = method.kind
+    this.#context.running(true, method.kind)
+    const listener: BundleListener = {
       end: (paths) => {
         if (serial !== this.#serial) return
         this.#run = null
         this.#serial++
-        this.#context.running(false)
+        this.#context.running(false, method.kind)
         if (!fits(paths, listed.length)) {
-          if (dev) console.warn('graph: bundling returned paths that do not match its edges')
+          if (dev) console.warn(`graph: ${name} returned paths that do not match its edges`)
           this.#settle(false)
           return
         }
@@ -209,15 +305,59 @@ export class BundleHost {
         this.#ease(this.#result)
         this.#settle(true)
       },
-    })
+    }
+    let run: BundleRun
+    if (method.kind === 'route') {
+      this.#routedZoom = this.#context.zoom()
+      run = method.routing.start({ ...graph, ...this.#obstacles(capacity) }, listener)
+    } else {
+      run = method.bundling.start(graph, listener)
+    }
     if (serial === this.#serial) this.#run = run
+  }
+
+  #obstacles(capacity: number): { extents: Float32Array; parents: Int32Array } {
+    const { nodes, positions, holder } = this.#context
+    const boxes = this.#context.boxes()
+    const zoom = this.#context.zoom()
+    const extents = new Float32Array(capacity * 2)
+    const parents = new Int32Array(capacity).fill(-1)
+    const outline = this.#outline
+    for (let index = 0; index < Math.min(capacity, nodes.capacity); index++) {
+      if (nodes.alive[index] !== 1) continue
+      nodeOutline(nodes, boxes, index, positions.x(index), positions.y(index), zoom, outline)
+      extents[index * 2] = outline.halfWidth
+      extents[index * 2 + 1] = outline.halfHeight
+      parents[index] = holder(index)
+    }
+    return { extents, parents }
+  }
+
+  #shape(result: PathResult): void {
+    const { nodes, positions } = this.#context
+    const boxes = this.#context.boxes()
+    const zoom = this.#context.zoom()
+    this.#shapedZoom = zoom
+    const radius = this.#method?.kind === 'route' ? this.#method.routing.radius : 0
+    this.paths.route(
+      result,
+      radius,
+      (index, out) =>
+        nodeOutline(nodes, boxes, index, positions.x(index), positions.y(index), zoom, out),
+      positions,
+    )
   }
 
   #ease(result: PathResult): void {
     const { edges, positions } = this.#context
     this.paths.reserve(edges.capacity)
-    this.paths.start(result, this.#bundling?.strength ?? 1, positions)
-    this.paths.validateAll(edges)
+    const method = this.#method
+    if (method?.kind === 'route') this.#shape(result)
+    else {
+      const strength = method?.kind === 'bundle' ? method.bundling.strength : 1
+      this.paths.start(result, strength, positions)
+    }
+    this.paths.validateAll(edges, this.#column())
     this.#animate()
   }
 
