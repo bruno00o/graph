@@ -16,6 +16,7 @@ import { isKey, toAccessor } from './accessor'
 import { compileNodeMark, type Read } from './compile-mark'
 import { EdgeMerges } from './edge-merges'
 import type { ElementRef, GraphChanges, GraphModel, NodeRecord } from './graph-model'
+import { type Grouping, groupingOf } from './group-index'
 import { Hierarchy } from './hierarchy'
 import { IndexSet } from './index-set'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
@@ -75,6 +76,15 @@ function sameLook(a: object | undefined, b: object | undefined): boolean {
 
 function isEdgeMark(mark: Mark): mark is EdgeMark<unknown> {
   return mark.type === 'edges'
+}
+
+function groupingsOf(marks: readonly Mark[]): Grouping[] {
+  const found: Grouping[] = []
+  for (const mark of marks) {
+    const grouping = mark.type === 'nodes' ? groupingOf(mark) : undefined
+    if (grouping && !found.some((known) => known.index === grouping.index)) found.push(grouping)
+  }
+  return found
 }
 
 const looks = new WeakMap<EdgeMark<unknown>, EdgeMark<unknown>>()
@@ -297,6 +307,8 @@ export class Projection {
   #foldRoots: number[] = []
   #parentMark: NodeMark<unknown> | null = null
   #parentRead: Read | null = null
+  #groupings: Grouping[] = []
+  readonly #regrouped = new Set<Key>()
 
   constructor(model: GraphModel) {
     this.#model = model
@@ -312,7 +324,12 @@ export class Projection {
     return this.hierarchy.foldedKeys
   }
 
+  get grouping(): boolean {
+    return this.#groupings.length > 0
+  }
+
   setMarks(marks: readonly Mark[]): void {
+    this.#setGroupings(groupingsOf(marks))
     const edgeMarks = marks.filter(isEdgeMark)
     const slots = new Map<EdgeMark<unknown>, number>()
     const rules: (MergeRule | null)[] = []
@@ -335,6 +352,35 @@ export class Projection {
     this.#looks = looks
     this.#merging = merging
     this.#records.length = 0
+  }
+
+  #setGroupings(next: Grouping[]): void {
+    const previous = this.#groupings
+    const changed = (list: Grouping[], other: Grouping[]) =>
+      list.filter((grouping) => !other.some((known) => known.index === grouping.index))
+    const gone = changed(previous, next)
+    const come = changed(next, previous)
+    if (gone.length === 0 && come.length === 0) return
+    for (const { index } of [...gone, ...come]) {
+      index.takeMoved()
+      for (const key of index.members()) {
+        if (index.groupOf(key) !== undefined) this.#regrouped.add(key)
+      }
+    }
+    this.#groupings = next
+  }
+
+  #regroup(): void {
+    for (const { index } of this.#groupings) {
+      for (const key of index.takeMoved()) this.#regrouped.add(key)
+    }
+    if (this.#regrouped.size === 0) return
+    const hierarchy = this.hierarchy
+    for (const key of this.#regrouped) {
+      const record = this.#model.node(key)
+      if (record) hierarchy.setParent(record.index, this.#parentOf(record))
+    }
+    this.#regrouped.clear()
   }
 
   setFolded(keys: Iterable<Key>): void {
@@ -398,6 +444,7 @@ export class Projection {
       if (record) hierarchy.setParent(index, this.#parentOf(record))
       this.#dataNodes.add(index)
     }
+    this.#regroup()
     for (const { index } of changes.edges.added) this.#linkEdge(index)
     for (const { index } of changes.edges.updated) {
       const record = this.#model.edgeAt(index)
@@ -419,6 +466,7 @@ export class Projection {
   }
 
   #needed(changes: GraphChanges): boolean {
+    if (this.#groupings.length > 0) return true
     for (const refs of [changes.nodes.added, changes.nodes.updated]) {
       for (const { index } of refs) {
         const record = this.#model.nodeAt(index)
@@ -445,6 +493,8 @@ export class Projection {
     this.#active = true
     this.#remerge.clear()
     this.#restyle.clear()
+    this.#regrouped.clear()
+    for (const { index } of this.#groupings) index.takeMoved()
     const model = this.#model
     const added = new Set<number>()
     for (const { index } of changes.nodes.added) added.add(index)
@@ -500,6 +550,10 @@ export class Projection {
   }
 
   #parentOf(record: NodeRecord): Key | null {
+    for (const { index } of this.#groupings) {
+      const group = index.groupOf(record.key)
+      if (group !== undefined) return group
+    }
     if (record.mark !== this.#parentMark) {
       this.#parentMark = record.mark
       this.#parentRead = compileNodeMark(record.mark).parent

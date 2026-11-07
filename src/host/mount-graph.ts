@@ -9,6 +9,7 @@ import {
   type GraphChanges,
   type GraphIssue,
 } from '../core/graph-model'
+import { groupingOf } from '../core/group-index'
 import { nodesInside } from '../core/lasso'
 import type { LayerFilter } from '../core/mark-layers'
 import { createPathQueries } from '../core/path-query'
@@ -1773,6 +1774,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function flushChanges(): void {
     const start = clock()
     const changes = model.flush()
+    if (projection.grouping) foldNewGroups(changes)
     const carriers: GraphIssue[] = []
     const supported = support.apply(changes, carriers)
     const projected = projection.apply(changes)
@@ -1787,6 +1789,23 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       applied - flushed,
       carriers.length > 0 ? [...issues, ...carriers] : issues,
     )
+  }
+
+  function foldNewGroups(changes: GraphChanges): void {
+    const born: Key[] = []
+    for (const { key, index } of changes.nodes.added) {
+      const record = model.nodeAt(index)
+      if (record && groupingOf(record.mark)?.folded) born.push(key)
+    }
+    if (born.length === 0) return
+    const folded = [...new Set([...store.get().folded, ...born])]
+    if (foldControlled) {
+      onFoldChange?.({ folded })
+      return
+    }
+    projection.setFolded(folded)
+    patch({ folded })
+    emitter.emit('foldchange', { folded })
   }
 
   function flushPending(): void {

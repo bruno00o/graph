@@ -653,6 +653,53 @@ export interface NodeMark<T, N extends MarkName = MarkName, L extends MarkLayer 
 }
 
 /**
+ * Group node that `groups()` adds for one value of its `by` option: the datum of its channels and
+ * styles, and of a picked group.
+ */
+export interface NodeGroup<T = unknown> {
+  /** Key of the group node, made from the name of the mark and the value, apart from data keys. */
+  readonly key: Key
+  /** Value of `by` that the members share. */
+  readonly value: Key
+  /** Value of `parent` that the members share, for a group nested in a group of the data. */
+  readonly parent?: Key
+  /** Number of members. */
+  readonly count: number
+  /** Keys of the members. */
+  readonly keys: readonly Key[]
+  /** Data of the members, in the order of `keys`. */
+  readonly data: readonly T[]
+}
+
+/**
+ * Options of `groups()`: which items group together, and the look of the group nodes, read from a
+ * `NodeGroup`. A group node folds and unfolds as any group, and edges into a folded group merge.
+ */
+export interface GroupOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer>
+  extends Omit<NodeOptions<NodeGroup<T>, N, L>, 'key' | 'parent'> {
+  /**
+   * Field or function whose value groups the items: one group node per value. An item without a
+   * value stays out of any group.
+   */
+  readonly by: Channel<T, Key>
+  /** Field or function that gives the key of an item, the key of its node. Defaults to `id`. */
+  readonly key?: KeyChannel<T>
+  /**
+   * Group of the data an item belongs to, as the `parent` option of its nodes: groups are then made
+   * within each group of the data and nest in it. Defaults to none: a grouped item leaves the
+   * group of the data it belongs to.
+   */
+  readonly parent?: Channel<T, Key>
+  /** Fewest items that make a group; the items of a smaller group stay in place. @default 1 */
+  readonly min?: number
+  /**
+   * Whether a group node starts folded when it appears, hiding its members.
+   * @default true
+   */
+  readonly folded?: boolean
+}
+
+/**
  * A mark that draws one edge per item of its data. `N` is the type of its `name` and `L` that of
  * its `layer`, `undefined` for a mark outside any layer.
  */

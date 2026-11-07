@@ -51,7 +51,7 @@ export type {
 } from './host/mount-graph'
 export { mountGraph } from './host/mount-graph'
 export { hull } from './hulls'
-export { edges, nodes } from './marks'
+export { edges, groups, nodes } from './marks'
 export { createPathFinder } from './paths'
 export { createSupportFinder } from './support'
 export type {
@@ -94,6 +94,7 @@ export type {
   GraphPaths,
   GraphReach,
   GraphSupport,
+  GroupOptions,
   Hull,
   HullGroupOptions,
   HullKeysOptions,
@@ -122,6 +123,7 @@ export type {
   MarkLayer,
   MarkName,
   NodeDatum,
+  NodeGroup,
   NodeImage,
   NodeMark,
   NodeOptions,
