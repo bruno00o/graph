@@ -10,7 +10,7 @@ import '../shared/overlays.css'
 
 setWorkerUrl(workerUrl)
 
-interface Site {
+interface Item {
   readonly id: string
   readonly label: string
   readonly group: string
@@ -39,19 +39,19 @@ const day = 86_400_000
 const start = Date.UTC(2020, 0, 1)
 const span = 6 * 365 * day
 const next = random(28)
-const sites: Site[] = []
+const items: Item[] = []
 const links: Link[] = []
 for (let region = 0; region < 7; region++) {
   const longitude = -140 + region * 45 + next() * 15
   const latitude = -30 + next() * 75
   const opened = start + next() * span * 0.5
-  const local: Site[] = []
+  const local: Item[] = []
   for (let index = 0; index < 22; index++) {
     const from = Math.floor((opened + (index / 22) ** 1.4 * (start + span - opened)) / day) * day
     const until = from + Math.floor(400 + next() * 900) * day
-    const site: Site = {
-      id: `s${sites.length}`,
-      label: messages.node(sites.length + 1),
+    const item: Item = {
+      id: `n${items.length}`,
+      label: messages.node(items.length + 1),
       group: String.fromCharCode(65 + region),
       longitude: longitude + (next() - 0.5) * 26,
       latitude: latitude + (next() - 0.5) * 16,
@@ -60,9 +60,9 @@ for (let region = 0; region < 7; region++) {
     }
     const open = local.filter((other) => other.until === null || other.until > from)
     const anchor = open[Math.floor(next() * open.length)]
-    if (anchor) links.push({ id: `l${links.length}`, from: anchor.id, to: site.id, since: from })
-    local.push(site)
-    sites.push(site)
+    if (anchor) links.push({ id: `l${links.length}`, from: anchor.id, to: item.id, since: from })
+    local.push(item)
+    items.push(item)
   }
 }
 
@@ -75,12 +75,12 @@ const definition = defineGraph({
       stroke: 'var(--graph-ink)',
       time: (link) => ({ start: link.since }),
     }),
-    nodes<Site>(sites, {
+    nodes<Item>(items, {
       longitude: 'longitude',
       latitude: 'latitude',
       color: 'group',
       size: () => 12,
-      time: (site) => ({ start: site.from, end: site.until }),
+      time: (item) => ({ start: item.from, end: item.until }),
     }),
   ],
   scales: { size: (value) => value, width: (value) => value },
@@ -109,7 +109,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     const graph = mountMapGraph(map, {
       definition,
       initialTime: { start, end: start + span * 0.45 },
-      ariaLabel: messages.graphLabel(sites.length, links.length),
+      ariaLabel: messages.graphLabel(items.length, links.length),
     })
     const timeline = createTimeline(graph, { mode: 'grow', loop: true, speed: span / 20 })
     const view = mountTimeline(timeline, {
