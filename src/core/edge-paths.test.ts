@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { EdgeColumns } from './columns'
 import { EdgePaths, type PathPoint, type PathResult, pathClasses } from './edge-paths'
 import { Positions } from './positions'
+import type { Outline } from './route-shape'
 
 function setup() {
   const positions = new Positions()
@@ -119,5 +120,55 @@ describe('EdgePaths', () => {
     paths.start(arch(0), 1, positions)
     expect(paths.count(0)).toBe(0)
     expect(paths.bundled).toBe(0)
+  })
+
+  it('draws a route through its corners, measured by arc length, and follows its ends', () => {
+    const { positions } = setup()
+    const paths = new EdgePaths()
+    paths.reserve(2)
+    const circle = (index: number, out: Outline): Outline => {
+      out.x = positions.x(index)
+      out.y = positions.y(index)
+      out.shape = 0
+      out.radius = 10
+      out.halfWidth = 10
+      out.halfHeight = 10
+      out.trim = 10
+      return out
+    }
+    const route: PathResult = {
+      edges: new Uint32Array([0]),
+      ends: new Uint32Array([0, 1]),
+      paths: {
+        offsets: new Uint32Array([0, 4]),
+        points: new Float32Array([0, 0, 0, 200, 1000, 200, 1000, 0]),
+      },
+    }
+    paths.route(route, 0, circle, positions)
+    paths.mix = 1
+    expect(paths.lanes).toBe(false)
+    expect(paths.measured).toBe(true)
+    expect(paths.rooms[0]).toBeGreaterThan(900)
+    const count = paths.count(0)
+    expect(count % 2).toBe(1)
+    expect(paths.length(0)).toBeCloseTo(1400, 0)
+    const { edges } = setup()
+    const line = new Float64Array(80)
+    expect(paths.polyline(0, edges, positions, 1, line)).toBe(count)
+    expect(line[0]).toBeCloseTo(0)
+    expect(line[1]).toBeCloseTo(0)
+    const middle = (count - 1) / 2
+    expect(line[middle * 2 + 1]).toBeCloseTo(200)
+    const along = paths.station(0, middle) * 1400
+    expect(along).toBeCloseTo(200 + Math.abs((line[middle * 2] ?? 0) - 0), 0)
+    for (let k = 1; k < count; k++) {
+      expect(paths.station(0, k)).toBeGreaterThan(paths.station(0, k - 1))
+    }
+    positions.set(1, 1000, 100)
+    paths.polyline(0, edges, positions, 1, line)
+    expect(line[(count - 1) * 2]).toBeCloseTo(1000)
+    expect(line[(count - 1) * 2 + 1]).toBeCloseTo(100)
+    paths.start(arch(100), 1, positions)
+    expect(paths.lanes).toBe(true)
   })
 })

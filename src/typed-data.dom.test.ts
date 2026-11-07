@@ -7,6 +7,7 @@ import {
   type EdgeDatum,
   type EdgeEnd,
   type EdgeMark,
+  type EdgeRouting,
   type EdgeTarget,
   edges,
   type GraphDefinition,
@@ -24,6 +25,7 @@ import {
   nodes,
 } from './index'
 import { grid, rings } from './layouts'
+import { orthogonalRouting } from './routing'
 import { type FakeDom, fakeRenderer, installDom } from './testing/dom'
 
 vi.mock('./webgl/renderer', () => ({ createWebglRenderer: () => fakeRenderer() }))
@@ -322,6 +324,51 @@ describe('typed data', () => {
       marks: [nodes(people), edges(links, { source: 'from', target: 'to' })],
       // @ts-expect-error
       bundling: companyBundling,
+    })
+  })
+
+  it('types the edge items that a routing reads, and the route and bridge options', () => {
+    const reading: EdgeRouting<Link> = {
+      name: 'reading',
+      options: {},
+      radius: 4,
+      maxEdges: 10,
+      start(graph, listener) {
+        expectTypeOf(graph.datum(0)).toEqualTypeOf<Link | undefined>()
+        expectTypeOf(graph.extents).toEqualTypeOf<Float32Array>()
+        listener.end({ offsets: new Uint32Array(1), points: new Float32Array(0) })
+        return { stop: () => {} }
+      },
+    }
+    defineGraph({
+      marks: [
+        nodes(people),
+        edges(links, {
+          source: 'from',
+          target: 'to',
+          route: (link) => link.weight > 1,
+          bridge: (link) => link.id !== 'x',
+        }),
+      ],
+      routing: reading,
+      bridges: { shape: 'gap' },
+    })
+    defineGraph({
+      marks: [nodes(people), edges(links, { source: 'from', target: 'to' })],
+      routing: orthogonalRouting({ axis: 'vertical' }),
+      bridges: true,
+    })
+    const companyRouting = orthogonalRouting() as EdgeRouting<Company>
+    defineGraph({
+      marks: [nodes(people), edges(links, { source: 'from', target: 'to' })],
+      // @ts-expect-error
+      routing: companyRouting,
+    })
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      // @ts-expect-error
+      route: (link) => link.missing,
     })
   })
 

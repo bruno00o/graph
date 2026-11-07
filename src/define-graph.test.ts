@@ -3,6 +3,7 @@ import { densityBundling } from './bundling'
 import {
   defineGraph,
   type EdgeBundling,
+  type EdgeRouting,
   edges,
   type Hull,
   hull,
@@ -10,6 +11,7 @@ import {
   type Mark,
   nodes,
 } from './index'
+import { orthogonalRouting } from './routing'
 
 const items = [{ id: 'a' }, { id: 'b' }]
 const links = [{ id: 'ab', from: 'a', to: 'b' }]
@@ -151,6 +153,36 @@ describe('defineGraph', () => {
     expect(() =>
       defineGraph({ marks: [], bundling: { name: 'other' } as unknown as EdgeBundling }),
     ).toThrow(TypeError)
+  })
+
+  it('keeps the edge routing, apart from bundling', () => {
+    expect(defineGraph({ marks: [] }).routing).toBeNull()
+    const routing = orthogonalRouting({ radius: 4, gap: -3, spacing: Number.NaN })
+    expect(defineGraph({ marks: [], routing }).routing).toBe(routing)
+    expect(routing.radius).toBe(4)
+    expect(routing.options).toEqual({ gap: 0, spacing: 6, axis: 'auto' })
+    expect(orthogonalRouting().maxEdges).toBe(50_000)
+    expect(() => orthogonalRouting({ axis: 'diagonal' as 'auto' })).toThrow(TypeError)
+    expect(() =>
+      defineGraph({ marks: [], routing: { name: 'other' } as unknown as EdgeRouting }),
+    ).toThrow(TypeError)
+    expect(() => defineGraph({ marks: [], routing, bundling: densityBundling() })).toThrow(
+      TypeError,
+    )
+  })
+
+  it('resolves the bridges', () => {
+    expect(defineGraph({ marks: [] }).bridges).toBeNull()
+    expect(defineGraph({ marks: [], bridges: false }).bridges).toBeNull()
+    expect(defineGraph({ marks: [], bridges: true }).bridges).toEqual({
+      shape: 'arc',
+      size: 8,
+      maxEdges: 100_000,
+    })
+    expect(
+      defineGraph({ marks: [], bridges: { shape: 'gap', size: -1, maxEdges: 10.5 } }).bridges,
+    ).toEqual({ shape: 'gap', size: 8, maxEdges: 10 })
+    expect(() => defineGraph({ marks: [], bridges: { shape: 'hop' as 'arc' } })).toThrow(TypeError)
   })
 
   it('limits the number of free states', () => {
