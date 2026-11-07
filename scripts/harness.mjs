@@ -65,6 +65,18 @@ export async function docsExamples() {
     .map((entry) => entry.name)
     .filter((slug) => existsSync(join(docsExamplesDirectory, slug, 'meta.ts')))
     .sort()
+  const wrong = slugs.flatMap((slug) => {
+    const entries = ['main.ts', 'main.tsx'].filter((file) =>
+      existsSync(join(docsExamplesDirectory, slug, file)),
+    )
+    if (entries.length === 1) return []
+    return [
+      entries.length === 0
+        ? `${slug}: missing main.ts or main.tsx`
+        : `${slug}: keep main.ts or main.tsx, not both`,
+    ]
+  })
+  if (wrong.length > 0) throw new Error(`Invalid docs examples:\n${wrong.join('\n')}`)
   return Promise.all(
     slugs.map(async (slug) => {
       const url = pathToFileURL(join(docsExamplesDirectory, slug, 'meta.ts'))

@@ -7,7 +7,7 @@ import { ExampleFrame, ExampleSource, toggleFullScreen } from '../../components/
 import { SiteFooter } from '../../components/footer'
 import { Icon } from '../../components/icon'
 import { mdxComponents } from '../../components/mdx'
-import { categoryOf, findExample, neighborsOf } from '../../examples/catalog'
+import { categoryOf, findExample, neighborsOf, problemsOf } from '../../examples/catalog'
 import { exampleNotes } from '../../examples/notes'
 import { sourcesOf } from '../../examples/sources'
 import type { Example } from '../../examples/types'
@@ -35,6 +35,8 @@ function relatedPage(slug: string, page: string, kind: RelatedPage['kind']): Rel
 
 export const Route = createFileRoute('/examples/$slug')({
   loader: async ({ params }) => {
+    const problems = problemsOf(params.slug)
+    if (problems.length > 0) throw new Error(`Invalid example:\n${problems.join('\n')}`)
     const example = findExample(params.slug)
     if (!example) throw notFound()
     const [sources] = await Promise.all([

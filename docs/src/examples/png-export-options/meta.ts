@@ -9,5 +9,5 @@ export default {
   order: 60,
   tags: ['Vanilla'],
   api: ['export'],
-  guides: ['export'],
+  guides: ['export#region-and-scale', 'export#pixel-ratio', 'export#background'],
 } satisfies ExampleMeta

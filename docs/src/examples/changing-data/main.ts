@@ -1,4 +1,5 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -22,14 +23,6 @@ interface Link {
 const count = 64
 const core = 24
 const interval = 1500
-
-function random(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0
-    return state / 4294967296
-  }
-}
 
 const seeded = random(42)
 const trends: readonly Trend[] = ['up', 'down', 'steady', 'steady', 'steady']

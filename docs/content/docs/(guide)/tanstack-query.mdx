@@ -50,7 +50,7 @@ The observers only run while something listens to the sources, that is while a m
 
 It holds `expanded`, the keys of the expanded nodes, `loading`, the keys whose query is fetching, and `errors`, a `ReadonlyMap` from key to error. See [`ExplorationState`](/docs/api/create-exploration#result).
 
-Mirror it into graph states to show what is expanded and what is loading.
+Mirror it into graph states to show what is expanded and what is loading. The [loading and errors while exploring](/examples/exploration-errors) example also marks the nodes whose query failed, from `errors`.
 
 ```tsx
 import { useSelector } from '@tanstack/react-store'

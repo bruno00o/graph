@@ -10,4 +10,5 @@ export default {
   tags: ['Vanilla'],
   api: ['paths', 'graph-instance'],
   guides: ['paths#within-reach', 'states'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

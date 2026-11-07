@@ -9,5 +9,5 @@ export default {
   order: 10,
   tags: ['Vanilla'],
   api: ['define-graph', 'graph-instance'],
-  guides: ['states', 'interaction'],
+  guides: ['interaction#clicks-and-selection', 'interaction#lasso', 'states'],
 } satisfies ExampleMeta

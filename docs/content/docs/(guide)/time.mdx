@@ -75,6 +75,8 @@ const [window, setWindow] = useState<TimeWindowInput | null>(null)
 <Graph definition={definition} time={window} onTimeChange={(event) => setWindow(event.window)} />
 ```
 
+See the [time slider of your own](/examples/time-slider) example.
+
 ## Fade
 
 By default, elements appear and disappear at once. `time.fade` in `defineGraph` fades them in after the window reaches them and out before it leaves them, over a duration in the milliseconds of the data:
@@ -83,7 +85,7 @@ By default, elements appear and disappear at once. `time.fade` in `defineGraph` 
 defineGraph({ marks, time: { fade: 30 * 86_400_000 } })
 ```
 
-With a fade, an element exactly at the edge of the window has faded out, and counts as hidden. The fade multiplies the opacity of the element and of its label. An edge takes the faintest of its own fade and those of its ends.
+With a fade, an element exactly at the edge of the window has faded out, and counts as hidden. The fade multiplies the opacity of the element and of its label. An edge takes the faintest of its own fade and those of its ends. See the [moments and periods](/examples/time-moments) example.
 
 ## What a hidden element is
 
@@ -95,9 +97,9 @@ An element outside the window behaves like one outside its [zoom range](/docs/zo
 - [exports](/docs/export) draw what the current window shows, or the window of their `window` option, and a `'graph'` region frames shown elements only;
 - [`graph.paths`](/docs/paths) with `visible: true` walks over shown nodes and edges only.
 
-A hidden element stays in the data, in the selection and in states. Layouts still place it and `view.fit` still frames it, so that the graph does not move when the window moves.
+A hidden element stays in the data, in the selection and in states. `view.fit` still frames it, and layouts place every node, in the window or not, with all its edges: the nodes in the window keep the places they have in the whole graph, and the graph does not move when the window moves.
 
-In a [group](/docs/groups), each node follows its own time. An edge drawn in place of edges that end in a folded group exists from the earliest start to the latest end of its members, and has no time when one of them has none. `aggregate.time` reads it from the [aggregated edge](/docs/api/edges#edges-of-folded-groups) instead.
+In a [group](/docs/groups), each node follows its own time. An edge drawn in place of edges that end in a folded group exists from the earliest start to the latest end of its members, and has no time when one of them has none. `aggregate.time` reads it from the [aggregated edge](/docs/api/edges#merged-edges) instead.
 
 ## Timeline
 
@@ -115,6 +117,8 @@ footer.append(view.element)
 ```
 
 `createTimeline` keeps its state in `timeline.store`: the extent, the range shown on the bar, the bins and ticks, the window and playback. `mountTimeline` renders it: a play button, the histogram, the window as a brush with two handles, and ticks. Draw your own instead from the store; every action is a method of the timeline. The options are in the [reference](/docs/api/timeline).
+
+A timeline follows a graph on a map the same way: see [Map](/docs/map#time) and the [map in time](/examples/map-time-window) example.
 
 ### Histogram
 
@@ -136,6 +140,8 @@ timeline.update({ mode: 'grow', speed: 7 * 86_400_000 })
 timeline.play()
 ```
 
+See the [graph that grows](/examples/time-growth) example, which plays in `'grow'` mode.
+
 ### Text
 
 The timeline writes no text of its own. `labels` names the play button, the handles and the window for assistive technologies, and `labels.range` writes the value of the window from the values of its ends. Ticks and values are dates and times written by `Intl.DateTimeFormat` in the language of the page (`<html lang>`), as precise as the unit of the bins; pass `format` to write them yourself:
@@ -156,7 +162,7 @@ import { Graph, Timeline, useTimeline } from '@bruno00o/graph/react'
 </Graph>
 ```
 
-`<Timeline>` renders the default timeline where it stands. `useTimeline` returns the state and the timeline, for a timeline drawn by your components.
+`<Timeline>` renders the default timeline where it stands. `useTimeline` returns the state and the timeline, for a timeline drawn by your components, as in the [time slider of your own](/examples/time-slider) example.
 
 ## Performance
 

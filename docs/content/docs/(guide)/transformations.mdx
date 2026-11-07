@@ -39,6 +39,8 @@ Edges merge mark by mark: two marks never share an aggregated edge, so an aggreg
 
 Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
 
+See the [merge parallel edges by kind](/examples/merge-by-kind) example.
+
 ### Both directions on one line
 
 With `directed: false`, an aggregated edge points the way of the first edge in its `keys`. `source` and `target` follow that orientation, and the merged edges split by direction relative to it:
@@ -101,7 +103,7 @@ const define = (grouped: boolean) =>
 The options of the group nodes read a [`NodeGroup`](/docs/api/groups#nodegroup): the value, the number of members, their keys and their data. A group node is a group like any other: it folds and unfolds with a double-click and through [`graph.groups`](/docs/groups#fold-and-unfold), it draws as a container when unfolded, and the edges into a folded group merge.
 
 - Pass the same array, or the same live source, as the mark of the items. With a live source, groups follow its changes: an item that changes its value moves to its new group, and a group without members disappears.
-- The key of a group node is made from the `name` of the mark and the value, apart from the keys of the data. Read it from `group.key`, for example in `initialFolded` or `graph.groups.unfold`.
+- The key of a group node is internal: it never collides with a key of your data, and its format is not part of the API. Reach a group through the graph instead. `graph.groups.parent(key)` gives the group of an item; events on a group node carry its key in `target.key` and its `NodeGroup` in `target.datum`; `graph.groups.folded()`, the `folded` slice of the store and `foldchange` list the folded groups. Pass these keys to `graph.groups.fold`, `unfold` and `toggle`.
 - `min` is the fewest items that make a group: the items of a smaller group stay where they are.
 - `folded: false` shows new groups unfolded.
 - An item without a value stays out of every group.
@@ -113,6 +115,8 @@ An item that has a `parent` in the data leaves that group for its group by value
 ```ts
 groups(items, { by: 'sector', parent: 'team' })
 ```
+
+See the [group by a field](/examples/group-by-field) example.
 
 ## Hide without losing state
 
@@ -135,7 +139,7 @@ A hidden element is absent, as an element outside its [zoom range](/docs/zoom):
 - the edges of a hidden node hide with it, and an aggregated edge hides when all its merged edges do;
 - a hidden container still shows its children.
 
-It stays in the data, in the selection, in its other states and in layouts. Paths with `visible: true` go around it; other paths still cross it.
+It stays in the data, in the selection, in its other states and in layouts. Paths with `visible: true` go around it; other paths still cross it. See the [filter with a hidden state](/examples/threshold-filter) example.
 
 ### From the legend
 
@@ -162,7 +166,7 @@ defineGraph({
 })
 ```
 
-Nodes placed by their `x` and `y` channels, and the node being dragged, never move.
+Nodes placed by their `x` and `y` channels, and the node being dragged, never move. See the [lay out again after a fold](/examples/relayout-on-fold) example.
 
 ## Performance
 

@@ -43,9 +43,11 @@ layers({ direction: 'right', root: 'start', layerSpacing: 80, nodeSpacing: 16 })
 - **Layers.** Each node goes on a layer so that its edges point to later layers and stay as short as they can: a node that only feeds deeper ones moves down next to them. `root` puts nodes on the first layer, even when edges lead into them.
 - **Cycles.** When edges form a cycle, as few of them as possible are turned around to break it. They are still drawn, pointing back.
 - **Order.** The nodes of each layer are sorted to cross as few edges as possible, and each sits close to its neighbors in the layers next to it. Edges are drawn straight. An edge that skips layers holds a place in each layer it crosses, so other nodes tend to keep clear of it.
-- **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart.
+- **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart. Node labels are left out: give long labels room with a larger gap.
 - **Components.** Separate parts of the graph and lone nodes sit side by side, the largest first, wrapped in rows.
 - **Groups.** Unfolded groups share the layers of the rest of the graph, and each one stays a single box on every layer it spans. See [groups in layouts](#groups).
+
+Examples: [layer direction and spacing](/examples/layer-spacing), and [layers from a root, with cycles](/examples/layer-root).
 
 The result is centered on the current center of the nodes it moves. Nodes with `x` and `y` in your data keep their place, and their edges are left out. A graph with 10,000 nodes and 15,000 edges is laid out in a few tens of milliseconds, and one with 50,000 nodes in a few hundred. Edges that skip many layers cost more. Groups add about half: 40 milliseconds instead of 28 for 10,000 nodes in about 100 groups nested three deep, half a second instead of a quarter for 50,000 nodes in 500 groups.
 
@@ -71,6 +73,8 @@ The three are centered on the current center of the nodes they move. Their `spac
 
 These layouts, and `layers`, are not incremental: when nodes arrive, every free node is laid out again, so the layers, the grid or the rings stay whole. See [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) for every option.
 
+Examples: [grid sorted by a field](/examples/sorted-grid), [rings around a center](/examples/ranked-rings), and [radial tree from a root](/examples/radial-tree).
+
 ## Groups
 
 Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nesting: when it ends, no container overlaps another container or a node next to it, padding included. A folded group is one node like any other.
@@ -83,21 +87,33 @@ Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nest
 - **Fixed nodes and circles.** With `layers`, when some nodes do not move, because they have `x` and `y` in your data or were left out of the run, or when a container is a circle, the containers are pushed apart after the layout, as with the other layouts.
 - **Unfolding.** With a layout in the definition, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`. Nodes it shows for the first time are laid out like new nodes. With `relayout: true` in the definition, a fold, an unfold, or a change of [`groups()` or `merge`](/docs/transformations#layout-after-a-change) runs the whole layout again instead.
 
-On 50,000 nodes in about 400 groups nested three deep, the force layout takes about twice as long on the GPU (1 second instead of 0.5) and about 13% longer on the CPU (14 seconds instead of 12.5).
+On 50,000 nodes in about 400 groups nested three deep, the force layout takes about twice as long on the GPU (1 second instead of 0.5) and about 13% longer on the CPU (14 seconds instead of 12.5). See the [forces with groups](/examples/force-with-groups) example.
 
 ## When it runs
 
 - **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.
 - **New nodes.** With `force`, nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it. With `layers`, `grid`, `rings` and `radial`, every free node is laid out again.
-- **New layout.** A definition with another layout, or the same layout with other options, lays out every node again on the next frame. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
+- **New layout.** A definition with another layout, or the same layout with other options, lays out every free node again on the next frame, starting from where the nodes are. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
 - **No layout.** `layout: null`, the default, turns it off. An automatic run in progress stops, and nodes stay where they are.
+
+Since new nodes move alone, a graph that arrives in several batches does not look the same as one that arrives at once. Once the data is complete, `graph.layout.run()` lays out the whole graph again: the [live source](/examples/live-source) example does this when its stream ends, and [expand on double-click](/examples/expand-on-double-click) lets each new neighborhood settle alone.
+
+The view follows only the first run. To frame the result of a later run, such as a new layout or new nodes, fit the view when it ends:
+
+```ts
+graph.on('layoutend', ({ completed }) => {
+  if (completed) graph.view.fit(undefined, { duration: 400 })
+})
+```
+
+A run started from code can frame its result with [`fit`](#run-it-from-code) instead. The [force parameters](/examples/force-parameters) example lays out again and fits each time a slider changes.
 
 ## Which nodes move
 
 - **Positions from your data win.** Nodes whose mark has `x` and `y` channels, with finite values, never move. They still push and pull the others, so free nodes settle around them. A node whose `x` or `y` is `null` is free.
 - **Dragging pins.** A node dragged during a run stays where you drop it, and the others settle around it. `graph.positions.set` pins its nodes the same way. The pin lasts until the end of the run.
 
-To keep a node in place for good, give it coordinates in your data.
+To keep a node in place for good, give it coordinates in your data. See the [fixed nodes among free ones](/examples/fixed-and-free-nodes) example.
 
 ## Run it from code
 
@@ -121,6 +137,8 @@ graph.layout.stop()
 - `fit` frames the result. With `true`, the view fits every node; pass [fit options](/docs/view#fit) for padding or a duration. It aims at the final positions, so the view moves while the nodes do.
 - The promise resolves to `true` when the run ends, and to `false` when it is stopped, replaced by another run, or when the graph is destroyed. It rejects when neither the call nor the definition has a layout.
 - `stop()` ends the current run and leaves every node where it is.
+
+The [drag to pin](/examples/drag-to-pin) example runs the layout again around the nodes you drag.
 
 ## Glide to the result
 
@@ -194,7 +212,7 @@ force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, en
 
 Every option, with its default, is listed in [`ForceOptions`](/docs/api/force#options).
 
-A negative or non-finite value falls back to its default.
+A negative or non-finite value falls back to its default. The [force parameters](/examples/force-parameters) example sets `edgeLength`, `repulsion`, `gravity` and `spacing` with sliders.
 
 ## Engines
 
@@ -244,4 +262,4 @@ export function circle(radius = 300): Layout {
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.
 - `incremental: false` lays out every free node again when nodes arrive, instead of the new ones only.
 
-See [`force`](/docs/api/force), [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) and [`defineGraph`](/docs/api/define-graph#layout) for the types.
+See [`force`](/docs/api/force), [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) and [`defineGraph`](/docs/api/define-graph#layout) for the types, and the [layout of your own](/examples/custom-layout) example.

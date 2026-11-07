@@ -9,5 +9,5 @@ export default {
   order: 90,
   tags: ['React'],
   api: ['hooks', 'graph-component', 'graph-instance'],
-  guides: ['react'],
+  guides: ['react#hooks'],
 } satisfies ExampleMeta

@@ -1,4 +1,5 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -15,14 +16,6 @@ interface Arc {
   readonly from: string
   readonly to: string
   readonly far: boolean
-}
-
-function random(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0
-    return state / 4294967296
-  }
 }
 
 const centers: ReadonlyArray<readonly [number, number]> = [

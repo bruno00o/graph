@@ -76,6 +76,8 @@ Routed edges keep everything else: width, color, arrows, dashes, [flows](/docs/m
 - Routes follow what is drawn: hidden edges, by a [layer](/docs/multilayer), a state with `hide`, a zoom range or the time window, are not routed, and hidden nodes are not in the way. Showing or hiding elements routes again.
 - Nodes in [screen units](/docs/marks#screen-units) change size in the world as the zoom changes, so routes are computed again once the zoom changes by a factor of 1.5.
 
+See the [routing on fixed positions](/examples/routing-fixed-positions) example.
+
 ## Bridges
 
 Where two edges cross, `bridges` makes one of them jump over the other, so that a crossing does not read as a connection. Pass `true` for the defaults, or options:
@@ -92,7 +94,7 @@ defineGraph({
 - `size` is the width of a jump in screen pixels. Zoomed out below 1, jumps shrink with the zoom, and under 2 pixels edges cross plainly, so a large graph seen whole stays clean.
 - Where a horizontal and a vertical segment cross, the horizontal one jumps. Otherwise the edge drawn later jumps: the one from the later mark, or the later item of the same mark.
 
-Bridges apply to straight edges and to routes, with or without a routing. Parallel curves, loops, bundled paths and great circles cross plainly, and so do the rounded corners of routes. A crossing inside a node, near the ends of an edge, has no jump, and neither has a crossing with a hidden edge. Set `bridge: false` on `edges()` to leave edges out: they neither jump nor are jumped over.
+Bridges apply to straight edges and to routes, with or without a routing. Parallel curves, loops, bundled paths and great circles cross plainly, and so do the rounded corners of routes. A crossing inside a node, near the ends of an edge, has no jump, and neither has a crossing with a hidden edge. Set `bridge: false` on `edges()` to leave edges out: they neither jump nor are jumped over. See the [bridges over crossings](/examples/bridges) example.
 
 A segment jumps at most 8 times and an edge at most 64 times; further crossings stay plain. Crossings are found once nodes stand still, 150 milliseconds after the last move, in slices of 8 milliseconds on the main thread. The GPU draws the jumps from that list, so panning and zooming cost no search. Exports draw the same jumps, as arcs or breaks in the SVG paths.
 

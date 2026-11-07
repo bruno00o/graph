@@ -37,6 +37,8 @@ scales: {
 
 Values outside an explicit domain are clamped to it. Without a domain, the scale uses the extent of the data and follows it as the data changes.
 
+Examples: [categorical colors](/examples/categorical-colors) and [sequential colors](/examples/sequential-colors), each with its legend.
+
 ## Size and width
 
 `size` is a diameter. The default square root scale makes the area of a node proportional to its value. `width` sets the edge width in screen pixels.
@@ -47,6 +49,17 @@ scales: {
   width: { range: [0.5, 4] },
 }
 ```
+
+A constant size or width is a function, `size: () => 24`, and it goes through the scale like any value. When every value is the same, the extent of the data is a single point and the scale returns the middle of its range: 20 for `size` and 3.5 for `width` by default. To use the values as they are, give an identity scale:
+
+```ts
+defineGraph({
+  marks: [nodes(items, { size: () => 24 }), edges(links, { source: 'from', target: 'to', width: () => 2 })],
+  scales: { size: (value) => value, width: (value) => value },
+})
+```
+
+Examples: [size scale](/examples/size-scale) compares the square root, linear and identity scales, and [edge width, dashes and arrows](/examples/edge-styles) reads the width from a field.
 
 ## Functions
 

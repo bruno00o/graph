@@ -3,7 +3,7 @@ import { force } from '@bruno00o/graph/layouts/force'
 import { createGroups, type Member, type Tie } from './data'
 import { messages } from './messages'
 import '../shared/overlays.css'
-import './controls.css'
+import '../shared/controls.css'
 
 type Setting = keyof typeof messages.settings
 
@@ -39,7 +39,7 @@ export function mount(container: HTMLElement): GraphInstance {
   })
 
   const panel = document.createElement('div')
-  panel.className = 'example-panel groups-panel'
+  panel.className = 'example-panel example-sliders'
   for (const setting of Object.keys(ranges) as Setting[]) {
     const label = document.createElement('label')
     const caption = document.createElement('span')

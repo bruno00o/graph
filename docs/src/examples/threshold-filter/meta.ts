@@ -10,4 +10,5 @@ export default {
   tags: ['Vanilla'],
   api: ['define-graph', 'graph-instance'],
   guides: ['transformations#hide-without-losing-state', 'states'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

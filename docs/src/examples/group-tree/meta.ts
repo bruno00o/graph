@@ -10,4 +10,5 @@ export default {
   tags: ['React'],
   api: ['graph-component', 'hooks', 'nodes'],
   guides: ['groups#controlled-folding', 'groups#fold-and-unfold', 'react'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

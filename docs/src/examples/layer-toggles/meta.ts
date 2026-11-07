@@ -10,4 +10,5 @@ export default {
   tags: ['React'],
   api: ['graph-component', 'edges', 'nodes'],
   guides: ['multilayer#show-and-hide-layers', 'multilayer#what-a-hidden-layer-is', 'react'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

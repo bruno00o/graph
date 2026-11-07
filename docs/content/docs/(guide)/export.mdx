@@ -46,11 +46,13 @@ Elements pinned with [`graph.anchors`](/docs/drawing-layers#anchored-html) or `<
 await exportPng(graph, { region: 'graph', padding: 48 })
 ```
 
-`zoom` sets the scale of the file in CSS pixels per world unit. Nodes sized in world units grow with it, while edge widths, labels and nodes with `units: 'screen'` keep their size in pixels, as they do when you zoom on screen. A larger zoom gives a larger file.
+`zoom` sets the scale of the file in CSS pixels per world unit, the unit of the zoom of the [view](/docs/view#the-view), which it defaults to. Nodes sized in world units grow with it, while edge widths, labels and nodes with `units: 'screen'` keep their size in pixels, as they do when you zoom on screen. A larger zoom gives a larger file of the same region, never a crop: with the default region, twice the zoom of the view draws the same area in a file twice as wide and twice as tall.
 
 ```ts
 await exportSvg(graph, { region: 'graph', zoom: 2 })
 ```
+
+The [PNG export options](/examples/png-export-options) example previews the region, the scale, the pixel ratio and the background, with the size of the image.
 
 ## Pixel ratio
 
@@ -79,6 +81,8 @@ await exportPng(graph, { background: 'transparent' })
 await exportPng(graph, { background: 'var(--graph-paper)' })
 await exportSvg(graph, { background: '#ffffff' })
 ```
+
+On screen, the canvas is transparent and the page paints what lies under the graph. An export cannot read the page: a background drawn by your CSS, such as a pattern on the element, is not in the file. Draw it with the [background grid](/docs/drawing-layers#background-grid) of the definition, which exports draw, or export with `'transparent'` and lay the image over the same background.
 
 ## Flows
 

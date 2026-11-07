@@ -48,13 +48,21 @@ graph.positions.set(new Map([['n3', { x: 40, y: 60 }]]))
 
 `set` takes any iterable of `[key, point]` pairs; a `Map` works. Without a duration, the nodes move at once.
 
+Examples: [save and restore positions](/examples/save-positions) reads every position and sets them back, and [snap to a grid](/examples/snap-to-grid) moves a dropped node to the nearest grid point.
+
 ## Listen to moves
 
 `positionchange` fires when nodes are moved by a drag, by `positions.set`, or by a layout run that ended, with their target positions. Its `origin` is `'drag'`, `'api'` or `'layout'`. Moves that come from your data do not emit it, so writing the positions back to the data never loops.
 
+During a drag, it fires on every move of the pointer. To save once per drag, listen to `dragend` instead, or pace your writes.
+
 ```ts
 graph.on('positionchange', ({ origin, positions }) => {
-  if (origin === 'drag') save(positions)
+  if (origin !== 'drag') save(positions)
+})
+
+graph.on('dragend', ({ keys }) => {
+  save(new Map(keys.map((key) => [key, graph.positions.get(key)])))
 })
 ```
 

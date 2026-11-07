@@ -26,7 +26,7 @@ const definition = defineGraph({
 
 Each edge bends toward the places where edges are densest, pass after pass with a smaller reach: edges that run side by side merge, and the routes between parts of the graph stand out. The options are in the [reference](/docs/api/bundling).
 
-- `strength` is the share of the bundled shape drawn: `1` draws the bundles as computed, `0.5` halfway between them and straight lines. A new strength alone eases the edges to it, without computing again.
+- `strength` is the share of the bundled shape drawn: `1` draws the bundles as computed, `0.5` halfway between them and straight lines. A new strength alone eases the edges to it, without computing again: see the [bundling strength](/examples/bundling-strength) example.
 - `radius` is how far an edge reaches for others at the first pass, as a share of the larger side of the graph. A longer reach merges edges from further away into fewer, thicker bundles.
 - `iterations` is the number of passes. More passes draw tighter bundles.
 
@@ -40,7 +40,8 @@ Bundles follow the positions of the nodes, so they are computed once nodes stand
 
 - after a layout run, and after the nodes glide to its result;
 - 150 milliseconds after a drag, a `positions.set` or a change of positions in the data;
-- after edges are added or removed.
+- after edges are added or removed;
+- after a new definition changes the bundling, unless only its `strength` changes.
 
 While nodes move, the drawn bundles follow the ends of each edge: the shape of an edge is kept as offsets from the line between its ends. New edges stay straight until the next computation. When a layout moves most nodes, edges ease back to straight lines at its start, and bundle again at its end.
 

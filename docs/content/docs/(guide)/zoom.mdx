@@ -29,7 +29,7 @@ An element is hidden at and below `minZoom`, and at and above `maxZoom`. `null`,
 
 Nothing pops: inside its range, an element fades in over a quarter of a zoom doubling, about 19% of zoom, and fades out the same way before `maxZoom`. The fade multiplies the opacity of the element and of its label.
 
-The limits are read when the data changes, like every other style. Zooming only compares the zoom with them on the GPU, so it costs nothing per element.
+The limits are read when the data changes, like every other style. Zooming only compares the zoom with them on the GPU, so it costs nothing per element. See the [edges by zoom](/examples/edges-by-zoom) example.
 
 ## What a hidden element is
 
@@ -56,6 +56,23 @@ defineGraph({
   scales: { size: (value) => value },
 })
 ```
+
+To hand one mark over to another at a zoom `t`, as clusters give way to their members, move each limit by the length of the fade, a quarter of a zoom doubling: the outgoing mark stops at `t * 2 ** 0.25` and the incoming one starts at `t / 2 ** 0.25`. They cross-fade around `t`, and one of them is always fully drawn. With `t` on both, neither would show at `t`.
+
+```ts
+const t = 0.9
+const fade = 2 ** 0.25
+
+defineGraph({
+  marks: [
+    nodes<Cluster>(clusters, { size: 'diameter', maxZoom: t * fade }),
+    nodes<Member>(members, { size: () => 12, minZoom: t / fade }),
+  ],
+  scales: { size: (value) => value },
+})
+```
+
+See the [groups that open with the zoom](/examples/zoom-clusters) example.
 
 Groups do not fold by themselves with the zoom: folding changes the drawn nodes, their positions and the layout, so it stays your call. Fold and unfold them on `viewchange`, with two thresholds so that a zoom near one of them does not fold and unfold in turn:
 

@@ -10,6 +10,8 @@ A mark is a list of data and a set of options. Every option belongs to one of tw
 - **Channels** go through a scale. A channel is a field name or a function `(datum) => value`. Field names are filtered by type: `size` only accepts numeric fields.
 - **Styles** are final values with no scale. A style is a constant or a function, never a field name. A style wins over the channel it overrides: `fill` wins over `color`.
 
+A channel takes no constant: write a function, `size: () => 12`. The value still goes through the scale, so the node is not 12 wide unless the scale keeps values as they are. See [Scales](/docs/scales#size-and-width).
+
 ```ts
 nodes<Item>(items, {
   color: 'group',
@@ -42,7 +44,7 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | `badges` | function per corner | `{ text, fill, color }` or `null` |
 | `units` | constant | `'world'` (default) or `'screen'` |
 
-Without a color or a size, nodes take the theme color `--graph-node` and a diameter of 16. Defaults and details are in [`nodes`](/docs/api/nodes#options).
+Without a color or a size, nodes take the theme color `--graph-node` and a diameter of 16. Defaults and details are in [`nodes`](/docs/api/nodes#options). See the [node shapes](/examples/node-shapes) example.
 
 ## Edge options
 
@@ -61,7 +63,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `flow` | style | Moving dashes: `true`, a speed in pixels per second, or `false` |
 | `ends` | object | A look and a label for each end. See [Edge ends](#edge-ends) |
 
-Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels. Defaults and details are in [`edges`](/docs/api/edges#options).
+Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels. Defaults and details are in [`edges`](/docs/api/edges#options). Examples: [arrows and dashes](/examples/arrows-and-dashes), and [edge width, dashes and arrows](/examples/edge-styles) from the data.
 
 ## Labels
 
@@ -104,7 +106,7 @@ nodes<Item>(items, {
 - `outlineWidth` alone draws the ring in `--graph-node-ring`.
 - A function that returns `null` draws no ring for that node.
 
-The selection halo starts outside the outline, and the label moves down by its width.
+The selection halo starts outside the outline, and the label moves down by its width. See the [stroke and outline](/examples/stroke-and-outline) example.
 
 ## Flows
 
@@ -124,7 +126,7 @@ edges<Link>(links, {
 
 The graph draws frames only while a flowing edge is on screen, in a visible page. Without flows, it draws nothing until something changes. With `prefers-reduced-motion`, the dashes stand still. Each frame moves the dashes on the GPU: 100,000 flowing edges hold 60 frames per second, for well under a millisecond of CPU per frame.
 
-[Exports](/docs/export#flows) draw the dashes at a given moment.
+[Exports](/docs/export#flows) draw the dashes at a given moment. Examples: [flow speed and direction](/examples/flow-speed), and [flows on a map](/examples/map-flows).
 
 ## Screen units
 
@@ -139,7 +141,7 @@ defineGraph({
 
 The identity scale passes the channel value through, so every node is 12 pixels wide.
 
-Edge widths are always in screen pixels.
+Edge widths are always in screen pixels. See the [screen units](/examples/screen-units) example.
 
 ## Parallel edges and loops
 
