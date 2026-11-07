@@ -25,7 +25,7 @@ export function mount(container: HTMLElement): GraphInstance {
           x: 'x',
           y: 'y',
           label: 'label',
-          size: () => 16,
+          size: 16,
           color: (spot) => costs.get(spot.id),
         }),
       ],

@@ -48,9 +48,8 @@ export function mount(container: HTMLElement): GraphInstance {
     defineGraph({
       marks: [
         edges<Tie>(ties, { source: 'from', target: 'to', opacity: 0.3 }),
-        nodes<Dot>(dots, { x: 'x', y: 'y', color: 'group', size: () => 8 }),
+        nodes<Dot>(dots, { x: 'x', y: 'y', color: 'group', size: 8 }),
       ],
-      scales: { size: (value) => value },
       bundling: densityBundling({ strength }),
       view: { padding: 56 },
     })

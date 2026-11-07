@@ -28,7 +28,7 @@ function nodes<T, N extends MarkName = undefined, L extends MarkLayer = undefine
 
 ## Options
 
-A **channel** is a field name or a function, and goes through a scale. A **style** is a constant or a function, with no scale. See [Marks and channels](/docs/marks).
+A **channel** is a field name or a function, and goes through a scale. A **style** is a constant or a function, with no scale. A number literal and a function wrapped in [`raw()`](#types) skip the scale. See [Marks and channels](/docs/marks#channels-and-styles).
 
 <api-table path="index.ts" name="NodeOptions" />
 
@@ -124,14 +124,26 @@ interface Badge {
 
 <api-table path="index.ts" name="Badge" />
 
+## Scales
+
+`scales` gives the mark its own `color` and `size` scales, with their own extents and categories. Other marks keep the shared scales of [`defineGraph`](/docs/api/define-graph#scales). See [Scales of a mark](/docs/scales#scales-of-a-mark).
+
+<api-table path="index.ts" name="NodeScalesOptions" />
+
 ## Types
 
 ```ts
 type Key = string | number
 type Accessor<T, V> = (datum: T) => V
 type Channel<T, V> = FieldOf<T, V> | Accessor<T, V | null | undefined>
+type NumberChannel<T> = Channel<T, number> | number | RawAccessor<T, number | null | undefined>
+type ColorChannel<T> = Channel<T, string | number | boolean> | RawAccessor<T, string | null | undefined>
 type KeyChannel<T> = KeyFieldOf<T> | Accessor<T, Key>
 type Style<T, V> = V | Accessor<T, V>
+
+function raw<T, V>(read: Accessor<T, V>): RawAccessor<T, V>
 ```
 
 `FieldOf<T, V>` is the union of the keys of `T` whose values are `V`, `null` or `undefined`. `KeyFieldOf<T>` is the union of the required keys of `T` whose values are keys.
+
+`raw()` returns a `RawAccessor<T, V>`, a function of the item marked so that its value skips the scale of its channel. It works on `size` and `color` here, on `width` and `color` of [edges](/docs/api/edges) and of their ends. A raw size is a diameter in pixels, a raw color a CSS color. Raw values stay out of the extent and the categories of the scale, and a raw color has no category in the [legend](/docs/api/legend). Any other value throws a `TypeError`.

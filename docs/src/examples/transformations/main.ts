@@ -7,6 +7,7 @@ import {
   mountGraph,
   type NodeGroup,
   nodes,
+  raw,
 } from '@bruno00o/graph'
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
 import { messages } from '../shared/messages'
@@ -91,7 +92,7 @@ const endLabel = (count: (aggregate: AggregateEdge<Exchange>) => number) => ({
 const sectorMark = groups(items, {
   by: 'sector',
   name: 'sectors',
-  size: (group) => 30 + Math.sqrt(group.count) * 8,
+  size: raw((group) => 30 + Math.sqrt(group.count) * 8),
   fill: dominant,
   label: (group) => messages.sectorName(String(group.value)),
   container: { padding: 18 },
@@ -127,7 +128,7 @@ function define(merged: boolean, grouped: boolean) {
         x: 'x',
         y: 'y',
         color: 'family',
-        size: () => 18,
+        size: 18,
         label: 'label',
       }),
       ...(grouped ? [sectorMark] : []),

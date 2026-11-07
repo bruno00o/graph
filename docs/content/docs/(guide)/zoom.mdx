@@ -48,12 +48,16 @@ In a [group](/docs/groups), each node follows its own range: a hidden container 
 
 ## Recipes
 
-To show a node once it is at least 6 pixels wide on screen, divide by its diameter in world units. Here the size scale passes the diameter through:
+To show a node once it is at least 6 pixels wide on screen, divide by its diameter in world units. Here `raw()` draws the diameter as given:
 
 ```ts
 defineGraph({
-  marks: [nodes<Item>(items, { size: 'diameter', minZoom: (item) => 6 / item.diameter })],
-  scales: { size: (value) => value },
+  marks: [
+    nodes<Item>(items, {
+      size: raw((item) => item.diameter),
+      minZoom: (item) => 6 / item.diameter,
+    }),
+  ],
 })
 ```
 
@@ -65,10 +69,9 @@ const fade = 2 ** 0.25
 
 defineGraph({
   marks: [
-    nodes<Cluster>(clusters, { size: 'diameter', maxZoom: t * fade }),
-    nodes<Member>(members, { size: () => 12, minZoom: t / fade }),
+    nodes<Cluster>(clusters, { size: raw((cluster) => cluster.diameter), maxZoom: t * fade }),
+    nodes<Member>(members, { size: 12, minZoom: t / fade }),
   ],
-  scales: { size: (value) => value },
 })
 ```
 

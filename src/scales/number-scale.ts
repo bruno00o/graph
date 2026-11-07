@@ -21,12 +21,15 @@ export function resolveNumberScale(
   }
   const transform = transforms[options?.type ?? fallback.type]
   const [r0, r1] = options?.range ?? fallback.range
+  const low = Math.min(r0, r1)
+  const high = Math.max(r0, r1)
   const domain = options?.domain ?? null
   return {
     needsExtent: domain === null,
     domain,
     map(value, extent) {
       const [d0, d1] = domain ?? extent ?? [value, value]
+      if (domain === null && d0 === d1) return Math.min(high, Math.max(low, value))
       const t0 = transform(d0)
       const t1 = transform(d1)
       if (t0 === t1) return (r0 + r1) / 2

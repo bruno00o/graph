@@ -9,7 +9,7 @@ const { items, links } = createHierarchy(90, 130, 8)
 const definition = defineGraph({
   marks: [
     edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
-    nodes<Item>(items, { label: 'label', size: () => 18 }),
+    nodes<Item>(items, { label: 'label', size: 18 }),
   ],
   states: {
     downstream: {

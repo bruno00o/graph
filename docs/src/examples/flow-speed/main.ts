@@ -66,10 +66,9 @@ export function mount(container: HTMLElement): GraphInstance {
           flow: (pipe) => (running ? pipe.rate * direction * factor : false),
           label: (pipe) => messages.speed(Math.abs(pipe.rate) * factor),
         }),
-        nodes<Station>(stations, { x: 'x', y: 'y', size: () => 22, label: 'label' }),
+        nodes<Station>(stations, { x: 'x', y: 'y', size: 22, label: 'label' }),
       ],
       scales: {
-        size: (value) => value,
         width: { range: [1.5, 5] },
         color: { domain: ['forward', 'back'], range: ['var(--graph-cat-1)', 'var(--graph-cat-3)'] },
       },

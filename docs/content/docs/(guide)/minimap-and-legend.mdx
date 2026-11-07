@@ -57,12 +57,13 @@ panel.append(view.element)
 
 `legend.store` holds the state of the legend, updated when data or definition change:
 
-- `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges of each; for a sequential scale, a ramp with its domain and its stops.
+- `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges of each; for a sequential scale, a ramp with its domain and its stops. Raw colors, set with `raw()`, have no category.
 - `size` and `width`: the ends of the domain and a rounded value between them, with the diameter or the width each one becomes.
+- `marks`: the same sections for each mark with [scales of its own](/docs/scales#scales-of-a-mark), which the shared sections leave out. Their category ids carry the mark, such as `c:n1:string:north`.
 - `looks`: the shapes and images of the nodes, and the line patterns of the edges, by mark.
 - `layers`: the [layers](/docs/multilayer) of the marks, hidden ones included. Switching a layer off hides it in the graph.
 
-The default renderer writes no text of its own. Titles come from `titles`, values go through `format`, looks show the `name` of their mark, or the text of `lookText`, and layers their name, or the text of `layerText`. Looks show only for nodes or edges drawn with more than one look.
+The default renderer writes no text of its own. Titles come from `titles`, and from `markTitle` or the name of the mark for the scales of a mark, values go through `format`, looks show the `name` of their mark, or the text of `lookText`, and layers their name, or the text of `layerText`. Looks show only for nodes or edges drawn with more than one look.
 
 ### Highlight and switch off
 

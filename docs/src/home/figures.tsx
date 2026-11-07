@@ -234,6 +234,10 @@ const swatchTokens = [
   'cat-6',
   'cat-7',
   'cat-8',
+  'cat-9',
+  'cat-10',
+  'cat-11',
+  'cat-12',
 ] as const
 
 function tokensOf(block: string): ReadonlyMap<string, string> {

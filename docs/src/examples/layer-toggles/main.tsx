@@ -46,7 +46,7 @@ const definition = defineGraph({
   marks: [
     edges(
       core.map((spot, at) => link(spot.id, `n${(at + 1) % count}`)),
-      { source: 'from', target: 'to', layer: 'rim', width: () => 3 },
+      { source: 'from', target: 'to', layer: 'rim', width: 3 },
     ),
     edges(
       core.map((spot) => link('c', spot.id)),
@@ -66,16 +66,15 @@ const definition = defineGraph({
       satellites.map((spot) => link(`n${spot.id.slice(1).split('-')[0]}`, spot.id)),
       { source: 'from', target: 'to', layer: 'satellites', stroke: 'var(--graph-cat-4)' },
     ),
-    nodes([center, ...core], { x: 'x', y: 'y', size: () => 22, label: 'label' }),
+    nodes([center, ...core], { x: 'x', y: 'y', size: 22, label: 'label' }),
     nodes(satellites, {
       x: 'x',
       y: 'y',
       layer: 'satellites',
-      size: () => 12,
+      size: 12,
       fill: 'var(--graph-cat-4)',
     }),
   ],
-  scales: { size: (value) => value, width: (value) => value },
 })
 
 export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {

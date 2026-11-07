@@ -1,4 +1,4 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
 import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -58,7 +58,7 @@ const define = (geodesic: boolean) =>
         source: 'from',
         target: 'to',
         stroke: (arc) => (arc.far ? 'var(--graph-accent)' : 'var(--graph-edge)'),
-        width: (arc) => (arc.far ? 2 : 1.5),
+        width: raw((arc) => (arc.far ? 2 : 1.5)),
         arrow: (arc) => (arc.far ? 'target' : 'none'),
         geodesic: (arc) => geodesic && arc.far,
       }),
@@ -66,12 +66,11 @@ const define = (geodesic: boolean) =>
         longitude: 'longitude',
         latitude: 'latitude',
         color: 'cluster',
-        size: () => 10,
+        size: 10,
         units: 'screen',
         label: 'label',
       }),
     ],
-    scales: { size: (value) => value, width: (value) => value },
   })
 
 export function mount(container: HTMLElement): GraphInstance {

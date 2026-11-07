@@ -41,6 +41,47 @@ Every optional option now accepts `undefined` in its type, and reads it as left 
 - A property of `aggregate` set to `undefined` drew the default; it now takes the look of the first merged edge.
 - A mark, a layout, a bundling or a routing rebuilt with an option set to `undefined` updated every element or ran again; it is now equal to the same one without the option.
 
+### A single value keeps its size
+
+When the data held a single value, a number scale without `domain` drew it at the middle of its range: `size: () => 12` drew 20 pixel nodes, and `width: () => 2` 3.5 pixel edges. The scale now keeps the value, clamped to its range: 12 pixel nodes and 2 pixel edges. An explicit `domain` of a single value still gives the middle of the range, and a sequential color scale still draws a single value in the middle of its colors.
+
+Number literals and `raw()` now draw a size as given, without an identity scale:
+
+```ts
+// Before
+defineGraph({
+  marks: [nodes(items, { size: () => 24 }), edges(links, { source: 'from', target: 'to', width: () => 2 })],
+  scales: { size: (value) => value, width: (value) => value },
+})
+
+// After
+defineGraph({
+  marks: [nodes(items, { size: 24 }), edges(links, { source: 'from', target: 'to', width: 2 })],
+})
+```
+
+To keep the size drawn before, write it: `size: 20`. `size` and `width` are now typed `NumberChannel<T>`, and `color` `ColorChannel<T>`: they add number literals and `RawAccessor` to `Channel`, so a type read from `NodeOptions<T>['size']` includes them. See [Channels and styles](/docs/marks#channels-and-styles).
+
+### Twelve categorical colors
+
+The default categorical scale now cycles through `--graph-cat-1` to `--graph-cat-12`: the ninth to twelfth categories take the new colors instead of starting over at `--graph-cat-1`. The first eight colors are unchanged. A theme that sets `--graph-cat-1` to `--graph-cat-8` keeps the default values of the four new tokens: set them too, or give the scale a `range`.
+
+```css
+/* Before */
+.my-theme {
+  --graph-cat-8: #6b5a4e;
+}
+
+/* After */
+.my-theme {
+  --graph-cat-8: #6b5a4e;
+  --graph-cat-9: #a8475e;
+  --graph-cat-10: #5f6a1c;
+  --graph-cat-11: #6a68c8;
+  --graph-cat-12: #9a63ad;
+}
+```
+
 ### `view.fit` takes options
 
 `view.fit` takes a single object of [`FitOptions`](/docs/view#fit): the keys to frame go in `nodes`, next to `padding` and `duration`. Edges can be framed too, by their two ends, and a path or the selection passes as is. Keys given as a list now throw a `TypeError`.

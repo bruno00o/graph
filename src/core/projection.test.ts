@@ -5,6 +5,7 @@ import type { AggregateEdge, GraphDefinitionOptions, Key } from '../types'
 import { arrowCodes, containerShape } from './columns'
 import { createGraphModel } from './graph-model'
 import { Projection } from './projection'
+import { raw } from './raw'
 import { createScene } from './scene'
 
 type Item = { id: string; parent?: string | null }
@@ -431,6 +432,26 @@ describe('Projection merges', () => {
     expect(scene.edges.ends?.width[pair * 2 + 1]).toBe(6)
     expect(scene.edges.ends?.label[pair * 2 + 1]).toBeNull()
     expect(scene.edges.ends?.label[projection.edgeIndexOf('ac1') * 2 + 1]).toBe('ac1')
+  })
+
+  it('keeps literal and raw widths and colors of the first edge on merged edges', () => {
+    const { scene, projection } = setup({
+      marks: [
+        edges<Wire>(wires, {
+          ...linkOptions,
+          width: 5,
+          color: raw(() => '#abcdef'),
+          ends: { target: { width: raw(() => 9) } },
+          merge: { directed: false, min: 1 },
+        }),
+        nodes<Item>(flat, { parent: 'parent' }),
+      ],
+    })
+    const pair = projection.edgeIndexOf('ab1')
+    expect(scene.edges.width[pair]).toBe(9)
+    expect(scene.edges.ends?.width[pair * 2]).toBe(5)
+    expect(scene.palette.colors[scene.edges.color[pair] ?? -1]).toBe('#abcdef')
+    expect(scene.scales().width.extent).toBeNull()
   })
 
   it('keeps two opposite edges as two curves without merge', () => {

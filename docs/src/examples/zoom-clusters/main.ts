@@ -1,4 +1,4 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
 import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -72,16 +72,16 @@ export function mount(container: HTMLElement): GraphInstance {
         edges<Tie>(overview, {
           source: 'from',
           target: 'to',
-          width: (tie) => 1 + Math.sqrt(tie.count) * 1.5,
+          width: raw((tie) => 1 + Math.sqrt(tie.count) * 1.5),
           label: (tie) => messages.count(tie.count),
           maxZoom: open * fade,
         }),
-        edges<Tie>(links, { source: 'from', target: 'to', width: () => 1, minZoom: open / fade }),
+        edges<Tie>(links, { source: 'from', target: 'to', width: 1, minZoom: open / fade }),
         nodes<Cluster>(clusters, {
           x: 'x',
           y: 'y',
           color: 'group',
-          size: 'diameter',
+          size: raw((cluster) => cluster.diameter),
           opacity: 0.85,
           label: {
             text: 'label',
@@ -94,12 +94,11 @@ export function mount(container: HTMLElement): GraphInstance {
           x: 'x',
           y: 'y',
           color: 'group',
-          size: () => 12,
+          size: 12,
           label: 'label',
           minZoom: open / fade,
         }),
       ],
-      scales: { size: (value) => value, width: (value) => value },
     }),
     ariaLabel: messages.graphLabel(members.length, clusters.length),
   })

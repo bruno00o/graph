@@ -5,21 +5,26 @@ description: Map fields of your data to color, size, labels, shapes, outlines an
 
 ## Channels and styles
 
-A mark is a list of data and a set of options. Every option belongs to one of two families:
+A mark is a list of data and a set of options. One rule decides what happens to each value:
 
-- **Channels** go through a scale. A channel is a field name or a function `(datum) => value`. Field names are filtered by type: `size` only accepts numeric fields.
-- **Styles** are final values with no scale. A style is a constant or a function, never a field name. A style wins over the channel it overrides: `fill` wins over `color`.
-
-A channel takes no constant: write a function, `size: () => 12`. The value still goes through the scale, so the node is not 12 wide unless the scale keeps values as they are. See [Scales](/docs/scales#size-and-width).
+- A **channel** takes a field name or a function `(datum) => value`, and its value goes through a [scale](/docs/scales). Field names are filtered by type: `size` only accepts numeric fields.
+- A **style** takes a value or a function, never a field name, and its value is used as is. A style wins over the channel it overrides: `fill` wins over `color`.
+- A **number literal** and a function wrapped in **`raw()`** are used as is, outside the scale: `size: 30` draws every node 30 pixels wide, and `size: raw((item) => item.radius * 2)` draws each node at the diameter it returns.
 
 ```ts
+import { nodes, raw } from '@bruno00o/graph'
+
 nodes<Item>(items, {
   color: 'group',
-  size: (item) => item.weight * 2,
+  size: raw((item) => item.weight * 2),
   opacity: (item) => (item.weight > 2 ? 1 : 0.5),
   shape: 'diamond',
 })
 ```
+
+`size` and `width` take a number literal, edge ends included. `color` takes none: a constant color is a style, `fill` on nodes and `stroke` on edges. `raw()` works on `size`, `width` and `color`: a raw color is a CSS color, drawn as given.
+
+Raw values stay out of the extents and the categories of their scale, so they never move the other elements of the scale. A raw color has no category in the [legend](/docs/minimap-and-legend#legend): like a `fill`, its elements count only under the looks of their mark.
 
 Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They are resolved by the browser, so a color given as a CSS variable follows the theme.
 
@@ -29,8 +34,8 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | --- | --- | --- |
 | `name` | constant | Name of the mark, reported by targets. See [TypeScript](/docs/typescript) |
 | `key` | channel | Node key, `id` by default |
-| `color` | channel | Category or number, through the `color` scale |
-| `size` | channel | Number, through the `size` scale. The size is a diameter |
+| `color` | channel | Category or number, through the `color` scale, or a CSS color with `raw()` |
+| `size` | channel | Number, through the `size` scale, or a diameter in pixels as a literal or with `raw()` |
 | `label` | channel | Text, or an object with `text` and its style. See [Labels](/docs/labels) |
 | `x`, `y` | channel | Position in world units, followed when it changes |
 | `shape` | style | `'circle'`, `'square'` or `'diamond'` |
@@ -43,6 +48,7 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | `image` | style | URL, or `{ src, scale, color }`, or `null` |
 | `badges` | function per corner | `{ text, fill, color }` or `null` |
 | `units` | constant | `'world'` (default) or `'screen'` |
+| `scales` | object | `color` and `size` scales of this mark alone. See [Scales](/docs/scales#scales-of-a-mark) |
 
 Without a color or a size, nodes take the theme color `--graph-node` and a diameter of 16. Defaults and details are in [`nodes`](/docs/api/nodes#options). See the [node shapes](/examples/node-shapes) example.
 
@@ -53,8 +59,8 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `name` | constant | Name of the mark, reported by targets |
 | `key` | channel | Edge key, `id` by default |
 | `source`, `target` | channel | Key of the node at each end |
-| `color` | channel | Category or number, through the `color` scale |
-| `width` | channel | Number, through the `width` scale, in screen pixels |
+| `color` | channel | Category or number, through the `color` scale, or a CSS color with `raw()` |
+| `width` | channel | Number, through the `width` scale, or screen pixels as a literal or with `raw()` |
 | `label` | channel | Text, or an object with `text` and its style. See [Labels](/docs/labels#edge-labels) |
 | `dash` | style | `'solid'`, `'dashed'` or `'dotted'` |
 | `arrow` | style | `'none'`, `'source'`, `'target'` or `'both'` |
@@ -62,6 +68,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `opacity` | style | Opacity from 0 to 1 |
 | `flow` | style | Moving dashes: `true`, a speed in pixels per second, or `false` |
 | `ends` | object | A look and a label for each end. See [Edge ends](#edge-ends) |
+| `scales` | object | `color` and `width` scales of this mark alone. See [Scales](/docs/scales#scales-of-a-mark) |
 
 Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels. Defaults and details are in [`edges`](/docs/api/edges#options). Examples: [arrows and dashes](/examples/arrows-and-dashes), and [edge width, dashes and arrows](/examples/edge-styles) from the data.
 
@@ -134,12 +141,11 @@ By default a node grows when you zoom in. With `units: 'screen'`, its size stays
 
 ```ts
 defineGraph({
-  marks: [nodes<Item>(items, { size: () => 12, units: 'screen' })],
-  scales: { size: (value) => value },
+  marks: [nodes<Item>(items, { size: 12, units: 'screen' })],
 })
 ```
 
-The identity scale passes the channel value through, so every node is 12 pixels wide.
+A number literal is drawn as given, so every node is 12 pixels wide.
 
 Edge widths are always in screen pixels. See the [screen units](/examples/screen-units) example.
 
@@ -183,7 +189,7 @@ edges<Exchange>(exchanges, {
 ```
 
 - `split` is the share of the visible length, between the two node borders, where the source end stops: `0.5` by default, clamped to 0 and 1. A function makes it follow the data.
-- `color` and `width` go through the same `color` and `width` scales as every other channel: end values widen the shared extent, take categories in order and appear in the legend. Without them, an end keeps the color and width of the edge; `stroke` sets a color directly.
+- `color` and `width` go through the `color` and `width` scales of their edge mark: end values widen the extent of the scale, take categories in order and appear in the legend. A number literal and `raw()` work as on the edge. Without them, an end keeps the color and width of the edge; `stroke` sets a color directly.
 - An arrow head takes the color and width of its end. A dash pattern keeps its rhythm across the split, and flows run through it.
 - An end label sits near its node, past the arrow head, and turns with the line. It shows only when it fits, after the middle label. With a `background`, it reads as a badge on the line.
 - A state that sets `stroke` or `strokeWidth`, such as hover and selection, applies to both ends. States that only change the opacity or add a halo keep the colors of the ends.

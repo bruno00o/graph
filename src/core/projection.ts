@@ -19,6 +19,7 @@ import type { ElementRef, GraphChanges, GraphModel, NodeRecord } from './graph-m
 import { type Grouping, groupingOf } from './group-index'
 import { Hierarchy } from './hierarchy'
 import { IndexSet } from './index-set'
+import { raw, rawRead } from './raw'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
 import { shallowEqual } from './shallow-equal'
 import type { GraphIssue } from './source-table'
@@ -144,8 +145,10 @@ function arrows(style: unknown): (aggregate: AggregateEdge) => unknown {
   }
 }
 
-function liftedChannel(channel: string | Read | undefined): unknown {
-  return channel === undefined ? undefined : first(toAccessor(channel))
+function liftedChannel(channel: unknown): unknown {
+  if (channel === undefined || typeof channel === 'number') return channel
+  const own = rawRead(channel)
+  return own ? raw(first(own)) : first(toAccessor(channel as string | Read))
 }
 
 function liftedLabel(label: EdgeOptions<unknown>['label']): unknown {
@@ -196,8 +199,8 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
     time?: unknown
     ends?: unknown
   } = {}
-  if (options.color !== undefined) fallback.color = first(toAccessor(options.color))
-  if (options.width !== undefined) fallback.width = first(toAccessor(options.width))
+  if (options.color !== undefined) fallback.color = liftedChannel(options.color)
+  if (options.width !== undefined) fallback.width = liftedChannel(options.width)
   if (options.arrow !== undefined) fallback.arrow = arrows(options.arrow)
   for (const name of ['dash', 'stroke', 'opacity', 'flow', 'minZoom', 'maxZoom'] as const) {
     if (options[name] !== undefined) fallback[name] = lifted(options[name])

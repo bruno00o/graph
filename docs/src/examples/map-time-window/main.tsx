@@ -64,7 +64,7 @@ const definition = defineGraph({
     edges<Link>(links, {
       source: 'from',
       target: 'to',
-      width: () => 2,
+      width: 2,
       stroke: 'var(--graph-ink)',
       time: (link) => ({ start: link.since }),
     }),
@@ -72,11 +72,10 @@ const definition = defineGraph({
       longitude: 'longitude',
       latitude: 'latitude',
       color: 'group',
-      size: () => 12,
+      size: 12,
       time: (item) => ({ start: item.from, end: item.until }),
     }),
   ],
-  scales: { size: (value) => value, width: (value) => value },
   time: { fade: 60 * day },
 })
 

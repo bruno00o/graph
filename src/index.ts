@@ -1,5 +1,6 @@
 export { geoToWorld, worldToGeo } from './core/geo'
 export type { Endpoints } from './core/graph-model'
+export { raw } from './core/raw'
 export { defineGraph } from './define-graph'
 export type {
   AnchorAlign,
@@ -91,6 +92,7 @@ export type {
   BundlePaths,
   BundleRun,
   Channel,
+  ColorChannel,
   ColorScale,
   ContainerOptions,
   ContainerShape,
@@ -106,6 +108,7 @@ export type {
   EdgeMergeOptions,
   EdgeOptions,
   EdgeRouting,
+  EdgeScalesOptions,
   FieldOf,
   FitPadding,
   FreeState,
@@ -150,7 +153,9 @@ export type {
   NodeImage,
   NodeMark,
   NodeOptions,
+  NodeScalesOptions,
   NodeShape,
+  NumberChannel,
   NumberScale,
   NumberScaleType,
   PathDirection,
@@ -158,6 +163,7 @@ export type {
   PathOptions,
   PathWeight,
   Point,
+  RawAccessor,
   ReachOptions,
   ResolvedBackground,
   ResolvedBridges,

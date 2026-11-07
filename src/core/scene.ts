@@ -73,13 +73,27 @@ export interface SceneModel {
   edgeAt(index: number): SceneEdgeRecord | undefined
 }
 
+export interface SceneColorScale {
+  readonly kind: 'nodes' | 'edges' | null
+  readonly slot: number
+  readonly scale: ResolvedColorScale
+  readonly extent: Extent | null
+}
+
+export interface SceneNumberScale {
+  readonly slot: number
+  readonly scale: ResolvedNumberScale
+  readonly extent: Extent | null
+}
+
 export interface SceneScales {
-  readonly color: ResolvedColorScale
-  readonly colorExtent: Extent | null
-  readonly size: ResolvedNumberScale
-  readonly sizeExtent: Extent | null
-  readonly width: ResolvedNumberScale
-  readonly widthExtent: Extent | null
+  readonly color: SceneColorScale
+  readonly size: SceneNumberScale
+  readonly width: SceneNumberScale
+  readonly nodeColors: readonly (SceneColorScale | null)[]
+  readonly edgeColors: readonly (SceneColorScale | null)[]
+  readonly sizes: readonly (SceneNumberScale | null)[]
+  readonly widths: readonly (SceneNumberScale | null)[]
   readonly nodeColor: readonly unknown[]
   readonly edgeColor: readonly unknown[]
   readonly endColor: readonly unknown[]
@@ -107,6 +121,74 @@ function sameScale(a: ColorScale | NumberScale | undefined, b: typeof a): boolea
   if (a === b) return true
   if (!a || !b || typeof a === 'function' || typeof b === 'function') return false
   return a.type === b.type && sameList(a.domain, b.domain) && sameList(a.range, b.range)
+}
+
+class ColorState {
+  extent: Extent | null = null
+  readonly nodes: ExtentTracker = new ExtentTracker()
+  readonly edges: ExtentTracker = new ExtentTracker()
+  readonly ends: ExtentTracker = new ExtentTracker()
+
+  constructor(
+    public options: ColorScale | undefined,
+    public scale: ResolvedColorScale,
+    readonly kind: 'nodes' | 'edges' | null,
+    readonly slot: number,
+  ) {}
+
+  dataExtent(ends: boolean): Extent | null {
+    const own = combineExtents(this.nodes.extent, this.edges.extent)
+    return ends ? combineExtents(own, this.ends.extent) : own
+  }
+
+  clear(): void {
+    this.extent = null
+    this.nodes.clear()
+    this.edges.clear()
+    this.ends.clear()
+  }
+}
+
+class NumberState {
+  domain: Extent | null = null
+  readonly values: ExtentTracker = new ExtentTracker()
+  readonly ends: ExtentTracker = new ExtentTracker()
+
+  constructor(
+    public options: NumberScale | undefined,
+    public scale: ResolvedNumberScale,
+    readonly slot: number,
+  ) {}
+
+  dataExtent(ends: boolean): Extent | null {
+    return ends ? combineExtents(this.values.extent, this.ends.extent) : this.values.extent
+  }
+
+  clear(): void {
+    this.domain = null
+    this.values.clear()
+    this.ends.clear()
+  }
+}
+
+type Fallback = { readonly type: 'sqrt' | 'linear'; readonly range: Extent }
+const sizeFallback: Fallback = { type: 'sqrt', range: defaults.nodeSizeRange }
+const widthFallback: Fallback = { type: 'linear', range: defaults.edgeWidthRange }
+
+function ownScales(
+  marks: readonly Mark[],
+  kind: 'nodes' | 'edges',
+  channel: 'color' | 'size' | 'width',
+): (ColorScale | NumberScale | undefined)[] {
+  const own: (ColorScale | NumberScale | undefined)[] = []
+  for (const mark of marks) {
+    if (mark.type !== kind) continue
+    const scales = (mark as NodeMark<unknown> | EdgeMark<unknown>).options.scales as
+      | Readonly<Record<string, ColorScale | NumberScale | undefined>>
+      | undefined
+    own.push(scales?.[channel])
+  }
+  return own
 }
 
 function toNumber(value: unknown): number {
@@ -248,8 +330,6 @@ export function createScene(): Scene {
   let compiledNode: CompiledNodeMark | null = null
   let compiledEdgeMark: EdgeMark<unknown> | null = null
   let compiledEdge: CompiledEdgeMark | null = null
-  let slotMark: Mark | null = null
-  let slotOfMark = 0
   let layers: Layer[] = []
   let layersDirty = false
   let paletteVersion = 0
@@ -258,32 +338,29 @@ export function createScene(): Scene {
   let spareNodes = new IndexSet()
   let spareEdges = new IndexSet()
   let scales: ScalesOptions = {}
-  let colorScale: ResolvedColorScale = resolveColorScale(undefined)
-  let sizeScale: ResolvedNumberScale = resolveNumberScale(undefined, {
-    type: 'sqrt',
-    range: defaults.nodeSizeRange,
-  })
-  let widthScale: ResolvedNumberScale = resolveNumberScale(undefined, {
-    type: 'linear',
-    range: defaults.edgeWidthRange,
-  })
   let full = false
+  const sharedColor = new ColorState(undefined, resolveColorScale(undefined), null, -1)
+  const sharedSize = new NumberState(undefined, resolveNumberScale(undefined, sizeFallback), -1)
+  const sharedWidth = new NumberState(undefined, resolveNumberScale(undefined, widthFallback), -1)
+  let nodeColors: (ColorState | null)[] = []
+  let edgeColors: (ColorState | null)[] = []
+  let sizes: (NumberState | null)[] = []
+  let widths: (NumberState | null)[] = []
+  let ownNodeScales = false
+  let ownEdgeScales = false
+  let nodeColor: ColorState = sharedColor
+  let nodeSize: NumberState = sharedSize
+  let nodeSlot = 0
+  let edgeColor: ColorState = sharedColor
+  let edgeWidth: NumberState = sharedWidth
+  let edgeSlot = 0
   const nodeColorValues: unknown[] = []
   const edgeColorValues: unknown[] = []
   const endColorValues: unknown[] = []
   const sizeValues: number[] = []
   const widthValues: number[] = []
   const endWidthValues: number[] = []
-  const nodeColorExtent = new ExtentTracker()
-  const edgeColorExtent = new ExtentTracker()
-  const endColorExtent = new ExtentTracker()
-  const sizeExtent = new ExtentTracker()
-  const widthExtent = new ExtentTracker()
-  const endWidthExtent = new ExtentTracker()
   let endsSeen = false
-  let colorExtent: Extent | null = null
-  let sizeDomain: Extent | null = null
-  let widthDomain: Extent | null = null
 
   function track(tracker: ExtentTracker, index: number, value: unknown): void {
     if (typeof value === 'number' && Number.isFinite(value)) tracker.set(index, value)
@@ -294,6 +371,9 @@ export function createScene(): Scene {
     if (record.mark !== compiledNodeMark || !compiledNode) {
       compiledNodeMark = record.mark
       compiledNode = compileNodeMark(record.mark)
+      nodeSlot = slots.get(record.mark) ?? 0
+      nodeColor = nodeColors[nodeSlot] ?? sharedColor
+      nodeSize = sizes[nodeSlot] ?? sharedSize
     }
     return compiledNode
   }
@@ -303,66 +383,88 @@ export function createScene(): Scene {
     if (look !== compiledEdgeMark || !compiledEdge) {
       compiledEdgeMark = look
       compiledEdge = compileEdgeMark(look)
+      edgeSlot = slots.get(record.mark) ?? 0
+      edgeColor = edgeColors[edgeSlot] ?? sharedColor
+      edgeWidth = widths[edgeSlot] ?? sharedWidth
     }
     return compiledEdge
   }
 
-  function slotOf(mark: Mark): number {
-    if (mark !== slotMark) {
-      slotMark = mark
-      slotOfMark = slots.get(mark) ?? 0
+  function leaveNodeScales(index: number): void {
+    if (nodes.alive[index] !== 1) return
+    const slot = nodes.slot[index] ?? 0
+    if (slot === nodeSlot) return
+    ;(nodeColors[slot] ?? sharedColor).nodes.delete(index)
+    ;(sizes[slot] ?? sharedSize).values.delete(index)
+  }
+
+  function leaveEdgeScales(index: number): void {
+    if (edges.alive[index] !== 1) return
+    const slot = edges.slot[index] ?? 0
+    if (slot === edgeSlot) return
+    const color = edgeColors[slot] ?? sharedColor
+    const width = widths[slot] ?? sharedWidth
+    color.edges.delete(index)
+    width.values.delete(index)
+    for (let id = index * 2; id < index * 2 + 2; id++) {
+      color.ends.delete(id)
+      width.ends.delete(id)
     }
-    return slotOfMark
   }
 
   function readNode(record: NodeRecord): void {
     const index = record.index
     const mark = nodeMarkOf(record)
     nodes.reserve(index)
+    if (ownNodeScales) leaveNodeScales(index)
     nodes.keys[index] = record.key
     const size = mark.size ? toNumber(mark.size(record.datum)) : Number.NaN
-    const color = mark.color?.(record.datum)
+    const color = mark.colorRaw ? undefined : mark.color?.(record.datum)
     sizeValues[index] = size
     nodeColorValues[index] = color
-    track(sizeExtent, index, size)
-    track(nodeColorExtent, index, color)
+    if (mark.sizeRaw) nodeSize.values.delete(index)
+    else track(nodeSize.values, index, size)
+    track(nodeColor.nodes, index, color)
   }
 
   function readEdge(record: EdgeRecord): void {
     const index = record.index
     const mark = edgeMarkOf(record)
     edges.reserve(index)
+    if (ownEdgeScales) leaveEdgeScales(index)
     edges.keys[index] = record.key
     const width = mark.width ? toNumber(mark.width(record.datum)) : Number.NaN
-    const color = mark.color?.(record.datum)
+    const color = mark.colorRaw ? undefined : mark.color?.(record.datum)
     widthValues[index] = width
     edgeColorValues[index] = color
-    track(widthExtent, index, width)
-    track(edgeColorExtent, index, color)
+    if (mark.widthRaw) edgeWidth.values.delete(index)
+    else track(edgeWidth.values, index, width)
+    track(edgeColor.edges, index, color)
     if (mark.ends) {
       endsSeen = true
       readEnd(index * 2, mark.ends.source, record.datum)
       readEnd(index * 2 + 1, mark.ends.target, record.datum)
     } else if (endsSeen) {
-      forgetEnds(index)
+      forgetEnds(index, edgeColor, edgeWidth)
     }
   }
 
   function readEnd(id: number, end: CompiledEnd, datum: unknown): void {
     const width = end.width ? toNumber(end.width(datum)) : Number.NaN
-    const color = end.color?.(datum)
+    const color = end.colorRaw ? undefined : end.color?.(datum)
     endWidthValues[id] = width
     endColorValues[id] = color
-    track(endWidthExtent, id, width)
-    track(endColorExtent, id, color)
+    if (end.widthRaw) edgeWidth.ends.delete(id)
+    else track(edgeWidth.ends, id, width)
+    track(edgeColor.ends, id, color)
   }
 
-  function forgetEnds(index: number): void {
+  function forgetEnds(index: number, color: ColorState, width: NumberState): void {
     for (let id = index * 2; id < index * 2 + 2; id++) {
       endWidthValues[id] = Number.NaN
       endColorValues[id] = undefined
-      endWidthExtent.delete(id)
-      endColorExtent.delete(id)
+      width.ends.delete(id)
+      color.ends.delete(id)
     }
   }
 
@@ -373,11 +475,17 @@ export function createScene(): Scene {
     const size = sizeValues[index] ?? Number.NaN
     const fill =
       toColor(mark.fill?.(datum)) ??
-      colorScale.map(nodeColorValues[index], colorExtent) ??
+      (mark.colorRaw
+        ? toColor(mark.color?.(datum))
+        : nodeColor.scale.map(nodeColorValues[index], nodeColor.extent)) ??
       defaults.nodeFill
     nodes.alive[index] = 1
-    nodes.slot[index] = slotOf(record.mark)
-    nodes.size[index] = Number.isNaN(size) ? defaults.nodeSize : sizeScale.map(size, sizeDomain)
+    nodes.slot[index] = nodeSlot
+    nodes.size[index] = Number.isNaN(size)
+      ? defaults.nodeSize
+      : mark.sizeRaw
+        ? Math.max(0, size)
+        : nodeSize.scale.map(size, nodeSize.domain)
     nodes.shape[index] = codeOf<NodeShape>(shapeCodes, mark.shape?.(datum))
     nodes.fill[index] = palette.id(fill)
     nodes.stroke[index] = palette.id(toColor(mark.stroke?.(datum)) ?? defaults.nodeStroke)
@@ -438,7 +546,9 @@ export function createScene(): Scene {
     const width = widthValues[index] ?? Number.NaN
     const color =
       toColor(mark.stroke?.(datum)) ??
-      colorScale.map(edgeColorValues[index], colorExtent) ??
+      (mark.colorRaw
+        ? toColor(mark.color?.(datum))
+        : edgeColor.scale.map(edgeColorValues[index], edgeColor.extent)) ??
       defaults.edgeColor
     if (
       edges.alive[index] !== 1 ||
@@ -447,14 +557,16 @@ export function createScene(): Scene {
     )
       edges.time.touch(index)
     edges.alive[index] = 1
-    edges.slot[index] = slotOf(record.mark)
+    edges.slot[index] = edgeSlot
     edges.source[index] = record.sourceIndex
     edges.target[index] = record.targetIndex
     lanes.link(index, record.sourceIndex, record.targetIndex)
     edges.color[index] = palette.id(color)
     edges.width[index] = Number.isNaN(width)
       ? defaults.edgeWidth
-      : widthScale.map(width, widthDomain)
+      : mark.widthRaw
+        ? Math.max(0, width)
+        : edgeWidth.scale.map(width, edgeWidth.domain)
     edges.dash[index] = codeOf<EdgeDash>(dashCodes, mark.dash?.(datum))
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
@@ -497,11 +609,17 @@ export function createScene(): Scene {
   ): number {
     const value = endWidthValues[id] ?? Number.NaN
     const endColor =
-      toColor(end.stroke?.(datum)) ?? colorScale.map(endColorValues[id], colorExtent) ?? color
+      toColor(end.stroke?.(datum)) ??
+      (end.colorRaw
+        ? toColor(end.color?.(datum))
+        : edgeColor.scale.map(endColorValues[id], edgeColor.extent)) ??
+      color
     ends.color[id] = palette.id(endColor)
     const width = Number.isNaN(value)
       ? (edges.width[index] ?? defaults.edgeWidth)
-      : widthScale.map(value, widthDomain)
+      : end.widthRaw
+        ? Math.max(0, value)
+        : edgeWidth.scale.map(value, edgeWidth.domain)
     ends.width[id] = width
     ends.dash[id] = end.dash
       ? codeOf<EdgeDash>(dashCodes, end.dash(datum))
@@ -513,29 +631,108 @@ export function createScene(): Scene {
   }
 
   function removeNode(index: number): void {
+    const slot = nodes.slot[index] ?? 0
     nodes.clear(index)
     sizeValues[index] = Number.NaN
     nodeColorValues[index] = undefined
-    sizeExtent.delete(index)
-    nodeColorExtent.delete(index)
+    ;(sizes[slot] ?? sharedSize).values.delete(index)
+    ;(nodeColors[slot] ?? sharedColor).nodes.delete(index)
     dirtyNodes.add(index)
   }
 
   function removeEdge(index: number): void {
     if (edges.alive[index] === 1) edges.time.touch(index)
+    const slot = edges.slot[index] ?? 0
+    const color = edgeColors[slot] ?? sharedColor
+    const width = widths[slot] ?? sharedWidth
     lanes.unlink(index)
     edges.clear(index)
     widthValues[index] = Number.NaN
     edgeColorValues[index] = undefined
-    widthExtent.delete(index)
-    edgeColorExtent.delete(index)
-    if (endsSeen) forgetEnds(index)
+    width.values.delete(index)
+    color.edges.delete(index)
+    if (endsSeen) forgetEnds(index, color, width)
     dirtyEdges.add(index)
   }
 
-  function colorExtentOf(): Extent | null {
-    const own = combineExtents(nodeColorExtent.extent, edgeColorExtent.extent)
-    return endsSeen ? combineExtents(own, endColorExtent.extent) : own
+  function colorStates(): ColorState[] {
+    const states = [sharedColor]
+    for (const state of nodeColors) if (state) states.push(state)
+    for (const state of edgeColors) if (state) states.push(state)
+    return states
+  }
+
+  function numberStates(shared: NumberState, own: readonly (NumberState | null)[]): NumberState[] {
+    const states = [shared]
+    for (const state of own) if (state) states.push(state)
+    return states
+  }
+
+  function colorView(state: ColorState): SceneColorScale {
+    return {
+      kind: state.kind,
+      slot: state.slot,
+      scale: state.scale,
+      extent: state.dataExtent(endsSeen),
+    }
+  }
+
+  function numberView(state: NumberState, ends: boolean): SceneNumberScale {
+    return { slot: state.slot, scale: state.scale, extent: state.dataExtent(ends) }
+  }
+
+  function syncColors(
+    own: readonly (ColorState | null)[],
+    given: readonly (ColorScale | NumberScale | undefined)[],
+    kind: 'nodes' | 'edges',
+  ): { states: (ColorState | null)[]; moved: boolean } {
+    let moved = own.slice(given.length).some(Boolean)
+    const states = given.map((options, slot) => {
+      const before = own[slot] ?? null
+      if (options === undefined) {
+        if (before) moved = true
+        return null
+      }
+      const scale = options as ColorScale
+      if (!before) {
+        moved = true
+        return new ColorState(scale, resolveColorScale(scale), kind, slot)
+      }
+      if (!sameScale(before.options, scale)) {
+        before.scale = resolveColorScale(scale)
+        full = true
+      }
+      before.options = scale
+      return before
+    })
+    return { states, moved }
+  }
+
+  function syncNumbers(
+    own: readonly (NumberState | null)[],
+    given: readonly (ColorScale | NumberScale | undefined)[],
+    fallback: Fallback,
+  ): { states: (NumberState | null)[]; moved: boolean } {
+    let moved = own.slice(given.length).some(Boolean)
+    const states = given.map((options, slot) => {
+      const before = own[slot] ?? null
+      if (options === undefined) {
+        if (before) moved = true
+        return null
+      }
+      const scale = options as NumberScale
+      if (!before) {
+        moved = true
+        return new NumberState(scale, resolveNumberScale(scale, fallback), slot)
+      }
+      if (!sameScale(before.options, scale)) {
+        before.scale = resolveNumberScale(scale, fallback)
+        full = true
+      }
+      before.options = scale
+      return before
+    })
+    return { states, moved }
   }
 
   function include<R extends { readonly index: number }>(
@@ -564,12 +761,13 @@ export function createScene(): Scene {
 
     scales() {
       return {
-        color: colorScale,
-        colorExtent: colorExtentOf(),
-        size: sizeScale,
-        sizeExtent: sizeExtent.extent,
-        width: widthScale,
-        widthExtent: combineExtents(widthExtent.extent, endWidthExtent.extent),
+        color: colorView(sharedColor),
+        size: numberView(sharedSize, false),
+        width: numberView(sharedWidth, true),
+        nodeColors: nodeColors.map((state) => state && colorView(state)),
+        edgeColors: edgeColors.map((state) => state && colorView(state)),
+        sizes: sizes.map((state) => state && numberView(state, false)),
+        widths: widths.map((state) => state && numberView(state, true)),
         nodeColor: nodeColorValues,
         edgeColor: edgeColorValues,
         endColor: endColorValues,
@@ -579,25 +777,40 @@ export function createScene(): Scene {
     setDefinition(definition) {
       const next = definition.scales
       if (!sameScale(next.color, scales.color)) {
-        colorScale = resolveColorScale(next.color)
+        sharedColor.scale = resolveColorScale(next.color)
         full = true
       }
       if (!sameScale(next.size, scales.size)) {
-        sizeScale = resolveNumberScale(next.size, { type: 'sqrt', range: defaults.nodeSizeRange })
+        sharedSize.scale = resolveNumberScale(next.size, sizeFallback)
         full = true
       }
       if (!sameScale(next.width, scales.width)) {
-        widthScale = resolveNumberScale(next.width, {
-          type: 'linear',
-          range: defaults.edgeWidthRange,
-        })
+        sharedWidth.scale = resolveNumberScale(next.width, widthFallback)
         full = true
       }
       scales = next
+      const marks = definition.marks
+      const ownNodeColors = syncColors(nodeColors, ownScales(marks, 'nodes', 'color'), 'nodes')
+      const ownEdgeColors = syncColors(edgeColors, ownScales(marks, 'edges', 'color'), 'edges')
+      const ownSizes = syncNumbers(sizes, ownScales(marks, 'nodes', 'size'), sizeFallback)
+      const ownWidths = syncNumbers(widths, ownScales(marks, 'edges', 'width'), widthFallback)
+      nodeColors = ownNodeColors.states
+      edgeColors = ownEdgeColors.states
+      sizes = ownSizes.states
+      widths = ownWidths.states
+      ownNodeScales = nodeColors.some(Boolean) || sizes.some(Boolean)
+      ownEdgeScales = edgeColors.some(Boolean) || widths.some(Boolean)
+      if (ownNodeColors.moved || ownEdgeColors.moved || ownSizes.moved || ownWidths.moved) {
+        for (const state of colorStates()) state.clear()
+        for (const state of numberStates(sharedSize, sizes)) state.clear()
+        for (const state of numberStates(sharedWidth, widths)) state.clear()
+        full = true
+      }
+      compiledNodeMark = null
+      compiledEdgeMark = null
       if (markLayers.setMarks(definition.marks)) lanes.setRanks(markLayers.edgeRanks)
       const nextLayers = layersOf(definition.marks)
       slots.clear()
-      slotMark = null
       definition.marks.forEach((mark, position) => {
         slots.set(mark, nextLayers[position]?.slot ?? 0)
       })
@@ -641,25 +854,28 @@ export function createScene(): Scene {
       for (const record of nodeBatch.records) readNode(record)
       for (const record of edgeBatch.records) readEdge(record)
 
-      const nextColor = colorScale.needsExtent ? colorExtentOf() : null
-      if (!sameExtent(nextColor, colorExtent)) {
-        colorExtent = nextColor
-        include(nodeBatch, nodeColorExtent, (index) => model.nodeAt(index))
-        include(edgeBatch, edgeColorExtent, (index) => model.edgeAt(index))
-        include(edgeBatch, endColorExtent, (index) => model.edgeAt(index), 1)
+      const nodeAt = (index: number) => model.nodeAt(index)
+      const edgeAt = (index: number) => model.edgeAt(index)
+      for (const state of colorStates()) {
+        const next = state.scale.needsExtent ? state.dataExtent(endsSeen) : null
+        if (sameExtent(next, state.extent)) continue
+        state.extent = next
+        include(nodeBatch, state.nodes, nodeAt)
+        include(edgeBatch, state.edges, edgeAt)
+        include(edgeBatch, state.ends, edgeAt, 1)
       }
-      const nextSize = sizeScale.needsExtent ? sizeExtent.extent : null
-      if (!sameExtent(nextSize, sizeDomain)) {
-        sizeDomain = nextSize
-        include(nodeBatch, sizeExtent, (index) => model.nodeAt(index))
+      for (const state of numberStates(sharedSize, sizes)) {
+        const next = state.scale.needsExtent ? state.dataExtent(false) : null
+        if (sameExtent(next, state.domain)) continue
+        state.domain = next
+        include(nodeBatch, state.values, nodeAt)
       }
-      const nextWidth = widthScale.needsExtent
-        ? combineExtents(widthExtent.extent, endWidthExtent.extent)
-        : null
-      if (!sameExtent(nextWidth, widthDomain)) {
-        widthDomain = nextWidth
-        include(edgeBatch, widthExtent, (index) => model.edgeAt(index))
-        include(edgeBatch, endWidthExtent, (index) => model.edgeAt(index), 1)
+      for (const state of numberStates(sharedWidth, widths)) {
+        const next = state.scale.needsExtent ? state.dataExtent(true) : null
+        if (sameExtent(next, state.domain)) continue
+        state.domain = next
+        include(edgeBatch, state.values, edgeAt)
+        include(edgeBatch, state.ends, edgeAt, 1)
       }
 
       for (const record of nodeBatch.records) writeNode(record)

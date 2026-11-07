@@ -60,18 +60,17 @@ const sizes: readonly number[] = [8, 14]
 const define = (shape: Shape, size: number) =>
   defineGraph({
     marks: [
-      edges<Wire>(wires, { source: 'from', target: 'to', color: 'axis', width: () => 2.5 }),
+      edges<Wire>(wires, { source: 'from', target: 'to', color: 'axis', width: 2.5 }),
       edges<Shortcut>(shortcuts, {
         source: 'from',
         target: 'to',
         dash: 'dashed',
         stroke: 'var(--graph-ink-muted)',
-        width: () => 1.5,
+        width: 1.5,
         bridge: false,
       }),
-      nodes<Post>(posts, { x: 'x', y: 'y', shape: 'square', size: () => 12 }),
+      nodes<Post>(posts, { x: 'x', y: 'y', shape: 'square', size: 12 }),
     ],
-    scales: { size: (value) => value, width: (value) => value },
     bridges: shape === 'off' ? null : { shape, size },
     view: { padding: 64 },
   })

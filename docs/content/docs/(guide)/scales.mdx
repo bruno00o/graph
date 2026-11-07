@@ -1,11 +1,11 @@
 ---
 title: Scales
-description: Turn data values into colors, sizes and widths, shared by every mark.
+description: Turn data values into colors, sizes and widths, shared by every mark or kept to one.
 ---
 
 ## Shared scales
 
-Channels go through three scales: `color`, `size` and `width`. A scale is shared by every mark of the definition, so a group keeps the same color on nodes and edges. Configure them in `defineGraph`.
+Channels go through three scales: `color`, `size` and `width`. A scale is shared by every mark of the definition without [scales of its own](#scales-of-a-mark), so a group keeps the same color on nodes and edges. Configure them in `defineGraph`.
 
 ```ts
 defineGraph({
@@ -19,7 +19,7 @@ defineGraph({
 
 | Scale | Default | Options |
 | --- | --- | --- |
-| `color` | Categorical, `--graph-cat-1` to `--graph-cat-8` in order of appearance, cycling | `{ domain, range }`, or `{ type: 'sequential', domain, range }` |
+| `color` | Categorical, `--graph-cat-1` to `--graph-cat-12` in order of appearance, cycling | `{ domain, range }`, or `{ type: 'sequential', domain, range }` |
 | `size` | Square root from the data extent to `[8, 32]`, so the area follows the value | `{ type: 'linear' \| 'sqrt', domain, range }` |
 | `width` | Linear from the data extent to `[1, 6]` | `{ type: 'linear' \| 'sqrt', domain, range }` |
 
@@ -50,31 +50,62 @@ scales: {
 }
 ```
 
-A constant size or width is a function, `size: () => 24`, and it goes through the scale like any value. When every value is the same, the extent of the data is a single point and the scale returns the middle of its range: 20 for `size` and 3.5 for `width` by default. To use the values as they are, give an identity scale:
+A number literal skips the scale: `size: 24` draws every node 24 pixels wide, and `width: 2` every edge 2 pixels wide. `raw()` does the same for a function, and for colors:
 
 ```ts
+import { edges, nodes, raw } from '@bruno00o/graph'
+
 defineGraph({
-  marks: [nodes(items, { size: () => 24 }), edges(links, { source: 'from', target: 'to', width: () => 2 })],
-  scales: { size: (value) => value, width: (value) => value },
+  marks: [
+    edges(links, { source: 'from', target: 'to', width: 2 }),
+    nodes(items, { size: raw((item) => item.radius * 2), color: raw((item) => item.hex) }),
+  ],
 })
 ```
 
+Raw values stay out of the extent and the categories of the scale, so they never move the other elements of that scale. See [Channels and styles](/docs/marks#channels-and-styles).
+
+### A single value
+
+When every value of the data is the same, the extent is a single point. A number scale then keeps the value, clamped to its range: with the default `size` range `[8, 32]`, a weight of 12 draws a 12 pixel node and a weight of 40 a 32 pixel node. An explicit `domain` of a single value returns the middle of the range, a sequential color scale draws a single value at the middle of its colors, and a function scale gets the value as it is.
+
 Examples: [size scale](/examples/size-scale) compares the square root, linear and identity scales, and [edge width, dashes and arrows](/examples/edge-styles) reads the width from a field.
+
+## Scales of a mark
+
+A mark with `scales` of its own keeps its values apart: its own extent, its own categories and its own legend section. Nodes take `color` and `size`, edges take `color` and `width`, and the ends of an edge use the scales of their mark. Every other mark keeps the shared scale.
+
+```ts
+defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to', width: 'amount', scales: { width: { range: [1, 12] } } }),
+    nodes(items, { color: 'group', size: 'weight' }),
+    nodes(topics, {
+      color: 'kind',
+      size: 'score',
+      scales: {
+        color: { range: ['var(--graph-cat-9)', 'var(--graph-cat-11)'] },
+        size: { range: [24, 64] },
+      },
+    }),
+  ],
+})
+```
+
+The scores of `topics` span their own extent, so a large score does not shrink the other nodes, and their kinds take colors without sharing categories with the groups of `items`. A scale of a mark takes the same options as a shared one, a function included, and `groups()` takes `scales` like `nodes()`. Types: [`NodeScalesOptions`](/docs/api/nodes#scales) and [`EdgeScalesOptions`](/docs/api/edges#scales). In the [legend](/docs/minimap-and-legend#sections), each mark with scales of its own has its own sections.
 
 ## Functions
 
-Any scale can be a function, which makes D3 scales work as is.
+Any scale can be a function of the channel value.
 
 ```ts
-import { scaleLog } from 'd3-scale'
-
 scales: {
-  size: scaleLog().domain([1, 1e6]).range([8, 40]),
+  size: (value) => 8 + Math.log10(1 + value) * 8,
   color: (value) => (value === 'A' ? 'var(--graph-cat-4)' : 'var(--graph-node)'),
 }
 ```
 
-An identity function uses the channel values as they are: `size: (value) => value` makes `size: 'weight'` a diameter in pixels.
+An identity function uses the channel values as they are: `size: (value) => value` makes `size: 'weight'` a diameter in pixels. To keep the values of one mark only, wrap its channel in `raw()` instead.
 
 ## Missing values
 
@@ -82,4 +113,4 @@ A channel that returns `null` or `undefined`, or a mark without that channel, ta
 
 ## When a scale changes
 
-Scale options are compared by content: a definition rebuilt with the same scales rewrites nothing. A changed scale restyles every element that uses it and resets the categories.
+Scale options are compared by content, shared scales and scales of a mark alike: a definition rebuilt with the same scales rewrites nothing. A changed scale restyles every element that uses it and resets its categories. Adding or removing the scales of a mark, or moving a mark to another position, restyles every element.

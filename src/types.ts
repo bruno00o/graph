@@ -63,6 +63,34 @@ export type KeyChannel<T> = KeyFieldOf<T> | Accessor<T, Key>
 /** A constant or a function of the item, never a field name. Its value is final, with no scale. */
 export type Style<T, V> = V | Accessor<T, V>
 
+declare const rawValue: unique symbol
+
+/**
+ * A function made by `raw()`. Its value is used as is, without the scale of its channel, and stays
+ * out of the extent and the categories of that scale.
+ */
+export interface RawAccessor<T, V> {
+  (datum: T): V
+  readonly [rawValue]: true
+}
+
+/**
+ * A number channel. A field name or a function goes through the scale of the channel. A number,
+ * or a function wrapped in `raw()`, is used as is.
+ */
+export type NumberChannel<T> =
+  | Channel<T, number>
+  | number
+  | RawAccessor<T, number | null | undefined>
+
+/**
+ * A color channel. A field name or a function goes through the `color` scale. A function wrapped
+ * in `raw()` gives a CSS color used as is. For one color for all, use `fill` or `stroke`.
+ */
+export type ColorChannel<T> =
+  | Channel<T, string | number | boolean>
+  | RawAccessor<T, string | null | undefined>
+
 /** One change of a live source. */
 export interface SourceChange<T> {
   /** What happened to the item. */
@@ -251,8 +279,8 @@ export type MarkName = string | undefined
 export type MarkLayer = string | undefined
 
 /**
- * Options of `nodes()`. Channels go through a scale; styles are final values. `N` is the type of
- * `name` and `L` that of `layer`.
+ * Options of `nodes()`. Channels go through a scale, unless their value is raw; styles are final
+ * values. `N` is the type of `name` and `L` that of `layer`.
  */
 export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer> {
   /**
@@ -271,15 +299,17 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly key?: KeyChannel<T> | undefined
   /**
-   * Value passed to the `color` scale: a category or a number.
+   * Value passed to the `color` scale: a category or a number. A function wrapped in `raw()` gives
+   * a CSS color instead, with no scale.
    * @default --graph-node
    */
-  readonly color?: Channel<T, string | number | boolean> | undefined
+  readonly color?: ColorChannel<T> | undefined
   /**
-   * Value passed to the `size` scale. The size is a diameter.
+   * Diameter of the node: a number, or a function wrapped in `raw()`, used as is, or a field or a
+   * function whose value goes through the `size` scale.
    * @default 16
    */
-  readonly size?: Channel<T, number> | undefined
+  readonly size?: NumberChannel<T> | undefined
   /** Label text, or the text with its style. */
   readonly label?: Channel<T, string> | LabelOptions<T> | undefined
   /** Horizontal position in world units. The node follows it, and layouts leave it in place. */
@@ -357,6 +387,11 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   readonly parent?: Channel<T, Key> | undefined
   /** Look of the node while it is an unfolded group, drawn as a container behind its children. */
   readonly container?: ContainerOptions<T> | undefined
+  /**
+   * Scales of this mark alone, each with its own extent and categories. A scale left out is the
+   * one of the definition, shared with the other marks.
+   */
+  readonly scales?: NodeScalesOptions | undefined
 }
 
 /** Outline of an unfolded group: `'rectangle'`, with rounded corners, or `'circle'`. */
@@ -395,8 +430,8 @@ export interface ContainerOptions<T> {
 }
 
 /**
- * Options of `edges()`. Channels go through a scale; styles are final values. `N` is the type of
- * `name` and `L` that of `layer`.
+ * Options of `edges()`. Channels go through a scale, unless their value is raw; styles are final
+ * values. `N` is the type of `name` and `L` that of `layer`.
  */
 export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer> {
   /**
@@ -420,15 +455,17 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   /** Key of the target node. */
   readonly target: KeyChannel<T>
   /**
-   * Value passed to the `color` scale: a category or a number.
+   * Value passed to the `color` scale: a category or a number. A function wrapped in `raw()` gives
+   * a CSS color instead, with no scale.
    * @default --graph-edge
    */
-  readonly color?: Channel<T, string | number | boolean> | undefined
+  readonly color?: ColorChannel<T> | undefined
   /**
-   * Value passed to the `width` scale, in screen pixels.
+   * Line width in screen pixels: a number, or a function wrapped in `raw()`, used as is, or a field
+   * or a function whose value goes through the `width` scale.
    * @default 1.5
    */
-  readonly width?: Channel<T, number> | undefined
+  readonly width?: NumberChannel<T> | undefined
   /** Label text, or the text with its style. */
   readonly label?: Channel<T, string> | EdgeLabelOptions<T> | undefined
   /**
@@ -522,6 +559,12 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * `merge` merges: one per pair of visible ends, direction and merge value.
    */
   readonly aggregate?: AggregateEdgeOptions<T> | undefined
+  /**
+   * Scales of this mark alone, each with its own extent and categories, also used by the ends and
+   * the aggregated edges of the mark. A scale left out is the one of the definition, shared with
+   * the other marks.
+   */
+  readonly scales?: EdgeScalesOptions | undefined
 }
 
 /** Options of the `merge` option of `edges()`: which parallel edges draw as one. */
@@ -570,17 +613,18 @@ export interface EdgeEndsOptions<T> {
  */
 export interface EdgeEndOptions<T> {
   /**
-   * Value passed to the `color` scale, as the `color` channel of the edge. Defaults to the color of
-   * the edge.
+   * Value passed to the `color` scale of the edge, as its `color` channel, or a CSS color from a
+   * function wrapped in `raw()`. Defaults to the color of the edge.
    */
-  readonly color?: Channel<T, string | number | boolean> | undefined
+  readonly color?: ColorChannel<T> | undefined
   /** Line color of this end. Wins over `color`. */
   readonly stroke?: Style<T, string> | undefined
   /**
-   * Value passed to the `width` scale, in screen pixels. Defaults to the width of the edge. An arrow
-   * head at this end follows it.
+   * Line width of this end in screen pixels, as the `width` channel of the edge: a number or a
+   * function wrapped in `raw()`, used as is, or a value passed to its `width` scale. Defaults to the
+   * width of the edge. An arrow head at this end follows it.
    */
-  readonly width?: Channel<T, number> | undefined
+  readonly width?: NumberChannel<T> | undefined
   /**
    * Line pattern of this end: `'solid'`, `'dashed'` or `'dotted'`. The pattern runs on across the
    * split. Defaults to the pattern of the edge.
@@ -640,7 +684,7 @@ export interface AggregateDirection<T = unknown> {
  */
 export type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate'
+  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate' | 'scales'
 >
 
 /** A set of nodes or edges, made by `nodes()` or `edges()`. Marks draw in the order given. */
@@ -771,7 +815,7 @@ export type ColorScale =
       readonly type?: 'categorical' | undefined
       /** Categories that take the first colors, in this order. Others follow as they appear. */
       readonly domain?: readonly unknown[] | undefined
-      /** CSS colors. Defaults to `--graph-cat-1` to `--graph-cat-8`. */
+      /** CSS colors. Defaults to `--graph-cat-1` to `--graph-cat-12`. */
       readonly range?: readonly string[] | undefined
     }
   | {
@@ -792,13 +836,16 @@ export type NumberScale =
   | {
       /** Interpolation: `'sqrt'` for `size` and `'linear'` for `width` by default. */
       readonly type?: NumberScaleType | undefined
-      /** Values at both ends, outside which values are clamped. Defaults to the data extent. */
+      /**
+       * Values at both ends, outside which values are clamped. Defaults to the data extent: when
+       * the data holds a single value, the scale keeps it, clamped to the range.
+       */
       readonly domain?: readonly [number, number] | undefined
       /** Output at both ends: `[8, 32]` for `size` and `[1, 6]` for `width` by default. */
       readonly range?: readonly [number, number] | undefined
     }
 
-/** The three scales, shared by every mark of a definition. */
+/** The three scales, shared by every mark of a definition that has no scale of its own. */
 export interface ScalesOptions {
   /** Scale of the `color` channel of nodes and edges. Categorical by default. */
   readonly color?: ColorScale | undefined
@@ -811,6 +858,28 @@ export interface ScalesOptions {
    * Scale of the edge `width` channel, in screen pixels. Linear from the data extent to `[1, 6]` by
    * default.
    */
+  readonly width?: NumberScale | undefined
+}
+
+/**
+ * Options of the `scales` option of `nodes()` and `groups()`: scales of the nodes of one mark,
+ * each with its own extent and categories, apart from the other marks.
+ */
+export interface NodeScalesOptions {
+  /** Scale of the `color` channel of the mark. Defaults to the `color` scale of the definition. */
+  readonly color?: ColorScale | undefined
+  /** Scale of the `size` channel of the mark. Defaults to the `size` scale of the definition. */
+  readonly size?: NumberScale | undefined
+}
+
+/**
+ * Options of the `scales` option of `edges()`: scales of the edges of one mark, of their ends and of
+ * their aggregated edges, each with its own extent and categories, apart from the other marks.
+ */
+export interface EdgeScalesOptions {
+  /** Scale of the `color` channel of the mark. Defaults to the `color` scale of the definition. */
+  readonly color?: ColorScale | undefined
+  /** Scale of the `width` channel of the mark. Defaults to the `width` scale of the definition. */
   readonly width?: NumberScale | undefined
 }
 
@@ -1383,7 +1452,7 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * targets of events and of the state.
    */
   readonly marks: readonly M[]
-  /** `color`, `size` and `width` scales, shared by every mark. */
+  /** `color`, `size` and `width` scales, shared by every mark without a scale of its own. */
   readonly scales?: ScalesOptions | undefined
   /** Free states, and overrides of `selected`, `hovered` and `focused`. At most 29 free states. */
   readonly states?: StateStyles<S> | undefined
@@ -1446,7 +1515,7 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
 export interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
   /** Marks, drawn in this order. */
   readonly marks: readonly M[]
-  /** Scales shared by every mark. */
+  /** Scales shared by every mark without a scale of its own. */
   readonly scales: ScalesOptions
   /** Style of each declared state. */
   readonly states: StateStyles<S>

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { raw } from '../core/raw'
 import { defineGraph } from '../define-graph'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { edges, nodes } from '../marks'
@@ -215,6 +216,109 @@ describe('createLegend', () => {
       ['east', 0, 1],
     ])
     expect(legend.keys('c:string:east')).toEqual({ nodes: [], edges: ['ab'] })
+    legend.destroy()
+    graph.destroy()
+  })
+
+  it('reads one section per scale, with the own scales of each mark apart', () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [
+            edges<Link, 'links'>(links, {
+              source: 'from',
+              target: 'to',
+              name: 'links',
+              color: 'group',
+              width: 3,
+              scales: { color: { domain: ['south', 'east'], range: ['red', 'blue'] } },
+            }),
+            nodes<Item, 'items'>(items, {
+              name: 'items',
+              color: 'group',
+              size: raw((item) => item.weight * 4),
+            }),
+            nodes<Item, 'extra'>([{ id: 'x', group: 'north', weight: 3 }], {
+              name: 'extra',
+              color: raw(() => '#123456'),
+              size: 'weight',
+              scales: { size: { range: [10, 20] } },
+            }),
+          ],
+          states: { match: {}, faded: {} },
+        }),
+        ariaLabel: 'graph',
+      },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const legend = createLegend(graph as unknown as GraphInstance<'match' | 'faded'>, {
+      highlight: 'match',
+      hidden: 'faded',
+    })
+    const state = legend.store.state
+    const shared = state.color?.type === 'categories' ? state.color.items : []
+    expect(shared.map((item) => [item.id, item.nodes, item.edges])).toEqual([
+      ['c:string:north', 2, 0],
+      ['c:string:south', 1, 0],
+    ])
+    expect(state.size).toBeNull()
+    expect(state.width).toBeNull()
+    expect(state.marks.map((mark) => [mark.id, mark.kind, mark.mark])).toEqual([
+      ['n1', 'nodes', 'extra'],
+      ['e0', 'edges', 'links'],
+    ])
+    expect(state.marks[0]?.size?.items).toEqual([{ value: 3, size: 10 }])
+    expect(state.marks[0]?.color).toBeNull()
+    const own = state.marks[1]?.color
+    expect(own?.type === 'categories' ? own.items : []).toEqual([
+      {
+        id: 'c:e0:string:south',
+        kind: 'category',
+        value: 'south',
+        color: 'red',
+        nodes: 0,
+        edges: 1,
+        off: false,
+      },
+      {
+        id: 'c:e0:string:east',
+        kind: 'category',
+        value: 'east',
+        color: 'blue',
+        nodes: 0,
+        edges: 0,
+        off: false,
+      },
+    ])
+    expect(legend.keys('c:e0:string:south')).toEqual({ nodes: [], edges: ['ab'] })
+    expect(legend.keys('c:string:south')).toEqual({ nodes: ['b'], edges: [] })
+    legend.only('c:e0:string:south')
+    expect(legend.store.state.off).toEqual(['c:e0:string:east'])
+    legend.reset()
+    legend.toggle('c:e0:string:south')
+    const after = legend.store.state.marks[1]?.color
+    expect(after?.type === 'categories' ? after.items[0]?.off : undefined).toBe(true)
+    expect(graph.store.state.states.faded).toEqual({ nodes: [], edges: ['ab'] })
+    const view = mountLegend(legend, {
+      titles: { color: 'Group' },
+      markTitle: (mark, section) => `${mark.mark} ${section}`,
+    })
+    const blocks = [...view.element.querySelectorAll('section')].map((block) => [
+      block.getAttribute('data-section'),
+      block.getAttribute('data-mark'),
+    ])
+    expect(blocks).toEqual([
+      ['color', null],
+      ['color', 'e0'],
+      ['size', 'n1'],
+      ['looks', null],
+    ])
+    expect(view.element.textContent).toContain('links color')
+    view.destroy()
     legend.destroy()
     graph.destroy()
   })

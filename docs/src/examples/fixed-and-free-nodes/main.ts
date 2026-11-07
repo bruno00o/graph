@@ -1,4 +1,4 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -70,12 +70,11 @@ export function mount(container: HTMLElement): GraphInstance {
           x: (point) => place(point)?.x,
           y: (point) => place(point)?.y,
           color: 'group',
-          size: (point) => (point.fixed ? 30 : 14),
+          size: raw((point) => (point.fixed ? 30 : 14)),
           shape: (point) => (point.fixed ? 'square' : 'circle'),
           label: (point) => (point.fixed ? point.label : null),
         }),
       ],
-      scales: { size: (value) => value },
       layout: force({ edgeLength: 16, repulsion: 30 }),
     })
 

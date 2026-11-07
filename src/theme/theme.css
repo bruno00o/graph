@@ -29,6 +29,10 @@
   --graph-cat-6: #448335;
   --graph-cat-7: #5d4099;
   --graph-cat-8: #745338;
+  --graph-cat-9: #b64464;
+  --graph-cat-10: #626a09;
+  --graph-cat-11: #7471d6;
+  --graph-cat-12: #a66bb9;
   --graph-font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
   color-scheme: light;
 }
@@ -65,6 +69,10 @@
   --graph-cat-6: #81ce70;
   --graph-cat-7: #9e87e0;
   --graph-cat-8: #aa8b74;
+  --graph-cat-9: #f98b9d;
+  --graph-cat-10: #96a142;
+  --graph-cat-11: #ababf8;
+  --graph-cat-12: #dfa5ec;
   color-scheme: dark;
 }
 
@@ -100,6 +108,10 @@
     --graph-cat-6: #81ce70;
     --graph-cat-7: #9e87e0;
     --graph-cat-8: #aa8b74;
+    --graph-cat-9: #f98b9d;
+    --graph-cat-10: #96a142;
+    --graph-cat-11: #ababf8;
+    --graph-cat-12: #dfa5ec;
     color-scheme: dark;
   }
 }

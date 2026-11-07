@@ -29,6 +29,7 @@ import type {
   EdgeMark,
   EdgeMergeOptions,
   EdgeOptions,
+  EdgeScalesOptions,
   EdgeTarget,
   ElementKeysInput,
   FitOptions,
@@ -52,6 +53,7 @@ import type {
   NodeImage,
   NodeMark,
   NodeOptions,
+  NodeScalesOptions,
   NumberScale,
   PathOptions,
   ReachOptions,
@@ -136,6 +138,7 @@ interface Inputs {
   EdgeLabelOptions: EdgeLabelOptions<Link>
   EdgeMergeOptions: EdgeMergeOptions<Link>
   EdgeOptions: EdgeOptions<Link>
+  EdgeScalesOptions: EdgeScalesOptions
   ElementKeysInput: ElementKeysInput
   ExplorationOptions: ExplorationOptions<Item, Link>
   ExportOptions: ExportOptions
@@ -176,6 +179,7 @@ interface Inputs {
   MountGraphOptions: MountGraphOptions<'muted', Marks>
   NodeImage: NodeImage
   NodeOptions: NodeOptions<Item>
+  NodeScalesOptions: NodeScalesOptions
   NumberScale: NumberScale
   OrthogonalRoutingOptions: OrthogonalRoutingOptions
   PathOptions: PathOptions<Marks>

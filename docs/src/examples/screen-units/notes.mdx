@@ -5,7 +5,7 @@ Two node marks share the graph:
 - **Zones** are nodes sized in world units, from 240 to 300. They grow when you zoom in, like the distances between nodes. A pale `fill` and a `stroke` mixed from a theme token turn them into areas, and their label sits at the `center`.
 - **Markers** have `units: 'screen'`: a size of 12 means 12 pixels on screen, whatever the zoom. Zoom in, and the markers spread apart without growing, so a dense zone opens up.
 
-Both marks use the identity size scale, `size: (value) => value`, so the size of a node is the number its channel returns.
+Neither size goes through the size scale: the zones read theirs with `size: raw((zone) => zone.size)`, and the markers take the number literal `size: 12`. The size of a node is the number its channel gives.
 
 The button sets `units` to `'world'` on the markers and passes a new definition to `graph.update`. The markers are then 12 world units wide: tiny when zoomed out, large when zoomed in, as the zones are. The zoom level shows at the bottom left.
 

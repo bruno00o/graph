@@ -13,7 +13,7 @@ import { shallowEqual } from './shallow-equal'
 
 export type ElementKind = 'nodes' | 'edges'
 
-const projected: ReadonlySet<string> = new Set(['merge', 'aggregate'])
+const comparedApart: ReadonlySet<string> = new Set(['merge', 'aggregate', 'scales'])
 
 export type AnyMark = NodeMark<unknown> | EdgeMark<unknown>
 
@@ -208,7 +208,7 @@ export class SourceTable<M extends AnyMark> {
   #reconcile(slot: number, mark: M, old: Source<M> | undefined): Source<M> {
     if (old?.mark === mark) return old
     const optionsChanged =
-      old !== undefined && !shallowEqual(old.mark.options, mark.options, projected)
+      old !== undefined && !shallowEqual(old.mark.options, mark.options, comparedApart)
     const data = mark.data
     if (isLiveSource(data)) {
       if (old?.live === data) {

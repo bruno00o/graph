@@ -16,7 +16,7 @@ const { spots, links } = createScatter(260, 4, 19)
 const definition = defineGraph({
   marks: [
     edges<Link>(links, { source: 'from', target: 'to' }),
-    nodes<Spot>(spots, { x: 'x', y: 'y', label: 'label', size: () => 14 }),
+    nodes<Spot>(spots, { x: 'x', y: 'y', label: 'label', size: 14 }),
   ],
   states: {
     route: {

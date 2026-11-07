@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
-import { edges, nodes } from '../marks'
+import { edges, groups, nodes } from '../marks'
 import type { GraphDefinition, GraphDefinitionOptions, LabelPlacement } from '../types'
 import { arrowCodes, cornerCodes, dashCodes, noColor, shapeCodes } from './columns'
 import { createGraphModel } from './graph-model'
+import { raw } from './raw'
 import { createScene } from './scene'
 
 type Item = { id: string; group?: string; score?: number; name?: string }
@@ -399,6 +400,165 @@ describe('createScene', () => {
     expect(size('b')).toBe(40)
   })
 
+  it('keeps a single value of the data, clamped to the range', () => {
+    const one = [{ id: 'a' }, { id: 'b' }]
+    const { size, render, scene, model } = setup({
+      marks: [
+        nodes<Item>(one, { size: () => 30 }),
+        edges<Link>([{ id: 'ab', from: 'a', to: 'b' }], { ...linkOptions, width: () => 3 }),
+      ],
+    })
+    expect(size('a')).toBe(30)
+    expect(scene.edges.width[model.edge('ab')?.index ?? -1]).toBe(3)
+    render({ marks: [nodes<Item>(one, { size: () => 60 })] })
+    expect(size('a')).toBe(32)
+  })
+
+  it('draws number literals and raw values as given, outside the extents', () => {
+    const items = [
+      { id: 'a', score: 0 },
+      { id: 'b', score: 100 },
+      { id: 'c', score: 4 },
+    ]
+    const links: Link[] = [
+      { id: 'ab', from: 'a', to: 'b', weight: 9 },
+      { id: 'bc', from: 'b', to: 'c', weight: 1 },
+    ]
+    const { size, scene, model, fill } = setup({
+      marks: [
+        nodes<Item>(items.slice(0, 2), { size: 'score' }),
+        nodes<Item>(items.slice(2), { size: raw((item) => (item.score ?? 0) * 10), color: 'id' }),
+        edges<Link>(links.slice(0, 1), { ...linkOptions, width: 2.5 }),
+        edges<Link>(links.slice(1), {
+          ...linkOptions,
+          width: raw((link) => link.weight),
+          color: raw(() => '#123456'),
+          ends: { target: { width: 7, color: raw(() => '#654321') } },
+        }),
+      ],
+    })
+    expect([size('a'), size('b'), size('c')]).toEqual([8, 32, 40])
+    expect(scene.scales().size.extent).toEqual([0, 100])
+    const edge = (key: string) => model.edge(key)?.index ?? -1
+    expect(scene.edges.width[edge('ab')]).toBe(2.5)
+    expect(scene.edges.width[edge('bc')]).toBe(7)
+    expect(scene.scales().width.extent).toBeNull()
+    expect(scene.palette.colors[scene.edges.color[edge('bc')] ?? -1]).toBe('#123456')
+    const ends = scene.edges.ends
+    expect(ends?.width[edge('bc') * 2]).toBe(1)
+    expect(scene.palette.colors[ends?.color[edge('bc') * 2 + 1] ?? -1]).toBe('#654321')
+    expect(fill('c')).toBe('var(--graph-cat-1)')
+    expect(scene.scales().edgeColor[edge('bc')]).toBeUndefined()
+  })
+
+  it('gives a mark with scales of its own its own extents and categories', () => {
+    const items = [
+      { id: 'a', score: 0, group: 'x' },
+      { id: 'b', score: 10, group: 'y' },
+    ]
+    const others = [
+      { id: 'c', score: 1000, group: 'z' },
+      { id: 'd', score: 2000, group: 'y' },
+    ]
+    const links: Link[] = [
+      { id: 'ab', from: 'a', to: 'b', weight: 1, kind: 'k' },
+      { id: 'cd', from: 'c', to: 'd', weight: 100, kind: 'k' },
+    ]
+    const definition = () => ({
+      marks: [
+        nodes<Item>(items, { size: 'score', color: 'group' }),
+        nodes<Item>(others, {
+          size: 'score',
+          color: 'group',
+          scales: { size: { range: [10, 20] }, color: { range: ['red', 'blue'] } },
+        }),
+        edges<Link>(links.slice(0, 1), { ...linkOptions, width: 'weight', color: 'kind' }),
+        edges<Link>(links.slice(1), {
+          ...linkOptions,
+          width: 'weight',
+          color: 'kind',
+          scales: { width: {} },
+        }),
+      ],
+    })
+    const { size, fill, scene, model, render } = setup(definition())
+    expect([size('a'), size('b')]).toEqual([8, 32])
+    expect([size('c'), size('d')]).toEqual([10, 20])
+    expect([fill('a'), fill('b')]).toEqual(['var(--graph-cat-1)', 'var(--graph-cat-2)'])
+    expect([fill('c'), fill('d')]).toEqual(['red', 'blue'])
+    const edge = (key: string) => model.edge(key)?.index ?? -1
+    expect(scene.edges.width[edge('ab')]).toBe(1)
+    expect(scene.edges.width[edge('cd')]).toBe(6)
+    expect(scene.palette.colors[scene.edges.color[edge('cd')] ?? -1]).toBe('var(--graph-cat-3)')
+    const scales = scene.scales()
+    expect(scales.size.extent).toEqual([0, 10])
+    expect(scales.sizes[1]?.extent).toEqual([1000, 2000])
+    expect(scales.sizes[0]).toBeNull()
+    expect(scales.widths[1]?.extent).toEqual([100, 100])
+    expect(scales.width.extent).toEqual([1, 1])
+    expect(render(definition()).nodes.size).toBe(0)
+    const dirty = render({
+      marks: [
+        nodes<Item>(items, { size: 'score', color: 'group' }),
+        nodes<Item>(others, {
+          size: 'score',
+          color: 'group',
+          scales: { size: { range: [10, 40] }, color: { range: ['red', 'blue'] } },
+        }),
+        ...definition().marks.slice(2),
+      ],
+    })
+    expect(dirty.nodes.size).toBe(4)
+    expect(size('d')).toBe(40)
+    expect(fill('d')).toBe('blue')
+  })
+
+  it('moves an element from one scale to another with its mark', () => {
+    const shared = { id: 'a', score: 5 }
+    const own = nodes<Item>([{ id: 'b', score: 50 }], { size: 'score', scales: { size: {} } })
+    const { size, scene, render } = setup({
+      marks: [nodes<Item>([{ id: 'c', score: 1 }, shared], { size: 'score' }), own],
+    })
+    expect(scene.scales().size.extent).toEqual([1, 5])
+    render({
+      marks: [nodes<Item>([{ id: 'c', score: 1 }], { size: 'score' }), own],
+    })
+    expect(scene.scales().size.extent).toEqual([1, 1])
+    render({
+      marks: [
+        nodes<Item>([{ id: 'c', score: 1 }], { size: 'score' }),
+        nodes<Item>([{ id: 'b', score: 50 }, shared], { size: 'score', scales: { size: {} } }),
+      ],
+    })
+    expect(scene.scales().sizes[1]?.extent).toEqual([5, 50])
+    expect(scene.scales().size.extent).toEqual([1, 1])
+    expect(size('a')).toBe(8)
+    render({ marks: [nodes<Item>([{ id: 'c', score: 1 }, shared], { size: 'score' })] })
+    expect(scene.scales().size.extent).toEqual([1, 5])
+    expect(scene.scales().sizes).toEqual([null])
+    expect(size('a')).toBe(32)
+  })
+
+  it('reads the scales of a group mark', () => {
+    const items = [
+      { id: 'a', group: 'x', score: 1 },
+      { id: 'b', group: 'x', score: 2 },
+      { id: 'c', group: 'y', score: 3 },
+    ]
+    const { scene } = setup({
+      marks: [
+        nodes<Item>(items, { size: 'score' }),
+        groups<Item>(items, {
+          by: 'group',
+          size: (group) => group.count,
+          scales: { size: { range: [20, 40] } },
+        }),
+      ],
+    })
+    expect(scene.scales().size.extent).toEqual([1, 3])
+    expect(scene.scales().sizes[1]?.extent).toEqual([1, 2])
+  })
+
   it('colors sequential values from the shared extent', () => {
     const { fill } = setup({
       marks: [
@@ -533,7 +693,7 @@ describe('createScene', () => {
     } as const
     const { render, fill, scene, model } = setup({ marks: [items, pair(20)], scales })
     expect(fill('b')).not.toBe('black')
-    expect(scene.scales().widthExtent).toEqual([20, 20])
+    expect(scene.scales().width.extent).toEqual([20, 20])
     const index = model.edge('ab')?.index ?? -1
     render({ marks: [items, pair(10)], scales })
     expect(fill('b')).toBe('black')

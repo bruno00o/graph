@@ -6,6 +6,7 @@ import {
   mountGraph,
   type NodeImage,
   nodes,
+  raw,
 } from '@bruno00o/graph'
 import { type ExportLabels, type ExportRegion, exportPng, exportSvg } from '@bruno00o/graph/export'
 import { messages } from '../shared/messages'
@@ -88,7 +89,7 @@ const definition = defineGraph({
       x: 'x',
       y: 'y',
       color: 'group',
-      size: 'size',
+      size: raw((item) => item.size),
       label: 'label',
       image: (item) => item.image,
       badges: {
@@ -96,7 +97,6 @@ const definition = defineGraph({
       },
     }),
   ],
-  scales: { size: (value) => value },
 })
 
 function button(text: string, onClick: (button: HTMLButtonElement) => void): HTMLButtonElement {

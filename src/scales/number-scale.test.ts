@@ -19,8 +19,17 @@ describe('resolveNumberScale', () => {
     expect(scale.map(50, null)).toBe(100)
   })
 
-  it('uses the middle of the range for a single value', () => {
-    expect(resolveNumberScale(undefined, fallback).map(3, [3, 3])).toBe(50)
+  it('keeps a single value of the data, clamped to the range', () => {
+    const scale = resolveNumberScale(undefined, { type: 'sqrt', range: [8, 32] })
+    expect(scale.map(30, [30, 30])).toBe(30)
+    expect(scale.map(40, [40, 40])).toBe(32)
+    expect(scale.map(2, [2, 2])).toBe(8)
+    expect(scale.map(12, null)).toBe(12)
+    expect(resolveNumberScale({ range: [10, 0] }, fallback).map(3, [3, 3])).toBe(3)
+  })
+
+  it('uses the middle of the range for a single value of an explicit domain', () => {
+    expect(resolveNumberScale({ domain: [3, 3] }, fallback).map(3, null)).toBe(50)
   })
 
   it('maps square roots so that areas follow values', () => {

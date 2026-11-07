@@ -7,12 +7,15 @@ import type {
   NodeMark,
 } from '../types'
 import { toAccessor } from './accessor'
+import { rawRead } from './raw'
 
 export type Read = (datum: unknown) => unknown
 
 export interface CompiledNodeMark {
   readonly color: Read | null
+  readonly colorRaw: boolean
   readonly size: Read | null
+  readonly sizeRaw: boolean
   readonly x: Read | null
   readonly y: Read | null
   readonly longitude: Read | null
@@ -58,7 +61,9 @@ export interface CompiledLabelText {
 
 export interface CompiledEdgeMark {
   readonly color: Read | null
+  readonly colorRaw: boolean
   readonly width: Read | null
+  readonly widthRaw: boolean
   readonly label: Read | null
   readonly labelBackground: Read | null
   readonly labelText: CompiledLabelText
@@ -79,8 +84,10 @@ export interface CompiledEdgeMark {
 
 export interface CompiledEnd {
   readonly color: Read | null
+  readonly colorRaw: boolean
   readonly stroke: Read | null
   readonly width: Read | null
+  readonly widthRaw: boolean
   readonly dash: Read | null
   readonly label: Read | null
   readonly labelBackground: Read | null
@@ -96,6 +103,19 @@ export interface CompiledEnds {
 
 function channel(value: string | Read | undefined): Read | null {
   return value === undefined ? null : toAccessor(value)
+}
+
+function numberChannel(value: unknown): Read | null {
+  if (typeof value === 'number') return () => value
+  return rawRead(value) ?? channel(value as string | Read | undefined)
+}
+
+function colorChannel(value: unknown): Read | null {
+  return rawRead(value) ?? channel(value as string | Read | undefined)
+}
+
+function isRaw(value: unknown, literal: boolean): boolean {
+  return (literal && typeof value === 'number') || rawRead(value) !== undefined
 }
 
 function style(value: unknown): Read | null {
@@ -116,9 +136,11 @@ function labelText(options: LabelTextOptions<unknown> | null): CompiledLabelText
 function compileEnd(options: EdgeEndOptions<unknown> | undefined): CompiledEnd {
   const label = options?.label
   return {
-    color: channel(options?.color),
+    color: colorChannel(options?.color),
+    colorRaw: isRaw(options?.color, false),
     stroke: style(options?.stroke),
-    width: channel(options?.width),
+    width: numberChannel(options?.width),
+    widthRaw: isRaw(options?.width, true),
     dash: style(options?.dash),
     label: channel(typeof label === 'object' ? label.text : label),
     labelBackground: style(typeof label === 'object' ? label.background : undefined),
@@ -155,8 +177,10 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     if (read) badges.push([corner, read])
   }
   const compiled: CompiledNodeMark = {
-    color: channel(options.color),
-    size: channel(options.size),
+    color: colorChannel(options.color),
+    colorRaw: isRaw(options.color, false),
+    size: numberChannel(options.size),
+    sizeRaw: isRaw(options.size, true),
     x: channel(options.x),
     y: channel(options.y),
     longitude: channel(options.longitude),
@@ -203,8 +227,10 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
   const options = mark.options
   const label = options.label
   const compiled: CompiledEdgeMark = {
-    color: channel(options.color),
-    width: channel(options.width),
+    color: colorChannel(options.color),
+    colorRaw: isRaw(options.color, false),
+    width: numberChannel(options.width),
+    widthRaw: isRaw(options.width, true),
     label: channel(typeof label === 'object' ? label.text : label),
     labelBackground: style(typeof label === 'object' ? label.background : undefined),
     labelText: labelText(typeof label === 'object' ? label : null),

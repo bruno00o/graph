@@ -1,4 +1,4 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { createGroups, type Member, type Tie } from './data'
 import { messages } from './messages'
@@ -24,12 +24,12 @@ export function mount(container: HTMLElement): GraphInstance {
         nodes<Member>(items, {
           parent: 'parent',
           color: 'tone',
-          size: (item) => (item.parent ? 12 : 16 + (sizes.get(item.id) ?? 0) * 2),
+          size: raw((item) => (item.parent ? 12 : 16 + (sizes.get(item.id) ?? 0) * 2)),
           label: (item) => (item.parent ? null : item.label),
           container: { padding: 12 },
         }),
       ],
-      scales: { size: (value) => value, width: (value) => 1 + value },
+      scales: { width: (value) => 1 + value },
       layout: force(),
       relayout,
       view: { autoFit: 'layouts' },

@@ -44,7 +44,7 @@ const definition = defineGraph({
     nodes<Item>(items, {
       x: 'x',
       y: 'y',
-      size: () => 48,
+      size: 48,
       color: 'row',
       stroke: (item) => (item.row === 'outline' ? 'var(--graph-node-ring)' : 'var(--graph-ink)'),
       strokeWidth: (item) => (item.row === 'outline' ? 1 : item.row === 'both' ? 3 : item.width),
@@ -57,7 +57,6 @@ const definition = defineGraph({
     }),
   ],
   scales: {
-    size: (value) => value,
     color: {
       domain: rows,
       range: ['var(--graph-cat-1)', 'var(--graph-cat-3)', 'var(--graph-cat-5)'],
