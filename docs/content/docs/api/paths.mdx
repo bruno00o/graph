@@ -52,6 +52,11 @@ const path = paths.shortest('a', 'f', { weight: 'distance' })
 paths.destroy()
 ```
 
-It takes the marks of a definition, or a definition itself, and runs the same queries without mounting a graph. `visible` has no effect: there is nothing drawn.
+It takes the marks of a definition, or a definition itself, and runs the same queries without mounting a graph. It reads the arrays and subscribes to the live sources as soon as it is created, and applies their changes at the next query. `visible` has no effect: there is nothing drawn. After `destroy`, `shortest` returns `null` and `reach` the same empty, frozen result as for an unknown key.
 
 <api-table path="index.ts" name="PathFinder" />
+
+## Errors
+
+- `RangeError` when `maxCost` is not a number of 0 or more, or when an edge weighs less than 0.
+- `TypeError` when `direction` is not `'both'`, `'forward'` or `'backward'`.

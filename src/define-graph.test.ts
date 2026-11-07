@@ -55,6 +55,12 @@ describe('defineGraph', () => {
     ).toEqual({
       speed: 2,
     })
+    for (const speed of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => defineGraph({ marks: [], interaction: { zoom: { speed } } })).toThrow(RangeError)
+      expect(() => defineGraph({ marks: [], interaction: { autoPan: { speed } } })).toThrow(
+        RangeError,
+      )
+    }
   })
 
   it('resolves the wheel mode and auto-pan', () => {
@@ -112,10 +118,17 @@ describe('defineGraph', () => {
     expect(() => defineGraph({ marks: [], view: { autoFit } })).toThrow(TypeError)
   })
 
-  it('fills transition defaults and clamps negative durations', () => {
+  it('fills transition defaults and rejects durations that are not finite, 0 or more', () => {
     expect(defineGraph({ marks: [] }).transitions).toEqual({ positions: 120, layout: 400 })
-    const clamped = defineGraph({ marks: [], transitions: { positions: -5, layout: -1 } })
-    expect(clamped.transitions).toEqual({ positions: 0, layout: 0 })
+    const instant = defineGraph({ marks: [], transitions: { positions: 0, layout: 0 } })
+    expect(instant.transitions).toEqual({ positions: 0, layout: 0 })
+    for (const wrong of [-5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => defineGraph({ marks: [], transitions: { positions: wrong } })).toThrow(
+        RangeError,
+      )
+      expect(() => defineGraph({ marks: [], transitions: { layout: wrong } })).toThrow(RangeError)
+      expect(() => defineGraph({ marks: [], time: { fade: wrong } })).toThrow(RangeError)
+    }
   })
 
   it('returns a frozen definition', () => {
@@ -143,9 +156,14 @@ describe('defineGraph', () => {
         ?.adaptive,
     ).toBe(false)
     expect(
-      defineGraph({ marks: [], background: { grid: 'lines', spacing: -2, color: 'red' } })
+      defineGraph({ marks: [], background: { grid: 'lines', spacing: 8, color: 'red' } })
         .background,
-    ).toMatchObject({ spacing: 16, color: 'red' })
+    ).toMatchObject({ spacing: 8, color: 'red' })
+    for (const spacing of [0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => defineGraph({ marks: [], background: { grid: 'lines', spacing } })).toThrow(
+        RangeError,
+      )
+    }
     expect(() => defineGraph({ marks: [], background: { grid: 'squares' as 'lines' } })).toThrow(
       TypeError,
     )
@@ -247,8 +265,17 @@ describe('defineGraph', () => {
       maxEdges: 100_000,
     })
     expect(
-      defineGraph({ marks: [], bridges: { shape: 'gap', size: -1, maxEdges: 10.5 } }).bridges,
-    ).toEqual({ shape: 'gap', size: 8, maxEdges: 10 })
+      defineGraph({ marks: [], bridges: { shape: 'gap', size: 4, maxEdges: 10.5 } }).bridges,
+    ).toEqual({ shape: 'gap', size: 4, maxEdges: 10 })
+    expect(
+      defineGraph({ marks: [], bridges: { maxEdges: Number.POSITIVE_INFINITY } }).bridges?.maxEdges,
+    ).toBe(2 ** 31)
+    for (const size of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => defineGraph({ marks: [], bridges: { size } })).toThrow(RangeError)
+    }
+    for (const maxEdges of [-1, Number.NaN]) {
+      expect(() => defineGraph({ marks: [], bridges: { maxEdges } })).toThrow(RangeError)
+    }
     expect(() => defineGraph({ marks: [], bridges: { shape: 'hop' as 'arc' } })).toThrow(TypeError)
   })
 

@@ -5,6 +5,51 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.16.0
+
+### Marks of live sources take no `key`
+
+A live source keys its items by the `key` of each change, and the `key` option of `nodes()` and `edges()` was never read for it. It is now refused by the types: remove it. To key the items otherwise, change the `getKey` of the collection, or map the changes of your own source.
+
+```ts
+// Before: compiled, and the option was ignored
+nodes(collection, { key: 'code', label: 'name' })
+
+// After
+nodes(collection, { label: 'name' })
+```
+
+A change whose key is neither a string nor a finite number used to reach the graph and could break its indices. It is now skipped and listed by `graph.issues()` as a `missing-key` problem, whose `datum` is the value of the change.
+
+### `createExploration` needs keys for items without `id`
+
+Without `nodeKey`, the nodes of `createExploration` must have an `id` field, and the same for edges without `edgeKey`: other items no longer compile. `nodeKey` and `edgeKey` now also take a field name.
+
+```ts
+// Before: compiled, and every edge was keyed undefined
+createExploration(client, { roots, neighbors })
+
+// After
+createExploration(client, { roots, neighbors, edgeKey: (link) => `${link.from}:${link.to}` })
+```
+
+### Invalid numbers throw in `defineGraph`
+
+`defineGraph` throws a `RangeError` for numbers it used to correct without a word:
+
+- `transitions.positions` and `transitions.layout`: a negative duration counted as 0, and `NaN` was kept. Pass 0 for no animation.
+- `interaction.zoom.speed` and `interaction.autoPan.speed`: must be finite, 0 or more.
+- `background.spacing` and `bridges.size`: 0, a negative or a non-finite value fell back to the default. Leave them out for the default.
+- `bridges.maxEdges`: a negative or `NaN` value fell back to the default. `Infinity` still means no limit.
+
+### `reach` checks `maxCost`
+
+`graph.paths.reach` and `createPathFinder().reach` throw a `RangeError` when `maxCost` is negative or `NaN`. A negative limit used to return the start alone, and `NaN` the whole component.
+
+### Options are compared by content
+
+A mark at the same place whose options are equal by content no longer restyles its elements: an inline `label: { text: 'name' }` or `ends` rebuilt on every render now rewrites nothing. Functions are still compared by identity, so a function created on every render still restyles every element of its mark. Several definitions given before one frame now restyle the elements whose options differ from the last drawn ones; they used to compare with the previous definition only, and could keep a stale look.
+
 ## 0.15.0
 
 ### Anchors take a single target

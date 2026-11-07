@@ -1,17 +1,10 @@
 import type { Key } from '../types'
 import { KeyIndex } from './key-index'
 
-const compactFloor = 64
-
 export interface KeyedItems<V> {
   readonly size: number
-  readonly dense: boolean
-  reserve(count: number): void
   has(key: Key): boolean
   get(key: Key): V | undefined
-  set(key: Key, value: V): boolean
-  delete(key: Key): boolean
-  clear(): void
   forEach(visit: (value: V, key: Key, position: number) => void): void
 }
 
@@ -22,12 +15,6 @@ export class NativeKeyMap<V> implements KeyedItems<V> {
     return this.#map.size
   }
 
-  get dense(): boolean {
-    return false
-  }
-
-  reserve(): void {}
-
   has(key: Key): boolean {
     return this.#map.has(key)
   }
@@ -36,18 +23,12 @@ export class NativeKeyMap<V> implements KeyedItems<V> {
     return this.#map.get(key)
   }
 
-  set(key: Key, value: V): boolean {
-    const size = this.#map.size
+  set(key: Key, value: V): void {
     this.#map.set(key, value)
-    return this.#map.size !== size
   }
 
   delete(key: Key): boolean {
     return this.#map.delete(key)
-  }
-
-  clear(): void {
-    this.#map.clear()
   }
 
   forEach(visit: (value: V, key: Key, position: number) => void): void {
@@ -59,16 +40,11 @@ export class NativeKeyMap<V> implements KeyedItems<V> {
 
 export class KeyMap<V> implements KeyedItems<V> {
   readonly #index = new KeyIndex()
-  #keys: (Key | undefined)[] = []
-  #values: (V | undefined)[] = []
-  #deleted = 0
+  #keys: Key[] = []
+  #values: V[] = []
 
   get size(): number {
     return this.#index.size
-  }
-
-  get dense(): boolean {
-    return this.#deleted === 0
   }
 
   reserve(count: number): void {
@@ -95,46 +71,19 @@ export class KeyMap<V> implements KeyedItems<V> {
     return true
   }
 
-  delete(key: Key): boolean {
-    const at = this.#index.delete(key)
-    if (at < 0) return false
-    this.#keys[at] = undefined
-    this.#values[at] = undefined
-    this.#deleted++
-    if (this.#deleted > compactFloor && this.#deleted * 2 > this.#keys.length) this.#compact()
-    return true
-  }
-
   clear(): void {
     this.#index.clear()
     this.#keys = []
     this.#values = []
-    this.#deleted = 0
   }
 
   forEach(visit: (value: V, key: Key, position: number) => void): void {
     const keys = this.#keys
     const values = this.#values
-    for (let at = 0; at < keys.length; at++) {
-      const key = keys[at]
-      if (key !== undefined) visit(values[at] as V, key, at)
-    }
+    for (let at = 0; at < keys.length; at++) visit(values[at] as V, keys[at] as Key, at)
   }
 
   copyIndex(target: KeyIndex): void {
     target.copy(this.#index)
-  }
-
-  #compact(): void {
-    const keys = this.#keys
-    const values = this.#values
-    this.#index.clear()
-    this.#keys = []
-    this.#values = []
-    this.#deleted = 0
-    for (let at = 0; at < keys.length; at++) {
-      const key = keys[at]
-      if (key !== undefined) this.set(key, values[at] as V)
-    }
   }
 }
