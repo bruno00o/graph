@@ -56,6 +56,7 @@ export { createPathFinder } from './paths'
 export { createSupportFinder } from './support'
 export type {
   Accessor,
+  AggregateDirection,
   AggregateEdge,
   AggregateEdgeOptions,
   BackgroundGrid,
@@ -81,6 +82,7 @@ export type {
   EdgeEndsOptions,
   EdgeLabelOptions,
   EdgeMark,
+  EdgeMergeOptions,
   EdgeOptions,
   FieldOf,
   FreeState,

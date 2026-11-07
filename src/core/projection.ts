@@ -1,5 +1,7 @@
 import type {
+  AggregateDirection,
   AggregateEdge,
+  EdgeArrow,
   EdgeEndOptions,
   EdgeEndsOptions,
   EdgeLabelOptions,
@@ -16,8 +18,8 @@ import { EdgeMerges } from './edge-merges'
 import type { ElementRef, GraphChanges, GraphModel, NodeRecord } from './graph-model'
 import { Hierarchy } from './hierarchy'
 import { IndexSet } from './index-set'
-import { shallowEqual } from './shallow-equal'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
+import { shallowEqual } from './shallow-equal'
 import type { GraphIssue } from './source-table'
 import { readSpan } from './time-range'
 
@@ -107,6 +109,29 @@ function lifted(value: unknown): unknown {
   return typeof value === 'function' ? first(value as Read) : value
 }
 
+const reversed: Readonly<Record<EdgeArrow, EdgeArrow>> = {
+  none: 'none',
+  source: 'target',
+  target: 'source',
+  both: 'both',
+}
+
+function joinedArrows(a: unknown, b: unknown): unknown {
+  if (b === 'none' || b === a) return a
+  if (a === 'none') return b
+  return 'both'
+}
+
+function arrows(style: unknown): (aggregate: AggregateEdge) => unknown {
+  const read: Read = typeof style === 'function' ? (style as Read) : () => style
+  return ({ forward, backward }) => {
+    const ahead = forward.count > 0 ? read(forward.data[0]) : 'none'
+    if (backward.count === 0) return ahead
+    const back = read(backward.data[0])
+    return joinedArrows(ahead, reversed[back as EdgeArrow] ?? back)
+  }
+}
+
 function liftedLabel(label: EdgeOptions<unknown>['label']): unknown {
   if (label === undefined) return undefined
   if (typeof label !== 'object') return single(toAccessor<unknown, unknown>(label))
@@ -150,21 +175,15 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
     [name: string]: unknown
     color?: unknown
     width?: unknown
+    arrow?: unknown
     label?: unknown
     time?: unknown
     ends?: unknown
   } = {}
   if (options.color !== undefined) fallback.color = first(toAccessor(options.color))
   if (options.width !== undefined) fallback.width = first(toAccessor(options.width))
-  for (const name of [
-    'dash',
-    'arrow',
-    'stroke',
-    'opacity',
-    'flow',
-    'minZoom',
-    'maxZoom',
-  ] as const) {
+  if (options.arrow !== undefined) fallback.arrow = arrows(options.arrow)
+  for (const name of ['dash', 'stroke', 'opacity', 'flow', 'minZoom', 'maxZoom'] as const) {
     if (options[name] !== undefined) fallback[name] = lifted(options[name])
   }
   if (options.time !== undefined) fallback.time = spanning(toAccessor(options.time))
@@ -184,6 +203,26 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
   }) as unknown as EdgeMark<unknown>
   looks.set(mark, look)
   return look
+}
+
+const noEdges: AggregateDirection = Object.freeze({
+  count: 0,
+  keys: Object.freeze([]),
+  data: Object.freeze([]),
+})
+
+interface Members {
+  readonly keys: Key[]
+  readonly data: unknown[]
+}
+
+function members(): Members {
+  return { keys: [], data: [] }
+}
+
+function direction({ keys, data }: Members): AggregateDirection {
+  if (keys.length === 0) return noEdges
+  return Object.freeze({ count: keys.length, keys: Object.freeze(keys), data: Object.freeze(data) })
 }
 
 function grownIndices(array: Int32Array, length: number): Int32Array {
@@ -666,6 +705,10 @@ export class Projection {
         merges.release(aggregate)
         continue
       }
+      if (this.#rules[merges.slot[aggregate] ?? none]?.directed === false) {
+        merges.source[aggregate] = hierarchy.representative(this.#from[head] ?? none)
+        merges.target[aggregate] = hierarchy.representative(this.#to[head] ?? none)
+      }
       const open = this.#isOpen(aggregate)
       if (open || open !== (merges.open[aggregate] === 1)) {
         for (let at = head; at >= 0; at = merges.next[at] ?? none) touched.add(at)
@@ -738,22 +781,32 @@ export class Projection {
     const cached = this.#data[aggregate]
     if (cached) return cached
     const merges = this.#merges
+    const hierarchy = this.hierarchy
+    const source = merges.source[aggregate] ?? none
+    const split = this.#rules[merges.slot[aggregate] ?? none]?.directed === false
     const keys: Key[] = []
     const data: unknown[] = []
+    const sides: [Members, Members] | null = split ? [members(), members()] : null
     for (let at = merges.head[aggregate] ?? none; at >= 0; at = merges.next[at] ?? none) {
       const key = this.#edgeKeys[at]
       if (key === undefined) continue
+      const datum = this.#model.edgeAt(at)?.datum
       keys.push(key)
-      data.push(this.#model.edgeAt(at)?.datum)
+      data.push(datum)
+      const side = sides?.[hierarchy.representative(this.#from[at] ?? none) === source ? 0 : 1]
+      side?.keys.push(key)
+      side?.data.push(datum)
     }
-    const hierarchy = this.hierarchy
+    const all = { count: keys.length, keys: Object.freeze(keys), data: Object.freeze(data) }
+    const forward = sides ? direction(sides[0]) : Object.freeze(all)
+    const backward = sides ? direction(sides[1]) : noEdges
     const value = merges.value(aggregate)
     const datum: AggregateEdge = Object.freeze({
-      source: hierarchy.keys[merges.source[aggregate] ?? none] as Key,
+      source: hierarchy.keys[source] as Key,
       target: hierarchy.keys[merges.target[aggregate] ?? none] as Key,
-      count: keys.length,
-      keys: Object.freeze(keys),
-      data: Object.freeze(data),
+      ...all,
+      forward,
+      backward,
       ...(value !== undefined ? { value } : {}),
     })
     this.#data[aggregate] = datum

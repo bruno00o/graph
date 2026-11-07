@@ -519,8 +519,9 @@ export interface EdgeMergeOptions<T> {
    */
   readonly by?: Channel<T, Key>
   /**
-   * Merges only the edges that go the same way. With `false`, edges in both directions merge, and
-   * the aggregated edge takes the direction of the first one.
+   * Merges only the edges that go the same way. With `false`, edges in both directions merge into
+   * one line that points the way of the first edge in its `keys`; `forward` and `backward` of the
+   * `AggregateEdge` then tell the two directions apart, for example to style each end on its own.
    * @default true
    */
   readonly directed?: boolean
@@ -594,14 +595,34 @@ export interface AggregateEdge<T = unknown> {
   readonly keys: readonly Key[]
   /** Data of the merged edges, in the order of `keys`. */
   readonly data: readonly T[]
+  /**
+   * Merged edges that go from `source` to `target`: all of them, unless `merge` sets `directed` to
+   * `false`.
+   */
+  readonly forward: AggregateDirection<T>
+  /**
+   * Merged edges that go from `target` to `source`: none, unless `merge` sets `directed` to
+   * `false`.
+   */
+  readonly backward: AggregateDirection<T>
   /** Value of the `by` option of `merge` that the merged edges share. Missing without one. */
   readonly value?: Key
 }
 
+/** Merged edges of an `AggregateEdge` that go one way. */
+export interface AggregateDirection<T = unknown> {
+  /** Number of these edges. */
+  readonly count: number
+  /** Keys of these edges, in the order of the `keys` of the aggregated edge. */
+  readonly keys: readonly Key[]
+  /** Data of these edges, in the order of `keys`. */
+  readonly data: readonly T[]
+}
+
 /**
  * Options of the `aggregate` option of `edges()`: channels and styles read from an `AggregateEdge`.
- * Without them, an aggregated edge looks like its first merged edge, and keeps its label only when
- * it merges one edge.
+ * An option left out takes the value of the first merged edge, and labels, end labels included,
+ * show only for a single merged edge. Arrows join those of the first edge of each direction.
  */
 export type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,

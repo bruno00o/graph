@@ -37,8 +37,8 @@ export interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
   /** `name` of the mark of the edge, or `undefined` for a mark without one. */
   readonly mark: N
   /**
-   * Set when the edge stands for several edges between folded groups; `key` and `datum` are then
-   * those of its first edge.
+   * Set when the edge stands for several merged edges, between folded groups or by the `merge`
+   * option of its mark; `key` and `datum` are then those of its first edge.
    */
   readonly aggregate?: AggregateEdge<T>
   /**

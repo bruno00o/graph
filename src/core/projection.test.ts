@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import type { AggregateEdge, GraphDefinitionOptions, Key } from '../types'
-import { containerShape } from './columns'
+import { arrowCodes, containerShape } from './columns'
 import { createGraphModel } from './graph-model'
 import { Projection } from './projection'
 import { createScene } from './scene'
@@ -326,13 +326,16 @@ describe('Projection merges', () => {
     ])
     const carrier = projection.edgeIndexOf('ab2')
     expect(projection.edgeIndexOf('ab1')).toBe(carrier)
-    expect(projection.aggregateAt(carrier)).toEqual({
+    const merged = projection.aggregateAt(carrier)
+    expect(merged).toMatchObject({
       source: 'a',
       target: 'b',
       count: 3,
       keys: ['ab1', 'ab2', 'ab3'],
       data: [wires[0], wires[1], wires[2]],
     })
+    expect(merged?.forward).toEqual({ count: 3, keys: merged?.keys, data: merged?.data })
+    expect(merged?.backward).toEqual({ count: 0, keys: [], data: [] })
     expect(scene.edges.label[carrier]).toBe('3')
     expect(projection.aggregateAt(projection.edgeIndexOf('ba1'))).toBeNull()
   })
@@ -344,6 +347,93 @@ describe('Projection merges', () => {
       ['a', 'c'],
     ])
     expect(projection.aggregateAt(projection.edgeIndexOf('ba1'))?.count).toBe(4)
+  })
+
+  it('points a merge of both directions the way of its first edge and splits its edges', () => {
+    const { render, projection } = setup(merging({ directed: false }))
+    const merged = projection.aggregateAt(projection.edgeIndexOf('ba1'))
+    expect(merged).toMatchObject({ source: 'a', target: 'b', count: 4 })
+    expect(merged?.forward).toEqual({
+      count: 3,
+      keys: ['ab1', 'ab2', 'ab3'],
+      data: [wires[0], wires[1], wires[2]],
+    })
+    expect(merged?.backward).toEqual({ count: 1, keys: ['ba1'], data: [wires[3]] })
+    render(merging({ directed: false, min: 1 }, [wires[3], wires[4]] as Wire[]))
+    const turned = projection.aggregateAt(projection.edgeIndexOf('ba1'))
+    expect(turned).toMatchObject({ source: 'b', target: 'a', count: 1 })
+    expect(turned?.forward.keys).toEqual(['ba1'])
+    expect(turned?.backward.count).toBe(0)
+  })
+
+  it('takes the direction of the first edge of the data', () => {
+    const { scene, projection, nodeIndex } = setup(
+      merging({ directed: false }, [wires[3], wires[0]] as Wire[]),
+    )
+    const carrier = projection.edgeIndexOf('ab1')
+    expect(projection.aggregateAt(carrier)).toMatchObject({ source: 'b', target: 'a' })
+    expect(scene.edges.source[carrier]).toBe(nodeIndex('b'))
+    expect(projection.aggregateAt(carrier)?.backward.keys).toEqual(['ab1'])
+  })
+
+  it('styles each end of a merge of both directions from its own direction', () => {
+    const { scene, projection } = setup({
+      marks: [
+        edges<Wire>(wires, {
+          ...linkOptions,
+          arrow: 'target',
+          ends: { target: { label: 'id' } },
+          merge: { directed: false },
+          aggregate: {
+            ends: {
+              source: { width: (aggregate) => aggregate.backward.count },
+              target: {
+                width: (aggregate) => aggregate.forward.count,
+                label: (aggregate) => `${aggregate.forward.count}`,
+              },
+            },
+          },
+        }),
+        nodes<Item>(flat, { parent: 'parent' }),
+      ],
+      scales: { width: (value: number) => value },
+    })
+    const pair = projection.edgeIndexOf('ab1')
+    const ends = scene.edges.ends
+    expect(ends?.width[pair * 2]).toBe(1)
+    expect(ends?.width[pair * 2 + 1]).toBe(3)
+    expect(ends?.label[pair * 2 + 1]).toBe('3')
+    expect(scene.edges.arrow[pair]).toBe(arrowCodes.both)
+  })
+
+  it('keeps the ends of the first edge, and end labels only alone, without aggregate ends', () => {
+    const { scene, projection } = setup({
+      marks: [
+        edges<Wire>(wires, {
+          ...linkOptions,
+          ends: { target: { width: () => 6, label: 'id' } },
+          merge: { directed: false, min: 1 },
+        }),
+        nodes<Item>(flat, { parent: 'parent' }),
+      ],
+      scales: { width: (value: number) => value },
+    })
+    const pair = projection.edgeIndexOf('ab1')
+    expect(scene.edges.ends?.width[pair * 2 + 1]).toBe(6)
+    expect(scene.edges.ends?.label[pair * 2 + 1]).toBeNull()
+    expect(scene.edges.ends?.label[projection.edgeIndexOf('ac1') * 2 + 1]).toBe('ac1')
+  })
+
+  it('keeps two opposite edges as two curves without merge', () => {
+    const { drawnEdges, projection, scene } = setup(
+      merging(undefined, [wires[0], wires[3]] as Wire[]),
+    )
+    expect(drawnEdges()).toEqual([
+      ['a', 'b'],
+      ['b', 'a'],
+    ])
+    expect(scene.edges.bend[projection.edgeIndexOf('ab1')]).not.toBe(0)
+    expect(scene.edges.bend[projection.edgeIndexOf('ba1')]).not.toBe(0)
   })
 
   it('splits the merge by a value', () => {
