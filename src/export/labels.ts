@@ -11,6 +11,8 @@ import {
   type PlacedLabel,
   sortBySize,
   sortEdgesByWidth,
+  stateOutline,
+  stateStroke,
   type TextMeasure,
 } from '../webgl/label-layer'
 import { edgeLabelGap, labelGap } from '../webgl/shaders'
@@ -84,6 +86,8 @@ export function selectLabels(
       edgeOrder,
       edgeOrderLength: sortedEdges.length,
       largestEdgeLabel: sortedEdges.largest,
+      stateNumbers: states.numbers,
+      statePaint: states.paint,
       mode,
       sink,
       paths: source.bundles ?? null,
@@ -123,8 +127,10 @@ export function fitLabels(
   measure: TextMeasure,
   padding: number,
 ): ExportFrame {
-  const { nodes, edges } = source
+  const { nodes, edges, states } = source
   const { view, width, height } = frame
+  const others = states.others('nodes')
+  const edgeOthers = states.others('edges')
   const zoom = view.zoom
   const bounds: Box = {
     left: padding,
@@ -143,7 +149,12 @@ export function fitLabels(
         label.placement === 4
           ? 0
           : screenExtent(nodes, source.boxes, index, zoom, dx !== 0 ? 0 : 1) +
-            Math.max(0, nodes.outlineWidth[index] ?? 0) +
+            stateOutline(
+              states.paint,
+              states.nodeMask[index] ?? 0,
+              others,
+              nodes.outlineWidth[index] ?? 0,
+            ) +
             labelGap
       const ox = x(index) + dx * reach
       const oy = y(index) + dy * reach
@@ -153,9 +164,10 @@ export function fitLabels(
     },
     edge: (index, label, anchor: Readonly<EdgeAnchor>) => {
       const scale = label.pixels / atlasFontSize
-      const width =
+      const base =
         label.end === 0 ? edges.width[index] : edges.ends?.width[index * 2 + label.end - 1]
-      const lift = label.plate ? 0 : Math.max(width ?? 0, 0.5) / 2 + edgeLabelGap
+      const width = stateStroke(states.numbers, states.edgeMask[index] ?? 0, edgeOthers, base ?? 0)
+      const lift = label.plate ? 0 : Math.max(width, 0.5) / 2 + edgeLabelGap
       labelBox(label, local)
       for (const along of [local.left, local.right]) {
         for (const across of [local.top, local.bottom]) {
@@ -175,6 +187,7 @@ export function fitLabels(
   const right = bounds.right + padding
   const bottom = bounds.bottom + padding
   return {
+    ...frame,
     view: {
       x: view.x + ((left + right) / 2 - width / 2) / zoom,
       y: view.y + ((top + bottom) / 2 - height / 2) / zoom,

@@ -20,7 +20,7 @@ The fields of the object are listed in [`NodeImage`](/docs/api/nodes#images).
 
 The image sits on the fill, under the contour, clipped by the shape. Return `null` to draw no image for a node.
 
-Images load in the background and appear when ready. Each one is stored once, however many nodes use it, in a texture of up to 256 images of 256 by 256 pixels. Past that, extra images are not drawn and a warning is printed in development.
+Images load in the background and appear when ready. Each one is stored once, however many nodes use it, in a texture of up to 256 images of 256 by 256 pixels. Past that, extra images wait: they show as soon as no node uses one of the stored images any more, and a warning is printed in development.
 
 ## Tinted icons
 

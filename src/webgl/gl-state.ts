@@ -1,5 +1,3 @@
-const textureUnits = 12
-
 interface Saved {
   program: WebGLProgram | null
   vertexArray: WebGLVertexArrayObject | null
@@ -19,9 +17,11 @@ interface Saved {
 export class GlState {
   readonly #gl: WebGL2RenderingContext
   readonly #capabilities: readonly number[]
+  readonly #units: number
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(gl: WebGL2RenderingContext, units: number) {
     this.#gl = gl
+    this.#units = units
     this.#capabilities = [gl.BLEND, gl.DEPTH_TEST, gl.STENCIL_TEST, gl.CULL_FACE, gl.SCISSOR_TEST]
   }
 
@@ -40,7 +40,7 @@ export class GlState {
     const activeTexture = gl.getParameter(gl.ACTIVE_TEXTURE) as number
     const textures: Array<WebGLTexture | null> = []
     const arrays: Array<WebGLTexture | null> = []
-    for (let unit = 0; unit < textureUnits; unit++) {
+    for (let unit = 0; unit < this.#units; unit++) {
       gl.activeTexture(gl.TEXTURE0 + unit)
       textures.push(gl.getParameter(gl.TEXTURE_BINDING_2D))
       arrays.push(gl.getParameter(gl.TEXTURE_BINDING_2D_ARRAY))
@@ -69,7 +69,7 @@ export class GlState {
     gl.bindVertexArray(saved.vertexArray)
     gl.bindBuffer(gl.ARRAY_BUFFER, saved.arrayBuffer)
     gl.bindBuffer(gl.UNIFORM_BUFFER, saved.uniformBuffer)
-    for (let unit = 0; unit < textureUnits; unit++) {
+    for (let unit = 0; unit < this.#units; unit++) {
       gl.activeTexture(gl.TEXTURE0 + unit)
       gl.bindTexture(gl.TEXTURE_2D, saved.textures[unit] ?? null)
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, saved.arrays[unit] ?? null)

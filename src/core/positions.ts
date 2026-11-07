@@ -7,6 +7,8 @@ export const goldenAngle: number = Math.PI * (3 - Math.sqrt(5))
 
 export const placementSpacing = 24
 
+const blockShift = 10
+
 export interface PositionMoves {
   readonly indices: readonly number[]
   readonly to: readonly number[]
@@ -25,6 +27,7 @@ export class Positions implements PositionReader {
   xy: Float32Array = new Float32Array(0)
   placed: Uint8Array = new Uint8Array(0)
   source: Float64Array = new Float64Array(0)
+  blocks: Float64Array = new Float64Array(0)
   originX = 0
   originY = 0
   #spiral = 0
@@ -39,9 +42,12 @@ export class Positions implements PositionReader {
     placed.set(this.placed)
     const source = new Float64Array(capacity * 2).fill(Number.NaN)
     source.set(this.source)
+    const blocks = new Float64Array(((capacity - 1) >>> blockShift) + 1)
+    blocks.set(this.blocks)
     this.xy = xy
     this.placed = placed
     this.source = source
+    this.blocks = blocks
     this.capacity = capacity
   }
 
@@ -59,6 +65,7 @@ export class Positions implements PositionReader {
     this.xy[index * 2 + 1] = y - this.originY
     this.placed[index] = 1
     this.version++
+    this.blocks[index >>> blockShift] = this.version
   }
 
   holds(index: number, x: number, y: number): boolean {
@@ -85,6 +92,20 @@ export class Positions implements PositionReader {
     this.originX = x
     this.originY = y
     this.version++
+    this.blocks.fill(this.version)
+  }
+
+  changedSince(version: number, visit: (first: number, last: number) => void): void {
+    const blocks = this.blocks
+    let start = -1
+    for (let block = 0; block <= blocks.length; block++) {
+      if (block < blocks.length && (blocks[block] ?? 0) > version) {
+        if (start < 0) start = block
+      } else if (start >= 0) {
+        visit(start << blockShift, Math.min(this.capacity, block << blockShift) - 1)
+        start = -1
+      }
+    }
   }
 
   release(index: number): void {

@@ -10,6 +10,7 @@ import { Positions, placeNodes } from '../core/positions'
 import { Projection } from '../core/projection'
 import { createScene } from '../core/scene'
 import { StateBuffers } from '../core/state-buffers'
+import { readWindow, timeFilter } from '../core/time-range'
 import { defineGraph } from '../define-graph'
 import { ContainerBoxes } from '../host/containers'
 import type { LabelMode } from '../host/renderer'
@@ -27,7 +28,7 @@ import type {
 import type { LineLayout } from '../webgl/glyph-atlas'
 import type { TextMeasure } from '../webgl/label-layer'
 import { type ExportFrame, exportFrame } from './frame'
-import { fitLabels } from './labels'
+import { fitLabels, selectLabels } from './labels'
 import { escapeXml, writeSvg } from './svg'
 
 type Item = {
@@ -928,6 +929,152 @@ describe('fitLabels', () => {
     expect(fitted.width).toBeGreaterThan(50)
     expect(fitted.view.x).toBeGreaterThan(5)
     expect(fitted.view.y).toBeLessThan(-5)
+  })
+})
+
+describe('graph region with labels', () => {
+  type Timed = Item & { at: number }
+  const front: Timed[] = [{ id: 'a', x: 0, y: 0, label: 'Shown', at: 10 }]
+  const back: Timed[] = [{ id: 'b', x: 400, y: 0, label: 'Gone', at: 1000 }]
+  const theme = {
+    labelInk: rgba('#191d22'),
+    labelMuted: rgba('#5b6167'),
+    labelHalo: rgba('#f7f7f4'),
+    halo: rgba('#c9370047'),
+    lensFill: rgba('#f7f7f4'),
+    lensRing: rgba('#5b6167'),
+    lensShadow: rgba('#191d2229'),
+    font: 'sans-serif',
+  }
+
+  function exported(filter: 'layer' | 'time' | 'hide', labels: LabelMode) {
+    const model = createGraphModel()
+    const scene = createScene()
+    const definition = defineGraph({
+      marks: [
+        nodes(front, {
+          name: 'front',
+          layer: 'front',
+          x: 'x',
+          y: 'y',
+          label: 'label',
+          time: 'at',
+        }),
+        nodes(back, {
+          name: 'back',
+          layer: 'back',
+          x: 'x',
+          y: 'y',
+          label: 'label',
+          time: 'at',
+        }),
+      ],
+    })
+    model.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    const changes = model.flush()
+    scene.apply(model, changes)
+    const positions = new Positions()
+    placeNodes(model, positions, changes)
+    const states = new StateBuffers()
+    states.reserve(scene.nodes.capacity, scene.edges.capacity)
+    if (filter === 'hide') {
+      states.setStyle('nodes', 3, { hide: true })
+      states.setNode(model.node('b')?.index ?? 0, 1 << 3)
+    }
+    const source = { nodes: scene.nodes, edges: scene.edges, positions, states }
+    const given = exportFrame(
+      {
+        ...source,
+        view: { x: 0, y: 0, zoom: 1 },
+        width: 400,
+        height: 300,
+        layers: filter === 'layer' ? scene.markLayers.filter(new Set(['back'])) : null,
+        window: filter === 'time' ? timeFilter(readWindow({ start: 0, end: 100 }), 0) : null,
+        hide: states.hide,
+      },
+      { region: 'graph', zoom: 1, padding: 10 },
+    )
+    const frame = labels === 'none' ? given : fitLabels(source, given, labels, measure, 10)
+    const palette = new Uint8Array(scene.palette.colors.length * 4).fill(255)
+    const svg = writeSvg({
+      nodes: scene.nodes,
+      edges: scene.edges,
+      layers: scene.layers,
+      positions,
+      states,
+      palette,
+      theme,
+      frame,
+      background: rgba('#f7f7f4'),
+      labels,
+      measure,
+      images: new Map(),
+      title: null,
+    })
+    return { given, frame, svg }
+  }
+
+  for (const filter of ['layer', 'time', 'hide'] as const) {
+    it(`keeps the ${filter} filter of the frame once the labels are fitted`, () => {
+      const plain = exported(filter, 'none')
+      const fitted = exported(filter, 'visible')
+      expect(fitted.frame.layers).toBe(fitted.given.layers)
+      expect(fitted.frame.window).toBe(fitted.given.window)
+      expect(fitted.frame.hide).toBe(fitted.given.hide)
+      expect(count(fitted.svg, /<circle /)).toBe(count(plain.svg, /<circle /))
+      expect(fitted.svg).toContain('Shown')
+      expect(fitted.svg).not.toContain('Gone')
+      expect(fitted.frame.width).toBeLessThan(200)
+    })
+  }
+})
+
+describe('labels under a state outline', () => {
+  function labelled(outlineWidth: number | null) {
+    const model = createGraphModel()
+    const scene = createScene()
+    const definition = defineGraph({
+      marks: [
+        nodes<Item>([{ id: 'a', x: 0, y: 0, label: 'abcdefghij' }], {
+          x: 'x',
+          y: 'y',
+          size: 20,
+          label: 'label',
+        }),
+      ],
+    })
+    model.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    const changes = model.flush()
+    scene.apply(model, changes)
+    const positions = new Positions()
+    placeNodes(model, positions, changes)
+    const states = new StateBuffers()
+    states.reserve(scene.nodes.capacity, scene.edges.capacity)
+    if (outlineWidth !== null) {
+      states.setStyle('nodes', 3, { outlineWidth })
+      states.setNode(0, 1 << 3)
+    }
+    const source = { nodes: scene.nodes, edges: scene.edges, positions, states }
+    const frame = exportFrame(
+      { ...source, view: { x: 0, y: 0, zoom: 1 }, width: 400, height: 300 },
+      { region: 'graph', zoom: 1, padding: 0 },
+    )
+    const placed: number[] = []
+    selectLabels(source, frame, 'visible', measure, {
+      node: (_, label) => placed.push(label.top),
+      edge: () => {},
+    })
+    return { frame, fitted: fitLabels(source, frame, 'visible', measure, 0), placed }
+  }
+
+  it('frames the node and its label with the outline of the state', () => {
+    const plain = labelled(null)
+    const outlined = labelled(12)
+    expect(outlined.placed).toEqual(plain.placed)
+    expect(outlined.frame.width).toBeCloseTo(plain.frame.width + 24)
+    expect(outlined.fitted.height - plain.fitted.height).toBeCloseTo(12 + 12)
   })
 })
 
