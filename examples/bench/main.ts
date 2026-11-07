@@ -82,7 +82,10 @@ const define = (nodeData: readonly (Item | TimedItem)[]) =>
           : {}),
       }),
     ],
-    states: { muted: { opacity: 0.06, label: false } },
+    states: {
+      muted: { opacity: 0.06, label: false },
+      near: { others: { opacity: 0.06, label: false } },
+    },
     layout: engine ? force({ engine }) : null,
   })
 const definition = define(items)

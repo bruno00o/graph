@@ -12,8 +12,6 @@ import '../shared/overlays.css'
 import '../shared/controls.css'
 
 const { spots, links } = createMesh(32, 20, 7)
-const nodeKeys = spots.map((spot) => spot.id)
-const edgeKeys = links.map((link) => link.id)
 const lines = edges<Link>(links, { source: 'from', target: 'to', width: 'cost' })
 
 export function mount(container: HTMLElement): GraphInstance {
@@ -39,7 +37,7 @@ export function mount(container: HTMLElement): GraphInstance {
         },
         width: { range: [0.6, 3] },
       },
-      states: { muted: { opacity: 0.25, label: false } },
+      states: { reach: { others: { opacity: 0.25, label: false } } },
       interaction: { select: 'single' },
     })
 
@@ -72,16 +70,12 @@ export function mount(container: HTMLElement): GraphInstance {
     const [start] = graph.selection.get().nodes
     if (start === undefined) {
       costs = new Map()
-      graph.states.clear('muted')
+      graph.states.clear('reach')
       status.textContent = messages.hint
     } else {
       const near = graph.paths.reach(start, { weight: 'cost', maxCost: budget })
       costs = new Map(near.nodes.map((key, index) => [key, near.costs[index] ?? 0]))
-      const keepEdges = new Set(near.edges)
-      graph.states.set('muted', {
-        nodes: nodeKeys.filter((key) => !costs.has(key)),
-        edges: edgeKeys.filter((key) => !keepEdges.has(key)),
-      })
+      graph.states.set('reach', near)
       status.textContent = messages.reached(near.nodes.length - 1)
     }
     graph.update({ definition: define(budget) })

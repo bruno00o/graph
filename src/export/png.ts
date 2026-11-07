@@ -1,5 +1,4 @@
 import { IndexSet } from '../core/index-set'
-import { StateBuffers } from '../core/state-buffers'
 import type { Rgba } from '../dom/theme'
 import type { GraphSnapshot } from '../host/export-source'
 import type { LabelArea, LabelMode, Renderer, RenderInput } from '../host/renderer'
@@ -17,22 +16,6 @@ export interface PngRequest {
   readonly time: number
 }
 
-function copyStates(states: StateBuffers): StateBuffers {
-  const copy = new StateBuffers()
-  copy.numbers.set(states.numbers)
-  copy.paint.set(states.paint)
-  copy.labels.set(states.labels)
-  copy.labelFlags.set(states.labelFlags)
-  copy.edgeLabelFlags.set(states.edgeLabelFlags)
-  copy.nodeRaise = states.nodeRaise
-  copy.edgeRaise = states.edgeRaise
-  copy.nodeMask = states.nodeMask.slice()
-  copy.edgeMask = states.edgeMask.slice()
-  copy.copyHide(states)
-  copy.setHighlighted([...states.highlightedNodes], [...states.highlightedEdges])
-  return copy
-}
-
 function load(renderer: Renderer, snapshot: GraphSnapshot): void {
   renderer.setTheme(snapshot.theme)
   renderer.setPalette(snapshot.palette, snapshot.scene.palette.colors.length)
@@ -41,7 +24,7 @@ function load(renderer: Renderer, snapshot: GraphSnapshot): void {
     dirty: { nodes: new IndexSet(), edges: new IndexSet(), palette: true, layers: true },
     positions: snapshot.positions,
     positionsChanged: true,
-    states: copyStates(snapshot.states),
+    states: snapshot.states.copy(),
     full: true,
     grid: snapshot.grid,
     hulls: snapshot.hulls,

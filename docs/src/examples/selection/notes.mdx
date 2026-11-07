@@ -2,9 +2,9 @@
 
 The graph reads two plain arrays of a thousand nodes and two thousand edges. Each node has a position in its `x` and `y` fields, so nothing moves on load.
 
-The definition declares a free state, `muted`, with a low opacity and no label, and turns the lasso on with `interaction: { lasso: true }`.
+The definition declares a free state, `kept`, whose `others` style gives every element outside it a low opacity and no label, and turns the lasso on with `interaction: { lasso: true }`.
 
-On `selectionchange`, the example collects the selected nodes, their neighbors from `graph.neighbors(key)` and their edges from `graph.edgesOf(key)`. Everything else goes into `muted` with `graph.states.set`. An empty selection clears the state.
+On `selectionchange`, the example collects the selected nodes, their neighbors from `graph.neighbors(key)` and their edges from `graph.edgesOf(key)`, and puts them into `kept` with `graph.states.set`. Everything else fades while the state has members. An empty selection clears the state.
 
 ## Try it
 

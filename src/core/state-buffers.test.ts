@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DirtyRange, noPaint, StateBuffers } from './state-buffers'
+import { DirtyRange, noPaint, StateBuffers, stateRow } from './state-buffers'
 
 describe('DirtyRange', () => {
   it('tracks the smallest range and resets on take', () => {
@@ -83,5 +83,90 @@ describe('StateBuffers', () => {
     states.setHighlighted([1, 2], [0])
     expect(states.highlightedNodes).toEqual([1, 2])
     expect(states.highlightVersion).toBe(1)
+  })
+
+  it('writes the look of the others in a second row of each table', () => {
+    const states = new StateBuffers()
+    states.setStyle('nodes', 4, { stroke: 2 }, { opacity: 0.2, label: false })
+    states.setStyle('edges', 4, null, { opacity: 0.3 })
+    const nodeRow = stateRow('nodes', 4, false)
+    const edgeRow = stateRow('edges', 4, false)
+    expect(nodeRow).toBe(64 + 4)
+    expect(edgeRow).toBe(96 + 4)
+    expect(states.numbers[nodeRow * 4]).toBeCloseTo(0.2, 5)
+    expect(states.numbers[edgeRow * 4]).toBeCloseTo(0.3, 5)
+    expect(states.paint[stateRow('nodes', 4, true) * 4 + 1]).toBe(2)
+    expect(states.labelFlags[32 + 4]).toBe(0)
+    expect(states.labelFlags[4]).toBe(-1)
+  })
+
+  it('applies the others only while the state has a member of any kind', () => {
+    const states = new StateBuffers()
+    states.reserve(4, 4)
+    states.setStyle('nodes', 3, null, { opacity: 0.2 })
+    states.setStyle('edges', 3, null, { opacity: 0.2 })
+    expect(states.others('nodes')).toBe(0)
+    const version = states.tableVersion
+    states.setEdge(1, 1 << 3)
+    expect(states.others('nodes')).toBe(1 << 3)
+    expect(states.others('edges')).toBe(1 << 3)
+    expect(states.tableVersion).toBe(version + 1)
+    states.setNode(2, 1 << 3)
+    expect(states.tableVersion).toBe(version + 1)
+    states.setEdge(1, 0)
+    expect(states.others('nodes')).toBe(1 << 3)
+    states.setNode(2, 0)
+    expect(states.others('nodes')).toBe(0)
+    expect(states.tableVersion).toBe(version + 2)
+  })
+
+  it('leaves the table alone when a state without others gains members', () => {
+    const states = new StateBuffers()
+    states.setStyle('nodes', 5, { opacity: 0.5 })
+    const version = states.tableVersion
+    states.setNode(0, 1 << 5)
+    expect(states.active).toBe(1 << 5)
+    expect(states.tableVersion).toBe(version)
+  })
+
+  it('hides the others of an active state through the hide filter', () => {
+    const states = new StateBuffers()
+    states.reserve(3, 3)
+    states.setStyle('nodes', 3, null, { hide: true })
+    expect(states.hide).toBeNull()
+    states.setNode(1, 1 << 3)
+    const filter = states.hide
+    expect(filter?.otherNodes).toBe(1 << 3)
+    expect(filter?.otherEdges).toBe(0)
+    states.setNode(1, 0)
+    expect(states.hide).toBeNull()
+  })
+
+  it('marks the always labels of members and of others', () => {
+    const states = new StateBuffers()
+    states.setStyle('nodes', 6, { label: 'always' }, { label: 'always' })
+    expect(states.nodeAlways).toBe(1 << 6)
+    expect(states.labelFlags[6]).toBe(2)
+    expect(states.labelFlags[32 + 6]).toBe(2)
+    expect(states.numbers[stateRow('nodes', 6, true) * 4 + 3]).toBe(2)
+    expect(states.othersAlways('nodes')).toBe(0)
+    states.setNode(0, 1 << 6)
+    expect(states.othersAlways('nodes')).toBe(1 << 6)
+  })
+
+  it('copies tables, masks and member counts', () => {
+    const states = new StateBuffers()
+    states.setStyle('edges', 3, { stroke: 4 }, { opacity: 0.2, hide: true, flow: 40 })
+    states.setEdge(2, 1 << 3)
+    states.setAlways([1], [2])
+    const copy = states.copy()
+    expect(copy.others('edges')).toBe(1 << 3)
+    expect(copy.othersFlow()).toBe(1 << 3)
+    expect(copy.hide?.otherEdges).toBe(1 << 3)
+    expect(copy.edgeMask[2]).toBe(1 << 3)
+    expect(copy.alwaysEdges).toEqual([2])
+    copy.setEdge(2, 0)
+    expect(copy.others('edges')).toBe(0)
+    expect(states.others('edges')).toBe(1 << 3)
   })
 })

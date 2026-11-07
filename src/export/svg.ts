@@ -1009,7 +1009,7 @@ export function writeSvg(scene: SvgScene): string {
 
   function drawNodeLabel(index: number, label: PlacedLabel): void {
     const look = nodeLookAt(index)
-    const pixels = label.size * (nodes.screenUnits[index] === 1 ? 1 : Math.min(1, zoom))
+    const pixels = label.pixels
     const [dx, dy] = placementDirections[label.placement] ?? [0, 1]
     const edge = screenExtent(nodes, boxes, index, zoom, dx !== 0 ? 0 : 1)
     const reach = label.placement === 4 ? 0 : edge + Math.max(look.outlineWidth, 0) + labelGap
@@ -1028,7 +1028,7 @@ export function writeSvg(scene: SvgScene): string {
 
   function drawEdgeLabel(index: number, label: PlacedLabel, anchor: EdgeAnchor): void {
     const look = edgeLookAt(index)
-    const pixels = label.size * Math.min(1, zoom)
+    const pixels = label.pixels
     const ends = label.end === 0 ? null : edges.ends
     const id = index * 2 + label.end - 1
     const line = ends ? edgeLine(edges, states, index) : null

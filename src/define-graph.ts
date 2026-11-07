@@ -1,5 +1,5 @@
 import { maxLayerSlots } from './core/mark-layers'
-import { freeStateNames, maxFreeStates } from './core/state-names'
+import { byKind, freeStateNames, maxFreeStates } from './core/state-names'
 import { withoutUndefined } from './core/without-undefined'
 import { themeColor } from './theme/tokens'
 import type {
@@ -17,6 +17,7 @@ import type {
   ResolvedSupportStates,
   ResolvedTimeOptions,
   ResolvedViewLimits,
+  StateKindStyles,
   StateStyle,
   StateStyles,
   SupportStateOptions,
@@ -182,11 +183,24 @@ function resolveSupport(
   return carriers === null && carried === null ? null : Object.freeze({ carriers, carried })
 }
 
+function freezeStyle(style: StateStyle | undefined): StateStyle {
+  const own = withoutUndefined(style ?? {})
+  const others = style?.others
+  return Object.freeze(others ? { ...own, others: Object.freeze(withoutUndefined(others)) } : own)
+}
+
 function freezeStates<S extends string>(states: StateStyles<S>): StateStyles<S> {
-  const frozen: Record<string, StateStyle> = {}
+  const frozen: Record<string, StateStyle | StateKindStyles> = {}
   for (const name of Object.keys(states)) {
-    const style = (states as Record<string, StateStyle | undefined>)[name]
-    frozen[name] = Object.freeze(style ? withoutUndefined(style) : {})
+    const style = (states as Record<string, StateStyle | StateKindStyles | undefined>)[name]
+    if (style && byKind(style)) {
+      const kinds: { nodes?: StateStyle; edges?: StateStyle } = {}
+      if (style.nodes) kinds.nodes = freezeStyle(style.nodes)
+      if (style.edges) kinds.edges = freezeStyle(style.edges)
+      frozen[name] = Object.freeze(kinds)
+    } else {
+      frozen[name] = freezeStyle(style)
+    }
   }
   return Object.freeze(frozen) as StateStyles<S>
 }

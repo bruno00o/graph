@@ -37,7 +37,7 @@ export class StateRegistry {
   readonly #layerOf: LayerOf | null
   #names: readonly string[] = builtInStates
   #highlightDirty = true
-  #raised: readonly [number, number] = [-1, -1]
+  #watched: readonly number[] = []
   #pending: Set<number> | null = null
 
   constructor(
@@ -172,41 +172,43 @@ export class StateRegistry {
 
   takeHighlighted(): void {
     const buffers = this.#buffers
-    const raised = [buffers.nodeRaise, buffers.edgeRaise] as const
-    if (!this.#highlightDirty && raised[0] === this.#raised[0] && raised[1] === this.#raised[1]) {
-      return
-    }
+    const watched = [buffers.nodeRaise, buffers.edgeRaise, buffers.nodeAlways, buffers.edgeAlways]
+    if (!this.#highlightDirty && watched.every((bits, at) => bits === this.#watched[at])) return
     this.#highlightDirty = false
-    this.#raised = raised
-    buffers.setHighlighted(this.#raisedIndices('nodes'), this.#raisedIndices('edges'))
+    this.#watched = watched
+    buffers.setHighlighted(
+      this.#byLayer('nodes', this.#indicesWith('nodes', buffers.nodeRaise)),
+      this.#byLayer('edges', this.#indicesWith('edges', buffers.edgeRaise)),
+    )
+    const nodes = this.#indicesWith('nodes', buffers.nodeAlways)
+    const edges = this.#indicesWith('edges', buffers.edgeAlways)
+    const listed = buffers.alwaysNodes.length + buffers.alwaysEdges.length
+    if (listed + nodes.length + edges.length > 0) buffers.setAlways(nodes, edges)
   }
 
-  #raisedIndices(kind: StateKind): number[] {
-    const raise = this.#buffers.raised(kind)
-    if (raise === 0) return []
+  #indicesWith(kind: StateKind, bits: number): number[] {
+    if (bits === 0) return []
     const masks = kind === 'nodes' ? this.#buffers.nodeMask : this.#buffers.edgeMask
     let members = 0
     this.#names.forEach((name, bit) => {
-      if ((raise & (1 << bit)) !== 0) members += this.#members.get(name)?.[kind].size ?? 0
+      if ((bits & (1 << bit)) !== 0) members += this.#members.get(name)?.[kind].size ?? 0
     })
-    let found: number[]
     if (members * scanShare < masks.length) {
       const seen = new Set<number>()
       this.#names.forEach((name, bit) => {
-        if ((raise & (1 << bit)) === 0) return
+        if ((bits & (1 << bit)) === 0) return
         for (const key of this.#members.get(name)?.[kind] ?? []) {
           const index = this.#index(kind, key)
-          if (index >= 0 && ((masks[index] ?? 0) & raise) !== 0) seen.add(index)
+          if (index >= 0 && ((masks[index] ?? 0) & bits) !== 0) seen.add(index)
         }
       })
-      found = [...seen].sort((a, b) => a - b)
-    } else {
-      found = []
-      for (let index = 0; index < masks.length; index++) {
-        if (((masks[index] ?? 0) & raise) !== 0) found.push(index)
-      }
+      return [...seen].sort((a, b) => a - b)
     }
-    return this.#byLayer(kind, found)
+    const found: number[] = []
+    for (let index = 0; index < masks.length; index++) {
+      if (((masks[index] ?? 0) & bits) !== 0) found.push(index)
+    }
+    return found
   }
 
   #byLayer(kind: StateKind, indices: number[]): number[] {
@@ -290,9 +292,8 @@ export class StateRegistry {
 
   #setMask(kind: StateKind, index: number, mask: number): void {
     const current = kind === 'nodes' ? this.#buffers.nodeMask : this.#buffers.edgeMask
-    if ((((current[index] ?? 0) ^ mask) & this.#buffers.raised(kind)) !== 0) {
-      this.#highlightDirty = true
-    }
+    const watched = this.#buffers.raised(kind) | this.#buffers.always(kind)
+    if ((((current[index] ?? 0) ^ mask) & watched) !== 0) this.#highlightDirty = true
     if (kind === 'nodes') this.#buffers.setNode(index, mask)
     else this.#buffers.setEdge(index, mask)
   }

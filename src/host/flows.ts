@@ -1,7 +1,7 @@
 import type { EdgePaths } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
-import { type StateBuffers, wordFloat } from '../core/state-buffers'
+import { type StateBuffers, stateRow, wordFloat } from '../core/state-buffers'
 import type { View } from '../types'
 
 export interface FlowWatchOptions {
@@ -23,7 +23,6 @@ export interface FlowWatch {
 const timeWrap = 3600
 const screenMargin = 64
 const curveReach = 0.3
-const edgeTable = 32
 const noFlow = 0xffffffff
 
 export function createFlowWatch(options: FlowWatchOptions): FlowWatch {
@@ -52,11 +51,13 @@ export function createFlowWatch(options: FlowWatchOptions): FlowWatch {
       : null
   observer?.observe(element)
 
-  function speedOf(index: number): number {
-    let mask = (buffers.edgeMask[index] ?? 0) & buffers.edgeFlowBits
-    for (let bit = 0; mask !== 0; bit++, mask >>>= 1) {
-      if ((mask & 1) === 0) continue
-      const word = buffers.labels[(edgeTable + bit) * 4 + 1] ?? noFlow
+  function speedOf(index: number, others: number): number {
+    const mask = buffers.edgeMask[index] ?? 0
+    let rows = ((mask & buffers.edgeFlowBits) | (~mask & others)) >>> 0
+    for (let bit = 0; rows !== 0; bit++, rows >>>= 1) {
+      if ((rows & 1) === 0) continue
+      const row = stateRow('edges', bit, ((mask >>> bit) & 1) === 1)
+      const word = buffers.labels[row * 4 + 1] ?? noFlow
       if (word !== noFlow) return wordFloat(word)
     }
     return scene.edges.flow[index] ?? 0
@@ -71,10 +72,11 @@ export function createFlowWatch(options: FlowWatchOptions): FlowWatch {
     flowingCount = 0
     lastVisible = 0
     const edges = scene.edges
-    if (edges.flowCount === 0 && buffers.edgeFlowBits === 0) return
+    const others = buffers.othersFlow()
+    if (edges.flowCount === 0 && buffers.edgeFlowBits === 0 && others === 0) return
     if (flowing.length < edges.capacity) flowing = new Int32Array(edges.capacity)
     for (let index = 0; index < edges.capacity; index++) {
-      if (edges.alive[index] !== 1 || speedOf(index) === 0) continue
+      if (edges.alive[index] !== 1 || speedOf(index, others) === 0) continue
       flowing[flowingCount++] = index
     }
   }

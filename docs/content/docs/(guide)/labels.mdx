@@ -116,6 +116,17 @@ The second line of a node label keeps `--graph-ink-muted`. When an element is in
 
 `label: true` does not lift the [size threshold](#size-and-zoom): zoom out until the text is under 8 pixels and the label of a member hides like any other, hovered and focused elements included. A larger `size` keeps it readable from further away.
 
+`label: 'always'` lifts the threshold and `minScreenSize` while the state applies: the label is drawn at 8 pixels at least, placed right after the labels of raised elements, and still gives way to a label it would cover. It works for node labels, edge labels and end labels, and in exports.
+
+```ts
+states: {
+  landmark: { label: 'always' },
+  near: { others: { label: false } },
+}
+```
+
+`label` in [`others`](/docs/states#style-the-others) acts on every element outside the state.
+
 ## Theme
 
 | Token | Used for |
