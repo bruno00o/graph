@@ -6,13 +6,13 @@ description: Write the positions of dragged nodes to a TanStack DB collection.
 ```ts
 import { persistPositions } from '@bruno00o/graph/db'
 
-function persistPositions<T extends object, TKey extends string | number>(
-  graph: GraphInstance,
-  options: PersistPositionsOptions<T, TKey>,
+function persistPositions<T extends object, TKey extends string | number, S extends string = string>(
+  graph: GraphInstance<S>,
+  options: PersistPositionsOptions<T, TKey, FreeState<S>>,
 ): () => void
 ```
 
-Listens to `positionchange` and writes `x` and `y` into the collection: drags, `positions.set`, and the result of each layout run that ends. Returns a function that stops listening and writes the last pending move at once.
+Listens to `positionchange` and writes `x` and `y` into the collection: drags, `positions.set`, and the result of each layout run that ends. Returns a function that stops listening and writes the last pending move at once. Throws when `pendingState` is not a free state of the definition.
 
 ## Options
 
@@ -22,6 +22,7 @@ Listens to `positionchange` and writes `x` and `y` into the collection: drags, `
 
 - Without `mutationFn`, rows are updated with `collection.update`, paced by the `wait` of the strategy. The collection persists them through its own handlers.
 - With `mutationFn`, `createPacedMutations` writes optimistically and calls your function at the pace of the strategy. A failed mutation rolls back the optimistic write.
+- With `pendingState`, a node joins that state when it moves and leaves it once its write is done or has failed: the paced `collection.update` without `mutationFn`, the paced transaction with it. A node moved again stays until its last write ends. Stopping does not remove the nodes whose write is still in flight: they leave when it ends.
 - Moves that come from the collection do not emit `positionchange`, so writes never echo.
 - Once written, layout results are data: nodes with `x` and `y` channels no longer move in later layout runs. See [Layouts](/docs/layout#save-the-result).
 

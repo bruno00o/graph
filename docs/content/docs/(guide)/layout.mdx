@@ -202,6 +202,8 @@ graph.on('positionchange', ({ origin, positions }) => {
 })
 ```
 
+To keep a result without a collection, take `graph.positions.snapshot()` once the run ends and give it back to `positions.set` later. See [Save and restore](/docs/positions#save-and-restore).
+
 ## Force options
 
 ```ts

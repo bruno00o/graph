@@ -7,6 +7,7 @@ import type {
   SourceSubscription,
 } from '../types'
 import { isKey, toAccessor } from './accessor'
+import type { GraphIssue } from './issues'
 import { type KeyedItems, KeyMap, NativeKeyMap } from './key-map'
 import { isLiveSource } from './live-source'
 import { shallowEqual } from './shallow-equal'
@@ -17,28 +18,7 @@ const comparedApart: ReadonlySet<string> = new Set(['merge', 'aggregate', 'scale
 
 export type AnyMark = NodeMark<unknown> | EdgeMark<unknown>
 
-/** A problem in the data: an item without a key, or a key already taken by an earlier item. */
-export type GraphIssue =
-  | { readonly type: 'missing-key'; readonly kind: ElementKind; readonly datum: unknown }
-  | { readonly type: 'duplicate-key'; readonly kind: ElementKind; readonly key: Key }
-  | {
-      readonly type: 'missing-parent'
-      readonly kind: 'nodes'
-      readonly key: Key
-      readonly parent: Key
-    }
-  | {
-      readonly type: 'parent-cycle'
-      readonly kind: 'nodes'
-      readonly key: Key
-      readonly parent: Key
-    }
-  | {
-      readonly type: 'missing-carrier'
-      readonly kind: 'edges'
-      readonly key: Key
-      readonly carrier: Key
-    }
+export type { GraphIssue }
 
 export interface Source<M extends AnyMark> {
   readonly slot: number
@@ -50,6 +30,7 @@ export interface Source<M extends AnyMark> {
   retired: boolean
   previous: KeyedItems<unknown> | null
   forced: boolean
+  readonly issues: GraphIssue[]
 }
 
 export interface PackedSource<M extends AnyMark> extends Source<M> {
@@ -82,20 +63,30 @@ export class SourceTable<M extends AnyMark> {
   readonly #dirty: Map<Key, boolean> = new Map()
   readonly #fresh: Source<M>[] = []
   readonly #kind: ElementKind
-  readonly #issues: GraphIssue[]
+  readonly #duplicates: Map<Key, GraphIssue> = new Map()
   readonly #notify: () => void
   #sources: Source<M>[] = []
+  #issueVersion = 0
 
-  constructor(kind: ElementKind, issues: GraphIssue[], notify: () => void) {
+  constructor(kind: ElementKind, notify: () => void) {
     this.#kind = kind
-    this.#issues = issues
     this.#notify = notify
+  }
+
+  get issueVersion(): number {
+    return this.#issueVersion
+  }
+
+  collectIssues(into: GraphIssue[]): void {
+    for (const source of this.#sources) for (const issue of source.issues) into.push(issue)
+    for (const issue of this.#duplicates.values()) into.push(issue)
   }
 
   setMarks(marks: readonly M[]): void {
     const previous = this.#sources
     this.#sources = marks.map((mark, slot) => this.#reconcile(slot, mark, previous[slot]))
     for (const old of previous.slice(marks.length)) this.#retire(old)
+    for (const old of previous) if (old.retired && old.issues.length > 0) this.#issueVersion++
   }
 
   get pending(): boolean {
@@ -187,11 +178,15 @@ export class SourceTable<M extends AnyMark> {
       const datum = source.items.get(key)
       if (datum === undefined && !source.items.has(key)) continue
       if (owner) {
-        this.#issues.push({ type: 'duplicate-key', kind: this.#kind, key })
-        break
+        if (!this.#duplicates.has(key)) {
+          this.#duplicates.set(key, { type: 'duplicate-key', kind: this.#kind, key })
+          this.#issueVersion++
+        }
+        return owner
       }
       owner = { source, datum }
     }
+    if (this.#duplicates.size > 0 && this.#duplicates.delete(key)) this.#issueVersion++
     return owner
   }
 
@@ -202,6 +197,8 @@ export class SourceTable<M extends AnyMark> {
       source.subscription = null
     }
     this.#sources = []
+    this.#duplicates.clear()
+    this.#issueVersion++
     this.clearDirty()
   }
 
@@ -260,37 +257,47 @@ export class SourceTable<M extends AnyMark> {
     const keyOf = toAccessor<unknown, unknown>(source.mark.options.key ?? 'id')
     if (Array.isArray(data)) {
       source.items.reserve(data.length)
-      if (this.#collectUnique(source.items, data, keyOf)) return
+      if (this.#collectUnique(source, data, keyOf)) {
+        if (source.issues.length > 0) this.#issueVersion++
+        return
+      }
     }
+    const issues = source.issues
+    let repeated: Set<Key> | null = null
     for (const datum of data) {
       const key = keyOf(datum)
       if (!isKey(key)) {
-        this.#issues.push({ type: 'missing-key', kind: this.#kind, datum })
+        issues.push({ type: 'missing-key', kind: this.#kind, datum })
         continue
       }
       if (source.items.has(key)) {
-        this.#issues.push({ type: 'duplicate-key', kind: this.#kind, key })
+        repeated ??= new Set()
+        if (!repeated.has(key)) {
+          repeated.add(key)
+          issues.push({ type: 'duplicate-key', kind: this.#kind, key })
+        }
         continue
       }
       source.items.set(key, datum)
     }
+    if (issues.length > 0) this.#issueVersion++
   }
 
   #collectUnique(
-    items: KeyedItems<unknown>,
+    source: Source<M>,
     data: readonly unknown[],
     keyOf: (datum: unknown) => unknown,
   ): boolean {
-    const issues = this.#issues.length
+    const items = source.items
     for (const datum of data) {
       const key = keyOf(datum)
       if (!isKey(key)) {
-        this.#issues.push({ type: 'missing-key', kind: this.#kind, datum })
+        source.issues.push({ type: 'missing-key', kind: this.#kind, datum })
         continue
       }
       if (!items.set(key, datum)) {
         items.clear()
-        this.#issues.length = issues
+        source.issues.length = 0
         return false
       }
     }
@@ -308,6 +315,7 @@ export class SourceTable<M extends AnyMark> {
       retired: false,
       previous: null,
       forced: false,
+      issues: [],
     }
   }
 

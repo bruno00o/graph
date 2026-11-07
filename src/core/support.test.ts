@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { edges, nodes } from '../marks'
 import type { Mark } from '../types'
 import { createGraphModel } from './graph-model'
-import type { GraphIssue } from './source-table'
+import type { GraphIssue } from './issues'
 import { SupportIndex } from './support'
 
 const ends = { source: 'source', target: 'target' } as const
@@ -22,8 +22,9 @@ function setup(marks: readonly Mark[]) {
   model.setMarks(marks)
   support.setMarks(marks)
   const flush = () => {
+    const changed = support.apply(model.flush())
     const issues: GraphIssue[] = []
-    const changed = support.apply(model.flush(), issues)
+    support.collectIssues(issues)
     return { changed, issues }
   }
   return { model, support, flush }
@@ -95,5 +96,25 @@ describe('SupportIndex', () => {
     expect(support.carried('s2').edges).toEqual([])
     expect(support.carriers('u').edges).toEqual([])
     expect(support.version).toBe(3)
+  })
+
+  it('drops a missing carrier once its edge leaves or names another carrier', () => {
+    const lowerMark = edges<Link>([{ id: 's1', source: 'a', target: 'b' }], ends)
+    const upper = (over: readonly string[]) =>
+      edges<Link>([{ id: 'u', source: 'a', target: 'c', over }], { ...ends, supportedBy: 'over' })
+    const { model, support, flush } = setup([nodes(places), lowerMark, upper(['s9'])])
+    expect(flush().issues).toEqual([
+      { type: 'missing-carrier', kind: 'edges', key: 'u', carrier: 's9' },
+    ])
+    const version = support.issueVersion
+    model.setMarks([nodes(places), lowerMark, upper(['s1'])])
+    expect(flush().issues).toEqual([])
+    expect(support.issueVersion).toBeGreaterThan(version)
+    model.setMarks([nodes(places), lowerMark, upper(['s8'])])
+    expect(flush().issues).toEqual([
+      { type: 'missing-carrier', kind: 'edges', key: 'u', carrier: 's8' },
+    ])
+    model.setMarks([nodes(places), lowerMark])
+    expect(flush().issues).toEqual([])
   })
 })

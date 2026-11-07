@@ -1,7 +1,7 @@
 import type { EdgeMark, Key, Mark, SupportWalk, SupportWalkOptions } from '../types'
 import { isKey, toAccessor } from './accessor'
 import type { GraphChanges, GraphModel } from './graph-model'
-import type { GraphIssue } from './source-table'
+import type { GraphIssue } from './issues'
 
 type Read = (datum: unknown) => unknown
 
@@ -26,8 +26,10 @@ export class SupportIndex {
   readonly #model: GraphModel
   readonly #readers = new WeakMap<EdgeMark<unknown>, Read | null>()
   readonly #down = new Map<Key, readonly Key[]>()
+  readonly #missing = new Map<Key, Set<Key>>()
   #up: Map<Key, Key[]> | null = null
   #active = false
+  #issueVersion = 0
   version = 0
 
   constructor(model: GraphModel) {
@@ -38,6 +40,16 @@ export class SupportIndex {
     return this.#active
   }
 
+  get issueVersion(): number {
+    return this.#issueVersion
+  }
+
+  collectIssues(into: GraphIssue[]): void {
+    for (const [carrier, keys] of this.#missing) {
+      for (const key of keys) into.push({ type: 'missing-carrier', kind: 'edges', key, carrier })
+    }
+  }
+
   setMarks(marks: readonly Mark[]): void {
     if (this.#active) return
     this.#active = marks.some(
@@ -46,7 +58,7 @@ export class SupportIndex {
     )
   }
 
-  apply(changes: GraphChanges, issues: GraphIssue[]): boolean {
+  apply(changes: GraphChanges): boolean {
     if (!this.#active) return false
     const model = this.#model
     let changed = false
@@ -58,10 +70,11 @@ export class SupportIndex {
       const dependents = up?.get(key)
       if (!dependents || dependents.length === 0) continue
       changed = true
-      for (const dependent of dependents) {
-        if (model.edge(dependent)) {
-          issues.push({ type: 'missing-carrier', kind: 'edges', key: dependent, carrier: key })
-        }
+      for (const dependent of dependents) if (model.edge(dependent)) this.#miss(key, dependent)
+    }
+    if (this.#missing.size > 0) {
+      for (const { key } of changes.edges.added) {
+        if (this.#missing.delete(key)) this.#issueVersion++
       }
     }
     const linked = this.#down.size > 0
@@ -85,9 +98,7 @@ export class SupportIndex {
         this.#down.set(key, carriers)
         if (this.#up) this.#link(this.#up, key, carriers)
         for (const carrier of carriers) {
-          if (isKey(carrier) && !model.edge(carrier)) {
-            issues.push({ type: 'missing-carrier', kind: 'edges', key, carrier })
-          }
+          if (isKey(carrier) && !model.edge(carrier)) this.#miss(carrier, key)
         }
       }
     }
@@ -107,6 +118,20 @@ export class SupportIndex {
   clear(): void {
     this.#down.clear()
     this.#up = null
+    if (this.#missing.size === 0) return
+    this.#missing.clear()
+    this.#issueVersion++
+  }
+
+  #miss(carrier: Key, key: Key): void {
+    let keys = this.#missing.get(carrier)
+    if (!keys) {
+      keys = new Set()
+      this.#missing.set(carrier, keys)
+    }
+    if (keys.has(key)) return
+    keys.add(key)
+    this.#issueVersion++
   }
 
   #upward(): Map<Key, Key[]> {
@@ -140,6 +165,14 @@ export class SupportIndex {
     const carriers = this.#down.get(key)
     if (!carriers) return false
     this.#down.delete(key)
+    if (this.#missing.size > 0) {
+      for (const carrier of carriers) {
+        const keys = isKey(carrier) ? this.#missing.get(carrier) : undefined
+        if (!keys?.delete(key)) continue
+        this.#issueVersion++
+        if (keys.size === 0) this.#missing.delete(carrier)
+      }
+    }
     const up = this.#up
     if (!up) return true
     for (const carrier of carriers) {

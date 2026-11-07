@@ -128,17 +128,18 @@ describe('graph inspection', () => {
     expect(frames).toHaveLength(1)
   })
 
-  it('reports flush and scene timings with the issues of each flush', () => {
+  it('reports flush and scene timings, and the issues present', () => {
     const graph = mount()
     const { probe, flushes } = recorder()
-    inspected(graph).probe(probe)
+    const entry = inspected(graph)
+    entry.probe(probe)
     graph.update({ definition: definition([...items, { id: 'a', x: 5, y: 5 }]) })
     dom.flushFrames()
     expect(flushes).toHaveLength(1)
-    const [flush, apply, issues] = flushes[0] ?? []
+    const [flush, apply] = flushes[0] ?? []
     expect(flush).toBeGreaterThanOrEqual(0)
     expect(apply).toBeGreaterThanOrEqual(0)
-    expect(issues).toEqual([{ type: 'duplicate-key', kind: 'nodes', key: 'a' }])
+    expect(entry.inspect().issues).toEqual([{ type: 'duplicate-key', kind: 'nodes', key: 'a' }])
   })
 
   it('counts nodes, edges and pending edges, and reads the renderer statistics', () => {
@@ -148,6 +149,7 @@ describe('graph inspection', () => {
       nodes: 2,
       edges: 1,
       pendingEdges: 1,
+      issues: [],
       layout: null,
       renderer: null,
     })

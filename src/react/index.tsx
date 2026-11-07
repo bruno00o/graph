@@ -98,6 +98,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onZoomHint?: GraphEventHandler<'zoomhint', M> | undefined
   /** Receives `lenschange`: the lens shows, moves, changes or hides. */
   readonly onLensChange?: GraphEventHandler<'lenschange', M> | undefined
+  /** Receives `issueschange`: problems appeared in the data or went away. */
+  readonly onIssuesChange?: GraphEventHandler<'issueschange', M> | undefined
   /** Receives `layoutstart`: a layout run starts. */
   readonly onLayoutStart?: GraphEventHandler<'layoutstart', M> | undefined
   /** Receives `layoutend`: a layout run ends or stops. */
@@ -122,6 +124,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   timechange: 'onTimeChange',
   layerchange: 'onLayerChange',
   lenschange: 'onLensChange',
+  issueschange: 'onIssuesChange',
   zoomhint: 'onZoomHint',
   layoutstart: 'onLayoutStart',
   layoutend: 'onLayoutEnd',

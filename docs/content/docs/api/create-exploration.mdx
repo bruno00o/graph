@@ -35,6 +35,7 @@ interface Exploration<TNode, TEdge> {
   expand(key: Key): void
   collapse(key: Key): void
   toggle(key: Key): void
+  retry(key: Key): void
   reset(): void
   destroy(): void
 }
@@ -53,5 +54,7 @@ interface ExplorationState {
 <api-table path="query/index.ts" name="ExplorationState" />
 
 Observers only run while a source has a subscriber, so creating an exploration fetches nothing until a mark using it is mounted.
+
+`retry` refetches an expansion whose query failed, with `refetch` of its observer, and leaves its key out of `errors` until that fetch fails again. It does nothing for a key that is not expanded or has not failed, and waits for a subscriber before fetching.
 
 See [TanStack Query](/docs/tanstack-query) for a walkthrough.

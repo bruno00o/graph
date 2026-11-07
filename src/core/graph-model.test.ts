@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { edges, nodes } from '../marks'
 import type { Key, LiveSource, SourceChange } from '../types'
-import { createGraphModel, type ElementRef } from './graph-model'
+import { createGraphModel, type ElementRef, type GraphIssue, type GraphModel } from './graph-model'
 
 type Item = { id: string; group: string }
 type Link = { id: string; from: string; to: string }
@@ -11,6 +11,12 @@ const link = (id: string, from: string, to: string): Link => ({ id, from, to })
 const keys = (refs: readonly ElementRef[]): Key[] => refs.map((ref) => ref.key)
 
 const linkOptions = { source: 'from', target: 'to' } as const
+
+function issuesOf(model: GraphModel): GraphIssue[] {
+  const found: GraphIssue[] = []
+  model.collectIssues(found)
+  return found
+}
 
 function createLiveSource<T>(initial: SourceChange<T>[] = []) {
   let listener: ((changes: ReadonlyArray<SourceChange<T>>) => void) | null = null
@@ -151,19 +157,78 @@ describe('createGraphModel', () => {
     expect(model.neighbors('c')).toEqual(['a'])
   })
 
-  it('reports missing and duplicate keys and keeps the first owner', () => {
+  it('keeps missing and duplicate keys while they are present, and the first owner', () => {
     const model = createGraphModel()
     const first = item('a', 'first')
     const unkeyed = { group: 'x' } as unknown as Item
-    model.setMarks([nodes([first, item('a', 'second'), unkeyed]), nodes([item('a', 'third')])])
-    const changes = model.flush()
-    expect(changes.issues).toEqual([
+    const data = nodes([first, item('a', 'second'), item('a', 'again'), unkeyed])
+    model.setMarks([data, nodes([item('a', 'third')])])
+    const version = model.issueVersion
+    model.flush()
+    expect(issuesOf(model)).toEqual([
       { type: 'duplicate-key', kind: 'nodes', key: 'a' },
       { type: 'missing-key', kind: 'nodes', datum: unkeyed },
       { type: 'duplicate-key', kind: 'nodes', key: 'a' },
     ])
+    expect(model.issueVersion).toBeGreaterThan(version)
     expect(model.node('a')?.datum).toBe(first)
-    expect(model.flush().issues).toEqual([])
+    const settled = model.issueVersion
+    model.flush()
+    expect(model.issueVersion).toBe(settled)
+    expect(issuesOf(model)).toHaveLength(3)
+    model.setMarks([data])
+    model.flush()
+    expect(issuesOf(model)).toEqual([
+      { type: 'duplicate-key', kind: 'nodes', key: 'a' },
+      { type: 'missing-key', kind: 'nodes', datum: unkeyed },
+    ])
+    model.setMarks([nodes([first])])
+    model.flush()
+    expect(issuesOf(model)).toEqual([])
+  })
+
+  it('schedules a flush when only the issues change', () => {
+    const schedule = vi.fn()
+    const model = createGraphModel({ schedule })
+    const first = item('a')
+    model.setMarks([nodes([first, item('a', 'second')])])
+    model.flush()
+    schedule.mockClear()
+    model.setMarks([nodes([first])])
+    expect(schedule).toHaveBeenCalled()
+    model.flush()
+    expect(issuesOf(model)).toEqual([])
+  })
+
+  it('keeps a duplicate key across live sources until one of them drops it', () => {
+    const left = createLiveSource<Item>([{ type: 'insert', key: 'a', value: item('a') }])
+    const right = createLiveSource<Item>([{ type: 'insert', key: 'a', value: item('a', 'b') }])
+    const model = createGraphModel()
+    model.setMarks([nodes(left.source), nodes(right.source)])
+    model.flush()
+    expect(issuesOf(model)).toEqual([{ type: 'duplicate-key', kind: 'nodes', key: 'a' }])
+    right.emit([{ type: 'delete', key: 'a', value: item('a', 'b') }])
+    model.flush()
+    expect(issuesOf(model)).toEqual([])
+  })
+
+  it('counts edges with both ends and edges that wait', () => {
+    const model = createGraphModel()
+    model.setMarks([
+      nodes([item('a'), item('b')]),
+      edges([link('ab', 'a', 'b'), link('ac', 'a', 'c'), link('bb', 'b', 'b')], linkOptions),
+    ])
+    model.flush()
+    expect([model.nodeCount, model.edgeCount, model.pendingCount]).toEqual([2, 2, 1])
+    model.setMarks([
+      nodes([item('a'), item('c')]),
+      edges([link('ab', 'a', 'b'), link('ac', 'a', 'c'), link('bb', 'b', 'b')], linkOptions),
+    ])
+    model.flush()
+    expect([model.nodeCount, model.edgeCount, model.pendingCount]).toEqual([2, 1, 2])
+    model.setMarks([nodes([item('a'), item('c')]), edges([link('ac', 'a', 'c')], linkOptions)])
+    model.flush()
+    expect([model.nodeCount, model.edgeCount, model.pendingCount]).toEqual([2, 1, 0])
   })
 
   it('never reuses an index inside the flush that frees it', () => {

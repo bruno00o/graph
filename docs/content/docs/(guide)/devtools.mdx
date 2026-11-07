@@ -44,7 +44,7 @@ Graphs register themselves when they mount, whatever mounted them: `mountGraph`,
 | Section | Content |
 | --- | --- |
 | Performance | Frames per second, the time of the last frame, a chart of the last 120 frames against a 60 Hz budget, the last durations of `flush`, of the scene update and of the renderer `sync` and `render`, the time of the last label selection, the labels drawn and an estimate of texture memory |
-| Elements | Node and edge counts, pending edges (edges waiting for an endpoint) and the issues of the last flushes, such as duplicate keys |
+| Elements | Node and edge counts, pending edges (edges waiting for an endpoint) and the problems present in the data, such as duplicate keys, as [`graph.issues()`](/docs/data#problems-in-the-data) returns them, including those found before the panel opened |
 | View | Center, zoom and size of the canvas |
 | Interaction | Selection counts, hovered and focused element |
 | Named states | How many nodes and edges each state holds |
