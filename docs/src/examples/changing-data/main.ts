@@ -83,10 +83,6 @@ export function mount(container: HTMLElement): GraphInstance {
   let round = 0
 
   const tick = () => {
-    if (!graph.element.isConnected) {
-      clearInterval(timer)
-      return
-    }
     round += 1
     let joined = 0
     let left = 0
@@ -122,6 +118,7 @@ export function mount(container: HTMLElement): GraphInstance {
   }
   play.addEventListener('click', () => toggle(timer === undefined))
   toggle(!matchMedia('(prefers-reduced-motion: reduce)').matches)
+  graph.signal.addEventListener('abort', () => clearInterval(timer))
 
   const actions = document.createElement('div')
   actions.className = 'example-actions'

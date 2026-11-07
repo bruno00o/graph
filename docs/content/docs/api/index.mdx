@@ -23,7 +23,7 @@ description: Every export of the package, by entry point.
 | `GraphTime`, `TimeWindow`, `TimeWindowInput` | types | [GraphInstance](/docs/api/graph-instance#time) |
 | `TimeInstant`, `TimeSpan`, `TimeValue` | types | [nodes](/docs/api/nodes#time), [edges](/docs/api/edges#time) |
 | `TimeOptions`, `ResolvedTimeOptions` | types | [defineGraph](/docs/api/define-graph#time) |
-| `GraphEvents`, `GraphTarget`, `NodeTarget`, `EdgeTarget` and the event payloads, `GraphSelectionEvent`, `GraphViewEvent`, `ViewOrigin`, `GraphTimeEvent`, `GraphLayoutEvent`, `GraphLayoutEndEvent`, `GraphZoomHintEvent` and `ZoomKey` included | types | [Events](/docs/api/events) |
+| `GraphEvents`, `GraphEventOptions`, `GraphTarget`, `NodeTarget`, `EdgeTarget` and the event payloads, `GraphSelectionEvent`, `GraphViewEvent`, `ViewOrigin`, `GraphTimeEvent`, `GraphLayoutEvent`, `GraphLayoutEndEvent`, `GraphZoomHintEvent` and `ZoomKey` included | types | [Events](/docs/api/events) |
 | `geoToWorld`, `worldToGeo`, `GeoPoint` | functions and type | [Map](/docs/api/map#coordinates) |
 | `NodeDatum`, `EdgeDatum`, `MarkName` | types | [TypeScript](/docs/typescript) |
 | `GraphDefinition`, `NodeOptions`, `EdgeOptions`, `StateStyle`, `ScalesOptions`, `InteractionOptions` and related | types | [defineGraph](/docs/api/define-graph), [nodes](/docs/api/nodes), [edges](/docs/api/edges) |
@@ -42,8 +42,8 @@ description: Every export of the package, by entry point.
 | `useGraph`, `useGraphState`, `useGraphEvent` | hooks | [Hooks](/docs/api/hooks) |
 | `Anchor`, `AnchorProps` | component | [Anchor](/docs/api/anchor) |
 | `Minimap`, `MinimapProps` | component | [createMinimap](/docs/api/minimap#minimap-component) |
-| `Legend`, `LegendProps`, `useLegend`, `UseLegendResult` | component, hook | [createLegend and mountLegend](/docs/api/legend#react) |
-| `Timeline`, `TimelineProps`, `useTimeline`, `UseTimelineResult` | component, hook | [createTimeline and mountTimeline](/docs/api/timeline#react) |
+| `Legend`, `LegendProps`, `useLegend`, `UseLegendOptions`, `UseLegendResult` | component, hook | [createLegend and mountLegend](/docs/api/legend#react) |
+| `Timeline`, `TimelineProps`, `useTimeline`, `UseTimelineOptions`, `UseTimelineResult` | component, hook | [createTimeline and mountTimeline](/docs/api/timeline#react) |
 
 ## `@bruno00o/graph/minimap`
 
@@ -94,6 +94,12 @@ description: Every export of the package, by entry point.
 | --- | --- | --- |
 | `mountMapGraph`, `exportMapPng` | functions | [mountMapGraph and exportMapPng](/docs/api/map) |
 | `MapGraphOptions`, `MapPngOptions` | types | [mountMapGraph and exportMapPng](/docs/api/map) |
+
+## `@bruno00o/graph/map/react`
+
+| Export | Kind | Page |
+| --- | --- | --- |
+| `MapGraph`, `MapGraphProps` | component | [MapGraph](/docs/api/map-graph) |
 
 ## `@bruno00o/graph/layouts`
 

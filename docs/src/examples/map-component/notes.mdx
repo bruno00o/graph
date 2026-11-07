@@ -1,0 +1,13 @@
+## How it works
+
+The example creates the MapLibre map in a `useEffect` and keeps it in state. Once the map exists, it renders `<MapGraph>` with the map, the definition and the start of the time window. `<MapGraph>` adds the layer of the graph to the map and destroys it on unmount; since the map is removed in a passive effect, the graph always leaves the map first.
+
+`<MapGraph>` renders no element of its own. Its children render where it stands, with the graph in context, as inside `<Graph>`: the `<Timeline>` at the bottom finds the graph without a prop.
+
+The legend sits outside `<MapGraph>`, so it cannot read the context. The `ref` of `<MapGraph>` keeps the instance in state, and `<Legend graph={graph}>` follows it. Hovering a group gives its nodes the `match` state, and switching a group off gives them the `off` state, declared with `hide: true`: hidden nodes take their edges with them.
+
+## Try it
+
+- Press play: the window grows over four years, and nodes and edges appear as it reaches them.
+- Hover a group in the legend to outline its nodes, then click it to hide them.
+- Drag the map and scroll: the map owns the camera, and the graph follows it.

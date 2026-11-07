@@ -5,6 +5,27 @@ description: Every event of the graph and the payload it carries.
 
 Subscribe with `graph.on(name, handler)`, which returns the function that unsubscribes. In React, use the matching prop of `<Graph>` or `useGraphEvent`. Payloads take `M`, the union of the marks of the definition, which types their targets: `mountGraph` and `<Graph>` pass it for you.
 
+## Subscribe with a signal
+
+```ts
+on<K extends GraphEventName>(
+  name: K,
+  handler: GraphEventHandler<K, M>,
+  options?: GraphEventOptions,
+): () => void
+```
+
+The third argument takes a `signal`: the handler is removed when it aborts, as with `addEventListener`. A signal already aborted subscribes nothing. Once the graph is destroyed, `on` subscribes nothing and returns a function that does nothing.
+
+<api-table path="index.ts" name="GraphEventOptions" />
+
+```ts
+const controller = new AbortController()
+graph.on('click', select, { signal: controller.signal })
+graph.on('pointerenter', show, { signal: controller.signal })
+controller.abort()
+```
+
 ## Event table
 
 <api-table path="index.ts" name="GraphEvents" />

@@ -63,6 +63,10 @@
       "types": "./dist/map.d.ts",
       "import": "./dist/map.js"
     },
+    "./map/react": {
+      "types": "./dist/map/react.d.ts",
+      "import": "./dist/map/react.js"
+    },
     "./minimap": {
       "types": "./dist/minimap.d.ts",
       "import": "./dist/minimap.js"

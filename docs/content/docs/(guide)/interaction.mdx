@@ -171,6 +171,17 @@ const stop = graph.on('doubleclick', ({ target, point, world }) => {
 stop()
 ```
 
+Pass a `signal` to remove a handler, or several, when it aborts. `graph.signal` aborts when the graph is destroyed: give it to the listeners you add outside the graph.
+
+```ts
+const controller = new AbortController()
+graph.on('pointerenter', show, { signal: controller.signal })
+graph.on('pointerleave', hide, { signal: controller.signal })
+controller.abort()
+
+window.addEventListener('keydown', shortcut, { signal: graph.signal })
+```
+
 An edge target also carries `endpoints`, its two ends as drawn: the key of a folded group stands for an end hidden inside it. `graph.datumOf` returns the item of any element from its kind and key.
 
 ```ts

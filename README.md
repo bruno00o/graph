@@ -47,19 +47,20 @@ Framework-agnostic, typed graph visualization rendered with WebGL2.
 pnpm add @bruno00o/graph
 ```
 
-| Entry point                      | Contents                                                            | Peer dependency                        |
-| -------------------------------- | ------------------------------------------------------------------- | -------------------------------------- |
-| `@bruno00o/graph`                | `defineGraph`, `nodes`, `edges`, `hull`, `mountGraph`               |                                        |
-| `@bruno00o/graph/react`          | `<Graph>`, `<Anchor>`, `useGraph`, `useGraphState`, `useGraphEvent` | `react` 19, `react-dom` 19             |
-| `@bruno00o/graph/db`             | `persistPositions` and `subset` for TanStack DB collections         | `@tanstack/db`                         |
-| `@bruno00o/graph/query`          | `createExploration` for neighborhoods loaded with TanStack Query    | `@tanstack/query-core`                 |
-| `@bruno00o/graph/export`         | `exportPng` and `exportSvg`                                         |                                        |
-| `@bruno00o/graph/map`            | `mountMapGraph` and `exportMapPng` for MapLibre maps                | `maplibre-gl` 6                        |
-| `@bruno00o/graph/layouts`        | `layers`, `grid`, `rings` and `radial` layouts                      |                                        |
-| `@bruno00o/graph/layouts/force`  | `force` layout, computed on the GPU in a Web Worker                 |                                        |
-| `@bruno00o/graph/devtools`       | Graph panel and render timings for TanStack Devtools                | `@tanstack/devtools`                   |
-| `@bruno00o/graph/devtools/react` | `graphDevtoolsPlugin` and `<GraphDevtoolsPanel>` for React          | `@tanstack/devtools-utils`, `react` 19 |
-| `@bruno00o/graph/theme.css`      | Default light and dark theme                                        |                                        |
+| Entry point                      | Contents                                                            | Peer dependency                             |
+| -------------------------------- | ------------------------------------------------------------------- | ------------------------------------------- |
+| `@bruno00o/graph`                | `defineGraph`, `nodes`, `edges`, `hull`, `mountGraph`               |                                             |
+| `@bruno00o/graph/react`          | `<Graph>`, `<Anchor>`, `useGraph`, `useGraphState`, `useGraphEvent` | `react` 19, `react-dom` 19                  |
+| `@bruno00o/graph/db`             | `persistPositions` and `subset` for TanStack DB collections         | `@tanstack/db`                              |
+| `@bruno00o/graph/query`          | `createExploration` for neighborhoods loaded with TanStack Query    | `@tanstack/query-core`                      |
+| `@bruno00o/graph/export`         | `exportPng` and `exportSvg`                                         |                                             |
+| `@bruno00o/graph/map`            | `mountMapGraph` and `exportMapPng` for MapLibre maps                | `maplibre-gl` 6                             |
+| `@bruno00o/graph/map/react`      | `<MapGraph>`, the React component for MapLibre maps                 | `maplibre-gl` 6, `react` 19, `react-dom` 19 |
+| `@bruno00o/graph/layouts`        | `layers`, `grid`, `rings` and `radial` layouts                      |                                             |
+| `@bruno00o/graph/layouts/force`  | `force` layout, computed on the GPU in a Web Worker                 |                                             |
+| `@bruno00o/graph/devtools`       | Graph panel and render timings for TanStack Devtools                | `@tanstack/devtools`                        |
+| `@bruno00o/graph/devtools/react` | `graphDevtoolsPlugin` and `<GraphDevtoolsPanel>` for React          | `@tanstack/devtools-utils`, `react` 19      |
+| `@bruno00o/graph/theme.css`      | Default light and dark theme                                        |                                             |
 
 ## Quick start
 

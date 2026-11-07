@@ -22,6 +22,7 @@ export type {
   GraphDragEvent,
   GraphEventHandler,
   GraphEventName,
+  GraphEventOptions,
   GraphEvents,
   GraphFocusEvent,
   GraphFoldEvent,

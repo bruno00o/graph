@@ -67,10 +67,12 @@ import { Timeline, useTimeline } from '@bruno00o/graph/react'
 
 function Timeline(props: TimelineProps): ReactNode
 
-function useTimeline(options?: TimelineOptions): UseTimelineResult
+function useTimeline(options?: UseTimelineOptions): UseTimelineResult
 ```
 
-Use both inside the children of [`<Graph>`](/docs/api/graph-component). `<Timeline>` renders the default timeline in a `div` where it stands; its props are the options of `createTimeline` and of `mountTimeline`. `useTimeline` renders again when the state changes.
+Use both inside the children of [`<Graph>`](/docs/api/graph-component) or [`<MapGraph>`](/docs/api/map-graph), or anywhere with the `graph` prop or option, which wins over the graph in context. Without a graph from either, they throw. `<Timeline>` renders the default timeline in a `div` where it stands; its props are the options of `createTimeline` and of `mountTimeline`, and `graph`. `useTimeline` renders again when the state changes.
+
+<api-table path="react/index.tsx" name="UseTimelineOptions" />
 
 <api-table path="react/index.tsx" name="UseTimelineResult" />
 

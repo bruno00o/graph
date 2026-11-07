@@ -3,6 +3,7 @@ import { projectLatitude, projectLongitude, worldSize, worldToGeo } from '../cor
 import { createGlobeCamera, type GlobeCamera } from '../core/globe'
 import { defaultViewPadding } from '../define-graph'
 import { dev } from '../dev'
+import { stillborn } from '../host/lifecycle'
 import {
   createGraphHost,
   type GraphInstance,
@@ -45,6 +46,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   options: MapGraphOptions<S, M>,
 ): GraphInstance<S, M> {
   const { id = 'graph', beforeId, ...rest } = options
+  if (rest.signal?.aborted) return stillborn(rest, rest.signal)
   const canvas = map.getCanvas()
   let driver: HostDriver | null = null
   let destroyed = false
