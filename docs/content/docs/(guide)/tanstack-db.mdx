@@ -146,7 +146,23 @@ persistPositions(graph, {
 })
 ```
 
-The [optimistic position writes](/examples/optimistic-positions) example saves through a slow server that can refuse a write.
+### Show the writes in flight
+
+`pendingState` names a free state of the definition that holds each node whose write is pending: from the move until the write is done or has failed, with or without `mutationFn`. A node moved again before its write ends stays in the state until its last write ends.
+
+```ts
+const definition = defineGraph({
+  marks: [nodes(items, { x: 'x', y: 'y', label: 'label' })],
+  states: { saving: { outline: 'var(--graph-accent)', outlineWidth: 3 } },
+})
+const graph = mountGraph(element, { definition, ariaLabel: 'Sample graph' })
+
+persistPositions(graph, { collection: items, mutationFn: savePositions, pendingState: 'saving' })
+```
+
+With a typed graph, `pendingState` only takes the free states of its definition; a name the definition does not declare throws.
+
+The [optimistic position writes](/examples/optimistic-positions) example saves through a slow server that can refuse a write, and rings the nodes in flight with `pendingState`.
 
 ## Positions in another collection
 

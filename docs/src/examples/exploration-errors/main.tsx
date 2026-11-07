@@ -74,9 +74,6 @@ function Explorer({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
         }),
     })
   })
-  const retry = (keys: readonly Key[]) => {
-    for (const key of keys) void queryClient.refetchQueries({ queryKey: ['neighbors', key] })
-  }
   const definition = useMemo(
     () =>
       defineGraph({
@@ -103,7 +100,7 @@ function Explorer({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       initialView={{ x: 0, y: 0, zoom: 1.8 }}
       onDoubleClick={({ target }) => {
         if (target?.kind !== 'node') return
-        if (exploration.store.state.errors.has(target.key)) retry([target.key])
+        if (exploration.store.state.errors.has(target.key)) exploration.retry(target.key)
         else exploration.toggle(target.key)
       }}
     >
@@ -113,7 +110,9 @@ function Explorer({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
         <button
           className="example-button"
           type="button"
-          onClick={() => retry(failedKeys(exploration))}
+          onClick={() => {
+            for (const key of failedKeys(exploration)) exploration.retry(key)
+          }}
         >
           {messages.retryAll}
         </button>

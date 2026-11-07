@@ -24,7 +24,7 @@ export function createSupportFinder(definition: {
   const prepare = () => {
     if (!stale || destroyed) return
     stale = false
-    support.apply(model.flush(), [])
+    support.apply(model.flush())
   }
   return {
     carriers: (key, options) => {

@@ -2,10 +2,12 @@ import type { EdgeMark, Key, Mark, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { IndexPool } from './index-pool'
 import { IndexSet } from './index-set'
+import type { GraphIssue } from './issues'
 import { KeyIndex } from './key-index'
-import { type GraphIssue, type Source, SourceTable } from './source-table'
+import { type Source, SourceTable } from './source-table'
 
-export type { ElementKind, GraphIssue } from './source-table'
+export type { GraphIssue } from './issues'
+export type { ElementKind } from './source-table'
 
 export interface ElementRef {
   readonly key: Key
@@ -25,7 +27,6 @@ export interface EdgeChanges extends ElementChanges {
 export interface GraphChanges {
   readonly nodes: ElementChanges
   readonly edges: EdgeChanges
-  readonly issues: readonly GraphIssue[]
 }
 
 export interface NodeRecord {
@@ -76,6 +77,10 @@ export interface GraphModel {
   nodeAt(index: number): NodeRecord | undefined
   edgeAt(index: number): EdgeRecord | undefined
   readonly nodeCount: number
+  readonly edgeCount: number
+  readonly pendingCount: number
+  readonly issueVersion: number
+  collectIssues(into: GraphIssue[]): void
   nodes(): IterableIterator<NodeRecord>
   edges(): IterableIterator<EdgeRecord>
   neighbors(key: Key): Key[]
@@ -184,9 +189,8 @@ function grown(array: Int32Array<ArrayBuffer>, length: number): Int32Array<Array
 
 export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   const schedule = options.schedule ?? (() => {})
-  const issues: GraphIssue[] = []
-  const nodeSources = new SourceTable<NodeMark<unknown>>('nodes', issues, schedule)
-  const edgeSources = new SourceTable<EdgeMark<unknown>>('edges', issues, schedule)
+  const nodeSources = new SourceTable<NodeMark<unknown>>('nodes', schedule)
+  const edgeSources = new SourceTable<EdgeMark<unknown>>('edges', schedule)
   const ends = new KeyIndex()
   let endPool = new IndexPool()
   const endKeys: (Key | undefined)[] = []
@@ -205,6 +209,12 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   const touched = new IndexSet()
   const unused: number[] = []
   let nodeCount = 0
+  let edgeCount = 0
+  let flushedIssues = 0
+
+  function issueVersion(): number {
+    return nodeSources.issueVersion + edgeSources.issueVersion
+  }
 
   function reserveEnds(capacity: number): void {
     if (capacity <= endNode.length) return
@@ -453,6 +463,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
               edgesByIndex[entry.index] = undefined
               changes.removed.push({ key, index: entry.index })
               freed.push(entry.index)
+              edgeCount--
             }
           }
           return
@@ -510,10 +521,12 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         entry.index = edgePool.acquire()
         edgesByIndex[entry.index] = entry
         changes.added.push({ key, index: entry.index })
+        edgeCount++
       } else if (!visible && wasVisible) {
         edgesByIndex[entry.index] = undefined
         changes.removed.push({ key, index: entry.index })
         freed.push(entry.index)
+        edgeCount--
         entry.index = -1
         changes.pending.push(key)
       } else if (visible && changed) {
@@ -540,7 +553,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     setMarks(marks) {
       nodeSources.setMarks(marks.filter(isNodeMark))
       edgeSources.setMarks(marks.filter(isEdgeMark))
-      if (nodeSources.pending || edgeSources.pending || issues.length > 0) schedule()
+      if (nodeSources.pending || edgeSources.pending || issueVersion() !== flushedIssues) schedule()
     },
 
     flush() {
@@ -557,7 +570,8 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       for (const index of freedEdges) edgePool.release(index)
       for (const id of freedEntries) entryPool.release(id)
       releaseUnused()
-      return { nodes, edges, issues: issues.splice(0) }
+      flushedIssues = issueVersion()
+      return { nodes, edges }
     },
 
     node(key) {
@@ -581,6 +595,23 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
 
     get nodeCount() {
       return nodeCount
+    },
+
+    get edgeCount() {
+      return edgeCount
+    },
+
+    get pendingCount() {
+      return edgeIds.size - edgeCount
+    },
+
+    get issueVersion() {
+      return issueVersion()
+    },
+
+    collectIssues(into) {
+      nodeSources.collectIssues(into)
+      edgeSources.collectIssues(into)
     },
 
     nodes() {
@@ -640,7 +671,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       edgesByIndex.length = 0
       touched.clear()
       nodeCount = 0
-      issues.length = 0
+      edgeCount = 0
     },
   }
 }

@@ -31,6 +31,8 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
     kind: K
     key: Key
   }): (K extends 'node' ? NodeDatum<M> : EdgeDatum<M>) | undefined
+  issues(): readonly GraphIssue[]
+  count(): GraphCount
   on<K extends GraphEventName>(
     name: K,
     handler: GraphEventHandler<K, M>,
@@ -44,7 +46,7 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
 
 `S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
-Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
+Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `issues`, `count`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
 
 ## Members
 
@@ -89,7 +91,9 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `groups.keyOf` | Returns the key, as before |
 | `pick`, `paths.shortest` | `null` |
 | `endpoints`, `datumOf`, `positions.get`, `groups.parent` | `undefined` |
-| `neighbors`, `edgesOf`, `groups.children`, `layers.names` | An empty array |
+| `neighbors`, `edgesOf`, `issues`, `groups.children`, `layers.names` | An empty array |
+| `positions.snapshot` | An empty `Map` |
+| `count` | Zero for every count |
 | `paths.reach`, `support.carriers`, `support.carried` | An empty result |
 | `on`, `anchors.set` | Register nothing and return a function that does nothing |
 | `update`, `destroy`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
@@ -169,10 +173,69 @@ interface GraphStates<N extends string> {
 interface GraphPositions {
   get(key: Key): Point | undefined
   set(entries: Iterable<readonly [Key, Point]>, options?: { duration?: number }): void
+  snapshot(options?: PositionSnapshotOptions): Map<Key, Point>
 }
 ```
 
+<api-table path="index.ts" name="GraphPositions" />
+
 Positions are in world units. `set` emits `positionchange` with the origin `'api'`. During a layout run, the nodes moved by `set` are pinned until the run ends.
+
+`snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it.
+
+```ts
+const saved = graph.positions.snapshot()
+graph.positions.set(saved, { duration: 400 })
+```
+
+<api-table path="index.ts" name="PositionSnapshotOptions" />
+
+## Issues
+
+```ts
+issues(): readonly GraphIssue[]
+```
+
+The problems present in the data now: an item without a key, a key held twice, a `parent` that names no node or would make a node contain itself, a `supportedBy` that names no edge. The graph draws around each one: it keeps the first item of a key, leaves a node without its parent at the top level, and skips the item without a key. A problem goes away once the data no longer holds it, so `issues()` is a state, not a log.
+
+The same array comes back until the problems change. Each change emits `issueschange` with the new list, and in development, problems that appear are summarized by type in a single console warning per data change. See [Problems in the data](/docs/data#problems-in-the-data).
+
+```ts
+graph.on('issueschange', ({ issues }) => {
+  report(issues.filter((issue) => issue.type === 'duplicate-key'))
+})
+```
+
+`GraphIssue` is a union, discriminated by `type`:
+
+<api-table path="index.ts" name="MissingKeyIssue" />
+
+<api-table path="index.ts" name="DuplicateKeyIssue" />
+
+<api-table path="index.ts" name="MissingParentIssue" />
+
+<api-table path="index.ts" name="ParentCycleIssue" />
+
+<api-table path="index.ts" name="MissingCarrierIssue" />
+
+An edge whose end node is missing is not a problem: it waits for it, and `count()` reports it as `pending`.
+
+## Count
+
+```ts
+count(): GraphCount
+```
+
+<api-table path="index.ts" name="GraphCount" />
+
+<api-table path="index.ts" name="GraphShownCount" />
+
+`nodes`, `edges` and `pending` count the data, whatever is drawn. `shown` counts what is drawn now, in the view or not: a folded group is one node and hides its members, merged edges count once, and an element out of its [zoom range](/docs/zoom), out of the [time window](/docs/time), in a [hidden layer](/docs/multilayer) or hidden by a state with `hide` does not count. Counting reads every element, so `count()` keeps its result, and returns the same object, until the data, the folded groups, the zoom of a graph with zoom ranges, the time window, the hidden layers or the members of a hiding state change.
+
+```ts
+const { nodes, shown } = graph.count()
+status.textContent = `${shown.nodes} of ${nodes} nodes shown`
+```
 
 ## Layout
 

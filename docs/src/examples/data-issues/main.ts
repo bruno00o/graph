@@ -1,5 +1,11 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
-import { GraphDevtoolsCore } from '@bruno00o/graph/devtools'
+import {
+  defineGraph,
+  edges,
+  type GraphInstance,
+  type GraphIssue,
+  mountGraph,
+  nodes,
+} from '@bruno00o/graph'
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -82,10 +88,6 @@ const define = ({ items, links }: Data) =>
     scales: { size: { range: [8, 22] } },
   })
 
-function theme(): 'light' | 'dark' {
-  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-}
-
 function button(text: string, onClick: () => void): HTMLButtonElement {
   const element = document.createElement('button')
   element.type = 'button'
@@ -95,22 +97,49 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
   return element
 }
 
+function describe(issue: GraphIssue): string {
+  switch (issue.type) {
+    case 'missing-key':
+      return messages.missingKey(issue.kind)
+    case 'duplicate-key':
+      return messages.duplicateKey(issue.kind, String(issue.key))
+    case 'missing-parent':
+      return messages.missingParent(String(issue.key), String(issue.parent))
+    case 'parent-cycle':
+      return messages.parentCycle(String(issue.key), String(issue.parent))
+    case 'missing-carrier':
+      return messages.missingCarrier(String(issue.key), String(issue.carrier))
+  }
+}
+
 export function mount(container: HTMLElement): GraphInstance {
   container.classList.add('issues-stage')
   const stage = document.createElement('div')
   stage.className = 'example-graph'
-  const panelHost = document.createElement('div')
-  panelHost.className = 'issues-panel'
-  container.append(stage, panelHost)
+  const report = document.createElement('section')
+  report.className = 'issues-report'
+  report.setAttribute('aria-label', messages.reportLabel)
+  const summary = document.createElement('h2')
+  const list = document.createElement('ul')
+  report.append(summary, list)
+  container.append(stage, report)
 
   const graph = mountGraph(stage, { definition: define(broken), ariaLabel: messages.graphLabel })
-  const panel = new GraphDevtoolsCore()
-  panel.mount(panelHost, { theme: theme() })
-  const observer = new MutationObserver(() => {
-    if (!panelHost.isConnected) observer.disconnect()
-    else panel.mount(panelHost, { theme: theme() })
-  })
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+
+  const show = (issues: readonly GraphIssue[]) => {
+    summary.textContent = messages.summary(issues.length, graph.count().pending)
+    list.replaceChildren(
+      ...issues.map((issue) => {
+        const item = document.createElement('li')
+        const type = document.createElement('code')
+        type.textContent = issue.type
+        item.append(type, describe(issue))
+        return item
+      }),
+    )
+  }
+  graph.on('issueschange', ({ issues }) => show(issues))
+  show(graph.issues())
 
   const status = document.createElement('output')
   status.className = 'example-status'
@@ -118,6 +147,7 @@ export function mount(container: HTMLElement): GraphInstance {
   status.textContent = messages.broken
   const load = (data: Data, text: string) => {
     graph.update({ definition: define(data) })
+    show(graph.issues())
     status.textContent = text
   }
 

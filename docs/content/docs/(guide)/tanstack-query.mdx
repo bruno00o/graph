@@ -50,7 +50,7 @@ The observers only run while something listens to the sources, that is while a m
 
 It holds `expanded`, the keys of the expanded nodes, `loading`, the keys whose query is fetching, and `errors`, a `ReadonlyMap` from key to error. See [`ExplorationState`](/docs/api/create-exploration#result).
 
-Mirror it into graph states to show what is expanded and what is loading. The [loading and errors while exploring](/examples/exploration-errors) example also marks the nodes whose query failed, from `errors`.
+Mirror it into graph states to show what is expanded and what is loading. The [loading and errors while exploring](/examples/exploration-errors) example also marks the nodes whose query failed, from `errors`, and retries them.
 
 ```tsx
 import { useSelector } from '@tanstack/react-store'
@@ -68,6 +68,20 @@ function ExplorationStates({ exploration }: { exploration: Exploration<Item, Lin
 ## Methods
 
 `expand(key)` fetches the neighborhood of a node and adds it, `collapse(key)` removes what only this expansion holds, `toggle(key)` does one or the other, and `reset()` collapses every expansion but the roots. See [`Exploration`](/docs/api/create-exploration#result).
+
+A failed expansion stays expanded, with its error in `errors`. `retry(key)` fetches it again and removes its error meanwhile: the key is back in `loading`, then in `errors` only if the new fetch fails too. Without a listener, the fetch waits until a mark subscribes again.
+
+```tsx
+<Graph
+  definition={definition}
+  ariaLabel="Explored graph"
+  onDoubleClick={({ target }) => {
+    if (target?.kind !== 'node') return
+    if (exploration.store.state.errors.has(target.key)) exploration.retry(target.key)
+    else exploration.toggle(target.key)
+  }}
+/>
+```
 
 In React, create the exploration once with `useState(() => createExploration(…))` and build the definition from its sources in a `useMemo`.
 

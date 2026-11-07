@@ -1,6 +1,6 @@
 import type { Key } from '../types'
 import { IndexSet } from './index-set'
-import type { GraphIssue } from './source-table'
+import type { GraphIssue } from './issues'
 
 const none = -1
 
@@ -28,13 +28,12 @@ export class Hierarchy {
   present: Uint8Array = new Uint8Array(0)
   readonly keys: (Key | undefined)[] = []
   readonly parentKeys: (Key | null)[] = []
-  readonly issues: GraphIssue[] = []
   links = 0
   readonly #indexOf: (key: Key) => number
   readonly #waiting = new Map<Key, Set<number>>()
   readonly #blocked = new Set<number>()
-  readonly #unresolved: number[] = []
   readonly #stack: number[] = []
+  #issueVersion = 0
   #foldedKeys: ReadonlySet<Key> = new Set()
   #moved: number[] = []
   #touched: IndexSet = new IndexSet()
@@ -46,6 +45,26 @@ export class Hierarchy {
 
   get foldedKeys(): ReadonlySet<Key> {
     return this.#foldedKeys
+  }
+
+  get issueVersion(): number {
+    return this.#issueVersion
+  }
+
+  collectIssues(into: GraphIssue[]): void {
+    for (const [parent, children] of this.#waiting) {
+      for (const index of children) {
+        const key = this.keys[index]
+        if (key !== undefined) into.push({ type: 'missing-parent', kind: 'nodes', key, parent })
+      }
+    }
+    for (const index of this.#blocked) {
+      const key = this.keys[index]
+      const parent = this.parentKeys[index] ?? null
+      if (key !== undefined && parent !== null) {
+        into.push({ type: 'parent-cycle', kind: 'nodes', key, parent })
+      }
+    }
   }
 
   reserve(index: number): void {
@@ -109,11 +128,12 @@ export class Hierarchy {
     this.folded[index] = this.#foldedKeys.has(key) ? 1 : 0
     if (parentKey !== null) this.links++
     this.#touched.add(index)
-    this.#attach(index, true)
+    this.#attach(index)
     const waiting = this.#waiting.get(key)
     if (waiting) {
       this.#waiting.delete(key)
-      for (const child of waiting) this.#attach(child, true)
+      this.#issueVersion++
+      for (const child of waiting) this.#attach(child)
     }
     this.#refresh(index)
   }
@@ -151,7 +171,7 @@ export class Hierarchy {
     this.#detach(index)
     this.links += (parentKey !== null ? 1 : 0) - (previous !== null ? 1 : 0)
     this.parentKeys[index] = parentKey
-    this.#attach(index, true)
+    this.#attach(index)
     this.#refresh(index)
   }
 
@@ -177,23 +197,13 @@ export class Hierarchy {
     if (this.#reshaped && this.#blocked.size > 0) {
       const blocked = [...this.#blocked]
       this.#blocked.clear()
+      this.#issueVersion++
       for (const index of blocked) {
         if (this.present[index] !== 1) continue
-        if (this.#attach(index, false)) this.#refresh(index)
+        if (this.#attach(index)) this.#refresh(index)
       }
     }
     this.#reshaped = false
-    const reported = new Set<number>()
-    for (const index of this.#unresolved) {
-      const parent = this.parentKeys[index] ?? null
-      const key = this.keys[index]
-      if (reported.has(index) || this.present[index] !== 1 || parent === null) continue
-      if ((this.parent[index] ?? none) >= 0 || this.#blocked.has(index) || key === undefined)
-        continue
-      reported.add(index)
-      this.issues.push({ type: 'missing-parent', kind: 'nodes', key, parent })
-    }
-    this.#unresolved.length = 0
   }
 
   takeMoved(): number[] {
@@ -216,10 +226,10 @@ export class Hierarchy {
       this.#waiting.set(parentKey, waiting)
     }
     waiting.add(index)
-    this.#unresolved.push(index)
+    this.#issueVersion++
   }
 
-  #attach(index: number, report: boolean): boolean {
+  #attach(index: number): boolean {
     const parentKey = this.parentKeys[index] ?? null
     if (parentKey === null) return true
     const parent = this.#indexOf(parentKey)
@@ -230,9 +240,7 @@ export class Hierarchy {
     for (let at = parent; at >= 0; at = this.parent[at] ?? none) {
       if (at !== index) continue
       this.#blocked.add(index)
-      const key = this.keys[index]
-      if (report && key !== undefined)
-        this.issues.push({ type: 'parent-cycle', kind: 'nodes', key, parent: parentKey })
+      this.#issueVersion++
       return false
     }
     const first = this.firstChild[parent] ?? none
@@ -253,10 +261,10 @@ export class Hierarchy {
       const parentKey = this.parentKeys[index] ?? null
       if (parentKey !== null) {
         const waiting = this.#waiting.get(parentKey)
-        waiting?.delete(index)
+        if (waiting?.delete(index)) this.#issueVersion++
         if (waiting?.size === 0) this.#waiting.delete(parentKey)
       }
-      this.#blocked.delete(index)
+      if (this.#blocked.delete(index)) this.#issueVersion++
       return
     }
     const previous = this.previousSibling[index] ?? none

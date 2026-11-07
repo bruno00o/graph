@@ -1,4 +1,5 @@
 import type { Endpoints } from '../core/graph-model'
+import type { GraphIssue } from '../core/issues'
 import type {
   AggregateEdge,
   EdgeEnd,
@@ -180,6 +181,12 @@ export interface GraphLayerEvent<M extends Mark = Mark> {
   readonly hidden: readonly LayerName<M>[]
 }
 
+/** Payload of `issueschange`. */
+export interface GraphIssuesEvent {
+  /** The problems present in the data after the change, as `graph.issues()` returns them. */
+  readonly issues: readonly GraphIssue[]
+}
+
 /** Payload of `lenschange`. */
 export interface GraphLensEvent {
   /** The lens, or `null` when it hides. */
@@ -256,6 +263,11 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly layerchange: GraphLayerEvent<M>
   /** The lens shows, moves, changes size or magnification, or hides. */
   readonly lenschange: GraphLensEvent
+  /**
+   * Problems appeared in the data or went away, once the change that caused them is applied. Fires
+   * only when the set of problems changes.
+   */
+  readonly issueschange: GraphIssuesEvent
   /**
    * A wheel event without Cmd or Ctrl went to the page, in `'page'` wheel mode with zoom on: the
    * application can show how to zoom. Fires for every such event.

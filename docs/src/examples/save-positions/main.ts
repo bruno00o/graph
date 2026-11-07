@@ -1,18 +1,9 @@
-import {
-  defineGraph,
-  edges,
-  type GraphInstance,
-  mountGraph,
-  nodes,
-  type Point,
-} from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { createCommunities, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
 import './save.css'
-
-type Saved = Record<string, [number, number]>
 
 const { items, links } = createCommunities(160, 240, 19)
 
@@ -39,20 +30,18 @@ const round = (value: number) => Math.round(value * 10) / 10
 
 export function mount(container: HTMLElement): GraphInstance {
   const graph = mountGraph(container, { definition, ariaLabel: messages.graphLabel })
-  let saved: Saved | null = null
+  let saved: ReturnType<typeof graph.positions.snapshot> | null = null
 
   const preview = document.createElement('pre')
   preview.className = 'saved-json'
   preview.hidden = true
 
+  const json = () =>
+    Object.fromEntries([...(saved ?? [])].map(([key, { x, y }]) => [key, [round(x), round(y)]]))
+
   const save = () => {
-    const next: Saved = {}
-    for (const { id } of items) {
-      const point = graph.positions.get(id)
-      if (point) next[id] = [round(point.x), round(point.y)]
-    }
-    saved = next
-    const lines = Object.entries(next).map(([key, [x, y]]) => `  "${key}": [${x}, ${y}],`)
+    saved = graph.positions.snapshot()
+    const lines = Object.entries(json()).map(([key, [x, y]]) => `  "${key}": [${x}, ${y}],`)
     preview.textContent = [
       '{',
       ...lines.slice(0, 8),
@@ -75,14 +64,14 @@ export function mount(container: HTMLElement): GraphInstance {
   }
 
   const restore = button(messages.restore, () => {
-    if (!saved) return
-    const entries = Object.entries(saved).map(([key, [x, y]]): [string, Point] => [key, { x, y }])
-    graph.positions.set(entries, { duration: 600 })
+    if (saved) graph.positions.set(saved, { duration: 600 })
   })
   const download = button(messages.download, () => {
     if (!saved) return
     const link = document.createElement('a')
-    link.href = URL.createObjectURL(new Blob([JSON.stringify(saved)], { type: 'application/json' }))
+    link.href = URL.createObjectURL(
+      new Blob([JSON.stringify(json())], { type: 'application/json' }),
+    )
     link.download = 'positions.json'
     link.click()
     URL.revokeObjectURL(link.href)

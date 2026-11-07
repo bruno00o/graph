@@ -57,6 +57,7 @@ import type {
   NodeScalesOptions,
   NumberScale,
   PathOptions,
+  PositionSnapshotOptions,
   ReachOptions,
   ScalesOptions,
   StateKindStyles,
@@ -189,8 +190,9 @@ interface Inputs {
   NumberScale: NumberScale
   OrthogonalRoutingOptions: OrthogonalRoutingOptions
   PathOptions: PathOptions<Marks>
-  PersistPositionsOptions: PersistPositionsOptions<Item, string>
+  PersistPositionsOptions: PersistPositionsOptions<Item, string, 'muted'>
   PngExportOptions: PngExportOptions
+  PositionSnapshotOptions: PositionSnapshotOptions
   RadialOptions: RadialOptions
   ReachOptions: ReachOptions<Marks>
   RingsOptions: RingsOptions<Item>

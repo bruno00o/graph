@@ -48,11 +48,10 @@ export function mount(container: HTMLElement): GraphInstance {
   persistPositions(graph, {
     collection: server.spots,
     strategy: debounceStrategy({ wait: 150 }),
+    pendingState: 'saving',
     mutationFn: async ({ transaction }) => {
       const rows = transaction.mutations.map((mutation) => mutation.modified)
-      const keys = rows.map((row) => row.id)
       const names = rows.map((row) => row.label)
-      graph.states.add('saving', { nodes: keys })
       status.textContent = messages.saving(names)
       try {
         await server.save(rows)
@@ -60,8 +59,6 @@ export function mount(container: HTMLElement): GraphInstance {
       } catch (error) {
         status.textContent = messages.refused(names)
         throw error
-      } finally {
-        graph.states.remove('saving', { nodes: keys })
       }
     },
   })

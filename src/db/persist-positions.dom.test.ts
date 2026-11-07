@@ -4,6 +4,7 @@ import { defineGraph } from '../define-graph'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
+import type { Key } from '../types'
 import { persistPositions } from './index'
 
 interface Item {
@@ -36,27 +37,34 @@ function itemCollection() {
   )
 }
 
-function mount(collection: ReturnType<typeof itemCollection>): GraphInstance {
+function mount(collection: ReturnType<typeof itemCollection>) {
   const container = document.createElement('div')
   document.body.append(container)
   return createGraphHost(
     container,
     {
-      definition: defineGraph({ marks: [nodes(collection, { x: 'x', y: 'y' })] }),
+      definition: defineGraph({
+        marks: [nodes(collection, { x: 'x', y: 'y' })],
+        states: { saving: { opacity: 0.5 } },
+      }),
       ariaLabel: 'graphe',
     },
     fakeRenderer,
   )
 }
 
-async function ready(graph: GraphInstance): Promise<void> {
+function saving(graph: GraphInstance<'saving'>): readonly Key[] {
+  return graph.states.get('saving').nodes
+}
+
+async function ready(graph: GraphInstance<'saving'>): Promise<void> {
   await vi.waitFor(() => {
     dom.flushFrames()
     expect(graph.positions.get('a')).toBeDefined()
   })
 }
 
-function drag(graph: GraphInstance, key: string, dx: number): void {
+function drag(graph: GraphInstance<'saving'>, key: string, dx: number): void {
   const canvas = graph.element.querySelector('canvas')
   const position = graph.positions.get(key)
   if (!canvas || !position) throw new Error('nothing to drag')
@@ -133,5 +141,62 @@ describe('persistPositions', () => {
     graph.positions.set([['a', { x: 5, y: 6 }]])
     stop()
     expect(places.get('a')).toMatchObject({ id: 'a', x: 5, y: 6 })
+  })
+
+  it('holds moved nodes in a state until their paced write is done', async () => {
+    const collection = itemCollection()
+    const graph = mount(collection)
+    await ready(graph)
+    const stop = persistPositions(graph, { collection, pendingState: 'saving' })
+    graph.positions.set([['a', { x: 1, y: 2 }]])
+    graph.positions.set([['b', { x: 3, y: 4 }]])
+    expect(saving(graph)).toEqual(['a', 'b'])
+    await vi.waitFor(() => expect(saving(graph)).toEqual(['b']))
+    stop()
+    await vi.waitFor(() => expect(saving(graph)).toEqual([]))
+    expect(collection.get('b')).toMatchObject({ x: 3, y: 4 })
+  })
+
+  it('holds moved nodes until the mutation is done or has failed', async () => {
+    const collection = itemCollection()
+    const graph = mount(collection)
+    await ready(graph)
+    let finish: (failed: boolean) => void = () => {}
+    const mutationFn = vi.fn(
+      ({ transaction }) =>
+        new Promise<void>((resolve, reject) => {
+          finish = (failed) => {
+            if (failed) reject(new Error('refused'))
+            else {
+              collection.utils.acceptMutations(transaction)
+              resolve()
+            }
+          }
+        }),
+    )
+    persistPositions(graph, { collection, mutationFn, pendingState: 'saving' })
+    graph.positions.set([['a', { x: 7, y: 8 }]])
+    expect(saving(graph)).toEqual(['a'])
+    await vi.waitFor(() => expect(mutationFn).toHaveBeenCalledTimes(1))
+    expect(saving(graph)).toEqual(['a'])
+    finish(false)
+    await vi.waitFor(() => expect(saving(graph)).toEqual([]))
+    graph.positions.set([['b', { x: 9, y: 9 }]])
+    expect(saving(graph)).toEqual(['b'])
+    await vi.waitFor(() => expect(mutationFn).toHaveBeenCalledTimes(2))
+    finish(true)
+    await vi.waitFor(() => expect(saving(graph)).toEqual([]))
+    expect(collection.get('b')).toMatchObject({ x: 100, y: 0 })
+  })
+
+  it('refuses a pending state the definition does not declare', async () => {
+    const collection = itemCollection()
+    const graph = mount(collection)
+    const loose: GraphInstance = graph
+    expect(() => persistPositions(loose, { collection, pendingState: 'other' })).toThrow(
+      'pendingState "other"',
+    )
+    // @ts-expect-error
+    expect(() => persistPositions(graph, { collection, pendingState: 'other' })).toThrow()
   })
 })

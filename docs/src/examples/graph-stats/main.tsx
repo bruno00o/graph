@@ -2,6 +2,7 @@ import {
   defineGraph,
   type EdgeMark,
   edges,
+  type GraphCount,
   type GraphPointerEvent,
   type NodeMark,
   nodes,
@@ -12,10 +13,11 @@ import {
   Graph,
   type GraphInstance,
   type GraphState,
+  useGraph,
   useGraphEvent,
   useGraphState,
 } from '@bruno00o/graph/react'
-import { type ReactNode, type Ref, useRef, useState } from 'react'
+import { type ReactNode, type Ref, useEffect, useRef, useState } from 'react'
 import { createCommunities, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -33,6 +35,7 @@ const definition = defineGraph({
   scales: { size: { range: [14, 34] } },
   layout: force(),
   interaction: { lasso: true },
+  states: { hidden: { hide: true } },
 })
 
 function Section({ title, children }: { readonly title: string; readonly children: ReactNode }) {
@@ -98,6 +101,45 @@ function SelectionStats() {
   )
 }
 
+function ElementStats() {
+  const graph = useGraph()
+  const [count, setCount] = useState<GraphCount | null>(null)
+  useEffect(() => {
+    const read = () => setCount(graph.count())
+    read()
+    const subscription = graph.store.subscribe(read)
+    return () => subscription.unsubscribe()
+  }, [graph])
+  const shown = count?.shown
+  return (
+    <Section title={messages.elements}>
+      <Row name={messages.nodes} value={messages.part(shown?.nodes ?? 0, count?.nodes ?? 0)} />
+      <Row name={messages.edges} value={messages.part(shown?.edges ?? 0, count?.edges ?? 0)} />
+    </Section>
+  )
+}
+
+function Actions() {
+  const graph = useGraph<'hidden'>()
+  return (
+    <div className="example-actions">
+      <button
+        type="button"
+        className="example-button"
+        onClick={() => {
+          graph.states.add('hidden', graph.selection.get())
+          graph.selection.clear()
+        }}
+      >
+        {messages.hide}
+      </button>
+      <button type="button" className="example-button" onClick={() => graph.states.clear('hidden')}>
+        {messages.show}
+      </button>
+    </div>
+  )
+}
+
 function LayoutStats() {
   const layout = useGraphState((state) => state.layout)
   const moves = useGraphState((state) => state.positionsVersion)
@@ -120,7 +162,9 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       definition={definition}
       ariaLabel={messages.graphLabel}
     >
+      <Actions />
       <aside className="stats-panel" aria-label={messages.panelLabel}>
+        <ElementStats />
         <ViewStats />
         <PointerStats />
         <SelectionStats />

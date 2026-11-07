@@ -24,6 +24,11 @@ export const messages = {
   nodes: 'Nodes',
   edges: 'Edges',
   count: (value: number) => numbers.format(value),
+  elements: 'Elements',
+  part: (shown: number, total: number) =>
+    `${numbers.format(shown)} of ${numbers.format(total)} shown`,
+  hide: 'Hide the selection',
+  show: 'Show everything',
   layout: 'Layout',
   status: 'Status',
   idle: 'Idle',

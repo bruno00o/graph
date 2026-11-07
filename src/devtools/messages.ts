@@ -1,4 +1,4 @@
-import type { GraphIssue } from '../core/graph-model'
+import type { GraphIssue } from '../core/issues'
 import { withoutUndefined } from '../core/without-undefined'
 import type { Key } from '../types'
 
@@ -107,7 +107,7 @@ export interface GraphDevtoolsMessages {
    */
   readonly pendingEdges: string
   /**
-   * Label of the issues of the flushes timed while a panel watched.
+   * Label of the problems present in the data, as `graph.issues()` returns them.
    * @default 'Issues'
    */
   readonly issues: string

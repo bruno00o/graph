@@ -1,11 +1,11 @@
-import type { GraphIssue } from '../core/graph-model'
+import type { GraphIssue } from '../core/issues'
 import type { ElementKeys, GraphTarget } from '../host/events'
 import { type InspectedGraph, watchGraphs } from '../host/inspect'
 import type { View } from '../types'
 
 export const chartFrames = 120
 const historyLength = 240
-const recentIssues = 20
+const listedIssues = 20
 const recentRuns = 5
 const rateWindow = 1000
 
@@ -70,8 +70,6 @@ class GraphTrace {
   apply: number | null = null
   sync: number | null = null
   render: number | null = null
-  issueCount = 0
-  issues: GraphIssue[] = []
   runs: LayoutRunReport[] = []
   run: { readonly name: string; readonly start: number } | null = null
 
@@ -88,12 +86,9 @@ class GraphTrace {
     this.render = render
   }
 
-  flushed(flush: number, apply: number, issues: readonly GraphIssue[]): void {
+  flushed(flush: number, apply: number): void {
     this.flush = flush
     this.apply = apply
-    if (issues.length === 0) return
-    this.issueCount += issues.length
-    this.issues = [...this.issues, ...issues].slice(-recentIssues)
   }
 
   started(name: string, now: number): void {
@@ -156,8 +151,8 @@ function attach(graph: InspectedGraph): void {
   if (watched.has(graph)) return
   const trace = traceOf(graph)
   graph.probe({
-    flushed: (flush, apply, issues) => {
-      trace.flushed(flush, apply, issues)
+    flushed: (flush, apply) => {
+      trace.flushed(flush, apply)
       changed()
     },
     framed: (start, total, sync, render) => {
@@ -171,11 +166,13 @@ function attach(graph: InspectedGraph): void {
     trace.ended(completed, performance.now())
     changed()
   })
+  const offIssues = instance.on('issueschange', changed)
   const subscription = instance.store.subscribe(changed)
   watched.set(graph, () => {
     graph.probe(null)
     offStart()
     offEnd()
+    offIssues()
     subscription.unsubscribe()
   })
   changed()
@@ -213,8 +210,8 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
     nodes: inspection.nodes,
     edges: inspection.edges,
     pendingEdges: inspection.pendingEdges,
-    issueCount: trace.issueCount,
-    issues: trace.issues,
+    issueCount: inspection.issues.length,
+    issues: inspection.issues.slice(0, listedIssues),
     view: state.view,
     selection: state.selection,
     hovered: state.hovered,

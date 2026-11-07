@@ -53,11 +53,42 @@ edges<Pair>(pairs, {
 })
 ```
 
-Node keys are unique across all node marks. When two items share a key, the first one wins, in mark order then data order, and the others are skipped. The [devtools](/docs/devtools) panel lists each skipped item: see the [problems in the data](/examples/data-issues) example.
+Node keys are unique across all node marks. When two items share a key, the first one wins, in mark order then data order, and the others are skipped. Each skipped key is reported: see [problems in the data](#problems-in-the-data).
 
 ## Edges that arrive first
 
-An edge whose ends are not both present yet waits. It appears as soon as its second end arrives, which suits sources that load nodes and edges separately.
+An edge whose ends are not both present yet waits. It appears as soon as its second end arrives, which suits sources that load nodes and edges separately. `graph.count().pending` tells how many edges wait.
+
+## Problems in the data
+
+The graph never stops on bad data: it draws around each problem and lists it. `graph.issues()` returns the problems present now, and `issueschange` fires when they change.
+
+| `type` | Problem | What the graph does |
+| --- | --- | --- |
+| `missing-key` | An item whose key is neither a string nor a finite number | Skips the item |
+| `duplicate-key` | A key held by more than one node, or more than one edge | Keeps the first item, in mark order then data order |
+| `missing-parent` | A node whose `parent` names no node | Leaves the node at the top level until that node comes |
+| `parent-cycle` | A node whose `parent` would make it contain itself | Leaves the node at the top level |
+| `missing-carrier` | An edge whose `supportedBy` names no edge | Ignores that carrier |
+
+```ts tab="Vanilla" tab-group="framework"
+graph.on('issueschange', ({ issues }) => {
+  banner.hidden = issues.length === 0
+  banner.textContent = issues.map((issue) => issue.type).join(', ')
+})
+```
+
+```tsx tab="React" tab-group="framework"
+const [issues, setIssues] = useState<readonly GraphIssue[]>([])
+
+<Graph definition={definition} ariaLabel="Sample graph" onIssuesChange={({ issues }) => setIssues(issues)} />
+```
+
+A problem goes away once the data no longer holds it: remove the second item of a key and its `duplicate-key` goes, add the missing parent and its `missing-parent` goes. The list is therefore a state, not a log, and the same array comes back until it changes. An edge waiting for an end is not a problem.
+
+In development, each data change that brings new problems logs one console warning that counts them by type; read the details with `graph.issues()`. The [devtools](/docs/devtools) panel lists them too, including those found before it opened.
+
+The [problems in the data](/examples/data-issues) example lists the problems of its data as you fix and break it.
 
 ## Update the data
 

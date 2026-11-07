@@ -48,7 +48,22 @@ graph.positions.set(new Map([['n3', { x: 40, y: 60 }]]))
 
 `set` takes any iterable of `[key, point]` pairs; a `Map` works. Without a duration, the nodes move at once.
 
-Examples: [save and restore positions](/examples/save-positions) reads every position and sets them back, and [snap to a grid](/examples/snap-to-grid) moves a dropped node to the nearest grid point.
+## Save and restore
+
+`positions.snapshot()` reads every node at once, in a new `Map` from key to point that `set` takes back as is. It holds every node of the data, those hidden in folded groups included.
+
+```ts
+const saved = graph.positions.snapshot()
+localStorage.setItem('positions', JSON.stringify([...saved]))
+
+graph.positions.set(new Map(JSON.parse(localStorage.getItem('positions') ?? '[]')), {
+  duration: 400,
+})
+```
+
+A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where it is going, so a snapshot taken mid-glide is the layout you will see. `snapshot({ settled: false })` reads where nodes are drawn now, as `get` does.
+
+Examples: [save and restore positions](/examples/save-positions) takes a snapshot and sets it back, and [snap to a grid](/examples/snap-to-grid) moves a dropped node to the nearest grid point.
 
 ## Listen to moves
 

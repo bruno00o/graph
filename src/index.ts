@@ -1,5 +1,13 @@
 export { geoToWorld, worldToGeo } from './core/geo'
 export type { Endpoints } from './core/graph-model'
+export type {
+  DuplicateKeyIssue,
+  GraphIssue,
+  MissingCarrierIssue,
+  MissingKeyIssue,
+  MissingParentIssue,
+  ParentCycleIssue,
+} from './core/issues'
 export { raw } from './core/raw'
 export { defineGraph } from './define-graph'
 export type {
@@ -26,6 +34,7 @@ export type {
   GraphEvents,
   GraphFocusEvent,
   GraphFoldEvent,
+  GraphIssuesEvent,
   GraphLayerEvent,
   GraphLayoutEndEvent,
   GraphLayoutEvent,
@@ -48,6 +57,7 @@ export type {
   FitOptions,
   GraphBundling,
   GraphBundlingStatus,
+  GraphCount,
   GraphElement,
   GraphFocus,
   GraphGroups,
@@ -59,6 +69,7 @@ export type {
   GraphRouting,
   GraphRoutingStatus,
   GraphSelection,
+  GraphShownCount,
   GraphState,
   GraphStates,
   GraphStore,
@@ -67,6 +78,7 @@ export type {
   GraphView,
   LayoutRunOptions,
   MountGraphOptions,
+  PositionSnapshotOptions,
   ViewOptions,
 } from './host/mount-graph'
 export { mountGraph } from './host/mount-graph'

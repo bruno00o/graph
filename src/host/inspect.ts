@@ -1,9 +1,9 @@
-import type { GraphIssue } from '../core/graph-model'
+import type { GraphIssue } from '../core/issues'
 import type { GraphInstance } from './mount-graph'
 import type { RendererStats } from './renderer'
 
 export interface GraphProbe {
-  flushed(flush: number, apply: number, issues: readonly GraphIssue[]): void
+  flushed(flush: number, apply: number): void
   framed(start: number, total: number, sync: number, render: number): void
 }
 
@@ -11,6 +11,7 @@ export interface GraphInspection {
   readonly nodes: number
   readonly edges: number
   readonly pendingEdges: number
+  readonly issues: readonly GraphIssue[]
   readonly layout: string | null
   readonly renderer: RendererStats | null
 }

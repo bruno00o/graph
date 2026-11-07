@@ -22,7 +22,6 @@ import { IndexSet } from './index-set'
 import { raw, rawRead } from './raw'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
 import { shallowEqual } from './shallow-equal'
-import type { GraphIssue } from './source-table'
 import { readSpan } from './time-range'
 import { withoutUndefined } from './without-undefined'
 
@@ -266,14 +265,12 @@ interface SceneChanges {
     removed: ElementRef[]
     pending: Key[]
   }
-  readonly issues: GraphIssue[]
 }
 
 function emptyChanges(): SceneChanges {
   return {
     nodes: { added: [], updated: [], removed: [] },
     edges: { added: [], updated: [], removed: [], pending: [] },
-    issues: [],
   }
 }
 
@@ -708,8 +705,6 @@ export class Projection {
     hierarchy.settle()
     this.#reprojectAround(hierarchy.takeMoved())
     const scene = emptyChanges()
-    for (const issue of changes.issues) scene.issues.push(issue)
-    for (const issue of hierarchy.issues.splice(0)) scene.issues.push(issue)
     const nodes = scene.nodes
     const edges = scene.edges
     if (activating) {

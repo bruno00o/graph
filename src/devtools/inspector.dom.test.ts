@@ -71,6 +71,7 @@ afterEach(() => {
   for (const stop of stops.splice(0)) stop()
   for (const graph of mounted.splice(0)) graph.destroy()
   dom.restore()
+  vi.restoreAllMocks()
 })
 
 describe('inspectGraphs', () => {
@@ -107,14 +108,21 @@ describe('inspectGraphs', () => {
     })
   })
 
-  it('keeps the issues of each flush', () => {
-    const graph = mount()
-    watch()
-    graph.update({ definition: definition([...items, { id: 'a', x: 1, y: 1 }]) })
+  it('lists the problems present in the data, found before it watched or after', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const graph = mount('graphe', definition([...items, { id: 'a', x: 1, y: 1 }]))
+    const listener = vi.fn()
+    watch(listener)
+    expect(graphReports()[0]?.issues).toEqual([{ type: 'duplicate-key', kind: 'nodes', key: 'a' }])
+    graph.update({ definition: definition([...items, { id: 'b', x: 1, y: 1 }]) })
     dom.flushFrames()
     const [report] = graphReports()
+    expect(listener).toHaveBeenCalled()
     expect(report?.issueCount).toBe(1)
-    expect(report?.issues).toEqual([{ type: 'duplicate-key', kind: 'nodes', key: 'a' }])
+    expect(report?.issues).toEqual([{ type: 'duplicate-key', kind: 'nodes', key: 'b' }])
+    graph.update({ definition: definition() })
+    dom.flushFrames()
+    expect(graphReports()[0]?.issues).toEqual([])
   })
 
   it('times frames and reads the renderer', () => {

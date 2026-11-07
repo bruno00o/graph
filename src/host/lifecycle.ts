@@ -1,5 +1,6 @@
 import { createStore } from '@tanstack/store'
 import { groupKey } from '../core/group-index'
+import type { GraphIssue } from '../core/issues'
 import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
 import { freeStateNames } from '../core/state-names'
@@ -11,7 +12,13 @@ import type { ElementKeys, ElementKeysInput } from './events'
 import { exposeSnapshot } from './export-source'
 import { exposeInternals } from './internals'
 import { lensContains, lensView } from './lens'
-import type { GraphInstance, GraphState, GraphStore, MountGraphOptions } from './mount-graph'
+import type {
+  GraphCount,
+  GraphInstance,
+  GraphState,
+  GraphStore,
+  MountGraphOptions,
+} from './mount-graph'
 
 interface Waiter {
   readonly resolve: () => void
@@ -23,6 +30,13 @@ const idle = Object.freeze({ running: false })
 const idleLayout = Object.freeze({ running: false, progress: 0 })
 const noWalk = Object.freeze({ edges: [], depths: [], nodes: [] })
 const noReach = Object.freeze({ nodes: [], costs: [], edges: [] })
+const noIssues: readonly GraphIssue[] = Object.freeze([])
+const noCount: GraphCount = Object.freeze({
+  nodes: 0,
+  edges: 0,
+  pending: 0,
+  shown: Object.freeze({ nodes: 0, edges: 0 }),
+})
 
 function nothing(): void {}
 
@@ -120,7 +134,7 @@ export function afterDestroy<S extends string, M extends Mark>(
       has: (name, target) => has(state().states[name], target.kind, target.key),
       get: (name) => state().states[name] ?? noKeys,
     },
-    positions: { get: () => undefined, set: nothing },
+    positions: { get: () => undefined, set: nothing, snapshot: () => new Map() },
     layout: { run: () => Promise.resolve(false), stop: nothing },
     anchors: { set: () => nothing, remove: nothing },
     groups: {
@@ -165,6 +179,8 @@ export function afterDestroy<S extends string, M extends Mark>(
     edgesOf: () => [],
     endpoints: () => undefined,
     datumOf: () => undefined,
+    issues: () => noIssues,
+    count: () => noCount,
     on: () => nothing,
     drawn: () => Promise.reject(reason()),
     update: nothing,

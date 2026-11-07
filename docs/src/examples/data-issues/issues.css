@@ -1,6 +1,6 @@
 .issues-stage {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 40%;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .issues-stage > .example-graph {
@@ -8,9 +8,39 @@
   min-height: 0;
 }
 
-.issues-panel {
-  min-height: 0;
+.issues-report {
+  max-height: 12em;
+  overflow: auto;
+  padding: 10px 14px 12px;
   border-top: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
   background: var(--graph-paper-raised);
+  color: var(--graph-ink);
   font-family: var(--graph-font);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.issues-report h2 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.issues-report ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issues-report li {
+  display: grid;
+  grid-template-columns: 9.5em 1fr;
+  gap: 10px;
+}
+
+.issues-report code {
+  color: var(--graph-ink-muted);
+  font-size: 12px;
 }

@@ -3,7 +3,7 @@ import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import type { AggregateEdge, GraphDefinitionOptions, Key } from '../types'
 import { arrowCodes, containerShape } from './columns'
-import { createGraphModel } from './graph-model'
+import { createGraphModel, type GraphIssue } from './graph-model'
 import { Projection } from './projection'
 import { raw } from './raw'
 import { createScene } from './scene'
@@ -14,6 +14,12 @@ type Link = { id: string; from: string; to: string; weight?: number }
 const item = (id: string, parent: string | null = null): Item => ({ id, parent })
 const link = (id: string, from: string, to: string, weight = 1): Link => ({ id, from, to, weight })
 const linkOptions = { source: 'from', target: 'to' } as const
+
+function issuesOf(projection: Projection): GraphIssue[] {
+  const found: GraphIssue[] = []
+  projection.hierarchy.collectIssues(found)
+  return found
+}
 
 function setup(options: GraphDefinitionOptions, folded: Key[] = []) {
   const model = createGraphModel()
@@ -227,28 +233,37 @@ describe('Projection', () => {
     ])
   })
 
-  it('reports missing parents and attaches them when they arrive', () => {
-    const { first, render, container, projection } = setup({
+  it('keeps missing parents until they arrive, then attaches them', () => {
+    const { render, container, projection } = setup({
       marks: [nodes<Item>([item('a', 'g')], { parent: 'parent' })],
     })
-    expect(first.scene.issues).toEqual([
+    expect(issuesOf(projection)).toEqual([
       { type: 'missing-parent', kind: 'nodes', key: 'a', parent: 'g' },
     ])
-    const next = render({ marks: [nodes<Item>([item('a', 'g'), item('g')], { parent: 'parent' })] })
-    expect(next.scene.issues).toEqual([])
+    const version = projection.hierarchy.issueVersion
+    render({ marks: [nodes<Item>([item('a', 'g'), item('g')], { parent: 'parent' })] })
+    expect(issuesOf(projection)).toEqual([])
+    expect(projection.hierarchy.issueVersion).toBeGreaterThan(version)
     expect(container('g')).toBe(true)
     expect(projection.hierarchy.links).toBe(1)
+    render({ marks: [nodes<Item>([item('a', 'g')], { parent: 'parent' })] })
+    expect(issuesOf(projection)).toEqual([
+      { type: 'missing-parent', kind: 'nodes', key: 'a', parent: 'g' },
+    ])
   })
 
-  it('treats cycles as roots and reports them', () => {
-    const { first, container, alive } = setup({
+  it('treats cycles as roots and keeps them until they are broken', () => {
+    const { render, container, alive, projection } = setup({
       marks: [nodes<Item>([item('a', 'b'), item('b', 'a')], { parent: 'parent' })],
     })
-    expect(first.scene.issues).toEqual([
+    expect(issuesOf(projection)).toEqual([
       { type: 'parent-cycle', kind: 'nodes', key: 'a', parent: 'b' },
     ])
     expect(container('a')).toBe(true)
     expect(alive('b')).toBe(true)
+    render({ marks: [nodes<Item>([item('a', 'b'), item('b')], { parent: 'parent' })] })
+    expect(issuesOf(projection)).toEqual([])
+    expect(container('b')).toBe(true)
   })
 
   it('keeps folded keys until the group arrives', () => {

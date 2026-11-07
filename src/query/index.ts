@@ -51,7 +51,7 @@ export interface ExplorationState {
   readonly expanded: readonly Key[]
   /** Keys whose query is fetching. */
   readonly loading: readonly Key[]
-  /** Error of each failed query, by key. */
+  /** Error of each failed query, by key. A key given to `retry` leaves it until it fails again. */
   readonly errors: ReadonlyMap<Key, unknown>
 }
 
@@ -72,6 +72,11 @@ export interface Exploration<TNode, TEdge> {
   collapse(key: Key): void
   /** Expands or collapses a node. */
   toggle(key: Key): void
+  /**
+   * Fetches again the neighborhood of a node whose query failed, and clears its error meanwhile.
+   * Does nothing for a key that is not expanded or whose query has not failed.
+   */
+  retry(key: Key): void
   /** Collapses every expansion but the roots, then expands the roots again. */
   reset(): void
   /** Stops every query observer for good. */
@@ -177,6 +182,7 @@ export function createExploration<
   const edgeKey = options.edgeKey ?? defaultKey
   const roots = new Set(options.roots)
   const expansions = new Map<Key, Expansion>()
+  const retried = new Map<Key, boolean>()
   let subscribers = 0
   let destroyed = false
 
@@ -199,7 +205,7 @@ export function createExploration<
     for (const [key, expansion] of expansions) {
       const result = expansion.observer.getCurrentResult()
       if (result.isFetching) loading.push(key)
-      if (result.error) errors.set(key, result.error)
+      if (result.error && !retried.has(key)) errors.set(key, result.error)
     }
     store.setState(() => ({ expanded: [...expansions.keys()], loading, errors }))
   }
@@ -234,15 +240,41 @@ export function createExploration<
     edges.emit(edgeChanges)
   }
 
+  function track(key: Key, fetching: boolean): void {
+    const fetched = retried.get(key)
+    if (fetched === undefined) return
+    if (fetching) retried.set(key, true)
+    else if (fetched) retried.delete(key)
+  }
+
   function start(key: Key): void {
     const expansion = expansions.get(key)
     if (!expansion || expansion.stop || destroyed) return
     const { observer } = expansion
     expansion.stop = observer.subscribe((result) => {
+      track(key, result.isFetching)
       apply(key, result.data)
       publish()
     })
-    apply(key, observer.getCurrentResult().data)
+    if (retried.get(key) === false && !observer.getCurrentResult().isFetching) {
+      void observer.refetch()
+    }
+    const result = observer.getCurrentResult()
+    track(key, result.isFetching)
+    apply(key, result.data)
+    publish()
+  }
+
+  function retry(key: Key): void {
+    const expansion = expansions.get(key)
+    if (!expansion || destroyed || retried.has(key)) return
+    const { observer } = expansion
+    if (!observer.getCurrentResult().error) return
+    retried.set(key, false)
+    if (expansion.stop) {
+      void observer.refetch()
+      track(key, observer.getCurrentResult().isFetching)
+    }
     publish()
   }
 
@@ -264,6 +296,7 @@ export function createExploration<
     if (!expansion) return
     halt(expansion)
     expansions.delete(key)
+    retried.delete(key)
     const nodeChanges: SourceChange<TNode>[] = []
     const edgeChanges: SourceChange<TEdge>[] = []
     edges.release(key, expansion.edges, new Set(), edgeChanges)
@@ -282,6 +315,7 @@ export function createExploration<
     expand,
     collapse,
     toggle: (key) => (expansions.has(key) ? collapse(key) : expand(key)),
+    retry,
     reset() {
       for (const key of [...expansions.keys()]) if (!roots.has(key)) collapse(key)
       for (const root of roots) expand(root)

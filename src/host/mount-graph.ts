@@ -4,13 +4,9 @@ import { defaultPointBudget } from '../core/edge-paths'
 import { flowSpeed } from '../core/flow'
 import { sideOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen, globeWorld } from '../core/globe'
-import {
-  createGraphModel,
-  type Endpoints,
-  type GraphChanges,
-  type GraphIssue,
-} from '../core/graph-model'
+import { createGraphModel, type Endpoints, type GraphChanges } from '../core/graph-model'
 import { groupingOf, groupKey } from '../core/group-index'
+import { describeIssues, type GraphIssue, IssueSet } from '../core/issues'
 import { nodesInside } from '../core/lasso'
 import type { LayerFilter } from '../core/mark-layers'
 import { createPathQueries } from '../core/path-query'
@@ -52,7 +48,14 @@ import {
   wheelPixels,
   zoomAround,
 } from '../core/view'
-import { detailStep, edgeOwnShown, filtered, nodeShown, type Sight } from '../core/visibility'
+import {
+  detailStep,
+  edgeOwnShown,
+  edgeShown,
+  filtered,
+  nodeShown,
+  type Sight,
+} from '../core/visibility'
 import { withoutUndefined } from '../core/without-undefined'
 import { dev } from '../dev'
 import { listenPinch, type PinchGesture } from '../dom/gestures'
@@ -414,15 +417,58 @@ export interface GraphTime {
   set(window: TimeWindowInput | null): void
 }
 
+/** Options of `positions.snapshot`. */
+export interface PositionSnapshotOptions {
+  /**
+   * Where to read a node that glides: `true` for where its glide ends, `false` for where it is
+   * drawn now. A node that a layout run moves step by step is where the run has brought it either
+   * way.
+   * @default true
+   */
+  readonly settled?: boolean | undefined
+}
+
 /** Node positions, in world units. */
 export interface GraphPositions {
-  /** Position of a node, or `undefined` for an unknown key. */
+  /** Position of a node, as drawn now, or `undefined` for an unknown key. */
   get(key: Key): Point | undefined
   /**
    * Moves nodes, at once or over `duration`, and emits `positionchange` with the origin `'api'`.
    * During a layout run, the moved nodes stay pinned until it ends.
    */
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
+  /**
+   * Positions of every node of the data, by key, groups and nodes hidden in folded groups
+   * included. Gliding nodes give where their glide ends, unless `settled` is `false`. A new map
+   * each call, that `set` takes back as is.
+   */
+  snapshot(options?: PositionSnapshotOptions): Map<Key, Point>
+}
+
+/** Element counts of a graph, from `graph.count()`. */
+export interface GraphCount {
+  /**
+   * Nodes of the data: one per key, the first item of a duplicate key only, group nodes made by
+   * `groups()` included.
+   */
+  readonly nodes: number
+  /** Edges of the data whose two ends are nodes of the data. */
+  readonly edges: number
+  /** Edges of the data that wait for an end node, or name none. */
+  readonly pending: number
+  /** Nodes and edges drawn now. */
+  readonly shown: GraphShownCount
+}
+
+/**
+ * Nodes and edges drawn now, whether in the view or not: after folding and merging, without the
+ * elements out of their zoom range or of the time window, in a hidden layer or hidden by a state.
+ */
+export interface GraphShownCount {
+  /** Nodes drawn: a folded group counts once, an unfolded group once for its box. */
+  readonly nodes: number
+  /** Edges drawn: an edge drawn for several merged edges counts once. */
+  readonly edges: number
 }
 
 /**
@@ -565,6 +611,17 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
     readonly key: Key
   }): (K extends 'node' ? NodeDatum<M> : EdgeDatum<M>) | undefined
   /**
+   * Problems present in the data now, after pending data changes are applied: a problem goes away
+   * once fixed. The same array is returned until the problems change, and `issueschange` fires
+   * when they do.
+   */
+  issues(): readonly GraphIssue[]
+  /**
+   * Counts the elements of the data and those drawn now, after pending data changes are applied.
+   * The same object is returned until the counts can change.
+   */
+  count(): GraphCount
+  /**
    * Subscribes to an event until the returned function is called or the `signal` of the options
    * aborts. Subscribes nothing once the graph is destroyed.
    */
@@ -683,6 +740,26 @@ interface LimitBox {
   readonly scene: number
   readonly positions: number
   readonly box: Bounds | null
+}
+
+interface CountKey {
+  readonly scene: number
+  readonly zoom: number
+  readonly time: TimeFilter | null
+  readonly layers: LayerFilter | null
+  readonly hide: HideFilter | null
+  readonly masks: number
+}
+
+function sameCountKey(a: CountKey, b: CountKey): boolean {
+  return (
+    a.scene === b.scene &&
+    a.zoom === b.zoom &&
+    a.time === b.time &&
+    a.layers === b.layers &&
+    a.hide === b.hide &&
+    a.masks === b.masks
+  )
 }
 
 const svgNamespace = 'http://www.w3.org/2000/svg'
@@ -914,7 +991,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let paletteStamp = 0
   const watchers = new Set<GraphWatcher>()
   let counted = -1
-  let counts = { nodes: 0, edges: 0, pendingEdges: 0 }
+  let counts = { nodes: 0, edges: 0 }
+  const issueSet = new IssueSet()
+  let issuesAt = 0
+  let countKey: CountKey | null = null
+  let lastCount: GraphCount | null = null
   let globe: GlobeCamera | null = null
   let lens: GraphLensState | null = null
   let wantedLens: GraphLensState | null = null
@@ -2085,20 +2166,65 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const start = clock()
     const changes = model.flush()
     if (projection.grouping) foldNewGroups(changes)
-    const carriers: GraphIssue[] = []
-    const supported = support.apply(changes, carriers)
+    const supported = support.apply(changes)
     const projected = projection.apply(changes)
     const flushed = clock()
     scene.apply(projection.view, projected.scene)
     const applied = clock()
     applyChanges(changes, projected)
     if (supported) lightSupport()
-    const issues = projected.scene.issues
-    probe?.flushed(
-      flushed - start,
-      applied - flushed,
-      carriers.length > 0 ? [...issues, ...carriers] : issues,
-    )
+    probe?.flushed(flushed - start, applied - flushed)
+    refreshIssues()
+  }
+
+  function refreshIssues(): void {
+    const version = model.issueVersion + hierarchy.issueVersion + support.issueVersion
+    if (version === issuesAt) return
+    issuesAt = version
+    const found: GraphIssue[] = []
+    model.collectIssues(found)
+    hierarchy.collectIssues(found)
+    support.collectIssues(found)
+    const added = issueSet.refresh(found)
+    if (!added) return
+    if (dev && added.length > 0) console.warn(describeIssues(added))
+    emitter.emit('issueschange', { issues: issueSet.list })
+  }
+
+  function countElements(): GraphCount {
+    flushPending()
+    const seen = sight()
+    const nodes = scene.nodes
+    const edges = scene.edges
+    const key: CountKey = {
+      scene: sceneVersion,
+      zoom: nodes.zoom.count > 0 || edges.zoom.count > 0 ? seen.zoom : 0,
+      time: seen.time,
+      layers: seen.layers,
+      hide: seen.hide,
+      masks: seen.hide ? buffers.nodeMaskVersion + buffers.edgeMaskVersion : 0,
+    }
+    if (lastCount && countKey && sameCountKey(countKey, key)) return lastCount
+    const allNodes = !filtered(nodes, seen)
+    let shownNodes = 0
+    for (let index = 0; index < nodes.capacity; index++) {
+      if (nodes.alive[index] === 1 && (allNodes || nodeShown(nodes, index, seen))) shownNodes++
+    }
+    const allEdges = allNodes && !filtered(edges, seen)
+    let shownEdges = 0
+    for (let index = 0; index < edges.capacity; index++) {
+      if (edges.alive[index] === 1 && (allEdges || edgeShown(nodes, edges, index, seen))) {
+        shownEdges++
+      }
+    }
+    countKey = key
+    lastCount = Object.freeze({
+      nodes: model.nodeCount,
+      edges: model.edgeCount,
+      pending: model.pendingCount,
+      shown: Object.freeze({ nodes: shownNodes, edges: shownEdges }),
+    })
+    return lastCount
   }
 
   function foldNewGroups(changes: GraphChanges): void {
@@ -3436,6 +3562,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       movePositions(indices, to, positionOptions.duration ?? 0)
       if (moved.size > 0) emitter.emit('positionchange', { origin: 'api', positions: moved })
     },
+    snapshot: (snapshotOptions = {}) => {
+      flushPending()
+      const reader = snapshotOptions.settled === false ? positions : settledPositions()
+      const result = new Map<Key, Point>()
+      for (const record of model.nodes()) {
+        result.set(record.key, { x: reader.x(record.index), y: reader.y(record.index) })
+      }
+      return result
+    },
   }
 
   const layoutApi: GraphLayout = {
@@ -3527,11 +3662,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       counts = {
         nodes: countAlive(scene.nodes.alive, scene.nodes.capacity),
         edges: countAlive(scene.edges.alive, scene.edges.capacity),
-        pendingEdges: model.pendingEdges().length,
       }
     }
     return {
       ...counts,
+      pendingEdges: model.pendingCount,
+      issues: issueSet.list,
       layout: session?.layout.name ?? null,
       renderer: renderer?.stats?.() ?? null,
     }
@@ -3617,6 +3753,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       flushPending()
       return model.endpoints(key)
     },
+    issues: () => {
+      flushPending()
+      return issueSet.list
+    },
+    count: countElements,
     datumOf: (element) => {
       flushPending()
       const record = element.kind === 'node' ? model.node(element.key) : model.edge(element.key)

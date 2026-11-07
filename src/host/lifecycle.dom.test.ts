@@ -361,6 +361,34 @@ describe('after destroy', () => {
     await expect(exportSvg(graph)).rejects.toThrow('graph: cannot export a destroyed graph')
   })
 
+  it('reads issues, counts and positions before destroy, and empty ones after', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const graph = mount(
+      {},
+      defineGraph({
+        marks: [
+          edges<Link>([...links, { id: 'cx', from: 'c', to: 'x' }], {
+            source: 'from',
+            target: 'to',
+          }),
+          nodes<Item>([...items, { id: 'a', x: 0, y: 0, group: 'one' }], { x: 'x', y: 'y' }),
+        ],
+        states: { muted: { opacity: 0.2 } },
+      }),
+    )
+    settle()
+    expect(graph.issues()).toEqual([{ type: 'duplicate-key', kind: 'nodes', key: 'a' }])
+    expect(graph.count()).toEqual({ nodes: 3, edges: 2, pending: 1, shown: { nodes: 3, edges: 2 } })
+    expect(graph.positions.snapshot().get('a')).toEqual({ x: -100, y: 0 })
+    graph.destroy()
+    expect(graph.issues()).toEqual([])
+    expect(Object.isFrozen(graph.issues())).toBe(true)
+    expect(graph.count()).toEqual({ nodes: 0, edges: 0, pending: 0, shown: { nodes: 0, edges: 0 } })
+    expect(graph.positions.snapshot()).toEqual(new Map())
+    expect(graph.on('issueschange', () => {})).toBeTypeOf('function')
+    vi.restoreAllMocks()
+  })
+
   it('lets a minimap, a legend and a timeline be created, still', () => {
     const graph = mount()
     settle()

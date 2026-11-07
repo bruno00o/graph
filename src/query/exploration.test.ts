@@ -170,6 +170,42 @@ describe('createExploration', () => {
     seen.stop()
   })
 
+  it('retries a failed expansion and clears its error meanwhile', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    let online = false
+    const fetches = vi.fn(async (key: string) => {
+      if (!online) throw new Error('offline')
+      return { nodes: [{ id: key }, { id: `${key}1` }], edges: [] as Link[] }
+    })
+    const flaky = createExploration(client, {
+      roots: ['x'],
+      neighbors: (key) =>
+        queryOptions({
+          queryKey: ['flaky', key],
+          queryFn: () => fetches(String(key)),
+          staleTime: Number.POSITIVE_INFINITY,
+        }),
+    })
+    flaky.retry('x')
+    const seen = watchBoth(flaky)
+    await vi.waitFor(() => expect(flaky.store.state.errors.has('x')).toBe(true))
+    flaky.retry('nothing')
+    flaky.retry('x')
+    expect(flaky.store.state.errors.has('x')).toBe(false)
+    await vi.waitFor(() => expect(flaky.store.state.errors.has('x')).toBe(true))
+    expect(fetches).toHaveBeenCalledTimes(2)
+    seen.stop()
+    online = true
+    flaky.retry('x')
+    expect(flaky.store.state.errors.has('x')).toBe(false)
+    expect(fetches).toHaveBeenCalledTimes(2)
+    const again = watchBoth(flaky)
+    await vi.waitFor(() => expect(again.nodes()).toEqual(['x', 'x1']))
+    expect(flaky.store.state.errors.has('x')).toBe(false)
+    expect(fetches).toHaveBeenCalledTimes(3)
+    again.stop()
+  })
+
   it('pauses without listeners and resumes from the cache', async () => {
     const { exploration } = setup()
     const first = watchBoth(exploration)

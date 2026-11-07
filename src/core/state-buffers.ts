@@ -115,6 +115,7 @@ export class StateBuffers {
   tableVersion = 0
   highlightVersion = 0
   edgeMaskVersion = 0
+  nodeMaskVersion = 0
   edgeFlowBits = 0
   nodeRaise: number = builtInRaise
   edgeRaise: number = builtInRaise
@@ -192,6 +193,7 @@ export class StateBuffers {
     }
     this.nodeMask[index] = mask >>> 0
     this.nodeDirty.add(index)
+    this.nodeMaskVersion++
     this.#count(before, mask)
   }
 
