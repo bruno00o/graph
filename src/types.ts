@@ -1161,10 +1161,10 @@ export interface ViewLimitOptions {
   /**
    * When the view frames the nodes on its own, with `padding`. `'first'` frames the first data
    * and follows the first layout run until the view moves, unless the graph mounts with
-   * `initialView` or `view`. `'layouts'` does the same, then follows every layout run and frames
-   * its end, as long as the view has not moved since the last fit: a gesture, `view.set` or
-   * `view.zoomBy` stops it until the next `view.fit`. `'never'` frames nothing. A controlled view receives the
-   * fits as requests.
+   * `initialView` or `view`; a gesture before the first data cancels that first fit. `'layouts'`
+   * does the same, then follows every layout run and frames its end, as long as the view has not
+   * moved since the last fit: a gesture, `view.set` or `view.zoomBy` stops it until the next
+   * `view.fit`. `'never'` frames nothing. A controlled view receives the fits as requests.
    * @default 'first'
    */
   readonly autoFit?: AutoFit | undefined

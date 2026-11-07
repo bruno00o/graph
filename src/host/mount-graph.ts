@@ -125,6 +125,7 @@ import {
 } from './lens'
 import { afterDestroy, destroyedReason, FrameWaiters, stillborn, untilDestroyed } from './lifecycle'
 import type { Renderer } from './renderer'
+import { PendingRequests } from './requests'
 import { clearRoom } from './room'
 import { StateRegistry } from './state-registry'
 
@@ -523,7 +524,10 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
   readonly onViewChange?: ((event: GraphViewEvent) => void) | undefined
   /** Initial selection. Passing it makes the selection controlled for the life of the graph. */
   readonly selection?: ElementKeysInput | undefined
-  /** Receives every selection request in controlled mode, instead of the selection changing. */
+  /**
+   * Receives every selection request in controlled mode, instead of the selection changing. Each
+   * request starts from the last one that `update({ selection })` has not answered yet.
+   */
   readonly onSelectionChange?: ((event: GraphSelectionEvent) => void) | undefined
   /** Groups folded at mount, by key. Later changes go through `groups`. */
   readonly initialFolded?: Iterable<Key> | undefined
@@ -532,7 +536,10 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * `onFoldChange` and only `update({ folded })` applies them.
    */
   readonly folded?: Iterable<Key> | undefined
-  /** Receives every fold request in controlled mode, instead of the folded groups changing. */
+  /**
+   * Receives every fold request in controlled mode, instead of the folded groups changing. Each
+   * request starts from the last one that `update({ folded })` has not answered yet.
+   */
   readonly onFoldChange?: ((event: GraphFoldEvent) => void) | undefined
   /** Time window at mount, or `null` for none. Later changes go through `time`. */
   readonly initialTime?: TimeWindowInput | null | undefined
@@ -550,7 +557,10 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * requests go to `onLayerChange` and only `update({ hiddenLayers })` applies them.
    */
   readonly hiddenLayers?: Iterable<LayerName<M>> | undefined
-  /** Receives every layer request in controlled mode, instead of the hidden layers changing. */
+  /**
+   * Receives every layer request in controlled mode, instead of the hidden layers changing. Each
+   * request starts from the last one that `update({ hiddenLayers })` has not answered yet.
+   */
   readonly onLayerChange?: ((event: GraphLayerEvent<M>) => void) | undefined
   /**
    * Destroys the graph when it aborts. A signal already aborted mounts nothing: the graph comes
@@ -656,6 +666,7 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
    * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled
    * `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and selection stay.
+   * Throws a `RangeError`, and applies nothing, for a controlled `view` that is not finite.
    */
   update(options: GraphUpdateOptions<S, M>): void
   /**
@@ -715,6 +726,7 @@ interface FitKeys {
 interface FitRequest {
   readonly keys: FitKeys | null
   readonly options: FitOptions
+  readonly automatic?: boolean
 }
 
 interface PointerMove {
@@ -738,12 +750,13 @@ interface Gesture {
   readonly touch: boolean
   readonly start: Point
   readonly target: GraphTarget | null
-  readonly drag: NodeDrag | null
+  drag: NodeDrag | null
   readonly lasso: Point[] | null
   readonly lens: Point | null
   last: Point
   event: PointerEvent
   moved: boolean
+  stopped: boolean
 }
 
 interface Pinch {
@@ -815,9 +828,10 @@ function sameLayout(a: Layout | null, b: Layout | null): boolean {
 
 interface NodeDrag {
   readonly target: GraphTarget & { readonly kind: 'node' }
-  readonly indices: readonly number[]
-  readonly keys: readonly Key[]
-  readonly offsets: Float32Array
+  readonly index: number
+  indices: readonly number[]
+  keys: readonly Key[]
+  offsets: Float32Array
   readonly inLens: boolean
   started: boolean
 }
@@ -831,6 +845,7 @@ const autoPanSpeed = 900
 const autoPanFirstStep = 16
 const autoPanLongestStep = 50
 const pickTolerance = 4
+const movingPickInterval = 150
 const highlightOrder = 2 ** 40
 const layerOrder = 2 ** 26
 const kindOf = { node: 'nodes', edge: 'edges' } as const satisfies Record<string, StateKind>
@@ -937,6 +952,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let litStates: readonly string[] = []
   let outgoingView: ViewRequest | null = null
   let sentViews: ViewRequest[] = []
+  const selectionAsks = new PendingRequests<ElementKeys>(sameKeys, requestMemory)
+  const foldAsks = new PendingRequests<readonly Key[]>(sameList, requestMemory)
+  const layerAsks = new PendingRequests<readonly string[]>(sameList, requestMemory)
   let quiet = false
   let warnedEmpty = false
   const element = document.createElement('div')
@@ -958,6 +976,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
   container.append(element)
   let remembered: GraphTarget | null = null
+  let ring = 'none'
 
   let frameRequest = 0
   let laterRequest: ReturnType<typeof setTimeout> | undefined
@@ -978,7 +997,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const wholeFit: FitRequest = { keys: null, options: {} }
   const viewGiven = options.initialView !== undefined || viewControlled
   const firstFit = definition.view.autoFit
-  let pendingFit: FitRequest | null = viewGiven || firstFit === 'never' ? null : wholeFit
+  let pendingFit: FitRequest | null =
+    viewGiven || firstFit === 'never' ? null : { ...wholeFit, automatic: true }
   let frameTarget = wholeFit
   let fitAnimation: ViewAnimation | null = null
   let flushing = false
@@ -990,6 +1010,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let pickedScene = -1
   let pickedPositions = -1
   let pickedPaths = 0
+  let pickedAt = Number.NEGATIVE_INFINITY
   let gesture: Gesture | null = null
   let pinch: Pinch | null = null
   let autoPanning = false
@@ -1216,13 +1237,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     request()
   }
 
+  function hiddenBase(): readonly string[] {
+    return layerAsks.base(hiddenLayers)
+  }
+
   function requestHidden(next: Iterable<string>): void {
     const list = orderLayers(next)
     if (!layersControlled) {
       applyHidden(list)
       return
     }
-    if (!sameList(list, hiddenLayers)) onLayerChange?.({ hidden: list })
+    if (sameList(list, hiddenBase())) return
+    layerAsks.send(list)
+    onLayerChange?.({ hidden: list })
   }
 
   function lightSupport(): void {
@@ -1338,6 +1365,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function publishView(view: View, cause: ViewCause): void {
+    if (!framedOnce && cause === 'user') skipFirstFit()
     if (framedOnce && (cause === 'user' || cause === 'api')) moved = true
     patch({ view })
     emitter.emit('viewchange', { view, origin: originOf(cause) })
@@ -1380,6 +1408,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function applyView(view: View): void {
     const answered = sentViews.findIndex((sent) => sameView(sent.view, view))
+    if (answered < 0 && sameView(view, store.get().view)) return
     const cause = sentViews[answered < 0 ? sentViews.length - 1 : answered]?.cause ?? 'api'
     if (answered >= 0) sentViews = sentViews.slice(answered + 1)
     else {
@@ -1592,6 +1621,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return box ? frameBox(box, fit.options) : null
   }
 
+  function skipFirstFit(): void {
+    moved = true
+    framing = false
+    if (pendingFit?.automatic) pendingFit = null
+  }
+
   function framedNow(): void {
     framedOnce = true
     moved = false
@@ -1766,20 +1801,26 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     updateLens()
   }
 
-  function pickAt(point: Point): GraphTarget | null {
+  function pickLater(): boolean {
+    if (session === null && positionAnimations.length === 0) return false
+    if (pickedScene !== sceneVersion || pickedPaths !== bundles.paths.version) return false
+    return performance.now() - pickedAt < movingPickInterval
+  }
+
+  function pickAt(point: Point, hover = false): GraphTarget | null {
     syncContainers()
-    if (!gesture?.drag && pickedPaths !== bundles.paths.version) {
+    const current = !gesture?.drag && !(hover && pickLater())
+    if (current && pickedPaths !== bundles.paths.version) {
       pickIndex.build(pickSource)
       pickedPaths = bundles.paths.version
       pickedScene = sceneVersion
       pickedPositions = positions.version
-    } else if (
-      !gesture?.drag &&
-      (pickedScene !== sceneVersion || pickedPositions !== positions.version)
-    ) {
+      pickedAt = performance.now()
+    } else if (current && (pickedScene !== sceneVersion || pickedPositions !== positions.version)) {
       pickIndex.refresh(pickSource)
       pickedScene = sceneVersion
       pickedPositions = positions.version
+      pickedAt = performance.now()
     }
     const camera = sphere()
     const lensView = viewAt(point)
@@ -1861,13 +1902,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     request(true)
   }
 
+  function foldedBase(): readonly Key[] {
+    return foldAsks.base(store.get().folded)
+  }
+
   function requestFolded(next: Iterable<Key>): void {
     const folded = [...new Set(next)]
     if (!foldControlled) {
       applyFolded(folded)
       return
     }
-    if (!sameList(store.get().folded, folded)) onFoldChange?.({ folded })
+    if (sameList(foldedBase(), folded)) return
+    foldAsks.send(folded)
+    onFoldChange?.({ folded })
   }
 
   function allGroups(): Key[] {
@@ -1885,11 +1932,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function toggleFold(key: Key): void {
-    const folded = store.get().folded
+    const folded = foldedBase()
     requestFolded(
-      projection.folded.has(key)
-        ? folded.filter((each) => !Object.is(each, key))
-        : [...folded, key],
+      folded.includes(key) ? folded.filter((each) => !Object.is(each, key)) : [...folded, key],
     )
   }
 
@@ -1901,9 +1946,18 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     request()
   }
 
+  function selectedBase(): ElementKeys {
+    return selectionAsks.base(registry.members('selected'))
+  }
+
+  function askSelection(next: ElementKeys): void {
+    selectionAsks.send(next)
+    onSelectionChange?.({ selection: next })
+  }
+
   function requestSelection(next: ElementKeys): void {
     if (controlled) {
-      if (!sameKeys(registry.members('selected'), next)) onSelectionChange?.({ selection: next })
+      if (!sameKeys(selectedBase(), next)) askSelection(next)
     } else if (registry.set('selected', next)) {
       publishSelection()
     }
@@ -1956,6 +2010,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function reveal(focus: GraphTarget, cause: ViewCause): void {
+    if (cause === 'user' && !definition.interaction.pan) return
     const point = focusPoint(focus)
     if (!point) return
     const view = baseView()
@@ -1975,7 +2030,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     patch({ focused: next })
     if (destroyed) return
     if (next) {
-      element.style.outline = 'none'
+      setRing('none')
       announce(labelOf(next))
       if (follow) reveal(next, follow)
     }
@@ -2012,14 +2067,21 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function onFocus(): void {
     if (!definition.interaction.keyboard || !focusVisible()) return
+    flushPending()
     const restored = remembered ? target(remembered.kind, remembered.key) : null
     remembered = null
     if (restored) setFocused(restored, 'user')
-    else if (!store.get().focused) element.style.outline = focusOutline
+    else if (!store.get().focused) setRing(focusOutline)
+  }
+
+  function setRing(outline: string): void {
+    if (ring === outline) return
+    ring = outline
+    element.style.outline = outline
   }
 
   function onBlur(): void {
-    element.style.outline = 'none'
+    setRing('none')
     const current = store.get().focused
     if (!current) return
     remembered = current
@@ -2040,8 +2102,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function runKey(event: KeyboardEvent): boolean {
     const action = keyAction(event)
     if (!action) return false
+    flushPending()
     const { interaction } = definition
-    const { focused, selection } = store.get()
+    const { focused } = store.get()
     const view = baseView()
     const size = viewport()
     switch (action.type) {
@@ -2065,6 +2128,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         return true
       }
       case 'fit': {
+        if (!interaction.pan || !interaction.zoom) return false
         const fitted = fitView(wholeFit)
         if (!fitted) return false
         animateTo(fitted, keyDuration, 'userFit')
@@ -2079,8 +2143,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         if (!focused || interaction.select === false) return false
         selectTarget(focused, action.additive)
         return true
-      case 'escape':
+      case 'escape': {
         if (cancelLasso()) return true
+        const selection = selectedBase()
         if (interaction.select !== false && selection.nodes.length + selection.edges.length > 0) {
           requestSelection(noKeys)
           return true
@@ -2088,6 +2153,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         if (!focused) return false
         setFocused(null)
         return true
+      }
     }
   }
 
@@ -2104,7 +2170,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     element.removeAttribute('tabindex')
     element.setAttribute('role', 'img')
-    element.style.outline = 'none'
+    setRing('none')
     setFocused(null)
   }
 
@@ -2141,7 +2207,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         scene.nodes.shape[model.node(key)?.index ?? -1] !== containerShape,
     )
     if (inside.length === 0) return
-    const current = registry.members('selected')
+    const current = selectedBase()
     requestSelection({ ...current, nodes: [...current.nodes, ...inside] })
   }
 
@@ -2167,10 +2233,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return
     }
     const kind = kindOf[clicked.kind]
-    const current = registry.members('selected')
+    const current = selectedBase()
     const merged = clicked.kind === 'edge' ? clicked.aggregate?.keys : undefined
     if (merged) {
-      const all = merged.every((key) => registry.has('selected', 'edges', key))
+      const chosen = new Set(current.edges)
+      const all = merged.every((key) => chosen.has(key))
       const others = additive ? current.edges.filter((key) => !merged.includes(key)) : []
       requestSelection({
         nodes: additive ? current.nodes : [],
@@ -2179,7 +2246,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return
     }
     if (!additive) requestSelection({ ...noKeys, [kind]: [clicked.key] })
-    else if (registry.has('selected', kind, clicked.key))
+    else if (current[kind].includes(clicked.key))
       requestSelection({ ...current, [kind]: current[kind].filter((key) => key !== clicked.key) })
     else requestSelection({ ...current, [kind]: [...current[kind], clicked.key] })
   }
@@ -2258,11 +2325,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (record && groupingOf(record.mark)?.folded) born.push(key)
     }
     if (born.length === 0) return
-    const folded = [...new Set([...store.get().folded, ...born])]
     if (foldControlled) {
-      onFoldChange?.({ folded })
+      requestFolded([...foldedBase(), ...born])
       return
     }
+    const folded = [...new Set([...store.get().folded, ...born])]
     projection.setFolded(folded)
     patch({ folded })
     emitter.emit('foldchange', { folded })
@@ -2404,6 +2471,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function applyChanges(changes: GraphChanges, projected: ProjectionChanges): void {
+    dropLostDrag(changes.nodes.removed)
+    if (destroyed) return
     followPositions(placeNodes(model, positions, changes))
     const fresh = revealPositions(changes, projected)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
@@ -2421,7 +2490,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     decorations.changed()
     if (result.selection) {
       publishSelection()
-      if (controlled) onSelectionChange?.({ selection: registry.members('selected') })
+      if (controlled) askSelection(registry.members('selected'))
       if (destroyed) return
     }
     const hovered = store.get().hovered
@@ -2510,7 +2579,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function framingFit(): FitRequest {
     const { padding, maxZoom } = frameTarget.options
-    return { keys: frameTarget.keys, options: { padding, maxZoom } }
+    return { keys: frameTarget.keys, options: { padding, maxZoom }, automatic: true }
   }
 
   function frameLayout(): void {
@@ -3043,7 +3112,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       offsets[i * 2] = positions.x(index) - world.x
       offsets[i * 2 + 1] = positions.y(index) - world.y
     })
-    return { target: { ...hit, kind: 'node' }, indices, keys, offsets, inLens, started: false }
+    const index = model.node(hit.key)?.index ?? -1
+    return {
+      target: { ...hit, kind: 'node' },
+      index,
+      indices,
+      keys,
+      offsets,
+      inLens,
+      started: false,
+    }
   }
 
   function dragEvent(drag: NodeDrag, event: PointerEvent) {
@@ -3088,6 +3166,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       lasso: lassoing ? [worldAt(point, store.get().view)] : null,
       lens: moveLens && lens ? lens.at : null,
       moved: false,
+      stopped: false,
     }
     canvas.setPointerCapture?.(event.pointerId)
     if (drag || lassoing) surface?.claim(true)
@@ -3153,6 +3232,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         lasso: null,
         lens: null,
         moved: true,
+        stopped: false,
       }
     }
     updateCursor()
@@ -3255,7 +3335,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     pendingMove = null
     if (!move || destroyed) return
     const { event, point } = move
-    const hit = move.target === undefined ? pickAt(point) : move.target
+    const hit = move.target === undefined ? pickAt(point, true) : move.target
     emitter.emit('pointermove', { target: hit, point, world: worldAt(point), originalEvent: event })
   }
 
@@ -3269,7 +3349,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const point = local(event)
     if (!gesture || gesture.id === event.pointerId) trackPointer(point)
     if (!gesture) {
-      const hit = pickAt(point)
+      const hit = pickAt(point, true)
       setHovered(hit, event)
       if (destroyed) return
       queueMove(event, point, hit)
@@ -3284,6 +3364,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       updateCursor()
     }
     const { lasso, drag } = gesture
+    if (gesture.lens && !wantedLens) stopGesture(gesture)
+    if (gesture.stopped) {
+      gesture.last = point
+      return
+    }
     if (gesture.lens && wantedLens) {
       const from = gesture.lens
       const at = { x: from.x + point.x - gesture.start.x, y: from.y + point.y - gesture.start.y }
@@ -3309,6 +3394,39 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       commitView(panBy(baseView(), point.x - gesture.last.x, point.y - gesture.last.y), 'user')
     }
     gesture.last = point
+  }
+
+  function stopGesture(current: Gesture): void {
+    current.stopped = true
+    current.moved = true
+  }
+
+  function dropLostDrag(removed: readonly { readonly index: number }[]): void {
+    const current = gesture
+    const drag = current?.drag
+    if (!current || !drag || removed.length === 0) return
+    const gone = new Set<number>()
+    for (const { index } of removed) gone.add(index)
+    if (gone.has(drag.index)) {
+      current.drag = null
+      stopGesture(current)
+      if (drag.started) emitter.emit('dragend', dragEvent(drag, current.event))
+      return
+    }
+    if (!drag.indices.some((index) => gone.has(index))) return
+    const indices: number[] = []
+    const keys: Key[] = []
+    const offsets: number[] = []
+    drag.indices.forEach((index, i) => {
+      const key = drag.keys[i]
+      if (gone.has(index) || key === undefined) return
+      indices.push(index)
+      keys.push(key)
+      offsets.push(drag.offsets[i * 2] ?? 0, drag.offsets[i * 2 + 1] ?? 0)
+    })
+    drag.indices = indices
+    drag.keys = keys
+    drag.offsets = new Float32Array(offsets)
   }
 
   function endGesture(event: PointerEvent, cancelled: boolean): void {
@@ -3567,8 +3685,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       flushPending()
       const resolved = next ? target(next.kind, next.key) : null
       if (next && (!resolved || concealed(resolved))) return
-      if (resolved && definition.interaction.keyboard) element.focus({ preventScroll: true })
+      remembered = null
       setFocused(resolved, 'api')
+      if (destroyed) return
+      if (resolved && definition.interaction.keyboard) element.focus({ preventScroll: true })
     },
   }
 
@@ -3671,12 +3791,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     isFolded: (key) => projection.folded.has(key),
     fold: (keys) => {
       flushPending()
-      requestFolded([...store.get().folded, ...(keys ?? allGroups())])
+      requestFolded([...foldedBase(), ...(keys ?? allGroups())])
     },
     unfold: (keys) => {
       if (!keys) return requestFolded([])
       const removed = new Set(keys)
-      requestFolded(store.get().folded.filter((key) => !removed.has(key)))
+      requestFolded(foldedBase().filter((key) => !removed.has(key)))
     },
     toggle: (key) => toggleFold(key),
     set: (keys) => requestFolded(keys),
@@ -3762,17 +3882,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       names: () => scene.markLayers.names,
       hidden: () => hiddenLayers,
       isHidden: (name) => hiddenLayers.includes(name),
-      hide: (names) => requestHidden([...hiddenLayers, ...(names ?? scene.markLayers.names)]),
+      hide: (names) => requestHidden([...hiddenBase(), ...(names ?? scene.markLayers.names)]),
       show: (names) => {
-        const shown = new Set<string>(names ?? [...scene.markLayers.names, ...hiddenLayers])
-        requestHidden(hiddenLayers.filter((name) => !shown.has(name)))
+        const base = hiddenBase()
+        const shown = new Set<string>(names ?? [...scene.markLayers.names, ...base])
+        requestHidden(base.filter((name) => !shown.has(name)))
       },
-      toggle: (name) =>
-        requestHidden(
-          hiddenLayers.includes(name)
-            ? hiddenLayers.filter((each) => each !== name)
-            : [...hiddenLayers, name],
-        ),
+      toggle: (name) => {
+        const base = hiddenBase()
+        requestHidden(base.includes(name) ? base.filter((each) => each !== name) : [...base, name])
+      },
       set: (names) => requestHidden(names),
     },
     support: {
@@ -3847,13 +3966,20 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
     drawn: () => waiters.wait(),
     update(next) {
+      if (viewControlled && next.view !== undefined && !surface) checkView(next.view)
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
       if (next.onSelectionChange !== undefined) onSelectionChange = isolated(next.onSelectionChange)
-      if (controlled && next.selection !== undefined && registry.set('selected', next.selection)) {
-        publishSelection()
+      if (controlled && next.selection !== undefined) {
+        const selection = toKeys(next.selection)
+        selectionAsks.answer(selection)
+        if (registry.set('selected', selection)) publishSelection()
       }
       if (next.onFoldChange !== undefined) onFoldChange = isolated(next.onFoldChange)
-      if (foldControlled && next.folded !== undefined) applyFolded(next.folded)
+      if (foldControlled && next.folded !== undefined) {
+        const folded = [...new Set(next.folded)]
+        foldAsks.answer(folded)
+        applyFolded(folded)
+      }
       if (next.onViewChange !== undefined && !surface) onViewChange = isolated(next.onViewChange)
       if (viewControlled && next.view !== undefined && !surface) applyView(next.view)
       if (next.onTimeChange !== undefined) onTimeChange = isolated(next.onTimeChange)
@@ -3861,7 +3987,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (next.onLayerChange !== undefined) {
         onLayerChange = isolated(next.onLayerChange as LayerListener)
       }
-      if (layersControlled && next.hiddenLayers !== undefined) applyHidden(next.hiddenLayers)
+      if (layersControlled && next.hiddenLayers !== undefined) {
+        const hidden = orderLayers(next.hiddenLayers)
+        layerAsks.answer(hidden)
+        applyHidden(hidden)
+      }
       if (next.definition && next.definition !== given) {
         const previous = definition.layout
         given = next.definition

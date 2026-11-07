@@ -75,7 +75,7 @@ const [window, setWindow] = useState<TimeWindowInput | null>(null)
 <Graph definition={definition} time={window} onTimeChange={(event) => setWindow(event.window)} />
 ```
 
-See the [time slider of your own](/examples/time-slider) example.
+In React, `<Graph>` hands each request to `onTimeChange` in a microtask and renders the new state at once, before the next frame: playback stays smooth, and a `time.set` called from an effect does not make React warn. See the [time slider of your own](/examples/time-slider) example.
 
 ## Fade
 

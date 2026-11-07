@@ -31,7 +31,7 @@ graph.lens.set({ at: 'focus' })
 graph.lens.set(null)
 ```
 
-- A point, in screen pixels relative to the graph element, gives a fixed lens. Drag its empty inside to move it, with the mouse or a finger. On a touch screen, show it from a button of your application.
+- A point, in screen pixels relative to the graph element, gives a fixed lens. Drag its empty inside to move it, with the mouse or a finger. Hiding the lens during that drag ends it: the rest of the press moves nothing. On a touch screen, show it from a button of your application.
 - `'pointer'` follows the pointer over the graph, and hides while the pointer is outside.
 - `'focus'` follows the node with the [keyboard focus](/docs/interaction#keyboard), or stays at the center of the graph without one.
 

@@ -50,7 +50,7 @@ graph.on('layerchange', ({ hidden }) => {
 const hidden = useGraphState((state) => state.hiddenLayers)
 ```
 
-To own the hidden layers, pass `hiddenLayers`, as for the [time window](/docs/time#controlled-window): `graph.layers` and the legend then call `onLayerChange`, and only a new `hiddenLayers` changes what shows.
+To own the hidden layers, pass `hiddenLayers`, as for the [time window](/docs/time#controlled-window): `graph.layers` and the legend then call `onLayerChange`, each request starting from the last one not answered yet, and only a new `hiddenLayers` changes what shows.
 
 ```tsx
 const [hidden, setHidden] = useState<string[]>([])

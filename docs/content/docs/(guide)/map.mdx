@@ -121,7 +121,7 @@ The graph owns its elements: hover, clicks, the selection, the lasso and node dr
 
 `graph.view.set`, `fit` and `zoomBy` move the map, animations included, and the keyboard of the graph does too: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit. `update({ view })` has no effect: move the map instead.
 
-The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch, and gives them back on `destroy`. On a flat map, the graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
+The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch, and gives them back when the last graph on the map is destroyed. On a flat map, the graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
 
 ## Time
 

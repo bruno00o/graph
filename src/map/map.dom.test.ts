@@ -78,6 +78,36 @@ describe('mountMapGraph', () => {
     expect(graph.element.isConnected).toBe(false)
   })
 
+  it('keeps rotation off while another graph still draws on the same map', () => {
+    const { map, fake, state } = fakeMap()
+    const first = mountMapGraph(map, { definition: definition(), ariaLabel: 'un', id: 'one' })
+    const second = mountMapGraph(map, { definition: definition(), ariaLabel: 'deux', id: 'two' })
+    first.destroy()
+    expect(fake.dragRotate.enabled).toBe(false)
+    expect(state.maxPitch).toBe(0)
+    second.destroy()
+    expect(fake.dragRotate.enabled).toBe(true)
+    expect(state.maxPitch).toBe(60)
+  })
+
+  it('gives the map canvas its cursor back when destroyed over a node', () => {
+    const { map, canvas, render } = fakeMap()
+    const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })
+    render()
+    const point = graph.view.toScreen(geoToWorld({ longitude: 2.35, latitude: 48.86 }))
+    canvas.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: point.x,
+        clientY: point.y,
+        pointerId: 1,
+        bubbles: true,
+      }),
+    )
+    expect(canvas.style.cursor).toBe('pointer')
+    graph.destroy()
+    expect(canvas.style.cursor).toBe('')
+  })
+
   it('adds the layer again when the style changes, until destroy', () => {
     const { map, layers, listeners, emit } = fakeMap()
     const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })

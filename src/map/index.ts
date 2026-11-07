@@ -18,6 +18,51 @@ import { bindMap, unbindMap } from './binding'
 export type { ExportLabels } from '../export'
 export { exportMapPng, type MapPngOptions } from './export'
 
+interface Turned {
+  readonly rotate: boolean
+  readonly pitch: boolean
+  readonly maxPitch: number
+}
+
+const holds = new WeakMap<MapLibreMap, { count: number; readonly turned: Turned }>()
+
+function holdNorth(map: MapLibreMap): void {
+  const held = holds.get(map)
+  if (held) {
+    held.count++
+    return
+  }
+  holds.set(map, {
+    count: 1,
+    turned: {
+      rotate: map.dragRotate.isEnabled(),
+      pitch: map.touchPitch.isEnabled(),
+      maxPitch: map.getMaxPitch(),
+    },
+  })
+  map.dragRotate.disable()
+  map.touchZoomRotate.disableRotation()
+  map.keyboard.disableRotation()
+  map.touchPitch.disable()
+  map.setMaxPitch(0)
+}
+
+function releaseNorth(map: MapLibreMap): void {
+  const held = holds.get(map)
+  if (!held) return
+  held.count--
+  if (held.count > 0) return
+  holds.delete(map)
+  const { turned } = held
+  if (turned.rotate) {
+    map.dragRotate.enable()
+    map.touchZoomRotate.enableRotation()
+    map.keyboard.enableRotation()
+  }
+  if (turned.pitch) map.touchPitch.enable()
+  map.setMaxPitch(turned.maxPitch)
+}
+
 /** Options of `mountMapGraph`. `S` and `M` come from the definition. */
 export interface MapGraphOptions<S extends string = string, M extends Mark = Mark>
   extends Omit<MountGraphOptions<S, M>, 'initialView' | 'view' | 'onViewChange'> {
@@ -37,9 +82,9 @@ export interface MapGraphOptions<S extends string = string, M extends Mark = Mar
  * Draws a graph inside a MapLibre map, as a custom layer that shares the map's WebGL context. Nodes
  * placed by `longitude` and `latitude` follow the map, flat or on the globe projection; the map owns
  * pan, zoom and their gestures, and `view` calls move the map. The map stays north up and without
- * pitch: rotation and pitch are turned off until `destroy`. Layouts, edge bundling and the
- * background grid of the definition are ignored; hulls and groups follow the map, and the padding
- * of group containers is in pixels.
+ * pitch: rotation and pitch are turned off until the last graph on the map is destroyed. Layouts,
+ * edge bundling and the background grid of the definition are ignored; hulls and groups follow the
+ * map, and the padding of group containers is in pixels.
  */
 export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   map: MapLibreMap,
@@ -55,16 +100,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   let warnedLayout = false
   const claimed = { dragPan: false, boxZoom: false }
   let doubleClick = false
-  const turned = {
-    rotate: map.dragRotate.isEnabled(),
-    pitch: map.touchPitch.isEnabled(),
-    maxPitch: map.getMaxPitch(),
-  }
-  map.dragRotate.disable()
-  map.touchZoomRotate.disableRotation()
-  map.keyboard.disableRotation()
-  map.touchPitch.disable()
-  map.setMaxPitch(0)
+  holdNorth(map)
   if (map.getBearing() !== 0 || map.getPitch() !== 0) map.jumpTo({ bearing: 0, pitch: 0 })
 
   function shift(): { readonly x: number; readonly y: number } {
@@ -241,13 +277,8 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       graph.element.removeEventListener('keydown', keepKeys)
       if (map.getLayer(id)) map.removeLayer(id)
       driver = null
-      if (turned.rotate) {
-        map.dragRotate.enable()
-        map.touchZoomRotate.enableRotation()
-        map.keyboard.enableRotation()
-      }
-      if (turned.pitch) map.touchPitch.enable()
-      map.setMaxPitch(turned.maxPitch)
+      canvas.style.cursor = ''
+      releaseNorth(map)
       unbindMap(graph)
     },
   }
