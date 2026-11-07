@@ -302,7 +302,7 @@ describe('view limits', () => {
     expect(viewOf(graph).zoom).toBe(2)
     graph.view.zoomBy(1e-3)
     expect(viewOf(graph).zoom).toBe(0.5)
-    graph.view.fit(['a'])
+    graph.view.fit({ nodes: ['a'] })
     dom.flushFrames()
     expect(viewOf(graph).zoom).toBe(2)
     graph.view.set({ x: 0, y: 0, zoom: 1 })

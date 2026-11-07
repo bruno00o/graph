@@ -1,4 +1,5 @@
 export { geoToWorld, worldToGeo } from './core/geo'
+export type { Endpoints } from './core/graph-model'
 export { raw } from './core/raw'
 export { defineGraph } from './define-graph'
 export type {
@@ -30,6 +31,7 @@ export type {
   GraphLensEvent,
   GraphPointerEvent,
   GraphPositionEvent,
+  GraphSelectionEvent,
   GraphTarget,
   GraphTargetEvent,
   GraphTimeEvent,
@@ -37,6 +39,7 @@ export type {
   GraphZoomHintEvent,
   NodeTarget,
   PositionOrigin,
+  ViewOrigin,
   ZoomKey,
 } from './host/events'
 export type { GraphLens, GraphLensState, LensFollow, LensInput } from './host/lens'
@@ -75,6 +78,7 @@ export type {
   AggregateDirection,
   AggregateEdge,
   AggregateEdgeOptions,
+  AutoFit,
   BackgroundGrid,
   BackgroundOptions,
   Badge,
@@ -106,6 +110,7 @@ export type {
   EdgeRouting,
   EdgeScalesOptions,
   FieldOf,
+  FitPadding,
   FreeState,
   GeoPoint,
   GraphData,
@@ -153,6 +158,7 @@ export type {
   NumberChannel,
   NumberScale,
   NumberScaleType,
+  PathDirection,
   PathFinder,
   PathOptions,
   PathWeight,
@@ -163,6 +169,7 @@ export type {
   ResolvedBridges,
   ResolvedInteraction,
   ResolvedLens,
+  ResolvedPadding,
   ResolvedSupportStates,
   ResolvedTimeOptions,
   ResolvedTransitions,

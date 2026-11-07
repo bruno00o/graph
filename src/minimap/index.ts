@@ -100,7 +100,10 @@ export interface MinimapOptions {
 export interface Minimap {
   /** The element of the minimap: in a corner of the graph, or for the application to place. */
   readonly element: HTMLElement
-  /** Replaces the options. Options left out take their default value. */
+  /**
+   * Changes the options: an option left out keeps its current value, an option set to `undefined`
+   * returns to its default.
+   */
   update(options?: MinimapOptions): void
   /** Removes the element and stops following the graph. Destroying the graph destroys it too. */
   destroy(): void
@@ -323,7 +326,8 @@ export function createMinimap<S extends string, M extends Mark>(
   options: MinimapOptions = {},
 ): Minimap {
   const internals = internalsOf(graph, 'createMinimap')
-  let settings = settle(options)
+  let given = options
+  let settings = settle(given)
   const element = document.createElement('div')
   element.setAttribute('data-graph-minimap', '')
   element.setAttribute('aria-hidden', 'true')
@@ -634,7 +638,8 @@ export function createMinimap<S extends string, M extends Mark>(
     update(next = {}) {
       if (destroyed) return
       const previous = settings
-      settings = settle(next)
+      given = { ...given, ...next }
+      settings = settle(given)
       style()
       if (previous.maxEdges !== settings.maxEdges) pending.scene = true
       if (

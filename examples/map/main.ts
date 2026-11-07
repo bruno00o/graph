@@ -69,7 +69,7 @@ graph.on('pointerleave', () => {
 })
 
 const selection = status()
-graph.on('selectionchange', ({ nodes: selected, edges: selectedEdges }) => {
+graph.on('selectionchange', ({ selection: { nodes: selected, edges: selectedEdges } }) => {
   selection.textContent = messages.selection(selected.length, selectedEdges.length)
   const chosen = new Set<string>(selected.map(String))
   const keep = new Set(chosen)
@@ -137,7 +137,7 @@ header.append(
       location.search = next.toString()
     },
   ),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   exporting,
   themeToggle(messages.dark, messages.light),
 )

@@ -33,6 +33,7 @@ import type {
   EdgeTarget,
   ElementKeysInput,
   FitOptions,
+  FitPadding,
   GraphDefinitionOptions,
   GroupOptions,
   HullGroupOptions,
@@ -142,6 +143,7 @@ interface Inputs {
   ExplorationOptions: ExplorationOptions<Item, Link>
   ExportOptions: ExportOptions
   FitOptions: FitOptions
+  FitPadding: FitPadding
   ForceOptions: ForceOptions
   GraphDefinitionOptions: GraphDefinitionOptions<'muted', Marks>
   GraphDevtoolsOptions: GraphDevtoolsOptions

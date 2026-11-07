@@ -49,7 +49,7 @@ function Tools(): JSX.Element {
         className="tool tool-sq"
         type="button"
         aria-label={messages.examples.fit}
-        onClick={() => graph.view.fit(undefined, { duration: 400 })}
+        onClick={() => graph.view.fit({ duration: 400 })}
       >
         <Icon name="fit" />
       </button>

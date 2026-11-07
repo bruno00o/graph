@@ -52,7 +52,7 @@ type LegendValue = string | number | boolean
 
 ### Scales of a mark
 
-A mark with [`scales`](/docs/scales#scales-of-a-mark) of its own has an entry in `marks`, in the order of the marks, nodes first. Its id is `n` or `e` and the position of the mark among the marks of its kind, from 0, such as `n1`. The ids of its categories carry it after `c:`, such as `c:n1:string:north`, so the same value can stand in two scales; a category of a shared scale keeps `c:string:north`. `keys`, `hover` and `toggle` take both.
+A mark with [`scales`](/docs/scales#scales-of-a-mark) of its own has an entry in `marks`, in the order of the marks, nodes first. Its id is `n` or `e` and the position of the mark among the marks of its kind, from 0, such as `n1`. The ids of its categories carry it after `c:`, such as `c:n1:string:north`, so the same value can stand in two scales; a category of a shared scale keeps `c:string:north`. `keys`, `hover`, `toggle` and `only` take both; `only` switches off the other categories of the same scale.
 
 <api-table path="legend/index.ts" name="LegendMarkScales" />
 

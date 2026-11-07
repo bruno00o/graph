@@ -72,7 +72,7 @@ export function mount(container: HTMLElement): GraphInstance {
     status.textContent = messages.linked(near.size - selected.length, between.size)
   }
 
-  graph.on('selectionchange', (selection) => highlight(selection.nodes))
+  graph.on('selectionchange', ({ selection }) => highlight(selection.nodes))
 
   const button = document.createElement('button')
   button.type = 'button'

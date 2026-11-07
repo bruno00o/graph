@@ -124,6 +124,66 @@ describe('createLegend', () => {
     expect(graph.store.state.states.faded).toEqual({ nodes: [], edges: [] })
   })
 
+  it('keeps one item of a section on with only', () => {
+    const graph = mount()
+    const legend = createLegend(graph, { hidden: 'faded' })
+    legend.only('c:string:south')
+    expect(legend.store.state.off).toEqual(['c:string:north'])
+    expect(graph.store.state.states.faded.nodes).toEqual(['a', 'c'])
+    const looks = legend.store.state.looks
+    const circle = looks.find((look) => look.kind === 'nodes' && look.shape === 'circle')
+    const square = looks.find((look) => look.kind === 'nodes' && look.shape === 'square')
+    legend.only(square?.id ?? '')
+    expect(legend.store.state.off).toEqual(['c:string:north', circle?.id])
+    legend.only('c:string:north')
+    expect(legend.store.state.off).toEqual([circle?.id, 'c:string:south'])
+    legend.only('unknown')
+    expect(legend.store.state.off).toHaveLength(2)
+    legend.reset()
+    expect(legend.store.state.off).toEqual([])
+    expect(graph.store.state.states.faded).toEqual({ nodes: [], edges: [] })
+  })
+
+  it('keeps one layer shown with only', () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [
+            nodes(items.slice(0, 1), { layer: 'one' }),
+            nodes(items.slice(1), { layer: 'two' }),
+          ],
+        }),
+        ariaLabel: 'graph',
+      },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const legend = createLegend(graph)
+    legend.only('l:two')
+    expect(graph.layers.hidden()).toEqual(['one'])
+    legend.only('l:one')
+    expect(graph.layers.hidden()).toEqual(['two'])
+    legend.reset()
+    expect(graph.layers.hidden()).toEqual([])
+    graph.destroy()
+  })
+
+  it('keeps the options left out of update and resets those set to undefined', () => {
+    const graph = mount()
+    const legend = createLegend(graph, { highlight: 'match', hidden: 'faded' })
+    legend.toggle('c:string:south')
+    legend.update({})
+    legend.hover('c:string:north')
+    expect(graph.store.state.states.match.nodes).toEqual(['a', 'c'])
+    expect(graph.store.state.states.faded.nodes).toEqual(['b'])
+    legend.update({ hidden: undefined })
+    expect(graph.store.state.states.faded.nodes).toEqual([])
+    expect(graph.store.state.states.match.nodes).toEqual(['a', 'c'])
+  })
+
   it('counts each end of an edge under its own category', () => {
     const container = document.createElement('div')
     document.body.append(container)
@@ -174,7 +234,7 @@ describe('createLegend', () => {
               name: 'links',
               color: 'group',
               width: 3,
-              scales: { color: { range: ['red', 'blue'] } },
+              scales: { color: { domain: ['south', 'east'], range: ['red', 'blue'] } },
             }),
             nodes<Item, 'items'>(items, {
               name: 'items',
@@ -224,9 +284,21 @@ describe('createLegend', () => {
         edges: 1,
         off: false,
       },
+      {
+        id: 'c:e0:string:east',
+        kind: 'category',
+        value: 'east',
+        color: 'blue',
+        nodes: 0,
+        edges: 0,
+        off: false,
+      },
     ])
     expect(legend.keys('c:e0:string:south')).toEqual({ nodes: [], edges: ['ab'] })
     expect(legend.keys('c:string:south')).toEqual({ nodes: ['b'], edges: [] })
+    legend.only('c:e0:string:south')
+    expect(legend.store.state.off).toEqual(['c:e0:string:east'])
+    legend.reset()
     legend.toggle('c:e0:string:south')
     const after = legend.store.state.marks[1]?.color
     expect(after?.type === 'categories' ? after.items[0]?.off : undefined).toBe(true)
@@ -295,6 +367,11 @@ describe('createLegend', () => {
     expect(legend.store.state.hovered).toBeNull()
     view.update({ toggle: false })
     expect(view.element.querySelectorAll('button')).toHaveLength(0)
+    view.update({ ariaLabel: 'Key' })
+    expect(view.element.getAttribute('aria-label')).toBe('Key')
+    expect(view.element.querySelectorAll('button')).toHaveLength(0)
+    view.update({ toggle: undefined })
+    expect(view.element.querySelectorAll('button')).toHaveLength(4)
     view.destroy()
     expect(view.element.isConnected).toBe(false)
   })

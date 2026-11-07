@@ -1,6 +1,6 @@
 import { defineGraph, edges, type Key, nodes, raw } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
-import { Graph, type GraphInstance, useGraph, useGraphEvent } from '@bruno00o/graph/react'
+import { Graph, type GraphInstance } from '@bruno00o/graph/react'
 import { type Ref, useState } from 'react'
 import { createNesting, type Joint, type Part } from './data'
 import { messages } from './messages'
@@ -32,15 +32,8 @@ const definition = defineGraph({
   scales: { width: (value) => 1 + value },
   layout: force({ edgeLength: 24 }),
   relayout: true,
+  view: { autoFit: 'layouts' },
 })
-
-function FitAfterLayout() {
-  const graph = useGraph()
-  useGraphEvent('layoutend', ({ completed }) => {
-    if (completed) graph.view.fit(undefined, { duration: 400 })
-  })
-  return null
-}
 
 function Tree({ folded, onToggle }: { folded: readonly Key[]; onToggle: (key: Key) => void }) {
   const hiddenBy = (key: string): boolean => {
@@ -82,7 +75,6 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       folded={folded}
       onFoldChange={(event) => setFolded(event.folded)}
     >
-      <FitAfterLayout />
       <div className="example-actions">
         {levels.map((level) => (
           <button

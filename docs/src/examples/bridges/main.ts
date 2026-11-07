@@ -72,6 +72,7 @@ const define = (shape: Shape, size: number) =>
       nodes<Post>(posts, { x: 'x', y: 'y', shape: 'square', size: 12 }),
     ],
     bridges: shape === 'off' ? null : { shape, size },
+    view: { padding: 64 },
   })
 
 export function mount(container: HTMLElement): GraphInstance {
@@ -81,7 +82,6 @@ export function mount(container: HTMLElement): GraphInstance {
     definition: define(shape, size),
     ariaLabel: messages.graphLabel(wires.length + shortcuts.length),
   })
-  graph.view.fit(undefined, { padding: 64 })
   const redraw = () => graph.update({ definition: define(shape, size) })
 
   const button = (text: string, onClick: (element: HTMLButtonElement) => void) => {

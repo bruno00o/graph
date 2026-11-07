@@ -65,8 +65,8 @@ export function mount(container: HTMLElement): GraphInstance {
   status.textContent = messages.supportHint
   container.append(status)
 
-  graph.on('selectionchange', ({ edges: selected }) => {
-    const [key] = selected
+  graph.on('selectionchange', ({ selection }) => {
+    const [key] = selection.edges
     status.textContent =
       key === undefined
         ? messages.supportHint

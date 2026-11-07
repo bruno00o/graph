@@ -79,7 +79,7 @@ function App() {
         <button type="button" onClick={resetPositions}>
           {messages.reset}
         </button>
-        <button type="button" onClick={() => graph.current?.view.fit(undefined, { duration: 400 })}>
+        <button type="button" onClick={() => graph.current?.view.fit({ duration: 400 })}>
           {messages.fit}
         </button>
       </header>

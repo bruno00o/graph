@@ -70,7 +70,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       definition={definition}
       ariaLabel={messages.graphLabel(items.length, links.length)}
       selection={{ nodes: selected }}
-      onSelectionChange={(next) => setSelected(keep(next.nodes))}
+      onSelectionChange={({ selection }) => setSelected(keep(selection.nodes))}
     >
       <NodeList selected={selected} onToggle={toggle} />
     </Graph>

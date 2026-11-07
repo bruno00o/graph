@@ -28,16 +28,13 @@ export function mount(container: HTMLElement): GraphInstance {
         }),
       ],
       layout: force(settings),
+      view: { autoFit: 'layouts' },
     })
 
   const graph = mountGraph(container, {
     definition: define(),
     ariaLabel: messages.graphLabel(items.filter((item) => !item.group).length),
   })
-  graph.on('layoutend', ({ completed }) => {
-    if (completed) graph.view.fit(undefined, { duration: 400 })
-  })
-
   const panel = document.createElement('div')
   panel.className = 'example-panel example-sliders'
   for (const setting of Object.keys(ranges) as Setting[]) {

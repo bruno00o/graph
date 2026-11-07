@@ -71,8 +71,8 @@ legendView.element.classList.add('legend')
 main.append(legendView.element)
 
 const supportStatus = status()
-graph.on('selectionchange', ({ edges: selected }) => {
-  const [key] = selected
+graph.on('selectionchange', ({ selection }) => {
+  const [key] = selection.edges
   if (key === undefined) {
     supportStatus.textContent = messages.supportNone
     return
@@ -124,7 +124,7 @@ header.append(
       graph.update({ definition: define() })
     },
   ),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   ...exportButtons(graph, 'multilayer', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )

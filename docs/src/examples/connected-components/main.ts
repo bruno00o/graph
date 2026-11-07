@@ -66,7 +66,7 @@ export function mount(container: HTMLElement): GraphInstance {
     }
     const component = graph.paths.reach(target.key)
     graph.selection.set({ nodes: component.nodes })
-    graph.view.fit(component.nodes, { padding: 64, duration: 500 })
+    graph.view.fit({ ...component, padding: 64, duration: 500 })
     status.textContent = messages.component(component.nodes.length)
   })
 

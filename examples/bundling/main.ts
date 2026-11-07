@@ -100,7 +100,7 @@ header.append(
   ),
   button(messages.rebundle, () => void graph.bundling.run()),
   button(messages.relaunch, () => void graph.layout.run()),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   ...exportButtons(graph, 'regroupement', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )

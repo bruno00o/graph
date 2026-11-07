@@ -23,17 +23,17 @@ Without options, every edge costs 1: the path has the fewest edges. Edges are cr
 ## Weights and direction
 
 ```ts
-graph.paths.shortest('a', 'f', { weight: 'distance', directed: true })
+graph.paths.shortest('a', 'f', { weight: 'distance', direction: 'forward' })
 graph.paths.shortest('a', 'f', { weight: (link) => link.delay + link.wait })
 ```
 
 - `weight` is a field of the edge items, or a function of an item. The path is the one with the lowest sum of weights.
 - An edge whose weight is missing, not a number or infinite cannot be crossed. A negative weight throws a `RangeError`: shortest paths need weights of 0 or more.
-- `directed: true` follows each edge from its source to its target only.
+- `direction` sets which way edges are crossed: `'both'`, the default, `'forward'` from source to target only, or `'backward'` from target to source only.
 
 Field names and function arguments are typed from the items of your edge marks, as in the definition. See [TypeScript](/docs/typescript).
 
-Examples: [path costs](/examples/weighted-path) weighs each edge, and [upstream and downstream](/examples/upstream-downstream) follows edges both ways with `directed`, through a second path finder on reversed edges.
+Examples: [path costs](/examples/weighted-path) weighs each edge, and [upstream and downstream](/examples/upstream-downstream) follows edges forward, then backward.
 
 ## Keep to some nodes and edges
 
@@ -53,7 +53,7 @@ const near = graph.paths.reach('a', { maxCost: 2 })
 graph.states.set('near', near)
 ```
 
-`reach` lists the nodes the start leads to, by increasing cost, with the cost of each, and the edges between two reached nodes that the search may cross. Without `weight`, `maxCost` counts edges: `{ maxCost: 1 }` is the start and its neighbors. Without `maxCost`, `reach` returns the whole connected component of the start, or with `directed`, every node it leads to. It takes the same options as `shortest`.
+`reach` lists the nodes the start leads to, by increasing cost, with the cost of each, and the edges between two reached nodes that the search may cross. Without `weight`, `maxCost` counts edges: `{ maxCost: 1 }` is the start and its neighbors. Without `maxCost`, `reach` returns the whole connected component of the start; with `direction: 'forward'`, every node it leads to, and with `'backward'`, every node that leads to it. It takes the same options as `shortest`.
 
 Examples: [neighborhood by hops](/examples/k-hop-neighborhood), [within a cost budget](/examples/cost-budget) and [connected components](/examples/connected-components).
 
@@ -94,14 +94,15 @@ const graph = mountGraph(container, {
   ariaLabel: 'Network',
 })
 
-graph.on('selectionchange', ({ nodes: [from, to] }) => {
+graph.on('selectionchange', ({ selection }) => {
+  const [from, to] = selection.nodes
   const path = from !== undefined && to !== undefined ? graph.paths.shortest(from, to) : null
   if (!path) return graph.states.clear()
   graph.states.set('path', path)
 })
 ```
 
-To step along the path, walk `path.nodes` with [`graph.focus.set`](/docs/interaction#keyboard) or [`graph.view.fit`](/docs/view), and frame the whole path with `graph.view.fit(path.nodes)`. The [path through waypoints](/examples/waypoints) example chains shortest paths through stops you click.
+To step along the path, walk `path.nodes` with [`graph.focus.set`](/docs/interaction#keyboard) or [`graph.view.fit`](/docs/view), and frame the whole path with `graph.view.fit(path)`. The [path through waypoints](/examples/waypoints) example chains shortest paths through stops you click.
 
 ## Without a graph
 

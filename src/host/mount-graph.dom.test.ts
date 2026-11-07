@@ -146,7 +146,7 @@ describe('createGraphHost', () => {
       costs: [0, 1],
       cost: 1,
     })
-    expect(graph.paths.shortest('a', 'c', { directed: true })?.edges).toEqual(['ab', 'bc'])
+    expect(graph.paths.shortest('a', 'c', { direction: 'forward' })?.edges).toEqual(['ab', 'bc'])
     expect(graph.paths.reach('a', { maxCost: 1 }).nodes).toEqual(['a', 'b', 'c'])
   })
 
@@ -262,7 +262,9 @@ describe('createGraphHost', () => {
   it('selects on click, adds with a modifier and clears on empty space', () => {
     const graph = mount()
     const changes: string[][] = []
-    graph.on('selectionchange', ({ nodes: selected }) => changes.push([...selected].map(String)))
+    graph.on('selectionchange', ({ selection }) => changes.push(selection.nodes.map(String)))
+    const events: unknown[] = []
+    graph.on('selectionchange', (event) => events.push(event))
     const a = screenOf(graph, 'a')
     const b = screenOf(graph, 'b')
     click(graph, a.x, a.y)
@@ -273,6 +275,7 @@ describe('createGraphHost', () => {
     click(graph, 790, 10)
     expect(graph.selection.get()).toEqual({ nodes: [], edges: [] })
     expect(changes).toEqual([['a'], ['a', 'b'], ['b'], []])
+    expect(events[0]).toEqual({ selection: { nodes: ['a'], edges: [] } })
   })
 
   it('adds the nodes inside a lasso drawn with Shift on empty space', () => {
@@ -555,12 +558,58 @@ describe('createGraphHost', () => {
   })
 })
 
+describe('pointermove', () => {
+  it('reports the element under the pointer once per frame, background included', () => {
+    const graph = mount()
+    const seen: (string | null)[] = []
+    graph.on('pointermove', ({ target, world }) => {
+      seen.push(target ? `${target.kind} ${String(target.key)}` : null)
+      expect(Number.isFinite(world.x)).toBe(true)
+    })
+    const a = screenOf(graph, 'a')
+    pointer(graph, 'pointermove', a.x, a.y)
+    pointer(graph, 'pointermove', a.x + 1, a.y)
+    expect(seen).toEqual([])
+    dom.flushFrames()
+    expect(seen).toEqual(['node a'])
+    pointer(graph, 'pointermove', 5, 5)
+    dom.flushFrames()
+    expect(seen).toEqual(['node a', null])
+  })
+
+  it('reports the dragged node while it moves', () => {
+    const graph = mount()
+    const seen: unknown[] = []
+    graph.on('pointermove', ({ target }) => seen.push(target?.key ?? null))
+    const a = screenOf(graph, 'a')
+    pointer(graph, 'pointerdown', a.x, a.y)
+    pointer(graph, 'pointermove', a.x + 20, a.y + 10)
+    pointer(graph, 'pointermove', a.x + 40, a.y + 20)
+    dom.flushFrames()
+    pointer(graph, 'pointerup', a.x + 40, a.y + 20)
+    expect(seen).toEqual(['a'])
+  })
+
+  it('asks for no frame without a listener', () => {
+    const graph = mount()
+    pointer(graph, 'pointermove', 5, 5)
+    expect(dom.pendingFrames()).toBe(0)
+    const stop = graph.on('pointermove', () => {})
+    pointer(graph, 'pointermove', 6, 5)
+    expect(dom.pendingFrames()).toBe(1)
+    dom.flushFrames()
+    stop()
+    pointer(graph, 'pointermove', 7, 5)
+    expect(dom.pendingFrames()).toBe(0)
+  })
+})
+
 describe('controlled selection', () => {
   function controlled(selection: ElementKeys = { nodes: [], edges: [] }) {
     const requests: ElementKeys[] = []
     const graph = mount(definition(), {
       selection,
-      onSelectionChange: (next) => requests.push(next),
+      onSelectionChange: ({ selection: next }) => requests.push(next),
     })
     return { graph, requests }
   }
@@ -644,7 +693,7 @@ describe('requests before the first frame', () => {
 
   it('keeps a fit on keys asked before the element has a size', () => {
     const graph = unmeasured()
-    graph.view.fit(['a', 'b'], { padding: 0 })
+    graph.view.fit({ nodes: ['a', 'b'], padding: 0 })
     dom.flushFrames()
     expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })
     dom.resize(800, 600)
@@ -657,7 +706,7 @@ describe('requests before the first frame', () => {
 
   it('keeps a fit asked in an animation frame before the first measure', () => {
     const graph = unmeasured()
-    requestAnimationFrame(() => graph.view.fit(['b', 'c'], { padding: 0 }))
+    requestAnimationFrame(() => graph.view.fit({ nodes: ['b', 'c'], padding: 0 }))
     dom.flushFrames()
     dom.resize(800, 600)
     dom.flushFrames()
@@ -715,6 +764,16 @@ describe('requests before the first frame', () => {
     page.classList.add('palette-x')
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(setPalette.mock.calls.length).toBeGreaterThan(before)
+  })
+
+  it('reads the item of an element of either kind', () => {
+    const graph = fresh(definition())
+    expect(graph.datumOf({ kind: 'node', key: 'a' })).toEqual(items[0])
+    expect(graph.datumOf({ kind: 'edge', key: 'bc' })).toEqual(links[1])
+    expect(graph.datumOf({ kind: 'edge', key: 'a' })).toBeUndefined()
+    expect(graph.datumOf({ kind: 'node', key: 'missing' })).toBeUndefined()
+    const hit = graph.pick(screenOf(graph, 'b'))
+    expect(hit && graph.datumOf(hit)).toEqual(items[1])
   })
 
   it('reads groups right after mount', () => {

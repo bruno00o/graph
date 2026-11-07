@@ -161,11 +161,26 @@ describe('groups', () => {
       kind: 'edge'
     }
     expect(hit?.kind).toBe('edge')
+    expect(hit.endpoints).toEqual({ source: 'g', target: 'h' })
     expect(hit.aggregate).toMatchObject({ source: 'g', target: 'h', count: 2 })
     expect([...(hit.aggregate?.keys ?? [])].sort()).toEqual(['ac', 'bd'])
     pointer(graph, 'pointerdown', (g.x + h.x) / 2, (g.y + h.y) / 2)
     pointer(graph, 'pointerup', (g.x + h.x) / 2, (g.y + h.y) / 2)
     expect([...graph.selection.get().edges].sort()).toEqual(['ac', 'bd'])
+  })
+
+  it('gives the ends of an edge as drawn', () => {
+    const graph = mount()
+    const b = screenOf(graph, 'b')
+    const d = screenOf(graph, 'd')
+    const middle = { x: (b.x + d.x) / 2, y: (b.y + d.y) / 2 + 0.25 }
+    expect(graph.pick(middle)).toMatchObject({ key: 'bd', endpoints: { source: 'b', target: 'd' } })
+    graph.groups.fold(['g'])
+    dom.flushFrames()
+    const g = screenOf(graph, 'g')
+    const far = { x: (screenOf(graph, 'c').x + d.x) / 2, y: g.y }
+    expect(graph.pick(far)).toMatchObject({ key: 'bd', endpoints: { source: 'g', target: 'd' } })
+    expect(graph.endpoints('bd')).toEqual({ source: 'b', target: 'd' })
   })
 
   it('toggles a group on double-click unless the handler prevents it', () => {

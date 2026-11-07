@@ -127,7 +127,7 @@ const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
 
 button.addEventListener('click', async () => {
   const completed = await graph.layout.run(undefined, { keys: graph.selection.get().nodes })
-  if (completed) graph.view.fit(graph.selection.get().nodes, { duration: 400 })
+  if (completed) graph.view.fit({ ...graph.selection.get(), duration: 400 })
 })
 ```
 

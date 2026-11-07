@@ -62,11 +62,11 @@ const definition = defineGraph({
       range: ['var(--graph-cat-1)', 'var(--graph-cat-3)', 'var(--graph-cat-5)'],
     },
   },
+  view: { padding: 80 },
 })
 
 export function mount(container: HTMLElement): GraphInstance {
   const graph = mountGraph(container, { definition, ariaLabel: messages.graphLabel })
-  graph.view.fit(undefined, { padding: 80 })
   graph.selection.set({ nodes: ['both-10'] })
   return graph
 }

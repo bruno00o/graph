@@ -72,7 +72,7 @@ export function ExampleFrame({
           className="tool tool-sq"
           type="button"
           aria-label={messages.examples.fit}
-          onClick={() => graph.current?.view.fit(undefined, { duration: 400 })}
+          onClick={() => graph.current?.view.fit({ duration: 400 })}
         >
           <Icon name="fit" />
         </button>

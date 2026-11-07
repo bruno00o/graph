@@ -64,6 +64,7 @@ export function mount(container: HTMLElement): GraphInstance {
       ],
       layout: force(),
       time: { fade: fade * day },
+      view: { padding: 80 },
     })
 
   const graph = mountGraph(container, {
@@ -71,8 +72,6 @@ export function mount(container: HTMLElement): GraphInstance {
     initialTime: { start: start + 150 * day, end: start + 171 * day },
     ariaLabel: messages.graphLabel(members.length, contacts.length),
   })
-
-  graph.on('layoutend', () => graph.view.fit(undefined, { padding: 80, duration: 300 }))
 
   const timeline = createTimeline(graph, { loop: true, speed: 30 * day })
   const bar = mountTimeline(timeline, {

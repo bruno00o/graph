@@ -67,7 +67,7 @@ header.append(
       location.search = `?nodes=${value}&edges=${Number(value) * 2}`
     },
   ),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   themeToggle(messages.dark, messages.light),
 )
 

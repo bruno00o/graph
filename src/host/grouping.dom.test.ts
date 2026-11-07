@@ -109,6 +109,29 @@ describe('groups()', () => {
     expect(merged?.kind === 'edge' ? merged.aggregate?.count : 0).toBe(2)
   })
 
+  it('finds the key and the item of a group by its value', () => {
+    const graph = mount()
+    const north = graph.groups.keyOf('zones', 'north')
+    expect(north).toBe(groupOf(graph, 'north'))
+    expect(graph.groups.keyOf('zones', 'west')).not.toBe(north)
+    expect(graph.groups.keyOf('zone', 'north')).not.toBe(north)
+    const group = graph.datumOf({ kind: 'node', key: north })
+    expect(group).toMatchObject({ value: 'north', count: 2, keys: ['a', 'b'] })
+    expect(
+      graph.datumOf({ kind: 'node', key: graph.groups.keyOf('zones', 'west') }),
+    ).toBeUndefined()
+    expectTypeOf(group).toEqualTypeOf<Item | NodeGroup<Item> | undefined>()
+    expectTypeOf(graph.datumOf({ kind: 'edge', key: 'ab' })).toEqualTypeOf<Link | undefined>()
+    const unnamed = groups(items, { by: 'zone' })
+    const plain = createGraphHost(
+      document.body.appendChild(document.createElement('div')),
+      { definition: defineGraph({ marks: [nodes(items), unnamed] }), ariaLabel: 'graph' },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    expect(plain.groups.parent('a')).toBe(plain.groups.keyOf('zone', 'north'))
+  })
+
   it('unfolds one group and ungroups when the mark leaves', () => {
     const graph = mount()
     const north = groupOf(graph, 'north')

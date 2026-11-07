@@ -4,6 +4,7 @@ import {
   Graph,
   type GraphInstance,
   type GraphState,
+  useGraph,
   useGraphState,
 } from '@bruno00o/graph/react'
 import { type Ref, useState } from 'react'
@@ -12,7 +13,6 @@ import { messages } from '../shared/messages'
 import '../shared/overlays.css'
 
 const sample = createSample(2_000, 4_000)
-const byId = new Map(sample.items.map((item) => [item.id, item]))
 
 const definition = defineGraph({
   marks: [
@@ -38,6 +38,7 @@ function Tooltip() {
 }
 
 function SelectionPanel({ selected }: { readonly selected: readonly Key[] }) {
+  const graph = useGraph<string, Marks>()
   return (
     <aside className="example-panel">
       <h2>{messages.selected}</h2>
@@ -46,7 +47,7 @@ function SelectionPanel({ selected }: { readonly selected: readonly Key[] }) {
       ) : (
         <ul>
           {selected.map((key) => (
-            <li key={key}>{byId.get(String(key))?.label}</li>
+            <li key={key}>{graph.datumOf({ kind: 'node', key })?.label}</li>
           ))}
         </ul>
       )}
@@ -62,7 +63,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       className="example-graph"
       definition={definition}
       ariaLabel={messages.graphLabel(sample.items.length, sample.links.length)}
-      onSelectionChange={setSelection}
+      onSelectionChange={(event) => setSelection(event.selection)}
     >
       <Tooltip />
       <SelectionPanel selected={selection.nodes} />

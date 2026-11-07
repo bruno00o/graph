@@ -105,7 +105,7 @@ header.append(
     const keys = graph.store.get().selection.nodes
     if (keys.length > 0) void graph.layout.run(layouts[kind], { keys })
   }),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   themeToggle(messages.dark, messages.light),
 )
 

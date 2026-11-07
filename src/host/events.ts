@@ -1,3 +1,4 @@
+import type { Endpoints } from '../core/graph-model'
 import type {
   AggregateEdge,
   EdgeEnd,
@@ -37,6 +38,11 @@ export interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
   /** `name` of the mark of the edge, or `undefined` for a mark without one. */
   readonly mark: N
   /**
+   * Keys of the ends of the edge as drawn: an end hidden in a folded group is the key of that
+   * group.
+   */
+  readonly endpoints: Endpoints
+  /**
    * Set when the edge stands for several merged edges, between folded groups or by the `merge`
    * option of its mark; `key` and `datum` are then those of its first edge.
    */
@@ -75,7 +81,10 @@ export interface ElementKeysInput {
   readonly edges?: Iterable<Key> | undefined
 }
 
-/** Payload of `click`, `doubleclick` and `contextmenu`. `M` is the union of the marks. */
+/**
+ * Payload of `click`, `doubleclick`, `contextmenu` and `pointermove`. `M` is the union of the
+ * marks.
+ */
 export interface GraphPointerEvent<M extends Mark = Mark> {
   /** Element under the pointer, or `null` for the background. */
   readonly target: GraphTarget<M> | null
@@ -136,10 +145,27 @@ export interface GraphFoldEvent {
   readonly folded: readonly Key[]
 }
 
+/**
+ * What moved the view: `'user'` for gestures, the wheel, the keyboard, edge scrolling and a map
+ * moved by hand, `'api'` for `view` calls, `update({ view })` and automatic fits.
+ */
+export type ViewOrigin = 'user' | 'api'
+
 /** Payload of `viewchange` and of the controlled `onViewChange` callback. */
 export interface GraphViewEvent {
   /** The view. */
   readonly view: View
+  /**
+   * What moved the view. A view applied by `update({ view })` keeps the origin of the request it
+   * answers, `'api'` when it answers none.
+   */
+  readonly origin: ViewOrigin
+}
+
+/** Payload of `selectionchange` and of the controlled `onSelectionChange` callback. */
+export interface GraphSelectionEvent {
+  /** Selected nodes and edges, in the order they joined the selection. */
+  readonly selection: ElementKeys
 }
 
 /** Payload of `timechange` and of the controlled `onTimeChange` callback. */
@@ -196,6 +222,11 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly doubleclick: GraphPointerEvent<M>
   /** A secondary click. */
   readonly contextmenu: GraphPointerEvent<M>
+  /**
+   * The pointer moves over the graph, at most once per frame, with the element under it or `null`
+   * over the background. While a node is dragged, the target is that node.
+   */
+  readonly pointermove: GraphPointerEvent<M>
   /** The pointer enters an element, or crosses the split of an edge into its other end. */
   readonly pointerenter: GraphTargetEvent<M>
   /** The pointer leaves an element, or crosses the split of an edge out of one end. */
@@ -209,7 +240,7 @@ export interface GraphEvents<M extends Mark = Mark> {
   /** Nodes moved by a drag, by `positions.set` or by a layout run that ended. */
   readonly positionchange: GraphPositionEvent
   /** The selection changed, from the user or from code. */
-  readonly selectionchange: ElementKeys
+  readonly selectionchange: GraphSelectionEvent
   /** The keyboard focus moved to another element, or left. */
   readonly focuschange: GraphFocusEvent<M>
   /** Groups were folded or unfolded, from the user or from code. */

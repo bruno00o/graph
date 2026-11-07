@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import type { Layout, LayoutGraph, LayoutListener } from '../types'
+import type { AutoFit, Layout, LayoutGraph, LayoutListener } from '../types'
 import type { GraphPositionEvent } from './events'
 import { createGraphHost, type GraphInstance } from './mount-graph'
 
@@ -49,13 +49,14 @@ const links: Link[] = [
   { id: 'bc', from: 'b', to: 'c' },
 ]
 
-function definition(layout: Layout | null, items: readonly Item[]) {
+function definition(layout: Layout | null, items: readonly Item[], autoFit?: AutoFit) {
   return defineGraph({
     marks: [
       edges<Link>(links, { source: 'from', target: 'to' }),
       nodes<Item>(items, { x: 'x', y: 'y' }),
     ],
     layout,
+    view: { autoFit },
   })
 }
 
@@ -75,12 +76,12 @@ function spread(run: FakeRun, step = 100): Float32Array {
 
 let dom: FakeDom
 
-function mount(layout: Layout | null, items: readonly Item[]): GraphInstance {
+function mount(layout: Layout | null, items: readonly Item[], autoFit?: AutoFit): GraphInstance {
   const container = document.createElement('div')
   document.body.append(container)
   const graph = createGraphHost(
     container,
-    { definition: definition(layout, items), ariaLabel: 'graphe' },
+    { definition: definition(layout, items, autoFit), ariaLabel: 'graphe' },
     fakeRenderer,
   )
   dom.flushFrames()
@@ -148,7 +149,7 @@ describe('layouts in the host', () => {
     const graph = mount(layout, loose)
     const run = runs[0]
     if (!run) throw new Error('no run')
-    graph.on('layoutend', () => graph.view.fit(['a'], { padding: 0 }))
+    graph.on('layoutend', () => graph.view.fit({ nodes: ['a'], padding: 0 }))
     run.listener.progress(spread(run, 500), 0.5)
     dom.flushFrames()
     run.listener.end(spread(run, 1000))
@@ -168,7 +169,7 @@ describe('layouts in the host', () => {
       { definition: definition(layout, loose), ariaLabel: 'graphe' },
       fakeRenderer,
     )
-    graph.view.fit(['b'], { padding: 0 })
+    graph.view.fit({ nodes: ['b'], padding: 0 })
     dom.resize(800, 600)
     dom.flushFrames()
     const run = runs[0]
@@ -299,6 +300,67 @@ describe('layouts in the host', () => {
     const view = graph.view.get()
     expect(view.x).toBeCloseTo(50, 0)
     expect(view.y).toBeCloseTo(50, 0)
+  })
+
+  it('frames the nodes and the padding of the fit option of a run', async () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    const glided = graph.layout.run(layout, { fit: { nodes: ['b'], maxZoom: 2 } })
+    runs[0]?.listener.end(spread(runs[0] as FakeRun))
+    dom.flushFrames()
+    await glided
+    expect(graph.view.get()).toEqual({ x: 100, y: 100, zoom: 2 })
+    const followed = graph.layout.run(layout, { fit: { nodes: ['a', 'b'], padding: 0 } })
+    const run = runs[1] as FakeRun
+    run.listener.progress(spread(run, 20), 0.5)
+    run.listener.end(spread(run, 200))
+    dom.flushFrames()
+    await followed
+    const view = graph.view.get()
+    expect(view.x).toBeCloseTo(100, 0)
+    expect(view.y).toBeCloseTo(100, 0)
+  })
+
+  it('frames only the first run by default', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose)
+    runs[0]?.listener.end(spread(runs[0] as FakeRun))
+    dom.flushFrames()
+    const first = graph.view.get()
+    void graph.layout.run()
+    runs[1]?.listener.end(spread(runs[1] as FakeRun, 1000))
+    dom.flushFrames()
+    expect(graph.view.get()).toEqual(first)
+  })
+
+  it('frames every run with autoFit layouts until the view moves, and again after a fit', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose, 'layouts')
+    const finish = (at: number, step: number) => {
+      runs[at]?.listener.end(spread(runs[at] as FakeRun, step))
+      dom.flushFrames()
+      return graph.view.get()
+    }
+    expect(finish(0, 100).x).toBeCloseTo(50, 0)
+    void graph.layout.run()
+    expect(finish(1, 1000).x).toBeCloseTo(500, 0)
+    graph.view.set({ x: 3, y: 4, zoom: 1 })
+    void graph.layout.run()
+    expect(finish(2, 300)).toEqual({ x: 3, y: 4, zoom: 1 })
+    graph.view.fit()
+    dom.flushFrames()
+    void graph.layout.run()
+    expect(finish(3, 2000).x).toBeCloseTo(1000, 0)
+  })
+
+  it('keeps the view of the mount with autoFit never', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(layout, loose, 'never')
+    runs[0]?.listener.progress(spread(runs[0] as FakeRun, 500), 0.5)
+    dom.flushFrames()
+    runs[0]?.listener.end(spread(runs[0] as FakeRun, 1000))
+    dom.flushFrames()
+    expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })
   })
 
   it('frames the first glide once the element has a size', () => {

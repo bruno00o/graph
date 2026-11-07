@@ -83,7 +83,7 @@ export function mount(container: HTMLElement): GraphInstance {
   graph.on('positionchange', ({ origin, positions }) =>
     log('positionchange', messages.moved(origin, positions.size)),
   )
-  graph.on('selectionchange', (selection) => log('selectionchange', counts(selection)))
+  graph.on('selectionchange', ({ selection }) => log('selectionchange', counts(selection)))
   graph.on('focuschange', ({ target }) =>
     log('focuschange', target ? describe(target) : messages.none),
   )

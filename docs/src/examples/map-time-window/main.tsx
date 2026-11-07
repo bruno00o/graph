@@ -109,7 +109,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       labels: messages.timelineLabels,
     })
     below.append(view.element)
-    graph.view.fit(undefined, { padding: 40 })
+    graph.view.fit({ padding: 40 })
     assign(ref, graph)
     return () => {
       view.destroy()

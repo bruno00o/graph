@@ -64,16 +64,13 @@ export function mount(container: HTMLElement): GraphInstance {
       scales: { width: (value) => 1 + Math.sqrt(value) * 1.5 },
       layout: force(field === 'none' ? {} : { edgeLength: 160 }),
       relayout: true,
+      view: { autoFit: 'layouts' },
     })
 
   const graph = mountGraph(container, {
     definition: define(),
     ariaLabel: messages.graphLabel(items.length),
   })
-  graph.on('layoutend', ({ completed }) => {
-    if (completed) graph.view.fit(undefined, { duration: 400 })
-  })
-
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'example-button'
