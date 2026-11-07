@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.15.0](https://github.com/bruno00o/graph/compare/0.14.2...0.15.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* take literal sizes as given and give each mark its own scales ([#95](https://github.com/bruno00o/graph/issues/95))
+* fit elements with options, wrap the selection event and walk paths backward ([#94](https://github.com/bruno00o/graph/issues/94))
+* accept undefined in every option and give each anchor a single target ([#91](https://github.com/bruno00o/graph/issues/91))
+
+### Features
+
+* accept undefined in every option and give each anchor a single target ([#91](https://github.com/bruno00o/graph/issues/91)) ([04948f3](https://github.com/bruno00o/graph/commit/04948f39a051f0156b57946fd9d3f1b35aeec9ed))
+* add an abort signal, a drawn promise and a map component for react ([#96](https://github.com/bruno00o/graph/issues/96)) ([d68d299](https://github.com/bruno00o/graph/commit/d68d299f024c3746ea68602bd91cd0d7b6a7fda8))
+* dim the rest, force labels and style nodes and edges apart in states ([#93](https://github.com/bruno00o/graph/issues/93)) ([ef3aaee](https://github.com/bruno00o/graph/commit/ef3aaeef0a1c4eed97740e9088ccbfa41227bec9))
+* fit elements with options, wrap the selection event and walk paths backward ([#94](https://github.com/bruno00o/graph/issues/94)) ([5896574](https://github.com/bruno00o/graph/commit/58965744a68fcfb5aa995a9e4c54a18d2b620610))
+* read data issues, element counts and position snapshots ([#97](https://github.com/bruno00o/graph/issues/97)) ([41d0ed2](https://github.com/bruno00o/graph/commit/41d0ed294311f681365428ec4274383862270159))
+* take literal sizes as given and give each mark its own scales ([#95](https://github.com/bruno00o/graph/issues/95)) ([e3bd812](https://github.com/bruno00o/graph/commit/e3bd8125a33085c618064ba9b64c48ab439fd282))
+
 ## [0.14.2](https://github.com/bruno00o/graph/compare/0.14.1...0.14.2) (2026-11-07)
 
 
