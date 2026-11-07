@@ -22,7 +22,7 @@ const definition = defineGraph({
 })
 ```
 
-The names become types. `mountGraph` returns an instance whose `states` methods accept `'muted'` and `'pinned'` only: a misspelled name, or a built-in name, does not compile.
+The names become types. `mountGraph` returns an instance whose `states` methods accept `'muted'` and `'pinned'` only: a misspelled name, or a built-in name, does not compile. See the [named states](/examples/named-states) example.
 
 ## Set the members
 
@@ -52,7 +52,7 @@ The selection is not a free state: change it through `graph.selection`. See [Int
 
 ## Style options
 
-A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), `raise` (see [Raise a state](#raise-a-state)) and `hide` (see [Hide members](#hide-members)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.
+A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), `raise` (see [Raise a state](#raise-a-state)) and `hide` (see [Hide members](#hide-members)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background. `label: true` still hides labels smaller than 8 pixels: see [Labels in states](/docs/labels#labels-in-states).
 
 ## Override the built-in states
 
@@ -90,7 +90,7 @@ A raised element:
 - is picked before the elements it covers, so a click hits what is drawn on top;
 - is drawn on top in [exports](/docs/export) too.
 
-An element is raised when any of its states raises it. `raise` is `true` for `selected`, `hovered` and `focused`: set `raise: false` on one of them to draw its members in place. Raising costs one more draw of the raised elements, about the cost of selecting them: 100,000 raised edges redraw faster than 100,000 selected edges, whose halo costs more.
+An element is raised when any of its states raises it. `raise` is `true` for `selected`, `hovered` and `focused`: set `raise: false` on one of them to draw its members in place. Raising costs one more draw of the raised elements, about the cost of selecting them: 100,000 raised edges redraw faster than 100,000 selected edges, whose halo costs more. The [named states](/examples/named-states) example turns `raise` on and off.
 
 <Callout title="Limit">
 A definition holds up to 29 states besides the three built-in ones. Past that, `defineGraph` throws a `RangeError`.
@@ -106,7 +106,7 @@ states: { off: { hide: true } }
 graph.states.set('off', { nodes: ['a', 'b'] })
 ```
 
-Hiding writes no data: it costs about as much as any other state change. See [Hide without losing state](/docs/transformations#hide-without-losing-state).
+Hiding writes no data: it costs about as much as any other state change. See [Hide without losing state](/docs/transformations#hide-without-losing-state), and the [filter by degree](/examples/degree-filter) and [filter with a hidden state](/examples/threshold-filter) examples.
 
 ## Read states in React
 

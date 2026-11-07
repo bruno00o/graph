@@ -5,6 +5,7 @@ import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { type Ref, useLayoutEffect, useRef } from 'react'
+import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -25,14 +26,6 @@ interface Link {
   readonly from: string
   readonly to: string
   readonly since: number
-}
-
-function random(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0
-    return state / 4294967296
-  }
 }
 
 const day = 86_400_000

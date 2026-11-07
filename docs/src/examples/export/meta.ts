@@ -9,5 +9,5 @@ export default {
   order: 20,
   tags: ['Vanilla'],
   api: ['export'],
-  guides: ['export'],
+  guides: ['export#png-and-svg', 'export#region-and-scale'],
 } satisfies ExampleMeta

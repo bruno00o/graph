@@ -28,7 +28,10 @@ const captureStyle = `
     height: ${stage.height}px !important;
     z-index: 2147483647 !important;
   }
-  .example-actions, .example-panel, .example-status { display: none !important; }
+  .example-status { display: none !important; }
+`
+const hidePanels = `
+  .example-actions, .example-panel { display: none !important; }
 `
 
 const all = await docsExamples()
@@ -72,13 +75,14 @@ async function capture(browser, encoder, origin, example) {
     reducedMotion: 'reduce',
   })
   await context.addInitScript(install)
+  const stageStyle = example.meta.thumbnail?.panels ? captureStyle : captureStyle + hidePanels
   await context.addInitScript((css) => {
     document.addEventListener('DOMContentLoaded', () => {
       const style = document.createElement('style')
       style.textContent = css
       document.head.append(style)
     })
-  }, captureStyle)
+  }, stageStyle)
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))

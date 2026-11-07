@@ -9,5 +9,5 @@ export default {
   order: 90,
   tags: ['Vanilla'],
   api: ['nodes', 'events', 'force'],
-  guides: ['data', 'layout#when-it-runs', 'images-and-badges'],
+  guides: ['data#update-the-data', 'layout#when-it-runs', 'images-and-badges#badges'],
 } satisfies ExampleMeta

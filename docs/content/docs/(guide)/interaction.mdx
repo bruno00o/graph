@@ -31,7 +31,7 @@ graph.selection.clear()
 graph.on('selectionchange', ({ nodes, edges }) => console.log(nodes, edges))
 ```
 
-`selectionchange` fires on every change, whether it comes from the user or from code.
+`selectionchange` fires on every change, whether it comes from the user or from code. Its payload is the whole selection after the change, `{ nodes, edges }`, as `selection.get()` returns it. Keys come in the order they joined the selection: a node added with a modifier or by the lasso comes last, and keys that stay selected keep their place.
 
 ## Controlled selection
 
@@ -63,11 +63,11 @@ return (
 )
 ```
 
-The mode is fixed at mount: a graph mounted with `selection` stays controlled for its whole life. When an element is removed from the data, it leaves the selection and `onSelectionChange` reports it.
+The mode is fixed at mount: a graph mounted with `selection` stays controlled for its whole life. When an element is removed from the data, it leaves the selection and `onSelectionChange` reports it. See the [selection synced with a list](/examples/controlled-selection) example.
 
 ## Drag
 
-Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection, and dragging a [group](/docs/groups) by its container moves every node inside it. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions. During a layout run, a dragged node stays where you drop it and the others settle around it. See [Positions](/docs/positions).
+Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection, and dragging a [group](/docs/groups) by its container moves every node inside it. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions on every move of the drag. During a layout run, a dragged node stays where you drop it and the others settle around it. See [Positions](/docs/positions).
 
 ## Lasso
 
@@ -154,7 +154,7 @@ graph.focus.get()
 graph.on('focuschange', ({ target }) => console.log(target))
 ```
 
-A pointer press removes the focus. When the element loses the DOM focus, the focused node is remembered and comes back with the keyboard.
+A pointer press removes the focus. When the element loses the DOM focus, the focused node is remembered and comes back with the keyboard. See the [keyboard navigation](/examples/keyboard-navigation) example.
 
 ## Lens
 
@@ -171,4 +171,4 @@ const stop = graph.on('doubleclick', ({ target, point, world }) => {
 stop()
 ```
 
-See [Events](/docs/api/events) for the full list.
+See [Events](/docs/api/events) for the full list, and the examples: the [event log](/examples/event-log) prints every event as it fires, the [context menu](/examples/context-menu) opens on `contextmenu`, and the [neighborhood on hover](/examples/hover-neighborhood) lights the neighbors on `pointerenter`.

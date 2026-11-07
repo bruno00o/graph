@@ -3,7 +3,7 @@ import { force } from '@bruno00o/graph/layouts/force'
 import { createCommunities, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
-import './range.css'
+import '../shared/controls.css'
 
 const { items, links } = createCommunities(400, 640, 43)
 const degree = new Map<string, number>()

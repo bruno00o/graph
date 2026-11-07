@@ -1,11 +1,3 @@
 .filter-panel label {
-  display: grid;
-  gap: 4px;
   margin-bottom: 8px;
-}
-
-.filter-panel input {
-  width: 100%;
-  margin: 0;
-  accent-color: var(--graph-accent);
 }

@@ -2,6 +2,7 @@ import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@brun
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
+import '../shared/controls.css'
 import './controls.css'
 
 export function mount(container: HTMLElement): GraphInstance {
@@ -55,7 +56,7 @@ export function mount(container: HTMLElement): GraphInstance {
   label.append(caption, input)
 
   const panel = document.createElement('div')
-  panel.className = 'example-panel filter-panel'
+  panel.className = 'example-panel example-sliders filter-panel'
   panel.append(label, shown, kept)
   container.append(panel)
 

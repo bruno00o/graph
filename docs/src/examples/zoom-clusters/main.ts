@@ -1,4 +1,5 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -20,14 +21,6 @@ interface Tie {
   readonly from: string
   readonly to: string
   readonly count: number
-}
-
-function random(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0
-    return state / 4294967296
-  }
 }
 
 const open = 0.9

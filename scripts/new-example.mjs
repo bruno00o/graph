@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -27,27 +27,7 @@ if (!ids.includes(category)) {
   throw new Error(`${category}: unknown category, pick one of ${ids.join(', ')}`)
 }
 const folder = join(docsExamplesDirectory, slug)
-if (existsSync(folder)) throw new Error(`${relative(root, folder)} already exists`)
-
-const siblings = (await docsExamples()).filter((example) => example.meta.category === category)
-const order =
-  Math.floor(Math.max(0, ...siblings.map((example) => example.meta.order)) / 10) * 10 + 10
-const title = slug.replaceAll('-', ' ').replace(/^./, (letter) => letter.toUpperCase())
-const framework = options.react ? 'React' : 'Vanilla'
-
-const meta = `import type { ExampleMeta } from '../types'
-
-export default {
-  title: '${title}',
-  description: 'One or two sentences on what the example shows.',
-  hint: 'One sentence on what to try.',
-  category: '${category}',
-  order: ${order},
-  tags: ['${framework}'],
-  api: ['define-graph'],
-  guides: [],
-} satisfies ExampleMeta
-`
+const name = relative(root, folder)
 
 const messages = `export const messages = {
   graphLabel: 'Graph of two hundred nodes in eight groups',
@@ -94,17 +74,63 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
 }
 `
 
-mkdirSync(folder)
-const files = {
-  'meta.ts': meta,
-  'messages.ts': messages,
-  [options.react ? 'main.tsx' : 'main.ts']: options.react ? react : vanilla,
-}
-for (const [name, content] of Object.entries(files)) writeFileSync(join(folder, name), content)
-
-console.log(`Created ${relative(root, folder)}: ${Object.keys(files).join(', ')}
-Next:
-  1. Write the example in ${options.react ? 'main.tsx' : 'main.ts'}, its text in messages.ts, and fill meta.ts.
+const wanted = options.react
+  ? { entry: 'main.tsx', framework: 'React', template: react }
+  : { entry: 'main.ts', framework: 'Vanilla', template: vanilla }
+const other = options.react
+  ? { entry: 'main.ts', framework: 'Vanilla', template: vanilla }
+  : { entry: 'main.tsx', framework: 'React', template: react }
+const next = `Next:
+  1. Write the example in ${wanted.entry}, its text in messages.ts, and fill meta.ts.
   2. pnpm docs:dev, then open /examples/${slug}.
   3. pnpm docs:thumbnails ${slug}
-  4. pnpm verify && pnpm docs:build && pnpm test:browsers --example 'docs/${slug}'`)
+  4. pnpm verify && pnpm docs:build && pnpm test:browsers --example 'docs/${slug}'`
+
+if (existsSync(folder)) {
+  const hasWanted = existsSync(join(folder, wanted.entry))
+  const hasOther = existsSync(join(folder, other.entry))
+  if (hasWanted && hasOther) {
+    throw new Error(`${name} holds both main.ts and main.tsx: keep one of them`)
+  }
+  if (hasWanted || !hasOther) throw new Error(`${name} already exists`)
+  if (readFileSync(join(folder, other.entry), 'utf8') !== other.template) {
+    throw new Error(
+      `${name}/${other.entry} was edited: move its code to ${wanted.entry}, then delete ${other.entry}`,
+    )
+  }
+  writeFileSync(join(folder, wanted.entry), wanted.template)
+  rmSync(join(folder, other.entry))
+  const metaFile = join(folder, 'meta.ts')
+  const meta = existsSync(metaFile) ? readFileSync(metaFile, 'utf8') : ''
+  const tags = meta.match(/^\s*tags: \[.*\],?$/m)?.[0]
+  const swapped = tags?.replace(`'${other.framework}'`, `'${wanted.framework}'`)
+  if (tags && swapped && swapped !== tags) writeFileSync(metaFile, meta.replace(tags, swapped))
+  else console.log(`Set the "${wanted.framework}" tag in ${name}/meta.ts by hand.`)
+  console.log(`Switched ${name} from ${other.entry} to ${wanted.entry}\n${next}`)
+} else {
+  const siblings = (await docsExamples()).filter((example) => example.meta.category === category)
+  const order =
+    Math.floor(Math.max(0, ...siblings.map((example) => example.meta.order)) / 10) * 10 + 10
+  const title = slug.replaceAll('-', ' ').replace(/^./, (letter) => letter.toUpperCase())
+
+  const meta = `import type { ExampleMeta } from '../types'
+
+export default {
+  title: '${title}',
+  description: 'One or two sentences on what the example shows.',
+  hint: 'One sentence on what to try.',
+  category: '${category}',
+  order: ${order},
+  tags: ['${wanted.framework}'],
+  api: ['define-graph'],
+  guides: [],
+} satisfies ExampleMeta
+`
+
+  mkdirSync(folder)
+  const files = { 'meta.ts': meta, 'messages.ts': messages, [wanted.entry]: wanted.template }
+  for (const [file, content] of Object.entries(files)) writeFileSync(join(folder, file), content)
+  console.log(`Created ${name}: ${Object.keys(files).join(', ')}
+To switch to ${other.framework} before editing ${wanted.entry}, rerun this command ${options.react ? 'without' : 'with'} --react.
+${next}`)
+}

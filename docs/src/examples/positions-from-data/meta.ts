@@ -9,5 +9,5 @@ export default {
   order: 40,
   tags: ['Vanilla'],
   api: ['nodes', 'define-graph'],
-  guides: ['positions', 'data#update-the-data'],
+  guides: ['positions#positions-from-your-data', 'data#update-the-data'],
 } satisfies ExampleMeta

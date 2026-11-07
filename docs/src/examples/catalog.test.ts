@@ -187,6 +187,30 @@ describe('createCatalog', () => {
       `sample/${thumbnailFiles.light}`,
       `sample/${thumbnailFiles.dark}`,
     ])
-    expect(examples[0]?.thumbnail).toBeNull()
+    expect(examples[0]?.images).toBeNull()
+  })
+
+  it('reports and skips a folder with both entry files', () => {
+    const { examples, problems } = createCatalog(
+      sample({ entries: { './sample/main.ts': load, './sample/main.tsx': load } }),
+    )
+    expect(problems).toEqual(['sample: keep main.ts or main.tsx, not both'])
+    expect(examples).toEqual([])
+  })
+
+  it('accepts thumbnail options', () => {
+    const { examples, problems } = createCatalog(
+      sample({ metas: { './sample/meta.ts': { ...meta, thumbnail: { panels: true } } } }),
+    )
+    expect(problems).toEqual([])
+    expect(examples[0]?.thumbnail).toEqual({ panels: true })
+  })
+
+  it('reports malformed thumbnail options', () => {
+    const wrong = (thumbnail: unknown) =>
+      createCatalog(sample({ metas: { './sample/meta.ts': { ...meta, thumbnail } } })).problems
+    expect(wrong({ panels: 'yes' })).toEqual(['sample: "thumbnail.panels" must be a boolean'])
+    expect(wrong({ legend: true })).toEqual(['sample: "thumbnail" only takes { panels?: boolean }'])
+    expect(wrong(true)).toEqual(['sample: "thumbnail" only takes { panels?: boolean }'])
   })
 })

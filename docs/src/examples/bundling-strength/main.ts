@@ -1,5 +1,6 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { densityBundling } from '@bruno00o/graph/bundling'
+import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -14,14 +15,6 @@ interface Tie {
   readonly id: string
   readonly from: string
   readonly to: string
-}
-
-function random(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0
-    return state / 4294967296
-  }
 }
 
 const groups = 10

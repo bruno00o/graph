@@ -9,5 +9,5 @@ export default {
   order: 40,
   tags: ['Vanilla'],
   api: ['events', 'paths'],
-  guides: ['states', 'paths#within-reach'],
+  guides: ['interaction#events', 'states', 'paths#within-reach'],
 } satisfies ExampleMeta

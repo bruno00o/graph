@@ -22,6 +22,7 @@ export interface ExampleMeta {
   readonly api: readonly string[]
   readonly guides: readonly string[]
   readonly harness?: { readonly select?: boolean }
+  readonly thumbnail?: { readonly panels?: boolean }
 }
 
 export type ExampleKind = 'vanilla' | 'react'
@@ -47,6 +48,6 @@ export interface Example extends ExampleMeta {
   readonly slug: string
   readonly kind: ExampleKind
   readonly entry: string
-  readonly thumbnail: Thumbnail | null
+  readonly images: Thumbnail | null
   readonly load: () => Promise<LoadedExample>
 }

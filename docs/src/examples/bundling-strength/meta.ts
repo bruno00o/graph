@@ -9,5 +9,6 @@ export default {
   order: 100,
   tags: ['Vanilla'],
   api: ['bundling'],
-  guides: ['bundling'],
+  guides: ['bundling#add-bundling', 'bundling#when-bundles-are-computed'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

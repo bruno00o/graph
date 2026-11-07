@@ -10,4 +10,5 @@ export default {
   tags: ['Vanilla'],
   api: ['force', 'events'],
   guides: ['layout#force-options', 'layout#when-it-runs'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta

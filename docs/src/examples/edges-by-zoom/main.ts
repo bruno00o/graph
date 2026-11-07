@@ -1,5 +1,6 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { createSample, type Item, type Link } from '../shared/data'
+import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -9,14 +10,6 @@ interface Tie extends Link {
 
 const always = 0.8
 const firstZoom = 0.6
-
-function random(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0
-    return state / 4294967296
-  }
-}
 
 function minZoomOf(tie: Tie): number | null {
   return tie.strength >= always ? null : firstZoom * 2 ** ((always - tie.strength) * 3)
