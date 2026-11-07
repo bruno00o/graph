@@ -6,7 +6,8 @@ import {
   type QueryObserverOptions,
 } from '@tanstack/query-core'
 import { createStore, type ReadonlyStore } from '@tanstack/store'
-import type { Key, LiveSource, SourceChange, SourceSubscription } from '../types'
+import { toAccessor } from '../core/accessor'
+import type { Key, KeyChannel, LiveSource, SourceChange, SourceSubscription } from '../types'
 
 /** Data of a neighborhood query: the nodes and edges around the expanded node. */
 export interface ExplorationData<TNode, TEdge> {
@@ -39,10 +40,16 @@ export interface ExplorationOptions<
     TQueryFnData,
     TQueryKey
   >
-  /** Key of a node. Defaults to its `id` field. */
-  readonly nodeKey?: ((node: TNode) => Key) | undefined
-  /** Key of an edge. Defaults to its `id` field. */
-  readonly edgeKey?: ((edge: TEdge) => Key) | undefined
+  /**
+   * Key of a node: a field name or a function. Required when the nodes have no `id` field.
+   * @default 'id'
+   */
+  readonly nodeKey?: KeyChannel<TNode> | undefined
+  /**
+   * Key of an edge: a field name or a function. Required when the edges have no `id` field.
+   * @default 'id'
+   */
+  readonly edgeKey?: KeyChannel<TEdge> | undefined
 }
 
 /** What the store of an exploration holds. */
@@ -147,13 +154,10 @@ class ElementSource<T> implements LiveSource<T> {
   }
 }
 
-function defaultKey(item: unknown): Key {
-  return (item as { readonly id: Key }).id
-}
-
 /**
  * Loads the neighborhood of a node with a TanStack Query when it is expanded, and exposes what is
- * loaded as live sources. Creating it fetches nothing until a mark subscribes.
+ * loaded as live sources, keyed by `nodeKey` and `edgeKey`. Creating it fetches nothing until a
+ * mark subscribes. Give `neighbors` before the keys, so that their functions read typed items.
  */
 export function createExploration<
   TNode,
@@ -162,6 +166,56 @@ export function createExploration<
   TError = DefaultError,
   TQueryKey extends QueryKey = QueryKey,
 >(
+  client: QueryClient,
+  options: ExplorationOptions<TNode, TEdge, TQueryFnData, TError, TQueryKey> & {
+    readonly nodeKey: KeyChannel<NoInfer<TNode>>
+    readonly edgeKey: KeyChannel<NoInfer<TEdge>>
+  },
+): Exploration<TNode, TEdge>
+/**
+ * Loads neighborhoods on demand as live sources, with nodes keyed by `nodeKey` and edges by their
+ * `id` field.
+ */
+export function createExploration<
+  TNode,
+  TEdge extends { readonly id: Key },
+  TQueryFnData = ExplorationData<TNode, TEdge>,
+  TError = DefaultError,
+  TQueryKey extends QueryKey = QueryKey,
+>(
+  client: QueryClient,
+  options: ExplorationOptions<TNode, TEdge, TQueryFnData, TError, TQueryKey> & {
+    readonly nodeKey: KeyChannel<NoInfer<TNode>>
+  },
+): Exploration<TNode, TEdge>
+/**
+ * Loads neighborhoods on demand as live sources, with nodes keyed by their `id` field and edges
+ * by `edgeKey`.
+ */
+export function createExploration<
+  TNode extends { readonly id: Key },
+  TEdge,
+  TQueryFnData = ExplorationData<TNode, TEdge>,
+  TError = DefaultError,
+  TQueryKey extends QueryKey = QueryKey,
+>(
+  client: QueryClient,
+  options: ExplorationOptions<TNode, TEdge, TQueryFnData, TError, TQueryKey> & {
+    readonly edgeKey: KeyChannel<NoInfer<TEdge>>
+  },
+): Exploration<TNode, TEdge>
+/** Loads neighborhoods on demand as live sources, keyed by the `id` field of their items. */
+export function createExploration<
+  TNode extends { readonly id: Key },
+  TEdge extends { readonly id: Key },
+  TQueryFnData = ExplorationData<TNode, TEdge>,
+  TError = DefaultError,
+  TQueryKey extends QueryKey = QueryKey,
+>(
+  client: QueryClient,
+  options: ExplorationOptions<TNode, TEdge, TQueryFnData, TError, TQueryKey>,
+): Exploration<TNode, TEdge>
+export function createExploration<TNode, TEdge, TQueryFnData, TError, TQueryKey extends QueryKey>(
   client: QueryClient,
   options: ExplorationOptions<TNode, TEdge, TQueryFnData, TError, TQueryKey>,
 ): Exploration<TNode, TEdge> {
@@ -178,8 +232,8 @@ export function createExploration<
     nodes: Set<Key>
     edges: Set<Key>
   }
-  const nodeKey = options.nodeKey ?? defaultKey
-  const edgeKey = options.edgeKey ?? defaultKey
+  const nodeKey = toAccessor<TNode, Key>(options.nodeKey ?? 'id')
+  const edgeKey = toAccessor<TEdge, Key>(options.edgeKey ?? 'id')
   const roots = new Set(options.roots)
   const expansions = new Map<Key, Expansion>()
   const retried = new Map<Key, boolean>()

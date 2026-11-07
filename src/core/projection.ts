@@ -20,8 +20,8 @@ import { type Grouping, groupingOf } from './group-index'
 import { Hierarchy } from './hierarchy'
 import { IndexSet } from './index-set'
 import { raw, rawRead } from './raw'
+import { sameOptions } from './same-options'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
-import { shallowEqual } from './shallow-equal'
 import { readSpan } from './time-range'
 import { withoutUndefined } from './without-undefined'
 
@@ -73,7 +73,7 @@ function sameRule(a: MergeRule | null | undefined, b: MergeRule | null | undefin
 }
 
 function sameLook(a: object | undefined, b: object | undefined): boolean {
-  return a === b || (a !== undefined && b !== undefined && shallowEqual(a, b))
+  return a === b || (a !== undefined && b !== undefined && sameOptions(a, b))
 }
 
 function isEdgeMark(mark: Mark): mark is EdgeMark<unknown> {

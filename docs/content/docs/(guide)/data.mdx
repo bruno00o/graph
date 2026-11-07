@@ -27,7 +27,7 @@ A source is recognized by its `subscribeChanges` method before anything else, so
 The graph holds a live source to this contract:
 
 - It subscribes with `includeInitialState: true`, so the items already there come first, as inserts.
-- The key of an element is the `key` of its change. The `key` option of the mark is not read.
+- The key of an element is the `key` of its change: a mark of a live source takes no `key` option. A change whose key is neither a string nor a finite number is skipped and reported as a `missing-key` problem, until a delete with the same key withdraws it.
 - An insert or an update sets the item under its key; a delete removes the element with that key. A batch without changes is ignored.
 - Everything else, edge ends included, is read from the item through the options of the mark.
 
@@ -39,7 +39,7 @@ Keys are strings or numbers.
 
 - **Nodes.** By default the key is the `id` field. When your data has no `id`, the `key` option is required: a field name or a function.
 - **Edges.** Same rule for the edge key. `source` and `target` take a field holding a node key, or a function.
-- **Live sources** carry the key in each change, and the `key` option is not read.
+- **Live sources** carry the key in each change, and their marks take no `key` option.
 
 ```ts
 type Row = { code: number; name: string }
@@ -65,7 +65,7 @@ The graph never stops on bad data: it draws around each problem and lists it. `g
 
 | `type` | Problem | What the graph does |
 | --- | --- | --- |
-| `missing-key` | An item whose key is neither a string nor a finite number | Skips the item |
+| `missing-key` | An item, or a change of a live source, whose key is neither a string nor a finite number | Skips the item |
 | `duplicate-key` | A key held by more than one node, or more than one edge | Keeps the first item, in mark order then data order |
 | `missing-parent` | A node whose `parent` names no node | Leaves the node at the top level until that node comes |
 | `parent-cycle` | A node whose `parent` would make it contain itself | Leaves the node at the top level |
@@ -107,7 +107,7 @@ const definition = useMemo(
 return <Graph definition={definition} ariaLabel="Sample graph" />
 ```
 
-When a mark keeps its place and its options are shallowly equal, only the items that changed are rewritten. When options change, every item of that mark is restyled.
+When a mark keeps its place and its options are equal, only the items that changed are rewritten. When options change, every item of that mark is restyled. Options are compared by content: plain objects and arrays written inline, such as `label: { text: 'name', size: 14 }` or `ends`, are equal when their values are, and a definition rebuilt on every render rewrites nothing. Functions compare by identity: declare them once, outside the component or in a `useMemo`, or each render restyles every item of the mark.
 
 With a live source, there is nothing to update: changes arrive through the subscription.
 

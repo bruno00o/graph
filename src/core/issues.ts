@@ -1,12 +1,15 @@
 import type { Key } from '../types'
 
-/** An item whose key is neither a string nor a finite number. The item is skipped. */
+/**
+ * An item, or a change of a live source, whose key is neither a string nor a finite number. The
+ * item is skipped.
+ */
 export interface MissingKeyIssue {
   /** Type of the issue. */
   readonly type: 'missing-key'
   /** Kind of the mark that holds the item: `'nodes'` or `'edges'`. */
   readonly kind: 'nodes' | 'edges'
-  /** The item, as given to its mark. */
+  /** The item, as given to its mark, or the value of the change. */
   readonly datum: unknown
 }
 

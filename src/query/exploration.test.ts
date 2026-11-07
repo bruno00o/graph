@@ -1,10 +1,10 @@
 import { QueryClient } from '@tanstack/query-core'
 import { queryOptions } from '@tanstack/react-query'
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { createGraphModel } from '../core/graph-model'
+import { createGraphModel, type GraphIssue } from '../core/graph-model'
 import { edges, nodes } from '../marks'
 import type { Key, LiveSource, SourceChange } from '../types'
-import { createExploration, type Exploration } from './index'
+import { createExploration, type Exploration, type ExplorationOptions } from './index'
 
 interface Item {
   readonly id: string
@@ -216,6 +216,74 @@ describe('createExploration', () => {
     const second = watchBoth(exploration)
     expect(second.nodes()).toEqual(['a', 'b', 'c'])
     await vi.waitFor(() => expect(second.nodes()).toEqual(['a', 'b', 'c', 'd']))
+  })
+
+  it('keys nodes and edges by a field name or a function', async () => {
+    const client = new QueryClient()
+    const exploration = createExploration(client, {
+      roots: ['a'],
+      neighbors: (key) =>
+        queryOptions({
+          queryKey: ['named', key],
+          queryFn: async () => ({
+            nodes: [{ name: 'a' }, { name: 'b' }],
+            edges: [{ from: 'a', to: 'b' }],
+          }),
+        }),
+      nodeKey: 'name',
+      edgeKey: (edge) => `${edge.from}>${edge.to}`,
+    })
+    const seenNodes = watch(exploration.nodes)
+    const seenEdges = watch(exploration.edges)
+    await vi.waitFor(() => expect(seenNodes.keys()).toEqual(['a', 'b']))
+    expect(seenEdges.keys()).toEqual(['a>b'])
+    seenNodes.stop()
+    seenEdges.stop()
+  })
+
+  it('requires a key for elements without an id field', () => {
+    const client = new QueryClient()
+    const unkeyed = (key: Key) =>
+      queryOptions({
+        queryKey: ['unkeyed', key],
+        queryFn: async () => ({ nodes: [{ id: 'a' }], edges: [{ from: 'a', to: 'b' }] }),
+      })
+    // @ts-expect-error
+    createExploration(client, { roots: [], neighbors: unkeyed })
+    createExploration(client, { roots: [], neighbors: unkeyed, edgeKey: 'from' })
+  })
+
+  it('reports edges without a key in the graph instead of breaking it', async () => {
+    const client = new QueryClient()
+    const loose = {
+      roots: ['a'],
+      neighbors: (key: Key) => ({
+        queryKey: ['loose', key],
+        queryFn: async () => ({
+          nodes: [{ id: 'a' }, { id: 'b' }],
+          edges: [{ from: 'a', to: 'b' }],
+        }),
+      }),
+    }
+    const exploration = createExploration(
+      client,
+      loose as unknown as ExplorationOptions<Item, Link>,
+    )
+    const schedule = vi.fn()
+    const model = createGraphModel({ schedule })
+    model.setMarks([
+      nodes(exploration.nodes),
+      edges(exploration.edges, { source: 'from', target: 'to' }),
+    ])
+    await vi.waitFor(() => expect(exploration.store.state.loading).toEqual([]))
+    await vi.waitFor(() => expect(schedule).toHaveBeenCalled())
+    expect(() => model.flush()).not.toThrow()
+    expect(model.node('b')).toBeDefined()
+    const issues: GraphIssue[] = []
+    model.collectIssues(issues)
+    expect(issues).toEqual([{ type: 'missing-key', kind: 'edges', datum: { from: 'a', to: 'b' } }])
+    model.destroy()
+    exploration.destroy()
   })
 
   it('feeds graph marks as live sources', async () => {
