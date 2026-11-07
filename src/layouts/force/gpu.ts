@@ -1,5 +1,5 @@
 import { type GroupTree, groupTree } from '../../core/group-tree'
-import { createProgram } from '../../webgl/gl'
+import { createProgram, drawsInSoftware } from '../../webgl/gl'
 import {
   boundsBlockFragment,
   boundsFragment,
@@ -112,6 +112,10 @@ export class GpuForce {
       stencil: false,
       powerPreference: 'high-performance',
     }) as WebGL2RenderingContext | null
+    if (gl && settings.engine === 'auto' && drawsInSoftware(gl)) {
+      gl.getExtension('WEBGL_lose_context')?.loseContext()
+      return null
+    }
     if (!gl?.getExtension('EXT_color_buffer_float') || !gl.getExtension('EXT_float_blend')) {
       return null
     }

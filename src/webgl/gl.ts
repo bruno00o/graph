@@ -1,5 +1,18 @@
 export const textureWidth = 1024
 
+const softwareRenderers = /swiftshader|llvmpipe|softpipe|software|basic render driver/i
+const maskedRenderer = 'WebKit WebGL'
+
+export function drawsInSoftware(gl: WebGL2RenderingContext): boolean {
+  const renderer = String(gl.getParameter(gl.RENDERER))
+  if (softwareRenderers.test(renderer)) return true
+  if (renderer !== maskedRenderer) return false
+  const info = gl.getExtension('WEBGL_debug_renderer_info')
+  return (
+    info !== null && softwareRenderers.test(String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)))
+  )
+}
+
 export function createProgram(
   gl: WebGL2RenderingContext,
   vertex: string,

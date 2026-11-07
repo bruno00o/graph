@@ -6,7 +6,7 @@ title: Force layout
 
 The data has no coordinates: the node mark has no `x` and `y` channels. The definition passes `layout: force({ engine })`, so the first batch of nodes is laid out as soon as the graph mounts. Communities of uneven sizes pull together and push each other apart, and the view keeps the graph framed while it settles.
 
-The simulation runs in a Web Worker, so the page stays responsive. From 2,000 nodes the automatic engine computes it on the GPU with WebGL2; below that, or when the GPU is not available, it runs on the CPU.
+The simulation runs in a Web Worker, so the page stays responsive. From 2,000 nodes the automatic engine computes it on the GPU with WebGL2; below that, when the GPU is not available or when the browser draws WebGL in software, it runs on the CPU.
 
 The example reads the progress from `graph.store`, under `layout`, and times each run between `layoutstart` and `layoutend`.
 
