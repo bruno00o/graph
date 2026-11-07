@@ -1,8 +1,8 @@
 ## How it works
 
-The definition declares three free states: `near` with an accent outline and a label, `link` with an accent stroke, both raised, and `muted` with a low opacity.
+The definition declares one free state, `near`, with a style for each kind: its nodes get an accent outline and a label, its edges an accent stroke, both raised. The `others` style of each kind fades every element outside the state, as long as it has a member.
 
-On `pointerenter`, a node asks `graph.paths.reach(key, { maxCost: 1 })` for itself, its neighbors and the edges between them. These go into `near` and `link`, everything else into `muted`. An edge keeps its two ends and itself. On `pointerleave`, `graph.states.clear()` brings the whole graph back.
+On `pointerenter`, a node asks `graph.paths.reach(key, { maxCost: 1 })` for itself, its neighbors and the edges between them, and passes the result to `near` as it is. An edge keeps its two ends and itself. On `pointerleave`, `graph.states.clear()` empties `near`, and the whole graph comes back.
 
 ## Try it
 

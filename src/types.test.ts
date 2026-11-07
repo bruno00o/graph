@@ -170,6 +170,47 @@ describe('public types', () => {
     expectTypeOf<Instance>().toExtend<GraphInstance>()
   })
 
+  it('takes one style for both kinds or one per kind, with the look of the others', () => {
+    const definition = defineGraph({
+      marks: [],
+      states: {
+        path: {
+          nodes: { fill: 'red', label: 'always', others: { opacity: 0.2 } },
+          edges: { stroke: 'red', others: { opacity: 0.2, hide: true } },
+        },
+        near: { raise: true, others: { opacity: 0.2, label: false } },
+        hovered: { others: { opacity: 0.3 } },
+        selected: { edges: { stroke: 'red' } },
+      },
+    })
+    expectTypeOf(definition).toEqualTypeOf<
+      GraphDefinition<'path' | 'near' | 'hovered' | 'selected', never>
+    >()
+    expectTypeOf<
+      ReturnType<GraphInstance<'path' | 'near'>['states']['get']>
+    >().toEqualTypeOf<ElementKeys>()
+    defineGraph({
+      marks: [],
+      // @ts-expect-error
+      states: { mixed: { opacity: 0.2, nodes: { fill: 'red' } } },
+    })
+    defineGraph({
+      marks: [],
+      // @ts-expect-error
+      states: { nested: { others: { others: { opacity: 0.2 } } } },
+    })
+    defineGraph({
+      marks: [],
+      // @ts-expect-error
+      states: { lifted: { others: { raise: true } } },
+    })
+    defineGraph({
+      marks: [],
+      // @ts-expect-error
+      states: { label: { label: 'sometimes' } },
+    })
+  })
+
   it('types hull and anchor states from the definition', () => {
     const definition = defineGraph({
       marks: [],

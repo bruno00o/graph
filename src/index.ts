@@ -166,6 +166,8 @@ export type {
   SelectMode,
   SourceChange,
   SourceSubscription,
+  StateKindStyles,
+  StateLook,
   StateStyle,
   StateStyles,
   Style,

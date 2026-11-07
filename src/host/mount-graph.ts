@@ -33,7 +33,7 @@ import {
   StateBuffers,
   type StateKind,
 } from '../core/state-buffers'
-import { freeStateNames, isBuiltInState } from '../core/state-names'
+import { freeStateNames, isBuiltInState, styleFor } from '../core/state-names'
 import { SupportIndex } from '../core/support'
 import { readWindow, sameWindow, type TimeFilter, timeFilter } from '../core/time-range'
 import {
@@ -70,7 +70,7 @@ import type {
   Mark,
   NodeDatum,
   Point,
-  StateStyle,
+  StateLook,
   SupportWalk,
   TimeWindow,
   TimeWindowInput,
@@ -266,6 +266,8 @@ export interface GraphStates<N extends string = string> {
   clear(name?: N): void
   /** Whether an element is a member of a state. */
   has(name: N, element: GraphElement): boolean
+  /** Keys of the members of a state, as `store.get().states[name]` holds them. */
+  get(name: N): ElementKeys
 }
 
 /**
@@ -695,7 +697,10 @@ function countAlive(alive: Uint8Array, capacity: number): number {
   return count
 }
 
-function resolveStyle(style: StateStyle, id: (color: string) => number): ResolvedStateStyle {
+function resolveStyle(
+  style: StateLook & { readonly raise?: boolean | undefined },
+  id: (color: string) => number,
+): ResolvedStateStyle {
   const color = (value: string | undefined) => (value === undefined ? undefined : id(value))
   const ringed = style.outlineWidth !== undefined || style.outline !== undefined
   return {
@@ -951,10 +956,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const bit = hide && except !== null ? registry.bit(except) : -1
     if (!hide || bit < 0) return hide
     const flag = (1 << bit) >>> 0
-    if (((hide.nodes | hide.edges) & flag) === 0) return hide
+    if (((hide.nodes | hide.edges | hide.otherNodes | hide.otherEdges) & flag) === 0) return hide
     const nodes = (hide.nodes & ~flag) >>> 0
     const edges = (hide.edges & ~flag) >>> 0
-    return nodes === 0 && edges === 0 ? null : { ...hide, nodes, edges }
+    const otherNodes = (hide.otherNodes & ~flag) >>> 0
+    const otherEdges = (hide.otherEdges & ~flag) >>> 0
+    return (nodes | edges | otherNodes | otherEdges) === 0
+      ? null
+      : { ...hide, nodes, edges, otherNodes, otherEdges }
   }
 
   function orderLayers(names: Iterable<string>): string[] {
@@ -1220,11 +1229,17 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const id = (color: string) => scene.palette.id(color)
     for (const kind of ['nodes', 'edges'] as const) {
       registry.names.forEach((name, bit) => {
-        const own = definition.states[name]
+        const own = styleFor(definition.states[name], kind)
         const style = isBuiltInState(name)
           ? { ...builtInStyles[kind][name], ...(own && withoutUndefined(own)) }
           : own
-        buffers.setStyle(kind, bit, style ? resolveStyle(style, id) : null)
+        const others = style?.others
+        buffers.setStyle(
+          kind,
+          bit,
+          style ? resolveStyle(style, id) : null,
+          others ? resolveStyle({ ...others, raise: undefined }, id) : null,
+        )
       })
       for (let bit = registry.names.length; bit < 32; bit++) buffers.setStyle(kind, bit, null)
     }
@@ -3210,6 +3225,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       for (const each of names) if (registry.clear(each)) publishState(each)
     },
     has: (name, element) => registry.has(declared(name), kindOf[element.kind], element.key),
+    get: (name) => store.get().states[declared(name)] ?? registry.members(name),
   }
 
   const positionsApi: GraphPositions = {

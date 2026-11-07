@@ -815,10 +815,10 @@ export interface ScalesOptions {
 }
 
 /**
- * Style of a state. A property left out keeps the value of the element, or of the next state that
- * sets it.
+ * Look a state gives to elements: its members, or with `others` every element outside it. A
+ * property left out keeps the value of the element, or of the next state that sets it.
  */
-export interface StateStyle {
+export interface StateLook {
   /** Multiplies the opacity of the element. */
   readonly opacity?: number | undefined
   /** Fill color of a node. */
@@ -833,8 +833,12 @@ export interface StateStyle {
   readonly outlineWidth?: number | undefined
   /** Draws the soft `--graph-halo` glow behind the element. */
   readonly halo?: boolean | undefined
-  /** Shows or hides the label while the state applies. */
-  readonly label?: boolean | undefined
+  /**
+   * Shows or hides the label while the state applies: `true`, `false`, or `'always'`, which also
+   * shows it when it is smaller than 8 pixels or its node is under `minScreenSize`, at 8 pixels
+   * at least. An `'always'` label still gives way to labels it would cover.
+   */
+  readonly label?: boolean | 'always' | undefined
   /** Color of the main text of the label, for nodes and edges. */
   readonly labelColor?: string | undefined
   /**
@@ -843,19 +847,47 @@ export interface StateStyle {
    */
   readonly flow?: boolean | number | undefined
   /**
-   * Draws the members again above every mark, as selected and hovered elements are, and places
-   * their labels before the others. An element is raised when any of its states raises it. Defaults
-   * to `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
-   */
-  readonly raise?: boolean | undefined
-  /**
-   * Removes the members from the drawing while they keep their position, selection and other
+   * Removes the elements from the drawing while they keep their position, selection and other
    * states: they are neither drawn, labeled, picked, exported nor counted, as elements outside the
    * zoom range, and the edges of a hidden node hide with it. An aggregated edge hides when all its
    * merged edges do.
    * @default false
    */
   readonly hide?: boolean | undefined
+}
+
+/**
+ * Style of a state, for its nodes and its edges. A property left out keeps the value of the
+ * element, or of the next state that sets it.
+ */
+export interface StateStyle extends StateLook {
+  /**
+   * Draws the members again above every mark, as selected and hovered elements are, and places
+   * their labels before the others. An element is raised when any of its states raises it. Defaults
+   * to `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
+   */
+  readonly raise?: boolean | undefined
+  /**
+   * Look of the elements outside the state, while it has at least one member of any kind: a state
+   * of edges can dim the nodes too. It takes the rank of the state in the priority order. In a
+   * style by kind, it applies to that kind only.
+   */
+  readonly others?: StateLook | undefined
+  /** Leave out: a style for both kinds sets no style by kind. */
+  readonly nodes?: undefined
+  /** Leave out: a style for both kinds sets no style by kind. */
+  readonly edges?: undefined
+}
+
+/**
+ * Style of a state by kind of element: one for its nodes, one for its edges. A kind left out takes
+ * no style, or the default one for `selected`, `hovered` and `focused`.
+ */
+export interface StateKindStyles {
+  /** Style of the nodes, and with `others` of the nodes outside the state. */
+  readonly nodes?: StateStyle | undefined
+  /** Style of the edges, and with `others` of the edges outside the state. */
+  readonly edges?: StateStyle | undefined
 }
 
 /** How clicks select: one element, several with a modifier key, or nothing. */
@@ -1052,8 +1084,8 @@ export type BuiltInState = 'selected' | 'hovered' | 'focused'
 /** State names of `S` that are not built in: the states you fill from code. */
 export type FreeState<S extends string> = Exclude<S, BuiltInState>
 
-/** Style of each state, by name. */
-export type StateStyles<S extends string> = { readonly [K in S]: StateStyle }
+/** Style of each state, by name: one style for both kinds of element, or one per kind. */
+export type StateStyles<S extends string> = { readonly [K in S]: StateStyle | StateKindStyles }
 
 /**
  * What a layout reads: copies of the graph in typed arrays, indexed by the internal index of each

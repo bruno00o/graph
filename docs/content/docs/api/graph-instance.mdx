@@ -94,6 +94,7 @@ interface GraphStates<N extends string> {
   remove(name: N, keys: ElementKeysInput): void
   clear(name?: N): void
   has(name: N, element: { kind: 'node' | 'edge'; key: Key }): boolean
+  get(name: N): ElementKeys
 }
 ```
 

@@ -2,7 +2,6 @@ import {
   defineGraph,
   edges,
   type GraphInstance,
-  type Key,
   mountGraph,
   nodes,
   type PathOptions,
@@ -19,8 +18,14 @@ const lines = edges<Link>(links, { source: 'from', target: 'to', arrow: 'target'
 const definition = defineGraph({
   marks: [lines, dots],
   states: {
-    muted: { opacity: 0.15, label: false },
-    path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true, raise: true },
+    path: {
+      flow: true,
+      stroke: 'var(--graph-accent)',
+      strokeWidth: 2.5,
+      label: true,
+      raise: true,
+      others: { opacity: 0.15, label: false },
+    },
   },
 })
 
@@ -71,13 +76,7 @@ export function mount(container: HTMLElement): GraphInstance {
     status.textContent = path
       ? messages.pathFound(path.edges.length, duration)
       : messages.noPath(duration)
-    const keepNodes = new Set<Key>(path?.nodes ?? selected)
-    const keepEdges = new Set<Key>(path?.edges)
-    graph.states.set('path', { nodes: keepNodes, edges: keepEdges })
-    graph.states.set('muted', {
-      nodes: items.filter((item) => !keepNodes.has(item.id)).map((item) => item.id),
-      edges: links.filter((link) => !keepEdges.has(link.id)).map((link) => link.id),
-    })
+    graph.states.set('path', path ?? { nodes: selected })
   }
 
   toggle.addEventListener('click', () => {

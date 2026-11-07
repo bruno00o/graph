@@ -52,11 +52,15 @@ function layerHidden(flags: Uint8Array | undefined, columns: Shown, index: numbe
   return flags !== undefined && flags[columns.slot[index] ?? 0] === 1
 }
 
+function maskHidden(mask: number, own: number, others: number): boolean {
+  return (mask & own) !== 0 || (~mask & others) !== 0
+}
+
 function nodeHidden(nodes: Shown, index: number, sight: Sight): boolean {
   const hide = sight.hide
   return (
     layerHidden(sight.layers?.nodes, nodes, index) ||
-    (hide !== null && ((hide.masks.nodeMask[index] ?? 0) & hide.nodes) !== 0)
+    (hide !== null && maskHidden(hide.masks.nodeMask[index] ?? 0, hide.nodes, hide.otherNodes))
   )
 }
 
@@ -64,7 +68,7 @@ function edgeHidden(edges: Shown, index: number, sight: Sight): boolean {
   const hide = sight.hide
   return (
     layerHidden(sight.layers?.edges, edges, index) ||
-    (hide !== null && ((hide.masks.edgeMask[index] ?? 0) & hide.edges) !== 0)
+    (hide !== null && maskHidden(hide.masks.edgeMask[index] ?? 0, hide.edges, hide.otherEdges))
   )
 }
 

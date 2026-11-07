@@ -13,8 +13,6 @@ import '../shared/overlays.css'
 import '../shared/controls.css'
 
 const { items, links } = createCommunities(300, 460, 47)
-const nodeKeys = items.map((item) => item.id)
-const edgeKeys = links.map((link) => link.id)
 const rings = ['hop1', 'hop2', 'hop3', 'hop4'] as const
 
 const definition = defineGraph({
@@ -28,7 +26,7 @@ const definition = defineGraph({
     hop2: { fill: 'var(--graph-cat-2)', raise: true },
     hop3: { fill: 'var(--graph-cat-3)' },
     hop4: { fill: 'var(--graph-cat-4)' },
-    muted: { opacity: 0.12, label: false },
+    reach: { others: { opacity: 0.12, label: false } },
   },
   interaction: { select: 'single' },
   layout: force(),
@@ -73,12 +71,7 @@ export function mount(container: HTMLElement): GraphInstance {
     for (const [index, ring] of rings.entries()) {
       graph.states.set(ring, { nodes: byHop[index] ?? [] })
     }
-    const keepNodes = new Set(near.nodes)
-    const keepEdges = new Set(near.edges)
-    graph.states.set('muted', {
-      nodes: nodeKeys.filter((key) => !keepNodes.has(key)),
-      edges: edgeKeys.filter((key) => !keepEdges.has(key)),
-    })
+    graph.states.set('reach', near)
     status.textContent = messages.reached(byHop.slice(0, hops).map((ring) => ring.length))
   }
 
