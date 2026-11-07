@@ -78,6 +78,8 @@ const definition = defineGraph({
 })
 ```
 
+Declare the `hidden` state with `hide: true` to filter the graph: the elements of an item switched off disappear, keep their selection, and the item stays listed. See [Hide without losing state](/docs/transformations#from-the-legend).
+
 Without `hidden`, switching an item off only changes the state of the legend. Read `off` there to filter the data yourself:
 
 ```ts

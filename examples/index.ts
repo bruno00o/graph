@@ -23,6 +23,7 @@ for (const [href, text] of [
   ['./time/', messages.time],
   ['./lens/', messages.lens],
   ['./multilayer/', messages.multilayer],
+  ['./transforms/', messages.transforms],
 ] as const) {
   const item = document.createElement('li')
   const link = document.createElement('a')

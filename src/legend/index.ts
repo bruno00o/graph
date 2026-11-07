@@ -154,7 +154,8 @@ export function createLegend<S extends string, M extends Mark>(
     readScene = stamp.scene
     readDetail = stamp.detail
     readDefinition = internals.definition()
-    const reading = readLegend(internals.scene, readDefinition.marks, off, known, internals.sight())
+    const sight = internals.sight(hidden)
+    const reading = readLegend(internals.scene, readDefinition.marks, off, known, sight)
     crowded = reading.crowded
     known.clear()
     if (reading.color?.type === 'categories') {

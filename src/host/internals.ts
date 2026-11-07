@@ -24,7 +24,7 @@ export interface GraphInternals {
   containers(): ContainerFrame | null
   palette(): Uint8Array
   masks(): Uint32Array
-  sight(): Sight
+  sight(except?: string | null): Sight
   stamp(): GraphStamp
   watch(watcher: GraphWatcher): () => void
 }

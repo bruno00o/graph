@@ -59,6 +59,7 @@ export default defineConfig({
         time: resolve(import.meta.dirname, 'examples/time/index.html'),
         lens: resolve(import.meta.dirname, 'examples/lens/index.html'),
         multilayer: resolve(import.meta.dirname, 'examples/multilayer/index.html'),
+        transforms: resolve(import.meta.dirname, 'examples/transforms/index.html'),
       },
     },
   },

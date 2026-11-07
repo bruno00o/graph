@@ -176,6 +176,7 @@ float timeShown(vec4 span) {
 }
 float nodeShown(ivec2 t) {
   if (anyHidden(hiddenNodes) && slotHidden(hiddenNodes, uint(texelFetch(nodeStyle, t, 0).w + 0.5) >> 4u)) return 0.0;
+  if (stateRaise.z != 0u && (texelFetch(nodeState, t, 0).r & stateRaise.z) != 0u) return 0.0;
   float shown = ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
   return timed > 0.5 && shown > 0.0 ? shown * timeShown(texelFetch(nodeTime, t, 0)) : shown;
 }
@@ -207,9 +208,10 @@ uniform sampler2D edgeZoom;
 uniform sampler2D edgeTime;
 uniform float flowTime;
 float edgeShown(ivec2 t, uvec4 topology) {
-  bool layered = anyHidden(hiddenNodes) || anyHidden(hiddenEdges);
+  bool layered = anyHidden(hiddenNodes) || anyHidden(hiddenEdges) || stateRaise.z != 0u || stateRaise.w != 0u;
   if (ranged < 0.5 && timed < 0.5 && !layered) return 1.0;
   if (slotHidden(hiddenEdges, topology.w >> 6u)) return 0.0;
+  if (stateRaise.w != 0u && (texelFetch(edgeState, t, 0).r & stateRaise.w) != 0u) return 0.0;
   float own = ranged > 0.5 ? zoomShown(texelFetch(edgeZoom, t, 0).xy) : 1.0;
   if (timed > 0.5 && own > 0.0) own *= timeShown(texelFetch(edgeTime, t, 0));
   return min(own, min(nodeShown(texel(topology.x)), nodeShown(texel(topology.y))));

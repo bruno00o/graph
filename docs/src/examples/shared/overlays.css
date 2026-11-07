@@ -150,6 +150,11 @@
   overflow: auto;
 }
 
+.example-scale-legend.example-scale-legend-right {
+  right: 14px;
+  left: auto;
+}
+
 .example-timeline {
   position: absolute;
   right: 14px;

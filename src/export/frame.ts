@@ -5,6 +5,7 @@ import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
 import type { LayerFilter } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
+import type { HideFilter } from '../core/state-buffers'
 import type { TimeFilter } from '../core/time-range'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { View } from '../types'
@@ -15,10 +16,16 @@ export interface ExportFrame {
   readonly height: number
   readonly window?: TimeFilter | null
   readonly layers?: LayerFilter | null
+  readonly hide?: HideFilter | null
 }
 
 export function frameSight(frame: ExportFrame): Sight {
-  return { zoom: frame.view.zoom, time: frame.window ?? null, layers: frame.layers ?? null }
+  return {
+    zoom: frame.view.zoom,
+    time: frame.window ?? null,
+    layers: frame.layers ?? null,
+    hide: frame.hide ?? null,
+  }
 }
 
 export interface FrameSource {
@@ -31,6 +38,7 @@ export interface FrameSource {
   readonly height: number
   readonly window?: TimeFilter | null
   readonly layers?: LayerFilter | null
+  readonly hide?: HideFilter | null
   readonly hulls?: readonly HullShape[]
   readonly bundles?: EdgePaths | null
 }
@@ -82,10 +90,10 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     height: (source.height * zoom) / source.view.zoom,
     ...(source.window ? { window: source.window } : {}),
     ...(source.layers ? { layers: source.layers } : {}),
-    ...(source.layers ? { layers: source.layers } : {}),
+    ...(source.hide ? { hide: source.hide } : {}),
   }
   if (options.region === 'view') return viewFrame
-  const sight: Sight = { zoom, time: source.window ?? null, layers: source.layers ?? null }
+  const sight = frameSight(viewFrame)
   const { nodes, positions, boxes } = source
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
@@ -168,5 +176,6 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     height: maxY - minY + padding * 2,
     ...(source.window ? { window: source.window } : {}),
     ...(source.layers ? { layers: source.layers } : {}),
+    ...(source.hide ? { hide: source.hide } : {}),
   }
 }

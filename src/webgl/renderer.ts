@@ -1056,7 +1056,12 @@ function createRenderer(
       new Float32Array(statesBlock, 0, 256).set(states.numbers)
       new Uint32Array(statesBlock, 1024, 256).set(states.paint)
       new Uint32Array(statesBlock, 2048, 256).set(states.labels)
-      new Uint32Array(statesBlock, 3072, 4).set([states.nodeRaise, states.edgeRaise, 0, 0])
+      new Uint32Array(statesBlock, 3072, 4).set([
+        states.nodeRaise,
+        states.edgeRaise,
+        states.nodeHide,
+        states.edgeHide,
+      ])
       gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, statesBlock)
       invalidateLabels()
@@ -1116,7 +1121,7 @@ function createRenderer(
 
   function selectLabels(set: LabelSet, frame: LabelArea, now: number): number {
     if (!input) return -1
-    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode},${timeWindow?.serial ?? 0},${layerFilter?.serial ?? 0},${frame.globe?.mix ?? 0}`
+    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode},${timeWindow?.serial ?? 0},${layerFilter?.serial ?? 0},${input.states.hide?.serial ?? 0},${frame.globe?.mix ?? 0}`
     if (!set.stale && !set.moved && key === set.view) return -1
     const wait = labelInterval - (now - set.time)
     if (!set.stale && wait > 0) return wait
@@ -1144,7 +1149,12 @@ function createRenderer(
         nodes,
         positions: input.positions,
         view: frame.view,
-        sight: { zoom: frame.view.zoom, time: timeWindow, layers: layerFilter },
+        sight: {
+          zoom: frame.view.zoom,
+          time: timeWindow,
+          layers: layerFilter,
+          hide: input.states.hide,
+        },
         width: frame.width,
         height: frame.height,
         nodeMask: input.states.nodeMask,

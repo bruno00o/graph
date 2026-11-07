@@ -178,4 +178,20 @@ export const messages = {
   supportHint: 'Click an edge: what carries it lights below, what it carries lights above.',
   supportStatus: (carriers: number, carried: number) =>
     `${count(carriers, 'carrier', 'carriers')}, ${count(carried, 'carried edge', 'carried edges')}`,
+  transformsLabel: (items: number, links: number) =>
+    `Graph of ${count(items, 'item', 'items')} in four sectors, linked by ${count(links, 'exchange', 'exchanges')}`,
+  transformsHint: 'Hover the two halves of a merged line. Click a family in the legend to hide it.',
+  itemName: (index: number) => `Item ${formatNumber(index)}`,
+  sectorName: (value: string) => `Sector ${value}`,
+  familiesTitle: 'Families',
+  familiesLabel: 'Families of the items',
+  familyName: (value: string) => `Family ${value}`,
+  mergeToggle: (merged: boolean) => `Parallel edges: ${merged ? 'merged' : 'apart'}`,
+  sectorToggle: (grouped: boolean) => `Sectors: ${grouped ? 'grouped' : 'items'}`,
+  sectorStatus: (value: string, items: number) =>
+    `Sector ${value}: ${count(items, 'item', 'items')}`,
+  mergedStatus: (from: string, to: string, forward: number, backward: number) =>
+    backward === 0
+      ? `${from} to ${to}: ${count(forward, 'exchange', 'exchanges')}`
+      : `${from} to ${to}: ${formatNumber(forward)}, back: ${formatNumber(backward)}`,
 }

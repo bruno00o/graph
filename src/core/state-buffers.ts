@@ -18,6 +18,28 @@ export interface ResolvedStateStyle {
   readonly labelColor?: number
   readonly flow?: number
   readonly raise?: boolean
+  readonly hide?: boolean
+}
+
+export interface StateMasks {
+  readonly nodeMask: Uint32Array
+  readonly edgeMask: Uint32Array
+}
+
+export interface HideFilter {
+  readonly masks: StateMasks
+  readonly nodes: number
+  readonly edges: number
+  readonly serial: number
+}
+
+function countHidden(masks: Uint32Array, bits: number): number {
+  if (bits === 0) return 0
+  let count = 0
+  for (let index = 0; index < masks.length; index++) {
+    if (((masks[index] ?? 0) & bits) !== 0) count++
+  }
+  return count
 }
 
 export class DirtyRange {
@@ -76,6 +98,23 @@ export class StateBuffers {
   edgeFlowBits = 0
   nodeRaise: number = builtInRaise
   edgeRaise: number = builtInRaise
+  nodeHide = 0
+  edgeHide = 0
+  hideVersion = 0
+  #hiddenNodes = 0
+  #hiddenEdges = 0
+  #hide: HideFilter | null = null
+  #hideAt = -1
+
+  get hide(): HideFilter | null {
+    if (this.#hideAt === this.hideVersion) return this.#hide
+    this.#hideAt = this.hideVersion
+    this.#hide =
+      this.#hiddenNodes + this.#hiddenEdges > 0
+        ? { masks: this, nodes: this.nodeHide, edges: this.edgeHide, serial: this.hideVersion }
+        : null
+    return this.#hide
+  }
 
   reserve(nodeCapacity: number, edgeCapacity: number): void {
     this.nodeMask = grow(this.nodeMask, nodeCapacity)
@@ -84,14 +123,30 @@ export class StateBuffers {
 
   setNode(index: number, mask: number): void {
     this.nodeMask = grow(this.nodeMask, index + 1)
-    if (this.nodeMask[index] === mask >>> 0) return
+    const before = this.nodeMask[index] ?? 0
+    if (before === mask >>> 0) return
+    if (this.nodeHide !== 0) {
+      const change = Number((mask & this.nodeHide) !== 0) - Number((before & this.nodeHide) !== 0)
+      if (change !== 0) {
+        this.#hiddenNodes += change
+        this.hideVersion++
+      }
+    }
     this.nodeMask[index] = mask >>> 0
     this.nodeDirty.add(index)
   }
 
   setEdge(index: number, mask: number): void {
     this.edgeMask = grow(this.edgeMask, index + 1)
-    if (this.edgeMask[index] === mask >>> 0) return
+    const before = this.edgeMask[index] ?? 0
+    if (before === mask >>> 0) return
+    if (this.edgeHide !== 0) {
+      const change = Number((mask & this.edgeHide) !== 0) - Number((before & this.edgeHide) !== 0)
+      if (change !== 0) {
+        this.#hiddenEdges += change
+        this.hideVersion++
+      }
+    }
     this.edgeMask[index] = mask >>> 0
     this.edgeDirty.add(index)
     this.edgeMaskVersion++
@@ -115,12 +170,32 @@ export class StateBuffers {
       this.edgeFlowBits =
         (style?.flow === undefined ? this.edgeFlowBits & ~flag : this.edgeFlowBits | flag) >>> 0
       this.edgeRaise = (style?.raise ? this.edgeRaise | flag : this.edgeRaise & ~flag) >>> 0
+      const hide = (style?.hide ? this.edgeHide | flag : this.edgeHide & ~flag) >>> 0
+      if (hide !== this.edgeHide) {
+        this.edgeHide = hide
+        this.#hiddenEdges = countHidden(this.edgeMask, hide)
+        this.hideVersion++
+      }
     } else {
       this.nodeRaise = (style?.raise ? this.nodeRaise | flag : this.nodeRaise & ~flag) >>> 0
+      const hide = (style?.hide ? this.nodeHide | flag : this.nodeHide & ~flag) >>> 0
+      if (hide !== this.nodeHide) {
+        this.nodeHide = hide
+        this.#hiddenNodes = countHidden(this.nodeMask, hide)
+        this.hideVersion++
+      }
     }
     const flags = kind === 'nodes' ? this.labelFlags : this.edgeLabelFlags
     flags[bit] = this.numbers[at + 3] ?? -1
     this.tableVersion++
+  }
+
+  copyHide(from: StateBuffers): void {
+    this.nodeHide = from.nodeHide
+    this.edgeHide = from.edgeHide
+    this.#hiddenNodes = countHidden(this.nodeMask, this.nodeHide)
+    this.#hiddenEdges = countHidden(this.edgeMask, this.edgeHide)
+    this.hideVersion++
   }
 
   raised(kind: StateKind): number {

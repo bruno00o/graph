@@ -52,7 +52,7 @@ The selection is not a free state: change it through `graph.selection`. See [Int
 
 ## Style options
 
-A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), and `raise` (see [Raise a state](#raise-a-state)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.
+A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), `raise` (see [Raise a state](#raise-a-state)) and `hide` (see [Hide members](#hide-members)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.
 
 ## Override the built-in states
 
@@ -95,6 +95,18 @@ An element is raised when any of its states raises it. `raise` is `true` for `se
 <Callout title="Limit">
 A definition holds up to 29 states besides the three built-in ones. Past that, `defineGraph` throws a `RangeError`.
 </Callout>
+
+## Hide members
+
+`hide: true` takes the members of a state out of the drawing: they are neither drawn, labeled, picked, exported nor counted by the legend, and the edges of a hidden node hide with them. They keep their position, their selection and their other states, and come back as they were when they leave the state.
+
+```ts
+states: { off: { hide: true } }
+
+graph.states.set('off', { nodes: ['a', 'b'] })
+```
+
+Hiding writes no data: it costs about as much as any other state change. See [Hide without losing state](/docs/transformations#hide-without-losing-state).
 
 ## Read states in React
 
