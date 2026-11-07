@@ -19,26 +19,26 @@ export interface PersistPositionsOptions<T extends object, TKey extends string |
    * Field of the horizontal position.
    * @default 'x'
    */
-  readonly x?: FieldOf<T, number>
+  readonly x?: FieldOf<T, number> | undefined
   /**
    * Field of the vertical position.
    * @default 'y'
    */
-  readonly y?: FieldOf<T, number>
+  readonly y?: FieldOf<T, number> | undefined
   /** Maps a node key to a row key. Defaults to the node key itself. */
-  readonly key?: (key: Key) => TKey
+  readonly key?: ((key: Key) => TKey) | undefined
   /** Builds the row of a node that has none. Without it, such nodes are skipped. */
-  readonly create?: (key: Key, point: Point) => T
+  readonly create?: ((key: Key, point: Point) => T) | undefined
   /**
    * Persists through `createPacedMutations`, with an optimistic write that a failure rolls back.
    * Without it, the collection persists the updates through its own handlers.
    */
-  readonly mutationFn?: MutationFn<T>
+  readonly mutationFn?: MutationFn<T> | undefined
   /**
    * Pacing of the writes. Without `mutationFn`, only its `wait` is read.
    * @default throttleStrategy({ wait: 100, leading: true, trailing: true })
    */
-  readonly strategy?: Strategy
+  readonly strategy?: Strategy | undefined
 }
 
 const defaultWait = 100

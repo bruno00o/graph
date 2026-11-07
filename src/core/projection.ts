@@ -23,6 +23,7 @@ import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
 import { shallowEqual } from './shallow-equal'
 import type { GraphIssue } from './source-table'
 import { readSpan } from './time-range'
+import { withoutUndefined } from './without-undefined'
 
 const none = -1
 const absent = 0
@@ -143,6 +144,10 @@ function arrows(style: unknown): (aggregate: AggregateEdge) => unknown {
   }
 }
 
+function liftedChannel(channel: string | Read | undefined): unknown {
+  return channel === undefined ? undefined : first(toAccessor(channel))
+}
+
 function liftedLabel(label: EdgeOptions<unknown>['label']): unknown {
   if (label === undefined) return undefined
   if (typeof label !== 'object') return single(toAccessor<unknown, unknown>(label))
@@ -150,31 +155,31 @@ function liftedLabel(label: EdgeOptions<unknown>['label']): unknown {
   const text = toAccessor<unknown, unknown>(options.text)
   return {
     text: single(text),
-    ...(options.background !== undefined ? { background: lifted(options.background) } : {}),
-    ...(options.color !== undefined ? { color: lifted(options.color) } : {}),
-    ...(options.size !== undefined ? { size: lifted(options.size) } : {}),
-    ...(options.weight !== undefined ? { weight: lifted(options.weight) } : {}),
-    ...(options.font !== undefined ? { font: lifted(options.font) } : {}),
-    ...(options.maxWidth !== undefined ? { maxWidth: lifted(options.maxWidth) } : {}),
+    background: lifted(options.background),
+    color: lifted(options.color),
+    size: lifted(options.size),
+    weight: lifted(options.weight),
+    font: lifted(options.font),
+    maxWidth: lifted(options.maxWidth),
   }
 }
 
 function liftedEnd(end: EdgeEndOptions<unknown> | undefined): unknown {
   if (!end) return undefined
   return {
-    ...(end.color !== undefined ? { color: first(toAccessor(end.color)) } : {}),
-    ...(end.width !== undefined ? { width: first(toAccessor(end.width)) } : {}),
-    ...(end.stroke !== undefined ? { stroke: lifted(end.stroke) } : {}),
-    ...(end.dash !== undefined ? { dash: lifted(end.dash) } : {}),
-    ...(end.label !== undefined ? { label: liftedLabel(end.label) } : {}),
+    color: liftedChannel(end.color),
+    width: liftedChannel(end.width),
+    stroke: lifted(end.stroke),
+    dash: lifted(end.dash),
+    label: liftedLabel(end.label),
   }
 }
 
 function liftedEnds(ends: EdgeEndsOptions<unknown>): unknown {
   return {
-    ...(ends.split !== undefined ? { split: lifted(ends.split) } : {}),
-    ...(ends.source ? { source: liftedEnd(ends.source) } : {}),
-    ...(ends.target ? { target: liftedEnd(ends.target) } : {}),
+    split: lifted(ends.split),
+    source: liftedEnd(ends.source),
+    target: liftedEnd(ends.target),
   }
 }
 
@@ -207,7 +212,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
     data: [],
     options: Object.freeze({
       ...fallback,
-      ...options.aggregate,
+      ...(options.aggregate && withoutUndefined(options.aggregate)),
       source: () => null,
       target: () => null,
     }),

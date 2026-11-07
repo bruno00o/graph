@@ -25,33 +25,33 @@ export interface TimelineOptions {
    * (a day, a week, a month…), so the actual number differs a little.
    * @default 80
    */
-  readonly bins?: number
+  readonly bins?: number | undefined
   /**
    * Number of ticks to aim for across the range of the bar.
    * @default 6
    */
-  readonly ticks?: number
+  readonly ticks?: number | undefined
   /**
    * Speed of playback, in milliseconds of data time per second. Defaults to a twentieth of the
    * extent per second, so that playback crosses the extent in twenty seconds.
    */
-  readonly speed?: number
+  readonly speed?: number | undefined
   /**
    * How playback and `step` move the window.
    * @default 'slide'
    */
-  readonly mode?: TimelineMode
+  readonly mode?: TimelineMode | undefined
   /**
    * Playback starts again from the beginning of the extent when it reaches the end, instead of
    * stopping there.
    * @default false
    */
-  readonly loop?: boolean
+  readonly loop?: boolean | undefined
   /**
    * Time range the bar covers, in milliseconds or dates. An end left out or `null` comes from the
    * data: the earliest start and the latest end among nodes and edges.
    */
-  readonly extent?: TimeWindowInput | null
+  readonly extent?: TimeWindowInput | null | undefined
 }
 
 /** A closed range of time, in milliseconds since the epoch. */

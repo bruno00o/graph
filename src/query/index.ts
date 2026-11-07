@@ -40,9 +40,9 @@ export interface ExplorationOptions<
     TQueryKey
   >
   /** Key of a node. Defaults to its `id` field. */
-  readonly nodeKey?: (node: TNode) => Key
+  readonly nodeKey?: ((node: TNode) => Key) | undefined
   /** Key of an edge. Defaults to its `id` field. */
-  readonly edgeKey?: (edge: TEdge) => Key
+  readonly edgeKey?: ((edge: TEdge) => Key) | undefined
 }
 
 /** What the store of an exploration holds. */

@@ -7,18 +7,18 @@ export type StateKind = 'nodes' | 'edges'
 const tableOffset: Readonly<Record<StateKind, number>> = { nodes: 0, edges: maxStates }
 
 export interface ResolvedStateStyle {
-  readonly opacity?: number
-  readonly strokeWidth?: number
-  readonly halo?: boolean
-  readonly label?: boolean
-  readonly fill?: number
-  readonly stroke?: number
-  readonly outline?: number
-  readonly outlineWidth?: number
-  readonly labelColor?: number
-  readonly flow?: number
-  readonly raise?: boolean
-  readonly hide?: boolean
+  readonly opacity?: number | undefined
+  readonly strokeWidth?: number | undefined
+  readonly halo?: boolean | undefined
+  readonly label?: boolean | undefined
+  readonly fill?: number | undefined
+  readonly stroke?: number | undefined
+  readonly outline?: number | undefined
+  readonly outlineWidth?: number | undefined
+  readonly labelColor?: number | undefined
+  readonly flow?: number | undefined
+  readonly raise?: boolean | undefined
+  readonly hide?: boolean | undefined
 }
 
 export interface StateMasks {

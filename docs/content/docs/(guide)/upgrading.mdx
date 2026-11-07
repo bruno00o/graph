@@ -5,6 +5,42 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.15.0
+
+### Anchors take a single target
+
+`AnchorOptions`, and the props of `<Anchor>`, now take exactly one of `node`, `nodes`, `edge`, `point` or `state`, and `when` only with `node`, `nodes` or `edge`. A call that gave two targets, where the first one in the order `node`, `edge`, `point`, `nodes`, `state` won, no longer compiles: keep the target that was drawn. At runtime, nothing changes.
+
+```ts
+// Before: compiled, and followed the node
+graph.anchors.set(menu, { node: key, point: world, when: 'selected' })
+
+// After
+graph.anchors.set(menu, { node: key, when: 'selected' })
+```
+
+A target typed apart from the placement, such as `Pick<AnchorOptions, 'node' | 'point'>`, no longer fits `set`. Let TypeScript infer it, or type it as a union with one member per target:
+
+```ts
+// Before
+const at: Pick<AnchorOptions, 'node' | 'point'> = hit ? { node: hit.key } : { point: world }
+
+// After
+const at: { node: Key } | { point: Point } = hit ? { node: hit.key } : { point: world }
+graph.anchors.set(menu, { ...at, side: 'right' })
+```
+
+The types of each target are `AnchorNodeTarget`, `AnchorNodesTarget`, `AnchorEdgeTarget`, `AnchorPointTarget` and `AnchorStateTarget`; `AnchorPlacement` holds `side`, `align`, `offset`, `scale` and `interactive`. See [Anchors](/docs/api/graph-instance#targets).
+
+### `undefined` means the default
+
+Every optional option now accepts `undefined` in its type, and reads it as left out. A few options set to `undefined` used to behave otherwise:
+
+- `label: undefined` in `groups()` removed the labels of the groups; they now show their value.
+- A style of `selected`, `hovered` or `focused` with a property set to `undefined`, such as `{ raise: undefined }`, cleared that part of the built-in look; it now keeps it.
+- A property of `aggregate` set to `undefined` drew the default; it now takes the look of the first merged edge.
+- A mark, a layout, a bundling or a routing rebuilt with an option set to `undefined` updated every element or ran again; it is now equal to the same one without the option.
+
 ## 0.10.0
 
 ### Data types flow from the marks

@@ -26,11 +26,11 @@ export interface LensInput {
    * Center in screen pixels relative to the graph element, `'pointer'` to follow the pointer over
    * the graph, or `'focus'` to follow the focused node. Defaults to the center of the element.
    */
-  readonly at?: Point | 'pointer' | 'focus'
+  readonly at?: Point | 'pointer' | 'focus' | undefined
   /** Radius, in screen pixels. */
-  readonly radius?: number
+  readonly radius?: number | undefined
   /** Magnification relative to the view zoom, from 1 to 32. */
-  readonly zoom?: number
+  readonly zoom?: number | undefined
 }
 
 /**

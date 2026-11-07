@@ -1,6 +1,18 @@
 export { geoToWorld, worldToGeo } from './core/geo'
 export { defineGraph } from './define-graph'
-export type { AnchorAlign, AnchorOptions, AnchorSide, GraphAnchors } from './host/anchors'
+export type {
+  AnchorAlign,
+  AnchorEdgeTarget,
+  AnchorNodesTarget,
+  AnchorNodeTarget,
+  AnchorOptions,
+  AnchorPlacement,
+  AnchorPointTarget,
+  AnchorSide,
+  AnchorStateTarget,
+  AnchorTarget,
+  GraphAnchors,
+} from './host/anchors'
 export type {
   EdgeTarget,
   ElementKeys,
@@ -46,6 +58,7 @@ export type {
   GraphStates,
   GraphStore,
   GraphTime,
+  GraphUpdateOptions,
   GraphView,
   LayoutRunOptions,
   MountGraphOptions,

@@ -14,48 +14,48 @@ export type TimelineFormat = (time: number, unit: TimeUnit, use: 'tick' | 'value
 /** Accessible names of the controls of a timeline. The timeline writes no text of its own. */
 export interface TimelineLabels {
   /** Name of the play button. */
-  readonly play?: string
+  readonly play?: string | undefined
   /** Name of the handle of the start of the window. */
-  readonly start?: string
+  readonly start?: string | undefined
   /** Name of the handle of the end of the window. */
-  readonly end?: string
+  readonly end?: string | undefined
   /** Name of the window, which moves both ends at once. */
-  readonly window?: string
+  readonly window?: string | undefined
   /**
    * Text of the window for assistive technologies, from the texts of its ends. Defaults to both
    * texts separated by a comma.
    */
-  readonly range?: (start: string, end: string) => string
+  readonly range?: ((start: string, end: string) => string) | undefined
 }
 
 /** Options of `mountTimeline`. */
 export interface TimelineViewOptions {
   /** Accessible names of the controls. */
-  readonly labels?: TimelineLabels
+  readonly labels?: TimelineLabels | undefined
   /** Accessible name of the whole timeline. */
-  readonly ariaLabel?: string
+  readonly ariaLabel?: string | undefined
   /**
    * Text of ticks and values. Defaults to dates and times written by `Intl.DateTimeFormat` for the
    * language of the page, as precise as the unit.
    */
-  readonly format?: TimelineFormat
+  readonly format?: TimelineFormat | undefined
   /**
    * Height of the histogram, in CSS pixels.
    * @default 48
    */
-  readonly height?: number
+  readonly height?: number | undefined
   /**
    * The wheel and a trackpad pinch zoom the bar around the pointer, and Shift with the wheel or a
    * horizontal swipe pans it.
    * @default true
    */
-  readonly wheel?: boolean
+  readonly wheel?: boolean | undefined
   /**
    * Brushing and dragging snap the ends of the window to the bins. Alt turns snapping off for the
    * time of a gesture.
    * @default true
    */
-  readonly snap?: boolean
+  readonly snap?: boolean | undefined
 }
 
 /** A timeline in the page, made by `mountTimeline`. */

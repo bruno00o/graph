@@ -74,7 +74,7 @@ const links = [
 
 const graph = (aggregate?: Parameters<typeof edges<Link>>[1]['aggregate']) => ({
   marks: [
-    edges<Link>(links, { ...linkOptions, width: 'weight', ...(aggregate ? { aggregate } : {}) }),
+    edges<Link>(links, { ...linkOptions, width: 'weight', aggregate }),
     nodes<Item>(tree, { parent: 'parent' }),
   ],
 })
@@ -143,6 +143,15 @@ describe('Projection', () => {
     const single = projection.edgeIndexOf('ac')
     expect(scene.edges.label[single]).toBe('1')
     expect(width).toBeGreaterThan(scene.edges.width[single] ?? 0)
+  })
+
+  it('keeps the look of the first edge where the aggregate look sets undefined', () => {
+    const left = setup(graph(), ['g', 'h'])
+    const given = setup(graph({ width: undefined, color: undefined }), ['g', 'h'])
+    const width = (state: typeof left) =>
+      state.scene.edges.width[state.projection.edgeIndexOf('ac')]
+    expect(width(given)).toBe(width(left))
+    expect(width(given)).toBeGreaterThan(0)
   })
 
   it('keeps the ends of the first merged edge and their labels for a single member', () => {

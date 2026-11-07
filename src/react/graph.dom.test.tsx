@@ -5,12 +5,24 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import type { ElementKeys } from '../host/events'
-import { nodes } from '../marks'
+import type { RenderInput } from '../host/renderer'
+import { grid } from '../layouts'
+import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition, View } from '../types'
 import { Graph, type GraphInstance, useGraph, useGraphEvent, useGraphState } from './index'
 
-vi.mock('../webgl/renderer', () => ({ createWebglRenderer: () => fakeRenderer() }))
+const written = vi.hoisted(() => ({ nodes: 0, edges: 0 }))
+
+vi.mock('../webgl/renderer', () => ({
+  createWebglRenderer: () => ({
+    ...fakeRenderer(),
+    sync: (input: RenderInput) => {
+      written.nodes += input.dirty.nodes.size
+      written.edges += input.dirty.edges.size
+    },
+  }),
+}))
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 
@@ -117,6 +129,34 @@ function Retagging() {
   )
 }
 
+const people = [
+  { id: 'a', team: 'red' },
+  { id: 'b', team: 'blue' },
+]
+const ties = [{ id: 'ab', from: 'a', to: 'b' }]
+
+function Inline() {
+  return (
+    <Graph
+      definition={defineGraph({
+        marks: [
+          edges(ties, { source: 'from', target: 'to', width: undefined, label: undefined }),
+          nodes(people, { color: 'team', size: undefined, label: undefined }),
+        ],
+        states: { muted: { opacity: 0.3, halo: undefined }, selected: { raise: undefined } },
+        layout: grid({ columns: undefined, spacing: undefined }),
+        interaction: { lasso: undefined, zoom: { speed: undefined } },
+        view: { minZoom: undefined },
+      })}
+      ariaLabel="graphe"
+      ref={capture}
+      selection={undefined}
+      view={undefined}
+      onClick={undefined}
+    />
+  )
+}
+
 function Outside() {
   useGraph()
   return null
@@ -188,6 +228,23 @@ describe('<Graph>', () => {
     expect(captured.graph).toBe(mounted)
     expect(container.querySelector('[data-graph]')?.getAttribute('aria-label')).toBe('deux')
     expect(captured.graph?.positions.get('c')).toEqual({ x: 100, y: 0 })
+  })
+
+  it('rewrites nothing when rendered again with an identical inline definition', async () => {
+    render(<Inline />)
+    await act(async () => {})
+    act(() => {
+      dom.flushFrames()
+    })
+    const starts: string[] = []
+    captured.graph?.on('layoutstart', () => starts.push('start'))
+    written.nodes = 0
+    written.edges = 0
+    render(<Inline />)
+    render(<Inline />)
+    await act(async () => {})
+    expect(written).toEqual({ nodes: 0, edges: 0 })
+    expect(starts).toEqual([])
   })
 
   it('removes the graph on unmount', () => {

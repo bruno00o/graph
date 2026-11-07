@@ -7,17 +7,17 @@ export interface RingsOptions<T = unknown> {
    * Node in the middle, the first node in `order` by default. A fixed center keeps its place and
    * the rings form around it.
    */
-  readonly center?: Key
+  readonly center?: Key | undefined
   /**
    * Order from the middle outward. Ring `n` holds up to `⌊2πn⌋` nodes.
    * @default 'degree'
    */
-  readonly order?: NodeOrder<T>
+  readonly order?: NodeOrder<T> | undefined
   /**
    * Gap between two rings, from the borders of the largest nodes, in world units. Defaults to the
    * largest diameter, and at least 24.
    */
-  readonly spacing?: number
+  readonly spacing?: number | undefined
 }
 
 /**

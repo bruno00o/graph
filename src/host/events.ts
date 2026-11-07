@@ -70,9 +70,9 @@ export interface ElementKeys {
 /** Keys of nodes and of edges, from any iterable. A missing list counts as empty. */
 export interface ElementKeysInput {
   /** Node keys. */
-  readonly nodes?: Iterable<Key>
+  readonly nodes?: Iterable<Key> | undefined
   /** Edge keys. */
-  readonly edges?: Iterable<Key>
+  readonly edges?: Iterable<Key> | undefined
 }
 
 /** Payload of `click`, `doubleclick` and `contextmenu`. `M` is the union of the marks. */

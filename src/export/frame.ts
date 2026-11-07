@@ -14,9 +14,9 @@ export interface ExportFrame {
   readonly view: View
   readonly width: number
   readonly height: number
-  readonly window?: TimeFilter | null
-  readonly layers?: LayerFilter | null
-  readonly hide?: HideFilter | null
+  readonly window?: TimeFilter | null | undefined
+  readonly layers?: LayerFilter | null | undefined
+  readonly hide?: HideFilter | null | undefined
 }
 
 export function frameSight(frame: ExportFrame): Sight {
@@ -88,9 +88,9 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     view: { x: source.view.x, y: source.view.y, zoom },
     width: (source.width * zoom) / source.view.zoom,
     height: (source.height * zoom) / source.view.zoom,
-    ...(source.window ? { window: source.window } : {}),
-    ...(source.layers ? { layers: source.layers } : {}),
-    ...(source.hide ? { hide: source.hide } : {}),
+    window: source.window,
+    layers: source.layers,
+    hide: source.hide,
   }
   if (options.region === 'view') return viewFrame
   const sight = frameSight(viewFrame)
@@ -174,8 +174,8 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     view: { x: (minX + maxX) / 2 / zoom, y: (minY + maxY) / 2 / zoom, zoom },
     width: maxX - minX + padding * 2,
     height: maxY - minY + padding * 2,
-    ...(source.window ? { window: source.window } : {}),
-    ...(source.layers ? { layers: source.layers } : {}),
-    ...(source.hide ? { hide: source.hide } : {}),
+    window: source.window,
+    layers: source.layers,
+    hide: source.hide,
   }
 }

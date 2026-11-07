@@ -183,6 +183,26 @@ describe('graph.anchors', () => {
     expect(graph.view.get().zoom).toBeGreaterThan(zoom)
   })
 
+  it('takes a single target in its types, and undefined options as absent', () => {
+    const graph = mount()
+    const tip = element(40, 20)
+    graph.anchors.set(tip, { node: 'a', side: 'right', align: undefined, when: undefined })
+    dom.flushFrames()
+    expect(wrapper(tip).style.transform).toBe('translate(312px,290px)')
+    // @ts-expect-error
+    graph.anchors.set(tip, { node: 'b', point: { x: 0, y: 0 }, side: 'right' })
+    dom.flushFrames()
+    expect(wrapper(tip).style.transform).toBe('translate(512px,290px)')
+    // @ts-expect-error
+    graph.anchors.set(tip, { point: { x: 0, y: 0 }, when: 'muted' })
+    // @ts-expect-error
+    graph.anchors.set(tip, { state: 'muted', when: 'muted' })
+    // @ts-expect-error
+    graph.anchors.set(tip, { side: 'top' })
+    dom.flushFrames()
+    expect(wrapper(tip).style.visibility).toBe('hidden')
+  })
+
   it('removes elements on request and on destroy', () => {
     const graph = mount()
     const first = element(10, 10)

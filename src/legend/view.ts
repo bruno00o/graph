@@ -9,29 +9,29 @@ export type LegendSection = 'color' | 'size' | 'width' | 'looks' | 'layers'
 /** Options of `mountLegend`. The legend writes no text of its own: titles come from these. */
 export interface LegendViewOptions<M extends Mark = Mark> {
   /** Titles of the sections. A section without a title shows none. */
-  readonly titles?: Partial<Readonly<Record<LegendSection, string>>>
+  readonly titles?: Partial<Readonly<Record<LegendSection, string | undefined>>> | undefined
   /**
    * Sections to show, in this order. Looks show only for a kind of element drawn with more than
    * one look, layers only when a mark names a layer.
    * @default ['color', 'size', 'width', 'looks', 'layers']
    */
-  readonly sections?: readonly LegendSection[]
+  readonly sections?: readonly LegendSection[] | undefined
   /**
    * Text of a value of a scale. Defaults to the value, numbers formatted for the language of the
    * page with at most two decimals.
    */
-  readonly format?: (value: LegendValue, section: LegendSection) => string
+  readonly format?: ((value: LegendValue, section: LegendSection) => string) | undefined
   /** Text of a look. Defaults to the name of its mark, or no text for a mark without a name. */
-  readonly lookText?: (look: LegendLook<M>) => string
+  readonly lookText?: ((look: LegendLook<M>) => string) | undefined
   /** Text of a layer. Defaults to its name. */
-  readonly layerText?: (layer: LegendLayer<M>) => string
+  readonly layerText?: ((layer: LegendLayer<M>) => string) | undefined
   /**
    * Categories, looks and layers switch off and on by click, Enter or Space, as toggle buttons.
    * @default true
    */
-  readonly toggle?: boolean
+  readonly toggle?: boolean | undefined
   /** Accessible name of the legend. */
-  readonly ariaLabel?: string
+  readonly ariaLabel?: string | undefined
 }
 
 /** A legend in the page, made by `mountLegend`. */

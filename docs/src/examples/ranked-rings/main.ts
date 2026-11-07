@@ -24,8 +24,7 @@ export function mount(container: HTMLElement): GraphInstance {
   const { items, links } = createSample(90, 120, 5)
   let rank: Rank = 'weight'
   let center: Key | undefined
-  const layout = () =>
-    rings<Item>({ order: orders[rank], ...(center === undefined ? {} : { center }) })
+  const layout = () => rings<Item>({ order: orders[rank], center })
 
   const graph = mountGraph(container, {
     definition: defineGraph({

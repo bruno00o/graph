@@ -29,39 +29,39 @@ export interface ExportOptions {
    * Part of the graph to export.
    * @default 'view'
    */
-  readonly region?: ExportRegion
+  readonly region?: ExportRegion | undefined
   /**
    * Scale of the export, in CSS pixels per world unit. Sizes set in screen pixels, such as edge
    * widths, labels and nodes with `units: 'screen'`, keep their size. Defaults to the current zoom.
    */
-  readonly zoom?: number
+  readonly zoom?: number | undefined
   /**
    * Margin around the nodes, labels and loops when `region` is `'graph'`, in CSS pixels.
    * @default 32
    */
-  readonly padding?: number
+  readonly padding?: number | undefined
   /**
    * Labels to draw.
    * @default 'visible'
    */
-  readonly labels?: ExportLabels
+  readonly labels?: ExportLabels | undefined
   /**
    * Background color, any CSS color resolved with the current theme. `'transparent'` leaves the
    * background empty.
    * @default 'var(--graph-paper)'
    */
-  readonly background?: string
+  readonly background?: string | undefined
   /**
    * Moment of the moving dashes of the `flow` option, in milliseconds after they start. The image
    * is still: at `0`, every dash pattern starts at the source of its edge.
    * @default 0
    */
-  readonly time?: number
+  readonly time?: number | undefined
   /**
    * Time window of the export: elements with a `time` show only while they exist in it, as on
    * screen. `null` draws every element whatever its time. Defaults to the window of the graph.
    */
-  readonly window?: TimeWindowInput | null
+  readonly window?: TimeWindowInput | null | undefined
 }
 
 /** Options of `exportPng`. */
@@ -70,7 +70,7 @@ export interface PngExportOptions extends ExportOptions {
    * Image pixels per CSS pixel. Large images are drawn in tiles, so the size is bounded by memory,
    * not by the GPU. Defaults to the device pixel ratio of the graph.
    */
-  readonly pixelRatio?: number
+  readonly pixelRatio?: number | undefined
 }
 
 /** Options of `exportSvg`. */
@@ -80,7 +80,7 @@ export interface SvgExportOptions extends ExportOptions {
    * images stay linked by their URL.
    * @default true
    */
-  readonly embedImages?: boolean
+  readonly embedImages?: boolean | undefined
 }
 
 interface Prepared {

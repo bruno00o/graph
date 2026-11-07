@@ -23,12 +23,12 @@ export interface MapGraphOptions<S extends string = string, M extends Mark = Mar
    * Id of the custom layer added to the map style.
    * @default 'graph'
    */
-  readonly id?: string
+  readonly id?: string | undefined
   /**
    * Id of the style layer to draw the graph under, such as the place labels of the basemap.
    * Defaults to the top of the style.
    */
-  readonly beforeId?: string
+  readonly beforeId?: string | undefined
 }
 
 /**

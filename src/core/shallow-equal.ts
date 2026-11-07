@@ -1,11 +1,17 @@
+function definedKeys(value: object, ignored: ReadonlySet<string> | null): string[] {
+  return Object.keys(value).filter(
+    (key) => (value as Record<string, unknown>)[key] !== undefined && !ignored?.has(key),
+  )
+}
+
 export function shallowEqual(
   a: object,
   b: object,
   ignored: ReadonlySet<string> | null = null,
 ): boolean {
   if (a === b) return true
-  const keys = Object.keys(a).filter((key) => !ignored?.has(key))
-  if (keys.length !== Object.keys(b).filter((key) => !ignored?.has(key)).length) return false
+  const keys = definedKeys(a, ignored)
+  if (keys.length !== definedKeys(b, ignored).length) return false
   return keys.every(
     (key) =>
       Object.hasOwn(b, key) &&

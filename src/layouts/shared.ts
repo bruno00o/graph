@@ -1,3 +1,4 @@
+import { withoutUndefined } from '../core/without-undefined'
 import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 import { inBlocks } from './blocks'
 
@@ -79,7 +80,7 @@ export function instant(
 ): Layout {
   return Object.freeze({
     name,
-    options: Object.freeze({ ...options }),
+    options: Object.freeze(withoutUndefined(options)),
     incremental: false,
     start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
       let stopped = false

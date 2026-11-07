@@ -28,72 +28,72 @@ export interface MinimapOptions {
    * application to place anywhere in the page.
    * @default 'bottomRight'
    */
-  readonly corner?: MinimapCorner | null
+  readonly corner?: MinimapCorner | null | undefined
   /**
    * Width of the minimap, in CSS pixels.
    * @default 200
    */
-  readonly width?: number
+  readonly width?: number | undefined
   /**
    * Height of the minimap, in CSS pixels.
    * @default 150
    */
-  readonly height?: number
+  readonly height?: number | undefined
   /**
    * Space between the minimap and the edges of the graph element, in CSS pixels. Applies to a
    * minimap in a corner.
    * @default 12
    */
-  readonly margin?: number
+  readonly margin?: number | undefined
   /**
    * Space between the graph and the edges of the minimap, in CSS pixels.
    * @default 8
    */
-  readonly padding?: number
+  readonly padding?: number | undefined
   /**
    * Draws the edges while the graph shows at most this many, `0` for never. Past it, the minimap
    * draws nodes only.
    * @default 20000
    */
-  readonly maxEdges?: number
+  readonly maxEdges?: number | undefined
   /**
    * Smallest diameter of a node in the minimap, in CSS pixels. Nodes keep their size up to a cap
    * that shrinks as nodes get more numerous.
    * @default 2
    */
-  readonly nodeSize?: number
+  readonly nodeSize?: number | undefined
   /** One color for every node, or `null` for the colors of the graph. */
-  readonly nodeColor?: string | null
+  readonly nodeColor?: string | null | undefined
   /**
    * Color of the selected nodes, drawn above the others, or `null` to draw them like the others.
    * @default 'var(--graph-accent)'
    */
-  readonly selectionColor?: string | null
+  readonly selectionColor?: string | null | undefined
   /**
    * Background of the minimap.
    * @default 'var(--graph-paper-raised)'
    */
-  readonly background?: string
+  readonly background?: string | undefined
   /**
    * Color laid over the parts of the minimap outside the view.
    * @default 'color-mix(in srgb, var(--graph-ink) 10%, transparent)'
    */
-  readonly mask?: string
+  readonly mask?: string | undefined
   /**
    * Color of the rectangle of the view, drawn at least 8 pixels wide and high.
    * @default 'var(--graph-ink)'
    */
-  readonly viewColor?: string
+  readonly viewColor?: string | undefined
   /**
    * Dragging the rectangle moves the view, and pressing elsewhere centers the view there.
    * @default true
    */
-  readonly pan?: boolean
+  readonly pan?: boolean | undefined
   /**
    * The wheel over the minimap zooms the view around its center.
    * @default true
    */
-  readonly zoom?: boolean
+  readonly zoom?: boolean | undefined
 }
 
 /** A minimap made by `createMinimap`. */

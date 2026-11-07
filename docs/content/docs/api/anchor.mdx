@@ -28,8 +28,10 @@ function Tooltip() {
 
 ## Props
 
-<api-table path="react/index.tsx" name="AnchorProps" />
+Give exactly one target: `node`, `nodes`, `edge`, `point` or `state`, as in [`graph.anchors.set`](/docs/api/graph-instance#targets). `when` applies to `node`, `nodes` and `edge`. The children are hidden while the target is missing or off screen, and while it is not in the `when` state.
 
-Give one target: `node`, `nodes`, `state`, `edge` or `point`. The children are hidden while the target is missing or off screen, and while it is not in the `when` state.
+<api-table path="index.ts" name="AnchorPlacement" />
+
+`children` is the content pinned to the target.
 
 `react-dom` is needed for the portal. It is an optional peer dependency, like `react`.

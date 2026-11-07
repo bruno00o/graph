@@ -28,22 +28,22 @@ export interface LayersOptions {
    * Where edges point: `'down'` puts the first layer at the top, `'right'` at the left.
    * @default 'down'
    */
-  readonly direction?: LayersDirection
+  readonly direction?: LayersDirection | undefined
   /**
    * Nodes forced onto the first layer, the nodes without incoming edges by default. Edges into them
    * are turned around, and edges between two roots are left out.
    */
-  readonly root?: Key | readonly Key[]
+  readonly root?: Key | readonly Key[] | undefined
   /**
    * Gap between two layers, from the borders of their largest nodes, in world units. Defaults to
    * twice the largest diameter, and at least that diameter plus 24.
    */
-  readonly layerSpacing?: number
+  readonly layerSpacing?: number | undefined
   /**
    * Gap between the borders of two neighboring nodes of a layer, in world units. Defaults to the
    * largest diameter, and at least 8.
    */
-  readonly nodeSpacing?: number
+  readonly nodeSpacing?: number | undefined
 }
 
 function gapOf(value: number | undefined, fallback: number): number {

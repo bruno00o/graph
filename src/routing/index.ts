@@ -12,31 +12,31 @@ export interface OrthogonalRoutingOptions {
    * this gap.
    * @default 8
    */
-  readonly gap?: number
+  readonly gap?: number | undefined
   /**
    * Distance between routes that run side by side, in world units. Where a channel is too narrow,
    * the routes share it more tightly.
    * @default 6
    */
-  readonly spacing?: number
+  readonly spacing?: number | undefined
   /**
    * Radius of the rounded corners at each bend, in world units, `0` for sharp corners. A new
    * radius alone redraws the routes without computing again.
    * @default 6
    */
-  readonly radius?: number
+  readonly radius?: number | undefined
   /**
    * Axis along which routes leave and enter their nodes: `'vertical'` through the top and bottom
    * sides, `'horizontal'` through the left and right sides, or `'auto'` along the larger distance
    * between the two ends of each edge.
    * @default 'auto'
    */
-  readonly axis?: RouteAxis
+  readonly axis?: RouteAxis | undefined
   /**
    * Most edges routed. Above it, every edge stays straight and a warning is logged in development.
    * @default 50000
    */
-  readonly maxEdges?: number
+  readonly maxEdges?: number | undefined
 }
 
 /** Settings of an orthogonal routing, read by the graph to decide whether to compute again. */

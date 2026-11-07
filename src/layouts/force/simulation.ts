@@ -19,44 +19,44 @@ export interface ForceOptions {
    * Length an edge tends to, between the borders of its two nodes, in world units.
    * @default 40
    */
-  readonly edgeLength?: number
+  readonly edgeLength?: number | undefined
   /**
    * Strength of the push between nodes. `0` turns it off.
    * @default 80
    */
-  readonly repulsion?: number
+  readonly repulsion?: number | undefined
   /**
    * Pull toward the center of the moving nodes, on full runs only.
    * @default 0.04
    */
-  readonly gravity?: number
+  readonly gravity?: number | undefined
   /**
    * Smallest gap between two nodes, in world units.
    * @default 6
    */
-  readonly spacing?: number
+  readonly spacing?: number | undefined
   /**
    * Pull of the members of an unfolded group toward the center of the group. `0` turns it off.
    * @default 0.5
    */
-  readonly cohesion?: number
+  readonly cohesion?: number | undefined
   /**
    * Smallest gap between the container of an unfolded group and the nodes and containers next to
    * it, in world units.
    * @default 16
    */
-  readonly groupSpacing?: number
+  readonly groupSpacing?: number | undefined
   /**
    * Steps of a full run, rounded and at least 1. A run on part of the graph takes fewer.
    * @default 300
    */
-  readonly steps?: number
+  readonly steps?: number | undefined
   /**
    * Where the simulation runs: `'auto'` uses the GPU from 2,000 nodes, and the CPU below or
    * when WebGL runs in software. `'gpu'` falls back to the CPU without the float extensions.
    * @default 'auto'
    */
-  readonly engine?: ForceEngine
+  readonly engine?: ForceEngine | undefined
 }
 
 /** Force options with every default applied, as `layout.options` holds them. */
