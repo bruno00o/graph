@@ -1,19 +1,16 @@
-import { createReactPlugin, type DevtoolsPanelProps } from '@tanstack/devtools-utils/react'
+import { createReactPlugin } from '@tanstack/devtools-utils/react'
 import { type JSX, useEffect, useRef } from 'react'
-import { GraphDevtoolsCore, type GraphDevtoolsOptions } from './core'
+import { GraphDevtoolsCore, type GraphDevtoolsOptions, type GraphDevtoolsProps } from './core'
 import { resolveMessages } from './messages'
 import { type GraphDevtoolsPluginOptions, graphDevtoolsId } from './plugin'
 
-export type { GraphDevtoolsMessages } from './messages'
+export type { GraphDevtoolsMessages, GraphDevtoolsMessagesInput } from './messages'
 export type { GraphDevtoolsOptions, GraphDevtoolsPluginOptions }
 
 /**
- * Props of `GraphDevtoolsPanel`: `theme`, `'dark'` by default, `devtoolsOpen`, `true` by default,
- * and `messages`, to keep stable since a new object mounts the panel again.
+ * Props of `GraphDevtoolsPanel`. Keep `messages` stable: a new object mounts the panel again.
  */
-export interface GraphDevtoolsPanelProps
-  extends Partial<DevtoolsPanelProps>,
-    GraphDevtoolsOptions {}
+export interface GraphDevtoolsPanelProps extends GraphDevtoolsProps {}
 
 /** The plugin object that `<TanStackDevtools>` from `@tanstack/react-devtools` takes. */
 export type GraphDevtoolsReactPlugin = ReturnType<ReturnType<typeof createReactPlugin>[0]>
@@ -31,7 +28,7 @@ export function GraphDevtoolsPanel({
     const element = ref.current
     if (!element) return
     const core = new GraphDevtoolsCore()
-    core.mount(element, { theme, devtoolsOpen, ...(messages ? { messages } : {}) })
+    core.mount(element, { theme, devtoolsOpen, messages })
     return () => core.unmount()
   }, [theme, devtoolsOpen, messages])
   return <div style={fill} ref={ref} />

@@ -27,7 +27,7 @@ export interface RenderInput {
   readonly full: boolean
   readonly grid?: GridInput | null
   readonly hulls?: HullInput | null
-  readonly containers?: ContainerFrame
+  readonly containers?: ContainerFrame | undefined
   readonly bundles?: EdgePaths | null
   readonly bridges?: BridgeSet | null
 }

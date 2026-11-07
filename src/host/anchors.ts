@@ -13,50 +13,107 @@ export type AnchorSide = 'top' | 'right' | 'bottom' | 'left' | 'center'
 export type AnchorAlign = 'start' | 'center' | 'end'
 
 /**
- * Options of `graph.anchors.set`: where an element is pinned and when it shows. Give one target:
- * `node`, `nodes`, `state`, `edge` or `point`. The element is hidden while its target is missing
- * or off screen.
+ * Options of `graph.anchors.set` shared by every target: where the element sits around its target,
+ * and how it behaves.
  */
-export interface AnchorOptions<S extends string = string> {
-  /** Key of the node to follow. */
-  readonly node?: Key
-  /** Keys of nodes to follow together: the element is placed on their bounding box. */
-  readonly nodes?: Iterable<Key>
-  /** A state whose nodes are followed together, on their bounding box. */
-  readonly state?: S
-  /** Key of the edge to follow, at the anchor of its label. */
-  readonly edge?: Key
-  /** Point to follow, in world units. */
-  readonly point?: Point
+export interface AnchorPlacement {
   /**
-   * Side of the target where the element sits, 4 pixels away from the node edge and outline.
+   * Side of the target where the element sits, 4 pixels away from the node edge and outline:
+   * `'top'`, `'right'`, `'bottom'`, `'left'`, or `'center'` on the target.
    * @default 'center'
    */
-  readonly side?: AnchorSide
+  readonly side?: AnchorSide | undefined
   /**
-   * Alignment along the side.
+   * Alignment along the side: `'start'`, `'center'` or `'end'`.
    * @default 'center'
    */
-  readonly align?: AnchorAlign
+  readonly align?: AnchorAlign | undefined
   /** Extra shift in screen pixels. */
-  readonly offset?: Point
-  /**
-   * Shows the element only while its node, its edge, or one of its nodes is in this state, such
-   * as `'selected'` or `'hovered'`. Applies to `node`, `nodes` and `edge`.
-   */
-  readonly when?: S
+  readonly offset?: Point | undefined
   /**
    * Scales the element with the zoom, as if it were drawn in the world at zoom 1.
    * @default false
    */
-  readonly scale?: boolean
+  readonly scale?: boolean | undefined
   /**
    * Lets the element take the pointer. Otherwise clicks and drags go through to the graph. The
    * wheel always goes to the graph, unless the element under the pointer can scroll.
    * @default false
    */
-  readonly interactive?: boolean
+  readonly interactive?: boolean | undefined
 }
+
+interface AnchorTargets {
+  /** Leave out: an anchor follows a single target. */
+  readonly node?: undefined
+  /** Leave out: an anchor follows a single target. */
+  readonly nodes?: undefined
+  /** Leave out: an anchor follows a single target. */
+  readonly edge?: undefined
+  /** Leave out: an anchor follows a single target. */
+  readonly point?: undefined
+  /** Leave out: an anchor follows a single target. */
+  readonly state?: undefined
+}
+
+/** Target of an anchor that follows a node. */
+export interface AnchorNodeTarget<S extends string = string> extends Omit<AnchorTargets, 'node'> {
+  /** Key of the node to follow. */
+  readonly node: Key
+  /**
+   * Shows the element only while the node is in this state, such as `'selected'` or `'hovered'`.
+   */
+  readonly when?: S | undefined
+}
+
+/** Target of an anchor that follows several nodes together, on their bounding box. */
+export interface AnchorNodesTarget<S extends string = string> extends Omit<AnchorTargets, 'nodes'> {
+  /** Keys of the nodes to follow. */
+  readonly nodes: Iterable<Key>
+  /** Shows the element only while one of the nodes is in this state. */
+  readonly when?: S | undefined
+}
+
+/** Target of an anchor that follows an edge, at the anchor of its label. */
+export interface AnchorEdgeTarget<S extends string = string> extends Omit<AnchorTargets, 'edge'> {
+  /** Key of the edge to follow. */
+  readonly edge: Key
+  /** Shows the element only while the edge is in this state. */
+  readonly when?: S | undefined
+}
+
+/** Target of an anchor that follows a point of the world. */
+export interface AnchorPointTarget extends Omit<AnchorTargets, 'point'> {
+  /** Point to follow, in world units. */
+  readonly point: Point
+  /** Leave out: an anchor on a point shows whenever the point is on screen. */
+  readonly when?: undefined
+}
+
+/** Target of an anchor that follows the nodes in a state together, on their bounding box. */
+export interface AnchorStateTarget<S extends string = string> extends Omit<AnchorTargets, 'state'> {
+  /** The state whose nodes are followed. */
+  readonly state: S
+  /** Leave out: the nodes of `state` are in it by definition. */
+  readonly when?: undefined
+}
+
+/**
+ * What an anchor follows: one of `node`, `nodes`, `edge`, `point` or `state`. `when` applies to
+ * `node`, `nodes` and `edge`.
+ */
+export type AnchorTarget<S extends string = string> =
+  | AnchorNodeTarget<S>
+  | AnchorNodesTarget<S>
+  | AnchorEdgeTarget<S>
+  | AnchorPointTarget
+  | AnchorStateTarget<S>
+
+/**
+ * Options of `graph.anchors.set`: a single target, and where the element sits around it. The
+ * element is hidden while its target is missing or off screen.
+ */
+export type AnchorOptions<S extends string = string> = AnchorTarget<S> & AnchorPlacement
 
 /** HTML elements pinned to nodes, edges or points, moved with the view without a render. */
 export interface GraphAnchors<S extends string = string> {

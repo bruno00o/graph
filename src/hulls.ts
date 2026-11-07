@@ -1,3 +1,4 @@
+import { withoutUndefined } from './core/without-undefined'
 import type {
   Hull,
   HullGroupOptions,
@@ -16,6 +17,7 @@ export function hull<const N extends string>(options: HullStateOptions<N>): Hull
 /** Draws a hull around the nodes of a list of keys. */
 export function hull(options: HullKeysOptions): Hull<never>
 export function hull(options: HullOptions): Hull {
-  const state = 'state' in options ? options.state : null
-  return Object.freeze({ type: 'hull', state, options: Object.freeze({ ...options }) })
+  const given = withoutUndefined(options)
+  const state = 'state' in given ? given.state : null
+  return Object.freeze({ type: 'hull', state, options: Object.freeze(given) })
 }

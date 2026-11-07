@@ -70,6 +70,14 @@ const definition = defineGraph({
 
 When the data comes untyped, from `JSON.parse` or a fetch, type the variable that holds it rather than the call to `nodes` or `edges`.
 
+## Options left to their default
+
+Every optional option accepts `undefined`, which means its default, as if it were left out: with `exactOptionalPropertyTypes`, pass a value that may be missing as it is, without a conditional spread.
+
+```ts
+nodes(items, { label: showLabels ? 'label' : undefined })
+```
+
 ## The instance and the state
 
 `mountGraph` returns a `GraphInstance<S, M>`: `S` is the union of the state names and `M` the union of the marks. The [store](/docs/api/graph-instance#graph-state) is typed the same way.

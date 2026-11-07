@@ -10,23 +10,23 @@ export interface DensityBundlingOptions {
    * to it without computing again.
    * @default 0.85
    */
-  readonly strength?: number
+  readonly strength?: number | undefined
   /**
    * How far an edge reaches for others at the first pass, as a share of the larger side of the
    * graph. Larger values merge edges from further away into fewer, thicker bundles.
    * @default 0.06
    */
-  readonly radius?: number
+  readonly radius?: number | undefined
   /**
    * Number of passes, each with a smaller radius than the last. More passes draw tighter bundles.
    * @default 12
    */
-  readonly iterations?: number
+  readonly iterations?: number | undefined
   /**
    * Most edges bundled. Above it, every edge stays straight and a warning is logged in development.
    * @default 200000
    */
-  readonly maxEdges?: number
+  readonly maxEdges?: number | undefined
 }
 
 /** Settings of a density bundling, read by the graph to decide whether to compute again. */

@@ -20,13 +20,13 @@ export interface LegendOptions<S extends string = string> {
    * Free state given to the nodes and edges of the item under the pointer or the keyboard, or
    * `null` for none. Declare it in `states` with the style of a highlight. Defaults to `null`.
    */
-  readonly highlight?: FreeState<S> | null
+  readonly highlight?: FreeState<S> | null | undefined
   /**
    * Free state given to the nodes and edges of the items switched off, or `null` to leave them to
    * the application, which reads `off` in the state of the legend to filter its data. Defaults to
    * `null`.
    */
-  readonly hidden?: FreeState<S> | null
+  readonly hidden?: FreeState<S> | null | undefined
 }
 
 /** A layer of the graph in its legend. Switching it off hides the layer in the graph. */

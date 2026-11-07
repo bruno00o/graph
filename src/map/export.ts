@@ -14,22 +14,22 @@ export interface MapPngOptions {
    * Image pixels per CSS pixel, for both the map and the graph. Defaults to the pixel ratio of the
    * map.
    */
-  readonly pixelRatio?: number
+  readonly pixelRatio?: number | undefined
   /**
    * Labels to draw: `'visible'`, `'all'` or `'none'`.
    * @default 'visible'
    */
-  readonly labels?: ExportLabels
+  readonly labels?: ExportLabels | undefined
   /**
    * Text burned into the bottom right corner, or `''` for none. Defaults to the attribution the map
    * shows, or else to the attribution of its sources.
    */
-  readonly attribution?: string
+  readonly attribution?: string | undefined
   /**
    * Longest wait for the map tiles, in milliseconds. Past it, the export draws what has loaded.
    * @default 20000
    */
-  readonly timeout?: number
+  readonly timeout?: number | undefined
 }
 
 type MapClass = new (options: MapOptions) => MapLibreMap

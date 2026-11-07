@@ -57,46 +57,46 @@ import type { GraphDefinition, Key, LayerName, Mark, TimeWindowInput, View } fro
 /** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
 export interface GraphEventProps<M extends Mark = Mark> {
   /** Receives `click`: a press released within 4 pixels, 10 for a touch. */
-  readonly onClick?: GraphEventHandler<'click', M>
+  readonly onClick?: GraphEventHandler<'click', M> | undefined
   /** Receives `doubleclick`. */
-  readonly onDoubleClick?: GraphEventHandler<'doubleclick', M>
+  readonly onDoubleClick?: GraphEventHandler<'doubleclick', M> | undefined
   /** Receives `contextmenu`: a secondary click. */
-  readonly onContextMenu?: GraphEventHandler<'contextmenu', M>
+  readonly onContextMenu?: GraphEventHandler<'contextmenu', M> | undefined
   /** Receives `pointerenter`: the pointer enters an element. */
-  readonly onPointerEnter?: GraphEventHandler<'pointerenter', M>
+  readonly onPointerEnter?: GraphEventHandler<'pointerenter', M> | undefined
   /** Receives `pointerleave`: the pointer leaves an element. */
-  readonly onPointerLeave?: GraphEventHandler<'pointerleave', M>
+  readonly onPointerLeave?: GraphEventHandler<'pointerleave', M> | undefined
   /** Receives `dragstart`: a node drag starts. */
-  readonly onDragStart?: GraphEventHandler<'dragstart', M>
+  readonly onDragStart?: GraphEventHandler<'dragstart', M> | undefined
   /** Receives `drag`: dragged nodes move. */
-  readonly onDrag?: GraphEventHandler<'drag', M>
+  readonly onDrag?: GraphEventHandler<'drag', M> | undefined
   /** Receives `dragend`: a node drag ends. */
-  readonly onDragEnd?: GraphEventHandler<'dragend', M>
+  readonly onDragEnd?: GraphEventHandler<'dragend', M> | undefined
   /** Receives `positionchange`: nodes moved by a drag, by code or by a layout run. */
-  readonly onPositionChange?: GraphEventHandler<'positionchange', M>
+  readonly onPositionChange?: GraphEventHandler<'positionchange', M> | undefined
   /** Receives `selectionchange`, or the selection requests when `selection` is given. */
-  readonly onSelectionChange?: GraphEventHandler<'selectionchange', M>
+  readonly onSelectionChange?: GraphEventHandler<'selectionchange', M> | undefined
   /** Receives `focuschange`: the keyboard focus moved. */
-  readonly onFocusChange?: GraphEventHandler<'focuschange', M>
+  readonly onFocusChange?: GraphEventHandler<'focuschange', M> | undefined
   /** Receives `foldchange`, or the fold requests when `folded` is given. */
-  readonly onFoldChange?: GraphEventHandler<'foldchange', M>
+  readonly onFoldChange?: GraphEventHandler<'foldchange', M> | undefined
   /**
    * Receives `viewchange`, or the view requests when `view` is given. Requests are rendered
    * synchronously, so a state update in the handler draws in the same frame.
    */
-  readonly onViewChange?: GraphEventHandler<'viewchange', M>
+  readonly onViewChange?: GraphEventHandler<'viewchange', M> | undefined
   /** Receives `timechange`, or the window requests when `time` is given. */
-  readonly onTimeChange?: GraphEventHandler<'timechange', M>
+  readonly onTimeChange?: GraphEventHandler<'timechange', M> | undefined
   /** Receives `layerchange`, or the layer requests when `hiddenLayers` is given. */
-  readonly onLayerChange?: GraphEventHandler<'layerchange', M>
+  readonly onLayerChange?: GraphEventHandler<'layerchange', M> | undefined
   /** Receives `zoomhint`: a wheel event went to the page in `'page'` wheel mode. */
-  readonly onZoomHint?: GraphEventHandler<'zoomhint', M>
+  readonly onZoomHint?: GraphEventHandler<'zoomhint', M> | undefined
   /** Receives `lenschange`: the lens shows, moves, changes or hides. */
-  readonly onLensChange?: GraphEventHandler<'lenschange', M>
+  readonly onLensChange?: GraphEventHandler<'lenschange', M> | undefined
   /** Receives `layoutstart`: a layout run starts. */
-  readonly onLayoutStart?: GraphEventHandler<'layoutstart', M>
+  readonly onLayoutStart?: GraphEventHandler<'layoutstart', M> | undefined
   /** Receives `layoutend`: a layout run ends or stops. */
-  readonly onLayoutEnd?: GraphEventHandler<'layoutend', M>
+  readonly onLayoutEnd?: GraphEventHandler<'layoutend', M> | undefined
 }
 
 const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
@@ -129,50 +129,53 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
   /** Accessible name of the graph element. Applied with `update` when it changes. */
   readonly ariaLabel: string
   /** View at mount, read once. Without it and without `view`, the first data is fitted. */
-  readonly initialView?: View
+  readonly initialView?: View | undefined
   /**
    * Makes the view controlled when given at mount: `onViewChange` receives the requests of
    * gestures, keys, `view` calls and animation steps, and only this prop moves the view.
    */
-  readonly view?: View
+  readonly view?: View | undefined
   /**
    * Makes the selection controlled when given at mount: `onSelectionChange` receives the requests,
    * and only this prop changes the selection.
    */
-  readonly selection?: ElementKeysInput
+  readonly selection?: ElementKeysInput | undefined
   /** Groups folded at mount, read once. */
-  readonly initialFolded?: Iterable<Key>
+  readonly initialFolded?: Iterable<Key> | undefined
   /**
    * Makes folding controlled when given at mount: `onFoldChange` receives the requests, and only
    * this prop changes the folded groups.
    */
-  readonly folded?: Iterable<Key>
+  readonly folded?: Iterable<Key> | undefined
   /** Time window at mount, read once, or `null` for none. */
-  readonly initialTime?: TimeWindowInput | null
+  readonly initialTime?: TimeWindowInput | null | undefined
   /**
    * Makes the time window controlled when given at mount, `null` for none: `onTimeChange`
    * receives the requests of `time.set` and timelines, and only this prop moves the window.
    * Requests are rendered synchronously, so playback draws in the same frame.
    */
-  readonly time?: TimeWindowInput | null
+  readonly time?: TimeWindowInput | null | undefined
   /** Layers hidden at mount, by name, read once. */
-  readonly initialHiddenLayers?: Iterable<LayerName<M>>
+  readonly initialHiddenLayers?: Iterable<LayerName<M>> | undefined
   /**
    * Makes the hidden layers controlled when given at mount: `onLayerChange` receives the
    * requests, and only this prop hides or shows layers.
    */
-  readonly hiddenLayers?: Iterable<LayerName<M>>
+  readonly hiddenLayers?: Iterable<LayerName<M>> | undefined
   /** Class of the wrapping `div`. */
-  readonly className?: string
+  readonly className?: string | undefined
   /** Style of the wrapping `div`, merged with `position: relative`. */
-  readonly style?: CSSProperties
+  readonly style?: CSSProperties | undefined
   /**
    * Receives the graph instance. Its type comes from the definition: a ref typed as a plain
    * `GraphInstance` works too.
    */
-  readonly ref?: Ref<GraphInstance<NoInfer<S>, NoInfer<M>> | null> | RefObject<GraphInstance | null>
+  readonly ref?:
+    | Ref<GraphInstance<NoInfer<S>, NoInfer<M>> | null>
+    | RefObject<GraphInstance | null>
+    | undefined
   /** Overlays drawn above the canvas, rendered once the graph is mounted. */
-  readonly children?: ReactNode
+  readonly children?: ReactNode | undefined
 }
 
 const GraphContext = createContext<GraphInstance | null>(null)
@@ -218,42 +221,20 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
     const instance = mountGraph(element, {
       definition: initial.definition,
       ariaLabel: initial.ariaLabel,
-      ...(initial.initialView ? { initialView: initial.initialView } : {}),
-      ...(initial.view !== undefined
-        ? {
-            view: initial.view,
-            onViewChange: (next) => flushSync(() => latest.current.onViewChange?.(next)),
-          }
-        : {}),
-      ...(initial.selection !== undefined
-        ? {
-            selection: initial.selection,
-            onSelectionChange: (next) => latest.current.onSelectionChange?.(next),
-          }
-        : {}),
-      ...(initial.initialFolded !== undefined ? { initialFolded: initial.initialFolded } : {}),
-      ...(initial.folded !== undefined
-        ? {
-            folded: initial.folded,
-            onFoldChange: (next) => latest.current.onFoldChange?.(next),
-          }
-        : {}),
-      ...(initial.initialTime !== undefined ? { initialTime: initial.initialTime } : {}),
-      ...(initial.time !== undefined
-        ? {
-            time: initial.time,
-            onTimeChange: (next) => flushSync(() => latest.current.onTimeChange?.(next)),
-          }
-        : {}),
-      ...(initial.initialHiddenLayers !== undefined
-        ? { initialHiddenLayers: initial.initialHiddenLayers }
-        : {}),
-      ...(initial.hiddenLayers !== undefined
-        ? {
-            hiddenLayers: initial.hiddenLayers,
-            onLayerChange: (next) => latest.current.onLayerChange?.(next),
-          }
-        : {}),
+      initialView: initial.initialView,
+      view: initial.view,
+      onViewChange: (next) => flushSync(() => latest.current.onViewChange?.(next)),
+      selection: initial.selection,
+      onSelectionChange: (next) => latest.current.onSelectionChange?.(next),
+      initialFolded: initial.initialFolded,
+      folded: initial.folded,
+      onFoldChange: (next) => latest.current.onFoldChange?.(next),
+      initialTime: initial.initialTime,
+      time: initial.time,
+      onTimeChange: (next) => flushSync(() => latest.current.onTimeChange?.(next)),
+      initialHiddenLayers: initial.initialHiddenLayers,
+      hiddenLayers: initial.hiddenLayers,
+      onLayerChange: (next) => latest.current.onLayerChange?.(next),
     })
     setGraph(instance)
     return () => {
@@ -263,15 +244,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
   }, [latest])
 
   useLayoutEffect(() => {
-    graph?.update({
-      definition,
-      ariaLabel,
-      ...(selection !== undefined ? { selection } : {}),
-      ...(folded !== undefined ? { folded } : {}),
-      ...(view !== undefined ? { view } : {}),
-      ...(time !== undefined ? { time } : {}),
-      ...(hiddenLayers !== undefined ? { hiddenLayers } : {}),
-    })
+    graph?.update({ definition, ariaLabel, selection, folded, view, time, hiddenLayers })
   }, [graph, definition, ariaLabel, selection, folded, view, time, hiddenLayers])
 
   useEffect(() => {
@@ -327,7 +300,7 @@ export interface UseGraphStateOptions<T> {
    * build objects or arrays.
    * @default Object.is
    */
-  readonly compare?: (a: T, b: T) => boolean
+  readonly compare?: ((a: T, b: T) => boolean) | undefined
 }
 
 /**
@@ -378,10 +351,10 @@ export function useGraphEvent<K extends GraphEventName, E extends GraphEvents[K]
   )
 }
 
-/** Props of `Anchor`: where to pin the children, as in `graph.anchors.set`. */
-export interface AnchorProps<S extends string = string> extends AnchorOptions<S> {
+/** Props of `Anchor`: where to pin the children, as in `graph.anchors.set`, and the children. */
+export type AnchorProps<S extends string = string> = AnchorOptions<S> & {
   /** Content pinned to the target. */
-  readonly children?: ReactNode
+  readonly children?: ReactNode | undefined
 }
 
 /**
@@ -599,14 +572,7 @@ export interface TimelineProps extends TimelineOptions, TimelineViewOptions {}
 /** Renders the default timeline of the enclosing `<Graph>` where the component stands. */
 export function Timeline(props: TimelineProps): ReactNode {
   const { bins, ticks, speed, mode, loop, extent, ...view } = props
-  const timeline = useTimelineInstance({
-    ...(bins !== undefined ? { bins } : {}),
-    ...(ticks !== undefined ? { ticks } : {}),
-    ...(speed !== undefined ? { speed } : {}),
-    ...(mode !== undefined ? { mode } : {}),
-    ...(loop !== undefined ? { loop } : {}),
-    ...(extent !== undefined ? { extent } : {}),
-  })
+  const timeline = useTimelineInstance({ bins, ticks, speed, mode, loop, extent })
   const slot = useRef<HTMLDivElement>(null)
   const mounted = useRef<{ readonly view: TimelineView; options: object } | null>(null)
   const latest = useLatest(view)
@@ -629,5 +595,16 @@ export function Timeline(props: TimelineProps): ReactNode {
   return <div ref={slot} />
 }
 
-export type { AnchorAlign, AnchorOptions, AnchorSide } from '../host/anchors'
+export type {
+  AnchorAlign,
+  AnchorEdgeTarget,
+  AnchorNodesTarget,
+  AnchorNodeTarget,
+  AnchorOptions,
+  AnchorPlacement,
+  AnchorPointTarget,
+  AnchorSide,
+  AnchorStateTarget,
+  AnchorTarget,
+} from '../host/anchors'
 export type { GraphInstance, GraphState, GraphStore }

@@ -1,4 +1,5 @@
 import type { GraphIssue } from '../core/graph-model'
+import { withoutUndefined } from '../core/without-undefined'
 import type { Key } from '../types'
 
 /** Every text the devtools panel shows. Strings are labels; functions format values. */
@@ -236,6 +237,11 @@ function bytes(value: number): string {
 }
 
 /** The English texts of the devtools panel. */
+/** Texts and formats of the devtools panel to replace, each one left out to keep its default. */
+export type GraphDevtoolsMessagesInput = {
+  readonly [K in keyof GraphDevtoolsMessages]?: GraphDevtoolsMessages[K] | undefined
+}
+
 export const defaultMessages: GraphDevtoolsMessages = {
   title: 'Graph',
   empty: 'No graph is mounted on this page.',
@@ -308,7 +314,7 @@ export const defaultMessages: GraphDevtoolsMessages = {
 }
 
 export function resolveMessages(
-  messages: Partial<GraphDevtoolsMessages> | undefined,
+  messages: GraphDevtoolsMessagesInput | undefined,
 ): GraphDevtoolsMessages {
-  return messages ? { ...defaultMessages, ...messages } : defaultMessages
+  return messages ? { ...defaultMessages, ...withoutUndefined(messages) } : defaultMessages
 }

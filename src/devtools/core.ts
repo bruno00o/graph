@@ -1,21 +1,27 @@
 import type { TanStackDevtoolsPluginProps } from '@tanstack/devtools'
 import { graphReports, inspectGraphs } from './inspector'
-import { type GraphDevtoolsMessages, resolveMessages } from './messages'
+import { type GraphDevtoolsMessagesInput, resolveMessages } from './messages'
 import { createView, type PanelView, rateWindow } from './view'
 
 /** Options shared by every form of the devtools panel. */
 export interface GraphDevtoolsOptions {
   /** Texts and formats that replace the English defaults. */
-  readonly messages?: Partial<GraphDevtoolsMessages>
+  readonly messages?: GraphDevtoolsMessagesInput | undefined
 }
 
-/**
- * Props of `GraphDevtoolsCore.mount`: `theme`, `'dark'` by default, and `devtoolsOpen`, `true` by
- * default, as the devtools shell passes them, with `messages`.
- */
-export interface GraphDevtoolsProps
-  extends Partial<TanStackDevtoolsPluginProps>,
-    GraphDevtoolsOptions {}
+/** Props of `GraphDevtoolsCore.mount`, as the devtools shell passes them, with `messages`. */
+export interface GraphDevtoolsProps extends GraphDevtoolsOptions {
+  /**
+   * Colors of the panel: `'dark'` or `'light'`.
+   * @default 'dark'
+   */
+  readonly theme?: TanStackDevtoolsPluginProps['theme'] | undefined
+  /**
+   * Whether the devtools are open. A closed panel measures nothing.
+   * @default true
+   */
+  readonly devtoolsOpen?: boolean | undefined
+}
 
 const refreshInterval = 250
 let selected: number | null = null

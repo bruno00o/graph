@@ -33,11 +33,9 @@ function GraphDevtoolsPanel(props: GraphDevtoolsPanelProps): JSX.Element
 
 Renders the panel in a React tree, outside the devtools shell. It fills the height of its parent and scrolls.
 
-| Prop | Type | Default | Description |
-| --- | --- | --- | --- |
-| `theme` | `'light' \| 'dark'` | `'dark'` | Colors of the panel |
-| `devtoolsOpen` | `boolean` | `true` | Measures nothing while `false` |
-| `messages` | `Partial<GraphDevtoolsMessages>` | | Texts and formats. Keep the object stable: a new one mounts the panel again |
+<api-table path="devtools/react.tsx" name="GraphDevtoolsPanelProps" />
+
+Keep the `messages` object stable: a new one mounts the panel again.
 
 ## GraphDevtoolsCore
 

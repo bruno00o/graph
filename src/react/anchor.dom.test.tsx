@@ -52,6 +52,17 @@ function Pinned({ initial }: { readonly initial: string }) {
   )
 }
 
+function Doubled() {
+  return (
+    <Graph definition={definition} ariaLabel="graph" initialView={{ x: 0, y: 0, zoom: 1 }}>
+      {/* @ts-expect-error */}
+      <Anchor node="a" point={{ x: 100, y: 0 }} side="bottom" align={undefined}>
+        <Content text="a" />
+      </Anchor>
+    </Graph>
+  )
+}
+
 function render(element: ReactNode): void {
   act(() => {
     root.render(element)
@@ -108,6 +119,12 @@ describe('<Anchor>', () => {
     })
     expect(wrapper?.style.transform).toBe('translate(550px,312px)')
     expect(container.querySelector('.content')?.textContent).toBe('b')
+  })
+
+  it('takes a single target in its props, and keeps the node when given more', () => {
+    render(<Doubled />)
+    const wrapper = container.querySelector('.content')?.parentElement?.parentElement
+    expect(wrapper?.style.transform).toBe('translate(400px,312px)')
   })
 
   it('leaves the graph when unmounted', () => {

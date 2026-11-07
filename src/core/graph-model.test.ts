@@ -84,6 +84,21 @@ describe('createGraphModel', () => {
     expect(model.node('a')?.mark).toBe(nodeMark)
   })
 
+  it('reports nothing when a rebuilt mark sets options to undefined', () => {
+    const model = createGraphModel()
+    const data = [item('a'), item('b')]
+    const links = [link('ab', 'a', 'b')]
+    model.setMarks([nodes(data, { color: 'group' }), edges(links, linkOptions)])
+    model.flush()
+    model.setMarks([
+      nodes(data, { color: 'group', size: undefined, label: undefined }),
+      edges(links, { ...linkOptions, width: undefined, merge: undefined, aggregate: undefined }),
+    ])
+    const changes = model.flush()
+    expect(changes.nodes).toEqual({ added: [], updated: [], removed: [] })
+    expect(changes.edges).toEqual({ added: [], updated: [], removed: [], pending: [] })
+  })
+
   it('updates every element of a mark whose options change', () => {
     const model = createGraphModel()
     const data = [item('a'), item('b')]

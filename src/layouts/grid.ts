@@ -7,14 +7,14 @@ export interface GridOptions<T = unknown> {
    * Nodes per row, rounded down and at least 1. Defaults to the square root of the count, rounded
    * up.
    */
-  readonly columns?: number
+  readonly columns?: number | undefined
   /**
    * Gap between rows and between columns, from the borders of the largest nodes, in world units.
    * Defaults to the largest diameter, and at least 24.
    */
-  readonly spacing?: number
+  readonly spacing?: number | undefined
   /** Order of the nodes, row by row from the top left. Defaults to the internal order. */
-  readonly order?: NodeOrder<T>
+  readonly order?: NodeOrder<T> | undefined
 }
 
 /**

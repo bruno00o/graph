@@ -171,6 +171,50 @@ describe('defineGraph', () => {
     )
   })
 
+  it('treats options set to undefined as left out', () => {
+    const given = defineGraph({
+      marks: [],
+      scales: { color: undefined, size: undefined },
+      states: { muted: { opacity: 0.4, halo: undefined }, selected: { raise: undefined } },
+      layout: undefined,
+      relayout: undefined,
+      interaction: {
+        zoom: { speed: undefined },
+        autoPan: undefined,
+        wheel: undefined,
+        lens: { radius: undefined, key: undefined },
+      },
+      view: { minZoom: undefined, bounds: undefined },
+      transitions: { positions: undefined },
+      background: { grid: 'dots', spacing: undefined, color: undefined },
+      hulls: undefined,
+      bundling: undefined,
+      routing: undefined,
+      bridges: { size: undefined },
+      time: { fade: undefined },
+      support: undefined,
+    })
+    const left = defineGraph({
+      marks: [],
+      scales: {},
+      states: { muted: { opacity: 0.4 }, selected: {} },
+      interaction: { zoom: {}, lens: {} },
+      view: {},
+      transitions: {},
+      background: { grid: 'dots' },
+      bridges: {},
+      time: {},
+    })
+    expect(given).toStrictEqual(left)
+    expect(Object.keys(given.states.muted ?? {})).toEqual(['opacity'])
+    expect(densityBundling({ radius: undefined, strength: undefined }).options).toEqual(
+      densityBundling().options,
+    )
+    expect(orthogonalRouting({ axis: undefined, gap: undefined }).options).toEqual(
+      orthogonalRouting().options,
+    )
+  })
+
   it('resolves the bridges', () => {
     expect(defineGraph({ marks: [] }).bridges).toBeNull()
     expect(defineGraph({ marks: [], bridges: false }).bridges).toBeNull()

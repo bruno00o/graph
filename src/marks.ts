@@ -1,6 +1,7 @@
 import { toAccessor } from './core/accessor'
 import { GroupIndex, GroupSource, type GroupSpec, registerGrouping } from './core/group-index'
 import { isLiveSource } from './core/live-source'
+import { withoutUndefined } from './core/without-undefined'
 import type {
   EdgeMark,
   EdgeOptions,
@@ -41,7 +42,7 @@ export function nodes<T>(
     name: options.name,
     layer: options.layer,
     data,
-    options: Object.freeze({ ...options }),
+    options: Object.freeze(withoutUndefined(options)),
   })
 }
 
@@ -79,7 +80,7 @@ export function edges<T>(
     name: options.name,
     layer: options.layer,
     data,
-    options: Object.freeze({ ...options }),
+    options: Object.freeze(withoutUndefined(options)),
   })
 }
 
@@ -157,12 +158,14 @@ export function groups<T>(
     name: options.name,
     layer: options.layer,
     data: derived.data,
-    options: Object.freeze({
-      label: valueLabel,
-      ...look,
-      key: 'key',
-      ...(parent !== undefined ? { parent: 'parent' } : {}),
-    }),
+    options: Object.freeze(
+      withoutUndefined({
+        label: valueLabel,
+        ...withoutUndefined(look),
+        key: 'key',
+        parent: parent === undefined ? undefined : 'parent',
+      }),
+    ),
   }) as NodeMark<NodeGroup<T>, MarkName, MarkLayer>
   registerGrouping(mark, { index: derived.index, folded: folded !== false })
   return mark

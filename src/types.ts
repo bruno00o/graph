@@ -108,9 +108,9 @@ export type TimeInstant = number | Date
  */
 export interface TimeSpan {
   /** First moment of the period. Defaults to no start: the period has always existed. */
-  readonly start?: TimeInstant | null
+  readonly start?: TimeInstant | null | undefined
   /** First moment after the period. Defaults to no end: the period goes on forever. */
-  readonly end?: TimeInstant | null
+  readonly end?: TimeInstant | null | undefined
 }
 
 /** When an element exists: a single moment, or a period with optional open ends. */
@@ -134,9 +134,9 @@ export interface TimeWindow {
  */
 export interface TimeWindowInput {
   /** First moment of the window. Defaults to no start. */
-  readonly start?: TimeInstant | null
+  readonly start?: TimeInstant | null | undefined
   /** First moment after the window. Defaults to no end. */
-  readonly end?: TimeInstant | null
+  readonly end?: TimeInstant | null | undefined
 }
 
 /** Shape of a node. */
@@ -166,17 +166,17 @@ export type LabelWeight = 'normal' | 'bold' | number
  */
 export interface Badge {
   /** Text or number in the pill. Without it, the badge is a dot. */
-  readonly text?: string | number
+  readonly text?: string | number | undefined
   /**
    * Pill color.
    * @default --graph-badge-fill
    */
-  readonly fill?: string
+  readonly fill?: string | undefined
   /**
    * Text color.
    * @default --graph-badge-ink
    */
-  readonly color?: string
+  readonly color?: string | undefined
 }
 
 /** A picture or an icon drawn inside a node, cropped to its shape. */
@@ -187,9 +187,9 @@ export interface NodeImage {
    * Size of the image relative to the node diameter.
    * @default 1
    */
-  readonly scale?: number
+  readonly scale?: number | undefined
   /** Draws the image as a mask of this color, such as an icon that follows the theme. */
-  readonly color?: string
+  readonly color?: string | undefined
 }
 
 /** Text and style of a label, shared by node and edge labels. */
@@ -200,45 +200,45 @@ export interface LabelTextOptions<T> {
    * Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null`
    * for none. A plated label has no halo.
    */
-  readonly background?: Style<T, string | boolean | null>
+  readonly background?: Style<T, string | boolean | null> | undefined
   /**
    * Color of the main text.
    * @default --graph-ink
    */
-  readonly color?: Style<T, string>
+  readonly color?: Style<T, string> | undefined
   /**
    * Font size in pixels at zoom 1: 12 for nodes and 11 for edges by default. Labels shrink when
    * you zoom out, not when you zoom in.
    */
-  readonly size?: Style<T, number>
+  readonly size?: Style<T, number> | undefined
   /**
    * Font weight: `'normal'` (400), `'bold'` (700), or a number from 1 to 1000.
    * @default 500
    */
-  readonly weight?: Style<T, LabelWeight>
+  readonly weight?: Style<T, LabelWeight> | undefined
   /**
    * CSS font family. Load web fonts before mounting the graph.
    * @default --graph-font
    */
-  readonly font?: Style<T, string>
+  readonly font?: Style<T, string> | undefined
   /** Width in pixels at zoom 1 past which each line ends with an ellipsis. */
-  readonly maxWidth?: Style<T, number>
+  readonly maxWidth?: Style<T, number> | undefined
 }
 
 /** Text and style of a node label. */
 export interface LabelOptions<T> extends LabelTextOptions<T> {
   /** Second line, at eleven twelfths of the size, in normal weight and `--graph-ink-muted`. */
-  readonly secondary?: Channel<T, string>
+  readonly secondary?: Channel<T, string> | undefined
   /**
    * Side of the node where the label sits, or `'center'` on the node.
    * @default 'bottom'
    */
-  readonly placement?: Style<T, LabelPlacement>
+  readonly placement?: Style<T, LabelPlacement> | undefined
   /**
    * Smallest diameter of the node on screen, in pixels, for its label to show. Hovered and focused
    * nodes ignore it.
    */
-  readonly minScreenSize?: Style<T, number>
+  readonly minScreenSize?: Style<T, number> | undefined
 }
 
 /** Text and style of an edge label, which sits halfway along the edge and turns with it. */
@@ -259,102 +259,104 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * Name of the mark, reported as `mark` by the targets of its nodes. Compare it in event handlers
    * to tell marks apart and narrow `datum` to the items of one mark.
    */
-  readonly name?: N
+  readonly name?: N | undefined
   /**
    * Layer the nodes belong to, shared with the marks that name the same layer. Hiding the layer
    * hides its nodes and their edges. Defaults to no layer: the nodes always show.
    */
-  readonly layer?: L
+  readonly layer?: L | undefined
   /**
    * Node key, unique across node marks. Required for an iterable whose items have no `id` field.
    * @default 'id'
    */
-  readonly key?: KeyChannel<T>
+  readonly key?: KeyChannel<T> | undefined
   /**
    * Value passed to the `color` scale: a category or a number.
    * @default --graph-node
    */
-  readonly color?: Channel<T, string | number | boolean>
+  readonly color?: Channel<T, string | number | boolean> | undefined
   /**
    * Value passed to the `size` scale. The size is a diameter.
    * @default 16
    */
-  readonly size?: Channel<T, number>
+  readonly size?: Channel<T, number> | undefined
   /** Label text, or the text with its style. */
-  readonly label?: Channel<T, string> | LabelOptions<T>
+  readonly label?: Channel<T, string> | LabelOptions<T> | undefined
   /** Horizontal position in world units. The node follows it, and layouts leave it in place. */
-  readonly x?: Channel<T, number>
+  readonly x?: Channel<T, number> | undefined
   /** Vertical position in world units. The node follows it, and layouts leave it in place. */
-  readonly y?: Channel<T, number>
+  readonly y?: Channel<T, number> | undefined
   /**
    * Longitude in degrees. With `latitude`, it places the node with Web Mercator, where the world
    * spans 512 units, as on a map. Ignored when `x` and `y` are given.
    */
-  readonly longitude?: Channel<T, number>
+  readonly longitude?: Channel<T, number> | undefined
   /** Latitude in degrees, from -85.05 to 85.05. Goes with `longitude`. */
-  readonly latitude?: Channel<T, number>
+  readonly latitude?: Channel<T, number> | undefined
   /**
    * Node shape: `'circle'`, `'square'` or `'diamond'`.
    * @default 'circle'
    */
-  readonly shape?: Style<T, NodeShape>
+  readonly shape?: Style<T, NodeShape> | undefined
   /** Fill color. Wins over `color`. */
-  readonly fill?: Style<T, string>
+  readonly fill?: Style<T, string> | undefined
   /**
    * Color of the contour drawn inside the shape.
    * @default --graph-node-ring
    */
-  readonly stroke?: Style<T, string>
+  readonly stroke?: Style<T, string> | undefined
   /**
    * Width of the inner contour, in screen pixels.
    * @default 1
    */
-  readonly strokeWidth?: Style<T, number>
+  readonly strokeWidth?: Style<T, number> | undefined
   /** Color of a ring outside the shape, or `null` for none. Alone, it draws a 2 pixel ring. */
-  readonly outline?: Style<T, string | null>
+  readonly outline?: Style<T, string | null> | undefined
   /**
    * Width of the ring outside the shape, in screen pixels. Alone, it draws the ring in
    * `--graph-node-ring`.
    */
-  readonly outlineWidth?: Style<T, number>
+  readonly outlineWidth?: Style<T, number> | undefined
   /**
    * Opacity from 0 to 1.
    * @default 1
    */
-  readonly opacity?: Style<T, number>
+  readonly opacity?: Style<T, number> | undefined
   /**
    * Zoom at and below which the node is hidden, in screen pixels per world unit, as in `View`.
    * Above it, the node fades in over a quarter of a zoom doubling. A hidden node hides its label,
    * its badges and its edges, and is neither picked, exported nor counted. Defaults to no limit.
    */
-  readonly minZoom?: Style<T, number | null>
+  readonly minZoom?: Style<T, number | null> | undefined
   /**
    * Zoom at and above which the node is hidden, in screen pixels per world unit. Below it, the
    * node fades out over a quarter of a zoom halving. Defaults to no limit.
    */
-  readonly maxZoom?: Style<T, number | null>
+  readonly maxZoom?: Style<T, number | null> | undefined
   /**
    * When the node exists: a moment, or a period with optional open ends, in milliseconds or as
    * `Date`. With a time window set, the node shows only while it exists in the window, and hides
    * its label, its badges and its edges otherwise. `null` or no value: the node always exists.
    */
-  readonly time?: Channel<T, TimeValue>
+  readonly time?: Channel<T, TimeValue> | undefined
   /** Picture or icon inside the node: a URL, an image with options, or `null` for none. */
-  readonly image?: Style<T, string | NodeImage | null>
+  readonly image?: Style<T, string | NodeImage | null> | undefined
   /** A function per corner that returns the badge of an item, or `null` for none. */
-  readonly badges?: Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined>>>>
+  readonly badges?:
+    | Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined> | undefined>>>
+    | undefined
   /**
    * `'screen'` keeps the size of the node, in pixels, the same at every zoom; `'world'` scales it
    * with the zoom. Defaults to `'screen'` with `longitude` and `latitude`, `'world'` otherwise.
    */
-  readonly units?: 'world' | 'screen'
+  readonly units?: 'world' | 'screen' | undefined
   /**
    * Key of the group that contains the node, `null` for a top-level node. A node with children is a
    * group: unfolded, it draws as a container behind them; folded, it hides them and draws as a node.
    */
-  readonly parent?: Channel<T, Key>
+  readonly parent?: Channel<T, Key> | undefined
   /** Look of the node while it is an unfolded group, drawn as a container behind its children. */
-  readonly container?: ContainerOptions<T>
+  readonly container?: ContainerOptions<T> | undefined
 }
 
 /** Outline of an unfolded group: `'rectangle'`, with rounded corners, or `'circle'`. */
@@ -369,27 +371,27 @@ export interface ContainerOptions<T> {
    * Outline around the children: `'rectangle'`, with rounded corners, or `'circle'`.
    * @default 'rectangle'
    */
-  readonly shape?: Style<T, ContainerShape>
+  readonly shape?: Style<T, ContainerShape> | undefined
   /**
    * Space between the children and the outline, in world units, or in pixels on a map.
    * @default 16
    */
-  readonly padding?: Style<T, number>
+  readonly padding?: Style<T, number> | undefined
   /**
    * Fill color.
    * @default --graph-group-fill
    */
-  readonly fill?: Style<T, string>
+  readonly fill?: Style<T, string> | undefined
   /**
    * Outline color.
    * @default --graph-group-line
    */
-  readonly stroke?: Style<T, string>
+  readonly stroke?: Style<T, string> | undefined
   /**
    * Outline width, in screen pixels.
    * @default 1
    */
-  readonly strokeWidth?: Style<T, number>
+  readonly strokeWidth?: Style<T, number> | undefined
 }
 
 /**
@@ -401,18 +403,18 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * Name of the mark, reported as `mark` by the targets of its edges. Compare it in event handlers
    * to tell marks apart and narrow `datum` to the items of one mark.
    */
-  readonly name?: N
+  readonly name?: N | undefined
   /**
    * Layer the edges belong to, shared with the marks that name the same layer. Layers can be
    * hidden at run time, and parallel edges between two nodes form one band per layer. Defaults to
    * no layer.
    */
-  readonly layer?: L
+  readonly layer?: L | undefined
   /**
    * Edge key, unique across edge marks. Required for an iterable whose items have no `id` field.
    * @default 'id'
    */
-  readonly key?: KeyChannel<T>
+  readonly key?: KeyChannel<T> | undefined
   /** Key of the source node. The edge waits until both of its ends exist. */
   readonly source: KeyChannel<T>
   /** Key of the target node. */
@@ -421,49 +423,49 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * Value passed to the `color` scale: a category or a number.
    * @default --graph-edge
    */
-  readonly color?: Channel<T, string | number | boolean>
+  readonly color?: Channel<T, string | number | boolean> | undefined
   /**
    * Value passed to the `width` scale, in screen pixels.
    * @default 1.5
    */
-  readonly width?: Channel<T, number>
+  readonly width?: Channel<T, number> | undefined
   /** Label text, or the text with its style. */
-  readonly label?: Channel<T, string> | EdgeLabelOptions<T>
+  readonly label?: Channel<T, string> | EdgeLabelOptions<T> | undefined
   /**
    * Line pattern: `'solid'`, `'dashed'` or `'dotted'`.
    * @default 'solid'
    */
-  readonly dash?: Style<T, EdgeDash>
+  readonly dash?: Style<T, EdgeDash> | undefined
   /**
    * Ends that carry an arrow head: `'none'`, `'source'`, `'target'` or `'both'`.
    * @default 'none'
    */
-  readonly arrow?: Style<T, EdgeArrow>
+  readonly arrow?: Style<T, EdgeArrow> | undefined
   /** Line color. Wins over `color`. */
-  readonly stroke?: Style<T, string>
+  readonly stroke?: Style<T, string> | undefined
   /**
    * Opacity from 0 to 1.
    * @default 1
    */
-  readonly opacity?: Style<T, number>
+  readonly opacity?: Style<T, number> | undefined
   /**
    * Zoom at and below which the edge is hidden, in screen pixels per world unit, as in `View`.
    * Above it, the edge fades in over a quarter of a zoom doubling. An edge is also hidden while
    * one of its ends is. A hidden edge is neither picked, exported nor counted. Defaults to no
    * limit.
    */
-  readonly minZoom?: Style<T, number | null>
+  readonly minZoom?: Style<T, number | null> | undefined
   /**
    * Zoom at and above which the edge is hidden, in screen pixels per world unit. Below it, the
    * edge fades out over a quarter of a zoom halving. Defaults to no limit.
    */
-  readonly maxZoom?: Style<T, number | null>
+  readonly maxZoom?: Style<T, number | null> | undefined
   /**
    * When the edge exists: a moment, or a period with optional open ends, in milliseconds or as
    * `Date`. With a time window set, the edge shows only while it and both of its ends exist in the
    * window. `null` or no value: the edge exists whenever its ends do.
    */
-  readonly time?: Channel<T, TimeValue>
+  readonly time?: Channel<T, TimeValue> | undefined
   /**
    * Dashes that move along the edge, from its source to its target: `true` at 40 screen pixels per
    * second, a speed in screen pixels per second, negative toward the source, or `false`, `0` or
@@ -471,55 +473,55 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * The dashes stand still with `prefers-reduced-motion`.
    * @default false
    */
-  readonly flow?: Style<T, boolean | number | null>
+  readonly flow?: Style<T, boolean | number | null> | undefined
   /**
    * Whether the edge joins the bundles of the `bundling` of the definition. Loops never do. With
    * `false`, the edge stays straight and pulls no other edge.
    * @default true
    */
-  readonly bundle?: Style<T, boolean>
+  readonly bundle?: Style<T, boolean> | undefined
   /**
    * Whether the `routing` of the definition draws the edge along a route around nodes. Loops and
    * geodesic edges never route. With `false`, the edge stays straight.
    * @default true
    */
-  readonly route?: Style<T, boolean>
+  readonly route?: Style<T, boolean> | undefined
   /**
    * Whether the edge takes part in the `bridges` of the definition: it jumps over the edges it
    * crosses, or is jumped over. With `false`, it crosses others plainly.
    * @default true
    */
-  readonly bridge?: Style<T, boolean>
+  readonly bridge?: Style<T, boolean> | undefined
   /**
    * Whether the edge follows the shortest path over the Earth, a great circle, between nodes placed
    * by `longitude` and `latitude`, instead of a straight line on the flat map. Such an edge bends
    * toward the poles on a flat map, is cut where it crosses the antimeridian and is never bundled.
    * @default false
    */
-  readonly geodesic?: Style<T, boolean>
+  readonly geodesic?: Style<T, boolean> | undefined
   /**
    * Styles each end of the edge on its own: the line from the source node to the split takes the
    * `source` options, the rest takes the `target` options, and each end can carry a label.
    */
-  readonly ends?: EdgeEndsOptions<T>
+  readonly ends?: EdgeEndsOptions<T> | undefined
   /**
    * Keys of the edges that carry this edge, in the order of the path they form, such as the
    * segments a route runs along: a key or a list of keys. Carriers usually belong to another
    * layer. A key that names no edge is reported in `issues` as `missing-carrier`.
    */
-  readonly supportedBy?: Channel<T, Key | readonly Key[]>
+  readonly supportedBy?: Channel<T, Key | readonly Key[]> | undefined
   /**
    * Merges the parallel edges of this mark between two visible nodes into one aggregated edge,
    * styled by `aggregate`: `true`, or options that split the merge by a value, merge both
    * directions or set the fewest edges merged. A new definition that only changes it redraws the
    * merged edges alone. Defaults to `false`: only edges that end in a folded group merge.
    */
-  readonly merge?: boolean | EdgeMergeOptions<T>
+  readonly merge?: boolean | EdgeMergeOptions<T> | undefined
   /**
    * Look of the edges drawn in place of the edges of this mark that end in a folded group, or that
    * `merge` merges: one per pair of visible ends, direction and merge value.
    */
-  readonly aggregate?: AggregateEdgeOptions<T>
+  readonly aggregate?: AggregateEdgeOptions<T> | undefined
 }
 
 /** Options of the `merge` option of `edges()`: which parallel edges draw as one. */
@@ -529,20 +531,20 @@ export interface EdgeMergeOptions<T> {
    * two nodes draw as separate aggregated edges, side by side. Edges without a value merge
    * together. Defaults to no split.
    */
-  readonly by?: Channel<T, Key>
+  readonly by?: Channel<T, Key> | undefined
   /**
    * Merges only the edges that go the same way. With `false`, edges in both directions merge into
    * one line that points the way of the first edge in its `keys`; `forward` and `backward` of the
    * `AggregateEdge` then tell the two directions apart, for example to style each end on its own.
    * @default true
    */
-  readonly directed?: boolean
+  readonly directed?: boolean | undefined
   /**
    * Fewest parallel edges that merge between two visible nodes: fewer edges draw one by one. Edges
    * that end in a folded group always merge.
    * @default 2
    */
-  readonly min?: number
+  readonly min?: number | undefined
 }
 
 /**
@@ -555,11 +557,11 @@ export interface EdgeEndsOptions<T> {
    * the source node: 0 gives the whole edge to the target end, 1 to the source end.
    * @default 0.5
    */
-  readonly split?: Style<T, number>
+  readonly split?: Style<T, number> | undefined
   /** Look of the part next to the source node, and label near the source node. */
-  readonly source?: EdgeEndOptions<T>
+  readonly source?: EdgeEndOptions<T> | undefined
   /** Look of the part next to the target node, and label near the target node. */
-  readonly target?: EdgeEndOptions<T>
+  readonly target?: EdgeEndOptions<T> | undefined
 }
 
 /**
@@ -571,24 +573,24 @@ export interface EdgeEndOptions<T> {
    * Value passed to the `color` scale, as the `color` channel of the edge. Defaults to the color of
    * the edge.
    */
-  readonly color?: Channel<T, string | number | boolean>
+  readonly color?: Channel<T, string | number | boolean> | undefined
   /** Line color of this end. Wins over `color`. */
-  readonly stroke?: Style<T, string>
+  readonly stroke?: Style<T, string> | undefined
   /**
    * Value passed to the `width` scale, in screen pixels. Defaults to the width of the edge. An arrow
    * head at this end follows it.
    */
-  readonly width?: Channel<T, number>
+  readonly width?: Channel<T, number> | undefined
   /**
    * Line pattern of this end: `'solid'`, `'dashed'` or `'dotted'`. The pattern runs on across the
    * split. Defaults to the pattern of the edge.
    */
-  readonly dash?: Style<T, EdgeDash>
+  readonly dash?: Style<T, EdgeDash> | undefined
   /**
    * Label near the node of this end, along the edge, or the text with its style. With a
    * `background`, it reads as a badge on the line.
    */
-  readonly label?: Channel<T, string> | EdgeLabelOptions<T>
+  readonly label?: Channel<T, string> | EdgeLabelOptions<T> | undefined
 }
 
 /**
@@ -695,20 +697,20 @@ export interface GroupOptions<T, N extends MarkName = MarkName, L extends MarkLa
    */
   readonly by: Channel<T, Key>
   /** Field or function that gives the key of an item, the key of its node. Defaults to `id`. */
-  readonly key?: KeyChannel<T>
+  readonly key?: KeyChannel<T> | undefined
   /**
    * Group of the data an item belongs to, as the `parent` option of its nodes: groups are then made
    * within each group of the data and nest in it. Defaults to none: a grouped item leaves the
    * group of the data it belongs to.
    */
-  readonly parent?: Channel<T, Key>
+  readonly parent?: Channel<T, Key> | undefined
   /** Fewest items that make a group; the items of a smaller group stay in place. @default 1 */
-  readonly min?: number
+  readonly min?: number | undefined
   /**
    * Whether a group node starts folded when it appears, hiding its members.
    * @default true
    */
-  readonly folded?: boolean
+  readonly folded?: boolean | undefined
 }
 
 /**
@@ -766,19 +768,19 @@ export type ColorScale =
   | ((value: unknown) => string)
   | {
       /** Gives each category a color, in order of appearance, cycling through the range. */
-      readonly type?: 'categorical'
+      readonly type?: 'categorical' | undefined
       /** Categories that take the first colors, in this order. Others follow as they appear. */
-      readonly domain?: readonly unknown[]
+      readonly domain?: readonly unknown[] | undefined
       /** CSS colors. Defaults to `--graph-cat-1` to `--graph-cat-8`. */
-      readonly range?: readonly string[]
+      readonly range?: readonly string[] | undefined
     }
   | {
       /** Interpolates colors along a numeric domain, in steps of one percent. */
       readonly type: 'sequential'
       /** Values at both ends, outside which values are clamped. Defaults to the data extent. */
-      readonly domain?: readonly [number, number]
+      readonly domain?: readonly [number, number] | undefined
       /** Color stops, spread evenly. Defaults to `--graph-cat-5` then `--graph-cat-1`. */
-      readonly range?: readonly string[]
+      readonly range?: readonly string[] | undefined
     }
 
 /** Interpolation of a number scale. `'sqrt'` makes the area of a node follow its value. */
@@ -789,27 +791,27 @@ export type NumberScale =
   | ((value: number) => number)
   | {
       /** Interpolation: `'sqrt'` for `size` and `'linear'` for `width` by default. */
-      readonly type?: NumberScaleType
+      readonly type?: NumberScaleType | undefined
       /** Values at both ends, outside which values are clamped. Defaults to the data extent. */
-      readonly domain?: readonly [number, number]
+      readonly domain?: readonly [number, number] | undefined
       /** Output at both ends: `[8, 32]` for `size` and `[1, 6]` for `width` by default. */
-      readonly range?: readonly [number, number]
+      readonly range?: readonly [number, number] | undefined
     }
 
 /** The three scales, shared by every mark of a definition. */
 export interface ScalesOptions {
   /** Scale of the `color` channel of nodes and edges. Categorical by default. */
-  readonly color?: ColorScale
+  readonly color?: ColorScale | undefined
   /**
    * Scale of the node `size` channel, a diameter. Square root from the data extent to `[8, 32]` by
    * default.
    */
-  readonly size?: NumberScale
+  readonly size?: NumberScale | undefined
   /**
    * Scale of the edge `width` channel, in screen pixels. Linear from the data extent to `[1, 6]` by
    * default.
    */
-  readonly width?: NumberScale
+  readonly width?: NumberScale | undefined
 }
 
 /**
@@ -818,34 +820,34 @@ export interface ScalesOptions {
  */
 export interface StateStyle {
   /** Multiplies the opacity of the element. */
-  readonly opacity?: number
+  readonly opacity?: number | undefined
   /** Fill color of a node. */
-  readonly fill?: string
+  readonly fill?: string | undefined
   /** Inner contour color of a node, line color of an edge. */
-  readonly stroke?: string
+  readonly stroke?: string | undefined
   /** Inner contour width of a node, line width of an edge, in screen pixels. */
-  readonly strokeWidth?: number
+  readonly strokeWidth?: number | undefined
   /** Color of a ring outside a node, 2 pixels wide without `outlineWidth`. Nodes only. */
-  readonly outline?: string
+  readonly outline?: string | undefined
   /** Width of the ring outside a node, in screen pixels. Nodes only. */
-  readonly outlineWidth?: number
+  readonly outlineWidth?: number | undefined
   /** Draws the soft `--graph-halo` glow behind the element. */
-  readonly halo?: boolean
+  readonly halo?: boolean | undefined
   /** Shows or hides the label while the state applies. */
-  readonly label?: boolean
+  readonly label?: boolean | undefined
   /** Color of the main text of the label, for nodes and edges. */
-  readonly labelColor?: string
+  readonly labelColor?: string | undefined
   /**
    * Moving dashes of an edge, as the `flow` option of `edges()`: `true`, a speed in screen pixels
    * per second, or `false` to stop them. Edges only.
    */
-  readonly flow?: boolean | number
+  readonly flow?: boolean | number | undefined
   /**
    * Draws the members again above every mark, as selected and hovered elements are, and places
    * their labels before the others. An element is raised when any of its states raises it. Defaults
    * to `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
    */
-  readonly raise?: boolean
+  readonly raise?: boolean | undefined
   /**
    * Removes the members from the drawing while they keep their position, selection and other
    * states: they are neither drawn, labeled, picked, exported nor counted, as elements outside the
@@ -853,7 +855,7 @@ export interface StateStyle {
    * merged edges do.
    * @default false
    */
-  readonly hide?: boolean
+  readonly hide?: boolean | undefined
 }
 
 /** How clicks select: one element, several with a modifier key, or nothing. */
@@ -872,60 +874,60 @@ export interface InteractionOptions {
    * and with Shift and the arrow keys. Code still moves it.
    * @default true
    */
-  readonly pan?: boolean
+  readonly pan?: boolean | undefined
   /**
    * Zoom with the wheel, a pinch and the keyboard. `{ speed }` multiplies the wheel and trackpad
    * zoom speed, 1 by default. Code still zooms.
    * @default true
    */
-  readonly zoom?: boolean | { readonly speed?: number }
+  readonly zoom?: boolean | { readonly speed?: number | undefined } | undefined
   /**
    * What the wheel does without Cmd or Ctrl: `'zoom'`, `'pan'` or `'page'`. With Cmd or Ctrl,
    * and on a trackpad pinch, it always zooms. In `'page'` mode, each wheel event left to the page
    * emits `zoomhint`.
    * @default 'zoom'
    */
-  readonly wheel?: WheelMode
+  readonly wheel?: WheelMode | undefined
   /**
    * Scrolls the view while a node drag or a lasso nears the edge of the element, faster closer to
    * it. `{ speed }` multiplies the speed, 1 by default. Needs `pan`.
    * @default true
    */
-  readonly autoPan?: boolean | { readonly speed?: number }
+  readonly autoPan?: boolean | { readonly speed?: number | undefined } | undefined
   /**
    * Selection mode, `false` for none. In `'multiple'` mode, Shift, Cmd or Ctrl adds to the
    * selection.
    * @default 'multiple'
    */
-  readonly select?: SelectMode
+  readonly select?: SelectMode | undefined
   /**
    * Drag nodes. Dragging a selected node moves the whole selection.
    * @default true
    */
-  readonly drag?: boolean
+  readonly drag?: boolean | undefined
   /**
    * Shift and drag from the background draws a lasso that adds the nodes inside to the selection.
    * Needs `select: 'multiple'`.
    * @default false
    */
-  readonly lasso?: boolean
+  readonly lasso?: boolean | undefined
   /**
    * Focus, select and move the view from the keyboard. The graph element becomes focusable.
    * @default true
    */
-  readonly keyboard?: boolean
+  readonly keyboard?: boolean | undefined
   /**
    * Double-click on a group, or Enter on a focused group, folds or unfolds it.
    * @default true
    */
-  readonly fold?: boolean
+  readonly fold?: boolean | undefined
   /**
    * Magnifying lens. `true` or `LensOptions` shows it under the pointer while its key is held, and
    * sets the radius and magnification that `lens.set` starts from. With `false`, only `lens.set`
    * shows it.
    * @default false
    */
-  readonly lens?: boolean | LensOptions
+  readonly lens?: boolean | LensOptions | undefined
 }
 
 /** Options of the magnifying lens, in `interaction.lens`. */
@@ -934,18 +936,18 @@ export interface LensOptions {
    * Radius of the lens, in screen pixels.
    * @default 120
    */
-  readonly radius?: number
+  readonly radius?: number | undefined
   /**
    * Magnification inside the lens, relative to the view zoom, at least 1.
    * @default 3
    */
-  readonly zoom?: number
+  readonly zoom?: number | undefined
   /**
    * Key that shows the lens while held, as a `KeyboardEvent.key` value, or `null` to show it from
    * code only. The lens follows the pointer over the graph, otherwise the focused node.
    * @default 'Alt'
    */
-  readonly key?: string | null
+  readonly key?: string | null | undefined
 }
 
 /** Lens options with every default applied. */
@@ -997,19 +999,19 @@ export interface ViewLimitOptions {
    * Smallest zoom, in screen pixels per world unit.
    * @default 0.001
    */
-  readonly minZoom?: number
+  readonly minZoom?: number | undefined
   /**
    * Largest zoom, in screen pixels per world unit.
    * @default 64
    */
-  readonly maxZoom?: number
+  readonly maxZoom?: number | undefined
   /**
    * Area the view cannot leave. Where the area is narrower than the view, the area cannot leave
    * the view instead. Applied when the view moves, when the element is resized and when the
    * definition changes, not when the data changes.
    * @default null
    */
-  readonly bounds?: ViewBounds | null
+  readonly bounds?: ViewBounds | null | undefined
 }
 
 /** View limits with every default applied, as `defineGraph` resolves them. */
@@ -1028,12 +1030,12 @@ export interface TransitionOptions {
    * Moves of nodes whose `x` or `y` changes in the data.
    * @default 120
    */
-  readonly positions?: number
+  readonly positions?: number | undefined
   /**
    * Glide of nodes to a layout result reported at once.
    * @default 400
    */
-  readonly layout?: number
+  readonly layout?: number | undefined
 }
 
 /** Transition durations in milliseconds, with every default applied. */
@@ -1137,7 +1139,7 @@ export interface Layout<T = unknown> {
    * `false` lays out every free node again when nodes arrive. Otherwise only the new nodes run.
    * @default true
    */
-  readonly incremental?: boolean
+  readonly incremental?: boolean | undefined
   /** Starts a run. Nodes that are not movable must keep their place in every array it reports. */
   start(graph: LayoutGraph<T>, listener: LayoutListener): LayoutRun
 }
@@ -1259,19 +1261,19 @@ export interface BridgeOptions {
    * jumping edge.
    * @default 'arc'
    */
-  readonly shape?: BridgeShape
+  readonly shape?: BridgeShape | undefined
   /**
    * Width of each jump along the jumping edge, in screen pixels. Below zoom 1 it shrinks with the
    * zoom, and under 2 pixels the edges cross plainly.
    * @default 8
    */
-  readonly size?: number
+  readonly size?: number | undefined
   /**
    * Most edges checked for crossings. Above it, no edge jumps and a warning is logged in
    * development.
    * @default 100000
    */
-  readonly maxEdges?: number
+  readonly maxEdges?: number | undefined
 }
 
 /** Bridge options with every default applied, as `defineGraph` resolves them. */
@@ -1295,59 +1297,59 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    */
   readonly marks: readonly M[]
   /** `color`, `size` and `width` scales, shared by every mark. */
-  readonly scales?: ScalesOptions
+  readonly scales?: ScalesOptions | undefined
   /** Free states, and overrides of `selected`, `hovered` and `focused`. At most 29 free states. */
-  readonly states?: StateStyles<S>
+  readonly states?: StateStyles<S> | undefined
   /**
    * Places nodes that have no `x` and `y`, at the first data and when nodes arrive.
    * @default null
    */
-  readonly layout?: Layout<NodeDatum<M>> | null
+  readonly layout?: Layout<NodeDatum<M>> | null | undefined
   /**
    * Runs the layout again over every node it may move after a fold or unfold, or when `groups()`
    * or the `merge` option of a mark changes, so that the drawing closes gaps and makes room. With
    * `false`, only nodes that appear are placed, and an unfolded group pushes its neighbors aside.
    * @default false
    */
-  readonly relayout?: boolean
+  readonly relayout?: boolean | undefined
   /** Pan, zoom, wheel, selection, drag, lasso and keyboard. */
-  readonly interaction?: InteractionOptions
+  readonly interaction?: InteractionOptions | undefined
   /** Zoom range and area of the view. */
-  readonly view?: ViewLimitOptions
+  readonly view?: ViewLimitOptions | undefined
   /** Durations of animated node moves. */
-  readonly transitions?: TransitionOptions
+  readonly transitions?: TransitionOptions | undefined
   /**
    * Grid drawn under everything, which follows the view and adapts its spacing to the zoom.
    * @default null
    */
-  readonly background?: BackgroundOptions | null
+  readonly background?: BackgroundOptions | null | undefined
   /** Results of `hull()`: shapes around sets of nodes, drawn under edges and nodes, in order. */
-  readonly hulls?: readonly Hull<NoInfer<S> | BuiltInState>[]
+  readonly hulls?: readonly Hull<NoInfer<S> | BuiltInState>[] | undefined
   /**
    * Routes edges into bundles once nodes stand still, such as the result of `densityBundling()`.
    * @default null
    */
-  readonly bundling?: EdgeBundling<EdgeDatum<M>> | null
+  readonly bundling?: EdgeBundling<EdgeDatum<M>> | null | undefined
   /**
    * Routes edges around nodes once nodes stand still, such as the result of
    * `orthogonalRouting()`. Not with `bundling`.
    * @default null
    */
-  readonly routing?: EdgeRouting<EdgeDatum<M>> | null
+  readonly routing?: EdgeRouting<EdgeDatum<M>> | null | undefined
   /**
    * Jumps where two straight or routed edges cross: `true` for the default look, options, or
    * `null` for none.
    * @default null
    */
-  readonly bridges?: BridgeOptions | boolean | null
+  readonly bridges?: BridgeOptions | boolean | null | undefined
   /** How elements with a `time` enter and leave the time window. */
-  readonly time?: TimeOptions
+  readonly time?: TimeOptions | undefined
   /**
    * Free states that light, whenever the selection changes, the edges that carry the selected
    * edges and the edges they carry, as declared by `supportedBy`.
    * @default null
    */
-  readonly support?: SupportStateOptions<FreeState<NoInfer<S>>> | null
+  readonly support?: SupportStateOptions<FreeState<NoInfer<S>>> | null | undefined
 }
 
 /**
@@ -1395,7 +1397,7 @@ export interface TimeOptions {
    * the window has faded out and counts as hidden.
    * @default 0
    */
-  readonly fade?: number
+  readonly fade?: number | undefined
 }
 
 /** Time options with every default applied, as `defineGraph` resolves them. */
@@ -1419,24 +1421,24 @@ export interface BackgroundOptions {
    * Distance between lines in world units, before the zoom picks a power of 4 of it.
    * @default 16
    */
-  readonly spacing?: number
+  readonly spacing?: number | undefined
   /**
    * Color of the grid, any CSS color.
    * @default 'var(--graph-grid)'
    */
-  readonly color?: string
+  readonly color?: string | undefined
   /**
    * Color of every fourth line, where the next coarser level of the grid falls.
    * @default 'var(--graph-grid-major)'
    */
-  readonly majorColor?: string
+  readonly majorColor?: string | undefined
   /**
    * Switches between levels of the grid as the zoom changes, so that the spacing on screen stays
    * readable. With `false`, a single grid at `spacing` grows and shrinks with the zoom, dots grow
    * as you zoom in, and the grid fades out before it gets too dense.
    * @default true
    */
-  readonly adaptive?: boolean
+  readonly adaptive?: boolean | undefined
 }
 
 /** Background grid with every default applied, as `defineGraph` resolves it. */
@@ -1465,26 +1467,26 @@ export interface HullStyle<C> {
    * Outline shape, `'rounded'` or `'smooth'`.
    * @default 'rounded'
    */
-  readonly shape?: HullShape
+  readonly shape?: HullShape | undefined
   /**
    * Space between the outline and the edge of the nodes, in screen pixels.
    * @default 16
    */
-  readonly padding?: number
+  readonly padding?: number | undefined
   /**
    * Color of the outline, also used at 12% for the fill. Without it, the hull takes
    * `--graph-group-fill` and `--graph-group-line`.
    */
-  readonly color?: C
+  readonly color?: C | undefined
   /** Fill color. Defaults to `color` at 12%, or to `var(--graph-group-fill)`. */
-  readonly fill?: C
+  readonly fill?: C | undefined
   /** Outline color. Defaults to `color`, or to `var(--graph-group-line)`. */
-  readonly stroke?: C
+  readonly stroke?: C | undefined
   /**
    * Width of the outline in screen pixels, `0` for none.
    * @default 1
    */
-  readonly strokeWidth?: number
+  readonly strokeWidth?: number | undefined
 }
 
 /** Options of `hull()` around a list of keys. Keys of missing nodes are skipped. */
@@ -1549,16 +1551,16 @@ export interface PathOptions<M extends Mark = Mark> {
    * Follows each edge from its source to its target only. Otherwise edges are crossed both ways.
    * @default false
    */
-  readonly directed?: boolean
+  readonly directed?: boolean | undefined
   /**
    * Cost of crossing an edge: a field or a function of its item. An edge without a finite weight
    * cannot be crossed, and a negative weight throws a `RangeError`. Without it, every edge costs 1.
    */
-  readonly weight?: PathWeight<EdgeDatum<M>>
+  readonly weight?: PathWeight<EdgeDatum<M>> | undefined
   /** Nodes the search may enter, the two ends included: a function of the item and the key. */
-  readonly nodes?: (datum: NodeDatum<M>, key: Key) => boolean
+  readonly nodes?: ((datum: NodeDatum<M>, key: Key) => boolean) | undefined
   /** Edges the search may cross: a function of the item and the key. */
-  readonly edges?: (datum: EdgeDatum<M>, key: Key) => boolean
+  readonly edges?: ((datum: EdgeDatum<M>, key: Key) => boolean) | undefined
   /**
    * Searches the graph as drawn: nodes and edges hidden by the time window or by their zoom range
    * are left out, a folded group stands for the nodes it hides, the edges inside it are left out,
@@ -1566,7 +1568,7 @@ export interface PathOptions<M extends Mark = Mark> {
    * every node and edge of the data, folded, filtered or not.
    * @default false
    */
-  readonly visible?: boolean
+  readonly visible?: boolean | undefined
 }
 
 /** Options of `paths.reach`. `M` is the union of the marks, whose items the functions read. */
@@ -1575,7 +1577,7 @@ export interface ReachOptions<M extends Mark = Mark> extends PathOptions<M> {
    * Largest cost from the start, which counts edges without `weight`. Defaults to no limit: the
    * whole connected component, or every node the start leads to with `directed`.
    */
-  readonly maxCost?: number
+  readonly maxCost?: number | undefined
 }
 
 /** A path found by `paths.shortest`. Pass it to `states.set` to highlight it. */
@@ -1626,7 +1628,7 @@ export interface SupportWalkOptions {
    * Most support steps from the start: `1` keeps the edges that carry it, or that it carries,
    * directly. Defaults to no limit.
    */
-  readonly maxDepth?: number
+  readonly maxDepth?: number | undefined
 }
 
 /**
@@ -1674,9 +1676,9 @@ export interface SupportFinder extends GraphSupport {
  */
 export interface SupportStateOptions<N extends string = string> {
   /** Free state given to the edges that carry the selected edges, and to their ends. */
-  readonly carriers?: N | null
+  readonly carriers?: N | null | undefined
   /** Free state given to the edges the selected edges carry, and to their ends. */
-  readonly carried?: N | null
+  readonly carried?: N | null | undefined
 }
 
 /** Support states with every default applied, as `defineGraph` resolves them. */

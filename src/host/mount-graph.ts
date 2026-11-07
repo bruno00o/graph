@@ -52,6 +52,7 @@ import {
   zoomAround,
 } from '../core/view'
 import { detailStep, edgeOwnShown, filtered, nodeShown, type Sight } from '../core/visibility'
+import { withoutUndefined } from '../core/without-undefined'
 import { dev } from '../dev'
 import { listenPinch, type PinchGesture } from '../dom/gestures'
 import { observeTheme, ThemeResolver } from '../dom/theme'
@@ -180,7 +181,7 @@ export interface ViewOptions {
    * Animation duration in milliseconds, zero with `prefers-reduced-motion`.
    * @default 0
    */
-  readonly duration?: number
+  readonly duration?: number | undefined
 }
 
 /** Options of `view.fit`. */
@@ -189,7 +190,7 @@ export interface FitOptions extends ViewOptions {
    * Margin around the framed nodes, in screen pixels.
    * @default 32
    */
-  readonly padding?: number
+  readonly padding?: number | undefined
 }
 
 /**
@@ -317,17 +318,17 @@ export interface GraphLayers<L extends string = string> {
 /** Options of `layout.run`. */
 export interface LayoutRunOptions {
   /** Nodes to lay out. The others stay still and act as anchors. */
-  readonly keys?: Iterable<Key>
+  readonly keys?: Iterable<Key> | undefined
   /**
    * Frames every node on the result, with `true` or fit options. A result reported at once is
    * framed where nodes land, while they glide.
    */
-  readonly fit?: boolean | FitOptions
+  readonly fit?: boolean | FitOptions | undefined
   /**
    * Glide to a result reported at once, in milliseconds, `transitions.layout` by default. `0`
    * places nodes at once.
    */
-  readonly duration?: number
+  readonly duration?: number | undefined
 }
 
 /** Layout runs of a graph. `M` is the union of the marks, whose node items layouts read. */
@@ -394,6 +395,17 @@ export interface GraphPositions {
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
 }
 
+/**
+ * Options of `graph.update`: the options of `mountGraph` that can change after the mount, each one
+ * left out to keep its current value.
+ */
+export type GraphUpdateOptions<S extends string = string, M extends Mark = Mark> = {
+  readonly [K in Exclude<
+    keyof MountGraphOptions<S, M>,
+    'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers'
+  >]?: MountGraphOptions<S, M>[K] | undefined
+}
+
 /** Options of `mountGraph`. `S` and `M` come from the definition. */
 export interface MountGraphOptions<S extends string = string, M extends Mark = Mark> {
   /** What to draw: the result of `defineGraph`. */
@@ -404,50 +416,50 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * View at mount, within the `view` limits of the definition. Without it and without `view`, the
    * first data is fitted with a 32 pixel margin.
    */
-  readonly initialView?: View
+  readonly initialView?: View | undefined
   /**
    * Current view, applied as given. Passing it makes the view controlled for the life of the graph:
    * gestures, keys, `view` calls and animation steps go to `onViewChange`, and only
    * `update({ view })` moves the view.
    */
-  readonly view?: View
+  readonly view?: View | undefined
   /**
    * Receives the view requests in controlled mode, within the `view` limits of the definition, at
    * most once per frame and before drawing: call `update({ view })` in it to draw the request in
    * the same frame.
    */
-  readonly onViewChange?: (event: GraphViewEvent) => void
+  readonly onViewChange?: ((event: GraphViewEvent) => void) | undefined
   /** Initial selection. Passing it makes the selection controlled for the life of the graph. */
-  readonly selection?: ElementKeysInput
+  readonly selection?: ElementKeysInput | undefined
   /** Receives every selection request in controlled mode, instead of the selection changing. */
-  readonly onSelectionChange?: (selection: ElementKeys) => void
+  readonly onSelectionChange?: ((selection: ElementKeys) => void) | undefined
   /** Groups folded at mount, by key. Later changes go through `groups`. */
-  readonly initialFolded?: Iterable<Key>
+  readonly initialFolded?: Iterable<Key> | undefined
   /**
    * Folded groups. Passing it makes folding controlled for the life of the graph: requests go to
    * `onFoldChange` and only `update({ folded })` applies them.
    */
-  readonly folded?: Iterable<Key>
+  readonly folded?: Iterable<Key> | undefined
   /** Receives every fold request in controlled mode, instead of the folded groups changing. */
-  readonly onFoldChange?: (event: GraphFoldEvent) => void
+  readonly onFoldChange?: ((event: GraphFoldEvent) => void) | undefined
   /** Time window at mount, or `null` for none. Later changes go through `time`. */
-  readonly initialTime?: TimeWindowInput | null
+  readonly initialTime?: TimeWindowInput | null | undefined
   /**
    * Time window, or `null` for none. Passing it makes the window controlled for the life of the
    * graph: `time.set` calls go to `onTimeChange`, and only `update({ time })` moves the window.
    */
-  readonly time?: TimeWindowInput | null
+  readonly time?: TimeWindowInput | null | undefined
   /** Receives every window request in controlled mode, instead of the window changing. */
-  readonly onTimeChange?: (event: GraphTimeEvent) => void
+  readonly onTimeChange?: ((event: GraphTimeEvent) => void) | undefined
   /** Layers hidden at mount, by name. Later changes go through `layers`. */
-  readonly initialHiddenLayers?: Iterable<LayerName<M>>
+  readonly initialHiddenLayers?: Iterable<LayerName<M>> | undefined
   /**
    * Hidden layers. Passing it makes their visibility controlled for the life of the graph:
    * requests go to `onLayerChange` and only `update({ hiddenLayers })` applies them.
    */
-  readonly hiddenLayers?: Iterable<LayerName<M>>
+  readonly hiddenLayers?: Iterable<LayerName<M>> | undefined
   /** Receives every layer request in controlled mode, instead of the hidden layers changing. */
-  readonly onLayerChange?: (event: GraphLayerEvent<M>) => void
+  readonly onLayerChange?: ((event: GraphLayerEvent<M>) => void) | undefined
 }
 
 /**
@@ -507,14 +519,7 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled
    * `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and selection stay.
    */
-  update(
-    options: Partial<
-      Omit<
-        MountGraphOptions<S, M>,
-        'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers'
-      >
-    >,
-  ): void
+  update(options: GraphUpdateOptions<S, M>): void
   /** Removes the element and frees every resource. A layout run in progress resolves to `false`. */
   destroy(): void
 }
@@ -691,21 +696,21 @@ function countAlive(alive: Uint8Array, capacity: number): number {
 }
 
 function resolveStyle(style: StateStyle, id: (color: string) => number): ResolvedStateStyle {
+  const color = (value: string | undefined) => (value === undefined ? undefined : id(value))
+  const ringed = style.outlineWidth !== undefined || style.outline !== undefined
   return {
-    ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
-    ...(style.strokeWidth !== undefined ? { strokeWidth: style.strokeWidth } : {}),
-    ...(style.halo !== undefined ? { halo: style.halo } : {}),
-    ...(style.label !== undefined ? { label: style.label } : {}),
-    ...(style.fill !== undefined ? { fill: id(style.fill) } : {}),
-    ...(style.stroke !== undefined ? { stroke: id(style.stroke) } : {}),
-    ...(style.outline !== undefined ? { outline: id(style.outline) } : {}),
-    ...(style.labelColor !== undefined ? { labelColor: id(style.labelColor) } : {}),
-    ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
-    ...(style.raise !== undefined ? { raise: style.raise } : {}),
-    ...(style.hide !== undefined ? { hide: style.hide } : {}),
-    ...(style.outlineWidth !== undefined || style.outline !== undefined
-      ? { outlineWidth: style.outlineWidth ?? defaults.nodeOutlineWidth }
-      : {}),
+    opacity: style.opacity,
+    strokeWidth: style.strokeWidth,
+    halo: style.halo,
+    label: style.label,
+    fill: color(style.fill),
+    stroke: color(style.stroke),
+    outline: color(style.outline),
+    labelColor: color(style.labelColor),
+    flow: style.flow === undefined ? undefined : flowSpeed(style.flow),
+    raise: style.raise,
+    hide: style.hide,
+    outlineWidth: ringed ? (style.outlineWidth ?? defaults.nodeOutlineWidth) : undefined,
   }
 }
 
@@ -1216,7 +1221,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     for (const kind of ['nodes', 'edges'] as const) {
       registry.names.forEach((name, bit) => {
         const own = definition.states[name]
-        const style = isBuiltInState(name) ? { ...builtInStyles[kind][name], ...own } : own
+        const style = isBuiltInState(name)
+          ? { ...builtInStyles[kind][name], ...(own && withoutUndefined(own)) }
+          : own
         buffers.setStyle(kind, bit, style ? resolveStyle(style, id) : null)
       })
       for (let bit = registry.names.length; bit < 32; bit++) buffers.setStyle(kind, bit, null)
@@ -2560,7 +2567,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       full,
       grid: decorations.grid,
       hulls: decorations.hulls,
-      ...(projection.active ? { containers: containerBoxes } : {}),
+      containers: projection.active ? containerBoxes : undefined,
       bundles: bundles.paths,
       bridges: bridges.active ? bridges.set : null,
     })

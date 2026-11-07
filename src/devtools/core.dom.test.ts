@@ -154,5 +154,6 @@ describe('graphDevtoolsPlugin', () => {
 
   it('names itself from the messages', () => {
     expect(graphDevtoolsPlugin({ messages: { title: 'Graphe' } }).name).toBe('Graphe')
+    expect(graphDevtoolsPlugin({ messages: { title: undefined } }).name).toBe('Graph')
   })
 })

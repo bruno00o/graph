@@ -45,7 +45,7 @@ function load(renderer: Renderer, snapshot: GraphSnapshot): void {
     full: true,
     grid: snapshot.grid,
     hulls: snapshot.hulls,
-    ...(snapshot.containers ? { containers: snapshot.containers } : {}),
+    containers: snapshot.containers ?? undefined,
     bundles: snapshot.bundles,
     bridges: snapshot.bridges ?? null,
   }

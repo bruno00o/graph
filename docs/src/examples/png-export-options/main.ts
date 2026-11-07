@@ -65,7 +65,7 @@ export function mount(container: HTMLElement): GraphInstance {
     region,
     pixelRatio,
     background: backgrounds[background],
-    ...(scale === null ? {} : { zoom: scale }),
+    zoom: scale ?? undefined,
   })
   let pending = 0
   const refresh = async () => {

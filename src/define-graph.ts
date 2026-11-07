@@ -1,5 +1,6 @@
 import { maxLayerSlots } from './core/mark-layers'
 import { freeStateNames, maxFreeStates } from './core/state-names'
+import { withoutUndefined } from './core/without-undefined'
 import { themeColor } from './theme/tokens'
 import type {
   BackgroundOptions,
@@ -16,6 +17,7 @@ import type {
   ResolvedSupportStates,
   ResolvedTimeOptions,
   ResolvedViewLimits,
+  StateStyle,
   StateStyles,
   SupportStateOptions,
   TimeOptions,
@@ -39,7 +41,7 @@ const defaultBridgeSize = 8
 const defaultBridgeEdges = 100_000
 
 function resolveSpeed(
-  option: boolean | { readonly speed?: number },
+  option: boolean | { readonly speed?: number | undefined },
   fallback: number,
 ): false | { readonly speed: number } {
   if (option === false) return false
@@ -180,6 +182,15 @@ function resolveSupport(
   return carriers === null && carried === null ? null : Object.freeze({ carriers, carried })
 }
 
+function freezeStates<S extends string>(states: StateStyles<S>): StateStyles<S> {
+  const frozen: Record<string, StateStyle> = {}
+  for (const name of Object.keys(states)) {
+    const style = (states as Record<string, StateStyle | undefined>)[name]
+    frozen[name] = Object.freeze(style ? withoutUndefined(style) : {})
+  }
+  return Object.freeze(frozen) as StateStyles<S>
+}
+
 /**
  * Builds a frozen graph definition from marks, scales, states and options. The names of `states`
  * become the state names accepted by the instance, and the item types and names of the marks type
@@ -208,7 +219,8 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     throw new TypeError('defineGraph: use bundling or routing, not both')
   }
   checkLayers(options.marks)
-  const free = freeStateNames(options.states ?? {})
+  const states = freezeStates(options.states ?? ({} as StateStyles<S>))
+  const free = freeStateNames(states)
   if (free.length > maxFreeStates) {
     throw new RangeError(
       `defineGraph: at most ${maxFreeStates} states besides selected, hovered and focused`,
@@ -216,8 +228,8 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
   }
   return Object.freeze({
     marks: Object.freeze([...options.marks]),
-    scales: Object.freeze({ ...options.scales }),
-    states: Object.freeze({ ...options.states }) as StateStyles<S>,
+    scales: Object.freeze(withoutUndefined(options.scales ?? {})),
+    states,
     layout: options.layout ?? null,
     relayout: options.relayout ?? false,
     interaction: resolveInteraction(options.interaction),

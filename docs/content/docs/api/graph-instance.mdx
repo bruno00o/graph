@@ -26,14 +26,7 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   edgesOf(key: Key): Key[]
   endpoints(key: Key): { source: Key; target: Key } | undefined
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
-  update(
-    options: Partial<
-      Omit<
-        MountGraphOptions<S, M>,
-        'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers'
-      >
-    >,
-  ): void
+  update(options: GraphUpdateOptions<S, M>): void
   destroy(): void
 }
 ```
@@ -223,7 +216,30 @@ const menu = document.createElement('div')
 graph.anchors.set(menu, { state: 'selected', side: 'top', interactive: true })
 ```
 
-<api-table path="index.ts" name="AnchorOptions" />
+### Targets
+
+`AnchorOptions` takes exactly one target. The types refuse two targets at once, and `when` where it does not apply.
+
+| Target | Follows | `when` |
+| --- | --- | --- |
+| `{ node: key }` | The node, on its box | Shows the element only while the node is in the state |
+| `{ nodes: keys }` | The bounding box of the nodes. Missing keys are skipped | Shows it while one of the nodes is in the state |
+| `{ edge: key }` | The anchor of the edge label | Shows it while the edge is in the state |
+| `{ point }` | A point of the world, in world units | Not accepted |
+| `{ state }` | The bounding box of the nodes in the state, as it changes | Not accepted |
+
+The types are `AnchorNodeTarget`, `AnchorNodesTarget`, `AnchorEdgeTarget`, `AnchorPointTarget` and `AnchorStateTarget`, and their union `AnchorTarget`. A target built apart from the placement keeps its type when it is inferred:
+
+```ts
+graph.on('contextmenu', ({ target, world }) => {
+  const at = target?.kind === 'node' ? { node: target.key } : { point: world }
+  graph.anchors.set(menu, { ...at, side: 'right', align: 'start', interactive: true })
+})
+```
+
+### Placement
+
+<api-table path="index.ts" name="AnchorPlacement" />
 
 The element keeps its own size: the anchor reads it with a `ResizeObserver`. It is hidden with `visibility: hidden` while its target is missing, off screen, or out of the `when` state. A state given to `state` or `when` must be declared in the definition, or be `selected`, `hovered` or `focused`; otherwise `set` throws.
 

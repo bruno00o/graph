@@ -214,6 +214,38 @@ describe('createGraphHost', () => {
     expect(labels[3 * 4]).toBe(noPaint)
   })
 
+  it('keeps the built-in look of a state whose style sets undefined', () => {
+    const buffers = (states: GraphDefinition['states']) => {
+      let found: StateBuffers | null = null
+      const container = document.createElement('div')
+      document.body.append(container)
+      const graphDefinition = defineGraph({ marks: definition().marks, states })
+      createGraphHost(container, { definition: graphDefinition, ariaLabel: 'graphe' }, () => ({
+        ...fakeRenderer(),
+        sync: (input) => {
+          found = input.states
+        },
+      }))
+      dom.flushFrames()
+      const state = found as StateBuffers | null
+      if (!state) throw new Error('no states')
+      return {
+        numbers: [...state.numbers],
+        paint: [...state.paint],
+        labels: [...state.labels],
+        nodeRaise: state.nodeRaise,
+        edgeRaise: state.edgeRaise,
+      }
+    }
+    expect(
+      buffers({
+        selected: { raise: undefined, halo: undefined, opacity: undefined },
+        hovered: { outline: undefined, label: undefined },
+        muted: { opacity: 0.2, fill: undefined, flow: undefined },
+      }),
+    ).toEqual(buffers({ muted: { opacity: 0.2 } }))
+  })
+
   it('exposes host state as a read-only TanStack store', () => {
     const graph = mount()
     expectTypeOf(graph.store).toEqualTypeOf<ReadonlyStore<GraphState>>()

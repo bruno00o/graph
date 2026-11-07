@@ -7,12 +7,12 @@ export interface RadialOptions {
    * Start of the walk, the free node with the most edges by default. Several roots share the inner
    * ring, and a single fixed root keeps its place.
    */
-  readonly root?: Key | readonly Key[]
+  readonly root?: Key | readonly Key[] | undefined
   /**
    * Smallest gap between two rings, and between two nodes of a ring, from the borders of the
    * largest nodes, in world units. Defaults to the largest diameter, and at least 24.
    */
-  readonly spacing?: number
+  readonly spacing?: number | undefined
 }
 
 interface Tree {

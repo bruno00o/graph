@@ -5,7 +5,7 @@ import { resolveMessages } from './messages'
 /** Options of `graphDevtoolsPlugin`. */
 export interface GraphDevtoolsPluginOptions extends GraphDevtoolsOptions {
   /** Opens the panel the first time the devtools open. */
-  readonly defaultOpen?: boolean
+  readonly defaultOpen?: boolean | undefined
 }
 
 export const graphDevtoolsId = 'bruno00o-graph'

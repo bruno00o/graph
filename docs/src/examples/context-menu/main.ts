@@ -1,11 +1,11 @@
 import {
-  type AnchorOptions,
   defineGraph,
   edges,
   type GraphInstance,
   type Key,
   mountGraph,
   nodes,
+  type Point,
 } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { createCommunities, type Item, type Link } from '../shared/data'
@@ -51,7 +51,7 @@ export function mount(container: HTMLElement): GraphInstance {
   function open(
     title: string,
     entries: readonly Entry[],
-    where: Pick<AnchorOptions, 'node' | 'point'>,
+    where: { readonly node: Key } | { readonly point: Point },
   ): void {
     const heading = document.createElement('strong')
     heading.textContent = title

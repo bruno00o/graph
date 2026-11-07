@@ -15,7 +15,7 @@ export function mount(container: HTMLElement): GraphInstance {
   const { steps, arrows } = createSteps()
   const labels = new Map(steps.map((step) => [step.id, step.label]))
   let root: Key | null = null
-  const layout = () => layers({ direction: 'right', ...(root === null ? {} : { root }) })
+  const layout = () => layers({ direction: 'right', root: root ?? undefined })
 
   const graph = mountGraph(container, {
     definition: defineGraph({
