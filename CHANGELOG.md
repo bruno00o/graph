@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.0](https://github.com/bruno00o/graph/compare/0.12.0...0.13.0) (2026-11-07)
+
+
+### Features
+
+* draw map graphs on the globe, along great circles, with hulls and groups ([#72](https://github.com/bruno00o/graph/issues/72)) ([862d946](https://github.com/bruno00o/graph/commit/862d9465d7a13128ee35d33c08682d9ff30cbda8))
+* raise states above every mark and magnify the graph with a lens ([#69](https://github.com/bruno00o/graph/issues/69)) ([7a0927b](https://github.com/bruno00o/graph/commit/7a0927b1258d9ddcd39c3422575dff9c7603ac56))
+* show nodes and edges in a time window and add a timeline ([#71](https://github.com/bruno00o/graph/issues/71)) ([ddf8678](https://github.com/bruno00o/graph/commit/ddf867898133320102f0416f53528cead7af6de2))
+
 ## [0.12.0](https://github.com/bruno00o/graph/compare/0.11.0...0.12.0) (2026-11-06)
 
 
