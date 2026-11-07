@@ -2,7 +2,7 @@ import type { Key, LiveSource, NodeGroup, SourceChange, SourceSubscription } fro
 import { isKey } from './accessor'
 import type { Read } from './compile-mark'
 
-const mark = ''
+const mark = '\uE000'
 
 function tagged(value: Key): string {
   return typeof value === 'number' ? `n${value}` : `s${value}`
