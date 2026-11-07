@@ -54,6 +54,7 @@ export default defineConfig({
         map: resolve(import.meta.dirname, 'examples/map/index.html'),
         bundling: resolve(import.meta.dirname, 'examples/bundling/index.html'),
         zoom: resolve(import.meta.dirname, 'examples/zoom/index.html'),
+        lens: resolve(import.meta.dirname, 'examples/lens/index.html'),
       },
     },
   },

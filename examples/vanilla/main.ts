@@ -28,7 +28,13 @@ const define = () =>
     ],
     states: {
       muted: { opacity: 0.15, label: false },
-      path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true },
+      path: {
+        flow: true,
+        stroke: 'var(--graph-accent)',
+        strokeWidth: 2.5,
+        label: true,
+        raise: true,
+      },
       match: { outline: 'var(--graph-accent)', label: true },
       faded: { opacity: 0.08, label: false },
     },

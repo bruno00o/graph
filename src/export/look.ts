@@ -14,8 +14,6 @@ export interface Look {
   flow: number
 }
 
-export const highlightMask = 7
-
 const bits = new Uint32Array(1)
 const float = new Float32Array(bits.buffer)
 

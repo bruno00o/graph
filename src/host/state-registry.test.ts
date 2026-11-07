@@ -50,6 +50,39 @@ describe('StateRegistry', () => {
     expect(buffers.highlightVersion).toBe(version)
   })
 
+  it('lists the members of raised free states, and follows a change of raise', () => {
+    const { model, buffers, registry } = setup(['a', 'b', 'c'])
+    const index = (key: string) => model.node(key)?.index ?? -1
+    registry.set('pinned', { nodes: ['c', 'a'], edges: ['ab'] })
+    registry.takeHighlighted()
+    expect(buffers.highlightedNodes).toEqual([])
+    buffers.setStyle('nodes', registry.bit('pinned'), { raise: true })
+    registry.takeHighlighted()
+    expect(buffers.highlightedNodes).toEqual([index('a'), index('c')])
+    expect(buffers.highlightedEdges).toEqual([])
+    buffers.setStyle('edges', registry.bit('pinned'), { raise: true })
+    registry.takeHighlighted()
+    expect(buffers.highlightedEdges).toEqual([model.edge('ab')?.index])
+    buffers.setStyle('nodes', registry.bit('selected'), {})
+    registry.set('selected', { nodes: ['b'] })
+    registry.takeHighlighted()
+    expect(buffers.highlightedNodes).toEqual([index('a'), index('c')])
+  })
+
+  it('orders raised elements by layer, then by index', () => {
+    const model = createGraphModel()
+    model.setMarks([nodes([{ id: 'a' }, { id: 'b' }, { id: 'c' }])])
+    const changes = model.flush()
+    const buffers = new StateBuffers()
+    const index = (key: string) => model.node(key)?.index ?? -1
+    const layer = (_kind: string, at: number) => (at === index('a') ? 1 : 0)
+    const registry = new StateRegistry(model, buffers, null, layer)
+    registry.apply(changes)
+    registry.set('selected', { nodes: ['a', 'b', 'c'] })
+    registry.takeHighlighted()
+    expect(buffers.highlightedNodes).toEqual([index('b'), index('c'), index('a')])
+  })
+
   it('applies free states to elements that arrive later', () => {
     const model = createGraphModel()
     const buffers = new StateBuffers()

@@ -5,9 +5,11 @@ import type {
   GraphDefinition,
   GraphDefinitionOptions,
   InteractionOptions,
+  LensOptions,
   Mark,
   ResolvedBackground,
   ResolvedInteraction,
+  ResolvedLens,
   ResolvedViewLimits,
   StateStyles,
   ViewBounds,
@@ -23,6 +25,9 @@ const wheelModes: readonly WheelMode[] = ['zoom', 'pan', 'page']
 const defaultPositionTransition = 120
 const defaultLayoutTransition = 400
 const defaultGridSpacing = 16
+const defaultLensRadius = 120
+const defaultLensZoom = 3
+const defaultLensKey = 'Alt'
 
 function resolveSpeed(
   option: boolean | { readonly speed?: number },
@@ -47,7 +52,22 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
     lasso: options.lasso ?? false,
     keyboard: options.keyboard ?? true,
     fold: options.fold ?? true,
+    lens: resolveLens(options.lens ?? false),
   })
+}
+
+function resolveLens(options: boolean | LensOptions): ResolvedLens {
+  const given = typeof options === 'object' ? options : {}
+  const radius = given.radius ?? defaultLensRadius
+  const zoom = given.zoom ?? defaultLensZoom
+  if (!(radius > 0) || !Number.isFinite(radius)) {
+    throw new RangeError('defineGraph: interaction.lens.radius must be a positive number')
+  }
+  if (!(zoom >= 1) || !Number.isFinite(zoom)) {
+    throw new RangeError('defineGraph: interaction.lens.zoom must be a number of at least 1')
+  }
+  const key = options === false ? null : given.key === undefined ? defaultLensKey : given.key
+  return Object.freeze({ radius, zoom, key })
 }
 
 function resolveBounds(bounds: ViewBounds | null): ViewBounds | null {

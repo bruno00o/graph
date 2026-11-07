@@ -5,7 +5,7 @@ description: Pan, zoom, wheel, touch, drag, selection, lasso and keyboard naviga
 
 ## Options
 
-Interaction is configured in the definition. Everything is on by default except the lasso.
+Interaction is configured in the definition. Everything is on by default except the lasso and the lens.
 
 ```ts
 defineGraph({
@@ -144,6 +144,7 @@ With `keyboard: true`, the graph element is focusable (`tabindex="0"`, `role="ap
 | Shift and arrow keys | Pan the view by a tenth of its size, with `pan: true` |
 | `+` and `-` | Zoom in and out, with `zoom: true` |
 | `0` | Fit the whole graph |
+| Alt, held | Show the [lens](/docs/lens) on the focused node, with `lens` on |
 
 Without a focused node, the arrows start from the last selected node, or from the node nearest the center. The view follows the focused node when it gets within 48 pixels of the edge. Keys stay within the [view limits](/docs/view#view-limits), like every other move. The focused node's label, or its key, is announced to screen readers through a live region.
 
@@ -154,6 +155,10 @@ graph.on('focuschange', ({ target }) => console.log(target))
 ```
 
 A pointer press removes the focus. When the element loses the DOM focus, the focused node is remembered and comes back with the keyboard.
+
+## Lens
+
+With `lens` on, holding Alt over the graph shows a magnifying lens under the pointer, and clicks inside it hit what it shows. See [Lens](/docs/lens).
 
 ## Events
 

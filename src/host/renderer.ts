@@ -34,6 +34,13 @@ export interface ContainerFrame {
   readonly version: number
 }
 
+export interface LensFrame {
+  readonly x: number
+  readonly y: number
+  readonly radius: number
+  readonly view: View
+}
+
 export interface RenderFrame {
   readonly view: View
   readonly width: number
@@ -41,6 +48,7 @@ export interface RenderFrame {
   readonly pixelRatio: number
   readonly labels?: LabelArea
   readonly time?: number
+  readonly lens?: LensFrame | null
 }
 
 export type LabelMode = 'visible' | 'all' | 'none'

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { densityBundling } from './bundling'
-import { defineGraph, type EdgeBundling, edges, type Hull, hull, type Mark, nodes } from './index'
+import {
+  defineGraph,
+  type EdgeBundling,
+  edges,
+  type Hull,
+  hull,
+  type LensOptions,
+  type Mark,
+  nodes,
+} from './index'
 
 const items = [{ id: 'a' }, { id: 'b' }]
 const links = [{ id: 'ab', from: 'a', to: 'b' }]
@@ -23,7 +32,18 @@ describe('defineGraph', () => {
       lasso: false,
       keyboard: true,
       fold: true,
+      lens: { radius: 120, zoom: 3, key: null },
     })
+  })
+
+  it('resolves lens options', () => {
+    const lens = (option: boolean | LensOptions) =>
+      defineGraph({ marks: [], interaction: { lens: option } }).interaction.lens
+    expect(lens(true)).toEqual({ radius: 120, zoom: 3, key: 'Alt' })
+    expect(lens({ radius: 80, zoom: 4, key: 'z' })).toEqual({ radius: 80, zoom: 4, key: 'z' })
+    expect(lens({ key: null }).key).toBeNull()
+    expect(() => lens({ radius: 0 })).toThrow(RangeError)
+    expect(() => lens({ zoom: 0.5 })).toThrow(RangeError)
   })
 
   it('resolves zoom options', () => {

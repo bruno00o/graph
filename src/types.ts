@@ -565,6 +565,12 @@ export interface StateStyle {
    * per second, or `false` to stop them. Edges only.
    */
   readonly flow?: boolean | number
+  /**
+   * Draws the members again above every mark, as selected and hovered elements are, and places
+   * their labels before the others. An element is raised when any of its states raises it. Defaults
+   * to `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
+   */
+  readonly raise?: boolean
 }
 
 /** How clicks select: one element, several with a modifier key, or nothing. */
@@ -630,6 +636,43 @@ export interface InteractionOptions {
    * @default true
    */
   readonly fold?: boolean
+  /**
+   * Magnifying lens. `true` or `LensOptions` shows it under the pointer while its key is held, and
+   * sets the radius and magnification that `lens.set` starts from. With `false`, only `lens.set`
+   * shows it.
+   * @default false
+   */
+  readonly lens?: boolean | LensOptions
+}
+
+/** Options of the magnifying lens, in `interaction.lens`. */
+export interface LensOptions {
+  /**
+   * Radius of the lens, in screen pixels.
+   * @default 120
+   */
+  readonly radius?: number
+  /**
+   * Magnification inside the lens, relative to the view zoom, at least 1.
+   * @default 3
+   */
+  readonly zoom?: number
+  /**
+   * Key that shows the lens while held, as a `KeyboardEvent.key` value, or `null` to show it from
+   * code only. The lens follows the pointer over the graph, otherwise the focused node.
+   * @default 'Alt'
+   */
+  readonly key?: string | null
+}
+
+/** Lens options with every default applied. */
+export interface ResolvedLens {
+  /** Radius, in screen pixels. */
+  readonly radius: number
+  /** Magnification relative to the view zoom. */
+  readonly zoom: number
+  /** Key that shows the lens while held, or `null`. */
+  readonly key: string | null
 }
 
 /** Interaction options with every default applied, as `defineGraph` resolves them. */
@@ -652,6 +695,8 @@ export interface ResolvedInteraction {
   readonly keyboard: boolean
   /** Whether double-click and Enter fold and unfold groups. */
   readonly fold: boolean
+  /** Radius, magnification and key of the lens; the key is `null` when the lens is off. */
+  readonly lens: ResolvedLens
 }
 
 /**
