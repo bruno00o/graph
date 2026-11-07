@@ -13,6 +13,7 @@ export interface Route {
   readonly id: string
   readonly from: string
   readonly to: string
+  readonly far: boolean
 }
 
 const anchors: ReadonlyArray<readonly [number, number]> = [
@@ -124,8 +125,16 @@ export function createPlaces(
       for (const other of nearest) {
         const [from, to] = place.id < other.id ? [place, other] : [other, place]
         const id = `${from.id}-${to.id}`
-        if (!routes.some((route) => route.id === id)) routes.push({ id, from: from.id, to: to.id })
+        if (!routes.some((route) => route.id === id)) {
+          routes.push({ id, from: from.id, to: to.id, far: false })
+        }
       }
+    }
+    for (let index = 0; index < places.length; index += 4) {
+      const from = places[index]
+      const to = places[(index + Math.floor(places.length / 2)) % places.length]
+      if (from && to)
+        routes.push({ id: `${from.id}-${to.id}-far`, from: from.id, to: to.id, far: true })
     }
     return { places, routes }
   }
@@ -135,7 +144,7 @@ export function createPlaces(
     const pool = members[local ? (homes[source] ?? 0) : Math.floor(next() * anchors.length)] ?? []
     const target = pool[Math.floor(next() * pool.length)]
     if (target === undefined || target === source) continue
-    routes.push({ id: `r${index}`, from: `p${source}`, to: `p${target}` })
+    routes.push({ id: `r${index}`, from: `p${source}`, to: `p${target}`, far: !local })
   }
   return { places, routes }
 }

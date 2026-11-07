@@ -64,6 +64,7 @@ export interface CompiledEdgeMark {
   readonly time: Read | null
   readonly flow: Read | null
   readonly bundle: Read | null
+  readonly geodesic: Read | null
 }
 
 function channel(value: string | Read | undefined): Read | null {
@@ -163,6 +164,7 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     time: channel(options.time),
     flow: style(options.flow),
     bundle: style(options.bundle),
+    geodesic: style(options.geodesic),
   }
   edgeCache.set(mark, compiled)
   return compiled

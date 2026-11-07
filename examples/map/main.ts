@@ -1,4 +1,4 @@
-import { type Badge, defineGraph, edges, nodes } from '@bruno00o/graph'
+import { type Badge, defineGraph, edges, hull, nodes } from '@bruno00o/graph'
 import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -13,36 +13,48 @@ const counts = [placeCount, 10_000, 100_000]
 const count = Number(params.get('nodes') ?? placeCount)
 const edgeCount = Number(params.get('edges') ?? count * 2)
 const style = params.get('style') ?? 'https://demotiles.maplibre.org/style.json'
+const projection = params.get('projection') === 'mercator' ? 'mercator' : 'globe'
 const { places, routes } = createPlaces(count, edgeCount)
 const small = count <= placeCount
 
-const definition = defineGraph({
-  marks: [
-    edges<Route>(routes, { source: 'from', target: 'to', width: () => (small ? 2 : 1) }),
-    nodes<Place>(places, {
-      longitude: 'longitude',
-      latitude: 'latitude',
-      color: 'group',
-      size: (place) => (small ? 10 + place.weight / 8 : 4 + place.weight / 10),
-      label: { text: 'label', background: small },
-      badges: {
-        topRight: (place): Badge | null =>
-          small && place.weight > 90 ? { text: String(place.weight) } : null,
-      },
-    }),
-  ],
-  states: { muted: { opacity: 0.2, label: false }, active: { flow: true } },
-  interaction: { lasso: true },
-})
+function definitionOf(geodesic: boolean) {
+  return defineGraph({
+    marks: [
+      edges<Route>(routes, {
+        source: 'from',
+        target: 'to',
+        width: (route) => (small ? (route.far ? 1.5 : 2) : 1),
+        geodesic: (route) => geodesic && route.far,
+        dash: (route) => (route.far ? 'dashed' : 'solid'),
+        arrow: (route) => (small && route.far ? 'target' : 'none'),
+      }),
+      nodes<Place>(places, {
+        longitude: 'longitude',
+        latitude: 'latitude',
+        color: 'group',
+        size: (place) => (small ? 10 + place.weight / 8 : 4 + place.weight / 10),
+        label: { text: 'label', background: small },
+        badges: {
+          topRight: (place): Badge | null =>
+            small && place.weight > 90 ? { text: String(place.weight) } : null,
+        },
+      }),
+    ],
+    states: { muted: { opacity: 0.2, label: false }, active: { flow: true } },
+    hulls: [hull({ state: 'selected', color: 'var(--graph-accent)', padding: 12 })],
+    interaction: { lasso: true },
+  })
+}
 
 const { header, main } = createPage(messages.map)
 const container = document.createElement('div')
 container.style.cssText = 'position:absolute;inset:0'
 main.append(container)
 
-const map = new MapLibreMap({ container, style, center: [10, 48], zoom: small ? 3.2 : 2.5 })
+const map = new MapLibreMap({ container, style, center: [10, 48], zoom: small ? 2 : 1.6 })
+map.on('style.load', () => map.setProjection({ type: projection }))
 const graph = mountMapGraph(map, {
-  definition,
+  definition: definitionOf(true),
   ariaLabel: messages.mapLabel(places.length, routes.length),
 })
 
@@ -92,6 +104,28 @@ const exporting = button(messages.exportPng, () => {
 header.append(
   hovered,
   selection,
+  choice(
+    messages.projection,
+    (['globe', 'mercator'] as const).map((value) => ({
+      value,
+      text: messages.projections[value],
+    })),
+    projection,
+    (value) => {
+      map.setProjection({ type: value })
+      params.set('projection', value)
+      history.replaceState(null, '', `?${params}`)
+    },
+  ),
+  choice(
+    messages.farRoutes,
+    (['geodesic', 'straight'] as const).map((value) => ({
+      value,
+      text: messages.farRouteModes[value],
+    })),
+    'geodesic',
+    (value) => graph.update({ definition: definitionOf(value === 'geodesic') }),
+  ),
   choice(
     messages.volume,
     counts.map((value) => ({ value: String(value), text: messages.places(value) })),

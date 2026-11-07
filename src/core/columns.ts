@@ -169,6 +169,7 @@ export class EdgeColumns {
   flow: Float32Array = new Float32Array(0)
   flowCount = 0
   bundle: Uint8Array = new Uint8Array(0)
+  geodesic: Uint8Array = new Uint8Array(0)
   label: (string | null)[] = []
   labelBackground: Uint32Array = new Uint32Array(0)
   labelColor: Uint32Array = new Uint32Array(0)
@@ -196,6 +197,7 @@ export class EdgeColumns {
     this.bend = grow(this.bend, capacity)
     this.flow = grow(this.flow, capacity)
     this.bundle = grow(this.bundle, capacity)
+    this.geodesic = grow(this.geodesic, capacity)
     this.labelBackground = growColor(this.labelBackground, capacity)
     this.labelColor = growColor(this.labelColor, capacity)
     this.labelSize = grow(this.labelSize, capacity)
@@ -209,6 +211,7 @@ export class EdgeColumns {
     this.alive[index] = 0
     this.bend[index] = 0
     this.bundle[index] = 0
+    this.geodesic[index] = 0
     this.zoom.clear(index)
     this.time.clear(index)
     this.setFlow(index, 0)

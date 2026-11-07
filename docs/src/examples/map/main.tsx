@@ -1,4 +1,4 @@
-import { type Badge, defineGraph, edges, type GraphInstance, nodes } from '@bruno00o/graph'
+import { type Badge, defineGraph, edges, type GraphInstance, hull, nodes } from '@bruno00o/graph'
 import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -22,7 +22,10 @@ interface Route {
   readonly id: string
   readonly from: string
   readonly to: string
+  readonly far: boolean
 }
+
+type Projection = 'globe' | 'mercator'
 
 const coordinates: ReadonlyArray<readonly [number, number]> = [
   [2.35, 48.86],
@@ -52,7 +55,14 @@ const coordinates: ReadonlyArray<readonly [number, number]> = [
   [9.19, 45.46],
   [11.58, 48.14],
   [2.17, 41.39],
+  [-74.01, 40.71],
+  [-46.63, -23.55],
+  [77.21, 28.61],
+  [139.69, 35.69],
+  [151.21, -33.87],
 ]
+
+const nearby = 27
 
 const places: Place[] = coordinates.map(([longitude, latitude], index) => ({
   id: `p${index}`,
@@ -69,35 +79,52 @@ function distance(a: Place, b: Place): number {
 }
 
 const routes: Route[] = []
-for (const place of places) {
+for (const place of places.slice(0, nearby)) {
   const nearest = places
+    .slice(0, nearby)
     .filter((other) => other !== place)
     .sort((a, b) => distance(place, a) - distance(place, b))
     .slice(0, 2)
   for (const other of nearest) {
     const [from, to] = place.id < other.id ? [place, other] : [other, place]
     const id = `${from.id}-${to.id}`
-    if (!routes.some((route) => route.id === id)) routes.push({ id, from: from.id, to: to.id })
+    if (!routes.some((route) => route.id === id)) {
+      routes.push({ id, from: from.id, to: to.id, far: false })
+    }
   }
 }
+for (const [index, place] of places.slice(nearby).entries()) {
+  const hub = places[index * 5]
+  if (hub) routes.push({ id: `${hub.id}-${place.id}`, from: hub.id, to: place.id, far: true })
+}
 
-const definition = defineGraph({
-  marks: [
-    edges<Route>(routes, { source: 'from', target: 'to', width: () => 2 }),
-    nodes<Place>(places, {
-      longitude: 'longitude',
-      latitude: 'latitude',
-      color: 'group',
-      size: (place) => 10 + place.weight / 8,
-      label: { text: 'label', background: true },
-      badges: {
-        topRight: (place): Badge | null => (place.weight > 90 ? { text: place.weight } : null),
-      },
-    }),
-  ],
-  states: { active: { flow: true } },
-  interaction: { lasso: true },
-})
+function definitionOf(geodesic: boolean) {
+  return defineGraph({
+    marks: [
+      edges<Route>(routes, {
+        source: 'from',
+        target: 'to',
+        width: (route) => (route.far ? 1.5 : 2),
+        geodesic: (route) => geodesic && route.far,
+        dash: (route) => (route.far ? 'dashed' : 'solid'),
+        arrow: (route) => (route.far ? 'target' : 'none'),
+      }),
+      nodes<Place>(places, {
+        longitude: 'longitude',
+        latitude: 'latitude',
+        color: 'group',
+        size: (place) => 10 + place.weight / 8,
+        label: { text: 'label', background: true },
+        badges: {
+          topRight: (place): Badge | null => (place.weight > 90 ? { text: place.weight } : null),
+        },
+      }),
+    ],
+    states: { active: { flow: true } },
+    hulls: [hull({ state: 'selected', color: 'var(--graph-accent)', padding: 12 })],
+    interaction: { lasso: true },
+  })
+}
 
 function assign(ref: Ref<GraphInstance | null>, value: GraphInstance | null): void {
   if (typeof ref === 'function') ref(value)
@@ -116,18 +143,26 @@ function download(blob: Blob, name: string): void {
 export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
   const host = useRef<HTMLDivElement>(null)
   const graph = useRef<GraphInstance | null>(null)
+  const map = useRef<MapLibreMap | null>(null)
   const [status, setStatus] = useState('')
+  const [projection, setProjection] = useState<Projection>('globe')
+  const [geodesic, setGeodesic] = useState(true)
 
   useLayoutEffect(() => {
     const container = host.current
     if (!container) return
-    const map = new MapLibreMap({
+    const created = new MapLibreMap({
       container,
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [12, 50],
-      zoom: 3,
+      center: [30, 35],
+      zoom: 1.4,
     })
-    const mounted = mountMapGraph(map, { definition, ariaLabel: messages.mapLabel(places.length) })
+    created.on('style.load', () => created.setProjection({ type: 'globe' }))
+    const mounted = mountMapGraph(created, {
+      definition: definitionOf(true),
+      ariaLabel: messages.mapLabel(places.length),
+    })
+    map.current = created
     graph.current = mounted
     assign(ref, mounted)
     mounted.on('pointerenter', ({ target }) => {
@@ -144,11 +179,23 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     })
     return () => {
       mounted.destroy()
-      map.remove()
+      created.remove()
+      map.current = null
       graph.current = null
       assign(ref, null)
     }
   }, [ref])
+
+  const project = () => {
+    const next = projection === 'globe' ? 'mercator' : 'globe'
+    map.current?.setProjection({ type: next })
+    setProjection(next)
+  }
+
+  const route = () => {
+    graph.current?.update({ definition: definitionOf(!geodesic) })
+    setGeodesic(!geodesic)
+  }
 
   const save = () => {
     const current = graph.current
@@ -164,6 +211,12 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     <div className="example-graph">
       <div ref={host} style={{ position: 'absolute', inset: 0 }} />
       <div className="example-actions">
+        <button className="example-button" type="button" onClick={project}>
+          {messages.projection(messages.projections[projection])}
+        </button>
+        <button className="example-button" type="button" onClick={route}>
+          {messages.farRoutes(messages.farRouteModes[geodesic ? 'geodesic' : 'straight'])}
+        </button>
         <button className="example-button" type="button" onClick={save}>
           {messages.downloadPng}
         </button>

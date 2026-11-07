@@ -142,6 +142,10 @@ export const messages = {
   mapHint:
     'Maj\u00a0+\u00a0glisser entoure des lieux, la carte se déplace et zoome comme d’habitude.',
   place: (index: string): string => `Lieu ${index}`,
+  projection: 'Projection',
+  projections: { globe: 'Globe', mercator: 'Carte plane' },
+  farRoutes: 'Liaisons lointaines',
+  farRouteModes: { geodesic: 'Grands cercles', straight: 'Lignes droites' },
   volume: 'Volume',
   places: (count: number): string => `${formatNumber(count)} ${plural(count, 'lieu', 'lieux')}`,
   exporting: 'Export en cours…',

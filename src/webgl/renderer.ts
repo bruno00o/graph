@@ -1,12 +1,16 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
+import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
+import type { GlobeCamera } from '../core/globe'
 import { maxStates, noPaint } from '../core/state-buffers'
 import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
 import type { ZoomRanges } from '../core/zoom-range'
 import type { ResolvedTheme } from '../dom/theme'
 import type { LabelArea, LensFrame, Renderer, RenderFrame, RenderInput } from '../host/renderer'
 import type { View } from '../types'
+import { arcVertex } from './arc-shaders'
 import { createBackdrop } from './backdrop'
 import { bundleUnits, createBundlePass } from './bundle-pass'
+import { bundleCorners } from './bundle-shaders'
 import { EdgeCover, layerCap } from './edge-cover'
 import {
   type Attribute,
@@ -25,17 +29,18 @@ import {
   LabelLayer,
   LabelPlan,
   sortBySize,
+  sortDescending,
   sortEdgesByWidth,
 } from './label-layer'
 import {
   badgeFragment,
   badgeVertex,
+  clippedEdgeFragment,
   cornerCurve,
   cornerEdge,
   cornerLabel,
   cornerNode,
   curveVertex,
-  edgeFragment,
   edgeVertex,
   labelFragment,
   labelVertex,
@@ -80,6 +85,8 @@ const units = {
   edgeTime: 17,
 } as const
 const farZoom = 3e38
+const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+const noPlane = [0, 0, 0, 1]
 
 interface LabelSet {
   readonly layer: LabelLayer
@@ -233,7 +240,7 @@ function createRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
   }
 
-  const frameBlock = new Float32Array(36)
+  const frameBlock = new Float32Array(68)
   const frameBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -247,7 +254,7 @@ function createRenderer(
   let highlightVersion = -1
 
   const nodeProgram = createProgram(gl, nodeVertex, nodeFragment, blocks)
-  const edgeProgram = createProgram(gl, edgeVertex, edgeFragment, blocks)
+  const edgeProgram = createProgram(gl, edgeVertex, clippedEdgeFragment, blocks)
   const labelProgram = createProgram(gl, labelVertex, labelFragment, blocks)
   const badgeProgram = createProgram(gl, badgeVertex, badgeFragment, blocks)
   const programs = [nodeProgram, edgeProgram, labelProgram, badgeProgram]
@@ -258,8 +265,10 @@ function createRenderer(
       readonly overlay: WebGLUniformLocation | null
       readonly flowTime: WebGLUniformLocation | null
       readonly bundleMix: WebGLUniformLocation | null
+      readonly arcPiece: WebGLUniformLocation | null
     }
   >()
+  let arcPiece = 0
   let flowTime = 0
   function prepare(program: WebGLProgram): void {
     gl.useProgram(program)
@@ -272,6 +281,7 @@ function createRenderer(
       overlay: gl.getUniformLocation(program, 'overlay'),
       flowTime: gl.getUniformLocation(program, 'flowTime'),
       bundleMix: gl.getUniformLocation(program, 'bundleMix'),
+      arcPiece: gl.getUniformLocation(program, 'arcPiece'),
     })
   }
   for (const program of programs) prepare(program)
@@ -437,6 +447,81 @@ function createRenderer(
   ])
   let warmed = false
   const bundles = createBundlePass(gl, blocks, prepare, edgeOverlayIndices)
+  const arcCorner = createBuffer(gl, bundleCorners(arcStations), gl.STATIC_DRAW)
+  const geodesicIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const spanIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
+  buffers.push(arcCorner, geodesicIndices, spanIndices)
+  let arcPass: {
+    readonly program: WebGLProgram
+    readonly geodesic: WebGLVertexArrayObject
+    readonly spans: WebGLVertexArrayObject
+    readonly overlay: WebGLVertexArrayObject
+  } | null = null
+  let spanOrder = new Uint32Array(0)
+  let spanValues = new Float32Array(0)
+  let spanSorted = new Float32Array(0)
+  let spanLength = 0
+  let spansStale = true
+
+  function sortSpans(): void {
+    spansStale = false
+    const scene = input?.scene
+    const positions = input?.positions
+    if (!scene || !positions) return
+    const edges = scene.edges
+    if (spanValues.length < edges.capacity) {
+      spanValues = new Float32Array(edges.capacity)
+      spanOrder = new Uint32Array(edges.capacity)
+    }
+    spanLength = 0
+    for (let index = 0; index < edges.capacity; index++) {
+      const source = edges.source[index] ?? 0
+      const target = edges.target[index] ?? 0
+      if (edges.alive[index] !== 1 || source === target || edges.geodesic[index] === 1) continue
+      const ax = positions.x(source)
+      const ay = positions.y(source)
+      const dx = positions.x(target)
+      const dy = positions.y(target)
+      const span = Math.hypot(dx - ax, dy - ay) * Math.cos(latitudeOf((ay + dy) / 2))
+      if (!(span > 0)) continue
+      spanValues[index] = span
+      spanOrder[spanLength++] = index
+    }
+    sortDescending(spanOrder, spanLength, spanValues)
+    if (spanSorted.length < spanLength) spanSorted = new Float32Array(spanOrder.length)
+    for (let at = 0; at < spanLength; at++) spanSorted[at] = spanValues[spanOrder[at] ?? 0] ?? 0
+    gl.bindBuffer(gl.ARRAY_BUFFER, spanIndices)
+    gl.bufferData(gl.ARRAY_BUFFER, spanOrder.subarray(0, spanLength), gl.DYNAMIC_DRAW)
+  }
+
+  function spanCount(threshold: number): number {
+    if (spansStale) sortSpans()
+    let low = 0
+    let high = spanLength
+    while (low < high) {
+      const middle = (low + high) >>> 1
+      if ((spanSorted[middle] ?? 0) > threshold) low = middle + 1
+      else high = middle
+    }
+    return low
+  }
+
+  function arcs(): NonNullable<typeof arcPass> {
+    if (arcPass) return arcPass
+    const program = createProgram(gl, arcVertex, clippedEdgeFragment, blocks)
+    prepare(program)
+    programs.push(program)
+    vertexCounts.set(program, arcStations * 2)
+    const strip = corner(arcCorner)
+    arcPass = {
+      program,
+      geodesic: createVertexArray(gl, program, [strip, instance(geodesicIndices)]),
+      spans: createVertexArray(gl, program, [strip, instance(spanIndices)]),
+      overlay: createVertexArray(gl, program, [strip, instance(edgeOverlayIndices)]),
+    }
+    return arcPass
+  }
+
   let curvePass: {
     readonly program: WebGLProgram
     readonly main: WebGLVertexArrayObject
@@ -445,7 +530,7 @@ function createRenderer(
 
   function curves(): NonNullable<typeof curvePass> {
     if (curvePass) return curvePass
-    const program = createProgram(gl, curveVertex, edgeFragment, blocks)
+    const program = createProgram(gl, curveVertex, clippedEdgeFragment, blocks)
     prepare(program)
     programs.push(program)
     vertexCounts.set(program, cornerCurve.length / 3)
@@ -469,6 +554,8 @@ function createRenderer(
   const curved = new Set<number>()
   let curvedFlags = new Uint8Array(0)
   let curvedChanged = false
+  const geodesics = new Set<number>()
+  let geodesicChanged = false
   let input: RenderInput | null = null
   const atlas = new GlyphAtlas('system-ui, sans-serif')
   const mainLabels = createLabelSet()
@@ -652,7 +739,8 @@ function createRenderer(
       (edges.dash[index] ?? 0) |
       ((edges.arrow[index] ?? 0) << 2) |
       ((edges.alive[index] ?? 0) << 4) |
-      ((edges.slot[index] ?? 0) << 5)
+      ((edges.geodesic[index] ?? 0) << 5) |
+      ((edges.slot[index] ?? 0) << 6)
     edgeStyle.data[at] = edges.width[index] ?? 0
     edgeStyle.data[at + 1] = edges.opacity[index] ?? 1
     const bend = edges.bend[index] ?? 0
@@ -663,6 +751,12 @@ function createRenderer(
     }
     const isCurved =
       edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
+    const isGeodesic = edges.alive[index] === 1 && edges.geodesic[index] === 1
+    if (isGeodesic !== geodesics.has(index)) {
+      if (isGeodesic) geodesics.add(index)
+      else geodesics.delete(index)
+      geodesicChanged = true
+    }
     if (isCurved !== (curvedFlags[index] === 1)) {
       curvedFlags[index] = isCurved ? 1 : 0
       if (isCurved) curved.add(index)
@@ -852,6 +946,11 @@ function createRenderer(
       gl.bindBuffer(gl.ARRAY_BUFFER, curveIndices)
       gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(curved), gl.DYNAMIC_DRAW)
     }
+    if (geodesicChanged) {
+      geodesicChanged = false
+      gl.bindBuffer(gl.ARRAY_BUFFER, geodesicIndices)
+      gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(geodesics), gl.DYNAMIC_DRAW)
+    }
     const states = next.states
     const range = states.edgeDirty.take()
     if (next.full || grown) {
@@ -865,6 +964,7 @@ function createRenderer(
       touch()
     }
     if (next.dirty.edges.size > 0 || next.full) edgeOrderStale = true
+    if (next.dirty.edges.size > 0 || next.full || next.positionsChanged) spansStale = true
   }
 
   function syncStates(next: RenderInput): void {
@@ -934,7 +1034,7 @@ function createRenderer(
 
   function selectLabels(set: LabelSet, frame: LabelArea, now: number): number {
     if (!input) return -1
-    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode},${timeWindow?.serial ?? 0}`
+    const key = `${frame.view.x},${frame.view.y},${frame.view.zoom},${frame.width},${frame.height},${frame.mode},${timeWindow?.serial ?? 0},${frame.globe?.mix ?? 0}`
     if (!set.stale && !set.moved && key === set.view) return -1
     const wait = labelInterval - (now - set.time)
     if (!set.stale && wait > 0) return wait
@@ -985,6 +1085,7 @@ function createRenderer(
         largestEdgeLabel,
         mode: frame.mode,
         paths: input.bundles ?? null,
+        globe: frame.globe && frame.globe.mix > 0 ? frame.globe : null,
       },
       atlas,
     )
@@ -1064,6 +1165,7 @@ function createRenderer(
     gl.uniform1i(location?.overlay ?? null, overlay)
     if (location?.flowTime) gl.uniform1f(location.flowTime, flowTime)
     if (location?.bundleMix) gl.uniform1f(location.bundleMix, bundles.mix)
+    if (location?.arcPiece) gl.uniform1f(location.arcPiece, arcPiece)
     gl.bindVertexArray(vao)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, count)
   }
@@ -1089,7 +1191,14 @@ function createRenderer(
     warmed = true
   }
 
-  function writeFrame(view: View, width: number, height: number, pixelRatio: number, all: boolean) {
+  function writeFrame(
+    view: View,
+    width: number,
+    height: number,
+    pixelRatio: number,
+    all: boolean,
+    globe: GlobeCamera | null,
+  ) {
     const viewX = view.x - originX
     const viewY = view.y - originY
     const centerX = Math.fround(viewX)
@@ -1115,12 +1224,41 @@ function createRenderer(
     frameBlock[32] = timed ? 1 : 0
     frameBlock[33] = timeWindow?.fade ?? 0
     frameBlock[34] = timeWindow?.point ? 1 : 0
+    frameBlock.set(globe ? globe.matrix : identity, 36)
+    frameBlock.set(globe ? globe.plane : noPlane, 52)
+    frameBlock[56] = globe ? (globe.view.x - view.x) * view.zoom + (width - globe.width) / 2 : 0
+    frameBlock[57] = globe ? (globe.view.y - view.y) * view.zoom + (height - globe.height) / 2 : 0
+    frameBlock[58] = globe?.width ?? width
+    frameBlock[59] = globe?.height ?? height
+    frameBlock[60] = originX
+    frameBlock[61] = originY
+    frameBlock[62] = globe?.mix ?? 0
+    frameBlock[63] = globe?.depth ?? 1
+    frameBlock[64] = globe?.scale ?? view.zoom
+    frameBlock[65] = globe ? Math.min(arcSpan(globe), 3e38) : 3e38
     gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
   }
 
+  function drawGeodesics(
+    vao: WebGLVertexArrayObject,
+    count: number,
+    slot: number,
+    overlay: number,
+    globe: GlobeCamera | null,
+  ): void {
+    const program = arcs().program
+    draw(program, vao, count, slot, overlay)
+    if (globe) return
+    arcPiece = 1
+    draw(program, vao, count, slot, overlay)
+    arcPiece = 0
+  }
+
   function drawScene(frame: RenderFrame, set: LabelSet, all: boolean): void {
-    writeFrame(frame.view, frame.width, frame.height, frame.pixelRatio, all)
+    const globe = frame.globe && frame.globe.mix > 0 ? frame.globe : null
+    writeFrame(frame.view, frame.width, frame.height, frame.pixelRatio, all, globe)
+    const spans = globe ? spanCount(arcSpan(globe) * 0.9) : 0
     let stencilClean = false
     const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom) : 0
     backdrop.drawGrid(frame)
@@ -1146,6 +1284,8 @@ function createRenderer(
         bundles.draw((program, vao, count, vertices) =>
           draw(program, vao, count, layer.slot, 0, vertices),
         )
+        if (spans > 0) draw(arcs().program, arcs().spans, spans, layer.slot, 0)
+        if (geodesics.size > 0) drawGeodesics(arcs().geodesic, geodesics.size, layer.slot, 0, globe)
         if (edgeLayers > 0) gl.disable(gl.STENCIL_TEST)
       } else {
         draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
@@ -1164,6 +1304,9 @@ function createRenderer(
     bundles.overlay(edgeOverlayCount, (program, vao, count, vertices) =>
       draw(program, vao, count, 0, 1, vertices),
     )
+    if (globe || geodesics.size > 0) {
+      drawGeodesics(arcs().overlay, edgeOverlayCount, 0, 1, globe)
+    }
     draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
     if (nodeOverlayCount > 0) {
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
@@ -1445,6 +1588,11 @@ function createRenderer(
       if (curvePass) {
         gl.deleteVertexArray(curvePass.main)
         gl.deleteVertexArray(curvePass.overlay)
+      }
+      if (arcPass) {
+        gl.deleteVertexArray(arcPass.geodesic)
+        gl.deleteVertexArray(arcPass.spans)
+        gl.deleteVertexArray(arcPass.overlay)
       }
       if (lensPass) {
         gl.deleteVertexArray(lensPass.vao)

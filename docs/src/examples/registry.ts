@@ -237,8 +237,8 @@ export const examples: readonly ExampleEntry[] = [
     slug: 'map',
     title: 'Graph on a map',
     description:
-      'Places drawn by longitude and latitude inside a MapLibre map, in the same WebGL context. The map pans and zooms; the graph handles hover, selection, the lasso and node drags. The PNG export draws the map, the graph and the attribution.',
-    hint: 'Drag the map to pan, scroll to zoom. Click a place to animate its routes, Shift and drag to draw a lasso.',
+      'Places drawn by longitude and latitude inside a MapLibre map, in the same WebGL context, on the globe or on a flat map. Long routes follow great circles, and a hull encloses the selection. The map pans and zooms; the graph handles hover, selection, the lasso and node drags. The PNG export draws the map, the graph and the attribution.',
+    hint: 'Drag the map to turn the globe, scroll to zoom. Click a place to animate its routes, Shift and drag to draw a lasso.',
     tags: ['React'],
     modules: ['@bruno00o/graph', '@bruno00o/graph/map', 'maplibre-gl'],
     files: ['map/main.tsx', 'shared/messages.ts', 'shared/overlays.css'],

@@ -25,6 +25,7 @@ export class ContainerBoxes implements ContainerFrame {
     positions: Positions,
     scene: number,
     zoom: number,
+    screenPadding = false,
   ): boolean {
     const reordered = structure !== this.#structure
     if (
@@ -44,7 +45,9 @@ export class ContainerBoxes implements ContainerFrame {
       boxes.set(this.boxes.subarray(0, Math.min(this.boxes.length, boxes.length)))
       this.boxes = boxes
     }
-    if (this.count > 0 || reordered) this.#measure(hierarchy, nodes, positions, zoom)
+    if (this.count > 0 || reordered) {
+      this.#measure(hierarchy, nodes, positions, zoom, screenPadding)
+    }
     this.#positions = positions.version
     this.version++
     return true
@@ -97,9 +100,15 @@ export class ContainerBoxes implements ContainerFrame {
     this.count = count
   }
 
-  #measure(hierarchy: Hierarchy, nodes: NodeColumns, positions: Positions, zoom: number): void {
+  #measure(
+    hierarchy: Hierarchy,
+    nodes: NodeColumns,
+    positions: Positions,
+    zoom: number,
+    screenPadding: boolean,
+  ): void {
     const boxes = this.boxes
-    let screenUnits = false
+    let screenUnits = screenPadding
     const radius = (index: number): number => {
       const size = (nodes.size[index] ?? 0) / 2
       if (nodes.screenUnits[index] !== 1) return size
@@ -132,7 +141,7 @@ export class ContainerBoxes implements ContainerFrame {
         minX = maxX = positions.x(index)
         minY = maxY = positions.y(index)
       }
-      const padding = nodes.padding[index] ?? 0
+      const padding = (nodes.padding[index] ?? 0) / (screenPadding ? zoom : 1)
       const x = (minX + maxX) / 2
       const y = (minY + maxY) / 2
       let halfWidth = (maxX - minX) / 2 + padding

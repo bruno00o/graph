@@ -360,7 +360,7 @@ export interface ContainerOptions<T> {
    */
   readonly shape?: Style<T, ContainerShape>
   /**
-   * Space between the children and the outline, in world units.
+   * Space between the children and the outline, in world units, or in pixels on a map.
    * @default 16
    */
   readonly padding?: Style<T, number>
@@ -461,6 +461,13 @@ export interface EdgeOptions<T, N extends MarkName = MarkName> {
    * @default true
    */
   readonly bundle?: Style<T, boolean>
+  /**
+   * Whether the edge follows the shortest path over the Earth, a great circle, between nodes placed
+   * by `longitude` and `latitude`, instead of a straight line on the flat map. Such an edge bends
+   * toward the poles on a flat map, is cut where it crosses the antimeridian and is never bundled.
+   * @default false
+   */
+  readonly geodesic?: Style<T, boolean>
   /**
    * Look of the edges drawn in place of the edges of this mark that end in a folded group, one per
    * pair of visible ends and direction.

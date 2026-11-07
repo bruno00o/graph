@@ -29,6 +29,25 @@ function setup(options: GraphDefinitionOptions) {
 const linkOptions = { source: 'from', target: 'to' } as const
 
 describe('createScene', () => {
+  it('marks great circle edges and keeps them out of bundles', () => {
+    const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    const links: Link[] = [
+      { id: 'ab', from: 'a', to: 'b', kind: 'route' },
+      { id: 'bc', from: 'b', to: 'c' },
+    ]
+    const { scene, model } = setup({
+      marks: [
+        nodes<Item>(items),
+        edges<Link>(links, { ...linkOptions, geodesic: (link) => link.kind === 'route' }),
+      ],
+    })
+    const at = (key: string) => model.edge(key)?.index ?? -1
+    expect(scene.edges.geodesic[at('ab')]).toBe(1)
+    expect(scene.edges.geodesic[at('bc')]).toBe(0)
+    expect(scene.edges.bundle[at('ab')]).toBe(0)
+    expect(scene.edges.bundle[at('bc')]).toBe(1)
+  })
+
   it('writes the flow speed of edges and counts the flowing ones', () => {
     const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
     const links: Link[] = [

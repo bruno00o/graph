@@ -25,7 +25,7 @@ void main() {
   bool highlighted = (mask & stateRaise.y) != 0u;
   uvec4 path = pathOf(instance);
   int count = int(path.y);
-  if ((packed & 16u) == 0u || count < 2 || (overlay == 0 && (int(packed >> 5u) != layerSlot || highlighted))) {
+  if ((packed & 16u) == 0u || count < 2 || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted))) {
     gl_Position = hidden;
     return;
   }
@@ -49,8 +49,8 @@ void main() {
   vec2 normal = vec2(-dir.y, dir.x);
   float total = pathLength(path) * zoom;
   float spacing = total / float(count - 1);
-  float start = nodeRadius(texelFetch(nodeStyle, s, 0));
-  float end = total - nodeRadius(texelFetch(nodeStyle, e, 0));
+  float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a));
+  float end = total - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d));
   float visible = end - start;
   float width = max(look.strokeWidth, 0.5);
   uint arrow = (packed >> 2u) & 3u;

@@ -1,5 +1,6 @@
 import type { GridInput } from '../core/background-grid'
 import type { EdgePaths } from '../core/edge-paths'
+import type { GlobeCamera } from '../core/globe'
 import type { Positions } from '../core/positions'
 import type { Scene, SceneDirty } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
@@ -49,6 +50,7 @@ export interface RenderFrame {
   readonly pixelRatio: number
   readonly labels?: LabelArea
   readonly time?: number
+  readonly globe?: GlobeCamera | null
   readonly window?: TimeFilter | null
   readonly lens?: LensFrame | null
 }
@@ -60,6 +62,7 @@ export interface LabelArea {
   readonly width: number
   readonly height: number
   readonly mode: LabelMode
+  readonly globe?: GlobeCamera | null
 }
 
 export interface RendererStats {
