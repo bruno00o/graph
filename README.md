@@ -168,6 +168,7 @@ The [`examples`](./examples) folder holds runnable examples: vanilla and React g
 
 - Issues and pull requests are welcome.
 - `pnpm verify` runs lint, types, tests, the build and package checks.
+- Add `?caps=low` to an example URL to run it as on the smallest WebGL2 device: minimum limits and no optional extension. `?caps=software` reports a software renderer, and `&texture=4096` lowers the largest texture size alone. In tests, `limitWebgl` from `src/testing/webgl-caps.ts` does the same and lists the textures the device would refuse.
 
 ## License
 

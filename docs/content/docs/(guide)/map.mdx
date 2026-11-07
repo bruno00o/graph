@@ -34,6 +34,8 @@ const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
 
 `mountMapGraph` takes any map, with any style, before or after its style loads. It adds a custom layer to the style and draws in the map's own WebGL context, on top of the style or under the layer named by `beforeId`, such as the place labels of the basemap. It returns the same [`GraphInstance`](/docs/api/graph-instance) as `mountGraph`: data updates, states, selection, events, anchors and the store work the same way. Call `graph.destroy()` before `map.remove()`.
 
+The layer comes back by itself after `setStyle`, and after the browser restores a lost WebGL context: MapLibre then warns that it cannot restore custom layers, and the graph adds its own back. See [Browser support](/docs/browser-support#context-loss).
+
 Node sizes are in screen pixels, so a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map, unless they follow [great circles](#great-circles).
 
 ## Globe

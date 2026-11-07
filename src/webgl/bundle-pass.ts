@@ -1,5 +1,6 @@
 import { type EdgePaths, maxPathPoints, pathClasses, pathTextureWidth } from '../core/edge-paths'
 import { bundleCorners, bundleVertexOf } from './bundle-shaders'
+import { warnLimit } from './caps'
 import { type Attribute, createBuffer, createProgram, createVertexArray } from './gl'
 import { edgeFragmentOf } from './shaders'
 
@@ -47,6 +48,7 @@ export function createBundlePass(
   blocks: Readonly<Record<string, number>>,
   prepare: (program: WebGLProgram, sources?: readonly [string, string]) => void,
   overlayIndices: WebGLBuffer,
+  maxRows: number = Number.POSITIVE_INFINITY,
 ): BundlePass {
   const variants: Array<Program | null> = [null, null]
   let shared: Shared | null = null
@@ -126,14 +128,16 @@ export function createBundlePass(
   ): void {
     gl.bindTexture(gl.TEXTURE_2D, target)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    const rows = data.length / channels / pathTextureWidth
-    gl.texImage2D(gl.TEXTURE_2D, 0, internal, pathTextureWidth, rows, 0, format, type, data)
+    const rows = Math.min(data.length / channels / pathTextureWidth, maxRows)
+    const sent = data.subarray(0, rows * pathTextureWidth * channels)
+    gl.texImage2D(gl.TEXTURE_2D, 0, internal, pathTextureWidth, rows, 0, format, type, sent)
   }
 
   function sort(paths: EdgePaths): void {
     const all = buffers().strips
     const lists = all.map(() => [] as number[])
-    for (let edge = 0; edge < paths.capacity; edge++) {
+    const last = Math.min(paths.capacity, maxRows * pathTextureWidth)
+    for (let edge = 0; edge < last; edge++) {
       const count = paths.info[edge * 4 + 1] ?? 0
       if (count < 2) continue
       const at = pathClasses.findIndex((stations) => stations >= count)
@@ -165,7 +169,11 @@ export function createBundlePass(
     },
 
     sync(paths) {
-      const next = paths && paths.bundled > 0 ? paths.mix : -1
+      const fits = !paths || paths.data.length / 4 / pathTextureWidth <= maxRows
+      if (!fits && paths.bundled > 0) {
+        warnLimit('paths', 'edge paths do not fit on this device, edges are drawn straight')
+      }
+      const next = paths && fits && paths.bundled > 0 ? paths.mix : -1
       let changed = next !== mix
       mix = next
       if (!paths || mix < 0) return changed

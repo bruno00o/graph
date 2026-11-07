@@ -177,6 +177,16 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
     if (!destroyed && !map.getLayer(id) && map.isStyleLoaded()) addLayer()
   }
 
+  function onContextLost(): void {
+    driver?.detach()
+  }
+
+  function onContextRestored(): void {
+    if (destroyed) return
+    if (map.getLayer(id)) map.removeLayer(id)
+    addWhenLoaded()
+  }
+
   const surface: HostSurface = {
     events: canvas,
     schedule: () => map.triggerRepaint(),
@@ -217,6 +227,8 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       surface.claim(false)
       map.off('style.load', addLayer)
       map.off('data', addWhenLoaded)
+      map.off('webglcontextlost', onContextLost)
+      map.off('webglcontextrestored', onContextRestored)
       graph.element.removeEventListener('keydown', keepKeys)
       if (map.getLayer(id)) map.removeLayer(id)
       driver = null
@@ -242,6 +254,8 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   graph.element.addEventListener('keydown', keepKeys)
   map.on('style.load', addLayer)
   map.on('data', addWhenLoaded)
+  map.on('webglcontextlost', onContextLost)
+  map.on('webglcontextrestored', onContextRestored)
   addWhenLoaded()
   return graph
 }
