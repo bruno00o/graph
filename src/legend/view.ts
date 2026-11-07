@@ -256,7 +256,7 @@ export function mountLegend<S extends string, M extends Mark>(
   function scaleSections(name: 'color' | 'size' | 'width', state: LegendState<M>): HTMLElement[] {
     const blocks = [
       name === 'color' ? colorSection(state.color) : sizeSection(name, state[name]),
-      ...(state.marks as readonly LegendScalesOf<M>[]).map((mark) =>
+      ...state.marks.map((mark) =>
         name === 'color' ? colorSection(mark.color, mark) : sizeSection(name, mark[name], mark),
       ),
     ]
