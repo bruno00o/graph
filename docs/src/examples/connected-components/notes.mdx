@@ -1,0 +1,10 @@
+## How it works
+
+Before mounting, `createPathFinder` searches the same arrays without a graph. Each `reach` from a node not yet seen returns a whole component, so one pass over the nodes numbers them all. The finder is then destroyed.
+
+The eight largest components take the categorical colors, the others the plain node color. Edges take the color of their source. On `click`, `graph.paths.reach(key)` returns the component of the node, which is selected and framed.
+
+## Try it
+
+- Click a node: its whole component is selected and framed.
+- Click the background, then try a small component at the edge.

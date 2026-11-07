@@ -1,0 +1,11 @@
+## How it works
+
+The example keeps its pins in a `Set`. Each time it changes, `graph.layout.run(undefined, { keys })` runs the force layout again on every node that is not pinned, so pinned nodes stay put and the others settle around them. A free state, `pinned`, outlines them.
+
+On `dragend`, the dragged nodes join the set. On `doubleclick`, a pinned node leaves it. When the first layout ends, `graph.positions.set` places the three largest nodes on a triangle and pins them.
+
+## Try it
+
+- Drag a node away: it stays where you drop it and the rest follows.
+- Drag a few more to shape the graph.
+- Double-click a pinned node to release it.

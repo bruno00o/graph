@@ -1,0 +1,11 @@
+## How it works
+
+The definition declares three free states: `near` with an accent outline and a label, `link` with an accent stroke, both raised, and `muted` with a low opacity.
+
+On `pointerenter`, a node asks `graph.paths.reach(key, { maxCost: 1 })` for itself, its neighbors and the edges between them. These go into `near` and `link`, everything else into `muted`. An edge keeps its two ends and itself. On `pointerleave`, `graph.states.clear()` brings the whole graph back.
+
+## Try it
+
+- Move the pointer over a node: its neighbors stay, the rest fades.
+- Move over an edge: only its two ends stay.
+- Leave the element: everything comes back.

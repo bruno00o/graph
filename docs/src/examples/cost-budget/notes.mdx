@@ -1,0 +1,11 @@
+## How it works
+
+Each edge has a `cost`, drawn as its width. `graph.paths.reach(key, { weight: 'cost', maxCost })` returns the nodes whose cheapest path from the selected node stays within the budget, with that cost in `costs`.
+
+The node color reads those costs through a function, and a sequential scale with a domain from 0 to the budget turns them into a gradient. Since the function reads new values, each change sends a new definition with `graph.update`. Nodes out of reach go into a free state, `muted`.
+
+## Try it
+
+- Click a node to start from it.
+- Move the slider to change the budget.
+- Notice how the reach spreads faster along thin, cheap edges.

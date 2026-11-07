@@ -1,0 +1,11 @@
+## How it works
+
+On `click`, a node reads its neighbors with `graph.paths.reach(key, { maxCost: 1 })`, and `graph.view.fit(keys, { padding, duration })` glides to the box around them. A click on the background fits the whole graph again with `graph.view.fit(undefined, { duration })`.
+
+When the first layout ends, the example zooms the same way on a node it selected, so the page opens close up. `view.maxZoom` keeps a lone node from filling the screen.
+
+## Try it
+
+- Click a node: the view glides to it and its neighbors.
+- Click another node in the frame to move from one neighborhood to the next.
+- Click the background to see the whole graph.

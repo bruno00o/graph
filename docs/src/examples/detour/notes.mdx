@@ -1,0 +1,11 @@
+## How it works
+
+The example keeps the blocked nodes in a `Set` and passes a predicate to the search: `graph.paths.shortest(start, end, { weight: 'cost', nodes: (item, key) => !blocked.has(key) })`. The search never enters a node the predicate refuses, so the path goes around it.
+
+Selection is off with `interaction: { select: false }`, and `click` toggles a node in the set. A free state, `blocked`, draws the blocked nodes, and `path` the result.
+
+## Try it
+
+- Click nodes on the path to block them: it takes another way.
+- Close the gap in the wall: no way is left.
+- Click a blocked node to open it again.

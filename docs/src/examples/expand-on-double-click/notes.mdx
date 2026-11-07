@@ -1,0 +1,11 @@
+## How it works
+
+The full graph lives outside the view. The example keeps the keys of the shown nodes in a `Set` and builds the definition from it: the shown nodes, and the edges whose two ends are shown. Each node carries a `topRight` badge with the number of its neighbors still hidden.
+
+On `doubleclick`, the node and its neighbors join the set, and `graph.update({ definition })` sends the new arrays. Only the new nodes are placed by the force layout, near their neighbors, while the others keep their places.
+
+## Try it
+
+- Double-click a node with a badge: its hidden neighbors appear around it.
+- Keep expanding from the new nodes.
+- Press **Start over** to go back to a single node.

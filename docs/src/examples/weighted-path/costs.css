@@ -1,0 +1,10 @@
+.example-cost {
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--graph-accent);
+  color: var(--graph-on-accent);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
