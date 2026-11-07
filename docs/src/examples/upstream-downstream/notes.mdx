@@ -2,7 +2,7 @@
 
 `graph.paths.reach(key, { direction: 'forward' })` follows the edges from source to target, so it returns everything the node leads to. With `direction: 'backward'`, the same search follows them from target to source and returns everything that leads to the node.
 
-Each result goes into its own free state, `downstream` or `upstream`, and the rest into `muted`. The layers layout puts sources at the top and targets below.
+Each result goes into its own free state, `downstream` or `upstream`, and both into a third, `traced`, whose `others` style fades the rest. The layers layout puts sources at the top and targets below.
 
 ## Try it
 

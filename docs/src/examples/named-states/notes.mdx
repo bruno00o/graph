@@ -1,11 +1,11 @@
 ## How it works
 
-`states` in the definition declares two states by name, each with the style its members take:
+`states` in the definition declares a state by name, `linked`, with two styles:
 
-- `linked` recolors the contour of nodes and the line of edges with `--graph-accent`, widens both to 2 pixels, shows the label and colors it.
-- `muted` multiplies the opacity by 0.3 and hides the label.
+- its members recolor the contour of nodes and the line of edges with `--graph-accent`, widen both to 2 pixels, show the label and color it;
+- `others`, the style of every element outside the state, multiplies the opacity by 0.3 and hides the label, as long as the state has a member.
 
-A state holds no data: the application decides who belongs to it. On `selectionchange`, `graph.paths.reach(key, { maxCost: 1 })` returns the selected node, its neighbors and the edges between them. They go to `linked` with `graph.states.set`, and every other key goes to `muted`. An empty selection clears both states.
+A state holds no data: the application decides who belongs to it. On `selectionchange`, `graph.paths.reach(key, { maxCost: 1 })` returns the selected node, its neighbors and the edges between them. They go to `linked` with `graph.states.set`, and the rest of the graph fades without a key to list. An empty selection clears the state, and the whole graph comes back.
 
 A free state is drawn in place, so the nodes of the faded graph cover the edges of the neighborhood. `raise: true` on `linked` draws its members again above every mark, as the selection is, and places their labels first. The button rebuilds the definition with `raise` on or off and passes it to `graph.update`. The marks are the same objects, so only the styles of the states change.
 
@@ -15,4 +15,4 @@ The selected node is in both `selected` and `linked`: each property comes from t
 
 - Click a node in another group: the neighborhood moves and the status counts it.
 - Switch to drawn in place, then zoom in: faded nodes now cover the accent edges.
-- Click the background to clear the selection and both states.
+- Click the background to clear the selection and the state.

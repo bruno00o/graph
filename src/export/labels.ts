@@ -68,6 +68,8 @@ export function selectLabels(
       labelFlags: states.labelFlags,
       highlighted: states.highlightedNodes,
       raise: states.nodeRaise,
+      others: states.others('nodes'),
+      always: states.alwaysNodes,
       order,
       orderLength: sorted.length,
       screenLabels: sorted.screenLabels,
@@ -77,6 +79,8 @@ export function selectLabels(
       edgeLabelFlags: states.edgeLabelFlags,
       highlightedEdges: states.highlightedEdges,
       edgeRaise: states.edgeRaise,
+      edgeOthers: states.others('edges'),
+      alwaysEdges: states.alwaysEdges,
       edgeOrder,
       edgeOrderLength: sortedEdges.length,
       largestEdgeLabel: sortedEdges.largest,
@@ -122,7 +126,6 @@ export function fitLabels(
   const { nodes, edges } = source
   const { view, width, height } = frame
   const zoom = view.zoom
-  const shrink = Math.min(1, zoom)
   const bounds: Box = {
     left: padding,
     top: padding,
@@ -134,8 +137,7 @@ export function fitLabels(
   const y = (index: number) => (source.positions.y(index) - view.y) * zoom + height / 2
   selectLabels(source, frame, mode, measure, {
     node: (index, label) => {
-      const pixels = label.size * (nodes.screenUnits[index] === 1 ? 1 : shrink)
-      const scale = pixels / atlasFontSize
+      const scale = label.pixels / atlasFontSize
       const [dx, dy] = placementDirections[label.placement] ?? [0, 1]
       const reach =
         label.placement === 4
@@ -150,7 +152,7 @@ export function fitLabels(
       grow(bounds, ox + local.right * scale, oy + local.bottom * scale)
     },
     edge: (index, label, anchor: Readonly<EdgeAnchor>) => {
-      const scale = (label.size * shrink) / atlasFontSize
+      const scale = label.pixels / atlasFontSize
       const width =
         label.end === 0 ? edges.width[index] : edges.ends?.width[index * 2 + label.end - 1]
       const lift = label.plate ? 0 : Math.max(width ?? 0, 0.5) / 2 + edgeLabelGap

@@ -16,7 +16,14 @@ import type { LabelMode } from '../host/renderer'
 import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
 import { lightTheme } from '../theme/tokens'
-import type { BridgeShape, GraphDefinitionOptions, Hull, Key, StateStyle } from '../types'
+import type {
+  BridgeShape,
+  GraphDefinitionOptions,
+  Hull,
+  Key,
+  StateLook,
+  StateStyle,
+} from '../types'
 import type { LineLayout } from '../webgl/glyph-atlas'
 import type { TextMeasure } from '../webgl/label-layer'
 import { type ExportFrame, exportFrame } from './frame'
@@ -123,18 +130,28 @@ function render(
   const names = Object.keys(setup.states ?? {})
   const highlightedNodes: number[] = []
   const highlightedEdges: number[] = []
+  const alwaysNodes: number[] = []
   names.forEach((name, bit) => {
     const style = setup.states?.[name] ?? {}
+    const look = (from: StateLook) => ({
+      ...(from.opacity !== undefined ? { opacity: from.opacity } : {}),
+      ...(from.strokeWidth !== undefined ? { strokeWidth: from.strokeWidth } : {}),
+      ...(from.halo !== undefined ? { halo: from.halo } : {}),
+      ...(from.label !== undefined ? { label: from.label } : {}),
+      ...(from.stroke !== undefined ? { stroke: scene.palette.id(from.stroke) } : {}),
+      ...(from.flow !== undefined ? { flow: flowSpeed(from.flow) } : {}),
+    })
     for (const kind of ['nodes', 'edges'] as const) {
-      states.setStyle(kind, bit, {
-        ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
-        ...(style.strokeWidth !== undefined ? { strokeWidth: style.strokeWidth } : {}),
-        ...(style.halo !== undefined ? { halo: style.halo } : {}),
-        ...(style.label !== undefined ? { label: style.label } : {}),
-        ...(style.stroke !== undefined ? { stroke: scene.palette.id(style.stroke) } : {}),
-        ...(style.flow !== undefined ? { flow: flowSpeed(style.flow) } : {}),
-        raise: style.raise ?? bit < 3,
-      })
+      states.setStyle(
+        kind,
+        bit,
+        { ...look(style), raise: style.raise ?? bit < 3 },
+        style.others ? look(style.others) : null,
+      )
+    }
+    for (const key of setup.members?.[name] ?? []) {
+      const node = model.node(key)
+      if (node && style.label === 'always') alwaysNodes.push(node.index)
     }
     for (const key of setup.members?.[name] ?? []) {
       const node = model.node(key)
@@ -150,6 +167,7 @@ function render(
     }
   })
   states.setHighlighted(highlightedNodes, highlightedEdges)
+  states.setAlways(alwaysNodes, [])
   const hulls = new HullLayer()
   hulls.setHulls(definition.hulls)
   hulls.update(
@@ -541,6 +559,26 @@ describe('writeSvg', () => {
     )
     expect(svg).toContain('>Alpha</text>')
     expect(svg).not.toContain('>Beta</text>')
+  })
+
+  it('draws the others of a state and its always labels below the threshold', () => {
+    const svg = render(
+      pair,
+      {
+        states: {
+          selected: {},
+          hovered: {},
+          focused: {},
+          near: { label: 'always', others: { opacity: 0.25 } },
+        },
+        members: { near: ['a'] },
+      },
+      { frame: { view: { x: 0, y: 0, zoom: 0.3 } } },
+    )
+    expect(svg).toContain('>Alpha</text>')
+    expect(svg).not.toContain('>Beta</text>')
+    expect(svg).toContain('<g opacity="0.25"><circle cx="230"')
+    expect(svg).not.toContain('<g opacity="0.25"><circle cx="170"')
   })
 
   it('draws the members of a raised free state on top, as on screen', () => {

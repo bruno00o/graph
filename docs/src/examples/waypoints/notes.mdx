@@ -1,6 +1,6 @@
 ## How it works
 
-The selection keeps the order of the clicks, so it doubles as the list of stops. For each pair of consecutive stops, `graph.paths.shortest(from, to, { weight: 'length' })` returns one leg, weighted by the length of the edges. The legs together go into a free state, `route`, and the rest into `muted`.
+The selection keeps the order of the clicks, so it doubles as the list of stops. For each pair of consecutive stops, `graph.paths.shortest(from, to, { weight: 'length' })` returns one leg, weighted by the length of the edges. The legs together go into a free state, `route`, whose `others` style fades the rest.
 
 Each stop carries a numbered marker, a plain HTML element pinned above it with `graph.anchors.set(marker, { node, side: 'top' })`.
 

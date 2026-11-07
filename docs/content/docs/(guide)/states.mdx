@@ -1,6 +1,6 @@
 ---
 title: States
-description: Style named sets of nodes and edges, and set their members by key.
+description: Style named sets of nodes and edges, and the elements outside them, and set their members by key.
 ---
 
 A state is a named set of nodes and edges drawn with its own style. Three come built in: `selected`, `hovered` and `focused`. You declare the others in `defineGraph` and fill them from code. States are resolved on the GPU, so setting thousands of members costs one buffer update.
@@ -16,13 +16,13 @@ const definition = defineGraph({
     nodes(items, { color: 'group', label: 'label' }),
   ],
   states: {
-    muted: { opacity: 0.2, label: false },
+    near: { outline: 'var(--graph-accent)', others: { opacity: 0.2, label: false } },
     pinned: { outline: 'var(--graph-ink)', outlineWidth: 3 },
   },
 })
 ```
 
-The names become types. `mountGraph` returns an instance whose `states` methods accept `'muted'` and `'pinned'` only: a misspelled name, or a built-in name, does not compile. See the [named states](/examples/named-states) example.
+The names become types. `mountGraph` returns an instance whose `states` methods accept `'near'` and `'pinned'` only: a misspelled name, or a built-in name, does not compile. See the [named states](/examples/named-states) example.
 
 ## Set the members
 
@@ -31,18 +31,18 @@ The names become types. `mountGraph` returns an instance whose `states` methods 
 ```ts
 graph.on('click', ({ target }) => {
   if (target?.kind !== 'node') {
-    graph.states.clear('muted')
+    graph.states.clear('near')
     return
   }
-  const keep = new Set([target.key, ...graph.neighbors(target.key)])
-  graph.states.set('muted', { nodes: items.filter((item) => !keep.has(item.id)).map((item) => item.id) })
+  graph.states.set('near', { nodes: [target.key, ...graph.neighbors(target.key)] })
 })
 
 graph.states.add('pinned', { nodes: ['n12'] })
 graph.states.has('pinned', { kind: 'node', key: 'n12' })
+graph.states.get('pinned')
 ```
 
-The methods are listed in [`GraphStates`](/docs/api/graph-instance#states).
+`get` returns the keys of the members, as the [store](#read-states-in-react) holds them. The methods are listed in [`GraphStates`](/docs/api/graph-instance#states).
 
 <Callout title="Keys before elements">
 A key can join a state before its element exists. The element takes the style as soon as it arrives, which suits data that loads in steps. A removed element keeps its states and gets them back if it returns.
@@ -52,7 +52,63 @@ The selection is not a free state: change it through `graph.selection`. See [Int
 
 ## Style options
 
-A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), `raise` (see [Raise a state](#raise-a-state)) and `hide` (see [Hide members](#hide-members)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background. `label: true` still hides labels smaller than 8 pixels: see [Labels in states](/docs/labels#labels-in-states).
+A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), `raise` (see [Raise a state](#raise-a-state)), `hide` (see [Hide members](#hide-members)) and `others` (see [Style the others](#style-the-others)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.
+
+`label: true` shows the label of a member, but still hides it when it is smaller than 8 pixels. `label: 'always'` shows it at every zoom: see [Show labels at any size](#show-labels-at-any-size).
+
+## Style the others
+
+`others` styles every element outside the state, as long as the state has a member. It takes the same properties as a style, except `raise` and `others`.
+
+```ts
+states: {
+  path: {
+    stroke: 'var(--graph-accent)',
+    strokeWidth: 2.5,
+    raise: true,
+    others: { opacity: 0.15, label: false },
+  },
+}
+
+graph.states.set('path', graph.paths.shortest('a', 'b') ?? {})
+```
+
+The rest of the graph fades while `path` has a member, and comes back when you clear it. There is no list of keys to compute, and nothing is written for the elements outside the state: setting the members costs the same with `others` as without.
+
+A state is active as soon as it has one member in the graph, node or edge: a key whose element does not exist yet does not count. A state of edges therefore fades the nodes outside it too, its own ends included. Put the ends in the state, or give `others` to the edges only with a [style by kind](#style-nodes-and-edges-apart).
+
+```ts
+states: {
+  route: { edges: { stroke: 'var(--graph-accent)', others: { opacity: 0.2 } } },
+}
+```
+
+### Fade the rest on hover
+
+The built-in states take `others` too. This dims every element but the hovered one, and costs one state change per hover, whatever the size of the graph:
+
+```ts
+states: {
+  hovered: { others: { opacity: 0.3 } },
+}
+```
+
+To keep the neighbors of the hovered node, fill a free state on `pointerenter` with `graph.paths.reach(key, { maxCost: 1 })` and clear it on `pointerleave`. See the [hover neighborhood](/examples/hover-neighborhood) example.
+
+## Style nodes and edges apart
+
+A style can be split by kind: `nodes` styles the member nodes and `edges` the member edges, each with all the properties of a style, `raise`, `hide` and `others` included.
+
+```ts
+states: {
+  near: {
+    nodes: { outline: 'var(--graph-accent)', label: true, others: { opacity: 0.12, label: false } },
+    edges: { stroke: 'var(--graph-accent)', strokeWidth: 2, others: { opacity: 0.12 } },
+  },
+}
+```
+
+A kind left out takes no style. A style is either by kind or for both: `{ opacity: 0.2, nodes: { … } }` does not compile.
 
 ## Override the built-in states
 
@@ -67,9 +123,13 @@ states: {
 
 By default, a selected node gets an accent ring, a halo and its label; a hovered node an ink ring; a focused node a focus ring. A selected edge changes color and gets a halo but keeps its width.
 
+A style by kind merges with the default of that kind, and a kind left out keeps its default: `selected: { edges: { stroke: 'var(--graph-cat-1)' } }` recolors selected edges and leaves selected nodes as they were.
+
 ## Priority
 
 An element can be in several states at once. Each property comes from the first state that sets it, in this order: `selected`, `hovered`, `focused`, then your states in the order you declared them. The opacity of the winning state multiplies the element's own.
+
+For an element outside an active state, the `others` style of that state takes its place in the same order. With `hovered: { others: { opacity: 0.3 } }`, a selected node fades while another node is hovered, since `selected` sets no opacity. A property set by a state declared earlier wins over the `others` of a later one.
 
 Selected, hovered and focused elements are drawn again above all others, so they stay visible inside a dense cluster.
 
@@ -96,6 +156,18 @@ An element is raised when any of its states raises it. `raise` is `true` for `se
 A definition holds up to 29 states besides the three built-in ones. Past that, `defineGraph` throws a `RangeError`.
 </Callout>
 
+## Show labels at any size
+
+`label: 'always'` shows the label of a member even when it would be smaller than 8 pixels, or when its node is under `minScreenSize`. The label is drawn at 8 pixels at least, or at its own size if that is smaller, and placed right after the labels of raised elements. It still gives way to a label it would cover, so a state of thousands of members does not cover the screen with text.
+
+```ts
+states: {
+  landmark: { label: 'always' },
+}
+```
+
+Exports follow the same rule. See [Labels in states](/docs/labels#labels-in-states).
+
 ## Hide members
 
 `hide: true` takes the members of a state out of the drawing: they are neither drawn, labeled, picked, exported nor counted by the legend, and the edges of a hidden node hide with them. They keep their position, their selection and their other states, and come back as they were when they leave the state.
@@ -106,17 +178,25 @@ states: { off: { hide: true } }
 graph.states.set('off', { nodes: ['a', 'b'] })
 ```
 
+`others: { hide: true }` does the opposite: it keeps only the members, as long as the state has one.
+
+```ts
+states: { only: { others: { hide: true } } }
+
+graph.states.set('only', graph.paths.reach('a', { maxCost: 2 }))
+```
+
 Hiding writes no data: it costs about as much as any other state change. See [Hide without losing state](/docs/transformations#hide-without-losing-state), and the [filter by degree](/examples/degree-filter) and [filter with a hidden state](/examples/threshold-filter) examples.
 
 ## Read states in React
 
 `useGraphState` subscribes to the graph store. Select only what you render: the component updates when that slice changes.
 
-```tsx title="MutedCount.tsx"
+```tsx title="NearCount.tsx"
 import { useGraphState } from '@bruno00o/graph/react'
 
-export function MutedCount() {
-  const count = useGraphState((state) => state.states.muted?.nodes.length ?? 0)
-  return <output>{count} nodes muted</output>
+export function NearCount() {
+  const count = useGraphState((state) => state.states.near?.nodes.length ?? 0)
+  return <output>{count} nodes near</output>
 }
 ```

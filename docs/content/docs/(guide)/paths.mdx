@@ -74,7 +74,7 @@ See [Groups](/docs/groups).
 
 ## Highlight a path
 
-A path is a set of node and edge keys, the shape `states.set` takes. Declare a state, style it, and put the path in it. A [flow](/docs/marks#flows) shows its direction, and [`raise`](/docs/states#raise-a-state) draws it above the other edges.
+A path is a set of node and edge keys, the shape `states.set` takes. Declare a state, style it, and put the path in it. A [flow](/docs/marks#flows) shows its direction, [`raise`](/docs/states#raise-a-state) draws it above the other edges, and [`others`](/docs/states#style-the-others) fades the rest of the graph.
 
 ```ts
 const graph = mountGraph(container, {
@@ -87,8 +87,8 @@ const graph = mountGraph(container, {
         strokeWidth: 2.5,
         label: true,
         raise: true,
+        others: { opacity: 0.15, label: false },
       },
-      muted: { opacity: 0.15, label: false },
     },
   }),
   ariaLabel: 'Network',
@@ -98,9 +98,7 @@ graph.on('selectionchange', ({ selection }) => {
   const [from, to] = selection.nodes
   const path = from !== undefined && to !== undefined ? graph.paths.shortest(from, to) : null
   if (!path) return graph.states.clear()
-  const onPath = new Set(path.nodes)
   graph.states.set('path', path)
-  graph.states.set('muted', { nodes: items.map((item) => item.id).filter((id) => !onPath.has(id)) })
 })
 ```
 

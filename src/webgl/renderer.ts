@@ -4,7 +4,7 @@ import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
 import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
-import { maxStates, noPaint } from '../core/state-buffers'
+import { maxStates, noPaint, stateRow, stateRows } from '../core/state-buffers'
 import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
 import type { ZoomRanges } from '../core/zoom-range'
 import type { ResolvedTheme } from '../dom/theme'
@@ -75,6 +75,7 @@ const badgeStride = 20
 const lensRing = 1.5
 const lensShadow = 10
 const lensMargin = 2
+const statesBlockSize = stateRows * 48 + 32
 
 const units = {
   palette: 0,
@@ -267,7 +268,7 @@ function createRenderer(
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
   gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
-  const statesBlock = new ArrayBuffer(3088)
+  const statesBlock = new ArrayBuffer(statesBlockSize)
   const statesBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
   gl.bufferData(gl.UNIFORM_BUFFER, statesBlock.byteLength, gl.DYNAMIC_DRAW)
@@ -1163,14 +1164,19 @@ function createRenderer(
     const states = next.states
     if (states.tableVersion !== tableVersion || next.full) {
       tableVersion = states.tableVersion
-      new Float32Array(statesBlock, 0, 256).set(states.numbers)
-      new Uint32Array(statesBlock, 1024, 256).set(states.paint)
-      new Uint32Array(statesBlock, 2048, 256).set(states.labels)
-      new Uint32Array(statesBlock, 3072, 4).set([
+      const rows = stateRows * 4
+      new Float32Array(statesBlock, 0, rows).set(states.numbers)
+      new Uint32Array(statesBlock, rows * 4, rows).set(states.paint)
+      new Uint32Array(statesBlock, rows * 8, rows).set(states.labels)
+      new Uint32Array(statesBlock, rows * 12, 8).set([
         states.nodeRaise,
         states.edgeRaise,
         states.nodeHide,
         states.edgeHide,
+        states.others('nodes'),
+        states.others('edges'),
+        states.othersHidden('nodes'),
+        states.othersHidden('edges'),
       ])
       gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, statesBlock)
@@ -1272,6 +1278,8 @@ function createRenderer(
         labelFlags: input.states.labelFlags,
         highlighted: input.states.highlightedNodes,
         raise: input.states.nodeRaise,
+        others: input.states.others('nodes'),
+        always: input.states.alwaysNodes,
         order: labelOrder,
         orderLength: labelOrderLength,
         plan: labelPlan,
@@ -1282,6 +1290,8 @@ function createRenderer(
         edgeLabelFlags: input.states.edgeLabelFlags,
         highlightedEdges: input.states.highlightedEdges,
         edgeRaise: input.states.edgeRaise,
+        edgeOthers: input.states.others('edges'),
+        alwaysEdges: input.states.alwaysEdges,
         edgeOrder: edgeLabelOrder,
         edgeOrderLength: edgeLabelOrderLength,
         largestEdgeLabel,
@@ -1322,16 +1332,20 @@ function createRenderer(
       coverStale = false
       for (let index = 0; index < edges.capacity; index++) coverEdge(edges, index)
     }
-    const { numbers, paint, edgeRaise } = input.states
+    const states = input.states
+    const { numbers, paint, edgeRaise } = states
+    const others = states.others('edges')
     let opacity = 1
     let alpha = 1
-    for (let bit = 0; bit < maxStates; bit++) {
-      if (((edgeRaise >>> bit) & 1) === 1) continue
-      const at = (maxStates + bit) * 4
-      const factor = numbers[at] ?? -1
+    const lower = (row: number) => {
+      const factor = numbers[row * 4] ?? -1
       if (factor >= 0) opacity = Math.min(opacity, factor)
-      const stroke = paint[at + 1] ?? noPaint
+      const stroke = paint[row * 4 + 1] ?? noPaint
       if (stroke !== noPaint) alpha = Math.min(alpha, cover.alphaOf(stroke))
+    }
+    for (let bit = 0; bit < maxStates; bit++) {
+      if (((edgeRaise >>> bit) & 1) === 0) lower(stateRow('edges', bit, true))
+      if (((others >>> bit) & 1) === 1) lower(stateRow('edges', bit, false))
     }
     return layerCap(cover.lowest() * opacity * alpha)
   }
