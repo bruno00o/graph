@@ -20,6 +20,13 @@ function grownBytes(array: Uint8Array, length: number): Uint8Array {
   return next
 }
 
+function grownOrders(array: Float64Array, length: number): Float64Array {
+  if (array.length >= length) return array
+  const next = new Float64Array(Math.max(64, array.length * 2, length))
+  next.set(array)
+  return next
+}
+
 function hash(slot: number, low: number, high: number, value: number): number {
   let h = Math.imul(low, 0x9e3779b1) ^ Math.imul(high + 0x7f4a7c15, 0x85ebca77)
   h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) ^ Math.imul(slot + 0x165667b1, 0xc2b2ae3d)
@@ -40,7 +47,9 @@ export class EdgeMerges {
   of: Int32Array = new Int32Array(0)
   next: Int32Array = new Int32Array(0)
   #tail: Int32Array = new Int32Array(0)
+  #first: Int32Array = new Int32Array(0)
   #previous: Int32Array = new Int32Array(0)
+  #order: Float64Array = new Float64Array(0)
   #shown: Uint8Array = new Uint8Array(0)
   #keys: Int32Array = new Int32Array(0)
   #valueIds: Int32Array = new Int32Array(0)
@@ -67,7 +76,39 @@ export class EdgeMerges {
     this.of = grownInts(this.of, length)
     this.next = grownInts(this.next, length)
     this.#previous = grownInts(this.#previous, length)
+    this.#order = grownOrders(this.#order, length)
     this.#shown = grownBytes(this.#shown, length)
+  }
+
+  first(id: number): number {
+    const known = this.#first[id] ?? none
+    if (known >= 0) return known
+    let first = none
+    let least = Number.POSITIVE_INFINITY
+    for (let at = this.head[id] ?? none; at >= 0; at = this.next[at] ?? none) {
+      const order = this.#order[at] ?? 0
+      if (order < least) {
+        least = order
+        first = at
+      }
+    }
+    this.#first[id] = first
+    return first
+  }
+
+  ordered(id: number): number[] {
+    const members: number[] = []
+    const order = this.#order
+    let sorted = true
+    let last = Number.NEGATIVE_INFINITY
+    for (let at = this.head[id] ?? none; at >= 0; at = this.next[at] ?? none) {
+      const current = order[at] ?? 0
+      if (current < last) sorted = false
+      last = current
+      members.push(at)
+    }
+    if (!sorted) members.sort((a, b) => (order[a] ?? 0) - (order[b] ?? 0))
+    return members
   }
 
   find(
@@ -100,6 +141,7 @@ export class EdgeMerges {
     this.folded[id] = 0
     this.head[id] = none
     this.#tail[id] = none
+    this.#first[id] = none
     this.carrier[id] = none
     this.open[id] = 0
     const free = -found - 1
@@ -109,8 +151,12 @@ export class EdgeMerges {
     return id
   }
 
-  join(id: number, edge: number, shown: boolean): void {
+  join(id: number, edge: number, shown: boolean, order: number): void {
     this.reserveEdges(edge + 1)
+    this.#order[edge] = order
+    const first = this.#first[id] ?? none
+    if ((this.count[id] ?? 0) === 0) this.#first[id] = edge
+    else if (first >= 0 && order < (this.#order[first] ?? 0)) this.#first[id] = edge
     const tail = this.#tail[id] ?? none
     this.of[edge] = id
     this.next[edge] = none
@@ -148,6 +194,7 @@ export class EdgeMerges {
     this.#previous[edge] = none
     this.count[id] = (this.count[id] ?? 1) - 1
     if (this.#shown[edge] !== 1) this.folded[id] = (this.folded[id] ?? 1) - 1
+    if (this.#first[id] === edge) this.#first[id] = none
     return id
   }
 
@@ -206,6 +253,7 @@ export class EdgeMerges {
     this.folded = grownInts(this.folded, length, 0)
     this.head = grownInts(this.head, length)
     this.#tail = grownInts(this.#tail, length)
+    this.#first = grownInts(this.#first, length)
     this.carrier = grownInts(this.carrier, length)
     this.open = grownBytes(this.open, length)
     this.#valueIds = grownInts(this.#valueIds, length)

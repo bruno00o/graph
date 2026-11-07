@@ -10,8 +10,10 @@ export interface ResolvedColorScale {
   readonly domain: Extent | null
   readonly range: readonly string[]
   readonly listed: readonly unknown[]
+  size(): number
   categories(): Iterable<unknown>
   map(value: unknown, extent: Extent | null): string | null
+  forget(value: unknown): void
 }
 
 const none: readonly never[] = []
@@ -32,6 +34,10 @@ function interpolate(stops: readonly string[], t: number): string | null {
 function categorical(domain: readonly unknown[], range: readonly string[]): ResolvedColorScale {
   const positions = new Map<unknown, number>()
   for (const value of domain) if (!positions.has(value)) positions.set(value, positions.size)
+  const listed = new Set(domain)
+  const free: number[] = []
+  let sorted = true
+  let next = positions.size
   let lastValue: unknown
   let lastColor: string | null = null
   return {
@@ -40,18 +46,32 @@ function categorical(domain: readonly unknown[], range: readonly string[]): Reso
     domain: null,
     range,
     listed: domain,
+    size: () => positions.size,
     categories: () => positions.keys(),
     map(value) {
       if (value === null || value === undefined || range.length === 0) return null
       if (value === lastValue) return lastColor
       let position = positions.get(value)
       if (position === undefined) {
-        position = positions.size
+        if (!sorted) {
+          free.sort((a, b) => b - a)
+          sorted = true
+        }
+        position = free.pop() ?? next++
         positions.set(value, position)
       }
       lastValue = value
       lastColor = range[position % range.length] ?? null
       return lastColor
+    },
+    forget(value) {
+      const position = positions.get(value)
+      if (position === undefined || listed.has(value)) return
+      positions.delete(value)
+      free.push(position)
+      sorted = false
+      lastValue = undefined
+      lastColor = null
     },
   }
 }
@@ -63,7 +83,9 @@ function sequential(domain: Extent | null, range: readonly string[]): ResolvedCo
     domain,
     range,
     listed: none,
+    size: () => 0,
     categories: () => none,
+    forget() {},
     map(value, extent) {
       if (typeof value !== 'number' || !Number.isFinite(value)) return null
       const [d0, d1] = domain ?? extent ?? [value, value]
@@ -81,8 +103,14 @@ export function resolveColorScale(options: ColorScale | undefined): ResolvedColo
       domain: null,
       range: none,
       listed: none,
+      size: () => 0,
       categories: () => none,
-      map: (value) => (value === null || value === undefined ? null : options(value)),
+      forget() {},
+      map(value) {
+        if (value === null || value === undefined) return null
+        const color: unknown = options(value)
+        return typeof color === 'string' && color !== '' ? color : null
+      },
     }
   }
   if (options?.type === 'sequential') {

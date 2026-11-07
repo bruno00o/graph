@@ -233,12 +233,22 @@ export class StateRegistry {
     if (set.has(key) === on) return false
     if (on) set.add(key)
     else set.delete(key)
+    if (kind === 'edges' && this.#display) {
+      this.#writeEdgeKey(key)
+      return true
+    }
     const index = this.#index(kind, key)
-    if (index < 0) return true
-    if (kind === 'nodes' || !this.#display) this.#setMask(kind, index, this.#maskOf(kind, key))
-    else if (this.#pending) this.#pending.add(index)
-    else this.#writeEdge(index)
+    if (index >= 0) this.#setMask(kind, index, this.#maskOf(kind, key))
     return true
+  }
+
+  #writeEdgeKey(key: Key): void {
+    const own = this.#model.edge(key)?.index ?? -1
+    const shown = this.#display?.indexOf(key) ?? own
+    if (own >= 0 && own !== shown) this.#setMask('edges', own, this.#maskOf('edges', key))
+    if (shown < 0) return
+    if (this.#pending) this.#pending.add(shown)
+    else this.#writeEdge(shown)
   }
 
   #batch(run: () => boolean): boolean {
@@ -301,13 +311,12 @@ export class StateRegistry {
   #rebuild(): void {
     for (const record of this.#model.nodes())
       this.#setMask('nodes', record.index, this.#maskOf('nodes', record.key))
-    for (const record of this.#model.edges()) {
-      if (!this.#display) {
-        this.#setMask('edges', record.index, this.#maskOf('edges', record.key))
-        continue
+    this.#batch(() => {
+      for (const record of this.#model.edges()) {
+        if (this.#display) this.#writeEdgeKey(record.key)
+        else this.#setMask('edges', record.index, this.#maskOf('edges', record.key))
       }
-      const index = this.#display.indexOf(record.key)
-      if (index >= 0) this.#writeEdge(index)
-    }
+      return true
+    })
   }
 }

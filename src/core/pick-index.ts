@@ -61,6 +61,10 @@ const extraShare = 8
 const edgeShare = 24
 const maxLevel = 31
 
+function wider(current: number, value: number): number {
+  return value > current && value < Number.POSITIVE_INFINITY ? value : current
+}
+
 function distanceToPolyline(points: Float64Array, count: number, x: number, y: number): number {
   let best = Number.POSITIVE_INFINITY
   for (let k = 0; k + 1 < count; k++) {
@@ -317,11 +321,11 @@ export class PickIndex {
       indexedXy[index * 2 + 1] = y
       const radius = ((nodes.size[index] ?? 0) / 2) * nodeShapeReach(nodes.shape[index] ?? 0)
       if (nodes.screenUnits[index] === 1) {
-        this.#maxScreenRadius = Math.max(this.#maxScreenRadius, radius)
+        this.#maxScreenRadius = wider(this.#maxScreenRadius, radius)
       } else {
-        this.#maxWorldRadius = Math.max(this.#maxWorldRadius, radius)
+        this.#maxWorldRadius = wider(this.#maxWorldRadius, radius)
       }
-      this.#maxOutline = Math.max(this.#maxOutline, nodes.outlineWidth[index] ?? 0)
+      this.#maxOutline = wider(this.#maxOutline, nodes.outlineWidth[index] ?? 0)
       minX = Math.min(minX, x)
       minY = Math.min(minY, y)
       maxX = Math.max(maxX, x)
@@ -390,7 +394,7 @@ export class PickIndex {
     let longest = 0
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1) continue
-      this.#maxEdgeHalfWidth = Math.max(this.#maxEdgeHalfWidth, (edges.width[index] ?? 0) / 2)
+      this.#maxEdgeHalfWidth = wider(this.#maxEdgeHalfWidth, (edges.width[index] ?? 0) / 2)
       if (edges.source[index] === edges.target[index]) continue
       const length = this.#length(source, index) / cell
       const bucket = bucketOf(length)
@@ -482,9 +486,9 @@ export class PickIndex {
       if (!pickable(nodes, index)) continue
       total++
       const radius = ((nodes.size[index] ?? 0) / 2) * nodeShapeReach(nodes.shape[index] ?? 0)
-      if (nodes.screenUnits[index] === 1) screenRadius = Math.max(screenRadius, radius)
-      else worldRadius = Math.max(worldRadius, radius)
-      outline = Math.max(outline, nodes.outlineWidth[index] ?? 0)
+      if (nodes.screenUnits[index] === 1) screenRadius = wider(screenRadius, radius)
+      else worldRadius = wider(worldRadius, radius)
+      outline = wider(outline, nodes.outlineWidth[index] ?? 0)
       if (xy[index * 2] === positions.x(index) && xy[index * 2 + 1] === positions.y(index)) continue
       moved[index] = 1
       changedNodes.push(index)
@@ -494,7 +498,7 @@ export class PickIndex {
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1) continue
       total++
-      halfWidth = Math.max(halfWidth, (edges.width[index] ?? 0) / 2)
+      halfWidth = wider(halfWidth, (edges.width[index] ?? 0) / 2)
       const from = edges.source[index] ?? 0
       const to = edges.target[index] ?? 0
       if (

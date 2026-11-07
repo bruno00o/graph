@@ -573,3 +573,72 @@ describe('Projection merges', () => {
     expect(projection.edgeIndexOf('ab2')).toBe(projection.edgeIndexOf('ab1'))
   })
 })
+
+describe('Projection merged edge order', () => {
+  type Kind = Link & { kind: string }
+  const scales = { color: { domain: ['x', 'y'], range: ['red', 'blue'] } }
+
+  it('styles a merged edge from the first edge of the data after a round trip', () => {
+    const items = [item('a'), item('b'), item('c')]
+    const ab1: Kind = { ...link('ab1', 'a', 'b'), kind: 'x' }
+    const ab2: Kind = { ...link('ab2', 'a', 'b'), kind: 'y' }
+    const definition = (links: Kind[]) => ({
+      marks: [
+        nodes<Item>(items),
+        edges<Kind>(links, { ...linkOptions, color: 'kind', merge: true }),
+      ],
+      scales,
+    })
+    const { render, scene, projection } = setup(definition([ab1, ab2]))
+    const color = () => scene.palette.colors[scene.edges.color[projection.edgeIndexOf('ab1')] ?? -1]
+    expect(color()).toBe('red')
+    render(definition([{ ...ab1, to: 'c' }, ab2]))
+    render(definition([ab1, ab2]))
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab1'))?.keys).toEqual(['ab1', 'ab2'])
+    expect(color()).toBe('red')
+  })
+
+  it('keeps the edges of a group folded later in the order of the data', () => {
+    const items = [item('g'), item('a', 'g'), item('c')]
+    const links: Kind[] = [
+      { ...link('ac1', 'a', 'c'), kind: 'x' },
+      { ...link('ac2', 'a', 'c'), kind: 'y' },
+      { ...link('ac3', 'a', 'c'), kind: 'y' },
+    ]
+    const definition = {
+      marks: [
+        nodes<Item>(items, { parent: 'parent' }),
+        edges<Kind>(links, { ...linkOptions, color: 'kind' }),
+      ],
+      scales,
+    }
+    const fresh = setup(definition, ['g'])
+    const merged = ({ projection }: typeof fresh) =>
+      projection.aggregateAt(projection.edgeIndexOf('ac1'))?.keys
+    expect(merged(fresh)).toEqual(['ac1', 'ac2', 'ac3'])
+    const later = setup(definition)
+    later.fold(['g'])
+    expect(merged(later)).toEqual(['ac1', 'ac2', 'ac3'])
+    expect(later.projection.edgeIndexOf('ac3')).toBe(later.model.edge('ac1')?.index)
+  })
+
+  it('reshapes the graph only when a rebuilt merge rule changes a merged edge', () => {
+    type Weighted = Kind & { weight: number }
+    const items = Array.from({ length: 20 }, (_, at) => item(`n${at}`))
+    const links: Weighted[] = Array.from({ length: 200 }, (_, at) => ({
+      ...link(`l${at}`, `n${at % 20}`, `n${(at * 7 + 3) % 20}`),
+      kind: at % 3 === 0 ? 'x' : 'y',
+      weight: 1,
+    }))
+    const definition = (data: Weighted[], by: (link: Weighted) => string) => ({
+      marks: [nodes<Item>(items), edges<Weighted>(data, { ...linkOptions, merge: { by } })],
+    })
+    const { render } = setup(definition(links, (each) => each.kind))
+    const changed = links.map((each, at) => (at === 0 ? { ...each, weight: 2 } : each))
+    const same = render(definition(changed, (each) => each.kind))
+    expect(same.reshaped).toBe(false)
+    expect(same.scene.edges.updated.length).toBeLessThanOrEqual(1)
+    const split = render(definition(changed, (each) => (each.id === 'l0' ? 'z' : each.kind)))
+    expect(split.reshaped).toBe(true)
+  })
+})

@@ -48,4 +48,23 @@ describe('resolveColorScale', () => {
     expect(scale.kind).toBe('function')
     expect([...scale.categories()]).toEqual([])
   })
+
+  it('ignores a function result that is not a color', () => {
+    const scale = resolveColorScale((value) => value as string)
+    expect(scale.map(3, null)).toBeNull()
+    expect(scale.map('', null)).toBeNull()
+    expect(scale.map('red', null)).toBe('red')
+  })
+
+  it('gives the place of a forgotten category to the next new one', () => {
+    const scale = resolveColorScale({ domain: ['x'], range: ['red', 'green', 'blue'] })
+    expect(scale.map('a', null)).toBe('green')
+    expect(scale.map('b', null)).toBe('blue')
+    scale.forget('a')
+    scale.forget('x')
+    expect(scale.size()).toBe(2)
+    expect(scale.map('c', null)).toBe('green')
+    expect(scale.map('x', null)).toBe('red')
+    expect([...scale.categories()]).toEqual(['x', 'b', 'c'])
+  })
 })

@@ -1,3 +1,5 @@
+import { Boundaries } from './boundaries'
+
 export const zoomFade = 0.25
 const exactThresholds = 1024
 const coarseSteps = 16
@@ -44,8 +46,12 @@ export class ZoomRanges {
   min: Float32Array = new Float32Array(0)
   max: Float32Array = new Float32Array(0)
   count = 0
-  readonly #thresholds = new Set<number>()
-  #sorted: Float64Array | null = null
+  readonly #thresholds: Boundaries = new Boundaries(exactThresholds, (visit) => {
+    for (let index = 0; index < this.min.length; index++) {
+      visit(this.min[index] || Number.NaN)
+      visit(this.max[index] ?? Number.POSITIVE_INFINITY)
+    }
+  })
 
   reserve(capacity: number): void {
     if (capacity <= this.min.length) return
@@ -59,14 +65,20 @@ export class ZoomRanges {
 
   set(index: number, min: number, max: number): void {
     this.reserve(index + 1)
-    const before = (this.min[index] ?? 0) > 0 || (this.max[index] ?? Infinity) < Infinity
-    const ranged = min > 0 || max < Number.POSITIVE_INFINITY
+    const low = Math.fround(min)
+    const high = Math.fround(max)
+    const lowBefore = this.min[index] ?? 0
+    const highBefore = this.max[index] ?? Number.POSITIVE_INFINITY
+    if (low === lowBefore && high === highBefore) return
+    const before = lowBefore > 0 || highBefore < Number.POSITIVE_INFINITY
+    const ranged = low > 0 || high < Number.POSITIVE_INFINITY
     if (before !== ranged) this.count += ranged ? 1 : -1
-    this.min[index] = min
-    this.max[index] = max
-    if (!ranged) return
-    this.#threshold(this.min[index] ?? 0)
-    this.#threshold(this.max[index] ?? Number.POSITIVE_INFINITY)
+    if (lowBefore > 0) this.#thresholds.remove(lowBefore)
+    this.#thresholds.remove(highBefore)
+    this.min[index] = low
+    this.max[index] = high
+    if (low > 0) this.#thresholds.add(low)
+    this.#thresholds.add(high)
   }
 
   clear(index: number): void {
@@ -86,7 +98,7 @@ export class ZoomRanges {
 
   step(zoom: number): number {
     if (this.count === 0) return 0
-    const sorted = this.#sortedThresholds()
+    const sorted = this.#thresholds.sorted(this.min.length)
     if (!sorted) return Math.floor(Math.log2(zoom) * coarseSteps)
     const z = Math.fround(zoom)
     return lowerBound(sorted, z) + upperBound(sorted, z)
@@ -94,22 +106,9 @@ export class ZoomRanges {
 
   fading(zoom: number): boolean {
     if (this.count === 0) return false
-    const sorted = this.#sortedThresholds()
+    const sorted = this.#thresholds.sorted(this.min.length)
     if (!sorted) return true
     const z = Math.fround(zoom)
     return upperBound(sorted, z * fadeFactor) > lowerBound(sorted, z / fadeFactor)
-  }
-
-  #threshold(value: number): void {
-    if (!(value > 0) || value === Number.POSITIVE_INFINITY || this.#thresholds.has(value)) return
-    if (this.#thresholds.size > exactThresholds) return
-    this.#thresholds.add(value)
-    this.#sorted = null
-  }
-
-  #sortedThresholds(): Float64Array | null {
-    if (this.#thresholds.size > exactThresholds) return null
-    if (!this.#sorted) this.#sorted = Float64Array.from(this.#thresholds).sort()
-    return this.#sorted
   }
 }

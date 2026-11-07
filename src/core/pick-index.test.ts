@@ -395,3 +395,40 @@ describe('PickIndex', () => {
     expect(end(last.x, last.y)).toBe('cc:target')
   })
 })
+
+describe('PickIndex with sizes out of range', () => {
+  it('still picks every node when a size or a width is not finite', () => {
+    const model = createGraphModel()
+    const scene = createScene()
+    const positions = new Positions()
+    const items: Item[] = [
+      { id: 'a', x: -100, y: 0 },
+      { id: 'b', x: 0, y: 200 },
+      { id: 'c', x: 100, y: 0 },
+    ]
+    const definition = defineGraph({
+      marks: [
+        edges<Link>([{ id: 'ab', from: 'a', to: 'b' }], { source: 'from', target: 'to' }),
+        nodes(items, { x: 'x', y: 'y' }),
+      ],
+    })
+    model.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    const changes = model.flush()
+    scene.apply(model, changes)
+    placeNodes(model, positions, changes)
+    scene.nodes.size[model.node('a')?.index ?? -1] = Number.NaN
+    scene.nodes.size[model.node('b')?.index ?? -1] = Number.POSITIVE_INFINITY
+    scene.edges.width[model.edge('ab')?.index ?? -1] = Number.NaN
+    const source: PickSource = {
+      nodes: scene.nodes,
+      edges: scene.edges,
+      positions,
+      order: (_kind, index) => index,
+    }
+    const index = new PickIndex()
+    index.build(source)
+    const hit = index.pick(source, 100, 0, sightOf(1), 4)
+    expect(hit?.kind === 'node' ? scene.nodes.keys[hit.index] : null).toBe('c')
+  })
+})

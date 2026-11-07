@@ -178,3 +178,84 @@ describe('the others of a state', () => {
     expect(states.alwaysNodes).toEqual([])
   })
 })
+
+describe('states of edges hidden or merged by groups', () => {
+  interface Member extends Place {
+    readonly parent?: string
+  }
+
+  const members: Member[] = [
+    { id: 'g', x: 0, y: 0 },
+    { id: 'a', x: -100, y: 0, parent: 'g' },
+    { id: 'b', x: 100, y: 0, parent: 'g' },
+    { id: 'c', x: 0, y: 300 },
+  ]
+  const route = 1 << 3
+  const styles: Styles = { route: { edges: { others: { opacity: 0.2 } } } }
+
+  beforeEach(() => {
+    dom = installDom()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    dom.restore()
+  })
+
+  function definitionOf(merge: boolean) {
+    return defineGraph({
+      marks: [
+        edges<Link>(
+          [
+            { id: 'ab', from: 'a', to: 'b' },
+            { id: 'ac', from: 'a', to: 'c' },
+            { id: 'ac2', from: 'a', to: 'c' },
+          ],
+          { source: 'from', target: 'to', merge },
+        ),
+        nodes<Member>(members, { x: 'x', y: 'y', parent: 'parent' }),
+      ],
+      states: styles,
+    })
+  }
+
+  function mountGroups(merge = false) {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      { definition: definitionOf(merge), ariaLabel: 'graph' },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    return graph
+  }
+
+  it('activates a state of folded edges the same way, whatever the order', () => {
+    const before = mountGroups()
+    before.states.set('route', { edges: ['ab'] })
+    dom.flushFrames()
+    before.groups.fold(['g'])
+    dom.flushFrames()
+    const after = mountGroups()
+    after.groups.fold(['g'])
+    dom.flushFrames()
+    after.states.set('route', { edges: ['ab'] })
+    dom.flushFrames()
+    expect(takeSnapshot(before).states.active & route).toBe(route)
+    expect(takeSnapshot(after).states.active & route).toBe(route)
+  })
+
+  it('deactivates a state whose only member left once merged', () => {
+    const graph = mountGroups()
+    graph.states.set('route', { edges: ['ac2'] })
+    dom.flushFrames()
+    graph.update({ definition: definitionOf(true) })
+    dom.flushFrames()
+    expect(takeSnapshot(graph).states.active & route).toBe(route)
+    graph.states.clear('route')
+    dom.flushFrames()
+    expect(takeSnapshot(graph).states.active & route).toBe(0)
+  })
+})

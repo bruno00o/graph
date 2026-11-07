@@ -1,4 +1,5 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
+import type { ElementRef, GraphChanges } from '../core/graph-model'
 import { dev } from '../dev'
 import type { ElementKeys } from '../host/events'
 import { internalsOf } from '../host/internals'
@@ -6,6 +7,7 @@ import { isolateSubscribers } from '../host/isolate'
 import type { GraphInstance } from '../host/mount-graph'
 import type { FreeState, GraphDefinition, LayerName, Mark } from '../types'
 import {
+  type KeyScope,
   keysOf,
   type LegendCategory,
   type LegendColor,
@@ -140,6 +142,7 @@ export function createLegend<S extends string, M extends Mark>(
   const internals = internalsOf(graph, 'createLegend')
   const states = graph.states as unknown as {
     set(name: string, keys: ElementKeys): void
+    add(name: string, keys: ElementKeys): void
     clear(name: string): void
   }
   let given: LegendOptions<S> = options
@@ -158,6 +161,7 @@ export function createLegend<S extends string, M extends Mark>(
     set(hidden: Iterable<string>): void
   }
   const known = new Map<string, LegendCategory>()
+  const scope: KeyScope = { members: (index) => internals.edgeMembers(index) }
   let crowded: ReadonlySet<number> = new Set()
   let readScene = -1
   let readDetail = -1
@@ -238,14 +242,29 @@ export function createLegend<S extends string, M extends Mark>(
   }
 
   function applyHidden(): void {
-    if (hidden !== null) states.set(hidden, keysOf(internals.scene, off, crowded))
+    if (hidden !== null) states.set(hidden, keysOf(internals.scene, off, crowded, scope))
   }
 
   function applyHighlight(): void {
     if (highlight === null) return
     const hovered = store.state.hovered
     if (hovered === null) states.clear(highlight)
-    else states.set(highlight, keysOf(internals.scene, new Set([hovered]), crowded))
+    else states.set(highlight, keysOf(internals.scene, new Set([hovered]), crowded, scope))
+  }
+
+  function hideArrivals(changes: GraphChanges): void {
+    if (hidden === null || off.size === 0) return
+    const { nodes, edges } = changes
+    if (nodes.added.length + nodes.updated.length + edges.added.length + edges.updated.length === 0)
+      return
+    const indices = (refs: readonly (readonly ElementRef[])[]) =>
+      refs.flatMap((list) => list.map((ref) => ref.index))
+    const keys = keysOf(internals.scene, off, crowded, {
+      members: scope.members,
+      nodes: indices([nodes.added, nodes.updated]),
+      edges: indices([edges.added, edges.updated]),
+    })
+    if (keys.nodes.length + keys.edges.length > 0) states.add(hidden, keys)
   }
 
   function switched(color: LegendColor | null): LegendColor | null {
@@ -291,6 +310,9 @@ export function createLegend<S extends string, M extends Mark>(
   }
 
   stopWatch = internals.watch({
+    changed(changes) {
+      quietly(() => hideArrivals(changes))
+    },
     frame() {
       const stamp = internals.stamp()
       if (
@@ -371,7 +393,7 @@ export function createLegend<S extends string, M extends Mark>(
       publishOff()
     },
     keys(id) {
-      return keysOf(internals.scene, new Set([id]), crowded)
+      return keysOf(internals.scene, new Set([id]), crowded, scope)
     },
     update(next = {}) {
       if (destroyed) return

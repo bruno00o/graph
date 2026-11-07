@@ -376,3 +376,91 @@ describe('createLegend', () => {
     expect(view.element.isConnected).toBe(false)
   })
 })
+
+describe('createLegend with groups and merged edges', () => {
+  interface Member {
+    readonly id: string
+    readonly kind: string
+    readonly parent?: string
+  }
+
+  interface Kinded {
+    readonly id: string
+    readonly from: string
+    readonly to: string
+    readonly kind: string
+  }
+
+  beforeEach(() => {
+    dom = installDom()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    dom.restore()
+  })
+
+  function mountWith(members: Member[], kinded: Kinded[], merge: boolean) {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const definition = defineGraph({
+      marks: [
+        nodes<Member>(members, { color: 'kind', parent: 'parent' }),
+        edges<Kinded>(kinded, { source: 'from', target: 'to', color: 'kind', merge }),
+      ],
+      states: { off: { hide: true } },
+    })
+    const graph = createGraphHost(container, { definition, ariaLabel: 'graph' }, () =>
+      fakeRenderer(),
+    ) as unknown as GraphInstance<'off'>
+    dom.flushFrames()
+    return graph
+  }
+
+  it('switches off a merged edge whose category is switched off', () => {
+    const graph = mountWith(
+      [
+        { id: 'a', kind: 'n' },
+        { id: 'b', kind: 'n' },
+        { id: 'c', kind: 'n' },
+      ],
+      [
+        { id: 'ab1', from: 'a', to: 'b', kind: 'x' },
+        { id: 'ab2', from: 'a', to: 'b', kind: 'x' },
+        { id: 'bc', from: 'b', to: 'c', kind: 'y' },
+      ],
+      true,
+    )
+    expect(graph.count().shown.edges).toBe(2)
+    const legend = createLegend(graph, { hidden: 'off' })
+    expect(legend.keys('c:string:x').edges).toEqual(['ab1', 'ab2'])
+    legend.toggle('c:string:x')
+    dom.flushFrames()
+    expect(graph.count().shown.edges).toBe(1)
+  })
+
+  it('hides the nodes of a switched off category as soon as their group unfolds', () => {
+    const graph = mountWith(
+      [
+        { id: 'g', kind: 'box' },
+        { id: 'a', kind: 'x', parent: 'g' },
+        { id: 'b', kind: 'y', parent: 'g' },
+      ],
+      [],
+      false,
+    )
+    const legend = createLegend(graph, { hidden: 'off' })
+    legend.toggle('c:string:x')
+    dom.flushFrames()
+    expect(graph.states.get('off').nodes).toEqual(['a'])
+    graph.groups.fold(['g'])
+    dom.flushFrames()
+    vi.advanceTimersByTime(1000)
+    expect(graph.states.get('off').nodes).toEqual([])
+    graph.groups.unfold(['g'])
+    dom.flushFrames()
+    expect(graph.states.get('off').nodes).toContain('a')
+    expect(graph.count().shown.nodes).toBe(2)
+  })
+})
