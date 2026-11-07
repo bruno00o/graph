@@ -12,6 +12,7 @@ import {
 import { type EdgePaths, maxPathPoints } from './edge-paths'
 import { worldSize } from './geo'
 import { arcPolyline } from './geo-arc'
+import { maxShapeReach, minimumNodeRadius, nodeShapeDistance, nodeShapeReach } from './node-shape'
 import type { Positions } from './positions'
 import { edgeShown, nodeShown, type Sight } from './visibility'
 
@@ -51,6 +52,7 @@ interface Extra {
 }
 
 const minimumPickRadius = 2
+const shapeSlack = 0.5
 const pickSegments = 16
 const indexSegments = 8
 const absent = 0xffffffff
@@ -272,6 +274,7 @@ export class PickIndex {
   #bases: number[] = []
   #maxWorldRadius = 0
   #maxScreenRadius = 0
+  #maxOutline = 0
   #maxEdgeHalfWidth = 0
   #loops: number[] = []
   #indexedXy: Float64Array = new Float64Array(0)
@@ -298,6 +301,7 @@ export class PickIndex {
     let maxY = Number.NEGATIVE_INFINITY
     this.#maxWorldRadius = 0
     this.#maxScreenRadius = 0
+    this.#maxOutline = 0
     this.#nodeGeneration = new Uint32Array(nodes.capacity)
     this.#edgeGeneration = new Uint32Array(edges.capacity)
     this.#extraNodes = emptyExtra()
@@ -311,12 +315,13 @@ export class PickIndex {
       const y = positions.y(index)
       indexedXy[index * 2] = x
       indexedXy[index * 2 + 1] = y
-      const radius = (nodes.size[index] ?? 0) / 2
+      const radius = ((nodes.size[index] ?? 0) / 2) * nodeShapeReach(nodes.shape[index] ?? 0)
       if (nodes.screenUnits[index] === 1) {
         this.#maxScreenRadius = Math.max(this.#maxScreenRadius, radius)
       } else {
         this.#maxWorldRadius = Math.max(this.#maxWorldRadius, radius)
       }
+      this.#maxOutline = Math.max(this.#maxOutline, nodes.outlineWidth[index] ?? 0)
       minX = Math.min(minX, x)
       minY = Math.min(minY, y)
       maxX = Math.max(maxX, x)
@@ -472,12 +477,14 @@ export class PickIndex {
     let total = 0
     let worldRadius = 0
     let screenRadius = 0
+    let outline = 0
     for (let index = 0; index < nodes.capacity; index++) {
       if (!pickable(nodes, index)) continue
       total++
-      const radius = (nodes.size[index] ?? 0) / 2
+      const radius = ((nodes.size[index] ?? 0) / 2) * nodeShapeReach(nodes.shape[index] ?? 0)
       if (nodes.screenUnits[index] === 1) screenRadius = Math.max(screenRadius, radius)
       else worldRadius = Math.max(worldRadius, radius)
+      outline = Math.max(outline, nodes.outlineWidth[index] ?? 0)
       if (xy[index * 2] === positions.x(index) && xy[index * 2 + 1] === positions.y(index)) continue
       moved[index] = 1
       changedNodes.push(index)
@@ -503,6 +510,7 @@ export class PickIndex {
     }
     this.#maxWorldRadius = worldRadius
     this.#maxScreenRadius = screenRadius
+    this.#maxOutline = outline
     this.#maxEdgeHalfWidth = halfWidth
     const changed = changedNodes.length + changedEdges.length
     if (changed === 0) return
@@ -757,6 +765,17 @@ export class PickIndex {
     return Math.max(radius, minimumPickRadius / zoom)
   }
 
+  #hits(source: PickSource, index: number, x: number, y: number, scale: number): boolean {
+    const { nodes, positions } = source
+    const dx = (x - positions.x(index)) * scale
+    const dy = (y - positions.y(index)) * scale
+    if (Math.hypot(dx, dy) <= minimumPickRadius) return true
+    const size = (nodes.size[index] ?? 0) / 2
+    const radius = Math.max(nodes.screenUnits[index] === 1 ? size : size * scale, minimumNodeRadius)
+    const distance = nodeShapeDistance(nodes.shape[index] ?? 0, dx, dy, radius)
+    return distance <= Math.max(nodes.outlineWidth[index] ?? 0, 0) + shapeSlack
+  }
+
   #pickNode(
     source: PickSource,
     x: number,
@@ -765,10 +784,10 @@ export class PickIndex {
     scale: number,
     lens: PickSurface | null,
   ): number {
-    const reach = Math.max(
-      this.#maxWorldRadius,
-      (this.#maxScreenRadius + minimumPickRadius) / scale,
-    )
+    const screenReach = Math.max(this.#maxScreenRadius, minimumNodeRadius * maxShapeReach)
+    const reach =
+      this.#maxWorldRadius +
+      (screenReach + this.#maxOutline * Math.SQRT2 + minimumPickRadius + shapeSlack) / scale
     let best = -1
     let bestOrder = Number.NEGATIVE_INFINITY
     const nodeGrid = this.#nodes
@@ -776,8 +795,7 @@ export class PickIndex {
     this.#around(this.#frame, 0, nodeGrid, generations, this.#extraNodes, x, y, reach, (index) => {
       if (!pickable(source.nodes, index) || !nodeShown(source.nodes, index, sight)) return
       if (lens && !lens.visible(index)) return
-      const distance = Math.hypot(x - source.positions.x(index), y - source.positions.y(index))
-      if (distance > this.#radius(source, index, scale)) return
+      if (!this.#hits(source, index, x, y, scale)) return
       const order = source.order('nodes', index)
       if (order > bestOrder) {
         best = index

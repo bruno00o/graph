@@ -293,6 +293,50 @@ describe('PickIndex', () => {
     expect(pick(40, 0, 0.25)).toBeNull()
   })
 
+  it('picks squares and diamonds by their drawn shape and outline', () => {
+    const shaped: Item[] = [
+      { id: 'diamond', x: 0, y: 0, size: 44 },
+      { id: 'square', x: 200, y: 0, size: 30 },
+      { id: 'ringed', x: 0, y: 200, size: 30 },
+      { id: 'far', x: 400, y: 200, size: 10 },
+    ]
+    const shapes: Record<string, 'diamond' | 'square'> = {
+      diamond: 'diamond',
+      square: 'square',
+      ringed: 'square',
+    }
+    const { pick } = setup(shaped, [{ id: 'link', from: 'square', to: 'far' }], {
+      size: 'size',
+      shape: (item) => shapes[item.id] ?? 'circle',
+      outline: (item) => (item.id === 'ringed' ? '#000' : null),
+      outlineWidth: 4,
+    })
+    expect(pick(23, 0)).toBe('diamond')
+    expect(pick(0, -26.2)).toBe('diamond')
+    expect(pick(27.5, 0)).toBeNull()
+    expect(pick(16, 16)).toBeNull()
+    expect(pick(213, 13)).toBe('square')
+    expect(pick(215, 15)).toBe('link')
+    expect(pick(200, 14)).toBeNull()
+    expect(pick(15, 215)).toBe('ringed')
+    expect(pick(18, 218)).toBeNull()
+  })
+
+  it('reaches the tip of a large diamond from a neighboring cell', () => {
+    const row: Item[] = Array.from({ length: 21 }, (_, i) => ({
+      id: `n${i}`,
+      x: -100 + i * 10,
+      y: 500,
+      size: 2,
+    }))
+    const { pick } = setup([...row, { id: 'diamond', x: 33, y: 0, size: 44 }], [], {
+      size: 'size',
+      shape: (item) => (item.id === 'diamond' ? 'diamond' : 'circle'),
+    })
+    expect(pick(59, 0)).toBe('diamond')
+    expect(pick(7, 0)).toBe('diamond')
+  })
+
   it('reports the end of the edge under the point, along its visible length', () => {
     const model = createGraphModel()
     const scene = createScene()
