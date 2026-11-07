@@ -98,15 +98,13 @@ On 50,000 nodes in about 400 groups nested three deep, the force layout takes ab
 
 Since new nodes move alone, a graph that arrives in several batches does not look the same as one that arrives at once. Once the data is complete, `graph.layout.run()` lays out the whole graph again: the [live source](/examples/live-source) example does this when its stream ends, and [expand on double-click](/examples/expand-on-double-click) lets each new neighborhood settle alone.
 
-The view follows only the first run. To frame the result of a later run, such as a new layout or new nodes, fit the view when it ends:
+The view follows only the first run. To frame every run, such as a new layout or new nodes, set `autoFit` in the `view` of the definition:
 
 ```ts
-graph.on('layoutend', ({ completed }) => {
-  if (completed) graph.view.fit(undefined, { duration: 400 })
-})
+defineGraph({ marks, layout: force(), view: { autoFit: 'layouts' } })
 ```
 
-A run started from code can frame its result with [`fit`](#run-it-from-code) instead. The [force parameters](/examples/force-parameters) example lays out again and fits each time a slider changes.
+The view then follows each run and frames its end, as long as you do not pan or zoom; the next `view.fit` starts it again. See [The first view](/docs/view#the-first-view). A run started from code can frame its result with [`fit`](#run-it-from-code) instead. The [force parameters](/examples/force-parameters) example lays out again and frames the graph each time a slider changes.
 
 ## Which nodes move
 
@@ -134,7 +132,7 @@ graph.layout.stop()
 - `run()` lays out every free node with the layout of the definition, from the current positions. Pending data changes are applied first.
 - `keys` limits the run to these nodes. The others stay still and act as anchors. A run on part of the graph starts with less energy and without the pull to the center, so the moved nodes stay near the rest.
 - A layout passed to `run` is used for this run only. The definition keeps its own.
-- `fit` frames the result. With `true`, the view fits every node; pass [fit options](/docs/view#fit) for padding or a duration. It aims at the final positions, so the view moves while the nodes do.
+- `fit` frames the result. With `true`, the view fits every node; pass [fit options](/docs/view#fit) to frame some `nodes` or `edges`, or for padding or a duration. It aims at the final positions, so the view moves while the nodes do.
 - The promise resolves to `true` when the run ends, and to `false` when it is stopped, replaced by another run, or when the graph is destroyed. It rejects when neither the call nor the definition has a layout.
 - `stop()` ends the current run and leaves every node where it is.
 
@@ -165,8 +163,8 @@ graph.store.subscribe(() => {
   bar.value = progress
 })
 
-graph.on('layoutend', ({ completed }) => {
-  if (completed) graph.view.fit(undefined, { duration: 400 })
+graph.on('layoutend', ({ name, completed }) => {
+  console.log(name, completed ? 'done' : 'stopped')
 })
 ```
 

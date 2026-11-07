@@ -104,6 +104,20 @@ describe('Timeline', () => {
     expect(seen?.window).toEqual(graph?.time.get())
   })
 
+  it('returns a prop that goes away to its default', () => {
+    const bar = (mode?: 'grow') => (
+      <Graph definition={definition} ariaLabel="graph">
+        {mode ? <Timeline mode={mode} labels={{ play: 'Lecture' }} /> : <Timeline />}
+        <Values />
+      </Graph>
+    )
+    render(bar('grow'))
+    const button = document.querySelector('[data-graph-timeline] button')
+    expect(button?.getAttribute('aria-label')).toBe('Lecture')
+    render(bar())
+    expect(button?.getAttribute('aria-label')).toBeNull()
+  })
+
   it('removes its element on unmount', () => {
     render(<Frise initial={null} />)
     act(() => root.render(null))

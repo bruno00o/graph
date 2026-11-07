@@ -68,11 +68,20 @@ export interface Legend<S extends string = string, M extends Mark = Mark> {
    * layer through `layers` of the graph.
    */
   toggle(id: string, off?: boolean): void
+  /**
+   * Switches an item on and every other item of its section off: the other categories of `color`,
+   * the other looks of the same kind of element, or the other layers. An unknown id changes
+   * nothing.
+   */
+  only(id: string): void
   /** Switches every item on again, layers included. */
   reset(): void
   /** Keys of the nodes and edges an item stands for, among those the graph draws. */
   keys(id: string): ElementKeys
-  /** Replaces the options. Options left out take their default value. */
+  /**
+   * Changes the options: an option left out keeps its current value, an option set to `undefined`
+   * returns to its default.
+   */
   update(options?: LegendOptions<S>): void
   /** Stops following the graph and empties the states of the legend. */
   destroy(): void
@@ -125,6 +134,7 @@ export function createLegend<S extends string, M extends Mark>(
     set(name: string, keys: ElementKeys): void
     clear(name: string): void
   }
+  let given: LegendOptions<S> = options
   let highlight: string | null = options.highlight ?? null
   let hidden: string | null = options.hidden ?? null
   const store = createStore<LegendState<M>>(emptyState as LegendState<M>)
@@ -135,6 +145,7 @@ export function createLegend<S extends string, M extends Mark>(
     hidden(): readonly string[]
     hide(names: Iterable<string>): void
     show(names?: Iterable<string>): void
+    set(hidden: Iterable<string>): void
   }
   const known = new Map<string, LegendCategory>()
   let crowded: ReadonlySet<number> = new Set()
@@ -305,6 +316,32 @@ export function createLegend<S extends string, M extends Mark>(
       else off.delete(id)
       publishOff()
     },
+    only(id) {
+      if (destroyed) return
+      const state = store.state
+      const layer = state.layers.find((each) => each.id === id)
+      if (layer) {
+        const others = state.layers.filter((each) => each !== layer).map((each) => each.name)
+        layers.set(others)
+        return
+      }
+      const categories = state.color?.type === 'categories' ? state.color.items : []
+      const look = state.looks.find((each) => each.id === id)
+      const section = categories.some((item) => item.id === id)
+        ? categories.map((item) => item.id)
+        : look
+          ? state.looks.filter((each) => each.kind === look.kind).map((each) => each.id)
+          : []
+      let changed = false
+      for (const sibling of section) {
+        const switched = sibling !== id
+        if (switched === off.has(sibling)) continue
+        changed = true
+        if (switched) off.add(sibling)
+        else off.delete(sibling)
+      }
+      if (changed) publishOff()
+    },
     reset() {
       if (destroyed) return
       if (store.state.layers.some((layer) => layer.off)) layers.show()
@@ -317,8 +354,9 @@ export function createLegend<S extends string, M extends Mark>(
     },
     update(next = {}) {
       if (destroyed) return
-      const nextHighlight = next.highlight ?? null
-      const nextHidden = next.hidden ?? null
+      given = { ...given, ...next }
+      const nextHighlight = given.highlight ?? null
+      const nextHidden = given.hidden ?? null
       if (highlight !== null && highlight !== nextHighlight) states.clear(highlight)
       if (hidden !== null && hidden !== nextHidden) states.clear(hidden)
       const changed = highlight !== nextHighlight || hidden !== nextHidden

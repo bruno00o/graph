@@ -140,6 +140,8 @@ timeline.update({ mode: 'grow', speed: 7 * 86_400_000 })
 timeline.play()
 ```
 
+`update` changes the options it is given and keeps the others; an option set to `undefined` returns to its default.
+
 See the [graph that grows](/examples/time-growth) example, which plays in `'grow'` mode.
 
 ### Text

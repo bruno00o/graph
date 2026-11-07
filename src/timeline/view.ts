@@ -62,7 +62,10 @@ export interface TimelineViewOptions {
 export interface TimelineView {
   /** The element of the timeline, for the application to place. */
   readonly element: HTMLElement
-  /** Replaces the options. Options left out take their default value. */
+  /**
+   * Changes the options: an option left out keeps its current value, an option set to `undefined`
+   * returns to its default.
+   */
   update(options?: TimelineViewOptions): void
   /** Removes the element. The timeline itself stays. */
   destroy(): void
@@ -495,7 +498,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     element: root,
     update(next = {}) {
       if (destroyed) return
-      settings = next
+      settings = { ...settings, ...next }
       shownBins = null
       shownTicks = null
       applySettings()

@@ -38,7 +38,10 @@ export interface LegendViewOptions<M extends Mark = Mark> {
 export interface LegendView<M extends Mark = Mark> {
   /** The element of the legend, for the application to place. */
   readonly element: HTMLElement
-  /** Replaces the options. Options left out take their default value. */
+  /**
+   * Changes the options: an option left out keeps its current value, an option set to `undefined`
+   * returns to its default.
+   */
   update(options?: LegendViewOptions<M>): void
   /** Removes the element. The legend itself stays. */
   destroy(): void
@@ -359,7 +362,7 @@ export function mountLegend<S extends string, M extends Mark>(
     element: root,
     update(next = {}) {
       if (destroyed) return
-      settings = next
+      settings = { ...settings, ...next }
       shown = ''
       label()
       render()

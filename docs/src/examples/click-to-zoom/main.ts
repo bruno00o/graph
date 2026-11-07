@@ -38,14 +38,14 @@ export function mount(container: HTMLElement): GraphInstance {
 
   function zoomTo(key: Key, label: string): void {
     const around = graph.paths.reach(key, { maxCost: 1 })
-    graph.view.fit(around.nodes, { padding: 80, duration })
+    graph.view.fit({ ...around, padding: 80, duration })
     status.textContent = messages.framed(label, around.nodes.length - 1)
   }
 
   graph.on('click', ({ target }) => {
     if (target?.kind === 'node') zoomTo(target.key, target.datum.label)
     else if (!target) {
-      graph.view.fit(undefined, { duration })
+      graph.view.fit({ duration })
       status.textContent = messages.hint
     }
   })

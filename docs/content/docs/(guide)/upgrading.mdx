@@ -41,6 +41,88 @@ Every optional option now accepts `undefined` in its type, and reads it as left 
 - A property of `aggregate` set to `undefined` drew the default; it now takes the look of the first merged edge.
 - A mark, a layout, a bundling or a routing rebuilt with an option set to `undefined` updated every element or ran again; it is now equal to the same one without the option.
 
+### `view.fit` takes options
+
+`view.fit` takes a single object of [`FitOptions`](/docs/view#fit): the keys to frame go in `nodes`, next to `padding` and `duration`. Edges can be framed too, by their two ends, and a path or the selection passes as is. Keys given as a list now throw a `TypeError`.
+
+```ts
+// Before
+graph.view.fit(['n1', 'n2'], { padding: 64, duration: 400 })
+graph.view.fit(undefined, { duration: 400 })
+graph.view.fit(path.nodes)
+
+// After
+graph.view.fit({ nodes: ['n1', 'n2'], padding: 64, duration: 400 })
+graph.view.fit({ duration: 400 })
+graph.view.fit(path)
+```
+
+A fit after each layout run can become `autoFit: 'layouts'` in the `view` of the definition, and a padding repeated on every fit, such as room for a panel, the `padding` of that `view`:
+
+```ts
+// Before
+graph.on('layoutend', ({ completed }) => {
+  if (completed) graph.view.fit(undefined, { padding: { right: 320 }, duration: 400 })
+})
+
+// After
+defineGraph({ marks, layout: force(), view: { autoFit: 'layouts', padding: { right: 320 } } })
+```
+
+See [The first view](/docs/view#the-first-view) and [Padding](/docs/view#padding).
+
+### `selectionchange` carries the selection in `selection`
+
+The payload of `selectionchange`, and of `onSelectionChange` in controlled mode, is now an object with the selection in `selection`, so that it can grow without breaking handlers.
+
+```ts
+// Before
+graph.on('selectionchange', ({ nodes }) => show(nodes))
+mountGraph(container, { definition, ariaLabel, selection, onSelectionChange: (next) => apply(next) })
+
+// After
+graph.on('selectionchange', ({ selection }) => show(selection.nodes))
+mountGraph(container, { definition, ariaLabel, selection, onSelectionChange: ({ selection }) => apply(selection) })
+```
+
+In React, `onSelectionChange={setSelection}` becomes `onSelectionChange={(event) => setSelection(event.selection)}`.
+
+### Paths take a `direction`
+
+`directed` in the options of `paths.shortest`, `paths.reach` and `createPathFinder` is replaced by `direction`, which can also follow edges backward, from target to source. A path finder built on reversed edges to walk upstream is no longer needed. `merge: { directed }` on edges does not change.
+
+```ts
+// Before
+graph.paths.reach(key, { directed: true })
+
+// After
+graph.paths.reach(key, { direction: 'forward' })
+graph.paths.reach(key, { direction: 'backward' })
+```
+
+See [Weights and direction](/docs/paths#weights-and-direction).
+
+### `update` keeps the options left out
+
+`update` on a timeline, a legend, a minimap and their renderers changed every option: an option left out went back to its default. It now changes only the options it is given, and an option set to `undefined` goes back to its default. Calls that passed every option still work. To reset an option, pass it as `undefined`:
+
+```ts
+// Before: also returned loop and speed to their defaults
+timeline.update({ mode: 'grow' })
+
+// After: keeps loop and speed
+timeline.update({ mode: 'grow' })
+
+// After: returns speed to its default
+timeline.update({ speed: undefined })
+```
+
+The React components `<Timeline>`, `<Legend>` and `<Minimap>` behave as before: a prop that goes away returns to its default.
+
+### Edge targets carry their ends
+
+Edge targets, in events, `pick`, `focus.get` and the store, carry a new `endpoints` key, the ends of the edge as drawn. Strict equality checks on edge targets in your tests see it.
+
 ## 0.10.0
 
 ### Data types flow from the marks

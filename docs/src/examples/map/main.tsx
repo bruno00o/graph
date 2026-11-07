@@ -169,8 +169,8 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       setStatus(target.kind === 'node' ? target.datum.label : '')
     })
     mounted.on('pointerleave', () => setStatus(''))
-    mounted.on('selectionchange', ({ nodes: selected }) => {
-      const chosen = new Set(selected)
+    mounted.on('selectionchange', ({ selection }) => {
+      const chosen = new Set(selection.nodes)
       mounted.states.set('active', {
         edges: routes
           .filter((route) => chosen.has(route.from) || chosen.has(route.to))

@@ -2,7 +2,7 @@
 
 The view is a center in world units and a zoom, `{ x, y, zoom }`: at zoom 1, one world unit is one CSS pixel. `graph.view` moves it from code, and every call can animate with `duration`:
 
-- `fit(keys, { padding })` frames the given nodes, or every node without keys. **Fit group** passes the keys of one group, **Fit the selection** those of `graph.selection.get()`.
+- `fit({ nodes, padding })` frames the given nodes, or every node without `nodes`. **Fit group** passes the keys of one group, **Fit the selection** those of `graph.selection.get()`.
 - `zoomBy(factor)` multiplies the zoom around the center of the view: the **+** and **−** buttons use 1.5 and its inverse.
 - `set(view)` goes to an exact view: **Zoom 1 at the origin** centers the world origin at zoom 1.
 
@@ -11,7 +11,7 @@ Every move stays within the `view` limits of the definition, here zoom 0.05 to 1
 Two functions convert between the two spaces:
 
 - `toScreen(point)` turns a world point into pixels relative to the graph element. The cross marks the world origin: it is a plain `div` moved with a CSS transform whenever the view or the size of the graph changes in the store.
-- `toWorld(point)` does the reverse. A `pointermove` listener on `graph.element` passes the pointer, relative to the element, and the status shows where it points in world units. Pointer events of the graph, such as `click`, already carry both as `point` and `world`.
+- `toWorld(point)` does the reverse. A `pointermove` listener on `graph.element` passes the pointer, relative to the element, and the status shows where it points in world units. Pointer events of the graph, such as `click` and `pointermove`, already carry both as `point` and `world`.
 
 ## Try it
 

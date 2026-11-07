@@ -50,8 +50,9 @@ export function mount(container: HTMLElement): GraphInstance {
         ? messages.focused(target.datum.label, target.datum.group)
         : messages.hint
   })
-  graph.on('selectionchange', ({ nodes: selected }) => {
-    if (selected.length > 0) status.textContent = messages.selected(selected.length)
+  graph.on('selectionchange', ({ selection }) => {
+    const count = selection.nodes.length
+    if (count > 0) status.textContent = messages.selected(count)
   })
 
   if (start) graph.focus.set({ kind: 'node', key: start.id })

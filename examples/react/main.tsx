@@ -107,7 +107,7 @@ function App() {
         <output aria-live="polite">
           {messages.selection(selection.nodes.length, selection.edges.length)}
         </output>
-        <button type="button" onClick={() => graph.current?.view.fit(undefined, { duration: 400 })}>
+        <button type="button" onClick={() => graph.current?.view.fit({ duration: 400 })}>
           {messages.fit}
         </button>
         <ThemeButton />
@@ -121,7 +121,7 @@ function App() {
             formatNumber(sample.items.length),
             formatNumber(sample.links.length),
           )}
-          onSelectionChange={setSelection}
+          onSelectionChange={(event) => setSelection(event.selection)}
         >
           <Tooltip />
         </Graph>

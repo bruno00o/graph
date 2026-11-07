@@ -123,6 +123,21 @@ describe('createMinimap', () => {
     expect(send('gesturestart', 1).defaultPrevented).toBe(false)
   })
 
+  it('keeps the options left out of update and resets those set to undefined', () => {
+    const graph = mount()
+    const minimap = createMinimap(graph, { zoom: false, width: 120 })
+    minimap.update({ height: 90 })
+    expect(minimap.element.style.width).toBe('120px')
+    expect(minimap.element.style.height).toBe('90px')
+    const zoom = graph.store.state.view.zoom
+    minimap.element.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, cancelable: true }))
+    expect(graph.store.state.view.zoom).toBe(zoom)
+    minimap.update({ zoom: undefined, width: undefined })
+    expect(minimap.element.style.width).toBe('200px')
+    minimap.element.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, cancelable: true }))
+    expect(graph.store.state.view.zoom).toBeGreaterThan(zoom)
+  })
+
   it('leaves the element to the application without a corner', () => {
     const graph = mount()
     const minimap = createMinimap(graph, { corner: null })

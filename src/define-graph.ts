@@ -1,10 +1,13 @@
 import { maxLayerSlots } from './core/mark-layers'
 import { freeStateNames, maxFreeStates } from './core/state-names'
+import { resolvePadding } from './core/view'
 import { withoutUndefined } from './core/without-undefined'
 import { themeColor } from './theme/tokens'
 import type {
+  AutoFit,
   BackgroundOptions,
   BridgeOptions,
+  FitPadding,
   GraphDefinition,
   GraphDefinitionOptions,
   InteractionOptions,
@@ -14,6 +17,7 @@ import type {
   ResolvedBridges,
   ResolvedInteraction,
   ResolvedLens,
+  ResolvedPadding,
   ResolvedSupportStates,
   ResolvedTimeOptions,
   ResolvedViewLimits,
@@ -31,6 +35,14 @@ const defaultAutoPanSpeed = 1
 const defaultMinZoom = 1e-3
 const defaultMaxZoom = 64
 const wheelModes: readonly WheelMode[] = ['zoom', 'pan', 'page']
+const autoFits: readonly AutoFit[] = ['first', 'layouts', 'never']
+const defaultPadding = 32
+export const defaultViewPadding: ResolvedPadding = Object.freeze({
+  top: defaultPadding,
+  right: defaultPadding,
+  bottom: defaultPadding,
+  left: defaultPadding,
+})
 const defaultPositionTransition = 120
 const defaultLayoutTransition = 400
 const defaultGridSpacing = 16
@@ -96,13 +108,34 @@ function resolveBounds(bounds: ViewBounds | null): ViewBounds | null {
   return Object.freeze({ minX, minY, maxX, maxY })
 }
 
+function resolveViewPadding(padding: number | FitPadding | undefined): ResolvedPadding {
+  const sides =
+    padding === undefined || typeof padding === 'number'
+      ? [padding]
+      : [padding.top, padding.right, padding.bottom, padding.left]
+  if (!sides.every((side) => side === undefined || Number.isFinite(side))) {
+    throw new RangeError('defineGraph: view.padding must be finite numbers')
+  }
+  return Object.freeze({ ...resolvePadding(padding, defaultViewPadding) })
+}
+
 function resolveView(options: ViewLimitOptions = {}): ResolvedViewLimits {
   const minZoom = options.minZoom ?? defaultMinZoom
   const maxZoom = options.maxZoom ?? defaultMaxZoom
   if (!(minZoom > 0) || !Number.isFinite(maxZoom) || !(minZoom <= maxZoom)) {
     throw new RangeError('defineGraph: view zoom limits must be positive, with minZoom ≤ maxZoom')
   }
-  return Object.freeze({ minZoom, maxZoom, bounds: resolveBounds(options.bounds ?? null) })
+  const autoFit = options.autoFit ?? 'first'
+  if (!autoFits.includes(autoFit)) {
+    throw new TypeError("defineGraph: view.autoFit must be 'first', 'layouts' or 'never'")
+  }
+  return Object.freeze({
+    minZoom,
+    maxZoom,
+    bounds: resolveBounds(options.bounds ?? null),
+    padding: resolveViewPadding(options.padding),
+    autoFit,
+  })
 }
 
 function resolveBackground(

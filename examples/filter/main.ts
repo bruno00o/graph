@@ -174,7 +174,7 @@ header.append(
     },
   ),
   button(messages.unload, () => reopen([])),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   themeToggle(messages.dark, messages.light),
 )
 

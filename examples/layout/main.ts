@@ -121,7 +121,7 @@ header.append(
   button(messages.relaunch, () => void graph.layout.run()),
   button(messages.stop, () => graph.layout.stop()),
   button(messages.grow, grow),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   themeToggle(messages.dark, messages.light),
 )
 

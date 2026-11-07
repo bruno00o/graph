@@ -32,6 +32,7 @@ export function mount(container: HTMLElement): GraphInstance {
       scales: { size: (value) => value, width: (value) => 1 + value },
       layout: force(),
       relayout,
+      view: { autoFit: 'layouts' },
     })
 
   const graph = mountGraph(container, {
@@ -39,10 +40,6 @@ export function mount(container: HTMLElement): GraphInstance {
     ariaLabel: messages.graphLabel(items.length - sizes.size, sizes.size),
     initialFolded: ['B', 'D', 'F'],
   })
-  graph.on('layoutend', ({ completed }) => {
-    if (completed) graph.view.fit(undefined, { duration: 400 })
-  })
-
   const button = (text: string, onClick: (element: HTMLButtonElement) => void) => {
     const element = document.createElement('button')
     element.type = 'button'

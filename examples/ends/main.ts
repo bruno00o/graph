@@ -159,7 +159,7 @@ header.append(
     flowing = !flowing
     redraw()
   }),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   ...exportButtons(graph, 'ends', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )

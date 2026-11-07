@@ -1,4 +1,4 @@
-import type { GraphPath, GraphPaths, GraphReach, Key, PathOptions } from '../types'
+import type { GraphPath, GraphPaths, GraphReach, Key, PathDirection, PathOptions } from '../types'
 import { toAccessor } from './accessor'
 import type { Adjacency, GraphModel } from './graph-model'
 import { type PathGroups, type PathRules, PathSearch } from './paths'
@@ -16,6 +16,13 @@ export interface PathSource {
 }
 
 const noReach: GraphReach = Object.freeze({ nodes: [], costs: [], edges: [] })
+
+function directionOf(direction: PathDirection | undefined): PathRules['direction'] {
+  if (direction === undefined || direction === 'both') return 0
+  if (direction === 'forward') return 1
+  if (direction === 'backward') return -1
+  throw new TypeError("graph: direction must be 'both', 'forward' or 'backward'")
+}
 
 export function createPathQueries(source: PathSource): GraphPaths {
   const { model } = source
@@ -51,7 +58,7 @@ export function createPathQueries(source: PathSource): GraphPaths {
           }
         : null
     return {
-      directed: options.directed === true,
+      direction: directionOf(options.direction),
       weighted: read !== null,
       cost,
       node,

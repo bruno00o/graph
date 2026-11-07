@@ -10,14 +10,16 @@ The view is a center point in world units and a zoom factor: `{ x, y, zoom }`. A
 ```ts
 graph.view.get()
 graph.view.set({ x: 0, y: 0, zoom: 2 }, { duration: 300 })
-graph.on('viewchange', ({ view }) => console.log(view.zoom))
+graph.on('viewchange', ({ view, origin }) => console.log(view.zoom, origin))
 ```
+
+`origin` tells who moved the view: `'user'` for gestures, the wheel, the keyboard and edge scrolling, `'api'` for `view` calls, `update({ view })` and automatic framing.
 
 The [view controls](/examples/view-controls) example calls each method of this page from buttons.
 
 ## The first view
 
-Without `initialView`, the graph fits all its nodes with a 32 pixel margin as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted. Only that first batch is fitted: later data does not move the view.
+Without `initialView`, the graph fits all its nodes as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted. Only that first batch is fitted: later data does not move the view. While the first layout run moves the nodes, the view keeps them framed until you move it.
 
 To start somewhere else, pass `initialView` when you mount.
 
@@ -25,16 +27,54 @@ To start somewhere else, pass `initialView` when you mount.
 mountGraph(container, { definition, ariaLabel: 'Sample graph', initialView: { x: 0, y: 0, zoom: 1 } })
 ```
 
+`autoFit` in the `view` of the definition sets when the graph frames its nodes on its own:
+
+- `'first'`, the default: the first data and the first layout run, as above.
+- `'layouts'`: the same, then the end of every layout run, automatic or from `layout.run`, as long as the view has not moved since the last fit. A gesture, `view.set` or `view.zoomBy` stops it, and the next `view.fit` starts it again.
+- `'never'`: the view stays where it starts.
+
+```ts
+defineGraph({ marks, layout: force(), relayout: true, view: { autoFit: 'layouts' } })
+```
+
+The [relayout on fold](/examples/relayout-on-fold) example frames the graph after each fold this way.
+
 ## Fit
 
-`fit` frames the given nodes, or every node without keys.
+`fit` frames the given nodes and edges, or every node without them. An edge counts through its two ends as drawn, and a node hidden in a folded group frames that group.
 
 ```ts
 graph.view.fit()
-graph.view.fit(['n1', 'n2', 'n3'], { padding: 64, duration: 400 })
+graph.view.fit({ nodes: ['n1', 'n2', 'n3'], padding: 64, duration: 400 })
 ```
 
-`padding` is in screen pixels, 32 by default. A `fit` called before the graph has measured its container waits for that measure. To frame the result of a layout, fit on `layoutend`: see [Layouts](/docs/layout#when-it-runs). The [click to zoom](/examples/click-to-zoom) example fits a node and its neighbors on a click.
+A path or the selection already has the right shape:
+
+```ts
+const path = graph.paths.shortest('a', 'f')
+if (path) graph.view.fit(path)
+graph.view.fit({ ...graph.selection.get(), duration: 300 })
+```
+
+`maxZoom` caps the zoom of one fit, so a single node does not fill the screen. A `fit` called before the graph has measured its container waits for that measure. To frame the result of a layout, pass `fit` to [`layout.run`](/docs/layout#run-it-from-code), or set `autoFit: 'layouts'`. The [click to zoom](/examples/click-to-zoom) example fits a node and its neighbors on a click.
+
+<api-table path="index.ts" name="FitOptions" />
+
+## Padding
+
+`padding` is the margin around the framed nodes, in screen pixels. Give a number for every side, or one margin per side to keep the nodes clear of a panel over the graph.
+
+```ts
+graph.view.fit({ padding: { right: 320 } })
+```
+
+The `padding` of the `view` of the definition is the default of every fit: `view.fit`, automatic framing, and the fits of layout runs. A side left out of a fit takes the side of the definition, 32 pixels unless you set it.
+
+```ts
+defineGraph({ marks, view: { padding: { left: 280, top: 16, right: 16, bottom: 16 } } })
+```
+
+<api-table path="index.ts" name="FitPadding" />
 
 ## Zoom
 
@@ -96,6 +136,8 @@ const graph = mountGraph(container, {
 Here the application keeps the view on a horizontal line: vertical moves are dropped, the rest goes through.
 
 A view applied inside `onViewChange` is drawn in the same frame, so a controlled view follows the pointer without lag. An application that answers later still gets smooth gestures: each new request starts from the last request it has not answered yet, and a view it applies that matches none of them replaces them all.
+
+Requests carry an `origin` like `viewchange`, and a view you apply with `update({ view })` keeps the origin of the request it answers, `'api'` when it answers none.
 
 The mode is fixed at mount: a graph mounted with `view` stays controlled for its whole life. The first fit does not run in controlled mode, and `viewchange` fires only when an applied view differs from the current one. In React, pass the `view` and `onViewChange` props: see [React](/docs/react#controlled-view) and the [controlled view](/examples/controlled-view) example.
 

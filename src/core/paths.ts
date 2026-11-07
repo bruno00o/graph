@@ -6,7 +6,7 @@ export interface PathGroups {
 }
 
 export interface PathRules {
-  readonly directed: boolean
+  readonly direction: -1 | 0 | 1
   readonly weighted: boolean
   readonly cost: ((id: number) => number) | null
   readonly node: ((index: number) => boolean) | null
@@ -364,12 +364,13 @@ export class PathSearch {
     const rules = this.#rules
     if (!graph || !rules || end < 0) return
     const { endNode, endHead, links } = graph
-    const { directed, groups } = rules
+    const { direction, groups } = rules
     const generation = this.#generation
     const side = this.#side
     const other = this.#other
     const meeting = this.#meeting
     const forward = this.#ahead
+    const along = direction > 0 ? forward : !forward
     const limit = this.#limit
     const base = side.dist[node] ?? 0
     let next = -1
@@ -379,7 +380,7 @@ export class PathSearch {
       const target = links[at + 1] ?? -1
       const outgoing = source === end
       next = links[at + (outgoing ? 2 : 4)] ?? -1
-      if (source === target || (directed && outgoing !== forward)) continue
+      if (source === target || (direction !== 0 && outgoing !== along)) continue
       let neighbor = endNode[outgoing ? target : source] ?? -1
       if (neighbor < 0) continue
       if (groups) {
@@ -419,7 +420,7 @@ export class PathSearch {
     const found = this.#found
     if (!graph || !rules || !found || end < 0) return
     const { endNode, endHead, links } = graph
-    const { directed, groups } = rules
+    const { direction, groups } = rules
     const generation = this.#generation
     const reached = this.#forward.settled
     const taken = this.#takenStamp
@@ -430,7 +431,8 @@ export class PathSearch {
       const target = links[at + 1] ?? -1
       const outgoing = source === end
       next = links[at + (outgoing ? 2 : 4)] ?? -1
-      if ((directed && !outgoing) || taken[id] === generation) continue
+      const against = direction > 0 ? !outgoing : direction < 0 && outgoing && source !== target
+      if (against || taken[id] === generation) continue
       let neighbor = endNode[outgoing ? target : source] ?? -1
       if (neighbor < 0) continue
       if (groups) {

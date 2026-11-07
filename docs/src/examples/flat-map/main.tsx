@@ -85,7 +85,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       definition,
       ariaLabel: messages.graphLabel(spots.length, links.length),
     })
-    graph.view.fit(undefined, { padding: 40 })
+    graph.view.fit({ padding: 40 })
     assign(ref, graph)
     graph.on('pointerenter', ({ target }) => {
       if (target.kind !== 'node') return

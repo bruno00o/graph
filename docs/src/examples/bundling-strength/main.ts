@@ -52,13 +52,13 @@ export function mount(container: HTMLElement): GraphInstance {
       ],
       scales: { size: (value) => value },
       bundling: densityBundling({ strength }),
+      view: { padding: 56 },
     })
 
   const graph = mountGraph(container, {
     definition: define(),
     ariaLabel: messages.graphLabel(dots.length, ties.length),
   })
-  graph.view.fit(undefined, { padding: 56 })
 
   const text = document.createElement('span')
   text.textContent = messages.strength(strength)

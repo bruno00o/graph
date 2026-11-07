@@ -3,7 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { defineGraph } from './define-graph'
 import { edges, nodes } from './marks'
 import { createPathFinder } from './paths'
-import type { EdgeMark, GraphPath, Key, NodeMark, PathOptions } from './types'
+import type { EdgeMark, GraphPath, Key, NodeMark, PathDirection, PathOptions } from './types'
 
 interface Item {
   readonly id: string
@@ -31,6 +31,8 @@ function link(from: string, to: string, length: number | null = null): Link {
   return { id: `${from}${to}${length ?? ''}`, from, to, length }
 }
 
+const directions: readonly PathDirection[] = ['both', 'forward', 'backward']
+
 function random(seed: number): () => number {
   let state = seed >>> 0
   return () => {
@@ -43,7 +45,7 @@ function reference(
   count: number,
   links: readonly Link[],
   from: number,
-  directed: boolean,
+  direction: PathDirection,
   weighted: boolean,
 ): number[] {
   const dist = new Array<number>(count).fill(Number.POSITIVE_INFINITY)
@@ -55,11 +57,11 @@ function reference(
       if (!(step >= 0)) continue
       const u = Number(a.slice(1))
       const v = Number(b.slice(1))
-      if ((dist[u] ?? 0) + step < (dist[v] ?? 0)) {
+      if (direction !== 'backward' && (dist[u] ?? 0) + step < (dist[v] ?? 0)) {
         dist[v] = (dist[u] ?? 0) + step
         changed = true
       }
-      if (!directed && (dist[v] ?? 0) + step < (dist[u] ?? 0)) {
+      if (direction !== 'forward' && (dist[v] ?? 0) + step < (dist[u] ?? 0)) {
         dist[u] = (dist[v] ?? 0) + step
         changed = true
       }
@@ -72,7 +74,7 @@ function reference(
 function checkPath(
   path: GraphPath,
   links: readonly Link[],
-  directed: boolean,
+  direction: PathDirection,
   weighted: boolean,
 ): void {
   const byId = new Map(links.map((each) => [each.id, each]))
@@ -86,7 +88,8 @@ function checkPath(
     const b = path.nodes[at + 1]
     const forward = edge.from === a && edge.to === b
     const backward = edge.from === b && edge.to === a
-    expect(directed ? forward : forward || backward).toBe(true)
+    const allowed = { both: forward || backward, forward, backward }
+    expect(allowed[direction]).toBe(true)
     total += weighted ? (edge.length ?? 0) : 1
     expect(path.costs[at + 1]).toBeCloseTo(total)
   })
@@ -126,8 +129,35 @@ describe('createPathFinder', () => {
   it('follows the direction of the edges only when asked', () => {
     const paths = finder(items, links)
     expect(paths.shortest('d', 'a')?.nodes).toEqual(['d', 'e', 'a'])
-    expect(paths.shortest('d', 'a', { directed: true })).toBeNull()
-    expect(paths.shortest('a', 'd', { directed: true })?.nodes).toEqual(['a', 'e', 'd'])
+    expect(paths.shortest('d', 'a', { direction: 'both' })?.nodes).toEqual(['d', 'e', 'a'])
+    expect(paths.shortest('d', 'a', { direction: 'forward' })).toBeNull()
+    expect(paths.shortest('a', 'd', { direction: 'forward' })?.nodes).toEqual(['a', 'e', 'd'])
+  })
+
+  it('walks the edges backward, from target to source', () => {
+    const paths = finder(items, links)
+    expect(paths.shortest('a', 'd', { direction: 'backward' })).toBeNull()
+    expect(paths.shortest('d', 'a', { direction: 'backward' })).toEqual({
+      nodes: ['d', 'e', 'a'],
+      edges: ['ed1', 'ae10'],
+      costs: [0, 1, 2],
+      cost: 2,
+    })
+    const up = paths.reach('d', { direction: 'backward' })
+    expect(new Set(up.nodes)).toEqual(new Set(['d', 'c', 'e', 'b', 'a']))
+    expect(new Set(up.edges)).toEqual(new Set(['ab1', 'bc1', 'cd1', 'ae10', 'ed1']))
+    expect(paths.reach('a', { direction: 'backward' }).nodes).toEqual(['a'])
+    expect(paths.reach('c', { direction: 'backward', maxCost: 1 })).toEqual({
+      nodes: ['c', 'b'],
+      costs: [0, 1],
+      edges: ['bc1'],
+    })
+  })
+
+  it('refuses an unknown direction', () => {
+    const paths = finder(items, links)
+    const direction = 'up' as PathDirection
+    expect(() => paths.shortest('a', 'd', { direction })).toThrow(TypeError)
   })
 
   it('returns a single node from a node to itself, and null for unknown or cut-off nodes', () => {
@@ -148,7 +178,12 @@ describe('createPathFinder', () => {
   it('takes the lightest of parallel edges', () => {
     const paths = finder(ids('a', 'b'), [link('a', 'b', 5), link('b', 'a', 2), link('a', 'b', 3)])
     expect(paths.shortest('a', 'b', { weight: 'length' })?.edges).toEqual(['ba2'])
-    expect(paths.shortest('a', 'b', { weight: 'length', directed: true })?.edges).toEqual(['ab3'])
+    expect(paths.shortest('a', 'b', { weight: 'length', direction: 'forward' })?.edges).toEqual([
+      'ab3',
+    ])
+    expect(paths.shortest('a', 'b', { weight: 'length', direction: 'backward' })?.edges).toEqual([
+      'ba2',
+    ])
   })
 
   it('keeps to the nodes and edges the predicates allow, ends included', () => {
@@ -183,7 +218,7 @@ describe('createPathFinder', () => {
     expect(new Set(two.nodes)).toEqual(new Set(['a', 'b', 'e', 'c', 'd']))
     expect(new Set(two.edges)).toEqual(new Set(['ab1', 'ae10', 'bc1', 'cd1', 'ed1']))
     expect(paths.reach('a', { weight: 'length', maxCost: 2 }).nodes).toEqual(['a', 'b', 'c'])
-    expect(paths.reach('d', { directed: true }).nodes).toEqual(['d'])
+    expect(paths.reach('d', { direction: 'forward' }).nodes).toEqual(['d'])
     expect(paths.reach('f').nodes).toEqual(['f'])
     expect(paths.reach('zz')).toEqual({ nodes: [], costs: [], edges: [] })
     expect(paths.reach('a').nodes).toHaveLength(5)
@@ -219,13 +254,13 @@ describe('createPathFinder', () => {
         length: next() < 0.1 ? null : Math.round(next() * 9),
       }))
       const paths = finder(graphItems, graphLinks)
-      for (const directed of [false, true]) {
+      for (const direction of directions) {
         for (const weighted of [false, true]) {
           const from = Math.floor(next() * count)
-          const expected = reference(count, graphLinks, from, directed, weighted)
+          const expected = reference(count, graphLinks, from, direction, weighted)
           const options: PathOptions<NodeMark<Item> | EdgeMark<Link>> = weighted
-            ? { directed, weight: 'length' }
-            : { directed }
+            ? { direction, weight: 'length' }
+            : { direction }
           const reached = paths.reach(`n${from}`, options)
           const costs = new Map<Key, number>(
             reached.nodes.map((key, at) => [key, reached.costs[at] ?? 0]),
@@ -240,7 +275,7 @@ describe('createPathFinder', () => {
             }
             expect(path?.cost).toBeCloseTo(cost)
             expect(costs.get(`n${to}`)).toBeCloseTo(cost)
-            if (path) checkPath(path, graphLinks, directed, weighted)
+            if (path) checkPath(path, graphLinks, direction, weighted)
           }
         }
       }
@@ -259,8 +294,8 @@ describe('createPathFinder', () => {
     }))
     const paths = finder(graphItems, graphLinks)
     for (const maxCost of [1, 2, 3, 6, 40]) {
-      for (const directed of [false, true]) {
-        const reached = paths.reach('n0', { maxCost, directed, weight: 'length' })
+      for (const direction of directions) {
+        const reached = paths.reach('n0', { maxCost, direction, weight: 'length' })
         const inside = new Set(reached.nodes)
         const expected = graphLinks
           .filter((each) => inside.has(each.from) && inside.has(each.to))

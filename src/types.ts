@@ -991,8 +991,42 @@ export interface ResolvedInteraction {
 export type ViewBounds = Bounds | { readonly margin: number }
 
 /**
+ * Margin on each side of a fitted area, in screen pixels. A side left out takes the `padding` of the
+ * `view` of the definition.
+ */
+export interface FitPadding {
+  /** Margin above the area, in screen pixels. */
+  readonly top?: number | undefined
+  /** Margin right of the area, in screen pixels. */
+  readonly right?: number | undefined
+  /** Margin below the area, in screen pixels. */
+  readonly bottom?: number | undefined
+  /** Margin left of the area, in screen pixels. */
+  readonly left?: number | undefined
+}
+
+/** Margin on each side of a fitted area, in screen pixels, with every side resolved. */
+export interface ResolvedPadding {
+  /** Margin above the area. */
+  readonly top: number
+  /** Margin right of the area. */
+  readonly right: number
+  /** Margin below the area. */
+  readonly bottom: number
+  /** Margin left of the area. */
+  readonly left: number
+}
+
+/**
+ * When the view frames the nodes on its own: `'first'` frames the first data and follows the first
+ * layout run, `'layouts'` follows every layout run as well, and `'never'` leaves the view where it
+ * is.
+ */
+export type AutoFit = 'first' | 'layouts' | 'never'
+
+/**
  * Options of the `view` of `defineGraph`. Gestures, the keyboard, `view.set`, `view.fit`,
- * `view.zoomBy` and animations stay within them.
+ * `view.zoomBy` and animations stay within the limits.
  */
 export interface ViewLimitOptions {
   /**
@@ -1012,9 +1046,26 @@ export interface ViewLimitOptions {
    * @default null
    */
   readonly bounds?: ViewBounds | null | undefined
+  /**
+   * Margin around the nodes framed by every fit, automatic or not, in screen pixels: a number for
+   * every side, or a margin per side, such as the room taken by a panel over the graph. A side
+   * left out takes 32 pixels.
+   * @default 32
+   */
+  readonly padding?: number | FitPadding | undefined
+  /**
+   * When the view frames the nodes on its own, with `padding`. `'first'` frames the first data
+   * and follows the first layout run until the view moves, unless the graph mounts with
+   * `initialView` or `view`. `'layouts'` does the same, then follows every layout run and frames
+   * its end, as long as the view has not moved since the last fit: a gesture, `view.set` or
+   * `view.zoomBy` stops it until the next `view.fit`. `'never'` frames nothing. A controlled view receives the
+   * fits as requests.
+   * @default 'first'
+   */
+  readonly autoFit?: AutoFit | undefined
 }
 
-/** View limits with every default applied, as `defineGraph` resolves them. */
+/** View options with every default applied, as `defineGraph` resolves them. */
 export interface ResolvedViewLimits {
   /** Smallest zoom. */
   readonly minZoom: number
@@ -1022,6 +1073,10 @@ export interface ResolvedViewLimits {
   readonly maxZoom: number
   /** Area the view cannot leave, or `null`. */
   readonly bounds: ViewBounds | null
+  /** Margin of every fit, per side. */
+  readonly padding: ResolvedPadding
+  /** When the view frames the nodes on its own. */
+  readonly autoFit: AutoFit
 }
 
 /** Durations of animated moves, in milliseconds. Negative values count as 0. */
@@ -1545,13 +1600,20 @@ export type PathWeight<T> = unknown extends T
   ? string | Accessor<T, number | null | undefined>
   : Channel<T, number>
 
+/**
+ * Which way path queries cross edges: `'both'` either way, `'forward'` from source to target only,
+ * `'backward'` from target to source only.
+ */
+export type PathDirection = 'both' | 'forward' | 'backward'
+
 /** Options of `paths.shortest`. `M` is the union of the marks, whose items the functions read. */
 export interface PathOptions<M extends Mark = Mark> {
   /**
-   * Follows each edge from its source to its target only. Otherwise edges are crossed both ways.
-   * @default false
+   * Which way edges are crossed: `'both'` either way, `'forward'` from source to target only, so
+   * a path follows the arrows, or `'backward'` from target to source only, against them.
+   * @default 'both'
    */
-  readonly directed?: boolean | undefined
+  readonly direction?: PathDirection | undefined
   /**
    * Cost of crossing an edge: a field or a function of its item. An edge without a finite weight
    * cannot be crossed, and a negative weight throws a `RangeError`. Without it, every edge costs 1.
@@ -1575,12 +1637,13 @@ export interface PathOptions<M extends Mark = Mark> {
 export interface ReachOptions<M extends Mark = Mark> extends PathOptions<M> {
   /**
    * Largest cost from the start, which counts edges without `weight`. Defaults to no limit: the
-   * whole connected component, or every node the start leads to with `directed`.
+   * whole connected component, every node the start leads to with `'forward'`, or every node that
+   * leads to the start with `'backward'`.
    */
   readonly maxCost?: number | undefined
 }
 
-/** A path found by `paths.shortest`. Pass it to `states.set` to highlight it. */
+/** A path found by `paths.shortest`. Pass it to `states.set` to highlight it, or to `view.fit`. */
 export interface GraphPath {
   /** Keys of the nodes along the path, from the start to the end. */
   readonly nodes: readonly Key[]
