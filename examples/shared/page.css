@@ -71,3 +71,11 @@ a {
 .zoom-hint[hidden] {
   display: none;
 }
+
+.timeline {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 1;
+}

@@ -1,4 +1,14 @@
-import type { AggregateEdge, EdgeMark, Key, Mark, MarkName, NodeMark, Point, View } from '../types'
+import type {
+  AggregateEdge,
+  EdgeMark,
+  Key,
+  Mark,
+  MarkName,
+  NodeMark,
+  Point,
+  TimeWindow,
+  View,
+} from '../types'
 import type { GraphLensState } from './lens'
 
 /** A node, with `datum`, the item it comes from, of type `T`, and `mark`, the name of its mark. */
@@ -124,6 +134,12 @@ export interface GraphViewEvent {
   readonly view: View
 }
 
+/** Payload of `timechange` and of the controlled `onTimeChange` callback. */
+export interface GraphTimeEvent {
+  /** The time window, or `null` when every element shows. */
+  readonly window: TimeWindow | null
+}
+
 /** Payload of `lenschange`. */
 export interface GraphLensEvent {
   /** The lens, or `null` when it hides. */
@@ -186,6 +202,8 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly foldchange: GraphFoldEvent
   /** The view changed. In controlled mode, only when `update({ view })` moves it. */
   readonly viewchange: GraphViewEvent
+  /** The time window changed. In controlled mode, only when `update({ time })` moves it. */
+  readonly timechange: GraphTimeEvent
   /** The lens shows, moves, changes size or magnification, or hides. */
   readonly lenschange: GraphLensEvent
   /**

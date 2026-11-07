@@ -354,6 +354,8 @@ export function createScene(): Scene {
         : Math.max(0, finiteOr(mark.outlineWidth?.(datum), outline ? defaults.nodeOutlineWidth : 0))
     nodes.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     nodes.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
+    if (mark.time) nodes.time.read(index, mark.time(datum))
+    else nodes.time.clear(index)
     nodes.screenUnits[index] = mark.screenUnits ? 1 : 0
     nodes.label[index] = toText(mark.label?.(datum))
     nodes.secondary[index] = toText(mark.secondary?.(datum))
@@ -402,6 +404,12 @@ export function createScene(): Scene {
       toColor(mark.stroke?.(datum)) ??
       colorScale.map(edgeColorValues[index], colorExtent) ??
       defaults.edgeColor
+    if (
+      edges.alive[index] !== 1 ||
+      edges.source[index] !== record.sourceIndex ||
+      edges.target[index] !== record.targetIndex
+    )
+      edges.time.touch(index)
     edges.alive[index] = 1
     edges.slot[index] = slotOf(record.mark)
     edges.source[index] = record.sourceIndex
@@ -415,6 +423,8 @@ export function createScene(): Scene {
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     edges.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
+    if (mark.time) edges.time.read(index, mark.time(datum))
+    else edges.time.clear(index)
     edges.setFlow(index, mark.flow ? flowSpeed(mark.flow(datum)) : 0)
     const geodesic = mark.geodesic?.(datum) === true
     edges.geodesic[index] = geodesic ? 1 : 0
@@ -438,6 +448,7 @@ export function createScene(): Scene {
   }
 
   function removeEdge(index: number): void {
+    if (edges.alive[index] === 1) edges.time.touch(index)
     lanes.unlink(index)
     edges.clear(index)
     widthValues[index] = Number.NaN

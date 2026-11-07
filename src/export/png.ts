@@ -146,6 +146,7 @@ export async function renderPng(
           labels: area,
           time,
           globe,
+          window: frame.window ?? null,
         })
         const pixels = tile.subarray(0, tileWidth * tileHeight * 4)
         gl.readPixels(0, 0, tileWidth, tileHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels)

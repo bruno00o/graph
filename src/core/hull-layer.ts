@@ -12,6 +12,7 @@ import {
 } from './hull-geometry'
 import type { Palette } from './palette'
 import type { Positions } from './positions'
+import { nodeShown, type Sight } from './visibility'
 
 export const hullInstanceWords = 16
 
@@ -27,7 +28,7 @@ export interface HullSource {
   readonly positions: Positions
   readonly palette: Palette
   readonly containers?: ContainerSource | null
-  readonly zoom?: number
+  readonly sight?: Sight
   readonly detail?: number
   stateNodes(name: string): readonly Key[]
 }
@@ -236,10 +237,10 @@ export class HullLayer {
   }
 
   #members(spec: Spec, source: HullSource): Map<Key | undefined, number[]> {
-    const { model, nodes, zoom } = source
+    const { model, nodes, sight } = source
     const result = new Map<Key | undefined, number[]>()
     const add = (value: Key | undefined, index: number) => {
-      if (zoom !== undefined && !nodes.zoom.shown(index, zoom)) return
+      if (sight !== undefined && !nodeShown(nodes, index, sight)) return
       let list = result.get(value)
       if (!list) {
         list = []

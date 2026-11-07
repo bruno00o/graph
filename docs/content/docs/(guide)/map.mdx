@@ -80,7 +80,7 @@ Positions are stored relative to an origin that follows the camera, so nodes sit
 
 ## What is left out
 
-On a map, the definition keeps its marks, states, scales, labels, images, badges, flows, hulls, groups and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
+On a map, the definition keeps its marks, states, scales, labels, images, badges, flows, hulls, groups, [time window](/docs/time) and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
 
 - `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units. A node without coordinates is placed near its placed neighbors, or on a spiral. In development, a layout in the definition logs a warning, and `graph.layout.run` rejects.
 - `background` and `bundling`.

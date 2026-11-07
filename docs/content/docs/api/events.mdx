@@ -89,6 +89,10 @@ interface GraphLensEvent {
   readonly lens: GraphLensState | null
 }
 
+interface GraphTimeEvent {
+  readonly window: TimeWindow | null
+}
+
 interface GraphZoomHintEvent {
   readonly key: 'Meta' | 'Control'
   readonly originalEvent: WheelEvent
@@ -108,13 +112,14 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 - `folded` lists the keys of every folded group after the change.
 - `zoomhint` fires in `'page'` wheel mode for each wheel event left to the page. `key` is the key to hold to zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. Show your own hint: the graph shows none. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad).
 - `lens` is the lens after the change, `null` when it hides. See [Lens](/docs/lens).
+- `window` is the time window after the change, in milliseconds, `null` when every element shows. See [Time](/docs/time).
 - `positions` holds the target positions. Moves that come from your data do not emit `positionchange`.
 - With the origin `'layout'`, `positions` holds every node the run moved. A stopped run emits nothing.
 - `name` is the name of the layout, `'force'` for [`force()`](/docs/api/force). `completed` is `false` when the run was stopped or replaced.
 
 ## Order
 
-`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`, and `viewchange` and `onViewChange` with `view`.
+`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`, `viewchange` and `onViewChange` with `view`, and `timechange` and `onTimeChange` with `time`.
 
 A `doubleclick` on a group folds or unfolds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 

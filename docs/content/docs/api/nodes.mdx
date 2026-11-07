@@ -30,6 +30,22 @@ A **channel** is a field name or a function, and goes through a scale. A **style
 
 `outline` alone draws a 2 pixel ring. `outlineWidth` alone draws the ring in `--graph-node-ring`.
 
+## Time
+
+`time` takes a moment or a period. See [Time](/docs/time).
+
+```ts
+type TimeInstant = number | Date
+type TimeValue = TimeInstant | TimeSpan
+
+interface TimeSpan {
+  readonly start?: TimeInstant | null
+  readonly end?: TimeInstant | null
+}
+```
+
+<api-table path="index.ts" name="TimeSpan" />
+
 ## Groups
 
 A node whose `parent` is the key of another node is a child of that node, which becomes a group. Groups nest. See [Groups](/docs/groups).

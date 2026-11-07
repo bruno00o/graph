@@ -149,3 +149,17 @@
   max-height: calc(100% - 28px);
   overflow: auto;
 }
+
+.example-timeline {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
+}
+
+.example-status.example-status-top {
+  top: 14px;
+  right: 14px;
+  bottom: auto;
+  left: auto;
+}

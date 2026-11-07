@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  detailStep,
-  edgeOpacity,
-  edgeShown,
-  readMaxZoom,
-  readMinZoom,
-  ZoomRanges,
-  zoomFade,
-  zoomOpacity,
-} from './zoom-range'
+import { readMaxZoom, readMinZoom, ZoomRanges, zoomFade, zoomOpacity } from './zoom-range'
 
 describe('zoomOpacity', () => {
   it('hides at and beyond the limits and fades in just inside them', () => {
@@ -75,25 +66,5 @@ describe('ZoomRanges', () => {
     for (let index = 0; index < 2000; index++) ranges.set(index, 1 + index / 1000, 1000)
     expect(ranges.fading(100)).toBe(true)
     expect(ranges.step(1)).not.toBe(ranges.step(2))
-  })
-})
-
-describe('edges', () => {
-  it('hides an edge while one of its ends is hidden', () => {
-    const nodes = { zoom: new ZoomRanges() }
-    const edges = {
-      zoom: new ZoomRanges(),
-      source: Uint32Array.of(0),
-      target: Uint32Array.of(1),
-    }
-    expect(edgeShown(nodes, edges, 0, 0.1)).toBe(true)
-    expect(edgeOpacity(nodes, edges, 0, 0.1)).toBe(1)
-    nodes.zoom.set(1, 1, Number.POSITIVE_INFINITY)
-    expect(edgeShown(nodes, edges, 0, 0.5)).toBe(false)
-    expect(edgeShown(nodes, edges, 0, 2)).toBe(true)
-    expect(edgeOpacity(nodes, edges, 0, 2 ** (zoomFade / 2))).toBeCloseTo(0.5)
-    edges.zoom.set(0, 0, 1.5)
-    expect(edgeShown(nodes, edges, 0, 2)).toBe(false)
-    expect(detailStep(nodes, edges, 2)).not.toBe(detailStep(nodes, edges, 1.2))
   })
 })

@@ -1,6 +1,7 @@
 import type { Key, Point } from '../types'
 import type { NodeColumns } from './columns'
 import type { Positions } from './positions'
+import { nodeShown, type Sight } from './visibility'
 
 export function insidePolygon(x: number, y: number, polygon: readonly Point[]): boolean {
   let inside = false
@@ -22,7 +23,7 @@ export function nodesInside(
   polygon: readonly Point[],
   nodes: NodeColumns,
   positions: Positions,
-  zoom?: number,
+  sight?: Sight,
 ): Key[] {
   if (polygon.length < 3) return []
   let left = Number.POSITIVE_INFINITY
@@ -38,7 +39,7 @@ export function nodesInside(
   const inside: Key[] = []
   for (let index = 0; index < nodes.capacity; index++) {
     if (nodes.alive[index] !== 1) continue
-    if (zoom !== undefined && !nodes.zoom.shown(index, zoom)) continue
+    if (sight !== undefined && !nodeShown(nodes, index, sight)) continue
     const x = positions.x(index)
     const y = positions.y(index)
     if (x < left || x > right || y < top || y > bottom) continue

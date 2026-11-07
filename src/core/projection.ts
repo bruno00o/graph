@@ -13,6 +13,7 @@ import { Hierarchy } from './hierarchy'
 import { IndexSet } from './index-set'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
 import type { GraphIssue } from './source-table'
+import { readSpan } from './time-range'
 
 const none = -1
 const absent = 0
@@ -65,6 +66,24 @@ function single(read: Read): (aggregate: AggregateEdge) => unknown {
   return (aggregate) => (aggregate.count === 1 ? read(aggregate.data[0]) : null)
 }
 
+function spanning(read: Read): (aggregate: AggregateEdge) => unknown {
+  return (aggregate) => {
+    let start = Number.POSITIVE_INFINITY
+    let end = Number.NEGATIVE_INFINITY
+    for (const datum of aggregate.data) {
+      const span = readSpan(read(datum))
+      if (!span) return null
+      start = Math.min(start, span[0])
+      end = Math.max(end, span[1])
+    }
+    if (start > end) return null
+    return {
+      start: start === Number.NEGATIVE_INFINITY ? null : start,
+      end: end === Number.POSITIVE_INFINITY ? null : end,
+    }
+  }
+}
+
 function lifted(value: unknown): unknown {
   return typeof value === 'function' ? first(value as Read) : value
 }
@@ -89,13 +108,27 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
   const cached = looks.get(mark)
   if (cached) return cached
   const options = mark.options
-  const fallback: { [name: string]: unknown; color?: unknown; width?: unknown; label?: unknown } =
-    {}
+  const fallback: {
+    [name: string]: unknown
+    color?: unknown
+    width?: unknown
+    label?: unknown
+    time?: unknown
+  } = {}
   if (options.color !== undefined) fallback.color = first(toAccessor(options.color))
   if (options.width !== undefined) fallback.width = first(toAccessor(options.width))
-  for (const name of ['dash', 'arrow', 'stroke', 'opacity', 'flow'] as const) {
+  for (const name of [
+    'dash',
+    'arrow',
+    'stroke',
+    'opacity',
+    'flow',
+    'minZoom',
+    'maxZoom',
+  ] as const) {
     if (options[name] !== undefined) fallback[name] = lifted(options[name])
   }
+  if (options.time !== undefined) fallback.time = spanning(toAccessor(options.time))
   if (options.label !== undefined) fallback.label = liftedLabel(options.label)
   const look = Object.freeze({
     type: 'edges',
