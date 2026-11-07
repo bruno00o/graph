@@ -1,0 +1,13 @@
+## How it works
+
+A node exists over a period, `{ start, end }`, open when it has no end. An edge happens at one moment: `time: 'at'` reads a number of milliseconds. A moment shows while it lies inside the window, and an edge shows only while both its nodes exist too.
+
+The timeline plays in `'slide'` mode: the three week window keeps its width and moves across the year.
+
+`time: { fade }` in `defineGraph` fades elements in after the window reaches them and out before it leaves them, over a duration in the time of the data. A moment fades in as the window comes close and out as it goes, so edges come and go gently. **Fade** rebuilds the definition with none, 4 or 12 days.
+
+## Try it
+
+- Press play, then press **Fade** to compare.
+- Brush a single day on the histogram: only the edges of that day show.
+- Hover a pale node: it is about to start or end.

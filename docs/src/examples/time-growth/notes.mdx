@@ -1,0 +1,15 @@
+## How it works
+
+Each node and each edge has a `time` with a start and no end, `{ start: member.born }`: once it joins, it stays. New nodes attach to nodes that already have many edges, so hubs grow.
+
+The timeline plays in `'grow'` mode: the window keeps its start and its end moves on, so the graph shows everything since the beginning. The histogram counts the nodes and edges that exist over time.
+
+On every `timechange`, the example sets the members of the free state `recent`: the nodes and edges that joined in the sixty days before the end of the window. The state rings them with the accent color and raises them above the rest.
+
+The force layout places every node at once, hidden ones included, so the graph does not move while it grows.
+
+## Try it
+
+- Press play: the graph grows from its first six nodes.
+- Drag the end of the window back and forth.
+- Brush a short window: in grow mode, playback keeps its start.

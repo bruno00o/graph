@@ -1,0 +1,13 @@
+## How it works
+
+Nodes take their place from `x` and `y`, without a layout, and `orthogonalRouting` draws each edge in horizontal and vertical segments around them, in a Web Worker. `gap: 12` keeps the routes 12 units away from the nodes, and `bridges: true` makes crossing routes jump.
+
+- `axis` chooses the sides an edge leaves and enters by: `'auto'` follows the larger distance between its ends, `'horizontal'` uses the left and right sides, `'vertical'` the top and bottom.
+- `spacing` is the distance between routes that share a channel, such as the two edges from N7 to N9.
+- The dashed edges set `route: false` on their mark: they stay straight, and still jump over routes.
+
+## Try it
+
+- Press **Sides** to try each axis.
+- Press **Spacing** to spread routes that run side by side.
+- Drag a node: its routes follow it, then go around the other nodes again 150 milliseconds after it stops.

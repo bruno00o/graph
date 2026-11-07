@@ -1,0 +1,15 @@
+## How it works
+
+`bridges` in `defineGraph` makes an edge jump over the edges it crosses. It needs no `routing`: here every edge is straight. Where a horizontal and a vertical line cross, the horizontal one jumps.
+
+- `shape: 'arc'` draws a half circle over the other edge, `shape: 'gap'` a break in the line.
+- `size` is the width of a jump in screen pixels. Zoomed out below 1, jumps shrink with the zoom, and under 2 pixels lines cross plainly.
+- The dashed edges set `bridge: false`: they neither jump nor are jumped over.
+
+Crossings are found 150 milliseconds after nodes stop moving, on the main thread. The GPU draws the jumps, so panning and zooming cost no search.
+
+## Try it
+
+- Press **Crossings** to switch between arcs, gaps and plain crossings.
+- Press **Size** to change the width of the jumps.
+- Drag a node at the end of a line: the jumps follow the new crossings once it stops.

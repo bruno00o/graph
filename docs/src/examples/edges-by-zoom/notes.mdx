@@ -1,0 +1,13 @@
+## How it works
+
+Every edge has a `strength` from 0 to 1: strong inside a group, weak between groups. `minZoom` is a style, a function of the item: edges at 0.8 or above have no limit, and the weaker an edge, the further you must zoom in before it shows, up to about five times the first threshold.
+
+Past its `minZoom`, an edge fades in over a quarter of a zoom doubling. The limits are read once, with the data: zooming only compares the zoom with them on the GPU.
+
+The status counts the edges whose `minZoom` lies below the current zoom, from `viewchange`.
+
+## Try it
+
+- Scroll to zoom in on a group: weaker edges fade in, the strongest first.
+- Zoom out again: only the strong edges stay, so the groups read clearly.
+- Hover where a hidden edge would be: hidden edges are not picked.
