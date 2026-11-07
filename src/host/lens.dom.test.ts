@@ -207,6 +207,24 @@ describe('lens', () => {
     expect(graph.store.get().view.zoom).toBe(1)
   })
 
+  it('changes the magnification with a pinch over the lens', () => {
+    const graph = mount({ zoom: false })
+    graph.lens.set({ at: { x: 400, y: 300 } })
+    for (const [type, scale] of [
+      ['gesturestart', 1],
+      ['gesturechange', 2],
+    ] as const) {
+      const event = new Event(type, { bubbles: true, cancelable: true })
+      Object.defineProperty(event, 'scale', { value: scale })
+      Object.defineProperty(event, 'clientX', { value: 400 })
+      Object.defineProperty(event, 'clientY', { value: 300 })
+      canvasOf(graph).dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+    }
+    expect(graph.lens.get()?.zoom).toBeCloseTo(6)
+    expect(graph.store.get().view.zoom).toBe(1)
+  })
+
   it('moves a fixed lens dragged from its empty inside', () => {
     const graph = mount()
     graph.lens.set({ at: { x: 400, y: 300 } })

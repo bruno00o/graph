@@ -2,7 +2,7 @@ import { gridDotScale, gridLevels } from '../core/background-grid'
 import { hullInstanceWords } from '../core/hull-layer'
 import type { GridInput, RenderFrame, RenderInput } from '../host/renderer'
 import { gridFragment, gridVertex, hullFragment, hullVertex } from './backdrop-shaders'
-import { type Attribute, createProgram, createVertexArray } from './gl'
+import { type Attribute, createCoverArray, createProgram, createVertexArray } from './gl'
 
 export interface Backdrop {
   sync(input: RenderInput): boolean
@@ -45,7 +45,7 @@ export function createBackdrop(
     const program = createProgram(gl, gridVertex, gridFragment, blocks)
     gridPass = {
       program,
-      vao: gl.createVertexArray(),
+      vao: createCoverArray(gl),
       levels: gl.getUniformLocation(program, 'gridLevels'),
       colors: gl.getUniformLocation(program, 'gridColors'),
       dots: gl.getUniformLocation(program, 'gridDots'),

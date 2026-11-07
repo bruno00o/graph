@@ -100,6 +100,29 @@ describe('createMinimap', () => {
     expect(graph.store.state.view.zoom).toBe(after)
   })
 
+  it('zooms the view with a trackpad pinch and ignores its wheel events', () => {
+    const graph = mount()
+    const minimap = createMinimap(graph)
+    const zoom = graph.store.state.view.zoom
+    const send = (type: string, scale: number) => {
+      const event = new Event(type, { cancelable: true })
+      Object.defineProperty(event, 'scale', { value: scale })
+      minimap.element.dispatchEvent(event)
+      return event
+    }
+    expect(send('gesturestart', 1).defaultPrevented).toBe(true)
+    send('gesturechange', 2)
+    expect(graph.store.state.view.zoom).toBeCloseTo(zoom * 2)
+    const pinch = new WheelEvent('wheel', { deltaY: -10, cancelable: true })
+    Object.defineProperty(pinch, 'ctrlKey', { value: true })
+    minimap.element.dispatchEvent(pinch)
+    expect(pinch.defaultPrevented).toBe(true)
+    expect(graph.store.state.view.zoom).toBeCloseTo(zoom * 2)
+    send('gestureend', 2)
+    minimap.update({ zoom: false })
+    expect(send('gesturestart', 1).defaultPrevented).toBe(false)
+  })
+
   it('leaves the element to the application without a corner', () => {
     const graph = mount()
     const minimap = createMinimap(graph, { corner: null })
