@@ -489,15 +489,45 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly supportedBy?: Channel<T, Key | readonly Key[]>
   /**
-   * Look of the edges drawn in place of the edges of this mark that end in a folded group, one per
-   * pair of visible ends and direction.
+   * Merges the parallel edges of this mark between two visible nodes into one aggregated edge,
+   * styled by `aggregate`: `true`, or options that split the merge by a value, merge both
+   * directions or set the fewest edges merged. A new definition that only changes it redraws the
+   * merged edges alone. Defaults to `false`: only edges that end in a folded group merge.
+   */
+  readonly merge?: boolean | EdgeMergeOptions<T>
+  /**
+   * Look of the edges drawn in place of the edges of this mark that end in a folded group, or that
+   * `merge` merges: one per pair of visible ends, direction and merge value.
    */
   readonly aggregate?: AggregateEdgeOptions<T>
 }
 
+/** Options of the `merge` option of `edges()`: which parallel edges draw as one. */
+export interface EdgeMergeOptions<T> {
+  /**
+   * Field or function whose value splits the merge: edges with different values between the same
+   * two nodes draw as separate aggregated edges, side by side. Edges without a value merge
+   * together. Defaults to no split.
+   */
+  readonly by?: Channel<T, Key>
+  /**
+   * Merges only the edges that go the same way. With `false`, edges in both directions merge, and
+   * the aggregated edge takes the direction of the first one.
+   * @default true
+   */
+  readonly directed?: boolean
+  /**
+   * Fewest parallel edges that merge between two visible nodes: fewer edges draw one by one. Edges
+   * that end in a folded group always merge.
+   * @default 2
+   */
+  readonly min?: number
+}
+
 /**
- * Edges of one mark drawn as a single edge because an end lies in a folded group: the datum of the
- * `aggregate` channels and styles, and of a picked aggregated edge.
+ * Edges of one mark drawn as a single edge, because an end lies in a folded group or because the
+ * mark merges its parallel edges: the datum of the `aggregate` channels and styles, and of a picked
+ * aggregated edge.
  */
 export interface AggregateEdge<T = unknown> {
   /** Key of the visible node or folded group the merged edges start from. */
@@ -510,6 +540,8 @@ export interface AggregateEdge<T = unknown> {
   readonly keys: readonly Key[]
   /** Data of the merged edges, in the order of `keys`. */
   readonly data: readonly T[]
+  /** Value of the `by` option of `merge` that the merged edges share. Missing without one. */
+  readonly value?: Key
 }
 
 /**
@@ -519,7 +551,7 @@ export interface AggregateEdge<T = unknown> {
  */
 export type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'aggregate'
+  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate'
 >
 
 /** A set of nodes or edges, made by `nodes()` or `edges()`. Marks draw in the order given. */

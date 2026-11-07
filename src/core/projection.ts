@@ -2,15 +2,19 @@ import type {
   AggregateEdge,
   EdgeLabelOptions,
   EdgeMark,
+  EdgeMergeOptions,
   EdgeOptions,
   Key,
+  Mark,
   NodeMark,
 } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { compileNodeMark, type Read } from './compile-mark'
+import { EdgeMerges } from './edge-merges'
 import type { ElementRef, GraphChanges, GraphModel, NodeRecord } from './graph-model'
 import { Hierarchy } from './hierarchy'
 import { IndexSet } from './index-set'
+import { shallowEqual } from './shallow-equal'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
 import type { GraphIssue } from './source-table'
 import { readSpan } from './time-range'
@@ -24,7 +28,7 @@ const shownOwn = 1
 const shownMerged = 2
 const shownNode = 1
 const shownContainer = 2
-const pairStride = 2 ** 26
+const defaultMin = 2
 
 export interface ProjectionChanges {
   readonly scene: GraphChanges
@@ -37,23 +41,36 @@ export interface ProjectionChanges {
   readonly containers: boolean
 }
 
-class Aggregate {
-  readonly members: Set<number> = new Set()
-  carrier = none
-  lead = none
-  datum: AggregateEdge | null = null
-  record: SceneEdgeRecord | null = null
+interface MergeRule {
+  readonly by: Read | null
+  readonly channel: unknown
+  readonly directed: boolean
+  readonly min: number
+}
 
-  constructor(
-    readonly mark: EdgeMark<unknown>,
-    readonly source: number,
-    readonly target: number,
-  ) {}
-
-  first(): number {
-    for (const member of this.members) return member
-    return none
+function ruleOf(option: boolean | EdgeMergeOptions<unknown> | undefined): MergeRule | null {
+  if (!option) return null
+  const given = option === true ? {} : option
+  const min = given.min ?? defaultMin
+  return {
+    by: given.by === undefined ? null : toAccessor<unknown, unknown>(given.by),
+    channel: given.by,
+    directed: given.directed !== false,
+    min: Number.isFinite(min) ? Math.max(1, Math.floor(min)) : defaultMin,
   }
+}
+
+function sameRule(a: MergeRule | null | undefined, b: MergeRule | null | undefined): boolean {
+  if (!a || !b) return !a === !b
+  return Object.is(a.channel, b.channel) && a.directed === b.directed && a.min === b.min
+}
+
+function sameLook(a: object | undefined, b: object | undefined): boolean {
+  return a === b || (a !== undefined && b !== undefined && shallowEqual(a, b))
+}
+
+function isEdgeMark(mark: Mark): mark is EdgeMark<unknown> {
+  return mark.type === 'edges'
 }
 
 const looks = new WeakMap<EdgeMark<unknown>, EdgeMark<unknown>>()
@@ -198,16 +215,23 @@ export class Projection {
   #shownEdge: Uint8Array = new Uint8Array(0)
   #shownNode: Uint8Array = new Uint8Array(0)
   #seen: Uint8Array = new Uint8Array(0)
+  #edgeSlot: Int32Array = new Int32Array(0)
+  #shownAggregate: Int32Array = new Int32Array(0)
   readonly #edgeKeys: (Key | undefined)[] = []
-  readonly #edgeMarks: (EdgeMark<unknown> | undefined)[] = []
-  readonly #aggregateOf: (Aggregate | undefined)[] = []
-  readonly #shownAggregate: (Aggregate | undefined)[] = []
-  readonly #aggregates = new Map<EdgeMark<unknown>, Map<number, Aggregate>>()
+  readonly #merges = new EdgeMerges()
+  readonly #records: (SceneEdgeRecord | undefined)[] = []
+  readonly #data: (AggregateEdge | undefined)[] = []
+  #slots = new Map<EdgeMark<unknown>, number>()
+  #rules: (MergeRule | null)[] = []
+  #looks: (object | undefined)[] = []
+  #merging = false
+  readonly #remerge = new Set<number>()
+  readonly #restyle = new Set<number>()
   #touchedEdges: IndexSet = new IndexSet()
   #dataEdges: IndexSet = new IndexSet()
   #dataNodes: IndexSet = new IndexSet()
   #addedNodes: IndexSet = new IndexSet()
-  #touchedAggregates = new Set<Aggregate>()
+  #touchedAggregates: IndexSet = new IndexSet()
   #foldRoots: number[] = []
   #parentMark: NodeMark<unknown> | null = null
   #parentRead: Read | null = null
@@ -226,14 +250,39 @@ export class Projection {
     return this.hierarchy.foldedKeys
   }
 
+  setMarks(marks: readonly Mark[]): void {
+    const edgeMarks = marks.filter(isEdgeMark)
+    const slots = new Map<EdgeMark<unknown>, number>()
+    const rules: (MergeRule | null)[] = []
+    const looks: (object | undefined)[] = []
+    let merging = false
+    edgeMarks.forEach((mark, slot) => {
+      if (!slots.has(mark)) slots.set(mark, slot)
+      const known = this.#rules[slot]
+      const given = ruleOf(mark.options.merge)
+      const rule = known !== undefined && sameRule(given, known) ? known : given
+      rules.push(rule)
+      if (rule) merging = true
+      looks.push(mark.options.aggregate)
+      if (!sameRule(rule, known)) this.#remerge.add(slot)
+      if (!sameLook(mark.options.aggregate, this.#looks[slot])) this.#restyle.add(slot)
+    })
+    for (let slot = edgeMarks.length; slot < this.#rules.length; slot++) this.#remerge.add(slot)
+    this.#slots = slots
+    this.#rules = rules
+    this.#looks = looks
+    this.#merging = merging
+    this.#records.length = 0
+  }
+
   setFolded(keys: Iterable<Key>): void {
     for (const root of this.hierarchy.setFolded(keys)) this.#foldRoots.push(root)
   }
 
   aggregateAt(index: number): AggregateEdge | null {
     if (!this.#active || this.#shownEdge[index] !== shownMerged) return null
-    const aggregate = this.#shownAggregate[index]
-    return aggregate ? this.#datum(aggregate) : null
+    const aggregate = this.#shownAggregate[index] ?? none
+    return aggregate >= 0 ? this.#datum(aggregate) : null
   }
 
   edgeIndexOf(key: Key): number {
@@ -241,7 +290,8 @@ export class Projection {
     if (index < 0 || !this.#active) return index
     if (this.#shownEdge[index] === shownOwn) return index
     if (this.#mode[index] !== merged) return none
-    return this.#aggregateOf[index]?.carrier ?? none
+    const aggregate = this.#merges.of[index] ?? none
+    return aggregate >= 0 ? (this.#merges.carrier[aggregate] ?? none) : none
   }
 
   keysAt(index: number): readonly Key[] | null {
@@ -262,7 +312,11 @@ export class Projection {
 
   apply(changes: GraphChanges): ProjectionChanges {
     if (!this.#active) {
-      if (!this.#needed(changes)) return this.#passThrough(changes)
+      if (!this.#merging && !this.#needed(changes)) {
+        this.#remerge.clear()
+        this.#restyle.clear()
+        return this.#passThrough(changes)
+      }
       return this.#activate(changes)
     }
     const hierarchy = this.hierarchy
@@ -289,13 +343,16 @@ export class Projection {
       if (
         this.#from[index] !== record.sourceIndex ||
         this.#to[index] !== record.targetIndex ||
-        this.#edgeMarks[index] !== record.mark
+        this.#edgeSlot[index] !== this.#slotOf(record.mark)
       ) {
         this.#unlinkEdge(index)
         this.#linkEdge(index)
+      } else if (this.#rules[this.#edgeSlot[index] ?? none]?.by) {
+        this.#project(index)
       }
       this.#dataEdges.add(index)
     }
+    this.#refreshRules()
     return this.#reconcile(changes)
   }
 
@@ -324,6 +381,8 @@ export class Projection {
 
   #activate(changes: GraphChanges): ProjectionChanges {
     this.#active = true
+    this.#remerge.clear()
+    this.#restyle.clear()
     const model = this.#model
     const added = new Set<number>()
     for (const { index } of changes.nodes.added) added.add(index)
@@ -345,6 +404,37 @@ export class Projection {
     for (const { index } of changes.nodes.updated) this.#dataNodes.add(index)
     for (const { index } of changes.edges.updated) this.#dataEdges.add(index)
     return this.#reconcile(changes, true)
+  }
+
+  #refreshRules(): void {
+    const remerge = this.#remerge
+    const restyle = this.#restyle
+    if (remerge.size === 0 && restyle.size === 0) return
+    if (remerge.size > 0) {
+      for (const record of this.#model.edges()) {
+        const index = record.index
+        if (remerge.has(this.#edgeSlot[index] ?? none)) this.#project(index)
+      }
+    }
+    const merges = this.#merges
+    merges.forEach((id) => {
+      const slot = merges.slot[id] ?? none
+      if (remerge.has(slot) || restyle.has(slot)) this.#touchedAggregates.add(id)
+    })
+    remerge.clear()
+    restyle.clear()
+  }
+
+  #slotOf(mark: EdgeMark<unknown>): number {
+    const known = this.#slots.get(mark)
+    if (known !== undefined) return known
+    const slot = this.#rules.length
+    this.#slots.set(mark, slot)
+    const rule = ruleOf(mark.options.merge)
+    this.#rules.push(rule)
+    this.#looks.push(mark.options.aggregate)
+    if (rule) this.#merging = true
+    return slot
   }
 
   #parentOf(record: NodeRecord): Key | null {
@@ -373,8 +463,11 @@ export class Projection {
     this.#outPrevious = grownIndices(this.#outPrevious, length)
     this.#inNext = grownIndices(this.#inNext, length)
     this.#inPrevious = grownIndices(this.#inPrevious, length)
+    this.#edgeSlot = grownIndices(this.#edgeSlot, length)
+    this.#shownAggregate = grownIndices(this.#shownAggregate, length)
     this.#mode = grownBytes(this.#mode, length)
     this.#shownEdge = grownBytes(this.#shownEdge, length)
+    this.#merges.reserveEdges(length)
   }
 
   #linkEdge(index: number): void {
@@ -387,7 +480,7 @@ export class Projection {
     this.#from[index] = from
     this.#to[index] = to
     this.#edgeKeys[index] = record.key
-    this.#edgeMarks[index] = record.mark
+    this.#edgeSlot[index] = this.#slotOf(record.mark)
     const outFirst = this.#outHead[from] ?? none
     this.#outPrevious[index] = none
     this.#outNext[index] = outFirst
@@ -416,58 +509,51 @@ export class Projection {
     if (inPrevious >= 0) this.#inNext[inPrevious] = inNext
     else this.#inHead[to] = inNext
     if (inNext >= 0) this.#inPrevious[inNext] = inPrevious
-    this.#leave(index)
+    const left = this.#merges.leave(index)
+    if (left >= 0) this.#touchedAggregates.add(left)
     this.#mode[index] = absent
     this.#touchedEdges.add(index)
   }
 
-  #leave(index: number): void {
-    const aggregate = this.#aggregateOf[index]
-    if (!aggregate) return
-    aggregate.members.delete(index)
-    this.#touchedAggregates.add(aggregate)
-    this.#aggregateOf[index] = undefined
-  }
-
-  #aggregate(mark: EdgeMark<unknown>, source: number, target: number): Aggregate {
-    let pairs = this.#aggregates.get(mark)
-    if (!pairs) {
-      pairs = new Map()
-      this.#aggregates.set(mark, pairs)
-    }
-    const pair = source * pairStride + target
-    let aggregate = pairs.get(pair)
-    if (!aggregate) {
-      aggregate = new Aggregate(mark, source, target)
-      pairs.set(pair, aggregate)
-    }
-    return aggregate
+  #valueOf(index: number, read: Read): Key | undefined {
+    const value = read(this.#model.edgeAt(index)?.datum)
+    return isKey(value) ? value : undefined
   }
 
   #project(index: number): void {
     const hierarchy = this.hierarchy
+    const merges = this.#merges
     const from = this.#from[index] ?? none
     const to = this.#to[index] ?? none
     const source = hierarchy.representative(from)
     const target = hierarchy.representative(to)
-    const mark = this.#edgeMarks[index]
-    let mode: number
-    let aggregate: Aggregate | undefined
-    if (source === from && target === to) mode = direct
-    else if (source === target || !mark) mode = hidden
+    const slot = this.#edgeSlot[index] ?? none
+    const rule = slot >= 0 ? (this.#rules[slot] ?? null) : null
+    const shown = source === from && target === to
+    let mode = hidden
+    let aggregate = none
+    if (slot < 0 || (!shown && source === target)) mode = hidden
+    else if (shown && !rule) mode = direct
     else {
       mode = merged
-      aggregate = this.#aggregate(mark, source, target)
+      const value = rule?.by ? this.#valueOf(index, rule.by) : undefined
+      aggregate = merges.find(slot, source, target, rule?.directed ?? true, value)
     }
-    const previous = this.#aggregateOf[index]
-    if (mode === this.#mode[index] && aggregate === previous) return
+    const previous = merges.of[index] ?? none
     if (previous !== aggregate) {
-      this.#leave(index)
-      if (aggregate) {
-        aggregate.members.add(index)
-        this.#touchedAggregates.add(aggregate)
-        this.#aggregateOf[index] = aggregate
+      if (previous >= 0) {
+        merges.leave(index)
+        this.#touchedAggregates.add(previous)
       }
+      if (aggregate >= 0) {
+        merges.join(aggregate, index, shown)
+        this.#touchedAggregates.add(aggregate)
+      }
+    } else if (aggregate >= 0 && merges.wasShown(index) !== shown) {
+      merges.setShown(index, shown)
+      this.#touchedAggregates.add(aggregate)
+    } else if (mode === this.#mode[index]) {
+      return
     }
     this.#mode[index] = mode
     this.#touchedEdges.add(index)
@@ -480,6 +566,12 @@ export class Projection {
       for (let edge = this.#inHead[node] ?? none; edge >= 0; edge = this.#inNext[edge] ?? none)
         this.#project(edge)
     }
+  }
+
+  #isOpen(aggregate: number): boolean {
+    const merges = this.#merges
+    const min = this.#rules[merges.slot[aggregate] ?? none]?.min ?? 1
+    return (merges.folded[aggregate] ?? 0) === 0 && (merges.count[aggregate] ?? 0) < min
   }
 
   #reconcile(changes: GraphChanges, activating = false): ProjectionChanges {
@@ -533,39 +625,48 @@ export class Projection {
       }
       this.#shownNode[index] = desired
     }
+    const merges = this.#merges
     for (const index of this.#dataEdges.indices()) {
-      if (this.#mode[index] === merged) {
-        const aggregate = this.#aggregateOf[index]
-        if (aggregate) this.#touchedAggregates.add(aggregate)
-      } else {
-        this.#touchedEdges.add(index)
-      }
+      const aggregate = this.#mode[index] === merged ? (merges.of[index] ?? none) : none
+      if (aggregate >= 0) this.#touchedAggregates.add(aggregate)
+      else this.#touchedEdges.add(index)
     }
     const touched = this.#touchedEdges
-    for (const aggregate of this.#touchedAggregates) {
-      aggregate.datum = null
-      aggregate.record = null
-      if (aggregate.carrier >= 0) touched.add(aggregate.carrier)
-      const carrier = aggregate.first()
-      aggregate.lead = carrier
+    const touchedAggregates = this.#touchedAggregates
+    for (const aggregate of touchedAggregates.indices()) {
+      this.#records[aggregate] = undefined
+      this.#data[aggregate] = undefined
+      const carrier = merges.carrier[aggregate] ?? none
       if (carrier >= 0) touched.add(carrier)
-      else {
-        aggregate.carrier = none
-        this.#aggregates
-          .get(aggregate.mark)
-          ?.delete(aggregate.source * pairStride + aggregate.target)
+      const head = merges.head[aggregate] ?? none
+      if (head < 0) {
+        merges.release(aggregate)
+        continue
       }
+      const open = this.#isOpen(aggregate)
+      if (open || open !== (merges.open[aggregate] === 1)) {
+        for (let at = head; at >= 0; at = merges.next[at] ?? none) touched.add(at)
+      } else {
+        touched.add(head)
+      }
+      merges.open[aggregate] = open ? 1 : 0
     }
     const display: number[] = []
     for (const index of touched.indices()) {
-      const mode = this.#mode[index] ?? absent
-      const aggregate = mode === merged ? this.#aggregateOf[index] : undefined
-      const desired =
-        mode === direct ? shownOwn : aggregate && aggregate.lead === index ? shownMerged : 0
-      const shown = this.#shownEdge[index] ?? 0
-      const before = this.#shownAggregate[index]
       const key = this.#edgeKeys[index]
       if (key === undefined) continue
+      const mode = this.#mode[index] ?? absent
+      const aggregate = mode === merged ? (merges.of[index] ?? none) : none
+      const open = aggregate >= 0 && merges.open[aggregate] === 1
+      const desired =
+        mode === direct || open
+          ? shownOwn
+          : aggregate >= 0 && merges.head[aggregate] === index
+            ? shownMerged
+            : 0
+      const after = desired === shownMerged ? aggregate : none
+      const shown = this.#shownEdge[index] ?? 0
+      const before = this.#shownAggregate[index] ?? none
       if (desired === 0) {
         if (shown !== 0) {
           edges.removed.push({ key, index })
@@ -574,18 +675,15 @@ export class Projection {
       } else if (shown === 0) {
         edges.added.push({ key, index })
         display.push(index)
-      } else if (desired !== shown || before !== aggregate) {
+      } else if (desired !== shown || before !== after) {
         edges.updated.push({ key, index })
         display.push(index)
-      } else if (
-        (aggregate && this.#touchedAggregates.has(aggregate)) ||
-        this.#dataEdges.has(index)
-      ) {
+      } else if ((after >= 0 && touchedAggregates.has(after)) || this.#dataEdges.has(index)) {
         edges.updated.push({ key, index })
       }
-      if (aggregate && desired === shownMerged) aggregate.carrier = index
+      if (after >= 0) merges.carrier[after] = index
       this.#shownEdge[index] = desired
-      this.#shownAggregate[index] = desired === shownMerged ? aggregate : undefined
+      this.#shownAggregate[index] = after
     }
     const folded: number[] = []
     const unfolded: number[] = []
@@ -600,7 +698,7 @@ export class Projection {
     this.#dataEdges = new IndexSet()
     this.#dataNodes = new IndexSet()
     this.#addedNodes = new IndexSet()
-    this.#touchedAggregates = new Set()
+    this.#touchedAggregates = new IndexSet()
     return {
       scene,
       revealed,
@@ -613,45 +711,52 @@ export class Projection {
     }
   }
 
-  #datum(aggregate: Aggregate): AggregateEdge {
-    if (aggregate.datum) return aggregate.datum
+  #datum(aggregate: number): AggregateEdge {
+    const cached = this.#data[aggregate]
+    if (cached) return cached
+    const merges = this.#merges
     const keys: Key[] = []
     const data: unknown[] = []
-    for (const member of aggregate.members) {
-      const key = this.#edgeKeys[member]
+    for (let at = merges.head[aggregate] ?? none; at >= 0; at = merges.next[at] ?? none) {
+      const key = this.#edgeKeys[at]
       if (key === undefined) continue
       keys.push(key)
-      data.push(this.#model.edgeAt(member)?.datum)
+      data.push(this.#model.edgeAt(at)?.datum)
     }
     const hierarchy = this.hierarchy
+    const value = merges.value(aggregate)
     const datum: AggregateEdge = Object.freeze({
-      source: hierarchy.keys[aggregate.source] as Key,
-      target: hierarchy.keys[aggregate.target] as Key,
+      source: hierarchy.keys[merges.source[aggregate] ?? none] as Key,
+      target: hierarchy.keys[merges.target[aggregate] ?? none] as Key,
       count: keys.length,
       keys: Object.freeze(keys),
       data: Object.freeze(data),
+      ...(value !== undefined ? { value } : {}),
     })
-    aggregate.datum = datum
+    this.#data[aggregate] = datum
     return datum
   }
 
-  #edgeRecord(aggregate: Aggregate): SceneEdgeRecord | undefined {
-    if (aggregate.record) return aggregate.record
-    const key = this.#edgeKeys[aggregate.carrier]
-    if (key === undefined) return undefined
+  #edgeRecord(aggregate: number): SceneEdgeRecord | undefined {
+    const cached = this.#records[aggregate]
+    if (cached) return cached
+    const carrier = this.#merges.carrier[aggregate] ?? none
+    const key = this.#edgeKeys[carrier]
+    const mark = this.#model.edgeAt(carrier)?.mark
+    if (key === undefined || !mark) return undefined
     const datum = this.#datum(aggregate)
     const record: SceneEdgeRecord = {
       key,
-      index: aggregate.carrier,
+      index: carrier,
       datum,
-      mark: aggregate.mark,
-      look: aggregateLook(aggregate.mark),
+      mark,
+      look: aggregateLook(mark),
       source: datum.source,
       target: datum.target,
-      sourceIndex: aggregate.source,
-      targetIndex: aggregate.target,
+      sourceIndex: this.#merges.source[aggregate] ?? none,
+      targetIndex: this.#merges.target[aggregate] ?? none,
     }
-    aggregate.record = record
+    this.#records[aggregate] = record
     return record
   }
 
@@ -674,8 +779,8 @@ export class Projection {
       if (!this.#active) return model.edgeAt(index)
       const shown = this.#shownEdge[index] ?? 0
       if (shown === shownOwn) return model.edgeAt(index)
-      const aggregate = shown === shownMerged ? this.#shownAggregate[index] : undefined
-      return aggregate ? this.#edgeRecord(aggregate) : undefined
+      const aggregate = shown === shownMerged ? (this.#shownAggregate[index] ?? none) : none
+      return aggregate >= 0 ? this.#edgeRecord(aggregate) : undefined
     }
     const nodeAt = (index: number): SceneNodeRecord | undefined => {
       const record = model.nodeAt(index)
