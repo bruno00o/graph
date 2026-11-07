@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
+import { grid } from '../layouts'
 import { edges, groups, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { Key, NodeGroup, NodeMark, SourceChange } from '../types'
@@ -129,6 +130,33 @@ describe('groups()', () => {
     expect(graph.groups.folded()).toEqual([])
     expect(graph.groups.parent('e')).toBeUndefined()
     expect(graph.groups.parent('a')).toBeDefined()
+  })
+
+  it('runs the layout again after a fold with relayout', () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const loose = items.map(({ x: _x, y: _y, ...item }) => item)
+    const define = (relayout: boolean) =>
+      defineGraph({
+        marks: [nodes(loose), groups(loose, { by: 'zone', folded: false })],
+        layout: grid(),
+        relayout,
+      })
+    const graph = createGraphHost(
+      container,
+      { definition: define(false), ariaLabel: 'graph' },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const starts: string[] = []
+    graph.on('layoutstart', ({ name }) => starts.push(name))
+    graph.groups.fold([graph.groups.parent('a') as Key])
+    dom.flushFrames()
+    expect(starts).toEqual([])
+    graph.update({ definition: define(true) })
+    graph.groups.unfold()
+    dom.flushFrames()
+    expect(starts).toEqual(['grid'])
   })
 
   it('types the group nodes in the marks', () => {

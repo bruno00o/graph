@@ -44,6 +44,7 @@ export interface ProjectionChanges {
   readonly unfolded: readonly number[]
   readonly edges: readonly number[]
   readonly containers: boolean
+  readonly reshaped: boolean
 }
 
 interface MergeRule {
@@ -304,6 +305,7 @@ export class Projection {
   #dataNodes: IndexSet = new IndexSet()
   #addedNodes: IndexSet = new IndexSet()
   #touchedAggregates: IndexSet = new IndexSet()
+  #reshaped = false
   #foldRoots: number[] = []
   #parentMark: NodeMark<unknown> | null = null
   #parentRead: Read | null = null
@@ -361,6 +363,7 @@ export class Projection {
     const gone = changed(previous, next)
     const come = changed(next, previous)
     if (gone.length === 0 && come.length === 0) return
+    this.#reshaped = true
     for (const { index } of [...gone, ...come]) {
       index.takeMoved()
       for (const key of index.members()) {
@@ -486,6 +489,7 @@ export class Projection {
       unfolded: [],
       edges: [],
       containers: false,
+      reshaped: false,
     }
   }
 
@@ -522,6 +526,7 @@ export class Projection {
     const remerge = this.#remerge
     const restyle = this.#restyle
     if (remerge.size === 0 && restyle.size === 0) return
+    if (remerge.size > 0) this.#reshaped = true
     if (remerge.size > 0) {
       for (const record of this.#model.edges()) {
         const index = record.index
@@ -813,6 +818,8 @@ export class Projection {
       else unfolded.push(root)
     }
     if (containers) this.containerVersion++
+    const reshaped = this.#reshaped || folded.length > 0 || unfolded.length > 0
+    this.#reshaped = false
     this.#foldRoots = []
     this.#touchedEdges = new IndexSet()
     this.#dataEdges = new IndexSet()
@@ -828,6 +835,7 @@ export class Projection {
       unfolded,
       edges: display,
       containers,
+      reshaped,
     }
   }
 

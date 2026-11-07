@@ -1982,6 +1982,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         patch({ focused: fresh })
       }
     }
+    if (projected.reshaped && definition.relayout && laidOut) relayout = true
     followLayout(changes, fresh)
   }
 

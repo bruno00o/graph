@@ -1209,6 +1209,13 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly layout?: Layout<NodeDatum<M>> | null
+  /**
+   * Runs the layout again over every node it may move after a fold or unfold, or when `groups()`
+   * or the `merge` option of a mark changes, so that the drawing closes gaps and makes room. With
+   * `false`, only nodes that appear are placed, and an unfolded group pushes its neighbors aside.
+   * @default false
+   */
+  readonly relayout?: boolean
   /** Pan, zoom, wheel, selection, drag, lasso and keyboard. */
   readonly interaction?: InteractionOptions
   /** Zoom range and area of the view. */
@@ -1250,6 +1257,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly states: StateStyles<S>
   /** Layout of the graph, or `null` for none. */
   readonly layout: Layout<NodeDatum<M>> | null
+  /** Whether the layout runs again after a fold, an unfold, or a change of groups or merges. */
+  readonly relayout: boolean
   /** Interaction options, defaults applied. */
   readonly interaction: ResolvedInteraction
   /** View limits, defaults applied. */
