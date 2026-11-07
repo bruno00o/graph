@@ -20,7 +20,7 @@ const definition = defineGraph({
   marks: [lines, dots],
   states: {
     muted: { opacity: 0.15, label: false },
-    path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true },
+    path: { flow: true, stroke: 'var(--graph-accent)', strokeWidth: 2.5, label: true, raise: true },
   },
 })
 

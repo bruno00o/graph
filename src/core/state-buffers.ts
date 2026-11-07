@@ -1,5 +1,6 @@
 export const maxStates = 32
 export const noPaint = 0xffffffff
+export const builtInRaise = 0b111
 
 export type StateKind = 'nodes' | 'edges'
 
@@ -16,6 +17,7 @@ export interface ResolvedStateStyle {
   readonly outlineWidth?: number
   readonly labelColor?: number
   readonly flow?: number
+  readonly raise?: boolean
 }
 
 export class DirtyRange {
@@ -72,6 +74,8 @@ export class StateBuffers {
   highlightVersion = 0
   edgeMaskVersion = 0
   edgeFlowBits = 0
+  nodeRaise: number = builtInRaise
+  edgeRaise: number = builtInRaise
 
   reserve(nodeCapacity: number, edgeCapacity: number): void {
     this.nodeMask = grow(this.nodeMask, nodeCapacity)
@@ -106,14 +110,21 @@ export class StateBuffers {
       style?.outlineWidth === undefined ? noPaint : floatWord(Math.max(0, style.outlineWidth))
     this.labels[at] = style?.labelColor ?? noPaint
     this.labels[at + 1] = style?.flow === undefined ? noPaint : floatWord(style.flow)
+    const flag = (1 << bit) >>> 0
     if (kind === 'edges') {
-      const flag = (1 << bit) >>> 0
       this.edgeFlowBits =
         (style?.flow === undefined ? this.edgeFlowBits & ~flag : this.edgeFlowBits | flag) >>> 0
+      this.edgeRaise = (style?.raise ? this.edgeRaise | flag : this.edgeRaise & ~flag) >>> 0
+    } else {
+      this.nodeRaise = (style?.raise ? this.nodeRaise | flag : this.nodeRaise & ~flag) >>> 0
     }
     const flags = kind === 'nodes' ? this.labelFlags : this.edgeLabelFlags
     flags[bit] = this.numbers[at + 3] ?? -1
     this.tableVersion++
+  }
+
+  raised(kind: StateKind): number {
+    return kind === 'nodes' ? this.nodeRaise : this.edgeRaise
   }
 
   setHighlighted(nodes: readonly number[], edges: readonly number[]): void {

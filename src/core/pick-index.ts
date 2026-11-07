@@ -26,7 +26,7 @@ export interface PickSource {
   readonly paths?: EdgePaths | null
 }
 
-export interface PickLens {
+export interface PickSurface {
   readonly scale: number
   readonly visible: (index: number) => boolean
 }
@@ -558,7 +558,7 @@ export class PickIndex {
     y: number,
     zoom: number,
     tolerance: number,
-    lens: PickLens | null = null,
+    lens: PickSurface | null = null,
   ): PickHit | null {
     const scale = lens?.scale ?? zoom
     const node = this.#pickNode(source, x, y, zoom, scale, lens)
@@ -704,7 +704,7 @@ export class PickIndex {
     y: number,
     zoom: number,
     scale: number,
-    lens: PickLens | null,
+    lens: PickSurface | null,
   ): number {
     const reach = Math.max(
       this.#maxWorldRadius,

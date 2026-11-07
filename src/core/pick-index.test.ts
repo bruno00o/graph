@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import type { NodeOptions } from '../types'
+import { geoToWorld } from './geo'
+import { geodesicPoint } from './geo-arc'
 import { createGraphModel } from './graph-model'
 import { PickIndex, type PickSource } from './pick-index'
 import { Positions, placeNodes } from './positions'
@@ -69,6 +71,71 @@ describe('PickIndex', () => {
     { id: 'c', x: 5, y: 0 },
   ]
   const links: Link[] = [{ id: 'ab', from: 'a', to: 'b' }]
+
+  it('picks great circle edges along their path, on both sides of the antimeridian', () => {
+    const model = createGraphModel()
+    const scene = createScene()
+    const positions = new Positions()
+    const places = [
+      { id: 'london', ...geoToWorld({ longitude: -0.13, latitude: 51.51 }) },
+      { id: 'new-york', ...geoToWorld({ longitude: -74, latitude: 40.71 }) },
+      { id: 'tokyo', ...geoToWorld({ longitude: 139.69, latitude: 35.69 }) },
+      { id: 'san-francisco', ...geoToWorld({ longitude: -122.42, latitude: 37.77 }) },
+    ]
+    const definition = defineGraph({
+      marks: [
+        edges<Link>(
+          [
+            { id: 'atlantic', from: 'london', to: 'new-york' },
+            { id: 'pacific', from: 'tokyo', to: 'san-francisco' },
+          ],
+          { source: 'from', target: 'to', geodesic: true },
+        ),
+        nodes(places, { x: 'x', y: 'y', size: () => 1 }),
+      ],
+    })
+    model.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    const changes = model.flush()
+    scene.apply(model, changes)
+    placeNodes(model, positions, changes)
+    const source: PickSource = {
+      nodes: scene.nodes,
+      edges: scene.edges,
+      positions,
+      order: (_kind, index) => index,
+    }
+    const index = new PickIndex()
+    index.build(source)
+    const pick = (point: { x: number; y: number }) => {
+      const hit = index.pick(source, point.x, point.y, 64, 4)
+      return hit?.kind === 'edge' ? scene.edges.keys[hit.index] : null
+    }
+    const atlantic = geoToWorld({ longitude: -41.29, latitude: 52.37 })
+    expect(pick(atlantic)).toBe('atlantic')
+    const chord = geoToWorld({ longitude: -41.29, latitude: 46.5 })
+    expect(pick(chord)).toBeNull()
+    const west = geodesicPoint(
+      places[2]?.x ?? 0,
+      places[2]?.y ?? 0,
+      places[3]?.x ?? 0,
+      places[3]?.y ?? 0,
+      0.3,
+      { x: 0, y: 0 },
+    )
+    const east = geodesicPoint(
+      places[2]?.x ?? 0,
+      places[2]?.y ?? 0,
+      places[3]?.x ?? 0,
+      places[3]?.y ?? 0,
+      0.8,
+      { x: 0, y: 0 },
+    )
+    expect(west.x).toBeLessThan(512)
+    expect(east.x).toBeGreaterThan(512)
+    expect(pick(west)).toBe('pacific')
+    expect(pick({ x: east.x - 512, y: east.y })).toBe('pacific')
+  })
 
   it('finds the topmost node under a point', () => {
     const { pick } = setup(items, links)

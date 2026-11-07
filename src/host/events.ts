@@ -1,4 +1,5 @@
 import type { AggregateEdge, EdgeMark, Key, Mark, MarkName, NodeMark, Point, View } from '../types'
+import type { GraphLensState } from './lens'
 
 /** A node, with `datum`, the item it comes from, of type `T`, and `mark`, the name of its mark. */
 export interface NodeTarget<T = unknown, N extends MarkName = MarkName> {
@@ -123,6 +124,12 @@ export interface GraphViewEvent {
   readonly view: View
 }
 
+/** Payload of `lenschange`. */
+export interface GraphLensEvent {
+  /** The lens, or `null` when it hides. */
+  readonly lens: GraphLensState | null
+}
+
 /** Key that makes the wheel zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. */
 export type ZoomKey = 'Meta' | 'Control'
 
@@ -179,6 +186,8 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly foldchange: GraphFoldEvent
   /** The view changed. In controlled mode, only when `update({ view })` moves it. */
   readonly viewchange: GraphViewEvent
+  /** The lens shows, moves, changes size or magnification, or hides. */
+  readonly lenschange: GraphLensEvent
   /**
    * A wheel event without Cmd or Ctrl went to the page, in `'page'` wheel mode with zoom on: the
    * application can show how to zoom. Fires for every such event.

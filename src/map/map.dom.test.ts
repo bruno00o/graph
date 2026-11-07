@@ -4,6 +4,7 @@ import { geoToWorld } from '../core/geo'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
+import { globeMatrices } from '../testing/globe'
 import { mountMapGraph } from '.'
 
 vi.mock('../webgl/renderer', () => ({
@@ -28,6 +29,30 @@ const places: Place[] = [
   { id: 'b', longitude: 13.4, latitude: 52.52 },
 ]
 const routes: Route[] = [{ id: 'ab', from: 'a', to: 'b' }]
+
+const flatInput = {
+  defaultProjectionData: { projectionTransition: 0 },
+  shaderData: { variantName: 'mercator' },
+}
+
+function globeInput(longitude: number, latitude: number, zoom: number) {
+  const { matrix, plane, fallback } = globeMatrices({
+    longitude,
+    latitude,
+    zoom,
+    width: 800,
+    height: 600,
+  })
+  return {
+    defaultProjectionData: {
+      mainMatrix: matrix,
+      fallbackMatrix: fallback,
+      clippingPlane: plane,
+      projectionTransition: 1,
+    },
+    shaderData: { variantName: 'globe' },
+  }
+}
 
 function toggle(enabled = true) {
   const handler = {
@@ -121,9 +146,9 @@ function fakeMap() {
       state.repaints++
     },
   }
-  const render = () => {
+  const render = (input: unknown = flatInput) => {
     const layer = layers.get('graph')
-    layer?.render?.({} as WebGL2RenderingContext, {} as never)
+    layer?.render?.({} as WebGL2RenderingContext, input as never)
   }
   const emit = (name: string) => {
     for (const listener of listeners.get(name) ?? []) listener()
@@ -284,6 +309,38 @@ describe('mountMapGraph', () => {
     graph.selection.set({ nodes: ['a'] })
     expect(state.repaints).toBe(repaints + 1)
     expect(dom.pendingFrames()).toBe(0)
+    graph.destroy()
+  })
+
+  it('draws and picks on the globe, never behind it', () => {
+    const { map, camera, render } = fakeMap()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const far: Place = { id: 'c', longitude: 110, latitude: 10 }
+    const graph = mountMapGraph(map, {
+      definition: defineGraph({
+        marks: [
+          nodes<Place>([...places, far], {
+            longitude: 'longitude',
+            latitude: 'latitude',
+            size: () => 20,
+          }),
+        ],
+        layout: null,
+      }),
+      ariaLabel: 'carte',
+    })
+    camera.zoom = 2
+    render(globeInput(camera.lng, camera.lat, camera.zoom))
+    const paris = graph.view.toScreen(geoToWorld(places[0] ?? far))
+    expect(paris.x).toBeCloseTo(400)
+    expect(paris.y).toBeCloseTo(300)
+    const berlin = graph.view.toScreen(geoToWorld(places[1] ?? far))
+    expect(graph.pick(berlin)?.key).toBe('b')
+    const back = graph.view.toWorld(berlin)
+    expect(back.x).toBeCloseTo(geoToWorld(places[1] ?? far).x, 6)
+    const hidden = graph.view.toScreen(geoToWorld(far))
+    expect(graph.pick(hidden)).toBeNull()
+    expect(warn).not.toHaveBeenCalled()
     graph.destroy()
   })
 

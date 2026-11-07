@@ -49,11 +49,11 @@ layout(std140) uniform States {
   vec4 stateNumbers[64];
   uvec4 statePaint[64];
   uvec4 stateLabel[64];
+  uvec4 stateRaise;
 };
 uniform int layerSlot;
 uniform int overlay;
 uniform sampler2D palette;
-const uint highlightMask = 7u;
 const uint none = 0xffffffffu;
 const vec4 hidden = vec4(2.0, 2.0, 2.0, 1.0);
 const float worldTurn = 0.01227184630308513;
@@ -308,7 +308,7 @@ void main() {
   uvec4 paint = texelFetch(nodePaint, t, 0);
   uint flags = uint(style.w + 0.5);
   uint mask = texelFetch(nodeState, t, 0).r;
-  bool highlighted = (mask & highlightMask) != 0u;
+  bool highlighted = (mask & stateRaise.x) != 0u;
   bool container = (flags & 3u) == 3u;
   if ((flags & 8u) == 0u || container != (overlay == 2) || (overlay == 0 && (int(paint.z) != layerSlot || highlighted))) {
     gl_Position = hidden;
@@ -443,7 +443,7 @@ void main() {
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint packed = topology.w;
   uint mask = texelFetch(edgeState, t, 0).r;
-  bool highlighted = (mask & highlightMask) != 0u;
+  bool highlighted = (mask & stateRaise.y) != 0u;
   if ((packed & 16u) == 0u || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted))) {
     gl_Position = hidden;
     return;
@@ -577,7 +577,7 @@ void main() {
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint packed = topology.w;
   uint mask = texelFetch(edgeState, t, 0).r;
-  bool highlighted = (mask & highlightMask) != 0u;
+  bool highlighted = (mask & stateRaise.y) != 0u;
   bool loop = topology.x == topology.y;
   if ((packed & 16u) == 0u || (!loop && style.z == 0.0) || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted)) || pathOf(instance).y > 1u) {
     gl_Position = hidden;
@@ -875,7 +875,7 @@ void main() {
   Look look = nodeLook(t, style, paint, mask);
   vOpacity = look.opacity;
   if (kind == 2u) {
-    bool highlighted = (mask & highlightMask) != 0u;
+    bool highlighted = (mask & stateRaise.x) != 0u;
     vec2 xy = texelFetch(nodePosition, t, 0).xy;
     float height = badgeHeight(style, scaleAt(xy));
     if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeTextMin.toFixed(1)} || worldSide(xy) < 0.0) {
@@ -962,7 +962,7 @@ void main() {
   uvec4 paint = texelFetch(nodePaint, t, 0);
   uint flags = uint(style.w + 0.5);
   uint mask = texelFetch(nodeState, t, 0).r;
-  bool highlighted = (mask & highlightMask) != 0u;
+  bool highlighted = (mask & stateRaise.x) != 0u;
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
   float height = badgeHeight(style, scaleAt(xy));
   if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeMin.toFixed(1)} || worldSide(xy) < 0.0) {
@@ -1003,6 +1003,49 @@ void main() {
   vec4 fill = vec4(vFill.rgb * vFill.a, vFill.a);
   vec4 ring = vec4(vRing.rgb * vRing.a, vRing.a);
   vec4 result = mix(ring, fill, inner) * outer * vOpacity;
+  if (result.a < 0.002) discard;
+  fragColor = result;
+}
+`
+
+export const lensVertex: string = `#version 300 es
+precision highp float;
+uniform vec4 lensBox;
+uniform vec2 lensCanvas;
+in vec2 corner;
+out vec2 vPixel;
+void main() {
+  vPixel = lensBox.xy + corner * lensBox.w;
+  gl_Position = vec4(vPixel / lensCanvas * 2.0 - 1.0, 0.0, 1.0);
+}
+`
+
+export const lensFragment: string = `#version 300 es
+precision highp float;
+precision highp int;
+uniform sampler2D lensImage;
+uniform vec4 lensBox;
+uniform ivec2 lensOrigin;
+uniform vec2 lensRing;
+uniform vec4 lensColors[3];
+in vec2 vPixel;
+out vec4 fragColor;
+vec4 premultiply(vec4 color) { return vec4(color.rgb * color.a, color.a); }
+void main() {
+  float d = distance(vPixel, lensBox.xy);
+  float radius = lensBox.z;
+  float aa = lensRing.y;
+  ivec2 size = textureSize(lensImage, 0);
+  ivec2 at = clamp(ivec2(gl_FragCoord.xy) - lensOrigin, ivec2(0), size - 1);
+  vec4 content = texelFetch(lensImage, at, 0);
+  vec4 body = content + premultiply(lensColors[0]) * (1.0 - content.a);
+  float t = clamp((d - radius) / max(lensBox.w - radius, 1.0), 0.0, 1.0);
+  vec4 shadow = premultiply(vec4(lensColors[2].rgb, lensColors[2].a * (1.0 - t) * (1.0 - t)));
+  float inside = 1.0 - smoothstep(radius - aa, radius + aa, d);
+  vec4 base = mix(shadow, body, inside);
+  float ring = (1.0 - smoothstep(lensRing.x * 0.5 - aa, lensRing.x * 0.5 + aa, abs(d - radius)));
+  vec4 edge = premultiply(vec4(lensColors[1].rgb, lensColors[1].a * ring));
+  vec4 result = edge + base * (1.0 - edge.a);
   if (result.a < 0.002) discard;
   fragColor = result;
 }

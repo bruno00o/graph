@@ -78,6 +78,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onViewChange?: GraphEventHandler<'viewchange', M>
   /** Receives `zoomhint`: a wheel event went to the page in `'page'` wheel mode. */
   readonly onZoomHint?: GraphEventHandler<'zoomhint', M>
+  /** Receives `lenschange`: the lens shows, moves, changes or hides. */
+  readonly onLensChange?: GraphEventHandler<'lenschange', M>
   /** Receives `layoutstart`: a layout run starts. */
   readonly onLayoutStart?: GraphEventHandler<'layoutstart', M>
   /** Receives `layoutend`: a layout run ends or stops. */
@@ -98,6 +100,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   focuschange: 'onFocusChange',
   foldchange: 'onFoldChange',
   viewchange: 'onViewChange',
+  lenschange: 'onLensChange',
   zoomhint: 'onZoomHint',
   layoutstart: 'onLayoutStart',
   layoutend: 'onLayoutEnd',

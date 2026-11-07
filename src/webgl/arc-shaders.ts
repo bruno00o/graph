@@ -34,7 +34,7 @@ void main() {
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint packed = topology.w;
   uint mask = texelFetch(edgeState, t, 0).r;
-  bool highlighted = (mask & highlightMask) != 0u;
+  bool highlighted = (mask & stateRaise.y) != 0u;
   if ((packed & 16u) == 0u || topology.x == topology.y || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted)) || pathOf(instance).y > 1u) {
     gl_Position = hidden;
     return;
