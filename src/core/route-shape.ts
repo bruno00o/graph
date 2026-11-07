@@ -30,7 +30,7 @@ export function nodeOutline(
   const size = nodes.size[index] ?? 0
   const screen = nodes.screenUnits[index] === 1
   const scale = zoom > 0 ? zoom : 1
-  const radius = Math.max((screen ? size : size * scale) / 2, 1.25) / scale
+  const radius = (screen ? size / scale : size) / 2
   const shape = nodes.shape[index] ?? 0
   out.x = x
   out.y = y
