@@ -581,3 +581,122 @@ describe('container size', () => {
     warn.mockRestore()
   })
 })
+
+describe('requests before the first frame', () => {
+  function unmeasured(graphDefinition = definition()): GraphInstance {
+    dom.restore()
+    dom = installDom(0, 0)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const container = document.createElement('div')
+    document.body.append(container)
+    return createGraphHost(
+      container,
+      { definition: graphDefinition, ariaLabel: 'graphe' },
+      fakeRenderer,
+    )
+  }
+
+  function fresh(graphDefinition: GraphDefinition): GraphInstance {
+    const container = document.createElement('div')
+    document.body.append(container)
+    return createGraphHost(
+      container,
+      { definition: graphDefinition, ariaLabel: 'graphe' },
+      fakeRenderer,
+    )
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('keeps a fit on keys asked before the element has a size', () => {
+    const graph = unmeasured()
+    graph.view.fit(['a', 'b'], { padding: 0 })
+    dom.flushFrames()
+    expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })
+    dom.resize(800, 600)
+    dom.flushFrames()
+    const view = graph.view.get()
+    expect(view.x).toBeCloseTo(0)
+    expect(view.y).toBeCloseTo(0)
+    expect(view.zoom).toBeGreaterThan(3)
+  })
+
+  it('keeps a fit asked in an animation frame before the first measure', () => {
+    const graph = unmeasured()
+    requestAnimationFrame(() => graph.view.fit(['b', 'c'], { padding: 0 }))
+    dom.flushFrames()
+    dom.resize(800, 600)
+    dom.flushFrames()
+    const view = graph.view.get()
+    expect(view.x).toBeCloseTo(50)
+    expect(view.y).toBeCloseTo(50)
+  })
+
+  it('applies pending data before every read and write by key', () => {
+    const grown = defineGraph({
+      marks: [
+        edges<Link>([...links, { id: 'cd', from: 'c', to: 'd' }], { source: 'from', target: 'to' }),
+        nodes<Item>([...items, { id: 'd', x: 300, y: 300 }], { x: 'x', y: 'y' }),
+      ],
+    })
+    const graph = fresh(grown)
+    expect(graph.neighbors('d')).toEqual(['c'])
+    expect(graph.edgesOf('d')).toEqual(['cd'])
+    expect(graph.endpoints('cd')).toEqual({ source: 'c', target: 'd' })
+    expect(graph.positions.get('d')).toEqual({ x: 300, y: 300 })
+    graph.focus.set({ kind: 'node', key: 'd' })
+    expect(graph.focus.get()?.key).toBe('d')
+    graph.update({ definition: definition() })
+    expect(graph.positions.get('d')).toBeUndefined()
+    expect(graph.neighbors('c')).toEqual(['b'])
+    graph.update({ definition: grown })
+    graph.positions.set([['d', { x: 400, y: 400 }]])
+    expect(graph.positions.get('d')).toEqual({ x: 400, y: 400 })
+    dom.flushFrames()
+    graph.update({ definition: definition([...items, { id: 'e', x: 600, y: 0 }]) })
+    expect(graph.pick(graph.view.toScreen({ x: 600, y: 0 }))?.key).toBe('e')
+  })
+
+  it('stops a glide when the data comes back to where the node is', () => {
+    const graph = mount()
+    graph.update({ definition: definition([{ id: 'a', x: 500, y: 0 }, ...items.slice(1)]) })
+    expect(graph.positions.get('a')).toEqual({ x: -100, y: 0 })
+    graph.update({ definition: definition() })
+    dom.flushFrames()
+    expect(graph.positions.get('a')).toEqual({ x: -100, y: 0 })
+  })
+
+  it('resolves the palette again when an ancestor of the graph changes its class', async () => {
+    const setPalette = vi.fn()
+    const container = document.createElement('div')
+    const page = document.createElement('main')
+    page.append(container)
+    document.body.append(page)
+    createGraphHost(container, { definition: definition(), ariaLabel: 'graphe' }, () => ({
+      ...fakeRenderer(),
+      setPalette,
+    }))
+    dom.flushFrames()
+    const before = setPalette.mock.calls.length
+    page.classList.add('palette-x')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(setPalette.mock.calls.length).toBeGreaterThan(before)
+  })
+
+  it('reads groups right after mount', () => {
+    const graph = fresh(
+      defineGraph({
+        marks: [
+          nodes<{ id: string; parent?: string }>(
+            [{ id: 'g' }, { id: 'a', parent: 'g' }, { id: 'b', parent: 'g' }],
+            { parent: 'parent' },
+          ),
+        ],
+      }),
+    )
+    expect(graph.groups.parent('a')).toBe('g')
+    expect(graph.groups.children('g')).toEqual(['a', 'b'])
+  })
+})

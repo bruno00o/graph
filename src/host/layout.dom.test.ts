@@ -156,6 +156,65 @@ describe('layouts in the host', () => {
     expect(graph.view.get()).toMatchObject({ x: 0, y: 0 })
   })
 
+  it('frames the keys of a fit asked before the first frame during the first run', () => {
+    dom.restore()
+    dom = installDom(0, 0)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { layout, runs } = fakeLayout()
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      { definition: definition(layout, loose), ariaLabel: 'graphe' },
+      fakeRenderer,
+    )
+    graph.view.fit(['b'], { padding: 0 })
+    dom.resize(800, 600)
+    dom.flushFrames()
+    const run = runs[0]
+    if (!run) throw new Error('no run')
+    run.listener.progress(spread(run, 500), 0.5)
+    dom.flushFrames()
+    expect(graph.view.get()).toMatchObject({ x: 500, y: 500 })
+    run.listener.end(spread(run, 1000))
+    dom.flushFrames()
+    expect(graph.view.get()).toMatchObject({ x: 1000, y: 1000 })
+    warn.mockRestore()
+  })
+
+  it('frees a node whose x and y become empty, and leaves it in place until a layout runs', async () => {
+    const { layout, runs } = fakeLayout()
+    const placed: Item[] = [{ id: 'a', x: 10, y: 10 }, { id: 'b' }, { id: 'c', x: 7, y: 9 }]
+    const graph = mount(null, placed)
+    graph.update({ definition: definition(null, [{ id: 'a' }, { id: 'b' }, placed[2] as Item]) })
+    dom.flushFrames()
+    expect(graph.positions.get('a')).toEqual({ x: 10, y: 10 })
+    const done = graph.layout.run(layout, { duration: 0 })
+    const run = runs[0] as FakeRun
+    expect(movers(run)).toEqual([0, 1])
+    run.listener.end(spread(run, 50))
+    await done
+    expect(graph.positions.get('a')).toEqual({ x: 0, y: 0 })
+    expect(graph.positions.get('c')).toEqual({ x: 7, y: 9 })
+  })
+
+  it('lays out around the targets of fixed nodes that glide to new data positions', () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    graph.update({
+      definition: definition(null, [{ id: 'a' }, { id: 'b' }, { id: 'c', x: 1000, y: 1000 }]),
+    })
+    void graph.layout.run(layout, { fit: { padding: 0 } })
+    const run = runs[0] as FakeRun
+    expect([run.graph.xy[4], run.graph.xy[5]]).toEqual([1000, 1000])
+    run.listener.end(spread(run))
+    dom.flushFrames()
+    expect(graph.positions.get('c')).toEqual({ x: 1000, y: 1000 })
+    const view = graph.view.get()
+    expect(view.x).toBeCloseTo(500, 0)
+    expect(view.y).toBeCloseTo(500, 0)
+  })
+
   it('moves only new nodes once laid out, and merges arrivals into a running layout', () => {
     const { layout, runs } = fakeLayout()
     const graph = mount(layout, loose)

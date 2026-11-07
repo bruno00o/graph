@@ -6,7 +6,7 @@ import {
   placementCodes,
 } from '../core/columns'
 import type { Hierarchy } from '../core/hierarchy'
-import type { Positions } from '../core/positions'
+import type { PositionReader } from '../core/positions'
 import type { Key, LayoutGraph, LayoutGroups } from '../types'
 import { atlasFontSize } from '../webgl/glyph-atlas'
 import { lineHeight, secondaryFactor } from '../webgl/label-layer'
@@ -99,7 +99,7 @@ function groupsOf(
 export function layoutGraph(
   nodes: NodeColumns,
   edges: EdgeColumns,
-  positions: Positions,
+  positions: PositionReader,
   zoom: number,
   movable: (index: number) => boolean,
   datum: (key: Key) => unknown,

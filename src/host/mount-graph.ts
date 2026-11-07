@@ -18,6 +18,7 @@ import { PickIndex, type PickSource } from '../core/pick-index'
 import {
   goldenAngle,
   type PositionMoves,
+  type PositionReader,
   Positions,
   placementSpacing,
   placeNodes,
@@ -202,7 +203,8 @@ export interface GraphView {
   set(view: View, options?: ViewOptions): void
   /**
    * Frames the given nodes, or every node without keys. Called before the element has a size, it
-   * waits for one.
+   * waits for one. While the first layout run keeps the view framed, it frames these nodes instead
+   * of every node, until the view moves.
    */
   fit(keys?: Iterable<Key>, options?: FitOptions): void
   /** Multiplies the zoom around the center of the view, up to the zoom limits. */
@@ -550,6 +552,11 @@ interface ViewAnimation {
   readonly duration: number
 }
 
+interface FitRequest {
+  readonly keys: readonly Key[] | null
+  readonly options: FitOptions
+}
+
 interface PositionAnimation {
   readonly id: number
   readonly indices: readonly number[]
@@ -769,8 +776,13 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let positionAnimations: PositionAnimation[] = []
   let animationOwner = new Uint32Array(0)
   let animationSerial = 0
-  let pendingFit: FitOptions | null =
-    options.initialView || viewControlled ? null : { padding: defaultPadding }
+  let goals = new Float64Array(0)
+  let goalIndices: number[] = []
+  const wholeFit: FitRequest = { keys: null, options: { padding: defaultPadding } }
+  let pendingFit: FitRequest | null = options.initialView || viewControlled ? null : wholeFit
+  let frameTarget = wholeFit
+  let fitAnimation: ViewAnimation | null = null
+  let flushing = false
   let pendingBounds: { readonly box: Bounds; readonly padding: number } | null = null
   let pixelRatio = window.devicePixelRatio || 1
   let drawingLimit = Number.POSITIVE_INFINITY
@@ -1238,7 +1250,34 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     )
   }
 
-  function bounds(keys?: Iterable<Key>): Bounds | null {
+  function settledPositions(): PositionReader {
+    for (const index of goalIndices) goals.fill(Number.NaN, index * 2, index * 2 + 2)
+    goalIndices = []
+    if (positionAnimations.length === 0) return positions
+    if (goals.length < positions.capacity * 2) {
+      goals = new Float64Array(positions.capacity * 2).fill(Number.NaN)
+    }
+    const targets = goals
+    for (const animation of positionAnimations) {
+      animation.indices.forEach((index, i) => {
+        if (animationOwner[index] !== animation.id) return
+        targets[index * 2] = animation.to[i * 2] ?? Number.NaN
+        targets[index * 2 + 1] = animation.to[i * 2 + 1] ?? Number.NaN
+        goalIndices.push(index)
+      })
+    }
+    const goal = (at: number, fallback: number) => {
+      const value = targets[at] ?? Number.NaN
+      return Number.isNaN(value) ? fallback : value
+    }
+    return {
+      source: positions.source,
+      x: (index) => goal(index * 2, positions.x(index)),
+      y: (index) => goal(index * 2 + 1, positions.y(index)),
+    }
+  }
+
+  function bounds(keys?: Iterable<Key> | null, reader: PositionReader = positions): Bounds | null {
     const nodes = scene.nodes
     syncContainers()
     let minX = Number.POSITIVE_INFINITY
@@ -1256,10 +1295,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         return
       }
       const radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
-      minX = Math.min(minX, positions.x(index) - radius)
-      minY = Math.min(minY, positions.y(index) - radius)
-      maxX = Math.max(maxX, positions.x(index) + radius)
-      maxY = Math.max(maxY, positions.y(index) + radius)
+      const x = reader.x(index)
+      const y = reader.y(index)
+      minX = Math.min(minX, x - radius)
+      minY = Math.min(minY, y - radius)
+      maxX = Math.max(maxX, x + radius)
+      maxY = Math.max(maxY, y + radius)
     }
     if (keys) {
       for (const key of keys) {
@@ -1288,11 +1329,34 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return fitBounds(box, viewport(), padding, definition.view)
   }
 
-  function fitTo(keys: Iterable<Key> | undefined, fitOptions: FitOptions): boolean {
-    const box = bounds(keys)
+  function sized(): boolean {
     const size = viewport()
-    if (!box || size.width === 0 || size.height === 0) return false
-    animateTo(frameBox(box, fitOptions.padding ?? defaultPadding), fitOptions.duration)
+    return size.width > 0 && size.height > 0
+  }
+
+  function fitView(keys: Iterable<Key> | null | undefined, padding?: number): View | null {
+    const box = sized() ? bounds(keys, settledPositions()) : null
+    return box ? frameBox(box, padding ?? defaultPadding) : null
+  }
+
+  function fitTo(keys: Iterable<Key> | undefined, fitOptions: FitOptions): boolean {
+    const target = fitView(keys, fitOptions.padding)
+    if (!target) return false
+    animateTo(target, fitOptions.duration)
+    return true
+  }
+
+  function settleFit(fit: FitRequest): boolean {
+    const target = fitView(fit.keys, fit.options.padding)
+    if (!target) return fit.keys !== null && sized()
+    if (framing && viewAnimation && viewAnimation === fitAnimation && !fit.options.duration) {
+      viewAnimation = { ...viewAnimation, to: constrain(target) }
+      request()
+    } else {
+      animateTo(target, fit.options.duration)
+    }
+    fitAnimation = viewAnimation
+    framed = store.get().view
     return true
   }
 
@@ -1878,9 +1942,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function flushPending(): void {
-    if (!needsFlush) return
+    if (!needsFlush || flushing) return
     needsFlush = false
-    flushChanges()
+    flushing = true
+    try {
+      flushChanges()
+    } finally {
+      flushing = false
+    }
   }
 
   function placeFoldedGroups(
@@ -1981,7 +2050,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const graph = layoutGraph(
       scene.nodes,
       scene.edges,
-      positions,
+      settledPositions(),
       store.get().view.zoom,
       (index) => !dragged?.has(index) && (keep.has(index) || (animationOwner[index] ?? 0) === 0),
       (key) => model.node(key)?.datum,
@@ -2103,13 +2172,18 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return { fit: null, duration: definition.transitions.layout }
   }
 
+  function stillFraming(): boolean {
+    if (framing && framed !== null && store.get().view !== framed) framing = false
+    return framing
+  }
+
+  function framingOptions(): FitOptions {
+    return { padding: frameTarget.options.padding ?? defaultPadding }
+  }
+
   function frameLayout(): void {
-    if (!framing) return
-    if (framed !== null && store.get().view !== framed) {
-      framing = false
-      return
-    }
-    pendingFit = { padding: defaultPadding }
+    if (!stillFraming()) return
+    pendingFit = { keys: frameTarget.keys, options: framingOptions() }
   }
 
   function placeLayout(current: LayoutSession, xy: Float32Array): void {
@@ -2137,12 +2211,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     patch({ layout: { running: true, progress: 1 } })
     let fit = current.fit
-    if (framing) {
-      if (framed === null || store.get().view === framed) fit = fit ?? { padding: defaultPadding }
-      framing = false
+    let keys: readonly Key[] | null = null
+    if (stillFraming() && !fit) {
+      fit = framingOptions()
+      keys = frameTarget.keys
     }
+    framing = false
     if (fit) {
-      const box = boundsAfter(indices, to)
+      const box = boundsAfter(indices, to, keys)
       const size = viewport()
       if (box && size.width > 0 && size.height > 0) {
         pendingFit = null
@@ -2159,16 +2235,29 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     )
   }
 
-  function boundsAfter(indices: readonly number[], to: readonly number[]): Bounds | null {
+  function boundsAfter(
+    indices: readonly number[],
+    to: readonly number[],
+    keys: readonly Key[] | null,
+  ): Bounds | null {
     const nodes = scene.nodes
     const moving = new Uint8Array(nodes.capacity)
     for (const index of indices) moving[index] = 1
+    let chosen: Uint8Array | null = null
+    if (keys) {
+      chosen = new Uint8Array(nodes.capacity)
+      for (const key of keys) {
+        const record = model.node(key)
+        if (record) chosen[record.index] = 1
+      }
+    }
+    const reader = settledPositions()
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY
     let maxY = Number.NEGATIVE_INFINITY
     const include = (index: number, x: number, y: number) => {
-      if (nodes.shape[index] === containerShape) return
+      if (nodes.shape[index] === containerShape || (chosen && chosen[index] !== 1)) return
       let radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
       for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
         if (nodes.shape[at] === containerShape) radius += nodes.padding[at] ?? 0
@@ -2180,7 +2269,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     for (let index = 0; index < nodes.capacity; index++) {
       if (nodes.alive[index] === 1 && moving[index] !== 1)
-        include(index, positions.x(index), positions.y(index))
+        include(index, reader.x(index), reader.y(index))
     }
     indices.forEach((index, i) => {
       include(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
@@ -2208,7 +2297,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       frameLayout()
       framing = false
     }
-    if (completed && current.fit && !current.fitted) pendingFit = current.fit
+    if (completed && current.fit && !current.fitted)
+      pendingFit = { keys: null, options: current.fit }
     emitter.emit('layoutend', { name: current.layout.name, completed })
     current.resolve(completed)
     request()
@@ -2223,7 +2313,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const graph = layoutGraph(
       scene.nodes,
       scene.edges,
-      positions,
+      settledPositions(),
       store.get().view.zoom,
       (index) => movable(index) && !dragged?.has(index),
       (key) => model.node(key)?.datum,
@@ -2299,7 +2389,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     settings: LayoutSettings,
     resolve: (completed: boolean) => void,
   ): void {
-    if (settings.fit) pendingFit = settings.fit
+    if (settings.fit) pendingFit = { keys: null, options: settings.fit }
     patch({ layout: { running: false, progress: 1 } })
     emitter.emit('layoutend', { name: layout.name, completed: true })
     resolve(true)
@@ -2374,6 +2464,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function followPositions(moves: PositionMoves): void {
+    for (const index of moves.held) {
+      if (index < animationOwner.length) animationOwner[index] = 0
+    }
     if (moves.indices.length === 0) return
     const dragged = new Set(gesture?.drag?.indices)
     const indices: number[] = []
@@ -2410,25 +2503,21 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     frameRequest = 0
     if (destroyed || contextLost) return
     const start = clock()
-    if (needsFlush) {
-      needsFlush = false
-      flushChanges()
-    }
+    flushPending()
     const size = viewport()
     if (pendingBounds && size.width > 0 && size.height > 0) {
       animateTo(frameBox(pendingBounds.box, pendingBounds.padding))
       pendingBounds = null
       framed = store.get().view
     }
-    if (pendingFit && fitTo(undefined, pendingFit)) {
-      pendingFit = null
-      framed = store.get().view
-    }
+    if (pendingFit && settleFit(pendingFit)) pendingFit = null
     if (viewAnimation) {
-      const t = Math.min(1, (now - viewAnimation.start) / viewAnimation.duration)
-      const view = constrain(interpolateView(viewAnimation.from, viewAnimation.to, easeInOut(t)))
+      const animation = viewAnimation
+      const t = Math.min(1, (now - animation.start) / animation.duration)
+      const view = constrain(interpolateView(animation.from, animation.to, easeInOut(t)))
       if (t >= 1) viewAnimation = null
       proposeView(view)
+      if (animation === fitAnimation) framed = store.get().view
     }
     if (autoPanning) stepAutoPan(now)
     sendView()
@@ -2537,8 +2626,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     frame(performance.now())
   }
 
+  const themeWatch = observeTheme(element, refreshTheme)
   const resizeObserver = new ResizeObserver((entries) => {
     const entry = entries[entries.length - 1]
+    themeWatch.check()
     if (entry) resize(entry.contentRect.width, entry.contentRect.height)
   })
   let ratioQuery: MediaQueryList | null = null
@@ -2556,7 +2647,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   reconstrain()
   resizeObserver.observe(element)
   watchRatio()
-  const stopTheme = observeTheme(element, refreshTheme)
   const flows = createFlowWatch({
     scene,
     buffers,
@@ -3067,7 +3157,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     get: () => store.get().view,
     set: (next, viewOptions = {}) => animateTo(next, viewOptions.duration),
     fit: (keys, fitOptions = {}) => {
-      pendingFit = fitTo(keys, fitOptions) || keys ? null : fitOptions
+      flushPending()
+      const fit: FitRequest = { keys: keys ? [...keys] : null, options: fitOptions }
+      if (stillFraming()) frameTarget = fit
+      pendingFit = settleFit(fit) ? null : fit
     },
     zoomBy: (factor, viewOptions = {}) => {
       const size = viewport()
@@ -3087,6 +3180,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const focus: GraphFocus = {
     get: () => store.get().focused,
     set: (next) => {
+      flushPending()
       const resolved = next ? target(next.kind, next.key) : null
       if (next && (!resolved || concealed(resolved))) return
       if (resolved && definition.interaction.keyboard) element.focus({ preventScroll: true })
@@ -3113,10 +3207,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   const positionsApi: GraphPositions = {
     get: (key) => {
+      flushPending()
       const record = model.node(key)
       return record ? { x: positions.x(record.index), y: positions.y(record.index) } : undefined
     },
     set: (entries, positionOptions = {}) => {
+      flushPending()
       const indices: number[] = []
       const to: number[] = []
       const moved = new Map<Key, Point>()
@@ -3143,10 +3239,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (surface) return Promise.reject(new Error('graph: layouts do not run on a map'))
       const chosen = layout ?? definition.layout
       if (!chosen) return Promise.reject(new Error('graph: no layout to run'))
-      if (needsFlush) {
-        needsFlush = false
-        flushChanges()
-      }
+      flushPending()
       const fit = runOptions.fit === true ? {} : runOptions.fit || null
       const settings: LayoutSettings = {
         fit,
@@ -3167,7 +3260,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const groups: GraphGroups = {
     folded: () => store.get().folded,
     isFolded: (key) => projection.folded.has(key),
-    fold: (keys) => requestFolded([...store.get().folded, ...(keys ?? allGroups())]),
+    fold: (keys) => {
+      flushPending()
+      requestFolded([...store.get().folded, ...(keys ?? allGroups())])
+    },
     unfold: (keys) => {
       if (!keys) return requestFolded([])
       const removed = new Set(keys)
@@ -3176,11 +3272,13 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     toggle: (key) => toggleFold(key),
     set: (keys) => requestFolded(keys),
     parent: (key) => {
+      flushPending()
       const index = model.node(key)?.index ?? -1
       const parent = index >= 0 ? (hierarchy.parent[index] ?? -1) : -1
       return parent >= 0 ? hierarchy.keys[parent] : undefined
     },
     children: (key) => {
+      flushPending()
       const index = model.node(key)?.index ?? -1
       const children: Key[] = []
       if (index < 0) return children
@@ -3206,11 +3304,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         edge: (index) => edgeOwnShown(scene.edges, index, seen),
       }
     },
-    prepare: () => {
-      if (!needsFlush) return
-      needsFlush = false
-      flushChanges()
-    },
+    prepare: flushPending,
     groups: () =>
       projection.active
         ? {
@@ -3282,19 +3376,13 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
     bundling: {
       run: () => {
-        if (needsFlush) {
-          needsFlush = false
-          flushChanges()
-        }
+        flushPending()
         return bundles.run('bundle')
       },
     },
     routing: {
       run: () => {
-        if (needsFlush) {
-          needsFlush = false
-          flushChanges()
-        }
+        flushPending()
         return bundles.run('route')
       },
     },
@@ -3304,10 +3392,22 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       set: setLens,
       toWorld: (point) => toWorld(viewAt(point), viewport(), point),
     },
-    pick: (point) => pickAt(point),
-    neighbors: (key) => model.neighbors(key),
-    edgesOf: (key) => model.edgesOf(key),
-    endpoints: (key) => model.endpoints(key),
+    pick: (point) => {
+      flushPending()
+      return pickAt(point)
+    },
+    neighbors: (key) => {
+      flushPending()
+      return model.neighbors(key)
+    },
+    edgesOf: (key) => {
+      flushPending()
+      return model.edgesOf(key)
+    },
+    endpoints: (key) => {
+      flushPending()
+      return model.endpoints(key)
+    },
     on: (name, handler) => emitter.on(name, handler),
     update(next) {
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
@@ -3363,7 +3463,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       clearTimeout(laterRequest)
       resizeObserver.disconnect()
       ratioQuery?.removeEventListener('change', onRatio)
-      stopTheme()
+      themeWatch.stop()
       flows.destroy()
       bundles.destroy()
       bridges.destroy()
@@ -3425,10 +3525,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   exposeSnapshot(instance, () => {
     if (destroyed) throw new Error('graph: cannot export a destroyed graph')
-    if (needsFlush) {
-      needsFlush = false
-      flushChanges()
-    }
+    flushPending()
     registry.takeHighlighted()
     syncContainers()
     decorations.settle()

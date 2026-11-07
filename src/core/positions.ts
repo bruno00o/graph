@@ -10,9 +10,16 @@ export const placementSpacing = 24
 export interface PositionMoves {
   readonly indices: readonly number[]
   readonly to: readonly number[]
+  readonly held: readonly number[]
 }
 
-export class Positions {
+export interface PositionReader {
+  readonly source: Float64Array
+  x(index: number): number
+  y(index: number): number
+}
+
+export class Positions implements PositionReader {
   capacity = 0
   version = 0
   xy: Float32Array = new Float32Array(0)
@@ -148,12 +155,16 @@ export function placeNodes(
   const channelPoint = pointReader()
   const indices: number[] = []
   const to: number[] = []
+  const held: number[] = []
   for (const { index } of changes.nodes.updated) {
     const record = model.nodeAt(index)
     if (!record) continue
     const point = channelPoint(record.mark, record.datum)
-    if (!point || !positions.follow(index, point)) continue
-    if (positions.holds(index, point[0], point[1])) continue
+    if (!positions.follow(index, point) || !point) continue
+    if (positions.holds(index, point[0], point[1])) {
+      held.push(index)
+      continue
+    }
     indices.push(index)
     to.push(point[0], point[1])
   }
@@ -199,5 +210,5 @@ export function placeNodes(
       sumY / count + radius * Math.sin(angle),
     )
   }
-  return { indices, to }
+  return { indices, to, held }
 }

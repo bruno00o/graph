@@ -5,6 +5,7 @@ import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '..
 import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
+import { diamondReach, squareReach } from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
@@ -74,8 +75,6 @@ const haloWidth = 6
 const haloBands = [6, 4, 2] as const
 const haloLevels = [5 / 6, 3 / 6, 1 / 6] as const
 const haloStroke = 2 * 1.6
-const diamondReach = 1.2
-const squareReach = 0.86
 const badgeReach = [Math.SQRT1_2, squareReach, 0.6] as const
 const anchors = ['middle', 'start', 'end'] as const
 const transparent: Paint = { hex: '#000000', alpha: 0 }

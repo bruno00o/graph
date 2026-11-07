@@ -64,7 +64,7 @@ describe('placeNodes', () => {
     const { update, at, model } = setup()
     update([{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 10, y: 0.1 }, { id: 'c' }])
     const moves = update([{ id: 'a', x: 50, y: 5 }, { id: 'b', x: 10, y: 0.1 }, { id: 'c' }])
-    expect(moves).toEqual({ indices: [model.node('a')?.index], to: [50, 5] })
+    expect(moves).toEqual({ indices: [model.node('a')?.index], to: [50, 5], held: [] })
     expect(at('a')).toEqual({ x: 0, y: 0 })
   })
 
@@ -73,7 +73,24 @@ describe('placeNodes', () => {
     update([{ id: 'a', x: 0, y: 0 }])
     positions.set(model.node('a')?.index ?? -1, 99, 99)
     expect(update([{ id: 'a', x: 0, y: 0, name: 'renamed' }]).indices).toEqual([])
-    expect(update([{ id: 'a', x: 99, y: 99 }]).indices).toEqual([])
+    expect(update([{ id: 'a', x: 99, y: 99 }])).toEqual({
+      indices: [],
+      to: [],
+      held: [model.node('a')?.index],
+    })
     expect(update([{ id: 'a', x: 1, y: 99 }]).indices).toEqual([model.node('a')?.index])
+  })
+
+  it('stops following a node whose x and y become empty, and leaves it in place', () => {
+    const { update, positions, model, at } = setup()
+    update([{ id: 'a', x: 10, y: 10 }])
+    const index = model.node('a')?.index ?? -1
+    expect(positions.source[index * 2]).toBe(10)
+    expect(update([{ id: 'a' }]).indices).toEqual([])
+    expect(positions.source[index * 2]).toBeNaN()
+    expect(positions.source[index * 2 + 1]).toBeNaN()
+    expect(at('a')).toEqual({ x: 10, y: 10 })
+    expect(update([{ id: 'a', x: 10, y: 10 }]).indices).toEqual([])
+    expect(positions.source[index * 2]).toBe(10)
   })
 })

@@ -40,6 +40,8 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
 
 `S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
+Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
+
 ## Members
 
 <api-table path="index.ts" name="GraphInstance" />
@@ -65,7 +67,7 @@ interface View {
 
 <api-table path="index.ts" name="GraphView" />
 
-`fit` without keys frames every node. `padding` defaults to 32 pixels. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view.
+`fit` without keys frames every node. `padding` defaults to 32 pixels. Called before the element has a size, `fit` waits for one. During the first layout run, the view keeps framing the nodes of the last `fit` while they move, until the view is moved. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view.
 
 ## Selection
 

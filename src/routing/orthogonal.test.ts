@@ -100,6 +100,51 @@ describe('routeOrthogonal', () => {
     expect(across[1]?.[1]).toBeCloseTo(0)
   })
 
+  it('leaves and enters through the sides of the axis when the ends are aligned across it', () => {
+    const horizontal = { ...settings, axis: 'horizontal' } as const
+    const stacked = [
+      { x: 0, y: 0 },
+      { x: 4, y: 200 },
+    ]
+    const free = route(routeOrthogonal(input(stacked, [0, 1]), horizontal), 0)
+    expect(orthogonal(free)).toBe(true)
+    expect(free[1]?.[1]).toBeCloseTo(0)
+    expect(Math.abs((free[1]?.[0] ?? 0) - 0)).toBeGreaterThan(10)
+    expect(free.at(-2)?.[1]).toBeCloseTo(200)
+    expect(Math.abs((free.at(-2)?.[0] ?? 0) - 4)).toBeGreaterThan(10)
+    const vertical = { ...settings, axis: 'vertical' } as const
+    const side = route(
+      routeOrthogonal(
+        input(
+          [
+            { x: 0, y: 0 },
+            { x: 200, y: 4 },
+          ],
+          [0, 1],
+        ),
+        vertical,
+      ),
+      0,
+    )
+    expect(side[1]?.[0]).toBeCloseTo(0)
+    expect(Math.abs(side[1]?.[1] ?? 0)).toBeGreaterThan(10)
+  })
+
+  it('turns only once outside the end nodes when it goes around an obstacle', () => {
+    const horizontal = { ...settings, axis: 'horizontal' } as const
+    const wall = { x: 50, y: 100, half: 40 }
+    const boxes = [{ x: 0, y: 0 }, wall, { x: 100, y: 200 }]
+    const stats = { simple: 0, searched: 0, blocked: 0, expansions: 0, nudging: 0 }
+    const points = route(routeOrthogonal(input(boxes, [0, 2]), horizontal, stats), 0)
+    expect(stats.searched).toBe(1)
+    expect(orthogonal(points)).toBe(true)
+    expect(crosses(points, wall)).toBe(false)
+    expect(points[1]?.[1]).toBeCloseTo(0)
+    expect(Math.abs(points[1]?.[0] ?? 0)).toBeGreaterThan(10)
+    expect(points.at(-2)?.[1]).toBeCloseTo(200)
+    expect(Math.abs((points.at(-2)?.[0] ?? 0) - 100)).toBeGreaterThan(10)
+  })
+
   it('pulls apart segments that would overlap, and spreads their ports', () => {
     const boxes = [
       { x: 0, y: 0, half: 20 },

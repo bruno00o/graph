@@ -50,11 +50,10 @@ export function mount(container: HTMLElement): GraphInstance {
     }
   })
 
-  const stop = graph.on('layoutend', () => {
-    stop()
-    if (start) zoomTo(start.id, start.label)
-  })
-  if (start) graph.selection.set({ nodes: [start.id] })
+  if (start) {
+    graph.selection.set({ nodes: [start.id] })
+    zoomTo(start.id, start.label)
+  }
 
   return graph
 }

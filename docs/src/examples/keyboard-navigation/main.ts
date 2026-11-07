@@ -54,9 +54,7 @@ export function mount(container: HTMLElement): GraphInstance {
     if (selected.length > 0) status.textContent = messages.selected(selected.length)
   })
 
-  requestAnimationFrame(() => {
-    if (start) graph.focus.set({ kind: 'node', key: start.id })
-  })
+  if (start) graph.focus.set({ kind: 'node', key: start.id })
 
   return graph
 }

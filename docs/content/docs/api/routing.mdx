@@ -46,7 +46,9 @@ interface OrthogonalRoutingSettings {
 ## Behavior
 
 - Each node and group container is an obstacle, grown by `gap`. An edge may cross the containers that hold its source or its target, and goes around every other box.
-- An edge first tries the routes with one or two bends between the chosen sides of its ends. When they are blocked, it searches a grid drawn from the sides of the obstacles around its ends for the route of least cost: its length, plus a fixed cost for each bend and a larger one for entering or leaving a node through a side off the `axis`. The search covers a window around both ends, widened once when it finds nothing. An edge with no free route keeps its first simple route, across the boxes in its way.
+- A route leaves its source and enters its target in a straight line from their centers, and bends only outside the two nodes.
+- An edge first tries the routes with one or two bends between the chosen sides of its ends. When they are blocked, or when their ends are too close across the `axis` to leave through those sides, it searches a grid drawn from the sides of the obstacles around its ends for the route of least cost: its length, plus a fixed cost for each bend and a larger one for entering or leaving a node through a side off the `axis`. A route takes a side off the `axis` only when the sides on the `axis` are blocked or lead to a much longer route. The search covers a window around both ends, widened once when it finds nothing.
+- An edge with no free route keeps its first simple route, across the boxes in its way. This route can leave or enter a node through a side off the `axis`.
 - Segments that share a line are then moved apart by `spacing`, in an order that keeps routes from crossing where it can, within the free space of their channel. Ends spread along the middle of their side.
 - The result is the same for the same positions, sizes and edges.
 - The computation runs in a Web Worker shipped inside the package, created from a `blob:` URL. Without `Worker`, when the content security policy refuses `worker-src blob:`, or when the worker fails, it runs on the main thread in slices of 8 milliseconds.

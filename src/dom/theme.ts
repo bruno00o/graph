@@ -78,16 +78,64 @@ export class ThemeResolver {
   }
 }
 
-export function observeTheme(host: HTMLElement, onChange: () => void): () => void {
-  const observer = new MutationObserver(onChange)
-  const attributes = ['class', 'style', 'data-theme']
-  for (const element of [document.documentElement, document.body, host]) {
-    if (element) observer.observe(element, { attributes: true, attributeFilter: attributes })
+export interface ThemeWatch {
+  check(): void
+  stop(): void
+}
+
+const themeAttributes = ['class', 'style', 'data-theme']
+
+function ancestry(host: HTMLElement): Element[] {
+  const chain: Element[] = []
+  for (let at: Element | null = host; at; ) {
+    chain.push(at)
+    const parent: Node | null = at.parentNode
+    at = parent instanceof ShadowRoot ? parent.host : at.parentElement
   }
+  for (const root of [document.body, document.documentElement]) {
+    if (root && !chain.includes(root)) chain.push(root)
+  }
+  return chain
+}
+
+export function observeTheme(host: HTMLElement, onChange: () => void): ThemeWatch {
+  let chain: Element[] = []
+  const observer = new MutationObserver((records) => {
+    let changed = false
+    let moved = false
+    for (const record of records) {
+      if (record.type === 'attributes') changed = true
+      else moved = true
+    }
+    if (moved && rewatch()) changed = true
+    if (changed) onChange()
+  })
+  function rewatch(): boolean {
+    const next = ancestry(host)
+    if (next.length === chain.length && next.every((element, at) => element === chain[at])) {
+      return false
+    }
+    observer.disconnect()
+    chain = next
+    for (const element of chain) {
+      observer.observe(element, {
+        attributes: true,
+        attributeFilter: themeAttributes,
+        childList: element !== host,
+      })
+    }
+    return true
+  }
+  rewatch()
   const media = window.matchMedia('(prefers-color-scheme: dark)')
   media.addEventListener('change', onChange)
-  return () => {
-    observer.disconnect()
-    media.removeEventListener('change', onChange)
+  return {
+    check: () => {
+      if (rewatch()) onChange()
+    },
+    stop: () => {
+      observer.disconnect()
+      media.removeEventListener('change', onChange)
+    },
   }
 }

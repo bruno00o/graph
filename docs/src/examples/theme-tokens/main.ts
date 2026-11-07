@@ -32,7 +32,7 @@ export function mount(container: HTMLElement): GraphInstance {
   let palette: Palette = 'dusk'
   const apply = () => {
     for (const name of Object.values(classes)) {
-      if (name) graph.element.classList.toggle(name, name === classes[palette])
+      if (name) container.classList.toggle(name, name === classes[palette])
     }
   }
   apply()

@@ -77,7 +77,6 @@ export function mount(container: HTMLElement): GraphInstance {
       ],
       scales: { size: (value) => value },
       layout: force({ edgeLength: 16, repulsion: 30 }),
-      transitions: { positions: 0 },
     })
 
   const graph = mountGraph(container, {
