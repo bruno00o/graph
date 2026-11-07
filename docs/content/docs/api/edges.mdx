@@ -101,7 +101,14 @@ interface EdgeEndOptions<T> {
 - `target.end` reports the end under the pointer, measured along the visible length. It is set only on edges of a mark with `ends`, `{}` included.
 
 ```ts
-type Link = { id: string; from: string; to: string; out: number; back: number; backLabel: string }
+type Link = {
+  id: string
+  from: string
+  to: string
+  out: number
+  back: number
+  backLabel: string
+}
 
 edges<Link>(links, {
   source: 'from',

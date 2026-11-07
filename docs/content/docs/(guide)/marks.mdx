@@ -152,7 +152,13 @@ Edges between the same two nodes, in either direction, bend apart in symmetric a
 `ends` splits an edge in two: the line from the source node to the split takes the `source` options, the rest takes the `target` options. Each end has its own color, width, dash pattern and label, so one edge can show a value per direction.
 
 ```ts
-type Exchange = { id: string; from: string; to: string; sent: number; received: number }
+type Exchange = {
+  id: string
+  from: string
+  to: string
+  sent: number
+  received: number
+}
 
 edges<Exchange>(exchanges, {
   source: 'from',
@@ -160,7 +166,11 @@ edges<Exchange>(exchanges, {
   arrow: 'both',
   ends: {
     split: (exchange) => exchange.sent / (exchange.sent + exchange.received),
-    source: { color: 'sent', width: 'sent', label: (exchange) => String(exchange.sent) },
+    source: {
+      color: 'sent',
+      width: 'sent',
+      label: (exchange) => String(exchange.sent),
+    },
     target: {
       color: 'received',
       width: 'received',
