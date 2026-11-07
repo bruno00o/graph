@@ -71,6 +71,7 @@ edges<Link>(links, {
 
 Routed edges keep everything else: width, color, arrows, dashes, [flows](/docs/marks#flows), state styles and [edge ends](/docs/marks#edge-ends), whose split falls along the length of the route. They are picked along their route. The label sits at the middle of the longest segment, and end labels where the route leaves its node. [Exports](/docs/export) draw them as on screen.
 
+- An edge whose two nodes touch or overlap has no room to route: it stays a straight line from center to center.
 - Edges between the same two nodes route side by side, apart by `spacing`, instead of curving. [Merged edges](/docs/transformations#merge-parallel-edges) route once, as the edge that is drawn.
 - In a [group](/docs/groups), an edge goes inside the containers that hold its ends and around the others. Folded groups are boxes like any node, and their merged edges route like any edge.
 - Routes follow what is drawn: hidden edges, by a [layer](/docs/multilayer), a state with `hide`, a zoom range or the time window, are not routed, and hidden nodes are not in the way. Showing or hiding elements routes again.

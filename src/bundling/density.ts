@@ -28,6 +28,19 @@ export const densityTuning: DensityTuning = {
 const cellsPerRadius = 3
 const maxSide = 1024
 const maxSegments = 48
+const edgeChunk = 64
+const rowChunk = 32
+
+interface Grid {
+  readonly bandwidth: number
+  readonly cell: number
+  readonly reach: number
+  readonly cols: number
+  readonly rows: number
+  readonly originX: number
+  readonly originY: number
+  readonly weights: Float32Array
+}
 
 export class DensityBundler {
   readonly count: number
@@ -36,6 +49,9 @@ export class DensityBundler {
   readonly x: Float32Array
   readonly y: Float32Array
   #iteration = 0
+  #phase = 0
+  #cursor = 0
+  #grid: Grid | null = null
   readonly #extent: number
   readonly #spacing: number
   readonly #minX: number
@@ -130,30 +146,72 @@ export class DensityBundler {
     return Math.min(maxSegments, Math.round(length / this.#spacing))
   }
 
-  step(): void {
-    if (this.done) return
+  step(until: number = Number.POSITIVE_INFINITY): void {
+    const iteration = this.#iteration
+    while (!this.done && this.#iteration === iteration) {
+      const grid = this.#grid ?? this.#prepare()
+      const total = this.#phase === 1 || this.#phase === 4 ? this.count : grid.rows
+      const chunk = this.#phase === 1 || this.#phase === 4 ? edgeChunk : rowChunk
+      const from = this.#cursor
+      const to = Math.min(total, from + chunk)
+      if (this.#phase === 1) this.#splat(grid, from, to)
+      else if (this.#phase === 2) blurRows(this.#density, this.#scratch, grid, from, to)
+      else if (this.#phase === 3) blurColumns(this.#density, this.#scratch, grid, from, to)
+      else this.#move(grid, from, to)
+      this.#cursor = to
+      if (to >= total) this.#next()
+      if (performance.now() >= until) return
+    }
+  }
+
+  #prepare(): Grid {
     const bandwidth = this.#radius * this.#tuning.decay ** this.#iteration
     const cell = Math.max(bandwidth / cellsPerRadius, this.#extent / (maxSide - 16))
     const reach = Math.max(1, Math.round(bandwidth / cell))
     const margin = reach + 2
     const cols = Math.ceil(this.#width / cell) + margin * 2 + 1
     const rows = Math.ceil(this.#height / cell) + margin * 2 + 1
-    const originX = this.#minX - margin * cell
-    const originY = this.#minY - margin * cell
     const cells = cols * rows
     if (this.#density.length < cells) {
       this.#density = new Float32Array(cells)
       this.#scratch = new Float32Array(cells)
     }
-    const density = this.#density
-    const scratch = this.#scratch
-    density.fill(0, 0, cells)
-    this.#splat(density, cols, originX, originY, cell)
-    blur(density, scratch, cols, rows, reach)
-    this.#advect(density, cols, rows, originX, originY, cell, bandwidth)
-    this.#smooth()
-    this.#resample()
+    this.#density.fill(0, 0, cells)
+    const weights = new Float32Array(reach * 2 + 1)
+    for (let k = -reach; k <= reach; k++) weights[k + reach] = 1 - (k / (reach + 1)) ** 2
+    const grid: Grid = {
+      bandwidth,
+      cell,
+      reach,
+      cols,
+      rows,
+      originX: this.#minX - margin * cell,
+      originY: this.#minY - margin * cell,
+      weights,
+    }
+    this.#grid = grid
+    this.#phase = 1
+    this.#cursor = 0
+    return grid
+  }
+
+  #next(): void {
+    this.#cursor = 0
+    if (this.#phase < 4) {
+      this.#phase++
+      return
+    }
+    this.#phase = 0
+    this.#grid = null
     this.#iteration++
+  }
+
+  #move(grid: Grid, from: number, to: number): void {
+    for (let edge = from; edge < to; edge++) {
+      this.#advect(grid, edge)
+      this.#smooth(edge)
+      this.#resample(edge)
+    }
   }
 
   run(): BundlePaths {
@@ -170,16 +228,12 @@ export class DensityBundler {
     return { offsets: this.offsets, points }
   }
 
-  #splat(
-    density: Float32Array,
-    cols: number,
-    originX: number,
-    originY: number,
-    cell: number,
-  ): void {
+  #splat(grid: Grid, from: number, to: number): void {
     const { offsets, x, y } = this
+    const density = this.#density
+    const { cols, originX, originY, cell } = grid
     const spacing = this.#spacing
-    for (let edge = 0; edge < this.count; edge++) {
+    for (let edge = from; edge < to; edge++) {
       const first = offsets[edge] ?? 0
       const last = (offsets[edge + 1] ?? 0) - 1
       const segments = last - first
@@ -203,66 +257,58 @@ export class DensityBundler {
     }
   }
 
-  #advect(
-    density: Float32Array,
-    cols: number,
-    rows: number,
-    originX: number,
-    originY: number,
-    cell: number,
-    bandwidth: number,
-  ): void {
+  #advect(grid: Grid, edge: number): void {
     const { offsets, x, y } = this
+    const density = this.#density
+    const { cols, rows, originX, originY, cell, bandwidth } = grid
     const scale = (this.#tuning.pull * bandwidth * bandwidth) / (2 * cell)
     const limit = bandwidth * 0.5
     const floor = 1e-6
     const shortest = this.#tuning.short * this.#radius
-    for (let edge = 0; edge < this.count; edge++) {
-      const first = offsets[edge] ?? 0
-      const segments = (offsets[edge + 1] ?? 0) - first - 1
-      if (segments < 2) continue
-      const last = first + segments
-      const span = Math.hypot((x[last] ?? 0) - (x[first] ?? 0), (y[last] ?? 0) - (y[first] ?? 0))
-      const mobility = shortest > 0 ? Math.min(1, span / shortest) : 1
-      for (let k = 1; k < segments; k++) {
-        const at = first + k
-        const fx = ((x[at] ?? 0) - originX) / cell
-        const fy = ((y[at] ?? 0) - originY) / cell
-        const cx = Math.min(cols - 3, Math.max(1, Math.floor(fx)))
-        const cy = Math.min(rows - 3, Math.max(1, Math.floor(fy)))
-        const tx = fx - cx
-        const ty = fy - cy
-        const index = cy * cols + cx
-        const d00 = density[index] ?? 0
-        const d10 = density[index + 1] ?? 0
-        const d01 = density[index + cols] ?? 0
-        const d11 = density[index + cols + 1] ?? 0
-        const value =
-          d00 * (1 - tx) * (1 - ty) + d10 * tx * (1 - ty) + d01 * (1 - tx) * ty + d11 * tx * ty
-        if (value <= floor) continue
-        const gx00 = d10 - (density[index - 1] ?? 0)
-        const gx10 = (density[index + 2] ?? 0) - d00
-        const gx01 = d11 - (density[index + cols - 1] ?? 0)
-        const gx11 = (density[index + cols + 2] ?? 0) - d01
-        const gy00 = d01 - (density[index - cols] ?? 0)
-        const gy10 = d11 - (density[index - cols + 1] ?? 0)
-        const gy01 = (density[index + cols * 2] ?? 0) - d00
-        const gy11 = (density[index + cols * 2 + 1] ?? 0) - d10
-        const gx =
-          gx00 * (1 - tx) * (1 - ty) + gx10 * tx * (1 - ty) + gx01 * (1 - tx) * ty + gx11 * tx * ty
-        const gy =
-          gy00 * (1 - tx) * (1 - ty) + gy10 * tx * (1 - ty) + gy01 * (1 - tx) * ty + gy11 * tx * ty
-        let mx = (gx / value) * scale
-        let my = (gy / value) * scale
-        const step = Math.hypot(mx, my)
-        if (step > limit) {
-          mx *= limit / step
-          my *= limit / step
-        }
-        const weight = this.#taper(k / segments) * mobility
-        x[at] = (x[at] ?? 0) + mx * weight
-        y[at] = (y[at] ?? 0) + my * weight
+    const first = offsets[edge] ?? 0
+    const segments = (offsets[edge + 1] ?? 0) - first - 1
+    if (segments < 2) return
+    const last = first + segments
+    const span = Math.hypot((x[last] ?? 0) - (x[first] ?? 0), (y[last] ?? 0) - (y[first] ?? 0))
+    const mobility = shortest > 0 ? Math.min(1, span / shortest) : 1
+    for (let k = 1; k < segments; k++) {
+      const at = first + k
+      const fx = ((x[at] ?? 0) - originX) / cell
+      const fy = ((y[at] ?? 0) - originY) / cell
+      const cx = Math.min(cols - 3, Math.max(1, Math.floor(fx)))
+      const cy = Math.min(rows - 3, Math.max(1, Math.floor(fy)))
+      const tx = fx - cx
+      const ty = fy - cy
+      const index = cy * cols + cx
+      const d00 = density[index] ?? 0
+      const d10 = density[index + 1] ?? 0
+      const d01 = density[index + cols] ?? 0
+      const d11 = density[index + cols + 1] ?? 0
+      const value =
+        d00 * (1 - tx) * (1 - ty) + d10 * tx * (1 - ty) + d01 * (1 - tx) * ty + d11 * tx * ty
+      if (value <= floor) continue
+      const gx00 = d10 - (density[index - 1] ?? 0)
+      const gx10 = (density[index + 2] ?? 0) - d00
+      const gx01 = d11 - (density[index + cols - 1] ?? 0)
+      const gx11 = (density[index + cols + 2] ?? 0) - d01
+      const gy00 = d01 - (density[index - cols] ?? 0)
+      const gy10 = d11 - (density[index - cols + 1] ?? 0)
+      const gy01 = (density[index + cols * 2] ?? 0) - d00
+      const gy11 = (density[index + cols * 2 + 1] ?? 0) - d10
+      const gx =
+        gx00 * (1 - tx) * (1 - ty) + gx10 * tx * (1 - ty) + gx01 * (1 - tx) * ty + gx11 * tx * ty
+      const gy =
+        gy00 * (1 - tx) * (1 - ty) + gy10 * tx * (1 - ty) + gy01 * (1 - tx) * ty + gy11 * tx * ty
+      let mx = (gx / value) * scale
+      let my = (gy / value) * scale
+      const step = Math.hypot(mx, my)
+      if (step > limit) {
+        mx *= limit / step
+        my *= limit / step
       }
+      const weight = this.#taper(k / segments) * mobility
+      x[at] = (x[at] ?? 0) + mx * weight
+      y[at] = (y[at] ?? 0) + my * weight
     }
   }
 
@@ -270,92 +316,97 @@ export class DensityBundler {
     return Math.min(1, Math.min(u, 1 - u) / this.#tuning.taper)
   }
 
-  #smooth(): void {
+  #smooth(edge: number): void {
     const { offsets, x, y } = this
     const smoothWeight = this.#tuning.smooth
     const rx = this.#rx
     const ry = this.#ry
-    for (let edge = 0; edge < this.count; edge++) {
-      const first = offsets[edge] ?? 0
-      const segments = (offsets[edge + 1] ?? 0) - first - 1
-      if (segments < 2) continue
-      for (let k = 0; k <= segments; k++) {
-        rx[k] = x[first + k] ?? 0
-        ry[k] = y[first + k] ?? 0
-      }
-      for (let k = 1; k < segments; k++) {
-        const at = first + k
-        x[at] =
-          (rx[k] ?? 0) * (1 - smoothWeight) +
-          ((rx[k - 1] ?? 0) + (rx[k + 1] ?? 0)) * smoothWeight * 0.5
-        y[at] =
-          (ry[k] ?? 0) * (1 - smoothWeight) +
-          ((ry[k - 1] ?? 0) + (ry[k + 1] ?? 0)) * smoothWeight * 0.5
-      }
+    const first = offsets[edge] ?? 0
+    const segments = (offsets[edge + 1] ?? 0) - first - 1
+    if (segments < 2) return
+    for (let k = 0; k <= segments; k++) {
+      rx[k] = x[first + k] ?? 0
+      ry[k] = y[first + k] ?? 0
+    }
+    for (let k = 1; k < segments; k++) {
+      const at = first + k
+      x[at] =
+        (rx[k] ?? 0) * (1 - smoothWeight) +
+        ((rx[k - 1] ?? 0) + (rx[k + 1] ?? 0)) * smoothWeight * 0.5
+      y[at] =
+        (ry[k] ?? 0) * (1 - smoothWeight) +
+        ((ry[k - 1] ?? 0) + (ry[k + 1] ?? 0)) * smoothWeight * 0.5
     }
   }
 
-  #resample(): void {
+  #resample(edge: number): void {
     const { offsets, x, y } = this
     const lengths = this.#lengths
     const rx = this.#rx
     const ry = this.#ry
-    for (let edge = 0; edge < this.count; edge++) {
-      const first = offsets[edge] ?? 0
-      const segments = (offsets[edge + 1] ?? 0) - first - 1
-      if (segments < 2) continue
-      lengths[0] = 0
-      for (let k = 0; k <= segments; k++) {
-        rx[k] = x[first + k] ?? 0
-        ry[k] = y[first + k] ?? 0
-        if (k > 0) {
-          lengths[k] =
-            (lengths[k - 1] ?? 0) +
-            Math.hypot((rx[k] ?? 0) - (rx[k - 1] ?? 0), (ry[k] ?? 0) - (ry[k - 1] ?? 0))
-        }
+    const first = offsets[edge] ?? 0
+    const segments = (offsets[edge + 1] ?? 0) - first - 1
+    if (segments < 2) return
+    lengths[0] = 0
+    for (let k = 0; k <= segments; k++) {
+      rx[k] = x[first + k] ?? 0
+      ry[k] = y[first + k] ?? 0
+      if (k > 0) {
+        lengths[k] =
+          (lengths[k - 1] ?? 0) +
+          Math.hypot((rx[k] ?? 0) - (rx[k - 1] ?? 0), (ry[k] ?? 0) - (ry[k - 1] ?? 0))
       }
-      const total = lengths[segments] ?? 0
-      if (!(total > 0)) continue
-      let span = 1
-      for (let k = 1; k < segments; k++) {
-        const target = (total * k) / segments
-        while (span < segments && (lengths[span] ?? 0) < target) span++
-        const from = lengths[span - 1] ?? 0
-        const width = (lengths[span] ?? 0) - from
-        const t = width > 0 ? (target - from) / width : 0
-        x[first + k] = (rx[span - 1] ?? 0) + ((rx[span] ?? 0) - (rx[span - 1] ?? 0)) * t
-        y[first + k] = (ry[span - 1] ?? 0) + ((ry[span] ?? 0) - (ry[span - 1] ?? 0)) * t
-      }
+    }
+    const total = lengths[segments] ?? 0
+    if (!(total > 0)) return
+    let span = 1
+    for (let k = 1; k < segments; k++) {
+      const target = (total * k) / segments
+      while (span < segments && (lengths[span] ?? 0) < target) span++
+      const from = lengths[span - 1] ?? 0
+      const width = (lengths[span] ?? 0) - from
+      const t = width > 0 ? (target - from) / width : 0
+      x[first + k] = (rx[span - 1] ?? 0) + ((rx[span] ?? 0) - (rx[span - 1] ?? 0)) * t
+      y[first + k] = (ry[span - 1] ?? 0) + ((ry[span] ?? 0) - (ry[span - 1] ?? 0)) * t
     }
   }
 }
 
-function blur(
+function blurRows(
   values: Float32Array,
   scratch: Float32Array,
-  cols: number,
-  rows: number,
-  reach: number,
+  grid: Grid,
+  from: number,
+  to: number,
 ): void {
-  const weights = new Float32Array(reach * 2 + 1)
-  for (let k = -reach; k <= reach; k++) weights[k + reach] = 1 - (k / (reach + 1)) ** 2
-  for (let row = 0; row < rows; row++) {
+  const { cols, reach, weights } = grid
+  for (let row = from; row < to; row++) {
     const base = row * cols
     for (let col = 0; col < cols; col++) {
       let sum = 0
-      const from = Math.max(0, col - reach)
-      const to = Math.min(cols - 1, col + reach)
-      for (let k = from; k <= to; k++)
+      const first = Math.max(0, col - reach)
+      const last = Math.min(cols - 1, col + reach)
+      for (let k = first; k <= last; k++)
         sum += (values[base + k] ?? 0) * (weights[k - col + reach] ?? 0)
       scratch[base + col] = sum
     }
   }
-  for (let row = 0; row < rows; row++) {
+}
+
+function blurColumns(
+  values: Float32Array,
+  scratch: Float32Array,
+  grid: Grid,
+  from: number,
+  to: number,
+): void {
+  const { cols, rows, reach, weights } = grid
+  for (let row = from; row < to; row++) {
     const out = row * cols
     values.fill(0, out, out + cols)
-    const from = Math.max(0, row - reach)
-    const to = Math.min(rows - 1, row + reach)
-    for (let k = from; k <= to; k++) {
+    const first = Math.max(0, row - reach)
+    const last = Math.min(rows - 1, row + reach)
+    for (let k = first; k <= last; k++) {
       const weight = weights[k - row + reach] ?? 0
       const source = k * cols
       for (let col = 0; col < cols; col++) {

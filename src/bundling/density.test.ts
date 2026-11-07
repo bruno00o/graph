@@ -56,4 +56,24 @@ describe('DensityBundler', () => {
     expect(middle(paths, 0)).toBeCloseTo(0)
     expect(bundler.progress).toBe(1)
   })
+
+  it('works in slices and gives the same paths', () => {
+    const { xy, ends } = lanes(300, 3)
+    const whole = new DensityBundler(xy, ends, densityDefaults).run()
+    const bundler = new DensityBundler(xy, ends, densityDefaults)
+    let slices = 0
+    while (!bundler.done) {
+      bundler.step(performance.now() - 1)
+      slices++
+    }
+    expect(slices).toBeGreaterThan(densityDefaults.iterations * 4)
+    expect(bundler.paths().points).toEqual(whole.points)
+  })
+
+  it('runs one whole pass per step without a deadline', () => {
+    const { xy, ends } = lanes(300, 3)
+    const bundler = new DensityBundler(xy, ends, densityDefaults)
+    bundler.step()
+    expect(bundler.progress).toBeCloseTo(1 / densityDefaults.iterations)
+  })
 })

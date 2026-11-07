@@ -32,6 +32,7 @@ export interface RouteStats {
 
 const limits: MazeLimits = { obstacles: 1500, points: 1 << 18, expansions: 40_000 }
 const portShare = 0.7
+const nudgeAxes = [1, 0]
 const eps = 1e-6
 
 class Path {
@@ -123,6 +124,12 @@ export class OrthogonalRouter {
   readonly #ignore: number[] = [0, 0]
   readonly #ends: Float64Array = new Float64Array(8)
   #edge = 0
+  #nudger: Nudger | null = null
+  #xs: Float64Array = new Float64Array(0)
+  #ys: Float64Array = new Float64Array(0)
+  #pass = 0
+  #begun = false
+  #nudging = 0
   #result: RouteOutput | null = null
 
   constructor(input: RouteInput, settings: OrthogonalSettings, stats?: RouteStats) {
@@ -147,15 +154,21 @@ export class OrthogonalRouter {
 
   step(until: number): RouteOutput | null {
     if (this.#result) return this.#result
+    const first = this.#edge
     while (this.#edge < this.#count) {
-      this.#route(this.#edge++)
-      if ((this.#edge & 63) === 0 && performance.now() >= until) return null
+      const searched = this.#route(this.#edge++)
+      if ((searched || (this.#edge & 63) === 0) && performance.now() >= until) return null
     }
+    if (!this.#nudger) {
+      this.#nudger = this.#prepare()
+      if (performance.now() >= until) return null
+    }
+    if (!this.#nudge(this.#nudger, until, this.#edge === first)) return null
     this.#result = this.#finish()
     return this.#result
   }
 
-  #route(edge: number): void {
+  #route(edge: number): boolean {
     const { xy, extents, parents, ends } = this.#input
     const settings = this.#settings
     const stats = this.#stats
@@ -174,6 +187,7 @@ export class OrthogonalRouter {
     const thw = extents[target * 2] ?? 0
     const thh = extents[target * 2 + 1] ?? 0
     path.reset(sx, sy)
+    let searched = false
     const apart = Math.abs(tx - sx) > shw + thw + eps || Math.abs(ty - sy) > shh + thh + eps
     if (source === target || !apart) {
       path.to(tx, ty)
@@ -216,6 +230,7 @@ export class OrthogonalRouter {
         const narrow = Math.min(Math.abs(tx - sx), Math.abs(ty - sy))
         const near = bend * 2 + narrow * 0.25
         const ends = this.#endBoxes(source, target, sx, sy, tx, ty)
+        searched = true
         chosen =
           this.#maze.route(obstacles, sx, sy, tx, ty, near, bend, axis, limits, ends) ??
           this.#maze.route(obstacles, sx, sy, tx, ty, near * 4, bend, axis, limits, ends)
@@ -231,6 +246,7 @@ export class OrthogonalRouter {
     }
     this.#offsets[edge] = this.#points.length >> 1
     for (const value of path.values) this.#points.push(value)
+    return searched
   }
 
   #endBoxes(
@@ -250,7 +266,7 @@ export class OrthogonalRouter {
     return ends
   }
 
-  #finish(): RouteOutput {
+  #prepare(): Nudger {
     const points = this.#points
     const offsets = this.#offsets
     offsets[this.#count] = points.length >> 1
@@ -261,7 +277,9 @@ export class OrthogonalRouter {
       xs[k] = points[k * 2] ?? 0
       ys[k] = points[k * 2 + 1] ?? 0
     }
-    const nudger = new Nudger(
+    this.#xs = xs
+    this.#ys = ys
+    return new Nudger(
       { xs, ys, offsets, ends: this.#input.ends },
       {
         obstacles: this.#obstacles,
@@ -271,16 +289,38 @@ export class OrthogonalRouter {
         port: portShare,
       },
     )
-    const nudged = performance.now()
-    nudger.run(1)
-    nudger.run(0)
-    if (this.#stats) this.#stats.nudging = performance.now() - nudged
+  }
+
+  #nudge(nudger: Nudger, until: number, opening: boolean): boolean {
+    const started = performance.now()
+    const sliced = until !== Number.POSITIVE_INFINITY
+    let fresh = opening
+    while (this.#pass < nudgeAxes.length) {
+      if (!this.#begun) {
+        if (sliced && !fresh) break
+        nudger.begin(nudgeAxes[this.#pass] ?? 0)
+        this.#begun = true
+        if (performance.now() >= until) break
+      }
+      if (!nudger.advance(until)) break
+      this.#pass++
+      this.#begun = false
+      fresh = false
+    }
+    this.#nudging += performance.now() - started
+    if (this.#stats) this.#stats.nudging = this.#nudging
+    return this.#pass >= nudgeAxes.length
+  }
+
+  #finish(): RouteOutput {
+    const xs = this.#xs
+    const ys = this.#ys
     const result = new Float32Array(xs.length * 2)
     for (let k = 0; k < xs.length; k++) {
       result[k * 2] = xs[k] ?? 0
       result[k * 2 + 1] = ys[k] ?? 0
     }
-    return { offsets, points: result }
+    return { offsets: this.#offsets, points: result }
   }
 }
 

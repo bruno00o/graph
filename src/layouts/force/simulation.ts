@@ -289,7 +289,7 @@ export class ForceSimulation {
   }
 
   pin(index: number, x: number, y: number): void {
-    if (index < 0 || index >= this.x.length) return
+    if (index < 0 || index >= this.x.length || !Number.isFinite(x) || !Number.isFinite(y)) return
     this.#fixed[index] = 1
     this.x[index] = x
     this.y[index] = y
