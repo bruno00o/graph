@@ -29,6 +29,7 @@ export function SampleGraph({ items, links }: { items: Item[]; links: Link[] }) 
 
 - `<Graph>` renders a `div` in relative position, sized by your `className` or `style`, with the graph inside.
 - Build the definition with `useMemo`, or outside the component. A new definition is applied with `update`, so positions, view and selection stay.
+- Declare the functions of mark options, such as `label: (item) => item.name`, outside the component. Options are compared by content, but functions by identity: a new function restyles every item of its mark. See [Update the data](/docs/data#update-the-data).
 - The graph is mounted once and destroyed on unmount. StrictMode mounts, destroys and mounts again: one instance remains.
 
 Every prop, with the event props, is listed in [`<Graph>`](/docs/api/graph-component#props).

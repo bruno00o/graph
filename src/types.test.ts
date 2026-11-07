@@ -198,6 +198,13 @@ describe('public types', () => {
         return person.name
       },
     })
+    const named = nodes(collection, { name: 'people', layer: 'top' })
+    expectTypeOf(named.name).toEqualTypeOf<'people'>()
+    expectTypeOf(named.layer).toEqualTypeOf<'top'>()
+    // @ts-expect-error
+    nodes(collection, { key: 'name' })
+    // @ts-expect-error
+    edges(collection, { key: 'name', source: 'id', target: 'team' })
     const definition = defineGraph({ marks: [mark] })
     expectTypeOf(definition.marks).toEqualTypeOf<readonly (typeof mark)[]>()
     expectTypeOf(definition.marks).toExtend<readonly Mark[]>()

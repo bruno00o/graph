@@ -12,6 +12,10 @@ function createExploration<TNode, TEdge>(
 ): Exploration<TNode, TEdge>
 ```
 
+Items are keyed by their `id` field unless `nodeKey` or `edgeKey` says otherwise, with a field name or a function. Without `nodeKey`, `TNode` must have an `id` field, and the same for `TEdge` without `edgeKey`. When a key is a function, give `neighbors` before it in the options, so that it reads typed items.
+
+An item whose key is neither a string nor a finite number is skipped by the graph and listed as a `missing-key` problem by `graph.issues()`.
+
 ## Options
 
 <api-table path="query/index.ts" name="ExplorationOptions" />

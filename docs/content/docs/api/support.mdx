@@ -52,7 +52,7 @@ const below = support.carriers('route-1')
 support.destroy()
 ```
 
-It takes the marks of a definition, or a definition itself, and runs the same walks without mounting a graph: on a server, in a worker or in tests. Live sources are read again after each change.
+It takes the marks of a definition, or a definition itself, and runs the same walks without mounting a graph: on a server, in a worker or in tests. It reads the arrays and subscribes to the live sources as soon as it is created, and applies their changes at the next walk. After `destroy`, walks return the same empty, frozen result.
 
 <api-table path="index.ts" name="SupportFinder" />
 

@@ -239,6 +239,18 @@ describe('createPathFinder', () => {
     expect(paths.shortest('a', 'c')?.cost).toBe(1)
     paths.destroy()
     expect(paths.shortest('a', 'c')).toBeNull()
+    const empty = paths.reach('a')
+    expect(empty).toBe(createPathFinder({ marks: [] }).reach('a'))
+    expect(Object.isFrozen(empty.nodes) && Object.isFrozen(empty.costs)).toBe(true)
+    expect(Object.isFrozen(empty.edges)).toBe(true)
+  })
+
+  it('refuses a negative or NaN maxCost', () => {
+    const paths = finder(items, links)
+    expect(() => paths.reach('a', { maxCost: -1 })).toThrow(RangeError)
+    expect(() => paths.reach('a', { maxCost: Number.NaN })).toThrow(RangeError)
+    expect(() => paths.reach('zz', { maxCost: -1 })).toThrow(RangeError)
+    expect(paths.reach('a', { maxCost: 0 }).nodes).toEqual(['a'])
   })
 
   it('matches a reference on random graphs', () => {

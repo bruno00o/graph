@@ -5,7 +5,7 @@ import type { GraphIssue } from './issues'
 
 type Read = (datum: unknown) => unknown
 
-const noWalk: SupportWalk = Object.freeze({
+export const noWalk: SupportWalk = Object.freeze({
   edges: Object.freeze([]),
   depths: Object.freeze([]),
   nodes: Object.freeze([]),

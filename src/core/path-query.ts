@@ -15,7 +15,17 @@ export interface PathSource {
   shown(): PathShown | null
 }
 
-const noReach: GraphReach = Object.freeze({ nodes: [], costs: [], edges: [] })
+export const noReach: GraphReach = Object.freeze({
+  nodes: Object.freeze([]),
+  costs: Object.freeze([]),
+  edges: Object.freeze([]),
+})
+
+function limitOf(maxCost: number | undefined): number {
+  const limit = maxCost ?? Number.POSITIVE_INFINITY
+  if (!(limit >= 0)) throw new RangeError('graph: maxCost must be a number, 0 or more')
+  return limit
+}
 
 function directionOf(direction: PathDirection | undefined): PathRules['direction'] {
   if (direction === undefined || direction === 'both') return 0
@@ -98,11 +108,11 @@ export function createPathQueries(source: PathSource): GraphPaths {
     },
 
     reach(from, options = {}): GraphReach {
+      const limit = limitOf(options.maxCost)
       source.prepare()
       const start = model.node(from)?.index ?? -1
       if (start < 0) return noReach
       const adjacency = model.adjacency()
-      const limit = options.maxCost ?? Number.POSITIVE_INFINITY
       const found = search.reach(adjacency, rulesOf(adjacency, options), start, limit)
       return {
         nodes: found.nodes.map(nodeKey),

@@ -20,12 +20,14 @@ import type {
   ResolvedPadding,
   ResolvedSupportStates,
   ResolvedTimeOptions,
+  ResolvedTransitions,
   ResolvedViewLimits,
   StateKindStyles,
   StateStyle,
   StateStyles,
   SupportStateOptions,
   TimeOptions,
+  TransitionOptions,
   ViewBounds,
   ViewLimitOptions,
   WheelMode,
@@ -53,12 +55,28 @@ const defaultLensKey = 'Alt'
 const defaultBridgeSize = 8
 const defaultBridgeEdges = 100_000
 
+function atLeastZero(value: number, name: string): number {
+  if (!(value >= 0) || !Number.isFinite(value)) {
+    throw new RangeError(`defineGraph: ${name} must be a finite number, 0 or more`)
+  }
+  return value
+}
+
+function positive(value: number, name: string): number {
+  if (!(value > 0) || !Number.isFinite(value)) {
+    throw new RangeError(`defineGraph: ${name} must be a positive number`)
+  }
+  return value
+}
+
 function resolveSpeed(
   option: boolean | { readonly speed?: number | undefined },
   fallback: number,
+  name: string,
 ): false | { readonly speed: number } {
   if (option === false) return false
-  return Object.freeze({ speed: (option === true ? undefined : option.speed) ?? fallback })
+  const speed = (option === true ? undefined : option.speed) ?? fallback
+  return Object.freeze({ speed: atLeastZero(speed, `interaction.${name}.speed`) })
 }
 
 function resolveInteraction(options: InteractionOptions = {}): ResolvedInteraction {
@@ -68,9 +86,9 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
   }
   return Object.freeze({
     pan: options.pan ?? true,
-    zoom: resolveSpeed(options.zoom ?? true, defaultZoomSpeed),
+    zoom: resolveSpeed(options.zoom ?? true, defaultZoomSpeed, 'zoom'),
     wheel,
-    autoPan: resolveSpeed(options.autoPan ?? true, defaultAutoPanSpeed),
+    autoPan: resolveSpeed(options.autoPan ?? true, defaultAutoPanSpeed, 'autoPan'),
     select: options.select ?? 'multiple',
     drag: options.drag ?? true,
     lasso: options.lasso ?? false,
@@ -146,10 +164,9 @@ function resolveBackground(
   if (options.grid !== 'lines' && options.grid !== 'dots') {
     throw new TypeError("defineGraph: background.grid must be 'lines' or 'dots'")
   }
-  const spacing = options.spacing ?? defaultGridSpacing
   return Object.freeze({
     grid: options.grid,
-    spacing: Number.isFinite(spacing) && spacing > 0 ? spacing : defaultGridSpacing,
+    spacing: positive(options.spacing ?? defaultGridSpacing, 'background.spacing'),
     color: options.color ?? themeColor('grid'),
     majorColor: options.majorColor ?? themeColor('grid-major'),
     adaptive: options.adaptive !== false,
@@ -165,21 +182,24 @@ function resolveBridges(
   if (shape !== 'arc' && shape !== 'gap') {
     throw new TypeError("defineGraph: bridges.shape must be 'arc' or 'gap'")
   }
-  const size = given.size ?? defaultBridgeSize
   const maxEdges = given.maxEdges ?? defaultBridgeEdges
+  if (!(maxEdges >= 0)) throw new RangeError('defineGraph: bridges.maxEdges must be 0 or more')
   return Object.freeze({
     shape,
-    size: Number.isFinite(size) && size > 0 ? size : defaultBridgeSize,
-    maxEdges: maxEdges >= 0 ? Math.floor(Math.min(maxEdges, 2 ** 31)) : defaultBridgeEdges,
+    size: positive(given.size ?? defaultBridgeSize, 'bridges.size'),
+    maxEdges: Math.floor(Math.min(maxEdges, 2 ** 31)),
   })
 }
 
 function resolveTime(options: TimeOptions = {}): ResolvedTimeOptions {
-  const fade = options.fade ?? 0
-  if (!(fade >= 0) || !Number.isFinite(fade)) {
-    throw new RangeError('defineGraph: time.fade must be a finite number, 0 or more')
-  }
-  return Object.freeze({ fade })
+  return Object.freeze({ fade: atLeastZero(options.fade ?? 0, 'time.fade') })
+}
+
+function resolveTransitions(options: TransitionOptions = {}): ResolvedTransitions {
+  return Object.freeze({
+    positions: atLeastZero(options.positions ?? defaultPositionTransition, 'transitions.positions'),
+    layout: atLeastZero(options.layout ?? defaultLayoutTransition, 'transitions.layout'),
+  })
 }
 
 function checkLayers(marks: readonly Mark[]): void {
@@ -281,10 +301,7 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     relayout: options.relayout ?? false,
     interaction: resolveInteraction(options.interaction),
     view: resolveView(options.view),
-    transitions: Object.freeze({
-      positions: Math.max(0, options.transitions?.positions ?? defaultPositionTransition),
-      layout: Math.max(0, options.transitions?.layout ?? defaultLayoutTransition),
-    }),
+    transitions: resolveTransitions(options.transitions),
     background: resolveBackground(options.background),
     hulls: Object.freeze([...(options.hulls ?? [])]),
     bundling,

@@ -17,10 +17,13 @@ import type {
   NodeOptions,
 } from './types'
 
-/** A mark that draws one node per item of a live source, keyed by its changes. */
+/**
+ * A mark that draws one node per item of a live source, keyed by the `key` of its changes: it takes
+ * no `key` option.
+ */
 export function nodes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options?: NodeOptions<NoInfer<T>, N, L>,
+  options?: Omit<NodeOptions<NoInfer<T>, N, L>, 'key'>,
 ): NodeMark<T, N, L>
 /** A mark that draws one node per item, keyed by its `id` field unless `key` says otherwise. */
 export function nodes<
@@ -47,12 +50,12 @@ export function nodes<T>(
 }
 
 /**
- * A mark that draws one edge per item of a live source, keyed by its changes. An edge waits until
- * both of its ends exist.
+ * A mark that draws one edge per item of a live source, keyed by the `key` of its changes: it takes
+ * no `key` option. An edge waits until both of its ends exist.
  */
 export function edges<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options: EdgeOptions<NoInfer<T>, N, L>,
+  options: Omit<EdgeOptions<NoInfer<T>, N, L>, 'key'>,
 ): EdgeMark<T, N, L>
 /**
  * A mark that draws one edge per item, keyed by its `id` field unless `key` says otherwise. An edge

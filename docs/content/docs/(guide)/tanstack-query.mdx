@@ -35,7 +35,7 @@ graph.on('doubleclick', ({ target }) => {
 
 - Roots are expanded at once and never removed.
 - The response for a node usually contains the node itself: that is how a root gets its data. An expanded node holds itself while its expansion exists.
-- Keys are the `id` field by default. Pass `nodeKey` and `edgeKey` when your data differs.
+- Keys are the `id` field by default. Pass `nodeKey` and `edgeKey`, a field name or a function, when your data differs: without them, items without an `id` field do not compile.
 - New nodes appear next to the neighbors they connect to.
 
 ## Queries do the caching
