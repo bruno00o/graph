@@ -4,6 +4,7 @@ import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
 import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
+import type { Positions } from '../core/positions'
 import { maxStates, noPaint, stateRow, stateRows } from '../core/state-buffers'
 import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
 import type { ZoomRanges } from '../core/zoom-range'
@@ -98,6 +99,7 @@ const units = {
   edgeEnds: 18,
   bridgeData: bridgeUnit,
 } as const
+const unitCount = Math.max(...Object.values(units)) + 1
 const farZoom = 3e38
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 const noPlane = [0, 0, 0, 1]
@@ -178,7 +180,7 @@ export function createSharedRenderer(
   gl: WebGL2RenderingContext,
   invalidate: () => void = () => {},
 ): Renderer {
-  const state = new GlState(gl)
+  const state = new GlState(gl, unitCount)
   const inner = state.guard(() => createRenderer(gl, invalidate, true))
   let palette: { readonly colors: Uint8Array; readonly count: number } | null = null
   const applyPalette = () => {
@@ -253,6 +255,33 @@ function createRenderer(
   const atlasTexture = gl.createTexture()
   let atlasGeneration = -1
   let atlasRows = 0
+  const bound: ReadonlyArray<readonly [number, WebGLTexture]> = [
+    [units.palette, palette],
+    [units.nodePosition, nodePosition.texture],
+    [units.nodeStyle, nodeStyle.texture],
+    [units.nodePaint, nodePaint.texture],
+    [units.nodeState, nodeState.texture],
+    [units.edgeTopology, edgeTopology.texture],
+    [units.edgeStyle, edgeStyle.texture],
+    [units.edgeState, edgeState.texture],
+    [units.atlas, atlasTexture],
+    [units.nodeDecor, nodeDecor.texture],
+    [units.nodeBox, nodeBox.texture],
+    [units.nodeZoom, nodeZoom.texture],
+    [units.edgeZoom, edgeZoom.texture],
+    [units.nodeTime, nodeTime.texture],
+    [units.edgeTime, edgeTime.texture],
+    [units.edgeEnds, edgeEnds.texture],
+  ]
+  const screenArea: { -readonly [K in keyof LabelArea]: LabelArea[K] } = {
+    view: { x: 0, y: 0, zoom: 1 },
+    width: 0,
+    height: 0,
+    mode: 'visible',
+    globe: null,
+  }
+  const boundUnits = bound.map(([unit]) => unit)
+  const boundTextures = bound.map(([, texture]) => texture)
   for (const texture of [palette, atlasTexture]) {
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
@@ -663,6 +692,16 @@ function createRenderer(
 
   let nodeCapacity = 0
   let edgeCapacity = 0
+  let shownPositions: Positions | null = null
+  let positionsVersion = -1
+  const uploadPositions = (first: number, last: number): void => {
+    const xy = shownPositions?.xy
+    if (!xy) return
+    const end = Math.min((last + 1) * 2, xy.length, nodePosition.data.length)
+    if (end <= first * 2) return
+    nodePosition.data.set(xy.subarray(first * 2, end), first * 2)
+    nodePosition.upload(first, end / 2 - 1)
+  }
   let nodeOverlayCount = 0
   let containerCount = 0
   let containerVersion = -1
@@ -971,11 +1010,16 @@ function createRenderer(
     nodePaint.upload(first, last)
     nodeDecor.upload(first, last)
     if (last >= first) touch()
-    if (next.positionsChanged || next.full || grown) {
-      const xy = next.positions.xy
+    const positions = next.positions
+    if (next.full || grown || positions !== shownPositions) {
+      shownPositions = positions
+      const xy = positions.xy
       nodePosition.data.set(xy.subarray(0, Math.min(xy.length, nodePosition.data.length)))
       nodePosition.upload(0, nodeCapacity - 1)
+    } else if (positions.version !== positionsVersion) {
+      positions.changedSince(positionsVersion, uploadPositions)
     }
+    positionsVersion = positions.version
     const states = next.states
     const range = states.nodeDirty.take()
     if (next.full || grown) {
@@ -985,6 +1029,7 @@ function createRenderer(
       nodeState.upload(0, nodeCapacity - 1)
     } else if (range) {
       copyRange(nodeState, states.nodeMask, range)
+      invalidateLabels()
       touch()
     }
     if (next.dirty.nodes.size > 0 || next.full) orderStale = true
@@ -1154,6 +1199,7 @@ function createRenderer(
       edgeState.upload(0, edgeCapacity - 1)
     } else if (range) {
       copyRange(edgeState, states.edgeMask, range)
+      invalidateLabels()
       touch()
     }
     if (next.dirty.edges.size > 0 || next.full) edgeOrderStale = true
@@ -1295,6 +1341,8 @@ function createRenderer(
         edgeOrder: edgeLabelOrder,
         edgeOrderLength: edgeLabelOrderLength,
         largestEdgeLabel,
+        stateNumbers: input.states.numbers,
+        statePaint: input.states.paint,
         mode: frame.mode,
         paths: input.bundles ?? null,
         globe: frame.globe && frame.globe.mix > 0 ? frame.globe : null,
@@ -1755,7 +1803,7 @@ function createRenderer(
         touch()
       }
       flowTime = frame.time ?? 0
-      const area: LabelArea = frame.labels ?? { ...frame, mode: 'visible' }
+      const area: LabelArea = frame.labels ?? visibleArea(frame)
       const all = area.mode === 'all'
       gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
       gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.States, statesBuffer)
@@ -1773,6 +1821,7 @@ function createRenderer(
         if (mainLabels.stale) selectLabels(mainLabels, area, now)
       }
       if (atlas.generation !== generation) rebuildBadges()
+      atlas.settle()
       syncAtlas()
       images.prepare()
       if (shared) {
@@ -1873,28 +1922,18 @@ function createRenderer(
     },
   }
 
+  function visibleArea(frame: RenderFrame): LabelArea {
+    screenArea.view = frame.view
+    screenArea.width = frame.width
+    screenArea.height = frame.height
+    screenArea.globe = frame.globe ?? null
+    return screenArea
+  }
+
   function bind(): void {
-    const textures: Array<readonly [number, WebGLTexture]> = [
-      [units.palette, palette],
-      [units.nodePosition, nodePosition.texture],
-      [units.nodeStyle, nodeStyle.texture],
-      [units.nodePaint, nodePaint.texture],
-      [units.nodeState, nodeState.texture],
-      [units.edgeTopology, edgeTopology.texture],
-      [units.edgeStyle, edgeStyle.texture],
-      [units.edgeState, edgeState.texture],
-      [units.atlas, atlasTexture],
-      [units.nodeDecor, nodeDecor.texture],
-      [units.nodeBox, nodeBox.texture],
-      [units.nodeZoom, nodeZoom.texture],
-      [units.edgeZoom, edgeZoom.texture],
-      [units.nodeTime, nodeTime.texture],
-      [units.edgeTime, edgeTime.texture],
-      [units.edgeEnds, edgeEnds.texture],
-    ]
-    for (const [unit, texture] of textures) {
-      gl.activeTexture(gl.TEXTURE0 + unit)
-      gl.bindTexture(gl.TEXTURE_2D, texture)
+    for (let at = 0; at < boundUnits.length; at++) {
+      gl.activeTexture(gl.TEXTURE0 + (boundUnits[at] ?? 0))
+      gl.bindTexture(gl.TEXTURE_2D, boundTextures[at] ?? null)
     }
     bundles.bind()
     if (bridgeTexture) {

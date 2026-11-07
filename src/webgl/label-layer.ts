@@ -13,7 +13,7 @@ import type { EdgePaths, PathPoint } from '../core/edge-paths'
 import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
 import type { Positions } from '../core/positions'
-import { labelAlways, maxStates } from '../core/state-buffers'
+import { labelAlways, maxStates, noPaint, stateRow, wordFloat } from '../core/state-buffers'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
@@ -82,6 +82,8 @@ export interface LabelFrame {
   readonly edgeOrder: Uint32Array
   readonly edgeOrderLength: number
   readonly largestEdgeLabel: number
+  readonly stateNumbers?: Float32Array
+  readonly statePaint?: Uint32Array
   readonly mode?: LabelMode
   readonly sink?: LabelSink
   readonly paths?: EdgePaths | null
@@ -230,6 +232,40 @@ function levelBits(flags: Int8Array, from: number, bits = 0xffffffff): number {
     if (((bits >>> bit) & 1) === 1 && flags[from + bit] === labelAlways) found |= 1 << bit
   }
   return found >>> 0
+}
+
+export function stateOutline(
+  paint: Uint32Array | undefined,
+  mask: number,
+  others: number,
+  base: number,
+): number {
+  let rest = (mask | others) >>> 0
+  if (!paint) rest = 0
+  while (rest !== 0) {
+    const bit = 31 - Math.clz32(rest & -rest)
+    rest &= rest - 1
+    const word = paint?.[stateRow('nodes', bit, ((mask >>> bit) & 1) === 1) * 4 + 3] ?? noPaint
+    if (word !== noPaint) return Math.max(wordFloat(word), 0)
+  }
+  return Math.max(base, 0)
+}
+
+export function stateStroke(
+  numbers: Float32Array | undefined,
+  mask: number,
+  others: number,
+  base: number,
+): number {
+  let rest = (mask | others) >>> 0
+  if (!numbers) rest = 0
+  while (rest !== 0) {
+    const bit = 31 - Math.clz32(rest & -rest)
+    rest &= rest - 1
+    const width = numbers?.[stateRow('edges', bit, ((mask >>> bit) & 1) === 1) * 4 + 1] ?? -1
+    if (width >= 0) return width
+  }
+  return base
 }
 
 function lifted(pixels: number, size: number, level: number, minimum: number): number {
@@ -764,6 +800,7 @@ export class LabelLayer {
     zoom: number,
     shrink: number,
     level: number,
+    lift: number,
   ): boolean {
     const meta = plan.meta[at] ?? 0
     if ((meta & planContainer) !== 0) return false
@@ -777,7 +814,7 @@ export class LabelLayer {
     if (minimum > 0 && diameter < minimum && level !== labelAlways) return true
     const placement = meta & planPlacement
     const [dx, dy] = placementDirections[placement] ?? [0, 1]
-    const reach = placement === 4 ? 0 : Math.max(diameter / 2, 1.25) + (plan.lift[at] ?? 0)
+    const reach = placement === 4 ? 0 : Math.max(diameter / 2, 1.25) + lift
     const blockWidth = plan.width[at] ?? Number.NaN
     if (!Number.isNaN(blockWidth)) {
       const box = this.#box
@@ -828,6 +865,15 @@ export class LabelLayer {
     const edgeRaised = (index: number) => ((frame.edgeMask[index] ?? 0) & edgeRaise) !== 0
     const others = frame.others ?? 0
     const edgeOthers = frame.edgeOthers ?? 0
+    const outlineAt = (index: number): number =>
+      stateOutline(
+        frame.statePaint,
+        frame.nodeMask[index] ?? 0,
+        others,
+        nodes.outlineWidth[index] ?? 0,
+      )
+    const strokeAt = (index: number, base: number): number =>
+      stateStroke(frame.stateNumbers, frame.edgeMask[index] ?? 0, edgeOthers, base)
     const level = (index: number) =>
       labelLevel(frame.nodeMask[index] ?? 0, frame.labelFlags, others)
     const edgeLevel = (index: number) =>
@@ -918,7 +964,8 @@ export class LabelLayer {
           : (box
               ? (box[index * 4 + (dx !== 0 ? 0 : 1)] ?? 0) * zoom
               : screenRadius(nodes, index, zoom)) +
-            ((nodes.outlineWidth[index] ?? 0) + labelGap)
+            outlineAt(index) +
+            labelGap
       const scale = pixels / atlasFontSize
       const edges = this.#box
       boxEdges(
@@ -997,8 +1044,9 @@ export class LabelLayer {
       const half = units * scale
       const lineWidth = Math.max(ends.width[id] ?? 0, 0.5)
       const widthBits = Math.min(maxExtentUnits, Math.round(lineWidth * endLabelWidthUnit))
+      const drawn = Math.max(strokeAt(index, widthBits / endLabelWidthUnit), 0.5)
       const headed = ((edges.arrow[index] ?? 0) & end) !== 0
-      const arrow = headed ? Math.max((widthBits / endLabelWidthUnit) * 4, 6) : 0
+      const arrow = headed ? Math.max(drawn * 4, 6) : 0
       if (!all && endLabelGap + arrow + half * 2 > room) return
       const node = (end === 1 ? edges.source[index] : edges.target[index]) ?? 0
       const zoom = globe ? globeScale(globe, positions.y(node)) : view.zoom
@@ -1008,7 +1056,7 @@ export class LabelLayer {
       if (endSpot.y < -cullMargin || endSpot.y > height + cullMargin) return
       const total = blockHeight + plateDrop
       const top = plated ? -total / 2 : edgeDescent - blockHeight
-      const above = plated ? 0 : Math.max(widthBits / endLabelWidthUnit, 0.5) / 2 + edgeLabelGap
+      const above = plated ? 0 : drawn / 2 + edgeLabelGap
       const low = plated ? (-total / 2) * scale : top * scale - above
       const high = plated ? (total / 2) * scale : (top + blockHeight) * scale - above
       if (!this.#claim(endSpot, half, low, high, (highlight && edgeForced(index)) || all)) return
@@ -1087,7 +1135,8 @@ export class LabelLayer {
       if (!all && half * 2 + edgeGap > anchor.room) return
       const total = blockHeight + plateDrop
       const top = plated ? -total / 2 : edgeDescent - blockHeight
-      const above = plated ? 0 : Math.max(edges.width[index] ?? 0, 0.5) / 2 + edgeLabelGap
+      const stroke = strokeAt(index, edges.width[index] ?? 0)
+      const above = plated ? 0 : Math.max(stroke, 0.5) / 2 + edgeLabelGap
       const low = plated ? (-total / 2) * scale : top * scale - above
       const high = plated ? (total / 2) * scale : (top + blockHeight) * scale - above
       if (!this.#claim(anchor, half, low, high, (highlight && edgeForced(index)) || all)) return
@@ -1175,7 +1224,10 @@ export class LabelLayer {
           }
           const scale = globeScale(globe, absoluteY)
           const shown = level(index)
-          if (this.#blocked(plan, at, projected.x, projected.y, scale, shrink, shown)) continue
+          const lift = outlineAt(index) + labelGap
+          if (this.#blocked(plan, at, projected.x, projected.y, scale, shrink, shown, lift)) {
+            continue
+          }
           place(index, false, at, projected.x, projected.y)
           continue
         }
@@ -1186,7 +1238,10 @@ export class LabelLayer {
         }
         const screenX = (x - centerX) * view.zoom + width / 2
         const screenY = (y - centerY) * view.zoom + height / 2
-        if (this.#blocked(plan, at, screenX, screenY, view.zoom, shrink, level(index))) continue
+        const lift = outlineAt(index) + labelGap
+        if (this.#blocked(plan, at, screenX, screenY, view.zoom, shrink, level(index), lift)) {
+          continue
+        }
         place(index, false, at, screenX, screenY)
       }
     }
@@ -1295,7 +1350,6 @@ export interface LabelOrder {
 export class LabelPlan {
   size: Float32Array = new Float32Array(0)
   pixels: Float32Array = new Float32Array(0)
-  lift: Float32Array = new Float32Array(0)
   minimum: Float32Array = new Float32Array(0)
   meta: Uint8Array = new Uint8Array(0)
   x: Float32Array = new Float32Array(0)
@@ -1336,7 +1390,6 @@ export class LabelPlan {
       this.height = new Float32Array(capacity)
       this.size = new Float32Array(capacity)
       this.pixels = new Float32Array(capacity)
-      this.lift = new Float32Array(capacity)
       this.minimum = new Float32Array(capacity)
       this.meta = new Uint8Array(capacity)
     }
@@ -1344,7 +1397,6 @@ export class LabelPlan {
       const index = order[at] ?? 0
       this.size[at] = nodes.size[index] ?? 0
       this.pixels[at] = nodes.labelSize[index] || nodeLabelSize
-      this.lift[at] = (nodes.outlineWidth[index] ?? 0) + labelGap
       this.minimum[at] = nodes.labelMinScreenSize[index] ?? 0
       this.meta[at] =
         (nodes.labelPlacement[index] ?? 0) |

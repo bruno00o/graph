@@ -62,12 +62,13 @@ function attributionOf(map: MapLibreMap): string {
   return parts.join(' | ')
 }
 
-function idle(map: MapLibreMap, timeout: number): Promise<void> {
+function idle(map: MapLibreMap, timeout: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const finish = (error: unknown) => {
       clearTimeout(timer)
       map.off('idle', done)
       map.off('error', failed)
+      signal.removeEventListener('abort', aborted)
       if (error === null) resolve()
       else reject(error)
     }
@@ -76,9 +77,12 @@ function idle(map: MapLibreMap, timeout: number): Promise<void> {
       if (map.isStyleLoaded()) return
       finish(event.error ?? new Error('graph: the map failed to load for the export'))
     }
+    const aborted = () => finish(signal.reason)
     const timer = setTimeout(done, timeout)
     map.on('idle', done)
     map.on('error', failed)
+    signal.addEventListener('abort', aborted)
+    if (signal.aborted) aborted()
   })
 }
 
@@ -89,33 +93,40 @@ async function drawMap(
   height: number,
   pixelRatio: number,
   timeout: number,
+  signal: AbortSignal,
 ): Promise<{ readonly canvas: HTMLCanvasElement; readonly attribution: string; done(): void }> {
   const container = document.createElement('div')
   container.setAttribute('aria-hidden', 'true')
   container.style.cssText = `position:fixed;left:0;top:0;width:${width}px;height:${height}px;opacity:0;pointer-events:none;z-index:-1`
   document.body.append(container)
-  const style = live.getStyle()
-  const center = worldToGeo({ x: ((view.x % worldSize) + worldSize) % worldSize, y: view.y })
-  const Constructor = live.constructor as MapClass
-  const hidden = new Constructor({
-    container,
-    style: {
-      ...style,
-      projection: live.getProjection() ?? style.projection,
-      layers: style.layers.filter((layer) => (layer.type as string) !== 'custom'),
-    },
-    center: [center.longitude, center.latitude],
-    zoom: Math.log2(view.zoom),
-    bearing: 0,
-    pitch: 0,
-    pixelRatio,
-    interactive: false,
-    attributionControl: false,
-    fadeDuration: 0,
-    canvasContextAttributes: { preserveDrawingBuffer: true },
-  })
+  let hidden: MapLibreMap
   try {
-    await idle(hidden, timeout)
+    const style = live.getStyle()
+    const center = worldToGeo({ x: ((view.x % worldSize) + worldSize) % worldSize, y: view.y })
+    const Constructor = live.constructor as MapClass
+    hidden = new Constructor({
+      container,
+      style: {
+        ...style,
+        projection: live.getProjection() ?? style.projection,
+        layers: style.layers.filter((layer) => (layer.type as string) !== 'custom'),
+      },
+      center: [center.longitude, center.latitude],
+      zoom: Math.log2(view.zoom),
+      bearing: 0,
+      pitch: 0,
+      pixelRatio,
+      interactive: false,
+      attributionControl: false,
+      fadeDuration: 0,
+      canvasContextAttributes: { preserveDrawingBuffer: true },
+    })
+  } catch (error) {
+    container.remove()
+    throw error
+  }
+  try {
+    await idle(hidden, timeout, signal)
   } catch (error) {
     hidden.remove()
     container.remove()
@@ -187,14 +198,38 @@ export async function exportMapPng<S extends string>(
     throw new RangeError('graph: nothing to export, the map measures less than one pixel')
   }
   const snapshot = takeSnapshot(graph)
-  const [drawn, graphImage] = await Promise.all([
-    drawMap(live, graph.view.get(), width, height, pixelRatio, options.timeout ?? 20_000),
+  const stop = new AbortController()
+  const [map, image] = await Promise.allSettled([
+    drawMap(
+      live,
+      graph.view.get(),
+      width,
+      height,
+      pixelRatio,
+      options.timeout ?? 20_000,
+      stop.signal,
+    ),
     exportPng(graph, {
       pixelRatio,
       labels: options.labels ?? 'visible',
       background: 'transparent',
-    }).then((blob) => createImageBitmap(blob)),
+    })
+      .then((blob) => createImageBitmap(blob))
+      .catch((error: unknown) => {
+        stop.abort(error)
+        throw error
+      }),
   ])
+  if (image.status === 'rejected') {
+    if (map.status === 'fulfilled') map.value.done()
+    throw image.reason
+  }
+  if (map.status === 'rejected') {
+    image.value.close()
+    throw map.reason
+  }
+  const drawn = map.value
+  const graphImage = image.value
   try {
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(width * pixelRatio))
