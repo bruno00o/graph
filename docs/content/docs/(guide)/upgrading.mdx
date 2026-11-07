@@ -50,6 +50,22 @@ createExploration(client, { roots, neighbors, edgeKey: (link) => `${link.from}:$
 
 A mark at the same place whose options are equal by content no longer restyles its elements: an inline `label: { text: 'name' }` or `ends` rebuilt on every render now rewrites nothing. Functions are still compared by identity, so a function created on every render still restyles every element of its mark. Several definitions given before one frame now restyle the elements whose options differ from the last drawn ones; they used to compare with the previous definition only, and could keep a stale look.
 
+### `<Graph>` calls `onTimeChange` in a microtask
+
+With a controlled `time`, `<Graph>` now hands each window request to `onTimeChange` in a microtask, then renders the new state at once, before the next frame. It used to call it synchronously, which made React warn when `time.set` ran from an effect. Playback still draws in the same frame. A test that asks for a window and reads the state right after now awaits the microtask:
+
+```tsx
+// Before
+act(() => graph.time.set({ start, end }))
+
+// After
+await act(async () => graph.time.set({ start, end }))
+```
+
+### Controlled requests start from the last pending one
+
+With a controlled `selection`, `folded` or `hiddenLayers`, a request now starts from the last request not answered yet, as view requests already did, instead of the applied value. Two Shift-clicks before the application answers ask for both elements, where the second used to drop the first. An application that applies every request sees no change.
+
 ## 0.15.0
 
 ### Anchors take a single target
