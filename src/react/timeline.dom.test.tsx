@@ -86,7 +86,7 @@ describe('Timeline', () => {
     dom.restore()
   })
 
-  it('mounts once under StrictMode and drives a controlled window', () => {
+  it('mounts once under StrictMode and drives a controlled window', async () => {
     render(
       <StrictMode>
         <Frise initial={{ start: 0, end: 5 }} />
@@ -96,7 +96,7 @@ describe('Timeline', () => {
     expect(seen?.extent).toEqual({ start: 0, end: 20 })
     expect(seen?.window).toEqual({ start: 0, end: 5 })
     const end = document.querySelector<HTMLElement>('[data-graph-timeline] [data-part=end]')
-    act(() => {
+    await act(async () => {
       end?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
     })
     expect(requests).toBe(1)

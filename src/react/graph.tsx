@@ -123,7 +123,8 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
   /**
    * Makes the time window controlled when given at mount, `null` for none: `onTimeChange`
    * receives the requests of `time.set` and timelines, and only this prop moves the window.
-   * Requests are rendered synchronously, so playback draws in the same frame.
+   * Requests reach `onTimeChange` in a microtask and are rendered at once, so playback draws in
+   * the same frame.
    */
   readonly time?: TimeWindowInput | null | undefined
   /** Layers hidden at mount, by name, read once. */
@@ -175,7 +176,8 @@ export function sharedOptions<S extends string, M extends Mark>(latest: {
     onFoldChange: (next) => latest.current.onFoldChange?.(next),
     initialTime: initial.initialTime,
     time: initial.time,
-    onTimeChange: (next) => flushSync(() => latest.current.onTimeChange?.(next)),
+    onTimeChange: (next) =>
+      queueMicrotask(() => flushSync(() => latest.current.onTimeChange?.(next))),
     initialHiddenLayers: initial.initialHiddenLayers,
     hiddenLayers: initial.hiddenLayers,
     onLayerChange: (next) => latest.current.onLayerChange?.(next),
@@ -190,8 +192,26 @@ export function useGraphBinding<S extends string, M extends Mark>(
   const { definition, ariaLabel, selection, folded, view, time, hiddenLayers, ref } = props
 
   useLayoutEffect(() => {
-    graph?.update({ definition, ariaLabel, selection, folded, view, time, hiddenLayers })
-  }, [graph, definition, ariaLabel, selection, folded, view, time, hiddenLayers])
+    graph?.update({ ariaLabel })
+  }, [graph, ariaLabel])
+  useLayoutEffect(() => {
+    graph?.update({ selection })
+  }, [graph, selection])
+  useLayoutEffect(() => {
+    graph?.update({ folded })
+  }, [graph, folded])
+  useLayoutEffect(() => {
+    graph?.update({ view })
+  }, [graph, view])
+  useLayoutEffect(() => {
+    graph?.update({ time })
+  }, [graph, time])
+  useLayoutEffect(() => {
+    graph?.update({ hiddenLayers })
+  }, [graph, hiddenLayers])
+  useLayoutEffect(() => {
+    graph?.update({ definition })
+  }, [graph, definition])
 
   useEffect(() => {
     if (!graph) return

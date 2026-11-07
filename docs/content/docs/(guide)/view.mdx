@@ -19,7 +19,7 @@ The [view controls](/examples/view-controls) example calls each method of this p
 
 ## The first view
 
-Without `initialView`, the graph fits all its nodes as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted. Only that first batch is fitted: later data does not move the view. While the first layout run moves the nodes, the view keeps them framed until you move it.
+Without `initialView`, the graph fits all its nodes as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted, unless the user moves the view first: a gesture, the wheel or a key before that first fit cancels it, and the view stays where the user put it. Only that first batch is fitted: later data does not move the view. While the first layout run moves the nodes, the view keeps them framed until you move it.
 
 To start somewhere else, pass `initialView` when you mount.
 
@@ -135,7 +135,7 @@ const graph = mountGraph(container, {
 
 Here the application keeps the view on a horizontal line: vertical moves are dropped, the rest goes through.
 
-A view applied inside `onViewChange` is drawn in the same frame, so a controlled view follows the pointer without lag. An application that answers later still gets smooth gestures: each new request starts from the last request it has not answered yet, and a view it applies that matches none of them replaces them all.
+A view applied inside `onViewChange` is drawn in the same frame, so a controlled view follows the pointer without lag. An application that answers later still gets smooth gestures: each new request starts from the last request it has not answered yet, and a view it applies that matches none of them replaces them all. Applying the current view again changes nothing and keeps the requests, so a parent that renders for another reason in the middle of a gesture does not lose a step.
 
 Requests carry an `origin` like `viewchange`, and a view you apply with `update({ view })` keeps the origin of the request it answers, `'api'` when it answers none.
 
