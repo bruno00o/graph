@@ -88,6 +88,6 @@ Use both inside the children of [`<Graph>`](/docs/api/graph-component) or [`<Map
 - Bins and ticks follow the calendar of the local time zone: a week starts on Monday, a month on its first day.
 - In controlled mode, actions call `onTimeChange` of the graph instead of moving the window. Playback goes on from the window it asked for until a new `time` arrives, so a controlled graph plays smoothly.
 - Playback stops when the window cannot move any further, unless `loop` is on. A frame late by more than 100 ms moves the window by 100 ms of playback at most.
-- Destroying the graph destroys its timelines. Destroying the timeline leaves the window where it is.
+- Destroying the graph destroys its timelines, and a timeline created on a destroyed graph comes back destroyed: empty, it never plays. Destroying the timeline leaves the window where it is.
 - In the default renderer, the element carries `data-graph-timeline` and `role="group"`. The handles carry `data-part="start"` and `data-part="end"`, the window `data-part="window"`; all three are sliders with `aria-valuemin`, `aria-valuemax`, `aria-valuenow` and `aria-valuetext`. The play button carries `aria-pressed`.
 - Colors come from the `--graph-…` tokens: `--graph-accent` for the window and the counts inside it, `--graph-ink` and `--graph-ink-muted` for the rest.
