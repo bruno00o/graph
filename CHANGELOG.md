@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.1](https://github.com/bruno00o/graph/compare/0.14.0...0.14.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* make safari and firefox behave like chrome ([#81](https://github.com/bruno00o/graph/issues/81)) ([e6b2991](https://github.com/bruno00o/graph/commit/e6b2991ca41507f2841f5688c7459b3ffc4921aa))
+* stay within webgl2 minimum limits and recover from context loss ([#79](https://github.com/bruno00o/graph/issues/79)) ([d246ee9](https://github.com/bruno00o/graph/commit/d246ee9e2106dd616493a6728c71d0c2acd1cf89))
+
 ## [0.14.0](https://github.com/bruno00o/graph/compare/0.13.0...0.14.0) (2026-11-07)
 
 
