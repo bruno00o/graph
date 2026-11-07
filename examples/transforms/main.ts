@@ -8,6 +8,7 @@ import {
   nodes,
 } from '@bruno00o/graph'
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
+import { orthogonalRouting } from '@bruno00o/graph/routing'
 import { messages } from '../shared/messages'
 import { button, choice, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
@@ -101,7 +102,7 @@ const sectorMark = groups(items, {
   container: { padding: 18 },
 })
 
-function define(merge: Merge, grouped: Sectors) {
+function define(merge: Merge, grouped: Sectors, routed: boolean) {
   return defineGraph({
     marks: [
       edges(exchanges, {
@@ -142,19 +143,22 @@ function define(merge: Merge, grouped: Sectors) {
     },
     states: { off: { hide: true } },
     interaction: { select: 'multiple' },
+    routing: routed ? orthogonalRouting({ spacing: 10 }) : null,
+    bridges: routed,
   })
 }
 
 const params = new URLSearchParams(location.search)
 let merge: Merge = params.get('merge') === 'split' ? 'split' : 'merged'
 let grouped: Sectors = params.get('sectors') === 'grouped' ? 'grouped' : 'items'
+let routed = params.get('routing') === 'orthogonal'
 
 const { header, main } = createPage(messages.transforms)
 const graph = mountGraph(main, {
-  definition: define(merge, grouped),
+  definition: define(merge, grouped, routed),
   ariaLabel: messages.transformsLabel(items.length, exchanges.length),
 })
-const redraw = () => graph.update({ definition: define(merge, grouped) })
+const redraw = () => graph.update({ definition: define(merge, grouped, routed) })
 
 const legend = createLegend(graph, { hidden: 'off' })
 const legendView = mountLegend(legend, {
@@ -211,6 +215,15 @@ header.append(
     grouped,
     (value) => {
       grouped = value === 'grouped' ? 'grouped' : 'items'
+      redraw()
+    },
+  ),
+  choice(
+    messages.routingMode,
+    Object.entries(messages.routingModes).map(([value, text]) => ({ value, text })),
+    routed ? 'orthogonal' : 'straight',
+    (value) => {
+      routed = value === 'orthogonal'
       redraw()
     },
   ),

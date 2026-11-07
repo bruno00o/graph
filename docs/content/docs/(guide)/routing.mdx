@@ -42,9 +42,10 @@ Routes go around the nodes where they stand, so they are computed once nodes sta
 
 - after a layout run, and after the nodes glide to its result;
 - 150 milliseconds after a drag, a `positions.set` or a change of positions in the data;
-- after nodes or edges are added, removed or updated, a [group](/docs/groups) folds or unfolds, or a [layer](/docs/multilayer) shows or hides.
+- after nodes or edges are added, removed or updated, or a [group](/docs/groups) folds or unfolds;
+- when elements show or hide: a [layer](/docs/multilayer), a state with [`hide`](/docs/transformations#hide-without-losing-state), a [zoom range](/docs/zoom) or the [time window](/docs/time).
 
-While nodes move, the drawn routes follow the ends of each edge, then the new routes glide in over `transitions.layout`, 400 milliseconds by default, at once with `prefers-reduced-motion`. New edges stay straight until the next computation.
+While nodes move, the drawn routes follow the ends of each edge, then the new routes glide in over `transitions.layout`, 400 milliseconds by default, at once with `prefers-reduced-motion`. Edges that arrive or show stay straight until the next computation, so while the [time window](/docs/time) plays, routes wait for it to stop.
 
 `graph.routing.run()` computes now and resolves to `true` once the new routes are drawn. `routing.running` in the store is `true` during a computation.
 
@@ -70,9 +71,9 @@ edges<Link>(links, {
 
 Routed edges keep everything else: width, color, arrows, dashes, [flows](/docs/marks#flows), state styles and [edge ends](/docs/marks#edge-ends), whose split falls along the length of the route. They are picked along their route. The label sits at the middle of the longest segment, and end labels where the route leaves its node. [Exports](/docs/export) draw them as on screen.
 
-- Edges between the same two nodes route side by side, apart by `spacing`, instead of curving.
+- Edges between the same two nodes route side by side, apart by `spacing`, instead of curving. [Merged edges](/docs/transformations#merge-parallel-edges) route once, as the edge that is drawn.
 - In a [group](/docs/groups), an edge goes inside the containers that hold its ends and around the others. Folded groups are boxes like any node, and their merged edges route like any edge.
-- With [layers](/docs/multilayer), edges of a hidden layer are not routed and nodes of a hidden layer are not in the way: showing or hiding a layer routes again.
+- Routes follow what is drawn: hidden edges, by a [layer](/docs/multilayer), a state with `hide`, a zoom range or the time window, are not routed, and hidden nodes are not in the way. Showing or hiding elements routes again.
 - Nodes in [screen units](/docs/marks#screen-units) change size in the world as the zoom changes, so routes are computed again once the zoom changes by a factor of 1.5.
 
 ## Bridges
@@ -91,7 +92,7 @@ defineGraph({
 - `size` is the width of a jump in screen pixels. Zoomed out below 1, jumps shrink with the zoom, and under 2 pixels edges cross plainly, so a large graph seen whole stays clean.
 - Where a horizontal and a vertical segment cross, the horizontal one jumps. Otherwise the edge drawn later jumps: the one from the later mark, or the later item of the same mark.
 
-Bridges apply to straight edges and to routes, with or without a routing. Parallel curves, loops, bundled paths and great circles cross plainly, and so do the rounded corners of routes. A crossing inside a node, near the ends of an edge, has no jump. Set `bridge: false` on `edges()` to leave edges out: they neither jump nor are jumped over.
+Bridges apply to straight edges and to routes, with or without a routing. Parallel curves, loops, bundled paths and great circles cross plainly, and so do the rounded corners of routes. A crossing inside a node, near the ends of an edge, has no jump, and neither has a crossing with a hidden edge. Set `bridge: false` on `edges()` to leave edges out: they neither jump nor are jumped over.
 
 A segment jumps at most 8 times and an edge at most 64 times; further crossings stay plain. Crossings are found once nodes stand still, 150 milliseconds after the last move, in slices of 8 milliseconds on the main thread. The GPU draws the jumps from that list, so panning and zooming cost no search. Exports draw the same jumps, as arcs or breaks in the SVG paths.
 

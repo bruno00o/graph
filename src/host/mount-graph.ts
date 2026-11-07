@@ -727,6 +727,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   ]
   let layerFilter: LayerFilter | null = null
   let hideChecked = 0
+  let shownDetail = -1
   let litStates: readonly string[] = []
   let outgoingView: View | null = null
   let sentViews: View[] = []
@@ -859,7 +860,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       },
       zoom: () => store.get().view.zoom,
       boxes: () => routeBoxes(),
-      layers: () => layerFilter,
+      sight: () => sight(),
       holder: (index) => {
         if (!projection.active) return -1
         const above = hierarchy.parent[index] ?? -1
@@ -882,7 +883,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     boxes: routeBoxes,
     busy: () => session !== null || positionAnimations.length > 0 || Boolean(gesture?.drag),
     request: () => request(),
-    layers: () => layerFilter,
+    sight: () => sight(),
   })
   const decorations = createDecorations({
     element,
@@ -946,8 +947,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const next = scene.markLayers.filter(new Set(hiddenLayers))
     if (next === layerFilter) return
     layerFilter = next
-    bundles.layered()
-    bridges.changed()
     dropHidden()
     request()
   }
@@ -2421,6 +2420,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (wantedLens?.follow === 'focus') updateLens()
     const easing = bundles.frame(now)
     bridges.frame()
+    if (bundles.routes || bridges.enabled) {
+      const detail = detailStep(scene.nodes, scene.edges, sight())
+      if (detail !== shownDetail) {
+        shownDetail = detail
+        bundles.shownChanged()
+        bridges.changed()
+      }
+    }
     if (buffers.hideVersion !== hideChecked) {
       hideChecked = buffers.hideVersion
       dropHidden()

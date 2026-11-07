@@ -72,6 +72,8 @@ const links: Link[] = [
   { id: 'aa', from: 'a', to: 'a' },
 ]
 
+const twins: Link[] = [...links, { id: 'ab2', from: 'a', to: 'b' }]
+
 const others: Link[] = [{ id: 'cd', from: 'c', to: 'd' }]
 
 interface Options {
@@ -79,25 +81,30 @@ interface Options {
   readonly bridges?: BridgeOptions | boolean | null
   readonly skip?: string
   readonly layered?: boolean
+  readonly merged?: boolean
+  readonly far?: boolean
 }
 
 function definition(options: Options) {
   return defineGraph({
     marks: [
-      edges(links, {
+      edges(options.merged ? twins : links, {
         source: 'from',
         target: 'to',
         route: (link) => link.id !== options.skip,
+        merge: options.merged ?? false,
         ...(options.layered ? { layer: 'main' as const } : {}),
       }),
       edges(others, {
         source: 'from',
         target: 'to',
         route: (link) => link.id !== options.skip,
+        ...(options.far ? { minZoom: () => 2 } : {}),
         ...(options.layered ? { layer: 'other' as const } : {}),
       }),
       nodes<Item>(items, { x: 'x', y: 'y', size: () => 20 }),
     ],
+    states: { off: { hide: true } },
     routing: options.routing ?? null,
     bridges: options.bridges ?? null,
   })
@@ -227,6 +234,35 @@ describe('edge routing in the host', () => {
     expect(runs).toHaveLength(0)
   })
 
+  it('routes merged parallel edges once', () => {
+    const { routing, runs } = fakeRouting()
+    mount({ routing, merged: true })
+    settle()
+    const run = runs.at(-1)
+    expect(run?.graph.edges).toHaveLength(2)
+  })
+
+  it('routes neither hidden edges nor around hidden nodes, and routes again when they show', () => {
+    const { routing, runs } = fakeRouting()
+    const graph = mount({ routing, far: true })
+    graph.states.set('off', { nodes: ['d'] })
+    settle()
+    const run = runs.at(-1)
+    expect(Array.from(run?.graph.edges ?? []).map((index) => run?.graph.keys[index])).toEqual([
+      'ab',
+    ])
+    expect(run?.graph.extents[3 * 2]).toBe(0)
+    graph.states.set('off', {})
+    dom.flushFrames()
+    settle()
+    expect(runs.at(-1)?.graph.extents[3 * 2]).toBeCloseTo(10)
+    expect(runs.at(-1)?.graph.edges).toHaveLength(1)
+    graph.view.set({ x: 100, y: 150, zoom: 3 })
+    dom.flushFrames()
+    settle()
+    expect(runs.at(-1)?.graph.edges).toHaveLength(2)
+  })
+
   it('routes only the edges of shown layers', () => {
     const { routing, runs } = fakeRouting()
     const graph = mount({ routing, layered: true })
@@ -267,6 +303,18 @@ describe('bridges in the host', () => {
     expect(set.count).toBe(1)
     expect(set.countOf(2)).toBe(1)
     expect(set.data[set.firstOf(2) * 4]).toBe(0)
+  })
+
+  it('draws no bridges over an edge hidden by a state', () => {
+    const graph = mount({ bridges: true })
+    settle()
+    settle()
+    expect(input?.bridges?.count).toBe(1)
+    graph.states.set('off', { edges: ['cd'] })
+    dom.flushFrames()
+    settle()
+    settle()
+    expect(input?.bridges ?? null).toBeNull()
   })
 
   it('draws no bridges without the option, or for a hidden layer', () => {

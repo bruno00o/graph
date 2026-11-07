@@ -1,10 +1,10 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import { EdgePaths, type PathResult } from '../core/edge-paths'
-import type { LayerFilter } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import { nodeOutline, type Outline } from '../core/route-shape'
 import { shallowEqual } from '../core/shallow-equal'
 import { easeInOut } from '../core/view'
+import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import { dev } from '../dev'
 import type {
   BundleGraph,
@@ -27,7 +27,7 @@ export interface BundleContext {
   readonly zoom: () => number
   readonly boxes: () => Float32Array | null
   readonly holder: (index: number) => number
-  readonly layers: () => LayerFilter | null
+  readonly sight: () => Sight
 }
 
 export type PathKind = 'bundle' | 'route'
@@ -120,7 +120,11 @@ export class BundleHost {
     this.#schedule(0)
   }
 
-  layered(): void {
+  get routes(): boolean {
+    return this.#method?.kind === 'route'
+  }
+
+  shownChanged(): void {
     if (this.#method?.kind === 'route') this.#schedule()
   }
 
@@ -254,10 +258,11 @@ export class BundleHost {
     const column = method.kind === 'route' ? edges.route : edges.bundle
     const limit = method.kind === 'route' ? method.routing.maxEdges : method.bundling.maxEdges
     const listed: number[] = []
-    const layers = method.kind === 'route' ? this.#context.layers() : null
+    const sight = method.kind === 'route' ? this.#context.sight() : null
+    const { nodes } = this.#context
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1 || column[index] !== 1) continue
-      if (layers && !this.#layerShown(layers, index)) continue
+      if (sight && !edgeShown(nodes, edges, index, sight)) continue
       listed.push(index)
     }
     if (listed.length === 0 || listed.length > limit) {
@@ -322,27 +327,17 @@ export class BundleHost {
     if (serial === this.#serial) this.#run = run
   }
 
-  #layerShown(layers: LayerFilter, edge: number): boolean {
-    const { edges, nodes } = this.#context
-    const hidden = (flags: Uint8Array, slot: number | undefined) => flags[slot ?? 0] === 1
-    return (
-      !hidden(layers.edges, edges.slot[edge]) &&
-      !hidden(layers.nodes, nodes.slot[edges.source[edge] ?? 0]) &&
-      !hidden(layers.nodes, nodes.slot[edges.target[edge] ?? 0])
-    )
-  }
-
   #obstacles(capacity: number): { extents: Float32Array; parents: Int32Array } {
     const { nodes, positions, holder } = this.#context
     const boxes = this.#context.boxes()
     const zoom = this.#context.zoom()
-    const layers = this.#context.layers()
+    const sight = this.#context.sight()
     const extents = new Float32Array(capacity * 2)
     const parents = new Int32Array(capacity).fill(-1)
     const outline = this.#outline
     for (let index = 0; index < Math.min(capacity, nodes.capacity); index++) {
       if (nodes.alive[index] !== 1) continue
-      if (layers && layers.nodes[nodes.slot[index] ?? 0] === 1) continue
+      if (!nodeShown(nodes, index, sight)) continue
       nodeOutline(nodes, boxes, index, positions.x(index), positions.y(index), zoom, outline)
       extents[index * 2] = outline.halfWidth
       extents[index * 2 + 1] = outline.halfHeight

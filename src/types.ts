@@ -1212,8 +1212,8 @@ export interface EdgeBundling<T = unknown> {
  */
 export interface RouteGraph<T = unknown> extends BundleGraph<T> {
   /**
-   * Indices of the edges to route. Loops, geodesic edges and edges with `route: false` are left
-   * out.
+   * Indices of the edges to route. Loops, geodesic edges, hidden edges and edges with
+   * `route: false` are left out.
    */
   readonly edges: Uint32Array
   /**

@@ -1,9 +1,9 @@
 import { BridgeFinder, BridgeSet } from '../core/bridges'
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
-import type { LayerFilter } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import { nodeOutline, type Outline } from '../core/route-shape'
+import { edgeShown, type Sight } from '../core/visibility'
 import { dev } from '../dev'
 import type { ResolvedBridges } from '../types'
 
@@ -16,7 +16,7 @@ export interface BridgeContext {
   readonly boxes: () => Float32Array | null
   readonly busy: () => boolean
   readonly request: () => void
-  readonly layers: () => LayerFilter | null
+  readonly sight: () => Sight
 }
 
 const quiet = 150
@@ -42,6 +42,10 @@ export class BridgeHost {
 
   constructor(context: BridgeContext) {
     this.#context = context
+  }
+
+  get enabled(): boolean {
+    return this.#options !== null
   }
 
   get active(): boolean {
@@ -112,18 +116,13 @@ export class BridgeHost {
     const boxes = this.#context.boxes()
     const zoom = this.#context.zoom()
     const outline = this.#outline
-    const layers = this.#context.layers()
-    const hidden = (flags: Uint8Array, slot: number | undefined) => flags[slot ?? 0] === 1
+    const sight = this.#context.sight()
     const finder = new BridgeFinder({
       edges,
       positions,
       paths,
       maxEdges: options.maxEdges,
-      shown: (edge) =>
-        !layers ||
-        (!hidden(layers.edges, edges.slot[edge]) &&
-          !hidden(layers.nodes, nodes.slot[edges.source[edge] ?? 0]) &&
-          !hidden(layers.nodes, nodes.slot[edges.target[edge] ?? 0])),
+      shown: (edge) => edgeShown(nodes, edges, edge, sight),
       radius: (node) =>
         nodeOutline(nodes, boxes, node, positions.x(node), positions.y(node), zoom, outline).radius,
     })
