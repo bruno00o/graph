@@ -2829,6 +2829,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   applyKeyboard()
 
   model.setMarks(definition.marks)
+  projection.setMarks(definition.marks)
   support.setMarks(definition.marks)
   scene.setDefinition(definition)
   decorations.setDefinition(definition)
@@ -3106,6 +3107,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
           relayout = definition.layout !== null
         }
         model.setMarks(definition.marks)
+        projection.setMarks(definition.marks)
         support.setMarks(definition.marks)
         scene.setDefinition(definition)
         decorations.setDefinition(definition)

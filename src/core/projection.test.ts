@@ -28,6 +28,7 @@ function setup(options: GraphDefinitionOptions, folded: Key[] = []) {
   const render = (next: GraphDefinitionOptions) => {
     const definition = defineGraph(next)
     model.setMarks(definition.marks)
+    projection.setMarks(definition.marks)
     scene.setDefinition(definition)
     return step()
   }
@@ -283,5 +284,157 @@ describe('Projection', () => {
     const result = fold([])
     expect(result.fresh).toHaveLength(1)
     expect(result.unfolded).toHaveLength(1)
+  })
+})
+
+type Wire = { id: string; from: string; to: string; kind: string }
+
+const wire = (id: string, from: string, to: string, kind = 'a'): Wire => ({ id, from, to, kind })
+
+const wires = [
+  wire('ab1', 'a', 'b'),
+  wire('ab2', 'a', 'b', 'b'),
+  wire('ab3', 'a', 'b'),
+  wire('ba1', 'b', 'a'),
+  wire('ac1', 'a', 'c'),
+]
+
+const flat = [item('a'), item('b'), item('c')]
+
+const merging = (
+  merge: Parameters<typeof edges<Wire>>[1]['merge'],
+  data: readonly Wire[] = wires,
+  nodeData: readonly Item[] = flat,
+) => ({
+  marks: [
+    edges<Wire>(data, {
+      ...linkOptions,
+      ...(merge !== undefined ? { merge } : {}),
+      aggregate: { label: (aggregate) => `${aggregate.count}` },
+    }),
+    nodes<Item>(nodeData, { parent: 'parent' }),
+  ],
+})
+
+describe('Projection merges', () => {
+  it('merges parallel edges that go the same way, from two edges', () => {
+    const { drawnEdges, projection, scene } = setup(merging(true))
+    expect(drawnEdges()).toEqual([
+      ['a', 'b'],
+      ['a', 'c'],
+      ['b', 'a'],
+    ])
+    const carrier = projection.edgeIndexOf('ab2')
+    expect(projection.edgeIndexOf('ab1')).toBe(carrier)
+    expect(projection.aggregateAt(carrier)).toEqual({
+      source: 'a',
+      target: 'b',
+      count: 3,
+      keys: ['ab1', 'ab2', 'ab3'],
+      data: [wires[0], wires[1], wires[2]],
+    })
+    expect(scene.edges.label[carrier]).toBe('3')
+    expect(projection.aggregateAt(projection.edgeIndexOf('ba1'))).toBeNull()
+  })
+
+  it('merges both directions without direction', () => {
+    const { drawnEdges, projection } = setup(merging({ directed: false }))
+    expect(drawnEdges()).toEqual([
+      ['a', 'b'],
+      ['a', 'c'],
+    ])
+    expect(projection.aggregateAt(projection.edgeIndexOf('ba1'))?.count).toBe(4)
+  })
+
+  it('splits the merge by a value', () => {
+    const { drawnEdges, projection } = setup(merging({ by: 'kind', directed: false, min: 1 }))
+    expect(drawnEdges()).toEqual([
+      ['a', 'b'],
+      ['a', 'b'],
+      ['a', 'c'],
+    ])
+    const first = projection.aggregateAt(projection.edgeIndexOf('ab1'))
+    expect(first).toMatchObject({ count: 3, value: 'a', keys: ['ab1', 'ab3', 'ba1'] })
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab2'))).toMatchObject({
+      count: 1,
+      value: 'b',
+    })
+    expect(projection.aggregateAt(projection.edgeIndexOf('ac1'))?.count).toBe(1)
+  })
+
+  it('draws edges one by one below the minimum and merges them once it is reached', () => {
+    const { render, drawnEdges, projection } = setup(merging({ min: 4, directed: false }, wires))
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab1'))?.count).toBe(4)
+    render(merging({ min: 4, directed: false }, wires.slice(1)))
+    expect(drawnEdges()).toHaveLength(4)
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab2'))).toBeNull()
+    render(merging({ min: 4, directed: false }, wires))
+    expect(drawnEdges()).toEqual([
+      ['a', 'b'],
+      ['a', 'c'],
+    ])
+  })
+
+  it('turns merging on and off without updating the other edges', () => {
+    const { render, drawnEdges, projection } = setup(merging(undefined))
+    expect(drawnEdges()).toHaveLength(5)
+    const on = render(merging(true))
+    expect(drawnEdges()).toHaveLength(3)
+    expect(on.scene.edges.removed.map((ref) => ref.key).sort()).toEqual(['ab2', 'ab3'])
+    expect(on.scene.edges.updated.map((ref) => ref.key)).toEqual(['ab1'])
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab1'))?.count).toBe(3)
+    const off = render(merging(undefined))
+    expect(drawnEdges()).toHaveLength(5)
+    expect(off.scene.edges.added.map((ref) => ref.key).sort()).toEqual(['ab2', 'ab3'])
+    expect(off.scene.edges.updated.map((ref) => ref.key)).toEqual(['ab1'])
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab2'))).toBeNull()
+  })
+
+  it('restyles merged edges when only the aggregate look changes', () => {
+    const { render, scene, projection } = setup(merging(true))
+    const next = render({
+      marks: [
+        edges<Wire>(wires, {
+          ...linkOptions,
+          merge: true,
+          aggregate: { label: (aggregate) => `×${aggregate.count}` },
+        }),
+        nodes<Item>(flat, { parent: 'parent' }),
+      ],
+    })
+    expect(next.scene.edges.updated.map((ref) => ref.key)).toEqual(['ab1'])
+    expect(scene.edges.label[projection.edgeIndexOf('ab1')]).toBe('×3')
+  })
+
+  it('merges by value into folded groups, whatever the minimum', () => {
+    const grouped = [item('g'), item('a', 'g'), item('b'), item('c', 'g')]
+    const { fold, drawnEdges, projection } = setup(merging({ by: 'kind', min: 5 }, wires, grouped))
+    expect(drawnEdges()).toHaveLength(5)
+    fold(['g'])
+    expect(drawnEdges()).toEqual([
+      ['b', 'g'],
+      ['g', 'b'],
+      ['g', 'b'],
+    ])
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab1'))).toMatchObject({
+      source: 'g',
+      target: 'b',
+      count: 2,
+      value: 'a',
+    })
+    fold([])
+    expect(drawnEdges()).toHaveLength(5)
+  })
+
+  it('moves an edge whose value changes to its new merged edge', () => {
+    const { render, projection } = setup(merging({ by: 'kind', min: 1 }))
+    render(
+      merging(
+        { by: 'kind', min: 1 },
+        wires.map((each) => ({ ...each, kind: 'a' })),
+      ),
+    )
+    expect(projection.aggregateAt(projection.edgeIndexOf('ab2'))?.count).toBe(3)
+    expect(projection.edgeIndexOf('ab2')).toBe(projection.edgeIndexOf('ab1'))
   })
 })

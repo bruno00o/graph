@@ -13,6 +13,8 @@ import { shallowEqual } from './shallow-equal'
 
 export type ElementKind = 'nodes' | 'edges'
 
+const projected: ReadonlySet<string> = new Set(['merge', 'aggregate'])
+
 export type AnyMark = NodeMark<unknown> | EdgeMark<unknown>
 
 /** A problem in the data: an item without a key, or a key already taken by an earlier item. */
@@ -205,7 +207,8 @@ export class SourceTable<M extends AnyMark> {
 
   #reconcile(slot: number, mark: M, old: Source<M> | undefined): Source<M> {
     if (old?.mark === mark) return old
-    const optionsChanged = old !== undefined && !shallowEqual(old.mark.options, mark.options)
+    const optionsChanged =
+      old !== undefined && !shallowEqual(old.mark.options, mark.options, projected)
     const data = mark.data
     if (isLiveSource(data)) {
       if (old?.live === data) {
