@@ -59,10 +59,11 @@ layout(std140) uniform Frame {
   uvec4 hiddenEdges;
 };
 layout(std140) uniform States {
-  vec4 stateNumbers[64];
-  uvec4 statePaint[64];
-  uvec4 stateLabel[64];
+  vec4 stateNumbers[128];
+  uvec4 statePaint[128];
+  uvec4 stateLabel[128];
   uvec4 stateRaise;
+  uvec4 stateOthers;
 };
 uniform int layerSlot;
 uniform int overlay;
@@ -123,13 +124,16 @@ Look resolve(uint mask, Look look, int table) {
   bool outlineWidth = false;
   bool labelColor = false;
   float base = look.opacity;
+  uint rows = mask | (table == 0 ? stateOthers.x : stateOthers.y);
   for (int bit = 0; bit < 32; bit++) {
-    if (mask == 0u) break;
-    bool present = (mask & 1u) != 0u;
+    if (rows == 0u) break;
+    bool present = (rows & 1u) != 0u;
+    int row = (mask & 1u) != 0u ? table + bit : table + 64 + bit;
+    rows >>= 1u;
     mask >>= 1u;
     if (!present) continue;
-    vec4 numbers = stateNumbers[table + bit];
-    uvec4 paint = statePaint[table + bit];
+    vec4 numbers = stateNumbers[row];
+    uvec4 paint = statePaint[row];
     if (!opacity && numbers.x >= 0.0) { look.opacity = base * numbers.x; opacity = true; }
     if (!strokeWidth && numbers.y >= 0.0) { look.strokeWidth = numbers.y; strokeWidth = true; }
     if (!halo && numbers.z >= 0.0) { look.halo = numbers.z; halo = true; }
@@ -138,7 +142,7 @@ Look resolve(uint mask, Look look, int table) {
     if (!stroke && paint.y != none) { look.stroke = paint.y; stroke = true; }
     if (!outline && paint.z != none) { look.outline = paint.z; outline = true; }
     if (!outlineWidth && paint.w != none) { look.outlineWidth = uintBitsToFloat(paint.w); outlineWidth = true; }
-    uint text = stateLabel[table + bit].x;
+    uint text = stateLabel[row].x;
     if (!labelColor && text != none) { look.labelColor = text; labelColor = true; }
   }
   return look;
@@ -174,7 +178,10 @@ float timeShown(vec4 span) {
 }
 float nodeShown(ivec2 t) {
   if (anyHidden(hiddenNodes) && slotHidden(hiddenNodes, uint(texelFetch(nodeStyle, t, 0).w + 0.5) >> 4u)) return 0.0;
-  if (stateRaise.z != 0u && (texelFetch(nodeState, t, 0).r & stateRaise.z) != 0u) return 0.0;
+  if ((stateRaise.z | stateOthers.z) != 0u) {
+    uint mask = texelFetch(nodeState, t, 0).r;
+    if ((mask & stateRaise.z) != 0u || (~mask & stateOthers.z) != 0u) return 0.0;
+  }
   float shown = ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
   return timed > 0.5 && shown > 0.0 ? shown * timeShown(texelFetch(nodeTime, t, 0)) : shown;
 }
@@ -212,21 +219,27 @@ uniform sampler2D edgeZoom;
 uniform sampler2D edgeTime;
 uniform float flowTime;
 float edgeShown(ivec2 t, uvec4 topology) {
-  bool layered = anyHidden(hiddenNodes) || anyHidden(hiddenEdges) || stateRaise.z != 0u || stateRaise.w != 0u;
+  bool layered = anyHidden(hiddenNodes) || anyHidden(hiddenEdges) || (stateRaise.z | stateRaise.w | stateOthers.z | stateOthers.w) != 0u;
   if (ranged < 0.5 && timed < 0.5 && !layered) return 1.0;
   if (slotHidden(hiddenEdges, topology.w >> 6u)) return 0.0;
-  if (stateRaise.w != 0u && (texelFetch(edgeState, t, 0).r & stateRaise.w) != 0u) return 0.0;
+  if ((stateRaise.w | stateOthers.w) != 0u) {
+    uint mask = texelFetch(edgeState, t, 0).r;
+    if ((mask & stateRaise.w) != 0u || (~mask & stateOthers.w) != 0u) return 0.0;
+  }
   float own = ranged > 0.5 ? zoomShown(texelFetch(edgeZoom, t, 0).xy) : 1.0;
   if (timed > 0.5 && own > 0.0) own *= timeShown(texelFetch(edgeTime, t, 0));
   return min(own, min(nodeShown(texel(topology.x)), nodeShown(texel(topology.y))));
 }
 float edgeFlow(uint mask, float speed) {
+  uint rows = mask | stateOthers.y;
   for (int bit = 0; bit < 32; bit++) {
-    if (mask == 0u) break;
-    bool present = (mask & 1u) != 0u;
+    if (rows == 0u) break;
+    bool present = (rows & 1u) != 0u;
+    int row = (mask & 1u) != 0u ? 32 + bit : 96 + bit;
+    rows >>= 1u;
     mask >>= 1u;
     if (!present) continue;
-    uint flow = stateLabel[32 + bit].y;
+    uint flow = stateLabel[row].y;
     if (flow != none) return uintBitsToFloat(flow);
   }
   return speed;
@@ -1008,7 +1021,8 @@ void edgeGlyph(uint kind) {
     return;
   }
   float pixels = glyphSize * min(1.0, zoom);
-  if ((topology.w & 16u) == 0u || look.label < 0.5 || pixels < labelMin) {
+  if (look.label > 1.5) pixels = max(pixels, min(glyphSize, labelMin));
+  if ((topology.w & 16u) == 0u || look.label < 0.5 || (pixels < labelMin && look.label < 1.5)) {
     gl_Position = hidden;
     return;
   }
@@ -1117,8 +1131,9 @@ void main() {
     return;
   }
   float pixels = glyphSize * ((flags & 4u) != 0u ? 1.0 : min(1.0, zoom));
+  if (look.label > 1.5) pixels = max(pixels, min(glyphSize, labelMin));
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
-  if ((flags & 8u) == 0u || look.label < 0.5 || pixels < labelMin || worldSide(xy) < 0.0) {
+  if ((flags & 8u) == 0u || look.label < 0.5 || (pixels < labelMin && look.label < 1.5) || worldSide(xy) < 0.0) {
     gl_Position = hidden;
     return;
   }

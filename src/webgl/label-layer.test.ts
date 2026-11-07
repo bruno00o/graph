@@ -10,7 +10,7 @@ import {
   GlyphBuffer,
   glyphStride,
   LabelLayer,
-  labelVisible,
+  labelLevel,
   sortBySize,
   sortDescending,
   sortEdgesByWidth,
@@ -52,25 +52,36 @@ function links(
   return edges
 }
 
-describe('labelVisible', () => {
+describe('labelLevel', () => {
   it('shows labels when no state decides', () => {
-    expect(labelVisible(0, new Int8Array(32).fill(-1))).toBe(true)
-    expect(labelVisible(0b100, new Int8Array(32).fill(-1))).toBe(true)
+    expect(labelLevel(0, new Int8Array(64).fill(-1))).toBe(1)
+    expect(labelLevel(0b100, new Int8Array(64).fill(-1))).toBe(1)
   })
 
   it('lets the lowest active bit with a label flag decide', () => {
-    const flags = new Int8Array(32).fill(-1)
+    const flags = new Int8Array(64).fill(-1)
     flags[2] = 0
     flags[5] = 1
-    expect(labelVisible(1 << 2, flags)).toBe(false)
-    expect(labelVisible((1 << 2) | (1 << 5), flags)).toBe(false)
-    expect(labelVisible((1 << 5) | 1, flags)).toBe(true)
+    expect(labelLevel(1 << 2, flags)).toBe(0)
+    expect(labelLevel((1 << 2) | (1 << 5), flags)).toBe(0)
+    expect(labelLevel((1 << 5) | 1, flags)).toBe(1)
   })
 
   it('handles the highest bit', () => {
-    const flags = new Int8Array(32).fill(-1)
+    const flags = new Int8Array(64).fill(-1)
     flags[31] = 0
-    expect(labelVisible(0x80000000, flags)).toBe(false)
+    expect(labelLevel(0x80000000, flags)).toBe(0)
+  })
+
+  it('reads the others row of an active state for a non-member', () => {
+    const flags = new Int8Array(64).fill(-1)
+    flags[3] = 2
+    flags[32 + 3] = 0
+    flags[32 + 4] = 1
+    expect(labelLevel(1 << 3, flags, 1 << 3)).toBe(2)
+    expect(labelLevel(0, flags, 1 << 3)).toBe(0)
+    expect(labelLevel(0, flags, 0)).toBe(1)
+    expect(labelLevel(1 << 4, flags, (1 << 3) | (1 << 4))).toBe(0)
   })
 })
 
@@ -389,6 +400,29 @@ describe('edge labels', () => {
     expect(layer.edgeMain.count).toBe(0)
     expect(layer.edgeHighlight.count).toBe(1)
   })
+
+  it('shows an always edge label below the threshold', () => {
+    const nodes = columns([
+      { size: 10, label: null },
+      { size: 10, label: null },
+    ])
+    const positions = new Positions()
+    positions.set(0, -1000, 0)
+    positions.set(1, 1000, 0)
+    const edges = links([{ from: 0, to: 1, label: 'far' }])
+    const edgeLabelFlags = new Int8Array(64).fill(-1)
+    edgeLabelFlags[3] = 2
+    const layer = new LabelLayer()
+    const frame = {
+      ...frameOf(nodes, positions, edges, { edgeMask: new Uint32Array([0b1000]) }),
+      view: { x: 0, y: 0, zoom: 0.25 },
+      edgeLabelFlags,
+    }
+    layer.select(frame, atlas)
+    expect(layer.edgeMain.count).toBe(0)
+    layer.select({ ...frame, alwaysEdges: [0] }, atlas)
+    expect(layer.edgeMain.count).toBe(1)
+  })
 })
 
 describe('end labels', () => {
@@ -613,5 +647,63 @@ describe('label styles', () => {
     nodes.labelSize[0] = 0
     layer.select(frameOf(nodes, positions, 0.5), atlas)
     expect(layer.main.count).toBe(0)
+  })
+
+  it('shows an always label below the threshold, at 8 pixels, before the others', () => {
+    const nodes = columns([
+      { size: 40, label: 'large' },
+      { size: 20, label: 'always' },
+    ])
+    nodes.keys.push('a', 'b')
+    nodes.labelMinScreenSize[1] = 30
+    const positions = new Positions()
+    positions.set(0, 0, 0)
+    positions.set(1, 0, 0)
+    const labelFlags = new Int8Array(64).fill(-1)
+    labelFlags[3] = 2
+    const placed: number[] = []
+    const layer = new LabelLayer()
+    const frame = {
+      ...frameOf(nodes, positions, 0.25),
+      nodeMask: new Uint32Array([0, 0b1000]),
+      labelFlags,
+      always: [1],
+      sink: {
+        node: (_index: number, label: { pixels: number }) => placed.push(label.pixels),
+        edge: () => {},
+      },
+    }
+    layer.select(frame, atlas)
+    expect(records(layer.main).map((record) => record.owner)).toEqual([1])
+    expect(placed).toEqual([8])
+    layer.select({ ...frame, view: { x: 0, y: 0, zoom: 1 } }, atlas)
+    expect(records(layer.main).map((record) => record.owner)).toEqual([1])
+    layer.select({ ...frame, always: [], nodeMask: new Uint32Array([0, 0]) }, atlas)
+    expect(layer.main.count).toBe(0)
+  })
+
+  it('lifts the threshold for the others of an active state', () => {
+    const nodes = columns([
+      { size: 20, label: 'member' },
+      { size: 20, label: 'other' },
+    ])
+    nodes.keys.push('a', 'b')
+    const positions = new Positions()
+    positions.set(0, -200, 0)
+    positions.set(1, 200, 0)
+    const labelFlags = new Int8Array(64).fill(-1)
+    labelFlags[32 + 3] = 2
+    labelFlags[3] = 0
+    const layer = new LabelLayer()
+    layer.select(
+      {
+        ...frameOf(nodes, positions, 0.25),
+        nodeMask: new Uint32Array([0b1000, 0]),
+        labelFlags,
+        others: 0b1000,
+      },
+      atlas,
+    )
+    expect(records(layer.main).map((record) => record.owner)).toEqual([1])
   })
 })

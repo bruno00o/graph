@@ -13,6 +13,7 @@ import type { EdgePaths, PathPoint } from '../core/edge-paths'
 import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
 import type { Positions } from '../core/positions'
+import { labelAlways, maxStates } from '../core/state-buffers'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
@@ -64,6 +65,8 @@ export interface LabelFrame {
   readonly labelFlags: Int8Array
   readonly highlighted: readonly number[]
   readonly raise?: number
+  readonly others?: number
+  readonly always?: readonly number[]
   readonly order: Uint32Array
   readonly orderLength: number
   readonly plan?: LabelPlan | null
@@ -74,6 +77,8 @@ export interface LabelFrame {
   readonly edgeLabelFlags: Int8Array
   readonly highlightedEdges: readonly number[]
   readonly edgeRaise?: number
+  readonly edgeOthers?: number
+  readonly alwaysEdges?: readonly number[]
   readonly edgeOrder: Uint32Array
   readonly edgeOrderLength: number
   readonly largestEdgeLabel: number
@@ -102,6 +107,7 @@ export interface PlacedLabel {
   readonly size: number
   readonly highlight: boolean
   readonly end: number
+  readonly pixels: number
 }
 
 export interface LabelSink {
@@ -207,15 +213,27 @@ export class GlyphBuffer {
   }
 }
 
-export function labelVisible(mask: number, flags: Int8Array): boolean {
-  let bits = mask >>> 0
+export function labelLevel(mask: number, flags: Int8Array, others = 0): number {
+  let bits = (mask | others) >>> 0
   while (bits !== 0) {
     const bit = 31 - Math.clz32(bits & -bits)
     bits &= bits - 1
-    const flag = flags[bit] ?? -1
-    if (flag >= 0) return flag === 1
+    const flag = flags[((mask >>> bit) & 1) === 1 ? bit : maxStates + bit] ?? -1
+    if (flag >= 0) return flag
   }
-  return true
+  return 1
+}
+
+function levelBits(flags: Int8Array, from: number, bits = 0xffffffff): number {
+  let found = 0
+  for (let bit = 0; bit < maxStates; bit++) {
+    if (((bits >>> bit) & 1) === 1 && flags[from + bit] === labelAlways) found |= 1 << bit
+  }
+  return found >>> 0
+}
+
+function lifted(pixels: number, size: number, level: number, minimum: number): number {
+  return level === labelAlways ? Math.max(pixels, Math.min(size, minimum)) : pixels
 }
 
 function screenDiameter(nodes: NodeColumns, index: number, zoom: number): number {
@@ -745,16 +763,18 @@ export class LabelLayer {
     y: number,
     zoom: number,
     shrink: number,
+    level: number,
   ): boolean {
     const meta = plan.meta[at] ?? 0
     if ((meta & planContainer) !== 0) return false
     const screenUnits = (meta & planScreen) !== 0
-    const pixels = (plan.pixels[at] ?? nodeLabelSize) * (screenUnits ? 1 : shrink)
-    if (pixels < labelMin) return true
+    const base = plan.pixels[at] ?? nodeLabelSize
+    const pixels = lifted(base * (screenUnits ? 1 : shrink), base, level, labelMin)
+    if (pixels < labelMin && level !== labelAlways) return true
     const size = plan.size[at] ?? 0
     const diameter = screenUnits ? size : size * zoom
     const minimum = plan.minimum[at] ?? 0
-    if (minimum > 0 && diameter < minimum) return true
+    if (minimum > 0 && diameter < minimum && level !== labelAlways) return true
     const placement = meta & planPlacement
     const [dx, dy] = placementDirections[placement] ?? [0, 1]
     const reach = placement === 4 ? 0 : Math.max(diameter / 2, 1.25) + (plan.lift[at] ?? 0)
@@ -806,6 +826,20 @@ export class LabelLayer {
     const edgeRaise = frame.edgeRaise ?? builtInRaise
     const raised = (index: number) => ((frame.nodeMask[index] ?? 0) & raise) !== 0
     const edgeRaised = (index: number) => ((frame.edgeMask[index] ?? 0) & edgeRaise) !== 0
+    const others = frame.others ?? 0
+    const edgeOthers = frame.edgeOthers ?? 0
+    const level = (index: number) =>
+      labelLevel(frame.nodeMask[index] ?? 0, frame.labelFlags, others)
+    const edgeLevel = (index: number) =>
+      labelLevel(frame.edgeMask[index] ?? 0, frame.edgeLabelFlags, edgeOthers)
+    const alwaysBits = levelBits(frame.labelFlags, 0)
+    const edgeAlwaysBits = levelBits(frame.edgeLabelFlags, 0)
+    const early = (index: number) =>
+      ((frame.nodeMask[index] ?? 0) & alwaysBits) !== 0 && level(index) === labelAlways
+    const edgeEarly = (index: number) =>
+      ((frame.edgeMask[index] ?? 0) & edgeAlwaysBits) !== 0 && edgeLevel(index) === labelAlways
+    const othersAlways = levelBits(frame.labelFlags, maxStates, others) !== 0
+    const edgeOthersAlways = levelBits(frame.edgeLabelFlags, maxStates, edgeOthers) !== 0
     const shrink = Math.min(1, view.zoom)
     const all = frame.mode === 'all'
     const sink = frame.sink
@@ -824,14 +858,17 @@ export class LabelLayer {
       const force = highlight && forced(index)
       const label = nodes.label[index]
       if (!label || nodes.alive[index] !== 1 || !nodeShown(nodes, index, sight)) return
-      if (!labelVisible(frame.nodeMask[index] ?? 0, frame.labelFlags)) return
+      const shown = level(index)
+      if (shown === 0) return
+      const always = shown === labelAlways
       const screenUnits = nodes.screenUnits[index] === 1
       const size = nodes.labelSize[index] || nodeLabelSize
-      const pixels = screenUnits ? size : size * shrink
-      if (pixels < minimumPixels) return
+      const pixels = lifted(screenUnits ? size : size * shrink, size, shown, minimumPixels)
+      if (pixels < minimumPixels && !always) return
       const zoom = globe ? globeScale(globe, positions.y(index)) : view.zoom
       const minimum = nodes.labelMinScreenSize[index] ?? 0
-      if (!force && !all && minimum > 0 && screenDiameter(nodes, index, zoom) < minimum) return
+      const small = minimum > 0 && screenDiameter(nodes, index, zoom) < minimum
+      if (!force && !all && !always && small) return
       if (rank < 0 && globe) {
         if (globeScreen(globe, positions.x(index), positions.y(index), projected) < 0) return
       }
@@ -916,6 +953,7 @@ export class LabelLayer {
         size,
         highlight,
         end: 0,
+        pixels,
       })
       placed++
       this.nodeLabels++
@@ -923,14 +961,20 @@ export class LabelLayer {
 
     const anchor = this.#anchor
     const endSpot = this.#end
-    const placeEnd = (index: number, highlight: boolean, end: 1 | 2, room: number): void => {
+    const placeEnd = (
+      index: number,
+      highlight: boolean,
+      end: 1 | 2,
+      room: number,
+      shown: number,
+    ): void => {
       const ends = edges.ends
       const id = index * 2 + end - 1
       const label = ends?.label[id]
       if (!ends || !label || placed >= limit) return
       const size = ends.labelSize[id] || edgeLabelSize
-      const pixels = size * shrink
-      if (pixels < minimumPixels) return
+      const pixels = lifted(size * shrink, size, shown, minimumPixels)
+      if (pixels < minimumPixels && shown !== labelAlways) return
       const measure = (): TextBlock =>
         textBlock(
           atlas,
@@ -991,6 +1035,7 @@ export class LabelLayer {
           size,
           highlight,
           end,
+          pixels,
         },
         endSpot,
       )
@@ -1004,19 +1049,20 @@ export class LabelLayer {
         ends !== null && ends.labeled > 0 && !!(ends.label[index * 2] || ends.label[index * 2 + 1])
       if (!label && !endLabels) return
       if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, sight)) return
-      if (!labelVisible(frame.edgeMask[index] ?? 0, frame.edgeLabelFlags)) return
+      const shown = edgeLevel(index)
+      if (shown === 0) return
       if (!edgeAnchor(frame, index, anchor)) return
       const room = anchor.room
-      if (label) placeMiddle(index, highlight, label)
+      if (label) placeMiddle(index, highlight, label, shown)
       if (endLabels) {
-        placeEnd(index, highlight, 1, room)
-        placeEnd(index, highlight, 2, room)
+        placeEnd(index, highlight, 1, room, shown)
+        placeEnd(index, highlight, 2, room, shown)
       }
     }
-    const placeMiddle = (index: number, highlight: boolean, label: string): void => {
+    const placeMiddle = (index: number, highlight: boolean, label: string, shown: number): void => {
       const size = edges.labelSize[index] || edgeLabelSize
-      const pixels = size * shrink
-      if (pixels < minimumPixels) return
+      const pixels = lifted(size * shrink, size, shown, minimumPixels)
+      if (pixels < minimumPixels && shown !== labelAlways) return
       if (anchor.x < -cullMargin || anchor.x > width + cullMargin) return
       if (anchor.y < -cullMargin || anchor.y > height + cullMargin) return
       const measure = (): TextBlock =>
@@ -1077,6 +1123,7 @@ export class LabelLayer {
           size,
           highlight,
           end: 0,
+          pixels,
         },
         anchor,
       )
@@ -1088,11 +1135,16 @@ export class LabelLayer {
     for (const index of highlightedEdges) if (edgeForced(index)) placeEdge(index, true)
     for (const index of highlighted) if (!forced(index)) place(index, true)
     for (const index of highlightedEdges) if (!edgeForced(index)) placeEdge(index, true)
+    for (const index of frame.always ?? []) if (!raised(index) && early(index)) place(index, false)
+    for (const index of frame.alwaysEdges ?? []) {
+      if (!edgeRaised(index) && edgeEarly(index)) placeEdge(index, false)
+    }
 
     const xy = positions.xy
     const centerX = view.x - positions.originX
     const centerY = view.y - positions.originY
-    if (all || frame.screenLabels || frame.largestLabel * shrink >= labelMin) {
+    const anyNode = frame.screenLabels || frame.largestLabel * shrink >= labelMin || othersAlways
+    if (all || anyNode) {
       const order = frame.order
       const largest = nodes.size[order[0] ?? 0] ?? 0
       const reach =
@@ -1116,27 +1168,30 @@ export class LabelLayer {
           if (globeScreen(globe, x + positions.originX, absoluteY, projected) < 0) continue
           if (projected.x < -cullMargin || projected.x > width + cullMargin) continue
           if (projected.y < -cullMargin || projected.y > height + cullMargin) continue
+          if (raised(index) || early(index)) continue
           if (!plan) {
-            if (!raised(index)) place(index, false)
+            place(index, false)
             continue
           }
           const scale = globeScale(globe, absoluteY)
-          if (this.#blocked(plan, at, projected.x, projected.y, scale, shrink)) continue
-          if (!raised(index)) place(index, false, at, projected.x, projected.y)
+          const shown = level(index)
+          if (this.#blocked(plan, at, projected.x, projected.y, scale, shrink, shown)) continue
+          place(index, false, at, projected.x, projected.y)
           continue
         }
+        if (raised(index) || early(index)) continue
         if (!plan) {
-          if (!raised(index)) place(index, false)
+          place(index, false)
           continue
         }
         const screenX = (x - centerX) * view.zoom + width / 2
         const screenY = (y - centerY) * view.zoom + height / 2
-        if (this.#blocked(plan, at, screenX, screenY, view.zoom, shrink)) continue
-        if (!raised(index)) place(index, false, at, screenX, screenY)
+        if (this.#blocked(plan, at, screenX, screenY, view.zoom, shrink, level(index))) continue
+        place(index, false, at, screenX, screenY)
       }
     }
 
-    if (!all && frame.largestEdgeLabel * shrink < labelMin) return
+    if (!all && frame.largestEdgeLabel * shrink < labelMin && !edgeOthersAlways) return
     const { source, target } = edges
     const reach = cullMargin / view.zoom
     const left = centerX - width / 2 / view.zoom - reach
@@ -1159,7 +1214,7 @@ export class LabelLayer {
       const top2 = top - slack
       const bottom2 = bottom + slack
       if (!free && ((ay < top2 && by < top2) || (ay > bottom2 && by > bottom2))) continue
-      if (!edgeRaised(index)) placeEdge(index, false)
+      if (!edgeRaised(index) && !edgeEarly(index)) placeEdge(index, false)
     }
   }
 }

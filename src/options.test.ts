@@ -57,6 +57,8 @@ import type {
   PathOptions,
   ReachOptions,
   ScalesOptions,
+  StateKindStyles,
+  StateLook,
   StateStyle,
   SupportStateOptions,
   SupportWalkOptions,
@@ -185,6 +187,8 @@ interface Inputs {
   ReachOptions: ReachOptions<Marks>
   RingsOptions: RingsOptions<Item>
   ScalesOptions: ScalesOptions
+  StateKindStyles: StateKindStyles
+  StateLook: StateLook
   StateStyle: StateStyle
   SupportStateOptions: SupportStateOptions<'muted'>
   SupportWalkOptions: SupportWalkOptions

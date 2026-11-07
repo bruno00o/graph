@@ -1,19 +1,10 @@
-import {
-  defineGraph,
-  edges,
-  type GraphInstance,
-  type Key,
-  mountGraph,
-  nodes,
-} from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { createGrid, type Link, type Spot } from './grid'
 import { messages } from './messages'
 import '../shared/overlays.css'
 import './costs.css'
 
 const { spots, links } = createGrid(9, 6, 11)
-const nodeKeys = spots.map((spot) => spot.id)
-const edgeKeys = links.map((link) => link.id)
 
 const definition = defineGraph({
   marks: [
@@ -30,8 +21,13 @@ const definition = defineGraph({
     }),
   ],
   states: {
-    path: { stroke: 'var(--graph-accent)', strokeWidth: 3, flow: true, raise: true },
-    muted: { opacity: 0.25 },
+    path: {
+      stroke: 'var(--graph-accent)',
+      strokeWidth: 3,
+      flow: true,
+      raise: true,
+      others: { opacity: 0.25 },
+    },
   },
 })
 
@@ -60,13 +56,7 @@ export function mount(container: HTMLElement): GraphInstance {
       status.textContent = from !== undefined && to !== undefined ? messages.noPath : messages.hint
       return
     }
-    const onPath = new Set<Key>(path.nodes)
-    const onPathEdges = new Set<Key>(path.edges)
-    graph.states.set('path', { nodes: onPath, edges: onPathEdges })
-    graph.states.set('muted', {
-      nodes: nodeKeys.filter((key) => !onPath.has(key)),
-      edges: edgeKeys.filter((key) => !onPathEdges.has(key)),
-    })
+    graph.states.set('path', path)
     chips = path.nodes.map((key, index) => {
       const chip = document.createElement('span')
       chip.className = 'example-cost'

@@ -240,6 +240,26 @@ const scenarios = {
     await nextFrame()
     return { select, muteCall, mute, clear: performance.now() - t2 }
   })()`,
+  others: `(async () => {
+    const { graph, items, nextFrame } = window.bench
+    const key = items[0].id
+    const near = { nodes: [key, ...graph.neighbors(key)], edges: graph.edgesOf(key) }
+    graph.view.fit()
+    await __bench.settle()
+    const t0 = performance.now()
+    graph.states.set('near', near)
+    const call = performance.now() - t0
+    await nextFrame()
+    await nextFrame()
+    const set = performance.now() - t0
+    const start = graph.view.get()
+    const pan = await __bench.drive(240, (i) => graph.view.set({ ...start, x: start.x + Math.sin(i / 20) * 200 / start.zoom }))
+    const t1 = performance.now()
+    graph.states.clear('near')
+    await nextFrame()
+    await nextFrame()
+    return { call, set, pan, clear: performance.now() - t1 }
+  })()`,
   nodeDrag: `(async () => {
     const { graph } = window.bench
     __bench.focus()
@@ -304,6 +324,7 @@ async function benchRender(page, out) {
   await page.screenshot(join(out, 'close-dark.png'))
   results.pick = await page.evaluate(scenarios.pick)
   results.selectAndMute = await page.evaluate(scenarios.selectAndMute)
+  results.others = await page.evaluate(scenarios.others)
   results.nodeDrag = await measureDrag(page)
   await page.evaluate(`(async () => {
     const { graph, items, links } = window.bench
@@ -347,9 +368,11 @@ async function benchRender(page, out) {
       row('overview pan', results.overviewPan),
       row('zoom sweep', results.zoomSweep),
       row('close pan', results.closePan),
+      row('overview pan, others', results.others.pan),
       '',
       `pick: first ${ms(results.pick.firstPickWithBuild)}, then median ${ms(results.pick.pick.median)}, p95 ${ms(results.pick.pick.p95)}`,
       `select ${ms(results.selectAndMute.select)}, mute ${ms(results.selectAndMute.mute)} (call ${ms(results.selectAndMute.muteCall)}), clear ${ms(results.selectAndMute.clear)}`,
+      `others: set ${ms(results.others.set)} (call ${ms(results.others.call)}), clear ${ms(results.others.clear)}`,
       results.nodeDrag
         ? `node drag: host median ${ms(results.nodeDrag.cost.median)}, p95 ${ms(results.nodeDrag.cost.p95)}`
         : 'node drag: no node found',

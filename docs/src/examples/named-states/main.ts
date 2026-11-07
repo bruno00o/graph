@@ -11,8 +11,6 @@ import { messages } from './messages'
 import '../shared/overlays.css'
 
 const { items, links } = createSample(260, 620, 5, 12)
-const nodeKeys = items.map((item) => item.id)
-const edgeKeys = links.map((link) => link.id)
 const degree = new Map<string, number>()
 for (const link of links) {
   degree.set(link.from, (degree.get(link.from) ?? 0) + 1)
@@ -42,8 +40,8 @@ const define = (raise: boolean) =>
         label: true,
         labelColor: 'var(--graph-accent)',
         raise,
+        others: { opacity: 0.3, label: false },
       },
-      muted: { opacity: 0.3, label: false },
     },
   })
 
@@ -60,7 +58,6 @@ export function mount(container: HTMLElement): GraphInstance {
   const highlight = (selected: readonly Key[]) => {
     if (selected.length === 0) {
       graph.states.clear('linked')
-      graph.states.clear('muted')
       status.textContent = messages.empty
       return
     }
@@ -71,11 +68,7 @@ export function mount(container: HTMLElement): GraphInstance {
       for (const node of reach.nodes) near.add(node)
       for (const edge of reach.edges) between.add(edge)
     }
-    graph.states.set('linked', { nodes: [...near], edges: [...between] })
-    graph.states.set('muted', {
-      nodes: nodeKeys.filter((key) => !near.has(key)),
-      edges: edgeKeys.filter((key) => !between.has(key)),
-    })
+    graph.states.set('linked', { nodes: near, edges: between })
     status.textContent = messages.linked(near.size - selected.length, between.size)
   }
 

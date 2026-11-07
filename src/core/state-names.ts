@@ -1,4 +1,4 @@
-import type { BuiltInState } from '../types'
+import type { BuiltInState, StateKindStyles, StateStyle } from '../types'
 
 export const builtInStates: readonly BuiltInState[] = ['selected', 'hovered', 'focused']
 
@@ -10,4 +10,16 @@ export function isBuiltInState(name: string): name is BuiltInState {
 
 export function freeStateNames(states: Readonly<Record<string, unknown>>): string[] {
   return Object.keys(states).filter((name) => !isBuiltInState(name))
+}
+
+export function byKind(value: StateStyle | StateKindStyles): value is StateKindStyles {
+  return value.nodes !== undefined || value.edges !== undefined
+}
+
+export function styleFor(
+  value: StateStyle | StateKindStyles | undefined,
+  kind: 'nodes' | 'edges',
+): StateStyle | undefined {
+  if (value === undefined) return undefined
+  return byKind(value) ? value[kind] : value
 }

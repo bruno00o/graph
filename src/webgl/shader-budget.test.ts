@@ -140,7 +140,7 @@ describe('shader budget', () => {
       ]),
     ).toBe(16 + 16 + 1024)
     const frame = measureProgram('node', nodeVertex, nodeFragment)
-    expect(frame.blockSize).toBe(3088)
+    expect(frame.blockSize).toBe(6176)
     expect(webgl2Minimums.blockSize).toBeGreaterThan(frame.blockSize)
   })
 })

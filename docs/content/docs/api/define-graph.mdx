@@ -39,7 +39,9 @@ These scales are shared by every mark without `scales` of its own: see [Scales o
 ## State styles
 
 ```ts
-interface StateStyle {
+type StateStyles<S extends string> = { readonly [K in S]: StateStyle | StateKindStyles }
+
+interface StateLook {
   opacity?: number
   fill?: string
   stroke?: string
@@ -47,17 +49,36 @@ interface StateStyle {
   outline?: string
   outlineWidth?: number
   halo?: boolean
-  label?: boolean
+  label?: boolean | 'always'
   labelColor?: string
   flow?: boolean | number
-  raise?: boolean
   hide?: boolean
+}
+
+interface StateStyle extends StateLook {
+  raise?: boolean
+  others?: StateLook
+}
+
+interface StateKindStyles {
+  nodes?: StateStyle
+  edges?: StateStyle
 }
 ```
 
 <api-table path="index.ts" name="StateStyle" />
 
-`hide` takes the members out of the drawing while they keep their states. See [Hide without losing state](/docs/transformations#hide-without-losing-state).
+`hide` takes the members out of the drawing while they keep their states. See [Hide without losing state](/docs/transformations#hide-without-losing-state). `others` styles the elements outside the state while it has a member. See [Style the others](/docs/states#style-the-others).
+
+### Look of the others
+
+<api-table path="index.ts" name="StateLook" />
+
+### Style by kind
+
+<api-table path="index.ts" name="StateKindStyles" />
+
+A style is either by kind or for both kinds. On `selected`, `hovered` and `focused`, each kind merges with its default. See [Style nodes and edges apart](/docs/states#style-nodes-and-edges-apart).
 
 See [States](/docs/states#priority) for the order in which states apply.
 

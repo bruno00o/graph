@@ -1,5 +1,5 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
-import { maxStates, noPaint, type StateBuffers } from '../core/state-buffers'
+import { noPaint, type StateBuffers, type StateKind, stateRow } from '../core/state-buffers'
 
 export interface Look {
   opacity: number
@@ -22,15 +22,15 @@ function wordFloat(word: number): number {
   return float[0] ?? 0
 }
 
-function resolve(states: StateBuffers, mask: number, look: Look, table: number): Look {
+function resolve(states: StateBuffers, mask: number, look: Look, kind: StateKind): Look {
   const { numbers, paint, labels } = states
   const base = look.opacity
   let found = 0
-  let rest = mask >>> 0
+  let rest = (mask | states.others(kind)) >>> 0
   while (rest !== 0) {
     const bit = 31 - Math.clz32(rest & -rest)
     rest &= rest - 1
-    const at = (table + bit) * 4
+    const at = stateRow(kind, bit, ((mask >>> bit) & 1) === 1) * 4
     const opacity = numbers[at] ?? -1
     const strokeWidth = numbers[at + 1] ?? -1
     const halo = numbers[at + 2] ?? -1
@@ -101,7 +101,7 @@ export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number
       labelColor: noPaint,
       flow: 0,
     },
-    0,
+    'nodes',
   )
 }
 
@@ -131,7 +131,7 @@ export function edgeLine(edges: EdgeColumns, states: StateBuffers, index: number
       labelColor: noPaint,
       flow: 0,
     },
-    maxStates,
+    'edges',
   )
   const ends = edges.ends
   const split = ends !== null && ends.styled[index] === 1
@@ -174,6 +174,6 @@ export function edgeLook(edges: EdgeColumns, states: StateBuffers, index: number
       labelColor: noPaint,
       flow: edges.flow[index] ?? 0,
     },
-    maxStates,
+    'edges',
   )
 }

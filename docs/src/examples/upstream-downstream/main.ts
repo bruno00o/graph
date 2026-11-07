@@ -12,8 +12,6 @@ import { messages } from './messages'
 import '../shared/overlays.css'
 
 const { items, links } = createHierarchy(90, 130, 8)
-const nodeKeys = items.map((item) => item.id)
-const edgeKeys = links.map((link) => link.id)
 
 const definition = defineGraph({
   marks: [
@@ -33,7 +31,7 @@ const definition = defineGraph({
       strokeWidth: 2,
       raise: true,
     },
-    muted: { opacity: 0.15, label: false },
+    traced: { others: { opacity: 0.15, label: false } },
   },
   interaction: { select: 'single' },
   layout: layers(),
@@ -63,11 +61,9 @@ export function mount(container: HTMLElement): GraphInstance {
     const up = backward.reach(start, { directed: true })
     graph.states.set('downstream', { nodes: down.nodes.slice(1), edges: down.edges })
     graph.states.set('upstream', { nodes: up.nodes.slice(1), edges: up.edges })
-    const keepNodes = new Set([...down.nodes, ...up.nodes])
-    const keepEdges = new Set([...down.edges, ...up.edges])
-    graph.states.set('muted', {
-      nodes: nodeKeys.filter((key) => !keepNodes.has(key)),
-      edges: edgeKeys.filter((key) => !keepEdges.has(key)),
+    graph.states.set('traced', {
+      nodes: [...down.nodes, ...up.nodes],
+      edges: [...down.edges, ...up.edges],
     })
     status.textContent = messages.counts(up.nodes.length - 1, down.nodes.length - 1)
   })

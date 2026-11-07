@@ -12,8 +12,6 @@ import '../shared/overlays.css'
 import './stops.css'
 
 const { spots, links } = createScatter(260, 4, 19)
-const nodeKeys = spots.map((spot) => spot.id)
-const edgeKeys = links.map((link) => link.id)
 
 const definition = defineGraph({
   marks: [
@@ -21,8 +19,13 @@ const definition = defineGraph({
     nodes<Spot>(spots, { x: 'x', y: 'y', label: 'label', size: 14 }),
   ],
   states: {
-    route: { stroke: 'var(--graph-accent)', strokeWidth: 3, flow: true, raise: true },
-    muted: { opacity: 0.3, label: false },
+    route: {
+      stroke: 'var(--graph-accent)',
+      strokeWidth: 3,
+      flow: true,
+      raise: true,
+      others: { opacity: 0.3, label: false },
+    },
   },
 })
 
@@ -71,10 +74,6 @@ export function mount(container: HTMLElement): GraphInstance {
       length += leg.cost
     }
     graph.states.set('route', { nodes: onRoute, edges: onRouteEdges })
-    graph.states.set('muted', {
-      nodes: nodeKeys.filter((key) => !onRoute.has(key)),
-      edges: edgeKeys.filter((key) => !onRouteEdges.has(key)),
-    })
     status.textContent = messages.route(stops.length - 1, length)
   }
 
