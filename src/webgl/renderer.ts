@@ -1,4 +1,4 @@
-import type { BridgeSet } from '../core/bridges'
+import { type BridgeSet, bridgeRadiusAt } from '../core/bridges'
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
@@ -552,6 +552,7 @@ function createRenderer(
   let bridgeSet: BridgeSet | null = null
   let bridgeRadius = 0
   let bridgeGap = 0
+  let bridgeShown = 0
   let bridgeBytes = 0
 
   function bridged(): NonNullable<typeof bridgePass> {
@@ -1252,7 +1253,7 @@ function createRenderer(
     if (location?.bundleMix) gl.uniform1f(location.bundleMix, bundles.mix)
     if (location?.pathLanes) gl.uniform1f(location.pathLanes, bundles.lanes)
     if (location?.pathMeasured) gl.uniform1f(location.pathMeasured, bundles.measured)
-    if (location?.bridgeLook) gl.uniform2f(location.bridgeLook, bridgeRadius, bridgeGap)
+    if (location?.bridgeLook) gl.uniform2f(location.bridgeLook, bridgeShown, bridgeGap)
     if (location?.arcPiece) gl.uniform1f(location.arcPiece, arcPiece)
     gl.bindVertexArray(vao)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, count)
@@ -1351,6 +1352,7 @@ function createRenderer(
     const spans = globe ? spanCount(arcSpan(globe) * 0.9) : 0
     let stencilClean = false
     const edgeLayers = capEdges ? edgeLayerCap(frame.view.zoom) : 0
+    bridgeShown = bridgeRadiusAt(bridgeRadius * 2, frame.view.zoom)
     backdrop.drawGrid(frame)
     draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
     backdrop.drawHulls()

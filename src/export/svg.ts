@@ -1,5 +1,5 @@
 import { gridDotScale, gridLevels } from '../core/background-grid'
-import type { BridgeSet } from '../core/bridges'
+import { type BridgeSet, bridgeRadiusAt, bridgesPerSegment } from '../core/bridges'
 import { containerShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
 import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
@@ -241,6 +241,42 @@ interface EdgeShape {
   readonly heads: readonly string[]
   readonly whole: string
   readonly startHead: number
+  readonly bridged?: boolean
+}
+
+interface Spot {
+  readonly along: number
+  readonly x: number
+  readonly y: number
+  readonly ux: number
+  readonly uy: number
+  readonly side: number
+}
+
+const bridgeUpX = -0.4472136
+const bridgeUpY = -0.8944272
+
+function crossAt(
+  px: number,
+  py: number,
+  qx: number,
+  qy: number,
+  cx: number,
+  cy: number,
+  ex: number,
+  ey: number,
+): number {
+  const rx = qx - px
+  const ry = qy - py
+  const sx = ex - cx
+  const sy = ey - cy
+  const den = rx * sy - ry * sx
+  if (Math.abs(den) <= 1e-6 * Math.hypot(rx, ry) * Math.hypot(sx, sy)) return -1
+  const wx = cx - px
+  const wy = cy - py
+  const t = (wx * sy - wy * sx) / den
+  const u = (wx * ry - wy * rx) / den
+  return t > 0 && t < 1 && u > 0 && u < 1 ? t : -1
 }
 
 export function writeSvg(scene: SvgScene): string {
@@ -461,6 +497,111 @@ export function writeSvg(scene: SvgScene): string {
     drawShape(look, (offset) => boxTag(x, y, halfWidth, halfHeight, corner, offset), r, '')
   }
 
+  const bridgeSet =
+    scene.bridges && scene.bridges.count > 0 && bridgeRadiusAt(scene.bridges.size, zoom) > 0
+      ? scene.bridges
+      : null
+  const bridgeRadius = bridgeSet ? bridgeRadiusAt(bridgeSet.size, zoom) : 0
+  const crossed = new Float64Array(4)
+  const crossedLine = new Float64Array(maxPathPoints * 2)
+
+  function crossedSegment(edge: number, j: number): boolean {
+    if (edges.alive[edge] !== 1 || edgeFade(edge) === 0) return false
+    const paths = scene.bundles
+    const count = paths ? paths.count(edge) : 0
+    if (paths && count > 1) {
+      paths.polyline(edge, edges, positions, paths.mix, crossedLine)
+      const k = Math.min(j, count - 2)
+      crossed[0] = (crossedLine[k * 2] ?? 0) * zoom + offsetX
+      crossed[1] = (crossedLine[k * 2 + 1] ?? 0) * zoom + offsetY
+      crossed[2] = (crossedLine[k * 2 + 2] ?? 0) * zoom + offsetX
+      crossed[3] = (crossedLine[k * 2 + 3] ?? 0) * zoom + offsetY
+      return true
+    }
+    if ((edges.bend[edge] ?? 0) !== 0) return false
+    crossed[0] = sx(edges.source[edge] ?? 0)
+    crossed[1] = sy(edges.source[edge] ?? 0)
+    crossed[2] = sx(edges.target[edge] ?? 0)
+    crossed[3] = sy(edges.target[edge] ?? 0)
+    return true
+  }
+
+  function spotsOf(
+    index: number,
+    segment: (k: number) => readonly [number, number, number, number, number, number] | null,
+    from: number,
+    to: number,
+  ): Spot[] {
+    if (!bridgeSet) return []
+    const spots: Spot[] = []
+    const first = bridgeSet.firstOf(index)
+    const count = bridgeSet.countOf(index)
+    const data = bridgeSet.data
+    for (let at = first; at < first + count; at++) {
+      const own = segment(data[at * 4 + 1] ?? 0)
+      if (!own || !crossedSegment(data[at * 4] ?? 0, data[at * 4 + 2] ?? 0)) continue
+      const [px, py, qx, qy, sp, sq] = own
+      const t = crossAt(
+        px,
+        py,
+        qx,
+        qy,
+        crossed[0] ?? 0,
+        crossed[1] ?? 0,
+        crossed[2] ?? 0,
+        crossed[3] ?? 0,
+      )
+      if (t < 0) continue
+      const along = sp + (sq - sp) * t
+      if (along < from + bridgeRadius || along > to - bridgeRadius) continue
+      const length = Math.hypot(qx - px, qy - py)
+      const ux = (qx - px) / length
+      const uy = (qy - py) / length
+      const up = -uy * bridgeUpX + ux * bridgeUpY >= 0
+      spots.push({ along, x: px + (qx - px) * t, y: py + (qy - py) * t, ux, uy, side: up ? 1 : -1 })
+    }
+    return spots.sort((a, b) => a.along - b.along)
+  }
+
+  function trace(
+    from: number,
+    to: number,
+    at: (along: number) => readonly [number, number],
+    corners: readonly (readonly [number, number, number])[],
+    spots: readonly Spot[],
+  ): string {
+    const [fx, fy] = at(from)
+    let d = `M${num(fx)} ${num(fy)}`
+    let corner = 0
+    const walk = (until: number) => {
+      while (corner < corners.length && (corners[corner]?.[0] ?? 0) < until) {
+        const [along, x, y] = corners[corner] ?? [0, 0, 0]
+        if (along > from) d += `L${num(x)} ${num(y)}`
+        corner++
+      }
+    }
+    for (const spot of spots) {
+      const before = spot.along - bridgeRadius
+      const after = spot.along + bridgeRadius
+      if (before < from || after > to) continue
+      walk(before)
+      const [bx, by] = at(before)
+      const [ax, ay] = at(after)
+      d += `L${num(bx)} ${num(by)}`
+      if (bridgeSet?.shape === 'gap') d += `M${num(ax)} ${num(ay)}`
+      else {
+        const nx = -spot.uy * spot.side
+        const ny = spot.ux * spot.side
+        const sweep = spot.ux * ny - spot.uy * nx < 0 ? 1 : 0
+        d += `A${num(bridgeRadius)} ${num(bridgeRadius)} 0 0 ${sweep} ${num(ax)} ${num(ay)}`
+      }
+      while (corner < corners.length && (corners[corner]?.[0] ?? 0) <= after) corner++
+    }
+    walk(to)
+    const [tx, ty] = at(to)
+    return `${d}L${num(tx)} ${num(ty)}`
+  }
+
   function straightShape(index: number, width: number): EdgeShape | null {
     const source = edges.source[index] ?? 0
     const target = edges.target[index] ?? 0
@@ -494,15 +635,16 @@ export function writeSvg(scene: SvgScene): string {
     }
     const from = start + startHead
     const to = end - endHead
-    const [fx, fy] = at(from)
-    const [tx, ty] = at(to)
-    const [sx0, sy0] = at(start)
-    const [ex, ey] = at(end)
+    const spots =
+      bridgeSet && length > 0
+        ? spotsOf(index, () => [ax, ay, dx, dy, 0, length], from, to).slice(0, bridgesPerSegment)
+        : []
     return {
-      body: to > from ? `M${num(fx)} ${num(fy)}L${num(tx)} ${num(ty)}` : null,
+      body: to > from ? trace(from, to, at, [], spots) : null,
       heads,
-      whole: `M${num(sx0)} ${num(sy0)}L${num(ex)} ${num(ey)}`,
+      whole: trace(start, end, at, [], spots),
       startHead,
+      bridged: spots.length > 0,
     }
   }
 
@@ -616,6 +758,41 @@ export function writeSvg(scene: SvgScene): string {
     }
     const from = start + startHead
     const to = end - endHead
+    const spots = bridgeSet
+      ? spotsOf(
+          index,
+          (k) =>
+            k + 1 < count
+              ? [
+                  line[k * 2] ?? 0,
+                  line[k * 2 + 1] ?? 0,
+                  line[k * 2 + 2] ?? 0,
+                  line[k * 2 + 3] ?? 0,
+                  lengths[k] ?? 0,
+                  lengths[k + 1] ?? 0,
+                ]
+              : null,
+          from,
+          to,
+        )
+      : []
+    if (spots.length > 0) {
+      const corners: Array<readonly [number, number, number]> = []
+      for (let k = 1; k < count - 1; k++) {
+        corners.push([lengths[k] ?? 0, line[k * 2] ?? 0, line[k * 2 + 1] ?? 0])
+      }
+      const point = (along: number) => {
+        const [x, y] = at(along)
+        return [x, y] as const
+      }
+      return {
+        body: to > from ? trace(from, to, point, corners, spots) : null,
+        heads,
+        whole: trace(start, end, point, corners, spots),
+        startHead,
+        bridged: true,
+      }
+    }
     return {
       body: to > from ? piece(from, to) : null,
       heads,
@@ -683,6 +860,7 @@ export function writeSvg(scene: SvgScene): string {
         const offset = num(dashOffset(shape.startHead - period / 2, shift, period))
         style = ` stroke-width="${num(dot * 2)}" stroke-linecap="round" stroke-dasharray="0 ${num(period)}" stroke-dashoffset="${offset}"`
       }
+      if (shape.bridged) style += ' stroke-linejoin="round"'
       parts.push(`<path d="${shape.body}" fill="none"${paintAttribute('stroke', color)}${style}/>`)
     }
     for (const tip of shape.heads) parts.push(`<path d="${tip}"${paintAttribute('fill', color)}/>`)

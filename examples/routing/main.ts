@@ -18,9 +18,11 @@ const { links } = sample
 const items = grouped ? nestHierarchy(sample) : sample.items
 const directions = Object.keys(messages.directions) as LayersDirection[]
 const corners = Object.keys(messages.corners) as Corner[]
-let direction: LayersDirection = 'down'
-let mode: Mode = params.get('routing') === 'straight' ? 'straight' : 'orthogonal'
-let bridge: Bridge = 'arc'
+const pick = <T extends string>(name: string, values: readonly T[], fallback: T): T =>
+  values.find((value) => value === params.get(name)) ?? fallback
+let direction = pick<LayersDirection>('direction', directions, 'down')
+let mode = pick<Mode>('routing', ['straight', 'orthogonal'], 'orthogonal')
+let bridge = pick<Bridge>('bridges', ['arc', 'gap', 'off'], 'arc')
 let corner: Corner = '6'
 
 const axisOf = (value: LayersDirection) =>

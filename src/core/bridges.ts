@@ -6,6 +6,11 @@ import type { Positions } from './positions'
 export const bridgesPerSegment = 8
 export const bridgesPerEdge = 64
 
+export function bridgeRadiusAt(size: number, zoom: number): number {
+  const radius = (size / 2) * Math.min(1, zoom)
+  return radius < 1 ? 0 : radius
+}
+
 const sliceCells = 512
 const maxCells = 1 << 22
 const maxEntries = 1 << 23
