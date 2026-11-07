@@ -1,0 +1,9 @@
+.snap-ghost {
+  box-sizing: border-box;
+  border: 2px dashed var(--graph-accent);
+  border-radius: 50%;
+}
+
+.snap-stage {
+  background: var(--graph-paper);
+}
