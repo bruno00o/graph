@@ -63,12 +63,18 @@ type LegendItem<M extends Mark = Mark> = LegendCategory | LegendLook<M>
 
 <api-table path="legend/index.ts" name="LegendEdgeLook" />
 
+### Layers
+
+One item per layer named by the marks, hidden layers included, with the id `l:` followed by the name. Switching a layer item off hides the layer through [`graph.layers`](/docs/api/graph-instance#layers), so it goes through `onLayerChange` in controlled mode; `off` lists the ids of the hidden layers along with the other items switched off. `keys` and the `highlight` state cover every element of the layer.
+
+<api-table path="legend/index.ts" name="LegendLayer" />
+
 ## mountLegend options
 
 <api-table path="legend/index.ts" name="LegendViewOptions" />
 
 ```ts
-type LegendSection = 'color' | 'size' | 'width' | 'looks'
+type LegendSection = 'color' | 'size' | 'width' | 'looks' | 'layers'
 ```
 
 ## LegendView

@@ -244,16 +244,24 @@ export interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
 /** Name of a mark: a string chosen in its options, or `undefined` for a mark without one. */
 export type MarkName = string | undefined
 
+/** Layer of a mark: a string chosen in its options, or `undefined` for a mark outside any layer. */
+export type MarkLayer = string | undefined
+
 /**
  * Options of `nodes()`. Channels go through a scale; styles are final values. `N` is the type of
- * `name`.
+ * `name` and `L` that of `layer`.
  */
-export interface NodeOptions<T, N extends MarkName = MarkName> {
+export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer> {
   /**
    * Name of the mark, reported as `mark` by the targets of its nodes. Compare it in event handlers
    * to tell marks apart and narrow `datum` to the items of one mark.
    */
   readonly name?: N
+  /**
+   * Layer the nodes belong to, shared with the marks that name the same layer. Hiding the layer
+   * hides its nodes and their edges. Defaults to no layer: the nodes always show.
+   */
+  readonly layer?: L
   /**
    * Node key, unique across node marks. Required for an iterable whose items have no `id` field.
    * @default 'id'
@@ -383,14 +391,20 @@ export interface ContainerOptions<T> {
 
 /**
  * Options of `edges()`. Channels go through a scale; styles are final values. `N` is the type of
- * `name`.
+ * `name` and `L` that of `layer`.
  */
-export interface EdgeOptions<T, N extends MarkName = MarkName> {
+export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer> {
   /**
    * Name of the mark, reported as `mark` by the targets of its edges. Compare it in event handlers
    * to tell marks apart and narrow `datum` to the items of one mark.
    */
   readonly name?: N
+  /**
+   * Layer the edges belong to, shared with the marks that name the same layer. Layers can be
+   * hidden at run time, and parallel edges between two nodes form one band per layer. Defaults to
+   * no layer.
+   */
+  readonly layer?: L
   /**
    * Edge key, unique across edge marks. Required for an iterable whose items have no `id` field.
    * @default 'id'
@@ -469,6 +483,12 @@ export interface EdgeOptions<T, N extends MarkName = MarkName> {
    */
   readonly geodesic?: Style<T, boolean>
   /**
+   * Keys of the edges that carry this edge, in the order of the path they form, such as the
+   * segments a route runs along: a key or a list of keys. Carriers usually belong to another
+   * layer. A key that names no edge is reported in `issues` as `missing-carrier`.
+   */
+  readonly supportedBy?: Channel<T, Key | readonly Key[]>
+  /**
    * Look of the edges drawn in place of the edges of this mark that end in a folded group, one per
    * pair of visible ends and direction.
    */
@@ -499,50 +519,78 @@ export interface AggregateEdge<T = unknown> {
  */
 export type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'name' | 'key' | 'source' | 'target' | 'aggregate'
+  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'aggregate'
 >
 
-/** A layer of the graph, made by `nodes()` or `edges()`. Marks draw in the order given. */
+/** A set of nodes or edges, made by `nodes()` or `edges()`. Marks draw in the order given. */
 export interface Mark {
   /** Kind of element the mark draws. */
   readonly type: 'nodes' | 'edges'
 }
 
-/** A mark that draws one node per item of its data. `N` is the type of its `name`. */
-export interface NodeMark<T, N extends MarkName = MarkName> extends Mark {
+/**
+ * A mark that draws one node per item of its data. `N` is the type of its `name` and `L` that of
+ * its `layer`, `undefined` for a mark outside any layer.
+ */
+export interface NodeMark<T, N extends MarkName = MarkName, L extends MarkLayer = undefined>
+  extends Mark {
   readonly type: 'nodes'
   /** Name given in the options, or `undefined`. */
   readonly name: N
+  /** Layer given in the options, or `undefined`. */
+  readonly layer: L
   /** Items of the mark. */
   readonly data: GraphData<T>
   /** Options given to `nodes()`. */
-  readonly options: NodeOptions<T, N>
+  readonly options: NodeOptions<T, N, L>
 }
 
-/** A mark that draws one edge per item of its data. `N` is the type of its `name`. */
-export interface EdgeMark<T, N extends MarkName = MarkName> extends Mark {
+/**
+ * A mark that draws one edge per item of its data. `N` is the type of its `name` and `L` that of
+ * its `layer`, `undefined` for a mark outside any layer.
+ */
+export interface EdgeMark<T, N extends MarkName = MarkName, L extends MarkLayer = undefined>
+  extends Mark {
   readonly type: 'edges'
   /** Name given in the options, or `undefined`. */
   readonly name: N
+  /** Layer given in the options, or `undefined`. */
+  readonly layer: L
   /** Items of the mark. */
   readonly data: GraphData<T>
   /** Options given to `edges()`. */
-  readonly options: EdgeOptions<T, N>
+  readonly options: EdgeOptions<T, N, L>
 }
+
+/**
+ * Union of the layer names of the marks `M`, a union of marks. `string` when `M` is the plain
+ * `Mark` type.
+ */
+export type LayerName<M extends Mark> = M extends { readonly layer: infer L }
+  ? Exclude<L, undefined>
+  : string
 
 /**
  * Union of the item types of the node marks among `M`, a union of marks. `unknown` when `M` is the
  * plain `Mark` type.
  */
 export type NodeDatum<M extends Mark> =
-  M extends NodeMark<infer T, MarkName> ? T : M extends { readonly type: 'edges' } ? never : unknown
+  M extends NodeMark<infer T, MarkName, MarkLayer>
+    ? T
+    : M extends { readonly type: 'edges' }
+      ? never
+      : unknown
 
 /**
  * Union of the item types of the edge marks among `M`, a union of marks. `unknown` when `M` is the
  * plain `Mark` type.
  */
 export type EdgeDatum<M extends Mark> =
-  M extends EdgeMark<infer T, MarkName> ? T : M extends { readonly type: 'nodes' } ? never : unknown
+  M extends EdgeMark<infer T, MarkName, MarkLayer>
+    ? T
+    : M extends { readonly type: 'nodes' }
+      ? never
+      : unknown
 
 /**
  * Turns `color` channel values into CSS colors: a function, a categorical scale (the default) or
@@ -1019,6 +1067,12 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
   readonly bundling?: EdgeBundling<EdgeDatum<M>> | null
   /** How elements with a `time` enter and leave the time window. */
   readonly time?: TimeOptions
+  /**
+   * Free states that light, whenever the selection changes, the edges that carry the selected
+   * edges and the edges they carry, as declared by `supportedBy`.
+   * @default null
+   */
+  readonly support?: SupportStateOptions<FreeState<NoInfer<S>>> | null
 }
 
 /**
@@ -1048,6 +1102,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly bundling: EdgeBundling<EdgeDatum<M>> | null
   /** Time options, defaults applied. */
   readonly time: ResolvedTimeOptions
+  /** Free states that light the support of the selected edges, or `null` for none. */
+  readonly support: ResolvedSupportStates | null
 }
 
 /** Options of the `time` of `defineGraph`. */
@@ -1165,7 +1221,7 @@ export interface HullStateOptions<N extends string> extends HullStyle<string> {
 /** Options of `hull()` around every node of a mark. */
 export interface HullMarkOptions<T> extends HullStyle<string> {
   /** The mark whose nodes are enclosed, as passed to `marks`. */
-  readonly nodes: NodeMark<T>
+  readonly nodes: NodeMark<T, MarkName, MarkLayer>
   /** Leave out to draw a single hull. */
   readonly by?: undefined
 }
@@ -1173,7 +1229,7 @@ export interface HullMarkOptions<T> extends HullStyle<string> {
 /** Options of `hull()` with one hull per value of a channel. */
 export interface HullGroupOptions<T> extends HullStyle<Style<Key, string>> {
   /** The mark whose nodes are grouped, as passed to `marks`. */
-  readonly nodes: NodeMark<T>
+  readonly nodes: NodeMark<T, MarkName, MarkLayer>
   /**
    * Field or function giving the group of a node. Nodes without a value are left out, and color
    * functions receive the value.
@@ -1281,4 +1337,71 @@ export interface GraphPaths<M extends Mark = Mark> {
 export interface PathFinder<M extends Mark = Mark> extends GraphPaths<M> {
   /** Stops listening to live sources and frees the memory. Later queries find nothing. */
   destroy(): void
+}
+
+/** Options of `support.carriers` and `support.carried`. */
+export interface SupportWalkOptions {
+  /**
+   * Most support steps from the start: `1` keeps the edges that carry it, or that it carries,
+   * directly. Defaults to no limit.
+   */
+  readonly maxDepth?: number
+}
+
+/**
+ * Edges found by `support.carriers` or `support.carried`, and their ends. Pass it to `states.set`
+ * to light them.
+ */
+export interface SupportWalk {
+  /**
+   * Keys of the edges found, the start left out: by depth, then in the order of the paths. An
+   * edge reached twice is listed once, at its first depth.
+   */
+  readonly edges: readonly Key[]
+  /** Support steps from the start to each edge, in the order of `edges`, from 1. */
+  readonly depths: readonly number[]
+  /** Keys of the ends of these edges, each once. */
+  readonly nodes: readonly Key[]
+}
+
+/**
+ * Support between edges, declared by the `supportedBy` channel of `edges()`: an edge is carried by
+ * a path of other edges, which may be carried in turn.
+ */
+export interface GraphSupport {
+  /**
+   * Edges that carry the edge, then the edges that carry them, down to edges nothing carries.
+   * Carriers that name no edge are skipped. Empty for an unknown key.
+   */
+  carriers(key: Key, options?: SupportWalkOptions): SupportWalk
+  /**
+   * Edges the edge carries, then the edges those carry, up to edges that carry nothing. Empty for
+   * an unknown key.
+   */
+  carried(key: Key, options?: SupportWalkOptions): SupportWalk
+}
+
+/** Support queries on the data of marks, without a mounted graph. */
+export interface SupportFinder extends GraphSupport {
+  /** Stops listening to live sources and frees the memory. Later queries find nothing. */
+  destroy(): void
+}
+
+/**
+ * Options of the `support` of `defineGraph`: free states that light the support of the selected
+ * edges, transitively, with the ends of the lit edges.
+ */
+export interface SupportStateOptions<N extends string = string> {
+  /** Free state given to the edges that carry the selected edges, and to their ends. */
+  readonly carriers?: N | null
+  /** Free state given to the edges the selected edges carry, and to their ends. */
+  readonly carried?: N | null
+}
+
+/** Support states with every default applied, as `defineGraph` resolves them. */
+export interface ResolvedSupportStates {
+  /** Free state of the carriers of the selected edges, or `null`. */
+  readonly carriers: string | null
+  /** Free state of the edges the selected edges carry, or `null`. */
+  readonly carried: string | null
 }

@@ -276,6 +276,8 @@ export const defaultMessages: GraphDevtoolsMessages = {
         return `Node ${String(issue.key)} has no parent ${String(issue.parent)}`
       case 'parent-cycle':
         return `Node ${String(issue.key)} would contain itself through ${String(issue.parent)}`
+      case 'missing-carrier':
+        return `Edge ${String(issue.key)} has no carrier ${String(issue.carrier)}`
     }
   },
   view: 'View',

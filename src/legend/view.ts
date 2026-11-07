@@ -1,10 +1,10 @@
 import { themeColor } from '../theme/tokens'
 import type { Mark } from '../types'
-import type { Legend, LegendState } from './index'
+import type { Legend, LegendLayer, LegendState } from './index'
 import type { LegendEdgeLook, LegendLook, LegendNodeLook, LegendSizes, LegendValue } from './read'
 
-/** A section of a legend: `'color'`, `'size'`, `'width'` or `'looks'`. */
-export type LegendSection = 'color' | 'size' | 'width' | 'looks'
+/** A section of a legend: `'color'`, `'size'`, `'width'`, `'looks'` or `'layers'`. */
+export type LegendSection = 'color' | 'size' | 'width' | 'looks' | 'layers'
 
 /** Options of `mountLegend`. The legend writes no text of its own: titles come from these. */
 export interface LegendViewOptions<M extends Mark = Mark> {
@@ -12,8 +12,8 @@ export interface LegendViewOptions<M extends Mark = Mark> {
   readonly titles?: Partial<Readonly<Record<LegendSection, string>>>
   /**
    * Sections to show, in this order. Looks show only for a kind of element drawn with more than
-   * one look.
-   * @default ['color', 'size', 'width', 'looks']
+   * one look, layers only when a mark names a layer.
+   * @default ['color', 'size', 'width', 'looks', 'layers']
    */
   readonly sections?: readonly LegendSection[]
   /**
@@ -23,8 +23,10 @@ export interface LegendViewOptions<M extends Mark = Mark> {
   readonly format?: (value: LegendValue, section: LegendSection) => string
   /** Text of a look. Defaults to the name of its mark, or no text for a mark without a name. */
   readonly lookText?: (look: LegendLook<M>) => string
+  /** Text of a layer. Defaults to its name. */
+  readonly layerText?: (layer: LegendLayer<M>) => string
   /**
-   * Categories and looks switch off and on by click, Enter or Space, as toggle buttons.
+   * Categories, looks and layers switch off and on by click, Enter or Space, as toggle buttons.
    * @default true
    */
   readonly toggle?: boolean
@@ -42,7 +44,7 @@ export interface LegendView<M extends Mark = Mark> {
   destroy(): void
 }
 
-const allSections: readonly LegendSection[] = ['color', 'size', 'width', 'looks']
+const allSections: readonly LegendSection[] = ['color', 'size', 'width', 'looks', 'layers']
 let headings = 0
 const maxDiameter = 40
 const maxWidth = 12
@@ -85,6 +87,8 @@ function structure(state: LegendState): string {
   }
   parts.push('|')
   for (const look of state.looks) parts.push(look.id)
+  parts.push('|')
+  for (const layer of state.layers) parts.push(layer.id)
   return parts.join('\u0000')
 }
 
@@ -258,6 +262,27 @@ export function mountLegend<S extends string, M extends Mark>(
     return section('looks', list(rows))
   }
 
+  function layerSymbol(): HTMLElement {
+    const symbol = element(
+      'span',
+      'flex:none;display:flex;flex-direction:column;justify-content:center;gap:2px;width:16px;height:16px',
+    )
+    for (let line = 0; line < 3; line++) {
+      symbol.append(
+        element('span', `height:2px;border-radius:1px;background:${themeColor('edge')}`),
+      )
+    }
+    return symbol
+  }
+
+  function layersSection(state: LegendState<M>): HTMLElement | null {
+    if (state.layers.length === 0) return null
+    const rows = state.layers.map((layer) =>
+      item(layer.id, layerSymbol(), settings.layerText?.(layer) ?? layer.name),
+    )
+    return section('layers', list(rows))
+  }
+
   function build(state: LegendState<M>): void {
     const focused = (document.activeElement as HTMLElement | null)?.getAttribute?.('data-item')
     items.clear()
@@ -268,7 +293,9 @@ export function mountLegend<S extends string, M extends Mark>(
           ? colorSection(state)
           : name === 'looks'
             ? looksSection(state)
-            : sizeSection(name, name === 'size' ? state.size : state.width)
+            : name === 'layers'
+              ? layersSection(state)
+              : sizeSection(name, name === 'size' ? state.size : state.width)
       if (block) blocks.push(block)
     }
     root.replaceChildren(...blocks)

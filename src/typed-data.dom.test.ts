@@ -14,6 +14,7 @@ import {
   type GraphPointerEvent,
   type GraphState,
   type GraphTarget,
+  type LayerName,
   type Mark,
   mountGraph,
   type NodeDatum,
@@ -212,6 +213,43 @@ describe('typed data', () => {
     expectTypeOf(mount(defineGraph({ marks })).pick({ x: 0, y: 0 })).toEqualTypeOf<
       NodeTarget | EdgeTarget | null
     >()
+  })
+
+  it('types the layer names', () => {
+    const definition = defineGraph({
+      marks: [
+        nodes(people, { layer: 'people' }),
+        edges(links, { source: 'from', target: 'to', layer: 'links' }),
+        edges(ownerships, { source: 'owner', target: 'company' }),
+      ],
+      states: { carrier: { halo: true } },
+      support: { carriers: 'carrier' },
+    })
+    type Marks = (typeof definition.marks)[number]
+    expectTypeOf<Marks>().toEqualTypeOf<
+      | NodeMark<Person, undefined, 'people'>
+      | EdgeMark<Link, undefined, 'links'>
+      | EdgeMark<Ownership, undefined>
+    >()
+    expectTypeOf<LayerName<Marks>>().toEqualTypeOf<'people' | 'links'>()
+    expectTypeOf<LayerName<Mark>>().toEqualTypeOf<string>()
+    const graph = mount(definition)
+    expectTypeOf(graph.layers.hidden()).toEqualTypeOf<readonly ('people' | 'links')[]>()
+    graph.layers.toggle('links')
+    // @ts-expect-error
+    graph.layers.toggle('other')
+    graph.on('layerchange', ({ hidden }) => {
+      expectTypeOf(hidden).toEqualTypeOf<readonly ('people' | 'links')[]>()
+    })
+    expectTypeOf(graph).toExtend<GraphInstance>()
+    expect(() =>
+      defineGraph({
+        marks: [nodes(people)],
+        states: { carrier: { halo: true } },
+        // @ts-expect-error
+        support: { carriers: 'other' },
+      }),
+    ).toThrow(TypeError)
   })
 
   it('refuses a definition with other data types on update', () => {

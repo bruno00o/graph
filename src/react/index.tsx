@@ -52,7 +52,7 @@ import {
   type TimelineView,
   type TimelineViewOptions,
 } from '../timeline/index'
-import type { GraphDefinition, Key, Mark, TimeWindowInput, View } from '../types'
+import type { GraphDefinition, Key, LayerName, Mark, TimeWindowInput, View } from '../types'
 
 /** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
 export interface GraphEventProps<M extends Mark = Mark> {
@@ -87,6 +87,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onViewChange?: GraphEventHandler<'viewchange', M>
   /** Receives `timechange`, or the window requests when `time` is given. */
   readonly onTimeChange?: GraphEventHandler<'timechange', M>
+  /** Receives `layerchange`, or the layer requests when `hiddenLayers` is given. */
+  readonly onLayerChange?: GraphEventHandler<'layerchange', M>
   /** Receives `zoomhint`: a wheel event went to the page in `'page'` wheel mode. */
   readonly onZoomHint?: GraphEventHandler<'zoomhint', M>
   /** Receives `lenschange`: the lens shows, moves, changes or hides. */
@@ -112,6 +114,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   foldchange: 'onFoldChange',
   viewchange: 'onViewChange',
   timechange: 'onTimeChange',
+  layerchange: 'onLayerChange',
   lenschange: 'onLensChange',
   zoomhint: 'onZoomHint',
   layoutstart: 'onLayoutStart',
@@ -152,6 +155,13 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    * Requests are rendered synchronously, so playback draws in the same frame.
    */
   readonly time?: TimeWindowInput | null
+  /** Layers hidden at mount, by name, read once. */
+  readonly initialHiddenLayers?: Iterable<LayerName<M>>
+  /**
+   * Makes the hidden layers controlled when given at mount: `onLayerChange` receives the
+   * requests, and only this prop hides or shows layers.
+   */
+  readonly hiddenLayers?: Iterable<LayerName<M>>
   /** Class of the wrapping `div`. */
   readonly className?: string
   /** Style of the wrapping `div`, merged with `position: relative`. */
@@ -184,8 +194,19 @@ function useLatest<T>(value: T): { readonly current: T } {
 export function Graph<S extends string = string, M extends Mark = Mark>(
   props: GraphProps<S, M>,
 ): JSX.Element {
-  const { definition, ariaLabel, selection, folded, view, time, className, style, ref, children } =
-    props
+  const {
+    definition,
+    ariaLabel,
+    selection,
+    folded,
+    view,
+    time,
+    hiddenLayers,
+    className,
+    style,
+    ref,
+    children,
+  } = props
   const host = useRef<HTMLDivElement>(null)
   const [graph, setGraph] = useState<GraphInstance<S, M> | null>(null)
   const latest = useLatest(props)
@@ -224,6 +245,15 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
             onTimeChange: (next) => flushSync(() => latest.current.onTimeChange?.(next)),
           }
         : {}),
+      ...(initial.initialHiddenLayers !== undefined
+        ? { initialHiddenLayers: initial.initialHiddenLayers }
+        : {}),
+      ...(initial.hiddenLayers !== undefined
+        ? {
+            hiddenLayers: initial.hiddenLayers,
+            onLayerChange: (next) => latest.current.onLayerChange?.(next),
+          }
+        : {}),
     })
     setGraph(instance)
     return () => {
@@ -240,8 +270,9 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       ...(folded !== undefined ? { folded } : {}),
       ...(view !== undefined ? { view } : {}),
       ...(time !== undefined ? { time } : {}),
+      ...(hiddenLayers !== undefined ? { hiddenLayers } : {}),
     })
-  }, [graph, definition, ariaLabel, selection, folded, view, time])
+  }, [graph, definition, ariaLabel, selection, folded, view, time, hiddenLayers])
 
   useEffect(() => {
     if (!graph) return
@@ -251,6 +282,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
         if (name === 'foldchange' && latest.current.folded !== undefined) return
         if (name === 'viewchange' && latest.current.view !== undefined) return
         if (name === 'timechange' && latest.current.time !== undefined) return
+        if (name === 'layerchange' && latest.current.hiddenLayers !== undefined) return
         const handler = latest.current[eventProps[name]] as ((event: unknown) => void) | undefined
         handler?.(event)
       }),
@@ -417,6 +449,7 @@ const emptyLegend: LegendState = {
   size: null,
   width: null,
   looks: [],
+  layers: [],
   hovered: null,
   off: [],
 }
