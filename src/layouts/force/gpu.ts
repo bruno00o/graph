@@ -1,6 +1,6 @@
 import { type GroupTree, groupTree } from '../../core/group-tree'
 import { isSoftware } from '../../webgl/caps'
-import { createProgram } from '../../webgl/gl'
+import { createCoverArray, createIndexArray, createProgram } from '../../webgl/gl'
 import {
   boundsBlockFragment,
   boundsFragment,
@@ -91,7 +91,8 @@ export class GpuForce {
   readonly #pyramid: WebGLTexture
   readonly #levelBuffers: WebGLFramebuffer[]
   readonly #edges: WebGLVertexArrayObject
-  readonly #empty: WebGLVertexArrayObject
+  readonly #cover: WebGLVertexArrayObject
+  readonly #nodes: WebGLVertexArrayObject
   readonly #pack: WebGLBuffer
   readonly #pixels: Float32Array
   readonly #radius: Float32Array
@@ -225,7 +226,8 @@ export class GpuForce {
     const masses = tree ? groupMasses(tree, graph.alive, graph.movable) : null
     const { vertices, count } = edgeVertices(graph, settings.edgeLength, tree, masses?.rigid)
     this.#edgeVertices = count
-    this.#empty = gl.createVertexArray()
+    this.#cover = createCoverArray(gl)
+    this.#nodes = createIndexArray(gl, this.capacity)
     this.#edges = gl.createVertexArray()
     gl.bindVertexArray(this.#edges)
     const buffer = gl.createBuffer()
@@ -314,7 +316,7 @@ export class GpuForce {
       this.#bind(10, this.#groups.springs.texture)
     }
 
-    gl.bindVertexArray(this.#empty)
+    gl.bindVertexArray(this.#cover)
     let source = this.#boundsChain[0] as SizedTarget
     this.#use(source.framebuffer, source.width, source.height)
     gl.useProgram(programs.bounds)
@@ -334,7 +336,9 @@ export class GpuForce {
     this.#use(this.#levelBuffers[0] ?? null, this.#cells, this.#cells)
     gl.clearBufferfv(gl.COLOR, 0, zero)
     gl.useProgram(programs.splat)
+    gl.bindVertexArray(this.#nodes)
     gl.drawArrays(gl.POINTS, 0, this.capacity)
+    gl.bindVertexArray(this.#cover)
 
     gl.disable(gl.BLEND)
     gl.useProgram(programs.reduce)
@@ -366,7 +370,7 @@ export class GpuForce {
         gl.uniform1i(gl.getUniformLocation(programs.spring, 'lifted'), 1)
         gl.drawArrays(gl.POINTS, 0, this.#edgeVertices)
       }
-      gl.bindVertexArray(this.#empty)
+      gl.bindVertexArray(this.#cover)
       gl.disable(gl.BLEND)
     } else if (groups) {
       this.#use(groups.springLanes.framebuffer, groups.laneWidth, groups.laneHeight)
@@ -535,7 +539,7 @@ export class GpuForce {
     gl.drawArrays(gl.POINTS, 0, groups.pairs)
     gl.blendEquation(gl.FUNC_ADD)
     gl.disable(gl.BLEND)
-    gl.bindVertexArray(this.#empty)
+    gl.bindVertexArray(this.#cover)
     this.#reduceLanes(groups, groups.sumLanes, groups.sums, groups.tree.count * 2, 0)
     this.#reduceLanes(groups, groups.boxLanes, groups.boxes, groups.tree.count, 1)
   }

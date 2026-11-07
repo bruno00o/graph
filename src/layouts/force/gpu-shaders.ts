@@ -1,3 +1,4 @@
+import { coverVertex } from '../../webgl/gl'
 import { softening } from './barnes-hut'
 
 const header = `#version 300 es
@@ -77,12 +78,7 @@ vec3 frameOf() {
 }
 `
 
-export const fullVertex: string = `${header}
-void main() {
-  vec2 corner = vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0);
-  gl_Position = vec4(corner, 0.0, 1.0);
-}
-`
+export const fullVertex: string = `${header}${coverVertex}`
 
 export const valueFragment: string = `${header}
 flat in vec4 value;
@@ -130,10 +126,11 @@ void main() {
 
 export const splatVertex: string = `${header}${nodes}${frame}
 uniform int cells;
+layout(location = 0) in uint node;
 flat out vec4 value;
 
 void main() {
-  ivec2 t = texel(gl_VertexID);
+  ivec2 t = texel(int(node));
   gl_PointSize = 1.0;
   value = vec4(0.0);
   if (texelFetch(props, t, 0).y < 0.5) {

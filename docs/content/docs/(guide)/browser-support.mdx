@@ -1,6 +1,6 @@
 ---
 title: Browser support
-description: What the graph needs from the browser and the GPU, and how it degrades on small GPUs, after a context loss and with software rendering.
+description: What the graph needs from the browser and the GPU, how Safari, Firefox and Chrome differ, and how it degrades on small GPUs, after a context loss and with software rendering.
 ---
 
 ## Requirements
@@ -77,6 +77,37 @@ Every pull request opens each example of this site and of the repository in Chro
 ## Device pixel ratio and size
 
 The canvas follows the device pixel ratio, including when a window moves to a screen with another one. A resized graph is drawn again before the browser paints, so dragging a window edge never shows an empty frame. A container of 0 pixels is allowed; the graph warns once in development and draws nothing until it gets a size.
+
+## Safari, Firefox and Chrome
+
+The examples are checked in Chrome, Safari and Firefox on macOS with a hardware GPU, in light and dark themes, and draw the same picture in all three: nodes, edges, labels, layouts, the map and the globe, the lens, the minimap, the timeline and the exports. The force layout of 80,000 nodes on the GPU takes about the same time in each.
+
+Each browser has its own way of reporting some input, and the graph reads them all:
+
+| Input | Safari | Firefox | Chrome |
+| --- | --- | --- | --- |
+| Trackpad pinch | Gesture events with a scale, and wheel events with Ctrl | Wheel events with Ctrl | Wheel events with Ctrl |
+| Touch pinch | Touch pointers, and gesture events | Touch pointers | Touch pointers |
+| Wheel | Pixels | Pixels, or lines on some systems | Pixels |
+
+- **Pinch in Safari.** The graph, the [minimap](/docs/minimap-and-legend) and the [timeline](/docs/time) zoom by the scale of the gesture, around the pointer, and prevent the gesture so that Safari does not zoom the page. The wheel events of the same pinch are ignored, so the zoom is never applied twice. A touch pinch on iOS is read from the pointers, as in other browsers.
+- **Wheel lines and pages.** Deltas counted in lines are converted at 16 pixels a line, and deltas counted in pages at the size of the element, in the graph, the minimap and the timeline.
+
+The work done off the main thread uses workers and `OffscreenCanvas`, which the three browsers support. Each has a fallback:
+
+| Feature | In a worker | Without |
+| --- | --- | --- |
+| GPU engine of the force layout | WebGL2 on an `OffscreenCanvas` | The layout runs on the CPU |
+| CPU engine of the force layout, edge bundling | Plain worker | Runs on the main thread in slices |
+| Minimap | 2D `OffscreenCanvas`, each frame sent to the page as an `ImageBitmap` | Drawn on the page |
+
+Workers are started from a `blob:` URL: a content security policy without `worker-src blob:` turns them all to their fallback. PNG export compresses with `CompressionStream`, available in every current browser.
+
+Known limits:
+
+- On macOS, Safari can still open its tab overview on a pinch that also rotates, even though the graph prevents the gesture.
+- In Firefox, the console can report that a texture is initialized lazily the first time it is drawn. This is informational: the texture is filled before use.
+- In Firefox, the console reports `WebGL context was lost.` each time a graph, an export or the GPU layout frees its context on purpose, for instance when React mounts a component twice in development. Nothing is lost: see [Context loss](#context-loss) for a real one.
 
 ## Testing on a small device
 

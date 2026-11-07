@@ -211,6 +211,86 @@ describe('wheel', () => {
   })
 })
 
+function gesture(
+  graph: GraphInstance,
+  type: 'gesturestart' | 'gesturechange' | 'gestureend',
+  scale: number,
+  at: { clientX?: number; clientY?: number } = {},
+): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  Object.defineProperty(event, 'scale', { value: scale })
+  for (const [name, value] of Object.entries(at)) Object.defineProperty(event, name, { value })
+  canvasOf(graph).dispatchEvent(event)
+  return event
+}
+
+describe('gesture events', () => {
+  it('zooms around the fingers and keeps the page from zooming', () => {
+    const graph = mount()
+    expect(gesture(graph, 'gesturestart', 1, { clientX: 600, clientY: 300 }).defaultPrevented).toBe(
+      true,
+    )
+    const change = gesture(graph, 'gesturechange', 1.5, { clientX: 600, clientY: 300 })
+    expect(change.defaultPrevented).toBe(true)
+    expect(viewOf(graph).zoom).toBeCloseTo(1.5)
+    expect(graph.view.toWorld({ x: 600, y: 300 }).x).toBeCloseTo(200)
+    gesture(graph, 'gesturechange', 3, { clientX: 600, clientY: 300 })
+    expect(viewOf(graph).zoom).toBeCloseTo(3)
+    expect(gesture(graph, 'gestureend', 3).defaultPrevented).toBe(true)
+  })
+
+  it('zooms around the pointer when the event has no position', () => {
+    const graph = mount()
+    pointer(graph, 'pointermove', 200, 300)
+    gesture(graph, 'gesturestart', 1)
+    gesture(graph, 'gesturechange', 2)
+    expect(viewOf(graph).zoom).toBeCloseTo(2)
+    expect(graph.view.toWorld({ x: 200, y: 300 }).x).toBeCloseTo(-200)
+  })
+
+  it('ignores the wheel a browser sends along with the pinch', () => {
+    const graph = mount()
+    gesture(graph, 'gesturestart', 1)
+    gesture(graph, 'gesturechange', 2)
+    const zoom = viewOf(graph).zoom
+    expect(wheel(graph, { deltaY: -10, ctrlKey: true }).defaultPrevented).toBe(true)
+    expect(viewOf(graph).zoom).toBe(zoom)
+    gesture(graph, 'gestureend', 2)
+    wheel(graph, { deltaY: -10, ctrlKey: true })
+    expect(viewOf(graph).zoom).toBeGreaterThan(zoom)
+  })
+
+  it('follows the zoom option and limits', () => {
+    const graph = mount(definition({}, { maxZoom: 1.2 }))
+    gesture(graph, 'gesturestart', 1)
+    gesture(graph, 'gesturechange', 4)
+    expect(viewOf(graph).zoom).toBeCloseTo(1.2)
+    const still = mount(definition({ zoom: false }))
+    expect(gesture(still, 'gesturestart', 1).defaultPrevented).toBe(false)
+    expect(gesture(still, 'gesturechange', 2).defaultPrevented).toBe(false)
+    expect(viewOf(still)).toEqual(origin)
+  })
+
+  it('leaves a touch pinch to the pointers', () => {
+    const graph = mount()
+    touch(graph, 'pointerdown', 1, 300, 200)
+    touch(graph, 'pointerdown', 2, 500, 200)
+    gesture(graph, 'gesturestart', 1)
+    touch(graph, 'pointermove', 2, 600, 200)
+    gesture(graph, 'gesturechange', 1.5)
+    expect(viewOf(graph).zoom).toBeCloseTo(1.5)
+  })
+
+  it('stops listening once destroyed', () => {
+    const graph = mount()
+    const canvas = canvasOf(graph)
+    graph.destroy()
+    const event = new Event('gesturestart', { cancelable: true })
+    canvas.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+  })
+})
+
 describe('view limits', () => {
   it('keeps every zoom within the limits', () => {
     const graph = mount(definition({}, { minZoom: 0.5, maxZoom: 2 }))

@@ -22,14 +22,10 @@ export interface DrawRequest {
   readonly masks?: Uint32Array | null
 }
 
-export interface CanvasMessage {
-  readonly type: 'canvas'
-  readonly canvas: OffscreenCanvas
-}
-
-export type ToMinimapWorker = CanvasMessage | DrawRequest
+export type ToMinimapWorker = DrawRequest
 
 export interface DrawnMessage {
   readonly type: 'drawn'
   readonly fit: RasterFit | null
+  readonly frame: ImageBitmap
 }

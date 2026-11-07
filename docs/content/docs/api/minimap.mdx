@@ -45,4 +45,4 @@ Use it inside the children of [`<Graph>`](/docs/api/graph-component). Its props 
 - The element carries `data-graph-minimap` and `aria-hidden="true"`. The rectangle of the view carries `data-view`.
 - Colors are CSS colors, `--graph-…` tokens included, resolved with the current theme and again when it changes.
 - The minimap frames every node and group container. A view larger than the graph shows its rectangle cut by the edges of the minimap.
-- Drawing happens in a worker when the browser has `Worker` and `OffscreenCanvas` and the page allows `worker-src blob:`; otherwise on the page, at the same pace.
+- Drawing happens in a worker when the browser has `Worker`, `OffscreenCanvas` and `ImageBitmapRenderingContext` and the page allows `worker-src blob:`; otherwise on the page, at the same pace.
