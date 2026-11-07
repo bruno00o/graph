@@ -1,0 +1,11 @@
+## How it works
+
+Each edge has a `cost`, shown as an edge label with a background. With two nodes selected, `graph.paths.shortest(from, to, { weight: 'cost' })` returns the cheapest path. Its `costs` list the cost paid to reach each node along it, and `cost` the total.
+
+The path goes into a free state, `path`, with `flow: true`, and the rest into `muted`. For each node of the path, a small HTML chip shows its cost, pinned above the node with `graph.anchors.set(chip, { node, side: 'top' })`.
+
+## Try it
+
+- Click a node, then Shift and click another.
+- Compare the path with the edge labels: it may take more edges to pay less.
+- Click the background to clear the selection.

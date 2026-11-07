@@ -1,0 +1,9 @@
+## How it works
+
+`graph.paths.reach(key, { maxCost: hops })` returns every node within that many edges, with its distance in `costs`. Without `weight`, each edge costs 1, so the cost is the number of hops. The example sorts the nodes by cost into four free states, `hop1` to `hop4`, each with its own fill, and puts everything else into `muted`.
+
+## Try it
+
+- Click a node to start from it.
+- Move the slider to reach further.
+- Click the background to clear the selection.

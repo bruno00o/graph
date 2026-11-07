@@ -1,0 +1,37 @@
+.example-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 6px;
+  background: var(--graph-paper-raised);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--graph-ink) 16%, transparent);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+}
+
+.example-menu strong {
+  padding: 4px 8px 6px;
+  color: var(--graph-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.example-menu button {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.example-menu button:hover,
+.example-menu button:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--graph-accent) 14%, transparent);
+}

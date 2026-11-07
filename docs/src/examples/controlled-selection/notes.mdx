@@ -1,0 +1,12 @@
+## How it works
+
+The selection lives in React state and goes to `<Graph selection onSelectionChange>`. In this controlled mode, a click on the graph only asks for a change: `onSelectionChange` receives the wanted selection, the example keeps its last four keys, and the new prop is what the graph draws. The checkboxes write the same state, so both sides always agree.
+
+The list is a child of `<Graph>`, so `useGraph()` reaches the instance. Hovering a row puts its node in a free state, `pointed`, with an outline.
+
+## Try it
+
+- Tick nodes in the list: they are selected in the graph.
+- Click a node, then Shift and click others: the list follows.
+- Select a fifth node: the oldest one drops.
+- Hover a row to find its node.

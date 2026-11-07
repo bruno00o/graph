@@ -1,0 +1,12 @@
+## How it works
+
+On `contextmenu`, the example calls `originalEvent.preventDefault()` to keep the menu of the browser away, then fills a plain `div` with buttons. `graph.anchors.set(menu, { node, side: 'right', interactive: true })` pins it next to the node, or at the world point of the click for the background. The menu follows the node when the view moves, and `graph.anchors.remove(menu)` closes it.
+
+The actions use the instance: `graph.selection.set`, `graph.view.fit`, and two free states, `marked` with an outline and `off` with `hide: true`.
+
+## Try it
+
+- Right click a node and pick an action.
+- Hide a few nodes, then right click the background and show them again.
+- Pan or zoom with the menu open: it stays next to its node.
+- Click anywhere to close the menu.

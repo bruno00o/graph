@@ -1,0 +1,10 @@
+## How it works
+
+The example counts the edges of each node once, from the edge array. The node size reads that count through a function, so the size scale maps the degree to a diameter.
+
+A free state, `off`, has `hide: true`. On each move of the slider, the nodes below the threshold go into it with `graph.states.set`. A hidden node is gone from the picture, picking and labels, and so are its edges, while the data and positions stay.
+
+## Try it
+
+- Move the slider up: only the most connected nodes remain.
+- Move it down to 1 to see every node.

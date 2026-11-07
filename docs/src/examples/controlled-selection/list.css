@@ -1,0 +1,55 @@
+.example-list {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  width: 210px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+}
+
+.example-list h2 {
+  margin: 0;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--graph-ink) 10%, var(--graph-paper));
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.example-list ul {
+  flex: 1;
+  margin: 0;
+  padding: 4px;
+  overflow: auto;
+  list-style: none;
+}
+
+.example-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.example-list li:hover label {
+  background: color-mix(in srgb, var(--graph-accent) 12%, transparent);
+}
+
+.example-list input {
+  margin: 0;
+  accent-color: var(--graph-accent);
+}
+
+.example-list span {
+  margin-left: auto;
+  color: var(--graph-ink-muted);
+  font-size: 12px;
+}

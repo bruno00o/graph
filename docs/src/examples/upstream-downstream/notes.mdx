@@ -1,0 +1,11 @@
+## How it works
+
+`graph.paths.reach(key, { directed: true })` follows the edges from source to target, so it returns everything the node leads to. To follow them back, a second search runs on the same arrays with `createPathFinder`, where the edge mark reads `source: 'to'` and `target: 'from'`. Its `reach` returns everything that leads to the node.
+
+Each result goes into its own free state, `downstream` or `upstream`, and the rest into `muted`. The layers layout puts sources at the top and targets below.
+
+## Try it
+
+- Click a node in the middle layers.
+- Click a node in the top layer: it has nothing upstream.
+- Click the background to clear the selection.

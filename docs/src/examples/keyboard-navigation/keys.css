@@ -1,0 +1,41 @@
+.example-keys {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.example-keys dt {
+  display: flex;
+  gap: 3px;
+  justify-content: flex-end;
+}
+
+.example-keys dd {
+  margin: 0;
+  color: var(--graph-ink-muted);
+}
+
+.example-keys kbd {
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 22%, var(--graph-paper));
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--graph-paper);
+  font-family: inherit;
+  font-size: 11px;
+  text-align: center;
+}
