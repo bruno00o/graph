@@ -1,0 +1,146 @@
+---
+title: Edge routing
+description: Draw edges in horizontal and vertical segments around nodes, and jump over the edges they cross.
+---
+
+<LiveExample slug="edge-routing" />
+
+## Add routing
+
+Pass a routing to `defineGraph`. Orthogonal routing comes from its own entry point, `@bruno00o/graph/routing`, so a graph that does not use it carries none of its code.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { layers } from '@bruno00o/graph/layouts'
+import { orthogonalRouting } from '@bruno00o/graph/routing'
+
+const definition = defineGraph({
+  marks: [
+    edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
+    nodes<Item>(items, { color: 'group', shape: 'square', label: 'label' }),
+  ],
+  layout: layers({ direction: 'down' }),
+  routing: orthogonalRouting({ axis: 'vertical' }),
+  bridges: true,
+})
+```
+
+Each edge leaves its source through one side and enters its target through another, in horizontal and vertical segments that go around nodes and [group](/docs/groups) containers. The options are in the [reference](/docs/api/routing).
+
+- `gap` is the room kept free around each node and container. Routes run outside the boxes grown by it.
+- `spacing` is the distance between routes that share a channel. Routes that run side by side spread around the line they would share, and come closer where the channel is narrow.
+- `radius` rounds the corners at each bend, `0` for sharp corners. A new radius alone redraws the routes without computing them again.
+- `axis` chooses the sides: `'vertical'` leaves and enters through the top and bottom, `'horizontal'` through the left and right, and `'auto'`, the default, follows the larger distance between the two ends of each edge. Match it to the direction of a [layered layout](/docs/layout#layers): `'vertical'` for `'down'` and `'up'`, `'horizontal'` for `'left'` and `'right'`.
+
+Edges that leave or enter the same side of a node spread along the middle of that side, ordered so that they cross as little as they can.
+
+A definition takes `routing` or `bundling`, not both.
+
+## When routes are computed
+
+Routes go around the nodes where they stand, so they are computed once nodes stand still:
+
+- after a layout run, and after the nodes glide to its result;
+- 150 milliseconds after a drag, a `positions.set` or a change of positions in the data;
+- after nodes or edges are added, removed or updated, a [group](/docs/groups) folds or unfolds, or a [layer](/docs/multilayer) shows or hides.
+
+While nodes move, the drawn routes follow the ends of each edge, then the new routes glide in over `transitions.layout`, 400 milliseconds by default, at once with `prefers-reduced-motion`. New edges stay straight until the next computation.
+
+`graph.routing.run()` computes now and resolves to `true` once the new routes are drawn. `routing.running` in the store is `true` during a computation.
+
+```ts
+graph.store.subscribe(() => {
+  indicator.hidden = !graph.store.get().routing.running
+})
+
+await graph.routing.run()
+```
+
+## Which edges route
+
+Every edge routes, except loops and [great circles](/docs/map#great-circles). Set `route` on `edges()` to keep edges straight:
+
+```ts
+edges<Link>(links, {
+  source: 'from',
+  target: 'to',
+  route: (link) => link.kind !== 'direct',
+})
+```
+
+Routed edges keep everything else: width, color, arrows, dashes, [flows](/docs/marks#flows), state styles and [edge ends](/docs/marks#edge-ends), whose split falls along the length of the route. They are picked along their route. The label sits at the middle of the longest segment, and end labels where the route leaves its node. [Exports](/docs/export) draw them as on screen.
+
+- Edges between the same two nodes route side by side, apart by `spacing`, instead of curving.
+- In a [group](/docs/groups), an edge goes inside the containers that hold its ends and around the others. Folded groups are boxes like any node, and their merged edges route like any edge.
+- With [layers](/docs/multilayer), edges of a hidden layer are not routed and nodes of a hidden layer are not in the way: showing or hiding a layer routes again.
+- Nodes in [screen units](/docs/marks#screen-units) change size in the world as the zoom changes, so routes are computed again once the zoom changes by a factor of 1.5.
+
+## Bridges
+
+Where two edges cross, `bridges` makes one of them jump over the other, so that a crossing does not read as a connection. Pass `true` for the defaults, or options:
+
+```ts
+defineGraph({
+  marks,
+  routing: orthogonalRouting(),
+  bridges: { shape: 'gap', size: 10 },
+})
+```
+
+- `shape` is `'arc'`, a half circle over the other edge, or `'gap'`, a break in the line.
+- `size` is the width of a jump in screen pixels. Zoomed out below 1, jumps shrink with the zoom, and under 2 pixels edges cross plainly, so a large graph seen whole stays clean.
+- Where a horizontal and a vertical segment cross, the horizontal one jumps. Otherwise the edge drawn later jumps: the one from the later mark, or the later item of the same mark.
+
+Bridges apply to straight edges and to routes, with or without a routing. Parallel curves, loops, bundled paths and great circles cross plainly, and so do the rounded corners of routes. A crossing inside a node, near the ends of an edge, has no jump. Set `bridge: false` on `edges()` to leave edges out: they neither jump nor are jumped over.
+
+A segment jumps at most 8 times and an edge at most 64 times; further crossings stay plain. Crossings are found once nodes stand still, 150 milliseconds after the last move, in slices of 8 milliseconds on the main thread. The GPU draws the jumps from that list, so panning and zooming cost no search. Exports draw the same jumps, as arcs or breaks in the SVG paths.
+
+## Size and cost
+
+Routing runs in a Web Worker, so the page stays responsive. Measured on a laptop, for a layered graph with about 1.4 edges per node:
+
+| Edges | Routing | Bridges | Frame, straight | Frame, routed | Frame, routed with bridges |
+| --- | --- | --- | --- | --- | --- |
+| 1,000 | 40 ms | 5 ms | 0.6 ms | 1.1 ms | 1.1 ms |
+| 10,000 | 0.27 s | 50 ms | 1.5 ms | 2.0 ms | 2.0 ms |
+| 50,000 | 3.3 s | 0.5 s | 2.2 ms | 4.0 ms | 4.9 ms |
+
+Most edges find a route with one or two bends at once. The others are searched for on a grid drawn from the sides of the nodes around them, which takes most of the time on large, dense graphs. Above `maxEdges`, 50,000 by default, edges stay straight and a warning is logged in development. Bridges have their own `maxEdges`, 100,000 by default.
+
+A graph without `routing` and `bridges` draws its edges as before and pays nothing. The edge programs that draw jumps are built the first time a jump shows, and serve only while jumps are wide enough to show: zoomed out, edges draw as without bridges.
+
+Routing and bridges are not available on a [map](/docs/map): edges stay straight, or follow great circles.
+
+## Write your own routing
+
+`routing` takes any object of the [`EdgeRouting`](/docs/api/define-graph#routing) shape. `start` receives the node positions, the box of each node and the group that holds it, and reports one polyline per edge, from the center of its source to the center of its target, through `end`. A routing that draws every edge as an elbow:
+
+```ts
+import type { EdgeRouting } from '@bruno00o/graph'
+
+const elbows: EdgeRouting<Link> = {
+  name: 'elbows',
+  options: {},
+  radius: 8,
+  maxEdges: 100_000,
+  start(graph, listener) {
+    const count = graph.edges.length
+    const offsets = new Uint32Array(count + 1)
+    const points = new Float32Array(count * 3 * 2)
+    for (let edge = 0; edge < count; edge++) {
+      const source = graph.ends[edge * 2] ?? 0
+      const target = graph.ends[edge * 2 + 1] ?? 0
+      const ax = graph.xy[source * 2] ?? 0
+      const ay = graph.xy[source * 2 + 1] ?? 0
+      const bx = graph.xy[target * 2] ?? 0
+      const by = graph.xy[target * 2 + 1] ?? 0
+      points.set([ax, ay, ax, by, bx, by], edge * 6)
+      offsets[edge + 1] = (edge + 1) * 3
+    }
+    listener.end({ offsets, points })
+    return { stop: () => {} }
+  },
+}
+```
+
+The graph cuts each route where it leaves the shape of its node, rounds its corners by `radius` and draws it through its points as given, without resampling. `graph.datum(index)` returns the item of an edge, typed by the marks of the definition.

@@ -25,6 +25,7 @@
     "groups",
     "layout",
     "bundling",
+    "routing",
     "drawing-layers",
     "theming",
     "minimap-and-legend",

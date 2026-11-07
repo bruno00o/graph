@@ -185,7 +185,7 @@ edges<Exchange>(exchanges, {
 - An arrow head takes the color and width of its end. A dash pattern keeps its rhythm across the split, and flows run through it.
 - An end label sits near its node, past the arrow head, and turns with the line. It shows only when it fits, after the middle label. With a `background`, it reads as a badge on the line.
 - A state that sets `stroke` or `strokeWidth`, such as hover and selection, applies to both ends. States that only change the opacity or add a halo keep the colors of the ends.
-- Every geometry splits the same way: straight edges, parallel curves, loops, bundled paths and great circles on a map, on screen as in PNG and SVG exports.
+- Every geometry splits the same way: straight edges, parallel curves, loops, bundled paths, [orthogonal routes](/docs/routing) and great circles on a map, on screen as in PNG and SVG exports.
 
 Picking reports the end under the pointer in `target.end`, `'source'` or `'target'`. Moving across the split emits `pointerleave` for one end and `pointerenter` for the other, so a tooltip can follow the end. Selection and states still hold whole edges: an end has no key of its own, and keeping one per end would double the work of every state change. To highlight an end, read `target.end` and style that end from your data.
 
