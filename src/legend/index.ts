@@ -9,6 +9,7 @@ import {
   type LegendCategory,
   type LegendColor,
   type LegendLook,
+  type LegendScalesOf,
   type LegendSizes,
   layerPrefix,
   readLegend,
@@ -47,6 +48,11 @@ export interface LegendState<M extends Mark = Mark> {
   readonly size: LegendSizes | null
   /** Legend of the `width` scale, or `null` when no edge has a width value. */
   readonly width: LegendSizes | null
+  /**
+   * Legends of the scales of the marks that have scales of their own, in the order of the marks,
+   * nodes first. `color`, `size` and `width` above only cover the marks without one.
+   */
+  readonly marks: readonly LegendScalesOf<M>[]
   /** Looks of the elements, by mark: shape and image of nodes, line pattern of edges. */
   readonly looks: readonly LegendLook<M>[]
   /** Layers of the graph, in the order of their first mark, hidden ones included. */
@@ -84,6 +90,7 @@ const emptyState: LegendState = {
   color: null,
   size: null,
   width: null,
+  marks: [],
   looks: [],
   layers: [],
   hovered: null,
@@ -158,8 +165,8 @@ export function createLegend<S extends string, M extends Mark>(
     const reading = readLegend(internals.scene, readDefinition.marks, off, known, sight)
     crowded = reading.crowded
     known.clear()
-    if (reading.color?.type === 'categories') {
-      for (const item of reading.color.items) known.set(item.id, item)
+    for (const color of [reading.color, ...reading.marks.map((mark) => mark.color)]) {
+      if (color?.type === 'categories') for (const item of color.items) known.set(item.id, item)
     }
     const previous = store.state
     const nextLayers = readLayers(layers.names(), layers.hidden(), previous.layers)
@@ -168,6 +175,7 @@ export function createLegend<S extends string, M extends Mark>(
       color: reading.color,
       size: reading.size,
       width: reading.width,
+      marks: reading.marks as readonly LegendScalesOf<M>[],
       looks: reading.looks as readonly LegendLook<M>[],
       layers: nextLayers,
       hovered: previous.hovered,
@@ -226,20 +234,26 @@ export function createLegend<S extends string, M extends Mark>(
     else states.set(highlight, keysOf(internals.scene, new Set([hovered]), crowded))
   }
 
+  function switched(color: LegendColor | null): LegendColor | null {
+    return color?.type === 'categories'
+      ? {
+          type: 'categories',
+          items: color.items.map((item) =>
+            item.off === off.has(item.id) ? item : { ...item, off: off.has(item.id) },
+          ),
+        }
+      : color
+  }
+
   function publishOff(): void {
     const ids = offIds(store.state.layers)
     store.setState((state) => ({
       ...state,
       off: ids,
-      color:
-        state.color?.type === 'categories'
-          ? {
-              type: 'categories',
-              items: state.color.items.map((item) =>
-                item.off === off.has(item.id) ? item : { ...item, off: off.has(item.id) },
-              ),
-            }
-          : state.color,
+      color: switched(state.color),
+      marks: state.marks.map((mark) =>
+        mark.color?.type === 'categories' ? { ...mark, color: switched(mark.color) } : mark,
+      ),
       looks: state.looks.map((look) =>
         look.off === off.has(look.id) ? look : { ...look, off: off.has(look.id) },
       ),
@@ -340,8 +354,10 @@ export type {
   LegendEdgeLook,
   LegendItem,
   LegendLook,
+  LegendMarkScales,
   LegendNodeLook,
   LegendRamp,
+  LegendScalesOf,
   LegendSize,
   LegendSizes,
   LegendValue,

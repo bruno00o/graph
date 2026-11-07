@@ -421,6 +421,7 @@ const emptyLegend: LegendState = {
   color: null,
   size: null,
   width: null,
+  marks: [],
   looks: [],
   layers: [],
   hovered: null,

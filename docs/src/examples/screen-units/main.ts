@@ -1,4 +1,4 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
 import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -93,7 +93,7 @@ const define = (units: Units) =>
         name: 'zones',
         x: 'x',
         y: 'y',
-        size: 'size',
+        size: raw((zone) => zone.size),
         fill: (zone) => tone(zone.tone, 14),
         stroke: (zone) => tone(zone.tone, 60),
         label: { text: 'label', placement: 'center', size: 16, weight: 'bold' },
@@ -103,12 +103,11 @@ const define = (units: Units) =>
         name: 'markers',
         x: 'x',
         y: 'y',
-        size: () => 12,
+        size: 12,
         fill: (marker) => `var(--graph-cat-${marker.tone})`,
         units,
       }),
     ],
-    scales: { size: (value) => value },
   })
 
 export function mount(container: HTMLElement): GraphInstance {

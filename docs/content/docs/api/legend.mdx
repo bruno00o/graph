@@ -50,6 +50,18 @@ type LegendValue = string | number | boolean
 
 <api-table path="legend/index.ts" name="LegendSize" />
 
+### Scales of a mark
+
+A mark with [`scales`](/docs/scales#scales-of-a-mark) of its own has an entry in `marks`, in the order of the marks, nodes first. Its id is `n` or `e` and the position of the mark among the marks of its kind, from 0, such as `n1`. The ids of its categories carry it after `c:`, such as `c:n1:string:north`, so the same value can stand in two scales; a category of a shared scale keeps `c:string:north`. `keys`, `hover` and `toggle` take both.
+
+<api-table path="legend/index.ts" name="LegendMarkScales" />
+
+```ts
+type LegendScalesOf<M extends Mark = Mark> = LegendMarkScales<…>
+```
+
+`LegendScalesOf<M>` gives `mark` the names of the marks of `M`.
+
 ### Looks
 
 ```ts
@@ -57,7 +69,7 @@ type LegendLook<M extends Mark = Mark> = LegendNodeLook<…> | LegendEdgeLook<�
 type LegendItem<M extends Mark = Mark> = LegendCategory | LegendLook<M>
 ```
 
-`LegendLook<M>` narrows on `kind`, then on `mark`, to the names of the marks of `M`.
+`LegendLook<M>` narrows on `kind`, then on `mark`, to the names of the marks of `M`. Elements with a raw color, set by `raw()`, have no category: like elements with a `fill`, they count only under their look.
 
 <api-table path="legend/index.ts" name="LegendNodeLook" />
 
@@ -76,6 +88,8 @@ One item per layer named by the marks, hidden layers included, with the id `l:` 
 ```ts
 type LegendSection = 'color' | 'size' | 'width' | 'looks' | 'layers'
 ```
+
+A mark with scales of its own adds a block after the section of each of its scales, with `data-mark` set to the id of the mark and the title given by `markTitle`, or the name of the mark.
 
 ## LegendView
 

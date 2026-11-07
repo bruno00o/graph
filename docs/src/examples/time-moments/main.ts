@@ -55,14 +55,13 @@ export function mount(container: HTMLElement): GraphInstance {
   const define = () =>
     defineGraph({
       marks: [
-        edges<Contact>(contacts, { source: 'from', target: 'to', width: () => 2, time: 'at' }),
+        edges<Contact>(contacts, { source: 'from', target: 'to', width: 2, time: 'at' }),
         nodes<Member>(members, {
           color: 'group',
           label: 'label',
           time: (member) => ({ start: member.from, end: member.until }),
         }),
       ],
-      scales: { width: (value) => value },
       layout: force(),
       time: { fade: fade * day },
     })

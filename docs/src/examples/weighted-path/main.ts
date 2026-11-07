@@ -26,7 +26,7 @@ const definition = defineGraph({
       x: 'x',
       y: 'y',
       label: { text: 'label', placement: 'center' },
-      size: () => 24,
+      size: 24,
     }),
   ],
   states: {

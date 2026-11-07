@@ -6,6 +6,7 @@ import {
   mountGraph,
   type NodeGroup,
   nodes,
+  raw,
 } from '@bruno00o/graph'
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
 import { orthogonalRouting } from '@bruno00o/graph/routing'
@@ -96,7 +97,7 @@ type Sectors = keyof typeof messages.sectorModes
 const sectorMark = groups(items, {
   by: 'sector',
   name: 'sectors',
-  size: (group) => 30 + Math.sqrt(group.count) * 8,
+  size: raw((group) => 30 + Math.sqrt(group.count) * 8),
   fill: dominant,
   label: (group) => messages.sector(String(group.value)),
   container: { padding: 18 },
@@ -132,7 +133,7 @@ function define(merge: Merge, grouped: Sectors, routed: boolean) {
         x: 'x',
         y: 'y',
         color: 'family',
-        size: () => 18,
+        size: 18,
         label: (item) => label.get(item.id) ?? item.id,
       }),
       ...(grouped === 'grouped' ? [sectorMark] : []),

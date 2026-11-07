@@ -77,10 +77,9 @@ const define = (split: Split, labels: Labels) =>
           },
         },
       }),
-      nodes<Spot>(spots, { x: 'x', y: 'y', size: () => 36, label: 'label' }),
+      nodes<Spot>(spots, { x: 'x', y: 'y', size: 36, label: 'label' }),
     ],
     scales: {
-      size: (value) => value,
       color: {
         type: 'sequential',
         domain: [0, 100],

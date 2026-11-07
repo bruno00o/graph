@@ -1,12 +1,12 @@
 ## How it works
 
-`size: 'value'` is a channel: the value goes through the `size` scale of the definition, which turns it into a diameter in world units. The scale is shared by every node mark.
+`size: 'value'` is a channel: the value goes through the `size` scale of the definition, which turns it into a diameter in world units. The scale is shared by every node mark without scales of its own.
 
 The button swaps the scale and passes a new definition to `graph.update`. The three scales:
 
 - `{ type: 'sqrt', domain: [0, 100], range: [6, 96] }`, the default type: the area of a node follows its value, so a value twice as large looks twice as heavy, and small values stay visible.
 - `{ type: 'linear', … }`: the diameter follows the value, so the area grows with its square and large values dominate.
-- `(value) => value`, a function: the value is the diameter, with no domain and no range.
+- `(value) => value`, a function: the value is the diameter, with no domain and no range. For a single mark, `size: raw((item) => item.value)` does the same and leaves the shared scale alone.
 
 The `domain` is fixed to `[0, 100]`. Without it, the scale would stretch over the extent of the data, and would follow it as the data changes. Values outside an explicit domain are clamped to it.
 

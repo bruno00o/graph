@@ -6,6 +6,7 @@ import {
   mountGraph,
   type NodeImage,
   nodes,
+  raw,
 } from '@bruno00o/graph'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
@@ -123,7 +124,7 @@ const define = (background: boolean) =>
         x: 'x',
         y: 'y',
         color: 'group',
-        size: 'size',
+        size: raw((item) => item.size),
         label: { text: 'label', background },
         outline: (item) => item.outline,
         outlineWidth: 3,
@@ -137,7 +138,6 @@ const define = (background: boolean) =>
         },
       }),
     ],
-    scales: { size: (value) => value },
     states: { muted: { opacity: 0.25, label: false } },
   })
 

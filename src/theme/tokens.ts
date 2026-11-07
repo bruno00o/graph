@@ -32,6 +32,10 @@ export const lightTheme: Readonly<Record<string, string>> = {
   'cat-6': '#448335',
   'cat-7': '#5d4099',
   'cat-8': '#745338',
+  'cat-9': '#b64464',
+  'cat-10': '#626a09',
+  'cat-11': '#7471d6',
+  'cat-12': '#a66bb9',
 }
 
 export const defaultFont = 'system-ui, sans-serif'
@@ -40,7 +44,7 @@ export function themeColor(name: string): string {
   return `var(--graph-${name})`
 }
 
-export const categoricalRange: readonly string[] = Array.from({ length: 8 }, (_, index) =>
+export const categoricalRange: readonly string[] = Array.from({ length: 12 }, (_, index) =>
   themeColor(`cat-${index + 1}`),
 )
 

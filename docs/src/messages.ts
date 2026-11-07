@@ -117,7 +117,7 @@ export const messages = {
       },
       theming: {
         title: 'Theming with CSS variables',
-        text: 'Every color is a custom property, from `--graph-paper` to `--graph-cat-8`. Switch themes with a class or `data-theme`: the graph resolves its palette again and repaints, without rebuilding anything.',
+        text: 'Every color is a custom property, from `--graph-paper` to `--graph-cat-12`. Switch themes with a class or `data-theme`: the graph resolves its palette again and repaints, without rebuilding anything.',
       },
       react: {
         title: 'React adapter',
@@ -145,7 +145,7 @@ export const messages = {
       hovered: 'hovered',
       selected: 'selected',
       dimmed: 'dimmed',
-      swatchNames: ['paper', 'ink', 'edge', 'accent', 'cat-1 to cat-8'],
+      swatchNames: ['paper', 'ink', 'edge', 'accent', 'cat-1 to cat-12'],
     },
     denseLabel: 'Five thousand nodes in eight groups',
     layoutLabel: 'Three thousand nodes settling into communities with a force layout',

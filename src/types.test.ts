@@ -12,6 +12,7 @@ import {
   type GraphDefinition,
   type GraphInstance,
   type GraphState,
+  groups,
   hull,
   type KeyFieldOf,
   type Mark,
@@ -19,6 +20,8 @@ import {
   type NodeMark,
   type NodeOptions,
   nodes,
+  type RawAccessor,
+  raw,
 } from './index'
 
 type Person = {
@@ -61,8 +64,56 @@ describe('public types', () => {
     expectTypeOf<KeyFieldOf<Person>>().toEqualTypeOf<'id' | 'name' | 'team' | 'score'>()
     expectTypeOf<KeyFieldOf<Row>>().toEqualTypeOf<'name'>()
     expectTypeOf<Exclude<NodeOptions<Person>['size'], undefined>>().toEqualTypeOf<
-      'score' | Accessor<Person, number | null | undefined>
+      | 'score'
+      | number
+      | Accessor<Person, number | null | undefined>
+      | RawAccessor<Person, number | null | undefined>
     >()
+  })
+
+  it('takes number literals and raw functions in size, width and colors', () => {
+    nodes(people, { size: 30, color: raw((person) => (person.alias ? 'red' : null)) })
+    nodes(people, {
+      size: raw((person) => {
+        expectTypeOf(person).toEqualTypeOf<Person>()
+        return person.score * 2
+      }),
+    })
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      width: 2,
+      color: raw((link) => (link.weight > 1 ? '#c00' : undefined)),
+      ends: { source: { width: 3 }, target: { width: raw((link) => link.weight) } },
+    })
+    groups(people, { by: 'team', size: raw((group) => group.count * 4) })
+    expectTypeOf(raw((person: Person) => person.score)).toEqualTypeOf<RawAccessor<Person, number>>()
+    // @ts-expect-error
+    nodes(people, { color: 3 })
+    // @ts-expect-error
+    nodes(people, { size: raw((person) => person.name) })
+    // @ts-expect-error
+    edges(links, { source: 'from', target: 'to', width: '2' })
+  })
+
+  it('takes scales of its own on a mark', () => {
+    nodes(people, {
+      color: 'team',
+      size: 'score',
+      scales: { color: { domain: ['a', 'b'] }, size: { range: [4, 12] } },
+    })
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      width: 'weight',
+      scales: { width: (value) => value / 2, color: { type: 'sequential' } },
+    })
+    // @ts-expect-error
+    nodes(people, { scales: { width: { range: [1, 2] } } })
+    // @ts-expect-error
+    edges(links, { source: 'from', target: 'to', scales: { size: { range: [1, 2] } } })
+    // @ts-expect-error
+    edges(links, { source: 'from', target: 'to', aggregate: { scales: {} } })
   })
 
   it('accepts an image as a source or with a scale and a color, and badges per corner', () => {

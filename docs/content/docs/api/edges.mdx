@@ -26,7 +26,15 @@ function edges<T, N extends MarkName = undefined, L extends MarkLayer = undefine
 
 ## Options
 
+`width` and `color` take a number literal for `width`, or a function wrapped in [`raw()`](/docs/api/nodes#types), to skip the scale. See [Marks and channels](/docs/marks#channels-and-styles).
+
 <api-table path="index.ts" name="EdgeOptions" />
+
+## Scales
+
+`scales` gives the mark its own `color` and `width` scales, with their own extents and categories. The ends of its edges use them too. Other marks keep the shared scales of [`defineGraph`](/docs/api/define-graph#scales). See [Scales of a mark](/docs/scales#scales-of-a-mark).
+
+<api-table path="index.ts" name="EdgeScalesOptions" />
 
 ## Layers and support
 

@@ -10,23 +10,22 @@ const link = { source: 'from', target: 'to', supportedBy: 'over' } as const
 
 const definition = defineGraph({
   marks: [
-    edges(strata.lower, { ...link, layer: 'lower', width: () => 1.5 }),
+    edges(strata.lower, { ...link, layer: 'lower', width: 1.5 }),
     edges(strata.middle, {
       ...link,
       layer: 'middle',
       stroke: 'var(--graph-cat-1)',
-      width: () => 2.5,
+      width: 2.5,
     }),
     edges(strata.upper, {
       ...link,
       layer: 'upper',
       stroke: 'var(--graph-cat-2)',
-      width: () => 3.5,
+      width: 3.5,
       dash: 'dashed',
     }),
     nodes(strata.places, { x: 'x', y: 'y', label: 'label' }),
   ],
-  scales: { width: (value) => value },
   states: {
     carrier: {
       stroke: 'var(--graph-accent)',

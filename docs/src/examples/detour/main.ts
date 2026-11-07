@@ -21,7 +21,7 @@ const wall = Array.from({ length: rows - 3 }, (_, row) => at(row + 1, 11))
 const definition = defineGraph({
   marks: [
     edges<Link>(links, { source: 'from', target: 'to', opacity: 0.6 }),
-    nodes<Spot>(spots, { x: 'x', y: 'y', size: () => 16 }),
+    nodes<Spot>(spots, { x: 'x', y: 'y', size: 16 }),
   ],
   states: {
     ends: { fill: 'var(--graph-accent)', outline: 'var(--graph-accent)' },

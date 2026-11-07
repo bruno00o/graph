@@ -47,14 +47,13 @@ const define = (width: number) =>
         source: 'from',
         target: 'to',
         color: 'dash',
-        width: () => width,
+        width,
         arrow: (sample) => sample.arrow,
         dash: (sample) => sample.dash,
         label: (sample) => messages.sample(sample.dash, sample.arrow),
       }),
-      nodes<Point>(points, { x: 'x', y: 'y', size: () => 14 }),
+      nodes<Point>(points, { x: 'x', y: 'y', size: 14 }),
     ],
-    scales: { size: (value) => value, width: (value) => value },
   })
 
 export function mount(container: HTMLElement): GraphInstance {

@@ -1,4 +1,4 @@
-import { defineGraph, edges, type Key, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, type Key, nodes, raw } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { Graph, type GraphInstance, useGraph, useGraphEvent } from '@bruno00o/graph/react'
 import { type Ref, useState } from 'react'
@@ -24,12 +24,12 @@ const definition = defineGraph({
     nodes<Part>(items, {
       parent: 'parent',
       color: 'tone',
-      size: (item) => (item.depth === 4 ? 12 : 40 - item.depth * 6),
+      size: raw((item) => (item.depth === 4 ? 12 : 40 - item.depth * 6)),
       label: (item) => (item.depth === 4 ? null : item.label),
       container: { padding: 10 },
     }),
   ],
-  scales: { size: (value) => value, width: (value) => 1 + value },
+  scales: { width: (value) => 1 + value },
   layout: force({ edgeLength: 24 }),
   relayout: true,
 })

@@ -1,4 +1,4 @@
-import { defineGraph, edges, type GraphInstance, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, nodes, raw } from '@bruno00o/graph'
 import { mountMapGraph } from '@bruno00o/graph/map'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -75,11 +75,11 @@ const definitionOf = (moving: boolean) =>
         longitude: 'longitude',
         latitude: 'latitude',
         color: 'group',
-        size: (spot) => (spot.hub ? 22 : 9),
+        size: raw((spot) => (spot.hub ? 22 : 9)),
         label: (spot) => (spot.hub ? spot.label : null),
       }),
     ],
-    scales: { size: (value) => value, width: { range: [1, 5] } },
+    scales: { width: { range: [1, 5] } },
   })
 
 function assign(ref: Ref<GraphInstance | null>, value: GraphInstance | null): void {

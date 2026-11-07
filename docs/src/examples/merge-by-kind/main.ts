@@ -81,12 +81,11 @@ export function mount(container: HTMLElement): GraphInstance {
             label: { text: (aggregate) => String(aggregate.count), background: true },
           },
         }),
-        nodes<Spot>(spots, { x: 'x', y: 'y', size: () => 30, label: 'label' }),
+        nodes<Spot>(spots, { x: 'x', y: 'y', size: 30, label: 'label' }),
       ],
       scales: {
         color: { domain: kinds },
         width: (value) => 1.5 + (value - 1) * 1.5,
-        size: (value) => value,
       },
     })
 

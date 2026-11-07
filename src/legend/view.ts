@@ -1,9 +1,20 @@
 import { themeColor } from '../theme/tokens'
 import type { Mark } from '../types'
 import type { Legend, LegendLayer, LegendState } from './index'
-import type { LegendEdgeLook, LegendLook, LegendNodeLook, LegendSizes, LegendValue } from './read'
+import type {
+  LegendColor,
+  LegendEdgeLook,
+  LegendLook,
+  LegendNodeLook,
+  LegendScalesOf,
+  LegendSizes,
+  LegendValue,
+} from './read'
 
-/** A section of a legend: `'color'`, `'size'`, `'width'`, `'looks'` or `'layers'`. */
+/**
+ * A section of a legend: `'color'`, `'size'`, `'width'`, `'looks'` or `'layers'`. A mark with a
+ * scale of its own adds a block after the section of that scale.
+ */
 export type LegendSection = 'color' | 'size' | 'width' | 'looks' | 'layers'
 
 /** Options of `mountLegend`. The legend writes no text of its own: titles come from these. */
@@ -23,6 +34,13 @@ export interface LegendViewOptions<M extends Mark = Mark> {
   readonly format?: ((value: LegendValue, section: LegendSection) => string) | undefined
   /** Text of a look. Defaults to the name of its mark, or no text for a mark without a name. */
   readonly lookText?: ((look: LegendLook<M>) => string) | undefined
+  /**
+   * Title of the block of a scale of its own of a mark, shown after the section of that scale.
+   * Defaults to the name of the mark, or no title for a mark without a name.
+   */
+  readonly markTitle?:
+    | ((scales: LegendScalesOf<M>, section: 'color' | 'size' | 'width') => string)
+    | undefined
   /** Text of a layer. Defaults to its name. */
   readonly layerText?: ((layer: LegendLayer<M>) => string) | undefined
   /**
@@ -73,17 +91,29 @@ function element<K extends keyof HTMLElementTagNameMap>(
   return node
 }
 
-function structure(state: LegendState): string {
-  const parts: string[] = []
-  const color = state.color
+function colorParts(parts: string[], color: LegendColor | null): void {
   if (color?.type === 'categories') {
     for (const item of color.items) parts.push(item.id, item.color)
   } else if (color) {
     parts.push('ramp', ...color.domain.map(String), ...color.stops)
   }
-  for (const sizes of [state.size, state.width]) {
-    parts.push('|')
-    for (const item of sizes?.items ?? []) parts.push(String(item.value), String(item.size))
+}
+
+function sizeParts(parts: string[], sizes: LegendSizes | null): void {
+  parts.push('|')
+  for (const item of sizes?.items ?? []) parts.push(String(item.value), String(item.size))
+}
+
+function structure(state: LegendState): string {
+  const parts: string[] = []
+  colorParts(parts, state.color)
+  sizeParts(parts, state.size)
+  sizeParts(parts, state.width)
+  for (const mark of state.marks) {
+    parts.push('|', mark.id, String(mark.mark))
+    colorParts(parts, mark.color)
+    sizeParts(parts, mark.size)
+    sizeParts(parts, mark.width)
   }
   parts.push('|')
   for (const look of state.looks) parts.push(look.id)
@@ -112,10 +142,17 @@ export function mountLegend<S extends string, M extends Mark>(
     return (settings.format ?? defaultFormat)(value, section)
   }
 
-  function section(name: LegendSection, body: HTMLElement): HTMLElement {
+  function section(
+    name: LegendSection,
+    body: HTMLElement,
+    mark: LegendScalesOf<M> | null = null,
+  ): HTMLElement {
     const block = element('section', 'margin:0')
     block.setAttribute('data-section', name)
-    const title = settings.titles?.[name]
+    if (mark) block.setAttribute('data-mark', mark.id)
+    const title = mark
+      ? (settings.markTitle?.(mark, name as 'color' | 'size' | 'width') ?? mark.mark)
+      : settings.titles?.[name]
     if (title !== undefined) {
       const heading = element('div', titleStyle, title)
       heading.id = `graph-legend-${++headings}`
@@ -155,14 +192,16 @@ export function mountLegend<S extends string, M extends Mark>(
     return element('span', `flex:none;width:10px;height:10px;border-radius:2px;background:${color}`)
   }
 
-  function colorSection(state: LegendState<M>): HTMLElement | null {
-    const color = state.color
+  function colorSection(
+    color: LegendColor | null,
+    mark: LegendScalesOf<M> | null = null,
+  ): HTMLElement | null {
     if (!color) return null
     if (color.type === 'categories') {
       const rows = color.items.map((entry) =>
         item(entry.id, swatch(entry.color), text(entry.value, 'color')),
       )
-      return section('color', list(rows))
+      return section('color', list(rows), mark)
     }
     const body = element('div', 'display:flex;flex-direction:column;gap:2px;min-width:120px')
     const ramp = element('div', 'height:8px;border-radius:2px')
@@ -176,10 +215,14 @@ export function mountLegend<S extends string, M extends Mark>(
       element('span', '', text(color.domain[1], 'color')),
     )
     body.append(ramp, ends)
-    return section('color', body)
+    return section('color', body, mark)
   }
 
-  function sizeSection(name: 'size' | 'width', sizes: LegendSizes | null): HTMLElement | null {
+  function sizeSection(
+    name: 'size' | 'width',
+    sizes: LegendSizes | null,
+    mark: LegendScalesOf<M> | null = null,
+  ): HTMLElement | null {
     if (!sizes) return null
     const largest = Math.max(...sizes.items.map((entry) => entry.size))
     const shrink = largest > maxDiameter ? maxDiameter / largest : 1
@@ -207,7 +250,17 @@ export function mountLegend<S extends string, M extends Mark>(
       }
       return item(null, symbol, text(entry.value, name))
     })
-    return section(name, list(rows))
+    return section(name, list(rows), mark)
+  }
+
+  function scaleSections(name: 'color' | 'size' | 'width', state: LegendState<M>): HTMLElement[] {
+    const blocks = [
+      name === 'color' ? colorSection(state.color) : sizeSection(name, state[name]),
+      ...(state.marks as readonly LegendScalesOf<M>[]).map((mark) =>
+        name === 'color' ? colorSection(mark.color, mark) : sizeSection(name, mark[name], mark),
+      ),
+    ]
+    return blocks.filter((block): block is HTMLElement => block !== null)
   }
 
   function nodeSymbol(look: LegendNodeLook): HTMLElement {
@@ -288,15 +341,12 @@ export function mountLegend<S extends string, M extends Mark>(
     items.clear()
     const blocks: HTMLElement[] = []
     for (const name of settings.sections ?? allSections) {
-      const block =
-        name === 'color'
-          ? colorSection(state)
-          : name === 'looks'
-            ? looksSection(state)
-            : name === 'layers'
-              ? layersSection(state)
-              : sizeSection(name, name === 'size' ? state.size : state.width)
-      if (block) blocks.push(block)
+      if (name === 'looks' || name === 'layers') {
+        const block = name === 'looks' ? looksSection(state) : layersSection(state)
+        if (block) blocks.push(block)
+      } else {
+        blocks.push(...scaleSections(name, state))
+      }
     }
     root.replaceChildren(...blocks)
     root.style.display = blocks.length > 0 ? 'flex' : 'none'

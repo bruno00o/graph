@@ -5,6 +5,7 @@ import {
   mountGraph,
   type NodeShape,
   nodes,
+  raw,
 } from '@bruno00o/graph'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -68,12 +69,11 @@ const define = (choice: Choice) =>
         x: 'x',
         y: 'y',
         color: 'branch',
-        size: (item) => sizes[item.level],
+        size: raw((item) => sizes[item.level]),
         shape: choice === 'level' ? (item) => shapes[item.level] : choice,
         label: 'label',
       }),
     ],
-    scales: { size: (value) => value },
   })
 
 export function mount(container: HTMLElement): GraphInstance {

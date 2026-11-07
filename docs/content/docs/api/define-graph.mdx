@@ -34,6 +34,8 @@ type NumberScale =
   | { type?: 'linear' | 'sqrt'; domain?: readonly [number, number]; range?: readonly [number, number] }
 ```
 
+These scales are shared by every mark without `scales` of its own: see [Scales of a mark](/docs/scales#scales-of-a-mark). Number literals and values wrapped in `raw()` never go through them. A number scale without `domain` keeps a single value of the data, clamped to its range: see [A single value](/docs/scales#a-single-value).
+
 ## State styles
 
 ```ts

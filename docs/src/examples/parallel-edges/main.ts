@@ -93,15 +93,14 @@ const define = (mode: EdgeLabels, flowing: boolean) =>
         source: 'from',
         target: 'to',
         color: 'group',
-        width: () => 2.5,
+        width: 2.5,
         arrow: (route) => route.arrow,
         dash: (route) => route.dash,
         ...(flowing ? { flow: flowOf } : {}),
         ...(mode === 'none' ? {} : { label: { text: 'name', background: mode === 'plated' } }),
       }),
-      nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: () => 34, label: 'label' }),
+      nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: 34, label: 'label' }),
     ],
-    scales: { size: (value) => value, width: (value) => value },
   })
 
 export function mount(container: HTMLElement): GraphInstance {

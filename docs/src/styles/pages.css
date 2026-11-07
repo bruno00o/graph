@@ -589,7 +589,7 @@
 
 .swatch-row {
   display: grid;
-  grid-template-columns: 56px repeat(12, minmax(0, 1fr));
+  grid-template-columns: 56px repeat(16, minmax(0, 1fr));
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
@@ -608,7 +608,7 @@
 }
 
 .swatch-names span:last-child {
-  grid-column: span 8;
+  grid-column: span 12;
 }
 
 .cell-code {
@@ -1202,8 +1202,8 @@
   }
 
   .swatch-row {
-    grid-template-columns: 40px repeat(12, minmax(0, 1fr));
-    gap: 3px;
+    grid-template-columns: 40px repeat(16, minmax(0, 1fr));
+    gap: 2px;
   }
 
   .swatch {

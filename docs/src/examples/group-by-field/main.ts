@@ -1,4 +1,12 @@
-import { defineGraph, edges, type GraphInstance, groups, mountGraph, nodes } from '@bruno00o/graph'
+import {
+  defineGraph,
+  edges,
+  type GraphInstance,
+  groups,
+  mountGraph,
+  nodes,
+  raw,
+} from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
@@ -12,7 +20,7 @@ const bandOf = (item: Item) => (item.weight < 10 ? 'light' : item.weight < 40 ? 
 export function mount(container: HTMLElement): GraphInstance {
   const { items, links } = createSample(120, 170, 5, 7, 0.12)
   const groupLook = {
-    size: (group: { count: number }) => 20 + Math.sqrt(group.count) * 4,
+    size: raw((group: { count: number }) => 20 + Math.sqrt(group.count) * 4),
     container: { padding: 14 },
   }
   const marks = {
@@ -48,12 +56,12 @@ export function mount(container: HTMLElement): GraphInstance {
         }),
         nodes<Item>(items, {
           color: 'group',
-          size: (item) => 6 + Math.sqrt(item.weight) * 1.5,
+          size: raw((item) => 6 + Math.sqrt(item.weight) * 1.5),
           label: 'label',
         }),
         ...(field === 'none' ? [] : [marks[field]]),
       ],
-      scales: { size: (value) => value, width: (value) => 1 + Math.sqrt(value) * 1.5 },
+      scales: { width: (value) => 1 + Math.sqrt(value) * 1.5 },
       layout: force(field === 'none' ? {} : { edgeLength: 160 }),
       relayout: true,
     })
