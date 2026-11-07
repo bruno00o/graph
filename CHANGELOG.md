@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.2](https://github.com/bruno00o/graph/compare/0.14.1...0.14.2) (2026-11-07)
+
+
+### Bug Fixes
+
+* keep early fits, free released nodes, pick by shape and route along the axis ([#89](https://github.com/bruno00o/graph/issues/89)) ([1c1121c](https://github.com/bruno00o/graph/commit/1c1121c4fed3a16397dde30ffaae714be0728e43))
+
 ## [0.14.1](https://github.com/bruno00o/graph/compare/0.14.0...0.14.1) (2026-11-07)
 
 
