@@ -2,6 +2,7 @@ import { createStore, type ReadonlyStore } from '@tanstack/store'
 import type { LogCursor } from '../core/change-log'
 import { readWindow, sameWindow, toTime } from '../core/time-range'
 import { internalsOf } from '../host/internals'
+import { isolateSubscribers } from '../host/isolate'
 import type { GraphInstance } from '../host/mount-graph'
 import type { Mark, TimeInstant, TimeWindow, TimeWindowInput } from '../types'
 import { addTime, boundaries, chooseStep, type TimeStep, type TimeUnit } from './calendar'
@@ -264,7 +265,9 @@ export function createTimeline<S extends string, M extends Mark>(
     mode: settings.mode,
     loop: settings.loop,
   })
-  const readonlyStore: ReadonlyStore<TimelineState> = createStore(() => store.state)
+  const readonlyStore: ReadonlyStore<TimelineState> = isolateSubscribers(
+    createStore(() => store.state),
+  )
 
   function patch(next: Partial<TimelineState>): void {
     store.setState((state) => ({ ...state, ...next }))
@@ -497,22 +500,23 @@ export function createTimeline<S extends string, M extends Mark>(
     if (!sameWindow(store.state.window, window)) patch({ window })
   })
 
-  const stopWatch = internals.watch({
-    frame() {
-      if (internals.stamp().scene !== readScene) schedule()
-    },
-    destroy: () => destroy(),
-  })
+  let stopWatch: (() => void) | null = null
 
   function destroy(): void {
     if (destroyed) return
     pause()
     destroyed = true
     clearTimeout(timer)
-    stopWatch()
+    stopWatch?.()
     stopTime()
   }
 
+  stopWatch = internals.watch({
+    frame() {
+      if (internals.stamp().scene !== readScene) schedule()
+    },
+    destroy: () => destroy(),
+  })
   read()
 
   return {

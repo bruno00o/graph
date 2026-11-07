@@ -174,3 +174,20 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 A `doubleclick` on a group folds or unfolds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 
 At the end of a layout run, `positionchange` fires before `layoutend`. Nodes that arrive during a run join it without a new `layoutstart`, and a run replaced by another ends with `completed: false` before the next `layoutstart`.
+
+## Errors in handlers
+
+Handlers run one after the other, as the listeners of a DOM element do. A handler that throws stops neither the next handlers of the event nor the graph: a click still selects, a layout run still settles and the frame is still drawn. Its error goes to [`reportError`](https://developer.mozilla.org/docs/Web/API/Window/reportError), which reports it as an uncaught error, with an `error` event on `window` and a line in the console. Where `reportError` is missing, the error is thrown again from a timer, once the graph is done.
+
+The same rule holds for the subscribers of `graph.store`, of the [legend](/docs/api/legend) store and of the [timeline](/docs/api/timeline) store, and for the callbacks of the controlled modes: `onSelectionChange`, `onFoldChange`, `onViewChange`, `onTimeChange` and `onLayerChange`.
+
+```ts
+graph.on('click', () => {
+  throw new Error('broken handler')
+})
+graph.on('click', ({ target }) => console.log(target))
+```
+
+Here the second handler still logs, and the click still selects.
+
+A handler removed during an event, by itself or by an earlier handler, is not called for that event, and one added during it waits for the next. A handler can destroy the graph: the handlers left for the event are not called, and the graph changes nothing after it, so a click whose handler destroys the graph selects nothing.

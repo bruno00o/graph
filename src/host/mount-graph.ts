@@ -106,8 +106,10 @@ import {
 } from './events'
 import { exposeSnapshot } from './export-source'
 import { createFlowWatch } from './flows'
+import { checkDuration, checkFactor, checkFit, checkView, finitePoint } from './inputs'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import { exposeInternals, type GraphWatcher } from './internals'
+import { isolated, isolateSubscribers } from './isolate'
 import { keyAction } from './keyboard'
 import { layoutGraph } from './layout-graph'
 import {
@@ -180,7 +182,10 @@ export interface GraphLayoutStatus {
   readonly progress: number
 }
 
-/** Read-only TanStack Store of the graph state. Write through the methods of the instance. */
+/**
+ * Read-only TanStack Store of the graph state, written through the methods of the instance. A
+ * subscriber that throws stops neither the others nor the graph: its error goes to `reportError`.
+ */
 export type GraphStore<S extends string = string, M extends Mark = Mark> = ReadonlyStore<
   GraphState<S, M>
 >
@@ -188,7 +193,8 @@ export type GraphStore<S extends string = string, M extends Mark = Mark> = Reado
 /** Options of an animated view change. */
 export interface ViewOptions {
   /**
-   * Animation duration in milliseconds, zero with `prefers-reduced-motion`.
+   * Animation duration in milliseconds, zero with `prefers-reduced-motion`. A duration that is not
+   * finite throws a `RangeError`.
    * @default 0
    */
   readonly duration?: number | undefined
@@ -223,16 +229,23 @@ export interface FitOptions extends ViewOptions {
 export interface GraphView {
   /** Current view. */
   get(): View
-  /** Moves the view, at once or over `duration`. */
+  /**
+   * Moves the view, at once or over `duration`. Throws a `RangeError` for an `x`, a `y` or a `zoom`
+   * that is not finite.
+   */
   set(view: View, options?: ViewOptions): void
   /**
    * Frames the given nodes and edges, or every node when the options name neither. Called before
    * the element has a size, it waits for one. While automatic fits follow a layout run, they frame
-   * these nodes and edges instead of every node. Throws a `TypeError` for keys given as a list:
-   * pass `{ nodes }`.
+   * these nodes and edges instead of every node. Throws a `TypeError` for keys given as a list,
+   * pass `{ nodes }`, and a `RangeError` for a `padding`, a `maxZoom` or a `duration` that is not
+   * finite.
    */
   fit(options?: FitOptions): void
-  /** Multiplies the zoom around the center of the view, up to the zoom limits. */
+  /**
+   * Multiplies the zoom around the center of the view, up to the zoom limits. Throws a `RangeError`
+   * for a factor that is not a positive finite number.
+   */
   zoomBy(factor: number, options?: ViewOptions): void
   /**
    * Converts a point in world units to screen pixels, relative to the graph element. On a map drawn
@@ -369,7 +382,8 @@ export interface GraphLayout<M extends Mark = Mark> {
   /**
    * Applies pending data changes, then lays out every free node, or only `keys`, with `layout` or
    * the layout of the definition. Resolves to `true` when the run ends and `false` when it is
-   * stopped or replaced, and rejects when there is no layout to run or the graph is on a map.
+   * stopped or replaced. Rejects when there is no layout to run, the graph is on a map, or an
+   * option holds a number that is not finite.
    */
   run(layout?: Layout<NodeDatum<M>>, options?: LayoutRunOptions): Promise<boolean>
   /** Ends the current run and leaves nodes where they are. */
@@ -433,8 +447,9 @@ export interface GraphPositions {
   /** Position of a node, as drawn now, or `undefined` for an unknown key. */
   get(key: Key): Point | undefined
   /**
-   * Moves nodes, at once or over `duration`, and emits `positionchange` with the origin `'api'`.
-   * During a layout run, the moved nodes stay pinned until it ends.
+   * Moves nodes, at once or over `duration`, pinned in a running layout until it ends, and emits
+   * `positionchange` with the origin `'api'`. An entry whose `x` or `y` is not finite is skipped,
+   * with a warning in development.
    */
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
   /**
@@ -623,7 +638,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   count(): GraphCount
   /**
    * Subscribes to an event until the returned function is called or the `signal` of the options
-   * aborts. Subscribes nothing once the graph is destroyed.
+   * aborts, and subscribes nothing once the graph is destroyed. A handler that throws stops neither
+   * the others nor the graph: its error goes to `reportError`.
    */
   on<K extends GraphEventName>(
     name: K,
@@ -899,19 +915,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let given: GraphDefinition = options.definition
   let definition: GraphDefinition = surface ? surface.adapt(given) : given
   const controlled = options.selection !== undefined
-  let onSelectionChange = options.onSelectionChange
+  let onSelectionChange = isolated(options.onSelectionChange)
   const foldControlled = options.folded !== undefined
-  let onFoldChange = options.onFoldChange
+  let onFoldChange = isolated(options.onFoldChange)
   const viewControlled = options.view !== undefined
-  let onViewChange = options.onViewChange
+  let onViewChange = isolated(options.onViewChange)
   const timeControlled = options.time !== undefined
-  let onTimeChange = options.onTimeChange
+  let onTimeChange = isolated(options.onTimeChange)
   let timeWindow = readWindow(options.time ?? options.initialTime ?? null)
   let filter: TimeFilter | null = timeFilter(timeWindow, definition.time.fade)
   let filterFade = definition.time.fade
   const layersControlled = options.hiddenLayers !== undefined
   type LayerListener = ((event: GraphLayerEvent) => void) | undefined
-  let onLayerChange = options.onLayerChange as LayerListener
+  let onLayerChange = isolated(options.onLayerChange as LayerListener)
   let hiddenLayers: readonly string[] = [
     ...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? []),
   ]
@@ -1051,7 +1067,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     lens: null,
     hiddenLayers,
   })
-  const readonlyStore: GraphStore = createStore(() => store.state)
+  const readonlyStore: GraphStore = isolateSubscribers(createStore(() => store.state))
   const bundles = new BundleHost(
     {
       edges: scene.edges,
@@ -1079,8 +1095,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
     reducedMotion,
   )
-  adoptLimits()
-  const routeBoxes = (): Float32Array | null => {
+  function routeBoxes(): Float32Array | null {
     if (!projection.active) return null
     syncContainers()
     return containerBoxes.boxes
@@ -1096,6 +1111,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     request: () => request(),
     sight: () => sight(),
   })
+  adoptLimits()
   const decorations = createDecorations({
     element,
     canvas,
@@ -1270,6 +1286,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function patch(next: Partial<GraphState>): void {
+    if (destroyed) return
     store.setState((state) => ({ ...state, ...next }))
   }
 
@@ -1695,6 +1712,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       throw new RangeError('graph: lens radius must be a positive number')
     }
     if (!Number.isFinite(zoom)) throw new RangeError('graph: lens zoom must be a finite number')
+    if (typeof place !== 'string' && !finitePoint(place)) {
+      throw new RangeError('graph: lens at must be a point with a finite x and y')
+    }
     wantedLens = {
       at:
         typeof place === 'string' ? (lens?.at ?? { x: size.width / 2, y: size.height / 2 }) : place,
@@ -1902,6 +1922,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     patch({ hovered: next })
     if (current && event) emitter.emit('pointerleave', { target: current, originalEvent: event })
     if (next && event) emitter.emit('pointerenter', { target: next, originalEvent: event })
+    if (destroyed) return
     updateCursor()
     request()
   }
@@ -1952,6 +1973,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (sameTarget(store.get().focused, next)) return
     registry.set('focused', next ? { [kindOf[next.kind]]: [next.key] } : {})
     patch({ focused: next })
+    if (destroyed) return
     if (next) {
       element.style.outline = 'none'
       announce(labelOf(next))
@@ -2166,12 +2188,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const start = clock()
     const changes = model.flush()
     if (projection.grouping) foldNewGroups(changes)
+    if (destroyed) return
     const supported = support.apply(changes)
     const projected = projection.apply(changes)
     const flushed = clock()
     scene.apply(projection.view, projected.scene)
     const applied = clock()
     applyChanges(changes, projected)
+    if (destroyed) return
     if (supported) lightSupport()
     probe?.flushed(flushed - start, applied - flushed)
     refreshIssues()
@@ -2398,6 +2422,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (result.selection) {
       publishSelection()
       if (controlled) onSelectionChange?.({ selection: registry.members('selected') })
+      if (destroyed) return
     }
     const hovered = store.get().hovered
     if (hovered && !result.hovered && concealed(hovered)) {
@@ -2427,6 +2452,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         patch({ focused: fresh })
       }
     }
+    if (destroyed) return
     if (projected.reshaped && definition.relayout && laidOut) relayout = true
     followLayout(changes, fresh)
   }
@@ -2441,7 +2467,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function followLayout(changes: GraphChanges, revealed: readonly number[]): void {
     const layout = definition.layout
-    if (!layout) return
+    if (!layout || destroyed) return
     const added = [
       ...changes.nodes.added.filter((ref) => projection.nodeShown(ref.index)),
       ...revealed.map((index) => ({ index })),
@@ -2586,6 +2612,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (session !== current) return
     session = null
     if (current.animation !== 0) cancelAnimation(current.animation)
+    current.resolve(completed)
     patch({ layout: { running: false, progress: completed ? 1 : store.get().layout.progress } })
     if (completed && emitter.has('positionchange')) {
       const moved = new Map<Key, Point>()
@@ -2604,7 +2631,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     if (completed && current.fit && !current.fitted) pendingFit = current.fit
     emitter.emit('layoutend', { name: current.layout.name, completed })
-    current.resolve(completed)
     request()
   }
 
@@ -2613,6 +2639,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     movable: (index: number) => boolean,
     previous: LayoutSettings & Pick<LayoutSession, 'auto' | 'resolve'>,
   ): boolean {
+    if (destroyed) return false
     const dragged = gesture?.drag ? new Set(gesture.drag.indices) : null
     const graph = layoutGraph(
       scene.nodes,
@@ -2665,6 +2692,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         },
       })
       if (session === current) current.run = run
+      else run.stop()
     } catch (error) {
       finishLayout(current, false)
       throw error
@@ -2682,6 +2710,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return new Promise<boolean>((resolve) => {
       patch({ layout: { running: true, progress: 0 } })
       emitter.emit('layoutstart', { name: layout.name })
+      if (destroyed) {
+        resolve(false)
+        return
+      }
       if (!launch(layout, movable, { ...settings, auto, resolve })) {
         settleLayout(layout, settings, resolve)
       }
@@ -2693,10 +2725,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     settings: LayoutSettings,
     resolve: (completed: boolean) => void,
   ): void {
+    resolve(true)
     if (settings.fit) pendingFit = settings.fit
     patch({ layout: { running: false, progress: 1 } })
     emitter.emit('layoutend', { name: layout.name, completed: true })
-    resolve(true)
   }
 
   function stopLayout(): void {
@@ -2808,6 +2840,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (destroyed || contextLost) return
     const start = clock()
     flushPending()
+    if (destroyed) return
     if (pendingBounds && sized()) {
       animateTo(frameBox(pendingBounds.box, pendingBounds.options), 0, 'apiFit')
       pendingBounds = null
@@ -2823,8 +2856,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     if (autoPanning) stepAutoPan(now)
     sendView()
+    if (destroyed) return
     if (positionAnimations.length > 0) stepPositions(now)
     if (wantedLens?.follow === 'focus') updateLens()
+    if (destroyed) return
     const easing = bundles.frame(now)
     bridges.frame()
     if (bundles.routes || bridges.enabled) {
@@ -2839,6 +2874,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       hideChecked = buffers.hideVersion
       dropHidden()
     }
+    if (destroyed) return
     registry.takeHighlighted()
     syncContainers()
     decorations.prepare()
@@ -2871,6 +2907,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (positionsChanged) {
       positionsVersion = positions.version
       patch({ positionsVersion })
+      if (destroyed) return
     }
     const { view, width, height } = store.get()
     const renderStart = clock()
@@ -3032,6 +3069,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     viewAnimation = null
     remembered = null
     setFocused(null)
+    if (destroyed) return
     const point = local(event)
     trackPointer(point)
     const hit = pickAt(point)
@@ -3071,6 +3109,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     autoPanning = false
     viewAnimation = null
     if (current.drag?.started) emitter.emit('dragend', dragEvent(current.drag, current.event))
+    if (destroyed) return
     if (current.lasso) drawLasso(null)
     const points = new Map([
       [current.id, current.last],
@@ -3123,6 +3162,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (!drag.started) {
       drag.started = true
       emitter.emit('dragstart', dragEvent(drag, event))
+      if (destroyed) return
     }
     const camera = sphere()
     const world = camera
@@ -3138,6 +3178,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     })
     pinLayout(drag.indices)
     emitter.emit('drag', dragEvent(drag, event))
+    if (destroyed) return
     if (emitter.has('positionchange')) {
       const moved = new Map<Key, Point>()
       drag.keys.forEach((key, i) => {
@@ -3230,6 +3271,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (!gesture) {
       const hit = pickAt(point)
       setHovered(hit, event)
+      if (destroyed) return
       queueMove(event, point, hit)
       return
     }
@@ -3281,15 +3323,20 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     surface?.claim(false)
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     if (ended.drag?.started) emitter.emit('dragend', dragEvent(ended.drag, event))
+    if (destroyed) return
     if (ended.lasso) {
       drawLasso(null)
       if (!cancelled && ended.moved) selectInside(ended.lasso)
+      if (destroyed) return
     }
     if (!cancelled && !ended.moved) {
       emitter.emit('click', pointerEvent(event, ended.target))
+      if (destroyed) return
       selectOnClick(ended.target, event)
+      if (destroyed) return
     }
     if (!cancelled && !ended.touch) setHovered(pickAt(local(event)), event)
+    if (destroyed) return
     updateCursor()
   }
 
@@ -3304,6 +3351,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function onPointerLeave(event: PointerEvent): void {
     if (gesture || pinch) return
     setHovered(null, event)
+    if (destroyed) return
     pointer = null
     updateLens()
   }
@@ -3311,7 +3359,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function onDoubleClick(event: MouseEvent): void {
     const hit = pickAt(local(event))
     emitter.emit('doubleclick', pointerEvent(event, hit))
-    if (event.defaultPrevented || !definition.interaction.fold) return
+    if (destroyed || event.defaultPrevented || !definition.interaction.fold) return
     if (hit?.kind === 'node' && isGroup(hit.key)) toggleFold(hit.key)
   }
 
@@ -3479,18 +3527,25 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   const view: GraphView = {
     get: () => store.get().view,
-    set: (next, viewOptions = {}) => animateTo(next, viewOptions.duration, 'api'),
+    set: (next, viewOptions = {}) => {
+      checkView(next)
+      checkDuration(viewOptions)
+      animateTo(next, viewOptions.duration, 'api')
+    },
     fit: (fitOptions?: FitOptions, ...rest: unknown[]) => {
       const iterable = typeof Object(fitOptions)[Symbol.iterator] === 'function'
       if (rest.length > 0 || iterable) {
         throw new TypeError('graph: view.fit takes options, such as { nodes }')
       }
+      checkFit(fitOptions ?? {})
       flushPending()
       const fit = fitRequest(fitOptions ?? {})
       if (definition.view.autoFit === 'layouts' || stillFraming()) frameTarget = fit
       pendingFit = settleFit(fit) ? null : fit
     },
     zoomBy: (factor, viewOptions = {}) => {
+      checkFactor(factor)
+      checkDuration(viewOptions)
       const size = viewport()
       const center = { x: size.width / 2, y: size.height / 2 }
       const zoomed = zoomAround(baseView(), size, center, factor, definition.view)
@@ -3542,13 +3597,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return record ? { x: positions.x(record.index), y: positions.y(record.index) } : undefined
     },
     set: (entries, positionOptions = {}) => {
+      checkDuration(positionOptions)
       flushPending()
       const indices: number[] = []
       const to: number[] = []
       const moved = new Map<Key, Point>()
+      let skipped = 0
       for (const [key, point] of entries) {
         const record = model.node(key)
         if (!record) continue
+        if (!finitePoint(point)) {
+          skipped++
+          continue
+        }
         indices.push(record.index)
         to.push(point.x, point.y)
         moved.set(key, { x: point.x, y: point.y })
@@ -3558,6 +3619,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (run) {
         for (const [i, index] of indices.entries())
           run.pin(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
+      }
+      if (dev && skipped > 0) {
+        console.warn(`graph: positions.set skipped ${skipped} node(s) without a finite x and y`)
       }
       movePositions(indices, to, positionOptions.duration ?? 0)
       if (moved.size > 0) emitter.emit('positionchange', { origin: 'api', positions: moved })
@@ -3578,6 +3642,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (surface) return Promise.reject(new Error('graph: layouts do not run on a map'))
       const chosen = layout ?? definition.layout
       if (!chosen) return Promise.reject(new Error('graph: no layout to run'))
+      try {
+        checkDuration(runOptions)
+        if (runOptions.fit && runOptions.fit !== true) checkFit(runOptions.fit)
+      } catch (error) {
+        return Promise.reject(error)
+      }
       flushPending()
       const fit = runOptions.fit === true ? {} : runOptions.fit || null
       const settings: LayoutSettings = {
@@ -3778,17 +3848,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     drawn: () => waiters.wait(),
     update(next) {
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
-      if (next.onSelectionChange !== undefined) onSelectionChange = next.onSelectionChange
+      if (next.onSelectionChange !== undefined) onSelectionChange = isolated(next.onSelectionChange)
       if (controlled && next.selection !== undefined && registry.set('selected', next.selection)) {
         publishSelection()
       }
-      if (next.onFoldChange !== undefined) onFoldChange = next.onFoldChange
+      if (next.onFoldChange !== undefined) onFoldChange = isolated(next.onFoldChange)
       if (foldControlled && next.folded !== undefined) applyFolded(next.folded)
-      if (next.onViewChange !== undefined && !surface) onViewChange = next.onViewChange
+      if (next.onViewChange !== undefined && !surface) onViewChange = isolated(next.onViewChange)
       if (viewControlled && next.view !== undefined && !surface) applyView(next.view)
-      if (next.onTimeChange !== undefined) onTimeChange = next.onTimeChange
+      if (next.onTimeChange !== undefined) onTimeChange = isolated(next.onTimeChange)
       if (timeControlled && next.time !== undefined) applyTime(readWindow(next.time))
-      if (next.onLayerChange !== undefined) onLayerChange = next.onLayerChange as LayerListener
+      if (next.onLayerChange !== undefined) {
+        onLayerChange = isolated(next.onLayerChange as LayerListener)
+      }
       if (layersControlled && next.hiddenLayers !== undefined) applyHidden(next.hiddenLayers)
       if (next.definition && next.definition !== given) {
         const previous = definition.layout
@@ -3901,7 +3973,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       detail: detailStep(scene.nodes, scene.edges, sight()),
     }),
     watch(watcher) {
-      if (destroyed) return () => {}
+      if (destroyed) {
+        watcher.destroy()
+        return () => {}
+      }
       watchers.add(watcher)
       request()
       return () => {

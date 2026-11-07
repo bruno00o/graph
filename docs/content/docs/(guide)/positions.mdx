@@ -46,7 +46,7 @@ graph.positions.set([['n1', { x: 0, y: 0 }], ['n2', { x: 80, y: 0 }]], { duratio
 graph.positions.set(new Map([['n3', { x: 40, y: 60 }]]))
 ```
 
-`set` takes any iterable of `[key, point]` pairs; a `Map` works. Without a duration, the nodes move at once.
+`set` takes any iterable of `[key, point]` pairs; a `Map` works. Without a duration, the nodes move at once. A pair whose `x` or `y` is not a finite number, such as `NaN` or a missing value, is skipped with a warning in development: its node stays where it is, and the other pairs apply.
 
 ## Save and restore
 
