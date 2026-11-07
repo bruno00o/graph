@@ -568,6 +568,7 @@ export function createMinimap<S extends string, M extends Mark>(
   function onWheel(event: WheelEvent): void {
     if (!settings.zoom) return
     event.preventDefault()
+    if (event.ctrlKey && pinchGestures.active) return
     const height = graph.store.state.height
     graph.view.zoomBy(wheelFactor(event.deltaY, event.deltaMode, height, 1, event.ctrlKey))
   }

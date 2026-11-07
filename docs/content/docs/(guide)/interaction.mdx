@@ -85,7 +85,7 @@ With `lasso: true` and `select: 'multiple'`, Shift and drag from the background 
 
 `'zoom'` suits a graph that fills the window. `'pan'` suits trackpads: scroll to move, pinch to zoom. `'page'` suits a graph inside a page that scrolls, so that the wheel never traps the reader.
 
-A pinch on a trackpad reaches the page as a wheel event with Ctrl held: it zooms in every mode, faster than a wheel step so that the graph follows the fingers. In `'zoom'` mode, the graph takes the wheel even at the zoom limits, so the page does not jump at the end of a zoom. Wheel events the graph does not use, such as any wheel with `zoom: false`, go to the page.
+A pinch on a trackpad reaches the page as a wheel event with Ctrl held: it zooms in every mode, faster than a wheel step so that the graph follows the fingers. Safari also sends gesture events with the scale of the pinch; the graph then zooms by that scale, keeps Safari from zooming the page, and ignores the wheel events of the same pinch. Wheel deltas counted in lines or pages, as Firefox can send, are converted to pixels. In `'zoom'` mode, the graph takes the wheel even at the zoom limits, so the page does not jump at the end of a zoom. Wheel events the graph does not use, such as any wheel with `zoom: false`, go to the page.
 
 In `'page'` mode, each wheel event left to the page emits `zoomhint`, so your application can say how to zoom. The graph shows no text itself: the event carries `key`, `'Meta'` on Apple systems (Cmd) and `'Control'` elsewhere.
 

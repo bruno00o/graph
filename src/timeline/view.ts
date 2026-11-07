@@ -45,7 +45,8 @@ export interface TimelineViewOptions {
    */
   readonly height?: number
   /**
-   * The wheel zooms the bar around the pointer, and pans it with Shift or a horizontal swipe.
+   * The wheel and a trackpad pinch zoom the bar around the pointer, and Shift with the wheel or a
+   * horizontal swipe pans it.
    * @default true
    */
   readonly wheel?: boolean
@@ -426,6 +427,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
   const onWheel = (event: WheelEvent) => {
     if (settings.wheel === false || !timeline.store.state.range) return
     event.preventDefault()
+    if (event.ctrlKey && pinchGestures.active) return
     const range = timeline.store.state.range
     const box = track.getBoundingClientRect()
     const deltaX = wheelPixels(event.deltaX, event.deltaMode, box.width)

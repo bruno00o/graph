@@ -23,7 +23,7 @@ Nodes keep their size, between `nodeSize` and a cap that shrinks as nodes get mo
 
 ### Cost
 
-The minimap draws again when positions, data, the selection or the theme change, never more often than its own cost allows: it waits ten times as long as its last draw took on the page, and at least 32 ms. When the browser has workers and `OffscreenCanvas`, the drawing happens in a worker and the page only copies the columns it needs; otherwise it happens on the page. The rectangle of the view moves at every frame, without drawing again.
+The minimap draws again when positions, data, the selection or the theme change, never more often than its own cost allows: it waits ten times as long as its last draw took on the page, and at least 32 ms. When the browser has workers and `OffscreenCanvas`, the drawing happens in a worker, the page only copies the columns it needs and shows each finished frame; otherwise it happens on the page. The rectangle of the view moves at every frame, without drawing again.
 
 With 500,000 nodes and 1,000,000 edges, a draw costs the page a few milliseconds at most, the time to copy the columns, and panning or a force layout keeps the same frame rate as without the minimap.
 

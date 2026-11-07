@@ -270,16 +270,18 @@ describe('mountTimeline', () => {
     expect(lines.defaultPrevented).toBe(true)
     expect(span()).toBeCloseTo(full / 2 ** (48 / 300), -3)
     timeline.fit()
-    for (const [type, scale] of [
-      ['gesturestart', 1],
-      ['gesturechange', 4],
-      ['gestureend', 4],
-    ] as const) {
+    const send = (type: string, scale: number) => {
       const event = new Event(type, { cancelable: true })
       Object.defineProperty(event, 'scale', { value: scale })
       track?.dispatchEvent(event)
       expect(event.defaultPrevented).toBe(true)
     }
+    send('gesturestart', 1)
+    send('gesturechange', 4)
+    const pinch = new WheelEvent('wheel', { deltaY: -10, cancelable: true })
+    Object.defineProperty(pinch, 'ctrlKey', { value: true })
+    track?.dispatchEvent(pinch)
+    send('gestureend', 4)
     expect(span()).toBeCloseTo(full / 4, -3)
     view.destroy()
     timeline.destroy()
