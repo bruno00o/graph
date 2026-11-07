@@ -93,6 +93,8 @@
     "dev": "vite",
     "docs:dev": "pnpm --dir docs dev",
     "docs:build": "pnpm --dir docs build",
+    "docs:thumbnails": "node scripts/thumbnails.mjs",
+    "docs:new-example": "node scripts/new-example.mjs",
     "bench": "node scripts/bench.mjs",
     "build": "tsdown",
     "check": "biome check .",

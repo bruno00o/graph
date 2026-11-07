@@ -1,0 +1,18 @@
+## How it works
+
+The data is a directed graph without cycles, and edges end in an arrow. The graph starts with `layout: layers()` in its definition. The button calls `graph.layout.run(layouts[kind], { fit: true })` with another layout: the definition keeps its own, and the run applies to every free node.
+
+Every layout here but `force` computes its result at once. Nodes glide to their new place over `transitions.layout`, 400 milliseconds by default, and `fit` frames where they land, while they move.
+
+- **Layers** puts each node on a layer so that edges point down, and sorts each layer to cross as few edges as it can. **Direction** turns it to point up, right or left.
+- **Force** runs the force simulation of `@bruno00o/graph/layouts/force` in a worker.
+- **Grid** sorts the nodes by group, then by weight, with an `order` function that receives the data of each node.
+- **Rings** puts the node with the most edges in the middle and fills rings outward, by degree.
+- **Radial** starts from the node with the most edges and places every other node on the ring of its distance to it, next to the node it was reached from.
+
+## Try it
+
+- Press **Layout** to go from one layout to the next.
+- Press **Direction** to turn the layers.
+- Hold Shift and drag around a few nodes, then press **Arrange the selection**: only these nodes move, around their current center, and the others stay where they are.
+- Drag a node, then press **Layout** again: a run moves every free node, the dragged one included.

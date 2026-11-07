@@ -1,0 +1,13 @@
+## How it works
+
+Nodes come from a TanStack DB collection stored in `localStorage`. The collection is passed to `nodes()` like an array, and the graph follows its inserts, updates and deletes.
+
+`persistPositions(graph, { collection })` writes the position of a dragged node back into the collection. The other tab receives the change through the `storage` event, and its graph moves the node to the new position.
+
+The **Reset positions** button puts every row back to its first position. The graph animates the change like any other update.
+
+## Try it
+
+- Open this page in a second tab, side by side.
+- Drag a node in one tab, then look at the other.
+- Press **Reset positions** in either tab.

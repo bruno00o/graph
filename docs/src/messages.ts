@@ -34,9 +34,22 @@ export const messages = {
   },
   examples: {
     title: 'Examples',
-    lead: 'Each example runs in the page next to its full source. Open one to try it, read the code, or take it full screen.',
-    filters: 'Filter by topic',
+    lead: 'Each example shows one idea and runs in the page next to its full source. Open one to try it, read the code, or take it full screen.',
+    search: 'Search the examples',
+    searchPlaceholder: 'Search by title or description',
+    categories: 'Category',
+    tags: 'Framework and integrations',
     all: 'All',
+    results: (shown: number, total: number) =>
+      shown === total
+        ? `${formatNumber(total)} examples`
+        : `${formatNumber(shown)} of ${formatNumber(total)} examples`,
+    none: 'No example matches these filters.',
+    clear: 'Clear the filters',
+    preview: (title: string) => `Preview of the ${title} example`,
+    related: 'Read more',
+    guide: 'Guide',
+    api: 'API reference',
     previous: 'Previous example',
     next: 'Next example',
     pager: 'More examples',
@@ -153,7 +166,7 @@ export const messages = {
       },
       {
         title: 'Examples',
-        text: 'Nine live examples, each next to its full source.',
+        text: 'Live examples by topic, each next to its full source.',
         href: '/examples',
       },
     ],

@@ -1,0 +1,17 @@
+## How it works
+
+The graph sits in a page that scrolls, so its definition sets `interaction: { wheel: 'page' }`: the wheel scrolls the page, and Cmd or Ctrl with the wheel zooms the graph. A pinch on a trackpad zooms too, since it reaches the page as a wheel event with Ctrl held.
+
+Each wheel event left to the page emits `zoomhint`. The example shows its own hint for a second and a half, with the key the event suggests: Cmd on Apple systems, Ctrl elsewhere. The graph draws no text of its own.
+
+The definition also sets `view: { minZoom: 0.2, maxZoom: 6, bounds: { margin: 80 } }`. Every move stays within these limits, from a gesture, a key or code: you can pan until the edge of the graph sits 80 pixels from the edge of the frame, and no further.
+
+The buttons rebuild the definition with another `wheel` or `bounds` and pass it to `graph.update`. The view, the positions and the selection stay.
+
+## Try it
+
+- Scroll over the graph: the page scrolls and the hint appears. Hold Cmd or Ctrl and scroll to zoom.
+- Press **Wheel** to switch to `'pan'`, where a two-finger scroll moves the view and a pinch zooms, then to `'zoom'`.
+- Drag the background far to one side: the view stops at the margin. Press **Bounds** to lift the limit.
+- Drag a node toward an edge of the frame: the view scrolls, faster closer to the edge. Hold Shift and draw a lasso to the edge: it scrolls too.
+- On a touch screen, pinch with two fingers to zoom and pan at once, and tap a node to select it.

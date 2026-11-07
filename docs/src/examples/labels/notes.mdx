@@ -1,0 +1,14 @@
+## How it works
+
+Every option of `label` is a constant or a function of the item. Here the size and the weight follow the node weight, a few labels take the accent color, and the group name is a smaller second line. A `\n` in the text breaks a label over two lines.
+
+Edges take a label too, smaller and muted, drawn along the line and kept upright. An edge label only shows when it fits between its two nodes.
+
+`minScreenSize: 18` hides the label of a node smaller than 18 pixels on screen, and the `hovered` state sets `labelColor` to the accent.
+
+## Try it
+
+- Press **Placement** to move the labels below, above, to the right, to the left, or onto the nodes.
+- Press **Add label backgrounds** to draw plates behind node and edge labels.
+- Press **Truncate long labels**: each line longer than 110 pixels ends with an ellipsis.
+- Zoom in to read the edge labels: labels under 8 pixels are hidden. Then zoom out: small nodes drop their labels first, and edge labels disappear when their edges get too short.
