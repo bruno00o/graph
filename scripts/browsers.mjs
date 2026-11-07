@@ -291,7 +291,15 @@ async function visit(browser, name, suite, entry) {
     if (result.drawn < 100) throw new Failure(`canvas draws ${result.drawn} pixels`)
     const node = await page.evaluate(() => window.__harness.find())
     if (!node) throw new Failure('no node to point at')
-    await page.mouse.move(node.x, node.y, { steps: 2 })
+    let point = node
+    await page.mouse.move(point.x, point.y, { steps: 2 })
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await page.evaluate(() => window.__harness.frames(2))
+      const next = await page.evaluate((key) => window.__harness.locate(key), node.key)
+      if (!next || (next.x === point.x && next.y === point.y)) break
+      point = next
+      await page.mouse.move(point.x, point.y)
+    }
     await page
       .waitForFunction((key) => window.graph.store.get().hovered?.key === key, node.key, {
         timeout: 10000,
@@ -301,7 +309,6 @@ async function visit(browser, name, suite, entry) {
         throw new Failure('hover did not pick the node')
       })
     if (expect.select !== false) {
-      let point = node
       for (let attempt = 0; attempt < 4; attempt++) {
         await page.evaluate(() => window.__harness.frames(2))
         const next = await page.evaluate((key) => window.__harness.locate(key), node.key)
