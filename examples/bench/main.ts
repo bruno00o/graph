@@ -22,6 +22,7 @@ const flow = params.has('flow')
 const decor = params.has('decor')
 const screen = params.has('screen')
 const timed = params.has('time')
+const split = params.has('ends')
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -54,6 +55,15 @@ const define = (nodeData: readonly (Item | TimedItem)[]) =>
         flow,
         ...(timed ? { time: spanOf } : {}),
         ...(decor ? { dash: (link) => (link.strength > 0.6 ? 'dashed' : 'solid') } : {}),
+        ...(split
+          ? {
+              ends: {
+                split: (link) => link.strength,
+                source: { stroke: 'var(--graph-cat-3)' },
+                target: { stroke: 'var(--graph-cat-4)' },
+              },
+            }
+          : {}),
       }),
       nodes<Item | TimedItem>(nodeData, {
         ...(engine ? {} : { x: 'x', y: 'y' }),

@@ -212,6 +212,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./edges/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'edge-ends',
+    title: 'Edge ends',
+    description:
+      'Exchanges in both directions on one edge: each half takes the color and width of its own value, splits halfway or by volume, and carries a label near its node.',
+    hint: 'Hover each half of an edge to read the value its node sends.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph'],
+    files: ['ends/main.ts', 'shared/messages.ts', 'shared/overlays.css'],
+    load: () => import('./ends/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'nested-groups',
     title: 'Nested groups',
     description:

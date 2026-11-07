@@ -640,6 +640,10 @@ function sameTarget(a: GraphTarget | null, b: GraphTarget | null): boolean {
   return a === b || (a !== null && b !== null && a.kind === b.kind && a.key === b.key)
 }
 
+function sameEnd(a: GraphTarget | null, b: GraphTarget | null): boolean {
+  return a?.kind !== 'edge' || b?.kind !== 'edge' || a.end === b.end
+}
+
 function countAlive(alive: Uint8Array, capacity: number): number {
   let count = 0
   for (let index = 0; index < capacity; index++) if (alive[index] === 1) count++
@@ -1358,9 +1362,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     const key = hit.kind === 'node' ? scene.nodes.keys[hit.index] : scene.edges.keys[hit.index]
     if (key === undefined) return null
-    const aggregate = hit.kind === 'edge' ? projection.aggregateAt(hit.index) : null
     const found = target(hit.kind, key)
-    return found && aggregate ? { ...found, kind: 'edge', aggregate } : found
+    if (!found || hit.kind === 'node') return found
+    const aggregate = projection.aggregateAt(hit.index)
+    return {
+      ...found,
+      kind: 'edge',
+      ...(hit.end ? { end: hit.end } : {}),
+      ...(aggregate ? { aggregate } : {}),
+    }
   }
 
   function groupLinks(): Uint32Array {
@@ -1466,8 +1476,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function setHovered(next: GraphTarget | null, event: MouseEvent | null): void {
     const current = store.get().hovered
-    if (sameTarget(current, next)) return
-    registry.set('hovered', next ? keysOf(next) : {})
+    const same = sameTarget(current, next)
+    if (same && sameEnd(current, next)) return
+    if (!same) registry.set('hovered', next ? keysOf(next) : {})
     patch({ hovered: next })
     if (current && event) emitter.emit('pointerleave', { target: current, originalEvent: event })
     if (next && event) emitter.emit('pointerenter', { target: next, originalEvent: event })

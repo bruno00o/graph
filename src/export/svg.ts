@@ -29,7 +29,7 @@ import {
 } from '../webgl/shaders'
 import { type ExportFrame, screenExtent, screenRadius } from './frame'
 import { placementDirections, selectLabels } from './labels'
-import { edgeLook, type Look, nodeLook } from './look'
+import { type EdgeLine, edgeLine, edgeLook, type Look, nodeLook } from './look'
 
 export interface SvgScene {
   readonly nodes: NodeColumns
@@ -235,10 +235,23 @@ function head(
 }
 
 interface EdgeShape {
-  readonly body: string | null
-  readonly heads: readonly string[]
+  readonly heads: readonly (readonly [string, 0 | 1])[]
   readonly whole: string
   readonly startHead: number
+  readonly endHead: number
+  readonly visible: number
+  readonly piece: (from: number, to: number) => string
+}
+
+function headSizes(line: EdgeLine, arrow: number, visible: number) {
+  const size = (width: number, end: number) =>
+    arrow & end && visible > width * 8 ? Math.max(width * 4, 6) : 0
+  return {
+    startHead: size(line.width, 1),
+    endHead: size(line.farWidth, 2),
+    startHalf: Math.max(line.width * 1.6, 3),
+    endHalf: Math.max(line.farWidth * 1.6, 3),
+  }
 }
 
 export function writeSvg(scene: SvgScene): string {
@@ -459,7 +472,7 @@ export function writeSvg(scene: SvgScene): string {
     drawShape(look, (offset) => boxTag(x, y, halfWidth, halfHeight, corner, offset), r, '')
   }
 
-  function straightShape(index: number, width: number): EdgeShape | null {
+  function straightShape(index: number, line: EdgeLine): EdgeShape | null {
     const source = edges.source[index] ?? 0
     const target = edges.target[index] ?? 0
     const ax = sx(source)
@@ -473,38 +486,32 @@ export function writeSvg(scene: SvgScene): string {
     const end = length - radius(target)
     const visible = end - start
     if (visible <= 0.5) return null
-    const arrow = edges.arrow[index] ?? 0
-    const arrowLength = arrow !== 0 && visible > width * 8 ? Math.max(width * 4, 6) : 0
-    const arrowHalf = Math.max(width * 1.6, 3)
-    const startHead = arrow & 1 ? arrowLength : 0
-    const endHead = arrow & 2 ? arrowLength : 0
-    const at = (along: number) => [ax + ux * along, ay + uy * along] as const
-    const heads: string[] = []
+    const { startHead, endHead, startHalf, endHalf } = headSizes(
+      line,
+      edges.arrow[index] ?? 0,
+      visible,
+    )
+    const at = (along: number) => [ax + ux * (start + along), ay + uy * (start + along)] as const
+    const heads: [string, 0 | 1][] = []
     if (startHead > 0) {
-      const [tx, ty] = at(start)
-      const [bx, by] = at(start + startHead)
-      heads.push(head(tx, ty, bx, by, -uy, ux, arrowHalf))
+      const [tx, ty] = at(0)
+      const [bx, by] = at(startHead)
+      heads.push([head(tx, ty, bx, by, -uy, ux, startHalf), 0])
     }
     if (endHead > 0) {
-      const [tx, ty] = at(end)
-      const [bx, by] = at(end - endHead)
-      heads.push(head(tx, ty, bx, by, -uy, ux, arrowHalf))
+      const [tx, ty] = at(visible)
+      const [bx, by] = at(visible - endHead)
+      heads.push([head(tx, ty, bx, by, -uy, ux, endHalf), 1])
     }
-    const from = start + startHead
-    const to = end - endHead
-    const [fx, fy] = at(from)
-    const [tx, ty] = at(to)
-    const [sx0, sy0] = at(start)
-    const [ex, ey] = at(end)
-    return {
-      body: to > from ? `M${num(fx)} ${num(fy)}L${num(tx)} ${num(ty)}` : null,
-      heads,
-      whole: `M${num(sx0)} ${num(sy0)}L${num(ex)} ${num(ey)}`,
-      startHead,
+    const piece = (from: number, to: number) => {
+      const [fx, fy] = at(from)
+      const [tx, ty] = at(to)
+      return `M${num(fx)} ${num(fy)}L${num(tx)} ${num(ty)}`
     }
+    return { heads, whole: piece(0, visible), startHead, endHead, visible, piece }
   }
 
-  function curvedShape(index: number, width: number): EdgeShape | null {
+  function curvedShape(index: number, line: EdgeLine): EdgeShape | null {
     const source = edges.source[index] ?? 0
     const target = edges.target[index] ?? 0
     const ax = sx(source)
@@ -522,38 +529,43 @@ export function writeSvg(scene: SvgScene): string {
     const t1 = crossing(curve, dx, dy, targetRadius, 0.5, 1, false)
     const visible = arcLength(curve, t0, t1)
     if (visible <= 0.5) return null
-    const arrow = edges.arrow[index] ?? 0
-    const arrowLength = arrow !== 0 && visible > width * 8 ? Math.max(width * 4, 6) : 0
-    const arrowHalf = Math.max(width * 1.6, 3)
-    const startHead = arrow & 1 ? arrowLength : 0
-    const endHead = arrow & 2 ? arrowLength : 0
+    const { startHead, endHead, startHalf, endHalf } = headSizes(
+      line,
+      edges.arrow[index] ?? 0,
+      visible,
+    )
     const [fx, fy] = cubicPoint(curve, t0)
     const [lx, ly] = cubicPoint(curve, t1)
     const ta = startHead > 0 ? crossing(curve, fx, fy, startHead, t0, t1, true) : t0
     const tb = endHead > 0 ? crossing(curve, lx, ly, endHead, t0, t1, false) : t1
-    const heads: string[] = []
-    const base = (t: number, tipX: number, tipY: number) => {
+    const heads: [string, 0 | 1][] = []
+    const base = (t: number, tipX: number, tipY: number, half: number, end: 0 | 1) => {
       const [bx, by] = cubicPoint(curve, t)
       const [vx, vy] = cubicTangent(curve, t)
       const length = Math.hypot(vx, vy)
       const nx = length > 0 ? -vy / length : 0
       const ny = length > 0 ? vx / length : 1
-      heads.push(head(tipX, tipY, bx, by, nx, ny, arrowHalf))
+      heads.push([head(tipX, tipY, bx, by, nx, ny, half), end])
     }
-    if (startHead > 0) base(ta, fx, fy)
-    if (endHead > 0) base(tb, lx, ly)
+    if (startHead > 0) base(ta, fx, fy, startHalf, 0)
+    if (endHead > 0) base(tb, lx, ly, endHalf, 1)
+    const span = visible - startHead - endHead
+    const tOf = (along: number) =>
+      span > 0 ? ta + ((tb - ta) * Math.min(span, Math.max(0, along - startHead))) / span : ta
     return {
-      body: tb > ta ? subCurve(curve, ta, tb) : null,
       heads,
       whole: subCurve(curve, t0, t1),
       startHead,
+      endHead,
+      visible,
+      piece: (from, to) => subCurve(curve, tOf(from), tOf(to)),
     }
   }
 
   const line = new Float64Array(maxPathPoints * 2)
   const lengths = new Float64Array(maxPathPoints)
 
-  function bundledShape(paths: EdgePaths, index: number, width: number): EdgeShape | null {
+  function bundledShape(paths: EdgePaths, index: number, stroke: EdgeLine): EdgeShape | null {
     const count = paths.polyline(index, edges, positions, paths.mix, line)
     for (let k = 0; k < count; k++) {
       line[k * 2] = (line[k * 2] ?? 0) * zoom + offsetX
@@ -572,11 +584,11 @@ export function writeSvg(scene: SvgScene): string {
     const end = total - radius(edges.target[index] ?? 0)
     const visible = end - start
     if (visible <= 0.5) return null
-    const arrow = edges.arrow[index] ?? 0
-    const arrowLength = arrow !== 0 && visible > width * 8 ? Math.max(width * 4, 6) : 0
-    const arrowHalf = Math.max(width * 1.6, 3)
-    const startHead = arrow & 1 ? arrowLength : 0
-    const endHead = arrow & 2 ? arrowLength : 0
+    const { startHead, endHead, startHalf, endHalf } = headSizes(
+      stroke,
+      edges.arrow[index] ?? 0,
+      visible,
+    )
     const at = (along: number): [number, number, number, number] => {
       let k = 0
       while (k < count - 2 && (lengths[k + 1] ?? 0) < along) k++
@@ -601,24 +613,24 @@ export function writeSvg(scene: SvgScene): string {
       const [tx, ty] = at(to)
       return `${d}L${num(tx)} ${num(ty)}`
     }
-    const heads: string[] = []
+    const heads: [string, 0 | 1][] = []
     if (startHead > 0) {
       const [tx, ty] = at(start)
       const [bx, by, nx, ny] = at(start + startHead)
-      heads.push(head(tx, ty, bx, by, nx, ny, arrowHalf))
+      heads.push([head(tx, ty, bx, by, nx, ny, startHalf), 0])
     }
     if (endHead > 0) {
       const [tx, ty] = at(end)
       const [bx, by, nx, ny] = at(end - endHead)
-      heads.push(head(tx, ty, bx, by, nx, ny, arrowHalf))
+      heads.push([head(tx, ty, bx, by, nx, ny, endHalf), 1])
     }
-    const from = start + startHead
-    const to = end - endHead
     return {
-      body: to > from ? piece(from, to) : null,
       heads,
       whole: piece(start, end),
       startHead,
+      endHead,
+      visible,
+      piece: (from, to) => piece(start + from, start + to),
     }
   }
 
@@ -628,7 +640,8 @@ export function writeSvg(scene: SvgScene): string {
     const loop = source === target
     const bend = edges.bend[index] ?? 0
     const look = edgeLookAt(index)
-    const width = Math.max(look.strokeWidth, 0.5)
+    const line = edgeLine(edges, states, index)
+    const width = Math.max(line.width, line.farWidth)
     const ax = sx(source)
     const ay = sy(source)
     const dx = sx(target)
@@ -651,12 +664,12 @@ export function writeSvg(scene: SvgScene): string {
     )
       return
     const shape = bundled
-      ? bundledShape(paths, index, width)
+      ? bundledShape(paths, index, line)
       : loop || bend !== 0
-        ? curvedShape(index, width)
-        : straightShape(index, width)
+        ? curvedShape(index, line)
+        : straightShape(index, line)
     if (!shape) return
-    const color = paint(look.stroke)
+    const colors = [paint(line.color), paint(line.farColor)] as const
     const parts: string[] = [open(look.opacity)]
     if (look.halo) {
       haloBands.forEach((band, at) => {
@@ -667,23 +680,34 @@ export function writeSvg(scene: SvgScene): string {
         )
       })
     }
-    if (shape.body) {
-      const dash = edges.dash[index] || (look.flow !== 0 ? 1 : 0)
-      const shift = look.flow * (scene.time ?? 0)
-      let style = ` stroke-width="${num(width)}"`
+    const from = shape.startHead
+    const to = shape.visible - shape.endHead
+    const cut = line.split < 0 ? to : Math.min(to, Math.max(from, shape.visible * line.split))
+    const shift = look.flow * (scene.time ?? 0)
+    const piece = (start: number, end: number, far: 0 | 1) => {
+      if (end <= start) return
+      const own = far ? line.farWidth : line.width
+      const dash = (far ? line.farDash : line.dash) || (look.flow !== 0 ? 1 : 0)
+      let style = ` stroke-width="${num(own)}"`
       if (dash === 1) {
         const period = Math.max(width * 5, 8)
-        const offset = num(dashOffset(shape.startHead, shift, period))
+        const offset = num(dashOffset(start, shift, period))
         style += ` stroke-dasharray="${num(period * 0.6)} ${num(period * 0.4)}" stroke-dashoffset="${offset}"`
       } else if (dash === 2) {
         const period = Math.max(width * 2.5, 4)
-        const dot = Math.max(width * 0.6, 1)
-        const offset = num(dashOffset(shape.startHead - period / 2, shift, period))
+        const dot = Math.max(own * 0.6, 1)
+        const offset = num(dashOffset(start - period / 2, shift, period))
         style = ` stroke-width="${num(dot * 2)}" stroke-linecap="round" stroke-dasharray="0 ${num(period)}" stroke-dashoffset="${offset}"`
       }
-      parts.push(`<path d="${shape.body}" fill="none"${paintAttribute('stroke', color)}${style}/>`)
+      parts.push(
+        `<path d="${shape.piece(start, end)}" fill="none"${paintAttribute('stroke', colors[far])}${style}/>`,
+      )
     }
-    for (const tip of shape.heads) parts.push(`<path d="${tip}"${paintAttribute('fill', color)}/>`)
+    piece(from, cut, 0)
+    piece(cut, to, 1)
+    for (const [tip, end] of shape.heads) {
+      parts.push(`<path d="${tip}"${paintAttribute('fill', colors[end])}/>`)
+    }
     parts.push('</g>')
     body.push(parts.join(''))
   }
@@ -830,7 +854,11 @@ export function writeSvg(scene: SvgScene): string {
   function drawEdgeLabel(index: number, label: PlacedLabel, anchor: EdgeAnchor): void {
     const look = edgeLookAt(index)
     const pixels = label.size * Math.min(1, zoom)
-    const lift = label.plate ? 0 : Math.max(look.strokeWidth, 0.5) * 0.5 + edgeLabelGap
+    const ends = label.end === 0 ? null : edges.ends
+    const id = index * 2 + label.end - 1
+    const line = ends ? edgeLine(edges, states, index) : null
+    const width = line ? (label.end === 1 ? line.width : line.farWidth) : look.strokeWidth
+    const lift = label.plate ? 0 : Math.max(width, 0.5) * 0.5 + edgeLabelGap
     const angle = (Math.atan2(anchor.ay, anchor.ax) * 180) / Math.PI
     const parts = labelParts(
       label,
@@ -839,8 +867,8 @@ export function writeSvg(scene: SvgScene): string {
       lift,
       pixels,
       look,
-      edges.labelWeight[index] || 500,
-      edges.labelFont[index] ?? null,
+      (ends ? ends.labelWeight[id] : edges.labelWeight[index]) || 500,
+      (ends ? ends.labelFont[id] : edges.labelFont[index]) ?? null,
     )
     const opacity = look.opacity < 0.999 ? ` opacity="${fine(Math.max(0, look.opacity))}"` : ''
     const rotation = Math.abs(angle) > 1e-6 ? ` rotate(${fine(angle)})` : ''

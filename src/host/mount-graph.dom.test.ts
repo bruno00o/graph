@@ -374,6 +374,34 @@ describe('createGraphHost', () => {
     expect(seen).toEqual(['pointerenter', 'pointerleave'])
   })
 
+  it('reports the end of a hovered edge and moves from one end to the other', () => {
+    const graph = mount(
+      defineGraph({
+        marks: [
+          edges<Link>(links, { source: 'from', target: 'to', ends: { split: () => 0.75 } }),
+          nodes<Item>(items, { x: 'x', y: 'y' }),
+        ],
+      }),
+    )
+    const seen: string[] = []
+    graph.on('pointerenter', ({ target }) => {
+      if (target.kind === 'edge') seen.push(`enter ${target.key} ${target.end}`)
+    })
+    graph.on('pointerleave', ({ target }) => {
+      if (target.kind === 'edge') seen.push(`leave ${target.key} ${target.end}`)
+    })
+    const a = screenOf(graph, 'a')
+    const b = screenOf(graph, 'b')
+    const at = (share: number) => ({ x: a.x + (b.x - a.x) * share, y: a.y })
+    expect(graph.pick(at(0.6))).toMatchObject({ kind: 'edge', key: 'ab', end: 'source' })
+    expect(graph.pick(at(0.85))).toMatchObject({ kind: 'edge', key: 'ab', end: 'target' })
+    pointer(graph, 'pointermove', at(0.4).x, at(0.4).y)
+    pointer(graph, 'pointermove', at(0.5).x, at(0.5).y)
+    pointer(graph, 'pointermove', at(0.85).x, at(0.85).y)
+    expect(graph.store.get().hovered).toMatchObject({ key: 'ab', end: 'target' })
+    expect(seen).toEqual(['enter ab source', 'leave ab source', 'enter ab target'])
+  })
+
   it('drags the whole selection without clicking', () => {
     const graph = mount()
     const seen = record(graph, ['dragstart', 'drag', 'dragend', 'click'])

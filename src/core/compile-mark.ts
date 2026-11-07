@@ -1,4 +1,11 @@
-import type { BadgeCorner, EdgeMark, LabelTextOptions, NodeMark } from '../types'
+import type {
+  BadgeCorner,
+  EdgeEndOptions,
+  EdgeEndsOptions,
+  EdgeMark,
+  LabelTextOptions,
+  NodeMark,
+} from '../types'
 import { toAccessor } from './accessor'
 
 export type Read = (datum: unknown) => unknown
@@ -65,6 +72,24 @@ export interface CompiledEdgeMark {
   readonly flow: Read | null
   readonly bundle: Read | null
   readonly geodesic: Read | null
+  readonly ends: CompiledEnds | null
+}
+
+export interface CompiledEnd {
+  readonly color: Read | null
+  readonly stroke: Read | null
+  readonly width: Read | null
+  readonly dash: Read | null
+  readonly label: Read | null
+  readonly labelBackground: Read | null
+  readonly labelText: CompiledLabelText
+}
+
+export interface CompiledEnds {
+  readonly split: Read | null
+  readonly source: CompiledEnd
+  readonly target: CompiledEnd
+  readonly styled: boolean
 }
 
 function channel(value: string | Read | undefined): Read | null {
@@ -83,6 +108,32 @@ function labelText(options: LabelTextOptions<unknown> | null): CompiledLabelText
     weight: style(options?.weight),
     font: style(options?.font),
     maxWidth: style(options?.maxWidth),
+  }
+}
+
+function compileEnd(options: EdgeEndOptions<unknown> | undefined): CompiledEnd {
+  const label = options?.label
+  return {
+    color: channel(options?.color),
+    stroke: style(options?.stroke),
+    width: channel(options?.width),
+    dash: style(options?.dash),
+    label: channel(typeof label === 'object' ? label.text : label),
+    labelBackground: style(typeof label === 'object' ? label.background : undefined),
+    labelText: labelText(typeof label === 'object' ? label : null),
+  }
+}
+
+function compileEnds(options: EdgeEndsOptions<unknown> | undefined): CompiledEnds | null {
+  if (!options) return null
+  const source = compileEnd(options.source)
+  const target = compileEnd(options.target)
+  const styled = (end: CompiledEnd) => !!(end.color || end.stroke || end.width || end.dash)
+  return {
+    split: style(options.split),
+    source,
+    target,
+    styled: styled(source) || styled(target),
   }
 }
 
@@ -165,6 +216,7 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     flow: style(options.flow),
     bundle: style(options.bundle),
     geodesic: style(options.geodesic),
+    ends: compileEnds(options.ends),
   }
   edgeCache.set(mark, compiled)
   return compiled
