@@ -1,5 +1,4 @@
 import {
-  type AggregateEdge,
   defineGraph,
   edges,
   type GraphInstance,
@@ -137,7 +136,7 @@ export function mount(container: HTMLElement): GraphInstance {
   status.className = 'example-status'
   container.append(status)
 
-  const labelOf = (key: Key) => items.find((item) => item.id === key)?.label ?? String(key)
+  const labelOf = (key: Key) => graph.datumOf({ kind: 'node', key })?.label ?? String(key)
   const showFolded = () => {
     status.textContent = messages.foldedGroups(graph.groups.folded().length)
   }
@@ -148,11 +147,12 @@ export function mount(container: HTMLElement): GraphInstance {
       status.textContent = labelOf(target.key)
       return
     }
-    const aggregate: AggregateEdge | undefined = target.aggregate
-    const link = target.datum
+    const { aggregate, endpoints } = target
+    const from = labelOf(endpoints.source)
+    const to = labelOf(endpoints.target)
     status.textContent = aggregate
-      ? messages.mergedEdges(aggregate.count, labelOf(aggregate.source), labelOf(aggregate.target))
-      : messages.route(labelOf(link.from), labelOf(link.to))
+      ? messages.mergedEdges(aggregate.count, from, to)
+      : messages.route(from, to)
   })
   graph.on('pointerleave', showFolded)
 

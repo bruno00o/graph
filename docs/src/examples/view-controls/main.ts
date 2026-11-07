@@ -45,13 +45,13 @@ export function mount(container: HTMLElement): GraphInstance {
     button(messages.fitGroup(groups[next] ?? ''), (element) => {
       const group = groups[next]
       const keys = items.filter((item) => item.group === group).map((item) => item.id)
-      graph.view.fit(keys, { padding: 48, duration })
+      graph.view.fit({ nodes: keys, padding: 48, duration })
       next = (next + 1) % groups.length
       element.textContent = messages.fitGroup(groups[next] ?? '')
     }),
     button(messages.fitSelection, () => {
       const { nodes } = graph.selection.get()
-      graph.view.fit(nodes.length > 0 ? nodes : undefined, { padding: 80, duration })
+      graph.view.fit({ nodes: nodes.length > 0 ? nodes : undefined, padding: 80, duration })
     }),
     button(messages.reset, () => graph.view.set({ x: 0, y: 0, zoom: 1 }, { duration })),
   )

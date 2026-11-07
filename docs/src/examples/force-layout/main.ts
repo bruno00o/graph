@@ -83,9 +83,7 @@ export function mount(container: HTMLElement): GraphInstance {
       items = sample.items
       links = sample.links
       graph.update({ definition: define(), ariaLabel: ariaLabel() })
-      void graph.layout.run().then((completed) => {
-        if (completed) graph.view.fit(undefined, { duration: 400 })
-      })
+      void graph.layout.run(undefined, { fit: { duration: 400 } })
     }),
     button(messages.engine(messages.engines[engine]), (element) => {
       engine = engines[(engines.indexOf(engine) + 1) % engines.length] ?? 'auto'

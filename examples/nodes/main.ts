@@ -160,7 +160,7 @@ header.append(
     backgrounds = !backgrounds
     graph.update({ definition: define(backgrounds) })
   }),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   ...exportButtons(graph, 'nodes', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )

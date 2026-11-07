@@ -70,10 +70,17 @@ describe('defineGraph', () => {
   })
 
   it('resolves view limits and rejects invalid ones', () => {
-    expect(defineGraph({ marks: [] }).view).toEqual({ minZoom: 0.001, maxZoom: 64, bounds: null })
+    const padding = { top: 32, right: 32, bottom: 32, left: 32 }
+    expect(defineGraph({ marks: [] }).view).toEqual({
+      minZoom: 0.001,
+      maxZoom: 64,
+      bounds: null,
+      padding,
+      autoFit: 'first',
+    })
     const rect = { minX: -10, minY: -20, maxX: 30, maxY: 40 }
     const limited = defineGraph({ marks: [], view: { minZoom: 0.5, maxZoom: 4, bounds: rect } })
-    expect(limited.view).toEqual({ minZoom: 0.5, maxZoom: 4, bounds: rect })
+    expect(limited.view).toMatchObject({ minZoom: 0.5, maxZoom: 4, bounds: rect })
     expect(Object.isFrozen(limited.view.bounds)).toBe(true)
     expect(defineGraph({ marks: [], view: { bounds: { margin: 80 } } }).view.bounds).toEqual({
       margin: 80,
@@ -87,6 +94,22 @@ describe('defineGraph', () => {
     expect(() =>
       defineGraph({ marks: [], view: { bounds: { margin: Number.POSITIVE_INFINITY } } }),
     ).toThrow(RangeError)
+  })
+
+  it('resolves the padding of fits and the automatic framing', () => {
+    const sides = defineGraph({ marks: [], view: { padding: { right: 300, top: 8 } } }).view
+    expect(sides.padding).toEqual({ top: 8, right: 300, bottom: 32, left: 32 })
+    expect(Object.isFrozen(sides.padding)).toBe(true)
+    const even = defineGraph({ marks: [], view: { padding: 0, autoFit: 'layouts' } }).view
+    expect(even).toMatchObject({ padding: { top: 0, right: 0, bottom: 0, left: 0 } })
+    expect(even.autoFit).toBe('layouts')
+    expect(defineGraph({ marks: [], view: { autoFit: undefined } }).view.autoFit).toBe('first')
+    expect(() => defineGraph({ marks: [], view: { padding: Number.NaN } })).toThrow(RangeError)
+    expect(() =>
+      defineGraph({ marks: [], view: { padding: { left: Number.POSITIVE_INFINITY } } }),
+    ).toThrow(RangeError)
+    const autoFit = 'always' as 'first'
+    expect(() => defineGraph({ marks: [], view: { autoFit } })).toThrow(TypeError)
   })
 
   it('fills transition defaults and clamps negative durations', () => {

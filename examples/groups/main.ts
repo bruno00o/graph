@@ -174,7 +174,7 @@ header.append(
   ),
   button(messages.foldAll, () => graph.groups.fold()),
   button(messages.unfoldAll, () => graph.groups.unfold()),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   ...exportButtons(graph, 'groups', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )

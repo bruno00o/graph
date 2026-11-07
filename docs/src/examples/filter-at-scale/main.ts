@@ -179,7 +179,7 @@ export function mount(container: HTMLElement): GraphInstance {
       void previous.records.cleanup()
       void previous.relations.cleanup()
       graph.states.clear('opened')
-      graph.view.fit(undefined, { duration: 400 })
+      graph.view.fit({ duration: 400 })
     }),
   )
   container.append(actions)

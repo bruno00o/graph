@@ -46,7 +46,7 @@ interface NodeGroup<T = unknown> {
 
 ## Behavior
 
-- The key of a group node is internal and never collides with a key of the data: read it from `group.key`, `target.key`, `graph.groups.parent` or the folded groups, never build it. See [Group items by a field](/docs/transformations#group-items-by-a-field).
+- The key of a group node is internal and never collides with a key of the data: read it from `group.key`, `target.key`, `graph.groups.parent` or the folded groups, or ask `graph.groups.keyOf(name, value, parent)`, never build it. See [Group items by a field](/docs/transformations#group-items-by-a-field).
 - `groups()` called again with the same data, `name`, `by`, `key`, `parent` and `min` reuses its groups, so a definition rebuilt on every render does not regroup. Functions compare by identity: declare a `by` function once, outside the render.
 - With a live source, an item that changes its value moves to its new group, and a group left with fewer than `min` members disappears.
 - Without `parent`, a grouped item leaves the group of the data it belongs to. With the same `parent` as its nodes, groups are made within each group of the data, and nest in it.

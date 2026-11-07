@@ -1,6 +1,7 @@
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
 import { projectLatitude, projectLongitude, worldSize, worldToGeo } from '../core/geo'
 import { createGlobeCamera, type GlobeCamera } from '../core/globe'
+import { defaultViewPadding } from '../define-graph'
 import { dev } from '../dev'
 import {
   createGraphHost,
@@ -109,7 +110,13 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       bundling: null,
       routing: null,
       bridges: null,
-      view: { minZoom: 2 ** map.getMinZoom(), maxZoom: 2 ** map.getMaxZoom(), bounds: null },
+      view: {
+        minZoom: 2 ** map.getMinZoom(),
+        maxZoom: 2 ** map.getMaxZoom(),
+        bounds: null,
+        padding: defaultViewPadding,
+        autoFit: 'never',
+      },
     }
   }
 

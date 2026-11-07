@@ -1,12 +1,6 @@
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
-import {
-  Graph,
-  type GraphInstance,
-  useGraph,
-  useGraphEvent,
-  useTimeline,
-} from '@bruno00o/graph/react'
+import { Graph, type GraphInstance, useTimeline } from '@bruno00o/graph/react'
 import { type Ref, useMemo, useState } from 'react'
 import { createHistory, type TimedItem, type TimedLink } from '../shared/data'
 import { messages } from './messages'
@@ -33,6 +27,7 @@ const definition = defineGraph({
   ],
   scales: { size: { range: [14, 44] } },
   layout: force(),
+  view: { padding: 90 },
 })
 
 function alive(moment: number): number {
@@ -47,8 +42,6 @@ function MomentSlider({
   readonly moment: number
   readonly onChange: (moment: number) => void
 }) {
-  const graph = useGraph()
-  useGraphEvent('layoutend', () => graph.view.fit(undefined, { padding: 90, duration: 300 }))
   const { state } = useTimeline({ bins: 48 })
   const { extent, bins } = state
   if (!extent) return null

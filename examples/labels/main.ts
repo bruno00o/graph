@@ -115,7 +115,7 @@ header.append(
   placementButton,
   button(messages.labelBackgrounds, () => change({ background: !settings.background })),
   button(messages.truncate, () => change({ truncate: !settings.truncate })),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   ...exportButtons(graph, 'labels', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )

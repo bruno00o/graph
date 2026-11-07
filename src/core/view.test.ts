@@ -48,8 +48,17 @@ describe('view', () => {
   })
 
   it('fits bounds inside the padded viewport', () => {
-    const view = fitBounds({ minX: 0, minY: 0, maxX: 200, maxY: 100 }, viewport, 100)
+    const sides = { top: 100, right: 100, bottom: 100, left: 100 }
+    const view = fitBounds({ minX: 0, minY: 0, maxX: 200, maxY: 100 }, viewport, sides)
     expect(view).toEqual({ x: 100, y: 50, zoom: 3 })
+  })
+
+  it('centers bounds in the area left by uneven padding', () => {
+    const sides = { top: 0, right: 400, bottom: 0, left: 0 }
+    const view = fitBounds({ minX: 0, minY: 0, maxX: 100, maxY: 100 }, viewport, sides)
+    const center = toScreen(view, viewport, { x: 50, y: 50 })
+    expect(center.x).toBeCloseTo((viewport.width - 400) / 2)
+    expect(center.y).toBeCloseTo(viewport.height / 2)
   })
 
   it('normalizes wheel deltas', () => {

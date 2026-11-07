@@ -154,7 +154,10 @@ export interface Timeline {
   pause(): void
   /** Starts or stops playback. */
   toggle(): void
-  /** Replaces the options. Options left out take their default value. */
+  /**
+   * Changes the options: an option left out keeps its current value, an option set to `undefined`
+   * returns to its default.
+   */
   update(options?: TimelineOptions): void
   /** Stops playback and stops following the graph. The window stays. */
   destroy(): void
@@ -227,7 +230,8 @@ export function createTimeline<S extends string, M extends Mark>(
   options: TimelineOptions = {},
 ): Timeline {
   const internals = internalsOf(graph, 'createTimeline')
-  let settings = resolve(options)
+  let given = options
+  let settings = resolve(given)
   const nodeCounts = new SpanCounts()
   const edgeCounts = new SpanCounts()
   const clock = frames()
@@ -571,7 +575,8 @@ export function createTimeline<S extends string, M extends Mark>(
     },
     update(next = {}) {
       if (destroyed) return
-      settings = resolve(next)
+      given = { ...given, ...next }
+      settings = resolve(given)
       extent = readExtent()
       layout()
     },

@@ -122,6 +122,16 @@ describe('createTimeline', () => {
     timeline.destroy()
   })
 
+  it('keeps the options left out of update and resets those set to undefined', () => {
+    const graph = mount()
+    const timeline = createTimeline(graph, { bins: 50, mode: 'grow' })
+    timeline.update({ loop: true })
+    expect(timeline.store.state).toMatchObject({ mode: 'grow', loop: true })
+    timeline.update({ mode: undefined })
+    expect(timeline.store.state).toMatchObject({ mode: 'slide', loop: true })
+    timeline.destroy()
+  })
+
   it('zooms and pans the bar inside the extent', () => {
     const graph = mount()
     const timeline = createTimeline(graph, { bins: 50 })
@@ -249,6 +259,12 @@ describe('mountTimeline', () => {
     button?.click()
     expect(button?.getAttribute('aria-pressed')).toBe('true')
     button?.click()
+    view.update({ height: 80 })
+    expect(view.element.getAttribute('aria-label')).toBe('Frise')
+    expect(button?.getAttribute('aria-label')).toBe('Lecture')
+    view.update({ ariaLabel: undefined })
+    expect(view.element.getAttribute('aria-label')).toBeNull()
+    expect(button?.getAttribute('aria-label')).toBe('Lecture')
     view.destroy()
     expect(view.element.isConnected).toBe(false)
     timeline.destroy()

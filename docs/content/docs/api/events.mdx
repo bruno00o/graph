@@ -26,6 +26,7 @@ interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
   readonly key: Key
   readonly datum: T
   readonly mark: N
+  readonly endpoints: Endpoints
   readonly aggregate?: AggregateEdge<T>
 }
 
@@ -44,6 +45,10 @@ type GraphTarget<M extends Mark = Mark> =
 <api-table path="index.ts" name="EdgeTarget" />
 
 An edge drawn for several edges, between [folded groups](/docs/groups) or [merged](/docs/transformations#merge-parallel-edges) by `merge`, carries `aggregate`, with the keys and data of every merged edge, split by direction; `key` and `datum` are those of the first.
+
+`endpoints` holds the keys of the two ends of an edge as drawn: an end hidden in a folded group is the key of that group. To read the item of an end, pass it to `graph.datumOf({ kind: 'node', key })`.
+
+<api-table path="index.ts" name="Endpoints" />
 
 ## Payloads
 
@@ -77,8 +82,13 @@ interface GraphFocusEvent<M extends Mark = Mark> {
   readonly target: GraphTarget<M> | null
 }
 
+interface GraphSelectionEvent {
+  readonly selection: ElementKeys
+}
+
 interface GraphViewEvent {
   readonly view: View
+  readonly origin: 'user' | 'api'
 }
 
 interface GraphFoldEvent {
@@ -111,7 +121,14 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 }
 ```
 
+<api-table path="index.ts" name="GraphSelectionEvent" />
+
+<api-table path="index.ts" name="GraphViewEvent" />
+
 - `point` is in screen pixels relative to the graph element, `world` in world units.
+- `pointermove` carries a `GraphPointerEvent`, at most once per frame, with the element under the pointer or `null` over empty space. During a drag, its target is the dragged node. The graph listens to the pointer for it only while a handler is subscribed.
+- `selection` is the whole selection after the change, in the order keys joined it.
+- `origin` is `'user'` when a gesture, the wheel, the keyboard or edge scrolling moved the view, and `'api'` when code did: `graph.view`, `update({ view })`, automatic framing or the keyboard focus set from code.
 - `keys` lists every node moved by the drag: the whole selection when the dragged node is selected, and the nodes inside a dragged group.
 - `folded` lists the keys of every folded group after the change.
 - `zoomhint` fires in `'page'` wheel mode for each wheel event left to the page. `key` is the key to hold to zoom: `'Meta'` (Cmd) on Apple systems, `'Control'` elsewhere. Show your own hint: the graph shows none. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad).
@@ -124,7 +141,7 @@ interface GraphLayoutEndEvent extends GraphLayoutEvent {
 
 ## Order
 
-`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`, `viewchange` and `onViewChange` with `view`, `timechange` and `onTimeChange` with `time`, and `layerchange` and `onLayerChange` with `hiddenLayers`.
+`click` fires before the default selection, so a handler sees the selection as it was. `selectionchange` and `viewchange` fire on every change, from the user or from code. In controlled mode, `selectionchange` fires when a new `selection` is applied, and `onSelectionChange` on `<Graph>` receives requests, in the same payload, instead of events. `foldchange` and `onFoldChange` follow the same rule with `folded`, `viewchange` and `onViewChange` with `view`, `timechange` and `onTimeChange` with `time`, and `layerchange` and `onLayerChange` with `hiddenLayers`.
 
 A `doubleclick` on a group folds or unfolds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 

@@ -28,14 +28,14 @@ A press released within 4 pixels of where it started is a click, or within 10 pi
 graph.selection.set({ nodes: ['n1', 'n2'] })
 graph.selection.get()
 graph.selection.clear()
-graph.on('selectionchange', ({ nodes, edges }) => console.log(nodes, edges))
+graph.on('selectionchange', ({ selection }) => console.log(selection.nodes, selection.edges))
 ```
 
-`selectionchange` fires on every change, whether it comes from the user or from code. Its payload is the whole selection after the change, `{ nodes, edges }`, as `selection.get()` returns it. Keys come in the order they joined the selection: a node added with a modifier or by the lasso comes last, and keys that stay selected keep their place.
+`selectionchange` fires on every change, whether it comes from the user or from code. Its payload holds `selection`, the whole selection after the change, `{ nodes, edges }`, as `selection.get()` returns it. Keys come in the order they joined the selection: a node added with a modifier or by the lasso comes last, and keys that stay selected keep their place.
 
 ## Controlled selection
 
-To keep the selection in your own state, pass `selection` when you mount the graph. From then on, clicks, `graph.selection.set` and `clear` change nothing: they call `onSelectionChange` with the requested selection, and only a new `selection` updates the graph.
+To keep the selection in your own state, pass `selection` when you mount the graph. From then on, clicks, `graph.selection.set` and `clear` change nothing: they call `onSelectionChange` with the requested selection, in the same payload as `selectionchange`, and only a new `selection` updates the graph.
 
 ```ts tab="Vanilla" tab-group="framework"
 let selection = { nodes: [], edges: [] }
@@ -43,7 +43,7 @@ const graph = mountGraph(container, {
   definition,
   ariaLabel: 'Sample graph',
   selection,
-  onSelectionChange: (next) => {
+  onSelectionChange: ({ selection: next }) => {
     selection = { ...next, nodes: next.nodes.slice(0, 3) }
     graph.update({ selection })
   },
@@ -58,7 +58,7 @@ return (
     definition={definition}
     ariaLabel="Sample graph"
     selection={selection}
-    onSelectionChange={setSelection}
+    onSelectionChange={(event) => setSelection(event.selection)}
   />
 )
 ```
@@ -128,7 +128,7 @@ defineGraph({ marks, interaction: { autoPan: { speed: 0.5 } } })
 
 ```ts
 defineGraph({ marks, interaction: { pan: false, zoom: false } })
-graph.view.fit(['n1', 'n2'], { duration: 400 })
+graph.view.fit({ nodes: ['n1', 'n2'], duration: 400 })
 ```
 
 ## Keyboard
@@ -166,9 +166,28 @@ Every event handler receives a typed object. Targets are `{ kind: 'node' | 'edge
 
 ```ts
 const stop = graph.on('doubleclick', ({ target, point, world }) => {
-  if (target?.kind === 'node') graph.view.fit([target.key, ...graph.neighbors(target.key)])
+  if (target?.kind === 'node') graph.view.fit({ nodes: [target.key, ...graph.neighbors(target.key)] })
 })
 stop()
+```
+
+An edge target also carries `endpoints`, its two ends as drawn: the key of a folded group stands for an end hidden inside it. `graph.datumOf` returns the item of any element from its kind and key.
+
+```ts
+graph.on('pointerenter', ({ target }) => {
+  if (target.kind !== 'edge') return
+  const from = graph.datumOf({ kind: 'node', key: target.endpoints.source })
+  const to = graph.datumOf({ kind: 'node', key: target.endpoints.target })
+  console.log(from, to)
+})
+```
+
+`pointermove` fires at most once per frame while the pointer moves over the graph, on an element or over empty space, with the element under the pointer or `null`, and the point in screen and world units. The graph tracks it only while a handler listens.
+
+```ts
+graph.on('pointermove', ({ target, world }) => {
+  readout.textContent = target ? String(target.key) : `${world.x.toFixed(0)}, ${world.y.toFixed(0)}`
+})
 ```
 
 See [Events](/docs/api/events) for the full list, and the examples: the [event log](/examples/event-log) prints every event as it fires, the [context menu](/examples/context-menu) opens on `contextmenu`, and the [neighborhood on hover](/examples/hover-neighborhood) lights the neighbors on `pointerenter`.

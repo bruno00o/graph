@@ -79,7 +79,7 @@ export function mount(container: HTMLElement): GraphInstance {
           messages.selectNeighbors,
           () => graph.selection.set({ nodes: [key, ...graph.neighbors(key)] }),
         ],
-        [messages.frame, () => graph.view.fit([key, ...graph.neighbors(key)], { duration })],
+        [messages.frame, () => graph.view.fit({ nodes: [key, ...graph.neighbors(key)], duration })],
         marked
           ? [messages.unmark, () => graph.states.remove('marked', { nodes: [key] })]
           : [messages.mark, () => graph.states.add('marked', { nodes: [key] })],
@@ -98,7 +98,7 @@ export function mount(container: HTMLElement): GraphInstance {
         [
           [messages.showHidden, () => graph.states.clear('off')],
           [messages.clearMarks, () => graph.states.clear('marked')],
-          [messages.fit, () => graph.view.fit(undefined, { duration })],
+          [messages.fit, () => graph.view.fit({ duration })],
         ],
         { point: world },
       )

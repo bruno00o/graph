@@ -4,7 +4,7 @@ The React state holds a moment. `<Graph time={{ start: moment, end: moment }}>` 
 
 The slider is a plain range input over the extent of the data, one day per step. Inside `<Graph>`, `useTimeline` counts the nodes over time without drawing anything: the bars come from `state.bins`, and the bar of the current moment takes the accent color.
 
-`onTimeChange` keeps the state in step if anything else asks for a new window, such as `graph.time.set`. After the layout, `useGraphEvent('layoutend')` frames the graph again with room for the slider.
+`onTimeChange` keeps the state in step if anything else asks for a new window, such as `graph.time.set`. `view: { padding: 90 }` in the definition leaves room for the slider each time the graph is framed.
 
 ## Try it
 

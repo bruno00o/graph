@@ -103,7 +103,7 @@ function trace(): boolean {
   return true
 }
 
-graph.on('selectionchange', ({ nodes: selected }) => {
+graph.on('selectionchange', ({ selection: { nodes: selected } }) => {
   showSelection()
   if (trace()) return
   graph.states.clear('path')
@@ -171,7 +171,7 @@ header.append(
       graph.update({ definition: define() })
     },
   ),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400 })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   themeToggle(messages.dark, messages.light),
 )
 

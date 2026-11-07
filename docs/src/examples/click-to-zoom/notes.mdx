@@ -1,6 +1,6 @@
 ## How it works
 
-On `click`, a node reads its neighbors with `graph.paths.reach(key, { maxCost: 1 })`, and `graph.view.fit(keys, { padding, duration })` glides to the box around them. A click on the background fits the whole graph again with `graph.view.fit(undefined, { duration })`.
+On `click`, a node reads its neighbors with `graph.paths.reach(key, { maxCost: 1 })`, and `graph.view.fit({ ...around, padding, duration })` glides to the box around them: the result of `reach` has the `{ nodes, edges }` shape that `fit` takes. A click on the background fits the whole graph again with `graph.view.fit({ duration })`.
 
 Right after mounting, the example zooms the same way on a node it selected, so the page opens close up. The view follows that node and its neighbors while the first layout settles them. `view.maxZoom` keeps a lone node from filling the screen.
 

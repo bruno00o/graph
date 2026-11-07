@@ -62,6 +62,11 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onDoubleClick?: GraphEventHandler<'doubleclick', M> | undefined
   /** Receives `contextmenu`: a secondary click. */
   readonly onContextMenu?: GraphEventHandler<'contextmenu', M> | undefined
+  /**
+   * Receives `pointermove`, at most once per frame. The graph listens only while this prop is
+   * given.
+   */
+  readonly onPointerMove?: GraphEventHandler<'pointermove', M> | undefined
   /** Receives `pointerenter`: the pointer enters an element. */
   readonly onPointerEnter?: GraphEventHandler<'pointerenter', M> | undefined
   /** Receives `pointerleave`: the pointer leaves an element. */
@@ -103,6 +108,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   click: 'onClick',
   doubleclick: 'onDoubleClick',
   contextmenu: 'onContextMenu',
+  pointermove: 'onPointerMove',
   pointerenter: 'onPointerEnter',
   pointerleave: 'onPointerLeave',
   dragstart: 'onDragStart',
@@ -182,6 +188,59 @@ const GraphContext = createContext<GraphInstance | null>(null)
 
 const fill: CSSProperties = { position: 'absolute', inset: 0 }
 
+type Known<T> = Readonly<Record<keyof T, true>>
+
+function pick<T extends object>(keys: Known<T>, props: T): T {
+  const options: Record<string, unknown> = {}
+  for (const key of Object.keys(keys)) options[key] = (props as Record<string, unknown>)[key]
+  return options as T
+}
+
+const minimapKeys: Known<MinimapOptions> = {
+  corner: true,
+  width: true,
+  height: true,
+  margin: true,
+  padding: true,
+  maxEdges: true,
+  nodeSize: true,
+  nodeColor: true,
+  selectionColor: true,
+  background: true,
+  mask: true,
+  viewColor: true,
+  pan: true,
+  zoom: true,
+}
+
+const legendViewKeys: Known<LegendViewOptions> = {
+  titles: true,
+  sections: true,
+  format: true,
+  lookText: true,
+  layerText: true,
+  toggle: true,
+  ariaLabel: true,
+}
+
+const timelineKeys: Known<TimelineOptions> = {
+  bins: true,
+  ticks: true,
+  speed: true,
+  mode: true,
+  loop: true,
+  extent: true,
+}
+
+const timelineViewKeys: Known<TimelineViewOptions> = {
+  labels: true,
+  ariaLabel: true,
+  format: true,
+  height: true,
+  wheel: true,
+  snap: true,
+}
+
 function useLatest<T>(value: T): { readonly current: T } {
   const latest = useRef(value)
   useLayoutEffect(() => {
@@ -249,7 +308,10 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
 
   useEffect(() => {
     if (!graph) return
-    const stops = (Object.keys(eventProps) as GraphEventName[]).map((name) =>
+    const names = (Object.keys(eventProps) as GraphEventName[]).filter(
+      (name) => name !== 'pointermove',
+    )
+    const stops = names.map((name) =>
       graph.on(name, (event) => {
         if (name === 'selectionchange' && latest.current.selection !== undefined) return
         if (name === 'foldchange' && latest.current.folded !== undefined) return
@@ -264,6 +326,12 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       for (const stop of stops) stop()
     }
   }, [graph, latest])
+
+  const moving = props.onPointerMove !== undefined
+  useEffect(() => {
+    if (!graph || !moving) return
+    return graph.on('pointermove', (event) => latest.current.onPointerMove?.(event))
+  }, [graph, latest, moving])
 
   useImperativeHandle<GraphInstance<S, M> | null, GraphInstance<S, M> | null>(ref, () => graph, [
     graph,
@@ -372,7 +440,10 @@ export function Anchor<S extends string = string>(props: AnchorProps<S>): ReactN
   return createPortal(children, element)
 }
 
-/** Props of `Minimap`: the options of `createMinimap`. */
+/**
+ * Props of `Minimap`: the options of `createMinimap`. A prop that goes away returns to its
+ * default.
+ */
 export interface MinimapProps extends MinimapOptions {}
 
 /**
@@ -380,11 +451,12 @@ export interface MinimapProps extends MinimapOptions {}
  * stands when `corner` is `null`.
  */
 export function Minimap(props: MinimapProps): ReactNode {
+  const options = pick(minimapKeys, props)
   const graph = useGraph()
   const slot = useRef<HTMLDivElement>(null)
   const minimap = useRef<MinimapInstance | null>(null)
-  const applied = useRef<MinimapProps>(props)
-  const latest = useLatest(props)
+  const applied = useRef<MinimapOptions>(options)
+  const latest = useLatest(options)
   useLayoutEffect(() => {
     const created = createMinimap(graph, latest.current)
     applied.current = latest.current
@@ -397,9 +469,9 @@ export function Minimap(props: MinimapProps): ReactNode {
   useLayoutEffect(() => {
     const current = minimap.current
     if (!current) return
-    if (!shallowEqual(applied.current, props)) {
-      applied.current = props
-      current.update(props)
+    if (!shallowEqual(applied.current, options)) {
+      applied.current = options
+      current.update(options)
     }
     const host = slot.current
     if (props.corner === null && host && current.element.parentElement !== host) {
@@ -470,7 +542,10 @@ export function useLegend<S extends string = string, M extends Mark = Mark>(
   return { state, legend }
 }
 
-/** Props of `Legend`: the options of `createLegend` and of `mountLegend`. */
+/**
+ * Props of `Legend`: the options of `createLegend` and of `mountLegend`. A prop that goes away
+ * returns to its default.
+ */
 export interface LegendProps<S extends string = string, M extends Mark = Mark>
   extends LegendOptions<S>,
     LegendViewOptions<M> {}
@@ -479,7 +554,8 @@ export interface LegendProps<S extends string = string, M extends Mark = Mark>
 export function Legend<S extends string = string, M extends Mark = Mark>(
   props: LegendProps<S, M>,
 ): ReactNode {
-  const { highlight, hidden, ...view } = props
+  const { highlight, hidden } = props
+  const view = pick<LegendViewOptions<M>>(legendViewKeys, props)
   const legend = useLegendInstance<S, M>({ highlight: highlight ?? null, hidden: hidden ?? null })
   const slot = useRef<HTMLDivElement>(null)
   const mounted = useRef<{ readonly view: LegendView<M>; options: object } | null>(null)
@@ -525,7 +601,8 @@ const emptyTimeline: TimelineState = {
   loop: false,
 }
 
-function useTimelineInstance(options: TimelineOptions): TimelineInstance | null {
+function useTimelineInstance(props: TimelineOptions): TimelineInstance | null {
+  const options = pick(timelineKeys, props)
   const graph = useGraph()
   const [timeline, setTimeline] = useState<TimelineInstance | null>(null)
   const latest = useLatest(options)
@@ -566,13 +643,16 @@ export function useTimeline(options: TimelineOptions = {}): UseTimelineResult {
   return { state, timeline }
 }
 
-/** Props of `Timeline`: the options of `createTimeline` and of `mountTimeline`. */
+/**
+ * Props of `Timeline`: the options of `createTimeline` and of `mountTimeline`. A prop that goes
+ * away returns to its default.
+ */
 export interface TimelineProps extends TimelineOptions, TimelineViewOptions {}
 
 /** Renders the default timeline of the enclosing `<Graph>` where the component stands. */
 export function Timeline(props: TimelineProps): ReactNode {
-  const { bins, ticks, speed, mode, loop, extent, ...view } = props
-  const timeline = useTimelineInstance({ bins, ticks, speed, mode, loop, extent })
+  const view = pick<TimelineViewOptions>(timelineViewKeys, props)
+  const timeline = useTimelineInstance(props)
   const slot = useRef<HTMLDivElement>(null)
   const mounted = useRef<{ readonly view: TimelineView; options: object } | null>(null)
   const latest = useLatest(view)

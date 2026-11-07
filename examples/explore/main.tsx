@@ -113,7 +113,7 @@ function Explorer() {
         <button type="button" onClick={() => exploration.reset()}>
           {messages.restart}
         </button>
-        <button type="button" onClick={() => graph.current?.view.fit(undefined, { duration: 400 })}>
+        <button type="button" onClick={() => graph.current?.view.fit({ duration: 400 })}>
           {messages.fit}
         </button>
       </header>

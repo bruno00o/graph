@@ -36,7 +36,13 @@ function Values() {
   return null
 }
 
-function Overview({ corner }: { readonly corner: 'topLeft' | null }) {
+function Overview({
+  corner,
+  sized = true,
+}: {
+  readonly corner: 'topLeft' | null
+  readonly sized?: boolean
+}) {
   return (
     <Graph
       definition={definition}
@@ -45,8 +51,12 @@ function Overview({ corner }: { readonly corner: 'topLeft' | null }) {
         graph = instance
       }}
     >
-      <Minimap corner={corner} width={120} />
-      <Legend titles={{ color: 'Group' }} highlight="match" />
+      {sized ? <Minimap corner={corner} width={120} /> : <Minimap corner={corner} />}
+      {sized ? (
+        <Legend titles={{ color: 'Group' }} highlight="match" toggle={false} />
+      ) : (
+        <Legend titles={{ color: 'Group' }} highlight="match" />
+      )}
       <Values />
     </Graph>
   )
@@ -88,8 +98,7 @@ describe('Minimap and Legend', () => {
     expect(document.querySelectorAll('[data-graph-minimap]')).toHaveLength(1)
     expect(document.querySelector('[data-graph-minimap]')?.parentElement).toBe(graph?.element)
     expect(document.querySelectorAll('[data-graph-legend]')).toHaveLength(1)
-    const buttons = [...document.querySelectorAll('[data-graph-legend] button')]
-    expect(buttons.map((button) => button.textContent)).toEqual(['north', 'south'])
+    expect(document.querySelectorAll('[data-graph-legend] button')).toHaveLength(0)
     expect(seen?.color?.type).toBe('categories')
     render(
       <StrictMode>
@@ -99,6 +108,15 @@ describe('Minimap and Legend', () => {
     const minimap = document.querySelector('[data-graph-minimap]') as HTMLElement
     expect(minimap.parentElement?.parentElement).toBe(container.firstElementChild)
     expect(minimap.style.width).toBe('120px')
+  })
+
+  it('return a prop that goes away to its default', () => {
+    render(<Overview corner="topLeft" />)
+    render(<Overview corner="topLeft" sized={false} />)
+    const minimap = document.querySelector('[data-graph-minimap]') as HTMLElement
+    expect(minimap.style.width).toBe('200px')
+    const buttons = [...document.querySelectorAll('[data-graph-legend] button')]
+    expect(buttons.map((button) => button.textContent)).toEqual(['north', 'south'])
   })
 
   it('remove their elements on unmount', () => {

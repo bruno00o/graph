@@ -8,7 +8,7 @@ export default {
   category: 'structure',
   order: 90,
   tags: ['React'],
-  api: ['graph-component', 'hooks', 'nodes'],
+  api: ['graph-component', 'define-graph', 'nodes'],
   guides: ['groups#controlled-folding', 'groups#fold-and-unfold', 'react'],
   thumbnail: { panels: true },
 } satisfies ExampleMeta

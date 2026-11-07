@@ -95,7 +95,7 @@ function Controlled() {
       ariaLabel="graphe"
       ref={capture}
       selection={selection}
-      onSelectionChange={(next) => {
+      onSelectionChange={({ selection: next }) => {
         captured.seen.push(next.nodes.join())
         setSelection(next)
       }}
@@ -218,7 +218,34 @@ describe('<Graph>', () => {
       captured.graph?.selection.set({ nodes: ['a'] })
     })
     expect(first).not.toHaveBeenCalled()
-    expect(second).toHaveBeenCalledWith({ nodes: ['a'], edges: [] })
+    expect(second).toHaveBeenCalledWith({ selection: { nodes: ['a'], edges: [] } })
+  })
+
+  it('listens to pointermove only while onPointerMove is given', () => {
+    const stable = definition()
+    const moves: unknown[] = []
+    render(
+      <Graph
+        definition={stable}
+        ariaLabel="graphe"
+        ref={capture}
+        onPointerMove={({ target }) => moves.push(target?.key ?? null)}
+      />,
+    )
+    const canvas = container.querySelector('canvas')
+    const move = (x: number) =>
+      act(() => {
+        canvas?.dispatchEvent(
+          new PointerEvent('pointermove', { clientX: x, clientY: 5, bubbles: true }),
+        )
+        dom.flushFrames()
+      })
+    move(5)
+    expect(moves).toEqual([null])
+    render(<Graph definition={stable} ariaLabel="graphe" ref={capture} />)
+    move(6)
+    expect(moves).toEqual([null])
+    expect(dom.pendingFrames()).toBe(0)
   })
 
   it('updates the definition and the label in place', () => {
@@ -283,7 +310,7 @@ describe('controlled selection', () => {
     })
     render(view())
     expect(onSelectionChange).toHaveBeenCalledTimes(1)
-    expect(onSelectionChange).toHaveBeenCalledWith({ nodes: ['a'], edges: [] })
+    expect(onSelectionChange).toHaveBeenCalledWith({ selection: { nodes: ['a'], edges: [] } })
     expect(captured.graph?.selection.get().nodes).toEqual(['b'])
   })
 })

@@ -74,13 +74,13 @@ export function mount(container: HTMLElement): GraphInstance {
       scales: { size: (value) => value },
       routing: orthogonalRouting({ axis, spacing, gap: 12 }),
       bridges: true,
+      view: { padding: 56 },
     })
 
   const graph = mountGraph(container, {
     definition: define(),
     ariaLabel: messages.graphLabel(boxes.length, wires.length),
   })
-  graph.view.fit(undefined, { padding: 56 })
   const redraw = () => graph.update({ definition: define() })
 
   const button = (text: string, onClick: (element: HTMLButtonElement) => void) => {

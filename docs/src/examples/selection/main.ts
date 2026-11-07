@@ -32,7 +32,7 @@ export function mount(container: HTMLElement): GraphInstance {
   status.textContent = messages.selection(0, 0)
   container.append(status)
 
-  graph.on('selectionchange', (selection) => {
+  graph.on('selectionchange', ({ selection }) => {
     status.textContent = messages.selection(selection.nodes.length, selection.edges.length)
     if (selection.nodes.length === 0) {
       graph.states.clear('kept')

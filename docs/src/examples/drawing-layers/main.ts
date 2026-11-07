@@ -32,8 +32,6 @@ function button(text: string, onClick: (button: HTMLButtonElement) => void): HTM
 }
 
 const nameGap = 16
-const framePadding = 48
-
 function nameSide(
   keys: readonly Key[],
   others: readonly Key[],
@@ -70,7 +68,6 @@ function cycle<T>(values: readonly T[], value: T): T {
 
 export function mount(container: HTMLElement): GraphInstance {
   const { items, links } = createSample(150, 330, 5, 19, 0.01)
-  const byId = new Map(items.map((item) => [item.id, item]))
   const itemMark = nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' })
   const linkMark = edges<Link>(links, { source: 'from', target: 'to', opacity: 0.7 })
   const layout = force()
@@ -93,6 +90,7 @@ export function mount(container: HTMLElement): GraphInstance {
       background: background === 'none' ? null : { grid: background },
       hulls: hulls(),
       interaction: { lasso: true },
+      view: { padding: 48 },
     })
 
   container.classList.add('drawing-stage')
@@ -108,7 +106,7 @@ export function mount(container: HTMLElement): GraphInstance {
   toolbar.append(
     count,
     button(messages.frameSelection, () =>
-      graph.view.fit(graph.selection.get().nodes, { duration: 400, padding: framePadding }),
+      graph.view.fit({ ...graph.selection.get(), duration: 400 }),
     ),
     button(messages.clearSelection, () => graph.selection.clear()),
   )
@@ -118,8 +116,8 @@ export function mount(container: HTMLElement): GraphInstance {
     offset: { x: 0, y: -8 },
     interactive: true,
   })
-  graph.on('selectionchange', ({ nodes: selected }) => {
-    count.textContent = messages.selectionCount(selected.length)
+  graph.on('selectionchange', ({ selection }) => {
+    count.textContent = messages.selectionCount(selection.nodes.length)
   })
 
   const tooltip = document.createElement('div')
@@ -140,10 +138,10 @@ export function mount(container: HTMLElement): GraphInstance {
       })
       return
     }
-    const link = target.datum
+    const { source, target: end } = target.endpoints
     title.textContent = messages.route(
-      byId.get(link.from)?.label ?? '',
-      byId.get(link.to)?.label ?? '',
+      graph.datumOf({ kind: 'node', key: source })?.label ?? '',
+      graph.datumOf({ kind: 'node', key: end })?.label ?? '',
     )
     detail.textContent = ''
     graph.anchors.set(tooltip, { edge: target.key, side: 'top', when: 'hovered' })
@@ -175,10 +173,7 @@ export function mount(container: HTMLElement): GraphInstance {
     }
   }
   showNames()
-  graph.on('layoutend', () => {
-    showNames()
-    graph.view.fit(undefined, { duration: 300, padding: framePadding })
-  })
+  graph.on('layoutend', showNames)
   graph.on('positionchange', showNames)
 
   const actions = document.createElement('div')

@@ -42,8 +42,10 @@ The map keeps its own camera at mount: the graph does not frame its nodes by its
 
 ```ts
 const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
-graph.view.fit(undefined, { padding: 40 })
+graph.view.fit({ padding: 40 })
 ```
+
+The map sets the zoom limits, and the `view` of the definition does not apply: `padding` and `autoFit` there change nothing, and each `fit` takes its own `padding`, 32 pixels by default.
 
 See the [nodes on a flat map](/examples/flat-map) example.
 

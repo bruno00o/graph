@@ -77,6 +77,7 @@ export function mount(container: HTMLElement): GraphInstance {
       ],
       scales: { size: { range: [10, 36] } },
       layout: force(),
+      view: { padding: 80 },
       states: {
         recent: {
           outline: 'var(--graph-accent)',
@@ -89,8 +90,6 @@ export function mount(container: HTMLElement): GraphInstance {
     initialTime: { start, end: start + (end - start) * 0.6 },
     ariaLabel: messages.graphLabel(members.length, ties.length),
   })
-
-  graph.on('layoutend', () => graph.view.fit(undefined, { padding: 80, duration: 300 }))
 
   const timeline = createTimeline(graph, { mode: 'grow', loop: true, speed: (end - start) / 15 })
   const bar = mountTimeline(timeline, {

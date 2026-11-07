@@ -105,7 +105,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       definition: definitionOf(true),
       ariaLabel: messages.graphLabel(spots.length, routes.length),
     })
-    mounted.view.fit(undefined, { padding: 40 })
+    mounted.view.fit({ padding: 40 })
     graph.current = mounted
     assign(ref, mounted)
     return () => {

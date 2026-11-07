@@ -1,4 +1,4 @@
-import type { Bounds, Point, View } from '../types'
+import type { Bounds, FitPadding, Point, View } from '../types'
 
 export type { Bounds }
 
@@ -82,20 +82,45 @@ export function zoomAround(
   return { x: view.x + before.x - after.x, y: view.y + before.y - after.y, zoom }
 }
 
+export interface Sides {
+  readonly top: number
+  readonly right: number
+  readonly bottom: number
+  readonly left: number
+}
+
+export function resolvePadding(padding: number | FitPadding | undefined, fallback: Sides): Sides {
+  if (padding === undefined) return fallback
+  if (typeof padding === 'number') {
+    return Number.isFinite(padding)
+      ? { top: padding, right: padding, bottom: padding, left: padding }
+      : fallback
+  }
+  const side = (value: number | undefined, other: number) =>
+    value !== undefined && Number.isFinite(value) ? value : other
+  return {
+    top: side(padding.top, fallback.top),
+    right: side(padding.right, fallback.right),
+    bottom: side(padding.bottom, fallback.bottom),
+    left: side(padding.left, fallback.left),
+  }
+}
+
 export function fitBounds(
   bounds: Bounds,
   viewport: Viewport,
-  padding: number,
+  padding: Sides,
   limits: ZoomLimits = defaultZoomLimits,
 ): View {
-  const width = Math.max(1, viewport.width - padding * 2)
-  const height = Math.max(1, viewport.height - padding * 2)
+  const width = Math.max(1, viewport.width - padding.left - padding.right)
+  const height = Math.max(1, viewport.height - padding.top - padding.bottom)
   const spanX = Math.max(1e-9, bounds.maxX - bounds.minX)
   const spanY = Math.max(1e-9, bounds.maxY - bounds.minY)
+  const zoom = clampZoom(Math.min(width / spanX, height / spanY), limits)
   return {
-    x: (bounds.minX + bounds.maxX) / 2,
-    y: (bounds.minY + bounds.maxY) / 2,
-    zoom: clampZoom(Math.min(width / spanX, height / spanY), limits),
+    x: (bounds.minX + bounds.maxX) / 2 - (padding.left - padding.right) / 2 / zoom,
+    y: (bounds.minY + bounds.maxY) / 2 - (padding.top - padding.bottom) / 2 / zoom,
+    zoom,
   }
 }
 

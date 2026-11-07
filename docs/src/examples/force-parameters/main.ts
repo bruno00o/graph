@@ -33,6 +33,7 @@ export function mount(container: HTMLElement): GraphInstance {
       ],
       scales: { size: { range: [10, 28] } },
       layout: force(settings),
+      view: { autoFit: 'layouts' },
     })
 
   const graph = mountGraph(container, {
@@ -49,7 +50,6 @@ export function mount(container: HTMLElement): GraphInstance {
   })
   graph.on('layoutend', ({ completed }) => {
     status.textContent = completed ? messages.done : messages.stopped
-    if (completed) graph.view.fit(undefined, { duration: 400 })
   })
 
   const panel = document.createElement('div')

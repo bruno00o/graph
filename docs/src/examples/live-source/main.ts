@@ -44,7 +44,7 @@ export function mount(container: HTMLElement): GraphInstance {
     following = false
   })
   graph.on('layoutend', ({ completed }) => {
-    if (completed && following) graph.view.fit(undefined, { duration: 300 })
+    if (completed && following) graph.view.fit({ duration: 300 })
   })
 
   let paused = false

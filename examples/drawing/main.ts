@@ -17,8 +17,6 @@ type Background = keyof typeof messages.backgrounds
 type HullMode = keyof typeof messages.hullModes
 
 const nameGap = 16
-const framePadding = 48
-
 function nameSide(
   keys: readonly Key[],
   others: readonly Key[],
@@ -50,7 +48,6 @@ function nameSide(
 }
 
 const { items, links } = createSample(150, 330, 5, 3, 0.01)
-const byId = new Map(items.map((item) => [item.id, item]))
 const itemMark = nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' })
 const linkMark = edges<Link>(links, { source: 'from', target: 'to' })
 const layout = force()
@@ -80,6 +77,7 @@ const define = () =>
           : { grid: background },
     hulls: hulls(),
     interaction: { lasso: true },
+    view: { padding: 48 },
   })
 
 const { header, main } = createPage(messages.drawing)
@@ -95,7 +93,7 @@ toolbar.className = 'toolbar'
 toolbar.append(
   count,
   button(messages.frameSelection, () =>
-    graph.view.fit(graph.selection.get().nodes, { duration: 400, padding: framePadding }),
+    graph.view.fit({ ...graph.selection.get(), duration: 400 }),
   ),
   button(messages.clearSelection, () => graph.selection.clear()),
 )
@@ -105,8 +103,8 @@ graph.anchors.set(toolbar, {
   offset: { x: 0, y: -8 },
   interactive: true,
 })
-graph.on('selectionchange', ({ nodes: selected }) => {
-  count.textContent = messages.selectionCount(selected.length)
+graph.on('selectionchange', ({ selection }) => {
+  count.textContent = messages.selectionCount(selection.nodes.length)
 })
 
 const tooltip = document.createElement('div')
@@ -122,10 +120,10 @@ graph.on('pointerenter', ({ target }) => {
     graph.anchors.set(tooltip, { node: target.key, side: 'right', align: 'start', when: 'hovered' })
     return
   }
-  const link = target.datum
+  const { source, target: end } = target.endpoints
   title.textContent = messages.link(
-    byId.get(link.from)?.label ?? '',
-    byId.get(link.to)?.label ?? '',
+    graph.datumOf({ kind: 'node', key: source })?.label ?? '',
+    graph.datumOf({ kind: 'node', key: end })?.label ?? '',
   )
   detail.textContent = ''
   graph.anchors.set(tooltip, { edge: target.key, side: 'top', when: 'hovered' })
@@ -157,10 +155,7 @@ const showNames = () => {
   }
 }
 showNames()
-graph.on('layoutend', () => {
-  showNames()
-  graph.view.fit(undefined, { duration: 300, padding: framePadding })
-})
+graph.on('layoutend', showNames)
 graph.on('positionchange', showNames)
 
 const backgrounds = Object.keys(messages.backgrounds) as Background[]
@@ -200,7 +195,7 @@ header.append(
       redraw()
     },
   ),
-  button(messages.fit, () => graph.view.fit(undefined, { duration: 400, padding: framePadding })),
+  button(messages.fit, () => graph.view.fit({ duration: 400 })),
   ...exportButtons(graph, 'drawing', { png: messages.exportPng, svg: messages.exportSvg }),
   themeToggle(messages.dark, messages.light),
 )

@@ -16,7 +16,7 @@ const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
 
 graph.on('click', ({ target }) => {
   if (target?.kind !== 'node') return
-  graph.view.fit([target.key, ...graph.neighbors(target.key)], { duration: 400 })
+  graph.view.fit({ nodes: [target.key, ...graph.neighbors(target.key)], duration: 400 })
 })
 `
 
@@ -39,7 +39,7 @@ function FitOnClick() {
   const graph = useGraph()
   useGraphEvent('click', ({ target }) => {
     if (target?.kind !== 'node') return
-    graph.view.fit([target.key, ...graph.neighbors(target.key)], { duration: 400 })
+    graph.view.fit({ nodes: [target.key, ...graph.neighbors(target.key)], duration: 400 })
   })
   return null
 }

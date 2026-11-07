@@ -1,11 +1,4 @@
-import {
-  createPathFinder,
-  defineGraph,
-  edges,
-  type GraphInstance,
-  mountGraph,
-  nodes,
-} from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { layers } from '@bruno00o/graph/layouts'
 import { createHierarchy, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
@@ -37,10 +30,6 @@ const definition = defineGraph({
   layout: layers(),
 })
 
-const backward = createPathFinder({
-  marks: [nodes<Item>(items), edges<Link>(links, { source: 'to', target: 'from' })],
-})
-
 export function mount(container: HTMLElement): GraphInstance {
   const graph = mountGraph(container, {
     definition,
@@ -51,14 +40,15 @@ export function mount(container: HTMLElement): GraphInstance {
   status.className = 'example-status'
   container.append(status)
 
-  graph.on('selectionchange', ({ nodes: [start] }) => {
+  graph.on('selectionchange', ({ selection }) => {
+    const [start] = selection.nodes
     if (start === undefined) {
       graph.states.clear()
       status.textContent = messages.hint
       return
     }
-    const down = graph.paths.reach(start, { directed: true })
-    const up = backward.reach(start, { directed: true })
+    const down = graph.paths.reach(start, { direction: 'forward' })
+    const up = graph.paths.reach(start, { direction: 'backward' })
     graph.states.set('downstream', { nodes: down.nodes.slice(1), edges: down.edges })
     graph.states.set('upstream', { nodes: up.nodes.slice(1), edges: up.edges })
     graph.states.set('traced', {
