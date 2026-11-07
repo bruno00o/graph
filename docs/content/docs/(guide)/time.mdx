@@ -1,0 +1,173 @@
+---
+title: Time
+description: Give nodes and edges a time, show only what exists in a time window, and move the window with a timeline that brushes, steps and plays.
+---
+
+<LiveExample slug="time" />
+
+## Give elements a time
+
+`time` on `nodes()` and `edges()` tells when an element exists. It is a channel: a property name, or a function of the item.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+
+const definition = defineGraph({
+  marks: [
+    edges<Link>(links, { source: 'from', target: 'to', time: (link) => link.since }),
+    nodes<Item>(items, {
+      label: 'label',
+      time: (item) => ({ start: item.created, end: item.closed }),
+    }),
+  ],
+})
+```
+
+A time is one of:
+
+- a moment, in milliseconds since the epoch or as a `Date`: the element exists at that moment only;
+- a period `{ start, end }`, from `start`, included, to `end`, left out. A missing or `null` end leaves the period open on that side: `{ start: date }` exists from `date` on, forever;
+- `null`, `undefined`, or a value that is not a time: the element has no time and always shows.
+
+A period whose end comes before its start counts as the moment of its start. The types are in the reference of [`nodes`](/docs/api/nodes#options) and [`edges`](/docs/api/edges#options).
+
+## The time window
+
+Without a window, every element shows. A window keeps only the elements that exist in it:
+
+```ts
+const graph = mountGraph(container, {
+  definition,
+  initialTime: { start: new Date(2024, 0, 1), end: new Date(2024, 6, 1) },
+})
+
+graph.time.set({ start: Date.UTC(2023, 0, 1), end: Date.UTC(2024, 0, 1) })
+graph.time.set({ start: new Date(2024, 0, 1) })
+graph.time.set(null)
+```
+
+The window too goes from `start`, included, to `end`, left out, and a missing end leaves it open. An element shows when it exists at some moment of the window:
+
+- a period shows when it starts before the window ends and ends after the window starts. A period that ends where the window starts does not show, nor one that starts where the window ends;
+- a moment shows from the start of the window, included, to its end, left out;
+- with `start` equal to `end`, the window is a single moment, and shows what exists at that moment: periods that contain it, moments equal to it;
+- an edge shows only when it, its source and its target all show. An edge without a time follows its ends.
+
+`graph.time.get()` returns the window as numbers, or `null`. Each change emits `timechange` and updates `time` in the [store](/docs/api/graph-instance#graph-state):
+
+```ts tab="Vanilla" tab-group="framework"
+graph.on('timechange', ({ window }) => {
+  status.textContent = window ? format(window) : ''
+})
+```
+
+```tsx tab="React" tab-group="framework"
+const window = useGraphState((state) => state.time)
+```
+
+### Controlled window
+
+Pass `time` to own the window, as for the [view](/docs/view#controlled-view). `graph.time.set` and the timeline then call `onTimeChange`, and only a new `time` moves the window:
+
+```tsx
+const [window, setWindow] = useState<TimeWindowInput | null>(null)
+
+<Graph definition={definition} time={window} onTimeChange={(event) => setWindow(event.window)} />
+```
+
+## Fade
+
+By default, elements appear and disappear at once. `time.fade` in `defineGraph` fades them in after the window reaches them and out before it leaves them, over a duration in the milliseconds of the data:
+
+```ts
+defineGraph({ marks, time: { fade: 30 * 86_400_000 } })
+```
+
+With a fade, an element exactly at the edge of the window has faded out, and counts as hidden. The fade multiplies the opacity of the element and of its label. An edge takes the faintest of its own fade and those of its ends.
+
+## What a hidden element is
+
+An element outside the window behaves like one outside its [zoom range](/docs/zoom#what-a-hidden-element-is):
+
+- it is not drawn, and neither are its label, its badges and the edges that end on it; its anchors leave the screen;
+- it is not picked: hover, click and the lasso pass through it, and the arrow keys move the focus over shown nodes only;
+- the [legend](/docs/minimap-and-legend) counts only shown elements, the minimap draws only them, and envelopes wrap only them;
+- [exports](/docs/export) draw what the current window shows, or the window of their `window` option, and a `'graph'` region frames shown elements only;
+- [`graph.paths`](/docs/paths) with `visible: true` walks over shown nodes and edges only.
+
+A hidden element stays in the data, in the selection and in states. Layouts still place it and `view.fit` still frames it, so that the graph does not move when the window moves.
+
+In a [group](/docs/groups), each node follows its own time. An edge drawn in place of edges that end in a folded group exists from the earliest start to the latest end of its members, and has no time when one of them has none. `aggregate.time` reads it from the [aggregated edge](/docs/api/edges#edges-of-folded-groups) instead.
+
+## Timeline
+
+`@bruno00o/graph/timeline` follows the time of a graph: its extent, a histogram of how many nodes and edges exist over time, and the window, which it moves by brushing, stepping and playing.
+
+```ts
+import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
+
+const timeline = createTimeline(graph, { mode: 'slide', loop: true })
+const view = mountTimeline(timeline, {
+  ariaLabel: 'Timeline',
+  labels: { play: 'Play', start: 'Start of the window', end: 'End of the window', window: 'Window' },
+})
+footer.append(view.element)
+```
+
+`createTimeline` keeps its state in `timeline.store`: the extent, the range shown on the bar, the bins and ticks, the window and playback. `mountTimeline` renders it: a play button, the histogram, the window as a brush with two handles, and ticks. Draw your own instead from the store; every action is a method of the timeline. The options are in the [reference](/docs/api/timeline).
+
+### Histogram
+
+Bins follow the calendar: a day, a week starting on Monday, a month, a year, or a multiple of them, chosen so that the bar holds about `bins` of them. A bin counts the nodes and the edges whose time meets it, the same way the window does, so a bin brushed alone shows what it counts. An edge counts over the time when it and both its ends exist. Elements without time are not counted.
+
+The extent goes from the earliest start to the latest end of the data. Pass `extent` to fix one end or both, for instance to show the whole of a year or to end at today.
+
+### Brush, step and play
+
+- Drag across the histogram to brush a new window, drag the window to move it, drag a handle to move one end. A click centers the window on the time clicked. Ends snap to the bins; hold <kbd>Alt</kbd> for a free end.
+- The wheel zooms the bar around the pointer; <kbd>Shift</kbd> and the wheel, or a horizontal swipe, pans it.
+- The handles and the window are sliders: the arrow keys move them by a bin, <kbd>Page Up</kbd> and <kbd>Page Down</kbd> by ten, <kbd>Home</kbd> and <kbd>End</kbd> to the ends of the extent.
+- The play button, `play`, `pause` and `toggle` run playback at `speed`, in milliseconds of data time per second; by default it crosses the extent in twenty seconds. In `'slide'` mode the window keeps its width and moves; in `'grow'` mode its start stays and its end moves, so it gathers everything since the start. With `loop`, playback starts again from the beginning.
+
+```ts
+timeline.brush(new Date(2023, 0, 1), new Date(2023, 3, 1))
+timeline.step()
+timeline.update({ mode: 'grow', speed: 7 * 86_400_000 })
+timeline.play()
+```
+
+### Text
+
+The timeline writes no text of its own. `labels` names the play button, the handles and the window for assistive technologies, and `labels.range` writes the value of the window from the values of its ends. Ticks and values are dates and times written by `Intl.DateTimeFormat` in the language of the page (`<html lang>`), as precise as the unit of the bins; pass `format` to write them yourself:
+
+```ts
+mountTimeline(timeline, {
+  format: (time, unit) => (unit === 'year' ? String(new Date(time).getFullYear()) : day.format(time)),
+})
+```
+
+### React
+
+```tsx
+import { Graph, Timeline, useTimeline } from '@bruno00o/graph/react'
+
+<Graph definition={definition} ariaLabel="Graph">
+  <Timeline loop labels={labels} ariaLabel="Timeline" />
+</Graph>
+```
+
+`<Timeline>` renders the default timeline where it stands. `useTimeline` returns the state and the timeline, for a timeline drawn by your components.
+
+## Performance
+
+The time of each element is read when the data changes, like every style. Moving the window only compares it with them on the GPU: playback costs no work per element. Measured on a laptop, at 500,000 nodes and 1,000,000 edges, each with a random period:
+
+| Step | Time |
+| --- | --- |
+| Reading the times, on top of the first frame | 130 ms |
+| Frame while playing | 16.7 ms, at 60 frames per second |
+| Histogram, first count | 180 ms |
+| Histogram, after 100 nodes change their time | 12 ms |
+| Histogram, after every node changes its time | 120 ms |
+
+The timeline counts again only when times change, and only for the elements whose time changed and the edges that end on them.

@@ -1,5 +1,6 @@
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
+import type { Sight } from '../core/visibility'
 import type { GraphDefinition } from '../types'
 import type { ContainerFrame } from './renderer'
 
@@ -23,6 +24,7 @@ export interface GraphInternals {
   containers(): ContainerFrame | null
   palette(): Uint8Array
   masks(): Uint32Array
+  sight(): Sight
   stamp(): GraphStamp
   watch(watcher: GraphWatcher): () => void
 }

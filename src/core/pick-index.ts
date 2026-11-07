@@ -10,7 +10,7 @@ import {
 } from './edge-curve'
 import { type EdgePaths, maxPathPoints } from './edge-paths'
 import type { Positions } from './positions'
-import { edgeShown } from './zoom-range'
+import { edgeShown, nodeShown, type Sight } from './visibility'
 
 export type PickHit =
   | { readonly kind: 'node'; readonly index: number }
@@ -543,10 +543,10 @@ export class PickIndex {
     }
   }
 
-  pick(source: PickSource, x: number, y: number, zoom: number, tolerance: number): PickHit | null {
-    const node = this.#pickNode(source, x, y, zoom)
+  pick(source: PickSource, x: number, y: number, sight: Sight, tolerance: number): PickHit | null {
+    const node = this.#pickNode(source, x, y, sight)
     if (node >= 0) return { kind: 'node', index: node }
-    const edge = this.#pickEdge(source, x, y, zoom, tolerance)
+    const edge = this.#pickEdge(source, x, y, sight, tolerance)
     return edge >= 0 ? { kind: 'edge', index: edge } : null
   }
 
@@ -659,14 +659,15 @@ export class PickIndex {
     return Math.max(radius, minimumPickRadius / zoom)
   }
 
-  #pickNode(source: PickSource, x: number, y: number, zoom: number): number {
+  #pickNode(source: PickSource, x: number, y: number, sight: Sight): number {
+    const zoom = sight.zoom
     const reach = Math.max(this.#maxWorldRadius, (this.#maxScreenRadius + minimumPickRadius) / zoom)
     let best = -1
     let bestOrder = Number.NEGATIVE_INFINITY
     const nodeGrid = this.#nodes
     const generations = this.#nodeGeneration
     this.#around(this.#frame, 0, nodeGrid, generations, this.#extraNodes, x, y, reach, (index) => {
-      if (!pickable(source.nodes, index) || !source.nodes.zoom.shown(index, zoom)) return
+      if (!pickable(source.nodes, index) || !nodeShown(source.nodes, index, sight)) return
       const distance = Math.hypot(x - source.positions.x(index), y - source.positions.y(index))
       if (distance > this.#radius(source, index, zoom)) return
       const order = source.order('nodes', index)
@@ -678,7 +679,8 @@ export class PickIndex {
     return best
   }
 
-  #pickEdge(source: PickSource, x: number, y: number, zoom: number, tolerance: number): number {
+  #pickEdge(source: PickSource, x: number, y: number, sight: Sight, tolerance: number): number {
+    const zoom = sight.zoom
     const { edges, positions } = source
     const reach = (this.#maxEdgeHalfWidth + tolerance) / zoom
     let best = -1
@@ -695,7 +697,7 @@ export class PickIndex {
     }
     const seen = new Set<number>()
     const visit = (index: number) => {
-      if (edges.alive[index] !== 1 || !edgeShown(source.nodes, edges, index, zoom)) return
+      if (edges.alive[index] !== 1 || !edgeShown(source.nodes, edges, index, sight)) return
       const s = edges.source[index] ?? 0
       const t = edges.target[index] ?? 0
       const paths = source.paths
@@ -730,7 +732,7 @@ export class PickIndex {
       this.#around(frame, base, this.#edges, this.#edgeGeneration, extra, x, y, reach, visit)
     })
     const loop = (index: number) => {
-      if (edges.alive[index] !== 1 || !edgeShown(source.nodes, edges, index, zoom)) return
+      if (edges.alive[index] !== 1 || !edgeShown(source.nodes, edges, index, sight)) return
       consider(index, distanceToCubic(this.#loop(source, index, zoom), x, y, pickSegments))
     }
     for (const index of this.#loops) if ((this.#edgeGeneration[index] ?? 0) === 0) loop(index)

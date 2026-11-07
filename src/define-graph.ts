@@ -10,8 +10,10 @@ import type {
   ResolvedBackground,
   ResolvedInteraction,
   ResolvedLens,
+  ResolvedTimeOptions,
   ResolvedViewLimits,
   StateStyles,
+  TimeOptions,
   ViewBounds,
   ViewLimitOptions,
   WheelMode,
@@ -111,6 +113,14 @@ function resolveBackground(
   })
 }
 
+function resolveTime(options: TimeOptions = {}): ResolvedTimeOptions {
+  const fade = options.fade ?? 0
+  if (!(fade >= 0) || !Number.isFinite(fade)) {
+    throw new RangeError('defineGraph: time.fade must be a finite number, 0 or more')
+  }
+  return Object.freeze({ fade })
+}
+
 /**
  * Builds a frozen graph definition from marks, scales, states and options. The names of `states`
  * become the state names accepted by the instance, and the item types and names of the marks type
@@ -150,5 +160,6 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     background: resolveBackground(options.background),
     hulls: Object.freeze([...(options.hulls ?? [])]),
     bundling,
+    time: resolveTime(options.time),
   })
 }

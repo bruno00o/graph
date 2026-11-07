@@ -25,6 +25,7 @@ export function createPathFinder<M extends Mark>(definition: {
       model.flush()
     },
     groups: () => null,
+    shown: () => null,
   }) as unknown as GraphPaths<M>
   return {
     shortest: (from, to, options) => (destroyed ? null : queries.shortest(from, to, options)),

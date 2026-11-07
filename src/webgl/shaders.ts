@@ -1,4 +1,5 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
+import { leastFade } from '../core/time-range'
 import { zoomFade } from '../core/zoom-range'
 import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
@@ -38,6 +39,11 @@ layout(std140) uniform Frame {
   vec2 centerLow;
   float ranged;
   float framePadding;
+  vec4 timeWindow;
+  float timed;
+  float timeFade;
+  float timePoint;
+  float timePadding;
 };
 layout(std140) uniform States {
   vec4 stateNumbers[64];
@@ -98,13 +104,31 @@ uniform usampler2D nodeState;
 uniform usampler2D nodeDecor;
 uniform sampler2D nodeBox;
 uniform sampler2D nodeZoom;
+uniform sampler2D nodeTime;
 float zoomShown(vec2 range) {
   if (!(zoom > range.x && zoom < range.y)) return 0.0;
   float inside = min(range.x > 0.0 ? log2(zoom / range.x) : 1.0, log2(range.y / zoom));
   return clamp(inside / ${zoomFade.toFixed(2)}, 0.0, 1.0);
 }
+bool timeBefore(vec2 a, vec2 b) { return a.x < b.x || (a.x == b.x && a.y < b.y); }
+bool timeSame(vec2 a, vec2 b) { return a.x == b.x && a.y == b.y; }
+float timeShown(vec4 span) {
+  vec2 s = span.xy;
+  vec2 e = span.zw;
+  vec2 ws = timeWindow.xy;
+  vec2 we = timeWindow.zw;
+  if (timeFade > 0.0) {
+    if (!timeBefore(s, we) || !timeBefore(ws, e)) return 0.0;
+    float inside = min((we.x - s.x) + (we.y - s.y), (e.x - ws.x) + (e.y - ws.y));
+    return clamp(inside / timeFade, ${leastFade.toFixed(6)}, 1.0);
+  }
+  bool started = timeBefore(s, we) || (timePoint > 0.5 && timeSame(s, we));
+  if (!started) return 0.0;
+  return timeBefore(ws, e) || (timeSame(s, e) && timeSame(e, ws)) ? 1.0 : 0.0;
+}
 float nodeShown(ivec2 t) {
-  return ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
+  float shown = ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
+  return timed > 0.5 && shown > 0.0 ? shown * timeShown(texelFetch(nodeTime, t, 0)) : shown;
 }
 Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
@@ -131,10 +155,12 @@ uniform usampler2D edgeTopology;
 uniform sampler2D edgeStyle;
 uniform usampler2D edgeState;
 uniform sampler2D edgeZoom;
+uniform sampler2D edgeTime;
 uniform float flowTime;
 float edgeShown(ivec2 t, uvec4 topology) {
-  if (ranged < 0.5) return 1.0;
-  float own = zoomShown(texelFetch(edgeZoom, t, 0).xy);
+  if (ranged < 0.5 && timed < 0.5) return 1.0;
+  float own = ranged > 0.5 ? zoomShown(texelFetch(edgeZoom, t, 0).xy) : 1.0;
+  if (timed > 0.5 && own > 0.0) own *= timeShown(texelFetch(edgeTime, t, 0));
   return min(own, min(nodeShown(texel(topology.x)), nodeShown(texel(topology.y))));
 }
 float edgeFlow(uint mask, float speed) {

@@ -347,3 +347,97 @@ export function createTiers(hubs = 6, branches = 8, leaves = 10, seed = 9): Samp
   }
   return { items, links }
 }
+
+export interface TimedItem extends Item {
+  readonly start: number
+  readonly end: number | null
+}
+
+export interface TimedLink extends Link {
+  readonly start: number
+  readonly end: number | null
+}
+
+export interface History {
+  readonly items: TimedItem[]
+  readonly links: TimedLink[]
+  readonly start: number
+  readonly end: number
+}
+
+const day = 86_400_000
+
+export function spreadInTime(sample: Sample, years = 3, seed = 13): History {
+  const next = random(seed)
+  const start = Date.UTC(2021, 0, 1)
+  const end = Date.UTC(2021 + years, 0, 1)
+  const span = end - start
+  const spans = new Map<string, readonly [number, number]>()
+  const items = sample.items.map((item) => {
+    const from = start + Math.floor(next() * span)
+    const to = from + Math.floor((0.05 + next() * 0.4) * span)
+    spans.set(item.id, [from, to])
+    return { ...item, start: from, end: to < end ? to : null }
+  })
+  const links = sample.links.map((link) => {
+    const a = spans.get(link.from) ?? [start, end]
+    const b = spans.get(link.to) ?? [start, end]
+    const from = Math.max(a[0], b[0]) + Math.floor(next() * 30) * day
+    const to = Math.max(from, Math.min(a[1], b[1]) - Math.floor(next() * 30) * day)
+    return { ...link, start: from, end: to < end ? to : null }
+  })
+  return { items, links, start, end }
+}
+
+export function createHistory(nodeCount: number, edgeCount: number, years = 4, seed = 17): History {
+  const next = random(seed)
+  const start = Date.UTC(2021, 0, 1)
+  const end = Date.UTC(2021 + years, 0, 1)
+  const span = end - start
+  const groups = 6
+  const items: TimedItem[] = []
+  for (let index = 0; index < nodeCount; index++) {
+    const group = Math.floor(next() * groups)
+    const early = index < nodeCount / 20
+    const from = start + Math.floor((early ? next() * 0.02 : Math.sqrt(next()) * 0.92) * span)
+    const life = next() < 0.35 ? null : Math.floor((0.15 + next() * 0.9) * span * 0.5)
+    const to = life === null ? null : from + life
+    items.push({
+      id: `n${index}`,
+      label: messages.node(formatNumber(index + 1)),
+      group: messages.group(String.fromCharCode(65 + group)),
+      weight: Math.round(4 + next() ** 2 * 36),
+      x: 0,
+      y: 0,
+      start: Math.floor(from / day) * day,
+      end: to === null || to >= end ? null : Math.floor(to / day) * day,
+    })
+  }
+  const members = new Map<string, TimedItem[]>()
+  for (const item of items) {
+    const list = members.get(item.group)
+    if (list) list.push(item)
+    else members.set(item.group, [item])
+  }
+  const links: TimedLink[] = []
+  for (let tries = 0; links.length < edgeCount && tries < edgeCount * 20; tries++) {
+    const a = items[Math.floor(next() * nodeCount)]
+    const pool = (next() < 0.85 && a ? members.get(a.group) : undefined) ?? items
+    const b = pool[Math.floor(next() * pool.length)]
+    if (!a || !b || a === b) continue
+    const from = Math.max(a.start, b.start)
+    const to = Math.min(a.end ?? end, b.end ?? end)
+    if (to - from < 30 * day) continue
+    const linkFrom = from + Math.floor(next() * 0.3 * (to - from))
+    const linkTo = next() < 0.5 ? to : linkFrom + Math.floor((0.3 + next() * 0.7) * (to - linkFrom))
+    links.push({
+      id: `e${links.length}`,
+      from: a.id,
+      to: b.id,
+      strength: next(),
+      start: Math.floor(linkFrom / day) * day,
+      end: linkTo >= end || (linkTo === to && a.end === null && b.end === null) ? null : linkTo,
+    })
+  }
+  return { items, links, start, end }
+}

@@ -43,7 +43,16 @@ import {
   type Minimap as MinimapInstance,
   type MinimapOptions,
 } from '../minimap/index'
-import type { GraphDefinition, Key, Mark, View } from '../types'
+import {
+  createTimeline,
+  mountTimeline,
+  type Timeline as TimelineInstance,
+  type TimelineOptions,
+  type TimelineState,
+  type TimelineView,
+  type TimelineViewOptions,
+} from '../timeline/index'
+import type { GraphDefinition, Key, Mark, TimeWindowInput, View } from '../types'
 
 /** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
 export interface GraphEventProps<M extends Mark = Mark> {
@@ -76,6 +85,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
    * synchronously, so a state update in the handler draws in the same frame.
    */
   readonly onViewChange?: GraphEventHandler<'viewchange', M>
+  /** Receives `timechange`, or the window requests when `time` is given. */
+  readonly onTimeChange?: GraphEventHandler<'timechange', M>
   /** Receives `zoomhint`: a wheel event went to the page in `'page'` wheel mode. */
   readonly onZoomHint?: GraphEventHandler<'zoomhint', M>
   /** Receives `lenschange`: the lens shows, moves, changes or hides. */
@@ -100,6 +111,7 @@ const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
   focuschange: 'onFocusChange',
   foldchange: 'onFoldChange',
   viewchange: 'onViewChange',
+  timechange: 'onTimeChange',
   lenschange: 'onLensChange',
   zoomhint: 'onZoomHint',
   layoutstart: 'onLayoutStart',
@@ -132,6 +144,14 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    * this prop changes the folded groups.
    */
   readonly folded?: Iterable<Key>
+  /** Time window at mount, read once, or `null` for none. */
+  readonly initialTime?: TimeWindowInput | null
+  /**
+   * Makes the time window controlled when given at mount, `null` for none: `onTimeChange`
+   * receives the requests of `time.set` and timelines, and only this prop moves the window.
+   * Requests are rendered synchronously, so playback draws in the same frame.
+   */
+  readonly time?: TimeWindowInput | null
   /** Class of the wrapping `div`. */
   readonly className?: string
   /** Style of the wrapping `div`, merged with `position: relative`. */
@@ -164,7 +184,8 @@ function useLatest<T>(value: T): { readonly current: T } {
 export function Graph<S extends string = string, M extends Mark = Mark>(
   props: GraphProps<S, M>,
 ): JSX.Element {
-  const { definition, ariaLabel, selection, folded, view, className, style, ref, children } = props
+  const { definition, ariaLabel, selection, folded, view, time, className, style, ref, children } =
+    props
   const host = useRef<HTMLDivElement>(null)
   const [graph, setGraph] = useState<GraphInstance<S, M> | null>(null)
   const latest = useLatest(props)
@@ -196,6 +217,13 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
             onFoldChange: (next) => latest.current.onFoldChange?.(next),
           }
         : {}),
+      ...(initial.initialTime !== undefined ? { initialTime: initial.initialTime } : {}),
+      ...(initial.time !== undefined
+        ? {
+            time: initial.time,
+            onTimeChange: (next) => flushSync(() => latest.current.onTimeChange?.(next)),
+          }
+        : {}),
     })
     setGraph(instance)
     return () => {
@@ -211,8 +239,9 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       ...(selection !== undefined ? { selection } : {}),
       ...(folded !== undefined ? { folded } : {}),
       ...(view !== undefined ? { view } : {}),
+      ...(time !== undefined ? { time } : {}),
     })
-  }, [graph, definition, ariaLabel, selection, folded, view])
+  }, [graph, definition, ariaLabel, selection, folded, view, time])
 
   useEffect(() => {
     if (!graph) return
@@ -221,6 +250,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
         if (name === 'selectionchange' && latest.current.selection !== undefined) return
         if (name === 'foldchange' && latest.current.folded !== undefined) return
         if (name === 'viewchange' && latest.current.view !== undefined) return
+        if (name === 'timechange' && latest.current.time !== undefined) return
         const handler = latest.current[eventProps[name]] as ((event: unknown) => void) | undefined
         handler?.(event)
       }),
@@ -458,6 +488,105 @@ export function Legend<S extends string = string, M extends Mark = Mark>(
       mounted.current = null
     }
   }, [legend, latest])
+  useLayoutEffect(() => {
+    const current = mounted.current
+    if (!current || shallowEqual(current.options, view)) return
+    current.options = view
+    current.view.update(view)
+  })
+  return <div ref={slot} />
+}
+
+/** What `useTimeline` returns. */
+export interface UseTimelineResult {
+  /** State of the timeline, empty until the first layout effect. */
+  readonly state: TimelineState
+  /** The timeline, to brush, step or play, or `null` until the first layout effect. */
+  readonly timeline: TimelineInstance | null
+}
+
+const emptyTimeline: TimelineState = {
+  extent: null,
+  range: null,
+  bins: [],
+  unit: 'day',
+  step: 1,
+  ticks: [],
+  window: null,
+  playing: false,
+  speed: 0,
+  mode: 'slide',
+  loop: false,
+}
+
+function useTimelineInstance(options: TimelineOptions): TimelineInstance | null {
+  const graph = useGraph()
+  const [timeline, setTimeline] = useState<TimelineInstance | null>(null)
+  const latest = useLatest(options)
+  const applied = useRef(options)
+  useLayoutEffect(() => {
+    const created = createTimeline(graph, latest.current)
+    applied.current = latest.current
+    setTimeline(created)
+    return () => {
+      created.destroy()
+      setTimeline(null)
+    }
+  }, [graph, latest])
+  useLayoutEffect(() => {
+    if (!timeline || shallowEqual(applied.current, options)) return
+    applied.current = options
+    timeline.update(options)
+  })
+  return timeline
+}
+
+/**
+ * Reads a timeline of the enclosing `<Graph>` and renders again when it changes, for a timeline
+ * drawn by the application.
+ */
+export function useTimeline(options: TimelineOptions = {}): UseTimelineResult {
+  const timeline = useTimelineInstance(options)
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      if (!timeline) return () => {}
+      const subscription = timeline.store.subscribe(() => notify())
+      return () => subscription.unsubscribe()
+    },
+    [timeline],
+  )
+  const snapshot = (): TimelineState => timeline?.store.state ?? emptyTimeline
+  const state = useSyncExternalStore(subscribe, snapshot, snapshot)
+  return { state, timeline }
+}
+
+/** Props of `Timeline`: the options of `createTimeline` and of `mountTimeline`. */
+export interface TimelineProps extends TimelineOptions, TimelineViewOptions {}
+
+/** Renders the default timeline of the enclosing `<Graph>` where the component stands. */
+export function Timeline(props: TimelineProps): ReactNode {
+  const { bins, ticks, speed, mode, loop, extent, ...view } = props
+  const timeline = useTimelineInstance({
+    ...(bins !== undefined ? { bins } : {}),
+    ...(ticks !== undefined ? { ticks } : {}),
+    ...(speed !== undefined ? { speed } : {}),
+    ...(mode !== undefined ? { mode } : {}),
+    ...(loop !== undefined ? { loop } : {}),
+    ...(extent !== undefined ? { extent } : {}),
+  })
+  const slot = useRef<HTMLDivElement>(null)
+  const mounted = useRef<{ readonly view: TimelineView; options: object } | null>(null)
+  const latest = useLatest(view)
+  useLayoutEffect(() => {
+    if (!timeline || !slot.current) return
+    const created = mountTimeline(timeline, latest.current)
+    mounted.current = { view: created, options: latest.current }
+    slot.current.append(created.element)
+    return () => {
+      created.destroy()
+      mounted.current = null
+    }
+  }, [timeline, latest])
   useLayoutEffect(() => {
     const current = mounted.current
     if (!current || shallowEqual(current.options, view)) return

@@ -219,4 +219,20 @@ describe('public types', () => {
       aggregate: { source: 'from' },
     })
   })
+
+  it('types the time channel and the time window', () => {
+    nodes<Person>(people, { time: 'joined' })
+    nodes<Person>(people, { time: 'score' })
+    nodes<Person>(people, { time: (person) => ({ start: person.joined, end: null }) })
+    edges<Link>(links, { source: 'from', target: 'to', time: (link) => link.weight })
+    // @ts-expect-error
+    nodes<Person>(people, { time: 'name' })
+    // @ts-expect-error
+    nodes<Person>(people, { time: (person) => person.name })
+    expectTypeOf<GraphInstance['time']['get']>().returns.toEqualTypeOf<{
+      readonly start: number | null
+      readonly end: number | null
+    } | null>()
+    defineGraph({ marks: [nodes<Person>(people)], time: { fade: 86_400_000 } })
+  })
 })

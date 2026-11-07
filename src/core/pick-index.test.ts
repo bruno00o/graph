@@ -6,6 +6,7 @@ import { createGraphModel } from './graph-model'
 import { PickIndex, type PickSource } from './pick-index'
 import { Positions, placeNodes } from './positions'
 import { createScene } from './scene'
+import { sightOf } from './visibility'
 
 type Item = { id: string; x: number; y: number; size?: number }
 type Link = { id: string; from: string; to: string }
@@ -40,7 +41,9 @@ function setup(items: Item[], links: Link[], options: NodeOptions<Item> = {}) {
       : hit.kind === 'node'
         ? scene.nodes.keys[hit.index]
         : scene.edges.keys[hit.index]
-  return { pick: (x: number, y: number, zoom = 1) => keyOf(index.pick(source, x, y, zoom, 4)) }
+  return {
+    pick: (x: number, y: number, zoom = 1) => keyOf(index.pick(source, x, y, sightOf(zoom), 4)),
+  }
 }
 
 describe('PickIndex', () => {
@@ -150,12 +153,14 @@ describe('PickIndex', () => {
       [234, 216],
     ] as const
     for (const [x, y] of probes) {
-      expect(keyOf(index.pick(source, x, y, 1, 4))).toBe(keyOf(fresh.pick(source, x, y, 1, 4)))
+      expect(keyOf(index.pick(source, x, y, sightOf(1), 4))).toBe(
+        keyOf(fresh.pick(source, x, y, sightOf(1), 4)),
+      )
     }
-    expect(keyOf(index.pick(source, 1000, 1000, 1, 4))).toBe('n55')
-    expect(keyOf(index.pick(source, 225, 225, 1, 4))).toBe('x')
-    expect(keyOf(index.pick(source, 0, 0, 1, 4))).toBeNull()
-    expect(keyOf(index.pick(source, 800, 786, 1, 4))).toBe('f')
+    expect(keyOf(index.pick(source, 1000, 1000, sightOf(1), 4))).toBe('n55')
+    expect(keyOf(index.pick(source, 225, 225, sightOf(1), 4))).toBe('x')
+    expect(keyOf(index.pick(source, 0, 0, sightOf(1), 4))).toBeNull()
+    expect(keyOf(index.pick(source, 800, 786, sightOf(1), 4))).toBe('f')
   })
 
   it('picks long edges like a scan of every edge', () => {

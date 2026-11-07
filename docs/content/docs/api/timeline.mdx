@@ -1,0 +1,91 @@
+---
+title: createTimeline and mountTimeline
+description: A timeline of the nodes and edges of a graph, with a histogram, that moves its time window, and its default renderer.
+---
+
+```ts
+import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
+
+function createTimeline<S extends string, M extends Mark>(
+  graph: GraphInstance<S, M>,
+  options?: TimelineOptions,
+): Timeline
+
+function mountTimeline(timeline: Timeline, options?: TimelineViewOptions): TimelineView
+```
+
+`createTimeline` follows the time of a graph made by [`mountGraph`](/docs/api/mount-graph) and keeps it in a store, with the time window of the graph. `mountTimeline` renders a timeline in a plain element. See [Time](/docs/time#timeline) for a walkthrough.
+
+## createTimeline options
+
+<api-table path="timeline/index.ts" name="TimelineOptions" />
+
+```ts
+type TimelineMode = 'slide' | 'grow'
+```
+
+## Timeline
+
+<api-table path="timeline/index.ts" name="Timeline" />
+
+```ts
+type TimelineEnd = 'start' | 'end' | 'both'
+```
+
+## TimelineState
+
+<api-table path="timeline/index.ts" name="TimelineState" />
+
+```ts
+type TimeUnit = 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year'
+```
+
+<api-table path="timeline/index.ts" name="TimeRange" />
+
+<api-table path="timeline/index.ts" name="TimelineBin" />
+
+<api-table path="timeline/index.ts" name="TimelineTick" />
+
+## mountTimeline options
+
+<api-table path="timeline/index.ts" name="TimelineViewOptions" />
+
+<api-table path="timeline/index.ts" name="TimelineLabels" />
+
+```ts
+type TimelineFormat = (time: number, unit: TimeUnit, use: 'tick' | 'value') => string
+```
+
+## TimelineView
+
+<api-table path="timeline/index.ts" name="TimelineView" />
+
+## React
+
+```ts
+import { Timeline, useTimeline } from '@bruno00o/graph/react'
+
+function Timeline(props: TimelineProps): ReactNode
+
+function useTimeline(options?: TimelineOptions): UseTimelineResult
+```
+
+Use both inside the children of [`<Graph>`](/docs/api/graph-component). `<Timeline>` renders the default timeline in a `div` where it stands; its props are the options of `createTimeline` and of `mountTimeline`. `useTimeline` renders again when the state changes.
+
+<api-table path="react/index.tsx" name="UseTimelineResult" />
+
+## Errors
+
+- A graph that was not created by `mountGraph` throws an `Error`.
+- `bins`, `ticks` or `speed` that is not a positive number throws a `RangeError`, as does an `extent` whose start comes after its end.
+- `set` and `brush` with a time that is not a finite number or a valid date throw a `RangeError`.
+
+## Behavior
+
+- The timeline counts again after a change of data, never more often than ten times its own cost allows, and at least 50 ms apart. It reads only the elements whose time changed, and the edges that end on them.
+- Bins and ticks follow the calendar of the local time zone: a week starts on Monday, a month on its first day.
+- In controlled mode, actions call `onTimeChange` of the graph instead of moving the window. Playback goes on from the window it asked for until a new `time` arrives, so a controlled graph plays smoothly.
+- Playback stops when the window cannot move any further, unless `loop` is on. A frame late by more than 100 ms moves the window by 100 ms of playback at most.
+- Destroying the graph destroys its timelines. Destroying the timeline leaves the window where it is.
+- In the default renderer, the element carries `data-graph-timeline` and `role="group"`. The handles carry `data-part="start"` and `data-part="end"`, the window `data-part="window"`; all three are sliders with `aria-valuemin`, `aria-valuemax`, `aria-valuenow` and `aria-valuetext`. The play button carries `aria-pressed`.
+- Colors come from the `--graph-…` tokens: `--graph-accent` for the window and the counts inside it, `--graph-ink` and `--graph-ink-muted` for the rest.

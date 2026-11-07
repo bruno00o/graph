@@ -6,7 +6,7 @@ import { type ContainerSource, HullLayer } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { isBuiltInState } from '../core/state-names'
-import { detailStep, edgeShown } from '../core/zoom-range'
+import { detailStep, edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { GraphDefinition, Key, View } from '../types'
 import { type EdgeAnchor, edgeAnchor } from '../webgl/label-layer'
 import { type AnchorBox, AnchorLayer, type GraphAnchors } from './anchors'
@@ -24,6 +24,7 @@ export interface DecorationContext {
   readonly positions: Positions
   readonly registry: StateRegistry
   readonly state: () => GraphState
+  readonly sight: () => Sight
   readonly request: () => void
   readonly containers: () => ContainerSource | null
   readonly edgeIndex: (key: Key) => number
@@ -49,12 +50,12 @@ export function createDecorations(context: DecorationContext): Decorations {
   const edgePoint: EdgeAnchor = { x: 0, y: 0, ax: 0, ay: 0, room: 0 }
 
   function source() {
-    const zoom = view().zoom
+    const sight = context.sight()
     return {
       model,
       nodes: scene.nodes,
-      zoom,
-      detail: detailStep(scene.nodes, scene.edges, zoom),
+      sight,
+      detail: detailStep(scene.nodes, scene.edges, sight),
       positions,
       palette: scene.palette,
       containers: context.containers(),
@@ -92,7 +93,7 @@ export function createDecorations(context: DecorationContext): Decorations {
         const index = record.index
         const { width, height } = context.state()
         const current = view()
-        if (!nodes.zoom.shown(index, current.zoom)) return false
+        if (!nodeShown(nodes, index, context.sight())) return false
         const boxes = nodes.shape[index] === containerShape ? context.containers()?.boxes : null
         const size = nodes.size[index] ?? 0
         const radius =
@@ -111,7 +112,7 @@ export function createDecorations(context: DecorationContext): Decorations {
       edgePoint(key: Key, box: AnchorBox): boolean {
         const index = context.edgeIndex(key)
         if (index < 0 || scene.edges.alive[index] !== 1) return false
-        if (!edgeShown(scene.nodes, scene.edges, index, view().zoom)) return false
+        if (!edgeShown(scene.nodes, scene.edges, index, context.sight())) return false
         const { width, height } = context.state()
         const frame = {
           nodes: scene.nodes,

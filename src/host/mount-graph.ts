@@ -18,6 +18,7 @@ import { shallowEqual } from '../core/shallow-equal'
 import { nearestNode, nodeToward } from '../core/spatial'
 import { type ResolvedStateStyle, StateBuffers, type StateKind } from '../core/state-buffers'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
+import { readWindow, sameWindow, type TimeFilter, timeFilter } from '../core/time-range'
 import {
   type Bounds,
   constrainView,
@@ -33,7 +34,7 @@ import {
   wheelPixels,
   zoomAround,
 } from '../core/view'
-import { detailStep } from '../core/zoom-range'
+import { detailStep, filtered, nodeShown, ownShown, type Sight } from '../core/visibility'
 import { dev } from '../dev'
 import { observeTheme, ThemeResolver } from '../dom/theme'
 import { builtInStyles, defaults } from '../theme/tokens'
@@ -49,6 +50,8 @@ import type {
   NodeDatum,
   Point,
   StateStyle,
+  TimeWindow,
+  TimeWindowInput,
   View,
 } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
@@ -64,6 +67,7 @@ import {
   type GraphEventName,
   type GraphFoldEvent,
   type GraphTarget,
+  type GraphTimeEvent,
   type GraphViewEvent,
   type ZoomKey,
 } from './events'
@@ -112,6 +116,8 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly folded: readonly Key[]
   /** Status of edge bundling. */
   readonly bundling: GraphBundlingStatus
+  /** Time window, or `null` when every element shows whatever its `time`. */
+  readonly time: TimeWindow | null
   /** The magnifying lens, or `null` when hidden. */
   readonly lens: GraphLensState | null
 }
@@ -285,6 +291,20 @@ export interface GraphBundling {
   run(): Promise<boolean>
 }
 
+/**
+ * The time window of a graph. Nodes and edges with a `time` show only while they exist in the
+ * window; without a window, every element shows. In controlled mode, changes go to `onTimeChange`.
+ */
+export interface GraphTime {
+  /** Current window, or `null` when every element shows. */
+  get(): TimeWindow | null
+  /**
+   * Replaces the window, or removes it with `null`. Throws a `RangeError` for an end that is not a
+   * finite time, or a start after the end.
+   */
+  set(window: TimeWindowInput | null): void
+}
+
 /** Node positions, in world units. */
 export interface GraphPositions {
   /** Position of a node, or `undefined` for an unknown key. */
@@ -332,6 +352,15 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
   readonly folded?: Iterable<Key>
   /** Receives every fold request in controlled mode, instead of the folded groups changing. */
   readonly onFoldChange?: (event: GraphFoldEvent) => void
+  /** Time window at mount, or `null` for none. Later changes go through `time`. */
+  readonly initialTime?: TimeWindowInput | null
+  /**
+   * Time window, or `null` for none. Passing it makes the window controlled for the life of the
+   * graph: `time.set` calls go to `onTimeChange`, and only `update({ time })` moves the window.
+   */
+  readonly time?: TimeWindowInput | null
+  /** Receives every window request in controlled mode, instead of the window changing. */
+  readonly onTimeChange?: (event: GraphTimeEvent) => void
 }
 
 /**
@@ -361,6 +390,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly paths: GraphPaths<M>
   /** Edge bundling. */
   readonly bundling: GraphBundling
+  /** The time window that filters elements with a `time`. */
+  readonly time: GraphTime
   /** The magnifying lens. */
   readonly lens: GraphLens
   /** The `div` added to the container, which holds the canvas. */
@@ -380,10 +411,14 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
   /**
    * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
-   * controlled `selection`, controlled `folded` or controlled `view`. Positions, view and selection
-   * stay.
+   * `onTimeChange`, controlled `selection`, controlled `folded`, controlled `view` or controlled
+   * `time`. Positions, view and selection stay.
    */
-  update(options: Partial<Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded'>>): void
+  update(
+    options: Partial<
+      Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded' | 'initialTime'>
+    >,
+  ): void
   /** Removes the element and frees every resource. A layout run in progress resolves to `false`. */
   destroy(): void
 }
@@ -576,6 +611,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let onFoldChange = options.onFoldChange
   const viewControlled = options.view !== undefined
   let onViewChange = options.onViewChange
+  const timeControlled = options.time !== undefined
+  let onTimeChange = options.onTimeChange
+  let timeWindow = readWindow(options.time ?? options.initialTime ?? null)
+  let filter: TimeFilter | null = timeFilter(timeWindow, definition.time.fade)
+  let filterFade = definition.time.fade
   let outgoingView: View | null = null
   let sentViews: View[] = []
   let quiet = false
@@ -681,6 +721,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     layout: idleLayout,
     folded: [...projection.folded],
     bundling: idleBundling,
+    time: timeWindow,
     lens: null,
   })
   const readonlyStore: GraphStore = createStore(() => store.state)
@@ -709,6 +750,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     positions,
     registry,
     state: () => store.get(),
+    sight: () => sight(),
     request: () => request(),
     containers: () => (projection.active ? containerBoxes : null),
     edgeIndex: (key) => projection.edgeIndexOf(key),
@@ -727,6 +769,33 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return (raised ? highlightOrder : 0) + layerPosition(kind, index) * layerOrder + index
     },
     paths: bundles.paths,
+  }
+
+  function sight(): Sight {
+    return { zoom: store.get().view.zoom, time: filter }
+  }
+
+  function applyTime(next: TimeWindow | null): void {
+    if (sameWindow(next, timeWindow)) return
+    timeWindow = next
+    filter = timeFilter(next, filterFade)
+    patch({ time: next })
+    emitter.emit('timechange', { window: next })
+    request()
+  }
+
+  function requestTime(next: TimeWindow | null): void {
+    if (!timeControlled) {
+      applyTime(next)
+      return
+    }
+    if (!sameWindow(next, timeWindow)) onTimeChange?.({ window: next })
+  }
+
+  function refreshFade(): void {
+    if (definition.time.fade === filterFade) return
+    filterFade = definition.time.fade
+    filter = timeFilter(timeWindow, filterFade)
   }
 
   function layerPosition(kind: StateKind, index: number): number {
@@ -1088,12 +1157,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       pickedScene = sceneVersion
       pickedPositions = positions.version
     }
-    const seen = viewAt(point)
-    const world = toWorld(seen, viewport(), point)
-    const zoom = seen.zoom
-    const hit = pickIndex.pick(pickSource, world.x, world.y, zoom, pickTolerance)
+    const lensView = viewAt(point)
+    const world = toWorld(lensView, viewport(), point)
+    const seen: Sight = { zoom: lensView.zoom, time: filter }
+    const hit = pickIndex.pick(pickSource, world.x, world.y, seen, pickTolerance)
     if (!hit) {
-      const shown = (index: number) => scene.nodes.zoom.shown(index, zoom)
+      const shown = (index: number) => nodeShown(scene.nodes, index, seen)
       const index = projection.active ? containerBoxes.pick(world.x, world.y, positions, shown) : -1
       const key = index >= 0 ? scene.nodes.keys[index] : undefined
       return key === undefined ? null : target('node', key)
@@ -1274,8 +1343,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function moveFocus(direction: Point): void {
     const current = store.get().focused
     const from = current?.kind === 'node' ? (model.node(current.key)?.index ?? -1) : -1
-    const zoom = store.get().view.zoom
-    let index = from >= 0 ? nodeToward(from, direction, scene.nodes, positions, zoom) : -1
+    const seen = sight()
+    let index = from >= 0 ? nodeToward(from, direction, scene.nodes, positions, seen) : -1
     if (from < 0) {
       const selected = registry.members('selected').nodes
       const last = selected[selected.length - 1]
@@ -1283,7 +1352,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       index =
         last !== undefined
           ? (model.node(last)?.index ?? -1)
-          : nearestNode((current && focusPoint(current)) ?? center, scene.nodes, positions, zoom)
+          : nearestNode((current && focusPoint(current)) ?? center, scene.nodes, positions, seen)
     }
     const key = index >= 0 ? scene.nodes.keys[index] : undefined
     const next = key !== undefined ? target('node', key) : null
@@ -1418,8 +1487,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function selectInside(polygon: readonly Point[]): void {
-    const zoom = store.get().view.zoom
-    const inside = nodesInside(polygon, scene.nodes, positions, zoom).filter(
+    const inside = nodesInside(polygon, scene.nodes, positions, sight()).filter(
       (key) =>
         !registry.has('selected', 'nodes', key) &&
         scene.nodes.shape[model.node(key)?.index ?? -1] !== containerShape,
@@ -2064,7 +2132,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (flowing) flowTime = flows.time(now)
     const time = flowTime
     const shown = lens ? lensFrame(view, { width, height }, lens) : null
-    const wait = renderer.render({ view, width, height, pixelRatio, time, lens: shown })
+    const wait = renderer.render({
+      view,
+      width,
+      height,
+      pixelRatio,
+      time,
+      lens: shown,
+      window: filter,
+    })
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
@@ -2684,6 +2760,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   const paths = createPathQueries({
     model,
+    shown: () => {
+      const seen = sight()
+      if (!filtered(scene.nodes, seen) && !filtered(scene.edges, seen)) return null
+      return {
+        node: (index) => nodeShown(scene.nodes, index, seen),
+        edge: (index) => ownShown(scene.edges, index, seen),
+      }
+    },
     prepare: () => {
       if (!needsFlush) return
       needsFlush = false
@@ -2727,6 +2811,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     anchors: decorations.anchors,
     groups,
     paths,
+    time: {
+      get: () => timeWindow,
+      set: (next) => requestTime(readWindow(next)),
+    },
     bundling: {
       run: () => {
         if (needsFlush) {
@@ -2757,6 +2845,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (foldControlled && next.folded !== undefined) applyFolded(next.folded)
       if (next.onViewChange !== undefined && !surface) onViewChange = next.onViewChange
       if (viewControlled && next.view !== undefined && !surface) applyView(next.view)
+      if (next.onTimeChange !== undefined) onTimeChange = next.onTimeChange
+      if (timeControlled && next.time !== undefined) applyTime(readWindow(next.time))
       if (next.definition && next.definition !== given) {
         const previous = definition.layout
         given = next.definition
@@ -2769,6 +2859,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         scene.setDefinition(definition)
         decorations.setDefinition(definition)
         bundles.setBundling(definition.bundling)
+        refreshFade()
         applyLayers()
         if (registry.define(freeStateNames(definition.states))) patch({ states: freeStates() })
         applyStyles()
@@ -2830,12 +2921,13 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     containers: () => (projection.active ? containerBoxes : null),
     palette: () => paletteColors,
     masks: () => buffers.nodeMask,
+    sight: () => sight(),
     stamp: () => ({
       scene: sceneVersion,
       positions: positions.version,
       palette: paletteStamp,
       containers: projection.active ? containerBoxes.version : -1,
-      detail: detailStep(scene.nodes, scene.edges, store.get().view.zoom),
+      detail: detailStep(scene.nodes, scene.edges, sight()),
     }),
     watch(watcher) {
       if (destroyed) return () => {}
@@ -2871,6 +2963,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       palette: paletteColors,
       theme: themeResolver.theme(),
       view,
+      window: filter,
+      fade: filterFade,
       width,
       height,
       pixelRatio,

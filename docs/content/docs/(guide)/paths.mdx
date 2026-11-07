@@ -57,6 +57,7 @@ graph.states.set('near', near)
 
 By default, queries run on the data: every node and edge, inside a folded group or not. With `visible: true`, they run on the graph as drawn:
 
+- nodes and edges outside the [time window](/docs/time) or their [zoom range](/docs/zoom) are left out;
 - a folded group stands for the nodes it hides, and an end hidden in a folded group is replaced by the group;
 - the edges inside a folded group are left out;
 - an edge between two groups, drawn as one merged edge, is reported by the key of one of its members. Put that key in a state and the merged edge takes the state.

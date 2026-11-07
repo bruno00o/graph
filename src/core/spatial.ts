@@ -1,6 +1,7 @@
 import type { Point } from '../types'
 import type { NodeColumns } from './columns'
 import type { Positions } from './positions'
+import { nodeShown, type Sight } from './visibility'
 
 const sideWeight = 2
 const cone = 2
@@ -9,13 +10,13 @@ export function nearestNode(
   point: Point,
   nodes: NodeColumns,
   positions: Positions,
-  zoom?: number,
+  sight?: Sight,
 ): number {
   let best = -1
   let bestDistance = Number.POSITIVE_INFINITY
   for (let index = 0; index < nodes.capacity; index++) {
     if (nodes.alive[index] !== 1) continue
-    if (zoom !== undefined && !nodes.zoom.shown(index, zoom)) continue
+    if (sight !== undefined && !nodeShown(nodes, index, sight)) continue
     const distance = Math.hypot(positions.x(index) - point.x, positions.y(index) - point.y)
     if (distance < bestDistance) {
       best = index
@@ -30,7 +31,7 @@ export function nodeToward(
   direction: Point,
   nodes: NodeColumns,
   positions: Positions,
-  zoom?: number,
+  sight?: Sight,
 ): number {
   const x = positions.x(from)
   const y = positions.y(from)
@@ -42,7 +43,7 @@ export function nodeToward(
   let bestScore = Number.POSITIVE_INFINITY
   for (let index = 0; index < nodes.capacity; index++) {
     if (index === from || nodes.alive[index] !== 1) continue
-    if (zoom !== undefined && !nodes.zoom.shown(index, zoom)) continue
+    if (sight !== undefined && !nodeShown(nodes, index, sight)) continue
     const vx = positions.x(index) - x
     const vy = positions.y(index) - y
     const along = vx * dx + vy * dy

@@ -75,6 +75,10 @@
       "types": "./dist/bundling.d.ts",
       "import": "./dist/bundling.js"
     },
+    "./timeline": {
+      "types": "./dist/timeline.d.ts",
+      "import": "./dist/timeline.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },
