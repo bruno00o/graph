@@ -1153,7 +1153,8 @@ export interface BridgeOptions {
    */
   readonly shape?: BridgeShape
   /**
-   * Width of each jump along the jumping edge, in screen pixels.
+   * Width of each jump along the jumping edge, in screen pixels. Below zoom 1 it shrinks with the
+   * zoom, and under 2 pixels the edges cross plainly.
    * @default 8
    */
   readonly size?: number

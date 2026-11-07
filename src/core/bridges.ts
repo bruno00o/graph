@@ -15,6 +15,7 @@ const sliceCells = 512
 const maxCells = 1 << 22
 const maxEntries = 1 << 23
 const maxTests = 60_000_000
+const maxFound = 1 << 22
 const edgeShare = 1e-6
 const axisShare = 1e-6
 const sliceEvents = 4096
@@ -77,6 +78,7 @@ export class BridgeFinder {
   readonly #owners = new Growing()
   readonly #found = new Growing()
   #axes: Uint8Array = new Uint8Array(0)
+  #jumps: Uint8Array = new Uint8Array(0)
   #others = 0
   #events: Float64Array | null = null
   #order: Uint32Array = new Uint32Array(0)
@@ -122,7 +124,7 @@ export class BridgeFinder {
     }
     const events = this.#events ?? this.#prepareSweep()
     const total = events.length / 4
-    while (this.#event < total) {
+    while (this.#event < total && this.#tests <= maxTests) {
       const last = Math.min(total, this.#event + sliceEvents)
       for (let at = this.#event; at < last; at++) this.#sweep(this.#order[at] ?? 0)
       this.#event = last
@@ -289,6 +291,7 @@ export class BridgeFinder {
       if (axis === 0) others++
     }
     this.#axes = axes
+    this.#jumps = new Uint8Array(this.#segments)
     this.#others = others
   }
 
@@ -487,6 +490,14 @@ export class BridgeFinder {
       jumpsA = slotA !== slotB ? slotA > slotB : edgeA > edgeB
     }
     const found = this.#found
+    if (found.length >= maxFound * 5) {
+      this.#tests = Number.POSITIVE_INFINITY
+      return
+    }
+    const jumps = this.#jumps
+    const jumper = jumpsA ? i : j
+    if ((jumps[jumper] ?? 0) >= bridgesPerSegment) return
+    jumps[jumper] = (jumps[jumper] ?? 0) + 1
     if (jumpsA) {
       found.push(edgeA)
       found.push(owners[i * 2 + 1] ?? 0)
