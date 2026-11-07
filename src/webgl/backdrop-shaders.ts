@@ -52,14 +52,16 @@ in vec2 hullCenter;
 in uvec2 hullColors;
 in vec2 hullSize;
 out vec2 vScreen;
+out float vClip;
 flat out vec2 vAnchor;
 flat out vec2 vNormal;
 flat out vec4 vFill;
 flat out vec4 vStroke;
 flat out float vStrokeWidth;
 void main() {
-  float reach = hullSize.y / zoom;
-  float extra = (hullSize.x * 0.5 + 1.5) / zoom;
+  float scale = scaleAt(hullCenter);
+  float reach = hullSize.y / scale;
+  float extra = (hullSize.x * 0.5 + 1.5) / scale;
   vec2 a = hullA.xy + hullA.zw * (hullAOffset + reach);
   vec2 b = hullB.xy + hullB.zw * (hullBOffset + reach);
   vec2 world = gl_VertexID == 0 ? hullCenter : gl_VertexID == 1 ? a + hullA.zw * extra : b + hullB.zw * extra;
@@ -67,10 +69,16 @@ void main() {
   float size = length(normal);
   vNormal = size > 1e-6 ? normal / size : hullA.zw;
   vAnchor = toScreen(a);
+  vec2 chord = toScreen(b) - vAnchor;
+  vec2 across = vec2(-(b - a).y, (b - a).x);
+  if (globeInfo.z > 0.0 && length(chord) > 1e-3 && length(across) > 0.0) {
+    vNormal = vec2(-chord.y, chord.x) / length(chord) * (dot(across, vNormal) >= 0.0 ? 1.0 : -1.0);
+  }
   vFill = paletteColor(hullColors.x);
   vStroke = paletteColor(hullColors.y);
   vStrokeWidth = hullSize.x;
   vScreen = toScreen(world);
+  vClip = worldSide(world);
   gl_Position = toClip(vScreen);
 }
 `
@@ -78,6 +86,7 @@ void main() {
 export const hullFragment: string = `${header}
 uniform int hullStroke;
 in vec2 vScreen;
+in float vClip;
 flat in vec2 vAnchor;
 flat in vec2 vNormal;
 flat in vec4 vFill;
@@ -85,6 +94,7 @@ flat in vec4 vStroke;
 flat in float vStrokeWidth;
 out vec4 fragColor;
 void main() {
+  if (vClip < 0.0) discard;
   float d = dot(vScreen - vAnchor, vNormal);
   if (hullStroke == 0) {
     float cover = clamp(0.5 - d * pixelRatio, 0.0, 1.0);

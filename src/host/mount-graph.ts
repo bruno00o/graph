@@ -273,7 +273,7 @@ export interface GraphLayout<M extends Mark = Mark> {
   /**
    * Applies pending data changes, then lays out every free node, or only `keys`, with `layout` or
    * the layout of the definition. Resolves to `true` when the run ends and `false` when it is
-   * stopped or replaced, and rejects when there is no layout to run.
+   * stopped or replaced, and rejects when there is no layout to run or the graph is on a map.
    */
   run(layout?: Layout<NodeDatum<M>>, options?: LayoutRunOptions): Promise<boolean>
   /** Ends the current run and leaves nodes where they are. */
@@ -917,6 +917,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       positions,
       sceneVersion,
       store.get().view.zoom,
+      surface !== null,
     )
   }
 
@@ -1128,7 +1129,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     const camera = sphere()
     const seenView = viewAt(point)
-    const world = camera ? globeWorld(camera, point.x, point.y) : toWorld(seenView, viewport(), point)
+    const world = camera
+      ? globeWorld(camera, point.x, point.y)
+      : toWorld(seenView, viewport(), point)
     if (!world) return null
     const zoom = seenView.zoom
     const surfaceOf = camera ? { scale: globeScale(camera, world.y), visible: facing } : null
@@ -2311,7 +2314,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       emitter.emit('dragstart', dragEvent(drag, event))
     }
     const camera = sphere()
-    const world = camera ? globeWorld(camera, point.x, point.y) : toWorld(dragView(drag), viewport(), point)
+    const world = camera
+      ? globeWorld(camera, point.x, point.y)
+      : toWorld(dragView(drag), viewport(), point)
     if (!world) return
     drag.indices.forEach((index, i) => {
       positions.set(
@@ -2667,6 +2672,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   const layoutApi: GraphLayout = {
     run: (layout, runOptions = {}) => {
+      if (surface) return Promise.reject(new Error('graph: layouts do not run on a map'))
       const chosen = layout ?? definition.layout
       if (!chosen) return Promise.reject(new Error('graph: no layout to run'))
       if (needsFlush) {

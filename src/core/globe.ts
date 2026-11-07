@@ -130,10 +130,15 @@ export function createGlobeCamera(input: GlobeInput): GlobeCamera {
   const there = { x: 0, y: 0 }
   project(base, 1, input.view.x, input.view.y, here)
   project(base, 1, input.view.x + step, input.view.y, there)
-  const latitude = 2 * Math.atan(Math.exp(Math.PI - (input.view.y / worldSize) * turn)) - Math.PI / 2
+  const latitude =
+    2 * Math.atan(Math.exp(Math.PI - (input.view.y / worldSize) * turn)) - Math.PI / 2
   const local = Math.hypot(there.x - here.x, there.y - here.y) / step
   const scale = local / Math.max(Math.cos(latitude), 1e-6)
-  return { ...base, inverse: invert(matrix), scale: Number.isFinite(scale) ? scale : input.view.zoom }
+  return {
+    ...base,
+    inverse: invert(matrix),
+    scale: Number.isFinite(scale) ? scale : input.view.zoom,
+  }
 }
 
 export function globeScreen(camera: GlobeCamera, x: number, y: number, out: ScreenPoint): number {

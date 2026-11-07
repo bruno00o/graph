@@ -34,7 +34,31 @@ const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
 
 `mountMapGraph` takes any map, with any style, before or after its style loads. It adds a custom layer to the style and draws in the map's own WebGL context, on top of the style or under the layer named by `beforeId`, such as the place labels of the basemap. It returns the same [`GraphInstance`](/docs/api/graph-instance) as `mountGraph`: data updates, states, selection, events, anchors and the store work the same way. Call `graph.destroy()` before `map.remove()`.
 
-Node sizes are in screen pixels, so a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map.
+Node sizes are in screen pixels, so a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map, unless they follow [great circles](#great-circles).
+
+## Globe
+
+The graph follows the projection of the map. Set the globe projection of MapLibre, in the style or at any time, and nodes, edges, labels, badges, images, hulls and the lasso go with it:
+
+```ts
+map.on('style.load', () => map.setProjection({ type: 'globe' }))
+```
+
+On the globe, an element on the far side is hidden and cannot be picked, and an edge that passes behind the horizon is cut there. Edges between distant nodes bend with the surface; short ones stay straight. When the map zooms in, MapLibre turns the globe into a flat map between zoom 11 and 12, and the graph turns with it.
+
+`graph.view.toScreen` and `toWorld` take the globe into account: `toScreen` gives the point on the globe, also on its far side, and `toWorld` gives the point under the pointer, or, beside the globe, the point of the flat map.
+
+With 100,000 nodes and 200,000 edges on a 1280 × 800 page, the layer takes 12.6 ms per frame while the globe turns, against 7.8 ms on the flat map. Nodes alone take 5.5 ms and 3.9 ms.
+
+## Great circles
+
+Set `geodesic` on an edge mark and its edges follow the shortest path over the Earth, a great circle, between nodes placed by `longitude` and `latitude`:
+
+```ts
+edges(routes, { source: 'from', target: 'to', geodesic: (route) => route.long })
+```
+
+On the globe, such an edge is an arc of the sphere. On a flat map, it bends toward the poles, and an edge that crosses the antimeridian is cut in two, each part reaching the edge of the world. Arrows, dashes, flows, labels and picking follow the path. Geodesic edges are never bundled, and the option has the same effect on a graph without a map. See [`EdgeOptions`](/docs/api/edges#options).
 
 ## Who moves what
 
@@ -44,21 +68,25 @@ The graph owns its elements: hover, clicks, the selection, the lasso and node dr
 
 `graph.view.set`, `fit` and `zoomBy` move the map, animations included, and the keyboard of the graph does too: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit. `update({ view })` has no effect: move the map instead.
 
-The map stays north up and flat: `mountMapGraph` turns off rotation and pitch, and gives them back on `destroy`. The graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
+The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch, and gives them back on `destroy`. On a flat map, the graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
 
 ## Precision
 
 Positions are stored relative to an origin that follows the camera, so nodes sit on their place on the map down to the deepest zoom of the map, at street level and beyond.
 
+## Hulls and groups
+
+[Hulls](/docs/drawing-layers#hulls) work on a map, on the globe too: their padding is in pixels, as anywhere else. [Groups](/docs/groups) made with the `parent` channel work as well: a group needs no coordinates, its container encloses its children, and a folded group sits at their center. On a map, the `padding` of a container is in pixels, so the frame keeps its margin as the map zooms. On the globe, a container is a rectangle facing the screen around its children.
+
 ## What is left out
 
-On a map, the definition keeps its marks, states, scales, labels, images, badges, flows and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
+On a map, the definition keeps its marks, states, scales, labels, images, badges, flows, hulls, groups and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
 
-- `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units.
-- `background`, `hulls` and `bundling`: edges stay straight.
-- Groups: the `parent` channel is not supported on a map.
+- `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units. A node without coordinates is placed near its placed neighbors, or on a spiral. In development, a layout in the definition logs a warning, and `graph.layout.run` rejects.
+- `background` and `bundling`.
+- The [lens](/docs/lens): `graph.lens.set` does nothing.
 - The [minimap](/docs/minimap-and-legend#minimap): the map has its own navigation, and the minimap does not support a map graph.
-- The globe projection and terrain: the graph draws on a flat Mercator map. In development, it warns when the map is tilted, rotated or turned into a globe.
+- Rotation, pitch and terrain: the graph draws on a north-up map, flat or on the globe. In development, it warns when the map is rotated or tilted.
 
 ## Export
 
@@ -70,7 +98,7 @@ import { exportMapPng } from '@bruno00o/graph/map'
 const png = await exportMapPng(graph, { pixelRatio: 2 })
 ```
 
-The attribution is the text the map shows, or else the attribution of its sources. Pass `attribution` to write your own. `exportPng` and `exportSvg` from [`@bruno00o/graph/export`](/docs/export) draw the graph alone, without the map.
+The attribution is the text the map shows, or else the attribution of its sources. Pass `attribution` to write your own. On the globe, the image shows the globe as on screen. `exportPng` and `exportSvg` from [`@bruno00o/graph/export`](/docs/export) draw the graph alone, without the map: `exportPng` follows the globe for the region on screen, and `exportSvg` always draws the flat map.
 
 ## Bundlers
 

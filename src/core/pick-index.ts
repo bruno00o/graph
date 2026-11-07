@@ -564,8 +564,10 @@ export class PickIndex {
     const node = this.#pickNode(source, x, y, zoom, scale, lens)
     if (node >= 0) return { kind: 'node', index: node }
     let edge = this.#pickEdge(source, x, y, zoom, scale, tolerance)
-    if (edge < 0 && this.#wraps) edge = this.#pickEdge(source, x + worldSize, y, zoom, scale, tolerance)
-    if (edge < 0 && this.#wraps) edge = this.#pickEdge(source, x - worldSize, y, zoom, scale, tolerance)
+    if (edge < 0 && this.#wraps)
+      edge = this.#pickEdge(source, x + worldSize, y, zoom, scale, tolerance)
+    if (edge < 0 && this.#wraps)
+      edge = this.#pickEdge(source, x - worldSize, y, zoom, scale, tolerance)
     return edge >= 0 ? { kind: 'edge', index: edge } : null
   }
 
@@ -783,7 +785,10 @@ export class PickIndex {
       const length = Math.hypot(dx, dy)
       if (length === 0) return
       const along = ((x - ax) * dx + (y - ay) * dy) / length
-      if (along < this.#radius(source, s, scale) || along > length - this.#radius(source, t, scale)) {
+      if (
+        along < this.#radius(source, s, scale) ||
+        along > length - this.#radius(source, t, scale)
+      ) {
         return
       }
       consider(index, Math.abs((x - ax) * dy - (y - ay) * dx) / length)

@@ -344,6 +344,21 @@ describe('mountMapGraph', () => {
     graph.destroy()
   })
 
+  it('turns layouts down on a map', async () => {
+    const { map } = fakeMap()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const graph = mountMapGraph(map, {
+      definition: defineGraph({
+        marks: definition().marks,
+        layout: { name: 'still', options: {}, start: () => ({ stop: () => {}, pin: () => {} }) },
+      }),
+      ariaLabel: 'carte',
+    })
+    expect(warn).toHaveBeenCalledTimes(1)
+    await expect(graph.layout.run()).rejects.toThrow('graph: layouts do not run on a map')
+    graph.destroy()
+  })
+
   it('keeps nodes exact far from where the map started', () => {
     const { map, fake, camera, render, canvas } = fakeMap()
     const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })

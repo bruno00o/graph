@@ -312,7 +312,7 @@ export interface ContainerOptions<T> {
    */
   readonly shape?: Style<T, ContainerShape>
   /**
-   * Space between the children and the outline, in world units.
+   * Space between the children and the outline, in world units, or in pixels on a map.
    * @default 16
    */
   readonly padding?: Style<T, number>

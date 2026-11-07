@@ -123,6 +123,10 @@ export const messages = {
   mapLabel: (places: number) =>
     `Map of ${count(places, 'place', 'places')} and the routes between them`,
   place: (index: number) => `Place ${formatNumber(index)}`,
+  projection: (name: string) => `Projection: ${name}`,
+  projections: { globe: 'globe', mercator: 'flat' },
+  farRoutes: (name: string) => `Long routes: ${name}`,
+  farRouteModes: { geodesic: 'great circles', straight: 'straight' },
   flowsOn: 'Start flows',
   flowsOff: 'Stop flows',
   exported: (format: string, bytes: number, duration: number) =>

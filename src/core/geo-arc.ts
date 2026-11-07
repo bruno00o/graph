@@ -39,7 +39,9 @@ export function sideOf(globe: GlobeCamera, x: number, y: number): number {
 }
 
 function planeDot(plane: Float64Array, p: ArrayLike<number>): number {
-  return (plane[0] ?? 0) * (p[0] ?? 0) + (plane[1] ?? 0) * (p[1] ?? 0) + (plane[2] ?? 0) * (p[2] ?? 0)
+  return (
+    (plane[0] ?? 0) * (p[0] ?? 0) + (plane[1] ?? 0) * (p[1] ?? 0) + (plane[2] ?? 0) * (p[2] ?? 0)
+  )
 }
 
 export function arcRise(globe: GlobeCamera, p: Float64Array, q: Float64Array): number {

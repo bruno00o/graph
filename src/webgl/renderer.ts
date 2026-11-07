@@ -1,8 +1,8 @@
 import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
+import type { GlobeCamera } from '../core/globe'
 import { maxStates, noPaint } from '../core/state-buffers'
 import type { ZoomRanges } from '../core/zoom-range'
-import type { GlobeCamera } from '../core/globe'
 import type { ResolvedTheme } from '../dom/theme'
 import type { LabelArea, LensFrame, Renderer, RenderFrame, RenderInput } from '../host/renderer'
 import type { View } from '../types'
@@ -34,12 +34,12 @@ import {
 import {
   badgeFragment,
   badgeVertex,
+  clippedEdgeFragment,
   cornerCurve,
   cornerEdge,
   cornerLabel,
   cornerNode,
   curveVertex,
-  clippedEdgeFragment,
   edgeVertex,
   labelFragment,
   labelVertex,

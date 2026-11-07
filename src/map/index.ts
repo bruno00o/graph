@@ -1,8 +1,4 @@
-import type {
-  CustomLayerInterface,
-  CustomRenderMethodInput,
-  Map as MapLibreMap,
-} from 'maplibre-gl'
+import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
 import { projectLatitude, projectLongitude, worldSize, worldToGeo } from '../core/geo'
 import { createGlobeCamera, type GlobeCamera } from '../core/globe'
 import { dev } from '../dev'
@@ -39,8 +35,9 @@ export interface MapGraphOptions<S extends string = string, M extends Mark = Mar
  * Draws a graph inside a MapLibre map, as a custom layer that shares the map's WebGL context. Nodes
  * placed by `longitude` and `latitude` follow the map, flat or on the globe projection; the map owns
  * pan, zoom and their gestures, and `view` calls move the map. The map stays north up and without
- * pitch: rotation and pitch are turned off until `destroy`. Layouts and the background grid of the
- * definition are ignored.
+ * pitch: rotation and pitch are turned off until `destroy`. Layouts, edge bundling and the
+ * background grid of the definition are ignored; hulls and groups follow the map, and the padding
+ * of group containers is in pixels.
  */
 export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   map: MapLibreMap,
@@ -52,6 +49,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   let destroyed = false
   let pendingView: View | null = null
   let warned = false
+  let warnedLayout = false
   const claimed = { dragPan: false, boxZoom: false }
   let doubleClick = false
   const turned = {
@@ -98,11 +96,16 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   }
 
   function adapt(definition: GraphDefinition): GraphDefinition {
+    if (dev && definition.layout && !warnedLayout) {
+      warnedLayout = true
+      console.warn(
+        'graph: layouts do not run on a map, nodes without coordinates stay near their neighbors',
+      )
+    }
     return {
       ...definition,
       layout: null,
       background: null,
-      hulls: [],
       bundling: null,
       view: { minZoom: 2 ** map.getMinZoom(), maxZoom: 2 ** map.getMaxZoom(), bounds: null },
     }
