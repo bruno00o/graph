@@ -7,9 +7,19 @@ import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { globeMatrices } from '../testing/globe'
 import { mountMapGraph } from '.'
 
+const shared = vi.hoisted(() => ({ made: 0, destroyed: 0 }))
+
 vi.mock('../webgl/renderer', () => ({
   createWebglRenderer: () => fakeRenderer(),
-  createSharedRenderer: () => fakeRenderer(),
+  createSharedRenderer: () => {
+    shared.made++
+    return {
+      ...fakeRenderer(),
+      destroy: () => {
+        shared.destroyed++
+      },
+    }
+  },
 }))
 
 interface Place {
@@ -216,6 +226,25 @@ describe('mountMapGraph', () => {
     emit('data')
     expect(layers.size).toBe(0)
     expect([...listeners.values()].every((set) => set.size === 0)).toBe(true)
+  })
+
+  it('draws again with a new renderer once the map restores a lost context', () => {
+    const { map, layers, emit } = fakeMap()
+    const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })
+    const made = shared.made
+    const destroyed = shared.destroyed
+    emit('webglcontextlost')
+    expect(shared.destroyed).toBe(destroyed + 1)
+    layers.clear()
+    emit('webglcontextrestored')
+    expect(layers.has('graph')).toBe(true)
+    expect(shared.made).toBe(made + 1)
+    emit('webglcontextlost')
+    emit('webglcontextrestored')
+    expect(shared.made).toBe(made + 2)
+    graph.destroy()
+    emit('webglcontextrestored')
+    expect(layers.size).toBe(0)
   })
 
   it('follows the map camera in Web Mercator', () => {

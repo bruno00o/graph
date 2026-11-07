@@ -1,3 +1,4 @@
+import { dev } from '../dev'
 import type { BundlePaths } from '../types'
 import type { EdgeColumns } from './columns'
 import type { Positions } from './positions'
@@ -8,7 +9,7 @@ export const maxPathPoints = 33
 export const pathTextureWidth = 1024
 
 const resolution = 64
-const pointBudget = pathTextureWidth * 8192
+export const defaultPointBudget: number = pathTextureWidth * 8192
 const flatShare = 1e-3
 
 export interface PathPoint {
@@ -37,6 +38,14 @@ function padded(points: number): number {
   return Math.max(1, Math.ceil(points / pathTextureWidth)) * pathTextureWidth
 }
 
+let warnedStraight = false
+
+function warnStraight(): void {
+  if (!dev || warnedStraight) return
+  warnedStraight = true
+  console.warn('graph: edge paths do not fit on this device, some edges are drawn straight')
+}
+
 function emptyOutline(): Outline {
   return { x: 0, y: 0, shape: 0, radius: 0, halfWidth: 0, halfHeight: 0, trim: 0 }
 }
@@ -57,6 +66,7 @@ export class EdgePaths {
   ends: Uint32Array = new Uint32Array(0)
   reach: Float32Array = new Float32Array(0)
   rooms: Float32Array = new Float32Array(0)
+  pointBudget: number = defaultPointBudget
 
   reserve(capacity: number): void {
     if (capacity <= this.capacity) return
@@ -336,9 +346,14 @@ export class EdgePaths {
       }
     }
     measure()
-    while (needed > pointBudget && spacing < extent) {
+    while (needed > this.pointBudget && spacing < extent) {
       spacing *= 2
       measure()
+    }
+    for (let index = listed.length - 1; index >= 0 && needed > this.pointBudget; index--) {
+      needed -= counts[index] ?? 0
+      counts[index] = 0
+      warnStraight()
     }
     const data = new Float32Array(padded(needed) * 4)
     const stations = new Float32Array(padded(needed) * 2)
@@ -462,6 +477,11 @@ export class EdgePaths {
     })
     for (let edge = 0; edge < this.capacity; edge++) {
       if (kept[edge] !== 1) needed += old.info[edge * 4 + 1] ?? 0
+    }
+    for (let index = shapes.length - 1; index >= 0 && needed > this.pointBudget; index--) {
+      needed -= shapes[index]?.count ?? 0
+      shapes[index] = null
+      warnStraight()
     }
     const data = new Float32Array(padded(needed) * 4)
     const stations = new Float32Array(padded(needed) * 2)

@@ -4,6 +4,7 @@ import type { Renderer } from '../host/renderer'
 export interface FakeDom {
   flushFrames(): void
   pendingFrames(): number
+  resize(width: number, height: number): void
   restore(): void
 }
 
@@ -19,6 +20,7 @@ export function fakeRenderer(): Renderer {
 
 export function installDom(width = 800, height = 600): FakeDom {
   let frames: FrameRequestCallback[] = []
+  const observers = new Set<(width: number, height: number) => void>()
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback))
   vi.stubGlobal('cancelAnimationFrame', () => {})
   vi.stubGlobal(
@@ -27,6 +29,12 @@ export function installDom(width = 800, height = 600): FakeDom {
       readonly #callback: ResizeObserverCallback
       constructor(callback: ResizeObserverCallback) {
         this.#callback = callback
+        observers.add((nextWidth, nextHeight) =>
+          callback(
+            [{ contentRect: { width: nextWidth, height: nextHeight } } as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          ),
+        )
       }
       observe() {
         this.#callback(
@@ -48,6 +56,9 @@ export function installDom(width = 800, height = 600): FakeDom {
     },
     pendingFrames() {
       return frames.length
+    },
+    resize(nextWidth, nextHeight) {
+      for (const notify of observers) notify(nextWidth, nextHeight)
     },
     restore() {
       vi.unstubAllGlobals()
