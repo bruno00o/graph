@@ -30,8 +30,6 @@ export interface RouteStats {
   nudging: number
 }
 
-export const orthogonalDefaults: OrthogonalSettings = { gap: 6, spacing: 4, axis: 'auto' }
-
 const limits: MazeLimits = { obstacles: 1500, points: 1 << 18, expansions: 40_000 }
 const portShare = 0.7
 const eps = 1e-6
