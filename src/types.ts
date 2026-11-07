@@ -651,7 +651,10 @@ export interface AggregateEdge<T = unknown> {
   readonly target: Key
   /** Number of merged edges. */
   readonly count: number
-  /** Keys of the merged edges. */
+  /**
+   * Keys of the merged edges, in the order they reached the graph: the order of the data for edges
+   * loaded together, later edges after earlier ones. The first one styles the aggregated edge.
+   */
   readonly keys: readonly Key[]
   /** Data of the merged edges, in the order of `keys`. */
   readonly data: readonly T[]

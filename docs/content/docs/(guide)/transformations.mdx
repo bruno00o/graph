@@ -37,7 +37,11 @@ The options of `merge` are in [`EdgeMergeOptions`](/docs/api/edges#merged-edges)
 
 Edges merge mark by mark: two marks never share an aggregated edge, so an aggregated edge stays in the layer of its mark. A pair of opposite edges without `merge` stays two curves, as any parallel edges.
 
+The merged edges keep the order in which they reached the graph: the order of the data for edges loaded together, then later edges after earlier ones. Their first edge stays the same while it is in the data, whatever was folded, unfolded or moved in between, so an aggregated edge keeps its look.
+
 Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
+
+A function passed as `by` is called again whenever the definition changes. Keep it stable: give each edge the same value for the same data, and the graph changes, and `relayout` runs, only when an aggregated edge does.
 
 See the [merge parallel edges by kind](/examples/merge-by-kind) example.
 
@@ -143,7 +147,7 @@ It stays in the data, in the selection, in its other states and in layouts. Path
 
 ### From the legend
 
-The legend puts the elements of an item switched off in its `hidden` state. Declare that state with `hide: true` to filter the graph from the legend: the items switched off stay listed, and the selection survives.
+The legend puts the elements of an item switched off in its `hidden` state. Declare that state with `hide: true` to filter the graph from the legend: the items switched off stay listed, and the selection survives. An aggregated edge hides once all its merged edges are switched off, and nodes that appear when a group unfolds join the state if their item is switched off.
 
 ```ts
 const definition = defineGraph({

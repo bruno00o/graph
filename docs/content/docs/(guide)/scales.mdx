@@ -27,6 +27,8 @@ defineGraph({
 
 The color scale is categorical by default, even for numbers: nothing is guessed. A category keeps its color as long as the scale does not change, even when the data changes.
 
+Categories take the colors of the range in turn, and wrap around once the range runs out. When a scale holds more categories than its range has colors, a category that no element draws any more is forgotten, and its color goes to the next new category: data that keeps changing never leaves two live categories sharing a color while another stays unused. Categories listed in `domain` are never forgotten.
+
 For a gradient, ask for a sequential scale. It interpolates from `--graph-cat-5` to `--graph-cat-1` by default, in steps of one percent.
 
 ```ts
@@ -94,6 +96,8 @@ defineGraph({
 
 The scores of `topics` span their own extent, so a large score does not shrink the other nodes, and their kinds take colors without sharing categories with the groups of `items`. A scale of a mark takes the same options as a shared one, a function included, and `groups()` takes `scales` like `nodes()`. Types: [`NodeScalesOptions`](/docs/api/nodes#scales) and [`EdgeScalesOptions`](/docs/api/edges#scales). In the [legend](/docs/minimap-and-legend#sections), each mark with scales of its own has its own sections.
 
+The scales of a mark follow its `name`: a named mark keeps its categories and extents when marks are reordered or when its data is replaced. An unnamed mark keeps them as long as its elements stay at the same position among the marks.
+
 ## Functions
 
 Any scale can be a function of the channel value.
@@ -106,6 +110,8 @@ scales: {
 ```
 
 An identity function uses the channel values as they are: `size: (value) => value` makes `size: 'weight'` a diameter in pixels. To keep the values of one mark only, wrap its channel in `raw()` instead.
+
+A size or width function that returns anything but a finite number draws the theme default, and a negative result draws as 0. A color function that returns anything but a non-empty string draws the theme default. Keep a function stable, the same value giving the same result: the graph calls it again only for the elements that change.
 
 ## Missing values
 

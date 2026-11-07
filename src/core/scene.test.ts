@@ -4,6 +4,7 @@ import { edges, groups, nodes } from '../marks'
 import type { GraphDefinition, GraphDefinitionOptions, LabelPlacement } from '../types'
 import { arrowCodes, cornerCodes, dashCodes, noColor, shapeCodes } from './columns'
 import { createGraphModel } from './graph-model'
+import { Projection } from './projection'
 import { raw } from './raw'
 import { createScene } from './scene'
 
@@ -642,7 +643,7 @@ describe('createScene', () => {
     expect(ends.labelBackground[index * 2]).toBe(noColor)
     expect(ends.labelBackground[index * 2 + 1]).not.toBe(noColor)
     expect(ends.labelSize[index * 2 + 1]).toBe(14)
-    expect(scene.scales().endColor.slice(index * 2, index * 2 + 2)).toEqual([0, 10])
+    expect(scene.scales().endColor.slice(index * 2, index * 2 + 2)).toEqual([0, null])
   })
 
   it('falls back to the edge look and clears ends when a mark drops them', () => {
@@ -698,5 +699,205 @@ describe('createScene', () => {
     render({ marks: [items, pair(10)], scales })
     expect(fill('b')).toBe('black')
     expect(scene.palette.colors[scene.edges.ends?.color[index * 2] ?? -1]).toBe('black')
+  })
+})
+
+describe('scales that follow their mark', () => {
+  const own = { color: { type: 'categorical' } } as const
+
+  it('keeps the colors of a mark with its own scale when an earlier mark is removed', () => {
+    const a = () => nodes<Item>([{ id: 'a', group: 'x' }], { color: 'group', scales: own })
+    const b = () => nodes<Item>([{ id: 'b', group: 'y' }], { color: 'group', scales: own })
+    const { fill, render } = setup({ marks: [a(), b()] })
+    expect(fill('b')).toBe('var(--graph-cat-1)')
+    render({ marks: [b()] })
+    expect(fill('b')).toBe('var(--graph-cat-1)')
+  })
+
+  it('keeps the colors of marks with their own scales when they swap places', () => {
+    const a = () => nodes<Item>([{ id: 'a', group: 'x' }], { color: 'group', scales: own })
+    const b = () => nodes<Item>([{ id: 'b', group: 'y' }], { color: 'group', scales: own })
+    const { fill, render } = setup({ marks: [a(), b()] })
+    expect([fill('a'), fill('b')]).toEqual(['var(--graph-cat-1)', 'var(--graph-cat-1)'])
+    render({ marks: [b(), a()] })
+    expect([fill('a'), fill('b')]).toEqual(['var(--graph-cat-1)', 'var(--graph-cat-1)'])
+  })
+
+  it('follows the name of a mark whose data is replaced', () => {
+    const mark = (name: string, items: Item[]) =>
+      nodes<Item, string>(items, { name, color: 'group', scales: own })
+    const { fill, render } = setup({
+      marks: [
+        mark('left', [
+          { id: 'a', group: 'x' },
+          { id: 'b', group: 'y' },
+        ]),
+        mark('right', [{ id: 'c', group: 'z' }]),
+      ],
+    })
+    render({
+      marks: [mark('right', [{ id: 'd', group: 'w' }]), mark('left', [{ id: 'e', group: 'y' }])],
+    })
+    expect(fill('e')).toBe('var(--graph-cat-2)')
+    expect(fill('d')).toBe('var(--graph-cat-2)')
+  })
+})
+
+describe('bounded palette and categories', () => {
+  it('keeps the palette bounded by the colors in use', () => {
+    const batch = (round: number) =>
+      Array.from({ length: 100 }, (_, at) => ({ id: `n${at}`, name: `#${round}${at}` }))
+    const mark = (round: number) => nodes<Item>(batch(round), { fill: (item) => item.name ?? '' })
+    const { scene, render, fill } = setup({ marks: [mark(0)] })
+    const first = scene.palette.colors.length
+    for (let round = 1; round < 20; round++) render({ marks: [mark(round)] })
+    expect(scene.palette.colors.length).toBeLessThanOrEqual(first)
+    expect(fill('n7')).toBe('#197')
+  })
+
+  it('gives the id of a color no longer drawn to a new color, with a new version', () => {
+    const mark = (name: string) =>
+      nodes<Item>([{ id: 'a', name }], { fill: (item) => item.name ?? '' })
+    const { scene, render, fill, nodeIndex } = setup({ marks: [mark('red')] })
+    const id = scene.nodes.fill[nodeIndex('a')]
+    const version = scene.palette.version
+    render({ marks: [mark('blue')] })
+    expect(fill('a')).toBe('blue')
+    expect(scene.nodes.fill[nodeIndex('a')]).toBe(id)
+    const changed: string[] = []
+    scene.palette.changed(version, (_, color) => changed.push(color))
+    expect(changed).toEqual(['blue'])
+  })
+
+  it('forgets categories no longer drawn once they outnumber the range', () => {
+    const batch = (round: number) =>
+      Array.from({ length: 10 }, (_, at) => ({ id: `n${at}`, group: `g${round}-${at}` }))
+    const { scene, render } = setup({ marks: [nodes<Item>(batch(0), { color: 'group' })] })
+    for (let round = 1; round < 50; round++) {
+      render({ marks: [nodes<Item>(batch(round), { color: 'group' })] })
+    }
+    const categories = [...scene.scales().color.scale.categories()]
+    expect(categories).toHaveLength(12)
+    for (let at = 0; at < 10; at++) expect(categories).toContain(`g49-${at}`)
+  })
+
+  it('keeps the categories drawn and their colors', () => {
+    const items = (list: string[]) => list.map((group, at) => ({ id: `n${at}`, group }))
+    const all = Array.from({ length: 14 }, (_, at) => `g${at}`)
+    const { scene, render, fill } = setup({ marks: [nodes<Item>(items(all), { color: 'group' })] })
+    expect([...scene.scales().color.scale.categories()]).toHaveLength(14)
+    const kept = fill('n13')
+    render({ marks: [nodes<Item>(items(['g0', 'g1', 'g13']), { color: 'group' })] })
+    expect([...scene.scales().color.scale.categories()]).toHaveLength(12)
+    expect(fill('n2')).toBe(kept)
+  })
+})
+
+describe('values out of a function scale', () => {
+  it('keeps a finite size and width when a function scale gives NaN or Infinity', () => {
+    const items = [
+      { id: 'a', score: -1 },
+      { id: 'b', score: 0 },
+      { id: 'c', score: 10 },
+    ]
+    const { size, scene, model } = setup({
+      marks: [
+        nodes<Item>(items, { size: 'score' }),
+        edges<Link>([{ id: 'ab', from: 'a', to: 'b', weight: 0 }], {
+          ...linkOptions,
+          width: 'weight',
+        }),
+      ],
+      scales: { size: (value) => Math.log(value), width: (value) => 1 / value },
+    })
+    expect(size('a')).toBe(16)
+    expect(size('b')).toBe(16)
+    expect(size('c')).toBeCloseTo(Math.log(10))
+    expect(scene.edges.width[model.edge('ab')?.index ?? -1]).toBe(1.5)
+  })
+
+  it('ignores a function color scale that gives no color', () => {
+    const items = [
+      { id: 'a', score: 1 },
+      { id: 'b', score: 2 },
+    ]
+    const scale = (value: unknown) => (value === 2 ? 'red' : (7 as unknown as string))
+    const { fill } = setup({
+      marks: [nodes<Item>(items, { color: 'score' })],
+      scales: { color: scale },
+    })
+    expect(fill('a')).toBe('var(--graph-node)')
+    expect(fill('b')).toBe('red')
+  })
+
+  it('never draws a negative stroke width', () => {
+    const { scene, nodeIndex } = setup({
+      marks: [nodes<Item>([{ id: 'a' }], { strokeWidth: () => -3 })],
+    })
+    expect(scene.nodes.strokeWidth[nodeIndex('a')]).toBe(0)
+  })
+})
+
+describe('colors replaced by a final style', () => {
+  it('leaves a color replaced by fill out of the drawn categories', () => {
+    const items = [
+      { id: 'a', group: 'x' },
+      { id: 'b', group: 'y', name: 'black' },
+    ]
+    const { scene, nodeIndex } = setup({
+      marks: [nodes<Item>(items, { color: 'group', fill: (item) => item.name ?? '' })],
+    })
+    const drawn = scene.scales().nodeColor
+    expect(drawn[nodeIndex('a')]).toBe('x')
+    expect(drawn[nodeIndex('b')]).toBeUndefined()
+    expect([...scene.scales().color.scale.categories()]).toEqual(['x'])
+  })
+})
+
+describe('groups and scales', () => {
+  it('leaves an unfolded group out of the size extent and the categories', () => {
+    type Member = { id: string; parent: string | null; weight: number; kind: string }
+    const items: Member[] = [
+      { id: 'g', parent: null, weight: 1000, kind: 'box' },
+      { id: 'a', parent: 'g', weight: 1, kind: 'x' },
+      { id: 'b', parent: 'g', weight: 10, kind: 'y' },
+    ]
+    const model = createGraphModel()
+    const scene = createScene()
+    const projection = new Projection(model)
+    const definition = defineGraph({
+      marks: [nodes<Member>(items, { parent: 'parent', size: 'weight', color: 'kind' })],
+    })
+    model.setMarks(definition.marks)
+    projection.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    scene.apply(projection.view, projection.apply(model.flush()).scene)
+    expect(scene.scales().size.extent).toEqual([1, 10])
+    expect(scene.nodes.size[model.node('b')?.index ?? -1]).toBe(32)
+    expect([...scene.scales().color.scale.categories()]).toEqual(['x', 'y'])
+  })
+})
+
+describe('lanes of parallel edges', () => {
+  it('flips the bend of a parallel edge whose direction flips on the same pair', () => {
+    const items = [{ id: 'a' }, { id: 'b' }]
+    const before: Link[] = [
+      { id: 'ab', from: 'a', to: 'b' },
+      { id: 'ab2', from: 'a', to: 'b' },
+    ]
+    const after: Link[] = [
+      { id: 'ab', from: 'a', to: 'b' },
+      { id: 'ab2', from: 'b', to: 'a' },
+    ]
+    const { scene, model, render } = setup({
+      marks: [nodes<Item>(items), edges<Link>(before, linkOptions)],
+    })
+    const bend = (key: string) => scene.edges.bend[model.edge(key)?.index ?? -1]
+    render({ marks: [nodes<Item>(items), edges<Link>(after, linkOptions)] })
+    const fresh = setup({ marks: [nodes<Item>(items), edges<Link>(after, linkOptions)] })
+    const freshBend = (key: string) =>
+      fresh.scene.edges.bend[fresh.model.edge(key)?.index ?? -1] ?? 0
+    expect(freshBend('ab2')).toBeCloseTo(-0.06)
+    expect(bend('ab2')).toBeCloseTo(freshBend('ab2'))
   })
 })

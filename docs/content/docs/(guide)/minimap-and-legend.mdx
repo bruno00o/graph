@@ -59,7 +59,7 @@ panel.append(view.element)
 
 `legend.store` holds the state of the legend, updated when data or definition change:
 
-- `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges of each; for a sequential scale, a ramp with its domain and its stops. Raw colors, set with `raw()`, have no category.
+- `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges drawn in each, leaving out the elements whose `fill` or `stroke` replaces the scale; for a sequential scale, a ramp with its domain and its stops. Raw colors, set with `raw()`, have no category.
 - `size` and `width`: the ends of the domain and a rounded value between them, with the diameter or the width each one becomes.
 - `marks`: the same sections for each mark with [scales of its own](/docs/scales#scales-of-a-mark), which the shared sections leave out. Their category ids carry the mark, such as `c:n1:string:north`.
 - `looks`: the shapes and images of the nodes, and the line patterns of the edges, by mark.
@@ -69,7 +69,7 @@ The default renderer writes no text of its own. Titles come from `titles`, and f
 
 ### Highlight and switch off
 
-Under the pointer, or with the keyboard focus, an item of the default renderer puts its elements in the `highlight` state. A click, Enter or Space switches it off: its elements go to the `hidden` state, and its button reads as not pressed. Declare both states in the definition with the style you want.
+Under the pointer, or with the keyboard focus, an item of the default renderer puts its elements in the `highlight` state. A click, Enter or Space switches it off: its elements go to the `hidden` state, and its button reads as not pressed. The elements of an item include each edge merged into an aggregated edge, and the nodes of a folded group, which join the state as soon as the group unfolds. Declare both states in the definition with the style you want.
 
 ```ts
 const definition = defineGraph({

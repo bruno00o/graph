@@ -534,10 +534,17 @@ function layerSlots(layers: Int32Array, names: readonly string[], ids: ReadonlyS
   )
 }
 
+export interface KeyScope {
+  readonly members?: ((index: number) => readonly Key[] | null) | undefined
+  readonly nodes?: readonly number[] | undefined
+  readonly edges?: readonly number[] | undefined
+}
+
 export function keysOf(
   scene: Scene,
   ids: ReadonlySet<string>,
   crowded: ReadonlySet<number>,
+  scope: KeyScope = {},
 ): LegendKeys {
   const { nodes, edges } = scene
   const scales = scene.scales()
@@ -563,10 +570,10 @@ export function keysOf(
     }
     return lastMatch
   }
-  for (let index = 0; index < nodes.capacity; index++) {
-    if (nodes.alive[index] !== 1 || nodes.shape[index] === containerShape) continue
+  const visitNode = (index: number) => {
+    if (nodes.alive[index] !== 1 || nodes.shape[index] === containerShape) return
     const key = nodes.keys[index]
-    if (key === undefined) continue
+    if (key === undefined) return
     const slot = nodes.slot[index] ?? 0
     if (
       nodeSlots[slot] === 1 ||
@@ -576,10 +583,10 @@ export function keysOf(
       keys.nodes.push(key)
     }
   }
-  for (let index = 0; index < edges.capacity; index++) {
-    if (edges.alive[index] !== 1) continue
+  const visitEdge = (index: number) => {
+    if (edges.alive[index] !== 1) return
     const key = edges.keys[index]
-    if (key === undefined) continue
+    if (key === undefined) return
     const slot = edges.slot[index] ?? 0
     const look = looks && ids.has(edgeLookId(slot, edges.dash[index] ?? 0))
     const mark = owners.own ? owners.edge(slot) : ''
@@ -588,7 +595,14 @@ export function keysOf(
       ? matches(endColor[index * 2] ?? value, mark) ||
         matches(endColor[index * 2 + 1] ?? value, mark)
       : matches(value, mark)
-    if (edgeSlots[slot] === 1 || look || hit) keys.edges.push(key)
+    if (edgeSlots[slot] !== 1 && !look && !hit) return
+    const members = scope.members?.(index)
+    if (members) for (const member of members) keys.edges.push(member)
+    else keys.edges.push(key)
   }
+  if (scope.nodes) for (const index of scope.nodes) visitNode(index)
+  else for (let index = 0; index < nodes.capacity; index++) visitNode(index)
+  if (scope.edges) for (const index of scope.edges) visitEdge(index)
+  else for (let index = 0; index < edges.capacity; index++) visitEdge(index)
   return keys
 }

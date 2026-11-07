@@ -1,3 +1,4 @@
+import { Boundaries } from './boundaries'
 import { ChangeLog } from './change-log'
 
 export const openTime = 1e38
@@ -180,8 +181,12 @@ export class TimeSpans {
   packed: Float32Array = new Float32Array(0)
   count = 0
   readonly changes: ChangeLog = new ChangeLog()
-  readonly #boundaries = new Set<number>()
-  #sorted: Float64Array | null = null
+  readonly #boundaries: Boundaries = new Boundaries(exactBoundaries, (visit) => {
+    for (let index = 0; index < this.start.length; index++) {
+      visit(this.start[index] ?? Number.NaN)
+      visit(this.end[index] ?? Number.NaN)
+    }
+  })
 
   #capacity = 0
 
@@ -222,15 +227,19 @@ export class TimeSpans {
       this.#grow(this.#capacity)
     }
     const before = this.timed(index)
-    if (this.start[index] !== start || this.end[index] !== end) this.touch(index)
+    const startBefore = this.start[index] ?? Number.NEGATIVE_INFINITY
+    const endBefore = this.end[index] ?? Number.POSITIVE_INFINITY
+    if (startBefore === start && endBefore === end) return
+    this.touch(index)
+    this.#boundaries.remove(startBefore)
+    this.#boundaries.remove(endBefore)
     this.start[index] = start
     this.end[index] = end
     if (before !== timed) this.count += timed ? 1 : -1
     packTime(start, this.packed, index * 4)
     packTime(end, this.packed, index * 4 + 2)
-    if (!timed) return
-    this.#boundary(start)
-    this.#boundary(end)
+    this.#boundaries.add(start)
+    this.#boundaries.add(end)
   }
 
   touch(index: number): void {
@@ -269,24 +278,11 @@ export class TimeSpans {
 
   step(filter: TimeFilter | null): number {
     if (this.count === 0 || !filter) return 0
-    const sorted = this.#sortedBoundaries()
+    const sorted = this.#boundaries.sorted(this.start.length)
     if (!sorted) return filter.serial
     const n = sorted.length * 2 + 1
     const from = lowerBound(sorted, filter.start) + upperBound(sorted, filter.start)
     const to = lowerBound(sorted, filter.end) + upperBound(sorted, filter.end)
     return ((from * n + to) * 2 + (filter.point ? 1 : 0)) * 2 + (filter.fade > 0 ? 1 : 0)
-  }
-
-  #boundary(value: number): void {
-    if (this.#boundaries.size > exactBoundaries || !Number.isFinite(value)) return
-    if (this.#boundaries.has(value)) return
-    this.#boundaries.add(value)
-    this.#sorted = null
-  }
-
-  #sortedBoundaries(): Float64Array | null {
-    if (this.#boundaries.size > exactBoundaries) return null
-    if (!this.#sorted) this.#sorted = Float64Array.from(this.#boundaries).sort()
-    return this.#sorted
   }
 }

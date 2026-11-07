@@ -987,6 +987,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let contextLost = false
   let positionsVersion = -1
   let paletteCount = 0
+  let paletteVersion = 0
   let paletteColors = new Uint8Array(256 * 4)
   let viewAnimation: ViewAnimation | null = null
   let positionAnimations: PositionAnimation[] = []
@@ -1430,14 +1431,21 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return { width, height }
   }
 
-  function resolvePalette(from: number): void {
-    const colors = scene.palette.colors
+  function resolvePalette(all: boolean): void {
+    const palette = scene.palette
+    const colors = palette.colors
     if (colors.length * 4 > paletteColors.length) {
       const next = new Uint8Array(Math.max(colors.length * 4, paletteColors.length * 2))
       next.set(paletteColors)
       paletteColors = next
     }
-    themeResolver.palette(colors, paletteColors, from)
+    if (all) themeResolver.palette(colors, paletteColors)
+    else {
+      palette.changed(paletteVersion, (id, color) => {
+        paletteColors.set(themeResolver.color(color), id * 4)
+      })
+    }
+    paletteVersion = palette.version
     paletteCount = colors.length
     paletteStamp++
     renderer?.setPalette(paletteColors, paletteCount)
@@ -1455,7 +1463,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function refreshTheme(): void {
     renderer?.setTheme(themeResolver.theme())
-    resolvePalette(0)
+    resolvePalette(true)
     request()
   }
 
@@ -2229,6 +2237,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const applied = clock()
     applyChanges(changes, projected)
     if (destroyed) return
+    for (const watcher of watchers) watcher.changed?.(projected.scene)
+    if (destroyed) return
     if (supported) lightSupport()
     probe?.flushed(flushed - start, applied - flushed)
     refreshIssues()
@@ -2912,7 +2922,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     syncContainers()
     decorations.prepare()
     const dirty = scene.takeDirty()
-    if (dirty.palette || scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
+    if (dirty.palette || scene.palette.version !== paletteVersion) resolvePalette(false)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     if (!renderer) {
       decorations.place()
@@ -4058,6 +4068,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     containers: () => (projection.active ? containerBoxes : null),
     palette: () => paletteColors,
     masks: () => buffers.nodeMask,
+    edgeMembers: (index) => projection.keysAt(index),
     sight: (except) => sight(except ?? null),
     stamp: () => ({
       scene: sceneVersion,
@@ -4085,7 +4096,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     registry.takeHighlighted()
     syncContainers()
     decorations.settle()
-    if (scene.palette.colors.length !== paletteCount) resolvePalette(paletteCount)
+    if (scene.palette.version !== paletteVersion) resolvePalette(false)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     request()
     const { view, width, height } = store.get()

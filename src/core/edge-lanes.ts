@@ -18,6 +18,12 @@ function grown(array: Int32Array, length: number): Int32Array<ArrayBuffer> {
   return next
 }
 
+function grownBytes(array: Uint8Array, length: number): Uint8Array<ArrayBuffer> {
+  const next = new Uint8Array(length)
+  next.set(array)
+  return next
+}
+
 export interface EdgeLanes {
   reserve(count: number): void
   link(index: number, source: number, target: number): void
@@ -40,6 +46,7 @@ export function createEdgeLanes(): EdgeLanes {
   let slots = new Int32Array(0)
   let nexts = new Int32Array(0)
   let prevs = new Int32Array(0)
+  let forwards = new Uint8Array(0)
   let touched: number[] = []
   let ranks: Uint16Array | null = null
   const members: number[] = []
@@ -50,6 +57,7 @@ export function createEdgeLanes(): EdgeLanes {
     slots = grown(slots, length)
     nexts = grown(nexts, length)
     prevs = grown(prevs, length)
+    forwards = grownBytes(forwards, length)
   }
 
   function locate(low: number, high: number): number {
@@ -130,10 +138,13 @@ export function createEdgeLanes(): EdgeLanes {
     reserveIndex(index)
     const low = Math.min(source, target)
     const high = Math.max(source, target)
+    const forward = source < target ? 1 : 0
+    const turned = forwards[index] !== forward
+    forwards[index] = forward
     const current = slots[index] ?? -1
     if (current >= 0) {
       if (lows[current] === low && highs[current] === high) {
-        if (ranks) touched.push(index)
+        if (ranks || turned) touched.push(index)
         return
       }
       unlink(index)

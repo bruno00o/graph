@@ -11,6 +11,7 @@ import type {
   GraphDefinition,
   LabelPlacement,
   Mark,
+  MarkName,
   NodeMark,
   NodeShape,
   NumberScale,
@@ -40,7 +41,13 @@ import {
 } from './compile-mark'
 import { createEdgeLanes } from './edge-lanes'
 import { flowSpeed } from './flow'
-import type { EdgeRecord, ElementKind, GraphChanges, NodeRecord } from './graph-model'
+import type {
+  EdgeRecord,
+  ElementChanges,
+  ElementKind,
+  GraphChanges,
+  NodeRecord,
+} from './graph-model'
 import { IndexSet } from './index-set'
 import { MarkLayers } from './mark-layers'
 import { Palette } from './palette'
@@ -128,17 +135,60 @@ class ColorState {
   readonly nodes: ExtentTracker = new ExtentTracker()
   readonly edges: ExtentTracker = new ExtentTracker()
   readonly ends: ExtentTracker = new ExtentTracker()
+  members: Map<unknown, number> | null = null
+  readonly idle: Set<unknown> = new Set()
 
   constructor(
     public options: ColorScale | undefined,
     public scale: ResolvedColorScale,
     readonly kind: 'nodes' | 'edges' | null,
-    readonly slot: number,
+    public slot: number,
+    public name: MarkName | undefined,
   ) {}
 
   dataExtent(ends: boolean): Extent | null {
     const own = combineExtents(this.nodes.extent, this.edges.extent)
     return ends ? combineExtents(own, this.ends.extent) : own
+  }
+
+  hold(value: unknown): void {
+    const members = this.members
+    if (!members || value === null || value === undefined) return
+    members.set(value, (members.get(value) ?? 0) + 1)
+  }
+
+  release(value: unknown): void {
+    const members = this.members
+    if (!members || value === null || value === undefined) return
+    const count = (members.get(value) ?? 0) - 1
+    if (count > 0) {
+      members.set(value, count)
+      return
+    }
+    members.delete(value)
+    this.idle.add(value)
+  }
+
+  settle(count: (state: ColorState, members: Map<unknown, number>) => void): void {
+    const scale = this.scale
+    if (scale.kind !== 'categorical' || scale.size() <= scale.range.length) return
+    let members = this.members
+    if (!members) {
+      members = new Map()
+      count(this, members)
+      this.members = members
+      for (const value of scale.categories()) if (!members.has(value)) this.idle.add(value)
+    }
+    for (const value of this.idle) {
+      if (scale.size() <= scale.range.length) return
+      this.idle.delete(value)
+      if (!members.has(value)) scale.forget(value)
+    }
+  }
+
+  recount(): void {
+    this.members = null
+    this.idle.clear()
   }
 
   clear(): void {
@@ -147,6 +197,29 @@ class ColorState {
     this.edges.clear()
     this.ends.clear()
   }
+}
+
+interface WantedColors {
+  readonly options: readonly (ColorScale | undefined)[]
+  readonly names: readonly (MarkName | undefined)[]
+}
+
+interface SlotColumns {
+  readonly alive: Uint8Array
+  readonly slot: Uint16Array
+}
+
+interface ColorFallbacks {
+  readonly nodeFill: number
+  readonly nodeStroke: number
+  readonly nodeOutline: number
+  readonly groupFill: number
+  readonly groupStroke: number
+  readonly edgeColor: number
+  readonly badgeFill: number
+  readonly badgeInk: number
+  readonly badgeRing: number
+  readonly labelBackground: number
 }
 
 class NumberState {
@@ -191,6 +264,14 @@ function ownScales(
   return own
 }
 
+function wantedColors(marks: readonly Mark[], kind: 'nodes' | 'edges'): WantedColors {
+  const names: (MarkName | undefined)[] = []
+  for (const mark of marks) {
+    if (mark.type === kind) names.push((mark as NodeMark<unknown> | EdgeMark<unknown>).name)
+  }
+  return { options: ownScales(marks, kind, 'color') as (ColorScale | undefined)[], names }
+}
+
 function toNumber(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : Number.NaN
 }
@@ -211,7 +292,22 @@ function codeOf<T extends string>(codes: Readonly<Record<T, number>>, value: unk
   return typeof value === 'string' && Object.hasOwn(codes, value) ? codes[value as T] : 0
 }
 
-function readBadges(mark: CompiledNodeMark, datum: unknown, palette: Palette): NodeBadge[] | null {
+function swapColor(
+  palette: Palette,
+  previous: number,
+  color: string | null,
+  fallback: number,
+): number {
+  if (color === null && previous === fallback) return previous
+  return palette.swap(previous, color, fallback)
+}
+
+function readBadges(
+  mark: CompiledNodeMark,
+  datum: unknown,
+  palette: Palette,
+  fallbacks: ColorFallbacks,
+): NodeBadge[] | null {
   if (mark.badges.length === 0) return null
   const badges: NodeBadge[] = []
   for (const [corner, read] of mark.badges) {
@@ -221,18 +317,22 @@ function readBadges(mark: CompiledNodeMark, datum: unknown, palette: Palette): N
     badges.push({
       corner: cornerCodes[corner],
       text: typeof text === 'number' ? String(text) : toText(text) || null,
-      fill: palette.id(toColor(fill) ?? defaults.badgeFill),
-      color: palette.id(toColor(color) ?? defaults.badgeInk),
-      ring: palette.id(defaults.badgeRing),
+      fill: swapColor(palette, noColor, toColor(fill), fallbacks.badgeFill),
+      color: swapColor(palette, noColor, toColor(color), fallbacks.badgeInk),
+      ring: fallbacks.badgeRing,
     })
   }
   return badges.length === 0 ? null : badges
 }
 
-function readBackground(value: unknown, palette: Palette): number {
-  if (value === true) return palette.id(defaults.labelBackground)
-  const color = toColor(value)
-  return color ? palette.id(color) : noColor
+function readBackground(
+  previous: number,
+  value: unknown,
+  palette: Palette,
+  fallbacks: ColorFallbacks,
+): number {
+  if (value === true) return swapColor(palette, previous, null, fallbacks.labelBackground)
+  return swapColor(palette, previous, toColor(value), noColor)
 }
 
 function positive(value: unknown): number {
@@ -263,7 +363,12 @@ function writeLabelText(
   palette: Palette,
 ): void {
   const color = text.color ? toColor(text.color(datum)) : null
-  columns.labelColor[index] = color ? palette.id(color) : noColor
+  columns.labelColor[index] = swapColor(
+    palette,
+    columns.labelColor[index] ?? noColor,
+    color,
+    noColor,
+  )
   columns.labelSize[index] = positive(text.size?.(datum))
   columns.labelWeight[index] = readWeight(text.weight?.(datum))
   columns.labelFont[index] = text.font ? toColor(text.font(datum)) : null
@@ -317,10 +422,117 @@ function layersOf(marks: readonly Mark[]): Layer[] {
   return marks.map((mark) => ({ kind: mark.type, slot: slots[mark.type]++ }))
 }
 
+function pinFallbacks(palette: Palette): ColorFallbacks {
+  return {
+    nodeFill: palette.id(defaults.nodeFill),
+    nodeStroke: palette.id(defaults.nodeStroke),
+    nodeOutline: palette.id(defaults.nodeOutline),
+    groupFill: palette.id(defaults.groupFill),
+    groupStroke: palette.id(defaults.groupStroke),
+    edgeColor: palette.id(defaults.edgeColor),
+    badgeFill: palette.id(defaults.badgeFill),
+    badgeInk: palette.id(defaults.badgeInk),
+    badgeRing: palette.id(defaults.badgeRing),
+    labelBackground: palette.id(defaults.labelBackground),
+  }
+}
+
+interface ClaimedColors {
+  readonly states: (ColorState | null)[]
+  readonly moved: boolean
+  readonly rescaled: boolean
+}
+
+function claimColors(
+  previous: readonly (ColorState | null)[],
+  wanted: WantedColors,
+  kind: 'nodes' | 'edges',
+  columns: SlotColumns,
+  changes: ElementChanges,
+  slotAt: (index: number) => number,
+): ClaimedColors {
+  const { options, names } = wanted
+  const states: (ColorState | null)[] = options.map(() => null)
+  const claimed = new Set<ColorState>()
+  const claim = (slot: number, state: ColorState | null | undefined): boolean => {
+    if (!state || claimed.has(state)) return false
+    states[slot] = state
+    claimed.add(state)
+    return true
+  }
+  options.forEach((scale, slot) => {
+    const name = names[slot]
+    if (scale === undefined || name === undefined) return
+    claim(
+      slot,
+      previous.find((state) => state?.name === name && !claimed.has(state)),
+    )
+  })
+  const open = options.flatMap((scale, slot) =>
+    scale !== undefined && !states[slot] ? [slot] : [],
+  )
+  if (open.length > 0 && previous.some(Boolean)) {
+    const left = slotCounts(columns)
+    const votes = new Map<number, number>()
+    for (const { index } of changes.removed) {
+      if (columns.alive[index] !== 1) continue
+      const from = columns.slot[index] ?? 0
+      left[from] = (left[from] ?? 0) - 1
+    }
+    for (const { index } of changes.updated) {
+      if (columns.alive[index] !== 1) continue
+      const from = columns.slot[index] ?? 0
+      const to = slotAt(index)
+      if (to < 0 || to === from) continue
+      left[from] = (left[from] ?? 0) - 1
+      if (!votes.has(to)) votes.set(to, from)
+    }
+    for (const slot of open) {
+      if ((left[slot] ?? 0) > 0 && claim(slot, previous[slot])) continue
+      const from = votes.get(slot)
+      if (from !== undefined) claim(slot, previous[from])
+    }
+  }
+  let moved = previous.some((state) => state !== null && !claimed.has(state))
+  let rescaled = false
+  options.forEach((scale, slot) => {
+    if (scale === undefined) return
+    const state = states[slot]
+    if (!state) {
+      states[slot] = new ColorState(scale, resolveColorScale(scale), kind, slot, names[slot])
+      moved = true
+      return
+    }
+    if (state.slot !== slot) {
+      state.slot = slot
+      moved = true
+    }
+    state.name = names[slot]
+    if (!sameScale(state.options, scale)) {
+      state.scale = resolveColorScale(scale)
+      rescaled = true
+    }
+    state.options = scale
+  })
+  return { states, moved, rescaled }
+}
+
+function slotCounts(columns: SlotColumns): number[] {
+  const counts: number[] = []
+  const { alive, slot } = columns
+  for (let index = 0; index < alive.length; index++) {
+    if (alive[index] !== 1) continue
+    const at = slot[index] ?? 0
+    counts[at] = (counts[at] ?? 0) + 1
+  }
+  return counts
+}
+
 export function createScene(): Scene {
   const nodes = new NodeColumns()
   const edges = new EdgeColumns()
   const palette = new Palette()
+  const fallbacks = pinFallbacks(palette)
   const lanes = createEdgeLanes()
   const markLayers = new MarkLayers()
   const slots = new Map<Mark, number>()
@@ -339,7 +551,9 @@ export function createScene(): Scene {
   let spareEdges = new IndexSet()
   let scales: ScalesOptions = {}
   let full = false
-  const sharedColor = new ColorState(undefined, resolveColorScale(undefined), null, -1)
+  let moved = false
+  let wanted: { readonly nodes: WantedColors; readonly edges: WantedColors } | null = null
+  const sharedColor = new ColorState(undefined, resolveColorScale(undefined), null, -1, undefined)
   const sharedSize = new NumberState(undefined, resolveNumberScale(undefined, sizeFallback), -1)
   const sharedWidth = new NumberState(undefined, resolveNumberScale(undefined, widthFallback), -1)
   let nodeColors: (ColorState | null)[] = []
@@ -357,6 +571,9 @@ export function createScene(): Scene {
   const nodeColorValues: unknown[] = []
   const edgeColorValues: unknown[] = []
   const endColorValues: unknown[] = []
+  let nodeHeld: unknown[] = []
+  let edgeHeld: unknown[] = []
+  let endHeld: unknown[] = []
   const sizeValues: number[] = []
   const widthValues: number[] = []
   const endWidthValues: number[] = []
@@ -412,12 +629,19 @@ export function createScene(): Scene {
     }
   }
 
-  function readNode(record: NodeRecord): void {
+  function readNode(record: SceneNodeRecord): void {
     const index = record.index
     const mark = nodeMarkOf(record)
     nodes.reserve(index)
     if (ownNodeScales) leaveNodeScales(index)
     nodes.keys[index] = record.key
+    if (record.container) {
+      sizeValues[index] = Number.NaN
+      nodeColorValues[index] = undefined
+      nodeSize.values.delete(index)
+      nodeColor.nodes.delete(index)
+      return
+    }
     const size = mark.size ? toNumber(mark.size(record.datum)) : Number.NaN
     const color = mark.colorRaw ? undefined : mark.color?.(record.datum)
     sizeValues[index] = size
@@ -468,90 +692,219 @@ export function createScene(): Scene {
     }
   }
 
+  function sizeOf(value: number, raw: boolean): number {
+    if (Number.isNaN(value)) return defaults.nodeSize
+    if (raw) return Math.max(0, value)
+    const size = nodeSize.scale.map(value, nodeSize.domain)
+    return Number.isFinite(size) ? Math.max(0, size) : defaults.nodeSize
+  }
+
+  function widthOf(value: number, raw: boolean, fallback: number): number {
+    if (Number.isNaN(value)) return fallback
+    if (raw) return Math.max(0, value)
+    const width = edgeWidth.scale.map(value, edgeWidth.domain)
+    return Number.isFinite(width) ? Math.max(0, width) : fallback
+  }
+
+  function dropNodeColors(index: number): void {
+    palette.drop(nodes.fill[index] ?? noColor)
+    palette.drop(nodes.stroke[index] ?? noColor)
+    palette.drop(nodes.outline[index] ?? noColor)
+    palette.drop(nodes.imageColor[index] ?? noColor)
+    palette.drop(nodes.labelColor[index] ?? noColor)
+    palette.drop(nodes.labelBackground[index] ?? noColor)
+    dropBadges(index)
+  }
+
+  function dropBadges(index: number): void {
+    const badges = nodes.badges[index]
+    if (!badges) return
+    for (const badge of badges) {
+      palette.drop(badge.fill)
+      palette.drop(badge.color)
+    }
+  }
+
+  function dropEdgeColors(index: number): void {
+    palette.drop(edges.color[index] ?? noColor)
+    palette.drop(edges.labelColor[index] ?? noColor)
+    palette.drop(edges.labelBackground[index] ?? noColor)
+    dropEnds(index)
+  }
+
+  function dropEnds(index: number): void {
+    const ends = edges.ends
+    if (!ends || Number.isNaN(ends.split[index] ?? Number.NaN)) return
+    for (let id = index * 2; id < index * 2 + 2; id++) {
+      palette.drop(ends.color[id] ?? noColor)
+      palette.drop(ends.labelColor[id] ?? noColor)
+      palette.drop(ends.labelBackground[id] ?? noColor)
+      ends.color[id] = noColor
+      ends.labelColor[id] = noColor
+      ends.labelBackground[id] = noColor
+    }
+  }
+
+  function freshNodeColors(index: number): void {
+    nodes.fill[index] = noColor
+    nodes.stroke[index] = noColor
+    nodes.outline[index] = noColor
+    nodes.imageColor[index] = noColor
+    nodes.labelColor[index] = noColor
+    nodes.labelBackground[index] = noColor
+  }
+
+  function freshEdgeColors(index: number): void {
+    edges.color[index] = noColor
+    edges.labelColor[index] = noColor
+    edges.labelBackground[index] = noColor
+  }
+
   function writeNode(record: SceneNodeRecord): void {
     const index = record.index
     const mark = nodeMarkOf(record)
     const datum = record.datum
-    const size = sizeValues[index] ?? Number.NaN
-    const fill =
-      toColor(mark.fill?.(datum)) ??
-      (mark.colorRaw
-        ? toColor(mark.color?.(datum))
-        : nodeColor.scale.map(nodeColorValues[index], nodeColor.extent)) ??
-      defaults.nodeFill
+    const previousSlot = nodes.slot[index] ?? 0
+    const before = nodeHeld[index]
+    if (nodes.alive[index] === 1) dropBadges(index)
+    else freshNodeColors(index)
     nodes.alive[index] = 1
     nodes.slot[index] = nodeSlot
-    nodes.size[index] = Number.isNaN(size)
-      ? defaults.nodeSize
-      : mark.sizeRaw
-        ? Math.max(0, size)
-        : nodeSize.scale.map(size, nodeSize.domain)
-    nodes.shape[index] = codeOf<NodeShape>(shapeCodes, mark.shape?.(datum))
-    nodes.fill[index] = palette.id(fill)
-    nodes.stroke[index] = palette.id(toColor(mark.stroke?.(datum)) ?? defaults.nodeStroke)
-    nodes.strokeWidth[index] = finiteOr(mark.strokeWidth?.(datum), defaults.nodeStrokeWidth)
-    const outline = mark.outline ? toColor(mark.outline(datum)) : null
-    nodes.outline[index] = palette.id(outline ?? defaults.nodeOutline)
-    nodes.outlineWidth[index] =
-      mark.outline && !outline
-        ? 0
-        : Math.max(0, finiteOr(mark.outlineWidth?.(datum), outline ? defaults.nodeOutlineWidth : 0))
+    nodes.size[index] = sizeOf(sizeValues[index] ?? Number.NaN, mark.sizeRaw)
+    const held = record.container
+      ? writeContainer(index, mark, datum)
+      : writeLook(index, mark, datum)
     nodes.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     nodes.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     if (mark.time) nodes.time.read(index, mark.time(datum))
     else nodes.time.clear(index)
-    nodes.screenUnits[index] = mark.screenUnits ? 1 : 0
     nodes.label[index] = toText(mark.label?.(datum))
     nodes.secondary[index] = toText(mark.secondary?.(datum))
-    nodes.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
-    writeLabelText(nodes, index, mark.labelText, datum, palette)
-    nodes.labelPlacement[index] = codeOf<LabelPlacement>(
-      placementCodes,
-      mark.labelPlacement?.(datum),
+    nodes.labelBackground[index] = readBackground(
+      nodes.labelBackground[index] ?? noColor,
+      mark.labelBackground?.(datum),
+      palette,
+      fallbacks,
     )
+    writeLabelText(nodes, index, mark.labelText, datum, palette)
+    nodes.labelPlacement[index] =
+      record.container && !mark.labelPlacement
+        ? placementCodes.top
+        : codeOf<LabelPlacement>(placementCodes, mark.labelPlacement?.(datum))
     nodes.labelMinScreenSize[index] = positive(mark.labelMinScreenSize?.(datum))
-    const image = readImage(mark.image?.(datum))
-    nodes.image[index] = image?.src ?? null
-    nodes.imageScale[index] = image?.scale ?? 1
-    nodes.imageColor[index] = image?.color ? palette.id(image.color) : noColor
-    nodes.badges[index] = readBadges(mark, datum, palette)
-    nodes.container[index] = 0
-    if (record.container) writeContainer(index, mark, datum)
+    const previous = nodeColors[previousSlot] ?? sharedColor
+    if (held !== before || previous !== nodeColor) {
+      nodeHeld[index] = held
+      nodeColor.hold(held)
+      previous.release(before)
+    }
     dirtyNodes.add(index)
   }
 
-  function writeContainer(index: number, mark: CompiledNodeMark, datum: unknown): void {
+  function writeLook(index: number, mark: CompiledNodeMark, datum: unknown): unknown {
+    let held: unknown
+    let fill = toColor(mark.fill?.(datum))
+    if (fill === null && mark.colorRaw) fill = toColor(mark.color?.(datum))
+    else if (fill === null) {
+      const value = nodeColorValues[index]
+      fill = nodeColor.scale.map(value, nodeColor.extent)
+      if (fill !== null) held = value
+    }
+    nodes.container[index] = 0
+    nodes.shape[index] = codeOf<NodeShape>(shapeCodes, mark.shape?.(datum))
+    nodes.fill[index] = swapColor(palette, nodes.fill[index] ?? noColor, fill, fallbacks.nodeFill)
+    nodes.stroke[index] = swapColor(
+      palette,
+      nodes.stroke[index] ?? noColor,
+      toColor(mark.stroke?.(datum)),
+      fallbacks.nodeStroke,
+    )
+    nodes.strokeWidth[index] = Math.max(
+      0,
+      finiteOr(mark.strokeWidth?.(datum), defaults.nodeStrokeWidth),
+    )
+    const outline = mark.outline ? toColor(mark.outline(datum)) : null
+    nodes.outline[index] = swapColor(
+      palette,
+      nodes.outline[index] ?? noColor,
+      outline,
+      fallbacks.nodeOutline,
+    )
+    nodes.outlineWidth[index] =
+      mark.outline && !outline
+        ? 0
+        : Math.max(0, finiteOr(mark.outlineWidth?.(datum), outline ? defaults.nodeOutlineWidth : 0))
+    nodes.screenUnits[index] = mark.screenUnits ? 1 : 0
+    const image = readImage(mark.image?.(datum))
+    nodes.image[index] = image?.src ?? null
+    nodes.imageScale[index] = image?.scale ?? 1
+    nodes.imageColor[index] = swapColor(
+      palette,
+      nodes.imageColor[index] ?? noColor,
+      image?.color ?? null,
+      noColor,
+    )
+    nodes.badges[index] = readBadges(mark, datum, palette, fallbacks)
+    return held
+  }
+
+  function writeContainer(index: number, mark: CompiledNodeMark, datum: unknown): undefined {
     const look = mark.container
     nodes.container[index] = codeOf<ContainerShape>(containerCodes, look.shape?.(datum)) || 1
     nodes.padding[index] = Math.max(0, finiteOr(look.padding?.(datum), defaults.groupPadding))
     nodes.shape[index] = containerShape
-    nodes.fill[index] = palette.id(toColor(look.fill?.(datum)) ?? defaults.groupFill)
-    nodes.stroke[index] = palette.id(toColor(look.stroke?.(datum)) ?? defaults.groupStroke)
+    nodes.fill[index] = swapColor(
+      palette,
+      nodes.fill[index] ?? noColor,
+      toColor(look.fill?.(datum)),
+      fallbacks.groupFill,
+    )
+    nodes.stroke[index] = swapColor(
+      palette,
+      nodes.stroke[index] ?? noColor,
+      toColor(look.stroke?.(datum)),
+      fallbacks.groupStroke,
+    )
     nodes.strokeWidth[index] = Math.max(
       0,
       finiteOr(look.strokeWidth?.(datum), defaults.groupStrokeWidth),
     )
+    nodes.outline[index] = swapColor(
+      palette,
+      nodes.outline[index] ?? noColor,
+      null,
+      fallbacks.nodeOutline,
+    )
     nodes.outlineWidth[index] = 0
     nodes.screenUnits[index] = 0
     nodes.image[index] = null
-    nodes.imageColor[index] = noColor
+    nodes.imageScale[index] = 1
+    nodes.imageColor[index] = swapColor(palette, nodes.imageColor[index] ?? noColor, null, noColor)
     nodes.badges[index] = null
-    if (!mark.labelPlacement) nodes.labelPlacement[index] = placementCodes.top
+    return undefined
   }
 
   function writeEdge(record: SceneEdgeRecord): void {
     const index = record.index
     const mark = edgeMarkOf(record)
     const datum = record.datum
-    const width = widthValues[index] ?? Number.NaN
-    const color =
-      toColor(mark.stroke?.(datum)) ??
-      (mark.colorRaw
-        ? toColor(mark.color?.(datum))
-        : edgeColor.scale.map(edgeColorValues[index], edgeColor.extent)) ??
-      defaults.edgeColor
+    const alive = edges.alive[index] === 1
+    const previousSlot = edges.slot[index] ?? 0
+    const before = edgeHeld[index]
+    const nearBefore = endsSeen ? endHeld[index * 2] : undefined
+    const farBefore = endsSeen ? endHeld[index * 2 + 1] : undefined
+    if (alive) dropEnds(index)
+    else freshEdgeColors(index)
+    let held: unknown
+    let color = toColor(mark.stroke?.(datum))
+    if (color === null && mark.colorRaw) color = toColor(mark.color?.(datum))
+    else if (color === null) {
+      const value = edgeColorValues[index]
+      color = edgeColor.scale.map(value, edgeColor.extent)
+      if (color !== null) held = value
+    }
     if (
-      edges.alive[index] !== 1 ||
+      !alive ||
       edges.source[index] !== record.sourceIndex ||
       edges.target[index] !== record.targetIndex
     )
@@ -561,12 +914,17 @@ export function createScene(): Scene {
     edges.source[index] = record.sourceIndex
     edges.target[index] = record.targetIndex
     lanes.link(index, record.sourceIndex, record.targetIndex)
-    edges.color[index] = palette.id(color)
-    edges.width[index] = Number.isNaN(width)
-      ? defaults.edgeWidth
-      : mark.widthRaw
-        ? Math.max(0, width)
-        : edgeWidth.scale.map(width, edgeWidth.domain)
+    edges.color[index] = swapColor(
+      palette,
+      edges.color[index] ?? noColor,
+      color,
+      fallbacks.edgeColor,
+    )
+    edges.width[index] = widthOf(
+      widthValues[index] ?? Number.NaN,
+      mark.widthRaw,
+      defaults.edgeWidth,
+    )
     edges.dash[index] = codeOf<EdgeDash>(dashCodes, mark.dash?.(datum))
     edges.arrow[index] = codeOf<EdgeArrow>(arrowCodes, mark.arrow?.(datum))
     edges.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
@@ -581,14 +939,31 @@ export function createScene(): Scene {
     edges.route[index] = !loop && !geodesic && mark.route?.(datum) !== false ? 1 : 0
     edges.bridge[index] = !loop && !geodesic && mark.bridge?.(datum) !== false ? 1 : 0
     edges.label[index] = toText(mark.label?.(datum))
-    edges.labelBackground[index] = readBackground(mark.labelBackground?.(datum), palette)
+    edges.labelBackground[index] = readBackground(
+      edges.labelBackground[index] ?? noColor,
+      mark.labelBackground?.(datum),
+      palette,
+      fallbacks,
+    )
     writeLabelText(edges, index, mark.labelText, datum, palette)
-    if (mark.ends) writeEnds(index, mark, datum, color)
-    else edges.ends?.clear(index)
+    if (mark.ends) writeEnds(index, mark, datum, edges.color[index] ?? fallbacks.edgeColor)
+    else if (endsSeen) {
+      edges.ends?.clear(index)
+      endHeld[index * 2] = undefined
+      endHeld[index * 2 + 1] = undefined
+    }
+    const previous = edgeColors[previousSlot] ?? sharedColor
+    if (held !== before || previous !== edgeColor) {
+      edgeHeld[index] = held
+      edgeColor.hold(held)
+      previous.release(before)
+    }
+    previous.release(nearBefore)
+    previous.release(farBefore)
     dirtyEdges.add(index)
   }
 
-  function writeEnds(index: number, mark: CompiledEdgeMark, datum: unknown, color: string): void {
+  function writeEnds(index: number, mark: CompiledEdgeMark, datum: unknown, color: number): void {
     const compiled = mark.ends
     if (!compiled) return
     const ends = edges.useEnds()
@@ -604,47 +979,74 @@ export function createScene(): Scene {
     id: number,
     end: CompiledEnd,
     datum: unknown,
-    color: string,
+    color: number,
     index: number,
   ): number {
     const value = endWidthValues[id] ?? Number.NaN
-    const endColor =
-      toColor(end.stroke?.(datum)) ??
-      (end.colorRaw
-        ? toColor(end.color?.(datum))
-        : edgeColor.scale.map(endColorValues[id], edgeColor.extent)) ??
-      color
-    ends.color[id] = palette.id(endColor)
-    const width = Number.isNaN(value)
-      ? (edges.width[index] ?? defaults.edgeWidth)
-      : end.widthRaw
-        ? Math.max(0, value)
-        : edgeWidth.scale.map(value, edgeWidth.domain)
+    let held: unknown = null
+    let endColor = toColor(end.stroke?.(datum))
+    if (endColor === null && end.colorRaw) endColor = toColor(end.color?.(datum))
+    else if (endColor === null) {
+      const read = endColorValues[id]
+      endColor = edgeColor.scale.map(read, edgeColor.extent)
+      held = endColor === null ? undefined : read
+    }
+    ends.color[id] = endColor === null ? palette.reuse(color) : palette.use(endColor)
+    endHeld[id] = held
+    edgeColor.hold(held)
+    const fallback = edges.width[index] ?? defaults.edgeWidth
+    const width = widthOf(value, end.widthRaw, fallback)
     ends.width[id] = width
     ends.dash[id] = end.dash
       ? codeOf<EdgeDash>(dashCodes, end.dash(datum))
       : (edges.dash[index] ?? 0)
     ends.setLabel(id, toText(end.label?.(datum)) || null)
-    ends.labelBackground[id] = readBackground(end.labelBackground?.(datum), palette)
+    ends.labelBackground[id] = readBackground(
+      noColor,
+      end.labelBackground?.(datum),
+      palette,
+      fallbacks,
+    )
     writeLabelText(ends, id, end.labelText, datum, palette)
     return width
   }
 
   function removeNode(index: number): void {
     const slot = nodes.slot[index] ?? 0
+    if (nodes.alive[index] === 1) dropNodeColors(index)
+    const color = nodeColors[slot] ?? sharedColor
+    const held = nodeHeld[index]
+    if (held !== undefined) {
+      color.release(held)
+      nodeHeld[index] = undefined
+    }
     nodes.clear(index)
     sizeValues[index] = Number.NaN
     nodeColorValues[index] = undefined
     ;(sizes[slot] ?? sharedSize).values.delete(index)
-    ;(nodeColors[slot] ?? sharedColor).nodes.delete(index)
+    color.nodes.delete(index)
     dirtyNodes.add(index)
   }
 
   function removeEdge(index: number): void {
-    if (edges.alive[index] === 1) edges.time.touch(index)
     const slot = edges.slot[index] ?? 0
+    if (edges.alive[index] === 1) {
+      edges.time.touch(index)
+      dropEdgeColors(index)
+    }
     const color = edgeColors[slot] ?? sharedColor
     const width = widths[slot] ?? sharedWidth
+    const held = edgeHeld[index]
+    if (held !== undefined) {
+      color.release(held)
+      edgeHeld[index] = undefined
+    }
+    if (endsSeen) {
+      color.release(endHeld[index * 2])
+      color.release(endHeld[index * 2 + 1])
+      endHeld[index * 2] = undefined
+      endHeld[index * 2 + 1] = undefined
+    }
     lanes.unlink(index)
     edges.clear(index)
     widthValues[index] = Number.NaN
@@ -653,6 +1055,25 @@ export function createScene(): Scene {
     color.edges.delete(index)
     if (endsSeen) forgetEnds(index, color, width)
     dirtyEdges.add(index)
+  }
+
+  function countHeld(state: ColorState, members: Map<unknown, number>): void {
+    const add = (value: unknown) => {
+      if (value !== null && value !== undefined) members.set(value, (members.get(value) ?? 0) + 1)
+    }
+    for (let index = 0; index < nodes.capacity; index++) {
+      if (nodes.alive[index] !== 1 || (nodeColors[nodes.slot[index] ?? 0] ?? sharedColor) !== state)
+        continue
+      add(nodeHeld[index])
+    }
+    for (let index = 0; index < edges.capacity; index++) {
+      if (edges.alive[index] !== 1 || (edgeColors[edges.slot[index] ?? 0] ?? sharedColor) !== state)
+        continue
+      add(edgeHeld[index])
+      if (!endsSeen) continue
+      add(endHeld[index * 2])
+      add(endHeld[index * 2 + 1])
+    }
   }
 
   function colorStates(): ColorState[] {
@@ -681,33 +1102,6 @@ export function createScene(): Scene {
     return { slot: state.slot, scale: state.scale, extent: state.dataExtent(ends) }
   }
 
-  function syncColors(
-    own: readonly (ColorState | null)[],
-    given: readonly (ColorScale | NumberScale | undefined)[],
-    kind: 'nodes' | 'edges',
-  ): { states: (ColorState | null)[]; moved: boolean } {
-    let moved = own.slice(given.length).some(Boolean)
-    const states = given.map((options, slot) => {
-      const before = own[slot] ?? null
-      if (options === undefined) {
-        if (before) moved = true
-        return null
-      }
-      const scale = options as ColorScale
-      if (!before) {
-        moved = true
-        return new ColorState(scale, resolveColorScale(scale), kind, slot)
-      }
-      if (!sameScale(before.options, scale)) {
-        before.scale = resolveColorScale(scale)
-        full = true
-      }
-      before.options = scale
-      return before
-    })
-    return { states, moved }
-  }
-
   function syncNumbers(
     own: readonly (NumberState | null)[],
     given: readonly (ColorScale | NumberScale | undefined)[],
@@ -733,6 +1127,42 @@ export function createScene(): Scene {
       return before
     })
     return { states, moved }
+  }
+
+  function claimAll(model: SceneModel, changes: GraphChanges): void {
+    const next = wanted
+    wanted = null
+    if (!next) return
+    const nodeSlotAt = (index: number) => {
+      const record = model.nodeAt(index)
+      return record ? (slots.get(record.mark) ?? -1) : -1
+    }
+    const edgeSlotAt = (index: number) => {
+      const record = model.edgeAt(index)
+      return record ? (slots.get(record.mark) ?? -1) : -1
+    }
+    const claimedNodes = claimColors(
+      nodeColors,
+      next.nodes,
+      'nodes',
+      nodes,
+      changes.nodes,
+      nodeSlotAt,
+    )
+    const claimedEdges = claimColors(
+      edgeColors,
+      next.edges,
+      'edges',
+      edges,
+      changes.edges,
+      edgeSlotAt,
+    )
+    nodeColors = claimedNodes.states
+    edgeColors = claimedEdges.states
+    if (claimedNodes.moved || claimedEdges.moved) moved = true
+    if (claimedNodes.rescaled || claimedEdges.rescaled) full = true
+    ownNodeScales = nodeColors.some(Boolean) || sizes.some(Boolean)
+    ownEdgeScales = edgeColors.some(Boolean) || widths.some(Boolean)
   }
 
   function include<R extends { readonly index: number }>(
@@ -768,9 +1198,9 @@ export function createScene(): Scene {
         edgeColors: edgeColors.map((state) => state && colorView(state)),
         sizes: sizes.map((state) => state && numberView(state, false)),
         widths: widths.map((state) => state && numberView(state, true)),
-        nodeColor: nodeColorValues,
-        edgeColor: edgeColorValues,
-        endColor: endColorValues,
+        nodeColor: nodeHeld,
+        edgeColor: edgeHeld,
+        endColor: endHeld,
       }
     },
 
@@ -790,22 +1220,12 @@ export function createScene(): Scene {
       }
       scales = next
       const marks = definition.marks
-      const ownNodeColors = syncColors(nodeColors, ownScales(marks, 'nodes', 'color'), 'nodes')
-      const ownEdgeColors = syncColors(edgeColors, ownScales(marks, 'edges', 'color'), 'edges')
+      wanted = { nodes: wantedColors(marks, 'nodes'), edges: wantedColors(marks, 'edges') }
       const ownSizes = syncNumbers(sizes, ownScales(marks, 'nodes', 'size'), sizeFallback)
       const ownWidths = syncNumbers(widths, ownScales(marks, 'edges', 'width'), widthFallback)
-      nodeColors = ownNodeColors.states
-      edgeColors = ownEdgeColors.states
       sizes = ownSizes.states
       widths = ownWidths.states
-      ownNodeScales = nodeColors.some(Boolean) || sizes.some(Boolean)
-      ownEdgeScales = edgeColors.some(Boolean) || widths.some(Boolean)
-      if (ownNodeColors.moved || ownEdgeColors.moved || ownSizes.moved || ownWidths.moved) {
-        for (const state of colorStates()) state.clear()
-        for (const state of numberStates(sharedSize, sizes)) state.clear()
-        for (const state of numberStates(sharedWidth, widths)) state.clear()
-        full = true
-      }
+      if (ownSizes.moved || ownWidths.moved) moved = true
       compiledNodeMark = null
       compiledEdgeMark = null
       if (markLayers.setMarks(definition.marks)) lanes.setRanks(markLayers.edgeRanks)
@@ -826,12 +1246,24 @@ export function createScene(): Scene {
     },
 
     apply(model, changes) {
+      claimAll(model, changes)
       for (const { index } of changes.nodes.removed) removeNode(index)
       for (const { index } of changes.edges.removed) removeEdge(index)
+      if (moved) {
+        for (const state of colorStates()) state.clear()
+        for (const state of numberStates(sharedSize, sizes)) state.clear()
+        for (const state of numberStates(sharedWidth, widths)) state.clear()
+        moved = false
+        full = true
+      }
 
       nodeBatch.reset()
       edgeBatch.reset()
       if (full) {
+        nodeHeld = []
+        edgeHeld = []
+        endHeld = []
+        for (const state of colorStates()) state.recount()
         for (const record of model.nodes()) nodeBatch.add(record)
         for (const record of model.edges()) edgeBatch.add(record)
         full = false
@@ -882,6 +1314,7 @@ export function createScene(): Scene {
       lanes.reserve(changes.edges.added.length)
       for (const record of edgeBatch.records) writeEdge(record)
       lanes.write(edges, dirtyEdges)
+      for (const state of colorStates()) state.settle(countHeld)
     },
 
     takeDirty() {

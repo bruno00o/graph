@@ -147,3 +147,16 @@ describe('time filter', () => {
     expect(columns.step(null)).toBe(0)
   })
 })
+
+describe('TimeSpans boundaries', () => {
+  it('goes back to exact time boundaries once the many spans are gone', () => {
+    const spans = new TimeSpans()
+    spans.reserve(1200)
+    for (let index = 0; index < 1100; index++) spans.set(index, index, index + 1)
+    const window = { start: 5000, end: 6000 }
+    expect(spans.step(timeFilter(window, 0))).not.toBe(spans.step(timeFilter(window, 0)))
+    for (let index = 1; index < 1100; index++) spans.clear(index)
+    expect(spans.count).toBe(1)
+    expect(spans.step(timeFilter(window, 0))).toBe(spans.step(timeFilter(window, 0)))
+  })
+})

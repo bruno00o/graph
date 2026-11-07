@@ -68,3 +68,26 @@ describe('ZoomRanges', () => {
     expect(ranges.step(1)).not.toBe(ranges.step(2))
   })
 })
+
+describe('ZoomRanges thresholds', () => {
+  it('goes back to exact zoom thresholds once the many ranges are gone', () => {
+    const ranges = new ZoomRanges()
+    for (let index = 0; index < 1100; index++) {
+      ranges.set(index, 1 + index / 1000, Number.POSITIVE_INFINITY)
+    }
+    expect(ranges.step(8)).not.toBe(ranges.step(8.5))
+    for (let index = 1; index < 1100; index++) ranges.clear(index)
+    expect(ranges.count).toBe(1)
+    expect(ranges.fading(8)).toBe(false)
+    expect(ranges.step(8)).toBe(ranges.step(8.5))
+  })
+
+  it('counts a zoom range beyond the float32 range once, and forgets it', () => {
+    const ranges = new ZoomRanges()
+    ranges.set(0, 0, Number.MAX_VALUE)
+    ranges.set(0, 0, Number.MAX_VALUE)
+    expect(ranges.count).toBeLessThanOrEqual(1)
+    ranges.clear(0)
+    expect(ranges.count).toBe(0)
+  })
+})

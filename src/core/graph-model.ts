@@ -45,6 +45,7 @@ export interface EdgeRecord {
   readonly target: Key
   readonly sourceIndex: number
   readonly targetIndex: number
+  readonly order: number
 }
 
 /** The two ends of an edge. */
@@ -118,6 +119,7 @@ class EdgeEntry {
     public source: Key | null,
     public target: Key | null,
     readonly table: SourceTable<EdgeMark<unknown>>,
+    readonly order: number,
   ) {}
 
   get mark(): EdgeMark<unknown> {
@@ -210,6 +212,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   const unused: number[] = []
   let nodeCount = 0
   let edgeCount = 0
+  let arrivals = 0
   let flushedIssues = 0
 
   function issueVersion(): number {
@@ -404,6 +407,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       sole.items.copyIndex(edgeIds)
       entryPool = new IndexPool(sole.items.size)
       reserveEntries(sole.items.size)
+      arrivals = Math.max(arrivals, sole.items.size)
     } else if (!known) {
       const count = edgeSources.pendingCount
       edgeIds.reserve(count)
@@ -479,13 +483,33 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         const source = isKey(sourceValue) ? sourceValue : null
         const target = isKey(targetValue) ? targetValue : null
         if (!entry && position !== -1) {
-          entry = new EdgeEntry(key, position, -1, datum, slot, source, target, edgeSources)
+          entry = new EdgeEntry(
+            key,
+            position,
+            -1,
+            datum,
+            slot,
+            source,
+            target,
+            edgeSources,
+            position,
+          )
           entries[position] = entry
           link(position)
         } else if (!entry) {
           const created = entryPool.acquire()
           reserveEntries(created + 1)
-          entry = new EdgeEntry(key, created, -1, datum, slot, source, target, edgeSources)
+          entry = new EdgeEntry(
+            key,
+            created,
+            -1,
+            datum,
+            slot,
+            source,
+            target,
+            edgeSources,
+            arrivals++,
+          )
           edgeIds.add(key, created)
           entries[created] = entry
           links[created * linkStride] = sourceEndOf(source)
