@@ -148,10 +148,7 @@ Look resolve(uint mask, Look look, int table) {
 export const nodeData: string = `
 uniform sampler2D nodePosition;
 uniform sampler2D nodeStyle;
-uniform usampler2D nodePaint;
 uniform usampler2D nodeState;
-uniform usampler2D nodeDecor;
-uniform sampler2D nodeBox;
 uniform sampler2D nodeZoom;
 uniform sampler2D nodeTime;
 float zoomShown(vec2 range) {
@@ -181,12 +178,6 @@ float nodeShown(ivec2 t) {
   float shown = ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
   return timed > 0.5 && shown > 0.0 ? shown * timeShown(texelFetch(nodeTime, t, 0)) : shown;
 }
-Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
-  float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
-  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
-  look.opacity *= nodeShown(t);
-  return look;
-}
 float nodeDiameter(vec4 style, float scale) {
   uint flags = uint(style.w + 0.5);
   return (flags & 4u) != 0u ? style.x : style.x * scale;
@@ -198,6 +189,18 @@ vec2 badgeCenter(vec2 xy, vec4 style, uint corner) {
   float reach = shape == 0u ? 0.70710678 : shape == 1u ? 0.86 : 0.6;
   vec2 side = vec2((corner & 1u) != 0u ? 1.0 : -1.0, (corner & 2u) != 0u ? 1.0 : -1.0);
   return toScreen(xy) + side * reach * nodeRadius(style, scaleAt(xy));
+}
+`
+
+export const nodeLookData: string = `
+uniform usampler2D nodePaint;
+uniform usampler2D nodeDecor;
+uniform sampler2D nodeBox;
+Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
+  float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
+  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
+  look.opacity *= nodeShown(t);
+  return look;
 }
 `
 
@@ -394,7 +397,7 @@ float crossing(vec2 a, vec2 b, vec2 c, vec2 d, vec2 point, float radius, float l
 }
 `
 
-export const nodeVertex: string = `${header}${nodeData}
+export const nodeVertex: string = `${header}${nodeData}${nodeLookData}
 in vec2 corner;
 in uint instance;
 out vec2 vLocal;
@@ -904,7 +907,7 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
 export const edgeFragment: string = edgeFragmentOf(false)
 export const clippedEdgeFragment: string = edgeFragmentOf(true)
 
-export const labelVertex: string = `${header}${nodeData}${edgeData}${curveData}${bundlePath}
+export const labelVertex: string = `${header}${nodeData}${nodeLookData}${edgeData}${curveData}${bundlePath}
 uniform float atlasFontSize;
 in vec2 corner;
 in uint glyphNode;
@@ -1167,7 +1170,7 @@ void main() {
 }
 `
 
-export const badgeVertex: string = `${header}${nodeData}
+export const badgeVertex: string = `${header}${nodeData}${nodeLookData}
 in vec2 corner;
 in uint badgeNode;
 in uint badgeInfo;

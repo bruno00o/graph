@@ -7,7 +7,10 @@ import { jitterOf, xorshift32 } from './random'
 
 export type ForceGraph = Omit<LayoutGraph, 'keys' | 'datum'>
 
-/** Where the simulation runs. `'auto'` uses the GPU from 2,000 nodes and the CPU below. */
+/**
+ * Where the simulation runs: `'auto'`, `'gpu'` or `'cpu'`. `'auto'` uses the GPU from 2,000
+ * nodes, and the CPU below or when WebGL runs in software.
+ */
 export type ForceEngine = 'auto' | 'gpu' | 'cpu'
 
 /** Options of `force`. A negative or non-finite value falls back to its default. */
@@ -49,7 +52,8 @@ export interface ForceOptions {
    */
   readonly steps?: number
   /**
-   * Where the simulation runs: `'auto'` uses the GPU from 2,000 nodes and the CPU below.
+   * Where the simulation runs: `'auto'` uses the GPU from 2,000 nodes, and the CPU below or
+   * when WebGL runs in software. `'gpu'` falls back to the CPU without the float extensions.
    * @default 'auto'
    */
   readonly engine?: ForceEngine

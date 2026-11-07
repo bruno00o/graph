@@ -153,6 +153,8 @@ export async function renderPng(
         })
         const pixels = tile.subarray(0, tileWidth * tileHeight * 4)
         gl.readPixels(0, 0, tileWidth, tileHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+        if (gl.isContextLost())
+          throw new Error('graph: the WebGL context was lost during the export')
         for (let row = 0; row < tileHeight; row++) {
           const from = (tileHeight - 1 - row) * tileWidth * 4
           rows.set(pixels.subarray(from, from + tileWidth * 4), (row * width + left) * 4)

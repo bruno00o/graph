@@ -15,6 +15,7 @@ import { createBackdrop } from './backdrop'
 import { bridgeUnit } from './bridge-glsl'
 import { bundleUnits, createBundlePass } from './bundle-pass'
 import { bundleCorners } from './bundle-shaders'
+import { readCaps, warnLimit } from './caps'
 import { EdgeCover, layerCap } from './edge-cover'
 import {
   type Attribute,
@@ -23,6 +24,7 @@ import {
   createVertexArray,
   DataTexture,
   formats,
+  type TextureFormat,
 } from './gl'
 import { GlState } from './gl-state'
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
@@ -153,6 +155,8 @@ function rgba(color: readonly number[]): readonly number[] {
   return color.map((channel) => channel / 255)
 }
 
+const softwareCrowd = 20_000
+
 export function createWebglRenderer(
   canvas: HTMLCanvasElement,
   invalidate: () => void = () => {},
@@ -210,29 +214,33 @@ function createRenderer(
   const blocks = blockBindings(gl, shared)
   const capEdges = !shared && (gl.getContextAttributes()?.stencil ?? false)
   const format = formats(gl)
-  const f32 = (length: number) => new Float32Array(length)
-  const u32 = (length: number) => new Uint32Array(length)
+  const caps = readCaps(gl)
+  const dataLimit = caps.dataCapacity
+  const floats = (texture: TextureFormat) =>
+    new DataTexture(gl, texture, (length) => new Float32Array(length), caps.maxTextureSize)
+  const words = (texture: TextureFormat) =>
+    new DataTexture(gl, texture, (length) => new Uint32Array(length), caps.maxTextureSize)
 
-  const nodePosition = new DataTexture(gl, format.rg32f, f32)
-  const nodeStyle = new DataTexture(gl, format.rgba32f, f32)
-  const nodePaint = new DataTexture(gl, format.rgba32ui, u32)
-  const nodeState = new DataTexture(gl, format.r32ui, u32)
-  const nodeDecor = new DataTexture(gl, format.rgba32ui, u32)
-  const nodeBox = new DataTexture(gl, format.rgba32f, f32)
-  const edgeTopology = new DataTexture(gl, format.rgba32ui, u32)
-  const edgeStyle = new DataTexture(gl, format.rgba32f, f32)
-  const edgeState = new DataTexture(gl, format.r32ui, u32)
-  const nodeZoom = new DataTexture(gl, format.rg32f, f32)
-  const edgeZoom = new DataTexture(gl, format.rg32f, f32)
-  const nodeTime = new DataTexture(gl, format.rgba32f, f32)
-  const edgeTime = new DataTexture(gl, format.rgba32f, f32)
-  const edgeEnds = new DataTexture(gl, format.rgba32ui, u32)
+  const nodePosition = floats(format.rg32f)
+  const nodeStyle = floats(format.rgba32f)
+  const nodePaint = words(format.rgba32ui)
+  const nodeState = words(format.r32ui)
+  const nodeDecor = words(format.rgba32ui)
+  const nodeBox = floats(format.rgba32f)
+  const edgeTopology = words(format.rgba32ui)
+  const edgeStyle = floats(format.rgba32f)
+  const edgeState = words(format.r32ui)
+  const nodeZoom = floats(format.rg32f)
+  const edgeZoom = floats(format.rg32f)
+  const nodeTime = floats(format.rgba32f)
+  const edgeTime = floats(format.rgba32f)
+  const edgeEnds = words(format.rgba32ui)
   const rangeTextures = [nodeZoom, edgeZoom, nodeTime, edgeTime, edgeEnds]
   let endsUsed = false
   let zoomUsed = false
   let timeUsed = false
   const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor, nodeBox]
-  const images = new ImageAtlas(gl, invalidate)
+  const images = new ImageAtlas(gl, invalidate, caps.maxArrayLayers)
   const floatBits = new Float32Array(1)
   const floatWord = new Uint32Array(floatBits.buffer)
   const edgeTextures = [edgeTopology, edgeStyle, edgeState]
@@ -481,7 +489,7 @@ function createRenderer(
     [badgeProgram, cornerNode.length / 2],
   ])
   let warmed = false
-  const bundles = createBundlePass(gl, blocks, prepare, edgeOverlayIndices)
+  const bundles = createBundlePass(gl, blocks, prepare, edgeOverlayIndices, caps.maxTextureSize)
   const arcCorner = createBuffer(gl, bundleCorners(arcStations), gl.STATIC_DRAW)
   const geodesicIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
   const spanIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
@@ -596,7 +604,11 @@ function createRenderer(
   }
 
   function syncBridges(set: BridgeSet | null | undefined): boolean {
-    const next = set && set.count > 0 ? set : null
+    let next = set && set.count > 0 ? set : null
+    if (next && next.data.length / 4 / pathTextureWidth > caps.maxTextureSize) {
+      warnLimit('bridges', 'too many edge crossings for this device, bridges are not drawn')
+      next = null
+    }
     const radius = next ? next.size / 2 : 0
     const gap = next?.shape === 'gap' ? 1 : 0
     let changed = next !== bridgeSet || radius !== bridgeRadius || gap !== bridgeGap
@@ -660,7 +672,7 @@ function createRenderer(
   const geodesics = new Set<number>()
   let geodesicChanged = false
   let input: RenderInput | null = null
-  const atlas = new GlyphAtlas('system-ui, sans-serif')
+  const atlas = new GlyphAtlas('system-ui, sans-serif', caps.maxTextureSize)
   const mainLabels = createLabelSet()
   let lensLabels: LabelSet | null = null
   const labelSets: LabelSet[] = [mainLabels]
@@ -837,13 +849,16 @@ function createRenderer(
   function packEdge(edges: EdgeColumns, index: number): void {
     for (const set of labelSets) set.layer.forgetEdge(index)
     const at = index * 4
-    edgeTopology.data[at] = edges.source[index] ?? 0
-    edgeTopology.data[at + 1] = edges.target[index] ?? 0
+    const source = edges.source[index] ?? 0
+    const target = edges.target[index] ?? 0
+    const alive = edges.alive[index] === 1 && source < dataLimit && target < dataLimit ? 1 : 0
+    edgeTopology.data[at] = source
+    edgeTopology.data[at + 1] = target
     edgeTopology.data[at + 2] = edges.color[index] ?? 0
     edgeTopology.data[at + 3] =
       (edges.dash[index] ?? 0) |
       ((edges.arrow[index] ?? 0) << 2) |
-      ((edges.alive[index] ?? 0) << 4) |
+      (alive << 4) |
       ((edges.geodesic[index] ?? 0) << 5) |
       ((edges.slot[index] ?? 0) << 6)
     edgeStyle.data[at] = edges.width[index] ?? 0
@@ -929,6 +944,9 @@ function createRenderer(
 
   function syncNodes(next: RenderInput): void {
     const nodes = next.scene.nodes
+    if (nodes.capacity > dataLimit) {
+      warnLimit('nodes', `this device draws at most ${dataLimit} nodes, the others are hidden`)
+    }
     const grown = nodeTextures.map((texture) => texture.reserve(nodes.capacity)).some(Boolean)
     if (nodes.capacity > nodeCapacity) {
       nodeCapacity = nodes.capacity
@@ -965,8 +983,7 @@ function createRenderer(
       )
       nodeState.upload(0, nodeCapacity - 1)
     } else if (range) {
-      nodeState.data.set(states.nodeMask.subarray(range[0], range[1] + 1), range[0])
-      nodeState.upload(range[0], range[1])
+      copyRange(nodeState, states.nodeMask, range)
       touch()
     }
     if (next.dirty.nodes.size > 0 || next.full) orderStale = true
@@ -1041,7 +1058,7 @@ function createRenderer(
       let first = all ? 0 : Number.POSITIVE_INFINITY
       let last = all ? capacity - 1 : -1
       if (all) {
-        const length = Math.min(spans.packed.length, capacity * 4)
+        const length = Math.min(spans.packed.length, capacity * 4, texture.data.length)
         texture.data.set(spans.packed.subarray(0, length))
         for (let index = length / 4; index < capacity; index++) packSpan(texture, spans, index)
       } else {
@@ -1074,8 +1091,22 @@ function createRenderer(
     touch()
   }
 
+  function copyRange(
+    texture: DataTexture<Uint32Array>,
+    source: Uint32Array,
+    range: readonly [number, number],
+  ): void {
+    const end = Math.min(range[1] + 1, texture.data.length, source.length)
+    if (end <= range[0]) return
+    texture.data.set(source.subarray(range[0], end), range[0])
+    texture.upload(range[0], end - 1)
+  }
+
   function syncEdges(next: RenderInput): void {
     const edges = next.scene.edges
+    if (edges.capacity > dataLimit) {
+      warnLimit('edges', `this device draws at most ${dataLimit} edges, the others are hidden`)
+    }
     const grown = edgeTextures.map((texture) => texture.reserve(edges.capacity)).some(Boolean)
     if (curvedFlags.length < edges.capacity) {
       const flags = new Uint8Array(edges.capacity)
@@ -1121,8 +1152,7 @@ function createRenderer(
       )
       edgeState.upload(0, edgeCapacity - 1)
     } else if (range) {
-      edgeState.data.set(states.edgeMask.subarray(range[0], range[1] + 1), range[0])
-      edgeState.upload(range[0], range[1])
+      copyRange(edgeState, states.edgeMask, range)
       touch()
     }
     if (next.dirty.edges.size > 0 || next.full) edgeOrderStale = true
@@ -1454,8 +1484,9 @@ function createRenderer(
           gl.stencilFunc(gl.GREATER, edgeLayers, 0xff)
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR)
         }
-        if (jumping) draw(bridged().program, bridged().main, edgeCapacity, layer.slot, 0)
-        else draw(edgeProgram, vertexArrays.edges, edgeCapacity, layer.slot, 0)
+        const count = Math.min(edgeCapacity, dataLimit)
+        if (jumping) draw(bridged().program, bridged().main, count, layer.slot, 0)
+        else draw(edgeProgram, vertexArrays.edges, count, layer.slot, 0)
         if (curved.size > 0) {
           const pass = curves()
           draw(pass.program, pass.main, curved.size, layer.slot, 0)
@@ -1468,7 +1499,7 @@ function createRenderer(
         if (geodesics.size > 0) drawGeodesics(arcs().geodesic, geodesics.size, layer.slot, 0, globe)
         if (edgeLayers > 0) gl.disable(gl.STENCIL_TEST)
       } else {
-        draw(nodeProgram, vertexArrays.nodes, nodeCapacity, layer.slot, 0)
+        draw(nodeProgram, vertexArrays.nodes, Math.min(nodeCapacity, dataLimit), layer.slot, 0)
         stencilClean = false
       }
     }
@@ -1553,6 +1584,20 @@ function createRenderer(
     return lensPass
   }
 
+  function fittedRatio(frame: RenderFrame, width: number, height: number): number {
+    const ratio = frame.pixelRatio
+    const wanted = Math.round(frame.width * ratio)
+    const tall = Math.round(frame.height * ratio)
+    if (wanted <= width + 1 && tall <= height + 1) return ratio
+    return Math.max(Math.min(width / frame.width, height / frame.height), Number.MIN_VALUE)
+  }
+
+  function fittedLens(lens: LensFrame | null, ratio: number): LensFrame | null {
+    if (!lens) return null
+    const most = (caps.maxDrawingBuffer / 2 - lensMargin - 1) / ratio
+    return lens.radius <= most ? lens : { ...lens, radius: Math.max(1, most) }
+  }
+
   function lensFrame(lens: LensFrame, ratio: number): LensArea {
     const reach = Math.ceil(lens.radius * ratio) + lensMargin
     const size = reach * 2
@@ -1608,6 +1653,12 @@ function createRenderer(
       syncNodes(next)
       refreshImages(next.scene.nodes)
       syncEdges(next)
+      if (caps.software && next.scene.nodes.capacity + next.scene.edges.capacity > softwareCrowd) {
+        warnLimit(
+          'software',
+          'WebGL runs in software here: each frame costs about 1 ms per 100 elements',
+        )
+      }
       syncZoom(next)
       syncTime(next)
       syncEnds(next)
@@ -1626,7 +1677,7 @@ function createRenderer(
 
     setPalette(colors, count) {
       touch()
-      const rows = Math.max(1, Math.ceil(count / paletteWidth))
+      const rows = Math.min(caps.maxTextureSize, Math.max(1, Math.ceil(count / paletteWidth)))
       const data = new Uint8Array(rows * paletteWidth * 4)
       data.set(colors.subarray(0, Math.min(colors.length, data.length)))
       cover.setPalette(data, count)
@@ -1673,11 +1724,12 @@ function createRenderer(
       if (atlas.setFont(theme.font)) invalidateLabels()
     },
 
-    render(frame) {
+    render(given) {
       const width = gl.drawingBufferWidth
       const height = gl.drawingBufferHeight
-      const lens = shared ? null : (frame.lens ?? null)
-      const ratio = frame.pixelRatio
+      const ratio = fittedRatio(given, width, height)
+      const frame = ratio === given.pixelRatio ? given : { ...given, pixelRatio: ratio }
+      const lens = shared ? null : fittedLens(frame.lens ?? null, ratio)
       const window = frame.window ?? null
       if (window !== timeWindow) {
         timeWindow = window
@@ -1754,6 +1806,14 @@ function createRenderer(
       return wait
     },
 
+    limits() {
+      return {
+        drawingBuffer: caps.maxDrawingBuffer,
+        pathPoints: dataLimit,
+        software: caps.software,
+      }
+    },
+
     stats() {
       return {
         nodeLabels: mainLabels.layer.nodeLabels,
@@ -1795,7 +1855,7 @@ function createRenderer(
         gl.deleteProgram(lensPass.program)
       }
       for (const program of programs) gl.deleteProgram(program)
-      if (!shared) gl.getExtension('WEBGL_lose_context')?.loseContext()
+      if (!shared && !gl.isContextLost()) gl.getExtension('WEBGL_lose_context')?.loseContext()
     },
   }
 
