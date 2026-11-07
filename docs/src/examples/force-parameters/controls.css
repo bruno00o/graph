@@ -1,0 +1,14 @@
+.force-panel label {
+  display: grid;
+  gap: 4px;
+}
+
+.force-panel label + label {
+  margin-top: 10px;
+}
+
+.force-panel input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--graph-accent);
+}

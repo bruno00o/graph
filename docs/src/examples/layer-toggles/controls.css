@@ -1,0 +1,9 @@
+.layer-button[aria-pressed="true"] {
+  border-color: var(--graph-accent);
+  box-shadow: inset 0 -2px 0 var(--graph-accent);
+}
+
+.layer-button[aria-pressed="false"] {
+  color: var(--graph-ink-muted);
+  text-decoration: line-through;
+}

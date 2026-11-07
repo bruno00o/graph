@@ -1,0 +1,36 @@
+.tree-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tree-panel button {
+  width: 100%;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-panel button::before {
+  display: inline-block;
+  width: 14px;
+  content: "\25BE";
+}
+
+.tree-panel button[aria-expanded="false"]::before {
+  content: "\25B8";
+}
+
+.tree-panel button:hover {
+  background: color-mix(in srgb, var(--graph-ink) 8%, transparent);
+}
+
+.tree-panel button:disabled {
+  color: var(--graph-ink-muted);
+  cursor: default;
+}

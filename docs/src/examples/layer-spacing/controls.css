@@ -1,0 +1,14 @@
+.spacing-panel label {
+  display: grid;
+  gap: 4px;
+}
+
+.spacing-panel label + label {
+  margin-top: 10px;
+}
+
+.spacing-panel input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--graph-accent);
+}
