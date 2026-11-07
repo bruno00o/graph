@@ -16,13 +16,16 @@ interface GraphInstance<S extends string = string, M extends Mark = Mark> {
   readonly groups: GraphGroups
   readonly paths: GraphPaths<M>
   readonly bundling: GraphBundling
+  readonly time: GraphTime
   readonly element: HTMLElement
   pick(point: Point): GraphTarget<M> | null
   neighbors(key: Key): Key[]
   edgesOf(key: Key): Key[]
   endpoints(key: Key): { source: Key; target: Key } | undefined
   on<K extends GraphEventName>(name: K, handler: GraphEventHandler<K, M>): () => void
-  update(options: Partial<Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded'>>): void
+  update(
+    options: Partial<Omit<MountGraphOptions<S, M>, 'initialView' | 'initialFolded' | 'initialTime'>>,
+  ): void
   destroy(): void
 }
 ```
@@ -137,6 +140,33 @@ interface GraphBundling {
 
 Bundles are computed on their own once nodes stand still. `run` computes them now, without waiting, from the current positions. It resolves to `false` when the definition has no `bundling`, when more edges than `maxEdges` would be bundled, or when the run is replaced. See [Edge bundling](/docs/bundling).
 
+## Time
+
+```ts
+interface GraphTime {
+  get(): TimeWindow | null
+  set(window: TimeWindowInput | null): void
+}
+
+interface TimeWindow {
+  readonly start: number | null
+  readonly end: number | null
+}
+
+interface TimeWindowInput {
+  readonly start?: TimeInstant | null
+  readonly end?: TimeInstant | null
+}
+```
+
+<api-table path="index.ts" name="GraphTime" />
+
+`set` replaces the time window, or removes it with `null`; `get` returns it in milliseconds. Each change emits `timechange` and updates `time` in the store. In controlled mode, `set` calls `onTimeChange` instead of moving the window. See [Time](/docs/time).
+
+<api-table path="index.ts" name="TimeWindowInput" />
+
+<api-table path="index.ts" name="TimeWindow" />
+
 ## Lens
 
 ```ts
@@ -225,6 +255,7 @@ interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly folded: readonly Key[]
   readonly bundling: GraphBundlingStatus
   readonly lens: GraphLensState | null
+  readonly time: TimeWindow | null
 }
 
 interface GraphLayoutStatus {

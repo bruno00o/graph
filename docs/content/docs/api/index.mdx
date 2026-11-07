@@ -20,7 +20,10 @@ description: Every export of the package, by entry point.
 | `WheelMode` | type | [defineGraph](/docs/api/define-graph#interaction) |
 | `GraphAnchors`, `AnchorOptions`, `AnchorSide`, `AnchorAlign` | types | [GraphInstance](/docs/api/graph-instance#anchors) |
 | `GraphInstance`, `GraphView`, `GraphSelection`, `GraphFocus`, `GraphStates`, `GraphPositions`, `GraphLayout`, `LayoutRunOptions`, `GraphState`, `GraphLayoutStatus`, `GraphStore` | types | [GraphInstance](/docs/api/graph-instance) |
-| `GraphEvents`, `GraphTarget`, `NodeTarget`, `EdgeTarget` and the event payloads, `GraphViewEvent`, `GraphLayoutEvent`, `GraphLayoutEndEvent`, `GraphZoomHintEvent` and `ZoomKey` included | types | [Events](/docs/api/events) |
+| `GraphTime`, `TimeWindow`, `TimeWindowInput` | types | [GraphInstance](/docs/api/graph-instance#time) |
+| `TimeInstant`, `TimeSpan`, `TimeValue` | types | [nodes](/docs/api/nodes#time), [edges](/docs/api/edges#time) |
+| `TimeOptions`, `ResolvedTimeOptions` | types | [defineGraph](/docs/api/define-graph#time) |
+| `GraphEvents`, `GraphTarget`, `NodeTarget`, `EdgeTarget` and the event payloads, `GraphViewEvent`, `GraphTimeEvent`, `GraphLayoutEvent`, `GraphLayoutEndEvent`, `GraphZoomHintEvent` and `ZoomKey` included | types | [Events](/docs/api/events) |
 | `geoToWorld`, `worldToGeo`, `GeoPoint` | functions and type | [Map](/docs/api/map#coordinates) |
 | `NodeDatum`, `EdgeDatum`, `MarkName` | types | [TypeScript](/docs/typescript) |
 | `GraphDefinition`, `NodeOptions`, `EdgeOptions`, `StateStyle`, `ScalesOptions`, `InteractionOptions` and related | types | [defineGraph](/docs/api/define-graph), [nodes](/docs/api/nodes), [edges](/docs/api/edges) |
@@ -37,6 +40,7 @@ description: Every export of the package, by entry point.
 | `Anchor`, `AnchorProps` | component | [Anchor](/docs/api/anchor) |
 | `Minimap`, `MinimapProps` | component | [createMinimap](/docs/api/minimap#minimap-component) |
 | `Legend`, `LegendProps`, `useLegend`, `UseLegendResult` | component, hook | [createLegend and mountLegend](/docs/api/legend#react) |
+| `Timeline`, `TimelineProps`, `useTimeline`, `UseTimelineResult` | component, hook | [createTimeline and mountTimeline](/docs/api/timeline#react) |
 
 ## `@bruno00o/graph/minimap`
 
@@ -52,6 +56,14 @@ description: Every export of the package, by entry point.
 | `createLegend`, `mountLegend` | functions | [createLegend and mountLegend](/docs/api/legend) |
 | `Legend`, `LegendOptions`, `LegendState`, `LegendColor`, `LegendCategories`, `LegendCategory`, `LegendRamp`, `LegendSizes`, `LegendSize`, `LegendLook`, `LegendNodeLook`, `LegendEdgeLook`, `LegendItem`, `LegendValue` | types | [createLegend and mountLegend](/docs/api/legend) |
 | `LegendView`, `LegendViewOptions`, `LegendSection` | types | [createLegend and mountLegend](/docs/api/legend#mountlegend-options) |
+
+## `@bruno00o/graph/timeline`
+
+| Export | Kind | Page |
+| --- | --- | --- |
+| `createTimeline`, `mountTimeline` | functions | [createTimeline and mountTimeline](/docs/api/timeline) |
+| `Timeline`, `TimelineOptions`, `TimelineState`, `TimelineMode`, `TimelineEnd`, `TimelineBin`, `TimelineTick`, `TimeRange`, `TimeUnit` | types | [createTimeline and mountTimeline](/docs/api/timeline) |
+| `TimelineView`, `TimelineViewOptions`, `TimelineLabels`, `TimelineFormat` | types | [createTimeline and mountTimeline](/docs/api/timeline#mounttimeline-options) |
 
 ## `@bruno00o/graph/db`
 

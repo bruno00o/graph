@@ -2,6 +2,12 @@ const numbers = new Intl.NumberFormat('en-US')
 const percent = new Intl.NumberFormat('en-US', { style: 'percent' })
 const seconds = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
 const zoomFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
+const dateFormat = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
 
 export function formatNumber(value: number): string {
   return numbers.format(value)
@@ -135,6 +141,25 @@ export const messages = {
   bundleReaches: { '0.03': 'short', '0.06': 'medium', '0.12': 'long' },
   bundling: 'Bundling…',
   bundled: (duration: number) => `Bundled in ${formatNumber(Math.round(duration))} ms`,
+  timeLabel: 'Timeline of the nodes and edges',
+  timeLabels: {
+    play: 'Play',
+    start: 'Start of the window',
+    end: 'End of the window',
+    window: 'Window',
+  },
+  timeRange: (start: string, end: string) => `from ${start} to ${end}`,
+  timeWindow: (start: number | null, end: number | null) =>
+    start === null && end === null
+      ? 'All time'
+      : start === null
+        ? `Until ${dateFormat.format(end ?? 0)}`
+        : end === null
+          ? `Since ${dateFormat.format(start)}`
+          : `${dateFormat.format(start)} to ${dateFormat.format(end)}`,
+  timeMode: (name: string) => `Playback: ${name}`,
+  timeModes: { slide: 'sliding window', grow: 'cumulative' },
+  showAll: 'Show all',
   zoomTiers: (zoom: number, shown: number) =>
     `Zoom ${zoomFormat.format(zoom)}, ${shown} of 3 ${shown === 1 ? 'tier' : 'tiers'} shown`,
 }

@@ -80,6 +80,34 @@ describe('SpanCounts', () => {
     expect(table.last()).toBe(299)
   })
 
+  it('patches only the given indices', () => {
+    const spans: Array<readonly [number, number] | null> = Array.from({ length: 100 }, (_, i) => [
+      i,
+      i + 10,
+    ])
+    const table = counts(spans)
+    const read = (index: number, out: Float64Array) => {
+      const span = spans[index]
+      out[0] = span ? span[0] : Number.NaN
+      out[1] = span ? span[1] : Number.NaN
+    }
+    spans[3] = [200, 200]
+    spans[4] = null
+    spans[9] = [1, 2]
+    expect(table.patch(spans.length, [3, 4, 3], read)).toBe(true)
+    expect(table.count(9, 10)).toBe(naive(spans, 9, 10) + 1)
+    expect(table.patch(spans.length, [9], read)).toBe(true)
+    for (const [from, to] of [
+      [0, 5],
+      [3, 4],
+      [200, 201],
+      [50, 120],
+    ] as const) {
+      expect(table.count(from, to)).toBe(naive(spans, from, to))
+    }
+    expect(table.patch(spans.length, [1, 2], read)).toBe(false)
+  })
+
   it('merges sorted values', () => {
     const merged = mergeSorted(
       Float64Array.of(1, 2, 2, 5, 9),

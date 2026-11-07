@@ -181,6 +181,27 @@ describe('createTimeline', () => {
     expect(first).toMatchObject({ nodes: 2 })
     timeline.destroy()
   })
+
+  it('counts only what changed and agrees with a fresh count', () => {
+    const graph = mount()
+    const timeline = createTimeline(graph, { bins: 50 })
+    const steps: Item[][] = [
+      [item('a', 0, 10), item('b', 12, 30), item('c', 20, null), item('d', 40, 40)],
+      [item('a', 0, 10), item('b', 12, 30), item('c', 20, null)],
+      [item('a', 0, 10), item('b', 12, 30), item('c', 2, 25), item('d', 3, 3), item('e', 1, 4)],
+      [item('b', 12, 30), item('c', 2, 25), item('d', 3, 3), item('a', 0, 10)],
+    ]
+    for (const data of steps) {
+      graph.update({ definition: define(data) })
+      dom.flushFrames()
+      vi.runAllTimers()
+      const fresh = createTimeline(graph, { bins: 50 })
+      expect(timeline.store.state.extent).toEqual(fresh.store.state.extent)
+      expect(timeline.store.state.bins).toEqual(fresh.store.state.bins)
+      fresh.destroy()
+    }
+    timeline.destroy()
+  })
 })
 
 describe('mountTimeline', () => {

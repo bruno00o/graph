@@ -65,6 +65,15 @@ function emptyChanges(): Changes {
   return { starts: [], ends: [], instants: [] }
 }
 
+export type SpanReader = (index: number, out: Float64Array) => void
+
+class Pass {
+  readonly span: Float64Array = new Float64Array(2)
+  readonly removed: Changes = emptyChanges()
+  readonly added: Changes = emptyChanges()
+  changed = 0
+}
+
 function note(changes: Changes, start: number, end: number): void {
   if (Number.isNaN(start)) return
   changes.starts.push(start)
@@ -89,35 +98,53 @@ export class SpanCounts {
     )
   }
 
-  update(capacity: number, read: (index: number, out: Float64Array) => void): boolean {
-    if (this.#start.length < capacity) {
-      const start = new Float64Array(capacity).fill(never)
-      start.set(this.#start)
-      const end = new Float64Array(capacity).fill(never)
-      end.set(this.#end)
-      this.#start = start
-      this.#end = end
+  update(capacity: number, read: SpanReader): boolean {
+    this.#reserve(capacity)
+    const pass = new Pass()
+    for (let index = 0; index < this.#start.length; index++)
+      this.#visit(index, capacity, read, pass)
+    return this.#finish(pass)
+  }
+
+  patch(capacity: number, indices: Iterable<number>, read: SpanReader): boolean {
+    this.#reserve(capacity)
+    const pass = new Pass()
+    for (const index of indices) {
+      if (index < this.#start.length) this.#visit(index, capacity, read, pass)
     }
-    const span = new Float64Array(2)
-    const removed = emptyChanges()
-    const added = emptyChanges()
-    let changed = 0
-    for (let index = 0; index < this.#start.length; index++) {
-      if (index < capacity) read(index, span)
-      else span[0] = span[1] = never
-      const start = span[0] ?? never
-      const end = span[1] ?? never
-      const oldStart = this.#start[index] ?? never
-      const oldEnd = this.#end[index] ?? never
-      if (same(start, oldStart) && same(end, oldEnd)) continue
-      changed++
-      note(removed, oldStart, oldEnd)
-      note(added, start, end)
-      this.#start[index] = start
-      this.#end[index] = end
-    }
-    if (changed === 0) return false
-    if (changed * mergeRatio < this.starts.length) {
+    return this.#finish(pass)
+  }
+
+  #reserve(capacity: number): void {
+    if (this.#start.length >= capacity) return
+    const start = new Float64Array(capacity).fill(never)
+    start.set(this.#start)
+    const end = new Float64Array(capacity).fill(never)
+    end.set(this.#end)
+    this.#start = start
+    this.#end = end
+  }
+
+  #visit(index: number, capacity: number, read: SpanReader, pass: Pass): void {
+    const span = pass.span
+    if (index < capacity) read(index, span)
+    else span[0] = span[1] = never
+    const start = span[0] ?? never
+    const end = span[1] ?? never
+    const oldStart = this.#start[index] ?? never
+    const oldEnd = this.#end[index] ?? never
+    if (same(start, oldStart) && same(end, oldEnd)) return
+    pass.changed++
+    note(pass.removed, oldStart, oldEnd)
+    note(pass.added, start, end)
+    this.#start[index] = start
+    this.#end[index] = end
+  }
+
+  #finish(pass: Pass): boolean {
+    if (pass.changed === 0) return false
+    if (pass.changed * mergeRatio < this.starts.length) {
+      const { removed, added } = pass
       this.starts = mergeSorted(this.starts, sorted(removed.starts), sorted(added.starts))
       this.ends = mergeSorted(this.ends, sorted(removed.ends), sorted(added.ends))
       this.instants = mergeSorted(this.instants, sorted(removed.instants), sorted(added.instants))
@@ -188,6 +215,23 @@ export function readNodeSpan(nodes: NodeColumns, index: number, out: Float64Arra
   }
   out[0] = nodes.time.start[index] ?? never
   out[1] = nodes.time.end[index] ?? never
+}
+
+export function incidentEdges(
+  nodes: Uint32Array,
+  nodeCapacity: number,
+  edges: EdgeColumns,
+): Uint32Array {
+  if (nodes.length === 0) return new Uint32Array(0)
+  const changed = new Uint8Array(nodeCapacity)
+  for (const index of nodes) changed[index] = 1
+  const found: number[] = []
+  const { alive, source, target } = edges
+  for (let index = 0; index < edges.capacity; index++) {
+    if (alive[index] !== 1) continue
+    if (changed[source[index] ?? 0] === 1 || changed[target[index] ?? 0] === 1) found.push(index)
+  }
+  return Uint32Array.from(found)
 }
 
 export function readEdgeSpan(

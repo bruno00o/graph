@@ -96,6 +96,17 @@ export const examples: readonly ExampleEntry[] = [
     load: () => import('./zoom/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
   },
   {
+    slug: 'time',
+    title: 'Time',
+    description:
+      'Three hundred nodes and five hundred edges that appear and disappear over four years. A timeline counts them over time; brush a window or play it, and the graph shows only what exists in it.',
+    hint: 'Press play, or drag across the histogram to choose a window.',
+    tags: ['Vanilla'],
+    modules: ['@bruno00o/graph', '@bruno00o/graph/layouts/force', '@bruno00o/graph/timeline'],
+    files: ['time/main.ts', ...shared],
+    load: () => import('./time/main').then(({ mount }) => ({ kind: 'vanilla', mount })),
+  },
+  {
     slug: 'lens',
     title: 'Lens',
     description:

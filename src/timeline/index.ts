@@ -1,10 +1,11 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
+import type { LogCursor } from '../core/change-log'
 import { readWindow, sameWindow, toTime } from '../core/time-range'
 import { internalsOf } from '../host/internals'
 import type { GraphInstance } from '../host/mount-graph'
 import type { Mark, TimeInstant, TimeWindow, TimeWindowInput } from '../types'
 import { addTime, boundaries, chooseStep, type TimeStep, type TimeUnit } from './calendar'
-import { readEdgeSpan, readNodeSpan, SpanCounts } from './histogram'
+import { incidentEdges, readEdgeSpan, readNodeSpan, SpanCounts } from './histogram'
 
 export type { TimeUnit }
 
@@ -234,6 +235,8 @@ export function createTimeline<S extends string, M extends Mark>(
   let zoomed: TimeRange | null = null
   let binStep: TimeStep = { unit: 'day', count: 1 }
   let readScene = -1
+  let nodeCursor: LogCursor | null = null
+  let edgeCursor: LogCursor | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastRead = Number.NEGATIVE_INFINITY
   let cooldown = minInterval
@@ -335,12 +338,25 @@ export function createTimeline<S extends string, M extends Mark>(
     const start = performance.now()
     readScene = internals.stamp().scene
     const { nodes, edges } = internals.scene
-    const nodesChanged = nodeCounts.update(nodes.capacity, (index, out) =>
-      readNodeSpan(nodes, index, out),
-    )
-    const edgesChanged = edgeCounts.update(edges.capacity, (index, out) =>
-      readEdgeSpan(nodes, edges, index, out),
-    )
+    const nodeChanges = nodeCursor ? nodes.time.changes.since(nodeCursor) : null
+    const edgeChanges = edgeCursor ? edges.time.changes.since(edgeCursor) : null
+    const readNode = (index: number, out: Float64Array) => readNodeSpan(nodes, index, out)
+    const readEdge = (index: number, out: Float64Array) => readEdgeSpan(nodes, edges, index, out)
+    let nodesChanged: boolean
+    let edgesChanged: boolean
+    if (nodeChanges && edgeChanges) {
+      nodesChanged = nodeCounts.patch(nodes.capacity, nodeChanges, readNode)
+      const incident = incidentEdges(nodeChanges, nodes.capacity, edges)
+      const touched = new Uint32Array(edgeChanges.length + incident.length)
+      touched.set(edgeChanges)
+      touched.set(incident, edgeChanges.length)
+      edgesChanged = edgeCounts.patch(edges.capacity, touched, readEdge)
+    } else {
+      nodesChanged = nodeCounts.update(nodes.capacity, readNode)
+      edgesChanged = edgeCounts.update(edges.capacity, readEdge)
+    }
+    nodeCursor = nodes.time.changes.cursor()
+    edgeCursor = edges.time.changes.cursor()
     if (nodesChanged || edgesChanged || store.state.range === null) {
       extent = readExtent()
       layout()

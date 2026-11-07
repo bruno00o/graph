@@ -1,3 +1,5 @@
+import { ChangeLog } from './change-log'
+
 export const openTime = 1e38
 export const leastFade: number = 1 / 255
 const exactBoundaries = 1024
@@ -45,19 +47,29 @@ function edge(value: unknown, open: number): number {
   return Number.isNaN(time) ? Number.NaN : time
 }
 
-export function readSpan(value: unknown): readonly [number, number] | null {
-  if (value === null || value === undefined) return null
+let spanStart = 0
+let spanEnd = 0
+
+function parseSpan(value: unknown): boolean {
+  if (value === null || value === undefined) return false
   if (typeof value === 'number' || value instanceof Date) {
     const time = toTime(value)
-    return Number.isNaN(time) ? null : [time, time]
+    spanStart = spanEnd = time
+    return !Number.isNaN(time)
   }
-  if (typeof value !== 'object') return null
+  if (typeof value !== 'object') return false
   const { start: from, end: to } = value as { start?: unknown; end?: unknown }
   const start = edge(from, Number.NEGATIVE_INFINITY)
   const end = edge(to, Number.POSITIVE_INFINITY)
-  if (Number.isNaN(start) || Number.isNaN(end)) return null
-  if (start === Number.NEGATIVE_INFINITY && end === Number.POSITIVE_INFINITY) return null
-  return [start, Math.max(start, end)]
+  if (Number.isNaN(start) || Number.isNaN(end)) return false
+  if (start === Number.NEGATIVE_INFINITY && end === Number.POSITIVE_INFINITY) return false
+  spanStart = start
+  spanEnd = Math.max(start, end)
+  return true
+}
+
+export function readSpan(value: unknown): readonly [number, number] | null {
+  return parseSpan(value) ? [spanStart, spanEnd] : null
 }
 
 export function packTime(value: number, out: Float32Array, at: number): void {
@@ -167,6 +179,7 @@ export class TimeSpans {
   end: Float64Array = new Float64Array(0)
   packed: Float32Array = new Float32Array(0)
   count = 0
+  readonly changes: ChangeLog = new ChangeLog()
   readonly #boundaries = new Set<number>()
   #sorted: Float64Array | null = null
 
@@ -209,6 +222,7 @@ export class TimeSpans {
       this.#grow(this.#capacity)
     }
     const before = this.timed(index)
+    if (this.start[index] !== start || this.end[index] !== end) this.touch(index)
     this.start[index] = start
     this.end[index] = end
     if (before !== timed) this.count += timed ? 1 : -1
@@ -219,8 +233,17 @@ export class TimeSpans {
     this.#boundary(end)
   }
 
+  touch(index: number): void {
+    this.changes.add(index, this.#capacity)
+  }
+
   write(index: number, span: readonly [number, number] | null): void {
     if (span) this.set(index, span[0], span[1])
+    else this.clear(index)
+  }
+
+  read(index: number, value: unknown): void {
+    if (parseSpan(value)) this.set(index, spanStart, spanEnd)
     else this.clear(index)
   }
 
@@ -255,8 +278,8 @@ export class TimeSpans {
   }
 
   #boundary(value: number): void {
-    if (!Number.isFinite(value) || this.#boundaries.has(value)) return
-    if (this.#boundaries.size > exactBoundaries) return
+    if (this.#boundaries.size > exactBoundaries || !Number.isFinite(value)) return
+    if (this.#boundaries.has(value)) return
     this.#boundaries.add(value)
     this.#sorted = null
   }

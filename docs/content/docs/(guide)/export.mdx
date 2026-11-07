@@ -34,6 +34,12 @@ download(new Blob([await exportSvg(graph)], { type: 'image/svg+xml' }), 'graph.s
 
 By default, the file shows what the graph shows: the same area, the same zoom, the same labels, the background grid and the hulls. `region: 'graph'` frames every node instead, with the labels, loops and hulls that reach past them, and a `padding` in CSS pixels around them.
 
+Elements outside the [time window](/docs/time) of the graph are left out, as on screen. `window` exports another window, or every element with `null`:
+
+```ts
+await exportSvg(graph, { region: 'graph', window: null })
+```
+
 Elements pinned with [`graph.anchors`](/docs/drawing-layers#anchored-html) or `<Anchor>` are HTML over the canvas, not part of the scene: no export draws them.
 
 ```ts
