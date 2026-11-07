@@ -1,0 +1,13 @@
+## How it works
+
+Nodes on the map have a `time` period, some without an end. Each new node links to an older node of its region that still exists, from the day it opens.
+
+The time window works on a map as on any graph. `createTimeline` follows the graph made by `mountMapGraph`, and `mountTimeline` renders its bar under the map. The timeline plays in `'grow'` mode, and `time: { fade }` fades elements over sixty days at the edges of the window.
+
+The map, the graph and the timeline are created in one layout effect, and destroyed in the reverse order.
+
+## Try it
+
+- Press play: regions open one after another, and nodes appear around them.
+- Brush a short window: nodes that closed before it disappear.
+- Zoom in on a region while the timeline plays.

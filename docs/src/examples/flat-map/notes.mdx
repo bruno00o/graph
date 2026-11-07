@@ -1,0 +1,13 @@
+## How it works
+
+`mountMapGraph` draws the graph in a custom layer of a MapLibre map, in the same WebGL context. Nodes take `longitude` and `latitude`, and edges stay straight on the flat map, as lines drawn on it would.
+
+Node sizes are in screen pixels on a map: a node keeps its size as the map zooms. After mounting, `graph.view.fit` moves the map to frame every node.
+
+The map owns the camera: dragging the background, the wheel and pinches move the map. The graph keeps hover, clicks, the selection, the lasso and node drags. The example creates the map and the graph in one layout effect, and removes the map after destroying the graph.
+
+## Try it
+
+- Hover a node to read its longitude and latitude.
+- Hold Shift and drag around a group to select it with the lasso.
+- Drag a node: the map stays still while it moves.

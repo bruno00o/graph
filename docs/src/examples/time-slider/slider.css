@@ -1,0 +1,39 @@
+.moment-slider {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+}
+
+.moment-bins {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 36px;
+}
+
+.moment-bins span {
+  flex: 1;
+  min-height: 1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--graph-ink) 22%, transparent);
+}
+
+.moment-bins span[data-current] {
+  background: var(--graph-accent);
+}
+
+.moment-slider input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--graph-accent);
+}

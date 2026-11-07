@@ -1,0 +1,13 @@
+## How it works
+
+Each row is one value of `arrow`: `'none'`, `'target'`, `'source'` and `'both'`. Each column is one value of `dash`: `'solid'`, `'dashed'` and `'dotted'`. Both are styles, so they take a constant or a function of the item, never a field name: `arrow: (sample) => sample.arrow`.
+
+`color: 'dash'` is a channel: the dash name goes through the shared categorical color scale. The label of each edge names its pattern and its arrow, on two lines.
+
+The `width` scale is an identity function, so the width of the definition is in screen pixels. **Width** builds a new definition with another width: arrowheads, dashes and dots grow with the line.
+
+## Try it
+
+- Press **Width** to go from 3 to 5 pixels, then 1.5.
+- Zoom in and out: widths, dashes and arrowheads keep their size on screen.
+- Hover an edge: picking follows the line, arrowheads included.

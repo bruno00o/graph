@@ -1,0 +1,13 @@
+## How it works
+
+Nodes take `longitude` and `latitude` instead of `x` and `y`. Without a map, the graph places them with Web Mercator on a world 512 units wide, as a map would. `units: 'screen'` keeps every node 10 pixels wide at any zoom.
+
+Each group links to the others by three long edges with `geodesic: true`. Such an edge follows the shortest path over the Earth: on a flat projection it bends toward the poles. An edge whose shortest path crosses the antimeridian is cut there, each part reaching the edge of the world. Short edges inside a group stay straight.
+
+`stroke` colors the long edges with `--graph-accent` without going through the color scale, which the groups of the nodes use.
+
+## Try it
+
+- Press **Long edges** to compare great circles with straight lines.
+- Hover a node to read its coordinates.
+- Pan to the left and right ends of the world to find the two parts of a cut edge.
