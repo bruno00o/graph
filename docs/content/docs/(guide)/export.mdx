@@ -52,6 +52,8 @@ await exportPng(graph, { region: 'graph', padding: 48 })
 await exportSvg(graph, { region: 'graph', zoom: 2 })
 ```
 
+The children of an unfolded group that are [spread](/docs/groups#spread-children) apart are drawn where the screen shows them. At another `zoom`, their gaps in pixels scale with it instead of being computed again for that zoom.
+
 The [PNG export options](/examples/png-export-options) example previews the region, the scale, the pixel ratio and the background, with the size of the image.
 
 ## Pixel ratio

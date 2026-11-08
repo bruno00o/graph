@@ -454,6 +454,18 @@ export interface ContainerOptions<T> {
    * @default 1
    */
   readonly strokeWidth?: Style<T, number> | undefined
+  /**
+   * Moves apart the children that overlap, such as nodes at the same place, around their place
+   * while the group is unfolded. Their data keeps its position.
+   * @default true
+   */
+  readonly spread?: Style<T, boolean> | undefined
+  /**
+   * Space kept between spread children, in pixels for children sized in screen units, else in
+   * world units.
+   * @default 4
+   */
+  readonly gap?: Style<T, number> | undefined
 }
 
 /**

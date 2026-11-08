@@ -51,6 +51,8 @@ export interface CompiledContainer {
   readonly fill: Read | null
   readonly stroke: Read | null
   readonly strokeWidth: Read | null
+  readonly spread: Read | null
+  readonly gap: Read | null
 }
 
 export interface CompiledLabelText {
@@ -219,6 +221,8 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
       fill: style(options.container?.fill),
       stroke: style(options.container?.stroke),
       strokeWidth: style(options.container?.strokeWidth),
+      spread: style(options.container?.spread),
+      gap: style(options.container?.gap),
     },
   }
   nodeCache.set(mark, compiled)

@@ -1,4 +1,4 @@
-import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, groups, mountGraph, nodes } from '@bruno00o/graph'
 import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
 import {
@@ -24,6 +24,8 @@ const screen = params.has('screen')
 const timed = params.has('time')
 const split = params.has('ends')
 const boxed = params.has('box')
+const stack = Number(params.get('stack') ?? 0)
+const spread = !params.has('nospread')
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -40,11 +42,20 @@ const nextFrame = () => new Promise<number>((resolve) => nativeFrame(resolve))
 const started = performance.now()
 const sample = engine ? createCommunities(nodeCount, edgeCount) : createSample(nodeCount, edgeCount)
 const history = timed ? spreadInTime(sample) : null
-const items: readonly (Item | TimedItem)[] = history?.items ?? sample.items
+const items: readonly (Item | TimedItem)[] = stacked(history?.items ?? sample.items)
 const links: readonly (Link | TimedLink)[] = history?.links ?? sample.links
 const generated = performance.now()
 const spanOf = (element: Item | TimedItem | Link | TimedLink) =>
   'start' in element ? { start: element.start, end: element.end } : null
+
+function stacked(list: readonly (Item | TimedItem)[]): readonly (Item | TimedItem)[] {
+  if (!(stack > 0)) return list
+  return list.map((item, index) => {
+    if (index >= stack) return item
+    const first = list[index - (index % 4)] ?? item
+    return { ...item, x: first.x, y: first.y }
+  })
+}
 
 const define = (nodeData: readonly (Item | TimedItem)[]) =>
   defineGraph({
@@ -83,6 +94,15 @@ const define = (nodeData: readonly (Item | TimedItem)[]) =>
             }
           : {}),
       }),
+      ...(stack > 0
+        ? [
+            groups(nodeData.slice(0, stack), {
+              by: 'group',
+              folded: false,
+              container: { spread },
+            }),
+          ]
+        : []),
     ],
     states: {
       muted: { opacity: 0.06, label: false },

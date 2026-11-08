@@ -1,10 +1,10 @@
-import { type Badge, defineGraph, edges, hull, nodes } from '@bruno00o/graph'
+import { type Badge, defineGraph, edges, groups, hull, nodes } from '@bruno00o/graph'
 import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { messages } from '../shared/messages'
 import { button, choice, createPage, download, status, themeToggle } from '../shared/page'
-import { createPlaces, type Place, placeCount, type Route } from './places'
+import { createPlaces, createStacks, type Place, placeCount, type Route } from './places'
 
 setWorkerUrl(workerUrl)
 
@@ -15,8 +15,9 @@ const edgeCount = Number(params.get('edges') ?? count * 2)
 const style = params.get('style') ?? 'https://demotiles.maplibre.org/style.json'
 const projection = params.get('projection') === 'mercator' ? 'mercator' : 'globe'
 const boxes = params.get('shape') === 'box'
-const { places, routes } = createPlaces(count, edgeCount)
-const small = count <= placeCount
+const stack = params.has('stack')
+const { places, routes } = stack ? createStacks() : createPlaces(count, edgeCount)
+const small = stack || count <= placeCount
 
 function definitionOf(geodesic: boolean) {
   return defineGraph({
@@ -41,6 +42,17 @@ function definitionOf(geodesic: boolean) {
             small && place.weight > 90 ? { text: String(place.weight) } : null,
         },
       }),
+      ...(stack
+        ? [
+            groups(places, {
+              by: 'site',
+              name: 'sites',
+              min: 2,
+              size: 18,
+              label: (site) => messages.places(site.count),
+            }),
+          ]
+        : []),
     ],
     states: { muted: { opacity: 0.2, label: false }, active: { flow: true } },
     hulls: [hull({ state: 'selected', color: 'var(--graph-accent)', padding: 12 })],
@@ -60,11 +72,27 @@ const graph = mountMapGraph(map, {
   ariaLabel: messages.mapLabel(places.length, routes.length),
 })
 
+async function showSite(value: string, zoom: number): Promise<void> {
+  await graph.drawn()
+  const site = graph.groups.keyOf('sites', value)
+  const home = graph.positions.get(site)
+  if (!home) return
+  graph.groups.unfold([site])
+  graph.view.set({ ...home, zoom })
+  for (let frame = 0; frame < 10 && graph.view.get().zoom !== zoom; frame++) await graph.drawn()
+  const first = graph.positions.snapshot().get(value)
+  if (first) graph.view.set({ ...first, zoom })
+}
+
+if (stack) void showSite('p0', 2 ** 5)
+
 const hovered = status()
 hovered.textContent = messages.mapHint
 graph.on('pointerenter', ({ target }) => {
-  hovered.textContent =
-    target.kind === 'node' ? target.datum.label : messages.link(target.datum.from, target.datum.to)
+  if (target.kind === 'edge')
+    hovered.textContent = messages.link(target.datum.from, target.datum.to)
+  else if (target.mark === 'sites') hovered.textContent = messages.places(target.datum.count)
+  else hovered.textContent = target.datum.label
 })
 graph.on('pointerleave', () => {
   hovered.textContent = messages.mapHint
