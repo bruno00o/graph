@@ -61,6 +61,7 @@ import {
 import { MarkLayers } from './mark-layers'
 import { boxCornerShare } from './node-shape'
 import { Palette } from './palette'
+import { spreadGap } from './spread'
 import { readMaxZoom, readMinZoom } from './zoom-range'
 
 export interface Layer {
@@ -880,6 +881,7 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
       if (fill !== null) held = value
     }
     nodes.container[index] = 0
+    nodes.spread[index] = 0
     nodes.shape[index] = codeOf<NodeShape>(shapeCodes, mark.shape?.(datum))
     nodes.fill[index] = swapColor(palette, nodes.fill[index] ?? noColor, fill, fallbacks.nodeFill)
     nodes.stroke[index] = swapColor(
@@ -921,6 +923,8 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     const look = mark.container
     nodes.container[index] = codeOf<ContainerShape>(containerCodes, look.shape?.(datum)) || 1
     nodes.padding[index] = Math.max(0, finiteOr(look.padding?.(datum), defaults.groupPadding))
+    nodes.spread[index] = look.spread?.(datum) === false ? 0 : 1
+    nodes.gap[index] = Math.max(0, finiteOr(look.gap?.(datum), spreadGap))
     nodes.shape[index] = containerShape
     nodes.fill[index] = swapColor(
       palette,

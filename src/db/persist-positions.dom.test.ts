@@ -2,7 +2,7 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
-import { nodes } from '../marks'
+import { groups, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { Key } from '../types'
 import { persistPositions } from './index'
@@ -187,6 +187,51 @@ describe('persistPositions', () => {
     finish(true)
     await vi.waitFor(() => expect(saving(graph)).toEqual([]))
     expect(collection.get('b')).toMatchObject({ x: 100, y: 0 })
+  })
+
+  it('writes nothing while the members of an unfolded group spread around their place', async () => {
+    const stacked = createCollection(
+      localOnlyCollectionOptions({
+        id: `stacked-${serial++}`,
+        getKey: (item: Item) => item.id,
+        initialData: [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 0, y: 0 },
+          { id: 'c', x: 0, y: 0 },
+        ],
+      }),
+    )
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [
+            nodes(stacked, { x: 'x', y: 'y', units: 'screen', size: 10 }),
+            groups(stacked, { by: () => 'all', name: 'all', folded: false }),
+          ],
+          layout: null,
+        }),
+        ariaLabel: 'graphe',
+      },
+      fakeRenderer,
+    )
+    await vi.waitFor(() => {
+      dom.flushFrames()
+      expect(graph.positions.get('a')?.y).toBeLessThan(0)
+    })
+    const mutationFn = vi.fn(async () => {})
+    const stop = persistPositions(graph, { collection: stacked, mutationFn })
+    graph.view.set({ x: 0, y: 0, zoom: 3 })
+    dom.flushFrames()
+    graph.groups.fold()
+    dom.flushFrames()
+    graph.groups.unfold()
+    dom.flushFrames()
+    stop()
+    expect(mutationFn).not.toHaveBeenCalled()
+    for (const id of ['a', 'b', 'c']) expect(stacked.get(id)).toMatchObject({ x: 0, y: 0 })
   })
 
   it('refuses a pending state the definition does not declare', async () => {

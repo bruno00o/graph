@@ -111,6 +111,8 @@ export class NodeColumns {
   badges: (readonly NodeBadge[] | null)[] = []
   container: Uint8Array = new Uint8Array(0)
   padding: Float32Array = new Float32Array(0)
+  spread: Uint8Array = new Uint8Array(0)
+  gap: Float32Array = new Float32Array(0)
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
 
@@ -121,6 +123,8 @@ export class NodeColumns {
     this.time.reserve(capacity)
     this.container = grow(this.container, capacity)
     this.padding = grow(this.padding, capacity)
+    this.spread = grow(this.spread, capacity)
+    this.gap = grow(this.gap, capacity)
     this.alive = grow(this.alive, capacity)
     this.slot = grow(this.slot, capacity)
     this.size = grow(this.size, capacity)
@@ -151,6 +155,7 @@ export class NodeColumns {
     if (index >= this.capacity) return
     this.alive[index] = 0
     this.container[index] = 0
+    this.spread[index] = 0
     this.fitLabel[index] = 0
     this.zoom.clear(index)
     this.time.clear(index)

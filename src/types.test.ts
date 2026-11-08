@@ -319,6 +319,12 @@ describe('public types', () => {
     nodes(rows, { key: 'name', parent: 'missing' })
     // @ts-expect-error
     nodes(rows, { key: 'name', container: { shape: 'hexagon' } })
+    nodes(rows, { key: 'name', container: { spread: (row) => row.name !== 'a', gap: 6 } })
+    groups(rows, { by: 'parent', container: { spread: false, gap: (group) => group.count } })
+    // @ts-expect-error
+    nodes(rows, { key: 'name', container: { spread: 'yes' } })
+    // @ts-expect-error
+    nodes(rows, { key: 'name', container: { gap: '4px' } })
     edges(links, {
       source: 'from',
       target: 'to',

@@ -51,6 +51,28 @@ nodes<Item>(items, {
 
 The fill and outline default to the `--graph-group-fill` and `--graph-group-line` tokens. States apply to containers too: hovering a container, or selecting it, styles it like a node.
 
+## Spread children
+
+Children of an unfolded group that overlap, such as several nodes at the same coordinates, move apart around their place so that each one can be seen, hovered and dragged. Children at the same place sit on a ring, or on a spiral past six. Children that touch at the current zoom form one pack around their average place, so the packs follow the zoom: they merge as you zoom out and split as you zoom in.
+
+Only the drawn position moves. The data keeps its position: when the group folds, its children go back to their place at once, and `graph.positions.snapshot()` and `persistPositions` never see a spread position. No `positionchange` is emitted.
+
+```ts
+groups(items, {
+  by: 'site',
+  container: { spread: true, gap: 4 },
+})
+```
+
+- `spread` is on by default. `spread: false` leaves the children where their positions put them.
+- `gap` is the space between two spread children: 4 by default, in pixels for children sized with `units: 'screen'`, else in world units. Children in pixels keep their gap at every zoom; children in world units are spread once and never move as you zoom.
+- Spreading applies to the direct children of the group that are placed by their data, or by nothing when the definition has no layout. A layout never moves a spread child, and layouts already keep their nodes apart.
+- A child you drag, or place with `graph.positions.set`, leaves its pack and stays where you put it; the others close ranks. It joins its pack again when its data moves or when the group folds.
+- A hidden child keeps its place in the pack, so the others do not move when it hides or shows.
+- Children glide out of their place over `transitions.layout`, or appear at once with reduced motion.
+- Past 20,000 spread children sized in pixels, places are computed again at every quarter octave of zoom instead of at every frame: the gaps then vary by about a tenth between two steps.
+- Exports draw the positions on screen. An export at another `zoom` keeps the spread of the screen, so gaps in pixels scale with it.
+
 ## Fold and unfold
 
 A folded group hides every node inside it and draws as a node, with the options of its mark: color, size, shape, label, badges. Fold groups from code with `graph.groups`, or at mount with `initialFolded`.
@@ -126,6 +148,7 @@ graph.on('click', ({ target }) => {
 - Layouts see a folded group as a single node. Unfolded groups are kept whole at every level of nesting: no container overlaps another container or a node next to it, padding included. See [groups in layouts](/docs/layout#groups) for how each layout does it.
 - Fitting the view frames containers whole.
 - On a [map](/docs/map#hulls-and-groups), groups follow the map, and the `padding` of a container is in pixels.
+- Children that overlap in an unfolded group are [spread](#spread-children) around their place without changing their data.
 
 ## Performance
 

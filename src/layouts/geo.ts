@@ -2,6 +2,7 @@ import { toAccessor } from '../core/accessor'
 import { projectLatitude, projectLongitude } from '../core/geo'
 import { groupGap, separateGroups } from '../core/group-separation'
 import { groupTree } from '../core/group-tree'
+import { offsetAt } from '../core/spread'
 import type { Channel, GeoPoint, Layout, LayoutGraph } from '../types'
 import { CellTable, Occupancy } from './occupancy'
 import { degrees, instant, movers, type NodeOrder } from './shared'
@@ -33,9 +34,6 @@ export interface GeoOptions<T = unknown> {
   readonly order?: NodeOrder<T> | undefined
 }
 
-const goldenTurn = 2.399963229728653
-const spiralPitch = 1.546
-const ringLimit = 6
 const crowdCell = 3
 const crowdTarget = 0.2
 const scaleBelow = 2
@@ -367,17 +365,6 @@ function middleOf(places: Places, center: GeoPoint | undefined): readonly [numbe
     maxY = Math.max(maxY, places.y[id] ?? 0)
   }
   return [(minX + maxX) / 2, (minY + maxY) / 2]
-}
-
-function offsetAt(at: number, size: number, pitch: number): readonly [number, number] {
-  if (size <= 1) return [0, 0]
-  if (size <= ringLimit) {
-    const angle = -Math.PI / 2 + (2 * Math.PI * at) / size
-    const reach = pitch / (2 * Math.sin(Math.PI / size))
-    return [Math.cos(angle) * reach, Math.sin(angle) * reach]
-  }
-  const reach = (pitch / spiralPitch) * Math.sqrt(at + 0.5)
-  return [Math.cos(at * goldenTurn) * reach, Math.sin(at * goldenTurn) * reach]
 }
 
 interface Spread {
