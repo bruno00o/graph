@@ -3,47 +3,6 @@ title: GraphInstance
 description: The object returned by mountGraph, and by the ref of the Graph component.
 ---
 
-```ts
-interface GraphInstance<S extends string = string, M extends Mark = Mark> {
-  readonly store: GraphStore<S, M>
-  readonly view: GraphView
-  readonly selection: GraphSelection
-  readonly focus: GraphFocus<M>
-  readonly states: GraphStates<FreeState<S>>
-  readonly positions: GraphPositions
-  readonly layout: GraphLayout<M>
-  readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
-  readonly groups: GraphGroups
-  readonly paths: GraphPaths<M>
-  readonly layers: GraphLayers<LayerName<M>>
-  readonly support: GraphSupport
-  readonly bundling: GraphBundling
-  readonly routing: GraphRouting
-  readonly time: GraphTime
-  readonly element: HTMLElement
-  readonly signal: AbortSignal
-  readonly destroyed: boolean
-  pick(point: Point): GraphTarget<M> | null
-  neighbors(key: Key): Key[]
-  edgesOf(key: Key): Key[]
-  endpoints(key: Key): Endpoints | undefined
-  datumOf<K extends 'node' | 'edge'>(element: {
-    kind: K
-    key: Key
-  }): (K extends 'node' ? NodeDatum<M> : EdgeDatum<M>) | undefined
-  issues(): readonly GraphIssue[]
-  count(): GraphCount
-  on<K extends GraphEventName>(
-    name: K,
-    handler: GraphEventHandler<K, M>,
-    options?: GraphEventOptions,
-  ): () => void
-  drawn(): Promise<void>
-  update(options: GraphUpdateOptions<S, M>): void
-  destroy(): void
-}
-```
-
 `S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
 Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `issues`, `count`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
@@ -120,76 +79,31 @@ Numbers given to the graph must be finite. A call with one that is not, such as 
 
 ## View
 
-```ts
-interface GraphView {
-  get(): View
-  set(view: View, options?: { duration?: number }): void
-  fit(options?: FitOptions): void
-  zoomBy(factor: number, options?: { duration?: number }): void
-  toScreen(point: Point): Point
-  toWorld(point: Point): Point
-}
-
-interface View {
-  readonly x: number
-  readonly y: number
-  readonly zoom: number
-}
-```
-
 <api-table path="index.ts" name="GraphView" />
+
+<api-table path="index.ts" name="View" />
 
 `fit` frames its `nodes` and `edges`, or every node when it names neither; a path or the selection fits as is. `padding` defaults to the `padding` of the [view of the definition](/docs/view#padding), 32 pixels unless set. Called before the element has a size, `fit` waits for one. During the first layout run, the view keeps framing the nodes of the last `fit` while they move, until the view is moved. Durations are in milliseconds, and zero with `prefers-reduced-motion`. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view. A view, a factor or an option that is not finite throws a `RangeError`: see [Numbers](#numbers).
 
 ## Selection
 
-```ts
-interface GraphSelection {
-  get(): ElementKeys
-  set(keys: ElementKeysInput): void
-  clear(): void
-}
-```
+<api-table path="index.ts" name="GraphSelection" />
 
 In controlled mode, `set` and `clear` call `onSelectionChange` instead of changing the selection.
 
 ## Focus
 
-```ts
-interface GraphFocus {
-  get(): GraphTarget | null
-  set(element: { kind: 'node' | 'edge'; key: Key } | null): void
-}
-```
+<api-table path="index.ts" name="GraphFocus" />
 
 `set` also moves the DOM focus to the graph element when the keyboard is on. An unknown key changes nothing.
 
 ## States
-
-```ts
-interface GraphStates<N extends string> {
-  set(name: N, keys: ElementKeysInput): void
-  add(name: N, keys: ElementKeysInput): void
-  remove(name: N, keys: ElementKeysInput): void
-  clear(name?: N): void
-  has(name: N, element: { kind: 'node' | 'edge'; key: Key }): boolean
-  get(name: N): ElementKeys
-}
-```
 
 <api-table path="index.ts" name="GraphStates" />
 
 `N` is the union of the free state names of the definition. Built-in and undeclared names are refused, at compile time and at runtime. `clear()` without a name empties every free state.
 
 ## Positions
-
-```ts
-interface GraphPositions {
-  get(key: Key): Point | undefined
-  set(entries: Iterable<readonly [Key, Point]>, options?: { duration?: number }): void
-  snapshot(options?: PositionSnapshotOptions): Map<Key, Point>
-}
-```
 
 <api-table path="index.ts" name="GraphPositions" />
 
@@ -253,18 +167,7 @@ status.textContent = `${shown.nodes} of ${nodes} nodes shown`
 
 ## Layout
 
-```ts
-interface GraphLayout {
-  run(layout?: Layout, options?: LayoutRunOptions): Promise<boolean>
-  stop(): void
-}
-
-interface LayoutRunOptions {
-  readonly keys?: Iterable<Key>
-  readonly fit?: boolean | FitOptions
-  readonly duration?: number
-}
-```
+<api-table path="index.ts" name="GraphLayout" />
 
 `run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
 
@@ -272,46 +175,17 @@ interface LayoutRunOptions {
 
 ## Bundling
 
-```ts
-interface GraphBundling {
-  run(): Promise<boolean>
-}
-```
-
 <api-table path="index.ts" name="GraphBundling" />
 
 Bundles are computed on their own once nodes stand still. `run` computes them now, without waiting, from the current positions. It resolves to `false` when the definition has no `bundling`, when more edges than `maxEdges` would be bundled, or when the run is replaced. See [Edge bundling](/docs/bundling).
 
 ## Routing
 
-```ts
-interface GraphRouting {
-  run(): Promise<boolean>
-}
-```
-
 <api-table path="index.ts" name="GraphRouting" />
 
 Routes are computed on their own once nodes stand still. `run` routes now, from the current positions, and resolves to `false` when the definition has no `routing`, when more edges than `maxEdges` would be routed, or when the run is replaced. See [Edge routing](/docs/routing).
 
 ## Time
-
-```ts
-interface GraphTime {
-  get(): TimeWindow | null
-  set(window: TimeWindowInput | null): void
-}
-
-interface TimeWindow {
-  readonly start: number | null
-  readonly end: number | null
-}
-
-interface TimeWindowInput {
-  readonly start?: TimeInstant | null
-  readonly end?: TimeInstant | null
-}
-```
 
 <api-table path="index.ts" name="GraphTime" />
 
@@ -323,14 +197,6 @@ interface TimeWindowInput {
 
 ## Lens
 
-```ts
-interface GraphLens {
-  get(): GraphLensState | null
-  set(lens: LensInput | null): void
-  toWorld(point: Point): Point
-}
-```
-
 <api-table path="index.ts" name="GraphLens" />
 
 `set` shows the lens, or changes the one shown: omitted fields keep their value, then the `interaction.lens` options. Each change emits `lenschange` and updates `lens` in the store. See [Lens](/docs/lens).
@@ -341,12 +207,7 @@ interface GraphLens {
 
 ## Anchors
 
-```ts
-interface GraphAnchors<S extends string> {
-  set(element: HTMLElement, options: AnchorOptions<S>): () => void
-  remove(element: HTMLElement): void
-}
-```
+<api-table path="index.ts" name="GraphAnchors" />
 
 `set` moves the element into a layer over the canvas, inside `graph.element`, and places it from then on at each frame, with a CSS transform: no code of yours runs while the view or the nodes move. Calling `set` again on the same element changes its options. `destroy` removes every pinned element. Pinned elements are HTML, not part of the scene: [exports](/docs/export) leave them out.
 
@@ -388,48 +249,17 @@ In React, use [`<Anchor>`](/docs/api/anchor).
 
 ## Groups
 
-```ts
-interface GraphGroups {
-  folded(): readonly Key[]
-  isFolded(key: Key): boolean
-  fold(keys?: Iterable<Key>): void
-  unfold(keys?: Iterable<Key>): void
-  toggle(key: Key): void
-  set(keys: Iterable<Key>): void
-  parent(key: Key): Key | undefined
-  children(key: Key): Key[]
-  keyOf(name: string, value: Key, parent?: Key): Key
-}
-```
-
 <api-table path="index.ts" name="GraphGroups" />
 
 `fold`, `unfold`, `toggle` and `set` emit `foldchange`. In controlled mode, they call `onFoldChange` instead of changing the folded groups. See [Groups](/docs/groups).
 
 ## Paths
 
-```ts
-interface GraphPaths<M extends Mark = Mark> {
-  shortest(from: Key, to: Key, options?: PathOptions<M>): GraphPath | null
-  reach(from: Key, options?: ReachOptions<M>): GraphReach
-}
-```
+<api-table path="index.ts" name="GraphPaths" />
 
 Shortest paths and reachable nodes, on the data or, with `visible: true`, on the graph as drawn. The results hold node and edge keys, ready for `states.set`. See [Paths](/docs/paths) and the [reference](/docs/api/paths).
 
 ## Layers
-
-```ts
-interface GraphLayers<L extends string = string> {
-  names(): readonly L[]
-  hidden(): readonly L[]
-  isHidden(name: L): boolean
-  hide(names?: Iterable<L>): void
-  show(names?: Iterable<L>): void
-  toggle(name: L): void
-  set(hidden: Iterable<L>): void
-}
-```
 
 <api-table path="index.ts" name="GraphLayers" />
 
@@ -437,50 +267,18 @@ interface GraphLayers<L extends string = string> {
 
 ## Support
 
-```ts
-interface GraphSupport {
-  carriers(key: Key, options?: SupportWalkOptions): SupportWalk
-  carried(key: Key, options?: SupportWalkOptions): SupportWalk
-}
-```
+<api-table path="index.ts" name="GraphSupport" />
 
 Walks the `supportedBy` links of edges, down to the edges that carry an edge and up to the edges it carries. Both apply pending data changes first. See [Multilayer graphs](/docs/multilayer#support) and the [reference](/docs/api/support).
 
 ## Graph state
 
-```ts
-interface GraphState<S extends string = string, M extends Mark = Mark> {
-  readonly view: View
-  readonly width: number
-  readonly height: number
-  readonly hovered: GraphTarget<M> | null
-  readonly focused: GraphTarget<M> | null
-  readonly selection: ElementKeys
-  readonly states: { readonly [K in FreeState<S>]: ElementKeys }
-  readonly positionsVersion: number
-  readonly layout: GraphLayoutStatus
-  readonly folded: readonly Key[]
-  readonly bundling: GraphBundlingStatus
-  readonly routing: GraphRoutingStatus
-  readonly lens: GraphLensState | null
-  readonly time: TimeWindow | null
-  readonly hiddenLayers: readonly LayerName<M>[]
-}
-
-interface GraphLayoutStatus {
-  readonly running: boolean
-  readonly progress: number
-}
-
-interface GraphBundlingStatus {
-  readonly running: boolean
-}
-
-interface GraphRoutingStatus {
-  readonly running: boolean
-}
-```
-
 <api-table path="index.ts" name="GraphState" />
+
+<api-table path="index.ts" name="GraphLayoutStatus" />
+
+<api-table path="index.ts" name="GraphBundlingStatus" />
+
+<api-table path="index.ts" name="GraphRoutingStatus" />
 
 `width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are.

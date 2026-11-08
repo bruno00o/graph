@@ -6,7 +6,7 @@ description: A mark that draws one node per item of its data.
 ```ts
 function nodes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options?: NodeOptions<T, N, L>,
+  options?: Omit<NodeOptions<T, N, L>, 'key'>,
 ): NodeMark<T, N, L>
 function nodes<
   T extends { readonly id: Key },
@@ -43,11 +43,6 @@ With `shape: 'box'`, `size` is the height of the box and `width` its width: `'la
 ```ts
 type TimeInstant = number | Date
 type TimeValue = TimeInstant | TimeSpan
-
-interface TimeSpan {
-  readonly start?: TimeInstant | null
-  readonly end?: TimeInstant | null
-}
 ```
 
 <api-table path="index.ts" name="TimeSpan" />
@@ -58,14 +53,6 @@ A node whose `parent` is the key of another node is a child of that node, which 
 
 ```ts
 type ContainerShape = 'rectangle' | 'circle'
-
-interface ContainerOptions<T> {
-  readonly shape?: Style<T, ContainerShape>
-  readonly padding?: Style<T, number>
-  readonly fill?: Style<T, string>
-  readonly stroke?: Style<T, string>
-  readonly strokeWidth?: Style<T, number>
-}
 ```
 
 <api-table path="index.ts" name="ContainerOptions" />
@@ -78,23 +65,9 @@ interface ContainerOptions<T> {
 ```ts
 type LabelPlacement = 'bottom' | 'top' | 'right' | 'left' | 'center'
 type LabelWeight = 'normal' | 'bold' | number
-
-interface LabelTextOptions<T> {
-  readonly text: Channel<T, string>
-  readonly background?: Style<T, string | boolean | null>
-  readonly color?: Style<T, string>
-  readonly size?: Style<T, number>
-  readonly weight?: Style<T, LabelWeight>
-  readonly font?: Style<T, string>
-  readonly maxWidth?: Style<T, number>
-}
-
-interface LabelOptions<T> extends LabelTextOptions<T> {
-  readonly secondary?: Channel<T, string>
-  readonly placement?: Style<T, LabelPlacement>
-  readonly minScreenSize?: Style<T, number>
-}
 ```
+
+<api-table path="index.ts" name="LabelTextOptions" />
 
 <api-table path="index.ts" name="LabelOptions" />
 
@@ -102,26 +75,12 @@ The text must be a string; anything else draws no label. See [Labels](/docs/labe
 
 ## Images
 
-```ts
-interface NodeImage {
-  readonly src: string
-  readonly scale?: number
-  readonly color?: string
-}
-```
-
 <api-table path="index.ts" name="NodeImage" />
 
 ## Badges
 
 ```ts
 type BadgeCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
-
-interface Badge {
-  readonly text?: string | number
-  readonly fill?: string
-  readonly color?: string
-}
 ```
 
 <api-table path="index.ts" name="Badge" />

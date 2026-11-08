@@ -57,7 +57,12 @@ A mark with [`scales`](/docs/scales#scales-of-a-mark) of its own has an entry in
 <api-table path="legend/index.ts" name="LegendMarkScales" />
 
 ```ts
-type LegendScalesOf<M extends Mark = Mark> = LegendMarkScales<…>
+type LegendScalesOf<M extends Mark = Mark> =
+  M extends NodeMark<infer _T, infer N, MarkLayer>
+    ? LegendMarkScales<N>
+    : M extends EdgeMark<infer _T, infer N, MarkLayer>
+      ? LegendMarkScales<N>
+      : LegendMarkScales
 ```
 
 `LegendScalesOf<M>` gives `mark` the names of the marks of `M`.
@@ -65,7 +70,13 @@ type LegendScalesOf<M extends Mark = Mark> = LegendMarkScales<…>
 ### Looks
 
 ```ts
-type LegendLook<M extends Mark = Mark> = LegendNodeLook<…> | LegendEdgeLook<…>
+type LegendLook<M extends Mark = Mark> =
+  M extends NodeMark<infer _T, infer N, MarkLayer>
+    ? LegendNodeLook<N>
+    : M extends EdgeMark<infer _T, infer N, MarkLayer>
+      ? LegendEdgeLook<N>
+      : LegendNodeLook | LegendEdgeLook
+
 type LegendItem<M extends Mark = Mark> = LegendCategory | LegendLook<M>
 ```
 

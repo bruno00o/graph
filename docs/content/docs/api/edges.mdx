@@ -6,7 +6,7 @@ description: A mark that draws one edge per item of its data.
 ```ts
 function edges<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options: EdgeOptions<T, N, L>,
+  options: Omit<EdgeOptions<T, N, L>, 'key'>,
 ): EdgeMark<T, N, L>
 function edges<
   T extends { readonly id: Key },
@@ -47,20 +47,11 @@ function edges<T, N extends MarkName = undefined, L extends MarkLayer = undefine
 ```ts
 type TimeInstant = number | Date
 type TimeValue = TimeInstant | TimeSpan
-
-interface TimeSpan {
-  readonly start?: TimeInstant | null
-  readonly end?: TimeInstant | null
-}
 ```
 
 <api-table path="index.ts" name="TimeSpan" />
 
 ## Labels
-
-```ts
-interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
-```
 
 `EdgeLabelOptions` has the text options of a node label: `text`, `background`, `color`, `size`, `weight`, `font` and `maxWidth`. See [`LabelTextOptions`](/docs/api/nodes#labels). The default size is 11.
 
@@ -84,20 +75,6 @@ edges<Link>(links, {
 
 ```ts
 type EdgeEnd = 'source' | 'target'
-
-interface EdgeEndsOptions<T> {
-  readonly split?: Style<T, number>
-  readonly source?: EdgeEndOptions<T>
-  readonly target?: EdgeEndOptions<T>
-}
-
-interface EdgeEndOptions<T> {
-  readonly color?: Channel<T, string | number | boolean>
-  readonly stroke?: Style<T, string>
-  readonly width?: Channel<T, number>
-  readonly dash?: Style<T, EdgeDash>
-  readonly label?: Channel<T, string> | EdgeLabelOptions<T>
-}
 ```
 
 <api-table path="index.ts" name="EdgeEndsOptions" />
@@ -136,39 +113,14 @@ Edges that share the same two nodes, in either direction, bend apart in symmetri
 
 An end inside a folded group is drawn at the outermost folded group that holds it. The edges of one mark that land on the same two ends, in the same direction, draw as one aggregated edge; an edge whose two ends land in the same group is hidden. `merge` merges the parallel edges between visible nodes too. See [Transformations](/docs/transformations#merge-parallel-edges).
 
-```ts
-interface EdgeMergeOptions<T> {
-  readonly by?: Channel<T, Key>
-  readonly directed?: boolean
-  readonly min?: number
-}
-```
-
 <api-table path="index.ts" name="EdgeMergeOptions" />
 
 `aggregate` styles the aggregated edges from an `AggregateEdge`: the merged edges with their count, split by direction.
 
 ```ts
-interface AggregateEdge<T = unknown> {
-  readonly source: Key
-  readonly target: Key
-  readonly count: number
-  readonly keys: readonly Key[]
-  readonly data: readonly T[]
-  readonly forward: AggregateDirection<T>
-  readonly backward: AggregateDirection<T>
-  readonly value?: Key
-}
-
-interface AggregateDirection<T = unknown> {
-  readonly count: number
-  readonly keys: readonly Key[]
-  readonly data: readonly T[]
-}
-
 type AggregateEdgeOptions<T> = Omit<
   EdgeOptions<AggregateEdge<T>>,
-  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate'
+  'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate' | 'scales'
 >
 ```
 
