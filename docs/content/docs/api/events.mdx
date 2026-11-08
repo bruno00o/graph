@@ -35,22 +35,6 @@ In React, each event has a prop of [`<Graph>`](/docs/api/graph-component#props) 
 ## Targets
 
 ```ts
-interface NodeTarget<T = unknown, N extends MarkName = MarkName> {
-  readonly kind: 'node'
-  readonly key: Key
-  readonly datum: T
-  readonly mark: N
-}
-
-interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
-  readonly kind: 'edge'
-  readonly key: Key
-  readonly datum: T
-  readonly mark: N
-  readonly endpoints: Endpoints
-  readonly aggregate?: AggregateEdge<T>
-}
-
 type GraphTarget<M extends Mark = Mark> =
   M extends NodeMark<infer T, infer N, MarkLayer>
     ? NodeTarget<T, N>
@@ -73,78 +57,29 @@ An edge drawn for several edges, between [folded groups](/docs/groups) or [merge
 
 ## Payloads
 
-```ts
-interface GraphPointerEvent<M extends Mark = Mark> {
-  readonly target: GraphTarget<M> | null
-  readonly point: Point
-  readonly world: Point
-  readonly originalEvent: MouseEvent
-}
+<api-table path="index.ts" name="GraphPointerEvent" />
 
-interface GraphTargetEvent<M extends Mark = Mark> {
-  readonly target: GraphTarget<M>
-  readonly originalEvent: MouseEvent
-}
+<api-table path="index.ts" name="GraphTargetEvent" />
 
-interface GraphDragEvent<M extends Mark = Mark> {
-  readonly target: Extract<GraphTarget<M>, { readonly kind: 'node' }>
-  readonly keys: readonly Key[]
-  readonly point: Point
-  readonly world: Point
-  readonly originalEvent: PointerEvent
-}
+<api-table path="index.ts" name="GraphDragEvent" />
 
-interface GraphPositionEvent {
-  readonly origin: 'drag' | 'api' | 'layout'
-  readonly positions: ReadonlyMap<Key, Point>
-}
+<api-table path="index.ts" name="GraphPositionEvent" />
 
-interface GraphFocusEvent<M extends Mark = Mark> {
-  readonly target: GraphTarget<M> | null
-}
+<api-table path="index.ts" name="GraphFocusEvent" />
 
-interface GraphSelectionEvent {
-  readonly selection: ElementKeys
-}
+<api-table path="index.ts" name="GraphFoldEvent" />
 
-interface GraphViewEvent {
-  readonly view: View
-  readonly origin: 'user' | 'api'
-}
+<api-table path="index.ts" name="GraphLensEvent" />
 
-interface GraphFoldEvent {
-  readonly folded: readonly Key[]
-}
+<api-table path="index.ts" name="GraphTimeEvent" />
 
-interface GraphLensEvent {
-  readonly lens: GraphLensState | null
-}
+<api-table path="index.ts" name="GraphLayerEvent" />
 
-interface GraphIssuesEvent {
-  readonly issues: readonly GraphIssue[]
-}
+<api-table path="index.ts" name="GraphZoomHintEvent" />
 
-interface GraphTimeEvent {
-  readonly window: TimeWindow | null
-}
+<api-table path="index.ts" name="GraphLayoutEvent" />
 
-interface GraphLayerEvent<M extends Mark = Mark> {
-  readonly hidden: readonly LayerName<M>[]
-}
-
-interface GraphZoomHintEvent {
-  readonly key: 'Meta' | 'Control'
-  readonly originalEvent: WheelEvent
-}
-
-interface GraphLayoutEvent {
-  readonly name: string
-}
-
-interface GraphLayoutEndEvent extends GraphLayoutEvent {
-  readonly completed: boolean
-}
-```
+<api-table path="index.ts" name="GraphLayoutEndEvent" />
 
 <api-table path="index.ts" name="GraphSelectionEvent" />
 

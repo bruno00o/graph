@@ -13,27 +13,11 @@ Returns a frozen [`EdgeBundling`](/docs/api/define-graph#bundling) named `'densi
 
 ## Options
 
-```ts
-interface DensityBundlingOptions {
-  readonly strength?: number
-  readonly radius?: number
-  readonly iterations?: number
-  readonly maxEdges?: number
-}
-```
-
 <api-table path="bundling/index.ts" name="DensityBundlingOptions" />
 
 `strength` and `radius` are clamped between 0 and 1, `iterations` is rounded and at most 64. A non-finite value falls back to its default.
 
 ## Result
-
-```ts
-interface DensityBundlingSettings {
-  readonly radius: number
-  readonly iterations: number
-}
-```
 
 <api-table path="bundling/index.ts" name="DensityBundlingSettings" />
 
