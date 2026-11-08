@@ -70,6 +70,10 @@ html {
   outline-offset: 2px;
 }
 
+input[role="combobox"][aria-controls="fd-search-list"]:focus-visible {
+  outline: none;
+}
+
 figure.shiki {
   background: var(--code-paper);
 }
