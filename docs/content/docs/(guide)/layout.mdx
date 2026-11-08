@@ -1,6 +1,6 @@
 ---
 title: Layouts
-description: Place nodes that have no coordinates with a force simulation, in layers, on a grid, in rings or around a root, and frame the result.
+description: Place nodes that have no coordinates with a force simulation, in layers, on a grid, in rings, around a root or by longitude and latitude, and frame the result.
 ---
 
 <LiveExample slug="force-layout" />
@@ -75,6 +75,30 @@ These layouts, and `layers`, are not incremental: when nodes arrive, every free 
 
 Examples: [grid sorted by a field](/examples/sorted-grid), [rings around a center](/examples/ranked-rings), and [radial tree from a root](/examples/radial-tree).
 
+## Geography
+
+`geo` places nodes by their longitude and latitude, with the Web Mercator projection of [map mode](/docs/map), on a graph without a map. Unlike the `longitude` and `latitude` channels of `nodes()`, which pin a node to its place, it then moves apart the nodes that overlap, so every node can be read and clicked.
+
+<LiveExample slug="geo-layout" />
+
+```ts
+import { geo } from '@bruno00o/graph/layouts'
+
+geo()
+
+geo<Place>({ longitude: 'lng', latitude: 'lat', order: 'degree' })
+
+geo({ center: { longitude: 2.35, latitude: 48.86 }, scale: 4096 })
+```
+
+- **Projection.** `longitude` and `latitude` read the coordinates of each node, the fields of those names by default. The world of a map spans 512 units; `scale` multiplies it, and `center` is the place drawn at the origin.
+- **Scale.** By default, the scale comes from the data: the smallest one at which about one place in five would share its spot with another. Data spread over a city or over a continent give a graph of the same size.
+- **Spread.** A node that overlaps no other stays exactly at its place. One that would overlap takes the closest free spot, and a crowd of nodes grows into a disk around where it stands. Every node ends at least `spacing` away from the others, fixed nodes included.
+- **Same place.** Nodes at the very same coordinates gather around their place: up to six on a ring, more on a spiral, in the internal order or by `order`.
+- **No coordinates.** A node without valid coordinates goes next to its placed neighbors, and its own neighbors after it. Nodes with no placed neighbor at all line up in a grid beside the others.
+
+`geo` is not incremental: when nodes arrive, every free node is placed again. Without `scale` and `center`, both follow the data, so new nodes can move the others. Give both to keep positions steady, or to match the camera of a map: see [the same graph with and without a map](/docs/map#with-and-without-a-map). 100,000 nodes, a third of them sharing their place with another, take about 150 milliseconds. See [`geo`](/docs/api/layouts#geo) for every option.
+
 ## Groups
 
 Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nesting: when it ends, no container overlaps another container or a node next to it, padding included. A folded group is one node like any other.
@@ -83,6 +107,7 @@ Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nest
 
 - **`force`.** The members of a group pull toward its center, `cohesion` sets how hard. Edges between groups pull whole groups toward each other rather than tearing members out. As the layout cools, containers push each other apart, and nodes outside a group are pushed out of its container. A last pass removes the remaining overlaps, deepest groups first, keeping `groupSpacing` around each container. Both engines do the same.
 - **`layers`.** The whole graph shares one set of layers, so edges between groups point in the layer direction like the others. A group spans the layers from its first member to its last, and on each of them its members sit side by side, nested groups inside, with room for the padding and the label of every container. An edge that leaves a group goes out through the side its layers flow toward and comes into the next group from the other side: it crosses container borders only where it has to. Groups keep their members close in the direction of the layers, so a long chain makes a tall group.
+- **`geo`.** Nodes keep their geographic place first. Containers that overlap, padding included, are then pushed apart, like the last pass of `force`.
 - **`grid`, `rings` and `radial`.** Each group is laid out on its own with the same layout, from the deepest groups up. In the group above it, a group stands in as a single node the size of its container, and the nodes directly inside a group are laid out together first, as one more block. A grid of groups is a grid of blocks. The blocks are then pushed apart where they still overlap.
 - **Fixed nodes and circles.** With `layers`, when some nodes do not move, because they have `x` and `y` in your data or were left out of the run, or when a container is a circle, the containers are pushed apart after the layout, only across the layers: every edge between two moving nodes still points forward. Fixed nodes keep their place and push the moving nodes and containers aside. Where fixed nodes leave too little room between them, some overlaps may remain.
 - **Fixed members.** When two groups both hold a fixed node, their containers may be unable to move apart. Their moving nodes are then still pushed off each other and off the fixed nodes, while the containers may overlap.
@@ -93,7 +118,7 @@ On 50,000 nodes in about 400 groups nested three deep, the force layout takes ab
 ## When it runs
 
 - **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.
-- **New nodes.** With `force`, nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it. With `layers`, `grid`, `rings` and `radial`, every free node is laid out again.
+- **New nodes.** With `force`, nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it. With `layers`, `grid`, `rings`, `radial` and `geo`, every free node is laid out again.
 - **New layout.** A definition with another layout, or the same layout with other options, lays out every free node again on the next frame, starting from where the nodes are. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
 - **No layout.** `layout: null`, the default, turns it off. An automatic run in progress stops, and nodes stay where they are.
 
@@ -141,7 +166,7 @@ The [drag to pin](/examples/drag-to-pin) example runs the layout again around th
 
 ## Glide to the result
 
-A layout that reports its result at once, without progress, such as `layers`, `grid`, `rings` and `radial`, does not make nodes jump: they glide from where they are to where they go. The run, and its promise, end when they arrive.
+A layout that reports its result at once, without progress, such as `layers`, `grid`, `rings`, `radial` and `geo`, does not make nodes jump: they glide from where they are to where they go. The run, and its promise, end when they arrive.
 
 The glide lasts `transitions.layout` milliseconds, 400 by default. `duration` in the run options overrides it for one run, and `0` places nodes at once.
 
