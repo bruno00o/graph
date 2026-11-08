@@ -160,7 +160,7 @@ const definition = defineGraph({
 const lower = [...paths, ...segments].map((edge) => edge.id)
 const opened = new Set<Key>()
 
-function render() {
+function reveal() {
   const revealed = new Set<Key>()
   for (const key of opened) {
     for (const carrier of graph.support.carriers(key, { maxDepth: 1 }).edges) {
@@ -178,7 +178,7 @@ graph.on('doubleclick', ({ target }) => {
   } else {
     opened.add(target.key)
   }
-  render()
+  reveal()
 })
 ```
 
