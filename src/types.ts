@@ -1677,7 +1677,8 @@ export interface HullStyle<C> {
    */
   readonly shape?: HullShape | undefined
   /**
-   * Space between the outline and the edge of the nodes, in screen pixels.
+   * Space between the outline and the edge of the nodes, in screen pixels. Must be finite, 0 or
+   * more.
    * @default 16
    */
   readonly padding?: number | undefined
@@ -1691,7 +1692,7 @@ export interface HullStyle<C> {
   /** Outline color. Defaults to `color`, or to `var(--graph-group-line)`. */
   readonly stroke?: C | undefined
   /**
-   * Width of the outline in screen pixels, `0` for none.
+   * Width of the outline in screen pixels, `0` for none. Must be finite, 0 or more.
    * @default 1
    */
   readonly strokeWidth?: number | undefined

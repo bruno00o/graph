@@ -15,7 +15,7 @@ Returns a frozen [`EdgeBundling`](/docs/api/define-graph#bundling) named `'densi
 
 <api-table path="bundling/index.ts" name="DensityBundlingOptions" />
 
-`strength` and `radius` are clamped between 0 and 1, `iterations` is rounded and at most 64. A non-finite value falls back to its default.
+`strength` and `radius` are clamped between 0 and 1, `iterations` is rounded and at most 64. A non-finite value falls back to its default, except `maxEdges`: `Infinity` sets no limit, a negative value is raised to 0, and `NaN` falls back to its default.
 
 ## Result
 

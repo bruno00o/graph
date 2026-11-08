@@ -36,7 +36,8 @@ export interface ExportOptions {
    */
   readonly zoom?: number | undefined
   /**
-   * Margin around the nodes, labels and loops when `region` is `'graph'`, in CSS pixels.
+   * Margin around the nodes, labels and loops when `region` is `'graph'`, in CSS pixels. Must be
+   * finite, 0 or more.
    * @default 32
    */
   readonly padding?: number | undefined
@@ -92,14 +93,22 @@ interface Prepared {
   readonly time: number
 }
 
+function checkPadding(padding: number | undefined): number {
+  if (padding === undefined) return 32
+  if (!(padding >= 0) || !Number.isFinite(padding)) {
+    throw new RangeError('graph: the export padding must be a finite number, 0 or more')
+  }
+  return padding
+}
+
 async function prepare(graph: object, options: ExportOptions): Promise<Prepared> {
+  const padding = checkPadding(options.padding)
   await document.fonts?.ready
   const snapshot = takeSnapshot(graph)
   const { scene, positions, states } = snapshot
   const boxes = snapshot.containers?.boxes ?? null
   const region = options.region ?? 'view'
   const labels = options.labels ?? 'visible'
-  const padding = Math.max(0, options.padding ?? 32)
   const measure = new GlyphAtlas(snapshot.theme.font)
   const shownWindow =
     options.window === undefined

@@ -24,6 +24,7 @@ export interface DensityBundlingOptions {
   readonly iterations?: number | undefined
   /**
    * Most edges bundled. Above it, every edge stays straight and a warning is logged in development.
+   * `Infinity` sets no limit, a negative value counts as 0 and `NaN` as the default.
    * @default 200000
    */
   readonly maxEdges?: number | undefined
@@ -41,10 +42,17 @@ const defaultStrength = 0.85
 const defaultMaxEdges = 200_000
 const inlineBudget = 8
 
+const maxLimit = 2 ** 31
+
 function finiteOr(value: number | undefined, fallback: number, min: number, max: number): number {
   return value !== undefined && Number.isFinite(value)
     ? Math.min(max, Math.max(min, value))
     : fallback
+}
+
+function edgeLimit(value: number | undefined): number {
+  if (value === Number.POSITIVE_INFINITY) return maxLimit
+  return Math.max(0, Math.floor(finiteOr(value, defaultMaxEdges, 0, maxLimit)))
 }
 
 function inline(
@@ -124,7 +132,7 @@ export function densityBundling(options: DensityBundlingOptions = {}): EdgeBundl
     name: 'density',
     options: settings,
     strength: finiteOr(options.strength, defaultStrength, 0, 1),
-    maxEdges: Math.max(0, Math.floor(finiteOr(options.maxEdges, defaultMaxEdges, 0, 2 ** 31))),
+    maxEdges: edgeLimit(options.maxEdges),
     start: (graph: BundleGraph, listener: BundleListener) => start(graph, settings, listener),
   })
 }

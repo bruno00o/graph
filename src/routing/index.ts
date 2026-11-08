@@ -34,6 +34,7 @@ export interface OrthogonalRoutingOptions {
   readonly axis?: RouteAxis | undefined
   /**
    * Most edges routed. Above it, every edge stays straight and a warning is logged in development.
+   * `Infinity` sets no limit, a negative value counts as 0 and `NaN` as the default.
    * @default 50000
    */
   readonly maxEdges?: number | undefined
@@ -59,10 +60,17 @@ const defaultMaxEdges = 50_000
 const inlineBudget = 8
 const axes: readonly RouteAxis[] = ['auto', 'vertical', 'horizontal']
 
+const maxLimit = 2 ** 31
+
 function finiteOr(value: number | undefined, fallback: number, min: number, max: number): number {
   return value !== undefined && Number.isFinite(value)
     ? Math.min(max, Math.max(min, value))
     : fallback
+}
+
+function edgeLimit(value: number | undefined): number {
+  if (value === Number.POSITIVE_INFINITY) return maxLimit
+  return Math.max(0, Math.floor(finiteOr(value, defaultMaxEdges, 0, maxLimit)))
 }
 
 function inline(message: ToWorker, listener: BundleListener): BundleRun {
@@ -150,7 +158,7 @@ export function orthogonalRouting(options: OrthogonalRoutingOptions = {}): EdgeR
     name: 'orthogonal',
     options: settings,
     radius: finiteOr(options.radius, defaultRadius, 0, Number.MAX_VALUE),
-    maxEdges: Math.max(0, Math.floor(finiteOr(options.maxEdges, defaultMaxEdges, 0, 2 ** 31))),
+    maxEdges: edgeLimit(options.maxEdges),
     start: (graph: RouteGraph, listener: BundleListener) => start(graph, settings, listener),
   })
 }

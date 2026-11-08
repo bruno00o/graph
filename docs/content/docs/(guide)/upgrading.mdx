@@ -5,6 +5,24 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.19.0
+
+### Invalid numbers throw in `hull`
+
+`hull` throws a `RangeError` when `padding` or `strokeWidth` is negative, `NaN` or infinite. Before, a negative value counted as 0, and `NaN` or an infinite value fell back to the default (16 pixels of padding, an outline of 1 pixel). Pass 0 for no padding or no outline, and leave the option out for the default.
+
+### Export `padding` is checked
+
+`exportPng` and `exportSvg` throw a `RangeError` when `padding` is negative, `NaN` or infinite, before any work. A negative value used to count as 0. Pass 0 for no margin.
+
+### `maxEdges: Infinity` means no limit
+
+`densityBundling` and `orthogonalRouting` took `maxEdges: Infinity` for the default limit. It now means no limit, as for `bridges.maxEdges`. A negative value is still raised to 0, and `NaN` still falls back to the default.
+
+### `grid` ignores a `columns` that is not finite
+
+`grid({ columns: NaN })` placed every node at `NaN`, and `Infinity` made a single row. Both now count as the default, the square root of the count, rounded up.
+
 ## 0.16.0
 
 ### Marks of live sources take no `key`

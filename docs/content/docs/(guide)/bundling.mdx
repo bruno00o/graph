@@ -85,7 +85,7 @@ The computation runs in a Web Worker, so the page stays responsive. Measured on 
 
 Edges spread at random, which cross each other everywhere, take about four times longer: 0.85 s for 100,000 and 7.7 s for a million. Each bundled edge is drawn with 5 to 33 points, by length. On the GPU, a bundled edge takes 16 bytes and each of its points 16 more: 10 MB for 100,000 edges between communities, 25 MB for 100,000 edges at random.
 
-Above `maxEdges`, 200,000 by default, edges stay straight and a warning is logged in development. Raise it for larger graphs that can wait for their bundles.
+Above `maxEdges`, 200,000 by default, edges stay straight and a warning is logged in development. Raise it for larger graphs that can wait for their bundles, or pass `Infinity` for no limit.
 
 Bundling is not available on a [map](/docs/map): edges stay straight, or follow [great circles](/docs/map#great-circles). Geodesic edges are never bundled.
 
