@@ -46,6 +46,8 @@ A hull with no node draws nothing. A hull with one node is a circle around it.
 
 The padding counts from the edge of each node and its outline, in screen pixels: hulls keep their margin at every zoom level.
 
+`hull` throws a `RangeError` when `padding` or `strokeWidth` is negative, `NaN` or infinite. Leave an option out, or pass `undefined`, for its default.
+
 ## Shapes
 
 - `rounded` is the convex hull of the node disks, grown by the padding: straight sides, and round corners that follow each node.
