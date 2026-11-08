@@ -1,6 +1,6 @@
 {
   "name": "@bruno00o/graph",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Framework-agnostic, typed graph visualization rendered with WebGL2.",
   "keywords": [
     "graph",
@@ -103,6 +103,7 @@
     "docs:build": "pnpm --dir docs build",
     "docs:thumbnails": "node scripts/thumbnails.mjs",
     "docs:new-example": "node scripts/new-example.mjs",
+    "docs:showcase-data": "node scripts/showcase-data.mjs",
     "bench": "node scripts/bench.mjs",
     "build": "tsdown",
     "check": "biome check .",

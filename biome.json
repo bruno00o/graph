@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!CHANGELOG.md", "!docs/src/routeTree.gen.ts"]
+    "includes": ["**", "!CHANGELOG.md", "!docs/src/routeTree.gen.ts", "!docs/public/showcase-data"]
   },
   "formatter": {
     "indentStyle": "space",

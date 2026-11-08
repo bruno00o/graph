@@ -1357,3 +1357,34 @@
   stroke-width: 1px;
   stroke-dasharray: 3 3;
 }
+
+.showcase-frame {
+  margin-bottom: 40px;
+}
+
+.showcase-frame:fullscreen {
+  margin: 0;
+}
+
+.showcase-stage {
+  position: relative;
+  height: clamp(640px, calc(100vh - 220px), 860px);
+}
+
+.showcase-frame:fullscreen .showcase-stage {
+  flex: 1;
+  height: auto;
+}
+
+.showcase-notes {
+  max-width: 760px;
+  margin-bottom: 40px;
+}
+
+.showcase-notes h2 {
+  margin-top: 0;
+}
+
+.showcase-gallery .thumb img {
+  object-position: top left;
+}

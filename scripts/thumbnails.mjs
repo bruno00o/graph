@@ -2,7 +2,16 @@ import { existsSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright'
-import { browserArgs, docsExamples, docsSite, install, root, run, serve } from './harness.mjs'
+import {
+  browserArgs,
+  docsExamples,
+  docsShowcases,
+  docsSite,
+  install,
+  root,
+  run,
+  serve,
+} from './harness.mjs'
 
 const { values: options, positionals } = parseArgs({
   allowPositionals: true,
@@ -20,7 +29,7 @@ const themes = [
   { scheme: 'dark', file: 'thumbnail-dark.webp' },
 ]
 const captureStyle = `
-  .frame-stage {
+  .frame-stage, .showcase-stage {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -34,11 +43,21 @@ const hidePanels = `
   .example-actions, .example-panel { display: none !important; }
 `
 
-const all = await docsExamples()
-const unknown = positionals.filter((slug) => !all.some((example) => example.slug === slug))
-if (unknown.length > 0) throw new Error(`No docs example named ${unknown.join(', ')}`)
-const wanted =
-  positionals.length > 0 ? all.filter((example) => positionals.includes(example.slug)) : all
+const examples = (await docsExamples()).map((example) => ({
+  ...example,
+  id: example.slug,
+  path: `/examples/${example.slug}`,
+}))
+const showcases = (await docsShowcases()).map((showcase) => ({
+  ...showcase,
+  id: `showcase/${showcase.slug}`,
+  path: `/showcase/${showcase.slug}`,
+}))
+const all = [...examples, ...showcases]
+const unknown = positionals.filter((id) => !all.some((item) => item.id === id))
+if (unknown.length > 0)
+  throw new Error(`No docs example or showcase app named ${unknown.join(', ')}`)
+const wanted = positionals.length > 0 ? all.filter((item) => positionals.includes(item.id)) : all
 
 if (options.build || !existsSync(docsSite)) run('pnpm', ['docs:build'])
 
@@ -87,7 +106,7 @@ async function capture(browser, encoder, origin, example) {
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   try {
-    await page.goto(`${origin}/examples/${example.slug}`, { waitUntil: 'load' })
+    await page.goto(`${origin}${example.path}`, { waitUntil: 'load' })
     await page.waitForFunction(() => window.__harness.ready(), null, {
       timeout: 60000,
       polling: 100,
@@ -132,7 +151,7 @@ try {
       console.log(written.join('\n'))
     } catch (error) {
       failed++
-      console.log(`${example.slug}: ${String(error?.message ?? error).split('\n')[0]}`)
+      console.log(`${example.id}: ${String(error?.message ?? error).split('\n')[0]}`)
     }
   }
 } finally {

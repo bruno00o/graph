@@ -287,6 +287,35 @@ describe('typed data', () => {
     ).toThrow(TypeError)
   })
 
+  it('accepts name and layer with explicit item types on the marks', () => {
+    const named = edges<Link>(links, {
+      name: 'routes',
+      layer: 'flights',
+      source: 'from',
+      target: 'to',
+    })
+    expectTypeOf(named).toEqualTypeOf<EdgeMark<Link, string | undefined, string | undefined>>()
+    const plain = edges<Link>(links, { source: 'from', target: 'to' })
+    expectTypeOf(plain).toEqualTypeOf<EdgeMark<Link, undefined, undefined>>()
+    const keyed = nodes<Company>(companies, { name: 'company', layer: 'orgs', key: 'title' })
+    expectTypeOf(keyed).toEqualTypeOf<NodeMark<Company, string | undefined, string | undefined>>()
+    const unkeyed = nodes<Person>(people, { name: 'person' })
+    expectTypeOf(unkeyed).toEqualTypeOf<NodeMark<Person, string | undefined, string | undefined>>()
+    const inferred = nodes(people, { name: 'person', layer: 'people' })
+    expectTypeOf(inferred).toEqualTypeOf<NodeMark<Person, 'person', 'people'>>()
+    const unnamed = edges(links, { source: 'from', target: 'to' })
+    expectTypeOf(unnamed).toEqualTypeOf<EdgeMark<Link, undefined, undefined>>()
+    const definition = defineGraph({ marks: [named, keyed, nodes(people, { name: 'person' })] })
+    const graph = mount(definition)
+    graph.layers.toggle('anything')
+    // @ts-expect-error
+    edges<Link>(links, { name: 1, source: 'from', target: 'to' })
+    // @ts-expect-error
+    nodes<Person>(people, { layer: 2 })
+    expect(named.name).toBe('routes')
+    expect(named.layer).toBe('flights')
+  })
+
   it('refuses a definition with other data types on update', () => {
     const graph = mount(defineGraph({ marks: [nodes(people)] }))
     graph.update({ definition: defineGraph({ marks: [nodes(people)] }) })

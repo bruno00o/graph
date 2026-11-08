@@ -36,6 +36,30 @@ export function nodes<T, N extends MarkName = undefined, L extends MarkLayer = u
   data: Iterable<T>,
   options: NodeOptions<NoInfer<T>, N, L> & { readonly key: KeyChannel<NoInfer<T>> },
 ): NodeMark<T, N, L>
+/**
+ * A mark that draws one node per item of a live source, with explicit type arguments: `name` and
+ * `layer` are then typed as strings, not as the literals given.
+ */
+export function nodes<T>(
+  data: LiveSource<T>,
+  options?: Omit<NodeOptions<NoInfer<T>>, 'key'>,
+): NodeMark<T, MarkName, MarkLayer>
+/**
+ * A mark that draws one node per item keyed by its `id` field, with explicit type arguments: `name`
+ * and `layer` are then typed as strings, not as the literals given.
+ */
+export function nodes<T extends { readonly id: Key }>(
+  data: Iterable<T>,
+  options?: NodeOptions<NoInfer<T>>,
+): NodeMark<T, MarkName, MarkLayer>
+/**
+ * A mark that draws one node per item keyed by the `key` option, with explicit type arguments:
+ * `name` and `layer` are then typed as strings, not as the literals given.
+ */
+export function nodes<T>(
+  data: Iterable<T>,
+  options: NodeOptions<NoInfer<T>> & { readonly key: KeyChannel<NoInfer<T>> },
+): NodeMark<T, MarkName, MarkLayer>
 export function nodes<T>(
   data: GraphData<T>,
   options: NodeOptions<T> = {},
@@ -74,6 +98,30 @@ export function edges<T, N extends MarkName = undefined, L extends MarkLayer = u
   data: Iterable<T>,
   options: EdgeOptions<NoInfer<T>, N, L> & { readonly key: KeyChannel<NoInfer<T>> },
 ): EdgeMark<T, N, L>
+/**
+ * A mark that draws one edge per item of a live source, with explicit type arguments: `name` and
+ * `layer` are then typed as strings, not as the literals given.
+ */
+export function edges<T>(
+  data: LiveSource<T>,
+  options: Omit<EdgeOptions<NoInfer<T>>, 'key'>,
+): EdgeMark<T, MarkName, MarkLayer>
+/**
+ * A mark that draws one edge per item keyed by its `id` field, with explicit type arguments: `name`
+ * and `layer` are then typed as strings, not as the literals given.
+ */
+export function edges<T extends { readonly id: Key }>(
+  data: Iterable<T>,
+  options: EdgeOptions<NoInfer<T>>,
+): EdgeMark<T, MarkName, MarkLayer>
+/**
+ * A mark that draws one edge per item keyed by the `key` option, with explicit type arguments:
+ * `name` and `layer` are then typed as strings, not as the literals given.
+ */
+export function edges<T>(
+  data: Iterable<T>,
+  options: EdgeOptions<NoInfer<T>> & { readonly key: KeyChannel<NoInfer<T>> },
+): EdgeMark<T, MarkName, MarkLayer>
 export function edges<T>(
   data: GraphData<T>,
   options: EdgeOptions<T>,

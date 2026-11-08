@@ -33,6 +33,12 @@ const examplesLink: LinkItemType = {
   active: 'nested-url',
 }
 
+const showcaseLink: LinkItemType = {
+  text: messages.nav.showcase,
+  url: '/showcase',
+  active: 'nested-url',
+}
+
 const benchmarkLink: LinkItemType = {
   text: messages.nav.benchmark,
   url: '/benchmark',
@@ -43,13 +49,13 @@ export function baseOptions(): BaseLayoutProps {
   return {
     nav: { title: <Brand />, url: '/' },
     githubUrl: repository,
-    links: [examplesLink, benchmarkLink, npmLink],
+    links: [examplesLink, showcaseLink, benchmarkLink, npmLink],
   }
 }
 
 export function homeOptions(): BaseLayoutProps {
   return {
     ...baseOptions(),
-    links: [...sectionLinks, examplesLink, benchmarkLink, npmLink],
+    links: [...sectionLinks, examplesLink, showcaseLink, benchmarkLink, npmLink],
   }
 }
