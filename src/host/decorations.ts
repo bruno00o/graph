@@ -11,7 +11,7 @@ import { detailStep, edgeShown, nodeShown, type Sight } from '../core/visibility
 import type { GraphDefinition, Key, View } from '../types'
 import { type EdgeAnchor, edgeAnchor } from '../webgl/label-layer'
 import { type AnchorBox, AnchorLayer, type GraphAnchors } from './anchors'
-import type { GraphState } from './mount-graph'
+import type { GraphState } from './graph-instance'
 import type { StateRegistry } from './state-registry'
 
 const hullBudget = 6

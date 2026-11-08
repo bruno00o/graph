@@ -1,5 +1,5 @@
 import type { Point, View } from '../types'
-import type { FitOptions, ViewOptions } from './mount-graph'
+import type { FitOptions, ViewOptions } from './graph-instance'
 
 function finite(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value)
