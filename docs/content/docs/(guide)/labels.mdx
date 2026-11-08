@@ -56,7 +56,7 @@ A [box](/docs/marks#boxes) puts its label on itself by default and grows to fit 
 
 ### Fonts
 
-`font` takes a CSS font family, such as `'Georgia, serif'`. Glyphs are drawn into a texture the first time they appear, with the font the browser has at that moment, so load web fonts before mounting the graph, for example after `document.fonts.ready`. Without `font`, labels use the `--graph-font` variable of the theme.
+`font` takes a CSS font family, such as `'Georgia, serif'`. Glyphs are drawn into a texture the first time they appear, with the font the browser has at that moment. A web font that finishes loading later, such as an `@font-face` or a `FontFace` added to `document.fonts` before it loads, is picked up: when a family of the theme font or of a label `font` loads, the graph measures its labels and boxes again and draws once more. Nothing happens when the family that loads is not in use. Without `font`, labels use the `--graph-font` variable of the theme.
 
 ### Backgrounds
 

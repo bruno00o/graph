@@ -156,7 +156,7 @@ nodes<Item>(items, {
 - `cornerRadius` rounds the corners, a quarter of the height by default, and at most half the height: `cornerRadius: 0` gives square corners.
 - The label goes on the box, `placement: 'center'` by default. Another placement puts it outside, and the box keeps its height as width.
 
-Boxes are measured with the font of the labels, the same one the glyphs are drawn with, so the text fits the box at every zoom level. When the theme changes `--graph-font`, the boxes are measured again. Like the glyphs, widths use the font the browser has when a label first appears, so load web fonts before mounting the graph (see [Fonts](/docs/labels#fonts)).
+Boxes are measured with the font of the labels, the same one the glyphs are drawn with, so the text fits the box at every zoom level. When the theme changes `--graph-font`, the boxes are measured again. When a web font in the family list loads after the first frame, the boxes are measured again with it (see [Fonts](/docs/labels#fonts)).
 
 Edges end at the border of a box, rounded corners included, and their arrows touch it: straight edges, parallel curves, [bundled](/docs/bundling) and [routed](/docs/routing) paths, and edge ends. Loops start from the right end of the box. Picking, the [view fit](/docs/view), [hulls](/docs/drawing-layers#hulls), [anchors](/docs/drawing-layers#anchored-html), the [minimap](/docs/minimap-and-legend) and the [exports](/docs/export) follow the box too. Badges sit on its corners, and an image is drawn as a square as tall as the box, in its middle. See the [box nodes](/examples/box-nodes) example.
 

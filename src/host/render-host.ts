@@ -1,6 +1,8 @@
 import { defaultPointBudget, type EdgePaths } from '../core/edge-paths'
+import type { LoadedFamilies } from '../core/font-family'
 import type { Scene } from '../core/scene'
 import { dev } from '../dev'
+import { watchFonts } from '../dom/fonts'
 import type { TextWidths } from '../dom/text-width'
 import { observeTheme, type ThemeResolver, type ThemeWatch } from '../dom/theme'
 import type { GraphState, HostSurface, RendererFactory } from './graph-instance'
@@ -41,6 +43,7 @@ export class RenderHost {
   #ratioQuery: MediaQueryList | null = null
   #themeWatch: ThemeWatch | null = null
   #resizeObserver: ResizeObserver | null = null
+  #fontWatch: (() => void) | null = null
   readonly #source: RenderSource
 
   constructor(source: RenderSource) {
@@ -131,6 +134,16 @@ export class RenderHost {
     this.#source.reconstrain()
     this.#resizeObserver.observe(element)
     this.#watchRatio()
+    this.#fontWatch = watchFonts(this.#onFonts)
+  }
+
+  readonly #onFonts = (families: LoadedFamilies): void => {
+    const source = this.#source
+    if (source.destroyed()) return
+    const measured = source.textWidths.reload(families)
+    const drawn = this.renderer?.reloadFonts?.(families) ?? false
+    if (measured && source.scene.remeasure()) source.remeasured()
+    if (measured || drawn) source.request()
   }
 
   #watchRatio(): void {
@@ -190,6 +203,8 @@ export class RenderHost {
     this.#resizeObserver?.disconnect()
     this.#ratioQuery?.removeEventListener('change', this.#onRatio)
     this.#themeWatch?.stop()
+    this.#fontWatch?.()
+    this.#fontWatch = null
   }
 
   release(): void {

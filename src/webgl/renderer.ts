@@ -1822,6 +1822,13 @@ function createRenderer(
       if (atlas.setFont(theme.font)) invalidateLabels()
     },
 
+    reloadFonts(families) {
+      if (!atlas.reload(families)) return false
+      touch()
+      invalidateLabels()
+      return true
+    },
+
     render(given) {
       const width = gl.drawingBufferWidth
       const height = gl.drawingBufferHeight

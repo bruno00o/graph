@@ -45,6 +45,23 @@ describe('glyph atlas caches', () => {
   })
 })
 
+describe('glyph atlas fonts', () => {
+  it('draws again the faces of the families that loaded, and nothing else', () => {
+    const atlas = new GlyphAtlas('Sans, sans-serif', 4096)
+    const theme = atlas.line('abc', 500)
+    const other = atlas.line('abc', 500, 'Serif')
+    const generation = atlas.generation
+    expect(atlas.reload(new Set(['mono']))).toBe(false)
+    expect(atlas.generation).toBe(generation)
+    expect(atlas.line('abc', 500)).toBe(theme)
+    expect(atlas.reload(new Set(['sans']))).toBe(true)
+    expect(atlas.generation).toBeGreaterThan(generation)
+    expect(atlas.line('abc', 500)).not.toBe(theme)
+    expect(atlas.line('abc', 500, 'Serif')).not.toBe(other)
+    expect(atlas.reload(null)).toBe(true)
+  })
+})
+
 describe('glyph atlas overflow', () => {
   it('never points a glyph outside the atlas texture', () => {
     const atlas = new GlyphAtlas('sans-serif', 2048)

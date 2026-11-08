@@ -475,6 +475,9 @@ export class EdgePaths {
     this.stations = stations
     this.measured = measured
     this.mix = 0
+    for (let edge = 0; edge < this.capacity; edge++) {
+      if ((this.info[edge * 4 + 1] ?? 0) === 0) this.reach[edge] = 0
+    }
     this.#version++
     this.pointsVersion++
   }
