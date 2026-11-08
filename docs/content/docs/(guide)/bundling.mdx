@@ -59,7 +59,7 @@ await graph.bundling.run()
 
 ## Which edges bundle
 
-Every edge bundles, except loops. Set `bundle` on `edges()` to leave edges out: they stay straight and pull no other edge.
+Every edge bundles, except loops and edges with [waypoints](/docs/marks#waypoints). Set `bundle` on `edges()` to leave edges out: they stay straight and pull no other edge.
 
 ```ts
 edges<Link>(links, {

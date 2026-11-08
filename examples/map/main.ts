@@ -1,10 +1,17 @@
-import { type Badge, defineGraph, edges, groups, hull, nodes } from '@bruno00o/graph'
+import { type Badge, defineGraph, edges, geoToWorld, groups, hull, nodes } from '@bruno00o/graph'
 import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { messages } from '../shared/messages'
 import { button, choice, createPage, download, status, themeToggle } from '../shared/page'
-import { createPlaces, createStacks, type Place, placeCount, type Route } from './places'
+import {
+  createPlaces,
+  createStacks,
+  type Place,
+  placeCount,
+  type Route,
+  windingPath,
+} from './places'
 
 setWorkerUrl(workerUrl)
 
@@ -16,10 +23,43 @@ const style = params.get('style') ?? 'https://demotiles.maplibre.org/style.json'
 const projection = params.get('projection') === 'mercator' ? 'mercator' : 'globe'
 const boxes = params.get('shape') === 'box'
 const stack = params.has('stack')
-const { places, routes } = stack ? createStacks() : createPlaces(count, edgeCount)
+const winding = params.has('waypoints')
+const generated = stack ? createStacks() : createPlaces(count, edgeCount)
+const places = generated.places
+const routes = winding ? withCrossing(generated.routes) : generated.routes
 const small = stack || count <= placeCount
+const placeOf = new Map(places.map((place) => [place.id, place]))
+const paths = new Map<string, { longitude: number; latitude: number }[]>()
 
-function definitionOf(geodesic: boolean) {
+type FarMode = 'geodesic' | 'straight' | 'winding'
+
+function withCrossing(list: Route[]): Route[] {
+  const nearest = (longitude: number, latitude: number) =>
+    places.reduce((best, place) =>
+      Math.hypot(place.longitude - longitude, place.latitude - latitude) <
+      Math.hypot(best.longitude - longitude, best.latitude - latitude)
+        ? place
+        : best,
+    )
+  const from = nearest(174.76, -36.85)
+  const to = nearest(-118.24, 34.05)
+  return [...list, { id: 'crossing', from: from.id, to: to.id, far: true }]
+}
+
+function pathOf(route: Route) {
+  const known = paths.get(route.id)
+  if (known) return known
+  const from = placeOf.get(route.from)
+  const to = placeOf.get(route.to)
+  if (!from || !to) return null
+  const seed = [...route.id].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const path = windingPath(from, to, route.far ? 40 : 12, seed)
+  paths.set(route.id, path)
+  return path
+}
+
+function definitionOf(mode: FarMode) {
+  const geodesic = mode === 'geodesic'
   return defineGraph({
     marks: [
       edges<Route>(routes, {
@@ -27,6 +67,7 @@ function definitionOf(geodesic: boolean) {
         target: 'to',
         width: (route) => (small ? (route.far ? 1.5 : 2) : 1),
         geodesic: (route) => geodesic && route.far,
+        ...(mode === 'winding' ? { waypoints: pathOf } : {}),
         dash: (route) => (route.far ? 'dashed' : 'solid'),
         arrow: (route) => (small && route.far ? 'target' : 'none'),
       }),
@@ -68,7 +109,7 @@ main.append(container)
 const map = new MapLibreMap({ container, style, center: [10, 48], zoom: small ? 2 : 1.6 })
 map.on('style.load', () => map.setProjection({ type: projection }))
 const graph = mountMapGraph(map, {
-  definition: definitionOf(true),
+  definition: definitionOf(winding ? 'winding' : 'geodesic'),
   ariaLabel: messages.mapLabel(places.length, routes.length),
 })
 
@@ -149,12 +190,12 @@ header.append(
   ),
   choice(
     messages.farRoutes,
-    (['geodesic', 'straight'] as const).map((value) => ({
+    (['geodesic', 'straight', 'winding'] as const).map((value) => ({
       value,
       text: messages.farRouteModes[value],
     })),
-    'geodesic',
-    (value) => graph.update({ definition: definitionOf(value === 'geodesic') }),
+    winding ? 'winding' : 'geodesic',
+    (value) => graph.update({ definition: definitionOf(value as FarMode) }),
   ),
   choice(
     messages.volume,
@@ -172,4 +213,4 @@ header.append(
   themeToggle(messages.dark, messages.light),
 )
 
-Object.assign(window, { graph, map, exportMapPng })
+Object.assign(window, { graph, map, exportMapPng, pathOf, routes, geoToWorld })

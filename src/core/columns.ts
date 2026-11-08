@@ -7,6 +7,7 @@ import type {
   LabelPlacement,
   NodeShape,
 } from '../types'
+import { EdgeWaypoints } from './edge-waypoints'
 import { TimeSpans } from './time-range'
 import { ZoomRanges } from './zoom-range'
 
@@ -255,6 +256,7 @@ export class EdgeColumns {
   labelFont: (string | null)[] = []
   labelMaxWidth: Float32Array = new Float32Array(0)
   ends: EdgeEnds | null = null
+  waypoints: EdgeWaypoints | null = null
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
 
@@ -264,12 +266,19 @@ export class EdgeColumns {
     return this.ends
   }
 
+  useWaypoints(): EdgeWaypoints {
+    this.waypoints ??= new EdgeWaypoints()
+    this.waypoints.reserve(this.capacity)
+    return this.waypoints
+  }
+
   reserve(index: number): void {
     if (index < this.capacity) return
     const capacity = nextCapacity(this.capacity, index)
     this.zoom.reserve(capacity)
     this.time.reserve(capacity)
     this.ends?.reserve(capacity)
+    this.waypoints?.reserve(capacity)
     this.alive = grow(this.alive, capacity)
     this.slot = grow(this.slot, capacity)
     this.source = grow(this.source, capacity)
@@ -308,6 +317,7 @@ export class EdgeColumns {
     this.label[index] = null
     this.labelFont[index] = null
     this.ends?.clear(index)
+    this.waypoints?.clear(index)
   }
 
   setFlow(index: number, speed: number): void {

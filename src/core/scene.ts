@@ -986,7 +986,6 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     edges.slot[index] = edgeSlot
     edges.source[index] = record.sourceIndex
     edges.target[index] = record.targetIndex
-    lanes.link(index, record.sourceIndex, record.targetIndex)
     edges.color[index] = swapColor(
       palette,
       edges.color[index] ?? noColor,
@@ -1005,12 +1004,20 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     if (mark.time) edges.time.read(index, mark.time(datum))
     else edges.time.clear(index)
     edges.setFlow(index, mark.flow ? flowSpeed(mark.flow(datum)) : 0)
-    const geodesic = mark.geodesic?.(datum) === true
-    edges.geodesic[index] = geodesic ? 1 : 0
     const loop = record.sourceIndex === record.targetIndex
-    edges.bundle[index] = !loop && !geodesic && mark.bundle?.(datum) !== false ? 1 : 0
-    edges.route[index] = !loop && !geodesic && mark.route?.(datum) !== false ? 1 : 0
-    edges.bridge[index] = !loop && !geodesic && mark.bridge?.(datum) !== false ? 1 : 0
+    const fixed = writeWaypoints(index, mark, datum, loop)
+    const geodesic = !fixed && mark.geodesic?.(datum) === true
+    edges.geodesic[index] = geodesic ? 1 : 0
+    const free = !loop && !geodesic && !fixed
+    edges.bundle[index] = free && mark.bundle?.(datum) !== false ? 1 : 0
+    edges.route[index] = free && mark.route?.(datum) !== false ? 1 : 0
+    edges.bridge[index] = free && mark.bridge?.(datum) !== false ? 1 : 0
+    if (fixed) {
+      lanes.unlink(index)
+      edges.bend[index] = 0
+    } else {
+      lanes.link(index, record.sourceIndex, record.targetIndex)
+    }
     edges.label[index] = toText(mark.label?.(datum))
     edges.labelBackground[index] = readBackground(
       edges.labelBackground[index] ?? noColor,
@@ -1034,6 +1041,19 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     previous.release(nearBefore)
     previous.release(farBefore)
     dirtyEdges.add(index)
+  }
+
+  function writeWaypoints(
+    index: number,
+    mark: CompiledEdgeMark,
+    datum: unknown,
+    loop: boolean,
+  ): boolean {
+    const value = loop ? null : mark.waypoints?.(datum)
+    const store = value === null || value === undefined ? edges.waypoints : edges.useWaypoints()
+    if (!store) return false
+    store.set(index, value)
+    return (store.count[index] ?? 0) > 0
   }
 
   function writeEnds(index: number, mark: CompiledEdgeMark, datum: unknown, color: number): void {

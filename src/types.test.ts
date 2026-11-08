@@ -15,6 +15,7 @@ import {
   groups,
   hull,
   type KeyFieldOf,
+  lineWaypoints,
   type Mark,
   type NodeDatum,
   type NodeMark,
@@ -94,6 +95,29 @@ describe('public types', () => {
     nodes(people, { size: raw((person) => person.name) })
     // @ts-expect-error
     edges(links, { source: 'from', target: 'to', width: '2' })
+  })
+
+  it('takes waypoints from a field or a function, as points, places or pairs', () => {
+    type Road = Link & { via: { longitude: number; latitude: number }[]; bends: [number, number][] }
+    const roads: Road[] = []
+    edges(roads, { source: 'from', target: 'to', waypoints: 'via' })
+    edges(roads, { source: 'from', target: 'to', waypoints: 'bends' })
+    edges(roads, {
+      source: 'from',
+      target: 'to',
+      waypoints: (road) => (road.weight > 1 ? [{ x: 0, y: 0 }, [1, 2]] : null),
+    })
+    edges(roads, {
+      source: 'from',
+      target: 'to',
+      waypoints: (road) => lineWaypoints({ type: 'LineString', coordinates: road.bends }),
+    })
+    // @ts-expect-error
+    edges(roads, { source: 'from', target: 'to', waypoints: 'weight' })
+    // @ts-expect-error
+    edges(roads, { source: 'from', target: 'to', waypoints: [{ x: 0, y: 0 }] })
+    // @ts-expect-error
+    edges(roads, { source: 'from', target: 'to', waypoints: () => [{ lon: 0, lat: 0 }] })
   })
 
   it('takes a box with a width that fits the label or a number, and a corner radius', () => {

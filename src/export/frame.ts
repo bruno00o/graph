@@ -154,8 +154,8 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     }
   }
   const bundles = source.bundles
-  if (bundles && bundles.bundled > 0) {
-    const line = new Float64Array(maxPathPoints * 2)
+  if (bundles?.any) {
+    const line = new Float64Array(Math.max(maxPathPoints, bundles.longest) * 2)
     for (let index = 0; index < edges.capacity; index++) {
       if (edges.alive[index] !== 1 || bundles.count(index) < 2) continue
       if (!edgeShown(nodes, edges, index, sight)) continue

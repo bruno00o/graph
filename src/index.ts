@@ -157,10 +157,14 @@ export type {
   LayoutListener,
   LayoutRun,
   LensOptions,
+  LineGeometry,
+  LineStringGeometry,
+  LineWaypointsOptions,
   LiveSource,
   Mark,
   MarkLayer,
   MarkName,
+  MultiLineStringGeometry,
   NodeDatum,
   NodeGroup,
   NodeImage,
@@ -211,5 +215,7 @@ export type {
   View,
   ViewBounds,
   ViewLimitOptions,
+  WaypointInput,
   WheelMode,
 } from './types'
+export { lineWaypoints } from './waypoints'

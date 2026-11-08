@@ -39,6 +39,7 @@ import {
   nodeVertex,
   withEnds,
 } from './shaders'
+import { waypointVertex } from './waypoint-shaders'
 
 type Program = readonly [name: string, vertex: string, fragment: string]
 
@@ -49,6 +50,7 @@ const endless: readonly Program[] = [
   ['arc', arcVertex, clippedEdgeFragment],
   ['bundle', bundleVertexOf(false), edgeFragmentOf(false, false)],
   ['bundle bridged', bundleVertexOf(true), edgeFragmentOf(false, true)],
+  ['waypoint', waypointVertex, clippedEdgeFragment],
 ]
 
 const programs: readonly Program[] = [

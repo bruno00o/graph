@@ -131,6 +131,7 @@ export class BundleHost {
 
   changed(structural: boolean, nodes = false): void {
     const { edges } = this.#context
+    this.paths.fixed = edges.waypoints
     this.paths.reserve(edges.capacity)
     if (!this.#method && this.paths.bundled === 0) return
     const before = this.paths.version

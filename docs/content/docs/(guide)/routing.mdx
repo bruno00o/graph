@@ -59,7 +59,7 @@ await graph.routing.run()
 
 ## Which edges route
 
-Every edge routes, except loops and [great circles](/docs/map#great-circles). Set `route` on `edges()` to keep edges straight:
+Every edge routes, except loops, [great circles](/docs/map#great-circles) and edges with [waypoints](/docs/marks#waypoints). Set `route` on `edges()` to keep edges straight:
 
 ```ts
 edges<Link>(links, {
@@ -95,7 +95,7 @@ defineGraph({
 - `size` is the width of a jump in screen pixels. Zoomed out below 1, jumps shrink with the zoom, and under 2 pixels edges cross plainly, so a large graph seen whole stays clean.
 - Where a horizontal and a vertical segment cross, the horizontal one jumps. Otherwise the edge drawn later jumps: the one from the later mark, or the later item of the same mark.
 
-Bridges apply to straight edges and to routes, with or without a routing. Parallel curves, loops, bundled paths and great circles cross plainly, and so do the rounded corners of routes. A crossing inside a node, near the ends of an edge, has no jump, and neither has a crossing with a hidden edge. Set `bridge: false` on `edges()` to leave edges out: they neither jump nor are jumped over. See the [bridges over crossings](/examples/bridges) example.
+Bridges apply to straight edges and to routes, with or without a routing. Parallel curves, loops, bundled paths, great circles and edges with waypoints cross plainly, and so do the rounded corners of routes. A crossing inside a node, near the ends of an edge, has no jump, and neither has a crossing with a hidden edge. Set `bridge: false` on `edges()` to leave edges out: they neither jump nor are jumped over. See the [bridges over crossings](/examples/bridges) example.
 
 A segment jumps at most 8 times and an edge at most 64 times; further crossings stay plain. Crossings are found once nodes stand still, 150 milliseconds after the last move, in slices of 8 milliseconds on the main thread. The GPU draws the jumps from that list, so panning and zooming cost no search. Exports draw the same jumps, as arcs or breaks in the SVG paths.
 

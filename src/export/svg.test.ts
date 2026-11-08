@@ -116,6 +116,7 @@ function render(
     time?: number
     arch?: number
     bridges?: BridgeShape
+    waypoints?: boolean
   } = {},
 ): string {
   const model = createGraphModel()
@@ -229,7 +230,15 @@ function render(
     ...(extra.time !== undefined ? { time: extra.time } : {}),
     ...(extra.arch !== undefined ? { bundles: arches(scene.edges, positions, extra.arch) } : {}),
     ...(extra.bridges ? { bridges } : {}),
+    ...(extra.waypoints ? { bundles: waypointPaths(scene.edges) } : {}),
   })
+}
+
+function waypointPaths(edges: EdgeColumns): EdgePaths {
+  const paths = new EdgePaths()
+  paths.fixed = edges.waypoints
+  paths.reserve(edges.capacity)
+  return paths
 }
 
 const pair: GraphDefinitionOptions = {
@@ -856,6 +865,49 @@ describe('bundled edges', () => {
   it('anchors the label of a bundled edge at the middle of its path', () => {
     const svg = render(bundled('link'), {}, { arch: 60 })
     expect(svg).toMatch(/<g transform="translate\(200 210\)/)
+  })
+})
+
+describe('waypoint edges', () => {
+  const routed = (via: [number, number][]): GraphDefinitionOptions => ({
+    marks: [
+      edges<Link & { via: [number, number][] }>(
+        [{ id: 'ab', from: 'a', to: 'b', label: 'link', via }],
+        {
+          source: 'from',
+          target: 'to',
+          arrow: 'target',
+          label: 'label',
+          waypoints: 'via',
+        },
+      ),
+      nodes<Item>(
+        [
+          { id: 'a', x: -100, y: 0 },
+          { id: 'b', x: 100, y: 0 },
+        ],
+        { x: 'x', y: 'y' },
+      ),
+    ],
+  })
+
+  it('draws the edge through its waypoints with sharp corners and its arrow head', () => {
+    const svg = render(routed([[0, 80]]), {}, { waypoints: true })
+    const body = svg.match(/<path d="(M[^"]+)" fill="none"/)?.[1] ?? ''
+    expect(body).toContain('L200 230')
+    expect(count(body, /L/g)).toBe(2)
+    expect(count(svg, /<path d="M[^"]+Z" fill="#7f858c"\/>/)).toBe(1)
+  })
+
+  it('anchors the label at the middle of the path length', () => {
+    const svg = render(routed([[0, 80]]), {}, { waypoints: true })
+    expect(svg).toMatch(/<g transform="translate\(200 230\)/)
+  })
+
+  it('draws a straight edge without waypoints', () => {
+    const svg = render(routed([]), {}, { waypoints: true })
+    const body = svg.match(/<path d="(M[^"]+)" fill="none"/)?.[1] ?? ''
+    expect(count(body, /L/g)).toBe(1)
   })
 })
 

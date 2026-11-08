@@ -40,7 +40,7 @@ void main() {
   bool highlighted = (mask & stateRaise.y) != 0u;
   uvec4 path = pathOf(instance);
   int count = int(path.y);
-  if ((packed & 16u) == 0u || count < 2 || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted))) {
+  if ((packed & 16u) == 0u || count < 2 || fixedPath(path) || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted))) {
     gl_Position = hidden;
     return;
   }

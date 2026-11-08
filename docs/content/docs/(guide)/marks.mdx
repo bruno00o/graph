@@ -70,6 +70,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `opacity` | style | Opacity from 0 to 1 |
 | `flow` | style | Moving dashes: `true`, a speed in pixels per second, or `false` |
 | `ends` | object | A look and a label for each end. See [Edge ends](#edge-ends) |
+| `waypoints` | channel | Points the edge passes through. See [Waypoints](#waypoints) |
 | `scales` | object | `color` and `width` scales of this mark alone. See [Scales](/docs/scales#scales-of-a-mark) |
 
 Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels. Defaults and details are in [`edges`](/docs/api/edges#options). Examples: [arrows and dashes](/examples/arrows-and-dashes), and [edge width, dashes and arrows](/examples/edge-styles) from the data.
@@ -187,6 +188,31 @@ Edges between the same two nodes, in either direction, bend apart in symmetric a
 
 <LiveExample slug="parallel-edges" />
 
+## Waypoints
+
+`waypoints` draws an edge through points of your own, in order from its source to its target, such as a route drawn by hand or a line read from a map. The edge starts on its source node, passes each point with a sharp corner, and ends on its target node.
+
+```ts
+type Link = { id: string; from: string; to: string; via: { x: number; y: number }[] }
+
+edges<Link>(links, { source: 'from', target: 'to', waypoints: 'via' })
+```
+
+```ts
+type WaypointInput = Point | GeoPoint | readonly [x: number, y: number]
+```
+
+- A point is `{ x, y }` or `[x, y]` in world units, or `{ longitude, latitude }` in degrees, placed with the projection of [`longitude` and `latitude`](/docs/positions#longitude-and-latitude), with or without a map. The channel takes any iterable, an array or a generator.
+- Only the points in between are fixed. The first and last segments go to the drawn nodes, so they follow a drag, a layout, an animation or a spread group, and the corners stay where the data puts them.
+- `null`, `undefined` or an empty list draw a plain edge. A point that is not a finite number is skipped, and so is a point equal to the one before it.
+- An edge with waypoints is never [bundled](/docs/bundling) or [routed](/docs/routing), never jumps or is jumped over by a [bridge](/docs/routing#bridges), and does not bend apart from [parallel edges](#parallel-edges-and-loops). Loops ignore their waypoints. Waypoints win over `geodesic`.
+- Everything else follows the path: width, color, dashes and flows run through the corners, arrow heads point along the first and last segments, [`ends`](#edge-ends) splits the visible length of the path, and the label sits halfway along the path, turned with its segment. Picking, hovering, the [export](/docs/export) to PNG and SVG and `view.fit` with `edges` follow the path too.
+- An edge takes up to 8,190 points; beyond, its points are thinned evenly, with a warning in development. Points cost 24 bytes each in memory and 16 bytes on the GPU.
+
+See [routes along a network](/docs/map#routes-along-a-network) for lines read from GeoJSON.
+
+<LiveExample slug="edge-waypoints" />
+
 ## Edge ends
 
 `ends` splits an edge in two: the line from the source node to the split takes the `source` options, the rest takes the `target` options. Each end has its own color, width, dash pattern and label, so one edge can show a value per direction.
@@ -225,7 +251,7 @@ edges<Exchange>(exchanges, {
 - An arrow head takes the color and width of its end. A dash pattern keeps its rhythm across the split, and flows run through it.
 - An end label sits near its node, past the arrow head, and turns with the line. It shows only when it fits, after the middle label. With a `background`, it reads as a badge on the line.
 - A state that sets `stroke` or `strokeWidth`, such as hover and selection, applies to both ends. States that only change the opacity or add a halo keep the colors of the ends.
-- Every geometry splits the same way: straight edges, parallel curves, loops, bundled paths, [orthogonal routes](/docs/routing) and great circles on a map, on screen as in PNG and SVG exports.
+- Every geometry splits the same way: straight edges, parallel curves, loops, bundled paths, [orthogonal routes](/docs/routing), [waypoints](#waypoints) and great circles on a map, on screen as in PNG and SVG exports.
 
 Picking reports the end under the pointer in `target.end`, `'source'` or `'target'`. Moving across the split emits `pointerleave` for one end and `pointerenter` for the other, so a tooltip can follow the end. Selection and states still hold whole edges: an end has no key of its own, and keeping one per end would double the work of every state change. To highlight an end, read `target.end` and style that end from your data.
 

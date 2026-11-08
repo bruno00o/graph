@@ -571,7 +571,8 @@ export function writeSvg(scene: SvgScene): string {
       : null
   const bridgeRadius = bridgeSet ? bridgeRadiusAt(bridgeSet.size, zoom) : 0
   const crossed = new Float64Array(4)
-  const crossedLine = new Float64Array(maxPathPoints * 2)
+  const longest = Math.max(maxPathPoints, scene.bundles?.longest ?? 0)
+  const crossedLine = new Float64Array(longest * 2)
 
   function crossedSegment(edge: number, j: number): boolean {
     if (edges.alive[edge] !== 1 || edgeFade(edge) === 0) return false
@@ -772,8 +773,8 @@ export function writeSvg(scene: SvgScene): string {
     }
   }
 
-  const line = new Float64Array(maxPathPoints * 2)
-  const lengths = new Float64Array(maxPathPoints)
+  const line = new Float64Array(longest * 2)
+  const lengths = new Float64Array(longest)
 
   function bundledShape(paths: EdgePaths, index: number, stroke: EdgeLine): EdgeShape | null {
     const count = paths.polyline(index, edges, positions, paths.mix, line)
@@ -790,8 +791,9 @@ export function writeSvg(scene: SvgScene): string {
             )
     }
     const total = lengths[count - 1] ?? 0
+    const fixed = paths.isFixed(index)
     const along = (from: number, to: number, node: number) =>
-      paths.measured
+      paths.measured && !fixed
         ? radius(node)
         : trimOf(
             node,
@@ -895,7 +897,15 @@ export function writeSvg(scene: SvgScene): string {
       (loop
         ? loopReach(radius(source), bend, loopMinimum) * 1.5 + loopShift(nodes, source, zoom)
         : Math.abs(bend) * Math.hypot(dx - ax, dy - ay) * 2) +
-      (bundled ? (paths.reach[index] ?? 0) * zoom : 0)
+      (bundled
+        ? paths.slack(
+            index,
+            positions.x(source),
+            positions.y(source),
+            positions.x(target),
+            positions.y(target),
+          ) * zoom
+        : 0)
     const pad = spread + width * 2 + haloWidth + 8
     if (
       outside(
