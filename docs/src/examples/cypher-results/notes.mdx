@@ -1,0 +1,11 @@
+## How it works
+
+`database.ts` plays the database: its `run` function answers one Cypher query with rows made of nodes and relationships, shaped like the records the official driver returns, with 64-bit integers as `{ low, high }` pairs. Your application would call `session.run` or `driver.executeQuery` there.
+
+`cypherGraph` reads those rows and returns `{ nodes, edges }`: the nodes keyed by their `elementId`, the relationships with `source` and `target`, and the integers turned into numbers. That object is what `createExploration` expects from a neighborhood query, so the query function is one line.
+
+## Try it
+
+- Double-click a node to run the query for it and add its neighbors.
+- Double-click a node with a thick ring to fold what it unfolded.
+- A node reached from two expanded nodes appears once: elements are deduplicated by `elementId`.
