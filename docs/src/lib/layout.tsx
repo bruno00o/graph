@@ -17,7 +17,7 @@ const npmLink: LinkItemType = {
   type: 'icon',
   text: messages.npm,
   label: messages.npm,
-  icon: <Icon name="npm" />,
+  icon: <Icon name="npm" size={18} />,
   url: npmPackage,
   external: true,
 }
