@@ -1,0 +1,29 @@
+.example-actions.file-exports {
+  top: auto;
+  right: 14px;
+  bottom: 14px;
+  left: auto;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.example-status.file-status {
+  right: 14px;
+  bottom: 60px;
+  left: auto;
+}
+
+.file-exports span {
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+}
+
+.example-actions .example-button[aria-pressed="true"] {
+  border-color: var(--graph-accent);
+}
+
+.file-drop {
+  outline: 2px dashed var(--graph-accent);
+  outline-offset: -8px;
+}

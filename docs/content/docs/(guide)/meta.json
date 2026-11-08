@@ -41,6 +41,7 @@
     "tanstack-db",
     "tanstack-query",
     "cypher",
+    "file-formats",
     "devtools",
     "---Reference---",
     "upgrading",

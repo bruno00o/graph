@@ -43,6 +43,10 @@
       "types": "./dist/cypher.d.ts",
       "import": "./dist/cypher.js"
     },
+    "./formats": {
+      "types": "./dist/formats.d.ts",
+      "import": "./dist/formats.js"
+    },
     "./layouts": {
       "types": "./dist/layouts.d.ts",
       "import": "./dist/layouts.js"

@@ -42,6 +42,7 @@ export default defineConfig({
     db: 'src/db/index.ts',
     query: 'src/query/index.ts',
     cypher: 'src/cypher/index.ts',
+    formats: 'src/formats/index.ts',
     layouts: 'src/layouts/index.ts',
     'layouts/force': 'src/layouts/force/index.ts',
     devtools: 'src/devtools/index.ts',

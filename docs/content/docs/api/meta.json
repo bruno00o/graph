@@ -30,6 +30,8 @@
     "create-exploration",
     "---@bruno00o/graph/cypher---",
     "cypher-graph",
+    "---@bruno00o/graph/formats---",
+    "formats",
     "---@bruno00o/graph/timeline---",
     "timeline",
     "---@bruno00o/graph/export---",
