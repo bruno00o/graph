@@ -8,6 +8,7 @@ function hull<T>(options: HullGroupOptions<T>): Hull<never>
 function hull<T>(options: HullMarkOptions<T>): Hull<never>
 function hull<const N extends string>(options: HullStateOptions<N>): Hull<N>
 function hull(options: HullKeysOptions): Hull<never>
+function hull(options: HullOptions): Hull
 ```
 
 Pass the result to `hulls` in [`defineGraph`](/docs/api/define-graph#hulls). Hulls are drawn under edges and nodes, in the order of the array, fills first and outlines after. See [Drawing layers](/docs/drawing-layers#hulls).

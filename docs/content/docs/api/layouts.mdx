@@ -30,13 +30,6 @@ Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`
 
 ```ts
 type LayersDirection = 'down' | 'up' | 'right' | 'left'
-
-interface LayersOptions {
-  readonly direction?: LayersDirection
-  readonly root?: Key | readonly Key[]
-  readonly layerSpacing?: number
-  readonly nodeSpacing?: number
-}
 ```
 
 <api-table path="layouts/index.ts" name="LayersOptions" />
@@ -60,36 +53,13 @@ type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
 
 ## grid
 
-```ts
-interface GridOptions<T = unknown> {
-  readonly columns?: number
-  readonly spacing?: number
-  readonly order?: NodeOrder<T>
-}
-```
-
 <api-table path="layouts/index.ts" name="GridOptions" />
 
 ## rings
 
-```ts
-interface RingsOptions<T = unknown> {
-  readonly center?: Key
-  readonly order?: NodeOrder<T>
-  readonly spacing?: number
-}
-```
-
 <api-table path="layouts/index.ts" name="RingsOptions" />
 
 ## radial
-
-```ts
-interface RadialOptions {
-  readonly root?: Key | readonly Key[]
-  readonly spacing?: number
-}
-```
 
 <api-table path="layouts/index.ts" name="RadialOptions" />
 
@@ -99,17 +69,6 @@ interface RadialOptions {
 - Nodes the walk does not reach go on an outer ring, evenly spaced.
 
 ## geo
-
-```ts
-interface GeoOptions<T = unknown> {
-  readonly longitude?: Channel<T, number>
-  readonly latitude?: Channel<T, number>
-  readonly center?: GeoPoint
-  readonly scale?: number
-  readonly spacing?: number
-  readonly order?: NodeOrder<T>
-}
-```
 
 <api-table path="layouts/index.ts" name="GeoOptions" />
 

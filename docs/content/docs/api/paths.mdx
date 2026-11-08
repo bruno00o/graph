@@ -4,11 +4,6 @@ description: Shortest paths and reachable nodes, on a mounted graph or on marks 
 ---
 
 ```ts
-interface GraphPaths<M extends Mark = Mark> {
-  shortest(from: Key, to: Key, options?: PathOptions<M>): GraphPath | null
-  reach(from: Key, options?: ReachOptions<M>): GraphReach
-}
-
 function createPathFinder<M extends Mark>(definition: { marks: readonly M[] }): PathFinder<M>
 ```
 

@@ -4,11 +4,6 @@ description: Walk the edges that carry an edge and the edges it carries, on a mo
 ---
 
 ```ts
-interface GraphSupport {
-  carriers(key: Key, options?: SupportWalkOptions): SupportWalk
-  carried(key: Key, options?: SupportWalkOptions): SupportWalk
-}
-
 function createSupportFinder(definition: { marks: readonly Mark[] }): SupportFinder
 ```
 

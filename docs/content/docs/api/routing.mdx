@@ -15,14 +15,6 @@ Returns a frozen [`EdgeRouting`](/docs/api/define-graph#routing) named `'orthogo
 
 ```ts
 type RouteAxis = 'auto' | 'vertical' | 'horizontal'
-
-interface OrthogonalRoutingOptions {
-  readonly gap?: number
-  readonly spacing?: number
-  readonly radius?: number
-  readonly axis?: RouteAxis
-  readonly maxEdges?: number
-}
 ```
 
 <api-table path="routing/index.ts" name="OrthogonalRoutingOptions" />
@@ -30,14 +22,6 @@ interface OrthogonalRoutingOptions {
 `gap`, `spacing` and `radius` take values of 0 or more; a negative value is raised to 0 and a non-finite value falls back to its default. `maxEdges` is rounded down. Any other `axis` throws a `TypeError`.
 
 ## Result
-
-```ts
-interface OrthogonalRoutingSettings {
-  readonly gap: number
-  readonly spacing: number
-  readonly axis: RouteAxis
-}
-```
 
 <api-table path="routing/index.ts" name="OrthogonalRoutingSettings" />
 

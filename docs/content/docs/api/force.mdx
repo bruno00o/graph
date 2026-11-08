@@ -15,17 +15,6 @@ Returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'force'`. Pass
 
 ```ts
 type ForceEngine = 'auto' | 'gpu' | 'cpu'
-
-interface ForceOptions {
-  readonly edgeLength?: number
-  readonly repulsion?: number
-  readonly gravity?: number
-  readonly spacing?: number
-  readonly steps?: number
-  readonly engine?: ForceEngine
-  readonly cohesion?: number
-  readonly groupSpacing?: number
-}
 ```
 
 <api-table path="layouts/force/index.ts" name="ForceOptions" />
@@ -34,18 +23,7 @@ A negative or non-finite value falls back to its default. `steps` is rounded and
 
 ## Result
 
-```ts
-interface ForceSettings {
-  readonly edgeLength: number
-  readonly repulsion: number
-  readonly gravity: number
-  readonly spacing: number
-  readonly steps: number
-  readonly engine: ForceEngine
-  readonly cohesion: number
-  readonly groupSpacing: number
-}
-```
+<api-table path="layouts/force/index.ts" name="ForceSettings" />
 
 `layout.options` holds the resolved `ForceSettings`. Two `force()` calls with the same settings are equal for the graph: a new definition with an equal layout does not run it again.
 

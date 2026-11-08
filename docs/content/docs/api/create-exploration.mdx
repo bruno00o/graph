@@ -20,36 +20,11 @@ An item whose key is neither a string nor a finite number is skipped by the grap
 
 <api-table path="query/index.ts" name="ExplorationOptions" />
 
-```ts
-interface ExplorationData<TNode, TEdge> {
-  readonly nodes: readonly TNode[]
-  readonly edges: readonly TEdge[]
-}
-```
+<api-table path="query/index.ts" name="ExplorationData" />
 
 A query may return another shape and map it with `select`, as long as the selected data is `ExplorationData`.
 
 ## Result
-
-```ts
-interface Exploration<TNode, TEdge> {
-  readonly nodes: LiveSource<TNode>
-  readonly edges: LiveSource<TEdge>
-  readonly store: ReadonlyStore<ExplorationState>
-  expand(key: Key): void
-  collapse(key: Key): void
-  toggle(key: Key): void
-  retry(key: Key): void
-  reset(): void
-  destroy(): void
-}
-
-interface ExplorationState {
-  readonly expanded: readonly Key[]
-  readonly loading: readonly Key[]
-  readonly errors: ReadonlyMap<Key, unknown>
-}
-```
 
 <api-table path="query/index.ts" name="Exploration" />
 

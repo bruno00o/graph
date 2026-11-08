@@ -31,17 +31,6 @@ defineGraph({ marks: [edges(links, { source: 'from', target: 'to' }), nodes(item
 
 ## NodeGroup
 
-```ts
-interface NodeGroup<T = unknown> {
-  readonly key: Key
-  readonly value: Key
-  readonly parent?: Key
-  readonly count: number
-  readonly keys: readonly Key[]
-  readonly data: readonly T[]
-}
-```
-
 <api-table path="index.ts" name="NodeGroup" />
 
 ## Behavior
