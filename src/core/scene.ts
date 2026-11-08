@@ -77,6 +77,7 @@ export interface SceneDirty {
 
 export interface SceneNodeRecord extends NodeRecord {
   readonly container?: boolean
+  readonly screenUnits?: boolean
 }
 
 export interface SceneEdgeRecord extends EdgeRecord {
@@ -784,7 +785,7 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     nodes.size[index] = sizeOf(sizeValues[index] ?? Number.NaN, mark.sizeRaw)
     const held = record.container
       ? writeContainer(index, mark, datum)
-      : writeLook(index, mark, datum)
+      : writeLook(index, mark, datum, record.screenUnits ?? mark.screenUnits)
     nodes.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     nodes.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     if (mark.time) nodes.time.read(index, mark.time(datum))
@@ -864,7 +865,12 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     return changed
   }
 
-  function writeLook(index: number, mark: CompiledNodeMark, datum: unknown): unknown {
+  function writeLook(
+    index: number,
+    mark: CompiledNodeMark,
+    datum: unknown,
+    screenUnits: boolean,
+  ): unknown {
     let held: unknown
     let fill = toColor(mark.fill?.(datum))
     if (fill === null && mark.colorRaw) fill = toColor(mark.color?.(datum))
@@ -897,7 +903,7 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
       mark.outline && !outline
         ? 0
         : Math.max(0, finiteOr(mark.outlineWidth?.(datum), outline ? defaults.nodeOutlineWidth : 0))
-    nodes.screenUnits[index] = mark.screenUnits ? 1 : 0
+    nodes.screenUnits[index] = screenUnits ? 1 : 0
     const image = readImage(mark.image?.(datum))
     nodes.image[index] = image?.src ?? null
     nodes.imageScale[index] = image?.scale ?? 1

@@ -49,7 +49,7 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | `opacity` | style | Opacity from 0 to 1 |
 | `image` | style | URL, or `{ src, scale, color }`, or `null` |
 | `badges` | function per corner | `{ text, fill, color }` or `null` |
-| `units` | constant | `'world'` (default) or `'screen'` |
+| `units` | constant | `'world'` or `'screen'`. See [Screen units](#screen-units) |
 | `scales` | object | `color` and `size` scales of this mark alone. See [Scales](/docs/scales#scales-of-a-mark) |
 
 Without a color or a size, nodes take the theme color `--graph-node` and a diameter of 16. Defaults and details are in [`nodes`](/docs/api/nodes#options). See the [node shapes](/examples/node-shapes) example.
@@ -176,6 +176,8 @@ defineGraph({
 ```
 
 A number literal is drawn as given, so every node is 12 pixels wide.
+
+Without `units`, nodes placed by `longitude` and `latitude` are in screen units, and the group nodes of [`groups()`](/docs/transformations#group-items-by-a-field) take the units of their members.
 
 Edge widths are always in screen pixels. See the [screen units](/examples/screen-units) example.
 

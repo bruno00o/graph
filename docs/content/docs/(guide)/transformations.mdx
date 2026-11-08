@@ -109,6 +109,8 @@ The options of the group nodes read a [`NodeGroup`](/docs/api/groups#nodegroup):
 - Pass the same array, or the same live source, as the mark of the items. With a live source, groups follow its changes: an item that changes its value moves to its new group, and a group without members disappears.
 - The key of a group node is internal: it never collides with a key of your data, and its format is not part of the API. Reach a group through the graph instead. `graph.groups.keyOf(name, value)` gives the key of the group of a value, before it exists too, for `initialFolded` or `fold`; `graph.groups.parent(key)` gives the group of an item; events on a group node carry its key in `target.key` and its `NodeGroup` in `target.datum`; `graph.groups.folded()`, the `folded` slice of the store and `foldchange` list the folded groups. Pass these keys to `graph.groups.fold`, `unfold` and `toggle`.
 - `min` is the fewest items that make a group: the items of a smaller group stay where they are.
+- Without `units`, a group node takes the [units](/docs/marks#screen-units) of its members: on a map, members placed by `longitude` and `latitude` are in screen pixels, so their groups are too. Set `units` to choose.
+- A folded group needs no position of its own: it starts at the center of its members, then moves only by a drag, `graph.positions.set` or a layout. Changes to its members keep it in place, until the group disappears and comes back.
 - `folded: false` shows new groups unfolded.
 - An item without a value stays out of every group.
 
