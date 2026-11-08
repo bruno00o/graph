@@ -1,0 +1,167 @@
+---
+title: File formats
+description: Read GraphML, GEXF, JSON Graph Format and CSV files into nodes and edges, and write a graph back to any of them.
+---
+
+`@bruno00o/graph/formats` reads and writes four graph file formats: GraphML, GEXF (1.2 and 1.3), JSON Graph Format (version 2) and CSV. It has no dependency, fetches nothing and touches no file: your application loads the text and saves what the writers return.
+
+```ts
+import { defineGraph, edges, nodes, raw } from '@bruno00o/graph'
+import { readGraphml } from '@bruno00o/graph/formats'
+
+const file = readGraphml(await (await fetch('/graph.graphml')).text())
+
+const definition = defineGraph({
+  marks: [
+    edges(file.edges, { source: 'source', target: 'target', label: 'label' }),
+    nodes(file.nodes, { label: 'label', x: 'x', y: 'y', parent: 'parent' }),
+  ],
+})
+```
+
+Every reader returns the same `GraphFile`: `nodes` and `edges` as plain objects, `graph` for what the file says about the graph itself, `schema` for the declared attributes and `issues` for the problems met on the way. Node keys are `id`, the default of the marks, and edges have `source` and `target`.
+
+<LiveExample slug="file-formats" />
+
+## Reading
+
+| Format | Reader | Input |
+| --- | --- | --- |
+| GraphML | `readGraphml(text)` | the XML text |
+| GEXF 1.2 and 1.3 | `readGexf(text)` | the XML text |
+| JSON Graph Format | `readJsonGraph(input)`, `readJsonGraphs(input)` | the JSON text, or the value it parses to |
+| CSV | `readCsv({ nodes, edges })` | the text of a node table and of an edge table, or of the edge table alone |
+
+`detectFormat(text)` tells them apart from the first characters, which is enough to read a file of unknown type:
+
+```ts
+import { detectFormat, readCsv, readGexf, readGraphml, readJsonGraph } from '@bruno00o/graph/formats'
+
+const readers = { graphml: readGraphml, gexf: readGexf, 'json-graph': readJsonGraph, csv: readCsv }
+const format = detectFormat(text)
+const file = format === null ? null : readers[format](text)
+```
+
+### Nodes and edges
+
+A node has an `id`, its `attributes`, and the fields that the format gives a place of its own. An edge has an `id`, a `source`, a `target`, `directed`, its `attributes` and its own fields. See [`FileNode`](/docs/api/formats#result) and [`FileEdge`](/docs/api/formats#result) for the full list.
+
+- **Edge ids.** An edge without an id gets one made of its ends: `a->b` for a directed edge, `a--b` for an undirected one, then `a->b#2`, `a->b#3` for parallel edges, never taking an id that the file already uses. The same file always gives the same ids.
+- **Duplicates.** The first node or edge with an id wins, the others are reported as `duplicate-id`.
+- **Missing ends.** An edge whose node is not in the file stays in `edges` and is reported as `missing-node`: the graph keeps it pending until the node arrives.
+- **Direction.** Each edge says whether it is directed, from the default of the graph or its own attribute, so a file that mixes both reads as it is. Use it in the marks, for example `arrow: (edge) => (edge.directed ? 'target' : 'none')`.
+
+### Attributes
+
+Attribute values are typed from the declarations of the file: GraphML `<key>` elements, GEXF `<attributes>`, the values themselves in JSON. Declared defaults are applied to the elements that do not set a value. Integers become numbers when they are exact and decimal strings beyond `Number.MAX_SAFE_INTEGER`, so that no id or count loses digits. Lists (GEXF `liststring`, `listinteger`…) become arrays.
+
+`schema` lists the declared attributes, with their types and defaults, for nodes, edges and the graph. Give it back to a writer to keep the same types.
+
+Pass the type of the attributes to the reader to read them without casts. It is an assertion, like the type of `JSON.parse`: the file is not checked.
+
+```ts
+const file = readGexf<{ readonly score: number }>(text)
+
+nodes(file.nodes, { size: (node) => node.attributes.score })
+```
+
+### Positions, colors, sizes and time
+
+| In the file | Becomes |
+| --- | --- |
+| GEXF `viz:position` | `x`, `y` |
+| GEXF `viz:size`, `viz:thickness` | `size` on nodes, `width` on edges |
+| GEXF `viz:color` | `color`, a CSS color: `#rrggbb`, or `rgba()` with an alpha |
+| GEXF `viz:shape` | `shape` (`disc` is `circle`, `square`, `diamond`), `image` for an image, `dash` on edges |
+| GEXF `start`, `end`, `spells`, `timestamps`, `intervals` | `time`, and `spells` when an element exists more than once |
+| GEXF `pid`, nested `<nodes>` | `parent` |
+| GEXF `weight`, `kind` | `weight`, `type` |
+| GraphML nested `<graph>` | `parent`: the node that holds the graph |
+| GraphML, JSON Graph Format, CSV attributes named `label`, `x`, `y`, `size`, `color`, `shape`, `image`, `time`, `start`, `end`, and `parent` outside GraphML | the field of the same name, when the value fits |
+| the same for edges, plus `type`, `weight`, `width`, `dash` and `directed` | the field of the same name |
+| JSON Graph Format `relation` | `type` |
+
+GraphML, JSON Graph Format and CSV have no place of their own for these, so the writers put them in attributes of these names, and the readers take them back. A value that does not fit stays in `attributes`. Pass `fields: false` to keep every attribute as it is.
+
+The fields have the shapes the marks read: `shape: 'shape'` and `time: 'time'` need nothing more. A color from a file is a CSS color that should be drawn as it is, not through the categorical scale: wrap its accessor in [`raw`](/docs/scales#size-and-width).
+
+```ts
+nodes(file.nodes, {
+  color: raw((node) => node.color ?? 'var(--graph-node)'),
+  size: raw((node) => node.size ?? 12),
+})
+```
+
+Time is in milliseconds. GEXF dates without a zone are read as UTC, with `timeformat` `double` or `integer` the numbers are kept as they are. A GEXF period includes its end; the [time window](/docs/time) of the graph excludes it, so an element is hidden at exactly the moment its period ends.
+
+### Issues
+
+`issues` lists the problems of the file. A reader never throws for them: it skips what it cannot read and goes on.
+
+| Issue | When |
+| --- | --- |
+| `duplicate-id` | a node or an edge with the id of an earlier one |
+| `missing-id` | a node without id |
+| `missing-end` | an edge without source or target, which is skipped |
+| `missing-node` | an edge whose end is not a node of the file |
+| `invalid-value` | a value that does not fit its declared type, kept as text |
+| `unknown-attribute` | a value for an attribute that is not declared, kept as text |
+| `malformed-row` | a CSV row with more or fewer fields than its header |
+| `unsupported` | a part of the format the graph does not draw: hyperedges, ports, nested data, phylogenies, shapes without equivalent, GEXF attributes that change over time (the first value is kept) |
+
+Issues carry the line of the problem when the format has lines. A reader throws a [`FormatError`](/docs/api/formats#errors) only for a file it cannot read at all, such as XML that is not well formed, and its message gives the line and the column.
+
+### CSV
+
+`readCsv` reads two tables, as [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180) describes them: a header row, fields separated by commas, quoted with `"` when they hold a separator, a quote (doubled) or a line break.
+
+```ts
+const file = readCsv({ nodes: nodeTable, edges: edgeTable }, { separator: ';' })
+```
+
+- The node table needs an `id` column, the edge table `source` and `target`; `id`, `source` and `target` options name other columns, matched without case. Without a node table, the nodes are the ends of the edges.
+- A column is made of numbers when every value is a number written as JavaScript writes it (`007` stays text), of booleans when every value is `true` or `false`, and of text otherwise. A quoted value is always text. `types` sets the type of a column by name.
+- An empty field means no value, a quoted empty field (`""`) an empty string.
+- A byte order mark is skipped, and lines may end with CRLF, LF or CR.
+
+### JSON Graph Format
+
+`readJsonGraph` reads version 2 documents, with a single `graph` or a list of `graphs`: `graph` picks one by index or `id`, and `readJsonGraphs` reads them all. Node and edge `metadata` become attributes. Nodes keyed by an id that looks like an integer come first in a JSON object, in increasing order: that is how JavaScript orders object keys. Version 1 documents, whose nodes are a list, are read too.
+
+## Writing
+
+Every writer takes nodes, edges and options, and returns the text of the file (two texts for CSV). The nodes and edges can be the result of a reader, the data of your marks, or anything else.
+
+```ts
+import { writeGexf, writeGraphml } from '@bruno00o/graph/formats'
+
+const text = writeGexf(
+  { nodes: people, edges: links },
+  {
+    nodes: { key: 'email', label: 'name', color: (person) => teamColors[person.team] },
+    edges: { source: 'from', target: 'to', key: null },
+    positions: graph.positions.snapshot(),
+  },
+)
+
+const blob = new Blob([text], { type: 'application/xml' })
+```
+
+- **Where to read.** `nodes` and `edges` name the field of each part, or give a function, like the options of the marks. The defaults are the names of `FileNode` and `FileEdge`, so the result of a reader needs no option. `null` leaves a part out.
+- **Positions.** `positions` takes the positions of the graph, as `graph.positions.snapshot()` returns them, and they win over `x` and `y`.
+- **Attributes.** By default the `attributes` object of each item, or else every field that no other option reads. A list of names or a function chooses others.
+- **Types.** Attribute types come from `schema` when the values fit it, otherwise from the values: integers, then longs and doubles, booleans, lists, and text for the rest. `types` sets them by name.
+- **Round trip.** Reading what a writer wrote gives the same nodes, edges and attributes, in every format. GraphML and CSV write lists and objects as JSON text, which reads back as text.
+
+| Writer | Notes |
+| --- | --- |
+| `writeGraphml` | children of a node in a nested `<graph>`; `directed` on the edges that differ from the graph |
+| `writeGexf` | 1.3, or 1.2 with `version: '1.2'`; `viz` for position, size, color and shape; `pid` for `parent`; time in the `timeFormat` of the graph or the option. A color that is not hexadecimal, `rgb()` or `rgba()`, and the `box` shape, go to attributes |
+| `writeJsonGraph`, `writeJsonGraphs` | version 2; fields in `metadata`; `indent` |
+| `writeCsv` | `{ nodes, edges }`; `separator`, `lineBreak`, `bom` for spreadsheets that need a byte order mark to read UTF-8. Text that would read back as a number or a boolean is quoted |
+
+## Size and speed
+
+The entry point weighs about 50 kB minified, 21 kB compressed with gzip, and imports nothing from the rest of the library. Reading a GraphML file of 100,000 nodes and 200,000 edges (58 MB) takes about half a second in Chromium; JSON Graph Format and CSV take less than that.
+
+The XML reader is strict and does not validate: it reads the five predefined entities and character references, skips comments, processing instructions and the document type, and never expands an entity that a document type declares, nor loads anything from outside the file.

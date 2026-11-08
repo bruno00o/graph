@@ -14,6 +14,7 @@ export default defineConfig({
       { find: '@bruno00o/graph/db', replacement: resolve(source, 'db/index.ts') },
       { find: '@bruno00o/graph/query', replacement: resolve(source, 'query/index.ts') },
       { find: /^@bruno00o\/graph\/cypher$/, replacement: resolve(source, 'cypher/index.ts') },
+      { find: /^@bruno00o\/graph\/formats$/, replacement: resolve(source, 'formats/index.ts') },
       {
         find: '@bruno00o/graph/layouts/force',
         replacement: resolve(source, 'layouts/force/index.ts'),

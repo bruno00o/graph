@@ -89,6 +89,18 @@ description: Every export of the package, by entry point.
 | `CypherOptions`, `CypherGraph`, `CypherNode`, `CypherEdge`, `CypherProperties` | types | [cypherGraph](/docs/api/cypher-graph) |
 | `CypherInput`, `CypherResultLike`, `CypherRecordLike`, `CypherNodeLike`, `CypherRelationshipLike`, `CypherPathLike`, `CypherPathSegmentLike` | types | [cypherGraph](/docs/api/cypher-graph#input) |
 
+## `@bruno00o/graph/formats`
+
+| Export | Kind | Page |
+| --- | --- | --- |
+| `readGraphml`, `readGexf`, `readJsonGraph`, `readJsonGraphs`, `readCsv`, `detectFormat` | functions | [Formats](/docs/api/formats#reading) |
+| `writeGraphml`, `writeGexf`, `writeJsonGraph`, `writeJsonGraphs`, `writeCsv` | functions | [Formats](/docs/api/formats#writing) |
+| `FormatError` | class | [Formats](/docs/api/formats#errors) |
+| `GraphFile`, `FileGraph`, `FileNode`, `FileEdge`, `FileSchema`, `AttributeDeclaration`, `AttributeType`, `AttributeValue`, `FileAttributes`, `FileTime`, `FileTimeSpan`, `TimeFormat`, `GraphFormat` | types | [Formats](/docs/api/formats#result) |
+| `FormatIssue`, `DuplicateIdIssue`, `MissingIdIssue`, `MissingEndIssue`, `MissingNodeIssue`, `InvalidValueIssue`, `UnknownAttributeIssue`, `UnsupportedIssue`, `UnsupportedFeature`, `MalformedRowIssue` | types | [Formats](/docs/api/formats#issues) |
+| `ReadOptions`, `JsonGraphReadOptions`, `CsvReadOptions`, `CsvTypes`, `CsvTables` | types | [Formats](/docs/api/formats#reading) |
+| `GraphInput`, `GraphInfoInput`, `SchemaInput`, `NodeFields`, `EdgeFields`, `AttributesInput`, `PositionLookup`, `WriteOptions`, `GexfWriteOptions`, `JsonGraphWriteOptions`, `CsvWriteOptions`, `CsvFiles` | types | [Formats](/docs/api/formats#writing) |
+
 ## `@bruno00o/graph/export`
 
 | Export | Kind | Page |

@@ -1,0 +1,209 @@
+---
+title: Formats
+description: Read and write GraphML, GEXF, JSON Graph Format and CSV files.
+---
+
+```ts
+import { readGraphml, writeGexf } from '@bruno00o/graph/formats'
+```
+
+Readers turn the text of a file into plain nodes and edges for the marks, writers turn any nodes and edges into text. Nothing is fetched and nothing is imported: you load the file and save the text. See [File formats](/docs/file-formats) for a walkthrough.
+
+## Reading
+
+```ts
+function readGraphml<N extends object = FileAttributes, E extends object = FileAttributes>(
+  text: string,
+  options?: ReadOptions,
+): GraphFile<N, E>
+
+function readGexf<N extends object = FileAttributes, E extends object = FileAttributes>(
+  text: string,
+): GraphFile<N, E>
+
+function readJsonGraph<N extends object = FileAttributes, E extends object = FileAttributes>(
+  input: string | object,
+  options?: JsonGraphReadOptions,
+): GraphFile<N, E>
+
+function readJsonGraphs<N extends object = FileAttributes, E extends object = FileAttributes>(
+  input: string | object,
+  options?: ReadOptions,
+): GraphFile<N, E>[]
+
+function readCsv<N extends object = FileAttributes, E extends object = FileAttributes>(
+  tables: CsvTables | string,
+  options?: CsvReadOptions,
+): GraphFile<N, E>
+
+function detectFormat(text: string): GraphFormat | null
+```
+
+`N` and `E` type the `attributes` of the nodes and of the edges. It is an assertion, like the type of `JSON.parse`: the file is not checked against it. `readCsv` takes a single string as the edge table. `detectFormat` looks at the first characters of a text and returns `null` when it recognizes none.
+
+<api-table path="formats/index.ts" name="ReadOptions" />
+
+<api-table path="formats/index.ts" name="JsonGraphReadOptions" />
+
+<api-table path="formats/index.ts" name="CsvReadOptions" />
+
+<api-table path="formats/index.ts" name="CsvTypes" />
+
+<api-table path="formats/index.ts" name="CsvTables" />
+
+```ts
+type GraphFormat = 'graphml' | 'gexf' | 'json-graph' | 'csv'
+```
+
+## Result
+
+<api-table path="formats/index.ts" name="GraphFile" />
+
+The graph:
+
+<api-table path="formats/index.ts" name="FileGraph" />
+
+A node:
+
+<api-table path="formats/index.ts" name="FileNode" />
+
+An edge:
+
+<api-table path="formats/index.ts" name="FileEdge" />
+
+Time, as the `time` channel of the marks reads it:
+
+```ts
+type FileTime = number | FileTimeSpan
+```
+
+<api-table path="formats/index.ts" name="FileTimeSpan" />
+
+```ts
+type TimeFormat = 'integer' | 'double' | 'date' | 'dateTime'
+```
+
+Attributes and their declarations:
+
+```ts
+type AttributeValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly AttributeValue[]
+  | { readonly [name: string]: AttributeValue }
+
+type FileAttributes = Readonly<Record<string, AttributeValue>>
+
+type AttributeType =
+  | 'string' | 'boolean' | 'integer' | 'long' | 'float' | 'double'
+  | 'string[]' | 'boolean[]' | 'integer[]' | 'long[]' | 'float[]' | 'double[]'
+```
+
+<api-table path="formats/index.ts" name="FileSchema" />
+
+<api-table path="formats/index.ts" name="AttributeDeclaration" />
+
+## Issues
+
+```ts
+type FormatIssue =
+  | DuplicateIdIssue
+  | MissingIdIssue
+  | MissingEndIssue
+  | MissingNodeIssue
+  | InvalidValueIssue
+  | UnknownAttributeIssue
+  | UnsupportedIssue
+  | MalformedRowIssue
+```
+
+<api-table path="formats/index.ts" name="DuplicateIdIssue" />
+
+<api-table path="formats/index.ts" name="MissingIdIssue" />
+
+<api-table path="formats/index.ts" name="MissingEndIssue" />
+
+<api-table path="formats/index.ts" name="MissingNodeIssue" />
+
+<api-table path="formats/index.ts" name="InvalidValueIssue" />
+
+<api-table path="formats/index.ts" name="UnknownAttributeIssue" />
+
+<api-table path="formats/index.ts" name="UnsupportedIssue" />
+
+```ts
+type UnsupportedFeature =
+  | 'hyperedge'
+  | 'port'
+  | 'structured-data'
+  | 'graph-in-edge'
+  | 'locator'
+  | 'dynamic-attribute'
+  | 'node-shape'
+  | 'edge-shape'
+  | 'phylogeny'
+  | 'time-zone'
+```
+
+<api-table path="formats/index.ts" name="MalformedRowIssue" />
+
+## Errors
+
+```ts
+class FormatError extends Error {
+  readonly format: GraphFormat
+  readonly line: number | undefined
+  readonly column: number | undefined
+}
+```
+
+A reader throws a `FormatError` only when it cannot read the file at all: XML that is not well formed, a root element of another format, JSON that does not parse, a CSV table without its id, source or target column, or a quoted field that never closes. The message names the format and, when there is one, the line and the column, such as `graphml: expected </node>, found </graph> at line 12, column 5`. Every other problem goes to `issues`.
+
+## Writing
+
+```ts
+function writeGraphml<N, E>(input: GraphInput<N, E>, options?: WriteOptions<N, E>): string
+
+function writeGexf<N, E>(input: GraphInput<N, E>, options?: GexfWriteOptions<N, E>): string
+
+function writeJsonGraph<N, E>(input: GraphInput<N, E>, options?: JsonGraphWriteOptions<N, E>): string
+
+function writeJsonGraphs<N, E>(
+  inputs: readonly GraphInput<N, E>[],
+  options?: JsonGraphWriteOptions<N, E>,
+): string
+
+function writeCsv<N, E>(input: GraphInput<N, E>, options?: CsvWriteOptions<N, E>): CsvFiles
+```
+
+A writer throws a `TypeError` for a node without key and for an edge without source or target.
+
+<api-table path="formats/index.ts" name="GraphInput" />
+
+<api-table path="formats/index.ts" name="GraphInfoInput" />
+
+<api-table path="formats/index.ts" name="SchemaInput" />
+
+<api-table path="formats/index.ts" name="WriteOptions" />
+
+<api-table path="formats/index.ts" name="NodeFields" />
+
+<api-table path="formats/index.ts" name="EdgeFields" />
+
+```ts
+type AttributesInput<T> =
+  | readonly string[]
+  | Accessor<T, Readonly<Record<string, unknown>> | null | undefined>
+```
+
+<api-table path="formats/index.ts" name="PositionLookup" />
+
+<api-table path="formats/index.ts" name="GexfWriteOptions" />
+
+<api-table path="formats/index.ts" name="JsonGraphWriteOptions" />
+
+<api-table path="formats/index.ts" name="CsvWriteOptions" />
+
+<api-table path="formats/index.ts" name="CsvFiles" />

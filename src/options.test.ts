@@ -10,6 +10,23 @@ import type {
 import type { GraphDevtoolsPanelProps } from './devtools/react'
 import type { ExportOptions, PngExportOptions, SvgExportOptions } from './export'
 import type {
+  AttributeDeclaration,
+  CsvReadOptions,
+  CsvTables,
+  CsvTypes,
+  CsvWriteOptions,
+  EdgeFields,
+  GexfWriteOptions,
+  GraphInfoInput,
+  GraphInput,
+  JsonGraphReadOptions,
+  JsonGraphWriteOptions,
+  NodeFields,
+  ReadOptions,
+  SchemaInput,
+  WriteOptions,
+} from './formats'
+import type {
   AggregateEdgeOptions,
   AnchorEdgeTarget,
   AnchorNodesTarget,
@@ -130,6 +147,7 @@ interface Inputs {
   AnchorProps: AnchorProps<'muted'>
   AnchorStateTarget: AnchorStateTarget<'muted'>
   AnchorTarget: AnchorTarget<'muted'>
+  AttributeDeclaration: AttributeDeclaration
   AutoPan: Exclude<InteractionOptions['autoPan'], boolean | undefined>
   BackgroundOptions: BackgroundOptions
   Badge: Badge
@@ -137,11 +155,16 @@ interface Inputs {
   BridgeOptions: BridgeOptions
   ColorScale: ColorScale
   ContainerOptions: ContainerOptions<Item>
+  CsvReadOptions: CsvReadOptions
+  CsvTables: CsvTables
+  CsvTypes: CsvTypes
+  CsvWriteOptions: CsvWriteOptions<Item, Link>
   CypherOptions: CypherOptions
   DensityBundlingOptions: DensityBundlingOptions
   DevtoolsMessages: NonNullable<GraphDevtoolsOptions['messages']>
   EdgeEndOptions: EdgeEndOptions<Link>
   EdgeEndsOptions: EdgeEndsOptions<Link>
+  EdgeFields: EdgeFields<Link>
   EdgeLabelOptions: EdgeLabelOptions<Link>
   EdgeMergeOptions: EdgeMergeOptions<Link>
   EdgeOptions: EdgeOptions<Link>
@@ -152,6 +175,7 @@ interface Inputs {
   FitOptions: FitOptions
   FitPadding: FitPadding
   ForceOptions: ForceOptions
+  GexfWriteOptions: GexfWriteOptions<Item, Link>
   GraphDefinitionOptions: GraphDefinitionOptions<'muted', Marks>
   GraphDevtoolsOptions: GraphDevtoolsOptions
   GraphDevtoolsPanelProps: GraphDevtoolsPanelProps
@@ -159,6 +183,8 @@ interface Inputs {
   GraphDevtoolsProps: GraphDevtoolsProps
   GraphEventOptions: GraphEventOptions
   GraphEventProps: GraphEventProps<Marks>
+  GraphInfoInput: GraphInfoInput
+  GraphInput: GraphInput<Item, Link>
   GraphProps: GraphProps<'muted', Marks>
   GridOptions: GridOptions<Item>
   GroupOptions: GroupOptions<Item>
@@ -169,6 +195,8 @@ interface Inputs {
   HullStateOptions: HullStateOptions<'muted'>
   HullStyle: HullStyle<string>
   InteractionOptions: InteractionOptions
+  JsonGraphReadOptions: JsonGraphReadOptions
+  JsonGraphWriteOptions: JsonGraphWriteOptions<Item, Link>
   LabelOptions: LabelOptions<Item>
   LabelTextOptions: LabelTextOptions<Item>
   LayersOptions: LayersOptions
@@ -186,6 +214,7 @@ interface Inputs {
   MinimapOptions: MinimapOptions
   MinimapProps: MinimapProps
   MountGraphOptions: MountGraphOptions<'muted', Marks>
+  NodeFields: NodeFields<Item>
   NodeImage: NodeImage
   NodeOptions: NodeOptions<Item>
   NodeScalesOptions: NodeScalesOptions
@@ -197,8 +226,10 @@ interface Inputs {
   PositionSnapshotOptions: PositionSnapshotOptions
   RadialOptions: RadialOptions
   ReachOptions: ReachOptions<Marks>
+  ReadOptions: ReadOptions
   RingsOptions: RingsOptions<Item>
   ScalesOptions: ScalesOptions
+  SchemaInput: SchemaInput
   StateKindStyles: StateKindStyles
   StateLook: StateLook
   StateStyle: StateStyle
@@ -219,6 +250,7 @@ interface Inputs {
   UseTimelineOptions: UseTimelineOptions
   ViewLimitOptions: ViewLimitOptions
   ViewOptions: ViewOptions
+  WriteOptions: WriteOptions<Item, Link>
   Zoom: Exclude<InteractionOptions['zoom'], boolean | undefined>
 }
 

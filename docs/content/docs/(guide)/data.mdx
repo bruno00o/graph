@@ -31,7 +31,7 @@ The graph holds a live source to this contract:
 - An insert or an update sets the item under its key; a delete removes the element with that key. A batch without changes is ignored.
 - Everything else, edge ends included, is read from the item through the options of the mark.
 
-The result of a Cypher query is read into two arrays by [`cypherGraph`](/docs/cypher).
+The result of a Cypher query is read into two arrays by [`cypherGraph`](/docs/cypher), and a GraphML, GEXF, JSON Graph Format or CSV file by the readers of [file formats](/docs/file-formats).
 
 Examples: [a live source of your own](/examples/live-source) streams nodes and edges without TanStack DB, and [a collection as the source](/examples/collection-source) reads two TanStack DB collections.
 
