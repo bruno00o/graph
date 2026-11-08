@@ -248,7 +248,8 @@ export interface LabelTextOptions<T> {
    */
   readonly weight?: Style<T, LabelWeight> | undefined
   /**
-   * CSS font family. Load web fonts before mounting the graph.
+   * CSS font family. A web font that finishes loading after the first frame is measured and
+   * drawn again once, as long as it is in the family list.
    * @default --graph-font
    */
   readonly font?: Style<T, string> | undefined

@@ -1,3 +1,4 @@
+import { type LoadedFamilies, usesFamily } from '../core/font-family'
 import { estimateTextWidth, type TextWidth } from '../core/label-width'
 import { atlasFontSize } from '../webgl/glyph-atlas'
 
@@ -16,12 +17,16 @@ function measureContext(): MeasureContext | null {
 export interface TextWidths {
   readonly width: TextWidth
   setFont(font: string): boolean
+  reload(families: LoadedFamilies): boolean
 }
 
 export function createTextWidths(font: string): TextWidths {
   const context = measureContext()
   let themeFont = font
-  const faces = new Map<string, Map<string, number>>()
+  const faces = new Map<
+    string,
+    { readonly family: string; readonly advances: Map<string, number> }
+  >()
   let current = ''
   let lastWeight = Number.NaN
   let lastFamily = ''
@@ -44,10 +49,10 @@ export function createTextWidths(font: string): TextWidths {
         lastFace = `normal ${weight} ${atlasFontSize}px ${family}`
         let found = faces.get(lastFace)
         if (!found) {
-          found = new Map()
+          found = { family, advances: new Map() }
           faces.set(lastFace, found)
         }
-        lastAdvances = found
+        lastAdvances = found.advances
       }
       const face = lastFace
       const advances = lastAdvances
@@ -61,6 +66,21 @@ export function createTextWidths(font: string): TextWidths {
         width += advance
       }
       return width
+    },
+    reload(families) {
+      let dropped = false
+      for (const [face, found] of faces) {
+        if (!usesFamily(found.family, families)) continue
+        faces.delete(face)
+        dropped = true
+      }
+      if (!dropped) return false
+      lastWeight = Number.NaN
+      lastFamily = ''
+      lastFace = ''
+      lastAdvances = new Map()
+      current = ''
+      return true
     },
     setFont(next) {
       if (next === themeFont) return false

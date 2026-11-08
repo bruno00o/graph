@@ -87,6 +87,7 @@ export interface Renderer {
   setPalette(colors: Uint8Array, count: number): void
   setTheme(theme: ResolvedTheme): void
   render(frame: RenderFrame): number
+  reloadFonts?(families: ReadonlySet<string> | null): boolean
   stats?(): RendererStats
   limits?(): RendererLimits
   ready?(): Promise<void>

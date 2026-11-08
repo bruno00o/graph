@@ -45,6 +45,25 @@ describe('createTextWidths', () => {
     expect(fonts.at(-1)).toBe('normal 500 24px Mono')
   })
 
+  it('measures again only the faces of the families that loaded', () => {
+    vi.stubGlobal('OffscreenCanvas', FakeCanvas)
+    const widths = createTextWidths('Sans, sans-serif')
+    widths.width('a', 500, null)
+    widths.width('a', 500, 'Serif')
+    expect(fonts).toHaveLength(2)
+    expect(widths.reload(new Set(['mono']))).toBe(false)
+    widths.width('a', 500, null)
+    expect(fonts).toHaveLength(2)
+    expect(widths.reload(new Set(['sans']))).toBe(true)
+    widths.width('a', 500, 'Serif')
+    expect(fonts).toHaveLength(2)
+    widths.width('a', 500, null)
+    expect(fonts).toHaveLength(3)
+    expect(widths.reload(null)).toBe(true)
+    widths.width('a', 500, 'Serif')
+    expect(fonts).toHaveLength(4)
+  })
+
   it('estimates widths without a canvas', () => {
     vi.stubGlobal('OffscreenCanvas', undefined)
     vi.stubGlobal('document', undefined)
