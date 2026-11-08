@@ -312,6 +312,7 @@ export class Projection {
   #endTarget = none
   #merging = false
   readonly #remerge = new Set<number>()
+  readonly #relift = new Set<number>()
   readonly #restyle = new Set<number>()
   #touchedEdges: IndexSet = new IndexSet()
   #dataEdges: IndexSet = new IndexSet()
@@ -363,12 +364,15 @@ export class Projection {
       const lift = mark.options.betweenGroups === 'groups'
       lifts.push(lift)
       if (lift) lifting = true
-      if (lift !== (this.#lifts[slot] ?? false)) this.#remerge.add(slot)
+      if (lift !== (this.#lifts[slot] ?? false)) this.#relift.add(slot)
       if (!sameRule(rule, known)) this.#remerge.add(slot)
       if (rule?.min !== known?.min) this.#restyle.add(slot)
       if (!sameLook(mark.options.aggregate, this.#looks[slot])) this.#restyle.add(slot)
     })
-    for (let slot = edgeMarks.length; slot < this.#rules.length; slot++) this.#remerge.add(slot)
+    for (let slot = edgeMarks.length; slot < this.#rules.length; slot++) {
+      this.#remerge.add(slot)
+      this.#relift.delete(slot)
+    }
     this.#slots = slots
     this.#rules = rules
     this.#looks = looks
@@ -447,6 +451,7 @@ export class Projection {
     if (!this.#active) {
       if (!this.#merging && !this.#needed(changes)) {
         this.#remerge.clear()
+        this.#relift.clear()
         this.#restyle.clear()
         return this.#passThrough(changes)
       }
@@ -518,6 +523,7 @@ export class Projection {
   #activate(changes: GraphChanges): ProjectionChanges {
     this.#active = true
     this.#remerge.clear()
+    this.#relift.clear()
     this.#restyle.clear()
     this.#regrouped.clear()
     for (const { index } of this.#groupings) index.takeMoved()
@@ -547,14 +553,15 @@ export class Projection {
 
   #refreshRules(): void {
     const remerge = this.#remerge
+    const relift = this.#relift
     const restyle = this.#restyle
-    if (remerge.size === 0 && restyle.size === 0) return
-    if (remerge.size > 0) {
+    if (remerge.size === 0 && relift.size === 0 && restyle.size === 0) return
+    if (remerge.size > 0 || relift.size > 0) {
       for (const record of this.#model.edges()) {
         const index = record.index
-        if (remerge.has(this.#edgeSlot[index] ?? none) && this.#project(index)) {
-          this.#reshaped = true
-        }
+        const slot = this.#edgeSlot[index] ?? none
+        const merged = remerge.has(slot)
+        if ((merged || relift.has(slot)) && this.#project(index) && merged) this.#reshaped = true
       }
     }
     const merges = this.#merges
@@ -564,6 +571,7 @@ export class Projection {
       })
     }
     remerge.clear()
+    relift.clear()
     restyle.clear()
   }
 

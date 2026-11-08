@@ -137,6 +137,7 @@ describe('edges between groups', () => {
     const lifted = render(graph(links))
     expect(drawn()).toEqual(['A1>A2 ac,a2c', 'a>a2 aa2'])
     expect(lifted.scene.edges.updated.map((ref) => ref.key)).not.toContain('aa2')
+    expect(lifted.reshaped).toBe(false)
     render(graph(links, { betweenGroups: 'members' }))
     expect(drawn()).toEqual(['a2>c a2c', 'a>a2 aa2', 'a>c ac'])
   })
