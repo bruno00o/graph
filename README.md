@@ -20,6 +20,8 @@
 
 Framework-agnostic, typed graph visualization rendered with WebGL2.
 
+Documentation, examples and benchmark: <https://bruno00o.github.io/graph/>
+
 - Smooth with 50,000 nodes and 100,000 edges, picking included
 - Declarative marks: map your fields to color, size, labels, arrows and dashes through scales shared or kept to one mark, with types inferred from your data
 - Typed events and state: click, hover, drag and focus targets carry your own item types, narrowed by mark name, with nothing to cast
@@ -206,6 +208,7 @@ docs/src/examples/<slug>/
 - `pnpm docs:thumbnails <slug>` builds the docs, opens the page in Chromium, waits for the first render and the end of layouts, and saves the stage as two 640 by 400 WebP images, light and dark, of about 25 KB each. Without a slug it captures every example; `--no-build` reuses the last build. Commit both images.
 - `pnpm test` fails on malformed metadata, an unknown category, a duplicate slug, a link to a missing docs page, tags that do not match the imports, a missing thumbnail, an import outside the folder, `../shared` and the public entry points, or text left from the scaffold. Then `pnpm test:browsers --example 'docs/<slug>'` checks the page in the three browsers.
 - `pnpm docs:dev` serves the docs on port 5192; `pnpm --dir docs exec vite dev --port <port>` picks another one.
+- The site is published at `/graph/` on GitHub Pages, from the tag of each release. `DOCS_BASE=/graph/ pnpm docs:build` builds it under that base, and `pnpm docs:check-pages` then serves `docs/dist/client` as Pages does, opens every page, example and showcase app in Chromium, and fails on a missing file, a failed request, a console error or a broken local link. A link to a local file in docs code starts with `import.meta.env.BASE_URL`, never with `/`; links between pages go through the router's `Link` or Markdown links such as `[Labels](/docs/labels)`, which follow the base.
 
 Conventions:
 

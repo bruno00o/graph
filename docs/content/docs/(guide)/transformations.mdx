@@ -45,6 +45,10 @@ A function passed as `by` is called again whenever the definition changes. Keep 
 
 See the [merge parallel edges by kind](/examples/merge-by-kind) example.
 
+### Between groups
+
+`betweenGroups: 'groups'` draws the edges between two unfolded groups as one aggregated edge per pair of groups, from container to container, with the same `aggregate`, `merge.by` and `merge.directed` as above. See [one edge between two groups](/docs/groups#one-edge-between-two-groups).
+
 ### Both directions on one line
 
 With `directed: false`, an aggregated edge points the way of the first edge in its `keys`. `source` and `target` follow that orientation, and the merged edges split by direction relative to it:
@@ -112,6 +116,7 @@ The options of the group nodes read a [`NodeGroup`](/docs/api/groups#nodegroup):
 - Without `units`, a group node takes the [units](/docs/marks#screen-units) of its members: on a map, members placed by `longitude` and `latitude` are in screen pixels, so their groups are too. Set `units` to choose.
 - A folded group needs no position of its own: it starts at the center of its members, then moves only by a drag, `graph.positions.set` or a layout. Changes to its members keep it in place, until the group disappears and comes back.
 - `folded: false` shows new groups unfolded.
+- `container.fillOpacity` lets the grid or the map show through an unfolded group, and `betweenGroups: 'groups'` on the edges draws one line between two groups instead of one per pair of members: see [containers](/docs/groups#containers) and [one edge between two groups](/docs/groups#one-edge-between-two-groups).
 - An item without a value stays out of every group.
 
 ### With groups of the data
@@ -186,5 +191,8 @@ Merges and groups are measured in Node, for the model, the merges and the scene;
 | Fold all | 100,000 nodes in 1,000 groups, 200,000 edges | 280 ms |
 | Unfold one | 100,000 nodes in 1,000 groups, 200,000 edges | 4 ms |
 | Hide 100,000 nodes | 200,000 nodes, 400,000 edges | 24 ms, plus a 9 ms frame |
+| Groups unfolded, edges between members | 50,000 nodes in 500 groups, 99,000 edges | 40 ms (scene) |
+| Groups unfolded, edges between groups | 50,000 nodes in 500 groups, 99,000 edges | 22 ms (scene) |
+| Fold all, edges between groups | 50,000 nodes in 500 groups, 99,000 edges | 17 ms |
 
 A hidden element costs nothing on later frames: the graph draws less.

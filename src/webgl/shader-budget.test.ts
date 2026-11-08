@@ -16,6 +16,7 @@ import {
   budgetProblems,
   measureProgram,
   packs,
+  preprocess,
   rowsNeeded,
   std140Size,
   webgl2Minimums,
@@ -78,6 +79,18 @@ const programs: readonly Program[] = [
 describe('shader budget', () => {
   it.each(programs)('keeps %s within the WebGL2 minimum limits', (name, vertex, fragment) => {
     expect(budgetProblems(measureProgram(name, vertex, fragment))).toEqual([])
+  })
+
+  it('stops edges at container borders in every program with room for the box sampler', () => {
+    const boxed = (vertex: string) => /uniform sampler2D nodeBox;/.test(preprocess(vertex))
+    for (const [name, vertex] of endless) {
+      expect([name, boxed(vertex), boxed(withEnds(vertex))]).toEqual([
+        name,
+        true,
+        name !== 'bundle bridged',
+      ])
+    }
+    expect(boxed(labelVertex)).toBe(true)
   })
 
   it('counts every sampler a program statically uses', () => {

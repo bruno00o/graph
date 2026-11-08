@@ -122,6 +122,7 @@ export type {
   EdgeOptions,
   EdgeRouting,
   EdgeScalesOptions,
+  EdgesBetweenGroups,
   FieldOf,
   FitPadding,
   FreeState,

@@ -1,6 +1,7 @@
 import {
   type AggregateEdge,
   defineGraph,
+  type EdgesBetweenGroups,
   edges,
   type GraphInstance,
   groups,
@@ -11,6 +12,8 @@ import {
 } from '@bruno00o/graph'
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
 import { messages } from '../shared/messages'
+import { messages as own } from './messages'
+import '../shared/controls.css'
 import '../shared/overlays.css'
 
 interface Item {
@@ -89,16 +92,27 @@ const endLabel = (count: (aggregate: AggregateEdge<Exchange>) => number) => ({
   background: true,
 })
 
-const sectorMark = groups(items, {
-  by: 'sector',
-  name: 'sectors',
-  size: raw((group) => 30 + Math.sqrt(group.count) * 8),
-  fill: dominant,
-  label: (group) => messages.sectorName(String(group.value)),
-  container: { padding: 18 },
-})
+const sectorSize = raw((group: NodeGroup<Item>) => 30 + Math.sqrt(group.count) * 8)
+const sectorLabel = (group: NodeGroup<Item>) => messages.sectorName(String(group.value))
 
-function define(merged: boolean, grouped: boolean) {
+const sectorMark = (fill: number) =>
+  groups(items, {
+    by: 'sector',
+    name: 'sectors',
+    size: sectorSize,
+    fill: dominant,
+    label: sectorLabel,
+    container: { padding: 18, fillOpacity: fill / 100 },
+  })
+
+interface Choice {
+  readonly merged: boolean
+  readonly grouped: boolean
+  readonly between: EdgesBetweenGroups
+  readonly fill: number
+}
+
+function define({ merged, grouped, between, fill }: Choice) {
   return defineGraph({
     marks: [
       edges(exchanges, {
@@ -107,6 +121,7 @@ function define(merged: boolean, grouped: boolean) {
         name: 'exchanges',
         arrow: 'target',
         merge: merged ? { directed: false } : false,
+        betweenGroups: between,
         aggregate: {
           width: (aggregate) => aggregate.count,
           ends: {
@@ -131,7 +146,7 @@ function define(merged: boolean, grouped: boolean) {
         size: 18,
         label: 'label',
       }),
-      ...(grouped ? [sectorMark] : []),
+      ...(grouped ? [sectorMark(fill)] : []),
     ],
     scales: {
       color: { domain: families, range: familyColors },
@@ -143,13 +158,15 @@ function define(merged: boolean, grouped: boolean) {
 }
 
 export function mount(container: HTMLElement): GraphInstance {
-  let merged = true
-  let grouped = false
+  let choice: Choice = { merged: true, grouped: false, between: 'members', fill: 100 }
   const graph = mountGraph(container, {
-    definition: define(merged, grouped),
+    definition: define(choice),
     ariaLabel: messages.transformsLabel(items.length, exchanges.length),
   })
-  const redraw = () => graph.update({ definition: define(merged, grouped) })
+  const change = (next: Partial<Choice>) => {
+    choice = { ...choice, ...next }
+    graph.update({ definition: define(choice) })
+  }
 
   const legend = createLegend(graph, { hidden: 'off' })
   const view = mountLegend(legend, {
@@ -176,20 +193,34 @@ export function mount(container: HTMLElement): GraphInstance {
   actions.className = 'example-actions'
   actions.append(
     button(
-      () => messages.mergeToggle(merged),
-      () => {
-        merged = !merged
-        redraw()
-      },
+      () => messages.mergeToggle(choice.merged),
+      () => change({ merged: !choice.merged }),
     ),
     button(
-      () => messages.sectorToggle(grouped),
-      () => {
-        grouped = !grouped
-        redraw()
-      },
+      () => messages.sectorToggle(choice.grouped),
+      () => change({ grouped: !choice.grouped }),
+    ),
+    button(
+      () => own.between(choice.between),
+      () => change({ between: choice.between === 'groups' ? 'members' : 'groups' }),
     ),
   )
+  const fillText = document.createElement('span')
+  fillText.textContent = own.fill(choice.fill)
+  const fill = document.createElement('input')
+  fill.type = 'range'
+  fill.min = '0'
+  fill.max = '100'
+  fill.step = '5'
+  fill.value = String(choice.fill)
+  fill.addEventListener('input', () => {
+    fillText.textContent = own.fill(Number(fill.value))
+    change({ fill: Number(fill.value) })
+  })
+  const fillControl = document.createElement('label')
+  fillControl.className = 'example-button example-range'
+  fillControl.append(fillText, fill)
+  actions.append(fillControl)
   container.append(actions)
 
   const status = document.createElement('output')

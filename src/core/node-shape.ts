@@ -1,4 +1,4 @@
-import { boxShape, type NodeColumns, shapeCodes } from './columns'
+import { boxShape, containerShape, type NodeColumns, shapeCodes } from './columns'
 
 export const squareReach = 0.86
 export const diamondReach = 1.2
@@ -110,6 +110,24 @@ export function textInside(
   return width <= side && height <= side
 }
 
+export function trimsAsBox(nodes: NodeColumns, index: number): boolean {
+  const shape = nodes.shape[index]
+  return shape === boxShape || (shape === containerShape && nodes.containerBoxes !== null)
+}
+
+export function endBox(nodes: NodeColumns, index: number, zoom: number, out: NodeBox): NodeBox {
+  const boxes = nodes.containerBoxes
+  if (nodes.shape[index] !== containerShape || !boxes) {
+    return nodeBox(nodes, index, nodeUnit(nodes, index, zoom), out)
+  }
+  const halfWidth = Math.max((boxes[index * 4] ?? 0) * zoom, minimumNodeRadius)
+  const halfHeight = Math.max((boxes[index * 4 + 1] ?? 0) * zoom, minimumNodeRadius)
+  out.halfWidth = halfWidth
+  out.halfHeight = halfHeight
+  out.corner = Math.min((boxes[index * 4 + 2] ?? 0) * zoom, halfWidth, halfHeight)
+  return out
+}
+
 export function nodeTrim(
   nodes: NodeColumns,
   index: number,
@@ -117,8 +135,20 @@ export function nodeTrim(
   ux: number,
   uy: number,
 ): number {
-  const box = nodeBox(nodes, index, nodeUnit(nodes, index, zoom), scratch)
-  return nodes.shape[index] === boxShape ? boxReach(box, ux, uy) : box.halfHeight
+  const box = endBox(nodes, index, zoom, scratch)
+  return trimsAsBox(nodes, index) ? boxReach(box, ux, uy) : box.halfHeight
+}
+
+export function insideEndBox(
+  nodes: NodeColumns,
+  index: number,
+  x: number,
+  y: number,
+  zoom: number,
+): boolean {
+  if (nodes.shape[index] !== containerShape || !nodes.containerBoxes) return false
+  const box = endBox(nodes, index, zoom, scratch)
+  return boxDistance(x * zoom, y * zoom, box.halfWidth, box.halfHeight, box.corner) < 0
 }
 
 export function loopShift(nodes: NodeColumns, index: number, zoom: number): number {

@@ -1,4 +1,10 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router'
+import {
+  createRootRoute,
+  HeadContent,
+  Outlet,
+  Scripts,
+  useRouterState,
+} from '@tanstack/react-router'
 import { RootProvider } from 'fumadocs-ui/provider/tanstack'
 import type { JSX, ReactNode } from 'react'
 import { NotFound } from '../components/not-found'
@@ -16,7 +22,7 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
-      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'icon', href: `${import.meta.env.BASE_URL}favicon.svg`, type: 'image/svg+xml' },
     ],
   }),
   shellComponent: Shell,
@@ -25,6 +31,9 @@ export const Route = createRootRoute({
 })
 
 function Shell({ children }: { readonly children: ReactNode }): JSX.Element {
+  const staticPage = useRouterState({
+    select: (state) => state.matches.some((match) => match.routeId === '/not-found'),
+  })
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -32,7 +41,7 @@ function Shell({ children }: { readonly children: ReactNode }): JSX.Element {
       </head>
       <body className="flex min-h-screen flex-col">
         {children}
-        <Scripts />
+        {staticPage ? null : <Scripts />}
       </body>
     </html>
   )

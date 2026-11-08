@@ -21,6 +21,7 @@ import {
   nodeTrim,
   nodeUnit,
   textInside,
+  trimsAsBox,
 } from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import { labelAlways, maxStates, noPaint, stateRow, wordFloat } from '../core/state-buffers'
@@ -301,7 +302,7 @@ function chordReach(
   dx: number,
   dy: number,
 ): number {
-  if (!isBox(nodes, index)) return screenRadius(nodes, index, zoom)
+  if (!trimsAsBox(nodes, index)) return screenRadius(nodes, index, zoom)
   const length = Math.hypot(dx, dy)
   return length > 0
     ? nodeTrim(nodes, index, zoom, dx / length, dy / length)
@@ -578,10 +579,10 @@ export function edgeAnchor(
   const ux = (tx - sx) / length
   const uy = (ty - sy) / length
   const targetZoom = globe ? globeScale(globe, positions.y(target)) : view.zoom
-  const sourceReach = isBox(nodes, source)
+  const sourceReach = trimsAsBox(nodes, source)
     ? nodeTrim(nodes, source, sourceZoom, ux, uy)
     : sourceRadius
-  const targetReach = isBox(nodes, target)
+  const targetReach = trimsAsBox(nodes, target)
     ? nodeTrim(nodes, target, targetZoom, ux, uy)
     : screenRadius(nodes, target, targetZoom)
   const shift = (sourceReach - targetReach) / 2

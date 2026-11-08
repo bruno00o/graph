@@ -169,6 +169,29 @@ describe('groups', () => {
     expect([...graph.selection.get().edges].sort()).toEqual(['ac', 'bd'])
   })
 
+  it('draws edges between unfolded groups as one edge, from border to border', () => {
+    const graph = mount(
+      defineGraph({
+        marks: [
+          edges<Link>(links, { source: 'from', target: 'to', betweenGroups: 'groups' }),
+          nodes<Item>(placed, { x: 'x', y: 'y', parent: 'parent' }),
+        ],
+        transitions: { layout: 0 },
+      }),
+    )
+    const toScreen = (x: number) => graph.view.toScreen({ x, y: 0 })
+    const middle = toScreen(0)
+    const hit = graph.pick(middle) as GraphTarget & { kind: 'edge' }
+    expect(hit.endpoints).toEqual({ source: 'g', target: 'h' })
+    expect([...(hit.aggregate?.keys ?? [])].sort()).toEqual(['ac', 'bd'])
+    expect(graph.pick(toScreen(-150))?.key).toBe('ab')
+    expect(graph.pick(toScreen(-85))?.key).toBe('g')
+    pointer(graph, 'pointerdown', middle.x, middle.y)
+    pointer(graph, 'pointerup', middle.x, middle.y)
+    expect([...graph.selection.get().edges].sort()).toEqual(['ac', 'bd'])
+    expect(frame?.scene.nodes.containerBoxes).toBe(frame?.containers?.boxes)
+  })
+
   it('gives the ends of an edge as drawn', () => {
     const graph = mount()
     const b = screenOf(graph, 'b')

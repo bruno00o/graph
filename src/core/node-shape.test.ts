@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { boxShape, NodeColumns, shapeCodes } from './columns'
+import { boxShape, containerShape, NodeColumns, shapeCodes } from './columns'
 import {
   boundingRadius,
   boxDistance,
   boxReach,
+  endBox,
   halfWidthOf,
+  insideEndBox,
   loopShift,
   nodeDistance,
   nodeTrim,
   textInside,
+  trimsAsBox,
 } from './node-shape'
 
 function columns(): NodeColumns {
@@ -77,5 +80,47 @@ describe('box geometry', () => {
     expect(textInside(nodes, 1, 1, 30, 12)).toBe(false)
     expect(textInside(nodes, 1, 4, 30, 12)).toBe(true)
     expect(textInside(nodes, 3, 1, 17, 17)).toBe(true)
+  })
+})
+
+describe('container ends', () => {
+  function containers(): NodeColumns {
+    const nodes = new NodeColumns()
+    nodes.reserve(2)
+    nodes.alive.fill(1)
+    nodes.size.set([12, 12])
+    nodes.shape.set([containerShape, containerShape])
+    nodes.screenUnits.set([1, 0])
+    return nodes
+  }
+
+  it('trims at the node size until the container boxes are known', () => {
+    const nodes = containers()
+    expect(trimsAsBox(nodes, 0)).toBe(false)
+    expect(nodeTrim(nodes, 1, 2, 1, 0)).toBe(12)
+    expect(insideEndBox(nodes, 0, 0, 0, 1)).toBe(false)
+  })
+
+  it('trims at the border of the box in world units, rectangle or circle', () => {
+    const nodes = containers()
+    nodes.containerBoxes = new Float32Array([40, 10, 4, 0, 25, 25, 25, 0])
+    expect(trimsAsBox(nodes, 0)).toBe(true)
+    expect(nodeTrim(nodes, 0, 2, 1, 0)).toBeCloseTo(80, 6)
+    expect(nodeTrim(nodes, 0, 2, 0, -1)).toBeCloseTo(20, 6)
+    expect(nodeTrim(nodes, 1, 1, Math.SQRT1_2, Math.SQRT1_2)).toBeCloseTo(25, 6)
+    expect(endBox(nodes, 0, 0.5, { halfWidth: 0, halfHeight: 0, corner: 0 })).toEqual({
+      halfWidth: 20,
+      halfHeight: 5,
+      corner: 2,
+    })
+  })
+
+  it('tells a point inside the box of a container from one outside', () => {
+    const nodes = containers()
+    nodes.containerBoxes = new Float32Array([40, 10, 4, 0, 25, 25, 25, 0])
+    expect(insideEndBox(nodes, 0, 39, 0, 1)).toBe(true)
+    expect(insideEndBox(nodes, 0, 41, 0, 1)).toBe(false)
+    expect(insideEndBox(nodes, 1, 18, 18, 1)).toBe(false)
+    expect(insideEndBox(nodes, 1, 17, 17, 1)).toBe(true)
   })
 })

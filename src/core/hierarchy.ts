@@ -36,6 +36,7 @@ export class Hierarchy {
   #issueVersion = 0
   #foldedKeys: ReadonlySet<Key> = new Set()
   #moved: number[] = []
+  #relinked: number[] = []
   #touched: IndexSet = new IndexSet()
   #reshaped = false
 
@@ -149,6 +150,7 @@ export class Hierarchy {
       this.nextSibling[child] = none
       this.previousSibling[child] = none
       orphans.push(child)
+      this.#relinked.push(child)
       child = next
     }
     this.firstChild[index] = none
@@ -212,6 +214,12 @@ export class Hierarchy {
     return moved
   }
 
+  takeRelinked(): number[] {
+    const relinked = this.#relinked
+    if (relinked.length > 0) this.#relinked = []
+    return relinked
+  }
+
   takeTouched(): IndexSet {
     const touched = this.#touched
     this.#touched = new IndexSet()
@@ -251,6 +259,7 @@ export class Hierarchy {
     this.firstChild[parent] = index
     this.childCount[parent] = (this.childCount[parent] ?? 0) + 1
     this.#touched.add(parent)
+    this.#relinked.push(index)
     this.#reshaped = true
     return true
   }
@@ -277,6 +286,7 @@ export class Hierarchy {
     this.previousSibling[index] = none
     this.childCount[parent] = (this.childCount[parent] ?? 1) - 1
     this.#touched.add(parent)
+    this.#relinked.push(index)
     this.#reshaped = true
   }
 

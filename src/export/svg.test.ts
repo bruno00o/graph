@@ -270,14 +270,22 @@ const members: Member[] = [
   { id: 'c', parent: 'h', x: 100, y: 0 },
 ]
 
-function renderGroups(folded: Key[] = [], hulls: Hull<never>[] = []) {
+function renderGroups(
+  folded: Key[] = [],
+  hulls: Hull<never>[] = [],
+  betweenGroups: 'members' | 'groups' = 'members',
+) {
   const model = createGraphModel()
   const scene = createScene()
   const projection = new Projection(model)
   projection.setFolded(folded)
   const definition = defineGraph({
     marks: [
-      edges<Link>([{ id: 'ac', from: 'a', to: 'c' }], { source: 'from', target: 'to' }),
+      edges<Link>([{ id: 'ac', from: 'a', to: 'c' }], {
+        source: 'from',
+        target: 'to',
+        betweenGroups,
+      }),
       nodes<Member>(members, {
         x: 'x',
         y: 'y',
@@ -305,6 +313,7 @@ function renderGroups(folded: Key[] = [], hulls: Hull<never>[] = []) {
     1,
     1,
   )
+  scene.nodes.containerBoxes = containers.boxes
   const layer = new HullLayer()
   layer.setHulls(definition.hulls)
   layer.update(
@@ -750,6 +759,11 @@ describe('writeSvg', () => {
     const title = /translate\(130 ([\d.]+)\) scale/.exec(svg)
     expect(Number(title?.[1])).toBeLessThan(126)
     expect(frame).toEqual({ view: { x: 0, y: 0, zoom: 1 }, width: 248, height: 48 })
+  })
+
+  it('draws an edge between groups from container border to container border', () => {
+    const { svg } = renderGroups([], [], 'groups')
+    expect(svg).toContain('<path d="M184 150L276 150"')
   })
 
   it('draws hulls over the containers and under the edges, around the container boxes', () => {

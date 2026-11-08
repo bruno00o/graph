@@ -6,8 +6,11 @@ import { fumadocsMdx } from 'fumadocs-mdx/vite'
 import { defineConfig } from 'vite'
 
 const library = resolve(import.meta.dirname, '../src')
+const { DOCS_BASE: requestedBase = '/' } = process.env
+const base = `/${requestedBase.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
 
 export default defineConfig({
+  base,
   server: { port: 5192, strictPort: true },
   preview: { port: 5192, strictPort: true },
   resolve: {
@@ -57,7 +60,10 @@ export default defineConfig({
     tailwindcss(),
     tanstackStart({
       prerender: { enabled: true, crawlLinks: true, failOnError: true },
-      pages: [{ path: '/api/search' }],
+      pages: [
+        { path: '/api/search' },
+        { path: '/not-found', prerender: { outputPath: '/404.html', autoSubfolderIndex: false } },
+      ],
     }),
     react(),
   ],

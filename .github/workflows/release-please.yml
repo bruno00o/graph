@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v5.0.0
         id: release
@@ -38,3 +39,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       - run: npm publish --provenance --access public
+
+  docs:
+    needs: [release, publish]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml
+    with:
+      ref: ${{ needs.release.outputs.tag_name }}

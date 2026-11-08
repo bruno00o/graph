@@ -25,6 +25,7 @@ const groupIds = ['g0', 'g1', 'g2']
 const leafIds = ['n0', 'n1', 'n2', 'n3', 'n4', 'n5', 'n6']
 
 let mergeMode = 0
+let betweenGroups: 'members' | 'groups' = 'members'
 const seeds = 80
 
 function definition(items: Item[], links: Link[], directed: boolean): GraphDefinitionOptions {
@@ -43,6 +44,7 @@ function definition(items: Item[], links: Link[], directed: boolean): GraphDefin
               ? { min: 3, directed }
               : undefined,
         aggregate: { width: (aggregate: AggregateEdge<Link>) => aggregate.count, stroke: 'black' },
+        betweenGroups,
       }),
     ],
     scales: { color: { domain: kinds } },
@@ -104,6 +106,7 @@ function picture({ scene, projection }: Built, directed: boolean) {
         members.join(','),
         color(scene.edges.color[index]),
         (scene.edges.width[index] ?? 0).toFixed(3),
+        scene.edges.bundle[index],
       ].join(' '),
     )
     if (source !== target) {
@@ -137,6 +140,15 @@ function mutate(
       items: items.map((item) =>
         item.id === id ? { ...item, parent: next() < 0.3 ? null : pick(groupIds) } : item,
       ),
+      links,
+    }
+  }
+  if (roll < 0.3) {
+    const at = 1 + Math.floor(next() * (groupIds.length - 1))
+    const id = groupIds[at]
+    const parent = next() < 0.4 ? null : pick(groupIds.slice(0, at))
+    return {
+      items: items.map((item) => (item.id === id ? { ...item, parent } : item)),
       links,
     }
   }
@@ -217,6 +229,7 @@ describe('incremental projection and scene against a fresh build', () => {
         const next = random(seed * 7919)
         let { items, links } = initial(next)
         mergeMode = Math.floor(next() * 3)
+        betweenGroups = next() < 0.5 ? 'groups' : 'members'
         if (next() < 0.3) {
           items = items.map((item) => ({ ...item, parent: null }))
           mergeMode = 2
@@ -227,6 +240,7 @@ describe('incremental projection and scene against a fresh build', () => {
         for (let step = 0; step < 30; step++) {
           if (next() < 0.1) {
             mergeMode = Math.floor(next() * 3)
+            if (next() < 0.5) betweenGroups = betweenGroups === 'groups' ? 'members' : 'groups'
             live.render(definition(items, links, directed))
           } else if (next() < 0.25) {
             folded = groupIds.filter(() => next() < 0.5)

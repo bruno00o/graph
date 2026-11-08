@@ -5,4 +5,7 @@ export const messages = {
   group: (value: string, count: number) => `Group ${value}, ${count} nodes`,
   band: (value: string, count: number) =>
     `${value[0]?.toUpperCase()}${value.slice(1)}, ${count} nodes`,
+  between: (mode: 'members' | 'groups') =>
+    `Between groups: ${mode === 'groups' ? 'one line' : 'nodes'}`,
+  fill: (percent: number) => `Group fill: ${percent}%`,
 } as const
