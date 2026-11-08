@@ -45,6 +45,8 @@ export const messages = {
   grow: 'Ajouter dix nœuds',
   engine: 'Calcul',
   engines: { auto: 'Automatique', gpu: 'Carte graphique', cpu: 'Processeur' },
+  multilevel: 'Niveaux',
+  multilevelModes: { auto: 'Automatique', on: 'Toujours', off: 'Jamais' },
   groupMode: 'Groupes',
   groupModes: { none: 'Aucun', nested: 'Communautés imbriquées' },
   hierarchyGroupModes: { none: 'Aucun', nested: 'Branches imbriquées' },

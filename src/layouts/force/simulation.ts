@@ -57,6 +57,13 @@ export interface ForceOptions {
    * @default 'auto'
    */
   readonly engine?: ForceEngine | undefined
+  /**
+   * Lays out a coarse version of the graph first, then refines it level by level, on runs that
+   * move at least half of the nodes: `'auto'` from 1,000 moving nodes, `true` at any size,
+   * `false` never. Off when the graph has unfolded groups.
+   * @default 'auto'
+   */
+  readonly multilevel?: boolean | 'auto' | undefined
 }
 
 /** Force options with every default applied, as `layout.options` holds them. */
@@ -77,6 +84,8 @@ export interface ForceSettings {
   readonly steps: number
   /** Where the simulation runs. */
   readonly engine: ForceEngine
+  /** Whether runs that move at least half of the nodes start from a coarse version of the graph. */
+  readonly multilevel: boolean | 'auto'
 }
 
 export const forceDefaults: ForceSettings = {
@@ -88,6 +97,7 @@ export const forceDefaults: ForceSettings = {
   groupSpacing: 16,
   steps: 300,
   engine: 'auto',
+  multilevel: 'auto',
 }
 
 export const alphaMin = 0.001
@@ -98,12 +108,26 @@ const jitterScale = 1e-6
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 
 const gpuFrom = 2000
+const multilevelFrom = 1000
 
 export function prefersGpu(graph: ForceGraph, settings: ForceSettings): boolean {
   if (settings.engine !== 'auto') return settings.engine === 'gpu'
   let alive = 0
   for (const flag of graph.alive) alive += flag
   return alive >= gpuFrom
+}
+
+export function prefersMultilevel(graph: ForceGraph, settings: ForceSettings): boolean {
+  if (settings.multilevel === false || (graph.groups?.order.length ?? 0) > 0) return false
+  let alive = 0
+  let movers = 0
+  for (let i = 0; i < graph.capacity; i++) {
+    if (graph.alive[i] !== 1) continue
+    alive++
+    if (graph.movable[i] === 1) movers++
+  }
+  if (movers * 2 < alive || movers === 0) return false
+  return settings.multilevel === true || movers >= multilevelFrom
 }
 
 function positive(value: number | undefined, fallback: number): number {
@@ -122,6 +146,7 @@ export function resolveForce(options: ForceOptions = {}): ForceSettings {
     engine: engines.includes(options.engine as ForceEngine)
       ? (options.engine as ForceEngine)
       : forceDefaults.engine,
+    multilevel: typeof options.multilevel === 'boolean' ? options.multilevel : 'auto',
   }
 }
 
@@ -131,9 +156,9 @@ export class Cooling {
   readonly #total: number
   #tick = 0
 
-  constructor(start: number, steps: number) {
+  constructor(start: number, steps: number, top = 1) {
     this.start = start
-    this.#rate = alphaMin ** (1 / Math.max(1, steps))
+    this.#rate = (alphaMin / top) ** (1 / Math.max(1, steps))
     this.#total =
       start > alphaMin ? Math.ceil(Math.log(alphaMin / start) / Math.log(this.#rate) - 1e-9) : 0
   }
@@ -163,7 +188,11 @@ export interface Springs {
   readonly rest: Float64Array
 }
 
-export function springsOf(graph: ForceGraph, edgeLength: number): Springs {
+export function springsOf(
+  graph: ForceGraph,
+  edgeLength: number,
+  reach: Float32Array | null = null,
+): Springs {
   const { alive, edges, radius } = graph
   const degree = new Uint32Array(graph.capacity)
   const usable = (s: number, t: number) => s !== t && alive[s] === 1 && alive[t] === 1
@@ -191,10 +220,20 @@ export function springsOf(graph: ForceGraph, edgeLength: number): Springs {
     ends[k * 2 + 1] = t
     stiffness[k] = 1 / Math.min(ds, dt)
     share[k] = dt / (ds + dt)
-    rest[k] = edgeLength + (radius[s] ?? 0) + (radius[t] ?? 0)
+    rest[k] = reach
+      ? (reach[s] ?? 0) + (reach[t] ?? 0)
+      : edgeLength + (radius[s] ?? 0) + (radius[t] ?? 0)
     k++
   }
   return { count, ends, stiffness, share, rest }
+}
+
+export interface LevelRun {
+  readonly mass: Float32Array | null
+  readonly reach: Float32Array | null
+  readonly collide: boolean
+  readonly alpha: number
+  readonly steps: number
 }
 
 export class ForceSimulation {
@@ -217,8 +256,10 @@ export class ForceSimulation {
   readonly #tree = new BarnesHut()
   readonly #collider: Collider
   readonly #jiggle: () => number
+  readonly #mass: Float32Array | null
+  readonly #collide: boolean
 
-  constructor(graph: ForceGraph, settings: ForceSettings) {
+  constructor(graph: ForceGraph, settings: ForceSettings, level: LevelRun | null = null) {
     const capacity = graph.capacity
     this.x = new Float64Array(capacity)
     this.y = new Float64Array(capacity)
@@ -245,13 +286,21 @@ export class ForceSimulation {
     this.#nodes = Uint32Array.from(nodes)
     this.#movers = Uint32Array.from(movers)
     const partial = movers.length < nodes.length
-    const start = movers.length === 0 ? 0 : partial ? partialAlpha : 1
-    this.#cooling = new Cooling(start, settings.steps)
+    if (level) {
+      const start = movers.length === 0 ? 0 : level.alpha
+      this.#cooling = new Cooling(start, level.steps, level.alpha)
+      this.#gravity = settings.gravity
+    } else {
+      const start = movers.length === 0 ? 0 : partial ? partialAlpha : 1
+      this.#cooling = new Cooling(start, settings.steps)
+      this.#gravity = partial ? 0 : settings.gravity
+    }
+    this.#mass = level?.mass ?? null
     this.#repulsion = settings.repulsion
-    this.#gravity = partial ? 0 : settings.gravity
     this.#centerX = movers.length > 0 ? sumX / movers.length : 0
     this.#centerY = movers.length > 0 ? sumY / movers.length : 0
-    this.#springs = springsOf(graph, settings.edgeLength)
+    this.#springs = springsOf(graph, settings.edgeLength, level?.reach ?? null)
+    this.#collide = level?.collide ?? true
     this.#collider = new Collider(graph.radius, this.#nodes, settings.spacing)
     this.#jiggle = jitterOf(xorshift32(), jitterScale)
     this.tree = groupTree(capacity, graph.alive, graph.groups)
@@ -305,16 +354,17 @@ export class ForceSimulation {
     this.#attract(alpha)
     this.#groups?.apply(alpha, this.x, this.y, this.#vx, this.#vy, this.#fixed)
     this.#damp()
-    this.#collider.apply(
-      this.#nodes,
-      this.#fixed,
-      this.x,
-      this.y,
-      this.#vx,
-      this.#vy,
-      collisionStiffness,
-      this.#jiggle,
-    )
+    if (this.#collide)
+      this.#collider.apply(
+        this.#nodes,
+        this.#fixed,
+        this.x,
+        this.y,
+        this.#vx,
+        this.#vy,
+        collisionStiffness,
+        this.#jiggle,
+      )
     this.#advance()
     this.#cooling.advance()
   }
@@ -374,7 +424,7 @@ export class ForceSimulation {
   #repel(alpha: number): void {
     const strength = -this.#repulsion * alpha
     if (strength === 0) return
-    this.#tree.build(this.#nodes, this.x, this.y)
+    this.#tree.build(this.#nodes, this.x, this.y, this.#mass)
     for (const i of this.#movers) {
       if (this.#fixed[i] === 1) continue
       this.#tree.apply(i, this.x, this.y, strength, this.#jiggle, this.#vx, this.#vy)

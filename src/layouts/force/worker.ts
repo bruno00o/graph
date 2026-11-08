@@ -1,8 +1,8 @@
 import type { LayoutListener, LayoutRun } from '../../types'
 import { GpuForce } from './gpu'
 import type { FromWorker, ToWorker } from './protocol'
-import { runForce, runGpuForce } from './runner'
-import { prefersGpu } from './simulation'
+import { runForce, runGpuForce, runMultilevelForce } from './runner'
+import { type ForceGraph, type LevelRun, prefersGpu, prefersMultilevel } from './simulation'
 
 interface WorkerScope {
   onmessage: ((event: MessageEvent<ToWorker>) => void) | null
@@ -35,7 +35,15 @@ scope.onmessage = (event) => {
     queued = task
     channel.port2.postMessage(null)
   }
+  const useGpu = prefersGpu(graph, settings)
+  if (prefersMultilevel(graph, settings)) {
+    const engine = useGpu
+      ? (level: ForceGraph, plan: LevelRun) => GpuForce.create(level, settings, plan)
+      : null
+    run = runMultilevelForce(graph, settings, listener, 16, schedule, engine)
+    return
+  }
   const cpu = (xy: Float32Array) => runForce({ ...graph, xy }, settings, listener, 16, schedule)
-  const gpu = prefersGpu(graph, settings) ? GpuForce.create(graph, settings) : null
+  const gpu = useGpu ? GpuForce.create(graph, settings) : null
   run = gpu ? runGpuForce(gpu, graph, settings, listener, cpu) : cpu(graph.xy)
 }

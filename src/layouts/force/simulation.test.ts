@@ -7,6 +7,7 @@ import {
   ForceSimulation,
   forceDefaults,
   prefersGpu,
+  prefersMultilevel,
   resolveForce,
   springsOf,
 } from './simulation'
@@ -78,6 +79,27 @@ describe('BarnesHut', () => {
     expect(tree.cells).toBeLessThan(count * 2)
   })
 
+  it('weighs each point by its mass when given one', () => {
+    const next = random(11)
+    const count = 300
+    const x = Float64Array.from({ length: count }, () => next() * 1000)
+    const y = Float64Array.from({ length: count }, () => next() * 1000)
+    const nodes = Uint32Array.from({ length: count }, (_, index) => index)
+    const push = (weights: Float32Array | null) => {
+      const tree = new BarnesHut()
+      tree.build(nodes, x, y, weights)
+      const vx = new Float64Array(count)
+      const vy = new Float64Array(count)
+      tree.apply(0, x, y, -1, () => 0, vx, vy)
+      return [vx[0] ?? 0, vy[0] ?? 0]
+    }
+    expect(push(new Float32Array(count).fill(1))).toEqual(push(null))
+    const [dx, dy] = push(new Float32Array(count).fill(3))
+    const [ux, uy] = push(null)
+    expect(dx).toBeCloseTo((ux ?? 0) * 3, 6)
+    expect(dy).toBeCloseTo((uy ?? 0) * 3, 6)
+  })
+
   it('keeps coincident points in one leaf', () => {
     const x = new Float64Array([5, 5, 5])
     const y = new Float64Array([5, 5, 5])
@@ -102,6 +124,30 @@ describe('ForceSimulation', () => {
       steps: 1,
       engine: 'auto',
     })
+    expect(resolveForce().multilevel).toBe('auto')
+    expect(resolveForce({ multilevel: true }).multilevel).toBe(true)
+    expect(resolveForce({ multilevel: false }).multilevel).toBe(false)
+    expect(resolveForce({ multilevel: 'yes' as 'auto' }).multilevel).toBe('auto')
+  })
+
+  it('starts from coarse levels on large runs that move most nodes', () => {
+    const sized = (count: number, fixed = 0) =>
+      graph(
+        Array.from({ length: count }, () => [0, 0] as const),
+        [],
+        Array.from({ length: fixed }, (_, index) => index),
+      )
+    expect(prefersMultilevel(sized(999), forceDefaults)).toBe(false)
+    expect(prefersMultilevel(sized(1000), forceDefaults)).toBe(true)
+    expect(prefersMultilevel(sized(2400, 1000), forceDefaults)).toBe(true)
+    expect(prefersMultilevel(sized(2400, 1300), forceDefaults)).toBe(false)
+    expect(prefersMultilevel(sized(20), { ...forceDefaults, multilevel: true })).toBe(true)
+    expect(prefersMultilevel(sized(20, 20), { ...forceDefaults, multilevel: true })).toBe(false)
+    expect(prefersMultilevel(sized(5000), { ...forceDefaults, multilevel: false })).toBe(false)
+    const groups = (order: number[]) =>
+      ({ order: Uint32Array.from(order) }) as unknown as NonNullable<ForceGraph['groups']>
+    expect(prefersMultilevel({ ...sized(5000), groups: groups([1]) }, forceDefaults)).toBe(false)
+    expect(prefersMultilevel({ ...sized(5000), groups: groups([]) }, forceDefaults)).toBe(true)
   })
 
   it('prefers the graphics card for large graphs unless an engine is forced', () => {

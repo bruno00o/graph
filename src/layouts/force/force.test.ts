@@ -119,4 +119,48 @@ describe('force', () => {
     })
     expect(Array.from(end).every(Number.isFinite)).toBe(true)
   })
+
+  it('lays out level by level when asked, with fixed nodes in place', async () => {
+    const width = 15
+    const count = width * width
+    const edges: number[] = []
+    for (let at = 0; at < count; at++) {
+      if (at % width < width - 1) edges.push(at, at + 1)
+      if (at + width < count) edges.push(at, at + width)
+    }
+    const mesh: LayoutGraph = {
+      capacity: count,
+      alive: new Uint8Array(count).fill(1),
+      movable: Uint8Array.from({ length: count }, (_, at) => (at === 112 ? 0 : 1)),
+      xy: Float32Array.from({ length: count * 2 }, (_, at) => ((at * 7919) % 997) - 498),
+      radius: new Float32Array(count).fill(5),
+      edges: Uint32Array.from(edges),
+      keys: [],
+      datum: () => undefined,
+    }
+    const run = (multilevel: boolean) =>
+      new Promise<Float32Array>((resolve) =>
+        force({ engine: 'cpu', multilevel }).start(mesh, { progress: () => {}, end: resolve }),
+      )
+    const folds = (xy: Float32Array) => {
+      let turns = 0
+      for (let at = 0; at + width < count; at++) {
+        if (at % width === width - 1) continue
+        const ax = xy[at * 2] ?? 0
+        const ay = xy[at * 2 + 1] ?? 0
+        const cross =
+          ((xy[at * 2 + 2] ?? 0) - ax) * ((xy[(at + width) * 2 + 1] ?? 0) - ay) -
+          ((xy[at * 2 + 3] ?? 0) - ay) * ((xy[(at + width) * 2] ?? 0) - ax)
+        turns += cross > 0 ? 1 : 0
+      }
+      const cells = (width - 1) * (width - 1)
+      return Math.min(turns, cells - turns) / cells
+    }
+    const levels = await run(true)
+    const single = await run(false)
+    expect(Array.from(levels).every(Number.isFinite)).toBe(true)
+    expect([levels[224], levels[225]]).toEqual([mesh.xy[224], mesh.xy[225]])
+    expect(folds(levels)).toBeLessThan(0.1)
+    expect(folds(single)).toBeGreaterThan(folds(levels))
+  })
 })

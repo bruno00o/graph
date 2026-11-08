@@ -1,8 +1,13 @@
 import { withFinitePositions } from '../../core/finite-positions'
 import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../../types'
 import type { FromWorker, ToWorker } from './protocol'
-import { runForce } from './runner'
-import { type ForceOptions, type ForceSettings, resolveForce } from './simulation'
+import { runForce, runMultilevelForce } from './runner'
+import {
+  type ForceOptions,
+  type ForceSettings,
+  prefersMultilevel,
+  resolveForce,
+} from './simulation'
 import ForceWorker from './worker?worker&inline'
 
 export type { ForceEngine, ForceOptions, ForceSettings } from './simulation'
@@ -10,7 +15,11 @@ export type { ForceEngine, ForceOptions, ForceSettings } from './simulation'
 const inlineBudget = 8
 
 function inline(graph: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
-  return runForce(graph, settings, listener, inlineBudget, (task) => setTimeout(task, 0))
+  const schedule = (task: () => void) => setTimeout(task, 0)
+  if (prefersMultilevel(graph, settings)) {
+    return runMultilevelForce(graph, settings, listener, inlineBudget, schedule, null)
+  }
+  return runForce(graph, settings, listener, inlineBudget, schedule)
 }
 
 function spawn(): Worker | null {

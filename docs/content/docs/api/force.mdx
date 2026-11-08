@@ -32,6 +32,7 @@ A negative or non-finite value falls back to its default. `steps` is rounded and
 - The simulation runs in a Web Worker shipped inside the package, created from a `blob:` URL. No bundler setup is needed.
 - On the GPU, it runs in WebGL2 on an `OffscreenCanvas` inside the worker, and needs `EXT_color_buffer_float` and `EXT_float_blend`. Without them, or when the context is lost, the CPU takes over from the last positions.
 - Without `Worker`, when the content security policy refuses `worker-src blob:`, or when the worker fails, the simulation continues on the main thread in slices of 8 milliseconds.
+- From 1,000 moving nodes, on runs that move at least half of the nodes, the graph is laid out in levels: a coarse copy first, then finer ones, the last being the graph itself. Coarse levels run on the CPU in the worker, levels of 4,000 nodes or more on the GPU when it is chosen. `multilevel` turns this on at any size or off. Graphs with unfolded groups use a single level. See [Large graphs](/docs/layout#large-graphs).
 - Nodes with `x` and `y` channels never move. Pinned nodes, dragged or set through `positions.set` during the run, keep their place.
 - Unfolded groups stay whole: members pull toward their group with `cohesion`, edges between groups move whole groups, and at the end no container overlaps another container or a node next to it, with `groupSpacing` around each. See [groups in layouts](/docs/layout#groups).
 

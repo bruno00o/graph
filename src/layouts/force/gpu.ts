@@ -19,6 +19,7 @@ import {
   Cooling,
   type ForceGraph,
   type ForceSettings,
+  type LevelRun,
   partialAlpha,
   retention,
   springsOf,
@@ -96,6 +97,7 @@ export class GpuForce {
   readonly #pack: WebGLBuffer
   readonly #pixels: Float32Array
   readonly #radius: Float32Array
+  readonly #mass: Float32Array | null
   readonly #alive: Uint8Array
   readonly #slot: Float32Array
   readonly #groups: GroupPasses | null
@@ -105,7 +107,11 @@ export class GpuForce {
   #current: 0 | 1 = 0
   #lost = false
 
-  static create(graph: ForceGraph, settings: ForceSettings): GpuForce | null {
+  static create(
+    graph: ForceGraph,
+    settings: ForceSettings,
+    level: LevelRun | null = null,
+  ): GpuForce | null {
     if (typeof OffscreenCanvas === 'undefined') return null
     const canvas = new OffscreenCanvas(1, 1)
     const gl = canvas.getContext('webgl2', {
@@ -124,7 +130,7 @@ export class GpuForce {
       return null
     }
     try {
-      const force = new GpuForce(gl, graph, settings)
+      const force = new GpuForce(gl, graph, settings, level)
       canvas.addEventListener('webglcontextlost', () => force.#loseContext())
       return force
     } catch {
@@ -133,11 +139,17 @@ export class GpuForce {
     }
   }
 
-  private constructor(gl: WebGL2RenderingContext, graph: ForceGraph, settings: ForceSettings) {
+  private constructor(
+    gl: WebGL2RenderingContext,
+    graph: ForceGraph,
+    settings: ForceSettings,
+    level: LevelRun | null,
+  ) {
     this.#gl = gl
     const capacity = graph.capacity
     this.capacity = capacity
     this.#radius = graph.radius
+    this.#mass = level?.mass ?? null
     this.#alive = graph.alive.slice(0, capacity)
     this.#width = Math.max(1, Math.ceil(Math.sqrt(capacity)))
     this.#height = Math.max(1, Math.ceil(capacity / this.#width))
@@ -163,7 +175,7 @@ export class GpuForce {
       props[i * 4 + 3] = this.#slot[i] ?? -1
       if (graph.alive[i] !== 1) continue
       alive++
-      props[i * 4 + 1] = 1
+      props[i * 4 + 1] = this.#mass?.[i] ?? 1
       if (graph.movable[i] === 1) {
         movers++
         sumX += x
@@ -173,8 +185,13 @@ export class GpuForce {
     }
     for (let i = 0; i < capacity; i++) if (graph.alive[i] !== 1) this.fixed[i] = 1
     const partial = movers < alive
-    this.#cooling = new Cooling(movers === 0 ? 0 : partial ? partialAlpha : 1, settings.steps)
-    this.#gravity = partial ? 0 : settings.gravity
+    if (level) {
+      this.#cooling = new Cooling(movers === 0 ? 0 : level.alpha, level.steps, level.alpha)
+      this.#gravity = settings.gravity
+    } else {
+      this.#cooling = new Cooling(movers === 0 ? 0 : partial ? partialAlpha : 1, settings.steps)
+      this.#gravity = partial ? 0 : settings.gravity
+    }
     this.#repulsion = settings.repulsion
     this.#center = movers > 0 ? [sumX / movers, sumY / movers] : [0, 0]
     this.#levels = Math.min(
@@ -226,7 +243,13 @@ export class GpuForce {
     }
 
     const masses = tree ? groupMasses(tree, graph.alive, graph.movable) : null
-    const { vertices, count } = edgeVertices(graph, settings.edgeLength, tree, masses?.rigid)
+    const { vertices, count } = edgeVertices(
+      graph,
+      settings.edgeLength,
+      tree,
+      masses?.rigid,
+      level?.reach ?? null,
+    )
     this.#edgeVertices = count
     this.#cover = createCoverArray(gl)
     this.#nodes = createIndexArray(gl, this.capacity)
@@ -294,7 +317,12 @@ export class GpuForce {
       new Float32Array([x, y, 0, 0]),
     )
     gl.bindTexture(gl.TEXTURE_2D, this.#props)
-    const props = new Float32Array([this.#radius[index] ?? 0, 1, 0, this.#slot[index] ?? -1])
+    const props = new Float32Array([
+      this.#radius[index] ?? 0,
+      this.#mass?.[index] ?? 1,
+      0,
+      this.#slot[index] ?? -1,
+    ])
     gl.texSubImage2D(gl.TEXTURE_2D, 0, tx, ty, 1, 1, gl.RGBA, gl.FLOAT, props)
   }
 
@@ -664,8 +692,9 @@ function edgeVertices(
   edgeLength: number,
   tree: GroupTree | null,
   rigid: Uint8Array | undefined,
+  reach: Float32Array | null,
 ): { vertices: Float32Array; count: number } {
-  const { count, ends, stiffness, share, rest } = springsOf(graph, edgeLength)
+  const { count, ends, stiffness, share, rest } = springsOf(graph, edgeLength, reach)
   const lift = tree && rigid ? liftOf(tree, rigid, ends, count) : null
   const vertices = new Float32Array(count * 12)
   for (let k = 0; k < count; k++) {

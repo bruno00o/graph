@@ -18,6 +18,8 @@ const nodeCount = Number(params.get('nodes') ?? 50_000)
 const edgeCount = Number(params.get('edges') ?? 100_000)
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 const engine = engines.find((value) => value === params.get('layout'))
+const levels = params.get('multilevel')
+const multilevel = levels === 'off' ? false : levels === 'on' ? true : 'auto'
 const flow = params.has('flow')
 const decor = params.has('decor')
 const screen = params.has('screen')
@@ -136,7 +138,7 @@ const define = (nodeData: readonly (Item | TimedItem)[]) =>
       muted: { opacity: 0.06, label: false },
       near: { others: { opacity: 0.06, label: false } },
     },
-    layout: engine ? force({ engine }) : null,
+    layout: engine ? force({ engine, multilevel }) : null,
   })
 const definition = define(items)
 
