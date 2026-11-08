@@ -1,0 +1,158 @@
+import type { EdgePaths } from '../core/edge-paths'
+import { globeScale, globeWorld } from '../core/globe'
+import type { Endpoints, GraphModel } from '../core/graph-model'
+import type { LayerFilter } from '../core/mark-layers'
+import { PickIndex, type PickSource } from '../core/pick-index'
+import type { Positions } from '../core/positions'
+import type { Projection } from '../core/projection'
+import type { Scene } from '../core/scene'
+import type { StateBuffers, StateKind } from '../core/state-buffers'
+import type { TimeFilter } from '../core/time-range'
+import { toWorld } from '../core/view'
+import { nodeShown, type Sight } from '../core/visibility'
+import type { Key, Point } from '../types'
+import type { HostCamera } from './camera'
+import type { ContainerBoxes } from './containers'
+import type { GraphTarget } from './events'
+
+const pickTolerance = 4
+const movingPickInterval = 150
+const pickCostShare = 10
+const highlightOrder = 2 ** 40
+const layerOrder = 2 ** 26
+
+export interface PickerSource {
+  readonly scene: Scene
+  readonly model: GraphModel
+  readonly positions: Positions
+  readonly buffers: StateBuffers
+  readonly projection: Projection
+  readonly containers: ContainerBoxes
+  readonly paths: EdgePaths
+  readonly camera: HostCamera
+  layerPosition(kind: StateKind, index: number): number
+  viewport(): { width: number; height: number }
+  timeFilter(): TimeFilter | null
+  layerFilter(): LayerFilter | null
+  syncContainers(): void
+  sceneVersion(): number
+  dragging(): boolean
+  moving(): boolean
+}
+
+export class HostPicker {
+  readonly #index = new PickIndex()
+  readonly #pickSource: PickSource
+  #scene = -1
+  #positions = -1
+  #paths = 0
+  #at = Number.NEGATIVE_INFINITY
+  #cost = 0
+  readonly #source: PickerSource
+
+  constructor(source: PickerSource) {
+    this.#source = source
+    const buffers = source.buffers
+    this.#pickSource = {
+      nodes: source.scene.nodes,
+      edges: source.scene.edges,
+      positions: source.positions,
+      order: (kind, index) => {
+        const mask = (kind === 'nodes' ? buffers.nodeMask[index] : buffers.edgeMask[index]) ?? 0
+        const raised = (mask & buffers.raised(kind)) !== 0
+        return (
+          (raised ? highlightOrder : 0) + source.layerPosition(kind, index) * layerOrder + index
+        )
+      },
+      paths: source.paths,
+    }
+  }
+
+  #later(): boolean {
+    const source = this.#source
+    if (!source.moving()) return false
+    if (this.#scene !== source.sceneVersion() || this.#paths !== source.paths.version) return false
+    return performance.now() - this.#at < Math.max(movingPickInterval, this.#cost * pickCostShare)
+  }
+
+  pick(point: Point, hover = false): GraphTarget | null {
+    const source = this.#source
+    const { scene, positions, paths, projection, camera } = source
+    source.syncContainers()
+    const current = !source.dragging() && !(hover && this.#later())
+    const started = performance.now()
+    if (current && this.#paths !== paths.version) {
+      this.#index.build(this.#pickSource)
+      this.#paths = paths.version
+      this.#scene = source.sceneVersion()
+      this.#positions = positions.version
+      this.#at = performance.now()
+      this.#cost = this.#at - started
+    } else if (
+      current &&
+      (this.#scene !== source.sceneVersion() || this.#positions !== positions.version)
+    ) {
+      this.#index.refresh(this.#pickSource)
+      this.#scene = source.sceneVersion()
+      this.#positions = positions.version
+      this.#at = performance.now()
+      this.#cost = this.#at - started
+    }
+    const globe = camera.sphere()
+    const lensView = camera.viewAt(point)
+    const world = globe
+      ? globeWorld(globe, point.x, point.y)
+      : toWorld(lensView, source.viewport(), point)
+    if (!world) return null
+    const seen: Sight = {
+      zoom: lensView.zoom,
+      time: source.timeFilter(),
+      layers: source.layerFilter(),
+      hide: source.buffers.hide,
+    }
+    const surfaceOf = globe ? { scale: globeScale(globe, world.y), visible: camera.facing } : null
+    const hit = this.#index.pick(this.#pickSource, world.x, world.y, seen, pickTolerance, surfaceOf)
+    if (!hit) {
+      const shown = (index: number) => nodeShown(scene.nodes, index, seen)
+      const index = projection.active
+        ? source.containers.pick(world.x, world.y, positions, shown)
+        : -1
+      const key = index >= 0 ? scene.nodes.keys[index] : undefined
+      return key === undefined ? null : this.target('node', key)
+    }
+    const key = hit.kind === 'node' ? scene.nodes.keys[hit.index] : scene.edges.keys[hit.index]
+    if (key === undefined) return null
+    const found = this.target(hit.kind, key)
+    if (!found || found.kind === 'node' || hit.kind === 'node') return found
+    const aggregate = projection.aggregateAt(hit.index)
+    return {
+      ...found,
+      ...(hit.end ? { end: hit.end } : {}),
+      ...(aggregate ? { aggregate } : {}),
+    }
+  }
+
+  drawnEnds(key: Key): Endpoints | undefined {
+    const { scene, model, projection } = this.#source
+    const index = projection.edgeIndexOf(key)
+    if (index >= 0 && scene.edges.alive[index] === 1) {
+      const source = scene.nodes.keys[scene.edges.source[index] ?? -1]
+      const target = scene.nodes.keys[scene.edges.target[index] ?? -1]
+      if (source !== undefined && target !== undefined) return { source, target }
+    }
+    return model.endpoints(key)
+  }
+
+  target(kind: 'node' | 'edge', key: Key): GraphTarget | null {
+    const model = this.#source.model
+    if (kind === 'node') {
+      const record = model.node(key)
+      return record ? { kind, key, datum: record.datum, mark: record.mark.name } : null
+    }
+    const record = model.edge(key)
+    const endpoints = record ? this.drawnEnds(key) : undefined
+    return record && endpoints
+      ? { kind, key, datum: record.datum, mark: record.mark.name, endpoints }
+      : null
+  }
+}

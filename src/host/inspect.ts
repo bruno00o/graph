@@ -1,5 +1,5 @@
 import type { GraphIssue } from '../core/issues'
-import type { GraphInstance } from './mount-graph'
+import type { GraphInstance } from './graph-instance'
 import type { RendererStats } from './renderer'
 
 export interface GraphProbe {

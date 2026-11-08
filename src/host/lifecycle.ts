@@ -12,15 +12,15 @@ import { dev } from '../dev'
 import type { Key, Mark, Point } from '../types'
 import type { ElementKeys, ElementKeysInput } from './events'
 import { exposeSnapshot } from './export-source'
-import { exposeInternals } from './internals'
-import { lensContains, lensView } from './lens'
 import type {
   GraphCount,
   GraphInstance,
   GraphState,
   GraphStore,
   MountGraphOptions,
-} from './mount-graph'
+} from './graph-instance'
+import { exposeInternals } from './internals'
+import { lensContains, lensView } from './lens'
 import { readonlyOf } from './readonly-store'
 
 interface Waiter {
