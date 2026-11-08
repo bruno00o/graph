@@ -39,7 +39,8 @@ interface LayoutRunState {
   readonly duration: number | null
 }
 
-type Placements = ReadonlyArray<readonly [string, { readonly x: number; readonly y: number }]>
+type Placement = readonly [string, { readonly x: number; readonly y: number }]
+type Placements = readonly Placement[]
 
 const framing = { padding: framePadding, maxZoom: 1.6 } as const
 
@@ -103,7 +104,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
 
   const placements = useMemo<Placements>(() => {
     if (!network) return []
-    const placed: Placements = []
+    const placed: Placement[] = []
     for (const work of network.works) {
       if (work.x === null || work.y === null) continue
       placed.push([work.id, { x: work.x, y: work.y }])
