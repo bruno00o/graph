@@ -1,4 +1,4 @@
-import { containerShape, type NodeColumns } from '../core/columns'
+import { boxShape, containerShape, type NodeColumns } from '../core/columns'
 import type { Hierarchy } from '../core/hierarchy'
 import type { Positions } from '../core/positions'
 import type { Bounds } from '../core/view'
@@ -109,11 +109,10 @@ export class ContainerBoxes implements ContainerFrame {
   ): void {
     const boxes = this.boxes
     let screenUnits = screenPadding
-    const radius = (index: number): number => {
-      const size = (nodes.size[index] ?? 0) / 2
-      if (nodes.screenUnits[index] !== 1) return size
+    const half = (index: number, value: number): number => {
+      if (nodes.screenUnits[index] !== 1) return value / 2
       screenUnits = true
-      return size / zoom
+      return value / 2 / zoom
     }
     for (let slot = this.count - 1; slot >= 0; slot--) {
       const index = this.order[slot] ?? 0
@@ -130,8 +129,14 @@ export class ContainerBoxes implements ContainerFrame {
         const x = positions.x(child)
         const y = positions.y(child)
         const nested = nodes.shape[child] === containerShape
-        const halfWidth = nested ? (boxes[child * 4] ?? 0) : radius(child)
-        const halfHeight = nested ? (boxes[child * 4 + 1] ?? 0) : halfWidth
+        const halfHeight = nested
+          ? (boxes[child * 4 + 1] ?? 0)
+          : half(child, nodes.size[child] ?? 0)
+        const halfWidth = nested
+          ? (boxes[child * 4] ?? 0)
+          : nodes.shape[child] === boxShape
+            ? half(child, nodes.width[child] ?? 0)
+            : halfHeight
         minX = Math.min(minX, x - halfWidth)
         minY = Math.min(minY, y - halfHeight)
         maxX = Math.max(maxX, x + halfWidth)
@@ -160,7 +165,12 @@ export class ContainerBoxes implements ContainerFrame {
             ? nodes.container[child] === circle
               ? (boxes[child * 4] ?? 0)
               : Math.hypot(boxes[child * 4] ?? 0, boxes[child * 4 + 1] ?? 0)
-            : radius(child)
+            : nodes.shape[child] === boxShape
+              ? Math.hypot(
+                  half(child, nodes.width[child] ?? 0),
+                  half(child, nodes.size[child] ?? 0),
+                )
+              : half(child, nodes.size[child] ?? 0)
           reach = Math.max(
             reach,
             Math.hypot(positions.x(child) - x, positions.y(child) - y) + extent,

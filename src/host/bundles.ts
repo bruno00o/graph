@@ -67,6 +67,7 @@ export class BundleHost {
     radius: 0,
     halfWidth: 0,
     halfHeight: 0,
+    corner: 0,
     trim: 0,
   }
   #method: Method | null = null

@@ -18,7 +18,7 @@ nodes<Item>(items, {
 
 The fields of the object are listed in [`NodeImage`](/docs/api/nodes#images).
 
-The image sits on the fill, under the contour, clipped by the shape. Return `null` to draw no image for a node.
+The image sits on the fill, under the contour, clipped by the shape. Return `null` to draw no image for a node. On a [box](/docs/marks#boxes), the image is a square as tall as the box, in its middle and under its label: it suits a box without a label, or one whose label sits outside.
 
 Images load in the background and appear when ready. Each one is stored once, however many nodes use it, in a texture of at most 256 images of 256 by 256 pixels.
 
@@ -54,7 +54,7 @@ A badge has a `text`, a `fill` and a text `color`: see [`Badge`](/docs/api/nodes
 
 Corners are `topLeft`, `topRight`, `bottomLeft` and `bottomRight`. A badge is surrounded by a ring of `--graph-node-ring` so it reads on any fill.
 
-A badge is about half the node's diameter on screen, up to 18 pixels high. On small nodes, badges hide, and their text appears only once there is room for it. Badges are not picked: a click on a badge reaches the node.
+Badges sit on the corners of a [box](/docs/marks#boxes), at its full width. A badge is about half the node's diameter, or the height of a box, on screen, up to 18 pixels high. On small nodes, badges hide, and their text appears only once there is room for it. Badges are not picked: a click on a badge reaches the node.
 
 ## Outlines and label backgrounds
 

@@ -19,6 +19,7 @@ import type {
 } from '../types'
 import {
   arrowCodes,
+  boxShape,
   containerCodes,
   containerShape,
   cornerCodes,
@@ -49,7 +50,16 @@ import type {
   NodeRecord,
 } from './graph-model'
 import { IndexSet } from './index-set'
+import {
+  boxPadding,
+  estimateTextWidth,
+  labelWidth,
+  nodeLabelSize,
+  primaryWeight,
+  type TextWidth,
+} from './label-width'
 import { MarkLayers } from './mark-layers'
+import { boxCornerShare } from './node-shape'
 import { Palette } from './palette'
 import { readMaxZoom, readMinZoom } from './zoom-range'
 
@@ -115,6 +125,7 @@ export interface Scene {
   scales(): SceneScales
   setDefinition(definition: GraphDefinition): void
   apply(model: SceneModel, changes: GraphChanges): void
+  remeasure(): boolean
   takeDirty(): SceneDirty
 }
 
@@ -528,7 +539,7 @@ function slotCounts(columns: SlotColumns): number[] {
   return counts
 }
 
-export function createScene(): Scene {
+export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
   const nodes = new NodeColumns()
   const edges = new EdgeColumns()
   const palette = new Palette()
@@ -790,8 +801,11 @@ export function createScene(): Scene {
     nodes.labelPlacement[index] =
       record.container && !mark.labelPlacement
         ? placementCodes.top
-        : codeOf<LabelPlacement>(placementCodes, mark.labelPlacement?.(datum))
+        : !mark.labelPlacement && nodes.shape[index] === boxShape
+          ? placementCodes.center
+          : codeOf<LabelPlacement>(placementCodes, mark.labelPlacement?.(datum))
     nodes.labelMinScreenSize[index] = positive(mark.labelMinScreenSize?.(datum))
+    writeBox(index, mark, datum)
     const previous = nodeColors[previousSlot] ?? sharedColor
     if (held !== before || previous !== nodeColor) {
       nodeHeld[index] = held
@@ -799,6 +813,55 @@ export function createScene(): Scene {
       previous.release(before)
     }
     dirtyNodes.add(index)
+  }
+
+  function fitWidth(index: number): number {
+    const size = nodes.size[index] ?? 0
+    const label = nodes.label[index]
+    const room = size * boxPadding * 2
+    if (!label || nodes.labelPlacement[index] !== placementCodes.center) return size
+    const text = labelWidth(
+      textWidth,
+      label,
+      nodes.secondary[index] ?? null,
+      nodes.labelWeight[index] || primaryWeight,
+      nodes.labelFont[index] ?? null,
+      nodes.labelMaxWidth[index] ?? 0,
+      nodes.labelSize[index] || nodeLabelSize,
+    )
+    return Math.max(size, text + room)
+  }
+
+  function writeBox(index: number, mark: CompiledNodeMark, datum: unknown): void {
+    if (nodes.shape[index] !== boxShape) {
+      nodes.fitLabel[index] = 0
+      nodes.width[index] = 0
+      nodes.corner[index] = 0
+      return
+    }
+    const size = nodes.size[index] ?? 0
+    const wanted = mark.width?.(datum)
+    const fixed = typeof wanted === 'number' && Number.isFinite(wanted) ? Math.max(0, wanted) : null
+    const center = nodes.labelPlacement[index] === placementCodes.center
+    if (fixed !== null && center && !mark.labelText.maxWidth) {
+      nodes.labelMaxWidth[index] = Math.max(fixed - size * boxPadding * 2, 1e-3)
+    }
+    nodes.fitLabel[index] = fixed === null ? 1 : 0
+    nodes.width[index] = fixed ?? fitWidth(index)
+    nodes.corner[index] = Math.max(0, finiteOr(mark.cornerRadius?.(datum), size * boxCornerShare))
+  }
+
+  function remeasure(): boolean {
+    let changed = false
+    for (let index = 0; index < nodes.capacity; index++) {
+      if (nodes.alive[index] !== 1 || nodes.fitLabel[index] !== 1) continue
+      const width = fitWidth(index)
+      if (width === nodes.width[index]) continue
+      nodes.width[index] = width
+      dirtyNodes.add(index)
+      changed = true
+    }
+    return changed
   }
 
   function writeLook(index: number, mark: CompiledNodeMark, datum: unknown): unknown {
@@ -1184,6 +1247,7 @@ export function createScene(): Scene {
     edges,
     palette,
     markLayers,
+    remeasure,
 
     get layers() {
       return layers

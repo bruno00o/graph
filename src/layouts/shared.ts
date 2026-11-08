@@ -25,6 +25,31 @@ export function degrees(graph: LayoutGraph): Uint32Array {
   return degree
 }
 
+export function stepsOf(
+  graph: LayoutGraph,
+  indices: readonly number[],
+  spacing?: number,
+): readonly [number, number] {
+  const extents = graph.extents
+  if (!extents) {
+    const step = spacingOf(graph, indices, spacing)
+    return [step, step]
+  }
+  let wide = 0
+  let tall = 0
+  let largest = 0
+  for (const index of indices) {
+    const width = (extents[index * 2] ?? 0) * 2
+    const height = (extents[index * 2 + 1] ?? 0) * 2
+    wide = Math.max(wide, width)
+    tall = Math.max(tall, height)
+    largest = Math.max(largest, Math.min(width, height))
+  }
+  const gap = spacing !== undefined && Number.isFinite(spacing) && spacing >= 0 ? spacing : null
+  const room = gap ?? Math.max(largest, 24)
+  return [wide + room, tall + room]
+}
+
 export function spacingOf(
   graph: LayoutGraph,
   indices: readonly number[],

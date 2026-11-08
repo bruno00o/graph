@@ -1,11 +1,23 @@
 import { gridDotScale, gridLevels } from '../core/background-grid'
 import { type BridgeSet, bridgeRadiusAt, bridgesPerSegment } from '../core/bridges'
 import { containerShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
+import { paperOnFill } from '../core/contrast'
 import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
 import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
-import { diamondReach, squareReach } from '../core/node-shape'
+import {
+  boxBadgeInset,
+  boxDistance,
+  diamondReach,
+  isBox,
+  loopShift,
+  type NodeBox,
+  nodeBox,
+  nodeTrim,
+  nodeUnit,
+  squareReach,
+} from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
@@ -27,6 +39,7 @@ import {
   badgeTextMin,
   edgeLabelGap,
   labelGap,
+  mutedPaper,
   plateRadius,
 } from '../webgl/shaders'
 import { type ExportFrame, frameSight, screenExtent, screenRadius } from './frame'
@@ -71,6 +84,7 @@ interface QueuedLabel {
   readonly anchor: EdgeAnchor | null
 }
 
+const boxScratch: NodeBox = { halfWidth: 0, halfHeight: 0, corner: 0 }
 const haloWidth = 6
 const haloBands = [6, 4, 2] as const
 const haloLevels = [5 / 6, 3 / 6, 1 / 6] as const
@@ -189,13 +203,16 @@ function crossing(
   low: number,
   high: number,
   rising: boolean,
+  box: Readonly<NodeBox> | null = null,
 ): number {
   let lo = low
   let hi = high
   for (let step = 0; step < 14; step++) {
     const mid = (lo + hi) / 2
     const [px, py] = cubicPoint(curve, mid)
-    const inside = Math.hypot(px - x, py - y) < radius
+    const inside = box
+      ? boxDistance(px - x, py - y, box.halfWidth, box.halfHeight, box.corner) < 0
+      : Math.hypot(px - x, py - y) < radius
     if (inside === rising) lo = mid
     else hi = mid
   }
@@ -312,6 +329,8 @@ export function writeSvg(scene: SvgScene): string {
   const tintIds = new Map<number, string>()
   const ink = paintOf(theme.labelInk)
   const muted = paintOf(theme.labelMuted)
+  const paper = paintOf(theme.labelPaper)
+  const mutedPaperPaint: Paint = { ...paper, alpha: paper.alpha * mutedPaper }
   const labelHalo = paintOf(theme.labelHalo)
   const halo = paintOf(theme.halo)
   const halos = bandAlphas(halo.alpha)
@@ -320,6 +339,15 @@ export function writeSvg(scene: SvgScene): string {
   const sx = (index: number) => positions.x(index) * zoom + offsetX
   const sy = (index: number) => positions.y(index) * zoom + offsetY
   const radius = (index: number) => screenRadius(nodes, index, zoom)
+  const trimOf = (index: number, dx: number, dy: number) => {
+    const length = Math.hypot(dx, dy)
+    if (!isBox(nodes, index) || length === 0) return radius(index)
+    return nodeTrim(nodes, index, zoom, dx / length, dy / length)
+  }
+  const sourceScratch: NodeBox = { halfWidth: 0, halfHeight: 0, corner: 0 }
+  const targetScratch: NodeBox = { halfWidth: 0, halfHeight: 0, corner: 0 }
+  const boxOf = (index: number, out: NodeBox): NodeBox | null =>
+    isBox(nodes, index) ? nodeBox(nodes, index, nodeUnit(nodes, index, zoom), out) : null
   const boxes = scene.containers?.boxes ?? null
   const isContainer = (index: number) => nodes.shape[index] === containerShape
   const outside = (left: number, top: number, right: number, bottom: number) =>
@@ -416,6 +444,23 @@ export function writeSvg(scene: SvgScene): string {
     return id
   }
 
+  function boxClipId(halfWidth: number, halfHeight: number, corner: number): string {
+    const w = fine(halfWidth * 2)
+    const h = fine(halfHeight * 2)
+    const c = fine(corner)
+    const key = `box:${w}:${h}:${c}`
+    let id = clipIds.get(key)
+    if (!id) {
+      id = `${prefix}c${clipIds.size}`
+      clipIds.set(key, id)
+      const rounded = corner > 0 ? ` rx="${c}"` : ''
+      defs.push(
+        `<clipPath id="${id}"><rect x="${fine(0.5 - halfWidth)}" y="${fine(0.5 - halfHeight)}" width="${w}" height="${h}"${rounded}/></clipPath>`,
+      )
+    }
+    return id
+  }
+
   function tintId(color: number): string {
     let id = tintIds.get(color)
     if (!id) {
@@ -470,20 +515,32 @@ export function writeSvg(scene: SvgScene): string {
     const look = nodeLookAt(index)
     const outlineWidth = Math.max(look.outlineWidth, 0)
     const haloReach = look.halo ? haloWidth : 0
-    const extent = r * diamondReach + outlineWidth * Math.SQRT2 + haloReach
-    if (outside(x - extent, y - extent, x + extent, y + extent)) return
+    const boxed = isBox(nodes, index)
+    const box = nodeBox(nodes, index, nodeUnit(nodes, index, zoom), boxScratch)
+    const extentX =
+      (boxed ? box.halfWidth : r * diamondReach) + outlineWidth * Math.SQRT2 + haloReach
+    const extentY =
+      (boxed ? box.halfHeight : r * diamondReach) + outlineWidth * Math.SQRT2 + haloReach
+    if (outside(x - extentX, y - extentY, x + extentX, y + extentY)) return
     const shape = nodes.shape[index] ?? 0
     const src = nodes.image[index]
     const image = src ? scene.images.get(src) : undefined
+    const { halfWidth, halfHeight, corner } = box
     let picture = ''
     if (src && image) {
       const scale = Math.max(nodes.imageScale[index] ?? 1, 0.001)
-      const side = r * 2 * scale
+      const side = (boxed ? halfHeight : r) * 2 * scale
       const color = nodes.imageColor[index] ?? noColor
       const tint = color === noColor ? '' : ` filter="url(#${tintId(color)})"`
-      picture = `<use href="#${imageId(src, image)}" width="1" height="1" transform="translate(${num(x - side / 2)} ${num(y - side / 2)}) scale(${fine(side)})" clip-path="url(#${clipId(shape, scale)})"${tint}/>`
+      const clip = boxed
+        ? boxClipId(halfWidth / side, halfHeight / side, corner / side)
+        : clipId(shape, scale)
+      picture = `<use href="#${imageId(src, image)}" width="1" height="1" transform="translate(${num(x - side / 2)} ${num(y - side / 2)}) scale(${fine(side)})" clip-path="url(#${clip})"${tint}/>`
     }
-    drawShape(look, (offset) => shapeTag(shape, x, y, r, offset), r, picture)
+    const tag = boxed
+      ? (offset: number) => boxTag(x, y, halfWidth, halfHeight, corner, offset)
+      : (offset: number) => shapeTag(shape, x, y, r, offset)
+    drawShape(look, tag, Math.min(halfWidth, halfHeight), picture)
   }
 
   function drawContainer(index: number, frame: Float32Array): void {
@@ -623,8 +680,8 @@ export function writeSvg(scene: SvgScene): string {
     const length = Math.hypot(dx - ax, dy - ay)
     const ux = length > 0 ? (dx - ax) / length : 1
     const uy = length > 0 ? (dy - ay) / length : 0
-    const start = radius(source)
-    const end = length - radius(target)
+    const start = trimOf(source, ux, uy)
+    const end = length - trimOf(target, ux, uy)
     const visible = end - start
     if (visible <= 0.5) return null
     const { startHead, endHead, startHalf, endHalf } = headSizes(
@@ -671,12 +728,15 @@ export function writeSvg(scene: SvgScene): string {
     const sourceRadius = radius(source)
     const targetRadius = radius(target)
     const bend = edges.bend[index] ?? 0
+    const shift = source === target ? loopShift(nodes, source, zoom) : 0
     const curve =
       source === target
-        ? loopCurve(ax, ay, loopReach(sourceRadius, bend, loopMinimum))
+        ? loopCurve(ax + shift, ay, loopReach(sourceRadius, bend, loopMinimum))
         : parallelCurve(ax, ay, dx, dy, bend)
-    const t0 = crossing(curve, ax, ay, sourceRadius, 0, 0.5, true)
-    const t1 = crossing(curve, dx, dy, targetRadius, 0.5, 1, false)
+    const sourceBox = boxOf(source, sourceScratch)
+    const targetBox = boxOf(target, targetScratch)
+    const t0 = crossing(curve, ax, ay, sourceRadius, 0, 0.5, true, sourceBox)
+    const t1 = crossing(curve, dx, dy, targetRadius, 0.5, 1, false, targetBox)
     const visible = arcLength(curve, t0, t1)
     if (visible <= 0.5) return null
     const { startHead, endHead, startHalf, endHalf } = headSizes(
@@ -730,8 +790,16 @@ export function writeSvg(scene: SvgScene): string {
             )
     }
     const total = lengths[count - 1] ?? 0
-    const start = radius(edges.source[index] ?? 0)
-    const end = total - radius(edges.target[index] ?? 0)
+    const along = (from: number, to: number, node: number) =>
+      paths.measured
+        ? radius(node)
+        : trimOf(
+            node,
+            (line[to * 2] ?? 0) - (line[from * 2] ?? 0),
+            (line[to * 2 + 1] ?? 0) - (line[from * 2 + 1] ?? 0),
+          )
+    const start = along(0, 1, edges.source[index] ?? 0)
+    const end = total - along(count - 1, count - 2, edges.target[index] ?? 0)
     const visible = end - start
     if (visible <= 0.5) return null
     const { startHead, endHead, startHalf, endHalf } = headSizes(
@@ -825,7 +893,7 @@ export function writeSvg(scene: SvgScene): string {
     const bundled = paths !== undefined && paths !== null && paths.count(index) > 1
     const spread =
       (loop
-        ? loopReach(radius(source), bend, loopMinimum) * 1.5
+        ? loopReach(radius(source), bend, loopMinimum) * 1.5 + loopShift(nodes, source, zoom)
         : Math.abs(bend) * Math.hypot(dx - ax, dy - ay) * 2) +
       (bundled ? (paths.reach[index] ?? 0) * zoom : 0)
     const pad = spread + width * 2 + haloWidth + 8
@@ -909,14 +977,18 @@ export function writeSvg(scene: SvgScene): string {
       const x = sx(index)
       const y = sy(index)
       const r = radius(index)
-      if (outside(x - r - 40, y - r - 20, x + r + 40, y + r + 20)) continue
+      const box = boxOf(index, sourceScratch)
+      const reachX = box
+        ? box.halfWidth - box.corner * boxBadgeInset
+        : (badgeReach[nodes.shape[index] ?? 0] ?? Math.SQRT1_2) * r
+      const reachY = box ? box.halfHeight - box.corner * boxBadgeInset : reachX
+      if (outside(x - reachX - 40, y - reachY - 20, x + reachX + 40, y + reachY + 20)) continue
       const look: Look = nodeLookAt(index)
       const opacity = look.opacity < 0.999 ? ` opacity="${fine(Math.max(0, look.opacity))}"` : ''
-      const reach = (badgeReach[nodes.shape[index] ?? 0] ?? Math.SQRT1_2) * r
       const font = height * badgeFont
       for (const badge of badges) {
-        const cx = x + (badge.corner & 1 ? 1 : -1) * reach
-        const cy = y + (badge.corner & 2 ? 1 : -1) * reach
+        const cx = x + (badge.corner & 1 ? 1 : -1) * reachX
+        const cy = y + (badge.corner & 2 ? 1 : -1) * reachY
         const text = badge.text && height >= badgeTextMin ? badge.text : null
         const textWidth = text ? measure.line(text, 500).width : 0
         const pill = text
@@ -979,15 +1051,24 @@ export function writeSvg(scene: SvgScene): string {
       )
     }
     let top = label.top
+    const contrast =
+      label.inside &&
+      look.labelColor === noColor &&
+      paperOnFill(paletteRgba(look.fill), theme.labelInk, theme.labelPaper)
     for (const line of label.block.lines) {
       const primary = line.kind === 0
-      const color = primary
-        ? look.labelColor !== noColor
-          ? paint(look.labelColor)
-          : label.color !== noColor
-            ? paint(label.color)
-            : ink
-        : muted
+      const reversed = contrast && (!primary || label.color === noColor)
+      const color = reversed
+        ? primary
+          ? paper
+          : mutedPaperPaint
+        : primary
+          ? look.labelColor !== noColor
+            ? paint(look.labelColor)
+            : label.color !== noColor
+              ? paint(label.color)
+              : ink
+          : muted
       parts.push(
         textLine(
           label.shift,
@@ -997,7 +1078,7 @@ export function writeSvg(scene: SvgScene): string {
           primary ? weight : 400,
           font,
           color,
-          !plate,
+          !plate && !label.inside,
           line.text,
         ),
       )

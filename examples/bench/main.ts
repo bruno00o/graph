@@ -23,6 +23,7 @@ const decor = params.has('decor')
 const screen = params.has('screen')
 const timed = params.has('time')
 const split = params.has('ends')
+const boxed = params.has('box')
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -72,6 +73,7 @@ const define = (nodeData: readonly (Item | TimedItem)[]) =>
         color: 'group',
         size: 'weight',
         label: 'label',
+        ...(boxed ? { shape: 'box' as const } : {}),
         ...(decor
           ? {
               outline: (item) => (item.weight > 20 ? 'var(--graph-accent)' : null),

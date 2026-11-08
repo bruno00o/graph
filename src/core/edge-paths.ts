@@ -47,7 +47,7 @@ function warnStraight(): void {
 }
 
 function emptyOutline(): Outline {
-  return { x: 0, y: 0, shape: 0, radius: 0, halfWidth: 0, halfHeight: 0, trim: 0 }
+  return { x: 0, y: 0, shape: 0, radius: 0, halfWidth: 0, halfHeight: 0, corner: 0, trim: 0 }
 }
 
 export class EdgePaths {

@@ -460,7 +460,7 @@ export interface Extents {
   readonly right: Float64Array
 }
 
-export function extentsOf(graph: Layered, nest: Nesting): Extents {
+export function extentsOf(graph: Layered, nest: Nesting, depth: Float64Array): Extents {
   const { count, half, real } = graph
   const { owner, side, level, top, bottom, clusters } = nest
   const { parent, padding, alongBefore, alongAfter, acrossBefore, acrossAfter } = clusters
@@ -473,20 +473,21 @@ export function extentsOf(graph: Layered, nest: Nesting): Extents {
     if (kind === member && node >= real) continue
     const at = level[node] ?? 0
     const own = kind === member ? (half[node] ?? 0) : 0
+    const deep = kind === member ? (depth[node] ?? 0) : 0
     let stack = 0
     let reach = 0
     for (let c = owner[node] ?? -1; c >= 0 && top[c] === at; c = parent[c] ?? -1) {
       stack += padding[c] ?? 0
       reach = Math.max(reach, stack + (alongBefore[c] ?? 0))
     }
-    before[node] = own + Math.max(stack, reach)
+    before[node] = deep + Math.max(stack, reach)
     stack = 0
     reach = 0
     for (let c = owner[node] ?? -1; c >= 0 && bottom[c] === at; c = parent[c] ?? -1) {
       stack += padding[c] ?? 0
       reach = Math.max(reach, stack + (alongAfter[c] ?? 0))
     }
-    after[node] = own + Math.max(stack, reach)
+    after[node] = deep + Math.max(stack, reach)
     const c = owner[node] ?? 0
     left[node] = kind === member ? own : kind === opening ? (acrossBefore[c] ?? 0) : 0
     right[node] = kind === member ? own : kind === closing ? (acrossAfter[c] ?? 0) : 0

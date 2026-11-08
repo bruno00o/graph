@@ -1,4 +1,5 @@
-import { containerShape, type NodeColumns } from './columns'
+import { boxShape, containerShape, type NodeColumns } from './columns'
+import { boxDistance } from './node-shape'
 
 export interface Outline {
   x: number
@@ -7,6 +8,7 @@ export interface Outline {
   radius: number
   halfWidth: number
   halfHeight: number
+  corner: number
   trim: number
 }
 
@@ -37,7 +39,14 @@ export function nodeOutline(
   out.shape = shape
   out.radius = radius
   out.trim = radius
-  if (shape === containerShape && boxes) {
+  out.corner = 0
+  if (shape === boxShape) {
+    const width = nodes.width[index] ?? 0
+    out.halfWidth = Math.max((screen ? width / scale : width) / 2, radius)
+    out.halfHeight = radius
+    const corner = nodes.corner[index] ?? 0
+    out.corner = Math.min(screen ? corner / scale : corner, out.halfWidth, radius)
+  } else if (shape === containerShape && boxes) {
     out.halfWidth = boxes[index * 4] ?? radius
     out.halfHeight = boxes[index * 4 + 1] ?? radius
   } else {
@@ -53,6 +62,9 @@ function inside(outline: Outline, x: number, y: number): boolean {
   const dy = Math.abs(y - outline.y)
   if (outline.shape === 0) return dx * dx + dy * dy < outline.radius * outline.radius
   if (outline.shape === 2) return dx + dy < outline.radius * diamondShare
+  if (outline.shape === boxShape) {
+    return boxDistance(dx, dy, outline.halfWidth, outline.halfHeight, outline.corner) < 0
+  }
   return dx < outline.halfWidth && dy < outline.halfHeight
 }
 

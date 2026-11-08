@@ -189,7 +189,7 @@ interface EdgeLookCount {
 
 const maxValues = 64
 const maxImages = 8
-const shapes: readonly NodeShape[] = ['circle', 'square', 'diamond']
+const shapes: readonly NodeShape[] = ['circle', 'square', 'diamond', 'circle', 'box']
 const dashes: readonly EdgeDash[] = ['solid', 'dashed', 'dotted']
 
 export function categoryId(value: unknown, mark = ''): string {

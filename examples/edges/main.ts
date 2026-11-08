@@ -9,6 +9,9 @@ import {
 import { messages } from '../shared/messages'
 import { button, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
+const boxes =
+  new URLSearchParams(location.search).get('shape') === 'box' ? { shape: 'box' as const } : {}
+
 interface Spot {
   readonly id: string
   readonly label: string
@@ -98,7 +101,7 @@ const define = (mode: EdgeLabels, flowing: boolean) =>
         ...(flowing ? { flow: flowOf } : {}),
         ...(mode === 'none' ? {} : { label: { text: 'name', background: mode === 'plated' } }),
       }),
-      nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: 34, label: 'label' }),
+      nodes<Spot>(spots, { x: 'x', y: 'y', color: 'group', size: 34, label: 'label', ...boxes }),
     ],
   })
 

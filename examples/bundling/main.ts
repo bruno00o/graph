@@ -5,6 +5,9 @@ import { createCommunities, type Item, type Link } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
+const boxes =
+  new URLSearchParams(location.search).get('shape') === 'box' ? { shape: 'box' as const } : {}
+
 type Strength = keyof typeof messages.strengths
 type Reach = keyof typeof messages.reaches
 
@@ -24,7 +27,7 @@ const define = () =>
   defineGraph({
     marks: [
       edges<Link>(links, { source: 'from', target: 'to', opacity: 0.45 }),
-      nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' }),
+      nodes<Item>(items, { color: 'group', size: 'weight', label: 'label', ...boxes }),
     ],
     scales: { size: { range: [4, 18] } },
     layout,

@@ -12,6 +12,16 @@ import {
 import type { EdgePaths, PathPoint } from '../core/edge-paths'
 import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
+import { primaryWeight, secondaryFactor, secondaryWeight } from '../core/label-width'
+import {
+  isBox,
+  loopShift,
+  type NodeBox,
+  nodeBox,
+  nodeTrim,
+  nodeUnit,
+  textInside,
+} from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import { labelAlways, maxStates, noPaint, stateRow, wordFloat } from '../core/state-buffers'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
@@ -24,6 +34,7 @@ import {
   edgeLabelSize,
   endLabelGap,
   endLabelWidthUnit,
+  insideGlyph,
   labelGap,
   nodeLabelSize,
   plateDrop,
@@ -33,9 +44,8 @@ import {
 
 export const glyphStride = 40
 export const lineHeight = 1.25
-export const secondaryFactor: number = 11 / 12
-const primaryWeight = 500
-const secondaryWeight = 400
+export { secondaryFactor }
+
 const labelMin = 8
 const cell = 8
 const maxLabels = 4000
@@ -98,6 +108,7 @@ export interface PlacedLabel {
   readonly align: number
   readonly shift: number
   readonly placement: number
+  readonly inside: boolean
   readonly plate: {
     readonly cx: number
     readonly cy: number
@@ -281,6 +292,22 @@ function screenRadius(nodes: NodeColumns, index: number, zoom: number): number {
   return Math.max(screenDiameter(nodes, index, zoom) / 2, 1.25)
 }
 
+const boxScratch: NodeBox = { halfWidth: 0, halfHeight: 0, corner: 0 }
+
+function chordReach(
+  nodes: NodeColumns,
+  index: number,
+  zoom: number,
+  dx: number,
+  dy: number,
+): number {
+  if (!isBox(nodes, index)) return screenRadius(nodes, index, zoom)
+  const length = Math.hypot(dx, dy)
+  return length > 0
+    ? nodeTrim(nodes, index, zoom, dx / length, dy / length)
+    : screenRadius(nodes, index, zoom)
+}
+
 function textBlock(
   atlas: TextMeasure,
   primary: string,
@@ -383,8 +410,8 @@ function pathAnchor(
     room > 0
       ? room * view.zoom
       : paths.length(index) * view.zoom -
-        screenRadius(nodes, source, view.zoom) -
-        screenRadius(nodes, target, view.zoom)
+        chordReach(nodes, source, view.zoom, tx - sx, ty - sy) -
+        chordReach(nodes, target, view.zoom, tx - sx, ty - sy)
   return true
 }
 
@@ -438,7 +465,9 @@ function arcAnchor(
   out.ay = flip ? -uy : uy
   const scale = (y: number) => (arc.globe ? globeScale(arc.globe, y) : arc.zoom)
   out.room =
-    length - screenRadius(nodes, source, scale(ay)) - screenRadius(nodes, target, scale(dy))
+    length -
+    chordReach(nodes, source, scale(ay), dx - ax, dy - ay) -
+    chordReach(nodes, target, scale(dy), dx - ax, dy - ay)
   return true
 }
 
@@ -470,15 +499,12 @@ export function edgeAnchor(
   if (globe && globeScreen(globe, positions.x(source), positions.y(source), at) < 0) return false
   const sx = globe ? at.x : (positions.x(source) - view.x) * view.zoom + width / 2
   const sy = globe ? at.y : (positions.y(source) - view.y) * view.zoom + height / 2
-  const sourceRadius = screenRadius(
-    nodes,
-    source,
-    globe ? globeScale(globe, positions.y(source)) : view.zoom,
-  )
+  const sourceZoom = globe ? globeScale(globe, positions.y(source)) : view.zoom
+  const sourceRadius = screenRadius(nodes, source, sourceZoom)
   const bend = edges.bend[index] ?? 0
   if (source === target) {
     const reach = loopReach(sourceRadius, bend, loopMinimum)
-    out.x = sx + reach * Math.SQRT1_2
+    out.x = sx + loopShift(nodes, source, sourceZoom) + reach * Math.SQRT1_2
     out.y = sy - reach * Math.SQRT1_2
     out.ax = Math.SQRT1_2
     out.ay = Math.SQRT1_2
@@ -492,18 +518,20 @@ export function edgeAnchor(
   if (length === 0) return false
   const ux = (tx - sx) / length
   const uy = (ty - sy) / length
-  const targetRadius = screenRadius(
-    nodes,
-    target,
-    globe ? globeScale(globe, positions.y(target)) : view.zoom,
-  )
-  const shift = (sourceRadius - targetRadius) / 2
+  const targetZoom = globe ? globeScale(globe, positions.y(target)) : view.zoom
+  const sourceReach = isBox(nodes, source)
+    ? nodeTrim(nodes, source, sourceZoom, ux, uy)
+    : sourceRadius
+  const targetReach = isBox(nodes, target)
+    ? nodeTrim(nodes, target, targetZoom, ux, uy)
+    : screenRadius(nodes, target, targetZoom)
+  const shift = (sourceReach - targetReach) / 2
   out.x = (sx + tx) / 2 + ux * shift - uy * bend * length
   out.y = (sy + ty) / 2 + uy * shift + ux * bend * length
   const flip = ux < -uprightSlack || (Math.abs(ux) <= uprightSlack && uy < 0)
   out.ax = flip ? -ux : ux
   out.ay = flip ? -uy : uy
-  out.room = length - sourceRadius - targetRadius
+  out.room = length - sourceReach - targetReach
   return true
 }
 
@@ -604,7 +632,13 @@ export function endAnchor(
     return false
   }
   if (source === target || bend !== 0) {
-    const radius = screenRadius(frame.nodes, source, globe ? globeScale(globe, ay) : view.zoom)
+    const sourceZoom = globe ? globeScale(globe, ay) : view.zoom
+    const radius = screenRadius(frame.nodes, source, sourceZoom)
+    if (source === target) {
+      a.x += loopShift(frame.nodes, source, sourceZoom)
+      d.x = a.x
+      d.y = a.y
+    }
     const curve =
       source === target
         ? loopCurve(a.x, a.y, loopReach(radius, bend, loopMinimum))
@@ -963,7 +997,9 @@ export class LabelLayer {
           ? 0
           : (box
               ? (box[index * 4 + (dx !== 0 ? 0 : 1)] ?? 0) * zoom
-              : screenRadius(nodes, index, zoom)) +
+              : dx !== 0 && isBox(nodes, index)
+                ? nodeBox(nodes, index, nodeUnit(nodes, index, zoom), boxScratch).halfWidth
+                : screenRadius(nodes, index, zoom)) +
             outlineAt(index) +
             labelGap
       const scale = pixels / atlasFontSize
@@ -984,7 +1020,12 @@ export class LabelLayer {
       measured ??= measure()
       const block = measured
       const target = highlight ? this.highlight : this.main
-      const flags = (placement << 4) | (plated ? platedGlyph : 0)
+      const inside =
+        placement === 4 &&
+        !plated &&
+        !box &&
+        textInside(nodes, index, zoom, blockWidth * scale, blockHeight * scale)
+      const flags = (placement << 4) | (plated ? platedGlyph : 0) | (inside ? insideGlyph : 0)
       if (plated) target.pushPlate(index, flags, cx, cy, hx, hy, background, size)
       const color = nodes.labelColor[index] ?? noColor
       emit(target, index, flags, block, atlas.height, top, align, shift, color, size)
@@ -994,6 +1035,7 @@ export class LabelLayer {
         align,
         shift,
         placement,
+        inside,
         plate: plated ? { cx, cy, hx, hy } : null,
         background,
         color,
@@ -1050,7 +1092,9 @@ export class LabelLayer {
       if (!all && endLabelGap + arrow + half * 2 > room) return
       const node = (end === 1 ? edges.source[index] : edges.target[index]) ?? 0
       const zoom = globe ? globeScale(globe, positions.y(node)) : view.zoom
-      const reach = screenRadius(nodes, node, zoom) + endLabelGap + arrow + half
+      const chordX = positions.x(edges.target[index] ?? 0) - positions.x(edges.source[index] ?? 0)
+      const chordY = positions.y(edges.target[index] ?? 0) - positions.y(edges.source[index] ?? 0)
+      const reach = chordReach(nodes, node, zoom, chordX, chordY) + endLabelGap + arrow + half
       if (!endAnchor(frame, index, end === 1, reach, endSpot)) return
       if (endSpot.x < -cullMargin || endSpot.x > width + cullMargin) return
       if (endSpot.y < -cullMargin || endSpot.y > height + cullMargin) return
@@ -1077,6 +1121,7 @@ export class LabelLayer {
           align: 0,
           shift: 0,
           placement: 0,
+          inside: false,
           plate: plated ? { cx: 0, cy: 0, hx, hy: total / 2 } : null,
           background,
           color,
@@ -1166,6 +1211,7 @@ export class LabelLayer {
           align: 0,
           shift: 0,
           placement: 0,
+          inside: false,
           plate: plated ? { cx: 0, cy: 0, hx: block.width / 2 + padUnits, hy: total / 2 } : null,
           background,
           color,

@@ -1,5 +1,5 @@
 import { BridgeFinder, BridgeSet } from '../core/bridges'
-import type { EdgeColumns, NodeColumns } from '../core/columns'
+import { boxShape, type EdgeColumns, type NodeColumns } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
 import { nodeOutline, type Outline } from '../core/route-shape'
@@ -32,6 +32,7 @@ export class BridgeHost {
     radius: 0,
     halfWidth: 0,
     halfHeight: 0,
+    corner: 0,
     trim: 0,
   }
   #options: ResolvedBridges | null = null
@@ -123,8 +124,10 @@ export class BridgeHost {
       paths,
       maxEdges: options.maxEdges,
       shown: (edge) => edgeShown(nodes, edges, edge, sight),
-      radius: (node) =>
-        nodeOutline(nodes, boxes, node, positions.x(node), positions.y(node), zoom, outline).radius,
+      radius: (node) => {
+        nodeOutline(nodes, boxes, node, positions.x(node), positions.y(node), zoom, outline)
+        return outline.shape === boxShape ? outline.halfWidth : outline.radius
+      },
     })
     this.#finder = finder
     const loop = (): void => {

@@ -22,6 +22,7 @@ import type {
   GraphDefinitionOptions,
   Hull,
   Key,
+  NodeOptions,
   StateLook,
   StateStyle,
 } from '../types'
@@ -207,6 +208,7 @@ function render(
       labelInk: rgba('#191d22'),
       labelMuted: rgba('#5b6167'),
       labelHalo: rgba('#f7f7f4'),
+      labelPaper: rgba('#f7f7f4'),
       halo: rgba('#c9370047'),
       lensFill: rgba('#f7f7f4'),
       lensRing: rgba('#5b6167'),
@@ -327,6 +329,7 @@ function renderGroups(folded: Key[] = [], hulls: Hull<never>[] = []) {
       labelInk: rgba('#191d22'),
       labelMuted: rgba('#5b6167'),
       labelHalo: rgba('#f7f7f4'),
+      labelPaper: rgba('#f7f7f4'),
       halo: rgba('#c9370047'),
       lensFill: rgba('#f7f7f4'),
       lensRing: rgba('#5b6167'),
@@ -663,6 +666,62 @@ describe('writeSvg', () => {
     )
   })
 
+  const boxes = (
+    extra: Partial<NodeOptions<Item, undefined, undefined>> = {},
+  ): GraphDefinitionOptions => ({
+    marks: [
+      edges<Link>(
+        [
+          { id: 'ab', from: 'a', to: 'b' },
+          { id: 'aa', from: 'a', to: 'a' },
+        ],
+        { source: 'from', target: 'to', arrow: 'target' },
+      ),
+      nodes<Item>(
+        [
+          { id: 'a', x: -100, y: 0, label: 'Alpha', shape: 'square' },
+          { id: 'b', x: 100, y: 0, label: 'Beta' },
+        ],
+        {
+          x: 'x',
+          y: 'y',
+          label: 'label',
+          shape: 'box',
+          size: 20,
+          width: 80,
+          cornerRadius: 4,
+          fill: (item) => (item.shape === 'square' ? '#1f2a44' : '#f2e6b0'),
+          ...extra,
+        },
+      ),
+    ],
+  })
+
+  it('draws boxes as rounded rectangles and stops edges at their border', () => {
+    const svg = render(boxes())
+    expect(svg).toContain('<rect x="60" y="140" width="80" height="20" rx="4" fill="#1f2a44"/>')
+    expect(svg).toContain('<rect x="260" y="140" width="80" height="20" rx="4" fill="#f2e6b0"/>')
+    expect(svg).toMatch(/<path d="M140 150L2[45]\d(\.\d+)? 150" fill="none"/)
+    expect(svg).toMatch(/<path d="M140 147\.05C[^"]+" fill="none"/)
+    expect(svg).toMatch(/<path d="M132\.95 140L/)
+  })
+
+  it('writes the label inside a box in paper on a dark fill and in ink on a light one', () => {
+    const svg = render(boxes())
+    expect(svg).toMatch(/fill="#f7f7f4">Alpha<\/text>/)
+    expect(svg).toMatch(/fill="#191d22">Beta<\/text>/)
+    expect(svg).not.toMatch(/stroke="#f7f7f4" stroke-width="3.2"[^>]*>(Alpha|Beta)</)
+    const colored = render(boxes({ label: { text: 'label', color: '#ff0000' } }))
+    expect(colored).toMatch(/fill="#ff0000">Alpha<\/text>/)
+  })
+
+  it('places badges on the corners of a box', () => {
+    const svg = render(
+      boxes({ size: 40, width: 120, cornerRadius: 0, badges: { topRight: () => ({}) } }),
+    )
+    expect(svg).toContain('<rect x="150.25" y="120.25" width="19.5" height="19.5" rx="9.75"')
+  })
+
   it('draws unfolded groups as containers behind the edges and the nodes', () => {
     const { svg, frame } = renderGroups()
     const box = '<rect x="76" y="126" width="108" height="48" rx="16" fill="#e7efee"/>'
@@ -940,6 +999,7 @@ describe('graph region with labels', () => {
     labelInk: rgba('#191d22'),
     labelMuted: rgba('#5b6167'),
     labelHalo: rgba('#f7f7f4'),
+    labelPaper: rgba('#f7f7f4'),
     halo: rgba('#c9370047'),
     lensFill: rgba('#f7f7f4'),
     lensRing: rgba('#5b6167'),

@@ -52,6 +52,8 @@ nodes<Item>(items, {
 
 `'bottom'` puts the label under the node, `'top'` above it, `'right'` and `'left'` beside it, centered vertically. `'center'` puts it on the node, which suits large nodes with short names. The gap from the node counts its outline.
 
+A [box](/docs/marks#boxes) puts its label on itself by default and grows to fit it. A label drawn inside its node drops its halo, and without a `color` its text takes the ink or the paper color of the theme, whichever contrasts more with the fill: see [Text inside a node](/docs/marks#text-inside-a-node).
+
 ### Fonts
 
 `font` takes a CSS font family, such as `'Georgia, serif'`. Glyphs are drawn into a texture the first time they appear, with the font the browser has at that moment, so load web fonts before mounting the graph, for example after `document.fonts.ready`. Without `font`, labels use the `--graph-font` variable of the theme.

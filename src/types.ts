@@ -167,8 +167,11 @@ export interface TimeWindowInput {
   readonly end?: TimeInstant | null | undefined
 }
 
-/** Shape of a node. */
-export type NodeShape = 'circle' | 'square' | 'diamond'
+/**
+ * Shape of a node. A `'box'` is a rectangle with rounded corners whose height is the size of the
+ * node and whose width can fit its label.
+ */
+export type NodeShape = 'circle' | 'square' | 'diamond' | 'box'
 
 /** Line pattern of an edge. */
 export type EdgeDash = 'solid' | 'dashed' | 'dotted'
@@ -255,11 +258,20 @@ export interface LabelTextOptions<T> {
 
 /** Text and style of a node label. */
 export interface LabelOptions<T> extends LabelTextOptions<T> {
-  /** Second line, at eleven twelfths of the size, in normal weight and `--graph-ink-muted`. */
+  /**
+   * Color of the main text. Defaults to `--graph-ink`, except for a label drawn inside its node
+   * (always on a `'box'`, on other shapes when `'center'` text fits) without a plate, which takes
+   * `--graph-ink` or `--graph-paper`, whichever contrasts more with the fill, states included.
+   */
+  readonly color?: Style<T, string> | undefined
+  /**
+   * Second line, at eleven twelfths of the size, in normal weight and `--graph-ink-muted`. On its
+   * node, it follows the color of a main text that contrasts with the fill.
+   */
   readonly secondary?: Channel<T, string> | undefined
   /**
-   * Side of the node where the label sits, or `'center'` on the node.
-   * @default 'bottom'
+   * Side of the node where the label sits, or `'center'` on the node. Defaults to `'center'` for a
+   * `'box'` and to `'bottom'` for the other shapes.
    */
   readonly placement?: Style<T, LabelPlacement> | undefined
   /**
@@ -306,8 +318,8 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly color?: ColorChannel<T> | undefined
   /**
-   * Diameter of the node: a number, or a function wrapped in `raw()`, used as is, or a field or a
-   * function whose value goes through the `size` scale.
+   * Diameter of the node, or height of a `'box'`: a number, or a function wrapped in `raw()`,
+   * used as is, or a field or a function whose value goes through the `size` scale.
    * @default 16
    */
   readonly size?: NumberChannel<T> | undefined
@@ -325,10 +337,23 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   /** Latitude in degrees, from -85.05 to 85.05. Goes with `longitude`. */
   readonly latitude?: Channel<T, number> | undefined
   /**
-   * Node shape: `'circle'`, `'square'` or `'diamond'`.
+   * Node shape: `'circle'`, `'square'`, `'diamond'` or `'box'`, a rectangle with rounded corners
+   * whose height is `size`.
    * @default 'circle'
    */
   readonly shape?: Style<T, NodeShape> | undefined
+  /**
+   * Width of a `'box'`, in the units of `size`: a number, or `'label'` to fit the label with half
+   * the height of room on each side, never narrower than the height. A fixed width cuts a label
+   * on the box to fit, unless the label sets `maxWidth`. Other shapes ignore it.
+   * @default 'label'
+   */
+  readonly width?: Style<T, number | 'label'> | undefined
+  /**
+   * Corner radius of a `'box'`, in the units of `size`, at most half its height and half its
+   * width. Defaults to a quarter of the height. Other shapes ignore it.
+   */
+  readonly cornerRadius?: Style<T, number> | undefined
   /** Fill color. Wins over `color`. */
   readonly fill?: Style<T, string> | undefined
   /**
@@ -1234,8 +1259,13 @@ export interface LayoutGraph<T = unknown> {
   readonly movable: Uint8Array
   /** Current positions in world units, `x` then `y` for each index. */
   readonly xy: Float32Array
-  /** Radius of each node, in world units. */
+  /** Radius of each node, in world units: for a `'box'`, the radius of the circle around it. */
   readonly radius: Float32Array
+  /**
+   * Half width and half height of each node in world units, two numbers per index; a node that is
+   * not a `'box'` gives its radius twice. Missing when no node is a box.
+   */
+  readonly extents?: Float32Array
   /** Pairs of node indices, one pair per edge, loops left out. */
   readonly edges: Uint32Array
   /**
