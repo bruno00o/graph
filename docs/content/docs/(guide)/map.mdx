@@ -113,6 +113,73 @@ On the globe, such an edge is an arc of the sphere. On a flat map, it bends towa
 
 Examples: [great circles without a map](/examples/great-circles), and [flows on a map](/examples/map-flows).
 
+## With and without a map
+
+The same data can switch between a map and a plain graph. On the map, the `longitude` and `latitude` channels pin each node to its place. Without the map, the [`geo` layout](/docs/layout#geography) uses the same projection, and moves apart the nodes that overlap. Keep the sources, and build one definition for each mode:
+
+```ts
+import { defineGraph, edges, geoToWorld, nodes, type View } from '@bruno00o/graph'
+import { geo } from '@bruno00o/graph/layouts'
+
+const center = { longitude: 10, latitude: 48 }
+const scale = 2048
+
+const onMap = defineGraph({
+  marks: [
+    edges(routes, { source: 'from', target: 'to' }),
+    nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' }),
+  ],
+})
+
+const plain = defineGraph({
+  marks: [
+    edges(routes, { source: 'from', target: 'to' }),
+    nodes(places, { label: 'name', units: 'screen' }),
+  ],
+  layout: geo<Place>({ longitude: 'lng', latitude: 'lat', center, scale }),
+})
+```
+
+With `center` and `scale` given, a point of the map world maps to the plain graph by a shift and a factor. The zoom of a graph on a map is `2 ** map.getZoom()`, so the same camera reads:
+
+```ts
+const origin = geoToWorld(center)
+
+const toPlain = (view: View): View => ({
+  x: (view.x - origin.x) * scale,
+  y: (view.y - origin.y) * scale,
+  zoom: view.zoom / scale,
+})
+
+const toMap = (view: View): View => ({
+  x: view.x / scale + origin.x,
+  y: view.y / scale + origin.y,
+  zoom: view.zoom * scale,
+})
+```
+
+To leave the map, read its camera, destroy the map graph, then mount the plain one at the same view. To come back, do the reverse.
+
+```ts
+function leaveMap(map: Map, mapGraph: GraphInstance): GraphInstance {
+  const view = toPlain(mapGraph.view.get())
+  mapGraph.destroy()
+  map.remove()
+  return mountGraph(element, { definition: plain, initialView: view, ariaLabel: 'Places' })
+}
+
+function backToMap(graph: GraphInstance): GraphInstance {
+  const view = toMap(graph.view.get())
+  graph.destroy()
+  const map = new Map({ container, style })
+  const mapGraph = mountMapGraph(map, { definition: onMap, ariaLabel: 'Places' })
+  mapGraph.view.set(view)
+  return mapGraph
+}
+```
+
+Nodes that overlap moved apart in the plain graph only, so a crowded place looks tighter on the map. With `units: 'screen'`, nodes keep the same size in pixels in both modes, and the spread is computed for the zoom at which the layout runs.
+
 ## Who moves what
 
 The map owns the camera. Dragging the background, the wheel, pinches and double clicks on the background move the map as usual, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera, in [world units](/docs/positions#longitude-and-latitude).

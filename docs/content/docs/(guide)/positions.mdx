@@ -36,7 +36,7 @@ A node only moves when its own `x` or `y` value changes, or its `longitude` or `
 nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' })
 ```
 
-`geoToWorld` and `worldToGeo` convert between degrees and world units, for example to read where the user clicked. Edges between such nodes can follow [great circles](/docs/map#great-circles) with `geodesic`. To draw the nodes over a basemap, flat or on a globe, see [Map](/docs/map).
+`geoToWorld` and `worldToGeo` convert between degrees and world units, for example to read where the user clicked. Edges between such nodes can follow [great circles](/docs/map#great-circles) with `geodesic`. To draw the nodes over a basemap, flat or on a globe, see [Map](/docs/map). Nodes placed this way never move, even when they overlap: to place them by their coordinates and still move apart those that overlap, use the [`geo` layout](/docs/layout#geography) instead.
 
 ## Move nodes from code
 

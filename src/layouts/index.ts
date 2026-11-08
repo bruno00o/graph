@@ -1,3 +1,4 @@
+export { type GeoOptions, geo } from './geo'
 export { type GridOptions, grid } from './grid'
 export { type LayersDirection, type LayersOptions, layers } from './layers'
 export { type RadialOptions, radial } from './radial'

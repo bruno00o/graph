@@ -1,27 +1,29 @@
 ---
-title: layers, grid, rings, radial
+title: layers, grid, rings, radial, geo
 description: Layouts computed at once, on the main thread, that glide nodes to their place.
 ---
 
 ```ts
-import { grid, layers, radial, rings } from '@bruno00o/graph/layouts'
+import { geo, grid, layers, radial, rings } from '@bruno00o/graph/layouts'
 
 function layers(options?: LayersOptions): Layout
 function grid<T = unknown>(options?: GridOptions<T>): Layout<T>
 function rings<T = unknown>(options?: RingsOptions<T>): Layout<T>
 function radial(options?: RadialOptions): Layout
+function geo<T = unknown>(options?: GeoOptions<T>): Layout<T>
 ```
 
-Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`, `'grid'`, `'rings'` or `'radial'`, with `incremental: false`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Layouts](/docs/layout#layers) for a walkthrough.
+Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`, `'grid'`, `'rings'`, `'radial'` or `'geo'`, with `incremental: false`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Layouts](/docs/layout#layers) for a walkthrough.
 
 ## Shared behavior
 
 - Only free nodes move: alive, without `x` and `y` in the data, chosen by the run, and not being dragged.
-- Moved nodes are centered on their current center, so a run on part of the graph stays where that part was.
+- Moved nodes are centered on their current center, so a run on part of the graph stays where that part was. `geo` is the exception: it places nodes by their coordinates.
 - Every spacing option is a gap between node borders, in world units, as in `force`. `grid`, `rings` and `radial` give every node a place of the same size, so their `spacing` is the gap between two of the largest moved nodes: neighboring places are that diameter plus `spacing` apart. It defaults to the largest diameter, and at least 24.
 - A negative or non-finite spacing falls back to its default. `0` is allowed: the largest nodes touch.
 - The result ends without progress, in a microtask: nodes glide to it over `transitions.layout`, or the `duration` of the run.
 - When nodes arrive, every free node is laid out again.
+- `geo` places every node by its coordinates, then pushes apart the containers of unfolded groups that overlap, 16 units from their neighbors.
 - `grid`, `rings` and `radial` lay unfolded groups out as blocks, from the deepest up: each group with the same layout, then its blocks in the group above, each standing in as one node the size of its container. Containers that still overlap are then pushed apart, 16 units from their neighbors. `layers` places groups in the same layers as the rest of the graph, see below. See [groups in layouts](/docs/layout#groups).
 
 ## layers
@@ -54,7 +56,7 @@ interface LayersOptions {
 type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
 ```
 
-`'degree'` puts the nodes with the most edges first. A function compares the items of two nodes, as given to `nodes()`; ties keep the internal order. `T` is the item type of the node marks. `graph.layout.run` infers it from the definition; inside `defineGraph`, pass it as the type argument of `grid` or `rings`, or annotate a parameter.
+`'degree'` puts the nodes with the most edges first. A function compares the items of two nodes, as given to `nodes()`; ties keep the internal order. `T` is the item type of the node marks. `graph.layout.run` infers it from the definition; inside `defineGraph`, pass it as the type argument of `grid`, `rings` or `geo`, or annotate a parameter.
 
 ## grid
 
@@ -96,9 +98,33 @@ interface RadialOptions {
 - A single fixed root keeps its place and the rings form around it. A single free root goes to the center of the moved nodes.
 - Nodes the walk does not reach go on an outer ring, evenly spaced.
 
+## geo
+
+```ts
+interface GeoOptions<T = unknown> {
+  readonly longitude?: Channel<T, number>
+  readonly latitude?: Channel<T, number>
+  readonly center?: GeoPoint
+  readonly scale?: number
+  readonly spacing?: number
+  readonly order?: NodeOrder<T>
+}
+```
+
+<api-table path="layouts/index.ts" name="GeoOptions" />
+
+- **Projection.** A node at `longitude` and `latitude` goes to `(geoToWorld(point) − geoToWorld(center)) × scale`: the Web Mercator world of a map, 512 units wide, moved so that `center` is at the origin and multiplied by `scale`. Latitudes are clamped to ±85.05, as on a map. A coordinate that is not a finite number counts as missing.
+- **Scale.** Without `scale`, the layout looks for the smallest scale at which about one distinct place in five would share a spot, the size of a typical node plus `spacing`, with another place. The search stays within a factor 4 below and 32 above the scale that would spread the places evenly over their box, so a few tight clusters far apart give dense clusters, not a huge empty graph.
+- **Center.** Without `center`, the middle of the box around the places is drawn at the origin. Coordinates stay small, which keeps their precision at any scale.
+- **Spread.** Places are taken from the most crowded area first, then the places that hold the most nodes. A node whose spot is free stays there. Otherwise it takes the nearest free spot close by, else a free spot at the edge of the crowd it ran into, on the side facing its place. No two nodes end closer than their radii plus `spacing`, fixed nodes included; only containers of groups can be pushed later.
+- **Same place.** Two to six nodes at the same coordinates sit on a ring around it, the first on top, then clockwise. More sit on a spiral from the place outward, in the same order.
+- **No coordinates.** A node without coordinates goes at the mean of its placed neighbors, or the free spot nearest to it, and the walk goes on through its own neighbors. Nodes the walk cannot reach line up in a grid, right of the others and level with their top.
+- Fixed nodes, with `x` and `y` in the data or left out of the run, keep their place and count as placed neighbors and as obstacles.
+- The same data and options always give the same result.
+
 ## Exports
 
 | Export | Kind |
 | --- | --- |
-| `layers`, `grid`, `rings`, `radial` | functions |
-| `LayersOptions`, `LayersDirection`, `GridOptions`, `RingsOptions`, `RadialOptions`, `NodeOrder` | types |
+| `layers`, `grid`, `rings`, `radial`, `geo` | functions |
+| `LayersOptions`, `LayersDirection`, `GridOptions`, `RingsOptions`, `RadialOptions`, `GeoOptions`, `NodeOrder` | types |
