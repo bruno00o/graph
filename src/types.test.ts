@@ -96,6 +96,26 @@ describe('public types', () => {
     edges(links, { source: 'from', target: 'to', width: '2' })
   })
 
+  it('takes a box with a width that fits the label or a number, and a corner radius', () => {
+    nodes(people, { shape: 'box', label: 'name' })
+    nodes(people, { shape: 'box', width: 'label', cornerRadius: 4 })
+    nodes(people, {
+      shape: (person) => (person.score > 1 ? 'box' : 'circle'),
+      width: (person) => (person.alias ? person.score * 10 : 'label'),
+      cornerRadius: (person) => person.score,
+    })
+    groups(people, { by: 'team', shape: 'box', width: 120 })
+    expectTypeOf<Exclude<NodeOptions<Person>['width'], undefined>>().toEqualTypeOf<
+      number | 'label' | Accessor<Person, number | 'label'>
+    >()
+    // @ts-expect-error
+    nodes(people, { shape: 'box', width: 'score' })
+    // @ts-expect-error
+    nodes(people, { shape: 'box', cornerRadius: 'round' })
+    // @ts-expect-error
+    nodes(people, { shape: 'rectangle' })
+  })
+
   it('takes scales of its own on a mark', () => {
     nodes(people, {
       color: 'team',

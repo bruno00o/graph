@@ -14,6 +14,7 @@ const count = Number(params.get('nodes') ?? placeCount)
 const edgeCount = Number(params.get('edges') ?? count * 2)
 const style = params.get('style') ?? 'https://demotiles.maplibre.org/style.json'
 const projection = params.get('projection') === 'mercator' ? 'mercator' : 'globe'
+const boxes = params.get('shape') === 'box'
 const { places, routes } = createPlaces(count, edgeCount)
 const small = count <= placeCount
 
@@ -33,7 +34,8 @@ function definitionOf(geodesic: boolean) {
         latitude: 'latitude',
         color: 'group',
         size: (place) => (small ? 10 + place.weight / 8 : 4 + place.weight / 10),
-        label: { text: 'label', background: small },
+        shape: boxes ? 'box' : 'circle',
+        label: { text: 'label', background: small && !boxes },
         badges: {
           topRight: (place): Badge | null =>
             small && place.weight > 90 ? { text: String(place.weight) } : null,

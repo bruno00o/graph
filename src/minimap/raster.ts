@@ -1,10 +1,11 @@
-import { containerShape } from '../core/columns'
+import { boxShape, containerShape } from '../core/columns'
 
 export interface RasterNodes {
   readonly capacity: number
   readonly alive: Uint8Array
   readonly shape: Uint8Array
   readonly size: Float32Array
+  readonly width: Float32Array
   readonly fill: Uint32Array
   readonly stroke: Uint32Array
   readonly strokeWidth: Float32Array
@@ -102,6 +103,7 @@ export function packPalette(palette: Uint8Array, count: number, target: Uint32Ar
 export function graphBounds(scene: RasterScene): RasterBox | null {
   const { nodes, xy, containers } = scene
   const { alive, shape, size, screenUnits } = nodes
+  const widths = nodes.width
   const capacity = nodes.capacity
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
@@ -124,7 +126,8 @@ export function graphBounds(scene: RasterScene): RasterBox | null {
     if (y < minY) minY = y
     if (y > maxY) maxY = y
     if (screenUnits[index] !== 1) {
-      const radius = (size[index] ?? 0) * 0.5
+      const radius =
+        Math.max(size[index] ?? 0, shape[index] === boxShape ? (widths[index] ?? 0) : 0) * 0.5
       if (radius > reach) reach = radius
     }
   }
@@ -291,8 +294,19 @@ class Canvas {
     }
   }
 
-  node(shape: number, x: number, y: number, radius: number, color: number, alpha: number): void {
-    if (radius <= blockRadius) this.block(x, y, radius, color, alpha)
+  node(
+    shape: number,
+    x: number,
+    y: number,
+    radius: number,
+    color: number,
+    alpha: number,
+    aspect = 1,
+  ): void {
+    if (shape === boxShape && radius * aspect > blockRadius) {
+      const wide = radius * aspect
+      this.rect(x - wide, y - radius, x + wide, y + radius, color, alpha)
+    } else if (radius <= blockRadius) this.block(x, y, radius, color, alpha)
     else if (shape === shapeSquare) {
       const half = radius * squareReach
       this.rect(x - half, y - half, x + half, y + half, color, alpha)
@@ -351,6 +365,9 @@ function drawEdges(canvas: Canvas, scene: RasterScene, paint: RasterPaint, fit: 
 function drawNodes(canvas: Canvas, scene: RasterScene, paint: RasterPaint, fit: RasterFit): void {
   const { nodes, xy, colors, masks } = scene
   const { alive, shape, size, fill, opacity, screenUnits } = nodes
+  const widths = nodes.width
+  const aspectOf = (index: number): number =>
+    shape[index] === boxShape ? (widths[index] ?? 0) / Math.max(size[index] ?? 0, 1e-6) : 1
   const { minX, minY, scale, offsetX, offsetY } = fit
   const { minRadius, maxRadius, nodeColor, selectedColor } = paint
   const { pixels, width, height } = canvas
@@ -372,8 +389,9 @@ function drawNodes(canvas: Canvas, scene: RasterScene, paint: RasterPaint, fit: 
     const radius = own < minRadius ? minRadius : Math.min(own, maxRadius)
     const color = nodeColor ?? colors[fill[index] ?? 0] ?? 0
     const alpha = opacity[index] ?? 1
-    if (radius > blockRadius || alpha < 1 || color >>> 24 !== 255) {
-      canvas.node(kind, x, y, radius, color, alpha)
+    const aspect = aspectOf(index)
+    if (radius * aspect > blockRadius || alpha < 1 || color >>> 24 !== 255) {
+      canvas.node(kind, x, y, radius, color, alpha, aspect)
       continue
     }
     const side = radius < 0.75 ? 1 : Math.round(radius * 2)
@@ -399,7 +417,7 @@ function drawNodes(canvas: Canvas, scene: RasterScene, paint: RasterPaint, fit: 
     const y = ((xy[index * 2 + 1] ?? 0) - minY) * scale + offsetY
     const own = screenUnits[index] === 1 ? 0 : (size[index] ?? 0) * half
     const radius = Math.max(paint.selectedRadius, Math.min(own, maxRadius))
-    canvas.node(kind, x, y, radius, selectedColor, 1)
+    canvas.node(kind, x, y, radius, selectedColor, 1, aspectOf(index))
   }
 }
 

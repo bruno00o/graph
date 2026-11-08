@@ -12,7 +12,15 @@ import {
 import { type EdgePaths, maxPathPoints } from './edge-paths'
 import { worldSize } from './geo'
 import { arcPolyline } from './geo-arc'
-import { maxShapeReach, minimumNodeRadius, nodeShapeDistance, nodeShapeReach } from './node-shape'
+import {
+  boundingRadius,
+  isBox,
+  loopShift,
+  maxShapeReach,
+  minimumNodeRadius,
+  nodeDistance,
+  nodeTrim,
+} from './node-shape'
 import type { Positions } from './positions'
 import { edgeShown, nodeShown, type Sight } from './visibility'
 
@@ -319,7 +327,7 @@ export class PickIndex {
       const y = positions.y(index)
       indexedXy[index * 2] = x
       indexedXy[index * 2 + 1] = y
-      const radius = ((nodes.size[index] ?? 0) / 2) * nodeShapeReach(nodes.shape[index] ?? 0)
+      const radius = boundingRadius(nodes, index)
       if (nodes.screenUnits[index] === 1) {
         this.#maxScreenRadius = wider(this.#maxScreenRadius, radius)
       } else {
@@ -485,7 +493,7 @@ export class PickIndex {
     for (let index = 0; index < nodes.capacity; index++) {
       if (!pickable(nodes, index)) continue
       total++
-      const radius = ((nodes.size[index] ?? 0) / 2) * nodeShapeReach(nodes.shape[index] ?? 0)
+      const radius = boundingRadius(nodes, index)
       if (nodes.screenUnits[index] === 1) screenRadius = wider(screenRadius, radius)
       else worldRadius = wider(worldRadius, radius)
       outline = wider(outline, nodes.outlineWidth[index] ?? 0)
@@ -597,8 +605,10 @@ export class PickIndex {
     if (Number.isNaN(split)) return null
     const from = edges.source[index] ?? 0
     const to = edges.target[index] ?? 0
-    const start = this.#border(source, from, scale)
-    const finish = this.#border(source, to, scale)
+    const chordX = positions.x(to) - positions.x(from)
+    const chordY = positions.y(to) - positions.y(from)
+    const start = this.#trim(source, from, scale, chordX, chordY)
+    const finish = this.#trim(source, to, scale, chordX, chordY)
     const points =
       from === to
         ? sampleCubic(this.#loop(source, index, scale), pickSegments)
@@ -635,7 +645,11 @@ export class PickIndex {
     return share < split ? 'source' : 'target'
   }
 
-  #border(source: PickSource, index: number, zoom: number): number {
+  #trim(source: PickSource, index: number, zoom: number, dx: number, dy: number): number {
+    const length = Math.hypot(dx, dy)
+    if (isBox(source.nodes, index) && length > 0) {
+      return nodeTrim(source.nodes, index, zoom, dx / length, dy / length) / zoom
+    }
     const size = (source.nodes.size[index] ?? 0) / 2
     return Math.max(source.nodes.screenUnits[index] === 1 ? size / zoom : size, 1.25 / zoom)
   }
@@ -760,10 +774,14 @@ export class PickIndex {
     const size = (source.nodes.size[node] ?? 0) / 2
     const radius = Math.max(source.nodes.screenUnits[node] === 1 ? size : size * zoom, 1.25)
     const reach = loopReach(radius, source.edges.bend[index] ?? 0, loopMinimum) / zoom
-    return loopCurve(source.positions.x(node), source.positions.y(node), reach)
+    const shift = loopShift(source.nodes, node, zoom) / zoom
+    return loopCurve(source.positions.x(node) + shift, source.positions.y(node), reach)
   }
 
-  #radius(source: PickSource, index: number, zoom: number): number {
+  #radius(source: PickSource, index: number, zoom: number, dx: number, dy: number): number {
+    if (isBox(source.nodes, index)) {
+      return Math.max(this.#trim(source, index, zoom, dx, dy), minimumPickRadius / zoom)
+    }
     const size = (source.nodes.size[index] ?? 0) / 2
     const radius = source.nodes.screenUnits[index] === 1 ? size / zoom : size
     return Math.max(radius, minimumPickRadius / zoom)
@@ -774,9 +792,8 @@ export class PickIndex {
     const dx = (x - positions.x(index)) * scale
     const dy = (y - positions.y(index)) * scale
     if (Math.hypot(dx, dy) <= minimumPickRadius) return true
-    const size = (nodes.size[index] ?? 0) / 2
-    const radius = Math.max(nodes.screenUnits[index] === 1 ? size : size * scale, minimumNodeRadius)
-    const distance = nodeShapeDistance(nodes.shape[index] ?? 0, dx, dy, radius)
+    const unit = nodes.screenUnits[index] === 1 ? 1 : scale
+    const distance = nodeDistance(nodes, index, dx, dy, unit)
     return distance <= Math.max(nodes.outlineWidth[index] ?? 0, 0) + shapeSlack
   }
 
@@ -865,8 +882,8 @@ export class PickIndex {
       if (length === 0) return
       const along = ((x - ax) * dx + (y - ay) * dy) / length
       if (
-        along < this.#radius(source, s, scale) ||
-        along > length - this.#radius(source, t, scale)
+        along < this.#radius(source, s, scale, dx, dy) ||
+        along > length - this.#radius(source, t, scale, dx, dy)
       ) {
         return
       }

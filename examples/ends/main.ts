@@ -3,6 +3,9 @@ import { orthogonalRouting } from '@bruno00o/graph/routing'
 import { messages } from '../shared/messages'
 import { button, choice, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
+const boxes =
+  new URLSearchParams(location.search).get('shape') === 'box' ? { shape: 'box' as const } : {}
+
 interface Spot {
   readonly id: string
   readonly label: string
@@ -77,7 +80,7 @@ const define = (split: Split, labels: Labels, flowing: boolean, routed: boolean)
           },
         },
       }),
-      nodes<Spot>(spots, { x: 'x', y: 'y', size: 36, label: 'label' }),
+      nodes<Spot>(spots, { x: 'x', y: 'y', size: 36, label: 'label', ...boxes }),
     ],
     scales: {
       color: {

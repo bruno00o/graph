@@ -1,4 +1,5 @@
 import {
+  boxShape,
   containerShape,
   type EdgeColumns,
   type NodeColumns,
@@ -97,6 +98,24 @@ function groupsOf(
   }
 }
 
+function extentsOf(
+  nodes: NodeColumns,
+  alive: Uint8Array,
+  capacity: number,
+  zoom: number,
+): Float32Array {
+  const extents = new Float32Array(capacity * 2)
+  for (let index = 0; index < capacity; index++) {
+    if (alive[index] !== 1) continue
+    const unit = nodes.screenUnits[index] === 1 ? 1 / zoom : 1
+    const halfHeight = ((nodes.size[index] ?? 0) / 2) * unit
+    extents[index * 2] =
+      nodes.shape[index] === boxShape ? ((nodes.width[index] ?? 0) / 2) * unit : halfHeight
+    extents[index * 2 + 1] = halfHeight
+  }
+  return extents
+}
+
 export function layoutGraph(
   nodes: NodeColumns,
   edges: EdgeColumns,
@@ -115,12 +134,20 @@ export function layoutGraph(
   const mobile = new Uint8Array(capacity)
   const xy = new Float32Array(capacity * 2)
   const radius = new Float32Array(capacity)
+  let extents: Float32Array | null = null
   for (let index = 0; index < capacity; index++) {
     if (alive[index] !== 1) continue
     xy[index * 2] = positions.x(index)
     xy[index * 2 + 1] = positions.y(index)
-    const size = nodes.size[index] ?? 0
-    radius[index] = nodes.screenUnits[index] === 1 ? size / 2 / zoom : size / 2
+    const unit = nodes.screenUnits[index] === 1 ? 1 / zoom : 1
+    const halfHeight = ((nodes.size[index] ?? 0) / 2) * unit
+    if (nodes.shape[index] === boxShape) {
+      const halfWidth = ((nodes.width[index] ?? 0) / 2) * unit
+      extents ??= extentsOf(nodes, alive, capacity, zoom)
+      radius[index] = Math.hypot(halfWidth, halfHeight)
+    } else {
+      radius[index] = halfHeight
+    }
     const tracked = !Number.isNaN(positions.source[index * 2] ?? Number.NaN)
     if (!tracked && movable(index)) mobile[index] = 1
   }
@@ -151,6 +178,7 @@ export function layoutGraph(
     movable: mobile,
     xy,
     radius,
+    ...(extents ? { extents } : {}),
     edges: pairs,
     ...(groups ? { groups } : {}),
     keys,

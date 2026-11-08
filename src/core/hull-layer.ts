@@ -1,7 +1,7 @@
 import { themeColor } from '../theme/tokens'
 import type { Hull, HullOptions, Key, MarkLayer, MarkName, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
-import { containerShape, type NodeColumns } from './columns'
+import { boxShape, containerShape, type NodeColumns } from './columns'
 import type { GraphModel } from './graph-model'
 import {
   HullScratch,
@@ -306,7 +306,8 @@ export class HullLayer {
         snapshot[at] !== positions.xy[index * 2] ||
         snapshot[at + 1] !== positions.xy[index * 2 + 1] ||
         snapshot[at + 2] !== (box ? boxes[index * 4] : nodes.size[index]) ||
-        snapshot[at + 3] !== (box ? boxes[index * 4 + 1] : 0)
+        snapshot[at + 3] !==
+          (box ? boxes[index * 4 + 1] : nodes.shape[index] === boxShape ? nodes.width[index] : 0)
       ) {
         return true
       }
@@ -357,9 +358,32 @@ export class HullLayer {
         continue
       }
       const nodeSize = nodes.size[index] ?? 0
+      const onScreen = nodes.screenUnits[index] === 1
       snapshot[at + 2] = nodeSize
       snapshot[at + 3] = 0
-      const onScreen = nodes.screenUnits[index] === 1
+      if (nodes.shape[index] === boxShape) {
+        const width = nodes.width[index] ?? 0
+        snapshot[at + 3] = width
+        const halfWidth = width / 2
+        const halfHeight = nodeSize / 2
+        if (onScreen) {
+          add(x, y, 0)
+          screen = Math.max(
+            screen,
+            Math.hypot(halfWidth, halfHeight) + (nodes.outlineWidth[index] ?? 0),
+          )
+          continue
+        }
+        const corner = Math.min(nodes.corner[index] ?? 0, halfWidth, halfHeight)
+        const dx = halfWidth - corner > flat ? halfWidth - corner : 0
+        const dy = halfHeight - corner > flat ? halfHeight - corner : 0
+        add(x - dx, y - dy, corner)
+        if (dx > 0) add(x + dx, y - dy, corner)
+        if (dy > 0) add(x - dx, y + dy, corner)
+        if (dx > 0 && dy > 0) add(x + dx, y + dy, corner)
+        screen = Math.max(screen, nodes.outlineWidth[index] ?? 0)
+        continue
+      }
       add(x, y, onScreen ? 0 : nodeSize / 2)
       screen = Math.max(screen, (onScreen ? nodeSize / 2 : 0) + (nodes.outlineWidth[index] ?? 0))
     }

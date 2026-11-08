@@ -10,6 +10,9 @@ import {
 import { messages } from '../shared/messages'
 import { button, createPage, exportButtons, status, themeToggle } from '../shared/page'
 
+const boxes =
+  new URLSearchParams(location.search).get('shape') === 'box' ? { shape: 'box' as const } : {}
+
 interface Item {
   readonly id: string
   readonly label: string
@@ -125,6 +128,7 @@ const define = (background: boolean) =>
         color: 'group',
         size: raw((item) => item.size),
         label: { text: 'label', background },
+        ...boxes,
         outline: (item) => item.outline,
         outlineWidth: 3,
         image: (item) => item.image,

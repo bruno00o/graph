@@ -43,7 +43,7 @@ layers({ direction: 'right', root: 'start', layerSpacing: 80, nodeSpacing: 16 })
 - **Layers.** Each node goes on a layer so that its edges point to later layers and stay as short as they can: a node that only feeds deeper ones moves down next to them. `root` puts nodes on the first layer, even when edges lead into them.
 - **Cycles.** When edges form a cycle, as few of them as possible are turned around to break it. They are still drawn, pointing back.
 - **Order.** The nodes of each layer are sorted to cross as few edges as possible, and each sits close to its neighbors in the layers next to it. Edges are drawn straight. An edge that skips layers holds a place in each layer it crosses, so other nodes tend to keep clear of it.
-- **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart. Node labels are left out: give long labels room with a larger gap.
+- **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart. A [box](/docs/marks#boxes) counts with its width along its layer and its height across, so wide boxes stay close from layer to layer when the direction is down or up. Node labels are left out: give long labels room with a larger gap.
 - **Components.** Separate parts of the graph and lone nodes sit side by side, the largest first, wrapped in rows.
 - **Groups.** Unfolded groups share the layers of the rest of the graph, and each one stays a single box on every layer it spans. See [groups in layouts](#groups).
 
@@ -69,7 +69,7 @@ radial({ root: 'hub' })
 - **`rings`** puts the first node in the middle and fills rings outward, each ring longer than the last. Nodes come by degree, the busiest first, unless `order` says otherwise. `center` picks the middle node.
 - **`radial`** walks the graph from `root` and places each node on the ring of its distance to the root, next to the node it was reached from. Each branch gets a slice of the circle in proportion to its size. Without `root`, it starts from the node with the most edges. Nodes it cannot reach go on an outer ring.
 
-The three are centered on the current center of the nodes they move. Their `spacing` is the gap left between the borders of the largest nodes, as in every layout here; it defaults to the largest diameter, and at least 24. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it.
+The three are centered on the current center of the nodes they move. Their `spacing` is the gap left between the borders of the largest nodes, as in every layout here; it defaults to the largest diameter, and at least 24. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it. On a grid, columns are as wide as the widest [box](/docs/marks#boxes) and rows as tall as the tallest; rings, radial, `force` and `geo` see a box as the circle around it, so boxes never overlap but sit further apart than they would need to side by side.
 
 These layouts, and `layers`, are not incremental: when nodes arrive, every free node is laid out again, so the layers, the grid or the rings stay whole. See [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) for every option.
 
@@ -282,7 +282,7 @@ export function circle(radius = 300): Layout {
 }
 ```
 
-- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. `keys[index]` is the key of a node, and `datum(index)` the item it comes from. With unfolded groups, `groups` gives the group of each node, the padding of each container and the room its label takes outside it; a layout that ignores it still works, but it does not keep containers apart.
+- `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. For a [box](/docs/marks#boxes), `radius` is the radius of the circle around it, and `extents` gives the half width and half height of every node when the graph has a box. `keys[index]` is the key of a node, and `datum(index)` the item it comes from. With unfolded groups, `groups` gives the group of each node, the padding of each container and the room its label takes outside it; a layout that ignores it still works, but it does not keep containers apart.
 - It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place. Ending without progress makes nodes glide to the result.
 - It returns `pin(index, x, y)`, called when a node is dragged or set during the run, and `stop()`, after which it must not call the listener again.
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.

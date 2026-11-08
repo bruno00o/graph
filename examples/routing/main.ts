@@ -35,7 +35,7 @@ const define = () =>
       nodes<Item>(items, {
         color: 'group',
         size: 'weight',
-        shape: 'square',
+        shape: params.get('shape') === 'box' ? 'box' : 'square',
         label: 'label',
         parent: 'parent',
         container: { padding: 14 },

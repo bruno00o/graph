@@ -36,7 +36,8 @@ export interface LayersOptions {
   readonly root?: Key | readonly Key[] | undefined
   /**
    * Gap between two layers, from the borders of their largest nodes, in world units. Defaults to
-   * twice the largest diameter, and at least that diameter plus 24.
+   * twice the largest diameter, and at least that diameter plus 24. The diameter of a box is the
+   * smaller of its width and height.
    */
   readonly layerSpacing?: number | undefined
   /**
@@ -81,11 +82,18 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
   const count = indices.length
   const local = new Int32Array(graph.capacity).fill(-1)
   const radius = new Float64Array(count)
+  const depth = new Float64Array(count)
+  const extents = graph.extents
+  const sideways = options.direction === 'left' || options.direction === 'right'
   let largest = 0
   indices.forEach((index, at) => {
     local[index] = at
-    radius[at] = Math.max(0, graph.radius[index] ?? 0)
-    largest = Math.max(largest, (radius[at] ?? 0) * 2)
+    const own = Math.max(0, graph.radius[index] ?? 0)
+    const halfWidth = extents ? Math.max(0, extents[index * 2] ?? 0) : own
+    const halfHeight = extents ? Math.max(0, extents[index * 2 + 1] ?? 0) : own
+    radius[at] = sideways ? halfHeight : halfWidth
+    depth[at] = sideways ? halfWidth : halfHeight
+    largest = Math.max(largest, Math.min(halfWidth, halfHeight) * 2)
   })
   const nodeSpacing = gapOf(options.nodeSpacing, Math.max(largest, 8))
   const layerSpacing = gapOf(options.layerSpacing, Math.max(largest * 2, largest + 24))
@@ -135,7 +143,14 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
       below: nest.below,
     })
     return {
-      placed: pack(layered, across, layerSpacing, nest.side, extentsOf(layered, nest)),
+      placed: pack(
+        layered,
+        across,
+        layerSpacing,
+        depth,
+        nest.side,
+        extentsOf(layered, nest, depth),
+      ),
       clusters,
     }
   }
@@ -145,13 +160,14 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
   orderLayers(layered)
   sortAdjacency(layered)
   const across = placeNodes(layered, nodeSpacing)
-  return { placed: pack(layered, across, layerSpacing), clusters: null }
+  return { placed: pack(layered, across, layerSpacing, depth), clusters: null }
 }
 
 function pack(
   layered: Layered,
   across: Float64Array,
   layerSpacing: number,
+  depth: Float64Array,
   side: Uint8Array | null = null,
   extents: Extents | null = null,
 ): Float64Array {
@@ -182,7 +198,7 @@ function pack(
           min = Math.min(min, (across[node] ?? 0) - (extents.left[node] ?? 0))
           max = Math.max(max, (across[node] ?? 0) + (extents.right[node] ?? 0))
         } else {
-          thick = Math.max(thick, half[node] ?? 0)
+          thick = Math.max(thick, node < real ? (depth[node] ?? 0) : (half[node] ?? 0))
           min = Math.min(min, (across[node] ?? 0) - (half[node] ?? 0))
           max = Math.max(max, (across[node] ?? 0) + (half[node] ?? 0))
         }

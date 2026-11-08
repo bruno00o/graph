@@ -24,6 +24,7 @@ function nodeColumns(count: number, shape = 0): RasterNodes {
     alive: new Uint8Array(count).fill(1),
     shape: new Uint8Array(count).fill(shape),
     size: new Float32Array(count).fill(10),
+    width: new Float32Array(count),
     fill: new Uint32Array(count),
     stroke: new Uint32Array(count),
     strokeWidth: new Float32Array(count),

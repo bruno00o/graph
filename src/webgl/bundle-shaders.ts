@@ -67,8 +67,13 @@ void main() {
   float along = stationOf(path, k, total, spacing);
   float before = stationOf(path, previous, total, spacing);
   float after = stationOf(path, next, total, spacing);
-  float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a));
-  float end = total - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d));
+  vec4 sourceOutline = nodeOutline(s, texelFetch(nodeStyle, s, 0), scaleAt(a));
+  vec4 targetOutline = nodeOutline(e, texelFetch(nodeStyle, e, 0), scaleAt(d));
+  bool measured = pathMeasured > 0.5;
+  float start = sourceOutline.w < 0.5 || measured ? sourceOutline.y
+    : towardReach(sourceOutline, toScreen(pathPoint(path, 1, a, d, style.z)) - toScreen(a));
+  float end = total - (targetOutline.w < 0.5 || measured ? targetOutline.y
+    : towardReach(targetOutline, toScreen(pathPoint(path, count - 2, a, d, style.z)) - toScreen(d)));
   float visible = end - start;
   float flow = edgeFlow(mask, style.w);
   Line line = edgeLine(t, topology, style, look, flow);

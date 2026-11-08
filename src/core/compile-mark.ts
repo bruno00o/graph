@@ -27,6 +27,8 @@ export interface CompiledNodeMark {
   readonly labelPlacement: Read | null
   readonly labelMinScreenSize: Read | null
   readonly shape: Read | null
+  readonly width: Read | null
+  readonly cornerRadius: Read | null
   readonly fill: Read | null
   readonly stroke: Read | null
   readonly strokeWidth: Read | null
@@ -192,6 +194,8 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     labelPlacement: style(typeof label === 'object' ? label.placement : undefined),
     labelMinScreenSize: style(typeof label === 'object' ? label.minScreenSize : undefined),
     shape: style(options.shape),
+    width: style(options.width),
+    cornerRadius: style(options.cornerRadius),
     fill: style(options.fill),
     stroke: style(options.stroke),
     strokeWidth: style(options.strokeWidth),

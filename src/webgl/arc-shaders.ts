@@ -113,8 +113,8 @@ void main() {
   vec2 dir = tangentLength > 0.0 ? tangent / tangentLength : vec2(1.0, 0.0);
   vec2 normal = vec2(-dir.y, dir.x);
   float along = alongAt(u, c1, c2, c3, total);
-  float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a));
-  float end = total - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d));
+  float start = towardReach(nodeOutline(s, texelFetch(nodeStyle, s, 0), scaleAt(a)), s1 - s0);
+  float end = total - towardReach(nodeOutline(e, texelFetch(nodeStyle, e, 0), scaleAt(d)), s3 - s4);
   float visible = end - start;
   uint arrow = (packed >> 2u) & 3u;
   float startHead = (arrow & 1u) != 0u && visible > line.width * 8.0 ? max(line.width * 4.0, 6.0) : 0.0;

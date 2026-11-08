@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, groups, nodes } from '../marks'
-import type { GraphDefinition, GraphDefinitionOptions, LabelPlacement } from '../types'
-import { arrowCodes, cornerCodes, dashCodes, noColor, shapeCodes } from './columns'
+import type { GraphDefinition, GraphDefinitionOptions, LabelPlacement, NodeOptions } from '../types'
+import { arrowCodes, cornerCodes, dashCodes, noColor, placementCodes, shapeCodes } from './columns'
 import { createGraphModel } from './graph-model'
+import type { TextWidth } from './label-width'
 import { Projection } from './projection'
 import { raw } from './raw'
 import { createScene } from './scene'
@@ -899,5 +900,95 @@ describe('lanes of parallel edges', () => {
       fresh.scene.edges.bend[fresh.model.edge(key)?.index ?? -1] ?? 0
     expect(freshBend('ab2')).toBeCloseTo(-0.06)
     expect(bend('ab2')).toBeCloseTo(freshBend('ab2'))
+  })
+})
+
+describe('box nodes', () => {
+  const advance: TextWidth = (text) => Array.from(text).length * 0.5
+
+  function boxed(
+    options: NodeOptions<Item, undefined, undefined>,
+    items: Item[] = [{ id: 'a', name: 'abcd' }],
+  ) {
+    const model = createGraphModel()
+    let measure = advance
+    const scene = createScene((text, weight, font) => measure(text, weight, font))
+    const render = (next: NodeOptions<Item, undefined, undefined>) => {
+      const definition = defineGraph({ marks: [nodes<Item>(items, next)] })
+      model.setMarks(definition.marks)
+      scene.setDefinition(definition)
+      scene.apply(model, model.flush())
+      scene.takeDirty()
+    }
+    render(options)
+    const at = (key: string) => model.node(key)?.index ?? -1
+    return {
+      scene,
+      render,
+      at,
+      setMeasure: (next: TextWidth) => {
+        measure = next
+      },
+    }
+  }
+
+  it('fits the width to the label with half the height of room on each side', () => {
+    const { scene, at } = boxed({ shape: 'box', size: 20, label: 'name' })
+    expect(scene.nodes.shape[at('a')]).toBe(shapeCodes.box)
+    expect(scene.nodes.width[at('a')]).toBeCloseTo(4 * 0.5 * 12 + 20, 5)
+    expect(scene.nodes.corner[at('a')]).toBeCloseTo(5, 5)
+    expect(scene.nodes.labelPlacement[at('a')]).toBe(placementCodes.center)
+  })
+
+  it('never draws a box narrower than its height', () => {
+    const { scene, at } = boxed({ shape: 'box', size: 40 })
+    expect(scene.nodes.width[at('a')]).toBe(40)
+    const short = boxed({ shape: 'box', size: 40, label: 'name' }, [{ id: 'a', name: 'i' }])
+    expect(short.scene.nodes.width[short.at('a')]).toBe(46)
+  })
+
+  it('fits a label placed outside the box to the height only', () => {
+    const { scene, at } = boxed({
+      shape: 'box',
+      size: 20,
+      label: { text: 'name', placement: 'bottom' },
+    })
+    expect(scene.nodes.width[at('a')]).toBe(20)
+    expect(scene.nodes.labelPlacement[at('a')]).toBe(placementCodes.bottom)
+  })
+
+  it('cuts the label of a fixed width box unless it sets its own maximum', () => {
+    const fixed = boxed({ shape: 'box', size: 20, width: 60, cornerRadius: 3, label: 'name' })
+    expect(fixed.scene.nodes.width[fixed.at('a')]).toBe(60)
+    expect(fixed.scene.nodes.corner[fixed.at('a')]).toBe(3)
+    expect(fixed.scene.nodes.labelMaxWidth[fixed.at('a')]).toBe(40)
+    const own = boxed({
+      shape: 'box',
+      size: 20,
+      width: 60,
+      label: { text: 'name', maxWidth: 200 },
+    })
+    expect(own.scene.nodes.labelMaxWidth[own.at('a')]).toBe(200)
+  })
+
+  it('measures the main and secondary lines in the size and weight of the label', () => {
+    const { scene, at } = boxed({
+      shape: 'box',
+      size: 20,
+      label: { text: 'name', secondary: () => 'abcdefghijkl', size: 10 },
+    })
+    expect(scene.nodes.width[at('a')]).toBeCloseTo(12 * 0.5 * (11 / 12) * 10 + 20, 5)
+  })
+
+  it('remeasures fitted boxes when the measure changes, and marks them dirty', () => {
+    const { scene, at, setMeasure, render } = boxed({ shape: 'box', size: 20, label: 'name' })
+    expect(scene.remeasure()).toBe(false)
+    setMeasure((text) => Array.from(text).length)
+    expect(scene.remeasure()).toBe(true)
+    expect(scene.nodes.width[at('a')]).toBeCloseTo(4 * 12 + 20, 5)
+    expect(scene.takeDirty().nodes.has(at('a'))).toBe(true)
+    render({ shape: 'circle', size: 20, label: 'name' })
+    expect(scene.nodes.width[at('a')]).toBe(0)
+    expect(scene.remeasure()).toBe(false)
   })
 })

@@ -273,7 +273,9 @@ export function mountLegend<S extends string, M extends Mark>(
         ? 'width:12px;height:12px;border-radius:1px'
         : look.shape === 'diamond'
           ? 'width:10px;height:10px;transform:rotate(45deg)'
-          : 'width:14px;height:14px;border-radius:50%'
+          : look.shape === 'box'
+            ? 'width:16px;height:10px;border-radius:3px'
+            : 'width:14px;height:14px;border-radius:50%'
     const symbol = element(
       'span',
       'flex:none;display:flex;align-items:center;justify-content:center;width:16px;height:16px',

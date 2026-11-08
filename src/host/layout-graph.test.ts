@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EdgeColumns, NodeColumns } from '../core/columns'
+import { boxShape, EdgeColumns, NodeColumns } from '../core/columns'
 import { Positions } from '../core/positions'
 import { layoutGraph } from './layout-graph'
 
@@ -71,5 +71,42 @@ describe('layoutGraph', () => {
     const y = graph.xy[3] ?? Number.NaN
     expect(Number.isFinite(x) && Number.isFinite(y)).toBe(true)
     expect(Math.hypot(x - 10, y)).toBeLessThan(20)
+  })
+
+  it('gives boxes the radius of their outer circle and half extents', () => {
+    const nodes = new NodeColumns()
+    nodes.reserve(3)
+    nodes.alive.set([1, 1, 1])
+    nodes.size.set([20, 20, 20])
+    nodes.shape.set([boxShape, 0, boxShape])
+    nodes.width.set([80, 0, 60])
+    nodes.screenUnits.set([0, 0, 1])
+    const edges = new EdgeColumns()
+    const positions = new Positions()
+    for (let index = 0; index < 3; index++) positions.set(index, index * 10, 0)
+    nodes.keys.push('a', 'b', 'c')
+    const graph = layoutGraph(
+      nodes,
+      edges,
+      positions,
+      2,
+      () => true,
+      () => undefined,
+    )
+    expect(graph.radius[0]).toBeCloseTo(Math.hypot(40, 10), 5)
+    expect(graph.radius[1]).toBe(10)
+    expect(graph.radius[2]).toBeCloseTo(Math.hypot(15, 5), 5)
+    expect(Array.from(graph.extents?.subarray(0, 6) ?? [])).toEqual([40, 10, 10, 10, 15, 5])
+    nodes.shape.fill(0)
+    expect(
+      layoutGraph(
+        nodes,
+        edges,
+        positions,
+        2,
+        () => true,
+        () => undefined,
+      ).extents,
+    ).toBeUndefined()
   })
 })

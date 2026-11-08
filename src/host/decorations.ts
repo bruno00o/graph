@@ -3,6 +3,7 @@ import { containerShape } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
 import type { GraphModel } from '../core/graph-model'
 import { type ContainerSource, HullLayer } from '../core/hull-layer'
+import { halfWidthOf, isBox, nodeUnit } from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { isBuiltInState } from '../core/state-names'
@@ -99,7 +100,12 @@ export function createDecorations(context: DecorationContext): Decorations {
         const radius =
           (nodes.screenUnits[index] === 1 ? size / 2 : (size / 2) * current.zoom) +
           (nodes.outlineWidth[index] ?? 0)
-        const halfWidth = boxes ? (boxes[index * 4] ?? 0) * current.zoom : radius
+        const outline = nodes.outlineWidth[index] ?? 0
+        const halfWidth = boxes
+          ? (boxes[index * 4] ?? 0) * current.zoom
+          : isBox(nodes, index)
+            ? halfWidthOf(nodes, index) * nodeUnit(nodes, index, current.zoom) + outline
+            : radius
         const halfHeight = boxes ? (boxes[index * 4 + 1] ?? 0) * current.zoom : radius
         const x = (positions.x(index) - current.x) * current.zoom + width / 2
         const y = (positions.y(index) - current.y) * current.zoom + height / 2

@@ -394,6 +394,30 @@ describe('PickIndex', () => {
     expect(end(first.x, first.y)).toBe('cc:source')
     expect(end(last.x, last.y)).toBe('cc:target')
   })
+
+  it('picks a box over its whole width, and edges and loops from its border', () => {
+    const { pick } = setup(
+      [
+        { id: 'a', x: 0, y: 0, size: 20 },
+        { id: 'b', x: 300, y: 0, size: 20 },
+      ],
+      [
+        { id: 'ab', from: 'a', to: 'b' },
+        { id: 'aa', from: 'a', to: 'a' },
+      ],
+      { size: 'size', shape: 'box', width: 160, cornerRadius: 0 },
+    )
+    expect(pick(75, 0)).toBe('a')
+    expect(pick(75, 9)).toBe('a')
+    expect(pick(75, 13)).toBeNull()
+    expect(pick(0, -12)).toBeNull()
+    expect(pick(95, 0)).toBe('ab')
+    expect(pick(150, 0)).toBe('ab')
+    const loop = loopCurve(70, 0, loopReach(10, 0, loopMinimum))
+    const apex = pointOnCubic(loop, 0.5)
+    expect(pick(apex.x, apex.y)).toBe('aa')
+    expect(pick(apex.x - 70, apex.y)).toBeNull()
+  })
 })
 
 describe('PickIndex with sizes out of range', () => {

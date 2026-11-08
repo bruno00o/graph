@@ -9,6 +9,7 @@ import { groupingOf, groupKey } from '../core/group-index'
 import { describeIssues, type GraphIssue, IssueSet } from '../core/issues'
 import { nodesInside } from '../core/lasso'
 import type { LayerFilter } from '../core/mark-layers'
+import { halfWidthOf } from '../core/node-shape'
 import { createPathQueries } from '../core/path-query'
 import { PickIndex, type PickSource } from '../core/pick-index'
 import {
@@ -59,8 +60,9 @@ import {
 import { withoutUndefined } from '../core/without-undefined'
 import { dev } from '../dev'
 import { listenPinch, type PinchGesture } from '../dom/gestures'
+import { createTextWidths } from '../dom/text-width'
 import { observeTheme, ThemeResolver } from '../dom/theme'
-import { builtInStyles, defaults } from '../theme/tokens'
+import { builtInStyles, defaultFont, defaults } from '../theme/tokens'
 import type {
   BuiltInState,
   EdgeDatum,
@@ -1048,7 +1050,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const waiters = new FrameWaiters(() => frameRequest !== 0 || !renderer || contextLost)
 
   const model = createGraphModel({ schedule: () => request(true) })
-  const scene = createScene()
+  const textWidths = createTextWidths(defaultFont)
+  const scene = createScene(textWidths.width)
   const positions = new Positions()
   const buffers = new StateBuffers()
   const projection = new Projection(model)
@@ -1463,7 +1466,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function refreshTheme(): void {
-    renderer?.setTheme(themeResolver.theme())
+    const theme = themeResolver.theme()
+    renderer?.setTheme(theme)
+    if (textWidths.setFont(theme.font) && scene.remeasure()) sceneVersion++
     resolvePalette(true)
     request()
   }
@@ -1564,11 +1569,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         return
       }
       const radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
+      const wide = nodes.screenUnits[index] === 1 ? 0 : halfWidthOf(nodes, index)
       const x = reader.x(index)
       const y = reader.y(index)
-      minX = Math.min(minX, x - radius)
+      minX = Math.min(minX, x - wide)
       minY = Math.min(minY, y - radius)
-      maxX = Math.max(maxX, x + radius)
+      maxX = Math.max(maxX, x + wide)
       maxY = Math.max(maxY, y + radius)
     }
     if (indices) {
@@ -2635,12 +2641,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const include = (index: number, x: number, y: number) => {
       if (nodes.shape[index] === containerShape || (chosen && chosen[index] !== 1)) return
       let radius = nodes.screenUnits[index] === 1 ? 0 : (nodes.size[index] ?? 0) / 2
+      let wide = nodes.screenUnits[index] === 1 ? 0 : halfWidthOf(nodes, index)
       for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
-        if (nodes.shape[at] === containerShape) radius += nodes.padding[at] ?? 0
+        if (nodes.shape[at] !== containerShape) continue
+        radius += nodes.padding[at] ?? 0
+        wide += nodes.padding[at] ?? 0
       }
-      minX = Math.min(minX, x - radius)
+      minX = Math.min(minX, x - wide)
       minY = Math.min(minY, y - radius)
-      maxX = Math.max(maxX, x + radius)
+      maxX = Math.max(maxX, x + wide)
       maxY = Math.max(maxY, y + radius)
     }
     for (let index = 0; index < nodes.capacity; index++) {

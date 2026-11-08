@@ -1,5 +1,5 @@
 import type { Layout } from '../types'
-import { centroid, instant, movers, type NodeOrder, ordered, spacingOf } from './shared'
+import { centroid, instant, movers, type NodeOrder, ordered, stepsOf } from './shared'
 
 /** Options of `grid`. */
 export interface GridOptions<T = unknown> {
@@ -10,7 +10,8 @@ export interface GridOptions<T = unknown> {
   readonly columns?: number | undefined
   /**
    * Gap between rows and between columns, from the borders of the largest nodes, in world units.
-   * Defaults to the largest diameter, and at least 24.
+   * Defaults to the largest diameter, and at least 24. Columns of boxes are as wide as the widest
+   * box, rows as tall as the tallest.
    */
   readonly spacing?: number | undefined
   /** Order of the nodes, row by row from the top left. Defaults to the internal order. */
@@ -29,13 +30,13 @@ export function grid<T = unknown>(options: GridOptions<T> = {}): Layout<T> {
     const sorted = ordered(graph, indices, options.order)
     const columns = Math.max(1, Math.floor(options.columns ?? Math.ceil(Math.sqrt(sorted.length))))
     const rows = Math.ceil(sorted.length / columns)
-    const spacing = spacingOf(graph, indices, options.spacing)
+    const [across, down] = stepsOf(graph, indices, options.spacing)
     const [x, y] = centroid(graph, indices)
-    const left = x - ((Math.min(columns, sorted.length) - 1) * spacing) / 2
-    const top = y - ((rows - 1) * spacing) / 2
+    const left = x - ((Math.min(columns, sorted.length) - 1) * across) / 2
+    const top = y - ((rows - 1) * down) / 2
     sorted.forEach((index, at) => {
-      xy[index * 2] = left + (at % columns) * spacing
-      xy[index * 2 + 1] = top + Math.floor(at / columns) * spacing
+      xy[index * 2] = left + (at % columns) * across
+      xy[index * 2 + 1] = top + Math.floor(at / columns) * down
     })
     return xy
   })
