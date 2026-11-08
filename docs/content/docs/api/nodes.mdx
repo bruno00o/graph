@@ -58,6 +58,7 @@ type ContainerShape = 'rectangle' | 'circle'
 <api-table path="index.ts" name="ContainerOptions" />
 
 - An unfolded group draws its container behind its children, sized to them and moved with them. Its label sits above the container by default. Its other options apply when it is folded.
+- While a group is unfolded, `spread` moves its children that overlap apart around their place, `gap` pixels from each other, or `gap` world units for children sized in world units. See [spread children](/docs/groups#spread-children).
 - A `parent` that names no node is reported in `issues` as `missing-parent`, and the node stays at the top level until that node arrives. A `parent` that would make a node contain itself is reported as `parent-cycle`, and that node stays at the top level.
 
 ## Labels

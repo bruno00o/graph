@@ -130,6 +130,7 @@ import { readonlyOf } from './readonly-store'
 import type { Renderer } from './renderer'
 import { PendingRequests } from './requests'
 import { clearRoom } from './room'
+import { SpreadHost } from './spread'
 import { StateRegistry } from './state-registry'
 
 /** What the store of a graph holds. `S` is the union of the state names, `M` that of the marks. */
@@ -835,6 +836,7 @@ interface NodeDrag {
   indices: readonly number[]
   keys: readonly Key[]
   offsets: Float32Array
+  readonly carried: ReadonlySet<number>
   readonly inLens: boolean
   started: boolean
 }
@@ -849,6 +851,7 @@ const autoPanFirstStep = 16
 const autoPanLongestStep = 50
 const pickTolerance = 4
 const movingPickInterval = 150
+const pickCostShare = 10
 const highlightOrder = 2 ** 40
 const layerOrder = 2 ** 26
 const kindOf = { node: 'nodes', edge: 'edges' } as const satisfies Record<string, StateKind>
@@ -1015,6 +1018,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let pickedPositions = -1
   let pickedPaths = 0
   let pickedAt = Number.NEGATIVE_INFINITY
+  let pickCost = 0
   let gesture: Gesture | null = null
   let pinch: Pinch | null = null
   let autoPanning = false
@@ -1059,6 +1063,23 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const hierarchy = projection.hierarchy
   const containerBoxes = new ContainerBoxes()
   const foldOrigins = new Map<number, readonly [number, number]>()
+  const spread = new SpreadHost({
+    nodes: scene.nodes,
+    hierarchy,
+    positions,
+    containers: projection.containers,
+    eligible: (index) =>
+      !Number.isNaN(positions.source[index * 2] ?? Number.NaN) || definition.layout === null,
+    settled: () => settledPositions(),
+    claim: (index) => {
+      if (index < animationOwner.length) animationOwner[index] = 0
+    },
+    camera: () => {
+      const { view, width, height } = store.get()
+      return { zoom: view.zoom, globe: sphere(), width, height }
+    },
+    duration: () => (reducedMotion() ? 0 : definition.transitions.layout),
+  })
   const registry = new StateRegistry(
     model,
     buffers,
@@ -1524,11 +1545,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function settledPositions(): PositionReader {
     for (const index of goalIndices) goals.fill(Number.NaN, index * 2, index * 2 + 2)
     goalIndices = []
-    if (positionAnimations.length === 0) return positions
+    if (positionAnimations.length === 0 && !spread.moving) return positions
     if (goals.length < positions.capacity * 2) {
       goals = new Float64Array(positions.capacity * 2).fill(Number.NaN)
     }
     const targets = goals
+    spread.goals((index, x, y) => {
+      targets[index * 2] = x
+      targets[index * 2 + 1] = y
+      goalIndices.push(index)
+    })
     for (const animation of positionAnimations) {
       animation.indices.forEach((index, i) => {
         if (animationOwner[index] !== animation.id) return
@@ -1817,25 +1843,28 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function pickLater(): boolean {
-    if (session === null && positionAnimations.length === 0) return false
+    if (session === null && positionAnimations.length === 0 && !spread.writing) return false
     if (pickedScene !== sceneVersion || pickedPaths !== bundles.paths.version) return false
-    return performance.now() - pickedAt < movingPickInterval
+    return performance.now() - pickedAt < Math.max(movingPickInterval, pickCost * pickCostShare)
   }
 
   function pickAt(point: Point, hover = false): GraphTarget | null {
     syncContainers()
     const current = !gesture?.drag && !(hover && pickLater())
+    const started = performance.now()
     if (current && pickedPaths !== bundles.paths.version) {
       pickIndex.build(pickSource)
       pickedPaths = bundles.paths.version
       pickedScene = sceneVersion
       pickedPositions = positions.version
       pickedAt = performance.now()
+      pickCost = pickedAt - started
     } else if (current && (pickedScene !== sceneVersion || pickedPositions !== positions.version)) {
       pickIndex.refresh(pickSource)
       pickedScene = sceneVersion
       pickedPositions = positions.version
       pickedAt = performance.now()
+      pickCost = pickedAt - started
     }
     const camera = sphere()
     const lensView = viewAt(point)
@@ -2429,7 +2458,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       scene.edges,
       settledPositions(),
       store.get().view.zoom,
-      (index) => !dragged?.has(index) && (keep.has(index) || (animationOwner[index] ?? 0) === 0),
+      (index) =>
+        !dragged?.has(index) &&
+        !spread.owns(index) &&
+        (keep.has(index) || (animationOwner[index] ?? 0) === 0),
       (key) => model.node(key)?.datum,
       { indices: projection.containers, hierarchy },
     )
@@ -2456,7 +2488,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     dropLostDrag(changes.nodes.removed)
     if (destroyed) return
     followPositions(placeNodes(model, positions, changes))
+    spread.release(projected.unfolded)
     const fresh = revealPositions(changes, projected)
+    spread.changed(changes, projected, performance.now())
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     const result = registry.apply(changes)
     registry.refreshEdges(projected.edges)
@@ -2573,7 +2607,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const limit = Math.min(current.movable.length, xy.length / 2, scene.nodes.capacity)
     for (let index = 0; index < limit; index++) {
       if (current.movable[index] !== 1 || scene.nodes.alive[index] !== 1) continue
-      if (dragged?.has(index) || (animationOwner[index] ?? 0) !== 0) continue
+      if (dragged?.has(index) || (animationOwner[index] ?? 0) !== 0 || spread.owns(index)) continue
       if (!Number.isNaN(positions.source[index * 2] ?? Number.NaN)) continue
       positions.set(index, xy[index * 2] ?? 0, xy[index * 2 + 1] ?? 0)
     }
@@ -2586,7 +2620,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const limit = Math.min(current.movable.length, xy.length / 2, scene.nodes.capacity)
     for (let index = 0; index < limit; index++) {
       if (current.movable[index] !== 1 || scene.nodes.alive[index] !== 1) continue
-      if (dragged?.has(index)) continue
+      if (dragged?.has(index) || spread.owns(index)) continue
       if (!Number.isNaN(positions.source[index * 2] ?? Number.NaN)) continue
       indices.push(index)
       to.push(xy[index * 2] ?? 0, xy[index * 2 + 1] ?? 0)
@@ -2700,7 +2734,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       scene.edges,
       settledPositions(),
       store.get().view.zoom,
-      (index) => movable(index) && !dragged?.has(index),
+      (index) => movable(index) && !dragged?.has(index) && !spread.owns(index),
       (key) => model.node(key)?.datum,
       projection.active ? { indices: projection.containers, hierarchy } : undefined,
     )
@@ -2855,6 +2889,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function followPositions(moves: PositionMoves): void {
     for (const index of moves.held) {
       if (index < animationOwner.length) animationOwner[index] = 0
+      spread.attach(index)
+      spread.moveBase(index, positions.source[index * 2] ?? 0, positions.source[index * 2 + 1] ?? 0)
     }
     if (moves.indices.length === 0) return
     const dragged = new Set(gesture?.drag?.indices)
@@ -2862,6 +2898,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const to: number[] = []
     moves.indices.forEach((index, i) => {
       if (dragged.has(index)) return
+      spread.attach(index)
+      if (spread.moveBase(index, moves.to[i * 2] ?? 0, moves.to[i * 2 + 1] ?? 0)) return
       indices.push(index)
       to.push(moves.to[i * 2] ?? 0, moves.to[i * 2 + 1] ?? 0)
     })
@@ -2911,6 +2949,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     sendView()
     if (destroyed) return
     if (positionAnimations.length > 0) stepPositions(now)
+    const spreading = spread.frame(now)
     if (wantedLens?.follow === 'focus') updateLens()
     if (destroyed) return
     const easing = bundles.frame(now)
@@ -2937,7 +2976,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (!renderer) {
       decorations.place()
       for (const watcher of watchers) watcher.frame()
-      if (viewAnimation || autoPanning || positionAnimations.length > 0 || easing) request()
+      if (viewAnimation || autoPanning || positionAnimations.length > 0 || easing || spreading)
+        request()
       return
     }
     const positionsChanged = positions.version !== positionsVersion
@@ -2983,7 +3023,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
     for (const watcher of watchers) watcher.frame()
-    if (viewAnimation || autoPanning || positionAnimations.length > 0 || easing || flowing) {
+    if (
+      viewAnimation ||
+      autoPanning ||
+      positionAnimations.length > 0 ||
+      easing ||
+      flowing ||
+      spreading
+    ) {
       request()
     } else if (wait >= 0) requestLater(wait)
     waiters.drawn()
@@ -3075,12 +3122,17 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const keys: Key[] = []
     const indices: number[] = []
     const taken = new Set<number>()
+    const carried = new Set<number>()
+    const carry = (index: number) => {
+      carried.add(index)
+      take(index)
+    }
     const take = (index: number) => {
       const key = scene.nodes.keys[index]
       if (taken.has(index) || key === undefined || scene.nodes.alive[index] !== 1) return
       taken.add(index)
       if (scene.nodes.shape[index] === containerShape) {
-        hierarchy.forEachDescendant(index, take)
+        hierarchy.forEachDescendant(index, carry)
         return
       }
       keys.push(key)
@@ -3103,6 +3155,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       indices,
       keys,
       offsets,
+      carried,
       inLens,
       started: false,
     }
@@ -3227,6 +3280,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       drag.started = true
       emitter.emit('dragstart', dragEvent(drag, event))
       if (destroyed) return
+      for (const index of drag.indices) if (!drag.carried.has(index)) spread.detach(index)
+      spread.settle(performance.now())
     }
     const camera = sphere()
     const world = camera
@@ -3234,11 +3289,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       : toWorld(dragView(drag), viewport(), point)
     if (!world) return
     drag.indices.forEach((index, i) => {
-      positions.set(
-        index,
-        world.x + (drag.offsets[i * 2] ?? 0),
-        world.y + (drag.offsets[i * 2 + 1] ?? 0),
-      )
+      const x = world.x + (drag.offsets[i * 2] ?? 0)
+      const y = world.y + (drag.offsets[i * 2 + 1] ?? 0)
+      spread.carry(index, x - positions.x(index), y - positions.y(index))
+      positions.set(index, x, y)
     })
     pinLayout(drag.indices)
     emitter.emit('drag', dragEvent(drag, event))
@@ -3719,6 +3773,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         moved.set(key, { x: point.x, y: point.y })
         projection.markSeen(record.index)
       }
+      for (const index of indices) spread.detach(index)
+      spread.settle(performance.now())
       const run = session?.run
       if (run) {
         for (const [i, index] of indices.entries())

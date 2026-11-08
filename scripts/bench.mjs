@@ -13,6 +13,7 @@ const { values: options } = parseArgs({
     out: { type: 'string', default: 'bench-results' },
     vsync: { type: 'boolean', default: false },
     headed: { type: 'boolean', default: false },
+    params: { type: 'string', default: '' },
   },
 })
 
@@ -457,7 +458,8 @@ try {
     mobile: false,
   })
   const layout = options.layout ? `&layout=${options.layout}` : ''
-  const url = `${base}bench/?nodes=${nodeCount}&edges=${edgeCount}${layout}`
+  const extra = options.params ? `&${options.params}` : ''
+  const url = `${base}bench/?nodes=${nodeCount}&edges=${edgeCount}${layout}${extra}`
   await page.send('Page.navigate', { url })
   let ready = false
   for (let attempt = 0; attempt < 600 && !ready; attempt++) {

@@ -7,6 +7,7 @@ export interface Place {
   readonly weight: number
   readonly longitude: number
   readonly latitude: number
+  readonly site: string
 }
 
 export interface Route {
@@ -107,6 +108,7 @@ export function createPlaces(
     homes[index] = home
     places.push({
       id: `p${index}`,
+      site: `p${index}`,
       label: messages.place(formatNumber(index + 1)),
       group: messages.group(String.fromCharCode(65 + (home % groups))),
       weight:
@@ -146,5 +148,15 @@ export function createPlaces(
     if (target === undefined || target === source) continue
     routes.push({ id: `r${index}`, from: `p${source}`, to: `p${target}`, far: !local })
   }
+  return { places, routes }
+}
+
+export function createStacks(): { readonly places: Place[]; readonly routes: Route[] } {
+  const { places: hubs, routes } = createPlaces(placeCount, placeCount * 2)
+  const places = hubs.flatMap((hub, index) =>
+    Array.from({ length: 1 + ((index * 7 + 4) % 6) }, (_, copy) =>
+      copy === 0 ? hub : { ...hub, id: `${hub.id}-${copy}`, label: `${hub.label}.${copy}` },
+    ),
+  )
   return { places, routes }
 }
