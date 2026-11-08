@@ -147,7 +147,7 @@ export const messages = {
   projection: 'Projection',
   projections: { globe: 'Globe', mercator: 'Carte plane' },
   farRoutes: 'Liaisons lointaines',
-  farRouteModes: { geodesic: 'Grands cercles', straight: 'Lignes droites' },
+  farRouteModes: { geodesic: 'Grands cercles', straight: 'Lignes droites', winding: 'Tracés' },
   volume: 'Volume',
   places: (count: number): string => `${formatNumber(count)} ${plural(count, 'lieu', 'lieux')}`,
   exporting: 'Export en cours…',

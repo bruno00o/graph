@@ -1017,6 +1017,41 @@ vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor, uint insi
   vHalo = (glyphKind & 4u) != 0u || inside != 0u ? 0.0 : 1.0;
   return (glyphRect.xy + corner * glyphRect.zw) * scale - vec2(0.0, lift);
 }
+vec4 fixedMiddle(uvec4 path, vec2 a, vec2 d, vec2 wraps, float shift) {
+  int inner = int(path.y) - 2;
+  vec2 p = fixedPoint(path, 1, a, d, wraps);
+  vec2 q = fixedPoint(path, inner, a, d, wraps);
+  vec2 e = fixedPoint(path, inner + 1, a, d, wraps);
+  float head = distance(a, p);
+  float body = uintBitsToFloat(path.z);
+  float tail = distance(q, e);
+  float total = head + body + tail;
+  float goal = clamp((total + shift) * 0.5, 0.0, total);
+  vec2 from = a;
+  vec2 to = p;
+  float t = head > 0.0 ? goal / head : 0.0;
+  if (goal > head && goal < head + body && inner > 1) {
+    float target = goal - head;
+    int lo = 0;
+    int hi = inner - 1;
+    for (int iteration = 0; iteration < 14; iteration++) {
+      if (hi - lo <= 1) break;
+      int mid = (lo + hi) / 2;
+      if (fixedTexel(path, mid).z <= target) lo = mid;
+      else hi = mid;
+    }
+    vec4 left = fixedTexel(path, lo);
+    vec4 right = fixedTexel(path, hi);
+    from = left.xy - vec2(wraps.x, 0.0);
+    to = right.xy - vec2(wraps.x, 0.0);
+    t = right.z > left.z ? (target - left.z) / (right.z - left.z) : 0.0;
+  } else if (goal >= head + body) {
+    from = q;
+    to = e;
+    t = tail > 0.0 ? (goal - head - body) / tail : 1.0;
+  }
+  return vec4(mix(from, to, clamp(t, 0.0, 1.0)), to - from);
+}
 vec2 upright(vec2 dir) {
   return dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
 }
@@ -1025,13 +1060,15 @@ vec4 endSpot(bool first, float reach, vec2 a0, vec2 d0, vec2 a, vec2 d, float be
   if (route == 1 || path.y > 1u) {
     int count = route == 1 ? 17 : int(path.y);
     Arc arc = arcOf(a0, d0, bend, geodesic, first ? 0.0 : d0.x - a0.x - wrapDelta(d0.x - a0.x));
+    vec2 wraps = fixedPath(path) ? fixedWraps(path, a0, d0) : vec2(0.0);
+    vec2 copy = first ? vec2(0.0) : vec2(wraps.x - wraps.y, 0.0);
     vec2 previous = center;
     float before = 0.0;
     for (int k = 1; k < 64; k++) {
       if (k >= count) break;
       int at = first ? k : count - 1 - k;
       float clip;
-      vec2 point = route == 1 ? arcScreen(arc, float(at) / float(count - 1), clip) : toScreen(pathPoint(path, at, a0, d0, bend));
+      vec2 point = route == 1 ? arcScreen(arc, float(at) / float(count - 1), clip) : toScreen(anyPathPoint(path, at, a0, d0, bend, wraps) + copy);
       float gap = length(point - center);
       if (gap >= reach || k == count - 1) {
         float f = gap > before ? clamp((reach - before) / (gap - before), 0.0, 1.0) : 1.0;
@@ -1143,6 +1180,21 @@ void edgeGlyph(uint kind) {
     float tangentLength = length(tangent);
     vec2 dir = tangentLength > 0.0 ? tangent / tangentLength : vec2(1.0, 0.0);
     axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
+  } else if (fixedPath(path)) {
+    vec2 wraps = fixedWraps(path, a0, d0);
+    vec2 first = toScreen(fixedPoint(path, 1, a0, d0, wraps)) - a;
+    vec2 last = toScreen(fixedPoint(path, int(path.y) - 1, a0, d0, wraps)) - toScreen(fixedPoint(path, int(path.y) - 2, a0, d0, wraps));
+    float shift = (towardReach(sourceOutline, first) - towardReach(targetOutline, -last)) / scaleAt(a0);
+    vec4 middle = fixedMiddle(path, a0, d0, wraps, shift);
+    if (worldSide(middle.xy) < 0.0) {
+      gl_Position = hidden;
+      return;
+    }
+    spot = toScreen(middle.xy);
+    vec2 tangent = toScreen(middle.xy + middle.zw * 0.01) - toScreen(middle.xy - middle.zw * 0.01);
+    float tangentLength = length(tangent);
+    vec2 dir = tangentLength > 0.0 ? tangent / tangentLength : vec2(1.0, 0.0);
+    axis = upright(dir);
   } else if (path.y > 1u) {
     int middle = (int(path.y) - 1) / 2;
     spot = toScreen(pathPoint(path, middle, a0, d0, style.z));

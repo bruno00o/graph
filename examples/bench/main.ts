@@ -26,6 +26,7 @@ const split = params.has('ends')
 const boxed = params.has('box')
 const stack = Number(params.get('stack') ?? 0)
 const spread = !params.has('nospread')
+const bends = Number(params.get('waypoints') ?? 0)
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -44,7 +45,33 @@ const sample = engine ? createCommunities(nodeCount, edgeCount) : createSample(n
 const history = timed ? spreadInTime(sample) : null
 const items: readonly (Item | TimedItem)[] = stacked(history?.items ?? sample.items)
 const links: readonly (Link | TimedLink)[] = history?.links ?? sample.links
+const winding = bends > 0 ? windingRoutes(items, links, bends) : null
 const generated = performance.now()
+
+function windingRoutes(
+  list: readonly (Item | TimedItem)[],
+  edgeList: readonly (Link | TimedLink)[],
+  inner: number,
+): Map<string, [number, number][]> {
+  const at = new Map(list.map((item) => [item.id, item]))
+  const routes = new Map<string, [number, number][]>()
+  edgeList.forEach((link, index) => {
+    const from = at.get(link.from)
+    const to = at.get(link.to)
+    if (!from || !to) return
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    const waves = 1 + (index % 3)
+    const points: [number, number][] = []
+    for (let k = 1; k <= inner; k++) {
+      const u = k / (inner + 1)
+      const lift = Math.sin(u * Math.PI * waves) * 0.12
+      points.push([from.x + dx * u - dy * lift, from.y + dy * u + dx * lift])
+    }
+    routes.set(link.id, points)
+  })
+  return routes
+}
 const spanOf = (element: Item | TimedItem | Link | TimedLink) =>
   'start' in element ? { start: element.start, end: element.end } : null
 
@@ -65,6 +92,7 @@ const define = (nodeData: readonly (Item | TimedItem)[]) =>
         target: 'to',
         arrow: 'target',
         flow,
+        ...(winding ? { waypoints: (link) => winding.get(link.id) } : {}),
         ...(timed ? { time: spanOf } : {}),
         ...(decor ? { dash: (link) => (link.strength > 0.6 ? 'dashed' : 'solid') } : {}),
         ...(split

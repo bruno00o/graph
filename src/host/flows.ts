@@ -90,9 +90,10 @@ export function createFlowWatch(options: FlowWatchOptions): FlowWatch {
     const y1 = xy[source * 2 + 1] ?? 0
     const x2 = xy[target * 2] ?? 0
     const y2 = xy[target * 2 + 1] ?? 0
+    const { originX, originY } = positions
     const reach =
       ((edges.bend[index] ?? 0) !== 0 ? Math.hypot(x2 - x1, y2 - y1) * curveReach : 0) +
-      (options.paths?.reach[index] ?? 0)
+      (options.paths?.slack(index, x1 + originX, y1 + originY, x2 + originX, y2 + originY) ?? 0)
     return (
       Math.max(x1, x2) + reach >= left &&
       Math.min(x1, x2) - reach <= right &&

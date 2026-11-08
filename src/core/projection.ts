@@ -196,6 +196,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
     arrow?: unknown
     label?: unknown
     time?: unknown
+    waypoints?: unknown
     ends?: unknown
   } = {}
   if (options.color !== undefined) fallback.color = liftedChannel(options.color)
@@ -205,6 +206,7 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
     if (options[name] !== undefined) fallback[name] = lifted(options[name])
   }
   if (options.time !== undefined) fallback.time = spanning(toAccessor(options.time))
+  if (options.waypoints !== undefined) fallback.waypoints = first(toAccessor(options.waypoints))
   if (options.label !== undefined) fallback.label = liftedLabel(options.label)
   if (options.ends !== undefined) fallback.ends = liftedEnds(options.ends)
   const look = Object.freeze({

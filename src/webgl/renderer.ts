@@ -1253,6 +1253,7 @@ function createRenderer(
       gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(states.highlightedNodes), gl.DYNAMIC_DRAW)
       gl.bindBuffer(gl.ARRAY_BUFFER, edgeOverlayIndices)
       gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(states.highlightedEdges), gl.DYNAMIC_DRAW)
+      bundles.highlight(states.highlightedEdges)
       invalidateLabels()
       touch()
     }
@@ -1523,6 +1524,20 @@ function createRenderer(
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
   }
 
+  function drawPiece(
+    program: WebGLProgram,
+    vao: WebGLVertexArrayObject,
+    count: number,
+    slot: number,
+    overlay: number,
+    vertices: number,
+    piece: number,
+  ): void {
+    arcPiece = piece
+    draw(program, vao, count, slot, overlay, vertices)
+    arcPiece = 0
+  }
+
   function drawGeodesics(
     vao: WebGLVertexArrayObject,
     count: number,
@@ -1570,8 +1585,10 @@ function createRenderer(
           draw(pass.program, pass.main, curved.size, layer.slot, 0)
         }
         bundles.draw(
-          (program, vao, count, vertices) => draw(program, vao, count, layer.slot, 0, vertices),
+          (program, vao, count, vertices, piece = 0) =>
+            drawPiece(program, vao, count, layer.slot, 0, vertices, piece),
           jumping,
+          globe === null,
         )
         if (spans > 0) draw(arcs().program, arcs().spans, spans, layer.slot, 0)
         if (geodesics.size > 0) drawGeodesics(arcs().geodesic, geodesics.size, layer.slot, 0, globe)
@@ -1593,8 +1610,10 @@ function createRenderer(
     }
     bundles.overlay(
       edgeOverlayCount,
-      (program, vao, count, vertices) => draw(program, vao, count, 0, 1, vertices),
+      (program, vao, count, vertices, piece = 0) =>
+        drawPiece(program, vao, count, 0, 1, vertices, piece),
       jumping,
+      globe === null,
     )
     if (globe || geodesics.size > 0) {
       drawGeodesics(arcs().overlay, edgeOverlayCount, 0, 1, globe)
@@ -1741,7 +1760,7 @@ function createRenderer(
       syncTime(next)
       syncEnds(next)
       syncStates(next)
-      if (bundles.sync(next.bundles)) {
+      if (bundles.sync(next.bundles, next.scene.edges, next.positions)) {
         moveLabels()
         touch()
       }

@@ -1,0 +1,13 @@
+## How it works
+
+Each route of the data holds a GeoJSON `LineString` from one node to the other, generated here by bending a straight line again and again. `lineWaypoints(route.line)` reads its positions as `{ longitude, latitude }` points and drops the first and the last, which sit on the nodes. `waypoints` then draws the edge through them, in order.
+
+The ends of a route stay on its nodes; only the points in between are fixed. Hovering and selecting follow the line, and `view.fit` with `edges` frames the lines, not only their nodes.
+
+**Routes** rebuilds the definition with `waypoints` returning `null`, which draws straight edges.
+
+## Try it
+
+- Hover a route to read how many points its line has.
+- Zoom in: the corners of a line stay sharp, so a line with more points looks smoother.
+- Press **Routes** to compare with straight edges.

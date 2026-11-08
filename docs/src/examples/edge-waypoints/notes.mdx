@@ -1,0 +1,13 @@
+## How it works
+
+Each edge carries a list of points in `via`, in world units, and `waypoints: 'via'` would draw the edge through them; here a function returns `null` when the button turns them off, which draws plain edges. The edge starts on its source node, passes each point in order with a sharp corner, and ends on its target node. Only the points in between are fixed: drag a node and the first and last segments follow it.
+
+Everything else an edge has works along the waypoints. Arrow heads point along the last segment, dashes and flows run through the corners, the label sits halfway along the path and turns with its segment, and `ends` splits the edge on the right at half its length, in two colors. Hovering and selecting follow the path, and `view.fit` with `edges` frames the waypoints too.
+
+The two short edges around node G have no waypoints: an empty list draws a plain edge.
+
+## Try it
+
+- Drag node A or node E: their edges keep their corners.
+- Hover an edge to read how many waypoints it has.
+- Press **Waypoints** to compare with straight edges, which cross the nodes in the middle.

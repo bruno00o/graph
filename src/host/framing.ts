@@ -1,4 +1,5 @@
 import { containerShape, type EdgeColumns, type NodeColumns } from '../core/columns'
+import type { EdgePaths } from '../core/edge-paths'
 import type { GraphModel } from '../core/graph-model'
 import type { Hierarchy } from '../core/hierarchy'
 import { halfWidthOf } from '../core/node-shape'
@@ -72,6 +73,42 @@ export function fitIndices(
     add(model.node(ends.target)?.index ?? -1)
   }
   return indices
+}
+
+export function withWaypoints(
+  box: Bounds | null,
+  keys: FitKeys | null,
+  projection: Projection,
+  edges: EdgeColumns,
+  paths: EdgePaths,
+  reader: PositionReader,
+): Bounds | null {
+  const fixed = paths.fixed
+  if (!fixed || fixed.edges === 0 || (keys && keys.edges.length === 0)) return box
+  let minX = box?.minX ?? Number.POSITIVE_INFINITY
+  let minY = box?.minY ?? Number.POSITIVE_INFINITY
+  let maxX = box?.maxX ?? Number.NEGATIVE_INFINITY
+  let maxY = box?.maxY ?? Number.NEGATIVE_INFINITY
+  const area = new Float64Array(4)
+  const include = (index: number) => {
+    if (index < 0 || edges.alive[index] !== 1) return
+    const from = reader.x(edges.source[index] ?? 0)
+    const to = reader.x(edges.target[index] ?? 0)
+    if (!paths.fixedBounds(index, from, to, area)) return
+    minX = Math.min(minX, area[0] ?? 0)
+    minY = Math.min(minY, area[1] ?? 0)
+    maxX = Math.max(maxX, area[2] ?? 0)
+    maxY = Math.max(maxY, area[3] ?? 0)
+  }
+  if (keys) {
+    for (const key of keys.edges) include(projection.edgeIndexOf(key))
+  } else {
+    const last = Math.min(edges.capacity, fixed.capacity)
+    for (let index = 0; index < last; index++) {
+      if ((fixed.count[index] ?? 0) > 0) include(index)
+    }
+  }
+  return maxX < minX ? box : { minX, minY, maxX, maxY }
 }
 
 export function boundsAfter(

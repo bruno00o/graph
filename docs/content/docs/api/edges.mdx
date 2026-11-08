@@ -105,6 +105,31 @@ edges<Link>(links, {
 })
 ```
 
+## Waypoints
+
+`waypoints` gives, for each edge, the points it passes through between its two nodes. A point is a `Point` or a pair in world units, or a `GeoPoint` in degrees. See [Waypoints](/docs/marks#waypoints) for the rules.
+
+```ts
+type WaypointInput = Point | GeoPoint | readonly [x: number, y: number]
+```
+
+`lineWaypoints` reads the positions of a GeoJSON line as waypoints. See [routes along a network](/docs/map#routes-along-a-network).
+
+```ts
+function lineWaypoints(
+  geometry: LineGeometry | null | undefined,
+  options?: LineWaypointsOptions,
+): GeoPoint[]
+
+type LineGeometry = LineStringGeometry | MultiLineStringGeometry
+```
+
+<api-table path="index.ts" name="LineWaypointsOptions" />
+
+<api-table path="index.ts" name="LineStringGeometry" />
+
+<api-table path="index.ts" name="MultiLineStringGeometry" />
+
 ## Parallel edges and loops
 
 Edges that share the same two nodes, in either direction, bend apart in symmetric arcs; an edge alone on its pair stays straight. An edge from a node to itself is a loop, and several loops nest. There is no option for the curvature yet.

@@ -729,12 +729,25 @@ export class PickIndex {
   #shape(source: PickSource, index: number): ArrayLike<number> | null {
     const paths = source.paths
     if (paths && paths.count(index) > 1) {
-      const count = paths.polyline(index, source.edges, source.positions, paths.mix, this.#polyline)
-      return this.#polyline.subarray(0, count * 2)
+      const line = this.#line(paths)
+      const count = paths.polyline(index, source.edges, source.positions, paths.mix, line)
+      if (paths.fixed?.geo[index] === 1) {
+        for (let k = 0; k < count && !this.#wraps; k++) {
+          const x = line[k * 2] ?? 0
+          if (x < 0 || x > worldSize) this.#wraps = true
+        }
+      }
+      return line.subarray(0, count * 2)
     }
     if (source.edges.geodesic[index] === 1) return this.#arc(source, index)
     if ((source.edges.bend[index] ?? 0) === 0) return null
     return sampleCubic(this.#parallel(source, index), indexSegments)
+  }
+
+  #line(paths: EdgePaths): Float64Array {
+    const longest = paths.longest * 2
+    if (this.#polyline.length < longest) this.#polyline = new Float64Array(longest)
+    return this.#polyline
   }
 
   #arc(source: PickSource, index: number): Float64Array {
@@ -857,8 +870,9 @@ export class PickIndex {
       if (paths && paths.count(index) > 1) {
         if (seen.has(index)) return
         seen.add(index)
-        const count = paths.polyline(index, edges, positions, paths.mix, this.#polyline)
-        consider(index, distanceToPolyline(this.#polyline, count, x, y))
+        const line = this.#line(paths)
+        const count = paths.polyline(index, edges, positions, paths.mix, line)
+        consider(index, distanceToPolyline(line, count, x, y))
         return
       }
       if (edges.geodesic[index] === 1) {

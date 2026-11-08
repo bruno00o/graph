@@ -68,6 +68,7 @@ import type {
   LayoutRunOptions,
   LensInput,
   LensOptions,
+  LineWaypointsOptions,
   MountGraphOptions,
   NodeImage,
   NodeMark,
@@ -208,6 +209,7 @@ interface Inputs {
   LegendViewOptions: LegendViewOptions<Marks>
   LensInput: LensInput
   LensOptions: LensOptions
+  LineWaypointsOptions: LineWaypointsOptions
   MapGraphOptions: MapGraphOptions<'muted', Marks>
   MapGraphProps: MapGraphProps<'muted', Marks>
   MapPngOptions: MapPngOptions

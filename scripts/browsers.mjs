@@ -44,7 +44,10 @@ for (const name of names) {
 const examples = join(root, 'dist-examples')
 const buildExamples = ['pnpm', ['exec', 'vite', 'build']]
 const lowCapsPages = ['vanilla', 'routing', 'ends', 'bundling', 'layout']
-const queryPages = [{ name: 'map-stack', page: 'map', query: 'stack' }]
+const queryPages = [
+  { name: 'map-stack', page: 'map', query: 'stack' },
+  { name: 'map-waypoints', page: 'map', query: 'waypoints&projection=mercator' },
+]
 
 function examplePages(directory) {
   return readdirSync(directory, { withFileTypes: true })

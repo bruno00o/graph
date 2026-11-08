@@ -9,7 +9,7 @@ import {
   pointOnCubic,
   tangentOnCubic,
 } from '../core/edge-curve'
-import type { EdgePaths, PathPoint } from '../core/edge-paths'
+import type { EdgePaths, PathPoint, PathSpot } from '../core/edge-paths'
 import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
 import { primaryWeight, secondaryFactor, secondaryWeight } from '../core/label-width'
@@ -471,6 +471,64 @@ function arcAnchor(
   return true
 }
 
+const fixedSpot: PathSpot = { x: 0, y: 0, dx: 0, dy: 0 }
+const fixedPoints: [PathPoint, PathPoint, PathPoint, PathPoint] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+]
+
+function fixedAnchor(
+  frame: Pick<LabelFrame, 'nodes' | 'edges' | 'positions' | 'view' | 'width' | 'height' | 'globe'>,
+  paths: EdgePaths,
+  index: number,
+  out: EdgeAnchor,
+): boolean {
+  const { nodes, edges, positions, view, width, height } = frame
+  const globe = frame.globe && frame.globe.mix > 0 ? frame.globe : null
+  const project = (x: number, y: number, at: PathPoint): boolean => {
+    if (globe) return globeScreen(globe, x, y, at) >= 0
+    at.x = (x - view.x) * view.zoom + width / 2
+    at.y = (y - view.y) * view.zoom + height / 2
+    return true
+  }
+  const source = edges.source[index] ?? 0
+  const target = edges.target[index] ?? 0
+  const sx = positions.x(source)
+  const sy = positions.y(source)
+  const tx = positions.x(target)
+  const ty = positions.y(target)
+  const count = paths.count(index)
+  const [a, p, q, d] = fixedPoints
+  paths.point(index, 1, sx, sy, tx, ty, 0, 1, p)
+  paths.point(index, count - 2, sx, sy, tx, ty, 0, 1, q)
+  paths.point(index, count - 1, sx, sy, tx, ty, 0, 1, d)
+  const zoom = globe ? globeScale(globe, p.y) : view.zoom
+  const start = chordReach(nodes, source, zoom, p.x - sx, p.y - sy)
+  const end = chordReach(nodes, target, zoom, q.x - d.x, q.y - d.y)
+  const total = paths.fixedLength(index, sx, sy, tx, ty)
+  const goal = Math.min(total, Math.max(0, (total + (start - end) / zoom) / 2))
+  paths.fixedAt(index, sx, sy, tx, ty, goal, fixedSpot)
+  const span = Math.hypot(fixedSpot.dx, fixedSpot.dy)
+  if (span === 0) return false
+  const step = Math.min(span, 1 / zoom) / span
+  if (!project(fixedSpot.x, fixedSpot.y, a)) return false
+  project(fixedSpot.x - fixedSpot.dx * step, fixedSpot.y - fixedSpot.dy * step, p)
+  project(fixedSpot.x + fixedSpot.dx * step, fixedSpot.y + fixedSpot.dy * step, q)
+  const ux = q.x - p.x
+  const uy = q.y - p.y
+  const length = Math.hypot(ux, uy)
+  if (length === 0) return false
+  out.x = a.x
+  out.y = a.y
+  const flip = ux < -uprightSlack * length || (Math.abs(ux) <= uprightSlack * length && uy < 0)
+  out.ax = (flip ? -ux : ux) / length
+  out.ay = (flip ? -uy : uy) / length
+  out.room = total * zoom - start - end
+  return true
+}
+
 export function edgeAnchor(
   frame: Pick<
     LabelFrame,
@@ -480,6 +538,7 @@ export function edgeAnchor(
   out: EdgeAnchor,
 ): boolean {
   const { nodes, edges, positions, view, width, height, paths } = frame
+  if (paths?.isFixed(index)) return fixedAnchor(frame, paths, index, out)
   if (paths && paths.count(index) > 1) return pathAnchor(frame, paths, index, out)
   const source = edges.source[index] ?? 0
   const target = edges.target[index] ?? 0
@@ -598,7 +657,14 @@ export function endAnchor(
   if (bundled || route === 1) {
     const arc: ArcFrame = { x: view.x, y: view.y, zoom: view.zoom, width, height, globe }
     const count = bundled ? paths.count(index) : arcSamples + 1
-    const shift = bundled || first ? 0 : dx - arcPoint(ax, ay, dx, dy, 1, bend, geodesic, point).x
+    const copy = bundled && !first ? paths.wraps(index, ax, dx, point) : null
+    const shift = bundled
+      ? copy
+        ? copy.x - copy.y
+        : 0
+      : first
+        ? 0
+        : dx - arcPoint(ax, ay, dx, dy, 1, bend, geodesic, point).x
     previous.x = cx
     previous.y = cy
     let before = 0
@@ -606,8 +672,7 @@ export function endAnchor(
       const at = first ? k : count - 1 - k
       if (bundled) {
         paths.point(index, at, ax, ay, dx, dy, bend, paths.mix, point)
-        point.x = (point.x - view.x) * view.zoom + width / 2
-        point.y = (point.y - view.y) * view.zoom + height / 2
+        project(point.x + shift, point.y, point)
       } else {
         arcPoint(ax, ay, dx, dy, at / (count - 1), bend, geodesic, point)
         screenOf(arc, point.x + shift, point.y, point)
@@ -1303,9 +1368,17 @@ export class LabelLayer {
       const index = frame.edgeOrder[at] ?? 0
       const from = (source[index] ?? 0) * 2
       const to = (target[index] ?? 0) * 2
-      const slack = frame.paths?.reach[index] ?? 0
       const ax = xy[from] ?? 0
       const bx = xy[to] ?? 0
+      const slack = frame.paths
+        ? frame.paths.slack(
+            index,
+            ax + positions.originX,
+            (xy[from + 1] ?? 0) + positions.originY,
+            bx + positions.originX,
+            (xy[to + 1] ?? 0) + positions.originY,
+          )
+        : 0
       const free = globe !== null || edges.geodesic[index] === 1
       const left2 = left - slack
       const right2 = right + slack

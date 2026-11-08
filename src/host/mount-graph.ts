@@ -30,7 +30,7 @@ import { createFlowWatch } from './flows'
 import { FocusControl } from './focus-control'
 import { FoldControl } from './folding'
 import { FrameScheduler } from './frame-scheduler'
-import { boundsAfter, fitIndices, nodeBounds } from './framing'
+import { boundsAfter, fitIndices, nodeBounds, withWaypoints } from './framing'
 import type {
   FitOptions,
   GraphCount,
@@ -336,7 +336,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
           : onViewChange?.({ view: sent.view, origin: originOf(sent.cause) }),
       ),
     published: () => pointer.redrawLasso(),
-    measure: (keys) => bounds(fitIndices(keys, model, projection, scene.edges), motion.settled()),
+    measure: (keys) =>
+      withWaypoints(
+        bounds(fitIndices(keys, model, projection, scene.edges), motion.settled()),
+        keys,
+        projection,
+        scene.edges,
+        bundles.paths,
+        motion.settled(),
+      ),
     limitBounds: () => bounds(),
     sceneVersion: () => sceneVersion,
     positionsVersion: () => positions.version,

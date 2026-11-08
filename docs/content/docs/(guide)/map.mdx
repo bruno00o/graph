@@ -109,9 +109,40 @@ Set `geodesic` on an edge mark and its edges follow the shortest path over the E
 edges(routes, { source: 'from', target: 'to', geodesic: (route) => route.long })
 ```
 
-On the globe, such an edge is an arc of the sphere. On a flat map, it bends toward the poles, and an edge that crosses the antimeridian is cut in two, each part reaching the edge of the world. Arrows, dashes, flows, labels and picking follow the path. Geodesic edges are never bundled, and the option has the same effect on a graph without a map. See [`EdgeOptions`](/docs/api/edges#options).
+On the globe, such an edge is an arc of the sphere. On a flat map, it bends toward the poles, and an edge that crosses the antimeridian is cut in two, each part reaching the edge of the world. Arrows, dashes, flows, labels and picking follow the path. Geodesic edges are never bundled, an edge with [waypoints](#routes-along-a-network) ignores `geodesic`, and the option has the same effect on a graph without a map. See [`EdgeOptions`](/docs/api/edges#options).
 
 Examples: [great circles without a map](/examples/great-circles), and [flows on a map](/examples/map-flows).
+
+## Routes along a network
+
+To draw an edge along a road, a river or any line of a network instead of straight, give it the points of that line with `waypoints`. `lineWaypoints` reads a GeoJSON `LineString` or `MultiLineString` geometry as `{ longitude, latitude }` points, the lines of a `MultiLineString` one after the other, and drops the first and last positions, which usually sit on the nodes:
+
+```ts
+import { edges, lineWaypoints } from '@bruno00o/graph'
+
+type Road = { id: string; from: string; to: string; geometry: LineStringGeometry }
+
+edges<Road>(roads, {
+  source: 'from',
+  target: 'to',
+  waypoints: (road) => lineWaypoints(road.geometry),
+})
+```
+
+Pass `{ keepEnds: true }` to keep them, for a line that stops short of its nodes. The edge still starts and ends on its nodes; only the points in between are fixed. See [Waypoints](/docs/marks#waypoints) for the rules shared with plain graphs.
+
+```ts
+type LineGeometry = LineStringGeometry | MultiLineStringGeometry
+```
+
+- On a flat map, a line that crosses the antimeridian takes the short way, from one point to the next, and is drawn on both sides like a [great circle](#great-circles).
+- On the globe, the line follows the surface: stretches longer than 8 world units, about 5.6 degrees at the equator, are split into shorter ones, and a line that passes behind the horizon is cut there. The first and last segments, from the nodes to the line, stay straight on screen.
+- Points are stored in world units with double precision and drawn relative to the camera, so a line stays on its road at street level. The GPU keeps them in 32 bits relative to the origin of the positions, which is moved when the camera goes far from it.
+- A line drawn by `waypoints` has sharp corners: give it more points for a smoother curve.
+
+See the [routes along a network](/examples/map-routes) example.
+
+<LiveExample slug="map-routes" />
 
 ## With and without a map
 

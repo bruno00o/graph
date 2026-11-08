@@ -17,6 +17,41 @@ export interface GeoPoint {
   readonly latitude: number
 }
 
+/**
+ * A point an edge passes through: a point in world units, an `[x, y]` pair in world units, or a
+ * place in degrees, projected like the `longitude` and `latitude` of nodes.
+ */
+export type WaypointInput = Point | GeoPoint | readonly [x: number, y: number]
+
+/** A GeoJSON `LineString` geometry: positions as `[longitude, latitude]` pairs. */
+export interface LineStringGeometry {
+  /** GeoJSON type of the geometry. */
+  readonly type: 'LineString'
+  /** Positions of the line, each `[longitude, latitude]`, an altitude after them being ignored. */
+  readonly coordinates: readonly (readonly number[])[]
+}
+
+/** A GeoJSON `MultiLineString` geometry: lines of `[longitude, latitude]` pairs. */
+export interface MultiLineStringGeometry {
+  /** GeoJSON type of the geometry. */
+  readonly type: 'MultiLineString'
+  /** Lines, each a list of `[longitude, latitude]` positions. */
+  readonly coordinates: readonly (readonly (readonly number[])[])[]
+}
+
+/** A GeoJSON line geometry that `lineWaypoints` reads. */
+export type LineGeometry = LineStringGeometry | MultiLineStringGeometry
+
+/** Options of `lineWaypoints`. */
+export interface LineWaypointsOptions {
+  /**
+   * Keeps the first and the last positions of the line. By default they are dropped, since they
+   * usually sit on the end nodes.
+   * @default false
+   */
+  readonly keepEnds?: boolean | undefined
+}
+
 /** The camera: the world point at the center of the graph element, and a zoom factor. */
 export interface View {
   /** Horizontal coordinate of the center, in world units. */
@@ -577,6 +612,14 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * @default false
    */
   readonly geodesic?: Style<T, boolean> | undefined
+  /**
+   * Points the edge passes through, in order from its source to its target, such as a route drawn
+   * along roads. Its ends stay on the nodes as they move; only the points in between are fixed.
+   * Points in degrees cross the antimeridian the short way. Invalid points are skipped; no point
+   * draws a plain edge. Such an edge is never bundled, routed, bridged or bent beside parallel
+   * edges, and loops ignore it. Its corners are sharp.
+   */
+  readonly waypoints?: Channel<T, Iterable<WaypointInput>> | undefined
   /**
    * Styles each end of the edge on its own: the line from the source node to the split takes the
    * `source` options, the rest takes the `target` options, and each end can carry a label.

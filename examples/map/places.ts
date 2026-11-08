@@ -160,3 +160,24 @@ export function createStacks(): { readonly places: Place[]; readonly routes: Rou
   )
   return { places, routes }
 }
+
+export function windingPath(
+  from: Place,
+  to: Place,
+  inner: number,
+  seed: number,
+): { longitude: number; latitude: number }[] {
+  const dx = ((to.longitude - from.longitude + 540) % 360) - 180
+  const dy = to.latitude - from.latitude
+  const waves = 1 + (seed % 3)
+  const points: { longitude: number; latitude: number }[] = []
+  for (let k = 1; k <= inner; k++) {
+    const u = k / (inner + 1)
+    const lift = Math.sin(u * Math.PI * waves) * (0.08 + (seed % 5) * 0.02)
+    points.push({
+      longitude: from.longitude + dx * u - dy * lift,
+      latitude: Math.max(-80, Math.min(80, from.latitude + dy * u + dx * lift)),
+    })
+  }
+  return points
+}

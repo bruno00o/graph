@@ -1,6 +1,7 @@
 import { dev } from '../dev'
 import type { BundlePaths } from '../types'
 import type { EdgeColumns } from './columns'
+import { type EdgeWaypoints, wrapShift } from './edge-waypoints'
 import type { Positions } from './positions'
 import { type Outline, type RouteShape, shapeRoute } from './route-shape'
 
@@ -15,6 +16,13 @@ const flatShare = 1e-3
 export interface PathPoint {
   x: number
   y: number
+}
+
+export interface PathSpot {
+  x: number
+  y: number
+  dx: number
+  dy: number
 }
 
 export interface PathResult {
@@ -46,14 +54,17 @@ function warnStraight(): void {
   console.warn('graph: edge paths do not fit on this device, some edges are drawn straight')
 }
 
+const scratch: PathPoint = { x: 0, y: 0 }
+
 function emptyOutline(): Outline {
   return { x: 0, y: 0, shape: 0, radius: 0, halfWidth: 0, halfHeight: 0, corner: 0, trim: 0 }
 }
 
 export class EdgePaths {
   capacity = 0
-  version = 0
+  #version = 0
   pointsVersion = 0
+  fixed: EdgeWaypoints | null = null
   mix = 1
   bundled = 0
   lanes = true
@@ -86,11 +97,184 @@ export class EdgePaths {
     rooms.set(this.rooms)
     this.rooms = rooms
     this.capacity = size
-    this.version++
+    this.#version++
+  }
+
+  get version(): number {
+    return this.#version + (this.fixed?.version ?? 0)
+  }
+
+  get relativeVersion(): number {
+    return this.#version
+  }
+
+  get any(): boolean {
+    return this.bundled > 0 || (this.fixed !== null && this.fixed.edges > 0)
+  }
+
+  get longest(): number {
+    return Math.max(maxPathPoints, (this.fixed?.longest ?? 0) + 2)
+  }
+
+  isFixed(edge: number): boolean {
+    const fixed = this.fixed
+    return fixed !== null && edge < fixed.capacity && (fixed.count[edge] ?? 0) > 0
   }
 
   count(edge: number): number {
+    const fixed = this.fixed
+    if (fixed !== null && edge < fixed.capacity) {
+      const inner = fixed.count[edge] ?? 0
+      if (inner > 0) return inner + 2
+    }
     return edge < this.capacity ? (this.info[edge * 4 + 1] ?? 0) : 0
+  }
+
+  #relativeCount(edge: number): number {
+    return edge < this.capacity ? (this.info[edge * 4 + 1] ?? 0) : 0
+  }
+
+  wraps(edge: number, sx: number, tx: number, out: PathPoint): PathPoint {
+    const fixed = this.fixed
+    out.x = 0
+    out.y = 0
+    if (fixed?.geo[edge] !== 1) return out
+    const first = fixed.start[edge] ?? 0
+    const last = first + (fixed.count[edge] ?? 1) - 1
+    out.x = wrapShift(sx, fixed.points[first * 2] ?? 0)
+    out.y = wrapShift(tx, fixed.points[last * 2] ?? 0)
+    return out
+  }
+
+  #fixedPoint(
+    edge: number,
+    k: number,
+    sx: number,
+    sy: number,
+    tx: number,
+    ty: number,
+    out: PathPoint,
+  ): void {
+    const fixed = this.fixed as EdgeWaypoints
+    const inner = fixed.count[edge] ?? 0
+    const wraps = this.wraps(edge, sx, tx, scratch)
+    if (k <= 0) {
+      out.x = sx
+      out.y = sy
+    } else if (k > inner) {
+      out.x = tx + wraps.y - wraps.x
+      out.y = ty
+    } else {
+      const at = ((fixed.start[edge] ?? 0) + k - 1) * 2
+      out.x = (fixed.points[at] ?? 0) - wraps.x
+      out.y = fixed.points[at + 1] ?? 0
+    }
+  }
+
+  fixedLength(edge: number, sx: number, sy: number, tx: number, ty: number): number {
+    const fixed = this.fixed
+    if (!fixed) return 0
+    const inner = fixed.count[edge] ?? 0
+    const first = (fixed.start[edge] ?? 0) * 2
+    const last = first + (inner - 1) * 2
+    const wraps = this.wraps(edge, sx, tx, scratch)
+    const points = fixed.points
+    const head = Math.hypot((points[first] ?? 0) - wraps.x - sx, (points[first + 1] ?? 0) - sy)
+    const tail = Math.hypot(tx + wraps.y - (points[last] ?? 0), ty - (points[last + 1] ?? 0))
+    return head + (fixed.length[edge] ?? 0) + tail
+  }
+
+  fixedAt(
+    edge: number,
+    sx: number,
+    sy: number,
+    tx: number,
+    ty: number,
+    distance: number,
+    out: PathSpot,
+  ): void {
+    const fixed = this.fixed as EdgeWaypoints
+    const inner = fixed.count[edge] ?? 0
+    const first = fixed.start[edge] ?? 0
+    const wraps = this.wraps(edge, sx, tx, scratch)
+    const points = fixed.points
+    const px = (points[first * 2] ?? 0) - wraps.x
+    const py = points[first * 2 + 1] ?? 0
+    const qx = (points[(first + inner - 1) * 2] ?? 0) - wraps.x
+    const qy = points[(first + inner - 1) * 2 + 1] ?? 0
+    const ex = tx + wraps.y - wraps.x
+    const head = Math.hypot(px - sx, py - sy)
+    const body = fixed.length[edge] ?? 0
+    let ax = sx
+    let ay = sy
+    let bx = px
+    let by = py
+    let t = head > 0 ? distance / head : 0
+    if (distance > head && inner > 1 && distance < head + body) {
+      const goal = distance - head
+      let lo = 0
+      let hi = inner - 1
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1
+        if ((fixed.along[first + mid] ?? 0) <= goal) lo = mid
+        else hi = mid
+      }
+      const from = fixed.along[first + lo] ?? 0
+      const span = (fixed.along[first + hi] ?? from) - from
+      ax = (points[(first + lo) * 2] ?? 0) - wraps.x
+      ay = points[(first + lo) * 2 + 1] ?? 0
+      bx = (points[(first + hi) * 2] ?? 0) - wraps.x
+      by = points[(first + hi) * 2 + 1] ?? 0
+      t = span > 0 ? (goal - from) / span : 0
+    } else if (distance >= head + body) {
+      const tail = Math.hypot(ex - qx, ty - qy)
+      ax = qx
+      ay = qy
+      bx = ex
+      by = ty
+      t = tail > 0 ? (distance - head - body) / tail : 1
+    }
+    t = Math.min(1, Math.max(0, t))
+    out.x = ax + (bx - ax) * t
+    out.y = ay + (by - ay) * t
+    out.dx = bx - ax
+    out.dy = by - ay
+  }
+
+  slack(edge: number, ax: number, ay: number, bx: number, by: number): number {
+    const fixed = this.fixed
+    if (fixed === null || edge >= fixed.capacity || (fixed.count[edge] ?? 0) === 0) {
+      return this.reach[edge] ?? 0
+    }
+    const wraps = this.wraps(edge, ax, bx, scratch)
+    const low = Math.min(wraps.x, wraps.y)
+    const high = Math.max(wraps.x, wraps.y)
+    const at = edge * 4
+    const minX = (fixed.bounds[at] ?? 0) - high
+    const maxX = (fixed.bounds[at + 2] ?? 0) - low
+    const minY = fixed.bounds[at + 1] ?? 0
+    const maxY = fixed.bounds[at + 3] ?? 0
+    const spread = Math.abs(wraps.y - wraps.x)
+    return Math.max(
+      0,
+      Math.min(ax, bx) - minX,
+      maxX - Math.max(ax, bx),
+      Math.min(ay, by) - minY,
+      maxY - Math.max(ay, by),
+      spread,
+    )
+  }
+
+  fixedBounds(edge: number, sx: number, tx: number, out: Float64Array): boolean {
+    const fixed = this.fixed
+    if (fixed === null || edge >= fixed.capacity || (fixed.count[edge] ?? 0) === 0) return false
+    const wraps = this.wraps(edge, sx, tx, scratch)
+    const at = edge * 4
+    out[0] = (fixed.bounds[at] ?? 0) - wraps.x
+    out[1] = fixed.bounds[at + 1] ?? 0
+    out[2] = (fixed.bounds[at + 2] ?? 0) - wraps.x
+    out[3] = fixed.bounds[at + 3] ?? 0
+    return true
   }
 
   length(edge: number, mix: number = this.mix): number {
@@ -100,7 +284,7 @@ export class EdgePaths {
   }
 
   station(edge: number, k: number, mix: number = this.mix): number {
-    const count = this.count(edge)
+    const count = this.#relativeCount(edge)
     const u = count > 1 ? k / (count - 1) : 0
     if (!this.measured) return u
     const at = ((this.info[edge * 4] ?? 0) + k) * 2
@@ -109,16 +293,17 @@ export class EdgePaths {
   }
 
   curvedAt(edge: number, k: number): boolean {
+    if (this.isFixed(edge)) return false
     return this.curved[(this.info[edge * 4] ?? 0) + k] === 1
   }
 
   clear(edge: number): void {
-    if (this.count(edge) === 0) return
+    if (this.#relativeCount(edge) === 0) return
     this.info[edge * 4 + 1] = 0
     this.reach[edge] = 0
     this.rooms[edge] = 0
     this.bundled--
-    this.version++
+    this.#version++
   }
 
   validateAll(edges: EdgeColumns, column: Uint8Array = edges.bundle): void {
@@ -147,6 +332,10 @@ export class EdgePaths {
     mix: number,
     out: PathPoint,
   ): void {
+    if (this.isFixed(edge)) {
+      this.#fixedPoint(edge, k, sx, sy, tx, ty, out)
+      return
+    }
     const count = this.info[edge * 4 + 1] ?? 0
     const u = count > 1 ? k / (count - 1) : 0
     const at = ((this.info[edge * 4] ?? 0) + k) * 4
@@ -289,7 +478,7 @@ export class EdgePaths {
     for (let edge = 0; edge < this.capacity; edge++) {
       if ((this.info[edge * 4 + 1] ?? 0) === 0) this.reach[edge] = 0
     }
-    this.version++
+    this.#version++
     this.pointsVersion++
   }
 

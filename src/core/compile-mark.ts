@@ -83,6 +83,7 @@ export interface CompiledEdgeMark {
   readonly route: Read | null
   readonly bridge: Read | null
   readonly geodesic: Read | null
+  readonly waypoints: Read | null
   readonly ends: CompiledEnds | null
 }
 
@@ -254,6 +255,7 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     route: style(options.route),
     bridge: style(options.bridge),
     geodesic: style(options.geodesic),
+    waypoints: channel(options.waypoints),
     ends: compileEnds(options.ends),
   }
   edgeCache.set(mark, compiled)
