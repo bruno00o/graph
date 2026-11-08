@@ -28,6 +28,8 @@
     "subset",
     "---@bruno00o/graph/query---",
     "create-exploration",
+    "---@bruno00o/graph/cypher---",
+    "cypher-graph",
     "---@bruno00o/graph/timeline---",
     "timeline",
     "---@bruno00o/graph/export---",

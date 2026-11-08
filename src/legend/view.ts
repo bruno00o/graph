@@ -140,6 +140,7 @@ export function mountLegend<S extends string, M extends Mark>(
   const items = new Map<string, HTMLElement>()
   let shown = ''
   let destroyed = false
+  let building = false
 
   function text(value: LegendValue, section: LegendSection): string {
     return (settings.format ?? defaultFormat)(value, section)
@@ -351,9 +352,14 @@ export function mountLegend<S extends string, M extends Mark>(
         blocks.push(...scaleSections(name, state))
       }
     }
-    root.replaceChildren(...blocks)
-    root.style.display = blocks.length > 0 ? 'flex' : 'none'
-    if (focused) items.get(focused)?.focus()
+    building = true
+    try {
+      root.replaceChildren(...blocks)
+      root.style.display = blocks.length > 0 ? 'flex' : 'none'
+      if (focused) items.get(focused)?.focus()
+    } finally {
+      building = false
+    }
   }
 
   function paint(state: LegendState<M>): void {
@@ -384,8 +390,11 @@ export function mountLegend<S extends string, M extends Mark>(
 
   const onPointerOver = (event: PointerEvent) => legend.hover(idOf(event.target))
   const onPointerLeave = () => legend.hover(null)
-  const onFocusIn = (event: FocusEvent) => legend.hover(idOf(event.target))
+  const onFocusIn = (event: FocusEvent) => {
+    if (!building) legend.hover(idOf(event.target))
+  }
   const onFocusOut = (event: FocusEvent) => {
+    if (building) return
     if (!root.contains(event.relatedTarget as Node | null)) legend.hover(null)
   }
   const onClick = (event: MouseEvent) => {

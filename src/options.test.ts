@@ -1,5 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest'
 import type { DensityBundlingOptions } from './bundling'
+import type { CypherOptions } from './cypher'
 import type { PersistPositionsOptions } from './db'
 import type {
   GraphDevtoolsOptions,
@@ -136,6 +137,7 @@ interface Inputs {
   BridgeOptions: BridgeOptions
   ColorScale: ColorScale
   ContainerOptions: ContainerOptions<Item>
+  CypherOptions: CypherOptions
   DensityBundlingOptions: DensityBundlingOptions
   DevtoolsMessages: NonNullable<GraphDevtoolsOptions['messages']>
   EdgeEndOptions: EdgeEndOptions<Link>

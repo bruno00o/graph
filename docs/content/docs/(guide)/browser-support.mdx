@@ -25,7 +25,7 @@ The largest texture, drawing buffer and array texture differ from one device to 
 - **Nodes and edges.** Each is a row of a data texture 1,024 texels wide, so a device draws up to 1,024 times its largest texture size of each: 2,097,152 at the minimum, 16 million on most desktops. Elements past that are not drawn, nor the edges that touch them.
 - **Canvas.** The drawing buffer is the CSS size times the device pixel ratio. When it would pass the largest drawing buffer, the pixel ratio is lowered until it fits: the graph is less sharp, never cut.
 - **Lens.** The [lens](/docs/lens) radius shrinks to fit the drawing buffer.
-- **Images.** The image atlas holds as many images as the device has array texture layers, 256 at most. Further images are not drawn until a stored image is no longer used.
+- **Images.** The image atlas holds as many images as the device has array texture layers, 256 at most. Further images are neither loaded nor drawn until a stored image is no longer used.
 - **Edge paths.** [Bundled](/docs/bundling) and [routed](/docs/routing) edges sample their paths more coarsely when the points would not fit, then draw the last edges straight.
 - **Labels.** The glyph atlas grows up to the largest texture size, about 2,000 characters at the minimum, each weight and font counted apart. When it is full, it starts over with the characters of the labels on screen. If those do not fit either, the extra characters are not drawn and the atlas waits 8 frames before it starts over again.
 

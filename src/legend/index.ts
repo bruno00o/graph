@@ -5,6 +5,7 @@ import type { ElementKeys } from '../host/events'
 import { internalsOf } from '../host/internals'
 import { isolateSubscribers } from '../host/isolate'
 import type { GraphInstance } from '../host/mount-graph'
+import { readonlyOf } from '../host/readonly-store'
 import type { FreeState, GraphDefinition, LayerName, Mark } from '../types'
 import {
   type KeyScope,
@@ -149,9 +150,7 @@ export function createLegend<S extends string, M extends Mark>(
   let highlight: string | null = options.highlight ?? null
   let hidden: string | null = options.hidden ?? null
   const store = createStore<LegendState<M>>(emptyState as LegendState<M>)
-  const readonlyStore: ReadonlyStore<LegendState<M>> = isolateSubscribers(
-    createStore(() => store.state),
-  )
+  const readonlyStore: ReadonlyStore<LegendState<M>> = isolateSubscribers(readonlyOf(store))
   const off = new Set<string>()
   const layers = graph.layers as unknown as {
     names(): readonly string[]

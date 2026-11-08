@@ -1,0 +1,117 @@
+---
+title: Cypher
+description: Turn the result of a Cypher query into nodes and edges, and explore a graph database one neighborhood at a time.
+---
+
+`cypherGraph` from `@bruno00o/graph/cypher` converts the result of a Cypher query into `{ nodes, edges }`, ready for the marks. It runs no query and has no dependency: your application queries the database, with the official JavaScript driver or through its own backend, and passes the result in.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { cypherGraph } from '@bruno00o/graph/cypher'
+import neo4j from 'neo4j-driver'
+
+const driver = neo4j.driver(url, neo4j.auth.basic(user, password))
+const result = await driver.executeQuery('MATCH (a)-[r:KNOWS]->(b) RETURN a, r, b LIMIT 200')
+const { nodes: items, edges: links } = cypherGraph(result)
+
+const definition = defineGraph({
+  marks: [
+    edges(links, { source: 'source', target: 'target', color: 'type' }),
+    nodes(items, { color: (node) => node.labels[0], label: (node) => String(node.properties.name) }),
+  ],
+})
+```
+
+The nodes need no option beyond what you style: their key is `id`, the default. The edges only need `source` and `target`.
+
+## What is read
+
+`cypherGraph` accepts a driver result (`session.run`, `driver.executeQuery`), a row, a list of results or rows, or one node, relationship or path. It walks the values and finds nodes, relationships and paths wherever they are: in a column, in a list, in a map, at any depth.
+
+| Found | Becomes |
+| --- | --- |
+| Node | `{ id, labels, properties }`, where `id` is the `elementId` |
+| Relationship | `{ id, type, source, target, properties }`, where `source` and `target` are the `elementId` of its start and end nodes |
+| Path | its nodes and relationships, in the order of the path |
+| Anything else (numbers, text, dates, points) | ignored, unless it holds one of the above |
+
+- **No duplicates.** Elements are deduplicated by `elementId`; the first occurrence wins. A node returned in every row of a query appears once. Pass an array of results to merge several queries.
+- **Order.** Nodes and edges keep the order in which they first appear in the rows.
+- **Types.** `CypherNode` and `CypherEdge` are generic over `properties`: `cypherGraph<{ name: string }, { since: number }>(result)` types `node.properties.name`. It is an assertion, like the type of `JSON.parse`: the database does not check it.
+
+See [`cypherGraph`](/docs/api/cypher-graph) for the types and options.
+
+## From a backend
+
+When a server runs the query, send the driver's values as JSON and give the parsed body to `cypherGraph`. Nodes, relationships, paths and rows keep the fields the adapter reads after `JSON.stringify`, so the browser gets the same graph as if it had called the driver.
+
+```ts
+const response = await fetch('/api/graph', { method: 'POST', body: JSON.stringify({ id }) })
+const graph = cypherGraph(await response.json())
+```
+
+On the server, `JSON.stringify(result.records)` is enough. Integers serialize as `{ low, high }` pairs and the adapter reads them back, so there is no need to convert them before sending (`JSON.stringify` cannot write a `bigint`, so leave `useBigInt` off). You can also convert the result on the server, with `cypherGraph(result)`, and send `{ nodes, edges }`: that is plain JSON already.
+
+## Relationships whose end node is missing
+
+A relationship stays in `edges` even when one of its end nodes is not in the result, as with `RETURN r` alone. The graph keeps the edge pending until the node arrives, then draws it: see [edges that arrive first](/docs/data#edges-that-arrive-first). `graph.count().pending` tells how many wait. Query the nodes with the relationships, or pass them in a later `update`.
+
+## Integers, dates and points
+
+Property values are converted once, in nodes and relationships alike, inside lists and maps too.
+
+- **Integers.** Cypher integers have 64 bits and the driver returns them as `Integer` objects, or as `bigint` with `useBigInt`. By default a value becomes a `number` when that is exact, and a decimal string beyond `Number.MAX_SAFE_INTEGER`, so that no id or count silently loses digits. Set the `integers` option to `'number'`, `'string'`, `'bigint'`, `'keep'` or to a function to choose. Numbers that already are `number` (Cypher floats) never change.
+- **Dates and times.** `date`, `time`, `localtime`, `localdatetime` and `datetime` become ISO 8601 strings, such as `'2024-03-09'` or `'2024-03-09T07:05:03+01:00[Europe/Paris]'`, the same text the driver prints. A `Date` object is not produced by the driver and is left as is.
+- **Durations.** A duration mixes months and days with seconds, so it has no single text: it becomes `{ months, days, seconds, nanoseconds }`, numbers.
+- **Points.** A spatial point becomes `{ srid, x, y }`, with `z` for a 3D point. For SRID 4326 (WGS 84), `x` is the longitude and `y` the latitude: `longitude: (node) => node.properties.place.x` places a node on a [map](/docs/map), once `place` is typed.
+
+A map that has exactly the fields of a date, a duration, a point or a 64-bit integer is read as that value. This is how a plain JSON copy of a driver value is recognized, and it is the one case where a map of your own could be mistaken for one. `integers: 'keep'` leaves integer pairs alone.
+
+## Databases
+
+The adapter reads the values of the official `neo4j-driver` (checked with version 6.3.0). Other databases that speak the Bolt protocol work through the same driver. What was checked, against a running server:
+
+| Database | Checked |
+| --- | --- |
+| Neo4j 5.26 | rows, paths, nested values, integers beyond 2^53, dates, times, durations, points, JSON copy of the same result |
+| Memgraph 3.14 | the same, minus `time()`, which it does not have; its `elementId` is the numeric id as text |
+
+Neptune with openCypher over HTTPS, Apache AGE and FalkorDB return other formats and have not been checked.
+
+## Explore with a query
+
+A node and its relationships make a neighborhood: a query that returns them is what [`createExploration`](/docs/tanstack-query) needs. The data of a query is `{ nodes, edges }`, which is the shape `cypherGraph` returns.
+
+```ts
+import { type CypherEdge, type CypherNode, cypherGraph } from '@bruno00o/graph/cypher'
+import { createExploration } from '@bruno00o/graph/query'
+import { QueryClient } from '@tanstack/query-core'
+
+type Person = { name: string; rank: number }
+type Link = { weight: number }
+
+const neighbors = (key: Key) => ({
+  queryKey: ['neighbors', key],
+  queryFn: async () => {
+    const result = await driver.executeQuery(
+      'MATCH (n) WHERE elementId(n) = $id OPTIONAL MATCH (n)-[r]-(m) RETURN n, r, m',
+      { id: key },
+    )
+    return cypherGraph<Person, Link>(result)
+  },
+})
+
+const exploration = createExploration<CypherNode<Person>, CypherEdge<Link>>(new QueryClient(), {
+  roots: [firstId],
+  neighbors,
+})
+```
+
+Give `createExploration` the node and edge types, as above, when `neighbors` is a plain object: only `queryOptions` from a TanStack Query adapter lets it infer them.
+
+- The key of an expanded node is its `elementId`, which is also the `id` the exploration reads by default.
+- `OPTIONAL MATCH` makes the query return the node even when it has no relationship, so that a root gets its data.
+- Expanding a node twice, or two nodes with a neighbor in common, never duplicates it: the graph deduplicates by key, and the exploration keeps what every expansion holds.
+- From a page, the query usually goes to your backend, as in [From a backend](#from-a-backend), which keeps the credentials out of the browser.
+
+<LiveExample slug="cypher-results" />
