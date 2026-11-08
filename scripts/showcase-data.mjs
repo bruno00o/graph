@@ -1,6 +1,7 @@
 const targets = {
   'air-routes': './showcase-data/air-routes.mjs',
   'language-influences': './showcase-data/language-influences.mjs',
+  'citation-network': './showcase-data/citation-network.mjs',
 }
 
 const argument = process.argv[2]

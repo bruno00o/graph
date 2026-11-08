@@ -1,0 +1,317 @@
+.cite-app {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  background: var(--graph-paper);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.cite-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  background: var(--graph-paper-raised);
+}
+
+.cite-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--graph-ink) 10%, var(--graph-paper));
+}
+
+.cite-section h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--graph-ink-muted);
+}
+
+.cite-foot {
+  margin-top: auto;
+  border-bottom: 0;
+}
+
+.cite-note,
+.cite-credit {
+  margin: 0;
+  color: var(--graph-ink-muted);
+  font-size: 12px;
+}
+
+.cite-credit a,
+.cite-note a,
+a.cite-note {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cite-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cite-search input[type="search"],
+.cite-field select {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 22%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper);
+  color: var(--graph-ink);
+  font: inherit;
+}
+
+.cite-results {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.cite-result,
+.cite-results-none {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cite-results-none {
+  color: var(--graph-ink-muted);
+  cursor: default;
+}
+
+.cite-result span {
+  color: var(--graph-ink-muted);
+  white-space: nowrap;
+}
+
+.cite-result strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cite-result:hover,
+.cite-result:focus-visible,
+.cite-link:hover,
+.cite-link:focus-visible {
+  background: color-mix(in srgb, var(--graph-ink) 8%, transparent);
+}
+
+.cite-button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 22%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper);
+  color: var(--graph-ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cite-button:hover:not(:disabled) {
+  border-color: var(--graph-edge);
+}
+
+.cite-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cite-button-small {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.cite-row {
+  display: flex;
+  gap: 6px;
+}
+
+.cite-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cite-field > span {
+  color: var(--graph-ink-muted);
+  font-size: 12px;
+}
+
+.cite-key {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cite-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.cite-swatch-out {
+  border: 2.5px solid var(--graph-ink);
+}
+
+.cite-swatch-in {
+  margin-left: 8px;
+  border: 2.5px solid var(--graph-accent);
+}
+
+.cite-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--graph-ink) 10%, var(--graph-paper));
+}
+
+.cite-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cite-links h3 {
+  margin: 4px 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cite-links ul {
+  margin: 0;
+  padding: 0;
+  max-height: 170px;
+  overflow: auto;
+  list-style: none;
+}
+
+.cite-link {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cite-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cite-link small {
+  color: var(--graph-ink-muted);
+  font-size: 12px;
+}
+
+.cite-stage {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--graph-paper);
+  background-image:
+    linear-gradient(var(--graph-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--graph-grid) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.cite-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--graph-ink-muted);
+}
+
+.cite-tools {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+}
+
+.cite-timeline {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
+}
+
+.cite-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cite-tooltip span {
+  color: var(--graph-ink-muted);
+}
+
+@media (max-width: 860px) {
+  .cite-app {
+    position: static;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 560px;
+  }
+
+  .cite-panel {
+    max-height: 380px;
+    border-right: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  }
+}
