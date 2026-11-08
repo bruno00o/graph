@@ -4,8 +4,8 @@ import { mountMapGraph } from '../map'
 import { groups, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { fakeMap, globeInput } from '../testing/map'
-import type { GraphInstance, Key, Point } from '../types'
-import { createGraphHost } from './mount-graph'
+import type { Key, Point } from '../types'
+import { createGraphHost, type GraphInstance } from './mount-graph'
 
 vi.mock('../webgl/renderer', () => ({
   createWebglRenderer: () => fakeRenderer(),
