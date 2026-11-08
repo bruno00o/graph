@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import type { NodeOptions } from '../types'
+import { containerShape } from './columns'
 import { loopCurve, loopMinimum, loopReach, pointOnCubic } from './edge-curve'
 import { geoToWorld } from './geo'
 import { geodesicPoint } from './geo-arc'
@@ -46,6 +47,8 @@ function setup(items: Item[], links: Link[], options: NodeOptions<Item> = {}) {
         : scene.edges.keys[hit.index]
   return {
     pick: (x: number, y: number, zoom = 1) => keyOf(index.pick(source, x, y, sightOf(zoom), 4)),
+    scene,
+    nodeIndex: (key: string) => model.node(key)?.index ?? -1,
   }
 }
 
@@ -67,6 +70,29 @@ describe('PickIndex', () => {
     expect(pick(100, 0)).toBeNull()
     expect(pick(14.1, -14.1)).toBe('aa')
     expect(pick(40, -40)).toBeNull()
+  })
+
+  it('stops an edge at the border of a container it ends on, straight or curved', () => {
+    const { pick, scene, nodeIndex } = setup(
+      [
+        { id: 'g', x: 0, y: 0 },
+        { id: 'b', x: 200, y: 0 },
+      ],
+      [
+        { id: 'gb', from: 'g', to: 'b' },
+        { id: 'bg', from: 'b', to: 'g' },
+      ],
+    )
+    expect(pick(30, -8)).toBe('gb')
+    const g = nodeIndex('g')
+    scene.nodes.shape[g] = containerShape
+    const boxes = new Float32Array(scene.nodes.capacity * 4)
+    boxes.set([60, 40, 8], g * 4)
+    scene.nodes.containerBoxes = boxes
+    expect(pick(30, -8)).toBeNull()
+    expect(pick(30, 8)).toBeNull()
+    expect(pick(100, -10)).toBe('gb')
+    expect(pick(100, 10)).toBe('bg')
   })
 
   const items: Item[] = [

@@ -49,6 +49,7 @@ export interface CompiledContainer {
   readonly shape: Read | null
   readonly padding: Read | null
   readonly fill: Read | null
+  readonly fillOpacity: Read | null
   readonly stroke: Read | null
   readonly strokeWidth: Read | null
   readonly spread: Read | null
@@ -220,6 +221,7 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
       shape: style(options.container?.shape),
       padding: style(options.container?.padding),
       fill: style(options.container?.fill),
+      fillOpacity: style(options.container?.fillOpacity),
       stroke: style(options.container?.stroke),
       strokeWidth: style(options.container?.strokeWidth),
       spread: style(options.container?.spread),

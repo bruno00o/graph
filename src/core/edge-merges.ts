@@ -117,11 +117,12 @@ export class EdgeMerges {
     target: number,
     directed: boolean,
     value: Key | undefined,
+    lifted = false,
   ): number {
     const low = directed ? source : Math.min(source, target)
     const high = directed ? target : Math.max(source, target)
     const valueId = value === undefined ? none : this.#valueId(value)
-    const tag = directed ? slot * 2 : slot * 2 + 1
+    const tag = slot * 4 + (directed ? 0 : 1) + (lifted ? 2 : 0)
     if ((this.#used + 1) * 2 > this.#mask + 1) this.#resize(Math.max(16, (this.#live + 1) * 2))
     const found = this.#locate(tag, low, high, valueId)
     if (found >= 0) return this.#table[found] ?? none

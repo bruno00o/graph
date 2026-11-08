@@ -102,6 +102,7 @@ export type {
 const idleLayout = Object.freeze({ running: false, progress: 0 })
 const idleBundling = Object.freeze({ running: false })
 const rebaseDistance = 2 ** 20
+const mapGroupFillOpacity = 0.5
 const visuallyHidden =
   'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap'
 
@@ -164,7 +165,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   const model = createGraphModel({ schedule: () => request(true) })
   const textWidths = createTextWidths(defaultFont)
-  const scene = createScene(textWidths.width)
+  const scene = createScene(
+    textWidths.width,
+    surface ? { groupFillOpacity: mapGroupFillOpacity } : {},
+  )
   const positions = new Positions()
   const buffers = new StateBuffers()
   const projection = new Projection(model)
@@ -579,6 +583,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       store.get().view.zoom,
       surface !== null,
     )
+    scene.nodes.containerBoxes = containerBoxes.boxes
   }
 
   function bounds(

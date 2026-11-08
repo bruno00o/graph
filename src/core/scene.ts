@@ -83,6 +83,7 @@ export interface SceneNodeRecord extends NodeRecord {
 
 export interface SceneEdgeRecord extends EdgeRecord {
   readonly look?: EdgeMark<unknown>
+  readonly straight?: boolean
 }
 
 export interface SceneModel {
@@ -541,7 +542,21 @@ function slotCounts(columns: SlotColumns): number[] {
   return counts
 }
 
-export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
+export interface SceneOptions {
+  readonly groupFillOpacity?: number
+}
+
+function fillWithOpacity(fill: string | null, opacity: number): string | null {
+  return opacity < 100
+    ? `color-mix(in srgb, ${fill ?? defaults.groupFill} ${opacity}%, transparent)`
+    : fill
+}
+
+export function createScene(
+  textWidth: TextWidth = estimateTextWidth,
+  options: SceneOptions = {},
+): Scene {
+  const groupFillOpacity = options.groupFillOpacity ?? 1
   const nodes = new NodeColumns()
   const edges = new EdgeColumns()
   const palette = new Palette()
@@ -926,10 +941,14 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     nodes.spread[index] = look.spread?.(datum) === false ? 0 : 1
     nodes.gap[index] = Math.max(0, finiteOr(look.gap?.(datum), spreadGap))
     nodes.shape[index] = containerShape
+    const fillOpacity = finiteOr(look.fillOpacity?.(datum), groupFillOpacity)
     nodes.fill[index] = swapColor(
       palette,
       nodes.fill[index] ?? noColor,
-      toColor(look.fill?.(datum)),
+      fillWithOpacity(
+        toColor(look.fill?.(datum)),
+        Math.round(Math.min(1, Math.max(0, fillOpacity)) * 100),
+      ),
       fallbacks.groupFill,
     )
     nodes.stroke[index] = swapColor(
@@ -1008,7 +1027,7 @@ export function createScene(textWidth: TextWidth = estimateTextWidth): Scene {
     const fixed = writeWaypoints(index, mark, datum, loop)
     const geodesic = !fixed && mark.geodesic?.(datum) === true
     edges.geodesic[index] = geodesic ? 1 : 0
-    const free = !loop && !geodesic && !fixed
+    const free = !loop && !geodesic && !fixed && record.straight !== true
     edges.bundle[index] = free && mark.bundle?.(datum) !== false ? 1 : 0
     edges.route[index] = free && mark.route?.(datum) !== false ? 1 : 0
     edges.bridge[index] = free && mark.bridge?.(datum) !== false ? 1 : 0

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { geoToWorld } from '../core/geo'
 import { defineGraph } from '../define-graph'
+import { internalsOf } from '../host/internals'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { fakeMap, globeInput } from '../testing/map'
@@ -138,6 +139,36 @@ describe('mountMapGraph', () => {
     graph.destroy()
     emit('webglcontextrestored')
     expect(layers.size).toBe(0)
+  })
+
+  it('fills containers translucent by default, and as asked with fillOpacity', () => {
+    const { map, render } = fakeMap()
+    type Member = Place & { readonly parent?: string }
+    const members: Member[] = [
+      { id: 'g', longitude: 0, latitude: 0 },
+      ...places.map((place) => ({ ...place, parent: 'g' })),
+    ]
+    const look = (fillOpacity?: number) =>
+      defineGraph({
+        marks: [
+          nodes<Member>(members, {
+            longitude: 'longitude',
+            latitude: 'latitude',
+            parent: 'parent',
+            container: { fillOpacity },
+          }),
+        ],
+        layout: null,
+      })
+    const graph = mountMapGraph(map, { definition: look(), ariaLabel: 'carte' })
+    render()
+    const { scene } = internalsOf(graph, 'test')
+    const fill = () => scene.palette.colors[scene.nodes.fill[scene.nodes.keys.indexOf('g')] ?? -1]
+    expect(fill()).toMatch(/^color-mix\(in srgb, var\(--graph-group-fill\) \d+%, transparent\)$/)
+    graph.update({ definition: look(1) })
+    render()
+    expect(fill()).toBe('var(--graph-group-fill)')
+    graph.destroy()
   })
 
   it('follows the map camera in Web Mercator', () => {
