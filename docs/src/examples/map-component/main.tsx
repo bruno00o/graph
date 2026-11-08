@@ -5,6 +5,7 @@ import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { type Ref, useCallback, useEffect, useRef, useState } from 'react'
+import { followSiteBasemap, siteBasemap } from '../shared/basemap'
 import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -103,12 +104,16 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     if (!container) return
     const created = new MapLibreMap({
       container,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: siteBasemap(),
       center: [0, 20],
       zoom: 1.1,
     })
+    const unfollow = followSiteBasemap(created)
     setMap(created)
-    return () => created.remove()
+    return () => {
+      unfollow()
+      created.remove()
+    }
   }, [])
 
   const keep = useCallback(

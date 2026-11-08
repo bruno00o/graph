@@ -15,6 +15,11 @@
   flex: none;
 }
 
+.ic-mark {
+  fill: currentColor;
+  flex: none;
+}
+
 .sheet {
   background-color: var(--graph-paper);
   background-image:
