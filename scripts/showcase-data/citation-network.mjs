@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { gunzipSync, gzipSync } from 'node:zlib'
-import { buildWorks, columnsOf, coreOf } from './citations-build.mjs'
+import { buildWorks, columnsOf, coreOf, graphOf } from './citations-build.mjs'
 
 const topic = { id: 'T11476', name: 'Graph theory and applications' }
 const endpoint = 'https://api.openalex.org/works'
@@ -147,6 +147,10 @@ permission.
 Deed: https://creativecommons.org/publicdomain/zero/1.0/
 Legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
+The x and y columns of works.json are node positions laid out once by the force layout of
+@bruno00o/graph (the layout the app can rerun with forces) while the data file was built; they are
+data, not a live layout.
+
 works.json is a snapshot of a living database: the OpenAlex works of topic ${topic.id}
 (${topic.name}), retrieved on ${retrieved}. Rebuild it byte for byte with:
 
@@ -183,15 +187,57 @@ if (values.fetch) {
 }
 
 const full = buildWorks(pages)
-let selected = full
+const distForce = resolve(import.meta.dirname, '../../dist/layouts/force.js')
+if (!existsSync(distForce)) {
+  throw new Error(
+    'dist/layouts/force.js is missing: the positions come from the layout of the library. ' +
+      'Run pnpm build once, then run this script again.',
+  )
+}
+const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../package.json'), 'utf8'))
+const layoutSource = {
+  name: 'force',
+  options: { edgeLength: 40 },
+  library: typeof pkg.version === 'string' ? pkg.version : 'unknown',
+}
+const started = performance.now()
+const { force } = await import(distForce)
+const placed = await new Promise((done) => {
+  force({ edgeLength: 40 }).start(graphOf(full.works, full.cites), {
+    progress: () => {},
+    end: done,
+  })
+})
+const layoutMs = performance.now() - started
+console.log(
+  `positions: the force layout ran for ${(layoutMs / 1000).toFixed(1)}s on the main thread`,
+)
+
+function slicePositions(origin, xy) {
+  const kept = new Float32Array(origin.length * 2)
+  for (const [at, original] of origin.entries()) {
+    kept[at * 2] = xy[original * 2] ?? 0
+    kept[at * 2 + 1] = xy[original * 2 + 1] ?? 0
+  }
+  return kept
+}
+
+let selected = { works: full.works, cites: full.cites, positions: placed }
 const trials = []
 if (
-  gzipSync(Buffer.from(JSON.stringify(columnsOf(full.works, full.cites)), 'utf8'), { level: 9 })
-    .length > gzipLimit
+  gzipSync(
+    Buffer.from(JSON.stringify(columnsOf(full.works, full.cites, placed, layoutSource)), 'utf8'),
+    { level: 9 },
+  ).length > gzipLimit
 ) {
   for (let minDegree = 2; minDegree <= 100; minDegree++) {
     const candidate = coreOf(full.works, full.cites, minDegree)
-    const columns = columnsOf(candidate.works, candidate.cites)
+    const columns = columnsOf(
+      candidate.works,
+      candidate.cites,
+      slicePositions(candidate.origin, placed),
+      layoutSource,
+    )
     const gzip = gzipSync(Buffer.from(JSON.stringify(columns), 'utf8'), { level: 9 }).length
     trials.push(
       `min degree ${minDegree}: ${candidate.works.length} works, ${candidate.cites.length} citations, ${gzip} bytes gzip`,
@@ -201,11 +247,18 @@ if (
       break
     }
   }
-  if (selected === full) throw new Error('no min degree keeps works.json under the gzip limit')
+  if (selected.works === full.works)
+    throw new Error('no min degree keeps works.json under the gzip limit')
 }
 
-const columns = columnsOf(selected.works, selected.cites)
-const document = { retrieved, topic, works: columns.works, cites: columns.cites }
+const columns = columnsOf(selected.works, selected.cites, selected.positions, layoutSource)
+const document = {
+  retrieved,
+  topic,
+  works: columns.works,
+  cites: columns.cites,
+  layout: columns.layout,
+}
 const json = Buffer.from(JSON.stringify(document), 'utf8')
 mkdirSync(output, { recursive: true })
 writeFileSync(join(output, 'works.json'), json)

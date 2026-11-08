@@ -10,6 +10,10 @@ permission.
 Deed: https://creativecommons.org/publicdomain/zero/1.0/
 Legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
+The x and y columns of works.json are node positions laid out once by the force layout of
+@bruno00o/graph (the layout the app can rerun with forces) while the data file was built; they are
+data, not a live layout.
+
 works.json is a snapshot of a living database: the OpenAlex works of topic T11476
 (Graph theory and applications), retrieved on 2026-11-08T12:42:41Z. Rebuild it byte for byte with:
 

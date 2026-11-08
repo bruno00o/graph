@@ -9,6 +9,14 @@ export interface RawColumns {
   readonly year: ReadonlyArray<number | null>
   readonly citations: readonly number[]
   readonly author: ReadonlyArray<string | null>
+  readonly x?: ReadonlyArray<number | null> | undefined
+  readonly y?: ReadonlyArray<number | null> | undefined
+}
+
+export interface RawLayout {
+  readonly name: string
+  readonly options?: { readonly edgeLength?: number } | undefined
+  readonly library?: string | undefined
 }
 
 export interface RawDataset {
@@ -16,6 +24,7 @@ export interface RawDataset {
   readonly topic: RawTopic
   readonly works: RawColumns
   readonly cites: readonly number[]
+  readonly layout?: RawLayout | undefined
 }
 
 export interface Work {
@@ -24,6 +33,8 @@ export interface Work {
   readonly year: number | null
   readonly citations: number
   readonly author: string | null
+  readonly x: number | null
+  readonly y: number | null
   readonly incoming: number
   readonly outgoing: number
 }
@@ -80,6 +91,8 @@ export function prepare(data: RawDataset): Network {
       year: year[at] ?? null,
       citations: citations[at] ?? 0,
       author: author[at] ?? null,
+      x: positionOf(data.works.x, at),
+      y: positionOf(data.works.y, at),
       incoming: incoming[at] ?? 0,
       outgoing: outgoing[at] ?? 0,
     })
@@ -123,6 +136,11 @@ export function prepare(data: RawDataset): Network {
     lastYear: percentile(0.95),
     maxIncoming: works.reduce((max, work) => Math.max(max, work.incoming), 0),
   }
+}
+
+function positionOf(column: ReadonlyArray<number | null> | undefined, at: number): number | null {
+  const value = column?.[at] ?? null
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function fold(value: string): string {

@@ -71,6 +71,15 @@ export const messages = {
     label: 'Legend of the publication years',
     format: (value: string | number | boolean) => String(Math.round(Number(value))),
   },
+  layout: {
+    title: 'Layout',
+    run: 'Lay out with forces',
+    restore: 'Restore the saved layout',
+    hint: 'The positions ship with the data. Lay out with forces for a fresh shape.',
+    running: 'The forces run, on the graphic card when one is available.',
+    done: (seconds: string) => `The forces laid the graph out in ${seconds} seconds.`,
+    stopped: 'The last run was stopped before it completed.',
+  },
   time: {
     title: 'Time',
     hint: (untimed: number) =>

@@ -13,6 +13,13 @@ export interface PanelProps {
   readonly onDepth: (depth: Depth) => void
   readonly selected: Work | null
   readonly neighborhood: { readonly outgoing: number; readonly incoming: number } | null
+  readonly layout: {
+    readonly running: boolean
+    readonly completed: boolean | null
+    readonly duration: number | null
+  }
+  readonly onLayout: () => void
+  readonly onRestore: () => void
   readonly path: {
     readonly from: string | null
     readonly to: string | null
@@ -83,7 +90,8 @@ function Search({
 }
 
 export function Panel(props: PanelProps): JSX.Element {
-  const { network, graph, depth, selected, neighborhood, path, onClear } = props
+  const { network, graph, depth, selected, neighborhood, layout, path, onClear } = props
+  const { onLayout, onRestore } = props
   const id = useId()
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -187,6 +195,37 @@ export function Panel(props: PanelProps): JSX.Element {
             </ul>
           </div>
         ) : null}
+      </section>
+
+      <section className="cite-section" aria-labelledby={`${id}-layout`}>
+        <h2 id={`${id}-layout`}>{messages.layout.title}</h2>
+        <div className="cite-layout-run">
+          <button
+            className="cite-button cite-button-small"
+            type="button"
+            disabled={layout.running}
+            onClick={onLayout}
+          >
+            {messages.layout.run}
+          </button>
+          <button
+            className="cite-button cite-button-small"
+            type="button"
+            disabled={layout.running}
+            onClick={onRestore}
+          >
+            {messages.layout.restore}
+          </button>
+        </div>
+        <p className="cite-note" role="status">
+          {layout.running
+            ? messages.layout.running
+            : layout.duration === null
+              ? messages.layout.hint
+              : layout.completed === false
+                ? messages.layout.stopped
+                : messages.layout.done((layout.duration / 1000).toFixed(1))}
+        </p>
       </section>
 
       <section className="cite-section" aria-labelledby={`${id}-legend`}>

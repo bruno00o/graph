@@ -9,7 +9,7 @@ export default {
   tags: ['React', 'Force layout', 'Scales', 'Paths', 'Timeline', 'Minimap'],
   features: [
     {
-      text: 'The whole data set lays out with forces, computed on the GPU by the automatic engine at this size.',
+      text: 'The whole data set ships with node positions the library force layout computed once when the data file was built; a button lays the forces out again, on the GPU when one is available, and another restores the saved positions.',
       page: 'layout#engines',
     },
     {
@@ -40,6 +40,6 @@ export default {
     license: 'CC0 1.0 Universal',
     licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
     build: 'pnpm docs:showcase-data citation-network --raw <folder>',
-    note: 'OpenAlex is a living database, so these files are a dated snapshot taken by the build script: the works of one topic, the citations between them, and their years as the database held them on the day of retrieval. Counts and titles are what OpenAlex reported; a work with no year stays outside the timeline window. Run the build with --fetch and a folder name to take a fresh snapshot.',
+    note: 'OpenAlex is a living database, so these files are a dated snapshot taken by the build script: the works of one topic, the citations between them, and their years as the database held them on the day of retrieval. The node positions come from the force layout of the library, computed once while the file was built, so no browser pays for the first layout. Counts and titles are what OpenAlex reported; a work with no year stays outside the timeline window. Run the build with --fetch and a folder name to take a fresh snapshot.',
   },
 } satisfies ShowcaseMeta

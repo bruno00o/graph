@@ -1,5 +1,15 @@
 import type { GraphInstance, GraphReach, Key } from '@bruno00o/graph'
-import { type JSX, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { force } from '@bruno00o/graph/layouts/force'
+import {
+  type JSX,
+  type Ref,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { loadNetwork, type Network, type Work } from './data'
 import { type Depth, definitionOf, framePadding, type WorkGraph } from './definition'
 import { messages } from './messages'
@@ -23,9 +33,19 @@ interface TracedPath {
   readonly pending: boolean
 }
 
+interface LayoutRunState {
+  readonly running: boolean
+  readonly completed: boolean | null
+  readonly duration: number | null
+}
+
+type Placements = ReadonlyArray<readonly [string, { readonly x: number; readonly y: number }]>
+
 const framing = { padding: framePadding, maxZoom: 1.6 } as const
 
 const emptyPath: TracedPath = { from: null, to: null, nodes: null, edges: [], pending: false }
+
+const idleLayout: LayoutRunState = { running: false, completed: null, duration: null }
 
 function assign(ref: Ref<GraphInstance | null>, value: GraphInstance | null): void {
   if (typeof ref === 'function') ref(value)
@@ -46,6 +66,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
   const [path, setPath] = useState<TracedPath>(emptyPath)
   const [counted, setCounted] = useState<{ outgoing: number; incoming: number } | null>(null)
   const [graph, setGraph] = useState<WorkGraph | null>(null)
+  const [layout, setLayout] = useState<LayoutRunState>(idleLayout)
 
   const loading = useRef(0)
   const load = useCallback(() => {
@@ -79,6 +100,38 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
     },
     [ref],
   )
+
+  const placements = useMemo<Placements>(() => {
+    if (!network) return []
+    const placed: Placements = []
+    for (const work of network.works) {
+      if (work.x === null || work.y === null) continue
+      placed.push([work.id, { x: work.x, y: work.y }])
+    }
+    return placed
+  }, [network])
+
+  const placedOn = useRef<Network | null>(null)
+  useLayoutEffect(() => {
+    if (!graph || !network || placements.length === 0 || placedOn.current === network) return
+    placedOn.current = network
+    graph.positions.set(placements, { duration: 0 })
+    graph.view.fit({ padding: framePadding, duration: 500 })
+  }, [graph, network, placements])
+
+  const runForces = useCallback(() => {
+    if (!graph || layout.running) return
+    setLayout({ running: true, completed: null, duration: null })
+    const startedAt = performance.now()
+    void graph.layout.run(force({ edgeLength: 40 }), { fit: true }).then((completed) => {
+      setLayout({ running: false, completed, duration: performance.now() - startedAt })
+    })
+  }, [graph, layout.running])
+
+  const restore = useCallback(() => {
+    if (!graph || layout.running || placements.length === 0) return
+    graph.positions.set(placements, { duration: 700 })
+  }, [graph, placements, layout.running])
 
   useEffect(() => {
     if (!graph || !network) return
@@ -225,6 +278,9 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
         onDepth={setDepth}
         selected={current}
         neighborhood={counted}
+        layout={layout}
+        onLayout={runForces}
+        onRestore={restore}
         path={{
           from: path.from,
           to: path.to,

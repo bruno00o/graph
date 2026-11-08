@@ -133,10 +133,55 @@ export function coreOf(works, cites, minDegree) {
     coreCites.push([positionOf.get(source), positionOf.get(target)])
   }
   coreCites.sort((a, b) => a[0] - b[0] || a[1] - b[1])
-  return { works: order.map((index) => works[index]), cites: coreCites }
+  return { works: order.map((index) => works[index]), cites: coreCites, origin: order }
 }
 
-export function columnsOf(works, cites) {
+export function graphOf(works, cites) {
+  const capacity = works.length
+  const incoming = new Int32Array(capacity)
+  const edges = new Uint32Array(cites.length * 2)
+  for (const [at, pair] of cites.entries()) {
+    const source = pair[0] ?? 0
+    const target = pair[1] ?? 0
+    edges[at * 2] = source
+    edges[at * 2 + 1] = target
+    incoming[target] = (incoming[target] ?? 0) + 1
+  }
+  let max = 0
+  for (const value of incoming) {
+    if (value > max) max = value
+  }
+  const radius = new Float32Array(capacity)
+  for (let index = 0; index < capacity; index++) {
+    radius[index] = 2 + 14 * Math.sqrt(max > 0 ? (incoming[index] ?? 0) / max : 0)
+  }
+  const alive = new Uint8Array(capacity).fill(1)
+  const movable = new Uint8Array(capacity).fill(1)
+  const xy = new Float32Array(capacity * 2)
+  const golden = Math.PI * (3 - Math.sqrt(5))
+  for (let index = 0; index < capacity; index++) {
+    const reach = 4 * Math.sqrt(index + 1)
+    const angle = index * golden
+    xy[index * 2] = Math.cos(angle) * reach
+    xy[index * 2 + 1] = Math.sin(angle) * reach
+  }
+  return {
+    capacity,
+    alive,
+    movable,
+    xy,
+    radius,
+    edges,
+    keys: works.map((work) => work.id),
+    datum: (index) => works[index],
+  }
+}
+
+function rounded(value) {
+  return Math.round(value * 10) / 10
+}
+
+export function columnsOf(works, cites, positions = null, layout = null) {
   return {
     works: {
       id: works.map((work) => work.id),
@@ -144,7 +189,14 @@ export function columnsOf(works, cites) {
       year: works.map((work) => work.year),
       citations: works.map((work) => work.citations),
       author: works.map((work) => work.author),
+      ...(positions === null
+        ? {}
+        : {
+            x: [...works.keys()].map((index) => rounded(positions[index * 2] ?? 0)),
+            y: [...works.keys()].map((index) => rounded(positions[index * 2 + 1] ?? 0)),
+          }),
     },
     cites: cites.flat(),
+    ...(layout === null ? {} : { layout }),
   }
 }

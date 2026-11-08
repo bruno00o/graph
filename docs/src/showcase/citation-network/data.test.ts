@@ -13,12 +13,15 @@ const published = join(folder, '../../../public/showcase-data/citation-network')
 const sample: RawDataset = {
   retrieved: '2026-11-08T12:42:41Z',
   topic: { id: 'T11476', name: 'Graph theory' },
+  layout: { name: 'force', options: { edgeLength: 40 }, library: '0.19.0' },
   works: {
     id: ['W1', 'W2', 'W3', 'W4', 'W5'],
     title: ['Alpha', 'Beta graphs', 'Gamma', 'Delta', 'Epsilon'],
     year: [1975, 1980, 1990, null, 2001],
     citations: [10, 20, 0, 5, 1],
     author: ['A. One', 'B. Two', null, 'D. Four', null],
+    x: [0.5, 1.5, 2.5, 3.5, 4.5],
+    y: [4.5, 3.5, 2.5, 1.5, 0.5],
   },
   cites: [0, 1, 1, 0, 2, 0, 3, 2, 4, 4, 99, 0],
 }
@@ -33,6 +36,14 @@ describe('columns', () => {
     expect(network.works[0]?.title).toBe('Alpha')
     expect(network.works[0]?.citations).toBe(10)
     expect(network.works[4]?.author).toBeNull()
+  })
+
+  it('keeps the precomputed position of every work, and null when it is not a number', () => {
+    expect(network.works.map((work) => work.x)).toEqual([0.5, 1.5, 2.5, 3.5, 4.5])
+    expect(network.works.map((work) => work.y)).toEqual([4.5, 3.5, 2.5, 1.5, 0.5])
+    expect(
+      prepare({ ...sample, works: { ...sample.works, x: undefined, y: undefined } }).works[0]?.x,
+    ).toBeNull()
   })
 
   it('turns the flat pairs into links from the citing work to the cited one', () => {
@@ -145,9 +156,8 @@ describe('definition', () => {
     })
   })
 
-  it('lays out with forces', () => {
-    const definition = definitionOf(input)
-    expect(definition.layout?.name).toBe('force')
+  it('carries no layout of its own: the positions come from the data build', () => {
+    expect(definitionOf(input).layout).toBeNull()
   })
 
   it('adds arrows on the cited edges only while a neighborhood is lit, and leaves the works alone', () => {
@@ -161,11 +171,10 @@ describe('definition', () => {
 })
 
 describe('published data', () => {
-  const read = () => JSON.parse(readFileSync(join(published, 'works.json'), 'utf8')) as RawDataset
+  const data: RawDataset = JSON.parse(readFileSync(join(published, 'works.json'), 'utf8'))
+  const network = prepare(data)
 
   it('holds the full data set of the topic', () => {
-    const data = read()
-    const network = prepare(data)
     const ids = new Set(data.works.id)
     expect(data.works.id.length).toBeGreaterThan(20000)
     expect(data.cites.length).toBeGreaterThan(300000)
@@ -174,48 +183,65 @@ describe('published data', () => {
     expect(network.links.every((link) => ids.has(link.from) && ids.has(link.to))).toBe(true)
   })
 
-  it('keeps every pair inside the bounds, without loops or duplicates', () => {
-    const data = read()
+  it('keeps every pair inside the bounds, without loops, sorted and unique', () => {
     const total = data.works.id.length
-    const seen = new Set<string>()
+    let outside = 0
+    let loops = 0
+    let unsorted = 0
+    let previous = -1
+    let previousOther = -1
     for (let at = 0; at + 1 < data.cites.length; at += 2) {
       const citing = data.cites[at] ?? -1
       const cited = data.cites[at + 1] ?? -1
-      expect(citing).toBeGreaterThanOrEqual(0)
-      expect(citing).toBeLessThan(total)
-      expect(cited).toBeGreaterThanOrEqual(0)
-      expect(cited).toBeLessThan(total)
-      expect(citing).not.toBe(cited)
-      seen.add(`${citing}:${cited}`)
+      if (citing < 0 || citing >= total || cited < 0 || cited >= total) outside += 1
+      else if (citing === cited) loops += 1
+      if (citing < previous || (citing === previous && cited <= previousOther)) unsorted += 1
+      previous = citing
+      previousOther = cited
     }
-    expect(seen.size).toBe(data.cites.length / 2)
+    expect(`${outside} ${loops} ${unsorted}`).toBe('0 0 0')
   })
 
-  it('carries years, titles and authors of the same lengths as the ids', () => {
-    const data = read()
+  it('carries years, titles, authors and positions of the same lengths as the ids', () => {
     const total = data.works.id.length
     expect(data.works.title).toHaveLength(total)
     expect(data.works.year).toHaveLength(total)
     expect(data.works.citations).toHaveLength(total)
     expect(data.works.author).toHaveLength(total)
+    expect(data.works.x).toHaveLength(total)
+    expect(data.works.y).toHaveLength(total)
   })
 
-  it('stays inside the published year bounds, with works without a year', () => {
-    const data = read()
-    const network = prepare(data)
-    for (const year of data.works.year) {
-      if (year !== null) {
-        expect(year).toBeGreaterThanOrEqual(1900)
-        expect(year).toBeLessThanOrEqual(2026)
-      }
+  it('ships finite positions and the layout that produced them', () => {
+    let outside = 0
+    for (const [x, y] of zipPositions()) {
+      if (x === null || y === null) outside += 1
     }
-    expect(network.untimed).toBeGreaterThan(0)
-    expect(network.firstYear).toBeGreaterThanOrEqual(1900)
-    expect(network.lastYear).toBeLessThanOrEqual(2026)
+    expect(data.layout?.name).toBe('force')
+    expect(data.layout?.options).toEqual({ edgeLength: 40 })
+    expect(data.layout?.library).toMatch(/^\d+\.\d+\.\d+/)
+    expect(outside).toBe(0)
+  })
+
+  function zipPositions(): ReadonlyArray<readonly (number | null)[]> {
+    const xs = data.works.x ?? []
+    const ys = data.works.y ?? []
+    const pairs: Array<readonly (number | null)[]> = []
+    for (const [at, x] of xs.entries()) pairs.push([x, ys[at] ?? null])
+    return pairs
+  }
+
+  it('stays inside the published year bounds, with works without a year', () => {
+    let yearsOutside = 0
+    for (const year of data.works.year) {
+      if (year !== null && (year < 1900 || year > 2026)) yearsOutside += 1
+    }
+    expect(
+      `${yearsOutside} ${network.firstYear >= 1900 && network.firstYear <= 2026} ${network.lastYear >= 1900 && network.lastYear <= 2026} ${network.untimed > 0}`,
+    ).toBe('0 true true true')
   })
 
   it('matches the retrieval date of the snapshot', () => {
-    const network = prepare(read())
     expect(network.retrieved).toMatch(/^2026-11-08T/)
     expect(network.topic.name).toContain('Graph')
   })
@@ -224,6 +250,7 @@ describe('published data', () => {
     const text = readFileSync(join(published, 'LICENSE'), 'utf8')
     expect(text).toContain('CC0 1.0')
     expect(text).toContain('OpenAlex')
+    expect(text).toContain('layout')
   })
 })
 

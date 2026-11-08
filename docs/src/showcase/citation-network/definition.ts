@@ -6,7 +6,6 @@ import {
   type GraphState,
   nodes,
 } from '@bruno00o/graph'
-import { force } from '@bruno00o/graph/layouts/force'
 import { type Link, type Work, yearTime } from './data'
 
 const dimmed = { nodes: 0.08, edges: 0.03 } as const
@@ -98,10 +97,9 @@ export function definitionOf(input: DefinitionInput) {
         edges: { others: { opacity: dimmed.edges } },
       },
     },
-    layout: force({ edgeLength: 40 }),
-    relayout: true,
+    layout: null,
     interaction: { select: 'single' },
-    view: { padding: framePadding, autoFit: 'layouts' },
+    view: { padding: framePadding, autoFit: 'never' },
   })
 }
 
