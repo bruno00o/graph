@@ -1,0 +1,60 @@
+## How it works
+
+The page is a small dashboard in the style of shadcn/ui: cards with a title and a description, a sidebar, a neutral palette, Inter and rounded corners. The graph is one of the cards, drawn in the same theme as the others.
+
+### One theme
+
+The graph never names a color. Every color it draws comes from a `--graph-*` CSS variable, so the whole mapping fits in a few lines of CSS, set on the element that carries the shadcn variables:
+
+```css
+.shadcn-scope {
+  --graph-paper: var(--card);
+  --graph-ink: var(--foreground);
+  --graph-ink-muted: var(--muted-foreground);
+  --graph-node: var(--muted-foreground);
+  --graph-edge: color-mix(in oklab, var(--muted-foreground) 45%, var(--card));
+  --graph-accent: var(--primary);
+  --graph-on-accent: var(--primary-foreground);
+  --graph-focus-ring: var(--ring);
+  --graph-group-fill: var(--muted);
+  --graph-group-line: var(--border);
+  --graph-label-halo: var(--card);
+  --graph-node-ring: var(--card);
+  --graph-cat-1: var(--chart-1);
+  --graph-cat-2: var(--chart-2);
+  --graph-font: "Inter Variable", system-ui, sans-serif;
+}
+```
+
+`theme.css` holds the complete list, plus the shadcn variables of four base colors (neutral, zinc, stone and slate), light and dark, as the shadcn registry publishes them. The definition does not change with the theme: `color: 'group'` goes through the categorical scale, which hands out `var(--graph-cat-1)` and the next ones, so the first five groups take `--chart-1` to `--chart-5`.
+
+The graph watches the classes, `style` and `data-theme` of its element and of every ancestor up to `<html>`, and resolves its colors again when one changes. The base color buttons only change a class on the dashboard, and the docs theme switch only changes `.dark` on `<html>`. In both cases the graph, its labels and its overlays follow with no code and no data read again.
+
+### The shadcn parts talk to the graph
+
+The components below are copied from the shadcn registry into `ui/`, with their MIT notice. They use Radix primitives, `class-variance-authority`, `tailwind-merge` and Lucide icons, which belong to the docs and not to the library.
+
+- **Select** runs a layout: `graph.layout.run(layouts[kind], { fit: true })`.
+- **Slider** changes the range of the size scale, and **Switch** turns the labels on and off, both by building a new definition passed to `<Graph>`.
+- **Command** lists the items and focuses one: `selection.set`, `focus.set`, then `view.fit` on the node and its neighbors.
+- **Tooltip** names the buttons that zoom and fit the view.
+- The **hover card** is a card rendered inside `<Anchor node={hovered.key}>`: the anchor keeps it beside the node while the view or the node moves.
+- The **stats**, the **details** card and the **group filters** read the graph with `useGraphState` and `useLegend`: selection, hovered element, layout progress, hidden items and counts per group.
+
+### Components outside the canvas
+
+`<Graph>` renders its children above the canvas, and gives them the graph through React context. The sidebar, the stats and the details do not sit above the canvas, so each one renders through `createPortal` into its own element of the page. Context crosses portals, so `useGraph` and `useGraphState` work in them as anywhere else.
+
+Menus and tooltips of Radix portal into `document.body` by default, outside the element that carries the theme. Here they portal into the dashboard element, so they take the same variables, and they stay inside the frame in full screen.
+
+### Tailwind
+
+The docs already build with Tailwind 4. `tailwind.css` only declares the color names of shadcn (`bg-card`, `text-muted-foreground`) as `@theme inline` aliases of the variables, and `app.css` imports it. It creates no variable of its own at the root and changes nothing on the other pages.
+
+## Try it
+
+- Pick a layout, move the node size slider and turn the labels off.
+- Type in the search field, then press Enter on an item: the view moves to it and its neighbors.
+- Hover a node for the card, click it for its details, and click a linked item to move on.
+- Switch the base color, then switch the docs theme: the graph and every card change together.
+- Turn a group off in the footer: the items count and the nodes follow.

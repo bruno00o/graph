@@ -1,0 +1,68 @@
+export const messages = {
+  graphLabel: (items: number, links: number) =>
+    `Graph of ${items} items in five groups, linked by ${links} relations`,
+  group: (name: string) => `Group ${name}`,
+  explorer: {
+    title: 'Display',
+    description: 'Controls that drive the graph.',
+    layout: 'Layout',
+    nodeSize: 'Node size',
+    labels: 'Labels',
+    baseColor: 'Base color',
+  },
+  layouts: {
+    force: 'Force',
+    layers: 'Layers',
+    grid: 'Grid',
+    rings: 'Rings',
+    radial: 'Radial',
+  },
+  bases: {
+    neutral: 'Neutral',
+    zinc: 'Zinc',
+    stone: 'Stone',
+    slate: 'Slate',
+  },
+  find: {
+    title: 'Find an item',
+    description: 'Focus a node by name.',
+    placeholder: 'Search items',
+    empty: 'No item found.',
+  },
+  stats: {
+    items: 'Items',
+    itemsDetail: (groups: number) => `in ${groups} groups`,
+    layout: 'Layout',
+    running: (percent: number) => `Running ${percent}%`,
+    settled: 'Settled',
+    layoutDetail: (name: string) => `${name} layout`,
+    selection: 'Selection',
+    selected: (count: number) => (count === 1 ? '1 selected' : `${count} selected`),
+    hovering: (label: string) => `Pointing at ${label}`,
+    nothingHovered: 'Hover a node',
+  },
+  card: {
+    title: 'Item graph',
+    description: (items: number, links: number) => `${items} items linked by ${links} relations.`,
+    fit: 'Fit the view',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+  },
+  details: {
+    title: 'Details',
+    empty: 'Select an item to see its details here.',
+    description: (group: string) => `Group ${group}`,
+    weight: 'Weight',
+    connections: 'Connections',
+    neighbors: 'Linked items',
+    many: (count: number) => `${count} items selected`,
+    clear: 'Clear selection',
+  },
+  hoverCard: {
+    weight: (weight: number) => `Weight ${weight}`,
+    connections: (count: number) => (count === 1 ? '1 connection' : `${count} connections`),
+  },
+  legend: {
+    label: 'Groups',
+  },
+} as const
