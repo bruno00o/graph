@@ -4,6 +4,7 @@ import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { type Ref, useLayoutEffect, useRef, useState } from 'react'
+import { followSiteBasemap, siteBasemap } from '../shared/basemap'
 import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -77,7 +78,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     if (!container) return
     const map = new MapLibreMap({
       container,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: siteBasemap(),
       center: [10, 15],
       zoom: 1.1,
     })
@@ -93,7 +94,9 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       setStatus(messages.place(label, longitude, latitude))
     })
     graph.on('pointerleave', () => setStatus(''))
+    const unfollow = followSiteBasemap(map)
     return () => {
+      unfollow()
       graph.destroy()
       map.remove()
       assign(ref, null)

@@ -1,0 +1,4 @@
+.basemaps-picker .example-button[aria-pressed="true"] {
+  border-color: var(--graph-accent);
+  background: color-mix(in srgb, var(--graph-accent) 16%, var(--graph-paper-raised));
+}

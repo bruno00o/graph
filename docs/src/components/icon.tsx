@@ -44,15 +44,17 @@ const paths = {
   external: (
     <path d="M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" />
   ),
-  npm: (
-    <>
-      <rect x="1.5" y="4.5" width="13" height="6" rx="0.5" />
-      <path d="M4 10.5v-4h2.5v4M9 6.5v5.5M9 6.5h2.5v4" />
-    </>
-  ),
 } as const
 
-export type IconName = keyof typeof paths
+const marks = {
+  npm: 'M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.323l13.837.019-.009 13.836h-3.464l.01-10.382h-3.456L12.04 19.17H5.113z',
+} as const
+
+export type IconName = keyof typeof paths | keyof typeof marks
+
+function isMark(name: IconName): name is keyof typeof marks {
+  return name in marks
+}
 
 export function Icon({
   name,
@@ -63,6 +65,19 @@ export function Icon({
   readonly size?: number
   readonly className?: string
 }): JSX.Element {
+  if (isMark(name)) {
+    return (
+      <svg
+        className={className ? `ic-mark ${className}` : 'ic-mark'}
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path d={marks[name]} />
+      </svg>
+    )
+  }
   return (
     <svg
       className={className ? `ic ${className}` : 'ic'}

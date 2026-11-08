@@ -5,6 +5,7 @@ import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { type Ref, useLayoutEffect, useRef } from 'react'
+import { followSiteBasemap, siteBasemap } from '../shared/basemap'
 import { random } from '../shared/random'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -94,7 +95,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     if (!container || !below) return
     const map = new MapLibreMap({
       container,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: siteBasemap(),
       center: [10, 10],
       zoom: 1.1,
     })
@@ -111,7 +112,9 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     below.append(view.element)
     graph.view.fit({ padding: 40 })
     assign(ref, graph)
+    const unfollow = followSiteBasemap(map)
     return () => {
+      unfollow()
       view.destroy()
       timeline.destroy()
       graph.destroy()
