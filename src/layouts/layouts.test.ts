@@ -80,6 +80,17 @@ describe('grid', () => {
     expect(point(fallback, 1)[0] - point(fallback, 0)[0]).toBe(34)
   })
 
+  it('counts a columns that is not finite as the default', async () => {
+    const graph = graphOf({ points: origin(9) })
+    const expected = await run(grid(), graph)
+    for (const columns of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const xy = await run(grid({ columns }), graph)
+      expect(Array.from(xy)).toEqual(Array.from(expected))
+    }
+    const single = await run(grid({ columns: 0 }), graph)
+    expect(point(single, 1)[0]).toBe(point(single, 0)[0])
+  })
+
   it('describes itself as a layout that redoes every node when nodes arrive', () => {
     const layout = grid({ columns: 4 })
     expect(layout.name).toBe('grid')

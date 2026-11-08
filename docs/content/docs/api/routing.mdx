@@ -19,7 +19,7 @@ type RouteAxis = 'auto' | 'vertical' | 'horizontal'
 
 <api-table path="routing/index.ts" name="OrthogonalRoutingOptions" />
 
-`gap`, `spacing` and `radius` take values of 0 or more; a negative value is raised to 0 and a non-finite value falls back to its default. `maxEdges` is rounded down. Any other `axis` throws a `TypeError`.
+`gap`, `spacing` and `radius` take values of 0 or more; a negative value is raised to 0 and a non-finite value falls back to its default. `maxEdges` is rounded down, `Infinity` sets no limit, and a negative or `NaN` value falls back to its default. Any other `axis` throws a `TypeError`.
 
 ## Result
 

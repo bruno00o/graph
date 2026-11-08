@@ -4,7 +4,7 @@ import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import type { Renderer, RenderFrame } from '../host/renderer'
 import { nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import { exportPng } from '.'
+import { exportPng, exportSvg } from '.'
 
 vi.mock('@mapbox/tiny-sdf', () => ({
   default: class {
@@ -117,6 +117,29 @@ function mount(): GraphInstance {
   graph = created
   return created
 }
+
+describe('export padding', () => {
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1])(
+    'rejects a padding of %s before any work',
+    async (padding) => {
+      const shown = mount()
+      const message = 'graph: the export padding must be a finite number, 0 or more'
+      for (const region of ['graph', 'view'] as const) {
+        await expect(exportPng(shown, { region, padding, pixelRatio: 1 })).rejects.toThrow(
+          new RangeError(message),
+        )
+        await expect(exportSvg(shown, { region, padding })).rejects.toThrow(new RangeError(message))
+      }
+      expect(exported).toHaveLength(0)
+    },
+  )
+
+  it('accepts 0 and positive paddings', async () => {
+    const shown = mount()
+    await expect(exportSvg(shown, { region: 'graph', padding: 0 })).resolves.toContain('<svg')
+    await expect(exportSvg(shown, { region: 'graph', padding: 12 })).resolves.toContain('<svg')
+  })
+})
 
 describe('exportPng of the graph region with labels', () => {
   it('draws with the hidden layers of the graph', async () => {

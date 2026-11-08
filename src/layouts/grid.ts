@@ -4,8 +4,8 @@ import { centroid, instant, movers, type NodeOrder, ordered, stepsOf } from './s
 /** Options of `grid`. */
 export interface GridOptions<T = unknown> {
   /**
-   * Nodes per row, rounded down and at least 1. Defaults to the square root of the count, rounded
-   * up.
+   * Nodes per row, rounded down and at least 1. A value that is not finite counts as the default,
+   * the square root of the count, rounded up.
    */
   readonly columns?: number | undefined
   /**
@@ -28,7 +28,11 @@ export function grid<T = unknown>(options: GridOptions<T> = {}): Layout<T> {
     const indices = movers(graph)
     if (indices.length === 0) return xy
     const sorted = ordered(graph, indices, options.order)
-    const columns = Math.max(1, Math.floor(options.columns ?? Math.ceil(Math.sqrt(sorted.length))))
+    const wanted = options.columns
+    const columns =
+      wanted !== undefined && Number.isFinite(wanted)
+        ? Math.max(1, Math.floor(wanted))
+        : Math.ceil(Math.sqrt(sorted.length))
     const rows = Math.ceil(sorted.length / columns)
     const [across, down] = stepsOf(graph, indices, options.spacing)
     const [x, y] = centroid(graph, indices)
