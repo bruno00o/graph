@@ -21,13 +21,20 @@ export class BarnesHut {
   #depth: Int32Array = new Int32Array(0)
   #next: Int32Array = new Int32Array(0)
   #stack: Int32Array = new Int32Array(0)
+  #weights: Float32Array | null = null
 
   get cells(): number {
     return this.#count
   }
 
-  build(nodes: Uint32Array, x: Float64Array, y: Float64Array): void {
+  build(
+    nodes: Uint32Array,
+    x: Float64Array,
+    y: Float64Array,
+    weights: Float32Array | null = null,
+  ): void {
     if (this.#next.length < x.length) this.#next = new Int32Array(x.length)
+    this.#weights = weights
     this.#count = 0
     if (nodes.length === 0) return
     let minX = Number.POSITIVE_INFINITY
@@ -71,6 +78,7 @@ export class BarnesHut {
     const next = this.#next
     const left = this.#left
     const top = this.#top
+    const weights = this.#weights
     let fx = 0
     let fy = 0
     let depth = 0
@@ -109,7 +117,7 @@ export class BarnesHut {
           ey = jiggle()
           e2 = ex * ex + ey * ey
         }
-        const w = 1 / (e2 + softening)
+        const w = (weights ? (weights[j] ?? 1) : 1) / (e2 + softening)
         fx += ex * w
         fy += ey * w
       }
@@ -209,10 +217,12 @@ export class BarnesHut {
           sy += (this.#cy[k] ?? 0) * m
         }
       } else {
+        const weights = this.#weights
         for (let j = p; j >= 0; j = this.#next[j] ?? empty) {
-          mass++
-          sx += x[j] ?? 0
-          sy += y[j] ?? 0
+          const m = weights ? (weights[j] ?? 1) : 1
+          mass += m
+          sx += (x[j] ?? 0) * m
+          sy += (y[j] ?? 0) * m
         }
       }
       this.#mass[c] = mass

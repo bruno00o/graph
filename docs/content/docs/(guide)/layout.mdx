@@ -234,7 +234,7 @@ To keep a result without a collection, take `graph.positions.snapshot()` once th
 ## Force options
 
 ```ts
-force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto' })
+force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto', multilevel: 'auto' })
 ```
 
 Every option, with its default, is listed in [`ForceOptions`](/docs/api/force#options).
@@ -252,6 +252,25 @@ The GPU engine needs WebGL2 in workers and the `EXT_color_buffer_float` and `EXT
 
 <Callout title="Content security policy">
 The worker is created from a `blob:` URL. When `Worker` is missing, when your policy refuses `worker-src blob:`, or when the worker fails, the simulation continues on the main thread in slices of 8 milliseconds, from where it was. Dragged nodes stay pinned.
+</Callout>
+
+## Large graphs
+
+From 1,000 moving nodes, `force` works in levels. It merges each node with a neighbor, again and again, until a few nodes are left: each level has about half the nodes of the one below, and a merged node weighs what its members weigh. It lays out the smallest level in full, then starts each finer level from the one above, every node next to the node it was merged into, and lets it settle in a few steps. The last level is your graph.
+
+<LiveExample slug="force-levels" />
+
+Long shapes come out unfolded: a grid lies flat and a tree spreads its branches, where a single level folds them on themselves. On the CPU, a run is also several times faster: 80,000 nodes in communities settle in about 6 seconds instead of 21. On the GPU, the coarse levels run on the CPU inside the worker and the large ones on the GPU: 10,000 nodes take about 0.4 seconds instead of 0.25, 80,000 about as long as before, and a million about 7 seconds instead of 10.
+
+- **When.** Runs that move at least half of the nodes: the first run, `layout.run()`, and new nodes that outnumber those already placed. Smaller arrivals settle around the placed nodes as before.
+- **Option.** `multilevel: true` uses levels at any size, `false` never, and `'auto'`, the default, from 1,000 moving nodes.
+- **Groups.** A graph with unfolded groups is laid out in a single level.
+- **Fixed and pinned nodes.** Nodes with `x` and `y`, and nodes dragged during the run, keep their place at every level.
+- **Progress.** The first snapshots show nodes gathered in small clusters, which open up level by level.
+- **Same result.** On the CPU, the same graph and the same positions still give the same result.
+
+<Callout title="A different result for large graphs">
+Graphs with 1,000 moving nodes or more did not use levels before this option existed, so their layout looks different now. Pass `multilevel: false` to get the earlier result.
 </Callout>
 
 ## Write your own layout

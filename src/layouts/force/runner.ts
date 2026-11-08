@@ -3,7 +3,8 @@ import { type GroupTree, groupTree } from '../../core/group-tree'
 import type { LayoutListener, LayoutRun } from '../../types'
 import { separate } from './collider'
 import type { GpuForce } from './gpu'
-import { type ForceGraph, type ForceSettings, ForceSimulation } from './simulation'
+import { Ladder, runMultilevel } from './multilevel'
+import { type ForceGraph, type ForceSettings, ForceSimulation, type LevelRun } from './simulation'
 
 export type Schedule = (task: () => void) => void
 
@@ -139,4 +140,21 @@ export function runGpuForce(
       gpu.destroy()
     },
   }
+}
+
+export function runMultilevelForce(
+  graph: ForceGraph,
+  settings: ForceSettings,
+  listener: LayoutListener,
+  budget: number,
+  schedule: Schedule,
+  gpu: ((graph: ForceGraph, level: LevelRun) => GpuForce | null) | null,
+): LayoutRun {
+  return runMultilevel(new Ladder(graph, settings), settings, listener, {
+    budget,
+    schedule,
+    interval: snapshotInterval(graph),
+    gpu,
+    settle: (fixed, xy) => settle(graph, null, fixed, xy, settings),
+  })
 }

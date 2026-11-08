@@ -17,7 +17,12 @@ let items: Item[] = grouped ? nestCommunities(sample, 24, 3) : sample.items
 let links: Link[] = sample.links
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 const engine = engines.find((value) => value === params.get('engine')) ?? 'auto'
-const layout = force({ engine })
+const levelModes = ['auto', 'on', 'off'] as const
+const levelMode = levelModes.find((value) => value === params.get('multilevel')) ?? 'auto'
+const layout = force({
+  engine,
+  multilevel: levelMode === 'auto' ? 'auto' : levelMode === 'on',
+})
 
 const define = () =>
   defineGraph({
@@ -97,6 +102,15 @@ header.append(
     engine,
     (value) => {
       params.set('engine', value)
+      location.search = params.toString()
+    },
+  ),
+  choice(
+    messages.multilevel,
+    levelModes.map((value) => ({ value, text: messages.multilevelModes[value] })),
+    levelMode,
+    (value) => {
+      params.set('multilevel', value)
       location.search = params.toString()
     },
   ),

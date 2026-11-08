@@ -138,10 +138,11 @@ void main() {
     return;
   }
   vec2 p = texelFetch(state, t, 0).xy;
+  float mass = texelFetch(props, t, 0).y;
   vec3 f = frameOf();
   vec2 cell = clamp(floor((p - f.xy) / f.z * float(cells)), 0.0, float(cells - 1));
   gl_Position = clipOf(cell, vec2(cells));
-  value = vec4(p, 1.0, 0.0);
+  value = vec4(p * mass, mass, 0.0);
 }
 `
 
@@ -371,7 +372,7 @@ void main() {
   for (int y = max(c.y - 1, 0); y <= min(c.y + 1, g - 1); y++) {
     for (int x = max(c.x - 1, 0); x <= min(c.x + 1, g - 1); x++) {
       vec4 cell = texelFetch(pyramid, ivec2(x, y), 0);
-      if (x == c.x && y == c.y) cell -= vec4(position, 1.0, 0.0);
+      if (x == c.x && y == c.y) cell -= vec4(position * p.y, p.y, 0.0);
       if (cell.z < 0.5) continue;
       vec2 d = cell.xy / cell.z - position;
       if (dot(d, d) < 1.0e-12) d = 1.0e-3 * vec2(cos(float(index)), sin(float(index)));
