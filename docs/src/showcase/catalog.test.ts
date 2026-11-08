@@ -145,6 +145,16 @@ describe('createCatalog', () => {
     expect(problems.join('\n')).toContain('"api" must list')
   })
 
+  it('accepts a note on the source and refuses an empty one', () => {
+    const withNote = (note: string) => ({
+      metas: { './sample/meta.ts': { ...meta, source: { ...meta.source, note } } },
+    })
+    expect(createCatalog(sample(withNote('A dated snapshot.'))).problems).toEqual([])
+    expect(createCatalog(sample(withNote(' '))).problems.join('\n')).toContain(
+      '"source.note" must be a non-empty string',
+    )
+  })
+
   it('reports a missing entry, a missing meta and a bad slug', () => {
     const { problems } = createCatalog({
       metas: { './Bad_Slug/meta.ts': meta },

@@ -12,6 +12,7 @@ export interface ShowcaseSource {
   readonly license: string
   readonly licenseUrl: string
   readonly build: string
+  readonly note?: string
 }
 
 export interface ShowcaseMeta {

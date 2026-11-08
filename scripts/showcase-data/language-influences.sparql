@@ -1,0 +1,29 @@
+SELECT ?lang ?langLabel
+       (MIN(?inceptionTime) AS ?inception)
+       (MIN(?publicationTime) AS ?publication)
+       (GROUP_CONCAT(DISTINCT ?paradigmPair; separator="\u001F") AS ?paradigms)
+       (GROUP_CONCAT(DISTINCT STR(?influenceId); separator="\u001F") AS ?influences)
+WHERE {
+  ?lang wdt:P31/wdt:P279* wd:Q9143 .
+
+  OPTIONAL {
+    ?lang rdfs:label ?langLabel .
+    FILTER(LANG(?langLabel) = "en")
+  }
+
+  OPTIONAL { ?lang p:P571/psv:P571/wikibase:timeValue ?inceptionTime . }
+
+  OPTIONAL { ?lang p:P577/psv:P577/wikibase:timeValue ?publicationTime . }
+
+  OPTIONAL {
+    ?lang p:P3966/ps:P3966 ?paradigmId .
+    OPTIONAL {
+      ?paradigmId rdfs:label ?paradigmEnLabel .
+      FILTER(LANG(?paradigmEnLabel) = "en")
+    }
+    BIND(CONCAT(STR(?paradigmId), "\u001E", COALESCE(?paradigmEnLabel, "")) AS ?paradigmPair)
+  }
+
+  OPTIONAL { ?lang p:P737/ps:P737 ?influenceId . }
+}
+GROUP BY ?lang ?langLabel
