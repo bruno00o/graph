@@ -140,7 +140,7 @@ type LineGeometry = LineStringGeometry | MultiLineStringGeometry
 - Points are stored in world units with double precision and drawn relative to the camera, so a line stays on its road at street level. The GPU keeps them in 32 bits relative to the origin of the positions, which is moved when the camera goes far from it.
 - A line drawn by `waypoints` has sharp corners: give it more points for a smoother curve.
 
-With 100,000 edges of 30 points each on a 1280 × 800 page, the first render takes about a second more than straight edges, and a frame while panning costs about twice as much. See the [routes along a network](/examples/map-routes) example.
+See the [routes along a network](/examples/map-routes) example.
 
 <LiveExample slug="map-routes" />
 
