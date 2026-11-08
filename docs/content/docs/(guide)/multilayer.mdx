@@ -1,6 +1,6 @@
 ---
 title: Multilayer graphs
-description: Put the marks of a graph in layers that show and hide at run time, draw the edges of each layer in their own band, and walk the edges that carry other edges.
+description: Put the marks of a graph in layers that show and hide at run time, draw the edges of each layer in their own band, walk the edges that carry other edges, and drill down from one layer to the next.
 ---
 
 <LiveExample slug="multilayer" />
@@ -136,6 +136,55 @@ defineGraph({
 ```
 
 With `raise: true`, the lit edges are drawn above the other marks, labels first. The graph owns these two states: it replaces their members at each change of the selection. Leave one out, or pass `null`, to light one direction only.
+
+## Drill down
+
+An edge of the top layer often has data of its own, such as a name or a capacity. It is not computed from the edges below: it declares which ones carry it with `supportedBy`. The graph can then show the top layer alone, and open one edge at a time to reveal what carries it, as the example at the top of this page does with a double-click.
+
+Keep every edge in the graph and close the lower ones with a state that has `hide: true`. A hidden edge stays in the data, so `graph.support` still walks it:
+
+```ts
+const definition = defineGraph({
+  marks: [
+    edges(segments, { ...link, layer: 'segments' }),
+    edges(paths, { ...link, layer: 'paths' }),
+    edges(routes, { ...link, layer: 'routes', label: 'name' }),
+    nodes(places, { x: 'x', y: 'y' }),
+  ],
+  states: {
+    closed: { hide: true },
+    open: { stroke: 'var(--graph-accent)', raise: true },
+  },
+})
+
+const lower = [...paths, ...segments].map((edge) => edge.id)
+const opened = new Set<Key>()
+
+function reveal() {
+  const revealed = new Set<Key>()
+  for (const key of opened) {
+    for (const carrier of graph.support.carriers(key, { maxDepth: 1 }).edges) {
+      revealed.add(carrier)
+    }
+  }
+  graph.states.set('closed', { edges: lower.filter((key) => !revealed.has(key)) })
+  graph.states.set('open', { edges: [...opened] })
+}
+
+graph.on('doubleclick', ({ target }) => {
+  if (target?.kind !== 'edge') return
+  if (opened.delete(target.key)) {
+    for (const deeper of graph.support.carriers(target.key).edges) opened.delete(deeper)
+  } else {
+    opened.add(target.key)
+  }
+  reveal()
+})
+```
+
+Opening an edge reveals its direct carriers only, because `maxDepth: 1` stops the walk after one level. Opening one of them reveals the next level. Closing an edge also closes everything opened below it, which a walk without `maxDepth` lists. A double-click does not zoom the view: it emits `doubleclick` after the two clicks that select the edge, and only a double-click on a group folds it.
+
+The other way is to leave the lower edges out of the marks and give only the visible edges to the graph, with [`createSupportFinder`](/docs/api/support) on the full data to find the carriers. It works, but each step then sends new marks to the graph, and a hidden edge is no longer in the selection, in the states or in the counts. Hiding by state changes one mask per edge and nothing else.
 
 ## Performance
 
