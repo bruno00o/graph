@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.0](https://github.com/bruno00o/graph/compare/0.16.0...0.17.0) (2026-11-08)
+
+
+### Features
+
+* add a geo layout that places nodes by longitude and latitude and moves overlaps apart ([#110](https://github.com/bruno00o/graph/issues/110)) ([6c1173c](https://github.com/bruno00o/graph/commit/6c1173cf5dcc02f78b1907056e3efbfcfb6e1ed6))
+* convert cypher query results into nodes and edges ([#107](https://github.com/bruno00o/graph/issues/107)) ([2676271](https://github.com/bruno00o/graph/commit/2676271cd7eb2c7595c18f421c10dc16f7ea8ed8))
+* draw box nodes sized to their label with contrasting text ([#111](https://github.com/bruno00o/graph/issues/111)) ([a60a3c0](https://github.com/bruno00o/graph/commit/a60a3c0516e4aeb8a75779d5b73d09b650f10ffd))
+
+
+### Bug Fixes
+
+* keep store subscribers notified when they call actions of the graph ([#106](https://github.com/bruno00o/graph/issues/106)) ([af8aa8a](https://github.com/bruno00o/graph/commit/af8aa8a723346afdd891f42e5fdd07fa37293a12))
+* load only the images the atlas can hold, a few at a time ([#108](https://github.com/bruno00o/graph/issues/108)) ([6cc339d](https://github.com/bruno00o/graph/commit/6cc339d627157eb740bfffa97071a27bb4c1b40a))
+
 ## [0.16.0](https://github.com/bruno00o/graph/compare/0.15.0...0.16.0) (2026-11-07)
 
 
