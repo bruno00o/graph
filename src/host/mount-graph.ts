@@ -124,6 +124,7 @@ import {
   sameLens,
 } from './lens'
 import { afterDestroy, destroyedReason, FrameWaiters, stillborn, untilDestroyed } from './lifecycle'
+import { readonlyOf } from './readonly-store'
 import type { Renderer } from './renderer'
 import { PendingRequests } from './requests'
 import { clearRoom } from './room'
@@ -1089,7 +1090,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     lens: null,
     hiddenLayers,
   })
-  const readonlyStore: GraphStore = isolateSubscribers(createStore(() => store.state))
+  const readonlyStore: GraphStore = isolateSubscribers(readonlyOf(store))
   const bundles = new BundleHost(
     {
       edges: scene.edges,

@@ -7,6 +7,7 @@ import {
 } from '@tanstack/query-core'
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { toAccessor } from '../core/accessor'
+import { readonlyOf } from '../host/readonly-store'
 import type { Key, KeyChannel, LiveSource, SourceChange, SourceSubscription } from '../types'
 
 /** Data of a neighborhood query: the nodes and edges around the expanded node. */
@@ -251,7 +252,7 @@ export function createExploration<TNode, TEdge, TQueryFnData, TError, TQueryKey 
   const edges = new ElementSource<TEdge>(onActive)
 
   const store = createStore<ExplorationState>({ expanded: [], loading: [], errors: new Map() })
-  const readonlyStore: ReadonlyStore<ExplorationState> = createStore(() => store.state)
+  const readonlyStore: ReadonlyStore<ExplorationState> = readonlyOf(store)
 
   function publish(): void {
     const loading: Key[] = []
