@@ -39,6 +39,10 @@
       "types": "./dist/query.d.ts",
       "import": "./dist/query.js"
     },
+    "./cypher": {
+      "types": "./dist/cypher.d.ts",
+      "import": "./dist/cypher.js"
+    },
     "./layouts": {
       "types": "./dist/layouts.d.ts",
       "import": "./dist/layouts.js"
@@ -161,6 +165,7 @@
     "@vitejs/plugin-react": "6.2.1",
     "happy-dom": "21.0.4",
     "maplibre-gl": "6.16.0",
+    "neo4j-driver": "6.3.0",
     "playwright": "1.65.0",
     "publint": "0.3.25",
     "react": "19.2.9",

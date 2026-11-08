@@ -53,6 +53,7 @@ pnpm add @bruno00o/graph
 | `@bruno00o/graph/react`          | `<Graph>`, `<Anchor>`, `useGraph`, `useGraphState`, `useGraphEvent` | `react` 19, `react-dom` 19                  |
 | `@bruno00o/graph/db`             | `persistPositions` and `subset` for TanStack DB collections         | `@tanstack/db`                              |
 | `@bruno00o/graph/query`          | `createExploration` for neighborhoods loaded with TanStack Query    | `@tanstack/query-core`                      |
+| `@bruno00o/graph/cypher`         | `cypherGraph`, nodes and edges from the result of a Cypher query    |                                             |
 | `@bruno00o/graph/export`         | `exportPng` and `exportSvg`                                         |                                             |
 | `@bruno00o/graph/map`            | `mountMapGraph` and `exportMapPng` for MapLibre maps                | `maplibre-gl` 6                             |
 | `@bruno00o/graph/map/react`      | `<MapGraph>`, the React component for MapLibre maps                 | `maplibre-gl` 6, `react` 19, `react-dom` 19 |

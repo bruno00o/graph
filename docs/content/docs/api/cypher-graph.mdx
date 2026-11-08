@@ -1,0 +1,62 @@
+---
+title: cypherGraph
+description: Convert the result of a Cypher query into nodes and edges for the marks.
+---
+
+```ts
+import { cypherGraph } from '@bruno00o/graph/cypher'
+
+function cypherGraph<N extends object = CypherProperties, E extends object = CypherProperties>(
+  input: CypherInput,
+  options?: CypherOptions,
+): CypherGraph<N, E>
+```
+
+Finds the nodes, relationships and paths in `input` and returns them deduplicated by `elementId`. It runs no query and imports no driver. `N` and `E` type the `properties` of the nodes and of the edges.
+
+## Options
+
+<api-table path="cypher/index.ts" name="CypherOptions" />
+
+## Result
+
+```ts
+const { nodes: items, edges: links } = cypherGraph(result)
+
+nodes(items, { label: (node) => String(node.properties.name) })
+edges(links, { source: 'source', target: 'target', color: 'type' })
+```
+
+<api-table path="cypher/index.ts" name="CypherGraph" />
+
+A node:
+
+<api-table path="cypher/index.ts" name="CypherNode" />
+
+An edge:
+
+<api-table path="cypher/index.ts" name="CypherEdge" />
+
+An edge whose end node is not in `nodes` stays in `edges`: the graph keeps it pending until the node arrives.
+
+## Input
+
+`CypherInput` is any of the following, or a list or map that contains them:
+
+<api-table path="cypher/index.ts" name="CypherResultLike" />
+
+<api-table path="cypher/index.ts" name="CypherRecordLike" />
+
+<api-table path="cypher/index.ts" name="CypherNodeLike" />
+
+<api-table path="cypher/index.ts" name="CypherRelationshipLike" />
+
+<api-table path="cypher/index.ts" name="CypherPathLike" />
+
+<api-table path="cypher/index.ts" name="CypherPathSegmentLike" />
+
+These interfaces list only the fields the adapter reads. The classes of the official `neo4j-driver` (`QueryResult`, `EagerResult`, `Record`, `Node`, `Relationship`, `Path`) satisfy them, and so does the same data parsed from JSON.
+
+Fields that are not listed are ignored, and `identity`, `start` and `end` stand in for `elementId`, `startNodeElementId` and `endNodeElementId` when a server is old enough not to send them.
+
+See [Cypher](/docs/cypher) for a walkthrough.
