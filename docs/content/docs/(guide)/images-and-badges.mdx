@@ -20,7 +20,11 @@ The fields of the object are listed in [`NodeImage`](/docs/api/nodes#images).
 
 The image sits on the fill, under the contour, clipped by the shape. Return `null` to draw no image for a node.
 
-Images load in the background and appear when ready. Each one is stored once, however many nodes use it, in a texture of up to 256 images of 256 by 256 pixels. Past that, extra images wait: they show as soon as no node uses one of the stored images any more, and a warning is printed in development.
+Images load in the background and appear when ready. Each one is stored once, however many nodes use it, in a texture of at most 256 images of 256 by 256 pixels.
+
+The limit is 256 distinct images at once. Images are loaded only when they can be stored, a few at a time, in the order the nodes use them: the others stay as plain nodes, nothing is fetched or decoded for them, and a warning is printed in development. They load as soon as no node uses one of the stored images any more.
+
+So share icons between nodes, a handful of pictures for thousands of nodes costs nothing, and put text in labels, not in images: one image per node, such as an SVG that spells the node name, hits the limit at the 257th node.
 
 ## Tinted icons
 
