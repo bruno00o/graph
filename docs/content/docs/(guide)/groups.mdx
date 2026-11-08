@@ -55,7 +55,7 @@ The fill and outline default to the `--graph-group-fill` and `--graph-group-line
 
 Children of an unfolded group that overlap, such as several nodes at the same coordinates, move apart around their place so that each one can be seen, hovered and dragged. Children at the same place sit on a ring, or on a spiral past six. Children that touch at the current zoom form one pack around their average place, so the packs follow the zoom: they merge as you zoom out and split as you zoom in.
 
-Only the drawn position moves. The data keeps its position: when the group folds, its children go back to their place at once, and `graph.positions.snapshot()` and `persistPositions` never see a spread position. No `positionchange` is emitted.
+Only the drawn position moves. `graph.positions.get` and `graph.positions.snapshot()` give where a child is drawn, but its data keeps its place: no `positionchange` is emitted, so `persistPositions` never writes a spread position, and the children go back to their place at once when the group folds. Passing such a snapshot to `graph.positions.set` pins the children where they are drawn.
 
 ```ts
 groups(items, {
