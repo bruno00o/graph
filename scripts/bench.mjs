@@ -336,7 +336,7 @@ async function benchRender(page, out) {
       nodes: items.filter((item) => !near.has(item.id)).map((item) => item.id),
       edges: links.filter((link) => !touching.has(link.id)).map((link) => link.id),
     })
-    graph.view.fit(near, { padding: 160 })
+    graph.view.fit({ nodes: near, padding: 160 })
     await __bench.settle()
   })()`)
   await page.screenshot(join(out, 'neighborhood-dark.png'))

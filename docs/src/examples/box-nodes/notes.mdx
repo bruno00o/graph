@@ -1,0 +1,13 @@
+## How it works
+
+`shape: 'box'` draws each node as a rectangle with rounded corners. `size` sets its height, 28 here, and `width: 'label'`, the default, makes it as wide as its label with half the height of room on each side. The label sits on the box, centered.
+
+`fill` gives each branch of the tree a theme color, from `--graph-cat-1` to `--graph-cat-3`, and the root `--graph-ink`. No label sets a `color`, so each text takes the ink or the paper color of the theme, whichever contrasts more with its fill: the root shows light text in the light theme and dark text in the dark one.
+
+`layers` reads the width of every box: boxes of a layer sit side by side with `nodeSpacing` between their borders, and layers are as far apart as the boxes are tall, plus `layerSpacing`. Arrows end on the border of each box, on its sides as on its rounded corners.
+
+## Try it
+
+- Press **Width** to give every box the same width: long labels end with an ellipsis, and the layout runs again.
+- Press **Direction** to turn the layers to the right: boxes now stack by their height, and each layer is as deep as its widest box.
+- Switch the docs theme: the text of each box picks its color again.

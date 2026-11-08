@@ -100,6 +100,7 @@ interface LayoutGraph {
   readonly movable: Uint8Array
   readonly xy: Float32Array
   readonly radius: Float32Array
+  readonly extents?: Float32Array
   readonly edges: Uint32Array
   readonly groups?: LayoutGroups
   readonly keys: readonly (Key | undefined)[]
@@ -130,6 +131,8 @@ interface LayoutRun {
 `start` receives a `LayoutGraph`, whose arrays are indexed by the internal index of each node:
 
 <api-table path="index.ts" name="LayoutGraph" />
+
+A [box](/docs/marks#boxes) is wider than it is tall, so `radius` holds the radius of the circle around it, which keeps layouts that only read `radius` free of overlaps. When the graph has at least one box, `extents` also gives the half width and the half height of every node, two numbers per index: a layout that places nodes in rows or columns can use them to pack boxes closer.
 
 When groups are unfolded, `groups` describes them. Their containers are not nodes of the layout (`alive` is `0` at their index), but their index has a key and an item. A layout that ignores `groups` still works: the graph does not move containers apart for it.
 

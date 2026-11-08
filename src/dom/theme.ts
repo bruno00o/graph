@@ -6,6 +6,7 @@ export interface ResolvedTheme {
   readonly labelInk: Rgba
   readonly labelMuted: Rgba
   readonly labelHalo: Rgba
+  readonly labelPaper: Rgba
   readonly halo: Rgba
   readonly lensFill: Rgba
   readonly lensRing: Rgba
@@ -65,6 +66,7 @@ export class ThemeResolver {
       labelInk: this.color(themeColor('ink')),
       labelMuted: this.color(themeColor('ink-muted')),
       labelHalo: this.color(themeColor('label-halo')),
+      labelPaper: this.color(themeColor('paper')),
       halo: this.color(themeColor('halo')),
       lensFill: this.color(themeColor('lens-fill')),
       lensRing: this.color(themeColor('lens-ring')),

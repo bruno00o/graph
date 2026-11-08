@@ -45,6 +45,18 @@ describe('grid', () => {
     expect(point(xy, 5)).toEqual([500, 500])
   })
 
+  it('sizes columns to the widest box and rows to the tallest', async () => {
+    const graph = {
+      ...graphOf({ points: origin(4) }),
+      extents: Float32Array.from([40, 10, 10, 10, 30, 10, 10, 10]),
+    }
+    const xy = await run(grid({ spacing: 8 }), graph)
+    expect(point(xy, 1)[0] - point(xy, 0)[0]).toBe(88)
+    expect(point(xy, 2)[1] - point(xy, 0)[1]).toBe(28)
+    const loose = await run(grid(), graph)
+    expect(point(loose, 1)[0] - point(loose, 0)[0]).toBe(104)
+  })
+
   it('follows the order and the number of columns', async () => {
     const graph = graphOf({ points: origin(3), data: [{ rank: 3 }, { rank: 1 }, { rank: 2 }] })
     const layout = grid<{ rank: number }>({

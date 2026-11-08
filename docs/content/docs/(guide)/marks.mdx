@@ -35,10 +35,12 @@ Colors are CSS strings: hex values, `var(--graph-cat-3)`, `color-mix(…)`. They
 | `name` | constant | Name of the mark, reported by targets. See [TypeScript](/docs/typescript) |
 | `key` | channel | Node key, `id` by default |
 | `color` | channel | Category or number, through the `color` scale, or a CSS color with `raw()` |
-| `size` | channel | Number, through the `size` scale, or a diameter in pixels as a literal or with `raw()` |
+| `size` | channel | Number, through the `size` scale, or a diameter in pixels as a literal or with `raw()`; the height of a box |
 | `label` | channel | Text, or an object with `text` and its style. See [Labels](/docs/labels) |
 | `x`, `y` | channel | Position in world units, followed when it changes |
-| `shape` | style | `'circle'`, `'square'` or `'diamond'` |
+| `shape` | style | `'circle'`, `'square'`, `'diamond'` or `'box'` |
+| `width` | style | Width of a box: `'label'` (default) to fit its label, or a number |
+| `cornerRadius` | style | Corner radius of a box, a quarter of its height by default |
 | `fill` | style | Fill color, wins over `color` |
 | `stroke` | style | Color of the inner contour |
 | `strokeWidth` | style | Width of the inner contour in screen pixels |
@@ -134,6 +136,34 @@ edges<Link>(links, {
 The graph draws frames only while a flowing edge is on screen, in a visible page. Without flows, it draws nothing until something changes. With `prefers-reduced-motion`, the dashes stand still. Each frame moves the dashes on the GPU: 100,000 flowing edges hold 60 frames per second, for well under a millisecond of CPU per frame.
 
 [Exports](/docs/export#flows) draw the dashes at a given moment. Examples: [flow speed and direction](/examples/flow-speed), and [flows on a map](/examples/map-flows).
+
+## Boxes
+
+`shape: 'box'` draws a rectangle with rounded corners, with the label written on it. `size` is its height, and its width fits the label by default, with half the height of room on each side.
+
+```ts
+nodes<Item>(items, {
+  shape: 'box',
+  size: 28,
+  label: 'label',
+  fill: (item) => (item.weight > 5 ? 'var(--graph-cat-1)' : 'var(--graph-cat-6)'),
+})
+```
+
+- `width: 'label'` fits the box to the longer of its label lines, secondary line included, and never draws it narrower than it is tall. A box without a label is a rounded square. The height stays `size`: give a label with two lines a box tall enough for both.
+- A number sets the width in the units of `size`. The label is cut with an ellipsis to fit, unless it sets its own `maxWidth`.
+- `cornerRadius` rounds the corners, a quarter of the height by default, and at most half the height: `cornerRadius: 0` gives square corners.
+- The label goes on the box, `placement: 'center'` by default. Another placement puts it outside, and the box keeps its height as width.
+
+Boxes are measured with the font of the labels, the same one the glyphs are drawn with, so the text fits the box at every zoom level. When the theme changes `--graph-font`, the boxes are measured again. Like the glyphs, widths use the font the browser has when a label first appears, so load web fonts before mounting the graph (see [Fonts](/docs/labels#fonts)).
+
+Edges end at the border of a box, rounded corners included, and their arrows touch it: straight edges, parallel curves, [bundled](/docs/bundling) and [routed](/docs/routing) paths, and edge ends. Loops start from the right end of the box. Picking, the [view fit](/docs/view), [hulls](/docs/drawing-layers#hulls), [anchors](/docs/drawing-layers#anchored-html), the [minimap](/docs/minimap-and-legend) and the [exports](/docs/export) follow the box too. Badges sit on its corners, and an image is drawn as a square as tall as the box, in its middle. See the [box nodes](/examples/box-nodes) example.
+
+### Text inside a node
+
+A label drawn inside its node, always on a box and on the other shapes when a `'center'` label fits, has no halo. Without a `color`, its text takes `--graph-ink` or `--graph-paper`, whichever contrasts more with the fill, so a light label sits on a dark node and a dark label on a light node. The choice follows the WCAG contrast ratio of the colors the theme resolves, so it holds in a dark theme, when a state changes the fill, and when a fill is partly transparent over the page. The secondary line follows the main text.
+
+An explicit `color` of the label, or a `labelColor` of a [state](/docs/states), always wins. A label with a `background` keeps its plate and the ink of the theme.
 
 ## Screen units
 

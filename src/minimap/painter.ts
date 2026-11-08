@@ -25,6 +25,7 @@ const noNodes: RasterNodes = {
   alive: new Uint8Array(0),
   shape: new Uint8Array(0),
   size: new Float32Array(0),
+  width: new Float32Array(0),
   fill: new Uint32Array(0),
   stroke: new Uint32Array(0),
   strokeWidth: new Float32Array(0),

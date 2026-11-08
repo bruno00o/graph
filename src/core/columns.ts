@@ -38,7 +38,10 @@ export const shapeCodes: Readonly<Record<NodeShape, number>> = {
   circle: 0,
   square: 1,
   diamond: 2,
+  box: 4,
 }
+
+export const boxShape = 4
 
 export const placementCodes: Readonly<Record<LabelPlacement, number>> = {
   bottom: 0,
@@ -82,6 +85,9 @@ export class NodeColumns {
   slot: Uint16Array = new Uint16Array(0)
   size: Float32Array = new Float32Array(0)
   shape: Uint8Array = new Uint8Array(0)
+  width: Float32Array = new Float32Array(0)
+  corner: Float32Array = new Float32Array(0)
+  fitLabel: Uint8Array = new Uint8Array(0)
   fill: Uint32Array = new Uint32Array(0)
   stroke: Uint32Array = new Uint32Array(0)
   strokeWidth: Float32Array = new Float32Array(0)
@@ -119,6 +125,9 @@ export class NodeColumns {
     this.slot = grow(this.slot, capacity)
     this.size = grow(this.size, capacity)
     this.shape = grow(this.shape, capacity)
+    this.width = grow(this.width, capacity)
+    this.corner = grow(this.corner, capacity)
+    this.fitLabel = grow(this.fitLabel, capacity)
     this.fill = grow(this.fill, capacity)
     this.stroke = grow(this.stroke, capacity)
     this.strokeWidth = grow(this.strokeWidth, capacity)
@@ -142,6 +151,7 @@ export class NodeColumns {
     if (index >= this.capacity) return
     this.alive[index] = 0
     this.container[index] = 0
+    this.fitLabel[index] = 0
     this.zoom.clear(index)
     this.time.clear(index)
     this.keys[index] = undefined

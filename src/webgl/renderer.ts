@@ -1,5 +1,5 @@
 import { type BridgeSet, bridgeRadiusAt } from '../core/bridges'
-import { type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
+import { boxShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
@@ -42,6 +42,7 @@ import {
 import {
   badgeFragment,
   badgeVertex,
+  boxFlag,
   clippedEdgeFragment,
   cornerCurve,
   cornerEdge,
@@ -233,7 +234,7 @@ function createRenderer(
   const edgeTopology = words(format.rgba32ui)
   const edgeStyle = floats(format.rgba32f)
   const edgeState = words(format.r32ui)
-  const nodeZoom = floats(format.rg32f)
+  const nodeZoom = floats(format.rgba32f)
   const edgeZoom = floats(format.rg32f)
   const nodeTime = floats(format.rgba32f)
   const edgeTime = floats(format.rgba32f)
@@ -241,6 +242,7 @@ function createRenderer(
   const rangeTextures = [nodeZoom, edgeZoom, nodeTime, edgeTime, edgeEnds]
   let endsUsed = false
   let zoomUsed = false
+  let boxesSeen = false
   let timeUsed = false
   const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor, nodeBox]
   const images = new ImageAtlas(gl, invalidate, caps.maxArrayLayers)
@@ -291,7 +293,7 @@ function createRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
   }
 
-  const frameBlock = new Float32Array(76)
+  const frameBlock = new Float32Array(80)
   const frameWords = new Uint32Array(frameBlock.buffer)
   const frameBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
@@ -785,8 +787,11 @@ function createRenderer(
   function packNode(nodes: NodeColumns, index: number): void {
     for (const set of labelSets) set.layer.forgetNode(index)
     const at = index * 4
+    const shape = nodes.shape[index] ?? 0
+    const boxed = shape === boxShape
+    if (boxed) boxesSeen = true
     const flags =
-      (nodes.shape[index] ?? 0) |
+      (boxed ? boxFlag : shape) |
       ((nodes.screenUnits[index] ?? 0) << 2) |
       ((nodes.alive[index] ?? 0) << 3) |
       (Math.min(nodes.slot[index] ?? 0, maxLayerSlots) << 4)
@@ -1041,11 +1046,20 @@ function createRenderer(
     texture.data[index * 2 + 1] = Math.min(ranges.max[index] ?? farZoom, farZoom)
   }
 
+  function packNodeZoom(nodes: NodeColumns, index: number): void {
+    const data = nodeZoom.data
+    data[index * 4] = nodes.zoom.min[index] ?? 0
+    data[index * 4 + 1] = Math.min(nodes.zoom.max[index] ?? farZoom, farZoom)
+    const boxed = nodes.shape[index] === boxShape
+    data[index * 4 + 2] = boxed ? (nodes.width[index] ?? 0) : 0
+    data[index * 4 + 3] = boxed ? (nodes.corner[index] ?? 0) : 0
+  }
+
   function syncZoom(next: RenderInput): void {
     const { nodes, edges } = next.scene
     let full = next.full
     if (!zoomUsed) {
-      if (nodes.zoom.count === 0 && edges.zoom.count === 0) return
+      if (nodes.zoom.count === 0 && edges.zoom.count === 0 && !boxesSeen) return
       zoomUsed = true
       full = true
     }
@@ -1057,11 +1071,13 @@ function createRenderer(
       const all = texture.reserve(capacity) || full
       let first = all ? 0 : Number.POSITIVE_INFINITY
       let last = all ? capacity - 1 : -1
+      const pack = (index: number) =>
+        texture === nodeZoom ? packNodeZoom(nodes, index) : packZoom(texture, ranges, index)
       if (all) {
-        for (let index = 0; index < capacity; index++) packZoom(texture, ranges, index)
+        for (let index = 0; index < capacity; index++) pack(index)
       } else {
         for (const index of dirty.indices()) {
-          packZoom(texture, ranges, index)
+          pack(index)
           first = Math.min(first, index)
           last = Math.max(last, index)
         }
@@ -1780,6 +1796,7 @@ function createRenderer(
       frameBlock.set(rgba(theme.labelInk), 12)
       frameBlock.set(rgba(theme.labelMuted), 16)
       frameBlock.set(rgba(theme.labelHalo), 20)
+      frameBlock.set(rgba(theme.labelPaper), 76)
       lensColors.set(rgba(theme.lensFill), 0)
       lensColors.set(rgba(theme.lensRing), 4)
       lensColors.set(rgba(theme.lensShadow), 8)

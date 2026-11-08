@@ -225,6 +225,24 @@ describe('layers', () => {
     expect(layout.options).toEqual({ direction: 'right', nodeSpacing: 12 })
   })
 
+  it('spaces wide boxes by their width along a layer and by their height across', async () => {
+    const count = 4
+    const graph = {
+      ...graphOf({ count, edges: [0, 1, 0, 2, 0, 3] }),
+      radius: new Float32Array(count).fill(Math.hypot(50, 10)),
+      extents: Float32Array.from({ length: count * 2 }, (_, at) => (at % 2 === 0 ? 50 : 10)),
+    }
+    const down = await run(graph, { nodeSpacing: 10, layerSpacing: 20 })
+    const xs = [1, 2, 3].map((index) => point(down, index)[0]).sort((a, b) => a - b)
+    expect((xs[1] ?? 0) - (xs[0] ?? 0)).toBeCloseTo(110, 3)
+    expect((xs[2] ?? 0) - (xs[1] ?? 0)).toBeCloseTo(110, 3)
+    expect(point(down, 1)[1] - point(down, 0)[1]).toBeCloseTo(40, 3)
+    const right = await run(graph, { direction: 'right', nodeSpacing: 10, layerSpacing: 20 })
+    const ys = [1, 2, 3].map((index) => point(right, index)[1]).sort((a, b) => a - b)
+    expect((ys[1] ?? 0) - (ys[0] ?? 0)).toBeCloseTo(30, 3)
+    expect(point(right, 1)[0] - point(right, 0)[0]).toBeCloseTo(120, 3)
+  })
+
   it('types its options', () => {
     layers({ direction: 'left', root: ['a', 2], layerSpacing: 40, nodeSpacing: 8 })
     layers({ root: 'a' })

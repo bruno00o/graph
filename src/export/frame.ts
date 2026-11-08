@@ -4,6 +4,7 @@ import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
 import type { LayerFilter } from '../core/mark-layers'
+import { halfWidthOf, isBox, loopShift, nodeUnit } from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import type { HideFilter, StateBuffers } from '../core/state-buffers'
 import type { TimeFilter } from '../core/time-range'
@@ -63,6 +64,9 @@ export function screenExtent(
   zoom: number,
   axis: 0 | 1,
 ): number {
+  if (axis === 0 && isBox(nodes, index)) {
+    return Math.max(halfWidthOf(nodes, index) * nodeUnit(nodes, index, zoom), 1.25)
+  }
   if (!boxes || nodes.shape[index] !== containerShape) return screenRadius(nodes, index, zoom)
   return Math.max((boxes[index * 4 + axis] ?? 0) * zoom, 1.25)
 }
@@ -137,7 +141,7 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
       (edges.arrow[index] ?? 0) !== 0 ? Math.max(width * 1.6, 3) : 0,
     )
     const curve = loopCurve(
-      positions.x(node) * zoom,
+      positions.x(node) * zoom + loopShift(nodes, node, zoom),
       positions.y(node) * zoom,
       loopReach(radius, edges.bend[index] ?? 0, loopMinimum),
     )

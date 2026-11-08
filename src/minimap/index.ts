@@ -212,6 +212,7 @@ function nodesOf(internals: GraphInternals, copy: boolean, sight: Sight): Raster
     alive: filtered(nodes, sight) ? shownNodes(internals, sight) : take(nodes.alive),
     shape: take(nodes.shape),
     size: take(nodes.size),
+    width: take(nodes.width),
     fill: take(nodes.fill),
     stroke: take(nodes.stroke),
     strokeWidth: take(nodes.strokeWidth),

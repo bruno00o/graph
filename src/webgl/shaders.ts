@@ -1,10 +1,13 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
 import { arcThreshold } from '../core/geo-arc'
+import { boxBadgeInset } from '../core/node-shape'
 import { leastFade } from '../core/time-range'
 import { zoomFade } from '../core/zoom-range'
 import { bridgeData, bridgeFragment, straightBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
+
+export { nodeLabelSize } from '../core/label-width'
 
 export const badgeLimit = 18
 export const badgeMin = 10
@@ -14,7 +17,6 @@ export const badgeRing = 1.5
 export const platePadX = 0.45
 export const plateRadius = 0.25
 export const plateDrop = 6
-export const nodeLabelSize = 12
 export const labelGap = 3
 export const edgeLabelSize = 11
 export const edgeDescent = 3.6
@@ -24,6 +26,9 @@ export const endLabelGap = 4
 export const endWidthUnit = 64
 export const endSplitFlag: number = 1 << 20
 export const endLabelWidthUnit = 16
+export const boxFlag = 4096
+export const mutedPaper = 0.75
+export const insideGlyph = 128
 
 export const header: string = `#version 300 es
 precision highp float;
@@ -57,6 +62,7 @@ layout(std140) uniform Frame {
   vec4 globeMore;
   uvec4 hiddenNodes;
   uvec4 hiddenEdges;
+  vec4 labelPaper;
 };
 layout(std140) uniform States {
   vec4 stateNumbers[128];
@@ -177,7 +183,7 @@ float timeShown(vec4 span) {
   return timeBefore(ws, e) || (timeSame(s, e) && timeSame(e, ws)) ? 1.0 : 0.0;
 }
 float nodeShown(ivec2 t) {
-  if (anyHidden(hiddenNodes) && slotHidden(hiddenNodes, uint(texelFetch(nodeStyle, t, 0).w + 0.5) >> 4u)) return 0.0;
+  if (anyHidden(hiddenNodes) && slotHidden(hiddenNodes, (uint(texelFetch(nodeStyle, t, 0).w + 0.5) >> 4u) & 255u)) return 0.0;
   if ((stateRaise.z | stateOthers.z) != 0u) {
     uint mask = texelFetch(nodeState, t, 0).r;
     if ((mask & stateRaise.z) != 0u || (~mask & stateOthers.z) != 0u) return 0.0;
@@ -190,12 +196,48 @@ float nodeDiameter(vec4 style, float scale) {
   return (flags & 4u) != 0u ? style.x : style.x * scale;
 }
 float nodeRadius(vec4 style, float scale) { return max(nodeDiameter(style, scale) * 0.5, 1.25); }
+bool boxStyle(vec4 style) { return (uint(style.w + 0.5) & ${boxFlag}u) != 0u; }
+vec4 nodeOutline(ivec2 t, vec4 style, float scale) {
+  float radius = nodeRadius(style, scale);
+  if (!boxStyle(style)) return vec4(radius, radius, radius, 0.0);
+  vec2 box = texelFetch(nodeZoom, t, 0).zw;
+  float unit = (uint(style.w + 0.5) & 4u) != 0u ? 1.0 : scale;
+  float wide = max(box.x * 0.5 * unit, 1.25);
+  return vec4(wide, radius, min(box.y * unit, min(wide, radius)), 1.0);
+}
+float outlineReach(vec4 outline, vec2 dir) {
+  if (outline.w < 0.5) return outline.x;
+  vec2 d = abs(dir);
+  float t = min(d.x > 1e-6 ? outline.x / d.x : 1e30, d.y > 1e-6 ? outline.y / d.y : 1e30);
+  if (t > 1e29) return outline.y;
+  vec2 inner = outline.xy - outline.z;
+  if (d.x * t > inner.x && d.y * t > inner.y) {
+    float b = dot(d, inner);
+    t = b + sqrt(max(b * b - dot(inner, inner) + outline.z * outline.z, 0.0));
+  }
+  return t;
+}
+float towardReach(vec4 outline, vec2 delta) {
+  float span = length(delta);
+  return outline.w < 0.5 || span < 1e-6 ? outline.y : outlineReach(outline, delta / span);
+}
+float outlineDistance(vec2 p, vec4 outline) {
+  if (outline.w < 0.5) return length(p) - outline.x;
+  vec2 q = abs(p) - outline.xy + outline.z;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - outline.z;
+}
+vec2 loopAnchor(vec4 outline) { return vec2(outline.w > 0.5 ? max(outline.x - outline.y, 0.0) : 0.0, 0.0); }
 float badgeHeight(vec4 style, float scale) { return min(nodeDiameter(style, scale) * 0.55, ${badgeLimit.toFixed(1)}); }
-vec2 badgeCenter(vec2 xy, vec4 style, uint corner) {
+vec2 badgeCenter(ivec2 t, vec2 xy, vec4 style, uint corner) {
   uint shape = uint(style.w + 0.5) & 3u;
-  float reach = shape == 0u ? 0.70710678 : shape == 1u ? 0.86 : 0.6;
   vec2 side = vec2((corner & 1u) != 0u ? 1.0 : -1.0, (corner & 2u) != 0u ? 1.0 : -1.0);
-  return toScreen(xy) + side * reach * nodeRadius(style, scaleAt(xy));
+  float scale = scaleAt(xy);
+  if (boxStyle(style)) {
+    vec4 outline = nodeOutline(t, style, scale);
+    return toScreen(xy) + side * (outline.xy - outline.z * ${boxBadgeInset.toFixed(6)});
+  }
+  float reach = shape == 0u ? 0.70710678 : shape == 1u ? 0.86 : 0.6;
+  return toScreen(xy) + side * reach * nodeRadius(style, scale);
 }
 `
 
@@ -400,10 +442,10 @@ vec2 cubicTangent(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
   float u = 1.0 - t;
   return 3.0 * u * u * (b - a) + 6.0 * u * t * (c - b) + 3.0 * t * t * (d - c);
 }
-float crossing(vec2 a, vec2 b, vec2 c, vec2 d, vec2 point, float radius, float lo, float hi, bool rising) {
+float crossing(vec2 a, vec2 b, vec2 c, vec2 d, vec2 point, vec4 outline, float lo, float hi, bool rising) {
   for (int i = 0; i < 14; i++) {
     float mid = (lo + hi) * 0.5;
-    bool inside = distance(cubicAt(a, b, c, d, mid), point) < radius;
+    bool inside = outlineDistance(cubicAt(a, b, c, d, mid) - point, outline) < 0.0;
     if (inside == rising) lo = mid; else hi = mid;
   }
   return (lo + hi) * 0.5;
@@ -452,12 +494,18 @@ void main() {
   float scale = scaleAt(xy);
   float radius = nodeRadius(style, scale);
   vec2 extent = vec2(radius);
+  bool boxed = !container && boxStyle(style);
   vBox = vec3(0.0);
   if (container) {
     vec4 box = texelFetch(nodeBox, t, 0);
     extent = max(box.xy * scale, vec2(1.25));
     radius = min(extent.x, extent.y);
     vBox = vec3(extent, min(box.z * scale, radius));
+  } else if (boxed) {
+    vec4 outline = nodeOutline(t, style, scale);
+    extent = outline.xy;
+    radius = min(extent.x, extent.y);
+    vBox = outline.xyz;
   }
   float halo = look.halo > 0.5 ? haloWidth : 0.0;
   float outline = max(look.outlineWidth, 0.0);
@@ -471,12 +519,12 @@ void main() {
     return;
   }
   vLocal = corner * reach;
-  vRadius = radius;
+  vRadius = boxed ? extent.y : radius;
   vStrokeWidth = min(look.strokeWidth, radius * 0.5);
   vHaloWidth = halo;
   vOutlineWidth = outline;
   vOutline = paletteColor(look.outline);
-  vShape = flags & 3u;
+  vShape = boxed ? 3u : flags & 3u;
   vFill = paletteColor(look.fill);
   vStroke = paletteColor(look.stroke);
   vOpacity = look.opacity;
@@ -620,8 +668,8 @@ void main() {
   float len = length(delta);
   vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
   vec2 normal = vec2(-dir.y, dir.x);
-  float start = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a0));
-  float end = len - nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
+  float start = outlineReach(nodeOutline(s, texelFetch(nodeStyle, s, 0), scaleAt(a0)), dir);
+  float end = len - outlineReach(nodeOutline(e, texelFetch(nodeStyle, e, 0), scaleAt(d0)), dir);
   float visible = end - start;
   uint arrow = (packed >> 2u) & 3u;
   float startHead = (arrow & 1u) != 0u && visible > line.width * 8.0 ? max(line.width * 4.0, 6.0) : 0.0;
@@ -735,11 +783,16 @@ void main() {
   }
   vec2 a = globe ? sphereScreen(pa, flatScreen(a0)) : flatScreen(a0);
   vec2 d = globe ? sphereScreen(pd, flatScreen(d0)) : flatScreen(d0);
-  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a0));
-  float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
+  vec4 sourceOutline = nodeOutline(s, texelFetch(nodeStyle, s, 0), scaleAt(a0));
+  vec4 targetOutline = nodeOutline(e, texelFetch(nodeStyle, e, 0), scaleAt(d0));
+  float sourceRadius = sourceOutline.y;
+  vec2 sourceCenter = a;
+  vec2 targetCenter = d;
   vec2 b;
   vec2 c;
   if (loop) {
+    a += loopAnchor(sourceOutline);
+    d = a;
     float reach = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * style.z);
     float arm = reach / (0.75 * cos(${loopTurn.toFixed(4)}));
     vec2 u = vec2(0.70710678, -0.70710678);
@@ -766,16 +819,16 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  float t0 = crossing(a, b, c, d, a, sourceRadius, 0.0, 0.5, true);
-  float t1 = crossing(a, b, c, d, d, targetRadius, 0.5, 1.0, false);
+  float t0 = crossing(a, b, c, d, sourceCenter, sourceOutline, 0.0, 0.5, true);
+  float t1 = crossing(a, b, c, d, targetCenter, targetOutline, 0.5, 1.0, false);
   float visible = arcLength(a, b, c, d, t0, t1);
   uint arrow = (packed >> 2u) & 3u;
   float startHead = (arrow & 1u) != 0u && visible > line.width * 8.0 ? max(line.width * 4.0, 6.0) : 0.0;
   float endHead = (arrow & 2u) != 0u && visible > line.farWidth * 8.0 ? max(line.farWidth * 4.0, 6.0) : 0.0;
   vec2 first = cubicAt(a, b, c, d, t0);
   vec2 last = cubicAt(a, b, c, d, t1);
-  float ta = startHead > 0.0 ? crossing(a, b, c, d, first, startHead, t0, t1, true) : t0;
-  float tb = endHead > 0.0 ? crossing(a, b, c, d, last, endHead, t0, t1, false) : t1;
+  float ta = startHead > 0.0 ? crossing(a, b, c, d, first, vec4(startHead, startHead, 0.0, 0.0), t0, t1, true) : t0;
+  float tb = endHead > 0.0 ? crossing(a, b, c, d, last, vec4(endHead, endHead, 0.0, 0.0), t0, t1, false) : t1;
   bool dotted = line.dash == 2u || line.farDash == 2u;
   float body = (dotted ? max(width * 0.6, 1.0) : width * 0.5) + halo + margin;
   float head = max(body, arrowHalf + halo + margin);
@@ -935,7 +988,17 @@ flat out vec4 vInk;
 flat out float vHalo;
 flat out vec4 vPlate;
 flat out float vOpacity;
-vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor) {
+float linearChannel(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
+float luminanceOf(vec3 c) {
+  return 0.2126 * linearChannel(c.r) + 0.7152 * linearChannel(c.g) + 0.0722 * linearChannel(c.b);
+}
+float contrastOf(float a, float b) { return (max(a, b) + 0.05) / (min(a, b) + 0.05); }
+bool paperOnFill(vec4 fill) {
+  float below = luminanceOf(mix(labelPaper.rgb, fill.rgb, fill.a));
+  return contrastOf(below, luminanceOf(labelPaper.rgb)) > contrastOf(below, luminanceOf(labelInk.rgb));
+}
+vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor, uint inside) {
+  bool paper = inside == 2u;
   float scale = pixels / atlasFontSize;
   if (kind == 3u) {
     vec2 extent = glyphRect.zw * scale;
@@ -949,8 +1012,9 @@ vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor) {
   vScale = scale;
   vInk = kind == 0u && stateColor != none ? paletteColor(stateColor)
     : glyphColor != none ? paletteColor(glyphColor)
+    : paper ? vec4(labelPaper.rgb, labelPaper.a * (kind == 0u ? 1.0 : ${mutedPaper.toFixed(2)}))
     : kind == 0u ? labelInk : labelMuted;
-  vHalo = (glyphKind & 4u) != 0u ? 0.0 : 1.0;
+  vHalo = (glyphKind & 4u) != 0u || inside != 0u ? 0.0 : 1.0;
   return (glyphRect.xy + corner * glyphRect.zw) * scale - vec2(0.0, lift);
 }
 vec2 upright(vec2 dir) {
@@ -998,7 +1062,8 @@ vec4 endSpot(bool first, float reach, vec2 a0, vec2 d0, vec2 a, vec2 d, float be
       b = a + (control - a) * (2.0 / 3.0);
       c = d + (control - d) * (2.0 / 3.0);
     }
-    float at = first ? crossing(a, b, c, d, a, reach, 0.0, 0.5, true) : crossing(a, b, c, d, d, reach, 0.5, 1.0, false);
+    vec4 circle = vec4(reach, reach, 0.0, 0.0);
+    float at = first ? crossing(a, b, c, d, a, circle, 0.0, 0.5, true) : crossing(a, b, c, d, d, circle, 0.5, 1.0, false);
     vec2 tangent = cubicTangent(a, b, c, d, at);
     return vec4(cubicAt(a, b, c, d, at), tangent / max(length(tangent), 1e-6));
   }
@@ -1032,7 +1097,10 @@ void edgeGlyph(uint kind) {
   vec2 a0 = texelFetch(nodePosition, s, 0).xy;
   vec2 d0 = texelFetch(nodePosition, e, 0).xy;
   vec2 a = toScreen(a0);
-  float sourceRadius = nodeRadius(texelFetch(nodeStyle, s, 0), scaleAt(a0));
+  vec4 sourceOutline = nodeOutline(s, texelFetch(nodeStyle, s, 0), scaleAt(a0));
+  vec4 targetOutline = nodeOutline(e, texelFetch(nodeStyle, e, 0), scaleAt(d0));
+  vec2 chord = toScreen(d0) - a;
+  float sourceRadius = sourceOutline.y;
   vec2 spot;
   vec2 axis;
   uvec4 path = pathOf(glyphNode);
@@ -1052,12 +1120,13 @@ void edgeGlyph(uint kind) {
       gl_Position = hidden;
       return;
     }
-    float radius = end == 1u ? sourceRadius : nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
+    float radius = towardReach(end == 1u ? sourceOutline : targetOutline, chord);
     float width = max(look.strokeWidth, 0.5);
     bool headed = (((topology.w >> 2u) & 3u) & end) != 0u;
     float extent = float((glyphKind >> 8u) & 4095u) * pixels / atlasFontSize;
     float reach = radius + ${endLabelGap.toFixed(1)} + (headed ? max(width * 4.0, 6.0) : 0.0) + extent;
-    vec4 found = endSpot(end == 1u, reach, a0, d0, a, toScreen(d0), style.z, path, route, loop, geodesicOf(topology.w), sourceRadius);
+    vec2 origin = loop ? a + loopAnchor(sourceOutline) : a;
+    vec4 found = endSpot(end == 1u, reach, a0, d0, origin, loop ? origin : toScreen(d0), style.z, path, route, loop, geodesicOf(topology.w), sourceRadius);
     spot = found.xy;
     axis = upright(found.zw);
   } else if (route == 1) {
@@ -1083,20 +1152,20 @@ void edgeGlyph(uint kind) {
     axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
   } else if (loop) {
     float reach = sourceRadius + max(sourceRadius * 1.5, ${loopMinimum.toFixed(1)}) * (1.0 + ${loopGrowth.toFixed(2)} * style.z);
-    spot = a + reach * vec2(0.70710678, -0.70710678);
+    spot = a + loopAnchor(sourceOutline) + reach * vec2(0.70710678, -0.70710678);
     axis = vec2(0.70710678, 0.70710678);
   } else {
     vec2 d = toScreen(d0);
-    float targetRadius = nodeRadius(texelFetch(nodeStyle, e, 0), scaleAt(d0));
     vec2 delta = d - a;
     float len = length(delta);
     vec2 dir = len > 0.0 ? delta / len : vec2(1.0, 0.0);
-    spot = (a + d) * 0.5 + dir * ((sourceRadius - targetRadius) * 0.5) + vec2(-dir.y, dir.x) * (style.z * len);
+    float shift = outlineReach(sourceOutline, dir) - outlineReach(targetOutline, dir);
+    spot = (a + d) * 0.5 + dir * (shift * 0.5) + vec2(-dir.y, dir.x) * (style.z * len);
     axis = dir.x < -${uprightSlack.toFixed(4)} || (abs(dir.x) <= ${uprightSlack.toFixed(4)} && dir.y < 0.0) ? -dir : dir;
   }
   vec2 across = vec2(-axis.y, axis.x);
   float lift = (glyphKind & 4u) != 0u ? 0.0 : max(look.strokeWidth, 0.5) * 0.5 + ${edgeLabelGap.toFixed(1)};
-  vec2 local = layoutGlyph(kind, pixels, lift, look.labelColor);
+  vec2 local = layoutGlyph(kind, pixels, lift, look.labelColor, 0u);
   gl_Position = toClip(spot + axis * local.x + across * local.y);
 }
 void main() {
@@ -1123,7 +1192,7 @@ void main() {
       return;
     }
     float font = height * ${badgeFont.toFixed(2)};
-    vec2 center = badgeCenter(xy, style, (glyphKind >> 2u) & 3u);
+    vec2 center = badgeCenter(t, xy, style, (glyphKind >> 2u) & 3u);
     vScale = font / atlasFontSize;
     vInk = paletteColor(glyphColor);
     vHalo = 0.0;
@@ -1144,14 +1213,14 @@ void main() {
     : placement == 3u ? vec2(-1.0, 0.0)
     : vec2(0.0);
   float scale = scaleAt(xy);
-  float edge = nodeRadius(style, scale);
-  if ((flags & 3u) == 3u) {
-    vec2 extent = texelFetch(nodeBox, t, 0).xy * scale;
-    edge = abs(dir.x) > 0.5 ? extent.x : extent.y;
-  }
+  vec2 extent = nodeOutline(t, style, scale).xy;
+  if ((flags & 3u) == 3u) extent = texelFetch(nodeBox, t, 0).xy * scale;
+  float edge = abs(dir.x) > 0.5 ? extent.x : extent.y;
   float reach = placement == 4u ? 0.0 : edge + max(look.outlineWidth, 0.0) + ${labelGap.toFixed(1)};
   vec2 anchor = toScreen(xy) + dir * reach;
-  gl_Position = toClip(anchor + layoutGlyph(kind, pixels, 0.0, look.labelColor));
+  bool inside = (glyphKind & ${insideGlyph}u) != 0u;
+  uint fill = !inside ? 0u : look.labelColor == none && paperOnFill(paletteColor(look.fill)) ? 2u : 1u;
+  gl_Position = toClip(anchor + layoutGlyph(kind, pixels, 0.0, look.labelColor, fill));
 }
 `
 
@@ -1218,7 +1287,7 @@ void main() {
   bool text = (badgeInfo & 4u) != 0u && height >= ${badgeTextMin.toFixed(1)};
   float font = height * ${badgeFont.toFixed(2)};
   float width = text ? max(height, badgeText * font / ${atlasFontSize.toFixed(1)} + height * 0.6) : height;
-  vec2 center = badgeCenter(xy, style, badgeInfo & 3u);
+  vec2 center = badgeCenter(t, xy, style, badgeInfo & 3u);
   vHalf = vec2(width, height) * 0.5;
   vLocal = corner * (vHalf + ${badgeRing.toFixed(1)} + 1.0);
   vFill = paletteColor(badgeFill);
