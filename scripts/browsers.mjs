@@ -200,6 +200,24 @@ function changedPixels(first, second) {
 
 class Failure extends Error {}
 
+const answerLimit = 60000
+
+async function becomes(page, check, argument) {
+  let timer
+  const hung = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Failure('page did not answer')), answerLimit)
+  })
+  try {
+    if (await Promise.race([page.evaluate(check, argument), hung])) return true
+  } finally {
+    clearTimeout(timer)
+  }
+  return page.waitForFunction(check, argument, { timeout: 10000, polling: 50 }).then(
+    () => true,
+    () => false,
+  )
+}
+
 async function drawnPixels(page) {
   const rect = await page.evaluate(() => {
     const canvas = window.__harness.canvas()
@@ -231,18 +249,12 @@ async function drawnPixels(page) {
 }
 
 async function wheelZooms(page) {
-  const zoomed = (before) =>
-    page
-      .waitForFunction(
-        (zoom) =>
-          window.__harness.hinted || Math.abs(window.graph.store.get().view.zoom / zoom - 1) > 0.01,
-        before,
-        { timeout: 10000, polling: 50 },
-      )
-      .then(
-        () => page.evaluate((zoom) => window.graph.store.get().view.zoom !== zoom, before),
-        () => false,
-      )
+  const zoomed = async (before) => {
+    const moved = (zoom) =>
+      window.__harness.hinted || Math.abs(window.graph.store.get().view.zoom / zoom - 1) > 0.01
+    if (!(await becomes(page, moved, before))) return false
+    return page.evaluate((zoom) => window.graph.store.get().view.zoom !== zoom, before)
+  }
   await page.evaluate(() => {
     window.__harness.hinted = false
     window.graph.on('zoomhint', () => {
@@ -319,14 +331,9 @@ async function visit(browser, name, suite, entry) {
       point = next
       await page.mouse.move(point.x, point.y)
     }
-    await page
-      .waitForFunction((key) => window.graph.store.get().hovered?.key === key, node.key, {
-        timeout: 10000,
-        polling: 50,
-      })
-      .catch(() => {
-        throw new Failure('hover did not pick the node')
-      })
+    if (!(await becomes(page, (key) => window.graph.store.get().hovered?.key === key, node.key))) {
+      throw new Failure('hover did not pick the node')
+    }
     if (expect.select !== false) {
       for (let attempt = 0; attempt < 4; attempt++) {
         await page.evaluate(() => window.__harness.frames(2))
@@ -336,15 +343,15 @@ async function visit(browser, name, suite, entry) {
         await page.mouse.move(point.x, point.y, { steps: 2 })
       }
       await page.mouse.click(point.x, point.y)
-      await page
-        .waitForFunction(
+      if (
+        !(await becomes(
+          page,
           (key) => window.graph.store.get().selection.nodes.includes(key),
           node.key,
-          { timeout: 10000, polling: 50 },
-        )
-        .catch(() => {
-          throw new Failure('click did not select the node')
-        })
+        ))
+      ) {
+        throw new Failure('click did not select the node')
+      }
     }
     await wheelZooms(page)
     if (errors.length > 0) throw new Failure(`console: ${errors[0]}`)
