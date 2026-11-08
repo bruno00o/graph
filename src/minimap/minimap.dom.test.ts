@@ -138,6 +138,20 @@ describe('createMinimap', () => {
     expect(graph.store.state.view.zoom).toBeGreaterThan(zoom)
   })
 
+  it('falls back to the default size for a size that is not above 0', () => {
+    const graph = mount()
+    const minimap = createMinimap(graph, { width: 0, height: 0 })
+    expect(minimap.element.style.width).toBe('200px')
+    expect(minimap.element.style.height).toBe('150px')
+    minimap.update({ width: -4, height: Number.NaN })
+    expect(minimap.element.style.width).toBe('200px')
+    expect(minimap.element.style.height).toBe('150px')
+    minimap.update({ width: 120, height: 90 })
+    minimap.update({ width: 0, height: 0 })
+    expect(minimap.element.style.width).toBe('200px')
+    expect(minimap.element.style.height).toBe('150px')
+  })
+
   it('leaves the element to the application without a corner', () => {
     const graph = mount()
     const minimap = createMinimap(graph, { corner: null })

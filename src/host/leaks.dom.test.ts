@@ -66,6 +66,7 @@ function definition() {
 interface Census {
   windowListeners: number
   documentListeners: number
+  fontListeners: number
   mediaListeners: number
   resizeTargets: number
   intersectionTargets: number
@@ -77,6 +78,7 @@ interface Census {
 const census: Census = {
   windowListeners: 0,
   documentListeners: 0,
+  fontListeners: 0,
   mediaListeners: 0,
   resizeTargets: 0,
   intersectionTargets: 0,
@@ -90,7 +92,10 @@ let frameId = 0
 const timers = new Set<unknown>()
 const restore: (() => void)[] = []
 
-function track(target: EventTarget, key: 'windowListeners' | 'documentListeners'): void {
+function track(
+  target: EventTarget,
+  key: 'windowListeners' | 'documentListeners' | 'fontListeners',
+): void {
   const add = target.addEventListener.bind(target)
   const remove = target.removeEventListener.bind(target)
   const seen = new Set<string>()
@@ -226,6 +231,9 @@ function install(): void {
   window.matchMedia = globalThis.matchMedia
   track(window, 'windowListeners')
   track(document, 'documentListeners')
+  const fonts = new EventTarget()
+  Object.defineProperty(document, 'fonts', { value: fonts, configurable: true })
+  track(fonts, 'fontListeners')
   vi.stubGlobal('Worker', FakeWorker)
   vi.stubGlobal('OffscreenCanvas', class {})
   vi.stubGlobal('ImageBitmapRenderingContext', class {})
@@ -289,6 +297,7 @@ afterEach(() => {
   for (const handle of timers) clearTimeout(handle as number)
   timers.clear()
   frames.clear()
+  Reflect.deleteProperty(document, 'fonts')
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   document.body.innerHTML = ''
@@ -302,6 +311,7 @@ describe('global resources', () => {
     const live = snapshot()
     expect(live.windowListeners).toBeGreaterThan(baseline.windowListeners)
     expect(live.documentListeners).toBeGreaterThan(baseline.documentListeners)
+    expect(live.fontListeners).toBeGreaterThan(baseline.fontListeners)
     expect(live.mediaListeners).toBeGreaterThan(baseline.mediaListeners)
     expect(live.resizeTargets).toBeGreaterThan(baseline.resizeTargets)
     expect(live.intersectionTargets).toBeGreaterThan(baseline.intersectionTargets)
