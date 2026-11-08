@@ -22,6 +22,23 @@ jobs:
       - run: pnpm verify
       - run: pnpm docs:build
 
+  pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm docs:build
+        env:
+          DOCS_BASE: /graph/
+      - run: pnpm docs:check-pages --base /graph/
+
   browsers:
     runs-on: ubuntu-latest
     timeout-minutes: 30
