@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.1](https://github.com/bruno00o/graph/compare/0.17.0...0.17.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* draw the groups of nodes placed on a map in screen units so they can be dragged ([#115](https://github.com/bruno00o/graph/issues/115)) ([7532801](https://github.com/bruno00o/graph/commit/753280115615ce679be3b1d022056e0aca659986))
+* let light tokens nest inside a dark page and accept explicit item types on marks ([#113](https://github.com/bruno00o/graph/issues/113)) ([b32bb17](https://github.com/bruno00o/graph/commit/b32bb1753f4db0a9f6cf5957bb7b834b17b500ae))
+
 ## [0.17.0](https://github.com/bruno00o/graph/compare/0.16.0...0.17.0) (2026-11-08)
 
 
