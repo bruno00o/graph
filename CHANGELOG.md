@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.19.0](https://github.com/bruno00o/graph/compare/0.18.0...0.19.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* reject or repair invalid numbers in hull, grid, export and edge limits ([#121](https://github.com/bruno00o/graph/issues/121))
+
+### Features
+
+* keep layered layouts compact when long edges cross many layers ([#122](https://github.com/bruno00o/graph/issues/122)) ([5630d36](https://github.com/bruno00o/graph/commit/5630d3660ee992b1e79040bdc90894356836c880))
+
+
+### Bug Fixes
+
+* reject or repair invalid numbers in hull, grid, export and edge limits ([#121](https://github.com/bruno00o/graph/issues/121)) ([f21b2a1](https://github.com/bruno00o/graph/commit/f21b2a123e11622ef218b9bc103d7e7828cc3060))
+
 ## [0.18.0](https://github.com/bruno00o/graph/compare/0.17.1...0.18.0) (2026-11-08)
 
 
