@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 
 export const root = resolve(import.meta.dirname, '..')
 export const docsExamplesDirectory = join(root, 'docs/src/examples')
+export const docsShowcaseDirectory = join(root, 'docs/src/showcase')
 export const docsSite = join(root, 'docs/dist/client')
 
 const types = {
@@ -82,6 +83,24 @@ export async function docsExamples() {
       const url = pathToFileURL(join(docsExamplesDirectory, slug, 'meta.ts'))
       const { default: meta } = await import(url.href)
       return { slug, meta, folder: join(docsExamplesDirectory, slug) }
+    }),
+  )
+}
+
+export async function docsShowcases() {
+  const slugs = readdirSync(docsShowcaseDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((slug) => existsSync(join(docsShowcaseDirectory, slug, 'meta.ts')))
+    .sort()
+  const wrong = slugs.filter((slug) => !existsSync(join(docsShowcaseDirectory, slug, 'main.tsx')))
+  if (wrong.length > 0)
+    throw new Error(`Invalid showcase apps, missing main.tsx: ${wrong.join(', ')}`)
+  return Promise.all(
+    slugs.map(async (slug) => {
+      const url = pathToFileURL(join(docsShowcaseDirectory, slug, 'meta.ts'))
+      const { default: meta } = await import(url.href)
+      return { slug, meta, folder: join(docsShowcaseDirectory, slug) }
     }),
   )
 }

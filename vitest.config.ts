@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
@@ -23,6 +24,22 @@ export default defineConfig({
       },
       {
         extends: true,
+        resolve: {
+          alias: [
+            {
+              find: /^@bruno00o\/graph\/layouts\/force$/,
+              replacement: resolve(import.meta.dirname, 'src/layouts/force/index.ts'),
+            },
+            {
+              find: /^@bruno00o\/graph\/layouts$/,
+              replacement: resolve(import.meta.dirname, 'src/layouts/index.ts'),
+            },
+            {
+              find: /^@bruno00o\/graph$/,
+              replacement: resolve(import.meta.dirname, 'src/index.ts'),
+            },
+          ],
+        },
         test: {
           name: 'docs',
           include: ['docs/src/**/*.test.ts'],
