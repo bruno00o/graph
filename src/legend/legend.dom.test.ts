@@ -171,6 +171,63 @@ describe('createLegend', () => {
     graph.destroy()
   })
 
+  it('keeps the layer buttons in step when focus moves while the legend rebuilds', () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [
+            edges([links[0] as Link], { source: 'from', target: 'to', layer: 'one' }),
+            edges([{ id: 'bc', from: 'b', to: 'c', group: 'south' }], {
+              source: 'from',
+              target: 'to',
+              layer: 'two',
+              dash: 'dashed',
+            }),
+            nodes(items, { layer: 'one' }),
+          ],
+        }),
+        ariaLabel: 'graph',
+      },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const legend = createLegend(graph)
+    const view = mountLegend(legend, { sections: ['layers'] })
+    document.body.append(view.element)
+    const pressed = () =>
+      [...view.element.querySelectorAll('button')].map((button) =>
+        button.getAttribute('aria-pressed'),
+      )
+    const focus = HTMLElement.prototype.focus
+    vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement) {
+      this.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+      focus.call(this)
+      this.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    })
+    const click = (name: string) => {
+      const button = view.element.querySelector(`[data-item="l:${name}"]`) as HTMLButtonElement
+      button.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))
+      button.focus()
+      button.click()
+      dom.flushFrames()
+      vi.advanceTimersByTime(500)
+      dom.flushFrames()
+    }
+    for (let round = 0; round < 3; round++) {
+      click('one')
+      expect(graph.layers.hidden()).toEqual(['one'])
+      expect(pressed()).toEqual(['false', 'true'])
+      click('one')
+      expect(graph.layers.hidden()).toEqual([])
+      expect(pressed()).toEqual(['true', 'true'])
+    }
+    vi.restoreAllMocks()
+    graph.destroy()
+  })
+
   it('keeps the options left out of update and resets those set to undefined', () => {
     const graph = mount()
     const legend = createLegend(graph, { highlight: 'match', hidden: 'faded' })
