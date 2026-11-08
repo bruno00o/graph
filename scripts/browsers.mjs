@@ -8,6 +8,7 @@ import {
   browserArgs,
   browserEnv,
   docsExamples,
+  docsShowcases,
   docsSite,
   install,
   isolate,
@@ -52,6 +53,7 @@ function examplePages(directory) {
 }
 
 const docs = await docsExamples()
+const showcases = await docsShowcases()
 
 const suites = [
   {
@@ -74,6 +76,12 @@ const suites = [
     directory: docsSite,
     build: ['pnpm', ['docs:build']],
     pages: () => docs.map(({ slug }) => ({ name: slug, path: `/examples/${slug}` })),
+  },
+  {
+    name: 'showcase',
+    directory: docsSite,
+    build: ['pnpm', ['docs:build']],
+    pages: () => showcases.map(({ slug }) => ({ name: slug, path: `/showcase/${slug}` })),
   },
 ]
 

@@ -15,6 +15,8 @@ import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as ExamplesIndexRouteImport } from './routes/examples/index'
 import { Route as ExamplesSlugRouteImport } from './routes/examples/$slug'
+import { Route as ShowcaseIndexRouteImport } from './routes/showcase/index'
+import { Route as ShowcaseSlugRouteImport } from './routes/showcase/$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +48,16 @@ const ExamplesSlugRoute = ExamplesSlugRouteImport.update({
   path: '/examples/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShowcaseIndexRoute = ShowcaseIndexRouteImport.update({
+  id: '/showcase/',
+  path: '/showcase/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShowcaseSlugRoute = ShowcaseSlugRouteImport.update({
+  id: '/showcase/$slug',
+  path: '/showcase/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,7 +65,9 @@ export interface FileRoutesByFullPath {
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/examples/$slug': typeof ExamplesSlugRoute
+  '/showcase/$slug': typeof ShowcaseSlugRoute
   '/examples/': typeof ExamplesIndexRoute
+  '/showcase/': typeof ShowcaseIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -61,7 +75,9 @@ export interface FileRoutesByTo {
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/examples/$slug': typeof ExamplesSlugRoute
+  '/showcase/$slug': typeof ShowcaseSlugRoute
   '/examples': typeof ExamplesIndexRoute
+  '/showcase': typeof ShowcaseIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -70,7 +86,9 @@ export interface FileRoutesById {
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
   '/examples/$slug': typeof ExamplesSlugRoute
+  '/showcase/$slug': typeof ShowcaseSlugRoute
   '/examples/': typeof ExamplesIndexRoute
+  '/showcase/': typeof ShowcaseIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -80,7 +98,9 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/docs/$'
     | '/examples/$slug'
+    | '/showcase/$slug'
     | '/examples/'
+    | '/showcase/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -88,7 +108,9 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/docs/$'
     | '/examples/$slug'
+    | '/showcase/$slug'
     | '/examples'
+    | '/showcase'
   id:
     | '__root__'
     | '/'
@@ -96,7 +118,9 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/docs/$'
     | '/examples/$slug'
+    | '/showcase/$slug'
     | '/examples/'
+    | '/showcase/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -105,7 +129,9 @@ export interface RootRouteChildren {
   ApiSearchRoute: typeof ApiSearchRoute
   DocsSplatRoute: typeof DocsSplatRoute
   ExamplesSlugRoute: typeof ExamplesSlugRoute
+  ShowcaseSlugRoute: typeof ShowcaseSlugRoute
   ExamplesIndexRoute: typeof ExamplesIndexRoute
+  ShowcaseIndexRoute: typeof ShowcaseIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,6 +178,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExamplesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/showcase/': {
+      id: '/showcase/'
+      path: '/showcase'
+      fullPath: '/showcase/'
+      preLoaderRoute: typeof ShowcaseIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/showcase/$slug': {
+      id: '/showcase/$slug'
+      path: '/showcase/$slug'
+      fullPath: '/showcase/$slug'
+      preLoaderRoute: typeof ShowcaseSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -161,7 +201,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchRoute: ApiSearchRoute,
   DocsSplatRoute: DocsSplatRoute,
   ExamplesSlugRoute: ExamplesSlugRoute,
+  ShowcaseSlugRoute: ShowcaseSlugRoute,
   ExamplesIndexRoute: ExamplesIndexRoute,
+  ShowcaseIndexRoute: ShowcaseIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
