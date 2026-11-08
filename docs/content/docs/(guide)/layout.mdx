@@ -43,8 +43,9 @@ layers({ direction: 'right', root: 'start', layerSpacing: 80, nodeSpacing: 16 })
 - **Layers.** Each node goes on a layer so that its edges point to later layers and stay as short as they can: a node that only feeds deeper ones moves down next to them. `root` puts nodes on the first layer, even when edges lead into them.
 - **Cycles.** When edges form a cycle, as few of them as possible are turned around to break it. They are still drawn, pointing back.
 - **Order.** The nodes of each layer are sorted to cross as few edges as possible, and each sits close to its neighbors in the layers next to it. Edges are drawn straight. An edge that skips layers holds a place in each layer it crosses, so other nodes tend to keep clear of it.
+- **Width.** Nodes are drawn toward their neighbors and edges that skip layers run almost straight, so a dense graph whose edges cross many layers stays about as wide as its busiest layer, with short edges. Graphs with unfolded groups keep their nodes aligned with their neighbors instead, so that each container stays a box.
 - **Spacing.** `layerSpacing` is the gap between two layers and `nodeSpacing` the gap between two nodes of a layer, both between node borders: large nodes push their neighbors apart. A [box](/docs/marks#boxes) counts with its width along its layer and its height across, so wide boxes stay close from layer to layer when the direction is down or up. Node labels are left out: give long labels room with a larger gap.
-- **Components.** Separate parts of the graph and lone nodes sit side by side, the largest first, wrapped in rows.
+- **Components.** Separate parts of the graph and lone nodes sit side by side, the largest first, wrapped in rows that keep the whole drawing close to a square.
 - **Groups.** Unfolded groups share the layers of the rest of the graph, and each one stays a single box on every layer it spans. See [groups in layouts](#groups).
 
 Examples: [layer direction and spacing](/examples/layer-spacing), and [layers from a root, with cycles](/examples/layer-root).
