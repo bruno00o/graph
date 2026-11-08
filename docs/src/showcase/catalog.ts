@@ -27,6 +27,7 @@ const metaKeys = new Set([
   'source',
 ])
 const sourceKeys = new Set(['name', 'url', 'license', 'licenseUrl', 'build'])
+const optionalSourceKeys = new Set(['note'])
 
 function folderOf(path: string): string {
   return path.split('/')[1] ?? ''
@@ -71,11 +72,19 @@ function checkMeta(slug: string, value: unknown): string[] {
   ) {
     report('"api" must list at least one page of /docs/api')
   }
-  if (!isRecord(source) || Object.keys(source).some((key) => !sourceKeys.has(key))) {
-    report('"source" must be { name, url, license, licenseUrl, build }')
+  if (
+    !isRecord(source) ||
+    Object.keys(source).some((key) => !sourceKeys.has(key) && !optionalSourceKeys.has(key))
+  ) {
+    report('"source" must be { name, url, license, licenseUrl, build, note? }')
   } else {
     for (const key of sourceKeys) {
       if (!isText(source[key])) report(`"source.${key}" must be a non-empty string`)
+    }
+    for (const key of optionalSourceKeys) {
+      if (key in source && !isText(source[key])) {
+        report(`"source.${key}" must be a non-empty string`)
+      }
     }
   }
   return problems

@@ -105,6 +105,7 @@ function ShowcaseView({ showcase }: { readonly showcase: Showcase }): JSX.Elemen
           {messages.showcase.dataText(data.name, data.license)} <a href={data.url}>{data.name}</a>,{' '}
           <a href={data.licenseUrl}>{data.license}</a>.
         </p>
+        {data.note ? <p>{data.note}</p> : null}
         <p>
           {messages.showcase.dataBuild} <code>{data.build}</code>.{' '}
           <a href={`${import.meta.env.BASE_URL}showcase-data/${showcase.slug}/LICENSE`}>
