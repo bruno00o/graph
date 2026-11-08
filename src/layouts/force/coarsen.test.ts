@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coarsen, coarsenOnce } from './coarsen'
+import { adjacencyOf, coarsen, coarsenOnce, looseParts } from './coarsen'
 import type { ForceGraph } from './simulation'
 
 function grid(width: number, fixed: readonly number[] = []): ForceGraph {
@@ -31,6 +31,25 @@ function complete(count: number): ForceGraph {
     movable: new Uint8Array(count).fill(1),
     xy: Float32Array.from({ length: count * 2 }, (_, at) => at),
     radius: new Float32Array(count).fill(4),
+    edges: Uint32Array.from(edges),
+  }
+}
+
+function pieces(): ForceGraph {
+  const base = grid(5)
+  const capacity = 48
+  const edges = [...base.edges, 26, 27, 28, 29, 30, 25]
+  for (let at = 31; at < 47; at++) edges.push(at, at + 1)
+  const alive = new Uint8Array(capacity).fill(1)
+  alive[30] = 0
+  const movable = new Uint8Array(capacity).fill(1)
+  movable[28] = 0
+  return {
+    capacity,
+    alive,
+    movable,
+    xy: Float32Array.from({ length: capacity * 2 }, (_, at) => (at * 37) % 500),
+    radius: new Float32Array(capacity).fill(6),
     edges: Uint32Array.from(edges),
   }
 }
@@ -74,6 +93,22 @@ describe('coarsen', () => {
       else expect(level.up[at]).toBeGreaterThanOrEqual(0)
     }
     expect(sum(level.mass)).toBe(35)
+  })
+
+  it('never merges nodes that have no free neighbor', () => {
+    const graph = pieces()
+    const level = coarsenOnce(
+      graph,
+      new Float32Array(48).fill(1),
+      new Float32Array(48).fill(26),
+      null,
+      options,
+      1,
+    )
+    for (const index of [25, 29]) {
+      const cluster = level.up[index] ?? -1
+      expect(level.up.filter((value) => value === cluster).length).toBe(1)
+    }
   })
 
   it('keeps fixed nodes alone, fixed and in place', () => {
@@ -134,5 +169,19 @@ describe('coarsen', () => {
         options,
       ),
     ).toEqual([])
+  })
+})
+
+describe('looseParts', () => {
+  it('finds the small parts that hold no fixed node', () => {
+    const graph = pieces()
+    const parts = looseParts(graph, adjacencyOf(graph), 16)
+    expect(Array.from(parts?.nodes ?? [])).toEqual([25, 26, 27])
+    expect(Array.from(parts?.start ?? [])).toEqual([0, 1, 3])
+  })
+
+  it('finds nothing in a connected graph', () => {
+    const graph = grid(5)
+    expect(looseParts(graph, adjacencyOf(graph), 16)).toBeNull()
   })
 })

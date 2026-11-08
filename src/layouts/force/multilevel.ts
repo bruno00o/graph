@@ -1,5 +1,12 @@
 import type { LayoutListener, LayoutRun } from '../../types'
-import { type Adjacency, adjacencyOf, type CoarseLevel, coarsen } from './coarsen'
+import {
+  type Adjacency,
+  adjacencyOf,
+  type CoarseLevel,
+  coarsen,
+  type LooseParts,
+  looseParts,
+} from './coarsen'
 import type { GpuForce } from './gpu'
 import { type ForceGraph, type ForceSettings, ForceSimulation, type LevelRun } from './simulation'
 
@@ -16,6 +23,7 @@ export interface MultilevelPlan {
   readonly fullBelow: number
   readonly gpuFrom: number
   readonly keep: number
+  readonly loose: number
 }
 
 export const multilevelPlan: MultilevelPlan = {
@@ -29,6 +37,7 @@ export const multilevelPlan: MultilevelPlan = {
   fullBelow: 1000,
   gpuFrom: 4000,
   keep: 16,
+  loose: 16,
 }
 
 export class Ladder {
@@ -36,17 +45,20 @@ export class Ladder {
   readonly levels: readonly CoarseLevel[]
   readonly #settings: ForceSettings
   readonly #plan: MultilevelPlan
+  readonly #ring: Ring | null
 
   constructor(graph: ForceGraph, settings: ForceSettings, plan: MultilevelPlan = multilevelPlan) {
     this.graph = graph
     this.#settings = settings
     this.#plan = plan
-    this.levels = coarsen(graph, {
+    const loose = looseParts(graph, adjacencyOf(graph), plan.loose)
+    this.levels = coarsen(loose ? without(graph, loose) : graph, {
       coarsest: plan.coarsest,
       stall: plan.stall,
       edgeLength: settings.edgeLength,
       keep: plan.keep,
     })
+    this.#ring = loose && this.levels.length > 0 ? ringOf(graph, loose) : null
   }
 
   get top(): number {
@@ -93,6 +105,7 @@ export class Ladder {
     const graph = this.graphAt(level)
     const out = new Float32Array(graph.capacity * 2)
     this.#spread(level, xy, out, adjacencyOf(graph))
+    if (level < 0) this.#place(out)
     return out
   }
 
@@ -102,6 +115,53 @@ export class Ladder {
       const next = at === 0 ? target : new Float32Array(this.graphAt(at - 1).capacity * 2)
       this.#spread(at - 1, current, next, null)
       current = next
+    }
+    this.#place(target)
+  }
+
+  #place(out: Float32Array): void {
+    const ring = this.#ring
+    const level = this.levels[0]
+    if (!ring || !level) return
+    const { graph } = this
+    const { repulsion, gravity, edgeLength } = this.#settings
+    let cx = 0
+    let cy = 0
+    for (let i = 0; i < graph.capacity; i++) {
+      if ((level.up[i] ?? -1) < 0) continue
+      cx += out[i * 2] ?? 0
+      cy += out[i * 2 + 1] ?? 0
+    }
+    cx /= ring.inside
+    cy /= ring.inside
+    let scale = repulsion / gravity
+    if (!(gravity > 0 && repulsion > 0)) {
+      let far = 0
+      for (let i = 0; i < graph.capacity; i++) {
+        if ((level.up[i] ?? -1) < 0) continue
+        far = Math.max(far, Math.hypot((out[i * 2] ?? 0) - cx, (out[i * 2 + 1] ?? 0) - cy))
+      }
+      scale = (far + edgeLength) ** 2 / ring.inside
+    }
+    const { nodes, start } = ring.parts
+    const half = edgeLength / 2
+    const spread = this.#plan.spread
+    for (let p = 0; p + 1 < start.length; p++) {
+      const from = start[p] ?? 0
+      const to = start[p + 1] ?? 0
+      const band = ((ring.row[p] ?? 0) + 0.5) / ring.rows
+      const radius = Math.sqrt(scale * (ring.inside + nodes.length * band))
+      const x = cx + Math.cos(ring.turn[p] ?? 0) * radius
+      const y = cy + Math.sin(ring.turn[p] ?? 0) * radius
+      for (let k = from; k < to; k++) {
+        const i = nodes[k] ?? 0
+        const rank = k - from
+        const reach =
+          to - from > 1 ? ((graph.radius[i] ?? 0) + half) * spread * Math.sqrt(rank + 0.5) : 0
+        const turn = (rank + p) * goldenTurn
+        out[i * 2] = x + Math.cos(turn) * reach
+        out[i * 2 + 1] = y + Math.sin(turn) * reach
+      }
     }
   }
 
@@ -157,6 +217,71 @@ export class Ladder {
       to[i * 2 + 1] = y
     }
   }
+}
+
+interface Ring {
+  readonly parts: LooseParts
+  readonly inside: number
+  readonly turn: Float64Array
+  readonly row: Uint32Array
+  readonly rows: number
+}
+
+function ringOf(graph: ForceGraph, parts: LooseParts): Ring {
+  const loose = new Uint8Array(graph.capacity)
+  for (const i of parts.nodes) loose[i] = 1
+  let inside = 0
+  let ox = 0
+  let oy = 0
+  for (let i = 0; i < graph.capacity; i++) {
+    if (graph.alive[i] !== 1 || loose[i] === 1) continue
+    inside++
+    ox += graph.xy[i * 2] ?? 0
+    oy += graph.xy[i * 2 + 1] ?? 0
+  }
+  ox /= inside
+  oy /= inside
+  const count = parts.start.length - 1
+  const angle = new Float64Array(count)
+  for (let p = 0; p < count; p++) {
+    const from = parts.start[p] ?? 0
+    const to = parts.start[p + 1] ?? 0
+    let dx = 0
+    let dy = 0
+    for (let k = from; k < to; k++) {
+      const i = parts.nodes[k] ?? 0
+      dx += (graph.xy[i * 2] ?? 0) - ox
+      dy += (graph.xy[i * 2 + 1] ?? 0) - oy
+    }
+    angle[p] = dx !== 0 || dy !== 0 ? Math.atan2(dy, dx) : p * goldenTurn
+  }
+  const order = Uint32Array.from({ length: count }, (_, p) => p)
+  order.sort((a, b) => (angle[a] ?? 0) - (angle[b] ?? 0) || a - b)
+  const step = (2 * Math.PI) / count
+  let sx = 0
+  let sy = 0
+  order.forEach((p, j) => {
+    const shift = (angle[p] ?? 0) - step * (j + 0.5)
+    sx += Math.cos(shift)
+    sy += Math.sin(shift)
+  })
+  const offset = Math.atan2(sy, sx)
+  const outside = parts.nodes.length
+  const depth = Math.sqrt(inside + outside) - Math.sqrt(inside)
+  const rows = Math.max(1, Math.round(depth / Math.sqrt((Math.PI * outside) / count)))
+  const turn = new Float64Array(count)
+  const row = new Uint32Array(count)
+  order.forEach((p, j) => {
+    turn[p] = offset + step * (j + 0.5)
+    row[p] = j % rows
+  })
+  return { parts, inside, turn, row, rows }
+}
+
+function without(graph: ForceGraph, loose: LooseParts): ForceGraph {
+  const alive = graph.alive.slice()
+  for (const i of loose.nodes) alive[i] = 0
+  return { ...graph, alive }
 }
 
 export type Schedule = (task: () => void) => void

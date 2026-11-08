@@ -17,6 +17,11 @@ export interface CoarsenOptions {
   readonly keep: number
 }
 
+export interface LooseParts {
+  readonly nodes: Uint32Array
+  readonly start: Uint32Array
+}
+
 export interface Adjacency {
   readonly start: Uint32Array
   readonly next: Uint32Array
@@ -102,15 +107,7 @@ function clusters(
     weight[count] = (mass[v] ?? 1) + (mass[best] ?? 1)
     count++
   }
-  const lonely = new Uint32Array(capacity)
-  let lonelyCount = 0
-  for (const v of order) {
-    if (up[v] !== -1) continue
-    if (!free(v)) {
-      weight[count] = mass[v] ?? 1
-      up[v] = count++
-      continue
-    }
+  const lightestAround = (v: number) => {
     let best = -1
     let lightest = Number.POSITIVE_INFINITY
     for (let k = start[v] ?? 0; k < (start[v + 1] ?? 0); k++) {
@@ -123,17 +120,58 @@ function clusters(
         best = c
       }
     }
+    return best
+  }
+  for (const v of order) {
+    if (up[v] !== -1) continue
+    const best = free(v) ? lightestAround(v) : -1
     if (best >= 0) {
       up[v] = best
       weight[best] = (weight[best] ?? 0) + (mass[v] ?? 1)
-    } else lonely[lonelyCount++] = v
-  }
-  const left = lonely.subarray(0, lonelyCount).sort()
-  for (let k = 0; k < left.length; k++) {
-    up[left[k] ?? 0] = count
-    if (k % 2 === 1 || k === left.length - 1) count++
+      continue
+    }
+    weight[count] = mass[v] ?? 1
+    up[v] = count++
   }
   return { up, count }
+}
+
+export function looseParts(
+  graph: ForceGraph,
+  adjacency: Adjacency,
+  limit: number,
+): LooseParts | null {
+  const { capacity, alive, movable } = graph
+  const { start, next } = adjacency
+  const seen = new Uint8Array(capacity)
+  const queue = new Uint32Array(capacity)
+  const nodes = new Uint32Array(capacity)
+  const bounds = [0]
+  let length = 0
+  for (let root = 0; root < capacity; root++) {
+    if (seen[root] === 1 || alive[root] !== 1) continue
+    seen[root] = 1
+    queue[0] = root
+    let head = 0
+    let tail = 1
+    let anchored = movable[root] !== 1
+    while (head < tail) {
+      const v = queue[head++] ?? 0
+      for (let k = start[v] ?? 0; k < (start[v + 1] ?? 0); k++) {
+        const u = next[k] ?? 0
+        if (seen[u] === 1) continue
+        seen[u] = 1
+        queue[tail++] = u
+        if (movable[u] !== 1) anchored = true
+      }
+    }
+    if (anchored || tail > limit) continue
+    nodes.set(queue.subarray(0, tail), length)
+    length += tail
+    bounds.push(length)
+  }
+  if (bounds.length === 1) return null
+  return { nodes: nodes.slice(0, length), start: Uint32Array.from(bounds) }
 }
 
 export function coarsenOnce(

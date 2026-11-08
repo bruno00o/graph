@@ -4,6 +4,17 @@ import type { GpuForce } from './gpu'
 import { Ladder, type MultilevelEngines, multilevelPlan, runMultilevel } from './multilevel'
 import { type ForceGraph, ForceSimulation, forceDefaults } from './simulation'
 
+function scattered(capacity: number): Float32Array {
+  const turn = Math.PI * (3 - Math.sqrt(5))
+  const xy = new Float32Array(capacity * 2)
+  for (let at = 0; at < capacity; at++) {
+    const spot = (at * 7919) % capacity
+    xy[at * 2] = 24 * Math.sqrt(spot) * Math.cos(spot * turn)
+    xy[at * 2 + 1] = 24 * Math.sqrt(spot) * Math.sin(spot * turn)
+  }
+  return xy
+}
+
 function grid(width: number, fixed: readonly number[] = []): ForceGraph {
   const capacity = width * width
   const edges: number[] = []
@@ -14,18 +25,11 @@ function grid(width: number, fixed: readonly number[] = []): ForceGraph {
       if (row + 1 < width) edges.push(at, at + width)
     }
   }
-  const turn = Math.PI * (3 - Math.sqrt(5))
-  const xy = new Float32Array(capacity * 2)
-  for (let at = 0; at < capacity; at++) {
-    const spot = (at * 7919) % capacity
-    xy[at * 2] = 24 * Math.sqrt(spot) * Math.cos(spot * turn)
-    xy[at * 2 + 1] = 24 * Math.sqrt(spot) * Math.sin(spot * turn)
-  }
   return {
     capacity,
     alive: new Uint8Array(capacity).fill(1),
     movable: Uint8Array.from({ length: capacity }, (_, at) => (fixed.includes(at) ? 0 : 1)),
-    xy,
+    xy: scattered(capacity),
     radius: new Float32Array(capacity).fill(5),
     edges: Uint32Array.from(edges),
   }
@@ -118,12 +122,56 @@ function fakeGpu(graph: ForceGraph, failOnRead: boolean) {
   }
 }
 
+function withLoners(base: ForceGraph, count: number): ForceGraph {
+  const capacity = base.capacity + count
+  const pairs = Array.from({ length: count / 4 }, (_, at) => [
+    base.capacity + at * 2,
+    base.capacity + at * 2 + 1,
+  ]).flat()
+  return {
+    capacity,
+    alive: new Uint8Array(capacity).fill(1),
+    movable: Uint8Array.from({ length: capacity }, (_, at) => base.movable[at] ?? 1),
+    xy: scattered(capacity),
+    radius: new Float32Array(capacity).fill(5),
+    edges: Uint32Array.from([...base.edges, ...pairs]),
+  }
+}
+
+function spreadAround(xy: Float32Array, core: number, from: number, to: number): number {
+  let cx = 0
+  let cy = 0
+  for (let at = 0; at < core; at++) {
+    cx += xy[at * 2] ?? 0
+    cy += xy[at * 2 + 1] ?? 0
+  }
+  cx /= core
+  cy /= core
+  let sx = 0
+  let sy = 0
+  for (let at = from; at < to; at++) {
+    const angle = Math.atan2((xy[at * 2 + 1] ?? 0) - cy, (xy[at * 2] ?? 0) - cx)
+    sx += Math.cos(angle)
+    sy += Math.sin(angle)
+  }
+  return Math.hypot(sx, sy) / (to - from)
+}
+
 describe('runMultilevel', () => {
   it('lays a grid out flat where a single level folds it', async () => {
     const graph = grid(20)
     const end = await record(graph).end
     expect(folded(20, end)).toBeLessThan(0.1)
     expect(folded(20, plain(graph))).toBeGreaterThan(folded(20, end) * 2)
+  })
+
+  it('spreads isolated nodes and small parts all around the graph', async () => {
+    const graph = withLoners(grid(20), 80)
+    const end = await record(graph).end
+    expect(spreadAround(end, 400, 440, 480)).toBeLessThan(0.35)
+    expect(spreadAround(end, 400, 400, 440)).toBeLessThan(0.35)
+    const single = plain(graph)
+    expect(spreadAround(single, 400, 440, 480)).toBeLessThan(0.35)
   })
 
   it('streams full snapshots with fixed nodes in place, then ends', async () => {
