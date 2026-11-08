@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.20.0](https://github.com/bruno00o/graph/compare/0.19.0...0.20.0) (2026-11-08)
+
+
+### Features
+
+* draw edges through given waypoints ([#129](https://github.com/bruno00o/graph/issues/129)) ([9bb61ed](https://github.com/bruno00o/graph/commit/9bb61edb7917f42660c73e0dcff3794ff1cb644c))
+* read and write graphml, gexf, json graph format and csv files ([#128](https://github.com/bruno00o/graph/issues/128)) ([4efbe83](https://github.com/bruno00o/graph/commit/4efbe836598b60237df5393cbb8f3c9721bf10d4))
+
+
+### Bug Fixes
+
+* accept any key in reads, remeasure late web fonts and tidy minimap sizes ([#126](https://github.com/bruno00o/graph/issues/126)) ([af0e13f](https://github.com/bruno00o/graph/commit/af0e13f43d9eb1a77723bc8f30bf305e5e2bd049))
+
 ## [0.19.0](https://github.com/bruno00o/graph/compare/0.18.0...0.19.0) (2026-11-08)
 
 
