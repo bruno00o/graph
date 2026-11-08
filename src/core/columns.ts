@@ -114,6 +114,7 @@ export class NodeColumns {
   padding: Float32Array = new Float32Array(0)
   spread: Uint8Array = new Uint8Array(0)
   gap: Float32Array = new Float32Array(0)
+  containerBoxes: Float32Array | null = null
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
 

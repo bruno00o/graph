@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrowCodes, EdgeColumns, NodeColumns, noColor } from '../core/columns'
+import { arrowCodes, containerShape, EdgeColumns, NodeColumns, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import { Positions } from '../core/positions'
 import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
@@ -324,6 +324,23 @@ describe('edge labels', () => {
     expect(anchor.y).toBeCloseTo(300)
     expect([anchor.ax, anchor.ay]).toEqual([1, -0])
     expect(anchor.room).toBeCloseTo(170)
+  })
+
+  it('anchors a label between the borders of the containers an edge ends on', () => {
+    const nodes = columns([
+      { size: 40, label: null },
+      { size: 20, label: null },
+    ])
+    nodes.shape[0] = containerShape
+    nodes.containerBoxes = new Float32Array([60, 30, 8, 0])
+    const positions = new Positions()
+    positions.set(0, 100, 0)
+    positions.set(1, -100, 0)
+    const edges = links([{ from: 0, to: 1, label: 'x' }])
+    const anchor: EdgeAnchor = { x: 0, y: 0, ax: 0, ay: 0, room: 0 }
+    edgeAnchor({ nodes, edges, positions, view, width: 800, height: 600 }, 0, anchor)
+    expect(anchor.x).toBeCloseTo(400 - 25)
+    expect(anchor.room).toBeCloseTo(130)
   })
 
   it('follows the bend of a parallel edge and the top of a loop', () => {

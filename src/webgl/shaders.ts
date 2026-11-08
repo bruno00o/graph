@@ -197,7 +197,17 @@ float nodeDiameter(vec4 style, float scale) {
 }
 float nodeRadius(vec4 style, float scale) { return max(nodeDiameter(style, scale) * 0.5, 1.25); }
 bool boxStyle(vec4 style) { return (uint(style.w + 0.5) & ${boxFlag}u) != 0u; }
+#ifndef NO_CONTAINER_ENDS
+uniform sampler2D nodeBox;
+#endif
 vec4 nodeOutline(ivec2 t, vec4 style, float scale) {
+#ifndef NO_CONTAINER_ENDS
+  if ((uint(style.w + 0.5) & 3u) == 3u) {
+    vec3 box = texelFetch(nodeBox, t, 0).xyz;
+    vec2 extent = max(box.xy * scale, vec2(1.25));
+    return vec4(extent, min(box.z * scale, min(extent.x, extent.y)), 1.0);
+  }
+#endif
   float radius = nodeRadius(style, scale);
   if (!boxStyle(style)) return vec4(radius, radius, radius, 0.0);
   vec2 box = texelFetch(nodeZoom, t, 0).zw;
@@ -244,7 +254,6 @@ vec2 badgeCenter(ivec2 t, vec2 xy, vec4 style, uint corner) {
 export const nodeLookData: string = `
 uniform usampler2D nodePaint;
 uniform usampler2D nodeDecor;
-uniform sampler2D nodeBox;
 Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
   Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);

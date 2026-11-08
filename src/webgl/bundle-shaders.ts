@@ -2,8 +2,10 @@ import { bridgeData, pathBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
 import { edgeData, endData, header, nodeData } from './shaders'
 
+const fullSamplers = '#ifdef ENDS\n#define NO_CONTAINER_ENDS\n#endif\n'
+
 export function bundleVertexOf(bridged: boolean): string {
-  return `${header}${nodeData}${edgeData}${endData}${bundlePath}${bridged ? bridgeData : ''}
+  return `${header}${bridged ? fullSamplers : ''}${nodeData}${edgeData}${endData}${bundlePath}${bridged ? bridgeData : ''}
 uniform sampler2D pathStations;
 uniform float pathMeasured;
 float stationOf(uvec4 path, int k, float total, float spacing) {

@@ -306,8 +306,13 @@ export class Projection {
   #slots = new Map<EdgeMark<unknown>, number>()
   #rules: (MergeRule | null)[] = []
   #looks: (object | undefined)[] = []
+  #lifts: boolean[] = []
+  #lifting = false
+  #endSource = none
+  #endTarget = none
   #merging = false
   readonly #remerge = new Set<number>()
+  readonly #relift = new Set<number>()
   readonly #restyle = new Set<number>()
   #touchedEdges: IndexSet = new IndexSet()
   #dataEdges: IndexSet = new IndexSet()
@@ -345,7 +350,9 @@ export class Projection {
     const slots = new Map<EdgeMark<unknown>, number>()
     const rules: (MergeRule | null)[] = []
     const looks: (object | undefined)[] = []
+    const lifts: boolean[] = []
     let merging = false
+    let lifting = false
     edgeMarks.forEach((mark, slot) => {
       if (!slots.has(mark)) slots.set(mark, slot)
       const known = this.#rules[slot]
@@ -354,14 +361,23 @@ export class Projection {
       rules.push(rule)
       if (rule) merging = true
       looks.push(mark.options.aggregate)
+      const lift = mark.options.betweenGroups === 'groups'
+      lifts.push(lift)
+      if (lift) lifting = true
+      if (lift !== (this.#lifts[slot] ?? false)) this.#relift.add(slot)
       if (!sameRule(rule, known)) this.#remerge.add(slot)
       if (rule?.min !== known?.min) this.#restyle.add(slot)
       if (!sameLook(mark.options.aggregate, this.#looks[slot])) this.#restyle.add(slot)
     })
-    for (let slot = edgeMarks.length; slot < this.#rules.length; slot++) this.#remerge.add(slot)
+    for (let slot = edgeMarks.length; slot < this.#rules.length; slot++) {
+      this.#remerge.add(slot)
+      this.#relift.delete(slot)
+    }
     this.#slots = slots
     this.#rules = rules
     this.#looks = looks
+    this.#lifts = lifts
+    this.#lifting = lifting
     this.#merging = merging
     this.#records.length = 0
   }
@@ -435,6 +451,7 @@ export class Projection {
     if (!this.#active) {
       if (!this.#merging && !this.#needed(changes)) {
         this.#remerge.clear()
+        this.#relift.clear()
         this.#restyle.clear()
         return this.#passThrough(changes)
       }
@@ -506,6 +523,7 @@ export class Projection {
   #activate(changes: GraphChanges): ProjectionChanges {
     this.#active = true
     this.#remerge.clear()
+    this.#relift.clear()
     this.#restyle.clear()
     this.#regrouped.clear()
     for (const { index } of this.#groupings) index.takeMoved()
@@ -522,6 +540,7 @@ export class Projection {
       if (fresh) this.#addedNodes.add(record.index)
       this.hierarchy.add(record.index, record.key, this.#parentOf(record))
     }
+    this.hierarchy.takeRelinked()
     for (const record of model.edges()) {
       this.#reserveEdge(record.index)
       this.#shownEdge[record.index] = addedEdges.has(record.index) ? 0 : shownOwn
@@ -534,14 +553,15 @@ export class Projection {
 
   #refreshRules(): void {
     const remerge = this.#remerge
+    const relift = this.#relift
     const restyle = this.#restyle
-    if (remerge.size === 0 && restyle.size === 0) return
-    if (remerge.size > 0) {
+    if (remerge.size === 0 && relift.size === 0 && restyle.size === 0) return
+    if (remerge.size > 0 || relift.size > 0) {
       for (const record of this.#model.edges()) {
         const index = record.index
-        if (remerge.has(this.#edgeSlot[index] ?? none) && this.#project(index)) {
-          this.#reshaped = true
-        }
+        const slot = this.#edgeSlot[index] ?? none
+        const merged = remerge.has(slot)
+        if ((merged || relift.has(slot)) && this.#project(index) && merged) this.#reshaped = true
       }
     }
     const merges = this.#merges
@@ -551,6 +571,7 @@ export class Projection {
       })
     }
     remerge.clear()
+    relift.clear()
     restyle.clear()
   }
 
@@ -562,6 +583,9 @@ export class Projection {
     const rule = ruleOf(mark.options.merge)
     this.#rules.push(rule)
     this.#looks.push(mark.options.aggregate)
+    const lift = mark.options.betweenGroups === 'groups'
+    this.#lifts.push(lift)
+    if (lift) this.#lifting = true
     if (rule) this.#merging = true
     return slot
   }
@@ -653,13 +677,54 @@ export class Projection {
     return isKey(value) ? value : undefined
   }
 
-  #project(index: number): boolean {
+  #endsOf(index: number): void {
     const hierarchy = this.hierarchy
+    const source = hierarchy.representative(this.#from[index] ?? none)
+    const target = hierarchy.representative(this.#to[index] ?? none)
+    if (source !== target && this.#lifts[this.#edgeSlot[index] ?? none] === true) {
+      this.#lift(source, target)
+    } else {
+      this.#endSource = source
+      this.#endTarget = target
+    }
+  }
+
+  #lift(source: number, target: number): void {
+    const parent = this.hierarchy.parent
+    let sourceDepth = 0
+    for (let at = parent[source] ?? none; at >= 0; at = parent[at] ?? none) sourceDepth++
+    let targetDepth = 0
+    for (let at = parent[target] ?? none; at >= 0; at = parent[at] ?? none) targetDepth++
+    let a = source
+    let b = target
+    for (; sourceDepth > targetDepth; sourceDepth--) a = parent[a] ?? none
+    for (; targetDepth > sourceDepth; targetDepth--) b = parent[b] ?? none
+    while (a !== b) {
+      a = parent[a] ?? none
+      b = parent[b] ?? none
+    }
+    this.#endSource = this.#childToward(source, a)
+    this.#endTarget = this.#childToward(target, a)
+  }
+
+  #childToward(node: number, ancestor: number): number {
+    const parent = this.hierarchy.parent
+    let at = node
+    while (at !== ancestor) {
+      const up = parent[at] ?? none
+      if (up === ancestor) return at
+      at = up
+    }
+    return at
+  }
+
+  #project(index: number): boolean {
     const merges = this.#merges
     const from = this.#from[index] ?? none
     const to = this.#to[index] ?? none
-    const source = hierarchy.representative(from)
-    const target = hierarchy.representative(to)
+    this.#endsOf(index)
+    const source = this.#endSource
+    const target = this.#endTarget
     const slot = this.#edgeSlot[index] ?? none
     const rule = slot >= 0 ? (this.#rules[slot] ?? null) : null
     const shown = source === from && target === to
@@ -670,7 +735,14 @@ export class Projection {
     else {
       mode = merged
       const value = rule?.by ? this.#valueOf(index, rule.by) : undefined
-      aggregate = merges.find(slot, source, target, rule?.directed ?? true, value)
+      aggregate = merges.find(
+        slot,
+        source,
+        target,
+        rule?.directed ?? true,
+        value,
+        this.#lifts[slot] === true,
+      )
     }
     const previous = merges.of[index] ?? none
     if (previous !== aggregate) {
@@ -693,6 +765,41 @@ export class Projection {
     return true
   }
 
+  #reprojectBelow(nodes: readonly number[]): void {
+    const hierarchy = this.hierarchy
+    const visited = new IndexSet()
+    const stack: number[] = []
+    for (const node of nodes) {
+      if (node < 0 || visited.has(node)) continue
+      visited.add(node)
+      stack.push(node)
+      while (stack.length > 0) {
+        const at = stack.pop() ?? none
+        this.#reliftAt(at)
+        for (
+          let child = hierarchy.firstChild[at] ?? none;
+          child >= 0;
+          child = hierarchy.nextSibling[child] ?? none
+        ) {
+          if (visited.has(child)) continue
+          visited.add(child)
+          stack.push(child)
+        }
+      }
+    }
+  }
+
+  #reliftAt(node: number): void {
+    const lifts = this.#lifts
+    const slots = this.#edgeSlot
+    for (let edge = this.#outHead[node] ?? none; edge >= 0; edge = this.#outNext[edge] ?? none) {
+      if (lifts[slots[edge] ?? none] === true) this.#project(edge)
+    }
+    for (let edge = this.#inHead[node] ?? none; edge >= 0; edge = this.#inNext[edge] ?? none) {
+      if (lifts[slots[edge] ?? none] === true) this.#project(edge)
+    }
+  }
+
   #reprojectAround(nodes: readonly number[]): void {
     for (const node of nodes) {
       for (let edge = this.#outHead[node] ?? none; edge >= 0; edge = this.#outNext[edge] ?? none)
@@ -712,6 +819,8 @@ export class Projection {
     const hierarchy = this.hierarchy
     hierarchy.settle()
     this.#reprojectAround(hierarchy.takeMoved())
+    const relinked = hierarchy.takeRelinked()
+    if (this.#lifting && relinked.length > 0) this.#reprojectBelow(relinked)
     const scene = emptyChanges()
     const nodes = scene.nodes
     const edges = scene.edges
@@ -788,8 +897,9 @@ export class Projection {
       }
       const first = merges.first(aggregate)
       if (this.#rules[merges.slot[aggregate] ?? none]?.directed === false) {
-        merges.source[aggregate] = hierarchy.representative(this.#from[first] ?? none)
-        merges.target[aggregate] = hierarchy.representative(this.#to[first] ?? none)
+        this.#endsOf(first)
+        merges.source[aggregate] = this.#endSource
+        merges.target[aggregate] = this.#endTarget
       }
       const open = this.#isOpen(aggregate)
       if (open || open !== (merges.open[aggregate] === 1)) {
@@ -881,7 +991,8 @@ export class Projection {
       const datum = this.#model.edgeAt(at)?.datum
       keys.push(key)
       data.push(datum)
-      const side = sides?.[hierarchy.representative(this.#from[at] ?? none) === source ? 0 : 1]
+      if (sides) this.#endsOf(at)
+      const side = sides?.[this.#endSource === source ? 0 : 1]
       side?.keys.push(key)
       side?.data.push(datum)
     }
@@ -921,6 +1032,7 @@ export class Projection {
       sourceIndex: this.#merges.source[aggregate] ?? none,
       targetIndex: this.#merges.target[aggregate] ?? none,
       order: own.order,
+      straight: this.#lifts[this.#merges.slot[aggregate] ?? none] === true,
     }
     this.#records[aggregate] = record
     return record

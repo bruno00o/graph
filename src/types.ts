@@ -481,6 +481,12 @@ export interface ContainerOptions<T> {
    */
   readonly fill?: Style<T, string> | undefined
   /**
+   * Opacity of the fill, from 0 to 1, without the outline nor the children. A value that is not a
+   * finite number takes the default; others are clamped. Defaults to 1, or to a translucent fill
+   * on a map so the basemap shows through.
+   */
+  readonly fillOpacity?: Style<T, number> | undefined
+  /**
    * Outline color.
    * @default --graph-group-line
    */
@@ -644,12 +650,27 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly aggregate?: AggregateEdgeOptions<T> | undefined
   /**
+   * How the edges of this mark that join different unfolded groups draw: `'members'`, from node to
+   * node, or `'groups'`, as one aggregated edge per pair of groups, styled by `aggregate` and drawn
+   * from container border to container border. Each end rises to the child of the innermost group
+   * that holds both ends, so an edge inside one group stays between its nodes. Edges between groups
+   * are never bundled, routed or bridged.
+   * @default 'members'
+   */
+  readonly betweenGroups?: EdgesBetweenGroups | undefined
+  /**
    * Scales of this mark alone, each with its own extent and categories, also used by the ends and
    * the aggregated edges of the mark. A scale left out is the one of the definition, shared with
    * the other marks.
    */
   readonly scales?: EdgeScalesOptions | undefined
 }
+
+/**
+ * How edges that join different unfolded groups draw: `'members'`, between their own nodes, or
+ * `'groups'`, as one aggregated edge per pair of groups.
+ */
+export type EdgesBetweenGroups = 'members' | 'groups'
 
 /** Options of the `merge` option of `edges()`: which parallel edges draw as one. */
 export interface EdgeMergeOptions<T> {
