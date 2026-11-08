@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PickIndex } from '../core/pick-index'
 import { defineGraph } from '../define-graph'
 import { grid } from '../layouts'
 import { mountMapGraph } from '../map'
@@ -104,6 +105,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   dom.restore()
 })
 
@@ -176,6 +178,99 @@ describe('spreading the members of an unfolded group', () => {
       dom.flushFrames()
       for (const gap of gaps(graph, ['a', 'b', 'c'])) expect(gap).toBeCloseTo(14, 3)
     }
+    graph.destroy()
+  })
+
+  it('writes no position while the view pans without zooming', () => {
+    const graph = mount(itemGraph(stacked))
+    unfold(graph, 'zones', 'z')
+    const version = graph.store.state.positionsVersion
+    for (let step = 1; step <= 20; step++) {
+      graph.view.set({ x: step * 7, y: -step * 3, zoom: 1 })
+      dom.flushFrames()
+    }
+    expect(graph.store.state.positionsVersion).toBe(version)
+    for (const gap of gaps(graph, ['a', 'b', 'c'])) expect(gap).toBeCloseTo(14, 3)
+    graph.destroy()
+  })
+
+  it('spreads only the members at one place in a crowd too wide for the view', () => {
+    const crowd: Item[] = []
+    for (let place = 0; place < 200; place++) {
+      for (let member = 0; member < 2; member++) {
+        const x = (place % 20) * 2
+        crowd.push({
+          id: `c${place}-${member}`,
+          zone: 'z',
+          x,
+          y: Math.floor(place / 20) * 2,
+          size: 30,
+        })
+      }
+    }
+    const graph = mount(itemGraph(crowd))
+    unfold(graph, 'zones', 'z')
+    for (const place of [0, 57, 199]) {
+      const home = { x: (place % 20) * 2, y: Math.floor(place / 20) * 2 }
+      const pair = [`c${place}-0`, `c${place}-1`]
+      expect(gaps(graph, pair)[0]).toBeCloseTo(34, 3)
+      for (const key of pair) {
+        const at = graph.positions.get(key) as Point
+        expect(Math.hypot(at.x - home.x, at.y - home.y)).toBeCloseTo(17, 3)
+      }
+    }
+    graph.view.set({ x: 0, y: 0, zoom: 0.25 })
+    dom.flushFrames()
+    expect(gaps(graph, ['c0-0', 'c0-1'])[0]).toBeCloseTo(34, 3)
+    expect(gaps(graph, ['c0-0', 'c1-0'])[0]).toBeLessThan(1)
+    dom.resize(4000, 4000)
+    dom.flushFrames()
+    expect(gaps(graph, ['c0-0', 'c1-0'])[0]).toBeGreaterThan(33)
+    graph.destroy()
+  })
+
+  it('updates the pick index for hover at most every 150 ms while a zoom moves the members', () => {
+    reduced.matches = true
+    let clock = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => clock)
+    const graph = mount(itemGraph(stacked))
+    unfold(graph, 'zones', 'z')
+    const send = (type: string, x: number) =>
+      canvasOf(graph).dispatchEvent(
+        new PointerEvent(type, {
+          clientX: x,
+          clientY: 300,
+          button: 0,
+          pointerId: 1,
+          bubbles: true,
+        }),
+      )
+    const move = (x: number) => send('pointermove', x)
+    move(400)
+    const refresh = vi.spyOn(PickIndex.prototype, 'refresh')
+    const build = vi.spyOn(PickIndex.prototype, 'build')
+    const calls = () => refresh.mock.calls.length + build.mock.calls.length
+    const version = graph.store.state.positionsVersion
+    for (let step = 1; step <= 5; step++) {
+      clock += 20
+      graph.view.set({ x: 0, y: 0, zoom: 1 + step * 0.03 })
+      dom.flushFrames()
+      move(400 + step)
+    }
+    expect(graph.store.state.positionsVersion).not.toBe(version)
+    expect(calls()).toBe(0)
+    clock += 150
+    graph.view.set({ x: 0, y: 0, zoom: 1.2 })
+    dom.flushFrames()
+    move(410)
+    const moved = calls()
+    expect(moved).toBeGreaterThan(0)
+    clock += 20
+    graph.view.set({ x: 0, y: 0, zoom: 1.3 })
+    dom.flushFrames()
+    send('pointerdown', 410)
+    send('pointerup', 410)
+    expect(calls()).toBeGreaterThan(moved)
     graph.destroy()
   })
 

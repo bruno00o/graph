@@ -5,10 +5,13 @@ import type { Hierarchy } from '../core/hierarchy'
 import { boundingRadius } from '../core/node-shape'
 import type { PositionReader, Positions } from '../core/positions'
 import type { ProjectionChanges } from '../core/projection'
-import { packMembers, spreadStep, stepZoom } from '../core/spread'
+import { type Packing, packMembers, spreadStep, stepZoom } from '../core/spread'
 import { easeInOut } from '../core/view'
 
 export const perFrameLimit = 20_000
+const shownDrift = 0.25
+const repackBudget = 4
+const viewSlack = 0.25
 const zoomTolerance = 1e-9
 const globeTolerance = 1e-6
 const none = -1
@@ -16,6 +19,8 @@ const none = -1
 export interface SpreadCamera {
   readonly zoom: number
   readonly globe: GlobeCamera | null
+  readonly width: number
+  readonly height: number
 }
 
 export interface SpreadSource {
@@ -51,6 +56,28 @@ function grownByte(array: Uint8Array, length: number): Uint8Array {
   return next
 }
 
+function reachLimit(camera: SpreadCamera): number {
+  const side = Math.min(camera.width, camera.height)
+  return side > 0 ? side / 2 : Number.POSITIVE_INFINITY
+}
+
+function oversized(packing: Packing, radius: Float64Array, limit: number): Uint8Array | null {
+  if (limit === Number.POSITIVE_INFINITY) return null
+  const reach = new Float64Array(packing.packs)
+  packing.packOf.forEach((id, at) => {
+    if (id < 0 || (packing.size[id] ?? 0) < 2) return
+    const out = Math.hypot(packing.offsetX[at] ?? 0, packing.offsetY[at] ?? 0) + (radius[at] ?? 0)
+    reach[id] = Math.max(reach[id] ?? 0, out)
+  })
+  let wide: Uint8Array | null = null
+  reach.forEach((value, id) => {
+    if (value <= limit) return
+    wide ??= new Uint8Array(packing.packs)
+    wide[id] = 1
+  })
+  return wide
+}
+
 function relativeChange(a: number, b: number): number {
   if (a === b) return 0
   return Math.abs(a - b) / Math.max(Math.abs(a), Math.abs(b), Number.MIN_VALUE)
@@ -83,6 +110,8 @@ export class SpreadHost {
   #start = 0
   #duration = 0
   #moving = false
+  #rewrote = false
+  #limit = Number.NaN
   #zoom = Number.NaN
   #globeScale = Number.NaN
   #globeMix = Number.NaN
@@ -93,6 +122,10 @@ export class SpreadHost {
 
   get moving(): boolean {
     return this.#moving
+  }
+
+  get writing(): boolean {
+    return this.#moving || this.#rewrote || this.#dirty.size > 0
   }
 
   owns(index: number): boolean {
@@ -156,15 +189,19 @@ export class SpreadHost {
     this.settle(now)
   }
 
-  settle(now: number): void {
+  settle(now: number, budget: number = Number.POSITIVE_INFINITY): void {
     if (this.#dirty.size === 0) return
-    const dirty = [...this.#dirty]
-    this.#dirty.clear()
     this.#freeze(now)
     const settled = this.#source.settled()
     const camera = this.#source.camera()
+    this.#limit = reachLimit(camera)
     const aimed: number[] = []
-    for (const container of dirty) this.#pack(container, settled, camera, aimed)
+    const started = performance.now()
+    for (const container of this.#dirty) {
+      this.#dirty.delete(container)
+      this.#pack(container, settled, camera, aimed)
+      if (performance.now() - started > budget) break
+    }
     this.#countScreens()
     for (const index of aimed) this.#aim(index, camera)
     this.#begin(now, camera)
@@ -211,18 +248,27 @@ export class SpreadHost {
   }
 
   frame(now: number): boolean {
-    if (this.#count === 0 && this.#screens.size === 0) return false
+    this.#rewrote = false
+    if (this.#count === 0 && this.#screens.size === 0 && this.#dirty.size === 0) return false
     const camera = this.#source.camera()
     if (this.#screens.size > 0) {
       const step = spreadStep(camera.zoom, this.#step)
-      if (step !== this.#step) {
+      const limit = reachLimit(camera)
+      if (step !== this.#step || this.#resized(limit)) {
         this.#step = step
         for (const container of this.#screens) this.#dirty.add(container)
-        this.settle(now)
-        return this.#moving
       }
     }
-    if (this.#moving || this.#rescaled(camera)) this.#write(now, camera)
+    if (this.#dirty.size > 0) {
+      this.settle(now, repackBudget)
+      this.#rewrote = true
+      return this.#moving || this.#dirty.size > 0
+    }
+    if (this.#moving) this.#write(now, camera, false)
+    else if (this.#rescaled(camera)) {
+      this.#write(now, camera, true)
+      this.#rewrote = true
+    }
     return this.#moving
   }
 
@@ -332,6 +378,12 @@ export class SpreadHost {
     return this.#scaleAt(camera, camera.zoom, this.#anchorY[slot] ?? 0)
   }
 
+  #resized(limit: number): boolean {
+    if (limit === this.#limit) return false
+    if (!Number.isFinite(limit) || !Number.isFinite(this.#limit)) return true
+    return relativeChange(limit, this.#limit) > viewSlack
+  }
+
   #rescaled(camera: SpreadCamera): boolean {
     const globe = camera.globe
     const zoomChanged = relativeChange(camera.zoom, this.#zoom) > zoomTolerance
@@ -402,9 +454,14 @@ export class SpreadHost {
           ? r + (nodes.outlineWidth[index] ?? 0)
           : r * s
     })
-    const packing = packMembers({ count, x, y, radius, scale, gap: nodes.gap[container] ?? 0 })
+    const input = { count, x, y, radius, scale, gap: nodes.gap[container] ?? 0 }
+    const joined = packMembers(input)
+    const wide = screen ? oversized(joined, radius, this.#limit) : null
+    const apart = wide ? packMembers(input, 0, false) : null
     list.forEach((index, at) => {
       this.#holder[index] = container
+      const whole = joined.packOf[at] ?? none
+      const packing = apart && whole >= 0 && wide?.[whole] === 1 ? apart : joined
       const id = packing.packOf[at] ?? none
       let slot = this.#slotOf[index] ?? none
       const size = id >= 0 ? (packing.size[id] ?? 1) : 0
@@ -497,10 +554,10 @@ export class SpreadHost {
     this.#zoom = camera.zoom
     this.#globeScale = camera.globe ? camera.globe.scale : Number.NaN
     this.#globeMix = camera.globe ? camera.globe.mix : Number.NaN
-    this.#write(now, camera)
+    this.#write(now, camera, false)
   }
 
-  #write(now: number, camera: SpreadCamera): void {
+  #write(now: number, camera: SpreadCamera, loose: boolean): void {
     let keep = 0
     if (this.#moving) {
       const t = this.#duration > 0 ? Math.min(1, (now - this.#start) / this.#duration) : 1
@@ -515,7 +572,9 @@ export class SpreadHost {
       const dy = (this.#offsetY[slot] ?? 0) + (this.#fromY[slot] ?? 0) * keep
       const x = (this.#anchorX[slot] ?? 0) + dx / scale
       const y = (this.#anchorY[slot] ?? 0) + dy / scale
-      if (!positions.holds(index, x, y)) positions.set(index, x, y)
+      const drift = Math.hypot(x - positions.x(index), y - positions.y(index)) * scale
+      if (!(loose && drift < shownDrift) && !positions.holds(index, x, y))
+        positions.set(index, x, y)
       if (this.#moving) continue
       this.#fromX[slot] = 0
       this.#fromY[slot] = 0

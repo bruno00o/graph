@@ -433,7 +433,7 @@ function arrange(
   return { packs, packOf, size, anchorX, anchorY, offsetX, offsetY, reach, scale: packScale }
 }
 
-export function packMembers(input: PackInput, rounds: number = spreadRounds): Packing {
+export function packMembers(input: PackInput, rounds: number = spreadRounds, join = true): Packing {
   const { count, x, y, radius, scale, gap } = input
   const placeOf = new Int32Array(count).fill(-1)
   const table = new Int32Array(tableSize(count)).fill(-1)
@@ -468,17 +468,18 @@ export function packMembers(input: PackInput, rounds: number = spreadRounds): Pa
     }
   }
   const union = new Union(places)
-  joinPlaces(
-    {
-      count: places,
-      x: px.subarray(0, places),
-      y: py.subarray(0, places),
-      radius: pr.subarray(0, places),
-      scale: ps.subarray(0, places),
-    },
-    gap,
-    union,
-  )
+  if (join)
+    joinPlaces(
+      {
+        count: places,
+        x: px.subarray(0, places),
+        y: py.subarray(0, places),
+        radius: pr.subarray(0, places),
+        scale: ps.subarray(0, places),
+      },
+      gap,
+      union,
+    )
   const rootOf = (member: number) => {
     const place = placeOf[member] ?? -1
     return place < 0 ? -1 : union.find(place)

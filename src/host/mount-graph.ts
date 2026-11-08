@@ -851,6 +851,7 @@ const autoPanFirstStep = 16
 const autoPanLongestStep = 50
 const pickTolerance = 4
 const movingPickInterval = 150
+const pickCostShare = 10
 const highlightOrder = 2 ** 40
 const layerOrder = 2 ** 26
 const kindOf = { node: 'nodes', edge: 'edges' } as const satisfies Record<string, StateKind>
@@ -1017,6 +1018,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let pickedPositions = -1
   let pickedPaths = 0
   let pickedAt = Number.NEGATIVE_INFINITY
+  let pickCost = 0
   let gesture: Gesture | null = null
   let pinch: Pinch | null = null
   let autoPanning = false
@@ -1072,7 +1074,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     claim: (index) => {
       if (index < animationOwner.length) animationOwner[index] = 0
     },
-    camera: () => ({ zoom: store.get().view.zoom, globe: sphere() }),
+    camera: () => {
+      const { view, width, height } = store.get()
+      return { zoom: view.zoom, globe: sphere(), width, height }
+    },
     duration: () => (reducedMotion() ? 0 : definition.transitions.layout),
   })
   const registry = new StateRegistry(
@@ -1838,25 +1843,28 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function pickLater(): boolean {
-    if (session === null && positionAnimations.length === 0 && !spread.moving) return false
+    if (session === null && positionAnimations.length === 0 && !spread.writing) return false
     if (pickedScene !== sceneVersion || pickedPaths !== bundles.paths.version) return false
-    return performance.now() - pickedAt < movingPickInterval
+    return performance.now() - pickedAt < Math.max(movingPickInterval, pickCost * pickCostShare)
   }
 
   function pickAt(point: Point, hover = false): GraphTarget | null {
     syncContainers()
     const current = !gesture?.drag && !(hover && pickLater())
+    const started = performance.now()
     if (current && pickedPaths !== bundles.paths.version) {
       pickIndex.build(pickSource)
       pickedPaths = bundles.paths.version
       pickedScene = sceneVersion
       pickedPositions = positions.version
       pickedAt = performance.now()
+      pickCost = pickedAt - started
     } else if (current && (pickedScene !== sceneVersion || pickedPositions !== positions.version)) {
       pickIndex.refresh(pickSource)
       pickedScene = sceneVersion
       pickedPositions = positions.version
       pickedAt = performance.now()
+      pickCost = pickedAt - started
     }
     const camera = sphere()
     const lensView = viewAt(point)
