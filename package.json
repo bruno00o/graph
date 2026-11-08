@@ -16,7 +16,7 @@
     "type": "git",
     "url": "git+https://github.com/bruno00o/graph.git"
   },
-  "homepage": "https://github.com/bruno00o/graph#readme",
+  "homepage": "https://bruno00o.github.io/graph/",
   "bugs": "https://github.com/bruno00o/graph/issues",
   "type": "module",
   "sideEffects": [
@@ -106,6 +106,7 @@
     "docs:dev": "pnpm --dir docs dev",
     "docs:build": "pnpm --dir docs build",
     "docs:thumbnails": "node scripts/thumbnails.mjs",
+    "docs:check-pages": "node scripts/check-pages.mjs",
     "docs:new-example": "node scripts/new-example.mjs",
     "docs:showcase-data": "node scripts/showcase-data.mjs",
     "bench": "node scripts/bench.mjs",

@@ -1,0 +1,66 @@
+name: docs
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Tag or branch to publish
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or branch to publish, the latest release tag when empty
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.ref }}
+        run: |
+          ref="$REQUESTED"
+          if [ -z "$ref" ]; then
+            ref="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          fi
+          echo "value=$ref" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ steps.ref.outputs.value }}
+      - uses: pnpm/action-setup@v6.1.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - id: pages
+        uses: actions/configure-pages@v6.0.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm docs:build
+        env:
+          DOCS_BASE: ${{ steps.pages.outputs.base_path }}/
+      - run: pnpm docs:check-pages --base "${{ steps.pages.outputs.base_path }}/"
+      - uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: docs/dist/client
+      - id: deployment
+        uses: actions/deploy-pages@v5.0.1
