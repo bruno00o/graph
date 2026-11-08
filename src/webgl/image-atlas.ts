@@ -4,9 +4,21 @@ export const imageSize = 256
 const levels = Math.log2(imageSize) + 1
 const layerLimit = 256
 
+const maxInFlight = 6
+const compactFloor = 4096
+
+const enum State {
+  Queued,
+  Loading,
+  Decoded,
+  Stored,
+  Failed,
+}
+
 interface Entry {
   count: number
   layer: number
+  state: State
 }
 
 export class ImageAtlas {
@@ -20,8 +32,11 @@ export class ImageAtlas {
   #capacity = 0
   #next = 0
   #loaded = new Set<string>()
-  #decoded: Array<readonly [string, HTMLImageElement]> = []
-  readonly #waiting = new Map<string, HTMLImageElement>()
+  #decoded: Array<readonly [string, Entry, HTMLImageElement]> = []
+  #queue: string[] = []
+  #head = 0
+  #queued = 0
+  #flying = 0
   readonly #loading = new Set<Promise<void>>()
   #mipsStale = false
   #canvas: HTMLCanvasElement | null = null
@@ -57,17 +72,10 @@ export class ImageAtlas {
       entry.count++
       return
     }
-    this.#entries.set(src, { count: 1, layer: -1 })
-    const image = new Image()
-    image.crossOrigin = 'anonymous'
-    image.decoding = 'async'
-    image.src = src
-    const loading = image.decode().then(
-      () => this.#receive(src, image),
-      () => this.#fail(src),
-    )
-    this.#loading.add(loading)
-    void loading.finally(() => this.#loading.delete(loading))
+    this.#entries.set(src, { count: 1, layer: -1, state: State.Queued })
+    this.#queue.push(src)
+    this.#queued++
+    this.#pump()
   }
 
   async settled(): Promise<void> {
@@ -78,20 +86,22 @@ export class ImageAtlas {
     const entry = this.#entries.get(src)
     if (!entry || --entry.count > 0) return
     this.#entries.delete(src)
-    this.#waiting.delete(src)
+    if (entry.state === State.Queued) {
+      this.#queued--
+      this.#compact()
+      return
+    }
     if (entry.layer < 0) return
     this.#free.push(entry.layer)
-    if (this.#waiting.size === 0) return
-    this.#decoded.push(...this.#waiting)
-    this.#waiting.clear()
-    this.#invalidate()
+    this.#pump()
   }
 
   flush(): void {
     if (this.#decoded.length === 0) return
     const decoded = this.#decoded
     this.#decoded = []
-    for (const [src, image] of decoded) this.#store(src, image)
+    for (const [src, entry, image] of decoded) this.#store(src, entry, image)
+    this.#pump()
   }
 
   takeLoaded(): ReadonlySet<string> | null {
@@ -115,29 +125,89 @@ export class ImageAtlas {
     if (this.#texture) this.#gl.deleteTexture(this.#texture)
   }
 
-  #receive(src: string, image: HTMLImageElement): void {
-    if (this.#destroyed) return
-    this.#decoded.push([src, image])
-    this.#invalidate()
+  get #used(): number {
+    return this.#next - this.#free.length + this.#decoded.length + this.#flying
   }
 
-  #fail(src: string): void {
+  #pump(): void {
     if (this.#destroyed) return
-    if (dev && this.#entries.has(src)) console.warn(`graph: cannot load the image ${src}`)
+    while (this.#flying < maxInFlight && this.#used < this.#maxLayers) {
+      const src = this.#take()
+      if (src === null) return
+      this.#start(src)
+    }
+    if (dev && !this.#warnedFull && this.#queued > 0 && this.#used >= this.#maxLayers) {
+      this.#warnedFull = true
+      console.warn(
+        `graph: more than ${this.#maxLayers} distinct images in use, the others are not drawn until one is freed`,
+      )
+    }
   }
 
-  #store(src: string, image: HTMLImageElement): void {
+  #take(): string | null {
+    while (this.#head < this.#queue.length) {
+      const src = this.#queue[this.#head++] as string
+      if (this.#entries.get(src)?.state !== State.Queued) continue
+      this.#queued--
+      return src
+    }
+    this.#queue = []
+    this.#head = 0
+    return null
+  }
+
+  #compact(): void {
+    const pending = this.#queue.length - this.#head
+    if (pending < compactFloor || pending < this.#queued * 2) return
+    this.#queue = this.#queue
+      .slice(this.#head)
+      .filter((src) => this.#entries.get(src)?.state === State.Queued)
+    this.#head = 0
+  }
+
+  #start(src: string): void {
     const entry = this.#entries.get(src)
-    if (this.#destroyed || !entry || entry.layer >= 0) return
+    if (!entry) return
+    entry.state = State.Loading
+    this.#flying++
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.decoding = 'async'
+    image.src = src
+    const loading = image.decode().then(
+      () => this.#receive(src, entry, image),
+      () => this.#fail(src, entry),
+    )
+    this.#loading.add(loading)
+    void loading.finally(() => this.#loading.delete(loading))
+  }
+
+  #receive(src: string, entry: Entry, image: HTMLImageElement): void {
+    this.#flying--
+    if (this.#destroyed) return
+    if (this.#entries.get(src) === entry) {
+      entry.state = State.Decoded
+      this.#decoded.push([src, entry, image])
+      this.#invalidate()
+    }
+    this.#pump()
+  }
+
+  #fail(src: string, entry: Entry): void {
+    this.#flying--
+    if (this.#destroyed) return
+    if (this.#entries.get(src) === entry) {
+      entry.state = State.Failed
+      if (dev) console.warn(`graph: cannot load the image ${src}`)
+    }
+    this.#pump()
+  }
+
+  #store(src: string, entry: Entry, image: HTMLImageElement): void {
+    if (this.#destroyed || this.#entries.get(src) !== entry || entry.state !== State.Decoded) return
     const layer = this.#free.pop() ?? this.#next
     if (layer >= this.#capacity && !this.#grow()) {
-      this.#waiting.set(src, image)
-      if (dev && !this.#warnedFull) {
-        this.#warnedFull = true
-        console.warn(
-          `graph: more than ${this.#maxLayers} distinct images in use, the others are not drawn until one is freed`,
-        )
-      }
+      entry.state = State.Failed
       return
     }
     if (layer === this.#next) this.#next++
@@ -161,12 +231,14 @@ export class ImageAtlas {
       )
     } catch {
       this.#free.push(layer)
-      this.#fail(src)
+      entry.state = State.Failed
+      if (dev) console.warn(`graph: cannot load the image ${src}`)
       return
     } finally {
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
     }
     entry.layer = layer
+    entry.state = State.Stored
     this.#mipsStale = true
     this.#loaded.add(src)
   }
