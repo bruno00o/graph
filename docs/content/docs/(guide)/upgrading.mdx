@@ -17,7 +17,7 @@ Versions before 1.0 may break the API in a minor release. Each change is listed 
 
 ### `maxEdges: Infinity` means no limit
 
-`densityBundling` and `orthogonalRouting` took `maxEdges: Infinity` for the default limit. It now means no limit, as for `bridges.maxEdges`. A negative or `NaN` value still falls back to the default.
+`densityBundling` and `orthogonalRouting` took `maxEdges: Infinity` for the default limit. It now means no limit, as for `bridges.maxEdges`. A negative value is still raised to 0, and `NaN` still falls back to the default.
 
 ### `grid` ignores a `columns` that is not finite
 

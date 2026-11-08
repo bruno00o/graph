@@ -34,7 +34,7 @@ export interface OrthogonalRoutingOptions {
   readonly axis?: RouteAxis | undefined
   /**
    * Most edges routed. Above it, every edge stays straight and a warning is logged in development.
-   * `Infinity` sets no limit. A negative or `NaN` value counts as the default.
+   * `Infinity` sets no limit, a negative value counts as 0 and `NaN` as the default.
    * @default 50000
    */
   readonly maxEdges?: number | undefined

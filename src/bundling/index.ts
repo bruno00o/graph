@@ -24,7 +24,7 @@ export interface DensityBundlingOptions {
   readonly iterations?: number | undefined
   /**
    * Most edges bundled. Above it, every edge stays straight and a warning is logged in development.
-   * `Infinity` sets no limit. A negative or `NaN` value counts as the default.
+   * `Infinity` sets no limit, a negative value counts as 0 and `NaN` as the default.
    * @default 200000
    */
   readonly maxEdges?: number | undefined
