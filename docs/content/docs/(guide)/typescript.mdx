@@ -54,7 +54,7 @@ An edge drawn for several edges between [folded groups](/docs/groups) carries `a
 
 ## Type the data, not the call
 
-Give your arrays, or your collection, their type, and let each mark infer the rest. TypeScript infers all the type arguments of a call or none of them: `nodes<Item>(items, { name: 'item' })` sets the item type and leaves the name to its default, `undefined`, so the name `'item'` is refused. The same goes for `layer`.
+Give your arrays, or your collection, their type, and let each mark infer the rest. TypeScript infers all the type arguments of a call or none of them, so writing the item type, as in `nodes<Item>(items, { name: 'item' })`, stops the inference of the name and the layer: the mark accepts any string for them, and its targets report `mark` as `string | undefined`, which no longer narrows `datum`.
 
 ```ts
 const items: Item[] = await loadItems()
@@ -68,7 +68,7 @@ const definition = defineGraph({
 })
 ```
 
-When the data comes untyped, from `JSON.parse` or a fetch, type the variable that holds it rather than the call to `nodes` or `edges`.
+When the data comes untyped, from `JSON.parse` or a fetch, type the variable that holds it rather than the call to `nodes` or `edges`. Keep the explicit item type for a mark that needs none of the narrowing.
 
 ## Options left to their default
 
