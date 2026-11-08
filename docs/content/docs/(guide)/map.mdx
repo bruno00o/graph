@@ -211,7 +211,7 @@ Positions are stored relative to an origin that follows the camera, so nodes sit
 
 ## Hulls and groups
 
-[Hulls](/docs/drawing-layers#hulls) work on a map, on the globe too: their padding is in pixels, as anywhere else. [Groups](/docs/groups) made with the `parent` channel work as well: a group needs no coordinates, its container encloses its children, and a folded group sits at their center. On a map, the `padding` of a container is in pixels, so the frame keeps its margin as the map zooms. On the globe, a container is a rectangle facing the screen around its children.
+[Hulls](/docs/drawing-layers#hulls) work on a map, on the globe too: their padding is in pixels, as anywhere else. [Groups](/docs/groups), made with the `parent` channel or with [`groups()`](/docs/transformations#group-items-by-a-field), work as well: a group needs no coordinates, its container encloses its children, and a folded group starts at their center and can be dragged. A `groups()` mark without `units` takes the units of its members, so the groups of nodes placed by `longitude` and `latitude` keep their size in pixels. On a map, the `padding` of a container is in pixels, so the frame keeps its margin as the map zooms. On the globe, a container is a rectangle facing the screen around its children.
 
 ## What is left out
 

@@ -293,6 +293,8 @@ export class Projection {
   #shownEdge: Uint8Array = new Uint8Array(0)
   #shownNode: Uint8Array = new Uint8Array(0)
   #seen: Uint8Array = new Uint8Array(0)
+  #unitsMark: NodeMark<unknown> | null = null
+  #unitsFollow = false
   #edgeSlot: Int32Array = new Int32Array(0)
   #shownAggregate: Int32Array = new Int32Array(0)
   readonly #edgeKeys: (Key | undefined)[] = []
@@ -721,7 +723,18 @@ export class Projection {
     const concealed: number[] = []
     let containers = false
     const touchedNodes = hierarchy.takeTouched()
-    for (const index of this.#dataNodes) touchedNodes.add(index)
+    const leaders: number[] = []
+    for (const index of this.#dataNodes) {
+      touchedNodes.add(index)
+      const parent = hierarchy.parent[index] ?? none
+      if (parent >= 0 && hierarchy.firstChild[parent] === index) leaders.push(parent)
+    }
+    for (const parent of leaders) {
+      const record = this.#model.nodeAt(parent)
+      if (!record || this.#memberUnits(record) === undefined) continue
+      touchedNodes.add(parent)
+      this.#dataNodes.add(parent)
+    }
     for (const index of touchedNodes.indices()) {
       const key = hierarchy.keys[index]
       if (key === undefined) continue
@@ -914,7 +927,17 @@ export class Projection {
   #nodeRecord(record: NodeRecord): SceneNodeRecord | undefined {
     const shown = this.#shownNode[record.index] ?? 0
     if (shown === 0) return undefined
-    if (shown !== shownContainer) return record
+    if (shown !== shownContainer) {
+      const screenUnits = this.#memberUnits(record)
+      if (screenUnits === undefined) return record
+      return {
+        key: record.key,
+        index: record.index,
+        datum: record.datum,
+        mark: record.mark,
+        screenUnits,
+      }
+    }
     return {
       key: record.key,
       index: record.index,
@@ -922,6 +945,27 @@ export class Projection {
       mark: record.mark,
       container: true,
     }
+  }
+
+  #memberUnits(record: NodeRecord): boolean | undefined {
+    if (record.mark !== this.#unitsMark) {
+      this.#unitsMark = record.mark
+      this.#unitsFollow =
+        groupingOf(record.mark) !== undefined && record.mark.options.units === undefined
+    }
+    if (!this.#unitsFollow) return undefined
+    const hierarchy = this.hierarchy
+    let mark = record.mark
+    let index = record.index
+    for (let depth = 0; depth < hierarchy.capacity; depth++) {
+      if (!groupingOf(mark) || mark.options.units !== undefined) break
+      const child = hierarchy.firstChild[index] ?? none
+      const member = child >= 0 ? this.#model.nodeAt(child) : undefined
+      if (!member) return undefined
+      mark = member.mark
+      index = child
+    }
+    return index === record.index ? undefined : compileNodeMark(mark).screenUnits
   }
 
   #createView(): SceneModel {

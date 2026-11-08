@@ -403,7 +403,8 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
     | undefined
   /**
    * `'screen'` keeps the size of the node, in pixels, the same at every zoom; `'world'` scales it
-   * with the zoom. Defaults to `'screen'` with `longitude` and `latitude`, `'world'` otherwise.
+   * with the zoom. Defaults to `'screen'` with `longitude` and `latitude`, to the units of the
+   * grouped nodes for `groups()`, and to `'world'` otherwise.
    */
   readonly units?: 'world' | 'screen' | undefined
   /**
