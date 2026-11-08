@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/bruno00o/graph/compare/0.17.1...0.18.0) (2026-11-08)
+
+
+### Features
+
+* spread the overlapping members of an unfolded group around their place ([#119](https://github.com/bruno00o/graph/issues/119)) ([17aebff](https://github.com/bruno00o/graph/commit/17aebffed195019e020fe3cd628a23c2a113c3ef))
+
 ## [0.17.1](https://github.com/bruno00o/graph/compare/0.17.0...0.17.1) (2026-11-08)
 
 
