@@ -117,7 +117,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
     if (!graph || !network || placements.length === 0 || placedOn.current === network) return
     placedOn.current = network
     graph.positions.set(placements, { duration: 0 })
-    graph.view.fit({ padding: framePadding, duration: 500 })
+    graph.view.fit({ padding: framePadding, duration: 0 })
   }, [graph, network, placements])
 
   const runForces = useCallback(() => {
