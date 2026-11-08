@@ -48,6 +48,8 @@ export const messages = {
   groupMode: 'Groupes',
   groupModes: { none: 'Aucun', nested: 'Communautés imbriquées' },
   hierarchyGroupModes: { none: 'Aucun', nested: 'Branches imbriquées' },
+  layerSample: 'Données',
+  layerSamples: { hierarchy: 'Hiérarchie', long: 'Arêtes longues' },
   mute: 'Atténuer la moitié',
   collabHint: 'Ouvrez cette page dans un second onglet : chaque déplacement s’y voit en direct.',
   reset: 'Réinitialiser les positions',

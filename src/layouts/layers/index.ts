@@ -17,6 +17,7 @@ import {
 import { orderLayers } from './order'
 import { placeNodes } from './place'
 import { layerNodes, nestedLayers } from './ranks'
+import { relaxNodes } from './relax'
 import { expand, type Layered, sortAdjacency } from './structure'
 
 /** Where edges point. `'down'` puts the first layer at the top, `'right'` at the left. */
@@ -65,6 +66,8 @@ function pinnedOf(
   })
   return pinned
 }
+
+const rowGrowth = 1.25
 
 const sidesOf: Readonly<Record<LayersDirection, Sides>> = {
   down: [0, 2, 3, 1],
@@ -137,7 +140,7 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
     orderNested(layered, nest)
     sortAdjacency(layered)
     const separation = separations(layered, nest, nodeSpacing)
-    const across = placeNodes(layered, nodeSpacing, {
+    const across = placeNodes(layered, {
       separation,
       above: nest.above,
       below: nest.below,
@@ -159,7 +162,7 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
   const layered = expand(count, layer, component, successors, radius)
   orderLayers(layered)
   sortAdjacency(layered)
-  const across = placeNodes(layered, nodeSpacing)
+  const across = relaxNodes(layered, nodeSpacing)
   return { placed: pack(layered, across, layerSpacing, depth), clusters: null }
 }
 
@@ -215,29 +218,50 @@ function pack(
   }
   const sorted = Array.from({ length: componentCount }, (_, c) => c)
   sorted.sort((a, b) => (size[b] ?? 0) - (size[a] ?? 0) || a - b)
-  let area = 0
   let widest = 0
+  let row = 0
   for (let c = 0; c < componentCount; c++) {
-    area += ((width[c] ?? 0) + layerSpacing) * ((height[c] ?? 0) + layerSpacing)
     widest = Math.max(widest, width[c] ?? 0)
+    row += (width[c] ?? 0) + layerSpacing
   }
-  const limit = Math.max(widest, Math.sqrt(area * 4))
   const offsetAcross = new Float64Array(componentCount)
   const offsetAlong = new Float64Array(componentCount)
-  let cursor = 0
-  let shelf = 0
-  let shelfHeight = 0
-  for (const c of sorted) {
-    if (cursor > 0 && cursor + (width[c] ?? 0) > limit) {
-      shelf += shelfHeight + layerSpacing
-      cursor = 0
-      shelfHeight = 0
+  const shelve = (limit: number, write: boolean): [number, number] => {
+    let cursor = 0
+    let reach = 0
+    let shelf = 0
+    let shelfHeight = 0
+    for (const c of sorted) {
+      if (cursor > 0 && cursor + (width[c] ?? 0) > limit) {
+        shelf += shelfHeight + layerSpacing
+        cursor = 0
+        shelfHeight = 0
+      }
+      if (write) {
+        offsetAcross[c] = cursor - (left[c] ?? 0)
+        offsetAlong[c] = shelf + (lead[c] ?? 0)
+      }
+      reach = Math.max(reach, cursor + (width[c] ?? 0))
+      cursor += (width[c] ?? 0) + layerSpacing
+      shelfHeight = Math.max(shelfHeight, height[c] ?? 0)
     }
-    offsetAcross[c] = cursor - (left[c] ?? 0)
-    offsetAlong[c] = shelf + (lead[c] ?? 0)
-    cursor += (width[c] ?? 0) + layerSpacing
-    shelfHeight = Math.max(shelfHeight, height[c] ?? 0)
+    return [reach, shelf + shelfHeight]
   }
+  let best = widest
+  let bestSide = Number.POSITIVE_INFINITY
+  let bestArea = Number.POSITIVE_INFINITY
+  for (let limit = widest; ; limit *= rowGrowth) {
+    const [across, along] = shelve(limit, false)
+    const side = Math.max(across, along)
+    const area = across * along
+    if (side < bestSide || (side === bestSide && area < bestArea)) {
+      best = limit
+      bestSide = side
+      bestArea = area
+    }
+    if (limit >= row || limit <= 0) break
+  }
+  shelve(best, true)
   const placed = new Float64Array(real * 2)
   for (let c = 0; c < componentCount; c++) {
     const first = componentSlots[c] ?? 0

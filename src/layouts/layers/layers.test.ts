@@ -202,6 +202,37 @@ describe('layers', () => {
     expect(point(xy, 3)[1]).toBe(point(xy, 0)[1])
   })
 
+  it('keeps a dense graph with long edges about as wide as its widest layer', async () => {
+    const count = 1500
+    const xy = await run(graphOf({ count, edges: hierarchy(count, 1500, 12) }), { nodeSpacing: 10 })
+    let widest = 0
+    for (const row of rows(xy, count).values()) widest = Math.max(widest, row.length * 20 - 10)
+    const xs = Array.from({ length: count }, (_, index) => point(xy, index)[0])
+    expect(Math.max(...xs) - Math.min(...xs) + 10).toBeLessThan(widest * 1.8)
+  })
+
+  it('keeps the edges of a dense graph short across the layers', async () => {
+    const count = 600
+    const edges = hierarchy(count, 900, 4)
+    const xy = await run(graphOf({ count, edges }), { nodeSpacing: 10 })
+    let across = 0
+    for (let at = 0; at < edges.length; at += 2) {
+      across += Math.abs(point(xy, edges[at] ?? 0)[0] - point(xy, edges[at + 1] ?? 0)[0])
+    }
+    expect(across / (edges.length / 2)).toBeLessThan(750)
+  })
+
+  it('packs separate components into a box close to a square', async () => {
+    const chain = Array.from({ length: 39 }, (_, at) => [at, at + 1]).flat()
+    const count = 40 + 60
+    const xy = await run(graphOf({ count, edges: chain }), { nodeSpacing: 10, layerSpacing: 10 })
+    const xs = Array.from({ length: count }, (_, index) => point(xy, index)[0])
+    const ys = Array.from({ length: count }, (_, index) => point(xy, index)[1])
+    const width = Math.max(...xs) - Math.min(...xs) + 10
+    const height = Math.max(...ys) - Math.min(...ys) + 10
+    expect(Math.max(width, height) / Math.min(width, height)).toBeLessThan(1.5)
+  })
+
   it('ignores edges to fixed nodes and loops', async () => {
     const graph = graphOf({
       count: 3,
