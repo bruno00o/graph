@@ -102,36 +102,39 @@ const openFreeMap = [
   { text: 'OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' },
 ] as const
 
-export const basemaps: readonly Basemap[] = [
-  {
-    id: 'demo',
-    label: 'MapLibre demo',
-    style: 'https://demotiles.maplibre.org/style.json',
-    scheme: 'light',
-    credit: [
-      { text: 'MapLibre', url: 'https://maplibre.org' },
-      { text: 'Natural Earth', url: 'https://www.naturalearthdata.com' },
-    ],
-  },
-  {
-    id: 'positron',
-    label: 'Positron',
-    style: 'https://tiles.openfreemap.org/styles/positron',
-    scheme: 'light',
-    credit: openFreeMap,
-  },
-  {
-    id: 'liberty',
-    label: 'Liberty',
-    style: 'https://tiles.openfreemap.org/styles/liberty',
-    scheme: 'light',
-    credit: openFreeMap,
-  },
-  {
-    id: 'dark',
-    label: 'Dark',
-    style: 'https://tiles.openfreemap.org/styles/dark',
-    scheme: 'dark',
-    credit: openFreeMap,
-  },
-]
+const demo: Basemap = {
+  id: 'demo',
+  label: 'MapLibre demo',
+  style: 'https://demotiles.maplibre.org/style.json',
+  scheme: 'light',
+  credit: [
+    { text: 'MapLibre', url: 'https://maplibre.org' },
+    { text: 'Natural Earth', url: 'https://www.naturalearthdata.com' },
+  ],
+}
+
+export const positron: Basemap = {
+  id: 'positron',
+  label: 'Positron',
+  style: 'https://tiles.openfreemap.org/styles/positron',
+  scheme: 'light',
+  credit: openFreeMap,
+}
+
+const liberty: Basemap = {
+  id: 'liberty',
+  label: 'Liberty',
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  scheme: 'light',
+  credit: openFreeMap,
+}
+
+export const dark: Basemap = {
+  id: 'dark',
+  label: 'Dark',
+  style: 'https://tiles.openfreemap.org/styles/dark',
+  scheme: 'dark',
+  credit: openFreeMap,
+}
+
+export const basemaps: readonly Basemap[] = [positron, liberty, dark, demo]

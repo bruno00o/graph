@@ -1,10 +1,9 @@
-import { type GraphInstance, type GraphPointerEvent, geoToWorld, type View } from '@bruno00o/graph'
+import { type GraphInstance, geoToWorld, type View } from '@bruno00o/graph'
 import { type JSX, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scale, toMap, toPlain } from './camera'
 import {
   type DatasetId,
   type Filters,
-  type Flight,
   loadNetwork,
   type Network,
   neighborsOf,
@@ -12,12 +11,44 @@ import {
   type Place,
   visibleOf,
 } from './data'
-import { definitionOf, isGroup, type LayoutId, type Mode, openedOf } from './definition'
+import {
+  type AirDoubleClick,
+  type AirGraph,
+  definitionOf,
+  type LayoutId,
+  type Mode,
+  openedOf,
+} from './definition'
 import { Details } from './details'
-import { type Basemap, basemaps, messages } from './messages'
+import { type Basemap, dark as darkBasemap, messages, positron } from './messages'
 import { Panel } from './panel'
 import { ClassicStage, MapStage } from './stages'
 import './air-routes.css'
+
+type Scheme = 'light' | 'dark'
+
+function readScheme(): Scheme {
+  const { classList } = document.documentElement
+  if (classList.contains('dark')) return 'dark'
+  if (classList.contains('light')) return 'light'
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function useSiteScheme(): Scheme {
+  const [scheme, setScheme] = useState(readScheme)
+  useEffect(() => {
+    const update = () => setScheme(readScheme())
+    const observer = new MutationObserver(update)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    const query = matchMedia('(prefers-color-scheme: dark)')
+    query.addEventListener('change', update)
+    return () => {
+      observer.disconnect()
+      query.removeEventListener('change', update)
+    }
+  }, [])
+  return scheme
+}
 
 const startZoom: Record<DatasetId, number> = { europe: 2 ** 3.3, world: 2 ** 1.1 }
 const noPairs: ReadonlySet<string> = new Set()
@@ -45,7 +76,9 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
   const [failed, setFailed] = useState(false)
   const [mode, setMode] = useState<Mode>('classic')
   const [layout, setLayout] = useState<LayoutId>('geo')
-  const [basemap, setBasemap] = useState<Basemap>(basemaps[0] as Basemap)
+  const [chosen, setChosen] = useState<Basemap | null>(null)
+  const scheme = useSiteScheme()
+  const basemap = chosen ?? (scheme === 'dark' ? darkBasemap : positron)
   const [grouped, setGrouped] = useState(true)
   const [filters, setFilters] = useState<Filters>(noFilters)
   const [revealed, setRevealed] = useState<ReadonlySet<number>>(noPlaces)
@@ -54,8 +87,8 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
   const [request, setRequest] = useState<Request | null>(null)
   const [camera, setCamera] = useState<View | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
-  const [graph, setGraph] = useState<GraphInstance | null>(null)
-  const graphRef = useRef<GraphInstance | null>(null)
+  const [graph, setGraph] = useState<AirGraph | null>(null)
+  const graphRef = useRef<AirGraph | null>(null)
   const sequence = useRef(0)
 
   const loading = useRef(0)
@@ -108,7 +141,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
   )
 
   const report = useCallback(
-    (instance: GraphInstance | null) => {
+    (instance: AirGraph | null) => {
       graphRef.current = instance
       setGraph(instance)
       assign(ref, instance)
@@ -158,29 +191,24 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
     graph.view.fit({ nodes: [id, ...around], padding: 90, maxZoom: 6, duration: 700 })
   }, [graph, network, request])
 
-  const doubleClick = useRef<(event: GraphPointerEvent) => void>(() => {})
+  const doubleClick = useRef<AirDoubleClick>(() => {})
   doubleClick.current = ({ target }) => {
     if (!target) return
     if (target.kind === 'node') {
-      if (isGroup(target.datum)) return
-      const place = target.datum as Place
-      setRevealed((current) => toggled(current, place.id))
+      if (target.mark === 'airports') setRevealed((current) => toggled(current, target.datum.id))
       return
     }
     if (target.mark === 'opened') {
-      const { pair } = target.datum as Flight
-      setPairs((current) => toggled(current, pair))
+      setPairs((current) => toggled(current, target.datum.pair))
       return
     }
-    const flights: readonly Flight[] = target.aggregate
-      ? (target.aggregate.data as readonly Flight[])
-      : [target.datum as Flight]
+    const flights = target.aggregate ? target.aggregate.data : [target.datum]
     const pair = flights[0]?.pair
     if (pair === undefined || flights.length < 2) return
     if (flights.some((flight) => flight.pair !== pair)) return
     setPairs((current) => toggled(current, pair))
   }
-  const onDoubleClick = useCallback((event: GraphPointerEvent) => doubleClick.current(event), [])
+  const onDoubleClick = useCallback<AirDoubleClick>((event) => doubleClick.current(event), [])
 
   const changeMode = (next: Mode) => {
     if (next === mode) return
@@ -238,7 +266,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
         layout={layout}
         onLayout={setLayout}
         basemap={basemap}
-        onBasemap={setBasemap}
+        onBasemap={setChosen}
         grouped={grouped}
         onGrouped={setGrouped}
         filters={filters}

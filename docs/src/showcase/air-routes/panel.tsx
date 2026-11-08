@@ -203,7 +203,13 @@ export function Panel(props: PanelProps): JSX.Element {
         {mode === 'classic' ? (
           <label className="air-field">
             <span>{messages.view.layout}</span>
-            <select value={layout} onChange={(event) => onLayout(event.target.value as LayoutId)}>
+            <select
+              value={layout}
+              onChange={(event) => {
+                const next = layoutIds.find((item) => item === event.target.value)
+                if (next) onLayout(next)
+              }}
+            >
               {layoutIds.map((item) => (
                 <option key={item} value={item}>
                   {messages.view.layouts[item]}

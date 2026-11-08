@@ -1,10 +1,10 @@
 import type { NodeGroup } from '@bruno00o/graph'
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
-import { Anchor, Graph, type GraphState, useGraph, useGraphState } from '@bruno00o/graph/react'
+import { Anchor, Graph, useGraph, useGraphState } from '@bruno00o/graph/react'
 import { type JSX, useMemo } from 'react'
-import { destinationsOf, type Flight, type Network, type Place } from './data'
-import { isGroup } from './definition'
+import { destinationsOf, type Network, type Place } from './data'
+import type { AirGraphState, AirMark, AirState } from './definition'
 import { messages } from './messages'
 
 interface Stop {
@@ -98,10 +98,10 @@ export function Details({
   readonly network: Network
   readonly opened: ReadonlySet<string>
 }): JSX.Element | null {
-  const graph = useGraph()
-  const hovered = useGraphState((state: GraphState) => state.hovered)
+  const graph = useGraph<AirState, AirMark>()
+  const hovered = useGraphState((state: AirGraphState) => state.hovered)
   if (hovered?.kind === 'edge') {
-    const flight = hovered.datum as Flight
+    const flight = hovered.datum
     const from = network.placeById.get(flight.from)
     const to = network.placeById.get(flight.to)
     if (!from || !to) return null
@@ -117,19 +117,19 @@ export function Details({
     )
   }
   if (hovered?.kind !== 'node') return null
-  const datum = hovered.datum
-  if (isGroup(datum)) {
+  if (hovered.mark === 'areas') {
+    const group = hovered.datum
     const folded = graph.groups.isFolded(hovered.key)
     return (
       <Anchor node={hovered.key} side="top" align="center" offset={{ x: 0, y: -8 }}>
         <div className="air-tooltip air-tooltip-group">
-          <strong>{messages.details.area(datum.data[0]?.areaName ?? '', datum.count)}</strong>
-          {folded ? <Preview network={network} group={datum} /> : null}
+          <strong>{messages.details.area(group.data[0]?.areaName ?? '', group.count)}</strong>
+          {folded ? <Preview network={network} group={group} /> : null}
         </div>
       </Anchor>
     )
   }
-  const place = datum as Place
+  const place = hovered.datum
   return (
     <Anchor node={hovered.key} side="top" align="center" offset={{ x: 0, y: -4 }}>
       <div className="air-tooltip">

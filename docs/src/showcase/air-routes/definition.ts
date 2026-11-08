@@ -3,6 +3,10 @@ import {
   type Badge,
   defineGraph,
   edges,
+  type GraphDefinition,
+  type GraphEventHandler,
+  type GraphInstance,
+  type GraphState,
   groups,
   type NodeGroup,
   nodes,
@@ -71,7 +75,8 @@ function mergedWidth(aggregate: AggregateEdge<Flight>): number {
   return aggregate.count
 }
 
-const aggregate = { width: mergedWidth, opacity: 0.4 }
+const classicAggregate = { width: mergedWidth, opacity: 0.16 }
+const mapAggregate = { width: mergedWidth, opacity: 0.32 }
 const merge = { directed: false }
 const groupSizeOf = raw(groupSize)
 const geoOrder = { order: byWeight }
@@ -108,10 +113,10 @@ export function definitionOf(input: DefinitionInput) {
       source: 'from',
       target: 'to',
       width: 1,
-      opacity: 0.3,
+      opacity: onMap ? 0.22 : 0.1,
       geodesic: onMap,
       merge,
-      aggregate,
+      aggregate: onMap ? mapAggregate : classicAggregate,
     }),
     edges(input.opened, {
       name: 'opened',
@@ -155,7 +160,7 @@ export function definitionOf(input: DefinitionInput) {
     states: {
       near: {
         nodes: { others: { opacity: dimmed.nodes } },
-        edges: { opacity: 1, others: { opacity: dimmed.edges } },
+        edges: { opacity: 0.85, others: { opacity: dimmed.edges } },
       },
       drilled: { hide: true },
     },
@@ -165,3 +170,13 @@ export function definitionOf(input: DefinitionInput) {
     view: { padding: 56, autoFit: 'first' },
   })
 }
+
+export type AirDefinition = ReturnType<typeof definitionOf>
+
+type Parts<D> = D extends GraphDefinition<infer S, infer M> ? { state: S; mark: M } : never
+
+export type AirState = Parts<AirDefinition>['state']
+export type AirMark = Parts<AirDefinition>['mark']
+export type AirGraph = GraphInstance<AirState, AirMark>
+export type AirGraphState = GraphState<AirState, AirMark>
+export type AirDoubleClick = GraphEventHandler<'doubleclick', AirMark>

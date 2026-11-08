@@ -1,4 +1,4 @@
-import type { GraphInstance, GraphPointerEvent, View } from '@bruno00o/graph'
+import type { View } from '@bruno00o/graph'
 import { MapGraph } from '@bruno00o/graph/map/react'
 import { Graph, useGraph } from '@bruno00o/graph/react'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
@@ -6,26 +6,24 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { type JSX, type ReactNode, useEffect, useRef, useState } from 'react'
 import { mapCamera } from './camera'
-import type { definitionOf } from './definition'
+import type { AirDefinition, AirDoubleClick, AirGraph, AirMark, AirState } from './definition'
 import { type Basemap, messages } from './messages'
 
 setWorkerUrl(workerUrl)
 
-type AirDefinition = ReturnType<typeof definitionOf>
-
-export type Report = (graph: GraphInstance | null) => void
+export type Report = (graph: AirGraph | null) => void
 
 interface StageProps {
   readonly definition: AirDefinition
   readonly label: string
   readonly report: Report
   readonly fit: boolean
-  readonly onDoubleClick: (event: GraphPointerEvent) => void
+  readonly onDoubleClick: AirDoubleClick
   readonly children?: ReactNode
 }
 
 function Expose({ report, fit }: { readonly report: Report; readonly fit: boolean }): null {
-  const graph = useGraph()
+  const graph = useGraph<AirState, AirMark>()
   const latest = useRef(report)
   latest.current = report
   useEffect(() => {
@@ -50,7 +48,7 @@ export function ClassicStage({
       definition={definition}
       ariaLabel={label}
       initialView={initialView}
-      onDoubleClick={onDoubleClick as never}
+      onDoubleClick={onDoubleClick}
       style={{ position: 'absolute', inset: 0 }}
     >
       <Expose report={report} fit={fit && !initialView} />
@@ -103,12 +101,7 @@ export function MapStage({
     <>
       <div ref={host} className="air-map" />
       {map ? (
-        <MapGraph
-          map={map}
-          definition={definition}
-          ariaLabel={label}
-          onDoubleClick={onDoubleClick as never}
-        >
+        <MapGraph map={map} definition={definition} ariaLabel={label} onDoubleClick={onDoubleClick}>
           <Expose report={report} fit={fit} />
           {children}
         </MapGraph>

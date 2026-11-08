@@ -119,11 +119,21 @@ export function browserEnv(name) {
 
 const blankStyle = JSON.stringify({ version: 8, sources: {}, layers: [] })
 
+const styleHosts = new Set(['tiles.openfreemap.org'])
+
+function isStyle(url) {
+  const { hostname, pathname } = new URL(url)
+  return (
+    pathname.endsWith('/style.json') ||
+    (styleHosts.has(hostname) && pathname.startsWith('/styles/'))
+  )
+}
+
 export function isolate(context) {
   return context.route(
     (url) => url.hostname !== '127.0.0.1' && url.hostname !== 'localhost',
     (route) =>
-      route.request().url().endsWith('/style.json')
+      isStyle(route.request().url())
         ? route.fulfill({ contentType: 'application/json', body: blankStyle })
         : route.abort(),
   )
