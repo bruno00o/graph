@@ -228,6 +228,26 @@ describe('createLegend', () => {
     graph.destroy()
   })
 
+  it('does not move the hover when the rebuild gives the focus back', () => {
+    const graph = mount()
+    const legend = createLegend(graph)
+    const view = mountLegend(legend)
+    document.body.append(view.element)
+    const button = view.element.querySelector('button') as HTMLButtonElement
+    button.focus()
+    const focus = HTMLElement.prototype.focus
+    vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement) {
+      this.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+      focus.call(this)
+      this.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    })
+    const hover = vi.spyOn(legend, 'hover')
+    view.update({ toggle: true })
+    expect(hover).not.toHaveBeenCalled()
+    vi.restoreAllMocks()
+    graph.destroy()
+  })
+
   it('keeps the options left out of update and resets those set to undefined', () => {
     const graph = mount()
     const legend = createLegend(graph, { highlight: 'match', hidden: 'faded' })

@@ -21,6 +21,7 @@ import type {
   GraphStore,
   MountGraphOptions,
 } from './mount-graph'
+import { readonlyOf } from './readonly-store'
 
 interface Waiter {
   readonly resolve: () => void
@@ -242,12 +243,7 @@ export function stillborn<S extends string, M extends Mark>(
     lens: null,
     hiddenLayers: [...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? [])],
   })
-  const graph = afterDestroy(
-    createStore(() => store.state),
-    element,
-    signal,
-    () => signal.reason,
-  )
+  const graph = afterDestroy(readonlyOf(store), element, signal, () => signal.reason)
   const scene = createScene()
   scene.setDefinition(definition)
   exposeInternals(graph, {

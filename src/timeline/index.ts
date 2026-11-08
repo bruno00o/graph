@@ -4,6 +4,7 @@ import { readWindow, sameWindow, toTime } from '../core/time-range'
 import { internalsOf } from '../host/internals'
 import { isolateSubscribers } from '../host/isolate'
 import type { GraphInstance } from '../host/mount-graph'
+import { readonlyOf } from '../host/readonly-store'
 import type { Mark, TimeInstant, TimeWindow, TimeWindowInput } from '../types'
 import { addTime, boundaries, chooseStep, type TimeStep, type TimeUnit } from './calendar'
 import { incidentEdges, readEdgeSpan, readNodeSpan, SpanCounts } from './histogram'
@@ -265,9 +266,7 @@ export function createTimeline<S extends string, M extends Mark>(
     mode: settings.mode,
     loop: settings.loop,
   })
-  const readonlyStore: ReadonlyStore<TimelineState> = isolateSubscribers(
-    createStore(() => store.state),
-  )
+  const readonlyStore: ReadonlyStore<TimelineState> = isolateSubscribers(readonlyOf(store))
 
   function patch(next: Partial<TimelineState>): void {
     store.setState((state) => ({ ...state, ...next }))
