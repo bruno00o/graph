@@ -10,6 +10,7 @@ import {
   boxBadgeInset,
   boxDistance,
   diamondReach,
+  endBox,
   isBox,
   loopShift,
   type NodeBox,
@@ -17,6 +18,7 @@ import {
   nodeTrim,
   nodeUnit,
   squareReach,
+  trimsAsBox,
 } from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
@@ -341,13 +343,15 @@ export function writeSvg(scene: SvgScene): string {
   const radius = (index: number) => screenRadius(nodes, index, zoom)
   const trimOf = (index: number, dx: number, dy: number) => {
     const length = Math.hypot(dx, dy)
-    if (!isBox(nodes, index) || length === 0) return radius(index)
+    if (!trimsAsBox(nodes, index) || length === 0) return radius(index)
     return nodeTrim(nodes, index, zoom, dx / length, dy / length)
   }
   const sourceScratch: NodeBox = { halfWidth: 0, halfHeight: 0, corner: 0 }
   const targetScratch: NodeBox = { halfWidth: 0, halfHeight: 0, corner: 0 }
   const boxOf = (index: number, out: NodeBox): NodeBox | null =>
     isBox(nodes, index) ? nodeBox(nodes, index, nodeUnit(nodes, index, zoom), out) : null
+  const endBoxOf = (index: number, out: NodeBox): NodeBox | null =>
+    trimsAsBox(nodes, index) ? endBox(nodes, index, zoom, out) : null
   const boxes = scene.containers?.boxes ?? null
   const isContainer = (index: number) => nodes.shape[index] === containerShape
   const outside = (left: number, top: number, right: number, bottom: number) =>
@@ -734,8 +738,8 @@ export function writeSvg(scene: SvgScene): string {
       source === target
         ? loopCurve(ax + shift, ay, loopReach(sourceRadius, bend, loopMinimum))
         : parallelCurve(ax, ay, dx, dy, bend)
-    const sourceBox = boxOf(source, sourceScratch)
-    const targetBox = boxOf(target, targetScratch)
+    const sourceBox = endBoxOf(source, sourceScratch)
+    const targetBox = endBoxOf(target, targetScratch)
     const t0 = crossing(curve, ax, ay, sourceRadius, 0, 0.5, true, sourceBox)
     const t1 = crossing(curve, dx, dy, targetRadius, 0.5, 1, false, targetBox)
     const visible = arcLength(curve, t0, t1)

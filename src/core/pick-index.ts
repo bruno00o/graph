@@ -14,12 +14,13 @@ import { worldSize } from './geo'
 import { arcPolyline } from './geo-arc'
 import {
   boundingRadius,
-  isBox,
+  insideEndBox,
   loopShift,
   maxShapeReach,
   minimumNodeRadius,
   nodeDistance,
   nodeTrim,
+  trimsAsBox,
 } from './node-shape'
 import type { Positions } from './positions'
 import { edgeShown, nodeShown, type Sight } from './visibility'
@@ -647,7 +648,7 @@ export class PickIndex {
 
   #trim(source: PickSource, index: number, zoom: number, dx: number, dy: number): number {
     const length = Math.hypot(dx, dy)
-    if (isBox(source.nodes, index) && length > 0) {
+    if (trimsAsBox(source.nodes, index) && length > 0) {
       return nodeTrim(source.nodes, index, zoom, dx / length, dy / length) / zoom
     }
     const size = (source.nodes.size[index] ?? 0) / 2
@@ -792,7 +793,7 @@ export class PickIndex {
   }
 
   #radius(source: PickSource, index: number, zoom: number, dx: number, dy: number): number {
-    if (isBox(source.nodes, index)) {
+    if (trimsAsBox(source.nodes, index)) {
       return Math.max(this.#trim(source, index, zoom, dx, dy), minimumPickRadius / zoom)
     }
     const size = (source.nodes.size[index] ?? 0) / 2
@@ -866,6 +867,12 @@ export class PickIndex {
       if (edges.alive[index] !== 1 || !edgeShown(source.nodes, edges, index, sight)) return
       const s = edges.source[index] ?? 0
       const t = edges.target[index] ?? 0
+      if (
+        insideEndBox(source.nodes, s, x - positions.x(s), y - positions.y(s), scale) ||
+        insideEndBox(source.nodes, t, x - positions.x(t), y - positions.y(t), scale)
+      ) {
+        return
+      }
       const paths = source.paths
       if (paths && paths.count(index) > 1) {
         if (seen.has(index)) return

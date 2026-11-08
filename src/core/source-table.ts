@@ -14,7 +14,12 @@ import { sameOptions } from './same-options'
 
 export type ElementKind = 'nodes' | 'edges'
 
-const comparedApart: ReadonlySet<string> = new Set(['merge', 'aggregate', 'scales'])
+const comparedApart: ReadonlySet<string> = new Set([
+  'merge',
+  'aggregate',
+  'betweenGroups',
+  'scales',
+])
 
 const queueFloor = 1024
 

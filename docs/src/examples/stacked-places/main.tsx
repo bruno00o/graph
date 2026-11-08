@@ -1,4 +1,11 @@
-import { defineGraph, edges, type GraphInstance, groups, nodes } from '@bruno00o/graph'
+import {
+  defineGraph,
+  type EdgesBetweenGroups,
+  edges,
+  type GraphInstance,
+  groups,
+  nodes,
+} from '@bruno00o/graph'
 import { mountMapGraph } from '@bruno00o/graph/map'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -7,6 +14,7 @@ import { type Ref, useLayoutEffect, useRef, useState } from 'react'
 import { followSiteBasemap, siteBasemap } from '../shared/basemap'
 import { random } from '../shared/random'
 import { messages } from './messages'
+import '../shared/controls.css'
 import '../shared/overlays.css'
 
 setWorkerUrl(workerUrl)
@@ -64,10 +72,24 @@ places.forEach(([longitude, latitude], place) => {
   }
 })
 
-const define = (spread: boolean) =>
+interface Look {
+  readonly spread: boolean
+  readonly between: EdgesBetweenGroups
+  readonly fill: number
+}
+
+const initial: Look = { spread: true, between: 'members', fill: 50 }
+
+const define = ({ spread, between, fill }: Look) =>
   defineGraph({
     marks: [
-      edges<Link>(links, { source: 'from', target: 'to', opacity: 0.6 }),
+      edges<Link>(links, {
+        source: 'from',
+        target: 'to',
+        opacity: 0.6,
+        arrow: 'target',
+        betweenGroups: between,
+      }),
       nodes<Spot>(spots, {
         name: 'spots',
         longitude: 'longitude',
@@ -82,7 +104,7 @@ const define = (spread: boolean) =>
         folded: false,
         size: 22,
         label: (site) => messages.site(site.count),
-        container: { spread, gap: 4 },
+        container: { spread, gap: 4, fillOpacity: fill / 100 },
       }),
     ],
   })
@@ -94,8 +116,8 @@ function assign(ref: Ref<GraphInstance | null>, value: GraphInstance | null): vo
 
 export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
   const host = useRef<HTMLDivElement>(null)
-  const restyle = useRef<((spread: boolean) => void) | null>(null)
-  const [spread, setSpread] = useState(true)
+  const restyle = useRef<((look: Look) => void) | null>(null)
+  const [look, setLook] = useState(initial)
   const [status, setStatus] = useState('')
 
   useLayoutEffect(() => {
@@ -108,7 +130,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       zoom: 1.2,
     })
     const graph = mountMapGraph(map, {
-      definition: define(true),
+      definition: define(initial),
       ariaLabel: messages.graphLabel(spots.length, places.length),
     })
     graph.view.fit({ padding: 48 })
@@ -130,18 +152,42 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
     }
   }, [ref])
 
-  const toggle = () => {
-    setSpread(!spread)
-    restyle.current?.(!spread)
+  const change = (next: Partial<Look>) => {
+    const changed = { ...look, ...next }
+    setLook(changed)
+    restyle.current?.(changed)
   }
 
   return (
     <div className="example-graph">
       <div ref={host} style={{ position: 'absolute', inset: 0 }} />
       <div className="example-actions">
-        <button type="button" className="example-button" aria-pressed={spread} onClick={toggle}>
-          {messages.spread(spread)}
+        <button
+          type="button"
+          className="example-button"
+          aria-pressed={look.spread}
+          onClick={() => change({ spread: !look.spread })}
+        >
+          {messages.spread(look.spread)}
         </button>
+        <button
+          type="button"
+          className="example-button"
+          onClick={() => change({ between: look.between === 'groups' ? 'members' : 'groups' })}
+        >
+          {messages.between(look.between)}
+        </button>
+        <label className="example-button example-range">
+          <span>{messages.fill(look.fill)}</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={look.fill}
+            onChange={(event) => change({ fill: Number(event.currentTarget.value) })}
+          />
+        </label>
       </div>
       <output className="example-status" aria-live="polite">
         {status}

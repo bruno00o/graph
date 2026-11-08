@@ -153,6 +153,12 @@ type AggregateEdgeOptions<T> = Omit<
 
 <api-table path="index.ts" name="AggregateDirection" />
 
+`betweenGroups` chooses where the edges between two unfolded groups draw: between their members, or as one aggregated edge per pair of groups. See [one edge between two groups](/docs/groups#one-edge-between-two-groups).
+
+```ts
+type EdgesBetweenGroups = 'members' | 'groups'
+```
+
 - With `directed: false`, an aggregated edge points the way of the first edge in its `keys`: `forward` holds the edges that go that way, `backward` the others. Otherwise `forward` holds every merged edge and `backward` none.
 - Without `aggregate`, an aggregated edge looks like its first merged edge. An option that `aggregate` leaves out takes the value of the first merged edge, `ends` included. Labels, end labels included, show only when it merges a single edge.
 - Arrows join the arrow of the first edge of each direction, turned to the orientation of the aggregated edge: two opposite edges with `arrow: 'target'` give an arrow at each end.
