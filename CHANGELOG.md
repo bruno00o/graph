@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.0](https://github.com/bruno00o/graph/compare/0.20.0...0.21.0) (2026-11-08)
+
+
+### Features
+
+* draw edges between groups as one edge per pair of groups and set the fill opacity of containers ([#135](https://github.com/bruno00o/graph/issues/135)) ([05be978](https://github.com/bruno00o/graph/commit/05be978552c7d40bdd84818f8776d8df9e2aef26))
+* lay out large graphs in levels with the force layout ([#136](https://github.com/bruno00o/graph/issues/136)) ([a22e8a2](https://github.com/bruno00o/graph/commit/a22e8a2e7676a57c565bac758c279d8ffb080694))
+
 ## [0.20.0](https://github.com/bruno00o/graph/compare/0.19.0...0.20.0) (2026-11-08)
 
 
