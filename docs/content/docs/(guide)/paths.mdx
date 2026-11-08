@@ -16,7 +16,7 @@ const path = graph.paths.shortest('a', 'f')
 
 The result lists the keys of the nodes along the path, from the start to the end, and the keys of the edges between them, one fewer. When two nodes are joined by several edges, `edges` tells which one the path takes. `costs` holds the cost from the start to each node, and `cost` the total.
 
-`shortest` returns `null` when no path joins the two nodes, or when a key is unknown. From a node to itself, the path is that node alone, at cost 0.
+`shortest` returns `null` when no path joins the two nodes, or when a key is unknown. A value that is not a key, such as `undefined`, `null`, an object or `NaN`, counts as an unknown key in every read by key. From a node to itself, the path is that node alone, at cost 0.
 
 Without options, every edge costs 1: the path has the fewest edges. Edges are crossed both ways.
 

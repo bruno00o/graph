@@ -94,6 +94,28 @@ describe('EdgePaths', () => {
     expect(paths.bundled).toBe(0)
   })
 
+  it('resets the reach of an edge that no longer has a path, and keeps it while it fades', () => {
+    const { positions } = setup()
+    const paths = new EdgePaths()
+    paths.reserve(2)
+    paths.start(arch(100), 1, positions)
+    const reach = paths.reach[0] ?? 0
+    expect(reach).toBeGreaterThan(50)
+    paths.mix = 1
+    paths.start(null, 0, positions)
+    expect(paths.count(0)).toBeGreaterThan(0)
+    expect(paths.reach[0]).toBe(reach)
+    paths.mix = 1
+    paths.settle()
+    expect(paths.reach[0]).toBe(0)
+    paths.start(arch(100), 1, positions)
+    expect(paths.reach[0]).toBeGreaterThan(50)
+    paths.pointBudget = 1
+    paths.start(arch(100), 1, positions)
+    expect(paths.count(0)).toBe(0)
+    expect(paths.reach[0]).toBe(0)
+  })
+
   it('drops the path of an edge whose ends or bundle flag change', () => {
     const { positions, edges } = setup()
     const paths = new EdgePaths()

@@ -30,12 +30,12 @@ export interface MinimapOptions {
    */
   readonly corner?: MinimapCorner | null | undefined
   /**
-   * Width of the minimap, in CSS pixels.
+   * Width of the minimap, in CSS pixels. A value that is not above 0 falls back to the default.
    * @default 200
    */
   readonly width?: number | undefined
   /**
-   * Height of the minimap, in CSS pixels.
+   * Height of the minimap, in CSS pixels. A value that is not above 0 falls back to the default.
    * @default 150
    */
   readonly height?: number | undefined
@@ -156,11 +156,15 @@ function positive(value: number | undefined, fallback: number): number {
   return value !== undefined && Number.isFinite(value) && value >= 0 ? value : fallback
 }
 
+function size(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback
+}
+
 function settle(options: MinimapOptions): Settings {
   return {
     corner: options.corner === undefined ? 'bottomRight' : options.corner,
-    width: positive(options.width, 200),
-    height: positive(options.height, 150),
+    width: size(options.width, 200),
+    height: size(options.height, 150),
     margin: positive(options.margin, 12),
     padding: positive(options.padding, 8),
     maxEdges: positive(options.maxEdges, 20_000),

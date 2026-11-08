@@ -1,4 +1,5 @@
 import TinySDF from '@mapbox/tiny-sdf'
+import { type LoadedFamilies, usesFamily } from '../core/font-family'
 import { warnLimit } from './caps'
 
 export const atlasFontSize = 24
@@ -72,6 +73,7 @@ function blank(left: number, advance: number): Glyph {
 }
 
 interface FontFace {
+  readonly family: string
   readonly renderer: TinySDF
   readonly lines: RecentCache<LineLayout>
   readonly fitted: RecentCache<string>
@@ -111,6 +113,20 @@ export class GlyphAtlas {
     if (font === this.#font) return false
     this.#font = font
     this.#faces.clear()
+    this.#missing.clear()
+    this.#lastFace = null
+    this.#reset()
+    return true
+  }
+
+  reload(families: LoadedFamilies): boolean {
+    let dropped = false
+    for (const [key, face] of this.#faces) {
+      if (!usesFamily(face.family, families)) continue
+      this.#faces.delete(key)
+      dropped = true
+    }
+    if (!dropped) return false
     this.#missing.clear()
     this.#lastFace = null
     this.#reset()
@@ -192,6 +208,7 @@ export class GlyphAtlas {
     let face = this.#faces.get(key)
     if (!face) {
       face = {
+        family: font ?? this.#font,
         renderer: new TinySDF({
           fontSize: atlasFontSize,
           buffer: glyphBuffer,
