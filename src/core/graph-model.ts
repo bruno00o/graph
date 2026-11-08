@@ -251,7 +251,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   }
 
   function endOf(key: Key): number {
-    return ends.get(key)
+    return isKey(key) ? ends.get(key) : -1
   }
 
   function forget(end: number): void {
@@ -613,7 +613,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     },
 
     edge(key) {
-      const id = edgeIds.get(key)
+      const id = isKey(key) ? edgeIds.get(key) : -1
       const entry = id === -1 ? undefined : entries[id]
       return entry && isVisible(entry) ? entry : undefined
     },
@@ -670,7 +670,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     },
 
     endpoints(key) {
-      const id = edgeIds.get(key)
+      const id = isKey(key) ? edgeIds.get(key) : -1
       const entry = id === -1 ? undefined : entries[id]
       return entry && isVisible(entry) ? { source: entry.source, target: entry.target } : undefined
     },
