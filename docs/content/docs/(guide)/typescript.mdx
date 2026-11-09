@@ -116,7 +116,7 @@ A mark with a `layer` takes its name as a third parameter: `EdgeMark<Link, undef
 />
 ```
 
-Components inside `<Graph>` cannot see its definition. Give the hooks the types: type arguments for `useGraph`, the type of the parameter for `useGraphState` and `useGraphEvent`. The hooks trust these types, so take them from the definition.
+Components inside `<Graph>` cannot see its definition. Give the hooks the types: type arguments for `useGraph`, the type of the parameter for `useGraphState` and `useGraphEvent`. The hooks trust these types, so take them from the definition. With a `graph` option typed by the instance, `useGraphState` and `useGraphEvent` infer both from it.
 
 ```tsx
 function Tooltip() {

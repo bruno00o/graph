@@ -68,8 +68,8 @@ See [Drawing layers](/docs/drawing-layers#anchored-html) for every target and op
 | Hook | Returns |
 | --- | --- |
 | `useGraph()` | The `GraphInstance`. Throws outside `<Graph>` and `<MapGraph>` |
-| `useGraphState(selector, { compare })` | A slice of the graph state. Updates only when the slice changes |
-| `useGraphEvent(name, handler)` | Nothing. Subscribes to an event for the life of the component |
+| `useGraphState(selector, { compare, graph })` | A slice of the graph state. Updates only when the slice changes |
+| `useGraphEvent(name, handler, { graph })` | Nothing. Subscribes to an event for the life of the component |
 
 `useGraphState` compares with `Object.is` by default. When your selector builds an object, pass `shallow` from `@tanstack/store` as `compare`.
 
@@ -92,6 +92,29 @@ const zoom = useSelector(graph.store, (state) => state.view.zoom)
 
 The [live statistics from the store](/examples/graph-stats) example reads the view, the hovered element, the selection and the layout with `useGraphState`, and clicks with `useGraphEvent`.
 
+## Outside of Graph
+
+A toolbar, a side panel or a status bar often stands elsewhere in the page than the graph element. Keep the instance in state with the `ref` of `<Graph>` and pass it in the `graph` option of `useGraphState` and `useGraphEvent`, so these components need no portal into `<Graph>`:
+
+```tsx
+const [graph, setGraph] = useState<GraphInstance<States, Marks> | null>(null)
+
+<>
+  <Graph definition={definition} ariaLabel="Sample graph" ref={setGraph} />
+  <Toolbar graph={graph} />
+</>
+
+function Toolbar({ graph }: { graph: GraphInstance<States, Marks> | null }) {
+  const selected = useGraphState((state) => state.selection.nodes.length, { graph })
+  useGraphEvent('layoutend', () => console.log('settled'), { graph })
+  return <span>{selected ?? 0} selected</span>
+}
+```
+
+The option wins over the graph in context. The `ref` is `null` on the first render: `useGraphState` then returns `undefined`, its result type includes `undefined`, and `useGraphEvent` subscribes to nothing. Both follow a graph that changes: they leave the previous one and read the new one. When the graph is destroyed, `useGraphState` keeps returning its last state. Without a `graph` option and outside `<Graph>`, they throw. `S` and `M` come from the type of `graph`, so the selector and the handler are typed without annotations.
+
+`useLegend`, `useTimeline`, `<Minimap>`, `<Legend>` and `<Timeline>` take the same `graph` and accept `null` too: they draw nothing, and their state stays empty, until a graph is given.
+
 ## Companions beside the graph
 
 `<Minimap>`, `<Legend>`, `<Timeline>`, `useLegend` and `useTimeline` follow the `<Graph>` around them. To place one elsewhere in the page, pass the graph in its `graph` prop or option. Keep the instance in state with the `ref` of `<Graph>`, so the companion renders once the graph exists:
@@ -105,7 +128,7 @@ const [graph, setGraph] = useState<GraphInstance | null>(null)
 </>
 ```
 
-The `graph` prop wins over the graph in context. Without either, the component throws. A new `graph` destroys the companion and creates it again on the new graph.
+The `graph` prop wins over the graph in context, and `null` waits for a graph, so the `graph ? … : null` test is optional. Without either, the component throws. A new `graph` destroys the companion and creates it again on the new graph.
 
 ## Maps
 

@@ -104,67 +104,124 @@ export function useGraph<S extends string = string, M extends Mark = Mark>(): Gr
 }
 
 interface Selected<T, S extends string, M extends Mark> {
+  readonly graph: GraphInstance<S, M>
   readonly state: GraphState<S, M>
   readonly selector: (state: GraphState<S, M>) => T
   readonly value: T
 }
 
 /** Options of `useGraphState`. */
-export interface UseGraphStateOptions<T> {
+export interface UseGraphStateOptions<T, S extends string = string, M extends Mark = Mark> {
   /**
    * Tells whether two slices are equal. Pass `shallow` from `@tanstack/store` for selectors that
    * build objects or arrays.
    * @default Object.is
    */
   readonly compare?: ((a: T, b: T) => boolean) | undefined
+  /**
+   * Graph to read, which types the state. Defaults to the graph of the enclosing `<Graph>` or
+   * `<MapGraph>`. Pass `null` while the graph does not exist yet, as with the `ref` of `<Graph>`:
+   * the hook then returns `undefined`.
+   */
+  readonly graph?: GraphInstance<S, M> | null | undefined
 }
 
 /**
- * Subscribes to the state of the enclosing graph and returns the selected slice. The component
- * renders again only when the slice changes. Annotate the parameter of the selector as
- * `GraphState<S, M>` to type the targets.
+ * Subscribes to the state of a graph and returns the selected slice. The component renders again
+ * only when the slice changes. Without `graph`, it reads the enclosing `<Graph>` or `<MapGraph>`
+ * and throws outside them. With `graph` set to `null`, it returns `undefined` until a graph is
+ * given, and follows a graph that changes. Annotate the parameter of the selector as
+ * `GraphState<S, M>` to type the targets, or pass a typed `graph`.
  */
 export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
   selector: (state: GraphState<S, M>) => T,
-  options: UseGraphStateOptions<T> = {},
-): T {
+  options: UseGraphStateOptions<T, S, M> & { readonly graph: GraphInstance<S, M> },
+): T
+export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
+  options: UseGraphStateOptions<T, S, M> & { readonly graph: GraphInstance<S, M> | null },
+): T | undefined
+export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
+  options?: UseGraphStateOptions<T, S, M> & { readonly graph?: undefined },
+): T
+export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
+  options: UseGraphStateOptions<T, S, M>,
+): T | undefined
+export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
+  options: UseGraphStateOptions<T, S, M> = {},
+): T | undefined {
   const compare = options.compare ?? Object.is
-  const graph = useGraph<S, M>()
+  const graph = useGraphOf<S, M>(options.graph, 'useGraphState')
   const cache = useRef<Selected<T, S, M> | null>(null)
   const subscribe = useCallback(
     (notify: () => void) => {
+      if (!graph) return () => {}
       const subscription = graph.store.subscribe(() => notify())
       return () => subscription.unsubscribe()
     },
     [graph],
   )
-  const snapshot = (): T => {
+  const snapshot = (): T | undefined => {
+    if (!graph) return undefined
     const state = graph.store.get()
     const cached = cache.current
-    if (cached && cached.state === state && cached.selector === selector) return cached.value
+    if (
+      cached &&
+      cached.graph === graph &&
+      cached.state === state &&
+      cached.selector === selector
+    ) {
+      return cached.value
+    }
     const value = selector(state)
-    const kept = cached && compare(cached.value, value) ? cached.value : value
-    cache.current = { state, selector, value: kept }
+    const kept =
+      cached && cached.graph === graph && compare(cached.value, value) ? cached.value : value
+    cache.current = { graph, state, selector, value: kept }
     return kept
   }
   return useSyncExternalStore(subscribe, snapshot, snapshot)
 }
 
+/** Options of `useGraphEvent`. */
+export interface UseGraphEventOptions<S extends string = string, M extends Mark = Mark> {
+  /**
+   * Graph to listen to, which types the payload. Defaults to the graph of the enclosing `<Graph>`
+   * or `<MapGraph>`. Pass `null` while the graph does not exist yet: nothing is subscribed.
+   */
+  readonly graph?: GraphInstance<S, M> | null | undefined
+}
+
 /**
- * Subscribes to an event of the enclosing graph while the component is mounted. The latest handler
- * is always called, without subscribing again. Annotate its parameter with the payload type, such
- * as `GraphPointerEvent<M>`, to type the targets.
+ * Subscribes to an event of a graph while the component is mounted. The latest handler is always
+ * called, without subscribing again. Without `graph`, it listens to the enclosing `<Graph>` or
+ * `<MapGraph>` and throws outside them; with `graph` set to `null`, it waits for a graph. Annotate
+ * the parameter of the handler with the payload type, such as `GraphPointerEvent<M>`, or pass a
+ * typed `graph`, to type the targets.
  */
+export function useGraphEvent<K extends GraphEventName, S extends string, M extends Mark>(
+  name: K,
+  handler: (event: GraphEvents<M>[K]) => void,
+  options: UseGraphEventOptions<S, M> & { readonly graph: GraphInstance<S, M> | null },
+): void
 export function useGraphEvent<K extends GraphEventName, E extends GraphEvents[K] = GraphEvents[K]>(
   name: K,
   handler: (event: E) => void,
+  options?: UseGraphEventOptions,
+): void
+export function useGraphEvent(
+  name: GraphEventName,
+  handler: (event: never) => void,
+  options: UseGraphEventOptions = {},
 ): void {
-  const graph = useGraph()
+  const graph = useGraphOf(options.graph, 'useGraphEvent')
   const latest = useLatest(handler)
-  useEffect(
-    () => graph.on(name, (event: GraphEvents[K]) => latest.current(event as E)),
-    [graph, name, latest],
-  )
+  useEffect(() => {
+    if (!graph) return
+    return graph.on(name, (event) => latest.current(event as never))
+  }, [graph, name, latest])
 }
 
 /** Props of `Anchor`: where to pin the children, as in `graph.anchors.set`, and the children. */
@@ -193,13 +250,17 @@ export function Anchor<S extends string = string>(props: AnchorProps<S>): ReactN
  * to its default.
  */
 export interface MinimapProps extends MinimapOptions {
-  /** Graph to follow. Defaults to the graph of the enclosing `<Graph>`. */
-  readonly graph?: GraphInstance | undefined
+  /**
+   * Graph to follow. Defaults to the graph of the enclosing `<Graph>`. With `null`, nothing is drawn
+   * until a graph is given.
+   */
+  readonly graph?: GraphInstance | null | undefined
 }
 
 /**
  * Draws a minimap of a graph, in a corner of the graph, or where the component stands when
- * `corner` is `null`. Without `graph`, it follows the enclosing `<Graph>`.
+ * `corner` is `null`. Without `graph`, it follows the enclosing `<Graph>`; with `graph` set to
+ * `null`, it draws nothing yet.
  */
 export function Minimap(props: MinimapProps): ReactNode {
   const options = pick<MinimapOptions>(minimapKeys, props)
@@ -209,6 +270,7 @@ export function Minimap(props: MinimapProps): ReactNode {
   const applied = useRef<MinimapOptions>(options)
   const latest = useLatest(options)
   useLayoutEffect(() => {
+    if (!graph) return
     const created = createMinimap(graph, latest.current)
     applied.current = latest.current
     minimap.current = created
@@ -256,13 +318,13 @@ export interface UseLegendOptions<S extends string = string, M extends Mark = Ma
   extends LegendOptions<S> {
   /**
    * Graph to read, which types the looks. Defaults to the graph of the enclosing `<Graph>` or
-   * `<MapGraph>`.
+   * `<MapGraph>`. With `null`, the state stays empty and `legend` is `null` until a graph is given.
    */
-  readonly graph?: GraphInstance<S, M> | undefined
+  readonly graph?: GraphInstance<S, M> | null | undefined
 }
 
 function useLegendInstance<S extends string, M extends Mark>(
-  given: GraphInstance<S, M> | undefined,
+  given: GraphInstance<S, M> | null | undefined,
   options: LegendOptions<S>,
   caller: string,
 ): LegendInstance<S, M> | null {
@@ -270,6 +332,7 @@ function useLegendInstance<S extends string, M extends Mark>(
   const [legend, setLegend] = useState<LegendInstance<S, M> | null>(null)
   const latest = useLatest(options)
   useLayoutEffect(() => {
+    if (!graph) return
     const created = createLegend(graph, latest.current)
     setLegend(created)
     return () => {
@@ -376,8 +439,11 @@ const emptyTimeline: TimelineState = {
 
 /** Options of `useTimeline`: the options of `createTimeline`, and the graph. */
 export interface UseTimelineOptions extends TimelineOptions {
-  /** Graph to follow. Defaults to the graph of the enclosing `<Graph>` or `<MapGraph>`. */
-  readonly graph?: GraphInstance | undefined
+  /**
+   * Graph to follow. Defaults to the graph of the enclosing `<Graph>` or `<MapGraph>`. With
+   * `null`, the state stays empty and `timeline` is `null` until a graph is given.
+   */
+  readonly graph?: GraphInstance | null | undefined
 }
 
 function useTimelineInstance(props: UseTimelineOptions, caller: string): TimelineInstance | null {
@@ -387,6 +453,7 @@ function useTimelineInstance(props: UseTimelineOptions, caller: string): Timelin
   const latest = useLatest(options)
   const applied = useRef(options)
   useLayoutEffect(() => {
+    if (!graph) return
     const created = createTimeline(graph, latest.current)
     applied.current = latest.current
     setTimeline(created)
