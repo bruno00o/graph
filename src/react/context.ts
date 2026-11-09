@@ -13,10 +13,11 @@ export function useLatest<T>(value: T): { readonly current: T } {
 }
 
 export function useGraphOf<S extends string, M extends Mark>(
-  given: GraphInstance<S, M> | undefined,
+  given: GraphInstance<S, M> | null | undefined,
   caller: string,
-): GraphInstance<S, M> {
+): GraphInstance<S, M> | null {
   const around = useContext(GraphContext)
+  if (given === null) return null
   const graph = given ?? around
   if (!graph) {
     throw new Error(`${caller}: pass a graph, or use it inside <Graph> or <MapGraph>`)

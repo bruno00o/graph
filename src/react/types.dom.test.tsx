@@ -2,6 +2,7 @@ import { type JSX, useRef } from 'react'
 import { describe, expectTypeOf, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import type { GraphPointerEvent, NodeTarget } from '../host/events'
+import type { Legend as LegendInstance, LegendState } from '../legend/index'
 import { edges, nodes } from '../marks'
 import type { EdgeMark, NodeMark } from '../types'
 import {
@@ -12,6 +13,7 @@ import {
   useGraph,
   useGraphEvent,
   useGraphState,
+  useLegend,
 } from './index'
 
 type Item = { id: string; label: string; weight: number }
@@ -109,6 +111,59 @@ function Overlay(): null {
   return null
 }
 
+type Typed = GraphInstance<'muted', Marks>
+
+function Outside({ graph, maybe }: { readonly graph: Typed; readonly maybe: Typed | null }): null {
+  const hovered = useGraphState((state) => state.hovered, { graph })
+  if (hovered?.kind === 'node' && hovered.mark === 'group') {
+    expectTypeOf(hovered.datum).toEqualTypeOf<Group>()
+  }
+  if (hovered?.kind === 'edge') expectTypeOf(hovered.datum).toEqualTypeOf<Link>()
+  expectTypeOf(useGraphState((state) => state.states.muted.nodes, { graph })).toEqualTypeOf<
+    readonly (string | number)[]
+  >()
+  // @ts-expect-error
+  useGraphState((state) => state.states.other, { graph })
+  const counted = useGraphState((state) => state.selection.nodes.length, { graph: maybe })
+  expectTypeOf(counted).toEqualTypeOf<number | undefined>()
+  const kept = useGraphState((state) => [state.width, state.height], {
+    graph,
+    compare: (a, b) => a[0] === b[0],
+  })
+  expectTypeOf(kept).toEqualTypeOf<number[]>()
+  const plain: GraphInstance = useGraph()
+  expectTypeOf(useGraphState((state) => state.width, { graph: plain })).toEqualTypeOf<number>()
+  expectTypeOf(
+    useGraphState((state) => state.width, { compare: Object.is }),
+  ).toEqualTypeOf<number>()
+  useGraphEvent(
+    'click',
+    (event) => {
+      expectTypeOf(event).toEqualTypeOf<GraphPointerEvent<Marks>>()
+      if (event.target?.kind === 'node' && event.target.mark === 'item') {
+        expectTypeOf(event.target.datum).toEqualTypeOf<Item>()
+      }
+    },
+    { graph },
+  )
+  useGraphEvent('click', (event) => expectTypeOf(event).toEqualTypeOf<GraphPointerEvent<Marks>>(), {
+    graph: maybe,
+  })
+  useGraphEvent(
+    'click',
+    (event) => {
+      // @ts-expect-error
+      if (event.target?.mark === 'other') return
+    },
+    { graph },
+  )
+  useGraphEvent('viewchange', (event) => expectTypeOf(event.view.zoom).toBeNumber(), { graph })
+  const { state, legend } = useLegend({ graph: maybe })
+  expectTypeOf(state).toEqualTypeOf<LegendState<Marks>>()
+  expectTypeOf(legend).toEqualTypeOf<LegendInstance<'muted', Marks> | null>()
+  return null
+}
+
 describe('typed React adapter', () => {
   it('types the event props of <Graph> from the definition', () => {
     expectTypeOf(Events).returns.toEqualTypeOf<JSX.Element>()
@@ -121,6 +176,10 @@ describe('typed React adapter', () => {
     expectTypeOf(TypedRef).toBeFunction()
     expectTypeOf(UntypedRef).toBeFunction()
     expectTypeOf(CallbackRef).toBeFunction()
+  })
+
+  it('types the hooks from the graph option', () => {
+    expectTypeOf(Outside).toBeFunction()
   })
 
   it('types the hooks from type arguments or annotations', () => {
