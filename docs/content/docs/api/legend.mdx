@@ -120,7 +120,7 @@ function useLegend<S extends string = string, M extends Mark = Mark>(
 ): UseLegendResult<S, M>
 ```
 
-Use both inside the children of [`<Graph>`](/docs/api/graph-component) or [`<MapGraph>`](/docs/api/map-graph), or anywhere with the `graph` prop or option, which wins over the graph in context. Without a graph from either, they throw. `<Legend>` renders the default legend in a `div` where it stands; its props are the options of `createLegend` and of `mountLegend`, and `graph`. `useLegend` renders again when the state changes.
+Use both inside the children of [`<Graph>`](/docs/api/graph-component) or [`<MapGraph>`](/docs/api/map-graph), or anywhere with the `graph` prop or option, which wins over the graph in context. Without a graph from either, they throw; `graph: null` waits for a graph, with an empty state. `<Legend>` renders the default legend in a `div` where it stands; its props are the options of `createLegend` and of `mountLegend`, and `graph`. `useLegend` renders again when the state changes.
 
 <api-table path="react/index.tsx" name="UseLegendOptions" />
 
