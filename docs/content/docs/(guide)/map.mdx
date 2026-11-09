@@ -34,15 +34,11 @@ const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
 
 `mountMapGraph` takes any map, with any style, before or after its style loads. It adds a custom layer to the style and draws in the map's own WebGL context, on top of the style or under the layer named by `beforeId`, such as the place labels of the basemap. It returns the same [`GraphInstance`](/docs/api/graph-instance) as `mountGraph`: data updates, states, selection, events, anchors and the store work the same way. Call `graph.destroy()` before `map.remove()`, or pass a `signal` that you abort before removing the map.
 
-The layer comes back by itself after `setStyle`, and after the browser restores a lost WebGL context: MapLibre then warns that it cannot restore custom layers, and the graph adds its own back. See [Browser support](/docs/browser-support#context-loss).
+The graph adds its own layer back after the browser restores a lost WebGL context: MapLibre then warns that it cannot restore custom layers. See [Browser support](/docs/browser-support#context-loss).
 
 ## Switching the basemap
 
-Call `map.setStyle(style)` to change the basemap: the graph layer comes back on top of the new style. When the new style is an object, such as a raster style built in code for satellite imagery, pass `{ diff: false }` so that MapLibre loads it from scratch instead of patching the old one, which would drop the layer of the graph.
-
-```ts
-map.setStyle(satelliteStyle, { diff: false })
-```
+Call `map.setStyle(style)` to change the basemap: the graph stays on the map, whether the style is a URL or an object and whether MapLibre patches the old style or loads the new one from scratch. It is drawn on top of the new style, or under the layer named by `beforeId` when the new style has that layer.
 
 Colors that read well on a light basemap can vanish on a dark one or on imagery: give edges and nodes a light color and a dark outline there. See the [basemaps](/examples/basemaps) example, which switches between five vector styles and a satellite raster style, and shows each attribution in the map.
 
