@@ -1,17 +1,9 @@
 import { defineGraph, edges, type GraphInstance, type Layout, nodes } from '@bruno00o/graph'
 import { grid, layers, radial, rings } from '@bruno00o/graph/layouts'
 import { force } from '@bruno00o/graph/layouts/force'
-import {
-  Anchor,
-  Graph,
-  type GraphState,
-  useGraph,
-  useGraphState,
-  useLegend,
-} from '@bruno00o/graph/react'
+import { Anchor, Graph, type GraphState, useGraphState, useLegend } from '@bruno00o/graph/react'
 import { Maximize, ZoomIn, ZoomOut } from 'lucide-react'
-import { type ReactNode, type Ref, useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { type ReactNode, type Ref, useCallback, useEffect, useMemo, useState } from 'react'
 import { adjacency, degrees, groups, hub, type Item, items, type Link, links } from './data'
 import { messages } from './messages'
 import { Badge } from './ui/badge'
@@ -91,27 +83,11 @@ function createDefinition(sizeScale: number, labels: boolean) {
 type Definition = ReturnType<typeof createDefinition>
 type Marks = Definition['marks'][number]
 type States = 'match' | 'off'
+type Instance = GraphInstance<States, Marks>
 type Snapshot = GraphState<States, Marks>
 
-function Slot({
-  target,
-  children,
-}: {
-  readonly target: HTMLElement | null
-  readonly children: ReactNode
-}) {
-  return target ? createPortal(children, target) : null
-}
-
-function Preselect() {
-  const graph = useGraph<States, Marks>()
-  useEffect(() => {
-    graph.selection.set({ nodes: [hub.id] })
-  }, [graph])
-  return null
-}
-
 function Display({
+  graph,
   kind,
   onKind,
   base,
@@ -121,6 +97,7 @@ function Display({
   labels,
   onLabels,
 }: {
+  readonly graph: Instance
   readonly kind: LayoutKind
   readonly onKind: (kind: LayoutKind) => void
   readonly base: Base
@@ -130,7 +107,6 @@ function Display({
   readonly labels: boolean
   readonly onLabels: (labels: boolean) => void
 }) {
-  const graph = useGraph<States, Marks>()
   return (
     <Card className="gap-3 py-4">
       <CardHeader className="px-4">
@@ -210,8 +186,7 @@ function Display({
   )
 }
 
-function Find() {
-  const graph = useGraph<States, Marks>()
+function Find({ graph }: { readonly graph: Instance }) {
   const focus = (item: Item) => {
     graph.selection.set({ nodes: [item.id] })
     graph.focus.set({ kind: 'node', key: item.id })
@@ -271,11 +246,11 @@ function Stat({
   )
 }
 
-function Stats({ kind }: { readonly kind: LayoutKind }) {
-  const hidden = useGraphState((state: Snapshot) => state.states.off.nodes.length)
-  const layout = useGraphState((state: Snapshot) => state.layout)
-  const selected = useGraphState((state: Snapshot) => state.selection.nodes.length)
-  const hovered = useGraphState((state: Snapshot) => state.hovered)
+function Stats({ graph, kind }: { readonly graph: Instance; readonly kind: LayoutKind }) {
+  const hidden = useGraphState((state) => state.states.off.nodes.length, { graph })
+  const layout = useGraphState((state) => state.layout, { graph })
+  const selected = useGraphState((state) => state.selection.nodes.length, { graph })
+  const hovered = useGraphState((state) => state.hovered, { graph })
   const text = hovered?.kind === 'node' ? messages.stats.hovering(hovered.datum.label) : null
   return (
     <>
@@ -304,8 +279,7 @@ function Stats({ kind }: { readonly kind: LayoutKind }) {
   )
 }
 
-function Actions() {
-  const graph = useGraph<States, Marks>()
+function Actions({ graph }: { readonly graph: Instance }) {
   const tools = [
     {
       label: messages.card.zoomIn,
@@ -335,8 +309,8 @@ function Actions() {
   )
 }
 
-function Groups() {
-  const { state, legend } = useLegend<States, Marks>({ highlight: 'match', hidden: 'off' })
+function Groups({ graph }: { readonly graph: Instance }) {
+  const { state, legend } = useLegend({ graph, highlight: 'match', hidden: 'off' })
   const categories = state.color?.type === 'categories' ? [...state.color.items] : []
   categories.sort((a, b) => String(a.value).localeCompare(String(b.value)))
   return (
@@ -363,9 +337,8 @@ function Groups() {
   )
 }
 
-function Details() {
-  const graph = useGraph<States, Marks>()
-  const selection = useGraphState((state: Snapshot) => state.selection)
+function Details({ graph }: { readonly graph: Instance }) {
+  const selection = useGraphState((state) => state.selection, { graph })
   const keys = selection.nodes.map(String)
   const selected = keys.flatMap((key) => byId.get(key) ?? [])
   const only = selected.length === 1 ? selected[0] : undefined
@@ -452,16 +425,23 @@ function Hovered() {
 
 export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
   const [scope, setScope] = useState<HTMLDivElement | null>(null)
-  const [sidebar, setSidebar] = useState<HTMLElement | null>(null)
-  const [stats, setStats] = useState<HTMLElement | null>(null)
-  const [actions, setActions] = useState<HTMLElement | null>(null)
-  const [footer, setFooter] = useState<HTMLElement | null>(null)
-  const [details, setDetails] = useState<HTMLElement | null>(null)
+  const [graph, setGraph] = useState<Instance | null>(null)
   const [kind, setKind] = useState<LayoutKind>('force')
   const [base, setBase] = useState<Base>('neutral')
   const [size, setSize] = useState(1)
   const [labels, setLabels] = useState(true)
   const definition = useMemo(() => createDefinition(size, labels), [size, labels])
+  const attach = useCallback(
+    (instance: Instance | null) => {
+      setGraph(instance)
+      if (typeof ref === 'function') ref(instance)
+      else if (ref) ref.current = instance
+    },
+    [ref],
+  )
+  useEffect(() => {
+    graph?.selection.set({ nodes: [hub.id] })
+  }, [graph])
   return (
     <div
       ref={setScope}
@@ -473,9 +453,28 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       <PortalContainer value={scope}>
         <TooltipProvider>
           <div className="grid h-full grid-cols-1 grid-rows-[minmax(0,1fr)] gap-3 p-3 @xl:grid-cols-[12rem_minmax(0,1fr)]">
-            <aside ref={setSidebar} className="hidden min-h-0 flex-col gap-3 @xl:flex" />
+            <aside className="hidden min-h-0 flex-col gap-3 @xl:flex">
+              {graph ? (
+                <>
+                  <Display
+                    graph={graph}
+                    kind={kind}
+                    onKind={setKind}
+                    base={base}
+                    onBase={setBase}
+                    size={size}
+                    onSize={setSize}
+                    labels={labels}
+                    onLabels={setLabels}
+                  />
+                  <Find graph={graph} />
+                </>
+              ) : null}
+            </aside>
             <div className="flex min-h-0 min-w-0 flex-col gap-3">
-              <div ref={setStats} className="hidden shrink-0 grid-cols-3 gap-3 @3xl:grid" />
+              <div className="hidden shrink-0 grid-cols-3 gap-3 @3xl:grid">
+                {graph ? <Stats graph={graph} kind={kind} /> : null}
+              </div>
               <div className="flex min-h-0 flex-1 gap-3">
                 <Card className="min-h-0 min-w-0 flex-1 gap-0 py-0">
                   <CardHeader className="border-b p-4">
@@ -483,49 +482,27 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
                     <CardDescription className="text-xs">
                       {messages.card.description(items.length, links.length)}
                     </CardDescription>
-                    <CardAction ref={setActions} />
+                    <CardAction>{graph ? <Actions graph={graph} /> : null}</CardAction>
                   </CardHeader>
                   <CardContent className="relative min-h-0 flex-1 p-0">
                     <div className="absolute inset-0">
                       <Graph
-                        ref={ref}
+                        ref={attach}
                         className="h-full w-full"
                         definition={definition}
                         ariaLabel={messages.graphLabel(items.length, links.length)}
                       >
-                        <Preselect />
                         <Hovered />
-                        <Slot target={sidebar}>
-                          <Display
-                            kind={kind}
-                            onKind={setKind}
-                            base={base}
-                            onBase={setBase}
-                            size={size}
-                            onSize={setSize}
-                            labels={labels}
-                            onLabels={setLabels}
-                          />
-                          <Find />
-                        </Slot>
-                        <Slot target={stats}>
-                          <Stats kind={kind} />
-                        </Slot>
-                        <Slot target={actions}>
-                          <Actions />
-                        </Slot>
-                        <Slot target={footer}>
-                          <Groups />
-                        </Slot>
-                        <Slot target={details}>
-                          <Details />
-                        </Slot>
                       </Graph>
                     </div>
                   </CardContent>
-                  <CardFooter ref={setFooter} className="border-t p-3" />
+                  <CardFooter className="border-t p-3">
+                    {graph ? <Groups graph={graph} /> : null}
+                  </CardFooter>
                 </Card>
-                <aside ref={setDetails} className="hidden min-h-0 w-56 shrink-0 @4xl:flex" />
+                <aside className="hidden min-h-0 w-56 shrink-0 @4xl:flex">
+                  {graph ? <Details graph={graph} /> : null}
+                </aside>
               </div>
             </div>
           </div>

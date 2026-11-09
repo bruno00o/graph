@@ -1,9 +1,11 @@
 ---
 title: Hooks
-description: useGraph, useGraphState and useGraphEvent, for components inside Graph or MapGraph.
+description: useGraph, useGraphState and useGraphEvent, for components inside Graph or MapGraph, or beside it with a graph option.
 ---
 
-The hooks only work inside the children of `<Graph>` or [`<MapGraph>`](/docs/api/map-graph). They cannot see its definition: give them its state names `S` and marks `M` to type the targets, as type arguments of `useGraph` or as the type of the parameter of `useGraphState` and `useGraphEvent`. The hooks trust these types. See [TypeScript](/docs/typescript#react).
+`useGraph` only works inside the children of `<Graph>` or [`<MapGraph>`](/docs/api/map-graph). `useGraphState` and `useGraphEvent` read the graph around them too, or the one in their `graph` option, which wins: use it for a toolbar or a panel that stands outside of the graph element. See [Outside of `<Graph>`](/docs/react#outside-of-graph).
+
+A hook cannot see the definition of the graph around it: give it its state names `S` and marks `M` to type the targets, as type arguments of `useGraph` or as the type of the parameter of `useGraphState` and `useGraphEvent`. With a `graph` option typed by the instance, `S` and `M` come from it. The hooks trust these types. See [TypeScript](/docs/typescript#react).
 
 ## useGraph
 
@@ -18,7 +20,15 @@ Returns the [instance](/docs/api/graph-instance) of the enclosing graph. Throws 
 ```ts
 function useGraphState<T, S extends string = string, M extends Mark = Mark>(
   selector: (state: GraphState<S, M>) => T,
-  options?: { compare?: (a: T, b: T) => boolean },
+  options: UseGraphStateOptions<T, S, M> & { graph: GraphInstance<S, M> },
+): T
+function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
+  options: UseGraphStateOptions<T, S, M> & { graph: GraphInstance<S, M> | null },
+): T | undefined
+function useGraphState<T, S extends string = string, M extends Mark = Mark>(
+  selector: (state: GraphState<S, M>) => T,
+  options?: UseGraphStateOptions<T, S, M>,
 ): T
 ```
 
@@ -26,25 +36,37 @@ function useGraphState<T, S extends string = string, M extends Mark = Mark>(
 
 Subscribes to the [graph state](/docs/api/graph-instance#graph-state) and returns the selected slice. The component renders again only when `compare` tells that the slice changed. `compare` defaults to `Object.is`; use `shallow` from `@tanstack/store` for selectors that build objects or arrays.
 
+Without `graph`, the hook reads the enclosing `<Graph>` or `<MapGraph>` and throws outside them. With `graph: null`, which is what a `ref` or a state holds until the graph exists, it returns `undefined` and the result type gains `undefined`. It follows a `graph` that changes and drops the subscription to the previous one. A destroyed graph keeps returning its last state.
+
 ```tsx
 const zoom = useGraphState((state) => state.view.zoom)
 const hovered = useGraphState((state: GraphState<string, Marks>) => state.hovered)
+const selected = useGraphState((state) => state.selection.nodes.length, { graph })
 ```
 
 ## useGraphEvent
 
 ```ts
+function useGraphEvent<K extends GraphEventName, S extends string, M extends Mark>(
+  name: K,
+  handler: (event: GraphEvents<M>[K]) => void,
+  options: UseGraphEventOptions<S, M> & { graph: GraphInstance<S, M> | null },
+): void
 function useGraphEvent<K extends GraphEventName, E extends GraphEvents[K] = GraphEvents[K]>(
   name: K,
   handler: (event: E) => void,
+  options?: UseGraphEventOptions,
 ): void
 ```
 
-Subscribes to an [event](/docs/api/events) while the component is mounted. The latest handler is always called, without subscribing again.
+<api-table path="react/index.tsx" name="UseGraphEventOptions" />
+
+Subscribes to an [event](/docs/api/events) while the component is mounted. The latest handler is always called, without subscribing again. Without `graph`, it listens to the enclosing `<Graph>` or `<MapGraph>` and throws outside them. With `graph: null`, it subscribes to nothing until a graph is given.
 
 ```tsx
 useGraphEvent('dragend', ({ keys }) => save(keys))
 useGraphEvent('click', (event: GraphPointerEvent<Marks>) => show(event.target?.datum))
+useGraphEvent('click', (event) => show(event.target?.datum), { graph })
 ```
 
 ## With TanStack Store
