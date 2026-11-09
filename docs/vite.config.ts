@@ -1,4 +1,5 @@
-import { resolve } from 'node:path'
+import { readdirSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import react from '@vitejs/plugin-react'
@@ -8,9 +9,26 @@ import { defineConfig } from 'vite'
 const library = resolve(import.meta.dirname, '../src')
 const { DOCS_BASE: requestedBase = '/' } = process.env
 const base = `/${requestedBase.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
+const { DOCS_ORIGIN: requestedOrigin = 'https://bruno00o.github.io' } = process.env
+const origin = requestedOrigin.replace(/\/+$/, '')
+const content = resolve(import.meta.dirname, 'content/docs')
+
+function markdownPages(directory = content, parents: string[] = []): { path: string }[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory()) {
+      const group = /^\(.*\)$/.test(entry.name)
+      return markdownPages(join(directory, entry.name), group ? parents : [...parents, entry.name])
+    }
+    if (!entry.name.endsWith('.mdx')) return []
+    const name = entry.name.slice(0, -'.mdx'.length)
+    const slugs = name === 'index' ? parents : [...parents, name]
+    return [{ path: slugs.length === 0 ? '/docs/index.md' : `/docs/${slugs.join('/')}.md` }]
+  })
+}
 
 export default defineConfig({
   base,
+  define: { 'import.meta.env.DOCS_ORIGIN': JSON.stringify(origin) },
   server: { port: 5192, strictPort: true },
   preview: { port: 5192, strictPort: true },
   resolve: {
@@ -62,6 +80,10 @@ export default defineConfig({
       prerender: { enabled: true, crawlLinks: true, failOnError: true },
       pages: [
         { path: '/api/search' },
+        { path: '/llms.txt' },
+        { path: '/llms-full.txt' },
+        { path: '/ard.json' },
+        ...markdownPages(),
         { path: '/not-found', prerender: { outputPath: '/404.html', autoSubfolderIndex: false } },
       ],
     }),

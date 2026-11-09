@@ -22,10 +22,12 @@ const { values: options } = parseArgs({
     workers: { type: 'string', default: '4' },
     software: { type: 'boolean', default: false },
     page: { type: 'string', multiple: true },
+    origin: { type: 'string', default: process.env.DOCS_ORIGIN ?? 'https://bruno00o.github.io' },
   },
 })
 
 const base = `/${options.base.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
+const siteOrigin = options.origin.replace(/\/+$/, '')
 const workers = Math.max(1, Number(options.workers) || 1)
 const viewport = { width: 1280, height: 900 }
 
@@ -42,6 +44,7 @@ const types = {
   '.woff2': 'font/woff2',
   '.wasm': 'application/wasm',
   '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
 }
 
 function isFile(path) {
@@ -208,6 +211,260 @@ function checkLinks(origin, seen) {
   return checked.size
 }
 
+const fences = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm
+const leftoverTags = /<(?:LiveExample|Callout|Cards?|Tabs?|ApiTable|api-table)\b/
+
+function filesIn(directory, suffix) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) return filesIn(path, suffix)
+    return entry.name.endsWith(suffix) ? [path] : []
+  })
+}
+
+function resolveSite(path) {
+  const found = resolveRequest(docsSite, path)
+  return found.redirect ? resolveRequest(docsSite, found.redirect) : found
+}
+
+function readSite(where, path) {
+  const found = resolveSite(`${base}${path}`)
+  if (found.status !== 200 || !found.file) {
+    fail(where, `${path} is missing under ${base}`)
+    return null
+  }
+  return readFileSync(found.file, 'utf8')
+}
+
+function checkMarkdownLinks(where, text, checked) {
+  let count = 0
+  const prefix = `${siteOrigin}${base}`
+  for (const [, link] of text.replace(fences, '').matchAll(/\[[^\]]*\]\((\S+?)\)/g)) {
+    if (link.startsWith('/')) {
+      fail(where, `root-relative link ${link}`)
+      continue
+    }
+    if (!link.startsWith(prefix)) continue
+    count++
+    const [path = '', hash = ''] = link.slice(siteOrigin.length).split('#')
+    const found = resolveSite(path)
+    if (found.status !== 200 || !found.file) {
+      if (!checked.has(path)) fail(where, `link answers ${found.status}: ${link}`)
+      checked.add(path)
+      continue
+    }
+    if (hash === '') continue
+    const anchor = decodeURIComponent(hash)
+    const known = found.file.endsWith('.md')
+      ? readFileSync(found.file, 'utf8').includes(`[#${anchor}]`)
+      : found.file.endsWith('.html') && ids(found.file).has(anchor)
+    if (!known) fail(where, `anchor not found: ${link}`)
+  }
+  return count
+}
+
+function checkManifest(text) {
+  const where = 'ard.json'
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch (error) {
+    fail(where, `invalid JSON: ${error.message}`)
+    return
+  }
+  const prefix = `${siteOrigin}${base}`
+  if (data.specVersion !== '1.0') fail(where, 'specVersion must be "1.0"')
+  if (!data.host?.displayName) fail(where, 'host.displayName is missing')
+  if (!data.host?.documentationUrl?.startsWith(prefix)) {
+    fail(where, 'host.documentationUrl is not under the site')
+  }
+  if (!Array.isArray(data.entries) || data.entries.length === 0) {
+    fail(where, 'entries must be a non-empty array')
+    return
+  }
+  const urn = /^urn:air:[a-zA-Z0-9.-]+(:[a-zA-Z0-9._-]+)+$/
+  const identifiers = new Set()
+  for (const entry of data.entries) {
+    const label = entry.displayName ?? entry.identifier ?? 'entry'
+    if (!urn.test(entry.identifier ?? '')) fail(where, `${label}: invalid identifier`)
+    if (identifiers.has(entry.identifier)) fail(where, `${label}: duplicate identifier`)
+    identifiers.add(entry.identifier)
+    if (!entry.displayName) fail(where, `${label}: no displayName`)
+    if (!entry.type) fail(where, `${label}: no type`)
+    if ('url' in entry === 'data' in entry) fail(where, `${label}: needs one of url and data`)
+    const queries = entry.representativeQueries
+    if (!Array.isArray(queries) || queries.length < 2 || queries.length > 5) {
+      fail(where, `${label}: representativeQueries must list 2 to 5 queries`)
+    }
+    if (entry.url) {
+      if (!entry.url.startsWith(prefix)) fail(where, `${label}: url is not under ${prefix}`)
+      else if (resolveSite(entry.url.slice(siteOrigin.length)).status !== 200) {
+        fail(where, `${label}: url does not resolve`)
+      }
+    }
+  }
+}
+
+function checkAgentFiles() {
+  const checked = new Set()
+  const prefix = `${siteOrigin}${base}`
+  let count = 0
+  const index = readSite('llms.txt', 'llms.txt')
+  if (index !== null) {
+    if (!/^\s*#\s+\S/m.test(index)) fail('llms.txt', 'no H1 title')
+    if (!/^> \S/m.test(index)) fail('llms.txt', 'no summary')
+    if (index.length < 50) fail('llms.txt', 'too short')
+    count += checkMarkdownLinks('llms.txt', index, checked)
+    for (const required of [
+      'llms-full.txt',
+      'docs/index.md',
+      'docs/api/define-graph.md',
+      'examples/selection',
+      'ard.json',
+    ]) {
+      if (!index.includes(`](${prefix}${required})`)) fail('llms.txt', `no link to ${required}`)
+    }
+  }
+  const markdown = filesIn(join(docsSite, 'docs'), '.md')
+  const pages = filesIn(join(docsSite, 'docs'), 'index.html').length
+  if (markdown.length !== pages) fail('docs', `${markdown.length} Markdown files, ${pages} pages`)
+  const full = readSite('llms-full.txt', 'llms-full.txt')
+  if (full !== null) {
+    if (!/^# \S/.test(full)) fail('llms-full.txt', 'no H1 title')
+    const sections = full.split(/^Page: /m).length - 1
+    if (sections !== markdown.length) {
+      fail('llms-full.txt', `${sections} pages for ${markdown.length} Markdown files`)
+    }
+    count += checkMarkdownLinks('llms-full.txt', full, checked)
+  }
+  for (const file of markdown) {
+    const where = relative(docsSite, file).split(sep).join('/')
+    const text = readFileSync(file, 'utf8')
+    if (!/^# \S/.test(text)) fail(where, 'no H1 title')
+    if (text.trim().split('\n').length < 6) fail(where, 'almost empty')
+    if (leftoverTags.test(text.replace(fences, ''))) fail(where, 'a component tag is left in it')
+    count += checkMarkdownLinks(where, text, checked)
+  }
+  const manifest = readSite('ard.json', 'ard.json')
+  if (manifest !== null) checkManifest(manifest)
+  const home = readSite('index.html', 'index.html')
+  for (const rel of ['ard', 'ai-catalog']) {
+    const href = new RegExp(`<link[^>]*rel="${rel}"[^>]*href="([^"]+)"`).exec(home ?? '')?.[1]
+    if (!href) fail('index.html', `no <link rel="${rel}">`)
+    else if (resolveSite(href).status !== 200) fail('index.html', `${href} is missing`)
+  }
+  const nodes = readSite('docs/api/nodes', 'docs/api/nodes/index.html')
+  if (nodes !== null && !nodes.includes(`href="${base}docs/api/nodes.md"`)) {
+    fail('docs/api/nodes', 'no link to its Markdown page')
+  }
+  return count + markdown.length + 3
+}
+
+function webToolsBrowser(flag) {
+  return chromium.launch({
+    args: [...browserArgs('chromium', options.software), ...(flag ? [flag] : [])],
+  })
+}
+
+async function checkWebTools(origin) {
+  const where = 'web tools'
+  const browser = await webToolsBrowser('--enable-experimental-web-platform-features')
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 })
+  await isolate(context)
+  const page = await context.newPage()
+  const logged = []
+  page.on('console', (message) => logged.push(message.text()))
+  page.on('pageerror', (error) => fail(where, `uncaught: ${error.message.split('\n')[0]}`))
+  try {
+    await page.goto(`${origin}${base}`, { waitUntil: 'load' })
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    if (!(await page.evaluate(() => typeof document.modelContext === 'object'))) {
+      console.log('skip web tools: this Chromium has no document.modelContext')
+    } else {
+      await page
+        .waitForFunction(async () => (await document.modelContext.getTools()).length >= 4, null, {
+          timeout: 10000,
+        })
+        .catch(() => fail(where, 'the tools were not registered'))
+      const result = await page.evaluate(async () => {
+        const context = document.modelContext
+        const call = async (name, input) => {
+          const tool = (await context.getTools()).find((item) => item.name === name)
+          return tool ? JSON.parse(await context.executeTool(tool, input)) : { missing: true }
+        }
+        const tools = await context.getTools()
+        return {
+          names: tools.map((tool) => tool.name).sort(),
+          schemas: tools.map((tool) => [
+            tool.name,
+            tool.inputSchema?.type,
+            tool.annotations?.readOnlyHint,
+          ]),
+          search: await call('search_docs', { query: 'force layout', limit: 3 }),
+          page: await call('read_docs_page', { path: 'api/define-graph' }),
+          missing: await call('read_docs_page', { path: 'no/such/page' }),
+          examples: await call('list_examples', { category: 'layouts' }),
+          example: await call('get_example', { slug: 'selection' }),
+          unknown: await call('get_example', { slug: 'no-such-example' }),
+        }
+      })
+      const expected = ['get_example', 'list_examples', 'read_docs_page', 'search_docs']
+      if (result.names.join() !== expected.join()) fail(where, `tools: ${result.names.join(', ')}`)
+      for (const [name, type, readOnly] of result.schemas) {
+        if (type !== 'object' || readOnly !== true) fail(where, `${name}: schema or annotations`)
+      }
+      const text = (value) => value?.content?.[0]?.text ?? ''
+      const hits = JSON.parse(text(result.search) || '{}').results ?? []
+      if (hits.length === 0 || hits.length > 3) fail(where, `search_docs gave ${hits.length} hits`)
+      if (!text(result.page).startsWith('# defineGraph')) fail(where, 'read_docs_page: wrong page')
+      if (result.missing.isError !== true) fail(where, 'read_docs_page accepted an unknown page')
+      const listed = JSON.parse(text(result.examples) || '{}')
+      if (!(listed.count > 0) || listed.examples.some((item) => item.category !== 'layouts')) {
+        fail(where, 'list_examples does not filter by category')
+      }
+      const example = JSON.parse(text(result.example) || '{}')
+      if (!example.url?.startsWith(`${origin}${base}examples/selection`)) {
+        fail(where, 'get_example gave the wrong address')
+      }
+      if (result.unknown.isError !== true) fail(where, 'get_example accepted an unknown slug')
+    }
+  } catch (error) {
+    fail(where, String(error?.message ?? error).split('\n')[0])
+  }
+  await browser.close()
+  for (const message of logged) {
+    if (/modelContext|WebMCP/i.test(message)) fail(where, `console: ${message}`)
+  }
+}
+
+async function checkWithoutWebTools(browser, origin) {
+  const where = 'without web tools'
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 })
+  await isolate(context)
+  const page = await context.newPage()
+  const logged = []
+  const requested = []
+  page.on('console', (message) => logged.push(message.text()))
+  page.on('pageerror', (error) => fail(where, `uncaught: ${error.message.split('\n')[0]}`))
+  page.on('request', (request) => requested.push(request.url()))
+  try {
+    await page.goto(`${origin}${base}`, { waitUntil: 'load' })
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    if (await page.evaluate(() => 'modelContext' in document)) {
+      console.log('skip without web tools: this Chromium has document.modelContext by default')
+      await context.close()
+      return
+    }
+    if (requested.some((url) => /web-tools/.test(url))) fail(where, 'the tools were loaded')
+    for (const message of logged) {
+      if (/modelContext|WebMCP/i.test(message)) fail(where, `console: ${message}`)
+    }
+  } catch (error) {
+    fail(where, String(error?.message ?? error).split('\n')[0])
+  }
+  await context.close()
+}
+
 async function checkSearch(browser, origin) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1 })
   await isolate(context)
@@ -354,10 +611,14 @@ try {
   await checkNavigation(browser, origin)
   await checkMissing(browser, origin, seen)
   const links = checkLinks(origin, seen)
+  const agentChecks = checkAgentFiles()
+  await checkWithoutWebTools(browser, origin)
+  await checkWebTools(origin)
   const seconds = Math.round((performance.now() - started) / 1000)
   console.log(
     `${entries.length} pages and ${links} local links checked under ${base} in ${seconds} s`,
   )
+  console.log(`${agentChecks} links and files of llms.txt, ard.json and the Markdown pages checked`)
 } finally {
   await browser.close()
   server.close()
