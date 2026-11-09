@@ -277,6 +277,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       },
       busy: () => layouts.session !== null || motion.active || pointer.hasDrag(),
       duration: () => definition.transitions.layout,
+      frameCost: () => render.cost.value,
       request: () => request(),
       running: (running, kind) => {
         const status = kind === 'route' ? 'routing' : 'bundling'
@@ -333,6 +334,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     patch,
     definition: () => definition,
     request: () => request(),
+    frameCost: () => render.cost.value,
     deliver: (sent) =>
       scheduler.hush(() =>
         surface
@@ -365,6 +367,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     definition: () => definition,
     dragging: () => pointer.dragging(),
     request: () => request(),
+    frameCost: () => render.cost.value,
   })
   const layouts = new LayoutHost({
     onMap: surface !== null,
@@ -779,6 +782,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       layers: layers.filter,
       globe: camera.globe,
     })
+    render.cost.drawn(now)
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)

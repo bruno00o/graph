@@ -152,7 +152,7 @@ type ViewBounds = Bounds | { readonly margin: number }
 
 ## Transitions
 
-Durations in milliseconds, finite and 0 or more. Every duration is 0 with `prefers-reduced-motion`.
+Durations in milliseconds, finite and 0 or more. Every duration is 0 with `prefers-reduced-motion`. A move ends at once when the last frames took longer than what is left of it.
 
 <api-table path="index.ts" name="TransitionOptions" />
 

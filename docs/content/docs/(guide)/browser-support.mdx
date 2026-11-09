@@ -65,7 +65,7 @@ What remains costs about 10 microseconds per node or edge drawn, at any canvas s
 | 10,000 nodes and 20,000 edges | 350 ms |
 | 50,000 nodes and 100,000 edges | 1.8 s |
 
-The first frame takes about 3 seconds more while the shaders compile, and the graph draws nothing at rest. Software rendering suits graphs of a few thousand elements; past that, filter or aggregate the data first.
+The first frame takes about 3 seconds more while the shaders compile, and the graph draws nothing at rest. Where the browser composes the page without a GPU too, as Chrome does on Linux, the page waits for each frame of the graph to be drawn before it answers again, so a frame of a large graph freezes the page for its whole time. With any renderer, the graph measures how long its frames take, and a move of the view, of nodes or of edge shapes goes straight to its end when the last frames took longer than what is left of it: a click that frames a node costs one frame, not several. Software rendering suits graphs of a few thousand elements; past that, filter or aggregate the data first.
 
 ## Tested browsers
 

@@ -5,6 +5,7 @@ import { dev } from '../dev'
 import { watchFonts } from '../dom/fonts'
 import type { TextWidths } from '../dom/text-width'
 import { observeTheme, type ThemeResolver, type ThemeWatch } from '../dom/theme'
+import { FrameCost } from './frame-cost'
 import type { GraphState, HostSurface, RendererFactory } from './graph-instance'
 import type { Renderer } from './renderer'
 
@@ -36,6 +37,7 @@ export class RenderHost {
   paletteColors: Uint8Array = new Uint8Array(256 * 4)
   paletteVersion = 0
   paletteStamp = 0
+  readonly cost: FrameCost = new FrameCost(() => this.renderer)
   #paletteCount = 0
   #drawingLimit = Number.POSITIVE_INFINITY
   #ratioLimit = Number.POSITIVE_INFINITY
@@ -200,6 +202,7 @@ export class RenderHost {
   }
 
   unwatch(): void {
+    this.cost.stop()
     this.#resizeObserver?.disconnect()
     this.#ratioQuery?.removeEventListener('change', this.#onRatio)
     this.#themeWatch?.stop()
@@ -208,6 +211,7 @@ export class RenderHost {
   }
 
   release(): void {
+    this.cost.stop()
     this.renderer?.destroy()
     this.renderer = null
   }
