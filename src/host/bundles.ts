@@ -14,6 +14,7 @@ import type {
   EdgeBundling,
   EdgeRouting,
 } from '../types'
+import { progress } from './frame-cost'
 
 export interface BundleContext {
   readonly edges: EdgeColumns
@@ -22,6 +23,7 @@ export interface BundleContext {
   readonly datum: (index: number) => unknown
   readonly busy: () => boolean
   readonly duration: () => number
+  readonly frameCost: () => number
   readonly request: () => void
   readonly running: (running: boolean, kind: PathKind) => void
   readonly zoom: () => number
@@ -152,7 +154,10 @@ export class BundleHost {
     if (this.#method?.kind === 'route' && this.#result) this.#follow()
     const animation = this.#animation
     if (!animation) return false
-    const t = animation.duration > 0 ? Math.min(1, (now - animation.start) / animation.duration) : 1
+    const t =
+      animation.duration > 0
+        ? progress(now, animation.start, animation.duration, this.#context.frameCost())
+        : 1
     this.paths.mix = easeInOut(t)
     if (t < 1) return true
     this.#animation = null

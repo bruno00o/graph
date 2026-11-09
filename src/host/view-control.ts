@@ -10,6 +10,7 @@ import {
 import type { GraphDefinition, Key, View } from '../types'
 import { requestMemory } from './element-keys'
 import type { Emitter, ViewOrigin } from './events'
+import { progress } from './frame-cost'
 import type { FitOptions, GraphState } from './graph-instance'
 import { reducedMotion } from './reduced-motion'
 
@@ -58,6 +59,7 @@ export interface ViewSource {
   patch(next: Partial<GraphState>): void
   definition(): GraphDefinition
   request(): void
+  frameCost(): number
   deliver(sent: ViewRequest): void
   published(): void
   measure(keys: FitKeys | null): Bounds | null
@@ -288,7 +290,7 @@ export class ViewControl {
   step(now: number): void {
     const animation = this.animation
     if (!animation) return
-    const t = Math.min(1, (now - animation.start) / animation.duration)
+    const t = progress(now, animation.start, animation.duration, this.#source.frameCost())
     const view = this.constrain(interpolateView(animation.from, animation.to, easeInOut(t)))
     if (t >= 1) this.animation = null
     this.propose(view, animation.cause)

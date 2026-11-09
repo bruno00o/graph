@@ -85,7 +85,7 @@ graph.view.zoomBy(1.5, { duration: 200 })
 graph.view.zoomBy(1 / 1.5, { duration: 200 })
 ```
 
-Animated calls interrupt each other: the last one wins. With `prefers-reduced-motion`, every duration is zero.
+Animated calls interrupt each other: the last one wins. With `prefers-reduced-motion`, every duration is zero. When the last frames took longer than what is left of an animation, as with [software rendering](/docs/browser-support#software-rendering), the view goes straight to its end instead of drawing a step that would show after it.
 
 How the wheel, a trackpad and fingers move the view is set in the [interaction options](/docs/interaction#wheel-and-trackpad).
 

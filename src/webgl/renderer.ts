@@ -521,6 +521,7 @@ function createRenderer(
     [badgeProgram, cornerNode.length / 2],
   ])
   let warmed = false
+  let fence: WebGLSync | null = null
   const bundles = createBundlePass(gl, blocks, prepare, edgeOverlayIndices, caps.maxTextureSize)
   const arcCorner = createBuffer(gl, bundleCorners(arcStations), gl.STATIC_DRAW)
   const geodesicIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
@@ -1883,6 +1884,7 @@ function createRenderer(
           gl.clear(gl.COLOR_BUFFER_BIT)
         }
         drawScene(frame, mainLabels, all)
+        fenceFrame()
         return wait
       }
       gl.clearColor(0, 0, 0, 0)
@@ -1909,7 +1911,16 @@ function createRenderer(
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, width, height)
       drawLens(lens, ratio, inLens, lensTarget)
+      fenceFrame()
       return wait
+    },
+
+    busy() {
+      if (!fence) return false
+      if (gl.getSyncParameter(fence, gl.SYNC_STATUS) === gl.UNSIGNALED) return true
+      gl.deleteSync(fence)
+      fence = null
+      return false
     },
 
     limits() {
@@ -1932,6 +1943,8 @@ function createRenderer(
     ready: () => images.settled(),
 
     destroy() {
+      if (fence) gl.deleteSync(fence)
+      fence = null
       for (const texture of [...nodeTextures, ...edgeTextures, ...rangeTextures]) texture.destroy()
       gl.deleteTexture(palette)
       gl.deleteTexture(atlasTexture)
@@ -1963,6 +1976,12 @@ function createRenderer(
       for (const program of programs) gl.deleteProgram(program)
       if (!shared && !gl.isContextLost()) gl.getExtension('WEBGL_lose_context')?.loseContext()
     },
+  }
+
+  function fenceFrame(): void {
+    if (shared) return
+    if (fence) gl.deleteSync(fence)
+    fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
   }
 
   function visibleArea(frame: RenderFrame): LabelArea {

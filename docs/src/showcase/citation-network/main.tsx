@@ -170,7 +170,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
     [network, arrows],
   )
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!graph || !network) {
       setTrace(null)
       setCounted(null)

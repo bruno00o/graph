@@ -1,6 +1,7 @@
 import type { PositionMoves, PositionReader, Positions } from '../core/positions'
 import { easeInOut } from '../core/view'
 import type { GraphDefinition } from '../types'
+import { progress } from './frame-cost'
 import { reducedMotion } from './reduced-motion'
 import type { SpreadHost } from './spread'
 
@@ -20,6 +21,7 @@ export interface MotionSource {
   definition(): GraphDefinition
   dragging(): readonly number[] | undefined
   request(): void
+  frameCost(): number
 }
 
 export class PositionMotion {
@@ -173,8 +175,9 @@ export class PositionMotion {
     const positions = this.#source.positions
     const owner = this.#owner
     const finished: (() => void)[] = []
+    const cost = this.#source.frameCost()
     this.#animations = this.#animations.filter((animation) => {
-      const t = Math.max(0, Math.min(1, (now - animation.start) / animation.duration))
+      const t = Math.max(0, progress(now, animation.start, animation.duration, cost))
       const k = easeInOut(t)
       animation.indices.forEach((index, i) => {
         if (owner[index] !== animation.id) return
