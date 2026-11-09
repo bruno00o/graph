@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.22.0](https://github.com/bruno00o/graph/compare/0.21.0...0.22.0) (2026-11-09)
+
+
+### Features
+
+* read a graph from outside of its element with a graph option on the react hooks ([#140](https://github.com/bruno00o/graph/issues/140)) ([7194aea](https://github.com/bruno00o/graph/commit/7194aea94620e92761b88eaf7e02d271d82edc3c))
+
+
+### Bug Fixes
+
+* end view, node and edge animations at once when frames take longer than them ([#144](https://github.com/bruno00o/graph/issues/144)) ([755264e](https://github.com/bruno00o/graph/commit/755264e3739754be9f860e21bd190ddc1982de8c))
+* keep the graph layer in place when the map style changes with a style object ([#141](https://github.com/bruno00o/graph/issues/141)) ([f6f16d7](https://github.com/bruno00o/graph/commit/f6f16d72cffdecc8a20304ae2dfea7adca1dff90))
+
 ## [0.21.0](https://github.com/bruno00o/graph/compare/0.20.0...0.21.0) (2026-11-08)
 
 
