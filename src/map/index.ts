@@ -73,7 +73,7 @@ export interface MapGraphOptions<S extends string = string, M extends Mark = Mar
   readonly id?: string | undefined
   /**
    * Id of the style layer to draw the graph under, such as the place labels of the basemap.
-   * Defaults to the top of the style.
+   * Defaults to the top of the style. The layer keeps this place after `setStyle`.
    */
   readonly beforeId?: string | undefined
 }
@@ -213,9 +213,27 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
     if (event.defaultPrevented) event.stopPropagation()
   }
 
+  function wantedBefore(): string | undefined {
+    return beforeId !== undefined && map.getLayer(beforeId) ? beforeId : undefined
+  }
+
   function addLayer(): void {
     if (destroyed || map.getLayer(id)) return
-    map.addLayer(layer, beforeId !== undefined && map.getLayer(beforeId) ? beforeId : undefined)
+    map.addLayer(layer, wantedBefore())
+  }
+
+  function keepPlace(): void {
+    if (destroyed || !map.getLayer(id)) return
+    const order = map.getLayersOrder()
+    const at = order.indexOf(id)
+    const before = wantedBefore()
+    const wanted = before === undefined ? order.length - 1 : order.indexOf(before) - 1
+    if (at !== wanted) map.moveLayer(id, before)
+  }
+
+  function onStyleLoad(): void {
+    if (map.getLayer(id)) keepPlace()
+    else addLayer()
   }
 
   function addWhenLoaded(): void {
@@ -270,7 +288,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       destroyed = true
       if (doubleClick) map.doubleClickZoom.enable()
       surface.claim(false)
-      map.off('style.load', addLayer)
+      map.off('style.load', onStyleLoad)
       map.off('data', addWhenLoaded)
       map.off('webglcontextlost', onContextLost)
       map.off('webglcontextrestored', onContextRestored)
@@ -292,7 +310,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   map.getCanvasContainer().after(graph.element)
   bindMap(graph, map)
   graph.element.addEventListener('keydown', keepKeys)
-  map.on('style.load', addLayer)
+  map.on('style.load', onStyleLoad)
   map.on('data', addWhenLoaded)
   map.on('webglcontextlost', onContextLost)
   map.on('webglcontextrestored', onContextRestored)
