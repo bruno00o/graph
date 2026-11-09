@@ -43,7 +43,7 @@ The components below are copied from the shadcn registry into `ui/`, with their 
 
 ### Components outside the canvas
 
-`<Graph>` renders its children above the canvas, and gives them the graph through React context. The sidebar, the stats and the details do not sit above the canvas, so each one renders through `createPortal` into its own element of the page. Context crosses portals, so `useGraph` and `useGraphState` work in them as anywhere else.
+`<Graph>` renders its children above the canvas, and gives them the graph through React context. The sidebar, the stats, the toolbar, the group filters and the details do not sit above the canvas: they stand where the layout puts them. The `ref` of `<Graph>` fills a state, and each of these components receives the instance as a `graph` prop, which it passes to `useGraphState` and `useLegend` in their `graph` option. Until the graph exists the state is `null` and the panels are not rendered. Only the hover card, which uses `<Anchor>`, stays a child of `<Graph>`.
 
 Menus and tooltips of Radix portal into `document.body` by default, outside the element that carries the theme. Here they portal into the dashboard element, so they take the same variables, and they stay inside the frame in full screen.
 
