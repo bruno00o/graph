@@ -10,7 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ArdDotjsonRouteImport } from './routes/ard[.]json'
 import { Route as BenchmarkRouteImport } from './routes/benchmark'
+import { Route as LlmsFullDottxtRouteImport } from './routes/llms-full[.]txt'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as NotFoundRouteImport } from './routes/not-found'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
@@ -24,9 +27,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArdDotjsonRoute = ArdDotjsonRouteImport.update({
+  id: '/ard.json',
+  path: '/ard.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BenchmarkRoute = BenchmarkRouteImport.update({
   id: '/benchmark',
   path: '/benchmark',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsFullDottxtRoute = LlmsFullDottxtRouteImport.update({
+  id: '/llms-full.txt',
+  path: '/llms-full.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotFoundRoute = NotFoundRouteImport.update({
@@ -67,7 +85,10 @@ const ShowcaseSlugRoute = ShowcaseSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ard.json': typeof ArdDotjsonRoute
   '/benchmark': typeof BenchmarkRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/not-found': typeof NotFoundRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
@@ -78,7 +99,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ard.json': typeof ArdDotjsonRoute
   '/benchmark': typeof BenchmarkRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/not-found': typeof NotFoundRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
@@ -90,7 +114,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ard.json': typeof ArdDotjsonRoute
   '/benchmark': typeof BenchmarkRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/not-found': typeof NotFoundRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
@@ -103,7 +130,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ard.json'
     | '/benchmark'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/not-found'
     | '/api/search'
     | '/docs/$'
@@ -114,7 +144,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ard.json'
     | '/benchmark'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/not-found'
     | '/api/search'
     | '/docs/$'
@@ -125,7 +158,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ard.json'
     | '/benchmark'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/not-found'
     | '/api/search'
     | '/docs/$'
@@ -137,7 +173,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ArdDotjsonRoute: typeof ArdDotjsonRoute
   BenchmarkRoute: typeof BenchmarkRoute
+  LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   NotFoundRoute: typeof NotFoundRoute
   ApiSearchRoute: typeof ApiSearchRoute
   DocsSplatRoute: typeof DocsSplatRoute
@@ -156,11 +195,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ard.json': {
+      id: '/ard.json'
+      path: '/ard.json'
+      fullPath: '/ard.json'
+      preLoaderRoute: typeof ArdDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/benchmark': {
       id: '/benchmark'
       path: '/benchmark'
       fullPath: '/benchmark'
       preLoaderRoute: typeof BenchmarkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms-full.txt': {
+      id: '/llms-full.txt'
+      path: '/llms-full.txt'
+      fullPath: '/llms-full.txt'
+      preLoaderRoute: typeof LlmsFullDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/not-found': {
@@ -217,7 +277,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ArdDotjsonRoute: ArdDotjsonRoute,
   BenchmarkRoute: BenchmarkRoute,
+  LlmsFullDottxtRoute: LlmsFullDottxtRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   NotFoundRoute: NotFoundRoute,
   ApiSearchRoute: ApiSearchRoute,
   DocsSplatRoute: DocsSplatRoute,

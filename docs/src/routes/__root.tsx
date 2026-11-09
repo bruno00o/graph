@@ -6,7 +6,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { RootProvider } from 'fumadocs-ui/provider/tanstack'
-import type { JSX, ReactNode } from 'react'
+import { type JSX, type ReactNode, useEffect } from 'react'
 import { NotFound } from '../components/not-found'
 import StaticSearchDialog from '../components/search-dialog'
 import { messages } from '../messages'
@@ -23,6 +23,9 @@ export const Route = createRootRoute({
     links: [
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', href: `${import.meta.env.BASE_URL}favicon.svg`, type: 'image/svg+xml' },
+      { rel: 'alternate', href: `${import.meta.env.BASE_URL}llms.txt`, type: 'text/plain' },
+      { rel: 'ard', href: `${import.meta.env.BASE_URL}ard.json`, type: 'application/json' },
+      { rel: 'ai-catalog', href: `${import.meta.env.BASE_URL}ard.json`, type: 'application/json' },
     ],
   }),
   shellComponent: Shell,
@@ -48,6 +51,10 @@ function Shell({ children }: { readonly children: ReactNode }): JSX.Element {
 }
 
 function Root(): JSX.Element {
+  useEffect(() => {
+    if (!('modelContext' in document) && !('modelContext' in navigator)) return
+    import('../lib/web-tools').then((tools) => tools.registerWebTools()).catch(() => undefined)
+  }, [])
   return (
     <RootProvider search={{ SearchDialog: StaticSearchDialog }}>
       <Outlet />
