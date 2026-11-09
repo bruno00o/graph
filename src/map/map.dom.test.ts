@@ -122,6 +122,68 @@ describe('mountMapGraph', () => {
     expect([...listeners.values()].every((set) => set.size === 0)).toBe(true)
   })
 
+  it('stays on top when a style object replaces the layers of the basemap', () => {
+    const { map, order, setStyle, listeners } = fakeMap(['base', 'labels'])
+    shared.made = 0
+    const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })
+    const watching = [...listeners.values()].map((set) => set.size)
+    expect(order()).toEqual(['base', 'labels', 'graph'])
+    setStyle(['cover'])
+    expect(order()).toEqual(['cover', 'graph'])
+    setStyle(['cover', 'water', 'roads'])
+    expect(order()).toEqual(['cover', 'water', 'roads', 'graph'])
+    setStyle(['water', 'cover'], { diff: false })
+    expect(order()).toEqual(['water', 'cover', 'graph'])
+    expect(shared.made).toBe(2)
+    expect([...listeners.values()].map((set) => set.size)).toEqual(watching)
+    graph.destroy()
+    expect(order()).toEqual(['water', 'cover'])
+  })
+
+  it('keeps the layer under beforeId when the style changes', () => {
+    const { map, order, setStyle } = fakeMap(['base', 'labels'])
+    shared.made = 0
+    const graph = mountMapGraph(map, {
+      definition: definition(),
+      ariaLabel: 'carte',
+      beforeId: 'labels',
+    })
+    expect(order()).toEqual(['base', 'graph', 'labels'])
+    setStyle(['base2', 'labels'])
+    expect(order()).toEqual(['base2', 'graph', 'labels'])
+    setStyle(['cover'])
+    expect(order()).toEqual(['cover', 'graph'])
+    setStyle(['cover', 'labels'])
+    expect(order()).toEqual(['cover', 'graph', 'labels'])
+    setStyle(['water', 'labels'], { diff: false })
+    expect(order()).toEqual(['water', 'graph', 'labels'])
+    expect(shared.made).toBe(2)
+    graph.destroy()
+  })
+
+  it('leaves the layer where it is when a style change keeps the order', () => {
+    const { map, order, setStyle } = fakeMap(['base', 'labels'])
+    const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })
+    const moves = vi.spyOn(map, 'moveLayer')
+    setStyle(['base', 'labels', 'extra'])
+    setStyle(['base', 'labels'])
+    expect(order()).toEqual(['base', 'labels', 'graph'])
+    expect(moves).toHaveBeenCalledTimes(1)
+    graph.destroy()
+  })
+
+  it('survives a lost context after a style change', () => {
+    const { map, order, setStyle, emit } = fakeMap(['base'])
+    const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })
+    setStyle(['cover'])
+    emit('webglcontextlost')
+    emit('webglcontextrestored')
+    expect(order()).toEqual(['cover', 'graph'])
+    setStyle(['water', 'roads'])
+    expect(order()).toEqual(['water', 'roads', 'graph'])
+    graph.destroy()
+  })
+
   it('draws again with a new renderer once the map restores a lost context', () => {
     const { map, layers, emit } = fakeMap()
     const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'carte' })

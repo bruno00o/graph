@@ -180,7 +180,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
   useEffect(() => {
     if (!map || loaded.current === basemap) return
     loaded.current = basemap
-    map.setStyle(basemap.style, { diff: false })
+    map.setStyle(basemap.style)
   }, [map, basemap])
 
   const keep = useCallback((instance: GraphInstance | null) => assign(ref, instance), [ref])
