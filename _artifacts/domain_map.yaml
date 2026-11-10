@@ -216,6 +216,8 @@ skills:
       - graph.layout
       - graph.positions
       - Layout
+      - relayout
+      - autoFit of layouts
     tasks:
       - Place nodes without coordinates with a force layout
       - Lay out a hierarchy in layers, in a chosen direction
@@ -223,6 +225,63 @@ skills:
       - Run a layout from code, follow its progress and fit the result
       - Save positions and restore them
       - Write a custom layout
+    failure_modes:
+      - mistake: Importing force from the layouts entry point
+        mechanism: force has its own entry point so graphs without it ship none of its code; the layouts entry does not export it.
+        wrong_pattern: |
+          import { force } from '@bruno00o/graph/layouts'
+        correct_pattern: |
+          import { force } from '@bruno00o/graph/layouts/force'
+        source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/api/force.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting a layout to move nodes that have x and y
+        mechanism: "Finite x and y channels pin a node: layouts never move it, so a graph whose nodes all have coordinates ignores its layout."
+        wrong_pattern: |
+          nodes(items, { x: 'x', y: 'y' })
+          layout: force()
+        correct_pattern: |
+          nodes(items, { label: 'label' })
+          layout: force()
+        source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/(guide)/positions.mdx
+        priority: HIGH
+        status: active
+      - mistake: Running a layout on a map
+        mechanism: "Layouts do not run in map mode: the definition layout is ignored with a development warning and graph.layout.run rejects."
+        wrong_pattern: |
+          await mapGraph.layout.run(force())
+        correct_pattern: |
+          const flat = defineGraph({ marks, layout: geo({ longitude: 'lng', latitude: 'lat' }) })
+        source: docs/content/docs/(guide)/map.mdx, src/host/layout-session.ts
+        priority: HIGH
+        status: active
+      - mistake: grid or rings with order inside defineGraph
+        mechanism: TypeScript does not pass the item type of marks to a layout in the same object, so the comparator parameters are unknown.
+        wrong_pattern: |
+          layout: grid({ order: (a, b) => a.label.localeCompare(b.label) })
+        correct_pattern: |
+          layout: grid<Item>({ order: (a, b) => a.label.localeCompare(b.label) })
+        source: docs/content/docs/(guide)/typescript.mdx, docs/content/docs/api/layouts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting an instant layout to be incremental
+        mechanism: layers, grid, rings, radial and geo lay out every free node again when nodes arrive, where force places only the new ones.
+        wrong_pattern: |
+          layout: grid()
+        correct_pattern: |
+          layout: force()
+        source: docs/content/docs/api/layouts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Writing positions back on every drag move
+        mechanism: positionchange fires on every pointer move during a drag, so saving each one floods the store.
+        wrong_pattern: |
+          graph.on('positionchange', ({ positions }) => save(positions))
+        correct_pattern: |
+          graph.on('dragend', ({ keys }) => save(keys.map((key) => [key, graph.positions.get(key)])))
+        source: docs/content/docs/(guide)/positions.mdx
+        priority: MEDIUM
+        status: active
   - name: edges
     slug: edges
     domain: appearance
@@ -242,6 +301,9 @@ skills:
       - densityBundling
       - orthogonalRouting
       - bridges
+      - graph.bundling
+      - graph.routing
+      - bundle, route and bridge options
     tasks:
       - Add arrows, dashes, widths, labels and flows to edges
       - Color the two ends of an edge differently
@@ -249,6 +311,70 @@ skills:
       - Bundle the edges of a dense graph
       - Route edges in horizontal and vertical segments with bridges over crossings
       - Control parallel edges and loops
+    failure_modes:
+      - mistake: Setting bundling and routing together
+        mechanism: "A definition takes one or the other: defineGraph throws a TypeError at run time and the compiler does not see it."
+        wrong_pattern: |
+          defineGraph({ marks, bundling: densityBundling(), routing: orthogonalRouting() })
+        correct_pattern: |
+          defineGraph({ marks, routing: orthogonalRouting(), bridges: true })
+        source: docs/content/docs/(guide)/bundling.mdx, docs/content/docs/(guide)/routing.mdx
+        priority: HIGH
+        status: active
+      - mistake: Importing bundling or routing from the main entry
+        mechanism: densityBundling and orthogonalRouting have their own entry points; the main entry exports neither.
+        wrong_pattern: |
+          import { densityBundling } from '@bruno00o/graph'
+        correct_pattern: |
+          import { densityBundling } from '@bruno00o/graph/bundling'
+        source: docs/content/docs/api/bundling.mdx, docs/content/docs/api/routing.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting waypoints, geodesic edges or loops to bundle or route
+        mechanism: Loops, geodesic edges and edges with waypoints are never bundled or routed, and waypoints and loops are never bridged.
+        wrong_pattern: |
+          edges(roads, { source: 'from', target: 'to', waypoints: 'via' })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', bundle: true })
+        source: docs/content/docs/(guide)/bundling.mdx, docs/content/docs/(guide)/marks.mdx
+        priority: HIGH
+        status: active
+      - mistake: Passing a constant color to color on edges
+        mechanism: color is a channel through the color scale, so a CSS color does not compile.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to', color: 'tomato' })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', stroke: 'tomato' })
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting a state to style one end of an edge
+        mechanism: States and selection hold whole edges, so stroke or strokeWidth in a state recolors both ends.
+        wrong_pattern: |
+          graph.states.set('hot', { edges: [key] })
+        correct_pattern: |
+          graph.on('pointerenter', ({ target }) => target.kind === 'edge' && target.end)
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting bundles or routes immediately
+        mechanism: They are computed in a worker once nodes stand still, edges that arrive later stay straight, and above maxEdges nothing is computed.
+        wrong_pattern: |
+          graph.update({ definition })
+        correct_pattern: |
+          await graph.bundling.run()
+        source: docs/content/docs/(guide)/bundling.mdx, docs/content/docs/(guide)/routing.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Edge labels that never show
+        mechanism: An edge label shows only when it fits between its nodes and is at least 8 pixels tall on screen.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to', label: { text: 'name', size: 11 } })
+        correct_pattern: |
+          graph.view.zoomBy(2)
+        source: docs/content/docs/(guide)/labels.mdx
+        priority: MEDIUM
+        status: active
   - name: groups
     slug: groups
     domain: structure
@@ -263,12 +389,81 @@ skills:
       - aggregate
       - betweenGroups
       - hide
+      - relayout
+      - controlled folded
     tasks:
       - Nest nodes in groups with a parent field
       - Group items by a field with groups()
       - Fold and unfold groups from code or controlled state
       - Merge parallel edges and edges between groups
       - Hide elements without removing their data
+    failure_modes:
+      - mistake: Passing a string to fold, unfold or set
+        mechanism: They take an iterable of keys and a string is an iterable of characters, so the call compiles and folds single characters.
+        wrong_pattern: |
+          graph.groups.fold('sector-a')
+        correct_pattern: |
+          graph.groups.fold(['sector-a'])
+        source: src/host/graph-instance.ts
+        priority: HIGH
+        status: active
+      - mistake: Building the key of a groups() node by hand
+        mechanism: The key of a group node is internal and never collides with a data key, so a guessed key matches nothing.
+        wrong_pattern: |
+          graph.groups.fold(['sectors:north'])
+        correct_pattern: |
+          graph.groups.fold([graph.groups.keyOf('sectors', 'north')])
+        source: docs/content/docs/(guide)/transformations.mdx, docs/content/docs/api/groups.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting folding or merging to relayout
+        mechanism: A fold, an unfold or a change of groups() or merge places only the nodes that appear unless relayout is set.
+        wrong_pattern: |
+          defineGraph({ marks, layout: force() })
+        correct_pattern: |
+          defineGraph({ marks, layout: force(), relayout: true })
+        source: docs/content/docs/(guide)/transformations.mdx
+        priority: HIGH
+        status: active
+      - mistake: Switching to a controlled folded after mount
+        mechanism: Folding is controlled or not for the life of the graph, decided at mount by folded.
+        wrong_pattern: |
+          const graph = mountGraph(el, { definition, ariaLabel })
+          graph.update({ folded })
+        correct_pattern: |
+          mountGraph(el, { definition, ariaLabel, folded: [], onFoldChange })
+        source: docs/content/docs/(guide)/groups.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Rebuilding by functions in render
+        mechanism: groups() and merge compare functions by identity, so a new by function regroups every item on each rebuild.
+        wrong_pattern: |
+          groups(items, { by: (item) => item.sector })
+        correct_pattern: |
+          const bySector = (item: Item) => item.sector
+          groups(items, { by: bySector })
+        source: docs/content/docs/api/groups.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Using hide to shrink the layout
+        mechanism: A hidden element stays in layouts, counts and selection; only filtering the data removes it from them.
+        wrong_pattern: |
+          graph.states.set('off', { nodes })
+        correct_pattern: |
+          nodes(items.filter(keep), options)
+        source: docs/content/docs/(guide)/transformations.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting merged edges across marks
+        mechanism: Edges merge mark by mark, so two marks never share an aggregated edge.
+        wrong_pattern: |
+          edges(a, { merge: true })
+          edges(b, { merge: true })
+        correct_pattern: |
+          edges([...a, ...b], { merge: true })
+        source: docs/content/docs/(guide)/transformations.mdx
+        priority: MEDIUM
+        status: active
   - name: multilayer
     slug: multilayer
     domain: structure
@@ -281,11 +476,77 @@ skills:
       - supportedBy
       - graph.support
       - createSupportFinder
+      - support states of defineGraph
+      - drill down with hide
     tasks:
       - Put marks in layers that show and hide at run time
       - Draw the edges of each layer in their own band
       - Walk the edges that carry an edge, and the edges it carries
       - Drill down from one layer to the next
+    failure_modes:
+      - mistake: Hiding a layer by removing its data
+        mechanism: graph.support reads the data in the graph, so removed edges cannot be walked and carriers are reported as missing-carrier.
+        wrong_pattern: |
+          edges(lowerEdges.filter(isOpen), options)
+        correct_pattern: |
+          states: { closed: { hide: true } }
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: HIGH
+        status: active
+      - mistake: Filling the support states yourself
+        mechanism: The two states named by support are owned by the graph and replaced at every selection change.
+        wrong_pattern: |
+          graph.states.set('carrier', walk)
+        correct_pattern: |
+          graph.states.set('trace', walk)
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: HIGH
+        status: active
+      - mistake: Naming a support state that is not declared
+        mechanism: "support needs free states declared in states: defineGraph throws a TypeError otherwise."
+        wrong_pattern: |
+          states: { lit: {} }, support: { carriers: 'carrier' }
+        correct_pattern: |
+          states: { carrier: {} }, support: { carriers: 'carrier' }
+        source: src/define-graph.ts, docs/content/docs/(guide)/multilayer.mdx
+        priority: HIGH
+        status: active
+      - mistake: Hiding a node layer and expecting its edges to stay
+        mechanism: A hidden node layer hides every edge that ends on its nodes, whatever their layer.
+        wrong_pattern: |
+          graph.layers.hide(['places'])
+        correct_pattern: |
+          graph.layers.hide(['routes'])
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A layer name no mark gives
+        mechanism: Literal layer names are checked by graph.layers, but an explicit item type on the mark call loses the inference and every string passes.
+        wrong_pattern: |
+          edges<Segment>(segments, { layer: 'segments' })
+        correct_pattern: |
+          edges(segments, { layer: 'segments' })
+        source: docs/content/docs/(guide)/multilayer.mdx, docs/content/docs/(guide)/typescript.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Switching to controlled hiddenLayers after mount
+        mechanism: Layer visibility is controlled or not for the life of the graph, decided at mount by hiddenLayers.
+        wrong_pattern: |
+          graph.update({ hiddenLayers })
+        correct_pattern: |
+          mountGraph(el, { definition, ariaLabel, hiddenLayers: [], onLayerChange })
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Walking support with mismatched key types
+        mechanism: supportedBy takes edge keys, and 1 and '1' differ, so the carrier is skipped as missing-carrier.
+        wrong_pattern: |
+          supportedBy: () => 1
+        correct_pattern: |
+          supportedBy: () => '1'
+        source: docs/content/docs/api/support.mdx
+        priority: MEDIUM
+        status: active
   - name: view
     slug: view
     domain: navigation-and-input
