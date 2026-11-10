@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/bruno00o/graph/compare/0.22.0...0.23.0) (2026-11-10)
+
+
+### Features
+
+* ship agent skills for coding agents in the package ([#145](https://github.com/bruno00o/graph/issues/145)) ([d906a46](https://github.com/bruno00o/graph/commit/d906a4600050eb7ea1acda6c6990d4d4b155837e))
+
 ## [0.22.0](https://github.com/bruno00o/graph/compare/0.21.0...0.22.0) (2026-11-09)
 
 
