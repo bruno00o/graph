@@ -127,11 +127,116 @@ Rules for every batch:
 
 ### Batch A
 
-Planned.
+Written: layouts, edges, groups, multilayer. Each requires `core`, validates with typechecked examples, and keeps to its entry's tasks.
+
+Scope decisions:
+
+- `layouts` owns `graph.layout`, `graph.positions` (move, snapshot, restore), `positionchange` and the custom `Layout` port. Positions from the `x` and `y` channels are introduced there as the thing that always wins over a layout.
+- `edges` owns edge labels, flows, `ends`, waypoints, `bundle`, `route` and `bridge`, `densityBundling`, `orthogonalRouting` and `bridges`. It states that parallel edges and loops need no option, and sends `merge` to `groups` and `layer` bands to `multilayer`.
+- `groups` owns `parent`, `groups()`, `container`, folding (instance and controlled), `merge`, `aggregate`, `betweenGroups` and the `hide` state.
+- `multilayer` owns `layer`, `graph.layers`, `hiddenLayers`, `supportedBy`, `graph.support`, `createSupportFinder`, the `support` states and the drill-down recipe (which uses `hide`, introduced in `groups`).
+
+#### Failure mode inventory
+
+##### layouts (6)
+
+| #   | Mistake                                             | Priority | Source                         | Cross-skill |
+| --- | --------------------------------------------------- | -------- | ------------------------------ | ----------- |
+| 1   | Importing `force` from the layouts entry point      | HIGH     | layout guide, force API        |             |
+| 2   | Expecting a layout to move nodes that have `x`, `y` | HIGH     | layout and positions guides    | core        |
+| 3   | Running a layout on a map                           | HIGH     | map guide, `layout-session.ts` | map         |
+| 4   | `grid` or `rings` with `order` inside `defineGraph` | MEDIUM   | TypeScript guide, layouts API  |             |
+| 5   | Expecting an instant layout to be incremental       | MEDIUM   | layouts API                    |             |
+| 6   | Writing positions back on every drag move           | MEDIUM   | positions guide                |             |
+
+##### edges (7)
+
+| #   | Mistake                                                         | Priority | Source                      | Cross-skill   |
+| --- | --------------------------------------------------------------- | -------- | --------------------------- | ------------- |
+| 1   | Setting `bundling` and `routing` together                       | HIGH     | bundling and routing guides |               |
+| 2   | Importing bundling or routing from the main entry               | HIGH     | bundling and routing APIs   |               |
+| 3   | Expecting waypoints, geodesic edges or loops to bundle or route | HIGH     | bundling and marks guides   | map           |
+| 4   | Passing a constant color to `color`                             | MEDIUM   | marks guide                 | core, styling |
+| 5   | Expecting a state to style one end of an edge                   | MEDIUM   | marks guide                 | interaction   |
+| 6   | Expecting bundles or routes immediately                         | MEDIUM   | bundling and routing guides |               |
+| 7   | Edge labels that never show                                     | MEDIUM   | labels guide                | styling       |
+
+##### groups (7)
+
+| #   | Mistake                                        | Priority | Source                            | Cross-skill |
+| --- | ---------------------------------------------- | -------- | --------------------------------- | ----------- |
+| 1   | Passing a string to `fold`, `unfold` or `set`  | HIGH     | `graph-instance.ts`               |             |
+| 2   | Building the key of a `groups()` node by hand  | HIGH     | transformations guide, groups API |             |
+| 3   | Expecting folding or merging to relayout       | HIGH     | transformations guide             | layouts     |
+| 4   | Switching to a controlled `folded` after mount | MEDIUM   | groups guide                      | react       |
+| 5   | Rebuilding `by` functions in render            | MEDIUM   | groups API                        | core, react |
+| 6   | Using `hide` to shrink the layout              | MEDIUM   | transformations guide             | layouts     |
+| 7   | Expecting merged edges across marks            | MEDIUM   | transformations guide             | multilayer  |
+
+##### multilayer (7)
+
+| #   | Mistake                                             | Priority | Source                        | Cross-skill |
+| --- | --------------------------------------------------- | -------- | ----------------------------- | ----------- |
+| 1   | Hiding a layer by removing its data                 | HIGH     | multilayer guide              | groups      |
+| 2   | Filling the support states yourself                 | HIGH     | multilayer guide              |             |
+| 3   | Naming a support state that is not declared         | HIGH     | `define-graph.ts`             |             |
+| 4   | Hiding a node layer and expecting its edges to stay | MEDIUM   | multilayer guide              |             |
+| 5   | A layer name no mark gives                          | MEDIUM   | multilayer, TypeScript guides | core        |
+| 6   | Switching to controlled `hiddenLayers` after mount  | MEDIUM   | multilayer guide              | react       |
+| 7   | Walking support with mismatched key types           | MEDIUM   | support API                   |             |
+
+#### Tensions
+
+| Tension                                | Skills             | Agent implication                                                                                 |
+| -------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| Positions from data against layouts    | layouts, core      | Giving a mark `x` and `y` pins its nodes, so a layout in the same definition leaves them alone.   |
+| Hiding by state against filtering data | groups, multilayer | A `hide` state or a layer keeps elements in layouts and counts; filtering the array removes them. |
+| Bundling against routing               | edges              | A definition takes one of them; `bridges` combines with either.                                   |
+
+#### Cross-references
+
+| From       | To         | Reason                                                                   |
+| ---------- | ---------- | ------------------------------------------------------------------------ |
+| edges      | groups     | `merge` and `aggregate` draw parallel edges as one.                      |
+| edges      | multilayer | Edges of different layers form one band per pair of nodes.               |
+| groups     | layouts    | A layout keeps unfolded groups whole, and `relayout` runs it again.      |
+| multilayer | groups     | The drill-down recipe closes lower edges with a `hide` state.            |
+| layouts    | core       | Layout events and the `layout` slice of the store are core instance API. |
 
 ### Batch B
 
-Planned.
+Written: view, interaction, map, time (library 0.22.0, commit d906a46). Each skill requires core, stays under 400 lines, and has typechecked examples, including one `expect-error` fence per skill (`view`: TS2559, `interaction`: TS2353, `map`: TS2353, `time`: TS2769).
+
+Decisions:
+
+- `view` owns `minZoom` and `maxZoom` of marks next to the view limits, and says plainly that they are two different things with the same unit. It owns the controlled view; the React side is one pointer to the react skill, which already shows controlled props.
+- `interaction` owns the gesture options, the selection and its controlled mode, pointer events and targets, keyboard and focus, and the advanced state styles. Plain states and `graph.on` basics stay in core; `interaction.lens` is only named, the lens belongs to tools.
+- `map` documents the whole adapter in one file, including `<MapGraph>`, waypoints, geodesic edges and `exportMapPng`, because these tasks start from one mounted map graph. The MapLibre worker URL fragment is `no-check` (a Vite `?worker&url` import has no types outside Vite).
+- `time` owns the `time` channel, the window, the fade, the controlled window and the whole timeline (store, actions, default renderer, React component and hook).
+- No `references/` files: no skill needed to leave its entry point.
+
+Failure mode inventory:
+
+| Skill       | Mistakes | HIGH | Notes                                                                          |
+| ----------- | -------- | ---- | ------------------------------------------------------------------------------ |
+| view        | 7        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view |
+| interaction | 9        | 2    | lasso needs two options, unanswered controlled selection                       |
+| map         | 8        | 3    | layout on a map, teardown order, view options on a map graph                   |
+| time        | 8        | 3    | string times, exclusive ends, controlled window without both props             |
+
+Cross-references proposed for the shared tables (the maintainer applies them after the batches merge):
+
+| From        | To   | Reason                                                                    |
+| ----------- | ---- | ------------------------------------------------------------------------- |
+| view        | map  | On a map the map owns the camera; view limits and padding do not apply.   |
+| interaction | map  | The map owns wheel, pinch and background drag.                            |
+| interaction | view | `pan` and `zoom` options against `graph.view`, and the keyboard fit.      |
+| map         | time | The time window and `<Timeline>` work on a map graph.                     |
+| time        | view | A zoom range and a time window combine: an element shows when both allow. |
+
+Tensions proposed: controlled modes (view, selection, time, folded, layers) are decided at mount in every skill, and `update` on an uncontrolled graph does nothing without an error; the react skill, view, interaction and time all warn about it.
+
+Gaps: `exportMapPng` is documented in `map` only; the `export` skill (batch D) should point to it. The `geo` layout is mentioned in `map` and belongs to the layouts skill (batch A).
 
 ### Batch C
 
