@@ -139,7 +139,13 @@ Planned.
 
 ### Batch D
 
-Planned.
+Written: styling, tools and export, from `src/` and the docs at commit d906a46.
+
+- `styling` owns node and label looks: the three scales and the channel, style and `raw()` rule, label options, shapes and boxes, contours, images, badges and the theme tokens. Edge looks and edge labels stay in `edges`; `core` only introduces `fill` against `color`.
+- `tools` owns the minimap, legend, lens, anchors, hulls, background grid and devtools. It states which tools a graph on a map does not have (minimap, lens, background grid) and leaves the React `<Anchor>` to `react`.
+- `export` owns `exportPng` and `exportSvg`; `exportMapPng` stays in `map`.
+- Failure modes: styling 8, tools 8, export 6, each with an example that compiles under `intent validate`, six of them as `expect-error` fences.
+- Gaps found while writing, left to the maintainer: the guide says the `offset` of `anchors.set` shifts by a number of pixels while the type is a `{ x, y }` point, and the SVG export does not read the `geodesic` column of the scene, so great-circle edges are not drawn as arcs.
 
 ## Coverage and batch history
 
