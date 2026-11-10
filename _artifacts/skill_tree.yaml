@@ -219,75 +219,125 @@ skills:
     slug: view
     domain: navigation-and-input
     path: skills/view/SKILL.md
-    status: planned
-    description: Use when fitting, zooming or moving the @bruno00o/graph view,
-      limiting its zoom and area, controlling the view from application state,
-      converting between screen and world coordinates, or showing nodes and
-      edges only within a range of zoom.
+    description: >
+      Use when framing, zooming or moving the @bruno00o/graph view from code:
+      fitting the view to chosen nodes or edges, to a selection or a path,
+      animating zoom and pan, choosing what the graph frames on its own (first
+      data, layouts or nothing), limiting the zoom and the area people can
+      reach, keeping the view in application state, converting between screen
+      pixels and world units to place overlays or drop nodes, and showing nodes
+      and edges only within a range of zoom (level of detail, clusters that give
+      way to members). Gesture options such as the wheel belong to the
+      interaction skill; a graph inside a MapLibre map does not use this skill's
+      view limits and is covered by the map skill.
     sources:
       - src/types.ts
+      - src/define-graph.ts
       - src/host/graph-instance.ts
+      - src/host/events.ts
+      - src/core/zoom-range.ts
       - docs/content/docs/(guide)/view.mdx
       - docs/content/docs/(guide)/zoom.mdx
       - docs/content/docs/api/graph-instance.mdx
+      - docs/content/docs/api/define-graph.mdx
     requires:
       - core
+    purpose: >
+      The camera of a @bruno00o/graph graph: the view as a center and a zoom,
+      fit and its options, the first view and automatic framing, view limits,
+      the controlled view, screen and world coordinates, and the minZoom and
+      maxZoom ranges of nodes and edges.
   - name: interaction
     slug: interaction
     domain: navigation-and-input
     path: skills/interaction/SKILL.md
-    status: planned
-    description: Use when configuring how people interact with a @bruno00o/graph
-      graph, with selection modes, drag, lasso, wheel, touch and keyboard
-      navigation, reacting to pointer events, controlling the selection, or
-      styling states for the elements outside them, raised, hidden or always
-      labeled.
+    description: >
+      Use when configuring how people work with a @bruno00o/graph graph:
+      selection modes, node drag, the lasso, what the wheel and a trackpad do
+      (zoom, pan or scroll the page), touch, auto-pan, turning gestures off,
+      keyboard navigation and focus; reacting to clicks, hovers, drags and the
+      pointer; controlling the selection from application state; and styling
+      states beyond a basic highlight: fading everything outside a state,
+      drawing members above the rest, hiding members, always showing their
+      labels, or styling nodes and edges apart. The first graph, plain states
+      and event basics are in the core skill; moving the view from code is in
+      the view skill.
     sources:
       - src/types.ts
+      - src/define-graph.ts
       - src/host/events.ts
       - src/host/graph-instance.ts
+      - src/host/keyboard.ts
+      - src/core/state-names.ts
       - docs/content/docs/(guide)/interaction.mdx
       - docs/content/docs/(guide)/states.mdx
       - docs/content/docs/api/events.mdx
+      - docs/content/docs/api/define-graph.mdx
     requires:
       - core
+    purpose: >
+      The interaction model of a @bruno00o/graph graph: the interaction options
+      of defineGraph, selection and its controlled mode, drag and lasso, wheel,
+      touch and keyboard, pointer events and their targets, and the advanced
+      state styles others, raise, hide and label always.
   - name: map
     slug: map
     domain: geography-and-time
     path: skills/map/SKILL.md
-    status: planned
-    description: Use when drawing a @bruno00o/graph graph inside a MapLibre map,
-      placing nodes by longitude and latitude, drawing great circles and routes,
-      switching basemaps or the globe, using MapGraph in React, or exporting the
-      map with the graph.
+    description: >
+      Use when drawing a @bruno00o/graph graph inside a MapLibre map: placing
+      nodes by longitude and latitude, mounting the graph on a map with
+      mountMapGraph or MapGraph in React, drawing great circles and routes that
+      follow roads or other lines, switching basemaps or the globe projection,
+      putting a timeline on a map graph, exporting the map and the graph as one
+      PNG, and finding why a layout, minimap, lens, rotation or view option does
+      nothing on a map. Not for a plain graph that only uses coordinates without
+      a map.
     sources:
       - src/map/index.ts
       - src/map/react.tsx
       - src/map/export.ts
       - src/core/geo.ts
       - src/waypoints.ts
+      - src/types.ts
       - docs/content/docs/(guide)/map.mdx
       - docs/content/docs/api/map.mdx
       - docs/content/docs/api/map-graph.mdx
     requires:
       - core
+    purpose: >
+      The MapLibre adapter of @bruno00o/graph: mountMapGraph and MapGraph, the
+      longitude and latitude channels, who owns the camera, projections,
+      geodesic edges and waypoints, what a map graph leaves out, exportMapPng,
+      and the mistakes that hide the graph or leak the map.
   - name: time
     slug: time
     domain: geography-and-time
     path: skills/time/SKILL.md
-    status: planned
-    description: Use when giving @bruno00o/graph nodes and edges a time or a period,
-      showing only what exists in a time window, fading elements at its edges,
-      or adding a timeline that brushes, steps and plays.
+    description: >
+      Use when giving @bruno00o/graph nodes and edges a time or a period,
+      showing only what exists in a time window, fading elements in and out at
+      the edges of the window, controlling the window from application state, or
+      adding a timeline with a histogram that brushes, steps and plays (default
+      element, a renderer of your own, or the React Timeline component and
+      useTimeline hook), also on a map graph.
     sources:
       - src/timeline/index.ts
       - src/timeline/view.ts
+      - src/core/time-range.ts
+      - src/react/index.tsx
       - src/types.ts
       - src/host/graph-instance.ts
+      - src/host/events.ts
       - docs/content/docs/(guide)/time.mdx
       - docs/content/docs/api/timeline.mdx
     requires:
       - core
+    purpose: >
+      Time in @bruno00o/graph: the time channel of nodes and edges, the time
+      window and its exact boundaries, the fade, the controlled window, the
+      timeline companion with its store and actions, and the mistakes that leave
+      everything showing, nothing playing or a window one moment off.
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations

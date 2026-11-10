@@ -560,6 +560,9 @@ skills:
       - controlled view
       - minZoom
       - maxZoom
+      - graph.view.toScreen and toWorld
+      - view padding
+      - level of detail by zoom
     tasks:
       - Fit the view to some nodes or edges
       - Zoom and pan from code with animation
@@ -567,6 +570,73 @@ skills:
       - Control the view from application state
       - Convert between screen and world coordinates
       - Show nodes and edges only within a range of zoom
+      - Choose what the graph frames on its own with autoFit
+    failure_modes:
+      - mistake: Passing a list of keys to view.fit
+        mechanism: fit takes an options object, so a list does not compile and untyped code throws a TypeError.
+        wrong_pattern: |
+          graph.view.fit(['n1', 'n2'])
+        correct_pattern: |
+          graph.view.fit({ nodes: ['n1', 'n2'] })
+        source: src/host/graph-instance.ts, src/host/mount-graph.ts
+        priority: HIGH
+        status: active
+      - mistake: Updating the view of a graph that is not controlled
+        mechanism: update view only moves a graph mounted with view, so on any other graph it does nothing and raises no error.
+        wrong_pattern: |
+          const graph = mountGraph(container, { definition, ariaLabel: 'Graph' })
+          graph.update({ view })
+        correct_pattern: |
+          const graph = mountGraph(container, { definition, ariaLabel: 'Graph', view, onViewChange })
+        source: src/host/mount-graph.ts, docs/content/docs/(guide)/view.mdx
+        priority: HIGH
+        status: active
+      - mistake: Ignoring a request of a controlled view
+        mechanism: In controlled mode every gesture is a request that changes nothing until onViewChange answers with update view.
+        wrong_pattern: |
+          onViewChange: (event) => console.log(event.view)
+        correct_pattern: |
+          onViewChange: (event) => graph.update({ view: event.view })
+        source: docs/content/docs/(guide)/view.mdx
+        priority: HIGH
+        status: active
+      - mistake: Reading the zoom of a mark as the zoom limits of the view
+        mechanism: minZoom and maxZoom of a mark decide when an element shows, while those of the view limit where people can zoom, so each does the other job in no way.
+        wrong_pattern: |
+          nodes(items, { maxZoom: 8 })
+        correct_pattern: |
+          defineGraph({ marks, view: { maxZoom: 8 } })
+        source: src/types.ts, docs/content/docs/(guide)/zoom.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: The same zoom on both sides of a handover
+        mechanism: Each mark fades over a quarter of a zoom doubling, so limits that meet at t leave both marks faded out there.
+        wrong_pattern: |
+          maxZoom: t, minZoom: t
+        correct_pattern: |
+          maxZoom: t * 2 ** 0.25, minZoom: t / 2 ** 0.25
+        source: docs/content/docs/(guide)/zoom.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Fitting while a layout run is still moving nodes
+        mechanism: A fit right after launching a layout run frames the positions of that moment, not the result.
+        wrong_pattern: |
+          graph.layout.run()
+          graph.view.fit()
+        correct_pattern: |
+          graph.layout.run(undefined, { fit: true })
+        source: src/host/graph-instance.ts, docs/content/docs/(guide)/view.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Setting view limits or padding on a map
+        mechanism: On a map the map owns the camera and its limits, so minZoom, maxZoom, bounds, padding and autoFit of the definition change nothing.
+        wrong_pattern: |
+          defineGraph({ marks, view: { maxZoom: 8 } })
+        correct_pattern: |
+          map.setMaxZoom(8)
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
   - name: interaction
     slug: interaction
     domain: navigation-and-input
@@ -586,12 +656,97 @@ skills:
       - raise
       - hide
       - label always
+      - wheel modes and zoomhint
+      - autoPan
+      - pointer events
     tasks:
       - Configure selection, drag, lasso, wheel and touch
       - Control the selection from application state
       - Navigate with the keyboard and manage focus
       - React to clicks, hovers and drags
       - Fade everything outside a state, raise members, or always show their labels
+    failure_modes:
+      - mistake: Expecting a lasso without both options
+        mechanism: The lasso needs lasso true and select multiple, so with select single or without lasso Shift and drag pans the view and selects nothing.
+        wrong_pattern: |
+          interaction: { select: 'single', lasso: true }
+        correct_pattern: |
+          interaction: { select: 'multiple', lasso: true }
+        source: src/types.ts, docs/content/docs/(guide)/interaction.mdx
+        priority: HIGH
+        status: active
+      - mistake: Controlling the selection without answering requests
+        mechanism: In controlled mode a click only calls onSelectionChange, so a handler that does not call update selection leaves the selection frozen.
+        wrong_pattern: |
+          onSelectionChange: (event) => console.log(event.selection)
+        correct_pattern: |
+          onSelectionChange: (event) => graph.update({ selection: event.selection })
+        source: docs/content/docs/(guide)/interaction.mdx
+        priority: HIGH
+        status: active
+      - mistake: Setting the selection through states
+        mechanism: selected, hovered and focused are built in and excluded from graph.states, so a free state name is the only thing it accepts.
+        wrong_pattern: |
+          graph.states.set('selected', { nodes: ['n1'] })
+        correct_pattern: |
+          graph.selection.set({ nodes: ['n1'] })
+        source: src/host/graph-instance.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A state of edges that fades the nodes
+        mechanism: others applies to every element outside the state while it has a member, nodes included, so a state of edges dims all nodes.
+        wrong_pattern: |
+          states: { route: { stroke: 'red', others: { opacity: 0.2 } } }
+        correct_pattern: |
+          states: { route: { edges: { stroke: 'red', others: { opacity: 0.2 } } } }
+        source: src/types.ts, docs/content/docs/(guide)/states.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Mixing a style for both kinds with a style by kind
+        mechanism: A state style is either for both kinds or by kind, so a style that sets both does not compile.
+        wrong_pattern: |
+          states: { near: { opacity: 0.2, nodes: { halo: true } } }
+        correct_pattern: |
+          states: { near: { nodes: { opacity: 0.2, halo: true } } }
+        source: src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Turning off pan or zoom and losing keyboard fit
+        mechanism: pan false and zoom false also disable the matching keys, so the zero key fits nothing and the view stops following the focused node.
+        wrong_pattern: |
+          interaction: { pan: false }
+        correct_pattern: |
+          interaction: { pan: true, zoom: true }
+        source: docs/content/docs/(guide)/interaction.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the page-scroll hint to come from the graph
+        mechanism: In page wheel mode the graph shows no text and only emits zoomhint, so no hint appears until the application shows one.
+        wrong_pattern: |
+          interaction: { wheel: 'page' }
+        correct_pattern: |
+          graph.on('zoomhint', ({ key }) => showHint(key))
+        source: src/host/events.ts, docs/content/docs/(guide)/interaction.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Reading the pointer target without narrowing it
+        mechanism: Targets are a union on kind and click targets are null over the background, so datum and endpoints need a kind check first.
+        wrong_pattern: |
+          graph.on('click', ({ target }) => console.log(target.datum))
+        correct_pattern: |
+          graph.on('click', ({ target }) => { if (target?.kind === 'node') console.log(target.datum) })
+        source: src/host/events.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the graph to own wheel and drag on a map
+        mechanism: On a map graph the map owns the camera and its gestures, so the wheel option, the pointer pan and auto-pan do not apply.
+        wrong_pattern: |
+          interaction: { wheel: 'pan' }
+        correct_pattern: |
+          map.scrollZoom.disable()
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
   - name: map
     slug: map
     domain: geography-and-time
@@ -606,6 +761,9 @@ skills:
       - globe
       - exportMapPng
       - geoToWorld
+      - waypoints
+      - lineWaypoints
+      - setWorkerUrl with bundlers
     tasks:
       - Draw a graph on a MapLibre map
       - Place nodes by longitude and latitude
@@ -613,6 +771,84 @@ skills:
       - Switch basemaps and the globe projection
       - Use the map graph in React
       - Export the map and the graph as one PNG
+      - Route edges along a network with waypoints
+      - Make the map worker load with a bundler
+    failure_modes:
+      - mistake: Expecting a layout to place nodes on a map
+        mechanism: The map layer ignores layout, background, bundling, routing and bridges, and layout.run rejects, so nodes need coordinates.
+        wrong_pattern: |
+          defineGraph({ marks, layout: force() })
+        correct_pattern: |
+          nodes(places, { longitude: 'lng', latitude: 'lat' })
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: HIGH
+        status: active
+      - mistake: Removing the map before the graph
+        mechanism: Destroying the graph removes its layer and gives the map gestures back, which needs a live map.
+        wrong_pattern: |
+          map.remove()
+          graph.destroy()
+        correct_pattern: |
+          graph.destroy()
+          map.remove()
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: HIGH
+        status: active
+      - mistake: Passing a view to a map graph
+        mechanism: The map holds the view, so initialView, view and onViewChange are not options of mountMapGraph and update view is ignored.
+        wrong_pattern: |
+          mountMapGraph(map, { definition, ariaLabel: 'Places', view })
+        correct_pattern: |
+          mountMapGraph(map, { definition, ariaLabel: 'Places' })
+          map.jumpTo({ center: [10, 48], zoom: 4 })
+        source: src/map/index.ts, docs/content/docs/api/map.mdx
+        priority: HIGH
+        status: active
+      - mistake: Swapping longitude and latitude
+        mechanism: MapLibre takes longitude first and the channels are named, so swapped fields land nodes in the ocean or off the world.
+        wrong_pattern: |
+          nodes(places, { longitude: 'lat', latitude: 'lng' })
+        correct_pattern: |
+          nodes(places, { longitude: 'lng', latitude: 'lat' })
+        source: src/types.ts, src/core/geo.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting rotation, pitch, lens or minimap on a map
+        mechanism: The map stays north up and without pitch, and the lens and the minimap are not supported on a map graph.
+        wrong_pattern: |
+          graph.lens.set({ at: pointer })
+        correct_pattern: |
+          Use the map navigation and leave out the lens and the minimap
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Colors tuned for one basemap
+        mechanism: Colors that read on a light style vanish on a dark one or on imagery, so they must follow the basemap.
+        wrong_pattern: |
+          nodes(places, { fill: '#ddd' })
+        correct_pattern: |
+          graph.update({ definition: definitionFor(basemap) })
+        source: docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Removing the attribution in an export
+        mechanism: exportMapPng writes the attribution of the map and an empty attribution removes it, which most tile licenses forbid.
+        wrong_pattern: |
+          exportMapPng(graph, { attribution: '' })
+        correct_pattern: |
+          exportMapPng(graph, { pixelRatio: 2 })
+        source: src/map/export.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A map container with no height
+        mechanism: MapLibre sizes the map from its container, so a container with no height draws nothing, the graph included.
+        wrong_pattern: |
+          <div id="map"></div>
+        correct_pattern: |
+          #map { height: 480px; }
+        source: docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
   - name: time
     slug: time
     domain: geography-and-time
@@ -626,12 +862,89 @@ skills:
       - mountTimeline
       - Timeline
       - useTimeline
+      - time window boundaries
+      - timeline store and actions
     tasks:
       - Give nodes and edges a time or a period
       - Show only what exists in a time window
       - Fade elements at the edges of the window
       - Add a timeline that brushes, steps and plays
       - Control the time window from state
+      - Draw a timeline of your own from its store
+    failure_modes:
+      - mistake: Giving times as strings
+        mechanism: A string is not a time, so the element has no time and always shows, with nothing reported.
+        wrong_pattern: |
+          nodes(items, { time: 'created' })
+        correct_pattern: |
+          nodes(items, { time: (item) => Date.parse(item.created) })
+        source: src/core/time-range.ts, src/types.ts
+        priority: HIGH
+        status: active
+      - mistake: Expecting the end of a period to be inside the window
+        mechanism: Ends are exclusive on both the period and the window, so a period that ends where the window starts does not show.
+        wrong_pattern: |
+          graph.time.set({ start: t, end: t + 1 })
+        correct_pattern: |
+          graph.time.set({ start: t, end: t })
+        source: docs/content/docs/(guide)/time.mdx, src/core/time-range.ts
+        priority: HIGH
+        status: active
+      - mistake: Controlling the window without both props
+        mechanism: Controlled mode is decided at mount by time and never changes, so update time on an uncontrolled graph does nothing and a controlled graph ignores time.set until answered.
+        wrong_pattern: |
+          mountGraph(container, { definition, ariaLabel: 'Graph' })
+          graph.update({ time: window })
+        correct_pattern: |
+          mountGraph(container, { definition, ariaLabel: 'Graph', time: null, onTimeChange })
+        source: src/host/mount-graph.ts, docs/content/docs/(guide)/time.mdx
+        priority: HIGH
+        status: active
+      - mistake: A timeline over data with no times
+        mechanism: Without elements that have a time the timeline has no extent and play does nothing.
+        wrong_pattern: |
+          createTimeline(graph)
+        correct_pattern: |
+          createTimeline(graph, { extent: { start, end } })
+        source: src/timeline/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Mixing local and UTC times
+        mechanism: Bins and ticks follow the local time zone, so times and window edges written in UTC look one hour or one day off.
+        wrong_pattern: |
+          graph.time.set({ start: Date.UTC(2024, 0, 1) })
+        correct_pattern: |
+          graph.time.set({ start: new Date(2024, 0, 1) })
+        source: docs/content/docs/api/timeline.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Fade in the wrong unit
+        mechanism: time fade is in the milliseconds of the data, so a duration written in days fades nothing or everything.
+        wrong_pattern: |
+          defineGraph({ marks, time: { fade: 30 } })
+        correct_pattern: |
+          defineGraph({ marks, time: { fade: 30 * 86_400_000 } })
+        source: src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the layout to follow the window
+        mechanism: Layouts place every node whatever the window and hidden nodes keep their place, so the graph does not rearrange.
+        wrong_pattern: |
+          graph.time.set(window)
+        correct_pattern: |
+          Build the data for the window to lay out only what exists then
+        source: docs/content/docs/(guide)/time.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A timeline outside Graph without a graph
+        mechanism: The Timeline component and useTimeline read the graph from context, so outside Graph or MapGraph they throw without the graph option.
+        wrong_pattern: |
+          <Timeline />
+        correct_pattern: |
+          <Timeline graph={graph} />
+        source: src/react/index.tsx, docs/content/docs/api/timeline.mdx
+        priority: MEDIUM
+        status: active
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations
