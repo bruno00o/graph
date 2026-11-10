@@ -949,79 +949,328 @@ skills:
     slug: tanstack-db
     domain: data-integrations
     type: composition
-    description: Draw TanStack DB collections as they change and write positions back.
+    description: "Draw TanStack DB collections as they change, filter and load them at scale, and write positions back."
     covers:
-      - live sources
-      - subset
-      - persistPositions
-      - on-demand collections
+      - "live sources"
+      - "subset"
+      - "on-demand collections"
+      - "live query joins"
+      - "persistPositions"
+      - "pendingState"
     tasks:
-      - Draw a collection or a live query as it changes
-      - Filter a large collection with subset
-      - Load rows on demand
-      - Write dragged positions back to a collection
+      - "Draw a collection or a live query as it changes"
+      - "Filter a large collection with subset"
+      - "Load rows or edges on demand"
+      - "Join collections into nodes with a live query"
+      - "Write dragged and laid out positions back to a collection"
+      - "Show the position writes in flight"
+    failure_modes:
+      - mistake: "A join without getKey"
+        mechanism: "A live query with a join keys its rows by the pair of joined keys, so node keys are JSON.stringify([main, joined]) strings that no edge source or target matches and every edge waits."
+        wrong_pattern: |
+          createLiveQueryCollection({ query: (q) => q.from({ item: items }).innerJoin({ score: scores }, on).select(pick) })
+        correct_pattern: |
+          createLiveQueryCollection({ getKey: (row) => row.id, query: (q) => q.from({ item: items }).innerJoin({ score: scores }, on).select(pick) })
+        source: "docs/content/docs/(guide)/tanstack-db.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "On-demand collection passed as is"
+        mechanism: "A subscription without where asks an on-demand collection for every row, so nothing is filtered at the source."
+        wrong_pattern: |
+          nodes(onDemandItems, { label: 'label' })
+        correct_pattern: |
+          nodes(subset(onDemandItems, (item) => gte(item.weight, 40)), { label: 'label' })
+        source: "docs/content/docs/(guide)/tanstack-db.mdx, src/db/subset.ts"
+        priority: HIGH
+        status: active
+      - mistake: "A new live query where a subset would do"
+        mechanism: "A live query collection hands out new row objects on every change, so each node that stays is restyled, while subset keeps the rows of the collection and only the difference moves."
+        wrong_pattern: |
+          graph.update({ definition: define(createLiveQueryCollection(heavyQuery)) })
+        correct_pattern: |
+          graph.update({ definition: define(subset(items, (item) => gte(item.weight, minimum))) })
+        source: "docs/content/docs/(guide)/tanstack-db.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Key option or wrong field on a live mark"
+        mechanism: "A mark of a live source takes the key of the change and no key option, and where and the mark options are checked against the row type."
+        wrong_pattern: |
+          nodes(items, { key: 'label' })
+        correct_pattern: |
+          nodes(items, { label: 'label' })
+        source: "src/marks.ts, src/db/subset.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "pendingState not declared"
+        mechanism: "persistPositions throws at run time when pendingState is not a free state of the definition, and a typed graph refuses the name."
+        wrong_pattern: |
+          persistPositions(graph, { collection: items, pendingState: 'saving' })
+        correct_pattern: |
+          defineGraph({ marks, states: { saving: { outline: 'var(--graph-accent)' } } })
+        source: "src/db/index.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Expecting persisted positions to follow a layout"
+        mechanism: "Positions read from rows are data and a layout never moves them, so a written layout result fixes the nodes."
+        source: "docs/content/docs/api/persist-positions.mdx"
+        priority: MEDIUM
+        status: active
   - name: tanstack-query
     slug: tanstack-query
     domain: data-integrations
     type: composition
-    description: Explore a graph one neighborhood at a time with TanStack Query.
+    description: "Explore a graph one neighborhood at a time with TanStack Query."
     covers:
-      - createExploration
-      - expand
-      - collapse
-      - retry
-      - exploration store
+      - "createExploration"
+      - "expand"
+      - "collapse"
+      - "toggle"
+      - "retry"
+      - "reset"
+      - "exploration store"
+      - "typing"
     tasks:
-      - Explore a large graph one neighborhood at a time
-      - Show loading and error states of expansions
-      - Retry a failed expansion
+      - "Explore a large graph one neighborhood at a time"
+      - "Show expanded, loading and failed nodes"
+      - "Retry a failed expansion"
+      - "Type the nodes and edges of an exploration"
+    failure_modes:
+      - mistake: "Expecting the types to be inferred from a plain query object"
+        mechanism: "Plain query options are not linked to the node and edge types, so the exploration types its items as { readonly id: Key } and options that read other fields fail to compile; only queryOptions of an adapter infers them."
+        wrong_pattern: |
+          createExploration(client, { roots, neighbors })
+        correct_pattern: |
+          createExploration<Person, Relation>(client, { roots, neighbors })
+        source: "src/query/index.ts"
+        priority: HIGH
+        status: active
+      - mistake: "Items without an id field and no key option"
+        mechanism: "Without nodeKey or edgeKey the item types must have an id field, and function keys read typed items only when neighbors comes first."
+        source: "docs/content/docs/api/create-exploration.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "Neighborhood that does not contain the expanded node"
+        mechanism: "Only the data of the response gives a node its position, label and color, so a root missing from its own response is not drawn and its edges wait."
+        source: "docs/content/docs/(guide)/tanstack-query.mdx, src/query/index.ts"
+        priority: HIGH
+        status: active
+      - mistake: "Creating the exploration in render"
+        mechanism: "Each new exploration starts its expansions again and replaces both sources."
+        wrong_pattern: |
+          const exploration = createExploration<Person, Relation>(client, options)
+        correct_pattern: |
+          const [exploration] = useState(() => createExploration<Person, Relation>(client, options))
+        source: "docs/content/docs/(guide)/tanstack-query.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Writing states from render"
+        mechanism: "graph.states.set during a render notifies the store and React warns about updating a component while rendering."
+        source: "docs/content/docs/(guide)/tanstack-query.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Errors not shown or retried"
+        mechanism: "A failed expansion stays expanded and only exploration.store holds its error, and TanStack Query retries before failing."
+        source: "docs/content/docs/(guide)/tanstack-query.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "queryKey without the node key"
+        mechanism: "Every node then shares one cached neighborhood."
+        source: "docs/content/docs/(guide)/tanstack-query.mdx"
+        priority: MEDIUM
+        status: active
   - name: cypher
     slug: cypher
     domain: data-integrations
     type: composition
-    description: Turn Cypher query results into nodes and edges.
+    description: "Turn Cypher query results into nodes and edges."
     covers:
-      - cypherGraph
-      - integers
-      - dates
-      - points
-      - paths
+      - "cypherGraph"
+      - "integers"
+      - "dates"
+      - "durations"
+      - "points"
+      - "paths"
+      - "JSON results"
+      - "explore with a query"
     tasks:
-      - Turn a Cypher result from a driver or its JSON into nodes and edges
-      - Keep large integers, dates and points usable
-      - Explore a graph database one neighborhood at a time
+      - "Turn a Cypher result from a driver or its JSON into nodes and edges"
+      - "Keep large integers, dates and points usable"
+      - "Handle relationships whose end node is missing"
+      - "Explore a graph database one neighborhood at a time"
+    failure_modes:
+      - mistake: "Using a stored id property as the key"
+        mechanism: "Node and edge keys are the elementId of the database, so a property called id is not the key and edges pointing at elementIds wait for nodes that never match."
+        source: "src/cypher/index.ts"
+        priority: HIGH
+        status: active
+      - mistake: "Losing digits with integers number"
+        mechanism: "'number' turns 64-bit integers into JavaScript numbers that lose precision beyond Number.MAX_SAFE_INTEGER, while the default 'safe' keeps a decimal string."
+        wrong_pattern: |
+          cypherGraph(result, { integers: 'number' })
+        correct_pattern: |
+          cypherGraph(result)
+        source: "src/cypher/values.ts, docs/content/docs/(guide)/cypher.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "Reading properties without a type"
+        mechanism: "Properties are unknown by default, so channels that need a string or a number do not compile."
+        wrong_pattern: |
+          nodes(items, { label: (node) => node.properties.name })
+        correct_pattern: |
+          cypherGraph<{ name: string }>(result)
+        source: "docs/content/docs/api/cypher-graph.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Edge mark without source and target"
+        mechanism: "The source and target options are required even though the fields have those names."
+        source: "src/marks.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Query that returns only relationships"
+        mechanism: "RETURN r gives edges without their end nodes, which stay pending."
+        source: "docs/content/docs/(guide)/cypher.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Letting TypeScript infer the types of an exploration"
+        mechanism: "A plain query object gives the exploration nodes typed as { readonly id: Key }."
+        source: "docs/content/docs/(guide)/cypher.mdx"
+        priority: MEDIUM
+        status: active
   - name: file-formats
     slug: file-formats
     domain: data-integrations
     type: sub-skill
-    description: Read and write GraphML, GEXF, JSON Graph Format and CSV.
+    description: "Read and write GraphML, GEXF, JSON Graph Format and CSV."
     covers:
-      - readGraphml
-      - readGexf
-      - readJsonGraph
-      - readCsv
-      - detectFormat
-      - write functions
-      - FormatError
+      - "readGraphml"
+      - "readGexf"
+      - "readJsonGraph"
+      - "readJsonGraphs"
+      - "readCsv"
+      - "detectFormat"
+      - "write functions"
+      - "FormatError"
+      - "issues"
+      - "schema"
     tasks:
-      - Read a graph file into nodes and edges
-      - Handle unreadable files and data problems
-      - Write a graph back to a file format
+      - "Read a graph file into nodes and edges"
+      - "Map positions, colors, sizes, parents and time of a file onto marks"
+      - "Handle unreadable files and data problems"
+      - "Write a graph or its positions back to a file format"
+      - "Convert between formats"
+    failure_modes:
+      - mistake: "Mapping x and y and expecting a layout to move them"
+        mechanism: "Positions read from the data are never moved by a layout."
+        source: "docs/content/docs/(guide)/file-formats.mdx, src/types.ts"
+        priority: HIGH
+        status: active
+      - mistake: "Passing file colors and sizes to the scale"
+        mechanism: "color is a channel, so the CSS strings of a file become categories drawn with palette colors unless wrapped in raw()."
+        wrong_pattern: |
+          nodes(file.nodes, { color: (node) => node.color })
+        correct_pattern: |
+          nodes(file.nodes, { color: raw((node) => node.color ?? 'var(--graph-node)') })
+        source: "docs/content/docs/(guide)/file-formats.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "Passing something other than text to a reader"
+        mechanism: "Readers take text (and parsed JSON), not a Response, Blob or Buffer."
+        wrong_pattern: |
+          readGraphml(await fetch(url))
+        correct_pattern: |
+          readGraphml(await (await fetch(url)).text())
+        source: "docs/content/docs/api/formats.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "Edge mark without source and target"
+        mechanism: "The options are required even though the fields of a FileEdge are named source and target."
+        source: "src/marks.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Ignoring issues"
+        mechanism: "A reader never throws for bad data, so a half-read file looks fine while issues lists the skipped and pending parts."
+        source: "src/formats/types.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Trusting detectFormat on arbitrary text"
+        mechanism: "Any text that is not JSON or XML is called csv."
+        source: "src/formats/detect.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Mixing numeric and string ids"
+        mechanism: 'File ids are strings, so edges naming 1 wait for the node with id "1".'
+        source: "src/formats/types.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Expecting writeCsv to return a string"
+        mechanism: "writeCsv returns { nodes, edges }, two texts, and writers throw TypeError for a node without key."
+        source: "docs/content/docs/api/formats.mdx"
+        priority: MEDIUM
+        status: active
   - name: paths
     slug: paths
     domain: structure
     type: sub-skill
-    description: Find shortest paths and reachable nodes, and highlight them.
+    description: "Find shortest paths and reachable nodes, and highlight them."
     covers:
-      - graph.paths
-      - createPathFinder
-      - weights
-      - direction
-      - reach
+      - "graph.paths"
+      - "createPathFinder"
+      - "shortest"
+      - "reach"
+      - "weights"
+      - "direction"
+      - "visible"
+      - "highlighting"
     tasks:
-      - Find and highlight the shortest path between two nodes
-      - Find every node within reach of a node
-      - Search paths without mounting a graph
+      - "Find and highlight the shortest path between two nodes"
+      - "Find every node within reach of a node"
+      - "Keep a search to some nodes and edges"
+      - "Search the graph as drawn"
+      - "Search paths without mounting a graph"
+    failure_modes:
+      - mistake: "Weights that are missing or negative"
+        mechanism: "An edge whose weight is missing, not a number or infinite cannot be crossed, so the path detours or is null, and a negative weight throws a RangeError."
+        wrong_pattern: |
+          graph.paths.shortest('a', 'b', { weight: 'minutes' })
+        correct_pattern: |
+          graph.paths.shortest('a', 'b', { weight: (link) => Math.max(0, Number(link.minutes) || 0) })
+        source: "src/types.ts, docs/content/docs/(guide)/paths.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "Reading null or an empty result as a bug"
+        mechanism: "shortest returns null for no path, an unknown key or an end that fails the nodes predicate, and reach returns an empty result."
+        source: "docs/content/docs/(guide)/paths.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "Expecting a directed search by default"
+        mechanism: "Edges are crossed both ways unless direction is forward or backward, whatever arrows are drawn."
+        wrong_pattern: |
+          graph.paths.shortest('a', 'b')
+        correct_pattern: |
+          graph.paths.shortest('a', 'b', { direction: 'forward' })
+        source: "src/types.ts"
+        priority: HIGH
+        status: active
+      - mistake: "A weight field that does not exist"
+        mechanism: "weight is checked against the edge items when marks are typed by inference."
+        source: "src/types.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "A negative or NaN maxCost"
+        mechanism: "reach throws a RangeError for a maxCost below 0 or NaN."
+        source: "src/core/path-query.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Searching the data and expecting what is drawn"
+        mechanism: "Without visible a path can cross folded groups and filtered nodes, and its keys put states on elements that are not on screen."
+        source: "docs/content/docs/(guide)/paths.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Forgetting destroy on a path finder"
+        mechanism: "A finder subscribes to live sources when created."
+        source: "src/paths.ts"
+        priority: MEDIUM
+        status: active
   - name: styling
     slug: styling
     domain: appearance

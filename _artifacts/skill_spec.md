@@ -240,7 +240,24 @@ Gaps: `exportMapPng` is documented in `map` only; the `export` skill (batch D) s
 
 ### Batch C
 
-Planned.
+Written: `tanstack-db`, `tanstack-query`, `cypher`, `file-formats`, `paths`, all requiring `core`.
+
+| Skill          | Lines | Failure modes | Typechecked failures                            |
+| -------------- | ----- | ------------- | ----------------------------------------------- |
+| tanstack-db    | 360   | 6             | key option on a live mark, wrong field in where |
+| tanstack-query | 384   | 7             | types not inferred from a plain object          |
+| cypher         | 264   | 6             | untyped properties, edge mark without ends      |
+| file-formats   | 304   | 8             | color literal, a Response instead of text       |
+| paths          | 272   | 7             | unknown direction, misspelled weight            |
+
+Decisions:
+
+- The examples never import `neo4j-driver`, which is not a dependency of the package: the one fragment that calls the driver is `no-check`, and everything else starts from a `CypherInput`.
+- `tanstack-query` and `cypher` both show `createExploration`, with explicit type arguments for a plain query-options object. The guide says the types are inferred from such an object; they are not (the items are typed `{ readonly id: Key }`), only `queryOptions` of an adapter infers them. The skills follow the types.
+- `paths` is registered in the `structure` domain with `groups` and `multilayer`, and refers to the time skill only by its name.
+- A written skill never copies an options table: it lists the options that decide a task and links the API page.
+- Browser-only behavior is not claimed: the queries, readers and adapters run in Node, so their examples compile and the task checks ran them there.
+- Task checks by fresh agents (one per skill, in a consumer project outside the repository) found gaps now covered: read-only result types and optional weights in `paths`, the sentinel root, cleanup order and click against double-click in `tanstack-query`, the update typing limit between a subset and a join in `tanstack-db`, optional fields and style fallbacks in `file-formats`, integer and date conversion in `cypher`.
 
 ### Batch D
 
