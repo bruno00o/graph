@@ -1041,6 +1041,84 @@ skills:
       - Put images, tinted icons and badges in nodes
       - Draw box nodes that fit their label
       - Theme the graph for light and dark with CSS variables
+      - Override a theme token for one graph or one theme
+      - Give a node mark scales of its own
+    failure_modes:
+      - mistake: Expecting a gradient from a numeric color
+        mechanism: The color scale is categorical by default, even for numbers, so a numeric color channel draws one palette color per distinct value with no order.
+        wrong_pattern: |
+          nodes(items, { color: 'score' })
+        correct_pattern: |
+          defineGraph({
+            marks: [nodes(items, { color: 'score' })],
+            scales: { color: { type: 'sequential', domain: [0, 100] } },
+          })
+        source: docs/content/docs/(guide)/scales.mdx
+        priority: HIGH
+        status: active
+      - mistake: A computed pixel size that goes through the scale
+        mechanism: A function given to size is a channel, so its result is squeezed into the size range [8, 32] by the square root scale and never draws the pixel diameters it returns.
+        wrong_pattern: |
+          nodes(items, { size: (item) => item.radius * 2 })
+        correct_pattern: |
+          nodes(items, { size: raw((item) => item.radius * 2) })
+        source: docs/content/docs/(guide)/marks.mdx, src/core/raw.ts
+        priority: HIGH
+        status: active
+      - mistake: A field name in a style
+        mechanism: "Styles take a constant or a function, never a field name: a numeric style given a field name does not compile, and a color style given one compiles and is read as a CSS color."
+        wrong_pattern: |
+          nodes(items, { label: { text: 'name', size: 'weight' } })
+        correct_pattern: |
+          nodes(items, { label: { text: 'name', size: (item) => item.weight } })
+        source: docs/content/docs/(guide)/marks.mdx, src/types.ts
+        priority: HIGH
+        status: active
+      - mistake: A constant color in the color channel
+        mechanism: color goes through the color scale, so a CSS color does not compile and a function returning colors draws palette colors.
+        wrong_pattern: |
+          nodes(items, { color: (item) => item.hex })
+        correct_pattern: |
+          nodes(items, { color: raw((item) => item.hex) })
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: HIGH
+        status: active
+      - mistake: A label that is not a string
+        mechanism: Only a non-empty string draws a label, and a function that returns a number does not compile.
+        wrong_pattern: |
+          nodes(items, { label: (item) => item.count })
+        correct_pattern: |
+          nodes(items, { label: (item) => String(item.count) })
+        source: docs/content/docs/(guide)/labels.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: The theme stylesheet is missing
+        mechanism: Every color falls back to its light value without theme.css, so a dark page or a dark class changes nothing.
+        wrong_pattern: |
+          import '@bruno00o/graph'
+        correct_pattern: |
+          import '@bruno00o/graph/theme.css'
+        source: docs/content/docs/(guide)/theming.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: One image per node
+        mechanism: At most 256 distinct images are drawn at once, so the 257th node of a graph with one image each stays plain.
+        wrong_pattern: |
+          nodes(items, { image: (item) => `/labels/${item.id}.svg` })
+        correct_pattern: |
+          nodes(items, { image: (item) => `/icons/${item.kind}.svg`, label: 'name' })
+        source: docs/content/docs/(guide)/images-and-badges.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Hard-coded colors that ignore the theme
+        mechanism: A hex value is identical in light and dark, so text or fills stay unreadable in one of the themes.
+        wrong_pattern: |
+          nodes(items, { label: { text: 'name', color: '#222222' } })
+        correct_pattern: |
+          nodes(items, { label: { text: 'name', color: 'var(--graph-ink)' } })
+        source: docs/content/docs/(guide)/theming.mdx
+        priority: MEDIUM
+        status: active
   - name: tools
     slug: tools
     domain: tools-and-output
@@ -1063,6 +1141,86 @@ skills:
       - Pin HTML to nodes and edges
       - Draw hulls around sets of nodes and a background grid
       - Inspect graphs in the TanStack Devtools panel
+    failure_modes:
+      - mistake: A minimap or a lens on a map
+        mechanism: "The map owns the camera: the minimap does not support a map graph and graph.lens.set does nothing there."
+        wrong_pattern: |
+          mountMapGraph(map, { definition, ariaLabel })
+          createMinimap(graph)
+        correct_pattern: |
+          mountMapGraph(map, { definition, ariaLabel })
+        source: docs/content/docs/(guide)/map.mdx, src/host/lens.ts
+        priority: HIGH
+        status: active
+      - mistake: A legend state that the definition does not declare
+        mechanism: "highlight and hidden name free states: an undeclared name does not compile on a typed graph and throws at run time otherwise."
+        wrong_pattern: |
+          createLegend(graph, { highlight: 'match' })
+        correct_pattern: |
+          defineGraph({ marks, states: { match: { outline: 'var(--graph-accent)' } } })
+          createLegend(graph, { highlight: 'match' })
+        source: docs/content/docs/api/legend.mdx
+        priority: HIGH
+        status: active
+      - mistake: A hidden legend state that does not hide
+        mechanism: "A hidden state with only an opacity fades the elements of an off item instead of filtering the graph, which needs hide: true."
+        wrong_pattern: |
+          states: { faded: { opacity: 0.1 } }
+        correct_pattern: |
+          states: { faded: { opacity: 0.1, hide: true } }
+        source: docs/content/docs/(guide)/minimap-and-legend.mdx
+        priority: HIGH
+        status: active
+      - mistake: A hull made from another mark object
+        mechanism: A hull matches the nodes of the mark object passed to marks, so a second nodes() call or a mark rebuilt in render encloses nothing.
+        wrong_pattern: |
+          marks: [nodes(items)],
+          hulls: [hull({ nodes: nodes(items), by: 'group' })]
+        correct_pattern: |
+          const people = nodes(items)
+          marks: [people],
+          hulls: [hull({ nodes: people, by: 'group' })]
+        source: docs/content/docs/api/hull.mdx, src/core/hull-layer.ts
+        priority: HIGH
+        status: active
+      - mistake: when on a point or a state anchor
+        mechanism: when needs a node or an edge that can be in a state, so a point or a state target takes none and the types refuse it.
+        wrong_pattern: |
+          graph.anchors.set(element, { point, when: 'hovered' })
+        correct_pattern: |
+          graph.anchors.set(element, { node: key, when: 'hovered' })
+        source: docs/content/docs/api/graph-instance.mdx, src/host/anchors.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting anchored HTML in an export
+        mechanism: Anchors are HTML over the canvas, not part of the scene, so no export draws them.
+        wrong_pattern: |
+          graph.anchors.set(tooltip, { node: key })
+          await exportPng(graph)
+        correct_pattern: |
+          await exportPng(graph)
+        source: docs/content/docs/(guide)/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: The lens that never shows
+        mechanism: interaction.lens is off by default, and the key is ignored while a text field has the focus.
+        wrong_pattern: |
+          defineGraph({ marks })
+        correct_pattern: |
+          defineGraph({ marks, interaction: { lens: true } })
+        source: docs/content/docs/(guide)/lens.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Panel messages created in render
+        mechanism: A new messages object passed to GraphDevtoolsPanel mounts the panel again at every render.
+        wrong_pattern: |
+          <GraphDevtoolsPanel messages={{ title: 'Graph' }} />
+        correct_pattern: |
+          const messages = { title: 'Graph' }
+          <GraphDevtoolsPanel messages={messages} />
+        source: docs/content/docs/api/devtools.mdx
+        priority: MEDIUM
+        status: active
   - name: export
     slug: export
     domain: tools-and-output
@@ -1079,6 +1237,64 @@ skills:
       - Save the graph as a PNG image
       - Save the graph as an SVG document
       - Export a region at a scale, with a background
+    failure_modes:
+      - mistake: Exporting a destroyed graph
+        mechanism: An export of a destroyed graph, or of one not made by mountGraph, rejects instead of producing a file.
+        wrong_pattern: |
+          graph.destroy()
+          await exportPng(graph)
+        correct_pattern: |
+          const png = await exportPng(graph)
+          graph.destroy()
+        source: docs/content/docs/api/export.mdx, src/host/lifecycle.ts
+        priority: HIGH
+        status: active
+      - mistake: Not awaiting the export
+        mechanism: Both functions return promises, and an SVG is a string that needs a Blob of type image/svg+xml to be downloaded.
+        wrong_pattern: |
+          download(exportPng(graph), 'graph.png')
+        correct_pattern: |
+          download(await exportPng(graph), 'graph.png')
+        source: docs/content/docs/(guide)/export.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting a transparent PNG by default
+        mechanism: The default background is the paper color of the current theme.
+        wrong_pattern: |
+          await exportPng(graph)
+        correct_pattern: |
+          await exportPng(graph, { background: 'transparent' })
+        source: docs/content/docs/(guide)/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Mixing up zoom and pixel ratio
+        mechanism: zoom rescales the content while pixelRatio only adds pixels, and neither accepts a non-positive or infinite value.
+        wrong_pattern: |
+          await exportPng(graph, { zoom: 4 })
+        correct_pattern: |
+          await exportPng(graph, { pixelRatio: 4 })
+        source: docs/content/docs/(guide)/export.mdx, src/export/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Labels missing in a zoomed-out file
+        mechanism: labels visible applies the screen rules, so small and overlapping labels are hidden at a small zoom.
+        wrong_pattern: |
+          await exportSvg(graph, { region: 'graph' })
+        correct_pattern: |
+          await exportSvg(graph, { region: 'graph', labels: 'all' })
+        source: docs/content/docs/(guide)/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Exporting a graph with no size
+        mechanism: A hidden graph or one that measures less than one pixel has nothing to draw, so the export rejects with a RangeError.
+        wrong_pattern: |
+          container.hidden = true
+          await exportPng(graph)
+        correct_pattern: |
+          await exportPng(graph, { region: 'graph' })
+        source: src/export/index.ts
+        priority: MEDIUM
+        status: active
 tensions:
   - name: Rebuilt definitions against stable identities
     skills:

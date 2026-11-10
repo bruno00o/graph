@@ -425,11 +425,11 @@ skills:
     slug: styling
     domain: appearance
     path: skills/styling/SKILL.md
-    status: planned
-    description: Use when styling @bruno00o/graph nodes and labels, with color and
-      size scales, label size, placement and backgrounds, images, tinted icons
-      and badges, box nodes that fit their label, outlines, or light and dark
-      themes through CSS variables.
+    description: >
+      Use when styling @bruno00o/graph nodes and labels, with color and size
+      scales, label size, placement and backgrounds, images, tinted icons and
+      badges, box nodes that fit their label, outlines, or light and dark themes
+      through CSS variables.
     sources:
       - src/types.ts
       - src/marks.ts
@@ -444,15 +444,19 @@ skills:
       - docs/content/docs/api/theme-tokens.mdx
     requires:
       - core
+    purpose: >
+      How nodes and labels get their look in @bruno00o/graph: the three scales
+      and when a value skips them, label options, shapes and boxes, outlines,
+      images, tinted icons and badges, and the CSS variables of the light and
+      dark themes, with the mistakes that draw the wrong color, size or text.
   - name: tools
     slug: tools
     domain: tools-and-output
     path: skills/tools/SKILL.md
-    status: planned
-    description: Use when adding companions to a @bruno00o/graph graph, such as a
-      minimap, a legend that filters, a magnifying lens, HTML pinned to nodes,
-      hulls around sets of nodes, a background grid, or the TanStack Devtools
-      panel.
+    description: >
+      Use when adding companions to a @bruno00o/graph graph, such as a minimap,
+      a legend that filters, a magnifying lens, HTML pinned to nodes, hulls
+      around sets of nodes, a background grid, or the TanStack Devtools panel.
     sources:
       - src/minimap/index.ts
       - src/legend/index.ts
@@ -473,17 +477,27 @@ skills:
       - docs/content/docs/api/anchor.mdx
     requires:
       - core
+    purpose: >
+      The tools drawn beside or over a @bruno00o/graph graph: minimap, legend,
+      lens, anchored HTML, hulls, background grid and the devtools panel, how
+      each one is created and destroyed, what it reads, and where it does not
+      work.
   - name: export
     slug: export
     domain: tools-and-output
     path: skills/export/SKILL.md
-    status: planned
-    description: Use when saving a @bruno00o/graph graph as a PNG image or an SVG
-      document, choosing its region, scale, pixel ratio, labels and background,
-      or exporting large graphs.
+    description: >
+      Use when saving a @bruno00o/graph graph as a PNG image or an SVG document,
+      choosing its region, scale, pixel ratio, labels and background, or
+      exporting large graphs.
     sources:
       - src/export/index.ts
       - docs/content/docs/(guide)/export.mdx
       - docs/content/docs/api/export.mdx
     requires:
       - core
+    purpose: >
+      Saving a mounted @bruno00o/graph graph as a PNG Blob or an SVG string with
+      exportPng and exportSvg: what each one draws, region, scale and pixel
+      ratio, labels, background, time window and flows, downloading the result,
+      and the errors and limits.
