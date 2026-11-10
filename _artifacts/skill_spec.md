@@ -127,7 +127,81 @@ Rules for every batch:
 
 ### Batch A
 
-Planned.
+Written: layouts, edges, groups, multilayer. Each requires `core`, validates with typechecked examples, and keeps to its entry's tasks.
+
+Scope decisions:
+
+- `layouts` owns `graph.layout`, `graph.positions` (move, snapshot, restore), `positionchange` and the custom `Layout` port. Positions from the `x` and `y` channels are introduced there as the thing that always wins over a layout.
+- `edges` owns edge labels, flows, `ends`, waypoints, `bundle`, `route` and `bridge`, `densityBundling`, `orthogonalRouting` and `bridges`. It states that parallel edges and loops need no option, and sends `merge` to `groups` and `layer` bands to `multilayer`.
+- `groups` owns `parent`, `groups()`, `container`, folding (instance and controlled), `merge`, `aggregate`, `betweenGroups` and the `hide` state.
+- `multilayer` owns `layer`, `graph.layers`, `hiddenLayers`, `supportedBy`, `graph.support`, `createSupportFinder`, the `support` states and the drill-down recipe (which uses `hide`, introduced in `groups`).
+
+#### Failure mode inventory
+
+##### layouts (6)
+
+| #   | Mistake                                             | Priority | Source                         | Cross-skill |
+| --- | --------------------------------------------------- | -------- | ------------------------------ | ----------- |
+| 1   | Importing `force` from the layouts entry point      | HIGH     | layout guide, force API        |             |
+| 2   | Expecting a layout to move nodes that have `x`, `y` | HIGH     | layout and positions guides    | core        |
+| 3   | Running a layout on a map                           | HIGH     | map guide, `layout-session.ts` | map         |
+| 4   | `grid` or `rings` with `order` inside `defineGraph` | MEDIUM   | TypeScript guide, layouts API  |             |
+| 5   | Expecting an instant layout to be incremental       | MEDIUM   | layouts API                    |             |
+| 6   | Writing positions back on every drag move           | MEDIUM   | positions guide                |             |
+
+##### edges (7)
+
+| #   | Mistake                                                         | Priority | Source                      | Cross-skill   |
+| --- | --------------------------------------------------------------- | -------- | --------------------------- | ------------- |
+| 1   | Setting `bundling` and `routing` together                       | HIGH     | bundling and routing guides |               |
+| 2   | Importing bundling or routing from the main entry               | HIGH     | bundling and routing APIs   |               |
+| 3   | Expecting waypoints, geodesic edges or loops to bundle or route | HIGH     | bundling and marks guides   | map           |
+| 4   | Passing a constant color to `color`                             | MEDIUM   | marks guide                 | core, styling |
+| 5   | Expecting a state to style one end of an edge                   | MEDIUM   | marks guide                 | interaction   |
+| 6   | Expecting bundles or routes immediately                         | MEDIUM   | bundling and routing guides |               |
+| 7   | Edge labels that never show                                     | MEDIUM   | labels guide                | styling       |
+
+##### groups (7)
+
+| #   | Mistake                                        | Priority | Source                            | Cross-skill |
+| --- | ---------------------------------------------- | -------- | --------------------------------- | ----------- |
+| 1   | Passing a string to `fold`, `unfold` or `set`  | HIGH     | `graph-instance.ts`               |             |
+| 2   | Building the key of a `groups()` node by hand  | HIGH     | transformations guide, groups API |             |
+| 3   | Expecting folding or merging to relayout       | HIGH     | transformations guide             | layouts     |
+| 4   | Switching to a controlled `folded` after mount | MEDIUM   | groups guide                      | react       |
+| 5   | Rebuilding `by` functions in render            | MEDIUM   | groups API                        | core, react |
+| 6   | Using `hide` to shrink the layout              | MEDIUM   | transformations guide             | layouts     |
+| 7   | Expecting merged edges across marks            | MEDIUM   | transformations guide             | multilayer  |
+
+##### multilayer (7)
+
+| #   | Mistake                                             | Priority | Source                        | Cross-skill |
+| --- | --------------------------------------------------- | -------- | ----------------------------- | ----------- |
+| 1   | Hiding a layer by removing its data                 | HIGH     | multilayer guide              | groups      |
+| 2   | Filling the support states yourself                 | HIGH     | multilayer guide              |             |
+| 3   | Naming a support state that is not declared         | HIGH     | `define-graph.ts`             |             |
+| 4   | Hiding a node layer and expecting its edges to stay | MEDIUM   | multilayer guide              |             |
+| 5   | A layer name no mark gives                          | MEDIUM   | multilayer, TypeScript guides | core        |
+| 6   | Switching to controlled `hiddenLayers` after mount  | MEDIUM   | multilayer guide              | react       |
+| 7   | Walking support with mismatched key types           | MEDIUM   | support API                   |             |
+
+#### Tensions
+
+| Tension                                | Skills             | Agent implication                                                                                 |
+| -------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| Positions from data against layouts    | layouts, core      | Giving a mark `x` and `y` pins its nodes, so a layout in the same definition leaves them alone.   |
+| Hiding by state against filtering data | groups, multilayer | A `hide` state or a layer keeps elements in layouts and counts; filtering the array removes them. |
+| Bundling against routing               | edges              | A definition takes one of them; `bridges` combines with either.                                   |
+
+#### Cross-references
+
+| From       | To         | Reason                                                                   |
+| ---------- | ---------- | ------------------------------------------------------------------------ |
+| edges      | groups     | `merge` and `aggregate` draw parallel edges as one.                      |
+| edges      | multilayer | Edges of different layers form one band per pair of nodes.               |
+| groups     | layouts    | A layout keeps unfolded groups whole, and `relayout` runs it again.      |
+| multilayer | groups     | The drill-down recipe closes lower edges with a `hide` state.            |
+| layouts    | core       | Layout events and the `layout` slice of the store are core instance API. |
 
 ### Batch B
 

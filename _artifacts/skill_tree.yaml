@@ -102,12 +102,13 @@ skills:
     slug: layouts
     domain: placement
     path: skills/layouts/SKILL.md
-    status: planned
-    description: Use when placing nodes that have no coordinates with
-      @bruno00o/graph, with a force layout, layers, a grid, rings, a radial tree
-      or by geography, running a layout from code, following its progress,
-      fitting the result, saving and restoring positions, or writing a custom
-      layout.
+    description: >
+      Use when placing @bruno00o/graph nodes that have no coordinates: choosing
+      and adding a force layout, layers for a hierarchy or flow, a grid, rings,
+      a radial tree or a geographic layout, running or stopping a layout from
+      code, following its progress, framing the result, keeping dragged or
+      data-given positions, saving and restoring positions, writing a custom
+      layout, or finding why nodes do not move or pile up.
     sources:
       - src/layouts/index.ts
       - src/layouts/force/index.ts
@@ -124,15 +125,23 @@ skills:
       - docs/content/docs/api/layouts.mdx
     requires:
       - core
+    purpose: >
+      Where nodes go: the five ready-made layouts and when to pick each, the
+      definition and run-time ways to start a layout, which nodes a layout may
+      move, positions from data and from code, and the mistakes that leave nodes
+      on a spiral or still.
   - name: edges
     slug: edges
     domain: appearance
     path: skills/edges/SKILL.md
-    status: planned
-    description: Use when shaping how @bruno00o/graph draws edges, with arrows,
-      dashes, widths, labels and flows, two-colored ends, waypoints and
-      geometries, parallel edges and loops, bundling dense edges, orthogonal
-      routing around nodes, or bridges over crossings.
+    description: >
+      Use when shaping how @bruno00o/graph draws edges beyond source and target:
+      arrows, dashes, widths and colors, edge labels, moving dashes (flows), a
+      different look and label at each end of an edge, edges through waypoints
+      or along GeoJSON lines, parallel edges and loops, bundling the edges of a
+      dense graph, orthogonal routing around nodes, and bridges over crossings.
+      Also for finding why edges stay straight, ignore bundling or routing, or
+      lose their labels.
     sources:
       - src/types.ts
       - src/marks.ts
@@ -141,6 +150,7 @@ skills:
       - src/bundling/density.ts
       - src/routing/index.ts
       - docs/content/docs/(guide)/marks.mdx
+      - docs/content/docs/(guide)/labels.mdx
       - docs/content/docs/(guide)/bundling.mdx
       - docs/content/docs/(guide)/routing.mdx
       - docs/content/docs/api/edges.mdx
@@ -148,15 +158,23 @@ skills:
       - docs/content/docs/api/routing.mdx
     requires:
       - core
+    purpose: >
+      Everything an edge mark can look like and how its geometry is computed:
+      the channel and style options of edges(), per-end looks, waypoints, the
+      automatic bend of parallel edges, and the bundling, routing and bridges of
+      the definition, with their limits and the mistakes that leave edges
+      straight or throw at definition time.
   - name: groups
     slug: groups
     domain: structure
     path: skills/groups/SKILL.md
-    status: planned
-    description: Use when nesting @bruno00o/graph nodes in groups with a parent
-      field or groups(), folding and unfolding groups from code or React state,
-      merging parallel edges and edges between groups, or hiding elements
-      without removing their data.
+    description: >
+      Use when nesting @bruno00o/graph nodes in groups with a parent field or by
+      a field value with groups(), styling group containers, folding and
+      unfolding groups from code, from a double-click or from React state,
+      merging parallel edges or the edges between groups into one, hiding
+      elements with a state without removing their data, or finding why a group
+      does not fold, a key does not match or the layout ignores a fold.
     sources:
       - src/marks.ts
       - src/types.ts
@@ -166,15 +184,24 @@ skills:
       - docs/content/docs/api/groups.mdx
     requires:
       - core
+    purpose: >
+      Groups and the transformations that change what is drawn while the data
+      stays as it is: parent channels, containers, spreading, fold and unfold
+      (instance and controlled), groups() by a field, merge and aggregate for
+      edges, betweenGroups, and hide states, with the key, layout and typing
+      mistakes that go with them.
   - name: multilayer
     slug: multilayer
     domain: structure
     path: skills/multilayer/SKILL.md
-    status: planned
-    description: Use when putting @bruno00o/graph marks in layers that show and hide
-      at run time, drawing the edges of each layer in their own band, walking
-      the edges that carry other edges, or drilling down from one layer to the
-      next.
+    description: >
+      Use when several kinds of links join the same @bruno00o/graph nodes and
+      each kind is a layer: putting marks in layers with the layer option,
+      showing and hiding layers from code, a legend or React state, drawing the
+      edges of each layer in their own band, declaring which edges carry other
+      edges with supportedBy, walking carriers and carried edges with
+      graph.support or createSupportFinder, lighting the support of a selection,
+      and drilling down from one layer to the next.
     sources:
       - src/support.ts
       - src/types.ts
@@ -183,6 +210,11 @@ skills:
       - docs/content/docs/api/support.mdx
     requires:
       - core
+    purpose: >
+      Layers, bands, support and drill down: layer on node and edge marks,
+      graph.layers and controlled hidden layers, supportedBy and the support
+      walks, the support states of defineGraph, and the hide-state pattern for
+      opening edges one level at a time.
   - name: view
     slug: view
     domain: navigation-and-input
