@@ -131,7 +131,38 @@ Planned.
 
 ### Batch B
 
-Planned.
+Written: view, interaction, map, time (library 0.22.0, commit d906a46). Each skill requires core, stays under 400 lines, and has typechecked examples, including one `expect-error` fence per skill (`view`: TS2559, `interaction`: TS2353, `map`: TS2353, `time`: TS2769).
+
+Decisions:
+
+- `view` owns `minZoom` and `maxZoom` of marks next to the view limits, and says plainly that they are two different things with the same unit. It owns the controlled view; the React side is one pointer to the react skill, which already shows controlled props.
+- `interaction` owns the gesture options, the selection and its controlled mode, pointer events and targets, keyboard and focus, and the advanced state styles. Plain states and `graph.on` basics stay in core; `interaction.lens` is only named, the lens belongs to tools.
+- `map` documents the whole adapter in one file, including `<MapGraph>`, waypoints, geodesic edges and `exportMapPng`, because these tasks start from one mounted map graph. The MapLibre worker URL fragment is `no-check` (a Vite `?worker&url` import has no types outside Vite).
+- `time` owns the `time` channel, the window, the fade, the controlled window and the whole timeline (store, actions, default renderer, React component and hook).
+- No `references/` files: no skill needed to leave its entry point.
+
+Failure mode inventory:
+
+| Skill       | Mistakes | HIGH | Notes                                                                          |
+| ----------- | -------- | ---- | ------------------------------------------------------------------------------ |
+| view        | 7        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view |
+| interaction | 9        | 2    | lasso needs two options, unanswered controlled selection                       |
+| map         | 8        | 3    | layout on a map, teardown order, view options on a map graph                   |
+| time        | 8        | 3    | string times, exclusive ends, controlled window without both props             |
+
+Cross-references proposed for the shared tables (the maintainer applies them after the batches merge):
+
+| From        | To   | Reason                                                                    |
+| ----------- | ---- | ------------------------------------------------------------------------- |
+| view        | map  | On a map the map owns the camera; view limits and padding do not apply.   |
+| interaction | map  | The map owns wheel, pinch and background drag.                            |
+| interaction | view | `pan` and `zoom` options against `graph.view`, and the keyboard fit.      |
+| map         | time | The time window and `<Timeline>` work on a map graph.                     |
+| time        | view | A zoom range and a time window combine: an element shows when both allow. |
+
+Tensions proposed: controlled modes (view, selection, time, folded, layers) are decided at mount in every skill, and `update` on an uncontrolled graph does nothing without an error; the react skill, view, interaction and time all warn about it.
+
+Gaps: `exportMapPng` is documented in `map` only; the `export` skill (batch D) should point to it. The `geo` layout is mentioned in `map` and belongs to the layouts skill (batch A).
 
 ### Batch C
 
