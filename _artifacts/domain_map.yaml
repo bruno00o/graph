@@ -1,0 +1,530 @@
+library:
+  name: "@bruno00o/graph"
+  version: 0.22.0
+  repository: https://github.com/bruno00o/graph
+  description: Typed graph visualization for any framework, rendered with WebGL2.
+  primary_framework: framework-agnostic
+domains:
+  - name: Graph setup
+    slug: graph-setup
+    description: Data, keys, marks, the definition, mounting, the instance, states, events and data updates, in plain TypeScript and in React.
+  - name: Appearance
+    slug: appearance
+    description: How nodes, labels and edges look, from scales and themes to edge ends, waypoints, bundling and routing.
+  - name: Structure
+    slug: structure
+    description: The shape of the graph beyond nodes and edges, with groups, merged and hidden elements, layers, support and paths.
+  - name: Placement
+    slug: placement
+    description: Where nodes go, with layouts, positions from data or code, and saved positions.
+  - name: Navigation and input
+    slug: navigation-and-input
+    description: The view, zoom ranges, selection, gestures, keyboard and the states driven by them.
+  - name: Geography and time
+    slug: geography-and-time
+    description: Graphs inside a MapLibre map and graphs that change over a time window.
+  - name: Data integrations
+    slug: data-integrations
+    description: Graphs fed by TanStack DB, TanStack Query, Cypher query results and graph files.
+  - name: Tools and output
+    slug: tools-and-output
+    description: Companions drawn beside or over the graph, and PNG and SVG exports.
+skills:
+  - name: core
+    slug: core
+    domain: graph-setup
+    type: core
+    description: Draw a graph from arrays of items and links, type it, style sets of elements, react to input and replace the data.
+    covers:
+      - defineGraph
+      - nodes
+      - edges
+      - raw
+      - mountGraph
+      - GraphInstance
+      - states
+      - events
+      - issues and count
+      - keys and pending edges
+      - data updates by identity
+    tasks:
+      - Draw a graph from an array of items and an array of links without a framework
+      - Key nodes and edges that have no id field
+      - Map fields to color, size and labels, and set constant colors
+      - Type the data so that event targets and datum are typed
+      - Fade or highlight a set of nodes by key with a state
+      - React to clicks and selection changes
+      - Replace the data and keep positions, view and selection
+      - Find why a graph stays blank, misses edges or does not update
+      - Destroy a graph when its page goes away
+    failure_modes:
+      - mistake: Changing the data array or items in place
+        mechanism: The same mark object is not read twice and an item that is the same object counts as unchanged, so push or field assignment changes nothing on screen.
+        wrong_pattern: |
+          items.push(item)
+          graph.update({ definition })
+        correct_pattern: |
+          items = [...items, item]
+          graph.update({ definition: defineGraph({ marks: [nodes(items, itemOptions)] }) })
+        source: docs/content/docs/(guide)/data.mdx, src/core/source-table.ts
+        priority: HIGH
+        status: active
+      - mistake: Constant CSS color passed to the color channel
+        mechanism: color goes through the color scale, so a CSS color does not compile and a function returning colors draws palette colors.
+        wrong_pattern: |
+          nodes(items, { color: (item) => item.hex })
+        correct_pattern: |
+          nodes(items, { fill: (item) => item.hex })
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: HIGH
+        status: active
+      - mistake: Container without a height
+        mechanism: The graph fills its container and never sizes itself, so a container 0 pixels high draws nothing.
+        wrong_pattern: |
+          <div id="graph"></div>
+        correct_pattern: |
+          #graph { height: 480px; }
+        source: docs/content/docs/(guide)/installation.mdx
+        priority: HIGH
+        status: active
+      - mistake: Selection changed through graph.states
+        mechanism: Built-in states are excluded from graph.states and undeclared names do not compile.
+        wrong_pattern: |
+          graph.states.set('selected', { nodes: ['n1'] })
+        correct_pattern: |
+          graph.selection.set({ nodes: ['n1'] })
+        source: src/types.ts, docs/content/docs/(guide)/states.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Item type written on the mark call
+        mechanism: Explicit type arguments stop the inference of the literal mark name, so target.mark no longer narrows datum.
+        wrong_pattern: |
+          nodes<Item>(items, { name: 'item' })
+        correct_pattern: |
+          const items: Item[] = load()
+          nodes(items, { name: 'item' })
+        source: docs/content/docs/(guide)/typescript.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: New option functions on every update
+        mechanism: Options compare by content but functions by identity, so a new function restyles every item of its mark.
+        wrong_pattern: |
+          graph.update({ definition: defineGraph({ marks: [nodes(items, { label: (item) => item.name })] }) })
+        correct_pattern: |
+          const itemOptions = { label: (item: Item) => item.name }
+          graph.update({ definition: defineGraph({ marks: [nodes(items, itemOptions)] }) })
+        source: docs/content/docs/(guide)/data.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Waiting edges taken for a bug
+        mechanism: An edge whose end is missing waits for it, uncounted as a problem, so mismatched key types hide edges silently.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to' })
+        correct_pattern: |
+          console.log(graph.count().pending, graph.issues())
+        source: docs/content/docs/(guide)/data.mdx
+        priority: MEDIUM
+        status: active
+  - name: react
+    slug: react
+    domain: graph-setup
+    type: framework
+    description: Render the graph with the Graph component, read and drive it with hooks inside and outside Graph, and control it from React state.
+    covers:
+      - Graph
+      - useGraph
+      - useGraphState
+      - useGraphEvent
+      - Anchor
+      - graph option of the hooks
+      - controlled props
+      - StrictMode
+    tasks:
+      - Render a graph from props or state without restyling on every render
+      - Show a tooltip or overlay over the hovered node
+      - Handle clicks with typed event props
+      - Drive the graph from a toolbar or panel outside Graph
+      - Control the selection or the view from React state
+      - Mount the graph under StrictMode
+    failure_modes:
+      - mistake: Definition or option functions created in render
+        mechanism: A new function restyles every item of its mark on each render and an unmemoized definition reads the whole data again.
+        wrong_pattern: |
+          <Graph definition={defineGraph({ marks: [nodes(items, { label: (item) => item.name })] })} ariaLabel="Graph" />
+        correct_pattern: |
+          const definition = useMemo(() => defineGraph({ marks: [nodes(items, itemOptions)] }), [items])
+        source: docs/content/docs/(guide)/react.mdx
+        priority: HIGH
+        status: active
+      - mistake: Hooks outside Graph without the graph option
+        mechanism: The hooks throw without a Graph or MapGraph above them unless graph is passed, and the ref is null on the first render.
+        wrong_pattern: |
+          const selected: number = useGraphState((state) => state.selection.nodes.length)
+        correct_pattern: |
+          const selected = useGraphState((state) => state.selection.nodes.length, { graph }) ?? 0
+        source: docs/content/docs/(guide)/react.mdx, src/react/index.tsx
+        priority: HIGH
+        status: active
+      - mistake: Object selector without shallow
+        mechanism: useGraphState compares with Object.is, so a selector that builds an object renders on every state change.
+        wrong_pattern: |
+          useGraphState((state) => ({ count: state.selection.nodes.length }))
+        correct_pattern: |
+          useGraphState((state) => ({ count: state.selection.nodes.length }), { compare: shallow })
+        source: docs/content/docs/(guide)/react.mdx
+        priority: HIGH
+        status: active
+      - mistake: Untyped selectors inside Graph
+        mechanism: Components inside Graph cannot see the definition, so datum is unknown without a typed selector parameter.
+        wrong_pattern: |
+          useGraphState((state) => state.hovered)
+        correct_pattern: |
+          useGraphState((state: GraphState<string, Marks>) => state.hovered)
+        source: docs/content/docs/(guide)/typescript.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Graph structure read during render
+        mechanism: Structure reads apply pending data changes and update the store, which renders other components while React renders.
+        wrong_pattern: |
+          const near = graph.neighbors(key)
+        correct_pattern: |
+          useGraphEvent('click', ({ target }) => setNear(target ? graph.neighbors(target.key) : []))
+        source: src/host/mount-graph.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Controlled prop set after mount
+        mechanism: Controlled mode is decided at mount, so a prop that starts undefined never takes control.
+        wrong_pattern: |
+          <Graph selection={ready ? selection : undefined} />
+        correct_pattern: |
+          const [selection, setSelection] = useState<ElementKeysInput>({ nodes: [] })
+        source: docs/content/docs/(guide)/react.mdx
+        priority: MEDIUM
+        status: active
+  - name: layouts
+    slug: layouts
+    domain: placement
+    type: sub-skill
+    description: Place nodes without coordinates with a layout, run it from code and keep the result.
+    covers:
+      - force
+      - layers
+      - grid
+      - rings
+      - radial
+      - geo
+      - graph.layout
+      - graph.positions
+      - Layout
+    tasks:
+      - Place nodes without coordinates with a force layout
+      - Lay out a hierarchy in layers, in a chosen direction
+      - Arrange nodes on a grid, in rings, around a root or by longitude and latitude
+      - Run a layout from code, follow its progress and fit the result
+      - Save positions and restore them
+      - Write a custom layout
+  - name: edges
+    slug: edges
+    domain: appearance
+    type: sub-skill
+    description: Shape how edges are drawn, from arrows and labels to ends, waypoints, bundles, routes and bridges.
+    covers:
+      - arrow
+      - dash
+      - width
+      - flow
+      - edge labels
+      - ends
+      - waypoints
+      - lineWaypoints
+      - parallel edges
+      - loops
+      - densityBundling
+      - orthogonalRouting
+      - bridges
+    tasks:
+      - Add arrows, dashes, widths, labels and flows to edges
+      - Color the two ends of an edge differently
+      - Draw edges through waypoints or along line geometries
+      - Bundle the edges of a dense graph
+      - Route edges in horizontal and vertical segments with bridges over crossings
+      - Control parallel edges and loops
+  - name: groups
+    slug: groups
+    domain: structure
+    type: sub-skill
+    description: Nest nodes in groups, fold them, merge edges and hide elements without changing the data.
+    covers:
+      - parent
+      - groups
+      - container
+      - graph.groups
+      - merge
+      - aggregate
+      - betweenGroups
+      - hide
+    tasks:
+      - Nest nodes in groups with a parent field
+      - Group items by a field with groups()
+      - Fold and unfold groups from code or controlled state
+      - Merge parallel edges and edges between groups
+      - Hide elements without removing their data
+  - name: multilayer
+    slug: multilayer
+    domain: structure
+    type: sub-skill
+    description: Put marks in layers, show and hide them, and walk the edges that carry other edges.
+    covers:
+      - layer
+      - graph.layers
+      - hiddenLayers
+      - supportedBy
+      - graph.support
+      - createSupportFinder
+    tasks:
+      - Put marks in layers that show and hide at run time
+      - Draw the edges of each layer in their own band
+      - Walk the edges that carry an edge, and the edges it carries
+      - Drill down from one layer to the next
+  - name: view
+    slug: view
+    domain: navigation-and-input
+    type: sub-skill
+    description: Fit, zoom and move the view, limit it, control it, and show elements by zoom.
+    covers:
+      - graph.view
+      - FitOptions
+      - view limits
+      - autoFit
+      - controlled view
+      - minZoom
+      - maxZoom
+    tasks:
+      - Fit the view to some nodes or edges
+      - Zoom and pan from code with animation
+      - Limit the zoom and the viewable area
+      - Control the view from application state
+      - Convert between screen and world coordinates
+      - Show nodes and edges only within a range of zoom
+  - name: interaction
+    slug: interaction
+    domain: navigation-and-input
+    type: sub-skill
+    description: Configure gestures, selection and keyboard, react to pointer events, and style advanced states.
+    covers:
+      - interaction options
+      - selection modes
+      - lasso
+      - drag
+      - wheel
+      - touch
+      - keyboard
+      - focus
+      - events
+      - others
+      - raise
+      - hide
+      - label always
+    tasks:
+      - Configure selection, drag, lasso, wheel and touch
+      - Control the selection from application state
+      - Navigate with the keyboard and manage focus
+      - React to clicks, hovers and drags
+      - Fade everything outside a state, raise members, or always show their labels
+  - name: map
+    slug: map
+    domain: geography-and-time
+    type: composition
+    description: Draw the graph inside a MapLibre map, by longitude and latitude.
+    covers:
+      - mountMapGraph
+      - MapGraph
+      - longitude
+      - latitude
+      - geodesic
+      - globe
+      - exportMapPng
+      - geoToWorld
+    tasks:
+      - Draw a graph on a MapLibre map
+      - Place nodes by longitude and latitude
+      - Draw great circles and routes along a network
+      - Switch basemaps and the globe projection
+      - Use the map graph in React
+      - Export the map and the graph as one PNG
+  - name: time
+    slug: time
+    domain: geography-and-time
+    type: sub-skill
+    description: Give elements a time, show a time window, and add a timeline.
+    covers:
+      - time channel
+      - graph.time
+      - time fade
+      - createTimeline
+      - mountTimeline
+      - Timeline
+      - useTimeline
+    tasks:
+      - Give nodes and edges a time or a period
+      - Show only what exists in a time window
+      - Fade elements at the edges of the window
+      - Add a timeline that brushes, steps and plays
+      - Control the time window from state
+  - name: tanstack-db
+    slug: tanstack-db
+    domain: data-integrations
+    type: composition
+    description: Draw TanStack DB collections as they change and write positions back.
+    covers:
+      - live sources
+      - subset
+      - persistPositions
+      - on-demand collections
+    tasks:
+      - Draw a collection or a live query as it changes
+      - Filter a large collection with subset
+      - Load rows on demand
+      - Write dragged positions back to a collection
+  - name: tanstack-query
+    slug: tanstack-query
+    domain: data-integrations
+    type: composition
+    description: Explore a graph one neighborhood at a time with TanStack Query.
+    covers:
+      - createExploration
+      - expand
+      - collapse
+      - retry
+      - exploration store
+    tasks:
+      - Explore a large graph one neighborhood at a time
+      - Show loading and error states of expansions
+      - Retry a failed expansion
+  - name: cypher
+    slug: cypher
+    domain: data-integrations
+    type: composition
+    description: Turn Cypher query results into nodes and edges.
+    covers:
+      - cypherGraph
+      - integers
+      - dates
+      - points
+      - paths
+    tasks:
+      - Turn a Cypher result from a driver or its JSON into nodes and edges
+      - Keep large integers, dates and points usable
+      - Explore a graph database one neighborhood at a time
+  - name: file-formats
+    slug: file-formats
+    domain: data-integrations
+    type: sub-skill
+    description: Read and write GraphML, GEXF, JSON Graph Format and CSV.
+    covers:
+      - readGraphml
+      - readGexf
+      - readJsonGraph
+      - readCsv
+      - detectFormat
+      - write functions
+      - FormatError
+    tasks:
+      - Read a graph file into nodes and edges
+      - Handle unreadable files and data problems
+      - Write a graph back to a file format
+  - name: paths
+    slug: paths
+    domain: structure
+    type: sub-skill
+    description: Find shortest paths and reachable nodes, and highlight them.
+    covers:
+      - graph.paths
+      - createPathFinder
+      - weights
+      - direction
+      - reach
+    tasks:
+      - Find and highlight the shortest path between two nodes
+      - Find every node within reach of a node
+      - Search paths without mounting a graph
+  - name: styling
+    slug: styling
+    domain: appearance
+    type: sub-skill
+    description: Style nodes and labels with scales, images, badges, shapes and themes.
+    covers:
+      - scales
+      - labels
+      - images
+      - badges
+      - box shape
+      - outlines
+      - theme tokens
+    tasks:
+      - Map data values to colors, sizes and widths with scales
+      - Style node labels
+      - Put images, tinted icons and badges in nodes
+      - Draw box nodes that fit their label
+      - Theme the graph for light and dark with CSS variables
+  - name: tools
+    slug: tools
+    domain: tools-and-output
+    type: sub-skill
+    description: Add a minimap, a legend, a lens, anchored HTML, hulls, a background grid or the devtools panel.
+    covers:
+      - createMinimap
+      - Minimap
+      - createLegend
+      - Legend
+      - lens
+      - anchors
+      - hull
+      - background
+      - devtools
+    tasks:
+      - Add a minimap
+      - Add a legend that highlights and filters
+      - Magnify a dense region with a lens
+      - Pin HTML to nodes and edges
+      - Draw hulls around sets of nodes and a background grid
+      - Inspect graphs in the TanStack Devtools panel
+  - name: export
+    slug: export
+    domain: tools-and-output
+    type: sub-skill
+    description: Save the graph as a PNG image or an SVG document.
+    covers:
+      - exportPng
+      - exportSvg
+      - region
+      - pixel ratio
+      - labels
+      - background
+    tasks:
+      - Save the graph as a PNG image
+      - Save the graph as an SVG document
+      - Export a region at a scale, with a background
+tensions:
+  - name: Rebuilt definitions against stable identities
+    skills:
+      - core
+      - react
+    description: React rebuilds values on every render, while the graph compares mark objects, items and option functions by identity.
+    implication: An agent that rebuilds the definition in render with inline functions restyles every item on every render.
+cross_references:
+  - from: react
+    to: core
+    reason: Data, marks, states and the instance API are the same in React; the react skill only covers what React changes.
+  - from: core
+    to: react
+    reason: React apps render the graph with Graph instead of mountGraph.
+gaps:
+  - skill: core
+    question: Migration between versions (the upgrading page) has no skill yet.
+    context: Agents updating the package across breaking versions would need it; left out of the first plan.
+    status: open
+  - skill: core
+    question: Browser support, WebGL2 limits and software rendering have no skill yet.
+    context: The browser-support guide covers them; a skill is needed only if agents get them wrong.
+    status: open

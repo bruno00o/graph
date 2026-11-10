@@ -3,6 +3,8 @@ dist/
 dist-examples/
 .source/
 .tanstack/
+.intent/*
+!.intent/review-state.json
 bench-results*/
 browser-results*/
 coverage/
@@ -12,6 +14,9 @@ coverage/
 *.md
 !README.md
 !CHANGELOG.md
+!skills/*/SKILL.md
+!skills/*/references/*.md
+!_artifacts/skill_spec.md
 repos/
 spikes/
 .claude/worktrees/

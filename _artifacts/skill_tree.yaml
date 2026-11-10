@@ -1,0 +1,407 @@
+library:
+  name: "@bruno00o/graph"
+  version: 0.22.0
+generated_from:
+  domain_map: _artifacts/domain_map.yaml
+  skill_spec: _artifacts/skill_spec.md
+review:
+  ignore:
+    - .github/**
+    - .gitignore
+    - .node-version
+    - .release-please-manifest.json
+    - release-please-config.json
+    - CHANGELOG.md
+    - LICENSE
+    - biome.json
+    - pnpm-workspace.yaml
+    - tsconfig.json
+    - tsdown.config.ts
+    - vite.config.ts
+    - vitest.config.ts
+    - scripts/**
+    - examples/**
+    - docs/src/**
+    - docs/public/**
+    - docs/source.config.ts
+    - docs/tsconfig.json
+    - docs/vite.config.ts
+    - src/**/*.test.ts
+    - src/**/*.test.tsx
+    - src/testing/**
+skills:
+  - name: core
+    slug: core
+    domain: graph-setup
+    path: skills/core/SKILL.md
+    description: >
+      Use when drawing nodes and edges in the browser with @bruno00o/graph, with
+      or without a framework: turning arrays of items and links into a graph
+      with defineGraph, nodes() and edges(), mounting it with mountGraph,
+      mapping fields to color, size and labels, typing the data so events and
+      targets are typed, highlighting or fading sets of nodes with states,
+      reacting to clicks and selection, replacing the data, and finding why a
+      graph stays blank, misses edges or does not update. Load it before any
+      other skill of this package; React apps load the react skill after it.
+    purpose: >
+      The setup every task with @bruno00o/graph builds on: data and keys, marks
+      and their channels, the definition, mounting, the instance API, states,
+      events, data updates and data problems, with the mistakes that leave a
+      graph blank, stale or untyped.
+    sources:
+      - src/index.ts
+      - src/define-graph.ts
+      - src/marks.ts
+      - src/types.ts
+      - src/core/raw.ts
+      - src/core/issues.ts
+      - src/core/source-table.ts
+      - src/host/graph-instance.ts
+      - src/host/events.ts
+      - docs/content/docs/(guide)/installation.mdx
+      - docs/content/docs/(guide)/quick-start.mdx
+      - docs/content/docs/(guide)/data.mdx
+      - docs/content/docs/(guide)/states.mdx
+      - docs/content/docs/(guide)/typescript.mdx
+      - docs/content/docs/(guide)/vanilla.mdx
+      - docs/content/docs/api/define-graph.mdx
+      - docs/content/docs/api/mount-graph.mdx
+      - docs/content/docs/api/graph-instance.mdx
+      - docs/content/docs/api/events.mdx
+    requires: []
+  - name: react
+    slug: react
+    domain: graph-setup
+    path: skills/react/SKILL.md
+    description: >
+      Use when showing a @bruno00o/graph graph in a React 19 app: rendering it
+      with the <Graph> component, building its definition from props or state
+      without restyling on every render, drawing HTML overlays and tooltips over
+      it, reading the hovered node, the selection or the view in components,
+      handling clicks, driving the graph from a toolbar or side panel elsewhere
+      in the page, controlling the selection or the view from React state, and
+      mounting under StrictMode. Not for a graph inside a MapLibre map, which
+      uses <MapGraph>.
+    purpose: >
+      The React binding of @bruno00o/graph: the <Graph> component and its props,
+      the useGraph, useGraphState and useGraphEvent hooks inside and outside
+      <Graph>, typed selectors and handlers, controlled props, and the render
+      patterns that keep the graph from restyling or failing.
+    sources:
+      - src/react/index.tsx
+      - src/react/graph.tsx
+      - src/react/context.ts
+      - docs/content/docs/(guide)/react.mdx
+      - docs/content/docs/(guide)/typescript.mdx
+      - docs/content/docs/api/graph-component.mdx
+      - docs/content/docs/api/hooks.mdx
+      - docs/content/docs/api/anchor.mdx
+    requires:
+      - core
+  - name: layouts
+    slug: layouts
+    domain: placement
+    path: skills/layouts/SKILL.md
+    status: planned
+    description: Use when placing nodes that have no coordinates with
+      @bruno00o/graph, with a force layout, layers, a grid, rings, a radial tree
+      or by geography, running a layout from code, following its progress,
+      fitting the result, saving and restoring positions, or writing a custom
+      layout.
+    sources:
+      - src/layouts/index.ts
+      - src/layouts/force/index.ts
+      - src/layouts/layers/index.ts
+      - src/layouts/grid.ts
+      - src/layouts/rings.ts
+      - src/layouts/radial.ts
+      - src/layouts/geo.ts
+      - src/types.ts
+      - src/host/graph-instance.ts
+      - docs/content/docs/(guide)/layout.mdx
+      - docs/content/docs/(guide)/positions.mdx
+      - docs/content/docs/api/force.mdx
+      - docs/content/docs/api/layouts.mdx
+    requires:
+      - core
+  - name: edges
+    slug: edges
+    domain: appearance
+    path: skills/edges/SKILL.md
+    status: planned
+    description: Use when shaping how @bruno00o/graph draws edges, with arrows,
+      dashes, widths, labels and flows, two-colored ends, waypoints and
+      geometries, parallel edges and loops, bundling dense edges, orthogonal
+      routing around nodes, or bridges over crossings.
+    sources:
+      - src/types.ts
+      - src/marks.ts
+      - src/waypoints.ts
+      - src/bundling/index.ts
+      - src/bundling/density.ts
+      - src/routing/index.ts
+      - docs/content/docs/(guide)/marks.mdx
+      - docs/content/docs/(guide)/bundling.mdx
+      - docs/content/docs/(guide)/routing.mdx
+      - docs/content/docs/api/edges.mdx
+      - docs/content/docs/api/bundling.mdx
+      - docs/content/docs/api/routing.mdx
+    requires:
+      - core
+  - name: groups
+    slug: groups
+    domain: structure
+    path: skills/groups/SKILL.md
+    status: planned
+    description: Use when nesting @bruno00o/graph nodes in groups with a parent
+      field or groups(), folding and unfolding groups from code or React state,
+      merging parallel edges and edges between groups, or hiding elements
+      without removing their data.
+    sources:
+      - src/marks.ts
+      - src/types.ts
+      - src/host/graph-instance.ts
+      - docs/content/docs/(guide)/groups.mdx
+      - docs/content/docs/(guide)/transformations.mdx
+      - docs/content/docs/api/groups.mdx
+    requires:
+      - core
+  - name: multilayer
+    slug: multilayer
+    domain: structure
+    path: skills/multilayer/SKILL.md
+    status: planned
+    description: Use when putting @bruno00o/graph marks in layers that show and hide
+      at run time, drawing the edges of each layer in their own band, walking
+      the edges that carry other edges, or drilling down from one layer to the
+      next.
+    sources:
+      - src/support.ts
+      - src/types.ts
+      - src/host/graph-instance.ts
+      - docs/content/docs/(guide)/multilayer.mdx
+      - docs/content/docs/api/support.mdx
+    requires:
+      - core
+  - name: view
+    slug: view
+    domain: navigation-and-input
+    path: skills/view/SKILL.md
+    status: planned
+    description: Use when fitting, zooming or moving the @bruno00o/graph view,
+      limiting its zoom and area, controlling the view from application state,
+      converting between screen and world coordinates, or showing nodes and
+      edges only within a range of zoom.
+    sources:
+      - src/types.ts
+      - src/host/graph-instance.ts
+      - docs/content/docs/(guide)/view.mdx
+      - docs/content/docs/(guide)/zoom.mdx
+      - docs/content/docs/api/graph-instance.mdx
+    requires:
+      - core
+  - name: interaction
+    slug: interaction
+    domain: navigation-and-input
+    path: skills/interaction/SKILL.md
+    status: planned
+    description: Use when configuring how people interact with a @bruno00o/graph
+      graph, with selection modes, drag, lasso, wheel, touch and keyboard
+      navigation, reacting to pointer events, controlling the selection, or
+      styling states for the elements outside them, raised, hidden or always
+      labeled.
+    sources:
+      - src/types.ts
+      - src/host/events.ts
+      - src/host/graph-instance.ts
+      - docs/content/docs/(guide)/interaction.mdx
+      - docs/content/docs/(guide)/states.mdx
+      - docs/content/docs/api/events.mdx
+    requires:
+      - core
+  - name: map
+    slug: map
+    domain: geography-and-time
+    path: skills/map/SKILL.md
+    status: planned
+    description: Use when drawing a @bruno00o/graph graph inside a MapLibre map,
+      placing nodes by longitude and latitude, drawing great circles and routes,
+      switching basemaps or the globe, using MapGraph in React, or exporting the
+      map with the graph.
+    sources:
+      - src/map/index.ts
+      - src/map/react.tsx
+      - src/map/export.ts
+      - src/core/geo.ts
+      - src/waypoints.ts
+      - docs/content/docs/(guide)/map.mdx
+      - docs/content/docs/api/map.mdx
+      - docs/content/docs/api/map-graph.mdx
+    requires:
+      - core
+  - name: time
+    slug: time
+    domain: geography-and-time
+    path: skills/time/SKILL.md
+    status: planned
+    description: Use when giving @bruno00o/graph nodes and edges a time or a period,
+      showing only what exists in a time window, fading elements at its edges,
+      or adding a timeline that brushes, steps and plays.
+    sources:
+      - src/timeline/index.ts
+      - src/timeline/view.ts
+      - src/types.ts
+      - src/host/graph-instance.ts
+      - docs/content/docs/(guide)/time.mdx
+      - docs/content/docs/api/timeline.mdx
+    requires:
+      - core
+  - name: tanstack-db
+    slug: tanstack-db
+    domain: data-integrations
+    path: skills/tanstack-db/SKILL.md
+    status: planned
+    description: Use when drawing a TanStack DB collection or live query with
+      @bruno00o/graph as it changes, filtering a large collection with subset,
+      loading rows on demand, or writing dragged node positions back to a
+      collection.
+    sources:
+      - src/db/index.ts
+      - src/db/subset.ts
+      - docs/content/docs/(guide)/tanstack-db.mdx
+      - docs/content/docs/(guide)/data.mdx
+      - docs/content/docs/api/subset.mdx
+      - docs/content/docs/api/persist-positions.mdx
+    requires:
+      - core
+  - name: tanstack-query
+    slug: tanstack-query
+    domain: data-integrations
+    path: skills/tanstack-query/SKILL.md
+    status: planned
+    description: Use when exploring a large graph one neighborhood at a time with
+      @bruno00o/graph and TanStack Query, expanding nodes on demand, showing
+      loading and error states, or retrying a failed expansion.
+    sources:
+      - src/query/index.ts
+      - docs/content/docs/(guide)/tanstack-query.mdx
+      - docs/content/docs/api/create-exploration.mdx
+    requires:
+      - core
+  - name: cypher
+    slug: cypher
+    domain: data-integrations
+    path: skills/cypher/SKILL.md
+    status: planned
+    description: Use when turning the result of a Cypher query from a graph database
+      driver or its JSON into @bruno00o/graph nodes and edges, with integers,
+      dates and points, or exploring a database one neighborhood at a time.
+    sources:
+      - src/cypher/index.ts
+      - src/cypher/values.ts
+      - docs/content/docs/(guide)/cypher.mdx
+      - docs/content/docs/api/cypher-graph.mdx
+    requires:
+      - core
+  - name: file-formats
+    slug: file-formats
+    domain: data-integrations
+    path: skills/file-formats/SKILL.md
+    status: planned
+    description: Use when reading GraphML, GEXF, JSON Graph Format or CSV files into
+      @bruno00o/graph nodes and edges, handling their problems, or writing a
+      graph back to one of these formats.
+    sources:
+      - src/formats/index.ts
+      - src/formats/types.ts
+      - src/formats/graphml.ts
+      - src/formats/gexf.ts
+      - src/formats/json-graph.ts
+      - src/formats/csv.ts
+      - src/formats/detect.ts
+      - src/formats/errors.ts
+      - docs/content/docs/(guide)/file-formats.mdx
+      - docs/content/docs/api/formats.mdx
+    requires:
+      - core
+  - name: paths
+    slug: paths
+    domain: structure
+    path: skills/paths/SKILL.md
+    status: planned
+    description: Use when finding the shortest path between two @bruno00o/graph
+      nodes, with weights and direction, every node within reach, highlighting
+      the result, or searching paths without mounting a graph.
+    sources:
+      - src/paths.ts
+      - src/types.ts
+      - docs/content/docs/(guide)/paths.mdx
+      - docs/content/docs/api/paths.mdx
+    requires:
+      - core
+  - name: styling
+    slug: styling
+    domain: appearance
+    path: skills/styling/SKILL.md
+    status: planned
+    description: Use when styling @bruno00o/graph nodes and labels, with color and
+      size scales, label size, placement and backgrounds, images, tinted icons
+      and badges, box nodes that fit their label, outlines, or light and dark
+      themes through CSS variables.
+    sources:
+      - src/types.ts
+      - src/marks.ts
+      - src/theme/tokens.ts
+      - src/theme/theme.css
+      - docs/content/docs/(guide)/marks.mdx
+      - docs/content/docs/(guide)/labels.mdx
+      - docs/content/docs/(guide)/scales.mdx
+      - docs/content/docs/(guide)/images-and-badges.mdx
+      - docs/content/docs/(guide)/theming.mdx
+      - docs/content/docs/api/nodes.mdx
+      - docs/content/docs/api/theme-tokens.mdx
+    requires:
+      - core
+  - name: tools
+    slug: tools
+    domain: tools-and-output
+    path: skills/tools/SKILL.md
+    status: planned
+    description: Use when adding companions to a @bruno00o/graph graph, such as a
+      minimap, a legend that filters, a magnifying lens, HTML pinned to nodes,
+      hulls around sets of nodes, a background grid, or the TanStack Devtools
+      panel.
+    sources:
+      - src/minimap/index.ts
+      - src/legend/index.ts
+      - src/legend/view.ts
+      - src/host/lens.ts
+      - src/host/anchors.ts
+      - src/hulls.ts
+      - src/devtools/index.ts
+      - src/devtools/react.tsx
+      - docs/content/docs/(guide)/minimap-and-legend.mdx
+      - docs/content/docs/(guide)/lens.mdx
+      - docs/content/docs/(guide)/drawing-layers.mdx
+      - docs/content/docs/(guide)/devtools.mdx
+      - docs/content/docs/api/minimap.mdx
+      - docs/content/docs/api/legend.mdx
+      - docs/content/docs/api/hull.mdx
+      - docs/content/docs/api/devtools.mdx
+      - docs/content/docs/api/anchor.mdx
+    requires:
+      - core
+  - name: export
+    slug: export
+    domain: tools-and-output
+    path: skills/export/SKILL.md
+    status: planned
+    description: Use when saving a @bruno00o/graph graph as a PNG image or an SVG
+      document, choosing its region, scale, pixel ratio, labels and background,
+      or exporting large graphs.
+    sources:
+      - src/export/index.ts
+      - docs/content/docs/(guide)/export.mdx
+      - docs/content/docs/api/export.mdx
+    requires:
+      - core

@@ -1,0 +1,74 @@
+---
+title: Agent skills
+description: Give your coding agent the skills shipped in the package, written for the version you installed.
+---
+
+The package ships [Agent Skills](https://agentskills.io) in its `skills` folder: short guides that tell a coding agent how to do a task with this library, with examples checked against its types. They are versioned with the package, so an agent reads the guidance of the version in your lockfile, not of the latest release.
+
+[TanStack Intent](https://github.com/TanStack/intent) finds these skills in your installed dependencies and loads them into your agent. Start with `core`, which every other skill builds on; React apps add `react`.
+
+## Set up
+
+Add Intent to your project, then run its setup in a terminal.
+
+```npm
+npm install -D @tanstack/intent
+```
+
+```sh
+npx @tanstack/intent install
+```
+
+With pnpm, run `pnpm exec intent install` instead; the same goes for the commands below.
+
+On first run, `install` lists the packages that ship skills and asks which ones your agent may use. It saves your choice in the nearest `package.json`, then writes a block of instructions into `AGENTS.md`, or into the agent file that already holds one. That block tells the agent to list the skills and load the one that matches its task before it edits code. Nothing is written until you confirm, and `--dry-run` shows what would change.
+
+## Choose the skills
+
+Your choice lives in `intent.skills`, an allowlist in `package.json`. A package name allows all of its skills, including those a later version adds. `package#skill` allows one skill. `intent.exclude` removes skills after that, and always wins.
+
+```json title="package.json"
+{
+  "intent": {
+    "skills": ["@bruno00o/graph"],
+    "exclude": ["@bruno00o/graph#react"]
+  }
+}
+```
+
+A project without React can exclude the `react` skill as above, or allow only the skills it needs:
+
+```json title="package.json"
+{
+  "intent": {
+    "skills": ["@bruno00o/graph#core", "@bruno00o/graph#react"]
+  }
+}
+```
+
+`npx @tanstack/intent exclude add @bruno00o/graph#react` edits `intent.exclude` for you.
+
+## List and load
+
+```sh
+npx @tanstack/intent list
+npx @tanstack/intent load @bruno00o/graph#core
+```
+
+`list` shows every skill you allowed, with the task it covers. `load` prints a skill as installed, ready for the agent to read; `--path` prints where the file is instead.
+
+Load only the skills a task needs. Each skill names the skills it requires, and every one of them requires `core`. An agent that loads the whole set spends its context on guidance the task does not use.
+
+Without Intent, the skills are plain Markdown files: point your agent at `node_modules/@bruno00o/graph/skills/<name>/SKILL.md`.
+
+## Updates
+
+Skills change with the package. Upgrading `@bruno00o/graph` upgrades them, and each published skill records in its `metadata.library_version` the version it was written for. Allowing a package does not approve what a later version says: read the changes of its skills as you would read its changelog.
+
+## What Intent trusts
+
+- **It reads files, it never runs packages.** Intent finds and loads skills by reading files in your dependencies. It does not import or execute any code of the packages it scans.
+- **Finding a skill does not allow it.** Only the packages and skills in `intent.skills` reach your agent, minus `intent.exclude`. Allowing a package does not allow the skills of its dependencies. Without an `intent.skills` list, Intent still shows every package that ships skills and prints a warning; a future version will require the list.
+- **Hooks are a convenience, not a security boundary.** `npx @tanstack/intent hooks install` adds hooks for Claude Code and Codex that list your skills when a session starts and hold back edits until the agent runs `intent list` or `intent load`. They do not check that the command worked, that the agent picked the right skill, or that it followed it.
+
+Every page of this site is also available as Markdown: add `.md` to its address. Agents that fetch the docs read it more easily than the HTML.
