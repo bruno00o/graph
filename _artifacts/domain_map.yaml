@@ -216,6 +216,8 @@ skills:
       - graph.layout
       - graph.positions
       - Layout
+      - relayout
+      - autoFit of layouts
     tasks:
       - Place nodes without coordinates with a force layout
       - Lay out a hierarchy in layers, in a chosen direction
@@ -223,6 +225,63 @@ skills:
       - Run a layout from code, follow its progress and fit the result
       - Save positions and restore them
       - Write a custom layout
+    failure_modes:
+      - mistake: Importing force from the layouts entry point
+        mechanism: force has its own entry point so graphs without it ship none of its code; the layouts entry does not export it.
+        wrong_pattern: |
+          import { force } from '@bruno00o/graph/layouts'
+        correct_pattern: |
+          import { force } from '@bruno00o/graph/layouts/force'
+        source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/api/force.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting a layout to move nodes that have x and y
+        mechanism: "Finite x and y channels pin a node: layouts never move it, so a graph whose nodes all have coordinates ignores its layout."
+        wrong_pattern: |
+          nodes(items, { x: 'x', y: 'y' })
+          layout: force()
+        correct_pattern: |
+          nodes(items, { label: 'label' })
+          layout: force()
+        source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/(guide)/positions.mdx
+        priority: HIGH
+        status: active
+      - mistake: Running a layout on a map
+        mechanism: "Layouts do not run in map mode: the definition layout is ignored with a development warning and graph.layout.run rejects."
+        wrong_pattern: |
+          await mapGraph.layout.run(force())
+        correct_pattern: |
+          const flat = defineGraph({ marks, layout: geo({ longitude: 'lng', latitude: 'lat' }) })
+        source: docs/content/docs/(guide)/map.mdx, src/host/layout-session.ts
+        priority: HIGH
+        status: active
+      - mistake: grid or rings with order inside defineGraph
+        mechanism: TypeScript does not pass the item type of marks to a layout in the same object, so the comparator parameters are unknown.
+        wrong_pattern: |
+          layout: grid({ order: (a, b) => a.label.localeCompare(b.label) })
+        correct_pattern: |
+          layout: grid<Item>({ order: (a, b) => a.label.localeCompare(b.label) })
+        source: docs/content/docs/(guide)/typescript.mdx, docs/content/docs/api/layouts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting an instant layout to be incremental
+        mechanism: layers, grid, rings, radial and geo lay out every free node again when nodes arrive, where force places only the new ones.
+        wrong_pattern: |
+          layout: grid()
+        correct_pattern: |
+          layout: force()
+        source: docs/content/docs/api/layouts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Writing positions back on every drag move
+        mechanism: positionchange fires on every pointer move during a drag, so saving each one floods the store.
+        wrong_pattern: |
+          graph.on('positionchange', ({ positions }) => save(positions))
+        correct_pattern: |
+          graph.on('dragend', ({ keys }) => save(keys.map((key) => [key, graph.positions.get(key)])))
+        source: docs/content/docs/(guide)/positions.mdx
+        priority: MEDIUM
+        status: active
   - name: edges
     slug: edges
     domain: appearance
@@ -242,6 +301,9 @@ skills:
       - densityBundling
       - orthogonalRouting
       - bridges
+      - graph.bundling
+      - graph.routing
+      - bundle, route and bridge options
     tasks:
       - Add arrows, dashes, widths, labels and flows to edges
       - Color the two ends of an edge differently
@@ -249,6 +311,70 @@ skills:
       - Bundle the edges of a dense graph
       - Route edges in horizontal and vertical segments with bridges over crossings
       - Control parallel edges and loops
+    failure_modes:
+      - mistake: Setting bundling and routing together
+        mechanism: "A definition takes one or the other: defineGraph throws a TypeError at run time and the compiler does not see it."
+        wrong_pattern: |
+          defineGraph({ marks, bundling: densityBundling(), routing: orthogonalRouting() })
+        correct_pattern: |
+          defineGraph({ marks, routing: orthogonalRouting(), bridges: true })
+        source: docs/content/docs/(guide)/bundling.mdx, docs/content/docs/(guide)/routing.mdx
+        priority: HIGH
+        status: active
+      - mistake: Importing bundling or routing from the main entry
+        mechanism: densityBundling and orthogonalRouting have their own entry points; the main entry exports neither.
+        wrong_pattern: |
+          import { densityBundling } from '@bruno00o/graph'
+        correct_pattern: |
+          import { densityBundling } from '@bruno00o/graph/bundling'
+        source: docs/content/docs/api/bundling.mdx, docs/content/docs/api/routing.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting waypoints, geodesic edges or loops to bundle or route
+        mechanism: Loops, geodesic edges and edges with waypoints are never bundled or routed, and waypoints and loops are never bridged.
+        wrong_pattern: |
+          edges(roads, { source: 'from', target: 'to', waypoints: 'via' })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', bundle: true })
+        source: docs/content/docs/(guide)/bundling.mdx, docs/content/docs/(guide)/marks.mdx
+        priority: HIGH
+        status: active
+      - mistake: Passing a constant color to color on edges
+        mechanism: color is a channel through the color scale, so a CSS color does not compile.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to', color: 'tomato' })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', stroke: 'tomato' })
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting a state to style one end of an edge
+        mechanism: States and selection hold whole edges, so stroke or strokeWidth in a state recolors both ends.
+        wrong_pattern: |
+          graph.states.set('hot', { edges: [key] })
+        correct_pattern: |
+          graph.on('pointerenter', ({ target }) => target.kind === 'edge' && target.end)
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting bundles or routes immediately
+        mechanism: They are computed in a worker once nodes stand still, edges that arrive later stay straight, and above maxEdges nothing is computed.
+        wrong_pattern: |
+          graph.update({ definition })
+        correct_pattern: |
+          await graph.bundling.run()
+        source: docs/content/docs/(guide)/bundling.mdx, docs/content/docs/(guide)/routing.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Edge labels that never show
+        mechanism: An edge label shows only when it fits between its nodes and is at least 8 pixels tall on screen.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to', label: { text: 'name', size: 11 } })
+        correct_pattern: |
+          graph.view.zoomBy(2)
+        source: docs/content/docs/(guide)/labels.mdx
+        priority: MEDIUM
+        status: active
   - name: groups
     slug: groups
     domain: structure
@@ -263,12 +389,81 @@ skills:
       - aggregate
       - betweenGroups
       - hide
+      - relayout
+      - controlled folded
     tasks:
       - Nest nodes in groups with a parent field
       - Group items by a field with groups()
       - Fold and unfold groups from code or controlled state
       - Merge parallel edges and edges between groups
       - Hide elements without removing their data
+    failure_modes:
+      - mistake: Passing a string to fold, unfold or set
+        mechanism: They take an iterable of keys and a string is an iterable of characters, so the call compiles and folds single characters.
+        wrong_pattern: |
+          graph.groups.fold('sector-a')
+        correct_pattern: |
+          graph.groups.fold(['sector-a'])
+        source: src/host/graph-instance.ts
+        priority: HIGH
+        status: active
+      - mistake: Building the key of a groups() node by hand
+        mechanism: The key of a group node is internal and never collides with a data key, so a guessed key matches nothing.
+        wrong_pattern: |
+          graph.groups.fold(['sectors:north'])
+        correct_pattern: |
+          graph.groups.fold([graph.groups.keyOf('sectors', 'north')])
+        source: docs/content/docs/(guide)/transformations.mdx, docs/content/docs/api/groups.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting folding or merging to relayout
+        mechanism: A fold, an unfold or a change of groups() or merge places only the nodes that appear unless relayout is set.
+        wrong_pattern: |
+          defineGraph({ marks, layout: force() })
+        correct_pattern: |
+          defineGraph({ marks, layout: force(), relayout: true })
+        source: docs/content/docs/(guide)/transformations.mdx
+        priority: HIGH
+        status: active
+      - mistake: Switching to a controlled folded after mount
+        mechanism: Folding is controlled or not for the life of the graph, decided at mount by folded.
+        wrong_pattern: |
+          const graph = mountGraph(el, { definition, ariaLabel })
+          graph.update({ folded })
+        correct_pattern: |
+          mountGraph(el, { definition, ariaLabel, folded: [], onFoldChange })
+        source: docs/content/docs/(guide)/groups.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Rebuilding by functions in render
+        mechanism: groups() and merge compare functions by identity, so a new by function regroups every item on each rebuild.
+        wrong_pattern: |
+          groups(items, { by: (item) => item.sector })
+        correct_pattern: |
+          const bySector = (item: Item) => item.sector
+          groups(items, { by: bySector })
+        source: docs/content/docs/api/groups.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Using hide to shrink the layout
+        mechanism: A hidden element stays in layouts, counts and selection; only filtering the data removes it from them.
+        wrong_pattern: |
+          graph.states.set('off', { nodes })
+        correct_pattern: |
+          nodes(items.filter(keep), options)
+        source: docs/content/docs/(guide)/transformations.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting merged edges across marks
+        mechanism: Edges merge mark by mark, so two marks never share an aggregated edge.
+        wrong_pattern: |
+          edges(a, { merge: true })
+          edges(b, { merge: true })
+        correct_pattern: |
+          edges([...a, ...b], { merge: true })
+        source: docs/content/docs/(guide)/transformations.mdx
+        priority: MEDIUM
+        status: active
   - name: multilayer
     slug: multilayer
     domain: structure
@@ -281,11 +476,77 @@ skills:
       - supportedBy
       - graph.support
       - createSupportFinder
+      - support states of defineGraph
+      - drill down with hide
     tasks:
       - Put marks in layers that show and hide at run time
       - Draw the edges of each layer in their own band
       - Walk the edges that carry an edge, and the edges it carries
       - Drill down from one layer to the next
+    failure_modes:
+      - mistake: Hiding a layer by removing its data
+        mechanism: graph.support reads the data in the graph, so removed edges cannot be walked and carriers are reported as missing-carrier.
+        wrong_pattern: |
+          edges(lowerEdges.filter(isOpen), options)
+        correct_pattern: |
+          states: { closed: { hide: true } }
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: HIGH
+        status: active
+      - mistake: Filling the support states yourself
+        mechanism: The two states named by support are owned by the graph and replaced at every selection change.
+        wrong_pattern: |
+          graph.states.set('carrier', walk)
+        correct_pattern: |
+          graph.states.set('trace', walk)
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: HIGH
+        status: active
+      - mistake: Naming a support state that is not declared
+        mechanism: "support needs free states declared in states: defineGraph throws a TypeError otherwise."
+        wrong_pattern: |
+          states: { lit: {} }, support: { carriers: 'carrier' }
+        correct_pattern: |
+          states: { carrier: {} }, support: { carriers: 'carrier' }
+        source: src/define-graph.ts, docs/content/docs/(guide)/multilayer.mdx
+        priority: HIGH
+        status: active
+      - mistake: Hiding a node layer and expecting its edges to stay
+        mechanism: A hidden node layer hides every edge that ends on its nodes, whatever their layer.
+        wrong_pattern: |
+          graph.layers.hide(['places'])
+        correct_pattern: |
+          graph.layers.hide(['routes'])
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A layer name no mark gives
+        mechanism: Literal layer names are checked by graph.layers, but an explicit item type on the mark call loses the inference and every string passes.
+        wrong_pattern: |
+          edges<Segment>(segments, { layer: 'segments' })
+        correct_pattern: |
+          edges(segments, { layer: 'segments' })
+        source: docs/content/docs/(guide)/multilayer.mdx, docs/content/docs/(guide)/typescript.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Switching to controlled hiddenLayers after mount
+        mechanism: Layer visibility is controlled or not for the life of the graph, decided at mount by hiddenLayers.
+        wrong_pattern: |
+          graph.update({ hiddenLayers })
+        correct_pattern: |
+          mountGraph(el, { definition, ariaLabel, hiddenLayers: [], onLayerChange })
+        source: docs/content/docs/(guide)/multilayer.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Walking support with mismatched key types
+        mechanism: supportedBy takes edge keys, and 1 and '1' differ, so the carrier is skipped as missing-carrier.
+        wrong_pattern: |
+          supportedBy: () => 1
+        correct_pattern: |
+          supportedBy: () => '1'
+        source: docs/content/docs/api/support.mdx
+        priority: MEDIUM
+        status: active
   - name: view
     slug: view
     domain: navigation-and-input
@@ -299,6 +560,9 @@ skills:
       - controlled view
       - minZoom
       - maxZoom
+      - graph.view.toScreen and toWorld
+      - view padding
+      - level of detail by zoom
     tasks:
       - Fit the view to some nodes or edges
       - Zoom and pan from code with animation
@@ -306,6 +570,73 @@ skills:
       - Control the view from application state
       - Convert between screen and world coordinates
       - Show nodes and edges only within a range of zoom
+      - Choose what the graph frames on its own with autoFit
+    failure_modes:
+      - mistake: Passing a list of keys to view.fit
+        mechanism: fit takes an options object, so a list does not compile and untyped code throws a TypeError.
+        wrong_pattern: |
+          graph.view.fit(['n1', 'n2'])
+        correct_pattern: |
+          graph.view.fit({ nodes: ['n1', 'n2'] })
+        source: src/host/graph-instance.ts, src/host/mount-graph.ts
+        priority: HIGH
+        status: active
+      - mistake: Updating the view of a graph that is not controlled
+        mechanism: update view only moves a graph mounted with view, so on any other graph it does nothing and raises no error.
+        wrong_pattern: |
+          const graph = mountGraph(container, { definition, ariaLabel: 'Graph' })
+          graph.update({ view })
+        correct_pattern: |
+          const graph = mountGraph(container, { definition, ariaLabel: 'Graph', view, onViewChange })
+        source: src/host/mount-graph.ts, docs/content/docs/(guide)/view.mdx
+        priority: HIGH
+        status: active
+      - mistake: Ignoring a request of a controlled view
+        mechanism: In controlled mode every gesture is a request that changes nothing until onViewChange answers with update view.
+        wrong_pattern: |
+          onViewChange: (event) => console.log(event.view)
+        correct_pattern: |
+          onViewChange: (event) => graph.update({ view: event.view })
+        source: docs/content/docs/(guide)/view.mdx
+        priority: HIGH
+        status: active
+      - mistake: Reading the zoom of a mark as the zoom limits of the view
+        mechanism: minZoom and maxZoom of a mark decide when an element shows, while those of the view limit where people can zoom, so each does the other job in no way.
+        wrong_pattern: |
+          nodes(items, { maxZoom: 8 })
+        correct_pattern: |
+          defineGraph({ marks, view: { maxZoom: 8 } })
+        source: src/types.ts, docs/content/docs/(guide)/zoom.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: The same zoom on both sides of a handover
+        mechanism: Each mark fades over a quarter of a zoom doubling, so limits that meet at t leave both marks faded out there.
+        wrong_pattern: |
+          maxZoom: t, minZoom: t
+        correct_pattern: |
+          maxZoom: t * 2 ** 0.25, minZoom: t / 2 ** 0.25
+        source: docs/content/docs/(guide)/zoom.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Fitting while a layout run is still moving nodes
+        mechanism: A fit right after launching a layout run frames the positions of that moment, not the result.
+        wrong_pattern: |
+          graph.layout.run()
+          graph.view.fit()
+        correct_pattern: |
+          graph.layout.run(undefined, { fit: true })
+        source: src/host/graph-instance.ts, docs/content/docs/(guide)/view.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Setting view limits or padding on a map
+        mechanism: On a map the map owns the camera and its limits, so minZoom, maxZoom, bounds, padding and autoFit of the definition change nothing.
+        wrong_pattern: |
+          defineGraph({ marks, view: { maxZoom: 8 } })
+        correct_pattern: |
+          map.setMaxZoom(8)
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
   - name: interaction
     slug: interaction
     domain: navigation-and-input
@@ -325,12 +656,97 @@ skills:
       - raise
       - hide
       - label always
+      - wheel modes and zoomhint
+      - autoPan
+      - pointer events
     tasks:
       - Configure selection, drag, lasso, wheel and touch
       - Control the selection from application state
       - Navigate with the keyboard and manage focus
       - React to clicks, hovers and drags
       - Fade everything outside a state, raise members, or always show their labels
+    failure_modes:
+      - mistake: Expecting a lasso without both options
+        mechanism: The lasso needs lasso true and select multiple, so with select single or without lasso Shift and drag pans the view and selects nothing.
+        wrong_pattern: |
+          interaction: { select: 'single', lasso: true }
+        correct_pattern: |
+          interaction: { select: 'multiple', lasso: true }
+        source: src/types.ts, docs/content/docs/(guide)/interaction.mdx
+        priority: HIGH
+        status: active
+      - mistake: Controlling the selection without answering requests
+        mechanism: In controlled mode a click only calls onSelectionChange, so a handler that does not call update selection leaves the selection frozen.
+        wrong_pattern: |
+          onSelectionChange: (event) => console.log(event.selection)
+        correct_pattern: |
+          onSelectionChange: (event) => graph.update({ selection: event.selection })
+        source: docs/content/docs/(guide)/interaction.mdx
+        priority: HIGH
+        status: active
+      - mistake: Setting the selection through states
+        mechanism: selected, hovered and focused are built in and excluded from graph.states, so a free state name is the only thing it accepts.
+        wrong_pattern: |
+          graph.states.set('selected', { nodes: ['n1'] })
+        correct_pattern: |
+          graph.selection.set({ nodes: ['n1'] })
+        source: src/host/graph-instance.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A state of edges that fades the nodes
+        mechanism: others applies to every element outside the state while it has a member, nodes included, so a state of edges dims all nodes.
+        wrong_pattern: |
+          states: { route: { stroke: 'red', others: { opacity: 0.2 } } }
+        correct_pattern: |
+          states: { route: { edges: { stroke: 'red', others: { opacity: 0.2 } } } }
+        source: src/types.ts, docs/content/docs/(guide)/states.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Mixing a style for both kinds with a style by kind
+        mechanism: A state style is either for both kinds or by kind, so a style that sets both does not compile.
+        wrong_pattern: |
+          states: { near: { opacity: 0.2, nodes: { halo: true } } }
+        correct_pattern: |
+          states: { near: { nodes: { opacity: 0.2, halo: true } } }
+        source: src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Turning off pan or zoom and losing keyboard fit
+        mechanism: pan false and zoom false also disable the matching keys, so the zero key fits nothing and the view stops following the focused node.
+        wrong_pattern: |
+          interaction: { pan: false }
+        correct_pattern: |
+          interaction: { pan: true, zoom: true }
+        source: docs/content/docs/(guide)/interaction.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the page-scroll hint to come from the graph
+        mechanism: In page wheel mode the graph shows no text and only emits zoomhint, so no hint appears until the application shows one.
+        wrong_pattern: |
+          interaction: { wheel: 'page' }
+        correct_pattern: |
+          graph.on('zoomhint', ({ key }) => showHint(key))
+        source: src/host/events.ts, docs/content/docs/(guide)/interaction.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Reading the pointer target without narrowing it
+        mechanism: Targets are a union on kind and click targets are null over the background, so datum and endpoints need a kind check first.
+        wrong_pattern: |
+          graph.on('click', ({ target }) => console.log(target.datum))
+        correct_pattern: |
+          graph.on('click', ({ target }) => { if (target?.kind === 'node') console.log(target.datum) })
+        source: src/host/events.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the graph to own wheel and drag on a map
+        mechanism: On a map graph the map owns the camera and its gestures, so the wheel option, the pointer pan and auto-pan do not apply.
+        wrong_pattern: |
+          interaction: { wheel: 'pan' }
+        correct_pattern: |
+          map.scrollZoom.disable()
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
   - name: map
     slug: map
     domain: geography-and-time
@@ -345,6 +761,9 @@ skills:
       - globe
       - exportMapPng
       - geoToWorld
+      - waypoints
+      - lineWaypoints
+      - setWorkerUrl with bundlers
     tasks:
       - Draw a graph on a MapLibre map
       - Place nodes by longitude and latitude
@@ -352,6 +771,84 @@ skills:
       - Switch basemaps and the globe projection
       - Use the map graph in React
       - Export the map and the graph as one PNG
+      - Route edges along a network with waypoints
+      - Make the map worker load with a bundler
+    failure_modes:
+      - mistake: Expecting a layout to place nodes on a map
+        mechanism: The map layer ignores layout, background, bundling, routing and bridges, and layout.run rejects, so nodes need coordinates.
+        wrong_pattern: |
+          defineGraph({ marks, layout: force() })
+        correct_pattern: |
+          nodes(places, { longitude: 'lng', latitude: 'lat' })
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: HIGH
+        status: active
+      - mistake: Removing the map before the graph
+        mechanism: Destroying the graph removes its layer and gives the map gestures back, which needs a live map.
+        wrong_pattern: |
+          map.remove()
+          graph.destroy()
+        correct_pattern: |
+          graph.destroy()
+          map.remove()
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: HIGH
+        status: active
+      - mistake: Passing a view to a map graph
+        mechanism: The map holds the view, so initialView, view and onViewChange are not options of mountMapGraph and update view is ignored.
+        wrong_pattern: |
+          mountMapGraph(map, { definition, ariaLabel: 'Places', view })
+        correct_pattern: |
+          mountMapGraph(map, { definition, ariaLabel: 'Places' })
+          map.jumpTo({ center: [10, 48], zoom: 4 })
+        source: src/map/index.ts, docs/content/docs/api/map.mdx
+        priority: HIGH
+        status: active
+      - mistake: Swapping longitude and latitude
+        mechanism: MapLibre takes longitude first and the channels are named, so swapped fields land nodes in the ocean or off the world.
+        wrong_pattern: |
+          nodes(places, { longitude: 'lat', latitude: 'lng' })
+        correct_pattern: |
+          nodes(places, { longitude: 'lng', latitude: 'lat' })
+        source: src/types.ts, src/core/geo.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting rotation, pitch, lens or minimap on a map
+        mechanism: The map stays north up and without pitch, and the lens and the minimap are not supported on a map graph.
+        wrong_pattern: |
+          graph.lens.set({ at: pointer })
+        correct_pattern: |
+          Use the map navigation and leave out the lens and the minimap
+        source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Colors tuned for one basemap
+        mechanism: Colors that read on a light style vanish on a dark one or on imagery, so they must follow the basemap.
+        wrong_pattern: |
+          nodes(places, { fill: '#ddd' })
+        correct_pattern: |
+          graph.update({ definition: definitionFor(basemap) })
+        source: docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Removing the attribution in an export
+        mechanism: exportMapPng writes the attribution of the map and an empty attribution removes it, which most tile licenses forbid.
+        wrong_pattern: |
+          exportMapPng(graph, { attribution: '' })
+        correct_pattern: |
+          exportMapPng(graph, { pixelRatio: 2 })
+        source: src/map/export.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A map container with no height
+        mechanism: MapLibre sizes the map from its container, so a container with no height draws nothing, the graph included.
+        wrong_pattern: |
+          <div id="map"></div>
+        correct_pattern: |
+          #map { height: 480px; }
+        source: docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
   - name: time
     slug: time
     domain: geography-and-time
@@ -365,12 +862,89 @@ skills:
       - mountTimeline
       - Timeline
       - useTimeline
+      - time window boundaries
+      - timeline store and actions
     tasks:
       - Give nodes and edges a time or a period
       - Show only what exists in a time window
       - Fade elements at the edges of the window
       - Add a timeline that brushes, steps and plays
       - Control the time window from state
+      - Draw a timeline of your own from its store
+    failure_modes:
+      - mistake: Giving times as strings
+        mechanism: A string is not a time, so the element has no time and always shows, with nothing reported.
+        wrong_pattern: |
+          nodes(items, { time: 'created' })
+        correct_pattern: |
+          nodes(items, { time: (item) => Date.parse(item.created) })
+        source: src/core/time-range.ts, src/types.ts
+        priority: HIGH
+        status: active
+      - mistake: Expecting the end of a period to be inside the window
+        mechanism: Ends are exclusive on both the period and the window, so a period that ends where the window starts does not show.
+        wrong_pattern: |
+          graph.time.set({ start: t, end: t + 1 })
+        correct_pattern: |
+          graph.time.set({ start: t, end: t })
+        source: docs/content/docs/(guide)/time.mdx, src/core/time-range.ts
+        priority: HIGH
+        status: active
+      - mistake: Controlling the window without both props
+        mechanism: Controlled mode is decided at mount by time and never changes, so update time on an uncontrolled graph does nothing and a controlled graph ignores time.set until answered.
+        wrong_pattern: |
+          mountGraph(container, { definition, ariaLabel: 'Graph' })
+          graph.update({ time: window })
+        correct_pattern: |
+          mountGraph(container, { definition, ariaLabel: 'Graph', time: null, onTimeChange })
+        source: src/host/mount-graph.ts, docs/content/docs/(guide)/time.mdx
+        priority: HIGH
+        status: active
+      - mistake: A timeline over data with no times
+        mechanism: Without elements that have a time the timeline has no extent and play does nothing.
+        wrong_pattern: |
+          createTimeline(graph)
+        correct_pattern: |
+          createTimeline(graph, { extent: { start, end } })
+        source: src/timeline/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Mixing local and UTC times
+        mechanism: Bins and ticks follow the local time zone, so times and window edges written in UTC look one hour or one day off.
+        wrong_pattern: |
+          graph.time.set({ start: Date.UTC(2024, 0, 1) })
+        correct_pattern: |
+          graph.time.set({ start: new Date(2024, 0, 1) })
+        source: docs/content/docs/api/timeline.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Fade in the wrong unit
+        mechanism: time fade is in the milliseconds of the data, so a duration written in days fades nothing or everything.
+        wrong_pattern: |
+          defineGraph({ marks, time: { fade: 30 } })
+        correct_pattern: |
+          defineGraph({ marks, time: { fade: 30 * 86_400_000 } })
+        source: src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the layout to follow the window
+        mechanism: Layouts place every node whatever the window and hidden nodes keep their place, so the graph does not rearrange.
+        wrong_pattern: |
+          graph.time.set(window)
+        correct_pattern: |
+          Build the data for the window to lay out only what exists then
+        source: docs/content/docs/(guide)/time.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A timeline outside Graph without a graph
+        mechanism: The Timeline component and useTimeline read the graph from context, so outside Graph or MapGraph they throw without the graph option.
+        wrong_pattern: |
+          <Timeline />
+        correct_pattern: |
+          <Timeline graph={graph} />
+        source: src/react/index.tsx, docs/content/docs/api/timeline.mdx
+        priority: MEDIUM
+        status: active
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations
@@ -716,6 +1290,84 @@ skills:
       - Put images, tinted icons and badges in nodes
       - Draw box nodes that fit their label
       - Theme the graph for light and dark with CSS variables
+      - Override a theme token for one graph or one theme
+      - Give a node mark scales of its own
+    failure_modes:
+      - mistake: Expecting a gradient from a numeric color
+        mechanism: The color scale is categorical by default, even for numbers, so a numeric color channel draws one palette color per distinct value with no order.
+        wrong_pattern: |
+          nodes(items, { color: 'score' })
+        correct_pattern: |
+          defineGraph({
+            marks: [nodes(items, { color: 'score' })],
+            scales: { color: { type: 'sequential', domain: [0, 100] } },
+          })
+        source: docs/content/docs/(guide)/scales.mdx
+        priority: HIGH
+        status: active
+      - mistake: A computed pixel size that goes through the scale
+        mechanism: A function given to size is a channel, so its result is squeezed into the size range [8, 32] by the square root scale and never draws the pixel diameters it returns.
+        wrong_pattern: |
+          nodes(items, { size: (item) => item.radius * 2 })
+        correct_pattern: |
+          nodes(items, { size: raw((item) => item.radius * 2) })
+        source: docs/content/docs/(guide)/marks.mdx, src/core/raw.ts
+        priority: HIGH
+        status: active
+      - mistake: A field name in a style
+        mechanism: "Styles take a constant or a function, never a field name: a numeric style given a field name does not compile, and a color style given one compiles and is read as a CSS color."
+        wrong_pattern: |
+          nodes(items, { label: { text: 'name', size: 'weight' } })
+        correct_pattern: |
+          nodes(items, { label: { text: 'name', size: (item) => item.weight } })
+        source: docs/content/docs/(guide)/marks.mdx, src/types.ts
+        priority: HIGH
+        status: active
+      - mistake: A constant color in the color channel
+        mechanism: color goes through the color scale, so a CSS color does not compile and a function returning colors draws palette colors.
+        wrong_pattern: |
+          nodes(items, { color: (item) => item.hex })
+        correct_pattern: |
+          nodes(items, { color: raw((item) => item.hex) })
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: HIGH
+        status: active
+      - mistake: A label that is not a string
+        mechanism: Only a non-empty string draws a label, and a function that returns a number does not compile.
+        wrong_pattern: |
+          nodes(items, { label: (item) => item.count })
+        correct_pattern: |
+          nodes(items, { label: (item) => String(item.count) })
+        source: docs/content/docs/(guide)/labels.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: The theme stylesheet is missing
+        mechanism: Every color falls back to its light value without theme.css, so a dark page or a dark class changes nothing.
+        wrong_pattern: |
+          import '@bruno00o/graph'
+        correct_pattern: |
+          import '@bruno00o/graph/theme.css'
+        source: docs/content/docs/(guide)/theming.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: One image per node
+        mechanism: At most 256 distinct images are drawn at once, so the 257th node of a graph with one image each stays plain.
+        wrong_pattern: |
+          nodes(items, { image: (item) => `/labels/${item.id}.svg` })
+        correct_pattern: |
+          nodes(items, { image: (item) => `/icons/${item.kind}.svg`, label: 'name' })
+        source: docs/content/docs/(guide)/images-and-badges.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Hard-coded colors that ignore the theme
+        mechanism: A hex value is identical in light and dark, so text or fills stay unreadable in one of the themes.
+        wrong_pattern: |
+          nodes(items, { label: { text: 'name', color: '#222222' } })
+        correct_pattern: |
+          nodes(items, { label: { text: 'name', color: 'var(--graph-ink)' } })
+        source: docs/content/docs/(guide)/theming.mdx
+        priority: MEDIUM
+        status: active
   - name: tools
     slug: tools
     domain: tools-and-output
@@ -738,6 +1390,86 @@ skills:
       - Pin HTML to nodes and edges
       - Draw hulls around sets of nodes and a background grid
       - Inspect graphs in the TanStack Devtools panel
+    failure_modes:
+      - mistake: A minimap or a lens on a map
+        mechanism: "The map owns the camera: the minimap does not support a map graph and graph.lens.set does nothing there."
+        wrong_pattern: |
+          mountMapGraph(map, { definition, ariaLabel })
+          createMinimap(graph)
+        correct_pattern: |
+          mountMapGraph(map, { definition, ariaLabel })
+        source: docs/content/docs/(guide)/map.mdx, src/host/lens.ts
+        priority: HIGH
+        status: active
+      - mistake: A legend state that the definition does not declare
+        mechanism: "highlight and hidden name free states: an undeclared name does not compile on a typed graph and throws at run time otherwise."
+        wrong_pattern: |
+          createLegend(graph, { highlight: 'match' })
+        correct_pattern: |
+          defineGraph({ marks, states: { match: { outline: 'var(--graph-accent)' } } })
+          createLegend(graph, { highlight: 'match' })
+        source: docs/content/docs/api/legend.mdx
+        priority: HIGH
+        status: active
+      - mistake: A hidden legend state that does not hide
+        mechanism: "A hidden state with only an opacity fades the elements of an off item instead of filtering the graph, which needs hide: true."
+        wrong_pattern: |
+          states: { faded: { opacity: 0.1 } }
+        correct_pattern: |
+          states: { faded: { opacity: 0.1, hide: true } }
+        source: docs/content/docs/(guide)/minimap-and-legend.mdx
+        priority: HIGH
+        status: active
+      - mistake: A hull made from another mark object
+        mechanism: A hull matches the nodes of the mark object passed to marks, so a second nodes() call or a mark rebuilt in render encloses nothing.
+        wrong_pattern: |
+          marks: [nodes(items)],
+          hulls: [hull({ nodes: nodes(items), by: 'group' })]
+        correct_pattern: |
+          const people = nodes(items)
+          marks: [people],
+          hulls: [hull({ nodes: people, by: 'group' })]
+        source: docs/content/docs/api/hull.mdx, src/core/hull-layer.ts
+        priority: HIGH
+        status: active
+      - mistake: when on a point or a state anchor
+        mechanism: when needs a node or an edge that can be in a state, so a point or a state target takes none and the types refuse it.
+        wrong_pattern: |
+          graph.anchors.set(element, { point, when: 'hovered' })
+        correct_pattern: |
+          graph.anchors.set(element, { node: key, when: 'hovered' })
+        source: docs/content/docs/api/graph-instance.mdx, src/host/anchors.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting anchored HTML in an export
+        mechanism: Anchors are HTML over the canvas, not part of the scene, so no export draws them.
+        wrong_pattern: |
+          graph.anchors.set(tooltip, { node: key })
+          await exportPng(graph)
+        correct_pattern: |
+          await exportPng(graph)
+        source: docs/content/docs/(guide)/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: The lens that never shows
+        mechanism: interaction.lens is off by default, and the key is ignored while a text field has the focus.
+        wrong_pattern: |
+          defineGraph({ marks })
+        correct_pattern: |
+          defineGraph({ marks, interaction: { lens: true } })
+        source: docs/content/docs/(guide)/lens.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Panel messages created in render
+        mechanism: A new messages object passed to GraphDevtoolsPanel mounts the panel again at every render.
+        wrong_pattern: |
+          <GraphDevtoolsPanel messages={{ title: 'Graph' }} />
+        correct_pattern: |
+          const messages = { title: 'Graph' }
+          <GraphDevtoolsPanel messages={messages} />
+        source: docs/content/docs/api/devtools.mdx
+        priority: MEDIUM
+        status: active
   - name: export
     slug: export
     domain: tools-and-output
@@ -754,6 +1486,64 @@ skills:
       - Save the graph as a PNG image
       - Save the graph as an SVG document
       - Export a region at a scale, with a background
+    failure_modes:
+      - mistake: Exporting a destroyed graph
+        mechanism: An export of a destroyed graph, or of one not made by mountGraph, rejects instead of producing a file.
+        wrong_pattern: |
+          graph.destroy()
+          await exportPng(graph)
+        correct_pattern: |
+          const png = await exportPng(graph)
+          graph.destroy()
+        source: docs/content/docs/api/export.mdx, src/host/lifecycle.ts
+        priority: HIGH
+        status: active
+      - mistake: Not awaiting the export
+        mechanism: Both functions return promises, and an SVG is a string that needs a Blob of type image/svg+xml to be downloaded.
+        wrong_pattern: |
+          download(exportPng(graph), 'graph.png')
+        correct_pattern: |
+          download(await exportPng(graph), 'graph.png')
+        source: docs/content/docs/(guide)/export.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting a transparent PNG by default
+        mechanism: The default background is the paper color of the current theme.
+        wrong_pattern: |
+          await exportPng(graph)
+        correct_pattern: |
+          await exportPng(graph, { background: 'transparent' })
+        source: docs/content/docs/(guide)/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Mixing up zoom and pixel ratio
+        mechanism: zoom rescales the content while pixelRatio only adds pixels, and neither accepts a non-positive or infinite value.
+        wrong_pattern: |
+          await exportPng(graph, { zoom: 4 })
+        correct_pattern: |
+          await exportPng(graph, { pixelRatio: 4 })
+        source: docs/content/docs/(guide)/export.mdx, src/export/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Labels missing in a zoomed-out file
+        mechanism: labels visible applies the screen rules, so small and overlapping labels are hidden at a small zoom.
+        wrong_pattern: |
+          await exportSvg(graph, { region: 'graph' })
+        correct_pattern: |
+          await exportSvg(graph, { region: 'graph', labels: 'all' })
+        source: docs/content/docs/(guide)/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Exporting a graph with no size
+        mechanism: A hidden graph or one that measures less than one pixel has nothing to draw, so the export rejects with a RangeError.
+        wrong_pattern: |
+          container.hidden = true
+          await exportPng(graph)
+        correct_pattern: |
+          await exportPng(graph, { region: 'graph' })
+        source: src/export/index.ts
+        priority: MEDIUM
+        status: active
 tensions:
   - name: Rebuilt definitions against stable identities
     skills:

@@ -102,12 +102,13 @@ skills:
     slug: layouts
     domain: placement
     path: skills/layouts/SKILL.md
-    status: planned
-    description: Use when placing nodes that have no coordinates with
-      @bruno00o/graph, with a force layout, layers, a grid, rings, a radial tree
-      or by geography, running a layout from code, following its progress,
-      fitting the result, saving and restoring positions, or writing a custom
-      layout.
+    description: >
+      Use when placing @bruno00o/graph nodes that have no coordinates: choosing
+      and adding a force layout, layers for a hierarchy or flow, a grid, rings,
+      a radial tree or a geographic layout, running or stopping a layout from
+      code, following its progress, framing the result, keeping dragged or
+      data-given positions, saving and restoring positions, writing a custom
+      layout, or finding why nodes do not move or pile up.
     sources:
       - src/layouts/index.ts
       - src/layouts/force/index.ts
@@ -124,15 +125,23 @@ skills:
       - docs/content/docs/api/layouts.mdx
     requires:
       - core
+    purpose: >
+      Where nodes go: the five ready-made layouts and when to pick each, the
+      definition and run-time ways to start a layout, which nodes a layout may
+      move, positions from data and from code, and the mistakes that leave nodes
+      on a spiral or still.
   - name: edges
     slug: edges
     domain: appearance
     path: skills/edges/SKILL.md
-    status: planned
-    description: Use when shaping how @bruno00o/graph draws edges, with arrows,
-      dashes, widths, labels and flows, two-colored ends, waypoints and
-      geometries, parallel edges and loops, bundling dense edges, orthogonal
-      routing around nodes, or bridges over crossings.
+    description: >
+      Use when shaping how @bruno00o/graph draws edges beyond source and target:
+      arrows, dashes, widths and colors, edge labels, moving dashes (flows), a
+      different look and label at each end of an edge, edges through waypoints
+      or along GeoJSON lines, parallel edges and loops, bundling the edges of a
+      dense graph, orthogonal routing around nodes, and bridges over crossings.
+      Also for finding why edges stay straight, ignore bundling or routing, or
+      lose their labels.
     sources:
       - src/types.ts
       - src/marks.ts
@@ -141,6 +150,7 @@ skills:
       - src/bundling/density.ts
       - src/routing/index.ts
       - docs/content/docs/(guide)/marks.mdx
+      - docs/content/docs/(guide)/labels.mdx
       - docs/content/docs/(guide)/bundling.mdx
       - docs/content/docs/(guide)/routing.mdx
       - docs/content/docs/api/edges.mdx
@@ -148,15 +158,23 @@ skills:
       - docs/content/docs/api/routing.mdx
     requires:
       - core
+    purpose: >
+      Everything an edge mark can look like and how its geometry is computed:
+      the channel and style options of edges(), per-end looks, waypoints, the
+      automatic bend of parallel edges, and the bundling, routing and bridges of
+      the definition, with their limits and the mistakes that leave edges
+      straight or throw at definition time.
   - name: groups
     slug: groups
     domain: structure
     path: skills/groups/SKILL.md
-    status: planned
-    description: Use when nesting @bruno00o/graph nodes in groups with a parent
-      field or groups(), folding and unfolding groups from code or React state,
-      merging parallel edges and edges between groups, or hiding elements
-      without removing their data.
+    description: >
+      Use when nesting @bruno00o/graph nodes in groups with a parent field or by
+      a field value with groups(), styling group containers, folding and
+      unfolding groups from code, from a double-click or from React state,
+      merging parallel edges or the edges between groups into one, hiding
+      elements with a state without removing their data, or finding why a group
+      does not fold, a key does not match or the layout ignores a fold.
     sources:
       - src/marks.ts
       - src/types.ts
@@ -166,15 +184,24 @@ skills:
       - docs/content/docs/api/groups.mdx
     requires:
       - core
+    purpose: >
+      Groups and the transformations that change what is drawn while the data
+      stays as it is: parent channels, containers, spreading, fold and unfold
+      (instance and controlled), groups() by a field, merge and aggregate for
+      edges, betweenGroups, and hide states, with the key, layout and typing
+      mistakes that go with them.
   - name: multilayer
     slug: multilayer
     domain: structure
     path: skills/multilayer/SKILL.md
-    status: planned
-    description: Use when putting @bruno00o/graph marks in layers that show and hide
-      at run time, drawing the edges of each layer in their own band, walking
-      the edges that carry other edges, or drilling down from one layer to the
-      next.
+    description: >
+      Use when several kinds of links join the same @bruno00o/graph nodes and
+      each kind is a layer: putting marks in layers with the layer option,
+      showing and hiding layers from code, a legend or React state, drawing the
+      edges of each layer in their own band, declaring which edges carry other
+      edges with supportedBy, walking carriers and carried edges with
+      graph.support or createSupportFinder, lighting the support of a selection,
+      and drilling down from one layer to the next.
     sources:
       - src/support.ts
       - src/types.ts
@@ -183,79 +210,134 @@ skills:
       - docs/content/docs/api/support.mdx
     requires:
       - core
+    purpose: >
+      Layers, bands, support and drill down: layer on node and edge marks,
+      graph.layers and controlled hidden layers, supportedBy and the support
+      walks, the support states of defineGraph, and the hide-state pattern for
+      opening edges one level at a time.
   - name: view
     slug: view
     domain: navigation-and-input
     path: skills/view/SKILL.md
-    status: planned
-    description: Use when fitting, zooming or moving the @bruno00o/graph view,
-      limiting its zoom and area, controlling the view from application state,
-      converting between screen and world coordinates, or showing nodes and
-      edges only within a range of zoom.
+    description: >
+      Use when framing, zooming or moving the @bruno00o/graph view from code:
+      fitting the view to chosen nodes or edges, to a selection or a path,
+      animating zoom and pan, choosing what the graph frames on its own (first
+      data, layouts or nothing), limiting the zoom and the area people can
+      reach, keeping the view in application state, converting between screen
+      pixels and world units to place overlays or drop nodes, and showing nodes
+      and edges only within a range of zoom (level of detail, clusters that give
+      way to members). Gesture options such as the wheel belong to the
+      interaction skill; a graph inside a MapLibre map does not use this skill's
+      view limits and is covered by the map skill.
     sources:
       - src/types.ts
+      - src/define-graph.ts
       - src/host/graph-instance.ts
+      - src/host/events.ts
+      - src/core/zoom-range.ts
       - docs/content/docs/(guide)/view.mdx
       - docs/content/docs/(guide)/zoom.mdx
       - docs/content/docs/api/graph-instance.mdx
+      - docs/content/docs/api/define-graph.mdx
     requires:
       - core
+    purpose: >
+      The camera of a @bruno00o/graph graph: the view as a center and a zoom,
+      fit and its options, the first view and automatic framing, view limits,
+      the controlled view, screen and world coordinates, and the minZoom and
+      maxZoom ranges of nodes and edges.
   - name: interaction
     slug: interaction
     domain: navigation-and-input
     path: skills/interaction/SKILL.md
-    status: planned
-    description: Use when configuring how people interact with a @bruno00o/graph
-      graph, with selection modes, drag, lasso, wheel, touch and keyboard
-      navigation, reacting to pointer events, controlling the selection, or
-      styling states for the elements outside them, raised, hidden or always
-      labeled.
+    description: >
+      Use when configuring how people work with a @bruno00o/graph graph:
+      selection modes, node drag, the lasso, what the wheel and a trackpad do
+      (zoom, pan or scroll the page), touch, auto-pan, turning gestures off,
+      keyboard navigation and focus; reacting to clicks, hovers, drags and the
+      pointer; controlling the selection from application state; and styling
+      states beyond a basic highlight: fading everything outside a state,
+      drawing members above the rest, hiding members, always showing their
+      labels, or styling nodes and edges apart. The first graph, plain states
+      and event basics are in the core skill; moving the view from code is in
+      the view skill.
     sources:
       - src/types.ts
+      - src/define-graph.ts
       - src/host/events.ts
       - src/host/graph-instance.ts
+      - src/host/keyboard.ts
+      - src/core/state-names.ts
       - docs/content/docs/(guide)/interaction.mdx
       - docs/content/docs/(guide)/states.mdx
       - docs/content/docs/api/events.mdx
+      - docs/content/docs/api/define-graph.mdx
     requires:
       - core
+    purpose: >
+      The interaction model of a @bruno00o/graph graph: the interaction options
+      of defineGraph, selection and its controlled mode, drag and lasso, wheel,
+      touch and keyboard, pointer events and their targets, and the advanced
+      state styles others, raise, hide and label always.
   - name: map
     slug: map
     domain: geography-and-time
     path: skills/map/SKILL.md
-    status: planned
-    description: Use when drawing a @bruno00o/graph graph inside a MapLibre map,
-      placing nodes by longitude and latitude, drawing great circles and routes,
-      switching basemaps or the globe, using MapGraph in React, or exporting the
-      map with the graph.
+    description: >
+      Use when drawing a @bruno00o/graph graph inside a MapLibre map: placing
+      nodes by longitude and latitude, mounting the graph on a map with
+      mountMapGraph or MapGraph in React, drawing great circles and routes that
+      follow roads or other lines, switching basemaps or the globe projection,
+      putting a timeline on a map graph, exporting the map and the graph as one
+      PNG, and finding why a layout, minimap, lens, rotation or view option does
+      nothing on a map. Not for a plain graph that only uses coordinates without
+      a map.
     sources:
       - src/map/index.ts
       - src/map/react.tsx
       - src/map/export.ts
       - src/core/geo.ts
       - src/waypoints.ts
+      - src/types.ts
       - docs/content/docs/(guide)/map.mdx
       - docs/content/docs/api/map.mdx
       - docs/content/docs/api/map-graph.mdx
     requires:
       - core
+    purpose: >
+      The MapLibre adapter of @bruno00o/graph: mountMapGraph and MapGraph, the
+      longitude and latitude channels, who owns the camera, projections,
+      geodesic edges and waypoints, what a map graph leaves out, exportMapPng,
+      and the mistakes that hide the graph or leak the map.
   - name: time
     slug: time
     domain: geography-and-time
     path: skills/time/SKILL.md
-    status: planned
-    description: Use when giving @bruno00o/graph nodes and edges a time or a period,
-      showing only what exists in a time window, fading elements at its edges,
-      or adding a timeline that brushes, steps and plays.
+    description: >
+      Use when giving @bruno00o/graph nodes and edges a time or a period,
+      showing only what exists in a time window, fading elements in and out at
+      the edges of the window, controlling the window from application state, or
+      adding a timeline with a histogram that brushes, steps and plays (default
+      element, a renderer of your own, or the React Timeline component and
+      useTimeline hook), also on a map graph.
     sources:
       - src/timeline/index.ts
       - src/timeline/view.ts
+      - src/core/time-range.ts
+      - src/react/index.tsx
       - src/types.ts
       - src/host/graph-instance.ts
+      - src/host/events.ts
       - docs/content/docs/(guide)/time.mdx
       - docs/content/docs/api/timeline.mdx
     requires:
       - core
+    purpose: >
+      Time in @bruno00o/graph: the time channel of nodes and edges, the time
+      window and its exact boundaries, the fade, the controlled window, the
+      timeline companion with its store and actions, and the mistakes that leave
+      everything showing, nothing playing or a window one moment off.
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations
@@ -386,11 +468,11 @@ skills:
     slug: styling
     domain: appearance
     path: skills/styling/SKILL.md
-    status: planned
-    description: Use when styling @bruno00o/graph nodes and labels, with color and
-      size scales, label size, placement and backgrounds, images, tinted icons
-      and badges, box nodes that fit their label, outlines, or light and dark
-      themes through CSS variables.
+    description: >
+      Use when styling @bruno00o/graph nodes and labels, with color and size
+      scales, label size, placement and backgrounds, images, tinted icons and
+      badges, box nodes that fit their label, outlines, or light and dark themes
+      through CSS variables.
     sources:
       - src/types.ts
       - src/marks.ts
@@ -405,15 +487,19 @@ skills:
       - docs/content/docs/api/theme-tokens.mdx
     requires:
       - core
+    purpose: >
+      How nodes and labels get their look in @bruno00o/graph: the three scales
+      and when a value skips them, label options, shapes and boxes, outlines,
+      images, tinted icons and badges, and the CSS variables of the light and
+      dark themes, with the mistakes that draw the wrong color, size or text.
   - name: tools
     slug: tools
     domain: tools-and-output
     path: skills/tools/SKILL.md
-    status: planned
-    description: Use when adding companions to a @bruno00o/graph graph, such as a
-      minimap, a legend that filters, a magnifying lens, HTML pinned to nodes,
-      hulls around sets of nodes, a background grid, or the TanStack Devtools
-      panel.
+    description: >
+      Use when adding companions to a @bruno00o/graph graph, such as a minimap,
+      a legend that filters, a magnifying lens, HTML pinned to nodes, hulls
+      around sets of nodes, a background grid, or the TanStack Devtools panel.
     sources:
       - src/minimap/index.ts
       - src/legend/index.ts
@@ -434,17 +520,27 @@ skills:
       - docs/content/docs/api/anchor.mdx
     requires:
       - core
+    purpose: >
+      The tools drawn beside or over a @bruno00o/graph graph: minimap, legend,
+      lens, anchored HTML, hulls, background grid and the devtools panel, how
+      each one is created and destroyed, what it reads, and where it does not
+      work.
   - name: export
     slug: export
     domain: tools-and-output
     path: skills/export/SKILL.md
-    status: planned
-    description: Use when saving a @bruno00o/graph graph as a PNG image or an SVG
-      document, choosing its region, scale, pixel ratio, labels and background,
-      or exporting large graphs.
+    description: >
+      Use when saving a @bruno00o/graph graph as a PNG image or an SVG document,
+      choosing its region, scale, pixel ratio, labels and background, or
+      exporting large graphs.
     sources:
       - src/export/index.ts
       - docs/content/docs/(guide)/export.mdx
       - docs/content/docs/api/export.mdx
     requires:
       - core
+    purpose: >
+      Saving a mounted @bruno00o/graph graph as a PNG Blob or an SVG string with
+      exportPng and exportSvg: what each one draws, region, scale and pixel
+      ratio, labels, background, time window and flows, downloading the result,
+      and the errors and limits.
