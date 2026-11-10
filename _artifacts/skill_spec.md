@@ -103,7 +103,9 @@ Boundaries chosen from developer tasks, not from entry points:
 - Code fences are typechecked by `intent validate` (TypeScript 7 native API, Node 24). Mistakes the types catch are shown in `expect-error=TS<code>` fences; partial snippets that cannot compile use `no-check`. Examples carry no comments, like the rest of the repository.
 - Biome formats YAML and Markdown. `skills/**/*.md` is excluded in `biome.json`, because its Markdown formatter rewrites the YAML frontmatter of a skill into Markdown, and so is `.intent`, written by `maintainer review --record`. The planning records stay under Biome (double quotes in YAML, aligned tables); `maintainer sync` keeps the existing quoting.
 - Links to the documentation are absolute (`https://bruno00o.github.io/graph/docs/...`); every page also exists as Markdown at the same URL plus `.md`.
-- The CI workflow `.github/workflows/check-skills.yml` runs `intent maintainer check --base <PR base>` on pull requests and the review report on releases and manual runs; it carries no comment, so `intent stale` prints a workflow update notice that is expected.
+- Pull requests only validate: `pnpm verify`, run by the required `verify` job, includes `intent validate skills`, which typechecks every example. No pull request records a review.
+- The source review happens once before each release, by the maintainer: `pnpm exec intent maintainer review --base <last tag> --json > .intent/review.json`, skill updates in their own pull request, then the outcomes annotated and recorded with `--record .intent/review.json` in `.intent/review-state.json`, and `intent maintainer check --base <last tag>` passing.
+- `.github/workflows/check-skills.yml` only runs the review report on demand (`workflow_dispatch`): a release made by release-please uses `GITHUB_TOKEN` and never triggers other workflows. The file carries no comment, so `intent stale` prints a workflow update notice that is expected.
 
 ## Batches
 
@@ -120,8 +122,8 @@ Rules for every batch:
 
 - Write `skills/<name>/SKILL.md` for each owned entry, then remove `status: planned` from its tree entry and run `pnpm exec intent maintainer sync`. Do not run `maintainer add` on a planned entry: it appends to the shared history list below.
 - Edit only the owned entries in `domain_map.yaml` (add `failure_modes`, adjust `tasks` and `covers`) and only the owned section below. Domains, `core`, `react` and the shared tables above stay as they are; propose changes to them in the PR description.
-- Before handoff: `pnpm exec intent maintainer sync`, then `pnpm exec intent maintainer review --base origin/main --json > .intent/review.json`, annotate and `--record .intent/review.json`, then `pnpm exec intent maintainer check --base origin/main`.
-- `.intent/review-state.json` is shared. On a merge conflict, take the version of `origin/main`, then review and record again.
+- Before handoff: `pnpm exec intent maintainer sync`, `pnpm exec intent validate skills`, a task check by a fresh agent in a consumer project outside the repository (a packed tarball, fixtures never committed), then `pnpm verify`. `pnpm exec intent maintainer status` must show 0 files to sync and 0 authoring issues; the review items it lists for the new skills are expected.
+- Never run `maintainer review --record` and never touch `.intent/review-state.json`: parallel pull requests would conflict on it. The maintainer reviews the new skills with the rest before the release.
 
 ### Batch A
 
@@ -141,4 +143,4 @@ Planned.
 
 ## Coverage and batch history
 
-- 0.22.0, foundation: Intent 0.5.6 set up (single package, records in `_artifacts/`), CI workflow, packaging, consumer docs page `agent-skills`, full plan of eighteen skills, and the `core` and `react` skills written from `src/` and the docs at commit 651f9b7. Both skills pass `intent validate` with typechecked examples, including four `expect-error` fences. Fresh consumer and discovery checks are recorded in the review state evidence.
+- 0.22.0, foundation: Intent 0.5.6 set up (single package, records in `_artifacts/`), CI workflow, packaging, consumer docs page `agent-skills`, full plan of eighteen skills, and the `core` and `react` skills written from `src/` and the docs at commit 651f9b7. Both skills pass `intent validate` with typechecked examples, including four `expect-error` fences. Fresh consumer and discovery checks are recorded in the review state evidence. Before merge, the pull request gate moved to validation only, with the source review before each release.
