@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "baseline": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
+  "items": {
+    "skill:skills/core/SKILL.md": {
+      "fingerprint": "7d2d93402010b6781c522174976bc2abb96562e425ac685504e79ba4fa26b123",
+      "snapshot": {
+        "docs/content/docs/(guide)/data.mdx": "cf42bfd6b09f0c050dedfc42cb4cffdf13444d2087c48c0c85d8ef7d877aa6eb",
+        "docs/content/docs/(guide)/installation.mdx": "e11452642f370a590e8b26fe189dd902f9615e7001bb8cc7ca1dbab3dd16e7aa",
+        "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
+        "docs/content/docs/(guide)/states.mdx": "5e03adb0eef1276ba89f9b510dd71b07a0506ee488ed08e27c6c1b9a8d1848d3",
+        "docs/content/docs/(guide)/typescript.mdx": "df686fed19d2d4f3b4497cc8fc2ca99cdc47513f24cbe3243f304d7efef7c56a",
+        "docs/content/docs/(guide)/vanilla.mdx": "fc260ce0c3bc1bde2a469e881a44252de6890aca5fc94c2060cca14df29d1206",
+        "docs/content/docs/api/define-graph.mdx": "549de25a140cbf46914a3af75c44e89a2ee44767065d797752d58e03498093e9",
+        "docs/content/docs/api/events.mdx": "9ff22e750c17e7ccabd64c3893d166b466b45f5dea70990016f8df62025180d1",
+        "docs/content/docs/api/graph-instance.mdx": "ea675d35ab607c14bb0b1f2bfa0a634987ce76a7817e415ae2d2af602a97eefa",
+        "docs/content/docs/api/mount-graph.mdx": "636816faa64d56ac5bf915cb8cdbd291ed232e6e43b0bf43165f44764d069b15",
+        "skills/core/SKILL.md": "60ed80ce51cdd8e9bf3f6c3422c94d1f5985d3ddbce941331a7b9499ed1e11dc",
+        "src/core/issues.ts": "ea61764286d5db82dfb7cb4ba5d3929f5eec6d17256321854e669eb18c5ddfcb",
+        "src/core/raw.ts": "d04297fb30d75cc597292405bcf74258cb0e62df5eeecd29305829e20b0b1dff",
+        "src/core/source-table.ts": "22ac89ad928f02a2b14eee611e40d9078c454f4bad702f4c8d888c42dea3f307",
+        "src/define-graph.ts": "8241292ef4152dd41fadd7a89c98430884473f1cf33b2473a0ae2f86397a9169",
+        "src/host/events.ts": "9dcd4b461e5ed417461ba15eb6b14a0020178f33ab6b29678bde611f24c48161",
+        "src/host/graph-instance.ts": "64ca6d0e4cc9da106c1d6a38ec6318f91e682366da4346fa21f6beab5c95bdf6",
+        "src/index.ts": "57bc408da38af41d7f97bdd6842c98c8b33ad5d8ead10cd27b3f44c89e67ca86",
+        "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
+        "src/types.ts": "ac95f4e6f242b5f9d087775e554044143d855fb20778a7f143d774c52fb49a30"
+      },
+      "head": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
+      "outcome": "updated",
+      "reason": "New core skill written from src/ and the guide and API pages of 0.22.0.",
+      "evidence": [
+        "intent validate skills: all fences typechecked, two expect-error fences (TS2769, TS2345)",
+        "Consumer project from npm pack: intent list and intent load @bruno00o/graph#core resolve the skill",
+        "Fresh agent in a consumer project wrote a typed vanilla graph (click, add item, destroy) from the skill alone; tsc passes",
+        "Gaps it reported were fixed: CSS module types for the theme import, selection.clear(), ariaLabel required"
+      ]
+    },
+    "skill:skills/react/SKILL.md": {
+      "fingerprint": "81f069baa33b0b967f7b75b855ae8884d5f93a200f0eacdc7a7d84baa4c3f69d",
+      "snapshot": {
+        "docs/content/docs/(guide)/react.mdx": "4aee6531f0b6af11422ffcd81fe2d8404f8d1e078e0d509148aaed5560182d37",
+        "docs/content/docs/(guide)/typescript.mdx": "df686fed19d2d4f3b4497cc8fc2ca99cdc47513f24cbe3243f304d7efef7c56a",
+        "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
+        "docs/content/docs/api/graph-component.mdx": "7628501bcae0684a4ad5c4ff7eb5d1896b9eca23aaf202877a393b86cb38bfa9",
+        "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
+        "skills/react/SKILL.md": "63cf2a628b8c482e8ae3619276c8eff84096a4cb82cfebb7d7e75aff737ec2d5",
+        "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
+        "src/react/graph.tsx": "df8cc766ee6fc5b71761756eef895617d3629876725f2162d91305a3d0b824b4",
+        "src/react/index.tsx": "4dfe033539f8f1a751312e0510736e646b0d9fff2e3629c807d3536f0ada957c"
+      },
+      "head": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
+      "outcome": "updated",
+      "reason": "New react skill written from src/react and the React, TypeScript and hooks pages of 0.22.0.",
+      "evidence": [
+        "intent validate skills: all fences typechecked, two expect-error fences (TS2322, TS18046)",
+        "Consumer project from npm pack: intent load @bruno00o/graph#react resolves the skill",
+        "Fresh agent in a consumer project wrote <Graph> with a sibling hovered readout and a clear button from the skill alone; tsc passes",
+        "Gaps it reported were fixed: selection.clear() in the outside example, no InstanceOf export, needless mark name removed"
+      ]
+    },
+    "planning:_artifacts": {
+      "fingerprint": "ddb54ed584f148be15e8cfa17f92a4e941c1a2cd98f112351fd5e1b2d1667a85",
+      "snapshot": {
+        "_artifacts/domain_map.yaml": "9e5a2be0ad47c164fd38bc6faf1896e5c43cbb0fd104bf43951f253acd3f6892",
+        "_artifacts/skill_spec.md": "c22a64b909ea4ad6c3bc4f763c0bea2d17d5b745aa7ad3397931df676db597b1",
+        "_artifacts/skill_tree.yaml": "9e3ddd4b979b651a3e641e5bf08c5221bc6d17b407ae710d871a8eda88e8c113",
+        "docs/content/docs/(guide)/data.mdx": "cf42bfd6b09f0c050dedfc42cb4cffdf13444d2087c48c0c85d8ef7d877aa6eb",
+        "docs/content/docs/(guide)/installation.mdx": "e11452642f370a590e8b26fe189dd902f9615e7001bb8cc7ca1dbab3dd16e7aa",
+        "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
+        "docs/content/docs/(guide)/react.mdx": "4aee6531f0b6af11422ffcd81fe2d8404f8d1e078e0d509148aaed5560182d37",
+        "docs/content/docs/(guide)/states.mdx": "5e03adb0eef1276ba89f9b510dd71b07a0506ee488ed08e27c6c1b9a8d1848d3",
+        "docs/content/docs/(guide)/typescript.mdx": "df686fed19d2d4f3b4497cc8fc2ca99cdc47513f24cbe3243f304d7efef7c56a",
+        "docs/content/docs/(guide)/vanilla.mdx": "fc260ce0c3bc1bde2a469e881a44252de6890aca5fc94c2060cca14df29d1206",
+        "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
+        "docs/content/docs/api/define-graph.mdx": "549de25a140cbf46914a3af75c44e89a2ee44767065d797752d58e03498093e9",
+        "docs/content/docs/api/events.mdx": "9ff22e750c17e7ccabd64c3893d166b466b45f5dea70990016f8df62025180d1",
+        "docs/content/docs/api/graph-component.mdx": "7628501bcae0684a4ad5c4ff7eb5d1896b9eca23aaf202877a393b86cb38bfa9",
+        "docs/content/docs/api/graph-instance.mdx": "ea675d35ab607c14bb0b1f2bfa0a634987ce76a7817e415ae2d2af602a97eefa",
+        "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
+        "docs/content/docs/api/mount-graph.mdx": "636816faa64d56ac5bf915cb8cdbd291ed232e6e43b0bf43165f44764d069b15",
+        "skills/core/SKILL.md": "60ed80ce51cdd8e9bf3f6c3422c94d1f5985d3ddbce941331a7b9499ed1e11dc",
+        "skills/react/SKILL.md": "63cf2a628b8c482e8ae3619276c8eff84096a4cb82cfebb7d7e75aff737ec2d5",
+        "src/core/issues.ts": "ea61764286d5db82dfb7cb4ba5d3929f5eec6d17256321854e669eb18c5ddfcb",
+        "src/core/raw.ts": "d04297fb30d75cc597292405bcf74258cb0e62df5eeecd29305829e20b0b1dff",
+        "src/core/source-table.ts": "22ac89ad928f02a2b14eee611e40d9078c454f4bad702f4c8d888c42dea3f307",
+        "src/define-graph.ts": "8241292ef4152dd41fadd7a89c98430884473f1cf33b2473a0ae2f86397a9169",
+        "src/host/events.ts": "9dcd4b461e5ed417461ba15eb6b14a0020178f33ab6b29678bde611f24c48161",
+        "src/host/graph-instance.ts": "64ca6d0e4cc9da106c1d6a38ec6318f91e682366da4346fa21f6beab5c95bdf6",
+        "src/index.ts": "57bc408da38af41d7f97bdd6842c98c8b33ad5d8ead10cd27b3f44c89e67ca86",
+        "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
+        "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
+        "src/react/graph.tsx": "df8cc766ee6fc5b71761756eef895617d3629876725f2162d91305a3d0b824b4",
+        "src/react/index.tsx": "4dfe033539f8f1a751312e0510736e646b0d9fff2e3629c807d3536f0ada957c",
+        "src/types.ts": "ac95f4e6f242b5f9d087775e554044143d855fb20778a7f143d774c52fb49a30"
+      },
+      "head": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
+      "outcome": "updated",
+      "reason": "Foundation records: skill tree with eighteen skills (two written, sixteen planned in four batches), domain map and spec.",
+      "evidence": [
+        "intent maintainer sync: nothing to synchronize",
+        "Every non-glob source path in skill_tree.yaml exists in the repository",
+        "intent repair --json: no repairs, no problems"
+      ]
+    },
+    "source:docs/content/docs/(guide)/agent-skills.mdx": {
+      "fingerprint": "97b1e77e7aacbd90a3373380c8734329130bc69416708aea5deb374fce31e348",
+      "snapshot": {
+        "docs/content/docs/(guide)/agent-skills.mdx": "a6c1e33b5b6f83284b19930cc6b3114e556214db0a8b1c38ccf2dbcf14acf0fe"
+      },
+      "head": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
+      "outcome": "out-of-scope",
+      "reason": "Consumer page about installing and loading the skills with Intent; it documents distribution, not library behavior that a skill teaches.",
+      "evidence": [
+        "DOCS_BASE=/graph/ pnpm docs:build and pnpm docs:check-pages pass with the page in llms.txt and as Markdown"
+      ]
+    },
+    "source:docs/content/docs/(guide)/meta.json": {
+      "fingerprint": "35636c2c1aa5e251dc389360b77b05adc782770feac85989aa46228bf8dc5f7c",
+      "snapshot": {
+        "docs/content/docs/(guide)/meta.json": "e412d8468d3c0129361faaf6fcc2b3575dc31e6aa9ac9f4494114d9aeeb36b8c"
+      },
+      "head": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
+      "outcome": "out-of-scope",
+      "reason": "Adds the agent-skills page to the docs navigation.",
+      "evidence": [
+        "pnpm docs:check-pages: navigation and links checked"
+      ]
+    }
+  }
+}
