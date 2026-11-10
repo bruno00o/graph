@@ -260,11 +260,15 @@ skills:
     slug: tanstack-db
     domain: data-integrations
     path: skills/tanstack-db/SKILL.md
-    status: planned
-    description: Use when drawing a TanStack DB collection or live query with
-      @bruno00o/graph as it changes, filtering a large collection with subset,
-      loading rows on demand, or writing dragged node positions back to a
-      collection.
+    description: >
+      Use when drawing a TanStack DB collection or live query with
+      @bruno00o/graph and keeping the graph in step as rows are inserted,
+      updated and deleted, filtering one large collection with subset instead of
+      a live query, loading rows on demand from the server for the visible nodes
+      or the edges around chosen nodes, joining collections into nodes with a
+      live query, or writing the positions of dragged or laid out nodes back to
+      a collection, with optimistic writes, a pending state or a separate
+      positions collection.
     sources:
       - src/db/index.ts
       - src/db/subset.ts
@@ -274,28 +278,45 @@ skills:
       - docs/content/docs/api/persist-positions.mdx
     requires:
       - core
+    purpose: >
+      The @bruno00o/graph integration with TanStack DB: collections and live
+      queries as live sources, the subset helper, on-demand loading, and
+      persistPositions, with the mistakes that rewrite every node, leave edges
+      pointing at nothing or load a whole collection.
   - name: tanstack-query
     slug: tanstack-query
     domain: data-integrations
     path: skills/tanstack-query/SKILL.md
-    status: planned
-    description: Use when exploring a large graph one neighborhood at a time with
-      @bruno00o/graph and TanStack Query, expanding nodes on demand, showing
-      loading and error states, or retrying a failed expansion.
+    description: >
+      Use when exploring a large graph one neighborhood at a time with
+      @bruno00o/graph and TanStack Query: expanding a node on double-click to
+      fetch its neighbors, collapsing it to remove what nothing else holds,
+      keeping roots, showing which nodes are expanded or loading, listing failed
+      expansions and retrying them, caching neighborhoods with query options,
+      and typing the nodes and edges that createExploration returns.
     sources:
       - src/query/index.ts
       - docs/content/docs/(guide)/tanstack-query.mdx
       - docs/content/docs/api/create-exploration.mdx
     requires:
       - core
+    purpose: >
+      The @bruno00o/graph/query entry point: createExploration, which turns
+      neighborhood queries into two live sources and a store of expanded,
+      loading and failed nodes, with the mistakes that lose typing, leave roots
+      empty or hide errors.
   - name: cypher
     slug: cypher
     domain: data-integrations
     path: skills/cypher/SKILL.md
-    status: planned
-    description: Use when turning the result of a Cypher query from a graph database
-      driver or its JSON into @bruno00o/graph nodes and edges, with integers,
-      dates and points, or exploring a database one neighborhood at a time.
+    description: >
+      Use when drawing the result of a Cypher query from a graph database
+      driver, or its JSON copy sent by a backend, with @bruno00o/graph: turning
+      records, nodes, relationships and paths into nodes and edges, typing node
+      and relationship properties, keeping 64-bit integers, dates, durations and
+      spatial points usable, handling relationships whose end node was not
+      returned, merging several queries, and exploring a database one
+      neighborhood at a time with a query per expanded node.
     sources:
       - src/cypher/index.ts
       - src/cypher/values.ts
@@ -303,14 +324,22 @@ skills:
       - docs/content/docs/api/cypher-graph.mdx
     requires:
       - core
+    purpose: >
+      The @bruno00o/graph/cypher entry point: cypherGraph, which reads the
+      values of a Cypher result into deduplicated nodes and edges for the marks,
+      and how to combine it with createExploration, with the mistakes that lose
+      digits, leave edges waiting or break typing.
   - name: file-formats
     slug: file-formats
     domain: data-integrations
     path: skills/file-formats/SKILL.md
-    status: planned
-    description: Use when reading GraphML, GEXF, JSON Graph Format or CSV files into
-      @bruno00o/graph nodes and edges, handling their problems, or writing a
-      graph back to one of these formats.
+    description: >
+      Use when loading a GraphML, GEXF, JSON Graph Format or CSV file into
+      @bruno00o/graph nodes and edges, telling the formats apart, mapping the
+      positions, colors, sizes, parents and time a file carries onto marks,
+      typing the attributes of a file, reporting the data problems and
+      unreadable files, or saving a graph or its positions back to one of these
+      formats or converting between them.
     sources:
       - src/formats/index.ts
       - src/formats/types.ts
@@ -324,14 +353,23 @@ skills:
       - docs/content/docs/api/formats.mdx
     requires:
       - core
+    purpose: >
+      The @bruno00o/graph/formats entry point: the readers and writers of four
+      graph file formats, the shape of what they return, how a file becomes
+      marks, and how a graph becomes text again, with the mistakes that lose
+      positions, colors, edges or digits.
   - name: paths
     slug: paths
     domain: structure
     path: skills/paths/SKILL.md
-    status: planned
-    description: Use when finding the shortest path between two @bruno00o/graph
-      nodes, with weights and direction, every node within reach, highlighting
-      the result, or searching paths without mounting a graph.
+    description: >
+      Use when finding the shortest path between two @bruno00o/graph nodes,
+      weighted by an edge field or a function and following or ignoring edge
+      direction, listing every node within a number of hops or a cost budget of
+      one node, keeping a search out of some nodes or edges, searching the graph
+      as drawn with folded groups, highlighting the result with a state, framing
+      it, or running path queries with no mounted graph on a server, in a worker
+      or in a test.
     sources:
       - src/paths.ts
       - src/types.ts
@@ -339,6 +377,11 @@ skills:
       - docs/content/docs/api/paths.mdx
     requires:
       - core
+    purpose: >
+      The path queries of @bruno00o/graph: shortest and reach on a mounted graph
+      or on marks alone, their options (weight, direction, nodes, edges,
+      visible, maxCost), their results, and how to highlight a result, with the
+      mistakes that give no path, a thrown error or a wrong cost.
   - name: styling
     slug: styling
     domain: appearance
