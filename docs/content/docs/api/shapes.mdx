@@ -89,7 +89,7 @@ GeoJSON geometries are in degrees, `[longitude, latitude]`, projected like the `
 
 <api-table path="index.ts" name="MultiPolygonGeometry" />
 
-A point that is not finite is skipped, and so is a point equal to the one before it. A ring needs three points, a line two. A circle with a center in degrees is drawn on Earth: its radii are in meters, and it becomes a polygon of 128 points.
+A point that is not finite is skipped, and so is a point equal to the one before it. A ring needs three points, a line two. A circle with a center in degrees is drawn on Earth: its radii are in meters, and it becomes a polygon of 128 points. A circle in world units keeps its radii in world units, on a map too: see [Shapes on a map](/docs/map#shapes).
 
 ## Problems
 

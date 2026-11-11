@@ -221,15 +221,6 @@ describe('ShapeStore', () => {
     expect(store.marked).toBe(false)
   })
 
-  it('draws nothing where shapes are not shown', () => {
-    const { store, render } = setup()
-    store.shown = false
-    render([shapes([{ id: 'a', geometry: box(0) }])])
-    expect(store.count).toBe(1)
-    expect(store.any).toBe(false)
-    expect(store.drawOrder().length).toBe(0)
-  })
-
   it('keeps the engine of its shape marks, and warns once for a mark without one', () => {
     const { store, render } = setup()
     expect(store.engine).toBeNull()

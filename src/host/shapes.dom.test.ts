@@ -222,17 +222,17 @@ describe('shapes in a mounted graph', () => {
     expect(graph.view.get().y).toBeCloseTo(125)
   })
 
-  it('leaves the shapes out on a map and says so once in development', () => {
+  it('keeps the shapes on a map, without a warning', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { map } = fakeMap()
+    const { map, render } = fakeMap()
     const graph = mountMapGraph(map, {
       definition: defineGraph({ marks: [shapes(zones), nodes(items, { x: 'x', y: 'y' })] }),
       ariaLabel: 'map',
     })
-    dom.flushFrames()
-    expect(warn).toHaveBeenCalledWith('graph: shapes are not drawn on a map yet')
-    expect(internalsOf(graph, 'test').scene.shapes.any).toBe(false)
-    expect(graph.count()).toMatchObject({ shapes: 4, shown: { shapes: 0 } })
+    render()
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('map')
+    expect(internalsOf(graph, 'test').scene.shapes.any).toBe(true)
+    expect(graph.count()).toMatchObject({ shapes: 4, shown: { shapes: 2 } })
     graph.destroy()
   })
 })

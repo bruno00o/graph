@@ -1,0 +1,14 @@
+## How it works
+
+- One `shapes()` mark holds every shape, each with its own `geometry`: GeoJSON `Polygon` positions for the areas, the fourth one with a hole; `center` in degrees and `radius` in meters for the circles; a GeoJSON `LineString` for the dashed line, which is never filled.
+- Positions in degrees are projected like the `longitude` and `latitude` of the nodes, so the shapes line up with the places and with the basemap.
+- A ring or a line that crosses the antimeridian takes the short way between two points. On the flat map, the sixth area and the line are drawn on both sides of it, and they take the pointer on both sides.
+- On the globe, long edges are split to follow the surface of the Earth, and the part of a shape behind the horizon is hidden: the circles stay round on the sphere.
+- A click on a shape or a node selects it; `selectionchange` puts the selection in the `chosen` state, whose `others` fades every other node, edge and shape.
+- **Frame the antimeridian** calls `graph.view.fit({ shapes })` on the two shapes that cross it, and the map moves to them.
+
+## Try it
+
+- Press **Projection** to switch between the globe and the flat map: the shapes keep their place.
+- On the flat map, pan across the antimeridian: the sixth area and the line stay whole on both sides.
+- Hold Shift and drag around a circle: the lasso takes the shapes whose every point is inside it.

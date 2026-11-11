@@ -30,6 +30,7 @@ import { edgeShown, nodeShown, type Sight, shapeShown } from '../core/visibility
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
+import { glyphStride } from './glyph-attributes'
 import {
   edgeDescent,
   edgeLabelGap,
@@ -44,9 +45,8 @@ import {
   uprightSlack,
 } from './shaders'
 
-export const glyphStride = 40
 export const lineHeight = 1.25
-export { secondaryFactor }
+export { glyphStride, secondaryFactor }
 
 const labelMin = 8
 const cell = 8

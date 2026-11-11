@@ -1,5 +1,6 @@
 import type { Attribute } from './gl'
-import { glyphStride } from './label-layer'
+
+export const glyphStride = 40
 
 export function glyphAttributes(
   gl: WebGL2RenderingContext,

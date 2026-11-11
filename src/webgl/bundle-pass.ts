@@ -7,9 +7,8 @@ import { bundleCorners, bundleVertexOf } from './bundle-shaders'
 import { warnLimit } from './caps'
 import { type Attribute, createBuffer, createProgram, createVertexArray } from './gl'
 import { clippedEdgeFragment, edgeFragmentOf } from './shaders'
+import { bundleUnits } from './texture-units'
 import { waypointVertex, waypointWindow, waypointWindowShift } from './waypoint-shaders'
-
-export const bundleUnits = { edgePath: 12, bundlePoints: 13, pathStations: 19 } as const
 
 type Draw = (
   program: WebGLProgram,

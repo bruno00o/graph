@@ -23,6 +23,7 @@ export interface ShapeGeometryData {
   readonly maxY: number
   readonly round: Float64Array | null
   readonly invalid: InvalidShapeReason | null
+  readonly geo?: boolean
 }
 
 export interface ShapeLayerInput {
@@ -39,7 +40,7 @@ export interface ShapeGlyphs {
 
 export interface ShapeLayer {
   sync(input: ShapeLayerInput): boolean
-  draw(layers: LayerFilter | null): void
+  draw(layers: LayerFilter | null, globe?: boolean): void
   labels(set: object, main: ShapeGlyphs, highlight: ShapeGlyphs): void
   drawLabels(set: object, pass: number, layers: LayerFilter | null): void
   forget(set: object): void

@@ -3,11 +3,11 @@ import { type ShapeGlyphs, type ShapeLayer, shapeKinds } from '../core/shape-eng
 import { type ShapeStore, unpinned } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import { openTime } from '../core/time-range'
+import { onSphere } from '../shapes/subdivide'
+import { withCopies } from '../shapes/wrap'
 import { createBuffer, createProgram, createVertexArray, DataTexture, formats } from './gl'
 import { atlasFontSize } from './glyph-atlas'
-import { glyphAttributes } from './glyph-attributes'
-import { glyphStride } from './label-layer'
-import { sharedUnits as units } from './renderer'
+import { glyphAttributes, glyphStride } from './glyph-attributes'
 import { cornerLabel, labelFragment } from './shaders'
 import {
   pinned,
@@ -30,7 +30,9 @@ import {
   shapeTimed,
   shapeTimeUnit,
   shapeZoomUnit,
+  sphereVariant,
 } from './shape-shaders'
+import { textureUnits as units } from './texture-units'
 
 interface Run {
   readonly round: boolean
@@ -132,12 +134,14 @@ export function createShapeLayer(
   let raisedFor: readonly number[] | null = null
   let raisedVersion = -1
   let pinnedAt = new Uint8Array(0)
-  let pinnedPrograms: Programs | null = null
+  let variants: (Programs | null)[] = [null, null, null]
   let place: DataTexture<Float32Array> | null = null
   let placeKey = ''
   let labelPass: LabelPass | null = null
   let shown: ShapeStore | null = null
   const labelSets = new Map<object, LabelBuffers>()
+  let sphere = false
+  let built: ShapeStore | null = null
 
   function program(vertex: string, fragment: string): Pass {
     const made = createProgram(gl, vertex, fragment, blocks)
@@ -216,17 +220,27 @@ export function createShapeLayer(
     return passes
   }
 
-  function pinnedPasses(): Programs {
-    pinnedPrograms ??= {
-      fill: program(pinned(shapeFillVertex), shapeFillFragment),
-      stroke: program(pinned(shapeStrokeVertex), shapeStrokeFragment),
-      round: program(pinned(shapeRoundVertex), shapeRoundFragment),
+  function variantOf(made: Passes, pin: boolean): Programs {
+    if (!pin && !sphere) return made
+    const at = (pin ? 0 : 1) + (sphere ? 1 : 0)
+    const known = variants[at]
+    if (known) return known
+    const vertex = (source: string) => {
+      const placed = pin ? pinned(source) : source
+      return sphere ? sphereVariant(placed) : placed
     }
-    return pinnedPrograms
+    const fragment = (source: string) => (sphere ? sphereVariant(source) : source)
+    const set: Programs = {
+      fill: program(vertex(shapeFillVertex), fragment(shapeFillFragment)),
+      stroke: program(vertex(shapeStrokeVertex), fragment(shapeStrokeFragment)),
+      round: program(vertex(shapeRoundVertex), shapeRoundFragment),
+    }
+    variants[at] = set
+    return set
   }
 
   function passOf(made: Passes, kind: keyof Programs, pin: boolean): Pass {
-    return pin ? pinnedPasses()[kind] : made[kind]
+    return variantOf(made, pin)[kind]
   }
 
   function writePlace(store: ShapeStore, originX: number, originY: number): void {
@@ -370,6 +384,7 @@ export function createShapeLayer(
   }
 
   function build(store: ShapeStore, baseX: number, baseY: number, made: Passes): void {
+    built = store
     const fill = new Packer(1024)
     const indices = new Packer(1024)
     const stroke = new Packer(1024)
@@ -400,12 +415,13 @@ export function createShapeLayer(
       })
     }
     for (const index of store.drawOrder()) {
-      const geometry = store.geometry[index]
-      if (!geometry) continue
+      const read = store.geometry[index]
+      if (!read) continue
+      const pin = store.pinned(index)
+      const geometry = read.round ? read : sphere ? onSphere(read) : pin ? read : withCopies(read)
       rank[index] = ++position
       const isRound = geometry.round !== null
       const slot = store.slot[index] ?? 0
-      const pin = store.pinned(index)
       pinnedAt[index] = pin ? 1 : 0
       const originX = pin ? 0 : baseX
       const originY = pin ? 0 : baseY
@@ -530,13 +546,14 @@ export function createShapeLayer(
     gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(stroke.bytes, 0, stroke.used * 4), gl.STATIC_DRAW)
     gl.bindBuffer(gl.ARRAY_BUFFER, made.roundBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(round.bytes, 0, round.used * 4), gl.STATIC_DRAW)
-    gl.bindVertexArray(null)
+    gl.bindVertexArray(made.fillVao)
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, made.indexBuffer)
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
       new Uint8Array(indices.bytes, 0, indices.used * 4),
       gl.STATIC_DRAW,
     )
+    gl.bindVertexArray(null)
   }
 
   function use(pass: Pass, hidden: Uint32Array, shapePass: number): void {
@@ -650,9 +667,14 @@ export function createShapeLayer(
       return changed
     },
 
-    draw(layers: LayerFilter | null) {
-      if (!passes || runs.length === 0) return
+    draw(layers: LayerFilter | null, onGlobe = false) {
+      if (!passes) return
       const made = passes
+      if (onGlobe !== sphere) {
+        sphere = onGlobe
+        if (built) build(built, shownX, shownY, made)
+      }
+      if (runs.length === 0) return
       const hidden = layers ? layers.masks.subarray(8, 12) : noHidden
       bind(made)
       drawRuns(made, hidden, 0)
@@ -704,10 +726,11 @@ export function createShapeLayer(
         gl.deleteBuffer(labelPass.corner)
         labelPass = null
       }
-      if (pinnedPrograms) {
-        for (const made of Object.values(pinnedPrograms)) gl.deleteProgram(made.program)
-        pinnedPrograms = null
+      for (const set of variants) {
+        if (set)
+          for (const made of [set.fill, set.stroke, set.round]) gl.deleteProgram(made.program)
       }
+      variants = [null, null, null]
       place?.destroy()
       place = null
       placeKey = ''
@@ -728,6 +751,7 @@ export function createShapeLayer(
         texture.destroy()
       }
       passes = null
+      built = null
       capacity = 0
     },
   }

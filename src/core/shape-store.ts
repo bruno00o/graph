@@ -176,7 +176,6 @@ export class ShapeStore {
   points = 0
   triangles = 0
   readTime = 0
-  shown = true
   engine: ShapeEngine | null = null
   labels: ShapeLabels | null = null
   labelVersion = 0
@@ -205,7 +204,7 @@ export class ShapeStore {
   }
 
   get any(): boolean {
-    return this.shown && this.count > 0
+    return this.count > 0
   }
 
   get marked(): boolean {
@@ -309,7 +308,7 @@ export class ShapeStore {
     if (this.#order && this.#ordered === this.version) return this.#order
     const indices: number[] = []
     const pins = this.pinNode
-    for (let index = 0; this.shown && index < this.capacity; index++) {
+    for (let index = 0; index < this.capacity; index++) {
       if (this.alive[index] !== 1 || !isDrawn(this.geometry[index])) continue
       if (!pins || pins[index] !== pendingPin) indices.push(index)
     }

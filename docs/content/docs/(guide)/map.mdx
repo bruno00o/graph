@@ -256,9 +256,45 @@ Positions are stored relative to an origin that follows the camera, so nodes sit
 
 Places that share coordinates, or that overlap at the zoom of the map, are [spread](/docs/groups#spread-children) when their group unfolds: they move apart around their place, a few pixels from each other, and keep that gap as the map zooms, on the globe too. Their coordinates do not change, and they go back to their place when the group folds. Pass `container: { spread: false }` to `groups()` to keep them stacked, and `gap` to change the space between them. Near the horizon of the globe, the gaps shrink with the curve of the Earth.
 
+## Shapes
+
+[Shapes](/docs/shapes) draw on the map, flat or on the globe, at their place in the graph: under containers, hulls, edges and nodes, above the basemap. Give their geometry in degrees, as GeoJSON or with `{ longitude, latitude }` points, and they line up with the basemap and with the nodes placed by coordinates. A circle around a place in degrees takes its radii in meters, and is drawn as a polygon of 128 points that follows the surface of the Earth.
+
+```ts
+import { defineGraph, nodes, type ShapeGeometry } from '@bruno00o/graph'
+import { mountMapGraph } from '@bruno00o/graph/map'
+import { shapes } from '@bruno00o/graph/shapes'
+
+type Area = { id: string; geometry: ShapeGeometry }
+
+const areas: Area[] = [
+  {
+    id: 'coast',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[[-5, 43], [8, 43], [8, 51], [-5, 51], [-5, 43]]],
+    },
+  },
+  { id: 'reach', geometry: { center: { longitude: 2.35, latitude: 48.86 }, radius: 250_000 } },
+]
+
+mountMapGraph(map, {
+  definition: defineGraph({
+    marks: [shapes(areas), nodes(places, { longitude: 'lon', latitude: 'lat' })],
+  }),
+  ariaLabel: 'Areas and places',
+})
+```
+
+- A ring or a line that crosses the antimeridian takes the short way, from one point to the next. On a flat map, a shape that crosses it is drawn, picked and taken by the lasso on both sides.
+- On the globe, outlines and fills follow the surface: edges longer than 8 world units, about 5.6 degrees at the equator, are split into shorter ones, once per geometry. The part of a shape behind the horizon is neither drawn nor picked.
+- A geometry in world units, `{ x, y }` points or a rectangle, stays in world units: on a map of 512 world units, a rectangle 100 units wide covers a fifth of the Earth. Circles and rectangles in world units keep their exact curve on a flat map.
+- Selection, hover, states, `others`, `hide`, zoom ranges, the time window and layers work as on any graph. `exportMapPng` draws the shapes with the graph.
+- [Labels](/docs/shapes#labels) show on the map, once per shape. A shape [pinned to a node](/docs/shapes#pin-shapes-to-nodes) follows it, flat or on the globe, with its geometry in world units around the node: a ring of radius 2 spans about 1.4 degrees of longitude.
+
 ## What is left out
 
-On a map, the definition keeps its marks, states, scales, labels, images, badges, flows, hulls, groups, [time window](/docs/time) and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
+On a map, the definition keeps its marks, states, scales, labels, images, badges, flows, hulls, groups, shapes, [time window](/docs/time) and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
 
 - `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units. A node without coordinates is placed near its placed neighbors, or on a spiral. In development, a layout in the definition logs a warning, and `graph.layout.run` rejects.
 - `background`, `bundling`, `routing` and `bridges`.

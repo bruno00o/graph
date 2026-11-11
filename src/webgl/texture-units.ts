@@ -1,0 +1,25 @@
+export const bundleUnits = { edgePath: 12, bundlePoints: 13, pathStations: 19 } as const
+
+export const textureUnits = {
+  palette: 0,
+  nodePosition: 1,
+  nodeStyle: 2,
+  nodePaint: 3,
+  nodeState: 4,
+  edgeTopology: 5,
+  edgeStyle: 6,
+  edgeState: 7,
+  atlas: 8,
+  images: 9,
+  nodeDecor: 10,
+  nodeBox: 11,
+  edgePath: 12,
+  bundlePoints: 13,
+  nodeZoom: 14,
+  edgeZoom: 15,
+  nodeTime: 16,
+  edgeTime: 17,
+  edgeEnds: 18,
+  pathStations: 19,
+  bridgeData: 20,
+} as const

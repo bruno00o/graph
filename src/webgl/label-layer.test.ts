@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { arrowCodes, containerShape, EdgeColumns, NodeColumns, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
+import { geoToWorld } from '../core/geo'
 import { createGraphModel } from '../core/graph-model'
 import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
@@ -8,6 +9,7 @@ import type { ShapeStore } from '../core/shape-store'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
+import { globeCamera } from '../testing/globe'
 import type { GraphDefinition, ShapeGeometry } from '../types'
 import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
 import {
@@ -878,5 +880,36 @@ describe('shape labels', () => {
       atlas,
     )
     expect(anchors).toEqual([[700, 400]])
+  })
+
+  it('anchors the label of a pinned shape at its node on the globe, never on the far side', () => {
+    const scene = sceneOf(
+      [
+        { id: 'front', geometry: { x: -1, y: -1, width: 2, height: 2 }, name: 'f', node: 'a' },
+        { id: 'back', geometry: { x: -1, y: -1, width: 2, height: 2 }, name: 'b', node: 'b' },
+      ],
+      12,
+      ['a', 'b'],
+    )
+    const front = geoToWorld({ longitude: -70, latitude: -20 })
+    const back = geoToWorld({ longitude: 110, latitude: 20 })
+    const positions = new Positions()
+    positions.set(0, front.x, front.y)
+    positions.set(1, back.x, back.y)
+    const shot = { longitude: -70, latitude: -20, zoom: 3, width: 800, height: 600 }
+    const anchors: [number, number][] = []
+    const layer = new LabelLayer()
+    layer.select(
+      {
+        ...frameOf(scene.nodes, positions, scene.shapes),
+        view: { x: front.x, y: front.y, zoom: 8 },
+        globe: globeCamera(shot),
+        sink: { node: () => {}, edge: () => {}, shape: (_, __, x, y) => anchors.push([x, y]) },
+      },
+      atlas,
+    )
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0]?.[0]).toBeCloseTo(400)
+    expect(anchors[0]?.[1]).toBeCloseTo(300)
   })
 })

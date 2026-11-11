@@ -156,6 +156,55 @@ describe('readShape', () => {
     expect(Array.from(multi.rings)).toEqual([2, 4])
   })
 
+  it('unwraps holes and parts from the first point of the shape, and marks shapes in degrees', () => {
+    const island = read({
+      type: 'Polygon',
+      coordinates: [
+        [
+          [175, -10],
+          [-175, -10],
+          [-175, 0],
+          [175, 0],
+          [175, -10],
+        ],
+        [
+          [-179, -6],
+          [179, -6],
+          [179, -4],
+          [-179, -4],
+          [-179, -6],
+        ],
+      ],
+    })
+    expect(island.geo).toBe(true)
+    expect(island.minX).toBeCloseTo(projectLongitude(175))
+    expect(island.maxX).toBeCloseTo(projectLongitude(185))
+    expect(island.invalid).toBeNull()
+    const parts = read({
+      type: 'MultiPolygon',
+      coordinates: [
+        [
+          [
+            [170, 0],
+            [178, 0],
+            [178, 5],
+          ],
+        ],
+        [
+          [
+            [-178, 0],
+            [-170, 0],
+            [-170, 5],
+          ],
+        ],
+      ],
+    })
+    expect(parts.maxX).toBeCloseTo(projectLongitude(190))
+    expect(parts.minX).toBeCloseTo(projectLongitude(170))
+    expect(read({ rings: [square] }).geo).toBeFalsy()
+    expect(read({ center: { x: 0, y: 0 }, radius: 3 }).geo).toBeFalsy()
+  })
+
   it('reads open and closed paths', () => {
     const open = read({ points: square })
     expect(open.kind).toBe(shapeKinds.line)
@@ -201,6 +250,27 @@ describe('readShape', () => {
     const ring = read({ center: { longitude: 0, latitude: 0 }, radius: 111_195, inner: 55_000 })
     expect(Array.from(ring.rings)).toEqual([128, 256])
     expect(ring.invalid).toBeNull()
+    expect(ring.geo).toBe(true)
+  })
+
+  it('draws a circle around a place at its radius in meters on Earth, across the antimeridian', () => {
+    const meters = 500_000
+    const circle = read({ center: { longitude: 179.5, latitude: 60 }, radius: meters })
+    const toRadians = Math.PI / 180
+    for (let k = 0; k < (circle.rings[0] ?? 0); k += 16) {
+      const x = circle.points[k * 2] ?? 0
+      const y = circle.points[k * 2 + 1] ?? 0
+      const longitude = (x / 512) * 360 - 180
+      const latitude = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 512))) / toRadians
+      const dLat = (latitude - 60) * toRadians
+      const dLon = (longitude - 179.5) * toRadians
+      const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(60 * toRadians) * Math.cos(latitude * toRadians) * Math.sin(dLon / 2) ** 2
+      expect(2 * 6_371_008.8 * Math.asin(Math.sqrt(h))).toBeCloseTo(meters, -1)
+    }
+    expect(circle.maxX).toBeGreaterThan(512)
+    expect(circle.minX).toBeLessThan(512)
   })
 
   it('reads rectangles from their top left corner, with corners bounded', () => {

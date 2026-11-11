@@ -98,7 +98,6 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   let pendingView: View | null = null
   let warned = false
   let warnedLayout = false
-  let warnedShapes = false
   const claimed = { dragPan: false, boxZoom: false }
   let doubleClick = false
   holdNorth(map)
@@ -141,10 +140,6 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       console.warn(
         'graph: layouts do not run on a map, nodes without coordinates stay near their neighbors',
       )
-    }
-    if (dev && !warnedShapes && definition.marks.some((mark) => mark.type === 'shapes')) {
-      warnedShapes = true
-      console.warn('graph: shapes are not drawn on a map yet')
     }
     return {
       ...definition,
