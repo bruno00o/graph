@@ -44,11 +44,13 @@ Graphs register themselves when they mount, whatever mounted them: `mountGraph`,
 | Section | Content |
 | --- | --- |
 | Performance | Frames per second, the time of the last frame, a chart of the last 120 frames against a 60 Hz budget, the last durations of `flush`, of the scene update and of the renderer `sync` and `render`, the time of the last label selection, the labels drawn and an estimate of texture memory |
-| Elements | Node and edge counts, pending edges (edges waiting for an endpoint) and the problems present in the data, such as duplicate keys, as [`graph.issues()`](/docs/data#problems-in-the-data) returns them, including those found before the panel opened |
+| Elements | Node, edge and [shape](/docs/shapes) counts (the shape count is 0 without a `shapes()` mark), pending edges (edges waiting for an endpoint) and the problems present in the data, such as duplicate keys or a shape that cannot be read, as [`graph.issues()`](/docs/data#problems-in-the-data) returns them, including those found before the panel opened |
 | View | Center, zoom and size of the canvas |
-| Interaction | Selection counts, hovered and focused element |
+| Interaction | Selection counts, hovered and focused element, which can be a shape |
 | Named states | How many nodes and edges each state holds |
 | Layout | The running layout and its progress, then the name and duration of the last runs |
+
+The selection and named state counts are of nodes and edges: the shapes a selection or a state holds are not counted there.
 
 Times are measured on the main thread around each step of a frame. They do not include the time the GPU takes to draw, and browsers round `performance.now()` to a tenth of a millisecond or more. A graph only draws when something changes, so the frame rate drops to idle when nothing moves.
 
@@ -90,5 +92,7 @@ const plugin = graphDevtoolsPlugin({
   },
 })
 ```
+
+The texts that name shapes are `shapes` for the count, `shapeIssue` for the problems of a shape and `shapeTarget` for a hovered or focused shape.
 
 See [Devtools](/docs/api/devtools) for the full list.

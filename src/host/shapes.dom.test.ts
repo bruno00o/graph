@@ -5,7 +5,7 @@ import { nodes } from '../marks'
 import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { fakeMap } from '../testing/map'
-import type { ShapeGeometry } from '../types'
+import type { Layout, LayoutGraph, ShapeGeometry } from '../types'
 import { internalsOf } from './internals'
 import { createGraphHost } from './mount-graph'
 
@@ -38,6 +38,41 @@ const zones: Zone[] = [
 ]
 
 let dom: FakeDom
+
+function gliding(): Layout {
+  return {
+    name: 'gliding',
+    options: {},
+    start: (graph: LayoutGraph, listener) => {
+      const xy = new Float32Array(graph.xy)
+      for (let index = 0; index < graph.capacity; index++) {
+        if (graph.movable[index] !== 1) continue
+        xy[index * 2] = index * 100
+        xy[index * 2 + 1] = index * 100
+      }
+      queueMicrotask(() => listener.end(xy))
+      return { pin: () => {}, stop: () => {} }
+    },
+  }
+}
+
+function mountLaidOut(layout: Layout | null) {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const graph = createGraphHost(
+    container,
+    {
+      definition: defineGraph({
+        marks: [shapes(zones), nodes([{ id: 'a' }, { id: 'b' }])],
+        layout,
+      }),
+      ariaLabel: 'graph',
+    },
+    () => fakeRenderer(),
+  )
+  dom.flushFrames()
+  return graph
+}
 
 function mount(withShapes = true, view = {}) {
   const container = document.createElement('div')
@@ -117,6 +152,34 @@ describe('shapes in a mounted graph', () => {
     graph.view.fit({ shapes: ['broken', 'missing'] })
     dom.flushFrames()
     expect(graph.view.get().x).toBeCloseTo(-10)
+  })
+
+  it('frames the shapes after a run whose result glides', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const graph = mountLaidOut(null)
+    const layout = gliding()
+    const done = graph.layout.run(layout, { fit: true })
+    await Promise.resolve()
+    dom.flushFrames()
+    await done
+    expect(graph.view.get().x).toBeCloseTo(0)
+    expect(graph.view.get().y).toBeCloseTo(125)
+    graph.view.set({ x: 0, y: 0, zoom: 1 })
+    const only = graph.layout.run(layout, { fit: { shapes: ['small'] } })
+    await Promise.resolve()
+    dom.flushFrames()
+    await only
+    expect(graph.view.get().x).toBeCloseTo(300)
+    expect(graph.view.get().y).toBeCloseTo(300)
+  })
+
+  it('frames the shapes after the first layout, whose result glides', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const graph = mountLaidOut(gliding())
+    await Promise.resolve()
+    dom.flushFrames()
+    expect(graph.view.get().x).toBeCloseTo(0)
+    expect(graph.view.get().y).toBeCloseTo(125)
   })
 
   it('frames a graph of shapes alone', () => {

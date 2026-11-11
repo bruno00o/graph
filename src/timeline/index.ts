@@ -51,7 +51,7 @@ export interface TimelineOptions {
   readonly loop?: boolean | undefined
   /**
    * Time range the bar covers, in milliseconds or dates. An end left out or `null` comes from the
-   * data: the earliest start and the latest end among nodes and edges.
+   * data: the earliest start and the latest end among nodes and edges, never shapes.
    */
   readonly extent?: TimeWindowInput | null | undefined
 }
@@ -89,7 +89,7 @@ export interface TimelineTick {
 
 /** State of a timeline: extent and range of the bar, histogram, ticks, window and playback. */
 export interface TimelineState {
-  /** Time range of the data, or of the `extent` option, or `null` when no element has time. */
+  /** Time range of the nodes and edges, or of the `extent` option, or `null` when none has time. */
   readonly extent: TimeRange | null
   /** Time range the bar shows: the extent, or a part of it after `zoom`. */
   readonly range: TimeRange | null

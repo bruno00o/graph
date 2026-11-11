@@ -124,7 +124,9 @@ A timeline follows a graph on a map the same way: see [Map](/docs/map#time) and 
 
 Bins follow the calendar: a day, a week starting on Monday, a month, a year, or a multiple of them, chosen so that the bar holds about `bins` of them. A bin counts the nodes and the edges whose time meets it, the same way the window does, so a bin brushed alone shows what it counts. An edge counts over the time when it and both its ends exist. Elements without time are not counted.
 
-The extent goes from the earliest start to the latest end of the data. Pass `extent` to fix one end or both, for instance to show the whole of a year or to end at today.
+[Shapes](/docs/shapes) follow the window like any element, but the timeline counts only nodes and edges: it draws no bar for a shape, and the extent ignores their times.
+
+The extent goes from the earliest start to the latest end of the nodes and edges. A graph whose only times are on shapes has no extent, unless you pass one. Pass `extent` to fix one end or both, for instance to show the whole of a year or to end at today.
 
 ### Brush, step and play
 

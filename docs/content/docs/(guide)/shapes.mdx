@@ -8,10 +8,12 @@ description: Areas, rings, rectangles and lines drawn under the graph, from your
 A shape mark draws free shapes under the nodes and the edges: polygons with holes, discs and rings, rectangles, and lines. Unlike [hulls and containers](/docs/drawing-layers), which follow nodes, a shape has its own geometry, given by your data in world units or in degrees. Shapes are elements of the graph: they come from a mark, with keys, live sources, `issues()` and `count()`, and the exports draw them.
 
 ```ts
-import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, nodes, type ShapeGeometry } from '@bruno00o/graph'
 import { shapes } from '@bruno00o/graph/shapes'
 
-const zones = [
+type Zone = { id: string; geometry: ShapeGeometry }
+
+const zones: Zone[] = [
   { id: 'north', geometry: { rings: [[[0, 0], [400, 0], [400, 300], [0, 300]]] } },
   { id: 'pond', geometry: { center: { x: 600, y: 150 }, radius: 120, inner: 60 } },
   { id: 'path', geometry: { points: [{ x: 0, y: 360 }, { x: 700, y: 330 }] } },
@@ -30,7 +32,7 @@ defineGraph({
 
 ## Geometries
 
-`geometry`, the `geometry` field by default, takes one of these forms:
+`geometry`, the `geometry` field by default, takes one of these forms. Without the option, the items must have a `geometry` field of type `ShapeGeometry` or `null`, as they need an `id` field without `key`: type the data, as above, so that points are tuples and not `number[]`. A `geometry` function can build the geometry from any field.
 
 | Form | Draws |
 | --- | --- |
