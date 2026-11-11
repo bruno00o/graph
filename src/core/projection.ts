@@ -1,3 +1,4 @@
+import { dev } from '../dev'
 import type {
   AggregateDirection,
   AggregateEdge,
@@ -68,6 +69,10 @@ function ruleOf(option: boolean | EdgeMergeOptions<unknown> | undefined): MergeR
     halves: given.directed === false && given.halves === true,
     min: Number.isFinite(min) ? Math.max(1, Math.floor(min)) : defaultMin,
   }
+}
+
+function ignoresHalves(option: boolean | EdgeMergeOptions<unknown> | undefined): boolean {
+  return typeof option === 'object' && option.halves === true && option.directed !== false
 }
 
 function sameRule(a: MergeRule | null | undefined, b: MergeRule | null | undefined): boolean {
@@ -291,6 +296,7 @@ export class Projection {
   containerVersion = 0
   readonly #model: GraphModel
   #active = false
+  #warnedHalves = false
   #from: Int32Array = new Int32Array(0)
   #to: Int32Array = new Int32Array(0)
   #outNext: Int32Array = new Int32Array(0)
@@ -364,6 +370,7 @@ export class Projection {
     edgeMarks.forEach((mark, slot) => {
       if (!slots.has(mark)) slots.set(mark, slot)
       const known = this.#rules[slot]
+      this.#checkHalves(mark.options.merge)
       const given = ruleOf(mark.options.merge)
       const rule = known !== undefined && sameRule(given, known) ? known : given
       rules.push(rule)
@@ -598,11 +605,20 @@ export class Projection {
     restyle.clear()
   }
 
+  #checkHalves(option: boolean | EdgeMergeOptions<unknown> | undefined): void {
+    if (!dev || this.#warnedHalves || !ignoresHalves(option)) return
+    this.#warnedHalves = true
+    console.warn(
+      'graph: merge.halves has no effect without directed: false, use merge: { directed: false, halves: true }',
+    )
+  }
+
   #slotOf(mark: EdgeMark<unknown>): number {
     const known = this.#slots.get(mark)
     if (known !== undefined) return known
     const slot = this.#rules.length
     this.#slots.set(mark, slot)
+    this.#checkHalves(mark.options.merge)
     const rule = ruleOf(mark.options.merge)
     this.#rules.push(rule)
     this.#looks.push(mark.options.aggregate)

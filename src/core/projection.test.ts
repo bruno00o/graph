@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import type { AggregateEdge, GraphDefinitionOptions, Key } from '../types'
@@ -414,6 +414,7 @@ describe('Projection merges', () => {
     const plain = setup(merging({ directed: false }))
     expect(plain.projection.halvedAt(plain.projection.edgeIndexOf('ab1'))).toBe(false)
     expect(plain.scene.edges.ends).toBeNull()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const directed = setup(merging({ halves: true }))
     expect(directed.projection.halvedAt(directed.projection.edgeIndexOf('ab1'))).toBe(false)
     expect(directed.projection.keysAt(directed.projection.edgeIndexOf('ab1'), 'target')).toEqual([
@@ -421,6 +422,60 @@ describe('Projection merges', () => {
       'ab2',
       'ab3',
     ])
+    warn.mockRestore()
+  })
+
+  describe('halves without undirected merging', () => {
+    const message =
+      'graph: merge.halves has no effect without directed: false, use merge: { directed: false, halves: true }'
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+      vi.resetModules()
+      vi.doUnmock('../dev')
+    })
+
+    it('warns once in development', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { render } = setup(merging({ halves: true }))
+      expect(warn.mock.calls).toEqual([[message]])
+      render(merging({ halves: true, min: 3 }))
+      render(merging({ directed: true, halves: true }))
+      expect(warn).toHaveBeenCalledTimes(1)
+    })
+
+    it('warns when directed comes from a variable', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const flag = (): boolean | undefined => undefined
+      setup(merging({ directed: flag(), halves: true }))
+      expect(warn.mock.calls).toEqual([[message]])
+    })
+
+    it('stays silent with directed: false, without halves, or with halves: false', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      setup(merging({ directed: false, halves: true }))
+      setup(merging({ directed: false }))
+      setup(merging({ halves: false }))
+      setup(merging({ directed: true }))
+      setup(merging(true))
+      setup(merging(undefined))
+      expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('stays silent in production', async () => {
+      vi.resetModules()
+      vi.doMock('../dev', () => ({ dev: false }))
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { Projection: Quiet } = await import('./projection')
+      const { createGraphModel: create } = await import('./graph-model')
+      const { defineGraph: define } = await import('../define-graph')
+      const model = create()
+      const projection = new Quiet(model)
+      const definition = define(merging({ halves: true }))
+      model.setMarks(definition.marks)
+      projection.setMarks(definition.marks)
+      expect(warn).not.toHaveBeenCalled()
+    })
   })
 
   it('splits halves where the ends of the aggregate split', () => {

@@ -30,7 +30,7 @@ const definition = defineGraph({
   marks: [
     edges(links, { source: 'from', target: 'to' }),
     nodes(items, { name: 'item', label: 'label' }),
-    nodes(groups, { name: 'group', label: 'title' }),
+    nodes(topics, { name: 'topic', label: 'title' }),
   ],
 })
 const graph = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
@@ -40,8 +40,8 @@ graph.on('click', ({ target }) => {
   switch (target.mark) {
     case 'item':
       return showItem(target.datum)
-    case 'group':
-      return showGroup(target.datum)
+    case 'topic':
+      return showTopic(target.datum)
   }
 })
 ```
@@ -95,7 +95,7 @@ To write the types yourself, take the marks of a definition, or spell them out:
 
 ```ts
 type Marks = (typeof definition.marks)[number]
-type SameMarks = NodeMark<Item, 'item'> | NodeMark<Group, 'group'> | EdgeMark<Link, undefined>
+type SameMarks = NodeMark<Item, 'item'> | NodeMark<Topic, 'topic'> | EdgeMark<Link, undefined>
 ```
 
 A mark with a `layer` takes its name as a third parameter: `EdgeMark<Link, undefined, 'routes'>`. Left out, it is `undefined`, a mark outside any layer. `LayerName<Marks>` is the union of the layer names, which `graph.layers` accepts.

@@ -720,7 +720,8 @@ export interface EdgeMergeOptions<T> {
    * halves at the `split` of its `ends`: the half next to `target` stands for `forward`, the half
    * next to `source` for `backward`. A click or hover on a half acts on the edges of its direction
    * alone, and each half shows the states its own edges carry. An aggregated edge with edges one
-   * way only stays whole.
+   * way only stays whole. Without `directed: false` the option has no effect, and development
+   * builds warn once per graph.
    * @default false
    */
   readonly halves?: boolean | undefined

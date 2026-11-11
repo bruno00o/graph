@@ -46,6 +46,8 @@ See [`cypherGraph`](/docs/api/cypher-graph) for the types and options.
 When a server runs the query, send the driver's values as JSON and give the parsed body to `cypherGraph`. Nodes, relationships, paths and rows keep the fields the adapter reads after `JSON.stringify`, so the browser gets the same graph as if it had called the driver.
 
 ```ts
+import { cypherGraph } from '@bruno00o/graph/cypher'
+
 const response = await fetch('/api/graph', { method: 'POST', body: JSON.stringify({ id }) })
 const graph = cypherGraph(await response.json())
 ```
@@ -83,6 +85,7 @@ Neptune with openCypher over HTTPS, Apache AGE and FalkorDB return other formats
 A node and its relationships make a neighborhood: a query that returns them is what [`createExploration`](/docs/tanstack-query) needs. The data of a query is `{ nodes, edges }`, which is the shape `cypherGraph` returns.
 
 ```ts
+import type { Key } from '@bruno00o/graph'
 import { type CypherEdge, type CypherNode, cypherGraph } from '@bruno00o/graph/cypher'
 import { createExploration } from '@bruno00o/graph/query'
 import { QueryClient } from '@tanstack/query-core'

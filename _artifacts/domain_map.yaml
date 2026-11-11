@@ -420,7 +420,7 @@ skills:
       - Hide elements without removing their data
     failure_modes:
       - mistake: Setting halves without directed false
-        mechanism: halves only takes effect with directed set to false, and the type accepts the combination without a report, so the line stays whole, target.direction is never set and a click selects both directions.
+        mechanism: halves only takes effect with directed set to false, and the type accepts the combination and only development builds log a warning once per graph, so the line stays whole, target.direction is never set and a click selects both directions.
         wrong_pattern: |
           edges(links, { source: 'from', target: 'to', merge: { halves: true } })
         correct_pattern: |

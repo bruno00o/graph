@@ -187,7 +187,13 @@ const definition = defineGraph({
 })
 const graph = mountGraph(element, { definition, ariaLabel: 'Sample graph' })
 
-persistPositions(graph, { collection: items, mutationFn: savePositions, pendingState: 'saving' })
+persistPositions(graph, {
+  collection: items,
+  mutationFn: async ({ transaction }) => {
+    await savePositions(transaction.mutations)
+  },
+  pendingState: 'saving',
+})
 ```
 
 With a typed graph, `pendingState` only takes the free states of its definition; a name the definition does not declare throws.

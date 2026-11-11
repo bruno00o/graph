@@ -361,7 +361,7 @@ Folding is controlled or not for the life of the graph, decided at mount by `fol
 
 ### HIGH Setting `halves` without `directed: false`
 
-`halves: true` is ignored unless `directed` is `false`: the type accepts the combination, nothing is reported, and the line stays whole, so `target.direction` is never set and a click still selects both directions. Write `merge: { directed: false, halves: true }`. The same happens for a line with edges one way only, which is correct: only two-way lines split, so handle a click target without `direction`.
+`halves: true` is ignored unless `directed` is `false`: the type accepts the combination (`directed` may come from a variable), development builds only log a warning once per graph, and the line stays whole, so `target.direction` is never set and a click still selects both directions. Write `merge: { directed: false, halves: true }`. The same happens for a line with edges one way only, which is correct: only two-way lines split, so handle a click target without `direction`.
 
 ### MEDIUM Rebuilding `by` or `merge.by` functions in render
 
