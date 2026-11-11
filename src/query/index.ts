@@ -101,14 +101,45 @@ export interface Exploration<TNode, TEdge> {
 
 type Listener<T> = (changes: ReadonlyArray<SourceChange<T>>) => void
 
+type LoadStatus = 'loading' | 'ready' | 'error'
+
+class LoadWatch {
+  readonly #listeners = new Set<() => void>()
+  status: LoadStatus = 'ready'
+
+  on(listener: () => void): () => void {
+    const own = () => listener()
+    this.#listeners.add(own)
+    return () => {
+      this.#listeners.delete(own)
+    }
+  }
+
+  set(status: LoadStatus): void {
+    if (status === this.status) return
+    this.status = status
+    for (const listener of [...this.#listeners]) listener()
+  }
+}
+
 class ElementSource<T> implements LiveSource<T> {
   readonly values = new Map<Key, T>()
   readonly holders = new Map<Key, Set<Key>>()
   readonly #listeners = new Set<Listener<T>>()
   readonly #onActive: (delta: number) => void
+  readonly #load: LoadWatch
 
-  constructor(onActive: (delta: number) => void) {
+  constructor(onActive: (delta: number) => void, load: LoadWatch) {
     this.#onActive = onActive
+    this.#load = load
+  }
+
+  get status(): LoadStatus {
+    return this.#load.status
+  }
+
+  on(_event: 'status:change', listener: () => void): () => void {
+    return this.#load.on(listener)
   }
 
   subscribeChanges(
@@ -257,8 +288,9 @@ export function createExploration<TNode, TEdge, TQueryFnData, TError, TQueryKey 
     if (before > 0 && subscribers === 0)
       for (const expansion of expansions.values()) halt(expansion)
   }
-  const nodes = new ElementSource<TNode>(onActive)
-  const edges = new ElementSource<TEdge>(onActive)
+  const load = new LoadWatch()
+  const nodes = new ElementSource<TNode>(onActive, load)
+  const edges = new ElementSource<TEdge>(onActive, load)
 
   const store = createStore<ExplorationState>({ expanded: [], loading: [], errors: new Map() })
   const readonlyStore: ReadonlyStore<ExplorationState> = readonlyOf(store)
@@ -266,12 +298,17 @@ export function createExploration<TNode, TEdge, TQueryFnData, TError, TQueryKey 
   function publish(): void {
     const loading: Key[] = []
     const errors = new Map<Key, unknown>()
+    let pending = false
+    let failed = false
     for (const [key, expansion] of expansions) {
       const result = expansion.observer.getCurrentResult()
       if (result.isFetching) loading.push(key)
       if (result.error && !retried.has(key)) errors.set(key, result.error)
+      if (result.status === 'pending' || retried.has(key)) pending = true
+      else if (result.error && result.data === undefined) failed = true
     }
     store.setState(() => ({ expanded: [...expansions.keys()], loading, errors }))
+    if (subscribers > 0) load.set(pending ? 'loading' : failed ? 'error' : 'ready')
   }
 
   function apply(key: Key, data: ExplorationData<TNode, TEdge> | undefined): void {

@@ -56,6 +56,7 @@ export interface LayoutSource {
   prepare(): void
   request(): void
   destroyed(): boolean
+  waiting(): boolean
 }
 
 export function sameLayout(a: Layout | null, b: Layout | null): boolean {
@@ -67,6 +68,7 @@ export class LayoutHost {
   session: LayoutSession | null = null
   #laidOut = false
   #relayout = false
+  #waited = false
   readonly #source: LayoutSource
   readonly #check: StringCheck = stringCheck()
 
@@ -135,10 +137,12 @@ export class LayoutHost {
       ...revealed.map((index) => ({ index })),
     ]
     if (this.#relayout || !this.#laidOut) {
-      if (!this.#relayout && added.length === 0) return
-      this.#relayout = false
-      this.#laidOut = true
-      void this.begin(layout, () => true, true, this.#autoSettings())
+      if (!this.#relayout && added.length === 0 && !this.#waited) return
+      if (this.#source.waiting()) {
+        this.#waited = true
+        return
+      }
+      this.#runAll(layout)
       return
     }
     if (added.length === 0) return
@@ -157,6 +161,19 @@ export class LayoutHost {
       return
     }
     void this.begin(layout, (index) => fresh.has(index), true, this.#autoSettings())
+  }
+
+  release(): void {
+    const layout = this.#source.definition().layout
+    if (!this.#waited || !layout || this.#source.destroyed()) return
+    if (this.#relayout || !this.#laidOut) this.#runAll(layout)
+  }
+
+  #runAll(layout: Layout): void {
+    this.#waited = false
+    this.#relayout = false
+    this.#laidOut = true
+    void this.begin(layout, () => true, true, this.#autoSettings())
   }
 
   #autoSettings(): LayoutSettings {

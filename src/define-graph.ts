@@ -54,6 +54,7 @@ const defaultLensZoom = 3
 const defaultLensKey = 'Alt'
 const defaultBridgeSize = 8
 const defaultBridgeEdges = 100_000
+const defaultDataWait = 10_000
 
 function atLeastZero(value: number, name: string): number {
   if (!(value >= 0) || !Number.isFinite(value)) {
@@ -67,6 +68,14 @@ function positive(value: number, name: string): number {
     throw new RangeError(`defineGraph: ${name} must be a positive number`)
   }
   return value
+}
+
+function resolveWait(option: boolean | number | undefined): number {
+  if (option === undefined) return defaultDataWait
+  if (option === true) return Number.POSITIVE_INFINITY
+  if (option === false) return 0
+  if (option === Number.POSITIVE_INFINITY) return option
+  return atLeastZero(option, 'waitForData')
 }
 
 function resolveSpeed(
@@ -299,6 +308,7 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     states,
     layout: options.layout ?? null,
     relayout: options.relayout ?? false,
+    waitForData: resolveWait(options.waitForData),
     interaction: resolveInteraction(options.interaction),
     view: resolveView(options.view),
     transitions: resolveTransitions(options.transitions),

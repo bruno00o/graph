@@ -9,12 +9,14 @@ import {
   type ElementKeys,
   edges,
   type FieldOf,
+  type GraphDataStatus,
   type GraphDefinition,
   type GraphInstance,
   type GraphState,
   groups,
   hull,
   type KeyFieldOf,
+  type LiveSource,
   lineWaypoints,
   type Mark,
   type NodeDatum,
@@ -23,6 +25,8 @@ import {
   nodes,
   type RawAccessor,
   raw,
+  type SourceSubscription,
+  type StatusListen,
 } from './index'
 
 type Person = {
@@ -253,6 +257,29 @@ describe('public types', () => {
     expectTypeOf(definition.marks).toEqualTypeOf<readonly (typeof mark)[]>()
     expectTypeOf(definition.marks).toExtend<readonly Mark[]>()
     expectTypeOf<NodeDatum<(typeof definition.marks)[number]>>().toExtend<Person>()
+  })
+
+  it('accepts sources that tell how far they have loaded', () => {
+    const collection = createCollection(
+      localOnlyCollectionOptions({ id: 'types-status', getKey: (person: Person) => person.id }),
+    )
+    const subscription = collection.subscribeChanges(() => {})
+    expectTypeOf(collection).toExtend<LiveSource<Person>>()
+    expectTypeOf(subscription).toExtend<SourceSubscription>()
+    expectTypeOf({ subscribeChanges: () => ({ unsubscribe() {} }) }).toExtend<LiveSource<Person>>()
+    const listen: StatusListen = () => () => {}
+    expectTypeOf({
+      subscribeChanges: () => ({ unsubscribe() {}, status: 'ready', on: listen }),
+      status: 'loading',
+      on: listen,
+    }).toExtend<LiveSource<Person>>()
+    // @ts-expect-error
+    nodes({ subscribeChanges: () => ({ unsubscribe() {} }), status: 1 })
+    // @ts-expect-error
+    nodes({ subscribeChanges: () => ({ unsubscribe() {} }), on: (event: 'other') => event })
+    expectTypeOf<GraphState['data']>().toEqualTypeOf<GraphDataStatus>()
+    expectTypeOf<GraphDataStatus['failed']>().toEqualTypeOf<readonly LiveSource<unknown>[]>()
+    expectTypeOf<GraphInstance['loaded']>().toEqualTypeOf<() => Promise<void>>()
   })
 
   it('types state names from the definition', () => {

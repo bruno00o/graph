@@ -5,6 +5,12 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.24.0
+
+### The first layout waits for sources that load
+
+A live source that has a `status`, such as a TanStack DB collection, a live query or `subset`, now holds back the first automatic layout and the automatic fit while it loads, for 10 seconds at most from the first nodes. Before, they ran on the first batch, and the next batches were placed around it. Nothing changes for array data, for sources without a `status`, or for a collection already loaded when the graph mounts. To run on the first batch as before, pass `waitForData: false` to `defineGraph`. See [Loading](/docs/data#loading).
+
 ## 0.19.0
 
 ### Invalid numbers throw in `hull`

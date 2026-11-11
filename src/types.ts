@@ -142,10 +142,23 @@ export interface SourceChange<T> {
   readonly value: T
 }
 
+/**
+ * Calls `listener` each time the `status` of a live source or of a subscription changes, until the
+ * returned function is called. The graph only listens to `'status:change'`.
+ */
+export type StatusListen = (event: 'status:change', listener: () => void) => () => void
+
 /** What `subscribeChanges` returns. */
 export interface SourceSubscription {
   /** Stops the calls to the callback. */
   unsubscribe(): void
+  /**
+   * How far the data of this subscription has loaded, read like the `status` of a live source.
+   * Without it, the subscription has nothing more to load than its source.
+   */
+  readonly status?: string | undefined
+  /** Tells when `status` changes. Without it, `status` is read once, at subscription. */
+  readonly on?: StatusListen | undefined
 }
 
 /**
@@ -161,6 +174,15 @@ export interface LiveSource<T> {
     callback: (changes: ReadonlyArray<SourceChange<T>>) => void,
     options?: { includeInitialState?: boolean },
   ): SourceSubscription
+  /**
+   * How far the source has loaded: `'loading'`, `'loadingSubset'` or `'idle'` while its first
+   * load runs, `'error'` or `'crashed'` when it failed, and `'ready'`, or any other value, once
+   * loaded. Without it, the source is loaded as soon as it is subscribed. A TanStack DB collection
+   * has it.
+   */
+  readonly status?: string | undefined
+  /** Tells when `status` changes. Without it, `status` is read once, at subscription. */
+  readonly on?: StatusListen | undefined
 }
 
 /** Data of a mark: an iterable, reconciled by key on each new definition, or a live source. */
@@ -1589,6 +1611,15 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default false
    */
   readonly relayout?: boolean | undefined
+  /**
+   * How long an automatic layout over every node and the automatic fits wait for the live sources
+   * that are still loading, in milliseconds from the first nodes: `true` waits for as long as they
+   * load, `false` or 0 does not wait. They start once every source has loaded or failed, or when
+   * the time is up. Array data and sources without a `status` never make them wait. A number, 0 or
+   * more, or `defineGraph` throws a `RangeError`.
+   * @default 10000
+   */
+  readonly waitForData?: boolean | number | undefined
   /** Pan, zoom, wheel, selection, drag, lasso and keyboard. */
   readonly interaction?: InteractionOptions | undefined
   /** Zoom range and area of the view. */
@@ -1644,6 +1675,11 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly layout: Layout<NodeDatum<M>> | null
   /** Whether the layout runs again after a fold, an unfold, or a change of groups or merges. */
   readonly relayout: boolean
+  /**
+   * Milliseconds that automatic full layouts and automatic fits wait for loading live sources,
+   * `Infinity` for no limit.
+   */
+  readonly waitForData: number
   /** Interaction options, defaults applied. */
   readonly interaction: ResolvedInteraction
   /** View limits, defaults applied. */
