@@ -3,69 +3,72 @@
   "baseline": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
   "items": {
     "skill:skills/core/SKILL.md": {
-      "fingerprint": "fde5330d1166c544b0aae134acbbe5ed6665b9a08468148274b6b7aeda26e1ec",
+      "fingerprint": "1425213d70d92ddf4d7e82e8bf304a958fa5a5197d3354d76f8e41194f9d8b0b",
       "snapshot": {
-        "docs/content/docs/(guide)/data.mdx": "b094dcc62b9486e2f92e653a7929364e457d88548d0efacb7018bedc75278c48",
+        "docs/content/docs/(guide)/data.mdx": "9949e0b93b54b8e37d27d24672b8ae0b2d528fd60273868b0132fe0187ef1bc5",
         "docs/content/docs/(guide)/installation.mdx": "cadc4dd42f5dc07b6ac198b7e2d465156cf616ec6b61f156b332815f422e4a82",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
-        "docs/content/docs/(guide)/states.mdx": "5e03adb0eef1276ba89f9b510dd71b07a0506ee488ed08e27c6c1b9a8d1848d3",
+        "docs/content/docs/(guide)/states.mdx": "c590f32a4ee97f0dbedc98b559f9fc00672fb61c12ec03d1491d7ecb684f8b49",
         "docs/content/docs/(guide)/typescript.mdx": "df686fed19d2d4f3b4497cc8fc2ca99cdc47513f24cbe3243f304d7efef7c56a",
         "docs/content/docs/(guide)/vanilla.mdx": "fc260ce0c3bc1bde2a469e881a44252de6890aca5fc94c2060cca14df29d1206",
-        "docs/content/docs/api/define-graph.mdx": "549de25a140cbf46914a3af75c44e89a2ee44767065d797752d58e03498093e9",
-        "docs/content/docs/api/events.mdx": "9ff22e750c17e7ccabd64c3893d166b466b45f5dea70990016f8df62025180d1",
-        "docs/content/docs/api/graph-instance.mdx": "80e003173ad1e014577ece2b4e797b02a7ad8d0bb5acfd32aa307890ced8d22d",
+        "docs/content/docs/api/define-graph.mdx": "2c5f6d742e0c5793cf190dc1d56449af1a5132aa6089dfe77745ee26f3614e7b",
+        "docs/content/docs/api/events.mdx": "e8f757e01abd7749db45a7d67bd420dbb83dc799af206f258bc813d4939a136a",
+        "docs/content/docs/api/graph-instance.mdx": "9e47bea75be586e8958fa671ba576c6ee9245dc94d7b8ee63bbfbaacfcbd57a8",
         "docs/content/docs/api/mount-graph.mdx": "636816faa64d56ac5bf915cb8cdbd291ed232e6e43b0bf43165f44764d069b15",
-        "skills/core/SKILL.md": "60ed80ce51cdd8e9bf3f6c3422c94d1f5985d3ddbce941331a7b9499ed1e11dc",
+        "skills/core/SKILL.md": "5f0bef42679bfaf9ef6834404832161795cedd5106c9ab6a352fe91849d5747b",
         "src/core/issues.ts": "ea61764286d5db82dfb7cb4ba5d3929f5eec6d17256321854e669eb18c5ddfcb",
+        "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
         "src/core/raw.ts": "d04297fb30d75cc597292405bcf74258cb0e62df5eeecd29305829e20b0b1dff",
-        "src/core/source-table.ts": "22ac89ad928f02a2b14eee611e40d9078c454f4bad702f4c8d888c42dea3f307",
-        "src/define-graph.ts": "8241292ef4152dd41fadd7a89c98430884473f1cf33b2473a0ae2f86397a9169",
-        "src/host/events.ts": "b66e2551058c354104ad1973dcb654fc0a636393c2f782e7f07975816e4e4bf8",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
-        "src/index.ts": "ef3eeb76fd56c895e3ccb283174d198718f131e0493a4cc853985dd693631933",
+        "src/core/source-table.ts": "f72a4478cab398b05b9ff55772a524ae5c54cd451b8f93981091fe7cd827f7b1",
+        "src/define-graph.ts": "f47d7220437c030743ad771bebd01bb783edc022e4765c344458f6d6b3e5c886",
+        "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
+        "src/host/events.ts": "c99d46f579c04b3bf0e08fb718cda1906d6419a010fcb7435b449f8a229fd085",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
+        "src/index.ts": "5cceaafbdd1796ac578f566dd8475802ba9f397d3b70cd7eeefd18834b29c0f9",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 152 removed explicit item types from the data and installation guides; the skill already tells to type the arrays, never the call. PR 153 narrowed list parameters to KeyList; the skill passes arrays.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 158 added the loading state (data, loadingchange, loaded(), waitForData); PR 161 added the section on knowing when live data has loaded and a HIGH failure mode for laying out before it.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/core/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/core/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/react/SKILL.md": {
-      "fingerprint": "3f116cddb9cd77ed9b49941fb89e70796e59825a9b6af92d4a9f947b4673236e",
+      "fingerprint": "2294096913cd908d1dfbb6f805d37ba86f43b253fca715ee164f357e795d4fec",
       "snapshot": {
         "docs/content/docs/(guide)/react.mdx": "4aee6531f0b6af11422ffcd81fe2d8404f8d1e078e0d509148aaed5560182d37",
         "docs/content/docs/(guide)/typescript.mdx": "df686fed19d2d4f3b4497cc8fc2ca99cdc47513f24cbe3243f304d7efef7c56a",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/graph-component.mdx": "7628501bcae0684a4ad5c4ff7eb5d1896b9eca23aaf202877a393b86cb38bfa9",
         "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
-        "skills/react/SKILL.md": "63cf2a628b8c482e8ae3619276c8eff84096a4cb82cfebb7d7e75aff737ec2d5",
+        "skills/react/SKILL.md": "d89849e25e2bd5e9e1ebca1cfd154df67daa46c1ecfb06523a6377498322023e",
+        "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
         "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
-        "src/react/graph.tsx": "fcc4997e1e84305079978cee13621a3f38927cc66d8a71621ef440853368f966",
+        "src/react/graph.tsx": "2127d10790671d9c1a9234a3e493aa5f53652b5fd545f11874f5cd9504d7f202",
         "src/react/index.tsx": "4dfe033539f8f1a751312e0510736e646b0d9fff2e3629c807d3536f0ada957c"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 153 typed the controlled props selection, folded and hiddenLayers with KeyList in src/react/graph.tsx; the skill passes arrays.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 158 added onLoadingChange and data in GraphState; PR 161 added a loading overlay section.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/react/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/react/SKILL.md sampled against src/"
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "68955057d13e2b39d89ce1ecc2700c8eb2843d771dc0134cd79309e881ef47ff",
+      "fingerprint": "0230fe0a513aa57cf605f0b42f0bff2249f19beca28666adfb754c2d538384fa",
       "snapshot": {
-        "_artifacts/domain_map.yaml": "6272eb0cc8d44f88ab6c8804634bc475863de5b395bdfbf1df24f44e50bd3d99",
+        "_artifacts/domain_map.yaml": "4124252a0272ece90684178c2b27b166e2d58599abd46acdb1a110bc9e3d3e16",
         "_artifacts/skill_spec.md": "6b86a98ed6e6a6b6ede9d7012939d617a8dd3798d3196e131f75dc26af3e7d47",
-        "_artifacts/skill_tree.yaml": "435fa996c641f4993631c1c1776b4b73aee32b59a99b051d29987099ec9ebcac",
+        "_artifacts/skill_tree.yaml": "1b266ff2b67e3fd891f21589f1daa22a3d0d54818f593a5be5127137855344d2",
         "docs/content/docs/(guide)/bundling.mdx": "858894ebeedbc628d8ffeeeb61949856adee1925ae79353bdd4727d00aeb0c51",
         "docs/content/docs/(guide)/cypher.mdx": "db710ef2a96f348453aff10ea3344dc5940fea3924cbab401518e57fdec9243c",
-        "docs/content/docs/(guide)/data.mdx": "b094dcc62b9486e2f92e653a7929364e457d88548d0efacb7018bedc75278c48",
+        "docs/content/docs/(guide)/data.mdx": "9949e0b93b54b8e37d27d24672b8ae0b2d528fd60273868b0132fe0187ef1bc5",
         "docs/content/docs/(guide)/devtools.mdx": "66f06ef16930ec1fef0870a420f867c253fdbf87c9ed259bb0338299df2692df",
         "docs/content/docs/(guide)/drawing-layers.mdx": "cd64c8497d1c453de4f039468a7d44dcf31b98ca2be09953b9df6966d1d8b027",
         "docs/content/docs/(guide)/export.mdx": "d9e5177e1006fd10d54a691aef4a52c6567286c22a18925cb0ded6529c5f6f81",
@@ -73,7 +76,7 @@
         "docs/content/docs/(guide)/groups.mdx": "43b45ee9e37030e78216cfc465afb033694e8c227ae33bba1878fc1e905a3b76",
         "docs/content/docs/(guide)/images-and-badges.mdx": "03c6f11ebfc1dac043dfad56c557d55bcc358d0710173bef2ad2c83abf0356de",
         "docs/content/docs/(guide)/installation.mdx": "cadc4dd42f5dc07b6ac198b7e2d465156cf616ec6b61f156b332815f422e4a82",
-        "docs/content/docs/(guide)/interaction.mdx": "640975e85cdd1c2f7cc59896b7d26f9217e913658ba4886aedaa79fc6b972476",
+        "docs/content/docs/(guide)/interaction.mdx": "b5f5b590a14a3b2c3abff407ae52ae94925ec2760b2209e2d61ad832c307a893",
         "docs/content/docs/(guide)/labels.mdx": "dc644df707af28c3857eaacb4541f252bec5a8ae7ba256e1829122ea918b9d29",
         "docs/content/docs/(guide)/layout.mdx": "82c34632c455964ab72a2be2e4ff159de9b5240f8f602a5c596008d50d01cdae",
         "docs/content/docs/(guide)/lens.mdx": "55ea245c07d3dd099f2586777d4bb8d5b27e5beeb2164a9bb45487ea96d1be87",
@@ -87,29 +90,29 @@
         "docs/content/docs/(guide)/react.mdx": "4aee6531f0b6af11422ffcd81fe2d8404f8d1e078e0d509148aaed5560182d37",
         "docs/content/docs/(guide)/routing.mdx": "fccaa9b9054028a68aa567a0a0de7a9bd7425015dd37b256a770afc23a853c1d",
         "docs/content/docs/(guide)/scales.mdx": "4859dfac9d9317adf59cfe015e5c16d9b058d9ac53bee3754509b1b7d3eb8e3c",
-        "docs/content/docs/(guide)/states.mdx": "5e03adb0eef1276ba89f9b510dd71b07a0506ee488ed08e27c6c1b9a8d1848d3",
-        "docs/content/docs/(guide)/tanstack-db.mdx": "cb1587d3a539dc193e140b6321a8e1a656e39c5230882b60a75b79114c779520",
-        "docs/content/docs/(guide)/tanstack-query.mdx": "37592b94559fbf4cf4fb1835e33128969f087de8e3b47889632f506188e0ff8f",
+        "docs/content/docs/(guide)/states.mdx": "c590f32a4ee97f0dbedc98b559f9fc00672fb61c12ec03d1491d7ecb684f8b49",
+        "docs/content/docs/(guide)/tanstack-db.mdx": "9abb49dd93a6df5df9b867b5f3d560b001a990b254b399f41ef091bbaae25b30",
+        "docs/content/docs/(guide)/tanstack-query.mdx": "6a1ad350d197965ebd20063e7f985c3346d525ee41142d957feab2909d475ba7",
         "docs/content/docs/(guide)/theming.mdx": "ae195fc24b0f2de67a9655d8b68c6e268d60bba61534a4a532bfc31a2a65458c",
         "docs/content/docs/(guide)/time.mdx": "48bbaeef11fada8ed88e95aad567a2de966edcec6eb4bedbb5fe7d48cdd54db1",
-        "docs/content/docs/(guide)/transformations.mdx": "daf5ebd7b6d46fe668778b339b8966154e51ca1eec591f5a5f8eed675075950b",
+        "docs/content/docs/(guide)/transformations.mdx": "66bc032be8ef594d32dc008b2ff05ba9d85734f2486cc0d7e026f38b46527836",
         "docs/content/docs/(guide)/typescript.mdx": "df686fed19d2d4f3b4497cc8fc2ca99cdc47513f24cbe3243f304d7efef7c56a",
         "docs/content/docs/(guide)/vanilla.mdx": "fc260ce0c3bc1bde2a469e881a44252de6890aca5fc94c2060cca14df29d1206",
         "docs/content/docs/(guide)/view.mdx": "8dea33acb2bca4dd8ada8468a465ed10a3ae205b29a222d7257c268672aea459",
         "docs/content/docs/(guide)/zoom.mdx": "35343fd189f99e3c2d2947a07c0aba8a4a0f4554acb2424db3fb64091ee45954",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/bundling.mdx": "da6d79979c997144343299a7a5083996fd91f383d8949973c3caf4d3cafcddf7",
-        "docs/content/docs/api/create-exploration.mdx": "ac2f793342df68900d5b2e7db329dbed4855f06d2198396ee5951c95faa686b6",
+        "docs/content/docs/api/create-exploration.mdx": "3bd905d354f9ed09c3778a3475eb293e7202bc6d9e702a017174344a4a3c3f69",
         "docs/content/docs/api/cypher-graph.mdx": "b77d3fb5828acbcbe706facf41faab5f8d9d370f070bb39e5a87b24250e7f0fd",
-        "docs/content/docs/api/define-graph.mdx": "549de25a140cbf46914a3af75c44e89a2ee44767065d797752d58e03498093e9",
+        "docs/content/docs/api/define-graph.mdx": "2c5f6d742e0c5793cf190dc1d56449af1a5132aa6089dfe77745ee26f3614e7b",
         "docs/content/docs/api/devtools.mdx": "dd12a8bb6db998496a4b675bb8563cad60593c49d57b0dcd99e3b2351a0d09e3",
-        "docs/content/docs/api/edges.mdx": "16d1c93a4160f99d89365c77aeb7a06e5877491fb5cb88d38c77cc5b83cd1efc",
-        "docs/content/docs/api/events.mdx": "9ff22e750c17e7ccabd64c3893d166b466b45f5dea70990016f8df62025180d1",
+        "docs/content/docs/api/edges.mdx": "e00fd4c2da043538754d3191fd8ab2cc2407e9148a2c86d182edfe02db5fb8f4",
+        "docs/content/docs/api/events.mdx": "e8f757e01abd7749db45a7d67bd420dbb83dc799af206f258bc813d4939a136a",
         "docs/content/docs/api/export.mdx": "fd4215930a3f39bcd8a89a741e8b09ab35c2867cdcfc7f08c79ac02d1668986f",
         "docs/content/docs/api/force.mdx": "4d7c41622350c752d891587ac631fdd10cd6aee86d82d4365213b481d4e442c0",
         "docs/content/docs/api/formats.mdx": "f37ea7d64a0660710538a3d83611d11bf7c68e8341c5daa7a89d9ccc541542f7",
         "docs/content/docs/api/graph-component.mdx": "7628501bcae0684a4ad5c4ff7eb5d1896b9eca23aaf202877a393b86cb38bfa9",
-        "docs/content/docs/api/graph-instance.mdx": "80e003173ad1e014577ece2b4e797b02a7ad8d0bb5acfd32aa307890ced8d22d",
+        "docs/content/docs/api/graph-instance.mdx": "9e47bea75be586e8958fa671ba576c6ee9245dc94d7b8ee63bbfbaacfcbd57a8",
         "docs/content/docs/api/groups.mdx": "124959871577a32a36c80321651d7eff2df3ea4ee726d10521c426cc401f86ff",
         "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
         "docs/content/docs/api/hull.mdx": "494d6644cc51544cd4e4c6cc181ee4f224a0bac9626e7fd8d43325354db80dbc",
@@ -119,46 +122,48 @@
         "docs/content/docs/api/map.mdx": "0510f95c951f4490aca5156cdf1e571b92b8a760d9668aa70b575bc5c07d4cd7",
         "docs/content/docs/api/minimap.mdx": "e9bc24c66975dc0d1d7eb6591b1ba585fd7599c00278a21f869c23459c34f261",
         "docs/content/docs/api/mount-graph.mdx": "636816faa64d56ac5bf915cb8cdbd291ed232e6e43b0bf43165f44764d069b15",
-        "docs/content/docs/api/nodes.mdx": "c2293c29cc74faf988249a4ba9bc45a4a860e3b125b7f70f0d4b57bc8a2b7a7f",
+        "docs/content/docs/api/nodes.mdx": "a761e5f152fab132505145c1fa7263ebd1a099b8280b8879150e26a239f3589f",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
         "docs/content/docs/api/persist-positions.mdx": "5aac6aaf2e3a98f800b433ae350b16081798f526486d459e7964f7147a6a24fe",
         "docs/content/docs/api/routing.mdx": "d24ae8bbeaf2cc8e8eef1633f70c1c2a76f51ef0502537b2e3d27a8d7e92582d",
-        "docs/content/docs/api/subset.mdx": "d18133969651144bab28f8b69c92d03388105da1da9d71336ae2a57895049b68",
+        "docs/content/docs/api/subset.mdx": "c853303f9c7a06eafc06b68f40dd9d0a2f6b094a16f4d46d59526d786b825365",
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
         "docs/content/docs/api/theme-tokens.mdx": "94d9a4f0e1b98a15feb0ee8b06d5b18925a5db0d90fb482b82ec3ca18c739183",
         "docs/content/docs/api/timeline.mdx": "6beddb4d6602f83b448b909110d66085a7938dc103684f38477144106fe76222",
-        "skills/core/SKILL.md": "60ed80ce51cdd8e9bf3f6c3422c94d1f5985d3ddbce941331a7b9499ed1e11dc",
+        "skills/core/SKILL.md": "5f0bef42679bfaf9ef6834404832161795cedd5106c9ab6a352fe91849d5747b",
         "skills/cypher/SKILL.md": "9893f7a888d2a19a82429c1c734e2628aafdeac79eaee74f3fa4e5b40e4c6886",
-        "skills/edges/SKILL.md": "260c233263664116308aa2d0d64cf1e81c8e1bcb66ab13e0e91c823483e6b114",
+        "skills/edges/SKILL.md": "4f076ab642059c15e70d557dc6e35fc5b8c3008ef051d453601e6f2e3405daae",
         "skills/export/SKILL.md": "af0cb39bc52f7a1fe1fd142b2a98b1ea0f9a30aa71f2b268ddc76e745b0636ec",
         "skills/file-formats/SKILL.md": "e0147c80c714ce561c91acf1e6512f5268c5270dc7d1613d8db2be50adff252d",
-        "skills/groups/SKILL.md": "ce19c5766ce205cefe21df7c310c586b342335d92c0d7e2e7d020f1aa0c178dc",
-        "skills/interaction/SKILL.md": "d682f730a9d684c8ee2e61438eb41e18858e61ec7cc41a332646004f14084a34",
-        "skills/layouts/SKILL.md": "a24a241488c64b070550dda9791156dfc48211e2090634b18128a693d1fb4c45",
+        "skills/groups/SKILL.md": "521ee0c3c6d404b89fcb3f32214161ac200260b6fd6f4e072d901362e0c1d8c2",
+        "skills/interaction/SKILL.md": "e643de2442418df7683742a2b9a54d7bf832eb48b28f7ada4a144dc07321ac27",
+        "skills/layouts/SKILL.md": "3296a077902037acfde5edd7a4b088487b3a8c7dee295d0cb49b95df1a0e9ff0",
         "skills/map/SKILL.md": "da695bd08742ac2903862eba4552cef951cd917a8a2b797a0490bf17bab5524f",
         "skills/multilayer/SKILL.md": "320f292550e00c08c9da242962c844fbce255b6485c84a3727bcd3fa190c81c2",
         "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
-        "skills/react/SKILL.md": "63cf2a628b8c482e8ae3619276c8eff84096a4cb82cfebb7d7e75aff737ec2d5",
+        "skills/react/SKILL.md": "d89849e25e2bd5e9e1ebca1cfd154df67daa46c1ecfb06523a6377498322023e",
         "skills/styling/SKILL.md": "62d7d803ddcdb63c7579d18c551ec11fa8adea6f08db6ca2a783eeb8bd5954e6",
-        "skills/tanstack-db/SKILL.md": "80b07fff31844aec8ede5bc7b8801f08fbd4c93b7c4d423103bc05fffc2c9060",
-        "skills/tanstack-query/SKILL.md": "6d078e7aea82c62312498cce8edbe9fe780d8aaa2f4efe38b125cfa803256ebb",
+        "skills/tanstack-db/SKILL.md": "de840c364028c2913adb19c088735d13c95fa1471da732be6e134dd6d69ba828",
+        "skills/tanstack-query/SKILL.md": "f0ea86d00190d771a624215ab7e7baf523be31988103e6bcb2349ded52d8a4be",
         "skills/time/SKILL.md": "e136af4c421dc544a28c83264501f1c314eff908116da5136836180972089a76",
         "skills/tools/SKILL.md": "3bc0d3d1f13883add99dc57a74aea6063660b412169325af91c3413ba218f40b",
-        "skills/view/SKILL.md": "ae97b57167899206e0b955fcfb2ce13efd97c1fdb96490d510f3f7f3269d9fdf",
+        "skills/view/SKILL.md": "a0eb53247fbb5d35526010783bfa4618b7ef274a34d412b4b7554d3fd9d00ed2",
         "src/bundling/density.ts": "607e5b3d0bc8e84719501ee527969d5d9cbd933d59f20895689bd73f6d97ee9a",
         "src/bundling/index.ts": "a18666d589ac222df7b3517d55f8f329f292c976b7794261829ddb59c11b1dc3",
         "src/core/geo.ts": "aeba1451a53b6e08132bc6c1e9ad8ade467217e4a1fcb0281f2bfdaac3196014",
         "src/core/issues.ts": "ea61764286d5db82dfb7cb4ba5d3929f5eec6d17256321854e669eb18c5ddfcb",
+        "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
+        "src/core/projection.ts": "7929c9be936a5b260792c835bf43bd13e6c565258df181ab4c5635bcfdd05004",
         "src/core/raw.ts": "d04297fb30d75cc597292405bcf74258cb0e62df5eeecd29305829e20b0b1dff",
-        "src/core/source-table.ts": "22ac89ad928f02a2b14eee611e40d9078c454f4bad702f4c8d888c42dea3f307",
+        "src/core/source-table.ts": "f72a4478cab398b05b9ff55772a524ae5c54cd451b8f93981091fe7cd827f7b1",
         "src/core/state-names.ts": "5038f163474ec97ab47d4f5ada4d4a6a9b221f95a10b73a157d195d4ca873aa8",
         "src/core/time-range.ts": "66554a7d34012abf7fdbab65ec50eac1dcc7ed80805315810c23cd21ebf67e8a",
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
         "src/cypher/index.ts": "c9a6b965c8da0b6b2f4fe163897f5ed0238d09d949423e07ee7573dd13523695",
         "src/cypher/values.ts": "3be46fe29b635d0c187624bc5a4b91d641dd0defd7e317be74379b18ed6b1661",
         "src/db/index.ts": "62d84388441292ee428b5da675b4b087f462ab4a5cb07b469205232aa34cb4a3",
-        "src/db/subset.ts": "aa08a33717ced71ce6b563ac9bdeafc8934dbf6d73b74b25e6a1563488dccb63",
-        "src/define-graph.ts": "8241292ef4152dd41fadd7a89c98430884473f1cf33b2473a0ae2f86397a9169",
+        "src/db/subset.ts": "23364a86c1db26a77d85371f1b6e101addc5eb0352500ad63208aec4d3d93398",
+        "src/define-graph.ts": "f47d7220437c030743ad771bebd01bb783edc022e4765c344458f6d6b3e5c886",
         "src/devtools/index.ts": "7b078d35d4d24ce5ff2fcfe27b1a34b8c7a3be462097f99e9c525d9e7f80d348",
         "src/devtools/react.tsx": "015b341e7b502b5942a8b1c5f5c83fe2c87b46f234dcf332e5367f72e2de4cfa",
         "src/export/index.ts": "dd5efab311fab8a03b5c85b323d5ce758e171cd2756c8748707580aaca3e53a8",
@@ -171,12 +176,18 @@
         "src/formats/json-graph.ts": "3c3e35e0930a051236d9e58db4915b7927133268917bd4c4bf86394b2106b89f",
         "src/formats/types.ts": "391d1d6410372514c6b95909fa96a699f81ac2448c24e77a8d8c996f4a6007ef",
         "src/host/anchors.ts": "7bc04ed00323bdaf22279444ac7bd088ef2036a40f476818bb43979d2b16015b",
-        "src/host/events.ts": "b66e2551058c354104ad1973dcb654fc0a636393c2f782e7f07975816e4e4bf8",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
+        "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
+        "src/host/element-keys.ts": "94bd3e8b4360fab170b1161511466faa0e6c9ed3a699373945a51719e075dfd4",
+        "src/host/events.ts": "c99d46f579c04b3bf0e08fb718cda1906d6419a010fcb7435b449f8a229fd085",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
+        "src/host/layout-session.ts": "cb985ee54b1e6215fe9b3c79130631885acce91ed7c6f66ae8cbd1b6af406263",
         "src/host/lens.ts": "cd9fb833781aa7b752e1b14e6d8065da2e3ec44f8365828659cc75e5610ee56b",
+        "src/host/picking.ts": "f6e6d41950b0aacd650f53990ee76ab821b6de8089ce1a1f087243a320248fe2",
+        "src/host/selection-control.ts": "d3484aece729498b039a7ffacac91bd03c4dcddbfbddf56711fb0488ffe8b040",
+        "src/host/view-control.ts": "d18d3b3bb73cf9089d792713a557e221ba0e186a0b1bcd0dbd63451eaf8e5d93",
         "src/hulls.ts": "0c9030aabf0da1878e4c08ddddb9820dd199cec5bc2b4ced1e61f428a904437d",
-        "src/index.ts": "ef3eeb76fd56c895e3ccb283174d198718f131e0493a4cc853985dd693631933",
+        "src/index.ts": "5cceaafbdd1796ac578f566dd8475802ba9f397d3b70cd7eeefd18834b29c0f9",
         "src/layouts/force/index.ts": "84f3b61a2858cc613175718bd3d2bac5ee309819385d61e8a35e13009a665d8e",
         "src/layouts/geo.ts": "1a4831f6045f10a0ae3b30656528fd56b5c1d9d4c52ed3d1585e561b4471a29f",
         "src/layouts/grid.ts": "1d804a3ed5d0c9a9c160950fa2bdfd5de80e6e3dbed10aae4c3cba0d071ed869",
@@ -184,7 +195,7 @@
         "src/layouts/layers/index.ts": "2deef6e55d651d449c5a4c468b53dcc0245f85464e8733edd8c0f8492eac5370",
         "src/layouts/radial.ts": "a10f71893827a53307ff64158de2cadb6523e65a6a1810b91b54bb9b2877f90d",
         "src/layouts/rings.ts": "b537e8ecb1a22f34d658779c12ee0656ae80991ffaae72e0f7c43a013fd59b87",
-        "src/legend/index.ts": "14fbdb0395de915fc95c2033d6a80a02a292a03deb045b8be1ff2b68c2c6b205",
+        "src/legend/index.ts": "76cf42cba21e29249dabf5b7ca68f52fc9222bdcfd6b14626b546859734daa18",
         "src/legend/view.ts": "62c1dbc9e53f79e4a3f2098fd2644d88c3caecf467da31b317eed0805c07e18e",
         "src/map/export.ts": "940c4f471edcf256f0bf65dad4d7f8069728fec2745d930bce17d571b3bffef4",
         "src/map/index.ts": "15e694a7ff8251903d8bdd6b2c052595568a31416a4be35057c4dfd77f653e34",
@@ -192,9 +203,9 @@
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
         "src/minimap/index.ts": "d0e078e181adb1bb690aa88e656cef7243ecd04376204096a18880401547cdd3",
         "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
-        "src/query/index.ts": "12493e0808ae65112ac1c7b892a74880fc25b6a042c9d0477404bfffb1063de4",
+        "src/query/index.ts": "a9db94902b0883c71a3b354d27ee09552405c9057df38f9c1a1eb889d059eb4e",
         "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
-        "src/react/graph.tsx": "fcc4997e1e84305079978cee13621a3f38927cc66d8a71621ef440853368f966",
+        "src/react/graph.tsx": "2127d10790671d9c1a9234a3e493aa5f53652b5fd545f11874f5cd9504d7f202",
         "src/react/index.tsx": "4dfe033539f8f1a751312e0510736e646b0d9fff2e3629c807d3536f0ada957c",
         "src/routing/index.ts": "6eac7e321603e3910d57e72bd9e68a2e87704a06887ce735621a0a2cb67814a7",
         "src/support.ts": "447f57be80e2a3915d79cbda6bed07c747ced73d2d754528bbc7a4c97aba3a83",
@@ -202,15 +213,15 @@
         "src/theme/tokens.ts": "2f68c1caed2c8b6d0f4f6fd4c08a2a664095f38a72acdc2981ef8f09b6252462",
         "src/timeline/index.ts": "9abf415004715ab96baddd1eed40faa34d0db250abe193cb4906bc00b882bc80",
         "src/timeline/view.ts": "b57f59b177f46ffb61d6d97fecfd904f2f1a808d1ca12aee4a4ab2f70ae08ff2",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d",
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "No skill was added or split; the changed sources stay mapped to the same skills.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 161 updated domain_map.yaml (tasks, covers, two new failure modes) and synced skill_tree.yaml; skill_spec.md failure mode counts are slightly stale.",
       "evidence": [
-        "intent maintainer status reports 0 files to sync",
-        "intent stale reports no unresolved skill path"
+        "intent maintainer status reports 0 files to sync and 0 authoring issues",
+        "intent stale reports every skill current"
       ]
     },
     "source:docs/content/docs/(guide)/agent-skills.mdx": {
@@ -256,30 +267,30 @@
       ]
     },
     "skill:skills/edges/SKILL.md": {
-      "fingerprint": "388bb133b54078d0666b5a85934ebed38337ed4951e93b140dc08e1e05a5724f",
+      "fingerprint": "39c8839db1dfa994e2ba7521dad3ecec261886877818957df6acd107d8a6386b",
       "snapshot": {
         "docs/content/docs/(guide)/bundling.mdx": "858894ebeedbc628d8ffeeeb61949856adee1925ae79353bdd4727d00aeb0c51",
         "docs/content/docs/(guide)/labels.mdx": "dc644df707af28c3857eaacb4541f252bec5a8ae7ba256e1829122ea918b9d29",
         "docs/content/docs/(guide)/marks.mdx": "175cda7cb93281a0f3a726fab7e95b0dad12c09db1b33dbbd118296c0f33dea2",
         "docs/content/docs/(guide)/routing.mdx": "fccaa9b9054028a68aa567a0a0de7a9bd7425015dd37b256a770afc23a853c1d",
         "docs/content/docs/api/bundling.mdx": "da6d79979c997144343299a7a5083996fd91f383d8949973c3caf4d3cafcddf7",
-        "docs/content/docs/api/edges.mdx": "16d1c93a4160f99d89365c77aeb7a06e5877491fb5cb88d38c77cc5b83cd1efc",
+        "docs/content/docs/api/edges.mdx": "e00fd4c2da043538754d3191fd8ab2cc2407e9148a2c86d182edfe02db5fb8f4",
         "docs/content/docs/api/routing.mdx": "d24ae8bbeaf2cc8e8eef1633f70c1c2a76f51ef0502537b2e3d27a8d7e92582d",
-        "skills/edges/SKILL.md": "260c233263664116308aa2d0d64cf1e81c8e1bcb66ab13e0e91c823483e6b114",
+        "skills/edges/SKILL.md": "4f076ab642059c15e70d557dc6e35fc5b8c3008ef051d453601e6f2e3405daae",
         "src/bundling/density.ts": "607e5b3d0bc8e84719501ee527969d5d9cbd933d59f20895689bd73f6d97ee9a",
         "src/bundling/index.ts": "a18666d589ac222df7b3517d55f8f329f292c976b7794261829ddb59c11b1dc3",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
         "src/routing/index.ts": "6eac7e321603e3910d57e72bd9e68a2e87704a06887ce735621a0a2cb67814a7",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d",
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 152 removed edges<Link>(...) from the bundling, routing, labels and marks guides and the edges API page; the skill already infers. PR 153 adds KeyList to src/types.ts, no edge option changed.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 159 lets a state style one half of a merged edge; PR 161 points to halves and states the exception.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/edges/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/edges/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/export/SKILL.md": {
@@ -324,58 +335,66 @@
       ]
     },
     "skill:skills/groups/SKILL.md": {
-      "fingerprint": "1a098104f991dbfbd18c668d0c7f83c825b350f9cfe712d3934ead3099191dd9",
+      "fingerprint": "564a0dbd58dd7b421daf5f0bd828083f142e6987f639527fb3abddf434a373f1",
       "snapshot": {
         "docs/content/docs/(guide)/groups.mdx": "43b45ee9e37030e78216cfc465afb033694e8c227ae33bba1878fc1e905a3b76",
-        "docs/content/docs/(guide)/transformations.mdx": "daf5ebd7b6d46fe668778b339b8966154e51ca1eec591f5a5f8eed675075950b",
+        "docs/content/docs/(guide)/transformations.mdx": "66bc032be8ef594d32dc008b2ff05ba9d85734f2486cc0d7e026f38b46527836",
         "docs/content/docs/api/groups.mdx": "124959871577a32a36c80321651d7eff2df3ea4ee726d10521c426cc401f86ff",
-        "skills/groups/SKILL.md": "ce19c5766ce205cefe21df7c310c586b342335d92c0d7e2e7d020f1aa0c178dc",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
+        "skills/groups/SKILL.md": "521ee0c3c6d404b89fcb3f32214161ac200260b6fd6f4e072d901362e0c1d8c2",
+        "src/core/projection.ts": "7929c9be936a5b260792c835bf43bd13e6c565258df181ab4c5635bcfdd05004",
+        "src/host/element-keys.ts": "94bd3e8b4360fab170b1161511466faa0e6c9ed3a699373945a51719e075dfd4",
+        "src/host/events.ts": "c99d46f579c04b3bf0e08fb718cda1906d6419a010fcb7435b449f8a229fd085",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
+        "src/host/picking.ts": "f6e6d41950b0aacd650f53990ee76ab821b6de8089ce1a1f087243a320248fe2",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "updated",
-      "reason": "PR 153 refused a bare string in groups.fold, unfold and set (KeyList); PR 155 rewrote the two lines that said fold('a') compiles, and PR 153 gave the Wrong block expect-error=TS2345.",
+      "reason": "PR 159 added merge halves; PR 161 added the One direction per half section and a HIGH failure mode for halves without directed: false.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of skills/groups/SKILL.md against src/ at 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/groups/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/interaction/SKILL.md": {
-      "fingerprint": "dd76e5227127c65c1d851f96fb3b4f00f80079c9f77c8eefb622d26e6f5dfd41",
+      "fingerprint": "3fe9acac20dd7273a868917f750484526179fbf1294bdcd69138266cacea7eb8",
       "snapshot": {
-        "docs/content/docs/(guide)/interaction.mdx": "640975e85cdd1c2f7cc59896b7d26f9217e913658ba4886aedaa79fc6b972476",
-        "docs/content/docs/(guide)/states.mdx": "5e03adb0eef1276ba89f9b510dd71b07a0506ee488ed08e27c6c1b9a8d1848d3",
-        "docs/content/docs/api/define-graph.mdx": "549de25a140cbf46914a3af75c44e89a2ee44767065d797752d58e03498093e9",
-        "docs/content/docs/api/events.mdx": "9ff22e750c17e7ccabd64c3893d166b466b45f5dea70990016f8df62025180d1",
-        "skills/interaction/SKILL.md": "d682f730a9d684c8ee2e61438eb41e18858e61ec7cc41a332646004f14084a34",
+        "docs/content/docs/(guide)/interaction.mdx": "b5f5b590a14a3b2c3abff407ae52ae94925ec2760b2209e2d61ad832c307a893",
+        "docs/content/docs/(guide)/states.mdx": "c590f32a4ee97f0dbedc98b559f9fc00672fb61c12ec03d1491d7ecb684f8b49",
+        "docs/content/docs/api/define-graph.mdx": "2c5f6d742e0c5793cf190dc1d56449af1a5132aa6089dfe77745ee26f3614e7b",
+        "docs/content/docs/api/events.mdx": "e8f757e01abd7749db45a7d67bd420dbb83dc799af206f258bc813d4939a136a",
+        "skills/interaction/SKILL.md": "e643de2442418df7683742a2b9a54d7bf832eb48b28f7ada4a144dc07321ac27",
         "src/core/state-names.ts": "5038f163474ec97ab47d4f5ada4d4a6a9b221f95a10b73a157d195d4ca873aa8",
-        "src/define-graph.ts": "8241292ef4152dd41fadd7a89c98430884473f1cf33b2473a0ae2f86397a9169",
-        "src/host/events.ts": "b66e2551058c354104ad1973dcb654fc0a636393c2f782e7f07975816e4e4bf8",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
+        "src/define-graph.ts": "f47d7220437c030743ad771bebd01bb783edc022e4765c344458f6d6b3e5c886",
+        "src/host/element-keys.ts": "94bd3e8b4360fab170b1161511466faa0e6c9ed3a699373945a51719e075dfd4",
+        "src/host/events.ts": "c99d46f579c04b3bf0e08fb718cda1906d6419a010fcb7435b449f8a229fd085",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/host/selection-control.ts": "d3484aece729498b039a7ffacac91bd03c4dcddbfbddf56711fb0488ffe8b040",
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 153 narrowed selection and state setters to KeyList and the event payload keys; the skill passes arrays and ElementKeys objects.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 159 made a click on a half select one direction and added target.direction; PR 161 states it with an expect-error TS2339 example.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/interaction/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/interaction/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/layouts/SKILL.md": {
-      "fingerprint": "8240badeb97790f512f24f814da68cec1ba97d6b87a50e9cce54481a862a38ad",
+      "fingerprint": "edfe5b6ecdf8e8076a5629480e7729968ee856c1ca3df3d41919f2476b613fcd",
       "snapshot": {
         "docs/content/docs/(guide)/layout.mdx": "82c34632c455964ab72a2be2e4ff159de9b5240f8f602a5c596008d50d01cdae",
         "docs/content/docs/(guide)/positions.mdx": "5eeeb7e4e4d6fa97b80702c3b48092c42751be31a3a9bf478efaf5c026b80631",
         "docs/content/docs/api/force.mdx": "4d7c41622350c752d891587ac631fdd10cd6aee86d82d4365213b481d4e442c0",
         "docs/content/docs/api/layouts.mdx": "eb31de112012dad6a4371b09f532f63a04945a3e9c5001a69b5f6ed046572c13",
-        "skills/layouts/SKILL.md": "a24a241488c64b070550dda9791156dfc48211e2090634b18128a693d1fb4c45",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
+        "skills/layouts/SKILL.md": "3296a077902037acfde5edd7a4b088487b3a8c7dee295d0cb49b95df1a0e9ff0",
+        "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
+        "src/host/layout-session.ts": "cb985ee54b1e6215fe9b3c79130631885acce91ed7c6f66ae8cbd1b6af406263",
         "src/layouts/force/index.ts": "84f3b61a2858cc613175718bd3d2bac5ee309819385d61e8a35e13009a665d8e",
         "src/layouts/geo.ts": "1a4831f6045f10a0ae3b30656528fd56b5c1d9d4c52ed3d1585e561b4471a29f",
         "src/layouts/grid.ts": "1d804a3ed5d0c9a9c160950fa2bdfd5de80e6e3dbed10aae4c3cba0d071ed869",
@@ -383,19 +402,19 @@
         "src/layouts/layers/index.ts": "2deef6e55d651d449c5a4c468b53dcc0245f85464e8733edd8c0f8492eac5370",
         "src/layouts/radial.ts": "a10f71893827a53307ff64158de2cadb6523e65a6a1810b91b54bb9b2877f90d",
         "src/layouts/rings.ts": "b537e8ecb1a22f34d658779c12ee0656ae80991ffaae72e0f7c43a013fd59b87",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 152 removed explicit item types from the layout guide; PR 153 made LayoutRunOptions.keys a KeyList; the skill passes graph.selection.get().nodes, an array.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 158 made the first automatic full layout wait for loading live sources; PR 161 states it and that layout.run never waits.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/layouts/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/layouts/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/map/SKILL.md": {
-      "fingerprint": "56bff1236da5e4d7f5b1191f5d30f1a83592d7ae0612afef8316d587813ff4a7",
+      "fingerprint": "5506530c09bac0f78423cd888cbc937fee471d709d941b4082460cd1d0219e3f",
       "snapshot": {
         "docs/content/docs/(guide)/map.mdx": "8635851c35513eef18d13a6861a0fd1bba0b189119fc6f7f3e14d4f38cef0f4b",
         "docs/content/docs/api/map-graph.mdx": "a2ec05056f682f4f8b388bddcad55ce6d84d17b71150fb5392d64afd5b5a9b8a",
@@ -405,142 +424,140 @@
         "src/map/export.ts": "940c4f471edcf256f0bf65dad4d7f8069728fec2745d930bce17d571b3bffef4",
         "src/map/index.ts": "15e694a7ff8251903d8bdd6b2c052595568a31416a4be35057c4dfd77f653e34",
         "src/map/react.tsx": "0b78922a0acca6c29e9ccaba8957add0d5567e3d5a925bdefdf0fda1310a6c6a",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d",
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "updated",
-      "reason": "PR 153 made createMinimap inert on a map with a dev warning; PR 155 states it in the list of what the map does not support.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "PR 158 and 159 changed src/types.ts for live sources and merge halves; nothing the map skill states changed (halves are not verified on a map, which the skill does not claim).",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of skills/map/SKILL.md against src/ at 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "grep of skills/map/SKILL.md for statements on readiness, merged edges and per-edge states: none affected"
       ]
     },
     "skill:skills/multilayer/SKILL.md": {
-      "fingerprint": "af135f5cd835d5b2c957f18bf3ec17cf50819d587ae6ed5dd4372d935dde97fc",
+      "fingerprint": "d4ac7c1f2dc77ce4d681a5b905f32af81d016c5c27e5ec5702fe25b07e387453",
       "snapshot": {
         "docs/content/docs/(guide)/multilayer.mdx": "021146ecff1ccfbbcfa92485ac80f6ea2f8fc8042cf20bc3c7269aeffc6a07eb",
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
         "skills/multilayer/SKILL.md": "320f292550e00c08c9da242962c844fbce255b6485c84a3727bcd3fa190c81c2",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
         "src/support.ts": "447f57be80e2a3915d79cbda6bed07c747ced73d2d754528bbc7a4c97aba3a83",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "PR 153 made layers.hide, show and set take a KeyList; the skill passes arrays and its expect-error TS2345 for an unknown layer still holds.",
+      "reason": "PR 159 keeps merged edges per mark and layer; the skill's statement that merges never mix layers still holds.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/multilayer/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "grep of skills/multilayer/SKILL.md for statements on readiness, merged edges and per-edge states: none affected"
       ]
     },
     "skill:skills/paths/SKILL.md": {
-      "fingerprint": "b9d8efdc5ae19e5e6aaaac4228ac7cdb7fed464280e8844b9e51c579c483abd7",
+      "fingerprint": "ad09cd6c5fa607199160fc449080a12a6f888bdef1942cb7b6021290b110caf5",
       "snapshot": {
         "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
         "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
         "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "PR 152 removed explicit item types from the paths guide and API page; the skill already warns against edges<Link>(...).",
+      "reason": "src/types.ts changed for live sources and merge halves; path search reads the data, not the halves.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/paths/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "grep of skills/paths/SKILL.md for statements on readiness, merged edges and per-edge states: none affected"
       ]
     },
     "skill:skills/styling/SKILL.md": {
-      "fingerprint": "62f294c98c74a220acbefc9fd6eb0069e1c622146ac8c4a1c9abbea8fec19c3d",
+      "fingerprint": "76781dbe168f681894b295e9e1b69dadd71a863b66c8b3385559de076c9ebe40",
       "snapshot": {
         "docs/content/docs/(guide)/images-and-badges.mdx": "03c6f11ebfc1dac043dfad56c557d55bcc358d0710173bef2ad2c83abf0356de",
         "docs/content/docs/(guide)/labels.mdx": "dc644df707af28c3857eaacb4541f252bec5a8ae7ba256e1829122ea918b9d29",
         "docs/content/docs/(guide)/marks.mdx": "175cda7cb93281a0f3a726fab7e95b0dad12c09db1b33dbbd118296c0f33dea2",
         "docs/content/docs/(guide)/scales.mdx": "4859dfac9d9317adf59cfe015e5c16d9b058d9ac53bee3754509b1b7d3eb8e3c",
         "docs/content/docs/(guide)/theming.mdx": "ae195fc24b0f2de67a9655d8b68c6e268d60bba61534a4a532bfc31a2a65458c",
-        "docs/content/docs/api/nodes.mdx": "c2293c29cc74faf988249a4ba9bc45a4a860e3b125b7f70f0d4b57bc8a2b7a7f",
+        "docs/content/docs/api/nodes.mdx": "a761e5f152fab132505145c1fa7263ebd1a099b8280b8879150e26a239f3589f",
         "docs/content/docs/api/theme-tokens.mdx": "94d9a4f0e1b98a15feb0ee8b06d5b18925a5db0d90fb482b82ec3ca18c739183",
         "skills/styling/SKILL.md": "62d7d803ddcdb63c7579d18c551ec11fa8adea6f08db6ca2a783eeb8bd5954e6",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
         "src/theme/theme.css": "64740a249ead0298bc78db7d241147e1587f3c3636f0a999964ba0a923a9e970",
         "src/theme/tokens.ts": "2f68c1caed2c8b6d0f4f6fd4c08a2a664095f38a72acdc2981ef8f09b6252462",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "PR 152 removed explicit item types from the images, labels, marks and theming guides; the skill writes no type argument.",
+      "reason": "src/types.ts changed for merge halves; the state styles the skill describes are unchanged, halves are covered by groups and edges.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/styling/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "grep of skills/styling/SKILL.md for statements on readiness, merged edges and per-edge states: none affected"
       ]
     },
     "skill:skills/tanstack-db/SKILL.md": {
-      "fingerprint": "529261d130673e63f6181c401c462ede9c216aa468ee371cd7aaff40eda22e94",
+      "fingerprint": "6930733fd9abba13df23facd47472529b988bac070538002397fedb3a81f3524",
       "snapshot": {
-        "docs/content/docs/(guide)/data.mdx": "b094dcc62b9486e2f92e653a7929364e457d88548d0efacb7018bedc75278c48",
-        "docs/content/docs/(guide)/tanstack-db.mdx": "cb1587d3a539dc193e140b6321a8e1a656e39c5230882b60a75b79114c779520",
+        "docs/content/docs/(guide)/data.mdx": "9949e0b93b54b8e37d27d24672b8ae0b2d528fd60273868b0132fe0187ef1bc5",
+        "docs/content/docs/(guide)/tanstack-db.mdx": "9abb49dd93a6df5df9b867b5f3d560b001a990b254b399f41ef091bbaae25b30",
         "docs/content/docs/api/persist-positions.mdx": "5aac6aaf2e3a98f800b433ae350b16081798f526486d459e7964f7147a6a24fe",
-        "docs/content/docs/api/subset.mdx": "d18133969651144bab28f8b69c92d03388105da1da9d71336ae2a57895049b68",
-        "skills/tanstack-db/SKILL.md": "80b07fff31844aec8ede5bc7b8801f08fbd4c93b7c4d423103bc05fffc2c9060",
+        "docs/content/docs/api/subset.mdx": "c853303f9c7a06eafc06b68f40dd9d0a2f6b094a16f4d46d59526d786b825365",
+        "skills/tanstack-db/SKILL.md": "de840c364028c2913adb19c088735d13c95fa1471da732be6e134dd6d69ba828",
+        "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
         "src/db/index.ts": "62d84388441292ee428b5da675b4b087f462ab4a5cb07b469205232aa34cb4a3",
-        "src/db/subset.ts": "aa08a33717ced71ce6b563ac9bdeafc8934dbf6d73b74b25e6a1563488dccb63"
+        "src/db/subset.ts": "23364a86c1db26a77d85371f1b6e101addc5eb0352500ad63208aec4d3d93398",
+        "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 152 removed explicit item types from the data guide; the skill already infers from typed collections.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 158 tracks collection, live query and subset loading; PR 161 replaced the sentence that said a live source has no ready signal, added the status table, data.failed and the on-demand collection limit.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/tanstack-db/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/tanstack-db/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/tanstack-query/SKILL.md": {
-      "fingerprint": "e35f1e3dc36cbc861a5ec34a4b3a8722846c68dec08733676b6fbffd5ac57fcc",
+      "fingerprint": "d56c3a1c77f4d44165ec57306e92889c6f7ccff0db9941838e8b6c3efa908f95",
       "snapshot": {
-        "docs/content/docs/(guide)/tanstack-query.mdx": "37592b94559fbf4cf4fb1835e33128969f087de8e3b47889632f506188e0ff8f",
-        "docs/content/docs/api/create-exploration.mdx": "ac2f793342df68900d5b2e7db329dbed4855f06d2198396ee5951c95faa686b6",
-        "skills/tanstack-query/SKILL.md": "6d078e7aea82c62312498cce8edbe9fe780d8aaa2f4efe38b125cfa803256ebb",
-        "src/query/index.ts": "12493e0808ae65112ac1c7b892a74880fc25b6a042c9d0477404bfffb1063de4"
+        "docs/content/docs/(guide)/tanstack-query.mdx": "6a1ad350d197965ebd20063e7f985c3346d525ee41142d957feab2909d475ba7",
+        "docs/content/docs/api/create-exploration.mdx": "3bd905d354f9ed09c3778a3475eb293e7202bc6d9e702a017174344a4a3c3f69",
+        "skills/tanstack-query/SKILL.md": "f0ea86d00190d771a624215ab7e7baf523be31988103e6bcb2349ded52d8a4be",
+        "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
+        "src/query/index.ts": "a9db94902b0883c71a3b354d27ee09552405c9057df38f9c1a1eb889d059eb4e"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 152 fixed the guide and API page to say a plain query object does not infer the types; the skill already said so (HIGH failure mode). PR 153 made roots a KeyList; the skill passes arrays.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 158 gave the exploration sources a status and made the first layout wait for the roots; PR 161 states it.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/tanstack-query/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/tanstack-query/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/time/SKILL.md": {
-      "fingerprint": "d5658a0f70773e5270de127030fdf8f1b04e906facc2a4122f7af1972a8c1450",
+      "fingerprint": "288b6f37e9527d442a009f0a9188bde3ce743645863cb269c275b4b71fbf3836",
       "snapshot": {
         "docs/content/docs/(guide)/time.mdx": "48bbaeef11fada8ed88e95aad567a2de966edcec6eb4bedbb5fe7d48cdd54db1",
         "docs/content/docs/api/timeline.mdx": "6beddb4d6602f83b448b909110d66085a7938dc103684f38477144106fe76222",
         "skills/time/SKILL.md": "e136af4c421dc544a28c83264501f1c314eff908116da5136836180972089a76",
         "src/core/time-range.ts": "66554a7d34012abf7fdbab65ec50eac1dcc7ed80805315810c23cd21ebf67e8a",
-        "src/host/events.ts": "b66e2551058c354104ad1973dcb654fc0a636393c2f782e7f07975816e4e4bf8",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
+        "src/host/events.ts": "c99d46f579c04b3bf0e08fb718cda1906d6419a010fcb7435b449f8a229fd085",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
         "src/react/index.tsx": "4dfe033539f8f1a751312e0510736e646b0d9fff2e3629c807d3536f0ada957c",
         "src/timeline/index.ts": "9abf415004715ab96baddd1eed40faa34d0db250abe193cb4906bc00b882bc80",
         "src/timeline/view.ts": "b57f59b177f46ffb61d6d97fecfd904f2f1a808d1ca12aee4a4ab2f70ae08ff2",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "PR 152 removed explicit item types from the time guide; PR 153 touched event payload keys only; nothing the skill states changed.",
+      "reason": "src/host/events.ts gained loadingchange; nothing the time skill states changed.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/time/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "grep of skills/time/SKILL.md for statements on readiness, merged edges and per-edge states: none affected"
       ]
     },
     "skill:skills/tools/SKILL.md": {
-      "fingerprint": "8ca2e5629f7661ed3017180bff1b1390a2dc6efc0d860a491b416b5f864b11aa",
+      "fingerprint": "ab2ecd584481f32ffa0f21822175123b662e0a22f3c523c3bdcec83cadf725aa",
       "snapshot": {
         "docs/content/docs/(guide)/devtools.mdx": "66f06ef16930ec1fef0870a420f867c253fdbf87c9ed259bb0338299df2692df",
         "docs/content/docs/(guide)/drawing-layers.mdx": "cd64c8497d1c453de4f039468a7d44dcf31b98ca2be09953b9df6966d1d8b027",
@@ -557,53 +574,54 @@
         "src/host/anchors.ts": "7bc04ed00323bdaf22279444ac7bd088ef2036a40f476818bb43979d2b16015b",
         "src/host/lens.ts": "cd9fb833781aa7b752e1b14e6d8065da2e3ec44f8365828659cc75e5610ee56b",
         "src/hulls.ts": "0c9030aabf0da1878e4c08ddddb9820dd199cec5bc2b4ced1e61f428a904437d",
-        "src/legend/index.ts": "14fbdb0395de915fc95c2033d6a80a02a292a03deb045b8be1ff2b68c2c6b205",
+        "src/legend/index.ts": "76cf42cba21e29249dabf5b7ca68f52fc9222bdcfd6b14626b546859734daa18",
         "src/legend/view.ts": "62c1dbc9e53f79e4a3f2098fd2644d88c3caecf467da31b317eed0805c07e18e",
         "src/minimap/index.ts": "d0e078e181adb1bb690aa88e656cef7243ecd04376204096a18880401547cdd3"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "updated",
-      "reason": "PR 153 made createMinimap inert on a map with a dev warning; PR 155 states it in the companions section, and PR 152 fixed the anchor offset to a { x, y } point, which the skill already said.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "src/legend/index.ts reads the keys of one direction when a single end has the color; the legend actions the skill describes are unchanged.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of skills/tools/SKILL.md against src/ at 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "grep of skills/tools/SKILL.md for statements on readiness, merged edges and per-edge states: none affected"
       ]
     },
     "skill:skills/view/SKILL.md": {
-      "fingerprint": "f4f79100b7bedaeaba0ab1aeebc16af342087e1a4fcf998f63b157eb6cacc6ed",
+      "fingerprint": "5540a0fe921164773e7561b8a92cf46b9bae1c9615edf4e9991214caa20bdd60",
       "snapshot": {
         "docs/content/docs/(guide)/view.mdx": "8dea33acb2bca4dd8ada8468a465ed10a3ae205b29a222d7257c268672aea459",
         "docs/content/docs/(guide)/zoom.mdx": "35343fd189f99e3c2d2947a07c0aba8a4a0f4554acb2424db3fb64091ee45954",
-        "docs/content/docs/api/define-graph.mdx": "549de25a140cbf46914a3af75c44e89a2ee44767065d797752d58e03498093e9",
-        "docs/content/docs/api/graph-instance.mdx": "80e003173ad1e014577ece2b4e797b02a7ad8d0bb5acfd32aa307890ced8d22d",
-        "skills/view/SKILL.md": "ae97b57167899206e0b955fcfb2ce13efd97c1fdb96490d510f3f7f3269d9fdf",
+        "docs/content/docs/api/define-graph.mdx": "2c5f6d742e0c5793cf190dc1d56449af1a5132aa6089dfe77745ee26f3614e7b",
+        "docs/content/docs/api/graph-instance.mdx": "9e47bea75be586e8958fa671ba576c6ee9245dc94d7b8ee63bbfbaacfcbd57a8",
+        "skills/view/SKILL.md": "a0eb53247fbb5d35526010783bfa4618b7ef274a34d412b4b7554d3fd9d00ed2",
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
-        "src/define-graph.ts": "8241292ef4152dd41fadd7a89c98430884473f1cf33b2473a0ae2f86397a9169",
-        "src/host/events.ts": "b66e2551058c354104ad1973dcb654fc0a636393c2f782e7f07975816e4e4bf8",
-        "src/host/graph-instance.ts": "1734cc6a6ecf934344cd6c11235d36210de6ea502d3fffe8ab79081af51da458",
-        "src/types.ts": "cbb627ce9965d80eb11e9dbcf8ed74344fa9185fcf92a64fb36068be378f9e3d"
+        "src/define-graph.ts": "f47d7220437c030743ad771bebd01bb783edc022e4765c344458f6d6b3e5c886",
+        "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
+        "src/host/events.ts": "c99d46f579c04b3bf0e08fb718cda1906d6419a010fcb7435b449f8a229fd085",
+        "src/host/graph-instance.ts": "36a08afa3f5419d54c546bbad6d68ec76c167838fe61f984d7702064f64d8eed",
+        "src/host/view-control.ts": "d18d3b3bb73cf9089d792713a557e221ba0e186a0b1bcd0dbd63451eaf8e5d93",
+        "src/types.ts": "9c071d488c673ec9cca729d5a7050f11d4510dd10cc534299e77f3719032bddc"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
-      "outcome": "no-change",
-      "reason": "PR 152 removed explicit item types from the zoom guide; PR 153 made FitOptions nodes and edges a KeyList; the skill's expect-error TS2559 for view.fit(['a']) still holds.",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "updated",
+      "reason": "PR 158 made the automatic fits wait for loading live sources; PR 161 states it and that view.fit never waits.",
       "evidence": [
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types",
-        "Maintainer read of the changed lines of skills/view/SKILL.md sources between 0.23.0 and 375d14d",
-        "grep of the skill: every call that takes several keys passes an array or { nodes, edges } built from arrays, nothing passes a bare string"
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked",
+        "Fresh agents in a consumer project built from npm pack did two tasks with the skills alone (loading overlay over a TanStack DB collection, two-way edges selected by half); tsc passes, the gaps they hit were fixed in PR 161",
+        "Maintainer review of PR 161: no em dash, no comments in examples, no other library named; skills/view/SKILL.md sampled against src/"
       ]
     },
     "source:docs/content/docs/api/index.mdx": {
-      "fingerprint": "04b71d7ffad3b0bb032377c5ce0461aaa95d4de14146b039e7d2f7ada38e5c47",
+      "fingerprint": "7d6b2355c508dc5aa666447fb932d498b1f72818392857701a8120471b660228",
       "snapshot": {
-        "docs/content/docs/api/index.mdx": "ff3225da42b4ac0d6ce2d2233fff845a549c2e92a5ed1e41e2d9f55a6c98a494"
+        "docs/content/docs/api/index.mdx": "b983d7ab5eb1bfb599ddf9438199dbad726822663c61db08f72120b29670f33c"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "PR 153 listed the new KeyList type on the API index; no skill links that page for a fact it states.",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
       "evidence": [
-        "git diff 0.23.0..375d14d -- docs/content/docs/api/index.mdx: one new entry",
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types"
+        "git diff 0.23.1..fbc52f9 -- docs/content/docs/api/index.mdx: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
       ]
     },
     "source:src/core/key-list.ts": {
@@ -620,16 +638,16 @@
       ]
     },
     "source:src/host/exposure.ts": {
-      "fingerprint": "1994edd4289199d0e258872e43f5632cc367ec764b38e344f50d26eccf38f42c",
+      "fingerprint": "d1d7bd09607757de5f1861e292d335b2f77261d648ace9286335cc2db2a9e8ef",
       "snapshot": {
-        "src/host/exposure.ts": "5127d7451f1332ba0f34dbe3de88657ca11f2db0e30a8736c5ccbf14001753fc"
+        "src/host/exposure.ts": "e55540858f76e68938fdbe79b7d9299c7f410877a76c7e4f391c2440b4e4a4d5"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "Internal to PR 153: the dev warning for a bare string (stringCheck, checkLists) and the onMap flag of the minimap; the public behavior is stated in the groups, tools and map skills (PR 155).",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
       "evidence": [
-        "git diff 0.23.0..375d14d -- src/host/exposure.ts: string checks or the onMap flag only",
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types"
+        "git diff 0.23.1..fbc52f9 -- src/host/exposure.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
       ]
     },
     "source:src/host/folding.ts": {
@@ -646,16 +664,16 @@
       ]
     },
     "source:src/host/internals.ts": {
-      "fingerprint": "939d83dca05b11b5700007d33a2cc3efae720c40f8251e9b462083784700f95f",
+      "fingerprint": "13f62dee642608427ae54c7fe96279fabc1daabe1a316f8d7c29edf93057e1cd",
       "snapshot": {
-        "src/host/internals.ts": "b567c448c2311f429092cdbc70ce25ac5f220ec7a2ad4c4bc0925cee6fc785bb"
+        "src/host/internals.ts": "bc20ed9c44e7e7171dd82b478328791270192685fdcdd406d5ff0415379abba7"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "Internal to PR 153: the dev warning for a bare string (stringCheck, checkLists) and the onMap flag of the minimap; the public behavior is stated in the groups, tools and map skills (PR 155).",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
       "evidence": [
-        "git diff 0.23.0..375d14d -- src/host/internals.ts: string checks or the onMap flag only",
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types"
+        "git diff 0.23.1..fbc52f9 -- src/host/internals.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
       ]
     },
     "source:src/host/layer-control.ts": {
@@ -685,29 +703,29 @@
       ]
     },
     "source:src/host/lifecycle.ts": {
-      "fingerprint": "b8c5f29e8354fc7be2cd8f5a5e6bd996997ce7d5b73ed4a1f26b5b3e82918f9a",
+      "fingerprint": "77b4ab00e32a215ca012630623226d285076912476b992bad24c7655e106c37a",
       "snapshot": {
-        "src/host/lifecycle.ts": "249c1eede0bde12c3e27a0e64f5f6e129443275e318619348ea310351b1a4b87"
+        "src/host/lifecycle.ts": "0b1205d5a13e4d0faef01065c378cc261df0b5da7c86f689699fe386df515f61"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "Internal to PR 153: the dev warning for a bare string (stringCheck, checkLists) and the onMap flag of the minimap; the public behavior is stated in the groups, tools and map skills (PR 155).",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
       "evidence": [
-        "git diff 0.23.0..375d14d -- src/host/lifecycle.ts: string checks or the onMap flag only",
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types"
+        "git diff 0.23.1..fbc52f9 -- src/host/lifecycle.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
       ]
     },
     "source:src/host/mount-graph.ts": {
-      "fingerprint": "ae059f5815d94ff6bbbccf16712ec1a6a28fb07e8152dd1f137aadc2261a13e9",
+      "fingerprint": "29f1573575660c8e5c473796d5bb9cb5de6d39b90d1d6009a17e736c25ca069e",
       "snapshot": {
-        "src/host/mount-graph.ts": "95a7c2565a9815ce77c40d3cf102d3e555dd8e9cb4cda1f5585990885de2b7e3"
+        "src/host/mount-graph.ts": "3886177d1a6f282d1b7e06ade507db98d52e287db89e432c7f128ec40bbc6ed9"
       },
-      "head": "375d14df5f8c816d0c7a24458c8cc486c3ccbdf7",
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
       "outcome": "no-change",
-      "reason": "Internal to PR 153: the dev warning for a bare string (stringCheck, checkLists) and the onMap flag of the minimap; the public behavior is stated in the groups, tools and map skills (PR 155).",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
       "evidence": [
-        "git diff 0.23.0..375d14d -- src/host/mount-graph.ts: string checks or the onMap flag only",
-        "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types"
+        "git diff 0.23.1..fbc52f9 -- src/host/mount-graph.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
       ]
     },
     "source:src/host/selection-control.ts": {
@@ -721,6 +739,266 @@
       "evidence": [
         "git diff 0.23.0..375d14d -- src/host/selection-control.ts: string checks or the onMap flag only",
         "intent validate skills in pnpm verify passes on main at 375d14d: 18 skill files, every fence typechecked against the KeyList types"
+      ]
+    },
+    "source:docs/content/docs/(guide)/upgrading.mdx": {
+      "fingerprint": "fdc831b6248c37b90efebc7dd38a6ddcf0d83bd765ad415782be55f043235236",
+      "snapshot": {
+        "docs/content/docs/(guide)/upgrading.mdx": "fef754a938c440fb3b97ede61df650a58244405a8439657b194491b7124d889e"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- docs/content/docs/(guide)/upgrading.mdx: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/core/columns.ts": {
+      "fingerprint": "673224001eedfa111b403d06cf78dd22b659b428e6cced35acaa41bf9ed7c349",
+      "snapshot": {
+        "src/core/columns.ts": "6c91a84a8ba3c4a5ad241911877bbfeace33d308556a913dd1eca8c357267881"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/core/columns.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/core/graph-model.ts": {
+      "fingerprint": "2d0fb530b817689cbc88c7186f21e3bb3ab420bc485105ca5015b758ba437f9e",
+      "snapshot": {
+        "src/core/graph-model.ts": "fd05ae4b3f166fe7bdc6409ce827bacabb0043d5bcbdb659976e64af5282d720"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/core/graph-model.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/core/group-index.ts": {
+      "fingerprint": "df5fd92839d07538de672cc5c33d31a1caabc2afbda4675c55b01fc8c405947c",
+      "snapshot": {
+        "src/core/group-index.ts": "08467942a380072d9b3a82a3781e6df9f8228e88a42394e17f7d87fe8cfa235f"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/core/group-index.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/core/pick-index.ts": {
+      "fingerprint": "f6f91c29437fb1d0da95d86983989e9c5cadb22fcfe76d0c9d930d1657cadd1d",
+      "snapshot": {
+        "src/core/pick-index.ts": "36019c78c67b7dcd2d16c1e5dfcfdd13777caf896c94038465110b8192afb5ff"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/core/pick-index.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/core/scene.ts": {
+      "fingerprint": "7764be9a97cca394e01c40ea2aa3e5a644b986deef0c760eed3315f8bf5b6bc9",
+      "snapshot": {
+        "src/core/scene.ts": "5276beaebd9e1e81ca3572ddfbcc8444da1952c6bbd88e5c9018b735f931bf1a"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/core/scene.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/core/state-buffers.ts": {
+      "fingerprint": "3bbcb9e6caabe81f60e0141d8a9b15b3b28a056cb4590290898b8f7831163ab3",
+      "snapshot": {
+        "src/core/state-buffers.ts": "080c11e1e3a421caf24636e560c1633b278541329b3afa2a46e8041ca2554651"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/core/state-buffers.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/core/visibility.ts": {
+      "fingerprint": "9fea7bd344b6cd4d43c7c556e2239de9c9108d9244f8ba2298cf5aec5cfb9d7f",
+      "snapshot": {
+        "src/core/visibility.ts": "efd22c3741898a38a5e8fcddb744ac712f19b96c901f95d0f5e37a9146c748cc"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/core/visibility.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/export/look.ts": {
+      "fingerprint": "7cff4ec7b4958cad50609cee15f3b9a0974f2836f8566a980875f1d7b984f0da",
+      "snapshot": {
+        "src/export/look.ts": "23450c1a70b438d758d2a0d4d1020d44274533e5f2add410965e929038745c76"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/export/look.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/export/svg.ts": {
+      "fingerprint": "08e57b5ea4070a2a7506d5260c6f9cacd2786838143d2e7199cea5a38c04578b",
+      "snapshot": {
+        "src/export/svg.ts": "8c3744fdf89960402a2f3ab8833f798e015757c7189b62bf7b22e5a18465c451"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/export/svg.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/host/state-registry.ts": {
+      "fingerprint": "2e4145276ec13008be4346849988af7a5530d30d36115f6996651e18b21f26da",
+      "snapshot": {
+        "src/host/state-registry.ts": "7b572d35b19ca19afee6c0ae0f35e431c48eef96306bb0bac82237fd63b860c3"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/host/state-registry.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/legend/read.ts": {
+      "fingerprint": "a7b1d5a955252b60bcb856791745b0702aed9ef1cf52ba6bd58fdaf43fd08e84",
+      "snapshot": {
+        "src/legend/read.ts": "24b51bcb390ec1484d9d9a26eb4855bab18bed69e7237ab7352144f6191b5b80"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/legend/read.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/arc-shaders.ts": {
+      "fingerprint": "df098995bebaaa8a4c9a4e08b31633f086233b15a09640f40505b31540bc2280",
+      "snapshot": {
+        "src/webgl/arc-shaders.ts": "594ef0f9c9c9cf1f7983c67182b11ffda1f07c76b3c6c33309b96cd9c8f1e33b"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/arc-shaders.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/bridge-glsl.ts": {
+      "fingerprint": "9c88f3456e5e7f0bd34a79b76159426cdfdeaf774c2bd30377dce321814cc714",
+      "snapshot": {
+        "src/webgl/bridge-glsl.ts": "54eeaaa8d8ad50b23bd10768e5a15e03a00c54a504e7ca73c2fcabb5aa490e06"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/bridge-glsl.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/bundle-pass.ts": {
+      "fingerprint": "2f6d8fbc8488f857c5f35f6fb340518768d62255b581a12fa46f568243b486d7",
+      "snapshot": {
+        "src/webgl/bundle-pass.ts": "036e82134a672c10fedfee3e7d7f77848be5c08409e8af8f332fcf83a40600e4"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/bundle-pass.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/bundle-shaders.ts": {
+      "fingerprint": "368665e22f7110362d760cd3c9a8d24042c7c24de2c2f73d3d63dddc109b9667",
+      "snapshot": {
+        "src/webgl/bundle-shaders.ts": "6e59781f0ebe8155148531b354a99d791bfbccf8c3319e243910ae663255475c"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/bundle-shaders.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/gl.ts": {
+      "fingerprint": "5120fe9c6f6f2e683587627a2c8754735c9670405ad73b0ccf2c84d102076900",
+      "snapshot": {
+        "src/webgl/gl.ts": "00e13af46629e17b34bfaca71a5771b0191faabf58c0f424d8ab69b79fed33dc"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/gl.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/renderer.ts": {
+      "fingerprint": "9dec0e05b4d9bb20ce51262a718e56729db6e4349594ae751976c0eba1b12ef9",
+      "snapshot": {
+        "src/webgl/renderer.ts": "bb91ee33f1c34741dc4497ad92d1bbf437974b65d155afbad86a6a3e2644a76b"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/renderer.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/shaders.ts": {
+      "fingerprint": "d8295c49c36de4478916a635da82e5575af6043fbfcea54780f8453c11d524ad",
+      "snapshot": {
+        "src/webgl/shaders.ts": "254e42b2488d714c4a26a1567b6bfeb2154d9e91b8a55280a053a89261cf5c20"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/shaders.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+      ]
+    },
+    "source:src/webgl/waypoint-shaders.ts": {
+      "fingerprint": "3ba28c03d520876b39aad28cb07dba973b259a6996c64790083950843988d24b",
+      "snapshot": {
+        "src/webgl/waypoint-shaders.ts": "56e9b394ec081ecf001a0a6c59452fd8241aef5857f9cb4a201691789ba71365"
+      },
+      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "outcome": "no-change",
+      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "evidence": [
+        "git diff 0.23.1..fbc52f9 -- src/webgl/waypoint-shaders.ts: internal to PR 158 or 159",
+        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
       ]
     }
   }
