@@ -1,0 +1,97 @@
+---
+title: shapes
+description: A mark that draws one free shape per item of its data, under the graph.
+---
+
+```ts
+import { shapes } from '@bruno00o/graph/shapes'
+
+function shapes<T, N extends MarkName = undefined>(
+  data: LiveSource<T>,
+  options?: Omit<ShapeOptions<T, N>, 'key'>,
+): ShapeMark<T, N>
+function shapes<T extends { readonly id: Key }, N extends MarkName = undefined>(
+  data: Iterable<T>,
+  options?: ShapeOptions<T, N>,
+): ShapeMark<T, N>
+function shapes<T, N extends MarkName = undefined>(
+  data: Iterable<T>,
+  options: ShapeOptions<T, N> & { key: KeyChannel<T> },
+): ShapeMark<T, N>
+```
+
+`shapes` comes from its own entry point, `@bruno00o/graph/shapes`, which holds the geometry reader, the triangulation, the shape drawing on the GPU and their SVG export: a graph without shapes does not load them. Import it from the same copy of the package as the graph: `defineGraph` refuses a mark from another copy, and a graph mounted by another copy counts its shapes without drawing them, with a warning in development. List the mark in `marks` of [`defineGraph`](/docs/api/define-graph), with the nodes and the edges. See [Shapes](/docs/shapes).
+
+`T` is the item type, inferred from `data`, and `N` the type of `name`, `undefined` without one. `key` is required for an iterable whose items have no `id` field; a live source carries its keys in its changes. Keys are unique across shape marks, apart from the keys of nodes and edges.
+
+## Options
+
+A **channel** is a field name or a function. A **style** is a constant or a function. See [Marks and channels](/docs/marks#channels-and-styles).
+
+<api-table path="index.ts" name="ShapeOptions" />
+
+`strokeWidth` and the dashes are in screen pixels: they keep their size at every zoom. Fills and outlines are antialiased.
+
+## Geometry
+
+`geometry` reads one of these forms. Points are in world units, the units of the `x` and `y` of nodes, unless they are places in degrees.
+
+```ts
+type ShapeGeometry =
+  | ShapeRings
+  | ShapePath
+  | ShapeCircle
+  | ShapeRectangle
+  | PolygonGeometry
+  | MultiPolygonGeometry
+  | LineStringGeometry
+  | MultiLineStringGeometry
+
+type ShapePoint = Point | GeoPoint | readonly [x: number, y: number]
+```
+
+<api-table path="index.ts" name="ShapeRings" />
+
+<api-table path="index.ts" name="ShapePath" />
+
+<api-table path="index.ts" name="ShapeCircle" />
+
+<api-table path="index.ts" name="ShapeRectangle" />
+
+GeoJSON geometries are in degrees, `[longitude, latitude]`, projected like the `longitude` and `latitude` of nodes. A `LineString` and a `MultiLineString` draw lines: see [`LineStringGeometry`](/docs/api/edges#waypoints).
+
+<api-table path="index.ts" name="PolygonGeometry" />
+
+<api-table path="index.ts" name="MultiPolygonGeometry" />
+
+A point that is not finite is skipped, and so is a point equal to the one before it. A ring needs three points, a line two. A circle with a center in degrees is drawn on Earth: its radii are in meters, and it becomes a polygon of 128 points.
+
+## Problems
+
+A geometry that draws nothing, such as a ring of fewer than three points or an unknown form, and a polygon whose rings cross are reported by [`issues()`](/docs/api/graph-instance#issues), next to the problems of nodes and edges. A crossed polygon is still drawn, as well as its triangles can cover it. A `null` geometry draws nothing and is no problem. An item without a key, or with a key held twice, is reported as for nodes, with `kind: 'shapes'`. `GraphIssue<M>` holds these problems when the marks `M` hold a shape mark, and so does the plain `GraphIssue`.
+
+<api-table path="index.ts" name="InvalidShapeIssue" />
+
+```ts
+type InvalidShapeReason = 'empty' | 'self-intersecting'
+type ShapeIssue = MissingKeyIssue<'shapes'> | DuplicateKeyIssue<'shapes'> | InvalidShapeIssue
+```
+
+## Types
+
+<api-table path="index.ts" name="ShapeMark" />
+
+```ts
+type HasShapes<M extends Mark> = [Extract<M, { readonly type: 'shapes' }>] extends [never]
+  ? false
+  : true
+
+type ShapeDatum<M extends Mark> =
+  M extends ShapeMark<infer T, MarkName, MarkLayer>
+    ? T
+    : M extends { readonly type: 'nodes' | 'edges' }
+      ? never
+      : unknown
+```
+
+`HasShapes` tells whether the marks `M` of a definition hold a shape mark. `ShapeDatum` is the union of the item types of the shape marks. With shapes, [`count()`](/docs/api/graph-instance#count) returns a `GraphShapeCount`.

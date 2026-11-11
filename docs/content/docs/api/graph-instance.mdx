@@ -103,7 +103,7 @@ Numbers given to the graph must be finite. A call with one that is not, such as 
 
 <api-table path="index.ts" name="View" />
 
-`fit` frames its `nodes` and `edges`, or every node when it names neither; a path or the selection fits as is. `padding` defaults to the `padding` of the [view of the definition](/docs/view#padding), 32 pixels unless set. Called before the element has a size, `fit` waits for one. During the first layout run, the view keeps framing the nodes of the last `fit` while they move, until the view is moved. Durations are in milliseconds, and zero with `prefers-reduced-motion`. An animation goes straight to its end when the last frames took longer than what is left of it. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view. A view, a factor or an option that is not finite throws a `RangeError`: see [Numbers](#numbers).
+`fit` frames its `nodes`, `edges` and `shapes`, or every node and shape when it names none; a path or the selection fits as is. `padding` defaults to the `padding` of the [view of the definition](/docs/view#padding), 32 pixels unless set. Called before the element has a size, `fit` waits for one. During the first layout run, the view keeps framing the nodes of the last `fit` while they move, until the view is moved. Durations are in milliseconds, and zero with `prefers-reduced-motion`. An animation goes straight to its end when the last frames took longer than what is left of it. Every call, and each frame of its animation, stays within the [view limits](/docs/view#view-limits) of the definition, and works with `pan: false` and `zoom: false`. In controlled mode, `set`, `fit` and `zoomBy` call `onViewChange` instead of moving the view. A view, a factor or an option that is not finite throws a `RangeError`: see [Numbers](#numbers).
 
 ## Selection
 
@@ -144,7 +144,7 @@ graph.positions.set(saved, { duration: 400 })
 issues(): readonly GraphIssue[]
 ```
 
-The problems present in the data now: an item without a key, a key held twice, a `parent` that names no node or would make a node contain itself, a `supportedBy` that names no edge. The graph draws around each one: it keeps the first item of a key, leaves a node without its parent at the top level, and skips the item without a key. A problem goes away once the data no longer holds it, so `issues()` is a state, not a log.
+The problems present in the data now: an item without a key, a key held twice, a `parent` that names no node or would make a node contain itself, a `supportedBy` that names no edge, a [shape](/docs/shapes) that cannot be drawn as given. The graph draws around each one: it keeps the first item of a key, leaves a node without its parent at the top level, and skips the item without a key. A problem goes away once the data no longer holds it, so `issues()` is a state, not a log.
 
 The same array comes back until the problems change. Each change emits `issueschange` with the new list, and in development, problems that appear are summarized by type in a single console warning per data change. See [Problems in the data](/docs/data#problems-in-the-data).
 
@@ -166,17 +166,26 @@ graph.on('issueschange', ({ issues }) => {
 
 <api-table path="index.ts" name="MissingCarrierIssue" />
 
+With a shape mark, `GraphIssue` also holds the problems of shapes: [`InvalidShapeIssue`](/docs/api/shapes#problems), and `missing-key` and `duplicate-key` with `kind: 'shapes'`.
+
 An edge whose end node is missing is not a problem: it waits for it, and `count()` reports it as `pending`.
 
 ## Count
 
 ```ts
-count(): GraphCount
+count(): GraphCountOf<M>
+type GraphCountOf<M extends Mark> = HasShapes<M> extends true ? GraphShapeCount : GraphCount
 ```
 
 <api-table path="index.ts" name="GraphCount" />
 
 <api-table path="index.ts" name="GraphShownCount" />
+
+With a [shape mark](/docs/shapes) in the definition, the counts hold the shapes as well:
+
+<api-table path="index.ts" name="GraphShapeCount" />
+
+<api-table path="index.ts" name="GraphShownShapeCount" />
 
 `nodes`, `edges` and `pending` count the data, whatever is drawn. `shown` counts what is drawn now, in the view or not: a folded group is one node and hides its members, merged edges count once, and an element out of its [zoom range](/docs/zoom), out of the [time window](/docs/time), in a [hidden layer](/docs/multilayer) or hidden by a state with `hide` does not count. Counting reads every element, so `count()` keeps its result, and returns the same object, until the data, the folded groups, the zoom of a graph with zoom ranges, the time window, the hidden layers or the members of a hiding state change.
 

@@ -4,6 +4,7 @@ import { defineGraph } from '../define-graph'
 import { force } from '../layouts/force'
 import { createLegend, mountLegend } from '../legend'
 import { edges, nodes } from '../marks'
+import { shapes } from '../shapes'
 import { fakeRenderer } from '../testing/dom'
 import { createTimeline, mountTimeline } from '../timeline'
 import { createGraphHost, type GraphInstance } from './mount-graph'
@@ -53,6 +54,7 @@ const links: Link[] = items.slice(1).map((item, i) => ({
 function definition() {
   return defineGraph({
     marks: [
+      shapes([{ id: 'zone', geometry: { center: { x: 0, y: 0 }, radius: 100 } }]),
       edges<Link>(links, { source: 'from', target: 'to', flow: true }),
       nodes<Item>(items, { color: 'group', time: 'time' }),
     ],

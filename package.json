@@ -92,6 +92,10 @@
       "types": "./dist/routing.d.ts",
       "import": "./dist/routing.js"
     },
+    "./shapes": {
+      "types": "./dist/shapes.d.ts",
+      "import": "./dist/shapes.js"
+    },
     "./timeline": {
       "types": "./dist/timeline.d.ts",
       "import": "./dist/timeline.js"

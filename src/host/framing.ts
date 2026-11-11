@@ -5,7 +5,10 @@ import type { Hierarchy } from '../core/hierarchy'
 import { halfWidthOf } from '../core/node-shape'
 import type { PositionReader, Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
+import { isDrawn } from '../core/shape-engine'
+import type { ShapeStore } from '../core/shape-store'
 import type { Bounds } from '../core/view'
+import type { Key } from '../types'
 import type { ContainerBoxes } from './containers'
 import type { FitKeys } from './view-control'
 
@@ -107,6 +110,33 @@ export function withWaypoints(
     for (let index = 0; index < last; index++) {
       if ((fixed.count[index] ?? 0) > 0) include(index)
     }
+  }
+  return maxX < minX ? box : { minX, minY, maxX, maxY }
+}
+
+export function withShapes(
+  box: Bounds | null,
+  keys: FitKeys | null,
+  shapes: ShapeStore,
+  indexOf: (key: Key) => number,
+): Bounds | null {
+  if (!shapes.any || (keys && keys.shapes.length === 0)) return box
+  let minX = box?.minX ?? Number.POSITIVE_INFINITY
+  let minY = box?.minY ?? Number.POSITIVE_INFINITY
+  let maxX = box?.maxX ?? Number.NEGATIVE_INFINITY
+  let maxY = box?.maxY ?? Number.NEGATIVE_INFINITY
+  const include = (index: number) => {
+    const geometry = index >= 0 && shapes.alive[index] === 1 ? shapes.geometry[index] : null
+    if (!isDrawn(geometry)) return
+    minX = Math.min(minX, geometry.minX)
+    minY = Math.min(minY, geometry.minY)
+    maxX = Math.max(maxX, geometry.maxX)
+    maxY = Math.max(maxY, geometry.maxY)
+  }
+  if (keys) {
+    for (const key of keys.shapes) include(indexOf(key))
+  } else {
+    for (let index = 0; index < shapes.capacity; index++) include(index)
   }
   return maxX < minX ? box : { minX, minY, maxX, maxY }
 }

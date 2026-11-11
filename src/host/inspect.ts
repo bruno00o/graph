@@ -1,4 +1,4 @@
-import type { GraphIssue } from '../core/issues'
+import type { AnyIssue } from '../core/issues'
 import type { GraphInstance } from './graph-instance'
 import type { RendererStats } from './renderer'
 
@@ -11,7 +11,8 @@ export interface GraphInspection {
   readonly nodes: number
   readonly edges: number
   readonly pendingEdges: number
-  readonly issues: readonly GraphIssue[]
+  readonly shapes: number
+  readonly issues: readonly AnyIssue[]
   readonly layout: string | null
   readonly renderer: RendererStats | null
 }

@@ -4,6 +4,7 @@ import { defineGraph } from '../define-graph'
 import type { GraphPointerEvent, NodeTarget } from '../host/events'
 import type { Legend as LegendInstance, LegendState } from '../legend/index'
 import { edges, nodes } from '../marks'
+import { shapes } from '../shapes'
 import type { EdgeMark, GraphDefinition, NodeMark } from '../types'
 import {
   Graph,
@@ -73,6 +74,28 @@ function UntypedRef(): JSX.Element {
         if (target?.kind === 'edge') expectTypeOf(target.datum).toEqualTypeOf<Link>()
       }}
     />
+  )
+}
+
+const zones: { id: string; geometry: { x: number; y: number; width: number; height: number } }[] =
+  []
+const shaped = defineGraph({ marks: [shapes(zones), ...definition.marks] })
+
+function ShapeRefs(): JSX.Element {
+  const typed = useRef<GraphInstance<never, (typeof shaped.marks)[number]> | null>(null)
+  const untyped = useRef<GraphInstance | null>(null)
+  return (
+    <>
+      <Graph ref={typed} definition={shaped} ariaLabel="graph" />
+      <Graph
+        ref={untyped}
+        definition={shaped}
+        ariaLabel="graph"
+        onClick={({ target }) => {
+          if (target?.kind === 'node') expectTypeOf(target.datum).toEqualTypeOf<Item | Group>()
+        }}
+      />
+    </>
   )
 }
 
@@ -201,6 +224,7 @@ describe('typed React adapter', () => {
     expectTypeOf(TypedRef).toBeFunction()
     expectTypeOf(UntypedRef).toBeFunction()
     expectTypeOf(CallbackRef).toBeFunction()
+    expectTypeOf(ShapeRefs).toBeFunction()
   })
 
   it('types the hooks from the graph option', () => {

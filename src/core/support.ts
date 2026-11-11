@@ -1,7 +1,7 @@
 import type { EdgeMark, Key, Mark, SupportWalk, SupportWalkOptions } from '../types'
 import { isKey, toAccessor } from './accessor'
 import type { GraphChanges, GraphModel } from './graph-model'
-import type { GraphIssue } from './issues'
+import type { AnyIssue } from './issues'
 
 type Read = (datum: unknown) => unknown
 
@@ -44,7 +44,7 @@ export class SupportIndex {
     return this.#issueVersion
   }
 
-  collectIssues(into: GraphIssue[]): void {
+  collectIssues(into: AnyIssue[]): void {
     for (const [carrier, keys] of this.#missing) {
       for (const key of keys) into.push({ type: 'missing-carrier', kind: 'edges', key, carrier })
     }

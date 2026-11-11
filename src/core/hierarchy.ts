@@ -1,6 +1,6 @@
 import type { Key } from '../types'
 import { IndexSet } from './index-set'
-import type { GraphIssue } from './issues'
+import type { AnyIssue } from './issues'
 
 const none = -1
 
@@ -52,7 +52,7 @@ export class Hierarchy {
     return this.#issueVersion
   }
 
-  collectIssues(into: GraphIssue[]): void {
+  collectIssues(into: AnyIssue[]): void {
     for (const [parent, children] of this.#waiting) {
       for (const index of children) {
         const key = this.keys[index]

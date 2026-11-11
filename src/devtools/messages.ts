@@ -1,6 +1,6 @@
-import type { GraphIssue } from '../core/issues'
+import type { GraphIssue, ShapeIssue } from '../core/issues'
 import { withoutUndefined } from '../core/without-undefined'
-import type { Key } from '../types'
+import type { EdgeMark, Key, NodeMark } from '../types'
 
 /** Every text the devtools panel shows. Strings are labels; functions format values. */
 export interface GraphDevtoolsMessages {
@@ -111,8 +111,15 @@ export interface GraphDevtoolsMessages {
    * @default 'Issues'
    */
   readonly issues: string
-  /** Formats an issue, such as `'Duplicate node key a'`. */
-  readonly issue: (issue: GraphIssue) => string
+  /** Formats an issue of nodes or edges, such as `'Duplicate node key a'`. */
+  readonly issue: (issue: GraphIssue<NodeMark<unknown> | EdgeMark<unknown>>) => string
+  /**
+   * Label of the shape count.
+   * @default 'Shapes'
+   */
+  readonly shapes?: string | undefined
+  /** Formats an issue of a shape, such as `'Shape a has no area'`. */
+  readonly shapeIssue?: ((issue: ShapeIssue) => string) | undefined
   /**
    * Title of the View section.
    * @default 'View'
@@ -284,6 +291,19 @@ export const defaultMessages: GraphDevtoolsMessages = {
         return `Node ${String(issue.key)} would contain itself through ${String(issue.parent)}`
       case 'missing-carrier':
         return `Edge ${String(issue.key)} has no carrier ${String(issue.carrier)}`
+    }
+  },
+  shapes: 'Shapes',
+  shapeIssue: (issue) => {
+    switch (issue.type) {
+      case 'duplicate-key':
+        return `Duplicate shape key ${String(issue.key)}`
+      case 'missing-key':
+        return 'Shape without a key'
+      case 'invalid-shape':
+        return issue.reason === 'empty'
+          ? `Shape ${String(issue.key)} has no area`
+          : `Shape ${String(issue.key)} crosses itself`
     }
   },
   view: 'View',

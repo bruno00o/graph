@@ -12,6 +12,8 @@ export const lightTheme: Readonly<Record<string, string>> = {
   edge: '#7f858c',
   'group-fill': '#e7efee',
   'group-line': '#6e8d8b',
+  'shape-fill': '#5b61671a',
+  'shape-stroke': '#868c92',
   accent: '#c93700',
   'on-accent': '#ffffff',
   'focus-ring': '#c93700',
@@ -69,6 +71,8 @@ export interface Defaults {
   readonly groupStroke: string
   readonly groupStrokeWidth: number
   readonly groupPadding: number
+  readonly shapeFill: string
+  readonly shapeStroke: string
 }
 
 export const defaults: Defaults = {
@@ -90,6 +94,8 @@ export const defaults: Defaults = {
   groupStroke: themeColor('group-line'),
   groupStrokeWidth: 1,
   groupPadding: 16,
+  shapeFill: themeColor('shape-fill'),
+  shapeStroke: themeColor('shape-stroke'),
 }
 
 export const ringWidth = 2

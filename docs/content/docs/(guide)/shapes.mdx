@@ -1,0 +1,93 @@
+---
+title: Shapes
+description: Areas, rings, rectangles and lines drawn under the graph, from your data.
+---
+
+<LiveExample slug="shape-zones" />
+
+A shape mark draws free shapes under the nodes and the edges: polygons with holes, discs and rings, rectangles, and lines. Unlike [hulls and containers](/docs/drawing-layers), which follow nodes, a shape has its own geometry, given by your data in world units or in degrees. Shapes are elements of the graph: they come from a mark, with keys, live sources, `issues()` and `count()`, and the exports draw them.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { shapes } from '@bruno00o/graph/shapes'
+
+const zones = [
+  { id: 'north', geometry: { rings: [[[0, 0], [400, 0], [400, 300], [0, 300]]] } },
+  { id: 'pond', geometry: { center: { x: 600, y: 150 }, radius: 120, inner: 60 } },
+  { id: 'path', geometry: { points: [{ x: 0, y: 360 }, { x: 700, y: 330 }] } },
+]
+
+defineGraph({
+  marks: [
+    shapes(zones, { fill: 'color-mix(in srgb, var(--graph-cat-1) 20%, transparent)' }),
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { x: 'x', y: 'y' }),
+  ],
+})
+```
+
+`shapes` comes from `@bruno00o/graph/shapes`: the geometry reader and the triangulation stay out of a graph that has no shapes. Every option is in the [API reference](/docs/api/shapes).
+
+## Geometries
+
+`geometry`, the `geometry` field by default, takes one of these forms:
+
+| Form | Draws |
+| --- | --- |
+| `{ rings }` | A polygon: the first ring is the outline, the others are holes. Rings close on their own, in either direction |
+| `{ points, closed }` | A line through the points, closed or not. A line is never filled |
+| `{ center, radius, inner }` | A disc, or a ring with `inner` |
+| `{ x, y, width, height, cornerRadius }` | A rectangle, with rounded corners or not |
+| GeoJSON `Polygon`, `MultiPolygon` | Polygons from `[longitude, latitude]` positions |
+| GeoJSON `LineString`, `MultiLineString` | Lines from `[longitude, latitude]` positions |
+
+A point is `{ x, y }`, `[x, y]` or `{ longitude, latitude }`. Degrees are projected like the `longitude` and `latitude` of nodes, so shapes from GeoJSON line up with nodes placed by coordinates. A circle around a place in degrees takes its radii in meters.
+
+A geometry that cannot be read, and a polygon whose rings cross, are listed by `issues()` with the type `'invalid-shape'`: see [Problems in the data](/docs/data#problems-in-the-data). A crossed polygon is still drawn as well as can be.
+
+## Style
+
+`fill` colors polygons, discs, rings and rectangles, and `stroke` their outline and the lines. Both default to the theme, `--graph-shape-fill` and `--graph-shape-stroke`, and `null` draws none. `strokeWidth` is in screen pixels, 1 by default, and `dash` takes `'solid'`, `'dashed'` or `'dotted'`, as for edges. `opacity` fades the fill and the outline together.
+
+```ts
+shapes(zones, {
+  fill: (zone) => (zone.id === 'pond' ? 'var(--graph-cat-6)' : null),
+  stroke: 'var(--graph-ink-muted)',
+  strokeWidth: 2,
+  dash: (zone) => (zone.id === 'path' ? 'dashed' : 'solid'),
+  opacity: 0.4,
+})
+```
+
+Fills and outlines are antialiased at every zoom, and outlines keep their width in pixels.
+
+## Order
+
+Shapes draw right after the [background grid](/docs/drawing-layers#background-grid), under containers, hulls, edges and nodes. Between shapes, the marks draw in the order of `marks`, and within a mark, `order` sorts them: a lower value draws first, under the others. Without `order`, or for equal values, shapes draw in the order they arrived.
+
+```ts
+shapes(zones, { order: (zone) => (zone.id === 'pond' ? 1 : 0) })
+```
+
+## Framing and counting
+
+The first automatic fit frames the shapes with the nodes, and a graph with shapes only frames its shapes. `view.fit` takes `shapes`, a list of shape keys, next to `nodes` and `edges`:
+
+```ts
+graph.view.fit({ shapes: ['north'], duration: 400 })
+```
+
+With a shape mark in the definition, `count()` returns `shapes` and `shown.shapes` as well: see [`count`](/docs/api/graph-instance#count). A graph without shapes keeps the counts it had.
+
+## Not there yet
+
+Shapes are drawn only, for now:
+
+- a click, a hover or the lasso go through a shape as through the background: shapes have no selection, no states and no events;
+- they take no zoom range, no `time` and no `layer`;
+- they have no labels;
+- on a [map](/docs/map), they are not drawn yet, with a warning in development.
+
+## Cost
+
+A graph without shapes creates no program, texture or buffer for them, and does no work per frame. Polygons are triangulated once, when their geometry changes: 10,000 polygons of 50 points take about 70 milliseconds, and their first frame about 150 milliseconds in Chrome. Panning over them costs about 2 milliseconds per frame.

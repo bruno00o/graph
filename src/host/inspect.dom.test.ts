@@ -149,6 +149,7 @@ describe('graph inspection', () => {
       nodes: 2,
       edges: 1,
       pendingEdges: 1,
+      shapes: 0,
       issues: [],
       layout: null,
       renderer: null,

@@ -833,10 +833,13 @@ export type AggregateEdgeOptions<T> = Omit<
   'name' | 'layer' | 'key' | 'source' | 'target' | 'supportedBy' | 'merge' | 'aggregate' | 'scales'
 >
 
-/** A set of nodes or edges, made by `nodes()` or `edges()`. Marks draw in the order given. */
+/**
+ * A set of nodes, edges or shapes, made by `nodes()`, `edges()` or `shapes()`. Node and edge marks
+ * draw in the order given, shape marks under them in their own order.
+ */
 export interface Mark {
-  /** Kind of element the mark draws. */
-  readonly type: 'nodes' | 'edges'
+  /** Kind of element the mark draws: `'nodes'`, `'edges'` or `'shapes'`. */
+  readonly type: 'nodes' | 'edges' | 'shapes'
 }
 
 /**
@@ -921,6 +924,166 @@ export interface EdgeMark<T, N extends MarkName = MarkName, L extends MarkLayer 
 }
 
 /**
+ * A point of a shape: a point or an `[x, y]` pair in world units, or a place in degrees, projected
+ * like the `longitude` and `latitude` of nodes.
+ */
+export type ShapePoint = Point | GeoPoint | readonly [x: number, y: number]
+
+/** A polygon, with holes cut out of it. */
+export interface ShapeRings {
+  /**
+   * Rings of points: the first one is the outline, the others are holes. A ring closes on its own:
+   * its first point need not come again at its end, and its direction does not matter.
+   */
+  readonly rings: readonly (readonly ShapePoint[])[]
+}
+
+/** A line through points, open or closed. A line is never filled. */
+export interface ShapePath {
+  /** Points of the line, in order. */
+  readonly points: readonly ShapePoint[]
+  /**
+   * Joins the last point back to the first one.
+   * @default false
+   */
+  readonly closed?: boolean | undefined
+}
+
+/** A disc, or a ring between two circles. */
+export interface ShapeCircle {
+  /**
+   * Center: a point in world units, or a place in degrees, which draws the circle on Earth with
+   * its radii in meters.
+   */
+  readonly center: ShapePoint
+  /** Radius, in world units, or in meters around a place. */
+  readonly radius: number
+  /** Radius of the hole of a ring, in the units of `radius`. Defaults to none: a full disc. */
+  readonly inner?: number | undefined
+}
+
+/** A rectangle in world units, with rounded corners or not. */
+export interface ShapeRectangle {
+  /** Left side. */
+  readonly x: number
+  /** Top side. */
+  readonly y: number
+  /** Width, from the left side. */
+  readonly width: number
+  /** Height, from the top side. */
+  readonly height: number
+  /**
+   * Radius of the corners, at most half the width and half the height.
+   * @default 0
+   */
+  readonly cornerRadius?: number | undefined
+}
+
+/** A GeoJSON `Polygon` geometry: rings of `[longitude, latitude]` positions, the outline first. */
+export interface PolygonGeometry {
+  /** GeoJSON type of the geometry. */
+  readonly type: 'Polygon'
+  /** Rings, each a list of `[longitude, latitude]` positions: the outline, then the holes. */
+  readonly coordinates: readonly (readonly (readonly number[])[])[]
+}
+
+/** A GeoJSON `MultiPolygon` geometry: polygons drawn as one shape. */
+export interface MultiPolygonGeometry {
+  /** GeoJSON type of the geometry. */
+  readonly type: 'MultiPolygon'
+  /** Polygons, each a list of rings of `[longitude, latitude]` positions. */
+  readonly coordinates: readonly (readonly (readonly (readonly number[])[])[])[]
+}
+
+/**
+ * Geometry of a shape: a polygon with holes, a line, a circle or a ring, a rectangle in world
+ * units, or a GeoJSON `Polygon`, `MultiPolygon`, `LineString` or `MultiLineString` in degrees.
+ */
+export type ShapeGeometry =
+  | ShapeRings
+  | ShapePath
+  | ShapeCircle
+  | ShapeRectangle
+  | PolygonGeometry
+  | MultiPolygonGeometry
+  | LineStringGeometry
+  | MultiLineStringGeometry
+
+/**
+ * Options of `shapes()`. Shapes draw under containers, hulls, edges and nodes, in world units, and
+ * their lines in screen pixels. `N` is the type of `name`.
+ */
+export interface ShapeOptions<T, N extends MarkName = MarkName> {
+  /** Name of the mark. */
+  readonly name?: N | undefined
+  /**
+   * Shape key, unique across shape marks. Required for an iterable whose items have no `id` field.
+   * A live source keys its items by the `key` of its changes and takes no `key` option.
+   * @default 'id'
+   */
+  readonly key?: KeyChannel<T> | undefined
+  /**
+   * Geometry of the shape. `null` draws nothing; a geometry that cannot be read, or a polygon whose
+   * outline crosses itself, is reported by `issues()`.
+   * @default 'geometry'
+   */
+  readonly geometry?: Channel<T, ShapeGeometry> | undefined
+  /**
+   * Fill color of polygons, circles, rings and rectangles, or `null` for none. Lines are never
+   * filled.
+   * @default --graph-shape-fill
+   */
+  readonly fill?: Style<T, string | null> | undefined
+  /**
+   * Color of the outline of a filled shape and of a line, or `null` for none.
+   * @default --graph-shape-stroke
+   */
+  readonly stroke?: Style<T, string | null> | undefined
+  /**
+   * Width of the outline and of a line, in screen pixels, 0 for none.
+   * @default 1
+   */
+  readonly strokeWidth?: Style<T, number> | undefined
+  /**
+   * Pattern of the outline and of a line: `'solid'`, `'dashed'` or `'dotted'`.
+   * @default 'solid'
+   */
+  readonly dash?: Style<T, EdgeDash> | undefined
+  /**
+   * Opacity from 0 to 1, of the fill and of the outline.
+   * @default 1
+   */
+  readonly opacity?: Style<T, number> | undefined
+  /**
+   * Drawing order within the mark: shapes with a lower value draw first, under the others. Shapes
+   * without a value, or with the same value, draw in the order they arrived.
+   */
+  readonly order?: Channel<T, number> | undefined
+}
+
+/**
+ * A mark that draws one shape per item of its data, under the nodes and the edges. `N` is the type
+ * of its `name`.
+ */
+export interface ShapeMark<T, N extends MarkName = MarkName, L extends MarkLayer = undefined>
+  extends Mark {
+  readonly type: 'shapes'
+  /** Name given in the options, or `undefined`. */
+  readonly name: N
+  /** Always `undefined`: shapes join no layer yet. */
+  readonly layer: L
+  /** Items of the mark. */
+  readonly data: GraphData<T>
+  /** Options given to `shapes()`. */
+  readonly options: ShapeOptions<T, N>
+}
+
+/** `true` when the marks `M`, a union of marks, include a mark made by `shapes()`. */
+export type HasShapes<M extends Mark> = [Extract<M, { readonly type: 'shapes' }>] extends [never]
+  ? false
+  : true
+
+/**
  * Union of the layer names of the marks `M`, a union of marks. `string` when `M` is the plain
  * `Mark` type.
  */
@@ -935,7 +1098,7 @@ export type LayerName<M extends Mark> = M extends { readonly layer: infer L }
 export type NodeDatum<M extends Mark> =
   M extends NodeMark<infer T, MarkName, MarkLayer>
     ? T
-    : M extends { readonly type: 'edges' }
+    : M extends { readonly type: 'edges' | 'shapes' }
       ? never
       : unknown
 
@@ -946,7 +1109,18 @@ export type NodeDatum<M extends Mark> =
 export type EdgeDatum<M extends Mark> =
   M extends EdgeMark<infer T, MarkName, MarkLayer>
     ? T
-    : M extends { readonly type: 'nodes' }
+    : M extends { readonly type: 'nodes' | 'shapes' }
+      ? never
+      : unknown
+
+/**
+ * Union of the item types of the shape marks among `M`, a union of marks. `unknown` when `M` is the
+ * plain `Mark` type.
+ */
+export type ShapeDatum<M extends Mark> =
+  M extends ShapeMark<infer T, MarkName, MarkLayer>
+    ? T
+    : M extends { readonly type: 'nodes' | 'edges' }
       ? never
       : unknown
 
@@ -1601,8 +1775,9 @@ export interface ResolvedBridges {
  */
 export interface GraphDefinitionOptions<S extends string = string, M extends Mark = Mark> {
   /**
-   * Results of `nodes()` and `edges()`, drawn in this order. Their item types and names type the
-   * targets of events and of the state.
+   * Results of `nodes()`, `edges()` and `shapes()`. Node and edge marks draw in this order, shape
+   * marks under them, in their own order. Their item types and names type the targets of events
+   * and of the state.
    */
   readonly marks: readonly M[]
   /** `color`, `size` and `width` scales, shared by every mark without a scale of its own. */
@@ -1675,7 +1850,7 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
  * the state names and `M` the union of the marks.
  */
 export interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
-  /** Marks, drawn in this order. */
+  /** Marks: node and edge marks draw in this order, shape marks under them. */
   readonly marks: readonly M[]
   /** Scales shared by every mark without a scale of its own. */
   readonly scales: ScalesOptions

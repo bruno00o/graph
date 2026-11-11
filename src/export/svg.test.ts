@@ -16,6 +16,7 @@ import { ContainerBoxes } from '../host/containers'
 import type { LabelMode } from '../host/renderer'
 import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
+import { shapes } from '../shapes'
 import { lightTheme } from '../theme/tokens'
 import type {
   BridgeShape,
@@ -23,6 +24,8 @@ import type {
   Hull,
   Key,
   NodeOptions,
+  ShapeGeometry,
+  ShapeOptions,
   StateLook,
   StateStyle,
 } from '../types'
@@ -203,6 +206,7 @@ function render(
     positions,
     states,
     grid,
+    shapes: scene.shapes,
     hulls: hulls.shapes,
     palette,
     theme: {
@@ -1273,5 +1277,88 @@ describe('background grid and hulls', () => {
     const svg = render(pair)
     expect(svg).not.toContain('<pattern')
     expect(svg).not.toContain('stroke-linejoin="round"/>')
+  })
+})
+
+describe('shapes', () => {
+  type Zone = { id: string; geometry: ShapeGeometry; dash?: 'solid' | 'dashed' | 'dotted' }
+  const zone = (zones: Zone[], options: Omit<ShapeOptions<Zone>, 'key'> = {}) => ({
+    marks: [...pair.marks, shapes(zones, { dash: (item) => item.dash ?? 'solid', ...options })],
+  })
+
+  it('draws polygons with their holes under the edges and the nodes, fill then outline', () => {
+    const svg = render(
+      zone([
+        {
+          id: 'z',
+          geometry: {
+            rings: [
+              [
+                [-50, -50],
+                [50, -50],
+                [50, 50],
+                [-50, 50],
+              ],
+              [
+                [-10, -10],
+                [10, -10],
+                [10, 10],
+                [-10, 10],
+              ],
+            ],
+          },
+        },
+      ]),
+    )
+    const fill = svg.match(/<path d="([^"]+)" fill="#5b6167" fill-opacity="0.102"\/>/)
+    expect(fill?.[1]?.match(/Z/g)?.length).toBe(2)
+    expect(fill?.[1]).toContain('M150 100')
+    const stroke = svg.indexOf('stroke="#868c92" stroke-width="1"')
+    expect(stroke).toBeGreaterThan(svg.indexOf('fill-opacity="0.102"'))
+    expect(stroke).toBeLessThan(svg.indexOf('<g><path'))
+  })
+
+  it('draws circles, rings and rounded rectangles as paths', () => {
+    const svg = render(
+      zone(
+        [
+          { id: 'c', geometry: { center: { x: 0, y: 0 }, radius: 20, inner: 10 } },
+          { id: 'r', geometry: { x: 0, y: 0, width: 40, height: 20, cornerRadius: 4 } },
+        ],
+        { fill: '#ff0000', stroke: null },
+      ),
+    )
+    const paths = [...svg.matchAll(/<path d="([^"]+)" fill-rule="evenodd" fill="#ff0000"\/>/g)]
+    expect(paths.length).toBe(2)
+    expect(paths[0]?.[1]).toBe(
+      'M200 130A20 20 0 1 1 200 170A20 20 0 1 1 200 130ZM200 140A10 10 0 1 1 200 160A10 10 0 1 1 200 140Z',
+    )
+    expect(paths[1]?.[1]).toContain('A4 4 0 0 1 240 154')
+  })
+
+  it('draws lines without fill and dashes fitted to closed outlines', () => {
+    const svg = render(
+      zone([
+        {
+          id: 'l',
+          geometry: {
+            points: [
+              [0, 0],
+              [40, 0],
+            ],
+          },
+        },
+        { id: 'b', geometry: { x: 0, y: 0, width: 24, height: 24 }, dash: 'dashed' },
+      ]),
+    )
+    expect(svg).toContain('<path d="M200 150L240 150" fill="none" stroke="#868c92"')
+    expect(svg).toContain('<path d="M212 150H224V174H200V150Z" fill-rule="evenodd"')
+    expect(svg).toContain('stroke-dasharray="4.8 3.2"')
+  })
+
+  it('draws the shape outline color only with a shape mark', () => {
+    const svg = render(zone([{ id: 'b', geometry: { x: 0, y: 0, width: 10, height: 10 } }]), {}, {})
+    expect(svg).toContain('#868c92')
+    expect(render(pair)).not.toContain('#868c92')
   })
 })

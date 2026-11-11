@@ -1,4 +1,5 @@
 import { maxLayerSlots } from './core/mark-layers'
+import { shapeEngineOf } from './core/shape-engine'
 import { byKind, freeStateNames, maxFreeStates } from './core/state-names'
 import { resolvePadding } from './core/view'
 import { withoutUndefined } from './core/without-undefined'
@@ -212,7 +213,7 @@ function resolveTransitions(options: TransitionOptions = {}): ResolvedTransition
 }
 
 function checkLayers(marks: readonly Mark[]): void {
-  const slots = { nodes: 0, edges: 0 }
+  const slots = { nodes: 0, edges: 0, shapes: 0 }
   for (const mark of marks) {
     const slot = slots[mark.type]++
     const layer = (mark as { readonly layer?: unknown }).layer
@@ -276,8 +277,12 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
   options: GraphDefinitionOptions<S, M>,
 ): GraphDefinition<S, M> {
   for (const mark of options.marks) {
-    if (mark?.type !== 'nodes' && mark?.type !== 'edges') {
-      throw new TypeError('defineGraph: every mark must come from nodes() or edges()')
+    if (mark?.type === 'shapes') {
+      if (!shapeEngineOf(mark)) {
+        throw new TypeError('defineGraph: every shape mark must come from shapes()')
+      }
+    } else if (mark?.type !== 'nodes' && mark?.type !== 'edges') {
+      throw new TypeError('defineGraph: every mark must come from nodes(), edges() or shapes()')
     }
   }
   for (const hull of options.hulls ?? []) {

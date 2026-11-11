@@ -6,6 +6,8 @@ import type { HullShape } from '../core/hull-layer'
 import type { LayerFilter } from '../core/mark-layers'
 import { halfWidthOf, isBox, loopShift, nodeUnit } from '../core/node-shape'
 import type { Positions } from '../core/positions'
+import { isDrawn } from '../core/shape-engine'
+import type { ShapeStore } from '../core/shape-store'
 import type { HideFilter, StateBuffers } from '../core/state-buffers'
 import type { TimeFilter } from '../core/time-range'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
@@ -44,6 +46,7 @@ export interface FrameSource {
   readonly hulls?: readonly HullShape[]
   readonly bundles?: EdgePaths | null
   readonly states?: StateBuffers | null
+  readonly shapes?: ShapeStore | null
 }
 
 export interface FrameOptions {
@@ -128,6 +131,16 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     minY = Math.min(minY, y - reachY)
     maxX = Math.max(maxX, x + reachX)
     maxY = Math.max(maxY, y + reachY)
+  }
+  const shapes = source.shapes
+  for (let index = 0; shapes?.any && index < shapes.capacity; index++) {
+    const geometry = shapes.alive[index] === 1 ? shapes.geometry[index] : null
+    if (!isDrawn(geometry)) continue
+    const reach = (shapes.strokeWidth[index] ?? 0) / 2
+    minX = Math.min(minX, geometry.minX * zoom - reach)
+    minY = Math.min(minY, geometry.minY * zoom - reach)
+    maxX = Math.max(maxX, geometry.maxX * zoom + reach)
+    maxY = Math.max(maxY, geometry.maxY * zoom + reach)
   }
   if (maxX < minX) return viewFrame
   for (let index = 0; index < edges.capacity; index++) {

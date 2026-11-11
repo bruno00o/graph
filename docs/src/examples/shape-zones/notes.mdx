@@ -1,0 +1,13 @@
+## How it works
+
+- One `shapes()` mark holds four items, each with its own `geometry`: `rings` for the area, its second ring cutting the hole; `center`, `radius` and `inner` for the ring; `x`, `y`, `width`, `height` and `cornerRadius` for the rectangle; `points` for the line, which is never filled.
+- The mark comes first in `marks`, but shapes always draw under the edges and the nodes, right after the background.
+- `fill` mixes a categorical color with transparency, `stroke` keeps it opaque, and `dash` draws the line dashed. Widths and dashes are in screen pixels.
+- The nodes take their place from `x` and `y`, in the same world units as the shapes, so no layout runs.
+- **Frame** calls `graph.view.fit({ shapes: [key] })`, then `fit()` frames the shapes and the nodes together.
+
+## Try it
+
+- Press **Outline** to switch the outlines of the areas between solid, dashed and dotted: only the style changes, the geometries are not read again.
+- Zoom in on the edge of the ring: it stays smooth at every zoom.
+- Drag a node over a shape: shapes take no clicks yet, so they never get in the way.

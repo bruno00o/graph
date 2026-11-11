@@ -73,7 +73,9 @@ export type GraphTarget<M extends Mark = Mark> =
     ? NodeTarget<T, N>
     : M extends EdgeMark<infer T, infer N, MarkLayer>
       ? EdgeTarget<T, N>
-      : NodeTarget | EdgeTarget
+      : M extends { readonly type: 'shapes' }
+        ? never
+        : NodeTarget | EdgeTarget
 
 /** Keys of nodes and of edges. */
 export interface ElementKeys {
@@ -190,10 +192,10 @@ export interface GraphLayerEvent<M extends Mark = Mark> {
   readonly hidden: readonly LayerName<M>[]
 }
 
-/** Payload of `issueschange`. */
-export interface GraphIssuesEvent {
+/** Payload of `issueschange`. `M` is the union of the marks. */
+export interface GraphIssuesEvent<M extends Mark = Mark> {
   /** The problems present in the data after the change, as `graph.issues()` returns them. */
-  readonly issues: readonly GraphIssue[]
+  readonly issues: readonly GraphIssue<M>[]
 }
 
 /**
@@ -290,7 +292,7 @@ export interface GraphEvents<M extends Mark = Mark> {
    * Problems appeared in the data or went away, once the change that caused them is applied. Fires
    * only when the set of problems changes.
    */
-  readonly issueschange: GraphIssuesEvent
+  readonly issueschange: GraphIssuesEvent<M>
   /**
    * A wheel event without Cmd or Ctrl went to the page, in `'page'` wheel mode with zoom on: the
    * application can show how to zoom. Fires for every such event.
