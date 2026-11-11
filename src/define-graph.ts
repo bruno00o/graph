@@ -223,7 +223,7 @@ function checkLayers(marks: readonly Mark[]): void {
     }
     if (slot >= maxLayerSlots) {
       throw new RangeError(
-        `defineGraph: only the first ${maxLayerSlots} node marks and edge marks can join a layer`,
+        `defineGraph: only the first ${maxLayerSlots} node marks, edge marks and shape marks can join a layer`,
       )
     }
   }
@@ -257,9 +257,10 @@ function freezeStates<S extends string>(states: StateStyles<S>): StateStyles<S> 
   for (const name of Object.keys(states)) {
     const style = (states as Record<string, StateStyle | StateKindStyles | undefined>)[name]
     if (style && byKind(style)) {
-      const kinds: { nodes?: StateStyle; edges?: StateStyle } = {}
+      const kinds: { nodes?: StateStyle; edges?: StateStyle; shapes?: StateStyle } = {}
       if (style.nodes) kinds.nodes = freezeStyle(style.nodes)
       if (style.edges) kinds.edges = freezeStyle(style.edges)
+      if (style.shapes) kinds.shapes = freezeStyle(style.shapes)
       frozen[name] = Object.freeze(kinds)
     } else {
       frozen[name] = freezeStyle(style)

@@ -18,6 +18,7 @@ import type {
   Mark,
   NodeDatum,
   Point,
+  ShapeDatum,
   TimeWindow,
   TimeWindowInput,
   View,
@@ -52,10 +53,10 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly hovered: GraphTarget<M> | null
   /** Element with the keyboard focus, or `null`. */
   readonly focused: GraphTarget<M> | null
-  /** Selected nodes and edges. */
-  readonly selection: ElementKeys
+  /** Selected nodes, edges and shapes. */
+  readonly selection: ElementKeys<M>
   /** Members of each free state, by name. */
-  readonly states: { readonly [K in FreeState<S>]: ElementKeys }
+  readonly states: { readonly [K in FreeState<S>]: ElementKeys<M> }
   /** Changes whenever a node position changes. Read the positions with `positions.get`. */
   readonly positionsVersion: number
   /** Status of the current layout run. */
@@ -183,10 +184,13 @@ export interface GraphElement {
   readonly key: Key
 }
 
-/** The selection of a graph. In controlled mode, changes go to `onSelectionChange` instead. */
-export interface GraphSelection {
-  /** Selected nodes and edges. */
-  get(): ElementKeys
+/**
+ * The selection of a graph. In controlled mode, changes go to `onSelectionChange` instead. `M` is
+ * the union of the marks.
+ */
+export interface GraphSelection<M extends Mark = Mark> {
+  /** Selected nodes, edges and shapes. */
+  get(): ElementKeys<M>
   /** Replaces the selection. */
   set(keys: ElementKeysInput): void
   /** Empties the selection. */
@@ -206,9 +210,9 @@ export interface GraphFocus<M extends Mark = Mark> {
 
 /**
  * Members of the free states, by key. Built-in and undeclared names are refused. A key can join a
- * state before its element exists.
+ * state before its element exists. `M` is the union of the marks.
  */
-export interface GraphStates<N extends string = string> {
+export interface GraphStates<N extends string = string, M extends Mark = Mark> {
   /** Replaces the members of a state. */
   set(name: N, keys: ElementKeysInput): void
   /** Adds members to a state. */
@@ -217,10 +221,10 @@ export interface GraphStates<N extends string = string> {
   remove(name: N, keys: ElementKeysInput): void
   /** Empties a state, or every free state without a name. */
   clear(name?: N): void
-  /** Whether an element is a member of a state. */
-  has(name: N, element: GraphElement): boolean
+  /** Whether a node, an edge or a shape is a member of a state. */
+  has(name: N, element: GraphElement | { readonly kind: 'shape'; readonly key: Key }): boolean
   /** Keys of the members of a state, as `store.get().states[name]` holds them. */
-  get(name: N): ElementKeys
+  get(name: N): ElementKeys<M>
 }
 
 /**
@@ -463,7 +467,7 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * Receives every selection request in controlled mode, instead of the selection changing. Each
    * request starts from the last one that `update({ selection })` has not answered yet.
    */
-  readonly onSelectionChange?: ((event: GraphSelectionEvent) => void) | undefined
+  readonly onSelectionChange?: ((event: GraphSelectionEvent<M>) => void) | undefined
   /** Groups folded at mount, by key. Later changes go through `groups`. */
   readonly initialFolded?: KeyList | undefined
   /**
@@ -514,11 +518,11 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   /** The camera. */
   readonly view: GraphView
   /** The selection. */
-  readonly selection: GraphSelection
+  readonly selection: GraphSelection<M>
   /** The keyboard focus. */
   readonly focus: GraphFocus<M>
   /** Members of the free states. */
-  readonly states: GraphStates<FreeState<S>>
+  readonly states: GraphStates<FreeState<S>, M>
   /** Node positions. */
   readonly positions: GraphPositions
   /** Layout runs. */
@@ -552,8 +556,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   /** `true` once the graph is destroyed. */
   readonly destroyed: boolean
   /**
-   * Element under a point in screen pixels, nodes before edges, or `null`. Inside the lens, the
-   * element it shows there.
+   * Element under a point in screen pixels, nodes before edges and edges before shapes, or `null`.
+   * Inside the lens, the element it shows there.
    */
   pick(point: Point): GraphTarget<M> | null
   /** Keys of the nodes connected to a node. */
@@ -563,13 +567,15 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   /** Source and target keys of an edge, or `undefined` for an unknown or waiting edge. */
   endpoints(key: Key): Endpoints | undefined
   /**
-   * Item of a node or an edge, as given to its mark, or `undefined` for an unknown key. The key of
-   * a group made by `groups()` gives its `NodeGroup`.
+   * Item of a node, an edge or a shape, as given to its mark, or `undefined` for an unknown key.
+   * The key of a group made by `groups()` gives its `NodeGroup`.
    */
-  datumOf<K extends GraphElement['kind']>(element: {
+  datumOf<K extends GraphElement['kind'] | 'shape'>(element: {
     readonly kind: K
     readonly key: Key
-  }): (K extends 'node' ? NodeDatum<M> : EdgeDatum<M>) | undefined
+  }):
+    | (K extends 'node' ? NodeDatum<M> : K extends 'edge' ? EdgeDatum<M> : ShapeDatum<M>)
+    | undefined
   /**
    * Problems present in the data now, after pending data changes are applied: a problem goes away
    * once fixed. The same array is returned until the problems change, and `issueschange` fires

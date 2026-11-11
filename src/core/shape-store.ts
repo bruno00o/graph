@@ -12,7 +12,10 @@ import {
   type ShapeGeometryData,
   shapeEngineOf,
   shapeKinds,
+  shapePicks,
 } from './shape-engine'
+import { TimeSpans } from './time-range'
+import { readMaxZoom, readMinZoom, ZoomRanges } from './zoom-range'
 
 type Read = (datum: unknown) => unknown
 
@@ -24,6 +27,10 @@ interface CompiledShapeMark {
   readonly dash: Read | null
   readonly opacity: Read | null
   readonly order: Read | null
+  readonly minZoom: Read | null
+  readonly maxZoom: Read | null
+  readonly time: Read | null
+  readonly pick: number
   readonly read: (value: unknown) => ShapeGeometryData | null
 }
 
@@ -57,6 +64,18 @@ function compileShapeMark(mark: ShapeMark<unknown>): CompiledShapeMark {
       options.order === undefined
         ? null
         : toAccessor<unknown, unknown>(options.order as string | Read),
+    minZoom: style(options.minZoom),
+    maxZoom: style(options.maxZoom),
+    time:
+      options.time === undefined
+        ? null
+        : toAccessor<unknown, unknown>(options.time as string | Read),
+    pick:
+      options.pick === false
+        ? shapePicks.none
+        : options.pick === 'stroke'
+          ? shapePicks.stroke
+          : shapePicks.painted,
     read: (value) => (engine ? engine.read(value) : null),
   }
   compiled.set(mark, made)
@@ -89,6 +108,9 @@ export class ShapeStore {
   strokeWidth: Float32Array = new Float32Array(0)
   dash: Uint8Array = new Uint8Array(0)
   opacity: Float32Array = new Float32Array(0)
+  pick: Uint8Array = new Uint8Array(0)
+  readonly zoom: ZoomRanges = new ZoomRanges()
+  readonly time: TimeSpans = new TimeSpans()
   readonly geometry: (ShapeGeometryData | null)[] = []
   readonly keys: (Key | undefined)[] = []
   readonly #inputs: unknown[] = []
@@ -196,6 +218,9 @@ export class ShapeStore {
     this.strokeWidth = grown(this.strokeWidth, length, (n) => new Float32Array(n))
     this.dash = grown(this.dash, length, (n) => new Uint8Array(n))
     this.opacity = grown(this.opacity, length, (n) => new Float32Array(n))
+    this.pick = grown(this.pick, length, (n) => new Uint8Array(n))
+    this.zoom.reserve(length)
+    this.time.reserve(length)
     this.capacity = length
   }
 
@@ -207,6 +232,8 @@ export class ShapeStore {
     this.fill[index] = noColor
     this.stroke[index] = noColor
     this.alive[index] = 0
+    this.zoom.clear(index)
+    this.time.clear(index)
     this.count--
     this.#count(this.geometry[index], -1)
     this.geometry[index] = null
@@ -269,6 +296,10 @@ export class ShapeStore {
     this.dash[index] =
       typeof dash === 'string' && Object.hasOwn(dashCodes, dash) ? dashCodes[dash as EdgeDash] : 0
     this.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
+    this.pick[index] = mark.pick
+    this.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
+    if (mark.time) this.time.read(index, mark.time(datum))
+    else this.time.clear(index)
     return structural
   }
 

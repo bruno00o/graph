@@ -1,4 +1,5 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
+import type { ShapeStore } from '../core/shape-store'
 import { noPaint, type StateBuffers, type StateKind, stateRow } from '../core/state-buffers'
 
 export interface Look {
@@ -102,6 +103,26 @@ export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number
       flow: 0,
     },
     'nodes',
+  )
+}
+
+export function shapeLook(shapes: ShapeStore, states: StateBuffers, index: number): Look {
+  return resolve(
+    states,
+    states.shapeMask[index] ?? 0,
+    {
+      opacity: shapes.opacity[index] ?? 1,
+      strokeWidth: shapes.strokeWidth[index] ?? 0,
+      halo: false,
+      label: false,
+      fill: shapes.fill[index] ?? noPaint,
+      stroke: shapes.stroke[index] ?? noPaint,
+      outline: noPaint,
+      outlineWidth: 0,
+      labelColor: noPaint,
+      flow: 0,
+    },
+    'shapes',
   )
 }
 

@@ -62,7 +62,8 @@ describe('edges', () => {
     const hide = (node: number[], edge: number[], serial: number): LayerFilter => ({
       nodes: Uint8Array.from([0, 1], (slot) => (node.includes(slot) ? 1 : 0)),
       edges: Uint8Array.from([0, 1], (slot) => (edge.includes(slot) ? 1 : 0)),
-      masks: new Uint32Array(8),
+      shapes: new Uint8Array(0),
+      masks: new Uint32Array(12),
       serial,
     })
     const edgeLayer = sightOf(1, null, hide([], [1], 1))

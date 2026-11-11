@@ -4,6 +4,7 @@ import { exportPng, exportSvg } from '../export'
 import { createLegend } from '../legend'
 import { edges, nodes } from '../marks'
 import { createMinimap } from '../minimap'
+import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { createTimeline } from '../timeline'
 import type { GraphDefinition, Layout } from '../types'
@@ -389,6 +390,27 @@ describe('after destroy', () => {
     vi.restoreAllMocks()
   })
 
+  it('keeps the shape keys of the last state, and reads no shape once destroyed', () => {
+    const zones = [{ id: 'z', geometry: { x: 0, y: 0, width: 10, height: 10 } }]
+    const graph = mount(
+      {},
+      defineGraph({
+        marks: [shapes(zones), nodes<Item>(items, { x: 'x', y: 'y' })],
+        states: { muted: { opacity: 0.2 } },
+      }),
+    )
+    settle()
+    graph.selection.set({ shapes: ['z'] })
+    graph.states.set('muted', { shapes: ['z'] })
+    expect(graph.datumOf({ kind: 'shape', key: 'z' })).toBe(zones[0])
+    graph.destroy()
+    expect(graph.selection.get()).toEqual({ nodes: [], edges: [], shapes: ['z'] })
+    expect(graph.states.has('muted', { kind: 'shape', key: 'z' })).toBe(true)
+    expect(graph.datumOf({ kind: 'shape', key: 'z' })).toBeUndefined()
+    graph.selection.set({ shapes: [] })
+    expect(graph.selection.get().shapes).toEqual(['z'])
+  })
+
   it('lets a minimap, a legend and a timeline be created, still', () => {
     const graph = mount()
     settle()
@@ -426,7 +448,7 @@ describe('mount with an aborted signal', () => {
     expect(graph.signal.reason).toBe(reason)
     expect(graph.element.getAttribute('aria-label')).toBe('graphe')
     expect(graph.view.get()).toEqual({ x: 5, y: 6, zoom: 2 })
-    expect(graph.states.get('muted')).toEqual({ nodes: [], edges: [] })
+    expect(graph.states.get('muted')).toStrictEqual({ nodes: [], edges: [] })
     expect(graph.neighbors('a')).toEqual([])
     graph.selection.set({ nodes: ['a'] })
     expect(graph.selection.get()).toEqual({ nodes: ['b'], edges: [] })
@@ -434,6 +456,21 @@ describe('mount with an aborted signal', () => {
     await expect(graph.drawn()).rejects.toBe(reason)
     await expect(graph.layout.run(endless)).resolves.toBe(false)
     await expect(exportPng(graph)).rejects.toThrow('graph: cannot export a destroyed graph')
+  })
+
+  it('gives a stillborn graph with a shape mark the shape keys', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const container = document.createElement('div')
+    const zones = [{ id: 'z', geometry: { x: 0, y: 0, width: 10, height: 10 } }]
+    const graph = mountGraph(container, {
+      definition: defineGraph({ marks: [shapes(zones)], states: { muted: { opacity: 0.2 } } }),
+      ariaLabel: 'graphe',
+      selection: { shapes: ['z'] },
+      onSelectionChange: () => {},
+      signal: AbortSignal.abort(),
+    })
+    expect(graph.selection.get()).toEqual({ nodes: [], edges: [], shapes: ['z'] })
+    expect(graph.states.get('muted')).toEqual({ nodes: [], edges: [], shapes: [] })
   })
 
   it('lets the minimap, the legend and the timeline follow it, empty', () => {

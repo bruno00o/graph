@@ -64,7 +64,7 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
       positions: positions.version,
       palette: render.paletteStamp,
       containers: projection.active ? containers.version : -1,
-      detail: detailStep(scene.nodes, scene.edges, source.sight()),
+      detail: detailStep(scene.nodes, scene.edges, source.sight(), scene.shapes),
     }),
     watch(watcher) {
       if (source.destroyed()) {

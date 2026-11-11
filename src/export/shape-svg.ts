@@ -1,5 +1,4 @@
-import { noColor } from '../core/columns'
-import { type ShapeSvgPen, shapeKinds } from '../core/shape-engine'
+import { type ShapeLook, type ShapeSvgPen, shapeKinds } from '../core/shape-engine'
 import type { ShapeStore } from '../core/shape-store'
 import { num, paintAttribute } from './svg-format'
 
@@ -69,10 +68,11 @@ export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
     return pieces
   }
 
-  function stroke(index: number): void {
-    const width = store.strokeWidth[index] ?? 0
-    const color = pen.paint(store.stroke[index] ?? noColor)
-    const alpha = color.alpha * (store.opacity[index] ?? 1)
+  function stroke(index: number, look: ShapeLook | null): void {
+    if (!look) return
+    const width = look.strokeWidth
+    const color = pen.paint(look.stroke)
+    const alpha = color.alpha * look.opacity
     if (width <= 0 || alpha <= 0) return
     const tone = paintAttribute('stroke', { hex: color.hex, alpha })
     const dash = store.dash[index] ?? 0
@@ -95,10 +95,11 @@ export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
     }
   }
 
-  function fill(index: number): void {
+  function fill(index: number, look: ShapeLook | null): void {
+    if (!look) return
     const geometry = store.geometry[index]
-    const color = pen.paint(store.fill[index] ?? noColor)
-    const alpha = color.alpha * (store.opacity[index] ?? 1)
+    const color = pen.paint(look.fill)
+    const alpha = color.alpha * look.opacity
     if (!geometry || alpha <= 0 || geometry.kind === shapeKinds.line) return
     const d = geometry.round
       ? roundPath(index)
@@ -109,7 +110,14 @@ export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
     body.push(`<path d="${d}"${rule}${paintAttribute('fill', { hex: color.hex, alpha })}/>`)
   }
 
-  const order = store.drawOrder()
+  const all = store.drawOrder()
+  const looks = new Map<number, ShapeLook | null>()
+  const lookOf = (index: number) => {
+    if (!looks.has(index)) looks.set(index, pen.look(index))
+    return looks.get(index) ?? null
+  }
+  const order = all.filter((index) => !pen.raised(index))
+  const raised = all.filter((index) => pen.raised(index))
   let first = 0
   while (first < order.length) {
     const head = order[first] ?? 0
@@ -123,11 +131,18 @@ export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
     }
     for (let at = first; at < last; at++) {
       const index = order[at] ?? 0
-      fill(index)
-      if (round) stroke(index)
+      fill(index, lookOf(index))
+      if (round) stroke(index, lookOf(index))
     }
-    for (let at = first; !round && at < last; at++) stroke(order[at] ?? 0)
+    for (let at = first; !round && at < last; at++) {
+      const index = order[at] ?? 0
+      stroke(index, lookOf(index))
+    }
     first = last
+  }
+  for (const index of raised) {
+    fill(index, lookOf(index))
+    stroke(index, lookOf(index))
   }
   return body.join('')
 }

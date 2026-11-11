@@ -50,6 +50,8 @@ A key can join a state before its element exists. The element takes the style as
 
 The selection is not a free state: change it through `graph.selection`. See [Interaction](/docs/interaction).
 
+States take [shapes](/docs/shapes#states) too, by their keys in `shapes`: `graph.states.set('flagged', { shapes: ['north'] })`.
+
 An aggregated edge shows the states of any of its [merged edges](/docs/transformations#merge-parallel-edges). With [`halves`](/docs/transformations#one-direction-per-half), each half of a two-way line shows the states of its own direction: a state set on the forward edges styles, raises or hides the half next to the target alone.
 
 ## Style options
@@ -77,7 +79,7 @@ graph.states.set('path', graph.paths.shortest('a', 'b') ?? {})
 
 The rest of the graph fades while `path` has a member, and comes back when you clear it. There is no list of keys to compute, and nothing is written for the elements outside the state: setting the members costs the same with `others` as without.
 
-A state is active as soon as it has one member in the graph, node or edge: a key whose element does not exist yet does not count. A state of edges therefore fades the nodes outside it too, its own ends included. Put the ends in the state, or give `others` to the edges only with a [style by kind](#style-nodes-and-edges-apart).
+A state is active as soon as it has one member in the graph, node, edge or shape: a key whose element does not exist yet does not count. A state of edges therefore fades the nodes outside it too, its own ends included, and a state of nodes fades the [shapes](/docs/shapes#states). Put the ends in the state, or give `others` to the edges only with a [style by kind](#style-nodes-and-edges-apart).
 
 ```ts
 states: {
@@ -99,7 +101,7 @@ To keep the neighbors of the hovered node, fill a free state on `pointerenter` w
 
 ## Style nodes and edges apart
 
-A style can be split by kind: `nodes` styles the member nodes and `edges` the member edges, each with all the properties of a style, `raise`, `hide` and `others` included.
+A style can be split by kind: `nodes` styles the member nodes, `edges` the member edges and `shapes` the member [shapes](/docs/shapes#states), each with all the properties of a style, `raise`, `hide` and `others` included.
 
 ```ts
 states: {
@@ -110,7 +112,7 @@ states: {
 }
 ```
 
-A kind left out takes no style. A style is either by kind or for both: `{ opacity: 0.2, nodes: { … } }` does not compile.
+A kind left out takes no style. A style is either by kind or for every kind: `{ opacity: 0.2, nodes: { … } }` does not compile.
 
 ## Override the built-in states
 
@@ -151,6 +153,8 @@ A raised element:
 - places its label before the labels of other elements, as selected elements do: it may still give way to the hovered and focused labels, and to another raised label in the same place;
 - is picked before the elements it covers, so a click hits what is drawn on top;
 - is drawn on top in [exports](/docs/export) too.
+
+A raised [shape](/docs/shapes#states) is drawn after the other shapes and picked first among them, still under containers, hulls, edges and nodes.
 
 An element is raised when any of its states raises it. `raise` is `true` for `selected`, `hovered` and `focused`: set `raise: false` on one of them to draw its members in place. Raising costs one more draw of the raised elements, about the cost of selecting them: 100,000 raised edges redraw faster than 100,000 selected edges, whose halo costs more. The [named states](/examples/named-states) example turns `raise` on and off.
 

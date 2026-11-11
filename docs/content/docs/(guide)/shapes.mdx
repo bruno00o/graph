@@ -69,6 +69,79 @@ Shapes draw right after the [background grid](/docs/drawing-layers#background-gr
 shapes(zones, { order: (zone) => (zone.id === 'pond' ? 1 : 0) })
 ```
 
+## Selecting and hovering
+
+Shapes take the pointer like nodes and edges: hover, `click`, `doubleclick`, `contextmenu`, `pointerenter`, `pointerleave` and `pointermove` carry a target whose `kind` is `'shape'`, and the cursor turns into a pointer over a shape that can be picked. A click selects a shape, and Shift, Cmd or Ctrl adds it or removes it, as for nodes; a click on the background and Escape clear the selection. With a shape mark in the definition, the selection has a `shapes` list next to `nodes` and `edges`:
+
+```ts
+graph.on('click', ({ target }) => {
+  if (target?.kind === 'shape') console.log(target.key, target.datum)
+})
+
+graph.selection.set({ shapes: ['pond'] })
+graph.selection.get() // { nodes: [], edges: [], shapes: ['pond'] }
+```
+
+Nodes and edges stay on top: a shape never takes the pointer from a node, an edge or a container drawn over it. Between shapes, the one drawn last wins, and a [raised](#states) shape comes first. Dragging a shape moves the view, and a double click on a shape does nothing by default. The [lasso](/docs/interaction#lasso), Shift and drag, starts on the background or on a shape, and takes the nodes inside it and the shapes whose every point is inside it: a shape that contains the lasso is not taken. The keyboard focus stays on nodes: shapes are neither focused nor announced.
+
+`graph.datumOf({ kind: 'shape', key })` returns the item of a shape. The selection, `selectionchange` and the states hold shape keys only when the definition has a shape mark: see [`ElementKeys`](/docs/api/graph-instance#selection). In a [controlled selection](/docs/interaction#controlled-selection), pass `shapes` with the other keys.
+
+## What takes the pointer
+
+`pick` says what of a shape takes the pointer:
+
+| `pick` | Takes the pointer |
+| --- | --- |
+| `'painted'` (default) | Its inside when it is filled, its outline when it is stroked |
+| `'stroke'` | Its outline only, filled or not |
+| `false` | Nothing: the pointer, the clicks and the lasso go through |
+
+A large zone under everything is easy to click by mistake: give it `pick: 'stroke'` to select it by its border, or `pick: false` when it only decorates. Outlines take the pointer within half their width plus a few pixels, at every zoom. Holes are not part of a shape.
+
+```ts
+shapes(zones, { pick: 'stroke' })
+shapes(background, { pick: false })
+```
+
+## States
+
+States apply to shapes as to nodes and edges. `selected` draws the outline of a shape in the accent color, 2 pixels wide, and `hovered` in the ink color; both are raised. A style for every kind applies to shapes too, and a style by kind takes `shapes` next to `nodes` and `edges`:
+
+```ts
+defineGraph({
+  marks: [shapes(zones), nodes(items)],
+  states: {
+    flagged: {
+      nodes: { stroke: 'var(--graph-cat-4)' },
+      shapes: { fill: 'var(--graph-cat-4)', strokeWidth: 3 },
+    },
+  },
+})
+
+graph.states.set('flagged', { nodes: ['a'], shapes: ['north'] })
+```
+
+`fill`, `stroke`, `strokeWidth` and `opacity` restyle a shape; `label`, `halo` and the other node and edge properties do not apply. `raise` draws a shape after the other shapes and picks it first among them: it still stays under containers, hulls, edges and nodes. `hide` removes a shape everywhere: drawing, picking, the lasso, `count().shown` and the exports.
+
+`others` crosses kinds: a state whose members are nodes styles the shapes outside it, and a shape member activates a state for every kind. To dim the nodes around a selected zone, and not the other zones, give `others` by kind:
+
+```ts
+states: {
+  focus: { nodes: { others: { opacity: 0.2 } } },
+}
+```
+
+## Zoom, time and layers
+
+`minZoom`, `maxZoom`, `time` and `layer` work on shapes as on nodes. A shape out of its [zoom range](/docs/zoom), out of the [time window](/docs/time) or in a [hidden layer](/docs/multilayer) is absent: not drawn, not picked, not taken by the lasso, not counted in `shown` and not exported. It fades in and out with the same margins as nodes.
+
+```ts
+shapes(parcels, { minZoom: 2, layer: 'parcels' })
+shapes(floods, { time: (flood) => ({ start: flood.from, end: flood.to }) })
+```
+
+`graph.layers` sees the layers of shapes, and a layer may hold nodes, edges and shapes. `view.fit` keeps counting shapes hidden by a zoom range or the time window, as it does for nodes.
+
 ## Framing and counting
 
 The first automatic fit frames the shapes with the nodes, and a graph with shapes only frames its shapes. `view.fit` takes `shapes`, a list of shape keys, next to `nodes` and `edges`:
@@ -81,13 +154,10 @@ With a shape mark in the definition, `count()` returns `shapes` and `shown.shape
 
 ## Not there yet
 
-Shapes are drawn only, for now:
-
-- a click, a hover or the lasso go through a shape as through the background: shapes have no selection, no states and no events;
-- they take no zoom range, no `time` and no `layer`;
-- they have no labels;
-- on a [map](/docs/map), they are not drawn yet, with a warning in development.
+- Shapes have no labels.
+- On a [map](/docs/map), they are not drawn yet, with a warning in development, and they take no pointer.
+- Shapes cannot be dragged or edited.
 
 ## Cost
 
-A graph without shapes creates no program, texture or buffer for them, and does no work per frame. Polygons are triangulated once, when their geometry changes: 10,000 polygons of 50 points take about 70 milliseconds, and their first frame about 150 milliseconds in Chrome. Panning over them costs about 2 milliseconds per frame.
+A graph without shapes creates no program, texture or buffer for them, and does no work per frame. Polygons are triangulated once, when their geometry changes: 10,000 polygons of 50 points take about 70 milliseconds, and their first frame about 150 milliseconds in Chrome. Panning over them costs about 3 milliseconds per frame, with a selection, a hover and a state with `others`. The first pick after a change builds an index of the shapes, about 10 milliseconds for 10,000 polygons; then a pick takes a few microseconds.

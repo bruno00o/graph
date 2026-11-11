@@ -205,7 +205,11 @@ export function createView(
   ])
 
   const target = (value: GraphReport['hovered']) =>
-    value ? messages.target(value.kind, value.key) : messages.none
+    value
+      ? value.kind === 'shape'
+        ? messages.shapeTarget(value.key)
+        : messages.target(value.kind, value.key)
+      : messages.none
   const interaction = section(messages.interaction)
   rows(interaction, [
     [

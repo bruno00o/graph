@@ -6,23 +6,24 @@ description: A mark that draws one free shape per item of its data, under the gr
 ```ts
 import { shapes } from '@bruno00o/graph/shapes'
 
-function shapes<T, N extends MarkName = undefined>(
+function shapes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options?: Omit<ShapeOptions<T, N>, 'key'>,
-): ShapeMark<T, N>
-function shapes<T extends { readonly id: Key }, N extends MarkName = undefined>(
+  options?: Omit<ShapeOptions<T, N, L>, 'key'>,
+): ShapeMark<T, N, L>
+function shapes<
+  T extends { readonly id: Key },
+  N extends MarkName = undefined,
+  L extends MarkLayer = undefined,
+>(data: Iterable<T>, options?: ShapeOptions<T, N, L>): ShapeMark<T, N, L>
+function shapes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: Iterable<T>,
-  options?: ShapeOptions<T, N>,
-): ShapeMark<T, N>
-function shapes<T, N extends MarkName = undefined>(
-  data: Iterable<T>,
-  options: ShapeOptions<T, N> & { key: KeyChannel<T> },
-): ShapeMark<T, N>
+  options: ShapeOptions<T, N, L> & { key: KeyChannel<T> },
+): ShapeMark<T, N, L>
 ```
 
 `shapes` comes from its own entry point, `@bruno00o/graph/shapes`, which holds the geometry reader, the triangulation, the shape drawing on the GPU and their SVG export: a graph without shapes does not load them. Import it from the same copy of the package as the graph: `defineGraph` refuses a mark from another copy, and a graph mounted by another copy counts its shapes without drawing them, with a warning in development. List the mark in `marks` of [`defineGraph`](/docs/api/define-graph), with the nodes and the edges. See [Shapes](/docs/shapes).
 
-`T` is the item type, inferred from `data`, and `N` the type of `name`, `undefined` without one. `key` is required for an iterable whose items have no `id` field; a live source carries its keys in its changes. Keys are unique across shape marks, apart from the keys of nodes and edges.
+`T` is the item type, inferred from `data`, `N` the type of `name` and `L` the type of `layer`, `undefined` without them. `key` is required for an iterable whose items have no `id` field; a live source carries its keys in its changes. Keys are unique across shape marks, apart from the keys of nodes and edges.
 
 ## Options
 
@@ -31,6 +32,18 @@ A **channel** is a field name or a function. A **style** is a constant or a func
 <api-table path="index.ts" name="ShapeOptions" />
 
 `strokeWidth` and the dashes are in screen pixels: they keep their size at every zoom. Fills and outlines are antialiased.
+
+`minZoom`, `maxZoom`, `time` and `layer` read as for [nodes](/docs/api/nodes#options): see [Zoom, time and layers](/docs/shapes#zoom-time-and-layers).
+
+```ts
+type ShapePick = 'painted' | 'stroke' | false
+```
+
+`pick` says what of a shape takes the pointer: with `'painted'`, the inside of a filled shape and the outline of a stroked one; with `'stroke'`, the outline only; with `false`, nothing. Outlines take the pointer within half their width plus a few pixels. See [What takes the pointer](/docs/shapes#what-takes-the-pointer).
+
+## Targets
+
+A shape under the pointer, in the events, `pick` and the store, is a [`ShapeTarget`](/docs/api/events#targets): `kind` is `'shape'`, `datum` the item, typed by its mark, and `mark` the `name` of that mark. `graph.datumOf({ kind: 'shape', key })` returns the item of a shape, and the selection and the states hold shape keys in `shapes`: see [Selection](/docs/api/graph-instance#selection).
 
 ## Geometry
 

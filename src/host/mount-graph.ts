@@ -11,7 +11,14 @@ import { freeStateNames } from '../core/state-names'
 import { SupportIndex } from '../core/support'
 import { readWindow } from '../core/time-range'
 import { type Bounds, toWorld, zoomAround } from '../core/view'
-import { detailStep, edgeOwnShown, filtered, nodeShown, type Sight } from '../core/visibility'
+import {
+  detailStep,
+  edgeOwnShown,
+  filtered,
+  nodeShown,
+  type Sight,
+  shapeShown,
+} from '../core/visibility'
 import { dev } from '../dev'
 import { createTextWidths } from '../dom/text-width'
 import { ThemeResolver } from '../dom/theme'
@@ -25,7 +32,7 @@ import { ContainerBoxes } from './containers'
 import { DataReads } from './data-reads'
 import { DataStatus, loadedData } from './data-status'
 import { createDecorations } from './decorations'
-import { noKeys, toKeys } from './element-keys'
+import { emptyKeys, toKeys } from './element-keys'
 import { Emitter, type GraphTarget } from './events'
 import { exposeGraph } from './exposure'
 import { createFlowWatch } from './flows'
@@ -245,6 +252,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     destroyed: () => destroyed,
   })
 
+  registry.setShaped(definition.marks.some((mark) => mark.type === 'shapes'))
   registry.define(freeStateNames(definition.states))
   if (options.selection !== undefined) registry.set('selected', options.selection)
   projection.setFolded(options.folded ?? options.initialFolded ?? [])
@@ -267,7 +275,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     height: 0,
     hovered: null,
     focused: null,
-    selection: controlled ? registry.members('selected') : noKeys,
+    selection: controlled ? registry.members('selected') : emptyKeys(registry.shaped),
     states: selection.freeStates(),
     positionsVersion: 0,
     layout: idleLayout,
@@ -552,14 +560,18 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const bit = hide && except !== null ? registry.bit(except) : -1
     if (!hide || bit < 0) return hide
     const flag = (1 << bit) >>> 0
-    if (((hide.nodes | hide.edges | hide.otherNodes | hide.otherEdges) & flag) === 0) return hide
+    const all =
+      hide.nodes | hide.edges | hide.shapes | hide.otherNodes | hide.otherEdges | hide.otherShapes
+    if ((all & flag) === 0) return hide
     const nodes = (hide.nodes & ~flag) >>> 0
     const edges = (hide.edges & ~flag) >>> 0
+    const shapes = (hide.shapes & ~flag) >>> 0
     const otherNodes = (hide.otherNodes & ~flag) >>> 0
     const otherEdges = (hide.otherEdges & ~flag) >>> 0
-    return (nodes | edges | otherNodes | otherEdges) === 0
+    const otherShapes = (hide.otherShapes & ~flag) >>> 0
+    return (nodes | edges | shapes | otherNodes | otherEdges | otherShapes) === 0
       ? null
-      : { ...hide, nodes, edges, otherNodes, otherEdges }
+      : { ...hide, nodes, edges, shapes, otherNodes, otherEdges, otherShapes }
   }
 
   function dropHidden(): void {
@@ -572,6 +584,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function targetShown(element: GraphTarget): boolean {
     if (!layers.filter && !buffers.hide) return true
     const seen = sight()
+    if (element.kind === 'shape') {
+      const index = model.shape(element.key)?.index ?? -1
+      return index < 0 || shapeShown(scene.shapes, index, seen)
+    }
     if (element.kind === 'node') {
       const index = model.node(element.key)?.index ?? -1
       return index < 0 || nodeShown(scene.nodes, index, seen)
@@ -676,7 +692,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     spread.release(projected.unfolded)
     const fresh = folds.reveal(changes, projected)
     spread.changed(changes, projected, performance.now())
-    buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    buffers.reserve(scene.nodes.capacity, scene.edges.capacity, scene.shapes.capacity)
     const result = registry.apply(changes)
     registry.refreshEdges(projected.edges)
     bundles.changed(
@@ -728,6 +744,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function concealed(element: GraphTarget): boolean {
+    if (element.kind === 'shape') return false
     if (element.kind === 'node') {
       const index = model.node(element.key)?.index ?? -1
       return index >= 0 && !projection.nodeShown(index)
@@ -772,7 +789,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (dirty.palette || scene.palette.version !== render.paletteVersion) {
       render.resolvePalette(false)
     }
-    buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
+    buffers.reserve(scene.nodes.capacity, scene.edges.capacity, scene.shapes.capacity)
     const renderer = render.renderer
     if (!renderer) {
       decorations.place()
@@ -1092,7 +1109,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     count: countElements,
     datumOf: (element) => {
       flushPending()
-      const record = element.kind === 'node' ? model.node(element.key) : model.edge(element.key)
+      const record =
+        element.kind === 'node'
+          ? model.node(element.key)
+          : element.kind === 'edge'
+            ? model.edge(element.key)
+            : model.shape(element.key)
       return record?.datum as never
     },
     on: (name, handler, listen) => {
@@ -1115,7 +1137,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (next.onSelectionChange !== undefined) selection.listen(next.onSelectionChange)
       if (controlled && next.selection !== undefined) {
         checkLists(check, next.selection, 'update({ selection: { $ } })')
-        selection.answer(toKeys(next.selection))
+        selection.answer(toKeys(next.selection, registry.shaped))
       }
       if (next.onFoldChange !== undefined) folds.listen(next.onFoldChange)
       if (foldControlled && next.folded !== undefined) {
@@ -1150,9 +1172,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         timeWindow.refreshFade()
         layers.arrange()
         layers.refresh()
-        if (registry.define(freeStateNames(definition.states))) {
+        const reshaped = registry.setShaped(scene.shapes.marked)
+        if (registry.define(freeStateNames(definition.states)) || reshaped) {
           patch({ states: selection.freeStates() })
         }
+        if (reshaped) patch({ selection: registry.members('selected') })
         selection.lightSupport()
         applyStyles()
         focus.applyKeyboard()

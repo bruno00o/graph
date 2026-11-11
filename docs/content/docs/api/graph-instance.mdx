@@ -111,6 +111,21 @@ Numbers given to the graph must be finite. A call with one that is not, such as 
 
 In controlled mode, `set` and `clear` call `onSelectionChange` instead of changing the selection.
 
+```ts
+type ElementKeys<M extends Mark = Mark> = NodeEdgeKeys &
+  (HasShapes<M> extends true
+    ? ShapeKeys
+    : [M] extends [{ readonly type: 'nodes' | 'edges' }]
+      ? unknown
+      : Partial<ShapeKeys>)
+```
+
+The selection, and the members of a state, hold `shapes` when the definition has a [shape mark](/docs/shapes#selecting-and-hovering), and only then: a graph typed without shapes keeps `nodes` and `edges` alone. Without `M`, the type cannot tell, so `shapes` is optional. Shape keys passed to a graph without a shape mark are ignored.
+
+<api-table path="index.ts" name="NodeEdgeKeys" />
+
+<api-table path="index.ts" name="ShapeKeys" />
+
 ## Focus
 
 <api-table path="index.ts" name="GraphFocus" />
@@ -121,7 +136,7 @@ In controlled mode, `set` and `clear` call `onSelectionChange` instead of changi
 
 <api-table path="index.ts" name="GraphStates" />
 
-`N` is the union of the free state names of the definition. Built-in and undeclared names are refused, at compile time and at runtime. `clear()` without a name empties every free state.
+`N` is the union of the free state names of the definition. Built-in and undeclared names are refused, at compile time and at runtime. `clear()` without a name empties every free state. `has` takes a node, an edge or a shape.
 
 ## Positions
 

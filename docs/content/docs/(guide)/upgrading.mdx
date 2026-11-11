@@ -16,6 +16,15 @@ A third kind of mark, [`shapes()`](/docs/shapes), joins `nodes()` and `edges()`.
 
 A graph defined with `defineGraph` and no shape mark keeps its types: its targets, issues and counts are unchanged.
 
+### The plain `GraphTarget` and `ElementKeys` include shapes
+
+Shapes can be [hovered, clicked and selected](/docs/shapes#selecting-and-hovering). The untyped forms, which an untyped `GraphInstance` uses, now say so:
+
+- The plain `GraphTarget` is `NodeTarget | EdgeTarget | ShapeTarget`: the target of `pick`, of the pointer events and of `hovered` in the store. A `switch` on `target.kind` that must cover every case needs a `case 'shape'`, or type the instance with your marks: without a shape mark, a target is a node or an edge, as before.
+- The plain `ElementKeys`, the type of the selection, of `selectionchange` and of the members of a state, has an optional `shapes` list. It is there when the definition has a shape mark. Code that builds or reads `nodes` and `edges` compiles as before.
+
+`shapes` is optional in the plain type because an untyped instance cannot tell whether its definition has shapes: a required list would refuse every `{ nodes, edges }` written today, and its absence would hide the shape keys. A graph typed with `defineGraph` has `shapes` exactly when it has a shape mark.
+
 ## 0.24.0
 
 ### The first layout waits for sources that load

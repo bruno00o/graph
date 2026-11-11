@@ -131,6 +131,38 @@ describe('exports with shapes', () => {
     expect(svg.indexOf('<circle')).toBeGreaterThan(line)
   })
 
+  it('writes the states of the shapes into the SVG, the raised ones last, the hidden ones never', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const created = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [shapes(zones, { layer: 'ground' })],
+          states: { gone: { hide: true }, lit: { shapes: { strokeWidth: 7 } } },
+        }),
+        ariaLabel: 'graph',
+      },
+      () => fakeRenderer(),
+    )
+    graph = created
+    dom.flushFrames()
+    created.selection.set({ shapes: ['disc'] })
+    created.states.set('lit', { shapes: ['line'] })
+    const lit = await exportSvg(created)
+    const line = lit.indexOf('stroke-width="7"')
+    expect(line).toBeGreaterThan(0)
+    expect(lit.indexOf('fill-rule="evenodd"')).toBeGreaterThan(line)
+    expect(lit).toContain('stroke-width="2"')
+    created.states.set('gone', { shapes: ['disc'] })
+    const hidden = await exportSvg(created)
+    expect(hidden).not.toContain('fill-rule="evenodd"')
+    expect(hidden).toContain('stroke-width="7"')
+    created.layers.hide(['ground'])
+    const empty = await exportSvg(created)
+    expect(empty).not.toContain('stroke-width="7"')
+  })
+
   it('writes no shape without a shape mark', async () => {
     const svg = await exportSvg(mount(false))
     expect(svg).not.toContain('fill-rule="evenodd"')

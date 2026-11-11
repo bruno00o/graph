@@ -73,6 +73,22 @@ function edgeHidden(edges: Shown, index: number, sight: Sight): boolean {
   )
 }
 
+function shapeHidden(shapes: Shown, index: number, sight: Sight): boolean {
+  const hide = sight.hide
+  return (
+    layerHidden(sight.layers?.shapes, shapes, index) ||
+    (hide !== null && maskHidden(hide.masks.shapeMask[index] ?? 0, hide.shapes, hide.otherShapes))
+  )
+}
+
+export function shapeShown(shapes: Shown, index: number, sight: Sight): boolean {
+  return !shapeHidden(shapes, index, sight) && ownShown(shapes, index, sight)
+}
+
+export function shapeOpacity(shapes: Shown, index: number, sight: Sight): number {
+  return shapeHidden(shapes, index, sight) ? 0 : ownOpacity(shapes, index, sight)
+}
+
 export function edgeHalfHidden(index: number, end: EdgeEnd, sight: Sight): boolean {
   const hide = sight.hide
   return hide !== null && maskHidden(hide.masks.halfMask(index, end), hide.edges, hide.otherEdges)
@@ -112,12 +128,21 @@ function mix(hash: number, value: number): number {
   return Math.imul(hash ^ (value | 0), 0x01000193) ^ Math.floor(value / 4294967296)
 }
 
-export function detailStep(nodes: Shown, edges: Shown, sight: Sight): number {
+export function detailStep(
+  nodes: Shown,
+  edges: Shown,
+  sight: Sight,
+  shapes: Shown | null = null,
+): number {
   let hash = 0x811c9dc5
   hash = mix(hash, nodes.zoom.step(sight.zoom))
   hash = mix(hash, edges.zoom.step(sight.zoom))
   hash = mix(hash, nodes.time.step(sight.time))
   hash = mix(hash, edges.time.step(sight.time))
+  if (shapes) {
+    hash = mix(hash, shapes.zoom.step(sight.zoom))
+    hash = mix(hash, shapes.time.step(sight.time))
+  }
   hash = mix(hash, sight.layers?.serial ?? 0)
   hash = mix(hash, sight.hide?.serial ?? 0)
   return hash >>> 0

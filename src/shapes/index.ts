@@ -6,68 +6,76 @@ import type {
   Key,
   KeyChannel,
   LiveSource,
+  MarkLayer,
   MarkName,
   ShapeMark,
   ShapeOptions,
 } from '../types'
 import { createShapeLayer } from '../webgl/shape-layer'
+import { createShapePicker } from './pick'
 import { readShape } from './read'
 
-const engine: ShapeEngine = { read: readShape, layer: createShapeLayer, svg: writeShapesSvg }
+const engine: ShapeEngine = {
+  read: readShape,
+  layer: createShapeLayer,
+  svg: writeShapesSvg,
+  picker: createShapePicker,
+}
 
 /**
  * A mark that draws one shape per item of a live source, keyed by the `key` of its changes: it takes
  * no `key` option. Shapes draw under containers, hulls, edges and nodes.
  */
-export function shapes<T, N extends MarkName = undefined>(
+export function shapes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: LiveSource<T>,
-  options?: Omit<ShapeOptions<NoInfer<T>, N>, 'key'>,
-): ShapeMark<T, N>
+  options?: Omit<ShapeOptions<NoInfer<T>, N, L>, 'key'>,
+): ShapeMark<T, N, L>
 /**
  * A mark that draws one shape per item, keyed by its `id` field unless `key` says otherwise. Shapes
  * draw under containers, hulls, edges and nodes.
  */
-export function shapes<T extends { readonly id: Key }, N extends MarkName = undefined>(
-  data: Iterable<T>,
-  options?: ShapeOptions<NoInfer<T>, N>,
-): ShapeMark<T, N>
+export function shapes<
+  T extends { readonly id: Key },
+  N extends MarkName = undefined,
+  L extends MarkLayer = undefined,
+>(data: Iterable<T>, options?: ShapeOptions<NoInfer<T>, N, L>): ShapeMark<T, N, L>
 /** A mark that draws one shape per item, keyed by the `key` option. */
-export function shapes<T, N extends MarkName = undefined>(
+export function shapes<T, N extends MarkName = undefined, L extends MarkLayer = undefined>(
   data: Iterable<T>,
-  options: ShapeOptions<NoInfer<T>, N> & { readonly key: KeyChannel<NoInfer<T>> },
-): ShapeMark<T, N>
+  options: ShapeOptions<NoInfer<T>, N, L> & { readonly key: KeyChannel<NoInfer<T>> },
+): ShapeMark<T, N, L>
 /**
- * A mark that draws one shape per item of a live source, with explicit type arguments: `name` is
- * then typed as a string, not as the literal given.
+ * A mark that draws one shape per item of a live source, with explicit type arguments: `name` and
+ * `layer` are then typed as strings, not as the literals given.
  */
 export function shapes<T>(
   data: LiveSource<T>,
   options?: Omit<ShapeOptions<NoInfer<T>>, 'key'>,
-): ShapeMark<T, MarkName>
+): ShapeMark<T, MarkName, MarkLayer>
 /**
  * A mark that draws one shape per item keyed by its `id` field, with explicit type arguments:
- * `name` is then typed as a string, not as the literal given.
+ * `name` and `layer` are then typed as strings, not as the literals given.
  */
 export function shapes<T extends { readonly id: Key }>(
   data: Iterable<T>,
   options?: ShapeOptions<NoInfer<T>>,
-): ShapeMark<T, MarkName>
+): ShapeMark<T, MarkName, MarkLayer>
 /**
  * A mark that draws one shape per item keyed by the `key` option, with explicit type arguments:
- * `name` is then typed as a string, not as the literal given.
+ * `name` and `layer` are then typed as strings, not as the literals given.
  */
 export function shapes<T>(
   data: Iterable<T>,
   options: ShapeOptions<NoInfer<T>> & { readonly key: KeyChannel<NoInfer<T>> },
-): ShapeMark<T, MarkName>
+): ShapeMark<T, MarkName, MarkLayer>
 export function shapes<T>(
   data: GraphData<T>,
   options: ShapeOptions<T> = {},
-): ShapeMark<T, MarkName> {
-  const mark: ShapeMark<T, MarkName> = Object.freeze({
+): ShapeMark<T, MarkName, MarkLayer> {
+  const mark: ShapeMark<T, MarkName, MarkLayer> = Object.freeze({
     type: 'shapes',
     name: options.name,
-    layer: undefined,
+    layer: options.layer,
     data,
     options: Object.freeze(withoutUndefined(options)),
   })

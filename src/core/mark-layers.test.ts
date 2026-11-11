@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { edges, nodes } from '../marks'
+import { shapes } from '../shapes'
 import { MarkLayers } from './mark-layers'
 
 const ends = { source: 'source', target: 'target' } as const
 
 const places = [{ id: 'a' }, { id: 'b' }]
 const links = [{ id: 'ab', source: 'a', target: 'b' }]
+const zones = [{ id: 'z', geometry: { center: { x: 0, y: 0 }, radius: 1 } }]
 
 describe('MarkLayers', () => {
   it('names layers by first appearance and ranks edge marks by layer', () => {
@@ -51,7 +53,7 @@ describe('MarkLayers', () => {
     const upper = layers.filter(new Set(['upper']))
     expect(upper && [...upper.nodes]).toEqual([1])
     expect(upper && [...upper.edges]).toEqual([0, 1])
-    expect(upper && [...upper.masks]).toEqual([1, 0, 0, 0, 2, 0, 0, 0])
+    expect(upper && [...upper.masks]).toEqual([1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0])
     expect(layers.filter(new Set(['upper', 'missing']))).toBe(upper)
     const both = layers.filter(new Set(['upper', 'lower']))
     expect(both).not.toBe(upper)
@@ -60,5 +62,23 @@ describe('MarkLayers', () => {
     const again = layers.filter(new Set(['upper', 'lower']))
     expect(again).not.toBe(both)
     expect(again && [...again.edges]).toEqual([1])
+  })
+
+  it('places shape marks in layers, once per mark object', () => {
+    const layers = new MarkLayers()
+    const ground = shapes(zones, { layer: 'ground' })
+    layers.setMarks([
+      shapes(zones),
+      ground,
+      nodes(places, { layer: 'ground' }),
+      ground,
+      shapes(zones, { layer: 'sky' }),
+    ])
+    expect(layers.names).toEqual(['ground', 'sky'])
+    expect([...layers.shapeLayers]).toEqual([-1, 0, 1])
+    const hidden = layers.filter(new Set(['ground']))
+    expect(hidden && [...hidden.shapes]).toEqual([0, 1, 0])
+    expect(hidden && [...hidden.nodes]).toEqual([1])
+    expect(hidden && [...hidden.masks.subarray(8)]).toEqual([2, 0, 0, 0])
   })
 })

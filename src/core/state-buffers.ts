@@ -2,14 +2,24 @@ import type { EdgeEnd } from '../types'
 
 export const maxStates = 32
 export const othersRow: number = maxStates * 2
-export const stateRows: number = maxStates * 4
+export const shapeRow: number = maxStates * 4
+export const stateRows: number = maxStates * 6
 export const noPaint = 0xffffffff
 export const builtInRaise = 0b111
 export const labelAlways = 2
 
-export type StateKind = 'nodes' | 'edges'
+export type StateKind = 'nodes' | 'edges' | 'shapes'
 
-const tableOffset: Readonly<Record<StateKind, number>> = { nodes: 0, edges: maxStates }
+const memberRows: Readonly<Record<StateKind, number>> = {
+  nodes: 0,
+  edges: maxStates,
+  shapes: shapeRow,
+}
+const otherRows: Readonly<Record<StateKind, number>> = {
+  nodes: othersRow,
+  edges: othersRow + maxStates,
+  shapes: shapeRow + maxStates,
+}
 
 export interface ResolvedStateStyle {
   readonly opacity?: number | undefined
@@ -29,6 +39,7 @@ export interface ResolvedStateStyle {
 export interface StateMasks {
   readonly nodeMask: Uint32Array
   readonly edgeMask: Uint32Array
+  readonly shapeMask: Uint32Array
   halfMask(index: number, end: EdgeEnd): number
 }
 
@@ -36,8 +47,10 @@ export interface HideFilter {
   readonly masks: StateMasks
   readonly nodes: number
   readonly edges: number
+  readonly shapes: number
   readonly otherNodes: number
   readonly otherEdges: number
+  readonly otherShapes: number
   readonly serial: number
 }
 
@@ -60,7 +73,7 @@ function setBit(bits: number, flag: number, on: boolean): number {
 }
 
 export function stateRow(kind: StateKind, bit: number, member: boolean): number {
-  return (member ? 0 : othersRow) + tableOffset[kind] + bit
+  return (member ? memberRows[kind] : otherRows[kind]) + bit
 }
 
 export class DirtyRange {
@@ -113,41 +126,51 @@ export class StateBuffers {
   readonly labels: Uint32Array = new Uint32Array(stateRows * 4).fill(noPaint)
   readonly labelFlags: Int8Array = new Int8Array(maxStates * 2).fill(-1)
   readonly edgeLabelFlags: Int8Array = new Int8Array(maxStates * 2).fill(-1)
+  readonly shapeLabelFlags: Int8Array = new Int8Array(maxStates * 2).fill(-1)
   readonly nodeDirty: DirtyRange = new DirtyRange()
   readonly edgeDirty: DirtyRange = new DirtyRange()
+  readonly shapeDirty: DirtyRange = new DirtyRange()
   nodeMask: Uint32Array = new Uint32Array(0)
   edgeMask: Uint32Array = new Uint32Array(0)
+  shapeMask: Uint32Array = new Uint32Array(0)
   edgeHalved: Uint8Array = new Uint8Array(0)
   edgeNear: Uint32Array = new Uint32Array(0)
   edgeFar: Uint32Array = new Uint32Array(0)
   halvesCount = 0
   highlightedNodes: readonly number[] = []
   highlightedEdges: readonly number[] = []
+  highlightedShapes: readonly number[] = []
   alwaysNodes: readonly number[] = []
   alwaysEdges: readonly number[] = []
   tableVersion = 0
   highlightVersion = 0
   edgeMaskVersion = 0
   nodeMaskVersion = 0
+  shapeMaskVersion = 0
   edgeFlowBits = 0
   nodeRaise: number = builtInRaise
   edgeRaise: number = builtInRaise
+  shapeRaise: number = builtInRaise
   nodeAlways = 0
   edgeAlways = 0
   nodeHide = 0
   edgeHide = 0
+  shapeHide = 0
   hideVersion = 0
   active = 0
   #nodeOthers = 0
   #edgeOthers = 0
+  #shapeOthers = 0
   #nodeOthersHide = 0
   #edgeOthersHide = 0
+  #shapeOthersHide = 0
   #nodeOthersAlways = 0
   #edgeOthersAlways = 0
   #edgeOthersFlow = 0
   #members: Int32Array = new Int32Array(maxStates)
   #hiddenNodes = 0
   #hiddenEdges = 0
+  #hiddenShapes = 0
   #hiddenHalves = 0
   #hide: HideFilter | null = null
   #hideAt = -1
@@ -157,15 +180,18 @@ export class StateBuffers {
     this.#hideAt = this.hideVersion
     const otherNodes = this.othersHidden('nodes')
     const otherEdges = this.othersHidden('edges')
+    const otherShapes = this.othersHidden('shapes')
     this.#hide =
-      this.#hiddenNodes + this.#hiddenEdges + this.#hiddenHalves > 0 ||
-      (otherNodes | otherEdges) !== 0
+      this.#hiddenNodes + this.#hiddenEdges + this.#hiddenShapes + this.#hiddenHalves > 0 ||
+      (otherNodes | otherEdges | otherShapes) !== 0
         ? {
             masks: this,
             nodes: this.nodeHide,
             edges: this.edgeHide,
+            shapes: this.shapeHide,
             otherNodes,
             otherEdges,
+            otherShapes,
             serial: this.hideVersion,
           }
         : null
@@ -173,14 +199,23 @@ export class StateBuffers {
   }
 
   others(kind: StateKind): number {
-    return ((kind === 'nodes' ? this.#nodeOthers : this.#edgeOthers) & this.active) >>> 0
+    const bits =
+      kind === 'nodes' ? this.#nodeOthers : kind === 'edges' ? this.#edgeOthers : this.#shapeOthers
+    return (bits & this.active) >>> 0
   }
 
   othersHidden(kind: StateKind): number {
-    return ((kind === 'nodes' ? this.#nodeOthersHide : this.#edgeOthersHide) & this.active) >>> 0
+    const bits =
+      kind === 'nodes'
+        ? this.#nodeOthersHide
+        : kind === 'edges'
+          ? this.#edgeOthersHide
+          : this.#shapeOthersHide
+    return (bits & this.active) >>> 0
   }
 
   othersAlways(kind: StateKind): number {
+    if (kind === 'shapes') return 0
     return (
       ((kind === 'nodes' ? this.#nodeOthersAlways : this.#edgeOthersAlways) & this.active) >>> 0
     )
@@ -190,9 +225,27 @@ export class StateBuffers {
     return (this.#edgeOthersFlow & this.active) >>> 0
   }
 
-  reserve(nodeCapacity: number, edgeCapacity: number): void {
+  reserve(nodeCapacity: number, edgeCapacity: number, shapeCapacity = 0): void {
     this.nodeMask = grow(this.nodeMask, nodeCapacity)
     this.edgeMask = grow(this.edgeMask, edgeCapacity)
+    if (shapeCapacity > 0) this.shapeMask = grow(this.shapeMask, shapeCapacity)
+  }
+
+  setShape(index: number, mask: number): void {
+    this.shapeMask = grow(this.shapeMask, index + 1)
+    const before = this.shapeMask[index] ?? 0
+    if (before === mask >>> 0) return
+    if (this.shapeHide !== 0) {
+      const change = Number((mask & this.shapeHide) !== 0) - Number((before & this.shapeHide) !== 0)
+      if (change !== 0) {
+        this.#hiddenShapes += change
+        this.hideVersion++
+      }
+    }
+    this.shapeMask[index] = mask >>> 0
+    this.shapeDirty.add(index)
+    this.shapeMaskVersion++
+    this.#count(before, mask)
   }
 
   setNode(index: number, mask: number): void {
@@ -285,8 +338,12 @@ export class StateBuffers {
     }
     if (toggled === 0) return
     this.active = (this.active ^ toggled) >>> 0
-    if ((toggled & (this.#nodeOthers | this.#edgeOthers)) !== 0) this.tableVersion++
-    if ((toggled & (this.#nodeOthersHide | this.#edgeOthersHide)) !== 0) this.hideVersion++
+    if ((toggled & (this.#nodeOthers | this.#edgeOthers | this.#shapeOthers)) !== 0) {
+      this.tableVersion++
+    }
+    if ((toggled & (this.#nodeOthersHide | this.#edgeOthersHide | this.#shapeOthersHide)) !== 0) {
+      this.hideVersion++
+    }
   }
 
   #write(row: number, style: ResolvedStateStyle | null): void {
@@ -334,6 +391,20 @@ export class StateBuffers {
         this.#hiddenHalves = this.#countHiddenHalves(hide)
         this.hideVersion++
       }
+    } else if (kind === 'shapes') {
+      this.shapeRaise = setBit(this.shapeRaise, flag, style?.raise === true)
+      this.#shapeOthers = setBit(this.#shapeOthers, flag, others !== null)
+      const othersHide = setBit(this.#shapeOthersHide, flag, others?.hide === true)
+      if (othersHide !== this.#shapeOthersHide) {
+        this.#shapeOthersHide = othersHide
+        this.hideVersion++
+      }
+      const hide = setBit(this.shapeHide, flag, style?.hide === true)
+      if (hide !== this.shapeHide) {
+        this.shapeHide = hide
+        this.#hiddenShapes = countHidden(this.shapeMask, hide)
+        this.hideVersion++
+      }
     } else {
       this.nodeRaise = setBit(this.nodeRaise, flag, style?.raise === true)
       this.nodeAlways = setBit(this.nodeAlways, flag, always)
@@ -351,7 +422,12 @@ export class StateBuffers {
         this.hideVersion++
       }
     }
-    const flags = kind === 'nodes' ? this.labelFlags : this.edgeLabelFlags
+    const flags =
+      kind === 'nodes'
+        ? this.labelFlags
+        : kind === 'edges'
+          ? this.edgeLabelFlags
+          : this.shapeLabelFlags
     flags[bit] = labelWord(style?.label)
     flags[maxStates + bit] = labelWord(others?.label)
     this.tableVersion++
@@ -374,8 +450,10 @@ export class StateBuffers {
     copy.labels.set(this.labels)
     copy.labelFlags.set(this.labelFlags)
     copy.edgeLabelFlags.set(this.edgeLabelFlags)
+    copy.shapeLabelFlags.set(this.shapeLabelFlags)
     copy.nodeMask = this.nodeMask.slice()
     copy.edgeMask = this.edgeMask.slice()
+    copy.shapeMask = this.shapeMask.slice()
     copy.edgeHalved = this.edgeHalved.slice()
     copy.edgeNear = this.edgeNear.slice()
     copy.edgeFar = this.edgeFar.slice()
@@ -383,39 +461,53 @@ export class StateBuffers {
     copy.edgeFlowBits = this.edgeFlowBits
     copy.nodeRaise = this.nodeRaise
     copy.edgeRaise = this.edgeRaise
+    copy.shapeRaise = this.shapeRaise
     copy.nodeAlways = this.nodeAlways
     copy.edgeAlways = this.edgeAlways
     copy.nodeHide = this.nodeHide
     copy.edgeHide = this.edgeHide
+    copy.shapeHide = this.shapeHide
     copy.active = this.active
     copy.#nodeOthers = this.#nodeOthers
     copy.#edgeOthers = this.#edgeOthers
+    copy.#shapeOthers = this.#shapeOthers
     copy.#nodeOthersHide = this.#nodeOthersHide
     copy.#edgeOthersHide = this.#edgeOthersHide
+    copy.#shapeOthersHide = this.#shapeOthersHide
     copy.#nodeOthersAlways = this.#nodeOthersAlways
     copy.#edgeOthersAlways = this.#edgeOthersAlways
     copy.#edgeOthersFlow = this.#edgeOthersFlow
     copy.#members.set(this.#members)
     copy.#hiddenNodes = this.#hiddenNodes
     copy.#hiddenEdges = this.#hiddenEdges
+    copy.#hiddenShapes = this.#hiddenShapes
     copy.#hiddenHalves = this.#hiddenHalves
     copy.hideVersion = this.hideVersion
-    copy.setHighlighted([...this.highlightedNodes], [...this.highlightedEdges])
+    copy.setHighlighted(
+      [...this.highlightedNodes],
+      [...this.highlightedEdges],
+      [...this.highlightedShapes],
+    )
     copy.setAlways([...this.alwaysNodes], [...this.alwaysEdges])
     return copy
   }
 
   raised(kind: StateKind): number {
-    return kind === 'nodes' ? this.nodeRaise : this.edgeRaise
+    return kind === 'nodes' ? this.nodeRaise : kind === 'edges' ? this.edgeRaise : this.shapeRaise
   }
 
   always(kind: StateKind): number {
-    return kind === 'nodes' ? this.nodeAlways : this.edgeAlways
+    return kind === 'nodes' ? this.nodeAlways : kind === 'edges' ? this.edgeAlways : 0
   }
 
-  setHighlighted(nodes: readonly number[], edges: readonly number[]): void {
+  setHighlighted(
+    nodes: readonly number[],
+    edges: readonly number[],
+    shapes: readonly number[] = this.highlightedShapes,
+  ): void {
     this.highlightedNodes = nodes
     this.highlightedEdges = edges
+    this.highlightedShapes = shapes
     this.highlightVersion++
   }
 

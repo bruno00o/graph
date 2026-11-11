@@ -36,7 +36,7 @@ export function applyStateStyles(
   grouped: boolean,
 ): void {
   const edgeHide = buffers.edgeHide
-  for (const kind of ['nodes', 'edges'] as const) {
+  for (const kind of ['nodes', 'edges', 'shapes'] as const) {
     registry.names.forEach((name, bit) => {
       const own = styleFor(states[name], kind)
       const style = isBuiltInState(name)

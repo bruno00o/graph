@@ -10,9 +10,10 @@ import { isDrawn } from '../core/shape-engine'
 import type { ShapeStore } from '../core/shape-store'
 import type { HideFilter, StateBuffers } from '../core/state-buffers'
 import type { TimeFilter } from '../core/time-range'
-import { edgeShown, nodeShown, type Sight } from '../core/visibility'
+import { edgeShown, nodeShown, type Sight, shapeShown } from '../core/visibility'
 import type { View } from '../types'
 import { stateOutline, stateStroke } from '../webgl/label-layer'
+import { shapeLook } from './look'
 
 export interface ExportFrame {
   readonly view: View
@@ -135,8 +136,11 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
   const shapes = source.shapes
   for (let index = 0; shapes?.any && index < shapes.capacity; index++) {
     const geometry = shapes.alive[index] === 1 ? shapes.geometry[index] : null
-    if (!isDrawn(geometry)) continue
-    const reach = (shapes.strokeWidth[index] ?? 0) / 2
+    if (!isDrawn(geometry) || !shapeShown(shapes, index, sight)) continue
+    const width = states
+      ? shapeLook(shapes, states, index).strokeWidth
+      : (shapes.strokeWidth[index] ?? 0)
+    const reach = Math.max(width, 0) / 2
     minX = Math.min(minX, geometry.minX * zoom - reach)
     minY = Math.min(minY, geometry.minY * zoom - reach)
     maxX = Math.max(maxX, geometry.maxX * zoom + reach)

@@ -66,11 +66,12 @@ layout(std140) uniform Frame {
   vec4 labelPaper;
 };
 layout(std140) uniform States {
-  vec4 stateNumbers[128];
-  uvec4 statePaint[128];
-  uvec4 stateLabel[128];
+  vec4 stateNumbers[192];
+  uvec4 statePaint[192];
+  uvec4 stateLabel[192];
   uvec4 stateRaise;
   uvec4 stateOthers;
+  uvec4 stateShapes;
 };
 uniform int layerSlot;
 uniform int overlay;
@@ -131,11 +132,12 @@ Look resolve(uint mask, Look look, int table) {
   bool outlineWidth = false;
   bool labelColor = false;
   float base = look.opacity;
-  uint rows = mask | (table == 0 ? stateOthers.x : stateOthers.y);
+  uint rows = mask | (table == 0 ? stateOthers.x : table == 32 ? stateOthers.y : stateShapes.z);
+  int others = table == 128 ? 160 : table + 64;
   for (int bit = 0; bit < 32; bit++) {
     if (rows == 0u) break;
     bool present = (rows & 1u) != 0u;
-    int row = (mask & 1u) != 0u ? table + bit : table + 64 + bit;
+    int row = (mask & 1u) != 0u ? table + bit : others + bit;
     rows >>= 1u;
     mask >>= 1u;
     if (!present) continue;
@@ -156,12 +158,7 @@ Look resolve(uint mask, Look look, int table) {
 }
 `
 
-export const nodeData: string = `
-uniform sampler2D nodePosition;
-uniform sampler2D nodeStyle;
-uniform usampler2D nodeState;
-uniform sampler2D nodeZoom;
-uniform sampler2D nodeTime;
+export const spanData: string = `
 float zoomShown(vec2 range) {
   if (!(zoom > range.x && zoom < range.y)) return 0.0;
   float inside = min(range.x > 0.0 ? log2(zoom / range.x) : 1.0, log2(range.y / zoom));
@@ -183,6 +180,15 @@ float timeShown(vec4 span) {
   if (!started) return 0.0;
   return timeBefore(ws, e) || (timeSame(s, e) && timeSame(e, ws)) ? 1.0 : 0.0;
 }
+`
+
+export const nodeData: string = `
+uniform sampler2D nodePosition;
+uniform sampler2D nodeStyle;
+uniform usampler2D nodeState;
+uniform sampler2D nodeZoom;
+uniform sampler2D nodeTime;
+${spanData}
 float nodeShown(ivec2 t) {
   if (anyHidden(hiddenNodes) && slotHidden(hiddenNodes, (uint(texelFetch(nodeStyle, t, 0).w + 0.5) >> 4u) & 255u)) return 0.0;
   if ((stateRaise.z | stateOthers.z) != 0u) {

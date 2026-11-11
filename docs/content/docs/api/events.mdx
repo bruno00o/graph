@@ -40,14 +40,18 @@ type GraphTarget<M extends Mark = Mark> =
     ? NodeTarget<T, N>
     : M extends EdgeMark<infer T, infer N, MarkLayer>
       ? EdgeTarget<T, N>
-      : NodeTarget | EdgeTarget
+      : M extends ShapeMark<infer T, infer N, MarkLayer>
+        ? ShapeTarget<T, N>
+        : NodeTarget | EdgeTarget | ShapeTarget
 ```
 
-`GraphTarget<M>` is a `NodeTarget` or an `EdgeTarget` for each mark of `M`, the union of the marks of the definition. `datum` is the item from your data, typed by its mark, and `mark` is the `name` of that mark, `undefined` without one. Narrow on `kind`, then on `mark` when several marks of one kind carry different types: see [TypeScript](/docs/typescript). Without `M`, `datum` is `unknown`.
+`GraphTarget<M>` is a `NodeTarget`, an `EdgeTarget` or a `ShapeTarget` for each mark of `M`, the union of the marks of the definition. `datum` is the item from your data, typed by its mark, and `mark` is the `name` of that mark, `undefined` without one. Narrow on `kind`, then on `mark` when several marks of one kind carry different types: see [TypeScript](/docs/typescript). Without a [shape mark](/docs/shapes) in `M`, no target is a shape. Without `M`, `datum` is `unknown` and `kind` can be any of the three.
 
 <api-table path="index.ts" name="NodeTarget" />
 
 <api-table path="index.ts" name="EdgeTarget" />
+
+<api-table path="index.ts" name="ShapeTarget" />
 
 An edge drawn for several edges, between [folded groups](/docs/groups) or [merged](/docs/transformations#merge-parallel-edges) by `merge`, carries `aggregate`, with the keys and data of every merged edge, split by direction; `key` and `datum` are those of the first. With [`halves`](/docs/transformations#one-direction-per-half), the half of a two-way line under the pointer sets `direction`, and `key` and `datum` are those of the first edge of that direction.
 
@@ -91,7 +95,7 @@ An edge drawn for several edges, between [folded groups](/docs/groups) or [merge
 
 - `point` is in screen pixels relative to the graph element, `world` in world units.
 - `pointermove` carries a `GraphPointerEvent`, at most once per frame, with the element under the pointer or `null` over empty space. During a drag, its target is the dragged node. The graph listens to the pointer for it only while a handler is subscribed.
-- `selection` is the whole selection after the change, in the order keys joined it.
+- `selection` is the whole selection after the change, in the order keys joined it. It has `shapes` only when the definition has a [shape mark](/docs/shapes#selecting-and-hovering).
 - `origin` is `'user'` when a gesture, the wheel, the keyboard or edge scrolling moved the view, and `'api'` when code did: `graph.view`, `update({ view })`, automatic framing or the keyboard focus set from code.
 - `keys` lists every node moved by the drag: the whole selection when the dragged node is selected, and the nodes inside a dragged group.
 - `folded` lists the keys of every folded group after the change.

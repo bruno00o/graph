@@ -7,6 +7,7 @@ import type { ElementKeys, ElementKeysInput } from './events'
 interface Members {
   readonly nodes: Set<Key>
   readonly edges: Set<Key>
+  readonly shapes: Set<Key>
 }
 
 export interface EdgeDisplay {
@@ -23,11 +24,12 @@ export interface RegistryChanges {
 
 export type LayerOf = (kind: StateKind, index: number) => number
 
-const kinds: readonly StateKind[] = ['nodes', 'edges']
+const kinds: readonly StateKind[] = ['nodes', 'edges', 'shapes']
+const elementKinds: readonly StateKind[] = ['nodes', 'edges']
 const scanShare = 16
 
 function members(): Members {
-  return { nodes: new Set(), edges: new Set() }
+  return { nodes: new Set(), edges: new Set(), shapes: new Set() }
 }
 
 export class StateRegistry {
@@ -40,6 +42,7 @@ export class StateRegistry {
   #highlightDirty = true
   #watched: readonly number[] = []
   #pending: Set<number> | null = null
+  #shaped = false
 
   constructor(
     model: GraphModel,
@@ -56,6 +59,22 @@ export class StateRegistry {
 
   get names(): readonly string[] {
     return this.#names
+  }
+
+  get shaped(): boolean {
+    return this.#shaped
+  }
+
+  setShaped(shaped: boolean): boolean {
+    if (shaped === this.#shaped) return false
+    if (!shaped)
+      for (const name of this.#names) this.set(name, { ...this.members(name), shapes: [] })
+    this.#shaped = shaped
+    return true
+  }
+
+  #kinds(): readonly StateKind[] {
+    return this.#shaped ? kinds : elementKinds
   }
 
   define(free: readonly string[]): boolean {
@@ -82,7 +101,9 @@ export class StateRegistry {
 
   members(name: string): ElementKeys {
     const entry = this.#entry(name)
-    return { nodes: [...entry.nodes], edges: [...entry.edges] }
+    return this.#shaped
+      ? { nodes: [...entry.nodes], edges: [...entry.edges], shapes: [...entry.shapes] }
+      : { nodes: [...entry.nodes], edges: [...entry.edges] }
   }
 
   has(name: string, kind: StateKind, key: Key): boolean {
@@ -93,7 +114,7 @@ export class StateRegistry {
     const entry = this.#entry(name)
     return this.#batch(() => {
       let changed = false
-      for (const kind of kinds) {
+      for (const kind of this.#kinds()) {
         const next = new Set(input[kind] ?? [])
         for (const key of [...entry[kind]]) {
           if (!next.has(key)) changed = this.#toggle(name, kind, key, false) || changed
@@ -108,7 +129,7 @@ export class StateRegistry {
     this.#entry(name)
     return this.#batch(() => {
       let changed = false
-      for (const kind of kinds) {
+      for (const kind of this.#kinds()) {
         for (const key of input[kind] ?? [])
           changed = this.#toggle(name, kind, key, true) || changed
       }
@@ -120,7 +141,7 @@ export class StateRegistry {
     this.#entry(name)
     return this.#batch(() => {
       let changed = false
-      for (const kind of kinds) {
+      for (const kind of this.#kinds()) {
         for (const key of input[kind] ?? [])
           changed = this.#toggle(name, kind, key, false) || changed
       }
@@ -163,8 +184,10 @@ export class StateRegistry {
     }
     forget('nodes', changes.nodes.removed)
     forget('edges', changes.edges.removed)
+    forget('shapes', changes.shapes.removed)
     learn('nodes', changes.nodes.added)
     learn('edges', changes.edges.added)
+    learn('shapes', changes.shapes.added)
     return { selection, hovered, focused }
   }
 
@@ -174,13 +197,20 @@ export class StateRegistry {
 
   takeHighlighted(): void {
     const buffers = this.#buffers
-    const watched = [buffers.nodeRaise, buffers.edgeRaise, buffers.nodeAlways, buffers.edgeAlways]
+    const watched = [
+      buffers.nodeRaise,
+      buffers.edgeRaise,
+      buffers.nodeAlways,
+      buffers.edgeAlways,
+      buffers.shapeRaise,
+    ]
     if (!this.#highlightDirty && watched.every((bits, at) => bits === this.#watched[at])) return
     this.#highlightDirty = false
     this.#watched = watched
     buffers.setHighlighted(
       this.#byLayer('nodes', this.#indicesWith('nodes', buffers.nodeRaise)),
       this.#byLayer('edges', this.#indicesWith('edges', buffers.edgeRaise)),
+      this.#indicesWith('shapes', buffers.shapeRaise),
     )
     const nodes = this.#indicesWith('nodes', buffers.nodeAlways)
     const edges = this.#indicesWith('edges', buffers.edgeAlways)
@@ -188,9 +218,18 @@ export class StateRegistry {
     if (listed + nodes.length + edges.length > 0) buffers.setAlways(nodes, edges)
   }
 
+  #masks(kind: StateKind): Uint32Array {
+    const buffers = this.#buffers
+    return kind === 'nodes'
+      ? buffers.nodeMask
+      : kind === 'edges'
+        ? buffers.edgeMask
+        : buffers.shapeMask
+  }
+
   #indicesWith(kind: StateKind, bits: number): number[] {
     if (bits === 0) return []
-    const masks = kind === 'nodes' ? this.#buffers.nodeMask : this.#buffers.edgeMask
+    const masks = this.#masks(kind)
     let members = 0
     this.#names.forEach((name, bit) => {
       if ((bits & (1 << bit)) !== 0) members += this.#members.get(name)?.[kind].size ?? 0
@@ -300,7 +339,9 @@ export class StateRegistry {
 
   #index(kind: StateKind, key: Key): number {
     if (kind === 'edges' && this.#display) return this.#display.indexOf(key)
-    const record = kind === 'nodes' ? this.#model.node(key) : this.#model.edge(key)
+    const model = this.#model
+    const record =
+      kind === 'nodes' ? model.node(key) : kind === 'edges' ? model.edge(key) : model.shape(key)
     return record?.index ?? -1
   }
 
@@ -318,16 +359,19 @@ export class StateRegistry {
   }
 
   #setMask(kind: StateKind, index: number, mask: number): void {
-    const current = kind === 'nodes' ? this.#buffers.nodeMask : this.#buffers.edgeMask
+    const current = this.#masks(kind)
     const watched = this.#buffers.raised(kind) | this.#buffers.always(kind)
     if ((((current[index] ?? 0) ^ mask) & watched) !== 0) this.#highlightDirty = true
     if (kind === 'nodes') this.#buffers.setNode(index, mask)
-    else this.#buffers.setEdge(index, mask)
+    else if (kind === 'edges') this.#buffers.setEdge(index, mask)
+    else this.#buffers.setShape(index, mask)
   }
 
   #rebuild(): void {
     for (const record of this.#model.nodes())
       this.#setMask('nodes', record.index, this.#maskOf('nodes', record.key))
+    for (const record of this.#model.shapes())
+      this.#setMask('shapes', record.index, this.#maskOf('shapes', record.key))
     this.#batch(() => {
       for (const record of this.#model.edges()) {
         if (this.#display) this.#writeEdgeKey(record.key)

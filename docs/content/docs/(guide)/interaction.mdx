@@ -24,6 +24,7 @@ A press released within 4 pixels of where it started is a click, or within 10 pi
 - In `'multiple'` mode, Shift, Cmd or Ctrl adds the element to the selection, or removes it if it was already selected.
 - A click on the background without a modifier clears the selection.
 - A click on a [merged edge](/docs/transformations#merge-parallel-edges) selects every edge it merges, or, with [`halves`](/docs/transformations#one-direction-per-half), the edges of the direction under the pointer.
+- A click on a [shape](/docs/shapes#selecting-and-hovering) selects it like a node. Nodes, edges and containers drawn over a shape take the click first.
 
 ```ts
 graph.selection.set({ nodes: ['n1', 'n2'] })
@@ -32,7 +33,7 @@ graph.selection.clear()
 graph.on('selectionchange', ({ selection }) => console.log(selection.nodes, selection.edges))
 ```
 
-`selectionchange` fires on every change, whether it comes from the user or from code. Its payload holds `selection`, the whole selection after the change, `{ nodes, edges }`, as `selection.get()` returns it. Keys come in the order they joined the selection: a node added with a modifier or by the lasso comes last, and keys that stay selected keep their place.
+`selectionchange` fires on every change, whether it comes from the user or from code. Its payload holds `selection`, the whole selection after the change, `{ nodes, edges }`, as `selection.get()` returns it, with `shapes` when the definition has a [shape mark](/docs/shapes). Keys come in the order they joined the selection: a node added with a modifier or by the lasso comes last, and keys that stay selected keep their place.
 
 ## Controlled selection
 
@@ -74,7 +75,7 @@ Drag a node to move it. The drag starts after 4 pixels and does not emit a click
 
 ## Lasso
 
-With `lasso: true` and `select: 'multiple'`, Shift and drag from the background draws a lasso. The nodes inside are added to the selection when you release; edges are not taken. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress. A long press never starts a lasso: only Shift does.
+With `lasso: true` and `select: 'multiple'`, Shift and drag from the background, or from a [shape](/docs/shapes#selecting-and-hovering), draws a lasso. The nodes inside, and the shapes whose every point is inside, are added to the selection when you release; edges are not taken, nor a shape that contains the lasso. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress. A long press never starts a lasso: only Shift does.
 
 ## Wheel and trackpad
 
@@ -165,7 +166,7 @@ With `lens` on, holding Alt over the graph shows a magnifying lens under the poi
 
 ## Events
 
-Every event handler receives a typed object. Targets are `{ kind: 'node' | 'edge', key, datum, mark }`, where `datum` is the item from your data, typed by its mark, and `mark` the name of that mark. See [TypeScript](/docs/typescript).
+Every event handler receives a typed object. Targets are `{ kind: 'node' | 'edge' | 'shape', key, datum, mark }`, `'shape'` only with a [shape mark](/docs/shapes), where `datum` is the item from your data, typed by its mark, and `mark` the name of that mark. See [TypeScript](/docs/typescript).
 
 ```ts
 const stop = graph.on('doubleclick', ({ target, point, world }) => {

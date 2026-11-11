@@ -2,15 +2,27 @@ import type { StateKind } from '../core/state-buffers'
 import type { Key } from '../types'
 import type { ElementKeys, ElementKeysInput, GraphTarget } from './events'
 
-export const kindOf: { readonly node: 'nodes'; readonly edge: 'edges' } = {
+export const kindOf: {
+  readonly node: 'nodes'
+  readonly edge: 'edges'
+  readonly shape: 'shapes'
+} = {
   node: 'nodes',
   edge: 'edges',
+  shape: 'shapes',
 } satisfies Record<string, StateKind>
 export const noKeys: ElementKeys = Object.freeze({ nodes: [], edges: [] })
+export const noShapeKeys: ElementKeys = Object.freeze({ nodes: [], edges: [], shapes: [] })
 export const requestMemory = 8
 
-export function toKeys(input: ElementKeysInput): ElementKeys {
-  return { nodes: [...(input.nodes ?? [])], edges: [...(input.edges ?? [])] }
+export function emptyKeys(shaped: boolean): ElementKeys {
+  return shaped ? noShapeKeys : noKeys
+}
+
+export function toKeys(input: ElementKeysInput, shaped = false): ElementKeys {
+  const nodes = [...(input.nodes ?? [])]
+  const edges = [...(input.edges ?? [])]
+  return shaped ? { nodes, edges, shapes: [...(input.shapes ?? [])] } : { nodes, edges }
 }
 
 export function sameList(a: readonly Key[], b: readonly Key[]): boolean {
@@ -20,7 +32,11 @@ export function sameList(a: readonly Key[], b: readonly Key[]): boolean {
 }
 
 export function sameKeys(a: ElementKeys, b: ElementKeys): boolean {
-  return sameList(a.nodes, b.nodes) && sameList(a.edges, b.edges)
+  return (
+    sameList(a.nodes, b.nodes) &&
+    sameList(a.edges, b.edges) &&
+    sameList(a.shapes ?? [], b.shapes ?? [])
+  )
 }
 
 export function sameTarget(a: GraphTarget | null, b: GraphTarget | null): boolean {
