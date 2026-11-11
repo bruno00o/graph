@@ -53,15 +53,16 @@ Boundaries chosen from developer tasks, not from entry points:
 
 ### core (8)
 
-| #   | Mistake                                        | Priority | Source                                 | Cross-skill |
-| --- | ---------------------------------------------- | -------- | -------------------------------------- | ----------- |
-| 1   | Changing the data array or items in place      | HIGH     | data guide, `src/core/source-table.ts` | react       |
-| 2   | Constant CSS color passed to the color channel | HIGH     | marks guide                            | styling     |
-| 3   | Container without a height                     | HIGH     | installation guide                     | react       |
-| 4   | Selection changed through `graph.states`       | MEDIUM   | `src/types.ts`, states guide           | interaction |
-| 5   | Item type written on the mark call             | MEDIUM   | TypeScript guide                       |             |
-| 6   | New option functions on every update           | MEDIUM   | data guide                             | react       |
-| 7   | Waiting edges taken for a bug                  | MEDIUM   | data guide                             |             |
+| #   | Mistake                                           | Priority | Source                                 | Cross-skill |
+| --- | ------------------------------------------------- | -------- | -------------------------------------- | ----------- |
+| 1   | Changing the data array or items in place         | HIGH     | data guide, `src/core/source-table.ts` | react       |
+| 2   | Constant CSS color passed to the color channel    | HIGH     | marks guide                            | styling     |
+| 3   | Container without a height                        | HIGH     | installation guide                     | react       |
+| 4   | Selection changed through `graph.states`          | MEDIUM   | `src/types.ts`, states guide           | interaction |
+| 5   | Item type written on the mark call                | MEDIUM   | TypeScript guide                       |             |
+| 6   | New option functions on every update              | MEDIUM   | data guide                             | react       |
+| 7   | Laying out or fitting before live data has loaded | HIGH     | data guide, `src/host/data-status.ts`  |             |
+| 8   | Waiting edges taken for a bug                     | MEDIUM   | data guide                             |             |
 
 ### react (6)
 
@@ -163,15 +164,16 @@ Scope decisions:
 
 ##### groups (8)
 
-| #   | Mistake                                        | Priority | Source                            | Cross-skill |
-| --- | ---------------------------------------------- | -------- | --------------------------------- | ----------- |
-| 1   | Passing a string to `fold`, `unfold` or `set`  | HIGH     | `graph-instance.ts`               |             |
-| 2   | Building the key of a `groups()` node by hand  | HIGH     | transformations guide, groups API |             |
-| 3   | Expecting folding or merging to relayout       | HIGH     | transformations guide             | layouts     |
-| 4   | Switching to a controlled `folded` after mount | MEDIUM   | groups guide                      | react       |
-| 5   | Rebuilding `by` functions in render            | MEDIUM   | groups API                        | core, react |
-| 6   | Using `hide` to shrink the layout              | MEDIUM   | transformations guide             | layouts     |
-| 7   | Expecting merged edges across marks            | MEDIUM   | transformations guide             | multilayer  |
+| #   | Mistake                                        | Priority | Source                                          | Cross-skill |
+| --- | ---------------------------------------------- | -------- | ----------------------------------------------- | ----------- |
+| 1   | Setting `halves` without `directed: false`     | HIGH     | transformations guide, `src/core/projection.ts` |             |
+| 2   | Passing a string to `fold`, `unfold` or `set`  | HIGH     | `graph-instance.ts`                             |             |
+| 3   | Building the key of a `groups()` node by hand  | HIGH     | transformations guide, groups API               |             |
+| 4   | Expecting folding or merging to relayout       | HIGH     | transformations guide                           | layouts     |
+| 5   | Switching to a controlled `folded` after mount | MEDIUM   | groups guide                                    | react       |
+| 6   | Rebuilding `by` functions in render            | MEDIUM   | groups API                                      | core, react |
+| 7   | Using `hide` to shrink the layout              | MEDIUM   | transformations guide                           | layouts     |
+| 8   | Expecting merged edges across marks            | MEDIUM   | transformations guide                           | multilayer  |
 
 ##### multilayer (7)
 
