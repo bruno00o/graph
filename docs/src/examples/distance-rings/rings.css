@@ -1,0 +1,35 @@
+.distance-rings {
+  opacity: 0;
+  transition: opacity 200ms;
+  pointer-events: none;
+}
+
+.distance-rings svg {
+  display: block;
+  overflow: visible;
+}
+
+.distance-rings circle {
+  fill: none;
+  stroke: color-mix(in srgb, var(--graph-ink) 40%, transparent);
+  stroke-width: 1.5px;
+  stroke-dasharray: 6 6;
+  vector-effect: non-scaling-stroke;
+}
+
+.distance-rings text {
+  fill: var(--graph-ink-muted);
+  font-family: var(--graph-font);
+  font-size: 15px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--graph-paper);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .distance-rings {
+    transition: none;
+  }
+}
