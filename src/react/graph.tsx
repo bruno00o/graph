@@ -66,6 +66,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onLayoutStart?: GraphEventHandler<'layoutstart', M> | undefined
   /** Receives `layoutend`: a layout run ends or stops. */
   readonly onLayoutEnd?: GraphEventHandler<'layoutend', M> | undefined
+  /** Receives `loadingchange`: the live sources start or finish loading, or one fails. */
+  readonly onLoadingChange?: GraphEventHandler<'loadingchange', M> | undefined
 }
 
 export const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>> = {
@@ -90,6 +92,7 @@ export const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>>
   zoomhint: 'onZoomHint',
   layoutstart: 'onLayoutStart',
   layoutend: 'onLayoutEnd',
+  loadingchange: 'onLoadingChange',
 }
 
 /** Props of `<Graph>`. `S` and `M` come from the definition. */

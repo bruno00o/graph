@@ -7,6 +7,7 @@ import type {
   Key,
   KeyList,
   LayerName,
+  LiveSource,
   Mark,
   MarkLayer,
   MarkName,
@@ -189,6 +190,20 @@ export interface GraphIssuesEvent {
   readonly issues: readonly GraphIssue[]
 }
 
+/**
+ * Loading of the live sources of the current definition. Array data and live sources without a
+ * `status` are always loaded.
+ */
+export interface GraphDataStatus {
+  /** `true` while a live source of the definition has not finished loading. */
+  readonly loading: boolean
+  /**
+   * Live sources of the definition whose load failed, in mark order. The graph draws what they
+   * delivered, and a source leaves the list once its `status` recovers.
+   */
+  readonly failed: readonly LiveSource<unknown>[]
+}
+
 /** Payload of `lenschange`. */
 export interface GraphLensEvent {
   /** The lens, or `null` when it hides. */
@@ -279,6 +294,11 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly layoutstart: GraphLayoutEvent
   /** A layout run ends, is stopped or is replaced. */
   readonly layoutend: GraphLayoutEndEvent
+  /**
+   * The live sources of the definition start or finish loading, or one fails or recovers: the
+   * payload is the new `data` of the store.
+   */
+  readonly loadingchange: GraphDataStatus
 }
 
 /** Name of a graph event. */

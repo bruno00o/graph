@@ -25,6 +25,7 @@ import type { GraphAnchors } from './anchors'
 import type {
   ElementKeys,
   ElementKeysInput,
+  GraphDataStatus,
   GraphEventHandler,
   GraphEventName,
   GraphEventOptions,
@@ -70,6 +71,8 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly lens: GraphLensState | null
   /** Names of the hidden layers. */
   readonly hiddenLayers: readonly LayerName<M>[]
+  /** Loading of the live sources of the current definition. */
+  readonly data: GraphDataStatus
 }
 
 /** Status of edge bundling. */
@@ -571,6 +574,12 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * once the graph is destroyed.
    */
   drawn(): Promise<void>
+  /**
+   * Resolves once no live source of the definition is loading and what they delivered is applied,
+   * at once when none is. A source that failed counts as done: `store.state.data.failed` lists it.
+   * Rejects with the reason of `signal` once the graph is destroyed.
+   */
+  loaded(): Promise<void>
   /**
    * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
    * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled

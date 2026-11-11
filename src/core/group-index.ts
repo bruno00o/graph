@@ -1,6 +1,7 @@
 import type { Key, LiveSource, NodeGroup, SourceChange, SourceSubscription } from '../types'
 import { isKey } from './accessor'
 import type { Read } from './compile-mark'
+import { sourceReadiness, watchReadiness } from './live-source'
 
 const mark = '\uE000'
 
@@ -201,6 +202,8 @@ export class GroupSource<T> implements LiveSource<NodeGroup<T>> {
         includeInitialState: true,
       })
     }
+    const source = this.#source
+    const upstream = (): SourceSubscription | null => this.#upstream
     return {
       unsubscribe: () => {
         this.#listeners.delete(callback)
@@ -208,6 +211,10 @@ export class GroupSource<T> implements LiveSource<NodeGroup<T>> {
         this.#upstream.unsubscribe()
         this.#upstream = null
       },
+      get status() {
+        return sourceReadiness(source, upstream())
+      },
+      on: (_event, listener) => watchReadiness(source, upstream(), listener),
     }
   }
 

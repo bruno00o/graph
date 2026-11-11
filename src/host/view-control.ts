@@ -66,6 +66,7 @@ export interface ViewSource {
   limitBounds(): Bounds | null
   sceneVersion(): number
   positionsVersion(): number
+  waiting(): boolean
 }
 
 export function sameView(a: View, b: View): boolean {
@@ -284,7 +285,8 @@ export class ViewControl {
       this.framedNow()
     }
     const pendingFit = this.pendingFit
-    if (pendingFit && this.settleFit(pendingFit)) this.pendingFit = null
+    if (!pendingFit || (pendingFit.automatic && this.#source.waiting())) return
+    if (this.settleFit(pendingFit)) this.pendingFit = null
   }
 
   step(now: number): void {

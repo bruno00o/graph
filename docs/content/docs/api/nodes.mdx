@@ -26,6 +26,24 @@ function nodes<T, N extends MarkName = undefined, L extends MarkLayer = undefine
 
 `key` is required for an iterable whose items have no `id` field. A live source carries its keys in its changes.
 
+## Live sources
+
+A live source streams its changes. `status` and `on` are optional: with them, the graph knows when the source is loading, loaded or failed. See [Loading](/docs/data#loading).
+
+<api-table path="index.ts" name="LiveSource" />
+
+`subscribeChanges` returns a subscription. Its own `status` and `on`, when it has them, tell how far what this subscription asked for has loaded, such as the rows of a `where`.
+
+<api-table path="index.ts" name="SourceSubscription" />
+
+<api-table path="index.ts" name="SourceChange" />
+
+`on` takes the event name and a listener, and returns a function that stops it:
+
+```ts
+type StatusListen = (event: 'status:change', listener: () => void) => () => void
+```
+
 ## Options
 
 A **channel** is a field name or a function, and goes through a scale. A **style** is a constant or a function, with no scale. A number literal and a function wrapped in [`raw()`](#types) skip the scale. See [Marks and channels](/docs/marks#channels-and-styles).

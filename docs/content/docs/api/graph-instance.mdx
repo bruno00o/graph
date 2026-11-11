@@ -48,6 +48,16 @@ await graph.drawn()
 const canvas = graph.element.querySelector('canvas')
 ```
 
+### Loaded
+
+`loaded()` resolves once no [live source](/docs/data#loading) of the definition is loading and what they delivered is applied: `count()`, `issues()` and the store hold the complete data. It resolves at once when nothing loads, as with array data, and also when a source failed: `store.state.data.failed` lists it. A layout may still run after it: wait for `layoutend`, or `await graph.drawn()` for the next frame. Once the graph is destroyed, it rejects with the reason of `signal`, also while it waits.
+
+```ts
+const graph = mountGraph(element, { definition, ariaLabel: 'Sample graph' })
+await graph.loaded()
+report(graph.count().nodes)
+```
+
 ### After destroy
 
 Every member stays callable after `destroy`, and none throws. Reads answer from the last state of the store or return nothing, actions do nothing, and promises resolve to `false` or reject.
@@ -67,7 +77,7 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `on`, `anchors.set` | Register nothing and return a function that does nothing |
 | `update`, `destroy`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
 | `layout.run`, `bundling.run`, `routing.run` | Resolve to `false`. A layout run in progress at `destroy` resolves to `false` too |
-| `drawn` | Rejects with `signal.reason` |
+| `drawn`, `loaded` | Reject with `signal.reason` |
 | [`exportPng`, `exportSvg`](/docs/api/export) and [`exportMapPng`](/docs/api/map) | Reject with an error |
 | [`createMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Return a companion already destroyed: empty, it holds no worker, observer or timer, never changes and never plays |
 
@@ -291,4 +301,6 @@ Walks the `supportedBy` links of edges, down to the edges that carry an edge and
 
 <api-table path="index.ts" name="GraphRoutingStatus" />
 
-`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are.
+<api-table path="index.ts" name="GraphDataStatus" />
+
+`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are. `data.loading` is `true` while a [live source](/docs/data#loading) of the definition is loading, and `data.failed` lists the sources whose load failed; `loadingchange` fires when either changes.

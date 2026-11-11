@@ -80,6 +80,10 @@ The layout reports positions through a `LayoutListener`:
 
 Every array passed to the listener holds `capacity × 2` numbers. Nodes that are not movable must keep their place.
 
+### Wait for the data
+
+`waitForData` holds back the automatic layout over every node, the first one and the one after a new layout, and the automatic fits, while a [live source](/docs/data#loading) of the definition is loading: they run once every source has loaded or failed. The time counts from the first nodes: 10,000 milliseconds by default, `true` for no limit, `false` or `0` to run on the first nodes as array data does. When the time is up, they run on what is there, and later batches are placed as they arrive. Array data and sources without a `status` never wait.
+
 ## Bundling
 
 `bundling` takes an `EdgeBundling`, such as the result of [`densityBundling()`](/docs/api/bundling), or `null`. The port is public: any object with this shape works. See [Edge bundling](/docs/bundling).

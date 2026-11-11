@@ -9,7 +9,7 @@ import type {
 import { isKey, toAccessor } from './accessor'
 import type { GraphIssue, MissingKeyIssue } from './issues'
 import { type KeyedItems, KeyMap, NativeKeyMap } from './key-map'
-import { isLiveSource } from './live-source'
+import { isLiveSource, type Readiness, sourceReadiness, watchReadiness } from './live-source'
 import { sameOptions } from './same-options'
 
 export type ElementKind = 'nodes' | 'edges'
@@ -40,6 +40,8 @@ export interface Source<M extends AnyMark> {
   previous: KeyedItems<unknown> | null
   readonly issues: GraphIssue[]
   rejected: Map<unknown, MissingKeyIssue> | null
+  readiness: Readiness
+  unwatch: (() => void) | null
 }
 
 export interface PackedSource<M extends AnyMark> extends Source<M> {
@@ -85,11 +87,15 @@ function createSource<
     previous: null,
     issues: [],
     rejected: null,
+    readiness: 'ready',
+    unwatch: null,
   }
 }
 
 function release<M extends AnyMark>(source: Source<M>): void {
   source.retired = true
+  source.unwatch?.()
+  source.unwatch = null
   source.subscription?.unsubscribe()
   source.subscription = null
 }
@@ -118,6 +124,7 @@ export class SourceTable<M extends AnyMark> {
   #restyled: Set<number> | null = null
   #draining = false
   #issueVersion = 0
+  #readinessVersion = 0
 
   constructor(kind: ElementKind, notify: () => void) {
     this.#kind = kind
@@ -126,6 +133,22 @@ export class SourceTable<M extends AnyMark> {
 
   get issueVersion(): number {
     return this.#issueVersion
+  }
+
+  get readinessVersion(): number {
+    return this.#readinessVersion
+  }
+
+  get loadingCount(): number {
+    let count = 0
+    for (const source of this.#sources) if (source.readiness === 'loading') count++
+    return count
+  }
+
+  collectFailed(into: LiveSource<unknown>[]): void {
+    for (const source of this.#sources) {
+      if (source.readiness === 'error' && source.live) into.push(source.live)
+    }
   }
 
   collectIssues(into: GraphIssue[]): void {
@@ -160,6 +183,10 @@ export class SourceTable<M extends AnyMark> {
     const { marks, next } = plan
     const replaced: Source<M>[] = []
     this.#sources = [...next]
+    const unready = (source: Source<M>) => source.readiness !== 'ready'
+    const added = next.filter((source) => !previous.includes(source))
+    const gone = previous.filter((source) => !next.includes(source))
+    if (added.some(unready) || gone.some(unready)) this.#readinessVersion++
     next.forEach((source, slot) => {
       const old = previous[slot]
       if (source === old) {
@@ -301,6 +328,7 @@ export class SourceTable<M extends AnyMark> {
     this.#sources = []
     this.#duplicates.clear()
     this.#issueVersion++
+    this.#readinessVersion++
     this.clearDirty()
   }
 
@@ -320,11 +348,25 @@ export class SourceTable<M extends AnyMark> {
         },
         { includeInitialState: true },
       )
+      source.unwatch = watchReadiness(data, source.subscription, () => {
+        this.#recheck(source)
+      })
+      source.readiness = sourceReadiness(data, source.subscription)
     } catch (error) {
-      source.retired = true
+      release(source)
       throw error
     }
     return source
+  }
+
+  #recheck(source: LiveState<M>): void {
+    if (source.retired) return
+    const readiness = sourceReadiness(source.live, source.subscription)
+    if (readiness === source.readiness) return
+    source.readiness = readiness
+    if (this.#sources[source.slot] !== source) return
+    this.#readinessVersion++
+    this.#notify()
   }
 
   #receive(source: LiveState<M>, changes: ReadonlyArray<SourceChange<unknown>>): void {

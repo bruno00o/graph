@@ -311,4 +311,55 @@ describe('createExploration', () => {
     expect(model.neighbors('a').sort()).toEqual(['b', 'c'])
     model.destroy()
   })
+
+  it('says its sources load until every query they depend on has answered once', async () => {
+    const { exploration } = setup()
+    const model = createGraphModel()
+    const changed = vi.fn()
+    model.setMarks([
+      edges(exploration.edges, { source: 'from', target: 'to' }),
+      nodes(exploration.nodes, {}),
+    ])
+    const stop = exploration.nodes.on?.('status:change', changed)
+    expect(exploration.nodes.status).toBe('loading')
+    expect(exploration.edges.status).toBe('loading')
+    expect(model.loadingSources).toBe(2)
+    await vi.waitFor(() => expect(model.loadingSources).toBe(0))
+    expect(exploration.nodes.status).toBe('ready')
+    expect(changed).toHaveBeenCalledTimes(1)
+    exploration.expand('b')
+    expect(model.loadingSources).toBe(2)
+    await vi.waitFor(() => expect(model.loadingSources).toBe(0))
+    model.flush()
+    expect(model.node('d')).toBeDefined()
+    stop?.()
+    model.destroy()
+  })
+
+  it('says its sources failed when a query fails with no data, and load again on retry', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    let online = false
+    const flaky = createExploration(client, {
+      roots: ['x'],
+      neighbors: (key) =>
+        queryOptions({
+          queryKey: ['flaky-status', key],
+          queryFn: async () => {
+            if (!online) throw new Error('offline')
+            return { nodes: [{ id: String(key) }], edges: [] as Link[] }
+          },
+        }),
+    })
+    const model = createGraphModel()
+    model.setMarks([nodes(flaky.nodes, {})])
+    expect(model.loadingSources).toBe(1)
+    await vi.waitFor(() => expect(model.failedSources()).toEqual([flaky.nodes]))
+    expect(flaky.nodes.status).toBe('error')
+    online = true
+    flaky.retry('x')
+    expect(flaky.nodes.status).toBe('loading')
+    await vi.waitFor(() => expect(flaky.nodes.status).toBe('ready'))
+    expect(model.failedSources()).toEqual([])
+    model.destroy()
+  })
 })

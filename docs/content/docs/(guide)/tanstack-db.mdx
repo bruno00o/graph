@@ -26,6 +26,35 @@ The definition never needs to change: new rows appear, updated rows restyle, del
 
 The key of a node is the key of its row, as the collection reports it in each change: the `key` option of the mark is not read. See [Data](/docs/data#two-kinds-of-data) for the whole contract.
 
+## Know when it is loaded
+
+The graph reads the `status` of a collection and listens to its `status:change` event, with nothing to configure:
+
+| TanStack DB | The graph |
+| --- | --- |
+| `status` is `'idle'` or `'loading'`: the sync has not called `markReady()` yet | Loading |
+| `status` is `'ready'` | Loaded |
+| `status` is `'error'` (the first load failed, the sync called `fail()`) or `'crashed'` | Failed: listed in `data.failed`, what was delivered stays drawn |
+| A live query whose sources are loading | Loading until the live query is ready |
+| `subset` on an on-demand collection while `loadSubset` runs for its `where` | Loading, then failed if `loadSubset` rejects |
+
+`data.loading` in the store, the `loadingchange` event and `await graph.loaded()` tell your application when the rows are in, and the first automatic layout and fit wait for them, so that a collection that syncs in several batches is laid out once, on all its rows. See [loading](/docs/data#loading) for the whole behavior and `waitForData`.
+
+```tsx
+import { Graph, useGraphState } from '@bruno00o/graph/react'
+
+function Overlay() {
+  const loading = useGraphState((state) => state.data.loading)
+  return loading ? <div className="overlay" role="status">Loading</div> : null
+}
+
+<Graph definition={definition} ariaLabel="Sample graph">
+  <Overlay />
+</Graph>
+```
+
+An on-demand collection passed to a mark as is loads every row, and TanStack DB does not track that load on the subscription: the graph sees the collection as loaded as soon as it is ready. Pass a `subset` to follow the load of its rows.
+
 ## Filter a large collection
 
 A live query collection is a collection too: pass it to a mark. To draw only part of one collection, `subset` from `@bruno00o/graph/db` is lighter. It subscribes to the collection with a `where` expression, without building an intermediate collection.
@@ -104,6 +133,7 @@ const around = (keys: string[]) =>
 ```
 
 - An edge whose other end is not loaded, or filtered out, waits without being drawn. It appears as soon as that node arrives, and waits again if the node leaves.
+- The graph is loading while `loadSubset` runs for the `where` of a `subset`, and lists the source in `data.failed` when it rejects. A new filter loads again.
 - Pass a `subset`, not the on-demand collection itself: a subscription without `where` asks the collection for every row.
 - The graph subscribes to the next source before releasing the previous one. A sync that counts, row by row, the requests that hold it keeps the rows both sources need.
 

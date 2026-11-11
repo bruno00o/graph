@@ -1,4 +1,4 @@
-import type { EdgeMark, Key, Mark, NodeMark } from '../types'
+import type { EdgeMark, Key, LiveSource, Mark, NodeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { IndexPool } from './index-pool'
 import { IndexSet } from './index-set'
@@ -82,6 +82,9 @@ export interface GraphModel {
   readonly pendingCount: number
   readonly issueVersion: number
   collectIssues(into: GraphIssue[]): void
+  readonly readinessVersion: number
+  readonly loadingSources: number
+  failedSources(): LiveSource<unknown>[]
   nodes(): IterableIterator<NodeRecord>
   edges(): IterableIterator<EdgeRecord>
   neighbors(key: Key): Key[]
@@ -214,9 +217,14 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   let edgeCount = 0
   let arrivals = 0
   let flushedIssues = 0
+  let flushedReadiness = 0
 
   function issueVersion(): number {
     return nodeSources.issueVersion + edgeSources.issueVersion
+  }
+
+  function readinessVersion(): number {
+    return nodeSources.readinessVersion + edgeSources.readinessVersion
   }
 
   function reserveEnds(capacity: number): void {
@@ -587,7 +595,14 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       }
       nodeSources.commit(nodePlan)
       edgeSources.commit(edgePlan)
-      if (nodeSources.pending || edgeSources.pending || issueVersion() !== flushedIssues) schedule()
+      if (
+        nodeSources.pending ||
+        edgeSources.pending ||
+        issueVersion() !== flushedIssues ||
+        readinessVersion() !== flushedReadiness
+      ) {
+        schedule()
+      }
     },
 
     flush() {
@@ -605,6 +620,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       for (const id of freedEntries) entryPool.release(id)
       releaseUnused()
       flushedIssues = issueVersion()
+      flushedReadiness = readinessVersion()
       return { nodes, edges }
     },
 
@@ -646,6 +662,21 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     collectIssues(into) {
       nodeSources.collectIssues(into)
       edgeSources.collectIssues(into)
+    },
+
+    get readinessVersion() {
+      return readinessVersion()
+    },
+
+    get loadingSources() {
+      return nodeSources.loadingCount + edgeSources.loadingCount
+    },
+
+    failedSources() {
+      const failed: LiveSource<unknown>[] = []
+      nodeSources.collectFailed(failed)
+      edgeSources.collectFailed(failed)
+      return failed
     },
 
     nodes() {

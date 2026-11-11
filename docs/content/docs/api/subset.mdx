@@ -28,6 +28,7 @@ Returns a live source to pass to `nodes()` or `edges()`. When the graph subscrib
 - No collection is created: the rows are those of the collection, the same objects in every subset.
 - Build a new subset when the filter changes, and pass it in a new definition. The graph subscribes to it before releasing the previous one and compares the two: nodes in both, with the same row, are left untouched.
 - On a collection with `syncMode: 'on-demand'`, the `where` reaches `loadSubset`, and releasing the subset calls `unloadSubset` with the same options.
+- The source has a `status`: the graph is [loading](/docs/data#loading) while the collection loads and while `loadSubset` runs for the `where`, and lists the source in `data.failed` when the collection fails or `loadSubset` rejects.
 - Row fields are checked: `where` only accepts fields of `T`, and the mark options that follow too.
 
 See [TanStack DB](/docs/tanstack-db#filter-a-large-collection) for a walkthrough.
