@@ -2,7 +2,7 @@ import type { GraphChanges } from '../core/graph-model'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import type { Sight } from '../core/visibility'
-import type { GraphDefinition, Key } from '../types'
+import type { EdgeEnd, GraphDefinition, Key } from '../types'
 import type { ContainerFrame } from './renderer'
 
 export interface GraphStamp {
@@ -27,7 +27,7 @@ export interface GraphInternals {
   containers(): ContainerFrame | null
   palette(): Uint8Array
   masks(): Uint32Array
-  edgeMembers(index: number): readonly Key[] | null
+  edgeMembers(index: number, end?: EdgeEnd): readonly Key[] | null
   sight(except?: string | null): Sight
   stamp(): GraphStamp
   watch(watcher: GraphWatcher): () => void

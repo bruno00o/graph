@@ -57,7 +57,7 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
     containers: () => (projection.active ? containers : null),
     palette: () => render.paletteColors,
     masks: () => buffers.nodeMask,
-    edgeMembers: (index) => projection.keysAt(index),
+    edgeMembers: (index, end) => projection.keysAt(index, end),
     sight: (except) => source.sight(except ?? null),
     stamp: () => ({
       scene: source.sceneVersion(),

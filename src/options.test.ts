@@ -271,6 +271,6 @@ describe('input types', () => {
     expectTypeOf<
       Refused<{ readonly a?: number; readonly b?: number | undefined }>
     >().toEqualTypeOf<'a'>()
-    expectTypeOf<Refused<EdgeTarget<Link>>>().toEqualTypeOf<'aggregate' | 'end'>()
+    expectTypeOf<Refused<EdgeTarget<Link>>>().toEqualTypeOf<'aggregate' | 'end' | 'direction'>()
   })
 })

@@ -1,7 +1,7 @@
 import type { ElementRef, GraphChanges, GraphModel } from '../core/graph-model'
 import type { StateBuffers, StateKind } from '../core/state-buffers'
 import { builtInStates } from '../core/state-names'
-import type { Key } from '../types'
+import type { EdgeEnd, Key } from '../types'
 import type { ElementKeys, ElementKeysInput } from './events'
 
 interface Members {
@@ -11,7 +11,8 @@ interface Members {
 
 export interface EdgeDisplay {
   indexOf(key: Key): number
-  keysAt(index: number): readonly Key[] | null
+  keysAt(index: number, end?: EdgeEnd): readonly Key[] | null
+  halvedAt(index: number): boolean
 }
 
 export interface RegistryChanges {
@@ -144,6 +145,7 @@ export class StateRegistry {
     const forget = (kind: StateKind, removed: readonly ElementRef[]) => {
       for (const { key, index } of removed) {
         this.#setMask(kind, index, 0)
+        if (kind === 'edges') this.#buffers.clearEdgeHalves(index)
         for (const name of builtInStates) {
           if (!this.#members.get(name)?.[kind].delete(key)) continue
           if (name === 'selected') selection = true
@@ -264,12 +266,27 @@ export class StateRegistry {
   }
 
   #writeEdge(index: number): void {
-    const keys = this.#display?.keysAt(index)
+    const display = this.#display
+    const keys = display?.keysAt(index)
     if (!keys) {
+      this.#buffers.clearEdgeHalves(index)
       const key = this.#model.edgeAt(index)?.key
       if (key !== undefined) this.#setMask('edges', index, this.#maskOf('edges', key))
       return
     }
+    this.#setMask('edges', index, this.#joined(keys))
+    if (!display?.halvedAt(index)) {
+      this.#buffers.clearEdgeHalves(index)
+      return
+    }
+    this.#buffers.setEdgeHalves(
+      index,
+      this.#joined(display.keysAt(index, 'source') ?? []),
+      this.#joined(display.keysAt(index, 'target') ?? []),
+    )
+  }
+
+  #joined(keys: readonly Key[]): number {
     let any = 0
     let all = -1
     for (const key of keys) {
@@ -278,7 +295,7 @@ export class StateRegistry {
       all &= mask
     }
     const hide = this.#buffers.edgeHide
-    this.#setMask('edges', index, ((any & ~hide) | (all & hide)) >>> 0)
+    return ((any & ~hide) | (all & hide)) >>> 0
   }
 
   #index(kind: StateKind, key: Key): number {

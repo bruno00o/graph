@@ -120,7 +120,7 @@ function define({ merged, grouped, between, fill }: Choice) {
         target: 'to',
         name: 'exchanges',
         arrow: 'target',
-        merge: merged ? { directed: false } : false,
+        merge: merged ? { directed: false, halves: true } : false,
         betweenGroups: between,
         aggregate: {
           width: (aggregate) => aggregate.count,
@@ -236,14 +236,21 @@ export function mount(container: HTMLElement): GraphInstance {
       const merge = target.aggregate
       const name = (key: string | number) =>
         names.get(String(key)) ?? messages.sectorName(String(key).slice(-1))
-      status.textContent = merge
-        ? messages.mergedStatus(
-            name(merge.source),
-            name(merge.target),
-            merge.forward.count,
-            merge.backward.count,
-          )
-        : messages.route(name(target.datum.from), name(target.datum.to))
+      const forward = target.direction === 'forward'
+      status.textContent = !merge
+        ? messages.route(name(target.datum.from), name(target.datum.to))
+        : target.direction
+          ? own.direction(
+              name(forward ? merge.source : merge.target),
+              name(forward ? merge.target : merge.source),
+              forward ? merge.forward.count : merge.backward.count,
+            )
+          : messages.mergedStatus(
+              name(merge.source),
+              name(merge.target),
+              merge.forward.count,
+              merge.backward.count,
+            )
     }
   })
   graph.on('pointerleave', () => {

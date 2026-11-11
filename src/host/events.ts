@@ -56,6 +56,12 @@ export interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
    * `'source'` or `'target'`. Set only on edges of a mark with `ends`, found under a point.
    */
   readonly end?: EdgeEnd
+  /**
+   * Set on a half of an aggregated edge split by the `halves` option of `merge`: `'forward'` for
+   * the half next to its `target`, `'backward'` for the half next to its `source`. The half stands
+   * for the edges in that direction of `aggregate`; `key` and `datum` are those of the first one.
+   */
+  readonly direction?: 'forward' | 'backward'
 }
 
 /**

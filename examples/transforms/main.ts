@@ -28,6 +28,7 @@ interface Exchange {
   readonly to: string
 }
 
+const halves = new URLSearchParams(location.search).has('halves')
 const sectors = ['A', 'B', 'C', 'D']
 const families = ['1', '2', '3']
 const familyColors = ['var(--graph-cat-1)', 'var(--graph-cat-3)', 'var(--graph-cat-5)']
@@ -111,7 +112,7 @@ function define(merge: Merge, grouped: Sectors, routed: boolean) {
         target: 'to',
         name: 'exchanges',
         arrow: 'target',
-        merge: merge === 'merged' ? { directed: false } : false,
+        merge: merge === 'merged' ? { directed: false, halves } : false,
         aggregate: {
           width: (aggregate) => aggregate.count,
           ends: {

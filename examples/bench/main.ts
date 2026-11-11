@@ -29,6 +29,8 @@ const boxed = params.has('box')
 const stack = Number(params.get('stack') ?? 0)
 const spread = !params.has('nospread')
 const bends = Number(params.get('waypoints') ?? 0)
+const merging = params.get('merge')
+const twoWay = Number(params.get('twoway') ?? 0.5)
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -46,7 +48,7 @@ const started = performance.now()
 const sample = engine ? createCommunities(nodeCount, edgeCount) : createSample(nodeCount, edgeCount)
 const history = timed ? spreadInTime(sample) : null
 const items: readonly (Item | TimedItem)[] = stacked(history?.items ?? sample.items)
-const links: readonly (Link | TimedLink)[] = history?.links ?? sample.links
+const links: readonly (Link | TimedLink)[] = backwards(history?.links ?? sample.links)
 const winding = bends > 0 ? windingRoutes(items, links, bends) : null
 const generated = performance.now()
 
@@ -74,6 +76,15 @@ function windingRoutes(
   })
   return routes
 }
+function backwards(list: readonly (Link | TimedLink)[]): readonly (Link | TimedLink)[] {
+  if (!merging) return list
+  const every = Math.max(1, Math.round(1 / twoWay))
+  const reversed = list
+    .filter((_, index) => index % every === 0)
+    .map((link) => ({ ...link, id: `${link.id}~`, from: link.to, to: link.from }))
+  return [...list, ...reversed]
+}
+
 const spanOf = (element: Item | TimedItem | Link | TimedLink) =>
   'start' in element ? { start: element.start, end: element.end } : null
 
@@ -103,6 +114,20 @@ const define = (nodeData: readonly (Item | TimedItem)[]) =>
                 split: (link) => link.strength,
                 source: { stroke: 'var(--graph-cat-3)' },
                 target: { stroke: 'var(--graph-cat-4)' },
+              },
+            }
+          : {}),
+        ...(merging
+          ? {
+              merge: { directed: false, min: 1, halves: merging === 'halves' },
+              aggregate: {
+                ends: {
+                  source: {
+                    stroke: (aggregate) =>
+                      aggregate.backward.count > 0 ? 'var(--graph-cat-3)' : 'var(--graph-cat-4)',
+                  },
+                  target: { stroke: 'var(--graph-cat-4)' },
+                },
               },
             }
           : {}),

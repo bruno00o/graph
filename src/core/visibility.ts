@@ -1,3 +1,4 @@
+import type { EdgeEnd } from '../types'
 import type { LayerFilter } from './mark-layers'
 import type { HideFilter } from './state-buffers'
 import type { TimeFilter, TimeSpans } from './time-range'
@@ -70,6 +71,11 @@ function edgeHidden(edges: Shown, index: number, sight: Sight): boolean {
     layerHidden(sight.layers?.edges, edges, index) ||
     (hide !== null && maskHidden(hide.masks.edgeMask[index] ?? 0, hide.edges, hide.otherEdges))
   )
+}
+
+export function edgeHalfHidden(index: number, end: EdgeEnd, sight: Sight): boolean {
+  const hide = sight.hide
+  return hide !== null && maskHidden(hide.masks.halfMask(index, end), hide.edges, hide.otherEdges)
 }
 
 export function nodeShown(nodes: Shown, index: number, sight: Sight): boolean {

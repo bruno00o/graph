@@ -39,9 +39,9 @@ void main() {
   uvec4 topology = texelFetch(edgeTopology, t, 0);
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint packed = topology.w;
-  uint mask = texelFetch(edgeState, t, 0).r;
-  bool highlighted = (mask & stateRaise.y) != 0u;
-  if ((packed & 16u) == 0u || topology.x == topology.y || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted)) || pathOf(instance).y > 1u) {
+  uint mask = edgeMask(t);
+  uint part = edgePart(t, packed, mask);
+  if (part == skipEdge || topology.x == topology.y || pathOf(instance).y > 1u) {
     gl_Position = hidden;
     return;
   }
@@ -64,7 +64,7 @@ void main() {
     shiftX = endX > 512.0 ? -512.0 : 512.0;
   }
   Look look = lineLook(mask, style);
-  look.opacity *= edgeShown(t, topology);
+  look.opacity *= edgeShown(t, topology, mask);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
     return;
@@ -133,7 +133,7 @@ void main() {
   vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
   vArrowHalf = max(line.width * 1.6, 3.0);
   vHaloWidth = halo;
-  vDash = line.dash | (line.farDash << 2u);
+  vDash = line.dash | (line.farDash << 2u) | (part << 4u);
   vFlow = flow * flowTime;
   vArrow = arrow;
 #ifdef ENDS

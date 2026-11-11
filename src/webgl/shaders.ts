@@ -25,6 +25,7 @@ export const uprightSlack = 1e-4
 export const endLabelGap = 4
 export const endWidthUnit = 64
 export const endSplitFlag: number = 1 << 20
+export const endHalvesFlag: number = 1 << 21
 export const endLabelWidthUnit = 16
 export const boxFlag = 4096
 export const mutedPaper = 0.75
@@ -49,7 +50,7 @@ layout(std140) uniform Frame {
   vec4 labelHalo;
   vec2 centerLow;
   float ranged;
-  float framePadding;
+  float halved;
   vec4 timeWindow;
   float timed;
   float timeFade;
@@ -269,14 +270,11 @@ uniform usampler2D edgeState;
 uniform sampler2D edgeZoom;
 uniform sampler2D edgeTime;
 uniform float flowTime;
-float edgeShown(ivec2 t, uvec4 topology) {
+float edgeShown(ivec2 t, uvec4 topology, uint mask) {
   bool layered = anyHidden(hiddenNodes) || anyHidden(hiddenEdges) || (stateRaise.z | stateRaise.w | stateOthers.z | stateOthers.w) != 0u;
   if (ranged < 0.5 && timed < 0.5 && !layered) return 1.0;
   if (slotHidden(hiddenEdges, topology.w >> 6u)) return 0.0;
-  if ((stateRaise.w | stateOthers.w) != 0u) {
-    uint mask = texelFetch(edgeState, t, 0).r;
-    if ((mask & stateRaise.w) != 0u || (~mask & stateOthers.w) != 0u) return 0.0;
-  }
+  if ((mask & stateRaise.w) != 0u || (~mask & stateOthers.w) != 0u) return 0.0;
   float own = ranged > 0.5 ? zoomShown(texelFetch(edgeZoom, t, 0).xy) : 1.0;
   if (timed > 0.5 && own > 0.0) own *= timeShown(texelFetch(edgeTime, t, 0));
   return min(own, min(nodeShown(texel(topology.x)), nodeShown(texel(topology.y))));
@@ -404,7 +402,30 @@ export function withEnds(source: string): string {
 export const endData: string = `
 #ifdef ENDS
 uniform usampler2D edgeEnds;
+uniform int edgeHalf;
 #endif
+const uint skipEdge = 3u;
+uint edgeMask(ivec2 t) {
+#ifdef ENDS
+  uvec4 state = texelFetch(edgeState, t, 0);
+  return edgeHalf == 1 ? state.g : state.r;
+#else
+  return texelFetch(edgeState, t, 0).r;
+#endif
+}
+uint edgePart(ivec2 t, uint packed, uint mask) {
+  if ((packed & 16u) == 0u || (overlay == 0 && int(packed >> 6u) != layerSlot)) return skipEdge;
+  uint part = 0u;
+#ifdef ENDS
+  if (halved > 0.5) {
+    bool halves = (texelFetch(edgeEnds, t, 0).w & ${endHalvesFlag}u) != 0u;
+    part = halves ? uint(edgeHalf) + 1u : edgeHalf == 1 ? skipEdge : 0u;
+  }
+#endif
+  bool highlighted = (mask & stateRaise.y) != 0u;
+  if (part == skipEdge || (overlay == 0 && highlighted) || (overlay == 1 && part != 0u && !highlighted)) return skipEdge;
+  return part;
+}
 struct Line { uint color; uint farColor; float width; float farWidth; uint dash; uint farDash; float split; };
 Look lineLook(uint mask, vec4 style) {
   return resolve(mask, Look(style.y, -1.0, 0.0, 1.0, none, none, none, 0.0, none), 32);
@@ -427,7 +448,7 @@ Line edgeLine(ivec2 t, uvec4 topology, vec4 style, Look look, float flow) {
   uint farDash = split ? (ends.w >> 18u) & 3u : dash;
   line.dash = dash == 0u && flow != 0.0 ? 1u : dash;
   line.farDash = farDash == 0u && flow != 0.0 ? 1u : farDash;
-  line.split = split ? float(ends.w & 65535u) / 65535.0 : -1.0;
+  line.split = split || (ends.w & ${endHalvesFlag}u) != 0u ? float(ends.w & 65535u) / 65535.0 : -1.0;
   return line;
 }
 #ifdef ENDS
@@ -631,18 +652,14 @@ void main() {
   uvec4 topology = texelFetch(edgeTopology, t, 0);
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint packed = topology.w;
-  uint mask = texelFetch(edgeState, t, 0).r;
-  bool highlighted = (mask & stateRaise.y) != 0u;
-  if ((packed & 16u) == 0u || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted))) {
-    gl_Position = hidden;
-    return;
-  }
-  if (topology.x == topology.y || style.z != 0.0 || pathOf(instance).y > 1u) {
+  uint mask = edgeMask(t);
+  uint part = edgePart(t, packed, mask);
+  if (part == skipEdge || topology.x == topology.y || style.z != 0.0 || pathOf(instance).y > 1u) {
     gl_Position = hidden;
     return;
   }
   Look look = lineLook(mask, style);
-  look.opacity *= edgeShown(t, topology);
+  look.opacity *= edgeShown(t, topology, mask);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
     return;
@@ -690,9 +707,13 @@ void main() {
     : corner.x < 1.5 ? start + startHead
     : corner.x < 2.5 ? end - endHead
     : end + margin;
+  if (part != 0u) {
+    float cut = mix(start, end, line.split);
+    along = part == 1u ? min(along, max(cut, start + startHead) + margin) : max(along, min(cut, end - endHead) - margin);
+  }
   float extent = corner.z < 0.5 ? body
-    : corner.z < 1.5 ? (startHead > 0.0 ? head : body)
-    : (endHead > 0.0 ? head : body);
+    : corner.z < 1.5 ? (startHead > 0.0 && part != 2u ? head : body)
+    : (endHead > 0.0 && part != 1u ? head : body);
   float across = corner.y * extent;
   vPos = vec2(along, across);
   vClip = len > 0.0 ? mix(sa, sd, along / len) : 1.0;
@@ -702,7 +723,7 @@ void main() {
   vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
   vArrowHalf = max(line.width * 1.6, 3.0);
   vHaloWidth = halo;
-  vDash = line.dash | (line.farDash << 2u);
+  vDash = line.dash | (line.farDash << 2u) | (part << 4u);
   vFlow = flow * flowTime;
   vArrow = arrow;
 #ifdef ENDS
@@ -764,15 +785,15 @@ void main() {
   uvec4 topology = texelFetch(edgeTopology, t, 0);
   vec4 style = texelFetch(edgeStyle, t, 0);
   uint packed = topology.w;
-  uint mask = texelFetch(edgeState, t, 0).r;
-  bool highlighted = (mask & stateRaise.y) != 0u;
+  uint mask = edgeMask(t);
   bool loop = topology.x == topology.y;
-  if ((packed & 16u) == 0u || (!loop && style.z == 0.0) || (overlay == 0 && (int(packed >> 6u) != layerSlot || highlighted)) || pathOf(instance).y > 1u) {
+  uint part = edgePart(t, packed, mask);
+  if (part == skipEdge || (!loop && style.z == 0.0) || pathOf(instance).y > 1u) {
     gl_Position = hidden;
     return;
   }
   Look look = lineLook(mask, style);
-  look.opacity *= edgeShown(t, topology);
+  look.opacity *= edgeShown(t, topology, mask);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
     return;
@@ -874,7 +895,7 @@ void main() {
   vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
   vArrowHalf = max(line.width * 1.6, 3.0);
   vHaloWidth = halo;
-  vDash = line.dash | (line.farDash << 2u);
+  vDash = line.dash | (line.farDash << 2u) | (part << 4u);
   vFlow = flow * flowTime;
   vArrow = arrow;
 #ifdef ENDS
@@ -924,7 +945,7 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
   bool far = along >= vSplit.x;
   if (far) {
     halfWidth = vSplit.y;
-    dash = vDash >> 2u;
+    dash = (vDash >> 2u) & 3u;
   }
   lineWidth = max(vHalfWidth, vSplit.y);
   if ((vArrow & 2u) != 0u && vSplit.z > 0.0 && along > vEnd - vSplit.z) {
@@ -937,6 +958,8 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
     head = true;
     far = false;
   }
+  uint part = vDash >> 4u;
+  if ((part == 1u && far) || (part == 2u && !far)) discard;
   vec4 color = unpackColor(far ? vFar : vNear);
 #else
   vec4 color = vColor;
@@ -1126,7 +1149,7 @@ void edgeGlyph(uint kind) {
   uint end = (glyphKind >> 4u) & 3u;
   float base = end == 0u ? style.x : float(glyphKind >> 20u) / ${endLabelWidthUnit.toFixed(1)};
   Look look = resolve(mask, Look(style.y, base, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
-  look.opacity *= edgeShown(t, topology);
+  look.opacity *= edgeShown(t, topology, mask);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
     return;

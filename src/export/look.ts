@@ -115,10 +115,15 @@ export interface EdgeLine {
   readonly split: number
 }
 
-export function edgeLine(edges: EdgeColumns, states: StateBuffers, index: number): EdgeLine {
+export function edgeLine(
+  edges: EdgeColumns,
+  states: StateBuffers,
+  index: number,
+  mask: number = states.edgeMask[index] ?? 0,
+): EdgeLine {
   const probe = resolve(
     states,
-    states.edgeMask[index] ?? 0,
+    mask,
     {
       opacity: 1,
       strokeWidth: -1,
@@ -154,14 +159,19 @@ export function edgeLine(edges: EdgeColumns, states: StateBuffers, index: number
     farWidth: sized || !split ? width : Math.max(ends.width[index * 2 + 1] ?? 0, 0.5),
     dash,
     farDash: split ? (ends.dash[index * 2 + 1] ?? 0) : dash,
-    split: split ? (ends.split[index] ?? 0.5) : -1,
+    split: split || ends?.halves[index] === 1 ? (ends?.split[index] ?? 0.5) : -1,
   }
 }
 
-export function edgeLook(edges: EdgeColumns, states: StateBuffers, index: number): Look {
+export function edgeLook(
+  edges: EdgeColumns,
+  states: StateBuffers,
+  index: number,
+  mask: number = states.edgeMask[index] ?? 0,
+): Look {
   return resolve(
     states,
-    states.edgeMask[index] ?? 0,
+    mask,
     {
       opacity: edges.opacity[index] ?? 1,
       strokeWidth: edges.width[index] ?? 0,

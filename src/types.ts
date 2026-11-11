@@ -716,6 +716,15 @@ export interface EdgeMergeOptions<T> {
    */
   readonly directed?: boolean | undefined
   /**
+   * With `directed` set to `false`, splits an aggregated edge that has edges both ways into two
+   * halves at the `split` of its `ends`: the half next to `target` stands for `forward`, the half
+   * next to `source` for `backward`. A click or hover on a half acts on the edges of its direction
+   * alone, and each half shows the states its own edges carry. An aggregated edge with edges one
+   * way only stays whole.
+   * @default false
+   */
+  readonly halves?: boolean | undefined
+  /**
    * Fewest parallel edges that merge between two visible nodes: fewer edges draw one by one. Edges
    * that end in a folded group always merge.
    * @default 2

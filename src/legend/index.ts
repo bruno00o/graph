@@ -160,7 +160,7 @@ export function createLegend<S extends string, M extends Mark>(
     set(hidden: Iterable<string>): void
   }
   const known = new Map<string, LegendCategory>()
-  const scope: KeyScope = { members: (index) => internals.edgeMembers(index) }
+  const scope: KeyScope = { members: (index, end) => internals.edgeMembers(index, end) }
   let crowded: ReadonlySet<number> = new Set()
   let readScene = -1
   let readDetail = -1
