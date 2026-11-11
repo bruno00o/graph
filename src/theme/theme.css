@@ -11,6 +11,8 @@
   --graph-edge: #7f858c;
   --graph-group-fill: #e7efee;
   --graph-group-line: #6e8d8b;
+  --graph-shape-fill: #5b61671a;
+  --graph-shape-stroke: #868c92;
   --graph-accent: #c93700;
   --graph-on-accent: #ffffff;
   --graph-focus-ring: #c93700;
@@ -54,6 +56,8 @@
   --graph-edge: #6f757b;
   --graph-group-fill: #131b1c;
   --graph-group-line: #5d7b7b;
+  --graph-shape-fill: #a6abb11f;
+  --graph-shape-stroke: #73797f;
   --graph-accent: #fa8054;
   --graph-on-accent: #0f1113;
   --graph-focus-ring: #fa8054;
@@ -93,6 +97,8 @@
     --graph-edge: #6f757b;
     --graph-group-fill: #131b1c;
     --graph-group-line: #5d7b7b;
+    --graph-shape-fill: #a6abb11f;
+    --graph-shape-stroke: #73797f;
     --graph-accent: #fa8054;
     --graph-on-accent: #0f1113;
     --graph-focus-ring: #fa8054;

@@ -44,6 +44,7 @@ export class MarkLayers {
     const edgeLayers: number[] = []
     const edgeBands: number[] = []
     for (const mark of marks) {
+      if (mark.type === 'shapes') continue
       const layer = layerOf(mark)
       let at = -1
       if (layer !== undefined) {

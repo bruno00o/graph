@@ -97,7 +97,9 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
   return element
 }
 
-function describe(issue: GraphIssue): string {
+type Issue = GraphIssue<ReturnType<typeof define>['marks'][number]>
+
+function describe(issue: Issue): string {
   switch (issue.type) {
     case 'missing-key':
       return messages.missingKey(issue.kind)
@@ -126,7 +128,7 @@ export function mount(container: HTMLElement): GraphInstance {
 
   const graph = mountGraph(stage, { definition: define(broken), ariaLabel: messages.graphLabel })
 
-  const show = (issues: readonly GraphIssue[]) => {
+  const show = (issues: readonly Issue[]) => {
     summary.textContent = messages.summary(issues.length, graph.count().pending)
     list.replaceChildren(
       ...issues.map((issue) => {

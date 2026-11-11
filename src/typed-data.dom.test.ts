@@ -10,12 +10,16 @@ import {
   type EdgeRouting,
   type EdgeTarget,
   edges,
+  type GraphCount,
   type GraphDefinition,
   type GraphDragEvent,
   type GraphInstance,
+  type GraphIssue,
   type GraphPointerEvent,
+  type GraphShapeCount,
   type GraphState,
   type GraphTarget,
+  type HasShapes,
   type Key,
   type KeyList,
   type LayerName,
@@ -25,9 +29,14 @@ import {
   type NodeMark,
   type NodeTarget,
   nodes,
+  type ShapeDatum,
+  type ShapeGeometry,
+  type ShapeIssue,
+  type ShapeMark,
 } from './index'
 import { grid, rings } from './layouts'
 import { orthogonalRouting } from './routing'
+import { shapes } from './shapes'
 import { type FakeDom, fakeRenderer, installDom } from './testing/dom'
 
 vi.mock('./webgl/renderer', () => ({ createWebglRenderer: () => fakeRenderer() }))
@@ -36,11 +45,15 @@ type Person = { id: string; name: string; team: string; score: number }
 type Company = { id: string; title: string; size: number }
 type Link = { id: string; from: string; to: string; weight: number }
 type Ownership = { id: string; owner: string; company: string; share: number }
+type Zone = { id: string; outline: ShapeGeometry; rank: number }
+type Area = { code: number; geometry: ShapeGeometry | null }
 
 const people: Person[] = []
 const companies: Company[] = []
 const links: Link[] = []
 const ownerships: Ownership[] = []
+const zones: Zone[] = []
+const areas: Area[] = []
 
 let dom: FakeDom
 const mounted: GraphInstance[] = []
@@ -513,6 +526,54 @@ describe('typed data', () => {
       // @ts-expect-error
       route: (link) => link.missing,
     })
+  })
+
+  it('types shape marks and keeps shapes out of targets', () => {
+    const zoneMark = shapes(zones, { name: 'zone', geometry: 'outline', order: 'rank' })
+    expectTypeOf(zoneMark).toEqualTypeOf<ShapeMark<Zone, 'zone'>>()
+    const areaMark = shapes(areas, { key: 'code', fill: (area) => (area.code > 1 ? 'red' : null) })
+    expectTypeOf(areaMark).toEqualTypeOf<ShapeMark<Area, undefined>>()
+    const explicit = shapes<Zone>(zones, { name: 'zone', geometry: 'outline' })
+    expectTypeOf(explicit).toEqualTypeOf<ShapeMark<Zone, string | undefined>>()
+    // @ts-expect-error
+    shapes(areas)
+    // @ts-expect-error
+    shapes(zones, { geometry: 'rank' })
+    // @ts-expect-error
+    shapes(zones, { layer: 'zones' })
+    // @ts-expect-error
+    shapes(zones, { strokeWidth: 'rank' })
+    const definition = defineGraph({
+      marks: [zoneMark, areaMark, nodes(people), edges(links, { source: 'from', target: 'to' })],
+    })
+    type Marks = (typeof definition.marks)[number]
+    expectTypeOf<HasShapes<Marks>>().toEqualTypeOf<true>()
+    expectTypeOf<ShapeDatum<Marks>>().toEqualTypeOf<Zone | Area>()
+    expectTypeOf<NodeDatum<Marks>>().toEqualTypeOf<Person>()
+    expectTypeOf<EdgeDatum<Marks>>().toEqualTypeOf<Link>()
+    const graph = mount(definition)
+    expectTypeOf(graph).toExtend<GraphInstance>()
+    expectTypeOf(graph.count()).toEqualTypeOf<GraphShapeCount>()
+    expectTypeOf(graph.issues()).toEqualTypeOf<readonly GraphIssue<Marks>[]>()
+    expectTypeOf<ShapeIssue>().toExtend<GraphIssue<Marks>>()
+    expectTypeOf(graph.pick({ x: 0, y: 0 })).toEqualTypeOf<
+      NodeTarget<Person, undefined> | EdgeTarget<Link, undefined> | null
+    >()
+    graph.view.fit({ shapes: ['a'], nodes: ['b'] })
+    // @ts-expect-error
+    graph.view.fit({ shapes: 'a' })
+  })
+
+  it('keeps the counts and the issues of graphs without shapes as they were', () => {
+    const graph = mount(
+      defineGraph({ marks: [nodes(people), edges(links, { source: 'from', target: 'to' })] }),
+    )
+    expectTypeOf(graph.count()).toEqualTypeOf<GraphCount>()
+    type Issue = ReturnType<typeof graph.issues>[number]
+    expectTypeOf<Extract<Issue, { type: 'invalid-shape' }>>().toBeNever()
+    expectTypeOf<Extract<Issue, { kind: 'shapes' }>>().toBeNever()
+    expectTypeOf<HasShapes<Mark>>().toEqualTypeOf<false>()
+    expectTypeOf<ShapeIssue>().toExtend<GraphIssue>()
   })
 
   it('types the items that layouts compare', () => {

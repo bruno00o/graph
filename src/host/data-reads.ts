@@ -1,6 +1,6 @@
 import type { GraphModel } from '../core/graph-model'
 import type { Hierarchy } from '../core/hierarchy'
-import { describeIssues, type GraphIssue, IssueSet } from '../core/issues'
+import { type AnyIssue, describeIssues, IssueSet } from '../core/issues'
 import type { LayerFilter } from '../core/mark-layers'
 import type { Scene } from '../core/scene'
 import type { HideFilter, StateBuffers } from '../core/state-buffers'
@@ -19,6 +19,7 @@ interface CountKey {
   readonly layers: LayerFilter | null
   readonly hide: HideFilter | null
   readonly masks: number
+  readonly shapes: number
 }
 
 function sameCountKey(a: CountKey, b: CountKey): boolean {
@@ -28,7 +29,8 @@ function sameCountKey(a: CountKey, b: CountKey): boolean {
     a.time === b.time &&
     a.layers === b.layers &&
     a.hide === b.hide &&
-    a.masks === b.masks
+    a.masks === b.masks &&
+    a.shapes === b.shapes
   )
 }
 
@@ -54,19 +56,21 @@ export class DataReads {
     this.#source = source
   }
 
-  get issues(): readonly GraphIssue[] {
+  get issues(): readonly AnyIssue[] {
     return this.#issues.list
   }
 
   refreshIssues(): void {
-    const { model, hierarchy, support } = this.#source
-    const version = model.issueVersion + hierarchy.issueVersion + support.issueVersion
+    const { model, hierarchy, support, scene } = this.#source
+    const version =
+      model.issueVersion + hierarchy.issueVersion + support.issueVersion + scene.shapes.issueVersion
     if (version === this.#issuesAt) return
     this.#issuesAt = version
-    const found: GraphIssue[] = []
+    const found: AnyIssue[] = []
     model.collectIssues(found)
     hierarchy.collectIssues(found)
     support.collectIssues(found)
+    scene.shapes.collectIssues(found)
     const added = this.#issues.refresh(found)
     if (!added) return
     if (dev && added.length > 0) console.warn(describeIssues(added))
@@ -84,6 +88,7 @@ export class DataReads {
       layers: seen.layers,
       hide: seen.hide,
       masks: seen.hide ? buffers.nodeMaskVersion + buffers.edgeMaskVersion : 0,
+      shapes: scene.shapes.version,
     }
     const last = this.#lastCount
     if (last && this.#countKey && sameCountKey(this.#countKey, key)) return last
@@ -100,12 +105,25 @@ export class DataReads {
       }
     }
     this.#countKey = key
-    const count: GraphCount = Object.freeze({
-      nodes: model.nodeCount,
-      edges: model.edgeCount,
-      pending: model.pendingCount,
-      shown: Object.freeze({ nodes: shownNodes, edges: shownEdges }),
-    })
+    const shapes = scene.shapes
+    const count: GraphCount = shapes.marked
+      ? Object.freeze({
+          nodes: model.nodeCount,
+          edges: model.edgeCount,
+          pending: model.pendingCount,
+          shapes: model.shapeCount,
+          shown: Object.freeze({
+            nodes: shownNodes,
+            edges: shownEdges,
+            shapes: shapes.drawOrder().length,
+          }),
+        })
+      : Object.freeze({
+          nodes: model.nodeCount,
+          edges: model.edgeCount,
+          pending: model.pendingCount,
+          shown: Object.freeze({ nodes: shownNodes, edges: shownEdges }),
+        })
     this.#lastCount = count
     return count
   }

@@ -10,6 +10,7 @@ import type {
   GraphDefinition,
   GraphPaths,
   GraphSupport,
+  HasShapes,
   Key,
   KeyList,
   LayerName,
@@ -122,6 +123,8 @@ export interface FitOptions extends ViewOptions {
   readonly nodes?: KeyList | undefined
   /** Keys of the edges to frame, by their two ends as drawn. */
   readonly edges?: KeyList | undefined
+  /** Keys of the shapes to frame, by the box of their geometry. */
+  readonly shapes?: KeyList | undefined
   /**
    * Margin around the framed area, in screen pixels: a number for every side, or a margin per
    * side, where a side left out takes the `padding` of the `view` of the definition. Defaults to
@@ -399,6 +402,26 @@ export interface GraphShownCount {
   readonly edges: number
 }
 
+/** Element counts of a graph that has a shape mark, from `graph.count()`. */
+export interface GraphShapeCount extends GraphCount {
+  /** Shapes of the data: one per key, the first item of a duplicate key only. */
+  readonly shapes: number
+  /** Nodes, edges and shapes drawn now. */
+  readonly shown: GraphShownShapeCount
+}
+
+/** Nodes, edges and shapes drawn now, whether in the view or not. */
+export interface GraphShownShapeCount extends GraphShownCount {
+  /** Shapes drawn: those whose geometry can be read. */
+  readonly shapes: number
+}
+
+/**
+ * Counts that `graph.count()` returns for `M`, a union of marks: `GraphShapeCount` when `M` has a
+ * shape mark, else `GraphCount`.
+ */
+export type GraphCountOf<M extends Mark> = HasShapes<M> extends true ? GraphShapeCount : GraphCount
+
 /**
  * Options of `graph.update`: the options of `mountGraph` that can change after the mount, each one
  * left out to keep its current value.
@@ -552,12 +575,12 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * once fixed. The same array is returned until the problems change, and `issueschange` fires
    * when they do.
    */
-  issues(): readonly GraphIssue[]
+  issues(): readonly GraphIssue<M>[]
   /**
    * Counts the elements of the data and those drawn now, after pending data changes are applied.
    * The same object is returned until the counts can change.
    */
-  count(): GraphCount
+  count(): GraphCountOf<M>
   /**
    * Subscribes to an event until the returned function is called or the `signal` of the options
    * aborts, and subscribes nothing once the graph is destroyed. A handler that throws stops neither

@@ -30,6 +30,7 @@
     "bundling",
     "routing",
     "drawing-layers",
+    "shapes",
     "theming",
     "minimap-and-legend",
     "export",

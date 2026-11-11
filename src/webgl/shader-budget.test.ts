@@ -40,6 +40,14 @@ import {
   nodeVertex,
   withEnds,
 } from './shaders'
+import {
+  shapeFillFragment,
+  shapeFillVertex,
+  shapeRoundFragment,
+  shapeRoundVertex,
+  shapeStrokeFragment,
+  shapeStrokeVertex,
+} from './shape-shaders'
 import { waypointVertex } from './waypoint-shaders'
 
 type Program = readonly [name: string, vertex: string, fragment: string]
@@ -65,6 +73,9 @@ const programs: readonly Program[] = [
   ['lens', lensVertex, lensFragment],
   ['grid', gridVertex, gridFragment],
   ['hull', hullVertex, hullFragment],
+  ['shape fill', shapeFillVertex, shapeFillFragment],
+  ['shape stroke', shapeStrokeVertex, shapeStrokeFragment],
+  ['shape round', shapeRoundVertex, shapeRoundFragment],
   ['layout bounds', fullVertex, boundsBlockFragment],
   ['layout bounds reduce', fullVertex, boundsFragment],
   ['layout splat', splatVertex, valueFragment],

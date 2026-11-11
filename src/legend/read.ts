@@ -142,7 +142,9 @@ export type LegendScalesOf<M extends Mark = Mark> =
     ? LegendMarkScales<N>
     : M extends EdgeMark<infer _T, infer N, MarkLayer>
       ? LegendMarkScales<N>
-      : LegendMarkScales
+      : M extends { readonly type: 'shapes' }
+        ? never
+        : LegendMarkScales
 
 /** Look of the elements of one mark of `M`: shape and image for nodes, line pattern for edges. */
 export type LegendLook<M extends Mark = Mark> =
@@ -150,7 +152,9 @@ export type LegendLook<M extends Mark = Mark> =
     ? LegendNodeLook<N>
     : M extends EdgeMark<infer _T, infer N, MarkLayer>
       ? LegendEdgeLook<N>
-      : LegendNodeLook | LegendEdgeLook
+      : M extends { readonly type: 'shapes' }
+        ? never
+        : LegendNodeLook | LegendEdgeLook
 
 /** An item that stands for a set of nodes and edges: a category or a look. */
 export type LegendItem<M extends Mark = Mark> = LegendCategory | LegendLook<M>
@@ -264,7 +268,9 @@ export function markNames(marks: readonly Mark[]): {
   readonly edges: MarkName[]
 } {
   const names: { nodes: MarkName[]; edges: MarkName[] } = { nodes: [], edges: [] }
-  for (const mark of marks) names[mark.type].push((mark as { readonly name?: MarkName }).name)
+  for (const mark of marks) {
+    if (mark.type !== 'shapes') names[mark.type].push((mark as { readonly name?: MarkName }).name)
+  }
   return names
 }
 

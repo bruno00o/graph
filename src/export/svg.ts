@@ -22,6 +22,7 @@ import {
 } from '../core/node-shape'
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
+import type { ShapeStore } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import { edgeHalfHidden, edgeOpacity, nodeOpacity, type Sight } from '../core/visibility'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
@@ -48,6 +49,7 @@ import {
 import { type ExportFrame, frameSight, screenExtent, screenRadius } from './frame'
 import { placementDirections, selectLabels } from './labels'
 import { type EdgeLine, edgeLine, edgeLook, type Look, nodeLook } from './look'
+import { fine, num, paintAttribute } from './svg-format'
 
 export interface SvgScene {
   readonly nodes: NodeColumns
@@ -56,6 +58,7 @@ export interface SvgScene {
   readonly positions: Positions
   readonly states: StateBuffers
   readonly grid?: GridInput | null
+  readonly shapes?: ShapeStore | null
   readonly hulls?: readonly HullShape[]
   readonly containers?: ContainerFrame | null
   readonly bundles?: EdgePaths | null
@@ -130,14 +133,6 @@ function dashOffset(start: number, shift: number, period: number): number {
   return value - Math.floor(value / period) * period
 }
 
-function num(value: number): string {
-  return String(Math.round(value * 100) / 100)
-}
-
-function fine(value: number): string {
-  return String(Math.round(value * 10000) / 10000)
-}
-
 function hexOf(r: number, g: number, b: number): string {
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`
 }
@@ -149,12 +144,6 @@ function mixRgba(from: Rgba, to: Rgba, amount: number): Rgba {
 
 export function paintOf(color: Rgba): Paint {
   return { hex: hexOf(color[0], color[1], color[2]), alpha: color[3] / 255 }
-}
-
-function paintAttribute(name: 'fill' | 'stroke', paint: Paint): string {
-  return paint.alpha >= 0.999
-    ? ` ${name}="${paint.hex}"`
-    : ` ${name}="${paint.hex}" ${name}-opacity="${fine(paint.alpha)}"`
 }
 
 function smoothstep(x: number): number {
@@ -1246,6 +1235,9 @@ export function writeSvg(scene: SvgScene): string {
   }
 
   if (scene.grid) drawGrid(scene.grid)
+  const shapes = scene.shapes
+  if (shapes?.any && shapes.engine)
+    body.push(shapes.engine.svg(shapes, { zoom, offsetX, offsetY, paint }))
   const containers = scene.containers
   if (containers) {
     for (let slot = 0; slot < containers.count; slot++) {

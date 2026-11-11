@@ -32,6 +32,7 @@ export interface ViewRequest {
 export interface FitKeys {
   readonly nodes: readonly Key[]
   readonly edges: readonly Key[]
+  readonly shapes: readonly Key[]
 }
 
 export interface FitRequest {
@@ -78,8 +79,12 @@ export function originOf(cause: ViewCause): ViewOrigin {
 }
 
 export function fitRequest(options: FitOptions): FitRequest {
-  if (options.nodes === undefined && options.edges === undefined) return { keys: null, options }
-  return { keys: { nodes: [...(options.nodes ?? [])], edges: [...(options.edges ?? [])] }, options }
+  const { nodes, edges, shapes } = options
+  if (nodes === undefined && edges === undefined && shapes === undefined) {
+    return { keys: null, options }
+  }
+  const keys = { nodes: [...(nodes ?? [])], edges: [...(edges ?? [])], shapes: [...(shapes ?? [])] }
+  return { keys, options }
 }
 
 export class ViewControl {

@@ -16,6 +16,7 @@ import { exposeSnapshot } from './export-source'
 import type {
   GraphCount,
   GraphInstance,
+  GraphShapeCount,
   GraphState,
   GraphStore,
   MountGraphOptions,
@@ -38,6 +39,13 @@ const noCount: GraphCount = Object.freeze({
   edges: 0,
   pending: 0,
   shown: Object.freeze({ nodes: 0, edges: 0 }),
+})
+const noShapeCount: GraphShapeCount = Object.freeze({
+  nodes: 0,
+  edges: 0,
+  pending: 0,
+  shapes: 0,
+  shown: Object.freeze({ nodes: 0, edges: 0, shapes: 0 }),
 })
 
 function nothing(): void {}
@@ -111,6 +119,7 @@ export function afterDestroy<S extends string, M extends Mark>(
   element: HTMLElement,
   signal: AbortSignal,
   reason: () => unknown,
+  shaped: () => boolean,
 ): GraphInstance<S, M> {
   const state = (): GraphState => store.state as GraphState
   const size = () => ({ width: state().width, height: state().height })
@@ -182,7 +191,7 @@ export function afterDestroy<S extends string, M extends Mark>(
     endpoints: () => undefined,
     datumOf: () => undefined,
     issues: () => noIssues,
-    count: () => noCount,
+    count: () => (shaped() ? noShapeCount : noCount),
     on: () => nothing,
     drawn: () => Promise.reject(reason()),
     loaded: () => Promise.reject(reason()),
@@ -246,7 +255,14 @@ export function stillborn<S extends string, M extends Mark>(
     hiddenLayers: [...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? [])],
     data: loadedData,
   })
-  const graph = afterDestroy(readonlyOf(store), element, signal, () => signal.reason)
+  const shaped = definition.marks.some((mark) => mark.type === 'shapes')
+  const graph = afterDestroy(
+    readonlyOf(store),
+    element,
+    signal,
+    () => signal.reason,
+    () => shaped,
+  )
   const scene = createScene()
   scene.setDefinition(definition)
   exposeInternals(graph, {

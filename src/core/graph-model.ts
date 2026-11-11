@@ -1,8 +1,8 @@
-import type { EdgeMark, Key, LiveSource, Mark, NodeMark } from '../types'
+import type { EdgeMark, Key, LiveSource, Mark, NodeMark, ShapeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
 import { IndexPool } from './index-pool'
 import { IndexSet } from './index-set'
-import type { GraphIssue } from './issues'
+import type { AnyIssue } from './issues'
 import { KeyIndex } from './key-index'
 import { type Source, type SourcePlan, SourceTable } from './source-table'
 
@@ -27,6 +27,7 @@ export interface EdgeChanges extends ElementChanges {
 export interface GraphChanges {
   readonly nodes: ElementChanges
   readonly edges: EdgeChanges
+  readonly shapes: ElementChanges
 }
 
 export interface NodeRecord {
@@ -34,6 +35,13 @@ export interface NodeRecord {
   readonly index: number
   readonly datum: unknown
   readonly mark: NodeMark<unknown>
+}
+
+export interface ShapeRecord {
+  readonly key: Key
+  readonly index: number
+  readonly datum: unknown
+  readonly mark: ShapeMark<unknown>
 }
 
 export interface EdgeRecord {
@@ -77,16 +85,20 @@ export interface GraphModel {
   edge(key: Key): EdgeRecord | undefined
   nodeAt(index: number): NodeRecord | undefined
   edgeAt(index: number): EdgeRecord | undefined
+  shape(key: Key): ShapeRecord | undefined
+  shapeAt(index: number): ShapeRecord | undefined
   readonly nodeCount: number
   readonly edgeCount: number
+  readonly shapeCount: number
   readonly pendingCount: number
   readonly issueVersion: number
-  collectIssues(into: GraphIssue[]): void
+  collectIssues(into: AnyIssue[]): void
   readonly readinessVersion: number
   readonly loadingSources: number
   failedSources(): LiveSource<unknown>[]
   nodes(): IterableIterator<NodeRecord>
   edges(): IterableIterator<EdgeRecord>
+  shapes(): IterableIterator<ShapeRecord>
   neighbors(key: Key): Key[]
   edgesOf(key: Key): Key[]
   endpoints(key: Key): Endpoints | undefined
@@ -105,6 +117,20 @@ class NodeEntry implements NodeRecord {
   ) {}
 
   get mark(): NodeMark<unknown> {
+    return this.table.markAt(this.slot)
+  }
+}
+
+class ShapeEntry implements ShapeRecord {
+  constructor(
+    readonly key: Key,
+    readonly index: number,
+    public datum: unknown,
+    public slot: number,
+    readonly table: SourceTable<ShapeMark<unknown>>,
+  ) {}
+
+  get mark(): ShapeMark<unknown> {
     return this.table.markAt(this.slot)
   }
 }
@@ -144,6 +170,14 @@ function isNodeMark(mark: Mark): mark is NodeMark<unknown> {
 
 function isEdgeMark(mark: Mark): mark is EdgeMark<unknown> {
   return mark.type === 'edges'
+}
+
+function isShapeMark(mark: Mark): mark is ShapeMark<unknown> {
+  return mark.type === 'shapes'
+}
+
+function isShape(entry: ShapeEntry): entry is ShapeEntry {
+  return entry.index >= 0
 }
 
 function isVisible(entry: EdgeEntry): entry is VisibleEdge {
@@ -196,6 +230,10 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   const schedule = options.schedule ?? (() => {})
   const nodeSources = new SourceTable<NodeMark<unknown>>('nodes', schedule)
   const edgeSources = new SourceTable<EdgeMark<unknown>>('edges', schedule)
+  const shapeSources = new SourceTable<ShapeMark<unknown>>('shapes', schedule)
+  const shapesByKey = new Map<Key, ShapeEntry>()
+  const shapesByIndex: (ShapeEntry | undefined)[] = []
+  const shapePool = new IndexPool()
   const ends = new KeyIndex()
   let endPool = new IndexPool()
   const endKeys: (Key | undefined)[] = []
@@ -220,11 +258,42 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   let flushedReadiness = 0
 
   function issueVersion(): number {
-    return nodeSources.issueVersion + edgeSources.issueVersion
+    return nodeSources.issueVersion + edgeSources.issueVersion + shapeSources.issueVersion
   }
 
   function readinessVersion(): number {
-    return nodeSources.readinessVersion + edgeSources.readinessVersion
+    return (
+      nodeSources.readinessVersion + edgeSources.readinessVersion + shapeSources.readinessVersion
+    )
+  }
+
+  function flushShapes(changes: MutableChanges, freed: number[]): void {
+    shapeSources.forEachDirty((key, forced, source, datum) => {
+      const entry = shapesByKey.get(key)
+      if (!source) {
+        if (entry) {
+          shapesByKey.delete(key)
+          shapesByIndex[entry.index] = undefined
+          changes.removed.push({ key, index: entry.index })
+          freed.push(entry.index)
+        }
+        return
+      }
+      if (!entry) {
+        const index = shapePool.acquire()
+        const created = new ShapeEntry(key, index, datum, source.slot, shapeSources)
+        shapesByKey.set(key, created)
+        shapesByIndex[index] = created
+        changes.added.push({ key, index })
+        return
+      }
+      if (forced || entry.datum !== datum || entry.slot !== source.slot) {
+        changes.updated.push({ key, index: entry.index })
+      }
+      entry.datum = datum
+      entry.slot = source.slot
+    })
+    shapeSources.clearDirty()
   }
 
   function reserveEnds(capacity: number): void {
@@ -587,17 +656,27 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     setMarks(marks) {
       const nodePlan = nodeSources.prepare(marks.filter(isNodeMark))
       let edgePlan: SourcePlan<EdgeMark<unknown>>
+      let shapePlan: SourcePlan<ShapeMark<unknown>>
       try {
         edgePlan = edgeSources.prepare(marks.filter(isEdgeMark))
       } catch (error) {
         nodeSources.abandon(nodePlan)
         throw error
       }
+      try {
+        shapePlan = shapeSources.prepare(marks.filter(isShapeMark))
+      } catch (error) {
+        nodeSources.abandon(nodePlan)
+        edgeSources.abandon(edgePlan)
+        throw error
+      }
       nodeSources.commit(nodePlan)
       edgeSources.commit(edgePlan)
+      shapeSources.commit(shapePlan)
       if (
         nodeSources.pending ||
         edgeSources.pending ||
+        shapeSources.pending ||
         issueVersion() !== flushedIssues ||
         readinessVersion() !== flushedReadiness
       ) {
@@ -608,20 +687,25 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     flush() {
       nodeSources.drain()
       edgeSources.drain()
+      shapeSources.drain()
       const nodes = emptyChanges()
+      const shapes = emptyChanges()
+      const freedShapes: number[] = []
       const edges = { ...emptyChanges(), pending: [] as Key[] }
       const freedNodes: number[] = []
       const freedEdges: number[] = []
       const freedEntries: number[] = []
       flushNodes(nodes, freedNodes)
       flushEdges(edges, freedEdges, freedEntries)
+      flushShapes(shapes, freedShapes)
+      for (const index of freedShapes) shapePool.release(index)
       for (const index of freedNodes) nodePool.release(index)
       for (const index of freedEdges) edgePool.release(index)
       for (const id of freedEntries) entryPool.release(id)
       releaseUnused()
       flushedIssues = issueVersion()
       flushedReadiness = readinessVersion()
-      return { nodes, edges }
+      return { nodes, edges, shapes }
     },
 
     node(key) {
@@ -636,6 +720,18 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
 
     nodeAt(index) {
       return nodesByIndex[index]
+    },
+
+    shape(key) {
+      return isKey(key) ? shapesByKey.get(key) : undefined
+    },
+
+    shapeAt(index) {
+      return shapesByIndex[index]
+    },
+
+    get shapeCount() {
+      return shapesByKey.size
     },
 
     edgeAt(index) {
@@ -662,6 +758,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     collectIssues(into) {
       nodeSources.collectIssues(into)
       edgeSources.collectIssues(into)
+      shapeSources.collectIssues(into)
     },
 
     get readinessVersion() {
@@ -669,13 +766,14 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     },
 
     get loadingSources() {
-      return nodeSources.loadingCount + edgeSources.loadingCount
+      return nodeSources.loadingCount + edgeSources.loadingCount + shapeSources.loadingCount
     },
 
     failedSources() {
       const failed: LiveSource<unknown>[] = []
       nodeSources.collectFailed(failed)
       edgeSources.collectFailed(failed)
+      shapeSources.collectFailed(failed)
       return failed
     },
 
@@ -685,6 +783,10 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
 
     edges() {
       return new Present(edgesByIndex, isVisible)
+    },
+
+    shapes() {
+      return new Present(shapesByIndex, isShape)
     },
 
     neighbors(key) {
@@ -728,6 +830,9 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     destroy() {
       nodeSources.destroy()
       edgeSources.destroy()
+      shapeSources.destroy()
+      shapesByKey.clear()
+      shapesByIndex.length = 0
       ends.clear()
       edgeIds.clear()
       endKeys.length = 0

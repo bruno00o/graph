@@ -54,6 +54,7 @@ export default defineConfig({
     legend: 'src/legend/index.ts',
     bundling: 'src/bundling/index.ts',
     routing: 'src/routing/index.ts',
+    shapes: 'src/shapes/index.ts',
     timeline: 'src/timeline/index.ts',
   },
   format: 'esm',

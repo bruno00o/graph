@@ -5,6 +5,7 @@ export type StringCheck = (value: unknown, method: string) => void
 export interface KeyLists {
   readonly nodes?: unknown
   readonly edges?: unknown
+  readonly shapes?: unknown
 }
 
 function silent(): void {}
@@ -27,4 +28,5 @@ export function checkLists(
   if (!input || typeof input !== 'object') return
   check(input.nodes, method.replace('$', 'nodes'))
   check(input.edges, method.replace('$', 'edges'))
+  if (input.shapes !== undefined) check(input.shapes, method.replace('$', 'shapes'))
 }

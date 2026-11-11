@@ -1,4 +1,4 @@
-import type { GraphIssue } from '../core/issues'
+import type { AnyIssue } from '../core/issues'
 import type { ElementKeys, GraphTarget } from '../host/events'
 import { type InspectedGraph, watchGraphs } from '../host/inspect'
 import type { View } from '../types'
@@ -50,8 +50,9 @@ export interface GraphReport {
   readonly nodes: number
   readonly edges: number
   readonly pendingEdges: number
+  readonly shapes: number
   readonly issueCount: number
-  readonly issues: readonly GraphIssue[]
+  readonly issues: readonly AnyIssue[]
   readonly view: View
   readonly selection: ElementKeys
   readonly hovered: GraphTarget | null
@@ -210,6 +211,7 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
     nodes: inspection.nodes,
     edges: inspection.edges,
     pendingEdges: inspection.pendingEdges,
+    shapes: inspection.shapes,
     issueCount: inspection.issues.length,
     issues: inspection.issues.slice(0, listedIssues),
     view: state.view,

@@ -35,6 +35,7 @@ export default defineConfig({
       { find: /^@bruno00o\/graph\/legend$/, replacement: resolve(source, 'legend/index.ts') },
       { find: /^@bruno00o\/graph\/bundling$/, replacement: resolve(source, 'bundling/index.ts') },
       { find: /^@bruno00o\/graph\/routing$/, replacement: resolve(source, 'routing/index.ts') },
+      { find: /^@bruno00o\/graph\/shapes$/, replacement: resolve(source, 'shapes/index.ts') },
       { find: /^@bruno00o\/graph\/timeline$/, replacement: resolve(source, 'timeline/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(source, 'index.ts') },
     ],

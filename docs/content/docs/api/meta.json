@@ -19,6 +19,8 @@
     "graph-component",
     "hooks",
     "anchor",
+    "---@bruno00o/graph/shapes---",
+    "shapes",
     "---@bruno00o/graph/minimap---",
     "minimap",
     "---@bruno00o/graph/legend---",

@@ -5,6 +5,7 @@ import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
 import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
+import type { ShapeLayer } from '../core/shape-engine'
 import { maxStates, noPaint, type StateBuffers, stateRow, stateRows } from '../core/state-buffers'
 import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
 import type { ZoomRanges } from '../core/zoom-range'
@@ -369,6 +370,7 @@ function createRenderer(
   gl.uniform1f(gl.getUniformLocation(labelProgram, 'atlasFontSize'), atlasFontSize)
 
   const backdrop = createBackdrop(gl, blocks)
+  let shapeLayer: ShapeLayer | null = null
   const nodeCorner = createBuffer(gl, cornerNode, gl.STATIC_DRAW)
   const edgeCorner = createBuffer(gl, cornerEdge, gl.STATIC_DRAW)
   const curveCorner = createBuffer(gl, cornerCurve, gl.STATIC_DRAW)
@@ -1652,6 +1654,7 @@ function createRenderer(
     bridgeShown = bridgeRadiusAt(bridgeRadius * 2, frame.view.zoom)
     const jumping = bridgeSet !== null && bridgeShown > 0
     backdrop.drawGrid(frame)
+    shapeLayer?.draw()
     draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
     backdrop.drawHulls()
     for (const layer of input?.scene.layers ?? []) {
@@ -1852,6 +1855,11 @@ function createRenderer(
       }
       if (syncBridges(next.bridges)) touch()
       if (backdrop.sync(next)) touch()
+      const shapes = next.scene.shapes
+      if (!shared && !shapeLayer && shapes.any && shapes.engine) {
+        shapeLayer = shapes.engine.layer(gl, blocks)
+      }
+      if (shapeLayer?.sync(shapes, originX, originY)) touch()
       const changed = next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full
       if (changed) invalidateLabels()
       if (next.positionsChanged) moveLabels()
@@ -2035,6 +2043,7 @@ function createRenderer(
       gl.deleteTexture(atlasTexture)
       images.destroy()
       backdrop.destroy()
+      shapeLayer?.destroy()
       bundles.destroy()
       if (bridgeTexture) gl.deleteTexture(bridgeTexture)
       releaseLens()

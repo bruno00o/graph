@@ -5,6 +5,17 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.25.0
+
+### `Mark` and the plain `GraphIssue` include shapes
+
+A third kind of mark, [`shapes()`](/docs/shapes), joins `nodes()` and `edges()`. Code that compiled may now fail in two places:
+
+- `Mark['type']` is `'nodes' | 'edges' | 'shapes'`: a `switch` on `mark.type` that must cover every case, or a `Record<Mark['type'], …>`, needs a `'shapes'` branch.
+- The plain `GraphIssue`, without a mark type, is what an untyped `GraphInstance` returns from `issues()`: it now includes `invalid-shape`, and `missing-key` and `duplicate-key` with `kind: 'shapes'`. Add a `case 'invalid-shape'` to a `switch` that covers every issue, or type it with your marks, `GraphIssue<M>`: without a shape mark in `M`, it is the same union as before.
+
+A graph defined with `defineGraph` and no shape mark keeps its types: its targets, issues and counts are unchanged.
+
 ## 0.24.0
 
 ### The first layout waits for sources that load

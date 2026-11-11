@@ -45,9 +45,9 @@ import { flowSpeed } from './flow'
 import type {
   EdgeRecord,
   ElementChanges,
-  ElementKind,
   GraphChanges,
   NodeRecord,
+  ShapeRecord,
 } from './graph-model'
 import { IndexSet } from './index-set'
 import {
@@ -61,11 +61,12 @@ import {
 import { MarkLayers } from './mark-layers'
 import { boxCornerShare } from './node-shape'
 import { Palette } from './palette'
+import { ShapeStore } from './shape-store'
 import { spreadGap } from './spread'
 import { readMaxZoom, readMinZoom } from './zoom-range'
 
 export interface Layer {
-  readonly kind: ElementKind
+  readonly kind: 'nodes' | 'edges'
   readonly slot: number
 }
 
@@ -92,6 +93,8 @@ export interface SceneModel {
   edges(): Iterable<SceneEdgeRecord>
   nodeAt(index: number): SceneNodeRecord | undefined
   edgeAt(index: number): SceneEdgeRecord | undefined
+  shapes?(): Iterable<ShapeRecord>
+  shapeAt?(index: number): ShapeRecord | undefined
 }
 
 export interface SceneColorScale {
@@ -126,6 +129,7 @@ export interface Scene {
   readonly palette: Palette
   readonly layers: readonly Layer[]
   readonly markLayers: MarkLayers
+  readonly shapes: ShapeStore
   scales(): SceneScales
   setDefinition(definition: GraphDefinition): void
   apply(model: SceneModel, changes: GraphChanges): void
@@ -432,7 +436,14 @@ class RecordBatch<R extends { readonly index: number }> {
   }
 }
 
-function layersOf(marks: readonly Mark[]): Layer[] {
+function layeredMarks(marks: readonly Mark[]): (NodeMark<unknown> | EdgeMark<unknown>)[] {
+  return marks.filter(
+    (mark): mark is NodeMark<unknown> | EdgeMark<unknown> =>
+      mark.type === 'nodes' || mark.type === 'edges',
+  )
+}
+
+function layersOf(marks: readonly (NodeMark<unknown> | EdgeMark<unknown>)[]): Layer[] {
   const slots = { nodes: 0, edges: 0 }
   return marks.map((mark) => ({ kind: mark.type, slot: slots[mark.type]++ }))
 }
@@ -564,6 +575,7 @@ export function createScene(
   const fallbacks = pinFallbacks(palette)
   const lanes = createEdgeLanes()
   const markLayers = new MarkLayers()
+  const shapes = new ShapeStore(palette)
   const slots = new Map<Mark, number>()
   const nodeBatch = new RecordBatch<SceneNodeRecord>()
   const edgeBatch = new RecordBatch<SceneEdgeRecord>()
@@ -1302,6 +1314,7 @@ export function createScene(
     edges,
     palette,
     markLayers,
+    shapes,
     remeasure,
 
     get layers() {
@@ -1339,6 +1352,7 @@ export function createScene(
       }
       scales = next
       const marks = definition.marks
+      shapes.setMarks(marks)
       wanted = { nodes: wantedColors(marks, 'nodes'), edges: wantedColors(marks, 'edges') }
       const ownSizes = syncNumbers(sizes, ownScales(marks, 'nodes', 'size'), sizeFallback)
       const ownWidths = syncNumbers(widths, ownScales(marks, 'edges', 'width'), widthFallback)
@@ -1348,9 +1362,10 @@ export function createScene(
       compiledNodeMark = null
       compiledEdgeMark = null
       if (markLayers.setMarks(definition.marks)) lanes.setRanks(markLayers.edgeRanks)
-      const nextLayers = layersOf(definition.marks)
+      const layered = layeredMarks(definition.marks)
+      const nextLayers = layersOf(layered)
       slots.clear()
-      definition.marks.forEach((mark, position) => {
+      layered.forEach((mark, position) => {
         slots.set(mark, nextLayers[position]?.slot ?? 0)
       })
       const changed =
@@ -1365,6 +1380,7 @@ export function createScene(
     },
 
     apply(model, changes) {
+      shapes.apply(model, changes.shapes)
       claimAll(model, changes)
       for (const { index } of changes.nodes.removed) removeNode(index)
       for (const { index } of changes.edges.removed) removeEdge(index)

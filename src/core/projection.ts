@@ -17,7 +17,13 @@ import type {
 import { isKey, toAccessor } from './accessor'
 import { compileNodeMark, type Read } from './compile-mark'
 import { EdgeMerges } from './edge-merges'
-import type { ElementRef, GraphChanges, GraphModel, NodeRecord } from './graph-model'
+import type {
+  ElementChanges,
+  ElementRef,
+  GraphChanges,
+  GraphModel,
+  NodeRecord,
+} from './graph-model'
 import { type Grouping, groupingOf } from './group-index'
 import { Hierarchy } from './hierarchy'
 import { IndexSet } from './index-set'
@@ -93,10 +99,14 @@ function isEdgeMark(mark: Mark): mark is EdgeMark<unknown> {
   return mark.type === 'edges'
 }
 
+function isNodeMark(mark: Mark): mark is NodeMark<unknown> {
+  return mark.type === 'nodes'
+}
+
 function groupingsOf(marks: readonly Mark[]): Grouping[] {
   const found: Grouping[] = []
   for (const mark of marks) {
-    const grouping = mark.type === 'nodes' ? groupingOf(mark) : undefined
+    const grouping = isNodeMark(mark) ? groupingOf(mark) : undefined
     if (grouping && !found.some((known) => known.index === grouping.index)) found.push(grouping)
   }
   return found
@@ -273,6 +283,7 @@ function grownBytes(array: Uint8Array, length: number): Uint8Array {
 }
 
 interface SceneChanges {
+  readonly shapes: ElementChanges
   readonly nodes: { added: ElementRef[]; updated: ElementRef[]; removed: ElementRef[] }
   readonly edges: {
     added: ElementRef[]
@@ -282,8 +293,9 @@ interface SceneChanges {
   }
 }
 
-function emptyChanges(): SceneChanges {
+function emptyChanges(shapes: ElementChanges): SceneChanges {
   return {
+    shapes,
     nodes: { added: [], updated: [], removed: [] },
     edges: { added: [], updated: [], removed: [], pending: [] },
   }
@@ -860,7 +872,7 @@ export class Projection {
     this.#reprojectAround(hierarchy.takeMoved())
     const relinked = hierarchy.takeRelinked()
     if (this.#lifting && relinked.length > 0) this.#reprojectBelow(relinked)
-    const scene = emptyChanges()
+    const scene = emptyChanges(changes.shapes)
     const nodes = scene.nodes
     const edges = scene.edges
     if (activating) {
@@ -1140,6 +1152,8 @@ export class Projection {
     return {
       nodeAt,
       edgeAt,
+      shapeAt: (index) => model.shapeAt(index),
+      shapes: () => model.shapes(),
       *nodes() {
         for (const record of model.nodes()) {
           const shown = projection.#active ? projection.#nodeRecord(record) : record

@@ -129,6 +129,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       hulls: snapshot.hulls.shapes,
       bundles: snapshot.bundles,
       states,
+      shapes: scene.shapes,
     },
     { region, zoom: options.zoom, padding },
   )
@@ -234,6 +235,7 @@ export async function exportSvg<S extends string>(
     positions: current.positions,
     states: current.states,
     grid: current.grid,
+    shapes: scene.shapes,
     hulls: current.hulls.shapes,
     containers: current.containers,
     bundles: current.bundles,

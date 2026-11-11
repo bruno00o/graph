@@ -136,10 +136,11 @@ The graph never stops on bad data: it draws around each problem and lists it. `g
 | `type` | Problem | What the graph does |
 | --- | --- | --- |
 | `missing-key` | An item, or a change of a live source, whose key is neither a string nor a finite number | Skips the item |
-| `duplicate-key` | A key held by more than one node, or more than one edge | Keeps the first item, in mark order then data order |
+| `duplicate-key` | A key held by more than one node, more than one edge, or more than one shape | Keeps the first item, in mark order then data order |
 | `missing-parent` | A node whose `parent` names no node | Leaves the node at the top level until that node comes |
 | `parent-cycle` | A node whose `parent` would make it contain itself | Leaves the node at the top level |
 | `missing-carrier` | An edge whose `supportedBy` names no edge | Ignores that carrier |
+| `invalid-shape` | A [shape](/docs/shapes) whose geometry cannot be read, or a polygon whose rings cross | Draws nothing, or the crossed polygon as well as it can |
 
 ```ts tab="Vanilla" tab-group="framework"
 graph.on('issueschange', ({ issues }) => {

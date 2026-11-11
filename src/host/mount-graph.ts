@@ -32,7 +32,7 @@ import { createFlowWatch } from './flows'
 import { FocusControl } from './focus-control'
 import { FoldControl } from './folding'
 import { FrameScheduler } from './frame-scheduler'
-import { boundsAfter, fitIndices, nodeBounds, withWaypoints } from './framing'
+import { boundsAfter, fitIndices, nodeBounds, withShapes, withWaypoints } from './framing'
 import type {
   FitOptions,
   GraphCount,
@@ -74,6 +74,7 @@ export type {
   GraphBundling,
   GraphBundlingStatus,
   GraphCount,
+  GraphCountOf,
   GraphElement,
   GraphFocus,
   GraphGroups,
@@ -85,7 +86,9 @@ export type {
   GraphRouting,
   GraphRoutingStatus,
   GraphSelection,
+  GraphShapeCount,
   GraphShownCount,
+  GraphShownShapeCount,
   GraphState,
   GraphStates,
   GraphStore,
@@ -177,6 +180,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     textWidths.width,
     surface ? { groupFillOpacity: mapGroupFillOpacity } : {},
   )
+  scene.shapes.shown = surface === null
   const positions = new Positions()
   const buffers = new StateBuffers()
   const projection = new Projection(model)
@@ -353,13 +357,18 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       ),
     published: () => pointer.redrawLasso(),
     measure: (keys) =>
-      withWaypoints(
-        bounds(fitIndices(keys, model, projection, scene.edges), motion.settled()),
+      withShapes(
+        withWaypoints(
+          bounds(fitIndices(keys, model, projection, scene.edges), motion.settled()),
+          keys,
+          projection,
+          scene.edges,
+          bundles.paths,
+          motion.settled(),
+        ),
         keys,
-        projection,
-        scene.edges,
-        bundles.paths,
-        motion.settled(),
+        scene.shapes,
+        (key) => model.shape(key)?.index ?? -1,
       ),
     limitBounds: () => bounds(),
     sceneVersion: () => sceneVersion,
@@ -1008,6 +1017,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return {
       ...reads.alive(sceneVersion),
       pendingEdges: model.pendingCount,
+      shapes: scene.shapes.count,
       issues: reads.issues,
       layout: layouts.session?.layout.name ?? null,
       renderer: render.renderer?.stats?.() ?? null,
@@ -1194,7 +1204,13 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   const guarded = untilDestroyed(
     instance,
-    afterDestroy<S, Mark>(readonlyStore, element, lifetime.signal, () => endReason),
+    afterDestroy<S, Mark>(
+      readonlyStore,
+      element,
+      lifetime.signal,
+      () => endReason,
+      () => scene.shapes.marked,
+    ),
     () => destroyed,
   )
   const mountSignal = options.signal

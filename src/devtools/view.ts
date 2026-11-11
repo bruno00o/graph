@@ -1,5 +1,6 @@
+import type { AnyIssue, ShapeIssue } from '../core/issues'
 import { chartFrames, type GraphReport } from './inspector'
-import type { GraphDevtoolsMessages } from './messages'
+import { defaultMessages, type GraphDevtoolsMessages } from './messages'
 
 export const frameBudget: number = 1000 / 60
 export const rateWindow = 1000
@@ -186,9 +187,15 @@ export function createView(
     [messages.nodes, (report) => messages.number(report.nodes)],
     [messages.edges, (report) => messages.number(report.edges)],
     [messages.pendingEdges, (report) => messages.number(report.pendingEdges)],
+    [messages.shapes ?? defaultMessages.shapes ?? '', (report) => messages.number(report.shapes)],
     [messages.issues, (report) => messages.number(report.issueCount)],
   ])
-  items(elements, (report) => report.issues.map(messages.issue))
+  const shapeIssue = messages.shapeIssue ?? defaultMessages.shapeIssue
+  const describe = (issue: AnyIssue) =>
+    issue.kind === 'shapes'
+      ? (shapeIssue?.(issue as ShapeIssue) ?? '')
+      : messages.issue(issue as Exclude<AnyIssue, ShapeIssue>)
+  items(elements, (report) => report.issues.map(describe))
 
   const view = section(messages.view)
   rows(view, [

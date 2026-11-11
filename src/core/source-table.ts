@@ -3,16 +3,17 @@ import type {
   Key,
   LiveSource,
   NodeMark,
+  ShapeMark,
   SourceChange,
   SourceSubscription,
 } from '../types'
 import { isKey, toAccessor } from './accessor'
-import type { GraphIssue, MissingKeyIssue } from './issues'
+import type { AnyIssue, ElementKind, MissingKeyIssue } from './issues'
 import { type KeyedItems, KeyMap, NativeKeyMap } from './key-map'
 import { isLiveSource, type Readiness, sourceReadiness, watchReadiness } from './live-source'
 import { sameOptions } from './same-options'
 
-export type ElementKind = 'nodes' | 'edges'
+export type { ElementKind }
 
 const comparedApart: ReadonlySet<string> = new Set([
   'merge',
@@ -25,9 +26,7 @@ const queueFloor = 1024
 
 const noItems: KeyedItems<unknown> = new NativeKeyMap()
 
-export type AnyMark = NodeMark<unknown> | EdgeMark<unknown>
-
-export type { GraphIssue }
+export type AnyMark = NodeMark<unknown> | EdgeMark<unknown> | ShapeMark<unknown>
 
 export interface Source<M extends AnyMark> {
   readonly slot: number
@@ -38,8 +37,8 @@ export interface Source<M extends AnyMark> {
   subscription: SourceSubscription | null
   retired: boolean
   previous: KeyedItems<unknown> | null
-  readonly issues: GraphIssue[]
-  rejected: Map<unknown, MissingKeyIssue> | null
+  readonly issues: AnyIssue[]
+  rejected: Map<unknown, MissingKeyIssue<ElementKind>> | null
   readiness: Readiness
   unwatch: (() => void) | null
 }
@@ -117,7 +116,7 @@ export class SourceTable<M extends AnyMark> {
   readonly #dirty: Map<Key, boolean> = new Map()
   readonly #fresh: Source<M>[] = []
   readonly #kind: ElementKind
-  readonly #duplicates: Map<Key, GraphIssue> = new Map()
+  readonly #duplicates: Map<Key, AnyIssue> = new Map()
   readonly #notify: () => void
   #sources: Source<M>[] = []
   #settled: M[] = []
@@ -151,7 +150,7 @@ export class SourceTable<M extends AnyMark> {
     }
   }
 
-  collectIssues(into: GraphIssue[]): void {
+  collectIssues(into: AnyIssue[]): void {
     for (const source of this.#sources) {
       for (const issue of source.issues) into.push(issue)
       if (source.rejected) for (const issue of source.rejected.values()) into.push(issue)

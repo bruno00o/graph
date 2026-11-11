@@ -1,5 +1,6 @@
-import { defineGraph, edges, groups, mountGraph, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, groups, mountGraph, nodes, type ShapeGeometry } from '@bruno00o/graph'
 import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
+import { shapes } from '@bruno00o/graph/shapes'
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
 import {
   createCommunities,
@@ -31,6 +32,9 @@ const spread = !params.has('nospread')
 const bends = Number(params.get('waypoints') ?? 0)
 const merging = params.get('merge')
 const twoWay = Number(params.get('twoway') ?? 0.5)
+const shapeCount = Number(params.get('shapes') ?? 0)
+const shapePoints = Math.max(3, Number(params.get('points') ?? 50))
+const shapeParts = params.get('parts') ?? 'both'
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -50,7 +54,31 @@ const history = timed ? spreadInTime(sample) : null
 const items: readonly (Item | TimedItem)[] = stacked(history?.items ?? sample.items)
 const links: readonly (Link | TimedLink)[] = backwards(history?.links ?? sample.links)
 const winding = bends > 0 ? windingRoutes(items, links, bends) : null
+const zones = shapeCount > 0 ? scatteredZones(items, shapeCount, shapePoints) : []
 const generated = performance.now()
+
+function scatteredZones(
+  list: readonly (Item | TimedItem)[],
+  count: number,
+  points: number,
+): { id: string; geometry: ShapeGeometry; rank: number }[] {
+  let seed = 17
+  const next = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    return seed / 2 ** 32
+  }
+  const reach = Math.sqrt(list.length) * 2.5
+  return Array.from({ length: count }, (_, index) => {
+    const center = list[Math.floor(next() * list.length)] ?? { x: 0, y: 0 }
+    const radius = reach * (0.4 + next())
+    const ring = Array.from({ length: points }, (_, k) => {
+      const angle = ((k + 0.5 * next()) / points) * Math.PI * 2
+      const distance = radius * (0.6 + 0.4 * next())
+      return [center.x + Math.cos(angle) * distance, center.y + Math.sin(angle) * distance] as const
+    })
+    return { id: `z${index}`, geometry: { rings: [ring] }, rank: next() }
+  })
+}
 
 function windingRoutes(
   list: readonly (Item | TimedItem)[],
@@ -97,9 +125,23 @@ function stacked(list: readonly (Item | TimedItem)[]): readonly (Item | TimedIte
   })
 }
 
-const define = (nodeData: readonly (Item | TimedItem)[]) =>
+const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones = zones) =>
   defineGraph({
     marks: [
+      ...(zoneData.length > 0
+        ? [
+            shapes(zoneData, {
+              fill: (zone) =>
+                shapeParts === 'stroke'
+                  ? null
+                  : `var(--graph-cat-${1 + Math.floor(zone.rank * 8)})`,
+              ...(shapeParts === 'fill' ? { stroke: null } : {}),
+              ...(shapeParts === 'none' ? { fill: null, strokeWidth: 0 } : {}),
+              opacity: 0.25,
+              order: 'rank',
+            }),
+          ]
+        : []),
       edges<Link | TimedLink>(links, {
         source: 'from',
         target: 'to',
@@ -203,6 +245,7 @@ Object.assign(window, {
     graph,
     items,
     links,
+    zones,
     frameCosts,
     nextFrame,
     layoutRuns,

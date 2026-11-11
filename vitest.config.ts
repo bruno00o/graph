@@ -35,6 +35,10 @@ export default defineConfig({
               replacement: resolve(import.meta.dirname, 'src/layouts/index.ts'),
             },
             {
+              find: /^@bruno00o\/graph\/shapes$/,
+              replacement: resolve(import.meta.dirname, 'src/shapes/index.ts'),
+            },
+            {
               find: /^@bruno00o\/graph$/,
               replacement: resolve(import.meta.dirname, 'src/index.ts'),
             },
