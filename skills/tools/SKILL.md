@@ -47,7 +47,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): the graph, its d
 | Background grid | Main entry | `background` in the definition |
 | Devtools | `@bruno00o/graph/devtools` and `/devtools/react` | `graphDevtoolsPlugin()` |
 
-Not on a map: a graph drawn by `mountMapGraph` or `<MapGraph>` keeps legends, anchors, hulls and devtools, but has no minimap (the map has its own navigation), no lens (`graph.lens.set` does nothing and warns in development) and no background grid (the map draws the background). See the map skill.
+Not on a map: a graph drawn by `mountMapGraph` or `<MapGraph>` keeps legends, anchors, hulls and devtools, but has no minimap (`createMinimap` draws nothing and warns in development; the map has its own navigation), no lens (`graph.lens.set` does nothing and warns in development) and no background grid (the map draws the background). See the map skill.
 
 ## Setup
 

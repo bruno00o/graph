@@ -110,7 +110,7 @@ export function control(graph: GraphInstance) {
 ```
 
 - `fold()` and `unfold()` without keys act on every group, nested ones included. A folded group inside a folded group stays folded when its parent opens. A folded key that names no node yet applies when the group arrives. `initialFolded` is the same at mount.
-- Pass an array of keys, never a string: `fold('group-1')` compiles (a string is an iterable of characters) and folds `'g'`, `'r'`, `'o'`...
+- Pass an array of keys, never a string: the types refuse `fold('group-1')` (`KeyList` takes a list), and in plain JavaScript it folds `'g'`, `'r'`, `'o'`... and warns once in development.
 - A folded group hides its children and draws as a node. Edges into hidden children draw to the outermost folded group; edges inside one folded group disappear. Unfolding brings everything back as it was.
 - `interaction.fold` (on by default): double-click a group, or Enter on a focused group, toggles it. A `doubleclick` handler that calls `event.originalEvent.preventDefault()` keeps the group as it is. Turn it off with `interaction: { fold: false }`.
 - Dragging an unfolded container moves its descendants; dragging a folded group moves only the group. A folded group needs no position: it starts at the center of its members.
@@ -276,7 +276,7 @@ Hidden nodes keep their positions. On unfolding, nodes return where they were, s
 
 ### HIGH Passing a string to `fold`, `unfold` or `set`
 
-These take an iterable of keys. A string is an iterable of characters, so `graph.groups.fold('sector-a')` compiles and folds nothing useful.
+These take a list of keys (`KeyList`). The types refuse a single string; in plain JavaScript, or through a cast, a string is read as its characters, folds nothing useful and warns once in development.
 
 Wrong:
 

@@ -295,7 +295,7 @@ MapLibre takes `[longitude, latitude]`; `geoToWorld` takes `{ longitude, latitud
 
 ### MEDIUM Expecting rotation, pitch, terrain, lens or minimap
 
-The map stays north up and without pitch, in a flat or globe projection. The lens does nothing (`graph.lens.set` is ignored), the minimap does not support a map graph, and the SVG export draws the flat map. In development the graph warns when the map is rotated or tilted.
+The map stays north up and without pitch, in a flat or globe projection. The lens does nothing (`graph.lens.set` is ignored), the minimap draws nothing on a map graph and warns in development, and the SVG export draws the flat map. In development the graph warns when the map is rotated or tilted.
 
 ### MEDIUM Colors tuned for one basemap
 
