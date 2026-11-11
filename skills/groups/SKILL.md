@@ -20,6 +20,10 @@ sources:
   - src/marks.ts
   - src/types.ts
   - src/host/graph-instance.ts
+  - src/host/events.ts
+  - src/core/projection.ts
+  - src/host/picking.ts
+  - src/host/element-keys.ts
   - docs/content/docs/(guide)/groups.mdx
   - docs/content/docs/(guide)/transformations.mdx
   - docs/content/docs/api/groups.mdx
@@ -221,6 +225,51 @@ edges(links, {
 - Picking returns the first edge with `target.aggregate` holding all of them: `graph.on('click', ({ target }) => target?.kind === 'edge' && target.aggregate?.keys)`. Clicking selects every merged edge, hovering hovers them all, and an aggregated edge shows the states of any of its edges. It hides when all its edges hide.
 - Keep a `by` function stable, as for `groups()`.
 
+### One direction per half
+
+A two-way line is one target by default: a click selects every merged edge. With `halves: true` next to `directed: false`, an aggregated edge that has edges both ways is drawn as two halves, and each half acts for its own direction:
+
+- the half next to `aggregate.target` stands for `forward`, the half next to `aggregate.source` for `backward`. They meet at the `split` of `aggregate.ends` (the middle by default). `forward` and `backward` are relative to the aggregated edge, which points the way of the first edge in `keys`: they do not mean the `from` and `to` fields of your links. `aggregate.source` and `aggregate.target` are the keys of the nodes (or folded groups) the line joins, so `forward` is "`aggregate.source` to `aggregate.target`".
+- picking a half returns the first edge of its direction (`key`, `datum`) with `target.direction` set to `'forward'` or `'backward'`; `target.aggregate` still holds the whole line.
+- a click selects the edges of that direction only; in the default `'multiple'` selection mode, Shift, Cmd or Ctrl adds them or removes them. Hover works per half. `click` fires before the selection changes: read `target.direction` in `click`, and the selected keys in `selectionchange` or `graph.selection.get()`. A selection has no direction of its own, so keep the last clicked one if you display it.
+- every state draws on the half of its own edges: selection, hover, free states, `others`, `hide` and `raise`. A state `stroke` colors one half; a half whose edges all hide disappears while the other stays. The legend and the exports follow.
+- a line with edges one way only stays whole, and so does every line when `directed` is not `false`. The halves share the zoom range, the time and the layer of the line. Keyboard focus stays on nodes, so keyboard users cannot pick a direction.
+- `halves` is opt-in and costs a second pass over the two-way lines only.
+
+```ts
+import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+type Link = { id: string; from: string; to: string }
+
+const items: Item[] = []
+const links: Link[] = []
+
+const definition = defineGraph({
+  marks: [
+    edges(links, {
+      source: 'from',
+      target: 'to',
+      arrow: 'target',
+      merge: { directed: false, halves: true },
+      aggregate: {
+        ends: {
+          target: { stroke: 'var(--graph-cat-2)' },
+          source: { stroke: 'var(--graph-cat-4)' },
+        },
+      },
+    }),
+    nodes(items),
+  ],
+})
+const graph = mountGraph(document.body, { definition, ariaLabel: 'Two-way links' })
+
+graph.on('click', ({ target }) => {
+  if (target?.kind !== 'edge' || !target.direction || !target.aggregate) return
+  console.log(target.direction, target.aggregate[target.direction].keys, graph.selection.get().edges)
+})
+```
+
 ### One edge between two groups
 
 By default an edge between two unfolded groups goes from member to member across both containers. `betweenGroups: 'groups'` draws it between the groups, container border to container border: each end rises to the child of the innermost group that holds both ends, and edges that rise to the same two children draw as one aggregated edge (a single edge makes one too, with `count` 1). Style it with `aggregate`, split with `merge.by`, merge directions with `merge.directed: false`.
@@ -310,6 +359,10 @@ Folding, unfolding and a change of `groups()` or `merge` place only the nodes th
 
 Folding is controlled or not for the life of the graph, decided at mount by `folded`. Starting with `undefined` and setting `folded` later does not take control. Pass the initial array at mount (or `initialFolded` for an uncontrolled start).
 
+### HIGH Setting `halves` without `directed: false`
+
+`halves: true` is ignored unless `directed` is `false`: the type accepts the combination, nothing is reported, and the line stays whole, so `target.direction` is never set and a click still selects both directions. Write `merge: { directed: false, halves: true }`. The same happens for a line with edges one way only, which is correct: only two-way lines split, so handle a click target without `direction`.
+
 ### MEDIUM Rebuilding `by` or `merge.by` functions in render
 
 `groups()` and `merge` compare functions by identity. A new `by` function in a definition rebuilt on every render regroups every item each time. Declare `by`, and the options passed to `aggregate`, once.
@@ -342,6 +395,7 @@ The task is done when:
 - `fold`, `unfold`, `toggle` and `set` get arrays of keys, and group keys come from `keyOf`, events or `folded()`;
 - a layout that must follow folds has `relayout: true`;
 - controlled folding is initialized before the first render and answers every `onFoldChange`;
+- a two-way line that must select one direction per click has `merge: { directed: false, halves: true }`, and handlers treat a target without `direction` as the whole line;
 - merge options and `by` functions are declared once, and `tsc` passes with no cast on `AggregateEdge`.
 
 ## References

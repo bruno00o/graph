@@ -21,6 +21,7 @@ sources:
   - src/react/index.tsx
   - src/react/graph.tsx
   - src/react/context.ts
+  - src/host/data-status.ts
   - docs/content/docs/(guide)/react.mdx
   - docs/content/docs/(guide)/typescript.mdx
   - docs/content/docs/api/graph-component.mdx
@@ -82,7 +83,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, marks, sta
 
 ### Handle events with props
 
-Event props (`onClick`, `onSelectionChange`, `onLayoutEnd`, ...) are typed from the definition and always call the latest function, so they need no `useCallback`.
+Event props (`onClick`, `onSelectionChange`, `onLayoutEnd`, `onLoadingChange`, ...) are typed from the definition and always call the latest function, so they need no `useCallback`.
 
 ```tsx
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
@@ -175,6 +176,49 @@ export function App() {
 - `useGraphState` compares slices with `Object.is`. A selector that builds an object or array needs `compare: shallow` from `@tanstack/store`, or the component renders on every state change.
 - `<Anchor>` pins its children to a node, an edge or a point and follows the view without rendering again. It needs `react-dom`.
 - `useGraph<S, M>()` and the selector types are trusted, not checked: take them from the definition.
+
+### Show a loading overlay
+
+A live source that loads over time (a TanStack DB collection, a live query, `createExploration`) puts `data: { loading, failed }` in the graph state. Read it in a child of `<Graph>`, or listen with the `onLoadingChange` prop. `data` keeps its identity until `loading` or `failed` changes, so the default `Object.is` comparison is enough. The graph draws no indicator of its own, and its first automatic layout and fit wait for the sources (`waitForData`, core skill).
+
+```tsx
+import { defineGraph, type LiveSource, nodes } from '@bruno00o/graph'
+import { Graph, useGraphState } from '@bruno00o/graph/react'
+import { force } from '@bruno00o/graph/layouts/force'
+import { useState } from 'react'
+
+type Item = { id: string; label: string }
+
+declare const rows: LiveSource<Item>
+
+const definition = defineGraph({
+  marks: [nodes(rows, { label: 'label' })],
+  layout: force(),
+})
+
+function LoadingOverlay() {
+  const data = useGraphState((state) => state.data)
+  if (data.failed.length > 0) return <p role="alert">Some data could not be loaded</p>
+  return data.loading ? <p role="status">Loading</p> : null
+}
+
+export function LiveGraph() {
+  const [ready, setReady] = useState(false)
+  return (
+    <>
+      <Graph
+        definition={definition}
+        ariaLabel="Graph of live rows"
+        style={{ height: 480 }}
+        onLoadingChange={({ loading }) => setReady(!loading)}
+      >
+        <LoadingOverlay />
+      </Graph>
+      <p>{ready ? 'Complete' : 'Loading'}</p>
+    </>
+  )
+}
+```
 
 ### Drive the graph from outside `<Graph>`
 

@@ -24,6 +24,8 @@ sources:
   - src/host/events.ts
   - src/host/graph-instance.ts
   - src/host/keyboard.ts
+  - src/host/selection-control.ts
+  - src/host/element-keys.ts
   - src/core/state-names.ts
   - docs/content/docs/(guide)/interaction.mdx
   - docs/content/docs/(guide)/states.mdx
@@ -74,7 +76,7 @@ const definition = defineGraph({
 
 ### Select, and control the selection
 
-A click selects the element alone; with `'multiple'`, Shift, Cmd or Ctrl adds it or removes it; a click on the background clears. A press released within 4 pixels (10 for a touch) is a click. Read and change the selection from code:
+A click selects the element alone; with `'multiple'` (the default), Shift, Cmd or Ctrl adds it or removes it; a click on the background clears. A click on a merged edge selects all the edges it merges, or, with `halves` (groups skill), the edges of the direction under the pointer. A press released within 4 pixels (10 for a touch) is a click. Read and change the selection from code:
 
 ```ts
 import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
@@ -157,7 +159,7 @@ graph.on('dragend', ({ keys }) => console.log(keys))
 controller.abort()
 ```
 
-- `target` is `{ kind, key, datum, mark }`, `null` over the background for `click`, `doubleclick`, `contextmenu` and `pointermove`, and never `null` for `pointerenter` and `pointerleave`. An edge target also has `endpoints` (the key of a folded group stands for an end hidden in it), and `end` (`'source'` or `'target'`) on a mark with `ends`.
+- `target` is `{ kind, key, datum, mark }`, `null` over the background for `click`, `doubleclick`, `contextmenu` and `pointermove`, and never `null` for `pointerenter` and `pointerleave`. An edge target also has `endpoints` (the key of a folded group stands for an end hidden in it), `end` (`'source'` or `'target'`) on a mark with `ends`, and `aggregate` (every merged edge, split into `forward` and `backward`) on a merged edge or an edge between folded groups. On a half of a two-way merged edge (`merge: { directed: false, halves: true }`), `direction` is `'forward'` for the half next to `aggregate.target` and `'backward'` for the half next to `aggregate.source`; `key` and `datum` are those of the first edge of that direction. Hover enters and leaves per half too (`pointerleave` then `pointerenter` when the pointer crosses from one half to the other).
 - `click` fires before the default selection, so a handler sees the selection as it was. A `doubleclick` on a group folds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 - `pointermove` fires at most once per frame; the graph tracks the pointer for it only while a handler is subscribed. During a drag its target is the dragged node.
 - `dragstart`, `drag` and `dragend` carry `keys`: every moved node (the whole selection when the dragged node is selected, the nodes inside a dragged group). `positionchange` reports the positions, with `origin` `'drag'`, `'api'` or `'layout'`.
@@ -350,7 +352,29 @@ In `wheel: 'page'` the graph shows no text. Subscribe to `zoomhint` and show you
 
 ### MEDIUM Reading the pointer event of an edge as a node
 
-Targets are a union on `kind`. Check `target?.kind` (and `target.mark` when two marks of one kind carry different items) before reading `datum` or `endpoints`; a `click` target is `null` on the background.
+Targets are a union on `kind`. Check `target?.kind` (and `target.mark` when two marks of one kind carry different items) before reading `datum` or `endpoints`; a `click` target is `null` on the background. The same goes for `end`, `aggregate` and `direction`, which exist on edge targets only:
+
+```ts expect-error=TS2339
+import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+type Link = { id: string; from: string; to: string }
+const items: Item[] = []
+const links: Link[] = []
+const graph = mountGraph(document.body, {
+  definition: defineGraph({
+    marks: [
+      edges(links, { source: 'from', target: 'to', merge: { directed: false, halves: true } }),
+      nodes(items),
+    ],
+  }),
+  ariaLabel: 'Sample graph',
+})
+
+graph.on('click', ({ target }) => console.log(target?.direction))
+```
+
+Narrow first: `if (target?.kind === 'edge') console.log(target.direction)`.
 
 ### MEDIUM Expecting the graph to own the wheel and drag on a map
 
@@ -362,7 +386,7 @@ The task is done when:
 
 - gesture options sit in `interaction`, with `lasso` and `select: 'multiple'` set together when a lasso is wanted;
 - a controlled selection is mounted with `selection` and `onSelectionChange`, and every request is answered with `update({ selection })`;
-- handlers narrow `target` on `kind` before reading `datum`, and are removed with a `signal` or the function `on` returns;
+- handlers narrow `target` on `kind` before reading `datum` or `direction`, and are removed with a `signal` or the function `on` returns;
 - state styles use `others`, `raise`, `hide` and `label: 'always'` as needed, with by-kind styles where only one kind must change;
 - keyboard and focus are left on unless the page has its own shortcuts, and `focus.set` is used for programmatic focus;
 - `tsc` accepts the code with no cast on targets or state names.

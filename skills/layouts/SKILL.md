@@ -25,6 +25,8 @@ sources:
   - src/layouts/geo.ts
   - src/types.ts
   - src/host/graph-instance.ts
+  - src/host/layout-session.ts
+  - src/host/data-status.ts
   - docs/content/docs/(guide)/layout.mdx
   - docs/content/docs/(guide)/positions.mdx
   - docs/content/docs/api/force.mdx
@@ -215,6 +217,7 @@ export function watchLayout(graph: GraphInstance, bar: HTMLProgressElement) {
 
 - First batch of nodes: the whole layout runs. Nodes added later: with `force` only the new nodes run, starting next to their placed neighbors while the rest stays still; with `layers`, `grid`, `rings`, `radial` and `geo` (`incremental: false`) every free node is laid out again.
 - A graph that arrives in batches therefore looks different from one that arrives at once. When the data is complete, call `graph.layout.run()` to lay out the whole graph.
+- Live sources that report their loading (a TanStack DB collection, a live query, `subset`, `createExploration`) are the exception: the first automatic layout over every node, and the one that follows a new layout or `relayout`, wait until they have loaded or failed, so a collection that syncs in batches is laid out once, on all its rows. The wait is `waitForData` in `defineGraph`: 10,000 ms from the first nodes by default (then the layout runs on what is there), `true` for no limit, `false` or `0` to lay out the first batch at once. Array data never waits, and neither does `graph.layout.run()`. Know when the data is in with `await graph.loaded()` (core skill).
 - A definition with another layout, or the same layout with other options, lays out every free node again on the next frame. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
 - `layout: null` (the default) stops an automatic run and leaves nodes where they are.
 - The view follows only the first run. Set `view: { autoFit: 'layouts' }` to frame every run, until the user pans or zooms.
