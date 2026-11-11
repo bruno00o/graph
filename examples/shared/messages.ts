@@ -146,6 +146,7 @@ export const messages = {
   mapHint:
     'Maj\u00a0+\u00a0glisser entoure des lieux, la carte se déplace et zoome comme d’habitude.',
   place: (index: string): string => `Lieu ${index}`,
+  zone: (index: string): string => `Zone ${index}`,
   projection: 'Projection',
   projections: { globe: 'Globe', mercator: 'Carte plane' },
   farRoutes: 'Liaisons lointaines',

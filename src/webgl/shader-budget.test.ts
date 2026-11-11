@@ -47,6 +47,7 @@ import {
   shapeRoundVertex,
   shapeStrokeFragment,
   shapeStrokeVertex,
+  sphereVariant,
 } from './shape-shaders'
 import { waypointVertex } from './waypoint-shaders'
 
@@ -76,6 +77,13 @@ const programs: readonly Program[] = [
   ['shape fill', shapeFillVertex, shapeFillFragment],
   ['shape stroke', shapeStrokeVertex, shapeStrokeFragment],
   ['shape round', shapeRoundVertex, shapeRoundFragment],
+  ['shape fill on the globe', sphereVariant(shapeFillVertex), sphereVariant(shapeFillFragment)],
+  [
+    'shape stroke on the globe',
+    sphereVariant(shapeStrokeVertex),
+    sphereVariant(shapeStrokeFragment),
+  ],
+  ['shape round on the globe', sphereVariant(shapeRoundVertex), shapeRoundFragment],
   ['layout bounds', fullVertex, boundsBlockFragment],
   ['layout bounds reduce', fullVertex, boundsFragment],
   ['layout splat', splatVertex, valueFragment],

@@ -103,6 +103,7 @@ const units = {
   bridgeData: bridgeUnit,
 } as const
 const unitCount = Math.max(...Object.values(units)) + 1
+export const shapeUnitCount = 25
 const farZoom = 3e38
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 const noPlane = [0, 0, 0, 1]
@@ -157,6 +158,11 @@ function iota(length: number): Uint32Array {
   return values
 }
 
+export function timesShown(scene: RenderInput['scene'], used: boolean): boolean {
+  const { nodes, edges, shapes } = scene
+  return (used && nodes.time.count + edges.time.count > 0) || shapes.time.count > 0
+}
+
 function rgba(color: readonly number[]): readonly number[] {
   return color.map((channel) => channel / 255)
 }
@@ -192,11 +198,13 @@ export function createSharedRenderer(
     palette = null
   }
   return {
-    sync: (input) =>
+    sync: (input) => {
+      if (input.scene.shapes.any) state.widen(shapeUnitCount)
       state.guard(() => {
         applyPalette()
         inner.sync(input)
-      }),
+      })
+    },
     setPalette: (colors, count) => {
       palette = { colors, count }
     },
@@ -1568,11 +1576,7 @@ function createRenderer(
     frameBlock[27] = halvesUsed && halved.size > 0 ? 1 : 0
     frameBlock[6] = 6
     frameBlock[7] = all ? 0 : 8
-    const timed =
-      timeWindow !== null &&
-      timeUsed &&
-      input !== null &&
-      input.scene.nodes.time.count + input.scene.edges.time.count > 0
+    const timed = timeWindow !== null && input !== null && timesShown(input.scene, timeUsed)
     if (timeWindow) frameBlock.set(timeWindow.packed, 28)
     frameBlock[32] = timed ? 1 : 0
     frameBlock[33] = timeWindow?.fade ?? 0
@@ -1658,7 +1662,7 @@ function createRenderer(
     bridgeShown = bridgeRadiusAt(bridgeRadius * 2, frame.view.zoom)
     const jumping = bridgeSet !== null && bridgeShown > 0
     backdrop.drawGrid(frame)
-    shapeLayer?.draw(layerFilter)
+    shapeLayer?.draw(layerFilter, globe !== null)
     draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
     backdrop.drawHulls()
     for (const layer of input?.scene.layers ?? []) {
@@ -1860,7 +1864,7 @@ function createRenderer(
       if (syncBridges(next.bridges)) touch()
       if (backdrop.sync(next)) touch()
       const shapes = next.scene.shapes
-      if (!shared && !shapeLayer && shapes.any && shapes.engine) {
+      if (!shapeLayer && shapes.any && shapes.engine) {
         shapeLayer = shapes.engine.layer(gl, blocks)
       }
       if (shapeLayer?.sync({ store: shapes, states: next.states, originX, originY })) touch()

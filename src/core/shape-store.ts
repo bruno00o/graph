@@ -122,7 +122,6 @@ export class ShapeStore {
   points = 0
   triangles = 0
   readTime = 0
-  shown = true
   engine: ShapeEngine | null = null
   #warned = false
   #arrivals = 0
@@ -138,7 +137,7 @@ export class ShapeStore {
   }
 
   get any(): boolean {
-    return this.shown && this.count > 0
+    return this.count > 0
   }
 
   get marked(): boolean {
@@ -187,7 +186,7 @@ export class ShapeStore {
   drawOrder(): Uint32Array {
     if (this.#order && this.#ordered === this.version) return this.#order
     const indices: number[] = []
-    for (let index = 0; this.shown && index < this.capacity; index++) {
+    for (let index = 0; index < this.capacity; index++) {
       if (this.alive[index] === 1 && isDrawn(this.geometry[index])) indices.push(index)
     }
     const { slot, order, arrival } = this

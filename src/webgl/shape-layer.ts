@@ -3,6 +3,8 @@ import { type ShapeLayer, shapeKinds } from '../core/shape-engine'
 import type { ShapeStore } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import { openTime } from '../core/time-range'
+import { onSphere } from '../shapes/subdivide'
+import { withCopies } from '../shapes/wrap'
 import { createProgram, DataTexture, formats } from './gl'
 import {
   shapeAlive,
@@ -22,6 +24,7 @@ import {
   shapeTimed,
   shapeTimeUnit,
   shapeZoomUnit,
+  sphereVariant,
 } from './shape-shaders'
 
 interface Run {
@@ -39,10 +42,13 @@ interface Pass {
   readonly pass: WebGLUniformLocation | null
 }
 
-interface Passes {
+interface Programs {
   readonly fill: Pass
   readonly stroke: Pass
   readonly round: Pass
+}
+
+interface Passes extends Programs {
   readonly fillVao: WebGLVertexArrayObject
   readonly strokeVao: WebGLVertexArrayObject
   readonly roundVao: WebGLVertexArrayObject
@@ -108,6 +114,9 @@ export function createShapeLayer(
   let raised: number[] = []
   let raisedFor: readonly number[] | null = null
   let raisedVersion = -1
+  let sphere = false
+  let spherePrograms: Programs | null = null
+  let built: ShapeStore | null = null
 
   function program(vertex: string, fragment: string): Pass {
     const made = createProgram(gl, vertex, fragment, blocks)
@@ -274,6 +283,7 @@ export function createShapeLayer(
   }
 
   function build(store: ShapeStore, originX: number, originY: number, made: Passes): void {
+    built = store
     const fill = new Packer(1024)
     const indices = new Packer(1024)
     const stroke = new Packer(1024)
@@ -296,8 +306,9 @@ export function createShapeLayer(
       })
     }
     for (const index of store.drawOrder()) {
-      const geometry = store.geometry[index]
-      if (!geometry) continue
+      const read = store.geometry[index]
+      if (!read) continue
+      const geometry = read.round ? read : sphere ? onSphere(read) : withCopies(read)
       rank[index] = ++position
       const isRound = geometry.round !== null
       const slot = store.slot[index] ?? 0
@@ -416,13 +427,23 @@ export function createShapeLayer(
     gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(stroke.bytes, 0, stroke.used * 4), gl.STATIC_DRAW)
     gl.bindBuffer(gl.ARRAY_BUFFER, made.roundBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(round.bytes, 0, round.used * 4), gl.STATIC_DRAW)
-    gl.bindVertexArray(null)
+    gl.bindVertexArray(made.fillVao)
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, made.indexBuffer)
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
       new Uint8Array(indices.bytes, 0, indices.used * 4),
       gl.STATIC_DRAW,
     )
+    gl.bindVertexArray(null)
+  }
+
+  function sphereOf(): Programs {
+    spherePrograms ??= {
+      fill: program(sphereVariant(shapeFillVertex), sphereVariant(shapeFillFragment)),
+      stroke: program(sphereVariant(shapeStrokeVertex), sphereVariant(shapeStrokeFragment)),
+      round: program(sphereVariant(shapeRoundVertex), shapeRoundFragment),
+    }
+    return spherePrograms
   }
 
   function use(pass: Pass, hidden: Uint32Array, shapePass: number): void {
@@ -432,23 +453,28 @@ export function createShapeLayer(
     gl.uniform1i(pass.pass, shapePass)
   }
 
-  function drawRuns(made: Passes, hidden: Uint32Array, shapePass: number): void {
+  function drawRuns(
+    made: Passes,
+    programs: Programs,
+    hidden: Uint32Array,
+    shapePass: number,
+  ): void {
     for (const run of runs) {
       if (run.round) {
         if (run.count === 0) continue
-        use(made.round, hidden, shapePass)
+        use(programs.round, hidden, shapePass)
         gl.bindVertexArray(made.roundVao)
         pointRound(run.first)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count)
         continue
       }
       if (run.count > 0) {
-        use(made.fill, hidden, shapePass)
+        use(programs.fill, hidden, shapePass)
         gl.bindVertexArray(made.fillVao)
         gl.drawElements(gl.TRIANGLES, run.count, gl.UNSIGNED_INT, run.first * 4)
       }
       if (run.recordCount > 0) {
-        use(made.stroke, hidden, shapePass)
+        use(programs.stroke, hidden, shapePass)
         gl.bindVertexArray(made.strokeVao)
         pointStroke(run.records)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.recordCount)
@@ -456,17 +482,17 @@ export function createShapeLayer(
     }
   }
 
-  function drawRaised(made: Passes, hidden: Uint32Array): void {
+  function drawRaised(made: Passes, programs: Programs, hidden: Uint32Array): void {
     sortRaised()
     if (raised.length === 0) return
     if (raised.length > raisedSpans) {
-      drawRuns(made, hidden, 1)
+      drawRuns(made, programs, hidden, 1)
       return
     }
     for (const index of raised) {
       const at = roundSpans[index] ?? -1
       if (at >= 0) {
-        use(made.round, hidden, 1)
+        use(programs.round, hidden, 1)
         gl.bindVertexArray(made.roundVao)
         pointRound(at)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1)
@@ -474,13 +500,13 @@ export function createShapeLayer(
       }
       const fillCount = fillSpans[index * 2 + 1] ?? 0
       if (fillCount > 0) {
-        use(made.fill, hidden, 1)
+        use(programs.fill, hidden, 1)
         gl.bindVertexArray(made.fillVao)
         gl.drawElements(gl.TRIANGLES, fillCount, gl.UNSIGNED_INT, (fillSpans[index * 2] ?? 0) * 4)
       }
       const strokeCount = strokeSpans[index * 2 + 1] ?? 0
       if (strokeCount > 0) {
-        use(made.stroke, hidden, 1)
+        use(programs.stroke, hidden, 1)
         gl.bindVertexArray(made.strokeVao)
         pointStroke(strokeSpans[index * 2] ?? 0)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, strokeCount)
@@ -532,19 +558,28 @@ export function createShapeLayer(
       return changed
     },
 
-    draw(layers: LayerFilter | null) {
-      if (!passes || runs.length === 0) return
+    draw(layers: LayerFilter | null, onGlobe = false) {
+      if (!passes) return
       const made = passes
+      if (onGlobe !== sphere) {
+        sphere = onGlobe
+        if (built) build(built, shownX, shownY, made)
+      }
+      if (runs.length === 0) return
+      const programs = sphere ? sphereOf() : made
       const hidden = layers ? layers.masks.subarray(8, 12) : noHidden
       bind(made)
-      drawRuns(made, hidden, 0)
-      drawRaised(made, hidden)
+      drawRuns(made, programs, hidden, 0)
+      drawRaised(made, programs, hidden)
       gl.bindVertexArray(null)
     },
 
     destroy() {
       if (!passes) return
-      for (const made of [passes.fill, passes.stroke, passes.round]) gl.deleteProgram(made.program)
+      const programs = [passes, spherePrograms].flatMap((set) =>
+        set ? [set.fill, set.stroke, set.round] : [],
+      )
+      for (const made of programs) gl.deleteProgram(made.program)
       for (const vao of [passes.fillVao, passes.strokeVao, passes.roundVao]) {
         gl.deleteVertexArray(vao)
       }
@@ -560,6 +595,8 @@ export function createShapeLayer(
         texture.destroy()
       }
       passes = null
+      spherePrograms = null
+      built = null
       capacity = 0
     },
   }

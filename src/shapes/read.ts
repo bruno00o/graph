@@ -20,8 +20,10 @@ class Builder {
   rings: number[] = []
   triangles: number[] = []
   invalid: InvalidShapeReason | null = null
+  geo = false
   #ringStart = 0
   #longitude = Number.NaN
+  #anchor = Number.NaN
 
   get count(): number {
     return this.xs.length / 2
@@ -40,11 +42,13 @@ class Builder {
   }
 
   pushPlace(longitude: number, latitude: number): void {
-    const known = this.#longitude
+    const known = Number.isNaN(this.#longitude) ? this.#anchor : this.#longitude
     const lon = Number.isNaN(known)
       ? longitude
       : longitude - 360 * Math.round((longitude - known) / 360)
+    if (Number.isNaN(this.#anchor)) this.#anchor = lon
     this.#longitude = lon
+    this.geo = true
     this.push(projectLongitude(lon), projectLatitude(latitude))
   }
 
@@ -326,6 +330,7 @@ function finish(builder: Builder, kind: 0 | 1, closed: boolean): ShapeGeometryDa
     maxY,
     round: null,
     invalid: builder.invalid,
+    geo: builder.geo,
   }
 }
 

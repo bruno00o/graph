@@ -1,5 +1,6 @@
 import { type Badge, defineGraph, edges, geoToWorld, groups, hull, nodes } from '@bruno00o/graph'
 import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
+import { shapes } from '@bruno00o/graph/shapes'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { messages } from '../shared/messages'
@@ -12,6 +13,7 @@ import {
   type Route,
   windingPath,
 } from './places'
+import { createZones, type Zone } from './zones'
 
 setWorkerUrl(workerUrl)
 
@@ -24,6 +26,8 @@ const projection = params.get('projection') === 'mercator' ? 'mercator' : 'globe
 const boxes = params.get('shape') === 'box'
 const stack = params.has('stack')
 const winding = params.has('waypoints')
+const zones = params.has('shapes') ? createZones(Number(params.get('shapes') || 0)) : []
+const crowded = zones.length > 100
 const generated = stack ? createStacks() : createPlaces(count, edgeCount)
 const places = generated.places
 const routes = winding ? withCrossing(generated.routes) : generated.routes
@@ -62,6 +66,13 @@ function definitionOf(mode: FarMode) {
   const geodesic = mode === 'geodesic'
   return defineGraph({
     marks: [
+      shapes(zones, {
+        name: 'zones',
+        fill: (zone: Zone) => `color-mix(in srgb, ${zone.tone} 28%, transparent)`,
+        stroke: (zone: Zone) => zone.tone,
+        strokeWidth: (zone: Zone) => (crowded ? 1 : zone.line ? 3 : 1.5),
+        dash: (zone: Zone) => (zone.line ? 'dashed' : 'solid'),
+      }),
       edges<Route>(routes, {
         source: 'from',
         target: 'to',
@@ -132,6 +143,7 @@ hovered.textContent = messages.mapHint
 graph.on('pointerenter', ({ target }) => {
   if (target.kind === 'edge')
     hovered.textContent = messages.link(target.datum.from, target.datum.to)
+  else if (target.kind === 'shape') hovered.textContent = target.datum.label
   else if (target.mark === 'sites') hovered.textContent = messages.places(target.datum.count)
   else hovered.textContent = target.datum.label
 })
@@ -140,26 +152,32 @@ graph.on('pointerleave', () => {
 })
 
 const selection = status()
-graph.on('selectionchange', ({ selection: { nodes: selected, edges: selectedEdges } }) => {
-  selection.textContent = messages.selection(selected.length, selectedEdges.length)
-  const chosen = new Set<string>(selected.map(String))
-  const keep = new Set(chosen)
-  const active: string[] = []
-  for (const route of routes) {
-    if (chosen.has(route.from) || chosen.has(route.to)) {
-      keep.add(route.from)
-      keep.add(route.to)
-      active.push(route.id)
+graph.on(
+  'selectionchange',
+  ({ selection: { nodes: selected, edges: selectedEdges, shapes: selectedShapes } }) => {
+    selection.textContent = messages.selection(
+      selected.length,
+      selectedEdges.length + selectedShapes.length,
+    )
+    const chosen = new Set<string>(selected.map(String))
+    const keep = new Set(chosen)
+    const active: string[] = []
+    for (const route of routes) {
+      if (chosen.has(route.from) || chosen.has(route.to)) {
+        keep.add(route.from)
+        keep.add(route.to)
+        active.push(route.id)
+      }
     }
-  }
-  graph.states.set('active', { edges: active })
-  graph.states.set('muted', {
-    nodes:
-      selected.length === 0
-        ? []
-        : places.filter((place) => !keep.has(place.id)).map((place) => place.id),
-  })
-})
+    graph.states.set('active', { edges: active })
+    graph.states.set('muted', {
+      nodes:
+        selected.length === 0
+          ? []
+          : places.filter((place) => !keep.has(place.id)).map((place) => place.id),
+    })
+  },
+)
 
 const exporting = button(messages.exportPng, () => {
   exporting.disabled = true

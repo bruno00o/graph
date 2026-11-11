@@ -73,16 +73,28 @@ export const shapeFillVertex: string = `${header}${shapeCommon}
 layout(location = 0) in vec2 shapePosition;
 layout(location = 1) in uint shapeWord;
 flat out vec4 vColor;
+#ifdef SPHERE
+out float vSide;
+#endif
 void main() {
   vColor = shapeLook(shapeWord & shapeIndexMask).fill;
+#ifdef SPHERE
+  vSide = worldSide(shapePosition);
+#endif
   gl_Position = vColor.a > 0.0 ? toClip(toScreen(shapePosition)) : hidden;
 }
 `
 
 export const shapeFillFragment: string = `${header}
 flat in vec4 vColor;
+#ifdef SPHERE
+in float vSide;
+#endif
 out vec4 fragColor;
 void main() {
+#ifdef SPHERE
+  if (vSide < 0.0) discard;
+#endif
   fragColor = vColor;
 }
 `
@@ -98,6 +110,9 @@ flat out vec4 vLine;
 flat out vec4 vStroke;
 flat out vec4 vFill;
 flat out uint vFlags;
+#ifdef SPHERE
+out float vSide;
+#endif
 const float miterLimit = 4.0;
 vec2 normalOf(vec2 from, vec2 to) {
   vec2 d = to - from;
@@ -121,6 +136,12 @@ void main() {
   vFlags = 0u;
   gl_Position = hidden;
   if ((shapeWord & ${shapeSkip}u) != 0u) return;
+#ifdef SPHERE
+  float sideFrom = worldSide(shapeFrom.xy);
+  float sideTo = worldSide(shapeTo);
+  vSide = gl_VertexID < 2 ? sideFrom : sideTo;
+  if (sideFrom < 0.0 && sideTo < 0.0) return;
+#endif
   bool polygon = (shapeWord & ${shapePolygon}u) != 0u;
   ShapeLook look = shapeLook(shapeWord & shapeIndexMask);
   float halfWidth = look.halfWidth;
@@ -161,8 +182,14 @@ flat in vec4 vLine;
 flat in vec4 vStroke;
 flat in vec4 vFill;
 flat in uint vFlags;
+#ifdef SPHERE
+in float vSide;
+#endif
 out vec4 fragColor;
 void main() {
+#ifdef SPHERE
+  if (vSide < 0.0) discard;
+#endif
   float aa = 0.5 / pixelRatio + 0.25;
   float along = vLocal.x;
   float across = vLocal.y;
@@ -203,6 +230,9 @@ void main() {
   vLocal = corner * (reach + halfWidth + 1.5);
   vec2 center = toScreen(shapeBox.xy);
   bool shown = vStroke.a > 0.0 || vFill.a > 0.0;
+#ifdef SPHERE
+  shown = shown && worldSide(shapeBox.xy) >= 0.0;
+#endif
   gl_Position = shown ? toClip(center + vLocal) : hidden;
 }
 `
@@ -280,3 +310,7 @@ void main() {
   fragColor = result;
 }
 `
+
+export function sphereVariant(source: string): string {
+  return source.replace('#version 300 es\n', '#version 300 es\n#define SPHERE\n')
+}

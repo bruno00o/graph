@@ -187,7 +187,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     textWidths.width,
     surface ? { groupFillOpacity: mapGroupFillOpacity } : {},
   )
-  scene.shapes.shown = surface === null
   const positions = new Positions()
   const buffers = new StateBuffers()
   const projection = new Projection(model)

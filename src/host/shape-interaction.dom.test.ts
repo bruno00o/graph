@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { geoToWorld } from '../core/geo'
 import { stateRow } from '../core/state-buffers'
 import { defineGraph } from '../define-graph'
+import { exportSvg } from '../export'
 import { mountMapGraph } from '../map'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import { fakeMap } from '../testing/map'
+import { fakeMap, globeInput } from '../testing/map'
 import type {
   GraphDefinition,
   Mark,
@@ -445,15 +447,145 @@ describe('shape states, zoom and time', () => {
 })
 
 describe('shapes on a map', () => {
-  it('never picks a shape', () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { map } = fakeMap()
-    const graph = mountMapGraph(map, {
-      definition: defineGraph({ marks: zoneMarks() }) as GraphDefinition,
+  const pacific: Zone = {
+    id: 'pacific',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [170, -20],
+          [-170, -20],
+          [-170, 0],
+          [170, 0],
+          [170, -20],
+        ],
+      ],
+    },
+  }
+  const andes: Zone = {
+    id: 'andes',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [-75, -30],
+          [-65, -30],
+          [-65, -10],
+          [-75, -10],
+          [-75, -30],
+        ],
+      ],
+    },
+  }
+
+  function mountOnMap(camera: { lng: number; lat: number; zoom: number }, list: Zone[]) {
+    const fake = fakeMap()
+    Object.assign(fake.camera, camera)
+    const graph = mountMapGraph(fake.map, {
+      definition: defineGraph({
+        marks: [
+          shapes(list, { time: (zone: Zone) => zone.time ?? null }),
+          nodes(items, { x: 'x', y: 'y' }),
+        ],
+        interaction: { lasso: true },
+      }) as GraphDefinition,
       ariaLabel: 'map',
     })
+    fake.render()
     dom.flushFrames()
-    expect(graph.pick(at(-280, -120))).toBeNull()
+    return { graph, fake }
+  }
+
+  it('picks a shape that crosses the antimeridian on both sides of it, from both sides', () => {
+    for (const lng of [-179, 179]) {
+      const { graph } = mountOnMap({ lng, lat: -10, zoom: 3 }, [pacific])
+      const seen = (longitude: number, latitude: number) => {
+        const world = geoToWorld({ longitude, latitude })
+        const copy = lng < 0 && world.x > 256 ? -512 : lng > 0 && world.x < 256 ? 512 : 0
+        return graph.view.toScreen({ x: world.x + copy, y: world.y })
+      }
+      const west = seen(175, -10)
+      const east = seen(-176, -10)
+      expect(west.x).toBeLessThan(400)
+      expect(east.x).toBeGreaterThan(400)
+      expect(keyOf(graph.pick(west))).toBe('shape:pacific')
+      expect(keyOf(graph.pick(east))).toBe('shape:pacific')
+      expect(graph.pick(seen(175, 10))).toBeNull()
+      expect(graph.pick(seen(-176, 10))).toBeNull()
+      graph.destroy()
+    }
+  })
+
+  it('takes into a lasso a shape whose copy across the antimeridian is inside it', () => {
+    const { graph, fake } = mountOnMap({ lng: -179, lat: -10, zoom: 3 }, [pacific])
+    const corners = [
+      { longitude: 160, latitude: -30 },
+      { longitude: 200, latitude: -30 },
+      { longitude: 200, latitude: 10 },
+      { longitude: 160, latitude: 10 },
+    ].map((place) => {
+      const world = geoToWorld(place)
+      return graph.view.toScreen({ x: world.x - 512, y: world.y })
+    })
+    const send = (type: string, point: { x: number; y: number }) =>
+      fake.canvas.dispatchEvent(
+        new PointerEvent(type, {
+          clientX: point.x,
+          clientY: point.y,
+          button: 0,
+          pointerId: 1,
+          shiftKey: true,
+          bubbles: true,
+        }),
+      )
+    const [first, ...rest] = corners
+    if (!first) throw new Error('no corner')
+    send('pointerdown', first)
+    for (const corner of rest) send('pointermove', corner)
+    send('pointermove', first)
+    send('pointerup', { x: first.x, y: first.y + 1 })
+    dom.flushFrames()
+    expect(graph.selection.get().shapes).toEqual(['pacific'])
+    graph.destroy()
+  })
+
+  it('shows and picks a shape on a map only inside the time window', () => {
+    const { graph, fake } = mountOnMap({ lng: -70, lat: -20, zoom: 3 }, [{ ...andes, time: 10 }])
+    const center = graph.view.toScreen(geoToWorld({ longitude: -70, latitude: -20 }))
+    expect(keyOf(graph.pick(center))).toBe('shape:andes')
+    graph.time.set({ start: 0, end: 5 })
+    fake.render()
+    expect(graph.pick(center)).toBeNull()
+    expect(graph.count()).toMatchObject({ shapes: 1, shown: { shapes: 0 } })
+    graph.time.set({ start: 5, end: 20 })
+    fake.render()
+    expect(keyOf(graph.pick(center))).toBe('shape:andes')
+    graph.destroy()
+  })
+
+  it('writes both sides of a shape across the antimeridian into the SVG of a map', async () => {
+    const { graph } = mountOnMap({ lng: -179, lat: -10, zoom: 3 }, [pacific, andes])
+    const svg = await exportSvg(graph)
+    const paths = [...svg.matchAll(/<path d="([^"]+)"/g)].map((match) => match[1] ?? '')
+    const rings = paths.map((d) => d.split('M').length - 1)
+    expect(rings).toEqual([2, 1, 2, 1])
+    graph.destroy()
+  })
+
+  it('picks shapes on the globe, never on its far side', () => {
+    const { graph, fake } = mountOnMap({ lng: -70, lat: -20, zoom: 2 }, [andes, pacific])
+    fake.render(globeInput(-70, -20, 2))
+    const front = graph.view.toScreen(geoToWorld({ longitude: -70, latitude: -20 }))
+    expect(front.x).toBeCloseTo(400)
+    expect(keyOf(graph.pick(front))).toBe('shape:andes')
+    const far = graph.view.toScreen(geoToWorld({ longitude: 110, latitude: -10 }))
+    expect(keyOf(graph.pick(far))).not.toBe('shape:pacific')
+    const behind = graph.view.toScreen(geoToWorld({ longitude: 180, latitude: -10 }))
+    expect(keyOf(graph.pick(behind))).not.toBe('shape:pacific')
+    for (const longitude of [-178, 178]) {
+      fake.render(globeInput(longitude, -10, 2))
+      expect(keyOf(graph.pick({ x: 400, y: 300 }))).toBe('shape:pacific')
+    }
     graph.destroy()
   })
 })

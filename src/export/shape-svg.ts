@@ -1,5 +1,6 @@
 import { type ShapeLook, type ShapeSvgPen, shapeKinds } from '../core/shape-engine'
 import type { ShapeStore } from '../core/shape-store'
+import { withCopies } from '../shapes/wrap'
 import { num, paintAttribute } from './svg-format'
 
 export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
@@ -37,8 +38,9 @@ export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
   }
 
   function strokes(index: number): readonly [string, number][] {
-    const geometry = store.geometry[index]
-    if (!geometry) return []
+    const read = store.geometry[index]
+    if (!read) return []
+    const geometry = withCopies(read)
     if (geometry.round) {
       const path = roundPath(index)
       const round = geometry.round
