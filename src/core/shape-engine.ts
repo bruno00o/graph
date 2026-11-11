@@ -1,7 +1,12 @@
+import type { Point } from '../types'
 import type { InvalidShapeReason } from './issues'
+import type { LayerFilter } from './mark-layers'
 import type { ShapeStore } from './shape-store'
+import type { StateBuffers } from './state-buffers'
 
 export const shapeKinds = { polygon: 0, line: 1, circle: 2, rectangle: 3 } as const
+
+export const shapePicks = { none: 0, painted: 1, stroke: 2 } as const
 
 export type ShapeKind = (typeof shapeKinds)[keyof typeof shapeKinds]
 
@@ -19,9 +24,16 @@ export interface ShapeGeometryData {
   readonly invalid: InvalidShapeReason | null
 }
 
+export interface ShapeLayerInput {
+  readonly store: ShapeStore
+  readonly states: StateBuffers
+  readonly originX: number
+  readonly originY: number
+}
+
 export interface ShapeLayer {
-  sync(store: ShapeStore, originX: number, originY: number): boolean
-  draw(): void
+  sync(input: ShapeLayerInput): boolean
+  draw(layers: LayerFilter | null): void
   destroy(): void
 }
 
@@ -30,17 +42,41 @@ export interface ShapePaint {
   readonly alpha: number
 }
 
+export interface ShapeLook {
+  readonly fill: number
+  readonly stroke: number
+  readonly strokeWidth: number
+  readonly opacity: number
+}
+
 export interface ShapeSvgPen {
   readonly zoom: number
   readonly offsetX: number
   readonly offsetY: number
   paint(id: number): ShapePaint
+  look(index: number): ShapeLook | null
+  raised(index: number): boolean
+}
+
+export interface ShapePickQuery {
+  readonly x: number
+  readonly y: number
+  readonly scale: number
+  readonly tolerance: number
+  shown(index: number): boolean
+  raised(index: number): boolean
+}
+
+export interface ShapePicker {
+  pick(query: ShapePickQuery): number
+  inside(polygon: readonly Point[], shown: (index: number) => boolean): number[]
 }
 
 export interface ShapeEngine {
   read(value: unknown): ShapeGeometryData | null
   layer(gl: WebGL2RenderingContext, blocks: Readonly<Record<string, number>>): ShapeLayer
   svg(store: ShapeStore, pen: ShapeSvgPen): string
+  picker(store: ShapeStore): ShapePicker
 }
 
 const engines = new WeakMap<object, ShapeEngine>()

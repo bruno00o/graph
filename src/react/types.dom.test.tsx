@@ -5,7 +5,7 @@ import type { GraphPointerEvent, NodeTarget } from '../host/events'
 import type { Legend as LegendInstance, LegendState } from '../legend/index'
 import { edges, nodes } from '../marks'
 import { shapes } from '../shapes'
-import type { EdgeMark, GraphDefinition, NodeMark } from '../types'
+import type { EdgeMark, GraphDefinition, Key, NodeMark } from '../types'
 import {
   Graph,
   type GraphInstance,
@@ -86,7 +86,18 @@ function ShapeRefs(): JSX.Element {
   const untyped = useRef<GraphInstance | null>(null)
   return (
     <>
-      <Graph ref={typed} definition={shaped} ariaLabel="graph" />
+      <Graph
+        ref={typed}
+        definition={shaped}
+        ariaLabel="graph"
+        selection={{ shapes: ['a'] }}
+        onSelectionChange={({ selection }) => {
+          expectTypeOf(selection.shapes).toEqualTypeOf<readonly Key[]>()
+        }}
+        onClick={({ target }) => {
+          if (target?.kind === 'shape') expectTypeOf(target.key).toEqualTypeOf<Key>()
+        }}
+      />
       <Graph
         ref={untyped}
         definition={shaped}

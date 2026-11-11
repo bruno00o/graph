@@ -235,16 +235,26 @@ export class PointerInput {
   }
 
   #selectInside(polygon: readonly Point[]): void {
-    const { model, scene, positions, registry, camera, selection } = this.#source
-    const inside = nodesInside(polygon, scene.nodes, positions, this.#source.sight()).filter(
+    const { model, scene, positions, registry, camera, selection, picker } = this.#source
+    const sight = this.#source.sight()
+    const inside = nodesInside(polygon, scene.nodes, positions, sight).filter(
       (key) =>
         !registry.has('selected', 'nodes', key) &&
         camera.facing(model.node(key)?.index ?? -1) &&
         scene.nodes.shape[model.node(key)?.index ?? -1] !== containerShape,
     )
-    if (inside.length === 0) return
+    const shapes = registry.shaped
+      ? picker
+          .shapesInside(polygon, sight)
+          .filter((key) => !registry.has('selected', 'shapes', key))
+      : []
+    if (inside.length === 0 && shapes.length === 0) return
     const current = selection.base()
-    selection.ask({ ...current, nodes: [...current.nodes, ...inside] })
+    selection.ask({
+      ...current,
+      nodes: [...current.nodes, ...inside],
+      ...(registry.shaped ? { shapes: [...(current.shapes ?? []), ...shapes] } : {}),
+    })
   }
 
   cancelLasso(): boolean {
@@ -342,9 +352,10 @@ export class PointerInput {
     const hit = source.picker.pick(point)
     const drag = hit ? this.#startDrag(hit, point) : null
     const { lasso, select } = source.definition().interaction
-    const lassoing = !hit && event.shiftKey && lasso && select === 'multiple'
+    const solid = hit !== null && hit.kind !== 'shape'
+    const lassoing = !solid && event.shiftKey && lasso && select === 'multiple'
     const shown = source.lens.shown
-    const moveLens = !hit && !lassoing && shown?.follow === null && lensContains(shown, point)
+    const moveLens = !solid && !lassoing && shown?.follow === null && lensContains(shown, point)
     this.#gesture = {
       id: event.pointerId,
       touch: event.pointerType === 'touch',

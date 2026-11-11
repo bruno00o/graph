@@ -2,7 +2,7 @@ import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import type { SupportIndex } from '../core/support'
 import type { GraphDefinition, Key, SupportWalk } from '../types'
-import { kindOf, mergedKeys, noKeys, requestMemory, sameKeys, toKeys } from './element-keys'
+import { emptyKeys, kindOf, mergedKeys, requestMemory, sameKeys, toKeys } from './element-keys'
 import type { ElementKeys, Emitter, GraphSelectionEvent, GraphTarget } from './events'
 import type { GraphSelection, GraphState, GraphStates } from './graph-instance'
 import { isolated } from './isolate'
@@ -83,15 +83,21 @@ export class SelectionControl {
     if (this.#source.registry.set('selected', keys)) this.publish()
   }
 
+  clear(): void {
+    this.ask(emptyKeys(this.#source.registry.shaped))
+  }
+
   select(clicked: GraphTarget | null, modifier: boolean): void {
     const mode = this.#source.definition().interaction.select
     if (mode === false) return
     const additive = mode === 'multiple' && modifier
+    const empty = emptyKeys(this.#source.registry.shaped)
     if (!clicked) {
-      if (!additive) this.ask(noKeys)
+      if (!additive) this.ask(empty)
       return
     }
     const kind = kindOf[clicked.kind]
+    if (kind === 'shapes' && !this.#source.registry.shaped) return
     const current = this.base()
     const merged = mergedKeys(clicked)
     if (merged) {
@@ -99,15 +105,18 @@ export class SelectionControl {
       const all = merged.every((key) => chosen.has(key))
       const others = additive ? current.edges.filter((key) => !merged.includes(key)) : []
       this.ask({
+        ...empty,
         nodes: additive ? current.nodes : [],
         edges: additive && all ? others : [...others, ...merged],
+        ...(additive && current.shapes ? { shapes: current.shapes } : {}),
       })
       return
     }
-    if (!additive) this.ask({ ...noKeys, [kind]: [clicked.key] })
-    else if (current[kind].includes(clicked.key))
-      this.ask({ ...current, [kind]: current[kind].filter((key) => key !== clicked.key) })
-    else this.ask({ ...current, [kind]: [...current[kind], clicked.key] })
+    const listed = current[kind] ?? []
+    if (!additive) this.ask({ ...empty, [kind]: [clicked.key] })
+    else if (listed.includes(clicked.key))
+      this.ask({ ...current, [kind]: listed.filter((key) => key !== clicked.key) })
+    else this.ask({ ...current, [kind]: [...listed, clicked.key] })
   }
 
   publishState(name: string): void {
@@ -155,9 +164,9 @@ export class SelectionControl {
       get: () => this.#source.state().selection,
       set: (keys) => {
         checkLists(this.check, keys, 'selection.set({ $ })')
-        this.ask(toKeys(keys))
+        this.ask(toKeys(keys, this.#source.registry.shaped))
       },
-      clear: () => this.ask(noKeys),
+      clear: () => this.clear(),
     }
   }
 

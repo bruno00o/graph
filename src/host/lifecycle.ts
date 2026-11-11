@@ -11,7 +11,8 @@ import { toScreen, toWorld } from '../core/view'
 import { dev } from '../dev'
 import type { Key, Mark, Point } from '../types'
 import { loadedData } from './data-status'
-import type { ElementKeys, ElementKeysInput } from './events'
+import { emptyKeys, toKeys } from './element-keys'
+import type { ElementKeys } from './events'
 import { exposeSnapshot } from './export-source'
 import type {
   GraphCount,
@@ -30,7 +31,6 @@ interface Waiter {
   readonly reject: (reason: unknown) => void
 }
 
-const noKeys: ElementKeys = Object.freeze({ nodes: [], edges: [] })
 const idle = Object.freeze({ running: false })
 const idleLayout = Object.freeze({ running: false, progress: 0 })
 const noIssues: readonly GraphIssue[] = Object.freeze([])
@@ -49,11 +49,6 @@ const noShapeCount: GraphShapeCount = Object.freeze({
 })
 
 function nothing(): void {}
-
-function keysOf(input: ElementKeysInput | undefined): ElementKeys {
-  if (!input) return noKeys
-  return { nodes: [...(input.nodes ?? [])], edges: [...(input.edges ?? [])] }
-}
 
 export function destroyedReason(): DOMException {
   return new DOMException('graph: the graph was destroyed', 'AbortError')
@@ -123,8 +118,9 @@ export function afterDestroy<S extends string, M extends Mark>(
 ): GraphInstance<S, M> {
   const state = (): GraphState => store.state as GraphState
   const size = () => ({ width: state().width, height: state().height })
-  const has = (keys: ElementKeys | undefined, kind: 'node' | 'edge', key: Key) =>
-    (kind === 'node' ? keys?.nodes : keys?.edges)?.includes(key) ?? false
+  const has = (keys: ElementKeys | undefined, kind: 'node' | 'edge' | 'shape', key: Key) =>
+    (kind === 'node' ? keys?.nodes : kind === 'edge' ? keys?.edges : keys?.shapes)?.includes(key) ??
+    false
   const graph: GraphInstance = {
     store,
     view: {
@@ -143,7 +139,7 @@ export function afterDestroy<S extends string, M extends Mark>(
       remove: nothing,
       clear: nothing,
       has: (name, target) => has(state().states[name], target.kind, target.key),
-      get: (name) => state().states[name] ?? noKeys,
+      get: (name) => state().states[name] ?? emptyKeys(shaped()),
     },
     positions: { get: () => undefined, set: nothing, snapshot: () => new Map() },
     layout: { run: () => Promise.resolve(false), stop: nothing },
@@ -233,6 +229,7 @@ export function stillborn<S extends string, M extends Mark>(
 ): GraphInstance<S, M> {
   if (dev) console.warn('graph: the signal was aborted before the mount, nothing was mounted')
   const { definition } = options
+  const shaped = definition.marks.some((mark) => mark.type === 'shapes')
   const element = document.createElement('div')
   element.setAttribute('data-graph', '')
   element.setAttribute('role', 'img')
@@ -243,8 +240,10 @@ export function stillborn<S extends string, M extends Mark>(
     height: 0,
     hovered: null,
     focused: null,
-    selection: keysOf(options.selection),
-    states: Object.fromEntries(freeStateNames(definition.states).map((name) => [name, noKeys])),
+    selection: options.selection ? toKeys(options.selection, shaped) : emptyKeys(shaped),
+    states: Object.fromEntries(
+      freeStateNames(definition.states).map((name) => [name, emptyKeys(shaped)]),
+    ),
     positionsVersion: 0,
     layout: idleLayout,
     folded: [...(options.folded ?? options.initialFolded ?? [])],
@@ -255,7 +254,6 @@ export function stillborn<S extends string, M extends Mark>(
     hiddenLayers: [...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? [])],
     data: loadedData,
   })
-  const shaped = definition.marks.some((mark) => mark.type === 'shapes')
   const graph = afterDestroy(
     readonlyOf(store),
     element,

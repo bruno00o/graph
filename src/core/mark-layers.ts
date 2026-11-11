@@ -5,6 +5,7 @@ export const maxLayerSlots = 128
 export interface LayerFilter {
   readonly nodes: Uint8Array
   readonly edges: Uint8Array
+  readonly shapes: Uint8Array
   readonly masks: Uint32Array
   readonly serial: number
 }
@@ -27,6 +28,7 @@ export class MarkLayers {
   names: readonly string[] = []
   nodeLayers: Int32Array = new Int32Array(0)
   edgeLayers: Int32Array = new Int32Array(0)
+  shapeLayers: Int32Array = new Int32Array(0)
   edgeRanks: Uint16Array | null = null
   #filter: LayerFilter | null = null
   #hidden: string | null = ''
@@ -43,8 +45,13 @@ export class MarkLayers {
     const nodeLayers: number[] = []
     const edgeLayers: number[] = []
     const edgeBands: number[] = []
+    const shapeLayers: number[] = []
+    const shapeMarks = new Set<Mark>()
     for (const mark of marks) {
-      if (mark.type === 'shapes') continue
+      if (mark.type === 'shapes') {
+        if (shapeMarks.has(mark)) continue
+        shapeMarks.add(mark)
+      }
       const layer = layerOf(mark)
       let at = -1
       if (layer !== undefined) {
@@ -57,6 +64,10 @@ export class MarkLayers {
       }
       if (mark.type === 'nodes') {
         nodeLayers.push(at)
+        continue
+      }
+      if (mark.type === 'shapes') {
+        shapeLayers.push(at)
         continue
       }
       edgeLayers.push(at)
@@ -75,11 +86,13 @@ export class MarkLayers {
       names.length !== this.names.length ||
       names.some((name, at) => name !== this.names[at]) ||
       !sameNumbers(nodeLayers, this.nodeLayers) ||
-      !sameNumbers(edgeLayers, this.edgeLayers)
+      !sameNumbers(edgeLayers, this.edgeLayers) ||
+      !sameNumbers(shapeLayers, this.shapeLayers)
     if (reshaped) {
       this.names = Object.freeze(names)
       this.nodeLayers = Int32Array.from(nodeLayers)
       this.edgeLayers = Int32Array.from(edgeLayers)
+      this.shapeLayers = Int32Array.from(shapeLayers)
       this.#filter = null
       this.#hidden = null
     }
@@ -95,7 +108,7 @@ export class MarkLayers {
       this.#filter = null
       return null
     }
-    const masks = new Uint32Array(8)
+    const masks = new Uint32Array(12)
     const flags = (layers: Int32Array, offset: number): Uint8Array => {
       const out = new Uint8Array(layers.length)
       layers.forEach((layer, slot) => {
@@ -112,6 +125,7 @@ export class MarkLayers {
     this.#filter = {
       nodes: flags(this.nodeLayers, 0),
       edges: flags(this.edgeLayers, 4),
+      shapes: flags(this.shapeLayers, 8),
       masks,
       serial: ++this.#serial,
     }

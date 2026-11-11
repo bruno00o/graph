@@ -6,7 +6,7 @@ import type { Scene } from '../core/scene'
 import type { HideFilter, StateBuffers } from '../core/state-buffers'
 import type { SupportIndex } from '../core/support'
 import type { TimeFilter } from '../core/time-range'
-import { edgeShown, filtered, nodeShown, type Sight } from '../core/visibility'
+import { edgeShown, filtered, nodeShown, type Sight, shapeShown } from '../core/visibility'
 import { dev } from '../dev'
 import { countAlive } from './element-keys'
 import type { Emitter } from './events'
@@ -81,14 +81,17 @@ export class DataReads {
     const { model, scene, buffers } = this.#source
     const nodes = scene.nodes
     const edges = scene.edges
+    const shapes = scene.shapes
     const key: CountKey = {
       scene: sceneVersion,
-      zoom: nodes.zoom.count > 0 || edges.zoom.count > 0 ? seen.zoom : 0,
+      zoom: nodes.zoom.count > 0 || edges.zoom.count > 0 || shapes.zoom.count > 0 ? seen.zoom : 0,
       time: seen.time,
       layers: seen.layers,
       hide: seen.hide,
-      masks: seen.hide ? buffers.nodeMaskVersion + buffers.edgeMaskVersion : 0,
-      shapes: scene.shapes.version,
+      masks: seen.hide
+        ? buffers.nodeMaskVersion + buffers.edgeMaskVersion + buffers.shapeMaskVersion
+        : 0,
+      shapes: shapes.styleVersion,
     }
     const last = this.#lastCount
     if (last && this.#countKey && sameCountKey(this.#countKey, key)) return last
@@ -105,7 +108,6 @@ export class DataReads {
       }
     }
     this.#countKey = key
-    const shapes = scene.shapes
     const count: GraphCount = shapes.marked
       ? Object.freeze({
           nodes: model.nodeCount,
@@ -115,7 +117,7 @@ export class DataReads {
           shown: Object.freeze({
             nodes: shownNodes,
             edges: shownEdges,
-            shapes: shapes.drawOrder().length,
+            shapes: this.#shownShapes(seen),
           }),
         })
       : Object.freeze({
@@ -126,6 +128,15 @@ export class DataReads {
         })
     this.#lastCount = count
     return count
+  }
+
+  #shownShapes(seen: Sight): number {
+    const shapes = this.#source.scene.shapes
+    const order = shapes.drawOrder()
+    if (!filtered(shapes, seen)) return order.length
+    let shown = 0
+    for (const index of order) if (shapeShown(shapes, index, seen)) shown++
+    return shown
   }
 
   alive(sceneVersion: number): { readonly nodes: number; readonly edges: number } {

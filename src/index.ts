@@ -53,6 +53,7 @@ export type {
   GraphZoomHintEvent,
   NodeTarget,
   PositionOrigin,
+  ShapeTarget,
   ViewOrigin,
   ZoomKey,
 } from './host/events'
@@ -212,6 +213,7 @@ export type {
   ShapeMark,
   ShapeOptions,
   ShapePath,
+  ShapePick,
   ShapePoint,
   ShapeRectangle,
   ShapeRings,

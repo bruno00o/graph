@@ -6,10 +6,11 @@ import { PickIndex, type PickSource } from '../core/pick-index'
 import type { Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
+import type { ShapePicker } from '../core/shape-engine'
 import type { StateBuffers, StateKind } from '../core/state-buffers'
 import type { TimeFilter } from '../core/time-range'
 import { toWorld } from '../core/view'
-import { nodeShown, type Sight } from '../core/visibility'
+import { nodeShown, type Sight, shapeShown } from '../core/visibility'
 import type { Key, Point } from '../types'
 import type { HostCamera } from './camera'
 import type { ContainerBoxes } from './containers'
@@ -48,6 +49,7 @@ export class HostPicker {
   #paths = 0
   #at = Number.NEGATIVE_INFINITY
   #cost = 0
+  #shapes: ShapePicker | null = null
   readonly #source: PickerSource
 
   constructor(source: PickerSource) {
@@ -123,7 +125,8 @@ export class HostPicker {
         ? source.containers.pick(world.x, world.y, positions, shown)
         : -1
       const key = index >= 0 ? scene.nodes.keys[index] : undefined
-      return key === undefined ? null : this.target('node', key)
+      if (key !== undefined) return this.target('node', key)
+      return globe ? null : this.#pickShape(world, lensView.zoom, seen)
     }
     if (hit.kind === 'node') {
       const key = scene.nodes.keys[hit.index]
@@ -148,6 +151,42 @@ export class HostPicker {
     }
   }
 
+  #shapePicker(): ShapePicker | null {
+    const shapes = this.#source.scene.shapes
+    if (!shapes.any || !shapes.shown || !shapes.engine) return null
+    this.#shapes ??= shapes.engine.picker(shapes)
+    return this.#shapes
+  }
+
+  #pickShape(world: Point, scale: number, seen: Sight): GraphTarget | null {
+    const picker = this.#shapePicker()
+    if (!picker) return null
+    const { scene, buffers } = this.#source
+    const shapes = scene.shapes
+    const index = picker.pick({
+      x: world.x,
+      y: world.y,
+      scale,
+      tolerance: pickTolerance,
+      shown: (at) => shapeShown(shapes, at, seen),
+      raised: (at) => ((buffers.shapeMask[at] ?? 0) & buffers.shapeRaise) !== 0,
+    })
+    const key = index >= 0 ? shapes.keys[index] : undefined
+    return key === undefined ? null : this.target('shape', key)
+  }
+
+  shapesInside(polygon: readonly Point[], seen: Sight): Key[] {
+    const picker = this.#shapePicker()
+    if (!picker) return []
+    const shapes = this.#source.scene.shapes
+    const keys: Key[] = []
+    for (const index of picker.inside(polygon, (at) => shapeShown(shapes, at, seen))) {
+      const key = shapes.keys[index]
+      if (key !== undefined) keys.push(key)
+    }
+    return keys
+  }
+
   drawnEnds(key: Key): Endpoints | undefined {
     const { scene, model, projection } = this.#source
     const index = projection.edgeIndexOf(key)
@@ -159,10 +198,14 @@ export class HostPicker {
     return model.endpoints(key)
   }
 
-  target(kind: 'node' | 'edge', key: Key): GraphTarget | null {
+  target(kind: GraphTarget['kind'], key: Key): GraphTarget | null {
     const model = this.#source.model
     if (kind === 'node') {
       const record = model.node(key)
+      return record ? { kind, key, datum: record.datum, mark: record.mark.name } : null
+    }
+    if (kind === 'shape') {
+      const record = model.shape(key)
       return record ? { kind, key, datum: record.datum, mark: record.mark.name } : null
     }
     const record = model.edge(key)

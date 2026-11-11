@@ -89,6 +89,7 @@ export class LayerControl {
   }
 
   position(kind: StateKind, index: number): number {
+    if (kind === 'shapes') return 0
     const scene = this.#source.scene
     const slot = (kind === 'nodes' ? scene.nodes.slot[index] : scene.edges.slot[index]) ?? 0
     return this.#positions[kind].get(slot) ?? 0

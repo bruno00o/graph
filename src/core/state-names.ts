@@ -13,12 +13,12 @@ export function freeStateNames(states: Readonly<Record<string, unknown>>): strin
 }
 
 export function byKind(value: StateStyle | StateKindStyles): value is StateKindStyles {
-  return value.nodes !== undefined || value.edges !== undefined
+  return value.nodes !== undefined || value.edges !== undefined || value.shapes !== undefined
 }
 
 export function styleFor(
   value: StateStyle | StateKindStyles | undefined,
-  kind: 'nodes' | 'edges',
+  kind: 'nodes' | 'edges' | 'shapes',
 ): StateStyle | undefined {
   if (value === undefined) return undefined
   return byKind(value) ? value[kind] : value

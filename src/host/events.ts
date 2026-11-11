@@ -4,6 +4,7 @@ import type {
   AggregateEdge,
   EdgeEnd,
   EdgeMark,
+  HasShapes,
   Key,
   KeyList,
   LayerName,
@@ -13,6 +14,7 @@ import type {
   MarkName,
   NodeMark,
   Point,
+  ShapeMark,
   TimeWindow,
   View,
 } from '../types'
@@ -64,33 +66,67 @@ export interface EdgeTarget<T = unknown, N extends MarkName = MarkName> {
   readonly direction?: 'forward' | 'backward'
 }
 
+/** A shape, with `datum`, the item it comes from, of type `T`, and `mark`, the name of its mark. */
+export interface ShapeTarget<T = unknown, N extends MarkName = MarkName> {
+  /** Always `'shape'`. */
+  readonly kind: 'shape'
+  /** Key of the shape. */
+  readonly key: Key
+  /** The item the shape comes from, as given to `shapes()`. */
+  readonly datum: T
+  /** `name` of the mark of the shape, or `undefined` for a mark without one. */
+  readonly mark: N
+}
+
 /**
- * A node or an edge of the marks `M`. Narrow on `kind`, then on `mark` to get the item type of one
- * mark in `datum`. Without `M`, `datum` is `unknown`.
+ * A node, an edge or a shape of the marks `M`. Narrow on `kind`, then on `mark` to get the item type
+ * of one mark in `datum`. Without `M`, `datum` is `unknown`, and `kind` can be any of the three.
  */
 export type GraphTarget<M extends Mark = Mark> =
   M extends NodeMark<infer T, infer N, MarkLayer>
     ? NodeTarget<T, N>
     : M extends EdgeMark<infer T, infer N, MarkLayer>
       ? EdgeTarget<T, N>
-      : M extends { readonly type: 'shapes' }
-        ? never
-        : NodeTarget | EdgeTarget
+      : M extends ShapeMark<infer T, infer N, MarkLayer>
+        ? ShapeTarget<T, N>
+        : NodeTarget | EdgeTarget | ShapeTarget
 
 /** Keys of nodes and of edges. */
-export interface ElementKeys {
+export interface NodeEdgeKeys {
   /** Node keys. */
   readonly nodes: readonly Key[]
   /** Edge keys. */
   readonly edges: readonly Key[]
 }
 
-/** Keys of nodes and of edges, from any iterable. A missing list counts as empty. */
+/** Keys of the shapes of a graph with a shape mark. */
+export interface ShapeKeys {
+  /** Shape keys. */
+  readonly shapes: readonly Key[]
+}
+
+/**
+ * Keys of nodes, of edges and, when the marks `M` have a mark made by `shapes()`, of shapes. Without
+ * `M`, `shapes` is optional: it is there only when the definition has a shape mark.
+ */
+export type ElementKeys<M extends Mark = Mark> = NodeEdgeKeys &
+  (HasShapes<M> extends true
+    ? ShapeKeys
+    : [M] extends [{ readonly type: 'nodes' | 'edges' }]
+      ? unknown
+      : Partial<ShapeKeys>)
+
+/**
+ * Keys of nodes, of edges and of shapes, from any iterable. A missing list counts as empty; shape
+ * keys count only in a graph with a shape mark.
+ */
 export interface ElementKeysInput {
   /** Node keys. */
   readonly nodes?: KeyList | undefined
   /** Edge keys. */
   readonly edges?: KeyList | undefined
+  /** Shape keys. */
+  readonly shapes?: KeyList | undefined
 }
 
 /**
@@ -174,10 +210,13 @@ export interface GraphViewEvent {
   readonly origin: ViewOrigin
 }
 
-/** Payload of `selectionchange` and of the controlled `onSelectionChange` callback. */
-export interface GraphSelectionEvent {
-  /** Selected nodes and edges, in the order they joined the selection. */
-  readonly selection: ElementKeys
+/**
+ * Payload of `selectionchange` and of the controlled `onSelectionChange` callback. `M` is the union
+ * of the marks.
+ */
+export interface GraphSelectionEvent<M extends Mark = Mark> {
+  /** Selected nodes, edges and shapes, in the order they joined the selection. */
+  readonly selection: ElementKeys<M>
 }
 
 /** Payload of `timechange` and of the controlled `onTimeChange` callback. */
@@ -272,7 +311,7 @@ export interface GraphEvents<M extends Mark = Mark> {
   /** Nodes moved by a drag, by `positions.set` or by a layout run that ended. */
   readonly positionchange: GraphPositionEvent
   /** The selection changed, from the user or from code. */
-  readonly selectionchange: GraphSelectionEvent
+  readonly selectionchange: GraphSelectionEvent<M>
   /** The keyboard focus moved to another element, or left. */
   readonly focuschange: GraphFocusEvent<M>
   /** Groups were folded or unfolded, from the user or from code. */

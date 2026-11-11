@@ -9,6 +9,7 @@ import {
   type EdgeMark,
   type EdgeRouting,
   type EdgeTarget,
+  type ElementKeys,
   edges,
   type GraphCount,
   type GraphDefinition,
@@ -33,6 +34,7 @@ import {
   type ShapeGeometry,
   type ShapeIssue,
   type ShapeMark,
+  type ShapeTarget,
 } from './index'
 import { grid, rings } from './layouts'
 import { orthogonalRouting } from './routing'
@@ -258,15 +260,31 @@ describe('typed data', () => {
     const graph = mount(definition)
     expectTypeOf(graph).toExtend<GraphInstance>()
     expectTypeOf(definition).toExtend<GraphDefinition>()
-    expectTypeOf<GraphTarget>().toEqualTypeOf<NodeTarget | EdgeTarget>()
+    expectTypeOf<GraphTarget>().toEqualTypeOf<NodeTarget | EdgeTarget | ShapeTarget>()
     expectTypeOf<NodeTarget['datum']>().toBeUnknown()
-    expectTypeOf<GraphPointerEvent['target']>().toEqualTypeOf<NodeTarget | EdgeTarget | null>()
+    expectTypeOf<GraphPointerEvent['target']>().toEqualTypeOf<
+      NodeTarget | EdgeTarget | ShapeTarget | null
+    >()
     expectTypeOf<GraphDragEvent['target']>().toEqualTypeOf<NodeTarget>()
     expectTypeOf<NodeDatum<Mark>>().toBeUnknown()
+    expectTypeOf<ElementKeys['shapes']>().toEqualTypeOf<readonly Key[] | undefined>()
     const marks: Mark[] = []
-    expectTypeOf(mount(defineGraph({ marks })).pick({ x: 0, y: 0 })).toEqualTypeOf<
-      NodeTarget | EdgeTarget | null
+    const untyped = mount(defineGraph({ marks }))
+    expectTypeOf(untyped.pick({ x: 0, y: 0 })).toEqualTypeOf<
+      NodeTarget | EdgeTarget | ShapeTarget | null
     >()
+    expectTypeOf(untyped.selection.get().shapes).toEqualTypeOf<readonly Key[] | undefined>()
+    untyped.on('click', ({ target }) => {
+      if (!target) return
+      switch (target.kind) {
+        case 'node':
+        case 'edge':
+        case 'shape':
+          return
+        default:
+          expectTypeOf(target).toBeNever()
+      }
+    })
   })
 
   it('types the layer names', () => {
@@ -528,21 +546,34 @@ describe('typed data', () => {
     })
   })
 
-  it('types shape marks and keeps shapes out of targets', () => {
+  it('types shape marks, their targets and their keys', () => {
     const zoneMark = shapes(zones, { name: 'zone', geometry: 'outline', order: 'rank' })
     expectTypeOf(zoneMark).toEqualTypeOf<ShapeMark<Zone, 'zone'>>()
     const areaMark = shapes(areas, { key: 'code', fill: (area) => (area.code > 1 ? 'red' : null) })
     expectTypeOf(areaMark).toEqualTypeOf<ShapeMark<Area, undefined>>()
-    const explicit = shapes<Zone>(zones, { name: 'zone', geometry: 'outline' })
-    expectTypeOf(explicit).toEqualTypeOf<ShapeMark<Zone, string | undefined>>()
+    const explicit = shapes<Zone>(zones, { name: 'zone', geometry: 'outline', layer: 'ground' })
+    expectTypeOf(explicit).toEqualTypeOf<ShapeMark<Zone, string | undefined, string | undefined>>()
+    expectTypeOf(shapes(zones, { geometry: 'outline', layer: 'ground' })).toEqualTypeOf<
+      ShapeMark<Zone, undefined, 'ground'>
+    >()
+    shapes(zones, {
+      geometry: 'outline',
+      pick: 'stroke',
+      minZoom: 0.5,
+      maxZoom: (zone) => zone.rank,
+      time: 'rank',
+    })
+    shapes(zones, { geometry: 'outline', pick: false })
     // @ts-expect-error
     shapes(areas)
     // @ts-expect-error
     shapes(zones, { geometry: 'rank' })
     // @ts-expect-error
-    shapes(zones, { layer: 'zones' })
-    // @ts-expect-error
     shapes(zones, { strokeWidth: 'rank' })
+    // @ts-expect-error
+    shapes(zones, { geometry: 'outline', pick: 'fill' })
+    // @ts-expect-error
+    shapes(zones, { geometry: 'outline', time: 'outline' })
     const definition = defineGraph({
       marks: [zoneMark, areaMark, nodes(people), edges(links, { source: 'from', target: 'to' })],
     })
@@ -557,11 +588,76 @@ describe('typed data', () => {
     expectTypeOf(graph.issues()).toEqualTypeOf<readonly GraphIssue<Marks>[]>()
     expectTypeOf<ShapeIssue>().toExtend<GraphIssue<Marks>>()
     expectTypeOf(graph.pick({ x: 0, y: 0 })).toEqualTypeOf<
-      NodeTarget<Person, undefined> | EdgeTarget<Link, undefined> | null
+      | NodeTarget<Person, undefined>
+      | EdgeTarget<Link, undefined>
+      | ShapeTarget<Zone, 'zone'>
+      | ShapeTarget<Area, undefined>
+      | null
     >()
+    graph.on('click', ({ target }) => {
+      if (target?.kind !== 'shape') return
+      expectTypeOf(target.datum).toEqualTypeOf<Zone | Area>()
+      if (target.mark === 'zone') expectTypeOf(target.datum).toEqualTypeOf<Zone>()
+    })
+    expectTypeOf(graph.selection.get().shapes).toEqualTypeOf<readonly Key[]>()
+    expectTypeOf(graph.store.state.selection.shapes).toEqualTypeOf<readonly Key[]>()
+    expectTypeOf(graph.datumOf({ kind: 'shape', key: 'a' })).toEqualTypeOf<
+      Zone | Area | undefined
+    >()
+    expectTypeOf(graph.datumOf({ kind: 'node', key: 'a' })).toEqualTypeOf<Person | undefined>()
+    graph.on('selectionchange', ({ selection }) => {
+      expectTypeOf(selection.shapes).toEqualTypeOf<readonly Key[]>()
+    })
+    graph.selection.set({ shapes: ['a'] })
+    // @ts-expect-error
+    graph.selection.set({ shapes: 'a' })
     graph.view.fit({ shapes: ['a'], nodes: ['b'] })
     // @ts-expect-error
     graph.view.fit({ shapes: 'a' })
+    const layered = mount(
+      defineGraph({
+        marks: [shapes(zones, { geometry: 'outline', layer: 'ground' }), nodes(people)],
+        states: { lit: { stroke: 'red' } },
+      }),
+    )
+    layered.layers.hide(['ground'])
+    // @ts-expect-error
+    layered.layers.hide(['sky'])
+    expectTypeOf(layered.states.get('lit').shapes).toEqualTypeOf<readonly Key[]>()
+    expectTypeOf(layered.states.has('lit', { kind: 'shape', key: 'a' })).toBeBoolean()
+  })
+
+  it('keeps the targets, the selection and the events of graphs without shapes as they were', () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes(people), edges(links, { source: 'from', target: 'to' })],
+        states: { lit: { stroke: 'red' } },
+      }),
+    )
+    type Keys = { readonly nodes: readonly Key[]; readonly edges: readonly Key[] }
+    expectTypeOf(graph.selection.get()).toEqualTypeOf<Keys>()
+    expectTypeOf(graph.store.state.selection).toEqualTypeOf<Keys>()
+    expectTypeOf(graph.store.state.states.lit).toEqualTypeOf<Keys>()
+    expectTypeOf(graph.states.get('lit')).toEqualTypeOf<Keys>()
+    expectTypeOf(graph.pick({ x: 0, y: 0 })).toEqualTypeOf<
+      NodeTarget<Person, undefined> | EdgeTarget<Link, undefined> | null
+    >()
+    graph.on('selectionchange', ({ selection }) => {
+      expectTypeOf(selection).toEqualTypeOf<Keys>()
+    })
+    graph.on('click', ({ target }) => {
+      if (!target) return
+      switch (target.kind) {
+        case 'node':
+          expectTypeOf(target.datum).toEqualTypeOf<Person>()
+          return
+        case 'edge':
+          expectTypeOf(target.datum).toEqualTypeOf<Link>()
+          return
+        default:
+          expectTypeOf(target).toBeNever()
+      }
+    })
   })
 
   it('keeps the counts and the issues of graphs without shapes as they were', () => {

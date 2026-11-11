@@ -1010,12 +1010,26 @@ export type ShapeGeometry =
   | MultiLineStringGeometry
 
 /**
- * Options of `shapes()`. Shapes draw under containers, hulls, edges and nodes, in world units, and
- * their lines in screen pixels. `N` is the type of `name`.
+ * What of a shape takes the pointer: `'painted'`, its inside when it is filled and its outline when
+ * it is stroked; `'stroke'`, its outline only; `false`, nothing, the pointer goes through.
  */
-export interface ShapeOptions<T, N extends MarkName = MarkName> {
-  /** Name of the mark. */
+export type ShapePick = 'painted' | 'stroke' | false
+
+/**
+ * Options of `shapes()`. Shapes draw under containers, hulls, edges and nodes, in world units, and
+ * their lines in screen pixels. `N` is the type of `name` and `L` that of `layer`.
+ */
+export interface ShapeOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer> {
+  /**
+   * Name of the mark, reported as `mark` by the targets of its shapes. Compare it in event handlers
+   * to tell marks apart and narrow `datum` to the items of one mark.
+   */
   readonly name?: N | undefined
+  /**
+   * Layer the shapes belong to, shared with the marks that name the same layer: hiding the layer
+   * hides them. Defaults to no layer.
+   */
+  readonly layer?: L | undefined
   /**
    * Shape key, unique across shape marks. Required for an iterable whose items have no `id` field.
    * A live source keys its items by the `key` of its changes and takes no `key` option.
@@ -1059,23 +1073,47 @@ export interface ShapeOptions<T, N extends MarkName = MarkName> {
    * without a value, or with the same value, draw in the order they arrived.
    */
   readonly order?: Channel<T, number> | undefined
+  /**
+   * Zoom at and below which the shape is hidden, in screen pixels per world unit, as in `View`.
+   * Above it, the shape fades in over a quarter of a zoom doubling. A hidden shape is neither
+   * picked, selected by the lasso, exported nor counted as shown. Defaults to no limit.
+   */
+  readonly minZoom?: Style<T, number | null> | undefined
+  /**
+   * Zoom at and above which the shape is hidden, in screen pixels per world unit. Below it, the
+   * shape fades out over a quarter of a zoom halving. Defaults to no limit.
+   */
+  readonly maxZoom?: Style<T, number | null> | undefined
+  /**
+   * When the shape exists: a moment, or a period with optional open ends, in milliseconds or as
+   * `Date`. With a time window set, the shape shows only while it exists in the window. `null` or
+   * no value: the shape always exists.
+   */
+  readonly time?: Channel<T, TimeValue> | undefined
+  /**
+   * What takes the pointer: `'painted'`, the inside of a filled shape and the outline of a stroked
+   * one; `'stroke'`, the outline only; `false`, nothing, for a shape that only decorates. A shape
+   * that takes the pointer is hovered, clicked and selected; nodes and edges always come first.
+   * @default 'painted'
+   */
+  readonly pick?: ShapePick | undefined
 }
 
 /**
  * A mark that draws one shape per item of its data, under the nodes and the edges. `N` is the type
- * of its `name`.
+ * of its `name` and `L` that of its `layer`, `undefined` for a mark outside any layer.
  */
 export interface ShapeMark<T, N extends MarkName = MarkName, L extends MarkLayer = undefined>
   extends Mark {
   readonly type: 'shapes'
   /** Name given in the options, or `undefined`. */
   readonly name: N
-  /** Always `undefined`: shapes join no layer yet. */
+  /** Layer given in the options, or `undefined`. */
   readonly layer: L
   /** Items of the mark. */
   readonly data: GraphData<T>
   /** Options given to `shapes()`. */
-  readonly options: ShapeOptions<T, N>
+  readonly options: ShapeOptions<T, N, L>
 }
 
 /** `true` when the marks `M`, a union of marks, include a mark made by `shapes()`. */
@@ -1210,11 +1248,14 @@ export interface EdgeScalesOptions {
 export interface StateLook {
   /** Multiplies the opacity of the element. */
   readonly opacity?: number | undefined
-  /** Fill color of a node. */
+  /** Fill color of a node or of a shape. */
   readonly fill?: string | undefined
-  /** Inner contour color of a node, line color of an edge. */
+  /** Inner contour color of a node, line color of an edge, outline color of a shape. */
   readonly stroke?: string | undefined
-  /** Inner contour width of a node, line width of an edge, in screen pixels. */
+  /**
+   * Inner contour width of a node, line width of an edge, outline width of a shape, in screen
+   * pixels.
+   */
   readonly strokeWidth?: number | undefined
   /** Color of a ring outside a node, 2 pixels wide without `outlineWidth`. Nodes only. */
   readonly outline?: string | undefined
@@ -1246,37 +1287,42 @@ export interface StateLook {
 }
 
 /**
- * Style of a state, for its nodes and its edges. A property left out keeps the value of the
- * element, or of the next state that sets it.
+ * Style of a state, for its nodes, its edges and its shapes. A property left out keeps the value
+ * of the element, or of the next state that sets it.
  */
 export interface StateStyle extends StateLook {
   /**
    * Draws the members again above every mark, as selected and hovered elements are, and places
-   * their labels before the others. An element is raised when any of its states raises it. Defaults
-   * to `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
+   * their labels before the others; a raised shape draws above the other shapes only, still under
+   * the nodes and the edges. An element is raised when any of its states raises it. Defaults to
+   * `true` for `selected`, `hovered` and `focused`, and to `false` for free states.
    */
   readonly raise?: boolean | undefined
   /**
    * Look of the elements outside the state, while it has at least one member of any kind: a state
-   * of edges can dim the nodes too. It takes the rank of the state in the priority order. In a
-   * style by kind, it applies to that kind only.
+   * of edges can dim the nodes and the shapes too. It takes the rank of the state in the priority
+   * order. In a style by kind, it applies to that kind only.
    */
   readonly others?: StateLook | undefined
-  /** Leave out: a style for both kinds sets no style by kind. */
+  /** Leave out: a style for every kind sets no style by kind. */
   readonly nodes?: undefined
-  /** Leave out: a style for both kinds sets no style by kind. */
+  /** Leave out: a style for every kind sets no style by kind. */
   readonly edges?: undefined
+  /** Leave out: a style for every kind sets no style by kind. */
+  readonly shapes?: undefined
 }
 
 /**
- * Style of a state by kind of element: one for its nodes, one for its edges. A kind left out takes
- * no style, or the default one for `selected`, `hovered` and `focused`.
+ * Style of a state by kind of element: one for its nodes, one for its edges, one for its shapes. A
+ * kind left out takes no style, or the default one for `selected`, `hovered` and `focused`.
  */
 export interface StateKindStyles {
   /** Style of the nodes, and with `others` of the nodes outside the state. */
   readonly nodes?: StateStyle | undefined
   /** Style of the edges, and with `others` of the edges outside the state. */
   readonly edges?: StateStyle | undefined
+  /** Style of the shapes, and with `others` of the shapes outside the state. */
+  readonly shapes?: StateStyle | undefined
 }
 
 /** How clicks select: one element, several with a modifier key, or nothing. */

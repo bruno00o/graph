@@ -79,7 +79,7 @@ const badgeStride = 20
 const lensRing = 1.5
 const lensShadow = 10
 const lensMargin = 2
-const statesBlockSize = stateRows * 48 + 32
+const statesBlockSize = stateRows * 48 + 48
 
 const units = {
   palette: 0,
@@ -1295,7 +1295,7 @@ function createRenderer(
       new Float32Array(statesBlock, 0, rows).set(states.numbers)
       new Uint32Array(statesBlock, rows * 4, rows).set(states.paint)
       new Uint32Array(statesBlock, rows * 8, rows).set(states.labels)
-      new Uint32Array(statesBlock, rows * 12, 8).set([
+      new Uint32Array(statesBlock, rows * 12, 12).set([
         states.nodeRaise,
         states.edgeRaise,
         states.nodeHide,
@@ -1304,6 +1304,10 @@ function createRenderer(
         states.others('edges'),
         states.othersHidden('nodes'),
         states.othersHidden('edges'),
+        states.shapeRaise,
+        states.shapeHide,
+        states.others('shapes'),
+        states.othersHidden('shapes'),
       ])
       gl.bindBuffer(gl.UNIFORM_BUFFER, statesBuffer)
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, statesBlock)
@@ -1585,7 +1589,7 @@ function createRenderer(
     frameBlock[63] = globe?.depth ?? 1
     frameBlock[64] = globe?.scale ?? view.zoom
     frameBlock[65] = globe ? Math.min(arcSpan(globe), 3e38) : 3e38
-    if (layerFilter) frameWords.set(layerFilter.masks, 68)
+    if (layerFilter) frameWords.set(layerFilter.masks.subarray(0, 8), 68)
     else frameWords.fill(0, 68, 76)
     gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
@@ -1654,7 +1658,7 @@ function createRenderer(
     bridgeShown = bridgeRadiusAt(bridgeRadius * 2, frame.view.zoom)
     const jumping = bridgeSet !== null && bridgeShown > 0
     backdrop.drawGrid(frame)
-    shapeLayer?.draw()
+    shapeLayer?.draw(layerFilter)
     draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
     backdrop.drawHulls()
     for (const layer of input?.scene.layers ?? []) {
@@ -1859,7 +1863,7 @@ function createRenderer(
       if (!shared && !shapeLayer && shapes.any && shapes.engine) {
         shapeLayer = shapes.engine.layer(gl, blocks)
       }
-      if (shapeLayer?.sync(shapes, originX, originY)) touch()
+      if (shapeLayer?.sync({ store: shapes, states: next.states, originX, originY })) touch()
       const changed = next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full
       if (changed) invalidateLabels()
       if (next.positionsChanged) moveLabels()

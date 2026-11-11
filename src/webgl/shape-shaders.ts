@@ -1,6 +1,12 @@
-import { header } from './shaders'
+import { header, spanData } from './shaders'
 
 export const shapeStyleUnit = 21
+export const shapeStateUnit = 22
+export const shapeZoomUnit = 23
+export const shapeTimeUnit = 24
+export const shapeRanged = 1
+export const shapeTimed = 2
+export const shapeAlive = 0x1000000
 export const shapeSkip = 0x80000000
 export const shapePolygon = 0x40000000
 export const shapeRect = 0x40000000
@@ -8,14 +14,42 @@ export const shapeIndexMask = 0x3fffffff
 
 const shapeCommon = `
 uniform usampler2D shapeStyle;
+uniform usampler2D shapeState;
+uniform sampler2D shapeZoom;
+uniform sampler2D shapeTime;
+uniform uint shapeFlags;
+uniform uvec4 hiddenShapes;
+uniform int shapePass;
 const uint shapeIndexMask = ${shapeIndexMask}u;
-uvec4 shapeLook(uint index) { return texelFetch(shapeStyle, texel(index), 0); }
-float shapeOpacity(uvec4 look) { return float((look.w >> 8u) & 255u) / 255.0; }
+${spanData}
+struct ShapeLook { vec4 fill; vec4 stroke; float halfWidth; uint dash; };
 vec4 shapePaint(uint id, float opacity) {
   if (id == none) return vec4(0.0);
   vec4 color = paletteColor(id);
   float alpha = color.a * opacity;
   return vec4(color.rgb * alpha, alpha);
+}
+ShapeLook shapeLook(uint index) {
+  ivec2 t = texel(index);
+  uvec4 style = texelFetch(shapeStyle, t, 0);
+  ShapeLook result = ShapeLook(vec4(0.0), vec4(0.0), 0.0, style.w & 3u);
+  if ((style.w & ${shapeAlive}u) == 0u) return result;
+  uint mask = texelFetch(shapeState, t, 0).r;
+  if (((mask & stateShapes.x) != 0u) != (shapePass == 1)) return result;
+  if ((mask & stateShapes.y) != 0u || (~mask & stateShapes.w) != 0u) return result;
+  if (anyHidden(hiddenShapes) && slotHidden(hiddenShapes, (style.w >> 16u) & 255u)) return result;
+  float shown = (shapeFlags & ${shapeRanged}u) != 0u ? zoomShown(texelFetch(shapeZoom, t, 0).xy) : 1.0;
+  if (timed > 0.5 && (shapeFlags & ${shapeTimed}u) != 0u && shown > 0.0) {
+    shown *= timeShown(texelFetch(shapeTime, t, 0));
+  }
+  if (shown <= 0.0) return result;
+  float opacity = float((style.w >> 8u) & 255u) / 255.0;
+  Look look = resolve(mask, Look(opacity, uintBitsToFloat(style.z), 0.0, 0.0, style.x, style.y, none, 0.0, none), 128);
+  float alpha = look.opacity * shown;
+  result.halfWidth = max(look.strokeWidth, 0.0) * 0.5;
+  result.fill = shapePaint(look.fill, alpha);
+  result.stroke = result.halfWidth > 0.0 ? shapePaint(look.stroke, alpha) : vec4(0.0);
+  return result;
 }
 `
 
@@ -40,8 +74,7 @@ layout(location = 0) in vec2 shapePosition;
 layout(location = 1) in uint shapeWord;
 flat out vec4 vColor;
 void main() {
-  uvec4 look = shapeLook(shapeWord & shapeIndexMask);
-  vColor = shapePaint(look.x, shapeOpacity(look));
+  vColor = shapeLook(shapeWord & shapeIndexMask).fill;
   gl_Position = vColor.a > 0.0 ? toClip(toScreen(shapePosition)) : hidden;
 }
 `
@@ -89,11 +122,10 @@ void main() {
   gl_Position = hidden;
   if ((shapeWord & ${shapeSkip}u) != 0u) return;
   bool polygon = (shapeWord & ${shapePolygon}u) != 0u;
-  uvec4 look = shapeLook(shapeWord & shapeIndexMask);
-  float opacity = shapeOpacity(look);
-  float halfWidth = uintBitsToFloat(look.z) * 0.5;
-  vStroke = halfWidth > 0.0 ? shapePaint(look.y, opacity) : vec4(0.0);
-  vFill = polygon ? shapePaint(look.x, opacity) : vec4(0.0);
+  ShapeLook look = shapeLook(shapeWord & shapeIndexMask);
+  float halfWidth = look.halfWidth;
+  vStroke = look.stroke;
+  vFill = polygon ? look.fill : vec4(0.0);
   if (vStroke.a <= 0.0 && vFill.a <= 0.0) return;
   vec2 a = toScreen(shapeFrom.xy);
   vec2 b = toScreen(shapeTo.xy);
@@ -118,7 +150,7 @@ void main() {
   vLocal = vec2(dot(corner - a, dir), dot(corner - a, n));
   float scale = scaleAt(shapeFrom.xy);
   vLine = vec4(size, halfWidth, shapeFrom.z * scale, shapeFrom.w * scale);
-  vFlags = (look.w & 3u) | (capA ? 4u : 0u) | (capB ? 8u : 0u);
+  vFlags = look.dash | (capA ? 4u : 0u) | (capB ? 8u : 0u);
   gl_Position = toClip(corner);
 }
 `
@@ -158,16 +190,15 @@ flat out vec4 vStroke;
 flat out vec4 vFill;
 flat out vec2 vShape;
 void main() {
-  uvec4 look = shapeLook(shapeWord & shapeIndexMask);
-  float opacity = shapeOpacity(look);
-  float halfWidth = uintBitsToFloat(look.z) * 0.5;
-  vStroke = halfWidth > 0.0 ? shapePaint(look.y, opacity) : vec4(0.0);
-  vFill = shapePaint(look.x, opacity);
+  ShapeLook look = shapeLook(shapeWord & shapeIndexMask);
+  float halfWidth = look.halfWidth;
+  vStroke = look.stroke;
+  vFill = look.fill;
   float scale = scaleAt(shapeBox.xy);
   vec2 reach = shapeBox.zw * scale;
   vRound = vec4(reach, shapeExtra * scale);
   bool rect = (shapeWord & ${shapeRect}u) != 0u;
-  vShape = vec2(halfWidth, float((look.w & 3u) | (rect ? 4u : 0u)));
+  vShape = vec2(halfWidth, float(look.dash | (rect ? 4u : 0u)));
   vec2 corner = vec2(gl_VertexID % 2 == 1 ? 1.0 : -1.0, gl_VertexID < 2 ? -1.0 : 1.0);
   vLocal = corner * (reach + halfWidth + 1.5);
   vec2 center = toScreen(shapeBox.xy);

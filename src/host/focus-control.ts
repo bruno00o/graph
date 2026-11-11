@@ -142,7 +142,10 @@ export class FocusControl {
     if (!this.#source.definition().interaction.keyboard || !this.#focusVisible()) return
     this.#source.prepare()
     const remembered = this.remembered
-    const restored = remembered ? this.#source.target(remembered.kind, remembered.key) : null
+    const restored =
+      remembered && remembered.kind !== 'shape'
+        ? this.#source.target(remembered.kind, remembered.key)
+        : null
     this.remembered = null
     if (restored) this.set(restored, 'user')
     else if (!this.#source.state().focused) this.setRing(focusOutline)

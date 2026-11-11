@@ -24,7 +24,13 @@ import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { ShapeStore } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
-import { edgeHalfHidden, edgeOpacity, nodeOpacity, type Sight } from '../core/visibility'
+import {
+  edgeHalfHidden,
+  edgeOpacity,
+  nodeOpacity,
+  type Sight,
+  shapeOpacity,
+} from '../core/visibility'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { ContainerFrame, GridInput, LabelMode } from '../host/renderer'
 import type { EdgeEnd } from '../types'
@@ -48,7 +54,7 @@ import {
 } from '../webgl/shaders'
 import { type ExportFrame, frameSight, screenExtent, screenRadius } from './frame'
 import { placementDirections, selectLabels } from './labels'
-import { type EdgeLine, edgeLine, edgeLook, type Look, nodeLook } from './look'
+import { type EdgeLine, edgeLine, edgeLook, type Look, nodeLook, shapeLook } from './look'
 import { fine, num, paintAttribute } from './svg-format'
 
 export interface SvgScene {
@@ -1236,8 +1242,31 @@ export function writeSvg(scene: SvgScene): string {
 
   if (scene.grid) drawGrid(scene.grid)
   const shapes = scene.shapes
-  if (shapes?.any && shapes.engine)
-    body.push(shapes.engine.svg(shapes, { zoom, offsetX, offsetY, paint }))
+  if (shapes?.any && shapes.engine) {
+    const shapeLookAt = (index: number) => {
+      const fade = shapeOpacity(shapes, index, sight)
+      if (fade <= 0) return null
+      const look = shapeLook(shapes, states, index)
+      return {
+        fill: look.fill,
+        stroke: look.stroke,
+        strokeWidth: look.strokeWidth,
+        opacity: look.opacity * fade,
+      }
+    }
+    const shapeRaised = (index: number) =>
+      ((states.shapeMask[index] ?? 0) & states.shapeRaise) !== 0
+    body.push(
+      shapes.engine.svg(shapes, {
+        zoom,
+        offsetX,
+        offsetY,
+        paint,
+        look: shapeLookAt,
+        raised: shapeRaised,
+      }),
+    )
+  }
   const containers = scene.containers
   if (containers) {
     for (let slot = 0; slot < containers.count; slot++) {

@@ -1,6 +1,5 @@
 import { panBy, toScreen, zoomAround } from '../core/view'
 import type { GraphDefinition } from '../types'
-import { noKeys } from './element-keys'
 import type { FocusControl } from './focus-control'
 import { keyDuration } from './focus-control'
 import type { FoldControl } from './folding'
@@ -84,8 +83,9 @@ export class KeyboardInput {
       case 'escape': {
         if (this.#source.cancelLasso()) return true
         const current = selection.base()
-        if (interaction.select !== false && current.nodes.length + current.edges.length > 0) {
-          selection.ask(noKeys)
+        const count = current.nodes.length + current.edges.length + (current.shapes?.length ?? 0)
+        if (interaction.select !== false && count > 0) {
+          selection.clear()
           return true
         }
         if (!focused) return false

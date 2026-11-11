@@ -102,7 +102,7 @@ export const ringWidth = 2
 
 export type BuiltInStyles = Readonly<Record<BuiltInState, StateStyle>>
 
-export const builtInStyles: Readonly<Record<'nodes' | 'edges', BuiltInStyles>> = {
+export const builtInStyles: Readonly<Record<'nodes' | 'edges' | 'shapes', BuiltInStyles>> = {
   nodes: {
     selected: {
       stroke: themeColor('accent'),
@@ -118,5 +118,10 @@ export const builtInStyles: Readonly<Record<'nodes' | 'edges', BuiltInStyles>> =
     selected: { stroke: themeColor('accent'), halo: true, raise: true },
     hovered: { stroke: themeColor('ink'), raise: true },
     focused: { stroke: themeColor('focus-ring'), raise: true },
+  },
+  shapes: {
+    selected: { stroke: themeColor('accent'), strokeWidth: ringWidth, raise: true },
+    hovered: { stroke: themeColor('ink'), raise: true },
+    focused: {},
   },
 }

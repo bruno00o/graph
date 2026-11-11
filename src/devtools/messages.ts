@@ -168,6 +168,8 @@ export interface GraphDevtoolsMessages {
   readonly focused: string
   /** Formats an element, such as `'node a'`. */
   readonly target: (kind: 'node' | 'edge', key: Key) => string
+  /** Formats a shape, such as `'shape a'`. */
+  readonly shapeTarget: (key: Key) => string
   /**
    * Title of the section of the free states.
    * @default 'Named states'
@@ -319,6 +321,7 @@ export const defaultMessages: GraphDevtoolsMessages = {
   hovered: 'Hovered',
   focused: 'Focused',
   target: (kind, key) => `${kind} ${String(key)}`,
+  shapeTarget: (key) => `shape ${String(key)}`,
   states: 'Named states',
   noStates: 'No named state',
   layout: 'Layout',
