@@ -1,6 +1,12 @@
 /** Key of a node or an edge: a string or a number, unique within each kind of element. */
 export type Key = string | number
 
+/**
+ * A list of keys or names: an array, a `Set`, `Map#keys()`, a generator or any other iterable
+ * object. A single string is refused, since it would iterate over its characters.
+ */
+export type KeyList<K extends Key = Key> = Iterable<K> & object
+
 /** A point, in screen pixels or in world units depending on where it is used. */
 export interface Point {
   /** Horizontal coordinate, growing to the right. */
@@ -1766,7 +1772,7 @@ export interface HullStyle<C> {
 /** Options of `hull()` around a list of keys. Keys of missing nodes are skipped. */
 export interface HullKeysOptions extends HullStyle<string> {
   /** Keys of the nodes to enclose. */
-  readonly nodes: Iterable<Key>
+  readonly nodes: KeyList
 }
 
 /** Options of `hull()` around the nodes in a state, updated when the state changes. */

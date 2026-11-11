@@ -16,6 +16,8 @@ import {
   type GraphPointerEvent,
   type GraphState,
   type GraphTarget,
+  type Key,
+  type KeyList,
   type LayerName,
   type Mark,
   mountGraph,
@@ -314,6 +316,114 @@ describe('typed data', () => {
     nodes<Person>(people, { layer: 2 })
     expect(named.name).toBe('routes')
     expect(named.layer).toBe('flights')
+  })
+
+  it('refuses a bare string where a list of keys is expected', () => {
+    const graph: GraphInstance = mount(defineGraph({ marks: [nodes(people)] }))
+    const keys: Iterable<Key> = ['a']
+    const names: readonly string[] = ['a']
+    const generated = function* () {
+      yield 'a'
+    }
+    for (const list of [
+      ['a', 1],
+      names,
+      ['a', 'b'] as const,
+      ['a', 1] as [string, number],
+      new Set<Key>(['a']),
+      new Map<Key, number>([['a', 1]]).keys(),
+      generated(),
+      keys,
+    ]) {
+      graph.groups.fold(list)
+      graph.groups.unfold(list)
+      graph.groups.set(list)
+      graph.selection.set({ nodes: list, edges: list })
+      graph.view.fit({ nodes: list, edges: list })
+    }
+    graph.layers.hide(names)
+    graph.layers.show(new Set(['a']))
+    graph.layers.set(generated())
+    expectTypeOf<KeyList>().toEqualTypeOf<Iterable<Key> & object>()
+    expectTypeOf<KeyList<'a'>>().toExtend<KeyList>()
+    expectTypeOf<string>().not.toExtend<KeyList>()
+    expectTypeOf<string[]>().toExtend<KeyList<string>>()
+    const refused = (key: string) => {
+      // @ts-expect-error
+      graph.groups.fold(key)
+      // @ts-expect-error
+      graph.groups.unfold('a')
+      // @ts-expect-error
+      graph.groups.set('a')
+      // @ts-expect-error
+      graph.layers.hide('a')
+      // @ts-expect-error
+      graph.layers.show('a')
+      // @ts-expect-error
+      graph.layers.set('a')
+      // @ts-expect-error
+      graph.selection.set({ nodes: 'a' })
+      // @ts-expect-error
+      graph.view.fit({ edges: 'a' })
+      // @ts-expect-error
+      graph.layout.run(undefined, { keys: 'a' })
+      // @ts-expect-error
+      graph.layout.run(undefined, { fit: { nodes: 'a' } })
+      // @ts-expect-error
+      graph.anchors.set(document.createElement('div'), { nodes: 'a' })
+      // @ts-expect-error
+      graph.groups.fold(Math.random() > 0.5 ? 'a' : ['a'])
+      const definition: GraphDefinition = defineGraph({ marks: [nodes(people)] })
+      const options = { definition, ariaLabel: 'graph' }
+      // @ts-expect-error
+      mountGraph(document.createElement('div'), { ...options, initialFolded: 'a' })
+      // @ts-expect-error
+      mountGraph(document.createElement('div'), { ...options, folded: 'a' })
+      // @ts-expect-error
+      mountGraph(document.createElement('div'), { ...options, initialHiddenLayers: 'a' })
+      // @ts-expect-error
+      mountGraph(document.createElement('div'), { ...options, hiddenLayers: 'a' })
+      // @ts-expect-error
+      mountGraph(document.createElement('div'), { ...options, selection: { nodes: 'a' } })
+      // @ts-expect-error
+      graph.update({ folded: 'a' })
+    }
+    expect(refused).toBeTypeOf('function')
+  })
+
+  it('keeps layer and state names on lists of keys', () => {
+    const definition = defineGraph({
+      marks: [
+        nodes(people, { layer: 'people' }),
+        edges(links, { source: 'from', target: 'to', layer: 'links' }),
+      ],
+      states: { near: {} },
+    })
+    const graph = mount(definition)
+    graph.layers.hide(['people'])
+    graph.layers.set(new Set(['links'] as const))
+    graph.states.set('near', { nodes: new Set(['a']), edges: ['b'] })
+    const options = { definition, ariaLabel: 'graph' }
+    const refused = () => {
+      // @ts-expect-error
+      graph.layers.hide(['other'])
+      // @ts-expect-error
+      graph.layers.hide('people')
+      // @ts-expect-error
+      graph.states.set('near', { nodes: 'a' })
+      // @ts-expect-error
+      graph.states.add('far', { nodes: ['a'] })
+      // @ts-expect-error
+      mountGraph(document.createElement('div'), { ...options, initialHiddenLayers: ['other'] })
+    }
+    const other = mountGraph(document.createElement('div'), {
+      ...options,
+      initialHiddenLayers: ['links'],
+      initialFolded: new Set<Key>(),
+    })
+    mounted.push(other)
+    expectTypeOf(other.layers.hidden()).toEqualTypeOf<readonly ('people' | 'links')[]>()
+    expect(refused).toBeTypeOf('function')
   })
 
   it('refuses a definition with other data types on update', () => {

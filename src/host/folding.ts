@@ -1,6 +1,7 @@
 import { containerShape } from '../core/columns'
 import type { GraphChanges, GraphModel } from '../core/graph-model'
 import { groupingOf, groupKey } from '../core/group-index'
+import { type StringCheck, stringCheck } from '../core/key-list'
 import { goldenAngle, type Positions, placementSpacing } from '../core/positions'
 import type { Projection, ProjectionChanges } from '../core/projection'
 import type { Scene } from '../core/scene'
@@ -33,6 +34,7 @@ export class FoldControl {
   readonly #origins = new Map<number, readonly [number, number]>()
   #listener: ((event: GraphFoldEvent) => void) | undefined
   readonly #source: FoldSource
+  readonly check: StringCheck = stringCheck()
 
   constructor(source: FoldSource, listener: ((event: GraphFoldEvent) => void) | undefined) {
     this.#source = source
@@ -226,16 +228,21 @@ export class FoldControl {
       folded: () => this.#source.state().folded,
       isFolded: (key) => projection.folded.has(key),
       fold: (keys) => {
+        this.check(keys, 'groups.fold')
         prepare()
         this.ask([...this.base(), ...(keys ?? this.#all())])
       },
       unfold: (keys) => {
+        this.check(keys, 'groups.unfold')
         if (!keys) return this.ask([])
         const removed = new Set(keys)
         this.ask(this.base().filter((key) => !removed.has(key)))
       },
       toggle: (key) => this.toggle(key),
-      set: (keys) => this.ask(keys),
+      set: (keys) => {
+        this.check(keys, 'groups.set')
+        this.ask(keys)
+      },
       parent: (key) => {
         prepare()
         const index = model.node(key)?.index ?? -1

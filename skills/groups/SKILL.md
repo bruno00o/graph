@@ -280,7 +280,7 @@ These take an iterable of keys. A string is an iterable of characters, so `graph
 
 Wrong:
 
-```ts
+```ts expect-error=TS2345
 import type { GraphInstance } from '@bruno00o/graph'
 
 export const wrong = (graph: GraphInstance) => graph.groups.fold('sector-a')

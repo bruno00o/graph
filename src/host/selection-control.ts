@@ -1,3 +1,4 @@
+import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import type { SupportIndex } from '../core/support'
 import type { GraphDefinition, Key, SupportWalk } from '../types'
@@ -24,6 +25,7 @@ export class SelectionControl {
   #listener: ((event: GraphSelectionEvent) => void) | undefined
   #lit: readonly string[] = []
   readonly #source: SelectionSource
+  readonly check: StringCheck = stringCheck()
 
   constructor(
     source: SelectionSource,
@@ -151,7 +153,10 @@ export class SelectionControl {
   selectionApi(): GraphSelection {
     return {
       get: () => this.#source.state().selection,
-      set: (keys) => this.ask(toKeys(keys)),
+      set: (keys) => {
+        checkLists(this.check, keys, 'selection.set({ $ })')
+        this.ask(toKeys(keys))
+      },
       clear: () => this.ask(noKeys),
     }
   }
@@ -160,12 +165,15 @@ export class SelectionControl {
     const { registry } = this.#source
     return {
       set: (name, keys) => {
+        checkLists(this.check, keys, 'states.set(name, { $ })')
         if (registry.set(this.#declared(name), keys)) this.publishState(name)
       },
       add: (name, keys) => {
+        checkLists(this.check, keys, 'states.add(name, { $ })')
         if (registry.add(this.#declared(name), keys)) this.publishState(name)
       },
       remove: (name, keys) => {
+        checkLists(this.check, keys, 'states.remove(name, { $ })')
         if (registry.remove(this.#declared(name), keys)) this.publishState(name)
       },
       clear: (name) => {

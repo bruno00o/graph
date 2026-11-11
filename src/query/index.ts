@@ -7,8 +7,16 @@ import {
 } from '@tanstack/query-core'
 import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { toAccessor } from '../core/accessor'
+import { stringCheck } from '../core/key-list'
 import { readonlyOf } from '../host/readonly-store'
-import type { Key, KeyChannel, LiveSource, SourceChange, SourceSubscription } from '../types'
+import type {
+  Key,
+  KeyChannel,
+  KeyList,
+  LiveSource,
+  SourceChange,
+  SourceSubscription,
+} from '../types'
 
 /** Data of a neighborhood query: the nodes and edges around the expanded node. */
 export interface ExplorationData<TNode, TEdge> {
@@ -27,7 +35,7 @@ export interface ExplorationOptions<
   TQueryKey extends QueryKey = QueryKey,
 > {
   /** Nodes expanded at once and never removed. */
-  readonly roots: Iterable<Key>
+  readonly roots: KeyList
   /**
    * Query options for the neighborhood of a node, whose data, or `select` result, is
    * `{ nodes, edges }`.
@@ -235,6 +243,7 @@ export function createExploration<TNode, TEdge, TQueryFnData, TError, TQueryKey 
   }
   const nodeKey = toAccessor<TNode, Key>(options.nodeKey ?? 'id')
   const edgeKey = toAccessor<TEdge, Key>(options.edgeKey ?? 'id')
+  stringCheck()(options.roots, 'createExploration({ roots })')
   const roots = new Set(options.roots)
   const expansions = new Map<Key, Expansion>()
   const retried = new Map<Key, boolean>()

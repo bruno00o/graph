@@ -5,6 +5,7 @@ import type {
   EdgeEnd,
   EdgeMark,
   Key,
+  KeyList,
   LayerName,
   Mark,
   MarkLayer,
@@ -78,9 +79,9 @@ export interface ElementKeys {
 /** Keys of nodes and of edges, from any iterable. A missing list counts as empty. */
 export interface ElementKeysInput {
   /** Node keys. */
-  readonly nodes?: Iterable<Key> | undefined
+  readonly nodes?: KeyList | undefined
   /** Edge keys. */
-  readonly edges?: Iterable<Key> | undefined
+  readonly edges?: KeyList | undefined
 }
 
 /**

@@ -11,6 +11,16 @@ Data changes, from `update` or from a live source, are applied at the next frame
 
 <api-table path="index.ts" name="GraphInstance" />
 
+## Lists of keys
+
+The methods and options that take several keys or names, such as `groups.fold`, `layers.hide`, `selection.set`, `view.fit` or `initialFolded`, take a `KeyList`: an array, a `Set`, `Map#keys()`, a generator or any other iterable object.
+
+```ts
+type KeyList<K extends Key = Key> = Iterable<K> & object
+```
+
+A single string is refused: it would iterate over its characters, so `groups.fold('g1')` would fold `'g'` and `'1'`. Pass `['g1']`. A string that gets through anyway, from plain JavaScript or a cast, keeps that behavior and logs a warning once per method in development.
+
 ## Lifecycle
 
 `destroy` removes the element, frees the WebGL resources, the workers and the listeners, then aborts `signal`. It runs once; later calls do nothing. A graph also ends when the `signal` passed to [`mountGraph`](/docs/api/mount-graph#signal) aborts.

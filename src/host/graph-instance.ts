@@ -11,6 +11,7 @@ import type {
   GraphPaths,
   GraphSupport,
   Key,
+  KeyList,
   LayerName,
   Layout,
   Mark,
@@ -115,9 +116,9 @@ export interface ViewOptions {
  */
 export interface FitOptions extends ViewOptions {
   /** Keys of the nodes to frame. A node hidden in a folded group frames that group. */
-  readonly nodes?: Iterable<Key> | undefined
+  readonly nodes?: KeyList | undefined
   /** Keys of the edges to frame, by their two ends as drawn. */
-  readonly edges?: Iterable<Key> | undefined
+  readonly edges?: KeyList | undefined
   /**
    * Margin around the framed area, in screen pixels: a number for every side, or a margin per
    * side, where a side left out takes the `padding` of the `view` of the definition. Defaults to
@@ -226,13 +227,13 @@ export interface GraphGroups {
   /** Whether the group is folded. */
   isFolded(key: Key): boolean
   /** Folds the given groups, or every group, nested ones included, without argument. */
-  fold(keys?: Iterable<Key>): void
+  fold(keys?: KeyList): void
   /** Unfolds the given groups, or every group without argument. */
-  unfold(keys?: Iterable<Key>): void
+  unfold(keys?: KeyList): void
   /** Folds the group if it is unfolded, unfolds it otherwise. */
   toggle(key: Key): void
   /** Replaces the folded groups. */
-  set(keys: Iterable<Key>): void
+  set(keys: KeyList): void
   /** Key of the group that contains the node, if any. */
   parent(key: Key): Key | undefined
   /** Keys of the nodes the group contains directly. */
@@ -260,19 +261,19 @@ export interface GraphLayers<L extends string = string> {
   /** Whether the layer is hidden. */
   isHidden(name: L): boolean
   /** Hides the given layers, or every layer without argument. */
-  hide(names?: Iterable<L>): void
+  hide(names?: KeyList<L>): void
   /** Shows the given layers, or every layer without argument. */
-  show(names?: Iterable<L>): void
+  show(names?: KeyList<L>): void
   /** Hides the layer if it shows, shows it otherwise. */
   toggle(name: L): void
   /** Replaces the hidden layers. */
-  set(hidden: Iterable<L>): void
+  set(hidden: KeyList<L>): void
 }
 
 /** Options of `layout.run`. */
 export interface LayoutRunOptions {
   /** Nodes to lay out. The others stay still and act as anchors. */
-  readonly keys?: Iterable<Key> | undefined
+  readonly keys?: KeyList | undefined
   /**
    * Frames the result: every node with `true`, or the `nodes` and `edges` of fit options, every
    * node when they name neither. A result reported at once is framed where nodes land, while they
@@ -438,12 +439,12 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    */
   readonly onSelectionChange?: ((event: GraphSelectionEvent) => void) | undefined
   /** Groups folded at mount, by key. Later changes go through `groups`. */
-  readonly initialFolded?: Iterable<Key> | undefined
+  readonly initialFolded?: KeyList | undefined
   /**
    * Folded groups. Passing it makes folding controlled for the life of the graph: requests go to
    * `onFoldChange` and only `update({ folded })` applies them.
    */
-  readonly folded?: Iterable<Key> | undefined
+  readonly folded?: KeyList | undefined
   /**
    * Receives every fold request in controlled mode, instead of the folded groups changing. Each
    * request starts from the last one that `update({ folded })` has not answered yet.
@@ -459,12 +460,12 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
   /** Receives every window request in controlled mode, instead of the window changing. */
   readonly onTimeChange?: ((event: GraphTimeEvent) => void) | undefined
   /** Layers hidden at mount, by name. Later changes go through `layers`. */
-  readonly initialHiddenLayers?: Iterable<LayerName<M>> | undefined
+  readonly initialHiddenLayers?: KeyList<LayerName<M>> | undefined
   /**
    * Hidden layers. Passing it makes their visibility controlled for the life of the graph:
    * requests go to `onLayerChange` and only `update({ hiddenLayers })` applies them.
    */
-  readonly hiddenLayers?: Iterable<LayerName<M>> | undefined
+  readonly hiddenLayers?: KeyList<LayerName<M>> | undefined
   /**
    * Receives every layer request in controlled mode, instead of the hidden layers changing. Each
    * request starts from the last one that `update({ hiddenLayers })` has not answered yet.

@@ -1,5 +1,6 @@
 import { createStore } from '@tanstack/store'
 import { createGraphModel, type GraphChanges } from '../core/graph-model'
+import { checkLists, stringCheck } from '../core/key-list'
 import { createPathQueries } from '../core/path-query'
 import { type PositionReader, Positions, placeNodes } from '../core/positions'
 import { Projection, type ProjectionChanges } from '../core/projection'
@@ -120,6 +121,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const timeControlled = options.time !== undefined
   const layersControlled = options.hiddenLayers !== undefined
   let onViewChange = isolated(options.onViewChange)
+  const check = stringCheck()
+  check(options.initialFolded, 'the initialFolded option')
+  check(options.folded, 'the folded option')
+  check(options.initialHiddenLayers, 'the initialHiddenLayers option')
+  check(options.hiddenLayers, 'the hiddenLayers option')
+  checkLists(check, options.selection, 'the selection.$ option')
   const emitter = new Emitter()
   const timeWindow = new TimeControl(
     {
@@ -875,6 +882,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         throw new TypeError('graph: view.fit takes options, such as { nodes }')
       }
       checkFit(fitOptions ?? {})
+      checkLists(check, fitOptions, 'view.fit({ $ })')
       flushPending()
       views.fit(fitRequest(fitOptions ?? {}))
     },
@@ -1072,9 +1080,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (viewControlled && next.view !== undefined && !surface) checkView(next.view)
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
       if (next.onSelectionChange !== undefined) selection.listen(next.onSelectionChange)
-      if (controlled && next.selection !== undefined) selection.answer(toKeys(next.selection))
+      if (controlled && next.selection !== undefined) {
+        checkLists(check, next.selection, 'update({ selection: { $ } })')
+        selection.answer(toKeys(next.selection))
+      }
       if (next.onFoldChange !== undefined) folds.listen(next.onFoldChange)
-      if (foldControlled && next.folded !== undefined) folds.answer(next.folded)
+      if (foldControlled && next.folded !== undefined) {
+        check(next.folded, 'update({ folded })')
+        folds.answer(next.folded)
+      }
       if (next.onViewChange !== undefined && !surface) onViewChange = isolated(next.onViewChange)
       if (viewControlled && next.view !== undefined && !surface) views.apply(next.view)
       if (next.onTimeChange !== undefined) timeWindow.listen(next.onTimeChange)
@@ -1085,6 +1099,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         layers.listen(next.onLayerChange as LayerListener)
       }
       if (layersControlled && next.hiddenLayers !== undefined) {
+        check(next.hiddenLayers, 'update({ hiddenLayers })')
         layers.answer(next.hiddenLayers)
       }
       if (next.definition && next.definition !== given) {
@@ -1175,6 +1190,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   })
 
   exposeGraph(guarded, {
+    onMap: surface !== null,
     element,
     scene,
     positions,

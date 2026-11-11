@@ -20,6 +20,7 @@ export interface GraphWatcher {
 }
 
 export interface GraphInternals {
+  readonly onMap: boolean
   readonly scene: Scene
   readonly positions: Positions
   definition(): GraphDefinition

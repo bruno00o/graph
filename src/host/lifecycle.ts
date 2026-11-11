@@ -247,6 +247,7 @@ export function stillborn<S extends string, M extends Mark>(
   const scene = createScene()
   scene.setDefinition(definition)
   exposeInternals(graph, {
+    onMap: false,
     scene,
     positions: new Positions(),
     definition: () => definition,

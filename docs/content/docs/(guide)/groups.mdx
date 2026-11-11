@@ -98,7 +98,7 @@ graph.groups.folded()
 graph.on('foldchange', ({ folded }) => console.log(folded))
 ```
 
-`fold()` without keys folds every group, nested ones included, and `unfold()` unfolds them all. A folded group inside a folded group stays folded when its parent opens. A folded key that names no node yet applies when the group arrives.
+`fold`, `unfold`, `set` and `initialFolded` take a list of keys, an array or a `Set`, never a single string: TypeScript refuses `fold('g')`, which would fold one group per character. `fold()` without keys folds every group, nested ones included, and `unfold()` unfolds them all. A folded group inside a folded group stays folded when its parent opens. A folded key that names no node yet applies when the group arrives.
 
 With `interaction.fold`, on by default, double-clicking a group, or pressing Enter on a focused group, folds or unfolds it. A `doubleclick` handler that calls `originalEvent.preventDefault()` keeps the group as it is.
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { defineGraph } from './define-graph'
 import { hull } from './hulls'
 import { nodes } from './marks'
@@ -27,6 +27,16 @@ describe('hull', () => {
       expect(() => hull({ nodes: ['a'] })).not.toThrow()
     },
   )
+
+  it('refuses a string as keys, and warns once when one gets through', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // @ts-expect-error
+    hull({ nodes: 'ab' })
+    hull({ nodes: 'ab' as unknown as string[] })
+    hull({ nodes: new Set(['a', 'b']) })
+    expect(warn.mock.calls).toEqual([['graph: hull({ nodes }) takes a list of keys, not a string']])
+    warn.mockRestore()
+  })
 
   it('throws before defineGraph sees the hull', () => {
     expect(() =>

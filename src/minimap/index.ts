@@ -1,5 +1,6 @@
 import { wheelFactor } from '../core/view'
 import { edgeShown, filtered, nodeShown, type Sight } from '../core/visibility'
+import { dev } from '../dev'
 import { listenPinch } from '../dom/gestures'
 import { ThemeResolver } from '../dom/theme'
 import { type GraphInternals, internalsOf } from '../host/internals'
@@ -321,16 +322,40 @@ function localChannel(canvas: HTMLCanvasElement, drawn: (fit: RasterFit | null) 
   }
 }
 
+const warnedOnMap = new WeakSet<object>()
+
+function offMap(graph: object, internals: GraphInternals): Minimap {
+  if (dev && !warnedOnMap.has(graph)) {
+    warnedOnMap.add(graph)
+    console.warn('graph: the minimap does not work on a map')
+  }
+  const element = document.createElement('div')
+  element.setAttribute('data-graph-minimap', '')
+  element.setAttribute('aria-hidden', 'true')
+  let destroyed = false
+  let stopWatch: (() => void) | null = null
+  const destroy = () => {
+    if (destroyed) return
+    destroyed = true
+    stopWatch?.()
+    element.remove()
+  }
+  stopWatch = internals.watch({ frame: () => {}, destroy })
+  return { element, update: () => {}, destroy }
+}
+
 /**
  * Draws an overview of the whole graph with the rectangle of the current view, and moves the view
  * from it. It follows positions, data, theme and view, and draws in a worker when the browser
- * allows it, at a pace bounded by its cost on the page.
+ * allows it, at a pace bounded by its cost on the page. On a graph drawn on a map, it draws
+ * nothing and warns once in development: its element stays empty and its methods do nothing.
  */
 export function createMinimap<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
   options: MinimapOptions = {},
 ): Minimap {
   const internals = internalsOf(graph, 'createMinimap')
+  if (internals.onMap) return offMap(graph, internals)
   let given = options
   let settings = settle(given)
   const element = document.createElement('div')

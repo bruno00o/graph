@@ -13,7 +13,7 @@ import {
 import { flushSync } from 'react-dom'
 import type { ElementKeysInput, GraphEventHandler, GraphEventName } from '../host/events'
 import { type GraphInstance, type MountGraphOptions, mountGraph } from '../host/mount-graph'
-import type { GraphDefinition, Key, LayerName, Mark, TimeWindowInput, View } from '../types'
+import type { GraphDefinition, KeyList, LayerName, Mark, TimeWindowInput, View } from '../types'
 import { GraphContext, useLatest } from './context'
 
 /** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
@@ -112,12 +112,12 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    */
   readonly selection?: ElementKeysInput | undefined
   /** Groups folded at mount, read once. */
-  readonly initialFolded?: Iterable<Key> | undefined
+  readonly initialFolded?: KeyList | undefined
   /**
    * Makes folding controlled when given at mount: `onFoldChange` receives the requests, and only
    * this prop changes the folded groups.
    */
-  readonly folded?: Iterable<Key> | undefined
+  readonly folded?: KeyList | undefined
   /** Time window at mount, read once, or `null` for none. */
   readonly initialTime?: TimeWindowInput | null | undefined
   /**
@@ -128,12 +128,12 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    */
   readonly time?: TimeWindowInput | null | undefined
   /** Layers hidden at mount, by name, read once. */
-  readonly initialHiddenLayers?: Iterable<LayerName<M>> | undefined
+  readonly initialHiddenLayers?: KeyList<LayerName<M>> | undefined
   /**
    * Makes the hidden layers controlled when given at mount: `onLayerChange` receives the
    * requests, and only this prop hides or shows layers.
    */
-  readonly hiddenLayers?: Iterable<LayerName<M>> | undefined
+  readonly hiddenLayers?: KeyList<LayerName<M>> | undefined
   /** Class of the wrapping `div`. */
   readonly className?: string | undefined
   /** Style of the wrapping `div`, merged with `position: relative`. */
