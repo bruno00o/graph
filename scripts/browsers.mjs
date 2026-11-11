@@ -47,6 +47,8 @@ const lowCapsPages = ['vanilla', 'routing', 'ends', 'bundling', 'layout']
 const queryPages = [
   { name: 'map-stack', page: 'map', query: 'stack' },
   { name: 'map-waypoints', page: 'map', query: 'waypoints&projection=mercator' },
+  { name: 'map-shapes', page: 'map', query: 'shapes' },
+  { name: 'map-shapes-flat', page: 'map', query: 'shapes&projection=mercator' },
 ]
 
 function examplePages(directory) {

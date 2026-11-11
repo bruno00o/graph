@@ -126,7 +126,7 @@ export class HostPicker {
         : -1
       const key = index >= 0 ? scene.nodes.keys[index] : undefined
       if (key !== undefined) return this.target('node', key)
-      return globe ? null : this.#pickShape(world, lensView.zoom, seen)
+      return this.#pickShape(world, surfaceOf?.scale ?? lensView.zoom, seen)
     }
     if (hit.kind === 'node') {
       const key = scene.nodes.keys[hit.index]
@@ -153,7 +153,7 @@ export class HostPicker {
 
   #shapePicker(): ShapePicker | null {
     const shapes = this.#source.scene.shapes
-    if (!shapes.any || !shapes.shown || !shapes.engine) return null
+    if (!shapes.any || !shapes.engine) return null
     this.#shapes ??= shapes.engine.picker(shapes)
     return this.#shapes
   }

@@ -9,6 +9,7 @@ import {
 } from '../core/shape-engine'
 import type { ShapeStore } from '../core/shape-store'
 import type { Point } from '../types'
+import { wrapShifts } from './wrap'
 
 const maxCells = 16
 const lassoSamples = 32
@@ -156,6 +157,7 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
   let stamps = new Uint32Array(0)
   let stamp = 0
   let widest = 0
+  let wrapped: number[] = []
 
   function strokes(index: number, mode: number): boolean {
     if (mode === shapePicks.stroke) return true
@@ -182,6 +184,7 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
     stamps = new Uint32Array(store.capacity)
     stamp = 0
     widest = 0
+    wrapped = []
     const picked: number[] = []
     minX = Number.POSITIVE_INFINITY
     minY = Number.POSITIVE_INFINITY
@@ -194,6 +197,7 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
       if (mode === shapePicks.none || !isDrawn(geometry)) return
       if (!fills(index, geometry, mode) && !strokes(index, mode)) return
       picked.push(index)
+      if (wrapShifts(geometry).length > 0) wrapped.push(index)
       widest = Math.max(widest, (store.strokeWidth[index] ?? 0) / 2)
       minX = Math.min(minX, geometry.minX)
       minY = Math.min(minY, geometry.minY)
@@ -301,12 +305,13 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
       if (levels.length === 0) return -1
       const reach = (widest + query.tolerance) / query.scale
       const { x, y } = query
-      if (x + reach < minX || y + reach < minY || x - reach > maxX || y - reach > maxY) return -1
+      const away = x + reach < minX || y + reach < minY || x - reach > maxX || y - reach > maxY
+      if (away && wrapped.length === 0) return -1
       stamp = stamp >= 0xfffffffe ? 1 : stamp + 1
       if (stamp === 1) stamps.fill(0)
       let best = -1
       let bestOrder = -1
-      for (const level of levels) {
+      for (const level of away ? [] : levels) {
         if (level.entries.length === 0) continue
         const { side, width, height, starts, entries } = level
         const c0 = cellOf(x - reach, minX, width, side)
@@ -327,6 +332,17 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
               bestOrder = order
             }
           }
+        }
+      }
+      for (const index of wrapped) {
+        const geometry = store.geometry[index]
+        const order = (query.raised(index) ? 2 ** 31 : 0) + (rank[index] ?? 0)
+        if (!geometry || order <= bestOrder) continue
+        for (const shift of wrapShifts(geometry)) {
+          if (!hits(index, { ...query, x: x - shift })) continue
+          best = index
+          bestOrder = order
+          break
         }
       }
       return best
@@ -351,21 +367,26 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
         const mode = store.pick[index] ?? shapePicks.painted
         const geometry = store.geometry[index]
         if (mode === shapePicks.none || !isDrawn(geometry)) continue
-        if (geometry.minX < x0 || geometry.maxX > x1 || geometry.minY < y0 || geometry.maxY > y1) {
-          continue
+        if (geometry.minY < y0 || geometry.maxY > y1 || !shown(index)) continue
+        const shifts = wrapShifts(geometry)
+        for (let copy = -1; copy < shifts.length; copy++) {
+          const shift = shifts[copy] ?? 0
+          if (geometry.minX + shift < x0 || geometry.maxX + shift > x1) continue
+          const within = (x: number, y: number) => insidePolygon(polygon, x + shift, y)
+          if (geometry.round) {
+            if (roundOutline(geometry, within)) found.push(index)
+            break
+          }
+          const points = geometry.points
+          let all = true
+          for (let k = 0; all && k < points.length; k += 2) {
+            all = within(points[k] ?? 0, points[k + 1] ?? 0)
+          }
+          if (all) {
+            found.push(index)
+            break
+          }
         }
-        if (!shown(index)) continue
-        const within = (x: number, y: number) => insidePolygon(polygon, x, y)
-        if (geometry.round) {
-          if (roundOutline(geometry, within)) found.push(index)
-          continue
-        }
-        const points = geometry.points
-        let all = true
-        for (let k = 0; all && k < points.length; k += 2) {
-          all = within(points[k] ?? 0, points[k + 1] ?? 0)
-        }
-        if (all) found.push(index)
       }
       return found
     },

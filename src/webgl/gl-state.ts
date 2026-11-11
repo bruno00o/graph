@@ -17,12 +17,16 @@ interface Saved {
 export class GlState {
   readonly #gl: WebGL2RenderingContext
   readonly #capabilities: readonly number[]
-  readonly #units: number
+  #units: number
 
   constructor(gl: WebGL2RenderingContext, units: number) {
     this.#gl = gl
     this.#units = units
     this.#capabilities = [gl.BLEND, gl.DEPTH_TEST, gl.STENCIL_TEST, gl.CULL_FACE, gl.SCISSOR_TEST]
+  }
+
+  widen(units: number): void {
+    this.#units = Math.max(this.#units, units)
   }
 
   guard<T>(run: () => T): T {

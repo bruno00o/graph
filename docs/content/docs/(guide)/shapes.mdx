@@ -154,12 +154,17 @@ graph.view.fit({ shapes: ['north'], duration: 400 })
 
 With a shape mark in the definition, `count()` returns `shapes` and `shown.shapes` as well: see [`count`](/docs/api/graph-instance#count). A graph without shapes keeps the counts it had.
 
+## On a map
+
+Shapes draw on a [map](/docs/map#shapes), flat or on the globe, with their geometry in degrees. A shape that crosses the antimeridian shows on both sides of a flat map, and on the globe, long edges are split to follow the surface and the far side is hidden.
+
 ## Not there yet
 
 - Shapes have no labels.
-- On a [map](/docs/map), they are not drawn yet, with a warning in development, and they take no pointer.
 - Shapes cannot be dragged or edited.
 
 ## Cost
 
 A graph without shapes creates no program, texture or buffer for them, and does no work per frame. Polygons are triangulated once, when their geometry changes: 10,000 polygons of 50 points take about 70 milliseconds, and their first frame about 150 milliseconds in Chrome. Panning over them costs about 3 milliseconds per frame, with a selection, a hover and a state with `others`. The first pick after a change builds an index of the shapes, about 10 milliseconds for 10,000 polygons; then a pick takes a few microseconds.
+
+On a map, 10,000 polygons of 50 points in degrees cost about 5 milliseconds per frame while the map moves, flat or on the globe, in Chrome, Firefox and Safari. The globe splits long edges once per geometry: a zone over a hemisphere becomes about 4,000 triangles in 4 milliseconds, and polygons smaller than 5 degrees are not split.
