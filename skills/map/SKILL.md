@@ -6,7 +6,7 @@ description: >
   MapGraph in React, drawing great circles and routes that follow roads or other
   lines, switching basemaps or the globe projection, putting a timeline on a map
   graph, exporting the map and the graph as one PNG, and finding why a layout,
-  minimap, lens, rotation or view option does nothing on a map. Not for a plain
+  minimap, lens, rotation, shape mark or view option does nothing on a map. Not for a plain
   graph that only uses coordinates without a map.
 metadata:
   purpose: >
@@ -295,7 +295,7 @@ MapLibre takes `[longitude, latitude]`; `geoToWorld` takes `{ longitude, latitud
 
 ### MEDIUM Expecting rotation, pitch, terrain, lens or minimap
 
-The map stays north up and without pitch, in a flat or globe projection. The lens does nothing (`graph.lens.set` is ignored), the minimap draws nothing on a map graph and warns in development, and the SVG export draws the flat map. In development the graph warns when the map is rotated or tilted.
+The map stays north up and without pitch, in a flat or globe projection. The lens does nothing (`graph.lens.set` is ignored), the minimap draws nothing on a map graph and warns in development, and the SVG export draws the flat map. A `shapes()` mark is not drawn on a map and takes no pointer (one development warning, `graph: shapes are not drawn on a map yet`); its shapes are still counted by `graph.count()`, with `shown.shapes` at 0. In development the graph warns when the map is rotated or tilted.
 
 ### MEDIUM Colors tuned for one basemap
 

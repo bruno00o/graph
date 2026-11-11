@@ -2,11 +2,11 @@
 name: view
 description: >
   Use when framing, zooming or moving the @bruno00o/graph view from code: fitting
-  the view to chosen nodes or edges, to a selection or a path, animating zoom and
+  the view to chosen nodes, edges or shapes, to a selection or a path, animating zoom and
   pan, choosing what the graph frames on its own (first data, layouts or nothing),
   limiting the zoom and the area people can reach, keeping the view in application
   state, converting between screen pixels and world units to place overlays or
-  drop nodes, and showing nodes and edges only within a range of zoom (level of
+  drop nodes, and showing nodes, edges and shapes only within a range of zoom (level of
   detail, clusters that give way to members). Gesture options such as the wheel
   belong to the interaction skill; a graph inside a MapLibre map does not use
   this skill's view limits and is covered by the map skill.
@@ -15,7 +15,7 @@ metadata:
     The camera of a @bruno00o/graph graph: the view as a center and a zoom,
     fit and its options, the first view and automatic framing, view limits,
     the controlled view, screen and world coordinates, and the minZoom and
-    maxZoom ranges of nodes and edges.
+    maxZoom ranges of nodes, edges and shapes.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
@@ -42,7 +42,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): this skill assum
 
 ### Fit the view to what matters
 
-`view.fit(options)` frames the nodes and edges named in the options, or every node when it names neither. An edge counts through its two ends as drawn, and a node hidden in a folded group frames that group.
+`view.fit(options)` frames the nodes, edges and shapes named in the options, or every node and every shape (shapes skill) when it names none. An edge counts through its two ends as drawn, a node hidden in a folded group frames that group, and a shape counts by the box of its geometry. `fit({ shapes: ['north'] })` frames a zone; keys of unknown or unreadable shapes are ignored, and naming only `nodes` or `edges` leaves the shapes out.
 
 ```ts
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
@@ -71,7 +71,7 @@ graph.on('doubleclick', ({ target }) => {
 
 - `padding` is in screen pixels: a number for every side, or one margin per side to keep nodes clear of a panel over the graph. A side left out takes the `padding` of the `view` of the definition, 32 by default.
 - `maxZoom` caps one fit, so a single node does not fill the screen. The `maxZoom` of the definition still applies.
-- A path, the selection and the result of `graph.paths.reach` have the `{ nodes, edges }` shape and pass as they are.
+- A path, the selection and the result of `graph.paths.reach` have the `{ nodes, edges }` shape and pass as they are; the selection of a graph with shapes carries its `shapes` too, so the fit frames the selected zones.
 - `fit({ nodes: [] })` frames nothing and does nothing.
 - Called before the element has a size, `fit` waits for one, so a `fit` right after mount is fine, and it also steers the framing that follows the first layout run. To frame the result of a later layout run, give `fit` to `graph.layout.run` or set `autoFit: 'layouts'`.
 
@@ -101,7 +101,7 @@ graph.on('viewchange', ({ view: next, origin }) => console.log(next.zoom, origin
 
 ### Choose what frames on its own
 
-Without `initialView`, the graph fits every node as soon as its first data arrives (an empty graph waits), and keeps the nodes framed while the first layout moves them, until the view is moved. Later data never moves the view. A gesture, the wheel or a key before the first fit cancels it. While a live source that reports its loading (a TanStack DB collection, a live query, `subset`, `createExploration`) has not loaded or failed, the automatic fit waits, so the view frames all the rows instead of the first batch; the limit is `waitForData` in `defineGraph` (10,000 ms from the first nodes by default, `true` for no limit, `false` or `0` to fit the first batch). A `view.fit()` you call never waits. `autoFit` in the `view` of the definition changes this:
+Without `initialView`, the graph fits every node (and every shape, so a graph of shapes alone frames them) as soon as its first data arrives (an empty graph waits), and keeps the nodes framed while the first layout moves them, until the view is moved. Later data never moves the view. A gesture, the wheel or a key before the first fit cancels it. While a live source that reports its loading (a TanStack DB collection, a live query, `subset`, `createExploration`) has not loaded or failed, the automatic fit waits, so the view frames all the rows instead of the first batch; the limit is `waitForData` in `defineGraph` (10,000 ms from the first nodes by default, `true` for no limit, `false` or `0` to fit the first batch). A `view.fit()` you call never waits. `autoFit` in the `view` of the definition changes this:
 
 - `'first'`, the default: the first data and the first layout run.
 - `'layouts'`: also the end of every layout run, as long as the view has not moved since the last fit. A gesture, `view.set` or `view.zoomBy` stops it; the next `view.fit` starts it again.
@@ -186,7 +186,7 @@ graph.on('click', ({ point: screen, world }) => console.log(screen, world, graph
 
 ### Show elements only within a zoom range
 
-`minZoom` and `maxZoom` on `nodes()` and `edges()` are styles (a constant or a function of the item) in the same unit as the view zoom. An element is hidden at and below `minZoom` and at and above `maxZoom`; `null`, `0` or no option means no limit. So a limit of 1.3 shows the element above 1.3, fading in until about 1.55 (`1.3 * 2 ** 0.25`), not from exactly 1.3. Inside its range it fades in and out over a quarter of a zoom doubling (about 19 percent of zoom).
+`minZoom` and `maxZoom` on `nodes()`, `edges()` and `shapes()` are styles (a constant or a function of the item) in the same unit as the view zoom. An element is hidden at and below `minZoom` and at and above `maxZoom`; `null`, `0` or no option means no limit. So a limit of 1.3 shows the element above 1.3, fading in until about 1.55 (`1.3 * 2 ** 0.25`), not from exactly 1.3. Inside its range it fades in and out over a quarter of a zoom doubling (about 19 percent of zoom).
 
 ```ts
 import { defineGraph, edges, nodes, raw } from '@bruno00o/graph'
@@ -223,7 +223,7 @@ const swap = defineGraph({
 ```
 
 - Hidden means gone, not transparent: an edge is hidden while one of its ends is; a hidden node hides its label, badges and anchors; nothing hidden is picked, lassoed, focused from the keyboard, counted by the legend, drawn by the minimap or wrapped by a hull; exports draw what is shown at their zoom.
-- A hidden element stays in the data, the selection and the states. Layouts still place it and `view.fit` still frames it, so the graph does not jump when elements appear.
+- A hidden element stays in the data, the selection and the states. Layouts still place it and `view.fit` still frames it, so the graph does not jump when elements appear. A hidden shape follows the same rules: not drawn, picked, lassoed, counted in `count().shown` or exported, but still framed by `fit`.
 - To hand one mark over to another at zoom `t`, move each limit by the fade: the outgoing mark stops at `t * 2 ** 0.25`, the incoming one starts at `t / 2 ** 0.25`. With `t` on both, neither shows at `t`.
 - Inside a group, each node follows its own range: a hidden container does not hide its children. A merged edge between folded groups takes its range from the `aggregate` options of its mark, or else from its first merged edge.
 - Groups do not fold on their own with the zoom. Fold and unfold them on `viewchange` with two thresholds, so a zoom near one threshold does not flip back and forth:
@@ -280,7 +280,7 @@ In controlled mode a gesture changes nothing until `onViewChange` answers with `
 
 ### MEDIUM Reading the zoom of a mark as the zoom limits of the view
 
-The `minZoom` and `maxZoom` of `nodes()` and `edges()` decide when an element shows. The ones in the `view` of `defineGraph` limit where people can zoom. They share a unit, not a meaning: setting a mark's `maxZoom` does not stop anyone zooming in, and `view.maxZoom` hides nothing.
+The `minZoom` and `maxZoom` of `nodes()`, `edges()` and `shapes()` decide when an element shows. The ones in the `view` of `defineGraph` limit where people can zoom. They share a unit, not a meaning: setting a mark's `maxZoom` does not stop anyone zooming in, and `view.maxZoom` hides nothing.
 
 ### MEDIUM The same zoom on both sides of a handover
 

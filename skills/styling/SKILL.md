@@ -31,7 +31,7 @@ requires:
 
 # Style nodes and labels
 
-Load the core skill first (`intent load @bruno00o/graph#core`): data, keys, marks and states work as described there. This skill covers how a node looks: scales, labels, shapes, images, badges and themes. Edge looks (arrows, dashes, flows, ends, labels on edges) belong to the edges skill.
+Load the core skill first (`intent load @bruno00o/graph#core`): data, keys, marks and states work as described there. This skill covers how a node looks: scales, labels, shapes, images, badges and themes. Edge looks (arrows, dashes, flows, ends, labels on edges) belong to the edges skill. The `shape` of a node (circle, square, diamond, box) is not the `shapes()` mark: free areas and lines with their own geometry belong to the shapes skill.
 
 ## Setup
 
@@ -269,7 +269,7 @@ Example: [images and badges](https://bruno00o.github.io/graph/examples/images-an
 
 ### Themes and CSS variables
 
-Every color the graph reads is a `--graph-*` variable of `theme.css`: `--graph-paper` and `--graph-paper-raised`, `--graph-ink` (the text color) and `--graph-ink-muted`, `--graph-node`, `--graph-edge`, `--graph-accent`, `--graph-label-halo`, `--graph-label-background`, `--graph-node-ring`, `--graph-badge-fill`, `--graph-badge-ink`, `--graph-cat-1` to `--graph-cat-12` (`cat-5` to `cat-1` is the sequential scale), `--graph-grid`, `--graph-group-fill` and `--graph-font`. The theme tokens page lists every value.
+Every color the graph reads is a `--graph-*` variable of `theme.css`: `--graph-paper` and `--graph-paper-raised`, `--graph-ink` (the text color) and `--graph-ink-muted`, `--graph-node`, `--graph-edge`, `--graph-accent`, `--graph-label-halo`, `--graph-label-background`, `--graph-node-ring`, `--graph-badge-fill`, `--graph-badge-ink`, `--graph-cat-1` to `--graph-cat-12` (`cat-5` to `cat-1` is the sequential scale), `--graph-grid`, `--graph-group-fill`, `--graph-shape-fill` and `--graph-shape-stroke` (the default fill and outline of `shapes()` marks, shapes skill) and `--graph-font`. The theme tokens page lists every value.
 
 - The dark theme applies under an element with the class `dark` or `data-theme="dark"`, or when the system prefers dark and the root has neither the class `light` nor `data-theme="light"`. The light theme applies to `:root`, `.light` and `data-theme="light"`. Both can be forced on any element, and the nearest ancestor wins, so a light graph can sit in a dark page.
 - Switching themes rewrites no data: the graph resolves its colors again when a class or `data-theme` changes on the graph element or an ancestor, a `style` changes above it, or the system preference changes.

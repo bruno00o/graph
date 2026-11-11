@@ -847,7 +847,7 @@ skills:
         priority: MEDIUM
         status: active
       - mistake: Expecting rotation, pitch, lens or minimap on a map
-        mechanism: The map stays north up and without pitch, and the lens and the minimap are not supported on a map graph.
+        mechanism: The map stays north up and without pitch, and the lens, the minimap and shapes() marks are not supported on a map graph.
         wrong_pattern: |
           graph.lens.set({ at: pointer })
         correct_pattern: |
@@ -1579,6 +1579,131 @@ skills:
         correct_pattern: |
           await exportPng(graph, { region: 'graph' })
         source: src/export/index.ts
+        priority: MEDIUM
+        status: active
+  - name: shapes
+    slug: shapes
+    domain: structure
+    type: sub-skill
+    description: Draw zones, rings, rectangles and lines from your own geometry under the graph, and make them selectable, styled and shown by zoom, time and layer.
+    covers:
+      - shapes
+      - geometry forms and units
+      - fill, stroke, strokeWidth, dash, opacity, order
+      - pick
+      - shape targets, selection and lasso
+      - states by kind and others across kinds
+      - minZoom, maxZoom, time and layer on shapes
+      - view.fit shapes
+      - count shapes and invalid-shape issues
+      - shapes in PNG and SVG exports
+    tasks:
+      - Draw zones, rings, rectangles, lines and polygons with holes under a graph
+      - Place GeoJSON polygons and lines next to nodes
+      - Let people click and select a zone while a decorative zone ignores the pointer
+      - Dim everything outside a selected zone, or dim only the nodes
+      - Hide a zone below a zoom, outside a time window or with a layer
+      - Frame a zone and count the shapes drawn
+      - Find the shapes whose geometry cannot be drawn
+    failure_modes:
+      - mistake: Importing shapes from the main entry
+        mechanism: shapes lives in its own entry point, so the main entry has the types and no function.
+        wrong_pattern: |
+          import { shapes } from '@bruno00o/graph'
+        correct_pattern: |
+          import { shapes } from '@bruno00o/graph/shapes'
+        source: docs/content/docs/api/shapes.mdx, src/shapes/index.ts
+        priority: HIGH
+        status: active
+      - mistake: A decorative zone that swallows the pointer
+        mechanism: A filled or stroked shape takes clicks, hover and the lasso by default, so a backdrop selects itself instead of clearing the selection. pick belongs to a mark, so decoration and zones are two marks.
+        wrong_pattern: |
+          shapes([sea])
+        correct_pattern: |
+          shapes([sea], { pick: false })
+        source: docs/content/docs/(guide)/shapes.mdx, src/shapes/pick.ts
+        priority: HIGH
+        status: active
+      - mistake: Expecting labels on shapes
+        mechanism: Shapes have no label option yet, so the option does not compile.
+        wrong_pattern: |
+          shapes(zones, { label: 'title' })
+        correct_pattern: |
+          Show the title from pointerenter and target.datum in an HTML tooltip
+        source: docs/content/docs/(guide)/shapes.mdx
+        priority: HIGH
+        status: active
+      - mistake: Mixing degrees and world units
+        mechanism: GeoJSON and longitude and latitude points are projected to a world 512 units wide, so a zone in degrees does not land around nodes placed with x and y.
+        wrong_pattern: |
+          nodes(places, { x: 'x', y: 'y' }) with shapes of GeoJSON polygons
+        correct_pattern: |
+          nodes(places, { longitude: 'lng', latitude: 'lat' }) with the same GeoJSON polygons
+        source: docs/content/docs/(guide)/shapes.mdx, src/core/geo.ts
+        priority: HIGH
+        status: active
+      - mistake: Reading shape counts or keys on a graph without a shape mark
+        mechanism: count().shapes and selection.get().shapes exist only when the definition has a shape mark, and shape keys are ignored otherwise.
+        wrong_pattern: |
+          graph.count().shapes
+        correct_pattern: |
+          Add a shapes() mark to the definition, or read nodes and edges only
+        source: src/host/graph-instance.ts, src/host/events.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Treating every target that is not a node as an edge
+        mechanism: With a shape mark, or on an untyped instance, a target may be a shape, so an else after the node case holds shapes and an exhaustive switch needs case shape.
+        wrong_pattern: |
+          if (target.kind === 'node') return
+          console.log(target.endpoints)
+        correct_pattern: |
+          if (target.kind === 'edge') console.log(target.endpoints)
+        source: src/host/events.ts, docs/content/docs/(guide)/typescript.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Coordinates typed as number[][]
+        mechanism: A point is an object or an [x, y] tuple, so data typed number[][][] does not satisfy the geometry channel when the field is named.
+        wrong_pattern: |
+          type Zone = { id: string; outline: { rings: number[][][] } }
+        correct_pattern: |
+          type Zone = { id: string; outline: ShapeGeometry }
+        source: src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A state for nodes that also dims the zones
+        mechanism: A member of any kind activates others for every kind, so a style for both kinds fades nodes, edges and shapes outside the state.
+        wrong_pattern: |
+          states: { focus: { others: { opacity: 0.2 } } }
+        correct_pattern: |
+          states: { focus: { nodes: { others: { opacity: 0.2 } } } }
+        source: docs/content/docs/(guide)/shapes.mdx, docs/content/docs/(guide)/states.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Changing a shape in place
+        mechanism: The graph reads an item once and a geometry once per object, so pushing into a ring or assigning a field changes nothing on screen.
+        wrong_pattern: |
+          zones[0].geometry.rings[0].push([450, 0])
+        correct_pattern: |
+          zones = [{ ...zones[0], geometry: { rings: [[...ring, [450, 0]]] } }, ...zones.slice(1)]
+        source: src/core/shape-store.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Using a field name as a color
+        mechanism: fill and stroke are styles, so a string is the CSS color itself and never a field of the item.
+        wrong_pattern: |
+          shapes(zones, { fill: 'tone' })
+        correct_pattern: |
+          shapes(zones, { fill: (zone) => zone.tone })
+        source: src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting shapes on a map
+        mechanism: A graph drawn on a map does not draw or pick shapes yet and warns once in development, while count().shapes still counts them.
+        wrong_pattern: |
+          mountMapGraph(map, { definition: defineGraph({ marks: [shapes(zones)] }), ariaLabel: 'Map' })
+        correct_pattern: |
+          Draw regions with the layers of the map until shapes support it
+        source: src/map/index.ts, docs/content/docs/(guide)/shapes.mdx
         priority: MEDIUM
         status: active
 tensions:

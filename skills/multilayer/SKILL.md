@@ -10,7 +10,7 @@ description: >
   from one layer to the next.
 metadata:
   purpose: >
-    Layers, bands, support and drill down: layer on node and edge marks,
+    Layers, bands, support and drill down: layer on node, edge and shape marks,
     graph.layers and controlled hidden layers, supportedBy and the support
     walks, the support states of defineGraph, and the hide-state pattern for
     opening edges one level at a time.
@@ -28,7 +28,7 @@ requires:
 
 # Layers and support
 
-Load the core skill first (`intent load @bruno00o/graph#core`). A layer is a name shared by any number of marks, node marks included. Marks without a `layer` belong to no layer and always show. Two features sit on layers: hiding and showing them at run time, and `supportedBy`, which says that an edge of one layer is carried by a path of edges of another (a route runs along paths, a path along segments).
+Load the core skill first (`intent load @bruno00o/graph#core`). A layer is a name shared by any number of marks, node marks and shape marks (shapes skill) included. Marks without a `layer` belong to no layer and always show. Two features sit on layers: hiding and showing them at run time, and `supportedBy`, which says that an edge of one layer is carried by a path of edges of another (a route runs along paths, a path along segments).
 
 ## Setup
 
@@ -75,7 +75,7 @@ const graph = mountGraph(document.body, {
 })
 ```
 
-Result: three edge layers over the same nodes, `routes` hidden at mount. Layer names come from the marks: with literal names TypeScript knows them, and `graph.layers` refuses a name no mark gives. At most 128 node marks and 128 edge marks can join a layer, and a name must be a non-empty string, or `defineGraph` throws.
+Result: three edge layers over the same nodes, `routes` hidden at mount. Layer names come from the marks: with literal names TypeScript knows them, and `graph.layers` refuses a name no mark gives. At most 128 node marks, 128 edge marks and 128 shape marks can join a layer, and a name must be a non-empty string, or `defineGraph` throws.
 
 ## Core Patterns
 
@@ -132,9 +132,9 @@ const graph = mountGraph(document.body, {
 
 ### What a hidden layer is
 
-Hiding a layer hides its nodes, its edges and the edges of other layers that end on its nodes (a hidden node layer hides all its edges, whatever their layer). Hidden elements are absent like elements out of their zoom range: not drawn, labeled, picked (hover, click and lasso pass through, keys skip them), nor exported; the legend counts, the minimap draws and hulls wrap only shown elements; `graph.paths` with `visible: true` walks shown elements only. A hovered or focused element that hides loses hover or focus.
+Hiding a layer hides its nodes, its edges, its shapes and the edges of other layers that end on its nodes (a hidden node layer hides all its edges, whatever their layer, but not the shapes of other layers). Hidden elements are absent like elements out of their zoom range: not drawn, labeled, picked (hover, click and lasso pass through, keys skip them), nor exported; the legend counts, the minimap draws and hulls wrap only shown elements; `graph.paths` with `visible: true` walks shown elements only. A hovered or focused element that hides loses hover or focus.
 
-A hidden element stays in the data, the selection and states. Layouts still place it and `view.fit` still frames it, so nothing moves when a layer shows or hides. To leave a layer out of the data, filter its array or leave its mark out.
+A hidden element stays in the data, the selection and states. Layouts still place it and `view.fit` still frames it (a hidden shape too), so nothing moves when a layer shows or hides. To leave a layer out of the data, filter its array or leave its mark out.
 
 ### Bands between the same nodes
 
