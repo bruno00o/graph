@@ -51,7 +51,7 @@ Boundaries chosen from developer tasks, not from entry points:
 
 ## Failure mode inventory
 
-### core (7)
+### core (8)
 
 | #   | Mistake                                        | Priority | Source                                 | Cross-skill |
 | --- | ---------------------------------------------- | -------- | -------------------------------------- | ----------- |
@@ -161,7 +161,7 @@ Scope decisions:
 | 6   | Expecting bundles or routes immediately                         | MEDIUM   | bundling and routing guides |               |
 | 7   | Edge labels that never show                                     | MEDIUM   | labels guide                | styling       |
 
-##### groups (7)
+##### groups (8)
 
 | #   | Mistake                                        | Priority | Source                            | Cross-skill |
 | --- | ---------------------------------------------- | -------- | --------------------------------- | ----------- |
@@ -244,8 +244,8 @@ Written: `tanstack-db`, `tanstack-query`, `cypher`, `file-formats`, `paths`, all
 
 | Skill          | Lines | Failure modes | Typechecked failures                            |
 | -------------- | ----- | ------------- | ----------------------------------------------- |
-| tanstack-db    | 360   | 6             | key option on a live mark, wrong field in where |
-| tanstack-query | 384   | 7             | types not inferred from a plain object          |
+| tanstack-db    | 411   | 6             | key option on a live mark, wrong field in where |
+| tanstack-query | 425   | 7             | types not inferred from a plain object          |
 | cypher         | 264   | 6             | untyped properties, edge mark without ends      |
 | file-formats   | 304   | 8             | color literal, a Response instead of text       |
 | paths          | 272   | 7             | unknown direction, misspelled weight            |

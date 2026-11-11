@@ -86,7 +86,7 @@ Without `aggregate.ends`, an aggregated edge takes the ends of its first merged 
 
 ### One direction per half
 
-`halves: true` makes each half of a two-way line stand for its own direction. It needs `directed: false`.
+`halves: true` makes each half of a two-way line stand for its own direction. It needs `directed: false`: without it the option is ignored, the line stays whole, and development builds log a warning once per graph.
 
 ```ts
 edges(links, {
