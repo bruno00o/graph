@@ -10,7 +10,7 @@ description: Text on nodes and edges, with its own size, color, weight, font, pl
 `label` takes a field or a function for the text. Pass an object to style it.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   label: {
     text: 'label',
     secondary: 'group',
@@ -41,7 +41,7 @@ The text must be a string: an empty string, a number, `null` or `undefined` draw
 `\n` in the text, or in `secondary`, starts a new line. Lines are centered for `'bottom'`, `'top'` and `'center'`, aligned on the node side for `'right'` and `'left'`.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   label: { text: (item) => `${item.name}\n${item.city}`, maxWidth: 140 },
 })
 ```
@@ -63,7 +63,7 @@ A [box](/docs/marks#boxes) puts its label on itself by default and grows to fit 
 `background: true` draws a rounded plate in `--graph-label-background` behind the label; a CSS color picks another one. A plated label drops its halo, and placement keeps room for the whole plate.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   label: { text: 'label', background: (item) => (item.flagged ? 'var(--graph-cat-2)' : true) },
 })
 ```
@@ -73,7 +73,7 @@ nodes<Item>(items, {
 Edges take a label too: a field, a function, or an object with fewer options than nodes.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   label: { text: 'name', size: 10, color: 'var(--graph-ink-muted)', background: true },
@@ -106,7 +106,7 @@ Two state properties act on labels. `label` shows or hides them while the state 
 
 ```ts
 const definition = defineGraph({
-  marks: [nodes<Item>(items, { label: 'label' })],
+  marks: [nodes(items, { label: 'label' })],
   states: {
     hovered: { labelColor: 'var(--graph-accent)' },
     muted: { opacity: 0.2, label: false },

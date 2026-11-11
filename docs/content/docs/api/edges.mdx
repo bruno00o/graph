@@ -62,7 +62,7 @@ type TimeValue = TimeInstant | TimeSpan
 - It shows only when it fits between the two nodes. The hovered or focused edge shows it over other labels.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   label: { text: 'name', size: 10, color: 'var(--graph-ink-muted)', background: true },
@@ -95,7 +95,9 @@ type Link = {
   backLabel: string
 }
 
-edges<Link>(links, {
+declare const links: Link[]
+
+edges(links, {
   source: 'from',
   target: 'to',
   ends: {
@@ -165,7 +167,7 @@ type EdgesBetweenGroups = 'members' | 'groups'
 - Its `time` goes from the earliest start to the latest end of the merged edges, or is missing when one of them has none.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   merge: { directed: false },
@@ -184,7 +186,9 @@ edges<Link>(links, {
 ```ts
 type Link = { id: string; from: string; to: string; kind: 'main' | 'side' }
 
-edges<Link>(links, {
+declare const links: Link[]
+
+edges(links, {
   source: 'from',
   target: 'to',
   color: 'kind',

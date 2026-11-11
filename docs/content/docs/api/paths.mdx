@@ -41,7 +41,7 @@ Both have `nodes` and `edges` arrays of keys, the shape [`states.set`](/docs/api
 import { createPathFinder, edges, nodes } from '@bruno00o/graph'
 
 const paths = createPathFinder({
-  marks: [nodes<Item>(items), edges<Link>(links, { source: 'from', target: 'to' })],
+  marks: [nodes(items), edges(links, { source: 'from', target: 'to' })],
 })
 const path = paths.shortest('a', 'f', { weight: 'distance' })
 paths.destroy()

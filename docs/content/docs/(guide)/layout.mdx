@@ -15,8 +15,8 @@ import { force } from '@bruno00o/graph/layouts/force'
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(links, { source: 'from', target: 'to' }),
-    nodes<Item>(items, { color: 'group', size: 'weight', label: 'label' }),
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { color: 'group', size: 'weight', label: 'label' }),
   ],
   layout: force({ edgeLength: 60 }),
 })

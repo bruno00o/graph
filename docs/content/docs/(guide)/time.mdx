@@ -14,8 +14,8 @@ import { defineGraph, edges, nodes } from '@bruno00o/graph'
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(links, { source: 'from', target: 'to', time: (link) => link.since }),
-    nodes<Item>(items, {
+    edges(links, { source: 'from', target: 'to', time: (link) => link.since }),
+    nodes(items, {
       label: 'label',
       time: (item) => ({ start: item.created, end: item.closed }),
     }),

@@ -6,7 +6,7 @@ description: Read GraphML, GEXF, JSON Graph Format and CSV files into nodes and 
 `@bruno00o/graph/formats` reads and writes four graph file formats: GraphML, GEXF (1.2 and 1.3), JSON Graph Format (version 2) and CSV. It has no dependency, fetches nothing and touches no file: your application loads the text and saves what the writers return.
 
 ```ts
-import { defineGraph, edges, nodes, raw } from '@bruno00o/graph'
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
 import { readGraphml } from '@bruno00o/graph/formats'
 
 const file = readGraphml(await (await fetch('/graph.graphml')).text())
@@ -32,15 +32,37 @@ Every reader returns the same `GraphFile`: `nodes` and `edges` as plain objects,
 | JSON Graph Format | `readJsonGraph(input)`, `readJsonGraphs(input)` | the JSON text, or the value it parses to |
 | CSV | `readCsv({ nodes, edges })` | the text of a node table and of an edge table, or of the edge table alone |
 
-`detectFormat(text)` tells them apart from the first characters, which is enough to read a file of unknown type:
+`detectFormat(text)` guesses the format from the first characters of a text:
+
+- a text that starts with `{` is `'json-graph'`;
+- a text that starts with `<` is `'graphml'` or `'gexf'` from its root element, and `null` for another XML document;
+- an empty text is `null`;
+- any other text is `'csv'`. That includes a JSON array, a YAML file and plain prose: `detectFormat` does not look at the columns, and a CSV text has no mark to recognize.
+
+`detectFormat` therefore cannot tell a CSV file from a file that is not a graph. Reading unknown text as CSV throws a [`FormatError`](/docs/api/formats#errors) unless its first row happens to have `source` and `target` columns. When you have a file name or a MIME type, trust `detectFormat` for the three formats it recognizes, and accept `'csv'` only when the name or the type says so:
 
 ```ts
-import { detectFormat, readCsv, readGexf, readGraphml, readJsonGraph } from '@bruno00o/graph/formats'
+import {
+  detectFormat,
+  type GraphFormat,
+  readCsv,
+  readGexf,
+  readGraphml,
+  readJsonGraph,
+} from '@bruno00o/graph/formats'
 
 const readers = { graphml: readGraphml, gexf: readGexf, 'json-graph': readJsonGraph, csv: readCsv }
-const format = detectFormat(text)
-const file = format === null ? null : readers[format](text)
+
+async function readGraphFile(file: File) {
+  const text = await file.text()
+  const detected = detectFormat(text)
+  const isCsv = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')
+  const format: GraphFormat | null = detected === 'csv' && !isCsv ? null : detected
+  return format === null ? null : readers[format](text)
+}
 ```
+
+A `null` result means the file is not one of the four formats: tell the user instead of reading it.
 
 ### Nodes and edges
 
@@ -133,7 +155,7 @@ const file = readCsv({ nodes: nodeTable, edges: edgeTable }, { separator: ';' })
 Every writer takes nodes, edges and options, and returns the text of the file (two texts for CSV). The nodes and edges can be the result of a reader, the data of your marks, or anything else.
 
 ```ts
-import { writeGexf, writeGraphml } from '@bruno00o/graph/formats'
+import { writeGexf } from '@bruno00o/graph/formats'
 
 const text = writeGexf(
   { nodes: people, edges: links },

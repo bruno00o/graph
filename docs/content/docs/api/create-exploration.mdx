@@ -14,6 +14,8 @@ function createExploration<TNode, TEdge>(
 
 Items are keyed by their `id` field unless `nodeKey` or `edgeKey` says otherwise, with a field name or a function. Without `nodeKey`, `TNode` must have an `id` field, and the same for `TEdge` without `edgeKey`. When a key is a function, give `neighbors` before it in the options, so that it reads typed items.
 
+The node and edge types come from the data type of `neighbors`, but only when it is built with `queryOptions` from a TanStack Query adapter such as `@tanstack/react-query` (`@tanstack/query-core` does not export one). With a plain options object they are not inferred: the items are typed `{ readonly id: Key }`. Pass them as type arguments instead, as in `createExploration<Item, Link>(client, options)`.
+
 An item whose key is neither a string nor a finite number is skipped by the graph and listed as a `missing-key` problem by `graph.issues()`.
 
 ## Options

@@ -21,8 +21,8 @@ const items: Item[] = [
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(links, { source: 'from', target: 'to' }),
-    nodes<Item>(items, { parent: 'parent', label: 'label' }),
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { parent: 'parent', label: 'label' }),
   ],
 })
 ```
@@ -36,7 +36,7 @@ A node becomes a group as soon as another node names it. A `parent` that names n
 An unfolded group draws as a container behind its children: a rounded rectangle, or a circle, that fits their discs plus a padding, and follows them as they move. Its label sits above the container. Style it with the `container` option of `nodes()`.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   parent: 'parent',
   label: 'label',
   container: {
@@ -54,7 +54,7 @@ The fill and outline default to the `--graph-group-fill` and `--graph-group-line
 `fillOpacity`, from 0 to 1, lets what lies behind a container show through its fill: the grid, a hull, or the map. The outline and the children keep their opacity. It defaults to 1, and to a translucent fill on a [map](/docs/map#hulls-and-groups). A value outside the range is clamped, and one that is not a finite number takes the default.
 
 ```ts
-nodes<Item>(items, { parent: 'parent', container: { fillOpacity: 0.4 } })
+nodes(items, { parent: 'parent', container: { fillOpacity: 0.4 } })
 ```
 
 Edges that end on a container stop at its border, the rounded corners included, as edges stop at the border of a node.
@@ -126,7 +126,7 @@ An edge whose end lies inside a folded group is drawn to the outermost folded gr
 The `aggregate` option of `edges()` styles aggregated edges. Its channels and styles read an `AggregateEdge`: the two visible ends, the number of merged edges, their keys and their data.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   color: 'kind',
@@ -153,7 +153,7 @@ graph.on('click', ({ target }) => {
 By default, an edge between two unfolded groups goes from one member to the other, across both containers. `betweenGroups: 'groups'` draws it between the groups instead: each end rises to the child, of the innermost group holding both ends, that contains it, and the edges of the mark that rise to the same two children draw as one aggregated edge, from the border of one container to the border of the other. A single edge makes an aggregated edge too, with a `count` of 1.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   betweenGroups: 'groups',

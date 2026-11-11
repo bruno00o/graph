@@ -79,7 +79,7 @@ A path is a set of node and edge keys, the shape `states.set` takes. Declare a s
 ```ts
 const graph = mountGraph(container, {
   definition: defineGraph({
-    marks: [edges<Link>(links, { source: 'from', target: 'to' }), nodes<Item>(items)],
+    marks: [edges(links, { source: 'from', target: 'to' }), nodes(items)],
     states: {
       path: {
         flow: true,
@@ -112,7 +112,7 @@ To step along the path, walk `path.nodes` with [`graph.focus.set`](/docs/interac
 import { createPathFinder, edges, nodes } from '@bruno00o/graph'
 
 const paths = createPathFinder({
-  marks: [nodes<Item>(items), edges<Link>(links, { source: 'from', target: 'to' })],
+  marks: [nodes(items), edges(links, { source: 'from', target: 'to' })],
 })
 paths.shortest('a', 'f', { weight: 'distance' })
 paths.destroy()
