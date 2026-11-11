@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.0](https://github.com/bruno00o/graph/compare/0.23.1...0.24.0) (2026-11-11)
+
+
+### Features
+
+* select and style each direction of a two-way merged edge by its half ([#159](https://github.com/bruno00o/graph/issues/159)) ([c3f3c75](https://github.com/bruno00o/graph/commit/c3f3c759db8f57247fce8c0936938c70323855ce))
+* tell when the live data of a graph is loaded and lay it out once complete ([#158](https://github.com/bruno00o/graph/issues/158)) ([6258d7f](https://github.com/bruno00o/graph/commit/6258d7f3a0ca0afdb6ebb988ebf558f991523c5a))
+
 ## [0.23.1](https://github.com/bruno00o/graph/compare/0.23.0...0.23.1) (2026-11-11)
 
 
