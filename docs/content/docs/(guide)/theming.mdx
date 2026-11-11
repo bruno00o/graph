@@ -83,7 +83,7 @@ See [Theme tokens](/docs/api/theme-tokens) for every value.
 Any color option takes a CSS color string: a hex value, `var(--graph-cat-3)`, or `color-mix(in oklab, var(--graph-cat-1) 60%, white)`. The browser resolves it, so colors given as variables follow the theme.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   fill: (item) => (item.weight > 5 ? 'var(--graph-cat-2)' : 'var(--graph-node)'),
   label: { text: 'label', background: 'color-mix(in srgb, var(--graph-paper) 85%, transparent)' },
 })

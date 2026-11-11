@@ -47,8 +47,11 @@ Keys are strings or numbers.
 type Row = { code: number; name: string }
 type Pair = { start: number; end: number; kind: string }
 
-nodes<Row>(rows, { key: 'code', label: 'name' })
-edges<Pair>(pairs, {
+declare const rows: Row[]
+declare const pairs: Pair[]
+
+nodes(rows, { key: 'code', label: 'name' })
+edges(pairs, {
   key: (pair) => `${pair.kind}:${pair.start}:${pair.end}`,
   source: 'start',
   target: 'end',

@@ -16,8 +16,8 @@ import { orthogonalRouting } from '@bruno00o/graph/routing'
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
-    nodes<Item>(items, { color: 'group', shape: 'square', label: 'label' }),
+    edges(links, { source: 'from', target: 'to', arrow: 'target' }),
+    nodes(items, { color: 'group', shape: 'square', label: 'label' }),
   ],
   layout: layers({ direction: 'down' }),
   routing: orthogonalRouting({ axis: 'vertical' }),
@@ -62,7 +62,7 @@ await graph.routing.run()
 Every edge routes, except loops, [great circles](/docs/map#great-circles) and edges with [waypoints](/docs/marks#waypoints). Set `route` on `edges()` to keep edges straight:
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   route: (link) => link.kind !== 'direct',

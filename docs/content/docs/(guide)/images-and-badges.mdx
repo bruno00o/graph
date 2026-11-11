@@ -10,7 +10,7 @@ description: Pictures and tinted icons inside nodes, badges in their corners.
 `image` draws a picture inside the node, cropped to cover its shape. Pass a URL, or an object for more control.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   size: 40,
   image: (item) => ({ src: item.picture, scale: 1 }),
 })
@@ -31,7 +31,7 @@ So share icons between nodes, a handful of pictures for thousands of nodes costs
 With `color`, the image becomes a mask: its alpha channel is painted with that color. A single-color SVG icon then follows the theme.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   fill: 'var(--graph-paper-raised)',
   image: { src: '/icons/circle.svg', scale: 0.6, color: 'var(--graph-ink)' },
 })
@@ -42,7 +42,7 @@ nodes<Item>(items, {
 `badges` puts a small pill in any corner of the node. Each corner takes a function that returns a badge, or `null` for none.
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   badges: {
     topRight: (item) => (item.weight > 5 ? { text: item.weight } : null),
     bottomLeft: (item) => (item.group === 'A' ? { fill: 'var(--graph-cat-4)' } : null),
@@ -61,7 +61,7 @@ Badges sit on the corners of a [box](/docs/marks#boxes), at its full width. A ba
 `outline` draws a ring outside the shape, which separates a picture from its neighbors. `label.background` puts a plate behind the label, which keeps it readable over images and edges. See [Marks and channels](/docs/marks#outlines).
 
 ```ts
-nodes<Item>(items, {
+nodes(items, {
   image: (item) => item.picture,
   outline: 'var(--graph-cat-1)',
   label: { text: 'label', background: true },

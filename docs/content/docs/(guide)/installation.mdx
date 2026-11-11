@@ -58,7 +58,9 @@ The types follow your data. Strict mode is recommended: field names given to cha
 ```ts
 type Item = { id: string; label: string; weight: number }
 
-nodes<Item>(items, { size: 'weight', label: 'label' })
+declare const items: Item[]
+
+nodes(items, { size: 'weight', label: 'label' })
 ```
 
 `size` takes a numeric field: `size: 'label'` would not compile.
