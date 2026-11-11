@@ -35,6 +35,8 @@ const twoWay = Number(params.get('twoway') ?? 0.5)
 const shapeCount = Number(params.get('shapes') ?? 0)
 const shapePoints = Math.max(3, Number(params.get('points') ?? 50))
 const shapeParts = params.get('parts') ?? 'both'
+const shapeLabels = params.has('shapelabels')
+const pinCount = Number(params.get('pinned') ?? 0)
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -55,6 +57,11 @@ const items: readonly (Item | TimedItem)[] = stacked(history?.items ?? sample.it
 const links: readonly (Link | TimedLink)[] = backwards(history?.links ?? sample.links)
 const winding = bends > 0 ? windingRoutes(items, links, bends) : null
 const zones = shapeCount > 0 ? scatteredZones(items, shapeCount, shapePoints) : []
+const pins = Array.from({ length: Math.min(pinCount, items.length) }, (_, index) => ({
+  id: `p${index}`,
+  node: items[index]?.id ?? '',
+  geometry: { center: { x: 0, y: 0 }, radius: 24, inner: 12 },
+}))
 const generated = performance.now()
 
 function scatteredZones(
@@ -139,8 +146,12 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
               ...(shapeParts === 'none' ? { fill: null, strokeWidth: 0 } : {}),
               opacity: 0.25,
               order: 'rank',
+              ...(shapeLabels ? { label: (zone: (typeof zones)[number]) => zone.id } : {}),
             }),
           ]
+        : []),
+      ...(pins.length > 0
+        ? [shapes(pins, { node: 'node', fill: 'var(--graph-cat-5)', stroke: null, opacity: 0.4 })]
         : []),
       edges<Link | TimedLink>(links, {
         source: 'from',

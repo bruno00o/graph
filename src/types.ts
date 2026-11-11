@@ -286,7 +286,7 @@ export interface NodeImage {
   readonly color?: string | undefined
 }
 
-/** Text and style of a label, shared by node and edge labels. */
+/** Text and style of a label, shared by node, edge and shape labels. */
 export interface LabelTextOptions<T> {
   /** Main text, where `\n` starts a new line. Anything but a non-empty string draws no label. */
   readonly text: Channel<T, string>
@@ -301,8 +301,8 @@ export interface LabelTextOptions<T> {
    */
   readonly color?: Style<T, string> | undefined
   /**
-   * Font size in pixels at zoom 1: 12 for nodes and 11 for edges by default. Labels shrink when
-   * you zoom out, not when you zoom in.
+   * Font size in pixels at zoom 1: 12 for nodes and shapes, and 11 for edges by default. Labels
+   * shrink when you zoom out, not when you zoom in.
    */
   readonly size?: Style<T, number> | undefined
   /**
@@ -347,6 +347,13 @@ export interface LabelOptions<T> extends LabelTextOptions<T> {
 
 /** Text and style of an edge label, which sits halfway along the edge and turns with it. */
 export interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
+
+/**
+ * Text and style of a shape label, centered on the point of a polygon farthest from its outline,
+ * on the center of a circle or a rectangle, on the top of the band of a ring, or on the middle of
+ * the longest segment of a line.
+ */
+export interface ShapeLabelOptions<T> extends LabelTextOptions<T> {}
 
 /** Name of a mark: a string chosen in its options, or `undefined` for a mark without one. */
 export type MarkName = string | undefined
@@ -1097,6 +1104,18 @@ export interface ShapeOptions<T, N extends MarkName = MarkName, L extends MarkLa
    * @default 'painted'
    */
   readonly pick?: ShapePick | undefined
+  /**
+   * Label text, or the text with its style, centered where the shape is widest: the center of a
+   * circle or a rectangle, the top of the band of a ring, the middle of the longest segment of a
+   * line, the point of a polygon farthest from its outline. It takes the fades and the state
+   * opacity of the shape, not its `opacity`, and gives way to node and edge labels.
+   */
+  readonly label?: Channel<T, string> | ShapeLabelOptions<T> | undefined
+  /**
+   * Key of the node the shape follows: its geometry is then in world units from where the node is
+   * drawn. The shape waits while the node is missing, and hides while the node is hidden.
+   */
+  readonly node?: Channel<T, Key> | undefined
 }
 
 /**

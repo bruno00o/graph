@@ -41,6 +41,18 @@ type ShapePick = 'painted' | 'stroke' | false
 
 `pick` says what of a shape takes the pointer: with `'painted'`, the inside of a filled shape and the outline of a stroked one; with `'stroke'`, the outline only; with `false`, nothing. Outlines take the pointer within half their width plus a few pixels. See [What takes the pointer](/docs/shapes#what-takes-the-pointer).
 
+## Labels
+
+`label` takes a channel for the text, or the text with its style:
+
+<api-table path="index.ts" name="ShapeLabelOptions" />
+
+The label sits on the point of a polygon farthest from its outline and its holes, on the center of a disc or a rectangle, on the top of the band of a ring, and on the middle of the longest segment of a line. It is placed after the node and edge labels, the labels of the largest shapes first. See [Labels](/docs/shapes#labels).
+
+## Pinned shapes
+
+`node` reads the key of the node a shape follows: its geometry is then in world units from where the node is drawn. A shape whose node is missing waits, and [`count()`](/docs/api/graph-instance#count) reports it in `pendingShapes`, out of `shapes`; a shape whose node is hidden hides too. See [Pin shapes to nodes](/docs/shapes#pin-shapes-to-nodes).
+
 ## Targets
 
 A shape under the pointer, in the events, `pick` and the store, is a [`ShapeTarget`](/docs/api/events#targets): `kind` is `'shape'`, `datum` the item, typed by its mark, and `mark` the `name` of that mark. `graph.datumOf({ kind: 'shape', key })` returns the item of a shape, and the selection and the states hold shape keys in `shapes`: see [Selection](/docs/api/graph-instance#selection).

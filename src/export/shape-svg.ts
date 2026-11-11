@@ -3,8 +3,17 @@ import type { ShapeStore } from '../core/shape-store'
 import { num, paintAttribute } from './svg-format'
 
 export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
-  const { zoom, offsetX, offsetY } = pen
+  const zoom = pen.zoom
+  let offsetX = pen.offsetX
+  let offsetY = pen.offsetY
   const body: string[] = []
+
+  function place(index: number): void {
+    const node = store.pinNode?.[index] ?? -1
+    const positions = pen.positions
+    offsetX = pen.offsetX + (node >= 0 && positions ? positions.x(node) * zoom : 0)
+    offsetY = pen.offsetY + (node >= 0 && positions ? positions.y(node) * zoom : 0)
+  }
 
   function ringPath(points: Float64Array, from: number, to: number, closed: boolean): string {
     let path = ''
@@ -70,6 +79,7 @@ export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
 
   function stroke(index: number, look: ShapeLook | null): void {
     if (!look) return
+    place(index)
     const width = look.strokeWidth
     const color = pen.paint(look.stroke)
     const alpha = color.alpha * look.opacity
@@ -97,6 +107,7 @@ export function writeShapesSvg(store: ShapeStore, pen: ShapeSvgPen): string {
 
   function fill(index: number, look: ShapeLook | null): void {
     if (!look) return
+    place(index)
     const geometry = store.geometry[index]
     const color = pen.paint(look.fill)
     const alpha = color.alpha * look.opacity

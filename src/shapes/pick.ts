@@ -1,6 +1,7 @@
 import { noColor } from '../core/columns'
 import {
   isDrawn,
+  type PickPositions,
   type ShapeGeometryData,
   type ShapePicker,
   type ShapePickQuery,
@@ -144,7 +145,11 @@ interface Level {
   readonly entries: Uint32Array
 }
 
-export function createShapePicker(store: ShapeStore): ShapePicker {
+export function createShapePicker(store: ShapeStore, positions: PickPositions): ShapePicker {
+  let pinned: number[] = []
+  let pinnedBoxes = new Float64Array(0)
+  let pinnedAt = -1
+  let pinnedFor = -1
   let version = -1
   let styleVersion = -1
   let minX = 0
@@ -183,6 +188,8 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
     stamp = 0
     widest = 0
     const picked: number[] = []
+    pinned = []
+    pinnedFor = -1
     minX = Number.POSITIVE_INFINITY
     minY = Number.POSITIVE_INFINITY
     maxX = Number.NEGATIVE_INFINITY
@@ -193,8 +200,12 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
       const geometry = store.geometry[index]
       if (mode === shapePicks.none || !isDrawn(geometry)) return
       if (!fills(index, geometry, mode) && !strokes(index, mode)) return
-      picked.push(index)
       widest = Math.max(widest, (store.strokeWidth[index] ?? 0) / 2)
+      if (store.pinned(index)) {
+        pinned.push(index)
+        return
+      }
+      picked.push(index)
       minX = Math.min(minX, geometry.minX)
       minY = Math.min(minY, geometry.minY)
       maxX = Math.max(maxX, geometry.maxX)
@@ -295,18 +306,56 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
     return stroked && nearRings(geometry, x, y, reach)
   }
 
+  function placePinned(current: boolean): void {
+    if (pinnedFor === version && (!current || pinnedAt === positions.version)) return
+    pinnedFor = version
+    pinnedAt = positions.version
+    if (pinnedBoxes.length !== pinned.length * 4) pinnedBoxes = new Float64Array(pinned.length * 4)
+    pinned.forEach((index, at) => {
+      const geometry = store.geometry[index] as ShapeGeometryData
+      const node = store.pinNode?.[index] ?? 0
+      const x = positions.x(node)
+      const y = positions.y(node)
+      pinnedBoxes[at * 4] = geometry.minX + x
+      pinnedBoxes[at * 4 + 1] = geometry.minY + y
+      pinnedBoxes[at * 4 + 2] = geometry.maxX + x
+      pinnedBoxes[at * 4 + 3] = geometry.maxY + y
+    })
+  }
+
+  function pickPinned(query: ShapePickQuery, reach: number, found: number, order: number): number {
+    placePinned(query.current)
+    let best = found
+    let bestOrder = order
+    const { x, y } = query
+    for (let at = 0; at < pinned.length; at++) {
+      const box = at * 4
+      if (x < (pinnedBoxes[box] ?? 0) - reach || x > (pinnedBoxes[box + 2] ?? 0) + reach) continue
+      if (y < (pinnedBoxes[box + 1] ?? 0) - reach || y > (pinnedBoxes[box + 3] ?? 0) + reach)
+        continue
+      const index = pinned[at] ?? 0
+      const rankOf = (query.raised(index) ? 2 ** 31 : 0) + (rank[index] ?? 0)
+      if (rankOf <= bestOrder) continue
+      const node = store.pinNode?.[index] ?? 0
+      const local = { ...query, x: x - positions.x(node), y: y - positions.y(node) }
+      if (!hits(index, local)) continue
+      best = index
+      bestOrder = rankOf
+    }
+    return best
+  }
+
   return {
     pick(query) {
       fresh()
-      if (levels.length === 0) return -1
       const reach = (widest + query.tolerance) / query.scale
       const { x, y } = query
-      if (x + reach < minX || y + reach < minY || x - reach > maxX || y - reach > maxY) return -1
+      const outside = x + reach < minX || y + reach < minY || x - reach > maxX || y - reach > maxY
       stamp = stamp >= 0xfffffffe ? 1 : stamp + 1
       if (stamp === 1) stamps.fill(0)
       let best = -1
       let bestOrder = -1
-      for (const level of levels) {
+      for (const level of outside ? [] : levels) {
         if (level.entries.length === 0) continue
         const { side, width, height, starts, entries } = level
         const c0 = cellOf(x - reach, minX, width, side)
@@ -329,13 +378,15 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
           }
         }
       }
-      return best
+      if (pinned.length === 0) return best
+      const order = best >= 0 ? (query.raised(best) ? 2 ** 31 : 0) + (rank[best] ?? 0) : -1
+      return pickPinned(query, reach, best, order)
     },
 
     inside(polygon, shown) {
       fresh()
       const found: number[] = []
-      if (levels.length === 0 || polygon.length < 3) return found
+      if ((levels.length === 0 && pinned.length === 0) || polygon.length < 3) return found
       let x0 = Number.POSITIVE_INFINITY
       let y0 = Number.POSITIVE_INFINITY
       let x1 = Number.NEGATIVE_INFINITY
@@ -351,11 +402,19 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
         const mode = store.pick[index] ?? shapePicks.painted
         const geometry = store.geometry[index]
         if (mode === shapePicks.none || !isDrawn(geometry)) continue
-        if (geometry.minX < x0 || geometry.maxX > x1 || geometry.minY < y0 || geometry.maxY > y1) {
+        const node = store.pinNode?.[index] ?? -1
+        const ox = node >= 0 ? positions.x(node) : 0
+        const oy = node >= 0 ? positions.y(node) : 0
+        if (
+          geometry.minX + ox < x0 ||
+          geometry.maxX + ox > x1 ||
+          geometry.minY + oy < y0 ||
+          geometry.maxY + oy > y1
+        ) {
           continue
         }
         if (!shown(index)) continue
-        const within = (x: number, y: number) => insidePolygon(polygon, x, y)
+        const within = (x: number, y: number) => insidePolygon(polygon, x + ox, y + oy)
         if (geometry.round) {
           if (roundOutline(geometry, within)) found.push(index)
           continue

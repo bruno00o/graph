@@ -126,6 +126,26 @@ export function shapeLook(shapes: ShapeStore, states: StateBuffers, index: numbe
   )
 }
 
+export function shapeLabelLook(states: StateBuffers, index: number): Look {
+  return resolve(
+    states,
+    states.shapeMask[index] ?? 0,
+    {
+      opacity: 1,
+      strokeWidth: 0,
+      halo: false,
+      label: true,
+      fill: noPaint,
+      stroke: noPaint,
+      outline: noPaint,
+      outlineWidth: 0,
+      labelColor: noPaint,
+      flow: 0,
+    },
+    'shapes',
+  )
+}
+
 export interface EdgeLine {
   readonly color: number
   readonly farColor: number

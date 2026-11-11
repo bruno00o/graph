@@ -1,6 +1,7 @@
 import type { Point } from '../types'
 import type { InvalidShapeReason } from './issues'
 import type { LayerFilter } from './mark-layers'
+import type { PositionReader } from './positions'
 import type { ShapeStore } from './shape-store'
 import type { StateBuffers } from './state-buffers'
 
@@ -31,9 +32,17 @@ export interface ShapeLayerInput {
   readonly originY: number
 }
 
+export interface ShapeGlyphs {
+  readonly data: ArrayBuffer
+  readonly count: number
+}
+
 export interface ShapeLayer {
   sync(input: ShapeLayerInput): boolean
   draw(layers: LayerFilter | null): void
+  labels(set: object, main: ShapeGlyphs, highlight: ShapeGlyphs): void
+  drawLabels(set: object, pass: number, layers: LayerFilter | null): void
+  forget(set: object): void
   destroy(): void
 }
 
@@ -53,6 +62,7 @@ export interface ShapeSvgPen {
   readonly zoom: number
   readonly offsetX: number
   readonly offsetY: number
+  readonly positions: PositionReader | null
   paint(id: number): ShapePaint
   look(index: number): ShapeLook | null
   raised(index: number): boolean
@@ -63,6 +73,7 @@ export interface ShapePickQuery {
   readonly y: number
   readonly scale: number
   readonly tolerance: number
+  readonly current: boolean
   shown(index: number): boolean
   raised(index: number): boolean
 }
@@ -76,7 +87,12 @@ export interface ShapeEngine {
   read(value: unknown): ShapeGeometryData | null
   layer(gl: WebGL2RenderingContext, blocks: Readonly<Record<string, number>>): ShapeLayer
   svg(store: ShapeStore, pen: ShapeSvgPen): string
-  picker(store: ShapeStore): ShapePicker
+  picker(store: ShapeStore, positions: PickPositions): ShapePicker
+  anchor(geometry: ShapeGeometryData): Point
+}
+
+export interface PickPositions extends PositionReader {
+  readonly version: number
 }
 
 const engines = new WeakMap<object, ShapeEngine>()

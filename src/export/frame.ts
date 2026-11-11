@@ -141,10 +141,13 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
       ? shapeLook(shapes, states, index).strokeWidth
       : (shapes.strokeWidth[index] ?? 0)
     const reach = Math.max(width, 0) / 2
-    minX = Math.min(minX, geometry.minX * zoom - reach)
-    minY = Math.min(minY, geometry.minY * zoom - reach)
-    maxX = Math.max(maxX, geometry.maxX * zoom + reach)
-    maxY = Math.max(maxY, geometry.maxY * zoom + reach)
+    const node = shapes.pinNode?.[index] ?? -1
+    const ox = node >= 0 ? positions.x(node) * zoom : 0
+    const oy = node >= 0 ? positions.y(node) * zoom : 0
+    minX = Math.min(minX, geometry.minX * zoom + ox - reach)
+    minY = Math.min(minY, geometry.minY * zoom + oy - reach)
+    maxX = Math.max(maxX, geometry.maxX * zoom + ox + reach)
+    maxY = Math.max(maxY, geometry.maxY * zoom + oy + reach)
   }
   if (maxX < minX) return viewFrame
   for (let index = 0; index < edges.capacity; index++) {

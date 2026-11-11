@@ -6,6 +6,7 @@ import type { Renderer, RenderInput } from '../host/renderer'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
+import type { Mark } from '../types'
 import { exportPng, exportSvg } from '.'
 
 vi.mock('@mapbox/tiny-sdf', () => ({
@@ -161,6 +162,39 @@ describe('exports with shapes', () => {
     created.layers.hide(['ground'])
     const empty = await exportSvg(created)
     expect(empty).not.toContain('stroke-width="7"')
+  })
+
+  it('writes a pinned shape and its label where an unpinned one would be', async () => {
+    const svgOf = async (marks: readonly Mark[]) => {
+      const container = document.createElement('div')
+      document.body.append(container)
+      const created = createGraphHost(
+        container,
+        {
+          definition: defineGraph({ marks: [...marks, nodes(items, { x: 'x', y: 'y' })] }),
+          ariaLabel: 'graph',
+        },
+        () => fakeRenderer(),
+      )
+      dom.flushFrames()
+      const svg = await exportSvg(created)
+      created.destroy()
+      return svg
+    }
+    const placed = await svgOf([
+      shapes([{ id: 'zone', geometry: { center: { x: 200, y: 100 }, radius: 60 }, name: 'Zone' }], {
+        label: 'name',
+      }),
+    ])
+    const pinned = await svgOf([
+      shapes(
+        [{ id: 'zone', geometry: { center: { x: 0, y: 100 }, radius: 60 }, name: 'Zone', at: 'b' }],
+        { label: 'name', node: 'at' },
+      ),
+    ])
+    expect(placed).toContain('fill-rule="evenodd"')
+    expect(placed).toContain('Zone')
+    expect(pinned).toBe(placed)
   })
 
   it('writes no shape without a shape mark', async () => {

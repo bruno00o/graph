@@ -22,6 +22,11 @@ interface ShownEdges extends Shown {
   readonly target: Uint32Array
 }
 
+interface ShownShapes extends Shown {
+  readonly pinNode?: Int32Array | null
+  readonly nodes?: (Shown & { readonly alive: Uint8Array }) | null
+}
+
 export function sightOf(
   zoom: number,
   time: TimeFilter | null = null,
@@ -81,12 +86,26 @@ function shapeHidden(shapes: Shown, index: number, sight: Sight): boolean {
   )
 }
 
-export function shapeShown(shapes: Shown, index: number, sight: Sight): boolean {
-  return !shapeHidden(shapes, index, sight) && ownShown(shapes, index, sight)
+function pinOpacity(shapes: ShownShapes, index: number, sight: Sight): number {
+  const node = shapes.pinNode?.[index] ?? -1
+  if (node === -1) return 1
+  const nodes = shapes.nodes
+  if (node < 0 || !nodes || nodes.alive[node] !== 1) return 0
+  return nodeOpacity(nodes, node, sight)
 }
 
-export function shapeOpacity(shapes: Shown, index: number, sight: Sight): number {
-  return shapeHidden(shapes, index, sight) ? 0 : ownOpacity(shapes, index, sight)
+export function shapeShown(shapes: ShownShapes, index: number, sight: Sight): boolean {
+  return (
+    !shapeHidden(shapes, index, sight) &&
+    ownShown(shapes, index, sight) &&
+    pinOpacity(shapes, index, sight) > 0
+  )
+}
+
+export function shapeOpacity(shapes: ShownShapes, index: number, sight: Sight): number {
+  if (shapeHidden(shapes, index, sight)) return 0
+  const own = ownOpacity(shapes, index, sight)
+  return own > 0 ? Math.min(own, pinOpacity(shapes, index, sight)) : 0
 }
 
 export function edgeHalfHidden(index: number, end: EdgeEnd, sight: Sight): boolean {

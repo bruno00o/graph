@@ -129,7 +129,7 @@ function style(value: unknown): Read | null {
   return typeof value === 'function' ? (value as Read) : () => value
 }
 
-function labelText(options: LabelTextOptions<unknown> | null): CompiledLabelText {
+export function labelText(options: LabelTextOptions<unknown> | null): CompiledLabelText {
   return {
     color: style(options?.color),
     size: style(options?.size),

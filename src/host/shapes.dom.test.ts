@@ -107,6 +107,7 @@ describe('shapes in a mounted graph', () => {
       edges: 0,
       pending: 0,
       shapes: 4,
+      pendingShapes: 0,
       shown: { nodes: 2, edges: 0, shapes: 2 },
     })
     expect(mount(false).count()).toEqual({
@@ -121,6 +122,7 @@ describe('shapes in a mounted graph', () => {
       edges: 0,
       pending: 0,
       shapes: 0,
+      pendingShapes: 0,
       shown: { nodes: 0, edges: 0, shapes: 0 },
     })
   })
@@ -180,6 +182,30 @@ describe('shapes in a mounted graph', () => {
     dom.flushFrames()
     expect(graph.view.get().x).toBeCloseTo(0)
     expect(graph.view.get().y).toBeCloseTo(125)
+  })
+
+  it('frames a pinned shape where its node ends a gliding run', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const pinned = [{ id: 'p', geometry: { center: { x: 0, y: 0 }, radius: 20 }, node: 'b' }]
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [shapes(pinned, { node: 'node' }), nodes([{ id: 'a' }, { id: 'b' }])],
+          layout: null,
+        }),
+        ariaLabel: 'graph',
+      },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const done = graph.layout.run(gliding(), { fit: { shapes: ['p'] } })
+    await Promise.resolve()
+    dom.flushFrames()
+    await done
+    expect(graph.view.get().x).toBeCloseTo(100)
+    expect(graph.view.get().y).toBeCloseTo(100)
   })
 
   it('frames a graph of shapes alone', () => {

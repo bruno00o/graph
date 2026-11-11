@@ -142,6 +142,7 @@ export class StateBuffers {
   highlightedShapes: readonly number[] = []
   alwaysNodes: readonly number[] = []
   alwaysEdges: readonly number[] = []
+  alwaysShapes: readonly number[] = []
   tableVersion = 0
   highlightVersion = 0
   edgeMaskVersion = 0
@@ -153,6 +154,7 @@ export class StateBuffers {
   shapeRaise: number = builtInRaise
   nodeAlways = 0
   edgeAlways = 0
+  shapeAlways = 0
   nodeHide = 0
   edgeHide = 0
   shapeHide = 0
@@ -166,6 +168,7 @@ export class StateBuffers {
   #shapeOthersHide = 0
   #nodeOthersAlways = 0
   #edgeOthersAlways = 0
+  #shapeOthersAlways = 0
   #edgeOthersFlow = 0
   #members: Int32Array = new Int32Array(maxStates)
   #hiddenNodes = 0
@@ -215,10 +218,13 @@ export class StateBuffers {
   }
 
   othersAlways(kind: StateKind): number {
-    if (kind === 'shapes') return 0
-    return (
-      ((kind === 'nodes' ? this.#nodeOthersAlways : this.#edgeOthersAlways) & this.active) >>> 0
-    )
+    const bits =
+      kind === 'nodes'
+        ? this.#nodeOthersAlways
+        : kind === 'edges'
+          ? this.#edgeOthersAlways
+          : this.#shapeOthersAlways
+    return (bits & this.active) >>> 0
   }
 
   othersFlow(): number {
@@ -393,7 +399,9 @@ export class StateBuffers {
       }
     } else if (kind === 'shapes') {
       this.shapeRaise = setBit(this.shapeRaise, flag, style?.raise === true)
+      this.shapeAlways = setBit(this.shapeAlways, flag, always)
       this.#shapeOthers = setBit(this.#shapeOthers, flag, others !== null)
+      this.#shapeOthersAlways = setBit(this.#shapeOthersAlways, flag, othersAlways)
       const othersHide = setBit(this.#shapeOthersHide, flag, others?.hide === true)
       if (othersHide !== this.#shapeOthersHide) {
         this.#shapeOthersHide = othersHide
@@ -464,6 +472,7 @@ export class StateBuffers {
     copy.shapeRaise = this.shapeRaise
     copy.nodeAlways = this.nodeAlways
     copy.edgeAlways = this.edgeAlways
+    copy.shapeAlways = this.shapeAlways
     copy.nodeHide = this.nodeHide
     copy.edgeHide = this.edgeHide
     copy.shapeHide = this.shapeHide
@@ -476,6 +485,7 @@ export class StateBuffers {
     copy.#shapeOthersHide = this.#shapeOthersHide
     copy.#nodeOthersAlways = this.#nodeOthersAlways
     copy.#edgeOthersAlways = this.#edgeOthersAlways
+    copy.#shapeOthersAlways = this.#shapeOthersAlways
     copy.#edgeOthersFlow = this.#edgeOthersFlow
     copy.#members.set(this.#members)
     copy.#hiddenNodes = this.#hiddenNodes
@@ -488,7 +498,7 @@ export class StateBuffers {
       [...this.highlightedEdges],
       [...this.highlightedShapes],
     )
-    copy.setAlways([...this.alwaysNodes], [...this.alwaysEdges])
+    copy.setAlways([...this.alwaysNodes], [...this.alwaysEdges], [...this.alwaysShapes])
     return copy
   }
 
@@ -497,7 +507,11 @@ export class StateBuffers {
   }
 
   always(kind: StateKind): number {
-    return kind === 'nodes' ? this.nodeAlways : kind === 'edges' ? this.edgeAlways : 0
+    return kind === 'nodes'
+      ? this.nodeAlways
+      : kind === 'edges'
+        ? this.edgeAlways
+        : this.shapeAlways
   }
 
   setHighlighted(
@@ -511,9 +525,14 @@ export class StateBuffers {
     this.highlightVersion++
   }
 
-  setAlways(nodes: readonly number[], edges: readonly number[]): void {
+  setAlways(
+    nodes: readonly number[],
+    edges: readonly number[],
+    shapes: readonly number[] = this.alwaysShapes,
+  ): void {
     this.alwaysNodes = nodes
     this.alwaysEdges = edges
+    this.alwaysShapes = shapes
     this.highlightVersion++
   }
 }

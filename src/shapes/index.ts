@@ -14,6 +14,7 @@ import type {
   ShapeOptions,
 } from '../types'
 import { createShapeLayer } from '../webgl/shape-layer'
+import { shapeAnchor } from './anchor'
 import { createShapePicker } from './pick'
 import { readShape } from './read'
 
@@ -22,6 +23,7 @@ const engine: ShapeEngine = {
   layer: createShapeLayer,
   svg: writeShapesSvg,
   picker: createShapePicker,
+  anchor: shapeAnchor,
 }
 
 type WithGeometry<T> = { readonly geometry: Channel<T, ShapeGeometry> }

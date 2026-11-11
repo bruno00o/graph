@@ -10,6 +10,7 @@ import type { AnyIssue } from './issues'
 import { Palette } from './palette'
 import { createScene } from './scene'
 import { ShapeStore } from './shape-store'
+import { shapeOpacity, shapeShown, sightOf } from './visibility'
 
 type Zone = {
   id: string
@@ -243,5 +244,86 @@ describe('ShapeStore', () => {
     expect(foreign.engine).toBeNull()
     expect(warn).toHaveBeenCalledTimes(1)
     warn.mockRestore()
+  })
+})
+
+describe('ShapeStore labels and pins', () => {
+  type Pinned = { id: string; geometry: ShapeGeometry; node?: string; name?: string }
+
+  it('keeps no label or pin columns for shapes without them', () => {
+    const { store, render } = setup()
+    render([shapes([{ id: 'a', geometry: box(0) }])])
+    expect(store.labels).toBeNull()
+    expect(store.pinNode).toBeNull()
+    expect(store.pinCount).toBe(0)
+  })
+
+  it('reads labels, frees their colors, and orders them by size', () => {
+    const { store, scene, render, indexOf, color } = setup()
+    const zones: Pinned[] = [
+      { id: 'small', geometry: box(0, 10), name: 'Small' },
+      { id: 'large', geometry: box(20, 40), name: 'Large' },
+      { id: 'none', geometry: box(80, 60) },
+    ]
+    render([
+      shapes(zones, {
+        label: { text: 'name', color: '#ff0000', size: 20, weight: 'bold', background: true },
+      }),
+    ])
+    const labels = store.labels
+    expect(labels?.count).toBe(2)
+    expect(labels?.text[indexOf('large')]).toBe('Large')
+    expect(labels?.text[indexOf('none')]).toBeFalsy()
+    expect(color(labels?.labelColor[indexOf('small')])).toBe('#ff0000')
+    expect(labels?.labelSize[indexOf('small')]).toBe(20)
+    expect(labels?.labelWeight[indexOf('small')]).toBe(700)
+    expect(color(labels?.labelBackground[indexOf('small')])).toBe(defaults.labelBackground)
+    expect(Array.from(store.labelOrder(), (index) => store.keys[index])).toEqual(['large', 'small'])
+    expect(store.labelAnchor(indexOf('large'))).toBe(true)
+    expect(labels?.anchor[indexOf('large') * 2]).toBe(40)
+    const used = scene.palette.colors.indexOf('#ff0000')
+    render([shapes(zones.slice(2), { label: { text: 'name', color: '#ff0000' } })])
+    expect(store.labels?.count).toBe(0)
+    expect(store.labelOrder().length).toBe(0)
+    render([shapes([{ id: 'other', geometry: box(0) }], { fill: '#00ff00' })])
+    expect(scene.palette.colors.indexOf('#00ff00')).toBe(used)
+  })
+
+  it('pins shapes to nodes, and leaves them waiting while the node is missing', () => {
+    const { store, model, render, indexOf, drawn } = setup()
+    const zones: Pinned[] = [
+      { id: 'here', geometry: box(0), node: 'a' },
+      { id: 'later', geometry: box(20), node: 'b' },
+      { id: 'free', geometry: box(40) },
+    ]
+    const mark = shapes(zones, { node: 'node' })
+    render([nodes([{ id: 'a' }]), mark])
+    expect(store.pinNode?.[indexOf('here')]).toBe(model.node('a')?.index)
+    expect(store.pinned(indexOf('here'))).toBe(true)
+    expect(store.pinned(indexOf('free'))).toBe(false)
+    expect(store.pinCount).toBe(2)
+    expect(store.pendingCount).toBe(1)
+    expect(drawn()).toEqual(['here', 'free'])
+    render([nodes([{ id: 'a' }, { id: 'b' }]), mark])
+    expect(store.pendingCount).toBe(0)
+    expect(store.pinNode?.[indexOf('later')]).toBe(model.node('b')?.index)
+    expect(drawn()).toEqual(['here', 'later', 'free'])
+    render([nodes([{ id: 'b' }]), mark])
+    expect(store.pendingCount).toBe(1)
+    expect(drawn()).toEqual(['later', 'free'])
+    render([nodes([{ id: 'b' }]), shapes(zones.slice(1), { node: 'node' })])
+    expect(store.pinCount).toBe(1)
+    expect(store.pendingCount).toBe(0)
+  })
+
+  it('hides a pinned shape while its node is hidden', () => {
+    const { store, scene, render, indexOf } = setup()
+    const zones: Pinned[] = [{ id: 'z', geometry: box(0), node: 'a' }]
+    render([nodes([{ id: 'a' }], { minZoom: 4 }), shapes(zones, { node: 'node' })])
+    const index = indexOf('z')
+    expect(shapeShown(store, index, sightOf(8))).toBe(true)
+    expect(shapeShown(store, index, sightOf(2))).toBe(false)
+    expect(shapeOpacity(store, index, sightOf(2))).toBe(0)
+    expect(scene.nodes.alive[store.pinNode?.[index] ?? -1]).toBe(1)
   })
 })

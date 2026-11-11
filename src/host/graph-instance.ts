@@ -408,8 +408,13 @@ export interface GraphShownCount {
 
 /** Element counts of a graph that has a shape mark, from `graph.count()`. */
 export interface GraphShapeCount extends GraphCount {
-  /** Shapes of the data: one per key, the first item of a duplicate key only. */
+  /**
+   * Shapes of the data: one per key, the first item of a duplicate key only, without the shapes
+   * that wait for the node they follow.
+   */
   readonly shapes: number
+  /** Shapes of the data that follow a node missing from the data. */
+  readonly pendingShapes: number
   /** Nodes, edges and shapes drawn now. */
   readonly shown: GraphShownShapeCount
 }

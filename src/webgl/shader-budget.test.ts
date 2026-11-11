@@ -41,8 +41,10 @@ import {
   withEnds,
 } from './shaders'
 import {
+  pinned,
   shapeFillFragment,
   shapeFillVertex,
+  shapeLabelVertex,
   shapeRoundFragment,
   shapeRoundVertex,
   shapeStrokeFragment,
@@ -76,6 +78,10 @@ const programs: readonly Program[] = [
   ['shape fill', shapeFillVertex, shapeFillFragment],
   ['shape stroke', shapeStrokeVertex, shapeStrokeFragment],
   ['shape round', shapeRoundVertex, shapeRoundFragment],
+  ['pinned shape fill', pinned(shapeFillVertex), shapeFillFragment],
+  ['pinned shape stroke', pinned(shapeStrokeVertex), shapeStrokeFragment],
+  ['pinned shape round', pinned(shapeRoundVertex), shapeRoundFragment],
+  ['shape label', shapeLabelVertex, labelFragment],
   ['layout bounds', fullVertex, boundsBlockFragment],
   ['layout bounds reduce', fullVertex, boundsFragment],
   ['layout splat', splatVertex, valueFragment],

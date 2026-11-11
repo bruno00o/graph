@@ -1,6 +1,7 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
 import type { Positions } from '../core/positions'
+import type { ShapeStore } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import type { LabelMode } from '../host/renderer'
 import { atlasFontSize } from '../webgl/glyph-atlas'
@@ -25,6 +26,7 @@ export interface LabelSource {
   readonly states: StateBuffers
   readonly boxes?: Float32Array | null
   readonly bundles?: EdgePaths | null
+  readonly shapes?: ShapeStore | null
 }
 
 export interface Box {
@@ -91,6 +93,18 @@ export function selectLabels(
       mode,
       sink,
       paths: source.bundles ?? null,
+      shapes:
+        source.shapes?.labels && source.shapes.engine
+          ? {
+              store: source.shapes,
+              mask: states.shapeMask,
+              flags: states.shapeLabelFlags,
+              highlighted: states.highlightedShapes,
+              raise: states.shapeRaise,
+              others: states.others('shapes'),
+              always: states.alwaysShapes,
+            }
+          : null,
     },
     measure,
   )
@@ -180,6 +194,12 @@ export function fitLabels(
           )
         }
       }
+    },
+    shape: (_index, label, ox, oy) => {
+      const scale = label.pixels / atlasFontSize
+      labelBox(label, local)
+      grow(bounds, ox + local.left * scale, oy + local.top * scale)
+      grow(bounds, ox + local.right * scale, oy + local.bottom * scale)
     },
   })
   const left = bounds.left - padding

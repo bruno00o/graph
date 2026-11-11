@@ -182,13 +182,15 @@ float timeShown(vec4 span) {
 }
 `
 
-export const nodeData: string = `
+export const nodeSamplers: string = `
 uniform sampler2D nodePosition;
 uniform sampler2D nodeStyle;
 uniform usampler2D nodeState;
 uniform sampler2D nodeZoom;
 uniform sampler2D nodeTime;
-${spanData}
+`
+
+export const nodeSight: string = `
 float nodeShown(ivec2 t) {
   if (anyHidden(hiddenNodes) && slotHidden(hiddenNodes, (uint(texelFetch(nodeStyle, t, 0).w + 0.5) >> 4u) & 255u)) return 0.0;
   if ((stateRaise.z | stateOthers.z) != 0u) {
@@ -198,7 +200,9 @@ float nodeShown(ivec2 t) {
   float shown = ranged > 0.5 ? zoomShown(texelFetch(nodeZoom, t, 0).xy) : 1.0;
   return timed > 0.5 && shown > 0.0 ? shown * timeShown(texelFetch(nodeTime, t, 0)) : shown;
 }
-float nodeDiameter(vec4 style, float scale) {
+`
+
+export const nodeData: string = `${nodeSamplers}${spanData}${nodeSight}float nodeDiameter(vec4 style, float scale) {
   uint flags = uint(style.w + 0.5);
   return (flags & 4u) != 0u ? style.x : style.x * scale;
 }
@@ -1011,7 +1015,7 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
 export const edgeFragment: string = edgeFragmentOf(false)
 export const clippedEdgeFragment: string = edgeFragmentOf(true)
 
-export const labelVertex: string = `${header}${nodeData}${nodeLookData}${edgeData}${curveData}${bundlePath}
+export const glyphLayout: string = `
 uniform float atlasFontSize;
 in vec2 corner;
 in uint glyphNode;
@@ -1055,7 +1059,9 @@ vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor, uint insi
   vHalo = (glyphKind & 4u) != 0u || inside != 0u ? 0.0 : 1.0;
   return (glyphRect.xy + corner * glyphRect.zw) * scale - vec2(0.0, lift);
 }
-vec4 fixedMiddle(uvec4 path, vec2 a, vec2 d, vec2 wraps, float shift) {
+`
+
+export const labelVertex: string = `${header}${nodeData}${nodeLookData}${edgeData}${curveData}${bundlePath}${glyphLayout}vec4 fixedMiddle(uvec4 path, vec2 a, vec2 d, vec2 wraps, float shift) {
   int inner = int(path.y) - 2;
   vec2 p = fixedPoint(path, 1, a, d, wraps);
   vec2 q = fixedPoint(path, inner, a, d, wraps);

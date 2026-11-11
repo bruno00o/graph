@@ -1153,6 +1153,7 @@ export class Projection {
       nodeAt,
       edgeAt,
       shapeAt: (index) => model.shapeAt(index),
+      node: (key) => model.node(key),
       shapes: () => model.shapes(),
       *nodes() {
         for (const record of model.nodes()) {

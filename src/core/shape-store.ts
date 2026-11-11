@@ -1,10 +1,12 @@
 import { dev } from '../dev'
 import { defaults } from '../theme/tokens'
 import type { EdgeDash, Key, Mark, ShapeMark } from '../types'
-import { toAccessor } from './accessor'
+import { isKey, toAccessor } from './accessor'
 import { dashCodes, noColor } from './columns'
+import { type CompiledLabelText, labelText } from './compile-mark'
 import type { ElementChanges, ShapeRecord } from './graph-model'
 import type { AnyIssue } from './issues'
+import { type LabelTextColumns, readBackground, toText, writeLabelText } from './label-text'
 import type { Palette } from './palette'
 import {
   isDrawn,
@@ -32,12 +34,53 @@ interface CompiledShapeMark {
   readonly time: Read | null
   readonly pick: number
   readonly read: (value: unknown) => ShapeGeometryData | null
+  readonly label: Read | null
+  readonly labelBackground: Read | null
+  readonly labelText: CompiledLabelText
+  readonly node: Read | null
 }
 
 export interface ShapeSource {
   shapeAt?(index: number): ShapeRecord | undefined
   shapes?(): Iterable<ShapeRecord>
+  node?(key: Key): { readonly index: number } | undefined
 }
+
+export interface PinNodes {
+  readonly alive: Uint8Array
+  readonly zoom: ZoomRanges
+  readonly time: TimeSpans
+  readonly slot: Uint16Array
+}
+
+export const unpinned = -1
+export const pendingPin = -2
+
+export class ShapeLabels implements LabelTextColumns {
+  text: (string | null)[] = []
+  labelBackground: Uint32Array = new Uint32Array(0)
+  labelColor: Uint32Array = new Uint32Array(0)
+  labelSize: Float32Array = new Float32Array(0)
+  labelWeight: Uint16Array = new Uint16Array(0)
+  labelFont: (string | null)[] = []
+  labelMaxWidth: Float32Array = new Float32Array(0)
+  anchor: Float64Array = new Float64Array(0)
+  count = 0
+
+  reserve(length: number): void {
+    if (length <= this.labelSize.length) return
+    const colors = (n: number) => new Uint32Array(n).fill(noColor)
+    this.labelBackground = grown(this.labelBackground, length, colors)
+    this.labelColor = grown(this.labelColor, length, colors)
+    this.labelSize = grown(this.labelSize, length, (n) => new Float32Array(n))
+    this.labelWeight = grown(this.labelWeight, length, (n) => new Uint16Array(n))
+    this.labelMaxWidth = grown(this.labelMaxWidth, length, (n) => new Float32Array(n))
+    this.anchor = grown(this.anchor, length * 2, (n) => new Float64Array(n).fill(Number.NaN))
+  }
+}
+
+const noChanges: ElementChanges = { added: [], updated: [], removed: [] }
+const noOrder = new Uint32Array(0)
 
 const compiled = new WeakMap<ShapeMark<unknown>, CompiledShapeMark>()
 
@@ -50,6 +93,7 @@ function compileShapeMark(mark: ShapeMark<unknown>): CompiledShapeMark {
   const known = compiled.get(mark)
   if (known) return known
   const options = mark.options
+  const label = options.label
   const engine = shapeEngineOf(mark)
   const made: CompiledShapeMark = {
     geometry: toAccessor<unknown, unknown>(
@@ -77,6 +121,18 @@ function compileShapeMark(mark: ShapeMark<unknown>): CompiledShapeMark {
           ? shapePicks.stroke
           : shapePicks.painted,
     read: (value) => (engine ? engine.read(value) : null),
+    label:
+      label === undefined
+        ? null
+        : toAccessor<unknown, unknown>(
+            (typeof label === 'object' ? label.text : label) as string | Read,
+          ),
+    labelBackground: style(typeof label === 'object' ? label.background : undefined),
+    labelText: labelText(typeof label === 'object' ? label : null),
+    node:
+      options.node === undefined
+        ? null
+        : toAccessor<unknown, unknown>(options.node as string | Read),
   }
   compiled.set(mark, made)
   return made
@@ -86,11 +142,9 @@ function finiteOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
-function grown<A extends Float64Array | Float32Array | Uint32Array | Uint8Array | Uint16Array>(
-  array: A,
-  length: number,
-  make: (length: number) => A,
-): A {
+function grown<
+  A extends Float64Array | Float32Array | Uint32Array | Uint8Array | Uint16Array | Int32Array,
+>(array: A, length: number, make: (length: number) => A): A {
   if (length <= array.length) return array
   const next = make(Math.max(64, array.length * 2, length))
   next.set(array)
@@ -124,6 +178,18 @@ export class ShapeStore {
   readTime = 0
   shown = true
   engine: ShapeEngine | null = null
+  labels: ShapeLabels | null = null
+  labelVersion = 0
+  anchorVersion = 0
+  pinNode: Int32Array | null = null
+  pinCount = 0
+  pendingCount = 0
+  readonly nodes: PinNodes | null
+  readonly #pinKeys: (Key | undefined)[] = []
+  #labelOrder: Uint32Array | null = null
+  #labelBoxes: Float64Array = new Float64Array(0)
+  #labelOrdered = ''
+  #background = noColor
   #warned = false
   #arrivals = 0
   #slots = new Map<ShapeMark<unknown>, number>()
@@ -133,8 +199,9 @@ export class ShapeStore {
   #ordered = -1
   readonly #palette: Palette
 
-  constructor(palette: Palette) {
+  constructor(palette: Palette, nodes: PinNodes | null = null) {
     this.#palette = palette
+    this.nodes = nodes
   }
 
   get any(): boolean {
@@ -163,19 +230,26 @@ export class ShapeStore {
     this.#slots = slots
   }
 
-  apply(model: ShapeSource, changes: ElementChanges | undefined): void {
-    if (!changes) return
-    const { added, updated, removed } = changes
-    if (added.length + updated.length + removed.length === 0) return
+  apply(
+    model: ShapeSource,
+    changes: ElementChanges | undefined,
+    nodes: ElementChanges | null = null,
+  ): void {
+    const repin =
+      this.pinCount > 0 &&
+      (this.pendingCount > 0 || (nodes !== null && nodes.added.length + nodes.removed.length > 0))
+    const { added, updated, removed } = changes ?? noChanges
+    if (added.length + updated.length + removed.length === 0 && !repin) return
     const start = performance.now()
     for (const { index } of removed) this.#remove(index)
     let structural = removed.length > 0
     for (const refs of [added, updated]) {
       for (const { index } of refs) {
         const record = model.shapeAt?.(index)
-        if (record && this.#write(record)) structural = true
+        if (record && this.#write(record, model)) structural = true
       }
     }
+    if (repin && this.#repin(model)) structural = true
     this.readTime = performance.now() - start
     this.styleVersion++
     if (structural) {
@@ -184,11 +258,60 @@ export class ShapeStore {
     }
   }
 
+  pinned(index: number): boolean {
+    return (this.pinNode?.[index] ?? unpinned) >= 0
+  }
+
+  labelAnchor(index: number): boolean {
+    const labels = this.labels
+    const geometry = this.geometry[index]
+    if (!labels || !this.engine || !isDrawn(geometry)) return false
+    if (Number.isNaN(labels.anchor[index * 2] ?? Number.NaN)) {
+      const point = this.engine.anchor(geometry)
+      labels.anchor[index * 2] = point.x
+      labels.anchor[index * 2 + 1] = point.y
+      this.anchorVersion++
+    }
+    return true
+  }
+
+  labelOrder(): Uint32Array {
+    const labels = this.labels
+    if (!labels || labels.count === 0) return noOrder
+    const key = `${this.version}:${this.labelVersion}`
+    if (this.#labelOrder && this.#labelOrdered === key) return this.#labelOrder
+    const indices = Array.from(this.drawOrder()).filter((index) => !!labels.text[index])
+    const area = (index: number) => {
+      const geometry = this.geometry[index]
+      return geometry ? (geometry.maxX - geometry.minX) * (geometry.maxY - geometry.minY) : 0
+    }
+    indices.sort((a, b) => area(b) - area(a))
+    const boxes = new Float64Array(indices.length * 4)
+    indices.forEach((index, at) => {
+      const geometry = this.geometry[index]
+      boxes[at * 4] = geometry?.minX ?? 0
+      boxes[at * 4 + 1] = geometry?.minY ?? 0
+      boxes[at * 4 + 2] = geometry?.maxX ?? 0
+      boxes[at * 4 + 3] = geometry?.maxY ?? 0
+    })
+    this.#labelOrder = Uint32Array.from(indices)
+    this.#labelBoxes = boxes
+    this.#labelOrdered = key
+    return this.#labelOrder
+  }
+
+  labelBoxes(): Float64Array {
+    this.labelOrder()
+    return this.#labelBoxes
+  }
+
   drawOrder(): Uint32Array {
     if (this.#order && this.#ordered === this.version) return this.#order
     const indices: number[] = []
+    const pins = this.pinNode
     for (let index = 0; this.shown && index < this.capacity; index++) {
-      if (this.alive[index] === 1 && isDrawn(this.geometry[index])) indices.push(index)
+      if (this.alive[index] !== 1 || !isDrawn(this.geometry[index])) continue
+      if (!pins || pins[index] !== pendingPin) indices.push(index)
     }
     const { slot, order, arrival } = this
     indices.sort(
@@ -221,6 +344,8 @@ export class ShapeStore {
     this.pick = grown(this.pick, length, (n) => new Uint8Array(n))
     this.zoom.reserve(length)
     this.time.reserve(length)
+    this.labels?.reserve(length)
+    if (this.pinNode) this.pinNode = grown(this.pinNode, length, pinColumn)
     this.capacity = length
   }
 
@@ -234,6 +359,8 @@ export class ShapeStore {
     this.alive[index] = 0
     this.zoom.clear(index)
     this.time.clear(index)
+    this.#writeLabel(index, null, null, undefined)
+    this.#writePin(index, undefined, null)
     this.count--
     this.#count(this.geometry[index], -1)
     this.geometry[index] = null
@@ -248,7 +375,7 @@ export class ShapeStore {
     this.triangles += sign * (geometry.triangles.length / 3)
   }
 
-  #write(record: ShapeRecord): boolean {
+  #write(record: ShapeRecord, model: ShapeSource): boolean {
     const index = record.index
     this.#reserve(index)
     const mark = compileShapeMark(record.mark)
@@ -262,6 +389,7 @@ export class ShapeStore {
       if (alive) this.#count(this.geometry[index], -1)
       this.geometry[index] = read
       this.#count(read, 1)
+      if (this.labels) this.labels.anchor[index * 2] = Number.NaN
       this.#inputs[index] = input
       this.#report(index, record.key, read)
       structural = true
@@ -300,7 +428,88 @@ export class ShapeStore {
     this.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     if (mark.time) this.time.read(index, mark.time(datum))
     else this.time.clear(index)
+    const text = mark.label ? toText(mark.label(datum)) : null
+    if (text || this.labels) this.#writeLabel(index, text || null, mark, datum)
+    const node = mark.node?.(datum)
+    const pin = isKey(node) ? node : undefined
+    if ((pin !== undefined || this.pinNode) && this.#writePin(index, pin, model)) structural = true
     return structural
+  }
+
+  #writeLabel(
+    index: number,
+    text: string | null,
+    mark: CompiledShapeMark | null,
+    datum: unknown,
+  ): void {
+    if (!this.labels && !text) return
+    if (!this.labels) {
+      this.labels = new ShapeLabels()
+      this.labels.reserve(this.capacity)
+    }
+    const labels = this.labels
+    const palette = this.#palette
+    const before = labels.text[index] ?? null
+    if (before !== text) {
+      labels.count += (text ? 1 : 0) - (before ? 1 : 0)
+      labels.text[index] = text
+      this.labelVersion++
+    }
+    if (!mark || !text) {
+      palette.drop(labels.labelColor[index] ?? noColor)
+      palette.drop(labels.labelBackground[index] ?? noColor)
+      labels.labelColor[index] = noColor
+      labels.labelBackground[index] = noColor
+      return
+    }
+    const size = labels.labelSize[index]
+    const weight = labels.labelWeight[index]
+    const font = labels.labelFont[index] ?? null
+    const width = labels.labelMaxWidth[index]
+    if (this.#background === noColor) this.#background = palette.id(defaults.labelBackground)
+    labels.labelBackground[index] = readBackground(
+      labels.labelBackground[index] ?? noColor,
+      mark.labelBackground?.(datum),
+      palette,
+      { labelBackground: this.#background },
+    )
+    writeLabelText(labels, index, mark.labelText, datum, palette)
+    const changed =
+      size !== labels.labelSize[index] ||
+      weight !== labels.labelWeight[index] ||
+      font !== (labels.labelFont[index] ?? null) ||
+      width !== labels.labelMaxWidth[index]
+    if (changed) this.labelVersion++
+  }
+
+  #writePin(index: number, key: Key | undefined, model: ShapeSource | null): boolean {
+    const before = this.#pinKeys[index]
+    if (key === undefined && before === undefined) return false
+    this.pinNode ??= pinColumn(Math.max(64, this.capacity))
+    const pins = this.pinNode
+    const previous = pins[index] ?? unpinned
+    if (before !== undefined) {
+      this.pinCount--
+      if (previous === pendingPin) this.pendingCount--
+    }
+    this.#pinKeys[index] = key
+    let node = unpinned
+    if (key !== undefined) {
+      node = model?.node?.(key)?.index ?? pendingPin
+      this.pinCount++
+      if (node === pendingPin) this.pendingCount++
+    }
+    pins[index] = node
+    return node !== previous
+  }
+
+  #repin(model: ShapeSource): boolean {
+    let changed = false
+    for (let index = 0; index < this.capacity; index++) {
+      const key = this.#pinKeys[index]
+      if (key !== undefined && this.#writePin(index, key, model)) changed = true
+    }
+    return changed
   }
 
   #swap(previous: number, value: unknown, part: 'fill' | 'stroke', alive: boolean): number {
@@ -333,6 +542,10 @@ export class ShapeStore {
     this.#invalid.set(index, { type: 'invalid-shape', kind: 'shapes', key, reason })
     this.issueVersion++
   }
+}
+
+function pinColumn(length: number): Int32Array {
+  return new Int32Array(length).fill(unpinned)
 }
 
 const emptyRead: ShapeGeometryData = {

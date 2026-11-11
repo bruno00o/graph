@@ -9,6 +9,7 @@ import type {
   EdgeDash,
   EdgeMark,
   GraphDefinition,
+  Key,
   LabelPlacement,
   Mark,
   MarkName,
@@ -35,7 +36,6 @@ import {
 import {
   type CompiledEdgeMark,
   type CompiledEnd,
-  type CompiledLabelText,
   type CompiledNodeMark,
   compileEdgeMark,
   compileNodeMark,
@@ -50,6 +50,7 @@ import type {
   ShapeRecord,
 } from './graph-model'
 import { IndexSet } from './index-set'
+import { positive, readBackground, swapColor, toColor, toText, writeLabelText } from './label-text'
 import {
   boxPadding,
   estimateTextWidth,
@@ -95,6 +96,7 @@ export interface SceneModel {
   edgeAt(index: number): SceneEdgeRecord | undefined
   shapes?(): Iterable<ShapeRecord>
   shapeAt?(index: number): ShapeRecord | undefined
+  node?(key: Key): { readonly index: number } | undefined
 }
 
 export interface SceneColorScale {
@@ -295,30 +297,12 @@ function toNumber(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : Number.NaN
 }
 
-function toText(value: unknown): string | null {
-  return typeof value === 'string' ? value : null
-}
-
-function toColor(value: unknown): string | null {
-  return typeof value === 'string' && value !== '' ? value : null
-}
-
 function finiteOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
 function codeOf<T extends string>(codes: Readonly<Record<T, number>>, value: unknown): number {
   return typeof value === 'string' && Object.hasOwn(codes, value) ? codes[value as T] : 0
-}
-
-function swapColor(
-  palette: Palette,
-  previous: number,
-  color: string | null,
-  fallback: number,
-): number {
-  if (color === null && previous === fallback) return previous
-  return palette.swap(previous, color, fallback)
 }
 
 function readBadges(
@@ -342,56 +326,6 @@ function readBadges(
     })
   }
   return badges.length === 0 ? null : badges
-}
-
-function readBackground(
-  previous: number,
-  value: unknown,
-  palette: Palette,
-  fallbacks: ColorFallbacks,
-): number {
-  if (value === true) return swapColor(palette, previous, null, fallbacks.labelBackground)
-  return swapColor(palette, previous, toColor(value), noColor)
-}
-
-function positive(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
-}
-
-function readWeight(value: unknown): number {
-  if (value === 'normal') return 400
-  if (value === 'bold') return 700
-  return typeof value === 'number' && Number.isFinite(value)
-    ? Math.min(1000, Math.max(1, Math.round(value)))
-    : 0
-}
-
-interface LabelTextColumns {
-  readonly labelColor: Uint32Array
-  readonly labelSize: Float32Array
-  readonly labelWeight: Uint16Array
-  readonly labelFont: (string | null)[]
-  readonly labelMaxWidth: Float32Array
-}
-
-function writeLabelText(
-  columns: LabelTextColumns,
-  index: number,
-  text: CompiledLabelText,
-  datum: unknown,
-  palette: Palette,
-): void {
-  const color = text.color ? toColor(text.color(datum)) : null
-  columns.labelColor[index] = swapColor(
-    palette,
-    columns.labelColor[index] ?? noColor,
-    color,
-    noColor,
-  )
-  columns.labelSize[index] = positive(text.size?.(datum))
-  columns.labelWeight[index] = readWeight(text.weight?.(datum))
-  columns.labelFont[index] = text.font ? toColor(text.font(datum)) : null
-  columns.labelMaxWidth[index] = positive(text.maxWidth?.(datum))
 }
 
 function readImage(value: unknown): { src: string; scale: number; color: string | null } | null {
@@ -575,7 +509,7 @@ export function createScene(
   const fallbacks = pinFallbacks(palette)
   const lanes = createEdgeLanes()
   const markLayers = new MarkLayers()
-  const shapes = new ShapeStore(palette)
+  const shapes = new ShapeStore(palette, nodes)
   const slots = new Map<Mark, number>()
   const nodeBatch = new RecordBatch<SceneNodeRecord>()
   const edgeBatch = new RecordBatch<SceneEdgeRecord>()
@@ -1380,7 +1314,7 @@ export function createScene(
     },
 
     apply(model, changes) {
-      shapes.apply(model, changes.shapes)
+      shapes.apply(model, changes.shapes, changes.nodes)
       claimAll(model, changes)
       for (const { index } of changes.nodes.removed) removeNode(index)
       for (const { index } of changes.edges.removed) removeEdge(index)

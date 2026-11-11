@@ -17,6 +17,7 @@ import type {
 } from '../types'
 import type { ElementKeys, GraphTarget } from './events'
 import { takeSnapshot } from './export-source'
+import type { GraphShapeCount } from './graph-instance'
 import { createGraphHost, type GraphInstance, type MountGraphOptions } from './mount-graph'
 
 interface Item {
@@ -441,6 +442,83 @@ describe('shape states, zoom and time', () => {
     graph.time.set({ start: 5, end: 20 })
     dom.flushFrames()
     expect(keyOf(graph.pick(at(250, 0)))).toBe('shape:then')
+  })
+})
+
+describe('shapes pinned to nodes', () => {
+  interface Pin {
+    readonly id: string
+    readonly geometry: ShapeGeometry
+    readonly node: string
+  }
+
+  const pins: Pin[] = [
+    { id: 'by-b', geometry: { x: -20, y: 30, width: 40, height: 20 }, node: 'b' },
+    { id: 'by-c', geometry: { center: { x: 0, y: 0 }, radius: 30, inner: 20 }, node: 'c' },
+  ]
+
+  const pinMarks = (): Mark[] => [shapes(pins, { node: 'node' })]
+  const countOf = (graph: GraphInstance) => graph.count() as GraphShapeCount
+
+  it('picks a pinned shape where its node is drawn, and follows the node', () => {
+    const graph = mount(pinMarks())
+    const pick = (x: number, y: number) => keyOf(graph.pick(at(x, y)))
+    expect(pick(0, 40)).toBe('shape:by-b')
+    expect(pick(0, -40)).toBeNull()
+    graph.positions.set([['b', { x: 100, y: -100 }]], { duration: 0 })
+    dom.flushFrames()
+    expect(pick(0, 40)).toBeNull()
+    expect(pick(100, -60)).toBe('shape:by-b')
+  })
+
+  it('leaves a waiting shape out until its node arrives', () => {
+    const graph = mount(pinMarks())
+    expect(countOf(graph).pendingShapes).toBe(1)
+    expect(countOf(graph).shown.shapes).toBe(1)
+    graph.view.fit({ shapes: ['by-c'] })
+    dom.flushFrames()
+    expect(graph.view.get()).toEqual({ x: 0, y: 0, zoom: 1 })
+    graph.update({
+      definition: defineGraph({
+        marks: [...pinMarks(), nodes([...items, { id: 'c', x: 300, y: 0 }], { x: 'x', y: 'y' })],
+        interaction: { lasso: true },
+      }) as GraphDefinition,
+    })
+    dom.flushFrames()
+    expect(countOf(graph).pendingShapes).toBe(0)
+    expect(countOf(graph).shown.shapes).toBe(2)
+    expect(keyOf(graph.pick(at(300, 25)))).toBe('shape:by-c')
+    expect(graph.pick(at(300, 12))).not.toEqual(expect.objectContaining({ kind: 'shape' }))
+    graph.view.fit({ shapes: ['by-c'] })
+    dom.flushFrames()
+    expect(graph.view.get().x).toBeCloseTo(300)
+    expect(graph.view.get().y).toBeCloseTo(0)
+  })
+
+  it('hides a pinned shape while its node is hidden', () => {
+    const graph = mount(pinMarks(), { gone: { hide: true } })
+    graph.states.set('gone', { nodes: ['b'] })
+    dom.flushFrames()
+    expect(graph.pick(at(0, 40))).toBeNull()
+    expect(countOf(graph).shown.shapes).toBe(0)
+    graph.states.set('gone', {})
+    dom.flushFrames()
+    expect(keyOf(graph.pick(at(0, 40)))).toBe('shape:by-b')
+  })
+
+  it('takes a pinned shape into a lasso where it is drawn', () => {
+    const graph = mount(pinMarks())
+    const corners = [
+      [-30, 20],
+      [30, 20],
+      [30, 60],
+      [-30, 60],
+    ] as const
+    pointer(graph, 'pointerdown', -30, 20, { shiftKey: true })
+    for (const [x, y] of corners.slice(1)) pointer(graph, 'pointermove', x, y, { shiftKey: true })
+    pointer(graph, 'pointerup', -30, 21, { shiftKey: true })
+    dom.flushFrames()
+    expect(graph.selection.get()).toEqual({ nodes: [], edges: [], shapes: ['by-b'] })
   })
 })
 
