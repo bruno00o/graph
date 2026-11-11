@@ -63,6 +63,52 @@ shapes(zones, {
 
 Fills and outlines are antialiased at every zoom, and outlines keep their width in pixels.
 
+## Labels
+
+`label` writes a text on a shape: a field, a function, or an object with the text options of node labels, `background`, `color`, `size`, `weight`, `font` and `maxWidth`, at 12 pixels by default.
+
+```ts
+shapes(zones, {
+  label: { text: 'name', size: 14, color: 'var(--graph-ink-muted)' },
+})
+```
+
+The label is centered where the shape is widest, and stays horizontal:
+
+| Shape | Label |
+| --- | --- |
+| Polygon | On the inside point farthest from the outline and the holes, so a crescent or a frame keeps it inside |
+| Disc, rectangle | On the center |
+| Ring | On the top of its band |
+| Line | On the middle of its longest segment |
+
+Like node labels, a shape label shrinks when you zoom out and hides under 8 pixels, takes the fades of its shape and the opacity of its states, but not its `opacity`, and never overlaps another label. It gives way to node and edge labels: they are placed first, then the labels of the largest shapes. A hovered shape forces its label, and a selected one comes before the others, as for nodes. The states `label` and `labelColor` act on shape labels, and the exports write them. See [Which labels are drawn](/docs/labels#which-labels-are-drawn).
+
+The point of a polygon is computed once per geometry, when its label first shows, in about a millisecond for a polygon of 10,000 points, and its work is bounded for larger ones.
+
+## Pin shapes to nodes
+
+`node` names the node a shape follows. Its geometry is then in world units from where the node is drawn: `{ center: { x: 0, y: 0 }, radius: 80 }` is a disc around the node.
+
+```ts
+type Halo = { id: string; root: string; geometry: ShapeGeometry }
+
+const halos: Halo[] = [
+  { id: 'near', root: 'a', geometry: { center: { x: 0, y: 0 }, radius: 120, inner: 60 } },
+]
+
+shapes(halos, { node: 'root', label: () => 'Near' })
+```
+
+<LiveExample slug="distance-rings" />
+
+A pinned shape moves with its node, through layouts, drags and glides, without its geometry being read again, and the picking, the lasso, `view.fit` and the exports see it where it is drawn. It stays under the nodes and the edges, and layouts do not see it.
+
+- **Missing node.** While the node is not in the data, the shape waits: it is not drawn, picked, framed or counted in `shapes`, and `count().pendingShapes` counts it. It shows as soon as the node arrives, as an edge does.
+- **Hidden node.** While the node is hidden, in a folded group, out of its zoom range or of the time window, in a hidden layer or by a state with `hide`, the shape hides too, and it fades with the node.
+
+Give a pinned shape its geometry in world units: one in degrees lands far from its node. On a [map](#on-a-map), the world is 512 units wide, so a ring of radius 2 around a node spans about 1.4 degrees of longitude.
+
 ## Order
 
 Shapes draw right after the [background grid](/docs/drawing-layers#background-grid), under containers, hulls, edges and nodes. Between shapes, the marks draw in the order of `marks`, and within a mark, `order` sorts them: a lower value draws first, under the others. Without `order`, or for equal values, shapes draw in the order they arrived.
@@ -152,19 +198,24 @@ The first automatic fit frames the shapes with the nodes, and a graph with shape
 graph.view.fit({ shapes: ['north'], duration: 400 })
 ```
 
-With a shape mark in the definition, `count()` returns `shapes` and `shown.shapes` as well: see [`count`](/docs/api/graph-instance#count). A graph without shapes keeps the counts it had.
+A [pinned shape](#pin-shapes-to-nodes) is framed where its node is, or where a gliding layout takes it, and a waiting one is left out.
+
+With a shape mark in the definition, `count()` returns `shapes`, `pendingShapes` and `shown.shapes` as well: see [`count`](/docs/api/graph-instance#count). A graph without shapes keeps the counts it had.
 
 ## On a map
 
-Shapes draw on a [map](/docs/map#shapes), flat or on the globe, with their geometry in degrees. A shape that crosses the antimeridian shows on both sides of a flat map, and on the globe, long edges are split to follow the surface and the far side is hidden.
+Shapes draw on a [map](/docs/map#shapes), flat or on the globe, with their geometry in degrees. A shape that crosses the antimeridian shows on both sides of a flat map, and on the globe, long edges are split to follow the surface and the far side is hidden. Labels show on a map too, once per shape, so the label of a shape across the antimeridian shows on one side of a flat map only. A pinned shape follows its node, flat or on the globe.
 
 ## Not there yet
 
-- Shapes have no labels.
-- Shapes cannot be dragged or edited.
+- Shapes cannot be dragged or edited, and dragging a pinned shape does not move its node.
+- A shape has one label, horizontal: it does not follow a line or the curve of a ring.
+- A pinned shape does not turn or grow with its node.
 
 ## Cost
 
 A graph without shapes creates no program, texture or buffer for them, and does no work per frame. Polygons are triangulated once, when their geometry changes: 10,000 polygons of 50 points take about 70 milliseconds, and their first frame about 150 milliseconds in Chrome. Panning over them costs about 3 milliseconds per frame, with a selection, a hover and a state with `others`. The first pick after a change builds an index of the shapes, about 10 milliseconds for 10,000 polygons; then a pick takes a few microseconds.
 
 On a map, 10,000 polygons of 50 points in degrees cost about 5 milliseconds per frame while the map moves, flat or on the globe, in Chrome, Firefox and Safari. The globe splits long edges once per geometry: a zone over a hemisphere becomes about 4,000 triangles in 4 milliseconds, and polygons smaller than 5 degrees are not split.
+
+Labels on 10,000 polygons, beside 10,000 labeled nodes, add about 1 millisecond to each choice of labels while panning, which runs at most every 120 milliseconds, in Chrome. A pinned shape is drawn from the position of its node on the GPU and nothing is written again when the node moves: with 1,000 pinned shapes, a layout of 10,000 nodes on the GPU keeps its frames at 17 milliseconds. Without labels or pins, shapes cost what they cost before.

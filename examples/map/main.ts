@@ -28,11 +28,20 @@ const stack = params.has('stack')
 const winding = params.has('waypoints')
 const zones = params.has('shapes') ? createZones(Number(params.get('shapes') || 0)) : []
 const crowded = zones.length > 100
+const pinned = params.has('pinned')
 const generated = stack ? createStacks() : createPlaces(count, edgeCount)
 const places = generated.places
 const routes = winding ? withCrossing(generated.routes) : generated.routes
 const small = stack || count <= placeCount
 const placeOf = new Map(places.map((place) => [place.id, place]))
+const halos = pinned
+  ? places.slice(0, 24).map((place) => ({
+      id: `halo-${place.id}`,
+      place: place.id,
+      label: String(place.weight),
+      geometry: { center: { x: 0, y: 0 }, radius: 4, inner: 2.5 },
+    }))
+  : []
 const paths = new Map<string, { longitude: number; latitude: number }[]>()
 
 type FarMode = 'geodesic' | 'straight' | 'winding'
@@ -72,6 +81,14 @@ function definitionOf(mode: FarMode) {
         stroke: (zone: Zone) => zone.tone,
         strokeWidth: (zone: Zone) => (crowded ? 1 : zone.line ? 3 : 1.5),
         dash: (zone: Zone) => (zone.line ? 'dashed' : 'solid'),
+        ...(pinned ? { label: 'label' } : {}),
+      }),
+      shapes(halos, {
+        name: 'halos',
+        node: 'place',
+        fill: 'color-mix(in srgb, var(--graph-accent) 24%, transparent)',
+        stroke: 'var(--graph-accent)',
+        label: { text: 'label', size: 11, color: 'var(--graph-ink-muted)' },
       }),
       edges<Route>(routes, {
         source: 'from',

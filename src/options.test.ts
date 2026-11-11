@@ -80,6 +80,8 @@ import type {
   PositionSnapshotOptions,
   ReachOptions,
   ScalesOptions,
+  ShapeLabelOptions,
+  ShapeOptions,
   SourceSubscription,
   StateKindStyles,
   StateLook,
@@ -234,6 +236,8 @@ interface Inputs {
   ReadOptions: ReadOptions
   RingsOptions: RingsOptions<Item>
   ScalesOptions: ScalesOptions
+  ShapeLabelOptions: ShapeLabelOptions<Item>
+  ShapeOptions: ShapeOptions<Item>
   SourceSubscription: SourceSubscription
   SchemaInput: SchemaInput
   StateKindStyles: StateKindStyles

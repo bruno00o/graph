@@ -347,7 +347,7 @@ shapes([{ id: 'sea', geometry: { x: -800, y: -600, width: 1600, height: 1200 } }
 
 Shapes have no labels yet, and the option does not exist.
 
-```ts expect-error=TS2769
+```ts
 import { type ShapeGeometry } from '@bruno00o/graph'
 import { shapes } from '@bruno00o/graph/shapes'
 

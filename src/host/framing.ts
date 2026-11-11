@@ -119,19 +119,25 @@ export function withShapes(
   keys: FitKeys | null,
   shapes: ShapeStore,
   indexOf: (key: Key) => number,
+  reader: Pick<PositionReader, 'x' | 'y'>,
 ): Bounds | null {
   if (!shapes.any || (keys && keys.shapes.length === 0)) return box
   let minX = box?.minX ?? Number.POSITIVE_INFINITY
   let minY = box?.minY ?? Number.POSITIVE_INFINITY
   let maxX = box?.maxX ?? Number.NEGATIVE_INFINITY
   let maxY = box?.maxY ?? Number.NEGATIVE_INFINITY
+  const pins = shapes.pinNode
   const include = (index: number) => {
     const geometry = index >= 0 && shapes.alive[index] === 1 ? shapes.geometry[index] : null
     if (!isDrawn(geometry)) return
-    minX = Math.min(minX, geometry.minX)
-    minY = Math.min(minY, geometry.minY)
-    maxX = Math.max(maxX, geometry.maxX)
-    maxY = Math.max(maxY, geometry.maxY)
+    const node = pins?.[index] ?? -1
+    if (node < -1) return
+    const x = node >= 0 ? reader.x(node) : 0
+    const y = node >= 0 ? reader.y(node) : 0
+    minX = Math.min(minX, geometry.minX + x)
+    minY = Math.min(minY, geometry.minY + y)
+    maxX = Math.max(maxX, geometry.maxX + x)
+    maxY = Math.max(maxY, geometry.maxY + y)
   }
   if (keys) {
     for (const key of keys.shapes) include(indexOf(key))
@@ -139,6 +145,27 @@ export function withShapes(
     for (let index = 0; index < shapes.capacity; index++) include(index)
   }
   return maxX < minX ? box : { minX, minY, maxX, maxY }
+}
+
+export function movedReader(
+  settled: PositionReader,
+  indices: readonly number[],
+  to: readonly number[],
+): Pick<PositionReader, 'x' | 'y'> {
+  const at = new Map<number, number>()
+  indices.forEach((index, i) => {
+    at.set(index, i)
+  })
+  return {
+    x: (index) => {
+      const i = at.get(index)
+      return i === undefined ? settled.x(index) : (to[i * 2] ?? 0)
+    },
+    y: (index) => {
+      const i = at.get(index)
+      return i === undefined ? settled.y(index) : (to[i * 2 + 1] ?? 0)
+    },
+  }
 }
 
 export function boundsAfter(

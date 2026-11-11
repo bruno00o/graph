@@ -1,0 +1,13 @@
+## How it works
+
+`radial({ root })` puts the root in the middle and each node on a ring around it, one ring per number of hops from the root. When a run ends, at `layoutend`, the example measures the mean distance of each ring from the root, with `graph.paths.reach` and `graph.positions`, and makes one band per ring, halfway to its neighbors.
+
+The bands are a shape mark pinned to the root by `node: 'root'`: each band is a ring geometry, `{ center: { x: 0, y: 0 }, radius, inner }`, in world units from where the root is drawn. `label` writes the number of hops on each band, at the top of its band, and gives way to the node labels. `pick: false` lets the pointer through to the nodes and the edges.
+
+Clicking a node makes it the root: the bands go, the layout runs again from the new root, and new bands come at the end of the run.
+
+## Try it
+
+- Drag the root: its bands follow it, without being measured again.
+- Click a node to make it the root.
+- Zoom out: the band labels shrink and hide like the node labels.

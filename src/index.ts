@@ -212,6 +212,7 @@ export type {
   ShapeCircle,
   ShapeDatum,
   ShapeGeometry,
+  ShapeLabelOptions,
   ShapeMark,
   ShapeOptions,
   ShapePath,

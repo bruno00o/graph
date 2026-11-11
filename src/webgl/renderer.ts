@@ -14,8 +14,7 @@ import type { LabelArea, LensFrame, Renderer, RenderFrame, RenderInput } from '.
 import type { View } from '../types'
 import { arcVertex } from './arc-shaders'
 import { createBackdrop } from './backdrop'
-import { bridgeUnit } from './bridge-glsl'
-import { bundleUnits, createBundlePass } from './bundle-pass'
+import { createBundlePass } from './bundle-pass'
 import { bundleCorners } from './bundle-shaders'
 import { readCaps, warnLimit } from './caps'
 import { EdgeCover, layerCap } from './edge-cover'
@@ -30,12 +29,14 @@ import {
 } from './gl'
 import { GlState } from './gl-state'
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
+import { glyphAttributes } from './glyph-attributes'
 import { ImageAtlas } from './image-atlas'
 import {
   GlyphBuffer,
   glyphStride,
   LabelLayer,
   LabelPlan,
+  type ShapeLabelFrame,
   sortBySize,
   sortDescending,
   sortEdgesByWidth,
@@ -64,6 +65,7 @@ import {
   nodeVertex,
   withEnds,
 } from './shaders'
+import { textureUnits } from './texture-units'
 
 function blockBindings(
   gl: WebGL2RenderingContext,
@@ -81,29 +83,10 @@ const lensShadow = 10
 const lensMargin = 2
 const statesBlockSize = stateRows * 48 + 48
 
-const units = {
-  palette: 0,
-  nodePosition: 1,
-  nodeStyle: 2,
-  nodePaint: 3,
-  nodeState: 4,
-  edgeTopology: 5,
-  edgeStyle: 6,
-  edgeState: 7,
-  atlas: 8,
-  images: 9,
-  nodeDecor: 10,
-  nodeBox: 11,
-  ...bundleUnits,
-  nodeZoom: 14,
-  edgeZoom: 15,
-  nodeTime: 16,
-  edgeTime: 17,
-  edgeEnds: 18,
-  bridgeData: bridgeUnit,
-} as const
+const units = textureUnits
 const unitCount = Math.max(...Object.values(units)) + 1
-export const shapeUnitCount = 25
+export const shapeUnitCount = 26
+
 const farZoom = 3e38
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 const noPlane = [0, 0, 0, 1]
@@ -379,6 +362,7 @@ function createRenderer(
 
   const backdrop = createBackdrop(gl, blocks)
   let shapeLayer: ShapeLayer | null = null
+  let shapeLabelKey = ''
   const nodeCorner = createBuffer(gl, cornerNode, gl.STATIC_DRAW)
   const edgeCorner = createBuffer(gl, cornerEdge, gl.STATIC_DRAW)
   const curveCorner = createBuffer(gl, cornerCurve, gl.STATIC_DRAW)
@@ -429,67 +413,7 @@ function createRenderer(
     integer: true,
     divisor: 1,
   })
-  const glyphs = (buffer: WebGLBuffer): Attribute[] => [
-    corner(labelCorner),
-    {
-      name: 'glyphNode',
-      buffer,
-      size: 1,
-      type: gl.UNSIGNED_INT,
-      integer: true,
-      divisor: 1,
-      stride: glyphStride,
-      offset: 0,
-    },
-    {
-      name: 'glyphKind',
-      buffer,
-      size: 1,
-      type: gl.UNSIGNED_INT,
-      integer: true,
-      divisor: 1,
-      stride: glyphStride,
-      offset: 4,
-    },
-    {
-      name: 'glyphRect',
-      buffer,
-      size: 4,
-      type: gl.FLOAT,
-      divisor: 1,
-      stride: glyphStride,
-      offset: 8,
-    },
-    {
-      name: 'glyphUv',
-      buffer,
-      size: 4,
-      type: gl.UNSIGNED_SHORT,
-      normalized: true,
-      divisor: 1,
-      stride: glyphStride,
-      offset: 24,
-    },
-    {
-      name: 'glyphColor',
-      buffer,
-      size: 1,
-      type: gl.UNSIGNED_INT,
-      integer: true,
-      divisor: 1,
-      stride: glyphStride,
-      offset: 32,
-    },
-    {
-      name: 'glyphSize',
-      buffer,
-      size: 1,
-      type: gl.FLOAT,
-      divisor: 1,
-      stride: glyphStride,
-      offset: 36,
-    },
-  ]
+  const glyphs = (buffer: WebGLBuffer): Attribute[] => glyphAttributes(gl, labelCorner, buffer)
   const badgeField = (
     buffer: WebGLBuffer,
     name: string,
@@ -794,6 +718,7 @@ function createRenderer(
   }
 
   function destroyLabelSet(set: LabelSet): void {
+    shapeLayer?.forget(set)
     for (const buffer of set.buffers) gl.deleteBuffer(buffer)
     for (const vao of [set.main, set.highlight, set.edgeMain, set.edgeHighlight])
       gl.deleteVertexArray(vao)
@@ -1440,6 +1365,7 @@ function createRenderer(
         mode: frame.mode,
         paths: input.bundles ?? null,
         globe: frame.globe && frame.globe.mix > 0 ? frame.globe : null,
+        shapes: shapeLabelFrame(input),
       },
       atlas,
     )
@@ -1457,6 +1383,7 @@ function createRenderer(
         gl.DYNAMIC_DRAW,
       )
     })
+    shapeLayer?.labels(set, layer.shapeMain, layer.shapeHighlight)
     set.stale = false
     set.moved = false
     set.time = now
@@ -1464,6 +1391,21 @@ function createRenderer(
     set.duration = performance.now() - now
     if (set === mainLabels) touch()
     return -1
+  }
+
+  function shapeLabelFrame(next: RenderInput): ShapeLabelFrame | null {
+    const store = next.scene.shapes
+    if (!shapeLayer || !store.labels || store.labels.count === 0) return null
+    const states = next.states
+    return {
+      store,
+      mask: states.shapeMask,
+      flags: states.shapeLabelFlags,
+      highlighted: states.highlightedShapes,
+      raise: states.shapeRaise,
+      others: states.others('shapes'),
+      always: states.alwaysShapes,
+    }
   }
 
   function edgeLayerCap(zoom: number): number {
@@ -1707,6 +1649,7 @@ function createRenderer(
     const layer = set.layer
     draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
     draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
+    shapeLayer?.drawLabels(set, 0, layerFilter)
     draw(labelProgram, set.edgeMain, layer.edgeMain.count, 0, 0)
     draw(labelProgram, set.main, layer.main.count, 0, 0)
     drawEdgeList('overlay', edgeOverlayCount, 0, 1, jumping, globe)
@@ -1720,6 +1663,7 @@ function createRenderer(
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
       draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
     }
+    shapeLayer?.drawLabels(set, 1, layerFilter)
     draw(labelProgram, set.edgeHighlight, layer.edgeHighlight.count, 0, 1)
     draw(labelProgram, set.highlight, layer.highlight.count, 0, 1)
     gl.bindVertexArray(null)
@@ -1868,6 +1812,13 @@ function createRenderer(
         shapeLayer = shapes.engine.layer(gl, blocks)
       }
       if (shapeLayer?.sync({ store: shapes, states: next.states, originX, originY })) touch()
+      if (shapeLayer && shapes.labels) {
+        const key = `${shapes.version}:${shapes.styleVersion}:${shapes.labelVersion}:${next.states.shapeMaskVersion}`
+        if (key !== shapeLabelKey) {
+          shapeLabelKey = key
+          invalidateLabels()
+        }
+      }
       const changed = next.dirty.nodes.size > 0 || next.dirty.edges.size > 0 || next.full
       if (changed) invalidateLabels()
       if (next.positionsChanged) moveLabels()

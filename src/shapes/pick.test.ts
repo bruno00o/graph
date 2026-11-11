@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createGraphModel } from '../core/graph-model'
+import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
 import type { ShapePickQuery } from '../core/shape-engine'
 import { defineGraph } from '../define-graph'
@@ -17,13 +18,15 @@ function setup(marks: readonly Mark[]) {
   scene.setDefinition(definition)
   scene.apply(model, model.flush())
   const store = scene.shapes
-  const picker = createShapePicker(store)
+  const positions = new Positions()
+  const picker = createShapePicker(store, positions)
   const keyAt = (index: number) => (index < 0 ? null : (store.keys[index] ?? null))
   const query = (x: number, y: number, more: Partial<ShapePickQuery> = {}): ShapePickQuery => ({
     x,
     y,
     scale: 1,
     tolerance: 4,
+    current: true,
     shown: () => true,
     raised: () => false,
     ...more,
@@ -37,7 +40,7 @@ function setup(marks: readonly Mark[]) {
         () => true,
       )
       .map(keyAt)
-  return { model, scene, store, picker, pick, inside }
+  return { model, scene, store, picker, pick, inside, positions }
 }
 
 const square = (id: string, x: number, y: number, size: number): Zone => ({

@@ -39,7 +39,14 @@ import { createFlowWatch } from './flows'
 import { FocusControl } from './focus-control'
 import { FoldControl } from './folding'
 import { FrameScheduler } from './frame-scheduler'
-import { boundsAfter, fitIndices, nodeBounds, withShapes, withWaypoints } from './framing'
+import {
+  boundsAfter,
+  fitIndices,
+  movedReader,
+  nodeBounds,
+  withShapes,
+  withWaypoints,
+} from './framing'
 import type {
   FitOptions,
   GraphCount,
@@ -376,6 +383,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         keys,
         scene.shapes,
         (key) => model.shape(key)?.index ?? -1,
+        motion.settled(),
       ),
     limitBounds: () => bounds(),
     sceneVersion: () => sceneVersion,
@@ -424,6 +432,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         keys,
         scene.shapes,
         (key) => model.shape(key)?.index ?? -1,
+        scene.shapes.pinCount > 0 ? movedReader(motion.settled(), indices, to) : motion.settled(),
       ),
     prepare: flushPending,
     request: () => request(),

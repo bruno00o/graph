@@ -54,7 +54,15 @@ import {
 } from '../webgl/shaders'
 import { type ExportFrame, frameSight, screenExtent, screenRadius } from './frame'
 import { placementDirections, selectLabels } from './labels'
-import { type EdgeLine, edgeLine, edgeLook, type Look, nodeLook, shapeLook } from './look'
+import {
+  type EdgeLine,
+  edgeLine,
+  edgeLook,
+  type Look,
+  nodeLook,
+  shapeLabelLook,
+  shapeLook,
+} from './look'
 import { fine, num, paintAttribute } from './svg-format'
 
 export interface SvgScene {
@@ -1161,9 +1169,27 @@ export function writeSvg(scene: SvgScene): string {
     )
   }
 
+  function drawShapeLabel(index: number, label: PlacedLabel, x: number, y: number): void {
+    const texts = scene.shapes?.labels
+    if (!scene.shapes || !texts) return
+    const look = shapeLabelLook(states, index)
+    const parts = labelParts(
+      label,
+      x,
+      y,
+      0,
+      label.pixels,
+      look,
+      texts.labelWeight[index] || 500,
+      texts.labelFont[index] ?? null,
+    )
+    body.push(`${open(look.opacity * shapeOpacity(scene.shapes, index, sight))}${parts}</g>`)
+  }
+
   const queued = {
     nodes: [[], []] as QueuedLabel[][],
     edges: [[], []] as QueuedLabel[][],
+    shapes: [[], []] as QueuedLabel[][],
   }
   selectLabels({ ...scene, boxes }, scene.frame, scene.labels, measure, {
     node: (index, label) => {
@@ -1172,9 +1198,16 @@ export function writeSvg(scene: SvgScene): string {
     edge: (index, label, anchor) => {
       queued.edges[label.highlight ? 1 : 0]?.push({ index, label, anchor: { ...anchor } })
     },
+    shape: (index, label, x, y) => {
+      const anchor = { x, y, ax: 1, ay: 0, room: 0 }
+      queued.shapes[label.highlight ? 1 : 0]?.push({ index, label, anchor })
+    },
   })
 
   function drawLabels(pass: 0 | 1): void {
+    for (const { index, label, anchor } of queued.shapes[pass] ?? []) {
+      if (anchor) drawShapeLabel(index, label, anchor.x, anchor.y)
+    }
     for (const { index, label, anchor } of queued.edges[pass] ?? []) {
       if (anchor) drawEdgeLabel(index, label, anchor)
     }
@@ -1261,6 +1294,7 @@ export function writeSvg(scene: SvgScene): string {
         zoom,
         offsetX,
         offsetY,
+        positions,
         paint,
         look: shapeLookAt,
         raised: shapeRaised,

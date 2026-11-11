@@ -24,11 +24,13 @@ import {
   trimsAsBox,
 } from '../core/node-shape'
 import type { Positions } from '../core/positions'
+import type { ShapeStore } from '../core/shape-store'
 import { labelAlways, maxStates, noPaint, stateRow, wordFloat } from '../core/state-buffers'
-import { edgeShown, nodeShown, type Sight } from '../core/visibility'
+import { edgeShown, nodeShown, type Sight, shapeShown } from '../core/visibility'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
+import { glyphStride } from './glyph-attributes'
 import {
   edgeDescent,
   edgeLabelGap,
@@ -43,9 +45,8 @@ import {
   uprightSlack,
 } from './shaders'
 
-export const glyphStride = 40
 export const lineHeight = 1.25
-export { secondaryFactor }
+export { glyphStride, secondaryFactor }
 
 const labelMin = 8
 const cell = 8
@@ -99,6 +100,17 @@ export interface LabelFrame {
   readonly sink?: LabelSink
   readonly paths?: EdgePaths | null
   readonly globe?: GlobeCamera | null
+  readonly shapes?: ShapeLabelFrame | null
+}
+
+export interface ShapeLabelFrame {
+  readonly store: ShapeStore
+  readonly mask: Uint32Array
+  readonly flags: Int8Array
+  readonly highlighted: readonly number[]
+  readonly raise: number
+  readonly others: number
+  readonly always: readonly number[]
 }
 
 export type TextMeasure = Pick<GlyphAtlas, 'height' | 'generation' | 'line' | 'fit'>
@@ -127,6 +139,7 @@ export interface PlacedLabel {
 export interface LabelSink {
   node(index: number, label: PlacedLabel): void
   edge(index: number, label: PlacedLabel, anchor: Readonly<EdgeAnchor>): void
+  shape?(index: number, label: PlacedLabel, x: number, y: number): void
 }
 
 export interface EdgeAnchor {
@@ -770,6 +783,10 @@ class TextExtents {
   forget(index: number): void {
     if (index * 2 < this.#sizes.length) this.#sizes[index * 2] = Number.NaN
   }
+
+  reset(): void {
+    this.#generation = -1
+  }
 }
 
 interface BoxEdges {
@@ -808,8 +825,11 @@ export class LabelLayer {
   readonly highlight: GlyphBuffer = new GlyphBuffer()
   readonly edgeMain: GlyphBuffer = new GlyphBuffer()
   readonly edgeHighlight: GlyphBuffer = new GlyphBuffer()
+  readonly shapeMain: GlyphBuffer = new GlyphBuffer()
+  readonly shapeHighlight: GlyphBuffer = new GlyphBuffer()
   nodeLabels = 0
   edgeLabels = 0
+  shapeLabels = 0
   #occupancy: Uint8Array = new Uint8Array(0)
   #cols = 0
   #rows = 0
@@ -819,6 +839,9 @@ export class LabelLayer {
   readonly #nodeExtents: TextExtents = new TextExtents()
   readonly #edgeExtents: TextExtents = new TextExtents()
   readonly #endExtents: TextExtents = new TextExtents()
+  readonly #shapeExtents: TextExtents = new TextExtents()
+  #shapeStore: ShapeStore | null = null
+  #shapeLabelVersion = -1
 
   forgetNode(index: number): void {
     this.#nodeExtents.forget(index)
@@ -945,8 +968,11 @@ export class LabelLayer {
     this.highlight.clear()
     this.edgeMain.clear()
     this.edgeHighlight.clear()
+    this.shapeMain.clear()
+    this.shapeHighlight.clear()
     this.nodeLabels = 0
     this.edgeLabels = 0
+    this.shapeLabels = 0
     const { nodes, edges, positions, view, width, height } = frame
     const sight: Sight = frame.sight ?? { zoom: view.zoom, time: null, layers: null, hide: null }
     this.#nodeExtents.prepare(nodes.capacity, atlas.generation)
@@ -1292,13 +1318,190 @@ export class LabelLayer {
       this.edgeLabels++
     }
 
+    const shapeFrame = frame.shapes ?? null
+    const store = shapeFrame?.store ?? null
+    const texts = store?.labels ?? null
+    const shapeMask = shapeFrame?.mask
+    const shapeFlags = shapeFrame?.flags
+    const shapeOthers = shapeFrame?.others ?? 0
+    const shapeRaise = shapeFrame?.raise ?? builtInRaise
+    const shapeLevel = (index: number) =>
+      shapeFlags ? labelLevel(shapeMask?.[index] ?? 0, shapeFlags, shapeOthers) : 1
+    const shapeAlwaysBits = shapeFlags ? levelBits(shapeFlags, 0) : 0
+    const shapeOthersAlways =
+      shapeFlags !== undefined && levelBits(shapeFlags, maxStates, shapeOthers) !== 0
+    const shapeForced = (index: number) => ((shapeMask?.[index] ?? 0) & forcedStates) !== 0
+    const shapeRaised = (index: number) => ((shapeMask?.[index] ?? 0) & shapeRaise) !== 0
+    const shapeEarly = (index: number) =>
+      ((shapeMask?.[index] ?? 0) & shapeAlwaysBits) !== 0 && shapeLevel(index) === labelAlways
+    if (store && texts) {
+      if (store !== this.#shapeStore || store.labelVersion !== this.#shapeLabelVersion) {
+        this.#shapeStore = store
+        this.#shapeLabelVersion = store.labelVersion
+        this.#shapeExtents.reset()
+      }
+      this.#shapeExtents.prepare(store.capacity, atlas.generation)
+    }
+    const placeShape = (index: number, highlight: boolean): void => {
+      const label = texts?.text[index]
+      if (!store || !texts || !label || placed >= limit || store.alive[index] !== 1) return
+      if (!shapeShown(store, index, sight)) return
+      const shown = shapeLevel(index)
+      if (shown === 0) return
+      const size = texts.labelSize[index] || nodeLabelSize
+      const pixels = lifted(size * shrink, size, shown, minimumPixels)
+      if (pixels < minimumPixels && shown !== labelAlways) return
+      if (!store.labelAnchor(index)) return
+      const node = store.pinNode?.[index] ?? -1
+      const wx = (texts.anchor[index * 2] ?? 0) + (node >= 0 ? positions.x(node) : 0)
+      const wy = (texts.anchor[index * 2 + 1] ?? 0) + (node >= 0 ? positions.y(node) : 0)
+      let x = (wx - view.x) * view.zoom + width / 2
+      let y = (wy - view.y) * view.zoom + height / 2
+      if (globe) {
+        if (globeScreen(globe, wx, wy, projected) < 0) return
+        x = projected.x
+        y = projected.y
+      }
+      if (x < -cullMargin || x > width + cullMargin) return
+      if (y < -cullMargin || y > height + cullMargin) return
+      const measure = (): TextBlock =>
+        textBlock(
+          atlas,
+          label,
+          null,
+          texts.labelWeight[index] || primaryWeight,
+          texts.labelFont[index] ?? null,
+          texts.labelMaxWidth[index] ?? 0,
+          size,
+        )
+      const extents = this.#shapeExtents
+      let measured = extents.has(index) ? null : measure()
+      if (measured) extents.set(index, measured)
+      const blockWidth = extents.width(index)
+      const blockHeight = extents.height(index)
+      const background = texts.labelBackground[index] ?? noColor
+      const plated = background !== noColor
+      const total = blockHeight + (plated ? plateDrop : 0)
+      const top = -total / 2
+      const hx = blockWidth / 2 + padUnits
+      const hy = total / 2
+      const box = this.#box
+      boxEdges(box, x, y, 4, plated, blockWidth, blockHeight, pixels / atlasFontSize)
+      if (box.right < 0 || box.left > width || box.bottom < 0 || box.top > height) return
+      const force = (highlight && shapeForced(index)) || all
+      if (!this.#claimBox(box.left, box.top, box.right, box.bottom, force)) return
+      measured ??= measure()
+      const block = measured
+      const target = highlight ? this.shapeHighlight : this.shapeMain
+      const flags = (4 << 4) | (plated ? platedGlyph : 0)
+      if (plated) target.pushPlate(index, flags, 0, 0, hx, hy, background, size)
+      const color = texts.labelColor[index] ?? noColor
+      emit(target, index, flags, block, atlas.height, top, 0, 0, color, size)
+      sink?.shape?.(
+        index,
+        {
+          block,
+          top,
+          align: 0,
+          shift: 0,
+          placement: 4,
+          inside: false,
+          plate: plated ? { cx: 0, cy: 0, hx, hy } : null,
+          background,
+          color,
+          size,
+          highlight,
+          end: 0,
+          pixels,
+        },
+        x,
+        y,
+      )
+      placed++
+      this.shapeLabels++
+    }
+    const placeShapes = (): void => {
+      if (!store || !texts || texts.count === 0) return
+      if (!all && nodeLabelSize * shrink < labelMin && !shapeOthersAlways && !anyShapeSize()) {
+        return
+      }
+      const reach = cullMargin / view.zoom
+      const left = view.x - width / 2 / view.zoom - reach
+      const right = view.x + width / 2 / view.zoom + reach
+      const top = view.y - height / 2 / view.zoom - reach
+      const bottom = view.y + height / 2 / view.zoom + reach
+      const order = store.labelOrder()
+      const boxes = store.labelBoxes()
+      const pins = store.pinNode
+      const anchors = texts.anchor
+      const extents = this.#shapeExtents
+      const halfWidth = width / 2
+      const halfHeight = height / 2
+      const skipped = shapeRaise | shapeAlwaysBits
+      for (let at = 0; at < order.length && placed < limit; at++) {
+        const index = order[at] ?? 0
+        if (shapeMask && ((shapeMask[index] ?? 0) & skipped) !== 0) {
+          if (shapeRaised(index) || shapeEarly(index)) continue
+        }
+        if (!globe) {
+          const node = pins ? (pins[index] ?? -1) : -1
+          const ox = node >= 0 ? positions.x(node) : 0
+          const oy = node >= 0 ? positions.y(node) : 0
+          if ((boxes[at * 4 + 2] ?? 0) + ox < left || (boxes[at * 4] ?? 0) + ox > right) continue
+          if ((boxes[at * 4 + 3] ?? 0) + oy < top || (boxes[at * 4 + 1] ?? 0) + oy > bottom) {
+            continue
+          }
+          const ax = anchors[index * 2] ?? Number.NaN
+          const x = (ax + ox - view.x) * view.zoom + halfWidth
+          const y = ((anchors[index * 2 + 1] ?? 0) + oy - view.y) * view.zoom + halfHeight
+          if (x < -cullMargin || x > width + cullMargin) continue
+          if (y < -cullMargin || y > height + cullMargin) continue
+          if (!all && extents.has(index)) {
+            const scale = ((texts.labelSize[index] || nodeLabelSize) * shrink) / atlasFontSize
+            const textX = (extents.width(index) / 2) * scale
+            const textY = (extents.height(index) / 2) * scale
+            const reachX = textX + padUnits * scale
+            const reachY = textY + plateDrop * scale
+            if (x + reachX < 0 || x - reachX > width || y + reachY < 0 || y - reachY > height) {
+              continue
+            }
+            const onScreen = x + textX >= 0 && x - textX <= width && y + textY >= 0
+            if (
+              onScreen &&
+              y - textY <= height &&
+              this.#taken(x - textX, y - textY, x + textX, y + textY)
+            ) {
+              continue
+            }
+          }
+        }
+        placeShape(index, false)
+      }
+    }
+    const anyShapeSize = (): boolean => {
+      if (!texts) return false
+      for (let index = 0; index < texts.labelSize.length; index++) {
+        if ((texts.labelSize[index] ?? 0) * shrink >= labelMin && texts.text[index]) return true
+      }
+      return false
+    }
+
     for (const index of highlighted) if (forced(index)) place(index, true)
     for (const index of highlightedEdges) if (edgeForced(index)) placeEdge(index, true)
+    for (const index of shapeFrame?.highlighted ?? []) {
+      if (shapeForced(index)) placeShape(index, true)
+    }
     for (const index of highlighted) if (!forced(index)) place(index, true)
     for (const index of highlightedEdges) if (!edgeForced(index)) placeEdge(index, true)
+    for (const index of shapeFrame?.highlighted ?? []) {
+      if (!shapeForced(index)) placeShape(index, true)
+    }
     for (const index of frame.always ?? []) if (!raised(index) && early(index)) place(index, false)
     for (const index of frame.alwaysEdges ?? []) {
       if (!edgeRaised(index) && edgeEarly(index)) placeEdge(index, false)
+    }
+    for (const index of shapeFrame?.always ?? []) {
+      if (!shapeRaised(index) && shapeEarly(index)) placeShape(index, false)
     }
 
     const xy = positions.xy
@@ -1358,7 +1561,10 @@ export class LabelLayer {
       }
     }
 
-    if (!all && frame.largestEdgeLabel * shrink < labelMin && !edgeOthersAlways) return
+    if (!all && frame.largestEdgeLabel * shrink < labelMin && !edgeOthersAlways) {
+      placeShapes()
+      return
+    }
     const { source, target } = edges
     const reach = cullMargin / view.zoom
     const left = centerX - width / 2 / view.zoom - reach
@@ -1391,6 +1597,7 @@ export class LabelLayer {
       if (!free && ((ay < top2 && by < top2) || (ay > bottom2 && by > bottom2))) continue
       if (!edgeRaised(index) && !edgeEarly(index)) placeEdge(index, false)
     }
+    placeShapes()
   }
 }
 

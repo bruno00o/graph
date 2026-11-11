@@ -5,20 +5,33 @@ import {
   type Key,
   mountGraph,
   nodes,
+  type ShapeGeometry,
+  type ShapeOptions,
 } from '@bruno00o/graph'
 import { radial } from '@bruno00o/graph/layouts'
+import { shapes } from '@bruno00o/graph/shapes'
 import { messages } from './messages'
 import { createNetwork, type Place, type Tie } from './network'
 import '../shared/overlays.css'
-import './rings.css'
 
-const namespace = 'http://www.w3.org/2000/svg'
+interface Band {
+  readonly id: string
+  readonly root: Key
+  readonly hops: number
+  readonly geometry: ShapeGeometry
+}
+
 const margin = 36
 
-function shape(tag: string, attributes: Record<string, string | number>): SVGElement {
-  const element = document.createElementNS(namespace, tag)
-  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value))
-  return element
+const bandOptions: ShapeOptions<Band> = {
+  node: 'root',
+  fill: (band) =>
+    band.hops % 2 === 1
+      ? 'color-mix(in srgb, var(--graph-ink) 7%, transparent)'
+      : 'color-mix(in srgb, var(--graph-ink) 3%, transparent)',
+  stroke: null,
+  pick: false,
+  label: { text: (band) => messages.hops(band.hops), color: 'var(--graph-ink-muted)', size: 14 },
 }
 
 export function mount(container: HTMLElement): GraphInstance {
@@ -33,14 +46,21 @@ export function mount(container: HTMLElement): GraphInstance {
     (degrees.get(item.id) ?? 0) > (degrees.get(best.id) ?? 0) ? item : best,
   ).id
 
+  const tieMark = edges<Tie>(links, { source: 'from', target: 'to', opacity: 0.6 })
+  const placeMark = nodes<Place>(items, {
+    color: 'group',
+    size: 18,
+    label: { text: 'label', size: 12 },
+  })
+  const layout = radial({ root })
+  const definitionOf = (bands: readonly Band[]) =>
+    defineGraph({
+      marks: [shapes(bands, bandOptions), tieMark, placeMark],
+      layout,
+    })
+
   const graph = mountGraph(container, {
-    definition: defineGraph({
-      marks: [
-        edges<Tie>(links, { source: 'from', target: 'to', opacity: 0.6 }),
-        nodes<Place>(items, { color: 'group', size: 18, label: { text: 'label', size: 12 } }),
-      ],
-      layout: radial({ root }),
-    }),
+    definition: definitionOf([]),
     ariaLabel: messages.graphLabel(items.length, links.length),
   })
   graph.selection.set({ nodes: [root] })
@@ -49,12 +69,6 @@ export function mount(container: HTMLElement): GraphInstance {
   status.className = 'example-status'
   status.textContent = messages.root(labels.get(root) ?? String(root))
   container.append(status)
-
-  const layer = document.createElement('div')
-  layer.className = 'distance-rings'
-  const rings = shape('svg', {})
-  layer.append(rings)
-  graph.anchors.set(layer, { node: root, scale: true })
 
   function distances(): number[] {
     const center = graph.positions.get(root)
@@ -71,24 +85,24 @@ export function mount(container: HTMLElement): GraphInstance {
     return sums.map((sum, at) => sum / (counts[at] ?? 1))
   }
 
-  function draw(): void {
+  function bandsAround(center: Key): Band[] {
     const radii = distances()
-    const outer = (radii.at(-1) ?? 0) + margin
-    rings.replaceChildren(
-      ...radii.flatMap((radius, at) => {
-        const label = shape('text', { x: 0, y: -radius - 8 })
-        label.textContent = messages.hops(at + 1)
-        return [shape('circle', { cx: 0, cy: 0, r: radius }), label]
-      }),
-    )
-    rings.setAttribute('width', String(2 * outer))
-    rings.setAttribute('height', String(2 * outer))
-    rings.setAttribute('viewBox', `${-outer} ${-outer} ${2 * outer} ${2 * outer}`)
-    layer.style.opacity = '1'
+    return radii.map((radius, at) => {
+      const before = radii[at - 1]
+      const after = radii[at + 1]
+      const inner = before === undefined ? radius / 2 : (before + radius) / 2
+      const outer = after === undefined ? radius + margin : (radius + after) / 2
+      return {
+        id: `ring-${at + 1}`,
+        root: center,
+        hops: at + 1,
+        geometry: { center: { x: 0, y: 0 }, radius: outer, inner },
+      }
+    })
   }
 
   graph.on('layoutend', ({ completed }) => {
-    if (completed) draw()
+    if (completed) graph.update({ definition: definitionOf(bandsAround(root)) })
   })
 
   graph.on('selectionchange', ({ selection }) => {
@@ -96,8 +110,7 @@ export function mount(container: HTMLElement): GraphInstance {
     if (key === undefined || key === root) return
     root = key
     status.textContent = messages.root(labels.get(key) ?? String(key))
-    layer.style.opacity = '0'
-    graph.anchors.set(layer, { node: root, scale: true })
+    graph.update({ definition: definitionOf([]) })
     void graph.layout.run(radial({ root }), { fit: true, duration: 600 })
   })
 

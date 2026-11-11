@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { RenderInput } from '../host/renderer'
 import { shapeUnitCount, timesShown } from './renderer'
-import { shapeStateUnit, shapeStyleUnit, shapeTimeUnit, shapeZoomUnit } from './shape-shaders'
+import {
+  shapePlaceUnit,
+  shapeStateUnit,
+  shapeStyleUnit,
+  shapeTimeUnit,
+  shapeZoomUnit,
+} from './shape-shaders'
 
 function scene(nodes: number, edges: number, shapes: number): RenderInput['scene'] {
   const timed = (count: number) => ({ time: { count } })
@@ -21,7 +27,8 @@ describe('renderer', () => {
   })
 
   it('guards on a map every texture unit the shapes bind', () => {
-    for (const unit of [shapeStyleUnit, shapeStateUnit, shapeZoomUnit, shapeTimeUnit]) {
+    const bound = [shapeStyleUnit, shapeStateUnit, shapeZoomUnit, shapeTimeUnit, shapePlaceUnit]
+    for (const unit of bound) {
       expect(unit).toBeLessThan(shapeUnitCount)
     }
   })

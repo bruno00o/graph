@@ -89,20 +89,29 @@ Edge labels take the same options as node labels, without `secondary`, `placemen
 
 <LiveExample slug="parallel-edges" />
 
+## Shape labels
+
+[Shapes](/docs/shapes#labels) take a label too, with the options of edge labels, at 12 pixels by default. It is centered where the shape is widest, horizontal, and gives way to node and edge labels.
+
+```ts
+shapes(zones, { label: { text: 'name', background: true } })
+```
+
 ## Which labels are drawn
 
 Labels never overlap. They are chosen again as the view changes, at most every 120 milliseconds, from what is on screen:
 
-1. The hovered and focused node or edge first. Their labels skip the overlap test and `minScreenSize`, so they show over others. An edge label still needs room between its nodes.
+1. The hovered and focused node, edge or shape first. Their labels skip the overlap test and `minScreenSize`, so they show over others. An edge label still needs room between its nodes.
 2. Selected elements next, as long as they do not overlap.
 3. Then node labels, largest node first.
 4. Then edge labels, widest edge first.
+5. Then shape labels, largest shape first.
 
 At most 4,000 labels are drawn at once.
 
 ## Labels in states
 
-Two state properties act on labels. `label` shows or hides them while the state applies. `labelColor` changes the color of the main text, for nodes and edges.
+Two state properties act on labels. `label` shows or hides them while the state applies. `labelColor` changes the color of the main text, for nodes, edges and shapes.
 
 ```ts
 const definition = defineGraph({
@@ -118,7 +127,7 @@ The second line of a node label keeps `--graph-ink-muted`. When an element is in
 
 `label: true` does not lift the [size threshold](#size-and-zoom): zoom out until the text is under 8 pixels and the label of a member hides like any other, hovered and focused elements included. A larger `size` keeps it readable from further away.
 
-`label: 'always'` lifts the threshold and `minScreenSize` while the state applies: the label is drawn at 8 pixels at least, placed right after the labels of raised elements, and still gives way to a label it would cover. It works for node labels, edge labels and end labels, and in exports.
+`label: 'always'` lifts the threshold and `minScreenSize` while the state applies: the label is drawn at 8 pixels at least, placed right after the labels of raised elements, and still gives way to a label it would cover. It works for node labels, edge labels, end labels and shape labels, and in exports.
 
 ```ts
 states: {

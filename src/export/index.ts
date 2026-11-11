@@ -141,6 +141,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
       states,
       boxes,
       bundles: snapshot.bundles,
+      shapes: scene.shapes,
     }
     frame = fitLabels(source, frame, labels, measure, padding)
   }

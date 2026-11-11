@@ -290,6 +290,7 @@ mountMapGraph(map, {
 - On the globe, outlines and fills follow the surface: edges longer than 8 world units, about 5.6 degrees at the equator, are split into shorter ones, once per geometry. The part of a shape behind the horizon is neither drawn nor picked.
 - A geometry in world units, `{ x, y }` points or a rectangle, stays in world units: on a map of 512 world units, a rectangle 100 units wide covers a fifth of the Earth. Circles and rectangles in world units keep their exact curve on a flat map.
 - Selection, hover, states, `others`, `hide`, zoom ranges, the time window and layers work as on any graph. `exportMapPng` draws the shapes with the graph.
+- [Labels](/docs/shapes#labels) show on the map, once per shape. A shape [pinned to a node](/docs/shapes#pin-shapes-to-nodes) follows it, flat or on the globe, with its geometry in world units around the node: a ring of radius 2 spans about 1.4 degrees of longitude.
 
 ## What is left out
 

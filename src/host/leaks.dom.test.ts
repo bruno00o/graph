@@ -55,6 +55,10 @@ function definition() {
   return defineGraph({
     marks: [
       shapes([{ id: 'zone', geometry: { center: { x: 0, y: 0 }, radius: 100 } }]),
+      shapes([{ id: 'pinned', geometry: { center: { x: 0, y: 0 }, radius: 40 }, node: 'n0' }], {
+        node: 'node',
+        label: 'id',
+      }),
       edges<Link>(links, { source: 'from', target: 'to', flow: true }),
       nodes<Item>(items, { color: 'group', time: 'time' }),
     ],

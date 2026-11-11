@@ -113,7 +113,8 @@ export class DataReads {
           nodes: model.nodeCount,
           edges: model.edgeCount,
           pending: model.pendingCount,
-          shapes: model.shapeCount,
+          shapes: model.shapeCount - shapes.pendingCount,
+          pendingShapes: shapes.pendingCount,
           shown: Object.freeze({
             nodes: shownNodes,
             edges: shownEdges,
@@ -133,7 +134,7 @@ export class DataReads {
   #shownShapes(seen: Sight): number {
     const shapes = this.#source.scene.shapes
     const order = shapes.drawOrder()
-    if (!filtered(shapes, seen)) return order.length
+    if (!filtered(shapes, seen) && shapes.pinCount === 0) return order.length
     let shown = 0
     for (const index of order) if (shapeShown(shapes, index, seen)) shown++
     return shown

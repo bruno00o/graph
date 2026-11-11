@@ -41,8 +41,10 @@ import {
   withEnds,
 } from './shaders'
 import {
+  pinned,
   shapeFillFragment,
   shapeFillVertex,
+  shapeLabelVertex,
   shapeRoundFragment,
   shapeRoundVertex,
   shapeStrokeFragment,
@@ -77,6 +79,10 @@ const programs: readonly Program[] = [
   ['shape fill', shapeFillVertex, shapeFillFragment],
   ['shape stroke', shapeStrokeVertex, shapeStrokeFragment],
   ['shape round', shapeRoundVertex, shapeRoundFragment],
+  ['pinned shape fill', pinned(shapeFillVertex), shapeFillFragment],
+  ['pinned shape stroke', pinned(shapeStrokeVertex), shapeStrokeFragment],
+  ['pinned shape round', pinned(shapeRoundVertex), shapeRoundFragment],
+  ['shape label', shapeLabelVertex, labelFragment],
   ['shape fill on the globe', sphereVariant(shapeFillVertex), sphereVariant(shapeFillFragment)],
   [
     'shape stroke on the globe',
@@ -84,6 +90,17 @@ const programs: readonly Program[] = [
     sphereVariant(shapeStrokeFragment),
   ],
   ['shape round on the globe', sphereVariant(shapeRoundVertex), shapeRoundFragment],
+  [
+    'pinned shape fill on the globe',
+    sphereVariant(pinned(shapeFillVertex)),
+    sphereVariant(shapeFillFragment),
+  ],
+  [
+    'pinned shape stroke on the globe',
+    sphereVariant(pinned(shapeStrokeVertex)),
+    sphereVariant(shapeStrokeFragment),
+  ],
+  ['pinned shape round on the globe', sphereVariant(pinned(shapeRoundVertex)), shapeRoundFragment],
   ['layout bounds', fullVertex, boundsBlockFragment],
   ['layout bounds reduce', fullVertex, boundsFragment],
   ['layout splat', splatVertex, valueFragment],

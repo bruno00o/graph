@@ -1,4 +1,3 @@
-export const bridgeUnit = 20
 export const bridgeSpots = 8
 
 export const bridgeData: string = `

@@ -45,6 +45,7 @@ const noShapeCount: GraphShapeCount = Object.freeze({
   edges: 0,
   pending: 0,
   shapes: 0,
+  pendingShapes: 0,
   shown: Object.freeze({ nodes: 0, edges: 0, shapes: 0 }),
 })
 

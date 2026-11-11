@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { arrowCodes, containerShape, EdgeColumns, NodeColumns, noColor } from '../core/columns'
 import { loopMinimum, loopReach } from '../core/edge-curve'
+import { geoToWorld } from '../core/geo'
+import { createGraphModel } from '../core/graph-model'
 import { Positions } from '../core/positions'
+import { createScene } from '../core/scene'
+import type { ShapeStore } from '../core/shape-store'
+import { defineGraph } from '../define-graph'
+import { nodes } from '../marks'
+import { shapes } from '../shapes'
+import { globeCamera } from '../testing/globe'
+import type { GraphDefinition, ShapeGeometry } from '../types'
 import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
 import {
   type EdgeAnchor,
@@ -11,6 +20,7 @@ import {
   glyphStride,
   LabelLayer,
   labelLevel,
+  type ShapeLabelFrame,
   sortBySize,
   sortDescending,
   sortEdgesByWidth,
@@ -722,5 +732,184 @@ describe('label styles', () => {
       atlas,
     )
     expect(records(layer.main).map((record) => record.owner)).toEqual([1])
+  })
+})
+
+describe('shape labels', () => {
+  const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
+  const atlas = {
+    height: 256,
+    generation: 0,
+    line: (text: string): LineLayout => ({ width: text.length * 12, glyphs: [{ glyph, x: 0 }] }),
+  } as unknown as GlyphAtlas
+
+  interface Zone {
+    readonly id: string
+    readonly geometry: ShapeGeometry
+    readonly name: string
+    readonly node?: string
+  }
+
+  function sceneOf(zones: readonly Zone[], size = 40, nodeKeys: readonly string[] = []) {
+    const model = createGraphModel()
+    const scene = createScene()
+    const definition = defineGraph({
+      marks: [
+        nodes(nodeKeys.map((id) => ({ id }))),
+        shapes(zones, { node: 'node', label: { text: 'name', size } }),
+      ],
+    }) as GraphDefinition
+    model.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    scene.apply(model, model.flush())
+    return scene
+  }
+
+  function frameOf(
+    nodes: NodeColumns,
+    positions: Positions,
+    store: ShapeStore,
+    shapeFrame: Partial<ShapeLabelFrame> = {},
+    zoom = 1,
+  ) {
+    const order = new Uint32Array(nodes.capacity)
+    const sorted = sortBySize(nodes, order)
+    return {
+      nodes,
+      positions,
+      view: { x: 0, y: 0, zoom },
+      width: 800,
+      height: 600,
+      nodeMask: new Uint32Array(nodes.capacity),
+      labelFlags: new Int8Array(64).fill(-1),
+      highlighted: [],
+      order,
+      orderLength: sorted.length,
+      screenLabels: false,
+      largestLabel: sorted.largest,
+      ...noEdges,
+      shapes: {
+        store,
+        mask: new Uint32Array(store.capacity),
+        flags: new Int8Array(64).fill(-1),
+        highlighted: [],
+        raise: 0b111,
+        others: 0,
+        always: [],
+        ...shapeFrame,
+      },
+    }
+  }
+
+  const square = { x: -100, y: -100, width: 200, height: 200 }
+
+  it('gives way to node labels, and takes the place left free', () => {
+    const { shapes: store } = sceneOf([{ id: 'zone', geometry: square, name: 'zone' }])
+    const positions = new Positions()
+    positions.set(0, 0, -20)
+    const labeled = columns([{ size: 16, label: 'node' }])
+    const layer = new LabelLayer()
+    layer.select(frameOf(labeled, positions, store), atlas)
+    expect(layer.main.count).toBe(1)
+    expect(layer.shapeMain.count).toBe(0)
+    layer.select(frameOf(columns([{ size: 16, label: null }]), positions, store), atlas)
+    expect(layer.shapeMain.count).toBe(1)
+    expect(layer.shapeLabels).toBe(1)
+    const owner = new Uint32Array(layer.shapeMain.data)
+    expect(owner[1]).toBe(4 << 4)
+  })
+
+  it('places the label of the larger shape first', () => {
+    const { shapes: store } = sceneOf([
+      { id: 'small', geometry: { x: -40, y: -40, width: 80, height: 80 }, name: 'small' },
+      { id: 'large', geometry: square, name: 'large' },
+    ])
+    const layer = new LabelLayer()
+    layer.select(frameOf(columns([{ size: 16, label: null }]), new Positions(), store), atlas)
+    expect(layer.shapeMain.count).toBe(1)
+    const owner = new Uint32Array(layer.shapeMain.data)[0]
+    expect(store.keys[owner ?? -1]).toBe('large')
+  })
+
+  it('forces a hovered shape label over node labels, and follows the label levels of states', () => {
+    const { shapes: store } = sceneOf([{ id: 'zone', geometry: square, name: 'zone' }])
+    const positions = new Positions()
+    positions.set(0, 0, -20)
+    const labeled = columns([{ size: 16, label: 'node' }])
+    const layer = new LabelLayer()
+    layer.select(
+      frameOf(labeled, positions, store, { mask: new Uint32Array([0b10]), highlighted: [0] }),
+      atlas,
+    )
+    expect(layer.shapeHighlight.count).toBe(1)
+    expect(layer.main.count).toBe(0)
+    const flags = new Int8Array(64).fill(-1)
+    flags[3] = 0
+    const empty = columns([{ size: 16, label: null }])
+    layer.select(
+      frameOf(empty, positions, store, { mask: new Uint32Array([0b1000]), flags }),
+      atlas,
+    )
+    expect(layer.shapeMain.count).toBe(0)
+    flags[3] = 2
+    const far = { mask: new Uint32Array([0b1000]), flags }
+    layer.select(frameOf(empty, positions, store, far, 0.1), atlas)
+    expect(layer.shapeMain.count).toBe(0)
+    layer.select(frameOf(empty, positions, store, { ...far, always: [0] }, 0.1), atlas)
+    expect(layer.shapeMain.count).toBe(1)
+  })
+
+  it('anchors the label of a pinned shape where its node is, and skips a waiting one', () => {
+    const scene = sceneOf(
+      [
+        { id: 'pinned', geometry: { x: -10, y: -10, width: 20, height: 20 }, name: 'p', node: 'a' },
+        { id: 'waiting', geometry: square, name: 'w', node: 'missing' },
+      ],
+      12,
+      ['a'],
+    )
+    const positions = new Positions()
+    positions.set(0, 300, 100)
+    const anchors: [number, number][] = []
+    const layer = new LabelLayer()
+    layer.select(
+      {
+        ...frameOf(scene.nodes, positions, scene.shapes),
+        sink: { node: () => {}, edge: () => {}, shape: (_, __, x, y) => anchors.push([x, y]) },
+      },
+      atlas,
+    )
+    expect(anchors).toEqual([[700, 400]])
+  })
+
+  it('anchors the label of a pinned shape at its node on the globe, never on the far side', () => {
+    const scene = sceneOf(
+      [
+        { id: 'front', geometry: { x: -1, y: -1, width: 2, height: 2 }, name: 'f', node: 'a' },
+        { id: 'back', geometry: { x: -1, y: -1, width: 2, height: 2 }, name: 'b', node: 'b' },
+      ],
+      12,
+      ['a', 'b'],
+    )
+    const front = geoToWorld({ longitude: -70, latitude: -20 })
+    const back = geoToWorld({ longitude: 110, latitude: 20 })
+    const positions = new Positions()
+    positions.set(0, front.x, front.y)
+    positions.set(1, back.x, back.y)
+    const shot = { longitude: -70, latitude: -20, zoom: 3, width: 800, height: 600 }
+    const anchors: [number, number][] = []
+    const layer = new LabelLayer()
+    layer.select(
+      {
+        ...frameOf(scene.nodes, positions, scene.shapes),
+        view: { x: front.x, y: front.y, zoom: 8 },
+        globe: globeCamera(shot),
+        sink: { node: () => {}, edge: () => {}, shape: (_, __, x, y) => anchors.push([x, y]) },
+      },
+      atlas,
+    )
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0]?.[0]).toBeCloseTo(400)
+    expect(anchors[0]?.[1]).toBeCloseTo(300)
   })
 })

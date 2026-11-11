@@ -1,9 +1,10 @@
-import { header, spanData } from './shaders'
+import { glyphLayout, header, nodeSamplers, nodeSight, spanData } from './shaders'
 
 export const shapeStyleUnit = 21
 export const shapeStateUnit = 22
 export const shapeZoomUnit = 23
 export const shapeTimeUnit = 24
+export const shapePlaceUnit = 25
 export const shapeRanged = 1
 export const shapeTimed = 2
 export const shapeAlive = 0x1000000
@@ -53,6 +54,36 @@ ShapeLook shapeLook(uint index) {
 }
 `
 
+const shapePinned = `
+#ifdef PINNED
+uniform sampler2D shapePlace;
+${nodeSamplers}${nodeSight}
+vec3 pinOf(uint index) {
+  float node = texelFetch(shapePlace, texel(index), 0).z;
+  if (node < -1.5) return vec3(0.0);
+  if (node < 0.0) return vec3(0.0, 0.0, 1.0);
+  ivec2 t = texel(uint(node));
+  if ((uint(texelFetch(nodeStyle, t, 0).w + 0.5) & 8u) == 0u) return vec3(0.0);
+  return vec3(texelFetch(nodePosition, t, 0).xy, nodeShown(t));
+}
+#endif
+ShapeLook placedLook(uint index, out vec2 shift) {
+  shift = vec2(0.0);
+  ShapeLook look = shapeLook(index);
+#ifdef PINNED
+  vec3 pin = pinOf(index);
+  shift = pin.xy;
+  look.fill *= pin.z;
+  look.stroke *= pin.z;
+#endif
+  return look;
+}
+`
+
+export function pinned(source: string): string {
+  return source.replace('#version 300 es\n', '#version 300 es\n#define PINNED\n')
+}
+
 const dashCommon = `
 float dashCover(uint dash, float along, float across, float halfWidth, float perimeter, float aa) {
   if (dash == 0u) return 1.0;
@@ -69,7 +100,7 @@ float dashCover(uint dash, float along, float across, float halfWidth, float per
 }
 `
 
-export const shapeFillVertex: string = `${header}${shapeCommon}
+export const shapeFillVertex: string = `${header}${shapeCommon}${shapePinned}
 layout(location = 0) in vec2 shapePosition;
 layout(location = 1) in uint shapeWord;
 flat out vec4 vColor;
@@ -77,11 +108,12 @@ flat out vec4 vColor;
 out float vSide;
 #endif
 void main() {
-  vColor = shapeLook(shapeWord & shapeIndexMask).fill;
+  vec2 shift;
+  vColor = placedLook(shapeWord & shapeIndexMask, shift).fill;
 #ifdef SPHERE
-  vSide = worldSide(shapePosition);
+  vSide = worldSide(shapePosition + shift);
 #endif
-  gl_Position = vColor.a > 0.0 ? toClip(toScreen(shapePosition)) : hidden;
+  gl_Position = vColor.a > 0.0 ? toClip(toScreen(shapePosition + shift)) : hidden;
 }
 `
 
@@ -99,7 +131,7 @@ void main() {
 }
 `
 
-export const shapeStrokeVertex: string = `${header}${shapeCommon}
+export const shapeStrokeVertex: string = `${header}${shapeCommon}${shapePinned}
 layout(location = 0) in vec2 shapePrevious;
 layout(location = 1) in vec4 shapeFrom;
 layout(location = 2) in vec2 shapeTo;
@@ -136,22 +168,23 @@ void main() {
   vFlags = 0u;
   gl_Position = hidden;
   if ((shapeWord & ${shapeSkip}u) != 0u) return;
+  vec2 shift;
+  ShapeLook look = placedLook(shapeWord & shapeIndexMask, shift);
 #ifdef SPHERE
-  float sideFrom = worldSide(shapeFrom.xy);
-  float sideTo = worldSide(shapeTo);
+  float sideFrom = worldSide(shapeFrom.xy + shift);
+  float sideTo = worldSide(shapeTo + shift);
   vSide = gl_VertexID < 2 ? sideFrom : sideTo;
   if (sideFrom < 0.0 && sideTo < 0.0) return;
 #endif
   bool polygon = (shapeWord & ${shapePolygon}u) != 0u;
-  ShapeLook look = shapeLook(shapeWord & shapeIndexMask);
   float halfWidth = look.halfWidth;
   vStroke = look.stroke;
   vFill = polygon ? look.fill : vec4(0.0);
   if (vStroke.a <= 0.0 && vFill.a <= 0.0) return;
-  vec2 a = toScreen(shapeFrom.xy);
-  vec2 b = toScreen(shapeTo.xy);
-  vec2 p = toScreen(shapePrevious);
-  vec2 q = toScreen(shapeNext);
+  vec2 a = toScreen(shapeFrom.xy + shift);
+  vec2 b = toScreen(shapeTo.xy + shift);
+  vec2 p = toScreen(shapePrevious + shift);
+  vec2 q = toScreen(shapeNext + shift);
   vec2 d = b - a;
   float size = length(d);
   if (size < 1e-6) return;
@@ -169,7 +202,7 @@ void main() {
     ? cornerAt(a, n, normalOf(p, a), capA, -dir, side, extent)
     : cornerAt(b, n, normalOf(b, q), capB, dir, side, extent);
   vLocal = vec2(dot(corner - a, dir), dot(corner - a, n));
-  float scale = scaleAt(shapeFrom.xy);
+  float scale = scaleAt(shapeFrom.xy + shift);
   vLine = vec4(size, halfWidth, shapeFrom.z * scale, shapeFrom.w * scale);
   vFlags = look.dash | (capA ? 4u : 0u) | (capB ? 8u : 0u);
   gl_Position = toClip(corner);
@@ -207,7 +240,7 @@ void main() {
 }
 `
 
-export const shapeRoundVertex: string = `${header}${shapeCommon}
+export const shapeRoundVertex: string = `${header}${shapeCommon}${shapePinned}
 layout(location = 0) in vec4 shapeBox;
 layout(location = 1) in vec2 shapeExtra;
 layout(location = 2) in uint shapeWord;
@@ -217,23 +250,25 @@ flat out vec4 vStroke;
 flat out vec4 vFill;
 flat out vec2 vShape;
 void main() {
-  ShapeLook look = shapeLook(shapeWord & shapeIndexMask);
+  vec2 shift;
+  ShapeLook look = placedLook(shapeWord & shapeIndexMask, shift);
   float halfWidth = look.halfWidth;
   vStroke = look.stroke;
   vFill = look.fill;
-  float scale = scaleAt(shapeBox.xy);
+  vec2 center = shapeBox.xy + shift;
+  float scale = scaleAt(center);
   vec2 reach = shapeBox.zw * scale;
   vRound = vec4(reach, shapeExtra * scale);
   bool rect = (shapeWord & ${shapeRect}u) != 0u;
   vShape = vec2(halfWidth, float(look.dash | (rect ? 4u : 0u)));
   vec2 corner = vec2(gl_VertexID % 2 == 1 ? 1.0 : -1.0, gl_VertexID < 2 ? -1.0 : 1.0);
   vLocal = corner * (reach + halfWidth + 1.5);
-  vec2 center = toScreen(shapeBox.xy);
+  vec2 screen = toScreen(center);
   bool shown = vStroke.a > 0.0 || vFill.a > 0.0;
 #ifdef SPHERE
-  shown = shown && worldSide(shapeBox.xy) >= 0.0;
+  shown = shown && worldSide(center) >= 0.0;
 #endif
-  gl_Position = shown ? toClip(center + vLocal) : hidden;
+  gl_Position = shown ? toClip(screen + vLocal) : hidden;
 }
 `
 
@@ -308,6 +343,44 @@ void main() {
   vec4 result = stroke + vFill * fill * (1.0 - stroke.a);
   if (result.a <= 0.0) discard;
   fragColor = result;
+}
+`
+
+export const shapeLabelVertex: string = `${header}${shapeCommon}${nodeSamplers}${nodeSight}
+uniform sampler2D shapePlace;
+${glyphLayout}
+void main() {
+  vPlate = vec4(0.0);
+  vOpacity = 0.0;
+  uint kind = glyphKind & 3u;
+  vUv = mix(glyphUv.xy, glyphUv.zw, corner);
+  gl_Position = hidden;
+  ivec2 t = texel(glyphNode);
+  uvec4 style = texelFetch(shapeStyle, t, 0);
+  if ((style.w & ${shapeAlive}u) == 0u) return;
+  uint mask = texelFetch(shapeState, t, 0).r;
+  if ((mask & stateShapes.y) != 0u || (~mask & stateShapes.w) != 0u) return;
+  if (anyHidden(hiddenShapes) && slotHidden(hiddenShapes, (style.w >> 16u) & 255u)) return;
+  float shown = (shapeFlags & ${shapeRanged}u) != 0u ? zoomShown(texelFetch(shapeZoom, t, 0).xy) : 1.0;
+  if (timed > 0.5 && (shapeFlags & ${shapeTimed}u) != 0u && shown > 0.0) {
+    shown *= timeShown(texelFetch(shapeTime, t, 0));
+  }
+  vec4 place = texelFetch(shapePlace, t, 0);
+  vec2 at = place.xy;
+  if (place.z < -1.5) return;
+  if (place.z >= 0.0) {
+    ivec2 n = texel(uint(place.z));
+    if ((uint(texelFetch(nodeStyle, n, 0).w + 0.5) & 8u) == 0u) return;
+    at += texelFetch(nodePosition, n, 0).xy;
+    shown *= nodeShown(n);
+  }
+  Look look = resolve(mask, Look(1.0, 0.0, 0.0, 1.0, none, none, none, 0.0, none), 128);
+  float pixels = glyphSize * min(1.0, zoom);
+  if (look.label > 1.5) pixels = max(pixels, min(glyphSize, labelMin));
+  vOpacity = look.opacity * shown;
+  if (vOpacity <= 0.0 || look.label < 0.5 || (pixels < labelMin && look.label < 1.5)) return;
+  if (worldSide(at) < 0.0) return;
+  gl_Position = toClip(toScreen(at) + layoutGlyph(kind, pixels, 0.0, look.labelColor, 0u));
 }
 `
 

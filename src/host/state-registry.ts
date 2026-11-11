@@ -203,6 +203,7 @@ export class StateRegistry {
       buffers.nodeAlways,
       buffers.edgeAlways,
       buffers.shapeRaise,
+      buffers.shapeAlways,
     ]
     if (!this.#highlightDirty && watched.every((bits, at) => bits === this.#watched[at])) return
     this.#highlightDirty = false
@@ -214,8 +215,12 @@ export class StateRegistry {
     )
     const nodes = this.#indicesWith('nodes', buffers.nodeAlways)
     const edges = this.#indicesWith('edges', buffers.edgeAlways)
-    const listed = buffers.alwaysNodes.length + buffers.alwaysEdges.length
-    if (listed + nodes.length + edges.length > 0) buffers.setAlways(nodes, edges)
+    const shapes = this.#indicesWith('shapes', buffers.shapeAlways)
+    const listed =
+      buffers.alwaysNodes.length + buffers.alwaysEdges.length + buffers.alwaysShapes.length
+    if (listed + nodes.length + edges.length + shapes.length > 0) {
+      buffers.setAlways(nodes, edges, shapes)
+    }
   }
 
   #masks(kind: StateKind): Uint32Array {
