@@ -397,7 +397,7 @@ export function watch(graph: GraphInstance) {
 
 ### MEDIUM Coordinates typed as `number[][]`
 
-A point is `{ x, y }`, `{ longitude, latitude }` or an `[x, y]` tuple. Data typed `number[][][]` (typical of parsed JSON) does not satisfy the tuple, so naming the field in `geometry` fails to compile, and with no `geometry` option the default field is not checked at all. Type the rings with tuples, or with `ShapeGeometry`.
+A point is `{ x, y }`, `{ longitude, latitude }` or an `[x, y]` tuple. Data typed `number[][][]` (typical of parsed JSON, or of points written in a `const` with no type) does not satisfy the tuple, so `shapes()` fails to compile, whether the field is named in `geometry` or is the default `geometry` field. Type the items (`const zones: Zone[]`), the rings with tuples, or the field with `ShapeGeometry`.
 
 ```ts expect-error=TS2769
 import { shapes } from '@bruno00o/graph/shapes'
