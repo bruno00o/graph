@@ -22,7 +22,7 @@ const definition = defineGraph({
 })
 ```
 
-A layer is a name shared by any number of marks, node marks included. Marks without a `layer` belong to no layer and always show. The names come from the marks: with literal names, TypeScript knows them, and `graph.layers` refuses a name no mark gives.
+A layer is a name shared by any number of marks, node and [shape](/docs/shapes#zoom-time-and-layers) marks included. Marks without a `layer` belong to no layer and always show. The names come from the marks: with literal names, TypeScript knows them, and `graph.layers` refuses a name no mark gives.
 
 ## Show and hide layers
 
@@ -78,7 +78,7 @@ mountLegend(legend, {
 
 ## What a hidden layer is
 
-Hiding a layer hides its nodes, its edges, and the edges of other layers that end on its nodes. Its elements behave like elements out of their [zoom range](/docs/zoom#what-a-hidden-element-is) or out of the [time window](/docs/time#what-a-hidden-element-is):
+Hiding a layer hides its nodes, its edges, its shapes, and the edges of other layers that end on its nodes. Its elements behave like elements out of their [zoom range](/docs/zoom#what-a-hidden-element-is) or out of the [time window](/docs/time#what-a-hidden-element-is):
 
 - they are not drawn, nor their labels and badges, and their anchors leave the screen;
 - they are not picked: hover, click and the lasso pass through them, and the arrow keys skip them. A hovered or focused element that hides loses the hover or the focus;

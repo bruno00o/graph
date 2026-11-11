@@ -100,7 +100,26 @@ type SameMarks = NodeMark<Item, 'item'> | NodeMark<Topic, 'topic'> | EdgeMark<Li
 
 A mark with a `layer` takes its name as a third parameter: `EdgeMark<Link, undefined, 'routes'>`. Left out, it is `undefined`, a mark outside any layer. `LayerName<Marks>` is the union of the layer names, which `graph.layers` accepts.
 
-`GraphTarget<Marks>`, `GraphState<S, Marks>`, `GraphInstance<S, Marks>` and the event payloads, such as `GraphPointerEvent<Marks>`, accept them. `NodeDatum<Marks>` and `EdgeDatum<Marks>` are the unions of the item types, and `NodeTarget<Item>` and `EdgeTarget<Link>` the targets of a single type. Every one of these types without its parameters is the untyped form, where `datum` is `unknown`.
+`GraphTarget<Marks>`, `GraphState<S, Marks>`, `GraphInstance<S, Marks>` and the event payloads, such as `GraphPointerEvent<Marks>`, accept them. `NodeDatum<Marks>`, `EdgeDatum<Marks>` and `ShapeDatum<Marks>` are the unions of the item types, and `NodeTarget<Item>`, `EdgeTarget<Link>` and `ShapeTarget<Zone>` the targets of a single type. Every one of these types without its parameters is the untyped form, where `datum` is `unknown`.
+
+## Shapes in targets and keys
+
+With a [shape mark](/docs/shapes) in the definition, targets may be shapes and the selection has a `shapes` list. Without one, a typed graph has neither: a `switch` on `target.kind` covers `'node'` and `'edge'`, and the selection is `{ nodes, edges }`.
+
+```ts
+graph.on('click', ({ target }) => {
+  switch (target?.kind) {
+    case 'node':
+      return openItem(target.datum)
+    case 'edge':
+      return openLink(target.datum)
+    case 'shape':
+      return openZone(target.datum)
+  }
+})
+```
+
+The untyped forms cannot tell whether a definition has shapes, so they say it may: a plain `GraphTarget` includes `ShapeTarget`, and the plain `ElementKeys` has an optional `shapes`. Code written against a plain `GraphInstance` that switches over every `kind` needs a `case 'shape'`, or the types of its marks.
 
 ## React
 

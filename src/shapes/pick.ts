@@ -10,7 +10,7 @@ import {
 import type { ShapeStore } from '../core/shape-store'
 import type { Point } from '../types'
 
-const largeCells = 64
+const maxCells = 16
 const lassoSamples = 32
 
 function insideRings(geometry: ShapeGeometryData, x: number, y: number): boolean {
@@ -44,11 +44,14 @@ function segmentDistance(
   const dy = by - ay
   const length = dx * dx + dy * dy
   const t = length > 0 ? Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / length)) : 0
-  return Math.hypot(x - (ax + dx * t), y - (ay + dy * t))
+  const ex = x - (ax + dx * t)
+  const ey = y - (ay + dy * t)
+  return ex * ex + ey * ey
 }
 
 function nearRings(geometry: ShapeGeometryData, x: number, y: number, reach: number): boolean {
   const { points, rings, closed } = geometry
+  const squared = reach * reach
   let from = 0
   for (const to of rings) {
     const last = closed ? to : to - 1
@@ -58,14 +61,11 @@ function nearRings(geometry: ShapeGeometryData, x: number, y: number, reach: num
       const ay = points[i * 2 + 1] ?? 0
       const bx = points[j * 2] ?? 0
       const by = points[j * 2 + 1] ?? 0
-      if (segmentDistance(x, y, ax, ay, bx, by) <= reach) return true
+      if (segmentDistance(x, y, ax, ay, bx, by) <= squared) return true
     }
-    if (
-      to - from === 1 &&
-      Math.hypot(x - (points[from * 2] ?? 0), y - (points[from * 2 + 1] ?? 0)) <= reach
-    ) {
-      return true
-    }
+    const px = x - (points[from * 2] ?? 0)
+    const py = y - (points[from * 2 + 1] ?? 0)
+    if (to - from === 1 && px * px + py * py <= squared) return true
     from = to
   }
   return false
@@ -136,19 +136,22 @@ function insidePolygon(polygon: readonly Point[], x: number, y: number): boolean
   return odd
 }
 
+interface Level {
+  readonly side: number
+  readonly width: number
+  readonly height: number
+  readonly starts: Uint32Array
+  readonly entries: Uint32Array
+}
+
 export function createShapePicker(store: ShapeStore): ShapePicker {
   let version = -1
   let styleVersion = -1
-  let side = 0
   let minX = 0
   let minY = 0
   let maxX = 0
   let maxY = 0
-  let cellWidth = 1
-  let cellHeight = 1
-  let starts = new Uint32Array(0)
-  let entries = new Uint32Array(0)
-  let large = new Uint32Array(0)
+  let levels: Level[] = []
   let rank = new Uint32Array(0)
   let stamps = new Uint32Array(0)
   let stamp = 0
@@ -165,6 +168,10 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
       geometry.kind !== shapeKinds.line &&
       (store.fill[index] ?? noColor) !== noColor
     )
+  }
+
+  function cellOf(value: number, origin: number, size: number, side: number): number {
+    return Math.min(side - 1, Math.max(0, Math.floor((value - origin) / size)))
   }
 
   function build(): void {
@@ -193,59 +200,68 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
       maxX = Math.max(maxX, geometry.maxX)
       maxY = Math.max(maxY, geometry.maxY)
     })
-    side = picked.length === 0 ? 0 : Math.min(1024, Math.ceil(Math.sqrt(picked.length)))
-    cellWidth = Math.max((maxX - minX) / Math.max(side, 1), 1e-9)
-    cellHeight = Math.max((maxY - minY) / Math.max(side, 1), 1e-9)
-    const counts = new Uint32Array(side * side + 1)
-    const wide: number[] = []
-    const spans = new Int32Array(picked.length * 4)
+    levels = []
+    if (picked.length === 0) return
+    const finest = Math.min(1024, Math.ceil(Math.sqrt(picked.length)))
+    const width = Math.max((maxX - minX) / finest, 1e-9)
+    const height = Math.max((maxY - minY) / finest, 1e-9)
+    const depth = Math.max(1, Math.ceil(Math.log2(finest)) + 1)
+    const levelOf = new Uint8Array(picked.length)
+    const sizes = Array.from({ length: depth }, (_, level) => ({
+      side: Math.max(1, Math.ceil(finest / 2 ** level)),
+      width: width * 2 ** level,
+      height: height * 2 ** level,
+    }))
     picked.forEach((index, at) => {
       const geometry = store.geometry[index] as ShapeGeometryData
-      const c0 = column(geometry.minX)
-      const c1 = column(geometry.maxX)
-      const r0 = row(geometry.minY)
-      const r1 = row(geometry.maxY)
-      if ((c1 - c0 + 1) * (r1 - r0 + 1) > largeCells) {
-        wide.push(index)
-        spans[at * 4] = -1
-        return
+      let level = 0
+      for (; level < depth - 1; level++) {
+        const size = sizes[level] ?? { side: 1, width, height }
+        const columns =
+          cellOf(geometry.maxX, minX, size.width, size.side) -
+          cellOf(geometry.minX, minX, size.width, size.side) +
+          1
+        const rows =
+          cellOf(geometry.maxY, minY, size.height, size.side) -
+          cellOf(geometry.minY, minY, size.height, size.side) +
+          1
+        if (columns * rows <= maxCells) break
       }
-      spans.set([c0, c1, r0, r1], at * 4)
-      for (let r = r0; r <= r1; r++) {
-        for (let c = c0; c <= c1; c++)
-          counts[r * side + c + 1] = (counts[r * side + c + 1] ?? 0) + 1
-      }
+      levelOf[at] = level
     })
-    for (let cell = 1; cell < counts.length; cell++) {
-      counts[cell] = (counts[cell] ?? 0) + (counts[cell - 1] ?? 0)
-    }
-    starts = counts
-    entries = new Uint32Array(counts[counts.length - 1] ?? 0)
-    const fill = counts.slice(0, Math.max(0, counts.length - 1))
-    picked.forEach((index, at) => {
-      const c0 = spans[at * 4] ?? -1
-      if (c0 < 0) return
-      const c1 = spans[at * 4 + 1] ?? 0
-      const r0 = spans[at * 4 + 2] ?? 0
-      const r1 = spans[at * 4 + 3] ?? 0
-      for (let r = r0; r <= r1; r++) {
-        for (let c = c0; c <= c1; c++) {
-          const cell = r * side + c
-          const at = fill[cell] ?? 0
-          entries[at] = index
-          fill[cell] = at + 1
-        }
+    levels = sizes.map((size, level) => {
+      const counts = new Uint32Array(size.side * size.side + 1)
+      const visit = (index: number, write: (cell: number) => void) => {
+        const geometry = store.geometry[index] as ShapeGeometryData
+        const c0 = cellOf(geometry.minX, minX, size.width, size.side)
+        const c1 = cellOf(geometry.maxX, minX, size.width, size.side)
+        const r0 = cellOf(geometry.minY, minY, size.height, size.side)
+        const r1 = cellOf(geometry.maxY, minY, size.height, size.side)
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) write(r * size.side + c)
       }
+      picked.forEach((index, at) => {
+        if (levelOf[at] !== level) return
+        visit(index, (cell) => {
+          counts[cell + 1] = (counts[cell + 1] ?? 0) + 1
+        })
+      })
+      for (let cell = 1; cell < counts.length; cell++) {
+        counts[cell] = (counts[cell] ?? 0) + (counts[cell - 1] ?? 0)
+      }
+      const entries = new Uint32Array(counts[counts.length - 1] ?? 0)
+      const next = counts.slice(0, counts.length - 1)
+      if (entries.length > 0) {
+        picked.forEach((index, at) => {
+          if (levelOf[at] !== level) return
+          visit(index, (cell) => {
+            const slot = next[cell] ?? 0
+            entries[slot] = index
+            next[cell] = slot + 1
+          })
+        })
+      }
+      return { ...size, starts: counts, entries }
     })
-    large = Uint32Array.from(wide)
-  }
-
-  function column(x: number): number {
-    return Math.min(side - 1, Math.max(0, Math.floor((x - minX) / cellWidth)))
-  }
-
-  function row(y: number): number {
-    return Math.min(side - 1, Math.max(0, Math.floor((y - minY) / cellHeight)))
   }
 
   function fresh(): void {
@@ -282,32 +298,34 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
   return {
     pick(query) {
       fresh()
-      if (side === 0) return -1
+      if (levels.length === 0) return -1
+      const reach = (widest + query.tolerance) / query.scale
+      const { x, y } = query
+      if (x + reach < minX || y + reach < minY || x - reach > maxX || y - reach > maxY) return -1
       stamp = stamp >= 0xfffffffe ? 1 : stamp + 1
       if (stamp === 1) stamps.fill(0)
       let best = -1
       let bestOrder = -1
-      const consider = (index: number) => {
-        if (stamps[index] === stamp) return
-        stamps[index] = stamp
-        const order = (query.raised(index) ? 2 ** 31 : 0) + (rank[index] ?? 0)
-        if (order <= bestOrder || !hits(index, query)) return
-        best = index
-        bestOrder = order
-      }
-      for (const index of large) consider(index)
-      const reach = (widest + query.tolerance) / query.scale
-      const { x, y } = query
-      if (x + reach >= minX && y + reach >= minY && x - reach <= maxX && y - reach <= maxY) {
-        const c0 = column(x - reach)
-        const c1 = column(x + reach)
-        const r0 = row(y - reach)
-        const r1 = row(y + reach)
+      for (const level of levels) {
+        if (level.entries.length === 0) continue
+        const { side, width, height, starts, entries } = level
+        const c0 = cellOf(x - reach, minX, width, side)
+        const c1 = cellOf(x + reach, minX, width, side)
+        const r0 = cellOf(y - reach, minY, height, side)
+        const r1 = cellOf(y + reach, minY, height, side)
         for (let r = r0; r <= r1; r++) {
           for (let c = c0; c <= c1; c++) {
             const cell = r * side + c
-            const end = starts[cell + 1] ?? 0
-            for (let at = starts[cell] ?? 0; at < end; at++) consider(entries[at] ?? 0)
+            const begin = starts[cell] ?? 0
+            for (let at = (starts[cell + 1] ?? 0) - 1; at >= begin; at--) {
+              const index = entries[at] ?? 0
+              if (stamps[index] === stamp) continue
+              stamps[index] = stamp
+              const order = (query.raised(index) ? 2 ** 31 : 0) + (rank[index] ?? 0)
+              if (order <= bestOrder || !hits(index, query)) continue
+              best = index
+              bestOrder = order
+            }
           }
         }
       }
@@ -317,7 +335,7 @@ export function createShapePicker(store: ShapeStore): ShapePicker {
     inside(polygon, shown) {
       fresh()
       const found: number[] = []
-      if (side === 0 || polygon.length < 3) return found
+      if (levels.length === 0 || polygon.length < 3) return found
       let x0 = Number.POSITIVE_INFINITY
       let y0 = Number.POSITIVE_INFINITY
       let x1 = Number.NEGATIVE_INFINITY

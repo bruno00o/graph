@@ -7,7 +7,7 @@ description: Show nodes and edges only within a range of zoom, fade them in and 
 
 ## Show elements by zoom
 
-`minZoom` and `maxZoom` on `nodes()` and `edges()` limit the zoom at which an element is drawn. The zoom is the one of the [view](/docs/view): screen pixels per world unit. Both are styles: a constant, or a function of the item.
+`minZoom` and `maxZoom` on `nodes()`, `edges()` and [`shapes()`](/docs/shapes#zoom-time-and-layers) limit the zoom at which an element is drawn. The zoom is the one of the [view](/docs/view): screen pixels per world unit. Both are styles: a constant, or a function of the item.
 
 ```ts
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
@@ -37,7 +37,7 @@ A hidden element is gone, not only transparent:
 
 - an edge is hidden while one of its ends is hidden, whatever its own range;
 - a hidden node hides its label and its badges, and its anchors leave the screen;
-- it is not picked: hover, click, double click and the lasso pass through it, and the arrow keys move the focus over shown nodes only;
+- it is not picked: hover, click, double click and the lasso pass through it, and the arrow keys move the focus over shown nodes only; a hidden [shape](/docs/shapes) is neither drawn nor picked;
 - the [legend](/docs/minimap-and-legend) counts only shown elements, and the minimap draws only them;
 - envelopes wrap only shown nodes;
 - [exports](/docs/export) draw what is shown at the zoom of the export, the zoom of the view by default, and a `'graph'` region frames shown elements only.

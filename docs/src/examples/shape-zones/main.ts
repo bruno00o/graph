@@ -3,6 +3,7 @@ import {
   type EdgeDash,
   edges,
   type GraphInstance,
+  type Key,
   mountGraph,
   nodes,
   type ShapeGeometry,
@@ -19,6 +20,11 @@ interface Zone {
   readonly geometry: ShapeGeometry
   readonly tone: number
   readonly line: boolean
+}
+
+interface Plot {
+  readonly id: string
+  readonly geometry: ShapeGeometry
 }
 
 interface Item {
@@ -72,6 +78,20 @@ const zones: Zone[] = [
   },
   { id: 'trail', geometry: { points: trail }, tone: 4, line: true },
 ]
+
+const backdrop = [
+  { id: 'backdrop', geometry: { x: 0, y: 0, width: 1000, height: 680, cornerRadius: 32 } },
+]
+
+const plots: Plot[] = [585, 685, 785].map((x, index) => ({
+  id: `plot-${index + 1}`,
+  geometry: { x, y: 440, width: 90, height: 140, cornerRadius: 10 },
+}))
+
+const zoneOf = new Map<Key, number>([
+  ...zones.map((zone, index) => [zone.id, index] as const),
+  ...plots.map((plot) => [plot.id, 2] as const),
+])
 
 const names = [
   'Alpha',
@@ -155,12 +175,22 @@ const outlines = Object.keys(messages.outlines) as Outline[]
 const define = (outline: Outline) =>
   defineGraph({
     marks: [
+      shapes(backdrop, {
+        fill: 'color-mix(in srgb, var(--graph-ink) 4%, transparent)',
+        stroke: null,
+        pick: false,
+      }),
       shapes(zones, {
         fill: (zone) =>
           zone.line ? null : `color-mix(in srgb, var(--graph-cat-${zone.tone}) 18%, transparent)`,
         stroke: (zone) => `var(--graph-cat-${zone.tone})`,
         strokeWidth: (zone) => (zone.line ? 3 : 1.5),
         dash: (zone): EdgeDash => (zone.line ? 'dashed' : outline),
+      }),
+      shapes(plots, {
+        fill: 'color-mix(in srgb, var(--graph-cat-3) 30%, transparent)',
+        stroke: 'var(--graph-cat-3)',
+        minZoom: 1.2,
       }),
       edges(links, { source: 'from', target: 'to' }),
       nodes(items, {
@@ -171,6 +201,8 @@ const define = (outline: Outline) =>
         label: 'label',
       }),
     ],
+    states: { zone: { others: { opacity: 0.3 } } },
+    interaction: { lasso: true },
   })
 
 function button(text: string, onClick: (button: HTMLButtonElement) => void): HTMLButtonElement {
@@ -188,6 +220,22 @@ export function mount(container: HTMLElement): GraphInstance {
   const graph = mountGraph(container, {
     definition: define(outline),
     ariaLabel: messages.graphLabel(items.length, zones.length),
+  })
+
+  graph.on('selectionchange', ({ selection }) => {
+    const picked = new Set(selection.shapes.map((key) => zoneOf.get(key)))
+    if (picked.size === 0) {
+      graph.states.clear('zone')
+      return
+    }
+    const inside = new Set(items.filter((item) => picked.has(item.zone)).map((item) => item.id))
+    graph.states.set('zone', {
+      shapes: selection.shapes,
+      nodes: [...inside],
+      edges: links
+        .filter((link) => inside.has(link.from) && inside.has(link.to))
+        .map((link) => link.id),
+    })
   })
 
   const actions = document.createElement('div')
