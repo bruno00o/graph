@@ -167,7 +167,7 @@ const byLine = edges(roads, {
 
 Nothing to configure. Edges between the same two nodes, in either direction, bend apart in symmetric arcs (the bend is relative to the length, at most 0.2); an edge alone on its pair stays straight; a loop (source equals target) is drawn at the top right of the node and several loops nest. Curves keep their shape at every zoom and picking follows them. Edges of different layers between two nodes form one band per layer, in mark order (multilayer skill).
 
-To draw several parallel edges as one, use `merge` (groups skill). Under `routing`, parallel edges run side by side apart by `spacing` instead of curving. An edge with waypoints, a geodesic edge or a bundled path does not bend beside others.
+To draw several parallel edges as one, use `merge` (groups skill); with `merge: { directed: false, halves: true }` the two halves of a two-way line each select, hover and show the states of their own direction. Under `routing`, parallel edges run side by side apart by `spacing` instead of curving. An edge with waypoints, a geodesic edge or a bundled path does not bend beside others.
 
 ### Bundle a dense graph
 
@@ -302,7 +302,7 @@ edges(links, { source: 'from', target: 'to', color: 'tomato' })
 
 ### MEDIUM Expecting a state to style one end of an edge
 
-States and selection hold whole edges: an end has no key of its own. A state with `stroke` or `strokeWidth` recolors both ends; opacity and halo keep the end colors. To highlight an end, read `target.end` from the `pointerenter` payload and style that end from your data.
+States and selection hold whole edges: an end has no key of its own. A state with `stroke` or `strokeWidth` recolors both ends; opacity and halo keep the end colors. To highlight an end, read `target.end` from the `pointerenter` payload and style that end from your data. The exception is the two halves of a merged two-way line (`halves`, groups skill): each half takes the states of the edges of its direction, and a click selects that direction.
 
 ### MEDIUM Routing with the wrong `axis`, or without the layout it expects
 

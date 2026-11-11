@@ -3,8 +3,8 @@ name: tanstack-db
 description: >
   Use when drawing a TanStack DB collection or live query with @bruno00o/graph
   and keeping the graph in step as rows are inserted, updated and deleted,
-  filtering one large collection with subset instead of a live query, loading
-  rows on demand from the server for the visible nodes or the edges around
+  knowing when the rows have loaded and showing a loading overlay, filtering
+  one large collection with subset instead of a live query, loading rows on demand from the server for the visible nodes or the edges around
   chosen nodes, joining collections into nodes with a live query, or writing the
   positions of dragged or laid out nodes back to a collection, with optimistic
   writes, a pending state or a separate positions collection.
@@ -19,6 +19,8 @@ metadata:
 sources:
   - src/db/index.ts
   - src/db/subset.ts
+  - src/core/live-source.ts
+  - src/host/data-status.ts
   - docs/content/docs/(guide)/tanstack-db.mdx
   - docs/content/docs/(guide)/data.mdx
   - docs/content/docs/api/subset.mdx
@@ -77,9 +79,57 @@ Rules of a live source:
 - An edge whose end is not loaded yet waits and appears when the node arrives, and waits again if the node leaves. `graph.count().pending` counts waiting edges.
 - With `x` and `y` channels, a row whose coordinates change moves its node, animated over `transitions.positions`. Positions that come from rows are never moved by a layout. Without `x` and `y`, nodes are placed by the layout or a spiral.
 - A change whose key is not a string or a finite number is skipped and listed as `missing-key` in `graph.issues()`.
+- A collection that has not finished its first sync is loading, and the graph knows it with no setup (next section).
 - Do not call `graph.update` for row changes: there is nothing to update. Call it only to change the definition (a different filter, a different mark).
 
 ## Core Patterns
+
+### Know when the rows have loaded
+
+The graph reads the `status` of a collection and its `status:change` event, so there is nothing to configure:
+
+| TanStack DB | Graph |
+| --- | --- |
+| `'idle'` or `'loading'`: the sync has not called `markReady()` | loading |
+| `'ready'` | loaded |
+| `'error'` or `'crashed'` (the sync called `fail(error)`) | failed: listed in `data.failed` (a list of sources), the rows delivered stay drawn |
+| a live query whose sources load | loading until the live query is ready |
+| `subset` of an on-demand collection while `loadSubset` runs for its `where` | loading, then failed if `loadSubset` rejects |
+
+`graph.store.get().data` is `{ loading, failed }`, `loadingchange` fires when either changes, and `await graph.loaded()` resolves once the rows are in (also after a failure). Failures never reach `graph.issues()`. A new filter is a new source, so `loading` is `true` again until its rows arrive.
+
+The first automatic layout and fit wait for the loading sources (`waitForData` of `defineGraph`, 10,000 ms from the first nodes by default), so a collection that syncs in several batches is laid out once, on all its rows. Do not call `graph.layout.run()` yourself for that. Pass `waitForData: false` only to lay out the first batch at once.
+
+```ts
+import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
+import { force } from '@bruno00o/graph/layouts/force'
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
+
+type Item = { id: string; label: string }
+
+const items = createCollection(
+  localOnlyCollectionOptions({ getKey: (item: Item) => item.id, initialData: [] }),
+)
+
+const definition = defineGraph({
+  marks: [nodes(items, { label: 'label' })],
+  layout: force(),
+})
+const graph = mountGraph(document.body, { definition, ariaLabel: 'Collection graph' })
+
+const overlay = document.createElement('p')
+overlay.setAttribute('role', 'status')
+overlay.textContent = 'Loading'
+overlay.hidden = !graph.store.get().data.loading
+document.body.append(overlay)
+
+graph.on('loadingchange', ({ loading, failed }) => {
+  overlay.hidden = !loading
+  if (!loading && failed.length > 0) overlay.textContent = 'Some rows could not be loaded'
+})
+```
+
+In React, `useGraphState((state) => state.data.loading)` in a child of `<Graph>` (react skill).
 
 ### Filter one collection with `subset`
 
@@ -197,7 +247,7 @@ export const define = (keys: string[]) =>
 
 - Pass a `subset`, never the on-demand collection itself: a subscription without `where` asks the collection for every row.
 - The next source is subscribed before the previous one is released. A sync that counts, row by row, the requests that hold a row keeps the rows both sources need: do not delete a row on `unloadSubset` when another request still holds it.
-- A live source has no "ready" signal: a live query over an on-demand collection that loads asynchronously can remove then re-add nodes while it loads.
+- The graph is loading while `loadSubset` runs for the `where` of a `subset`, and lists the source in `data.failed` when it rejects. A collection passed as is has no tracked load of its rows.
 - An edge whose other end is not loaded or is filtered out waits without being drawn.
 
 ### Write positions back with `persistPositions`
@@ -289,7 +339,7 @@ A live query with a join keys its rows by the pair of joined keys. Nodes then ha
 
 ### HIGH Passing an on-demand collection as is
 
-A collection with `syncMode: 'on-demand'` passed straight to `nodes()` or `edges()` subscribes without `where` and asks for every row, defeating the purpose. Pass `subset(collection, where)` so the filter reaches `loadSubset`.
+A collection with `syncMode: 'on-demand'` passed straight to `nodes()` or `edges()` subscribes without `where` and asks for every row, defeating the purpose. Pass `subset(collection, where)` so the filter reaches `loadSubset`. The load of a collection passed as is is not tracked either: the graph sees it as loaded as soon as the collection is ready, so `data.loading` and `loaded()` say nothing about its rows.
 
 ### MEDIUM A new live query where a `subset` would do
 
@@ -348,6 +398,7 @@ The task is done when:
 - collections go into marks as is, with no `key` option, and edge ends hold the collection keys;
 - filters use `subset` and are replaced through `graph.update` with a new definition; on-demand collections are only reached through `subset`;
 - every join has a `getKey` that returns the node key;
+- a loading overlay or a wait for the rows reads `data` or `loadingchange` or awaits `graph.loaded()`, and `data.failed` is checked;
 - `graph.count().pending` is 0 once the edges' nodes are loaded, and `graph.issues()` is empty or expected;
 - positions persisted by `persistPositions` have their stop function called on cleanup, and `pendingState` is a declared free state;
 - `tsc` accepts the code.

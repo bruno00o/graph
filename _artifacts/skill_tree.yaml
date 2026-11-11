@@ -56,6 +56,8 @@ skills:
       - src/core/raw.ts
       - src/core/issues.ts
       - src/core/source-table.ts
+      - src/core/live-source.ts
+      - src/host/data-status.ts
       - src/host/graph-instance.ts
       - src/host/events.ts
       - docs/content/docs/(guide)/installation.mdx
@@ -91,6 +93,7 @@ skills:
       - src/react/index.tsx
       - src/react/graph.tsx
       - src/react/context.ts
+      - src/host/data-status.ts
       - docs/content/docs/(guide)/react.mdx
       - docs/content/docs/(guide)/typescript.mdx
       - docs/content/docs/api/graph-component.mdx
@@ -119,6 +122,8 @@ skills:
       - src/layouts/geo.ts
       - src/types.ts
       - src/host/graph-instance.ts
+      - src/host/layout-session.ts
+      - src/host/data-status.ts
       - docs/content/docs/(guide)/layout.mdx
       - docs/content/docs/(guide)/positions.mdx
       - docs/content/docs/api/force.mdx
@@ -179,6 +184,10 @@ skills:
       - src/marks.ts
       - src/types.ts
       - src/host/graph-instance.ts
+      - src/host/events.ts
+      - src/core/projection.ts
+      - src/host/picking.ts
+      - src/host/element-keys.ts
       - docs/content/docs/(guide)/groups.mdx
       - docs/content/docs/(guide)/transformations.mdx
       - docs/content/docs/api/groups.mdx
@@ -235,6 +244,8 @@ skills:
       - src/define-graph.ts
       - src/host/graph-instance.ts
       - src/host/events.ts
+      - src/host/view-control.ts
+      - src/host/data-status.ts
       - src/core/zoom-range.ts
       - docs/content/docs/(guide)/view.mdx
       - docs/content/docs/(guide)/zoom.mdx
@@ -268,6 +279,8 @@ skills:
       - src/host/events.ts
       - src/host/graph-instance.ts
       - src/host/keyboard.ts
+      - src/host/selection-control.ts
+      - src/host/element-keys.ts
       - src/core/state-names.ts
       - docs/content/docs/(guide)/interaction.mdx
       - docs/content/docs/(guide)/states.mdx
@@ -345,8 +358,9 @@ skills:
     description: >
       Use when drawing a TanStack DB collection or live query with
       @bruno00o/graph and keeping the graph in step as rows are inserted,
-      updated and deleted, filtering one large collection with subset instead of
-      a live query, loading rows on demand from the server for the visible nodes
+      updated and deleted, knowing when the rows have loaded and showing a
+      loading overlay, filtering one large collection with subset instead of a
+      live query, loading rows on demand from the server for the visible nodes
       or the edges around chosen nodes, joining collections into nodes with a
       live query, or writing the positions of dragged or laid out nodes back to
       a collection, with optimistic writes, a pending state or a separate
@@ -354,6 +368,8 @@ skills:
     sources:
       - src/db/index.ts
       - src/db/subset.ts
+      - src/core/live-source.ts
+      - src/host/data-status.ts
       - docs/content/docs/(guide)/tanstack-db.mdx
       - docs/content/docs/(guide)/data.mdx
       - docs/content/docs/api/subset.mdx
@@ -378,6 +394,7 @@ skills:
       and typing the nodes and edges that createExploration returns.
     sources:
       - src/query/index.ts
+      - src/host/data-status.ts
       - docs/content/docs/(guide)/tanstack-query.mdx
       - docs/content/docs/api/create-exploration.mdx
     requires:
