@@ -69,6 +69,7 @@ import type {
   LensInput,
   LensOptions,
   LineWaypointsOptions,
+  LiveSource,
   MountGraphOptions,
   NodeImage,
   NodeMark,
@@ -79,6 +80,7 @@ import type {
   PositionSnapshotOptions,
   ReachOptions,
   ScalesOptions,
+  SourceSubscription,
   StateKindStyles,
   StateLook,
   StateStyle,
@@ -210,6 +212,7 @@ interface Inputs {
   LensInput: LensInput
   LensOptions: LensOptions
   LineWaypointsOptions: LineWaypointsOptions
+  LiveSource: LiveSource<Item>
   MapGraphOptions: MapGraphOptions<'muted', Marks>
   MapGraphProps: MapGraphProps<'muted', Marks>
   MapPngOptions: MapPngOptions
@@ -231,6 +234,7 @@ interface Inputs {
   ReadOptions: ReadOptions
   RingsOptions: RingsOptions<Item>
   ScalesOptions: ScalesOptions
+  SourceSubscription: SourceSubscription
   SchemaInput: SchemaInput
   StateKindStyles: StateKindStyles
   StateLook: StateLook

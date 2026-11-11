@@ -170,7 +170,11 @@ export function install() {
       while (performance.now() < deadline) {
         await wait(50)
         const state = graph.store.get()
-        const busy = state.layout?.running || state.bundling?.running || state.routing?.running
+        const busy =
+          state.data?.loading ||
+          state.layout?.running ||
+          state.bundling?.running ||
+          state.routing?.running
         if (busy || state.positionsVersion !== version) {
           version = state.positionsVersion
           since = performance.now()

@@ -23,6 +23,7 @@ import { BundleHost } from './bundles'
 import { HostCamera } from './camera'
 import { ContainerBoxes } from './containers'
 import { DataReads } from './data-reads'
+import { DataStatus, loadedData } from './data-status'
 import { createDecorations } from './decorations'
 import { noKeys, toKeys } from './element-keys'
 import { Emitter, type GraphTarget } from './events'
@@ -272,6 +273,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     time: timeWindow.window,
     lens: null,
     hiddenLayers: layers.hidden,
+    data: loadedData,
   })
   const readonlyStore: GraphStore = isolateSubscribers(readonlyOf(store))
   const bundles = new BundleHost(
@@ -362,6 +364,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     limitBounds: () => bounds(),
     sceneVersion: () => sceneVersion,
     positionsVersion: () => positions.version,
+    waiting: () => data.holds(),
   })
   const camera = new HostCamera({
     positions,
@@ -403,6 +406,21 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       ),
     prepare: flushPending,
     request: () => request(),
+    destroyed: () => destroyed,
+    waiting: () => data.holds(),
+  })
+  const data = new DataStatus({
+    model,
+    emitter,
+    state: () => store.get(),
+    patch,
+    wait: () => definition.waitForData,
+    flush: flushPending,
+    request: () => request(true),
+    released: () => {
+      layouts.release()
+      request()
+    },
     destroyed: () => destroyed,
   })
   const folds = new FoldControl(
@@ -622,6 +640,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (supported) selection.lightSupport()
     probe?.flushed(flushed - start, applied - flushed)
     reads.refreshIssues()
+    if (destroyed) return
+    data.refresh()
   }
 
   function countElements(): GraphCount {
@@ -868,6 +888,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   layers.refresh()
   applyStyles()
   render.refreshTheme()
+  data.refresh()
   request(true)
 
   const view: GraphView = {
@@ -1077,6 +1098,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return stop
     },
     drawn: () => waiters.wait(),
+    loaded: () => data.loaded(),
     update(next) {
       if (viewControlled && next.view !== undefined && !surface) checkView(next.view)
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
@@ -1126,6 +1148,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         focus.applyKeyboard()
         pointer.updateCursor()
         views.reconstrain()
+        data.refresh()
+        if (destroyed) return
         request(true)
       }
     },
@@ -1163,6 +1187,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       element.remove()
       surface?.release()
       waiters.reject(endReason)
+      data.destroy(endReason)
       lifetime.abort(endReason)
     },
   }

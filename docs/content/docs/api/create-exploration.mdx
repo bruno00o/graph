@@ -36,6 +36,8 @@ A query may return another shape and map it with `select`, as long as the select
 
 Observers only run while a source has a subscriber, so creating an exploration fetches nothing until a mark using it is mounted.
 
+The two sources share a `status`, read by the graph as [loading](/docs/data#loading): `'loading'` while the query of an expansion has not answered once, or is fetched again by `retry`; `'error'` when a query failed with no data; `'ready'` otherwise. The graph store then follows the queries in `data`, and its first automatic layout waits for the roots.
+
 `retry` refetches an expansion whose query failed, with `refetch` of its observer, and leaves its key out of `errors` until that fetch fails again. It does nothing for a key that is not expanded or has not failed, and waits for a subscriber before fetching.
 
 See [TanStack Query](/docs/tanstack-query) for a walkthrough.

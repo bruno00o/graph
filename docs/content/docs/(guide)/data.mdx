@@ -30,10 +30,75 @@ The graph holds a live source to this contract:
 - The key of an element is the `key` of its change: a mark of a live source takes no `key` option. A change whose key is neither a string nor a finite number is skipped and reported as a `missing-key` problem, until a delete with the same key withdraws it.
 - An insert or an update sets the item under its key; a delete removes the element with that key. A batch without changes is ignored.
 - Everything else, edge ends included, is read from the item through the options of the mark.
+- A source may tell how far it has loaded with a `status` and an `on` method: see [loading](#loading). Without them, it is loaded as soon as it is subscribed.
 
 The result of a Cypher query is read into two arrays by [`cypherGraph`](/docs/cypher), and a GraphML, GEXF, JSON Graph Format or CSV file by the readers of [file formats](/docs/file-formats).
 
 Examples: [a live source of your own](/examples/live-source) streams nodes and edges without TanStack DB, and [a collection as the source](/examples/collection-source) reads two TanStack DB collections.
+
+## Loading
+
+A live source may load its items over time: a collection fetching from a server, a query waiting for an answer. It says so with two optional members, which a TanStack DB collection, a live query, `subset` and the sources of `createExploration` already have:
+
+- `status`: `'loading'`, `'loadingSubset'` or `'idle'` while its first load runs, `'error'` or `'crashed'` when that load failed, `'ready'`, or any other value, once loaded.
+- `on('status:change', listener)`: calls `listener` when `status` changes, and returns a function that stops it.
+
+The subscription that `subscribeChanges` returns may have the same two members, for what that one subscription asked for, such as the rows of a `where`. The graph is loading while the source or its subscription is.
+
+```ts
+const source: LiveSource<Item> = {
+  get status() {
+    return loaded ? 'ready' : 'loading'
+  },
+  on(_event, listener) {
+    readyListeners.add(listener)
+    return () => readyListeners.delete(listener)
+  },
+  subscribeChanges(callback, options) {
+    if (options?.includeInitialState) callback(rowsSoFar.map((row) => ({ type: 'insert', key: row.id, value: row })))
+    const stop = listen((change) => callback([change]))
+    return { unsubscribe: stop }
+  },
+}
+```
+
+The graph reads three things from its sources, in the store and by events:
+
+- `data.loading` in the store is `true` while a live source of the current definition is loading. A new definition with sources that load goes back to `true`. Array data and sources without a `status` are always loaded.
+- `data.failed` lists the sources whose load failed, in mark order. The graph keeps drawing what they delivered and never throws; a source leaves the list once its `status` recovers.
+- `loadingchange` fires when either changes, with the new `data`, and `await graph.loaded()` resolves once nothing loads and what the sources delivered is applied. It resolves at once when nothing loads, and after a failure too. To wait for the drawing as well, `await graph.drawn()` next.
+
+The graph draws no loading indicator of its own: show yours from `data`.
+
+```ts tab="Vanilla" tab-group="framework"
+const overlay = document.querySelector<HTMLElement>('.loading-overlay')
+
+graph.store.subscribe(({ data }) => {
+  overlay.hidden = !data.loading
+})
+```
+
+```tsx tab="React" tab-group="framework"
+import { useGraphState } from '@bruno00o/graph/react'
+
+function LoadingOverlay() {
+  const data = useGraphState((state) => state.data)
+  if (data.failed.length > 0) return <p role="alert">Some data could not be loaded.</p>
+  return data.loading ? <p role="status">Loading the data</p> : null
+}
+```
+
+### Layout and fit on complete data
+
+While a source loads, its batches are drawn as they come, placed near their neighbors or on a spiral. The automatic layout over every node and the automatic fit of the view wait for the data: they run once every source has loaded or failed, so a graph that arrives in several batches gets the same layout as if it had come at once, and the view frames all of it. Nodes that arrive later, once the first layout has run, are placed by the layout as before.
+
+The wait is bounded by `waitForData` of `defineGraph`: 10 seconds by default, counted from the first nodes. When the time is up, the layout and the fit run on what is there, and later batches are placed as they come. `true` waits for as long as the sources load, `false` or 0 does not wait at all.
+
+```ts
+const definition = defineGraph({ marks, layout: force(), waitForData: 30_000 })
+```
+
+The [loading overlay](/examples/loading-overlay) example loads a collection in three delayed batches behind an overlay of its own, then lays out the complete graph once.
 
 ## Keys
 

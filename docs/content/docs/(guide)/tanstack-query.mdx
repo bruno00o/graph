@@ -95,6 +95,16 @@ function ExplorationStates({ exploration }: { exploration: Exploration<Item, Lin
 }
 ```
 
+## The graph knows when it is loading
+
+The two sources of an exploration have a `status`: `'loading'` while a query of an expansion has not answered once, or is fetched again by `retry`, `'error'` when a query failed with no data to show, and `'ready'` otherwise. The graph reads it like that of any [live source](/docs/data#loading): `data.loading` in its store, the `loadingchange` event and `await graph.loaded()` follow the queries, and the first automatic layout and fit wait for the roots to load. An expansion that fails lists the sources in `data.failed`; `errors` of the exploration store tells which key failed.
+
+```tsx
+const loading = useGraphState((state) => state.data.loading)
+```
+
+Expansions after the first layout are placed as they arrive, as before.
+
 ## Methods
 
 `expand(key)` fetches the neighborhood of a node and adds it, `collapse(key)` removes what only this expansion holds, `toggle(key)` does one or the other, and `reset()` collapses every expansion but the roots. See [`Exploration`](/docs/api/create-exploration#result).

@@ -10,6 +10,7 @@ import { readWindow } from '../core/time-range'
 import { toScreen, toWorld } from '../core/view'
 import { dev } from '../dev'
 import type { Key, Mark, Point } from '../types'
+import { loadedData } from './data-status'
 import type { ElementKeys, ElementKeysInput } from './events'
 import { exposeSnapshot } from './export-source'
 import type {
@@ -184,6 +185,7 @@ export function afterDestroy<S extends string, M extends Mark>(
     count: () => noCount,
     on: () => nothing,
     drawn: () => Promise.reject(reason()),
+    loaded: () => Promise.reject(reason()),
     update: nothing,
     destroy: nothing,
   }
@@ -242,6 +244,7 @@ export function stillborn<S extends string, M extends Mark>(
     time: readWindow(options.time ?? options.initialTime ?? null),
     lens: null,
     hiddenLayers: [...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? [])],
+    data: loadedData,
   })
   const graph = afterDestroy(readonlyOf(store), element, signal, () => signal.reason)
   const scene = createScene()
