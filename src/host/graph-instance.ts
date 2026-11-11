@@ -285,9 +285,9 @@ export interface LayoutRunOptions {
   /** Nodes to lay out. The others stay still and act as anchors. */
   readonly keys?: KeyList | undefined
   /**
-   * Frames the result: every node with `true`, or the `nodes` and `edges` of fit options, every
-   * node when they name neither. A result reported at once is framed where nodes land, while they
-   * glide.
+   * Frames the result: every node and shape with `true`, or the `nodes`, `edges` and `shapes` of
+   * fit options, every node and shape when they name none. A result reported at once is framed
+   * where nodes land, while they glide.
    */
   readonly fit?: boolean | FitOptions | undefined
   /**

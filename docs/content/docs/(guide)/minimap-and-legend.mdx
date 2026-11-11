@@ -17,7 +17,7 @@ The minimap sits in a corner of the graph element. A `width` or `height` that is
 
 ### What it draws
 
-Nodes are drawn with their colors and shapes, group containers as frames, and edges as faint lines while the graph shows at most `maxEdges` of them. Past that, the minimap draws nodes only: at a few hundred thousand edges, lines fill the minimap without saying more. Selected nodes are drawn last, in `selectionColor`. Labels, badges, hulls and the background grid are left out.
+Nodes are drawn with their colors and shapes, group containers as frames, and edges as faint lines while the graph shows at most `maxEdges` of them. Past that, the minimap draws nodes only: at a few hundred thousand edges, lines fill the minimap without saying more. Selected nodes are drawn last, in `selectionColor`. Labels, badges, hulls, the background grid and [shapes](/docs/shapes) are left out.
 
 Nodes keep their size, between `nodeSize` and a cap that shrinks as nodes get more numerous, so that a large graph reads as density rather than as a solid shape.
 
@@ -56,6 +56,8 @@ panel.append(view.element)
 ```
 
 ### Sections
+
+The legend describes nodes and edges. [Shapes](/docs/shapes) have no section: their fills, strokes and counts are not listed.
 
 `legend.store` holds the state of the legend, updated when data or definition change:
 

@@ -24,6 +24,7 @@ import {
   type Key,
   type KeyList,
   type LayerName,
+  type LiveSource,
   type Mark,
   mountGraph,
   type NodeDatum,
@@ -49,6 +50,7 @@ type Link = { id: string; from: string; to: string; weight: number }
 type Ownership = { id: string; owner: string; company: string; share: number }
 type Zone = { id: string; outline: ShapeGeometry; rank: number }
 type Area = { code: number; geometry: ShapeGeometry | null }
+type Sketch = { id: string; geometry: number[][] }
 
 const people: Person[] = []
 const companies: Company[] = []
@@ -56,6 +58,9 @@ const links: Link[] = []
 const ownerships: Ownership[] = []
 const zones: Zone[] = []
 const areas: Area[] = []
+const sketches: Sketch[] = []
+const liveAreas = {} as LiveSource<Area>
+const liveZones = {} as LiveSource<Zone>
 
 let dom: FakeDom
 const mounted: GraphInstance[] = []
@@ -566,6 +571,41 @@ describe('typed data', () => {
     shapes(zones, { geometry: 'outline', pick: false })
     // @ts-expect-error
     shapes(areas)
+    // @ts-expect-error
+    shapes(zones)
+    // @ts-expect-error
+    shapes(zones, { name: 'zone' })
+    // @ts-expect-error
+    shapes(sketches)
+    // @ts-expect-error
+    shapes(sketches, { fill: 'red' })
+    // @ts-expect-error
+    shapes(sketches, { geometry: 'geometry' })
+    // @ts-expect-error
+    shapes<Sketch>(sketches)
+    // @ts-expect-error
+    shapes<Sketch>(sketches, { key: 'id' })
+    // @ts-expect-error
+    shapes<Zone>(zones)
+    // @ts-expect-error
+    shapes(liveZones)
+    // @ts-expect-error
+    shapes<Zone>(liveZones)
+    shapes(areas, { key: 'code' })
+    shapes(areas, { key: 'code', geometry: (area) => area.geometry })
+    shapes<Area>(areas, { key: 'code' })
+    shapes(liveAreas)
+    shapes<Area>(liveAreas, { name: 'area' })
+    shapes(liveZones, { geometry: 'outline' })
+    shapes<Zone>(liveZones, { geometry: 'outline' })
+    shapes([{ id: 'a', geometry: { center: [0, 0], radius: 3 } }])
+    shapes(sketches, {
+      geometry: (sketch) => ({ points: sketch.geometry.map(([x = 0, y = 0]) => ({ x, y })) }),
+    })
+    expectTypeOf(shapes(areas, { key: 'code', name: 'area', layer: 'ground' })).toEqualTypeOf<
+      ShapeMark<Area, 'area', 'ground'>
+    >()
+    expectTypeOf(shapes(liveAreas, { name: 'area' })).toEqualTypeOf<ShapeMark<Area, 'area'>>()
     // @ts-expect-error
     shapes(zones, { geometry: 'rank' })
     // @ts-expect-error

@@ -413,13 +413,18 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     definition: () => definition,
     dragging: () => pointer.dragging(),
     boundsAfter: (indices, to, keys) =>
-      boundsAfter(
-        scene.nodes,
-        hierarchy,
-        () => motion.settled(),
-        indices,
-        to,
-        fitIndices(keys, model, projection, scene.edges),
+      withShapes(
+        boundsAfter(
+          scene.nodes,
+          hierarchy,
+          () => motion.settled(),
+          indices,
+          to,
+          fitIndices(keys, model, projection, scene.edges),
+        ),
+        keys,
+        scene.shapes,
+        (key) => model.shape(key)?.index ?? -1,
       ),
     prepare: flushPending,
     request: () => request(),

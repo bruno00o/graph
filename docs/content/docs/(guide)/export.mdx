@@ -32,7 +32,7 @@ download(new Blob([await exportSvg(graph)], { type: 'image/svg+xml' }), 'graph.s
 
 ## Region and scale
 
-By default, the file shows what the graph shows: the same area, the same zoom, the same labels, the background grid and the hulls. `region: 'graph'` frames every node instead, with the labels, loops and hulls that reach past them, and a `padding` in CSS pixels around them.
+By default, the file shows what the graph shows: the same area, the same zoom, the same labels, the background grid, the [shapes](/docs/shapes) and the hulls. `region: 'graph'` frames every node instead, with the shapes, labels, loops and hulls that reach past them, and a `padding` in CSS pixels around them.
 
 Elements outside the [time window](/docs/time) of the graph are left out, as on screen. `window` exports another window, or every element with `null`:
 
@@ -98,6 +98,7 @@ await exportPng(graph, { time: 250 })
 
 The SVG is written from the scene, without reading pixels back, so it stays sharp at any size and its text can be selected and searched. It draws:
 
+- the [shapes](/docs/shapes) of `shapes()` marks, with fill, outline, line and opacity, over the background grid and under the containers, hulls, edges and nodes;
 - node shapes, fills, inner strokes, outlines, halos and opacity;
 - pictures cut to the node shape, and icons tinted with their `color`;
 - badges with their text;
