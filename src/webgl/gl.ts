@@ -49,6 +49,7 @@ export interface TextureFormats {
   readonly rgba32f: TextureFormat
   readonly rgba32ui: TextureFormat
   readonly r32ui: TextureFormat
+  readonly rg32ui: TextureFormat
 }
 
 export function formats(gl: WebGL2RenderingContext): TextureFormats {
@@ -62,13 +63,14 @@ export function formats(gl: WebGL2RenderingContext): TextureFormats {
       components: 4,
     },
     r32ui: { internal: gl.R32UI, format: gl.RED_INTEGER, type: gl.UNSIGNED_INT, components: 1 },
+    rg32ui: { internal: gl.RG32UI, format: gl.RG_INTEGER, type: gl.UNSIGNED_INT, components: 2 },
   }
 }
 
 export class DataTexture<A extends Float32Array | Uint32Array | Uint8Array> {
   readonly texture: WebGLTexture
   readonly #gl: WebGL2RenderingContext
-  readonly #format: TextureFormat
+  #format: TextureFormat
   readonly #create: (length: number) => A
   readonly #maxRows: number
   #rows = 0
@@ -95,6 +97,16 @@ export class DataTexture<A extends Float32Array | Uint32Array | Uint8Array> {
 
   get rows(): number {
     return this.#rows
+  }
+
+  get components(): number {
+    return this.#format.components
+  }
+
+  reformat(format: TextureFormat): void {
+    this.#format = format
+    this.#rows = 0
+    this.data = this.#create(0)
   }
 
   get capacity(): number {

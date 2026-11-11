@@ -2,6 +2,7 @@ import type {
   AggregateDirection,
   AggregateEdge,
   EdgeArrow,
+  EdgeEnd,
   EdgeEndOptions,
   EdgeEndsOptions,
   EdgeLabelOptions,
@@ -52,6 +53,7 @@ interface MergeRule {
   readonly by: Read | null
   readonly channel: unknown
   readonly directed: boolean
+  readonly halves: boolean
   readonly min: number
 }
 
@@ -63,13 +65,19 @@ function ruleOf(option: boolean | EdgeMergeOptions<unknown> | undefined): MergeR
     by: given.by === undefined ? null : toAccessor<unknown, unknown>(given.by),
     channel: given.by,
     directed: given.directed !== false,
+    halves: given.directed === false && given.halves === true,
     min: Number.isFinite(min) ? Math.max(1, Math.floor(min)) : defaultMin,
   }
 }
 
 function sameRule(a: MergeRule | null | undefined, b: MergeRule | null | undefined): boolean {
   if (!a || !b) return !a === !b
-  return Object.is(a.channel, b.channel) && a.directed === b.directed && a.min === b.min
+  return (
+    Object.is(a.channel, b.channel) &&
+    a.directed === b.directed &&
+    a.halves === b.halves &&
+    a.min === b.min
+  )
 }
 
 function sameLook(a: object | undefined, b: object | undefined): boolean {
@@ -431,8 +439,23 @@ export class Projection {
     return aggregate >= 0 ? (this.#merges.carrier[aggregate] ?? none) : none
   }
 
-  keysAt(index: number): readonly Key[] | null {
-    return this.aggregateAt(index)?.keys ?? null
+  keysAt(index: number, end?: EdgeEnd): readonly Key[] | null {
+    const aggregate = this.aggregateAt(index)
+    if (!aggregate) return null
+    if (end === undefined || !this.halvedAt(index)) return aggregate.keys
+    return (end === 'target' ? aggregate.forward : aggregate.backward).keys
+  }
+
+  halvedAt(index: number): boolean {
+    if (!this.#active || this.#shownEdge[index] !== shownMerged) return false
+    const aggregate = this.#shownAggregate[index] ?? none
+    return aggregate >= 0 && this.#halved(aggregate)
+  }
+
+  #halved(aggregate: number): boolean {
+    if (this.#rules[this.#merges.slot[aggregate] ?? none]?.halves !== true) return false
+    const datum = this.#datum(aggregate)
+    return datum.forward.count > 0 && datum.backward.count > 0
   }
 
   seen(index: number): boolean {
@@ -1033,6 +1056,7 @@ export class Projection {
       targetIndex: this.#merges.target[aggregate] ?? none,
       order: own.order,
       straight: this.#lifts[this.#merges.slot[aggregate] ?? none] === true,
+      halves: this.#halved(aggregate),
     }
     this.#records[aggregate] = record
     return record

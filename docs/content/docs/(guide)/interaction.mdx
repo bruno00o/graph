@@ -23,6 +23,7 @@ A press released within 4 pixels of where it started is a click, or within 10 pi
 - A click on an element selects it alone.
 - In `'multiple'` mode, Shift, Cmd or Ctrl adds the element to the selection, or removes it if it was already selected.
 - A click on the background without a modifier clears the selection.
+- A click on a [merged edge](/docs/transformations#merge-parallel-edges) selects every edge it merges, or, with [`halves`](/docs/transformations#one-direction-per-half), the edges of the direction under the pointer.
 
 ```ts
 graph.selection.set({ nodes: ['n1', 'n2'] })

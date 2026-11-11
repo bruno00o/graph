@@ -165,6 +165,7 @@ type EdgesBetweenGroups = 'members' | 'groups'
 - Without `aggregate`, an aggregated edge looks like its first merged edge. An option that `aggregate` leaves out takes the value of the first merged edge, `ends` included. Labels, end labels included, show only when it merges a single edge.
 - Arrows join the arrow of the first edge of each direction, turned to the orientation of the aggregated edge: two opposite edges with `arrow: 'target'` give an arrow at each end.
 - Its `time` goes from the earliest start to the latest end of the merged edges, or is missing when one of them has none.
+- With `directed: false` and `halves: true`, a line with edges in both directions acts as two halves: the half next to the target picks, selects, hovers and shows the states of `forward`, the half next to the source those of `backward`. See [one direction per half](/docs/transformations#one-direction-per-half).
 
 ```ts
 edges(links, {

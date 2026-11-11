@@ -35,12 +35,21 @@ interface Program {
   readonly program: WebGLProgram
   readonly vaos: readonly WebGLVertexArrayObject[]
   readonly overlay: WebGLVertexArrayObject
+  readonly halves: WebGLVertexArrayObject
+}
+
+type ListName = 'overlay' | 'halves'
+
+interface FixedList {
+  readonly buffer: WebGLBuffer
+  count: number
+  key: number
 }
 
 interface FixedLists {
   readonly strips: readonly Strip[]
-  readonly overlay: WebGLBuffer
-  overlayCount: number
+  readonly overlay: FixedList
+  readonly halves: FixedList
 }
 
 export interface BundleSource {
@@ -56,9 +65,11 @@ export interface BundlePass {
   readonly bytes: number
   sync(paths: EdgePaths | null | undefined, edges?: EdgeColumns, positions?: Positions): boolean
   highlight(edges: readonly number[]): void
+  halve(edges: readonly number[]): void
   bind(): void
   draw(run: Draw, bridged: boolean, flat?: boolean): void
   overlay(count: number, run: Draw, bridged: boolean, flat?: boolean): void
+  halves(count: number, run: Draw, bridged: boolean, flat?: boolean): void
   destroy(): void
 }
 
@@ -79,6 +90,7 @@ export function createBundlePass(
   blocks: Readonly<Record<string, number>>,
   prepare: (program: WebGLProgram, sources?: readonly [string, string]) => void,
   overlayIndices: WebGLBuffer,
+  halfIndices: WebGLBuffer,
   maxRows: number = Number.POSITIVE_INFINITY,
 ): BundlePass {
   const variants: Array<Program | null> = [null, null]
@@ -106,9 +118,8 @@ export function createBundlePass(
   let fixedBase = 0
   let wrapping = false
   let wrapKey = ''
-  let highlighted: readonly number[] = []
-  let overlayKey = -1
-  let highlightVersion = 0
+  const listed: Record<ListName, readonly number[]> = { overlay: [], halves: [] }
+  const versions: Record<ListName, number> = { overlay: 0, halves: 0 }
   let fixedInfoVersion = 0
   let merged = new Uint32Array(0)
 
@@ -153,8 +164,8 @@ export function createBundlePass(
         indices: createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW),
         count: 0,
       })),
-      overlay: createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW),
-      overlayCount: 0,
+      overlay: { buffer: createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW), count: 0, key: -1 },
+      halves: { buffer: createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW), count: 0, key: -1 },
     }
     return fixedLists
   }
@@ -173,11 +184,17 @@ export function createBundlePass(
         attribute(strip.indices, 'instance', true),
       ]),
     )
-    const overlay = createVertexArray(gl, created, [
-      attribute(corners, 'corner', false),
-      attribute(overlayIndices, 'instance', true),
-    ])
-    const made = { program: created, vaos, overlay }
+    const listOf = (indices: WebGLBuffer) =>
+      createVertexArray(gl, created, [
+        attribute(corners, 'corner', false),
+        attribute(indices, 'instance', true),
+      ])
+    const made = {
+      program: created,
+      vaos,
+      overlay: listOf(overlayIndices),
+      halves: listOf(halfIndices),
+    }
     variants[bridged ? 1 : 0] = made
     return made
   }
@@ -194,11 +211,17 @@ export function createBundlePass(
         attribute(strip.indices, 'instance', true),
       ]),
     )
-    const overlay = createVertexArray(gl, created, [
-      attribute(corners, 'corner', false),
-      attribute(own.overlay, 'instance', true),
-    ])
-    fixedProgram = { program: created, vaos, overlay }
+    const listOf = (indices: WebGLBuffer) =>
+      createVertexArray(gl, created, [
+        attribute(corners, 'corner', false),
+        attribute(indices, 'instance', true),
+      ])
+    fixedProgram = {
+      program: created,
+      vaos,
+      overlay: listOf(own.overlay.buffer),
+      halves: listOf(own.halves.buffer),
+    }
     return fixedProgram
   }
 
@@ -310,12 +333,13 @@ export function createBundlePass(
     }
   }
 
-  function buildOverlay(): void {
-    const own = lists()
-    if (overlayKey === highlightVersion * 65536 + fixedInfoVersion) return
-    overlayKey = highlightVersion * 65536 + fixedInfoVersion
+  function buildList(name: ListName): FixedList {
+    const own = lists()[name]
+    const key = versions[name] * 65536 + fixedInfoVersion
+    if (own.key === key) return own
+    own.key = key
     const list: number[] = []
-    for (const edge of highlighted) {
+    for (const edge of listed[name]) {
       const at = edge * 4
       if (at + 1 >= merged.length || ((merged[at] ?? 0) & fixedFlag) === 0) continue
       const windows = windowsOf(merged[at + 1] ?? 0)
@@ -323,9 +347,26 @@ export function createBundlePass(
         list.push((edge | (window << waypointWindowShift)) >>> 0)
       }
     }
-    own.overlayCount = list.length
-    gl.bindBuffer(gl.ARRAY_BUFFER, own.overlay)
+    own.count = list.length
+    gl.bindBuffer(gl.ARRAY_BUFFER, own.buffer)
     gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(list), gl.DYNAMIC_DRAW)
+    return own
+  }
+
+  function drawList(name: ListName, count: number, run: Draw, bridged: boolean, flat: boolean) {
+    if (mix < 0 || !shared || count === 0) return
+    if (shared.strips.some((strip) => strip.count > 0) || !fixedOn) {
+      const pass = program(bridged)
+      run(pass.program, pass[name], count, maxPathPoints * 2)
+    }
+    if (!fixedOn) return
+    const own = buildList(name)
+    if (own.count === 0) return
+    const pass = waypoints()
+    const pieces = flat && wrapping ? 2 : 1
+    for (let piece = 0; piece < pieces; piece++) {
+      run(pass.program, pass[name], own.count, (waypointWindow + 1) * 2, piece)
+    }
   }
 
   function drawFixed(run: Draw, flat: boolean): void {
@@ -471,8 +512,13 @@ export function createBundlePass(
     },
 
     highlight(edges) {
-      highlighted = edges
-      highlightVersion++
+      listed.overlay = edges
+      versions.overlay++
+    },
+
+    halve(edges) {
+      listed.halves = edges
+      versions.halves++
     },
 
     bind() {
@@ -499,20 +545,11 @@ export function createBundlePass(
     },
 
     overlay(count, run, bridged, flat = true) {
-      if (mix < 0 || !shared || count === 0) return
-      if (shared.strips.some((strip) => strip.count > 0) || !fixedOn) {
-        const pass = program(bridged)
-        run(pass.program, pass.overlay, count, maxPathPoints * 2)
-      }
-      if (!fixedOn) return
-      buildOverlay()
-      const own = fixedLists
-      if (!own || own.overlayCount === 0) return
-      const pass = waypoints()
-      const pieces = flat && wrapping ? 2 : 1
-      for (let piece = 0; piece < pieces; piece++) {
-        run(pass.program, pass.overlay, own.overlayCount, (waypointWindow + 1) * 2, piece)
-      }
+      drawList('overlay', count, run, bridged, flat)
+    },
+
+    halves(count, run, bridged, flat = true) {
+      drawList('halves', count, run, bridged, flat)
     },
 
     destroy() {
@@ -523,6 +560,7 @@ export function createBundlePass(
         if (!pass) continue
         for (const vao of pass.vaos) gl.deleteVertexArray(vao)
         gl.deleteVertexArray(pass.overlay)
+        gl.deleteVertexArray(pass.halves)
         gl.deleteProgram(pass.program)
       }
       for (const strip of shared?.strips ?? []) {
@@ -530,7 +568,10 @@ export function createBundlePass(
         gl.deleteBuffer(strip.indices)
       }
       for (const strip of fixedLists?.strips ?? []) gl.deleteBuffer(strip.indices)
-      if (fixedLists) gl.deleteBuffer(fixedLists.overlay)
+      if (fixedLists) {
+        gl.deleteBuffer(fixedLists.overlay.buffer)
+        gl.deleteBuffer(fixedLists.halves.buffer)
+      }
       if (shared) gl.deleteBuffer(shared.overlay)
     },
   }

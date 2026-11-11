@@ -23,7 +23,7 @@ import {
   trimsAsBox,
 } from './node-shape'
 import type { Positions } from './positions'
-import { edgeShown, nodeShown, type Sight } from './visibility'
+import { edgeHalfHidden, edgeShown, nodeShown, type Sight } from './visibility'
 
 export type PickHit =
   | { readonly kind: 'node'; readonly index: number }
@@ -33,7 +33,7 @@ export interface PickSource {
   readonly nodes: NodeColumns
   readonly edges: EdgeColumns
   readonly positions: Positions
-  readonly order: (kind: 'nodes' | 'edges', index: number) => number
+  readonly order: (kind: 'nodes' | 'edges', index: number, end?: EdgeEnd | null) => number
   readonly paths?: EdgePaths | null
 }
 
@@ -853,9 +853,15 @@ export class PickIndex {
     let best = -1
     let bestDistance = Number.POSITIVE_INFINITY
     let bestOrder = Number.NEGATIVE_INFINITY
+    const halves = edges.ends && edges.ends.halvesCount > 0 ? edges.ends.halves : null
     const consider = (index: number, distance: number) => {
       if (distance > ((edges.width[index] ?? 0) / 2 + tolerance) / scale) return
-      const order = source.order('edges', index)
+      let end: EdgeEnd | null = null
+      if (halves?.[index] === 1) {
+        end = this.#endOf(source, index, x, y, scale)
+        if (end && edgeHalfHidden(index, end, sight)) return
+      }
+      const order = source.order('edges', index, end)
       if (distance < bestDistance || (distance === bestDistance && order > bestOrder)) {
         best = index
         bestDistance = distance

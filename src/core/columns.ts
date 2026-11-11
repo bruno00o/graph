@@ -173,6 +173,7 @@ export class NodeColumns {
 export class EdgeEnds {
   capacity = 0
   styled: Uint8Array = new Uint8Array(0)
+  halves: Uint8Array = new Uint8Array(0)
   split: Float32Array = new Float32Array(0)
   color: Uint32Array = new Uint32Array(0)
   width: Float32Array = new Float32Array(0)
@@ -185,12 +186,14 @@ export class EdgeEnds {
   labelFont: (string | null)[] = []
   labelMaxWidth: Float32Array = new Float32Array(0)
   styledCount = 0
+  halvesCount = 0
   labeled = 0
 
   reserve(capacity: number): void {
     if (capacity <= this.capacity) return
     const pairs = capacity * 2
     this.styled = grow(this.styled, capacity)
+    this.halves = grow(this.halves, capacity)
     const split = new Float32Array(capacity).fill(Number.NaN)
     split.set(this.split)
     this.split = split
@@ -212,6 +215,13 @@ export class EdgeEnds {
     this.styled[index] = styled ? 1 : 0
   }
 
+  setHalves(index: number, halves: boolean): void {
+    const before = this.halves[index] === 1
+    if (before === halves) return
+    this.halvesCount += halves ? 1 : -1
+    this.halves[index] = halves ? 1 : 0
+  }
+
   setLabel(id: number, text: string | null): void {
     const before = (this.label[id] ?? null) !== null
     if (before !== (text !== null)) this.labeled += text === null ? -1 : 1
@@ -221,6 +231,7 @@ export class EdgeEnds {
   clear(index: number): void {
     if (index >= this.capacity) return
     this.setStyled(index, false)
+    this.setHalves(index, false)
     this.split[index] = Number.NaN
     for (let id = index * 2; id < index * 2 + 2; id++) {
       this.setLabel(id, null)

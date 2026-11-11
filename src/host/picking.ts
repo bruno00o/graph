@@ -57,8 +57,13 @@ export class HostPicker {
       nodes: source.scene.nodes,
       edges: source.scene.edges,
       positions: source.positions,
-      order: (kind, index) => {
-        const mask = (kind === 'nodes' ? buffers.nodeMask[index] : buffers.edgeMask[index]) ?? 0
+      order: (kind, index, end) => {
+        const mask =
+          kind === 'nodes'
+            ? (buffers.nodeMask[index] ?? 0)
+            : end
+              ? buffers.halfMask(index, end)
+              : (buffers.edgeMask[index] ?? 0)
         const raised = (mask & buffers.raised(kind)) !== 0
         return (
           (raised ? highlightOrder : 0) + source.layerPosition(kind, index) * layerOrder + index
@@ -120,15 +125,26 @@ export class HostPicker {
       const key = index >= 0 ? scene.nodes.keys[index] : undefined
       return key === undefined ? null : this.target('node', key)
     }
-    const key = hit.kind === 'node' ? scene.nodes.keys[hit.index] : scene.edges.keys[hit.index]
-    if (key === undefined) return null
-    const found = this.target(hit.kind, key)
-    if (!found || found.kind === 'node' || hit.kind === 'node') return found
+    if (hit.kind === 'node') {
+      const key = scene.nodes.keys[hit.index]
+      return key === undefined ? null : this.target('node', key)
+    }
     const aggregate = projection.aggregateAt(hit.index)
+    const direction =
+      aggregate && hit.end && projection.halvedAt(hit.index)
+        ? hit.end === 'target'
+          ? 'forward'
+          : 'backward'
+        : null
+    const key = direction ? aggregate?.[direction].keys[0] : scene.edges.keys[hit.index]
+    if (key === undefined) return null
+    const found = this.target('edge', key)
+    if (!found || found.kind === 'node') return found
     return {
       ...found,
       ...(hit.end ? { end: hit.end } : {}),
       ...(aggregate ? { aggregate } : {}),
+      ...(direction ? { direction } : {}),
     }
   }
 

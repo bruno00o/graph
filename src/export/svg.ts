@@ -23,9 +23,10 @@ import {
 import type { Positions } from '../core/positions'
 import type { Layer } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
-import { edgeOpacity, nodeOpacity, type Sight } from '../core/visibility'
+import { edgeHalfHidden, edgeOpacity, nodeOpacity, type Sight } from '../core/visibility'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { ContainerFrame, GridInput, LabelMode } from '../host/renderer'
+import type { EdgeEnd } from '../types'
 import { atlasFontSize } from '../webgl/glyph-atlas'
 import {
   type EdgeAnchor,
@@ -309,6 +310,11 @@ function headSizes(line: EdgeLine, arrow: number, visible: number) {
   }
 }
 
+type EdgePart = 0 | 1 | 2
+
+const wholePart: readonly EdgePart[] = [0]
+const halvesParts: readonly EdgePart[] = [1, 2]
+
 export function writeSvg(scene: SvgScene): string {
   const { nodes, edges, positions, states, frame, theme, measure } = scene
   const { view, width, height } = frame
@@ -321,7 +327,14 @@ export function writeSvg(scene: SvgScene): string {
   const faded = (look: Look, fade: number): Look =>
     fade === 1 ? look : { ...look, opacity: look.opacity * fade }
   const nodeLookAt = (index: number) => faded(nodeLook(nodes, states, index), nodeFade(index))
-  const edgeLookAt = (index: number) => faded(edgeLook(edges, states, index), edgeFade(index))
+  const halvesAt = (index: number) => edges.ends?.halves[index] === 1
+  const partEnd = (part: EdgePart): EdgeEnd => (part === 2 ? 'target' : 'source')
+  const partMask = (index: number, part: EdgePart) =>
+    part === 0 ? (states.edgeMask[index] ?? 0) : states.halfMask(index, partEnd(part))
+  const partFade = (index: number, part: EdgePart) =>
+    part !== 0 && edgeHalfHidden(index, partEnd(part), sight) ? 0 : edgeFade(index)
+  const edgeLookAt = (index: number, part: EdgePart = 0) =>
+    faded(edgeLook(edges, states, index, partMask(index, part)), partFade(index, part))
   const prefix = `graph${++documents}-`
   const body: string[] = []
   const defs: string[] = []
@@ -883,13 +896,13 @@ export function writeSvg(scene: SvgScene): string {
     }
   }
 
-  function drawEdge(index: number): void {
+  function drawEdge(index: number, part: EdgePart = 0): void {
     const source = edges.source[index] ?? 0
     const target = edges.target[index] ?? 0
     const loop = source === target
     const bend = edges.bend[index] ?? 0
-    const look = edgeLookAt(index)
-    const line = edgeLine(edges, states, index)
+    const look = edgeLookAt(index, part)
+    const line = edgeLine(edges, states, index, partMask(index, part))
     const width = Math.max(line.width, line.farWidth)
     const ax = sx(source)
     const ay = sy(source)
@@ -928,18 +941,20 @@ export function writeSvg(scene: SvgScene): string {
     if (!shape) return
     const colors = [paint(line.color), paint(line.farColor)] as const
     const parts: string[] = [open(look.opacity)]
+    const from = shape.startHead
+    const to = shape.visible - shape.endHead
+    const cut = line.split < 0 ? to : Math.min(to, Math.max(from, shape.visible * line.split))
+    const outline =
+      part === 0 ? shape.whole : part === 1 ? shape.piece(0, cut) : shape.piece(cut, shape.visible)
     if (look.halo) {
       haloBands.forEach((band, at) => {
         const alpha = halos[at] ?? 0
         if (alpha <= 0) return
         parts.push(
-          `<path d="${shape.whole}" fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(width + band * 2)}"/>`,
+          `<path d="${outline}" fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(width + band * 2)}"/>`,
         )
       })
     }
-    const from = shape.startHead
-    const to = shape.visible - shape.endHead
-    const cut = line.split < 0 ? to : Math.min(to, Math.max(from, shape.visible * line.split))
     const shift = look.flow * (scene.time ?? 0)
     const piece = (start: number, end: number, far: 0 | 1) => {
       if (end <= start) return
@@ -960,9 +975,10 @@ export function writeSvg(scene: SvgScene): string {
         `<path d="${shape.piece(start, end)}" fill="none"${paintAttribute('stroke', colors[far])}${style}/>`,
       )
     }
-    piece(from, cut, 0)
-    piece(cut, to, 1)
+    if (part !== 2) piece(from, cut, 0)
+    if (part !== 1) piece(cut, to, 1)
     for (const [tip, end] of shape.heads) {
+      if (part !== 0 && end !== part - 1) continue
       parts.push(`<path d="${tip}"${paintAttribute('fill', colors[end])}/>`)
     }
     parts.push('</g>')
@@ -976,7 +992,10 @@ export function writeSvg(scene: SvgScene): string {
         ? 1
         : 0
   const nodeRaised = (index: number) => ((states.nodeMask[index] ?? 0) & states.nodeRaise) !== 0
-  const edgeRaised = (index: number) => ((states.edgeMask[index] ?? 0) & states.edgeRaise) !== 0
+  const edgeRaised = (index: number, part: EdgePart = 0) =>
+    (partMask(index, part) & states.edgeRaise) !== 0
+  const partsOf = (index: number): readonly EdgePart[] =>
+    halvesAt(index) ? halvesParts : wholePart
 
   function drawBadges(indices: Iterable<number>): void {
     const pills: string[] = []
@@ -1241,9 +1260,10 @@ export function writeSvg(scene: SvgScene): string {
       for (const kind of [0, 1, 2]) {
         for (let index = 0; index < edges.capacity; index++) {
           if (edges.alive[index] !== 1 || edges.slot[index] !== layer.slot) continue
-          if (edgeFade(index) === 0) continue
-          if (edgeRaised(index) || pass(index) !== kind) continue
-          drawEdge(index)
+          if (edgeFade(index) === 0 || pass(index) !== kind) continue
+          for (const part of partsOf(index)) {
+            if (!edgeRaised(index, part) && partFade(index, part) > 0) drawEdge(index, part)
+          }
         }
       }
     } else {
@@ -1262,7 +1282,13 @@ export function writeSvg(scene: SvgScene): string {
   drawLabels(0)
   for (const kind of [0, 1, 2]) {
     for (const index of states.highlightedEdges) {
-      if (edges.alive[index] === 1 && pass(index) === kind && edgeFade(index) > 0) drawEdge(index)
+      if (edges.alive[index] !== 1 || pass(index) !== kind || edgeFade(index) === 0) continue
+      const halved = halvesAt(index)
+      for (const part of partsOf(index)) {
+        if ((!halved || edgeRaised(index, part)) && partFade(index, part) > 0) {
+          drawEdge(index, part)
+        }
+      }
     }
   }
   for (const index of states.highlightedNodes) {

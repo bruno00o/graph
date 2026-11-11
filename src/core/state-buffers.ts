@@ -1,3 +1,5 @@
+import type { EdgeEnd } from '../types'
+
 export const maxStates = 32
 export const othersRow: number = maxStates * 2
 export const stateRows: number = maxStates * 4
@@ -27,6 +29,7 @@ export interface ResolvedStateStyle {
 export interface StateMasks {
   readonly nodeMask: Uint32Array
   readonly edgeMask: Uint32Array
+  halfMask(index: number, end: EdgeEnd): number
 }
 
 export interface HideFilter {
@@ -91,11 +94,17 @@ export function wordFloat(value: number): number {
   return bits[0] ?? 0
 }
 
-function grow(array: Uint32Array, capacity: number): Uint32Array {
+function grow<A extends Uint32Array | Uint8Array>(array: A, capacity: number): A {
   if (capacity <= array.length) return array
-  const next = new Uint32Array(Math.max(capacity, array.length * 2))
+  const next = new (array.constructor as new (length: number) => A)(
+    Math.max(capacity, array.length * 2),
+  )
   next.set(array)
   return next
+}
+
+function hiddenHalves(near: number, far: number, bits: number): number {
+  return Number((near & bits) !== 0) + Number((far & bits) !== 0)
 }
 
 export class StateBuffers {
@@ -108,6 +117,10 @@ export class StateBuffers {
   readonly edgeDirty: DirtyRange = new DirtyRange()
   nodeMask: Uint32Array = new Uint32Array(0)
   edgeMask: Uint32Array = new Uint32Array(0)
+  edgeHalved: Uint8Array = new Uint8Array(0)
+  edgeNear: Uint32Array = new Uint32Array(0)
+  edgeFar: Uint32Array = new Uint32Array(0)
+  halvesCount = 0
   highlightedNodes: readonly number[] = []
   highlightedEdges: readonly number[] = []
   alwaysNodes: readonly number[] = []
@@ -135,6 +148,7 @@ export class StateBuffers {
   #members: Int32Array = new Int32Array(maxStates)
   #hiddenNodes = 0
   #hiddenEdges = 0
+  #hiddenHalves = 0
   #hide: HideFilter | null = null
   #hideAt = -1
 
@@ -144,7 +158,8 @@ export class StateBuffers {
     const otherNodes = this.othersHidden('nodes')
     const otherEdges = this.othersHidden('edges')
     this.#hide =
-      this.#hiddenNodes + this.#hiddenEdges > 0 || (otherNodes | otherEdges) !== 0
+      this.#hiddenNodes + this.#hiddenEdges + this.#hiddenHalves > 0 ||
+      (otherNodes | otherEdges) !== 0
         ? {
             masks: this,
             nodes: this.nodeHide,
@@ -195,6 +210,49 @@ export class StateBuffers {
     this.nodeDirty.add(index)
     this.nodeMaskVersion++
     this.#count(before, mask)
+  }
+
+  halfMask(index: number, end: EdgeEnd): number {
+    if (this.edgeHalved[index] !== 1) return this.edgeMask[index] ?? 0
+    return (end === 'source' ? this.edgeNear[index] : this.edgeFar[index]) ?? 0
+  }
+
+  setEdgeHalves(index: number, near: number, far: number): void {
+    const halved = this.edgeHalved[index] === 1
+    if (halved && this.edgeNear[index] === near >>> 0 && this.edgeFar[index] === far >>> 0) return
+    this.edgeHalved = grow(this.edgeHalved, index + 1)
+    this.edgeNear = grow(this.edgeNear, index + 1)
+    this.edgeFar = grow(this.edgeFar, index + 1)
+    const hide = this.edgeHide
+    const before = halved
+      ? hiddenHalves(this.edgeNear[index] ?? 0, this.edgeFar[index] ?? 0, hide)
+      : 0
+    const after = hiddenHalves(near, far, hide)
+    if (before !== after) {
+      this.#hiddenHalves += after - before
+      this.hideVersion++
+    }
+    if (!halved) this.halvesCount++
+    this.edgeHalved[index] = 1
+    this.edgeNear[index] = near >>> 0
+    this.edgeFar[index] = far >>> 0
+    this.edgeDirty.add(index)
+    this.edgeMaskVersion++
+  }
+
+  clearEdgeHalves(index: number): void {
+    if (this.edgeHalved[index] !== 1) return
+    const before = hiddenHalves(this.edgeNear[index] ?? 0, this.edgeFar[index] ?? 0, this.edgeHide)
+    if (before !== 0) {
+      this.#hiddenHalves -= before
+      this.hideVersion++
+    }
+    this.halvesCount--
+    this.edgeHalved[index] = 0
+    this.edgeNear[index] = 0
+    this.edgeFar[index] = 0
+    this.edgeDirty.add(index)
+    this.edgeMaskVersion++
   }
 
   setEdge(index: number, mask: number): void {
@@ -273,6 +331,7 @@ export class StateBuffers {
       if (hide !== this.edgeHide) {
         this.edgeHide = hide
         this.#hiddenEdges = countHidden(this.edgeMask, hide)
+        this.#hiddenHalves = this.#countHiddenHalves(hide)
         this.hideVersion++
       }
     } else {
@@ -298,6 +357,16 @@ export class StateBuffers {
     this.tableVersion++
   }
 
+  #countHiddenHalves(bits: number): number {
+    if (this.halvesCount === 0 || bits === 0) return 0
+    let count = 0
+    for (let index = 0; index < this.edgeHalved.length; index++) {
+      if (this.edgeHalved[index] !== 1) continue
+      count += hiddenHalves(this.edgeNear[index] ?? 0, this.edgeFar[index] ?? 0, bits)
+    }
+    return count
+  }
+
   copy(): StateBuffers {
     const copy = new StateBuffers()
     copy.numbers.set(this.numbers)
@@ -307,6 +376,10 @@ export class StateBuffers {
     copy.edgeLabelFlags.set(this.edgeLabelFlags)
     copy.nodeMask = this.nodeMask.slice()
     copy.edgeMask = this.edgeMask.slice()
+    copy.edgeHalved = this.edgeHalved.slice()
+    copy.edgeNear = this.edgeNear.slice()
+    copy.edgeFar = this.edgeFar.slice()
+    copy.halvesCount = this.halvesCount
     copy.edgeFlowBits = this.edgeFlowBits
     copy.nodeRaise = this.nodeRaise
     copy.edgeRaise = this.edgeRaise
@@ -325,6 +398,7 @@ export class StateBuffers {
     copy.#members.set(this.#members)
     copy.#hiddenNodes = this.#hiddenNodes
     copy.#hiddenEdges = this.#hiddenEdges
+    copy.#hiddenHalves = this.#hiddenHalves
     copy.hideVersion = this.hideVersion
     copy.setHighlighted([...this.highlightedNodes], [...this.highlightedEdges])
     copy.setAlways([...this.alwaysNodes], [...this.alwaysEdges])

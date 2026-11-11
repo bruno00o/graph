@@ -84,6 +84,7 @@ export interface SceneNodeRecord extends NodeRecord {
 export interface SceneEdgeRecord extends EdgeRecord {
   readonly look?: EdgeMark<unknown>
   readonly straight?: boolean
+  readonly halves?: boolean
 }
 
 export interface SceneModel {
@@ -1046,11 +1047,16 @@ export function createScene(
     )
     writeLabelText(edges, index, mark.labelText, datum, palette)
     if (mark.ends) writeEnds(index, mark, datum, edges.color[index] ?? fallbacks.edgeColor)
-    else if (endsSeen) {
+    else if (endsSeen || edges.ends) {
       edges.ends?.clear(index)
       endHeld[index * 2] = undefined
       endHeld[index * 2 + 1] = undefined
     }
+    if (record.halves) {
+      const ends = edges.useEnds()
+      if (!mark.ends) ends.split[index] = 0.5
+      ends.setHalves(index, true)
+    } else edges.ends?.setHalves(index, false)
     const previous = edgeColors[previousSlot] ?? sharedColor
     if (held !== before || previous !== edgeColor) {
       edgeHeld[index] = held

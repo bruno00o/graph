@@ -11,7 +11,10 @@ const vec2 bridgeUp = vec2(-0.4472136, -0.8944272);
 bool bridgeCrossed(uint edge, uint j, out vec2 c, out vec2 e) {
   ivec2 t = texel(edge);
   uvec4 topology = texelFetch(edgeTopology, t, 0);
-  if ((topology.w & 16u) == 0u || edgeShown(t, topology) <= 0.0) return false;
+  uvec4 state = texelFetch(edgeState, t, 0);
+  float shown = edgeShown(t, topology, state.r);
+  if (halved > 0.5 && shown <= 0.0) shown = edgeShown(t, topology, state.g);
+  if ((topology.w & 16u) == 0u || shown <= 0.0) return false;
   vec2 a = texelFetch(nodePosition, texel(topology.x), 0).xy;
   vec2 d = texelFetch(nodePosition, texel(topology.y), 0).xy;
   uvec4 path = pathOf(edge);

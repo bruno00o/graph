@@ -39,7 +39,7 @@ Edges merge mark by mark: two marks never share an aggregated edge, so an aggreg
 
 The merged edges keep the order in which they reached the graph: the order of the data for edges loaded together, then later edges after earlier ones. Their first edge stays the same while it is in the data, whatever was folded, unfolded or moved in between, so an aggregated edge keeps its look.
 
-Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
+Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A two-way line can instead act as [one direction per half](#one-direction-per-half). A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
 
 A function passed as `by` is called again whenever the definition changes. Keep it stable: give each edge the same value for the same data, and the graph changes, and `relayout` runs, only when an aggregated edge does.
 
@@ -83,6 +83,40 @@ edges(links, {
 An aggregated edge with edges in both directions gets an arrow at each end: arrows join the arrow of the first edge of each direction. Hovering it sets `target.end` to the half under the pointer, and exports draw both halves.
 
 Without `aggregate.ends`, an aggregated edge takes the ends of its first merged edge. Without `aggregate` at all, it takes the look of its first merged edge. In both cases, labels, end labels included, show only when it stands for a single edge.
+
+### One direction per half
+
+`halves: true` makes each half of a two-way line stand for its own direction. It needs `directed: false`.
+
+```ts
+edges(links, {
+  source: 'from',
+  target: 'to',
+  arrow: 'target',
+  merge: { directed: false, halves: true },
+  aggregate: {
+    ends: {
+      target: { stroke: 'var(--graph-cat-2)' },
+      source: { stroke: 'var(--graph-cat-4)' },
+    },
+  },
+})
+
+graph.on('click', ({ target }) => {
+  if (target?.kind === 'edge' && target.direction) {
+    console.log(target.direction, target.aggregate?.[target.direction].keys)
+  }
+})
+```
+
+- The half next to the target stands for the `forward` edges, the half next to the source for the `backward` edges. They meet at the `split` of `aggregate.ends`, the middle by default.
+- Picking a half returns the first edge of its direction, with `direction` set to `'forward'` or `'backward'`; `aggregate` still holds the whole line.
+- A click selects the edges of that direction only, and Shift, Cmd or Ctrl adds them to the selection or removes them. Hovering a half hovers its edges.
+- Each half shows the [states](/docs/states) of its own edges: selection, hover, named states, `others`, `hide` and `raise`. A state `stroke` colors its half only. A half whose edges all hide disappears while the other half stays, and a raised half draws above the rest.
+- The legend lights a direction from the color of its end, and exports draw each half with its states.
+- A line with edges in one direction only stays whole, and so does every line without `directed: false`. Both halves share the zoom range, the time and the layer of the aggregated edge.
+
+A graph without `halves` draws as before. With it, the two-way lines take a second pass of the edge programs: see [performance](#performance).
 
 ## Group items by a field
 
@@ -200,3 +234,10 @@ Merges and groups are measured in Node, for the model, the merges and the scene;
 | Fold all, edges between groups | 50,000 nodes in 500 groups, 99,000 edges | 17 ms |
 
 A hidden element costs nothing on later frames: the graph draws less.
+
+`halves` is measured in Chrome, on frames that move the whole view, with half of the merged pairs going both ways. It adds a second pass over the two-way lines only.
+
+| Graph | Whole lines | Halves |
+| --- | --- | --- |
+| 50,000 nodes, 150,000 edges merged into about 100,000 lines | 8.6 ms | 8.9 ms |
+| 500,000 nodes, 1,500,000 edges merged into about 1,000,000 lines | 74 ms | 76 ms |

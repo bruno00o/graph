@@ -215,7 +215,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     buffers,
     {
       indexOf: (key) => projection.edgeIndexOf(key),
-      keysAt: (index) => projection.keysAt(index),
+      keysAt: (index, end) => projection.keysAt(index, end),
+      halvedAt: (index) => projection.halvedAt(index),
     },
     (kind, index) => layers.position(kind, index),
   )

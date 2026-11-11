@@ -2,7 +2,7 @@ import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import type { SupportIndex } from '../core/support'
 import type { GraphDefinition, Key, SupportWalk } from '../types'
-import { kindOf, noKeys, requestMemory, sameKeys, toKeys } from './element-keys'
+import { kindOf, mergedKeys, noKeys, requestMemory, sameKeys, toKeys } from './element-keys'
 import type { ElementKeys, Emitter, GraphSelectionEvent, GraphTarget } from './events'
 import type { GraphSelection, GraphState, GraphStates } from './graph-instance'
 import { isolated } from './isolate'
@@ -93,7 +93,7 @@ export class SelectionControl {
     }
     const kind = kindOf[clicked.kind]
     const current = this.base()
-    const merged = clicked.kind === 'edge' ? clicked.aggregate?.keys : undefined
+    const merged = mergedKeys(clicked)
     if (merged) {
       const chosen = new Set(current.edges)
       const all = merged.every((key) => chosen.has(key))

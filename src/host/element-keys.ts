@@ -31,8 +31,14 @@ export function sameEnd(a: GraphTarget | null, b: GraphTarget | null): boolean {
   return a?.kind !== 'edge' || b?.kind !== 'edge' || a.end === b.end
 }
 
+export function mergedKeys(element: GraphTarget): readonly Key[] | undefined {
+  if (element.kind !== 'edge' || !element.aggregate) return undefined
+  return element.direction ? element.aggregate[element.direction].keys : element.aggregate.keys
+}
+
 export function keysOf(element: GraphTarget): ElementKeysInput {
-  if (element.kind === 'edge' && element.aggregate) return { edges: element.aggregate.keys }
+  const merged = mergedKeys(element)
+  if (merged) return { edges: merged }
   return { [kindOf[element.kind]]: [element.key] }
 }
 

@@ -391,6 +391,61 @@ describe('Projection merges', () => {
     expect(turned?.backward.count).toBe(0)
   })
 
+  it('splits a merge of both directions into halves on request', () => {
+    const { render, projection, scene } = setup(merging({ directed: false, halves: true }))
+    const pair = projection.edgeIndexOf('ab1')
+    const single = projection.edgeIndexOf('ac1')
+    expect(projection.halvedAt(pair)).toBe(true)
+    expect(projection.halvedAt(single)).toBe(false)
+    expect(projection.keysAt(pair, 'target')).toEqual(['ab1', 'ab2', 'ab3'])
+    expect(projection.keysAt(pair, 'source')).toEqual(['ba1'])
+    expect(projection.keysAt(pair)).toEqual(['ab1', 'ab2', 'ab3', 'ba1'])
+    expect(scene.edges.ends?.halves[pair]).toBe(1)
+    expect(scene.edges.ends?.split[pair]).toBe(0.5)
+    expect(scene.edges.ends?.halvesCount).toBe(1)
+    render(merging({ directed: false, halves: true }, [wires[0], wires[1], wires[4]] as Wire[]))
+    expect(projection.halvedAt(projection.edgeIndexOf('ab1'))).toBe(false)
+    expect(scene.edges.ends?.halves[projection.edgeIndexOf('ab1')]).toBe(0)
+    expect(scene.edges.ends?.split[projection.edgeIndexOf('ab1')]).toBeNaN()
+    expect(scene.edges.ends?.halvesCount).toBe(0)
+  })
+
+  it('keeps merges whole without halves or with a direction', () => {
+    const plain = setup(merging({ directed: false }))
+    expect(plain.projection.halvedAt(plain.projection.edgeIndexOf('ab1'))).toBe(false)
+    expect(plain.scene.edges.ends).toBeNull()
+    const directed = setup(merging({ halves: true }))
+    expect(directed.projection.halvedAt(directed.projection.edgeIndexOf('ab1'))).toBe(false)
+    expect(directed.projection.keysAt(directed.projection.edgeIndexOf('ab1'), 'target')).toEqual([
+      'ab1',
+      'ab2',
+      'ab3',
+    ])
+  })
+
+  it('splits halves where the ends of the aggregate split', () => {
+    const { projection, scene } = setup({
+      marks: [
+        edges<Wire>(wires, {
+          ...linkOptions,
+          merge: { directed: false, halves: true },
+          aggregate: {
+            ends: {
+              split: (aggregate) => aggregate.backward.count / aggregate.count,
+              source: { color: () => '#111111' },
+              target: { color: () => '#222222' },
+            },
+          },
+        }),
+        nodes<Item>(flat, { parent: 'parent' }),
+      ],
+    })
+    const pair = projection.edgeIndexOf('ab1')
+    expect(scene.edges.ends?.split[pair]).toBe(0.25)
+    expect(scene.edges.ends?.styled[pair]).toBe(1)
+    expect(scene.edges.ends?.halves[pair]).toBe(1)
+  })
+
   it('takes the direction of the first edge of the data', () => {
     const { scene, projection, nodeIndex } = setup(
       merging({ directed: false }, [wires[3], wires[0]] as Wire[]),

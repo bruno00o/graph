@@ -50,6 +50,8 @@ A key can join a state before its element exists. The element takes the style as
 
 The selection is not a free state: change it through `graph.selection`. See [Interaction](/docs/interaction).
 
+An aggregated edge shows the states of any of its [merged edges](/docs/transformations#merge-parallel-edges). With [`halves`](/docs/transformations#one-direction-per-half), each half of a two-way line shows the states of its own direction: a state set on the forward edges styles, raises or hides the half next to the target alone.
+
 ## Style options
 
 A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#state-styles): `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, which moves dashes along edges (see [Flows](/docs/marks#flows)), `raise` (see [Raise a state](#raise-a-state)), `hide` (see [Hide members](#hide-members)) and `others` (see [Style the others](#style-the-others)). Leave a property out and the element keeps its own value. An `opacity` of `0.2` pushes an element into the background.

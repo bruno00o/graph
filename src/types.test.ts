@@ -367,6 +367,9 @@ describe('public types', () => {
       // @ts-expect-error
       aggregate: { source: 'from' },
     })
+    edges(links, { source: 'from', target: 'to', merge: { directed: false, halves: true } })
+    // @ts-expect-error
+    edges(links, { source: 'from', target: 'to', merge: { directed: false, halves: 'yes' } })
   })
 
   it('types the time channel and the time window', () => {

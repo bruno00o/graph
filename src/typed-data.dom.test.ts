@@ -214,6 +214,10 @@ describe('typed data', () => {
       if (target.mark === 'link' && target.aggregate) {
         expectTypeOf(target.aggregate.data).toEqualTypeOf<readonly Link[]>()
       }
+      expectTypeOf(target.direction).toEqualTypeOf<'forward' | 'backward' | undefined>()
+      if (target.mark === 'link' && target.aggregate && target.direction) {
+        expectTypeOf(target.aggregate[target.direction].data).toEqualTypeOf<readonly Link[]>()
+      }
     })
   })
 

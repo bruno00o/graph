@@ -3,6 +3,7 @@ import type { Scene, SceneColorScale, SceneNumberScale, SceneScales } from '../c
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type {
   EdgeDash,
+  EdgeEnd,
   EdgeMark,
   Key,
   Mark,
@@ -535,7 +536,7 @@ function layerSlots(layers: Int32Array, names: readonly string[], ids: ReadonlyS
 }
 
 export interface KeyScope {
-  readonly members?: ((index: number) => readonly Key[] | null) | undefined
+  readonly members?: ((index: number, end?: EdgeEnd) => readonly Key[] | null) | undefined
   readonly nodes?: readonly number[] | undefined
   readonly edges?: readonly number[] | undefined
 }
@@ -591,12 +592,12 @@ export function keysOf(
     const look = looks && ids.has(edgeLookId(slot, edges.dash[index] ?? 0))
     const mark = owners.own ? owners.edge(slot) : ''
     const value = edgeColor[index]
-    const hit = split
-      ? matches(endColor[index * 2] ?? value, mark) ||
-        matches(endColor[index * 2 + 1] ?? value, mark)
-      : matches(value, mark)
-    if (edgeSlots[slot] !== 1 && !look && !hit) return
-    const members = scope.members?.(index)
+    const near = split && matches(endColor[index * 2] ?? value, mark)
+    const far = split && matches(endColor[index * 2 + 1] ?? value, mark)
+    const whole = edgeSlots[slot] === 1 || look
+    if (!whole && !(split ? near || far : matches(value, mark))) return
+    const end = !whole && near !== far ? (near ? 'source' : 'target') : undefined
+    const members = scope.members?.(index, end)
     if (members) for (const member of members) keys.edges.push(member)
     else keys.edges.push(key)
   }
