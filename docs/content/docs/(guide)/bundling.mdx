@@ -16,8 +16,8 @@ import { force } from '@bruno00o/graph/layouts/force'
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(links, { source: 'from', target: 'to', opacity: 0.5 }),
-    nodes<Item>(items, { color: 'group', size: 'weight' }),
+    edges(links, { source: 'from', target: 'to', opacity: 0.5 }),
+    nodes(items, { color: 'group', size: 'weight' }),
   ],
   layout: force(),
   bundling: densityBundling({ strength: 0.85 }),
@@ -62,7 +62,7 @@ await graph.bundling.run()
 Every edge bundles, except loops and edges with [waypoints](/docs/marks#waypoints). Set `bundle` on `edges()` to leave edges out: they stay straight and pull no other edge.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   bundle: (link) => link.kind !== 'direct',

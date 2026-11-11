@@ -14,9 +14,9 @@ import { defineGraph, edges, nodes } from '@bruno00o/graph'
 
 const definition = defineGraph({
   marks: [
-    edges<Link>(overview, { source: 'from', target: 'to', dash: 'dashed', maxZoom: 0.9 }),
-    edges<Link>(links, { source: 'from', target: 'to' }),
-    nodes<Item>(items, {
+    edges(overview, { source: 'from', target: 'to', dash: 'dashed', maxZoom: 0.9 }),
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, {
       size: 'weight',
       label: 'label',
       minZoom: (item) => (item.tier === 'leaf' ? 1.3 : item.tier === 'branch' ? 0.55 : null),
@@ -53,7 +53,7 @@ To show a node once it is at least 6 pixels wide on screen, divide by its diamet
 ```ts
 defineGraph({
   marks: [
-    nodes<Item>(items, {
+    nodes(items, {
       size: raw((item) => item.diameter),
       minZoom: (item) => 6 / item.diameter,
     }),
@@ -64,13 +64,19 @@ defineGraph({
 To hand one mark over to another at a zoom `t`, as clusters give way to their members, move each limit by the length of the fade, a quarter of a zoom doubling: the outgoing mark stops at `t * 2 ** 0.25` and the incoming one starts at `t / 2 ** 0.25`. They cross-fade around `t`, and one of them is always fully drawn. With `t` on both, neither would show at `t`.
 
 ```ts
+type Cluster = { id: string; diameter: number }
+type Member = { id: string }
+
+declare const clusters: Cluster[]
+declare const members: Member[]
+
 const t = 0.9
 const fade = 2 ** 0.25
 
 defineGraph({
   marks: [
-    nodes<Cluster>(clusters, { size: raw((cluster) => cluster.diameter), maxZoom: t * fade }),
-    nodes<Member>(members, { size: 12, minZoom: t / fade }),
+    nodes(clusters, { size: raw((cluster) => cluster.diameter), maxZoom: t * fade }),
+    nodes(members, { size: 12, minZoom: t / fade }),
   ],
 })
 ```

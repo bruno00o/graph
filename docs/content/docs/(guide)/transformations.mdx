@@ -18,7 +18,7 @@ Each one is computed from the changes only, and a graph that uses none of them p
 `merge: true` draws the edges of a mark that join the same two visible nodes, in the same direction, as one aggregated edge. `aggregate` styles it from an [`AggregateEdge`](/docs/api/edges#merged-edges): its two ends, the number of merged edges, their keys and their data.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   merge: true,
@@ -59,7 +59,7 @@ With `directed: false`, an aggregated edge points the way of the first edge in i
 The two halves of the line can then show one direction each, through the [edge ends](/docs/marks#edge-ends) of `aggregate`: the `target` end draws the half next to the target node, and the `source` end the half next to the source node.
 
 ```ts
-edges<Link>(links, {
+edges(links, {
   source: 'from',
   target: 'to',
   arrow: 'target',
@@ -90,6 +90,10 @@ Without `aggregate.ends`, an aggregated edge takes the ends of its first merged 
 
 ```ts
 type Item = { id: string; label: string; sector: string }
+type Link = { id: string; from: string; to: string }
+
+declare const items: Item[]
+declare const links: Link[]
 
 const sectors = groups(items, {
   by: 'sector',
@@ -101,8 +105,8 @@ const sectors = groups(items, {
 const define = (grouped: boolean) =>
   defineGraph({
     marks: [
-      edges<Link>(links, { source: 'from', target: 'to' }),
-      nodes<Item>(items, { label: 'label' }),
+      edges(links, { source: 'from', target: 'to' }),
+      nodes(items, { label: 'label' }),
       ...(grouped ? [sectors] : []),
     ],
   })

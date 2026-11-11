@@ -130,7 +130,9 @@ import { edges, lineWaypoints } from '@bruno00o/graph'
 
 type Road = { id: string; from: string; to: string; geometry: LineStringGeometry }
 
-edges<Road>(roads, {
+declare const roads: Road[]
+
+edges(roads, {
   source: 'from',
   target: 'to',
   waypoints: (road) => lineWaypoints(road.geometry),

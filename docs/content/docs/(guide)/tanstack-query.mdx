@@ -7,19 +7,37 @@ description: Explore a large graph one neighborhood at a time, with queries you 
 
 ## Create an exploration
 
-`neighbors(key)` returns query options whose data is `{ nodes, edges }`: a plain object, or `queryOptions` from any TanStack Query adapter. The node and edge types are inferred from it.
+`neighbors(key)` returns query options whose data is `{ nodes, edges }`. What the exploration knows about the node and edge types depends on how you write them:
+
+- With `queryOptions` from a TanStack Query adapter, such as `@tanstack/react-query`, the types are inferred from `queryFn`. `@tanstack/query-core` does not export `queryOptions`.
+- With a plain object, nothing carries the data type through: the items are typed `{ readonly id: Key }`, and `color: 'group'` or `label: 'label'` on a mark would not compile. Give `createExploration` the node and edge types as type arguments.
 
 ```ts
 import { defineGraph, edges, type Key, nodes } from '@bruno00o/graph'
-import { createExploration } from '@bruno00o/graph/query'
+import { createExploration, type ExplorationData } from '@bruno00o/graph/query'
 import { QueryClient } from '@tanstack/query-core'
 
-const neighbors = (key: Key) => ({
-  queryKey: ['neighbors', key],
-  queryFn: () => fetchNeighbors(key),
-})
+interface Item {
+  readonly id: string
+  readonly label: string
+  readonly group: string
+}
 
-const exploration = createExploration(new QueryClient(), { roots: ['n1'], neighbors })
+interface Link {
+  readonly id: string
+  readonly from: string
+  readonly to: string
+}
+
+declare function fetchNeighbors(key: Key): Promise<ExplorationData<Item, Link>>
+
+const exploration = createExploration<Item, Link>(new QueryClient(), {
+  roots: ['n1'],
+  neighbors: (key) => ({
+    queryKey: ['neighbors', key],
+    queryFn: () => fetchNeighbors(key),
+  }),
+})
 
 const definition = defineGraph({
   marks: [
@@ -30,6 +48,18 @@ const definition = defineGraph({
 
 graph.on('doubleclick', ({ target }) => {
   if (target?.kind === 'node') exploration.toggle(target.key)
+})
+```
+
+With an adapter, drop the type arguments and use its `queryOptions`:
+
+```ts
+import { queryOptions } from '@tanstack/react-query'
+
+const exploration = createExploration(new QueryClient(), {
+  roots: ['n1'],
+  neighbors: (key: Key) =>
+    queryOptions({ queryKey: ['neighbors', key], queryFn: () => fetchNeighbors(key) }),
 })
 ```
 
