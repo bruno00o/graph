@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/bruno00o/graph/compare/0.23.0...0.23.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* refuse a bare string where a list of keys is expected and keep the minimap off maps ([#153](https://github.com/bruno00o/graph/issues/153)) ([06d0d04](https://github.com/bruno00o/graph/commit/06d0d04cb5961aa9c0d0bf053696d01120877704))
+
 ## [0.23.0](https://github.com/bruno00o/graph/compare/0.22.0...0.23.0) (2026-11-10)
 
 

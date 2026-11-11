@@ -1,0 +1,29 @@
+.linked-views {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  height: 100%;
+}
+
+.linked-views .linked-overview {
+  border-right: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+}
+
+.linked-views .view-frame {
+  display: block;
+  box-sizing: border-box;
+  padding: 0;
+  border: 2px solid var(--graph-accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--graph-accent) 14%, transparent);
+  cursor: grab;
+  touch-action: none;
+}
+
+.linked-views .view-frame:active {
+  cursor: grabbing;
+}
+
+.linked-views .view-frame:focus-visible {
+  outline: 2px solid var(--graph-ink);
+  outline-offset: 2px;
+}
