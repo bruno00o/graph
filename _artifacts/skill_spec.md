@@ -8,7 +8,7 @@
 | -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------- |
 | graph-setup          | Data, keys, marks, definition, mounting, instance, states, events, updates | core, react                                       |
 | appearance           | How nodes, labels and edges look                                           | styling, edges                                    |
-| structure            | Groups, merged and hidden elements, layers, support, paths                 | groups, multilayer, paths                         |
+| structure            | Groups, merged and hidden elements, layers, support, paths, free shapes    | groups, multilayer, paths, shapes                 |
 | placement            | Layouts and positions                                                      | layouts                                           |
 | navigation-and-input | View, zoom ranges, selection, gestures, keyboard, advanced states          | view, interaction                                 |
 | geography-and-time   | Graphs in a MapLibre map, time windows and the timeline                    | map, time                                         |
@@ -17,7 +17,7 @@
 
 ## Skill plan
 
-Eighteen skills. Every skill other than `core` requires `core`; `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
+Nineteen skills. Every skill other than `core` requires `core`; `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
 
 | Skill          | Type              | Domain               | Owner      |
 | -------------- | ----------------- | -------------------- | ---------- |
@@ -39,6 +39,7 @@ Eighteen skills. Every skill other than `core` requires `core`; `react` is the o
 | styling        | sub-skill         | appearance           | batch D    |
 | tools          | sub-skill         | tools-and-output     | batch D    |
 | export         | sub-skill         | tools-and-output     | batch D    |
+| shapes         | sub-skill         | structure            | shapes     |
 
 Boundaries chosen from developer tasks, not from entry points:
 
@@ -48,6 +49,7 @@ Boundaries chosen from developer tasks, not from entry points:
 - `time` owns the timeline companion; `tools` owns the minimap, legend, lens, anchors, hulls, background grid and devtools.
 - `map` owns `exportMapPng`; `export` owns `exportPng` and `exportSvg`.
 - `paths` sits in batch C to balance the batches; it reads the same data as the integrations and has no file in common with them.
+- `shapes` owns the `shapes()` mark, its geometry, `pick`, its states by kind and everything that only concerns shapes; the other skills carry the sentences where a shape changes their rules (targets and selection in `interaction`, `fit` in `view`, the two tokens in `styling`) and point to it. Hulls and anchors stay in `tools`, group containers in `groups`.
 
 ## Failure mode inventory
 
@@ -74,6 +76,22 @@ Boundaries chosen from developer tasks, not from entry points:
 | 4   | Untyped selectors inside `<Graph>`                 | MEDIUM   | TypeScript guide                           |                   |
 | 5   | Graph structure read during render                 | MEDIUM   | `src/host/mount-graph.ts` (`flushPending`) |                   |
 | 6   | Controlled prop set after mount                    | MEDIUM   | React guide                                | view, interaction |
+
+### shapes (11)
+
+| #   | Mistake                                             | Priority | Source                             | Cross-skill |
+| --- | --------------------------------------------------- | -------- | ---------------------------------- | ----------- |
+| 1   | Importing `shapes` from the main entry              | HIGH     | shapes API, `src/shapes/index.ts`  |             |
+| 2   | A decorative zone that swallows the pointer         | HIGH     | shapes guide, `src/shapes/pick.ts` | interaction |
+| 3   | Expecting labels on shapes                          | HIGH     | shapes guide                       | styling     |
+| 4   | Mixing degrees and world units                      | HIGH     | shapes guide, `src/core/geo.ts`    | map         |
+| 5   | Reading shape counts or keys without a shape mark   | MEDIUM   | `graph-instance.ts`, `events.ts`   | core        |
+| 6   | Treating every target that is not a node as an edge | MEDIUM   | `events.ts`, TypeScript guide      | interaction |
+| 7   | Coordinates typed as `number[][]`                   | MEDIUM   | `src/types.ts`                     |             |
+| 8   | A state for nodes that also dims the zones          | MEDIUM   | shapes and states guides           | interaction |
+| 9   | Changing a shape in place                           | MEDIUM   | `src/core/shape-store.ts`          | core        |
+| 10  | Using a field name as a color                       | MEDIUM   | `src/types.ts`                     | core        |
+| 11  | Expecting shapes on a map                           | MEDIUM   | `src/map/index.ts`, shapes guide   | map         |
 
 ## Tensions
 
@@ -207,7 +225,7 @@ Scope decisions:
 
 ### Batch B
 
-Written: view, interaction, map, time (library 0.22.0, commit d906a46). Each skill requires core, stays under 400 lines, and has typechecked examples, including one `expect-error` fence per skill (`view`: TS2559, `interaction`: TS2353, `map`: TS2353, `time`: TS2769).
+Written: view, interaction, map, time (library 0.22.0, commit d906a46). Each skill requires core, stays under 410 lines, and has typechecked examples, including one `expect-error` fence per skill (`view`: TS2559, `interaction`: TS2353, `map`: TS2353, `time`: TS2769).
 
 Decisions:
 
@@ -270,6 +288,15 @@ Written: styling, tools and export, from `src/` and the docs at commit d906a46.
 - `export` owns `exportPng` and `exportSvg`; `exportMapPng` stays in `map`.
 - Failure modes: styling 8, tools 8, export 6, each with an example that compiles under `intent validate`, six of them as `expect-error` fences.
 - Gaps found while writing, left to the maintainer: the guide says the `offset` of `anchors.set` shifts by a number of pixels while the type is a `{ x, y }` point, and the SVG export does not read the `geodesic` column of the scene, so great-circle edges are not drawn as arcs.
+
+### Shapes
+
+Written for 0.25.0: the `shapes` skill (460 lines, 11 failure modes, five `expect-error` fences: TS2305 for the main entry, TS2769 for `label` and for coordinates typed `number[][]`, TS2339 for `count().shapes` without a shape mark and for `target.endpoints` on an untyped instance). Aligned for 0.25.0: `core` (483 lines), `interaction` (401), `view` (313), `styling` (426), `export` (177), `multilayer` (342), `time` (318), `tools` (435), `map` (330); their failure mode counts are unchanged.
+
+- `shapes` owns the mark and everything specific to it. Each other skill got the sentences where a shape changes its rules and a pointer to `shapes`.
+- Tension: `others` crosses kinds, so a state of nodes dims the zones too (`interaction`, `shapes`); by-kind styles decide which kinds fade.
+- Cross-references proposed for the shared tables: `shapes` to `interaction` (targets, selection, lasso, states), `shapes` to `tools` (hulls and anchors follow nodes, shapes do not), `shapes` to `view` (`fit`, zoom ranges), `shapes` to `map` (not drawn on a map), `tools` to `shapes`.
+- The timeline reads nodes and edges only: the times of shapes do not enter its extent or histogram (`time`).
 
 ## Coverage and batch history
 

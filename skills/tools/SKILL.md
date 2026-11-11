@@ -87,7 +87,7 @@ document.body.append(view.element)
 
 ### Minimap
 
-`createMinimap(graph, options)` draws the whole graph with the rectangle of the current view. Dragging the rectangle pans, pressing elsewhere centers the view there, and the wheel zooms.
+`createMinimap(graph, options)` draws the whole graph (its nodes, and its edges up to `maxEdges`; the shapes of a `shapes()` mark are not drawn) with the rectangle of the current view. Dragging the rectangle pans, pressing elsewhere centers the view there, and the wheel zooms.
 
 - It sits in a `corner` of the graph element: `'topLeft'`, `'topRight'`, `'bottomLeft'` or `'bottomRight'` (default). With `corner: null`, it leaves `minimap.element` to you, to place anywhere in the page.
 - `width` and `height` default to 200 by 150, and a value that is not above 0 falls back to the default. Other options: `margin`, `padding`, `maxEdges` (20,000: past it the minimap draws nodes only), `nodeSize`, `nodeColor`, `selectionColor`, `background`, `mask`, `viewColor`, `pan`, `zoom`. Colors are CSS colors, `--graph-*` tokens included, resolved with the theme.
@@ -106,7 +106,7 @@ In React, `<Minimap corner="bottomLeft" />` inside `<Graph>`; with `corner={null
 
 ### Legend
 
-The legend is read from the scales and the marks, not written. `createLegend` keeps its state in a store; `mountLegend` renders it as plain HTML styled by the theme tokens.
+The legend is read from the scales and the marks, not written; the shapes of a `shapes()` mark have no scale and no entry in it. `createLegend` keeps its state in a store; `mountLegend` renders it as plain HTML styled by the theme tokens.
 
 - `legend.store.state` holds sections: `color` (categories with the nodes and edges drawn in each, or a ramp for a sequential scale), `size` and `width` (the ends of the domain and a rounded value between), `marks` (the sections of marks with `scales` of their own), `looks` (shapes, images and line patterns, shown for a kind of element drawn with more than one look), `layers`, `hovered` and `off` (the ids switched off).
 - Raw colors (`raw()`) and `fill` or `stroke` colors have no category: those elements count only under their look. At most 64 categories are listed, plus the ones switched off.
@@ -261,7 +261,7 @@ graph.on('contextmenu', ({ target, world }) => {
 
 ### Hulls and the background grid
 
-A hull is a shape drawn under edges and nodes around a set of nodes: build it with `hull()` and list it in `hulls`. It encloses one of:
+A hull is a shape drawn under edges and nodes around a set of nodes: build it with `hull()` and list it in `hulls`. It follows its nodes; for an area or a line with geometry of its own, such as a zone with a hole, use a `shapes()` mark (shapes skill). It encloses one of:
 
 - a list of keys: `hull({ nodes: ['a', 'b'] })`, missing keys skipped;
 - every node of a mark: `hull({ nodes: people })`, where `people` is **the same mark object** listed in `marks`;
@@ -305,7 +305,7 @@ Examples: [drawing layers](https://bruno00o.github.io/graph/examples/drawing-lay
 
 ### Devtools panel
 
-`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node and edge counts, issues, selection, named states and layout runs, for every graph mounted on the page. The graph measures nothing until a panel is open and visible.
+`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node, edge and shape counts, issues (shape problems included), selection, named states and layout runs, for every graph mounted on the page. A hovered shape shows as `shape <key>`; `messages.shapes`, `messages.shapeIssue` and `messages.shapeTarget` replace its texts. The graph measures nothing until a panel is open and visible.
 
 ```ts
 import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools'

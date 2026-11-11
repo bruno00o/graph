@@ -43,7 +43,7 @@ sources:
 
 # Draw a graph with @bruno00o/graph
 
-A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges()`), mounted into an element (`mountGraph`) that returns an instance. The instance drives everything at run time: view, selection, states, positions, events, updates. Rendering uses WebGL2, so it needs a browser.
+A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges()`, and `shapes()` for free areas and lines, from `@bruno00o/graph/shapes`: shapes skill), mounted into an element (`mountGraph`) that returns an instance. The instance drives everything at run time: view, selection, states, positions, events, updates. Rendering uses WebGL2, so it needs a browser.
 
 ## Setup
 
@@ -230,6 +230,7 @@ graph.selection.clear()
 - `selected`, `hovered` and `focused` are built in. Declaring one restyles it; their members change through `graph.selection` and user input, never `graph.states`.
 - When several states set one property, the first wins: `selected`, `hovered`, `focused`, then your states in declaration order.
 - A key may join a state before its element exists; the element takes the style when it arrives.
+- A state holds `{ nodes, edges }` keys, and `shapes` too when the definition has a shape mark (shapes skill). The selection has the same lists.
 
 ### Listen to events
 
@@ -260,6 +261,8 @@ controller.abort()
 ```
 
 Events: `click`, `doubleclick`, `contextmenu`, `pointermove`, `pointerenter`, `pointerleave`, `dragstart`, `drag`, `dragend`, `positionchange`, `selectionchange`, `focuschange`, `foldchange`, `viewchange`, `timechange`, `layerchange`, `lenschange`, `issueschange`, `zoomhint`, `layoutstart`, `layoutend`, `loadingchange`.
+
+A target is a node or an edge, plus `kind: 'shape'` when the definition has a shape mark. An untyped `GraphInstance` (a helper that takes the instance) may see all three kinds: narrow on `target.kind` before reading `endpoints` or `datum`.
 
 ### Replace the data
 
@@ -318,7 +321,7 @@ console.log(graph.issues().map((issue) => issue.type))
 console.log(graph.count().pending)
 ```
 
-Here `issues()` holds one `duplicate-key` and `count().pending` is 1: edge `e1` waits for node `n9`. Issue types: `missing-key`, `duplicate-key`, `missing-parent`, `parent-cycle`, `missing-carrier`.
+Here `issues()` holds one `duplicate-key` and `count().pending` is 1: edge `e1` waits for node `n9`. Issue types: `missing-key`, `duplicate-key`, `missing-parent`, `parent-cycle`, `missing-carrier`, and `invalid-shape` for a shape whose geometry cannot be read (shapes skill). `missing-key` and `duplicate-key` also come with `kind: 'shapes'`. A typed graph has the shape issues only when it has a shape mark; the plain `GraphIssue` of an untyped instance always includes them, so an exhaustive `switch (issue.type)` needs a `case 'invalid-shape'`.
 
 ### Know when live data has loaded
 
@@ -477,4 +480,4 @@ Every page has a Markdown version: add `.md` to its URL. The site documents the 
 - [Quick start](https://bruno00o.github.io/graph/docs/quick-start), [Installation](https://bruno00o.github.io/graph/docs/installation)
 - [Data and live sources](https://bruno00o.github.io/graph/docs/data), [Marks and channels](https://bruno00o.github.io/graph/docs/marks), [States](https://bruno00o.github.io/graph/docs/states), [TypeScript](https://bruno00o.github.io/graph/docs/typescript), [Vanilla](https://bruno00o.github.io/graph/docs/vanilla)
 - API: [defineGraph](https://bruno00o.github.io/graph/docs/api/define-graph), [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [edges](https://bruno00o.github.io/graph/docs/api/edges), [mountGraph](https://bruno00o.github.io/graph/docs/api/mount-graph), [GraphInstance](https://bruno00o.github.io/graph/docs/api/graph-instance), [Events](https://bruno00o.github.io/graph/docs/api/events)
-- Layouts, groups, edge drawing, maps, time, exports and integrations have their own guides in the [docs](https://bruno00o.github.io/graph/docs), and their own skills when this package ships them: run `intent list` to see which.
+- Layouts, groups, shapes, edge drawing, maps, time, exports and integrations have their own guides in the [docs](https://bruno00o.github.io/graph/docs), and their own skills when this package ships them: run `intent list` to see which.

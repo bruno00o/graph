@@ -71,7 +71,7 @@ Both functions take the same options, plus `pixelRatio` for the PNG and `embedIm
 
 | Option | Values | Default |
 | --- | --- | --- |
-| `region` | `'view'`: what the graph shows now. `'graph'`: frames every node, plus the labels, loops and hulls that reach past them | `'view'` |
+| `region` | `'view'`: what the graph shows now. `'graph'`: frames every node and every shape, plus the labels, loops and hulls that reach past them | `'view'` |
 | `zoom` | Scale of the file, in CSS pixels per world unit | Current zoom of the view |
 | `padding` | Margin around the content in CSS pixels. Used by `region: 'graph'` only. Finite, 0 or more | 32 |
 | `labels` | `'visible'`: the screen rules (small labels hidden, no overlap). `'all'`: every label whatever its size or overlaps. `'none'` | `'visible'` |
@@ -96,7 +96,7 @@ const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff
 
 ### Choose region, zoom and pixel ratio
 
-- By default the file shows what the graph shows: same area, same zoom, same labels, grid and hulls. `region: 'graph'` frames every node instead, which is the usual choice for a file meant to be read without the screen.
+- By default the file shows what the graph shows: same area, same zoom, same labels, grid, shapes and hulls. `region: 'graph'` frames every node and shape instead, which is the usual choice for a file meant to be read without the screen.
 - `zoom` changes the scale of the content, with either region: it is the scale of the file in CSS pixels per world unit, so `zoom` alone sets the size of a `region: 'graph'` file. The current zoom of the view is `graph.store.get().view.zoom`: pass twice that value for twice the screen scale. Nodes sized in world units grow with it, while edge widths, labels and nodes with `units: 'screen'` keep their size in pixels, as when you zoom on screen. A larger `zoom` gives a larger file of the same region, never a crop.
 - `pixelRatio` changes sharpness only: the number of image pixels per CSS pixel. The file is `CSS size x pixelRatio` pixels. Raise it for print.
 - Past 4,096 pixels on a side the PNG is drawn in tiles, so its size is bounded by memory, not by the GPU. Labels are chosen once for the whole image, so none is cut or doubled at a tile edge. The PNG records its pixel density.
@@ -104,8 +104,8 @@ const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff
 
 ### What is in the file
 
-- Drawn: node shapes, fills, strokes, outlines, halos and opacity; images cut to the node shape and icons tinted with their `color`; badges; unfolded groups as containers behind their children, folded groups as nodes; straight and curved edges, loops, dashes, dots, arrows, edge ends, bundled and routed paths; labels with their placement, color, weight, second line and background; the background grid; hulls (over the containers, under the edges); the state styles in force, such as selection and hover; the theme colors of the moment.
-- Left out: HTML anchored with `graph.anchors` or `<Anchor>`, the minimap and the lens (they are not part of the scene), and elements outside the time window of the graph unless `window` says otherwise.
+- Drawn: node shapes, fills, strokes, outlines, halos and opacity; images cut to the node shape and icons tinted with their `color`; badges; unfolded groups as containers behind their children, folded groups as nodes; straight and curved edges, loops, dashes, dots, arrows, edge ends, bundled and routed paths; labels with their placement, color, weight, second line and background; the background grid; shapes from `shapes()` (just after the grid, under the containers); hulls (over the containers, under the edges); the state styles in force, such as selection and hover; the theme colors of the moment.
+- Left out: HTML anchored with `graph.anchors` or `<Anchor>`, the minimap and the lens (they are not part of the scene), and elements outside the time window of the graph unless `window` says otherwise. Shapes follow the same rules as nodes: their states, raised ones, hidden ones, zoom range, time window and layers; the SVG of a graph on a map draws no shape, since the map does not draw them.
 - The background is `--graph-paper`, filled by the export. On screen the canvas is transparent and the page paints what lies under the graph, which an export cannot read: a CSS pattern on the container is not in the file. Draw it with the `background` grid of the definition, or export with `'transparent'` and lay the image over the same background.
 - Edges with a `flow` are drawn as still dashes at `time`. At `0`, every pattern starts at the source of its edge, so two exports of the same graph match. The SVG holds no animation.
 - SVG text uses the font of the theme and is not embedded: a viewer without that font falls back to another one, so labels may be a little wider or narrower. An image the browser cannot load, for lack of CORS headers for instance, is left out of the file as it is on screen. Great-circle edges (`geodesic`) are not drawn as arcs in an SVG, and the SVG of a graph on a map always draws the flat map.

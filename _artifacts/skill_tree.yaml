@@ -220,25 +220,25 @@ skills:
     requires:
       - core
     purpose: >
-      Layers, bands, support and drill down: layer on node and edge marks,
-      graph.layers and controlled hidden layers, supportedBy and the support
-      walks, the support states of defineGraph, and the hide-state pattern for
-      opening edges one level at a time.
+      Layers, bands, support and drill down: layer on node, edge and shape
+      marks, graph.layers and controlled hidden layers, supportedBy and the
+      support walks, the support states of defineGraph, and the hide-state
+      pattern for opening edges one level at a time.
   - name: view
     slug: view
     domain: navigation-and-input
     path: skills/view/SKILL.md
     description: >
       Use when framing, zooming or moving the @bruno00o/graph view from code:
-      fitting the view to chosen nodes or edges, to a selection or a path,
-      animating zoom and pan, choosing what the graph frames on its own (first
-      data, layouts or nothing), limiting the zoom and the area people can
-      reach, keeping the view in application state, converting between screen
-      pixels and world units to place overlays or drop nodes, and showing nodes
-      and edges only within a range of zoom (level of detail, clusters that give
-      way to members). Gesture options such as the wheel belong to the
-      interaction skill; a graph inside a MapLibre map does not use this skill's
-      view limits and is covered by the map skill.
+      fitting the view to chosen nodes, edges or shapes, to a selection or a
+      path, animating zoom and pan, choosing what the graph frames on its own
+      (first data, layouts or nothing), limiting the zoom and the area people
+      can reach, keeping the view in application state, converting between
+      screen pixels and world units to place overlays or drop nodes, and showing
+      nodes, edges and shapes only within a range of zoom (level of detail,
+      clusters that give way to members). Gesture options such as the wheel
+      belong to the interaction skill; a graph inside a MapLibre map does not
+      use this skill's view limits and is covered by the map skill.
     sources:
       - src/types.ts
       - src/define-graph.ts
@@ -257,7 +257,7 @@ skills:
       The camera of a @bruno00o/graph graph: the view as a center and a zoom,
       fit and its options, the first view and automatic framing, view limits,
       the controlled view, screen and world coordinates, and the minZoom and
-      maxZoom ranges of nodes and edges.
+      maxZoom ranges of nodes, edges and shapes.
   - name: interaction
     slug: interaction
     domain: navigation-and-input
@@ -270,9 +270,9 @@ skills:
       pointer; controlling the selection from application state; and styling
       states beyond a basic highlight: fading everything outside a state,
       drawing members above the rest, hiding members, always showing their
-      labels, or styling nodes and edges apart. The first graph, plain states
-      and event basics are in the core skill; moving the view from code is in
-      the view skill.
+      labels, or styling nodes, edges and shapes apart. The first graph, plain
+      states and event basics are in the core skill; moving the view from code
+      is in the view skill.
     sources:
       - src/types.ts
       - src/define-graph.ts
@@ -303,9 +303,9 @@ skills:
       mountMapGraph or MapGraph in React, drawing great circles and routes that
       follow roads or other lines, switching basemaps or the globe projection,
       putting a timeline on a map graph, exporting the map and the graph as one
-      PNG, and finding why a layout, minimap, lens, rotation or view option does
-      nothing on a map. Not for a plain graph that only uses coordinates without
-      a map.
+      PNG, and finding why a layout, minimap, lens, rotation, shape mark or view
+      option does nothing on a map. Not for a plain graph that only uses
+      coordinates without a map.
     sources:
       - src/map/index.ts
       - src/map/react.tsx
@@ -328,12 +328,12 @@ skills:
     domain: geography-and-time
     path: skills/time/SKILL.md
     description: >
-      Use when giving @bruno00o/graph nodes and edges a time or a period,
-      showing only what exists in a time window, fading elements in and out at
-      the edges of the window, controlling the window from application state, or
-      adding a timeline with a histogram that brushes, steps and plays (default
-      element, a renderer of your own, or the React Timeline component and
-      useTimeline hook), also on a map graph.
+      Use when giving @bruno00o/graph nodes, edges and shapes a time or a
+      period, showing only what exists in a time window, fading elements in and
+      out at the edges of the window, controlling the window from application
+      state, or adding a timeline with a histogram that brushes, steps and plays
+      (default element, a renderer of your own, or the React Timeline component
+      and useTimeline hook), also on a map graph.
     sources:
       - src/timeline/index.ts
       - src/timeline/view.ts
@@ -347,8 +347,8 @@ skills:
     requires:
       - core
     purpose: >
-      Time in @bruno00o/graph: the time channel of nodes and edges, the time
-      window and its exact boundaries, the fade, the controlled window, the
+      Time in @bruno00o/graph: the time channel of nodes, edges and shapes, the
+      time window and its exact boundaries, the fade, the controlled window, the
       timeline companion with its store and actions, and the mistakes that leave
       everything showing, nothing playing or a window one moment off.
   - name: tanstack-db
@@ -561,3 +561,35 @@ skills:
       exportPng and exportSvg: what each one draws, region, scale and pixel
       ratio, labels, background, time window and flows, downloading the result,
       and the errors and limits.
+  - name: shapes
+    slug: shapes
+    domain: structure
+    path: skills/shapes/SKILL.md
+    description: >
+      Use when drawing areas and lines from your own geometry under a
+      @bruno00o/graph graph: zones, districts, parcels, rings, rectangles, circles and
+      polygons with holes in world units, or GeoJSON polygons and lines in degrees;
+      styling them with fill, stroke, dash and opacity; letting people hover, click,
+      select and lasso them, or keeping a decorative zone out of the pointer's way;
+      dimming, hiding or highlighting them with states; showing them by zoom, time or
+      layer; framing, counting and exporting them; and finding unreadable geometry.
+      Not for an outline that follows a set of nodes (hulls or groups), nor for
+      shapes on a MapLibre map, which are not drawn yet.
+    sources:
+      - src/shapes/index.ts
+      - src/shapes/read.ts
+      - src/shapes/pick.ts
+      - src/core/shape-store.ts
+      - src/core/shape-engine.ts
+      - src/types.ts
+      - src/host/events.ts
+      - src/host/graph-instance.ts
+      - docs/content/docs/(guide)/shapes.mdx
+      - docs/content/docs/api/shapes.mdx
+    requires:
+      - core
+    purpose: >
+      The shapes() mark of @bruno00o/graph: geometry forms and units, style and
+      drawing order, picking, selection and events, states, zoom, time and layers,
+      fit, count and issues, exports, and the mistakes that leave a zone unclickable,
+      mispositioned, untyped or missing.

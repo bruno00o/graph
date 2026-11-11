@@ -1,7 +1,7 @@
 ---
 name: time
 description: >
-  Use when giving @bruno00o/graph nodes and edges a time or a period, showing
+  Use when giving @bruno00o/graph nodes, edges and shapes a time or a period, showing
   only what exists in a time window, fading elements in and out at the edges of
   the window, controlling the window from application state, or adding a timeline
   with a histogram that brushes, steps and plays (default element, a renderer of
@@ -9,7 +9,7 @@ description: >
   graph.
 metadata:
   purpose: >
-    Time in @bruno00o/graph: the time channel of nodes and edges, the time
+    Time in @bruno00o/graph: the time channel of nodes, edges and shapes, the time
     window and its exact boundaries, the fade, the controlled window, the
     timeline companion with its store and actions, and the mistakes that leave
     everything showing, nothing playing or a window one moment off.
@@ -37,7 +37,7 @@ Elements carry a `time`, the graph holds a time window, and only elements that e
 
 ### Give elements a time
 
-`time` on `nodes()` and `edges()` is a channel: a field name or a function of the item. A time is one of:
+`time` on `nodes()`, `edges()` and `shapes()` is a channel: a field name or a function of the item. A shape (shapes skill) follows the window like a node, on its own: a shape out of the window is not drawn, picked, lassoed, counted in `count().shown` or exported. The timeline, though, reads nodes and edges only: its extent and histogram ignore the times of shapes. A time is one of:
 
 - a moment, in milliseconds or a `Date`: the element exists at that moment only;
 - a period `{ start, end }`: from `start`, included, to `end`, left out. A missing or `null` end leaves it open on that side, so `{ start: date }` exists from `date` on, forever;
@@ -280,7 +280,7 @@ Controlled mode is decided at mount and never changes. `update({ time })` on a g
 
 ### MEDIUM A timeline over data with no times
 
-With no element carrying a time, the timeline has no extent (`state.extent` is `null`), no bins, and `play()` does nothing. Give elements a `time`, or fix the bar with the `extent` option.
+With no element carrying a time, the timeline has no extent (`state.extent` is `null`), no bins, and `play()` does nothing. Give elements a `time`, or fix the bar with the `extent` option. Times on shapes do not count: a graph whose only timed elements are shapes needs the `extent` option, and its histogram stays empty.
 
 ### MEDIUM Mixing local and UTC times
 

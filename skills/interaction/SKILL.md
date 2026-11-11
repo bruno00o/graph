@@ -7,7 +7,7 @@ description: >
   focus; reacting to clicks, hovers, drags and the pointer; controlling the
   selection from application state; and styling states beyond a basic highlight:
   fading everything outside a state, drawing members above the rest, hiding
-  members, always showing their labels, or styling nodes and edges apart. The
+  members, always showing their labels, or styling nodes, edges and shapes apart. The
   first graph, plain states and event basics are in the core skill; moving the
   view from code is in the view skill.
 metadata:
@@ -76,7 +76,7 @@ const definition = defineGraph({
 
 ### Select, and control the selection
 
-A click selects the element alone; with `'multiple'` (the default), Shift, Cmd or Ctrl adds it or removes it; a click on the background clears. A click on a merged edge selects all the edges it merges, or, with `halves` (groups skill), the edges of the direction under the pointer. A press released within 4 pixels (10 for a touch) is a click. Read and change the selection from code:
+A click selects the element alone; with `'multiple'` (the default), Shift, Cmd or Ctrl adds it or removes it; a click on the background clears. A click on a merged edge selects all the edges it merges, or, with `halves` (groups skill), the edges of the direction under the pointer. A click on a shape (shapes skill) selects it the same way, after nodes, edges and containers drawn over it. A press released within 4 pixels (10 for a touch) is a click. Read and change the selection from code:
 
 ```ts
 import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
@@ -121,6 +121,7 @@ const graph = mountGraph(document.body, {
 - The mode is fixed at mount. A graph mounted without `selection` ignores `update({ selection })`. In React, pass `selection` and `onSelectionChange` from the first render (react skill).
 - An element removed from the data leaves the selection, and `onSelectionChange` reports it.
 - The selection is not a free state: change it with `graph.selection`, never `graph.states`.
+- With a shape mark, the selection and `ElementKeysInput` carry a `shapes` list beside `nodes` and `edges`: keep it when you rewrite the selection (`{ ...next, nodes: [...] }` does). Without a shape mark, `shapes` keys are ignored.
 
 ### React to pointer events
 
@@ -159,7 +160,7 @@ graph.on('dragend', ({ keys }) => console.log(keys))
 controller.abort()
 ```
 
-- `target` is `{ kind, key, datum, mark }`, `null` over the background for `click`, `doubleclick`, `contextmenu` and `pointermove`, and never `null` for `pointerenter` and `pointerleave`. An edge target also has `endpoints` (the key of a folded group stands for an end hidden in it), `end` (`'source'` or `'target'`) on a mark with `ends`, and `aggregate` (every merged edge, split into `forward` and `backward`) on a merged edge or an edge between folded groups. On a half of a two-way merged edge (`merge: { directed: false, halves: true }`), `direction` is `'forward'` for the half next to `aggregate.target` and `'backward'` for the half next to `aggregate.source`; `key` and `datum` are those of the first edge of that direction. Hover enters and leaves per half too (`pointerleave` then `pointerenter` when the pointer crosses from one half to the other).
+- `target` is `{ kind, key, datum, mark }`, with `kind` `'node'`, `'edge'`, or `'shape'` when the definition has a shape mark (a shape under the pointer never beats a node, an edge or a container drawn over it). It is `null` over the background for `click`, `doubleclick`, `contextmenu` and `pointermove`, and never `null` for `pointerenter` and `pointerleave`. An edge target also has `endpoints` (the key of a folded group stands for an end hidden in it), `end` (`'source'` or `'target'`) on a mark with `ends`, and `aggregate` (every merged edge, split into `forward` and `backward`) on a merged edge or an edge between folded groups. On a half of a two-way merged edge (`merge: { directed: false, halves: true }`), `direction` is `'forward'` for the half next to `aggregate.target` and `'backward'` for the half next to `aggregate.source`; `key` and `datum` are those of the first edge of that direction. Hover enters and leaves per half too (`pointerleave` then `pointerenter` when the pointer crosses from one half to the other).
 - `click` fires before the default selection, so a handler sees the selection as it was. A `doubleclick` on a group folds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 - `pointermove` fires at most once per frame; the graph tracks the pointer for it only while a handler is subscribed. During a drag its target is the dragged node.
 - `dragstart`, `drag` and `dragend` carry `keys`: every moved node (the whole selection when the dragged node is selected, the nodes inside a dragged group). `positionchange` reports the positions, with `origin` `'drag'`, `'api'` or `'layout'`.
@@ -168,9 +169,9 @@ controller.abort()
 
 ### Drag and lasso
 
-Dragging a node starts after 4 pixels and emits no click. Dragging a selected node moves the whole selection, and a group's container moves its children. During a layout run, a dragged node stays where it is dropped and the others settle around it.
+Dragging a node starts after 4 pixels and emits no click. Dragging a selected node moves the whole selection, and a group's container moves its children. During a layout run, a dragged node stays where it is dropped and the others settle around it. Dragging a shape pans the view like the background, and a double click on a shape does nothing.
 
-`lasso: true` with `select: 'multiple'` draws a lasso with Shift and a drag from the background; the nodes inside join the selection on release (edges are not taken). Without the lasso, Shift and drag pans. A long press never starts a lasso, and Escape cancels one in progress.
+`lasso: true` with `select: 'multiple'` draws a lasso with Shift and a drag from the background, or from a shape; the nodes inside join the selection on release, and so do the shapes whose every point is inside (never a shape that contains the lasso). Edges are not taken. Without the lasso, Shift and drag pans. A long press never starts a lasso, and Escape cancels one in progress.
 
 ### Choose what the wheel does
 
@@ -248,7 +249,7 @@ graph.focus.set(null)
 
 ### Style states beyond a highlight
 
-A state style takes `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, `raise`, `hide` and `others`. Declare states in `defineGraph({ states })` and fill them by key (core skill). These properties are the ones to reach for:
+A state style takes `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, `raise`, `hide` and `others`. Declare states in `defineGraph({ states })` and fill them by key (core skill). On a shape only `opacity`, `fill`, `stroke`, `strokeWidth`, `raise`, `hide` and `others` apply (shapes skill). These properties are the ones to reach for:
 
 ```ts
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
@@ -288,8 +289,8 @@ graph.states.clear('path')
 
 - To light a hovered node, its neighbors and the edges among them, fill a free by-kind state on `pointerenter` and clear it on `pointerleave`: nodes are the hovered key and `graph.neighbors(key)`, edges are the `graph.edgesOf(key)` of each of those nodes whose two `graph.endpoints` are in the node set (or `graph.paths.reach(key, { maxCost: 1 })`, which returns `{ nodes, edges }`). A built-in `hovered: { others }` only spares the hovered element itself.
 - `others` styles every element outside the state, as long as the state has at least one member (a key whose element does not exist yet does not count). It takes the same properties except `raise` and `others`. Setting members costs the same with or without `others`.
-- A state of edges also fades the nodes outside it, its own ends included. Put the ends in the state, or style by kind: `{ nodes, edges }`, each a full style, with `others` applying to that kind only. A style is by kind or for both, never mixed (`{ opacity: 0.2, nodes: {} }` does not compile). A kind left out has no style, or its default for built-in states.
-- `raise: true` draws members above every mark, labels them first and picks them first, in exports too. It is `true` for `selected`, `hovered` and `focused`; `raise: false` draws them in place. It costs one more draw of the raised elements.
+- A state of edges also fades the nodes outside it, its own ends included, and the shapes too: a member of any kind activates `others` for every kind. Put the ends in the state, or style by kind: `{ nodes, edges, shapes }`, each a full style, with `others` applying to that kind only. A style is by kind or for both, never mixed (`{ opacity: 0.2, nodes: {} }` does not compile). A kind left out has no style, or its default for built-in states.
+- `raise: true` draws members above every mark, labels them first and picks them first, in exports too. It is `true` for `selected`, `hovered` and `focused`; `raise: false` draws them in place. It costs one more draw of the raised elements. A raised shape comes first only among shapes: it stays under containers, hulls, edges and nodes.
 - `label: 'always'` shows a label at every zoom (8 pixels at least, or its own size if smaller) and ignores `minScreenSize`. It still gives way to labels it would cover, so thousands of members do not cover the screen with text.
 - `hide: true` takes members out of drawing, labels, picking, exports and legend counts, and hides the edges of a hidden node. Members keep their position, selection and other states. `others: { hide: true }` keeps only the members while the state has one.
 - Built-in states take the same options: `hovered: { others: { opacity: 0.3 } }` fades everything but the hovered element at the cost of one state change per hover. A style merges with the default of that built-in state, property by property.
@@ -312,7 +313,7 @@ In controlled mode a click only calls `onSelectionChange`. A handler that does n
 
 ### MEDIUM A state of edges that fades the nodes
 
-`others` on a state fades every element outside it, nodes and edges. A state that holds only edges therefore dims all nodes, even the ends of its edges. Use the by-kind form with `others` under `edges` only, or add the end nodes to the state.
+`others` on a state fades every element outside it, nodes, edges and shapes. A state that holds only edges therefore dims all nodes and shapes, even the ends of its edges. Use the by-kind form with `others` under `edges` only, or add the end nodes to the state. The same holds for a state of nodes and the zones of a shape mark.
 
 ```ts
 import { defineGraph, nodes } from '@bruno00o/graph'
@@ -352,7 +353,7 @@ In `wheel: 'page'` the graph shows no text. Subscribe to `zoomhint` and show you
 
 ### MEDIUM Reading the pointer event of an edge as a node
 
-Targets are a union on `kind`. Check `target?.kind` (and `target.mark` when two marks of one kind carry different items) before reading `datum` or `endpoints`; a `click` target is `null` on the background. The same goes for `end`, `aggregate` and `direction`, which exist on edge targets only:
+Targets are a union on `kind`: node, edge, and shape when the definition has a shape mark (an untyped `GraphInstance` may see all three, so an `else` after the node case holds shapes too, and a `switch` over `kind` needs `case 'shape'`). Check `target?.kind` (and `target.mark` when two marks of one kind carry different items) before reading `datum` or `endpoints`; a `click` target is `null` on the background. The same goes for `end`, `aggregate` and `direction`, which exist on edge targets only:
 
 ```ts expect-error=TS2339
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
@@ -389,6 +390,7 @@ The task is done when:
 - handlers narrow `target` on `kind` before reading `datum` or `direction`, and are removed with a `signal` or the function `on` returns;
 - state styles use `others`, `raise`, `hide` and `label: 'always'` as needed, with by-kind styles where only one kind must change;
 - keyboard and focus are left on unless the page has its own shortcuts, and `focus.set` is used for programmatic focus;
+- shapes, when there are some, follow the shapes skill: `pick` decides which ones take the pointer, and `others` states are by kind where zones must not fade;
 - `tsc` accepts the code with no cast on targets or state names.
 
 ## References
