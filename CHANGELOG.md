@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.25.0](https://github.com/bruno00o/graph/compare/0.24.0...0.25.0) (2026-11-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* select and style shapes ([#166](https://github.com/bruno00o/graph/issues/166))
+* draw shapes under the graph ([#165](https://github.com/bruno00o/graph/issues/165))
+
+### Features
+
+* draw shapes under the graph ([#165](https://github.com/bruno00o/graph/issues/165)) ([40cec0a](https://github.com/bruno00o/graph/commit/40cec0a4befc851504d0899ecfa0f64704cc3d28))
+* select and style shapes ([#166](https://github.com/bruno00o/graph/issues/166)) ([039bada](https://github.com/bruno00o/graph/commit/039bada6aa1bcdce1b9266c9c07835e00db9122b))
+
+
+### Bug Fixes
+
+* frame shapes after a gliding layout and check the default geometry field ([#168](https://github.com/bruno00o/graph/issues/168)) ([43c3fd5](https://github.com/bruno00o/graph/commit/43c3fd509657ff33e3efceced62cf563340e453a))
+* warn in development when merged edge halves are asked without undirected merging ([#163](https://github.com/bruno00o/graph/issues/163)) ([5f89509](https://github.com/bruno00o/graph/commit/5f8950924f64004f8a608f59181f3c0d8e5206d1))
+
 ## [0.24.0](https://github.com/bruno00o/graph/compare/0.23.1...0.24.0) (2026-11-11)
 
 
