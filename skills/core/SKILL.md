@@ -25,6 +25,8 @@ sources:
   - src/core/raw.ts
   - src/core/issues.ts
   - src/core/source-table.ts
+  - src/core/live-source.ts
+  - src/host/data-status.ts
   - src/host/graph-instance.ts
   - src/host/events.ts
   - docs/content/docs/(guide)/installation.mdx
@@ -257,7 +259,7 @@ stop()
 controller.abort()
 ```
 
-Events: `click`, `doubleclick`, `contextmenu`, `pointermove`, `pointerenter`, `pointerleave`, `dragstart`, `drag`, `dragend`, `positionchange`, `selectionchange`, `focuschange`, `foldchange`, `viewchange`, `timechange`, `layerchange`, `lenschange`, `issueschange`, `zoomhint`, `layoutstart`, `layoutend`.
+Events: `click`, `doubleclick`, `contextmenu`, `pointermove`, `pointerenter`, `pointerleave`, `dragstart`, `drag`, `dragend`, `positionchange`, `selectionchange`, `focuschange`, `foldchange`, `viewchange`, `timechange`, `layerchange`, `lenschange`, `issueschange`, `zoomhint`, `layoutstart`, `layoutend`, `loadingchange`.
 
 ### Replace the data
 
@@ -293,7 +295,7 @@ Options are compared by content, so a rebuilt definition with equal options rewr
 - Positions are not in the store: read `graph.positions.get(key)` when `positionsVersion` changes; move nodes with `graph.positions.set([[key, { x, y }]])`.
 - Structure: `graph.neighbors(key)`, `graph.edgesOf(key)`, `graph.endpoints(edgeKey)`, `graph.datumOf({ kind: 'node', key })`, `graph.pick({ x, y })` (screen pixels).
 - View: `graph.view.fit({ nodes: [key], duration: 400 })`, `graph.view.set(view)`, `graph.view.zoomBy(2)`.
-- `await graph.drawn()` resolves after the next frame is drawn.
+- `await graph.drawn()` resolves after the next frame is drawn. It says nothing about live data: `await graph.loaded()` does (next section).
 
 ### Check the data
 
@@ -317,6 +319,50 @@ console.log(graph.count().pending)
 ```
 
 Here `issues()` holds one `duplicate-key` and `count().pending` is 1: edge `e1` waits for node `n9`. Issue types: `missing-key`, `duplicate-key`, `missing-parent`, `parent-cycle`, `missing-carrier`.
+
+### Know when live data has loaded
+
+A live source (a TanStack DB collection, a live query, `subset`, the sources of `createExploration`) may deliver its rows over time. The graph reads its `status` and `status:change` event with nothing to configure. Array data, and live sources without a `status`, are always loaded.
+
+- `graph.store.get().data` is `{ loading, failed }`: `loading` is `true` while a live source of the current definition has not finished its first load, `failed` lists the sources whose load failed. A failure is never an issue: `graph.issues()` stays about the data. The graph keeps drawing what a failed source delivered.
+- `loadingchange` fires when either changes, with the new `data`. In React, `onLoadingChange` or `useGraphState((state) => state.data)`.
+- `await graph.loaded()` resolves once nothing loads and what the sources delivered is applied: `count()` and `issues()` are complete. It resolves at once when nothing loads, and also after a failure. It rejects once the graph is destroyed. It is not `drawn()`: a layout may still run, so wait for `layoutend` or `await graph.drawn()` after it if you need the picture.
+- The graph draws no loading indicator: show your own from `data`.
+
+```ts
+import { defineGraph, type LiveSource, mountGraph, nodes } from '@bruno00o/graph'
+import { force } from '@bruno00o/graph/layouts/force'
+
+type Item = { id: string; label: string }
+
+declare const rows: LiveSource<Item>
+
+const definition = defineGraph({
+  marks: [nodes(rows, { label: 'label' })],
+  layout: force(),
+})
+const graph = mountGraph(document.body, { definition, ariaLabel: 'Graph of live rows' })
+
+const overlay = document.createElement('p')
+overlay.setAttribute('role', 'status')
+overlay.textContent = 'Loading'
+overlay.hidden = !graph.store.get().data.loading
+document.body.append(overlay)
+
+graph.on('loadingchange', ({ loading, failed }) => {
+  overlay.hidden = !loading
+  if (!loading && failed.length > 0) overlay.textContent = 'Some data could not be loaded'
+})
+
+export async function whenComplete() {
+  await graph.loaded()
+  return graph.count().nodes
+}
+```
+
+`waitForData` in `defineGraph` decides what waits. While a source loads, its batches are drawn as they come. The first automatic full layout (also after a new layout, or with `relayout`) and the automatic fits wait until every source has loaded or failed, so a collection that syncs in three batches is laid out once, on all its rows. The wait is 10,000 ms from the first nodes by default; when the time is up they run on what is there. `true` waits for as long as sources load, `false` or `0` runs on the first batch as array data does, a negative number or `NaN` throws a `RangeError`. Turn it off when the source never reports ready (a stream that stays open) or when a first picture matters more than a complete layout. An explicit `graph.layout.run()` and `graph.view.fit()` never wait. Nodes that arrive after the first layout are placed as before.
+
+A live source of your own may report `status` (`'loading'`, `'loadingSubset'` or `'idle'` mean loading, `'error'` or `'crashed'` failed, anything else loaded) and `on('status:change', listener)` returning a stop function. A `status` that stays `'idle'` once loaded counts as loading until it changes. Leave both out when the source has no first load.
 
 ### Destroy
 
@@ -372,6 +418,10 @@ const perItem = nodes(items, { color: raw((item) => item.hex) })
 
 Source: [Channels and styles](https://bruno00o.github.io/graph/docs/marks#channels-and-styles).
 
+### HIGH Laying out or fitting before the live data has loaded
+
+A `layout.run()` or `view.fit()` written right after mounting sees the first batch only: `await graph.loaded()` first. The automatic layout and fit already wait (`waitForData`), so add your own only when you turned that off. `await graph.drawn()` does not wait for data: it resolves after one frame, loaded or not.
+
 ### HIGH A container without a height
 
 The graph fills its container and never sets its own size. A container with no height (an empty `div`, a flex child that does not stretch) draws nothing. Development builds warn once when the container measures 0 pixels. Give it a height in CSS before mounting.
@@ -417,6 +467,7 @@ The task is done when:
 - `graph.count()` gives the expected `nodes` and `edges`, and `pending` is 0 unless edges wait on purpose;
 - `tsc` accepts the code with no `any` or cast on targets, events and state names;
 - data changes go through new arrays, new item objects and `graph.update`, or through a live source;
+- a graph over live sources that load shows its loading from `data` or `loadingchange`, and code that needs the complete data awaits `graph.loaded()`, not `drawn()`;
 - every mounted graph is destroyed, or its `signal` aborted, when its page or component goes away.
 
 ## References

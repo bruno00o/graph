@@ -45,6 +45,7 @@ skills:
       - states
       - events
       - issues and count
+      - live data loading (data, loadingchange, loaded, waitForData)
       - keys and pending edges
       - data updates by identity
     tasks:
@@ -55,6 +56,7 @@ skills:
       - Fade or highlight a set of nodes by key with a state
       - React to clicks and selection changes
       - Replace the data and keep positions, view and selection
+      - Show a loading overlay while live data loads and lay the graph out once on the complete data
       - Find why a graph stays blank, misses edges or does not update
       - Destroy a graph when its page goes away
     failure_modes:
@@ -116,6 +118,19 @@ skills:
         source: docs/content/docs/(guide)/data.mdx
         priority: MEDIUM
         status: active
+      - mistake: Laying out or fitting before live data has loaded
+        mechanism: A layout run or a fit written right after mounting sees the first batch of a live source only, and drawn() resolves after one frame whether the data is in or not; loaded() waits for the sources, and the automatic layout and fit already wait for them (waitForData).
+        wrong_pattern: |
+          const graph = mountGraph(el, { definition, ariaLabel })
+          await graph.drawn()
+          await graph.layout.run(force(), { fit: true })
+        correct_pattern: |
+          const graph = mountGraph(el, { definition, ariaLabel })
+          await graph.loaded()
+          await graph.layout.run(force(), { fit: true })
+        source: docs/content/docs/(guide)/data.mdx, src/host/data-status.ts
+        priority: HIGH
+        status: active
       - mistake: Waiting edges taken for a bug
         mechanism: An edge whose end is missing waits for it, uncounted as a problem, so mismatched key types hide edges silently.
         wrong_pattern: |
@@ -138,11 +153,13 @@ skills:
       - Anchor
       - graph option of the hooks
       - controlled props
+      - onLoadingChange and data in the state
       - StrictMode
     tasks:
       - Render a graph from props or state without restyling on every render
       - Show a tooltip or overlay over the hovered node
       - Handle clicks with typed event props
+      - Show a loading overlay while live sources load
       - Drive the graph from a toolbar or panel outside Graph
       - Control the selection or the view from React state
       - Mount the graph under StrictMode
@@ -218,6 +235,7 @@ skills:
       - Layout
       - relayout
       - autoFit of layouts
+      - waitForData
     tasks:
       - Place nodes without coordinates with a force layout
       - Lay out a hierarchy in layers, in a chosen direction
@@ -225,6 +243,7 @@ skills:
       - Run a layout from code, follow its progress and fit the result
       - Save positions and restore them
       - Write a custom layout
+      - Lay out a graph that arrives in batches from a live source once, on the complete data
     failure_modes:
       - mistake: Importing force from the layouts entry point
         mechanism: force has its own entry point so graphs without it ship none of its code; the layouts entry does not export it.
@@ -387,6 +406,7 @@ skills:
       - graph.groups
       - merge
       - aggregate
+      - halves
       - betweenGroups
       - hide
       - relayout
@@ -396,8 +416,18 @@ skills:
       - Group items by a field with groups()
       - Fold and unfold groups from code or controlled state
       - Merge parallel edges and edges between groups
+      - Select and style each direction of a two-way merged edge by its half
       - Hide elements without removing their data
     failure_modes:
+      - mistake: Setting halves without directed false
+        mechanism: halves only takes effect with directed set to false, and the type accepts the combination without a report, so the line stays whole, target.direction is never set and a click selects both directions.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to', merge: { halves: true } })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', merge: { directed: false, halves: true } })
+        source: docs/content/docs/(guide)/transformations.mdx, src/core/projection.ts
+        priority: HIGH
+        status: active
       - mistake: Passing a string to fold, unfold or set
         mechanism: They take an iterable of keys and a string is an iterable of characters, so the call compiles and folds single characters.
         wrong_pattern: |
@@ -557,6 +587,7 @@ skills:
       - FitOptions
       - view limits
       - autoFit
+      - waitForData
       - controlled view
       - minZoom
       - maxZoom
@@ -571,6 +602,7 @@ skills:
       - Convert between screen and world coordinates
       - Show nodes and edges only within a range of zoom
       - Choose what the graph frames on its own with autoFit
+      - Frame the complete data of a live source that loads in batches
     failure_modes:
       - mistake: Passing a list of keys to view.fit
         mechanism: fit takes an options object, so a list does not compile and untyped code throws a TypeError.
@@ -659,6 +691,7 @@ skills:
       - wheel modes and zoomhint
       - autoPan
       - pointer events
+      - target.direction of merged edge halves
     tasks:
       - Configure selection, drag, lasso, wheel and touch
       - Control the selection from application state
@@ -957,6 +990,7 @@ skills:
       - "live query joins"
       - "persistPositions"
       - "pendingState"
+      - "loading status and data.failed"
     tasks:
       - "Draw a collection or a live query as it changes"
       - "Filter a large collection with subset"
@@ -964,6 +998,7 @@ skills:
       - "Join collections into nodes with a live query"
       - "Write dragged and laid out positions back to a collection"
       - "Show the position writes in flight"
+      - "Know when a collection has loaded and show a loading overlay"
     failure_modes:
       - mistake: "A join without getKey"
         mechanism: "A live query with a join keys its rows by the pair of joined keys, so node keys are JSON.stringify([main, joined]) strings that no edge source or target matches and every edge waits."
@@ -975,7 +1010,7 @@ skills:
         priority: HIGH
         status: active
       - mistake: "On-demand collection passed as is"
-        mechanism: "A subscription without where asks an on-demand collection for every row, so nothing is filtered at the source."
+        mechanism: "A subscription without where asks an on-demand collection for every row, so nothing is filtered at the source, and the load of those rows is not tracked: the graph sees the collection as loaded once it is ready, so data.loading and loaded() say nothing about them."
         wrong_pattern: |
           nodes(onDemandItems, { label: 'label' })
         correct_pattern: |
@@ -1029,10 +1064,12 @@ skills:
       - "reset"
       - "exploration store"
       - "typing"
+      - "loading status of the sources"
     tasks:
       - "Explore a large graph one neighborhood at a time"
       - "Show expanded, loading and failed nodes"
       - "Retry a failed expansion"
+      - "Wait for the roots to load before the first layout and fit"
       - "Type the nodes and edges of an exploration"
     failure_modes:
       - mistake: "Expecting the types to be inferred from a plain query object"

@@ -17,6 +17,7 @@ metadata:
   library: '@bruno00o/graph'
 sources:
   - src/query/index.ts
+  - src/host/data-status.ts
   - docs/content/docs/(guide)/tanstack-query.mdx
   - docs/content/docs/api/create-exploration.mdx
 requires:
@@ -160,6 +161,45 @@ exploration.store.subscribe(mirror)
 The store only notifies changes, so apply its current state once yourself, as above: the roots are already expanded when you subscribe.
 
 A failed expansion stays expanded, with its error in `errors`. TanStack Query retries 3 times before a query fails (set `retry` in the options of `neighbors` to change it), so an error shows up after the retries.
+
+### The graph knows when the exploration is loading
+
+The two sources of an exploration have a `status`: loading while a query of an expansion has not answered once (or is fetched again by `retry`), `'error'` when a query failed with no data to show, ready otherwise. The graph reads it like any live source, with no setup:
+
+- `graph.store.get().data.loading`, `loadingchange` and `await graph.loaded()` follow the queries, those of a later expansion too; `data.failed` lists the sources when an expansion failed, and `exploration.store.get().errors` tells which key.
+- The first automatic layout and fit wait for the roots to load (`waitForData`, 10,000 ms from the first nodes by default), so the roots are laid out once, together. Later expansions are placed next to their neighbors as before.
+- Nothing is tracked until a mark subscribes to the sources, since nothing is fetched before.
+
+```ts
+import { defineGraph, edges, type Key, mountGraph, nodes } from '@bruno00o/graph'
+import { createExploration } from '@bruno00o/graph/query'
+import { QueryClient } from '@tanstack/query-core'
+
+type Person = { id: string; name: string }
+type Relation = { id: string; from: string; to: string }
+
+declare function fetchNeighbors(key: Key): Promise<{ nodes: Person[]; edges: Relation[] }>
+
+const exploration = createExploration<Person, Relation>(new QueryClient(), {
+  roots: ['n1', 'n2'],
+  neighbors: (key) => ({ queryKey: ['neighbors', key], queryFn: () => fetchNeighbors(key) }),
+})
+
+const graph = mountGraph(document.body, {
+  definition: defineGraph({
+    marks: [
+      edges(exploration.edges, { source: 'from', target: 'to' }),
+      nodes(exploration.nodes, { label: 'name' }),
+    ],
+  }),
+  ariaLabel: 'Explored graph',
+})
+
+export async function roots() {
+  await graph.loaded()
+  return graph.store.get().data.failed.length === 0
+}
+```
 
 ### Retry a failed expansion
 
@@ -372,6 +412,7 @@ The task is done when:
 - `createExploration` is created once, with type arguments or typed `queryOptions`, roots set, and `neighbors` returning `{ nodes, edges }` that includes the expanded node;
 - the marks read `exploration.nodes` and `exploration.edges`, with `source`/`target` matching the node keys;
 - expansion is wired to an event (`toggle` on double-click, for example), and failures can be seen and retried;
+- a wait for the first data awaits `graph.loaded()` or reads `data`, and does not rely on `drawn()`;
 - `expanded`, `loading` (and failed) states are declared and written from the store, outside render;
 - the exploration is destroyed with the page;
 - `tsc` accepts the code with no casts.
