@@ -147,6 +147,7 @@ export type {
   Key,
   KeyChannel,
   KeyFieldOf,
+  KeyList,
   LabelOptions,
   LabelPlacement,
   LabelTextOptions,

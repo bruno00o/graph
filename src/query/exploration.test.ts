@@ -253,6 +253,18 @@ describe('createExploration', () => {
     createExploration(client, { roots: [], neighbors: unkeyed, edgeKey: 'from' })
   })
 
+  it('refuses a string as roots, and warns when one gets through', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const client = new QueryClient()
+    // @ts-expect-error
+    createExploration(client, { roots: 'a', neighbors })
+    createExploration(client, { roots: new Set<Key>(['a']), neighbors })
+    expect(warn.mock.calls).toEqual([
+      ['graph: createExploration({ roots }) takes a list of keys, not a string'],
+    ])
+    warn.mockRestore()
+  })
+
   it('reports edges without a key in the graph instead of breaking it', async () => {
     const client = new QueryClient()
     const loose = {

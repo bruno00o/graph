@@ -263,7 +263,7 @@ On a map, the definition keeps its marks, states, scales, labels, images, badges
 - `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units. A node without coordinates is placed near its placed neighbors, or on a spiral. In development, a layout in the definition logs a warning, and `graph.layout.run` rejects.
 - `background`, `bundling`, `routing` and `bridges`.
 - The [lens](/docs/lens): `graph.lens.set` does nothing.
-- The [minimap](/docs/minimap-and-legend#minimap): the map has its own navigation, and the minimap does not support a map graph.
+- The [minimap](/docs/minimap-and-legend#minimap): the map has its own navigation. `createMinimap` and `<Minimap>` draw nothing on a map graph, and warn once in development.
 - Rotation, pitch and terrain: the graph draws on a north-up map, flat or on the globe. In development, it warns when the map is rotated or tilted.
 
 ## Export

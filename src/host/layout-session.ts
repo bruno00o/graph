@@ -1,4 +1,5 @@
 import type { GraphChanges, GraphModel } from '../core/graph-model'
+import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
 import type { Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
@@ -67,6 +68,7 @@ export class LayoutHost {
   #laidOut = false
   #relayout = false
   readonly #source: LayoutSource
+  readonly #check: StringCheck = stringCheck()
 
   constructor(source: LayoutSource) {
     this.#source = source
@@ -362,6 +364,10 @@ export class LayoutHost {
           if (runOptions.fit && runOptions.fit !== true) checkFit(runOptions.fit)
         } catch (error) {
           return Promise.reject(error)
+        }
+        this.#check(runOptions.keys, 'layout.run({ keys })')
+        if (runOptions.fit && runOptions.fit !== true) {
+          checkLists(this.#check, runOptions.fit, 'layout.run({ fit: { $ } })')
         }
         this.#source.prepare()
         const fit = runOptions.fit === true ? {} : runOptions.fit || null

@@ -1,3 +1,4 @@
+import { type StringCheck, stringCheck } from '../core/key-list'
 import type { LayerFilter } from '../core/mark-layers'
 import type { Scene } from '../core/scene'
 import type { StateKind } from '../core/state-buffers'
@@ -27,6 +28,7 @@ export class LayerControl {
   #shape = ''
   #listener: LayerListener
   readonly #source: LayerSource
+  readonly check: StringCheck = stringCheck()
 
   constructor(source: LayerSource, hidden: Iterable<string>, listener: LayerListener) {
     this.#source = source
@@ -112,8 +114,12 @@ export class LayerControl {
       names: () => scene.markLayers.names,
       hidden: () => this.hidden,
       isHidden: (name) => this.hidden.includes(name),
-      hide: (list) => this.ask([...this.base(), ...(list ?? scene.markLayers.names)]),
+      hide: (list) => {
+        this.check(list, 'layers.hide')
+        this.ask([...this.base(), ...(list ?? scene.markLayers.names)])
+      },
       show: (list) => {
+        this.check(list, 'layers.show')
         const base = this.base()
         const shown = new Set<string>(list ?? [...scene.markLayers.names, ...base])
         this.ask(base.filter((name) => !shown.has(name)))
@@ -122,7 +128,10 @@ export class LayerControl {
         const base = this.base()
         this.ask(base.includes(name) ? base.filter((each) => each !== name) : [...base, name])
       },
-      set: (list) => this.ask(list),
+      set: (list) => {
+        this.check(list, 'layers.set')
+        this.ask(list)
+      },
     }
   }
 }

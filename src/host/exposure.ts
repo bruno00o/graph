@@ -19,6 +19,7 @@ import type { StateRegistry } from './state-registry'
 import type { TimeControl } from './time-control'
 
 export interface ExposureSource {
+  readonly onMap: boolean
   readonly element: HTMLElement
   readonly scene: Scene
   readonly positions: Positions
@@ -49,6 +50,7 @@ export interface ExposureSource {
 export function exposeGraph(graph: object, source: ExposureSource): void {
   const { scene, positions, buffers, projection, containers, render, watchers } = source
   exposeInternals(graph, {
+    onMap: source.onMap,
     scene,
     positions,
     definition: source.definition,

@@ -1,4 +1,5 @@
-import type { Key, Point, View } from '../types'
+import { type StringCheck, stringCheck } from '../core/key-list'
+import type { Key, KeyList, Point, View } from '../types'
 
 /**
  * Side of the target where an anchored element sits: `'top'`, `'right'`, `'bottom'`, `'left'`,
@@ -69,7 +70,7 @@ export interface AnchorNodeTarget<S extends string = string> extends Omit<Anchor
 /** Target of an anchor that follows several nodes together, on their bounding box. */
 export interface AnchorNodesTarget<S extends string = string> extends Omit<AnchorTargets, 'nodes'> {
   /** Keys of the nodes to follow. */
-  readonly nodes: Iterable<Key>
+  readonly nodes: KeyList
   /** Shows the element only while one of the nodes is in this state. */
   readonly when?: S | undefined
 }
@@ -176,6 +177,7 @@ export class AnchorLayer {
   readonly #wrappers = new WeakMap<Element, Anchor>()
   readonly #locator: AnchorLocator
   readonly #request: () => void
+  readonly #check: StringCheck = stringCheck()
   readonly #observer: ResizeObserver | null
   readonly #box: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0 }
   readonly #part: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0 }
@@ -238,6 +240,7 @@ export class AnchorLayer {
       this.#observer?.observe(wrapper)
     }
     anchor.options = options
+    this.#check(options.nodes, 'anchors.set(element, { nodes })')
     anchor.keys = options.nodes ? [...options.nodes] : null
     anchor.wrapper.style.pointerEvents = options.interactive ? 'auto' : 'none'
     this.#request()

@@ -1,3 +1,4 @@
+import { stringCheck } from './core/key-list'
 import { withoutUndefined } from './core/without-undefined'
 import type {
   Hull,
@@ -14,6 +15,8 @@ function atLeastZero(value: number | undefined, name: string): void {
   }
 }
 
+const check = stringCheck()
+
 /** Draws one hull per value of `by`, around the nodes of a mark that share it. */
 export function hull<T>(options: HullGroupOptions<T>): Hull<never>
 /** Draws a hull around every node of a mark. */
@@ -24,6 +27,7 @@ export function hull<const N extends string>(options: HullStateOptions<N>): Hull
 export function hull(options: HullKeysOptions): Hull<never>
 export function hull(options: HullOptions): Hull {
   const given = withoutUndefined(options)
+  if ('nodes' in given) check(given.nodes, 'hull({ nodes })')
   atLeastZero(given.padding, 'padding')
   atLeastZero(given.strokeWidth, 'strokeWidth')
   const state = 'state' in given ? given.state : null

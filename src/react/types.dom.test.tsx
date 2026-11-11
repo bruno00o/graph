@@ -4,7 +4,7 @@ import { defineGraph } from '../define-graph'
 import type { GraphPointerEvent, NodeTarget } from '../host/events'
 import type { Legend as LegendInstance, LegendState } from '../legend/index'
 import { edges, nodes } from '../marks'
-import type { EdgeMark, NodeMark } from '../types'
+import type { EdgeMark, GraphDefinition, NodeMark } from '../types'
 import {
   Graph,
   type GraphInstance,
@@ -164,12 +164,37 @@ function Outside({ graph, maybe }: { readonly graph: Typed; readonly maybe: Type
   return null
 }
 
+function KeyLists(): JSX.Element {
+  const untyped: GraphDefinition = definition
+  return (
+    <>
+      <Graph
+        definition={untyped}
+        ariaLabel="graph"
+        initialFolded={new Set(['a'])}
+        initialHiddenLayers={['a']}
+        selection={{ nodes: ['a'], edges: new Set(['b']) }}
+      />
+      {/* @ts-expect-error */}
+      <Graph definition={untyped} ariaLabel="graph" folded="a" />
+      {/* @ts-expect-error */}
+      <Graph definition={untyped} ariaLabel="graph" hiddenLayers="a" />
+      {/* @ts-expect-error */}
+      <Graph definition={untyped} ariaLabel="graph" selection={{ nodes: 'a' }} />
+    </>
+  )
+}
+
 describe('typed React adapter', () => {
   it('types the event props of <Graph> from the definition', () => {
     expectTypeOf(Events).returns.toEqualTypeOf<JSX.Element>()
     expectTypeOf<Parameters<typeof Graph<'muted', Marks>>[0]>().toEqualTypeOf<
       GraphProps<'muted', Marks>
     >()
+  })
+
+  it('refuses a bare string where a list of keys is expected', () => {
+    expectTypeOf(KeyLists).returns.toEqualTypeOf<JSX.Element>()
   })
 
   it('types the ref of <Graph>, and accepts an untyped ref object', () => {

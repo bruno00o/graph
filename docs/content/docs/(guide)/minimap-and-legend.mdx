@@ -13,7 +13,7 @@ import { createMinimap } from '@bruno00o/graph/minimap'
 const minimap = createMinimap(graph, { corner: 'bottomRight', width: 200, height: 150 })
 ```
 
-The minimap sits in a corner of the graph element. A `width` or `height` that is not above 0 falls back to its default. With `corner: null`, it leaves `minimap.element` to you, to place anywhere in the page. `minimap.update` changes the options it is given, keeps the others and returns an option set to `undefined` to its default, and `minimap.destroy` removes it; destroying the graph destroys it too, and a minimap created on a destroyed graph comes back destroyed, without a worker. Every option is listed in the [API reference](/docs/api/minimap), and the [minimap options](/examples/minimap-options) example tries them. A graph drawn on a [map](/docs/map) has no minimap: the map has its own navigation.
+The minimap sits in a corner of the graph element. A `width` or `height` that is not above 0 falls back to its default. With `corner: null`, it leaves `minimap.element` to you, to place anywhere in the page. `minimap.update` changes the options it is given, keeps the others and returns an option set to `undefined` to its default, and `minimap.destroy` removes it; destroying the graph destroys it too, and a minimap created on a destroyed graph comes back destroyed, without a worker. Every option is listed in the [API reference](/docs/api/minimap), and the [minimap options](/examples/minimap-options) example tries them. A graph drawn on a [map](/docs/map) has no minimap: the map has its own navigation, so a minimap of a map graph keeps an empty element, does nothing on `update`, and warns once in development.
 
 ### What it draws
 
