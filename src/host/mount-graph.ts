@@ -558,6 +558,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     prepare: flushPending,
   })
   const reads = new DataReads({ model, hierarchy, support, scene, buffers, emitter })
+  scene.shapes.wake = () => {
+    if (destroyed) return
+    reads.refreshIssues()
+    request()
+  }
 
   function sight(except: string | null = null): Sight {
     return {
@@ -1226,6 +1231,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       }
       emitter.clear()
       model.destroy()
+      scene.shapes.destroy()
       render.release()
       themeResolver.destroy()
       decorations.destroy()

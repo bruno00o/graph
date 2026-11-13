@@ -268,6 +268,7 @@ Object.assign(window, {
       generate: generated - started,
       mount: mounted - generated,
       firstFrame: firstFrame - mounted,
+      shown: firstFrame,
     },
   },
 })

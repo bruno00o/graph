@@ -5,7 +5,7 @@ import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
 import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
-import type { ShapeLayer } from '../core/shape-engine'
+import type { ShapeLabelFrame, ShapeLayer } from '../core/shape-engine'
 import { maxStates, noPaint, type StateBuffers, stateRow, stateRows } from '../core/state-buffers'
 import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
 import type { ZoomRanges } from '../core/zoom-range'
@@ -36,7 +36,6 @@ import {
   glyphStride,
   LabelLayer,
   LabelPlan,
-  type ShapeLabelFrame,
   sortBySize,
   sortDescending,
   sortEdgesByWidth,

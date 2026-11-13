@@ -5,6 +5,7 @@ import { geoToWorld } from '../core/geo'
 import { createGraphModel } from '../core/graph-model'
 import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
+import type { ShapeLabelFrame } from '../core/shape-engine'
 import type { ShapeStore } from '../core/shape-store'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
@@ -20,7 +21,6 @@ import {
   glyphStride,
   LabelLayer,
   labelLevel,
-  type ShapeLabelFrame,
   sortBySize,
   sortDescending,
   sortEdgesByWidth,

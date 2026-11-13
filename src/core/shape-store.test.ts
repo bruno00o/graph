@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
+import { labelAnchor, labelOrder } from '../shapes/labels'
 import { defaults } from '../theme/tokens'
 import type { GraphDefinition, LiveSource, Mark, ShapeGeometry, SourceChange } from '../types'
 import { noColor } from './columns'
@@ -216,7 +217,6 @@ describe('ShapeStore', () => {
     expect(indexOf('a')).toBe(0)
     render([nodes([{ id: 'a' }])])
     expect(store.count).toBe(0)
-    expect(store.points).toBe(0)
     expect(store.drawOrder().length).toBe(0)
     expect(store.marked).toBe(false)
   })
@@ -269,13 +269,16 @@ describe('ShapeStore labels and pins', () => {
     expect(labels?.labelSize[indexOf('small')]).toBe(20)
     expect(labels?.labelWeight[indexOf('small')]).toBe(700)
     expect(color(labels?.labelBackground[indexOf('small')])).toBe(defaults.labelBackground)
-    expect(Array.from(store.labelOrder(), (index) => store.keys[index])).toEqual(['large', 'small'])
-    expect(store.labelAnchor(indexOf('large'))).toBe(true)
+    expect(Array.from(labelOrder(store).order, (index) => store.keys[index])).toEqual([
+      'large',
+      'small',
+    ])
+    expect(labelAnchor(store, indexOf('large'))).toBe(true)
     expect(labels?.anchor[indexOf('large') * 2]).toBe(40)
     const used = scene.palette.colors.indexOf('#ff0000')
     render([shapes(zones.slice(2), { label: { text: 'name', color: '#ff0000' } })])
     expect(store.labels?.count).toBe(0)
-    expect(store.labelOrder().length).toBe(0)
+    expect(labelOrder(store).order.length).toBe(0)
     render([shapes([{ id: 'other', geometry: box(0) }], { fill: '#00ff00' })])
     expect(scene.palette.colors.indexOf('#00ff00')).toBe(used)
   })
