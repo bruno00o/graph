@@ -302,15 +302,17 @@ skills:
       nodes by longitude and latitude, mounting the graph on a map with
       mountMapGraph or MapGraph in React, drawing great circles and routes that
       follow roads or other lines, switching basemaps or the globe projection,
-      putting a timeline on a map graph, exporting the map and the graph as one
-      PNG, and finding why a layout, minimap, lens, rotation, shape mark or view
-      option does nothing on a map. Not for a plain graph that only uses
-      coordinates without a map.
+      putting a timeline on a map graph, drawing areas and zones on the map,
+      exporting the map and the graph as one PNG, and finding why a layout,
+      minimap, lens, rotation or view option does nothing on a map. Not for a plain
+      graph that only uses coordinates without a map.
     sources:
       - src/map/index.ts
       - src/map/react.tsx
       - src/map/export.ts
       - src/core/geo.ts
+      - src/shapes/wrap.ts
+      - src/shapes/subdivide.ts
       - src/waypoints.ts
       - src/types.ts
       - docs/content/docs/(guide)/map.mdx
@@ -571,25 +573,32 @@ skills:
       polygons with holes in world units, or GeoJSON polygons and lines in degrees;
       styling them with fill, stroke, dash and opacity; letting people hover, click,
       select and lasso them, or keeping a decorative zone out of the pointer's way;
-      dimming, hiding or highlighting them with states; showing them by zoom, time or
-      layer; framing, counting and exporting them; and finding unreadable geometry.
-      Not for an outline that follows a set of nodes (hulls or groups), nor for
-      shapes on a MapLibre map, which are not drawn yet.
+      labeling them; pinning a ring or a halo to a node; drawing them on a MapLibre
+      map; dimming, hiding or highlighting them with states; showing them by zoom,
+      time or layer; framing, counting and exporting them; and finding unreadable
+      geometry. Not for an outline that follows a set of nodes (hulls or groups).
     sources:
       - src/shapes/index.ts
       - src/shapes/read.ts
       - src/shapes/pick.ts
+      - src/shapes/anchor.ts
+      - src/shapes/wrap.ts
+      - src/shapes/subdivide.ts
       - src/core/shape-store.ts
       - src/core/shape-engine.ts
       - src/types.ts
       - src/host/events.ts
       - src/host/graph-instance.ts
       - docs/content/docs/(guide)/shapes.mdx
+      - docs/content/docs/(guide)/map.mdx
       - docs/content/docs/api/shapes.mdx
     requires:
       - core
     purpose: >
       The shapes() mark of @bruno00o/graph: geometry forms and units, style and
-      drawing order, picking, selection and events, states, zoom, time and layers,
-      fit, count and issues, exports, and the mistakes that leave a zone unclickable,
-      mispositioned, untyped or missing.
+      drawing order, picking, selection and events, labels, pins to nodes, maps,
+      states, zoom, time and layers, fit, count and issues, exports, and the mistakes
+      that leave a zone unclickable, mispositioned, untyped or missing.
+    references:
+      - references/labels-and-pins.md
+      - references/maps.md

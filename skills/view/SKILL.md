@@ -71,7 +71,7 @@ graph.on('doubleclick', ({ target }) => {
 
 - `padding` is in screen pixels: a number for every side, or one margin per side to keep nodes clear of a panel over the graph. A side left out takes the `padding` of the `view` of the definition, 32 by default.
 - `maxZoom` caps one fit, so a single node does not fill the screen. The `maxZoom` of the definition still applies.
-- A path, the selection and the result of `graph.paths.reach` have the `{ nodes, edges }` shape and pass as they are; the selection of a graph with shapes carries its `shapes` too, so the fit frames the selected zones.
+- A path, the selection and the result of `graph.paths.reach` have the `{ nodes, edges }` shape and pass as they are; the selection of a graph with shapes carries its `shapes` too, so the fit frames the selected zones. A shape pinned to a node is framed where the node is drawn, and one waiting for its node is left out.
 - `fit({ nodes: [] })` frames nothing and does nothing.
 - Called before the element has a size, `fit` waits for one, so a `fit` right after mount is fine, and it also steers the framing that follows the first layout run. To frame the result of a later layout run, give `fit` to `graph.layout.run` or set `autoFit: 'layouts'`.
 

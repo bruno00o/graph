@@ -77,21 +77,23 @@ Boundaries chosen from developer tasks, not from entry points:
 | 5   | Graph structure read during render                 | MEDIUM   | `src/host/mount-graph.ts` (`flushPending`) |                   |
 | 6   | Controlled prop set after mount                    | MEDIUM   | React guide                                | view, interaction |
 
-### shapes (11)
+### shapes (13)
 
-| #   | Mistake                                             | Priority | Source                             | Cross-skill |
-| --- | --------------------------------------------------- | -------- | ---------------------------------- | ----------- |
-| 1   | Importing `shapes` from the main entry              | HIGH     | shapes API, `src/shapes/index.ts`  |             |
-| 2   | A decorative zone that swallows the pointer         | HIGH     | shapes guide, `src/shapes/pick.ts` | interaction |
-| 3   | Expecting labels on shapes                          | HIGH     | shapes guide                       | styling     |
-| 4   | Mixing degrees and world units                      | HIGH     | shapes guide, `src/core/geo.ts`    | map         |
-| 5   | Reading shape counts or keys without a shape mark   | MEDIUM   | `graph-instance.ts`, `events.ts`   | core        |
-| 6   | Treating every target that is not a node as an edge | MEDIUM   | `events.ts`, TypeScript guide      | interaction |
-| 7   | Coordinates typed as `number[][]`                   | MEDIUM   | `src/types.ts`                     |             |
-| 8   | A state for nodes that also dims the zones          | MEDIUM   | shapes and states guides           | interaction |
-| 9   | Changing a shape in place                           | MEDIUM   | `src/core/shape-store.ts`          | core        |
-| 10  | Using a field name as a color                       | MEDIUM   | `src/types.ts`                     | core        |
-| 11  | Expecting shapes on a map                           | MEDIUM   | `src/map/index.ts`, shapes guide   | map         |
+| #   | Mistake                                                | Priority | Source                             | Cross-skill |
+| --- | ------------------------------------------------------ | -------- | ---------------------------------- | ----------- |
+| 1   | Importing `shapes` from the main entry                 | HIGH     | shapes API, `src/shapes/index.ts`  |             |
+| 2   | A decorative zone that swallows the pointer            | HIGH     | shapes guide, `src/shapes/pick.ts` | interaction |
+| 3   | Mixing degrees and world units                         | HIGH     | shapes guide, `src/core/geo.ts`    | map         |
+| 4   | A pin that pins nothing                                | HIGH     | `src/core/shape-store.ts`          |             |
+| 5   | Label options without a text                           | HIGH     | `src/types.ts`, shapes guide       | styling     |
+| 6   | Reading shape counts or keys without a shape mark      | MEDIUM   | `graph-instance.ts`, `events.ts`   | core        |
+| 7   | Treating every target that is not a node as an edge    | MEDIUM   | `events.ts`, TypeScript guide      | interaction |
+| 8   | Coordinates typed as `number[][]`                      | MEDIUM   | `src/types.ts`                     |             |
+| 9   | A state for nodes that also dims the zones             | MEDIUM   | shapes and states guides           | interaction |
+| 10  | Changing a shape in place                              | MEDIUM   | `src/core/shape-store.ts`          | core        |
+| 11  | Using a field name as a color                          | MEDIUM   | `src/types.ts`                     | core        |
+| 12  | Looking for a waiting shape in `count()` or `issues()` | MEDIUM   | `data-reads.ts`, shapes guide      |             |
+| 13  | World-unit shapes on a map                             | MEDIUM   | `src/shapes/read.ts`, map guide    | map         |
 
 ## Tensions
 
@@ -291,11 +293,13 @@ Written: styling, tools and export, from `src/` and the docs at commit d906a46.
 
 ### Shapes
 
-Written for 0.25.0: the `shapes` skill (460 lines, 11 failure modes, five `expect-error` fences: TS2305 for the main entry, TS2769 for `label` and for coordinates typed `number[][]`, TS2339 for `count().shapes` without a shape mark and for `target.endpoints` on an untyped instance). Aligned for 0.25.0: `core` (483 lines), `interaction` (401), `view` (313), `styling` (426), `export` (177), `multilayer` (342), `time` (318), `tools` (435), `map` (330); their failure mode counts are unchanged.
+Written for 0.25.0: the `shapes` skill (11 failure modes, five `expect-error` fences: TS2305 for the main entry, TS2769 for `label` and for coordinates typed `number[][]`, TS2339 for `count().shapes` without a shape mark and for `target.endpoints` on an untyped instance). Aligned for 0.25.0: `core`, `interaction`, `view`, `styling`, `export`, `multilayer`, `time`, `tools`, `map`; their failure mode counts are unchanged.
+
+Aligned for 0.26.0 (shapes on maps, labels, pins): `shapes` has 13 failure modes and two reference files (`references/labels-and-pins.md`, `references/maps.md`, declared in `skill_tree.yaml`). Dropped: the two modes that said shapes have no labels and are not drawn on a map. Added: a pin that pins nothing, label options without a text (`expect-error=TS2769`, the fence that used to say the option did not exist), a waiting shape looked for in `count().shapes` or `issues()`, world-unit shapes on a map. `map` gained a section on areas and lost its claim that shapes are not drawn; `export`, `interaction`, `styling` and `view` were aligned. Their failure mode counts are unchanged.
 
 - `shapes` owns the mark and everything specific to it. Each other skill got the sentences where a shape changes its rules and a pointer to `shapes`.
 - Tension: `others` crosses kinds, so a state of nodes dims the zones too (`interaction`, `shapes`); by-kind styles decide which kinds fade.
-- Cross-references proposed for the shared tables: `shapes` to `interaction` (targets, selection, lasso, states), `shapes` to `tools` (hulls and anchors follow nodes, shapes do not), `shapes` to `view` (`fit`, zoom ranges), `shapes` to `map` (not drawn on a map), `tools` to `shapes`.
+- Cross-references proposed for the shared tables: `shapes` to `interaction` (targets, selection, lasso, states), `shapes` to `tools` (hulls and anchors follow nodes, shapes do not), `shapes` to `view` (`fit`, zoom ranges), `shapes` to `map` (areas on a map), `tools` to `shapes`.
 - The timeline reads nodes and edges only: the times of shapes do not enter its extent or histogram (`time`).
 
 ## Coverage and batch history

@@ -5,9 +5,9 @@ description: >
   longitude and latitude, mounting the graph on a map with mountMapGraph or
   MapGraph in React, drawing great circles and routes that follow roads or other
   lines, switching basemaps or the globe projection, putting a timeline on a map
-  graph, exporting the map and the graph as one PNG, and finding why a layout,
-  minimap, lens, rotation, shape mark or view option does nothing on a map. Not for a plain
-  graph that only uses coordinates without a map.
+  graph, drawing areas and zones on the map, exporting the map and the graph as
+  one PNG, and finding why a layout, minimap, lens, rotation or view option does
+  nothing on a map. Not for a plain graph that only uses coordinates without a map.
 metadata:
   purpose: >
     The MapLibre adapter of @bruno00o/graph: mountMapGraph and MapGraph, the
@@ -21,6 +21,8 @@ sources:
   - src/map/react.tsx
   - src/map/export.ts
   - src/core/geo.ts
+  - src/shapes/wrap.ts
+  - src/shapes/subdivide.ts
   - src/waypoints.ts
   - src/types.ts
   - docs/content/docs/(guide)/map.mdx
@@ -109,7 +111,7 @@ The map owns the camera, its limits and its gestures. Dragging the background, t
 - `graph.view.set`, `fit` and `zoomBy` move the map with `jumpTo`, animations included. The graph keyboard works: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit.
 - `update({ view })` has no effect. `initialView`, `view` and `onViewChange` are not options of `mountMapGraph`.
 - The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch (and the largest pitch) and gives them back when the last graph on the map is destroyed.
-- On a flat map the graph is drawn once, between longitudes -180 and 180, on the world copy under the camera: across the antimeridian a node and its edges show on one side only.
+- On a flat map the graph is drawn once, between longitudes -180 and 180, on the world copy under the camera: across the antimeridian a node and its edges show on one side only (shapes in degrees show on both sides).
 
 ### Switch basemaps
 
@@ -253,6 +255,12 @@ setWorkerUrl(workerUrl)
 
 The `?worker&url` query is a Vite import with no types outside Vite, so this fragment is not typechecked. In a project that includes it, add `vite/client` to `types`, or declare the module in a `.d.ts` file (`declare module '*?worker&url' { const url: string; export default url }`). `optimizeDeps.exclude` is not enough at build time.
 
+### Draw areas on the map
+
+A `shapes()` mark (`@bruno00o/graph/shapes`, shapes skill) draws polygons, circles, rectangles and lines under the nodes and edges, above the basemap, on a flat map and on the globe. Shapes are picked, lassoed, styled by states and labeled, and `exportMapPng` draws them. Give their geometry in degrees (GeoJSON, or `{ longitude, latitude }` points) so it lines up with the basemap and with nodes placed by `longitude` and `latitude`; a circle centered on a place takes its radius in meters. A shape in world units stays in world units, and the world is 512 units wide, so a rectangle 100 units wide covers a fifth of the Earth.
+
+On a flat map a shape in degrees that crosses the antimeridian shows on both sides, unlike a node. On the globe, long edges are split to follow the surface and the part behind the horizon is neither drawn nor picked. A shape pinned to a node with `node` follows it, with its geometry in world units. Shapes are not on the minimap or in the legend.
+
 ### Groups, hulls and spreading on a map
 
 Hulls and groups work, on the globe too. A group needs no coordinates: its container encloses its children, and a folded group starts at their center. A `groups()` mark without `units` takes the units of its members, so groups of geo-placed nodes keep their pixel size. The `padding` of a container is in pixels. Containers are translucent on a map by default (`container.fillOpacity` changes it, 1 is opaque). Places that share coordinates are spread around their place when their group unfolds, and go back when it folds; `container: { spread: false }` keeps them stacked.
@@ -295,7 +303,7 @@ MapLibre takes `[longitude, latitude]`; `geoToWorld` takes `{ longitude, latitud
 
 ### MEDIUM Expecting rotation, pitch, terrain, lens or minimap
 
-The map stays north up and without pitch, in a flat or globe projection. The lens does nothing (`graph.lens.set` is ignored), the minimap draws nothing on a map graph and warns in development, and the SVG export draws the flat map. A `shapes()` mark is not drawn on a map and takes no pointer (one development warning, `graph: shapes are not drawn on a map yet`); its shapes are still counted by `graph.count()`, with `shown.shapes` at 0. In development the graph warns when the map is rotated or tilted.
+The map stays north up and without pitch, in a flat or globe projection. The lens does nothing (`graph.lens.set` is ignored), the minimap draws nothing on a map graph and warns in development, and the SVG export draws the flat map. In development the graph warns when the map is rotated or tilted.
 
 ### MEDIUM Colors tuned for one basemap
 
@@ -315,7 +323,7 @@ The task is done when:
 
 - the map container has a height, MapLibre 6 is installed and its stylesheet is imported;
 - every node has `longitude` and `latitude` (or `x` and `y`), and no `layout`, `view`, `initialView`, `onViewChange` or `bundling` is set for the map graph;
-- the graph is framed with `graph.view.fit({ padding })` after mounting;
+- the graph is framed with `graph.view.fit({ padding })` after mounting, and shapes on the map have geometry in degrees;
 - teardown destroys the graph before `map.remove()`, or a `signal` does it;
 - with React, `<MapGraph>` renders after the map exists, and the map is created in `useEffect`;
 - with a bundler, MapLibre's worker URL is set;
