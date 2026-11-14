@@ -1691,6 +1691,16 @@ export interface LayoutGraph<T = unknown> {
    * Unfolded groups, drawn as containers around their members. Missing when no group is unfolded.
    */
   readonly groups?: LayoutGroups
+  /**
+   * Nodes that stand for a whole group laid out on its own: each is as large as that group's
+   * container and holds its nodes. Missing when no node is a block.
+   */
+  readonly blocks?: LayoutBlocks | undefined
+  /**
+   * Container the layout runs in, when it places the members of one group. Missing when the
+   * layout places the whole graph.
+   */
+  readonly container?: LayoutContainer | undefined
   /** Key of each node or unfolded group, `undefined` for a free slot. */
   readonly keys: readonly (Key | undefined)[]
   /** Item a node or an unfolded group comes from, as given to `nodes()`. `undefined` otherwise. */
@@ -1715,6 +1725,29 @@ export interface LayoutGroups {
    * numbers per index, above, right of, below and left of the container. Missing when unknown.
    */
   readonly labelSpace?: Float32Array
+}
+
+/**
+ * Blocks of a `LayoutGraph`, by internal index: nodes that stand for a group laid out on its own.
+ * A block is a node of the graph like the others, with the radius and extents of its container.
+ */
+export interface LayoutBlocks {
+  /** Number of nodes inside each block, `0` for a plain node. */
+  readonly size: Uint32Array
+  /** Items of the nodes inside a block, as given to `nodes()`; empty for a plain node. */
+  items(index: number): readonly unknown[]
+  /** Keys of the nodes inside a block, in the order of `items`; empty for a plain node. */
+  keys(index: number): readonly Key[]
+}
+
+/** Container whose members a `LayoutGraph` holds, when a layout runs inside one group. */
+export interface LayoutContainer {
+  /** Key of the group. */
+  readonly key: Key
+  /** Item the group comes from, as given to `nodes()` or made by `groups()`. */
+  readonly datum: unknown
+  /** `true` when the container is drawn as a circle, `false` for a rectangle. */
+  readonly circle: boolean
 }
 
 /** Receives the positions a layout computes. Every array holds `capacity × 2` numbers. */
@@ -1750,6 +1783,13 @@ export interface Layout<T = unknown> {
    * @default true
    */
   readonly incremental?: boolean | undefined
+  /**
+   * How its result may be turned to face the nodes around it, when it lays out the members of a
+   * group: `'free'` any rotation or mirror, `'flip'` a mirror across the direction of its layers,
+   * `'none'` as it is.
+   * @default 'none'
+   */
+  readonly turns?: 'free' | 'flip' | 'none' | undefined
   /** Starts a run. Nodes that are not movable must keep their place in every array it reports. */
   start(graph: LayoutGraph<T>, listener: LayoutListener): LayoutRun
 }

@@ -2,7 +2,7 @@ import { toAccessor } from '../../core/accessor'
 import { groupGap, separateGroups } from '../../core/group-separation'
 import { groupTree } from '../../core/group-tree'
 import type { Channel, Key, Layout, LayoutGraph } from '../../types'
-import { centroid, instant, movers } from '../shared'
+import { centroid, instant, isPlain, movers } from '../shared'
 import { components, distinct } from './adjacency'
 import { acyclicRanks } from './cycles'
 import { orderNested } from './nested-order'
@@ -39,13 +39,13 @@ export interface LayersOptions<T = unknown> {
   readonly root?: Key | readonly Key[] | undefined
   /**
    * Gap between two layers, from the borders of their largest nodes, in world units. Defaults to
-   * twice the largest diameter, and at least that diameter plus 24. The diameter of a box is the
-   * smaller of its width and height.
+   * twice the largest diameter, blocks aside, and at least that diameter plus 24. The diameter of a
+   * box is the smaller of its width and height.
    */
   readonly layerSpacing?: number | undefined
   /**
    * Gap between the borders of two neighboring nodes of a layer, in world units. Defaults to the
-   * largest diameter, and at least 8.
+   * largest diameter, blocks aside, and at least 8.
    */
   readonly nodeSpacing?: number | undefined
   /**
@@ -148,7 +148,7 @@ function arrange<T>(
     const halfHeight = extents ? Math.max(0, extents[index * 2 + 1] ?? 0) : own
     radius[at] = sideways ? halfHeight : halfWidth
     depth[at] = sideways ? halfWidth : halfHeight
-    largest = Math.max(largest, Math.min(halfWidth, halfHeight) * 2)
+    if (isPlain(graph, index)) largest = Math.max(largest, Math.min(halfWidth, halfHeight) * 2)
   })
   const nodeSpacing = gapOf(options.nodeSpacing, Math.max(largest, 8))
   const layerSpacing = gapOf(options.layerSpacing, Math.max(largest * 2, largest + 24))
@@ -409,6 +409,7 @@ export function layers<T = unknown>(options: LayersOptions<T> = {}): Layout<T> {
       return xy
     },
     false,
+    'flip',
   )
 }
 

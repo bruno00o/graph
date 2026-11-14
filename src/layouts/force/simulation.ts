@@ -5,7 +5,9 @@ import { Collider } from './collider'
 import { GroupForces, liftOf } from './groups'
 import { jitterOf, xorshift32 } from './random'
 
-export type ForceGraph = Omit<LayoutGraph, 'keys' | 'datum'>
+export type ForceGraph = Omit<LayoutGraph, 'keys' | 'datum' | 'blocks' | 'container'> & {
+  readonly mass?: Float32Array | undefined
+}
 
 /**
  * Where the simulation runs: `'auto'`, `'gpu'` or `'cpu'`. `'auto'` uses the GPU from 2,000
@@ -26,7 +28,8 @@ export interface ForceOptions {
    */
   readonly repulsion?: number | undefined
   /**
-   * Pull toward the center of the moving nodes, on full runs only.
+   * Pull toward the center of the moving nodes, on full runs only. Inside a container, `cohesion`
+   * takes its place.
    * @default 0.04
    */
   readonly gravity?: number | undefined
@@ -36,7 +39,8 @@ export interface ForceOptions {
    */
   readonly spacing?: number | undefined
   /**
-   * Pull of the members of an unfolded group toward the center of the group. `0` turns it off.
+   * Pull of the members of an unfolded group toward the center of the group, and of the nodes
+   * toward their center when the layout runs inside a container. `0` turns it off.
    * @default 0.5
    */
   readonly cohesion?: number | undefined
@@ -47,7 +51,8 @@ export interface ForceOptions {
    */
   readonly groupSpacing?: number | undefined
   /**
-   * Steps of a full run, rounded and at least 1. A run on part of the graph takes fewer.
+   * Steps of a full run, rounded and at least 1. A run on part of the graph takes fewer, and a run
+   * inside a container of fewer than 1,000 nodes takes 120 unless this is given.
    * @default 300
    */
   readonly steps?: number | undefined
@@ -148,6 +153,40 @@ export function resolveForce(options: ForceOptions = {}): ForceSettings {
       : forceDefaults.engine,
     multilevel: typeof options.multilevel === 'boolean' ? options.multilevel : 'auto',
   }
+}
+
+const containerSteps = 120
+const containerStepsBelow = 1000
+
+export function forceGraphOf(graph: LayoutGraph): ForceGraph {
+  const { capacity, alive, movable, xy, radius, edges, groups, blocks } = graph
+  const plain: ForceGraph = {
+    capacity,
+    alive,
+    movable,
+    xy,
+    radius,
+    edges,
+    ...(groups ? { groups } : {}),
+  }
+  if (!blocks) return plain
+  const mass = new Float32Array(capacity)
+  for (let index = 0; index < capacity; index++) mass[index] = Math.max(1, blocks.size[index] ?? 0)
+  return { ...plain, mass }
+}
+
+export function settingsIn(
+  graph: LayoutGraph,
+  settings: ForceSettings,
+  options: ForceOptions,
+): ForceSettings {
+  if (!graph.container) return settings
+  let alive = 0
+  for (let index = 0; index < graph.capacity; index++) alive += graph.alive[index] === 1 ? 1 : 0
+  const given =
+    typeof options.steps === 'number' && Number.isFinite(options.steps) && options.steps >= 0
+  const steps = given || alive >= containerStepsBelow ? settings.steps : containerSteps
+  return { ...settings, gravity: settings.cohesion, steps }
 }
 
 export class Cooling {
@@ -295,7 +334,7 @@ export class ForceSimulation {
       this.#cooling = new Cooling(start, settings.steps)
       this.#gravity = partial ? 0 : settings.gravity
     }
-    this.#mass = level?.mass ?? null
+    this.#mass = level?.mass ?? graph.mass ?? null
     this.#repulsion = settings.repulsion
     this.#centerX = movers.length > 0 ? sumX / movers.length : 0
     this.#centerY = movers.length > 0 ? sumY / movers.length : 0

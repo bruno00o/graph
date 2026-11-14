@@ -5,12 +5,12 @@ import { centroid, instant, movers, type NodeOrder, ordered, stepsOf } from './s
 export interface GridSpacing {
   /**
    * Gap between two rows, from the borders of the tallest nodes, in world units. Defaults to the
-   * largest diameter, and at least 24.
+   * largest diameter, blocks aside, and at least 24.
    */
   readonly rows?: number | undefined
   /**
    * Gap between two columns, from the borders of the widest nodes, in world units. Defaults to
-   * the largest diameter, and at least 24.
+   * the largest diameter, blocks aside, and at least 24.
    */
   readonly columns?: number | undefined
 }
@@ -24,8 +24,8 @@ export interface GridOptions<T = unknown> {
   readonly columns?: number | undefined
   /**
    * Gap between rows and between columns, from the borders of the largest nodes, in world units,
-   * or one gap for each with `rows` and `columns`. Defaults to the largest diameter, and at least
-   * 24. Columns of boxes are as wide as the widest box, rows as tall as the tallest.
+   * or one gap for each with `rows` and `columns`. Defaults to the largest diameter, blocks aside,
+   * and at least 24. Columns of boxes are as wide as the widest box, rows as tall as the tallest.
    */
   readonly spacing?: number | GridSpacing | undefined
   /** Order of the nodes, row by row from the top left. Defaults to the internal order. */

@@ -41,7 +41,7 @@ export function stepsOf(
     const height = (extents[index * 2 + 1] ?? 0) * 2
     wide = Math.max(wide, width)
     tall = Math.max(tall, height)
-    largest = Math.max(largest, Math.min(width, height))
+    if (isPlain(graph, index)) largest = Math.max(largest, Math.min(width, height))
   }
   const fallback = Math.max(largest, 24)
   return [wide + (gapOf(columns) ?? fallback), tall + (gapOf(rows) ?? fallback)]
@@ -57,8 +57,17 @@ export function spacingOf(
   spacing?: number,
 ): number {
   let largest = 0
-  for (const index of indices) largest = Math.max(largest, (graph.radius[index] ?? 0) * 2)
-  return largest + (gapOf(spacing) ?? Math.max(largest, 24))
+  let node = 0
+  for (const index of indices) {
+    const diameter = (graph.radius[index] ?? 0) * 2
+    largest = Math.max(largest, diameter)
+    if (isPlain(graph, index)) node = Math.max(node, diameter)
+  }
+  return largest + (gapOf(spacing) ?? Math.max(node, 24))
+}
+
+export function isPlain(graph: LayoutGraph, index: number): boolean {
+  return !graph.blocks || (graph.blocks.size[index] ?? 0) === 0
 }
 
 export function centroid(
@@ -102,11 +111,13 @@ export function instant(
   options: object,
   compute: (graph: LayoutGraph) => Float32Array,
   blocks = true,
+  turns: Layout['turns'] = 'none',
 ): Layout {
   return Object.freeze({
     name,
     options: Object.freeze(withoutUndefined(options)),
     incremental: false,
+    turns,
     start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
       let stopped = false
       queueMicrotask(() => {

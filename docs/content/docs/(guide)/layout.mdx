@@ -360,5 +360,7 @@ export function circle(radius = 300): Layout {
 - It returns `pin(index, x, y)`, called when a node is dragged or set during the run, and `stop()`, after which it must not call the listener again.
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.
 - `incremental: false` lays out every free node again when nodes arrive, instead of the new ones only.
+- `turns` tells how the result may be turned to face its neighbors when the layout places the members of a group: `'free'`, `'flip'` across the direction of its layers, or `'none'`, the default.
+- Two optional fields describe a graph made of groups laid out on their own, and the graph does not set them yet. `blocks` marks the nodes that stand for a whole group: `size` gives the number of nodes in each block, `0` for a plain node, and `items(index)` and `keys(index)` give them. A layout can weigh a block by its `size`, take its default gaps from plain nodes only, or place a block where its nodes belong. `container` is set when the layout places the members of one group: its `key`, its `datum` and whether it is a `circle`. A layout that ignores both still works. See [blocks and containers](/docs/api/layouts#blocks-and-containers) for what the built-in layouts do with them.
 
 See [`force`](/docs/api/force), [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) and [`defineGraph`](/docs/api/define-graph#layout) for the types, and the [layout of your own](/examples/custom-layout) example.

@@ -3,10 +3,13 @@ import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../../types
 import type { FromWorker, ToWorker } from './protocol'
 import { runForce, runMultilevelForce } from './runner'
 import {
+  type ForceGraph,
   type ForceOptions,
   type ForceSettings,
+  forceGraphOf,
   prefersMultilevel,
   resolveForce,
+  settingsIn,
 } from './simulation'
 import ForceWorker from './worker?worker&inline'
 
@@ -14,7 +17,7 @@ export type { ForceEngine, ForceOptions, ForceSettings } from './simulation'
 
 const inlineBudget = 8
 
-function inline(graph: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+function inline(graph: ForceGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
   const schedule = (task: () => void) => setTimeout(task, 0)
   if (prefersMultilevel(graph, settings)) {
     return runMultilevelForce(graph, settings, listener, inlineBudget, schedule, null)
@@ -32,7 +35,7 @@ function spawn(): Worker | null {
 }
 
 function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
-  const graph = withFinitePositions(given)
+  const graph = forceGraphOf(withFinitePositions(given))
   const worker = spawn()
   if (!worker) return inline(graph, settings, listener)
   const pins = new Map<number, readonly [number, number]>()
@@ -59,12 +62,7 @@ function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutList
     fallback = inline({ ...graph, xy: latest ?? graph.xy }, settings, listener)
     for (const [index, [x, y]] of pins) fallback.pin(index, x, y)
   }
-  const { capacity, alive, movable, xy, radius, edges, groups } = graph
-  post({
-    type: 'start',
-    graph: { capacity, alive, movable, xy, radius, edges, ...(groups ? { groups } : {}) },
-    settings,
-  })
+  post({ type: 'start', graph, settings })
   return {
     pin(index, x, y) {
       pins.set(index, [x, y])
@@ -88,6 +86,8 @@ export function force(options: ForceOptions = {}): Layout {
   return Object.freeze({
     name: 'force',
     options: settings,
-    start: (graph: LayoutGraph, listener: LayoutListener) => start(graph, settings, listener),
+    turns: 'free',
+    start: (graph: LayoutGraph, listener: LayoutListener) =>
+      start(graph, settingsIn(graph, settings, options), listener),
   })
 }

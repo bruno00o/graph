@@ -21,7 +21,7 @@ Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`
 - Only free nodes move: alive, without `x` and `y` in the data, chosen by the run, and not being dragged.
 - Moved nodes are centered on their current center, so a run on part of the graph stays where that part was. `geo` and `placed` are the exceptions: they place nodes by their coordinates.
 - With `others: 'ignored'` in the [run options](/docs/api/graph-instance#layout), the nodes left out of `keys` are not in the graph a layout reads: `layers` and `radial` take no edge to them, `geo` sees no obstacle there, and containers keep only the nodes laid out. `grid` and `rings` place the same nodes either way.
-- Every spacing option is a gap between node borders, in world units, as in `force`. `grid`, `rings` and `radial` give every node a place of the same size, so their `spacing` is the gap between two of the largest moved nodes: neighboring places are that diameter plus `spacing` apart. It defaults to the largest diameter, and at least 24.
+- Every spacing option is a gap between node borders, in world units, as in `force`. `grid`, `rings` and `radial` give every node a place of the same size, so their `spacing` is the gap between two of the largest moved nodes: neighboring places are that diameter plus `spacing` apart. It defaults to the largest diameter, and at least 24. Default gaps come from the nodes only, never from [blocks](#blocks-and-containers).
 - A negative or non-finite spacing falls back to its default. `0` is allowed: the largest nodes touch.
 - The result ends without progress, in a microtask: nodes glide to it over `transitions.layout`, or the `duration` of the run.
 - When nodes arrive, every free node is laid out again.
@@ -111,6 +111,20 @@ type PlacedPositions<T = unknown> =
 - Positions are in world units. Entries are read once, when `placed` is called: a `Map`, the result of [`positions.snapshot`](/docs/api/graph-instance#positions) or of `layout.compute` work as they are. A function reads the item of each free node, as given to `nodes()`.
 - A free node without a position, or with an `x` or `y` that is not finite, stays where it is. Nodes that are not free, with `x` and `y` in the data, dragged, or left out of `keys`, never move.
 - Its `options` hold the positions you passed: in a definition, the same `Map` or function does not lay out again, a new one does.
+
+## Blocks and containers
+
+When the graph a layout reads has [`blocks`](/docs/api/define-graph#layout), nodes that each stand for a group laid out on its own, the built-in layouts treat them as follows. Without blocks, nothing changes.
+
+| Layout | Blocks | `turns` |
+| --- | --- | --- |
+| `force` | A block pushes the other nodes as hard as all its nodes would: its weight is its `size`. Coarse levels add the weights up. | `'free'` |
+| `grid`, `rings`, `radial` | Places are as large as the largest block, but the default `spacing` comes from the plain nodes, at least 24. | `'none'` for `grid`, `'free'` for the others |
+| `layers` | Blocks take their room in their layer; the default `nodeSpacing` and `layerSpacing` come from the plain nodes, at least 8 and 24. | `'flip'` |
+| `geo` | A block without a place of its own goes to the mean of the places of its nodes, in Web Mercator. The typical size that sets the default `spacing` and `scale` comes from the plain nodes. | `'none'` |
+| `placed` | A block without a position of its own goes to the mean of the positions given to its nodes, read by key or through the function; with none, it stays where it is. | `'none'` |
+
+Inside a [container](/docs/api/define-graph#layout), `force` pulls the nodes toward their center with `cohesion` instead of `gravity`, and takes 120 steps below 1,000 nodes unless `steps` is given: a group laid out on its own stays as compact as it would among the rest of the graph. The other layouts do not read `container`.
 
 ## Exports
 

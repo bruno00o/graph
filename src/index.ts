@@ -167,6 +167,8 @@ export type {
   LabelWeight,
   LayerName,
   Layout,
+  LayoutBlocks,
+  LayoutContainer,
   LayoutGraph,
   LayoutGroups,
   LayoutListener,

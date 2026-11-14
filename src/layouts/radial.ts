@@ -10,7 +10,7 @@ export interface RadialOptions {
   readonly root?: Key | readonly Key[] | undefined
   /**
    * Smallest gap between two rings, and between two nodes of a ring, from the borders of the
-   * largest nodes, in world units. Defaults to the largest diameter, and at least 24.
+   * largest nodes, in world units. Defaults to the largest diameter, blocks aside, and at least 24.
    */
   readonly spacing?: number | undefined
 }
@@ -125,76 +125,82 @@ function spread(layer: readonly number[], angle: Float64Array, gap: number): num
  * next to the node it was reached from. It ends at once, and nodes glide to their place.
  */
 export function radial(options: RadialOptions = {}): Layout {
-  return instant('radial', options, (graph) => {
-    const xy = Float32Array.from(graph.xy)
-    const indices = movers(graph)
-    if (indices.length === 0) return xy
-    const spacing = spacingOf(graph, indices, options.spacing)
-    const roots = rootsOf(graph, indices, options.root)
-    const tree = breadthFirst(graph, roots)
-    let [x, y] = centroid(graph, indices)
-    const lone = roots.length === 1 ? (roots[0] ?? -1) : -1
-    if (lone >= 0 && graph.movable[lone] !== 1) {
-      x = graph.xy[lone * 2] ?? 0
-      y = graph.xy[lone * 2 + 1] ?? 0
-    }
-    const leaves = new Float64Array(graph.capacity)
-    for (let at = tree.reached - 1; at >= 0; at--) {
-      const index = tree.order[at] ?? 0
-      leaves[index] = Math.max(1, leaves[index] ?? 0)
-      const parent = tree.parent[index] ?? -1
-      if (parent >= 0) leaves[parent] = (leaves[parent] ?? 0) + (leaves[index] ?? 0)
-    }
-    let total = 0
-    for (const root of roots) total += leaves[root] ?? 0
-    const start = new Float64Array(graph.capacity)
-    const angle = new Float64Array(graph.capacity)
-    let cursor = -Math.PI / 2
-    for (const root of roots) {
-      const wedge = (2 * Math.PI * (leaves[root] ?? 0)) / total
-      start[root] = cursor
-      angle[root] = roots.length === 1 ? -Math.PI / 2 : cursor + wedge / 2
-      cursor += wedge
-    }
-    const fill = Float64Array.from(start)
-    let deepest = 0
-    for (let at = 0; at < tree.reached; at++) {
-      const index = tree.order[at] ?? 0
-      deepest = Math.max(deepest, tree.level[index] ?? 0)
-      const parent = tree.parent[index] ?? -1
-      if (parent < 0) continue
-      const wedge = (2 * Math.PI * (leaves[index] ?? 0)) / total
-      start[index] = fill[parent] ?? 0
-      fill[index] = start[index] ?? 0
-      fill[parent] = (fill[parent] ?? 0) + wedge
-      angle[index] = (start[index] ?? 0) + wedge / 2
-    }
-    const layers: number[][] = Array.from({ length: deepest + 1 }, () => [])
-    for (let at = 0; at < tree.reached; at++) {
-      const index = tree.order[at] ?? 0
-      layers[tree.level[index] ?? 0]?.push(index)
-    }
-    let radius = -spacing
-    for (const [depth, layer] of layers.entries()) {
-      const lonely = depth === 0 && layer.length === 1
-      radius = lonely ? 0 : Math.max(radius + spacing, (layer.length * spacing) / (2 * Math.PI))
-      const placed = lonely ? [angle[layer[0] ?? 0] ?? 0] : spread(layer, angle, spacing / radius)
-      layer.forEach((index, at) => {
-        if (graph.movable[index] !== 1) return
-        const theta = placed[at] ?? 0
-        xy[index * 2] = x + Math.cos(theta) * radius
-        xy[index * 2 + 1] = y + Math.sin(theta) * radius
-      })
-    }
-    const strays = indices.filter((index) => (tree.level[index] ?? -1) < 0)
-    if (strays.length > 0) {
-      const outer = Math.max(radius + spacing, (strays.length * spacing) / (2 * Math.PI))
-      strays.forEach((index, at) => {
-        const theta = -Math.PI / 2 + (2 * Math.PI * at) / strays.length
-        xy[index * 2] = x + Math.cos(theta) * outer
-        xy[index * 2 + 1] = y + Math.sin(theta) * outer
-      })
-    }
-    return xy
-  })
+  return instant(
+    'radial',
+    options,
+    (graph) => {
+      const xy = Float32Array.from(graph.xy)
+      const indices = movers(graph)
+      if (indices.length === 0) return xy
+      const spacing = spacingOf(graph, indices, options.spacing)
+      const roots = rootsOf(graph, indices, options.root)
+      const tree = breadthFirst(graph, roots)
+      let [x, y] = centroid(graph, indices)
+      const lone = roots.length === 1 ? (roots[0] ?? -1) : -1
+      if (lone >= 0 && graph.movable[lone] !== 1) {
+        x = graph.xy[lone * 2] ?? 0
+        y = graph.xy[lone * 2 + 1] ?? 0
+      }
+      const leaves = new Float64Array(graph.capacity)
+      for (let at = tree.reached - 1; at >= 0; at--) {
+        const index = tree.order[at] ?? 0
+        leaves[index] = Math.max(1, leaves[index] ?? 0)
+        const parent = tree.parent[index] ?? -1
+        if (parent >= 0) leaves[parent] = (leaves[parent] ?? 0) + (leaves[index] ?? 0)
+      }
+      let total = 0
+      for (const root of roots) total += leaves[root] ?? 0
+      const start = new Float64Array(graph.capacity)
+      const angle = new Float64Array(graph.capacity)
+      let cursor = -Math.PI / 2
+      for (const root of roots) {
+        const wedge = (2 * Math.PI * (leaves[root] ?? 0)) / total
+        start[root] = cursor
+        angle[root] = roots.length === 1 ? -Math.PI / 2 : cursor + wedge / 2
+        cursor += wedge
+      }
+      const fill = Float64Array.from(start)
+      let deepest = 0
+      for (let at = 0; at < tree.reached; at++) {
+        const index = tree.order[at] ?? 0
+        deepest = Math.max(deepest, tree.level[index] ?? 0)
+        const parent = tree.parent[index] ?? -1
+        if (parent < 0) continue
+        const wedge = (2 * Math.PI * (leaves[index] ?? 0)) / total
+        start[index] = fill[parent] ?? 0
+        fill[index] = start[index] ?? 0
+        fill[parent] = (fill[parent] ?? 0) + wedge
+        angle[index] = (start[index] ?? 0) + wedge / 2
+      }
+      const layers: number[][] = Array.from({ length: deepest + 1 }, () => [])
+      for (let at = 0; at < tree.reached; at++) {
+        const index = tree.order[at] ?? 0
+        layers[tree.level[index] ?? 0]?.push(index)
+      }
+      let radius = -spacing
+      for (const [depth, layer] of layers.entries()) {
+        const lonely = depth === 0 && layer.length === 1
+        radius = lonely ? 0 : Math.max(radius + spacing, (layer.length * spacing) / (2 * Math.PI))
+        const placed = lonely ? [angle[layer[0] ?? 0] ?? 0] : spread(layer, angle, spacing / radius)
+        layer.forEach((index, at) => {
+          if (graph.movable[index] !== 1) return
+          const theta = placed[at] ?? 0
+          xy[index * 2] = x + Math.cos(theta) * radius
+          xy[index * 2 + 1] = y + Math.sin(theta) * radius
+        })
+      }
+      const strays = indices.filter((index) => (tree.level[index] ?? -1) < 0)
+      if (strays.length > 0) {
+        const outer = Math.max(radius + spacing, (strays.length * spacing) / (2 * Math.PI))
+        strays.forEach((index, at) => {
+          const theta = -Math.PI / 2 + (2 * Math.PI * at) / strays.length
+          xy[index * 2] = x + Math.cos(theta) * outer
+          xy[index * 2 + 1] = y + Math.sin(theta) * outer
+        })
+      }
+      return xy
+    },
+    true,
+    'free',
+  )
 }

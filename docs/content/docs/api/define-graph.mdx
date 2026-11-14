@@ -70,6 +70,14 @@ When groups are unfolded, `groups` describes them. Their containers are not node
 
 <api-table path="index.ts" name="LayoutGroups" />
 
+`blocks` and `container` let a layout run on part of a graph made of groups laid out on their own. A block is a node of the layout like the others, as large as the container of a group and standing for every node inside it: `size` gives how many, and `items` and `keys` give them. A layout that ignores `blocks` still works; reading it, it can weigh a block by its nodes, take its default gaps from the plain nodes, or place a block where its nodes belong. `container` is there when the layout places the members of one group, and tells which. The graph does not set them yet: they are in the port so that a layout can be written to run inside a group.
+
+<api-table path="index.ts" name="LayoutBlocks" />
+
+<api-table path="index.ts" name="LayoutContainer" />
+
+`turns` on the `Layout` tells how its result may be turned once the group it laid out is placed among its neighbors: a layout without a preferred direction says `'free'`, one whose layers go one way says `'flip'`. See [what the built-in layouts do with blocks](/docs/api/layouts#blocks-and-containers).
+
 The layout reports positions through a `LayoutListener`:
 
 <api-table path="index.ts" name="LayoutListener" />
