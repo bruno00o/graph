@@ -41,6 +41,12 @@ type ShapePick = 'painted' | 'stroke' | false
 
 `pick` says what of a shape takes the pointer: with `'painted'`, the inside of a filled shape and the outline of a stroked one; with `'stroke'`, the outline only; with `false`, nothing. Outlines take the pointer within half their width plus a few pixels. See [What takes the pointer](/docs/shapes#what-takes-the-pointer).
 
+## Scales
+
+`color` goes through the `color` scale shared with nodes and edges. `scales` gives the mark its own `color` scale, with its own extent and categories. See [Color by data](/docs/shapes#color-by-data) and [Scales of a mark](/docs/scales#scales-of-a-mark).
+
+<api-table path="index.ts" name="ShapeScalesOptions" />
+
 ## Labels
 
 `label` takes a channel for the text, or the text with its style:

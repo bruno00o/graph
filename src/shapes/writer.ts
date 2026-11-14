@@ -28,6 +28,7 @@ const chunkPoints = 100_000
 
 interface CompiledShapeMark {
   readonly geometry: Read
+  readonly colored: boolean
   readonly fill: Read | null
   readonly stroke: Read | null
   readonly strokeWidth: Read | null
@@ -90,6 +91,7 @@ function compileShapeMark(mark: ShapeMark<unknown>): CompiledShapeMark {
     geometry: toAccessor<unknown, unknown>(
       (options.geometry as string | Read | undefined) ?? 'geometry',
     ),
+    colored: options.color !== undefined,
     fill: style(options.fill),
     stroke: style(options.stroke),
     strokeWidth: style(options.strokeWidth),
@@ -379,20 +381,23 @@ class Writer implements ShapeWriter {
     }
     store.alive[index] = 1
     store.keys[index] = record.key
-    const geometry = store.geometry[index]
-    const filled = geometry !== null && geometry !== undefined && geometry.kind !== shapeKinds.line
-    store.fill[index] = this.#swap(
-      store.fill[index] ?? noColor,
-      filled ? mark.fill?.(datum) : null,
-      'fill',
-      alive,
-    )
-    store.stroke[index] = this.#swap(
-      store.stroke[index] ?? noColor,
-      mark.stroke?.(datum),
-      'stroke',
-      alive,
-    )
+    if (!mark.colored) {
+      const geometry = store.geometry[index]
+      const filled =
+        geometry !== null && geometry !== undefined && geometry.kind !== shapeKinds.line
+      store.fill[index] = this.#swap(
+        store.fill[index] ?? noColor,
+        filled ? mark.fill?.(datum) : null,
+        'fill',
+        alive,
+      )
+      store.stroke[index] = this.#swap(
+        store.stroke[index] ?? noColor,
+        mark.stroke?.(datum),
+        'stroke',
+        alive,
+      )
+    }
     store.strokeWidth[index] = Math.max(0, finiteOr(mark.strokeWidth?.(datum), 1))
     const dash = mark.dash?.(datum)
     store.dash[index] =

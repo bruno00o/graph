@@ -63,6 +63,21 @@ shapes(zones, {
 
 Fills and outlines are antialiased at every zoom, and outlines keep their width in pixels.
 
+### Color by data
+
+`color` is a channel through the `color` [scale](/docs/scales), shared with nodes and edges: the same value takes the same color on a node, an edge and a shape. A colored polygon, disc, ring or rectangle takes the color as its outline and the same color mixed to 20 % as its fill, so that what lies under it stays readable; a line takes it as its stroke. `fill` and `stroke` still win, one by one, and `null` still draws none.
+
+```ts
+defineGraph({
+  marks: [
+    shapes(zones, { color: 'region' }),
+    nodes(items, { color: 'region' }),
+  ],
+})
+```
+
+A sequential scale reads the extent of nodes, edges and shapes together. With `scales` of its own, a shape mark keeps its categories and its extent apart, as a node mark does: see [Scales of a mark](/docs/scales#scales-of-a-mark). `raw()` gives a CSS color as it is, out of any category. Without `color`, `fill` and `stroke` default to the theme as above. Examples: [shape zones](/examples/shape-zones) colors its zones by kind, with a legend.
+
 ## Labels
 
 `label` writes a text on a shape: a field, a function, or an object with the text options of node labels, `background`, `color`, `size`, `weight`, `font` and `maxWidth`, at 12 pixels by default.
@@ -206,6 +221,12 @@ With a shape mark in the definition, `count()` returns `shapes`, `pendingShapes`
 ## On a map
 
 Shapes draw on a [map](/docs/map#shapes), flat or on the globe, with their geometry in degrees. A shape that crosses the antimeridian shows on both sides of a flat map, and on the globe, long edges are split to follow the surface and the far side is hidden. Labels show on a map too, once per shape, so the label of a shape across the antimeridian shows on one side of a flat map only. A pinned shape follows its node, flat or on the globe.
+
+## Legend and minimap
+
+The [legend](/docs/minimap-and-legend#legend) counts shapes in the categories of their color, `shapes` next to `nodes` and `edges`, and lists the looks of each shape mark: areas or lines, their fill, their outline and their pattern. Its items highlight and switch off shapes like nodes and edges, through the same states, on a map too.
+
+The [minimap](/docs/minimap-and-legend#minimap) draws the shapes under the graph, pale fills and thin outlines, simplified to its size.
 
 ## Not there yet
 

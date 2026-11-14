@@ -17,6 +17,7 @@ import {
   type RasterFit,
   type RasterNodes,
 } from './raster'
+import { packShapes } from './shape-pack'
 import MinimapWorker from './worker?worker&inline'
 
 /** Corner of the graph element that holds a minimap. */
@@ -57,6 +58,12 @@ export interface MinimapOptions {
    * @default 20000
    */
   readonly maxEdges?: number | undefined
+  /**
+   * Most points of the outlines of shapes drawn in all, `0` for no shapes. Shapes are simplified
+   * to the size of the minimap first; past it, the next ones draw as their bounding boxes.
+   * @default 200000
+   */
+  readonly maxShapePoints?: number | undefined
   /**
    * Smallest diameter of a node in the minimap, in CSS pixels. Nodes keep their size up to a cap
    * that shrinks as nodes get more numerous.
@@ -117,6 +124,7 @@ interface Settings {
   readonly margin: number
   readonly padding: number
   readonly maxEdges: number
+  readonly maxShapePoints: number
   readonly nodeSize: number
   readonly nodeColor: string | null
   readonly selectionColor: string | null
@@ -169,6 +177,7 @@ function settle(options: MinimapOptions): Settings {
     margin: positive(options.margin, 12),
     padding: positive(options.padding, 8),
     maxEdges: positive(options.maxEdges, 20_000),
+    maxShapePoints: positive(options.maxShapePoints, 200_000),
     nodeSize: positive(options.nodeSize, 2),
     nodeColor: options.nodeColor ?? null,
     selectionColor:
@@ -260,7 +269,7 @@ function buffersOf(request: DrawRequest): Transferable[] {
   const add = (value: unknown) => {
     if (ArrayBuffer.isView(value)) transfer.add(value.buffer)
   }
-  for (const part of [request.nodes, request.edges, request.containers]) {
+  for (const part of [request.nodes, request.edges, request.containers, request.shapes]) {
     if (part) for (const value of Object.values(part)) add(value)
   }
   add(request.colors)
@@ -463,16 +472,23 @@ export function createMinimap<S extends string, M extends Mark>(
     const copy = channel.copies
     const stamp = internals.stamp()
     if (pending.colors) resolveColors()
-    let request: DrawRequest = { type: 'draw', paint: paint() }
+    const painted = paint()
+    let request: DrawRequest = { type: 'draw', paint: painted }
     if (pending.scene) {
       const edges = internals.scene.edges
       const withEdges =
         settings.maxEdges > 0 && fewerThan(edges.alive, edges.capacity, settings.maxEdges)
       const sight = internals.sight()
+      const inset = painted.padding * 2
       request = {
         ...request,
         nodes: nodesOf(internals, copy, sight),
         edges: withEdges ? edgesOf(internals, copy, sight) : null,
+        shapes: packShapes(internals.scene.shapes, internals.positions, sight, {
+          width: Math.max(1, painted.width - inset),
+          height: Math.max(1, painted.height - inset),
+          maxPoints: settings.maxShapePoints,
+        }),
       }
     }
     if (pending.colors || pending.scene) {
@@ -672,7 +688,12 @@ export function createMinimap<S extends string, M extends Mark>(
       given = { ...given, ...next }
       settings = settle(given)
       style()
-      if (previous.maxEdges !== settings.maxEdges) pending.scene = true
+      if (
+        previous.maxEdges !== settings.maxEdges ||
+        previous.maxShapePoints !== settings.maxShapePoints
+      ) {
+        pending.scene = true
+      }
       if (
         previous.nodeColor !== settings.nodeColor ||
         previous.selectionColor !== settings.selectionColor

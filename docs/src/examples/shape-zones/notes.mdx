@@ -5,12 +5,14 @@
 - The backdrop takes `pick: false`: it only decorates, so clicks and the lasso go through it to the background.
 - The plots take `minZoom: 1.2`: they fade in once you zoom into the rectangle, and until then they are neither drawn nor picked.
 - A click on a shape selects it, as on a node. On `selectionchange`, the example puts the selected shapes, the nodes of their zone and the edges between those nodes in the `zone` state, whose `others` fades every other node, edge and shape.
-- `fill` mixes a categorical color with transparency, `stroke` keeps it opaque, and `dash` draws the line dashed. Widths and dashes are in screen pixels.
+- The zones, the plots and the nodes take `color` from the same categorical scale: a zone and the nodes inside it share one color. A colored area takes the color as its outline and mixed to 20 % as its fill, a line as its stroke, and `dash` draws the line dashed. Widths and dashes are in screen pixels.
+- The legend counts nodes and shapes in each zone. Its `hidden` state takes `hide: true`, so a zone switched off disappears with its nodes and its plots.
 - The nodes take their place from `x` and `y`, in the same world units as the shapes, so no layout runs.
 - **Frame** calls `graph.view.fit({ shapes: [key] })`, then `fit()` frames the shapes and the nodes together.
 
 ## Try it
 
+- Click a zone in the legend to hide it with its nodes, and again to bring it back.
 - Press **Outline** to switch the outlines of the areas between solid, dashed and dotted: only the style changes, the geometries are not read again.
 - Zoom in on the edge of the ring: it stays smooth at every zoom.
 - Click a zone, then another with Shift: the zone state follows the selection. Click the background, or press Escape, to clear it.

@@ -1,4 +1,5 @@
 import type { RasterContainers, RasterEdges, RasterFit, RasterNodes } from './raster'
+import type { RasterShapes } from './shape-raster'
 
 export interface MinimapPaint {
   readonly width: number
@@ -20,6 +21,7 @@ export interface DrawRequest {
   readonly xy?: Float32Array
   readonly containers?: RasterContainers | null
   readonly masks?: Uint32Array | null
+  readonly shapes?: RasterShapes | null
 }
 
 export type ToMinimapWorker = DrawRequest

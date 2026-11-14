@@ -36,6 +36,7 @@ const shapeCount = Number(params.get('shapes') ?? 0)
 const shapePoints = Math.max(3, Number(params.get('points') ?? 50))
 const shapeParts = params.get('parts') ?? 'both'
 const shapeLabels = params.has('shapelabels')
+const shapeColor = params.get('shapecolor')
 const smoothOutline = params.get('outline') === 'smooth'
 const pinCount = Number(params.get('pinned') ?? 0)
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
@@ -162,10 +163,16 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
       ...(zoneData.length > 0
         ? [
             shapes(zoneData, {
-              fill: (zone) =>
-                shapeParts === 'stroke'
-                  ? null
-                  : `var(--graph-cat-${1 + Math.floor(zone.rank * 8)})`,
+              ...(shapeColor === 'category'
+                ? { color: (zone: (typeof zones)[number]) => Math.floor(zone.rank * 8) }
+                : shapeColor === 'sequential'
+                  ? { color: 'rank' as const, scales: { color: { type: 'sequential' as const } } }
+                  : {
+                      fill: (zone: (typeof zones)[number]) =>
+                        shapeParts === 'stroke'
+                          ? null
+                          : `var(--graph-cat-${1 + Math.floor(zone.rank * 8)})`,
+                    }),
               ...(shapeParts === 'fill' ? { stroke: null } : {}),
               ...(shapeParts === 'none' ? { fill: null, strokeWidth: 0 } : {}),
               opacity: 0.25,

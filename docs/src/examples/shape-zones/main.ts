@@ -8,6 +8,7 @@ import {
   nodes,
   type ShapeGeometry,
 } from '@bruno00o/graph'
+import { createLegend, mountLegend } from '@bruno00o/graph/legend'
 import { shapes } from '@bruno00o/graph/shapes'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -15,10 +16,11 @@ import '../shared/overlays.css'
 type Frame = keyof typeof messages.frames
 type Outline = keyof typeof messages.outlines
 
+type Area = Exclude<Frame, 'all'>
+
 interface Zone {
-  readonly id: Exclude<Frame, 'all'>
+  readonly id: Area
   readonly geometry: ShapeGeometry
-  readonly tone: number
   readonly line: boolean
 }
 
@@ -61,22 +63,19 @@ const zones: Zone[] = [
         blob(270, 240, [70, 55, 62, 48, 66, 58, 74, 50]),
       ],
     },
-    tone: 1,
     line: false,
   },
   {
     id: 'ring',
     geometry: { center: { x: 720, y: 200 }, radius: 150, inner: 90 },
-    tone: 2,
     line: false,
   },
   {
     id: 'block',
     geometry: { x: 560, y: 420, width: 340, height: 180, cornerRadius: 28 },
-    tone: 3,
     line: false,
   },
-  { id: 'trail', geometry: { points: trail }, tone: 4, line: true },
+  { id: 'trail', geometry: { points: trail }, line: true },
 ]
 
 const backdrop = [
@@ -181,27 +180,21 @@ const define = (outline: Outline) =>
         pick: false,
       }),
       shapes(zones, {
-        fill: (zone) =>
-          zone.line ? null : `color-mix(in srgb, var(--graph-cat-${zone.tone}) 18%, transparent)`,
-        stroke: (zone) => `var(--graph-cat-${zone.tone})`,
+        color: 'id',
         strokeWidth: (zone) => (zone.line ? 3 : 1.5),
         dash: (zone): EdgeDash => (zone.line ? 'dashed' : outline),
       }),
-      shapes(plots, {
-        fill: 'color-mix(in srgb, var(--graph-cat-3) 30%, transparent)',
-        stroke: 'var(--graph-cat-3)',
-        minZoom: 1.2,
-      }),
+      shapes(plots, { color: (): Area => 'block', minZoom: 1.2 }),
       edges(links, { source: 'from', target: 'to' }),
       nodes(items, {
         x: 'x',
         y: 'y',
         size: 14,
-        fill: (item) => `var(--graph-cat-${(zones[item.zone]?.tone ?? 1) + 4})`,
+        color: (item) => zones[item.zone]?.id,
         label: 'label',
       }),
     ],
-    states: { zone: { others: { opacity: 0.3 } } },
+    states: { zone: { others: { opacity: 0.3 } }, off: { hide: true } },
     interaction: { lasso: true },
   })
 
@@ -252,6 +245,13 @@ export function mount(container: HTMLElement): GraphInstance {
       graph.update({ definition: define(outline) })
     }),
   )
-  container.append(actions)
+  const legend = mountLegend(createLegend(graph, { hidden: 'off' }), {
+    sections: ['color'],
+    titles: { color: messages.legendTitle },
+    format: (value) => messages.frames[value as Area] ?? String(value),
+    ariaLabel: messages.legendLabel,
+  })
+  legend.element.classList.add('example-scale-legend', 'example-scale-legend-right')
+  container.append(actions, legend.element)
   return graph
 }

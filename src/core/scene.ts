@@ -17,6 +17,7 @@ import type {
   NodeShape,
   NumberScale,
   ScalesOptions,
+  ShapeMark,
 } from '../types'
 import {
   arrowCodes,
@@ -39,6 +40,7 @@ import {
   type CompiledNodeMark,
   compileEdgeMark,
   compileNodeMark,
+  compileShapeColor,
 } from './compile-mark'
 import { createEdgeLanes } from './edge-lanes'
 import { flowSpeed } from './flow'
@@ -62,6 +64,7 @@ import {
 import { MarkLayers } from './mark-layers'
 import { boxCornerShare } from './node-shape'
 import { Palette } from './palette'
+import { shapeKinds } from './shape-engine'
 import { ShapeStore } from './shape-store'
 import { spreadGap } from './spread'
 import { readMaxZoom, readMinZoom } from './zoom-range'
@@ -100,7 +103,7 @@ export interface SceneModel {
 }
 
 export interface SceneColorScale {
-  readonly kind: 'nodes' | 'edges' | null
+  readonly kind: ColorKind | null
   readonly slot: number
   readonly scale: ResolvedColorScale
   readonly extent: Extent | null
@@ -118,12 +121,16 @@ export interface SceneScales {
   readonly width: SceneNumberScale
   readonly nodeColors: readonly (SceneColorScale | null)[]
   readonly edgeColors: readonly (SceneColorScale | null)[]
+  readonly shapeColors: readonly (SceneColorScale | null)[]
   readonly sizes: readonly (SceneNumberScale | null)[]
   readonly widths: readonly (SceneNumberScale | null)[]
   readonly nodeColor: readonly unknown[]
   readonly edgeColor: readonly unknown[]
   readonly endColor: readonly unknown[]
+  readonly shapeColor: readonly unknown[]
 }
+
+type ColorKind = 'nodes' | 'edges' | 'shapes'
 
 export interface Scene {
   readonly nodes: NodeColumns
@@ -156,19 +163,23 @@ class ColorState {
   readonly nodes: ExtentTracker = new ExtentTracker()
   readonly edges: ExtentTracker = new ExtentTracker()
   readonly ends: ExtentTracker = new ExtentTracker()
+  readonly shapes: ExtentTracker = new ExtentTracker()
   members: Map<unknown, number> | null = null
   readonly idle: Set<unknown> = new Set()
 
   constructor(
     public options: ColorScale | undefined,
     public scale: ResolvedColorScale,
-    readonly kind: 'nodes' | 'edges' | null,
+    readonly kind: ColorKind | null,
     public slot: number,
     public name: MarkName | undefined,
   ) {}
 
   dataExtent(ends: boolean): Extent | null {
-    const own = combineExtents(this.nodes.extent, this.edges.extent)
+    const own = combineExtents(
+      combineExtents(this.nodes.extent, this.edges.extent),
+      this.shapes.extent,
+    )
     return ends ? combineExtents(own, this.ends.extent) : own
   }
 
@@ -217,6 +228,7 @@ class ColorState {
     this.nodes.clear()
     this.edges.clear()
     this.ends.clear()
+    this.shapes.clear()
   }
 }
 
@@ -269,15 +281,17 @@ type Fallback = { readonly type: 'sqrt' | 'linear'; readonly range: Extent }
 const sizeFallback: Fallback = { type: 'sqrt', range: defaults.nodeSizeRange }
 const widthFallback: Fallback = { type: 'linear', range: defaults.edgeWidthRange }
 
+type ScaledMark = NodeMark<unknown> | EdgeMark<unknown> | ShapeMark<unknown>
+
 function ownScales(
   marks: readonly Mark[],
-  kind: 'nodes' | 'edges',
+  kind: ColorKind,
   channel: 'color' | 'size' | 'width',
 ): (ColorScale | NumberScale | undefined)[] {
   const own: (ColorScale | NumberScale | undefined)[] = []
   for (const mark of marks) {
     if (mark.type !== kind) continue
-    const scales = (mark as NodeMark<unknown> | EdgeMark<unknown>).options.scales as
+    const scales = (mark as ScaledMark).options.scales as
       | Readonly<Record<string, ColorScale | NumberScale | undefined>>
       | undefined
     own.push(scales?.[channel])
@@ -285,12 +299,27 @@ function ownScales(
   return own
 }
 
-function wantedColors(marks: readonly Mark[], kind: 'nodes' | 'edges'): WantedColors {
+function wantedColors(marks: readonly Mark[], kind: ColorKind): WantedColors {
   const names: (MarkName | undefined)[] = []
   for (const mark of marks) {
-    if (mark.type === kind) names.push((mark as NodeMark<unknown> | EdgeMark<unknown>).name)
+    if (mark.type === kind) names.push((mark as ScaledMark).name)
   }
   return { options: ownScales(marks, kind, 'color') as (ColorScale | undefined)[], names }
+}
+
+function wantedShapeColors(slots: ReadonlyMap<object, number>): WantedColors {
+  const options: (ColorScale | undefined)[] = []
+  const names: (MarkName | undefined)[] = []
+  for (const mark of slots.keys()) {
+    const shape = mark as ShapeMark<unknown>
+    options.push(shape.options.scales?.color)
+    names.push(shape.name)
+  }
+  return { options, names }
+}
+
+function tint(color: string | null): string | null {
+  return color === null ? null : `color-mix(in srgb, ${color} 20%, transparent)`
 }
 
 function toNumber(value: unknown): number {
@@ -406,7 +435,7 @@ interface ClaimedColors {
 function claimColors(
   previous: readonly (ColorState | null)[],
   wanted: WantedColors,
-  kind: 'nodes' | 'edges',
+  kind: ColorKind,
   columns: SlotColumns,
   changes: ElementChanges,
   slotAt: (index: number) => number,
@@ -488,6 +517,8 @@ function slotCounts(columns: SlotColumns): number[] {
   return counts
 }
 
+const noShapeChanges: ElementChanges = { added: [], updated: [], removed: [] }
+
 export interface SceneOptions {
   readonly groupFillOpacity?: number
 }
@@ -527,12 +558,17 @@ export function createScene(
   let scales: ScalesOptions = {}
   let full = false
   let moved = false
-  let wanted: { readonly nodes: WantedColors; readonly edges: WantedColors } | null = null
+  let wanted: {
+    readonly nodes: WantedColors
+    readonly edges: WantedColors
+    readonly shapes: WantedColors
+  } | null = null
   const sharedColor = new ColorState(undefined, resolveColorScale(undefined), null, -1, undefined)
   const sharedSize = new NumberState(undefined, resolveNumberScale(undefined, sizeFallback), -1)
   const sharedWidth = new NumberState(undefined, resolveNumberScale(undefined, widthFallback), -1)
   let nodeColors: (ColorState | null)[] = []
   let edgeColors: (ColorState | null)[] = []
+  let shapeColors: (ColorState | null)[] = []
   let sizes: (NumberState | null)[] = []
   let widths: (NumberState | null)[] = []
   let ownNodeScales = false
@@ -549,6 +585,13 @@ export function createScene(
   let nodeHeld: unknown[] = []
   let edgeHeld: unknown[] = []
   let endHeld: unknown[] = []
+  let shapeHeld: unknown[] = []
+  const shapeColorValues: unknown[] = []
+  const shapeIn: (ColorState | undefined)[] = []
+  const shapeBatch = new RecordBatch<ShapeRecord>()
+  let shapeColorSeen = false
+  let shapeFill = noColor
+  let shapeStroke = noColor
   const sizeValues: number[] = []
   const widthValues: number[] = []
   const endWidthValues: number[] = []
@@ -1121,6 +1164,76 @@ export function createScene(
     dirtyEdges.add(index)
   }
 
+  function readShape(record: ShapeRecord): void {
+    const index = record.index
+    const look = compileShapeColor(record.mark)
+    const state = look
+      ? (shapeColors[shapes.slots.get(record.mark) ?? 0] ?? sharedColor)
+      : undefined
+    const before = shapeIn[index]
+    if (before && before !== state) {
+      before.shapes.delete(index)
+      before.release(shapeHeld[index])
+      shapeHeld[index] = undefined
+    }
+    shapeIn[index] = state
+    const value = look && !look.colorRaw ? look.color(record.datum) : undefined
+    shapeColorValues[index] = value
+    if (state) track(state.shapes, index, value)
+  }
+
+  function writeShape(record: ShapeRecord): boolean {
+    const index = record.index
+    const look = compileShapeColor(record.mark)
+    const state = shapeIn[index]
+    if (!look || !state || shapes.alive[index] !== 1) return false
+    const datum = record.datum
+    const value = shapeColorValues[index]
+    const color = look.colorRaw ? toColor(look.color(datum)) : state.scale.map(value, state.extent)
+    const geometry = shapes.geometry[index]
+    const filled = geometry !== null && geometry !== undefined && geometry.kind !== shapeKinds.line
+    if (shapeFill === noColor) {
+      shapeFill = palette.id(defaults.shapeFill)
+      shapeStroke = palette.id(defaults.shapeStroke)
+    }
+    const fill = filled ? look.fill?.(datum) : null
+    const stroke = look.stroke?.(datum)
+    const fillColor = fill === null ? null : (toColor(fill) ?? tint(color))
+    const strokeColor = stroke === null ? null : (toColor(stroke) ?? color)
+    shapes.fill[index] = swapColor(
+      palette,
+      shapes.fill[index] ?? noColor,
+      fillColor,
+      fill === null ? noColor : shapeFill,
+    )
+    shapes.stroke[index] = swapColor(
+      palette,
+      shapes.stroke[index] ?? noColor,
+      strokeColor,
+      stroke === null ? noColor : shapeStroke,
+    )
+    const derived =
+      (fill !== null && toColor(fill) === null) || (stroke !== null && toColor(stroke) === null)
+    const held = !look.colorRaw && color !== null && derived ? value : undefined
+    const before = shapeHeld[index]
+    if (held !== before) {
+      shapeHeld[index] = held
+      state.hold(held)
+      state.release(before)
+    }
+    return true
+  }
+
+  function removeShape(index: number): void {
+    const state = shapeIn[index]
+    if (!state) return
+    state.shapes.delete(index)
+    state.release(shapeHeld[index])
+    shapeHeld[index] = undefined
+    shapeIn[index] = undefined
+    shapeColorValues[index] = undefined
+  }
+
   function countHeld(state: ColorState, members: Map<unknown, number>): void {
     const add = (value: unknown) => {
       if (value !== null && value !== undefined) members.set(value, (members.get(value) ?? 0) + 1)
@@ -1138,12 +1251,16 @@ export function createScene(
       add(endHeld[index * 2])
       add(endHeld[index * 2 + 1])
     }
+    for (let index = 0; index < shapeIn.length; index++) {
+      if (shapeIn[index] === state) add(shapeHeld[index])
+    }
   }
 
   function colorStates(): ColorState[] {
     const states = [sharedColor]
     for (const state of nodeColors) if (state) states.push(state)
     for (const state of edgeColors) if (state) states.push(state)
+    for (const state of shapeColors) if (state) states.push(state)
     return states
   }
 
@@ -1225,6 +1342,22 @@ export function createScene(
     edgeColors = claimedEdges.states
     if (claimedNodes.moved || claimedEdges.moved) moved = true
     if (claimedNodes.rescaled || claimedEdges.rescaled) full = true
+    if (next.shapes.options.length > 0 || shapeColors.length > 0) {
+      const claimedShapes = claimColors(
+        shapeColors,
+        next.shapes,
+        'shapes',
+        shapes,
+        changes.shapes ?? noShapeChanges,
+        (index) => {
+          const record = model.shapeAt?.(index)
+          return record ? (shapes.slots.get(record.mark) ?? -1) : -1
+        },
+      )
+      shapeColors = claimedShapes.states
+      if (claimedShapes.moved) moved = true
+      if (claimedShapes.rescaled) full = true
+    }
     ownNodeScales = nodeColors.some(Boolean) || sizes.some(Boolean)
     ownEdgeScales = edgeColors.some(Boolean) || widths.some(Boolean)
   }
@@ -1262,11 +1395,13 @@ export function createScene(
         width: numberView(sharedWidth, true),
         nodeColors: nodeColors.map((state) => state && colorView(state)),
         edgeColors: edgeColors.map((state) => state && colorView(state)),
+        shapeColors: shapeColors.map((state) => state && colorView(state)),
         sizes: sizes.map((state) => state && numberView(state, false)),
         widths: widths.map((state) => state && numberView(state, true)),
         nodeColor: nodeHeld,
         edgeColor: edgeHeld,
         endColor: endHeld,
+        shapeColor: shapeHeld,
       }
     },
 
@@ -1287,7 +1422,14 @@ export function createScene(
       scales = next
       const marks = definition.marks
       shapes.setMarks(marks)
-      wanted = { nodes: wantedColors(marks, 'nodes'), edges: wantedColors(marks, 'edges') }
+      wanted = {
+        nodes: wantedColors(marks, 'nodes'),
+        edges: wantedColors(marks, 'edges'),
+        shapes: wantedShapeColors(shapes.slots),
+      }
+      for (const mark of shapes.slots.keys()) {
+        if (compileShapeColor(mark as ShapeMark<unknown>)) shapeColorSeen = true
+      }
       const ownSizes = syncNumbers(sizes, ownScales(marks, 'nodes', 'size'), sizeFallback)
       const ownWidths = syncNumbers(widths, ownScales(marks, 'edges', 'width'), widthFallback)
       sizes = ownSizes.states
@@ -1314,8 +1456,11 @@ export function createScene(
     },
 
     apply(model, changes) {
-      shapes.apply(model, changes.shapes, changes.nodes)
       claimAll(model, changes)
+      if (shapeColorSeen && changes.shapes) {
+        for (const { index } of changes.shapes.removed) removeShape(index)
+      }
+      shapes.apply(model, changes.shapes, changes.nodes)
       for (const { index } of changes.nodes.removed) removeNode(index)
       for (const { index } of changes.edges.removed) removeEdge(index)
       if (moved) {
@@ -1328,15 +1473,26 @@ export function createScene(
 
       nodeBatch.reset()
       edgeBatch.reset()
+      shapeBatch.reset()
       if (full) {
         nodeHeld = []
         edgeHeld = []
         endHeld = []
+        shapeHeld = []
         for (const state of colorStates()) state.recount()
         for (const record of model.nodes()) nodeBatch.add(record)
         for (const record of model.edges()) edgeBatch.add(record)
+        if (shapeColorSeen) for (const record of model.shapes?.() ?? []) shapeBatch.add(record)
         full = false
       } else {
+        if (shapeColorSeen && changes.shapes) {
+          for (const refs of [changes.shapes.added, changes.shapes.updated]) {
+            for (const { index } of refs) {
+              const record = model.shapeAt?.(index)
+              if (record) shapeBatch.add(record)
+            }
+          }
+        }
         for (const refs of [changes.nodes.added, changes.nodes.updated]) {
           for (const { index } of refs) {
             const record = model.nodeAt(index)
@@ -1354,9 +1510,11 @@ export function createScene(
       if (edgeBatch.maxIndex >= 0) edges.reserve(edgeBatch.maxIndex)
       for (const record of nodeBatch.records) readNode(record)
       for (const record of edgeBatch.records) readEdge(record)
+      for (const record of shapeBatch.records) readShape(record)
 
       const nodeAt = (index: number) => model.nodeAt(index)
       const edgeAt = (index: number) => model.edgeAt(index)
+      const shapeAt = (index: number) => model.shapeAt?.(index)
       for (const state of colorStates()) {
         const next = state.scale.needsExtent ? state.dataExtent(endsSeen) : null
         if (sameExtent(next, state.extent)) continue
@@ -1364,6 +1522,7 @@ export function createScene(
         include(nodeBatch, state.nodes, nodeAt)
         include(edgeBatch, state.edges, edgeAt)
         include(edgeBatch, state.ends, edgeAt, 1)
+        include(shapeBatch, state.shapes, shapeAt)
       }
       for (const state of numberStates(sharedSize, sizes)) {
         const next = state.scale.needsExtent ? state.dataExtent(false) : null
@@ -1383,6 +1542,9 @@ export function createScene(
       lanes.reserve(changes.edges.added.length)
       for (const record of edgeBatch.records) writeEdge(record)
       lanes.write(edges, dirtyEdges)
+      let painted = false
+      for (const record of shapeBatch.records) if (writeShape(record)) painted = true
+      if (painted) shapes.styleVersion++
       for (const state of colorStates()) state.settle(countHeld)
     },
 

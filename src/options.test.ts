@@ -82,6 +82,7 @@ import type {
   ScalesOptions,
   ShapeLabelOptions,
   ShapeOptions,
+  ShapeScalesOptions,
   SourceSubscription,
   StateKindStyles,
   StateLook,
@@ -238,6 +239,7 @@ interface Inputs {
   ScalesOptions: ScalesOptions
   ShapeLabelOptions: ShapeLabelOptions<Item>
   ShapeOptions: ShapeOptions<Item>
+  ShapeScalesOptions: ShapeScalesOptions
   SourceSubscription: SourceSubscription
   SchemaInput: SchemaInput
   StateKindStyles: StateKindStyles

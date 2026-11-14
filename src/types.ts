@@ -1050,14 +1050,19 @@ export interface ShapeOptions<T, N extends MarkName = MarkName, L extends MarkLa
    */
   readonly geometry?: Channel<T, ShapeGeometry> | undefined
   /**
+   * Value passed to the `color` scale: a category or a number. A function wrapped in `raw()` gives
+   * a CSS color instead, with no scale. The color draws the outline and a fill mixed to 20 % of it;
+   * `fill` and `stroke`, when given, win over it.
+   */
+  readonly color?: ColorChannel<T> | undefined
+  /**
    * Fill color of polygons, circles, rings and rectangles, or `null` for none. Lines are never
-   * filled.
-   * @default --graph-shape-fill
+   * filled. Defaults to the `color` mixed to 20 %, else to `--graph-shape-fill`.
    */
   readonly fill?: Style<T, string | null> | undefined
   /**
-   * Color of the outline of a filled shape and of a line, or `null` for none.
-   * @default --graph-shape-stroke
+   * Color of the outline of a filled shape and of a line, or `null` for none. Defaults to the
+   * `color`, else to `--graph-shape-stroke`.
    */
   readonly stroke?: Style<T, string | null> | undefined
   /**
@@ -1116,6 +1121,11 @@ export interface ShapeOptions<T, N extends MarkName = MarkName, L extends MarkLa
    * drawn. The shape waits while the node is missing, and hides while the node is hidden.
    */
   readonly node?: Channel<T, Key> | undefined
+  /**
+   * Scales of this mark alone, each with its own extent and categories. A scale left out is the
+   * one of the definition, shared with the other marks.
+   */
+  readonly scales?: ShapeScalesOptions | undefined
 }
 
 /**
@@ -1224,7 +1234,7 @@ export type NumberScale =
 
 /** The three scales, shared by every mark of a definition that has no scale of its own. */
 export interface ScalesOptions {
-  /** Scale of the `color` channel of nodes and edges. Categorical by default. */
+  /** Scale of the `color` channel of nodes, edges and shapes. Categorical by default. */
   readonly color?: ColorScale | undefined
   /**
    * Scale of the node `size` channel, a diameter. Square root from the data extent to `[8, 32]` by
@@ -1258,6 +1268,15 @@ export interface EdgeScalesOptions {
   readonly color?: ColorScale | undefined
   /** Scale of the `width` channel of the mark. Defaults to the `width` scale of the definition. */
   readonly width?: NumberScale | undefined
+}
+
+/**
+ * Options of the `scales` option of `shapes()`: scale of the shapes of one mark, with its own
+ * extent and categories, apart from the other marks.
+ */
+export interface ShapeScalesOptions {
+  /** Scale of the `color` channel of the mark. Defaults to the `color` scale of the definition. */
+  readonly color?: ColorScale | undefined
 }
 
 /**
