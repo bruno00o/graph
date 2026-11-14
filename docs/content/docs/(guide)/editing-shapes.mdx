@@ -299,7 +299,7 @@ Every move has a key: the arrows move the selected shapes and Delete removes the
 
 ## Cost
 
-A graph without an editor runs none of its code: `@bruno00o/graph/editor` is a separate entry point, about 26 kB gzipped, and the graph looks for an editor only on a press or a key. With an editor and nothing selected, a frame costs what it cost before.
+A graph without an editor runs none of its code: `@bruno00o/graph/editor` is a separate entry point, about 24 kB gzipped and minified, and the graph looks for an editor only on a press or a key. With an editor and nothing selected, a frame costs what it cost before.
 
 Dragging a polygon of 5,000 points costs about 1 millisecond of work per frame in Chrome, 3 at the 95th percentile, to write its preview; the shape follows the pointer one frame later, like a dragged node. Past 5,000 points in the shapes being moved, the editor writes no preview: the graph slides its own shapes on the GPU, with their labels, so that moving 1,000 shapes of 50 points costs about as much per frame as moving the view, and no work on the main thread. Sliding shapes do not answer the pointer until they land. A circle placed in degrees on a map always moves as a preview.
 
