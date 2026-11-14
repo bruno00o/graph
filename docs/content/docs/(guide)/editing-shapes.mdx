@@ -81,7 +81,7 @@ Drawn shapes are in world units, rectangles as `{ x, y, width, height }`, circle
 
 ### Snapping
 
-`snap: { grid }` snaps the points to a grid: a spacing in world units, or `'background'` for the lines of the background grid shown at the current zoom. Drawn points snap, and so do dragged points, resized boxes and moved shapes, by the top left corner of their box. Shift turns segments by steps of `snap.angle`, 15 degrees by default.
+`snap: { grid }` snaps the points to a grid: a spacing in world units, or `'background'` for the lines of the background grid shown at the current zoom, which needs a `background` grid in the definition: without one, nothing snaps. Drawn points snap, and so do dragged points, resized boxes and moved shapes, by the top left corner of their box. Shift turns segments by steps of `snap.angle`, 15 degrees by default.
 
 ```ts
 editor.update({ snap: { grid: 'background' } })
@@ -270,7 +270,7 @@ showPresence(graph, {
 
 ## Which shapes
 
-`marks` lists the names of the shape marks the editor works on, every shape mark by default. Shapes of the other marks, and shapes whose geometry cannot be read, take the pointer as without the editor. A graph has at most one editor at a time: `editor.destroy()` gives the pointer and the keys back, and destroying the graph destroys its editor and its layer.
+`marks` lists the names of the shape marks the editor works on, every shape mark by default. A mark without a `name` cannot be listed: give it one, or leave `marks` out. Shapes of the other marks, and shapes whose geometry cannot be read, take the pointer as without the editor. A graph has at most one editor at a time: `editor.destroy()` gives the pointer and the keys back, and destroying the graph destroys its editor and its layer.
 
 A shape [pinned to a node](/docs/shapes#pin-shapes-to-nodes) moves around its node: its edits keep the geometry relative to the node, and the node does not move.
 
