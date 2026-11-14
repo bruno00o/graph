@@ -10,7 +10,7 @@ function mountGraph<S extends string = string, M extends Mark = Mark>(
 ): GraphInstance<S, M>
 ```
 
-Appends the graph element to `container` and returns its [instance](/docs/api/graph-instance). The graph fills the container; give the container a size. `S` and `M` come from the definition.
+Appends the graph element to `container` and returns its [instance](/docs/api/graph-instance). The graph fills the container; give the container a size. `mountGraph` never changes the style of the container. `S` and `M` come from the definition.
 
 ## Options
 

@@ -198,7 +198,14 @@ export function createSharedRenderer(
         applyPalette()
         return inner.render(frame)
       }),
-    stats: () => inner.stats?.() ?? { nodeLabels: 0, edgeLabels: 0, labelTime: 0, textureBytes: 0 },
+    stats: () =>
+      inner.stats?.() ?? {
+        nodeLabels: 0,
+        edgeLabels: 0,
+        shapeLabels: 0,
+        labelTime: 0,
+        textureBytes: 0,
+      },
     ready: () => inner.ready?.() ?? Promise.resolve(),
     destroy: () => state.guard(() => inner.destroy()),
   }
@@ -2049,6 +2056,7 @@ function createRenderer(
       return {
         nodeLabels: mainLabels.layer.nodeLabels,
         edgeLabels: mainLabels.layer.edgeLabels,
+        shapeLabels: mainLabels.layer.shapeLabels,
         labelTime: mainLabels.duration,
         textureBytes: textureBytes(),
       }

@@ -1,5 +1,5 @@
 import { type StringCheck, stringCheck } from '../core/key-list'
-import type { Key, KeyList, Point, View } from '../types'
+import type { Key, KeyList, Point } from '../types'
 
 /**
  * Side of the target where an anchored element sits: `'top'`, `'right'`, `'bottom'`, `'left'`,
@@ -32,7 +32,8 @@ export interface AnchorPlacement {
   /** Extra shift in screen pixels. */
   readonly offset?: Point | undefined
   /**
-   * Scales the element with the zoom, as if it were drawn in the world at zoom 1.
+   * Scales the element with the zoom, as if it were drawn in the world at zoom 1. On the globe, it
+   * scales with the globe at its target.
    * @default false
    */
   readonly scale?: boolean | undefined
@@ -132,10 +133,10 @@ export interface AnchorBox {
   y0: number
   x1: number
   y1: number
+  scale: number
 }
 
 export interface AnchorLocator {
-  view(): View
   size(): { readonly width: number; readonly height: number }
   nodeBox(key: Key, box: AnchorBox): boolean
   edgePoint(key: Key, box: AnchorBox): boolean
@@ -180,8 +181,8 @@ export class AnchorLayer {
   readonly #request: () => void
   readonly #check: StringCheck = stringCheck()
   readonly #observer: ResizeObserver | null
-  readonly #box: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0 }
-  readonly #part: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0 }
+  readonly #box: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0, scale: 1 }
+  readonly #part: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0, scale: 1 }
 
   constructor(host: HTMLElement, target: HTMLElement, locator: AnchorLocator, request: () => void) {
     this.#locator = locator
@@ -260,11 +261,10 @@ export class AnchorLayer {
   update(): void {
     if (this.#anchors.size === 0) return
     const { width, height } = this.#locator.size()
-    const zoom = this.#locator.view().zoom
     for (const anchor of this.#anchors.values()) {
       const box = this.#box
       const shown = this.#target(anchor, box) && this.#allowed(anchor)
-      const scale = anchor.options.scale ? zoom : 1
+      const scale = anchor.options.scale ? box.scale : 1
       const w = anchor.width * scale
       const h = anchor.height * scale
       const position = shown ? this.#place(anchor.options, box, w, h) : null
@@ -315,6 +315,7 @@ export class AnchorLayer {
         box.y0 = Math.min(box.y0, this.#part.y0)
         box.x1 = Math.max(box.x1, this.#part.x1)
         box.y1 = Math.max(box.y1, this.#part.y1)
+        box.scale = Math.max(box.scale, this.#part.scale)
       }
       found = true
     }

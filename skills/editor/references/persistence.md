@@ -79,7 +79,31 @@ export function SavedShapes({ zones }: { zones: Collection<Zone, string> }) {
 
 ## Writing edits by hand
 
-To write the edits yourself, with `collection.update` in `onEdit`, write every field an edit carries (`geometry`, `order`, `text`), insert the rows of `'add'` edits and delete the rows of `'remove'` edits. A `ShapeGeometry` is read-only, and the draft of TanStack DB is writable deep down, so assigning it does not compile:
+To write the edits yourself, with `collection.update` in `onEdit`, write every field an edit carries (`geometry`, `order`, `text`), insert the rows of `'add'` edits and delete the rows of `'remove'` edits. The geometry an editor hands out is a `WritableShapeGeometry`: a fresh copy, writable all the way down, that assigns to the draft of TanStack DB with no cast. Let `onEdit` infer the type of the edits:
+
+```ts
+import type { GraphInstance, ShapeGeometry } from '@bruno00o/graph'
+import { createShapeEditor } from '@bruno00o/graph/editor'
+import type { Collection } from '@tanstack/db'
+
+type Zone = { id: string; geometry: ShapeGeometry }
+declare const zones: Collection<Zone, string>
+declare const graph: GraphInstance
+
+createShapeEditor(graph, {
+  onEdit(edits) {
+    for (const edit of edits) {
+      if (edit.type !== 'change' || edit.geometry === undefined) continue
+      const geometry = edit.geometry
+      zones.update(String(edit.key), (draft) => {
+        draft.geometry = geometry
+      })
+    }
+  },
+})
+```
+
+Annotating a parameter as `ShapeEdit` keeps its geometry a read-only `ShapeGeometry`, which the draft refuses. Name the writable type, or let `persistShapes` write it:
 
 ```ts expect-error=TS2322
 import type { ShapeGeometry } from '@bruno00o/graph'
@@ -98,21 +122,21 @@ export function save(edit: ShapeEdit) {
 }
 ```
 
-Cast the value to the type of the draft field, or let `persistShapes` write it:
-
 ```ts
-import type { ShapeGeometry } from '@bruno00o/graph'
-import type { ShapeEdit } from '@bruno00o/graph/editor'
+import type { Mark, ShapeGeometry } from '@bruno00o/graph'
+import type { ShapeEdit, WritableShapeGeometry } from '@bruno00o/graph/editor'
 import type { Collection } from '@tanstack/db'
 
 type Zone = { id: string; geometry: ShapeGeometry }
 declare const zones: Collection<Zone, string>
 
-export function save(edit: ShapeEdit) {
+export function save(edit: ShapeEdit<Mark, WritableShapeGeometry>) {
   if (edit.type !== 'change' || edit.geometry === undefined) return
   const geometry = edit.geometry
   zones.update(String(edit.key), (draft) => {
-    draft.geometry = geometry as typeof draft.geometry
+    draft.geometry = geometry
   })
 }
 ```
+
+A row of your own that keeps a `ShapeGeometry` it stored earlier still needs a cast to go into a draft: type that field as `WritableShapeGeometry` instead.

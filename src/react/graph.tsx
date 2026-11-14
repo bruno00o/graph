@@ -22,7 +22,10 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onClick?: GraphEventHandler<'click', M> | undefined
   /** Receives `doubleclick`. */
   readonly onDoubleClick?: GraphEventHandler<'doubleclick', M> | undefined
-  /** Receives `contextmenu`: a secondary click. */
+  /**
+   * Receives `contextmenu`: a secondary click. The menu of the browser still opens unless the
+   * handler calls `originalEvent.preventDefault()`.
+   */
   readonly onContextMenu?: GraphEventHandler<'contextmenu', M> | undefined
   /**
    * Receives `pointermove`, at most once per frame. The graph listens only while this prop is
@@ -137,9 +140,15 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    * requests, and only this prop hides or shows layers.
    */
   readonly hiddenLayers?: KeyList<LayerName<M>> | undefined
-  /** Class of the wrapping `div`. */
+  /**
+   * Class of the wrapping `div`. It may position the wrapper, such as `absolute inset-0`: the
+   * wrapper is made `relative` only when nothing else positions it.
+   */
   readonly className?: string | undefined
-  /** Style of the wrapping `div`, merged with `position: relative`. */
+  /**
+   * Style of the wrapping `div`. A `position` given here is kept: the wrapper is made `relative`
+   * only when neither the style nor a stylesheet positions it.
+   */
   readonly style?: CSSProperties | undefined
   /**
    * Receives the graph instance. Its type comes from the definition: a ref typed as a plain
@@ -249,16 +258,35 @@ export function useGraphBinding<S extends string, M extends Mark>(
 }
 
 /**
- * Mounts a graph in a `div` positioned relative, and renders its children above the canvas. The
- * graph mounts once and is destroyed on unmount.
+ * Mounts a graph in a `div` and renders its children above the canvas. The `div` takes the
+ * position given by its class or style, and is positioned relative when it has none. It needs a
+ * height from the page. The graph mounts once and is destroyed on unmount.
  */
 export function Graph<S extends string = string, M extends Mark = Mark>(
   props: GraphProps<S, M>,
 ): JSX.Element {
   const { className, style, children } = props
+  const wrapper = useRef<HTMLDivElement>(null)
   const host = useRef<HTMLDivElement>(null)
   const [graph, setGraph] = useState<GraphInstance<S, M> | null>(null)
   const latest = useLatest(props)
+  const given = style?.position
+  const forced = useRef(false)
+  const placed = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    const element = wrapper.current
+    const key = `${className ?? ''}|${given ?? ''}`
+    if (!element || placed.current === key) return
+    placed.current = key
+    if (forced.current && given === undefined) element.style.position = ''
+    forced.current = false
+    if (given !== undefined) return
+    const position = getComputedStyle(element).position
+    if (position !== 'static' && position !== '') return
+    element.style.position = 'relative'
+    forced.current = true
+  })
 
   useLayoutEffect(() => {
     const element = host.current
@@ -280,7 +308,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
   useGraphBinding(graph, props, latest)
 
   return (
-    <div className={className} style={{ position: 'relative', ...style }}>
+    <div ref={wrapper} className={className} style={style}>
       <div ref={host} style={fill} />
       {graph ? <GraphContext value={graph}>{children}</GraphContext> : null}
     </div>
