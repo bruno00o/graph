@@ -175,7 +175,15 @@ See the [routes along a network](/examples/map-routes) example.
 The same data can switch between a map and a plain graph. On the map, the `longitude` and `latitude` channels pin each node to its place. Without the map, the [`geo` layout](/docs/layout#geography) uses the same projection, and moves apart the nodes that overlap. Keep the sources, and build one definition for each mode:
 
 ```ts
-import { defineGraph, edges, geoToWorld, nodes, type View } from '@bruno00o/graph'
+import {
+  defineGraph,
+  edges,
+  geoToWorld,
+  type Key,
+  nodes,
+  type Point,
+  type View,
+} from '@bruno00o/graph'
 import { geo } from '@bruno00o/graph/layouts'
 
 const center = { longitude: 10, latitude: 48 }
@@ -215,25 +223,40 @@ const toMap = (view: View): View => ({
 })
 ```
 
-To leave the map, read its camera, destroy the map graph, then mount the plain one at the same view. To come back, do the reverse.
+To leave the map, read its camera, destroy the map graph, then mount the plain one at the same view. To come back, do the reverse. Keep the positions of each side with `positions.snapshot()` and give them back as [`initialPositions`](/docs/positions#restore-at-mount): the layout of the plain graph does not run again, and the nodes without coordinates are on the map where you left them.
 
 ```ts
+const saved: { plain?: Map<Key, Point>; map?: Map<Key, Point> } = {}
+
 function leaveMap(map: Map, mapGraph: GraphInstance): GraphInstance {
   const view = toPlain(mapGraph.view.get())
+  saved.map = mapGraph.positions.snapshot()
   mapGraph.destroy()
   map.remove()
-  return mountGraph(element, { definition: plain, initialView: view, ariaLabel: 'Places' })
+  return mountGraph(element, {
+    definition: plain,
+    initialView: view,
+    initialPositions: saved.plain,
+    ariaLabel: 'Places',
+  })
 }
 
 function backToMap(graph: GraphInstance): GraphInstance {
   const view = toMap(graph.view.get())
+  saved.plain = graph.positions.snapshot()
   graph.destroy()
   const map = new Map({ container, style })
-  const mapGraph = mountMapGraph(map, { definition: onMap, ariaLabel: 'Places' })
+  const mapGraph = mountMapGraph(map, {
+    definition: onMap,
+    initialPositions: saved.map,
+    ariaLabel: 'Places',
+  })
   mapGraph.view.set(view)
   return mapGraph
 }
 ```
+
+The first time, `saved.plain` is `undefined` and the layout runs as usual. Each side gets its own snapshot: positions on a map are in the world units of the map, and those of a plain graph are in the units of its layout, so a snapshot from one does not suit the other. Nodes that have `longitude` and `latitude` ignore their entry, and sit where their coordinates put them.
 
 Nodes that overlap moved apart in the plain graph only, so a crowded place looks tighter on the map. With `units: 'screen'`, nodes keep the same size in pixels in both modes, and the spread is computed for the zoom at which the layout runs.
 

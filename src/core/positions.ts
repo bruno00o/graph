@@ -1,4 +1,5 @@
-import type { Key, NodeMark } from '../types'
+import type { Key, NodeMark, Point } from '../types'
+import { isKey } from './accessor'
 import { type CompiledNodeMark, compileNodeMark } from './compile-mark'
 import { projectLatitude, projectLongitude } from './geo'
 import type { GraphChanges, GraphModel } from './graph-model'
@@ -13,6 +14,41 @@ export interface PositionMoves {
   readonly indices: readonly number[]
   readonly to: readonly number[]
   readonly held: readonly number[]
+  readonly restored: readonly number[]
+}
+
+export class RestoredPositions {
+  readonly #points = new Map<Key, Point>()
+  skipped = 0
+
+  constructor(entries: Iterable<readonly [Key, Point]>) {
+    for (const entry of entries) {
+      const key: unknown = entry?.[0]
+      const point: Point | undefined = entry?.[1]
+      if (
+        !isKey(key) ||
+        !point ||
+        typeof point.x !== 'number' ||
+        typeof point.y !== 'number' ||
+        !Number.isFinite(point.x) ||
+        !Number.isFinite(point.y)
+      ) {
+        this.skipped++
+        continue
+      }
+      this.#points.set(key, point)
+    }
+  }
+
+  get size(): number {
+    return this.#points.size
+  }
+
+  take(key: Key): Point | undefined {
+    const point = this.#points.get(key)
+    if (point) this.#points.delete(key)
+    return point
+  }
 }
 
 export interface PositionReader {
@@ -26,6 +62,7 @@ export class Positions implements PositionReader {
   version = 0
   xy: Float32Array = new Float32Array(0)
   placed: Uint8Array = new Uint8Array(0)
+  restored: Uint8Array = new Uint8Array(0)
   source: Float64Array = new Float64Array(0)
   blocks: Float64Array = new Float64Array(0)
   originX = 0
@@ -40,12 +77,15 @@ export class Positions implements PositionReader {
     xy.set(this.xy)
     const placed = new Uint8Array(capacity)
     placed.set(this.placed)
+    const restored = new Uint8Array(capacity)
+    restored.set(this.restored)
     const source = new Float64Array(capacity * 2).fill(Number.NaN)
     source.set(this.source)
     const blocks = new Float64Array(((capacity - 1) >>> blockShift) + 1)
     blocks.set(this.blocks)
     this.xy = xy
     this.placed = placed
+    this.restored = restored
     this.source = source
     this.blocks = blocks
     this.capacity = capacity
@@ -109,7 +149,10 @@ export class Positions implements PositionReader {
   }
 
   release(index: number): void {
-    if (index < this.capacity) this.placed[index] = 0
+    if (index < this.capacity) {
+      this.placed[index] = 0
+      this.restored[index] = 0
+    }
     this.follow(index, null)
     this.#rings.delete(index)
   }
@@ -171,12 +214,14 @@ export function placeNodes(
   model: GraphModel,
   positions: Positions,
   changes: GraphChanges,
+  restore: RestoredPositions | null = null,
 ): PositionMoves {
   for (const { index } of changes.nodes.removed) positions.release(index)
   const channelPoint = pointReader()
   const indices: number[] = []
   const to: number[] = []
   const held: number[] = []
+  const restored: number[] = []
   for (const { index } of changes.nodes.updated) {
     const record = model.nodeAt(index)
     if (!record) continue
@@ -192,15 +237,48 @@ export function placeNodes(
   const added = changes.nodes.added
   const last = added[added.length - 1]
   if (last) positions.reserve(last.index)
-  const batch = model.nodeCount === added.length ? null : new Set<Key>(added.map((ref) => ref.key))
-  for (const { key, index } of added) {
+  const restoring = restore !== null && restore.size > 0
+  let arrivals = added
+  if (restoring) {
+    const rest: (typeof added)[number][] = []
+    for (const ref of added) {
+      const record = model.nodeAt(ref.index)
+      if (!record) continue
+      const point = channelPoint(record.mark, record.datum)
+      positions.follow(ref.index, point)
+      if (point) {
+        restore.take(ref.key)
+        positions.set(ref.index, point[0], point[1])
+        continue
+      }
+      const kept = restore.take(ref.key)
+      if (!kept) {
+        rest.push(ref)
+        continue
+      }
+      positions.set(ref.index, kept.x, kept.y)
+      positions.restored[ref.index] = 1
+      restored.push(ref.index)
+    }
+    arrivals = rest
+  }
+  const batch = restoring
+    ? arrivals.length === model.nodeCount
+      ? null
+      : new Set<Key>(arrivals.map((ref) => ref.key))
+    : model.nodeCount === added.length
+      ? null
+      : new Set<Key>(added.map((ref) => ref.key))
+  for (const { key, index } of arrivals) {
     const record = model.nodeAt(index)
     if (!record) continue
-    const point = channelPoint(record.mark, record.datum)
-    positions.follow(index, point)
-    if (point) {
-      positions.set(index, point[0], point[1])
-      continue
+    if (!restoring) {
+      const point = channelPoint(record.mark, record.datum)
+      positions.follow(index, point)
+      if (point) {
+        positions.set(index, point[0], point[1])
+        continue
+      }
     }
     let sumX = 0
     let sumY = 0
@@ -231,5 +309,5 @@ export function placeNodes(
       sumY / count + radius * Math.sin(angle),
     )
   }
-  return { indices, to, held }
+  return { indices, to, held, restored }
 }

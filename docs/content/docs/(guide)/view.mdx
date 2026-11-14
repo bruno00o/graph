@@ -19,7 +19,7 @@ The [view controls](/examples/view-controls) example calls each method of this p
 
 ## The first view
 
-Without `initialView`, the graph fits all its nodes as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted, unless the user moves the view first: a gesture, the wheel or a key before that first fit cancels it, and the view stays where the user put it. Only that first batch is fitted: later data does not move the view. While the first layout run moves the nodes, the view keeps them framed until you move it.
+Without `initialView`, the graph fits all its nodes as soon as the first data arrives. An empty graph waits for its data, so a collection that fills after mounting is still fitted, unless the user moves the view first: a gesture, the wheel or a key before that first fit cancels it, and the view stays where the user put it. Only that first batch is fitted: later data does not move the view. While the first layout run moves the nodes, the view keeps them framed until you move it. Nodes placed by [`initialPositions`](/docs/positions#restore-at-mount) are fitted on the first frame, with no layout to wait for.
 
 To start somewhere else, pass `initialView` when you mount.
 

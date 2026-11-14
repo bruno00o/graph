@@ -144,7 +144,7 @@ The selection, and the members of a state, hold `shapes` when the definition has
 
 Positions are in world units. `set` emits `positionchange` with the origin `'api'`. During a layout run, the nodes moved by `set` are pinned until the run ends. An entry whose `x` or `y` is not finite is skipped, with a warning in development: see [Numbers](#numbers).
 
-`snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it.
+`snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it, or to `initialPositions` of a new mount to restore it without a layout run: see [Restore at mount](/docs/positions#restore-at-mount).
 
 ```ts
 const saved = graph.positions.snapshot()

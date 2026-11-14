@@ -13,7 +13,16 @@ import {
 import { flushSync } from 'react-dom'
 import type { ElementKeysInput, GraphEventHandler, GraphEventName } from '../host/events'
 import { type GraphInstance, type MountGraphOptions, mountGraph } from '../host/mount-graph'
-import type { GraphDefinition, KeyList, LayerName, Mark, TimeWindowInput, View } from '../types'
+import type {
+  GraphDefinition,
+  Key,
+  KeyList,
+  LayerName,
+  Mark,
+  Point,
+  TimeWindowInput,
+  View,
+} from '../types'
 import { GraphContext, useLatest } from './context'
 
 /** Event props of `<Graph>`. The latest function passed is always called. `M` types the targets. */
@@ -124,6 +133,11 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    * this prop changes the folded groups.
    */
   readonly folded?: KeyList | undefined
+  /**
+   * Positions at mount, read once, by key, in world units: what `positions.snapshot` returns. The
+   * nodes it places count as laid out: no layout run for them, no `positionchange`.
+   */
+  readonly initialPositions?: Iterable<readonly [Key, Point]> | undefined
   /** Time window at mount, read once, or `null` for none. */
   readonly initialTime?: TimeWindowInput | null | undefined
   /**
@@ -184,6 +198,7 @@ export function sharedOptions<S extends string, M extends Mark>(latest: {
     selection: initial.selection,
     onSelectionChange: (next) => latest.current.onSelectionChange?.(next),
     initialFolded: initial.initialFolded,
+    initialPositions: initial.initialPositions,
     folded: initial.folded,
     onFoldChange: (next) => latest.current.onFoldChange?.(next),
     initialTime: initial.initialTime,
