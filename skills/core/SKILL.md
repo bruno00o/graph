@@ -59,7 +59,7 @@ A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges(
    import '@bruno00o/graph/theme.css'
    ```
 
-3. Give the container a size. The graph fills its container and never sizes itself; a container 0 pixels high shows nothing.
+3. Give the container a size. The graph fills its container and never sizes itself or styles it (`mountGraph` changes no style of the container); a container 0 pixels high shows nothing.
 
    ```css
    #graph {
@@ -302,7 +302,7 @@ Options are compared by content, so a rebuilt definition with equal options rewr
 
 ### Check the data
 
-The graph never throws on bad data: it draws around each problem and lists it. `graph.issues()` returns the problems present now, `issueschange` fires when they change, and development builds log a warning per data change that brings new ones.
+The graph never throws on bad data: it draws around each problem and lists it. `graph.issues()` returns the problems present now, `issueschange` fires when they change, and development builds log a warning per data change that brings new ones. `issues()` and `count()` apply pending changes first, so they are current right after `update` or a state change, with no frame in between, and inside any event handler, `foldchange` of `groups()` included.
 
 ```ts
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
