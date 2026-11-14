@@ -1,16 +1,11 @@
-import {
-  defineGraph,
-  nodes,
-  type Point,
-  type ShapeGeometry,
-  type StateKindStyles,
-} from '@bruno00o/graph'
+import { defineGraph, nodes, type Point, type StateKindStyles } from '@bruno00o/graph'
 import {
   type Presence,
   type PresenceSelection,
   persistShapes,
   showPresence,
 } from '@bruno00o/graph/db'
+import type { WritableShapeGeometry } from '@bruno00o/graph/editor'
 import { useShapeEditor } from '@bruno00o/graph/editor/react'
 import { Graph, type GraphInstance } from '@bruno00o/graph/react'
 import { shapes } from '@bruno00o/graph/shapes'
@@ -23,7 +18,7 @@ import './shared-shapes.css'
 interface Zone {
   id: string
   tone: string
-  geometry: ShapeGeometry
+  geometry: WritableShapeGeometry
 }
 
 interface Item {
@@ -146,7 +141,7 @@ function resetZones(): void {
       (drafts) => {
         for (const draft of drafts) {
           const origin = home.get(draft.id)
-          if (origin) draft.geometry = origin.geometry as typeof draft.geometry
+          if (origin) draft.geometry = origin.geometry
         }
       },
     )

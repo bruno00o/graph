@@ -72,6 +72,7 @@ export interface LabelArea {
 export interface RendererStats {
   readonly nodeLabels: number
   readonly edgeLabels: number
+  readonly shapeLabels: number
   readonly labelTime: number
   readonly textureBytes: number
 }
