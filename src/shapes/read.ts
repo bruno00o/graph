@@ -138,7 +138,7 @@ function iterable(value: unknown): value is Iterable<unknown> {
   return typeof value === 'object' && value !== null && Symbol.iterator in value
 }
 
-function reverseRing(points: Float64Array, from: number, to: number): void {
+function reverseRing(points: number[], from: number, to: number): void {
   for (let a = from, b = to - 1; a < b; a++, b--) {
     const ax = points[a * 2] ?? 0
     const ay = points[a * 2 + 1] ?? 0
@@ -152,35 +152,35 @@ function reverseRing(points: Float64Array, from: number, to: number): void {
 function finishPolygon(builder: Builder, firstRing: number): void {
   const rings = builder.rings
   if (rings.length <= firstRing) return
+  const xs = builder.xs
   const first = firstRing === 0 ? 0 : (rings[firstRing - 1] ?? 0)
   const last = rings[rings.length - 1] ?? first
-  const points = new Float64Array(builder.xs.slice(first * 2, last * 2))
-  const ends = rings.slice(firstRing).map((end) => end - first)
-  let start = 0
-  for (let ring = 0; ring < ends.length; ring++) {
-    const end = ends[ring] ?? start
-    const area = ringArea(points, start, end)
-    if (area > 0 !== (ring === 0) && area !== 0) reverseRing(points, start, end)
+  let start = first
+  let outer = 0
+  for (let ring = firstRing; ring < rings.length; ring++) {
+    const end = rings[ring] ?? start
+    const area = ringArea(xs, start, end)
+    if (area > 0 !== (ring === firstRing) && area !== 0) reverseRing(xs, start, end)
+    if (ring === firstRing) outer = area
     start = end
   }
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
-  for (let k = 0; k < points.length; k += 2) {
-    minX = Math.min(minX, points[k] ?? 0)
-    minY = Math.min(minY, points[k + 1] ?? 0)
-    maxX = Math.max(maxX, points[k] ?? 0)
-    maxY = Math.max(maxY, points[k + 1] ?? 0)
+  for (let k = first * 2; k < last * 2; k += 2) {
+    minX = Math.min(minX, xs[k] ?? 0)
+    minY = Math.min(minY, xs[k + 1] ?? 0)
+    maxX = Math.max(maxX, xs[k] ?? 0)
+    maxY = Math.max(maxY, xs[k + 1] ?? 0)
   }
   const box = (maxX - minX) * (maxY - minY)
-  if (!(box > 0) || ringArea(points, 0, ends[0] ?? 0) === 0) {
-    builder.xs.length = first * 2
+  if (!(box > 0) || outer === 0) {
+    xs.length = first * 2
     rings.length = firstRing
     if (box > 0) builder.invalid = 'self-intersecting'
     return
   }
-  for (let k = 0; k < points.length; k++) builder.xs[first * 2 + k] = points[k] ?? 0
   builder.polygons.push(firstRing)
 }
 

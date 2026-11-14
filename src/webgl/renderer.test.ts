@@ -3,6 +3,7 @@ import type { RenderInput } from '../host/renderer'
 import { shapeUnitCount, timesShown } from './renderer'
 import {
   shapePlaceUnit,
+  shapePointsUnit,
   shapeStateUnit,
   shapeStyleUnit,
   shapeTimeUnit,
@@ -27,7 +28,14 @@ describe('renderer', () => {
   })
 
   it('guards on a map every texture unit the shapes bind', () => {
-    const bound = [shapeStyleUnit, shapeStateUnit, shapeZoomUnit, shapeTimeUnit, shapePlaceUnit]
+    const bound = [
+      shapeStyleUnit,
+      shapeStateUnit,
+      shapeZoomUnit,
+      shapeTimeUnit,
+      shapePlaceUnit,
+      shapePointsUnit,
+    ]
     for (const unit of bound) {
       expect(unit).toBeLessThan(shapeUnitCount)
     }

@@ -84,7 +84,7 @@ const statesBlockSize = stateRows * 48 + 48
 
 const units = textureUnits
 const unitCount = Math.max(...Object.values(units)) + 1
-export const shapeUnitCount = 26
+export const shapeUnitCount = 27
 
 const farZoom = 3e38
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -1603,7 +1603,19 @@ function createRenderer(
     bridgeShown = bridgeRadiusAt(bridgeRadius * 2, frame.view.zoom)
     const jumping = bridgeSet !== null && bridgeShown > 0
     backdrop.drawGrid(frame)
-    shapeLayer?.draw(layerFilter, globe !== null)
+    shapeLayer?.draw(
+      layerFilter,
+      {
+        x: frame.view.x,
+        y: frame.view.y,
+        zoom: frame.view.zoom,
+        width: frame.width,
+        height: frame.height,
+        pixelRatio: frame.pixelRatio,
+        globe: globe !== null,
+      },
+      set,
+    )
     draw(nodeProgram, vertexArrays.containers, containerCount, 0, 2)
     backdrop.drawHulls()
     for (const layer of input?.scene.layers ?? []) {

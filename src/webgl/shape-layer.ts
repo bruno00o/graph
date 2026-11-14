@@ -1,8 +1,14 @@
-import type { LayerFilter } from '../core/mark-layers'
-import { type ShapeGlyphs, type ShapeLayer, shapeKinds } from '../core/shape-engine'
+import {
+  type ShapeGeometryData,
+  type ShapeGlyphs,
+  type ShapeLayer,
+  type ShapeView,
+  shapeKinds,
+} from '../core/shape-engine'
 import { type ShapeStore, unpinned } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import { openTime } from '../core/time-range'
+import { detailedFrom } from '../shapes/simplify'
 import { onSphere } from '../shapes/subdivide'
 import { withCopies } from '../shapes/wrap'
 import { createBuffer, createProgram, createVertexArray, DataTexture, formats } from './gl'
@@ -12,23 +18,25 @@ import { cornerLabel, labelFragment } from './shaders'
 import {
   pinned,
   shapeAlive,
+  shapeClosed,
   shapeFillFragment,
   shapeFillVertex,
   shapeIndexMask,
   shapeLabelVertex,
   shapePlaceUnit,
-  shapePolygon,
+  shapePointsUnit,
   shapeRanged,
   shapeRect,
+  shapeRingPolygon,
   shapeRoundFragment,
   shapeRoundVertex,
-  shapeSkip,
   shapeStateUnit,
   shapeStrokeFragment,
   shapeStrokeVertex,
   shapeStyleUnit,
   shapeTimed,
   shapeTimeUnit,
+  shapeWindow,
   shapeZoomUnit,
   sphereVariant,
 } from './shape-shaders'
@@ -50,10 +58,14 @@ interface Pass {
   readonly pass: WebGLUniformLocation | null
 }
 
-interface Programs {
-  readonly fill: Pass
-  readonly stroke: Pass
-  readonly round: Pass
+type ProgramKind = 'fill' | 'stroke' | 'round'
+
+type Programs = Record<ProgramKind, Pass | null>
+
+const programSources: Record<ProgramKind, readonly [string, string, boolean]> = {
+  fill: [shapeFillVertex, shapeFillFragment, true],
+  stroke: [shapeStrokeVertex, shapeStrokeFragment, true],
+  round: [shapeRoundVertex, shapeRoundFragment, false],
 }
 
 interface LabelBuffers {
@@ -67,26 +79,63 @@ interface LabelPass {
   readonly corner: WebGLBuffer
 }
 
-interface Passes extends Programs {
-  readonly fillVao: WebGLVertexArrayObject
-  readonly strokeVao: WebGLVertexArrayObject
+interface Passes {
   readonly roundVao: WebGLVertexArrayObject
   readonly fillBuffer: WebGLBuffer
-  readonly indexBuffer: WebGLBuffer
-  readonly strokeBuffer: WebGLBuffer
   readonly roundBuffer: WebGLBuffer
+  readonly points: DataTexture<Float32Array>
   readonly styles: DataTexture<Uint32Array>
   readonly states: DataTexture<Uint32Array>
   readonly zoom: DataTexture<Float32Array>
   readonly time: DataTexture<Float32Array>
 }
 
+interface Parts {
+  readonly geometry: ShapeGeometryData
+  readonly pinned: boolean
+  readonly slot: number
+  readonly round: number
+  readonly vertexStart: number
+  readonly vertexCap: number
+  readonly pointStart: number
+  readonly pointCap: number
+  fills: Uint32Array[]
+  windows: Uint32Array[]
+  errors: number[]
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  cull: boolean
+}
+
+interface Frame {
+  readonly indexBuffer: WebGLBuffer
+  readonly windowBuffer: WebGLBuffer
+  readonly fillVao: WebGLVertexArrayObject
+  readonly strokeVao: WebGLVertexArrayObject
+  runs: Run[]
+  fillSpans: Int32Array
+  strokeSpans: Int32Array
+  stamp: number
+  edits: number
+  bucket: number
+  lod: boolean
+  reach: number
+  cover: readonly [number, number, number, number] | null
+}
+
 const fillStride = 12
 const farZoom = 3e38
 const raisedSpans = 64
+const maxEdits = 4096
 const noHidden = new Uint32Array(4)
-const strokeStride = 20
 const roundStride = 28
+const windowVertices = (shapeWindow + 1) * 2
+const tolerance = 0.5
+const coverMargin = 0.5
+const strokeReach = 32
+const noWindows = new Uint32Array(0)
 
 class Packer {
   bytes: ArrayBuffer
@@ -111,37 +160,104 @@ class Packer {
   }
 }
 
+function ringPoints(rings: Uint32Array, closed: boolean): number {
+  let total = 0
+  let start = 0
+  for (const end of rings) {
+    if (end - start >= 2) total += end - start + (closed ? 1 : 0)
+    start = end
+  }
+  return total
+}
+
+function writeRings(
+  points: Float64Array,
+  rings: Uint32Array,
+  closed: boolean,
+  polygon: boolean,
+  at: number,
+  originX: number,
+  originY: number,
+  word: number,
+  data: Float32Array,
+): Uint32Array {
+  const windows: number[] = []
+  let start = 0
+  let into = at
+  for (const end of rings) {
+    const n = end - start
+    if (n < 2) {
+      start = end
+      continue
+    }
+    const count = closed ? n + 1 : n
+    let along = 0
+    let px = points[start * 2] ?? 0
+    let py = points[start * 2 + 1] ?? 0
+    for (let k = 0; k < count; k++) {
+      const i = start + (k < n ? k : 0)
+      const x = points[i * 2] ?? 0
+      const y = points[i * 2 + 1] ?? 0
+      if (k > 0) along += Math.hypot(x - px, y - py)
+      const texel = (into + k) * 4
+      data[texel] = x - originX
+      data[texel + 1] = y - originY
+      data[texel + 2] = along
+      px = x
+      py = y
+    }
+    for (let k = 0; k < count; k++) data[(into + k) * 4 + 3] = along
+    const flags = (count | (closed ? shapeClosed : 0) | (polygon ? shapeRingPolygon : 0)) >>> 0
+    for (let k = 0; k < count - 1; k += shapeWindow) windows.push(into, flags, k, word)
+    into += count
+    start = end
+  }
+  return Uint32Array.from(windows)
+}
+
+function shifted(triangles: Uint32Array, base: number): Uint32Array {
+  const out = new Uint32Array(triangles.length)
+  for (let k = 0; k < triangles.length; k++) out[k] = (triangles[k] ?? 0) + base
+  return out
+}
+
 export function createShapeLayer(
   gl: WebGL2RenderingContext,
   blocks: Readonly<Record<string, number>>,
 ): ShapeLayer {
   let passes: Passes | null = null
   let version = -1
+  let fillVersion = -1
   let styleVersion = -1
   let shownX = Number.NaN
   let shownY = Number.NaN
-  let runs: Run[] = []
   let flags = 0
   let zoomUsed = false
   let timeUsed = false
   let capacity = 0
   let rank = new Uint32Array(0)
-  let fillSpans = new Int32Array(0)
-  let strokeSpans = new Int32Array(0)
-  let roundSpans = new Int32Array(0)
   let highlighted: readonly number[] = []
   let raised: number[] = []
   let raisedFor: readonly number[] | null = null
   let raisedVersion = -1
-  let pinnedAt = new Uint8Array(0)
-  let variants: (Programs | null)[] = [null, null, null]
+  let variants: (Programs | null)[] = [null, null, null, null]
   let place: DataTexture<Float32Array> | null = null
   let placeKey = ''
   let labelPass: LabelPass | null = null
   let shown: ShapeStore | null = null
   const labelSets = new Map<object, LabelBuffers>()
+  const frames = new Map<object, Frame>()
   let sphere = false
   let built: ShapeStore | null = null
+  let parts: (Parts | null)[] = []
+  let order: Uint32Array = new Uint32Array(0)
+  let stamp = 0
+  let edits: number[] = []
+  let detailed = false
+  const vertices = new Packer(1024)
+  const rounds = new Packer(256)
+  let pointsUsed = 0
+  const current: { hidden: Uint32Array; pass: number } = { hidden: noHidden, pass: 0 }
 
   function program(vertex: string, fragment: string): Pass {
     const made = createProgram(gl, vertex, fragment, blocks)
@@ -154,6 +270,7 @@ export function createShapeLayer(
       ['shapeZoom', shapeZoomUnit],
       ['shapeTime', shapeTimeUnit],
       ['shapePlace', shapePlaceUnit],
+      ['shapePoints', shapePointsUnit],
       ['nodePosition', units.nodePosition],
       ['nodeStyle', units.nodeStyle],
       ['nodeState', units.nodeState],
@@ -175,24 +292,7 @@ export function createShapeLayer(
   function create(): Passes {
     if (passes) return passes
     const fillBuffer = gl.createBuffer()
-    const indexBuffer = gl.createBuffer()
-    const strokeBuffer = gl.createBuffer()
     const roundBuffer = gl.createBuffer()
-    const fillVao = gl.createVertexArray()
-    gl.bindVertexArray(fillVao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, fillBuffer)
-    gl.enableVertexAttribArray(0)
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, fillStride, 0)
-    gl.enableVertexAttribArray(1)
-    gl.vertexAttribIPointer(1, 1, gl.UNSIGNED_INT, fillStride, 8)
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-    const strokeVao = gl.createVertexArray()
-    gl.bindVertexArray(strokeVao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, strokeBuffer)
-    for (let location = 0; location < 5; location++) {
-      gl.enableVertexAttribArray(location)
-      gl.vertexAttribDivisor(location, 1)
-    }
     const roundVao = gl.createVertexArray()
     gl.bindVertexArray(roundVao)
     gl.bindBuffer(gl.ARRAY_BUFFER, roundBuffer)
@@ -202,16 +302,15 @@ export function createShapeLayer(
     }
     gl.bindVertexArray(null)
     passes = {
-      fill: program(shapeFillVertex, shapeFillFragment),
-      stroke: program(shapeStrokeVertex, shapeStrokeFragment),
-      round: program(shapeRoundVertex, shapeRoundFragment),
-      fillVao,
-      strokeVao,
       roundVao,
       fillBuffer,
-      indexBuffer,
-      strokeBuffer,
       roundBuffer,
+      points: new DataTexture(
+        gl,
+        formats(gl).rgba32f,
+        (length) => new Float32Array(length),
+        gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
+      ),
       styles: new DataTexture(gl, formats(gl).rgba32ui, (length) => new Uint32Array(length)),
       states: new DataTexture(gl, formats(gl).r32ui, (length) => new Uint32Array(length)),
       zoom: new DataTexture(gl, formats(gl).rg32f, (length) => new Float32Array(length)),
@@ -220,27 +319,68 @@ export function createShapeLayer(
     return passes
   }
 
-  function variantOf(made: Passes, pin: boolean): Programs {
-    if (!pin && !sphere) return made
-    const at = (pin ? 0 : 1) + (sphere ? 1 : 0)
-    const known = variants[at]
+  function frameFor(key: object, made: Passes): Frame {
+    const known = frames.get(key)
     if (known) return known
-    const vertex = (source: string) => {
-      const placed = pin ? pinned(source) : source
-      return sphere ? sphereVariant(placed) : placed
+    const indexBuffer = gl.createBuffer()
+    const windowBuffer = gl.createBuffer()
+    const fillVao = gl.createVertexArray()
+    gl.bindVertexArray(fillVao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, made.fillBuffer)
+    gl.enableVertexAttribArray(0)
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, fillStride, 0)
+    gl.enableVertexAttribArray(1)
+    gl.vertexAttribIPointer(1, 1, gl.UNSIGNED_INT, fillStride, 8)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+    const strokeVao = gl.createVertexArray()
+    gl.bindVertexArray(strokeVao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, windowBuffer)
+    gl.enableVertexAttribArray(0)
+    gl.vertexAttribDivisor(0, 1)
+    gl.bindVertexArray(null)
+    const frame: Frame = {
+      indexBuffer,
+      windowBuffer,
+      fillVao,
+      strokeVao,
+      runs: [],
+      fillSpans: new Int32Array(0),
+      strokeSpans: new Int32Array(0),
+      stamp: -1,
+      edits: 0,
+      bucket: 0,
+      lod: false,
+      reach: 0,
+      cover: null,
     }
-    const fragment = (source: string) => (sphere ? sphereVariant(source) : source)
-    const set: Programs = {
-      fill: program(vertex(shapeFillVertex), fragment(shapeFillFragment)),
-      stroke: program(vertex(shapeStrokeVertex), fragment(shapeStrokeFragment)),
-      round: program(vertex(shapeRoundVertex), shapeRoundFragment),
-    }
-    variants[at] = set
-    return set
+    frames.set(key, frame)
+    return frame
   }
 
-  function passOf(made: Passes, kind: keyof Programs, pin: boolean): Pass {
-    return variantOf(made, pin)[kind]
+  function dropFrame(key: object): void {
+    const frame = frames.get(key)
+    if (!frame) return
+    frames.delete(key)
+    gl.deleteBuffer(frame.indexBuffer)
+    gl.deleteBuffer(frame.windowBuffer)
+    gl.deleteVertexArray(frame.fillVao)
+    gl.deleteVertexArray(frame.strokeVao)
+  }
+
+  function passOf(kind: ProgramKind, pin: boolean): Pass {
+    const at = (pin ? 2 : 0) + (sphere ? 1 : 0)
+    const set = variants[at] ?? { fill: null, stroke: null, round: null }
+    variants[at] = set
+    const known = set[kind]
+    if (known) return known
+    const [vertex, fragment, sphereFragment] = programSources[kind]
+    const placed = pin ? pinned(vertex) : vertex
+    const made = program(
+      sphere ? sphereVariant(placed) : placed,
+      sphere && sphereFragment ? sphereVariant(fragment) : fragment,
+    )
+    set[kind] = made
+    return made
   }
 
   function writePlace(store: ShapeStore, originX: number, originY: number): void {
@@ -276,21 +416,12 @@ export function createShapeLayer(
   }
 
   function forgetSet(set: object): void {
+    dropFrame(set)
     const entry = labelSets.get(set)
     if (!entry) return
     labelSets.delete(set)
     for (const buffer of entry.buffers) gl.deleteBuffer(buffer)
     for (const vao of entry.vaos) gl.deleteVertexArray(vao)
-  }
-
-  function pointStroke(at: number): void {
-    gl.bindBuffer(gl.ARRAY_BUFFER, passes?.strokeBuffer ?? null)
-    const base = at * strokeStride
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, strokeStride, base)
-    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, strokeStride, base + strokeStride)
-    gl.vertexAttribPointer(2, 2, gl.FLOAT, false, strokeStride, base + strokeStride * 2)
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, strokeStride, base + strokeStride * 3)
-    gl.vertexAttribIPointer(4, 1, gl.UNSIGNED_INT, strokeStride, base + strokeStride + 16)
   }
 
   function pointRound(at: number): void {
@@ -299,6 +430,11 @@ export function createShapeLayer(
     gl.vertexAttribPointer(0, 4, gl.FLOAT, false, roundStride, base)
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, roundStride, base + 16)
     gl.vertexAttribIPointer(2, 1, gl.UNSIGNED_INT, roundStride, base + 24)
+  }
+
+  function pointWindows(frame: Frame, at: number): void {
+    gl.bindBuffer(gl.ARRAY_BUFFER, frame.windowBuffer)
+    gl.vertexAttribIPointer(0, 4, gl.UNSIGNED_INT, 16, at * 16)
   }
 
   function writeStyles(store: ShapeStore, made: Passes): void {
@@ -376,26 +512,350 @@ export function createShapeLayer(
   }
 
   function sortRaised(): void {
-    if (raisedFor === highlighted && raisedVersion === version) return
+    if (raisedFor === highlighted && raisedVersion === stamp) return
     raisedFor = highlighted
-    raisedVersion = version
+    raisedVersion = stamp
     raised = highlighted.filter((index) => (rank[index] ?? 0) > 0)
     raised.sort((a, b) => (rank[a] ?? 0) - (rank[b] ?? 0))
   }
 
-  function build(store: ShapeStore, baseX: number, baseY: number, made: Passes): void {
+  function drawnOf(read: ShapeGeometryData, pin: boolean): ShapeGeometryData {
+    if (read.round) return read
+    if (sphere) return onSphere(read)
+    return pin ? read : withCopies(read)
+  }
+
+  function levelled(read: ShapeGeometryData, drawn: ShapeGeometryData): boolean {
+    return drawn === read && !sphere && read.round === null
+  }
+
+  function pointsOf(read: ShapeGeometryData, drawn: ShapeGeometryData): number {
+    let total = ringPoints(drawn.rings, drawn.closed)
+    if (!levelled(read, drawn)) return total
+    for (const level of read.levels ?? []) total += ringPoints(level.rings, read.closed)
+    return total
+  }
+
+  function writeRound(at: number, geometry: ShapeGeometryData, index: number, pin: boolean) {
+    const r = geometry.round
+    if (!r) return
+    const originX = pin ? 0 : shownX
+    const originY = pin ? 0 : shownY
+    const rect = geometry.kind === shapeKinds.rectangle
+    const f = rounds.floats
+    const word = index & shapeIndexMask
+    const base = at * 7
+    f[base] = (r[0] ?? 0) - originX
+    f[base + 1] = (r[1] ?? 0) - originY
+    f[base + 2] = r[2] ?? 0
+    f[base + 3] = rect ? (r[3] ?? 0) : (r[2] ?? 0)
+    f[base + 4] = rect ? 0 : (r[3] ?? 0)
+    f[base + 5] = rect ? (r[4] ?? 0) : 0
+    rounds.words[base + 6] = rect ? (word | shapeRect) >>> 0 : word
+  }
+
+  function writeShape(index: number, entry: Parts, read: ShapeGeometryData, made: Passes): void {
+    const pin = entry.pinned
+    const drawn = drawnOf(read, pin)
+    const originX = pin ? 0 : shownX
+    const originY = pin ? 0 : shownY
+    const word = index & shapeIndexMask
+    const polygon = drawn.kind === shapeKinds.polygon
+    const points = drawn.points
+    const count = points.length / 2
+    const floats = vertices.floats
+    const words = vertices.words
+    let at = entry.vertexStart * 3
+    if (polygon) {
+      for (let k = 0; k < count; k++) {
+        floats[at] = (points[k * 2] ?? 0) - originX
+        floats[at + 1] = (points[k * 2 + 1] ?? 0) - originY
+        words[at + 2] = word
+        at += 3
+      }
+    }
+    const data = made.points.data
+    let into = entry.pointStart
+    const fills: Uint32Array[] = [
+      polygon ? shifted(drawn.triangles, entry.vertexStart) : new Uint32Array(0),
+    ]
+    const windows: Uint32Array[] = [
+      writeRings(points, drawn.rings, drawn.closed, polygon, into, originX, originY, word, data),
+    ]
+    const errors = [0]
+    into += ringPoints(drawn.rings, drawn.closed)
+    if (levelled(read, drawn)) {
+      for (const level of read.levels ?? []) {
+        fills.push(polygon ? shifted(level.triangles, entry.vertexStart) : new Uint32Array(0))
+        windows.push(
+          writeRings(
+            level.points,
+            level.rings,
+            drawn.closed,
+            polygon,
+            into,
+            originX,
+            originY,
+            word,
+            data,
+          ),
+        )
+        errors.push(level.error)
+        into += ringPoints(level.rings, read.closed)
+      }
+    }
+    entry.fills = fills
+    entry.windows = windows
+    entry.errors = errors
+    entry.minX = drawn.minX
+    entry.minY = drawn.minY
+    entry.maxX = drawn.maxX
+    entry.maxY = drawn.maxY
+    entry.cull = !pin && !sphere && drawn === read
+    if (errors.length > 1) detailed = true
+  }
+
+  function slack(size: number): number {
+    return size + Math.ceil(size / 8) + 4
+  }
+
+  function rebuild(store: ShapeStore, made: Passes): void {
     built = store
-    const fill = new Packer(1024)
-    const indices = new Packer(1024)
-    const stroke = new Packer(1024)
-    const round = new Packer(256)
-    const next: Run[] = []
+    order = store.drawOrder()
+    parts = new Array(store.capacity).fill(null)
     rank = new Uint32Array(store.capacity)
-    pinnedAt = new Uint8Array(store.capacity)
-    fillSpans = new Int32Array(store.capacity * 2)
-    strokeSpans = new Int32Array(store.capacity * 2)
-    roundSpans = new Int32Array(store.capacity).fill(-1)
-    let position = 0
+    detailed = false
+    vertices.used = 0
+    rounds.used = 0
+    pointsUsed = 0
+    const placed: [number, Parts, ShapeGeometryData][] = []
+    order.forEach((index, at) => {
+      const read = store.geometry[index]
+      if (!read) return
+      rank[index] = at + 1
+      const pin = store.pinned(index)
+      const drawn = drawnOf(read, pin)
+      const roundAt = read.round ? rounds.used / 7 : -1
+      if (read.round) {
+        rounds.reserve(7)
+        rounds.used += 7
+      }
+      const expected =
+        read.pending && read.points.length / 2 >= detailedFrom && levelled(read, drawn)
+          ? Math.ceil(read.points.length * 0.2) + read.rings.length * 8
+          : 0
+      const vertexCap = drawn.kind === shapeKinds.polygon ? slack(drawn.points.length / 2) : 0
+      const pointCap = read.round ? 0 : slack(pointsOf(read, drawn) + expected)
+      const entry: Parts = {
+        geometry: read,
+        pinned: pin,
+        slot: store.slot[index] ?? 0,
+        round: roundAt,
+        vertexStart: vertices.used / 3,
+        vertexCap,
+        pointStart: pointsUsed,
+        pointCap,
+        fills: [],
+        windows: [],
+        errors: [0],
+        minX: read.minX,
+        minY: read.minY,
+        maxX: read.maxX,
+        maxY: read.maxY,
+        cull: false,
+      }
+      vertices.reserve(vertexCap * 3)
+      vertices.used += vertexCap * 3
+      pointsUsed += pointCap
+      parts[index] = entry
+      placed.push([index, entry, read])
+    })
+    made.points.reserve(pointsUsed)
+    vertices.words.fill(0, 0, vertices.used)
+    for (const [index, entry, read] of placed) {
+      if (entry.round >= 0) writeRound(entry.round, read, index, entry.pinned)
+      else writeShape(index, entry, read, made)
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, made.fillBuffer)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Uint8Array(vertices.bytes, 0, vertices.used * 4),
+      gl.STATIC_DRAW,
+    )
+    gl.bindBuffer(gl.ARRAY_BUFFER, made.roundBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(rounds.bytes, 0, rounds.used * 4), gl.STATIC_DRAW)
+    if (pointsUsed > 0) made.points.upload(0, pointsUsed - 1)
+    restamp()
+  }
+
+  function restamp(): void {
+    stamp++
+    edits = []
+  }
+
+  function patch(store: ShapeStore, index: number, made: Passes): boolean {
+    const entry = parts[index]
+    const read = store.geometry[index]
+    if (!entry || !read || store.pinned(index) !== entry.pinned) return false
+    if ((store.slot[index] ?? 0) !== entry.slot || (read.round !== null) !== entry.round >= 0) {
+      return false
+    }
+    const next: Parts = { ...entry, geometry: read }
+    parts[index] = next
+    if (read.round) {
+      writeRound(entry.round, read, index, entry.pinned)
+      gl.bindBuffer(gl.ARRAY_BUFFER, made.roundBuffer)
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        entry.round * roundStride,
+        new Uint8Array(rounds.bytes, entry.round * roundStride, roundStride),
+      )
+      return true
+    }
+    const drawn = drawnOf(read, entry.pinned)
+    const vertexCount = drawn.kind === shapeKinds.polygon ? drawn.points.length / 2 : 0
+    const pointCount = pointsOf(read, drawn)
+    if (vertexCount > entry.vertexCap || pointCount > entry.pointCap) return false
+    writeShape(index, next, read, made)
+    if (vertexCount > 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, made.fillBuffer)
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        entry.vertexStart * fillStride,
+        new Uint8Array(vertices.bytes, entry.vertexStart * fillStride, vertexCount * fillStride),
+      )
+    }
+    if (pointCount > 0) made.points.upload(entry.pointStart, entry.pointStart + pointCount - 1)
+    return true
+  }
+
+  function update(store: ShapeStore, made: Passes): boolean {
+    const next = store.drawOrder()
+    let same = next.length === order.length
+    for (let at = 0; same && at < next.length; at++) same = next[at] === order[at]
+    if (!same) {
+      rebuild(store, made)
+      return true
+    }
+    let changed = false
+    for (const index of next) {
+      const entry = parts[index]
+      const read = store.geometry[index]
+      if (
+        entry &&
+        entry.geometry === read &&
+        entry.pinned === store.pinned(index) &&
+        entry.slot === (store.slot[index] ?? 0)
+      ) {
+        continue
+      }
+      if (!patch(store, index, made)) {
+        rebuild(store, made)
+        return true
+      }
+      edits.push(index)
+      changed = true
+    }
+    if (edits.length > maxEdits) restamp()
+    return changed
+  }
+
+  function outside(entry: Parts, cover: Frame['cover'], reach: number): boolean {
+    return (
+      cover !== null &&
+      entry.cull &&
+      entry.round < 0 &&
+      (entry.maxX + reach < cover[0] ||
+        entry.minX - reach > cover[2] ||
+        entry.maxY + reach < cover[1] ||
+        entry.minY - reach > cover[3])
+    )
+  }
+
+  function editFrame(frame: Frame): boolean {
+    const scale = 2 ** (frame.bucket / 2)
+    gl.bindVertexArray(frame.fillVao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, frame.windowBuffer)
+    for (let at = frame.edits; at < edits.length; at++) {
+      const index = edits[at] ?? 0
+      const entry = parts[index]
+      if (!entry || entry.round >= 0) continue
+      const shown = !outside(entry, frame.cover, frame.reach)
+      const level = frame.lod ? levelOf(entry, scale) : 0
+      const fill = shown ? (entry.fills[level] ?? entry.fills[0] ?? noWindows) : noWindows
+      const stroke = shown ? (entry.windows[level] ?? entry.windows[0] ?? noWindows) : noWindows
+      const fillRoom = frame.fillSpans[index * 2 + 1] ?? 0
+      const strokeRoom = frame.strokeSpans[index * 2 + 1] ?? 0
+      if (fill.length > fillRoom || stroke.length / 4 > strokeRoom) {
+        gl.bindVertexArray(null)
+        return false
+      }
+      if (fillRoom > 0) {
+        const words = new Uint32Array(fillRoom)
+        words.set(fill)
+        gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, (frame.fillSpans[index * 2] ?? 0) * 4, words)
+      }
+      if (strokeRoom > 0) {
+        const words = new Uint32Array(strokeRoom * 4)
+        words.set(stroke)
+        gl.bufferSubData(gl.ARRAY_BUFFER, (frame.strokeSpans[index * 2] ?? 0) * 16, words)
+      }
+    }
+    gl.bindVertexArray(null)
+    frame.edits = edits.length
+    return true
+  }
+
+  function levelOf(entry: Parts, scale: number): number {
+    const errors = entry.errors
+    let level = 0
+    for (let at = 1; at < errors.length; at++) {
+      if ((errors[at] ?? 0) * scale > tolerance) break
+      level = at
+    }
+    return level
+  }
+
+  function covers(frame: Frame, view: ShapeView): boolean {
+    const cover = frame.cover
+    if (!cover) return false
+    const halfX = view.width / 2 / view.zoom
+    const halfY = view.height / 2 / view.zoom
+    return (
+      view.x - halfX >= cover[0] &&
+      view.y - halfY >= cover[1] &&
+      view.x + halfX <= cover[2] &&
+      view.y + halfY <= cover[3]
+    )
+  }
+
+  function frameOf(key: object, view: ShapeView, made: Passes): Frame {
+    const frame = frameFor(key, made)
+    const lod = detailed && !sphere
+    const bucket = lod ? Math.ceil(Math.log2(Math.max(view.zoom * view.pixelRatio, 1e-9)) * 2) : 0
+    if (frame.stamp === stamp && (!lod || (frame.bucket === bucket && covers(frame, view)))) {
+      if (frame.edits === edits.length || editFrame(frame)) return frame
+    }
+    frame.stamp = stamp
+    frame.edits = edits.length
+    frame.bucket = bucket
+    frame.lod = lod
+    const scale = 2 ** (bucket / 2)
+    let cover: [number, number, number, number] | null = null
+    let reach = 0
+    if (lod) {
+      const halfX = (view.width / 2 / view.zoom) * (1 + coverMargin * 2)
+      const halfY = (view.height / 2 / view.zoom) * (1 + coverMargin * 2)
+      cover = [view.x - halfX, view.y - halfY, view.x + halfX, view.y + halfY]
+      reach = strokeReach / view.zoom
+    }
+    frame.cover = cover
+    frame.reach = reach
+    const fillSpans = new Int32Array((built?.capacity ?? 0) * 2)
+    const strokeSpans = new Int32Array((built?.capacity ?? 0) * 2)
+    const indices = new Packer(1024)
+    const windows = new Packer(1024)
+    const runs: Run[] = []
     let current: {
       round: boolean
       pinned: boolean
@@ -403,157 +863,76 @@ export function createShapeLayer(
       first: number
       records: number
     } | null = null
+    let roundCount = 0
     const close = () => {
       if (!current) return
-      next.push({
+      runs.push({
         round: current.round,
         pinned: current.pinned,
         first: current.first,
-        count: (current.round ? round.used / 7 : indices.used) - current.first,
+        count: (current.round ? roundCount : indices.used) - current.first,
         records: current.records,
-        recordCount: stroke.used / 5 - current.records,
+        recordCount: windows.used / 4 - current.records,
       })
     }
-    for (const index of store.drawOrder()) {
-      const read = store.geometry[index]
-      if (!read) continue
-      const pin = store.pinned(index)
-      const geometry = read.round ? read : sphere ? onSphere(read) : pin ? read : withCopies(read)
-      rank[index] = ++position
-      const isRound = geometry.round !== null
-      const slot = store.slot[index] ?? 0
-      pinnedAt[index] = pin ? 1 : 0
-      const originX = pin ? 0 : baseX
-      const originY = pin ? 0 : baseY
+    for (const index of order) {
+      const entry = parts[index]
+      if (!entry) continue
+      const isRound = entry.round >= 0
+      if (outside(entry, cover, reach)) continue
       if (
         !current ||
         current.round !== isRound ||
-        current.slot !== slot ||
-        current.pinned !== pin
+        current.slot !== entry.slot ||
+        current.pinned !== entry.pinned
       ) {
         close()
         current = {
           round: isRound,
-          pinned: pin,
-          slot,
-          first: isRound ? round.used / 7 : indices.used,
-          records: stroke.used / 5,
+          pinned: entry.pinned,
+          slot: entry.slot,
+          first: isRound ? entry.round : indices.used,
+          records: windows.used / 4,
         }
+        roundCount = isRound ? entry.round : 0
       }
-      const word = index & shapeIndexMask
-      if (geometry.round) {
-        const r = geometry.round
-        const rect = geometry.kind === shapeKinds.rectangle
-        round.reserve(7)
-        const f = round.floats
-        const at = round.used
-        f[at] = (r[0] ?? 0) - originX
-        f[at + 1] = (r[1] ?? 0) - originY
-        f[at + 2] = r[2] ?? 0
-        f[at + 3] = rect ? (r[3] ?? 0) : (r[2] ?? 0)
-        f[at + 4] = rect ? 0 : (r[3] ?? 0)
-        f[at + 5] = rect ? (r[4] ?? 0) : 0
-        round.words[at + 6] = rect ? (word | shapeRect) >>> 0 : word
-        roundSpans[index] = at / 7
-        round.used += 7
+      if (isRound) {
+        roundCount = entry.round + 1
         continue
       }
+      const level = lod ? levelOf(entry, scale) : 0
+      const fill = entry.fills[level] ?? entry.fills[0] ?? noWindows
+      const stroke = entry.windows[level] ?? entry.windows[0] ?? noWindows
       fillSpans[index * 2] = indices.used
-      strokeSpans[index * 2] = stroke.used / 5
-      const points = geometry.points
-      const polygon = geometry.kind === shapeKinds.polygon
-      const triangles = geometry.triangles
-      if (polygon && triangles.length > 0) {
-        const base = fill.used / 3
-        const count = points.length / 2
-        fill.reserve(count * 3)
-        const floats = fill.floats
-        const words = fill.words
-        let at = fill.used
-        for (let k = 0; k < count; k++) {
-          floats[at] = (points[k * 2] ?? 0) - originX
-          floats[at + 1] = (points[k * 2 + 1] ?? 0) - originY
-          words[at + 2] = word
-          at += 3
-        }
-        fill.used = at
-        indices.reserve(triangles.length)
-        const target = indices.words
-        let into = indices.used
-        for (let k = 0; k < triangles.length; k++) target[into++] = base + (triangles[k] ?? 0)
-        indices.used = into
-      }
-      const closed = geometry.closed
-      const ringWord = (polygon ? word | shapePolygon : word) >>> 0
-      let start = 0
-      for (const end of geometry.rings) {
-        stroke.reserve((end - start + 3) * 5)
-        const floats = stroke.floats
-        const words = stroke.words
-        const first = stroke.used
-        const lead = closed ? end - 1 : start
-        floats[first] = (points[lead * 2] ?? 0) - originX
-        floats[first + 1] = (points[lead * 2 + 1] ?? 0) - originY
-        floats[first + 2] = 0
-        words[first + 4] = shapeSkip
-        let at = first + 5
-        let along = 0
-        let px = points[start * 2] ?? 0
-        let py = points[start * 2 + 1] ?? 0
-        for (let k = start; k < end; k++) {
-          floats[at] = px - originX
-          floats[at + 1] = py - originY
-          floats[at + 2] = along
-          words[at + 4] = !closed && k === end - 1 ? shapeSkip : ringWord
-          at += 5
-          const j = k + 1 < end ? k + 1 : start
-          const nx = points[j * 2] ?? 0
-          const ny = points[j * 2 + 1] ?? 0
-          if (closed || j !== start) {
-            const dx = nx - px
-            const dy = ny - py
-            along += Math.sqrt(dx * dx + dy * dy)
-          }
-          px = nx
-          py = ny
-        }
-        const tail = closed ? [start, start + 1 < end ? start + 1 : start] : [end - 1]
-        for (const k of tail) {
-          floats[at] = (points[k * 2] ?? 0) - originX
-          floats[at + 1] = (points[k * 2 + 1] ?? 0) - originY
-          floats[at + 2] = along
-          words[at + 4] = shapeSkip
-          at += 5
-        }
-        const perimeter = closed ? along : 0
-        for (let record = first; record < at; record += 5) floats[record + 3] = perimeter
-        stroke.used = at
-        start = end
-      }
-      fillSpans[index * 2 + 1] = indices.used - (fillSpans[index * 2] ?? 0)
-      strokeSpans[index * 2 + 1] = stroke.used / 5 - (strokeSpans[index * 2] ?? 0)
+      fillSpans[index * 2 + 1] = fill.length
+      strokeSpans[index * 2] = windows.used / 4
+      strokeSpans[index * 2 + 1] = stroke.length / 4
+      indices.reserve(fill.length)
+      indices.words.set(fill, indices.used)
+      indices.used += fill.length
+      windows.reserve(stroke.length)
+      windows.words.set(stroke, windows.used)
+      windows.used += stroke.length
     }
     close()
-    stroke.reserve(15)
-    for (let pad = 0; pad < 3; pad++) {
-      stroke.words[stroke.used + 4] = shapeSkip
-      stroke.used += 5
-    }
-    runs = next
-    gl.bindBuffer(gl.ARRAY_BUFFER, made.fillBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(fill.bytes, 0, fill.used * 4), gl.STATIC_DRAW)
-    gl.bindBuffer(gl.ARRAY_BUFFER, made.strokeBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(stroke.bytes, 0, stroke.used * 4), gl.STATIC_DRAW)
-    gl.bindBuffer(gl.ARRAY_BUFFER, made.roundBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(round.bytes, 0, round.used * 4), gl.STATIC_DRAW)
-    gl.bindVertexArray(made.fillVao)
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, made.indexBuffer)
+    frame.runs = runs
+    frame.fillSpans = fillSpans
+    frame.strokeSpans = strokeSpans
+    gl.bindVertexArray(null)
+    gl.bindBuffer(gl.ARRAY_BUFFER, frame.windowBuffer)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Uint8Array(windows.bytes, 0, windows.used * 4),
+      gl.DYNAMIC_DRAW,
+    )
+    gl.bindVertexArray(frame.fillVao)
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
       new Uint8Array(indices.bytes, 0, indices.used * 4),
-      gl.STATIC_DRAW,
+      gl.DYNAMIC_DRAW,
     )
     gl.bindVertexArray(null)
+    return frame
   }
 
   function use(pass: Pass, hidden: Uint32Array, shapePass: number): void {
@@ -563,60 +942,59 @@ export function createShapeLayer(
     gl.uniform1i(pass.pass, shapePass)
   }
 
-  function drawRuns(made: Passes, hidden: Uint32Array, shapePass: number): void {
-    for (const run of runs) {
+  function drawFill(frame: Frame, pin: boolean, first: number, count: number) {
+    if (count <= 0) return
+    use(passOf('fill', pin), current.hidden, current.pass)
+    gl.bindVertexArray(frame.fillVao)
+    gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, first * 4)
+  }
+
+  function drawStroke(frame: Frame, pin: boolean, first: number, count: number) {
+    if (count <= 0) return
+    use(passOf('stroke', pin), current.hidden, current.pass)
+    gl.bindVertexArray(frame.strokeVao)
+    pointWindows(frame, first)
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, windowVertices, count)
+  }
+
+  function drawRound(made: Passes, pin: boolean, first: number, count: number) {
+    if (count <= 0) return
+    use(passOf('round', pin), current.hidden, current.pass)
+    gl.bindVertexArray(made.roundVao)
+    pointRound(first)
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
+  }
+
+  function drawRuns(made: Passes, frame: Frame): void {
+    for (const run of frame.runs) {
       if (run.round) {
-        if (run.count === 0) continue
-        use(passOf(made, 'round', run.pinned), hidden, shapePass)
-        gl.bindVertexArray(made.roundVao)
-        pointRound(run.first)
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count)
+        drawRound(made, run.pinned, run.first, run.count)
         continue
       }
-      if (run.count > 0) {
-        use(passOf(made, 'fill', run.pinned), hidden, shapePass)
-        gl.bindVertexArray(made.fillVao)
-        gl.drawElements(gl.TRIANGLES, run.count, gl.UNSIGNED_INT, run.first * 4)
-      }
-      if (run.recordCount > 0) {
-        use(passOf(made, 'stroke', run.pinned), hidden, shapePass)
-        gl.bindVertexArray(made.strokeVao)
-        pointStroke(run.records)
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.recordCount)
-      }
+      drawFill(frame, run.pinned, run.first, run.count)
+      drawStroke(frame, run.pinned, run.records, run.recordCount)
     }
   }
 
-  function drawRaised(made: Passes, hidden: Uint32Array): void {
+  function drawRaised(made: Passes, frame: Frame): void {
     sortRaised()
     if (raised.length === 0) return
+    current.pass = 1
     if (raised.length > raisedSpans) {
-      drawRuns(made, hidden, 1)
+      drawRuns(made, frame)
       return
     }
     for (const index of raised) {
-      const at = roundSpans[index] ?? -1
-      const pin = pinnedAt[index] === 1
-      if (at >= 0) {
-        use(passOf(made, 'round', pin), hidden, 1)
-        gl.bindVertexArray(made.roundVao)
-        pointRound(at)
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1)
+      const entry = parts[index]
+      if (!entry) continue
+      if (entry.round >= 0) {
+        drawRound(made, entry.pinned, entry.round, 1)
         continue
       }
-      const fillCount = fillSpans[index * 2 + 1] ?? 0
-      if (fillCount > 0) {
-        use(passOf(made, 'fill', pin), hidden, 1)
-        gl.bindVertexArray(made.fillVao)
-        gl.drawElements(gl.TRIANGLES, fillCount, gl.UNSIGNED_INT, (fillSpans[index * 2] ?? 0) * 4)
-      }
-      const strokeCount = strokeSpans[index * 2 + 1] ?? 0
-      if (strokeCount > 0) {
-        use(passOf(made, 'stroke', pin), hidden, 1)
-        gl.bindVertexArray(made.strokeVao)
-        pointStroke(strokeSpans[index * 2] ?? 0)
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, strokeCount)
-      }
+      const fills = frame.fillSpans
+      const strokes = frame.strokeSpans
+      drawFill(frame, entry.pinned, fills[index * 2] ?? 0, fills[index * 2 + 1] ?? 0)
+      drawStroke(frame, entry.pinned, strokes[index * 2] ?? 0, strokes[index * 2 + 1] ?? 0)
     }
   }
 
@@ -628,6 +1006,7 @@ export function createShapeLayer(
       [shapeZoomUnit, made.zoom.texture],
       [shapeTimeUnit, made.time.texture],
       [shapePlaceUnit, place?.texture ?? null],
+      [shapePointsUnit, made.points.texture],
     ] as const
     for (const [unit, texture] of bound) {
       gl.activeTexture(gl.TEXTURE0 + unit)
@@ -648,10 +1027,14 @@ export function createShapeLayer(
       const made = create()
       const grown = store.capacity !== capacity
       capacity = store.capacity
+      shownX = originX
+      shownY = originY
       let changed = false
-      if (store.version !== version || moved) {
-        build(store, originX, originY, made)
+      if (moved || built !== store) {
+        rebuild(store, made)
         changed = true
+      } else if (store.version !== version || store.fillVersion !== fillVersion) {
+        changed = update(store, made)
       }
       if (store.styleVersion !== styleVersion || grown) {
         writeStyles(store, made)
@@ -661,24 +1044,29 @@ export function createShapeLayer(
       writePlace(store, originX, originY)
       shown = store
       version = store.version
+      fillVersion = store.fillVersion
       styleVersion = store.styleVersion
-      shownX = originX
-      shownY = originY
       return changed
     },
 
-    draw(layers: LayerFilter | null, onGlobe = false) {
+    draw(layers, view, key) {
       if (!passes) return
       const made = passes
-      if (onGlobe !== sphere) {
-        sphere = onGlobe
-        if (built) build(built, shownX, shownY, made)
+      if (view.globe !== sphere) {
+        sphere = view.globe
+        const active = gl.getParameter(gl.ACTIVE_TEXTURE) as number
+        gl.activeTexture(gl.TEXTURE0 + shapePointsUnit)
+        if (built) rebuild(built, made)
+        gl.activeTexture(active)
       }
-      if (runs.length === 0) return
-      const hidden = layers ? layers.masks.subarray(8, 12) : noHidden
+      if (order.length === 0) return
+      const frame = frameOf(key, view, made)
+      if (frame.runs.length === 0) return
+      current.hidden = layers ? layers.masks.subarray(8, 12) : noHidden
+      current.pass = 0
       bind(made)
-      drawRuns(made, hidden, 0)
-      drawRaised(made, hidden)
+      drawRuns(made, frame)
+      drawRaised(made, frame)
       gl.bindVertexArray(null)
     },
 
@@ -721,37 +1109,38 @@ export function createShapeLayer(
 
     destroy() {
       for (const set of [...labelSets.keys()]) forgetSet(set)
+      for (const key of [...frames.keys()]) dropFrame(key)
       if (labelPass) {
         gl.deleteProgram(labelPass.pass.program)
         gl.deleteBuffer(labelPass.corner)
         labelPass = null
       }
       for (const set of variants) {
-        if (set)
-          for (const made of [set.fill, set.stroke, set.round]) gl.deleteProgram(made.program)
+        for (const made of set ? [set.fill, set.stroke, set.round] : []) {
+          if (made) gl.deleteProgram(made.program)
+        }
       }
-      variants = [null, null, null]
+      variants = [null, null, null, null]
       place?.destroy()
       place = null
       placeKey = ''
       if (!passes) return
-      for (const made of [passes.fill, passes.stroke, passes.round]) gl.deleteProgram(made.program)
-      for (const vao of [passes.fillVao, passes.strokeVao, passes.roundVao]) {
-        gl.deleteVertexArray(vao)
-      }
-      for (const buffer of [
-        passes.fillBuffer,
-        passes.indexBuffer,
-        passes.strokeBuffer,
-        passes.roundBuffer,
+      gl.deleteVertexArray(passes.roundVao)
+      gl.deleteBuffer(passes.fillBuffer)
+      gl.deleteBuffer(passes.roundBuffer)
+      for (const texture of [
+        passes.points,
+        passes.styles,
+        passes.states,
+        passes.zoom,
+        passes.time,
       ]) {
-        gl.deleteBuffer(buffer)
-      }
-      for (const texture of [passes.styles, passes.states, passes.zoom, passes.time]) {
         texture.destroy()
       }
       passes = null
       built = null
+      parts = []
+      order = new Uint32Array(0)
       capacity = 0
     },
   }

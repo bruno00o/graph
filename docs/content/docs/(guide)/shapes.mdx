@@ -214,7 +214,13 @@ Shapes draw on a [map](/docs/map#shapes), flat or on the globe, with their geome
 
 ## Cost
 
-A graph without shapes creates no program, texture or buffer for them, and does no work per frame. Polygons are triangulated once, when their geometry changes: 10,000 polygons of 50 points take about 70 milliseconds, and their first frame about 150 milliseconds in Chrome. Panning over them costs about 3 milliseconds per frame, with a selection, a hover and a state with `others`. The first pick after a change builds an index of the shapes, about 10 milliseconds for 10,000 polygons; then a pick takes a few microseconds.
+A graph without shapes creates no program, texture or buffer for them, and does no work per frame. Polygons are triangulated once, when their geometry changes. Outlines are drawn from the points themselves, so they need no triangles.
+
+A batch of up to 100,000 points is triangulated at once, on the main thread. A larger batch, such as the first data of a big map, goes to workers: outlines, picking, the lasso and labels work at once, and each fill appears when its triangles arrive, without a blank frame for the others. Changing one shape triangulates that shape alone. Without `Worker`, or when your policy refuses `worker-src blob:`, the triangulation runs on the main thread in slices of 8 milliseconds. A crossed polygon of such a batch is reported by `issues()` once its triangles arrive, and [`exportPng`](/docs/api/export) waits for the fills.
+
+A ring or a line of 256 points or more also gets coarser copies, made by removing the points that change its area least (Visvalingam and Whyatt). Zoomed out, each shape is drawn from the coarsest copy that stays within half a pixel of its exact outline. Picking, the lasso, `view.fit`, labels and the SVG export always read the exact geometry.
+
+10,000 polygons of 50 points with 1,000 nodes and edges show in about 120 milliseconds in Chrome and Safari and about 200 in Firefox. 500 polygons of 5,000 points show their outlines in about 300 milliseconds and their fills about 0.2 to 0.4 second later. Panning over smooth outlines at the overview costs about 2 milliseconds per frame; very jagged outlines, whose detail cannot be removed within half a pixel, cost what their pixels cost, about 12 milliseconds for 500 such polygons over the whole view. Changing one polygon of 5,000 points takes about 5 milliseconds. The first pick after a change builds an index of the shapes, about 10 milliseconds; then a pick takes a few microseconds.
 
 On a map, 10,000 polygons of 50 points in degrees cost about 5 milliseconds per frame while the map moves, flat or on the globe, in Chrome, Firefox and Safari. The globe splits long edges once per geometry: a zone over a hemisphere becomes about 4,000 triangles in 4 milliseconds, and polygons smaller than 5 degrees are not split.
 

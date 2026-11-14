@@ -17,6 +17,7 @@ export type ShapeKind = (typeof shapeKinds)[keyof typeof shapeKinds]
 
 export interface ShapeLevel {
   readonly area: number
+  readonly error: number
   readonly points: Float64Array
   readonly rings: Uint32Array
   readonly triangles: Uint32Array
@@ -52,9 +53,19 @@ export interface ShapeGlyphs {
   readonly count: number
 }
 
+export interface ShapeView {
+  readonly x: number
+  readonly y: number
+  readonly zoom: number
+  readonly width: number
+  readonly height: number
+  readonly pixelRatio: number
+  readonly globe: boolean
+}
+
 export interface ShapeLayer {
   sync(input: ShapeLayerInput): boolean
-  draw(layers: LayerFilter | null, globe?: boolean, zoom?: number): void
+  draw(layers: LayerFilter | null, view: ShapeView, key: object): void
   labels(set: object, main: ShapeGlyphs, highlight: ShapeGlyphs): void
   drawLabels(set: object, pass: number, layers: LayerFilter | null): void
   forget(set: object): void

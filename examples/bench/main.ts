@@ -36,6 +36,7 @@ const shapeCount = Number(params.get('shapes') ?? 0)
 const shapePoints = Math.max(3, Number(params.get('points') ?? 50))
 const shapeParts = params.get('parts') ?? 'both'
 const shapeLabels = params.has('shapelabels')
+const smoothOutline = params.get('outline') === 'smooth'
 const pinCount = Number(params.get('pinned') ?? 0)
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
@@ -78,12 +79,35 @@ function scatteredZones(
   return Array.from({ length: count }, (_, index) => {
     const center = list[Math.floor(next() * list.length)] ?? { x: 0, y: 0 }
     const radius = reach * (0.4 + next())
+    const coast = smoothOutline ? coastline(points, next) : null
     const ring = Array.from({ length: points }, (_, k) => {
-      const angle = ((k + 0.5 * next()) / points) * Math.PI * 2
-      const distance = radius * (0.6 + 0.4 * next())
+      const angle = ((k + (coast ? 0 : 0.5 * next())) / points) * Math.PI * 2
+      const distance = radius * (coast ? (coast[k] ?? 1) : 0.6 + 0.4 * next())
       return [center.x + Math.cos(angle) * distance, center.y + Math.sin(angle) * distance] as const
     })
     return { id: `z${index}`, geometry: { rings: [ring] }, rank: next() }
+  })
+}
+
+function coastline(points: number, next: () => number): Float64Array {
+  let size = 8
+  while (size < points) size *= 2
+  const height = new Float64Array(size)
+  for (let k = 0; k < 8; k++) height[(k * size) / 8] = (next() - 0.5) * 0.4
+  let amplitude = 0.2
+  for (let step = size / 8; step > 1; step /= 2) {
+    for (let k = 0; k < size; k += step) {
+      const a = height[k] ?? 0
+      const b = height[(k + step) % size] ?? 0
+      height[k + step / 2] = (a + b) / 2 + (next() - 0.5) * amplitude
+    }
+    amplitude *= 0.55
+  }
+  return Float64Array.from({ length: points }, (_, k) => {
+    const at = (k / points) * size
+    const low = Math.floor(at)
+    const t = at - low
+    return 0.8 + (height[low] ?? 0) * (1 - t) + (height[(low + 1) % size] ?? 0) * t
   })
 }
 

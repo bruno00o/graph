@@ -154,8 +154,50 @@ export function effectiveAreas(
   return areas
 }
 
+function distance(points: Float64Array, k: number, a: number, b: number): number {
+  const ax = points[a * 2] ?? 0
+  const ay = points[a * 2 + 1] ?? 0
+  const dx = (points[b * 2] ?? 0) - ax
+  const dy = (points[b * 2 + 1] ?? 0) - ay
+  const px = (points[k * 2] ?? 0) - ax
+  const py = (points[k * 2 + 1] ?? 0) - ay
+  const length = dx * dx + dy * dy
+  const t = length > 0 ? Math.min(1, Math.max(0, (px * dx + py * dy) / length)) : 0
+  return Math.hypot(px - t * dx, py - t * dy)
+}
+
+function ringError(
+  points: Float64Array,
+  kept: readonly number[],
+  first: number,
+  last: number,
+  start: number,
+  end: number,
+  closed: boolean,
+): number {
+  let worst = 0
+  for (let j = first; j < last; j++) {
+    const a = kept[j] ?? 0
+    const wrap = j + 1 === last
+    if (wrap && !closed) break
+    const b = wrap ? (kept[first] ?? 0) : (kept[j + 1] ?? 0)
+    let k = a + 1
+    for (;;) {
+      if (k === end) {
+        if (!closed) break
+        k = start
+      }
+      if (k === b) break
+      worst = Math.max(worst, distance(points, k, a, b))
+      k++
+    }
+  }
+  return worst
+}
+
 export interface Simplified {
   readonly area: number
+  readonly error: number
   readonly points: Float64Array
   readonly rings: Uint32Array
   readonly kept: Uint32Array
@@ -180,8 +222,11 @@ export function simplifiedLevels(
     const kept: number[] = []
     const ends: number[] = []
     let start = 0
+    let error = 0
     for (const end of rings) {
+      const first = kept.length
       for (let k = start; k < end; k++) if ((areas[k] ?? 0) > area) kept.push(k)
+      error = Math.max(error, ringError(points, kept, first, kept.length, start, end, closed))
       ends.push(kept.length)
       start = end
     }
@@ -191,7 +236,13 @@ export function simplifiedLevels(
       xy[at * 2] = points[k * 2] ?? 0
       xy[at * 2 + 1] = points[k * 2 + 1] ?? 0
     })
-    levels.push({ area, points: xy, rings: Uint32Array.from(ends), kept: Uint32Array.from(kept) })
+    levels.push({
+      area,
+      error,
+      points: xy,
+      rings: Uint32Array.from(ends),
+      kept: Uint32Array.from(kept),
+    })
   }
   return levels
 }

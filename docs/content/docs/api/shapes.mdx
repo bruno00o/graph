@@ -93,7 +93,7 @@ A point that is not finite is skipped, and so is a point equal to the one before
 
 ## Problems
 
-A geometry that draws nothing, such as a ring of fewer than three points or an unknown form, and a polygon whose rings cross are reported by [`issues()`](/docs/api/graph-instance#issues), next to the problems of nodes and edges. A crossed polygon is still drawn, as well as its triangles can cover it. A `null` geometry draws nothing and is no problem. An item without a key, or with a key held twice, is reported as for nodes, with `kind: 'shapes'`. `GraphIssue<M>` holds these problems when the marks `M` hold a shape mark, and so does the plain `GraphIssue`.
+A geometry that draws nothing, such as a ring of fewer than three points or an unknown form, and a polygon whose rings cross are reported by [`issues()`](/docs/api/graph-instance#issues), next to the problems of nodes and edges. A crossed polygon is still drawn, as well as its triangles can cover it. A polygon triangulated in a worker is reported once its triangles arrive: see [Cost](/docs/shapes#cost). A `null` geometry draws nothing and is no problem. An item without a key, or with a key held twice, is reported as for nodes, with `kind: 'shapes'`. `GraphIssue<M>` holds these problems when the marks `M` hold a shape mark, and so does the plain `GraphIssue`.
 
 <api-table path="index.ts" name="InvalidShapeIssue" />
 

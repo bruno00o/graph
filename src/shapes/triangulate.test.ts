@@ -80,6 +80,42 @@ describe('triangulate', () => {
     }
   })
 
+  it('covers long fractal outlines exactly and quickly', () => {
+    const misses: number[] = []
+    const started = performance.now()
+    for (let seed = 1; seed <= 20; seed++) {
+      const next = random(seed * 13)
+      const count = 2000 + Math.floor(next() * 3000)
+      let size = 8
+      while (size < count) size *= 2
+      const height = new Float64Array(size)
+      for (let k = 0; k < 8; k++) height[(k * size) / 8] = (next() - 0.5) * 0.4
+      let amplitude = 0.2
+      for (let step = size / 8; step > 1; step /= 2) {
+        for (let k = 0; k < size; k += step) {
+          const a = height[k] ?? 0
+          const b = height[(k + step) % size] ?? 0
+          height[k + step / 2] = (a + b) / 2 + (next() - 0.5) * amplitude
+        }
+        amplitude *= 0.55
+      }
+      const coords = new Float64Array(count * 2)
+      for (let k = 0; k < count; k++) {
+        const at = (k / count) * size
+        const reach = 100 * (0.8 + (height[Math.floor(at)] ?? 0))
+        const angle = (k / count) * Math.PI * 2
+        coords[k * 2] = Math.cos(angle) * reach
+        coords[k * 2 + 1] = Math.sin(angle) * reach
+      }
+      const result = triangulate(coords, 0, [count])
+      const expected = Math.abs(ringArea(coords, 0, count))
+      const drawn = triangleArea(coords, result.indices, result.count, 0, 0)
+      if (Math.abs(drawn - expected) > 1e-6 * expected || result.forced > 0) misses.push(seed)
+    }
+    expect(misses).toEqual([])
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
+
   it('covers integer grids with collinear points', () => {
     for (let size = 3; size <= 12; size++) {
       const points: number[] = []

@@ -1,9 +1,22 @@
-import { type FillAnswer, type Filled, type FillInput, type FillJob, fillShape } from './fill'
+import {
+  type Filled,
+  type FillInput,
+  fillShape,
+  jobTransfers,
+  type PackedAnswer,
+  packJob,
+  unpackAnswer,
+} from './fill'
 import FillWorker from './fill-worker?worker&inline'
 
 const sliceBudget = 8
 
 type Done = (id: number, filled: readonly Filled[]) => void
+
+interface FillJob {
+  readonly id: number
+  readonly shapes: readonly FillInput[]
+}
 
 function spawn(): Worker | null {
   if (typeof Worker === 'undefined') return null
@@ -33,8 +46,12 @@ export class FillPool {
     const job: FillJob = { id, shapes }
     this.#jobs.set(id, job)
     const worker = this.#inline ? null : this.#worker()
-    if (worker) worker.postMessage(job)
-    else this.#enqueue(job)
+    if (!worker) {
+      this.#enqueue(job)
+      return
+    }
+    const packed = packJob(id, shapes)
+    worker.postMessage(packed, jobTransfers(packed))
   }
 
   destroy(): void {
@@ -51,7 +68,8 @@ export class FillPool {
     if (this.#workers.length < limit) {
       const worker = spawn()
       if (worker) {
-        worker.onmessage = (event: MessageEvent<FillAnswer>) => this.#answer(event.data)
+        worker.onmessage = (event: MessageEvent<PackedAnswer>) =>
+          this.#answer(event.data.id, unpackAnswer(event.data))
         worker.onerror = (event) => {
           event.preventDefault()
           this.#fallBack()
@@ -65,9 +83,9 @@ export class FillPool {
     return this.#workers[this.#next++ % this.#workers.length] ?? null
   }
 
-  #answer(answer: FillAnswer): void {
-    if (this.#destroyed || !this.#jobs.delete(answer.id)) return
-    this.#done(answer.id, answer.filled)
+  #answer(id: number, filled: readonly Filled[]): void {
+    if (this.#destroyed || !this.#jobs.delete(id)) return
+    this.#done(id, filled)
   }
 
   #fallBack(): void {
@@ -95,7 +113,7 @@ export class FillPool {
         this.#queue.shift()
         const filled = this.#partial
         this.#partial = []
-        this.#answer({ id: job.id, filled })
+        this.#answer(job.id, filled)
       }
     }
     if (this.#queue.length > 0) this.#timer = setTimeout(this.#step, 0)

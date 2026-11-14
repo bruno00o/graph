@@ -1,13 +1,20 @@
-import { type FillAnswer, type FillJob, fillShape, transfers } from './fill'
+import {
+  answerTransfers,
+  fillShape,
+  type PackedAnswer,
+  type PackedJob,
+  packAnswer,
+  unpackJob,
+} from './fill'
 
 interface WorkerScope {
-  onmessage: ((event: MessageEvent<FillJob>) => void) | null
-  postMessage(message: FillAnswer, transfer: Transferable[]): void
+  onmessage: ((event: MessageEvent<PackedJob>) => void) | null
+  postMessage(message: PackedAnswer, transfer: Transferable[]): void
 }
 
 const scope = globalThis as unknown as WorkerScope
 
 scope.onmessage = (event) => {
-  const answer: FillAnswer = { id: event.data.id, filled: event.data.shapes.map(fillShape) }
-  scope.postMessage(answer, transfers(answer))
+  const answer = packAnswer(event.data.id, unpackJob(event.data).map(fillShape))
+  scope.postMessage(answer, answerTransfers(answer))
 }

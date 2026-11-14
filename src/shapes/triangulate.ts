@@ -8,7 +8,7 @@ function cross(ax: number, ay: number, bx: number, by: number, cx: number, cy: n
   return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
 }
 
-export function ringArea(points: Float64Array, from: number, to: number): number {
+export function ringArea(points: ArrayLike<number>, from: number, to: number): number {
   const ox = points[from * 2] ?? 0
   const oy = points[from * 2 + 1] ?? 0
   let sum = 0
@@ -443,7 +443,7 @@ export function triangulate(
     if (isEar(v, false)) {
       const following = after[v] ?? 0
       clip(v)
-      v = before[following] ?? 0
+      v = following
       stall = 0
       continue
     }
