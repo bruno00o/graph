@@ -8,6 +8,7 @@ import type {
   NodeShape,
 } from '../types'
 import { EdgeWaypoints } from './edge-waypoints'
+import { NodeOrder } from './node-order'
 import { TimeSpans } from './time-range'
 import { ZoomRanges } from './zoom-range'
 
@@ -17,7 +18,16 @@ export interface NodeBadge {
   readonly fill: number
   readonly color: number
   readonly ring: number
+  readonly ringWidth: number
+  readonly image: string | null
+  readonly imageScale: number
+  readonly imageColor: number
+  readonly minSize: number
 }
+
+export const badgeRingWidth = 1.5
+export const badgeMinSize = 10
+export const badgeImageScale = 0.7
 
 export const noColor = 0xffffffff
 
@@ -117,6 +127,7 @@ export class NodeColumns {
   containerBoxes: Float32Array | null = null
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
+  readonly order: NodeOrder = new NodeOrder()
 
   reserve(index: number): void {
     if (index < this.capacity) return

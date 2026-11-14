@@ -33,6 +33,7 @@ import {
 } from '../core/visibility'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { ContainerFrame, GridInput, LabelMode } from '../host/renderer'
+import { haloLimit } from '../theme/tokens'
 import type { EdgeEnd } from '../types'
 import { atlasFontSize } from '../webgl/glyph-atlas'
 import {
@@ -43,10 +44,10 @@ import {
 } from '../webgl/label-layer'
 import {
   badgeFont,
+  badgeIconWidth,
   badgeLimit,
-  badgeMin,
-  badgeRing,
   badgeTextMin,
+  badgeTextShift,
   edgeLabelGap,
   labelGap,
   mutedPaper,
@@ -105,8 +106,7 @@ interface QueuedLabel {
 }
 
 const boxScratch: NodeBox = { halfWidth: 0, halfHeight: 0, corner: 0 }
-const haloWidth = 6
-const haloBands = [6, 4, 2] as const
+const haloBands = [1, 2 / 3, 1 / 3] as const
 const haloLevels = [5 / 6, 3 / 6, 1 / 6] as const
 const haloStroke = 2 * 1.6
 const badgeReach = [Math.SQRT1_2, squareReach, 0.6] as const
@@ -163,6 +163,10 @@ export function paintOf(color: Rgba): Paint {
 function smoothstep(x: number): number {
   const t = Math.min(1, Math.max(0, x))
   return t * t * (3 - 2 * t)
+}
+
+function haloSpan(width: number): number {
+  return Math.round(Math.min(Math.max(width, 0), haloLimit) * 16) / 16
 }
 
 function bandAlphas(alpha: number): readonly number[] {
@@ -350,8 +354,7 @@ export function writeSvg(scene: SvgScene): string {
   const paper = paintOf(theme.labelPaper)
   const mutedPaperPaint: Paint = { ...paper, alpha: paper.alpha * mutedPaper }
   const labelHalo = paintOf(theme.labelHalo)
-  const halo = paintOf(theme.halo)
-  const halos = bandAlphas(halo.alpha)
+  const glows = new Map<number, { readonly hex: string; readonly alphas: readonly number[] }>()
   const margin = 64
 
   const sx = (index: number) => positions.x(index) * zoom + offsetX
@@ -495,6 +498,23 @@ export function writeSvg(scene: SvgScene): string {
     return id
   }
 
+  function haloBandsOf(look: Look, write: (band: number, paint: Paint) => string): string[] {
+    const width = haloSpan(look.halo)
+    if (width <= 0) return []
+    let glow = glows.get(look.haloColor)
+    if (!glow) {
+      const color = look.haloColor === noColor ? paintOf(theme.halo) : paint(look.haloColor)
+      glow = { hex: color.hex, alphas: bandAlphas(color.alpha) }
+      glows.set(look.haloColor, glow)
+    }
+    const parts: string[] = []
+    haloBands.forEach((share, at) => {
+      const alpha = glow.alphas[at] ?? 0
+      if (alpha > 0) parts.push(write(share * width, { hex: glow.hex, alpha }))
+    })
+    return parts
+  }
+
   function open(opacity: number): string {
     return opacity < 0.999 ? `<g opacity="${fine(Math.max(0, opacity))}">` : '<g>'
   }
@@ -502,15 +522,13 @@ export function writeSvg(scene: SvgScene): string {
   function drawShape(look: Look, tag: (offset: number) => string, r: number, image: string): void {
     const outlineWidth = Math.max(look.outlineWidth, 0)
     const parts: string[] = [open(look.opacity)]
-    if (look.halo) {
-      haloBands.forEach((band, at) => {
-        const alpha = halos[at] ?? 0
-        if (alpha <= 0) return
-        parts.push(
-          `${tag(outlineWidth + band / 2)} fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(band)}"/>`,
-        )
-      })
-    }
+    parts.push(
+      ...haloBandsOf(
+        look,
+        (band, glow) =>
+          `${tag(outlineWidth + band / 2)} fill="none"${paintAttribute('stroke', glow)} stroke-width="${num(band)}"/>`,
+      ),
+    )
     if (outlineWidth > 0) {
       parts.push(
         `${tag(outlineWidth / 2)} fill="none"${paintAttribute('stroke', paint(look.outline))} stroke-width="${num(outlineWidth)}"/>`,
@@ -534,7 +552,7 @@ export function writeSvg(scene: SvgScene): string {
     const r = radius(index)
     const look = nodeLookAt(index)
     const outlineWidth = Math.max(look.outlineWidth, 0)
-    const haloReach = look.halo ? haloWidth : 0
+    const haloReach = haloSpan(look.halo)
     const boxed = isBox(nodes, index)
     const box = nodeBox(nodes, index, nodeUnit(nodes, index, zoom), boxScratch)
     const extentX =
@@ -571,7 +589,7 @@ export function writeSvg(scene: SvgScene): string {
     const r = Math.min(halfWidth, halfHeight)
     const corner = Math.min((frame[index * 4 + 2] ?? 0) * zoom, r)
     const look = nodeLookAt(index)
-    const reach = Math.max(look.outlineWidth, 0) + (look.halo ? haloWidth : 0)
+    const reach = Math.max(look.outlineWidth, 0) + haloSpan(look.halo)
     if (
       outside(
         x - halfWidth - reach,
@@ -926,7 +944,7 @@ export function writeSvg(scene: SvgScene): string {
             positions.y(target),
           ) * zoom
         : 0)
-    const pad = spread + width * 2 + haloWidth + 8
+    const pad = spread + width * 2 + haloSpan(look.halo) + 8
     if (
       outside(
         Math.min(ax, dx) - pad,
@@ -949,15 +967,13 @@ export function writeSvg(scene: SvgScene): string {
     const cut = line.split < 0 ? to : Math.min(to, Math.max(from, shape.visible * line.split))
     const outline =
       part === 0 ? shape.whole : part === 1 ? shape.piece(0, cut) : shape.piece(cut, shape.visible)
-    if (look.halo) {
-      haloBands.forEach((band, at) => {
-        const alpha = halos[at] ?? 0
-        if (alpha <= 0) return
-        parts.push(
-          `<path d="${outline}" fill="none"${paintAttribute('stroke', { hex: halo.hex, alpha })} stroke-width="${num(width + band * 2)}"/>`,
-        )
-      })
-    }
+    parts.push(
+      ...haloBandsOf(
+        look,
+        (band, glow) =>
+          `<path d="${outline}" fill="none"${paintAttribute('stroke', glow)} stroke-width="${num(width + band * 2)}"/>`,
+      ),
+    )
     const shift = look.flow * (scene.time ?? 0)
     const piece = (start: number, end: number, far: 0 | 1) => {
       if (end <= start) return
@@ -1000,43 +1016,83 @@ export function writeSvg(scene: SvgScene): string {
   const partsOf = (index: number): readonly EdgePart[] =>
     halvesAt(index) ? halvesParts : wholePart
 
+  function badgeFrame(index: number): { height: number; x: number; y: number } | null {
+    if (isContainer(index)) {
+      if (!boxes) return null
+      const halfWidth = Math.max((boxes[index * 4] ?? 0) * zoom, 1.25)
+      const halfHeight = Math.max((boxes[index * 4 + 1] ?? 0) * zoom, 1.25)
+      const short = Math.min(halfWidth, halfHeight)
+      const inset = Math.min((boxes[index * 4 + 2] ?? 0) * zoom, short) * boxBadgeInset
+      return {
+        height: Math.min(short * 2 * 0.55, badgeLimit),
+        x: halfWidth - inset,
+        y: halfHeight - inset,
+      }
+    }
+    const size = nodes.size[index] ?? 0
+    const diameter = nodes.screenUnits[index] === 1 ? size : size * zoom
+    const box = boxOf(index, sourceScratch)
+    const x = box
+      ? box.halfWidth - box.corner * boxBadgeInset
+      : (badgeReach[nodes.shape[index] ?? 0] ?? Math.SQRT1_2) * radius(index)
+    return {
+      height: Math.min(diameter * 0.55, badgeLimit),
+      x,
+      y: box ? box.halfHeight - box.corner * boxBadgeInset : x,
+    }
+  }
+
   function drawBadges(indices: Iterable<number>): void {
     const pills: string[] = []
     const texts: string[] = []
     for (const index of indices) {
       const badges = nodes.badges[index]
       if (!badges || nodes.alive[index] !== 1 || nodeFade(index) === 0) continue
-      const size = nodes.size[index] ?? 0
-      const diameter = nodes.screenUnits[index] === 1 ? size : size * zoom
-      const height = Math.min(diameter * 0.55, badgeLimit)
-      if (height < badgeMin) continue
+      const frame = badgeFrame(index)
+      if (!frame) continue
+      const { height } = frame
       const x = sx(index)
       const y = sy(index)
-      const r = radius(index)
-      const box = boxOf(index, sourceScratch)
-      const reachX = box
-        ? box.halfWidth - box.corner * boxBadgeInset
-        : (badgeReach[nodes.shape[index] ?? 0] ?? Math.SQRT1_2) * r
-      const reachY = box ? box.halfHeight - box.corner * boxBadgeInset : reachX
-      if (outside(x - reachX - 40, y - reachY - 20, x + reachX + 40, y + reachY + 20)) continue
+      if (outside(x - frame.x - 40, y - frame.y - 20, x + frame.x + 40, y + frame.y + 20)) continue
       const look: Look = nodeLookAt(index)
       const opacity = look.opacity < 0.999 ? ` opacity="${fine(Math.max(0, look.opacity))}"` : ''
       const font = height * badgeFont
       for (const badge of badges) {
-        const cx = x + (badge.corner & 1 ? 1 : -1) * reachX
-        const cy = y + (badge.corner & 2 ? 1 : -1) * reachY
-        const text = badge.text && height >= badgeTextMin ? badge.text : null
-        const textWidth = text ? measure.line(text, 500).width : 0
-        const pill = text
-          ? Math.max(height, (textWidth * font) / atlasFontSize + height * 0.6)
-          : height
-        const ring = badgeRing / 2
+        if (height < badge.minSize) continue
+        const cx = x + (badge.corner & 1 ? 1 : -1) * frame.x
+        const cy = y + (badge.corner & 2 ? 1 : -1) * frame.y
+        const text =
+          badge.text && height >= Math.max(badge.minSize, badgeTextMin) ? badge.text : null
+        const words = text ? (measure.line(text, 500).width * font) / atlasFontSize : 0
+        const iconed = badge.image !== null
+        const pill = !text
+          ? height
+          : iconed
+            ? words + height * badgeIconWidth
+            : Math.max(height, words + height * 0.6)
+        const ring = badge.ringWidth
+        const stroke =
+          ring > 0
+            ? `${paintAttribute('stroke', paint(badge.ring))} stroke-width="${num(ring)}"`
+            : ''
         pills.push(
-          `<rect x="${num(cx - pill / 2 - ring)}" y="${num(cy - height / 2 - ring)}" width="${num(pill + badgeRing)}" height="${num(height + badgeRing)}" rx="${num(height / 2 + ring)}"${paintAttribute('fill', paint(badge.fill))}${paintAttribute('stroke', paint(badge.ring))} stroke-width="${num(badgeRing)}"${opacity}/>`,
+          `<rect x="${num(cx - pill / 2 - ring / 2)}" y="${num(cy - height / 2 - ring / 2)}" width="${num(pill + ring)}" height="${num(height + ring)}" rx="${num(height / 2 + ring / 2)}"${paintAttribute('fill', paint(badge.fill))}${stroke}${opacity}/>`,
         )
+        const image = badge.image ? scene.images.get(badge.image) : undefined
+        if (badge.image && image) {
+          const scale = Math.max(badge.imageScale, 0.001)
+          const side = height * scale
+          const ix = cx + (height - pill) / 2
+          const tint =
+            badge.imageColor === noColor ? '' : ` filter="url(#${tintId(badge.imageColor)})"`
+          pills.push(
+            `<use href="#${imageId(badge.image, image)}" width="1" height="1" transform="translate(${num(ix - side / 2)} ${num(cy - side / 2)}) scale(${fine(side)})" clip-path="url(#${clipId(0, scale)})"${tint}${opacity}/>`,
+          )
+        }
         if (text) {
+          const tx = cx + (iconed ? height * badgeTextShift : 0)
           texts.push(
-            `<text transform="translate(${num(cx)} ${num(cy + font * 0.35)}) scale(${fine(font / atlasFontSize)})" text-anchor="middle" font-size="${atlasFontSize}" font-weight="500"${paintAttribute('fill', paint(badge.color))}${opacity}>${escapeXml(text)}</text>`,
+            `<text transform="translate(${num(tx)} ${num(cy + font * 0.35)}) scale(${fine(font / atlasFontSize)})" text-anchor="middle" font-size="${atlasFontSize}" font-weight="500"${paintAttribute('fill', paint(badge.color))}${opacity}>${escapeXml(text)}</text>`,
           )
         }
       }
@@ -1301,6 +1357,9 @@ export function writeSvg(scene: SvgScene): string {
       }),
     )
   }
+  const drawOrder = nodes.order.used
+    ? nodes.order.list.subarray(0, nodes.order.length)
+    : Array.from({ length: nodes.capacity }, (_, index) => index)
   const containers = scene.containers
   if (containers) {
     for (let slot = 0; slot < containers.count; slot++) {
@@ -1322,7 +1381,7 @@ export function writeSvg(scene: SvgScene): string {
         }
       }
     } else {
-      for (let index = 0; index < nodes.capacity; index++) {
+      for (const index of drawOrder) {
         if (nodes.alive[index] !== 1 || nodes.slot[index] !== layer.slot) continue
         if (nodeFade(index) === 0) continue
         if (!nodeRaised(index) && !isContainer(index)) drawNode(index)
@@ -1330,7 +1389,7 @@ export function writeSvg(scene: SvgScene): string {
     }
   }
   const plain: number[] = []
-  for (let index = 0; index < nodes.capacity; index++) {
+  for (const index of drawOrder) {
     if (nodes.badges[index] && !nodeRaised(index)) plain.push(index)
   }
   drawBadges(plain)

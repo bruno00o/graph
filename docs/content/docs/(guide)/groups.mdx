@@ -59,6 +59,24 @@ nodes(items, { parent: 'parent', container: { fillOpacity: 0.4 } })
 
 Edges that end on a container stop at its border, the rounded corners included, as edges stop at the border of a node.
 
+### Label and badges of an unfolded group
+
+A group keeps its label while it is unfolded, above the container, and shows its [badges](/docs/images-and-badges#badges) only while it is folded. `container.label` and `container.badges` set them while it is unfolded, with the same values as the `label` and `badges` options of `nodes()`; `null` draws none.
+
+```ts
+nodes(items, {
+  parent: 'parent',
+  label: (item) => `${item.name} (${item.size})`,
+  badges: { topRight: (item) => (item.alerts > 0 ? { text: item.alerts } : null) },
+  container: {
+    label: 'name',
+    badges: { topRight: (item) => (item.alerts > 0 ? { text: '!' } : null) },
+  },
+})
+```
+
+Container badges sit on the corners of the container. Folding or unfolding a group rewrites that group alone, so the style functions of the other nodes do not run again. The same options apply to the groups of [`groups()`](/docs/transformations#group-items-by-a-field).
+
 ## Spread children
 
 Children of an unfolded group that overlap, such as several nodes at the same coordinates, move apart around their place so that each one can be seen, hovered and dragged. Children at the same place sit on a ring, or on a spiral past six. Children that touch at the current zoom form one pack around their average place, so the packs follow the zoom: they merge as you zoom out and split as you zoom in.

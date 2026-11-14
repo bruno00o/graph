@@ -24,6 +24,7 @@ import type {
   ResolvedTransitions,
   ResolvedViewLimits,
   StateKindStyles,
+  StateLook,
   StateStyle,
   StateStyles,
   SupportStateOptions,
@@ -246,10 +247,18 @@ function resolveSupport(
   return carriers === null && carried === null ? null : Object.freeze({ carriers, carried })
 }
 
+function freezeLook<T extends StateLook>(style: T): T {
+  const own = withoutUndefined(style)
+  const halo = own.halo
+  if (typeof halo !== 'object') return own
+  if (halo.width !== undefined) atLeastZero(halo.width, 'state halo.width')
+  return { ...own, halo: Object.freeze(withoutUndefined(halo)) }
+}
+
 function freezeStyle(style: StateStyle | undefined): StateStyle {
-  const own = withoutUndefined(style ?? {})
+  const own = freezeLook(style ?? {})
   const others = style?.others
-  return Object.freeze(others ? { ...own, others: Object.freeze(withoutUndefined(others)) } : own)
+  return Object.freeze(others ? { ...own, others: Object.freeze(freezeLook(others)) } : own)
 }
 
 function freezeStates<S extends string>(states: StateStyles<S>): StateStyles<S> {

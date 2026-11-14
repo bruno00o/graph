@@ -24,6 +24,10 @@ export interface RegistryChanges {
 
 export type LayerOf = (kind: StateKind, index: number) => number
 
+export type RankOf = (
+  kind: StateKind,
+) => { readonly version: number; rankOf(index: number): number } | null
+
 const kinds: readonly StateKind[] = ['nodes', 'edges', 'shapes']
 const elementKinds: readonly StateKind[] = ['nodes', 'edges']
 const scanShare = 16
@@ -38,6 +42,7 @@ export class StateRegistry {
   readonly #members = new Map<string, Members>()
   readonly #display: EdgeDisplay | null
   readonly #layerOf: LayerOf | null
+  readonly #rankOf: RankOf | null
   #names: readonly string[] = builtInStates
   #highlightDirty = true
   #watched: readonly number[] = []
@@ -49,11 +54,13 @@ export class StateRegistry {
     buffers: StateBuffers,
     display: EdgeDisplay | null = null,
     layerOf: LayerOf | null = null,
+    rankOf: RankOf | null = null,
   ) {
     this.#model = model
     this.#buffers = buffers
     this.#display = display
     this.#layerOf = layerOf
+    this.#rankOf = rankOf
     for (const name of builtInStates) this.#members.set(name, members())
   }
 
@@ -205,6 +212,7 @@ export class StateRegistry {
       buffers.shapeRaise,
       buffers.shapeAlways,
     ]
+    watched.push(this.#rankOf?.('nodes')?.version ?? -1)
     if (!this.#highlightDirty && watched.every((bits, at) => bits === this.#watched[at])) return
     this.#highlightDirty = false
     this.#watched = watched
@@ -259,12 +267,16 @@ export class StateRegistry {
 
   #byLayer(kind: StateKind, indices: number[]): number[] {
     const layerOf = this.#layerOf
-    if (!layerOf || indices.length < 2) return indices
-    const layers = indices.map((index) => layerOf(kind, index))
-    const first = layers[0]
-    if (layers.every((layer) => layer === first)) return indices
+    const ranked = this.#rankOf?.(kind) ?? null
+    if ((!layerOf && !ranked) || indices.length < 2) return indices
+    const layers = layerOf ? indices.map((index) => layerOf(kind, index)) : null
+    const first = layers?.[0]
+    if (!ranked && layers?.every((layer) => layer === first)) return indices
+    const ranks = ranked ? indices.map((index) => ranked.rankOf(index)) : indices
     const order = indices.map((_, at) => at)
-    order.sort((a, b) => (layers[a] ?? 0) - (layers[b] ?? 0) || a - b)
+    order.sort(
+      (a, b) => (layers?.[a] ?? 0) - (layers?.[b] ?? 0) || (ranks[a] ?? 0) - (ranks[b] ?? 0),
+    )
     return order.map((at) => indices[at] ?? 0)
   }
 

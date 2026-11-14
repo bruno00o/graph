@@ -255,12 +255,17 @@ export type LabelPlacement = 'bottom' | 'top' | 'right' | 'left' | 'center'
 export type LabelWeight = 'normal' | 'bold' | number
 
 /**
- * A pill in a corner of a node. It hides while the node measures less than 10 pixels on screen, and
- * its text shows from 12.
+ * A pill in a corner of a node, 0.55 times as high as the node diameter on screen, up to 18
+ * pixels. It hides while it is less than `minSize` pixels high, and its text shows from 12.
  */
 export interface Badge {
-  /** Text or number in the pill. Without it, the badge is a dot. */
+  /** Text or number in the pill. Without it nor `image`, the badge is a dot. */
   readonly text?: string | number | undefined
+  /**
+   * Icon at the start of the pill, before the text: a URL or an image with options. It goes
+   * through the same image loading as node images.
+   */
+  readonly image?: string | BadgeImage | undefined
   /**
    * Pill color.
    * @default --graph-badge-fill
@@ -270,6 +275,35 @@ export interface Badge {
    * Text color.
    * @default --graph-badge-ink
    */
+  readonly color?: string | undefined
+  /**
+   * Color of the ring around the pill.
+   * @default --graph-node-ring
+   */
+  readonly stroke?: string | undefined
+  /**
+   * Width of the ring around the pill, in screen pixels; 0 draws none.
+   * @default 1.5
+   */
+  readonly strokeWidth?: number | undefined
+  /**
+   * Smallest height of the pill on screen, in pixels, for the badge to show; its text shows from
+   * this height and 12 pixels at least.
+   * @default 10
+   */
+  readonly minSize?: number | undefined
+}
+
+/** An icon in a badge, cropped to the circle at the start of the pill. */
+export interface BadgeImage {
+  /** Image URL: SVG, PNG, JPEG or anything the browser can draw. */
+  readonly src: string
+  /**
+   * Size of the image relative to the height of the pill.
+   * @default 0.7
+   */
+  readonly scale?: number | undefined
+  /** Draws the image as a mask of this color, such as an icon that follows the theme. */
   readonly color?: string | undefined
 }
 
@@ -486,6 +520,12 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly opacity?: Style<T, number> | undefined
   /**
+   * Drawing order within the mark: nodes with a lower value draw first, under the others, and the
+   * node on top is picked first. Nodes without a value count as 0; nodes with the same value keep
+   * their usual order. Raised nodes still draw above every mark.
+   */
+  readonly order?: Channel<T, number> | undefined
+  /**
    * Zoom at and below which the node is hidden, in screen pixels per world unit, as in `View`.
    * Above it, the node fades in over a quarter of a zoom doubling. A hidden node hides its label,
    * its badges and its edges, and is neither picked, exported nor counted. Defaults to no limit.
@@ -579,6 +619,20 @@ export interface ContainerOptions<T> {
    * @default 4
    */
   readonly gap?: Style<T, number> | undefined
+  /**
+   * Label while the group is unfolded, as the `label` option of `nodes()`, or `null` for none.
+   * Defaults to the label of the node, above the container.
+   */
+  readonly label?: Channel<T, string> | LabelOptions<T> | null | undefined
+  /**
+   * Badges while the group is unfolded, at the corners of the container, as the `badges` option
+   * of `nodes()`, or `null` for none. Defaults to none: the badges of the node show only while it
+   * is folded.
+   */
+  readonly badges?:
+    | Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined> | undefined>>>
+    | null
+    | undefined
 }
 
 /**
@@ -1335,8 +1389,11 @@ export interface StateLook {
   readonly outline?: string | undefined
   /** Width of the ring outside a node, in screen pixels. Nodes only. */
   readonly outlineWidth?: number | undefined
-  /** Draws the soft `--graph-halo` glow behind the element. */
-  readonly halo?: boolean | undefined
+  /**
+   * Draws a soft glow behind a node or an edge: `true` for the `--graph-halo` glow, 6 pixels wide,
+   * or a `StateHalo` with its own color and width. Shapes have no glow.
+   */
+  readonly halo?: boolean | StateHalo | undefined
   /**
    * Shows or hides the label while the state applies: `true`, `false`, or `'always'`, which also
    * shows it when it is smaller than 8 pixels or its node is under `minScreenSize`, at 8 pixels
@@ -1358,6 +1415,20 @@ export interface StateLook {
    * @default false
    */
   readonly hide?: boolean | undefined
+}
+
+/** Glow of a state around its nodes and edges. */
+export interface StateHalo {
+  /**
+   * Color of the glow, any CSS color; its alpha sets how strong the glow is next to the element.
+   * Defaults to `--graph-halo`.
+   */
+  readonly color?: string | undefined
+  /**
+   * Width of the glow beyond the element, in screen pixels, up to 255.
+   * @default 6
+   */
+  readonly width?: number | undefined
 }
 
 /**

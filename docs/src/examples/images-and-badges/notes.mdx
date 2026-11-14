@@ -2,7 +2,7 @@
 
 `image` takes a URL, or `{ src, scale, color }`. Pictures are cut to the node shape. With `color`, the image becomes a mask of that color, so an icon drawn in `var(--graph-paper)` follows the theme.
 
-`badges` takes one function per corner. A badge with `text` shows a count or a letter, a badge without text is a dot. `outline` and `outlineWidth` draw a colored ring outside the shape.
+`badges` takes one function per corner. A badge with `text` shows a count or a letter, a badge with `image` an icon, here a check mark tinted with `var(--graph-paper)`. On pictures, the count badges take a wider ring in the paper color, `stroke` and `strokeWidth`, so they stand out from the picture. `outline` and `outlineWidth` draw a colored ring outside the shape.
 
 The **Add label backgrounds** button rebuilds the definition with `label: { text: 'label', background: true }` and passes it to `graph.update`. Labels then sit on a plate in `--graph-label-background`.
 

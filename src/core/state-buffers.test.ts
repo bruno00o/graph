@@ -36,8 +36,8 @@ describe('StateBuffers', () => {
   it('writes a style row and clears it with null', () => {
     const states = new StateBuffers()
     const version = states.tableVersion
-    states.setStyle('nodes', 3, { opacity: 0.4, halo: true, label: false, stroke: 9 })
-    expect(Array.from(states.numbers.subarray(12, 16))).toEqual([expect.closeTo(0.4, 5), -1, 1, 0])
+    states.setStyle('nodes', 3, { opacity: 0.4, halo: 6, label: false, stroke: 9 })
+    expect(Array.from(states.numbers.subarray(12, 16))).toEqual([expect.closeTo(0.4, 5), -1, 6, 0])
     expect(states.paint[12]).toBe(noPaint)
     expect(states.paint[13]).toBe(9)
     expect(states.labelFlags[3]).toBe(0)
@@ -46,6 +46,16 @@ describe('StateBuffers', () => {
     expect(Array.from(states.numbers.subarray(12, 16))).toEqual([-1, -1, -1, -1])
     expect(states.paint[13]).toBe(noPaint)
     expect(states.labelFlags[3]).toBe(-1)
+  })
+
+  it('writes the halo color of a state next to its label color', () => {
+    const states = new StateBuffers()
+    states.setStyle('edges', 1, { halo: 10, haloColor: 5 })
+    const at = (32 + 1) * 4
+    expect(states.numbers[at + 2]).toBe(10)
+    expect(states.labels[at + 2]).toBe(5)
+    states.setStyle('edges', 1, { halo: 6 })
+    expect(states.labels[at + 2]).toBe(noPaint)
   })
 
   it('packs the outline color and its width as float bits', () => {

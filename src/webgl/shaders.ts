@@ -10,10 +10,11 @@ import { atlasFontSize } from './glyph-atlas'
 export { nodeLabelSize } from '../core/label-width'
 
 export const badgeLimit = 18
-export const badgeMin = 10
 export const badgeTextMin = 12
 export const badgeFont = 0.66
-export const badgeRing = 1.5
+export const badgeIconWidth = 1.3
+export const badgeTextShift = 0.35
+export const badgeIconGlyph = 16
 export const platePadX = 0.45
 export const plateRadius = 0.25
 export const plateDrop = 6
@@ -120,7 +121,7 @@ bool slotHidden(uvec4 mask, uint slot) {
   return (bits & (1u << (slot & 31u))) != 0u;
 }
 vec4 paletteColor(uint id) { return texelFetch(palette, ivec2(int(id & 255u), int(id >> 8u)), 0); }
-struct Look { float opacity; float strokeWidth; float halo; float label; uint fill; uint stroke; uint outline; float outlineWidth; uint labelColor; };
+struct Look { float opacity; float strokeWidth; float halo; float label; uint fill; uint stroke; uint outline; float outlineWidth; uint labelColor; uint haloColor; };
 Look resolve(uint mask, Look look, int table) {
   bool opacity = false;
   bool strokeWidth = false;
@@ -145,7 +146,7 @@ Look resolve(uint mask, Look look, int table) {
     uvec4 paint = statePaint[row];
     if (!opacity && numbers.x >= 0.0) { look.opacity = base * numbers.x; opacity = true; }
     if (!strokeWidth && numbers.y >= 0.0) { look.strokeWidth = numbers.y; strokeWidth = true; }
-    if (!halo && numbers.z >= 0.0) { look.halo = numbers.z; halo = true; }
+    if (!halo && numbers.z >= 0.0) { look.halo = numbers.z; look.haloColor = stateLabel[row].z; halo = true; }
     if (!label && numbers.w >= 0.0) { look.label = numbers.w; label = true; }
     if (!fill && paint.x != none) { look.fill = paint.x; fill = true; }
     if (!stroke && paint.y != none) { look.stroke = paint.y; stroke = true; }
@@ -156,6 +157,12 @@ Look resolve(uint mask, Look look, int table) {
   }
   return look;
 }
+uint haloWord(Look look) {
+  uint width = uint(clamp(look.halo, 0.0, 255.0) * 16.0 + 0.5);
+  return width == 0u ? 0u : width | ((look.haloColor == none ? 0u : look.haloColor + 1u) << 12u);
+}
+float haloSize(uint word) { return float(word & 4095u) / 16.0; }
+vec4 haloPaint(uint word) { return word < 4096u ? haloColor : paletteColor((word >> 12u) - 1u); }
 `
 
 export const spanData: string = `
@@ -248,12 +255,19 @@ float outlineDistance(vec2 p, vec4 outline) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - outline.z;
 }
 vec2 loopAnchor(vec4 outline) { return vec2(outline.w > 0.5 ? max(outline.x - outline.y, 0.0) : 0.0, 0.0); }
-float badgeHeight(vec4 style, float scale) { return min(nodeDiameter(style, scale) * 0.55, ${badgeLimit.toFixed(1)}); }
+float badgeHeight(ivec2 t, vec4 style, float scale) {
+  float across = nodeDiameter(style, scale);
+  if ((uint(style.w + 0.5) & 3u) == 3u) {
+    vec4 outline = nodeOutline(t, style, scale);
+    across = 2.0 * min(outline.x, outline.y);
+  }
+  return min(across * 0.55, ${badgeLimit.toFixed(1)});
+}
 vec2 badgeCenter(ivec2 t, vec2 xy, vec4 style, uint corner) {
   uint shape = uint(style.w + 0.5) & 3u;
   vec2 side = vec2((corner & 1u) != 0u ? 1.0 : -1.0, (corner & 2u) != 0u ? 1.0 : -1.0);
   float scale = scaleAt(xy);
-  if (boxStyle(style)) {
+  if (boxStyle(style) || shape == 3u) {
     vec4 outline = nodeOutline(t, style, scale);
     return toScreen(xy) + side * (outline.xy - outline.z * ${boxBadgeInset.toFixed(6)});
   }
@@ -267,7 +281,7 @@ uniform usampler2D nodePaint;
 uniform usampler2D nodeDecor;
 Look nodeLook(ivec2 t, vec4 style, uvec4 paint, uint mask) {
   float outlineWidth = uintBitsToFloat(texelFetch(nodeDecor, t, 0).w);
-  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none), 0);
+  Look look = resolve(mask, Look(style.z, style.y, 0.0, 1.0, paint.x, paint.y, paint.w, outlineWidth, none, none), 0);
   look.opacity *= nodeShown(t);
   return look;
 }
@@ -438,7 +452,7 @@ uint edgePart(ivec2 t, uint packed, uint mask) {
 }
 struct Line { uint color; uint farColor; float width; float farWidth; uint dash; uint farDash; float split; };
 Look lineLook(uint mask, vec4 style) {
-  return resolve(mask, Look(style.y, -1.0, 0.0, 1.0, none, none, none, 0.0, none), 32);
+  return resolve(mask, Look(style.y, -1.0, 0.0, 1.0, none, none, none, 0.0, none, none), 32);
 }
 Line edgeLine(ivec2 t, uvec4 topology, vec4 style, Look look, float flow) {
 #ifdef ENDS
@@ -501,7 +515,7 @@ flat out float vImageScale;
 flat out vec4 vImageColor;
 flat out float vRadius;
 flat out float vStrokeWidth;
-flat out float vHaloWidth;
+flat out uint vHalo;
 flat out float vOutlineWidth;
 flat out uint vShape;
 flat out vec3 vBox;
@@ -547,7 +561,8 @@ void main() {
     radius = min(extent.x, extent.y);
     vBox = outline.xyz;
   }
-  float halo = look.halo > 0.5 ? haloWidth : 0.0;
+  uint haloBits = haloWord(look);
+  float halo = haloSize(haloBits);
   float outline = max(look.outlineWidth, 0.0);
   float aa = 0.5 / pixelRatio + 0.25;
   uint shape = flags & 3u;
@@ -561,7 +576,7 @@ void main() {
   vLocal = corner * reach;
   vRadius = boxed ? extent.y : radius;
   vStrokeWidth = min(look.strokeWidth, radius * 0.5);
-  vHaloWidth = halo;
+  vHalo = haloBits;
   vOutlineWidth = outline;
   vOutline = paletteColor(look.outline);
   vShape = boxed ? 3u : flags & 3u;
@@ -584,7 +599,7 @@ flat in float vImageScale;
 flat in vec4 vImageColor;
 flat in float vRadius;
 flat in float vStrokeWidth;
-flat in float vHaloWidth;
+flat in uint vHalo;
 flat in float vOutlineWidth;
 flat in uint vShape;
 flat in vec3 vBox;
@@ -625,9 +640,10 @@ void main() {
     float outer = 1.0 - smoothstep(vOutlineWidth - aa, vOutlineWidth + aa, d);
     result = mix(vec4(vOutline.rgb * vOutline.a, vOutline.a), color, inside) * outer * vOpacity;
   }
-  if (vHaloWidth > 0.0) {
-    float h = haloColor.a * (1.0 - smoothstep(0.0, vHaloWidth, d - vOutlineWidth)) * vOpacity;
-    result += vec4(haloColor.rgb * h, h) * (1.0 - result.a);
+  if (vHalo != 0u) {
+    vec4 glow = haloPaint(vHalo);
+    float h = glow.a * (1.0 - smoothstep(0.0, haloSize(vHalo), d - vOutlineWidth)) * vOpacity;
+    result += vec4(glow.rgb * h, h) * (1.0 - result.a);
   }
   if (result.a < 0.002) discard;
   fragColor = result;
@@ -645,7 +661,7 @@ flat out float vEnd;
 flat out float vHalfWidth;
 flat out float vArrowLength;
 flat out float vArrowHalf;
-flat out float vHaloWidth;
+flat out uint vHalo;
 flat out uint vDash;
 flat out uint vArrow;
 #ifdef ENDS
@@ -692,7 +708,8 @@ void main() {
   float flow = edgeFlow(mask, style.w);
   Line line = edgeLine(t, topology, style, look, flow);
   float width = max(line.width, line.farWidth);
-  float halo = look.halo > 0.5 ? haloWidth : 0.0;
+  uint haloBits = haloWord(look);
+  float halo = haloSize(haloBits);
   float margin = 0.5 / pixelRatio + 0.25;
   float arrowHalf = max(width * 1.6, 3.0);
   float head = max(width * 0.5, arrowHalf) + halo + margin;
@@ -732,7 +749,7 @@ void main() {
   vHalfWidth = line.width * 0.5;
   vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
   vArrowHalf = max(line.width * 1.6, 3.0);
-  vHaloWidth = halo;
+  vHalo = haloBits;
   vDash = line.dash | (line.farDash << 2u) | (part << 4u);
   vFlow = flow * flowTime;
   vArrow = arrow;
@@ -763,7 +780,7 @@ flat out float vEnd;
 flat out float vHalfWidth;
 flat out float vArrowLength;
 flat out float vArrowHalf;
-flat out float vHaloWidth;
+flat out uint vHalo;
 flat out uint vDash;
 flat out uint vArrow;
 #ifdef ENDS
@@ -849,7 +866,8 @@ void main() {
   float flow = edgeFlow(mask, style.w);
   Line line = edgeLine(t, topology, style, look, flow);
   float width = max(line.width, line.farWidth);
-  float halo = look.halo > 0.5 ? haloWidth : 0.0;
+  uint haloBits = haloWord(look);
+  float halo = haloSize(haloBits);
   float margin = 0.5 / pixelRatio + 0.25;
   float arrowHalf = max(width * 1.6, 3.0);
   float pad = max(width * 0.5, arrowHalf) + halo + margin;
@@ -904,7 +922,7 @@ void main() {
   vHalfWidth = line.width * 0.5;
   vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
   vArrowHalf = max(line.width * 1.6, 3.0);
-  vHaloWidth = halo;
+  vHalo = haloBits;
   vDash = line.dash | (line.farDash << 2u) | (part << 4u);
   vFlow = flow * flowTime;
   vArrow = arrow;
@@ -928,7 +946,7 @@ flat in float vEnd;
 flat in float vHalfWidth;
 flat in float vArrowLength;
 flat in float vArrowHalf;
-flat in float vHaloWidth;
+flat in uint vHalo;
 flat in uint vDash;
 flat in uint vArrow;
 #ifdef ENDS
@@ -1002,10 +1020,11 @@ void main() {${clipped ? '\n  if (vClip < 0.0) discard;' : ''}
   }
   float alpha = color.a * coverage * vOpacity;
   vec4 result = vec4(color.rgb * alpha, alpha);
-  if (vHaloWidth > 0.0) {
+  if (vHalo != 0u) {
+    vec4 glow = haloPaint(vHalo);
     float distance = max(across - halfWidth, 0.0);
-    float h = haloColor.a * (1.0 - smoothstep(0.0, vHaloWidth, distance)) * span * vOpacity;
-    result += vec4(haloColor.rgb * h, h) * (1.0 - result.a);
+    float h = glow.a * (1.0 - smoothstep(0.0, haloSize(vHalo), distance)) * span * vOpacity;
+    result += vec4(glow.rgb * h, h) * (1.0 - result.a);
   }
   fragColor = result;
 }
@@ -1160,7 +1179,7 @@ void edgeGlyph(uint kind) {
   uint mask = texelFetch(edgeState, t, 0).r;
   uint end = (glyphKind >> 4u) & 3u;
   float base = end == 0u ? style.x : float(glyphKind >> 20u) / ${endLabelWidthUnit.toFixed(1)};
-  Look look = resolve(mask, Look(style.y, base, 0.0, 1.0, none, topology.z, none, 0.0, none), 32);
+  Look look = resolve(mask, Look(style.y, base, 0.0, 1.0, none, topology.z, none, 0.0, none, none), 32);
   look.opacity *= edgeShown(t, topology, mask);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;
@@ -1282,13 +1301,14 @@ void main() {
   if (kind == 2u) {
     bool highlighted = (mask & stateRaise.x) != 0u;
     vec2 xy = texelFetch(nodePosition, t, 0).xy;
-    float height = badgeHeight(style, scaleAt(xy));
-    if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeTextMin.toFixed(1)} || worldSide(xy) < 0.0) {
+    float height = badgeHeight(t, style, scaleAt(xy));
+    if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < max(glyphSize, ${badgeTextMin.toFixed(1)}) || worldSide(xy) < 0.0) {
       gl_Position = hidden;
       return;
     }
     float font = height * ${badgeFont.toFixed(2)};
     vec2 center = badgeCenter(t, xy, style, (glyphKind >> 2u) & 3u);
+    if ((glyphKind & ${badgeIconGlyph}u) != 0u) center.x += height * ${badgeTextShift.toFixed(2)};
     vScale = font / atlasFontSize;
     vInk = paletteColor(glyphColor);
     vHalo = 0.0;
@@ -1357,10 +1377,14 @@ in uint badgeInfo;
 in uint badgeFill;
 in uint badgeRingColor;
 in float badgeText;
+in uvec2 badgeImage;
+in vec3 badgeLook;
 out vec2 vLocal;
-flat out vec2 vHalf;
+flat out vec3 vHalf;
 flat out vec4 vFill;
 flat out vec4 vRing;
+flat out vec4 vIcon;
+flat out vec4 vIconColor;
 flat out float vOpacity;
 void main() {
   ivec2 t = texel(badgeNode);
@@ -1370,8 +1394,8 @@ void main() {
   uint mask = texelFetch(nodeState, t, 0).r;
   bool highlighted = (mask & stateRaise.x) != 0u;
   vec2 xy = texelFetch(nodePosition, t, 0).xy;
-  float height = badgeHeight(style, scaleAt(xy));
-  if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < ${badgeMin.toFixed(1)} || worldSide(xy) < 0.0) {
+  float height = badgeHeight(t, style, scaleAt(xy));
+  if ((flags & 8u) == 0u || highlighted != (overlay == 1) || height < badgeLook.z || worldSide(xy) < 0.0) {
     gl_Position = hidden;
     return;
   }
@@ -1380,24 +1404,31 @@ void main() {
     gl_Position = hidden;
     return;
   }
-  bool text = (badgeInfo & 4u) != 0u && height >= ${badgeTextMin.toFixed(1)};
-  float font = height * ${badgeFont.toFixed(2)};
-  float width = text ? max(height, badgeText * font / ${atlasFontSize.toFixed(1)} + height * 0.6) : height;
+  bool text = (badgeInfo & 4u) != 0u && height >= max(badgeLook.z, ${badgeTextMin.toFixed(1)});
+  bool icon = (badgeInfo & 8u) != 0u;
+  float words = badgeText * height * ${badgeFont.toFixed(2)} / ${atlasFontSize.toFixed(1)};
+  float width = !text ? height : icon ? words + height * ${badgeIconWidth.toFixed(2)} : max(height, words + height * 0.6);
   vec2 center = badgeCenter(t, xy, style, badgeInfo & 3u);
-  vHalf = vec2(width, height) * 0.5;
-  vLocal = corner * (vHalf + ${badgeRing.toFixed(1)} + 1.0);
+  float ring = max(badgeLook.x, 0.0);
+  vHalf = vec3(width * 0.5, height * 0.5, ring);
+  vLocal = corner * (vHalf.xy + ring + 1.0);
   vFill = paletteColor(badgeFill);
   vRing = paletteColor(badgeRingColor);
+  vIcon = vec4((height - width) * 0.5, height * 0.5 * max(badgeLook.y, 0.001), float(badgeImage.x) - 1.0, 0.0);
+  vIconColor = badgeImage.y == none ? vec4(-1.0) : paletteColor(badgeImage.y);
   vOpacity = look.opacity;
   gl_Position = toClip(center + vLocal);
 }
 `
 
 export const badgeFragment: string = `${header}
+uniform sampler2DArray images;
 in vec2 vLocal;
-flat in vec2 vHalf;
+flat in vec3 vHalf;
 flat in vec4 vFill;
 flat in vec4 vRing;
+flat in vec4 vIcon;
+flat in vec4 vIconColor;
 flat in float vOpacity;
 out vec4 fragColor;
 void main() {
@@ -1405,10 +1436,22 @@ void main() {
   vec2 q = vec2(max(abs(vLocal.x) - (vHalf.x - vHalf.y), 0.0), vLocal.y);
   float d = length(q) - vHalf.y;
   float inner = 1.0 - smoothstep(-aa, aa, d);
-  float outer = 1.0 - smoothstep(${badgeRing.toFixed(1)} - aa, ${badgeRing.toFixed(1)} + aa, d);
   vec4 fill = vec4(vFill.rgb * vFill.a, vFill.a);
-  vec4 ring = vec4(vRing.rgb * vRing.a, vRing.a);
-  vec4 result = mix(ring, fill, inner) * outer * vOpacity;
+  if (vIcon.z >= 0.0) {
+    vec2 p = vLocal - vec2(vIcon.x, 0.0);
+    vec2 uv = p / (vIcon.y * 2.0) + 0.5;
+    vec4 picture = texture(images, vec3(uv, vIcon.z));
+    vec2 within = step(vec2(0.0), uv) * step(uv, vec2(1.0));
+    picture *= within.x * within.y * (1.0 - smoothstep(-aa, aa, length(p) - vHalf.y));
+    if (vIconColor.a >= 0.0) picture = vec4(vIconColor.rgb * vIconColor.a, vIconColor.a) * picture.a;
+    fill = picture + fill * (1.0 - picture.a);
+  }
+  vec4 result = fill * inner;
+  if (vHalf.z > 0.0) {
+    float outer = 1.0 - smoothstep(vHalf.z - aa, vHalf.z + aa, d);
+    result = mix(vec4(vRing.rgb * vRing.a, vRing.a), fill, inner) * outer;
+  }
+  result *= vOpacity;
   if (result.a < 0.002) discard;
   fragColor = result;
 }

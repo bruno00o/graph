@@ -39,6 +39,7 @@ const define = (raise: boolean) =>
         strokeWidth: 2,
         label: true,
         labelColor: 'var(--graph-accent)',
+        halo: { color: 'color-mix(in srgb, var(--graph-accent) 30%, transparent)', width: 8 },
         raise,
         others: { opacity: 0.3, label: false },
       },

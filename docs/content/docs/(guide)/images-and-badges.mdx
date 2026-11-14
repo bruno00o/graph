@@ -50,11 +50,30 @@ nodes(items, {
 })
 ```
 
-A badge has a `text`, a `fill` and a text `color`: see [`Badge`](/docs/api/nodes#badges).
+A badge has a `text`, a `fill`, a text `color`, an `image` and a ring: see [`Badge`](/docs/api/nodes#badges).
 
-Corners are `topLeft`, `topRight`, `bottomLeft` and `bottomRight`. A badge is surrounded by a ring of `--graph-node-ring` so it reads on any fill.
+Corners are `topLeft`, `topRight`, `bottomLeft` and `bottomRight`. A badge is surrounded by a ring of `--graph-node-ring`, 1.5 pixels wide, so it reads on any fill. `stroke` and `strokeWidth` change its color and width, in screen pixels; `strokeWidth: 0` draws none. A wider light ring keeps a badge readable on a dark node or over a busy map.
 
-Badges sit on the corners of a [box](/docs/marks#boxes), at its full width. A badge is about half the node's diameter, or the height of a box, on screen, up to 18 pixels high. On small nodes, badges hide, and their text appears only once there is room for it. Badges are not picked: a click on a badge reaches the node.
+Badges sit on the corners of a [box](/docs/marks#boxes), at its full width. A badge is about half the node's diameter, or the height of a box, on screen, up to 18 pixels high. It hides while it is less than `minSize` pixels high, 10 by default, and its text appears from that height and 12 pixels at least. Badges are not picked: a click on a badge reaches the node.
+
+### Badge icons
+
+`image` draws an icon at the start of the pill: a URL, or an object with `src`, `scale` and `color` like a [node image](#images). With `color`, the icon is a mask of that color, so a single-color SVG follows the theme. The icon is cropped to a circle as high as the pill and fills 70 % of it by default: `scale: 1` covers the whole circle, for a picture.
+
+```ts
+nodes(items, {
+  badges: {
+    topRight: (item) =>
+      item.alerts > 0
+        ? { image: { src: '/icons/bell.svg', color: 'white' }, text: item.alerts }
+        : null,
+    bottomRight: (item) =>
+      item.checked ? { image: '/icons/check.svg', fill: 'var(--graph-cat-3)' } : null,
+  },
+})
+```
+
+With a text, the icon comes first and the pill grows to hold both. Badge icons share the storage of node images: an icon used by both counts once among the 256 images. Badges on a [group while it is unfolded](/docs/groups#label-and-badges-of-an-unfolded-group) sit on the corners of its container.
 
 ## Outlines and label backgrounds
 

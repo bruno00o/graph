@@ -67,9 +67,8 @@ export class HostPicker {
               ? buffers.halfMask(index, end)
               : (buffers.edgeMask[index] ?? 0)
         const raised = (mask & buffers.raised(kind)) !== 0
-        return (
-          (raised ? highlightOrder : 0) + source.layerPosition(kind, index) * layerOrder + index
-        )
+        const rank = kind === 'nodes' ? source.scene.nodes.order.rankOf(index) : index
+        return (raised ? highlightOrder : 0) + source.layerPosition(kind, index) * layerOrder + rank
       },
       paths: source.paths,
     }

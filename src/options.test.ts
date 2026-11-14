@@ -54,6 +54,7 @@ import type {
   AnchorTarget,
   BackgroundOptions,
   Badge,
+  BadgeImage,
   BridgeOptions,
   ColorScale,
   ContainerOptions,
@@ -100,6 +101,7 @@ import type {
   ShapeOptions,
   ShapeScalesOptions,
   SourceSubscription,
+  StateHalo,
   StateKindStyles,
   StateLook,
   StateStyle,
@@ -173,6 +175,7 @@ interface Inputs {
   AutoPan: Exclude<InteractionOptions['autoPan'], boolean | undefined>
   BackgroundOptions: BackgroundOptions
   Badge: Badge
+  BadgeImage: BadgeImage
   Badges: NonNullable<NodeOptions<Item>['badges']>
   BridgeOptions: BridgeOptions
   ColorScale: ColorScale
@@ -270,6 +273,7 @@ interface Inputs {
   ShowPresenceOptions: ShowPresenceOptions<Item, string, 'muted'>
   SourceSubscription: SourceSubscription
   SchemaInput: SchemaInput
+  StateHalo: StateHalo
   StateKindStyles: StateKindStyles
   StateLook: StateLook
   StateStyle: StateStyle
