@@ -53,7 +53,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, keys, mark
 
 ### Scales for color, size and width
 
-Three scales exist: `color` (nodes and edges), `size` (node diameter) and `width` (edge width). A scale is shared by every mark of the definition that has none of its own. Without options:
+Three scales exist: `color` (nodes, edges and the shapes of `shapes()` marks), `size` (node diameter) and `width` (edge width). A scale is shared by every mark of the definition that has none of its own, so one value takes one color on a node, an edge and a shape. Without options:
 
 | Scale | Default |
 | --- | --- |
@@ -88,7 +88,7 @@ const definition = defineGraph({
 })
 ```
 
-- Categories listed in `domain` take the first colors of `range`, in that order. Others follow as they appear and wrap around when the range runs out.
+- Categories listed in `domain` take the first colors of `range`, in that order. Others follow as they appear (in one update: nodes first, then edges, then shapes) and wrap around when the range runs out. A sequential scale reads the extent of all three kinds together.
 - A number scale takes `{ type: 'linear' | 'sqrt', domain, range }`. Values outside an explicit `domain` are clamped. When the data holds a single value, the scale keeps it, clamped to the range.
 - A scale can be a function: `size: (value) => 8 + Math.log10(1 + value) * 8`, or `color: (value) => ...` returning a CSS color. Keep it pure: the same value gives the same result.
 - A channel that returns `null` or `undefined`, or a mark without that channel, takes the theme default: `--graph-node` and 16 for nodes.
@@ -137,7 +137,7 @@ const measured = nodes(items, {
 
 ### Scales of one mark
 
-A mark with `scales` keeps its values apart: its own extent, categories and legend section. Nodes take `color` and `size`. Use it when two node marks measure different things, so a large score in one does not shrink the nodes of the other.
+A mark with `scales` keeps its values apart: its own extent, categories and legend section. Nodes take `color` and `size`, edges `color` and `width`, shapes `color` only (`ShapeScalesOptions`, shapes skill). Use it when two node marks measure different things, so a large score in one does not shrink the nodes of the other.
 
 ```ts
 import { defineGraph, nodes } from '@bruno00o/graph'

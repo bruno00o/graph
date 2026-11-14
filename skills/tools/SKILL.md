@@ -87,10 +87,10 @@ document.body.append(view.element)
 
 ### Minimap
 
-`createMinimap(graph, options)` draws the whole graph (its nodes, and its edges up to `maxEdges`; the shapes of a `shapes()` mark are not drawn) with the rectangle of the current view. Dragging the rectangle pans, pressing elsewhere centers the view there, and the wheel zooms.
+`createMinimap(graph, options)` draws the whole graph (its nodes, its edges up to `maxEdges`, and under them the shapes of `shapes()` marks as pale fills and thin outlines) with the rectangle of the current view. Shapes are simplified to half a pixel of the minimap, those under 3 pixels drawn as their box; past `maxShapePoints` points in all (200,000), the next ones are boxes, and `0` draws no shapes. Dragging the rectangle pans, pressing elsewhere centers the view there, and the wheel zooms.
 
 - It sits in a `corner` of the graph element: `'topLeft'`, `'topRight'`, `'bottomLeft'` or `'bottomRight'` (default). With `corner: null`, it leaves `minimap.element` to you, to place anywhere in the page.
-- `width` and `height` default to 200 by 150, and a value that is not above 0 falls back to the default. Other options: `margin`, `padding`, `maxEdges` (20,000: past it the minimap draws nodes only), `nodeSize`, `nodeColor`, `selectionColor`, `background`, `mask`, `viewColor`, `pan`, `zoom`. Colors are CSS colors, `--graph-*` tokens included, resolved with the theme.
+- `width` and `height` default to 200 by 150, and a value that is not above 0 falls back to the default. Other options: `margin`, `padding`, `maxEdges` (20,000: past it the minimap draws nodes only), `maxShapePoints`, `nodeSize`, `nodeColor`, `selectionColor`, `background`, `mask`, `viewColor`, `pan`, `zoom`. Colors are CSS colors, `--graph-*` tokens included, resolved with the theme.
 - `minimap.update(options)` changes the options it is given and keeps the others; an option set to `undefined` returns to its default. `minimap.destroy()` removes it, and destroying the graph does too.
 - It draws in a worker when the browser has workers and `OffscreenCanvas`, at a pace bounded by its cost; at 500,000 nodes it costs the page a few milliseconds. It draws nodes, group containers and edges, never labels, badges, hulls or the grid. It is hidden from assistive technologies and takes no focus.
 
@@ -106,9 +106,9 @@ In React, `<Minimap corner="bottomLeft" />` inside `<Graph>`; with `corner={null
 
 ### Legend
 
-The legend is read from the scales and the marks, not written; the shapes of a `shapes()` mark have no scale and no entry in it. `createLegend` keeps its state in a store; `mountLegend` renders it as plain HTML styled by the theme tokens.
+The legend is read from the scales and the marks, not written, for nodes, edges and the shapes of `shapes()` marks. `createLegend` keeps its state in a store; `mountLegend` renders it as plain HTML styled by the theme tokens.
 
-- `legend.store.state` holds sections: `color` (categories with the nodes and edges drawn in each, or a ramp for a sequential scale), `size` and `width` (the ends of the domain and a rounded value between), `marks` (the sections of marks with `scales` of their own), `looks` (shapes, images and line patterns, shown for a kind of element drawn with more than one look), `layers`, `hovered` and `off` (the ids switched off).
+- `legend.store.state` holds sections: `color` (categories with the nodes, edges and, in a graph with a shape mark, shapes drawn in each, or a ramp for a sequential scale), `size` and `width` (the ends of the domain and a rounded value between), `marks` (the sections of marks with `scales` of their own, nodes first, then edges, then shapes; ids `n0`, `e1`, `s0`), `looks` (node shapes and images, edge line patterns, and shapes split into areas and lines by pattern with their fill and outline, ids like `s:0:area:0`; shown for a kind of element drawn with more than one look), `layers`, `hovered` and `off` (the ids switched off). `legend.keys(id)` has `shapes` only in a graph with a shape mark.
 - Raw colors (`raw()`) and `fill` or `stroke` colors have no category: those elements count only under their look. At most 64 categories are listed, plus the ones switched off.
 - `mountLegend` writes no text of its own. Titles come from `titles`, values from `format`, looks from `lookText`, layers from `layerText`, and the scales of a mark from `markTitle` or its `name`. Pass `sections` to choose and order them. `view.destroy()` removes the legend element and leaves the legend itself. A helper that takes the graph types it `GraphInstance` (`import type { GraphInstance } from '@bruno00o/graph'`) or `ReturnType` of the function that mounts it. Items are toggle buttons unless `toggle: false`; `[data-graph-legend]` marks the element and `[data-item]` its items.
 - Under the pointer or the keyboard focus, an item puts its elements in the `highlight` state; a click, Enter or Space switches it off, and its elements go to the `hidden` state. Both are **free states you declare** in the definition, and name in `createLegend`.
@@ -406,6 +406,48 @@ Anchors are HTML over the canvas, not part of the scene: `exportPng` and `export
 ### MEDIUM A minimap with `corner: null` that is never placed
 
 With `corner: null` the minimap is not added to the page: append `minimap.element` yourself (in React, `<Minimap corner={null} />` renders the `div`).
+
+### MEDIUM A switch over legend looks without `case 'shapes'`
+
+A legend made from a typed graph with a shape mark lists shape looks (`kind: 'shapes'`, with `geometry`, `fill`, `stroke` and `dash`) in `looks`, and shape marks with scales of their own in `marks`. A `switch (look.kind)` written for nodes and edges, with an exhaustive check, no longer compiles: add `case 'shapes'`. Without typed marks the types leave shape looks out while the store holds them: compare `kind` with `'shapes'` before the other cases.
+
+```ts expect-error=TS2322
+import { defineGraph, edges, mountGraph, nodes, type ShapeGeometry } from '@bruno00o/graph'
+import { createLegend } from '@bruno00o/graph/legend'
+import { shapes } from '@bruno00o/graph/shapes'
+
+type Item = { id: string; group: string }
+type Link = { id: string; from: string; to: string }
+type Zone = { id: string; kind: string; geometry: ShapeGeometry }
+declare const items: Item[]
+declare const links: Link[]
+declare const zones: Zone[]
+
+const definition = defineGraph({
+  marks: [
+    shapes(zones, { name: 'zones', color: 'kind' }),
+    edges(links, { source: 'from', target: 'to' }),
+    nodes(items, { color: 'group' }),
+  ],
+})
+const graph = mountGraph(document.body, { definition, ariaLabel: 'Zones and items' })
+const legend = createLegend(graph)
+
+for (const look of legend.store.state.looks) {
+  switch (look.kind) {
+    case 'nodes':
+      console.log(look.shape)
+      break
+    case 'edges':
+      console.log(look.dash)
+      break
+    default: {
+      const unknown: never = look
+      console.log(unknown)
+    }
+  }
+}
+```
 
 ### MEDIUM The lens that never shows
 

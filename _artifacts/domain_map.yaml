@@ -993,6 +993,7 @@ skills:
       - "persistPositions"
       - "pendingState"
       - "loading status and data.failed"
+      - "pointers to persistShapes and showPresence"
     tasks:
       - "Draw a collection or a live query as it changes"
       - "Filter a large collection with subset"
@@ -1049,6 +1050,24 @@ skills:
         status: active
       - mistake: "Expecting persisted positions to follow a layout"
         mechanism: "Positions read from rows are data and a layout never moves them, so a written layout result fixes the nodes."
+        source: "docs/content/docs/api/persist-positions.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Mutating a source or its definition in place"
+        mechanism: "A subset keeps the where it was built with, so a new filter needs a new subset passed in a new definition to graph.update; row changes need no update."
+        wrong_pattern: |
+          minimum = 5
+        correct_pattern: |
+          graph.update({ definition: define(subset(items, (item) => gte(item.weight, 5))) })
+        source: "docs/content/docs/(guide)/tanstack-db.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Forgetting to stop persistPositions"
+        mechanism: "persistPositions returns a function that removes its listener and flushes the last write, so a graph or component that goes away without calling it leaks the listener and may lose the last move."
+        wrong_pattern: |
+          useEffect(() => { persistPositions(graph, { collection: items }) }, [graph, items])
+        correct_pattern: |
+          useEffect(() => persistPositions(graph, { collection: items }), [graph, items])
         source: "docs/content/docs/api/persist-positions.mdx"
         priority: MEDIUM
         status: active
@@ -1323,6 +1342,7 @@ skills:
       - box shape
       - outlines
       - theme tokens
+      - color scale shared with shapes, category order across kinds
     tasks:
       - Map data values to colors, sizes and widths with scales
       - Style node labels
@@ -1407,6 +1427,25 @@ skills:
         source: docs/content/docs/(guide)/theming.mdx
         priority: MEDIUM
         status: active
+      - mistake: A tinted icon that is not a single color
+        mechanism: The color of an image turns its alpha channel into a mask, so a multicolor picture becomes a flat silhouette.
+        wrong_pattern: |
+          nodes(items, { image: { src: '/photos/a.jpg', color: 'var(--graph-ink)' } })
+        correct_pattern: |
+          nodes(items, { image: '/photos/a.jpg' })
+        source: docs/content/docs/(guide)/images-and-badges.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Option functions rebuilt on every update
+        mechanism: A scale function or a label option function created on every update is a new option, so every element of its mark is restyled.
+        wrong_pattern: |
+          graph.update({ definition: defineGraph({ marks: [nodes(items, { label: { text: (item) => item.name } })] }) })
+        correct_pattern: |
+          const text = (item: Item) => item.name
+          graph.update({ definition: defineGraph({ marks: [nodes(items, { label: { text } })] }) })
+        source: docs/content/docs/(guide)/data.mdx
+        priority: MEDIUM
+        status: active
   - name: tools
     slug: tools
     domain: tools-and-output
@@ -1422,6 +1461,7 @@ skills:
       - hull
       - background
       - devtools
+      - shapes in the legend and the minimap
     tasks:
       - Add a minimap
       - Add a legend that highlights and filters
@@ -1488,6 +1528,24 @@ skills:
         correct_pattern: |
           await exportPng(graph)
         source: docs/content/docs/(guide)/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A minimap with corner null that is never placed
+        mechanism: With corner null the minimap leaves its element to you, so nothing shows until minimap.element is added to the page.
+        wrong_pattern: |
+          createMinimap(graph, { corner: null })
+        correct_pattern: |
+          panel.append(createMinimap(graph, { corner: null }).element)
+        source: docs/content/docs/api/minimap.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A switch over legend looks without case shapes
+        mechanism: A legend of a typed graph with a shape mark lists shape looks and shape mark scales, so an exhaustive switch over kind written for nodes and edges no longer compiles, and an untyped one meets shape looks at run time.
+        wrong_pattern: |
+          switch (look.kind) { case 'nodes': ...; case 'edges': ...; default: assertNever(look) }
+        correct_pattern: |
+          switch (look.kind) { case 'nodes': ...; case 'edges': ...; case 'shapes': ... }
+        source: src/legend/read.ts, docs/content/docs/api/legend.mdx
         priority: MEDIUM
         status: active
       - mistake: The lens that never shows
@@ -1730,6 +1788,169 @@ skills:
         correct_pattern: |
           shapes([{ id: 'zone', geometry: { center: { longitude: 2.35, latitude: 48.86 }, radius: 5000 } }])
         source: src/shapes/read.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+  - name: editor
+    slug: editor
+    domain: structure
+    type: sub-skill
+    description: Let people draw, move, reshape, copy, reorder, delete and type text into shapes with the pointer and the keys, write the edits back to the data, and show who else is editing.
+    covers:
+      - createShapeEditor
+      - mountShapeEditor
+      - ShapeEditor
+      - useShapeEditor
+      - applyShapeEdits
+      - edit and editlost events, hold and pending edits
+      - drawing tools, snapping, duplicate, raise and lower
+      - undo and redo
+      - text in shapes and the text tool
+      - shape editing on a map and large edits on the GPU
+      - persistShapes
+      - showPresence
+    tasks:
+      - Let people move, reshape and resize zones and write each change back to an array
+      - Add a toolbar that draws rectangles, circles, lines, polygons, freehand strokes and text boxes
+      - Snap drawn points to a grid, copy shapes and change their drawing order
+      - Undo and redo the edits of the editor
+      - Type text into a shape and grow its box to fit
+      - Edit shapes on a MapLibre map in degrees
+      - Save every edit to a TanStack DB collection, during a drag too
+      - Show the cursors and selections of the other people editing
+    failure_modes:
+      - mistake: Creating the editor without its layer
+        mechanism: The graph hides the shapes being edited and those waiting for their data, and only the layer of mountShapeEditor draws them, so without it they vanish during a drag.
+        wrong_pattern: |
+          createShapeEditor(graph, { onEdit })
+        correct_pattern: |
+          mountShapeEditor(createShapeEditor(graph, { onEdit }))
+        source: docs/content/docs/api/editor.mdx, src/editor/view.ts
+        priority: HIGH
+        status: active
+      - mistake: Writing the edits without updating the graph
+        mechanism: An array source changes only through graph.update with a new definition, so the proposal stays drawn until hold runs out, then editlost and the shape jumps back.
+        wrong_pattern: |
+          onEdit: (edits) => { zones = applyShapeEdits(zones, edits) }
+        correct_pattern: |
+          onEdit: (edits) => { zones = applyShapeEdits(zones, edits); graph.update({ definition: define(zones) }) }
+        source: docs/content/docs/(guide)/editing-shapes.mdx, src/editor/editor.ts
+        priority: HIGH
+        status: active
+      - mistake: Changing the items in place
+        mechanism: An item that is the same object as before is read as unchanged, so assigning its geometry changes nothing and the edit is lost after hold.
+        wrong_pattern: |
+          Object.assign(edit.datum, { geometry: edit.geometry })
+        correct_pattern: |
+          zones = applyShapeEdits(zones, edits)
+        source: src/editor/edits.ts, src/core/shape-store.ts
+        priority: HIGH
+        status: active
+      - mistake: Two editors on one graph
+        mechanism: A graph has at most one editor, so a second createShapeEditor, a ShapeEditor next to useShapeEditor, or an editor created in an effect without cleanup throws.
+        wrong_pattern: |
+          <ShapeEditor onEdit={save} /> next to a toolbar that calls useShapeEditor()
+        correct_pattern: |
+          One useShapeEditor in the toolbar, its state and editor passed down
+        source: src/editor/editor.ts, docs/content/docs/api/shape-editor.mdx
+        priority: HIGH
+        status: active
+      - mistake: Listing a mark without a name in marks
+        mechanism: marks matches mark names, so an unnamed mark can never be listed; a typed graph refuses any string and an untyped one never edits the mark.
+        wrong_pattern: |
+          shapes(zones) with createShapeEditor(graph, { marks: ['zones'] })
+        correct_pattern: |
+          shapes(zones, { name: 'zones' }) with createShapeEditor(graph, { marks: ['zones'] })
+        source: src/editor/edits.ts
+        priority: HIGH
+        status: active
+      - mistake: Applying every edit to one array
+        mechanism: applyShapeEdits applies the whole batch unless mark is given, so with two shape marks the shapes of one are appended to the other and show twice.
+        wrong_pattern: |
+          notes = applyShapeEdits(notes, edits)
+        correct_pattern: |
+          notes = applyShapeEdits(notes, edits, { mark: 'notes' })
+        source: src/editor/edits.ts
+        priority: HIGH
+        status: active
+      - mistake: Saving drawn shapes without create
+        mechanism: persistShapes writes changes and removals to existing rows, but a drawn or copied shape has no row, so without create it waits and ends in editlost.
+        wrong_pattern: |
+          persistShapes(editor, { collection: zones })
+        correct_pattern: |
+          persistShapes(editor, { collection: zones, create: (edit) => ({ id: String(edit.key), geometry: edit.geometry }) })
+        source: src/db/persist-shapes.ts, docs/content/docs/api/persist-shapes.mdx
+        priority: HIGH
+        status: active
+      - mistake: Handling the edits twice
+        mechanism: onEdit and every edit listener receive the same batch, so writing it in both, or with persistShapes and onEdit, adds each new shape twice.
+        wrong_pattern: |
+          createShapeEditor(graph, { onEdit: save }).on('edit', ({ edits }) => save(edits))
+        correct_pattern: |
+          createShapeEditor(graph, { onEdit: save })
+        source: src/editor/editor.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A writer of your own that writes only the geometry
+        mechanism: Edits also carry order and text, and a mark whose geometry is a function does not read the field applyShapeEdits writes, so those edits are lost after hold.
+        wrong_pattern: |
+          zones.update(key, (draft) => { draft.geometry = edit.geometry })
+        correct_pattern: |
+          Write geometry, order and text when they are present, or use persistShapes
+        source: src/editor/edits.ts, docs/content/docs/(guide)/editing-shapes.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: raise and lower on a mark that does not read order
+        mechanism: raise and lower propose a new order written to the order field, which changes nothing unless the mark reads it through its order option.
+        wrong_pattern: |
+          shapes(zones, { name: 'zones' })
+        correct_pattern: |
+          shapes(zones, { name: 'zones', order: 'order' })
+        source: docs/content/docs/(guide)/editing-shapes.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Text on a mark without a matching label
+        mechanism: Only a mark with label opens the text input, and applyShapeEdits writes the text field, so a label that reads another field never shows the typed text.
+        wrong_pattern: |
+          shapes(notes, { name: 'notes', label: 'title' }) with applyShapeEdits(notes, edits)
+        correct_pattern: |
+          applyShapeEdits(notes, edits, { mark: 'notes', text: 'title' })
+        source: src/editor/text.ts, src/editor/edits.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Snapping to the background without a background grid
+        mechanism: snap.grid 'background' follows the background grid of the definition, so without one nothing snaps and nothing warns.
+        wrong_pattern: |
+          createShapeEditor(graph, { snap: { grid: 'background' } }) on a graph without background
+        correct_pattern: |
+          defineGraph({ marks, background: { grid: 'lines' } }) with snap: { grid: 'background' }
+        source: src/editor/editor.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Keys that never reach the editor
+        mechanism: The editor reads keys through the graph element, so after a click on a toolbar button Delete, Escape, Enter and the shortcuts go to the button.
+        wrong_pattern: |
+          onClick={() => editor.setTool('polygon')}
+        correct_pattern: |
+          onClick={() => { editor.setTool('polygon'); graph.element.focus() }}
+        source: docs/content/docs/(guide)/editing-shapes.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Selections of others that never show
+        mechanism: showPresence shows selections only in the declared free states presence1 to presence8, so without them only cursors show.
+        wrong_pattern: |
+          defineGraph({ marks }) with showPresence(graph, options)
+        correct_pattern: |
+          defineGraph({ marks, states: { presence1: look(1), presence2: look(2) } })
+        source: src/db/presence.ts, docs/content/docs/api/show-presence.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Cursors that land in different places
+        mechanism: Pointers are written in world units, so clients whose elements sit at different positions, as after a layout that depends on the client, show cursors and selections elsewhere.
+        wrong_pattern: |
+          A force layout on each client with showPresence
+        correct_pattern: |
+          Positions in the data, a map, or a layout result written to the data
+        source: docs/content/docs/api/show-presence.mdx
         priority: MEDIUM
         status: active
 tensions:

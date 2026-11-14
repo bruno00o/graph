@@ -38,6 +38,29 @@ graph.states.set('named', { shapes: ['north'] })
 - Labels never overlap, and a shape label gives way to node and edge labels, which are placed first, then the labels of the largest shapes. Like node labels it shrinks when you zoom out and hides under 8 pixels on screen. It follows the fades of its shape and the opacity of its states, not the `opacity` of the mark. A hovered shape forces its label and a selected one comes before the others.
 - The states `label` (`true`, `false`, `'always'`) and `labelColor` act on shape labels, and the exports write them.
 
+## Text in a box
+
+Three more options, each a value or a function of the item, turn a label into the text of a box:
+
+```ts
+import { type ShapeGeometry } from '@bruno00o/graph'
+import { shapes } from '@bruno00o/graph/shapes'
+
+type Note = { id: string; text: string; geometry: ShapeGeometry }
+const notes: Note[] = []
+
+shapes(notes, {
+  name: 'notes',
+  fill: 'transparent',
+  label: { text: 'text', wrap: true, scale: 'world', place: 'always', size: 14 },
+})
+```
+
+- `wrap: true` breaks the lines at spaces to the width of the box less half the font size on each side, and a word longer than a line between its characters; `\n` still starts a line. A wrapped label is centered on the box, and wraps again when its width on screen changes, so it keeps the same lines at every zoom only with `scale: 'world'`.
+- `scale: 'world'` gives `size` (and `maxWidth`) in world units, so the text grows and shrinks with the box and hides under 8 pixels; a shape in degrees takes `size` in meters at the latitude of its label, and a pinned shape in world units. `'screen'` (default) keeps pixels.
+- `place: 'always'` draws the label whatever the other labels; node, edge and shape labels make room for it.
+- The height of the box does not cut the text: a longer text overflows it. A shape editor grows the box when someone types such a text (editor skill).
+
 ## Pin shapes to a node
 
 `node` is a channel that returns the key of a node. The geometry is then in world units from where the node is drawn: `{ center: { x: 0, y: 0 }, radius: 80 }` is a disc around it.

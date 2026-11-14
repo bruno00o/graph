@@ -8,7 +8,7 @@
 | -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------- |
 | graph-setup          | Data, keys, marks, definition, mounting, instance, states, events, updates | core, react                                       |
 | appearance           | How nodes, labels and edges look                                           | styling, edges                                    |
-| structure            | Groups, merged and hidden elements, layers, support, paths, free shapes    | groups, multilayer, paths, shapes                 |
+| structure            | Groups, merged and hidden elements, layers, support, paths, free shapes    | groups, multilayer, paths, shapes, editor         |
 | placement            | Layouts and positions                                                      | layouts                                           |
 | navigation-and-input | View, zoom ranges, selection, gestures, keyboard, advanced states          | view, interaction                                 |
 | geography-and-time   | Graphs in a MapLibre map, time windows and the timeline                    | map, time                                         |
@@ -17,7 +17,7 @@
 
 ## Skill plan
 
-Nineteen skills. Every skill other than `core` requires `core`; `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
+Twenty skills. Every skill other than `core` requires `core` (`editor` also requires `shapes`); `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
 
 | Skill          | Type              | Domain               | Owner      |
 | -------------- | ----------------- | -------------------- | ---------- |
@@ -40,6 +40,7 @@ Nineteen skills. Every skill other than `core` requires `core`; `react` is the o
 | tools          | sub-skill         | tools-and-output     | batch D    |
 | export         | sub-skill         | tools-and-output     | batch D    |
 | shapes         | sub-skill         | structure            | shapes     |
+| editor         | sub-skill         | structure            | editor     |
 
 Boundaries chosen from developer tasks, not from entry points:
 
@@ -50,6 +51,7 @@ Boundaries chosen from developer tasks, not from entry points:
 - `map` owns `exportMapPng`; `export` owns `exportPng` and `exportSvg`.
 - `paths` sits in batch C to balance the batches; it reads the same data as the integrations and has no file in common with them.
 - `shapes` owns the `shapes()` mark, its geometry, `pick`, its states by kind and everything that only concerns shapes; the other skills carry the sentences where a shape changes their rules (targets and selection in `interaction`, `fit` in `view`, the two tokens in `styling`) and point to it. Hulls and anchors stay in `tools`, group containers in `groups`.
+- `editor` owns the shape editor (`/editor`, `/editor/react`), `applyShapeEdits`, and `persistShapes` and `showPresence` of `/db`. `tanstack-db` names them and points to it; `shapes`, `interaction` and `map` carry one sentence where an editor changes their gestures.
 
 ## Failure mode inventory
 
@@ -94,6 +96,26 @@ Boundaries chosen from developer tasks, not from entry points:
 | 11  | Using a field name as a color                          | MEDIUM   | `src/types.ts`                     | core        |
 | 12  | Looking for a waiting shape in `count()` or `issues()` | MEDIUM   | `data-reads.ts`, shapes guide      |             |
 | 13  | World-unit shapes on a map                             | MEDIUM   | `src/shapes/read.ts`, map guide    | map         |
+
+### editor (15)
+
+| #   | Mistake                                                | Priority | Source                                  | Cross-skill |
+| --- | ------------------------------------------------------ | -------- | --------------------------------------- | ----------- |
+| 1   | Creating the editor without its layer                  | HIGH     | editor API, `src/editor/view.ts`        |             |
+| 2   | Writing the edits without updating the graph           | HIGH     | editing shapes guide                    | core        |
+| 3   | Changing the items in place                            | HIGH     | `src/editor/edits.ts`                   | shapes      |
+| 4   | Two editors on one graph                               | HIGH     | `src/editor/editor.ts`, ShapeEditor API | react       |
+| 5   | Listing a mark without a name in `marks`               | HIGH     | `src/editor/edits.ts`                   |             |
+| 6   | Applying every edit to one array                       | HIGH     | `src/editor/edits.ts`                   |             |
+| 7   | Saving drawn shapes without `create`                   | HIGH     | `src/db/persist-shapes.ts`              | tanstack-db |
+| 8   | Handling the edits twice                               | MEDIUM   | `src/editor/editor.ts`                  |             |
+| 9   | A writer of your own that writes only the geometry     | MEDIUM   | `src/editor/edits.ts`                   | tanstack-db |
+| 10  | `raise` and `lower` on a mark that does not read order | MEDIUM   | editing shapes guide                    | shapes      |
+| 11  | Text on a mark without a matching `label`              | MEDIUM   | `src/editor/text.ts`                    | shapes      |
+| 12  | Snapping to the background without a background grid   | MEDIUM   | `src/editor/editor.ts`                  | tools       |
+| 13  | Keys that never reach the editor                       | MEDIUM   | editing shapes guide                    | interaction |
+| 14  | Selections of others that never show                   | MEDIUM   | `src/db/presence.ts`                    | interaction |
+| 15  | Cursors that land in different places                  | MEDIUM   | showPresence API                        | layouts     |
 
 ## Tensions
 
@@ -266,7 +288,7 @@ Written: `tanstack-db`, `tanstack-query`, `cypher`, `file-formats`, `paths`, all
 
 | Skill          | Lines | Failure modes | Typechecked failures                            |
 | -------------- | ----- | ------------- | ----------------------------------------------- |
-| tanstack-db    | 411   | 6             | key option on a live mark, wrong field in where |
+| tanstack-db    | 415   | 8             | key option on a live mark, wrong field in where |
 | tanstack-query | 425   | 7             | types not inferred from a plain object          |
 | cypher         | 264   | 6             | untyped properties, edge mark without ends      |
 | file-formats   | 304   | 8             | color literal, a Response instead of text       |
@@ -301,6 +323,15 @@ Aligned for 0.26.0 (shapes on maps, labels, pins): `shapes` has 13 failure modes
 - Tension: `others` crosses kinds, so a state of nodes dims the zones too (`interaction`, `shapes`); by-kind styles decide which kinds fade.
 - Cross-references proposed for the shared tables: `shapes` to `interaction` (targets, selection, lasso, states), `shapes` to `tools` (hulls and anchors follow nodes, shapes do not), `shapes` to `view` (`fit`, zoom ranges), `shapes` to `map` (areas on a map), `tools` to `shapes`.
 - The timeline reads nodes and edges only: the times of shapes do not enter its extent or histogram (`time`).
+
+### Editor
+
+Written for 0.27.0: the `editor` skill (15 failure modes, requires `core` and `shapes`, references `references/persistence.md` and `references/presence.md`), with typechecked examples and two `expect-error` fences (TS2322 for a mark without a name in `marks`, TS2322 for a `ShapeGeometry` assigned to a TanStack DB draft). Entry written by hand in `skill_tree.yaml`, then `maintainer sync`.
+
+Aligned for 0.27.0 (shape colors, legend and minimap, editor, text in shapes): `shapes` (the `color` channel and its scale, label options `wrap`, `scale` and `place` in `references/labels-and-pins.md`, pointers to `editor`, its claim that shapes are not in the legend or the minimap removed), `tools` (shapes in the legend and the minimap, `maxShapePoints`), `styling` (the `color` scale across nodes, edges and shapes, `ShapeScalesOptions`), `tanstack-db` (pointers to `persistShapes` and `showPresence`), `interaction` and `map` (one sentence each on the gestures of an editor). Failure modes: `tools` 10 (added: a switch over legend looks without `case 'shapes'`, `expect-error=TS2322`; recorded: the `corner: null` minimap, already in the skill), `styling` 10 and `tanstack-db` 8 (recorded: two modes each that the skills already had and `domain_map.yaml` missed). Counts of `shapes`, `interaction` and `map` are unchanged.
+
+- Tension: the editor proposes and the application writes; an edit the data does not take ends in `editlost` after `hold`, whether the write failed or was never made (`editor`, `core`, `tanstack-db`).
+- Cross-references proposed for the shared tables: `shapes` to `editor` (drawing and editing), `editor` to `shapes` (marks, labels, units), `editor` to `tanstack-db` (collections), `tanstack-db` to `editor` (`persistShapes`, `showPresence`), `tools` to `shapes` (legend and minimap of shapes).
 
 ## Coverage and batch history
 

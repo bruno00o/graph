@@ -106,7 +106,7 @@ requires:
 
 ### Know who moves what
 
-The map owns the camera, its limits and its gestures. Dragging the background, the wheel, pinches and double clicks on the background move the map, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera. The graph owns its elements: hover, clicks, selection, lasso, node drag, focus and keyboard. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom; a double click on a node does not zoom the map.
+The map owns the camera, its limits and its gestures. Dragging the background, the wheel, pinches and double clicks on the background move the map, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera. The graph owns its elements: hover, clicks, selection, lasso, node drag, focus and keyboard. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom; a double click on a node does not zoom the map. A shape editor takes the gestures on the shapes it edits the same way.
 
 - `graph.view.set`, `fit` and `zoomBy` move the map with `jumpTo`, animations included. The graph keyboard works: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit.
 - `update({ view })` has no effect. `initialView`, `view` and `onViewChange` are not options of `mountMapGraph`.
@@ -259,7 +259,7 @@ The `?worker&url` query is a Vite import with no types outside Vite, so this fra
 
 A `shapes()` mark (`@bruno00o/graph/shapes`, shapes skill) draws polygons, circles, rectangles and lines under the nodes and edges, above the basemap, on a flat map and on the globe. Shapes are picked, lassoed, styled by states and labeled, and `exportMapPng` draws them. Give their geometry in degrees (GeoJSON, or `{ longitude, latitude }` points) so it lines up with the basemap and with nodes placed by `longitude` and `latitude`; a circle centered on a place takes its radius in meters. A shape in world units stays in world units, and the world is 512 units wide, so a rectangle 100 units wide covers a fifth of the Earth.
 
-On a flat map a shape in degrees that crosses the antimeridian shows on both sides, unlike a node. On the globe, long edges are split to follow the surface and the part behind the horizon is neither drawn nor picked. A shape pinned to a node with `node` follows it, with its geometry in world units. Shapes are not on the minimap or in the legend.
+On a flat map a shape in degrees that crosses the antimeridian shows on both sides, unlike a node. On the globe, long edges are split to follow the surface and the part behind the horizon is neither drawn nor picked. A shape pinned to a node with `node` follows it, with its geometry in world units. Shapes are listed in the legend, and a shape editor draws and edits them on the map, in degrees (editor skill).
 
 ### Groups, hulls and spreading on a map
 
