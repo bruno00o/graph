@@ -91,6 +91,12 @@ With `lasso: true` and `select: 'multiple'`, Shift and drag from the background,
 
 A pinch on a trackpad reaches the page as a wheel event with Ctrl held: it zooms in every mode, faster than a wheel step so that the graph follows the fingers. Safari also sends gesture events with the scale of the pinch; the graph then zooms by that scale, keeps Safari from zooming the page, and ignores the wheel events of the same pinch. Wheel deltas counted in lines or pages, as Firefox can send, are converted to pixels. In `'zoom'` mode, the graph takes the wheel even at the zoom limits, so the page does not jump at the end of a zoom. Wheel events the graph does not use, such as any wheel with `zoom: false`, go to the page.
 
+### Zoom speed
+
+Each wheel event that zooms multiplies the zoom by `exp(-delta × 0.0025 × speed)`, where `speed` is `interaction.zoom.speed` (1 by default) and `delta` is `deltaY` in pixels. A line counts for 16 pixels and a page for the height of the graph, then `delta` is capped at 120 pixels, so one event never zooms by more than `exp(0.3 × speed)`. A trackpad pinch, a wheel event with Ctrl held, uses `0.01` and a cap of 30 pixels. A Safari pinch gesture multiplies the zoom by `(scale / previous scale) ** speed`.
+
+To get a factor of `N` for each notch of a mouse wheel that reports 100 pixels, as most do, set `speed` to `Math.log(N) / 0.25`: about 2.77 for a zoom of 2 per notch, 1.62 for 1.5. A wheel that reports another delta, or a line-based wheel, gives another factor with the same speed.
+
 In `'page'` mode, each wheel event left to the page emits `zoomhint`, so your application can say how to zoom. The graph shows no text itself: the event carries `key`, `'Meta'` on Apple systems (Cmd) and `'Control'` elsewhere.
 
 ```ts
@@ -202,6 +208,15 @@ graph.on('pointerenter', ({ target }) => {
 ```ts
 graph.on('pointermove', ({ target, world }) => {
   readout.textContent = target ? String(target.key) : `${world.x.toFixed(0)}, ${world.y.toFixed(0)}`
+})
+```
+
+`contextmenu` does not stop the menu of the browser: the graph only reports the secondary click, with the element under it. To show your own menu, call `preventDefault` on the DOM event in the handler.
+
+```ts
+graph.on('contextmenu', ({ target, point, originalEvent }) => {
+  originalEvent.preventDefault()
+  openMenu(point, target)
 })
 ```
 

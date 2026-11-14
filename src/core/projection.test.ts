@@ -684,6 +684,43 @@ describe('Projection merges', () => {
   })
 })
 
+describe('Projection merges read again', () => {
+  type Weighted = Link
+  const pair = [link('p1', 'a', 'b', 1), link('p2', 'a', 'b', 2), link('p3', 'c', 'a', 5)]
+  const summing = (data: readonly Weighted[]) => ({
+    marks: [
+      edges<Weighted>(data, {
+        ...linkOptions,
+        merge: true,
+        aggregate: {
+          label: (aggregate: AggregateEdge<Weighted>) =>
+            String(aggregate.data.reduce((total, each) => total + (each.weight ?? 0), 0)),
+        },
+      }),
+      nodes<Item>(flat),
+    ],
+  })
+
+  it('rereads an aggregated edge when a merged edge changes, arrives or leaves', () => {
+    const { render, projection, scene } = setup(summing(pair))
+    const carrier = () => projection.edgeIndexOf('p1')
+    expect(scene.edges.label[carrier()]).toBe('3')
+    render(summing([link('p1', 'a', 'b', 10), pair[1] as Weighted, pair[2] as Weighted]))
+    expect(scene.edges.label[carrier()]).toBe('12')
+    render(
+      summing([
+        link('p1', 'a', 'b', 10),
+        pair[1] as Weighted,
+        link('p4', 'a', 'b', 100),
+        pair[2] as Weighted,
+      ]),
+    )
+    expect(scene.edges.label[carrier()]).toBe('112')
+    render(summing([pair[1] as Weighted, link('p4', 'a', 'b', 100), pair[2] as Weighted]))
+    expect(scene.edges.label[projection.edgeIndexOf('p2')]).toBe('102')
+  })
+})
+
 describe('Projection merged edge order', () => {
   type Kind = Link & { kind: string }
   const scales = { color: { domain: ['x', 'y'], range: ['red', 'blue'] } }

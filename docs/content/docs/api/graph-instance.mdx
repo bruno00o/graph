@@ -202,7 +202,7 @@ With a [shape mark](/docs/shapes) in the definition, the counts hold the shapes 
 
 <api-table path="index.ts" name="GraphShownShapeCount" />
 
-`nodes`, `edges` and `pending` count the data, whatever is drawn. `shown` counts what is drawn now, in the view or not: a folded group is one node and hides its members, merged edges count once, and an element out of its [zoom range](/docs/zoom), out of the [time window](/docs/time), in a [hidden layer](/docs/multilayer) or hidden by a state with `hide` does not count. Counting reads every element, so `count()` keeps its result, and returns the same object, until the data, the folded groups, the zoom of a graph with zoom ranges, the time window, the hidden layers or the members of a hiding state change.
+`nodes`, `edges` and `pending` count the data, whatever is drawn. `shown` counts what is drawn now, in the view or not: a folded group is one node and hides its members, merged edges count once, and an element out of its [zoom range](/docs/zoom), out of the [time window](/docs/time), in a [hidden layer](/docs/multilayer) or hidden by a state with `hide` does not count. Counting reads every element, so `count()` keeps its result, and returns the same object, until the data, the folded groups, the zoom of a graph with zoom ranges, the time window, the hidden layers or the members of a hiding state change. A change you made before the call is always counted, with no frame in between. The `foldchange` of groups that `groups()` folds when they arrive fires once the data is applied, so `count()` in its handler is complete.
 
 ```ts
 const { nodes, shown } = graph.count()
