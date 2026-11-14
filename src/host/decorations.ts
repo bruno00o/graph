@@ -1,6 +1,7 @@
 import { type GridInput, gridInput } from '../core/background-grid'
 import { containerShape } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
+import { type GlobeCamera, globeScreen } from '../core/globe'
 import type { GraphModel } from '../core/graph-model'
 import { type ContainerSource, HullLayer } from '../core/hull-layer'
 import { halfWidthOf, isBox, nodeUnit } from '../core/node-shape'
@@ -8,7 +9,7 @@ import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { isBuiltInState } from '../core/state-names'
 import { detailStep, edgeShown, nodeShown, type Sight } from '../core/visibility'
-import type { GraphDefinition, Key, View } from '../types'
+import type { GraphDefinition, Key, Point, View } from '../types'
 import { type EdgeAnchor, edgeAnchor } from '../webgl/label-layer'
 import { type AnchorBox, AnchorLayer, type GraphAnchors } from './anchors'
 import type { GraphState } from './graph-instance'
@@ -30,6 +31,7 @@ export interface DecorationContext {
   readonly containers: () => ContainerSource | null
   readonly edgeIndex: (key: Key) => number
   readonly paths?: EdgePaths
+  readonly sphere?: () => GlobeCamera | null
 }
 
 export interface Decorations {
@@ -48,6 +50,7 @@ export function createDecorations(context: DecorationContext): Decorations {
   const { model, scene, positions, registry } = context
   let definition: GraphDefinition | null = null
   const hulls = new HullLayer()
+  const screenPoint = { x: 0, y: 0 }
   const edgePoint: EdgeAnchor = { x: 0, y: 0, ax: 0, ay: 0, room: 0 }
 
   function source() {
@@ -132,6 +135,20 @@ export function createDecorations(context: DecorationContext): Decorations {
         if (!edgeAnchor(frame, index, edgePoint)) return false
         box.x0 = box.x1 = edgePoint.x
         box.y0 = box.y1 = edgePoint.y
+        return true
+      },
+      worldPoint(point: Point, box: AnchorBox): boolean {
+        const globe = context.sphere?.() ?? null
+        if (globe) {
+          if (globeScreen(globe, point.x, point.y, screenPoint) <= 0) return false
+          box.x0 = box.x1 = screenPoint.x
+          box.y0 = box.y1 = screenPoint.y
+          return true
+        }
+        const { width, height } = context.state()
+        const current = view()
+        box.x0 = box.x1 = (point.x - current.x) * current.zoom + width / 2
+        box.y0 = box.y1 = (point.y - current.y) * current.zoom + height / 2
         return true
       },
       stateNodes,
