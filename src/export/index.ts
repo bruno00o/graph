@@ -201,9 +201,8 @@ async function prepare(
   const pixelRatio = ratioOf(snapshot)
   let frame: ExportFrame
   if (size) {
-    const ratio = pixelRatio
-    const boxWidth = size.width === null ? Number.POSITIVE_INFINITY : size.width / ratio
-    const boxHeight = size.height === null ? Number.POSITIVE_INFINITY : size.height / ratio
+    const boxWidth = size.width === null ? Number.POSITIVE_INFINITY : size.width / pixelRatio
+    const boxHeight = size.height === null ? Number.POSITIVE_INFINITY : size.height / pixelRatio
     const start = snapshot.view.zoom
     let zoom: number
     if (region === 'view') {
@@ -213,9 +212,9 @@ async function prepare(
       if (fitsLabels) zoom = fitZoom((at) => frameAt(at, true), boxWidth, boxHeight, zoom)
     }
     const content = frameAt(zoom, true)
-    const width = size.width ?? Math.max(1, Math.ceil(content.width * ratio - 1e-6))
-    const height = size.height ?? Math.max(1, Math.ceil(content.height * ratio - 1e-6))
-    frame = { ...content, width: width / ratio, height: height / ratio }
+    const width = size.width ?? Math.max(1, Math.ceil(content.width * pixelRatio - 1e-6))
+    const height = size.height ?? Math.max(1, Math.ceil(content.height * pixelRatio - 1e-6))
+    frame = { ...content, width: width / pixelRatio, height: height / pixelRatio }
   } else {
     frame = frameAt(options.zoom, true)
   }
