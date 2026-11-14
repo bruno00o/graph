@@ -3,12 +3,13 @@ import { toAccessor } from '../core/accessor'
 import { worldSize } from '../core/geo'
 import type { GraphChanges, ShapeRecord } from '../core/graph-model'
 import { type ShapeShift, shiftSlots } from '../core/shape-store'
+import { dev } from '../dev'
 import type { GraphInstance } from '../host/graph-instance'
 import { internalsOf } from '../host/internals'
 import { isolateSubscribers, report } from '../host/isolate'
 import type { PointerTool, ToolPointer } from '../host/pointer-tool'
 import { readonlyOf } from '../host/readonly-store'
-import type { Key, KeyList, Mark, Point, ShapeGeometry } from '../types'
+import type { Key, KeyList, Mark, Point, WritableShapeGeometry } from '../types'
 import {
   backgroundStep,
   circleGeometry,
@@ -25,6 +26,7 @@ import {
   turnBy,
 } from './draw'
 import type { ShapeAddEdit, ShapeChangeEdit, ShapeEdit, ShapeMarkName } from './edits'
+
 import {
   type Bounds,
   boundsOf,
@@ -54,7 +56,9 @@ import {
   type Rings,
   ringsOf,
   type Screen,
+  screenScale,
   screenTolerance,
+  shapeScreen,
   tracePath,
   vertexHandle,
   vertexHandles,
@@ -62,12 +66,16 @@ import {
 } from './screen'
 import { grownOutline, labeled, labelTextOf, type TextLook, textLook, textPixels } from './text'
 
+type HandedAdd = ShapeAddEdit<Mark, WritableShapeGeometry>
+type HandedChange = ShapeChangeEdit<Mark, WritableShapeGeometry>
+type Handed = ShapeEdit<Mark, WritableShapeGeometry>
+
 /** Options of `createShapeEditor`. `M` is the union of the marks of the graph. */
 export interface ShapeEditorOptions<M extends Mark = Mark> {
   /** Names of the shape marks whose shapes can be edited. Defaults to every shape mark. */
   readonly marks?: KeyList<ShapeMarkName<M>> | undefined
   /** Called with each batch of edits the editor proposes, like the `edit` event. */
-  readonly onEdit?: ((edits: readonly ShapeEdit<M>[]) => void) | undefined
+  readonly onEdit?: ((edits: readonly ShapeEdit<M, WritableShapeGeometry>[]) => void) | undefined
   /**
    * How long a proposed shape stays drawn as proposed while its data does not change, in
    * milliseconds; then the data wins and `editlost` is emitted. `Infinity` waits for good.
@@ -180,7 +188,7 @@ export interface ShapeEditorState {
 /** Payload of the `edit` and `editlost` events of a shape editor. */
 export interface ShapeEditEvent<M extends Mark = Mark> {
   /** The edits, in the order they were made. */
-  readonly edits: readonly ShapeEdit<M>[]
+  readonly edits: readonly ShapeEdit<M, WritableShapeGeometry>[]
 }
 
 /**
@@ -286,7 +294,7 @@ interface Look {
 }
 
 interface Pending {
-  readonly edit: ShapeEdit
+  readonly edit: Handed
   readonly outline: Outline | null
   readonly batch: number
   readonly order: number | undefined
@@ -324,7 +332,7 @@ interface Step {
 }
 
 interface Proposal {
-  readonly edit: ShapeEdit
+  readonly edit: Handed
   readonly outline: Outline | null
   readonly order: number | undefined
   readonly pin: Key | null
@@ -400,6 +408,7 @@ interface ResizeGesture {
   readonly from: Point
   readonly touch: boolean
   readonly round: boolean
+  readonly local: Screen | null
   current: ReadonlyMap<Key, Outline>
   started: boolean
 }
@@ -587,7 +596,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   resolve(options)
 
-  function emit(name: 'edit' | 'editlost', edits: readonly ShapeEdit[]): void {
+  function emit(name: 'edit' | 'editlost', edits: readonly Handed[]): void {
     const event = { edits } as ShapeEditEvent<M>
     if (name === 'edit' && onEdit) {
       try {
@@ -723,11 +732,23 @@ export function createShapeEditor<S extends string, M extends Mark>(
     store.setState(() => Object.freeze(next))
   }
 
-  function typedOutline(current: Typing, zoom: number): Outline {
+  function textScale(current: Typing, view: Screen): number {
+    const origin = originOf(current.pin, current.outline, view)
+    const [, minY, , maxY] = boundsOf(current.outline)
+    return screenScale(view, (minY + maxY) / 2 + (origin?.y ?? 0))
+  }
+
+  function typedPixels(current: Typing, view: Screen): number {
+    const origin = originOf(current.pin, current.outline, view)
+    const zoom = current.look.world ? textScale(current, view) : view.view.zoom
+    return textPixels(current.look, current.outline, origin?.y ?? 0, zoom)
+  }
+
+  function typedOutline(current: Typing, view: Screen): Outline {
+    const zoom = textScale(current, view)
     const known = current.grown
     if (known && known.text === current.text && known.zoom === zoom) return known.outline
-    const origin = originOf(current.pin, current.outline, screen())
-    const pixels = textPixels(current.look, current.outline, origin?.y ?? 0, zoom)
+    const pixels = typedPixels(current, view)
     const outline = grownOutline(
       current.outline,
       current.text,
@@ -744,7 +765,10 @@ export function createShapeEditor<S extends string, M extends Mark>(
     const current = typing
     const origin = current ? originOf(current.pin, current.outline, view) : null
     if (!current || !origin) return null
-    const [minX, minY, maxX, maxY] = boundsOf(typedOutline(current, view.view.zoom))
+    const outline = typedOutline(current, view)
+    const local = shapeScreen(view, outline, origin.x, origin.y)
+    if (!local) return null
+    const [minX, minY, maxX, maxY] = boundsOf(outline)
     const at = { x: 0, y: 0 }
     let left = Number.POSITIVE_INFINITY
     let top = Number.POSITIVE_INFINITY
@@ -756,7 +780,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       [maxX, maxY],
       [minX, maxY],
     ] as const) {
-      if (!project(view, x + origin.x, y + origin.y, at)) return null
+      if (!project(local, x + origin.x, y + origin.y, at)) return null
       left = Math.min(left, at.x)
       top = Math.min(top, at.y)
       right = Math.max(right, at.x)
@@ -770,7 +794,6 @@ export function createShapeEditor<S extends string, M extends Mark>(
     if (!current) return null
     const view = screen()
     const box = typedBox(view) ?? [0, 0, 0, 0]
-    const origin = originOf(current.pin, current.outline, view)
     const next: ShapeEditorText = {
       key: current.key,
       added: current.added,
@@ -779,7 +802,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       y: box[1],
       width: box[2] - box[0],
       height: box[3] - box[1],
-      fontSize: textPixels(current.look, current.outline, origin?.y ?? 0, view.view.zoom),
+      fontSize: typedPixels(current, view),
       fontWeight: current.look.weight,
       fontFamily: current.look.font,
       wrap: current.look.wrap,
@@ -986,10 +1009,11 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const pin = entry ? entry.pin : (waiting?.pin ?? null)
       const look = entry ? lookOf(entry.record.index) : (waiting?.look ?? null)
       const origin = outline ? originOf(pin, outline, view) : null
-      if (!outline || !origin || !look) continue
+      const local = outline && origin ? screenOf(key, outline, origin, view) : null
+      if (!outline || !origin || !look || !local) continue
       const path: string[] = []
       const rings = ringsOf(outline)
-      tracePath(view, rings, origin.x, origin.y, path)
+      tracePath(local, rings, origin.x, origin.y, path)
       previews.push({ ...look, d: path.join(' '), fill: rings.filled ? look.fill : null })
     }
     const handles: Handle[] = []
@@ -1023,7 +1047,8 @@ export function createShapeEditor<S extends string, M extends Mark>(
       }
     } else if (selected.length > 0) {
       const bounds = selectionBounds(selected, view)
-      if (bounds) boxHandles(view, bounds, handles, box)
+      const local = boxScreen(selected, view)
+      if (bounds && local) boxHandles(local, bounds, handles, box)
     }
     if (!gesture && hover) pressed = hitHandle(handles, hover, reach(false))
     const last = !gesture && active?.key === owner ? active : null
@@ -1060,6 +1085,23 @@ export function createShapeEditor<S extends string, M extends Mark>(
     cached = result
     cachedStamp = stamp
     return result
+  }
+
+  function screenOf(key: Key, outline: Outline, origin: Point, view: Screen): Screen | null {
+    const current = gesture
+    if (current?.type === 'resize' && current.local && current.keys.includes(key)) {
+      return current.local
+    }
+    return shapeScreen(view, outline, origin.x, origin.y)
+  }
+
+  function boxScreen(keys: readonly Key[], view: Screen): Screen | null {
+    const only = keys.length === 1 ? keys[0] : undefined
+    const entry = only === undefined ? null : entryOf(only)
+    const outline = only !== undefined && entry ? outlineOf(only, entry) : null
+    const origin = entry && outline ? originOf(entry.pin, outline, view) : null
+    if (only === undefined || !outline || !origin) return view
+    return screenOf(only, outline, origin, view)
   }
 
   function selectionBounds(keys: readonly Key[], view: Screen): Bounds | null {
@@ -1121,7 +1163,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       if (!entry) continue
       const { mark, datum } = entry.record
       const before = snapshotOf(key)
-      const edit: ShapeEdit = outline
+      const edit: Handed = outline
         ? { type: 'change', key, mark: mark.name, datum, geometry: writeEditable(outline) }
         : { type: 'remove', key, mark: mark.name, datum }
       const after = outline && before ? { ...before, outline } : null
@@ -1185,12 +1227,12 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return units === 'degrees' || (units === 'auto' && internals.onMap)
   }
 
-  function add(geometry: ShapeGeometry, drawn: ShapeDrawTool): void {
+  function add(geometry: WritableShapeGeometry, drawn: ShapeDrawTool): void {
     const outline = readEditable(geometry)
     if (!outline) return
     const key = newKey()
     const mark = targetMark()
-    const edit: ShapeAddEdit = { type: 'add', key, mark, geometry, tool: drawn }
+    const edit: HandedAdd = { type: 'add', key, mark, geometry, tool: drawn }
     const after: Snapshot = {
       outline,
       order: 0,
@@ -1239,7 +1281,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return true
   }
 
-  function openText(geometry: ShapeGeometry): void {
+  function openText(geometry: WritableShapeGeometry): void {
     const outline = readEditable(geometry)
     if (!outline) return
     const mark = textMark ?? targetMark()
@@ -1261,7 +1303,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     if (!current || destroyed) return
     typing = null
     const text = current.text
-    const outline = typedOutline(current, graph.store.state.view.zoom)
+    const outline = typedOutline(current, screen())
     const { key, mark } = current
     if (current.added) {
       if (text.trim() === '') {
@@ -1269,7 +1311,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
         return
       }
       const geometry = writeEditable(outline)
-      const edit: ShapeAddEdit = { type: 'add', key, mark, geometry, tool: 'text', text }
+      const edit: HandedAdd = { type: 'add', key, mark, geometry, tool: 'text', text }
       const after: Snapshot = { outline, order: 0, datum: undefined, pin: null, look: null, text }
       const step: Step = { key, mark, before: null, after }
       submit([{ edit, outline, order: undefined, pin: null, look: null, step }], true)
@@ -1283,7 +1325,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       changed()
       return
     }
-    const edit: ShapeChangeEdit = {
+    const edit: HandedChange = {
       type: 'change',
       key,
       mark,
@@ -1315,7 +1357,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const mark = entry.record.mark.name
       const datum = entry.record.datum
       const geometry = writeEditable(outline)
-      const edit: ShapeAddEdit = { type: 'add', key: copy, mark, geometry, datum }
+      const edit: HandedAdd = { type: 'add', key: copy, mark, geometry, datum }
       const after: Snapshot = { ...base, outline, datum }
       proposals.push({
         edit,
@@ -1399,7 +1441,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const geometry = writeEditable(target.outline)
       if (!from || !entry) {
         const typed = target.datum === undefined && target.text !== '' ? { text: target.text } : {}
-        const edit: ShapeAddEdit =
+        const edit: HandedAdd =
           target.datum === undefined
             ? { type: 'add', key, mark, geometry, ...typed }
             : { type: 'add', key, mark, geometry, datum: target.datum }
@@ -1416,7 +1458,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const reshaped = !sameOutline(from.outline, target.outline)
       const ordered = from.order !== target.order
       const retyped = from.text !== target.text
-      const edit: ShapeEdit = {
+      const edit: Handed = {
         type: 'change',
         key,
         mark,
@@ -1457,6 +1499,29 @@ export function createShapeEditor<S extends string, M extends Mark>(
     if (!steps) return
     undoStack.push(steps)
     restore(steps, 'after')
+  }
+
+  let checkedDefinition: unknown = null
+  let checkedGrid: 'background' | number = 0
+  let warnedBackground = false
+
+  function checkBackground(): void {
+    if (!dev) return
+    const definition = internals.definition()
+    if (definition === checkedDefinition && grid === checkedGrid) return
+    checkedDefinition = definition
+    checkedGrid = grid
+    if (grid !== 'background' || definition.background) {
+      warnedBackground = false
+      return
+    }
+    if (warnedBackground) return
+    warnedBackground = true
+    console.warn(
+      internals.onMap
+        ? "graph: the editor's snap.grid 'background' snaps nothing on a map, which has no background grid; give snap.grid a spacing in world units"
+        : "graph: the editor's snap.grid 'background' snaps nothing, the definition has no background grid; add one to defineGraph or give snap.grid a spacing in world units",
+    )
   }
 
   function gridStep(): number {
@@ -1568,7 +1633,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return { d: path.join(' '), filled: rings?.filled ?? false, handles }
   }
 
-  function endDrawing(geometry: ShapeGeometry | null, drawn: ShapeDrawTool): void {
+  function endDrawing(geometry: WritableShapeGeometry | null, drawn: ShapeDrawTool): void {
     draw = null
     if (geometry) add(geometry, drawn)
     changed()
@@ -1785,7 +1850,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   function expire(batch: number): void {
     if (destroyed) return
-    const lost: ShapeEdit[] = []
+    const lost: Handed[] = []
     for (const [key, waiting] of pending) {
       if (waiting.batch !== batch) continue
       pending.delete(key)
@@ -1796,15 +1861,15 @@ export function createShapeEditor<S extends string, M extends Mark>(
     emit('editlost', lost)
   }
 
-  function changeEdit(key: Key, outline: Outline): ShapeChangeEdit | null {
+  function changeEdit(key: Key, outline: Outline): HandedChange | null {
     const entry = entryOf(key)
     if (!entry) return null
     const { mark, datum } = entry.record
     return { type: 'change', key, mark: mark.name, datum, geometry: writeEditable(outline) }
   }
 
-  function editsOf(outlines: Iterable<readonly [Key, Outline]>): ShapeChangeEdit[] {
-    const edits: ShapeChangeEdit[] = []
+  function editsOf(outlines: Iterable<readonly [Key, Outline]>): HandedChange[] {
+    const edits: HandedChange[] = []
     for (const [key, outline] of outlines) {
       const edit = changeEdit(key, outline)
       if (edit) edits.push(edit)
@@ -1812,7 +1877,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return edits
   }
 
-  function liveEdits(): ShapeChangeEdit[] {
+  function liveEdits(): HandedChange[] {
     const current = gesture
     if (!current || !gestureStarted(current)) return []
     return editsOf(
@@ -1866,14 +1931,14 @@ export function createShapeEditor<S extends string, M extends Mark>(
   }
 
   function hitPending(point: Point, view: Screen): Key | null {
-    const world = worldAt(view, point)
-    if (!world) return null
-    const tolerance = screenTolerance(view, 4)
     for (const [key, waiting] of [...pending].reverse()) {
       const entry = entryOf(key)
       const outline = waiting.outline
       const origin = entry && outline ? originOf(entry.pin, outline, view) : null
-      if (!outline || !origin) continue
+      const local = outline && origin ? shapeScreen(view, outline, origin.x, origin.y) : null
+      const world = local ? worldAt(local, point) : null
+      if (!outline || !origin || !local || !world) continue
+      const tolerance = screenTolerance(local, 4)
       if (insideRings(ringsOf(outline), world.x - origin.x, world.y - origin.y, tolerance)) {
         return key
       }
@@ -1881,10 +1946,12 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return null
   }
 
-  function startBox(keys: readonly Key[], handle: Handle, world: Point, pointer: ToolPointer) {
+  function startBox(keys: readonly Key[], handle: Handle, pointer: ToolPointer) {
     const view = screen()
     const box = selectionBounds(keys, view)
-    if (!box) return false
+    const local = boxScreen(keys, view)
+    const from = local ? worldAt(local, pointer.point) : null
+    if (!box || !local || !from) return false
     const bases = new Map<Key, Outline>()
     let round = true
     for (const key of keys) {
@@ -1900,10 +1967,11 @@ export function createShapeEditor<S extends string, M extends Mark>(
       bases,
       box,
       handle: handle.index,
-      start: world,
+      start: from,
       from: pointer.point,
       touch: pointer.event.pointerType === 'touch',
       round,
+      local: local === view ? null : local,
       current: bases,
       started: false,
     }
@@ -2038,7 +2106,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const built = frame()
       const handle = hitHandle(built.handles, pointer.point, reach(touch))
       if (handle) {
-        if (handle.kind === boxHandle) return startBox(selectedKeys(), handle, world, pointer)
+        if (handle.kind === boxHandle) return startBox(selectedKeys(), handle, pointer)
         if (built.owner !== null) return startVertex(built.owner, handle, world, pointer)
       }
       const view = screen()
@@ -2064,7 +2132,10 @@ export function createShapeEditor<S extends string, M extends Mark>(
         if (!slopPassed(current, pointer.point)) return
         current.started = true
       }
-      const world = pointerWorld(pointer.point)
+      const world =
+        current.type === 'resize' && current.local
+          ? worldAt(current.local, pointer.point)
+          : pointerWorld(pointer.point)
       if (!world) return
       if (current.type === 'move') {
         const corner = current.corner
@@ -2290,7 +2361,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   const unwatch = internals.watch({
     frame() {
-      if (destroyed || listeners.size === 0) return
+      if (destroyed) return
+      checkBackground()
+      if (listeners.size === 0) return
       const view = screen()
       const stamp = stampOf(view)
       if (stamp === drawnStamp && !view.globe) return
@@ -2330,6 +2403,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     addEventListener('keyup', onKey)
     addEventListener('blur', onBlur)
     lastSelection = graph.store.state.selection
+    checkBackground()
     publish()
   } else {
     unwatch()
@@ -2446,6 +2520,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const chosen = next.tool === undefined ? null : checkTool(next.tool, 'update')
       resolve(merged)
       given = merged
+      checkBackground()
       entries.clear()
       if (chosen !== null && chosen !== tool) setTool(chosen)
       else changed()
@@ -2476,7 +2551,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     },
   })
 
-  function settle(edits: readonly ShapeEdit[]): boolean {
+  function settle(edits: readonly Handed[]): boolean {
     if (destroyed) return false
     let settled = false
     for (const edit of edits) {
