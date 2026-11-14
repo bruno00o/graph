@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.26.0](https://github.com/bruno00o/graph/compare/0.25.0...0.26.0) (2026-11-14)
+
+
+### Features
+
+* draw large shape sets smoothly ([#174](https://github.com/bruno00o/graph/issues/174)) ([db45672](https://github.com/bruno00o/graph/commit/db456726ecf61351a2cb0c51ead456241c1afa89))
+* draw shapes on maps ([#170](https://github.com/bruno00o/graph/issues/170)) ([cebab67](https://github.com/bruno00o/graph/commit/cebab6718d367c044d2468925e897ed9c87870d0))
+* label shapes and pin them to nodes ([#172](https://github.com/bruno00o/graph/issues/172)) ([8f27015](https://github.com/bruno00o/graph/commit/8f27015a2d8ba0458845441b0ce942310a952bb4))
+
 ## [0.25.0](https://github.com/bruno00o/graph/compare/0.24.0...0.25.0) (2026-11-11)
 
 
