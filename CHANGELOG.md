@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.1](https://github.com/bruno00o/graph/compare/0.26.0...0.26.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* keep the shapes skill within the line limit once published ([#176](https://github.com/bruno00o/graph/issues/176)) ([c2d82be](https://github.com/bruno00o/graph/commit/c2d82be3c2ced4c895c8fa378c0bc98769fcae3a))
+
 ## [0.26.0](https://github.com/bruno00o/graph/compare/0.25.0...0.26.0) (2026-11-14)
 
 
