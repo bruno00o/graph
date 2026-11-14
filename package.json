@@ -124,7 +124,7 @@
     "test:watch": "vitest",
     "test:browsers": "node scripts/browsers.mjs",
     "lint:package": "publint && attw --pack . --profile esm-only --exclude-entrypoints ./theme.css",
-    "lint:skills": "intent validate skills",
+    "lint:skills": "intent validate skills && node scripts/check-skills-publish.mjs",
     "verify": "pnpm check && pnpm typecheck && pnpm test && pnpm lint:skills && pnpm build && pnpm lint:package",
     "prepublishOnly": "intent validate skills --set-version $npm_package_version"
   },
