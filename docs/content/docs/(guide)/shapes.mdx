@@ -228,9 +228,13 @@ The [legend](/docs/minimap-and-legend#legend) counts shapes in the categories of
 
 The [minimap](/docs/minimap-and-legend#minimap) draws the shapes under the graph, pale fills and thin outlines, simplified to its size.
 
+## Editing
+
+Shapes do not move with the pointer on their own: dragging a shape moves the view. A [shape editor](/docs/editing-shapes), from `@bruno00o/graph/editor`, moves them, drags their points and resizes them, and proposes each change to your data.
+
 ## Not there yet
 
-- Shapes cannot be dragged or edited, and dragging a pinned shape does not move its node.
+- Shapes cannot be drawn with the pointer, and moving a pinned shape does not move its node.
 - A shape has one label, horizontal: it does not follow a line or the curve of a ring.
 - A pinned shape does not turn or grow with its node.
 

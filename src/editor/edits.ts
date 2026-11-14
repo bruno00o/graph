@@ -48,7 +48,7 @@ export interface ShapeChangeEdit<M extends Mark = Mark> {
    * New outline, in the format of the old one: same kind of points, the closing point of a
    * GeoJSON ring repeated, degrees for degrees, with longitudes from -180 to 180.
    */
-  readonly geometry?: ShapeGeometry
+  readonly geometry?: ShapeGeometry | undefined
 }
 
 /** A shape to remove. */

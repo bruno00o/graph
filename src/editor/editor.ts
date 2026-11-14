@@ -36,6 +36,7 @@ import {
   type Screen,
   screenTolerance,
   tracePath,
+  vertexHandle,
   vertexHandles,
   worldAt,
 } from './screen'
@@ -470,13 +471,11 @@ export function createShapeEditor<S extends string, M extends Mark>(
     const palette = internals.palette()
     const shapes = internals.scene.shapes
     const previews: PreviewShape[] = []
-    const shown = new Set<Key>()
     for (const key of drafted) {
       const entry = entryOf(key)
       const outline = entry ? outlineOf(key, entry) : null
       const origin = entry && outline ? originOf(entry, outline, view) : null
       if (!entry || !outline || !origin) continue
-      shown.add(key)
       const path: string[] = []
       tracePath(view, ringsOf(outline), origin.x, origin.y, path)
       const index = entry.record.index
@@ -492,6 +491,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     const handles: Handle[] = []
     const box: string[] = []
     let owner: Key | null = null
+    let pressed: Handle | null = null
     const moving = gesture?.type === 'move' && gesture.started
     const selected = moving ? [] : selectedKeys()
     const only = selected.length === 1 ? selected[0] : undefined
@@ -507,13 +507,8 @@ export function createShapeEditor<S extends string, M extends Mark>(
           const point = singleOutline.parts[gesture.part]?.points[gesture.index]
           const at = { x: 0, y: 0 }
           if (point && project(view, point.x + origin.x, point.y + origin.y, at)) {
-            handles.push({
-              kind: 0,
-              x: at.x,
-              y: at.y,
-              part: gesture.part,
-              index: gesture.index,
-            })
+            pressed = { kind: 0, x: at.x, y: at.y, part: gesture.part, index: gesture.index }
+            handles.push(pressed)
           }
         }
       }
@@ -521,9 +516,17 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const bounds = selectionBounds(selected, view)
       if (bounds) boxHandles(view, bounds, handles, box)
     }
-    const hovered = hover && !gesture ? hitHandle(handles, hover, reach(false)) : null
-    const pressed =
-      gesture?.type === 'vertex' ? handles[handles.length - 1] : gesture ? null : hovered
+    if (!gesture && hover) pressed = hitHandle(handles, hover, reach(false))
+    const last = !gesture && active?.key === owner ? active : null
+    const chosen = last
+      ? handles.find(
+          (handle) =>
+            handle.kind === vertexHandle &&
+            handle.part === last.part &&
+            handle.index === last.index,
+        )
+      : undefined
+    const marked = [pressed, chosen].filter((handle): handle is Handle => handle != null)
     const result = {
       frame: {
         shapes: previews,
@@ -536,7 +539,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
           handles.filter((handle) => handle.kind === middleHandle),
           Math.max(2, handleSize * 0.75),
         ),
-        active: pressed ? squares([pressed], handleSize + 2) : '',
+        active: squares(marked, handleSize + 2),
       },
       handles,
       owner,
