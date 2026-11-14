@@ -15,6 +15,7 @@ export const shapeCountMask = 0xffffff
 export const shapeRanged = 1
 export const shapeTimed = 2
 export const shapeAlive = 0x1000000
+export const shapeShiftAt = 25
 export const shapeRect = 0x40000000
 export const shapeIndexMask = 0x3fffffff
 
@@ -26,9 +27,11 @@ uniform sampler2D shapeTime;
 uniform uint shapeFlags;
 uniform uvec4 hiddenShapes;
 uniform int shapePass;
+uniform vec2 shapeShifts[8];
 const uint shapeIndexMask = ${shapeIndexMask}u;
 ${spanData}
-struct ShapeLook { vec4 fill; vec4 stroke; float halfWidth; uint dash; };
+struct ShapeLook { vec4 fill; vec4 stroke; float halfWidth; uint dash; vec2 shift; };
+vec2 shapeShift(uint word) { return shapeShifts[(word >> ${shapeShiftAt}u) & 7u]; }
 vec4 shapePaint(uint id, float opacity) {
   if (id == none) return vec4(0.0);
   vec4 color = paletteColor(id);
@@ -38,7 +41,7 @@ vec4 shapePaint(uint id, float opacity) {
 ShapeLook shapeLook(uint index) {
   ivec2 t = texel(index);
   uvec4 style = texelFetch(shapeStyle, t, 0);
-  ShapeLook result = ShapeLook(vec4(0.0), vec4(0.0), 0.0, style.w & 3u);
+  ShapeLook result = ShapeLook(vec4(0.0), vec4(0.0), 0.0, style.w & 3u, shapeShift(style.w));
   if ((style.w & ${shapeAlive}u) == 0u) return result;
   uint mask = texelFetch(shapeState, t, 0).r;
   if (((mask & stateShapes.x) != 0u) != (shapePass == 1)) return result;
@@ -73,11 +76,11 @@ vec3 pinOf(uint index) {
 }
 #endif
 ShapeLook placedLook(uint index, out vec2 shift) {
-  shift = vec2(0.0);
   ShapeLook look = shapeLook(index);
+  shift = look.shift;
 #ifdef PINNED
   vec3 pin = pinOf(index);
-  shift = pin.xy;
+  shift += pin.xy;
   look.fill *= pin.z;
   look.stroke *= pin.z;
 #endif
@@ -366,7 +369,7 @@ void main() {
     shown *= timeShown(texelFetch(shapeTime, t, 0));
   }
   vec4 place = texelFetch(shapePlace, t, 0);
-  vec2 at = place.xy;
+  vec2 at = place.xy + shapeShift(style.w);
   if (place.z < -1.5) return;
   if (place.z >= 0.0) {
     ivec2 n = texel(uint(place.z));

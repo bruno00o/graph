@@ -2,6 +2,7 @@ import type { ShapeRecord } from '../core/graph-model'
 import type { Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
+import type { ShapeShift } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import { detailStep, type Sight } from '../core/visibility'
 import type { ThemeResolver } from '../dom/theme'
@@ -48,7 +49,7 @@ export interface ExposureSource {
   request(): void
   destroyed(): boolean
   tool(tool: PointerTool | null): boolean
-  draft(keys: readonly Key[]): void
+  draft(keys: readonly Key[], shifts?: readonly ShapeShift[]): void
   shape(key: Key): ShapeRecord | null
 }
 

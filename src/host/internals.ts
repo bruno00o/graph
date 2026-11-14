@@ -2,6 +2,7 @@ import type { GlobeCamera } from '../core/globe'
 import type { GraphChanges, ShapeRecord } from '../core/graph-model'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
+import type { ShapeShift } from '../core/shape-store'
 import type { Sight } from '../core/visibility'
 import type { EdgeEnd, GraphDefinition, Key } from '../types'
 import type { PointerTool } from './pointer-tool'
@@ -34,7 +35,7 @@ export interface GraphInternals {
   stamp(): GraphStamp
   watch(watcher: GraphWatcher): () => void
   tool(tool: PointerTool | null): boolean
-  draft(keys: readonly Key[]): void
+  draft(keys: readonly Key[], shifts?: readonly ShapeShift[]): void
   shape(key: Key): ShapeRecord | null
   globe(): GlobeCamera | null
 }
