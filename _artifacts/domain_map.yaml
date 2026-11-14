@@ -797,6 +797,7 @@ skills:
       - waypoints
       - lineWaypoints
       - setWorkerUrl with bundlers
+      - shapes drawn on a map
     tasks:
       - Draw a graph on a MapLibre map
       - Place nodes by longitude and latitude
@@ -806,6 +807,7 @@ skills:
       - Export the map and the graph as one PNG
       - Route edges along a network with waypoints
       - Make the map worker load with a bundler
+      - Draw areas and zones on the map
     failure_modes:
       - mistake: Expecting a layout to place nodes on a map
         mechanism: The map layer ignores layout, background, bundling, routing and bridges, and layout.run rejects, so nodes need coordinates.
@@ -847,7 +849,7 @@ skills:
         priority: MEDIUM
         status: active
       - mistake: Expecting rotation, pitch, lens or minimap on a map
-        mechanism: The map stays north up and without pitch, and the lens, the minimap and shapes() marks are not supported on a map graph.
+        mechanism: The map stays north up and without pitch, and the lens and the minimap are not supported on a map graph.
         wrong_pattern: |
           graph.lens.set({ at: pointer })
         correct_pattern: |
@@ -1585,12 +1587,15 @@ skills:
     slug: shapes
     domain: structure
     type: sub-skill
-    description: Draw zones, rings, rectangles and lines from your own geometry under the graph, and make them selectable, styled and shown by zoom, time and layer.
+    description: Draw zones, rings, rectangles and lines from your own geometry under the graph, and make them selectable, labeled, pinned to nodes, styled, shown by zoom, time and layer, and drawn on a map.
     covers:
       - shapes
       - geometry forms and units
       - fill, stroke, strokeWidth, dash, opacity, order
       - pick
+      - shape labels and their anchors
+      - node pins and pending shapes
+      - shapes on a flat map and on the globe
       - shape targets, selection and lasso
       - states by kind and others across kinds
       - minZoom, maxZoom, time and layer on shapes
@@ -1603,6 +1608,9 @@ skills:
       - Let people click and select a zone while a decorative zone ignores the pointer
       - Dim everything outside a selected zone, or dim only the nodes
       - Hide a zone below a zoom, outside a time window or with a layer
+      - Label zones and show a label with a state
+      - Pin a ring or a halo to a node
+      - Draw zones on a MapLibre map
       - Frame a zone and count the shapes drawn
       - Find the shapes whose geometry cannot be drawn
     failure_modes:
@@ -1624,22 +1632,31 @@ skills:
         source: docs/content/docs/(guide)/shapes.mdx, src/shapes/pick.ts
         priority: HIGH
         status: active
-      - mistake: Expecting labels on shapes
-        mechanism: Shapes have no label option yet, so the option does not compile.
-        wrong_pattern: |
-          shapes(zones, { label: 'title' })
-        correct_pattern: |
-          Show the title from pointerenter and target.datum in an HTML tooltip
-        source: docs/content/docs/(guide)/shapes.mdx
-        priority: HIGH
-        status: active
       - mistake: Mixing degrees and world units
-        mechanism: GeoJSON and longitude and latitude points are projected to a world 512 units wide, so a zone in degrees does not land around nodes placed with x and y.
+        mechanism: GeoJSON and longitude and latitude points are projected to a world 512 units wide, so a zone in degrees does not land around nodes placed with x and y, nor around a pinned node, and a geometry in world units does not line up with a basemap.
         wrong_pattern: |
           nodes(places, { x: 'x', y: 'y' }) with shapes of GeoJSON polygons
         correct_pattern: |
           nodes(places, { longitude: 'lng', latitude: 'lat' }) with the same GeoJSON polygons
         source: docs/content/docs/(guide)/shapes.mdx, src/core/geo.ts
+        priority: HIGH
+        status: active
+      - mistake: A pin that pins nothing
+        mechanism: node pins a shape only when its channel returns a key, so null, undefined or a non-key leaves an ordinary shape drawn at the world coordinates of its geometry, with no warning.
+        wrong_pattern: |
+          shapes(halos, { node: (halo) => halo.root })
+        correct_pattern: |
+          shapes(halos.filter((halo) => halo.root !== undefined), { node: 'root' })
+        source: src/core/shape-store.ts
+        priority: HIGH
+        status: active
+      - mistake: Label options without a text
+        mechanism: label takes a text channel or an object whose text is required, so options alone do not compile, and a text that is empty or not a string draws no label.
+        wrong_pattern: |
+          shapes(zones, { label: { size: 14 } })
+        correct_pattern: |
+          shapes(zones, { label: { text: 'title', size: 14 } })
+        source: src/types.ts, docs/content/docs/(guide)/shapes.mdx
         priority: HIGH
         status: active
       - mistake: Reading shape counts or keys on a graph without a shape mark
@@ -1697,13 +1714,22 @@ skills:
         source: src/types.ts
         priority: MEDIUM
         status: active
-      - mistake: Expecting shapes on a map
-        mechanism: A graph drawn on a map does not draw or pick shapes yet and warns once in development, while count().shapes still counts them.
+      - mistake: Looking for a waiting shape in count().shapes or issues()
+        mechanism: A pinned shape whose node is not in the data waits and is held by count().pendingShapes, out of count().shapes and out of issues(), so a typo in a node key shows as a shape that never appears.
         wrong_pattern: |
-          mountMapGraph(map, { definition: defineGraph({ marks: [shapes(zones)] }), ariaLabel: 'Map' })
+          graph.issues()
         correct_pattern: |
-          Draw regions with the layers of the map until shapes support it
-        source: src/map/index.ts, docs/content/docs/(guide)/shapes.mdx
+          graph.count().pendingShapes
+        source: src/host/data-reads.ts, docs/content/docs/(guide)/shapes.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: World-unit shapes on a map
+        mechanism: The world is 512 units wide, so a rectangle 100 units wide covers a fifth of the Earth and a pinned ring of radius 2 spans about 1.4 degrees of longitude; map geometry belongs in degrees, with circle radii in meters.
+        wrong_pattern: |
+          shapes([{ id: 'zone', geometry: { x: 0, y: 0, width: 100, height: 100 } }])
+        correct_pattern: |
+          shapes([{ id: 'zone', geometry: { center: { longitude: 2.35, latitude: 48.86 }, radius: 5000 } }])
+        source: src/shapes/read.ts, docs/content/docs/(guide)/map.mdx
         priority: MEDIUM
         status: active
 tensions:

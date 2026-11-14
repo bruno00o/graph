@@ -249,7 +249,7 @@ graph.focus.set(null)
 
 ### Style states beyond a highlight
 
-A state style takes `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, `raise`, `hide` and `others`. Declare states in `defineGraph({ states })` and fill them by key (core skill). On a shape only `opacity`, `fill`, `stroke`, `strokeWidth`, `raise`, `hide` and `others` apply (shapes skill). These properties are the ones to reach for:
+A state style takes `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label`, `labelColor`, `flow`, `raise`, `hide` and `others`. Declare states in `defineGraph({ states })` and fill them by key (core skill). On a shape only `opacity`, `fill`, `stroke`, `strokeWidth`, `label`, `labelColor`, `raise`, `hide` and `others` apply (shapes skill); `label` and `labelColor` act on its label. These properties are the ones to reach for:
 
 ```ts
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'

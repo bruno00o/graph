@@ -197,6 +197,7 @@ const labelled = nodes(items, {
 - `background: true` draws a plate in `--graph-label-background`; a CSS color picks another; `false` or `null` draws none. A plated label has no halo.
 - Labels never overlap and at most 4,000 are drawn. They are chosen again as the view changes, at most every 120 ms: hovered and focused first, then selected, then the largest nodes. A label that is missing may have lost the overlap test or fallen under 8 pixels: zoom in before looking for a bug.
 - A state styles labels too: `label: true | false | 'always'` and `labelColor`, set in `states`. `'always'` lifts the size threshold while the state applies.
+- Edges and the `shapes()` mark take labels too, with the same text options and placed after node labels (edges in the edges skill, shapes in the shapes skill).
 
 Example: [labels](https://bruno00o.github.io/graph/examples/labels).
 
