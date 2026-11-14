@@ -71,7 +71,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, marks, sta
    }
    ```
 
-   Result: `<Graph>` renders a `div` in relative position, sized by `className` or `style`, with the graph inside. A new `definition` prop is applied with `update`: positions, view, selection and states stay.
+   Result: `<Graph>` renders a `div` sized by `className` or `style`, with the graph inside. The `div` keeps a position that your class or style gives it (`absolute inset-0`); only when nothing positions it does the component make it `relative`. A new `definition` prop is applied with `update`: positions, view, selection and states stay.
 
 ## Core Patterns
 
@@ -83,7 +83,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, marks, sta
 
 ### Handle events with props
 
-Event props (`onClick`, `onSelectionChange`, `onLayoutEnd`, `onLoadingChange`, ...) are typed from the definition and always call the latest function, so they need no `useCallback`.
+Event props (`onClick`, `onSelectionChange`, `onLayoutEnd`, `onLoadingChange`, ...) are typed from the definition and always call the latest function, so they need no `useCallback`. `onContextMenu` does not stop the browser menu: call `event.originalEvent.preventDefault()` to show your own.
 
 ```tsx
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
@@ -356,7 +356,7 @@ Annotate the parameter (`(state: GraphState<string, Marks>) => ...`), type `useG
 
 ### MEDIUM A `<Graph>` without a height
 
-`<Graph>` fills its own `div`, which takes its size from `className` or `style`. Without a height it draws nothing. Development builds warn once.
+`<Graph>` fills its own `div`, which takes its size from `className` or `style`: a `div` positioned by your class (`absolute inset-0`) still needs a height from its parent. Without a height it draws nothing. Development builds warn once.
 
 ## Completion
 

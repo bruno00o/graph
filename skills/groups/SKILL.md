@@ -113,6 +113,7 @@ export function control(graph: GraphInstance) {
 }
 ```
 
+- The `foldchange` that follows the arrival of the groups of `groups()` fires once their data is applied, so `graph.count()` in its handler is complete.
 - `fold()` and `unfold()` without keys act on every group, nested ones included. A folded group inside a folded group stays folded when its parent opens. A folded key that names no node yet applies when the group arrives. `initialFolded` is the same at mount.
 - Pass an array of keys, never a string: the types refuse `fold('group-1')` (`KeyList` takes a list), and in plain JavaScript it folds `'g'`, `'r'`, `'o'`... and warns once in development.
 - A folded group hides its children and draws as a node. Edges into hidden children draw to the outermost folded group; edges inside one folded group disappear. Unfolding brings everything back as it was.
@@ -194,7 +195,7 @@ graph.groups.unfold([key])
 
 To reuse option objects, hoist them as functions typed with `AggregateEdge<Link>`, a type exported from the main entry (`(aggregate: AggregateEdge<Link>) => aggregate.count`); callbacks written inline in `edges()` are inferred.
 
-`merge: true` draws the edges of one mark that join the same two visible nodes in the same direction as one aggregated edge; `aggregate` styles it. Its channels and styles read an `AggregateEdge`: `source`, `target`, `count`, `keys`, `data`, `forward`, `backward` (each `{ count, keys, data }`), and `value` when `by` is set.
+`merge: true` draws the edges of one mark that join the same two visible nodes in the same direction as one aggregated edge; `aggregate` styles it. The aggregated edge is read again whenever one of its edges changes, arrives or leaves, so its `count`, `keys`, `data` and the width, color and label computed from them follow the data: updating one merged edge is enough. Its channels and styles read an `AggregateEdge`: `source`, `target`, `count`, `keys`, `data`, `forward`, `backward` (each `{ count, keys, data }`), and `value` when `by` is set.
 
 ```ts
 import { edges } from '@bruno00o/graph'

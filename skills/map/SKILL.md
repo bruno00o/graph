@@ -100,7 +100,7 @@ requires:
 
 - `longitude` and `latitude` are channels (a field name or a function): degrees, Web Mercator, latitude from -85.05 to 85.05. Map centers are `[longitude, latitude]` in MapLibre, in that order.
 - `x` and `y` in world units work too (the world spans 512 units, longitude -180 at x 0). A node with neither is placed near its placed neighbors, or on a spiral.
-- Node sizes are in screen pixels: a node keeps its size as the map zooms. Edges are straight lines in Web Mercator unless they are great circles or have waypoints.
+- A node with `longitude` and `latitude` is sized in screen pixels (`units` defaults to `'screen'`): it keeps its size as the map zooms. `units: 'world'` scales it with the map (the world is 512 units wide at map zoom 0, so `size: 10` spans about 7 degrees). A node placed by `x` and `y`, or by neither, defaults to `'world'` and is huge at map zooms: give it `units: 'screen'`. A `groups()` mark takes the units of its first member. Edges are straight lines in Web Mercator unless they are great circles or have waypoints.
 - The map keeps its own camera at mount and the graph does not frame its nodes by itself. Call `graph.view.fit({ padding: 40 })` right after mounting; it waits until the map is measured. Every `fit` takes its own `padding` (32 pixels by default).
 - `geoToWorld({ longitude, latitude })` and `worldToGeo({ x, y })` convert between degrees and world units. The zoom of the graph is `2 ** map.getZoom()`.
 
@@ -112,6 +112,14 @@ The map owns the camera, its limits and its gestures. Dragging the background, t
 - `update({ view })` has no effect. `initialView`, `view` and `onViewChange` are not options of `mountMapGraph`.
 - The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch (and the largest pitch) and gives them back when the last graph on the map is destroyed.
 - On a flat map the graph is drawn once, between longitudes -180 and 180, on the world copy under the camera: across the antimeridian a node and its edges show on one side only (shapes in degrees show on both sides).
+
+### Know where the graph sits
+
+`mountMapGraph` inserts `graph.element` into the map container right after the canvas container of MapLibre, as its sibling, absolutely positioned over the whole map. It clips its content at the edges of the map and takes no pointer events itself (the map canvas keeps them). It has no `z-index`, so it stacks by document order: above the map canvas and its markers, under the popups of MapLibre, then the controls (`z-index` 2).
+
+- Put your own overlays in `graph.anchors` or `<Anchor>` (tools and react skills): their layer lives inside `graph.element`, over markers and under popups and controls, and follows the camera.
+- An element of your own in the map container goes over `graph.element` when it comes later in the document or has a `z-index` of 1 or more.
+- A child you add to `graph.element` yourself is clipped at the edges of the map and gets no pointer events unless it sets `pointer-events: auto`.
 
 ### Switch basemaps
 
@@ -131,7 +139,7 @@ declare const map: MapLibreMap
 map.on('style.load', () => map.setProjection({ type: 'globe' }))
 ```
 
-If the style is already loaded when you switch, call `map.setProjection({ type: 'globe' })` directly; `style.load` fires again after every `setStyle`. The framing from `fit` does not depend on the projection and is not redone by the switch. On the globe, an element on the far side is hidden and cannot be picked, and an edge that goes behind the horizon is cut there. Edges between distant nodes bend with the surface; short ones stay straight. MapLibre turns the globe into a flat map between zoom 11 and 12 and the graph turns with it. `view.toScreen` and `toWorld` account for the globe.
+If the style is already loaded when you switch, call `map.setProjection({ type: 'globe' })` directly; `style.load` fires again after every `setStyle`. The framing from `fit` does not depend on the projection and is not redone by the switch. On the globe, an element on the far side is hidden and cannot be picked, and an edge that goes behind the horizon is cut there. Edges between distant nodes bend with the surface; short ones stay straight. MapLibre turns the globe into a flat map between zoom 11 and 12 and the graph turns with it. `view.toScreen` and `toWorld` account for the globe. Anchored HTML follows the globe too: an anchor on a node, nodes, state, edge or point sits where its target is drawn, during the flat to globe transition as well, takes the size of a node at that place, scales with the globe there when it has `scale: true`, and hides while its target is behind the horizon.
 
 ### Draw great circles
 
@@ -259,7 +267,7 @@ The `?worker&url` query is a Vite import with no types outside Vite, so this fra
 
 A `shapes()` mark (`@bruno00o/graph/shapes`, shapes skill) draws polygons, circles, rectangles and lines under the nodes and edges, above the basemap, on a flat map and on the globe. Shapes are picked, lassoed, styled by states and labeled, and `exportMapPng` draws them. Give their geometry in degrees (GeoJSON, or `{ longitude, latitude }` points) so it lines up with the basemap and with nodes placed by `longitude` and `latitude`; a circle centered on a place takes its radius in meters. A shape in world units stays in world units, and the world is 512 units wide, so a rectangle 100 units wide covers a fifth of the Earth.
 
-On a flat map a shape in degrees that crosses the antimeridian shows on both sides, unlike a node. On the globe, long edges are split to follow the surface and the part behind the horizon is neither drawn nor picked. A shape pinned to a node with `node` follows it, with its geometry in world units. Shapes are listed in the legend, and a shape editor draws and edits them on the map, in degrees (editor skill).
+On a flat map a shape in degrees that crosses the antimeridian shows on both sides, unlike a node. On the globe, long edges are split to follow the surface and the part behind the horizon is neither drawn nor picked. A shape pinned to a node with `node` follows it, with its geometry in world units; a circle or a rectangle in world units faces the screen on the globe, at the scale of the globe at its center, and the shape editor shows its preview, handles and text input the same way. Shapes are listed in the legend, and a shape editor draws and edits them on the map, in degrees (editor skill).
 
 ### Groups, hulls and spreading on a map
 
