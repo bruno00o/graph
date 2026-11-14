@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.27.0](https://github.com/bruno00o/graph/compare/0.26.1...0.27.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* color shapes by scale and show them in the legend and minimap ([#178](https://github.com/bruno00o/graph/issues/178))
+
+### Features
+
+* color shapes by scale and show them in the legend and minimap ([#178](https://github.com/bruno00o/graph/issues/178)) ([5610cf2](https://github.com/bruno00o/graph/commit/5610cf218b0a9f2b9911a94b6771ffb41e211fce))
+
 ## [0.26.1](https://github.com/bruno00o/graph/compare/0.26.0...0.26.1) (2026-11-14)
 
 
