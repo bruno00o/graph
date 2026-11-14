@@ -214,11 +214,30 @@ persistPositions(graph, {
 
 Every option, with its default, is listed in [`persistPositions`](/docs/api/persist-positions#options).
 
+## Write shapes back
+
+`persistShapes` from `@bruno00o/graph/db` does for a [shape editor](/docs/editing-shapes) what `persistPositions` does for drags: it writes each edit into the collection of the shapes, and the collection answers the editor at once with its optimistic state.
+
+```ts
+import { createShapeEditor, mountShapeEditor } from '@bruno00o/graph/editor'
+import { persistShapes } from '@bruno00o/graph/db'
+
+const editor = createShapeEditor(graph)
+mountShapeEditor(editor)
+const stop = persistShapes(editor, { collection: zones, live: true })
+```
+
+It takes `mutationFn`, `strategy` and `pendingState` as `persistPositions` does, and `live` to send the shapes while they move. See [Saving edits](/docs/editing-shapes#saving-edits) and [`persistShapes`](/docs/api/persist-shapes#options).
+
 ## Try it
 
 The collaboration example stores positions in a local storage collection. Open it in two windows and drag a node in one: it moves in the other.
 
 <LiveExample slug="collaboration" />
+
+The shared shapes example does the same with shapes and a shape editor.
+
+<LiveExample slug="shared-shapes" />
 
 The filtering example draws up to 500,000 rows through `subset`, times each change, and loads the edges of a node from an on-demand collection when you double-click it.
 

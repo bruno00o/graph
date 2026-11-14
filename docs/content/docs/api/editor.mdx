@@ -93,4 +93,5 @@ Draws the editor over its graph: the shapes being edited or waiting for their da
 - A change of the data of a shape ends its wait, whatever the change. A shape removed from the data during a gesture ends the gesture.
 - The selection and `selectionchange` are those of the graph. The editor writes the selection on a press with `graph.selection.set`, so a controlled selection receives the request.
 - Destroying the graph destroys the editor and its layer. After `destroy`, the methods do nothing and the state stays empty.
+- [`persistShapes`](/docs/api/persist-shapes) from `@bruno00o/graph/db` writes the edits to a TanStack DB collection, during a gesture too with `live`.
 - The layer is an `svg` element with `data-shape-editor` and `aria-hidden="true"`, laid over the canvas, that takes no pointer events. Its handles use `--graph-accent` and `--graph-paper`.

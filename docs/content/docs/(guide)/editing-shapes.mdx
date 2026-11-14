@@ -73,25 +73,54 @@ const editor = createShapeEditor(graph, { hold: 5000 })
 editor.on('editlost', ({ edits }) => notify(edits.length))
 ```
 
-### With TanStack DB
+## Saving edits
 
-With a [collection](/docs/tanstack-db) as the source of the shapes, write each edit to the collection: its optimistic state answers the editor at once, and a failed mutation rolls the shape back.
+With a [TanStack DB collection](/docs/tanstack-db) as the source of the shapes, `persistShapes` from `@bruno00o/graph/db` writes each edit into it, and returns a function that stops writing:
+
+```ts tab="Vanilla" tab-group="framework"
+import { persistShapes } from '@bruno00o/graph/db'
+import { createShapeEditor, mountShapeEditor } from '@bruno00o/graph/editor'
+
+const editor = createShapeEditor(graph)
+mountShapeEditor(editor)
+const stop = persistShapes(editor, { collection: zones })
+```
+
+```tsx tab="React" tab-group="framework"
+import { persistShapes } from '@bruno00o/graph/db'
+import { useShapeEditor } from '@bruno00o/graph/editor/react'
+import { useEffect } from 'react'
+
+function SavedShapes() {
+  const { editor } = useShapeEditor()
+  useEffect(() => (editor ? persistShapes(editor, { collection: zones }) : undefined), [editor])
+  return null
+}
+```
+
+- A change writes only the fields it changes, `geometry` by default, so `transaction.mutations[i].changes` holds the outline alone. A server that merges rows field by field keeps a color that someone else changed meanwhile. `fields` names the fields of your rows.
+- A removal deletes the row. A new shape needs `create`, which builds its whole row.
+- The write is optimistic: the collection holds the new outline at once, and its change ends the wait of the editor in the next frame. Any change of the row ends the wait, so a server that rounds the points or turns the rings does not leave the shape waiting.
+- Without `mutationFn`, the collection persists the writes through its own handlers. With `mutationFn`, `createPacedMutations` calls it at the pace of `strategy`, and a mutation that rejects rolls the rows back and emits `editlost` with the edits it carried.
+- `pendingState` names a free state that holds each shape from its write until the write is done or has failed, to show the saves in flight.
+
+### While a shape moves
+
+By default, a gesture writes once, on release: the other clients see the shape jump there. With `live: true`, the shapes of the gesture are written every 100 milliseconds while it runs, or every `live` milliseconds, and the release is written at once:
 
 ```ts
-const editor = createShapeEditor(graph, {
-  onEdit: (edits) => {
-    for (const edit of edits) {
-      if (edit.type === 'change' && edit.geometry) {
-        const geometry = edit.geometry
-        zones.update(edit.key, (draft) => {
-          draft.geometry = geometry
-        })
-      }
-      if (edit.type === 'remove') zones.delete(edit.key)
-    }
-  },
-})
+persistShapes(editor, { collection: zones, live: true })
 ```
+
+Each write during the gesture costs the write itself, and the reading of the new outlines by every client, yours included, while the editor keeps drawing your shapes under the pointer. When a write takes long, as for a thousand shapes moved together, the next one waits four times as long, so that the writes take at most a fifth of the time. A cancelled gesture writes the shapes back as they were: Escape, a second finger, `editor.cancel()`, or the removal of one of its shapes.
+
+### Two people on one shape
+
+The last writer wins, shape by shape, with no merge of points: two outlines merged point by point can cross. A change of a shape from elsewhere does not stop your gesture, and your release writes over it. A removal from elsewhere ends your gesture, and nothing is written for that shape.
+
+The [shared shapes](/examples/shared-shapes) example keeps its shapes in a local storage collection: open it in two windows and edit a shape in one.
+
+<LiveExample slug="shared-shapes" />
 
 ## Which shapes
 
@@ -127,8 +156,11 @@ A graph without an editor runs none of its code: `@bruno00o/graph/editor` is a s
 
 Dragging a polygon of 5,000 points costs about 1 millisecond of work per frame in Chrome, 3 at the 95th percentile, to write its preview; the shape follows the pointer one frame later, like a dragged node. Releasing it costs 11 to 15 milliseconds, mostly to read the new geometry, triangulate it and make the coarser copies of its outline. With a selected outline of 1,000 points, its 1,000 handles and 1,000 midpoints add about 1 millisecond per frame while the view moves.
 
+Saving costs the write of TanStack DB, which copies and compares the rows it updates, then the reading of the new outlines. In Chrome on an Apple M4 Pro, with a collection in memory: a polygon of 5,000 points takes 2 to 6 milliseconds to write, 100 small shapes moved together 4 to 5, and 1,000 small shapes 26 to 30. A collection in local storage also writes the whole collection to the storage on each write, 7 to 17 milliseconds for the polygon and 63 to 70 for the 1,000 shapes. Another tab receives each write as one frame, 13 to 44 milliseconds after it starts, 90 to 110 for the 1,000 shapes; reading the polygon of 5,000 points there costs 15 to 21 milliseconds, 100 shapes 2, 1,000 shapes 9 to 13. With `live`, a gesture of a second and a half sends about 24 writes, and 1,000 shapes moved together drop frames: keep `live` for a few shapes at a time.
+
 ## Not there yet
 
 - Drawing new shapes, rotating them and snapping to a grid or to other shapes.
 - Undo: keep your previous data, as the example does.
-- A shape whose geometry comes from a function is edited, but `applyShapeEdits` writes a field.
+- A shape whose geometry comes from a function is edited, but `applyShapeEdits` and `persistShapes` write a field.
+- Who else is editing: the pointers and the selections of the other clients.
