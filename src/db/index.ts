@@ -8,7 +8,13 @@ import {
 import type { GraphPositionEvent } from '../host/events'
 import type { GraphInstance } from '../host/mount-graph'
 import type { FieldOf, FreeState, Key, Point } from '../types'
+import { defaultWait, pace, pendingMarks, type Settling } from './pending'
 
+export {
+  type PersistShapeFields,
+  type PersistShapesOptions,
+  persistShapes,
+} from './persist-shapes'
 export { type SubsetWhere, subset } from './subset'
 
 /** Options of `persistPositions`. `S` is the union of the free state names of the graph. */
@@ -50,77 +56,6 @@ export interface PersistPositionsOptions<
   readonly pendingState?: S | undefined
 }
 
-interface Settling {
-  when(state: 'settled'): Promise<unknown>
-}
-
-interface PendingMarks {
-  hold(keys: Iterable<Key>, write: object): void
-  settle(write: object, transactions: readonly Settling[]): void
-}
-
-function pendingMarks(graph: GraphInstance, name: string | undefined): PendingMarks | null {
-  if (name === undefined) return null
-  const declared = () => Object.hasOwn(graph.store.state.states, name)
-  if (!declared()) throw new Error(`graph: pendingState "${name}" is not a free state of the graph`)
-  const owners = new Map<Key, object>()
-  const release = (write: object) => {
-    const done: Key[] = []
-    for (const [key, owner] of owners) if (owner === write) done.push(key)
-    for (const key of done) owners.delete(key)
-    if (done.length > 0 && declared()) graph.states.remove(name, { nodes: done })
-  }
-  return {
-    hold(keys, write) {
-      const added: Key[] = []
-      for (const key of keys) {
-        if (!owners.has(key)) added.push(key)
-        owners.set(key, write)
-      }
-      if (added.length > 0 && declared()) graph.states.add(name, { nodes: added })
-    },
-    settle(write, transactions) {
-      if (transactions.length === 0) {
-        release(write)
-        return
-      }
-      void Promise.allSettled(transactions.map((transaction) => transaction.when('settled'))).then(
-        () => release(write),
-      )
-    },
-  }
-}
-
-const defaultWait = 100
-
-function pace(
-  wait: number,
-  run: () => void,
-): { readonly call: () => void; readonly flush: () => void } {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  let next = 0
-  let pending = false
-  const fire = () => {
-    timer = undefined
-    pending = false
-    next = Date.now() + wait
-    run()
-  }
-  return {
-    call() {
-      pending = true
-      if (timer !== undefined) return
-      const delay = next - Date.now()
-      if (delay <= 0) fire()
-      else timer = setTimeout(fire, delay)
-    },
-    flush() {
-      if (timer !== undefined) clearTimeout(timer)
-      if (pending) fire()
-    },
-  }
-}
-
 /**
  * Writes the positions of moved nodes to a TanStack DB collection: drags, `positions.set` and
  * layout results. Returns a function that stops listening and writes the last pending move at once.
@@ -135,7 +70,7 @@ export function persistPositions<
   const xField: string = options.x ?? 'x'
   const yField: string = options.y ?? 'y'
   const keyOf = options.key ?? ((key: Key) => key as TKey)
-  const marks = pendingMarks(graph, options.pendingState)
+  const marks = pendingMarks(graph, options.pendingState, 'nodes')
 
   const write = (positions: ReadonlyMap<Key, Point>): Settling[] => {
     const keys: TKey[] = []

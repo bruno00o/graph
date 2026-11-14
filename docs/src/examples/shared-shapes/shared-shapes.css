@@ -1,0 +1,9 @@
+.shared-shapes-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shared-shapes-live input {
+  margin: 0;
+}
