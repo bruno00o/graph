@@ -54,7 +54,9 @@ import {
   type Rings,
   ringsOf,
   type Screen,
+  screenScale,
   screenTolerance,
+  shapeScreen,
   tracePath,
   vertexHandle,
   vertexHandles,
@@ -400,6 +402,7 @@ interface ResizeGesture {
   readonly from: Point
   readonly touch: boolean
   readonly round: boolean
+  readonly local: Screen | null
   current: ReadonlyMap<Key, Outline>
   started: boolean
 }
@@ -723,11 +726,23 @@ export function createShapeEditor<S extends string, M extends Mark>(
     store.setState(() => Object.freeze(next))
   }
 
-  function typedOutline(current: Typing, zoom: number): Outline {
+  function textScale(current: Typing, view: Screen): number {
+    const origin = originOf(current.pin, current.outline, view)
+    const [, minY, , maxY] = boundsOf(current.outline)
+    return screenScale(view, (minY + maxY) / 2 + (origin?.y ?? 0))
+  }
+
+  function typedPixels(current: Typing, view: Screen): number {
+    const origin = originOf(current.pin, current.outline, view)
+    const zoom = current.look.world ? textScale(current, view) : view.view.zoom
+    return textPixels(current.look, current.outline, origin?.y ?? 0, zoom)
+  }
+
+  function typedOutline(current: Typing, view: Screen): Outline {
+    const zoom = textScale(current, view)
     const known = current.grown
     if (known && known.text === current.text && known.zoom === zoom) return known.outline
-    const origin = originOf(current.pin, current.outline, screen())
-    const pixels = textPixels(current.look, current.outline, origin?.y ?? 0, zoom)
+    const pixels = typedPixels(current, view)
     const outline = grownOutline(
       current.outline,
       current.text,
@@ -744,7 +759,10 @@ export function createShapeEditor<S extends string, M extends Mark>(
     const current = typing
     const origin = current ? originOf(current.pin, current.outline, view) : null
     if (!current || !origin) return null
-    const [minX, minY, maxX, maxY] = boundsOf(typedOutline(current, view.view.zoom))
+    const outline = typedOutline(current, view)
+    const local = shapeScreen(view, outline, origin.x, origin.y)
+    if (!local) return null
+    const [minX, minY, maxX, maxY] = boundsOf(outline)
     const at = { x: 0, y: 0 }
     let left = Number.POSITIVE_INFINITY
     let top = Number.POSITIVE_INFINITY
@@ -756,7 +774,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       [maxX, maxY],
       [minX, maxY],
     ] as const) {
-      if (!project(view, x + origin.x, y + origin.y, at)) return null
+      if (!project(local, x + origin.x, y + origin.y, at)) return null
       left = Math.min(left, at.x)
       top = Math.min(top, at.y)
       right = Math.max(right, at.x)
@@ -770,7 +788,6 @@ export function createShapeEditor<S extends string, M extends Mark>(
     if (!current) return null
     const view = screen()
     const box = typedBox(view) ?? [0, 0, 0, 0]
-    const origin = originOf(current.pin, current.outline, view)
     const next: ShapeEditorText = {
       key: current.key,
       added: current.added,
@@ -779,7 +796,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       y: box[1],
       width: box[2] - box[0],
       height: box[3] - box[1],
-      fontSize: textPixels(current.look, current.outline, origin?.y ?? 0, view.view.zoom),
+      fontSize: typedPixels(current, view),
       fontWeight: current.look.weight,
       fontFamily: current.look.font,
       wrap: current.look.wrap,
@@ -986,10 +1003,11 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const pin = entry ? entry.pin : (waiting?.pin ?? null)
       const look = entry ? lookOf(entry.record.index) : (waiting?.look ?? null)
       const origin = outline ? originOf(pin, outline, view) : null
-      if (!outline || !origin || !look) continue
+      const local = outline && origin ? screenOf(key, outline, origin, view) : null
+      if (!outline || !origin || !look || !local) continue
       const path: string[] = []
       const rings = ringsOf(outline)
-      tracePath(view, rings, origin.x, origin.y, path)
+      tracePath(local, rings, origin.x, origin.y, path)
       previews.push({ ...look, d: path.join(' '), fill: rings.filled ? look.fill : null })
     }
     const handles: Handle[] = []
@@ -1023,7 +1041,8 @@ export function createShapeEditor<S extends string, M extends Mark>(
       }
     } else if (selected.length > 0) {
       const bounds = selectionBounds(selected, view)
-      if (bounds) boxHandles(view, bounds, handles, box)
+      const local = boxScreen(selected, view)
+      if (bounds && local) boxHandles(local, bounds, handles, box)
     }
     if (!gesture && hover) pressed = hitHandle(handles, hover, reach(false))
     const last = !gesture && active?.key === owner ? active : null
@@ -1060,6 +1079,23 @@ export function createShapeEditor<S extends string, M extends Mark>(
     cached = result
     cachedStamp = stamp
     return result
+  }
+
+  function screenOf(key: Key, outline: Outline, origin: Point, view: Screen): Screen | null {
+    const current = gesture
+    if (current?.type === 'resize' && current.local && current.keys.includes(key)) {
+      return current.local
+    }
+    return shapeScreen(view, outline, origin.x, origin.y)
+  }
+
+  function boxScreen(keys: readonly Key[], view: Screen): Screen | null {
+    const only = keys.length === 1 ? keys[0] : undefined
+    const entry = only === undefined ? null : entryOf(only)
+    const outline = only !== undefined && entry ? outlineOf(only, entry) : null
+    const origin = entry && outline ? originOf(entry.pin, outline, view) : null
+    if (only === undefined || !outline || !origin) return view
+    return screenOf(only, outline, origin, view)
   }
 
   function selectionBounds(keys: readonly Key[], view: Screen): Bounds | null {
@@ -1261,7 +1297,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     if (!current || destroyed) return
     typing = null
     const text = current.text
-    const outline = typedOutline(current, graph.store.state.view.zoom)
+    const outline = typedOutline(current, screen())
     const { key, mark } = current
     if (current.added) {
       if (text.trim() === '') {
@@ -1866,14 +1902,14 @@ export function createShapeEditor<S extends string, M extends Mark>(
   }
 
   function hitPending(point: Point, view: Screen): Key | null {
-    const world = worldAt(view, point)
-    if (!world) return null
-    const tolerance = screenTolerance(view, 4)
     for (const [key, waiting] of [...pending].reverse()) {
       const entry = entryOf(key)
       const outline = waiting.outline
       const origin = entry && outline ? originOf(entry.pin, outline, view) : null
-      if (!outline || !origin) continue
+      const local = outline && origin ? shapeScreen(view, outline, origin.x, origin.y) : null
+      const world = local ? worldAt(local, point) : null
+      if (!outline || !origin || !local || !world) continue
+      const tolerance = screenTolerance(local, 4)
       if (insideRings(ringsOf(outline), world.x - origin.x, world.y - origin.y, tolerance)) {
         return key
       }
@@ -1881,10 +1917,12 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return null
   }
 
-  function startBox(keys: readonly Key[], handle: Handle, world: Point, pointer: ToolPointer) {
+  function startBox(keys: readonly Key[], handle: Handle, pointer: ToolPointer) {
     const view = screen()
     const box = selectionBounds(keys, view)
-    if (!box) return false
+    const local = boxScreen(keys, view)
+    const from = local ? worldAt(local, pointer.point) : null
+    if (!box || !local || !from) return false
     const bases = new Map<Key, Outline>()
     let round = true
     for (const key of keys) {
@@ -1900,10 +1938,11 @@ export function createShapeEditor<S extends string, M extends Mark>(
       bases,
       box,
       handle: handle.index,
-      start: world,
+      start: from,
       from: pointer.point,
       touch: pointer.event.pointerType === 'touch',
       round,
+      local: local === view ? null : local,
       current: bases,
       started: false,
     }
@@ -2038,7 +2077,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const built = frame()
       const handle = hitHandle(built.handles, pointer.point, reach(touch))
       if (handle) {
-        if (handle.kind === boxHandle) return startBox(selectedKeys(), handle, world, pointer)
+        if (handle.kind === boxHandle) return startBox(selectedKeys(), handle, pointer)
         if (built.owner !== null) return startVertex(built.owner, handle, world, pointer)
       }
       const view = screen()
@@ -2064,7 +2103,10 @@ export function createShapeEditor<S extends string, M extends Mark>(
         if (!slopPassed(current, pointer.point)) return
         current.started = true
       }
-      const world = pointerWorld(pointer.point)
+      const world =
+        current.type === 'resize' && current.local
+          ? worldAt(current.local, pointer.point)
+          : pointerWorld(pointer.point)
       if (!world) return
       if (current.type === 'move') {
         const corner = current.corner
