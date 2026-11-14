@@ -23,7 +23,7 @@ import {
   squareFrom,
   turnBy,
 } from './draw'
-import type { ShapeAddEdit, ShapeEdit, ShapeMarkName } from './edits'
+import type { ShapeAddEdit, ShapeChangeEdit, ShapeEdit, ShapeMarkName } from './edits'
 import {
   type Bounds,
   boundsOf,
@@ -39,6 +39,7 @@ import {
   translateOutline,
   writeEditable,
 } from './geometry'
+import { type GestureWatcher, linkEditor } from './link'
 import {
   boxCorners,
   boxHandle,
@@ -315,6 +316,7 @@ interface VertexGesture {
   readonly touch: boolean
   readonly remove: boolean
   readonly inserted: boolean
+  readonly base: Outline
   current: PathOutline
   started: boolean
 }
@@ -470,6 +472,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
   const entries = new Map<Key, Entry>()
   const pending = new Map<Key, Pending>()
   const timers = new Set<ReturnType<typeof setTimeout>>()
+  const watchers = new Set<GestureWatcher>()
   let gesture: Gesture | null = null
   let active: ActiveVertex | null = null
   let hover: Point | null = null
@@ -1435,10 +1438,63 @@ export function createShapeEditor<S extends string, M extends Mark>(
     emit('editlost', lost)
   }
 
+  function changeEdit(key: Key, outline: Outline): ShapeChangeEdit | null {
+    const entry = entryOf(key)
+    if (!entry) return null
+    const { mark, datum } = entry.record
+    return { type: 'change', key, mark: mark.name, datum, geometry: writeEditable(outline) }
+  }
+
+  function editsOf(outlines: Iterable<readonly [Key, Outline]>): ShapeChangeEdit[] {
+    const edits: ShapeChangeEdit[] = []
+    for (const [key, outline] of outlines) {
+      const edit = changeEdit(key, outline)
+      if (edit) edits.push(edit)
+    }
+    return edits
+  }
+
+  function liveEdits(): ShapeChangeEdit[] {
+    const current = gesture
+    if (!current || !gestureStarted(current)) return []
+    return editsOf(
+      current.keys.flatMap((key) => {
+        const entry = entryOf(key)
+        const outline = entry ? outlineOf(key, entry) : null
+        return outline ? [[key, outline] as const] : []
+      }),
+    )
+  }
+
+  function moved(): void {
+    for (const watcher of [...watchers]) {
+      try {
+        watcher.moved()
+      } catch (error) {
+        report(error)
+      }
+    }
+  }
+
+  function dropped(current: Gesture): void {
+    if (watchers.size === 0 || !gestureStarted(current)) return
+    const revert = () =>
+      editsOf(current.type === 'vertex' ? [[current.key, current.base]] : current.bases)
+    for (const watcher of [...watchers]) {
+      try {
+        watcher.cancelled(revert)
+      } catch (error) {
+        report(error)
+      }
+    }
+  }
+
   function cancelGesture(): boolean {
-    if (!gesture) return false
+    const current = gesture
+    if (!current) return false
     gesture = null
     changed()
+    dropped(current)
     return true
   }
 
@@ -1527,6 +1583,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       touch: pointer.event.pointerType === 'touch',
       remove: pointer.event.altKey && !inserted,
       inserted,
+      base: outline,
       current,
       started: false,
     }
@@ -1663,6 +1720,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
         )
       } else resizeTo(current, snapped(world), pointer.event.shiftKey)
       changed()
+      moved()
     },
 
     up(pointer, cancelled) {
@@ -1678,6 +1736,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       hover = pointer.event.pointerType === 'touch' ? null : pointer.point
       if (cancelled) {
         changed()
+        dropped(current)
         return false
       }
       if (current.type === 'move') {
@@ -1851,15 +1910,20 @@ export function createShapeEditor<S extends string, M extends Mark>(
     changed(changes: GraphChanges) {
       if (destroyed) return
       let touched = false
+      let ended: Gesture | null = null
       for (const list of [changes.shapes.added, changes.shapes.updated, changes.shapes.removed]) {
         for (const { key } of list) {
           entries.delete(key)
           if (pending.delete(key)) touched = true
-          if (gesture?.keys.includes(key) && list === changes.shapes.removed) gesture = null
+          if (gesture?.keys.includes(key) && list === changes.shapes.removed) {
+            ended = gesture
+            gesture = null
+          }
           touched ||= list !== changes.shapes.added
         }
       }
       if (touched || changes.shapes.added.length > 0) changed()
+      if (ended) dropped(ended)
     },
     destroy() {
       teardown()
@@ -1880,6 +1944,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   function teardown(): void {
     if (destroyed) return
+    const ended = gesture
+    if (ended) dropped(ended)
+    watchers.clear()
     destroyed = true
     if (request !== 0) cancelAnimationFrame(request)
     request = 0
@@ -1975,6 +2042,37 @@ export function createShapeEditor<S extends string, M extends Mark>(
       unwatch()
       teardown()
     },
+  }
+
+  linkEditor(editor, {
+    graph: graph as GraphInstance,
+    watch(watcher) {
+      if (destroyed) return () => {}
+      watchers.add(watcher)
+      return () => {
+        watchers.delete(watcher)
+      }
+    },
+    current: liveEdits,
+    answer(edits) {
+      if (settle(edits)) changed()
+    },
+    lose(edits) {
+      if (destroyed || edits.length === 0) return
+      if (settle(edits)) changed()
+      emit('editlost', edits)
+    },
+  })
+
+  function settle(edits: readonly ShapeEdit[]): boolean {
+    if (destroyed) return false
+    let settled = false
+    for (const edit of edits) {
+      if (pending.get(edit.key)?.edit !== edit) continue
+      pending.delete(edit.key)
+      settled = true
+    }
+    return settled
   }
 
   drawings.set(editor, {

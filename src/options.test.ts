@@ -1,7 +1,7 @@
 import { describe, expectTypeOf, it } from 'vitest'
 import type { DensityBundlingOptions } from './bundling'
 import type { CypherOptions } from './cypher'
-import type { PersistPositionsOptions } from './db'
+import type { PersistPositionsOptions, PersistShapeFields, PersistShapesOptions } from './db'
 import type {
   GraphDevtoolsOptions,
   GraphDevtoolsPluginOptions,
@@ -238,6 +238,8 @@ interface Inputs {
   OrthogonalRoutingOptions: OrthogonalRoutingOptions
   PathOptions: PathOptions<Marks>
   PersistPositionsOptions: PersistPositionsOptions<Item, string, 'muted'>
+  PersistShapeFields: PersistShapeFields<Item>
+  PersistShapesOptions: PersistShapesOptions<Item, string, Marks>
   PngExportOptions: PngExportOptions
   PositionSnapshotOptions: PositionSnapshotOptions
   RadialOptions: RadialOptions
