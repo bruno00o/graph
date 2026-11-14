@@ -83,15 +83,20 @@ export function fillShape(input: FillInput): Filled {
   const full = polygon
     ? cover(points, rings, polygons, null, true)
     : { triangles: new Uint32Array(0), bad: false }
-  const levels = simplifiedLevels(points, rings, closed).map((level) => ({
-    area: level.area,
-    error: level.error,
-    points: level.points,
-    rings: level.rings,
-    triangles: polygon
-      ? cover(level.points, level.rings, polygons, level.kept, false).triangles
-      : new Uint32Array(0),
-  }))
+  let finer = full.triangles
+  const levels = simplifiedLevels(points, rings, closed).map((level) => {
+    if (polygon) {
+      const made = cover(level.points, level.rings, polygons, level.kept, true)
+      finer = made.bad ? finer : made.triangles
+    }
+    return {
+      area: level.area,
+      error: level.error,
+      points: level.points,
+      rings: level.rings,
+      triangles: polygon ? finer : new Uint32Array(0),
+    }
+  })
   return { triangles: full.triangles, bad: full.bad, levels }
 }
 

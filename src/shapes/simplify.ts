@@ -84,6 +84,7 @@ function refresh(
 function eliminate(
   points: Float64Array,
   areas: Float64Array,
+  steps: Int32Array | null,
   start: number,
   end: number,
   closed: boolean,
@@ -122,6 +123,7 @@ function eliminate(
     place[k] = -1
     floor = Math.max(floor, areas[k] ?? 0)
     areas[k] = floor
+    if (steps) steps[k] = count - left
     const a = before[k] ?? -1
     const c = after[k] ?? -1
     after[a] = c
@@ -142,13 +144,14 @@ export function effectiveAreas(
   points: Float64Array,
   rings: Uint32Array,
   closed: boolean,
+  steps: Int32Array | null = null,
 ): Float64Array {
   const count = points.length / 2
   const areas = new Float64Array(count)
   reserve(count)
   let start = 0
   for (const end of rings) {
-    eliminate(points, areas, start, end, closed)
+    eliminate(points, areas, steps, start, end, closed)
     start = end
   }
   return areas
@@ -210,22 +213,30 @@ export function simplifiedLevels(
 ): Simplified[] {
   const count = points.length / 2
   if (count < detailedFrom) return []
-  const areas = effectiveAreas(points, rings, closed)
-  const finite = areas.filter(Number.isFinite).sort()
-  const fixed = count - finite.length
+  const steps = new Int32Array(count)
+  const areas = effectiveAreas(points, rings, closed, steps)
+  const order: number[] = []
+  for (let k = 0; k < count; k++) if (Number.isFinite(areas[k])) order.push(k)
+  order.sort((a, b) => (areas[a] ?? 0) - (areas[b] ?? 0) || (steps[a] ?? 0) - (steps[b] ?? 0))
+  const rank = new Int32Array(count).fill(count)
+  order.forEach((k, at) => {
+    rank[k] = at
+  })
+  const fixed = count - order.length
   const levels: Simplified[] = []
   let target = count
   for (;;) {
     target = Math.floor(target / reduction)
     if (target < Math.max(coarsest, fixed)) break
-    const area = finite[count - target - 1] ?? 0
+    const removed = count - target
+    const area = areas[order[removed - 1] ?? 0] ?? 0
     const kept: number[] = []
     const ends: number[] = []
     let start = 0
     let error = 0
     for (const end of rings) {
       const first = kept.length
-      for (let k = start; k < end; k++) if ((areas[k] ?? 0) > area) kept.push(k)
+      for (let k = start; k < end; k++) if ((rank[k] ?? 0) >= removed) kept.push(k)
       error = Math.max(error, ringError(points, kept, first, kept.length, start, end, closed))
       ends.push(kept.length)
       start = end

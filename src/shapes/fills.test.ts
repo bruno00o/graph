@@ -8,6 +8,7 @@ import {
   packAnswer,
   unpackJob,
 } from './fill'
+import { ringArea } from './triangulate'
 
 class FakeFillWorker {
   static live = 0
@@ -152,5 +153,47 @@ describe('FillPool', () => {
     pool.destroy()
     await new Promise((resolve) => setTimeout(resolve, 10))
     expect(answered).toEqual([])
+  })
+})
+
+function coveredArea(points: Float64Array, triangles: Uint32Array): number {
+  let sum = 0
+  for (let k = 0; k + 2 < triangles.length; k += 3) {
+    const a = (triangles[k] ?? 0) * 2
+    const b = (triangles[k + 1] ?? 0) * 2
+    const c = (triangles[k + 2] ?? 0) * 2
+    const ux = (points[b] ?? 0) - (points[a] ?? 0)
+    const uy = (points[b + 1] ?? 0) - (points[a + 1] ?? 0)
+    const vx = (points[c] ?? 0) - (points[a] ?? 0)
+    const vy = (points[c + 1] ?? 0) - (points[a + 1] ?? 0)
+    sum += Math.abs(ux * vy - uy * vx) / 2
+  }
+  return sum
+}
+
+describe('fillShape', () => {
+  it('fills each simplified level exactly, or reuses a finer fill', () => {
+    const failures: string[] = []
+    for (let seed = 1; seed <= 60; seed++) {
+      const shape = input(seed * 4)
+      const filled = fillShape(shape)
+      let finer = filled.triangles
+      filled.levels.forEach((level, rank) => {
+        if (level.triangles === finer) return
+        let expected = 0
+        let start = 0
+        level.rings.forEach((end, ring) => {
+          const area = Math.abs(ringArea(level.points, start, end))
+          expected += ring === 0 ? area : -area
+          start = end
+        })
+        const drawn = coveredArea(shape.points, level.triangles)
+        if (Math.abs(drawn - expected) > 1e-6 * Math.max(1, expected)) {
+          failures.push(`seed ${seed} level ${rank}: ${drawn} for ${expected}`)
+        }
+        finer = level.triangles
+      })
+    }
+    expect(failures).toEqual([])
   })
 })
