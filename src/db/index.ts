@@ -15,6 +15,15 @@ export {
   type PersistShapesOptions,
   persistShapes,
 } from './persist-shapes'
+export {
+  type Presence,
+  type PresenceFields,
+  type PresenceParticipant,
+  type PresenceSelection,
+  type PresenceValues,
+  type ShowPresenceOptions,
+  showPresence,
+} from './presence'
 export { type SubsetWhere, subset } from './subset'
 
 /** Options of `persistPositions`. `S` is the union of the free state names of the graph. */

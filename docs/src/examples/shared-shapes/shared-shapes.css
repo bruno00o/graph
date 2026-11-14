@@ -7,3 +7,8 @@
 .shared-shapes-live input {
   margin: 0;
 }
+
+.shared-shapes-others {
+  display: inline-flex;
+  align-items: center;
+}
