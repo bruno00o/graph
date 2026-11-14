@@ -220,6 +220,7 @@ export type {
   ShapePoint,
   ShapeRectangle,
   ShapeRings,
+  ShapeScalesOptions,
   SourceChange,
   SourceSubscription,
   StateKindStyles,

@@ -17,7 +17,9 @@ The minimap sits in a corner of the graph element. A `width` or `height` that is
 
 ### What it draws
 
-Nodes are drawn with their colors and shapes, group containers as frames, and edges as faint lines while the graph shows at most `maxEdges` of them. Past that, the minimap draws nodes only: at a few hundred thousand edges, lines fill the minimap without saying more. Selected nodes are drawn last, in `selectionColor`. Labels, badges, hulls, the background grid and [shapes](/docs/shapes) are left out.
+Nodes are drawn with their colors and shapes, group containers as frames, and edges as faint lines while the graph shows at most `maxEdges` of them. Past that, the minimap draws nodes only: at a few hundred thousand edges, lines fill the minimap without saying more. Selected nodes are drawn last, in `selectionColor`. Labels, badges, hulls and the background grid are left out.
+
+[Shapes](/docs/shapes) are drawn first, under containers, edges and nodes: polygons, discs, rings and rectangles as pale fills, lines and unfilled shapes as thin outlines, in the color of their fill or outline. A pinned shape follows its node, and a hidden shape is left out but still counts in the frame. Each shape is drawn from the coarsest copy of its outline that stays within half a pixel of the minimap, and a shape smaller than three pixels as its bounding box. Past `maxShapePoints` points in all, 200,000 by default, the next shapes are drawn as their bounding boxes; `0` draws no shapes.
 
 Nodes keep their size, between `nodeSize` and a cap that shrinks as nodes get more numerous, so that a large graph reads as density rather than as a solid shape.
 
@@ -25,7 +27,7 @@ Nodes keep their size, between `nodeSize` and a cap that shrinks as nodes get mo
 
 The minimap draws again when positions, data, the selection or the theme change, never more often than its own cost allows: it waits ten times as long as its last draw took on the page, and at least 32 ms. When the browser has workers and `OffscreenCanvas`, the drawing happens in a worker, the page only copies the columns it needs and shows each finished frame; otherwise it happens on the page. The rectangle of the view moves at every frame, without drawing again.
 
-With 500,000 nodes and 1,000,000 edges, a draw costs the page a few milliseconds at most, the time to copy the columns, and panning or a force layout keeps the same frame rate as without the minimap.
+With 500,000 nodes and 1,000,000 edges, a draw costs the page a few milliseconds at most, the time to copy the columns, and panning or a force layout keeps the same frame rate as without the minimap. SHAPECOST
 
 ### Accessibility
 
@@ -57,17 +59,17 @@ panel.append(view.element)
 
 ### Sections
 
-The legend describes nodes and edges. [Shapes](/docs/shapes) have no section: their fills, strokes and counts are not listed.
+The legend describes nodes, edges and [shapes](/docs/shapes).
 
 `legend.store` holds the state of the legend, updated when data or definition change:
 
-- `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges drawn in each, leaving out the elements whose `fill` or `stroke` replaces the scale; for a sequential scale, a ramp with its domain and its stops. Raw colors, set with `raw()`, have no category.
+- `color`: for a categorical scale or a function, the categories in the order of their colors, with the number of nodes and edges drawn in each, and of shapes in a graph with a shape mark, leaving out the elements whose `fill` or `stroke` replaces the scale; for a sequential scale, a ramp with its domain and its stops. Raw colors, set with `raw()`, have no category.
 - `size` and `width`: the ends of the domain and a rounded value between them, with the diameter or the width each one becomes.
 - `marks`: the same sections for each mark with [scales of its own](/docs/scales#scales-of-a-mark), which the shared sections leave out. Their category ids carry the mark, such as `c:n1:string:north`.
-- `looks`: the shapes and images of the nodes, and the line patterns of the edges, by mark.
+- `looks`: the shapes and images of the nodes, the line patterns of the edges, and for shapes, areas or lines with their fill, outline and pattern, by mark. When the shapes of a look differ in fill or outline, as with `color`, the look shows the theme tokens `--graph-shape-fill` and `--graph-shape-stroke`.
 - `layers`: the [layers](/docs/multilayer) of the marks, hidden ones included. Switching a layer off hides it in the graph.
 
-The default renderer writes no text of its own. Titles come from `titles`, and from `markTitle` or the name of the mark for the scales of a mark, values go through `format`, looks show the `name` of their mark, or the text of `lookText`, and layers their name, or the text of `layerText`. Looks show only for nodes or edges drawn with more than one look.
+The default renderer writes no text of its own. Titles come from `titles`, and from `markTitle` or the name of the mark for the scales of a mark, values go through `format`, looks show the `name` of their mark, or the text of `lookText`, and layers their name, or the text of `layerText`. Looks show only for nodes, edges or shapes drawn with more than one look.
 
 ### Highlight and switch off
 
@@ -107,7 +109,7 @@ An item switched off stays in the legend, with no element, until it is switched 
 row.addEventListener('dblclick', () => legend.only(item.id))
 ```
 
-`legend.hover`, `legend.toggle`, `legend.only`, `legend.reset` and `legend.keys` drive the same behavior from a renderer of your own. Like the minimap, `legend.update` changes only the options it is given. See the [legend of your own](/examples/custom-legend) example.
+`legend.hover`, `legend.toggle`, `legend.only`, `legend.reset` and `legend.keys` drive the same behavior from a renderer of your own. `legend.keys` returns `shapes` next to `nodes` and `edges` in a graph with a shape mark. Like the minimap, `legend.update` changes only the options it is given. See the [legend of your own](/examples/custom-legend) example.
 
 ### Theming
 

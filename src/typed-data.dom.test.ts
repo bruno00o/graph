@@ -38,6 +38,15 @@ import {
   type ShapeTarget,
 } from './index'
 import { grid, rings } from './layouts'
+import {
+  createLegend,
+  type LegendEdgeLook,
+  type LegendLook,
+  type LegendMarkScales,
+  type LegendNodeLook,
+  type LegendScalesOf,
+  type LegendShapeLook,
+} from './legend'
 import { orthogonalRouting } from './routing'
 import { shapes } from './shapes'
 import { type FakeDom, fakeRenderer, installDom } from './testing/dom'
@@ -710,6 +719,92 @@ describe('typed data', () => {
     expectTypeOf<Extract<Issue, { kind: 'shapes' }>>().toBeNever()
     expectTypeOf<HasShapes<Mark>>().toEqualTypeOf<false>()
     expectTypeOf<ShapeIssue>().toExtend<GraphIssue>()
+  })
+
+  it('keeps the legend of graphs without shapes as it was', () => {
+    const graph = mount(
+      defineGraph({
+        marks: [
+          nodes(people, { name: 'people', color: 'team' }),
+          edges(links, { source: 'from', target: 'to', name: 'links' }),
+        ],
+      }),
+    )
+    const state = createLegend(graph).store.state
+    expectTypeOf(state.looks).toEqualTypeOf<
+      readonly (LegendNodeLook<'people'> | LegendEdgeLook<'links'>)[]
+    >()
+    expectTypeOf(state.marks).toEqualTypeOf<
+      readonly (LegendMarkScales<'people'> | LegendMarkScales<'links'>)[]
+    >()
+    for (const look of state.looks) {
+      switch (look.kind) {
+        case 'nodes':
+          expectTypeOf(look.mark).toEqualTypeOf<'people'>()
+          break
+        case 'edges':
+          expectTypeOf(look.mark).toEqualTypeOf<'links'>()
+          break
+        default:
+          expectTypeOf(look).toBeNever()
+      }
+    }
+    for (const mark of state.marks) {
+      switch (mark.kind) {
+        case 'nodes':
+        case 'edges':
+          break
+        default:
+          expectTypeOf(mark.kind).toBeNever()
+      }
+    }
+    expectTypeOf<LegendLook>().toEqualTypeOf<LegendNodeLook | LegendEdgeLook>()
+    expectTypeOf<LegendScalesOf>().toEqualTypeOf<LegendMarkScales>()
+  })
+
+  it('types the legend items of shape marks', () => {
+    const graph = mount(
+      defineGraph({
+        marks: [
+          shapes(zones, { name: 'zones', geometry: 'outline', color: 'rank' }),
+          nodes(people, { name: 'people' }),
+        ],
+      }),
+    )
+    const state = createLegend(graph).store.state
+    expectTypeOf(state.looks).toEqualTypeOf<
+      readonly (LegendShapeLook<'zones'> | LegendNodeLook<'people'>)[]
+    >()
+    expectTypeOf(state.marks).toEqualTypeOf<
+      readonly (LegendMarkScales<'zones', 'shapes'> | LegendMarkScales<'people'>)[]
+    >()
+    for (const look of state.looks) {
+      if (look.kind === 'shapes') {
+        expectTypeOf(look.mark).toEqualTypeOf<'zones'>()
+        expectTypeOf(look.geometry).toEqualTypeOf<'area' | 'line'>()
+      }
+    }
+    const kindOf = (look: (typeof state.looks)[number]): string => {
+      switch (look.kind) {
+        case 'nodes':
+          return look.shape
+        default: {
+          // @ts-expect-error
+          const never: never = look
+          return never
+        }
+      }
+    }
+    expectTypeOf(kindOf).returns.toEqualTypeOf<string>()
+    shapes(zones, {
+      geometry: 'outline',
+      color: (zone) => zone.rank,
+      scales: { color: { type: 'sequential' } },
+    })
+    // @ts-expect-error
+    shapes(zones, { geometry: 'outline', color: 'missing' })
+    // @ts-expect-error
+    shapes(zones, { geometry: 'outline', scales: { size: { range: [1, 2] } } })
   })
 
   it('types the items that layouts compare', () => {

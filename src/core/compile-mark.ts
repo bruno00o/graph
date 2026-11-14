@@ -5,6 +5,7 @@ import type {
   EdgeMark,
   LabelTextOptions,
   NodeMark,
+  ShapeMark,
 } from '../types'
 import { toAccessor } from './accessor'
 import { rawRead } from './raw'
@@ -43,6 +44,13 @@ export interface CompiledNodeMark {
   readonly screenUnits: boolean
   readonly parent: Read | null
   readonly container: CompiledContainer
+}
+
+export interface CompiledShapeColor {
+  readonly color: Read
+  readonly colorRaw: boolean
+  readonly fill: Read | null
+  readonly stroke: Read | null
 }
 
 export interface CompiledContainer {
@@ -170,6 +178,22 @@ function compileEnds(options: EdgeEndsOptions<unknown> | undefined): CompiledEnd
 const badgeCorners: readonly BadgeCorner[] = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']
 
 const nodeCache = new WeakMap<NodeMark<unknown>, CompiledNodeMark>()
+const shapeCache = new WeakMap<ShapeMark<unknown>, CompiledShapeColor | null>()
+
+export function compileShapeColor(mark: ShapeMark<unknown>): CompiledShapeColor | null {
+  const cached = shapeCache.get(mark)
+  if (cached !== undefined) return cached
+  const options = mark.options
+  const color = colorChannel(options.color)
+  const compiled = color && {
+    color,
+    colorRaw: isRaw(options.color, false),
+    fill: style(options.fill),
+    stroke: style(options.stroke),
+  }
+  shapeCache.set(mark, compiled)
+  return compiled
+}
 const edgeCache = new WeakMap<EdgeMark<unknown>, CompiledEdgeMark>()
 
 export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {

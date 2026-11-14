@@ -54,6 +54,7 @@ const minimapKeys: Known<MinimapOptions> = {
   margin: true,
   padding: true,
   maxEdges: true,
+  maxShapePoints: true,
   nodeSize: true,
   nodeColor: true,
   selectionColor: true,

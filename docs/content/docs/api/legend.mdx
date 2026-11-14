@@ -52,20 +52,24 @@ type LegendValue = string | number | boolean
 
 ### Scales of a mark
 
-A mark with [`scales`](/docs/scales#scales-of-a-mark) of its own has an entry in `marks`, in the order of the marks, nodes first. Its id is `n` or `e` and the position of the mark among the marks of its kind, from 0, such as `n1`. The ids of its categories carry it after `c:`, such as `c:n1:string:north`, so the same value can stand in two scales; a category of a shared scale keeps `c:string:north`. `keys`, `hover`, `toggle` and `only` take both; `only` switches off the other categories of the same scale.
+A mark with [`scales`](/docs/scales#scales-of-a-mark) of its own has an entry in `marks`, in the order of the marks, nodes first, then edges, then shapes. Its id is `n`, `e` or `s` and the position of the mark among the marks of its kind, from 0, such as `n1`. The ids of its categories carry it after `c:`, such as `c:n1:string:north`, so the same value can stand in two scales; a category of a shared scale keeps `c:string:north`. `keys`, `hover`, `toggle` and `only` take both; `only` switches off the other categories of the same scale.
 
 <api-table path="legend/index.ts" name="LegendMarkScales" />
 
 ```ts
+type LegendMarkKind = 'nodes' | 'edges' | 'shapes'
+
 type LegendScalesOf<M extends Mark = Mark> =
   M extends NodeMark<infer _T, infer N, MarkLayer>
     ? LegendMarkScales<N>
     : M extends EdgeMark<infer _T, infer N, MarkLayer>
       ? LegendMarkScales<N>
-      : LegendMarkScales
+      : M extends ShapeMark<infer _T, infer N, MarkLayer>
+        ? LegendMarkScales<N, 'shapes'>
+        : LegendMarkScales
 ```
 
-`LegendScalesOf<M>` gives `mark` the names of the marks of `M`.
+`LegendScalesOf<M>` gives `mark` the names of the marks of `M`, and `kind` the kind of each. Without typed marks, `LegendScalesOf` keeps the kinds `'nodes'` and `'edges'`: from an untyped legend, compare `kind` to `'shapes'` as a string to read the entry of a shape mark.
 
 ### Looks
 
@@ -75,16 +79,22 @@ type LegendLook<M extends Mark = Mark> =
     ? LegendNodeLook<N>
     : M extends EdgeMark<infer _T, infer N, MarkLayer>
       ? LegendEdgeLook<N>
-      : LegendNodeLook | LegendEdgeLook
+      : M extends ShapeMark<infer _T, infer N, MarkLayer>
+        ? LegendShapeLook<N>
+        : LegendNodeLook | LegendEdgeLook
 
 type LegendItem<M extends Mark = Mark> = LegendCategory | LegendLook<M>
 ```
 
-`LegendLook<M>` narrows on `kind`, then on `mark`, to the names of the marks of `M`. Elements with a raw color, set by `raw()`, have no category: like elements with a `fill`, they count only under their look.
+`LegendLook<M>` narrows on `kind`, then on `mark`, to the names of the marks of `M`. Elements with a raw color, set by `raw()`, have no category: like elements with a `fill`, they count only under their look. Without typed marks, `LegendLook` keeps the looks of nodes and edges, as in a graph without shapes; a legend made from a typed graph with a shape mark has `LegendShapeLook` in its union.
 
 <api-table path="legend/index.ts" name="LegendNodeLook" />
 
 <api-table path="legend/index.ts" name="LegendEdgeLook" />
+
+The looks of a shape mark split its shapes into areas and lines, and by pattern, with the id `s:`, the position of the mark among the shape marks, `area` or `line` and the pattern, such as `s:0:area:0`.
+
+<api-table path="legend/index.ts" name="LegendShapeLook" />
 
 ### Layers
 

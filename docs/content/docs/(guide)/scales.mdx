@@ -5,7 +5,7 @@ description: Turn data values into colors, sizes and widths, shared by every mar
 
 ## Shared scales
 
-Channels go through three scales: `color`, `size` and `width`. A scale is shared by every mark of the definition without [scales of its own](#scales-of-a-mark), so a group keeps the same color on nodes and edges. Configure them in `defineGraph`.
+Channels go through three scales: `color`, `size` and `width`. A scale is shared by every mark of the definition without [scales of its own](#scales-of-a-mark), so a group keeps the same color on nodes, edges and shapes. Configure them in `defineGraph`.
 
 ```ts
 defineGraph({
@@ -75,7 +75,7 @@ Examples: [size scale](/examples/size-scale) compares the square root, linear an
 
 ## Scales of a mark
 
-A mark with `scales` of its own keeps its values apart: its own extent, its own categories and its own legend section. Nodes take `color` and `size`, edges take `color` and `width`, and the ends of an edge use the scales of their mark. Every other mark keeps the shared scale.
+A mark with `scales` of its own keeps its values apart: its own extent, its own categories and its own legend section. Nodes take `color` and `size`, edges take `color` and `width`, [shapes](/docs/shapes#color-by-data) take `color`, and the ends of an edge use the scales of their mark. Every other mark keeps the shared scale.
 
 ```ts
 defineGraph({
@@ -94,7 +94,7 @@ defineGraph({
 })
 ```
 
-The scores of `topics` span their own extent, so a large score does not shrink the other nodes, and their kinds take colors without sharing categories with the groups of `items`. A scale of a mark takes the same options as a shared one, a function included, and `groups()` takes `scales` like `nodes()`. Types: [`NodeScalesOptions`](/docs/api/nodes#scales) and [`EdgeScalesOptions`](/docs/api/edges#scales). In the [legend](/docs/minimap-and-legend#sections), each mark with scales of its own has its own sections.
+The scores of `topics` span their own extent, so a large score does not shrink the other nodes, and their kinds take colors without sharing categories with the groups of `items`. A scale of a mark takes the same options as a shared one, a function included, and `groups()` takes `scales` like `nodes()`. Types: [`NodeScalesOptions`](/docs/api/nodes#scales), [`EdgeScalesOptions`](/docs/api/edges#scales) and [`ShapeScalesOptions`](/docs/api/shapes#scales). In the [legend](/docs/minimap-and-legend#sections), each mark with scales of its own has its own sections.
 
 The scales of a mark follow its `name`: a named mark keeps its categories and extents when marks are reordered or when its data is replaced. An unnamed mark keeps them as long as its elements stay at the same position among the marks.
 

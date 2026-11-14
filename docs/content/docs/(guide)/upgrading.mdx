@@ -5,6 +5,17 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.27.0
+
+### The legend lists shapes
+
+The [legend](/docs/minimap-and-legend#legend) now reads shapes: their categories, their own scales and their looks. For a definition typed with `defineGraph` that has a shape mark, two unions of the legend state gain a member:
+
+- `looks` holds `LegendShapeLook` beside `LegendNodeLook` and `LegendEdgeLook`: a `switch` on `look.kind` that must cover every case needs a `case 'shapes'`.
+- `marks` holds `LegendMarkScales<N, 'shapes'>` for a shape mark with `scales: { color }`: a `switch` on `kind` needs a `'shapes'` branch there too.
+
+A definition without a shape mark keeps its types. The untyped forms keep theirs as well, but an untyped legend of a graph with shapes now meets shape looks at run time: check `kind` before reading `shape` or `image`.
+
 ## 0.25.0
 
 ### `Mark` and the plain `GraphIssue` include shapes

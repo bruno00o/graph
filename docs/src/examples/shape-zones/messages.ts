@@ -11,4 +11,6 @@ export const messages = {
   },
   outline: (name: string) => `Outline: ${name}`,
   outlines: { solid: 'solid', dashed: 'dashed', dotted: 'dotted' },
+  legendTitle: 'Zone',
+  legendLabel: 'Zones of the shapes and nodes',
 } as const

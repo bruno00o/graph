@@ -9,6 +9,7 @@ import {
   radiusCap,
   raster,
 } from './raster'
+import type { RasterShapes } from './shape-raster'
 
 export interface PaintSurface {
   width: number
@@ -45,6 +46,7 @@ export class MinimapPainter {
   #xy: Float32Array = new Float32Array(0)
   #containers: RasterContainers | null = null
   #masks: Uint32Array | null = null
+  #shapes: RasterShapes | null = null
 
   constructor(surface: PaintSurface, context: PaintContext | null) {
     this.#surface = surface
@@ -58,6 +60,7 @@ export class MinimapPainter {
     if (request.xy) this.#xy = request.xy
     if (request.containers !== undefined) this.#containers = request.containers
     if (request.masks !== undefined) this.#masks = request.masks
+    if (request.shapes !== undefined) this.#shapes = request.shapes
     const { paint } = request
     const width = Math.max(1, Math.round(paint.width))
     const height = Math.max(1, Math.round(paint.height))
@@ -75,6 +78,7 @@ export class MinimapPainter {
       containers: this.#containers,
       colors: this.#colors,
       masks: this.#masks,
+      shapes: this.#shapes,
     }
     const box = graphBounds(scene)
     const fit = box ? fitBox(box, width, height, paint.padding) : null

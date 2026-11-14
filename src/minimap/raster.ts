@@ -1,4 +1,5 @@
 import { boxShape, containerShape } from '../core/columns'
+import { drawShapes, type RasterShapes, shapeBounds } from './shape-raster'
 
 export interface RasterNodes {
   readonly capacity: number
@@ -36,6 +37,7 @@ export interface RasterScene {
   readonly containers: RasterContainers | null
   readonly colors: Uint32Array
   readonly masks: Uint32Array | null
+  readonly shapes?: RasterShapes | null
 }
 
 export interface RasterPaint {
@@ -151,6 +153,14 @@ export function graphBounds(scene: RasterScene): RasterBox | null {
       if (x + halfWidth > maxX) maxX = x + halfWidth
       if (y + halfHeight > maxY) maxY = y + halfHeight
     }
+  }
+  if (scene.shapes) {
+    const box = { minX, minY, maxX, maxY }
+    shapeBounds(scene.shapes, xy, alive, box)
+    minX = box.minX
+    minY = box.minY
+    maxX = box.maxX
+    maxY = box.maxY
   }
   return maxX < minX ? null : { minX, minY, maxX, maxY, count }
 }
@@ -429,6 +439,7 @@ export function raster(
 ): void {
   const canvas = new Canvas(target)
   target.pixels.fill(0)
+  if (scene.shapes) drawShapes(canvas, scene.shapes, scene.xy, scene.nodes.alive, scene.colors, fit)
   drawContainers(canvas, scene, fit)
   drawEdges(canvas, scene, paint, fit)
   drawNodes(canvas, scene, paint, fit)

@@ -7,6 +7,7 @@ import type {
   LegendLook,
   LegendNodeLook,
   LegendScalesOf,
+  LegendShapeLook,
   LegendSizes,
   LegendValue,
 } from './read'
@@ -305,16 +306,38 @@ export function mountLegend<S extends string, M extends Mark>(
     return symbol
   }
 
+  function shapeSymbol(look: LegendShapeLook): HTMLElement {
+    const symbol = element(
+      'span',
+      'flex:none;display:flex;align-items:center;justify-content:center;width:24px;height:16px',
+    )
+    const stroke = look.stroke ?? 'transparent'
+    symbol.append(
+      look.geometry === 'line'
+        ? element('span', `width:100%;border-top:2px ${look.dash} ${stroke}`)
+        : element(
+            'span',
+            `width:18px;height:12px;box-sizing:border-box;border-radius:2px;background:${look.fill ?? 'transparent'};border:1.5px ${look.dash} ${stroke}`,
+          ),
+    )
+    return symbol
+  }
+
   function looksSection(state: LegendState<M>): HTMLElement | null {
-    const looks = state.looks as readonly (LegendNodeLook | LegendEdgeLook)[]
-    const nodes = looks.filter((look) => look.kind === 'nodes')
-    const edges = looks.filter((look) => look.kind === 'edges')
-    const shown = [...(nodes.length > 1 ? nodes : []), ...(edges.length > 1 ? edges : [])]
+    const looks = state.looks as readonly (LegendNodeLook | LegendEdgeLook | LegendShapeLook)[]
+    const shown = (['nodes', 'edges', 'shapes'] as const).flatMap((kind) => {
+      const ofKind = looks.filter((look) => look.kind === kind)
+      return ofKind.length > 1 ? ofKind : []
+    })
     if (shown.length === 0) return null
     const rows = shown.map((look) =>
       item(
         look.id,
-        look.kind === 'nodes' ? nodeSymbol(look) : edgeSymbol(look),
+        look.kind === 'nodes'
+          ? nodeSymbol(look)
+          : look.kind === 'edges'
+            ? edgeSymbol(look)
+            : shapeSymbol(look),
         settings.lookText?.(look as LegendLook<M>) ?? look.mark ?? '',
       ),
     )
