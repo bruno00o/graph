@@ -34,7 +34,10 @@ export class Hierarchy {
   readonly #blocked = new Set<number>()
   readonly #stack: number[] = []
   #issueVersion = 0
-  #foldedKeys: ReadonlySet<Key> = new Set()
+  #foldedKeys: Set<Key> = new Set()
+  #decided: Set<Key> | null = null
+  #born: Key[] = []
+  foldNew: ((index: number) => boolean) | null = null
   #moved: number[] = []
   #relinked: number[] = []
   #touched: IndexSet = new IndexSet()
@@ -177,6 +180,12 @@ export class Hierarchy {
     this.#refresh(index)
   }
 
+  takeBorn(): Key[] {
+    const born = this.#born
+    if (born.length > 0) this.#born = []
+    return born
+  }
+
   setFolded(keys: Iterable<Key>): number[] {
     const next = new Set(keys)
     const previous = this.#foldedKeys
@@ -257,11 +266,26 @@ export class Hierarchy {
     this.nextSibling[index] = first
     if (first >= 0) this.previousSibling[first] = index
     this.firstChild[parent] = index
-    this.childCount[parent] = (this.childCount[parent] ?? 0) + 1
+    const count = this.childCount[parent] ?? 0
+    this.childCount[parent] = count + 1
+    if (count === 0 && this.foldNew) this.#decide(parent)
     this.#touched.add(parent)
     this.#relinked.push(index)
     this.#reshaped = true
     return true
+  }
+
+  #decide(group: number): void {
+    const key = this.keys[group]
+    if (key === undefined) return
+    const decided = this.#decided ?? new Set()
+    this.#decided = decided
+    if (decided.has(key)) return
+    decided.add(key)
+    if (this.folded[group] === 1 || !this.foldNew?.(group)) return
+    this.folded[group] = 1
+    this.#foldedKeys.add(key)
+    this.#born.push(key)
   }
 
   #detach(index: number): void {

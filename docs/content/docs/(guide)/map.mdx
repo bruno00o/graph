@@ -225,7 +225,9 @@ Nodes that overlap moved apart in the plain graph only, so a crowded place looks
 
 The map owns the camera. Dragging the background, the wheel, pinches and double clicks on the background move the map as usual, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera, in [world units](/docs/positions#longitude-and-latitude).
 
-The graph owns its elements: hover, clicks, the selection, the lasso and node drags. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom, and a double click on a node does not zoom the map.
+The graph owns its elements: hover, clicks, the selection, the lasso and node drags. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom, and a double click on a node does not zoom the map. With a [lasso](/docs/interaction#lasso) whose `modifier` is `null`, every drag on the background draws a lasso: the map then moves with the wheel, pinches and the keyboard.
+
+`graph.drawsOnMap` is `true` for a graph mounted by `mountMapGraph` or `<MapGraph>`: code shared between a plain graph and a map graph reads it to leave out what a map does not draw, such as a layout or the minimap.
 
 `graph.view.set`, `fit` and `zoomBy` move the map, animations included, and the keyboard of the graph does too: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit. `update({ view })` has no effect: move the map instead.
 

@@ -473,8 +473,16 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * request starts from the last one that `update({ selection })` has not answered yet.
    */
   readonly onSelectionChange?: ((event: GraphSelectionEvent<M>) => void) | undefined
-  /** Groups folded at mount, by key. Later changes go through `groups`. */
-  readonly initialFolded?: KeyList | undefined
+  /**
+   * Groups folded at mount, by key, or a function that decides, once for each group, whether it
+   * folds when it first has a child: at mount, and for groups that arrive later, before they are
+   * drawn. With controlled `folded`, the function folds the group at once and asks `onFoldChange`
+   * to keep it. Later changes go through `groups`.
+   */
+  readonly initialFolded?:
+    | KeyList
+    | ((group: Extract<GraphTarget<M>, { readonly kind: 'node' }>) => boolean)
+    | undefined
   /**
    * Folded groups. Passing it makes folding controlled for the life of the graph: requests go to
    * `onFoldChange` and only `update({ folded })` applies them.
@@ -560,6 +568,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly signal: AbortSignal
   /** `true` once the graph is destroyed. */
   readonly destroyed: boolean
+  /** `true` when the graph draws on a map, mounted by `mountMapGraph` or `<MapGraph>`. */
+  readonly drawsOnMap: boolean
   /**
    * Element under a point in screen pixels, nodes before edges and edges before shapes, or `null`.
    * Inside the lens, the element it shows there.
@@ -592,6 +602,24 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * The same object is returned until the counts can change.
    */
   count(): GraphCountOf<M>
+  /**
+   * Keys of the elements drawn now, whether in the view or not, after pending data changes are
+   * applied: the elements that `count().shown` counts. A folded group gives its key, not those of
+   * the nodes it hides, and an edge drawn for several merged edges gives the key of each of them.
+   * The same object is returned until it can change.
+   */
+  shown(): ElementKeys<M>
+  /**
+   * Whether a node, an edge or a shape is drawn now, by the rules of `shown`. A node hidden in a
+   * folded group, an unknown key and an edge that waits for an end are not.
+   */
+  isShown(element: GraphElement | { readonly kind: 'shape'; readonly key: Key }): boolean
+  /**
+   * Reads the given nodes, edges and shapes again from their items at the next frame, every
+   * channel and style, as if their items had changed. Unknown keys are ignored. Use it when a
+   * function of a mark reads data that changed outside the item.
+   */
+  refresh(keys: ElementKeysInput): void
   /**
    * Subscribes to an event until the returned function is called or the `signal` of the options
    * aborts, and subscribes nothing once the graph is destroyed. A handler that throws stops neither

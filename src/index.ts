@@ -163,6 +163,7 @@ export type {
   LabelPlacement,
   LabelTextOptions,
   LabelWeight,
+  LassoOptions,
   LayerName,
   Layout,
   LayoutGraph,

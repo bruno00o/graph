@@ -39,7 +39,7 @@ Edges merge mark by mark: two marks never share an aggregated edge, so an aggreg
 
 The merged edges keep the order in which they reached the graph: the order of the data for edges loaded together, then later edges after earlier ones. Their first edge stays the same while it is in the data, whatever was folded, unfolded or moved in between, so an aggregated edge keeps its look.
 
-Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A two-way line can instead act as [one direction per half](#one-direction-per-half). A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
+Picking an aggregated edge returns its first edge, with `aggregate` holding all of them, and `aggregate.id` naming the aggregated edge: it stays the same while the edge joins the same ends, whichever edges it merges. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A two-way line can instead act as [one direction per half](#one-direction-per-half). A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
 
 A function passed as `by` is called again whenever the definition changes. Keep it stable: give each edge the same value for the same data, and the graph changes, and `relayout` runs, only when an aggregated edge does.
 

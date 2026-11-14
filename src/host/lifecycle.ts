@@ -116,6 +116,7 @@ export function afterDestroy<S extends string, M extends Mark>(
   signal: AbortSignal,
   reason: () => unknown,
   shaped: () => boolean,
+  onMap = false,
 ): GraphInstance<S, M> {
   const state = (): GraphState => store.state as GraphState
   const size = () => ({ width: state().width, height: state().height })
@@ -182,6 +183,7 @@ export function afterDestroy<S extends string, M extends Mark>(
     element,
     signal,
     destroyed: true,
+    drawsOnMap: onMap,
     pick: () => null,
     neighbors: () => [],
     edgesOf: () => [],
@@ -189,6 +191,9 @@ export function afterDestroy<S extends string, M extends Mark>(
     datumOf: () => undefined,
     issues: () => noIssues,
     count: () => (shaped() ? noShapeCount : noCount),
+    shown: () => emptyKeys(shaped()),
+    isShown: () => false,
+    refresh: nothing,
     on: () => nothing,
     drawn: () => Promise.reject(reason()),
     loaded: () => Promise.reject(reason()),
@@ -227,6 +232,7 @@ export function untilDestroyed<T extends object>(live: T, dead: T, destroyed: ()
 export function stillborn<S extends string, M extends Mark>(
   options: MountGraphOptions<S, M>,
   signal: AbortSignal,
+  onMap = false,
 ): GraphInstance<S, M> {
   if (dev) console.warn('graph: the signal was aborted before the mount, nothing was mounted')
   const { definition } = options
@@ -247,7 +253,11 @@ export function stillborn<S extends string, M extends Mark>(
     ),
     positionsVersion: 0,
     layout: idleLayout,
-    folded: [...(options.folded ?? options.initialFolded ?? [])],
+    folded: [
+      ...(options.folded ??
+        (typeof options.initialFolded === 'function' ? [] : options.initialFolded) ??
+        []),
+    ],
     bundling: idle,
     routing: idle,
     time: readWindow(options.time ?? options.initialTime ?? null),
@@ -261,11 +271,12 @@ export function stillborn<S extends string, M extends Mark>(
     signal,
     () => signal.reason,
     () => shaped,
+    onMap,
   )
   const scene = createScene()
   scene.setDefinition(definition)
   exposeInternals(graph, {
-    onMap: false,
+    onMap,
     scene,
     positions: new Positions(),
     definition: () => definition,
