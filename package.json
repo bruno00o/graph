@@ -76,6 +76,14 @@
       "types": "./dist/map/react.d.ts",
       "import": "./dist/map/react.js"
     },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js"
+    },
+    "./editor/react": {
+      "types": "./dist/editor/react.d.ts",
+      "import": "./dist/editor/react.js"
+    },
     "./minimap": {
       "types": "./dist/minimap.d.ts",
       "import": "./dist/minimap.js"

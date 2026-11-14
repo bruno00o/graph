@@ -300,7 +300,7 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
     ) {
       return false
     }
-    if (!query.shown(index)) return false
+    if (store.draft[index] === 1 || !query.shown(index)) return false
     const filled = fills(index, geometry, mode)
     if (geometry.round) {
       const distance = roundDistance(geometry, x, y)

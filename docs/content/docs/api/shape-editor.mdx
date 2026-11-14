@@ -1,0 +1,59 @@
+---
+title: ShapeEditor
+description: The React component and hook that edit the shapes of a graph.
+---
+
+```tsx
+import { ShapeEditor } from '@bruno00o/graph/editor/react'
+
+<Graph definition={definition} ariaLabel="Zones">
+  <ShapeEditor onEdit={(edits) => setZones((zones) => applyShapeEdits(zones, edits))} />
+</Graph>
+```
+
+```ts
+function ShapeEditor<S extends string = string, M extends Mark = Mark>(
+  props: ShapeEditorProps<S, M>,
+): null
+```
+
+Creates a [shape editor](/docs/api/editor) and its layer for the enclosing [`<Graph>`](/docs/api/graph-component) or [`<MapGraph>`](/docs/api/map-graph), or for `graph`, and destroys both on unmount. Renders nothing itself. See [Editing shapes](/docs/editing-shapes#react) for a walkthrough.
+
+## Props
+
+<api-table path="editor/react.tsx" name="ShapeEditorProps" />
+
+## useShapeEditor
+
+```ts
+import { useShapeEditor } from '@bruno00o/graph/editor/react'
+
+function useShapeEditor<S extends string = string, M extends Mark = Mark>(
+  options?: UseShapeEditorOptions<S, M>,
+): UseShapeEditorResult<M>
+```
+
+Does what `<ShapeEditor>` does, and renders again when the state of the editor changes.
+
+```tsx
+function RemoveButton({ graph }: { graph: GraphInstance<never, Marks> | null }) {
+  const { state, editor } = useShapeEditor({ graph, onEdit: save })
+  return (
+    <button type="button" disabled={state.selected.length === 0} onClick={() => editor?.remove()}>
+      {messages.remove}
+    </button>
+  )
+}
+```
+
+<api-table path="editor/react.tsx" name="UseShapeEditorOptions" />
+
+<api-table path="editor/react.tsx" name="UseShapeEditorResult" />
+
+## Behavior
+
+- The editor is created in a layout effect, once a graph is there. Under StrictMode, one editor remains.
+- Another graph destroys the editor and creates a new one. `marks`, `hold` and `handleSize` go through `update`, and `onEdit` is read at each edit, so an inline function is fine.
+- Without `graph` and outside `<Graph>` and `<MapGraph>`, it throws. With `graph: null`, nothing is edited until a graph is given.
+- Without `graph`, the edits are not typed by the marks of the graph: pass the state names and the marks as type arguments, or pass `graph`.
+- A graph has one editor at a time: render one `<ShapeEditor>` or `useShapeEditor` per graph.

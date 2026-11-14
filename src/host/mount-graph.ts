@@ -182,6 +182,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let flushing = false
   let sceneVersion = 0
   let probe: GraphProbe | null = null
+  let drafted: readonly Key[] = []
   const watchers = new Set<GraphWatcher>()
   const lifetime = new AbortController()
   let endReason: unknown = null
@@ -556,6 +557,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     definition: () => definition,
     cancelLasso: () => pointer.cancelLasso(),
     prepare: flushPending,
+    tool: () => pointer.tool,
   })
   const reads = new DataReads({ model, hierarchy, support, scene, buffers, emitter })
   scene.shapes.wake = () => {
@@ -666,6 +668,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     return nodeBounds(scene.nodes, containerBoxes, positions, indices, reader)
   }
 
+  function writeDrafts(): void {
+    const indices: number[] = []
+    for (const key of drafted) {
+      const record = model.shape(key)
+      if (record) indices.push(record.index)
+    }
+    scene.shapes.setDrafts(indices)
+  }
+
   function flushChanges(): void {
     const start = clock()
     const changes = model.flush()
@@ -678,6 +689,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const applied = clock()
     applyChanges(changes, projected)
     if (destroyed) return
+    if (drafted.length > 0) writeDrafts()
     for (const watcher of watchers) watcher.changed?.(projected.scene)
     if (destroyed) return
     if (supported) selection.lightSupport()
@@ -1301,6 +1313,23 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     prepare: flushPending,
     request: () => request(),
     destroyed: () => destroyed,
+    tool: (tool) => {
+      if (destroyed || (tool && pointer.tool)) return false
+      pointer.setTool(tool)
+      return true
+    },
+    draft: (keys) => {
+      if (destroyed) return
+      flushPending()
+      drafted = [...keys]
+      writeDrafts()
+      request()
+    },
+    shape: (key) => {
+      if (destroyed) return null
+      flushPending()
+      return model.shape(key) ?? null
+    },
   })
 
   surface?.bind({

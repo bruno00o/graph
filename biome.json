@@ -48,7 +48,13 @@
   },
   "overrides": [
     {
-      "includes": ["src/react/**", "src/map/react.tsx", "examples/**", "docs/**"],
+      "includes": [
+        "src/react/**",
+        "src/map/react.tsx",
+        "src/editor/react.tsx",
+        "examples/**",
+        "docs/**"
+      ],
       "linter": {
         "domains": {
           "react": "recommended"

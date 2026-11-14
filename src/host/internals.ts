@@ -1,8 +1,10 @@
-import type { GraphChanges } from '../core/graph-model'
+import type { GlobeCamera } from '../core/globe'
+import type { GraphChanges, ShapeRecord } from '../core/graph-model'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import type { Sight } from '../core/visibility'
 import type { EdgeEnd, GraphDefinition, Key } from '../types'
+import type { PointerTool } from './pointer-tool'
 import type { ContainerFrame } from './renderer'
 
 export interface GraphStamp {
@@ -31,6 +33,10 @@ export interface GraphInternals {
   sight(except?: string | null): Sight
   stamp(): GraphStamp
   watch(watcher: GraphWatcher): () => void
+  tool(tool: PointerTool | null): boolean
+  draft(keys: readonly Key[]): void
+  shape(key: Key): ShapeRecord | null
+  globe(): GlobeCamera | null
 }
 
 const exposed = new WeakMap<object, GraphInternals>()

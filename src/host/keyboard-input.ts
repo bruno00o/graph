@@ -5,6 +5,7 @@ import { keyDuration } from './focus-control'
 import type { FoldControl } from './folding'
 import type { GraphState } from './graph-instance'
 import { keyAction } from './keyboard'
+import type { PointerTool } from './pointer-tool'
 import type { SelectionControl } from './selection-control'
 import type { ViewControl } from './view-control'
 
@@ -20,6 +21,7 @@ export interface KeyboardSource {
   definition(): GraphDefinition
   cancelLasso(): boolean
   prepare(): void
+  tool(): PointerTool | null
 }
 
 export class KeyboardInput {
@@ -96,8 +98,12 @@ export class KeyboardInput {
   }
 
   readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (!this.#source.definition().interaction.keyboard || event.target !== this.#source.element)
+    const source = this.#source
+    if (event.target !== source.element) return
+    if (source.tool()?.key(event)) {
+      event.preventDefault()
       return
-    if (this.#run(event)) event.preventDefault()
+    }
+    if (source.definition().interaction.keyboard && this.#run(event)) event.preventDefault()
   }
 }

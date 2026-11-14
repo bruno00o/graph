@@ -19,6 +19,7 @@ import type { LayoutHost } from './layout-session'
 import { lensContains } from './lens'
 import type { LensControl } from './lens-control'
 import type { HostPicker } from './picking'
+import type { PointerTool, ToolPointer } from './pointer-tool'
 import type { PositionMotion } from './position-motion'
 import type { SelectionControl } from './selection-control'
 import type { SpreadHost } from './spread'
@@ -65,6 +66,15 @@ interface Pinch {
   readonly points: Map<number, Point>
   center: Point
   distance: number
+}
+
+interface ToolGesture {
+  readonly id: number
+  readonly touch: boolean
+  readonly start: Point
+  readonly hit: GraphTarget | null
+  last: Point
+  moved: boolean
 }
 
 interface PointerMove {
@@ -135,6 +145,9 @@ export class PointerInput {
   #moveRequest = 0
   #lassoLayer: SVGSVGElement | null = null
   #pinchGestures: PinchWatch | null = null
+  #tool: PointerTool | null = null
+  #toolGesture: ToolGesture | null = null
+  #toolCursor: string | null = null
   readonly #source: PointerSource
 
   constructor(source: PointerSource) {
@@ -146,6 +159,23 @@ export class PointerInput {
       start: () => this.#onPinchStart(),
       change: (change) => this.#onPinchChange(change),
     })
+  }
+
+  get tool(): PointerTool | null {
+    return this.#tool
+  }
+
+  setTool(tool: PointerTool | null): void {
+    const held = this.#toolGesture
+    if (held) {
+      this.#toolGesture = null
+      this.#source.surface?.claim(false)
+      const canvas = this.#source.canvas
+      if (canvas.hasPointerCapture?.(held.id)) canvas.releasePointerCapture(held.id)
+    }
+    this.#tool = tool
+    this.#toolCursor = null
+    this.updateCursor()
   }
 
   get autoPanning(): boolean {
@@ -201,7 +231,9 @@ export class PointerInput {
     const canvas = source.canvas
     const interaction = source.definition().interaction
     const interactive = interaction.select !== false || interaction.drag
-    if (gesture?.lasso) canvas.style.cursor = 'crosshair'
+    const tooled = this.#toolCursor !== null && !gesture && !this.#pinch
+    if (tooled || this.#toolGesture) canvas.style.cursor = this.#toolCursor ?? ''
+    else if (gesture?.lasso) canvas.style.cursor = 'crosshair'
     else if (gesture?.moved) canvas.style.cursor = 'grabbing'
     else if (source.state().hovered && interactive) canvas.style.cursor = 'pointer'
     else canvas.style.cursor = ''
@@ -342,6 +374,13 @@ export class PointerInput {
       }
       return
     }
+    const held = this.#toolGesture
+    if (held) {
+      if (held.touch && event.pointerType === 'touch' && event.pointerId !== held.id) {
+        this.#pinchFromTool(held, event)
+      }
+      return
+    }
     if (event.button !== 0) return
     source.views.animation = null
     source.focus.remembered = null
@@ -350,6 +389,7 @@ export class PointerInput {
     const point = this.#local(event)
     source.lens.track(point)
     const hit = source.picker.pick(point)
+    if (this.#tool && this.#takeTool(this.#tool, event, point, hit)) return
     const drag = hit ? this.#startDrag(hit, point) : null
     const { lasso, select } = source.definition().interaction
     const solid = hit !== null && hit.kind !== 'shape'
@@ -374,6 +414,92 @@ export class PointerInput {
     if (lassoing) this.updateCursor()
   }
 
+  #takeTool(
+    tool: PointerTool,
+    event: PointerEvent,
+    point: Point,
+    hit: GraphTarget | null,
+  ): boolean {
+    const source = this.#source
+    const shown = source.lens.shown
+    if (shown && lensContains(shown, point)) return false
+    if (!tool.down({ event, point, hit })) return false
+    if (source.destroyed() || this.#tool !== tool) return true
+    this.#toolGesture = {
+      id: event.pointerId,
+      touch: event.pointerType === 'touch',
+      start: point,
+      hit,
+      last: point,
+      moved: false,
+    }
+    source.canvas.setPointerCapture?.(event.pointerId)
+    source.surface?.claim(true)
+    this.#toolCursor = tool.cursor({ event, point, hit })
+    this.updateCursor()
+    return true
+  }
+
+  #moveTool(held: ToolGesture, event: PointerEvent, point: Point): void {
+    held.last = point
+    const slop = held.touch ? touchSlop : clickSlop
+    if (!held.moved && Math.hypot(point.x - held.start.x, point.y - held.start.y) > slop) {
+      held.moved = true
+    }
+    this.#queueMove(event, point, undefined)
+    const tool = this.#tool
+    if (!tool) return
+    const pointer: ToolPointer = { event, point, hit: held.hit }
+    tool.move(pointer)
+    if (this.#source.destroyed() || this.#toolGesture !== held) return
+    this.#setToolCursor(tool.cursor(pointer))
+  }
+
+  #endTool(held: ToolGesture, event: PointerEvent, cancelled: boolean): void {
+    const source = this.#source
+    this.#toolGesture = null
+    source.surface?.claim(false)
+    const canvas = source.canvas
+    if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+    const point = this.#local(event)
+    const click = this.#tool?.up({ event, point, hit: held.hit }, cancelled) ?? false
+    if (source.destroyed()) return
+    if (click && !cancelled && !held.moved) {
+      source.emitter.emit('click', this.#pointerEvent(event, held.hit))
+      if (source.destroyed()) return
+    }
+    this.#toolCursor = null
+    if (!cancelled && !held.touch) {
+      const hit = source.picker.pick(point)
+      this.hover(hit, event)
+      if (source.destroyed()) return
+      this.#hoverTool(event, point, hit)
+    }
+    this.updateCursor()
+  }
+
+  #pinchFromTool(held: ToolGesture, event: PointerEvent): void {
+    const source = this.#source
+    this.#toolGesture = null
+    this.#toolCursor = null
+    source.surface?.claim(false)
+    this.#tool?.up({ event, point: held.last, hit: held.hit }, true)
+    if (source.destroyed()) return
+    source.views.animation = null
+    this.#startPinch(held.id, held.last, event)
+  }
+
+  #hoverTool(event: PointerEvent, point: Point, hit: GraphTarget | null): void {
+    const tool = this.#tool
+    if (tool) this.#setToolCursor(tool.cursor({ event, point, hit }))
+  }
+
+  #setToolCursor(cursor: string | null): void {
+    if (cursor === this.#toolCursor) return
+    this.#toolCursor = cursor
+    this.updateCursor()
+  }
+
   #beginPinch(current: Gesture, event: PointerEvent): void {
     const source = this.#source
     this.#gesture = null
@@ -384,12 +510,16 @@ export class PointerInput {
       source.emitter.emit('dragend', this.#dragEvent(current.drag, current.event))
     if (source.destroyed()) return
     if (current.lasso) this.#drawLasso(null)
+    this.#startPinch(current.id, current.last, event)
+  }
+
+  #startPinch(id: number, last: Point, event: PointerEvent): void {
     const points = new Map([
-      [current.id, current.last],
+      [id, last],
       [event.pointerId, this.#local(event)],
     ])
     this.#pinch = { points, ...pinchShape(points) }
-    source.canvas.setPointerCapture?.(event.pointerId)
+    this.#source.canvas.setPointerCapture?.(event.pointerId)
     this.updateCursor()
   }
 
@@ -556,12 +686,20 @@ export class PointerInput {
       return
     }
     const point = this.#local(event)
+    const held = this.#toolGesture
+    if (held) {
+      if (held.id !== event.pointerId) return
+      source.lens.track(point)
+      this.#moveTool(held, event, point)
+      return
+    }
     const gesture = this.#gesture
     if (!gesture || gesture.id === event.pointerId) source.lens.track(point)
     if (!gesture) {
       const hit = source.picker.pick(point, true)
       this.hover(hit, event)
       if (source.destroyed()) return
+      if (this.#tool) this.#hoverTool(event, point, hit)
       this.#queueMove(event, point, hit)
       return
     }
@@ -643,6 +781,11 @@ export class PointerInput {
       this.#endPinch(pinch, event)
       return
     }
+    const held = this.#toolGesture
+    if (held) {
+      if (held.id === event.pointerId) this.#endTool(held, event, cancelled)
+      return
+    }
     const ended = this.#gesture
     if (!ended || ended.id !== event.pointerId) return
     this.#gesture = null
@@ -663,8 +806,13 @@ export class PointerInput {
       source.selection.select(ended.target, event.shiftKey || event.metaKey || event.ctrlKey)
       if (source.destroyed()) return
     }
-    if (!cancelled && !ended.touch) this.hover(source.picker.pick(this.#local(event)), event)
-    if (source.destroyed()) return
+    if (!cancelled && !ended.touch) {
+      const point = this.#local(event)
+      const hit = source.picker.pick(point)
+      this.hover(hit, event)
+      if (source.destroyed()) return
+      if (this.#tool) this.#hoverTool(event, point, hit)
+    } else this.#toolCursor = null
     this.updateCursor()
   }
 
@@ -677,7 +825,8 @@ export class PointerInput {
   }
 
   readonly onPointerLeave = (event: PointerEvent): void => {
-    if (this.#gesture || this.#pinch) return
+    if (this.#gesture || this.#pinch || this.#toolGesture) return
+    this.#setToolCursor(null)
     this.hover(null, event)
     if (this.#source.destroyed()) return
     this.#source.lens.leave()
@@ -719,7 +868,7 @@ export class PointerInput {
   }
 
   #onPinchChange(change: PinchGesture): void {
-    if (this.#pinch || this.#gesture?.touch) return
+    if (this.#pinch || this.#gesture?.touch || this.#toolGesture?.touch) return
     const source = this.#source
     const definition = source.definition()
     const { zoom } = definition.interaction
