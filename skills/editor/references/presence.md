@@ -54,6 +54,7 @@ presence.stop()
 - The local row is written at most every `wait` ms (50), a slow write delaying the next by four times its cost, and rewritten every third of `expire` (30,000 ms) while idle. Rows older than `expire`, on the clock of this client, no longer count. Selections are cut to `maxSelection` keys per kind (500).
 - `presence.store` lists the other people (`id`, `slot`, `state`) and changes only when one joins or leaves. `presence.stop()`, destroying the graph or closing the page removes the local row, the cursors and the states.
 - The library never deletes the rows of others: rows of tabs closed abruptly stay in the collection, ignored once expired. To clean them yourself, skip the call when the list is empty: `collection.delete([])` throws (`No keys were passed to delete`).
+- To try it with two tabs of one browser, make the presence collection with `localStorageCollectionOptions({ id, storageKey, getKey })` from `@tanstack/db`: each tab sees the rows of the others through the `storage` event, with no server. `localOnlyCollectionOptions` stays in one tab. Any collection that syncs rows between clients works.
 - A shape another person moves or draws is not previewed apart: with `persistShapes` and `live`, moved shapes already move on every screen, and a new shape appears when its author ends it.
 
 In React, start it in an effect once the graph exists, and stop it in the cleanup:

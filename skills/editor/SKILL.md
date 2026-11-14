@@ -72,7 +72,7 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 - `createShapeEditor` takes the pointer and the keys of the graph; `mountShapeEditor` draws the shapes being edited, the handles and the text input in an SVG layer over the graph. Without the layer, a shape being edited disappears: the graph hides it until its data changes.
 - One editor per graph: a second `createShapeEditor` on the same graph throws until the first is destroyed. `editor.destroy()` gives the pointer and the keys back and removes its layer; destroying the graph destroys both.
 - `marks` lists the names of the editable shape marks, every shape mark by default. Shapes of other marks, and shapes whose geometry cannot be read, take the pointer as without the editor.
-- The editor is typed by the graph: `edit.datum` is the item type of the mark, `edit.mark` its name.
+- The editor is typed by the graph: `edit.datum` is the item type of the mark, `edit.mark` its name. With several shape marks `datum` is the union of their item types and `mark` does not narrow it: narrow with `in` (`'text' in edit.datum`), as in [persistence](references/persistence.md).
 
 ## Core Patterns
 
@@ -103,6 +103,7 @@ An edit is `{ type: 'add', key, mark, geometry, datum?, tool?, text? }`, `{ type
 - The new geometry keeps the form of the old one: object points stay objects with their other fields, pairs stay pairs, GeoJSON keeps its type and closing point, degrees stay degrees (longitudes from -180 to 180), points that did not move are the same values, and a GeoJSON `bbox` is dropped.
 - Until the data of a shape changes, the editor hides the shape of the graph and draws the proposal; `editor.store.state.pending` lists these shapes. Any change of the item ends the wait. When nothing changes within `hold` (10,000 ms, `Infinity` waits for good), the data wins again and `editlost` carries the edits: the write failed, or your code declined it.
 - A mark whose `geometry` is a function is edited, but `applyShapeEdits` writes a field: write the edits yourself.
+- The `geometry` of an edit is a fresh `WritableShapeGeometry`: writable all the way down, never frozen, sharing nothing with your items. It assigns to a `ShapeGeometry` and to the draft of `collection.update` with no cast. Let `onEdit` infer the type of its edits; a parameter annotated `ShapeEdit` has a read-only geometry (`ShapeEdit<Mark, WritableShapeGeometry>` is the writable one).
 
 With several shape marks, name them and split the edits:
 
@@ -159,9 +160,10 @@ view.input.setAttribute('aria-label', messages.noteText)
 
 - Two clicks work wherever a drag does. With a line or a polygon, Shift turns the next segment by `snap.angle` (15 degrees), Backspace, Delete or Cmd or Ctrl and Z take back the last point, and Escape drops the shape.
 - A drawing tool takes every press with the main button, on shapes and nodes too, except with Space held. The double click that ends a shape emits no `doubleclick` and folds no group. Set `'select'` to give the pointer back.
+- The tool stays active after each shape: `state.tool` does not return to `'select'`, so the next press draws another. A toolbar that wants one shape per click calls `editor.setTool('select')` from `onEdit`, on a batch that holds an `'add'`.
 - A finished shape is an `'add'` with `tool`, the key of `newKey` (`crypto.randomUUID()` by default) and the mark of `newMark` (first name of `marks`, else the first shape mark). It is selected at once.
 - `units: 'auto'` (default) draws in degrees on a map (GeoJSON `Polygon` and `LineString`, circles around a place with radii in meters) and in world units elsewhere (`{ x, y, width, height }`, `{ center, radius }`, `rings`, `points`); `'world'` and `'degrees'` force one. Edited shapes keep their own units.
-- `snap: { grid }` snaps drawn and dragged points, resized boxes and moved shapes (by the top left corner of their box) to a spacing in world units, or to the lines of the background grid shown at this zoom with `'background'`. The arrow keys do not snap.
+- `snap: { grid }` snaps drawn and dragged points, resized boxes and moved shapes (by the top left corner of their box) to a spacing in world units, or to the lines of the background grid shown at this zoom with `'background'`, which needs `background: { grid }` in the definition: without one nothing snaps and a development build warns once. A map has no background grid, so give a spacing there. The arrow keys do not snap.
 
 ### Copy, reorder, undo
 
@@ -173,7 +175,7 @@ view.input.setAttribute('aria-label', messages.noteText)
 
 ### Type text into shapes
 
-A shape has text when its mark has a `label`. A double click on it with the select tool, Enter while it is the only selected shape, or `editor.editText(key)` opens a `textarea` over it in the font and size of its label; Enter starts a line, and Escape, Cmd or Ctrl and Enter, a press elsewhere, another tool or the loss of focus close it and propose a `'change'` with `text`. The `'text'` tool proposes an `'add'` with `tool: 'text'` and `text` for the mark of `textMark` (`newMark` by default); a box left empty proposes nothing.
+A shape has text when its mark has a `label`. A double click on it with the select tool, Enter while it is the only selected shape, or `editor.editText(key)` opens a `textarea` over it in the font and size of its label; Enter starts a line, and Escape, Cmd or Ctrl and Enter, a press elsewhere, another tool or the loss of focus close it and propose a `'change'` with `text`: Escape in a text box commits what was typed, unlike Escape elsewhere, which cancels. `editor.cancel()` drops the typing instead. The `'text'` tool proposes an `'add'` with `tool: 'text'` and `text` for the mark of `textMark` (`newMark` by default); a box left empty proposes nothing.
 
 - `applyShapeEdits` writes `text` to the `text` field: give the mark `label: { text: 'text' }`, or pass `fields: { text }` with the field the label reads.
 - When the text needs more lines than the box holds, the same edit makes the box taller, top edge in place; a circle never grows. The label options `wrap: true`, `scale: 'world'` (world units, meters for a shape in degrees) and `place: 'always'` turn a label into the text of a box (shapes skill).
@@ -252,7 +254,7 @@ Inside `<Graph>` without `graph`, the edits are not typed by the marks: pass `gr
 
 ### Maps and large edits
 
-- On a map, flat or globe, the editor takes the gesture from the map: the map does not pan while a shape moves or is drawn, and the double click that ends a shape does not zoom. Shapes in degrees get their edits in degrees, a circle around a place keeps its radii in meters, and a move is a translation on the flat Mercator plane, also on the globe (a shape pushed toward a pole grows on the ground).
+- On a map, flat or globe, the editor takes the gesture from the map: the map does not pan while a shape moves or is drawn, and the double click that ends a shape does not zoom. On the globe, a circle or a rectangle in world units, such as a pinned shape, faces the screen as the graph draws it, and so do its preview, its handles and its text input. Shapes in degrees get their edits in degrees, a circle around a place keeps its radii in meters, and a move is a translation on the flat Mercator plane, also on the globe (a shape pushed toward a pole grows on the ground).
 - Past 5,000 points in the shapes being moved, the graph slides its own shapes on the GPU instead of an SVG preview: sliding shapes are not picked until they land. A circle placed in degrees always moves as a preview. Dragging a polygon of 5,000 points costs about 1 ms per frame; reshaping it costs about 5 ms on release.
 
 ### Save to a collection, show others
@@ -339,7 +341,7 @@ They propose a new `order`, written to the `order` field; a mark without `order:
 
 ### MEDIUM Snapping to the background without a background grid
 
-`snap: { grid: 'background' }` follows the background grid of the definition (`background: { grid: 'lines' }`); without one nothing snaps, silently. Add the grid, or give a spacing in world units.
+`snap: { grid: 'background' }` follows the background grid of the definition (`background: { grid: 'lines' }`); without one nothing snaps, and a development build only warns once. A map never has one. Add the grid, or give a spacing in world units.
 
 ### MEDIUM Keys that never reach the editor
 
