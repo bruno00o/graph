@@ -90,7 +90,7 @@ export async function renderPng(
       viewport[1] ?? tileLimit,
     )
     load(renderer, first)
-    await Promise.all([renderer.ready?.(), document.fonts?.ready])
+    await Promise.all([renderer.ready?.(), document.fonts?.ready, first.scene.shapes.settled()])
     load(renderer, take())
     const strip = Math.max(1, Math.min(limit, height, Math.floor(stripPixels / width)))
     const cssWidth = width / pixelRatio

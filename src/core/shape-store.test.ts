@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
+import { labelAnchor, labelOrder } from '../shapes/labels'
+import { readShape } from '../shapes/read'
+import { syncPoints } from '../shapes/writer'
 import { defaults } from '../theme/tokens'
 import type { GraphDefinition, LiveSource, Mark, ShapeGeometry, SourceChange } from '../types'
 import { noColor } from './columns'
@@ -216,7 +219,6 @@ describe('ShapeStore', () => {
     expect(indexOf('a')).toBe(0)
     render([nodes([{ id: 'a' }])])
     expect(store.count).toBe(0)
-    expect(store.points).toBe(0)
     expect(store.drawOrder().length).toBe(0)
     expect(store.marked).toBe(false)
   })
@@ -269,13 +271,16 @@ describe('ShapeStore labels and pins', () => {
     expect(labels?.labelSize[indexOf('small')]).toBe(20)
     expect(labels?.labelWeight[indexOf('small')]).toBe(700)
     expect(color(labels?.labelBackground[indexOf('small')])).toBe(defaults.labelBackground)
-    expect(Array.from(store.labelOrder(), (index) => store.keys[index])).toEqual(['large', 'small'])
-    expect(store.labelAnchor(indexOf('large'))).toBe(true)
+    expect(Array.from(labelOrder(store).order, (index) => store.keys[index])).toEqual([
+      'large',
+      'small',
+    ])
+    expect(labelAnchor(store, indexOf('large'))).toBe(true)
     expect(labels?.anchor[indexOf('large') * 2]).toBe(40)
     const used = scene.palette.colors.indexOf('#ff0000')
     render([shapes(zones.slice(2), { label: { text: 'name', color: '#ff0000' } })])
     expect(store.labels?.count).toBe(0)
-    expect(store.labelOrder().length).toBe(0)
+    expect(labelOrder(store).order.length).toBe(0)
     render([shapes([{ id: 'other', geometry: box(0) }], { fill: '#00ff00' })])
     expect(scene.palette.colors.indexOf('#00ff00')).toBe(used)
   })
@@ -316,5 +321,100 @@ describe('ShapeStore labels and pins', () => {
     expect(shapeShown(store, index, sightOf(2))).toBe(false)
     expect(shapeOpacity(store, index, sightOf(2))).toBe(0)
     expect(scene.nodes.alive[store.pinNode?.[index] ?? -1]).toBe(1)
+  })
+})
+
+describe('ShapeStore fills', () => {
+  const ring = (cx: number, count: number, wobble = 0) =>
+    Array.from({ length: count }, (_, k) => {
+      const angle = (k / count) * Math.PI * 2
+      const reach = 100 + (k % 2 === 0 ? wobble : -wobble)
+      return [cx + Math.cos(angle) * reach, Math.sin(angle) * reach] as const
+    })
+  const big = (count: number): Zone[] =>
+    Array.from({ length: count }, (_, at) => ({
+      id: `z${at}`,
+      geometry: { rings: [ring(at * 300, syncPoints / 2, at)] },
+    }))
+
+  it('fills a small batch at once', () => {
+    const { store, render, indexOf } = setup()
+    render([shapes([{ id: 'a', geometry: { rings: [ring(0, 400)] } }])])
+    const geometry = store.geometry[indexOf('a')]
+    expect(geometry?.pending).toBeFalsy()
+    expect(geometry?.triangles.length).toBe((400 - 2) * 3)
+  })
+
+  it('draws outlines first and fills a large batch later, as the main thread would', async () => {
+    const { store, render, indexOf, drawn } = setup()
+    const zones = big(3)
+    const woken = vi.fn()
+    store.wake = woken
+    render([shapes(zones)])
+    const version = store.fillVersion
+    for (const zone of zones) {
+      const geometry = store.geometry[indexOf(zone.id)]
+      expect(geometry?.pending).toBe(true)
+      expect(geometry?.triangles.length).toBe(0)
+      expect(geometry?.points.length).toBe(syncPoints)
+    }
+    expect(drawn()).toEqual(['z0', 'z1', 'z2'])
+    await store.settled()
+    expect(store.fillVersion).toBeGreaterThan(version)
+    expect(woken).toHaveBeenCalled()
+    for (const zone of zones) {
+      const geometry = store.geometry[indexOf(zone.id)]
+      const expected = readShape(zone.geometry)
+      expect(geometry?.pending).toBeFalsy()
+      expect(geometry?.triangles).toEqual(expected?.triangles)
+      expect(geometry?.levels?.length).toBeGreaterThan(0)
+      expect(geometry?.levels).toEqual(expected?.levels)
+    }
+  })
+
+  it('drops a late fill for a shape that changed meanwhile', async () => {
+    const { store, render, indexOf } = setup()
+    const zones = big(3)
+    render([shapes(zones)])
+    const changed = zones.map((zone, at) =>
+      at === 1 ? { ...zone, geometry: { rings: [ring(300, 300)] } } : zone,
+    )
+    render([shapes(changed)])
+    const now = store.geometry[indexOf('z1')]
+    expect(now?.pending).toBeFalsy()
+    expect(now?.points.length).toBe(600)
+    await store.settled()
+    expect(store.geometry[indexOf('z1')]).toBe(now)
+    expect(store.geometry[indexOf('z0')]?.pending).toBeFalsy()
+  })
+
+  it('reports a self-intersecting outline once its fill arrives', async () => {
+    const { store, render, issues } = setup()
+    const crossed: Zone = {
+      id: 'bow',
+      geometry: {
+        rings: [
+          Array.from({ length: 400 }, (_, k) => {
+            const angle = (k / 400) * Math.PI * 2
+            return [Math.sin(angle) * 100, Math.sin(angle * 2) * 50] as const
+          }),
+        ],
+      },
+    }
+    render([shapes([...big(3), crossed])])
+    expect(issues()).toEqual([])
+    await store.settled()
+    expect(issues()).toEqual([
+      { type: 'invalid-shape', kind: 'shapes', key: 'bow', reason: 'self-intersecting' },
+    ])
+  })
+
+  it('stops filling once destroyed', async () => {
+    const { store, render, indexOf } = setup()
+    render([shapes(big(3))])
+    store.destroy()
+    await store.settled()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(store.geometry[indexOf('z0')]?.pending).toBe(true)
   })
 })

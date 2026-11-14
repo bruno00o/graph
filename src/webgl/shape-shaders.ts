@@ -1,15 +1,20 @@
 import { glyphLayout, header, nodeSamplers, nodeSight, spanData } from './shaders'
 
+const miterLimit = 2
+
 export const shapeStyleUnit = 21
 export const shapeStateUnit = 22
 export const shapeZoomUnit = 23
 export const shapeTimeUnit = 24
 export const shapePlaceUnit = 25
+export const shapePointsUnit = 26
+export const shapeWindow = 32
+export const shapeClosed = 0x1000000
+export const shapeRingPolygon = 0x2000000
+export const shapeCountMask = 0xffffff
 export const shapeRanged = 1
 export const shapeTimed = 2
 export const shapeAlive = 0x1000000
-export const shapeSkip = 0x80000000
-export const shapePolygon = 0x40000000
 export const shapeRect = 0x40000000
 export const shapeIndexMask = 0x3fffffff
 
@@ -132,11 +137,8 @@ void main() {
 `
 
 export const shapeStrokeVertex: string = `${header}${shapeCommon}${shapePinned}
-layout(location = 0) in vec2 shapePrevious;
-layout(location = 1) in vec4 shapeFrom;
-layout(location = 2) in vec2 shapeTo;
-layout(location = 3) in vec2 shapeNext;
-layout(location = 4) in uint shapeWord;
+uniform sampler2D shapePoints;
+layout(location = 0) in uvec4 shapeRun;
 out vec2 vLocal;
 flat out vec4 vLine;
 flat out vec4 vStroke;
@@ -145,20 +147,11 @@ flat out uint vFlags;
 #ifdef SPHERE
 out float vSide;
 #endif
-const float miterLimit = 4.0;
-vec2 normalOf(vec2 from, vec2 to) {
-  vec2 d = to - from;
+const float miterLimit = ${miterLimit.toFixed(1)};
+vec4 shapePoint(uint ring, int k) { return texelFetch(shapePoints, texel(ring + uint(k)), 0); }
+vec2 unit(vec2 d) {
   float size = length(d);
-  return size > 1e-6 ? vec2(-d.y, d.x) / size : vec2(0.0);
-}
-vec2 cornerAt(vec2 at, vec2 own, vec2 other, bool cap, vec2 dir, float side, float extent) {
-  if (cap || dot(other, other) == 0.0) return at + own * side * extent + dir * 1.5;
-  vec2 sum = own + other;
-  float size = length(sum);
-  if (size < 1e-6) return at + own * side * extent;
-  vec2 miter = sum / size;
-  float scale = min(1.0 / max(dot(miter, own), 1e-4), miterLimit);
-  return at + miter * side * extent * scale;
+  return size > 1e-6 ? d / size : vec2(0.0);
 }
 void main() {
   vLocal = vec2(0.0);
@@ -167,44 +160,50 @@ void main() {
   vFill = vec4(0.0);
   vFlags = 0u;
   gl_Position = hidden;
-  if ((shapeWord & ${shapeSkip}u) != 0u) return;
+  int count = int(shapeRun.y & ${shapeCountMask}u);
+  if (count < 2) return;
   vec2 shift;
-  ShapeLook look = placedLook(shapeWord & shapeIndexMask, shift);
-#ifdef SPHERE
-  float sideFrom = worldSide(shapeFrom.xy + shift);
-  float sideTo = worldSide(shapeTo + shift);
-  vSide = gl_VertexID < 2 ? sideFrom : sideTo;
-  if (sideFrom < 0.0 && sideTo < 0.0) return;
-#endif
-  bool polygon = (shapeWord & ${shapePolygon}u) != 0u;
-  float halfWidth = look.halfWidth;
+  ShapeLook look = placedLook(shapeRun.w & shapeIndexMask, shift);
+  bool polygon = (shapeRun.y & ${shapeRingPolygon}u) != 0u;
+  bool closed = (shapeRun.y & ${shapeClosed}u) != 0u;
   vStroke = look.stroke;
   vFill = polygon ? look.fill : vec4(0.0);
   if (vStroke.a <= 0.0 && vFill.a <= 0.0) return;
-  vec2 a = toScreen(shapeFrom.xy + shift);
-  vec2 b = toScreen(shapeTo.xy + shift);
-  vec2 p = toScreen(shapePrevious + shift);
-  vec2 q = toScreen(shapeNext + shift);
-  vec2 d = b - a;
-  float size = length(d);
-  if (size < 1e-6) return;
-  vec2 dir = d / size;
-  vec2 n = vec2(-dir.y, dir.x);
-  bool capA = shapePrevious == shapeFrom.xy;
-  bool capB = shapeNext == shapeTo;
-  float stroke = vStroke.a > 0.0 ? halfWidth + 1.0 : 0.0;
-  float outer = max(stroke, vFill.a > 0.0 ? 1.5 : 0.0);
-  float inner = polygon ? stroke : outer;
-  bool right = gl_VertexID % 2 == 1;
-  float side = right ? 1.0 : -1.0;
-  float extent = right ? inner : outer;
-  vec2 corner = gl_VertexID < 2
-    ? cornerAt(a, n, normalOf(p, a), capA, -dir, side, extent)
-    : cornerAt(b, n, normalOf(b, q), capB, dir, side, extent);
-  vLocal = vec2(dot(corner - a, dir), dot(corner - a, n));
-  float scale = scaleAt(shapeFrom.xy + shift);
-  vLine = vec4(size, halfWidth, shapeFrom.z * scale, shapeFrom.w * scale);
-  vFlags = look.dash | (capA ? 4u : 0u) | (capB ? 8u : 0u);
+  int k = min(int(shapeRun.z) + (gl_VertexID >> 1), count - 1);
+  uint ring = shapeRun.x;
+  vec4 here = shapePoint(ring, k);
+  int before = k > 0 ? k - 1 : (closed ? count - 2 : k);
+  int after = k < count - 1 ? k + 1 : (closed ? 1 : k);
+  vec2 a = toScreen(here.xy + shift);
+  vec2 inDir = unit(a - toScreen(shapePoint(ring, before).xy + shift));
+  vec2 outDir = unit(toScreen(shapePoint(ring, after).xy + shift) - a);
+  vec2 tangent = unit(inDir + outDir);
+  if (dot(tangent, tangent) == 0.0) tangent = dot(outDir, outDir) > 0.0 ? outDir : inDir;
+  vec2 normal = vec2(-tangent.y, tangent.x);
+  vec2 edge = dot(inDir, inDir) > 0.0 ? inDir : outDir;
+  float miter = 1.0 / max(abs(dot(normal, vec2(-edge.y, edge.x))), ${(1 / miterLimit).toFixed(2)});
+  float side = (gl_VertexID & 1) == 1 ? 1.0 : -1.0;
+  float margin = 0.5 / pixelRatio + 0.25;
+  float stroke = vStroke.a > 0.0 ? look.halfWidth + margin : 0.0;
+  float outer = max(stroke, vFill.a > 0.0 ? margin : 0.0);
+  float extent = side > 0.0 && polygon ? stroke : outer;
+  float scale = scaleAt(shapePoint(ring, 0).xy + shift);
+  float along = here.z * scale;
+  vec2 corner = a + normal * (side * extent * miter);
+  if (!closed && k == 0) {
+    corner -= tangent * margin;
+    along -= margin;
+  }
+  if (!closed && k == count - 1) {
+    corner += tangent * margin;
+    along += margin;
+  }
+  vLocal = vec2(along, side * extent);
+  vLine = vec4(here.w * scale, look.halfWidth, 0.0, closed ? here.w * scale : 0.0);
+  vFlags = look.dash | (closed ? 0u : 4u);
+#ifdef SPHERE
+  vSide = worldSide(here.xy + shift);
+#endif
   gl_Position = toClip(corner);
 }
 `
@@ -227,11 +226,12 @@ void main() {
   float along = vLocal.x;
   float across = vLocal.y;
   float span = 1.0;
-  if ((vFlags & 4u) != 0u) span *= smoothstep(-aa, aa, along);
-  if ((vFlags & 8u) != 0u) span *= 1.0 - smoothstep(vLine.x - aa, vLine.x + aa, along);
+  if ((vFlags & 4u) != 0u) {
+    span = smoothstep(-aa, aa, along) * (1.0 - smoothstep(vLine.x - aa, vLine.x + aa, along));
+  }
   float halfWidth = vLine.y;
   float cover = (1.0 - smoothstep(halfWidth - aa, halfWidth + aa, abs(across))) * span;
-  cover *= dashCover(vFlags & 3u, vLine.z + along, across, halfWidth, vLine.w, aa);
+  cover *= dashCover(vFlags & 3u, along, across, halfWidth, vLine.w, aa);
   vec4 stroke = vStroke * cover;
   float fringe = across < 0.0 ? clamp(0.5 + across * pixelRatio, 0.0, 1.0) : 0.0;
   vec4 result = stroke + vFill * fringe * (1.0 - stroke.a);

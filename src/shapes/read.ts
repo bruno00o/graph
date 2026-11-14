@@ -1,12 +1,41 @@
 import { projectLatitude, projectLongitude } from '../core/geo'
 import type { InvalidShapeReason } from '../core/issues'
-import { emptyShape, type ShapeGeometryData, shapeKinds } from '../core/shape-engine'
-import { ringArea, triangleArea, triangulate } from './triangulate'
+import { type ShapeGeometryData, shapeKinds } from '../core/shape-engine'
+import { type Filled, fillShape } from './fill'
+import { detailedFrom } from './simplify'
+import { ringArea } from './triangulate'
 
 const earthRadius = 6_371_008.8
 const circleSteps = 128
 const degrees = Math.PI / 180
-const areaTolerance = 1e-7
+const noPoints = new Float64Array(0)
+const noIndices = new Uint32Array(0)
+
+export function emptyShape(): ShapeGeometryData {
+  return {
+    kind: shapeKinds.polygon,
+    points: noPoints,
+    rings: noIndices,
+    closed: true,
+    triangles: noIndices,
+    minX: 0,
+    minY: 0,
+    maxX: 0,
+    maxY: 0,
+    round: null,
+    invalid: 'empty',
+  }
+}
+
+export function filledWith(geometry: ShapeGeometryData, filled: Filled): ShapeGeometryData {
+  return {
+    ...geometry,
+    triangles: filled.triangles,
+    invalid: filled.bad ? 'self-intersecting' : geometry.invalid,
+    pending: false,
+    levels: filled.levels,
+  }
+}
 
 interface Field {
   readonly x?: unknown
@@ -18,7 +47,7 @@ interface Field {
 class Builder {
   xs: number[] = []
   rings: number[] = []
-  triangles: number[] = []
+  polygons: number[] = []
   invalid: InvalidShapeReason | null = null
   geo = false
   #ringStart = 0
@@ -109,7 +138,7 @@ function iterable(value: unknown): value is Iterable<unknown> {
   return typeof value === 'object' && value !== null && Symbol.iterator in value
 }
 
-function reverseRing(points: Float64Array, from: number, to: number): void {
+function reverseRing(points: number[], from: number, to: number): void {
   for (let a = from, b = to - 1; a < b; a++, b--) {
     const ax = points[a * 2] ?? 0
     const ay = points[a * 2 + 1] ?? 0
@@ -123,42 +152,36 @@ function reverseRing(points: Float64Array, from: number, to: number): void {
 function finishPolygon(builder: Builder, firstRing: number): void {
   const rings = builder.rings
   if (rings.length <= firstRing) return
+  const xs = builder.xs
   const first = firstRing === 0 ? 0 : (rings[firstRing - 1] ?? 0)
   const last = rings[rings.length - 1] ?? first
-  const points = new Float64Array(builder.xs.slice(first * 2, last * 2))
-  const ends = rings.slice(firstRing).map((end) => end - first)
-  let expected = 0
-  let start = 0
-  for (let ring = 0; ring < ends.length; ring++) {
-    const end = ends[ring] ?? start
-    const area = ringArea(points, start, end)
-    const outer = ring === 0
-    if (area > 0 !== outer && area !== 0) reverseRing(points, start, end)
-    expected += outer ? Math.abs(area) : -Math.abs(area)
+  let start = first
+  let outer = 0
+  for (let ring = firstRing; ring < rings.length; ring++) {
+    const end = rings[ring] ?? start
+    const area = ringArea(xs, start, end)
+    if (area > 0 !== (ring === firstRing) && area !== 0) reverseRing(xs, start, end)
+    if (ring === firstRing) outer = area
     start = end
   }
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
-  for (let k = 0; k < points.length; k += 2) {
-    minX = Math.min(minX, points[k] ?? 0)
-    minY = Math.min(minY, points[k + 1] ?? 0)
-    maxX = Math.max(maxX, points[k] ?? 0)
-    maxY = Math.max(maxY, points[k + 1] ?? 0)
+  for (let k = first * 2; k < last * 2; k += 2) {
+    minX = Math.min(minX, xs[k] ?? 0)
+    minY = Math.min(minY, xs[k + 1] ?? 0)
+    maxX = Math.max(maxX, xs[k] ?? 0)
+    maxY = Math.max(maxY, xs[k + 1] ?? 0)
   }
   const box = (maxX - minX) * (maxY - minY)
-  if (!(box > 0) || ringArea(points, 0, ends[0] ?? 0) === 0) {
-    builder.xs.length = first * 2
+  if (!(box > 0) || outer === 0) {
+    xs.length = first * 2
     rings.length = firstRing
     if (box > 0) builder.invalid = 'self-intersecting'
     return
   }
-  for (let k = 0; k < points.length; k++) builder.xs[first * 2 + k] = points[k] ?? 0
-  const result = triangulate(points, 0, ends)
-  for (let k = 0; k < result.count; k++) builder.triangles.push((result.indices[k] ?? 0) + first)
-  const drawn = triangleArea(points, result.indices, result.count, minX, minY)
-  if (Math.abs(drawn - expected) > areaTolerance * box) builder.invalid = 'self-intersecting'
+  builder.polygons.push(firstRing)
 }
 
 function readRings(builder: Builder, rings: unknown, positions: boolean): void {
@@ -323,7 +346,7 @@ function finish(builder: Builder, kind: 0 | 1, closed: boolean): ShapeGeometryDa
     points,
     rings: new Uint32Array(builder.rings),
     closed,
-    triangles: new Uint32Array(builder.triangles),
+    triangles: noIndices,
     minX,
     minY,
     maxX,
@@ -331,6 +354,8 @@ function finish(builder: Builder, kind: 0 | 1, closed: boolean): ShapeGeometryDa
     round: null,
     invalid: builder.invalid,
     geo: builder.geo,
+    polygons: Uint32Array.from(builder.polygons),
+    pending: kind === shapeKinds.polygon || points.length / 2 >= detailedFrom,
   }
 }
 
@@ -354,7 +379,7 @@ interface GeometryFields {
   readonly cornerRadius?: unknown
 }
 
-export function readShape(value: unknown): ShapeGeometryData | null {
+export function readOutline(value: unknown): ShapeGeometryData | null {
   if (value === null) return null
   if (typeof value !== 'object') return emptyShape()
   const fields = value as GeometryFields
@@ -396,4 +421,19 @@ export function readShape(value: unknown): ShapeGeometryData | null {
   if (fields.center !== undefined && fields.radius !== undefined) return readCircle(fields)
   if (fields.width !== undefined && fields.height !== undefined) return readRectangle(fields)
   return emptyShape()
+}
+
+export function readShape(value: unknown): ShapeGeometryData | null {
+  const read = readOutline(value)
+  if (!read?.pending) return read
+  return filledWith(
+    read,
+    fillShape({
+      points: read.points,
+      rings: read.rings,
+      polygons: read.polygons ?? noIndices,
+      polygon: read.kind === shapeKinds.polygon,
+      closed: read.closed,
+    }),
+  )
 }

@@ -14,16 +14,16 @@ import type {
   ShapeOptions,
 } from '../types'
 import { createShapeLayer } from '../webgl/shape-layer'
-import { shapeAnchor } from './anchor'
+import { createShapeLabeler } from './labels'
 import { createShapePicker } from './pick'
-import { readShape } from './read'
+import { createShapeWriter } from './writer'
 
 const engine: ShapeEngine = {
-  read: readShape,
+  writer: createShapeWriter,
   layer: createShapeLayer,
   svg: writeShapesSvg,
   picker: createShapePicker,
-  anchor: shapeAnchor,
+  labeler: createShapeLabeler,
 }
 
 type WithGeometry<T> = { readonly geometry: Channel<T, ShapeGeometry> }

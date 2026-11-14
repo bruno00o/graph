@@ -99,6 +99,7 @@ The work done off the main thread uses workers and `OffscreenCanvas`, which the 
 | --- | --- | --- |
 | GPU engine of the force layout | WebGL2 on an `OffscreenCanvas` | The layout runs on the CPU |
 | CPU engine of the force layout, edge bundling | Plain worker | Runs on the main thread in slices |
+| Triangulation of large shape batches | Plain workers | Runs on the main thread in slices |
 | Minimap | 2D `OffscreenCanvas`, each frame sent to the page as an `ImageBitmap` | Drawn on the page |
 
 Workers are started from a `blob:` URL: a content security policy without `worker-src blob:` turns them all to their fallback. PNG export compresses with `CompressionStream`, available in every current browser.

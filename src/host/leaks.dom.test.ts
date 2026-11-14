@@ -5,26 +5,38 @@ import { force } from '../layouts/force'
 import { createLegend, mountLegend } from '../legend'
 import { edges, nodes } from '../marks'
 import { shapes } from '../shapes'
+import { syncPoints } from '../shapes/writer'
 import { fakeRenderer } from '../testing/dom'
 import { createTimeline, mountTimeline } from '../timeline'
 import { createGraphHost, type GraphInstance } from './mount-graph'
 
-class FakeWorker {
-  static live = 0
-  onmessage: unknown = null
-  onerror: unknown = null
-  terminated = false
-  constructor() {
-    FakeWorker.live++
+const { FakeWorker } = vi.hoisted(() => {
+  class FakeWorker {
+    static live = 0
+    static shapes = 0
+    onmessage: unknown = null
+    onerror: unknown = null
+    terminated = false
+    readonly name: string
+    constructor(options?: { name?: string }) {
+      FakeWorker.live++
+      this.name = options?.name ?? ''
+      if (this.name === 'graph-shapes') FakeWorker.shapes++
+    }
+    postMessage(): void {}
+    terminate(): void {
+      if (!this.terminated) {
+        FakeWorker.live--
+        if (this.name === 'graph-shapes') FakeWorker.shapes--
+      }
+      this.terminated = true
+    }
   }
-  postMessage(): void {}
-  terminate(): void {
-    if (!this.terminated) FakeWorker.live--
-    this.terminated = true
-  }
-}
+  return { FakeWorker }
+})
 
 vi.mock('../minimap/worker?worker&inline', () => ({ default: FakeWorker }))
+vi.mock('../shapes/fill-worker?worker&inline', () => ({ default: FakeWorker }))
 
 const { createMinimap } = await import('../minimap')
 
@@ -51,10 +63,18 @@ const links: Link[] = items.slice(1).map((item, i) => ({
   to: item.id,
 }))
 
+const coast = Array.from({ length: syncPoints + 1 }, (_, k) => {
+  const angle = (k / (syncPoints + 1)) * Math.PI * 2
+  return [Math.cos(angle) * 300, Math.sin(angle) * 300] as const
+})
+
 function definition() {
   return defineGraph({
     marks: [
-      shapes([{ id: 'zone', geometry: { center: { x: 0, y: 0 }, radius: 100 } }]),
+      shapes([
+        { id: 'zone', geometry: { center: { x: 0, y: 0 }, radius: 100 } },
+        { id: 'coast', geometry: { rings: [coast] } },
+      ]),
       shapes([{ id: 'pinned', geometry: { center: { x: 0, y: 0 }, radius: 40 }, node: 'n0' }], {
         node: 'node',
         label: 'id',
@@ -323,6 +343,7 @@ describe('global resources', () => {
     expect(live.intersectionTargets).toBeGreaterThan(baseline.intersectionTargets)
     expect(live.mutationObservers).toBeGreaterThan(baseline.mutationObservers)
     expect(live.worker).toBeGreaterThan(baseline.worker)
+    expect(FakeWorker.shapes).toBe(1)
     expect(live.timers).toBeGreaterThan(baseline.timers)
     destroy()
   })

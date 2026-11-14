@@ -1,15 +1,27 @@
-import type { Point } from '../types'
-import type { InvalidShapeReason } from './issues'
+import type { Key, Point, View } from '../types'
+import type { GlobeCamera } from './globe'
+import type { ElementChanges, ShapeRecord } from './graph-model'
+import type { AnyIssue, InvalidShapeReason } from './issues'
+import type { LabelTextColumns } from './label-text'
 import type { LayerFilter } from './mark-layers'
-import type { PositionReader } from './positions'
+import type { PositionReader, Positions } from './positions'
 import type { ShapeStore } from './shape-store'
 import type { StateBuffers } from './state-buffers'
+import type { Sight } from './visibility'
 
 export const shapeKinds = { polygon: 0, line: 1, circle: 2, rectangle: 3 } as const
 
 export const shapePicks = { none: 0, painted: 1, stroke: 2 } as const
 
 export type ShapeKind = (typeof shapeKinds)[keyof typeof shapeKinds]
+
+export interface ShapeLevel {
+  readonly area: number
+  readonly error: number
+  readonly points: Float64Array
+  readonly rings: Uint32Array
+  readonly triangles: Uint32Array
+}
 
 export interface ShapeGeometryData {
   readonly kind: ShapeKind
@@ -24,6 +36,9 @@ export interface ShapeGeometryData {
   readonly round: Float64Array | null
   readonly invalid: InvalidShapeReason | null
   readonly geo?: boolean
+  readonly polygons?: Uint32Array
+  readonly pending?: boolean
+  readonly levels?: readonly ShapeLevel[]
 }
 
 export interface ShapeLayerInput {
@@ -38,9 +53,19 @@ export interface ShapeGlyphs {
   readonly count: number
 }
 
+export interface ShapeView {
+  readonly x: number
+  readonly y: number
+  readonly zoom: number
+  readonly width: number
+  readonly height: number
+  readonly pixelRatio: number
+  readonly globe: boolean
+}
+
 export interface ShapeLayer {
   sync(input: ShapeLayerInput): boolean
-  draw(layers: LayerFilter | null, globe?: boolean): void
+  draw(layers: LayerFilter | null, view: ShapeView, key: object): void
   labels(set: object, main: ShapeGlyphs, highlight: ShapeGlyphs): void
   drawLabels(set: object, pass: number, layers: LayerFilter | null): void
   forget(set: object): void
@@ -84,12 +109,84 @@ export interface ShapePicker {
   inside(polygon: readonly Point[], shown: (index: number) => boolean): number[]
 }
 
+export interface ShapeSource {
+  shapeAt?(index: number): ShapeRecord | undefined
+  shapes?(): Iterable<ShapeRecord>
+  node?(key: Key): { readonly index: number } | undefined
+}
+
+export interface ShapeWriter {
+  apply(model: ShapeSource, changes: ElementChanges | undefined, nodes: ElementChanges | null): void
+  collect(into: AnyIssue[]): void
+  drawOrder(): Uint32Array
+  settled(): Promise<void>
+  destroy(): void
+}
+
+export interface ShapeLabelColumns extends LabelTextColumns {
+  readonly text: readonly (string | null)[]
+  readonly labelBackground: Uint32Array
+  readonly anchor: Float64Array
+  readonly count: number
+}
+
+export interface ShapeLabelFrame {
+  readonly store: ShapeStore
+  readonly mask: Uint32Array
+  readonly flags: Int8Array
+  readonly highlighted: readonly number[]
+  readonly raise: number
+  readonly others: number
+  readonly always: readonly number[]
+}
+
+export interface ShapeTextBlock {
+  readonly width: number
+  readonly height: number
+}
+
+export interface ShapeLabelSelection {
+  readonly view: View
+  readonly width: number
+  readonly height: number
+  readonly globe: GlobeCamera | null
+  readonly positions: Positions
+  readonly sight: Sight
+  readonly all: boolean
+  readonly shrink: number
+  readonly minimum: number
+  readonly generation: number
+  room(): boolean
+  claim(left: number, top: number, right: number, bottom: number, force: boolean): boolean
+  taken(left: number, top: number, right: number, bottom: number): boolean
+  measure(
+    text: string,
+    weight: number,
+    font: string | null,
+    maxWidth: number,
+    size: number,
+  ): ShapeTextBlock
+  write(
+    index: number,
+    highlight: boolean,
+    block: ShapeTextBlock,
+    size: number,
+    pixels: number,
+    x: number,
+    y: number,
+  ): void
+}
+
+export interface ShapeLabeler {
+  place(selection: ShapeLabelSelection, frame: ShapeLabelFrame, phase: number): void
+}
+
 export interface ShapeEngine {
-  read(value: unknown): ShapeGeometryData | null
+  writer(store: ShapeStore): ShapeWriter
   layer(gl: WebGL2RenderingContext, blocks: Readonly<Record<string, number>>): ShapeLayer
   svg(store: ShapeStore, pen: ShapeSvgPen): string
   picker(store: ShapeStore, positions: PickPositions): ShapePicker
-  anchor(geometry: ShapeGeometryData): Point
+  labeler(): ShapeLabeler
 }
 
 export interface PickPositions extends PositionReader {
@@ -108,23 +205,4 @@ export function shapeEngineOf(mark: object): ShapeEngine | undefined {
 
 export function isDrawn(data: ShapeGeometryData | null | undefined): data is ShapeGeometryData {
   return data != null && (data.round !== null || data.points.length > 0)
-}
-
-const noPoints = new Float64Array(0)
-const noIndices = new Uint32Array(0)
-
-export function emptyShape(): ShapeGeometryData {
-  return {
-    kind: shapeKinds.polygon,
-    points: noPoints,
-    rings: noIndices,
-    closed: true,
-    triangles: noIndices,
-    minX: 0,
-    minY: 0,
-    maxX: 0,
-    maxY: 0,
-    round: null,
-    invalid: 'empty',
-  }
 }
