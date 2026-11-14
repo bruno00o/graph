@@ -104,6 +104,7 @@ export interface GraphModel {
   endpoints(key: Key): Endpoints | undefined
   pendingEdges(): Key[]
   adjacency(): Adjacency
+  refresh(kind: 'nodes' | 'edges' | 'shapes', keys: Iterable<Key>): number
   destroy(): void
 }
 
@@ -710,6 +711,24 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
 
     node(key) {
       return nodeOf(key)
+    },
+
+    refresh(kind, keys) {
+      const table = kind === 'nodes' ? nodeSources : kind === 'edges' ? edgeSources : shapeSources
+      const known =
+        kind === 'nodes'
+          ? (key: Key) => nodeOf(key) !== undefined
+          : kind === 'edges'
+            ? (key: Key) => isKey(key) && edgeIds.get(key) !== -1
+            : (key: Key) => isKey(key) && shapesByKey.has(key)
+      let marked = 0
+      for (const key of keys) {
+        if (!known(key)) continue
+        table.force(key)
+        marked++
+      }
+      if (marked > 0) schedule()
+      return marked
     },
 
     edge(key) {

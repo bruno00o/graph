@@ -80,6 +80,7 @@ import type {
   InteractionOptions,
   LabelOptions,
   LabelTextOptions,
+  LassoOptions,
   Layout,
   LayoutComputeOptions,
   LayoutRunOptions,
@@ -237,6 +238,7 @@ interface Inputs {
   LegendProps: LegendProps<'muted'>
   LegendTitles: NonNullable<LegendViewOptions['titles']>
   LegendViewOptions: LegendViewOptions<Marks>
+  LassoOptions: LassoOptions
   LensInput: LensInput
   LensOptions: LensOptions
   LineWaypointsOptions: LineWaypointsOptions

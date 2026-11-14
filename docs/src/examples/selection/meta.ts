@@ -3,8 +3,8 @@ import type { ExampleMeta } from '../types'
 export default {
   title: 'Selection and lasso',
   description:
-    'A thousand nodes from two arrays. Select a node to fade everything outside its neighborhood, or draw a lasso around several.',
-  hint: 'Shift and drag to draw a lasso. Arrows move the focus, Enter selects.',
+    'A thousand nodes from two arrays. Select a node to fade everything outside its neighborhood, or draw a lasso around several nodes and the edges between them.',
+  hint: 'Shift and drag to draw a lasso, or press Lasso without Shift. Arrows move the focus, Enter selects.',
   category: 'interaction',
   order: 10,
   tags: ['Vanilla'],

@@ -7,6 +7,7 @@ import {
   edges,
   type Hull,
   hull,
+  type LassoOptions,
   type LensOptions,
   type Mark,
   nodes,
@@ -32,10 +33,34 @@ describe('defineGraph', () => {
       select: 'multiple',
       drag: true,
       lasso: false,
+      lassoModifier: 'Shift',
+      lassoEdges: false,
       keyboard: true,
       fold: true,
       lens: { radius: 120, zoom: 3, key: null },
     })
+  })
+
+  it('resolves lasso options', () => {
+    const resolve = (option: boolean | LassoOptions) => {
+      const { lasso, lassoModifier, lassoEdges } = defineGraph({
+        marks: [],
+        interaction: { lasso: option },
+      }).interaction
+      return { lasso, lassoModifier, lassoEdges }
+    }
+    expect(resolve(true)).toEqual({ lasso: true, lassoModifier: 'Shift', lassoEdges: false })
+    expect(resolve({ modifier: null, edges: true })).toEqual({
+      lasso: true,
+      lassoModifier: null,
+      lassoEdges: true,
+    })
+    expect(resolve({ modifier: undefined, edges: undefined })).toEqual({
+      lasso: true,
+      lassoModifier: 'Shift',
+      lassoEdges: false,
+    })
+    expect(() => resolve({ modifier: 'Alt' as 'Shift' })).toThrow(TypeError)
   })
 
   it('resolves lens options', () => {

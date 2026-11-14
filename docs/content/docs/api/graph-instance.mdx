@@ -5,7 +5,7 @@ description: The object returned by mountGraph, and by the ref of the Graph comp
 
 `S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
-Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `issues`, `count`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
+Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `issues`, `count`, `shown`, `isShown`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
 
 ## Members
 
@@ -68,14 +68,17 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `element` | Removed from the page |
 | `view.get`, `view.toScreen`, `view.toWorld`, `selection.get`, `focus.get`, `states.get`, `states.has`, `groups.folded`, `groups.isFolded`, `layers.hidden`, `layers.isHidden`, `time.get`, `lens.get`, `lens.toWorld` | Answer from the last state of the store |
 | `groups.keyOf` | Returns the key, as before |
+| `drawsOnMap` | Keeps its value |
+| `isShown` | `false` |
 | `pick`, `paths.shortest` | `null` |
 | `endpoints`, `datumOf`, `positions.get`, `groups.parent` | `undefined` |
 | `neighbors`, `edgesOf`, `issues`, `groups.children`, `layers.names` | An empty array |
+| `shown` | Empty lists of keys |
 | `positions.snapshot` | An empty `Map` |
 | `count` | Zero for every count |
 | `paths.reach`, `support.carriers`, `support.carried` | An empty result |
 | `on`, `anchors.set` | Register nothing and return a function that does nothing |
-| `update`, `destroy`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
+| `update`, `destroy`, `refresh`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
 | `layout.run`, `bundling.run`, `routing.run` | Resolve to `false`. A layout run in progress at `destroy` resolves to `false` too |
 | `layout.compute` | Rejects with `signal.reason`, also while it computes at `destroy` |
 | `drawn`, `loaded` | Reject with `signal.reason` |
@@ -208,6 +211,34 @@ With a [shape mark](/docs/shapes) in the definition, the counts hold the shapes 
 ```ts
 const { nodes, shown } = graph.count()
 status.textContent = `${shown.nodes} of ${nodes} nodes shown`
+```
+
+## Shown elements
+
+```ts
+shown(): ElementKeys<M>
+isShown(element: GraphElement | { readonly kind: 'shape'; readonly key: Key }): boolean
+```
+
+`shown()` lists the keys of what `count().shown` counts, in the order of their indices: a folded group gives its own key and none of the nodes it hides, and an edge drawn for several merged edges gives the key of each of them, those of a hidden half of a [merged pair](/docs/transformations#one-direction-per-half) left out. The lists hold `shapes` when the definition has a shape mark. Like `count()`, it reads every element, then returns the same object until something it depends on changes. `isShown` answers for one element without reading the others: `false` for an unknown key, a node hidden in a folded group or an edge that waits for an end.
+
+```ts
+const visible = graph.shown()
+exportRows(rows.filter((row) => visible.nodes.includes(row.id)))
+graph.isShown({ kind: 'node', key: 'a' })
+```
+
+## Read again
+
+```ts
+refresh(keys: ElementKeysInput): void
+```
+
+The graph reads an element again only when its item changes, as an object: see [Data](/docs/data). When a function of a mark reads something else, such as a `Map` of names or a value of your app, `refresh` reads the given nodes, edges and shapes again at the next frame, every channel and style, as if their items had changed, and leaves the others alone. Unknown keys are ignored. An edge merged in an aggregated edge is read again, and the aggregated edge with it.
+
+```ts
+names.set('a', 'Renamed')
+graph.refresh({ nodes: ['a'] })
 ```
 
 ## Layout

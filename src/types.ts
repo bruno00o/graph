@@ -522,6 +522,13 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   /** Look of the node while it is an unfolded group, drawn as a container behind its children. */
   readonly container?: ContainerOptions<T> | undefined
   /**
+   * Whether the user can drag the node, with `interaction.drag`. A press on a node that cannot be
+   * dragged moves the view, or draws the lasso, as on the background, and a dragged selection
+   * leaves it in place. An unfolded group takes the `drag` of its `container` when set.
+   * @default true
+   */
+  readonly drag?: Style<T, boolean> | undefined
+  /**
    * Scales of this mark alone, each with its own extent and categories. A scale left out is the
    * one of the definition, shared with the other marks.
    */
@@ -579,6 +586,11 @@ export interface ContainerOptions<T> {
    * @default 4
    */
   readonly gap?: Style<T, number> | undefined
+  /**
+   * Whether the user can drag the unfolded group by its container, carrying its children. Defaults
+   * to the `drag` of the node.
+   */
+  readonly drag?: Style<T, boolean> | undefined
 }
 
 /**
@@ -855,6 +867,11 @@ export interface AggregateEdge<T = unknown> {
   readonly backward: AggregateDirection<T>
   /** Value of the `by` option of `merge` that the merged edges share. Missing without one. */
   readonly value?: Key
+  /**
+   * Identifier of the aggregated edge, made from its mark, its two ends, the `by` value and, for
+   * directed merges, its direction. Unlike `keys[0]`, it stays while the aggregated edge exists.
+   */
+  readonly id: string
 }
 
 /** Merged edges of an `AggregateEdge` that go one way. */
@@ -1462,10 +1479,11 @@ export interface InteractionOptions {
   readonly drag?: boolean | undefined
   /**
    * Shift and drag from the background draws a lasso that adds the nodes inside to the selection.
-   * Needs `select: 'multiple'`.
+   * `LassoOptions` sets the key to hold, or none, and whether edges are taken. Needs
+   * `select: 'multiple'`.
    * @default false
    */
-  readonly lasso?: boolean | undefined
+  readonly lasso?: boolean | LassoOptions | undefined
   /**
    * Focus, select and move the view from the keyboard. The graph element becomes focusable.
    * @default true
@@ -1483,6 +1501,21 @@ export interface InteractionOptions {
    * @default false
    */
   readonly lens?: boolean | LensOptions | undefined
+}
+
+/** Options of the lasso, in `interaction.lasso`. */
+export interface LassoOptions {
+  /**
+   * Key to hold while dragging to draw a lasso, or `null` for no key: then every drag that does not
+   * move a node draws a lasso instead of moving the view, as in a lasso mode of a toolbar.
+   * @default 'Shift'
+   */
+  readonly modifier?: 'Shift' | null | undefined
+  /**
+   * Also adds to the selection the edges whose two ends, as drawn, are inside the lasso.
+   * @default false
+   */
+  readonly edges?: boolean | undefined
 }
 
 /** Options of the magnifying lens, in `interaction.lens`. */
@@ -1529,8 +1562,12 @@ export interface ResolvedInteraction {
   readonly select: SelectMode
   /** Whether nodes can be dragged. */
   readonly drag: boolean
-  /** Whether Shift and drag draws a lasso. */
+  /** Whether a drag can draw a lasso. */
   readonly lasso: boolean
+  /** Key to hold while dragging to draw a lasso, or `null` when every drag can draw one. */
+  readonly lassoModifier: 'Shift' | null
+  /** Whether the lasso takes the edges whose two ends are inside. */
+  readonly lassoEdges: boolean
   /** Whether the keyboard drives the graph. */
   readonly keyboard: boolean
   /** Whether double-click and Enter fold and unfold groups. */

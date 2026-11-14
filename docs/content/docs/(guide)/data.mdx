@@ -182,6 +182,13 @@ When a mark keeps its place and its options are equal, only the items that chang
 
 With a live source, there is nothing to update: changes arrive through the subscription.
 
+A function of a mark that reads something besides its item, such as a `Map` of names kept by your app, is not called again when that thing changes: the item is the same object. Call `graph.refresh` with the keys to read again, rather than rebuilding the array; see [Read again](/docs/api/graph-instance#read-again).
+
+```ts
+names.set('n5', 'Renamed')
+graph.refresh({ nodes: ['n5'] })
+```
+
 Examples: [changing data](/examples/changing-data) replaces the array on a timer, [expand on double-click](/examples/expand-on-double-click) adds the neighbors of a node, [edges in batches](/examples/edges-in-batches) adds 50,000 edges at a time, and [positions from data](/examples/positions-from-data) moves nodes by their `x` and `y`.
 
 ## Removed elements

@@ -2,13 +2,16 @@
 
 The graph reads two plain arrays of a thousand nodes and two thousand edges. Each node has a position in its `x` and `y` fields, so nothing moves on load.
 
-The definition declares a free state, `kept`, whose `others` style gives every element outside it a low opacity and no label, and turns the lasso on with `interaction: { lasso: true }`.
+The definition declares a free state, `kept`, whose `others` style gives every element outside it a low opacity and no label, and turns the lasso on with `interaction: { lasso: { edges: true } }`: the lasso also takes the edges whose two ends are inside.
 
-On `selectionchange`, the example collects the selected nodes, their neighbors from `graph.neighbors(key)` and their edges from `graph.edgesOf(key)`, and puts them into `kept` with `graph.states.set`. Everything else fades while the state has members. An empty selection clears the state.
+The button builds the definition again with `modifier: null`, from the same marks, and passes it to `graph.update`: every drag on the background then draws a lasso, and the data is not read again.
+
+On `selectionchange`, the example collects the selected nodes and edges, the neighbors from `graph.neighbors(key)` and their edges from `graph.edgesOf(key)`, and puts them into `kept` with `graph.states.set`. Everything else fades while the state has members. An empty selection clears the state.
 
 ## Try it
 
 - Click a node: only its neighborhood stays visible.
-- Hold Shift and drag from an empty area to draw a lasso. The nodes inside join the selection.
+- Hold Shift and drag from an empty area to draw a lasso. The nodes inside, and the edges between them, join the selection.
+- Press **Lasso without Shift**, then drag from anywhere but a node. The wheel still zooms and moves the view.
 - Press Tab to focus the graph, then use the arrow keys to move the focus and Enter to select.
 - Press Escape to clear the selection.
