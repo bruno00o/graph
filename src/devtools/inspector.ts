@@ -39,6 +39,7 @@ export interface PerformanceReport {
   readonly labelTime: number | null
   readonly nodeLabels: number | null
   readonly edgeLabels: number | null
+  readonly shapeLabels: number | null
   readonly textureBytes: number | null
 }
 
@@ -240,6 +241,7 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
       labelTime: renderer?.labelTime ?? null,
       nodeLabels: renderer?.nodeLabels ?? null,
       edgeLabels: renderer?.edgeLabels ?? null,
+      shapeLabels: renderer?.shapeLabels ?? null,
       textureBytes: renderer?.textureBytes ?? null,
     },
   }

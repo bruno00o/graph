@@ -1,7 +1,7 @@
 import { type GridInput, gridInput } from '../core/background-grid'
 import { containerShape } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
-import { type GlobeCamera, globeScreen } from '../core/globe'
+import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
 import type { GraphModel } from '../core/graph-model'
 import { type ContainerSource, HullLayer } from '../core/hull-layer'
 import { halfWidthOf, isBox, nodeUnit } from '../core/node-shape'
@@ -88,34 +88,46 @@ export function createDecorations(context: DecorationContext): Decorations {
     context.element,
     context.canvas,
     {
-      view,
       size: () => context.state(),
       nodeBox(key: Key, box: AnchorBox): boolean {
         const record = model.node(key)
         const nodes = scene.nodes
         if (!record || nodes.alive[record.index] !== 1) return false
         const index = record.index
-        const { width, height } = context.state()
-        const current = view()
         if (!nodeShown(nodes, index, context.sight())) return false
+        const globe = context.sphere?.() ?? null
+        const x0 = positions.x(index)
+        const y0 = positions.y(index)
+        let x: number
+        let y: number
+        let zoom: number
+        if (globe) {
+          if (globeScreen(globe, x0, y0, screenPoint) < 0) return false
+          x = screenPoint.x
+          y = screenPoint.y
+          zoom = globeScale(globe, y0)
+        } else {
+          const { width, height } = context.state()
+          const current = view()
+          x = (x0 - current.x) * current.zoom + width / 2
+          y = (y0 - current.y) * current.zoom + height / 2
+          zoom = current.zoom
+        }
         const boxes = nodes.shape[index] === containerShape ? context.containers()?.boxes : null
         const size = nodes.size[index] ?? 0
-        const radius =
-          (nodes.screenUnits[index] === 1 ? size / 2 : (size / 2) * current.zoom) +
-          (nodes.outlineWidth[index] ?? 0)
         const outline = nodes.outlineWidth[index] ?? 0
+        const radius = (nodes.screenUnits[index] === 1 ? size / 2 : (size / 2) * zoom) + outline
         const halfWidth = boxes
-          ? (boxes[index * 4] ?? 0) * current.zoom
+          ? (boxes[index * 4] ?? 0) * zoom
           : isBox(nodes, index)
-            ? halfWidthOf(nodes, index) * nodeUnit(nodes, index, current.zoom) + outline
+            ? halfWidthOf(nodes, index) * nodeUnit(nodes, index, zoom) + outline
             : radius
-        const halfHeight = boxes ? (boxes[index * 4 + 1] ?? 0) * current.zoom : radius
-        const x = (positions.x(index) - current.x) * current.zoom + width / 2
-        const y = (positions.y(index) - current.y) * current.zoom + height / 2
+        const halfHeight = boxes ? (boxes[index * 4 + 1] ?? 0) * zoom : radius
         box.x0 = x - halfWidth
         box.x1 = x + halfWidth
         box.y0 = y - halfHeight
         box.y1 = y + halfHeight
+        box.scale = zoom
         return true
       },
       edgePoint(key: Key, box: AnchorBox): boolean {
@@ -131,24 +143,35 @@ export function createDecorations(context: DecorationContext): Decorations {
           width,
           height,
           paths: context.paths ?? null,
+          globe: context.sphere?.() ?? null,
         }
         if (!edgeAnchor(frame, index, edgePoint)) return false
         box.x0 = box.x1 = edgePoint.x
         box.y0 = box.y1 = edgePoint.y
+        box.scale = frame.globe
+          ? globeScale(
+              frame.globe,
+              (positions.y(scene.edges.source[index] ?? 0) +
+                positions.y(scene.edges.target[index] ?? 0)) /
+                2,
+            )
+          : frame.view.zoom
         return true
       },
       worldPoint(point: Point, box: AnchorBox): boolean {
         const globe = context.sphere?.() ?? null
         if (globe) {
-          if (globeScreen(globe, point.x, point.y, screenPoint) <= 0) return false
+          if (globeScreen(globe, point.x, point.y, screenPoint) < 0) return false
           box.x0 = box.x1 = screenPoint.x
           box.y0 = box.y1 = screenPoint.y
+          box.scale = globeScale(globe, point.y)
           return true
         }
         const { width, height } = context.state()
         const current = view()
         box.x0 = box.x1 = (point.x - current.x) * current.zoom + width / 2
         box.y0 = box.y1 = (point.y - current.y) * current.zoom + height / 2
+        box.scale = current.zoom
         return true
       },
       stateNodes,

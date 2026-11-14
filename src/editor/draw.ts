@@ -1,6 +1,6 @@
 import { worldSize, worldToGeo } from '../core/geo'
 import { effectiveAreas } from '../shapes/simplify'
-import type { Point, ShapeGeometry } from '../types'
+import type { Point, WritableShapeGeometry } from '../types'
 
 /**
  * A tool that draws new shapes: `'rectangle'`, `'circle'`, `'line'`, `'polygon'`, `'freehand'`, or
@@ -68,7 +68,7 @@ function position(point: Point): number[] {
   return [wrapped(place.longitude), place.latitude]
 }
 
-function polygon(points: readonly Point[]): ShapeGeometry {
+function polygon(points: readonly Point[]): WritableShapeGeometry {
   let area = 0
   for (let at = 0; at < points.length; at++) {
     const a = points[at]
@@ -86,7 +86,11 @@ export function worldToMeters(distance: number, y: number): number {
   return (distance * 2 * Math.PI * earthRadius * Math.cos(latitude)) / worldSize
 }
 
-export function rectangleGeometry(a: Point, b: Point, degrees: boolean): ShapeGeometry | null {
+export function rectangleGeometry(
+  a: Point,
+  b: Point,
+  degrees: boolean,
+): WritableShapeGeometry | null {
   const x = Math.min(a.x, b.x)
   const y = Math.min(a.y, b.y)
   const width = Math.abs(a.x - b.x)
@@ -101,7 +105,11 @@ export function rectangleGeometry(a: Point, b: Point, degrees: boolean): ShapeGe
   ])
 }
 
-export function circleGeometry(center: Point, edge: Point, degrees: boolean): ShapeGeometry | null {
+export function circleGeometry(
+  center: Point,
+  edge: Point,
+  degrees: boolean,
+): WritableShapeGeometry | null {
   const radius = Math.hypot(edge.x - center.x, edge.y - center.y)
   if (!(radius > 0)) return null
   if (!degrees) return { center: { x: center.x, y: center.y }, radius }
@@ -130,7 +138,7 @@ export function pathGeometry(
   points: readonly Point[],
   closed: boolean,
   degrees: boolean,
-): ShapeGeometry | null {
+): WritableShapeGeometry | null {
   const kept = distinct(points, closed)
   if (kept.length < (closed ? 3 : 2)) return null
   if (closed) {

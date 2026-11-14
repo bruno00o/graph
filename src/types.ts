@@ -1053,6 +1053,15 @@ export type ShapeGeometry =
   | LineStringGeometry
   | MultiLineStringGeometry
 
+type Writable<T> = T extends object ? { -readonly [K in keyof T]: Writable<T[K]> } : T
+
+/**
+ * A `ShapeGeometry` whose arrays and properties are writable all the way down. The editor hands
+ * out a fresh copy that is never frozen and shares nothing with the items, so it can be assigned
+ * to a writable draft, such as the one of `collection.update`, and still to a `ShapeGeometry`.
+ */
+export type WritableShapeGeometry = Writable<ShapeGeometry>
+
 /**
  * What of a shape takes the pointer: `'painted'`, its inside when it is filled and its outline when
  * it is stroked; `'stroke'`, its outline only; `false`, nothing, the pointer goes through.
