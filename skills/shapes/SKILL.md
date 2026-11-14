@@ -6,28 +6,32 @@ description: >
   polygons with holes in world units, or GeoJSON polygons and lines in degrees;
   styling them with fill, stroke, dash and opacity; letting people hover, click,
   select and lasso them, or keeping a decorative zone out of the pointer's way;
-  dimming, hiding or highlighting them with states; showing them by zoom, time or
-  layer; framing, counting and exporting them; and finding unreadable geometry.
-  Not for an outline that follows a set of nodes (hulls or groups), nor for
-  shapes on a MapLibre map, which are not drawn yet.
+  labeling them; pinning a ring or a halo to a node; drawing them on a MapLibre
+  map; dimming, hiding or highlighting them with states; showing them by zoom,
+  time or layer; framing, counting and exporting them; and finding unreadable
+  geometry. Not for an outline that follows a set of nodes (hulls or groups).
 metadata:
   purpose: >
     The shapes() mark of @bruno00o/graph: geometry forms and units, style and
-    drawing order, picking, selection and events, states, zoom, time and layers,
-    fit, count and issues, exports, and the mistakes that leave a zone unclickable,
-    mispositioned, untyped or missing.
+    drawing order, picking, selection and events, labels, pins to nodes, maps,
+    states, zoom, time and layers, fit, count and issues, exports, and the mistakes
+    that leave a zone unclickable, mispositioned, untyped or missing.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
   - src/shapes/index.ts
   - src/shapes/read.ts
   - src/shapes/pick.ts
+  - src/shapes/anchor.ts
+  - src/shapes/wrap.ts
+  - src/shapes/subdivide.ts
   - src/core/shape-store.ts
   - src/core/shape-engine.ts
   - src/types.ts
   - src/host/events.ts
   - src/host/graph-instance.ts
   - docs/content/docs/(guide)/shapes.mdx
+  - docs/content/docs/(guide)/map.mdx
   - docs/content/docs/api/shapes.mdx
 requires:
   - core
@@ -35,7 +39,7 @@ requires:
 
 # Draw shapes under a graph
 
-Load the core skill first (`intent load @bruno00o/graph#core`). A shape mark draws free areas and lines from your data, under the nodes and the edges: polygons with holes, discs and rings, rectangles, and lines. It is a third kind of mark beside `nodes()` and `edges()`: its items have keys, come from arrays or live sources, appear in `issues()` and `count()`, can be hovered, clicked, selected, styled by states, shown by zoom, time and layer, and exported. `shapes` has its own entry point, `@bruno00o/graph/shapes`, so a graph without shapes never loads its geometry reader or triangulation, and does no work for them.
+Load the core skill first (`intent load @bruno00o/graph#core`). A shape mark draws free areas and lines from your data, under the nodes and the edges: polygons with holes, discs and rings, rectangles, and lines. It is a third kind of mark beside `nodes()` and `edges()`: its items have keys, come from arrays or live sources, appear in `issues()` and `count()`, can be hovered, clicked, selected, labeled, pinned to a node, styled by states, shown by zoom, time and layer, drawn on a map, and exported. `shapes` has its own entry point, `@bruno00o/graph/shapes`, so a graph without shapes never loads its geometry reader or triangulation, and does no work for them.
 
 ## When to use shapes
 
@@ -43,10 +47,11 @@ Load the core skill first (`intent load @bruno00o/graph#core`). A shape mark dra
 | --- | --- |
 | An area or a line that exists in your data with its own coordinates: a zone, a parcel, a region, a corridor | `shapes()` |
 | An outline that follows a set of nodes and moves with them | a hull (`hull()`, tools skill) |
+| A ring, a halo or a zone around one node that moves with it | `shapes({ node })` |
 | Nodes inside a node that people fold and unfold | group containers (groups skill) |
 | HTML or text pinned to a node, an edge or a point | anchors (tools skill) |
 | An edge that bends through points or along a GeoJSON line | `waypoints` (edges skill) |
-| Areas on a MapLibre map | nothing yet: shapes are not drawn on a map |
+| Areas on a MapLibre map | `shapes()` with geometry in degrees, mounted by `mountMapGraph` |
 
 ## Core Patterns
 
@@ -209,6 +214,30 @@ console.log(graph.count().shapes)
 
 The decorative mark is listed first so it draws under the selectable one, and its keys differ from the other mark's.
 
+### Label shapes
+
+`label` is a text channel (a field or a function), or an object with the text options of node labels: `text` (required), `background`, `color`, `size` (12 pixels at zoom 1 by default), `weight`, `font` and `maxWidth`.
+
+One horizontal label per shape, on the point of a polygon farthest from its outline, the center of a circle or a rectangle, the top of the band of a ring, or the middle of the longest segment of a line. Labels never overlap and give way to node and edge labels; a shape label hides under 8 pixels on screen. The states `label` (`true`, `false`, `'always'`) and `labelColor` act on it. Details: [labels and pins](references/labels-and-pins.md).
+
+### Pin shapes to a node
+
+`node` is a channel that returns the key of a node. The geometry is then in world units from where the node is drawn: `{ center: { x: 0, y: 0 }, radius: 80 }` is a disc around it.
+
+```ts
+import { type ShapeGeometry } from '@bruno00o/graph'
+import { shapes } from '@bruno00o/graph/shapes'
+
+type Halo = { id: string; root: string; geometry: ShapeGeometry }
+const halos: Halo[] = [
+  { id: 'near', root: 'a', geometry: { center: { x: 0, y: 0 }, radius: 120, inner: 60 } },
+]
+
+shapes(halos, { node: 'root', pick: false })
+```
+
+The shape follows its node through layouts, drags and glides, stays under nodes and edges, and does not turn or grow with the node. While no node has the key it waits: not drawn, not in `count().shapes`, held by `count().pendingShapes`, and not an issue. A hidden node hides its shape. Keep its geometry in world units. Details: [labels and pins](references/labels-and-pins.md).
+
 ### Style shapes with states
 
 States style shapes as they style nodes and edges. `selected` draws the outline of a shape in the accent color, 2 pixels wide, and `hovered` in the ink color; both are raised. Free states take a `shapes` list, and a style by kind takes `shapes` beside `nodes` and `edges`:
@@ -243,7 +272,7 @@ graph.states.add('gone', { shapes: ['pond'] })
 console.log(graph.states.has('flagged', { kind: 'shape', key: 'north' }))
 ```
 
-- A shape state restyles `fill`, `stroke`, `strokeWidth` and `opacity`. `label`, `halo`, `outline` and the other node and edge properties do not apply. `raise` draws a shape after the other shapes and picks it first among them, still under containers, hulls, edges and nodes. `hide` takes a shape out of drawing, picking, the lasso, `count().shown` and the exports.
+- A shape state restyles `fill`, `stroke`, `strokeWidth` and `opacity`, and its label with `label` and `labelColor`. `halo`, `outline` and the other node and edge properties do not apply. `raise` draws a shape after the other shapes and picks it first among them, still under containers, hulls, edges and nodes. `hide` takes a shape out of drawing, picking, the lasso, `count().shown` and the exports.
 - `others` crosses kinds, in both directions. A state is active as soon as it has one member of any kind, and a style for both kinds with `others` styles everything outside it: nodes, edges and the other shapes. `selected: { others: { opacity: 0.2 } }` therefore dims everything outside the selected zone, and also dims the zones when a node is selected.
 - To dim everything only while a zone is selected (not when a node is), declare a free state with `others` and fill it from the selection: `graph.on('selectionchange', ({ selection }) => selection.shapes.length === 0 ? graph.states.clear('focus') : graph.states.set('focus', { shapes: selection.shapes }))`. Its `others` also dims a `pick: false` backdrop, since it is not a member.
 - To dim some kinds and not others, give `others` by kind. A kind left out is not styled: `{ nodes: { others: { opacity: 0.2 } } }` dims the nodes outside the state and leaves every zone as it is. A built-in state keeps its default style for a kind left out, so the selected zone still draws its outline.
@@ -282,7 +311,7 @@ A shape is visible above its `minZoom` and below its `maxZoom` (zoom is screen p
 ### Frame, count and check
 
 - `graph.view.fit()` frames every node and every shape. `fit({ nodes })` or `fit({ edges })` frames only what they name. `fit({ shapes: ['north'] })` frames the box of those shapes, alone or with `nodes` and `edges`. Keys of unknown or unreadable shapes are ignored.
-- With a shape mark, `graph.count()` has `shapes` (one per key) and `shown.shapes` (drawn: readable geometry, not hidden by zoom, time, layer or state).
+- With a shape mark, `graph.count()` has `shapes` (one per key, without the pinned shapes that wait for their node), `pendingShapes` (those that wait) and `shown.shapes` (drawn: readable geometry, not hidden by zoom, time, layer or state). `fit` frames a pinned shape where its node is, or where a gliding layout takes it, and leaves a waiting one out.
 - Geometry that cannot be drawn is listed by `graph.issues()`, never thrown: `{ type: 'invalid-shape', kind: 'shapes', key, reason }`, with `reason` `'empty'` (unreadable, or no area nor length) or `'self-intersecting'` (rings that cross: drawn as well as it can). An item without a usable key or with a duplicate key is a `missing-key` or `duplicate-key` issue with `kind: 'shapes'`. A typed graph has these issue types only when it has a shape mark.
 
 ```ts
@@ -304,14 +333,15 @@ graph.view.fit({ shapes: ['flat'], duration: 300 })
 
 Here `broken` is `['flat']`: a ring of two points is `'empty'`, `count().shapes` is 1 and `shown.shapes` is 0.
 
+### Draw shapes on a map
+
+`mountMapGraph` and `<MapGraph>` draw, pick, lasso, label and export shapes (`exportMapPng`, and the SVG export on its flat map), on a flat map and on the globe, under containers, hulls, edges and nodes. Give geometry in degrees and it lines up with the basemap and with nodes placed by `longitude` and `latitude`. A circle centered on a place in degrees takes its radius in meters; a shape in world units stays in world units, 512 of them around the whole Earth. A shape in degrees that crosses the antimeridian shows on both sides of a flat map. Details and an example: [shapes on a map](references/maps.md).
+
 ### Update and export
 
 - Update shapes as any data (core skill): new arrays, new item objects, `graph.update({ definition })`. The geometry is read again only when the item is a new object and the geometry it returns is a new object, so change a zone by replacing the item with a new geometry. A `geometry` function that builds a new object on every call re-reads every shape of its mark on every update: return the stored object.
-- `exportPng` and `exportSvg` draw shapes after the grid and under containers, hulls, edges and nodes, with the states, raised shapes, hidden shapes, zoom, time window and layers of the moment. `region: 'graph'` frames the shapes too (export skill).
-
-### What is not there yet
-
-Shapes have no labels, no `node` link (a shape that follows or wraps a node: use a hull), no dragging or editing, no keyboard focus, no anchor target, and they are not in the legend or the minimap. On a graph inside a MapLibre map they are counted but not drawn nor picked, with a warning once in development (`graph: shapes are not drawn on a map yet`): `count().shown.shapes` stays 0.
+- `exportPng` and `exportSvg` draw shapes and their labels after the grid and under containers, hulls, edges and nodes, with the states, raised shapes, hidden shapes, zoom, time window and layers of the moment. `region: 'graph'` frames the shapes too, pinned ones where they are drawn (export skill).
+- Not there: dragging or editing shapes (dragging a pinned shape does not move its node), keyboard focus, anchor targets, the legend and the minimap. A label is horizontal and does not follow a line or the curve of a ring, and on a flat map the label of a shape across the antimeridian shows on one side only.
 
 ## Common Mistakes
 
@@ -343,25 +373,29 @@ Correct:
 shapes([{ id: 'sea', geometry: { x: -800, y: -600, width: 1600, height: 1200 } }], { pick: false })
 ```
 
-### HIGH Expecting labels on shapes
+### HIGH Mixing degrees and world units
 
-Shapes have no labels yet, and the option does not exist.
+GeoJSON and `{ longitude, latitude }` points are projected to a world 512 units wide. Nodes placed with `x` and `y` live in your own world units, so a GeoJSON zone does not land around them: it sits in a 512-unit box near the origin. Place nodes with `longitude` and `latitude` too, or give the zones points in world units. On a graph without a map, both place and zone then use the same projection. The same applies to a pinned shape (its geometry is in world units around the node) and to a shape on a map (a geometry in world units does not line up with the basemap).
 
-```ts
+### HIGH A pin that pins nothing
+
+`node` pins a shape only when its channel returns a key. A `null`, an `undefined` or any value that is not a string or a finite number leaves the shape ordinary, with its geometry read at the coordinates of the world: a ring written around `{ x: 0, y: 0 }` then sits at the origin, not around a node, and nothing warns. Return a key for every item, or filter out the items that have no node.
+
+### HIGH Label options without a text
+
+`label` takes a text channel or an object whose `text` is required. Options alone, such as `{ size: 14 }`, do not compile, and the text must come from a field or a function: a literal string is read as a field name.
+
+```ts expect-error=TS2769
 import { type ShapeGeometry } from '@bruno00o/graph'
 import { shapes } from '@bruno00o/graph/shapes'
 
 type Zone = { id: string; title: string; geometry: ShapeGeometry }
 const zones: Zone[] = []
 
-shapes(zones, { label: 'title' })
+shapes(zones, { label: { size: 14 } })
 ```
 
-Show the name from the item another way: an HTML tooltip from `pointerenter` and `target.datum.title`, or an anchor on a node placed in the zone (tools skill).
-
-### HIGH Mixing degrees and world units
-
-GeoJSON and `{ longitude, latitude }` points are projected to a world 512 units wide. Nodes placed with `x` and `y` live in your own world units, so a GeoJSON zone does not land around them: it sits in a 512-unit box near the origin. Place nodes with `longitude` and `latitude` too, or give the zones points in world units. On a graph without a map, both place and zone then use the same projection.
+A shape whose text is empty, `null` or not a string draws no label, and so does a label under 8 pixels on screen or one that would cover a node or an edge label. Zoom in before looking for a bug, or give the state `label: 'always'`.
 
 ### MEDIUM Reading shape counts or keys on a graph without a shape mark
 
@@ -435,9 +469,13 @@ graph.update({ definition: defineGraph({ marks: [shapes(zones)] }) })
 
 `fill`, `stroke`, `strokeWidth`, `dash` and `opacity` are styles, not channels: a string for `fill` or `stroke` is the CSS color itself, never a field of the item. Use a function: `fill: (zone) => zone.tone`.
 
-### MEDIUM Expecting shapes on a map
+### MEDIUM Looking for a waiting shape in `count().shapes` or `issues()`
 
-`mountMapGraph` and `<MapGraph>` do not draw shapes yet, and the pointer does not see them. They are still counted: `count().shapes` is the number of items and `shown.shapes` is 0. Draw regions on a map with the map's own layers until shapes support it.
+A pinned shape whose node is not in the data is neither counted in `count().shapes` nor reported in `issues()`: it waits, and `count().pendingShapes` holds it. A typo in a `node` key shows as a pending shape that never appears: compare `pendingShapes` with 0.
+
+### MEDIUM World-unit shapes on a map
+
+On a map the world is 512 units wide: a rectangle `{ x: 0, y: 0, width: 100, height: 100 }` covers a fifth of the Earth, and a pinned ring of radius 2 spans about 1.4 degrees of longitude. Give map geometry in degrees (GeoJSON, `{ longitude, latitude }`), and a round area around a place as `{ center: { longitude, latitude }, radius }` with the radius in meters.
 
 ## Completion
 
@@ -448,7 +486,8 @@ The task is done when:
 - a decorative mark has `pick: false`, and a zone that people select takes the pointer by its inside or by `pick: 'stroke'`;
 - handlers narrow `target.kind` to `'shape'` before reading `datum`, and a `switch` over kinds or issue types has its `shape` and `invalid-shape` cases when the instance is untyped;
 - dimming or hiding uses states with `others` by kind where only some kinds must change, and zoom, time and layer options are on the marks that need them;
-- `graph.issues()` has no `invalid-shape` you did not expect, and `graph.count()` shows the shapes you drew;
+- `graph.issues()` has no `invalid-shape` you did not expect, `graph.count()` shows the shapes you drew and no `pendingShapes` by mistake;
+- labels have a `text`, pinned shapes a node key and geometry in world units, and shapes on a map geometry in degrees;
 - `tsc` accepts the code with no cast on targets, keys or geometry.
 
 ## References
