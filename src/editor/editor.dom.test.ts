@@ -237,7 +237,15 @@ describe('createShapeEditor', () => {
       ],
     ])
     expect(events).toEqual([])
-    expect(editor.store.state).toEqual({ selected: ['box'], gesture: null, pending: ['box'] })
+    expect(editor.store.state).toEqual({
+      selected: ['box'],
+      gesture: null,
+      pending: ['box'],
+      tool: 'select',
+      drawing: null,
+      canUndo: true,
+      canRedo: false,
+    })
     expect(drafted(graph, 'box')).toBe(true)
     apply(graph, batches[0] ?? [])
     expect(editor.store.state.pending).toEqual([])

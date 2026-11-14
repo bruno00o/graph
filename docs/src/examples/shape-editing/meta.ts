@@ -3,11 +3,11 @@ import type { ExampleMeta } from '../types'
 export default {
   title: 'Shape editing',
   description:
-    'A shape editor over the graph: press a shape to select and move it, drag its points, its midpoints and the handles of its box, and the editor proposes each change to the data, which takes it or not.',
-  hint: 'Drag a shape, then a point of the selected area; press a midpoint to add a point, Alt and click to remove one, Shift to keep the proportions of a box, Delete to remove the selection, and Undo to go back.',
+    'A shape editor over the graph: draw rectangles, circles, lines, polygons and freehand strokes, press a shape to select and move it, drag its points and the handles of its box, and undo; the editor proposes each change to the data, which takes it or not.',
+  hint: 'Pick a tool and draw: drag or click twice for a rectangle or a circle, click point by point for a line or a polygon and press Enter. With Select, drag a shape or its points; Shift keeps proportions and angles, Cmd or Ctrl and D duplicates, Cmd or Ctrl and Z undoes.',
   category: 'interaction',
   order: 130,
   tags: ['Vanilla'],
   api: ['editor', 'shapes'],
-  guides: ['editing-shapes#moving-and-reshaping', 'editing-shapes#writing-edits-back'],
+  guides: ['editing-shapes#drawing-shapes', 'editing-shapes#undo-and-redo'],
 } satisfies ExampleMeta
