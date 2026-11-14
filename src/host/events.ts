@@ -291,7 +291,10 @@ export interface GraphEvents<M extends Mark = Mark> {
    * `originalEvent.preventDefault()`.
    */
   readonly doubleclick: GraphPointerEvent<M>
-  /** A secondary click. */
+  /**
+   * A secondary click. It does not prevent the menu of the browser: call
+   * `originalEvent.preventDefault()` to show your own.
+   */
   readonly contextmenu: GraphPointerEvent<M>
   /**
    * The pointer moves over the graph, at most once per frame, with the element under it or `null`

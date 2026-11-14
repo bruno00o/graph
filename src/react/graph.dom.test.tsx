@@ -260,6 +260,58 @@ describe('<Graph>', () => {
     expect(container.querySelector('.frame output')?.textContent).toBe('800')
   })
 
+  describe('position of the wrapper', () => {
+    function sheet(css: string): HTMLStyleElement {
+      const style = document.createElement('style')
+      style.textContent = css
+      document.head.append(style)
+      return style
+    }
+
+    function positionOf(): string {
+      const wrapper = container.querySelector('[data-graph]')?.parentElement?.parentElement
+      return wrapper ? wrapper.style.position : 'missing'
+    }
+
+    it('is relative when nothing positions it', () => {
+      render(<Graph definition={definition()} ariaLabel="graphe" />)
+      expect(positionOf()).toBe('relative')
+    })
+
+    it('keeps the position given by a class', () => {
+      const style = sheet('.cover { position: absolute; inset: 0 }')
+      render(<Graph definition={definition()} ariaLabel="graphe" className="cover" />)
+      expect(positionOf()).toBe('')
+      style.remove()
+    })
+
+    it('keeps the position given by the style prop', () => {
+      render(
+        <Graph
+          definition={definition()}
+          ariaLabel="graphe"
+          style={{ position: 'fixed', top: 0 }}
+        />,
+      )
+      expect(positionOf()).toBe('fixed')
+    })
+
+    it('follows a change of class', () => {
+      const style = sheet('.cover { position: absolute; inset: 0 }')
+      const stable = definition()
+      render(<Graph definition={stable} ariaLabel="graphe" />)
+      expect(positionOf()).toBe('relative')
+      render(<Graph definition={stable} ariaLabel="graphe" className="cover" />)
+      expect(positionOf()).toBe('')
+      render(<Graph definition={stable} ariaLabel="graphe" />)
+      expect(positionOf()).toBe('relative')
+      render(<Graph definition={stable} ariaLabel="graphe" style={{ position: 'relative' }} />)
+      render(<Graph definition={stable} ariaLabel="graphe" />)
+      expect(positionOf()).toBe('relative')
+      style.remove()
+    })
+  })
+
   it('exposes the host through ref and calls the latest event props', () => {
     const first = vi.fn()
     const second = vi.fn()

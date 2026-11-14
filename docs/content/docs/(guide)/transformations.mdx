@@ -37,6 +37,8 @@ The options of `merge` are in [`EdgeMergeOptions`](/docs/api/edges#merged-edges)
 
 Edges merge mark by mark: two marks never share an aggregated edge, so an aggregated edge stays in the layer of its mark. A pair of opposite edges without `merge` stays two curves, as any parallel edges.
 
+An aggregated edge is read again whenever one of the edges it merges changes, arrives or leaves: its `count`, `keys`, `data`, and the width, color and label you compute from them, follow the data with no propagation from your code. Updating the datum of a single merged edge is enough to redraw the aggregated edge.
+
 The merged edges keep the order in which they reached the graph: the order of the data for edges loaded together, then later edges after earlier ones. Their first edge stays the same while it is in the data, whatever was folded, unfolded or moved in between, so an aggregated edge keeps its look.
 
 Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and it shows the states of any of its edges. A two-way line can instead act as [one direction per half](#one-direction-per-half). A new definition that only changes `merge` or `aggregate` redraws the aggregated edges alone.
