@@ -126,6 +126,7 @@ export interface ShapeWriter {
 export interface ShapeLabelColumns extends LabelTextColumns {
   readonly text: readonly (string | null)[]
   readonly labelBackground: Uint32Array
+  readonly labelMode: Uint8Array
   readonly anchor: Float64Array
   readonly count: number
 }
@@ -166,6 +167,7 @@ export interface ShapeLabelSelection {
     maxWidth: number,
     size: number,
   ): ShapeTextBlock
+  lineWidth(text: string, weight: number, font: string | null): number
   write(
     index: number,
     highlight: boolean,
@@ -176,6 +178,10 @@ export interface ShapeLabelSelection {
     y: number,
   ): void
 }
+
+export const labelWrap = 1
+export const labelWorld = 2
+export const labelPlaced = 4
 
 export interface ShapeLabeler {
   place(selection: ShapeLabelSelection, frame: ShapeLabelFrame, phase: number): void

@@ -1,3 +1,4 @@
+import { worldGlyph } from './glyph-attributes'
 import { glyphLayout, header, nodeSamplers, nodeSight, spanData } from './shaders'
 
 const miterLimit = 2
@@ -375,8 +376,9 @@ void main() {
     shown *= nodeShown(n);
   }
   Look look = resolve(mask, Look(1.0, 0.0, 0.0, 1.0, none, none, none, 0.0, none), 128);
-  float pixels = glyphSize * min(1.0, zoom);
-  if (look.label > 1.5) pixels = max(pixels, min(glyphSize, labelMin));
+  bool world = (glyphKind & ${worldGlyph}u) != 0u;
+  float pixels = glyphSize * (world ? scaleAt(at) : min(1.0, zoom));
+  if (look.label > 1.5) pixels = max(pixels, world ? labelMin : min(glyphSize, labelMin));
   vOpacity = look.opacity * shown;
   if (vOpacity <= 0.0 || look.label < 0.5 || (pixels < labelMin && look.label < 1.5)) return;
   if (worldSide(at) < 0.0) return;

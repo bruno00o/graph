@@ -24,6 +24,12 @@ interface Zone {
   readonly order?: number
 }
 
+interface Note {
+  readonly id: string
+  readonly geometry: ShapeGeometry
+  readonly text?: string
+}
+
 interface Item {
   readonly id: string
   readonly x: number
@@ -71,6 +77,14 @@ const start: Zone[] = [
   },
 ]
 
+const startNotes: Note[] = [
+  {
+    id: 'note',
+    geometry: { x: 460, y: -130, width: 260, height: 100 },
+    text: messages.note,
+  },
+]
+
 const items: Item[] = [
   { id: 'a', x: 90, y: 60 },
   { id: 'b', x: 290, y: 200 },
@@ -88,7 +102,7 @@ const links: Link[] = [
 
 const tools = Object.keys(messages.tools) as ShapeEditorTool[]
 
-const define = (zones: readonly Zone[]) =>
+const define = (zones: readonly Zone[], notes: readonly Note[]) =>
   defineGraph({
     marks: [
       shapes(zones, {
@@ -96,6 +110,13 @@ const define = (zones: readonly Zone[]) =>
         color: 'id',
         order: 'order',
         strokeWidth: (zone) => ('points' in zone.geometry ? 3 : 1.5),
+      }),
+      shapes(notes, {
+        name: 'notes',
+        fill: 'transparent',
+        stroke: 'var(--graph-ink-muted)',
+        dash: 'dashed',
+        label: { text: 'text', size: 16, wrap: true, scale: 'world', place: 'always' },
       }),
       edges(links, { source: 'from', target: 'to' }),
       nodes(items, { x: 'x', y: 'y', size: 14 }),
@@ -116,21 +137,26 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
 
 export function mount(container: HTMLElement): GraphInstance {
   let zones: readonly Zone[] = start
+  let notes: readonly Note[] = startNotes
   const graph = mountGraph(container, {
-    definition: define(zones),
-    ariaLabel: messages.graphLabel(start.length, items.length),
+    definition: define(zones, notes),
+    ariaLabel: messages.graphLabel(start.length + startNotes.length, items.length),
   })
   const status = document.createElement('p')
   status.className = 'example-status'
   status.setAttribute('aria-live', 'polite')
 
   const editor = createShapeEditor(graph, {
+    newMark: 'zones',
+    textMark: 'notes',
     onEdit: (edits: readonly ShapeEdit[]) => {
-      zones = applyShapeEdits(zones, edits)
-      graph.update({ definition: define(zones) })
+      zones = applyShapeEdits(zones, edits, { mark: 'zones' })
+      notes = applyShapeEdits(notes, edits, { mark: 'notes' })
+      graph.update({ definition: define(zones, notes) })
     },
   })
-  mountShapeEditor(editor)
+  const view = mountShapeEditor(editor, { placeholder: messages.placeholder })
+  view.input.setAttribute('aria-label', messages.textLabel)
 
   const toolbar = document.createElement('div')
   toolbar.className = 'shape-tools'
@@ -176,7 +202,7 @@ export function mount(container: HTMLElement): GraphInstance {
     status.textContent =
       drawing && (drawing.tool === 'polygon' || drawing.tool === 'line') && drawing.points > 0
         ? messages.drawing(drawing.points, drawing.tool === 'polygon')
-        : messages.status(zones.length)
+        : messages.status(zones.length + notes.length)
   }
   editor.store.subscribe(show)
   show()

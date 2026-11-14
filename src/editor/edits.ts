@@ -40,6 +40,8 @@ export interface ShapeAddEdit<M extends Mark = Mark> {
   readonly datum?: ShapeItem<M> | undefined
   /** Tool that drew the shape. Absent for a duplicate and for an undo. */
   readonly tool?: ShapeDrawTool | undefined
+  /** Text typed into a shape drawn by the text tool, or brought back by an undo. */
+  readonly text?: string | undefined
 }
 
 /** A shape that changes. Only the fields that change are present. */
@@ -59,6 +61,8 @@ export interface ShapeChangeEdit<M extends Mark = Mark> {
   readonly geometry?: ShapeGeometry | undefined
   /** New drawing order within the mark, from `raise`, `lower` or an undo of them. */
   readonly order?: number | undefined
+  /** New text of the label, plain text where `\n` starts a line. */
+  readonly text?: string | undefined
 }
 
 /** A shape to remove. */
@@ -101,6 +105,11 @@ export interface ShapeEditFields<T> {
    */
   readonly order?: string | undefined
   /**
+   * Field the text is written to, for the mark to read through its `label` option.
+   * @default 'text'
+   */
+  readonly text?: string | undefined
+  /**
    * Applies only the edits of the mark with this name. Defaults to every edit, which suits a graph
    * with one shape mark.
    */
@@ -115,7 +124,7 @@ export interface ShapeEditFields<T> {
 
 /**
  * Applies edits to an array of items and returns a new array, leaving `items` as it was. Changed
- * items are copies with the new outline; the others are the same objects.
+ * items are copies with the new outline, order or text; the others are the same objects.
  */
 export function applyShapeEdits<T>(
   items: readonly T[],
@@ -126,12 +135,14 @@ export function applyShapeEdits<T>(
   const keyOf = toAccessor<T, Key>(keyField)
   const geometry = fields.geometry ?? 'geometry'
   const order = fields.order ?? 'order'
+  const text = fields.text ?? 'text'
   const create =
     fields.create ??
     (typeof keyField === 'string'
       ? (edit: ShapeAddEdit) => {
           const base = typeof edit.datum === 'object' && edit.datum !== null ? edit.datum : {}
-          return { ...base, [keyField]: edit.key, [geometry]: edit.geometry } as T
+          const typed = edit.text === undefined ? {} : { [text]: edit.text }
+          return { ...base, [keyField]: edit.key, [geometry]: edit.geometry, ...typed } as T
         }
       : null)
   const changed = new Map<Key, Record<string, unknown>>()
@@ -149,12 +160,17 @@ export function applyShapeEdits<T>(
     } else {
       const fresh = added.get(edit.key)
       if (fresh) {
-        if (edit.geometry !== undefined) added.set(edit.key, { ...fresh, geometry: edit.geometry })
+        added.set(edit.key, {
+          ...fresh,
+          ...(edit.geometry === undefined ? {} : { geometry: edit.geometry }),
+          ...(edit.text === undefined ? {} : { text: edit.text }),
+        })
         continue
       }
       const fieldsOf = { ...changed.get(edit.key) }
       if (edit.geometry !== undefined) fieldsOf[geometry] = edit.geometry
       if (edit.order !== undefined) fieldsOf[order] = edit.order
+      if (edit.text !== undefined) fieldsOf[text] = edit.text
       changed.set(edit.key, fieldsOf)
     }
   }

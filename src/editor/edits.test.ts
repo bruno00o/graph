@@ -68,4 +68,18 @@ describe('applyShapeEdits', () => {
       { id: 'd', name: 'A', geometry: box(9) },
     ])
   })
+
+  it('writes the text of adds and changes to the text field', () => {
+    const edits: ShapeEdit[] = [
+      { type: 'add', key: 'd', mark: undefined, geometry: box(8), tool: 'text', text: 'one' },
+      { type: 'change', key: 'd', mark: undefined, datum: undefined, text: 'two' },
+      { type: 'change', key: 'a', mark: undefined, datum: zones[0], text: 'three' },
+    ]
+    expect(applyShapeEdits(zones, edits, { text: 'note' })).toEqual([
+      { ...zones[0], note: 'three' },
+      zones[1],
+      zones[2],
+      { id: 'd', geometry: box(8), note: 'two' },
+    ])
+  })
 })

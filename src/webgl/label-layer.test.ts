@@ -11,8 +11,9 @@ import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
 import { globeCamera } from '../testing/globe'
-import type { GraphDefinition, ShapeGeometry } from '../types'
+import type { GraphDefinition, ShapeGeometry, ShapeLabelOptions } from '../types'
 import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
+import { worldGlyph } from './glyph-attributes'
 import {
   type EdgeAnchor,
   edgeAnchor,
@@ -750,13 +751,18 @@ describe('shape labels', () => {
     readonly node?: string
   }
 
-  function sceneOf(zones: readonly Zone[], size = 40, nodeKeys: readonly string[] = []) {
+  function sceneOf(
+    zones: readonly Zone[],
+    size = 40,
+    nodeKeys: readonly string[] = [],
+    label: Omit<ShapeLabelOptions<Zone>, 'text'> = {},
+  ) {
     const model = createGraphModel()
     const scene = createScene()
     const definition = defineGraph({
       marks: [
         nodes(nodeKeys.map((id) => ({ id }))),
-        shapes(zones, { node: 'node', label: { text: 'name', size } }),
+        shapes(zones, { node: 'node', label: { text: 'name', size, ...label } }),
       ],
     }) as GraphDefinition
     model.setMarks(definition.marks)
@@ -857,6 +863,104 @@ describe('shape labels', () => {
     expect(layer.shapeMain.count).toBe(0)
     layer.select(frameOf(empty, positions, store, { ...far, always: [0] }, 0.1), atlas)
     expect(layer.shapeMain.count).toBe(1)
+  })
+
+  function placed(frame: Parameters<LabelLayer['select']>[0]) {
+    const labels: { text: string[]; pixels: number }[] = []
+    const layer = new LabelLayer()
+    layer.select(
+      {
+        ...frame,
+        sink: {
+          node: () => {},
+          edge: () => {},
+          shape: (_, label) =>
+            labels.push({
+              text: label.block.lines.map((line) => line.text),
+              pixels: label.pixels,
+            }),
+        },
+      },
+      atlas,
+    )
+    return { layer, labels }
+  }
+
+  it('wraps a label at the spaces to the width of its box, again when the zoom changes it', () => {
+    const narrow = { x: -30, y: -100, width: 60, height: 200 }
+    const zone = { id: 'zone', geometry: narrow, name: 'one two three four\nfive' }
+    const scene = sceneOf([zone], 12, [], { wrap: true })
+    const empty = columns([{ size: 16, label: null }])
+    const near = placed(frameOf(empty, new Positions(), scene.shapes))
+    expect(near.labels[0]?.text).toEqual(['one two', 'three', 'four', 'five'])
+    const far = placed(frameOf(empty, new Positions(), scene.shapes, {}, 2))
+    expect(far.labels[0]?.text).toEqual(['one two three four', 'five'])
+  })
+
+  it('breaks a word wider than the box between its characters', () => {
+    const narrow = { x: -15, y: -100, width: 30, height: 200 }
+    const scene = sceneOf([{ id: 'zone', geometry: narrow, name: 'abcdefgh' }], 12, [], {
+      wrap: true,
+    })
+    const { labels } = placed(
+      frameOf(columns([{ size: 16, label: null }]), new Positions(), scene.shapes),
+    )
+    expect(labels[0]?.text).toEqual(['abc', 'def', 'gh'])
+  })
+
+  it('draws a world label at its size times the zoom, and hides it under 8 pixels', () => {
+    const scene = sceneOf([{ id: 'zone', geometry: square, name: 'zone' }], 10, [], {
+      scale: 'world',
+    })
+    const empty = columns([{ size: 16, label: null }])
+    const near = placed(frameOf(empty, new Positions(), scene.shapes, {}, 2))
+    expect(near.labels[0]?.pixels).toBe(20)
+    const glyph = new Uint32Array(near.layer.shapeMain.data)
+    expect((glyph[1] ?? 0) & worldGlyph).toBe(worldGlyph)
+    expect(new Float32Array(near.layer.shapeMain.data)[9]).toBe(10)
+    expect(placed(frameOf(empty, new Positions(), scene.shapes, {}, 0.5)).labels).toEqual([])
+    const screen = sceneOf([{ id: 'zone', geometry: square, name: 'zone' }], 10)
+    const fixed = placed(frameOf(empty, new Positions(), screen.shapes, {}, 2))
+    expect(fixed.labels[0]?.pixels).toBe(10)
+    expect((new Uint32Array(fixed.layer.shapeMain.data)[1] ?? 0) & worldGlyph).toBe(0)
+  })
+
+  it('reads the world size of a shape in degrees in meters', () => {
+    const zone: Zone = {
+      id: 'zone',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [0, 59.99],
+            [0.02, 59.99],
+            [0.02, 60.01],
+            [0, 60.01],
+            [0, 59.99],
+          ],
+        ],
+      },
+      name: 'zone',
+    }
+    const scene = sceneOf([zone], 100, [], { scale: 'world' })
+    const middle = geoToWorld({ longitude: 0.01, latitude: 60 })
+    const perMeter = 512 / (2 * Math.PI * 6_371_008.8 * Math.cos(Math.PI / 3))
+    const frame = frameOf(columns([{ size: 16, label: null }]), new Positions(), scene.shapes)
+    const { layer } = placed({ ...frame, view: { x: middle.x, y: middle.y, zoom: 2 ** 14 } })
+    const size = new Float32Array(layer.shapeMain.data)[9] ?? 0
+    expect(size / (100 * perMeter)).toBeCloseTo(1, 3)
+  })
+
+  it('never lets a label placed always give way, and moves the next labels out of its place', () => {
+    const scene = sceneOf([{ id: 'zone', geometry: square, name: 'zone' }], 40, [], {
+      place: 'always',
+    })
+    const positions = new Positions()
+    positions.set(0, 0, -20)
+    const layer = new LabelLayer()
+    layer.select(frameOf(columns([{ size: 16, label: 'node' }]), positions, scene.shapes), atlas)
+    expect(layer.shapeMain.count).toBe(1)
+    expect(layer.main.count).toBe(0)
   })
 
   it('anchors the label of a pinned shape where its node is, and skips a waiting one', () => {

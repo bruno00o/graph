@@ -87,6 +87,16 @@ describe('<ShapeEditor>', () => {
       </StrictMode>,
     )
     expect(layers()).toBe(1)
+    expect(container.querySelector('textarea')?.placeholder).toBe('')
+    render(
+      <StrictMode>
+        <Graph definition={definition} ariaLabel="graph" initialView={{ x: 0, y: 0, zoom: 1 }}>
+          <ShapeEditor placeholder="Note" onEdit={(next) => edits.push(...next)} />
+        </Graph>
+      </StrictMode>,
+    )
+    expect(container.querySelectorAll('textarea')).toHaveLength(1)
+    expect(container.querySelector('textarea')?.placeholder).toBe('Note')
     press('pointermove', -200, -150)
     press('pointerdown', -200, -150)
     press('pointermove', -190, -150)
@@ -99,6 +109,7 @@ describe('<ShapeEditor>', () => {
       </StrictMode>,
     )
     expect(layers()).toBe(0)
+    expect(container.querySelector('textarea')).toBeNull()
   })
 })
 

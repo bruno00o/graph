@@ -1,8 +1,11 @@
 import { noColor } from '../core/columns'
-import { globeScreen } from '../core/globe'
+import { globeScale, globeScreen } from '../core/globe'
 import { primaryWeight } from '../core/label-width'
 import {
   isDrawn,
+  labelPlaced,
+  labelWorld,
+  labelWrap,
   type ShapeLabeler,
   type ShapeLabelFrame,
   type ShapeLabelSelection,
@@ -24,6 +27,7 @@ import {
 } from '../webgl/label-levels'
 import { nodeLabelSize, plateDrop, platePadX } from '../webgl/shaders'
 import { shapeAnchor } from './anchor'
+import { metersToWorld, wrapMargin, wrapText } from './text'
 
 const padUnits = platePadX * atlasFontSize
 const noOrder = new Uint32Array(0)
@@ -32,6 +36,7 @@ interface LabelOrder {
   readonly key: string
   readonly order: Uint32Array
   readonly boxes: Float64Array
+  readonly placed: Uint32Array
 }
 
 const orders = new WeakMap<ShapeStore, LabelOrder>()
@@ -54,7 +59,9 @@ export function labelOrder(store: ShapeStore): LabelOrder {
   const key = `${store.version}:${store.labelVersion}`
   const known = orders.get(store)
   if (known?.key === key) return known
-  if (!labels || labels.count === 0) return { key, order: noOrder, boxes: new Float64Array(0) }
+  if (!labels || labels.count === 0) {
+    return { key, order: noOrder, boxes: new Float64Array(0), placed: noOrder }
+  }
   const indices = Array.from(store.drawOrder()).filter((index) => !!labels.text[index])
   const area = (index: number) => {
     const geometry = store.geometry[index]
@@ -69,7 +76,8 @@ export function labelOrder(store: ShapeStore): LabelOrder {
     boxes[at * 4 + 2] = geometry?.maxX ?? 0
     boxes[at * 4 + 3] = geometry?.maxY ?? 0
   })
-  const made = { key, order: Uint32Array.from(indices), boxes }
+  const placed = indices.filter((index) => ((labels.labelMode[index] ?? 0) & labelPlaced) !== 0)
+  const made = { key, order: Uint32Array.from(indices), boxes, placed: Uint32Array.from(placed) }
   orders.set(store, made)
   return made
 }
@@ -77,8 +85,39 @@ export function labelOrder(store: ShapeStore): LabelOrder {
 export function createShapeLabeler(): ShapeLabeler {
   const extents = new TextExtents()
   const projected = { x: 0, y: 0 }
+  const wrapped: (string | undefined)[] = []
+  let wrapWidths = new Float64Array(0)
   let shownStore: ShapeStore | null = null
   let shownVersion = -1
+
+  function glyphSize(store: ShapeStore, index: number, base: number, y: number): number {
+    return store.geometry[index]?.geo ? metersToWorld(base, y) : base
+  }
+
+  function textOf(
+    selection: ShapeLabelSelection,
+    store: ShapeStore,
+    index: number,
+    label: string,
+    pixels: number,
+    scale: number,
+  ): string {
+    const texts = store.labels
+    const geometry = store.geometry[index]
+    if (!texts || !geometry || ((texts.labelMode[index] ?? 0) & labelWrap) === 0) return label
+    const room =
+      (((geometry.maxX - geometry.minX) * scale) / pixels - wrapMargin * 2) * atlasFontSize
+    const width = Math.max(room, atlasFontSize)
+    const known = wrapped[index]
+    if (known !== undefined && Math.abs((wrapWidths[index] ?? 0) - width) <= 0.5) return known
+    const weight = texts.labelWeight[index] || primaryWeight
+    const font = texts.labelFont[index] ?? null
+    const text = wrapText(label, width, (part) => selection.lineWidth(part, weight, font))
+    if (text !== known) extents.forget(index)
+    wrapped[index] = text
+    wrapWidths[index] = width
+    return text
+  }
 
   function place(
     selection: ShapeLabelSelection,
@@ -93,14 +132,20 @@ export function createShapeLabeler(): ShapeLabeler {
     if (!shapeShown(store, index, selection.sight)) return
     const shown = labelLevel(mask[index] ?? 0, flags, others)
     if (shown === 0) return
-    const { view, width, height, positions, minimum } = selection
-    const size = texts.labelSize[index] || nodeLabelSize
-    const pixels = lifted(size * selection.shrink, size, shown, minimum)
-    if (pixels < minimum && shown !== labelAlways) return
     if (!labelAnchor(store, index)) return
+    const { view, width, height, positions, minimum } = selection
     const node = store.pinNode?.[index] ?? -1
     const wx = (texts.anchor[index * 2] ?? 0) + (node >= 0 ? positions.x(node) : 0)
     const wy = (texts.anchor[index * 2 + 1] ?? 0) + (node >= 0 ? positions.y(node) : 0)
+    const mode = texts.labelMode[index] ?? 0
+    const world = (mode & labelWorld) !== 0
+    const base = texts.labelSize[index] || nodeLabelSize
+    const zoom = selection.globe ? globeScale(selection.globe, wy) : view.zoom
+    const size = world ? glyphSize(store, index, base, wy) : base
+    const pixels = world
+      ? lifted(size * zoom, minimum, shown, minimum)
+      : lifted(size * selection.shrink, size, shown, minimum)
+    if (pixels < minimum && shown !== labelAlways) return
     let x = (wx - view.x) * view.zoom + width / 2
     let y = (wy - view.y) * view.zoom + height / 2
     if (selection.globe) {
@@ -110,13 +155,14 @@ export function createShapeLabeler(): ShapeLabeler {
     }
     if (x < -cullMargin || x > width + cullMargin) return
     if (y < -cullMargin || y > height + cullMargin) return
+    const text = textOf(selection, store, index, label, pixels, zoom)
     const measure = (): ShapeTextBlock =>
       selection.measure(
-        label,
+        text,
         texts.labelWeight[index] || primaryWeight,
         texts.labelFont[index] ?? null,
         texts.labelMaxWidth[index] ?? 0,
-        size,
+        base,
       )
     let measured = extents.has(index) ? null : measure()
     if (measured) extents.set(index, measured)
@@ -131,7 +177,10 @@ export function createShapeLabeler(): ShapeLabeler {
     const top = y - (total / 2) * scale
     const bottom = top + (plated ? total : blockHeight) * scale
     if (right < 0 || left > width || bottom < 0 || top > height) return
-    const force = (highlight && ((mask[index] ?? 0) & forcedStates) !== 0) || selection.all
+    const force =
+      (highlight && ((mask[index] ?? 0) & forcedStates) !== 0) ||
+      selection.all ||
+      (mode & labelPlaced) !== 0
     if (!selection.claim(left, top, right, bottom, force)) return
     measured ??= measure()
     selection.write(index, highlight, measured, size, pixels, x, y)
@@ -146,7 +195,10 @@ export function createShapeLabeler(): ShapeLabeler {
       nodeLabelSize * shrink >= labelMin ||
       levelBits(frame.flags, maxStates, frame.others) !== 0
     for (let index = 0; !any && index < texts.labelSize.length; index++) {
-      any = (texts.labelSize[index] ?? 0) * shrink >= labelMin && !!texts.text[index]
+      if (!texts.text[index]) continue
+      any =
+        ((texts.labelMode[index] ?? 0) & labelWorld) !== 0 ||
+        (texts.labelSize[index] ?? 0) * shrink >= labelMin
     }
     if (any) placeVisible(selection, frame)
   }
@@ -166,6 +218,7 @@ export function createShapeLabeler(): ShapeLabeler {
     const { order, boxes } = labelOrder(store)
     const pins = store.pinNode
     const anchors = texts.anchor
+    const modes = texts.labelMode
     const halfWidth = width / 2
     const halfHeight = height / 2
     const skipped = raise | alwaysBits
@@ -176,18 +229,26 @@ export function createShapeLabeler(): ShapeLabeler {
         if ((own & raise) !== 0) continue
         if ((own & alwaysBits) !== 0 && labelLevel(own, flags, others) === labelAlways) continue
       }
+      const mode = modes[index] ?? 0
+      if ((mode & labelPlaced) !== 0) continue
       if (!selection.globe) {
         const node = pins ? (pins[index] ?? -1) : -1
         const ox = node >= 0 ? positions.x(node) : 0
         const oy = node >= 0 ? positions.y(node) : 0
         if ((boxes[at * 4 + 2] ?? 0) + ox < left || (boxes[at * 4] ?? 0) + ox > right) continue
         if ((boxes[at * 4 + 3] ?? 0) + oy < top || (boxes[at * 4 + 1] ?? 0) + oy > bottom) continue
+        const wy = (anchors[index * 2 + 1] ?? 0) + oy
         const x = ((anchors[index * 2] ?? Number.NaN) + ox - view.x) * view.zoom + halfWidth
-        const y = ((anchors[index * 2 + 1] ?? 0) + oy - view.y) * view.zoom + halfHeight
+        const y = (wy - view.y) * view.zoom + halfHeight
         if (x < -cullMargin || x > width + cullMargin) continue
         if (y < -cullMargin || y > height + cullMargin) continue
         if (!all && extents.has(index)) {
-          const scale = ((texts.labelSize[index] || nodeLabelSize) * shrink) / atlasFontSize
+          const base = texts.labelSize[index] || nodeLabelSize
+          const pixels =
+            (mode & labelWorld) !== 0
+              ? glyphSize(store, index, base, wy) * view.zoom
+              : base * shrink
+          const scale = pixels / atlasFontSize
           const textX = (extents.width(index) / 2) * scale
           const textY = (extents.height(index) / 2) * scale
           const reachX = textX + padUnits * scale
@@ -218,8 +279,14 @@ export function createShapeLabeler(): ShapeLabeler {
           shownStore = store
           shownVersion = store.labelVersion
           extents.reset()
+          wrapped.length = 0
         }
         extents.prepare(store.capacity, selection.generation)
+        if (wrapWidths.length < store.capacity) {
+          const widths = new Float64Array(Math.max(128, store.capacity))
+          widths.set(wrapWidths)
+          wrapWidths = widths
+        }
       }
       const raise = frame.raise ?? builtInRaise
       const forced = (index: number) => ((mask[index] ?? 0) & forcedStates) !== 0
@@ -231,10 +298,15 @@ export function createShapeLabeler(): ShapeLabeler {
       }
       if (phase === 2) {
         const alwaysBits = levelBits(flags, 0)
+        const early = (own: number) =>
+          (own & alwaysBits) !== 0 && labelLevel(own, flags, others) === labelAlways
         for (const index of frame.always) {
           const own = mask[index] ?? 0
-          if ((own & raise) !== 0 || (own & alwaysBits) === 0) continue
-          if (labelLevel(own, flags, others) === labelAlways) place(selection, frame, index, false)
+          if ((own & raise) === 0 && early(own)) place(selection, frame, index, false)
+        }
+        for (const index of labelOrder(store).placed) {
+          const own = mask[index] ?? 0
+          if ((own & raise) === 0 && !early(own)) place(selection, frame, index, false)
         }
         return
       }

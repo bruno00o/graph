@@ -197,6 +197,34 @@ describe('exports with shapes', () => {
     expect(pinned).toBe(placed)
   })
 
+  it('writes a wrapped world label as the screen shows it, one line per text', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const notes = [
+      { id: 'note', geometry: { x: 0, y: 0, width: 120, height: 80 }, text: 'alpha beta gamma' },
+    ]
+    const created = createGraphHost(
+      container,
+      {
+        definition: defineGraph({
+          marks: [
+            shapes(notes, { label: { text: 'text', wrap: true, scale: 'world', size: 20 } }),
+            nodes(items, { x: 'x', y: 'y' }),
+          ],
+        }),
+        ariaLabel: 'graph',
+      },
+      () => fakeRenderer(),
+    )
+    graph = created
+    dom.flushFrames()
+    const svg = await exportSvg(created)
+    expect(svg).toContain('>alpha beta</text>')
+    expect(svg).toContain('>gamma</text>')
+    const scale = Number(/scale\(([\d.]+)\)"><text/.exec(svg)?.[1])
+    expect(scale).toBeCloseTo((20 * created.view.get().zoom) / 24, 3)
+  })
+
   it('writes no shape without a shape mark', async () => {
     const svg = await exportSvg(mount(false))
     expect(svg).not.toContain('fill-rule="evenodd"')

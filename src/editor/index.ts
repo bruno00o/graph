@@ -8,6 +8,7 @@ export {
   type ShapeEditorGesture,
   type ShapeEditorOptions,
   type ShapeEditorState,
+  type ShapeEditorText,
 } from './editor'
 export {
   applyShapeEdits,
@@ -19,4 +20,4 @@ export {
   type ShapeMarkName,
   type ShapeRemoveEdit,
 } from './edits'
-export { mountShapeEditor, type ShapeEditorView } from './view'
+export { mountShapeEditor, type ShapeEditorView, type ShapeEditorViewOptions } from './view'

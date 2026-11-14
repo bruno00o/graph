@@ -6,6 +6,9 @@ import type { AnyIssue } from '../core/issues'
 import { readBackground, toText, writeLabelText } from '../core/label-text'
 import {
   isDrawn,
+  labelPlaced,
+  labelWorld,
+  labelWrap,
   type ShapeGeometryData,
   type ShapeLabelColumns,
   type ShapeSource,
@@ -42,6 +45,9 @@ interface CompiledShapeMark {
   readonly label: Read | null
   readonly labelBackground: Read | null
   readonly labelText: CompiledLabelText
+  readonly labelWrap: Read | null
+  readonly labelScale: Read | null
+  readonly labelPlace: Read | null
   readonly node: Read | null
 }
 
@@ -59,6 +65,7 @@ export class ShapeLabels implements ShapeLabelColumns {
   labelWeight: Uint16Array = new Uint16Array(0)
   labelFont: (string | null)[] = []
   labelMaxWidth: Float32Array = new Float32Array(0)
+  labelMode: Uint8Array = new Uint8Array(0)
   anchor: Float64Array = new Float64Array(0)
   count = 0
 
@@ -70,6 +77,7 @@ export class ShapeLabels implements ShapeLabelColumns {
     this.labelSize = grown(this.labelSize, length, (n) => new Float32Array(n))
     this.labelWeight = grown(this.labelWeight, length, (n) => new Uint16Array(n))
     this.labelMaxWidth = grown(this.labelMaxWidth, length, (n) => new Float32Array(n))
+    this.labelMode = grown(this.labelMode, length, (n) => new Uint8Array(n))
     this.anchor = grown(this.anchor, length * 2, (n) => new Float64Array(n).fill(Number.NaN))
   }
 }
@@ -87,6 +95,7 @@ function compileShapeMark(mark: ShapeMark<unknown>): CompiledShapeMark {
   if (known) return known
   const options = mark.options
   const label = options.label
+  const text = typeof label === 'object' ? label : null
   const made: CompiledShapeMark = {
     geometry: toAccessor<unknown, unknown>(
       (options.geometry as string | Read | undefined) ?? 'geometry',
@@ -120,7 +129,10 @@ function compileShapeMark(mark: ShapeMark<unknown>): CompiledShapeMark {
             (typeof label === 'object' ? label.text : label) as string | Read,
           ),
     labelBackground: style(typeof label === 'object' ? label.background : undefined),
-    labelText: labelText(typeof label === 'object' ? label : null),
+    labelText: labelText(text),
+    labelWrap: style(text?.wrap),
+    labelScale: style(text?.scale),
+    labelPlace: style(text?.place),
     node:
       options.node === undefined
         ? null
@@ -447,6 +459,7 @@ class Writer implements ShapeWriter {
     const weight = labels.labelWeight[index]
     const font = labels.labelFont[index] ?? null
     const width = labels.labelMaxWidth[index]
+    const mode = labels.labelMode[index]
     if (this.#background === noColor) this.#background = palette.id(defaults.labelBackground)
     labels.labelBackground[index] = readBackground(
       labels.labelBackground[index] ?? noColor,
@@ -455,7 +468,12 @@ class Writer implements ShapeWriter {
       { labelBackground: this.#background },
     )
     writeLabelText(labels, index, mark.labelText, datum, palette)
+    labels.labelMode[index] =
+      (mark.labelWrap?.(datum) === true ? labelWrap : 0) |
+      (mark.labelScale?.(datum) === 'world' ? labelWorld : 0) |
+      (mark.labelPlace?.(datum) === 'always' ? labelPlaced : 0)
     const changed =
+      mode !== labels.labelMode[index] ||
       size !== labels.labelSize[index] ||
       weight !== labels.labelWeight[index] ||
       font !== (labels.labelFont[index] ?? null) ||

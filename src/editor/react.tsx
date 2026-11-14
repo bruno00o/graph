@@ -10,7 +10,7 @@ import {
   type ShapeEditorState,
 } from './editor'
 import type { ShapeEdit } from './edits'
-import { mountShapeEditor } from './view'
+import { mountShapeEditor, type ShapeEditorView } from './view'
 
 /** Options of `useShapeEditor`: the options of `createShapeEditor`, and the graph. */
 export interface UseShapeEditorOptions<S extends string = string, M extends Mark = Mark>
@@ -20,6 +20,8 @@ export interface UseShapeEditorOptions<S extends string = string, M extends Mark
    * `<Graph>` or `<MapGraph>`. With `null`, nothing is edited until a graph is given.
    */
   readonly graph?: GraphInstance<S, M> | null | undefined
+  /** Text that the input of a shape shows while it is empty. Defaults to none. */
+  readonly placeholder?: string | undefined
 }
 
 /** What `useShapeEditor` returns. `M` types the edits. */
@@ -42,6 +44,7 @@ const emptyState: ShapeEditorState = Object.freeze({
   drawing: null,
   canUndo: false,
   canRedo: false,
+  text: null,
 })
 
 function sameMarks(a: Iterable<string> | undefined, b: Iterable<string> | undefined): boolean {
@@ -62,17 +65,20 @@ export function useShapeEditor<S extends string = string, M extends Mark = Mark>
 ): UseShapeEditorResult<M> {
   const graph = useGraphOf(options.graph, 'useShapeEditor')
   const [editor, setEditor] = useState<ShapeEditorInstance<M> | null>(null)
+  const [view, setView] = useState<ShapeEditorView | null>(null)
   const latest = useLatest(options)
   const [shown] = useState(() => ({ marks: options.marks as Iterable<string> | undefined }))
   useLayoutEffect(() => {
     if (!graph) return
-    const { marks, hold, handleSize, tool, newMark, units, snap, history } = latest.current
+    const { marks, hold, handleSize, tool, newMark, textMark, units, snap, history, placeholder } =
+      latest.current
     const created = createShapeEditor(graph, {
       marks,
       hold,
       handleSize,
       tool,
       newMark,
+      textMark,
       units,
       snap,
       history,
@@ -80,27 +86,32 @@ export function useShapeEditor<S extends string = string, M extends Mark = Mark>
       onEdit: (edits: readonly ShapeEdit<M>[]) => latest.current.onEdit?.(edits),
     })
     shown.marks = marks as Iterable<string> | undefined
-    const view = mountShapeEditor(created)
+    const mounted = mountShapeEditor(created, { placeholder })
     setEditor(created)
+    setView(mounted)
     return () => {
-      view.destroy()
+      mounted.destroy()
       created.destroy()
       setEditor(null)
+      setView(null)
     }
   }, [graph, latest, shown])
-  const { marks, hold, handleSize, tool, newMark, units, history } = options
+  const { marks, hold, handleSize, tool, newMark, textMark, units, history, placeholder } = options
+  useLayoutEffect(() => {
+    view?.update({ placeholder })
+  }, [view, placeholder])
   const grid = options.snap?.grid
   const angle = options.snap?.angle
   useLayoutEffect(() => {
     if (!editor) return
     const names = marks as Iterable<string> | undefined
-    const settings = { hold, handleSize, newMark, units, history, snap: { grid, angle } }
+    const settings = { hold, handleSize, newMark, textMark, units, history, snap: { grid, angle } }
     if (sameMarks(shown.marks, names)) editor.update(settings)
     else {
       shown.marks = names
       editor.update({ ...settings, marks })
     }
-  }, [editor, marks, hold, handleSize, newMark, units, history, grid, angle, shown])
+  }, [editor, marks, hold, handleSize, newMark, textMark, units, history, grid, angle, shown])
   useLayoutEffect(() => {
     if (editor && tool !== undefined) editor.setTool(tool)
   }, [editor, tool])

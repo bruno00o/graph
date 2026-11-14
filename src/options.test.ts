@@ -16,6 +16,7 @@ import type {
   ShapeEditorSnap,
 } from './editor'
 import type { ShapeEditorProps, UseShapeEditorOptions } from './editor/react'
+import type { ShapeEditorViewOptions } from './editor/view'
 import type { ExportOptions, PngExportOptions, SvgExportOptions } from './export'
 import type {
   AttributeDeclaration,
@@ -253,6 +254,7 @@ interface Inputs {
   ShapeEditorOptions: ShapeEditorOptions<Marks>
   ShapeEditorProps: ShapeEditorProps<'muted', Marks>
   ShapeEditorSnap: ShapeEditorSnap
+  ShapeEditorViewOptions: ShapeEditorViewOptions
   ShapeLabelOptions: ShapeLabelOptions<Item>
   ShapeOptions: ShapeOptions<Item>
   ShapeScalesOptions: ShapeScalesOptions

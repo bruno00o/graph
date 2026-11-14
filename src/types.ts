@@ -353,7 +353,43 @@ export interface EdgeLabelOptions<T> extends LabelTextOptions<T> {}
  * on the center of a circle or a rectangle, on the top of the band of a ring, or on the middle of
  * the longest segment of a line.
  */
-export interface ShapeLabelOptions<T> extends LabelTextOptions<T> {}
+export interface ShapeLabelOptions<T> extends LabelTextOptions<T> {
+  /**
+   * Font size at zoom 1: in pixels, or with `scale: 'world'` in world units, and in meters for a
+   * shape in degrees. Defaults to 12.
+   */
+  readonly size?: Style<T, number> | undefined
+  /**
+   * Width at zoom 1 past which each line ends with an ellipsis: in pixels, or with
+   * `scale: 'world'` in the units of `size`.
+   */
+  readonly maxWidth?: Style<T, number> | undefined
+  /**
+   * Breaks the lines at the spaces to fit the width of the box of the shape, less half the font
+   * size on each side, and a word wider than that between its characters. `\n` still starts a line.
+   * @default false
+   */
+  readonly wrap?: Style<T, boolean> | undefined
+  /**
+   * How the size follows the zoom: `'screen'` keeps it in pixels and shrinks it when you zoom out,
+   * `'world'` draws it in the world, so it grows and shrinks with the shape and hides under 8
+   * pixels.
+   * @default 'screen'
+   */
+  readonly scale?: Style<T, ShapeLabelScale> | undefined
+  /**
+   * Whether other labels can hide it: `'auto'` gives way when it would overlap a label placed
+   * before, `'always'` never does, and the labels placed after it make room.
+   * @default 'auto'
+   */
+  readonly place?: Style<T, ShapeLabelPlace> | undefined
+}
+
+/** How the size of a shape label follows the zoom: `'screen'` or `'world'`. */
+export type ShapeLabelScale = 'screen' | 'world'
+
+/** Whether other labels can hide a shape label: `'auto'` or `'always'`. */
+export type ShapeLabelPlace = 'auto' | 'always'
 
 /** Name of a mark: a string chosen in its options, or `undefined` for a mark without one. */
 export type MarkName = string | undefined

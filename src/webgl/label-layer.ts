@@ -24,13 +24,18 @@ import {
   trimsAsBox,
 } from '../core/node-shape'
 import type { Positions } from '../core/positions'
-import type { ShapeLabeler, ShapeLabelFrame, ShapeLabelSelection } from '../core/shape-engine'
+import {
+  labelWorld,
+  type ShapeLabeler,
+  type ShapeLabelFrame,
+  type ShapeLabelSelection,
+} from '../core/shape-engine'
 import { labelAlways, maxStates, noPaint, stateRow, wordFloat } from '../core/state-buffers'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
-import { glyphStride } from './glyph-attributes'
+import { glyphStride, worldGlyph } from './glyph-attributes'
 import {
   builtInRaise,
   cullMargin,
@@ -1267,6 +1272,7 @@ export class LabelLayer {
       taken: (left, top, right, bottom) => this.#taken(left, top, right, bottom),
       measure: (text, weight, font, maxWidth, size) =>
         textBlock(atlas, text, null, weight, font, maxWidth, size),
+      lineWidth: (text, weight, font) => atlas.line(text, weight, font).width,
       write: (index, highlight, measured, size, pixels, x, y) => {
         const block = measured as TextBlock
         const background = texts?.labelBackground[index] ?? noColor
@@ -1276,7 +1282,8 @@ export class LabelLayer {
         const hx = block.width / 2 + padUnits
         const hy = total / 2
         const target = highlight ? this.shapeHighlight : this.shapeMain
-        const flags = (4 << 4) | (plated ? platedGlyph : 0)
+        const world = ((texts?.labelMode[index] ?? 0) & labelWorld) !== 0
+        const flags = (4 << 4) | (plated ? platedGlyph : 0) | (world ? worldGlyph : 0)
         if (plated) target.pushPlate(index, flags, 0, 0, hx, hy, background, size)
         const color = texts?.labelColor[index] ?? noColor
         emit(target, index, flags, block, atlas.height, top, 0, 0, color, size)

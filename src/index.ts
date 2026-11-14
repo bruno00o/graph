@@ -213,6 +213,8 @@ export type {
   ShapeDatum,
   ShapeGeometry,
   ShapeLabelOptions,
+  ShapeLabelPlace,
+  ShapeLabelScale,
   ShapeMark,
   ShapeOptions,
   ShapePath,

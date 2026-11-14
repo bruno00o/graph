@@ -22,7 +22,7 @@ Creates the shape editor of a graph made by [`mountGraph`](/docs/api/mount-graph
 
 ```ts
 type ShapeEditorTool = 'select' | ShapeDrawTool
-type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand'
+type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand' | 'text'
 ```
 
 ## ShapeEditor
@@ -37,6 +37,8 @@ type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand'
 
 <api-table path="editor/index.ts" name="ShapeEditorDrawing" />
 
+<api-table path="editor/index.ts" name="ShapeEditorText" />
+
 ### Events
 
 <api-table path="editor/index.ts" name="ShapeEditorEvents" />
@@ -49,7 +51,7 @@ type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand'
 type ShapeEdit<M extends Mark = Mark> = ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
 ```
 
-The drawing tools, `duplicate` and the undo of a removal propose `'add'` edits; moves, reshapes, `raise`, `lower` and the undo of a move propose `'change'` edits; `remove` and the undo of a drawn shape propose `'remove'` edits.
+The drawing tools, `duplicate` and the undo of a removal propose `'add'` edits; moves, reshapes, text, `raise`, `lower` and the undo of a move propose `'change'` edits; `remove` and the undo of a drawn shape propose `'remove'` edits.
 
 <api-table path="editor/index.ts" name="ShapeChangeEdit" />
 
@@ -71,17 +73,22 @@ function applyShapeEdits<T>(
 ): T[]
 ```
 
-Returns a new array: removed items left out, changed items copied with their new outline and order, the others unchanged, the new items at the end, copies of the `datum` of their edit when it has one. Several edits of one key in a batch apply in order: a shape added then removed is left out. `items` is not changed.
+Returns a new array: removed items left out, changed items copied with their new outline, order and text, the others unchanged, the new items at the end, copies of the `datum` of their edit when it has one. Several edits of one key in a batch apply in order: a shape added then removed is left out. `items` is not changed.
 
 <api-table path="editor/index.ts" name="ShapeEditFields" />
 
 ## mountShapeEditor
 
 ```ts
-function mountShapeEditor<M extends Mark>(editor: ShapeEditor<M>): ShapeEditorView
+function mountShapeEditor<M extends Mark>(
+  editor: ShapeEditor<M>,
+  options?: ShapeEditorViewOptions,
+): ShapeEditorView
 ```
 
-Draws the editor over its graph: the shapes being edited or waiting for their data, in their own fill, outline and pattern, the box of the selection and the handles. Without it, the editor works, but shows the shapes being edited nowhere, since the graph hides them.
+Draws the editor over its graph: the shapes being edited or waiting for their data, in their own fill, outline and pattern, the box of the selection and the handles, and the input of the text being typed. Without it, the editor works, but shows the shapes being edited nowhere, since the graph hides them, and text is typed only through `setText`.
+
+<api-table path="editor/index.ts" name="ShapeEditorViewOptions" />
 
 <api-table path="editor/index.ts" name="ShapeEditorView" />
 
@@ -100,6 +107,10 @@ Draws the editor over its graph: the shapes being edited or waiting for their da
 - A second finger cancels the gesture of the editor, with no edit, and pinches the view.
 - Keys reach the editor first while the graph element has the focus: arrows, Delete, Backspace and Escape, when a shape is selected or a gesture runs; Enter, Escape, Backspace and Delete while a shape is being drawn; Cmd or Ctrl and Z, Shift and Z, D, and Ctrl and Y. Other keys with Cmd, Ctrl or Alt go to the graph.
 - A drawing tool takes every press with the main button, without Space held, on shapes and nodes too. A press that ends a line or a polygon with a double click emits no `doubleclick` and folds no group. A new shape is selected as soon as it is proposed.
+- The text tool draws a box like the rectangle tool, then opens the text input in it instead of proposing the shape. Closing the input proposes one `'add'` with `tool: 'text'` and the text, for the mark of `textMark`; a box left empty proposes nothing.
+- A shape has text when its mark has a `label` option. A double click on it with the select tool, Enter while it is the only selected shape, or `editText` opens the input on it, with the text its label reads. While it is open, the graph hides the shape and its label and the layer draws the shape and a dashed box around the input.
+- Escape, Cmd or Ctrl and Enter, a press on the graph, a change of tool and the loss of focus close the input and propose the text; Enter alone starts a new line. `cancel` closes it with no edit. A text unchanged and a box that holds it propose nothing.
+- When the text needs more lines than the box holds, at the size of its label, the closing edit also makes the shape taller, its top edge in place, so that the label shows whole. A circle never grows.
 - `setTool` drops the shape being drawn, and so does `update` with another tool. `cancel` drops it too, and Escape drops it before clearing the selection.
 - A rectangle or a circle of no size, a line of fewer than 2 distinct points and an area of fewer than 3 make no edit.
 - `undo` and `redo` do nothing during a gesture. They take back a whole batch: if one of its shapes changed since, the whole batch is skipped and forgotten, and the next one is tried. A new edit clears the redo list; `destroy` clears both.
@@ -110,3 +121,4 @@ Draws the editor over its graph: the shapes being edited or waiting for their da
 - Destroying the graph destroys the editor and its layer. After `destroy`, the methods do nothing and the state stays empty.
 - [`persistShapes`](/docs/api/persist-shapes) from `@bruno00o/graph/db` writes the edits to a TanStack DB collection, during a gesture too with `live`.
 - The layer is an `svg` element with `data-shape-editor` and `aria-hidden="true"`, laid over the canvas, that takes no pointer events. Its handles use `--graph-accent` and `--graph-paper`.
+- The text input is a `textarea` with `data-shape-editor-text`, placed over the box of the shape on each frame, in the font, size and weight of the label, centered, and in `--graph-ink`. It takes the focus when it opens and gives it back to the graph element when it closes. It grows taller than the box while the text does not fit.

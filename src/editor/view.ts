@@ -1,14 +1,26 @@
-import type { Mark } from '../types'
+import { wrapMargin } from '../shapes/text'
+import type { Key, Mark } from '../types'
 import { drawingOf, type EditorFrame, type ShapeEditor } from './editor'
+import { lineSpacing } from './text'
 
 const svgNamespace = 'http://www.w3.org/2000/svg'
 const accent = 'var(--graph-accent,#c93700)'
 const paper = 'var(--graph-paper,#ffffff)'
 
+/** Options of `mountShapeEditor`. */
+export interface ShapeEditorViewOptions {
+  /** Text that the input of a shape shows while it is empty. Defaults to none. */
+  readonly placeholder?: string | undefined
+}
+
 /** The layer `mountShapeEditor` draws. */
 export interface ShapeEditorView {
   /** The SVG element laid over the graph. */
   readonly element: SVGSVGElement
+  /** The input of the text being typed into a shape, hidden the rest of the time. */
+  readonly input: HTMLTextAreaElement
+  /** Changes options; the options left out keep their value. */
+  update(options: ShapeEditorViewOptions): void
   /** Removes the layer. */
   destroy(): void
 }
@@ -30,9 +42,13 @@ function dashOf(dash: number, width: number): string {
 
 /**
  * Draws a shape editor over its graph: the shapes being edited, as they will be once their data
- * changes, and the handles of the selected shapes. Shows no text.
+ * changes, the handles of the selected shapes, and the input of the text being typed. Shows no text
+ * of its own.
  */
-export function mountShapeEditor<M extends Mark>(editor: ShapeEditor<M>): ShapeEditorView {
+export function mountShapeEditor<M extends Mark>(
+  editor: ShapeEditor<M>,
+  options: ShapeEditorViewOptions = {},
+): ShapeEditorView {
   const drawing = drawingOf(editor)
   const element = document.createElementNS(svgNamespace, 'svg')
   element.setAttribute('aria-hidden', 'true')
@@ -49,10 +65,77 @@ export function mountShapeEditor<M extends Mark>(editor: ShapeEditor<M>): ShapeE
   const handles = path(`fill:${paper};stroke:${accent};stroke-width:1.5`)
   const active = path(`fill:${accent};stroke:${accent};stroke-width:1.5`)
   element.append(shapes, box, middles, handles, active, sketch)
-  drawing.element.append(element)
+  const input = document.createElement('textarea')
+  input.setAttribute('data-shape-editor-text', '')
+  input.style.cssText = `position:absolute;left:0;top:0;display:none;box-sizing:border-box;margin:0;border:0;outline:none;resize:none;overflow:hidden;background:transparent;color:var(--graph-ink,#1c1c1c);text-align:center;line-height:${lineSpacing}`
+  const mirror = document.createElement('div')
+  mirror.setAttribute('aria-hidden', 'true')
+  mirror.style.cssText = `position:absolute;left:0;top:0;display:none;visibility:hidden;pointer-events:none;box-sizing:border-box;overflow-wrap:break-word;line-height:${lineSpacing}`
+  input.addEventListener('input', () => {
+    editor.setText(input.value)
+    place()
+  })
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' || (event.key === 'Enter' && (event.metaKey || event.ctrlKey))) {
+      event.preventDefault()
+      editor.endText()
+    }
+  })
+  input.addEventListener('blur', () => editor.endText())
+  drawing.element.append(element, input, mirror)
   let shown: EditorFrame | null = null
+  let typed: Key | null = null
+
+  function update(next: ShapeEditorViewOptions): void {
+    if (Object.hasOwn(next, 'placeholder')) input.placeholder = next.placeholder ?? ''
+  }
+
+  function place(): void {
+    const text = editor.store.state.text
+    if (!text) {
+      if (typed === null) return
+      typed = null
+      if (document.activeElement === input) drawing.element.focus({ preventScroll: true })
+      input.style.display = 'none'
+      mirror.style.display = 'none'
+      mirror.textContent = ''
+      return
+    }
+    const style = input.style
+    const pad = text.fontSize * wrapMargin
+    if (typed !== text.key) {
+      typed = text.key
+      input.value = text.text
+      style.display = ''
+      mirror.style.display = ''
+    }
+    const width = `${Math.max(text.width, pad * 4)}px`
+    const font = text.fontFamily ?? 'var(--graph-font,system-ui,sans-serif)'
+    const space = text.wrap ? 'pre-wrap' : 'pre'
+    for (const target of [style, mirror.style]) {
+      target.width = width
+      target.fontSize = `${text.fontSize}px`
+      target.fontWeight = String(text.fontWeight)
+      target.fontFamily = font
+      target.whiteSpace = space
+      target.paddingLeft = `${pad}px`
+      target.paddingRight = `${pad}px`
+    }
+    mirror.textContent = `${input.value || input.placeholder}\u200b`
+    const content = mirror.offsetHeight
+    const height = Math.max(text.height, content + pad * 2)
+    const top = Math.max(0, (height - content) / 2)
+    style.left = `${text.x}px`
+    style.top = `${text.y}px`
+    style.paddingTop = `${top}px`
+    style.paddingBottom = `${Math.max(0, height - content - top)}px`
+    style.height = `${height}px`
+    input.scrollTop = 0
+    if (document.activeElement !== input) input.focus({ preventScroll: true })
+  }
 
   function draw(): void {
+    place()
     const frame = drawing.frame()
     if (frame === shown) return
     shown = frame
@@ -82,14 +165,17 @@ export function mountShapeEditor<M extends Mark>(editor: ShapeEditor<M>): ShapeE
     active.setAttribute('d', frame.active)
   }
 
+  update(options)
   let stop: () => void = () => {}
   function destroy(): void {
     stop()
     element.remove()
+    input.remove()
+    mirror.remove()
   }
   stop = drawing.listen((destroyed) => {
     if (destroyed) destroy()
     else draw()
   })
-  return { element, destroy }
+  return { element, input, update, destroy }
 }

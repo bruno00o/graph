@@ -23,7 +23,7 @@ const editor = createShapeEditor(graph, {
 mountShapeEditor(editor)
 ```
 
-`createShapeEditor` takes the pointer and the keys of the graph; `mountShapeEditor` draws the shapes being edited and their handles over the graph, in an SVG layer without text. Both come from `@bruno00o/graph/editor`, so a graph without an editor carries none of its code. Every option is in the [API reference](/docs/api/editor).
+`createShapeEditor` takes the pointer and the keys of the graph; `mountShapeEditor` draws the shapes being edited and their handles over the graph, in an SVG layer, and the input of the [text](#text) being typed. Both come from `@bruno00o/graph/editor`, so a graph without an editor carries none of its code. Every option is in the [API reference](/docs/api/editor).
 
 ## Moving and reshaping
 
@@ -49,7 +49,7 @@ The selection is the selection of the graph: `graph.selection.get().shapes`, `se
 
 ## Drawing shapes
 
-`editor.setTool(tool)` chooses what a press does: `'select'`, the default, selects, moves and reshapes; `'rectangle'`, `'circle'`, `'line'`, `'polygon'` and `'freehand'` draw. `editor.store.state.tool` holds the current tool, for a toolbar to show it.
+`editor.setTool(tool)` chooses what a press does: `'select'`, the default, selects, moves and reshapes; `'rectangle'`, `'circle'`, `'line'`, `'polygon'` and `'freehand'` draw, and `'text'` draws a box to [type in](#text). `editor.store.state.tool` holds the current tool, for a toolbar to show it.
 
 | Tool | Gesture |
 | --- | --- |
@@ -58,6 +58,7 @@ The selection is the selection of the graph: `graph.selection.get().shapes`, `se
 | Line | Click point by point, then Enter or a double click; a drag draws a single segment |
 | Polygon | Click point by point, then Enter, a double click or a click on the first point |
 | Freehand | Drag: the stroke closes into an area when its ends meet, and stays a line otherwise |
+| Text | Drag or click two corners, like a rectangle, then type |
 
 Two clicks work everywhere a drag does, so that a shape never needs a drag. With a line or a polygon, Shift turns the next segment by steps of 15 degrees, Backspace, Delete or Cmd or Ctrl and Z take back the last point, and Escape drops the shape. A freehand stroke keeps a point every 2 pixels while drawing, then drops the points closer than half a pixel to its outline.
 
@@ -93,6 +94,32 @@ editor.update({ snap: { grid: 'background' } })
 ```ts
 shapes(zones, { name: 'zones', order: 'order' })
 ```
+
+## Text
+
+A shape has text when its mark has a [`label`](/docs/shapes#labels). Double click it, or press Enter while it is the only selected shape, and an input opens over it, with the text of its label, in its font and at its size on the screen. The label hides while you type. Enter starts a new line; Escape, Cmd or Ctrl and Enter, a click elsewhere or another tool closes the input and proposes a `'change'` edit with the new `text`, which `applyShapeEdits` writes to the `text` field. `editor.cancel()` closes it with no edit.
+
+The `'text'` tool draws a box, then opens the input in it. Closing it proposes an `'add'` edit with `tool: 'text'` and the text, for the mark of `textMark`, `newMark` by default; a box left empty proposes nothing. Give the text mark a label that reads the `text` field, wraps and scales with the box:
+
+```ts
+const editor = createShapeEditor(graph, {
+  textMark: 'notes',
+  onEdit: (edits) => {
+    zones = applyShapeEdits(zones, edits, { mark: 'zones' })
+    notes = applyShapeEdits(notes, edits, { mark: 'notes' })
+    graph.update({ definition: define(zones, notes) })
+  },
+})
+mountShapeEditor(editor, { placeholder: messages.typeHere })
+
+shapes(notes, {
+  name: 'notes',
+  fill: 'transparent',
+  label: { text: 'text', wrap: true, scale: 'world', place: 'always' },
+})
+```
+
+When the text needs more lines than the box holds, the same edit makes the box taller, its top edge in place, so that the label shows whole; the input grows while you type. The library writes no text of its own in the input: `placeholder` is yours. `editor.editText(key)`, `setText` and `endText` drive the same input from your code, and `editor.store.state.text` gives its text, its box on the screen and its font, to draw your own input instead of the one of `mountShapeEditor`. An undo puts the previous text back.
 
 ## Undo and redo
 
@@ -208,7 +235,7 @@ import { ShapeEditor } from '@bruno00o/graph/editor/react'
 
 ## Keyboard and accessibility
 
-Every move has a key: the arrows move the selected shapes and Delete removes them, so the editor does not need a drag, and every drawn shape takes clicks instead of a drag. The keys reach the editor while the graph element has the focus and a shape is selected, a shape is being drawn, or the key undoes, redoes or duplicates; the other keys go to the graph. A toolbar should give the focus back to the graph element once a tool is chosen, so that Enter and Escape reach the editor. The layer draws no text and is hidden from assistive technologies.
+Every move has a key: the arrows move the selected shapes and Delete removes them, so the editor does not need a drag, and every drawn shape takes clicks instead of a drag. The keys reach the editor while the graph element has the focus and a shape is selected, a shape is being drawn, or the key undoes, redoes or duplicates; the other keys go to the graph. A toolbar should give the focus back to the graph element once a tool is chosen, so that Enter and Escape reach the editor. The layer is hidden from assistive technologies. The text input is a `textarea` that takes the focus while it is open, then gives it back to the graph element: set `aria-label` on `view.input`, the view `mountShapeEditor` returns, to give it a name.
 
 ## Cost
 
@@ -226,3 +253,4 @@ Saving costs the write of TanStack DB, which copies and compares the rows it upd
 - Drawing holes, or several parts in one shape.
 - A shape whose geometry comes from a function is edited, but `applyShapeEdits` and `persistShapes` write a field.
 - Who else is editing: the pointers and the selections of the other clients.
+- Rich text, or a text that follows a line.
