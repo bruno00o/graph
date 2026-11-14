@@ -1,0 +1,44 @@
+---
+title: showPresence
+description: Show the cursors and the selections of the other people editing a graph, from a collection of presence rows.
+---
+
+```ts
+import { showPresence } from '@bruno00o/graph/db'
+
+function showPresence<T extends object, TKey extends string | number, S extends string = string>(
+  graph: GraphInstance<S>,
+  options: ShowPresenceOptions<T, TKey, FreeState<S>>,
+): Presence<TKey>
+```
+
+Reads a collection that holds one row for each person editing, and shows the others on the graph: a cursor at each pointer, and each selection in a free state of its own. It writes the row of the local person, `me`, at most every `wait` milliseconds, and ignores the rows older than `expire`. Nothing is sent by the library: your collection decides how rows travel, through its handlers, a sync engine or local storage. Throws when a name in `states` is not a free state of the graph, and when `wait`, `expire` or `maxSelection` is not a valid number.
+
+## Options
+
+<api-table path="db/index.ts" name="ShowPresenceOptions" />
+
+<api-table path="db/index.ts" name="PresenceFields" />
+
+<api-table path="db/index.ts" name="PresenceValues" />
+
+<api-table path="db/index.ts" name="PresenceSelection" />
+
+## Result
+
+<api-table path="db/index.ts" name="Presence" />
+
+<api-table path="db/index.ts" name="PresenceParticipant" />
+
+## Behavior
+
+- The row of the local person is written once at the start, then when its pointer, in world units, or its selection changes, and every third of `expire` while nothing changes, so that others keep seeing it. The writes go through `collection.update`, or `collection.insert` with `create` the first time, and use the same pacing as [`persistShapes`](/docs/api/persist-shapes) with `live`: a slow write delays the next one by four times its duration.
+- `stop`, destroying the graph, or closing the page removes the row of the local person. A person who leaves without a trace disappears once their row is older than `expire`, on the clock of this client.
+- A participant takes the first free slot in the order of the keys when the collection first loads, then in the order of arrival, and keeps it while present. Its selection shows in the state of that slot, `presence1` for slot 0. Participants beyond the number of states share them, the least shared first, and a state holds the keys of all its participants. States are written only when a selection changes, and cleared when a participant leaves or expires.
+- A cursor is an element pinned to a [point anchor](/docs/drawing-layers#anchored-html), so it follows the pointer in world units on a flat map and on the globe, and hides behind the horizon. The default is a colored dot without text; `cursor` gives your own element, once for each participant.
+- The selection is cut to `maxSelection` keys for each of nodes, edges and shapes. Keys of elements the graph does not have are kept: they show once the element arrives.
+- Selections and cursors are only as shared as the world: two clients show the same places when their elements have the same positions, as with positions in the data, a map, or a layout that gives the same result.
+- A failed write is dropped, and the next one retries; in development, one warning is logged.
+- After `graph.destroy()`, `showPresence` shows and writes nothing.
+
+See [Who else is editing](/docs/editing-shapes#who-else-is-editing) for a walkthrough.

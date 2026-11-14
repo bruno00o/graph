@@ -209,6 +209,65 @@ The [shared shapes](/examples/shared-shapes) example keeps its shapes in a local
 
 <LiveExample slug="shared-shapes" />
 
+## Who else is editing
+
+`showPresence` from `@bruno00o/graph/db` shows the other people editing the same graph: a cursor at the pointer of each, and their selections in colors of their own. It works with any graph, not only with a shape editor. The library sends nothing: you give it a collection with one row for each person, and the collection carries the rows, through its handlers, a sync engine or, as in the example, local storage.
+
+```ts
+import { showPresence } from '@bruno00o/graph/db'
+
+const crowd = createCollection(
+  localStorageCollectionOptions({
+    id: 'crowd',
+    storageKey: 'crowd',
+    getKey: (seen: Seen) => seen.id,
+  }),
+)
+
+const presence = showPresence(graph, {
+  collection: crowd,
+  me: sessionId,
+  create: (id, values) => ({ id, name: userName, ...values }),
+})
+```
+
+A row holds the `pointer` in world units, the `selection` as keys of `nodes`, `edges` and `shapes`, and the `time` of its last write; `fields` names yours. `create` builds the row of the local person the first time, with the three values, and the fields of your own, such as a name. `me` is its key. The pointer is written in world units, so a cursor lands on the same place for everyone as long as they see the same world: positions in the data, a map, or a layout with a result that does not depend on the client.
+
+The selections show in free states that you declare, `presence1` to `presence8` by default, each with the color you give it. A person takes the first free one and keeps it while present, and beyond eight people share them. The states of the graph that you did not declare are left out, so a graph with three states shows three colors.
+
+```ts
+const look = (color: string) => ({
+  nodes: { outline: color, outlineWidth: 3 },
+  shapes: { stroke: color, strokeWidth: 4 },
+})
+
+defineGraph({
+  marks,
+  states: {
+    presence1: look('var(--graph-cat-1)'),
+    presence2: look('var(--graph-cat-2)'),
+    presence3: look('var(--graph-cat-3)'),
+  },
+})
+```
+
+The cursors are elements in the [anchor layer](/docs/drawing-layers#anchored-html): a colored dot without text by default, with the color of `var(--graph-cat-N)` for slot N. Give `cursor` a function that makes your own element, such as an arrow with a name, once for each person; `cursor: false` shows none. They follow the pointer on a flat map and on the globe, and hide behind its horizon.
+
+```ts
+showPresence(graph, {
+  collection: crowd,
+  me: sessionId,
+  create: (id, values) => ({ id, name: userName, ...values }),
+  cursor: ({ id }) => cursorFor(crowd.get(id)?.name),
+})
+```
+
+`presence.store` lists the other people, with their slot and state, and changes only when one joins or leaves: use it for a list of names or of avatars. `presence.stop()` removes the row of the local person, the cursors and the states.
+
+- A row older than `expire`, 30 seconds by default, no longer counts: a person who closed the tab without a trace disappears. The local person rewrites its row every third of that while idle, and removes it when the page closes or the graph is destroyed. Rows are compared with the clock of the client that reads them.
+- The local row is written at most every 50 milliseconds, `wait`, and a write that takes long delays the next one by four times as long. Each write sends the whole row of one person, a few dozen bytes, plus the selection cut to `maxSelection` keys, 500 by default.
+- The shapes that someone else moves or draws are not drawn apart: with `persistShapes` and `live`, a moved shape already moves on every screen, and a new shape appears when its author ends it.
+
 ## Which shapes
 
 `marks` lists the names of the shape marks the editor works on, every shape mark by default. Shapes of the other marks, and shapes whose geometry cannot be read, take the pointer as without the editor. A graph has at most one editor at a time: `editor.destroy()` gives the pointer and the keys back, and destroying the graph destroys its editor and its layer.
@@ -251,10 +310,12 @@ Drawing adds nothing measurable to a frame in Chrome: a freehand stroke, and the
 
 Saving costs the write of TanStack DB, which copies and compares the rows it updates, then the reading of the new outlines. In Chrome on an Apple M4 Pro, with a collection in memory: a polygon of 5,000 points takes 2 to 6 milliseconds to write, 100 small shapes moved together 4 to 5, and 1,000 small shapes 26 to 30. A collection in local storage also writes the whole collection to the storage on each write, 7 to 17 milliseconds for the polygon and 63 to 70 for the 1,000 shapes. Another tab receives each write as one frame, 13 to 44 milliseconds after it starts, 90 to 110 for the 1,000 shapes; reading the polygon of 5,000 points there costs 15 to 21 milliseconds, 100 shapes 2, 1,000 shapes 9 to 13. With `live`, a gesture of a second and a half sends about 24 writes, and 1,000 shapes moved together drop frames: keep `live` for a few shapes at a time. During such a gesture, the graph of the editor reads each write of the shape being reshaped, which it hides behind the preview, but triangulates it only when it shows again: about half a millisecond per write for a polygon of 5,000 points.
 
+Showing others costs the local person one write every 50 milliseconds at most, 19 a second in Chrome with the pointer moving all the time, and the reading of each row that arrives. With eight other people moving their pointers 20 times a second, 160 row changes a second through a collection in local storage, the main thread of a tab spent about 60 milliseconds more each second, mostly in the collection reading the storage, and frames stayed at 16.7 milliseconds at the 95th percentile. A cursor reached the other tab 11 milliseconds after the write at the median, 28 with the eight others writing, 50 at the 95th percentile. `@bruno00o/graph/db` grows by about 2.5 kB gzipped, and a graph that does not call `showPresence` runs none of it.
+
 ## Not there yet
 
 - Rotating shapes, and snapping to other shapes or to nodes.
 - Drawing holes, or several parts in one shape.
 - A shape whose geometry comes from a function is edited, but `applyShapeEdits` and `persistShapes` write a field.
-- Who else is editing: the pointers and the selections of the other clients.
+- A preview of the shape someone else is drawing, before they finish it.
 - Rich text, or a text that follows a line.

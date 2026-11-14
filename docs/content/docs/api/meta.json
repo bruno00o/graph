@@ -32,6 +32,7 @@
     "---@bruno00o/graph/db---",
     "persist-positions",
     "persist-shapes",
+    "show-presence",
     "subset",
     "---@bruno00o/graph/query---",
     "create-exploration",

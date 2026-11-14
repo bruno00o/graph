@@ -355,6 +355,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     containers: () => (projection.active ? containerBoxes : null),
     edgeIndex: (key) => projection.edgeIndexOf(key),
     paths: bundles.paths,
+    sphere: () => camera.sphere(),
   })
 
   const views = new ViewControl({

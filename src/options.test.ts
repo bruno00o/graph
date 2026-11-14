@@ -1,7 +1,14 @@
 import { describe, expectTypeOf, it } from 'vitest'
 import type { DensityBundlingOptions } from './bundling'
 import type { CypherOptions } from './cypher'
-import type { PersistPositionsOptions, PersistShapeFields, PersistShapesOptions } from './db'
+import type {
+  PersistPositionsOptions,
+  PersistShapeFields,
+  PersistShapesOptions,
+  PresenceFields,
+  PresenceSelection,
+  ShowPresenceOptions,
+} from './db'
 import type {
   GraphDevtoolsOptions,
   GraphDevtoolsPluginOptions,
@@ -243,6 +250,8 @@ interface Inputs {
   PersistShapesOptions: PersistShapesOptions<Item, string, Marks>
   PngExportOptions: PngExportOptions
   PositionSnapshotOptions: PositionSnapshotOptions
+  PresenceFields: PresenceFields<Item>
+  PresenceSelection: PresenceSelection
   RadialOptions: RadialOptions
   ReachOptions: ReachOptions<Marks>
   ReadOptions: ReadOptions
@@ -258,6 +267,7 @@ interface Inputs {
   ShapeLabelOptions: ShapeLabelOptions<Item>
   ShapeOptions: ShapeOptions<Item>
   ShapeScalesOptions: ShapeScalesOptions
+  ShowPresenceOptions: ShowPresenceOptions<Item, string, 'muted'>
   SourceSubscription: SourceSubscription
   SchemaInput: SchemaInput
   StateKindStyles: StateKindStyles

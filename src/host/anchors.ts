@@ -139,6 +139,7 @@ export interface AnchorLocator {
   size(): { readonly width: number; readonly height: number }
   nodeBox(key: Key, box: AnchorBox): boolean
   edgePoint(key: Key, box: AnchorBox): boolean
+  worldPoint(point: Point, box: AnchorBox): boolean
   stateNodes(name: string): readonly Key[]
   inState(name: string, kind: 'nodes' | 'edges', key: Key): boolean
   checkState(name: string): void
@@ -300,11 +301,7 @@ export class AnchorLayer {
     if (options.node !== undefined) return locator.nodeBox(options.node, box)
     if (options.edge !== undefined) return locator.edgePoint(options.edge, box)
     if (options.point) {
-      const { width, height } = locator.size()
-      const view = locator.view()
-      box.x0 = box.x1 = (options.point.x - view.x) * view.zoom + width / 2
-      box.y0 = box.y1 = (options.point.y - view.y) * view.zoom + height / 2
-      return true
+      return locator.worldPoint(options.point, box)
     }
     const keys =
       anchor.keys ?? (options.state !== undefined ? locator.stateNodes(options.state) : null)
