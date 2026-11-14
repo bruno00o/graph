@@ -310,7 +310,12 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
     states: {
       muted: { opacity: 0.06, label: false },
       near: { others: { opacity: 0.06, label: false } },
-      glow: { halo: halo === 'plain' ? true : { color: 'var(--graph-cat-2)', width: 10 } },
+      glow: {
+        halo:
+          halo === 'plain'
+            ? true
+            : { color: 'var(--graph-cat-2)', width: halo === 'wide' ? 12 : 6 },
+      },
     },
     layout: engine ? force({ engine, multilevel }) : null,
   })
