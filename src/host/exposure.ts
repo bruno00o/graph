@@ -1,10 +1,11 @@
+import type { ShapeRecord } from '../core/graph-model'
 import type { Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
 import type { StateBuffers } from '../core/state-buffers'
 import { detailStep, type Sight } from '../core/visibility'
 import type { ThemeResolver } from '../dom/theme'
-import type { GraphDefinition } from '../types'
+import type { GraphDefinition, Key } from '../types'
 import type { BridgeHost } from './bridges'
 import type { BundleHost } from './bundles'
 import type { HostCamera } from './camera'
@@ -14,6 +15,7 @@ import { exposeSnapshot } from './export-source'
 import type { GraphState, RendererFactory } from './graph-instance'
 import { exposeInternals, type GraphWatcher } from './internals'
 import type { LayerControl } from './layer-control'
+import type { PointerTool } from './pointer-tool'
 import type { RenderHost } from './render-host'
 import type { StateRegistry } from './state-registry'
 import type { TimeControl } from './time-control'
@@ -45,6 +47,9 @@ export interface ExposureSource {
   prepare(): void
   request(): void
   destroyed(): boolean
+  tool(tool: PointerTool | null): boolean
+  draft(keys: readonly Key[]): void
+  shape(key: Key): ShapeRecord | null
 }
 
 export function exposeGraph(graph: object, source: ExposureSource): void {
@@ -77,6 +82,10 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
         watchers.delete(watcher)
       }
     },
+    tool: source.tool,
+    draft: source.draft,
+    shape: source.shape,
+    globe: () => source.camera.sphere(),
   })
 
   exposeSnapshot(graph, () => {
