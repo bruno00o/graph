@@ -712,7 +712,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function flushChanges(): void {
     const start = clock()
     const changes = model.flush()
-    if (projection.grouping) folds.foldNew(changes)
+    const born = projection.grouping ? folds.foldNew(changes) : null
     if (destroyed) return
     const supported = support.apply(changes)
     const projected = projection.apply(changes)
@@ -731,6 +731,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     reads.refreshIssues()
     if (destroyed) return
     data.refresh()
+    if (destroyed) return
+    if (born) emitter.emit('foldchange', { folded: born })
   }
 
   function countElements(): GraphCount {

@@ -36,6 +36,22 @@ const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
 
 The graph adds its own layer back after the browser restores a lost WebGL context: MapLibre then warns that it cannot restore custom layers. See [Browser support](/docs/browser-support#context-loss).
 
+## Where the graph sits
+
+`graph.element` is a `div` that `mountMapGraph` inserts into the container of the map, right after the canvas container of MapLibre: a sibling of it, not a child. It is positioned absolutely over the whole map, so it measures what the map measures and clips its content at the edges of the map, and it takes no pointer events itself: the map canvas keeps them. It has no `z-index`, so it stacks by order in the document. From bottom to top: the map canvas and its markers, which live in the canvas container; the graph element; the popups of MapLibre, which are added to the map container later; then the controls, whose `z-index` is 2.
+
+For your own overlays, this means three things:
+
+- Put them in an [`<Anchor>`](/docs/api/anchor) or in `graph.anchors`. Their layer is inside `graph.element`, over the markers and under the popups and controls of MapLibre, and it follows the camera of the map.
+- An overlay of your own placed in the map container goes over `graph.element` when it comes later in the document, or has a `z-index` of 1 or more.
+- A `position: absolute` child you add to `graph.element` yourself is clipped at the edges of the map, and it receives no pointer events unless you set `pointer-events: auto` on it: the property is inherited.
+
+## Units of nodes on a map
+
+On a map, a node with `longitude` and `latitude` is sized in screen pixels: `units` defaults to `'screen'`, and `size` is a diameter in pixels at every zoom. Setting `units: 'world'` on such a node scales it with the map as a disc on the Earth would: the world is 512 units wide at map zoom 0 and doubles at each zoom, so a `size` of 1 is 1 pixel at zoom 0 and 2 pixels at zoom 1, and a node of size 10 spans 7 degrees of longitude. `units` changes no position and no edge. It sets the unit of the `gap` of [spread children](/docs/groups#spread-children), in pixels or in world units.
+
+A node placed by `x` and `y` in world units, or without coordinates, defaults to `'world'` and is huge at the zooms of a map: set `units: 'screen'` on it. A `groups()` mark takes the units of its first member.
+
 ## Switching the basemap
 
 Call `map.setStyle(style)` to change the basemap: the graph stays on the map, whether the style is a URL or an object and whether MapLibre patches the old style or loads the new one from scratch. It is drawn on top of the new style, or under the layer named by `beforeId` when the new style has that layer.
@@ -44,7 +60,7 @@ Colors that read well on a light basemap can vanish on a dark one or on imagery:
 
 <LiveExample slug="basemaps" />
 
-Node sizes are in screen pixels, so a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map, unless they follow [great circles](#great-circles).
+Node sizes are in screen pixels when the node has a `longitude` and a `latitude`, so such a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map, unless they follow [great circles](#great-circles).
 
 The map keeps its own camera at mount: the graph does not frame its nodes by itself. To frame them, call `fit` right after mounting; it waits until the graph has measured the map.
 
@@ -97,7 +113,7 @@ See the [map component](/examples/map-component) example.
 
 ## Globe
 
-The graph follows the projection of the map. Set the globe projection of MapLibre, in the style or at any time, and nodes, edges, labels, badges, images, hulls and the lasso go with it:
+The graph follows the projection of the map. Set the globe projection of MapLibre, in the style or at any time, and nodes, edges, labels, badges, images, hulls, [anchors](/docs/drawing-layers#anchored-html) and the lasso go with it:
 
 ```ts
 map.on('style.load', () => map.setProjection({ type: 'globe' }))
@@ -290,7 +306,7 @@ mountMapGraph(map, {
 
 - A ring or a line that crosses the antimeridian takes the short way, from one point to the next. On a flat map, a shape that crosses it is drawn, picked and taken by the lasso on both sides.
 - On the globe, outlines and fills follow the surface: edges longer than 8 world units, about 5.6 degrees at the equator, are split into shorter ones, once per geometry. The part of a shape behind the horizon is neither drawn nor picked.
-- A geometry in world units, `{ x, y }` points or a rectangle, stays in world units: on a map of 512 world units, a rectangle 100 units wide covers a fifth of the Earth. Circles and rectangles in world units keep their exact curve on a flat map.
+- A geometry in world units, `{ x, y }` points or a rectangle, stays in world units: on a map of 512 world units, a rectangle 100 units wide covers a fifth of the Earth. Circles and rectangles in world units keep their exact curve on a flat map. On the globe, they face the screen at their center, at the scale of the globe there, and the [shape editor](/docs/editing-shapes#on-a-map) shows them the same way.
 - Selection, hover, states, `others`, `hide`, zoom ranges, the time window and layers work as on any graph. `exportMapPng` draws the shapes with the graph.
 - A [shape editor](/docs/editing-shapes#on-a-map) moves and reshapes shapes on the map, and writes their edits in degrees.
 - [Labels](/docs/shapes#labels) show on the map, once per shape. A shape [pinned to a node](/docs/shapes#pin-shapes-to-nodes) follows it, flat or on the globe, with its geometry in world units around the node: a ring of radius 2 spans about 1.4 degrees of longitude.

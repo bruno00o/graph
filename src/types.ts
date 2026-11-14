@@ -729,7 +729,8 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   readonly merge?: boolean | EdgeMergeOptions<T> | undefined
   /**
    * Look of the edges drawn in place of the edges of this mark that end in a folded group, or that
-   * `merge` merges: one per pair of visible ends, direction and merge value.
+   * `merge` merges: one per pair of visible ends, direction and merge value. Each function is
+   * called again whenever an edge it merges changes, arrives or leaves.
    */
   readonly aggregate?: AggregateEdgeOptions<T> | undefined
   /**
@@ -1068,6 +1069,15 @@ export type ShapeGeometry =
   | MultiPolygonGeometry
   | LineStringGeometry
   | MultiLineStringGeometry
+
+type Writable<T> = T extends object ? { -readonly [K in keyof T]: Writable<T[K]> } : T
+
+/**
+ * A `ShapeGeometry` whose arrays and properties are writable all the way down. The editor hands
+ * out a fresh copy that is never frozen and shares nothing with the items, so it can be assigned
+ * to a writable draft, such as the one of `collection.update`, and still to a `ShapeGeometry`.
+ */
+export type WritableShapeGeometry = Writable<ShapeGeometry>
 
 /**
  * What of a shape takes the pointer: `'painted'`, its inside when it is filled and its outline when
@@ -1436,7 +1446,9 @@ export interface InteractionOptions {
   /**
    * Zoom with the wheel, a pinch and the keyboard. `{ speed }` multiplies the wheel and trackpad
    * zoom speed, 1 by default: a finite number, 0 or more, or `defineGraph` throws a `RangeError`.
-   * Code still zooms.
+   * A wheel event zooms by `exp(-delta * 0.0025 * speed)`, with `delta` in pixels (a line is 16,
+   * a page the graph height) capped at 120; a trackpad pinch uses 0.01 and a cap of 30. Code
+   * still zooms.
    * @default true
    */
   readonly zoom?: boolean | { readonly speed?: number | undefined } | undefined

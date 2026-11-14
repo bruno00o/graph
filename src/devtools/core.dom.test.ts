@@ -11,6 +11,8 @@ let dom: FakeDom
 const mounted: GraphInstance[] = []
 const panels: GraphDevtoolsCore[] = []
 
+let shapeLabels = 0
+
 function mount(label: string, count = 3): GraphInstance {
   const container = document.createElement('div')
   document.body.append(container)
@@ -18,7 +20,10 @@ function mount(label: string, count = 3): GraphInstance {
   const graph = createGraphHost(
     container,
     { definition: defineGraph({ marks: [nodes(data, { x: 'x', y: 'y' })] }), ariaLabel: label },
-    fakeRenderer,
+    () => ({
+      ...fakeRenderer(),
+      stats: () => ({ nodeLabels: 2, edgeLabels: 1, shapeLabels, labelTime: 0, textureBytes: 0 }),
+    }),
   )
   mounted.push(graph)
   dom.flushFrames()
@@ -47,6 +52,7 @@ function value(element: HTMLElement, term: string): string | null | undefined {
 
 beforeEach(() => {
   dom = installDom()
+  shapeLabels = 0
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
 })
 
@@ -84,6 +90,31 @@ describe('GraphDevtoolsCore', () => {
     expect(value(element, 'Zoom')).toBe('2')
     expect(value(element, 'Frame rate')).toMatch(/fps$/)
     expect(element.querySelectorAll('.gd-chart rect[height]')).toHaveLength(120)
+  })
+
+  it('counts the labels drawn, shape labels only when there are some', () => {
+    mount('graphe')
+    const element = host()
+    open(element)
+    expect(value(element, 'Labels drawn')).toBe('2 nodes, 1 edge')
+    for (const panel of panels.splice(0)) panel.unmount()
+    for (const graph of mounted.splice(0)) graph.destroy()
+    shapeLabels = 3
+    mount('graphe')
+    const shaped = host()
+    open(shaped)
+    expect(value(shaped, 'Labels drawn')).toBe('2 nodes, 1 edge, 3 shapes')
+    const translated = host()
+    open(translated, {
+      messages: {
+        labelsDrawn: 'Libellés',
+        labelCounts: (nodes, edges, shapes) => `${nodes}/${edges}/${shapes}`,
+      },
+    })
+    expect(value(translated, 'Libellés')).toBe('2/1/3')
+    const plain = host()
+    open(plain, { messages: { labelCounts: (nodes, edges) => `${nodes}/${edges}` } })
+    expect(value(plain, 'Labels drawn')).toBe('2/1')
   })
 
   it('switches between mounted graphs', () => {

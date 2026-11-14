@@ -1,5 +1,5 @@
 import { projectLatitude, projectLongitude, worldSize, worldToGeo } from '../core/geo'
-import type { ShapeGeometry } from '../types'
+import type { WritableShapeGeometry } from '../types'
 
 export const objectPoint = 0
 export const pairPoint = 1
@@ -240,8 +240,34 @@ function wrapped(longitude: number): number {
     : longitude
 }
 
+function fresh(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null) return value
+  if (Array.isArray(value)) {
+    const copy = value.slice()
+    for (let at = 0; at < copy.length; at++) {
+      const item = copy[at]
+      if (typeof item === 'object' && item !== null) copy[at] = fresh(item)
+    }
+    return copy
+  }
+  const copy: Record<string, unknown> = { ...value }
+  for (const key of Object.keys(copy)) {
+    const item = copy[key]
+    if (typeof item === 'object' && item !== null) copy[key] = fresh(item)
+  }
+  return copy
+}
+
+function extras(source: object, ...omit: string[]): Record<string, unknown> {
+  const copy: Record<string, unknown> = {}
+  for (const key of Object.keys(source)) {
+    if (!omit.includes(key)) copy[key] = fresh((source as Record<string, unknown>)[key])
+  }
+  return copy
+}
+
 function writePoint(point: EditPoint): unknown {
-  if (point.exact) return point.source
+  if (point.exact) return fresh(point.source)
   const source = point.source
   if (point.form === pairPoint || point.form === positionPoint) {
     const rest = Array.isArray(source) ? source.slice(2) : []
@@ -260,7 +286,7 @@ function writePoint(point: EditPoint): unknown {
 function writePart(part: Part): unknown[] {
   const written = part.points.map(writePoint)
   const head = part.points[0]
-  if (part.close && head) written.push(head.exact ? part.close.source : writePoint(head))
+  if (part.close && head) written.push(head.exact ? fresh(part.close.source) : writePoint(head))
   return written
 }
 
@@ -277,28 +303,47 @@ function groups(parts: readonly Part[]): unknown[][] {
   return grouped
 }
 
-function withCoordinates(source: object, coordinates: unknown): ShapeGeometry {
-  const { bbox: _, ...rest } = source as Fields
-  return { ...rest, coordinates } as unknown as ShapeGeometry
+function withCoordinates(source: object, coordinates: unknown): WritableShapeGeometry {
+  return {
+    ...extras(source, 'coordinates', 'bbox'),
+    coordinates,
+  } as unknown as WritableShapeGeometry
 }
 
-export function writeEditable(outline: Outline): ShapeGeometry {
+export function writeEditable(outline: Outline): WritableShapeGeometry {
   const source = outline.source
   if (outline.kind === 'circle') {
     const inner = outline.inner > 0 ? { inner: outline.inner } : {}
     const center = writePoint(outline.center)
-    return { ...source, center, radius: outline.radius, ...inner } as unknown as ShapeGeometry
+    return {
+      ...extras(source, 'center', 'radius', 'inner'),
+      center,
+      radius: outline.radius,
+      ...inner,
+    } as unknown as WritableShapeGeometry
   }
   if (outline.kind === 'rectangle') {
     const { x, y, width, height } = outline
-    return { ...source, x, y, width, height } as unknown as ShapeGeometry
+    return {
+      ...extras(source, 'x', 'y', 'width', 'height'),
+      x,
+      y,
+      width,
+      height,
+    } as unknown as WritableShapeGeometry
   }
   const parts = outline.parts
   switch (outline.form) {
     case 'rings':
-      return { ...source, rings: parts.map(writePart) } as unknown as ShapeGeometry
+      return {
+        ...extras(source, 'rings'),
+        rings: parts.map(writePart),
+      } as unknown as WritableShapeGeometry
     case 'points':
-      return { ...source, points: parts[0] ? writePart(parts[0]) : [] } as unknown as ShapeGeometry
+      return {
+        ...extras(source, 'points'),
+        points: parts[0] ? writePart(parts[0]) : [],
+      } as unknown as WritableShapeGeometry
     case 'Polygon':
       return withCoordinates(source, parts.map(writePart))
     case 'MultiPolygon':
