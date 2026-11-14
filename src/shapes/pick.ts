@@ -1,3 +1,4 @@
+import type { LogCursor } from '../core/change-log'
 import { noColor } from '../core/columns'
 import {
   isDrawn,
@@ -13,6 +14,7 @@ import type { Point } from '../types'
 import { wrapShifts } from './wrap'
 
 const maxCells = 16
+const looseFrom = 256
 const lassoSamples = 32
 
 function insideRings(geometry: ShapeGeometryData, x: number, y: number): boolean {
@@ -152,7 +154,12 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
   let pinnedAt = -1
   let pinnedFor = -1
   let version = -1
-  let styleVersion = -1
+  let pickVersion = -1
+  let geometryVersion = -1
+  let cursor: LogCursor | null = null
+  let loose: number[] = []
+  let looseIn = new Uint8Array(0)
+  let pickedCount = 0
   let minX = 0
   let minY = 0
   let maxX = 0
@@ -183,7 +190,11 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
 
   function build(): void {
     version = store.version
-    styleVersion = store.styleVersion
+    pickVersion = store.pickVersion
+    geometryVersion = store.geometryVersion
+    cursor = store.moved.cursor()
+    loose = []
+    looseIn = new Uint8Array(store.capacity)
     const order = store.drawOrder()
     rank = new Uint32Array(store.capacity)
     stamps = new Uint32Array(store.capacity)
@@ -216,6 +227,7 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
       maxY = Math.max(maxY, geometry.maxY)
     })
     levels = []
+    pickedCount = picked.length
     if (picked.length === 0) return
     const finest = Math.min(1024, Math.ceil(Math.sqrt(picked.length)))
     const width = Math.max((maxX - minX) / finest, 1e-9)
@@ -280,7 +292,24 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
   }
 
   function fresh(): void {
-    if (store.version !== version || store.styleVersion !== styleVersion) build()
+    if (store.version !== version || store.pickVersion !== pickVersion) build()
+    else if (store.geometryVersion !== geometryVersion) loosen()
+  }
+
+  function loosen(): void {
+    const moved = cursor ? store.moved.since(cursor) : null
+    if (!moved || loose.length + moved.length > Math.max(looseFrom, pickedCount / 8)) {
+      build()
+      return
+    }
+    for (const index of moved) {
+      if (looseIn[index] === 1 || store.pinned(index)) continue
+      looseIn[index] = 1
+      loose.push(index)
+    }
+    geometryVersion = store.geometryVersion
+    cursor = store.moved.cursor()
+    pinnedFor = -1
   }
 
   function hits(index: number, query: ShapePickQuery): boolean {
@@ -300,7 +329,7 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
     ) {
       return false
     }
-    if (store.draft[index] === 1 || !query.shown(index)) return false
+    if ((store.draft[index] ?? 0) > 0 || !query.shown(index)) return false
     const filled = fills(index, geometry, mode)
     if (geometry.round) {
       const distance = roundDistance(geometry, x, y)
@@ -355,7 +384,7 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
       const reach = (widest + query.tolerance) / query.scale
       const { x, y } = query
       const away = x + reach < minX || y + reach < minY || x - reach > maxX || y - reach > maxY
-      if (away && wrapped.length === 0 && pinned.length === 0) return -1
+      if (away && wrapped.length === 0 && pinned.length === 0 && loose.length === 0) return -1
       stamp = stamp >= 0xfffffffe ? 1 : stamp + 1
       if (stamp === 1) stamps.fill(0)
       let best = -1
@@ -387,6 +416,22 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
         const geometry = store.geometry[index]
         const order = (query.raised(index) ? 2 ** 31 : 0) + (rank[index] ?? 0)
         if (!geometry || order <= bestOrder) continue
+        for (const shift of wrapShifts(geometry)) {
+          if (!hits(index, { ...query, x: x - shift })) continue
+          best = index
+          bestOrder = order
+          break
+        }
+      }
+      for (const index of loose) {
+        const geometry = store.geometry[index]
+        const order = (query.raised(index) ? 2 ** 31 : 0) + (rank[index] ?? 0)
+        if (!geometry || order <= bestOrder) continue
+        if (hits(index, query)) {
+          best = index
+          bestOrder = order
+          continue
+        }
         for (const shift of wrapShifts(geometry)) {
           if (!hits(index, { ...query, x: x - shift })) continue
           best = index

@@ -41,6 +41,11 @@ interface LabelOrder {
 
 const orders = new WeakMap<ShapeStore, LabelOrder>()
 
+export function shiftOf(store: ShapeStore, index: number, axis: 0 | 1): number {
+  const draft = store.draft[index] ?? 0
+  return draft > 1 ? (store.shift[(draft - 2) * 2 + axis] ?? 0) : 0
+}
+
 export function labelAnchor(store: ShapeStore, index: number): boolean {
   const labels = store.labels
   const geometry = store.geometry[index]
@@ -56,7 +61,7 @@ export function labelAnchor(store: ShapeStore, index: number): boolean {
 
 export function labelOrder(store: ShapeStore): LabelOrder {
   const labels = store.labels
-  const key = `${store.version}:${store.labelVersion}`
+  const key = `${store.version}:${store.geometryVersion}:${store.labelVersion}`
   const known = orders.get(store)
   if (known?.key === key) return known
   if (!labels || labels.count === 0) {
@@ -135,8 +140,14 @@ export function createShapeLabeler(): ShapeLabeler {
     if (!labelAnchor(store, index)) return
     const { view, width, height, positions, minimum } = selection
     const node = store.pinNode?.[index] ?? -1
-    const wx = (texts.anchor[index * 2] ?? 0) + (node >= 0 ? positions.x(node) : 0)
-    const wy = (texts.anchor[index * 2 + 1] ?? 0) + (node >= 0 ? positions.y(node) : 0)
+    const wx =
+      (texts.anchor[index * 2] ?? 0) +
+      (node >= 0 ? positions.x(node) : 0) +
+      shiftOf(store, index, 0)
+    const wy =
+      (texts.anchor[index * 2 + 1] ?? 0) +
+      (node >= 0 ? positions.y(node) : 0) +
+      shiftOf(store, index, 1)
     const mode = texts.labelMode[index] ?? 0
     const world = (mode & labelWorld) !== 0
     const base = texts.labelSize[index] || nodeLabelSize
@@ -233,8 +244,8 @@ export function createShapeLabeler(): ShapeLabeler {
       if ((mode & labelPlaced) !== 0) continue
       if (!selection.globe) {
         const node = pins ? (pins[index] ?? -1) : -1
-        const ox = node >= 0 ? positions.x(node) : 0
-        const oy = node >= 0 ? positions.y(node) : 0
+        const ox = (node >= 0 ? positions.x(node) : 0) + shiftOf(store, index, 0)
+        const oy = (node >= 0 ? positions.y(node) : 0) + shiftOf(store, index, 1)
         if ((boxes[at * 4 + 2] ?? 0) + ox < left || (boxes[at * 4] ?? 0) + ox > right) continue
         if ((boxes[at * 4 + 3] ?? 0) + oy < top || (boxes[at * 4 + 1] ?? 0) + oy > bottom) continue
         const wy = (anchors[index * 2 + 1] ?? 0) + oy

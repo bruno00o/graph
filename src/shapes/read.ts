@@ -37,6 +37,67 @@ export function filledWith(geometry: ShapeGeometryData, filled: Filled): ShapeGe
   }
 }
 
+const sameTolerance = 1e-9
+
+function sameIndices(a: Uint32Array | undefined, b: Uint32Array | undefined): boolean {
+  if (a === b) return true
+  if (!a || !b || a.length !== b.length) return false
+  for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) return false
+  return true
+}
+
+function movedPoints(points: Float64Array, dx: number, dy: number): Float64Array {
+  const out = new Float64Array(points.length)
+  for (let k = 0; k < points.length; k += 2) {
+    out[k] = (points[k] ?? 0) + dx
+    out[k + 1] = (points[k + 1] ?? 0) + dy
+  }
+  return out
+}
+
+export function translatedFrom(
+  previous: ShapeGeometryData,
+  next: ShapeGeometryData,
+): ShapeGeometryData | null {
+  const before = previous.points
+  const after = next.points
+  if (!next.pending || previous.pending || previous.round || next.round) return null
+  if (previous.kind !== next.kind || previous.closed !== next.closed) return null
+  if (before.length !== after.length || before.length === 0) return null
+  if (!sameIndices(previous.rings, next.rings) || !sameIndices(previous.polygons, next.polygons)) {
+    return null
+  }
+  const dx = (after[0] ?? 0) - (before[0] ?? 0)
+  const dy = (after[1] ?? 0) - (before[1] ?? 0)
+  const reach = Math.max(
+    Math.abs(previous.minX),
+    Math.abs(previous.maxX),
+    Math.abs(previous.minY),
+    Math.abs(previous.maxY),
+    Math.abs(next.minX),
+    Math.abs(next.maxX),
+    Math.abs(next.minY),
+    Math.abs(next.maxY),
+  )
+  const tolerance = reach * sameTolerance
+  for (let k = 2; k < after.length; k += 2) {
+    if (Math.abs((after[k] ?? 0) - (before[k] ?? 0) - dx) > tolerance) return null
+    if (Math.abs((after[k + 1] ?? 0) - (before[k + 1] ?? 0) - dy) > tolerance) return null
+  }
+  const levels = previous.levels
+  const moved: ShapeGeometryData = {
+    ...next,
+    triangles: previous.triangles,
+    invalid: previous.invalid,
+    pending: false,
+  }
+  if (!levels) return moved
+  return {
+    ...moved,
+    levels: levels.map((level) => ({ ...level, points: movedPoints(level.points, dx, dy) })),
+  }
+}
+
 interface Field {
   readonly x?: unknown
   readonly y?: unknown

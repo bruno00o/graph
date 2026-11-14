@@ -22,7 +22,7 @@ import { defaults } from '../theme/tokens'
 import type { EdgeDash, Key, ShapeMark } from '../types'
 import { type Filled, type FillInput, fillShape } from './fill'
 import { FillPool } from './fills'
-import { emptyShape, filledWith, readOutline } from './read'
+import { emptyShape, filledWith, readOutline, translatedFrom } from './read'
 
 type Read = (datum: unknown) => unknown
 
@@ -177,6 +177,7 @@ class Writer implements ShapeWriter {
   #stamps = new Uint32Array(0)
   #stamp = 0
   #waiting: Waiting[] = []
+  readonly #hidden = new Map<number, Waiting>()
   readonly #batches = new Map<number, Waiting[]>()
   #pool: FillPool | null = null
   #batch = 0
@@ -239,6 +240,18 @@ class Writer implements ShapeWriter {
     return this.#order
   }
 
+  revealed(indices: readonly number[]): void {
+    for (const index of indices) {
+      const entry = this.#hidden.get(index)
+      if (!entry) continue
+      this.#hidden.delete(index)
+      this.#waiting.push(entry)
+    }
+    if (this.#waiting.length === 0) return
+    this.#fillWaiting()
+    this.#store.fillVersion++
+  }
+
   settled(): Promise<void> {
     if (this.#pending === 0) return Promise.resolve()
     return new Promise((done) => this.#settle.push(done))
@@ -248,6 +261,7 @@ class Writer implements ShapeWriter {
     this.#pool?.destroy()
     this.#pool = null
     this.#batches.clear()
+    this.#hidden.clear()
     this.#pending = 0
     this.#release()
   }
@@ -344,6 +358,7 @@ class Writer implements ShapeWriter {
   #remove(index: number): void {
     const store = this.#store
     if (store.alive[index] !== 1) return
+    this.#hidden.delete(index)
     const palette = store.palette
     palette.drop(store.fill[index] ?? noColor)
     palette.drop(store.stroke[index] ?? noColor)
@@ -372,15 +387,26 @@ class Writer implements ShapeWriter {
     const input = mark.geometry(datum)
     let structural = !alive
     if (!alive || input !== this.#inputs[index] || store.geometry[index] === undefined) {
+      const before = store.geometry[index]
       const read = input === undefined ? emptyShape() : readOutline(input)
-      store.geometry[index] = read
+      const moved = alive && before && read ? translatedFrom(before, read) : null
+      const geometry = moved ?? read
+      store.geometry[index] = geometry
       const stamp = ++this.#stamp
       this.#stamps[index] = stamp
-      if (read?.pending) this.#waiting.push({ index, stamp, geometry: read })
-      if (store.labels) store.labels.anchor[index * 2] = Number.NaN
+      this.#hidden.delete(index)
+      if (geometry?.pending) {
+        const entry = { index, stamp, geometry }
+        if (store.draft[index] === 1) this.#hidden.set(index, entry)
+        else this.#waiting.push(entry)
+      }
+      if (store.labels) this.#moveAnchor(index, moved && before ? before : null)
       this.#inputs[index] = input
-      this.#report(index, record.key, read)
-      structural = true
+      this.#report(index, record.key, geometry)
+      if (alive && isDrawn(before) === isDrawn(geometry)) {
+        store.geometryVersion++
+        store.moved.add(index, store.capacity)
+      } else structural = true
     }
     const slot = store.slots.get(record.mark) ?? 0
     const order = finiteOr(mark.order?.(datum), 0)
@@ -393,6 +419,10 @@ class Writer implements ShapeWriter {
     }
     store.alive[index] = 1
     store.keys[index] = record.key
+    const fillBefore = store.fill[index] ?? noColor
+    const strokeBefore = store.stroke[index] ?? noColor
+    const widthBefore = store.strokeWidth[index]
+    const pickBefore = store.pick[index]
     if (!mark.colored) {
       const geometry = store.geometry[index]
       const filled =
@@ -416,6 +446,15 @@ class Writer implements ShapeWriter {
       typeof dash === 'string' && Object.hasOwn(dashCodes, dash) ? dashCodes[dash as EdgeDash] : 0
     store.opacity[index] = Math.min(1, Math.max(0, finiteOr(mark.opacity?.(datum), 1)))
     store.pick[index] = mark.pick
+    if (
+      !alive ||
+      (fillBefore === noColor) !== (store.fill[index] === noColor) ||
+      (strokeBefore === noColor) !== (store.stroke[index] === noColor) ||
+      widthBefore !== store.strokeWidth[index] ||
+      pickBefore !== mark.pick
+    ) {
+      store.pickVersion++
+    }
     store.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     if (mark.time) store.time.read(index, mark.time(datum))
     else store.time.clear(index)
@@ -425,6 +464,21 @@ class Writer implements ShapeWriter {
     const pin = isKey(node) ? node : undefined
     if ((pin !== undefined || store.pinNode) && this.#writePin(index, pin, model)) structural = true
     return structural
+  }
+
+  #moveAnchor(index: number, before: ShapeGeometryData | null): void {
+    const store = this.#store
+    const anchor = (store.labels as ShapeLabels).anchor
+    const geometry = store.geometry[index]
+    const x = anchor[index * 2] ?? Number.NaN
+    if (!before || !geometry || Number.isNaN(x)) {
+      anchor[index * 2] = Number.NaN
+      return
+    }
+    anchor[index * 2] = x + (geometry.points[0] ?? 0) - (before.points[0] ?? 0)
+    anchor[index * 2 + 1] =
+      (anchor[index * 2 + 1] ?? 0) + (geometry.points[1] ?? 0) - (before.points[1] ?? 0)
+    store.anchorVersion++
   }
 
   #writeLabel(

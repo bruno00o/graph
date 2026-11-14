@@ -2,6 +2,7 @@ import { createStore, type ReadonlyStore } from '@tanstack/store'
 import { toAccessor } from '../core/accessor'
 import { worldSize } from '../core/geo'
 import type { GraphChanges, ShapeRecord } from '../core/graph-model'
+import { type ShapeShift, shiftSlots } from '../core/shape-store'
 import type { GraphInstance } from '../host/graph-instance'
 import { internalsOf } from '../host/internals'
 import { isolateSubscribers, report } from '../host/isolate'
@@ -29,6 +30,7 @@ import {
   boundsOf,
   geoOutline,
   insertVertex,
+  isGeo,
   moveVertex,
   type Outline,
   type PathOutline,
@@ -290,6 +292,7 @@ interface Pending {
   readonly order: number | undefined
   readonly pin: Key | null
   readonly look: Look | null
+  readonly shift: Point | null
 }
 
 interface Snapshot {
@@ -327,7 +330,10 @@ interface Proposal {
   readonly pin: Key | null
   readonly look: Look | null
   readonly step: Step
+  readonly shift?: Point | null | undefined
 }
+
+type Proposed = readonly [Key, Outline | null, (Point | null)?]
 
 interface Moved {
   readonly key: Key
@@ -356,6 +362,7 @@ interface MoveGesture {
   readonly type: 'move'
   readonly keys: readonly Key[]
   readonly bases: ReadonlyMap<Key, Outline>
+  readonly sliding: ReadonlySet<Key>
   readonly corner: Point | null
   readonly start: Point
   readonly from: Point
@@ -411,6 +418,8 @@ const defaultHold = 10_000
 const defaultHandleSize = 8
 const arrowStep = 1
 const arrowLongStep = 10
+const shiftFrom = 5000
+const sameShift = 1e-3
 const duplicateOffset = 16
 const defaultHistory = 100
 const defaultAngle = 15
@@ -427,6 +436,7 @@ const drawnLook: Look = Object.freeze({
   opacity: 1,
 })
 const noKeys: readonly Key[] = Object.freeze([])
+const noShifts: readonly ShapeShift[] = Object.freeze([])
 const emptyState: ShapeEditorState = Object.freeze({
   selected: noKeys,
   gesture: null,
@@ -543,6 +553,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
   let active: ActiveVertex | null = null
   let hover: Point | null = null
   let drafted: readonly Key[] = noKeys
+  let shifted: readonly ShapeShift[] = noShifts
   let batches = 0
   let destroyed = false
   let spaceHeld = false
@@ -863,14 +874,79 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return current.started || (current.type === 'vertex' && current.inserted)
   }
 
+  function shiftable(outline: Outline | null): boolean {
+    return outline !== null && (outline.kind !== 'circle' || !isGeo(outline.center))
+  }
+
+  function heavy(outlines: Iterable<Outline>): boolean {
+    let points = 0
+    for (const outline of outlines) {
+      if (outline.kind !== 'path') points += 16
+      else for (const part of outline.parts) points += part.points.length
+      if (points > shiftFrom) return true
+    }
+    return false
+  }
+
+  function referenceOf(outline: Outline): Point | null {
+    if (outline.kind === 'circle') return outline.center
+    if (outline.kind === 'rectangle') return { x: outline.x, y: outline.y }
+    return outline.parts[0]?.points[0] ?? null
+  }
+
+  function slideOf(key: Key, from: Outline | undefined, dx: number, dy: number): Point | null {
+    const entry = entryOf(key)
+    const start = from ? referenceOf(from) : null
+    const data = entry ? referenceOf(entry.outline) : null
+    return start && data ? { x: dx + (start.x - data.x), y: dy + (start.y - data.y) } : null
+  }
+
   function syncDrafts(): void {
-    const keys = new Set<Key>(pending.keys())
-    if (gesture && gestureStarted(gesture)) for (const key of gesture.keys) keys.add(key)
-    if (typing && !typing.added) keys.add(typing.key)
-    const next = [...keys]
-    if (sameKeys(next, drafted)) return
-    drafted = next
-    internals.draft(next)
+    const keys: Key[] = []
+    const groups: { x: number; y: number; keys: Key[] }[] = []
+    const seen = new Set<Key>()
+    const near = sameShift / graph.store.state.view.zoom
+    const place = (key: Key, shift: Point | null) => {
+      if (seen.has(key)) return
+      seen.add(key)
+      let group = shift
+        ? groups.find(
+            (each) => Math.abs(each.x - shift.x) <= near && Math.abs(each.y - shift.y) <= near,
+          )
+        : undefined
+      if (shift && !group && groups.length < shiftSlots) {
+        group = { x: shift.x, y: shift.y, keys: [] }
+        groups.push(group)
+      }
+      if (group) group.keys.push(key)
+      else keys.push(key)
+    }
+    const current = gesture
+    if (current && gestureStarted(current)) {
+      for (const key of current.keys) {
+        place(
+          key,
+          current.type === 'move' && current.sliding.has(key)
+            ? slideOf(key, current.bases.get(key), current.dx, current.dy)
+            : null,
+        )
+      }
+    }
+    for (const [key, waiting] of pending) place(key, waiting.shift)
+    if (typing && !typing.added) place(typing.key, null)
+    const next = groups.map((group, slot): ShapeShift => {
+      const known = shifted[slot]
+      const same = known && sameKeys(known.keys, group.keys)
+      if (same && known.x === group.x && known.y === group.y) return known
+      return { keys: same ? known.keys : group.keys, x: group.x, y: group.y }
+    })
+    const sameDrafts = sameKeys(keys, drafted)
+    if (sameDrafts && next.length === shifted.length && next.every((s, at) => s === shifted[at])) {
+      return
+    }
+    if (!sameDrafts) drafted = keys
+    shifted = next
+    internals.draft(drafted, shifted)
   }
 
   function changed(): void {
@@ -1038,9 +1114,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
     graph.selection.set({ ...current, shapes: shapes.filter((other) => other !== key) })
   }
 
-  function propose(changes: readonly (readonly [Key, Outline | null])[]): void {
+  function propose(changes: readonly Proposed[]): void {
     const proposals: Proposal[] = []
-    for (const [key, outline] of changes) {
+    for (const [key, outline, shift = null] of changes) {
       const entry = entryOf(key)
       if (!entry) continue
       const { mark, datum } = entry.record
@@ -1056,6 +1132,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
         pin: entry.pin,
         look: null,
         step: { key, mark: mark.name, before, after },
+        shift,
       })
     }
     submit(proposals, true)
@@ -1064,8 +1141,8 @@ export function createShapeEditor<S extends string, M extends Mark>(
   function submit(proposals: readonly Proposal[], record: boolean): void {
     if (proposals.length === 0 || destroyed) return
     const batch = ++batches
-    for (const { edit, outline, order, pin, look } of proposals) {
-      pending.set(edit.key, { edit, outline, batch, order, pin, look })
+    for (const { edit, outline, order, pin, look, shift = null } of proposals) {
+      pending.set(edit.key, { edit, outline, batch, order, pin, look, shift })
     }
     if (record && historySize > 0) {
       undoStack.push(proposals.map((proposal) => proposal.step))
@@ -1888,10 +1965,15 @@ export function createShapeEditor<S extends string, M extends Mark>(
       if (outline) bases.set(each, outline)
     }
     const bounds = gridStep() > 0 ? selectionBounds([...bases.keys()], screen()) : null
+    const sliding = new Set<Key>()
+    if (heavy(bases.values())) {
+      for (const [each, outline] of bases) if (shiftable(outline)) sliding.add(each)
+    }
     gesture = {
       type: 'move',
       keys: [...bases.keys()],
       bases,
+      sliding,
       corner: bounds ? { x: bounds[0], y: bounds[1] } : null,
       start: world,
       from: pointer.point,
@@ -2027,9 +2109,12 @@ export function createShapeEditor<S extends string, M extends Mark>(
       if (current.type === 'move') {
         if (current.started) {
           propose(
-            current.keys.map((key) => {
+            current.keys.map((key): Proposed => {
               const base = current.bases.get(key) as Outline
-              return [key, translateOutline(base, current.dx, current.dy)] as const
+              const shift = current.sliding.has(key)
+                ? slideOf(key, base, current.dx, current.dy)
+                : null
+              return [key, translateOutline(base, current.dx, current.dy), shift]
             }),
           )
           return false
@@ -2142,11 +2227,17 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const view = screen()
       const dx = screenTolerance(view, move[0])
       const dy = screenTolerance(view, move[1])
+      const outlines = new Map<Key, Outline>()
+      for (const key of selected) {
+        const entry = entryOf(key)
+        const outline = entry ? outlineOf(key, entry) : null
+        if (outline) outlines.set(key, outline)
+      }
+      const onGpu = heavy(outlines.values())
       propose(
-        selected.flatMap((key) => {
-          const entry = entryOf(key)
-          const outline = entry ? outlineOf(key, entry) : null
-          return outline ? [[key, translateOutline(outline, dx, dy)] as const] : []
+        [...outlines].map(([key, outline]): Proposed => {
+          const shift = onGpu && shiftable(outline) ? slideOf(key, outline, dx, dy) : null
+          return [key, translateOutline(outline, dx, dy), shift]
         }),
       )
       return true

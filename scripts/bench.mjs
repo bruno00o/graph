@@ -14,6 +14,8 @@ const { values: options } = parseArgs({
     vsync: { type: 'boolean', default: false },
     headed: { type: 'boolean', default: false },
     params: { type: 'string', default: '' },
+    port: { type: 'string', default: '5199' },
+    'debug-port': { type: 'string', default: '9361' },
   },
 })
 
@@ -22,7 +24,7 @@ const edgeCount = options.edges ?? (options.layout ? '133000' : '100000')
 const width = 1280
 const height = 800
 const scale = 2
-const debugPort = 9361
+const debugPort = Number(options['debug-port'])
 const root = resolve(import.meta.dirname, '..')
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 
@@ -383,6 +385,240 @@ async function benchRender(page, out) {
   )
 }
 
+const editHelpers = `
+  window.__edit = {
+    send(type, x, y, buttons) {
+      const canvas = window.bench.graph.element.querySelector('canvas')
+      const rect = canvas.getBoundingClientRect()
+      canvas.dispatchEvent(new PointerEvent(type, {
+        pointerId: 1,
+        pointerType: 'mouse',
+        isPrimary: true,
+        button: 0,
+        buttons,
+        clientX: rect.left + x,
+        clientY: rect.top + y,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      }))
+    },
+    shapeAt(wanted) {
+      const { graph } = window.bench
+      const { width, height } = graph.store.get()
+      for (let ring = 0; ring < 60; ring++) {
+        for (let turn = 0; turn < 24; turn++) {
+          const angle = (turn / 24) * Math.PI * 2
+          const x = Math.round(width / 2 + Math.cos(angle) * ring * 6)
+          const y = Math.round(height / 2 + Math.sin(angle) * ring * 6)
+          const hit = graph.pick({ x, y })
+          if (hit?.kind === 'shape' && (wanted ? hit.key === wanted : hit.key !== 'big')) {
+            return { x, y, key: hit.key }
+          }
+        }
+      }
+      return null
+    },
+    async pending() {
+      const { editor, nextFrame } = window.bench
+      for (let index = 0; index < 600 && editor.store.state.pending.length > 0; index++) {
+        await nextFrame()
+      }
+      await nextFrame()
+      __bench.finish()
+    },
+    async gesture(start, path, frames) {
+      const { frameCosts, nextFrame } = window.bench
+      this.send('pointerdown', start.x, start.y, 1)
+      this.send('pointermove', start.x + 8, start.y, 1)
+      await nextFrame()
+      await nextFrame()
+      const run = await __bench.drive(frames, (i) => {
+        const [x, y] = path(i)
+        this.send('pointermove', start.x + x, start.y + y, 1)
+      })
+      const [x, y] = path(frames)
+      const from = frameCosts.length
+      const t0 = performance.now()
+      this.send('pointerup', start.x + x, start.y + y, 0)
+      const up = performance.now() - t0
+      await this.pending()
+      const costs = frameCosts.slice(from)
+      return {
+        run,
+        up,
+        release: performance.now() - t0,
+        releaseHost: costs.reduce((sum, value) => sum + value, 0),
+        releaseWorst: Math.max(0, ...costs),
+        releaseFrames: costs.length,
+      }
+    },
+    async move(count) {
+      const { graph, zones } = window.bench
+      graph.selection.clear()
+      graph.view.fit()
+      await __bench.settle()
+      const hit = this.shapeAt(null)
+      if (!hit) return null
+      const others = zones.map((zone) => zone.id).filter((key) => key !== hit.key)
+      if (count > 1) {
+        graph.selection.set({ nodes: [], edges: [], shapes: [hit.key, ...others.slice(0, count - 1)] })
+        await __bench.settle()
+      }
+      const result = await this.gesture(
+        hit,
+        (i) => [8 + Math.sin(i / 10) * 40 + i * 0.25, Math.cos(i / 10) * 30 - 30],
+        120,
+      )
+      graph.selection.clear()
+      await __bench.settle()
+      return result
+    },
+    async big(reshape) {
+      const { graph, live } = window.bench
+      graph.selection.clear()
+      graph.view.fit({ shapes: ['big'] })
+      await __bench.settle()
+      graph.selection.set({ nodes: [], edges: [], shapes: ['big'] })
+      await __bench.settle()
+      let start = null
+      if (reshape) {
+        const ring = live.rows.get('big').geometry.rings[0]
+        const [x, y] = ring[Math.floor(ring.length / 8)]
+        const point = graph.view.toScreen({ x, y })
+        start = { x: Math.round(point.x), y: Math.round(point.y) }
+        this.send('pointermove', start.x, start.y, 0)
+        await __bench.settle()
+      } else start = this.shapeAt('big')
+      if (!start) return null
+      const result = await this.gesture(start, (i) => [8 + i * 0.5, i * 0.25], 30)
+      graph.selection.clear()
+      await __bench.settle()
+      return result
+    },
+    async pickAfter(times) {
+      const { live, zones, graph, nextFrame } = window.bench
+      graph.selection.clear()
+      graph.view.fit()
+      await __bench.settle()
+      const hit = this.shapeAt(null)
+      if (!hit) return null
+      const durations = []
+      for (let i = 0; i < times; i++) {
+        const row = live.rows.get(zones[(i * 53) % zones.length].id)
+        const ring = row.geometry.rings[0]
+        const [x, y] = ring[0]
+        const moved = [[x + 0.5, y + 0.5], ...ring.slice(1)]
+        live.write([{ type: 'update', key: row.id, value: { ...row, geometry: { rings: [moved] } } }])
+        await nextFrame()
+        await nextFrame()
+        const start = performance.now()
+        const found = graph.pick({ x: hit.x, y: hit.y })
+        durations.push(performance.now() - start)
+        if (found?.kind !== 'shape') return null
+      }
+      return __bench.stats(durations)
+    },
+    async remote(frames) {
+      const { live, zones } = window.bench
+      const { graph } = window.bench
+      graph.selection.clear()
+      graph.view.fit()
+      await __bench.settle()
+      return __bench.drive(frames, (i) => {
+        const row = live.rows.get(zones[(i * 37) % zones.length].id)
+        const ring = row.geometry.rings[0]
+        const [x, y] = ring[0]
+        const moved = [[x + 0.5, y + 0.5], ...ring.slice(1)]
+        live.write([{ type: 'update', key: row.id, value: { ...row, geometry: { rings: [moved] } } }])
+      })
+    },
+  }
+`
+
+async function benchEdit(page, out) {
+  await page.evaluate(editHelpers)
+  await page.evaluate('__bench.settle()')
+  const results = {
+    date: new Date().toISOString(),
+    params: options.params,
+    renderer: await page.evaluate(`(() => {
+      const gl = document.createElement('canvas').getContext('webgl2')
+      const info = gl?.getExtension('WEBGL_debug_renderer_info')
+      return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : null
+    })()`),
+    load: await page.evaluate('window.bench.timings'),
+  }
+  const repeated = async (expression) => {
+    const runs = []
+    for (let time = 0; time < 5; time++) runs.push(await page.evaluate(expression))
+    if (runs.some((run) => !run)) return null
+    const median = (key) => {
+      const values = runs.map((run) => run[key]).sort((a, b) => a - b)
+      return values[Math.floor(values.length / 2)]
+    }
+    return {
+      run: runs[0].run,
+      up: median('up'),
+      release: median('release'),
+      releaseHost: median('releaseHost'),
+      releaseWorst: median('releaseWorst'),
+      releaseFrames: median('releaseFrames'),
+      runs,
+    }
+  }
+  results.overviewPan = await page.evaluate(scenarios.overviewPan)
+  results.remote = await page.evaluate('__edit.remote(120)')
+  results.pickAfter = await page.evaluate('__edit.pickAfter(40)')
+  for (const count of [1, 100, 1000]) {
+    results[`move${count}`] = await repeated(`__edit.move(${count})`)
+  }
+  await page.screenshot(join(out, 'moved.png'))
+  results.translateBig = await repeated('__edit.big(false)')
+  results.reshapeBig = await repeated('__edit.big(true)')
+  results.errors = page.errors
+  writeFileSync(join(out, 'edit.json'), `${JSON.stringify(results, null, 2)}\n`)
+  const ms = (value) => `${value.toFixed(1)} ms`
+  const row = (name, run) =>
+    run
+      ? `| ${name} | ${ms(run.frame.median)} | ${ms(run.frame.p95)} | ${ms(run.cost.median)} | ${ms(run.cost.p95)} |`
+      : `| ${name} | no shape found | | | |`
+  const release = (name, run) =>
+    run
+      ? `| ${name} | ${ms(run.up)} | ${ms(run.release)} | ${ms(run.releaseHost)} | ${ms(run.releaseWorst)} |`
+      : `| ${name} | no shape found | | | |`
+  console.log(
+    [
+      `${options.params}, ${results.renderer}`,
+      `load: data ${ms(results.load.generate)}, mount ${ms(results.load.mount)}, first frame ${ms(results.load.firstFrame)}`,
+      '',
+      '| scenario | frame median | frame p95 | host median | host p95 |',
+      '| --- | --- | --- | --- | --- |',
+      row('overview pan', results.overviewPan),
+      row('remote update', results.remote),
+      row('move 1 shape', results.move1?.run),
+      row('move 100 shapes', results.move100?.run),
+      row('move 1,000 shapes', results.move1000?.run),
+      row('move 5,000 points', results.translateBig?.run),
+      row('reshape 5,000 points', results.reshapeBig?.run),
+      '',
+      results.pickAfter
+        ? `first pick of a shape after a remote update: median ${ms(results.pickAfter.median)}, p95 ${ms(results.pickAfter.p95)}`
+        : 'first pick of a shape after a remote update: no shape found',
+      '',
+      '| release (median of 5) | pointer up | until drawn | host | worst frame |',
+      '| --- | --- | --- | --- | --- |',
+      release('1 shape', results.move1),
+      release('100 shapes', results.move100),
+      release('1,000 shapes', results.move1000),
+      release('5,000 points moved', results.translateBig),
+      release('5,000 points reshaped', results.reshapeBig),
+      '',
+      `errors ${results.errors.length}, results in ${out}`,
+    ].join('\n'),
+  )
+}
+
 async function benchLayout(page, out) {
   await page.evaluate(`new Promise((done) => {
     const check = () => (window.bench.layoutRuns.length > 0 ? done() : setTimeout(check, 20))
@@ -424,10 +660,10 @@ async function benchLayout(page, out) {
 const server = await createServer({
   configFile: resolve(root, 'vite.config.ts'),
   logLevel: 'error',
-  server: { port: 5199, strictPort: false },
+  server: { port: Number(options.port), strictPort: false },
 })
 await server.listen()
-const base = server.resolvedUrls?.local[0] ?? 'http://localhost:5199/'
+const base = server.resolvedUrls?.local[0] ?? `http://localhost:${options.port}/`
 const profile = mkdtempSync(join(tmpdir(), 'graph-bench-'))
 const flags = [
   `--remote-debugging-port=${debugPort}`,
@@ -474,6 +710,7 @@ try {
   mkdirSync(out, { recursive: true })
 
   if (options.layout) await benchLayout(page, out)
+  else if (new URLSearchParams(options.params).has('edit')) await benchEdit(page, out)
   else await benchRender(page, out)
   socket.close()
 } finally {

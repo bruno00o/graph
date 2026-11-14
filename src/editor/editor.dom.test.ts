@@ -5,11 +5,13 @@ import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { mountMapGraph } from '../map'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
+import { shiftOf as shiftAt } from '../shapes/labels'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { fakeMap } from '../testing/map'
 import type { GraphDefinition, Key, SelectMode, ShapeGeometry } from '../types'
 import { createShapeEditor, type ShapeEditor } from './editor'
 import { applyShapeEdits, type ShapeEdit } from './edits'
+import { editorLink } from './link'
 import { mountShapeEditor } from './view'
 
 interface Zone {
@@ -160,7 +162,21 @@ function geometryOf(key: Key): unknown {
 function drafted(graph: GraphInstance, key: Key): boolean {
   const internals = internalsOf(graph, 'test')
   const record = internals.shape(key)
-  return record !== null && internals.scene.shapes.draft[record.index] === 1
+  return record !== null && (internals.scene.shapes.draft[record.index] ?? 0) > 0
+}
+
+function shiftOf(graph: GraphInstance, key: Key): readonly [number, number] | null {
+  const internals = internalsOf(graph, 'test')
+  const record = internals.shape(key)
+  const shapes = internals.scene.shapes
+  if (!record || (shapes.draft[record.index] ?? 0) < 2) return null
+  return [shiftAt(shapes, record.index, 0), shiftAt(shapes, record.index, 1)]
+}
+
+function slotOf(graph: GraphInstance, key: Key): number {
+  const internals = internalsOf(graph, 'test')
+  const record = internals.shape(key)
+  return record ? (internals.scene.shapes.draft[record.index] ?? 0) : -1
 }
 
 function previews(graph: GraphInstance): string[] {
@@ -205,6 +221,7 @@ describe('createShapeEditor', () => {
     dom.flushFrames()
     expect(editor.store.state.gesture).toEqual({ type: 'move', keys: ['box'] })
     expect(drafted(graph, 'box')).toBe(true)
+    expect(shiftOf(graph, 'box')).toBeNull()
     expect(previews(graph)).toEqual(['M 180 110 L 280 110 L 280 210 L 180 210 Z'])
     pointer(graph, 'pointerup', -170, -140)
     dom.flushFrames()
@@ -301,6 +318,83 @@ describe('createShapeEditor', () => {
     graph.destroy()
   })
 
+  it('moves a heavy group by a shift on the GPU, and a light one by a preview', () => {
+    const ring = Array.from({ length: 6000 }, (_, k) => ({
+      x: 150 + Math.cos((k / 6000) * Math.PI * 2) * 60,
+      y: -125 + Math.sin((k / 6000) * Math.PI * 2) * 60,
+    }))
+    zones = [zones[0] as Zone, { id: 'wide', geometry: { rings: [ring] } }]
+    const graph = mount()
+    const editor = createShapeEditor(graph)
+    mountShapeEditor(editor)
+    const batches = editsOf(editor)
+    click(graph, -200, -150)
+    click(graph, 150, -125, { shiftKey: true })
+    pointer(graph, 'pointermove', 150, -125)
+    pointer(graph, 'pointerdown', 150, -125)
+    pointer(graph, 'pointermove', 155, -120)
+    pointer(graph, 'pointermove', 160, -115)
+    dom.flushFrames()
+    expect(shiftOf(graph, 'box')).toEqual([10, 10])
+    expect(shiftOf(graph, 'wide')).toEqual([10, 10])
+    expect(previews(graph)).toEqual([])
+    pointer(graph, 'pointerup', 160, -115)
+    dom.flushFrames()
+    expect(editor.store.state.pending).toEqual(['box', 'wide'])
+    expect(shiftOf(graph, 'wide')).toEqual([10, 10])
+    expect(graph.pick({ x: 560, y: 185 })).toBeNull()
+    click(graph, -180, -130)
+    drag(graph, [-180, -130], [-170, -130])
+    expect(batches[1]?.[0]).toMatchObject({ key: 'box', geometry: { x: -230, y: -190 } })
+    expect(shiftOf(graph, 'box')).toBeNull()
+    expect(drafted(graph, 'box')).toBe(true)
+    expect(shiftOf(graph, 'wide')).toEqual([10, 10])
+    expect(previews(graph)).toHaveLength(1)
+    apply(graph, batches[0] ?? [])
+    expect(editor.store.state.pending).toEqual([])
+    expect(drafted(graph, 'wide')).toBe(false)
+    expect(graph.pick({ x: 560, y: 185 })?.key).toBe('wide')
+    graph.destroy()
+  })
+
+  it('keeps a shift on the data while the data follows the gesture', () => {
+    const ring = Array.from({ length: 6000 }, (_, k) => ({
+      x: 150 + Math.cos((k / 6000) * Math.PI * 2) * 60,
+      y: -125 + Math.sin((k / 6000) * Math.PI * 2) * 60,
+    }))
+    const bits: Zone[] = Array.from({ length: 12 }, (_, k) => ({
+      id: `bit${k}`,
+      geometry: { x: -300.1 - k * 913.37, y: 150.3 + k * 707.91, width: 5.5, height: 4.25 },
+    }))
+    zones = [zones[0] as Zone, { id: 'wide', geometry: { rings: [ring] } }, ...bits]
+    const graph = mount()
+    const editor = createShapeEditor(graph)
+    mountShapeEditor(editor)
+    const batches = editsOf(editor)
+    graph.selection.set({ shapes: ['wide', ...bits.map((bit) => bit.id)] })
+    pointer(graph, 'pointermove', 150, -125)
+    pointer(graph, 'pointerdown', 150, -125)
+    pointer(graph, 'pointermove', 155.3, -120.7)
+    pointer(graph, 'pointermove', 160.3, -115.7)
+    dom.flushFrames()
+    expect(shiftOf(graph, 'wide')).toEqual([expect.closeTo(10.3), expect.closeTo(9.3)])
+    apply(graph, editorLink(editor, 'test').current())
+    expect(shiftOf(graph, 'wide')).toEqual([expect.closeTo(0), expect.closeTo(0)])
+    pointer(graph, 'pointermove', 165.3, -110.7)
+    dom.flushFrames()
+    expect(shiftOf(graph, 'wide')).toEqual([expect.closeTo(5), expect.closeTo(5)])
+    const slots = new Set(bits.map((bit) => slotOf(graph, bit.id)))
+    expect(slots).toEqual(new Set([slotOf(graph, 'wide')]))
+    expect(previews(graph)).toEqual([])
+    pointer(graph, 'pointerup', 165.3, -110.7)
+    dom.flushFrames()
+    expect(shiftOf(graph, 'wide')).toEqual([expect.closeTo(5), expect.closeTo(5)])
+    apply(graph, batches[0] ?? [])
+    expect(drafted(graph, 'wide')).toBe(false)
+    expect(graph.pick({ x: 565, y: 190 })?.key).toBe('wide')
+    graph.destroy()
+  })
+
   it('moves, adds and removes points of a selected path', () => {
     const graph = mount()
     const editor = createShapeEditor(graph)
@@ -320,6 +414,9 @@ describe('createShapeEditor', () => {
         ],
       },
     })
+    expect(drafted(graph, 'tri')).toBe(true)
+    expect(shiftOf(graph, 'tri')).toBeNull()
+    expect(previews(graph)).toHaveLength(1)
     apply(graph, batches.at(-1) ?? [])
     drag(graph, [100, -125], [80, -110])
     apply(graph, batches.at(-1) ?? [])

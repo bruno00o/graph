@@ -362,6 +362,7 @@ function createRenderer(
   const backdrop = createBackdrop(gl, blocks)
   let shapeLayer: ShapeLayer | null = null
   let shapeLabelKey = ''
+  let shapeShift = 0
   const nodeCorner = createBuffer(gl, cornerNode, gl.STATIC_DRAW)
   const edgeCorner = createBuffer(gl, cornerEdge, gl.STATIC_DRAW)
   const curveCorner = createBuffer(gl, cornerCurve, gl.STATIC_DRAW)
@@ -1824,6 +1825,10 @@ function createRenderer(
       }
       if (shapeLayer?.sync({ store: shapes, states: next.states, originX, originY })) touch()
       if (shapeLayer && shapes.labels) {
+        if (shapes.shiftVersion !== shapeShift) {
+          shapeShift = shapes.shiftVersion
+          moveLabels()
+        }
         const key = `${shapes.version}:${shapes.styleVersion}:${shapes.labelVersion}:${next.states.shapeMaskVersion}`
         if (key !== shapeLabelKey) {
           shapeLabelKey = key
