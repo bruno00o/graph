@@ -237,7 +237,7 @@ export class PointerInput {
     else if (gesture?.moved) canvas.style.cursor = 'grabbing'
     else if (source.state().hovered && interactive) canvas.style.cursor = 'pointer'
     else canvas.style.cursor = ''
-    source.surface?.hover(source.state().hovered !== null)
+    source.surface?.hover(source.state().hovered !== null || this.#toolCursor !== null)
   }
 
   #drawLasso(points: readonly Point[] | null): void {
@@ -834,6 +834,7 @@ export class PointerInput {
 
   readonly onDoubleClick = (event: MouseEvent): void => {
     const source = this.#source
+    if (this.#tool?.doubleClick?.()) return
     const hit = source.picker.pick(this.#local(event))
     source.emitter.emit('doubleclick', this.#pointerEvent(event, hit))
     if (source.destroyed() || event.defaultPrevented || !source.definition().interaction.fold)

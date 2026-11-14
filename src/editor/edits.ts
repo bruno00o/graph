@@ -1,5 +1,6 @@
 import { toAccessor } from '../core/accessor'
 import type { Accessor, Key, Mark, MarkLayer, MarkName, ShapeGeometry, ShapeMark } from '../types'
+import type { ShapeDrawTool } from './draw'
 
 /**
  * Names of the shape marks among the marks `M`: `string` for the plain `Mark` type, and nothing for
@@ -22,16 +23,23 @@ export type ShapeItem<M extends Mark = Mark> =
       ? never
       : unknown
 
-/** A new shape, from a drawing tool. */
-export interface ShapeAddEdit {
+/** A new shape: drawn, duplicated, or brought back by an undo. */
+export interface ShapeAddEdit<M extends Mark = Mark> {
   /** Always `'add'`. */
   readonly type: 'add'
   /** Key of the new shape. */
   readonly key: Key
   /** `name` of the mark the shape is meant for, or `undefined`. */
-  readonly mark: string | undefined
-  /** Outline of the new shape. */
+  readonly mark: ShapeMarkName<M> | undefined
+  /** Outline of the new shape, in world units or in degrees, as the `units` option says. */
   readonly geometry: ShapeGeometry
+  /**
+   * Item the new shape copies: the original of a duplicate, or the removed item an undo brings
+   * back. Absent for a drawn shape.
+   */
+  readonly datum?: ShapeItem<M> | undefined
+  /** Tool that drew the shape. Absent for a duplicate and for an undo. */
+  readonly tool?: ShapeDrawTool | undefined
 }
 
 /** A shape that changes. Only the fields that change are present. */
@@ -49,6 +57,8 @@ export interface ShapeChangeEdit<M extends Mark = Mark> {
    * GeoJSON ring repeated, degrees for degrees, with longitudes from -180 to 180.
    */
   readonly geometry?: ShapeGeometry | undefined
+  /** New drawing order within the mark, from `raise`, `lower` or an undo of them. */
+  readonly order?: number | undefined
 }
 
 /** A shape to remove. */
@@ -68,7 +78,7 @@ export interface ShapeRemoveEdit<M extends Mark = Mark> {
  * `M` is the union of the marks of the graph.
  */
 export type ShapeEdit<M extends Mark = Mark> =
-  | ShapeAddEdit
+  | ShapeAddEdit<M>
   | ShapeChangeEdit<M>
   | ShapeRemoveEdit<M>
 
@@ -86,13 +96,19 @@ export interface ShapeEditFields<T> {
    */
   readonly geometry?: string | undefined
   /**
+   * Field the drawing order is written to, for the mark to read through its `order` option.
+   * @default 'order'
+   */
+  readonly order?: string | undefined
+  /**
    * Applies only the edits of the mark with this name. Defaults to every edit, which suits a graph
    * with one shape mark.
    */
   readonly mark?: string | undefined
   /**
-   * Makes the item of a new shape. Defaults to an object with the key and geometry fields, when
-   * `key` is a field name; without it, new shapes are left out.
+   * Makes the item of a new shape. Defaults, when `key` is a field name, to a copy of the item the
+   * edit copies, or else to a new object, with the key and geometry fields set; without it, new
+   * shapes are left out.
    */
   readonly create?: ((edit: ShapeAddEdit) => T) | undefined
 }
@@ -109,28 +125,46 @@ export function applyShapeEdits<T>(
   const keyField = fields.key ?? 'id'
   const keyOf = toAccessor<T, Key>(keyField)
   const geometry = fields.geometry ?? 'geometry'
+  const order = fields.order ?? 'order'
   const create =
     fields.create ??
     (typeof keyField === 'string'
-      ? (edit: ShapeAddEdit) => ({ [keyField]: edit.key, [geometry]: edit.geometry }) as T
+      ? (edit: ShapeAddEdit) => {
+          const base = typeof edit.datum === 'object' && edit.datum !== null ? edit.datum : {}
+          return { ...base, [keyField]: edit.key, [geometry]: edit.geometry } as T
+        }
       : null)
-  const changed = new Map<Key, ShapeGeometry>()
+  const changed = new Map<Key, Record<string, unknown>>()
   const removed = new Set<Key>()
-  const added: T[] = []
+  const added = new Map<Key, ShapeAddEdit>()
   for (const edit of edits) {
     if (fields.mark !== undefined && edit.mark !== fields.mark) continue
     if (edit.type === 'add') {
-      if (create) added.push(create(edit))
-    } else if (edit.type === 'remove') removed.add(edit.key)
-    else if (edit.geometry !== undefined) changed.set(edit.key, edit.geometry)
+      removed.delete(edit.key)
+      changed.delete(edit.key)
+      added.set(edit.key, edit)
+    } else if (edit.type === 'remove') {
+      if (!added.delete(edit.key)) removed.add(edit.key)
+      changed.delete(edit.key)
+    } else {
+      const fresh = added.get(edit.key)
+      if (fresh) {
+        if (edit.geometry !== undefined) added.set(edit.key, { ...fresh, geometry: edit.geometry })
+        continue
+      }
+      const fieldsOf = { ...changed.get(edit.key) }
+      if (edit.geometry !== undefined) fieldsOf[geometry] = edit.geometry
+      if (edit.order !== undefined) fieldsOf[order] = edit.order
+      changed.set(edit.key, fieldsOf)
+    }
   }
   const next: T[] = []
   for (const item of items) {
     const key = keyOf(item)
     if (removed.has(key)) continue
-    const outline = changed.get(key)
-    next.push(outline === undefined ? item : { ...item, [geometry]: outline })
+    const update = changed.get(key)
+    next.push(update === undefined ? item : { ...item, ...update })
   }
-  next.push(...added)
+  if (create) for (const edit of added.values()) next.push(create(edit))
   return next
 }

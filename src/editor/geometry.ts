@@ -434,6 +434,53 @@ export function boundsOf(outline: Outline): Bounds {
   return [minX, minY, maxX, maxY]
 }
 
+const sameEpsilon = 1e-9
+
+function near(a: number, b: number, wrap: boolean): boolean {
+  const gap = a - b
+  const left = wrap ? gap - worldSize * Math.round(gap / worldSize) : gap
+  return Math.abs(left) <= sameEpsilon * Math.max(1, Math.abs(a))
+}
+
+function samePoint(a: EditPoint, b: EditPoint): boolean {
+  return near(a.x, b.x, isGeo(a)) && near(a.y, b.y, false)
+}
+
+export function sameOutline(a: Outline, b: Outline): boolean {
+  if (a === b) return true
+  if (a.kind === 'rectangle' || b.kind === 'rectangle') {
+    return (
+      a.kind === 'rectangle' &&
+      b.kind === 'rectangle' &&
+      near(a.x, b.x, false) &&
+      near(a.y, b.y, false) &&
+      near(a.width, b.width, false) &&
+      near(a.height, b.height, false)
+    )
+  }
+  if (a.kind === 'circle' || b.kind === 'circle') {
+    return (
+      a.kind === 'circle' &&
+      b.kind === 'circle' &&
+      samePoint(a.center, b.center) &&
+      near(a.radius, b.radius, false) &&
+      near(a.inner, b.inner, false)
+    )
+  }
+  if (a.closed !== b.closed || a.parts.length !== b.parts.length) return false
+  return a.parts.every((part, index) => {
+    const other = b.parts[index]?.points
+    return (
+      other !== undefined &&
+      other.length === part.points.length &&
+      part.points.every((point, at) => {
+        const twin = other[at]
+        return twin !== undefined && samePoint(point, twin)
+      })
+    )
+  })
+}
+
 export function geoOutline(outline: Outline): boolean {
   if (outline.kind === 'circle') return isGeo(outline.center)
   if (outline.kind === 'rectangle') return false

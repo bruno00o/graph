@@ -11,13 +11,17 @@ import {
   createShapeEditor,
   mountShapeEditor,
   type ShapeEdit,
+  type ShapeEditorTool,
 } from '@bruno00o/graph/editor'
 import { shapes } from '@bruno00o/graph/shapes'
 import { messages } from './messages'
+import '../shared/overlays.css'
+import './shape-editing.css'
 
 interface Zone {
   readonly id: string
   readonly geometry: ShapeGeometry
+  readonly order?: number
 }
 
 interface Item {
@@ -82,18 +86,23 @@ const links: Link[] = [
   { id: 'be', from: 'b', to: 'e' },
 ]
 
+const tools = Object.keys(messages.tools) as ShapeEditorTool[]
+
 const define = (zones: readonly Zone[]) =>
   defineGraph({
     marks: [
       shapes(zones, {
         name: 'zones',
         color: 'id',
-        strokeWidth: (zone) => (zone.id === 'path' ? 3 : 1.5),
+        order: 'order',
+        strokeWidth: (zone) => ('points' in zone.geometry ? 3 : 1.5),
       }),
       edges(links, { source: 'from', target: 'to' }),
       nodes(items, { x: 'x', y: 'y', size: 14 }),
     ],
     interaction: { lasso: true },
+    background: { grid: 'dots', spacing: 20 },
+    view: { padding: { top: 112, right: 32, bottom: 56, left: 32 } },
   })
 
 function button(text: string, onClick: () => void): HTMLButtonElement {
@@ -107,7 +116,6 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
 
 export function mount(container: HTMLElement): GraphInstance {
   let zones: readonly Zone[] = start
-  const history: (readonly Zone[])[] = []
   const graph = mountGraph(container, {
     definition: define(zones),
     ariaLabel: messages.graphLabel(start.length, items.length),
@@ -116,35 +124,66 @@ export function mount(container: HTMLElement): GraphInstance {
   status.className = 'example-status'
   status.setAttribute('aria-live', 'polite')
 
-  function show(next: readonly Zone[]): void {
-    zones = next
-    graph.update({ definition: define(zones) })
-    undo.disabled = history.length === 0
-    status.textContent = messages.status(history.length)
-  }
-
-  const undo = button(messages.undo, () => {
-    const previous = history.pop()
-    if (previous) show(previous)
-  })
   const editor = createShapeEditor(graph, {
     onEdit: (edits: readonly ShapeEdit[]) => {
-      history.push(zones)
-      show(applyShapeEdits(zones, edits))
+      zones = applyShapeEdits(zones, edits)
+      graph.update({ definition: define(zones) })
     },
   })
   mountShapeEditor(editor)
-  const remove = button(messages.remove, () => editor.remove())
-  editor.store.subscribe(() => {
-    remove.disabled = editor.store.state.selected.length === 0
+
+  const toolbar = document.createElement('div')
+  toolbar.className = 'shape-tools'
+  toolbar.setAttribute('role', 'group')
+  toolbar.setAttribute('aria-label', messages.toolsLabel)
+  const toolButtons = tools.map((tool) => {
+    const element = document.createElement('button')
+    element.type = 'button'
+    element.textContent = messages.tools[tool as keyof typeof messages.tools]
+    element.addEventListener('click', () => {
+      editor.setTool(tool)
+      graph.element.focus()
+    })
+    return element
   })
-  undo.disabled = true
-  remove.disabled = true
-  status.textContent = messages.status(0)
+  toolbar.append(...toolButtons)
+
+  const undo = button(messages.undo, () => editor.undo())
+  const redo = button(messages.redo, () => editor.redo())
+  const duplicate = button(messages.duplicate, () => editor.duplicate())
+  const raise = button(messages.raise, () => editor.raise())
+  const lower = button(messages.lower, () => editor.lower())
+  const remove = button(messages.remove, () => editor.remove())
+  const snap = document.createElement('label')
+  snap.className = 'shape-snap'
+  const check = document.createElement('input')
+  check.type = 'checkbox'
+  check.addEventListener('change', () => {
+    editor.update({ snap: { grid: check.checked ? 'background' : null } })
+  })
+  snap.append(check, messages.snap)
+
+  function show(): void {
+    const state = editor.store.state
+    for (const [index, element] of toolButtons.entries()) {
+      element.setAttribute('aria-pressed', String(tools[index] === state.tool))
+    }
+    undo.disabled = !state.canUndo
+    redo.disabled = !state.canRedo
+    const none = state.selected.length === 0
+    for (const element of [duplicate, raise, lower, remove]) element.disabled = none
+    const drawing = state.drawing
+    status.textContent =
+      drawing && (drawing.tool === 'polygon' || drawing.tool === 'line') && drawing.points > 0
+        ? messages.drawing(drawing.points, drawing.tool === 'polygon')
+        : messages.status(zones.length)
+  }
+  editor.store.subscribe(show)
+  show()
 
   const actions = document.createElement('div')
-  actions.className = 'example-actions'
-  actions.append(undo, remove)
+  actions.className = 'example-actions shape-actions'
+  actions.append(toolbar, undo, redo, duplicate, raise, lower, remove, snap)
   container.append(actions, status)
   return graph
 }

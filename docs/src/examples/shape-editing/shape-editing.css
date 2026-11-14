@@ -1,0 +1,52 @@
+.example-actions.shape-actions {
+  right: 14px;
+  align-items: center;
+}
+
+.shape-tools {
+  display: flex;
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--graph-paper-raised);
+}
+
+.shape-tools button {
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  background: transparent;
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.shape-tools button:last-child {
+  border-right: 0;
+}
+
+.shape-tools button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--graph-accent) 16%, var(--graph-paper));
+}
+
+.shape-actions .example-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.shape-snap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper-raised);
+  color: var(--graph-ink);
+  font-family: var(--graph-font);
+  font-size: 13px;
+}

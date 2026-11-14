@@ -1,7 +1,9 @@
+export type { ShapeDrawTool, ShapeEditorSnap, ShapeEditorTool } from './draw'
 export {
   createShapeEditor,
   type ShapeEditEvent,
   type ShapeEditor,
+  type ShapeEditorDrawing,
   type ShapeEditorEvents,
   type ShapeEditorGesture,
   type ShapeEditorOptions,

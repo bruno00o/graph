@@ -14,6 +14,7 @@ interface Zone {
   readonly id: string
   readonly geometry: ShapeGeometry
   readonly tone: string
+  readonly rank?: number
 }
 
 const start: Zone[] = [
@@ -60,7 +61,7 @@ function mount(collection: Zones): GraphInstance<'saving'> {
     container,
     {
       definition: defineGraph({
-        marks: [shapes(collection, { name: 'zones' })],
+        marks: [shapes(collection, { name: 'zones', order: 'rank' })],
         states: { saving: { opacity: 0.5 } },
         interaction: { keyboard: true },
       }),
@@ -254,6 +255,7 @@ describe('persistShapes', () => {
   })
 
   it('puts a reshaped outline back when a live gesture is cancelled or the editor goes', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
     const collection = zoneCollection()
     const graph = mount(collection)
     const editor = createShapeEditor(graph)
@@ -439,6 +441,57 @@ describe('persistShapes', () => {
     }
     expect(collection.get('new')).toMatchObject({ id: 'new', tone: 'new', geometry })
     expect(collection.has('other')).toBe(false)
+    graph.destroy()
+  })
+
+  it('saves drawn shapes, copies, orders and undos from the editor', () => {
+    const collection = zoneCollection()
+    const graph = mount(collection)
+    let count = 0
+    const editor = createShapeEditor(graph, { tool: 'rectangle', newKey: () => `new${++count}` })
+    persistShapes(editor, {
+      collection,
+      fields: { order: 'rank' },
+      create: (edit): Zone => ({
+        id: String(edit.key),
+        tone: (edit.datum as Zone | undefined)?.tone ?? 'drawn',
+        geometry: edit.geometry,
+      }),
+    })
+    drag(graph, [0, 0], [40, 30])
+    expect(collection.get('new1')).toMatchObject({
+      tone: 'drawn',
+      geometry: { x: 0, y: 0, width: 40, height: 30 },
+    })
+    editor.setTool('select')
+    editor.duplicate(['box'])
+    expect(collection.get('new2')).toMatchObject({
+      tone: 'warm',
+      geometry: { x: -234, y: -184, width: 100, height: 100 },
+    })
+    dom.flushFrames()
+    editor.raise(['tri'])
+    expect(collection.get('tri')).toMatchObject({ rank: 1 })
+    dom.flushFrames()
+    editor.undo()
+    dom.flushFrames()
+    expect(collection.get('tri')).toMatchObject({ rank: 0 })
+    graph.destroy()
+  })
+
+  it('inserts a removed row again on undo, without create', () => {
+    const collection = zoneCollection()
+    const graph = mount(collection)
+    const editor = createShapeEditor(graph, { tool: 'rectangle' })
+    persistShapes(editor, { collection })
+    drag(graph, [0, 0], [40, 30])
+    expect(collection.size).toBe(2)
+    editor.remove(['tri'])
+    dom.flushFrames()
+    expect(collection.has('tri')).toBe(false)
+    editor.undo()
+    dom.flushFrames()
+    expect(collection.get('tri')).toMatchObject(start[1] as Zone)
     graph.destroy()
   })
 

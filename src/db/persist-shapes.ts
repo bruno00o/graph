@@ -47,8 +47,12 @@ export interface PersistShapesOptions<
    * collection, which suits a graph with one shape mark.
    */
   readonly mark?: ShapeMarkName<M> | undefined
-  /** Builds the row of a new shape. Without it, new shapes are left out. */
-  readonly create?: ((edit: ShapeAddEdit) => T) | undefined
+  /**
+   * Builds the row of a new shape, drawn or copied; a copy carries the copied item in `datum`.
+   * Without it, an add whose `datum` with the new outline has the key of the shape, as the undo of a
+   * removal has, inserts that row, and the other new shapes are left out.
+   */
+  readonly create?: ((edit: ShapeAddEdit<M>) => T) | undefined
   /**
    * Persists through `createPacedMutations`, with an optimistic write that a failure rolls back.
    * Without it, the collection persists the writes through its own handlers.
@@ -72,6 +76,8 @@ export interface PersistShapesOptions<
 }
 
 const liveRest = 4
+
+const virtualProps = ['$hasPendingWrites', '$origin', '$key', '$collectionId'] as const
 
 type Values = readonly (readonly [string, unknown])[]
 
@@ -131,8 +137,9 @@ export function persistShapes<T extends object, TKey extends string | number, M 
   const keyOf = options.key ?? ((key: Key) => key as TKey)
   const only = options.mark as string | undefined
   const marks = pendingMarks(link.graph, options.pendingState, 'shapes')
+  const geometryField: string = options.fields?.geometry ?? 'geometry'
   const fields: readonly (readonly [string, string])[] = [
-    ['geometry', options.fields?.geometry ?? 'geometry'],
+    ['geometry', geometryField],
     ['order', options.fields?.order ?? 'order'],
     ['text', options.fields?.text ?? 'text'],
   ]
@@ -147,6 +154,15 @@ export function persistShapes<T extends object, TKey extends string | number, M 
     return values
   }
 
+  const restored = (edit: ShapeAddEdit): T | null => {
+    const datum = edit.datum
+    if (typeof datum !== 'object' || datum === null) return null
+    const row: Record<string, unknown> = { ...datum, [geometryField]: edit.geometry }
+    for (const name of virtualProps) delete row[name]
+    const rowKey = collection.getKeyFromItem(row as T)
+    return rowKey === keyOf(edit.key) && collection.get(rowKey) === undefined ? (row as T) : null
+  }
+
   const apply = (edits: readonly ShapeEdit[]): Batch => {
     const batch: Batch = { written: [], edits: [], same: [] }
     const keys: TKey[] = []
@@ -157,8 +173,9 @@ export function persistShapes<T extends object, TKey extends string | number, M 
     for (const edit of edits) {
       if (only !== undefined && edit.mark !== only) continue
       if (edit.type === 'add') {
-        if (!create) continue
-        batch.written.push({ transaction: collection.insert(create(edit)), edits: [edit] })
+        const row = create ? create(edit as ShapeAddEdit<M>) : restored(edit)
+        if (row === null) continue
+        batch.written.push({ transaction: collection.insert(row), edits: [edit] })
         batch.edits.push(edit)
         continue
       }

@@ -12,5 +12,6 @@ export interface PointerTool {
   move(pointer: ToolPointer): void
   up(pointer: ToolPointer, cancelled: boolean): boolean
   cursor(pointer: ToolPointer): string | null
+  doubleClick?(): boolean
   key(event: KeyboardEvent): boolean
 }
