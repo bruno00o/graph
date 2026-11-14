@@ -45,6 +45,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`). A shape mark dra
 | A ring, a halo or a zone around one node that moves with it | `shapes({ node })` |
 | Nodes inside a node that people fold and unfold | group containers (groups skill) |
 | HTML or text pinned to a node, an edge or a point | anchors (tools skill) |
+| People who draw, move, reshape or type into shapes | a shape editor (editor skill) |
 | An edge that bends through points or along a GeoJSON line | `waypoints` (edges skill) |
 | Areas on a MapLibre map | `shapes()` with geometry in degrees, mounted by `mountMapGraph` |
 
@@ -100,7 +101,7 @@ Result: two zones drawn with the theme fill and outline, under the edge and the 
 
 ### Style and order
 
-`fill`, `stroke`, `strokeWidth`, `dash` and `opacity` are styles: a constant or a function of the item, never a field name. `fill` and `stroke` default to the theme tokens `--graph-shape-fill` and `--graph-shape-stroke`, and `null` draws none. `fill` colors the inside of polygons, discs, rings and rectangles, `stroke` their outline and the lines. `strokeWidth` is in screen pixels (1 by default) and keeps its size at every zoom, `dash` is `'solid'`, `'dashed'` or `'dotted'`, and `opacity` fades fill and outline together.
+`fill`, `stroke`, `strokeWidth`, `dash` and `opacity` are styles: a constant or a function of the item, never a field name. `fill` and `stroke` default to the `color` below, else to the theme tokens `--graph-shape-fill` and `--graph-shape-stroke`, and `null` draws none. `fill` colors the inside of polygons, discs, rings and rectangles, `stroke` their outline and the lines. `strokeWidth` is in screen pixels (1 by default) and keeps its size at every zoom, `dash` is `'solid'`, `'dashed'` or `'dotted'`, and `opacity` fades fill and outline together.
 
 ```ts
 import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
@@ -127,6 +128,8 @@ const graph = mountGraph(document.body, {
 ```
 
 Between shapes, marks draw in the order of `marks`, and inside a mark `order` (a field or a function) sorts them: a lower value draws first, under the others; equal or missing values keep their arrival order. Colors are CSS strings like everywhere: prefer `var(--graph-…)` so they follow the theme.
+
+`color` is a channel (a field or a function, unlike `fill`) through the `color` scale shared with nodes and edges, so one value takes one color on all three: `shapes(zones, { color: 'region' })`. An area takes the color as its outline and mixed to 20 % as its fill, a line as its stroke; an explicit `fill` or `stroke` wins, one by one, and `null` still draws none. `raw()` gives a CSS color out of the scale. A sequential scale reads the extent of nodes, edges and shapes together; `scales: { color }` on the mark keeps its categories and extent apart (there is no `size` scale for shapes). Colored shapes appear in the legend and on the minimap (tools skill).
 
 ### Hover, click and select
 
@@ -161,7 +164,7 @@ console.log(picked, zone?.title)
 
 - A click selects a shape; with `select: 'multiple'` (the default), Shift, Cmd or Ctrl adds it or removes it. A click on the background and Escape clear the selection, shapes included. `selection`, `selectionchange` and the members of a state have a `shapes` list next to `nodes` and `edges`, only when the definition has a shape mark. In controlled mode, pass `shapes` with the other keys (interaction skill).
 - Nodes, edges and containers drawn over a shape always take the pointer first. Between shapes the one drawn last wins, and a raised one comes before the others.
-- Dragging a shape moves the view, like the background. A double click on a shape does nothing. Keyboard focus stays on nodes: shapes are neither focused nor announced.
+- Dragging a shape moves the view, like the background, unless a shape editor edits it (editor skill). A double click on a shape does nothing. Keyboard focus stays on nodes: shapes are neither focused nor announced.
 - The lasso (`lasso: true` with `select: 'multiple'`, interaction skill) may start on a shape. It takes the nodes inside it and the shapes whose every point is inside; a shape that contains the lasso is not taken.
 - Holes are not part of a shape: a pointer in a hole goes through to what lies under it.
 
@@ -175,7 +178,7 @@ console.log(picked, zone?.title)
 | `'stroke'` | The outline only, filled or not |
 | `false` | Nothing: hover, clicks and the lasso go through |
 
-An outline takes the pointer within half its width plus 4 pixels, at every zoom. A shape with `fill: null` and `stroke: null` is not picked either. A large zone under everything is easy to click by mistake: give it `pick: 'stroke'` to select it by its border, or use `pick: false` on a mark that only decorates. To mix both in one graph, use two marks:
+An outline takes the pointer within half its width plus 4 pixels, at every zoom. A shape with `fill: null` and `stroke: null` is not picked either. A large zone under everything is easy to click by mistake: give it `pick: 'stroke'` to select it by its border, or use `pick: false` on a mark that only decorates. To mix both in one graph, use two marks, the decorative one first so it draws under, with keys apart:
 
 ```ts
 import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
@@ -197,13 +200,11 @@ const graph = mountGraph(document.body, {
 console.log(graph.count().shapes)
 ```
 
-The decorative mark is listed first so it draws under the selectable one, and its keys differ from the other mark's.
-
 ### Label shapes
 
 `label` is a text channel (a field or a function), or an object with the text options of node labels: `text` (required), `background`, `color`, `size` (12 pixels at zoom 1 by default), `weight`, `font` and `maxWidth`.
 
-One horizontal label per shape, on the point of a polygon farthest from its outline, the center of a circle or a rectangle, the top of the band of a ring, or the middle of the longest segment of a line. Labels never overlap and give way to node and edge labels; a shape label hides under 8 pixels on screen. The states `label` (`true`, `false`, `'always'`) and `labelColor` act on it. Details: [labels and pins](references/labels-and-pins.md).
+One horizontal label per shape, on the point of a polygon farthest from its outline, the center of a circle or a rectangle, the top of the band of a ring, or the middle of the longest segment of a line. Labels never overlap and give way to node and edge labels; a shape label hides under 8 pixels on screen. The states `label` (`true`, `false`, `'always'`) and `labelColor` act on it. `wrap`, `scale: 'world'` and `place: 'always'` make it the text of a box. Details: [labels and pins](references/labels-and-pins.md).
 
 ### Pin shapes to a node
 
@@ -326,7 +327,7 @@ Here `broken` is `['flat']`: a ring of two points is `'empty'`, `count().shapes`
 
 - Update shapes as any data (core skill): new arrays, new item objects, `graph.update({ definition })`. The geometry is read again only when the item is a new object and the geometry it returns is a new object, so change a zone by replacing the item with a new geometry. A `geometry` function that builds a new object on every call re-reads every shape of its mark on every update: return the stored object.
 - `exportPng` and `exportSvg` draw shapes and their labels after the grid and under containers, hulls, edges and nodes, with the states, raised shapes, hidden shapes, zoom, time window and layers of the moment. `region: 'graph'` frames the shapes too, pinned ones where they are drawn (export skill).
-- Not there: dragging or editing shapes (dragging a pinned shape does not move its node), keyboard focus, anchor targets, the legend and the minimap. A label is horizontal and does not follow a line or the curve of a ring, and on a flat map the label of a shape across the antimeridian shows on one side only.
+- Drawing, moving, reshaping and typing into shapes belong to a shape editor (editor skill). Not there: keyboard focus, anchor targets. A label is horizontal and does not follow a line or the curve of a ring, and on a flat map the label of a shape across the antimeridian shows on one side only.
 
 ## Common Mistakes
 
@@ -452,7 +453,7 @@ graph.update({ definition: defineGraph({ marks: [shapes(zones)] }) })
 
 ### MEDIUM Using a field name as a color
 
-`fill`, `stroke`, `strokeWidth`, `dash` and `opacity` are styles, not channels: a string for `fill` or `stroke` is the CSS color itself, never a field of the item. Use a function: `fill: (zone) => zone.tone`.
+`fill`, `stroke`, `strokeWidth`, `dash` and `opacity` are styles, not channels: a string for `fill` or `stroke` is the CSS color itself, never a field of the item. Use a function: `fill: (zone) => zone.tone`, or the channel `color: 'tone'` to color by category through the scale.
 
 ### MEDIUM Looking for a waiting shape in `count().shapes` or `issues()`
 
@@ -471,8 +472,7 @@ The task is done when:
 - a decorative mark has `pick: false`, and a zone that people select takes the pointer by its inside or by `pick: 'stroke'`;
 - handlers narrow `target.kind` to `'shape'` before reading `datum`, and a `switch` over kinds or issue types has its `shape` and `invalid-shape` cases when the instance is untyped;
 - dimming or hiding uses states with `others` by kind where only some kinds must change, and zoom, time and layer options are on the marks that need them;
-- `graph.issues()` has no `invalid-shape` you did not expect, `graph.count()` shows the shapes you drew and no `pendingShapes` by mistake;
-- labels have a `text`, pinned shapes a node key and geometry in world units, and shapes on a map geometry in degrees;
+- `graph.issues()` has no `invalid-shape` you did not expect, `graph.count()` shows the shapes you drew and no `pendingShapes` by mistake, labels have a `text`, pinned shapes a node key and geometry in world units, and shapes on a map geometry in degrees;
 - `tsc` accepts the code with no cast on targets, keys or geometry.
 
 ## References
@@ -481,4 +481,4 @@ Every page has a Markdown version: add `.md` to its URL.
 
 - [Shapes](https://bruno00o.github.io/graph/docs/shapes), [shapes API](https://bruno00o.github.io/graph/docs/api/shapes), [Interaction](https://bruno00o.github.io/graph/docs/interaction), [States](https://bruno00o.github.io/graph/docs/states), [Zoom ranges](https://bruno00o.github.io/graph/docs/zoom), [Time](https://bruno00o.github.io/graph/docs/time), [Multilayer](https://bruno00o.github.io/graph/docs/multilayer), [TypeScript](https://bruno00o.github.io/graph/docs/typescript#shapes-in-targets-and-keys), [Upgrading](https://bruno00o.github.io/graph/docs/upgrading)
 - Example: [shape zones](https://bruno00o.github.io/graph/examples/shape-zones)
-- Related skills: tools (hulls and anchors), groups (containers), edges (waypoints), view, interaction, time, multilayer, export, map.
+- Related skills: editor (drawing and editing), tools (hulls, anchors, legend, minimap), groups (containers), edges (waypoints), styling (scales), view, interaction, time, multilayer, export, map.

@@ -169,7 +169,7 @@ controller.abort()
 
 ### Drag and lasso
 
-Dragging a node starts after 4 pixels and emits no click. Dragging a selected node moves the whole selection, and a group's container moves its children. During a layout run, a dragged node stays where it is dropped and the others settle around it. Dragging a shape pans the view like the background, and a double click on a shape does nothing.
+Dragging a node starts after 4 pixels and emits no click. Dragging a selected node moves the whole selection, and a group's container moves its children. During a layout run, a dragged node stays where it is dropped and the others settle around it. Dragging a shape pans the view like the background, and a double click on a shape does nothing, unless a shape editor edits it (editor skill).
 
 `lasso: true` with `select: 'multiple'` draws a lasso with Shift and a drag from the background, or from a shape; the nodes inside join the selection on release, and so do the shapes whose every point is inside (never a shape that contains the lasso). Edges are not taken. Without the lasso, Shift and drag pans. A long press never starts a lasso, and Escape cancels one in progress.
 

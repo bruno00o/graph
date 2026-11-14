@@ -31,7 +31,7 @@ requires:
 
 # Draw TanStack DB collections
 
-Load the core skill first (`intent load @bruno00o/graph#core`): marks, channels, keys and `update` are as in core. This skill covers what changes when the data is a TanStack DB collection, and the `@bruno00o/graph/db` entry point (`subset`, `persistPositions`).
+Load the core skill first (`intent load @bruno00o/graph#core`): marks, channels, keys and `update` are as in core. This skill covers what changes when the data is a TanStack DB collection, and the `@bruno00o/graph/db` entry point (`subset`, `persistPositions`; `persistShapes` and `showPresence` belong to the editor skill).
 
 Install `@tanstack/db` yourself (an optional peer, `^1.0.0-rc.1.3`). The core imports nothing from it: a collection is accepted because it has a `subscribeChanges` method.
 
@@ -330,6 +330,10 @@ export function SharedPositions({ items }: { items: Collection<Item, string> }) 
   return null
 }
 ```
+
+### Shape edits and presence
+
+`persistShapes(editor, { collection, create })` writes the edits of a shape editor into the collection a `shapes()` mark draws from: changed fields only, removed rows, and new rows through `create`, optimistic and rolled back on failure. `showPresence(graph, { collection, me, create })` shows the cursors and selections of the other people from a collection of presence rows that your app syncs. Both come from `@bruno00o/graph/db`; load the editor skill for them.
 
 ## Common Mistakes
 
