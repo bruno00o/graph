@@ -1,4 +1,15 @@
-import { defineGraph, edges, groups, mountGraph, nodes, type ShapeGeometry } from '@bruno00o/graph'
+import {
+  defineGraph,
+  edges,
+  groups,
+  type LiveSource,
+  mountGraph,
+  nodes,
+  type ShapeGeometry,
+  type ShapeOptions,
+  type SourceChange,
+} from '@bruno00o/graph'
+import { createShapeEditor, mountShapeEditor, type ShapeEdit } from '@bruno00o/graph/editor'
 import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
 import { shapes } from '@bruno00o/graph/shapes'
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
@@ -39,6 +50,7 @@ const shapeLabels = params.has('shapelabels')
 const shapeColor = params.get('shapecolor')
 const smoothOutline = params.get('outline') === 'smooth'
 const pinCount = Number(params.get('pinned') ?? 0)
+const editing = params.has('edit')
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
@@ -59,6 +71,8 @@ const items: readonly (Item | TimedItem)[] = stacked(history?.items ?? sample.it
 const links: readonly (Link | TimedLink)[] = backwards(history?.links ?? sample.links)
 const winding = bends > 0 ? windingRoutes(items, links, bends) : null
 const zones = shapeCount > 0 ? scatteredZones(items, shapeCount, shapePoints) : []
+type Zone = (typeof zones)[number]
+const live = editing ? liveZones([...zones, bigZone(items)]) : null
 const pins = Array.from({ length: Math.min(pinCount, items.length) }, (_, index) => ({
   id: `p${index}`,
   node: items[index]?.id ?? '',
@@ -88,6 +102,47 @@ function scatteredZones(
     })
     return { id: `z${index}`, geometry: { rings: [ring] }, rank: next() }
   })
+}
+
+function bigZone(list: readonly (Item | TimedItem)[]): Zone {
+  let seed = 29
+  const next = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    return seed / 2 ** 32
+  }
+  const coast = coastline(5000, next)
+  const reach = Math.sqrt(list.length) * 6
+  const ring = Array.from({ length: 5000 }, (_, k) => {
+    const angle = (k / 5000) * Math.PI * 2
+    const distance = reach * (coast[k] ?? 1)
+    return [Math.cos(angle) * distance, Math.sin(angle) * distance] as const
+  })
+  return { id: 'big', geometry: { rings: [ring] }, rank: 0.999 }
+}
+
+function liveZones(list: readonly Zone[]): LiveSource<Zone> & {
+  readonly rows: Map<string, Zone>
+  write(changes: readonly SourceChange<Zone>[]): void
+} {
+  const rows = new Map(list.map((zone) => [zone.id, zone]))
+  const listeners = new Set<(changes: readonly SourceChange<Zone>[]) => void>()
+  return {
+    rows,
+    subscribeChanges(callback, options) {
+      listeners.add(callback)
+      if (options?.includeInitialState) {
+        callback([...rows].map(([key, value]) => ({ type: 'insert', key, value })))
+      }
+      return { unsubscribe: () => listeners.delete(callback) }
+    },
+    write(changes) {
+      for (const change of changes) {
+        if (change.type === 'delete') rows.delete(String(change.key))
+        else rows.set(String(change.key), change.value)
+      }
+      for (const listener of [...listeners]) listener(changes)
+    },
+  }
 }
 
 function coastline(points: number, next: () => number): Float64Array {
@@ -157,29 +212,27 @@ function stacked(list: readonly (Item | TimedItem)[]): readonly (Item | TimedIte
   })
 }
 
+const zoneOptions: Omit<ShapeOptions<Zone>, 'key'> = {
+  ...(shapeColor === 'category'
+    ? { color: (zone: (typeof zones)[number]) => Math.floor(zone.rank * 8) }
+    : shapeColor === 'sequential'
+      ? { color: 'rank' as const, scales: { color: { type: 'sequential' as const } } }
+      : {
+          fill: (zone: (typeof zones)[number]) =>
+            shapeParts === 'stroke' ? null : `var(--graph-cat-${1 + Math.floor(zone.rank * 8)})`,
+        }),
+  ...(shapeParts === 'fill' ? { stroke: null } : {}),
+  ...(shapeParts === 'none' ? { fill: null, strokeWidth: 0 } : {}),
+  opacity: 0.25,
+  order: 'rank',
+  ...(shapeLabels ? { label: (zone: (typeof zones)[number]) => zone.id } : {}),
+}
+
 const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones = zones) =>
   defineGraph({
     marks: [
       ...(zoneData.length > 0
-        ? [
-            shapes(zoneData, {
-              ...(shapeColor === 'category'
-                ? { color: (zone: (typeof zones)[number]) => Math.floor(zone.rank * 8) }
-                : shapeColor === 'sequential'
-                  ? { color: 'rank' as const, scales: { color: { type: 'sequential' as const } } }
-                  : {
-                      fill: (zone: (typeof zones)[number]) =>
-                        shapeParts === 'stroke'
-                          ? null
-                          : `var(--graph-cat-${1 + Math.floor(zone.rank * 8)})`,
-                    }),
-              ...(shapeParts === 'fill' ? { stroke: null } : {}),
-              ...(shapeParts === 'none' ? { fill: null, strokeWidth: 0 } : {}),
-              opacity: 0.25,
-              order: 'rank',
-              ...(shapeLabels ? { label: (zone: (typeof zones)[number]) => zone.id } : {}),
-            }),
-          ]
+        ? [live ? shapes(live, zoneOptions) : shapes(zoneData, zoneOptions)]
         : []),
       ...(pins.length > 0
         ? [shapes(pins, { node: 'node', fill: 'var(--graph-cat-5)', stroke: null, opacity: 0.4 })]
@@ -260,6 +313,22 @@ const graph = mountGraph(main, {
   ariaLabel: messages.graphLabel(formatNumber(items.length), formatNumber(links.length)),
 })
 const mounted = performance.now()
+const editor = live
+  ? createShapeEditor(graph, {
+      onEdit: (edits: readonly ShapeEdit[]) => {
+        live.write(
+          edits.flatMap((edit): SourceChange<Zone>[] => {
+            const row = live.rows.get(String(edit.key))
+            if (!row) return []
+            if (edit.type === 'remove') return [{ type: 'delete', key: row.id, value: row }]
+            if (edit.type !== 'change' || !edit.geometry) return []
+            return [{ type: 'update', key: row.id, value: { ...row, geometry: edit.geometry } }]
+          }),
+        )
+      },
+    })
+  : null
+if (editor) mountShapeEditor(editor)
 const layoutRuns: { readonly ms: number; readonly completed: boolean }[] = []
 let layoutStarted = mounted
 graph.on('layoutstart', () => {
@@ -288,6 +357,8 @@ Object.assign(window, {
     items,
     links,
     zones,
+    live,
+    editor,
     frameCosts,
     nextFrame,
     layoutRuns,

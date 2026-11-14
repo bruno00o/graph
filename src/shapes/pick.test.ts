@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createGraphModel } from '../core/graph-model'
 import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
@@ -162,6 +162,29 @@ describe('the shape picker', () => {
     scene.apply(model, model.flush())
     expect(pick(5, 5)).toBeNull()
     expect(pick(105, 5)).toBe('a')
+  })
+
+  it('follows moved shapes without building the index again, until their style changes', () => {
+    const zones = [square('a', 0, 0, 10), square('b', 20, 0, 10), square('c', 40, 0, 10)]
+    const { model, scene, store, pick } = setup([shapes(zones)])
+    const render = (next: readonly Zone[], width?: number) => {
+      const definition = defineGraph({ marks: [shapes(next, { strokeWidth: width })] })
+      model.setMarks(definition.marks)
+      scene.setDefinition(definition)
+      scene.apply(model, model.flush())
+    }
+    expect(pick(5, 5)).toBe('a')
+    const built = vi.spyOn(store, 'drawOrder')
+    render([square('a', 100, 0, 10), zones[1] as Zone, square('c', 40, 30, 10)])
+    expect(pick(5, 5)).toBeNull()
+    expect(pick(105, 5)).toBe('a')
+    expect(pick(25, 5)).toBe('b')
+    expect(pick(45, 35)).toBe('c')
+    expect(pick(45, 5)).toBeNull()
+    expect(built).not.toHaveBeenCalled()
+    render([square('a', 100, 0, 10), zones[1] as Zone, square('c', 40, 30, 10)], 3)
+    expect(pick(105, 5)).toBe('a')
+    expect(built).toHaveBeenCalled()
   })
 
   it('lists the shapes wholly inside a polygon', () => {

@@ -5,6 +5,7 @@ import { createPathQueries } from '../core/path-query'
 import { type PositionReader, Positions, placeNodes } from '../core/positions'
 import { Projection, type ProjectionChanges } from '../core/projection'
 import { createScene } from '../core/scene'
+import { type ShapeShift, shiftSlots } from '../core/shape-store'
 import type { HideFilter } from '../core/state-buffers'
 import { StateBuffers } from '../core/state-buffers'
 import { freeStateNames } from '../core/state-names'
@@ -183,6 +184,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   let sceneVersion = 0
   let probe: GraphProbe | null = null
   let drafted: readonly Key[] = []
+  let shifted: readonly ShapeShift[] = []
   const watchers = new Set<GraphWatcher>()
   const lifetime = new AbortController()
   let endReason: unknown = null
@@ -671,11 +673,19 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function writeDrafts(): void {
     const indices: number[] = []
-    for (const key of drafted) {
+    const kinds: number[] = []
+    const add = (key: Key, kind: number) => {
       const record = model.shape(key)
-      if (record) indices.push(record.index)
+      if (!record) return
+      indices.push(record.index)
+      kinds.push(kind)
     }
-    scene.shapes.setDrafts(indices)
+    for (const key of drafted) add(key, 1)
+    shifted.forEach((shift, slot) => {
+      scene.shapes.setShift(slot, shift.x, shift.y)
+      for (const key of shift.keys) add(key, slot + 2)
+    })
+    scene.shapes.setDrafts(indices, kinds)
   }
 
   function flushChanges(): void {
@@ -690,7 +700,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     const applied = clock()
     applyChanges(changes, projected)
     if (destroyed) return
-    if (drafted.length > 0) writeDrafts()
+    if (drafted.length + shifted.length > 0) writeDrafts()
     for (const watcher of watchers) watcher.changed?.(projected.scene)
     if (destroyed) return
     if (supported) selection.lightSupport()
@@ -1319,10 +1329,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       pointer.setTool(tool)
       return true
     },
-    draft: (keys) => {
+    draft: (keys, shifts = []) => {
       if (destroyed) return
       flushPending()
       drafted = [...keys]
+      shifted = shifts.slice(0, shiftSlots)
       writeDrafts()
       request()
     },

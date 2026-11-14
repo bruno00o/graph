@@ -120,6 +120,7 @@ export interface ShapeWriter {
   collect(into: AnyIssue[]): void
   drawOrder(): Uint32Array
   settled(): Promise<void>
+  revealed(indices: readonly number[]): void
   destroy(): void
 }
 

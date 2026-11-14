@@ -146,12 +146,15 @@ describe('ShapeStore', () => {
     render([shapes([{ id: 'a', geometry, color: '#000000' }], { fill: (zone) => zone.color })])
     const read = store.geometry[indexOf('a')]
     const version = store.version
+    const geometryVersion = store.geometryVersion
     render([shapes([{ id: 'a', geometry, color: '#ffffff' }], { fill: (zone) => zone.color })])
     expect(store.geometry[indexOf('a')]).toBe(read)
     expect(store.version).toBe(version)
+    expect(store.geometryVersion).toBe(geometryVersion)
     render([shapes([{ id: 'a', geometry: triangle(5) }])])
     expect(store.geometry[indexOf('a')]).not.toBe(read)
-    expect(store.version).toBeGreaterThan(version)
+    expect(store.version).toBe(version)
+    expect(store.geometryVersion).toBeGreaterThan(geometryVersion)
   })
 
   it('reports unreadable geometries until they are fixed or removed', () => {
@@ -343,6 +346,82 @@ describe('ShapeStore fills', () => {
     const geometry = store.geometry[indexOf('a')]
     expect(geometry?.pending).toBeFalsy()
     expect(geometry?.triangles.length).toBe((400 - 2) * 3)
+  })
+
+  it('keeps the triangles and levels of a moved shape, and fills a reshaped one again', () => {
+    const { store, render, indexOf, drawn } = setup()
+    const outline = ring(0, 400, 5)
+    render([
+      shapes([
+        { id: 'a', geometry: { rings: [outline] } },
+        { id: 'b', geometry: box(0) },
+      ]),
+    ])
+    const before = store.geometry[indexOf('a')]
+    const version = store.version
+    const order = store.drawOrder()
+    const moved = outline.map(([x, y]) => [x + 7.25, y - 3] as const)
+    render([
+      shapes([
+        { id: 'a', geometry: { rings: [moved] } },
+        { id: 'b', geometry: box(0) },
+      ]),
+    ])
+    const after = store.geometry[indexOf('a')]
+    const expected = readShape({ rings: [moved] })
+    expect(after?.pending).toBeFalsy()
+    expect(after?.triangles).toBe(before?.triangles)
+    expect(after?.points).toEqual(expected?.points)
+    expect(after?.levels?.length).toBeGreaterThan(0)
+    expect(after?.levels?.map((level) => level.triangles)).toEqual(
+      before?.levels?.map((level) => level.triangles),
+    )
+    expect(after?.levels?.map((level) => Array.from(level.points))).toEqual(
+      before?.levels?.map((level) =>
+        Array.from(level.points, (value, k) => expect.closeTo(value + (k % 2 ? -3 : 7.25))),
+      ),
+    )
+    expect(store.version).toBe(version)
+    expect(store.drawOrder()).toBe(order)
+    expect(drawn()).toEqual(['a', 'b'])
+    const reshaped = moved.map(([x, y], k) => [x + (k === 3 ? 20 : 0), y] as const)
+    render([
+      shapes([
+        { id: 'a', geometry: { rings: [reshaped] } },
+        { id: 'b', geometry: box(0) },
+      ]),
+    ])
+    const again = store.geometry[indexOf('a')]
+    expect(again?.pending).toBeFalsy()
+    expect(again?.triangles).not.toBe(before?.triangles)
+    expect(store.version).toBe(version)
+  })
+
+  it('fills a shape hidden as a draft only once it shows again', () => {
+    const { store, render, indexOf } = setup()
+    const outline = ring(0, 400, 5)
+    const draw = (points: readonly (readonly [number, number])[]) =>
+      render([
+        shapes([
+          { id: 'a', geometry: { rings: [points] } },
+          { id: 'b', geometry: box(0) },
+        ]),
+      ])
+    draw(outline)
+    const a = indexOf('a')
+    store.setDrafts([a])
+    const reshaped = outline.map(([x, y], k) => [x + (k === 3 ? 20 : 0), y] as const)
+    draw(reshaped)
+    expect(store.geometry[a]?.pending).toBe(true)
+    draw(reshaped.map(([x, y], k) => [x, y + (k === 5 ? 20 : 0)] as const))
+    expect(store.geometry[a]?.pending).toBe(true)
+    const fills = store.fillVersion
+    store.setDrafts([a], [2])
+    expect(store.geometry[a]?.pending).toBeFalsy()
+    expect(store.geometry[a]?.triangles?.length).toBeGreaterThan(0)
+    expect(store.fillVersion).toBe(fills + 1)
+    store.setDrafts([])
+    expect(store.fillVersion).toBe(fills + 1)
   })
 
   it('draws outlines first and fills a large batch later, as the main thread would', async () => {
