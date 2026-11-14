@@ -154,8 +154,40 @@ describe('outline edits', () => {
     }
     const ring = written.rings[0] ?? []
     expect(ring[2]).toEqual({ x: 20, y: 15 })
-    expect(ring[0]).toBe(square.rings[0]?.[0])
-    expect(ring[3]).toBe(square.rings[0]?.[3])
+    expect(ring[0]).toEqual(square.rings[0]?.[0])
+    expect(ring[3]).toEqual(square.rings[0]?.[3])
+  })
+
+  it('hands out a copy that shares nothing with the geometry it read', () => {
+    const shared = { x: 1, y: 2 }
+    const source = {
+      rings: [
+        [{ x: 0, y: 0 }, shared, { x: 4, y: 0 }],
+        [
+          [1, 1],
+          [2, 1],
+          [2, 2],
+        ],
+      ],
+      extra: { note: ['a'] },
+    }
+    const written = writeEditable(read(source)) as unknown as typeof source
+    expect(written).toEqual(source)
+    expect(written.rings[0]?.[1]).not.toBe(shared)
+    expect(written.rings[0]).not.toBe(source.rings[0])
+    expect(written.rings[1]?.[0]).not.toBe(source.rings[1]?.[0])
+    expect(written.extra).not.toBe(source.extra)
+    expect(written.extra.note).not.toBe(source.extra.note)
+    const frozen = Object.freeze({
+      type: 'LineString',
+      coordinates: Object.freeze([Object.freeze([0, 0]), Object.freeze([5, 5])]),
+    })
+    const line = writeEditable(read(frozen)) as unknown as { coordinates: number[][] }
+    expect(Object.isFrozen(line)).toBe(false)
+    line.coordinates.push([6, 6])
+    line.coordinates[0]?.push(9)
+    expect(frozen.coordinates).toHaveLength(2)
+    expect(frozen.coordinates[0]).toEqual([0, 0])
   })
 
   it('inserts a vertex in the form of its neighbour, and removes down to three', () => {

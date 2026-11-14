@@ -3,12 +3,13 @@ import { toAccessor } from '../core/accessor'
 import { worldSize } from '../core/geo'
 import type { GraphChanges, ShapeRecord } from '../core/graph-model'
 import { type ShapeShift, shiftSlots } from '../core/shape-store'
+import { dev } from '../dev'
 import type { GraphInstance } from '../host/graph-instance'
 import { internalsOf } from '../host/internals'
 import { isolateSubscribers, report } from '../host/isolate'
 import type { PointerTool, ToolPointer } from '../host/pointer-tool'
 import { readonlyOf } from '../host/readonly-store'
-import type { Key, KeyList, Mark, Point, ShapeGeometry } from '../types'
+import type { Key, KeyList, Mark, Point, WritableShapeGeometry } from '../types'
 import {
   backgroundStep,
   circleGeometry,
@@ -25,6 +26,7 @@ import {
   turnBy,
 } from './draw'
 import type { ShapeAddEdit, ShapeChangeEdit, ShapeEdit, ShapeMarkName } from './edits'
+
 import {
   type Bounds,
   boundsOf,
@@ -64,12 +66,16 @@ import {
 } from './screen'
 import { grownOutline, labeled, labelTextOf, type TextLook, textLook, textPixels } from './text'
 
+type HandedAdd = ShapeAddEdit<Mark, WritableShapeGeometry>
+type HandedChange = ShapeChangeEdit<Mark, WritableShapeGeometry>
+type Handed = ShapeEdit<Mark, WritableShapeGeometry>
+
 /** Options of `createShapeEditor`. `M` is the union of the marks of the graph. */
 export interface ShapeEditorOptions<M extends Mark = Mark> {
   /** Names of the shape marks whose shapes can be edited. Defaults to every shape mark. */
   readonly marks?: KeyList<ShapeMarkName<M>> | undefined
   /** Called with each batch of edits the editor proposes, like the `edit` event. */
-  readonly onEdit?: ((edits: readonly ShapeEdit<M>[]) => void) | undefined
+  readonly onEdit?: ((edits: readonly ShapeEdit<M, WritableShapeGeometry>[]) => void) | undefined
   /**
    * How long a proposed shape stays drawn as proposed while its data does not change, in
    * milliseconds; then the data wins and `editlost` is emitted. `Infinity` waits for good.
@@ -182,7 +188,7 @@ export interface ShapeEditorState {
 /** Payload of the `edit` and `editlost` events of a shape editor. */
 export interface ShapeEditEvent<M extends Mark = Mark> {
   /** The edits, in the order they were made. */
-  readonly edits: readonly ShapeEdit<M>[]
+  readonly edits: readonly ShapeEdit<M, WritableShapeGeometry>[]
 }
 
 /**
@@ -288,7 +294,7 @@ interface Look {
 }
 
 interface Pending {
-  readonly edit: ShapeEdit
+  readonly edit: Handed
   readonly outline: Outline | null
   readonly batch: number
   readonly order: number | undefined
@@ -326,7 +332,7 @@ interface Step {
 }
 
 interface Proposal {
-  readonly edit: ShapeEdit
+  readonly edit: Handed
   readonly outline: Outline | null
   readonly order: number | undefined
   readonly pin: Key | null
@@ -590,7 +596,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   resolve(options)
 
-  function emit(name: 'edit' | 'editlost', edits: readonly ShapeEdit[]): void {
+  function emit(name: 'edit' | 'editlost', edits: readonly Handed[]): void {
     const event = { edits } as ShapeEditEvent<M>
     if (name === 'edit' && onEdit) {
       try {
@@ -1157,7 +1163,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       if (!entry) continue
       const { mark, datum } = entry.record
       const before = snapshotOf(key)
-      const edit: ShapeEdit = outline
+      const edit: Handed = outline
         ? { type: 'change', key, mark: mark.name, datum, geometry: writeEditable(outline) }
         : { type: 'remove', key, mark: mark.name, datum }
       const after = outline && before ? { ...before, outline } : null
@@ -1221,12 +1227,12 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return units === 'degrees' || (units === 'auto' && internals.onMap)
   }
 
-  function add(geometry: ShapeGeometry, drawn: ShapeDrawTool): void {
+  function add(geometry: WritableShapeGeometry, drawn: ShapeDrawTool): void {
     const outline = readEditable(geometry)
     if (!outline) return
     const key = newKey()
     const mark = targetMark()
-    const edit: ShapeAddEdit = { type: 'add', key, mark, geometry, tool: drawn }
+    const edit: HandedAdd = { type: 'add', key, mark, geometry, tool: drawn }
     const after: Snapshot = {
       outline,
       order: 0,
@@ -1275,7 +1281,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return true
   }
 
-  function openText(geometry: ShapeGeometry): void {
+  function openText(geometry: WritableShapeGeometry): void {
     const outline = readEditable(geometry)
     if (!outline) return
     const mark = textMark ?? targetMark()
@@ -1305,7 +1311,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
         return
       }
       const geometry = writeEditable(outline)
-      const edit: ShapeAddEdit = { type: 'add', key, mark, geometry, tool: 'text', text }
+      const edit: HandedAdd = { type: 'add', key, mark, geometry, tool: 'text', text }
       const after: Snapshot = { outline, order: 0, datum: undefined, pin: null, look: null, text }
       const step: Step = { key, mark, before: null, after }
       submit([{ edit, outline, order: undefined, pin: null, look: null, step }], true)
@@ -1319,7 +1325,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       changed()
       return
     }
-    const edit: ShapeChangeEdit = {
+    const edit: HandedChange = {
       type: 'change',
       key,
       mark,
@@ -1351,7 +1357,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const mark = entry.record.mark.name
       const datum = entry.record.datum
       const geometry = writeEditable(outline)
-      const edit: ShapeAddEdit = { type: 'add', key: copy, mark, geometry, datum }
+      const edit: HandedAdd = { type: 'add', key: copy, mark, geometry, datum }
       const after: Snapshot = { ...base, outline, datum }
       proposals.push({
         edit,
@@ -1435,7 +1441,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const geometry = writeEditable(target.outline)
       if (!from || !entry) {
         const typed = target.datum === undefined && target.text !== '' ? { text: target.text } : {}
-        const edit: ShapeAddEdit =
+        const edit: HandedAdd =
           target.datum === undefined
             ? { type: 'add', key, mark, geometry, ...typed }
             : { type: 'add', key, mark, geometry, datum: target.datum }
@@ -1452,7 +1458,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const reshaped = !sameOutline(from.outline, target.outline)
       const ordered = from.order !== target.order
       const retyped = from.text !== target.text
-      const edit: ShapeEdit = {
+      const edit: Handed = {
         type: 'change',
         key,
         mark,
@@ -1493,6 +1499,29 @@ export function createShapeEditor<S extends string, M extends Mark>(
     if (!steps) return
     undoStack.push(steps)
     restore(steps, 'after')
+  }
+
+  let checkedDefinition: unknown = null
+  let checkedGrid: 'background' | number = 0
+  let warnedBackground = false
+
+  function checkBackground(): void {
+    if (!dev) return
+    const definition = internals.definition()
+    if (definition === checkedDefinition && grid === checkedGrid) return
+    checkedDefinition = definition
+    checkedGrid = grid
+    if (grid !== 'background' || definition.background) {
+      warnedBackground = false
+      return
+    }
+    if (warnedBackground) return
+    warnedBackground = true
+    console.warn(
+      internals.onMap
+        ? "graph: the editor's snap.grid 'background' snaps nothing on a map, which has no background grid; give snap.grid a spacing in world units"
+        : "graph: the editor's snap.grid 'background' snaps nothing, the definition has no background grid; add one to defineGraph or give snap.grid a spacing in world units",
+    )
   }
 
   function gridStep(): number {
@@ -1604,7 +1633,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return { d: path.join(' '), filled: rings?.filled ?? false, handles }
   }
 
-  function endDrawing(geometry: ShapeGeometry | null, drawn: ShapeDrawTool): void {
+  function endDrawing(geometry: WritableShapeGeometry | null, drawn: ShapeDrawTool): void {
     draw = null
     if (geometry) add(geometry, drawn)
     changed()
@@ -1821,7 +1850,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   function expire(batch: number): void {
     if (destroyed) return
-    const lost: ShapeEdit[] = []
+    const lost: Handed[] = []
     for (const [key, waiting] of pending) {
       if (waiting.batch !== batch) continue
       pending.delete(key)
@@ -1832,15 +1861,15 @@ export function createShapeEditor<S extends string, M extends Mark>(
     emit('editlost', lost)
   }
 
-  function changeEdit(key: Key, outline: Outline): ShapeChangeEdit | null {
+  function changeEdit(key: Key, outline: Outline): HandedChange | null {
     const entry = entryOf(key)
     if (!entry) return null
     const { mark, datum } = entry.record
     return { type: 'change', key, mark: mark.name, datum, geometry: writeEditable(outline) }
   }
 
-  function editsOf(outlines: Iterable<readonly [Key, Outline]>): ShapeChangeEdit[] {
-    const edits: ShapeChangeEdit[] = []
+  function editsOf(outlines: Iterable<readonly [Key, Outline]>): HandedChange[] {
+    const edits: HandedChange[] = []
     for (const [key, outline] of outlines) {
       const edit = changeEdit(key, outline)
       if (edit) edits.push(edit)
@@ -1848,7 +1877,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return edits
   }
 
-  function liveEdits(): ShapeChangeEdit[] {
+  function liveEdits(): HandedChange[] {
     const current = gesture
     if (!current || !gestureStarted(current)) return []
     return editsOf(
@@ -2332,7 +2361,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   const unwatch = internals.watch({
     frame() {
-      if (destroyed || listeners.size === 0) return
+      if (destroyed) return
+      checkBackground()
+      if (listeners.size === 0) return
       const view = screen()
       const stamp = stampOf(view)
       if (stamp === drawnStamp && !view.globe) return
@@ -2372,6 +2403,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     addEventListener('keyup', onKey)
     addEventListener('blur', onBlur)
     lastSelection = graph.store.state.selection
+    checkBackground()
     publish()
   } else {
     unwatch()
@@ -2488,6 +2520,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const chosen = next.tool === undefined ? null : checkTool(next.tool, 'update')
       resolve(merged)
       given = merged
+      checkBackground()
       entries.clear()
       if (chosen !== null && chosen !== tool) setTool(chosen)
       else changed()
@@ -2518,7 +2551,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
     },
   })
 
-  function settle(edits: readonly ShapeEdit[]): boolean {
+  function settle(edits: readonly Handed[]): boolean {
     if (destroyed) return false
     let settled = false
     for (const edit of edits) {

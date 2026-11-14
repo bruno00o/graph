@@ -75,12 +75,15 @@ export interface GraphDevtoolsMessages {
    */
   readonly labelSelection: string
   /**
-   * Label of the node and edge labels kept by that selection.
+   * Label of the node, edge and shape labels kept by that selection.
    * @default 'Labels drawn'
    */
   readonly labelsDrawn: string
-  /** Formats the labels drawn, such as `'3 nodes, 0 edges'`. */
-  readonly labelCounts: (nodes: number, edges: number) => string
+  /**
+   * Formats the labels drawn, such as `'3 nodes, 0 edges'`, or `'3 nodes, 0 edges, 2 shapes'` when
+   * shape labels are drawn. A function that takes two arguments leaves the shape labels out.
+   */
+  readonly labelCounts: (nodes: number, edges: number, shapes?: number) => string
   /**
    * Label of the size of the textures the renderer allocated.
    * @default 'Texture memory'
@@ -273,8 +276,8 @@ export const defaultMessages: GraphDevtoolsMessages = {
   render: 'Render',
   labelSelection: 'Label selection',
   labelsDrawn: 'Labels drawn',
-  labelCounts: (nodes, edges) =>
-    `${plural(nodes, 'node', 'nodes')}, ${plural(edges, 'edge', 'edges')}`,
+  labelCounts: (nodes, edges, shapes = 0) =>
+    `${plural(nodes, 'node', 'nodes')}, ${plural(edges, 'edge', 'edges')}${shapes > 0 ? `, ${plural(shapes, 'shape', 'shapes')}` : ''}`,
   textureMemory: 'Texture memory',
   elements: 'Elements',
   nodes: 'Nodes',

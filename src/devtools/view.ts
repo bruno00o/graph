@@ -170,10 +170,10 @@ export function createView(
     [messages.labelSelection, (report) => ms(report.performance.labelTime)],
     [
       messages.labelsDrawn,
-      ({ performance: { nodeLabels, edgeLabels } }) =>
+      ({ performance: { nodeLabels, edgeLabels, shapeLabels } }) =>
         nodeLabels === null || edgeLabels === null
           ? messages.unknown
-          : messages.labelCounts(nodeLabels, edgeLabels),
+          : messages.labelCounts(nodeLabels, edgeLabels, shapeLabels ?? 0),
     ],
     [
       messages.textureMemory,

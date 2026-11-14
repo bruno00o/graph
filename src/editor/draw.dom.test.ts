@@ -398,6 +398,99 @@ describe('drawing tools', () => {
     graph.destroy()
   })
 
+  it('warns once when the background grid it snaps to is missing, and again after it was there', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const graph = mount()
+    const { editor } = editorOf(graph, { snap: { grid: 'background' } })
+    const warned = () => warn.mock.calls.filter(([text]) => String(text).includes('snap.grid'))
+    expect(warned()).toHaveLength(1)
+    expect(String(warned()[0]?.[0])).toContain('no background grid')
+    dom.flushFrames()
+    editor.update({ snap: { grid: 'background', angle: 30 } })
+    graph.update({ definition: definition() })
+    dom.flushFrames()
+    expect(warned()).toHaveLength(1)
+    background = true
+    graph.update({ definition: definition() })
+    dom.flushFrames()
+    expect(warned()).toHaveLength(1)
+    background = false
+    graph.update({ definition: definition() })
+    dom.flushFrames()
+    expect(warned()).toHaveLength(2)
+    graph.destroy()
+  })
+
+  it('warns when the snap option or the definition starts to need the background', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const graph = mount()
+    const { editor } = editorOf(graph, { snap: { grid: 10 } })
+    const warned = () => warn.mock.calls.filter(([text]) => String(text).includes('snap.grid'))
+    editor.update({ snap: { grid: 'background' } })
+    expect(warned()).toHaveLength(1)
+    editor.update({ snap: { grid: 5 } })
+    editor.update({ snap: {} })
+    expect(warned()).toHaveLength(1)
+    editor.update({ snap: { grid: 'background' } })
+    expect(warned()).toHaveLength(2)
+    graph.destroy()
+  })
+
+  it('stays quiet with a background grid, a spacing, or no snap, and in production', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    background = true
+    const grid = mount()
+    editorOf(grid, { snap: { grid: 'background' } })
+    const plain = mount()
+    plain.element.remove()
+    grid.destroy()
+    plain.destroy()
+    const spaced = mount()
+    editorOf(spaced, { snap: { grid: 20 } })
+    spaced.destroy()
+    background = false
+    const none = mount()
+    editorOf(none)
+    none.destroy()
+    expect(warn.mock.calls.filter(([text]) => String(text).includes('snap.grid'))).toEqual([])
+    vi.resetModules()
+    vi.doMock('../dev', () => ({ dev: false }))
+    const host = await import('../host/mount-graph')
+    const { createShapeEditor: production } = await import('./editor')
+    const { defineGraph: define } = await import('../define-graph')
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = host.createGraphHost(
+      container,
+      { definition: define({ marks: [] }) as GraphDefinition, ariaLabel: 'graph' },
+      fakeRenderer,
+    )
+    production(graph, { snap: { grid: 'background' } })
+    dom.flushFrames()
+    expect(warn.mock.calls.filter(([text]) => String(text).includes('snap.grid'))).toEqual([])
+    graph.destroy()
+    vi.doUnmock('../dev')
+  })
+
+  it('warns on a map, which has no background grid', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const map = fakeMap()
+    const graph = mountMapGraph(map.map, {
+      definition: defineGraph({
+        marks: [shapes([] as Zone[], { name: 'zones' })],
+        background: { grid: 'lines' },
+      }) as GraphDefinition,
+      ariaLabel: 'map',
+    })
+    map.render()
+    dom.flushFrames()
+    editorOf(graph, { snap: { grid: 'background' } })
+    const warned = warn.mock.calls.filter(([text]) => String(text).includes('snap.grid'))
+    expect(warned).toHaveLength(1)
+    expect(String(warned[0]?.[0])).toContain('on a map')
+    graph.destroy()
+  })
+
   it('sends drawn shapes to the mark it is given, the first editable one by default', () => {
     const graph = mount()
     const { editor, batches } = editorOf(graph, { tool: 'circle', marks: ['other', 'zones'] })
