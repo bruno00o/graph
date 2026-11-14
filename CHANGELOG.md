@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.27.1](https://github.com/bruno00o/graph/compare/0.27.0...0.27.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* keep the position given by a graph class name ([#191](https://github.com/bruno00o/graph/issues/191)) ([9403f71](https://github.com/bruno00o/graph/commit/9403f716d846d180ae75631571403d0660200323))
+* place anchors and shape previews on the globe ([#188](https://github.com/bruno00o/graph/issues/188)) ([5fe8ec0](https://github.com/bruno00o/graph/commit/5fe8ec09b74e5ef2865ddd62d19d8452f3bfb3c3))
+* write edited geometry without a cast, warn on a missing snap grid, count shape labels ([#189](https://github.com/bruno00o/graph/issues/189)) ([fd98f1a](https://github.com/bruno00o/graph/commit/fd98f1a4fbf863ec526b0f32a8c642c36ea9b247))
+
 ## [0.27.0](https://github.com/bruno00o/graph/compare/0.26.1...0.27.0) (2026-11-14)
 
 
