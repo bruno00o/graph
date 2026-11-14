@@ -27,7 +27,8 @@ export function mount(container: HTMLElement): GraphInstance {
   const { items, links } = createSample(72, 90, 6)
   let sort: Sort = 'group'
   let columns = columnCounts[0] ?? 12
-  const layout = () => grid<Item>({ order: orders[sort], columns })
+  const layout = () =>
+    grid<Item>({ order: orders[sort], columns, spacing: { rows: 26, columns: 10 } })
 
   const graph = mountGraph(container, {
     definition: defineGraph({

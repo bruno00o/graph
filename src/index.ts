@@ -86,6 +86,8 @@ export type {
   GraphTime,
   GraphUpdateOptions,
   GraphView,
+  LayoutComputeOptions,
+  LayoutOthers,
   LayoutRunOptions,
   MountGraphOptions,
   PositionSnapshotOptions,

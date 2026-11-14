@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { groupedGraph, smallestGap, spread } from '../testing/groups'
 import type { Key, Layout, LayoutGraph } from '../types'
-import { grid, layers, radial, rings } from './index'
+import { grid, layers, placed, radial, rings } from './index'
 
 interface Shape {
   readonly points: readonly (readonly [number, number])[]
@@ -70,6 +70,22 @@ describe('grid', () => {
       [0, 0],
       [0, 10],
     ])
+  })
+
+  it('takes one gap between rows and another between columns', async () => {
+    const graph = graphOf({ points: origin(4) })
+    const xy = await run(grid({ columns: 2, spacing: { rows: 30, columns: 4 } }), graph)
+    expect(point(xy, 1)[0] - point(xy, 0)[0]).toBe(14)
+    expect(point(xy, 2)[1] - point(xy, 0)[1]).toBe(40)
+    const half = await run(grid({ columns: 2, spacing: { columns: 4 } }), graph)
+    expect(point(half, 2)[1] - point(half, 0)[1]).toBe(34)
+    const boxes = {
+      ...graph,
+      extents: Float32Array.from([40, 10, 10, 10, 30, 10, 10, 10]),
+    }
+    const wide = await run(grid({ columns: 2, spacing: { rows: 2, columns: 8 } }), boxes)
+    expect(point(wide, 1)[0] - point(wide, 0)[0]).toBe(88)
+    expect(point(wide, 2)[1] - point(wide, 0)[1]).toBe(22)
   })
 
   it('spaces places by the gap between the borders of the largest nodes', async () => {
@@ -183,6 +199,51 @@ describe('radial', () => {
       const [x, y] = point(xy, index)
       expect(Math.hypot(x - 50, y - 50)).toBeCloseTo(10, 4)
     }
+  })
+})
+
+describe('placed', () => {
+  it('moves free nodes to the positions given by key and leaves the others', async () => {
+    const graph = graphOf({
+      points: [
+        [1, 1],
+        [2, 2],
+        [3, 3],
+        [4, 4],
+      ],
+      fixed: [3],
+    })
+    const xy = await run(
+      placed([
+        ['n0', { x: 10, y: 20 }],
+        ['n1', { x: Number.POSITIVE_INFINITY, y: 0 }],
+        ['n3', { x: 9, y: 9 }],
+      ]),
+      graph,
+    )
+    expect([point(xy, 0), point(xy, 1), point(xy, 2), point(xy, 3)]).toEqual([
+      [10, 20],
+      [2, 2],
+      [3, 3],
+      [4, 4],
+    ])
+  })
+
+  it('reads positions from the items, and compares by the positions it was given', async () => {
+    const graph = graphOf({ points: origin(3), data: [{ at: 1 }, { at: 2 }, {}] })
+    const layout = placed<{ at?: number }>((item) =>
+      item.at === undefined ? null : { x: item.at, y: -item.at },
+    )
+    const xy = await run(layout, graph)
+    expect([point(xy, 0), point(xy, 1), point(xy, 2)]).toEqual([
+      [1, -1],
+      [2, -2],
+      [0, 0],
+    ])
+    const map = new Map([['n0', { x: 1, y: 1 }]])
+    expect(placed(map).options).toEqual({ positions: map })
+    expect(placed(map).name).toBe('placed')
+    expect(placed(map).incremental).toBe(false)
   })
 })
 

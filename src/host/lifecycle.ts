@@ -143,7 +143,11 @@ export function afterDestroy<S extends string, M extends Mark>(
       get: (name) => state().states[name] ?? emptyKeys(shaped()),
     },
     positions: { get: () => undefined, set: nothing, snapshot: () => new Map() },
-    layout: { run: () => Promise.resolve(false), stop: nothing },
+    layout: {
+      run: () => Promise.resolve(false),
+      compute: () => Promise.reject(reason()),
+      stop: nothing,
+    },
     anchors: { set: () => nothing, remove: nothing },
     groups: {
       folded: () => state().folded,

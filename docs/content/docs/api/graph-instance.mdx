@@ -77,6 +77,7 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `on`, `anchors.set` | Register nothing and return a function that does nothing |
 | `update`, `destroy`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
 | `layout.run`, `bundling.run`, `routing.run` | Resolve to `false`. A layout run in progress at `destroy` resolves to `false` too |
+| `layout.compute` | Rejects with `signal.reason`, also while it computes at `destroy` |
 | `drawn`, `loaded` | Reject with `signal.reason` |
 | [`exportPng`, `exportSvg`](/docs/api/export) and [`exportMapPng`](/docs/api/map) | Reject with an error |
 | [`createMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Return a companion already destroyed: empty, it holds no worker, observer or timer, never changes and never plays |
@@ -216,6 +217,16 @@ status.textContent = `${shown.nodes} of ${nodes} nodes shown`
 `run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
 
 <api-table path="index.ts" name="LayoutRunOptions" />
+
+```ts
+type LayoutOthers = 'anchors' | 'ignored'
+```
+
+`others` decides what the nodes left out of `keys` are to the layout. With `'anchors'`, they stay in the graph it reads, still: moving nodes settle around them, and a force run on part of the graph starts with less energy and without the pull to the center, so the moved nodes stay near the rest. With `'ignored'`, they and their edges are left out, as if the keys were the whole graph: a force run starts with full energy and its pull to the center. Without `keys`, both give the same run. A value outside these two rejects with a `TypeError`.
+
+`compute` applies pending data changes, then computes `layout`, or the layout of the definition, from the current positions, and resolves to the positions it gives the nodes it lays out, by key: every free node, or only `keys`. It moves nothing, emits no event, changes nothing in the store, and leaves a run in progress going; nodes that glide count where their glide ends. It runs where `run` would, in the worker or on the GPU for `force`. Give its result to [`placed`](/docs/api/layouts#placed) to run it, or to `positions.set`. It resolves to an empty map when no node is free, and rejects when there is no layout, on a map, when `signal` aborts, with the reason of the signal, and when the graph is destroyed, with the reason of `graph.signal`.
+
+<api-table path="index.ts" name="LayoutComputeOptions" />
 
 ## Bundling
 
