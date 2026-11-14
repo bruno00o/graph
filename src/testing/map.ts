@@ -45,7 +45,7 @@ export const flatInput: unknown = {
   shaderData: { variantName: 'mercator' },
 }
 
-export function globeInput(longitude: number, latitude: number, zoom: number): unknown {
+export function globeInput(longitude: number, latitude: number, zoom: number, mix = 1): unknown {
   const { matrix, plane, fallback } = globeMatrices({
     longitude,
     latitude,
@@ -58,7 +58,7 @@ export function globeInput(longitude: number, latitude: number, zoom: number): u
       mainMatrix: matrix,
       fallbackMatrix: fallback,
       clippingPlane: plane,
-      projectionTransition: 1,
+      projectionTransition: mix,
     },
     shaderData: { variantName: 'globe' },
   }

@@ -9,7 +9,6 @@ import {
   type ShapeEditorOptions,
   type ShapeEditorState,
 } from './editor'
-import type { ShapeEdit } from './edits'
 import { mountShapeEditor, type ShapeEditorView } from './view'
 
 /** Options of `useShapeEditor`: the options of `createShapeEditor`, and the graph. */
@@ -85,7 +84,7 @@ export function useShapeEditor<S extends string = string, M extends Mark = Mark>
       snap,
       history,
       newKey: () => (latest.current.newKey ?? randomKey)(),
-      onEdit: (edits: readonly ShapeEdit<M>[]) => latest.current.onEdit?.(edits),
+      onEdit: (edits) => latest.current.onEdit?.(edits),
     })
     shown.marks = marks as Iterable<string> | undefined
     const mounted = mountShapeEditor(created, { placeholder })

@@ -143,7 +143,13 @@ describe('graph inspection', () => {
   })
 
   it('counts nodes, edges and pending edges, and reads the renderer statistics', () => {
-    const stats = { nodeLabels: 3, edgeLabels: 1, labelTime: 0.5, textureBytes: 4096 }
+    const stats = {
+      nodeLabels: 3,
+      edgeLabels: 1,
+      shapeLabels: 2,
+      labelTime: 0.5,
+      textureBytes: 4096,
+    }
     const plain = inspected(mount())
     expect(plain.inspect()).toEqual({
       nodes: 2,

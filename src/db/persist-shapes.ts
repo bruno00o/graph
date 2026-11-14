@@ -8,7 +8,7 @@ import {
 import type { ShapeEditor } from '../editor/editor'
 import type { ShapeAddEdit, ShapeAddEditOf, ShapeEdit, ShapeMarkName } from '../editor/edits'
 import { editorLink } from '../editor/link'
-import type { FieldOf, Key, Mark, ShapeGeometry } from '../types'
+import type { FieldOf, Key, Mark, ShapeGeometry, WritableShapeGeometry } from '../types'
 import { defaultWait, pace, pendingMarks, type Settling } from './pending'
 
 /** Fields of a row that `persistShapes` writes. `T` is the type of the rows. */
@@ -56,7 +56,7 @@ export interface PersistShapesOptions<
    * Without it, an add whose `datum` with the new outline has the key of the shape, as the undo of a
    * removal has, inserts that row, and the other new shapes are left out.
    */
-  readonly create?: ((edit: ShapeAddEditOf<M, N>) => T) | undefined
+  readonly create?: ((edit: ShapeAddEditOf<M, N, WritableShapeGeometry>) => T) | undefined
   /**
    * Persists through `createPacedMutations`, with an optimistic write that a failure rolls back.
    * Without it, the collection persists the writes through its own handlers.
@@ -81,19 +81,21 @@ export interface PersistShapesOptions<
 
 const liveRest = 4
 
+type Handed = ShapeEdit<Mark, WritableShapeGeometry>
+
 const virtualProps = ['$hasPendingWrites', '$origin', '$key', '$collectionId'] as const
 
 type Values = readonly (readonly [string, unknown])[]
 
 interface Written {
   readonly transaction: Settling
-  readonly edits: readonly ShapeEdit[]
+  readonly edits: readonly Handed[]
 }
 
 interface Batch {
   readonly written: Written[]
-  readonly edits: ShapeEdit[]
-  readonly same: ShapeEdit[]
+  readonly edits: Handed[]
+  readonly same: Handed[]
 }
 
 function liveWait(live: boolean | number | undefined): number | null {
@@ -150,7 +152,7 @@ export function persistShapes<
     ['text', options.fields?.text ?? 'text'],
   ]
 
-  const valuesOf = (edit: ShapeEdit, row: Record<string, unknown>): Values => {
+  const valuesOf = (edit: Handed, row: Record<string, unknown>): Values => {
     const values: [string, unknown][] = []
     const given = edit as unknown as Record<string, unknown>
     for (const [name, field] of fields) {
@@ -169,17 +171,19 @@ export function persistShapes<
     return rowKey === keyOf(edit.key) && collection.get(rowKey) === undefined ? (row as T) : null
   }
 
-  const apply = (edits: readonly ShapeEdit[]): Batch => {
+  const apply = (edits: readonly Handed[]): Batch => {
     const batch: Batch = { written: [], edits: [], same: [] }
     const keys: TKey[] = []
     const rows: Values[] = []
-    const changed: ShapeEdit[] = []
+    const changed: Handed[] = []
     const removed: TKey[] = []
-    const gone: ShapeEdit[] = []
+    const gone: Handed[] = []
     for (const edit of edits) {
       if (only !== undefined && edit.mark !== only) continue
       if (edit.type === 'add') {
-        const row = create ? create(edit as unknown as ShapeAddEditOf<M, N>) : restored(edit)
+        const row = create
+          ? create(edit as unknown as ShapeAddEditOf<M, N, WritableShapeGeometry>)
+          : restored(edit)
         if (row === null) continue
         batch.written.push({ transaction: collection.insert(row), edits: [edit] })
         batch.edits.push(edit)
@@ -219,12 +223,12 @@ export function persistShapes<
     return batch
   }
 
-  const carried = new Map<Settling, ShapeEdit[]>()
+  const carried = new Map<Settling, Handed[]>()
   const writers = new Map<Key, Settling>()
-  const track = (transaction: Settling): ShapeEdit[] => {
+  const track = (transaction: Settling): Handed[] => {
     const known = carried.get(transaction)
     if (known) return known
-    const list: ShapeEdit[] = []
+    const list: Handed[] = []
     carried.set(transaction, list)
     const done = (failed: boolean) => {
       carried.delete(transaction)
@@ -254,10 +258,10 @@ export function persistShapes<
     }
   }
 
-  let write: (edits: readonly ShapeEdit[], release: boolean) => void
+  let write: (edits: readonly Handed[], release: boolean) => void
   if (mutationFn) {
     let last: Batch | null = null
-    const mutate = createPacedMutations<readonly ShapeEdit[], T>({
+    const mutate = createPacedMutations<readonly Handed[], T>({
       onMutate: (edits) => {
         last = apply(edits)
       },

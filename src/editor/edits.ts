@@ -26,9 +26,9 @@ export type ShapeItem<M extends Mark = Mark> =
 /**
  * A new shape: drawn, duplicated, or brought back by an undo. `M` is one shape mark for exact
  * types, or the union of the marks, where `mark` and `datum` are unions: `ShapeEdit<M>` splits that
- * union by mark.
+ * union by mark. `G` is the type of the geometry: the editor hands out `WritableShapeGeometry`.
  */
-export interface ShapeAddEdit<M extends Mark = Mark> {
+export interface ShapeAddEdit<M extends Mark = Mark, G extends ShapeGeometry = ShapeGeometry> {
   /** Always `'add'`. */
   readonly type: 'add'
   /** Key of the new shape. */
@@ -36,7 +36,7 @@ export interface ShapeAddEdit<M extends Mark = Mark> {
   /** `name` of the mark the shape is meant for, or `undefined`. */
   readonly mark: ShapeMarkName<M> | undefined
   /** Outline of the new shape, in world units or in degrees, as the `units` option says. */
-  readonly geometry: ShapeGeometry
+  readonly geometry: G
   /**
    * Item the new shape copies: the original of a duplicate, or the removed item an undo brings
    * back. Absent for a drawn shape.
@@ -48,8 +48,11 @@ export interface ShapeAddEdit<M extends Mark = Mark> {
   readonly text?: string | undefined
 }
 
-/** A shape that changes. Only the fields that change are present. */
-export interface ShapeChangeEdit<M extends Mark = Mark> {
+/**
+ * A shape that changes. Only the fields that change are present. `G` is the type of the geometry:
+ * the editor hands out `WritableShapeGeometry`.
+ */
+export interface ShapeChangeEdit<M extends Mark = Mark, G extends ShapeGeometry = ShapeGeometry> {
   /** Always `'change'`. */
   readonly type: 'change'
   /** Key of the shape. */
@@ -62,7 +65,7 @@ export interface ShapeChangeEdit<M extends Mark = Mark> {
    * New outline, in the format of the old one: same kind of points, the closing point of a
    * GeoJSON ring repeated, degrees for degrees, with longitudes from -180 to 180.
    */
-  readonly geometry?: ShapeGeometry | undefined
+  readonly geometry?: G | undefined
   /** New drawing order within the mark, from `raise`, `lower` or an undo of them. */
   readonly order?: number | undefined
   /** New text of the label, plain text where `\n` starts a line. */
@@ -81,11 +84,13 @@ export interface ShapeRemoveEdit<M extends Mark = Mark> {
   readonly datum: ShapeItem<M>
 }
 
-type EditsOfMark<M extends Mark> = M extends { readonly type: 'shapes' }
-  ? ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
+type EditsOfMark<M extends Mark, G extends ShapeGeometry> = M extends { readonly type: 'shapes' }
+  ? ShapeAddEdit<M, G> | ShapeChangeEdit<M, G> | ShapeRemoveEdit<M>
   : never
 
-type AddsOfMark<M extends Mark> = M extends { readonly type: 'shapes' } ? ShapeAddEdit<M> : never
+type AddsOfMark<M extends Mark, G extends ShapeGeometry> = M extends { readonly type: 'shapes' }
+  ? ShapeAddEdit<M, G>
+  : never
 
 type MarksNamed<M extends Mark, N> = M extends {
   readonly type: 'shapes'
@@ -99,21 +104,26 @@ type MarksNamed<M extends Mark, N> = M extends {
 /**
  * A change the editor proposes to the data: `'add'`, `'change'` or `'remove'`. Narrow on `type`,
  * then on `mark`: with several shape marks, each edit carries the `datum` type of its own mark.
- * `M` is the union of the marks of the graph.
+ * `M` is the union of the marks of the graph. `G` is the type of the geometries: the editor hands
+ * out `WritableShapeGeometry`, which assigns to the draft of `collection.update` without a cast.
  */
-export type ShapeEdit<M extends Mark = Mark> = [EditsOfMark<M>] extends [never]
-  ? ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
-  : EditsOfMark<M>
+export type ShapeEdit<M extends Mark = Mark, G extends ShapeGeometry = ShapeGeometry> = [
+  EditsOfMark<M, G>,
+] extends [never]
+  ? ShapeAddEdit<M, G> | ShapeChangeEdit<M, G> | ShapeRemoveEdit<M>
+  : EditsOfMark<M, G>
 
 /**
  * The new shapes of the marks named `N` among the marks `M`, one type per mark. `N` is a name or a
- * union of names; without a match, the new shapes of every mark.
+ * union of names; without a match, the new shapes of every mark. `G` is the type of the geometry.
  */
-export type ShapeAddEditOf<M extends Mark = Mark, N extends string = ShapeMarkName<M>> = [
-  AddsOfMark<MarksNamed<M, N>>,
-] extends [never]
-  ? ShapeAddEdit<M>
-  : AddsOfMark<MarksNamed<M, N>>
+export type ShapeAddEditOf<
+  M extends Mark = Mark,
+  N extends string = ShapeMarkName<M>,
+  G extends ShapeGeometry = ShapeGeometry,
+> = [AddsOfMark<MarksNamed<M, N>, G>] extends [never]
+  ? ShapeAddEdit<M, G>
+  : AddsOfMark<MarksNamed<M, N>, G>
 
 /** Options of `applyShapeEdits`. `T` is the type of the items. */
 export interface ShapeEditFields<T> {

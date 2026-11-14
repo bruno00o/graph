@@ -1,7 +1,7 @@
 import type { Collection } from '@tanstack/db'
 import { describe, expectTypeOf, it } from 'vitest'
 import { persistShapes } from '../db'
-import type { Mark, NodeMark, ShapeMark } from '../types'
+import type { Mark, NodeMark, ShapeMark, WritableShapeGeometry } from '../types'
 import type { ShapeEditor } from './editor'
 import type {
   ShapeAddEdit,
@@ -96,6 +96,17 @@ describe('shape edit types', () => {
     expectTypeOf(narrow).toExtend<Everything>()
   })
 
+  it('narrow the edits with a writable geometry too', () => {
+    const writable = (edit: ShapeEdit<Marks, WritableShapeGeometry>): void => {
+      if (edit.type === 'add' && edit.mark === 'notes') {
+        expectTypeOf(edit.datum).toEqualTypeOf<Note | undefined>()
+        expectTypeOf(edit.geometry).toEqualTypeOf<WritableShapeGeometry>()
+      }
+    }
+    expectTypeOf(writable).toBeFunction()
+    expectTypeOf<ShapeEdit<Marks, WritableShapeGeometry>>().toExtend<ShapeEdit<Marks>>()
+  })
+
   it('give the new shapes of the marks with the name', () => {
     expectTypeOf<ShapeAddEditOf<Marks, 'zones'>['datum']>().toEqualTypeOf<Zone | undefined>()
     expectTypeOf<ShapeAddEditOf<Marks, 'zones' | 'notes'>['datum']>().toEqualTypeOf<
@@ -111,6 +122,7 @@ describe('shape edit types', () => {
         mark: 'zones',
         create: (add) => {
           expectTypeOf(add.datum).toEqualTypeOf<Zone | undefined>()
+          expectTypeOf(add.geometry).toEqualTypeOf<WritableShapeGeometry>()
           return { id: String(add.key), label: add.datum?.label ?? '' }
         },
       })

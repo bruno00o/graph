@@ -48,10 +48,15 @@ type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand' | 
 ## Edits
 
 ```ts
-type ShapeEdit<M extends Mark = Mark> = ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
+type ShapeEdit<M extends Mark = Mark, G extends ShapeGeometry = ShapeGeometry> =
+  | ShapeAddEdit<M, G>
+  | ShapeChangeEdit<M, G>
+  | ShapeRemoveEdit<M>
 ```
 
 With several shape marks, `ShapeEdit<M>` is split by mark: each shape mark of `M` gives its own three edit types, so narrowing on `type` and then on `mark` gives the `datum` type of that mark. Without any shape mark in `M`, and for the plain `Mark` type, it is the union above, with the items of all marks.
+
+`G` is the type of the geometry of the edit. The edits that `onEdit` and the `edit` and `editlost` events hand out are `ShapeEdit<M, WritableShapeGeometry>`: their geometry is a fresh copy, writable all the way down, that shares nothing with your items and is never frozen. `WritableShapeGeometry` is `ShapeGeometry` with every `readonly` removed, arrays included, so it assigns to a `ShapeGeometry`, and to the draft of `collection.update` in TanStack DB with no cast. A parameter annotated with the plain `ShapeEdit` has a read-only geometry, which such a draft refuses: write `ShapeEdit<Mark, WritableShapeGeometry>`, or let `onEdit` infer the type.
 
 The drawing tools, `duplicate` and the undo of a removal propose `'add'` edits; moves, reshapes, text, `raise`, `lower` and the undo of a move propose `'change'` edits; `remove` and the undo of a drawn shape propose `'remove'` edits.
 

@@ -1,3 +1,4 @@
+export type { WritableShapeGeometry } from '../types'
 export type { ShapeDrawTool, ShapeEditorSnap, ShapeEditorTool } from './draw'
 export {
   createShapeEditor,

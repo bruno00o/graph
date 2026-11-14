@@ -94,7 +94,7 @@ An element follows one target:
 | `edge` | The anchor of the edge label, at the middle of the visible line |
 | `point` | A point in world units |
 
-`side` puts the element above, below, beside or on its target, 4 pixels away from the node edge, and `align` slides it along that side. `offset` is a point, `{ x, y }`, that shifts it by that many screen pixels once placed: `offset: { x: 6, y: 0 }` moves it 6 pixels to the right. `scale: true` makes the element grow and shrink with the zoom, as if drawn in the world. On a map on the globe, an anchor on a `point` follows it and hides behind the horizon.
+`side` puts the element above, below, beside or on its target, 4 pixels away from the node edge, and `align` slides it along that side. `offset` is a point, `{ x, y }`, that shifts it by that many screen pixels once placed: `offset: { x: 6, y: 0 }` moves it 6 pixels to the right. `scale: true` makes the element grow and shrink with the zoom, as if drawn in the world. On a map on the globe, anchors follow the globe: an anchor sits where its node, nodes, edge or point is drawn, takes the size of a node at its place on the globe, scales with the globe there with `scale: true`, and hides while its target is behind the horizon.
 
 Examples: [context menu](/examples/context-menu) anchors an interactive menu to a node or a point, [path costs](/examples/weighted-path) shows the cost to reach each node of a path, and [path through waypoints](/examples/waypoints) numbers its stops.
 

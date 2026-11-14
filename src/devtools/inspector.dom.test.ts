@@ -39,7 +39,13 @@ function definition(data: readonly Item[] = items, layout: Layout | null = null)
   })
 }
 
-const stats = { nodeLabels: 2, edgeLabels: 0, labelTime: 0.25, textureBytes: 65_536 }
+const stats = {
+  nodeLabels: 2,
+  edgeLabels: 0,
+  shapeLabels: 4,
+  labelTime: 0.25,
+  textureBytes: 65_536,
+}
 let dom: FakeDom
 const mounted: GraphInstance[] = []
 const stops: (() => void)[] = []
@@ -143,6 +149,7 @@ describe('inspectGraphs', () => {
       labelTime: 0.25,
       nodeLabels: 2,
       edgeLabels: 0,
+      shapeLabels: 4,
       textureBytes: 65_536,
     })
   })
