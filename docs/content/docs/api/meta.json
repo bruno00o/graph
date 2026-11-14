@@ -31,6 +31,7 @@
     "legend",
     "---@bruno00o/graph/db---",
     "persist-positions",
+    "persist-shapes",
     "subset",
     "---@bruno00o/graph/query---",
     "create-exploration",
