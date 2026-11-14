@@ -5,11 +5,17 @@ import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
 import { shallowEqual } from '../core/shallow-equal'
 import type { Bounds } from '../core/view'
-import type { GraphDefinition, Key, Layout, LayoutRun, Point } from '../types'
+import type { GraphDefinition, Key, Layout, LayoutGraph, LayoutRun, Point } from '../types'
 import type { BundleHost } from './bundles'
 import { countAlive } from './element-keys'
 import type { Emitter } from './events'
-import type { GraphLayout, GraphState } from './graph-instance'
+import type {
+  GraphLayout,
+  GraphState,
+  LayoutComputeOptions,
+  LayoutOthers,
+  LayoutRunOptions,
+} from './graph-instance'
 import { checkDuration, checkFit } from './inputs'
 import { layoutGraph } from './layout-graph'
 import { positionEvent } from './position-event'
@@ -21,6 +27,18 @@ import { type FitKeys, type FitRequest, fitRequest, type ViewControl } from './v
 export interface LayoutSettings {
   readonly fit: FitRequest | null
   readonly duration: number
+  readonly alone: boolean
+}
+
+const others: readonly LayoutOthers[] = ['anchors', 'ignored']
+
+function checkOthers(options: { readonly others?: LayoutOthers | undefined }): boolean {
+  const value = options.others
+  if (value === undefined) return false
+  if (!others.includes(value)) {
+    throw new TypeError(`graph: others must be 'anchors' or 'ignored', not ${String(value)}`)
+  }
+  return value === 'ignored'
 }
 
 export interface LayoutSession extends LayoutSettings {
@@ -28,6 +46,7 @@ export interface LayoutSession extends LayoutSettings {
   readonly movable: Uint8Array
   readonly auto: boolean
   readonly resolve: (completed: boolean) => void
+  readonly scope: ((index: number) => boolean) | null
   run: LayoutRun | null
   progressed: boolean
   animation: number
@@ -72,6 +91,7 @@ export class LayoutHost {
   #waited = false
   readonly #source: LayoutSource
   readonly #check: StringCheck = stringCheck()
+  readonly #computing = new Set<(reason: unknown) => void>()
 
   constructor(source: LayoutSource) {
     this.#source = source
@@ -157,7 +177,9 @@ export class LayoutHost {
       current.run?.stop()
       this.session = null
       const movable = (index: number) => current.movable[index] === 1 || fresh.has(index)
-      if (!this.#launch(current.layout, movable, current))
+      const within = current.scope
+      const scope = within ? (index: number) => within(index) || fresh.has(index) : null
+      if (!this.#launch(current.layout, movable, current, scope))
         this.#settle(current.layout, current, current.resolve)
       return
     }
@@ -178,7 +200,7 @@ export class LayoutHost {
   }
 
   #autoSettings(): LayoutSettings {
-    return { fit: null, duration: this.#source.definition().transitions.layout }
+    return { fit: null, duration: this.#source.definition().transitions.layout, alone: false }
   }
 
   #place(current: LayoutSession, xy: Float32Array): void {
@@ -261,15 +283,13 @@ export class LayoutHost {
     this.#source.request()
   }
 
-  #launch(
-    layout: Layout,
+  #graph(
     movable: (index: number) => boolean,
-    previous: LayoutSettings & Pick<LayoutSession, 'auto' | 'resolve'>,
-  ): boolean {
-    if (this.#source.destroyed()) return false
-    const { scene, model, projection, spread, motion, views } = this.#source
+    scope: ((index: number) => boolean) | null,
+  ): LayoutGraph {
+    const { scene, model, projection, spread, motion } = this.#source
     const dragged = this.#dragged()
-    const graph = layoutGraph(
+    return layoutGraph(
       scene.nodes,
       scene.edges,
       motion.settled(),
@@ -279,7 +299,19 @@ export class LayoutHost {
       projection.active
         ? { indices: projection.containers, hierarchy: projection.hierarchy }
         : undefined,
+      scope ?? undefined,
     )
+  }
+
+  #launch(
+    layout: Layout,
+    movable: (index: number) => boolean,
+    previous: LayoutSettings & Pick<LayoutSession, 'auto' | 'resolve'>,
+    scope: ((index: number) => boolean) | null = previous.alone ? movable : null,
+  ): boolean {
+    if (this.#source.destroyed()) return false
+    const { scene, motion, views } = this.#source
+    const graph = this.#graph(movable, scope)
     if (!graph.movable.includes(1)) return false
     let moving = 0
     for (const flag of graph.movable) moving += flag
@@ -294,6 +326,8 @@ export class LayoutHost {
       resolve: previous.resolve,
       fit: previous.fit,
       duration: previous.duration,
+      alone: previous.alone,
+      scope,
       run: null,
       progressed: false,
       animation: 0,
@@ -370,17 +404,79 @@ export class LayoutHost {
     for (const index of indices) run.pin(index, positions.x(index), positions.y(index))
   }
 
+  #keyed(keys: LayoutRunOptions['keys']): ((index: number) => boolean) | null {
+    if (!keys) return null
+    const indices = new Set<number>()
+    for (const key of keys) {
+      const record = this.#source.model.node(key)
+      if (record) indices.add(record.index)
+    }
+    return (index) => indices.has(index)
+  }
+
+  #compute(layout: Layout | undefined, options: LayoutComputeOptions): Promise<Map<Key, Point>> {
+    const signal = options.signal
+    if (signal?.aborted) return Promise.reject(signal.reason)
+    if (this.#source.onMap) return Promise.reject(new Error('graph: layouts do not run on a map'))
+    const chosen = layout ?? this.#source.definition().layout
+    if (!chosen) return Promise.reject(new Error('graph: no layout to compute'))
+    let alone: boolean
+    try {
+      alone = checkOthers(options)
+    } catch (error) {
+      return Promise.reject(error)
+    }
+    this.#check(options.keys, 'layout.compute({ keys })')
+    this.#source.prepare()
+    const keyed = this.#keyed(options.keys) ?? (() => true)
+    const graph = this.#graph(keyed, alone ? keyed : null)
+    if (!graph.movable.includes(1)) return Promise.resolve(new Map())
+    return new Promise<Map<Key, Point>>((resolve, reject) => {
+      let run: LayoutRun | null = null
+      let done = false
+      const finish = (): boolean => {
+        if (done) return false
+        done = true
+        this.#computing.delete(fail)
+        signal?.removeEventListener('abort', abort)
+        return true
+      }
+      const fail = (reason: unknown) => {
+        if (!finish()) return
+        run?.stop()
+        reject(reason)
+      }
+      const abort = () => fail(signal?.reason)
+      this.#computing.add(fail)
+      signal?.addEventListener('abort', abort, { once: true })
+      try {
+        run = chosen.start(graph, {
+          progress: () => {},
+          end: (xy) => {
+            if (finish()) resolve(positionsOf(graph, xy))
+          },
+        })
+        if (done) run.stop()
+      } catch (error) {
+        fail(error)
+      }
+    })
+  }
+
   api(): GraphLayout {
     return {
+      compute: (layout, computeOptions = {}) => this.#compute(layout, computeOptions),
       run: (layout, runOptions = {}) => {
         if (this.#source.onMap)
           return Promise.reject(new Error('graph: layouts do not run on a map'))
         const definition = this.#source.definition()
         const chosen = layout ?? definition.layout
         if (!chosen) return Promise.reject(new Error('graph: no layout to run'))
+        let alone: boolean
         try {
           checkDuration(runOptions)
           if (runOptions.fit && runOptions.fit !== true) checkFit(runOptions.fit)
+          alone = checkOthers(runOptions)
         } catch (error) {
           return Promise.reject(error)
         }
@@ -396,24 +492,30 @@ export class LayoutHost {
             0,
             runOptions.duration ?? this.#source.definition().transitions.layout,
           ),
+          alone,
         }
-        const keys = runOptions.keys
-        if (!keys) return this.begin(chosen, () => true, false, settings)
-        const indices = new Set<number>()
-        for (const key of keys) {
-          const record = this.#source.model.node(key)
-          if (record) indices.add(record.index)
-        }
-        return this.begin(chosen, (index) => indices.has(index), false, settings)
+        return this.begin(chosen, this.#keyed(runOptions.keys) ?? (() => true), false, settings)
       },
       stop: () => this.stop(),
     }
   }
 
-  destroy(): void {
+  destroy(reason?: unknown): void {
     const current = this.session
     this.session = null
     current?.run?.stop()
     current?.resolve(false)
+    for (const fail of [...this.#computing]) fail(reason)
   }
+}
+
+function positionsOf(graph: LayoutGraph, xy: Float32Array): Map<Key, Point> {
+  const positions = new Map<Key, Point>()
+  const limit = Math.min(graph.capacity, xy.length / 2)
+  for (let index = 0; index < limit; index++) {
+    const key = graph.keys[index]
+    if (graph.movable[index] !== 1 || key === undefined) continue
+    positions.set(key, { x: xy[index * 2] ?? 0, y: xy[index * 2 + 1] ?? 0 })
+  }
+  return positions
 }

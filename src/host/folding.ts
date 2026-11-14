@@ -103,22 +103,36 @@ export class FoldControl {
     )
   }
 
-  foldNew(changes: GraphChanges): void {
+  foldNew(changes: GraphChanges): readonly Key[] | null {
     const { model, projection } = this.#source
     const born: Key[] = []
     for (const { key, index } of changes.nodes.added) {
       const record = model.nodeAt(index)
       if (record && groupingOf(record.mark)?.folded) born.push(key)
     }
-    if (born.length === 0) return
+    if (born.length === 0) return null
     if (this.#source.controlled) {
       this.ask([...this.base(), ...born])
-      return
+      return null
     }
     const folded = [...new Set([...this.#source.state().folded, ...born])]
     projection.setFolded(folded)
     this.#source.patch({ folded })
-    this.#source.emitter.emit('foldchange', { folded })
+    return folded
+  }
+
+  adopt(): void {
+    const source = this.#source
+    const born = source.projection.hierarchy.takeBorn()
+    if (born.length === 0) return
+    const folded = [...new Set([...source.state().folded, ...born])]
+    if (source.controlled) {
+      const asked = [...new Set([...this.base(), ...born])]
+      source.patch({ folded })
+      this.#asks.send(asked)
+      this.#listener?.({ folded: asked })
+    } else source.patch({ folded })
+    source.emitter.emit('foldchange', { folded })
   }
 
   #placeFolded(

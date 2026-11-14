@@ -50,6 +50,53 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 - The last writer wins, shape by shape, with no merge of points. A change from elsewhere does not stop your gesture, and your release writes over it; a removal from elsewhere ends your gesture.
 - An edit whose row is not in the collection is skipped, so two `persistShapes` on two collections keep to their own rows. Writes that come from elsewhere never go back out.
 
+With several shape marks, give each its own collection and its own `persistShapes`, each with its `mark`. The `mark` option only skips the edits of other marks at run time: it does not narrow `edit.datum` in `create`, which is the union of the item types of the graph. Narrow with `in`:
+
+```ts
+import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
+import { persistShapes } from '@bruno00o/graph/db'
+import { createShapeEditor } from '@bruno00o/graph/editor'
+import { shapes } from '@bruno00o/graph/shapes'
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
+
+type Zone = { id: string; tone: string; geometry: ShapeGeometry }
+type Note = { id: string; text: string; geometry: ShapeGeometry }
+
+const zones = createCollection(
+  localOnlyCollectionOptions({ getKey: (zone: Zone) => zone.id, initialData: [] }),
+)
+const notes = createCollection(
+  localOnlyCollectionOptions({ getKey: (note: Note) => note.id, initialData: [] }),
+)
+
+const graph = mountGraph(document.body, {
+  definition: defineGraph({
+    marks: [shapes(zones, { name: 'zones' }), shapes(notes, { name: 'notes', label: 'text' })],
+  }),
+  ariaLabel: 'Plan',
+})
+const editor = createShapeEditor(graph)
+
+persistShapes(editor, {
+  collection: zones,
+  mark: 'zones',
+  create: (edit) => ({
+    id: String(edit.key),
+    tone: edit.datum && 'tone' in edit.datum ? edit.datum.tone : 'new',
+    geometry: edit.geometry,
+  }),
+})
+persistShapes(editor, {
+  collection: notes,
+  mark: 'notes',
+  create: (edit) => ({ id: String(edit.key), text: edit.text ?? '', geometry: edit.geometry }),
+})
+```
+
+With `exactOptionalPropertyTypes` in your `tsconfig`, set `skipLibCheck: true`: the declaration files of `@tanstack/db` do not pass that option, whatever your own code does.
+
+To share the shapes between tabs or windows, give the collection `localStorageCollectionOptions({ id, storageKey, getKey })` from `@tanstack/db` instead of `localOnlyCollectionOptions`: tabs on the same origin see each other's writes through the `storage` event, and `persistShapes` and `showPresence` need nothing else. A sync engine or the handlers of your own collection work the same way.
+
 In React, call it from an effect once the editor exists, and return the stop function:
 
 ```tsx

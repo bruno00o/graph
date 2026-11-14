@@ -73,9 +73,39 @@ The mode is fixed at mount: a graph mounted with `selection` stays controlled fo
 
 Drag a node to move it. The drag starts after 4 pixels and does not emit a click. Dragging a selected node moves the whole selection, and dragging a [group](/docs/groups) by its container moves every node inside it. `dragstart`, `drag` and `dragend` carry the moved keys, and `positionchange` reports the new positions on every move of the drag. A node that leaves the data during its drag ends the drag with `dragend`, and the rest of the press moves nothing; a node of a dragged selection that leaves drops out, and the others go on. During a layout run, a dragged node stays where you drop it and the others settle around it. See [Positions](/docs/positions).
 
+`drag: false` in `interaction` turns dragging off for every node. To pin some nodes only, give `drag` to their mark, a constant or a function of the item; `container.drag` does the same for the container of a group and defaults to the `drag` of its node.
+
+```ts
+nodes(items, {
+  drag: (item) => !item.locked,
+  container: { drag: false },
+})
+```
+
+A press on a node that cannot be dragged pans the view, or draws a lasso, as on the background; a click still selects it. Dragging a selection moves only the members that can be dragged, and the nodes inside a dragged container move with it whatever their own `drag`.
+
 ## Lasso
 
-With `lasso: true` and `select: 'multiple'`, Shift and drag from the background, or from a [shape](/docs/shapes#selecting-and-hovering), draws a lasso. The nodes inside, and the shapes whose every point is inside, are added to the selection when you release; edges are not taken, nor a shape that contains the lasso. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress. A long press never starts a lasso: only Shift does.
+With `lasso: true` and `select: 'multiple'`, Shift and drag from the background, or from a [shape](/docs/shapes#selecting-and-hovering), draws a lasso. The nodes inside, and the shapes whose every point is inside, are added to the selection when you release; a shape that contains the lasso is not taken. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress. A long press never starts a lasso.
+
+[`LassoOptions`](/docs/api/define-graph#interaction) change that. `modifier: null` draws a lasso from every drag that does not move a node, without a key, and the view pans only with the wheel, the keyboard or two fingers. `edges: true` also takes the edges whose two drawn ends are inside: an edge drawn for several merged edges gives all of them, and a hidden edge is left out.
+
+```ts
+defineGraph({
+  marks,
+  interaction: { lasso: { modifier: null, edges: true } },
+})
+```
+
+To switch between panning and drawing with a button, as drawing tools do, pass a new definition with `graph.update` or the `definition` prop of `<Graph>`. Keep the same marks: the data is not read again, and the next press uses the new mode.
+
+```tsx
+const marks = useMemo(() => [edges(links), nodes(items)], [links, items])
+const definition = useMemo(
+  () => defineGraph({ marks, interaction: { lasso: { modifier: drawing ? null : 'Shift' } } }),
+  [marks, drawing],
+)
+```
 
 ## Wheel and trackpad
 
@@ -90,6 +120,12 @@ With `lasso: true` and `select: 'multiple'`, Shift and drag from the background,
 `'zoom'` suits a graph that fills the window. `'pan'` suits trackpads: scroll to move, pinch to zoom. `'page'` suits a graph inside a page that scrolls, so that the wheel never traps the reader.
 
 A pinch on a trackpad reaches the page as a wheel event with Ctrl held: it zooms in every mode, faster than a wheel step so that the graph follows the fingers. Safari also sends gesture events with the scale of the pinch; the graph then zooms by that scale, keeps Safari from zooming the page, and ignores the wheel events of the same pinch. Wheel deltas counted in lines or pages, as Firefox can send, are converted to pixels. In `'zoom'` mode, the graph takes the wheel even at the zoom limits, so the page does not jump at the end of a zoom. Wheel events the graph does not use, such as any wheel with `zoom: false`, go to the page.
+
+### Zoom speed
+
+Each wheel event that zooms multiplies the zoom by `exp(-delta × 0.0025 × speed)`, where `speed` is `interaction.zoom.speed` (1 by default) and `delta` is `deltaY` in pixels. A line counts for 16 pixels and a page for the height of the graph, then `delta` is capped at 120 pixels, so one event never zooms by more than `exp(0.3 × speed)`. A trackpad pinch, a wheel event with Ctrl held, uses `0.01` and a cap of 30 pixels. A Safari pinch gesture multiplies the zoom by `(scale / previous scale) ** speed`.
+
+To get a factor of `N` for each notch of a mouse wheel that reports 100 pixels, as most do, set `speed` to `Math.log(N) / 0.25`: about 2.77 for a zoom of 2 per notch, 1.62 for 1.5. A wheel that reports another delta, or a line-based wheel, gives another factor with the same speed.
 
 In `'page'` mode, each wheel event left to the page emits `zoomhint`, so your application can say how to zoom. The graph shows no text itself: the event carries `key`, `'Meta'` on Apple systems (Cmd) and `'Control'` elsewhere.
 
@@ -202,6 +238,15 @@ graph.on('pointerenter', ({ target }) => {
 ```ts
 graph.on('pointermove', ({ target, world }) => {
   readout.textContent = target ? String(target.key) : `${world.x.toFixed(0)}, ${world.y.toFixed(0)}`
+})
+```
+
+`contextmenu` does not stop the menu of the browser: the graph only reports the secondary click, with the element under it. To show your own menu, call `preventDefault` on the DOM event in the handler.
+
+```ts
+graph.on('contextmenu', ({ target, point, originalEvent }) => {
+  originalEvent.preventDefault()
+  openMenu(point, target)
 })
 ```
 

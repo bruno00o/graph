@@ -24,13 +24,13 @@ import { dev } from '../dev'
 import { createTextWidths } from '../dom/text-width'
 import { ThemeResolver } from '../dom/theme'
 import { defaultFont } from '../theme/tokens'
-import type { GraphDefinition, Key, Mark, Point } from '../types'
+import type { GraphDefinition, Key, KeyList, Mark, Point } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import { BridgeHost } from './bridges'
 import { BundleHost } from './bundles'
 import { HostCamera } from './camera'
 import { ContainerBoxes } from './containers'
-import { DataReads } from './data-reads'
+import { DataReads, forEachEdgeKey } from './data-reads'
 import { DataStatus, loadedData } from './data-status'
 import { createDecorations } from './decorations'
 import { emptyKeys, toKeys } from './element-keys'
@@ -64,7 +64,7 @@ import type {
 import { checkDuration, checkFactor, checkFit, checkView, finitePoint } from './inputs'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import type { GraphWatcher } from './internals'
-import { isolated, isolateSubscribers } from './isolate'
+import { isolated, isolateSubscribers, report } from './isolate'
 import { KeyboardInput } from './keyboard-input'
 import { LayerControl, type LayerListener } from './layer-control'
 import { LayoutHost } from './layout-session'
@@ -113,6 +113,8 @@ export type {
   GraphView,
   HostDriver,
   HostSurface,
+  LayoutComputeOptions,
+  LayoutOthers,
   LayoutRunOptions,
   MountGraphOptions,
   PositionResetOptions,
@@ -143,7 +145,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const layersControlled = options.hiddenLayers !== undefined
   let onViewChange = isolated(options.onViewChange)
   const check = stringCheck()
-  check(options.initialFolded, 'the initialFolded option')
+  const foldNew = typeof options.initialFolded === 'function' ? options.initialFolded : null
+  const initialFolded = foldNew ? undefined : (options.initialFolded as KeyList | undefined)
+  check(initialFolded, 'the initialFolded option')
   check(options.folded, 'the folded option')
   check(options.initialHiddenLayers, 'the initialHiddenLayers option')
   check(options.hiddenLayers, 'the hiddenLayers option')
@@ -266,7 +270,24 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   registry.setShaped(definition.marks.some((mark) => mark.type === 'shapes'))
   registry.define(freeStateNames(definition.states))
   if (options.selection !== undefined) registry.set('selected', options.selection)
-  projection.setFolded(options.folded ?? options.initialFolded ?? [])
+  projection.setFolded(options.folded ?? initialFolded ?? [])
+  if (foldNew) {
+    hierarchy.foldNew = (index) => {
+      const record = model.nodeAt(index)
+      if (!record) return false
+      try {
+        return foldNew({
+          kind: 'node',
+          key: record.key,
+          datum: record.datum,
+          mark: record.mark.name,
+        } as never)
+      } catch (error) {
+        report(error)
+        return false
+      }
+    }
+  }
   const selection = new SelectionControl(
     {
       controlled,
@@ -549,6 +570,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     patch,
     definition: () => definition,
     sight: () => sight(),
+    edgeKeys: (index, seen, visit) =>
+      forEachEdgeKey(projection, scene.edges.keys, index, seen, visit),
     request: () => request(),
     destroyed: () => destroyed,
   })
@@ -564,7 +587,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     prepare: flushPending,
     tool: () => pointer.tool,
   })
-  const reads = new DataReads({ model, hierarchy, support, scene, buffers, emitter })
+  const reads = new DataReads({ model, projection, hierarchy, support, scene, buffers, emitter })
   scene.shapes.wake = () => {
     if (destroyed) return
     reads.refreshIssues()
@@ -693,7 +716,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function flushChanges(): void {
     const start = clock()
     const changes = model.flush()
-    if (projection.grouping) folds.foldNew(changes)
+    const born = projection.grouping ? folds.foldNew(changes) : null
     if (destroyed) return
     const supported = support.apply(changes)
     const projected = projection.apply(changes)
@@ -701,6 +724,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     scene.apply(projection.view, projected.scene)
     const applied = clock()
     applyChanges(changes, projected)
+    if (destroyed) return
+    if (foldNew) folds.adopt()
     if (destroyed) return
     if (drafted.length + shifted.length > 0) writeDrafts()
     for (const watcher of watchers) watcher.changed?.(projected.scene)
@@ -710,6 +735,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     reads.refreshIssues()
     if (destroyed) return
     data.refresh()
+    if (destroyed) return
+    if (born) emitter.emit('foldchange', { folded: born })
   }
 
   function countElements(): GraphCount {
@@ -1168,6 +1195,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     get destroyed() {
       return destroyed
     },
+    drawsOnMap: surface !== null,
     lens: {
       get: () => lens.shown,
       set: (input) => lens.set(input),
@@ -1194,6 +1222,20 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return reads.issues
     },
     count: countElements,
+    shown: () => {
+      flushPending()
+      return reads.shown(sight(), sceneVersion)
+    },
+    isShown: (element) => {
+      flushPending()
+      return reads.isShown(element.kind, element.key, sight())
+    },
+    refresh: (keys) => {
+      checkLists(check, keys, 'refresh({ $ })')
+      if (keys.nodes) model.refresh('nodes', keys.nodes)
+      if (keys.edges) model.refresh('edges', keys.edges)
+      if (keys.shapes) model.refresh('shapes', keys.shapes)
+    },
     datumOf: (element) => {
       flushPending()
       const record =
@@ -1280,7 +1322,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       endReason ??= destroyedReason()
       unregister()
       probe = null
-      layouts.destroy()
+      layouts.destroy(endReason)
       scheduler.cancelFrame()
       pointer.stopMoves()
       scheduler.cancelLater()

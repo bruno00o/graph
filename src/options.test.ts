@@ -80,7 +80,9 @@ import type {
   InteractionOptions,
   LabelOptions,
   LabelTextOptions,
+  LassoOptions,
   Layout,
+  LayoutComputeOptions,
   LayoutRunOptions,
   LensInput,
   LensOptions,
@@ -114,7 +116,13 @@ import type {
   ViewLimitOptions,
   ViewOptions,
 } from './index'
-import type { GridOptions, LayersOptions, RadialOptions, RingsOptions } from './layouts'
+import type {
+  GridOptions,
+  GridSpacing,
+  LayersOptions,
+  RadialOptions,
+  RingsOptions,
+} from './layouts'
 import type { ForceOptions } from './layouts/force'
 import type { LegendOptions, LegendViewOptions } from './legend'
 import type { MapGraphOptions, MapPngOptions } from './map'
@@ -211,6 +219,7 @@ interface Inputs {
   GraphInput: GraphInput<Item, Link>
   GraphProps: GraphProps<'muted', Marks>
   GridOptions: GridOptions<Item>
+  GridSpacing: GridSpacing
   GroupOptions: GroupOptions<Item>
   HullGroupOptions: HullGroupOptions<Item>
   HullKeysOptions: HullKeysOptions
@@ -223,13 +232,15 @@ interface Inputs {
   JsonGraphWriteOptions: JsonGraphWriteOptions<Item, Link>
   LabelOptions: LabelOptions<Item>
   LabelTextOptions: LabelTextOptions<Item>
-  LayersOptions: LayersOptions
+  LayersOptions: LayersOptions<Item>
   Layout: Layout<Item>
+  LayoutComputeOptions: LayoutComputeOptions
   LayoutRunOptions: LayoutRunOptions
   LegendOptions: LegendOptions<'muted'>
   LegendProps: LegendProps<'muted'>
   LegendTitles: NonNullable<LegendViewOptions['titles']>
   LegendViewOptions: LegendViewOptions<Marks>
+  LassoOptions: LassoOptions
   LensInput: LensInput
   LensOptions: LensOptions
   LineWaypointsOptions: LineWaypointsOptions

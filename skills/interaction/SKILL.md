@@ -162,6 +162,7 @@ controller.abort()
 
 - `target` is `{ kind, key, datum, mark }`, with `kind` `'node'`, `'edge'`, or `'shape'` when the definition has a shape mark (a shape under the pointer never beats a node, an edge or a container drawn over it). It is `null` over the background for `click`, `doubleclick`, `contextmenu` and `pointermove`, and never `null` for `pointerenter` and `pointerleave`. An edge target also has `endpoints` (the key of a folded group stands for an end hidden in it), `end` (`'source'` or `'target'`) on a mark with `ends`, and `aggregate` (every merged edge, split into `forward` and `backward`) on a merged edge or an edge between folded groups. On a half of a two-way merged edge (`merge: { directed: false, halves: true }`), `direction` is `'forward'` for the half next to `aggregate.target` and `'backward'` for the half next to `aggregate.source`; `key` and `datum` are those of the first edge of that direction. Hover enters and leaves per half too (`pointerleave` then `pointerenter` when the pointer crosses from one half to the other).
 - `click` fires before the default selection, so a handler sees the selection as it was. A `doubleclick` on a group folds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
+- `contextmenu` only reports the secondary click: it does not stop the menu of the browser. Call `originalEvent.preventDefault()` in the handler, as above, to show your own.
 - `pointermove` fires at most once per frame; the graph tracks the pointer for it only while a handler is subscribed. During a drag its target is the dragged node.
 - `dragstart`, `drag` and `dragend` carry `keys`: every moved node (the whole selection when the dragged node is selected, the nodes inside a dragged group). `positionchange` reports the positions, with `origin` `'drag'`, `'api'` or `'layout'`.
 - A handler that throws stops neither the other handlers nor the click: its error goes to `reportError`. A handler may destroy the graph; the graph then does nothing more for that event.
@@ -206,6 +207,8 @@ graph.on('zoomhint', ({ key }) => {
 ```
 
 Wheel lines and pages (Firefox) are converted to pixels. With `zoom: false`, wheel events go to the page. A pinch on a trackpad zooms in every mode.
+
+Zoom speed: a wheel event that zooms multiplies the zoom by `exp(-delta * 0.0025 * speed)`, `speed` being `interaction.zoom.speed` (1 by default) and `delta` the `deltaY` in pixels (a line is 16, a page the graph height), capped at 120 pixels. A trackpad pinch (wheel with Ctrl) uses 0.01 and a cap of 30; a Safari pinch multiplies by `(scale / previous scale) ** speed`. For a factor `N` per notch of a mouse wheel that reports 100 pixels, set `speed` to `Math.log(N) / 0.25`: about 2.77 for 2 per notch, 1.62 for 1.5. Another delta, or a line-based wheel, gives another factor.
 
 ### Touch, auto-pan and turning gestures off
 

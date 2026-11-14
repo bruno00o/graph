@@ -36,6 +36,22 @@ const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
 
 The graph adds its own layer back after the browser restores a lost WebGL context: MapLibre then warns that it cannot restore custom layers. See [Browser support](/docs/browser-support#context-loss).
 
+## Where the graph sits
+
+`graph.element` is a `div` that `mountMapGraph` inserts into the container of the map, right after the canvas container of MapLibre: a sibling of it, not a child. It is positioned absolutely over the whole map, so it measures what the map measures and clips its content at the edges of the map, and it takes no pointer events itself: the map canvas keeps them. It has no `z-index`, so it stacks by order in the document. From bottom to top: the map canvas and its markers, which live in the canvas container; the graph element; the popups of MapLibre, which are added to the map container later; then the controls, whose `z-index` is 2.
+
+For your own overlays, this means three things:
+
+- Put them in an [`<Anchor>`](/docs/api/anchor) or in `graph.anchors`. Their layer is inside `graph.element`, over the markers and under the popups and controls of MapLibre, and it follows the camera of the map.
+- An overlay of your own placed in the map container goes over `graph.element` when it comes later in the document, or has a `z-index` of 1 or more.
+- A `position: absolute` child you add to `graph.element` yourself is clipped at the edges of the map, and it receives no pointer events unless you set `pointer-events: auto` on it: the property is inherited.
+
+## Units of nodes on a map
+
+On a map, a node with `longitude` and `latitude` is sized in screen pixels: `units` defaults to `'screen'`, and `size` is a diameter in pixels at every zoom. Setting `units: 'world'` on such a node scales it with the map as a disc on the Earth would: the world is 512 units wide at map zoom 0 and doubles at each zoom, so a `size` of 1 is 1 pixel at zoom 0 and 2 pixels at zoom 1, and a node of size 10 spans 7 degrees of longitude. `units` changes no position and no edge. It sets the unit of the `gap` of [spread children](/docs/groups#spread-children), in pixels or in world units.
+
+A node placed by `x` and `y` in world units, or without coordinates, defaults to `'world'` and is huge at the zooms of a map: set `units: 'screen'` on it. A `groups()` mark takes the units of its first member.
+
 ## Switching the basemap
 
 Call `map.setStyle(style)` to change the basemap: the graph stays on the map, whether the style is a URL or an object and whether MapLibre patches the old style or loads the new one from scratch. It is drawn on top of the new style, or under the layer named by `beforeId` when the new style has that layer.
@@ -44,7 +60,7 @@ Colors that read well on a light basemap can vanish on a dark one or on imagery:
 
 <LiveExample slug="basemaps" />
 
-Node sizes are in screen pixels, so a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map, unless they follow [great circles](#great-circles).
+Node sizes are in screen pixels when the node has a `longitude` and a `latitude`, so such a node keeps its size as the map zooms. Edges are straight in Web Mercator, as on the map, unless they follow [great circles](#great-circles).
 
 The map keeps its own camera at mount: the graph does not frame its nodes by itself. To frame them, call `fit` right after mounting; it waits until the graph has measured the map.
 
@@ -225,7 +241,9 @@ Nodes that overlap moved apart in the plain graph only, so a crowded place looks
 
 The map owns the camera. Dragging the background, the wheel, pinches and double clicks on the background move the map as usual, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera, in [world units](/docs/positions#longitude-and-latitude).
 
-The graph owns its elements: hover, clicks, the selection, the lasso and node drags. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom, and a double click on a node does not zoom the map.
+The graph owns its elements: hover, clicks, the selection, the lasso and node drags. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom, and a double click on a node does not zoom the map. With a [lasso](/docs/interaction#lasso) whose `modifier` is `null`, every drag on the background draws a lasso: the map then moves with the wheel, pinches and the keyboard.
+
+`graph.drawsOnMap` is `true` for a graph mounted by `mountMapGraph` or `<MapGraph>`: code shared between a plain graph and a map graph reads it to leave out what a map does not draw, such as a layout or the minimap.
 
 A dragged node stays where it was dropped, even when its data says otherwise, until its own coordinates change. `graph.positions.reset()` puts every node back on its `longitude` and `latitude`, with a glide, and `reset(keys)` only some. `positionchange` carries `geo`, the moved nodes in degrees, and `persistPositions` writes them into the fields you name with `longitude` and `latitude`. See [Positions](/docs/positions#put-nodes-back).
 

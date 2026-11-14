@@ -28,13 +28,11 @@ export function degrees(graph: LayoutGraph): Uint32Array {
 export function stepsOf(
   graph: LayoutGraph,
   indices: readonly number[],
-  spacing?: number,
+  columns?: number,
+  rows?: number,
 ): readonly [number, number] {
   const extents = graph.extents
-  if (!extents) {
-    const step = spacingOf(graph, indices, spacing)
-    return [step, step]
-  }
+  if (!extents) return [spacingOf(graph, indices, columns), spacingOf(graph, indices, rows)]
   let wide = 0
   let tall = 0
   let largest = 0
@@ -45,9 +43,12 @@ export function stepsOf(
     tall = Math.max(tall, height)
     largest = Math.max(largest, Math.min(width, height))
   }
-  const gap = spacing !== undefined && Number.isFinite(spacing) && spacing >= 0 ? spacing : null
-  const room = gap ?? Math.max(largest, 24)
-  return [wide + room, tall + room]
+  const fallback = Math.max(largest, 24)
+  return [wide + (gapOf(columns) ?? fallback), tall + (gapOf(rows) ?? fallback)]
+}
+
+function gapOf(spacing: number | undefined): number | null {
+  return spacing !== undefined && Number.isFinite(spacing) && spacing >= 0 ? spacing : null
 }
 
 export function spacingOf(
@@ -57,8 +58,7 @@ export function spacingOf(
 ): number {
   let largest = 0
   for (const index of indices) largest = Math.max(largest, (graph.radius[index] ?? 0) * 2)
-  const gap = spacing !== undefined && Number.isFinite(spacing) && spacing >= 0 ? spacing : null
-  return largest + (gap ?? Math.max(largest, 24))
+  return largest + (gapOf(spacing) ?? Math.max(largest, 24))
 }
 
 export function centroid(
