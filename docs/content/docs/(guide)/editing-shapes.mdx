@@ -277,7 +277,7 @@ A shape [pinned to a node](/docs/shapes#pin-shapes-to-nodes) moves around its no
 
 ## On a map
 
-On a [map](/docs/map#shapes), flat or on the globe, the editor takes the gesture from the map: the map does not pan while a shape moves or is drawn, and a double click that ends a shape does not zoom. Shapes in degrees get their edits in degrees, the closing point of a GeoJSON ring included. A circle around a place keeps its radii in meters. A move is a translation on the flat map, on the globe too: a shape moved toward a pole keeps its look on the flat map and grows on the ground, as Web Mercator does.
+On a [map](/docs/map#shapes), flat or on the globe, the editor takes the gesture from the map: the map does not pan while a shape moves or is drawn, and a double click that ends a shape does not zoom. Shapes in degrees get their edits in degrees, the closing point of a GeoJSON ring included. A circle around a place keeps its radii in meters. On the globe, a circle or a rectangle in world units, such as a shape pinned to a node, faces the screen as the graph draws it, and so do its handles and its text input. A move is a translation on the flat map, on the globe too: a shape moved toward a pole keeps its look on the flat map and grows on the ground, as Web Mercator does.
 
 ## React
 

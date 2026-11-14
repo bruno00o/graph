@@ -1,4 +1,10 @@
-import { type GlobeCamera, globeScreen, globeWorld, type ScreenPoint } from '../core/globe'
+import {
+  type GlobeCamera,
+  globeScale,
+  globeScreen,
+  globeWorld,
+  type ScreenPoint,
+} from '../core/globe'
 import { readOutline } from '../shapes/read'
 import type { Point, View } from '../types'
 import { type Bounds, isGeo, type Outline, writeEditable } from './geometry'
@@ -52,6 +58,38 @@ export function worldAt(screen: Screen, point: Point): Point | null {
     x: (point.x - screen.width / 2) / view.zoom + view.x,
     y: (point.y - screen.height / 2) / view.zoom + view.y,
   }
+}
+
+export function roundOutline(outline: Outline): boolean {
+  return outline.kind === 'rectangle' || (outline.kind === 'circle' && !isGeo(outline.center))
+}
+
+export function shapeScreen(
+  screen: Screen,
+  outline: Outline,
+  ox: number,
+  oy: number,
+): Screen | null {
+  const globe = screen.globe
+  if (!globe || outline.kind === 'path' || !roundOutline(outline)) return screen
+  const rectangle = outline.kind === 'rectangle'
+  const cx = (rectangle ? outline.x + outline.width / 2 : outline.center.x) + ox
+  const cy = (rectangle ? outline.y + outline.height / 2 : outline.center.y) + oy
+  const at = { x: 0, y: 0 }
+  if (globeScreen(globe, cx, cy, at) < 0) return null
+  const zoom = globeScale(globe, cy)
+  if (!(zoom > 0)) return null
+  const { width, height } = screen
+  return {
+    view: { x: cx - (at.x - width / 2) / zoom, y: cy - (at.y - height / 2) / zoom, zoom },
+    width,
+    height,
+    globe: null,
+  }
+}
+
+export function screenScale(screen: Screen, y: number): number {
+  return screen.globe ? globeScale(screen.globe, y) : screen.view.zoom
 }
 
 function round(value: number): number {
