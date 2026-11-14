@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { nodes } from '../marks'
+import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { createMinimap } from './index'
 
@@ -69,6 +70,28 @@ describe('createMinimap', () => {
     expect(frame.style.width).not.toBe('')
     minimap.destroy()
     expect(minimap.element.isConnected).toBe(false)
+  })
+
+  it('frames a graph of shapes alone', () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const zones = [{ id: 'z', geometry: { x: 0, y: 0, width: 400, height: 200 } }]
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({ marks: [shapes(zones)] }),
+        ariaLabel: 'graph',
+        initialView: { x: 200, y: 100, zoom: 1 },
+      },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const minimap = createMinimap(graph, { width: 100, height: 60, padding: 0 })
+    vi.runOnlyPendingTimers()
+    const frame = minimap.element.querySelector('[data-view]') as HTMLElement
+    expect(frame.style.visibility).toBe('visible')
+    expect(frame.style.width).toBe('100px')
+    minimap.destroy()
   })
 
   it('centers the view on a press and moves it while dragging', () => {

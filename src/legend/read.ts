@@ -1,6 +1,8 @@
 import { containerShape, noColor } from '../core/columns'
 import type { Scene, SceneColorScale, SceneNumberScale, SceneScales } from '../core/scene'
-import { edgeShown, nodeShown, type Sight } from '../core/visibility'
+import { shapeKinds } from '../core/shape-engine'
+import { edgeShown, nodeShown, type Sight, shapeShown } from '../core/visibility'
+import { themeColor } from '../theme/tokens'
 import type {
   EdgeDash,
   EdgeEnd,
@@ -11,6 +13,7 @@ import type {
   MarkName,
   NodeMark,
   NodeShape,
+  ShapeMark,
 } from '../types'
 
 /** A value of the `color` channel, as read from an item. */
@@ -21,7 +24,7 @@ export interface LegendCategory {
   /**
    * Identifies the item across updates: `c:`, the type of the value, `:` and the value, such as
    * `c:string:north`. A category of the own scale of a mark has the id of the mark after `c:`, such
-   * as `c:n1:string:north`.
+   * as `c:n1:string:north` or `c:s0:string:north`.
    */
   readonly id: string
   /** Always `'category'`. */
@@ -34,6 +37,8 @@ export interface LegendCategory {
   readonly nodes: number
   /** Number of edges drawn with this value. */
   readonly edges: number
+  /** Number of shapes drawn with this value, only in a graph with a shape mark. */
+  readonly shapes?: number
   /** `true` while the item is switched off. */
   readonly off: boolean
 }
@@ -114,18 +119,54 @@ export interface LegendEdgeLook<N extends MarkName = MarkName> {
   readonly off: boolean
 }
 
+/** The shapes of a mark drawn as areas or as lines with one line pattern. `N` is the name of the mark. */
+export interface LegendShapeLook<N extends MarkName = MarkName> {
+  /** Identifies the item across updates. */
+  readonly id: string
+  /** Always `'shapes'`. */
+  readonly kind: 'shapes'
+  /** Name of the mark, or `undefined` for a mark without one. */
+  readonly mark: N
+  /**
+   * `'area'` for polygons, circles, rings and rectangles, `'line'` for lines, open or closed.
+   */
+  readonly geometry: 'area' | 'line'
+  /** Pattern of the outline of these shapes. */
+  readonly dash: EdgeDash
+  /**
+   * CSS color of the fill when these shapes share one, `--graph-shape-fill` when their fills
+   * differ, `null` when none of them is filled.
+   */
+  readonly fill: string | null
+  /**
+   * CSS color of the outline when these shapes share one, `--graph-shape-stroke` when their
+   * outlines differ, `null` when none of them has one.
+   */
+  readonly stroke: string | null
+  /** Number of shapes drawn with this look. */
+  readonly count: number
+  /** `true` while the item is switched off. */
+  readonly off: boolean
+}
+
+/** Kind of the elements of a mark with scales of its own. */
+export type LegendMarkKind = 'nodes' | 'edges' | 'shapes'
+
 /**
  * Legend of the scales of one mark that has scales of its own, set by its `scales` option. `N` is
- * the name of the mark.
+ * the name of the mark and `K` the kind of its elements.
  */
-export interface LegendMarkScales<N extends MarkName = MarkName> {
+export interface LegendMarkScales<
+  N extends MarkName = MarkName,
+  K extends LegendMarkKind = 'nodes' | 'edges',
+> {
   /**
-   * Identifies the mark across updates: `n` for a node mark or `e` for an edge mark, then the
-   * position of the mark among the marks of its kind, from 0, such as `n1`.
+   * Identifies the mark across updates: `n` for a node mark, `e` for an edge mark or `s` for a
+   * shape mark, then the position of the mark among the marks of its kind, from 0, such as `n1`.
    */
   readonly id: string
   /** Kind of the elements of the mark. */
-  readonly kind: 'nodes' | 'edges'
+  readonly kind: K
   /** Name of the mark, or `undefined` for a mark without one. */
   readonly mark: N
   /** Legend of the own `color` scale of the mark, or `null` without one or without a value. */
@@ -136,46 +177,66 @@ export interface LegendMarkScales<N extends MarkName = MarkName> {
   readonly width: LegendSizes | null
 }
 
-/** Legend of the own scales of one mark of `M`, with the name of that mark. */
+/**
+ * Legend of the own scales of one mark of `M`, with the name of that mark. Without typed marks, it
+ * leaves out shape marks: narrow on `kind` from a typed definition to read them.
+ */
 export type LegendScalesOf<M extends Mark = Mark> =
   M extends NodeMark<infer _T, infer N, MarkLayer>
     ? LegendMarkScales<N>
     : M extends EdgeMark<infer _T, infer N, MarkLayer>
       ? LegendMarkScales<N>
-      : M extends { readonly type: 'shapes' }
-        ? never
+      : M extends ShapeMark<infer _T, infer N, MarkLayer>
+        ? LegendMarkScales<N, 'shapes'>
         : LegendMarkScales
 
-/** Look of the elements of one mark of `M`: shape and image for nodes, line pattern for edges. */
+/**
+ * Look of the elements of one mark of `M`: shape and image for nodes, line pattern for edges,
+ * geometry, fill, outline and pattern for shapes. Without typed marks, it leaves out shape looks.
+ */
 export type LegendLook<M extends Mark = Mark> =
   M extends NodeMark<infer _T, infer N, MarkLayer>
     ? LegendNodeLook<N>
     : M extends EdgeMark<infer _T, infer N, MarkLayer>
       ? LegendEdgeLook<N>
-      : M extends { readonly type: 'shapes' }
-        ? never
+      : M extends ShapeMark<infer _T, infer N, MarkLayer>
+        ? LegendShapeLook<N>
         : LegendNodeLook | LegendEdgeLook
 
-/** An item that stands for a set of nodes and edges: a category or a look. */
+/** An item that stands for a set of nodes, edges and shapes: a category or a look. */
 export type LegendItem<M extends Mark = Mark> = LegendCategory | LegendLook<M>
+
+type AnyLook = LegendNodeLook | LegendEdgeLook | LegendShapeLook
+type AnyScales = LegendMarkScales<MarkName, LegendMarkKind>
 
 export interface LegendReading {
   readonly color: LegendColor | null
   readonly size: LegendSizes | null
   readonly width: LegendSizes | null
-  readonly marks: readonly LegendMarkScales[]
-  readonly looks: readonly (LegendNodeLook | LegendEdgeLook)[]
+  readonly marks: readonly AnyScales[]
+  readonly looks: readonly AnyLook[]
   readonly crowded: ReadonlySet<number>
 }
 
 export interface LegendKeys {
   readonly nodes: Key[]
   readonly edges: Key[]
+  readonly shapes?: Key[]
 }
 
 interface Count {
   nodes: number
   edges: number
+  shapes: number
+}
+
+interface ShapeLookCount {
+  readonly slot: number
+  readonly line: boolean
+  readonly dash: number
+  fill: number
+  stroke: number
+  count: number
 }
 
 interface NodeLookCount {
@@ -203,25 +264,27 @@ export function categoryId(value: unknown, mark = ''): string {
     : `c:${mark}:${typeof value}:${String(value)}`
 }
 
-const ownCategory = /^c:([ne]\d+):/
+const ownCategory = /^c:([nes]\d+):/
 
 export function categoryMark(id: string): string {
   return ownCategory.exec(id)?.[1] ?? ''
 }
 
-function markId(kind: 'nodes' | 'edges' | null, slot: number): string {
-  return kind === null ? '' : `${kind === 'nodes' ? 'n' : 'e'}${slot}`
+function markId(kind: LegendMarkKind | null, slot: number): string {
+  return kind === null ? '' : `${kind[0]}${slot}`
 }
 
 class ColorOwners {
   readonly #nodes: readonly string[]
   readonly #edges: readonly string[]
+  readonly #shapes: readonly string[]
   readonly own: boolean
 
   constructor(scales: SceneScales) {
     this.#nodes = scales.nodeColors.map((scale, slot) => (scale ? markId('nodes', slot) : ''))
     this.#edges = scales.edgeColors.map((scale, slot) => (scale ? markId('edges', slot) : ''))
-    this.own = this.#nodes.some(Boolean) || this.#edges.some(Boolean)
+    this.#shapes = scales.shapeColors.map((scale, slot) => (scale ? markId('shapes', slot) : ''))
+    this.own = this.#nodes.some(Boolean) || this.#edges.some(Boolean) || this.#shapes.some(Boolean)
   }
 
   node(slot: number): string {
@@ -231,6 +294,10 @@ class ColorOwners {
   edge(slot: number): string {
     return this.#edges[slot] ?? ''
   }
+
+  shape(slot: number): string {
+    return this.#shapes[slot] ?? ''
+  }
 }
 
 function nodeLookId(slot: number, shape: number, image: string | null): string {
@@ -239,6 +306,14 @@ function nodeLookId(slot: number, shape: number, image: string | null): string {
 
 function edgeLookId(slot: number, dash: number): string {
   return `e:${slot}:${dash}`
+}
+
+function isLine(shapes: Scene['shapes'], index: number): boolean {
+  return shapes.geometry[index]?.kind === shapeKinds.line
+}
+
+function shapeLookId(shapes: Scene['shapes'], index: number): string {
+  return `s:${shapes.slot[index] ?? 0}:${isLine(shapes, index) ? 'line' : 'area'}:${shapes.dash[index] ?? 0}`
 }
 
 function isValue(value: unknown): value is LegendValue {
@@ -263,13 +338,15 @@ function readSizes({ scale, extent }: SceneNumberScale): LegendSizes | null {
   }
 }
 
-export function markNames(marks: readonly Mark[]): {
-  readonly nodes: MarkName[]
-  readonly edges: MarkName[]
-} {
-  const names: { nodes: MarkName[]; edges: MarkName[] } = { nodes: [], edges: [] }
+export function markNames(marks: readonly Mark[]): Record<LegendMarkKind, MarkName[]> {
+  const names: Record<LegendMarkKind, MarkName[]> = { nodes: [], edges: [], shapes: [] }
+  const seen = new Set<Mark>()
   for (const mark of marks) {
-    if (mark.type !== 'shapes') names[mark.type].push((mark as { readonly name?: MarkName }).name)
+    if (mark.type === 'shapes') {
+      if (seen.has(mark)) continue
+      seen.add(mark)
+    }
+    names[mark.type].push((mark as { readonly name?: MarkName }).name)
   }
   return names
 }
@@ -280,8 +357,8 @@ function countValues(
   owners: ColorOwners,
   sight: Sight,
 ): Map<string, Map<unknown, Count>> {
-  const { nodes, edges } = scene
-  const { nodeColor, edgeColor, endColor } = scales
+  const { nodes, edges, shapes } = scene
+  const { nodeColor, edgeColor, endColor, shapeColor } = scales
   const split = endColor.length > 0
   const counts = new Map<string, Map<unknown, Count>>()
   let lastMark = ''
@@ -300,7 +377,7 @@ function countValues(
     }
     let count = lastValues.get(value)
     if (!count) {
-      count = { nodes: 0, edges: 0 }
+      count = { nodes: 0, edges: 0, shapes: 0 }
       lastValues.set(value, count)
     }
     last = value
@@ -323,6 +400,12 @@ function countValues(
     if (near !== null && near !== undefined) entry(mark, near).edges++
     if (far !== near && far !== null && far !== undefined) entry(mark, far).edges++
   }
+  for (let index = 0; index < shapeColor.length; index++) {
+    const value = shapeColor[index]
+    if (value === null || value === undefined || shapes.alive[index] !== 1) continue
+    if (!shapeShown(shapes, index, sight)) continue
+    entry(owners.own ? owners.shape(shapes.slot[index] ?? 0) : '', value).shapes++
+  }
   return counts
 }
 
@@ -334,6 +417,7 @@ function readColor(
   counts: ReadonlyMap<unknown, Count>,
   off: ReadonlySet<string>,
   known: ReadonlyMap<string, LegendCategory>,
+  shaped: boolean,
 ): LegendColor | null {
   if (scale.kind === 'sequential') {
     const domain = scale.domain ?? extent
@@ -349,7 +433,7 @@ function readColor(
     const isOff = off.has(id)
     if (!count && !isOff && !listed) return
     seen.add(id)
-    items.push({
+    const item: LegendCategory = {
       id,
       kind: 'category',
       value,
@@ -357,7 +441,8 @@ function readColor(
       nodes: count?.nodes ?? 0,
       edges: count?.edges ?? 0,
       off: isOff,
-    })
+    }
+    items.push(shaped ? { ...item, shapes: count?.shapes ?? 0 } : item)
   }
   if (scale.kind === 'categorical') {
     const listed = new Set(scale.listed)
@@ -383,19 +468,27 @@ function readMarks(
   counts: ReadonlyMap<string, ReadonlyMap<unknown, Count>>,
   off: ReadonlySet<string>,
   known: ReadonlyMap<string, LegendCategory>,
-): LegendMarkScales[] {
+  shaped: boolean,
+): AnyScales[] {
   const names = markNames(marks)
-  const read: LegendMarkScales[] = []
-  const add = (kind: 'nodes' | 'edges', slot: number) => {
+  const read: AnyScales[] = []
+  const add = (kind: LegendMarkKind, slot: number) => {
     const id = markId(kind, slot)
-    const own = kind === 'nodes' ? scales.nodeColors[slot] : scales.edgeColors[slot]
-    const sizes = (kind === 'nodes' ? scales.sizes : scales.widths)[slot]
+    const own = (
+      kind === 'nodes'
+        ? scales.nodeColors
+        : kind === 'edges'
+          ? scales.edgeColors
+          : scales.shapeColors
+    )[slot]
+    const sizes =
+      kind === 'nodes' ? scales.sizes[slot] : kind === 'edges' ? scales.widths[slot] : null
     const values = counts.get(id)
     const used =
       own?.scale.kind === 'sequential'
         ? own.extent !== null
         : values !== undefined || hasOff(off, id)
-    const color = own && used ? readColor(own, id, values ?? noCounts, off, known) : null
+    const color = own && used ? readColor(own, id, values ?? noCounts, off, known, shaped) : null
     const size = sizes && sizes.extent !== null ? readSizes(sizes) : null
     if (color === null && size === null) return
     read.push({
@@ -411,6 +504,7 @@ function readMarks(
   const edgeSlots = Math.max(scales.edgeColors.length, scales.widths.length)
   for (let slot = 0; slot < nodeSlots; slot++) add('nodes', slot)
   for (let slot = 0; slot < edgeSlots; slot++) add('edges', slot)
+  for (let slot = 0; slot < scales.shapeColors.length; slot++) add('shapes', slot)
   return read
 }
 
@@ -445,13 +539,58 @@ function nodeLookOf(nodes: Scene['nodes'], index: number, crowded: ReadonlySet<n
   return nodeLookId(slot, nodes.shape[index] ?? 0, image)
 }
 
+function readShapeLooks(
+  shapes: Scene['shapes'],
+  names: readonly MarkName[],
+  colors: readonly string[],
+  off: ReadonlySet<string>,
+  sight: Sight,
+): LegendShapeLook[] {
+  const looks = new Map<string, ShapeLookCount>()
+  for (let index = 0; index < shapes.capacity; index++) {
+    if (shapes.alive[index] !== 1 || !shapeShown(shapes, index, sight)) continue
+    const id = shapeLookId(shapes, index)
+    const fill = shapes.fill[index] ?? noColor
+    const stroke = shapes.stroke[index] ?? noColor
+    const look = looks.get(id)
+    if (look) {
+      look.count++
+      if (look.fill !== fill) look.fill = variedColors
+      if (look.stroke !== stroke) look.stroke = variedColors
+      continue
+    }
+    const slot = shapes.slot[index] ?? 0
+    const line = isLine(shapes, index)
+    looks.set(id, { slot, line, dash: shapes.dash[index] ?? 0, fill, stroke, count: 1 })
+  }
+  const css = (id: number, mixed: string) =>
+    id === noColor ? null : id === variedColors ? mixed : (colors[id] ?? null)
+  const items: LegendShapeLook[] = []
+  for (const [id, look] of looks) {
+    items.push({
+      id,
+      kind: 'shapes',
+      mark: names[look.slot],
+      geometry: look.line ? 'line' : 'area',
+      dash: dashes[look.dash] ?? 'solid',
+      fill: css(look.fill, themeColor('shape-fill')),
+      stroke: css(look.stroke, themeColor('shape-stroke')),
+      count: look.count,
+      off: off.has(id),
+    })
+  }
+  return items
+}
+
+const variedColors = -1
+
 function readLooks(
   scene: Scene,
   marks: readonly Mark[],
   off: ReadonlySet<string>,
   crowded: ReadonlySet<number>,
   sight: Sight,
-): (LegendNodeLook | LegendEdgeLook)[] {
+): AnyLook[] {
   const names = markNames(marks)
   const { nodes, edges, palette } = scene
   const nodeLooks = new Map<string, NodeLookCount>()
@@ -506,7 +645,10 @@ function readLooks(
   }
   const order = (a: { readonly id: string }, b: { readonly id: string }) =>
     a.id < b.id ? -1 : a.id > b.id ? 1 : 0
-  return [...nodeItems.sort(order), ...edgeItems.sort(order)]
+  const shapeItems = scene.shapes.any
+    ? readShapeLooks(scene.shapes, names.shapes, palette.colors, off, sight)
+    : []
+  return [...nodeItems.sort(order), ...edgeItems.sort(order), ...shapeItems.sort(order)]
 }
 
 export function readLegend(
@@ -520,13 +662,14 @@ export function readLegend(
   const crowded = crowdedSlots(scene)
   const owners = new ColorOwners(scales)
   const counts = countValues(scene, scales, owners, sight)
+  const shaped = scene.shapes.marked
   return {
-    color: readColor(scales.color, '', counts.get('') ?? noCounts, off, known),
+    color: readColor(scales.color, '', counts.get('') ?? noCounts, off, known, shaped),
     size: readSizes(scales.size),
     width: readSizes(scales.width),
     marks:
       owners.own || scales.sizes.some(Boolean) || scales.widths.some(Boolean)
-        ? readMarks(scales, marks, counts, off, known)
+        ? readMarks(scales, marks, counts, off, known, shaped)
         : [],
     looks: readLooks(scene, marks, off, crowded, sight),
     crowded,
@@ -545,6 +688,7 @@ export interface KeyScope {
   readonly members?: ((index: number, end?: EdgeEnd) => readonly Key[] | null) | undefined
   readonly nodes?: readonly number[] | undefined
   readonly edges?: readonly number[] | undefined
+  readonly shapes?: readonly number[] | undefined
 }
 
 export function keysOf(
@@ -553,18 +697,22 @@ export function keysOf(
   crowded: ReadonlySet<number>,
   scope: KeyScope = {},
 ): LegendKeys {
-  const { nodes, edges } = scene
+  const { nodes, edges, shapes } = scene
   const scales = scene.scales()
-  const { nodeColor, edgeColor, endColor } = scales
+  const { nodeColor, edgeColor, endColor, shapeColor } = scales
   const owners = new ColorOwners(scales)
   const split = endColor.length > 0
-  const keys: LegendKeys = { nodes: [], edges: [] }
+  const shapeKeys: Key[] | null = shapes.marked ? [] : null
+  const keys: LegendKeys = shapeKeys
+    ? { nodes: [], edges: [], shapes: shapeKeys }
+    : { nodes: [], edges: [] }
   if (ids.size === 0) return keys
   let looks = false
   for (const id of ids) if (!id.startsWith('c:') && !id.startsWith(layerPrefix)) looks = true
-  const { names, nodeLayers, edgeLayers } = scene.markLayers
+  const { names, nodeLayers, edgeLayers, shapeLayers } = scene.markLayers
   const nodeSlots = layerSlots(nodeLayers, names, ids)
   const edgeSlots = layerSlots(edgeLayers, names, ids)
+  const shapeSlots = layerSlots(shapeLayers, names, ids)
   let lastValue: unknown
   let lastMark = ''
   let lastMatch = false
@@ -611,5 +759,21 @@ export function keysOf(
   else for (let index = 0; index < nodes.capacity; index++) visitNode(index)
   if (scope.edges) for (const index of scope.edges) visitEdge(index)
   else for (let index = 0; index < edges.capacity; index++) visitEdge(index)
+  if (!shapeKeys || !shapes.any) return keys
+  const visitShape = (index: number) => {
+    if (shapes.alive[index] !== 1) return
+    const key = shapes.keys[index]
+    if (key === undefined) return
+    const slot = shapes.slot[index] ?? 0
+    if (
+      shapeSlots[slot] === 1 ||
+      matches(shapeColor[index], owners.own ? owners.shape(slot) : '') ||
+      (looks && ids.has(shapeLookId(shapes, index)))
+    ) {
+      shapeKeys.push(key)
+    }
+  }
+  if (scope.shapes) for (const index of scope.shapes) visitShape(index)
+  else for (let index = 0; index < shapes.capacity; index++) visitShape(index)
   return keys
 }

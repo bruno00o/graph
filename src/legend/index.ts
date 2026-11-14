@@ -22,14 +22,14 @@ import {
 /** Options of `createLegend`. */
 export interface LegendOptions<S extends string = string> {
   /**
-   * Free state given to the nodes and edges of the item under the pointer or the keyboard, or
-   * `null` for none. Declare it in `states` with the style of a highlight. Defaults to `null`.
+   * Free state given to the nodes, edges and shapes of the item under the pointer or the keyboard,
+   * or `null` for none. Declare it in `states` with the style of a highlight. Defaults to `null`.
    */
   readonly highlight?: FreeState<S> | null | undefined
   /**
-   * Free state given to the nodes and edges of the items switched off, or `null` to leave them to
-   * the application, which reads `off` in the state of the legend to filter its data. Defaults to
-   * `null`.
+   * Free state given to the nodes, edges and shapes of the items switched off, or `null` to leave
+   * them to the application, which reads `off` in the state of the legend to filter its data.
+   * Defaults to `null`.
    */
   readonly hidden?: FreeState<S> | null | undefined
 }
@@ -54,10 +54,14 @@ export interface LegendState<M extends Mark = Mark> {
   readonly width: LegendSizes | null
   /**
    * Legends of the scales of the marks that have scales of their own, in the order of the marks,
-   * nodes first. `color`, `size` and `width` above only cover the marks without one.
+   * nodes first, then edges, then shapes. `color`, `size` and `width` above only cover the marks
+   * without one.
    */
   readonly marks: readonly LegendScalesOf<M>[]
-  /** Looks of the elements, by mark: shape and image of nodes, line pattern of edges. */
+  /**
+   * Looks of the elements, by mark: shape and image of nodes, line pattern of edges, geometry,
+   * colors and pattern of shapes.
+   */
   readonly looks: readonly LegendLook<M>[]
   /** Layers of the graph, in the order of their first mark, hidden ones included. */
   readonly layers: readonly LegendLayer<M>[]
@@ -86,7 +90,10 @@ export interface Legend<S extends string = string, M extends Mark = Mark> {
   only(id: string): void
   /** Switches every item on again, layers included. */
   reset(): void
-  /** Keys of the nodes and edges an item stands for, among those the graph draws. */
+  /**
+   * Keys of the nodes, edges and shapes an item stands for, among those the graph draws. `shapes`
+   * is there only in a graph with a shape mark.
+   */
   keys(id: string): ElementKeys
   /**
    * Changes the options: an option left out keeps its current value, an option set to `undefined`
@@ -133,8 +140,8 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
 
 /**
  * Reads a legend from the scales and the marks of a graph: categories or a ramp for `color`, a few
- * values for `size` and `width`, and the looks of each mark. It follows data and definition, and
- * can highlight or switch off the elements of an item through free states.
+ * values for `size` and `width`, and the looks of each mark, shapes included. It follows data and
+ * definition, and can highlight or switch off the elements of an item through free states.
  */
 export function createLegend<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
@@ -253,8 +260,16 @@ export function createLegend<S extends string, M extends Mark>(
 
   function hideArrivals(changes: GraphChanges): void {
     if (hidden === null || off.size === 0) return
-    const { nodes, edges } = changes
-    if (nodes.added.length + nodes.updated.length + edges.added.length + edges.updated.length === 0)
+    const { nodes, edges, shapes } = changes
+    const shaped = (shapes?.added.length ?? 0) + (shapes?.updated.length ?? 0)
+    if (
+      nodes.added.length +
+        nodes.updated.length +
+        edges.added.length +
+        edges.updated.length +
+        shaped ===
+      0
+    )
       return
     const indices = (refs: readonly (readonly ElementRef[])[]) =>
       refs.flatMap((list) => list.map((ref) => ref.index))
@@ -262,8 +277,11 @@ export function createLegend<S extends string, M extends Mark>(
       members: scope.members,
       nodes: indices([nodes.added, nodes.updated]),
       edges: indices([edges.added, edges.updated]),
+      shapes: shapes ? indices([shapes.added, shapes.updated]) : [],
     })
-    if (keys.nodes.length + keys.edges.length > 0) states.add(hidden, keys)
+    if (keys.nodes.length + keys.edges.length + (keys.shapes?.length ?? 0) > 0) {
+      states.add(hidden, keys)
+    }
   }
 
   function switched(color: LegendColor | null): LegendColor | null {
@@ -420,10 +438,12 @@ export type {
   LegendEdgeLook,
   LegendItem,
   LegendLook,
+  LegendMarkKind,
   LegendMarkScales,
   LegendNodeLook,
   LegendRamp,
   LegendScalesOf,
+  LegendShapeLook,
   LegendSize,
   LegendSizes,
   LegendValue,
