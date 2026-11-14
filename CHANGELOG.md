@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.27.0](https://github.com/bruno00o/graph/compare/0.26.1...0.27.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* color shapes by scale and show them in the legend and minimap ([#178](https://github.com/bruno00o/graph/issues/178))
+
+### Features
+
+* color shapes by scale and show them in the legend and minimap ([#178](https://github.com/bruno00o/graph/issues/178)) ([5610cf2](https://github.com/bruno00o/graph/commit/5610cf218b0a9f2b9911a94b6771ffb41e211fce))
+* draw new shapes ([#182](https://github.com/bruno00o/graph/issues/182)) ([6165cf6](https://github.com/bruno00o/graph/commit/6165cf6493d88660e10d69592cb6e315d60ce287))
+* move and reshape shapes with the pointer ([#180](https://github.com/bruno00o/graph/issues/180)) ([a73376a](https://github.com/bruno00o/graph/commit/a73376a481c9e4c2788deb7dc90657d91b6ca75f))
+* save shape edits to a collection ([#181](https://github.com/bruno00o/graph/issues/181)) ([e7e2903](https://github.com/bruno00o/graph/commit/e7e29039d41715dd0ebf452735ee89c2bffecd4b))
+* show who else is editing ([#184](https://github.com/bruno00o/graph/issues/184)) ([88fc60d](https://github.com/bruno00o/graph/commit/88fc60d6428d95b7db26126554c76c40da274203))
+* write text in shapes ([#185](https://github.com/bruno00o/graph/issues/185)) ([3e81286](https://github.com/bruno00o/graph/commit/3e8128676a843fa0c55feae8252ea5ced1e93da7))
+
+
+### Performance Improvements
+
+* keep large shape edits smooth ([#183](https://github.com/bruno00o/graph/issues/183)) ([8af6b98](https://github.com/bruno00o/graph/commit/8af6b98cc786c07e4a93a48d78880082a68f4156))
+
 ## [0.26.1](https://github.com/bruno00o/graph/compare/0.26.0...0.26.1) (2026-11-14)
 
 
