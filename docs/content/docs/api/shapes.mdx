@@ -53,7 +53,12 @@ type ShapePick = 'painted' | 'stroke' | false
 
 <api-table path="index.ts" name="ShapeLabelOptions" />
 
-The label sits on the point of a polygon farthest from its outline and its holes, on the center of a disc or a rectangle, on the top of the band of a ring, and on the middle of the longest segment of a line. It is placed after the node and edge labels, the labels of the largest shapes first. See [Labels](/docs/shapes#labels).
+The label sits on the point of a polygon farthest from its outline and its holes, on the center of a disc or a rectangle, on the top of the band of a ring, and on the middle of the longest segment of a line. It is placed after the node and edge labels, the labels of the largest shapes first, except labels with `place: 'always'`, placed before them. See [Labels](/docs/shapes#labels) and [Text in a box](/docs/shapes#text-in-a-box).
+
+```ts
+type ShapeLabelScale = 'screen' | 'world'
+type ShapeLabelPlace = 'auto' | 'always'
+```
 
 ## Pinned shapes
 

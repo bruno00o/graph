@@ -139,6 +139,7 @@ export interface Scene {
   readonly layers: readonly Layer[]
   readonly markLayers: MarkLayers
   readonly shapes: ShapeStore
+  readonly textWidth: TextWidth
   scales(): SceneScales
   setDefinition(definition: GraphDefinition): void
   apply(model: SceneModel, changes: GraphChanges): void
@@ -1390,6 +1391,7 @@ export function createScene(
     palette,
     markLayers,
     shapes,
+    textWidth,
     remeasure,
 
     get layers() {

@@ -245,6 +245,7 @@ describe('createShapeEditor', () => {
       drawing: null,
       canUndo: true,
       canRedo: false,
+      text: null,
     })
     expect(drafted(graph, 'box')).toBe(true)
     apply(graph, batches[0] ?? [])

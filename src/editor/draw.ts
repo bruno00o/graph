@@ -2,8 +2,11 @@ import { worldSize, worldToGeo } from '../core/geo'
 import { effectiveAreas } from '../shapes/simplify'
 import type { Point, ShapeGeometry } from '../types'
 
-/** A tool that draws new shapes: `'rectangle'`, `'circle'`, `'line'`, `'polygon'` or `'freehand'`. */
-export type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand'
+/**
+ * A tool that draws new shapes: `'rectangle'`, `'circle'`, `'line'`, `'polygon'`, `'freehand'`, or
+ * `'text'`, which draws a box and opens a text input in it.
+ */
+export type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand' | 'text'
 
 /**
  * What a press of a shape editor does: `'select'` selects, moves and reshapes shapes; the other
@@ -32,6 +35,7 @@ export const drawTools: ReadonlySet<string> = new Set<ShapeEditorTool>([
   'line',
   'polygon',
   'freehand',
+  'text',
 ])
 
 const earthRadius = 6_371_008.8

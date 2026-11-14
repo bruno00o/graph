@@ -101,6 +101,25 @@ Like node labels, a shape label shrinks when you zoom out and hides under 8 pixe
 
 The point of a polygon is computed once per geometry, when its label first shows, in about a millisecond for a polygon of 10,000 points, and its work is bounded for larger ones.
 
+### Text in a box
+
+Three more options turn a label into the text of a box, such as a note on a plan:
+
+```ts
+shapes(notes, {
+  fill: 'transparent',
+  label: { text: 'text', wrap: true, scale: 'world', place: 'always', size: 14 },
+})
+```
+
+| Option | Effect |
+| --- | --- |
+| `wrap: true` | Breaks the lines at spaces to the width of the box, less half the font size on each side, and a word longer than a line between its characters. The line breaks of the text stay. |
+| `scale: 'world'` | Gives `size` in world units, so the text grows and shrinks with the zoom like the box, and hides under 8 pixels. On a map, a shape in degrees takes `size` in meters at the latitude of its label. |
+| `place: 'always'` | Draws the label whatever the other labels: node, edge and shape labels make room for it. |
+
+Each option takes a value or a function of the item. A wrapped label is centered on the box of the shape, line under line, and wraps again when its width on the screen changes, so a label in screen pixels keeps the same lines at every zoom only with `scale: 'world'`. The height of the box does not cut the text: a text longer than its box overflows it, and a [shape editor](/docs/editing-shapes#text) makes the box taller when someone types such a text.
+
 ## Pin shapes to nodes
 
 `node` names the node a shape follows. Its geometry is then in world units from where the node is drawn: `{ center: { x: 0, y: 0 }, radius: 80 }` is a disc around the node.
@@ -234,8 +253,8 @@ Shapes do not move with the pointer on their own: dragging a shape moves the vie
 
 ## Not there yet
 
-- Shapes cannot be drawn with the pointer, and moving a pinned shape does not move its node.
-- A shape has one label, horizontal: it does not follow a line or the curve of a ring.
+- Moving a pinned shape does not move its node.
+- A shape has one label, horizontal: it does not follow a line or the curve of a ring. Its text is plain, in one font, size and color: no rich text.
 - A pinned shape does not turn or grow with its node.
 
 ## Cost

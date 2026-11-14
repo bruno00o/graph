@@ -1,6 +1,7 @@
 import type { Attribute } from './gl'
 
 export const glyphStride = 40
+export const worldGlyph = 256
 
 export function glyphAttributes(
   gl: WebGL2RenderingContext,

@@ -53,7 +53,7 @@ function RemoveButton({ graph }: { graph: GraphInstance<never, Marks> | null }) 
 ## Behavior
 
 - The editor is created in a layout effect, once a graph is there. Under StrictMode, one editor remains.
-- Another graph destroys the editor and creates a new one. `marks`, `hold`, `handleSize`, `newMark`, `units`, `snap` and `history` go through `update`, compared by value; `onEdit` and `newKey` are read at each use, so inline functions are fine.
+- Another graph destroys the editor and creates a new one. `marks`, `hold`, `handleSize`, `newMark`, `textMark`, `units`, `snap` and `history` go through `update`, compared by value, and `placeholder` goes to the text input; `onEdit` and `newKey` are read at each use, so inline functions are fine.
 - `tool` sets the tool when it changes, as `setTool` does: between two changes, `editor.setTool` and the toolbar of your app choose it. Leave it out to choose the tool only through the editor.
 - Without `graph` and outside `<Graph>` and `<MapGraph>`, it throws. With `graph: null`, nothing is edited until a graph is given.
 - Without `graph`, the edits are not typed by the marks of the graph: pass the state names and the marks as type arguments, or pass `graph`.
