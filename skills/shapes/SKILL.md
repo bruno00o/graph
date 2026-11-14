@@ -2,20 +2,15 @@
 name: shapes
 description: >
   Use when drawing areas and lines from your own geometry under a
-  @bruno00o/graph graph: zones, districts, parcels, rings, rectangles, circles and
-  polygons with holes in world units, or GeoJSON polygons and lines in degrees;
-  styling them with fill, stroke, dash and opacity; letting people hover, click,
-  select and lasso them, or keeping a decorative zone out of the pointer's way;
-  labeling them; pinning a ring or a halo to a node; drawing them on a MapLibre
-  map; dimming, hiding or highlighting them with states; showing them by zoom,
-  time or layer; framing, counting and exporting them; and finding unreadable
-  geometry. Not for an outline that follows a set of nodes (hulls or groups).
+  @bruno00o/graph graph: zones, parcels, rings, rectangles, circles and polygons
+  with holes in world units, or GeoJSON in degrees; styling, selecting,
+  labeling and pinning them to nodes; drawing them on a MapLibre map; filtering
+  them by state, zoom, time or layer; framing, counting and exporting them; and
+  finding unreadable geometry. Not for an outline that follows a set of nodes.
 metadata:
   purpose: >
-    The shapes() mark of @bruno00o/graph: geometry forms and units, style and
-    drawing order, picking, selection and events, labels, pins to nodes, maps,
-    states, zoom, time and layers, fit, count and issues, exports, and the mistakes
-    that leave a zone unclickable, mispositioned, untyped or missing.
+    The shapes() mark of @bruno00o/graph: geometry, style, picking, labels, pins,
+    maps, states, zoom, time, layers, fit, count, issues, exports and mistakes.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
@@ -65,22 +60,12 @@ type Place = { id: string; x: number; y: number }
 type Link = { id: string; from: string; to: string }
 type Zone = { id: string; title: string; geometry: ShapeGeometry }
 
-const places: Place[] = [
-  { id: 'a', x: 80, y: 60 },
-  { id: 'b', x: 520, y: 150 },
-]
+const places: Place[] = [{ id: 'a', x: 80, y: 60 }, { id: 'b', x: 520, y: 150 }]
 const links: Link[] = [{ id: 'ab', from: 'a', to: 'b' }]
+const outline: [number, number][] = [[0, 0], [400, 0], [400, 300], [0, 300]]
+const hole: [number, number][] = [[120, 100], [280, 100], [280, 200], [120, 200]]
 const zones: Zone[] = [
-  {
-    id: 'north',
-    title: 'North',
-    geometry: {
-      rings: [
-        [[0, 0], [400, 0], [400, 300], [0, 300]],
-        [[120, 100], [280, 100], [280, 200], [120, 200]],
-      ],
-    },
-  },
+  { id: 'north', title: 'North', geometry: { rings: [outline, hole] } },
   { id: 'pond', title: 'Pond', geometry: { center: { x: 520, y: 150 }, radius: 100, inner: 50 } },
 ]
 

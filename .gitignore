@@ -21,3 +21,4 @@ repos/
 spikes/
 .claude/worktrees/
 .env*
+.skills-publish-check/
