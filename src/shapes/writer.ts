@@ -165,6 +165,7 @@ class Writer implements ShapeWriter {
   #stamps = new Uint32Array(0)
   #stamp = 0
   #waiting: Waiting[] = []
+  readonly #hidden = new Map<number, Waiting>()
   readonly #batches = new Map<number, Waiting[]>()
   #pool: FillPool | null = null
   #batch = 0
@@ -227,6 +228,18 @@ class Writer implements ShapeWriter {
     return this.#order
   }
 
+  revealed(indices: readonly number[]): void {
+    for (const index of indices) {
+      const entry = this.#hidden.get(index)
+      if (!entry) continue
+      this.#hidden.delete(index)
+      this.#waiting.push(entry)
+    }
+    if (this.#waiting.length === 0) return
+    this.#fillWaiting()
+    this.#store.fillVersion++
+  }
+
   settled(): Promise<void> {
     if (this.#pending === 0) return Promise.resolve()
     return new Promise((done) => this.#settle.push(done))
@@ -236,6 +249,7 @@ class Writer implements ShapeWriter {
     this.#pool?.destroy()
     this.#pool = null
     this.#batches.clear()
+    this.#hidden.clear()
     this.#pending = 0
     this.#release()
   }
@@ -332,6 +346,7 @@ class Writer implements ShapeWriter {
   #remove(index: number): void {
     const store = this.#store
     if (store.alive[index] !== 1) return
+    this.#hidden.delete(index)
     const palette = store.palette
     palette.drop(store.fill[index] ?? noColor)
     palette.drop(store.stroke[index] ?? noColor)
@@ -367,7 +382,12 @@ class Writer implements ShapeWriter {
       store.geometry[index] = geometry
       const stamp = ++this.#stamp
       this.#stamps[index] = stamp
-      if (geometry?.pending) this.#waiting.push({ index, stamp, geometry })
+      this.#hidden.delete(index)
+      if (geometry?.pending) {
+        const entry = { index, stamp, geometry }
+        if (store.draft[index] === 1) this.#hidden.set(index, entry)
+        else this.#waiting.push(entry)
+      }
       if (store.labels) this.#moveAnchor(index, moved && before ? before : null)
       this.#inputs[index] = input
       this.#report(index, record.key, geometry)

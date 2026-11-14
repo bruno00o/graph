@@ -397,6 +397,33 @@ describe('ShapeStore fills', () => {
     expect(store.version).toBe(version)
   })
 
+  it('fills a shape hidden as a draft only once it shows again', () => {
+    const { store, render, indexOf } = setup()
+    const outline = ring(0, 400, 5)
+    const draw = (points: readonly (readonly [number, number])[]) =>
+      render([
+        shapes([
+          { id: 'a', geometry: { rings: [points] } },
+          { id: 'b', geometry: box(0) },
+        ]),
+      ])
+    draw(outline)
+    const a = indexOf('a')
+    store.setDrafts([a])
+    const reshaped = outline.map(([x, y], k) => [x + (k === 3 ? 20 : 0), y] as const)
+    draw(reshaped)
+    expect(store.geometry[a]?.pending).toBe(true)
+    draw(reshaped.map(([x, y], k) => [x, y + (k === 5 ? 20 : 0)] as const))
+    expect(store.geometry[a]?.pending).toBe(true)
+    const fills = store.fillVersion
+    store.setDrafts([a], [2])
+    expect(store.geometry[a]?.pending).toBeFalsy()
+    expect(store.geometry[a]?.triangles?.length).toBeGreaterThan(0)
+    expect(store.fillVersion).toBe(fills + 1)
+    store.setDrafts([])
+    expect(store.fillVersion).toBe(fills + 1)
+  })
+
   it('draws outlines first and fills a large batch later, as the main thread would', async () => {
     const { store, render, indexOf, drawn } = setup()
     const zones = big(3)

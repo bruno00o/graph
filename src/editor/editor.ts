@@ -159,7 +159,7 @@ interface MoveGesture {
   readonly type: 'move'
   readonly keys: readonly Key[]
   readonly bases: ReadonlyMap<Key, Outline>
-  readonly shifts: ReadonlyMap<Key, Point | null>
+  readonly sliding: ReadonlySet<Key>
   readonly start: Point
   readonly from: Point
   readonly touch: boolean
@@ -214,10 +214,10 @@ const defaultHold = 10_000
 const defaultHandleSize = 8
 const arrowStep = 1
 const shiftFrom = 5000
+const sameShift = 1e-3
 const arrowLongStep = 10
 const noKeys: readonly Key[] = Object.freeze([])
 const noShifts: readonly ShapeShift[] = Object.freeze([])
-const unshifted: Point = Object.freeze({ x: 0, y: 0 })
 const emptyState: ShapeEditorState = Object.freeze({
   selected: noKeys,
   gesture: null,
@@ -457,20 +457,31 @@ export function createShapeEditor<S extends string, M extends Mark>(
     return false
   }
 
-  function shiftNow(key: Key): Point | null {
-    const waiting = pending.get(key)
-    return waiting ? waiting.shift : unshifted
+  function referenceOf(outline: Outline): Point | null {
+    if (outline.kind === 'circle') return outline.center
+    if (outline.kind === 'rectangle') return { x: outline.x, y: outline.y }
+    return outline.parts[0]?.points[0] ?? null
+  }
+
+  function slideOf(key: Key, from: Outline | undefined, dx: number, dy: number): Point | null {
+    const entry = entryOf(key)
+    const start = from ? referenceOf(from) : null
+    const data = entry ? referenceOf(entry.outline) : null
+    return start && data ? { x: dx + (start.x - data.x), y: dy + (start.y - data.y) } : null
   }
 
   function syncDrafts(): void {
     const keys: Key[] = []
     const groups: { x: number; y: number; keys: Key[] }[] = []
     const seen = new Set<Key>()
+    const near = sameShift / graph.store.state.view.zoom
     const place = (key: Key, shift: Point | null) => {
       if (seen.has(key)) return
       seen.add(key)
       let group = shift
-        ? groups.find((each) => each.x === shift.x && each.y === shift.y)
+        ? groups.find(
+            (each) => Math.abs(each.x - shift.x) <= near && Math.abs(each.y - shift.y) <= near,
+          )
         : undefined
       if (shift && !group && groups.length < shiftSlots) {
         group = { x: shift.x, y: shift.y, keys: [] }
@@ -482,11 +493,10 @@ export function createShapeEditor<S extends string, M extends Mark>(
     const current = gesture
     if (current && gestureStarted(current)) {
       for (const key of current.keys) {
-        const base = current.type === 'move' ? current.shifts.get(key) : null
         place(
           key,
-          base && current.type === 'move'
-            ? { x: base.x + current.dx, y: base.y + current.dy }
+          current.type === 'move' && current.sliding.has(key)
+            ? slideOf(key, current.bases.get(key), current.dx, current.dy)
             : null,
         )
       }
@@ -875,16 +885,15 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const outline = entry ? outlineOf(each, entry) : null
       if (outline) bases.set(each, outline)
     }
-    const shifts = new Map<Key, Point | null>()
-    const onGpu = heavy(bases.values())
-    for (const [each, outline] of bases) {
-      shifts.set(each, onGpu && shiftable(outline) ? shiftNow(each) : null)
+    const sliding = new Set<Key>()
+    if (heavy(bases.values())) {
+      for (const [each, outline] of bases) if (shiftable(outline)) sliding.add(each)
     }
     gesture = {
       type: 'move',
       keys: [...bases.keys()],
       bases,
-      shifts,
+      sliding,
       start: world,
       from: pointer.point,
       touch: pointer.event.pointerType === 'touch',
@@ -999,8 +1008,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
           propose(
             current.keys.map((key): Proposal => {
               const base = current.bases.get(key) as Outline
-              const from = current.shifts.get(key)
-              const shift = from ? { x: from.x + current.dx, y: from.y + current.dy } : null
+              const shift = current.sliding.has(key)
+                ? slideOf(key, base, current.dx, current.dy)
+                : null
               return [key, translateOutline(base, current.dx, current.dy), shift]
             }),
           )
@@ -1092,8 +1102,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const onGpu = heavy(outlines.values())
       propose(
         [...outlines].map(([key, outline]): Proposal => {
-          const from = onGpu && shiftable(outline) ? shiftNow(key) : null
-          const shift = from ? { x: from.x + dx, y: from.y + dy } : null
+          const shift = onGpu && shiftable(outline) ? slideOf(key, outline, dx, dy) : null
           return [key, translateOutline(outline, dx, dy), shift]
         }),
       )

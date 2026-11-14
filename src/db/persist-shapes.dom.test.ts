@@ -254,6 +254,7 @@ describe('persistShapes', () => {
   })
 
   it('puts a reshaped outline back when a live gesture is cancelled or the editor goes', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
     const collection = zoneCollection()
     const graph = mount(collection)
     const editor = createShapeEditor(graph)

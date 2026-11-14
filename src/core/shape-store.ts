@@ -140,6 +140,8 @@ export class ShapeStore {
     this.#drafted = [...indices]
     this.#kinds = [...kinds]
     this.draftVersion++
+    const shown = before.filter((index) => this.draft[index] !== 1)
+    if (shown.length > 0) this.#writer?.revealed(shown)
   }
 
   setShift(slot: number, x: number, y: number): void {
