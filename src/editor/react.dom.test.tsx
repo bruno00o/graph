@@ -102,6 +102,46 @@ describe('<ShapeEditor>', () => {
   })
 })
 
+describe('drawing from React', () => {
+  it('takes the tool and the latest key maker from its props', () => {
+    const edits: ShapeEdit<Marks>[] = []
+    let states: string[] = []
+    function Tools({
+      tool,
+      prefix,
+    }: {
+      readonly tool: 'select' | 'circle'
+      readonly prefix: string
+    }) {
+      const { state } = useShapeEditor<never, Marks>({
+        tool,
+        newKey: () => `${prefix}1`,
+        onEdit: (next) => edits.push(...next),
+      })
+      states.push(state.tool)
+      return null
+    }
+    const page = (tool: 'select' | 'circle', prefix: string) => (
+      <Graph definition={definition} ariaLabel="graph" initialView={{ x: 0, y: 0, zoom: 1 }}>
+        <Tools tool={tool} prefix={prefix} />
+      </Graph>
+    )
+    render(page('select', 'a'))
+    expect(states.at(-1)).toBe('select')
+    states = []
+    render(page('circle', 'b'))
+    expect(states.at(-1)).toBe('circle')
+    press('pointermove', 0, 0)
+    press('pointerdown', 0, 0)
+    press('pointermove', 10, 0)
+    press('pointermove', 20, 0)
+    press('pointerup', 20, 0)
+    expect(edits).toMatchObject([
+      { type: 'add', key: 'b1', mark: 'zones', geometry: { center: { x: 0, y: 0 }, radius: 20 } },
+    ])
+  })
+})
+
 describe('useShapeEditor', () => {
   it('follows a graph given as an option, and types its edits', () => {
     const seen: string[] = []

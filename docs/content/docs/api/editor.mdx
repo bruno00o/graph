@@ -1,6 +1,6 @@
 ---
 title: createShapeEditor
-description: Moves and reshapes the shapes of a graph with the pointer and the keys, and proposes each change to the data.
+description: Draws, moves and reshapes the shapes of a graph with the pointer and the keys, undoes, and proposes each change to the data.
 ---
 
 ```ts
@@ -18,6 +18,13 @@ Creates the shape editor of a graph made by [`mountGraph`](/docs/api/mount-graph
 
 <api-table path="editor/index.ts" name="ShapeEditorOptions" />
 
+<api-table path="editor/index.ts" name="ShapeEditorSnap" />
+
+```ts
+type ShapeEditorTool = 'select' | ShapeDrawTool
+type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand'
+```
+
 ## ShapeEditor
 
 <api-table path="editor/index.ts" name="ShapeEditor" />
@@ -28,6 +35,8 @@ Creates the shape editor of a graph made by [`mountGraph`](/docs/api/mount-graph
 
 <api-table path="editor/index.ts" name="ShapeEditorGesture" />
 
+<api-table path="editor/index.ts" name="ShapeEditorDrawing" />
+
 ### Events
 
 <api-table path="editor/index.ts" name="ShapeEditorEvents" />
@@ -37,10 +46,10 @@ Creates the shape editor of a graph made by [`mountGraph`](/docs/api/mount-graph
 ## Edits
 
 ```ts
-type ShapeEdit<M extends Mark = Mark> = ShapeAddEdit | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
+type ShapeEdit<M extends Mark = Mark> = ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
 ```
 
-The editor proposes `'change'` and `'remove'` edits. `'add'` edits come from drawing tools, and `applyShapeEdits` takes them too.
+The drawing tools, `duplicate` and the undo of a removal propose `'add'` edits; moves, reshapes, `raise`, `lower` and the undo of a move propose `'change'` edits; `remove` and the undo of a drawn shape propose `'remove'` edits.
 
 <api-table path="editor/index.ts" name="ShapeChangeEdit" />
 
@@ -62,7 +71,7 @@ function applyShapeEdits<T>(
 ): T[]
 ```
 
-Returns a new array: removed items left out, changed items copied with their new outline, the others unchanged, the new items at the end. `items` is not changed.
+Returns a new array: removed items left out, changed items copied with their new outline and order, the others unchanged, the new items at the end, copies of the `datum` of their edit when it has one. Several edits of one key in a batch apply in order: a shape added then removed is left out. `items` is not changed.
 
 <api-table path="editor/index.ts" name="ShapeEditFields" />
 
@@ -80,7 +89,8 @@ Draws the editor over its graph: the shapes being edited or waiting for their da
 
 - A graph that was not created by `mountGraph` or `mountMapGraph` throws an `Error`.
 - A second editor on the same graph throws an `Error`; destroy the first one before.
-- `hold` or `handleSize` negative or NaN throws a `RangeError`.
+- `hold`, `handleSize`, `history`, `snap.grid` or `snap.angle` negative or NaN throws a `RangeError`.
+- An unknown `tool`, in the options or in `setTool`, or unknown `units` throws a `TypeError`.
 - `mountShapeEditor` with an object that is not an editor throws an `Error`.
 
 ## Behavior
@@ -88,7 +98,12 @@ Draws the editor over its graph: the shapes being edited or waiting for their da
 - The editor takes a press before the graph, after the hit test: on a handle, on a shape it edits or on a shape waiting for its data. Any other press goes to the graph. A press with another button than the main one, or with Space held, goes to the graph.
 - A drag starts after 4 pixels with a mouse or a pen, 10 with touch. A drag selects nothing more than the press did, emits no `click` and no `dragstart`, and moves neither the view nor the map. A still press emits `click`, as without the editor.
 - A second finger cancels the gesture of the editor, with no edit, and pinches the view.
-- Keys reach the editor first while the graph element has the focus: arrows, Delete, Backspace and Escape, when a shape is selected or a gesture runs. Keys with Cmd, Ctrl or Alt go to the graph.
+- Keys reach the editor first while the graph element has the focus: arrows, Delete, Backspace and Escape, when a shape is selected or a gesture runs; Enter, Escape, Backspace and Delete while a shape is being drawn; Cmd or Ctrl and Z, Shift and Z, D, and Ctrl and Y. Other keys with Cmd, Ctrl or Alt go to the graph.
+- A drawing tool takes every press with the main button, without Space held, on shapes and nodes too. A press that ends a line or a polygon with a double click emits no `doubleclick` and folds no group. A new shape is selected as soon as it is proposed.
+- `setTool` drops the shape being drawn, and so does `update` with another tool. `cancel` drops it too, and Escape drops it before clearing the selection.
+- A rectangle or a circle of no size, a line of fewer than 2 distinct points and an area of fewer than 3 make no edit.
+- `undo` and `redo` do nothing during a gesture. They take back a whole batch: if one of its shapes changed since, the whole batch is skipped and forgotten, and the next one is tried. A new edit clears the redo list; `destroy` clears both.
+- `duplicate` copies the shapes 16 screen pixels lower and to the right, through the copied item. `raise` and `lower` give orders above the highest or under the lowest of the mark, and propose nothing for shapes already there.
 - During a gesture and while an edit waits for its data, the graph neither draws nor picks the shape, and the layer of `mountShapeEditor` draws it. Its label hides with it.
 - A change of the data of a shape ends its wait, whatever the change. A shape removed from the data during a gesture ends the gesture.
 - The selection and `selectionchange` are those of the graph. The editor writes the selection on a press with `graph.selection.set`, so a controlled selection receives the request.

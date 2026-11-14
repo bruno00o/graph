@@ -53,4 +53,19 @@ describe('applyShapeEdits', () => {
     ])
     expect(applyShapeEdits(items, edits, { key: (item) => item.code })).toHaveLength(1)
   })
+  it('copies the item of an add, writes orders, and folds edits of the same key', () => {
+    const edits: ShapeEdit[] = [
+      { type: 'add', key: 'd', mark: undefined, geometry: box(8), datum: zones[0] },
+      { type: 'change', key: 'd', mark: undefined, datum: undefined, geometry: box(9) },
+      { type: 'change', key: 'c', mark: undefined, datum: zones[2], order: 3 },
+      { type: 'add', key: 'e', mark: undefined, geometry: box(1) },
+      { type: 'remove', key: 'e', mark: undefined, datum: undefined },
+    ]
+    expect(applyShapeEdits(zones, edits, { order: 'rank' })).toEqual([
+      zones[0],
+      zones[1],
+      { id: 'c', name: 'C', geometry: box(4), rank: 3 },
+      { id: 'd', name: 'A', geometry: box(9) },
+    ])
+  })
 })

@@ -8,7 +8,13 @@ import type {
   GraphDevtoolsProps,
 } from './devtools'
 import type { GraphDevtoolsPanelProps } from './devtools/react'
-import type { ShapeChangeEdit, ShapeEditFields, ShapeEditorOptions } from './editor'
+import type {
+  ShapeAddEdit,
+  ShapeChangeEdit,
+  ShapeEditFields,
+  ShapeEditorOptions,
+  ShapeEditorSnap,
+} from './editor'
 import type { ShapeEditorProps, UseShapeEditorOptions } from './editor/react'
 import type { ExportOptions, PngExportOptions, SvgExportOptions } from './export'
 import type {
@@ -239,10 +245,12 @@ interface Inputs {
   ReadOptions: ReadOptions
   RingsOptions: RingsOptions<Item>
   ScalesOptions: ScalesOptions
+  ShapeAddEdit: ShapeAddEdit<Marks>
   ShapeChangeEdit: ShapeChangeEdit<Marks>
   ShapeEditFields: ShapeEditFields<Item>
   ShapeEditorOptions: ShapeEditorOptions<Marks>
   ShapeEditorProps: ShapeEditorProps<'muted', Marks>
+  ShapeEditorSnap: ShapeEditorSnap
   ShapeLabelOptions: ShapeLabelOptions<Item>
   ShapeOptions: ShapeOptions<Item>
   ShapeScalesOptions: ShapeScalesOptions

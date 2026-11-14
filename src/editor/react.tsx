@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useState, useSyncExternalStore } from 're
 import type { GraphInstance } from '../host/mount-graph'
 import { useGraphOf, useLatest } from '../react/context'
 import type { Mark } from '../types'
+import { randomKey } from './draw'
 import {
   createShapeEditor,
   type ShapeEditor as ShapeEditorInstance,
@@ -37,6 +38,10 @@ const emptyState: ShapeEditorState = Object.freeze({
   selected: Object.freeze([]),
   gesture: null,
   pending: Object.freeze([]),
+  tool: 'select',
+  drawing: null,
+  canUndo: false,
+  canRedo: false,
 })
 
 function sameMarks(a: Iterable<string> | undefined, b: Iterable<string> | undefined): boolean {
@@ -61,11 +66,17 @@ export function useShapeEditor<S extends string = string, M extends Mark = Mark>
   const [shown] = useState(() => ({ marks: options.marks as Iterable<string> | undefined }))
   useLayoutEffect(() => {
     if (!graph) return
-    const { marks, hold, handleSize } = latest.current
+    const { marks, hold, handleSize, tool, newMark, units, snap, history } = latest.current
     const created = createShapeEditor(graph, {
       marks,
       hold,
       handleSize,
+      tool,
+      newMark,
+      units,
+      snap,
+      history,
+      newKey: () => (latest.current.newKey ?? randomKey)(),
       onEdit: (edits: readonly ShapeEdit<M>[]) => latest.current.onEdit?.(edits),
     })
     shown.marks = marks as Iterable<string> | undefined
@@ -77,16 +88,22 @@ export function useShapeEditor<S extends string = string, M extends Mark = Mark>
       setEditor(null)
     }
   }, [graph, latest, shown])
-  const { marks, hold, handleSize } = options
+  const { marks, hold, handleSize, tool, newMark, units, history } = options
+  const grid = options.snap?.grid
+  const angle = options.snap?.angle
   useLayoutEffect(() => {
     if (!editor) return
     const names = marks as Iterable<string> | undefined
-    if (sameMarks(shown.marks, names)) editor.update({ hold, handleSize })
+    const settings = { hold, handleSize, newMark, units, history, snap: { grid, angle } }
+    if (sameMarks(shown.marks, names)) editor.update(settings)
     else {
       shown.marks = names
-      editor.update({ marks, hold, handleSize })
+      editor.update({ ...settings, marks })
     }
-  }, [editor, marks, hold, handleSize, shown])
+  }, [editor, marks, hold, handleSize, newMark, units, history, grid, angle, shown])
+  useLayoutEffect(() => {
+    if (editor && tool !== undefined) editor.setTool(tool)
+  }, [editor, tool])
   const subscribe = useCallback(
     (notify: () => void) => {
       if (!editor) return () => {}

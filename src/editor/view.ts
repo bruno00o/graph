@@ -40,11 +40,15 @@ export function mountShapeEditor<M extends Mark>(editor: ShapeEditor<M>): ShapeE
   element.style.cssText =
     'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden'
   const shapes = document.createElementNS(svgNamespace, 'g')
+  const sketch = path(
+    `fill:none;stroke:${accent};stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round`,
+  )
+  sketch.setAttribute('fill-rule', 'evenodd')
   const box = path(`fill:none;stroke:${accent};stroke-width:1;stroke-dasharray:4 3`)
   const middles = path(`fill:${paper};stroke:${accent};stroke-width:1;opacity:0.75`)
   const handles = path(`fill:${paper};stroke:${accent};stroke-width:1.5`)
   const active = path(`fill:${accent};stroke:${accent};stroke-width:1.5`)
-  element.append(shapes, box, middles, handles, active)
+  element.append(shapes, box, middles, handles, active, sketch)
   drawing.element.append(element)
   let shown: EditorFrame | null = null
 
@@ -60,16 +64,18 @@ export function mountShapeEditor<M extends Mark>(editor: ShapeEditor<M>): ShapeE
       shapes.append(preview)
     }
     frame.shapes.forEach((shape, index) => {
-      const preview = shapes.children[index]
+      const preview = shapes.children[index] as SVGPathElement | undefined
       if (!preview) return
       preview.setAttribute('d', shape.d)
-      preview.setAttribute('fill', shape.fill ?? 'none')
-      preview.setAttribute('stroke', shape.stroke && shape.width > 0 ? shape.stroke : 'none')
+      preview.style.fill = shape.fill ?? 'none'
+      preview.style.stroke = shape.stroke && shape.width > 0 ? shape.stroke : 'none'
       preview.setAttribute('stroke-width', String(shape.width))
       preview.setAttribute('stroke-linecap', shape.dash === 2 ? 'round' : 'butt')
       preview.setAttribute('stroke-dasharray', dashOf(shape.dash, shape.width))
       preview.setAttribute('opacity', String(shape.opacity))
     })
+    sketch.setAttribute('d', frame.drawing)
+    sketch.style.fill = frame.drawingFill ? `color-mix(in srgb,${accent} 20%,transparent)` : 'none'
     box.setAttribute('d', frame.box)
     middles.setAttribute('d', frame.middles)
     handles.setAttribute('d', frame.handles)
