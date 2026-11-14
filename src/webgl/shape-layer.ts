@@ -30,6 +30,7 @@ import {
   shapeRingPolygon,
   shapeRoundFragment,
   shapeRoundVertex,
+  shapeShiftAt,
   shapeStateUnit,
   shapeStrokeFragment,
   shapeStrokeVertex,
@@ -56,6 +57,7 @@ interface Pass {
   readonly flags: WebGLUniformLocation | null
   readonly hidden: WebGLUniformLocation | null
   readonly pass: WebGLUniformLocation | null
+  readonly shifts: WebGLUniformLocation | null
 }
 
 type ProgramKind = 'fill' | 'stroke' | 'round'
@@ -134,6 +136,7 @@ const roundStride = 28
 const windowVertices = (shapeWindow + 1) * 2
 const tolerance = 0.5
 const coverMargin = 0.5
+const fillChunk = 3 * 2 ** 15
 const strokeReach = 32
 const noWindows = new Uint32Array(0)
 
@@ -227,7 +230,10 @@ export function createShapeLayer(
 ): ShapeLayer {
   let passes: Passes | null = null
   let version = -1
+  let geometryVersion = -1
   let fillVersion = -1
+  let shiftVersion = -1
+  const shifts = new Float32Array(16)
   let styleVersion = -1
   let draftVersion = 0
   const widths = new Float32Array(1)
@@ -289,6 +295,7 @@ export function createShapeLayer(
       flags: gl.getUniformLocation(made, 'shapeFlags'),
       hidden: gl.getUniformLocation(made, 'hiddenShapes'),
       pass: gl.getUniformLocation(made, 'shapePass'),
+      shifts: gl.getUniformLocation(made, 'shapeShifts'),
     }
   }
 
@@ -389,7 +396,7 @@ export function createShapeLayer(
   function writePlace(store: ShapeStore, originX: number, originY: number): void {
     const labels = store.labels
     if (!place && store.pinCount === 0 && !labels) return
-    const key = `${store.version}:${store.styleVersion}:${store.anchorVersion}:${originX}:${originY}`
+    const key = `${store.version}:${store.geometryVersion}:${store.styleVersion}:${store.anchorVersion}:${originX}:${originY}`
     if (place && key === placeKey) return
     placeKey = key
     place ??= new DataTexture(gl, formats(gl).rgba32f, (length) => new Float32Array(length))
@@ -442,6 +449,7 @@ export function createShapeLayer(
 
   function writeStyle(store: ShapeStore, data: Uint32Array, index: number): void {
     const at = index * 4
+    const draft = store.draft[index] ?? 0
     if (store.alive[index] !== 1) {
       data[at] = 0xffffffff
       data[at + 1] = 0xffffffff
@@ -456,17 +464,24 @@ export function createShapeLayer(
       ((store.dash[index] ?? 0) |
         (Math.round((store.opacity[index] ?? 1) * 255) << 8) |
         (((store.slot[index] ?? 0) & 255) << 16) |
-        (store.draft[index] === 1 ? 0 : shapeAlive)) >>>
+        (draft === 1 ? 0 : shapeAlive) |
+        (draft > 1 ? (draft - 1) << shapeShiftAt : 0)) >>>
       0
   }
 
   function writeDrafts(store: ShapeStore, made: Passes): void {
     const data = made.styles.data
+    let low = store.capacity
+    let high = -1
     for (const index of store.draftTouched) {
       if (index >= store.capacity) continue
       writeStyle(store, data, index)
-      made.styles.upload(index, index)
+      low = Math.min(low, index)
+      high = Math.max(high, index)
+      if (detailed && parts[index]?.cull) edits.push(index)
     }
+    if (high >= low) made.styles.upload(low, high)
+    if (edits.length > maxEdits) restamp()
   }
 
   function writeStyles(store: ShapeStore, made: Passes): void {
@@ -772,10 +787,11 @@ export function createShapeLayer(
     return changed
   }
 
-  function outside(entry: Parts, cover: Frame['cover'], reach: number): boolean {
+  function outside(index: number, entry: Parts, cover: Frame['cover'], reach: number): boolean {
     return (
       cover !== null &&
       entry.cull &&
+      (built?.draft[index] ?? 0) < 2 &&
       entry.round < 0 &&
       (entry.maxX + reach < cover[0] ||
         entry.minX - reach > cover[2] ||
@@ -792,7 +808,7 @@ export function createShapeLayer(
       const index = edits[at] ?? 0
       const entry = parts[index]
       if (!entry || entry.round >= 0) continue
-      const shown = !outside(entry, frame.cover, frame.reach)
+      const shown = !outside(index, entry, frame.cover, frame.reach)
       const level = frame.lod ? levelOf(entry, scale) : 0
       const fill = shown ? (entry.fills[level] ?? entry.fills[0] ?? noWindows) : noWindows
       const stroke = shown ? (entry.windows[level] ?? entry.windows[0] ?? noWindows) : noWindows
@@ -891,7 +907,7 @@ export function createShapeLayer(
       const entry = parts[index]
       if (!entry) continue
       const isRound = entry.round >= 0
-      if (outside(entry, cover, reach)) continue
+      if (outside(index, entry, cover, reach)) continue
       if (
         !current ||
         current.round !== isRound ||
@@ -952,13 +968,19 @@ export function createShapeLayer(
     gl.uniform1ui(pass.flags, flags)
     gl.uniform4uiv(pass.hidden, hidden)
     gl.uniform1i(pass.pass, shapePass)
+    gl.uniform2fv(pass.shifts, shifts)
   }
 
   function drawFill(frame: Frame, pin: boolean, first: number, count: number) {
     if (count <= 0) return
     use(passOf('fill', pin), current.hidden, current.pass)
     gl.bindVertexArray(frame.fillVao)
-    gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, first * 4)
+    const end = first + count
+    for (let at = first; at < end; ) {
+      const next = Math.min(end, (Math.floor(at / fillChunk) + 1) * fillChunk)
+      gl.drawElements(gl.TRIANGLES, next - at, gl.UNSIGNED_INT, at * 4)
+      at = next
+    }
   }
 
   function drawStroke(frame: Frame, pin: boolean, first: number, count: number) {
@@ -1046,7 +1068,11 @@ export function createShapeLayer(
       if (moved || built !== store) {
         rebuild(store, made)
         changed = true
-      } else if (store.version !== version || store.fillVersion !== fillVersion) {
+      } else if (
+        store.version !== version ||
+        store.geometryVersion !== geometryVersion ||
+        store.fillVersion !== fillVersion
+      ) {
         changed = update(store, made)
       }
       if (store.styleVersion !== styleVersion || grown || store.draftVersion > draftVersion + 1) {
@@ -1057,9 +1083,15 @@ export function createShapeLayer(
         changed = true
       }
       if (writeStates(states, made, grown)) changed = true
+      if (store.shiftVersion !== shiftVersion) {
+        shiftVersion = store.shiftVersion
+        for (let at = 0; at < 14; at++) shifts[at + 2] = store.shift[at] ?? 0
+        changed = true
+      }
       writePlace(store, originX, originY)
       shown = store
       version = store.version
+      geometryVersion = store.geometryVersion
       fillVersion = store.fillVersion
       styleVersion = store.styleVersion
       draftVersion = store.draftVersion

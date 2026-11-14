@@ -1,5 +1,6 @@
 import { dev } from '../dev'
 import type { Key, Mark } from '../types'
+import { ChangeLog } from './change-log'
 import type { ElementChanges } from './graph-model'
 import type { AnyIssue } from './issues'
 import type { Palette } from './palette'
@@ -21,10 +22,21 @@ export interface PinNodes {
   readonly slot: Uint16Array
 }
 
+export interface ShapeShift {
+  readonly keys: readonly Key[]
+  readonly x: number
+  readonly y: number
+}
+
 export const unpinned = -1
 export const pendingPin = -2
+export const shiftSlots = 7
 
 const noOrder = new Uint32Array(0)
+
+function same(a: readonly number[], b: readonly number[]): boolean {
+  return a.length === b.length && a.every((value, at) => value === b[at])
+}
 
 export class ShapeStore {
   capacity = 0
@@ -43,6 +55,9 @@ export class ShapeStore {
   readonly geometry: (ShapeGeometryData | null)[] = []
   readonly keys: (Key | undefined)[] = []
   version = 0
+  geometryVersion = 0
+  readonly moved: ChangeLog = new ChangeLog()
+  pickVersion = 0
   fillVersion = 0
   styleVersion = 0
   issueVersion = 0
@@ -58,11 +73,14 @@ export class ShapeStore {
   draft: Uint8Array = new Uint8Array(0)
   draftVersion = 0
   draftTouched: readonly number[] = []
+  readonly shift: Float64Array = new Float64Array(shiftSlots * 2)
+  shiftVersion = 0
   wake: () => void = () => {}
   readonly palette: Palette
   readonly nodes: PinNodes | null
   #writer: ShapeWriter | null = null
   #drafted: readonly number[] = []
+  #kinds: readonly number[] = []
   #warned = false
 
   constructor(palette: Palette, nodes: PinNodes | null = null) {
@@ -106,19 +124,32 @@ export class ShapeStore {
     } else if (changes) this.count += changes.added.length - changes.removed.length
   }
 
-  setDrafts(indices: readonly number[]): void {
+  setDrafts(indices: readonly number[], kinds: readonly number[] = []): void {
     const before = this.#drafted
-    if (before.length === indices.length && before.every((index, i) => index === indices[i])) return
+    if (same(before, indices) && same(this.#kinds, kinds)) return
     if (this.draft.length < this.capacity) {
       const grown = new Uint8Array(this.capacity)
       grown.set(this.draft)
       this.draft = grown
     }
     for (const index of before) this.draft[index] = 0
-    for (const index of indices) this.draft[index] = 1
+    indices.forEach((index, at) => {
+      this.draft[index] = kinds[at] ?? 1
+    })
     this.draftTouched = [...before, ...indices]
     this.#drafted = [...indices]
+    this.#kinds = [...kinds]
     this.draftVersion++
+    const shown = before.filter((index) => this.draft[index] !== 1)
+    if (shown.length > 0) this.#writer?.revealed(shown)
+  }
+
+  setShift(slot: number, x: number, y: number): void {
+    const at = slot * 2
+    if (this.shift[at] === x && this.shift[at + 1] === y) return
+    this.shift[at] = x
+    this.shift[at + 1] = y
+    this.shiftVersion++
   }
 
   pinned(index: number): boolean {

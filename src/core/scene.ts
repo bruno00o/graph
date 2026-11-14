@@ -1200,6 +1200,8 @@ export function createScene(
     const stroke = look.stroke?.(datum)
     const fillColor = fill === null ? null : (toColor(fill) ?? tint(color))
     const strokeColor = stroke === null ? null : (toColor(stroke) ?? color)
+    const fillBefore = (shapes.fill[index] ?? noColor) === noColor
+    const strokeBefore = (shapes.stroke[index] ?? noColor) === noColor
     shapes.fill[index] = swapColor(
       palette,
       shapes.fill[index] ?? noColor,
@@ -1212,6 +1214,12 @@ export function createScene(
       strokeColor,
       stroke === null ? noColor : shapeStroke,
     )
+    if (
+      fillBefore !== (shapes.fill[index] === noColor) ||
+      strokeBefore !== (shapes.stroke[index] === noColor)
+    ) {
+      shapes.pickVersion++
+    }
     const derived =
       (fill !== null && toColor(fill) === null) || (stroke !== null && toColor(stroke) === null)
     const held = !look.colorRaw && color !== null && derived ? value : undefined
