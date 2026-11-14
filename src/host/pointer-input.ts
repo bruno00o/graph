@@ -20,6 +20,7 @@ import { lensContains } from './lens'
 import type { LensControl } from './lens-control'
 import type { HostPicker } from './picking'
 import type { PointerTool, ToolPointer } from './pointer-tool'
+import { positionEvent } from './position-event'
 import type { PositionMotion } from './position-motion'
 import type { SelectionControl } from './selection-control'
 import type { SpreadHost } from './spread'
@@ -595,7 +596,7 @@ export class PointerInput {
         const index = drag.indices[i] ?? 0
         moved.set(key, { x: positions.x(index), y: positions.y(index) })
       })
-      emitter.emit('positionchange', { origin: 'drag', positions: moved })
+      emitter.emit('positionchange', positionEvent('drag', moved, this.#source.surface !== null))
     }
     this.#source.request()
   }

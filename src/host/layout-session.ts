@@ -12,6 +12,7 @@ import type { Emitter } from './events'
 import type { GraphLayout, GraphState } from './graph-instance'
 import { checkDuration, checkFit } from './inputs'
 import { layoutGraph } from './layout-graph'
+import { positionEvent } from './position-event'
 import type { PositionMotion } from './position-motion'
 import { clearRoom } from './room'
 import type { SpreadHost } from './spread'
@@ -248,7 +249,8 @@ export class LayoutHost {
           continue
         moved.set(key, { x: positions.x(index), y: positions.y(index) })
       }
-      if (moved.size > 0) emitter.emit('positionchange', { origin: 'layout', positions: moved })
+      if (moved.size > 0)
+        emitter.emit('positionchange', positionEvent('layout', moved, this.#source.onMap))
     }
     if (completed) {
       views.frameLayout()

@@ -142,7 +142,7 @@ export function afterDestroy<S extends string, M extends Mark>(
       has: (name, target) => has(state().states[name], target.kind, target.key),
       get: (name) => state().states[name] ?? emptyKeys(shaped()),
     },
-    positions: { get: () => undefined, set: nothing, snapshot: () => new Map() },
+    positions: { get: () => undefined, set: nothing, reset: nothing, snapshot: () => new Map() },
     layout: { run: () => Promise.resolve(false), stop: nothing },
     anchors: { set: () => nothing, remove: nothing },
     groups: {

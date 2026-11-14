@@ -120,6 +120,7 @@ function render(
     arch?: number
     bridges?: BridgeShape
     waypoints?: boolean
+    badges?: boolean
   } = {},
 ): string {
   const model = createGraphModel()
@@ -232,6 +233,7 @@ function render(
     images: new Map([['icon.svg', { href: 'data:image/svg+xml,%3Csvg%2F%3E', aspect: 2 }]]),
     title: 'Sample <graph>',
     ...(extra.time !== undefined ? { time: extra.time } : {}),
+    ...(extra.badges !== undefined ? { badges: extra.badges } : {}),
     ...(extra.arch !== undefined ? { bundles: arches(scene.edges, positions, extra.arch) } : {}),
     ...(extra.bridges ? { bridges } : {}),
     ...(extra.waypoints ? { bundles: waypointPaths(scene.edges) } : {}),
@@ -686,6 +688,22 @@ describe('writeSvg', () => {
     expect(svg).toMatch(
       /scale\(0.495\)" text-anchor="middle" font-size="24" font-weight="500" fill="#f7f7f4">7<\/text>/,
     )
+  })
+
+  it('leaves the badges out when asked', () => {
+    const options: GraphDefinitionOptions = {
+      marks: [
+        nodes<Item>([{ id: 'a', x: 0, y: 0 }], {
+          x: 'x',
+          y: 'y',
+          size: () => 40,
+          badges: { topRight: () => ({ text: 7 }) },
+        }),
+      ],
+      scales: { size: (value) => value },
+    }
+    expect(render(options, {}, { badges: false })).not.toContain('>7</text>')
+    expect(render(options, {}, { badges: true })).toContain('>7</text>')
   })
 
   const boxes = (

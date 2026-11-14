@@ -227,6 +227,8 @@ The map owns the camera. Dragging the background, the wheel, pinches and double 
 
 The graph owns its elements: hover, clicks, the selection, the lasso and node drags. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom, and a double click on a node does not zoom the map.
 
+A dragged node stays where it was dropped, even when its data says otherwise, until its own coordinates change. `graph.positions.reset()` puts every node back on its `longitude` and `latitude`, with a glide, and `reset(keys)` only some. `positionchange` carries `geo`, the moved nodes in degrees, and `persistPositions` writes them into the fields you name with `longitude` and `latitude`. See [Positions](/docs/positions#put-nodes-back).
+
 `graph.view.set`, `fit` and `zoomBy` move the map, animations included, and the keyboard of the graph does too: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit. `update({ view })` has no effect: move the map instead.
 
 The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch, and gives them back when the last graph on the map is destroyed. On a flat map, the graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
@@ -312,6 +314,8 @@ import { exportMapPng } from '@bruno00o/graph/map'
 
 const png = await exportMapPng(graph, { pixelRatio: 2 })
 ```
+
+`badges: false` leaves the badges of the nodes out. The image has the size of the map times `pixelRatio`: the exact `size` of `exportPng` does not apply, because the map draws the area its camera shows.
 
 The attribution is the text the map shows, or else the attribution of its sources. Pass `attribution` to write your own. On the globe, the image shows the globe as on screen. `exportPng` and `exportSvg` from [`@bruno00o/graph/export`](/docs/export) draw the graph alone, without the map: `exportPng` follows the globe for the region on screen, and `exportSvg` always draws the flat map.
 

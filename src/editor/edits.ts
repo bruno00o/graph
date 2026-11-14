@@ -23,7 +23,11 @@ export type ShapeItem<M extends Mark = Mark> =
       ? never
       : unknown
 
-/** A new shape: drawn, duplicated, or brought back by an undo. */
+/**
+ * A new shape: drawn, duplicated, or brought back by an undo. `M` is one shape mark for exact
+ * types, or the union of the marks, where `mark` and `datum` are unions: `ShapeEdit<M>` splits that
+ * union by mark.
+ */
 export interface ShapeAddEdit<M extends Mark = Mark> {
   /** Always `'add'`. */
   readonly type: 'add'
@@ -77,14 +81,39 @@ export interface ShapeRemoveEdit<M extends Mark = Mark> {
   readonly datum: ShapeItem<M>
 }
 
+type EditsOfMark<M extends Mark> = M extends { readonly type: 'shapes' }
+  ? ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
+  : never
+
+type AddsOfMark<M extends Mark> = M extends { readonly type: 'shapes' } ? ShapeAddEdit<M> : never
+
+type MarksNamed<M extends Mark, N> = M extends {
+  readonly type: 'shapes'
+  readonly name: infer Name
+}
+  ? Exclude<Name, undefined> extends N
+    ? M
+    : never
+  : never
+
 /**
- * A change the editor proposes to the data: `'add'`, `'change'` or `'remove'`. Narrow on `type`.
+ * A change the editor proposes to the data: `'add'`, `'change'` or `'remove'`. Narrow on `type`,
+ * then on `mark`: with several shape marks, each edit carries the `datum` type of its own mark.
  * `M` is the union of the marks of the graph.
  */
-export type ShapeEdit<M extends Mark = Mark> =
-  | ShapeAddEdit<M>
-  | ShapeChangeEdit<M>
-  | ShapeRemoveEdit<M>
+export type ShapeEdit<M extends Mark = Mark> = [EditsOfMark<M>] extends [never]
+  ? ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
+  : EditsOfMark<M>
+
+/**
+ * The new shapes of the marks named `N` among the marks `M`, one type per mark. `N` is a name or a
+ * union of names; without a match, the new shapes of every mark.
+ */
+export type ShapeAddEditOf<M extends Mark = Mark, N extends string = ShapeMarkName<M>> = [
+  AddsOfMark<MarksNamed<M, N>>,
+] extends [never]
+  ? ShapeAddEdit<M>
+  : AddsOfMark<MarksNamed<M, N>>
 
 /** Options of `applyShapeEdits`. `T` is the type of the items. */
 export interface ShapeEditFields<T> {

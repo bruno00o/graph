@@ -144,6 +144,15 @@ The selection, and the members of a state, hold `shapes` when the definition has
 
 Positions are in world units. `set` emits `positionchange` with the origin `'api'`. During a layout run, the nodes moved by `set` are pinned until the run ends. An entry whose `x` or `y` is not finite is skipped, with a warning in development: see [Numbers](#numbers).
 
+`reset` puts nodes back where their data places them, after a drag or a `positions.set`: through the `x` and `y` channels, or `longitude` and `latitude`, on a map or not. It takes the keys to put back, or every node without them. A node whose data gives no position stays, as does a node already there and a node that a group [spreads](/docs/groups#spread-children) around its place. The nodes glide over `duration`, `transitions.positions` by default, are pinned in a running layout until it ends, and `positionchange` fires with the origin `'api'` for the nodes that moved.
+
+```ts
+graph.positions.reset()
+graph.positions.reset(['n1', 'n2'], { duration: 0 })
+```
+
+<api-table path="index.ts" name="PositionResetOptions" />
+
 `snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it.
 
 ```ts

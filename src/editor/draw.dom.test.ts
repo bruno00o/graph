@@ -528,6 +528,42 @@ describe('duplicate, order, undo and redo', () => {
     graph.destroy()
   })
 
+  it('tells whether raise and lower would propose something for the selection', () => {
+    zones = [
+      { id: 'a', geometry: { x: 0, y: 0, width: 10, height: 10 }, order: 2 },
+      { id: 'b', geometry: { x: 0, y: 0, width: 10, height: 10 }, order: 3 },
+      { id: 'c', geometry: { x: 0, y: 0, width: 10, height: 10 }, order: 5 },
+    ]
+    const graph = mount()
+    const { editor, batches } = editorOf(graph)
+    const reach = () => [editor.store.state.canRaise, editor.store.state.canLower]
+    expect(reach()).toEqual([false, false])
+    graph.selection.set({ nodes: [], edges: [], shapes: ['b'] })
+    dom.flushFrames()
+    expect(reach()).toEqual([true, true])
+    graph.selection.set({ nodes: [], edges: [], shapes: ['c'] })
+    dom.flushFrames()
+    expect(reach()).toEqual([false, true])
+    editor.raise()
+    expect(batches).toHaveLength(0)
+    graph.selection.set({ nodes: [], edges: [], shapes: ['a'] })
+    dom.flushFrames()
+    expect(reach()).toEqual([true, false])
+    editor.lower()
+    expect(batches).toHaveLength(0)
+    graph.selection.set({ nodes: [], edges: [], shapes: ['a', 'c'] })
+    dom.flushFrames()
+    expect(reach()).toEqual([true, true])
+    editor.raise()
+    expect(batches).toHaveLength(1)
+    apply(graph, batches[0] ?? [])
+    expect(reach()).toEqual([false, true])
+    graph.selection.set({ nodes: [], edges: [], shapes: [] })
+    dom.flushFrames()
+    expect(reach()).toEqual([false, false])
+    graph.destroy()
+  })
+
   it('undoes and redoes its own edits, and skips the ones changed since', () => {
     const graph = mount()
     const { editor, batches } = editorOf(graph)

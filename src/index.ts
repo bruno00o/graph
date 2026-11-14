@@ -88,6 +88,7 @@ export type {
   GraphView,
   LayoutRunOptions,
   MountGraphOptions,
+  PositionResetOptions,
   PositionSnapshotOptions,
   ViewOptions,
 } from './host/mount-graph'

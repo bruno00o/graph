@@ -105,7 +105,7 @@ An edge drawn for several edges, between [folded groups](/docs/groups) or [merge
 - `hidden` lists the names of the hidden layers after the change, in the order of the marks. See [Multilayer graphs](/docs/multilayer).
 - `issues` lists the problems present in the data once a data change is applied, as [`graph.issues()`](/docs/api/graph-instance#issues) returns them, empty once they are all fixed. `issueschange` fires only when that list changes. A handler subscribed after the first data arrived reads the current list with `graph.issues()`.
 - `loadingchange` carries the new `data` of the store: `loading` is `true` while a live source of the definition is loading, and `failed` lists the sources whose load failed. It fires once the change is applied, with the data the sources delivered. See [Loading](/docs/data#loading).
-- `positions` holds the target positions. Moves that come from your data do not emit `positionchange`.
+- `positions` holds the target positions. Moves that come from your data do not emit `positionchange`. On a map, `geo` holds the same positions as longitude and latitude in degrees, with the longitude brought back to -180 up to 180.
 - With the origin `'layout'`, `positions` holds every node the run moved. A stopped run emits nothing.
 - `name` is the name of the layout, `'force'` for [`force()`](/docs/api/force). `completed` is `false` when the run was stopped or replaced.
 

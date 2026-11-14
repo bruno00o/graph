@@ -51,6 +51,8 @@ type ShapeDrawTool = 'rectangle' | 'circle' | 'line' | 'polygon' | 'freehand' | 
 type ShapeEdit<M extends Mark = Mark> = ShapeAddEdit<M> | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
 ```
 
+With several shape marks, `ShapeEdit<M>` is split by mark: each shape mark of `M` gives its own three edit types, so narrowing on `type` and then on `mark` gives the `datum` type of that mark. Without any shape mark in `M`, and for the plain `Mark` type, it is the union above, with the items of all marks.
+
 The drawing tools, `duplicate` and the undo of a removal propose `'add'` edits; moves, reshapes, text, `raise`, `lower` and the undo of a move propose `'change'` edits; `remove` and the undo of a drawn shape propose `'remove'` edits.
 
 <api-table path="editor/index.ts" name="ShapeChangeEdit" />
@@ -59,7 +61,7 @@ The drawing tools, `duplicate` and the undo of a removal propose `'add'` edits; 
 
 <api-table path="editor/index.ts" name="ShapeAddEdit" />
 
-`ShapeMarkName<M>` is the union of the names of the shape marks among `M`, and `ShapeItem<M>` the union of their item types; both are wide for the plain `Mark` type.
+`ShapeMarkName<M>` is the union of the names of the shape marks among `M`, and `ShapeItem<M>` the union of their item types; both are wide for the plain `Mark` type. `ShapeAddEditOf<M, N>` is the `'add'` edits of the marks named `N`, one type per mark: it types the edits that `create` receives in [`persistShapes`](/docs/api/persist-shapes) with a `mark`.
 
 ## applyShapeEdits
 
@@ -114,7 +116,7 @@ Draws the editor over its graph: the shapes being edited or waiting for their da
 - `setTool` drops the shape being drawn, and so does `update` with another tool. `cancel` drops it too, and Escape drops it before clearing the selection.
 - A rectangle or a circle of no size, a line of fewer than 2 distinct points and an area of fewer than 3 make no edit.
 - `undo` and `redo` do nothing during a gesture. They take back a whole batch: if one of its shapes changed since, the whole batch is skipped and forgotten, and the next one is tried. A new edit clears the redo list; `destroy` clears both.
-- `duplicate` copies the shapes 16 screen pixels lower and to the right, through the copied item. `raise` and `lower` give orders above the highest or under the lowest of the mark, and propose nothing for shapes already there.
+- `duplicate` copies the shapes 16 screen pixels lower and to the right, through the copied item. `raise` and `lower` give orders above the highest or under the lowest of the mark, and propose nothing for shapes already there; `canRaise` and `canLower` of the state say, for the selection, whether they would propose something.
 - During a gesture and while an edit waits for its data, the graph neither draws nor picks the shape, and the layer of `mountShapeEditor` draws it. Its label hides with it.
 - A change of the data of a shape ends its wait, whatever the change. A shape removed from the data during a gesture ends the gesture.
 - The selection and `selectionchange` are those of the graph. The editor writes the selection on a press with `graph.selection.set`, so a controlled selection receives the request.

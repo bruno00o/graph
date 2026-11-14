@@ -6,10 +6,12 @@ description: Write the edits of a shape editor to a TanStack DB collection.
 ```ts
 import { persistShapes } from '@bruno00o/graph/db'
 
-function persistShapes<T extends object, TKey extends string | number, M extends Mark>(
-  editor: ShapeEditor<M>,
-  options: PersistShapesOptions<T, TKey, M>,
-): () => void
+function persistShapes<
+  T extends object,
+  TKey extends string | number,
+  M extends Mark,
+  N extends ShapeMarkName<M> = ShapeMarkName<M>,
+>(editor: ShapeEditor<M>, options: PersistShapesOptions<T, TKey, M, N>): () => void
 ```
 
 Listens to the `edit` event of a [shape editor](/docs/api/editor) and writes each edit into the collection: the changed fields of a changed shape, the removal of a removed one and, with `create`, the row of a new one. Returns a function that stops writing. Throws when `pendingState` is not a free state of the definition, when `live` is negative or NaN, and when `editor` was not made by `createShapeEditor`.
@@ -29,7 +31,7 @@ Listens to the `edit` event of a [shape editor](/docs/api/editor) and writes eac
 - A write that fails, or a mutation that rejects, emits `editlost` on the editor with the edits it carried, after TanStack DB has rolled the rows back.
 - With `live`, the shapes of a gesture are written while it runs, at most once per period, and the release is written at once. A cancelled gesture, by Escape, a second finger, `editor.cancel()`, the removal of one of its shapes or the end of the editor, writes the shapes back as they were. Only the edits of the release can be lost: a failed write during the gesture is followed by the next one.
 - With `pendingState`, a shape joins that state when it is written and leaves it once its write is done or has failed.
-- An edit whose row is not in the collection is skipped, so two `persistShapes` on two collections each keep to their own rows. `mark` keeps to one mark when the keys could collide.
+- An edit whose row is not in the collection is skipped, so two `persistShapes` on two collections each keep to their own rows. `mark` keeps to one mark when the keys could collide, and narrows the edits that `create` receives to the marks of that name, with the `datum` type of their items.
 - Writes that come from elsewhere never go back out: the editor emits edits for gestures and keys only.
 
 See [Editing shapes](/docs/editing-shapes#saving-edits) for a walkthrough.

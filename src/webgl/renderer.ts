@@ -741,6 +741,7 @@ function createRenderer(
   let badgeData = new ArrayBuffer(badgeStride * 64)
   let badgeCount = 0
   let badgesStale = false
+  let badgesOn = true
   let badgeGeneration = -1
 
   function packNode(nodes: NodeColumns, index: number): void {
@@ -1659,8 +1660,10 @@ function createRenderer(
       }
     }
     const layer = set.layer
-    draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
-    draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
+    if (badgesOn) {
+      draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
+      draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
+    }
     shapeLayer?.drawLabels(set, 0, layerFilter)
     draw(labelProgram, set.edgeMain, layer.edgeMain.count, 0, 0)
     draw(labelProgram, set.main, layer.main.count, 0, 0)
@@ -1671,7 +1674,7 @@ function createRenderer(
       edgeHalf = 0
     }
     draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
-    if (nodeOverlayCount > 0) {
+    if (nodeOverlayCount > 0 && badgesOn) {
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
       draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
     }
@@ -1915,6 +1918,11 @@ function createRenderer(
         touch()
       }
       flowTime = frame.time ?? 0
+      const badgeFlag = frame.badges !== false
+      if (badgeFlag !== badgesOn) {
+        badgesOn = badgeFlag
+        touch()
+      }
       const area: LabelArea = frame.labels ?? visibleArea(frame)
       const all = area.mode === 'all'
       gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)

@@ -53,6 +53,7 @@ export interface RenderFrame {
   readonly pixelRatio: number
   readonly labels?: LabelArea
   readonly time?: number
+  readonly badges?: boolean
   readonly globe?: GlobeCamera | null
   readonly window?: TimeFilter | null
   readonly layers?: LayerFilter | null
