@@ -112,6 +112,8 @@ export type {
   GraphView,
   HostDriver,
   HostSurface,
+  LayoutComputeOptions,
+  LayoutOthers,
   LayoutRunOptions,
   MountGraphOptions,
   PositionSnapshotOptions,
@@ -1236,7 +1238,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       endReason ??= destroyedReason()
       unregister()
       probe = null
-      layouts.destroy()
+      layouts.destroy(endReason)
       scheduler.cancelFrame()
       pointer.stopMoves()
       scheduler.cancelLater()

@@ -280,10 +280,24 @@ export interface GraphLayers<L extends string = string> {
   set(hidden: KeyList<L>): void
 }
 
+/**
+ * What a layout run makes of the nodes left out of its `keys`: `'anchors'` keeps them in the
+ * graph it lays out, still, so moving nodes settle around them; `'ignored'` leaves them out, with
+ * their edges, so the keys are laid out as a whole graph of their own.
+ */
+export type LayoutOthers = 'anchors' | 'ignored'
+
 /** Options of `layout.run`. */
 export interface LayoutRunOptions {
-  /** Nodes to lay out. The others stay still and act as anchors. */
+  /** Nodes to lay out. The others stay still and act as anchors, unless `others` is `'ignored'`. */
   readonly keys?: KeyList | undefined
+  /**
+   * What the nodes left out of `keys` are to the run: `'anchors'` or `'ignored'`. With
+   * `'ignored'`, a force run on the keys starts with full energy and its pull to the center, as a
+   * run on the whole graph does.
+   * @default 'anchors'
+   */
+  readonly others?: LayoutOthers | undefined
   /**
    * Frames the result: every node and shape with `true`, or the `nodes`, `edges` and `shapes` of
    * fit options, every node and shape when they name none. A result reported at once is framed
@@ -297,15 +311,35 @@ export interface LayoutRunOptions {
   readonly duration?: number | undefined
 }
 
+/** Options of `layout.compute`. */
+export interface LayoutComputeOptions {
+  /** Nodes to lay out. Defaults to every free node. */
+  readonly keys?: KeyList | undefined
+  /**
+   * What the nodes left out of `keys` are to the layout: `'anchors'` or `'ignored'`, as for a run.
+   * @default 'anchors'
+   */
+  readonly others?: LayoutOthers | undefined
+  /** Stops the computation when aborted: the promise then rejects with the reason of the signal. */
+  readonly signal?: AbortSignal | undefined
+}
+
 /** Layout runs of a graph. `M` is the union of the marks, whose node items layouts read. */
 export interface GraphLayout<M extends Mark = Mark> {
   /**
    * Applies pending data changes, then lays out every free node, or only `keys`, with `layout` or
    * the layout of the definition. Resolves to `true` when the run ends and `false` when it is
-   * stopped or replaced. Rejects when there is no layout to run, the graph is on a map, or an
-   * option holds a number that is not finite.
+   * stopped or replaced. Rejects when there is no layout to run, the graph is on a map, an option
+   * holds a number that is not finite, or `others` is not one of its values.
    */
   run(layout?: Layout<NodeDatum<M>>, options?: LayoutRunOptions): Promise<boolean>
+  /**
+   * Applies pending data changes, then computes `layout`, or the layout of the definition, from
+   * the current positions, and resolves to the positions it gives the nodes it lays out, by key.
+   * Moves nothing and emits nothing; a run in progress goes on. Rejects when there is no layout,
+   * on a map, for an unknown `others`, when `signal` aborts, or when the graph is destroyed.
+   */
+  compute(layout?: Layout<NodeDatum<M>>, options?: LayoutComputeOptions): Promise<Map<Key, Point>>
   /** Ends the current run and leaves nodes where they are. */
   stop(): void
 }

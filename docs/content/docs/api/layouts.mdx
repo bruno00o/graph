@@ -1,24 +1,26 @@
 ---
-title: layers, grid, rings, radial, geo
+title: layers, grid, rings, radial, geo, placed
 description: Layouts computed at once, on the main thread, that glide nodes to their place.
 ---
 
 ```ts
-import { geo, grid, layers, radial, rings } from '@bruno00o/graph/layouts'
+import { geo, grid, layers, placed, radial, rings } from '@bruno00o/graph/layouts'
 
-function layers(options?: LayersOptions): Layout
+function layers<T = unknown>(options?: LayersOptions<T>): Layout<T>
 function grid<T = unknown>(options?: GridOptions<T>): Layout<T>
 function rings<T = unknown>(options?: RingsOptions<T>): Layout<T>
 function radial(options?: RadialOptions): Layout
 function geo<T = unknown>(options?: GeoOptions<T>): Layout<T>
+function placed<T = unknown>(positions: PlacedPositions<T>): Layout<T>
 ```
 
-Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`, `'grid'`, `'rings'`, `'radial'` or `'geo'`, with `incremental: false`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Layouts](/docs/layout#layers) for a walkthrough.
+Each returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'layers'`, `'grid'`, `'rings'`, `'radial'`, `'geo'` or `'placed'`, with `incremental: false`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Layouts](/docs/layout#layers) for a walkthrough.
 
 ## Shared behavior
 
 - Only free nodes move: alive, without `x` and `y` in the data, chosen by the run, and not being dragged.
-- Moved nodes are centered on their current center, so a run on part of the graph stays where that part was. `geo` is the exception: it places nodes by their coordinates.
+- Moved nodes are centered on their current center, so a run on part of the graph stays where that part was. `geo` and `placed` are the exceptions: they place nodes by their coordinates.
+- With `others: 'ignored'` in the [run options](/docs/api/graph-instance#layout), the nodes left out of `keys` are not in the graph a layout reads: `layers` and `radial` take no edge to them, `geo` sees no obstacle there, and containers keep only the nodes laid out. `grid` and `rings` place the same nodes either way.
 - Every spacing option is a gap between node borders, in world units, as in `force`. `grid`, `rings` and `radial` give every node a place of the same size, so their `spacing` is the gap between two of the largest moved nodes: neighboring places are that diameter plus `spacing` apart. It defaults to the largest diameter, and at least 24.
 - A negative or non-finite spacing falls back to its default. `0` is allowed: the largest nodes touch.
 - The result ends without progress, in a microtask: nodes glide to it over `transitions.layout`, or the `duration` of the run.
@@ -43,17 +45,32 @@ type LayersDirection = 'down' | 'up' | 'right' | 'left'
 - Edges to nodes that do not move, because they have `x` and `y` in the data or were left out of the run, are ignored.
 - The same graph always gives the same result.
 
+### Ranks
+
+With `rank`, the layers come from the data instead of the edges, and the rest of the steps stay the same.
+
+- **Layers.** Only the order of the values counts: the smallest value goes on the first layer, the next distinct value on the second, and so on, so gaps, negative and fractional values leave no empty layer. Nodes whose value is missing, `null` or not a finite number go together on one more layer after the last.
+- **Edges.** An edge from a higher rank to a lower one is laid out turned around, and still drawn toward its target. An edge between two nodes of the same layer is left out: its ends are placed without it, and it is drawn straight along the layer. Edges that skip layers hold a place in each layer they cross, as without ranks.
+- **One set of layers.** The whole graph shares the layers: separate components sit side by side on the same layers instead of being packed in rows, so a layer is one line across the drawing.
+- **`root`** is ignored, and no cycle needs breaking.
+- **Groups.** Each unfolded group spans the layers of its members, as without ranks.
+- **Time.** The layering step is skipped. With ranks that follow the edges, 10,000 nodes and 15,000 edges take about 40 milliseconds instead of 65, and 50,000 nodes about 200 instead of 300. Ranks that ignore the edges make edges skip layers, each holding a place in every layer it crosses: with 8 random ranks, the same graphs take about 110 and 360 milliseconds.
+
 ## Order
 
 ```ts
 type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
 ```
 
-`'degree'` puts the nodes with the most edges first. A function compares the items of two nodes, as given to `nodes()`; ties keep the internal order. `T` is the item type of the node marks. `graph.layout.run` infers it from the definition; inside `defineGraph`, pass it as the type argument of `grid`, `rings` or `geo`, or annotate a parameter.
+`'degree'` puts the nodes with the most edges first. A function compares the items of two nodes, as given to `nodes()`; ties keep the internal order. `T` is the item type of the node marks. `graph.layout.run` infers it from the definition; inside `defineGraph`, pass it as the type argument of `grid`, `rings` or `geo`, or annotate a parameter. The same goes for the `rank` of `layers` and the function given to `placed`.
 
 ## grid
 
 <api-table path="layouts/index.ts" name="GridOptions" />
+
+<api-table path="layouts/index.ts" name="GridSpacing" />
+
+A number sets the gap between rows and between columns; `{ rows, columns }` sets each one, and a missing one takes its default.
 
 ## rings
 
@@ -81,9 +98,23 @@ type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
 - Fixed nodes, with `x` and `y` in the data or left out of the run, keep their place and count as placed neighbors and as obstacles.
 - The same data and options always give the same result.
 
+## placed
+
+```ts
+type PlacedPositions<T = unknown> =
+  | Iterable<readonly [Key, Point]>
+  | ((datum: T) => Point | null | undefined)
+```
+
+`placed` runs positions your code computed as a layout: a run with it resolves when nodes arrive, emits `layoutstart`, `layoutend` and `positionchange` with the origin `'layout'`, glides over `transitions.layout` or the `duration` of the run, frames with `fit`, and stops with `layout.stop`.
+
+- Positions are in world units. Entries are read once, when `placed` is called: a `Map`, the result of [`positions.snapshot`](/docs/api/graph-instance#positions) or of `layout.compute` work as they are. A function reads the item of each free node, as given to `nodes()`.
+- A free node without a position, or with an `x` or `y` that is not finite, stays where it is. Nodes that are not free, with `x` and `y` in the data, dragged, or left out of `keys`, never move.
+- Its `options` hold the positions you passed: in a definition, the same `Map` or function does not lay out again, a new one does.
+
 ## Exports
 
 | Export | Kind |
 | --- | --- |
-| `layers`, `grid`, `rings`, `radial`, `geo` | functions |
-| `LayersOptions`, `LayersDirection`, `GridOptions`, `RingsOptions`, `RadialOptions`, `GeoOptions`, `NodeOrder` | types |
+| `layers`, `grid`, `rings`, `radial`, `geo`, `placed` | functions |
+| `LayersOptions`, `LayersDirection`, `GridOptions`, `GridSpacing`, `RingsOptions`, `RadialOptions`, `GeoOptions`, `PlacedPositions`, `NodeOrder` | types |

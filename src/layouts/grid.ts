@@ -1,6 +1,20 @@
 import type { Layout } from '../types'
 import { centroid, instant, movers, type NodeOrder, ordered, stepsOf } from './shared'
 
+/** Gaps of a grid, one per direction. */
+export interface GridSpacing {
+  /**
+   * Gap between two rows, from the borders of the tallest nodes, in world units. Defaults to the
+   * largest diameter, and at least 24.
+   */
+  readonly rows?: number | undefined
+  /**
+   * Gap between two columns, from the borders of the widest nodes, in world units. Defaults to
+   * the largest diameter, and at least 24.
+   */
+  readonly columns?: number | undefined
+}
+
 /** Options of `grid`. */
 export interface GridOptions<T = unknown> {
   /**
@@ -9,11 +23,11 @@ export interface GridOptions<T = unknown> {
    */
   readonly columns?: number | undefined
   /**
-   * Gap between rows and between columns, from the borders of the largest nodes, in world units.
-   * Defaults to the largest diameter, and at least 24. Columns of boxes are as wide as the widest
-   * box, rows as tall as the tallest.
+   * Gap between rows and between columns, from the borders of the largest nodes, in world units,
+   * or one gap for each with `rows` and `columns`. Defaults to the largest diameter, and at least
+   * 24. Columns of boxes are as wide as the widest box, rows as tall as the tallest.
    */
-  readonly spacing?: number | undefined
+  readonly spacing?: number | GridSpacing | undefined
   /** Order of the nodes, row by row from the top left. Defaults to the internal order. */
   readonly order?: NodeOrder<T> | undefined
 }
@@ -34,7 +48,11 @@ export function grid<T = unknown>(options: GridOptions<T> = {}): Layout<T> {
         ? Math.max(1, Math.floor(wanted))
         : Math.ceil(Math.sqrt(sorted.length))
     const rows = Math.ceil(sorted.length / columns)
-    const [across, down] = stepsOf(graph, indices, options.spacing)
+    const spacing = options.spacing
+    const [across, down] =
+      typeof spacing === 'object' && spacing !== null
+        ? stepsOf(graph, indices, spacing.columns, spacing.rows)
+        : stepsOf(graph, indices, spacing, spacing)
     const [x, y] = centroid(graph, indices)
     const left = x - ((Math.min(columns, sorted.length) - 1) * across) / 2
     const top = y - ((rows - 1) * down) / 2

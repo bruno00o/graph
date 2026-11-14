@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
+import { placed } from '../layouts/placed'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { AutoFit, Layout, LayoutGraph, LayoutListener } from '../types'
@@ -435,6 +436,100 @@ describe('layouts in the host', () => {
     expect(run.pins.at(-1)?.[0]).toBe(1)
     expect(graph.positions.get('b')?.x).not.toBe(500)
     canvas?.dispatchEvent(new PointerEvent('pointerup', { ...down, clientX: b.x + 30 }))
+  })
+
+  it('lays out the keys alone when the others are ignored', async () => {
+    const { layout, runs } = fakeLayout()
+    const items: Item[] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    const graph = mount(null, items)
+    const done = graph.layout.run(layout, { keys: ['a', 'b'], others: 'ignored' })
+    const run = runs[0] as FakeRun
+    expect(Array.from(run.graph.alive.subarray(0, 3))).toEqual([1, 1, 0])
+    expect(Array.from(run.graph.movable.subarray(0, 3))).toEqual([1, 1, 0])
+    expect(Array.from(run.graph.edges)).toEqual([0, 1])
+    run.listener.end(spread(run))
+    dom.flushFrames()
+    await expect(done).resolves.toBe(true)
+    graph.layout.run(layout, { keys: ['a', 'b'] })
+    expect(Array.from(runs[1]?.graph.alive.subarray(0, 3) ?? [])).toEqual([1, 1, 1])
+    await expect(graph.layout.run(layout, { others: 'nobody' as 'ignored' })).rejects.toThrow(
+      TypeError,
+    )
+  })
+
+  it('computes positions by key without moving anything or emitting', async () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    const before = graph.positions.snapshot()
+    const events: string[] = []
+    graph.on('layoutstart', () => events.push('start'))
+    graph.on('layoutend', () => events.push('end'))
+    graph.on('positionchange', () => events.push('move'))
+    const computed = graph.layout.compute(layout, { keys: ['a', 'b'] })
+    const run = runs[0] as FakeRun
+    expect(movers(run)).toEqual([0, 1])
+    run.listener.progress(spread(run, 7), 0.5)
+    run.listener.end(spread(run))
+    dom.flushFrames()
+    await expect(computed).resolves.toEqual(
+      new Map([
+        ['a', { x: 0, y: 0 }],
+        ['b', { x: 100, y: 100 }],
+      ]),
+    )
+    expect(graph.positions.snapshot()).toEqual(before)
+    expect(events).toEqual([])
+    expect(graph.store.get().layout.running).toBe(false)
+  })
+
+  it('leaves a run going while it computes, and stops on abort and destroy', async () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    const running = graph.layout.run(layout)
+    const controller = new AbortController()
+    const computed = graph.layout.compute(layout, { signal: controller.signal })
+    controller.abort(new Error('enough'))
+    await expect(computed).rejects.toThrow('enough')
+    expect(runs[1]?.stopped).toBe(true)
+    expect(runs[0]?.stopped).toBe(false)
+    await expect(graph.layout.compute(layout, { signal: controller.signal })).rejects.toThrow(
+      'enough',
+    )
+    const pending = graph.layout.compute(layout)
+    await expect(graph.layout.compute(undefined)).rejects.toThrow('no layout')
+    graph.destroy()
+    await expect(pending).rejects.toThrow('destroyed')
+    await expect(running).resolves.toBe(false)
+    await expect(graph.layout.compute(layout)).rejects.toThrow('destroyed')
+  })
+
+  it('runs positions given by the app as a layout', async () => {
+    const graph = mount(null, loose)
+    const events: string[] = []
+    graph.on('layoutstart', ({ name }) => events.push(`start ${name}`))
+    graph.on('layoutend', ({ completed }) => events.push(`end ${completed}`))
+    graph.on('positionchange', ({ origin, positions }) =>
+      events.push(`${origin} ${[...positions.keys()].join(' ')}`),
+    )
+    const target = new Map([
+      ['a', { x: 10, y: 20 }],
+      ['c', { x: 1, y: 1 }],
+      ['b', { x: Number.NaN, y: 0 }],
+    ])
+    const b = graph.positions.get('b')
+    const done = graph.layout.run(placed(target), { duration: 200 })
+    await Promise.resolve()
+    expect(graph.store.get().layout.running).toBe(true)
+    dom.flushFrames()
+    await expect(done).resolves.toBe(true)
+    expect(graph.positions.get('a')).toEqual({ x: 10, y: 20 })
+    expect(graph.positions.get('b')).toEqual(b)
+    expect(graph.positions.get('c')).toEqual({ x: 7, y: 9 })
+    expect(events).toEqual(['start placed', 'layout a b', 'end true'])
+    const computed = await graph.layout.compute(
+      placed<Item>((item) => ({ x: item.id.length, y: 0 })),
+    )
+    expect(computed.get('b')).toEqual({ x: 1, y: 0 })
   })
 
   it('stops quietly when destroyed', () => {
