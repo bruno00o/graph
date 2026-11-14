@@ -50,6 +50,8 @@ export default defineConfig({
     export: 'src/export/index.ts',
     map: 'src/map/index.ts',
     'map/react': 'src/map/react.tsx',
+    editor: 'src/editor/index.ts',
+    'editor/react': 'src/editor/react.tsx',
     minimap: 'src/minimap/index.ts',
     legend: 'src/legend/index.ts',
     bundling: 'src/bundling/index.ts',

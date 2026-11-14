@@ -1,0 +1,96 @@
+---
+title: createShapeEditor
+description: Moves and reshapes the shapes of a graph with the pointer and the keys, and proposes each change to the data.
+---
+
+```ts
+import { createShapeEditor, mountShapeEditor } from '@bruno00o/graph/editor'
+
+function createShapeEditor<S extends string, M extends Mark>(
+  graph: GraphInstance<S, M>,
+  options?: ShapeEditorOptions<M>,
+): ShapeEditor<M>
+```
+
+Creates the shape editor of a graph made by [`mountGraph`](/docs/api/mount-graph) or [`mountMapGraph`](/docs/api/map). `M`, the union of the marks of the graph, types the mark names and the items of the edits. See [Editing shapes](/docs/editing-shapes) for a walkthrough.
+
+## Options
+
+<api-table path="editor/index.ts" name="ShapeEditorOptions" />
+
+## ShapeEditor
+
+<api-table path="editor/index.ts" name="ShapeEditor" />
+
+### State
+
+<api-table path="editor/index.ts" name="ShapeEditorState" />
+
+<api-table path="editor/index.ts" name="ShapeEditorGesture" />
+
+### Events
+
+<api-table path="editor/index.ts" name="ShapeEditorEvents" />
+
+<api-table path="editor/index.ts" name="ShapeEditEvent" />
+
+## Edits
+
+```ts
+type ShapeEdit<M extends Mark = Mark> = ShapeAddEdit | ShapeChangeEdit<M> | ShapeRemoveEdit<M>
+```
+
+The editor proposes `'change'` and `'remove'` edits. `'add'` edits come from drawing tools, and `applyShapeEdits` takes them too.
+
+<api-table path="editor/index.ts" name="ShapeChangeEdit" />
+
+<api-table path="editor/index.ts" name="ShapeRemoveEdit" />
+
+<api-table path="editor/index.ts" name="ShapeAddEdit" />
+
+`ShapeMarkName<M>` is the union of the names of the shape marks among `M`, and `ShapeItem<M>` the union of their item types; both are wide for the plain `Mark` type.
+
+## applyShapeEdits
+
+```ts
+import { applyShapeEdits } from '@bruno00o/graph/editor'
+
+function applyShapeEdits<T>(
+  items: readonly T[],
+  edits: readonly ShapeEdit[],
+  fields?: ShapeEditFields<T>,
+): T[]
+```
+
+Returns a new array: removed items left out, changed items copied with their new outline, the others unchanged, the new items at the end. `items` is not changed.
+
+<api-table path="editor/index.ts" name="ShapeEditFields" />
+
+## mountShapeEditor
+
+```ts
+function mountShapeEditor<M extends Mark>(editor: ShapeEditor<M>): ShapeEditorView
+```
+
+Draws the editor over its graph: the shapes being edited or waiting for their data, in their own fill, outline and pattern, the box of the selection and the handles. Without it, the editor works, but shows the shapes being edited nowhere, since the graph hides them.
+
+<api-table path="editor/index.ts" name="ShapeEditorView" />
+
+## Errors
+
+- A graph that was not created by `mountGraph` or `mountMapGraph` throws an `Error`.
+- A second editor on the same graph throws an `Error`; destroy the first one before.
+- `hold` or `handleSize` negative or NaN throws a `RangeError`.
+- `mountShapeEditor` with an object that is not an editor throws an `Error`.
+
+## Behavior
+
+- The editor takes a press before the graph, after the hit test: on a handle, on a shape it edits or on a shape waiting for its data. Any other press goes to the graph. A press with another button than the main one, or with Space held, goes to the graph.
+- A drag starts after 4 pixels with a mouse or a pen, 10 with touch. A drag selects nothing more than the press did, emits no `click` and no `dragstart`, and moves neither the view nor the map. A still press emits `click`, as without the editor.
+- A second finger cancels the gesture of the editor, with no edit, and pinches the view.
+- Keys reach the editor first while the graph element has the focus: arrows, Delete, Backspace and Escape, when a shape is selected or a gesture runs. Keys with Cmd, Ctrl or Alt go to the graph.
+- During a gesture and while an edit waits for its data, the graph neither draws nor picks the shape, and the layer of `mountShapeEditor` draws it. Its label hides with it.
+- A change of the data of a shape ends its wait, whatever the change. A shape removed from the data during a gesture ends the gesture.
+- The selection and `selectionchange` are those of the graph. The editor writes the selection on a press with `graph.selection.set`, so a controlled selection receives the request.
+- Destroying the graph destroys the editor and its layer. After `destroy`, the methods do nothing and the state stays empty.
+- The layer is an `svg` element with `data-shape-editor` and `aria-hidden="true"`, laid over the canvas, that takes no pointer events. Its handles use `--graph-accent` and `--graph-paper`.

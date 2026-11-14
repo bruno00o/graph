@@ -8,6 +8,8 @@ import type {
   GraphDevtoolsProps,
 } from './devtools'
 import type { GraphDevtoolsPanelProps } from './devtools/react'
+import type { ShapeChangeEdit, ShapeEditFields, ShapeEditorOptions } from './editor'
+import type { ShapeEditorProps, UseShapeEditorOptions } from './editor/react'
 import type { ExportOptions, PngExportOptions, SvgExportOptions } from './export'
 import type {
   AttributeDeclaration,
@@ -237,6 +239,10 @@ interface Inputs {
   ReadOptions: ReadOptions
   RingsOptions: RingsOptions<Item>
   ScalesOptions: ScalesOptions
+  ShapeChangeEdit: ShapeChangeEdit<Marks>
+  ShapeEditFields: ShapeEditFields<Item>
+  ShapeEditorOptions: ShapeEditorOptions<Marks>
+  ShapeEditorProps: ShapeEditorProps<'muted', Marks>
   ShapeLabelOptions: ShapeLabelOptions<Item>
   ShapeOptions: ShapeOptions<Item>
   ShapeScalesOptions: ShapeScalesOptions
@@ -259,6 +265,7 @@ interface Inputs {
   TransitionOptions: TransitionOptions
   UseGraphStateOptions: UseGraphStateOptions<number>
   UseLegendOptions: UseLegendOptions<'muted', Marks>
+  UseShapeEditorOptions: UseShapeEditorOptions<'muted', Marks>
   UseTimelineOptions: UseTimelineOptions
   ViewLimitOptions: ViewLimitOptions
   ViewOptions: ViewOptions

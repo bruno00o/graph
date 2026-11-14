@@ -31,6 +31,7 @@
     "routing",
     "drawing-layers",
     "shapes",
+    "editing-shapes",
     "theming",
     "minimap-and-legend",
     "export",

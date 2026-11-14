@@ -1,0 +1,134 @@
+---
+title: Editing shapes
+description: Move and reshape shapes with the pointer and the keys, and write each change back to your data.
+---
+
+<LiveExample slug="shape-editing" />
+
+A shape editor lets the pointer and the keys move [shapes](/docs/shapes), drag their points, add and remove points, and resize them by the handles of their box. The editor never changes your data: it proposes each change as an edit, and your code writes it to the data, or not. Until the data answers, the editor draws the shape as proposed.
+
+```ts
+import { mountGraph } from '@bruno00o/graph'
+import { applyShapeEdits, createShapeEditor, mountShapeEditor } from '@bruno00o/graph/editor'
+
+let zones = initialZones
+const graph = mountGraph(element, { definition: define(zones), ariaLabel: 'Zones' })
+
+const editor = createShapeEditor(graph, {
+  onEdit: (edits) => {
+    zones = applyShapeEdits(zones, edits)
+    graph.update({ definition: define(zones) })
+  },
+})
+mountShapeEditor(editor)
+```
+
+`createShapeEditor` takes the pointer and the keys of the graph; `mountShapeEditor` draws the shapes being edited and their handles over the graph, in an SVG layer without text. Both come from `@bruno00o/graph/editor`, so a graph without an editor carries none of its code. Every option is in the [API reference](/docs/api/editor).
+
+## Moving and reshaping
+
+| Gesture | Effect |
+| --- | --- |
+| Press a shape and drag | Selects it and moves it, with the other selected shapes |
+| Shift, Cmd or Ctrl and press | Adds the shape to the selection; a click on a selected shape removes it |
+| Click a selected shape | Keeps only that shape selected |
+| Drag a point of the selected shape | Moves the point |
+| Press a midpoint and drag | Adds a point there, and moves it |
+| Alt and click a point | Removes the point, down to 3 points for an area and 2 for a line |
+| Drag a handle of the box | Resizes the selected shapes from the opposite handle; Shift keeps the proportions |
+| Arrow keys | Move the selected shapes by 1 pixel, 10 with Shift |
+| Delete or Backspace | Removes the point last pressed, or else the selected shapes |
+| Escape | Cancels the gesture; without one, clears the selection as usual |
+| Hold Space and drag | Moves the view, even from a shape |
+
+Points show on a single selected area or line. A rectangle, a circle and a selection of several shapes show the 8 handles of their box instead. A circle keeps its proportions, so it stays round. When the points of an outline are closer than 6 pixels on average on the screen, or more than 1,000 of them show, only the point and the midpoint nearest the pointer get a handle: zoom in to reach the others.
+
+A press away from the shapes the editor can edit goes to the graph as before: nodes drag, the background moves the view, and Shift and drag draws the [lasso](/docs/interaction#lasso). A still press on a shape emits `click`, as without the editor; a drag emits neither `click` nor `dragstart`. With touch, a second finger cancels the gesture and pinches.
+
+The selection is the selection of the graph: `graph.selection.get().shapes`, `selectionchange` and a [controlled selection](/docs/interaction#controlled-selection) work as before, and `editor.store.state.selected` lists the selected shapes that the editor can edit. With `interaction: { select: false }`, a press moves a shape without selecting it; with `'single'`, Shift does not add.
+
+## Writing edits back
+
+Each gesture ends with one batch of edits, given to `onEdit` and to the `edit` event. An edit is a `'change'` with the new `geometry`, or a `'remove'`, with the `key`, the `name` of the mark and the item before the change, `datum`:
+
+```ts
+editor.on('edit', ({ edits }) => {
+  for (const edit of edits) {
+    if (edit.type === 'change') save(edit.key, edit.geometry)
+    if (edit.type === 'remove') erase(edit.key)
+  }
+})
+```
+
+The new geometry keeps the form of the old one: `{ x, y }` points stay objects with their other fields, `[x, y]` pairs keep their extra values, GeoJSON keeps its type, its other fields and the closing point of each ring, and degrees stay degrees, with longitudes from -180 to 180. The points that did not move are the same values as before. GeoJSON `bbox` is dropped, since it would be stale.
+
+`applyShapeEdits(items, edits, fields)` applies a batch to an array and returns a new one: the changed items are copies, the others the same objects, so that the graph updates only what changed. It reads keys from `id` and writes outlines to `geometry` by default; with several shape marks, pass `mark` to take the edits of one. A mark whose `geometry` is a function needs its own writer.
+
+### Pending edits
+
+Until the data of a shape changes, the editor draws it as proposed and hides the shape of the graph, so that a slow save does not make it jump back. `editor.store.state.pending` lists these shapes. When the data does not change within `hold`, 10 seconds by default, the editor shows the data again and emits `editlost` with the edits: the save failed, or your code declined the edit. `hold: Infinity` waits for good.
+
+```ts
+const editor = createShapeEditor(graph, { hold: 5000 })
+editor.on('editlost', ({ edits }) => notify(edits.length))
+```
+
+### With TanStack DB
+
+With a [collection](/docs/tanstack-db) as the source of the shapes, write each edit to the collection: its optimistic state answers the editor at once, and a failed mutation rolls the shape back.
+
+```ts
+const editor = createShapeEditor(graph, {
+  onEdit: (edits) => {
+    for (const edit of edits) {
+      if (edit.type === 'change' && edit.geometry) {
+        const geometry = edit.geometry
+        zones.update(edit.key, (draft) => {
+          draft.geometry = geometry
+        })
+      }
+      if (edit.type === 'remove') zones.delete(edit.key)
+    }
+  },
+})
+```
+
+## Which shapes
+
+`marks` lists the names of the shape marks the editor works on, every shape mark by default. Shapes of the other marks, and shapes whose geometry cannot be read, take the pointer as without the editor. A graph has at most one editor at a time: `editor.destroy()` gives the pointer and the keys back, and destroying the graph destroys its editor and its layer.
+
+A shape [pinned to a node](/docs/shapes#pin-shapes-to-nodes) moves around its node: its edits keep the geometry relative to the node, and the node does not move.
+
+## On a map
+
+On a [map](/docs/map#shapes), flat or on the globe, the editor takes the gesture from the map: the map does not pan while a shape moves. Shapes in degrees get their edits in degrees, the closing point of a GeoJSON ring included. A circle around a place keeps its radii in meters. A move is a translation on the flat map, on the globe too: a shape moved toward a pole keeps its look on the flat map and grows on the ground, as Web Mercator does.
+
+## React
+
+`<ShapeEditor>` and `useShapeEditor` from `@bruno00o/graph/editor/react` create the editor and its layer for the enclosing `<Graph>` or `<MapGraph>`, or for the graph given in `graph`, and destroy them on unmount:
+
+```tsx
+import { ShapeEditor } from '@bruno00o/graph/editor/react'
+
+<Graph definition={definition} ariaLabel="Zones">
+  <ShapeEditor onEdit={(edits) => setZones((zones) => applyShapeEdits(zones, edits))} />
+</Graph>
+```
+
+`useShapeEditor` returns the state and the editor, to show the pending edits or to remove the selection from a button. See [ShapeEditor](/docs/api/shape-editor).
+
+## Keyboard and accessibility
+
+Every move has a key: the arrows move the selected shapes and Delete removes them, so the editor does not need a drag. The keys reach the editor while the graph element has the focus and a shape is selected; the other keys go to the graph. The layer draws no text and is hidden from assistive technologies.
+
+## Cost
+
+A graph without an editor runs none of its code: `@bruno00o/graph/editor` is a separate entry point, about 12 kB gzipped, and the graph looks for an editor only on a press or a key. With an editor and nothing selected, a frame costs what it cost before.
+
+Dragging a polygon of 5,000 points costs about 1 millisecond of work per frame in Chrome, 3 at the 95th percentile, to write its preview; the shape follows the pointer one frame later, like a dragged node. Releasing it costs 11 to 15 milliseconds, mostly to read the new geometry, triangulate it and make the coarser copies of its outline. With a selected outline of 1,000 points, its 1,000 handles and 1,000 midpoints add about 1 millisecond per frame while the view moves.
+
+## Not there yet
+
+- Drawing new shapes, rotating them and snapping to a grid or to other shapes.
+- Undo: keep your previous data, as the example does.
+- A shape whose geometry comes from a function is edited, but `applyShapeEdits` writes a field.

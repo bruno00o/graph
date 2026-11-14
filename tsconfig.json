@@ -29,6 +29,8 @@
       "@bruno00o/graph/export": ["./src/export/index.ts"],
       "@bruno00o/graph/map": ["./src/map/index.ts"],
       "@bruno00o/graph/map/react": ["./src/map/react.tsx"],
+      "@bruno00o/graph/editor": ["./src/editor/index.ts"],
+      "@bruno00o/graph/editor/react": ["./src/editor/react.tsx"],
       "@bruno00o/graph/minimap": ["./src/minimap/index.ts"],
       "@bruno00o/graph/legend": ["./src/legend/index.ts"],
       "@bruno00o/graph/bundling": ["./src/bundling/index.ts"],

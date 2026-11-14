@@ -55,6 +55,11 @@ export default defineConfig({
         replacement: resolve(library, 'map/react.tsx'),
       },
       { find: /^@bruno00o\/graph\/map$/, replacement: resolve(library, 'map/index.ts') },
+      {
+        find: /^@bruno00o\/graph\/editor\/react$/,
+        replacement: resolve(library, 'editor/react.tsx'),
+      },
+      { find: /^@bruno00o\/graph\/editor$/, replacement: resolve(library, 'editor/index.ts') },
       { find: /^@bruno00o\/graph\/minimap$/, replacement: resolve(library, 'minimap/index.ts') },
       { find: /^@bruno00o\/graph\/legend$/, replacement: resolve(library, 'legend/index.ts') },
       { find: /^@bruno00o\/graph\/bundling$/, replacement: resolve(library, 'bundling/index.ts') },

@@ -279,6 +279,10 @@ export function stillborn<S extends string, M extends Mark>(
       watcher.destroy()
       return nothing
     },
+    tool: () => false,
+    draft: () => {},
+    shape: () => null,
+    globe: () => null,
   })
   exposeSnapshot(graph, () => {
     throw destroyedError()

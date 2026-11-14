@@ -55,10 +55,14 @@ export class ShapeStore {
   pinCount = 0
   pendingCount = 0
   slots: Map<object, number> = new Map()
+  draft: Uint8Array = new Uint8Array(0)
+  draftVersion = 0
+  draftTouched: readonly number[] = []
   wake: () => void = () => {}
   readonly palette: Palette
   readonly nodes: PinNodes | null
   #writer: ShapeWriter | null = null
+  #drafted: readonly number[] = []
   #warned = false
 
   constructor(palette: Palette, nodes: PinNodes | null = null) {
@@ -100,6 +104,21 @@ export class ShapeStore {
       this.#writer ??= this.engine.writer(this)
       this.#writer.apply(model, changes, nodes)
     } else if (changes) this.count += changes.added.length - changes.removed.length
+  }
+
+  setDrafts(indices: readonly number[]): void {
+    const before = this.#drafted
+    if (before.length === indices.length && before.every((index, i) => index === indices[i])) return
+    if (this.draft.length < this.capacity) {
+      const grown = new Uint8Array(this.capacity)
+      grown.set(this.draft)
+      this.draft = grown
+    }
+    for (const index of before) this.draft[index] = 0
+    for (const index of indices) this.draft[index] = 1
+    this.draftTouched = [...before, ...indices]
+    this.#drafted = [...indices]
+    this.draftVersion++
   }
 
   pinned(index: number): boolean {

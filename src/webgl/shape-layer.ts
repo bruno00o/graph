@@ -229,6 +229,9 @@ export function createShapeLayer(
   let version = -1
   let fillVersion = -1
   let styleVersion = -1
+  let draftVersion = 0
+  const widths = new Float32Array(1)
+  const widthBits = new Uint32Array(widths.buffer)
   let shownX = Number.NaN
   let shownY = Number.NaN
   let flags = 0
@@ -437,31 +440,40 @@ export function createShapeLayer(
     gl.vertexAttribIPointer(0, 4, gl.UNSIGNED_INT, 16, at * 16)
   }
 
+  function writeStyle(store: ShapeStore, data: Uint32Array, index: number): void {
+    const at = index * 4
+    if (store.alive[index] !== 1) {
+      data[at] = 0xffffffff
+      data[at + 1] = 0xffffffff
+      data[at + 3] = 0
+      return
+    }
+    widths[0] = store.strokeWidth[index] ?? 0
+    data[at] = store.fill[index] ?? 0xffffffff
+    data[at + 1] = store.stroke[index] ?? 0xffffffff
+    data[at + 2] = widthBits[0] ?? 0
+    data[at + 3] =
+      ((store.dash[index] ?? 0) |
+        (Math.round((store.opacity[index] ?? 1) * 255) << 8) |
+        (((store.slot[index] ?? 0) & 255) << 16) |
+        (store.draft[index] === 1 ? 0 : shapeAlive)) >>>
+      0
+  }
+
+  function writeDrafts(store: ShapeStore, made: Passes): void {
+    const data = made.styles.data
+    for (const index of store.draftTouched) {
+      if (index >= store.capacity) continue
+      writeStyle(store, data, index)
+      made.styles.upload(index, index)
+    }
+  }
+
   function writeStyles(store: ShapeStore, made: Passes): void {
     const styles = made.styles
     styles.reserve(store.capacity)
     const data = styles.data
-    const widths = new Float32Array(1)
-    const widthBits = new Uint32Array(widths.buffer)
-    for (let index = 0; index < store.capacity; index++) {
-      const at = index * 4
-      if (store.alive[index] !== 1) {
-        data[at] = 0xffffffff
-        data[at + 1] = 0xffffffff
-        data[at + 3] = 0
-        continue
-      }
-      widths[0] = store.strokeWidth[index] ?? 0
-      data[at] = store.fill[index] ?? 0xffffffff
-      data[at + 1] = store.stroke[index] ?? 0xffffffff
-      data[at + 2] = widthBits[0] ?? 0
-      data[at + 3] =
-        ((store.dash[index] ?? 0) |
-          (Math.round((store.opacity[index] ?? 1) * 255) << 8) |
-          (((store.slot[index] ?? 0) & 255) << 16) |
-          shapeAlive) >>>
-        0
-    }
+    for (let index = 0; index < store.capacity; index++) writeStyle(store, data, index)
     styles.upload(0, store.capacity - 1)
     zoomUsed ||= store.zoom.count > 0
     timeUsed ||= store.time.count > 0
@@ -1022,6 +1034,7 @@ export function createShapeLayer(
       if (!passes && !store.any) {
         version = store.version
         styleVersion = store.styleVersion
+        draftVersion = store.draftVersion
         return false
       }
       const made = create()
@@ -1036,8 +1049,11 @@ export function createShapeLayer(
       } else if (store.version !== version || store.fillVersion !== fillVersion) {
         changed = update(store, made)
       }
-      if (store.styleVersion !== styleVersion || grown) {
+      if (store.styleVersion !== styleVersion || grown || store.draftVersion > draftVersion + 1) {
         writeStyles(store, made)
+        changed = true
+      } else if (store.draftVersion !== draftVersion) {
+        writeDrafts(store, made)
         changed = true
       }
       if (writeStates(states, made, grown)) changed = true
@@ -1046,6 +1062,7 @@ export function createShapeLayer(
       version = store.version
       fillVersion = store.fillVersion
       styleVersion = store.styleVersion
+      draftVersion = store.draftVersion
       return changed
     },
 
