@@ -1,12 +1,23 @@
 import { createStore, type ReadonlyStore } from '@tanstack/store'
+import { toAccessor } from '../core/accessor'
 import type { LogCursor } from '../core/change-log'
 import { readWindow, sameWindow, toTime } from '../core/time-range'
-import { internalsOf } from '../host/internals'
+import { type GraphInternals, internalsOf } from '../host/internals'
 import { isolateSubscribers } from '../host/isolate'
 import type { GraphInstance } from '../host/mount-graph'
 import { readonlyOf } from '../host/readonly-store'
-import type { Mark, TimeInstant, TimeWindow, TimeWindowInput } from '../types'
+import { categoricalRange } from '../theme/tokens'
+import type {
+  Accessor,
+  Channel,
+  KeyList,
+  Mark,
+  TimeInstant,
+  TimeWindow,
+  TimeWindowInput,
+} from '../types'
 import { addTime, boundaries, chooseStep, type TimeStep, type TimeUnit } from './calendar'
+import { EventCounts, type EventReaders } from './events'
 import { incidentEdges, readEdgeSpan, readNodeSpan, SpanCounts } from './histogram'
 
 export type { TimeUnit }
@@ -20,8 +31,19 @@ export type TimelineMode = 'slide' | 'grow'
 /** End of the window an action moves: `'start'`, `'end'` or `'both'`. */
 export type TimelineEnd = 'start' | 'end' | 'both'
 
+/**
+ * An event of the application, as the timeline reads it by default: a moment and a kind. Events of
+ * another shape are read through `eventTime` and `eventKind`.
+ */
+export interface TimelineEvent {
+  /** Moment of the event, in milliseconds since the epoch or as a `Date`. */
+  readonly time: TimeInstant
+  /** Kind of the event, which the histogram stacks and colors. */
+  readonly kind?: string | undefined
+}
+
 /** Options of `createTimeline`. */
-export interface TimelineOptions {
+export interface TimelineOptions<E = TimelineEvent> {
   /**
    * Number of histogram bins to aim for across the range of the bar. Bins follow the calendar
    * (a day, a week, a month…), so the actual number differs a little.
@@ -51,9 +73,61 @@ export interface TimelineOptions {
   readonly loop?: boolean | undefined
   /**
    * Time range the bar covers, in milliseconds or dates. An end left out or `null` comes from the
-   * data: the earliest start and the latest end among nodes and edges, never shapes.
+   * data: the earliest start and the latest end among nodes and edges, never shapes, or the first
+   * and the last of the events when `events` is given.
    */
   readonly extent?: TimeWindowInput | null | undefined
+  /**
+   * Events of the application to count over time, stacked by kind. A new array counts again: an
+   * array that starts with the items of the previous one only reads the items added. The extent
+   * then comes from the events. Defaults to no events: the bar draws nodes and edges.
+   */
+  readonly events?: readonly E[] | null | undefined
+  /**
+   * Moment of an event: a field name or a function of the event. An event without a valid time is
+   * left out.
+   * @default 'time'
+   */
+  readonly eventTime?: Channel<E, TimeInstant> | undefined
+  /**
+   * Kind of an event: a field name or a function of the event. An event without a kind belongs to
+   * the kind `''`.
+   * @default 'kind'
+   */
+  readonly eventKind?: Channel<E, string> | undefined
+  /**
+   * Order of the kinds in the stacks and in the state. Kinds left out follow in the order the
+   * events first give them.
+   */
+  readonly kinds?: KeyList<string> | undefined
+  /**
+   * CSS color of each kind. Defaults to the category colors `--graph-cat-1` to `--graph-cat-12`, in
+   * the order of the kinds.
+   */
+  readonly kindColors?: Readonly<Record<string, string>> | undefined
+  /**
+   * Kinds left out of the histogram, of event stepping and of `events`. The option sets them when
+   * it changes; `toggleKind` changes them in between.
+   */
+  readonly hiddenKinds?: KeyList<string> | undefined
+  /**
+   * The window is a single moment, a cursor: dragging, the keyboard and playback move a moment, and
+   * the graph shows what exists at that moment.
+   * @default false
+   */
+  readonly instant?: boolean | undefined
+}
+
+/** A kind of event of the histogram. */
+export interface TimelineKind {
+  /** Name of the kind, as the events give it. */
+  readonly kind: string
+  /** CSS color of the kind. */
+  readonly color: string
+  /** Number of events of the kind. */
+  readonly count: number
+  /** Whether the kind is hidden. */
+  readonly hidden: boolean
 }
 
 /** A closed range of time, in milliseconds since the epoch. */
@@ -77,6 +151,10 @@ export interface TimelineBin {
    * whose time and ends have no time are not counted.
    */
   readonly edges: number
+  /** Events in the bin, of the kinds shown. */
+  readonly events: number
+  /** Events in the bin by kind, in the order of the kinds of the state, hidden kinds included. */
+  readonly kinds: readonly number[]
 }
 
 /** A tick of the bar, at the start of a calendar unit. */
@@ -111,10 +189,14 @@ export interface TimelineState {
   readonly mode: TimelineMode
   /** Whether playback starts again at the end. */
   readonly loop: boolean
+  /** Whether the window is a single moment. */
+  readonly instant: boolean
+  /** Kinds of the events, in stacking order, or empty without events. */
+  readonly kinds: readonly TimelineKind[]
 }
 
 /** A timeline made by `createTimeline`, for the default renderer or for a renderer of its own. */
-export interface Timeline {
+export interface Timeline<E = TimelineEvent> {
   /** Store of the state. Subscribe to it to render the timeline. */
   readonly store: ReadonlyStore<TimelineState>
   /**
@@ -132,10 +214,24 @@ export interface Timeline {
    */
   nudge(end: TimelineEnd, count: number): void
   /**
-   * Moves the window by a number of bins: both ends in `'slide'` mode, the end in `'grow'` mode.
-   * Defaults to one bin forward.
+   * Moves the window by a number of bins: both ends in `'slide'` mode, the end in `'grow'` mode,
+   * the moment with `instant`. Defaults to one bin forward.
    */
   step(count?: number): void
+  /**
+   * Moves to the event a number of events ahead, or back for a negative count, skipping hidden
+   * kinds and counting events at the same moment once. With `instant`, the moment lands on the
+   * event; otherwise the end of the window lands 1 ms after it, keeping the width in `'slide'`
+   * mode and the start in `'grow'` mode. Defaults to the next event.
+   */
+  stepEvent(count?: number): void
+  /**
+   * Events of the kinds shown from `start`, included, to `end`, left out, in time order. Without
+   * `end`, or with `end` equal to `start`, the events at that moment.
+   */
+  events(start: TimeInstant, end?: TimeInstant): readonly E[]
+  /** Hides a kind of event, or shows it again. */
+  toggleKind(kind: string): void
   /** Removes the window: every element shows again. */
   clear(): void
   /**
@@ -160,18 +256,24 @@ export interface Timeline {
    * Changes the options: an option left out keeps its current value, an option set to `undefined`
    * returns to its default.
    */
-  update(options?: TimelineOptions): void
+  update(options?: TimelineOptions<E>): void
   /** Stops playback and stops following the graph. The window stays. */
   destroy(): void
 }
 
-interface Settings {
+interface Settings<E> {
   readonly bins: number
   readonly ticks: number
   readonly speed: number | null
   readonly mode: TimelineMode
   readonly loop: boolean
   readonly extent: { readonly start: number | null; readonly end: number | null } | null
+  readonly events: readonly E[] | null
+  readonly readers: EventReaders<E>
+  readonly kinds: readonly string[]
+  readonly colors: Readonly<Record<string, string>>
+  readonly hidden: ReadonlySet<string>
+  readonly instant: boolean
 }
 
 const minInterval = 50
@@ -189,7 +291,24 @@ function positive(value: number | undefined, fallback: number, name: string): nu
   return value
 }
 
-function resolve(options: TimelineOptions): Settings {
+const readers = new Map<unknown, Accessor<never, unknown>>()
+
+function reader<E>(channel: unknown, fallback: string): Accessor<E, unknown> {
+  if (typeof channel === 'function') return channel as Accessor<E, unknown>
+  const name = typeof channel === 'string' ? channel : fallback
+  let read = readers.get(name)
+  if (!read) {
+    read = toAccessor<never, unknown>(name)
+    readers.set(name, read)
+  }
+  return read as Accessor<E, unknown>
+}
+
+function names(list: KeyList<string> | undefined): string[] {
+  return list === undefined || list === null ? [] : [...list].map(String)
+}
+
+function resolve<E>(options: TimelineOptions<E>): Settings<E> {
   return {
     bins: Math.round(positive(options.bins, 80, 'bins')),
     ticks: Math.round(positive(options.ticks, 6, 'ticks')),
@@ -197,6 +316,15 @@ function resolve(options: TimelineOptions): Settings {
     mode: options.mode === 'grow' ? 'grow' : 'slide',
     loop: options.loop === true,
     extent: options.extent ? readWindow(options.extent) : null,
+    events: Array.isArray(options.events) ? options.events : null,
+    readers: {
+      time: reader<E>(options.eventTime, 'time'),
+      kind: reader<E>(options.eventKind, 'kind'),
+    },
+    kinds: names(options.kinds),
+    colors: options.kindColors ?? {},
+    hidden: new Set(names(options.hiddenKinds)),
+    instant: options.instant === true,
   }
 }
 
@@ -222,21 +350,47 @@ function frames(): { readonly request: Frame; readonly cancel: (id: number) => v
   }
 }
 
+interface Port {
+  get(): TimeWindow | null
+  set(window: TimeWindow | null): void
+}
+
+const noEvents: readonly never[] = []
+
+function isGraph(value: unknown): value is GraphInstance {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as { readonly time?: unknown; readonly on?: unknown }
+  return typeof candidate.time === 'object' && typeof candidate.on === 'function'
+}
+
 /**
- * Follows the time of the nodes and edges of a graph: extent, a histogram of how many exist over
- * time, ticks, and the time window of the graph, which it moves by brushing, stepping and
- * playback. The histogram is counted again only when the data changes.
+ * Follows the time of the nodes and edges of a graph, or of events given by the application:
+ * extent, a histogram over time, ticks, and the time window of the graph, which it moves by
+ * brushing, stepping and playback. The histogram is counted again only when the data changes.
  */
-export function createTimeline<S extends string, M extends Mark>(
+export function createTimeline<S extends string, M extends Mark, E = TimelineEvent>(
   graph: GraphInstance<S, M>,
-  options: TimelineOptions = {},
-): Timeline {
-  const internals = internalsOf(graph, 'createTimeline')
-  let given = options
+  options?: TimelineOptions<E>,
+): Timeline<E>
+/**
+ * A timeline that follows no graph: it counts the events given by the application and keeps a
+ * window of its own in its state, for the application to apply to graphs of its choice.
+ */
+export function createTimeline<E = TimelineEvent>(options?: TimelineOptions<E>): Timeline<E>
+export function createTimeline<E>(
+  first?: GraphInstance | TimelineOptions<E>,
+  second?: TimelineOptions<E>,
+): Timeline<E> {
+  const graph = isGraph(first) ? first : null
+  const internals: GraphInternals | null = graph ? internalsOf(graph, 'createTimeline') : null
+  let given: TimelineOptions<E> = (graph ? second : (first as TimelineOptions<E> | undefined)) ?? {}
   let settings = resolve(given)
+  let hidden: ReadonlySet<string> = settings.hidden
   const nodeCounts = new SpanCounts()
   const edgeCounts = new SpanCounts()
+  const eventCounts = new EventCounts<E>()
   const clock = frames()
+  let own: TimeWindow | null = null
   let extent: TimeRange | null = null
   let zoomed: TimeRange | null = null
   let binStep: TimeStep = { unit: 'day', count: 1 }
@@ -253,6 +407,16 @@ export function createTimeline<S extends string, M extends Mark>(
   let head: TimeWindow | null = null
   const requested: TimeWindow[] = []
 
+  const port: Port = graph
+    ? { get: () => graph.time.get(), set: (window) => graph.time.set(window) }
+    : {
+        get: () => own,
+        set: (window) => {
+          own = window
+          changed(window)
+        },
+      }
+
   const store = createStore<TimelineState>({
     extent: null,
     range: null,
@@ -260,11 +424,13 @@ export function createTimeline<S extends string, M extends Mark>(
     unit: 'day',
     step: 1,
     ticks: [],
-    window: graph.time.get(),
+    window: port.get(),
     playing: false,
     speed: 0,
     mode: settings.mode,
     loop: settings.loop,
+    instant: settings.instant,
+    kinds: [],
   })
   const readonlyStore: ReadonlyStore<TimelineState> = isolateSubscribers(readonlyOf(store))
 
@@ -272,9 +438,21 @@ export function createTimeline<S extends string, M extends Mark>(
     store.setState((state) => ({ ...state, ...next }))
   }
 
+  function readEvents(): void {
+    eventCounts.set(settings.events ?? noEvents, settings.readers, settings.kinds)
+    eventCounts.hide(hidden)
+  }
+
   function readExtent(): TimeRange | null {
-    let start = Math.min(nodeCounts.first(), edgeCounts.first())
-    let end = Math.max(nodeCounts.last(), edgeCounts.last())
+    let start: number
+    let end: number
+    if (settings.events) {
+      start = eventCounts.first()
+      end = eventCounts.last()
+    } else {
+      start = Math.min(nodeCounts.first(), edgeCounts.first())
+      end = Math.max(nodeCounts.last(), edgeCounts.last())
+    }
     const fixed = settings.extent
     if (fixed?.start !== null && fixed?.start !== undefined) start = fixed.start
     if (fixed?.end !== null && fixed?.end !== undefined) end = fixed.end
@@ -299,48 +477,63 @@ export function createTimeline<S extends string, M extends Mark>(
     return extent ? (extent.end - extent.start) / playbackSeconds : 0
   }
 
+  function kindsOf(): TimelineKind[] {
+    return eventCounts.kinds.map((kind, id) => ({
+      kind,
+      color: settings.colors[kind] ?? categoricalRange[id % categoricalRange.length] ?? '',
+      count: eventCounts.times[id]?.length ?? 0,
+      hidden: eventCounts.hidden[id] === 1,
+    }))
+  }
+
+  function binOf(start: number, end: number): TimelineBin {
+    const kinds: number[] = []
+    let events = 0
+    for (let id = 0; id < eventCounts.kinds.length; id++) {
+      const count = eventCounts.count(id, start, end)
+      kinds.push(count)
+      if (eventCounts.hidden[id] !== 1) events += count
+    }
+    return {
+      start,
+      end,
+      nodes: nodeCounts.count(start, end),
+      edges: edgeCounts.count(start, end),
+      events,
+      kinds,
+    }
+  }
+
   function layout(): void {
     const outer = extent ? snapped(extent) : null
     const range = outer && zoomed ? clampRange(zoomed, outer) : outer
+    const common = {
+      speed: speedOf(),
+      mode: settings.mode,
+      loop: settings.loop,
+      instant: settings.instant,
+      kinds: kindsOf(),
+    }
     if (!range) {
-      patch({ extent: null, range: null, bins: [], ticks: [], speed: speedOf() })
+      patch({ extent: null, range: null, bins: [], ticks: [], ...common })
       return
     }
     const span = range.end - range.start
     binStep = chooseStep(span, settings.bins)
     const times = boundaries(range.start, range.end, binStep, settings.bins * 4 + 8)
     const bins: TimelineBin[] = []
-    for (let at = 1; at < times.length; at++) {
-      const start = times[at - 1] ?? 0
-      const end = times[at] ?? 0
-      bins.push({
-        start,
-        end,
-        nodes: nodeCounts.count(start, end),
-        edges: edgeCounts.count(start, end),
-      })
-    }
+    for (let at = 1; at < times.length; at++) bins.push(binOf(times[at - 1] ?? 0, times[at] ?? 0))
     const tickStep = chooseStep(span, settings.ticks)
     const ticks: TimelineTick[] = []
     for (const time of boundaries(range.start, range.end, tickStep, settings.ticks * 4 + 8)) {
       if (time >= range.start && time <= range.end) ticks.push({ time, unit: tickStep.unit })
     }
-    patch({
-      extent,
-      range,
-      bins,
-      unit: binStep.unit,
-      step: binStep.count,
-      ticks,
-      speed: speedOf(),
-      mode: settings.mode,
-      loop: settings.loop,
-    })
+    patch({ extent, range, bins, unit: binStep.unit, step: binStep.count, ticks, ...common })
   }
 
   function read(): void {
     timer = undefined
-    if (destroyed) return
+    if (destroyed || !internals) return
     const start = performance.now()
     readScene = internals.stamp().scene
     const { nodes, edges } = internals.scene
@@ -382,25 +575,32 @@ export function createTimeline<S extends string, M extends Mark>(
       if (requested.length > remembered) requested.shift()
     }
     head = window
-    graph.time.set(window)
+    port.set(window)
   }
 
   function current(): TimeWindow | null {
-    return playing ? head : graph.time.get()
+    return playing ? head : port.get()
   }
 
   function bound(time: number | null, fallback: number | undefined): number | null {
     return time ?? fallback ?? null
   }
 
-  function nudge(end: TimelineEnd, count: number): void {
+  function moment(time: number): TimeWindow {
+    return { start: time, end: time }
+  }
+
+  function nudge(which: TimelineEnd, count: number): void {
     if (destroyed || !Number.isFinite(count)) return
+    const end = settings.instant ? 'both' : which
     const shift = Math.trunc(count) * binStep.count
     const window = current()
     if (!window) {
       const bins = store.state.bins
       const bin = count < 0 ? bins[bins.length - 1] : bins[0]
-      if (bin) request({ start: bin.start, end: bin.end })
+      if (!bin) return
+      if (settings.instant) request(moment(count < 0 ? bin.start : (extent?.start ?? bin.start)))
+      else request({ start: bin.start, end: bin.end })
       return
     }
     const startOf = bound(window.start, end === 'start' ? extent?.start : undefined)
@@ -416,8 +616,47 @@ export function createTimeline<S extends string, M extends Mark>(
     request({ start, end: finish })
   }
 
+  function walk(from: number, count: number): number | null {
+    let at = from
+    let found: number | null = null
+    for (let index = 0; index < Math.abs(count); index++) {
+      const next = count > 0 ? eventCounts.after(at) : eventCounts.before(at)
+      if (!Number.isFinite(next)) break
+      at = next
+      found = next
+    }
+    return found
+  }
+
+  function stepEvent(count = 1): void {
+    if (destroyed || !Number.isFinite(count) || Math.trunc(count) === 0) return
+    const steps = Math.trunc(count)
+    const window = current()
+    if (settings.instant) {
+      const far = steps > 0 ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY
+      const at = walk(window ? (window.start ?? window.end ?? far) : far, steps)
+      if (at !== null) request(moment(at))
+      return
+    }
+    if (!window || window.end === null) return
+    const at = walk(window.end - 1, steps)
+    if (at === null) return
+    const end = at + 1
+    if (settings.mode === 'grow') {
+      if (window.start !== null && end < window.start) return
+      request({ start: window.start, end })
+      return
+    }
+    const by = end - window.end
+    request({ start: window.start === null ? null : window.start + by, end })
+  }
+
   function startingHead(range: TimeRange): TimeWindow {
-    const window = graph.time.get()
+    const window = port.get()
+    if (settings.instant) {
+      const at = window?.start ?? window?.end ?? range.start
+      return moment(at >= range.end ? range.start : at)
+    }
     if (settings.mode === 'grow') {
       const start = window ? window.start : range.start
       const end = window?.end ?? start ?? range.start
@@ -441,7 +680,17 @@ export function createTimeline<S extends string, M extends Mark>(
     const by = (speedOf() * elapsed) / 1000
     let stop = false
     let next: TimeWindow
-    if (settings.mode === 'grow') {
+    if (settings.instant) {
+      let at = (window.start ?? window.end) + by
+      if (at >= range.end) {
+        if (settings.loop) at = range.start
+        else {
+          at = range.end
+          stop = true
+        }
+      }
+      next = moment(at)
+    } else if (settings.mode === 'grow') {
       let end = window.end + by
       if (end >= range.end) {
         if (settings.loop) end = window.start ?? range.start
@@ -494,10 +743,12 @@ export function createTimeline<S extends string, M extends Mark>(
     patch({ playing: false })
   }
 
-  const stopTime = graph.on('timechange', ({ window }) => {
+  function changed(window: TimeWindow | null): void {
     if (playing && !requested.some((asked) => sameWindow(asked, window))) head = window
     if (!sameWindow(store.state.window, window)) patch({ window })
-  })
+  }
+
+  const stopTime = graph ? graph.on('timechange', ({ window }) => changed(window)) : () => {}
 
   let stopWatch: (() => void) | null = null
 
@@ -510,13 +761,19 @@ export function createTimeline<S extends string, M extends Mark>(
     stopTime()
   }
 
-  stopWatch = internals.watch({
-    frame() {
-      if (internals.stamp().scene !== readScene) schedule()
-    },
-    destroy: () => destroy(),
-  })
-  read()
+  readEvents()
+  if (internals) {
+    stopWatch = internals.watch({
+      frame() {
+        if (internals.stamp().scene !== readScene) schedule()
+      },
+      destroy: () => destroy(),
+    })
+    read()
+  } else {
+    extent = readExtent()
+    layout()
+  }
 
   return {
     store: readonlyStore,
@@ -541,6 +798,21 @@ export function createTimeline<S extends string, M extends Mark>(
     nudge,
     step(count = 1) {
       nudge(settings.mode === 'grow' ? 'end' : 'both', count)
+    },
+    stepEvent,
+    events(start, end) {
+      const a = instant(start)
+      const b = end === undefined ? a : instant(end)
+      return eventCounts.read(Math.min(a, b), Math.max(a, b))
+    },
+    toggleKind(kind) {
+      if (destroyed) return
+      const next = new Set(hidden)
+      if (next.has(kind)) next.delete(kind)
+      else next.add(kind)
+      hidden = next
+      eventCounts.hide(hidden)
+      layout()
     },
     clear() {
       if (destroyed) return
@@ -578,8 +850,11 @@ export function createTimeline<S extends string, M extends Mark>(
     },
     update(next = {}) {
       if (destroyed) return
+      const before = given.hiddenKinds
       given = { ...given, ...next }
       settings = resolve(given)
+      if ('hiddenKinds' in next && next.hiddenKinds !== before) hidden = settings.hidden
+      readEvents()
       extent = readExtent()
       layout()
     },

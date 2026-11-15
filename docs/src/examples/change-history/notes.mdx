@@ -1,0 +1,16 @@
+## How it works
+
+`history.ts` generates thirty days of changes with a seeded random function: nodes are added, changed and removed, more on weekdays than at weekends. Each node exists from the change that added it to the change that removed it, through its `time` channel; the nodes that were already there have no start.
+
+The changes are not elements of the graph: `useTimeline` counts them through `events`, reading their moment with `eventTime: 'at'` and their kind with `eventKind: 'kind'`. The bars stack the kinds in the order of `kinds`, colored by the category tokens, and the buttons under the ticks hide a kind, which leaves it out of the bars, of stepping and of `timeline.events`.
+
+`instant: true` turns the window into a moment: the graph shows what exists at that moment. The cursor starts on the last change, through `initialTime` on `<Graph>`. `timeline.events(moment)` lists the changes made at the moment of the cursor, for the panel, and an effect puts their nodes in the `current` state, raised with a halo and a label.
+
+`<Timeline timeline={timeline}>` draws the timeline that `useTimeline` made, so that the panel and the bar share it.
+
+## Try it
+
+- Focus the cursor and press <kbd>Shift</kbd> with the arrow keys to step from one change to the next. The arrow keys alone move the cursor by a bin.
+- Click or drag on the bar to move the cursor; hold <kbd>Alt</kbd> to place it between the bins.
+- Press the play button to replay the history at half a day per second.
+- Press **Changed** under the bar to hide that kind of change, then step again: only additions and removals stop the cursor.
