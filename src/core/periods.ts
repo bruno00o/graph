@@ -39,7 +39,7 @@ function meet(
       out[size++] = start
       out[size++] = end
     }
-    if (aEnd < bEnd) i += 2
+    if (aEnd < bEnd || (aEnd === bEnd && aStart < aEnd)) i += 2
     else j += 2
   }
   return size
@@ -64,12 +64,17 @@ export function intersectPeriods(a: Float64Array, b: Float64Array, strict = fals
   return result(first, meet(a, a.length, b, b.length, first, strict))
 }
 
-export function intersectThree(a: Float64Array, b: Float64Array, c: Float64Array): Float64Array {
-  if (a === allTime) return intersectPeriods(b, c)
-  if (b === allTime) return intersectPeriods(a, c)
-  if (c === allTime) return intersectPeriods(a, b)
+export function intersectThree(
+  a: Float64Array,
+  b: Float64Array,
+  c: Float64Array,
+  strict = false,
+): Float64Array {
+  if (a === allTime) return intersectPeriods(b, c, strict)
+  if (b === allTime) return intersectPeriods(a, c, strict)
+  if (c === allTime) return intersectPeriods(a, b, strict)
   first = room(first, a.length + b.length)
-  const size = meet(a, a.length, b, b.length, first, false)
+  const size = meet(a, a.length, b, b.length, first, strict)
   second = room(second, size + c.length)
-  return result(second, meet(first, size, c, c.length, second, false))
+  return result(second, meet(first, size, c, c.length, second, strict))
 }

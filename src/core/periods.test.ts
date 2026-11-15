@@ -79,6 +79,19 @@ describe('intersectPeriods', () => {
     ).toEqual([10, 10])
   })
 
+  it('keeps an instant that follows a period ending at the same moment', () => {
+    const closed = Float64Array.of(0, 10, 10, 10)
+    const instant = Float64Array.of(10, 10)
+    expect(Array.from(intersectPeriods(closed, instant, true))).toEqual([10, 10])
+    expect(Array.from(intersectPeriods(instant, closed, true))).toEqual([10, 10])
+    expect(Array.from(intersectPeriods(closed, Float64Array.of(5, 10, 10, 10), true))).toEqual([
+      5, 10, 10, 10,
+    ])
+    expect(Array.from(intersectThree(closed, instant, Float64Array.of(0, 20), true))).toEqual([
+      10, 10,
+    ])
+  })
+
   it('matches every pair of periods on random lists', () => {
     const next = random(5)
     for (let round = 0; round < 2_000; round++) {
@@ -88,9 +101,13 @@ describe('intersectPeriods', () => {
       expect(pieces(intersectPeriods(a, b)), `round ${round}`).toEqual(naive(a, b))
       expect(pieces(intersectThree(a, b, c)), `round ${round}`).toEqual(naive(a, b, c))
       const strict = intersectPeriods(a, b, true)
+      const strictThree = intersectThree(a, b, c, true)
       for (let moment = -2; moment < 80; moment += 0.5) {
         expect(covers(strict, moment), `round ${round} at ${moment}`).toBe(
           covers(a, moment) && covers(b, moment),
+        )
+        expect(covers(strictThree, moment), `round ${round} at ${moment}`).toBe(
+          covers(a, moment) && covers(b, moment) && covers(c, moment),
         )
       }
     }

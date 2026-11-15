@@ -369,6 +369,11 @@ function periodsOf(spans: NodeColumns['time'], index: number, out: Float64Array)
   return out
 }
 
+function closesAt(spans: NodeColumns['time'], index: number, moment: number): boolean {
+  const start = spans.start[index] ?? 0
+  return start < moment && spans.end[index] === moment
+}
+
 export function readEdgeSpan(
   nodes: NodeColumns,
   edges: EdgeColumns,
@@ -395,6 +400,7 @@ export function readEdgeSpan(
       own ? periodsOf(edgeTimes, index, ownSpan) : allTime,
       fromSource ? periodsOf(nodeTimes, source, sourceSpan) : allTime,
       fromTarget ? periodsOf(nodeTimes, target, targetSpan) : allTime,
+      true,
     )
     if (periods.length === 0 || periods === allTime) return null
     if (periods.length > 2) return periods
@@ -414,6 +420,14 @@ export function readEdgeSpan(
     end = Math.min(end, nodeTimes.end[target] ?? end)
   }
   if (end < start || start === Number.POSITIVE_INFINITY) return null
+  if (
+    end === start &&
+    ((own && closesAt(edgeTimes, index, end)) ||
+      (fromSource && closesAt(nodeTimes, source, end)) ||
+      (fromTarget && closesAt(nodeTimes, target, end)))
+  ) {
+    return null
+  }
   out[0] = start
   out[1] = end
   return null

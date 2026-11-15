@@ -419,6 +419,7 @@ export class Track implements HistoryTrack {
   }
 
   forEachKey(visit: (key: Key) => void): void {
+    this.#reserve()
     const keys = this.#index.keys
     const active = this.#active
     for (let element = 0; element < active.length; element++) {
