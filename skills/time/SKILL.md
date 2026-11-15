@@ -5,19 +5,22 @@ description: >
   only what exists in a time window, fading elements in and out at the edges of
   the window, controlling the window from application state, or adding a timeline
   with a histogram that brushes, steps and plays (default element, a renderer of
-  your own, or the React Timeline component and useTimeline hook), also on a map
-  graph.
+  your own, or the React Timeline component and useTimeline hook), counting the
+  events of the application on the bar, moving a single moment instead of a
+  window, a timeline that follows no graph, also on a map graph.
 metadata:
   purpose: >
     Time in @bruno00o/graph: the time channel of nodes, edges and shapes, the time
     window and its exact boundaries, the fade, the controlled window, the
-    timeline companion with its store and actions, and the mistakes that leave
-    everything showing, nothing playing or a window one moment off.
+    timeline companion with its store and actions, events of the application and
+    a moment as cursor, and the mistakes that leave everything showing, nothing
+    playing or a window one moment off.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
   - src/timeline/index.ts
   - src/timeline/view.ts
+  - src/timeline/events.ts
   - src/core/time-range.ts
   - src/react/index.tsx
   - src/types.ts
@@ -156,7 +159,7 @@ By default elements appear and disappear at once. `time: { fade }` in `defineGra
 
 ### Add a timeline
 
-`createTimeline(graph, options)` follows the time of a graph made by `mountGraph` or `mountMapGraph`, keeps its state in `timeline.store`, and moves the graph's window. `mountTimeline(timeline, options)` renders it in a plain element: a play button, the histogram of nodes and edges over time, the window as a brush with two handles, and ticks.
+`createTimeline(graph, options)` follows the time of a graph made by `mountGraph` or `mountMapGraph` (on its canvas or on a map), keeps its state in `timeline.store`, and moves the graph's window. `mountTimeline(timeline, options)` renders it in a plain element: a play button, the histogram of nodes and edges over time, the window as a brush with two handles, and ticks.
 
 ```ts
 import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
@@ -214,6 +217,47 @@ timeline.store.subscribe(() => {
 })
 ```
 
+### Count events of the application, and move a moment
+
+`events` gives the bar something other than the graph to count: a log of what changed and when, as one histogram stacked by kind. Each event is a moment and a kind, read by `eventTime` and `eventKind` (field names or functions; defaults `time` and `kind`). `instant: true` makes the window a single moment, a cursor, so the graph shows what exists at that moment.
+
+```ts
+import type { GraphInstance } from '@bruno00o/graph'
+import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
+
+type Change = { at: Date; type: 'added' | 'changed' | 'removed'; key: string }
+declare const changes: Change[]
+declare const graphs: GraphInstance[]
+
+const timeline = createTimeline({
+  events: changes,
+  eventTime: 'at',
+  eventKind: 'type',
+  kinds: ['added', 'changed', 'removed'],
+  instant: true,
+})
+const view = mountTimeline(timeline, {
+  ariaLabel: 'Changes',
+  labels: { play: 'Play', cursor: 'Moment', kinds: 'Kinds of change' },
+  kindText: (kind) => kind,
+})
+document.body.append(view.element)
+
+timeline.store.subscribe(() => {
+  const { window } = timeline.store.get()
+  for (const graph of graphs) graph.time.set(window)
+})
+timeline.stepEvent()
+const window = timeline.store.get().window
+const made = window?.start == null ? [] : timeline.events(window.start)
+```
+
+- With a graph (`createTimeline(graph, { events })`) the timeline moves that graph's window; without one (`createTimeline({ events })`) it keeps the window in its own state, for you to apply to any graphs or none. The extent comes from the first and last event, and `bin.events` and `bin.kinds` count them while `bin.nodes` and `bin.edges` still count the graph.
+- Kinds stack in the order of `kinds`, then in the order events first give them, colored `--graph-cat-1` to `-12` or by `kindColors`. `state.kinds` lists them with color, count and `hidden`. `toggleKind(kind)` hides or shows one; `hiddenKinds` sets them only when the option changes. The bar shows a button for each kind when there are two or more (`legend: false` removes them, `kindText` writes their text, `labels.kinds` names the group).
+- `stepEvent(count?)` goes to the next event (back when negative), skipping hidden kinds and counting events at one moment once; with `instant` the cursor lands on it, otherwise the end of the window lands 1 ms after it. In the bar, Shift with the arrow keys does the same, and the cursor is a slider (`labels.cursor`) that snaps to the bins unless Alt is held.
+- `timeline.events(moment)` returns the events made at that moment, `events(a, b)` those from `a` included to `b` left out, in time order, for a panel of details. An event without a valid moment is left out, one without a kind belongs to `''`.
+- A new `events` array counts again at once; one that starts with the objects of the previous array (a log that grows) only reads the additions. Pass the `data` of a live query as it comes. It never changes the array in place.
+
 ### Use the timeline in React
 
 `<Timeline>` and `useTimeline` come from `@bruno00o/graph/react`. Both read the graph of the `<Graph>` or `<MapGraph>` around them; elsewhere pass it with the `graph` prop or option. `<Timeline>` takes the options of `createTimeline` and `mountTimeline`; `useTimeline` returns `{ state, timeline }` (`timeline` is `null` until the first layout effect) and renders again when the state changes.
@@ -245,13 +289,13 @@ export function Dated() {
 }
 ```
 
-Every `<Timeline>` and `useTimeline` creates its own timeline: they share the window (it is the graph's) but not playback, so two controls on one graph do not mirror each other's play state. Use one of them, or keep one `createTimeline` and pass it around.
+Every `<Timeline>` and `useTimeline` creates its own timeline: they share the window (it is the graph's) but not playback, so two controls on one graph do not mirror each other's play state. To draw the timeline that `useTimeline` made and read it too, pass it to `<Timeline timeline={timeline} />` (`null` renders nothing yet): one timeline, one play state.
 
-With `graph: null` the hooks wait for a graph and stay empty. Without a graph from context or the `graph` option, they throw.
+With `graph: null` the hooks wait for a graph and stay empty. With `graph: false` they follow no graph and count `events`, keeping the window in their state (`useTimeline({ graph: false, events })`). Without a graph from context or the `graph` option, they throw.
 
 ### Put a timeline on a map graph
 
-The window works the same on a graph from `mountMapGraph`. In React put `<Timeline>` inside `<MapGraph>`. Without React, create and mount the timeline as above and destroy in reverse order: `view.destroy()`, `timeline.destroy()`, `graph.destroy()`, then `map.remove()`.
+The window works the same on a graph from `mountMapGraph`, and on one that moves between its canvas and a map: the timeline keeps following it. In React put `<Timeline>` inside `<MapGraph>` or `<Graph>`. Without React, create and mount the timeline as above and destroy in reverse order: `view.destroy()`, `timeline.destroy()`, `graph.destroy()`, then `map.remove()`.
 
 ## Common Mistakes
 
@@ -278,9 +322,17 @@ Ends are exclusive on both the period and the window. A period `{ start: 1, end:
 
 Controlled mode is decided at mount and never changes. `update({ time })` on a graph mounted without `time` does nothing; a graph mounted with `time` (even `null`) ignores `time.set` and the timeline until `update({ time })` or the `time` prop answers. `onTimeChange` that does not apply the window leaves the window frozen and playback stuck.
 
+### MEDIUM Rebuilding `events` or its readers in render
+
+`useTimeline({ events: log.map(toEvent), eventTime: (event) => event.at })` in a component makes a new array of new objects and a new function on every render, so the timeline counts every event again each time. Keep the array in state or `useMemo` (a growing log whose array starts with the same objects only reads the additions), give a field name to `eventTime` and `eventKind`, or declare the functions outside the component.
+
+### MEDIUM `graph: null` where `graph: false` was meant
+
+`graph: null` waits for a graph: the state stays empty and `timeline` stays `null` until one is given, so a timeline of `events` never counts. `graph: false` is a timeline without a graph. Leaving `graph` out outside `<Graph>` and `<MapGraph>` throws.
+
 ### MEDIUM A timeline over data with no times
 
-With no element carrying a time, the timeline has no extent (`state.extent` is `null`), no bins, and `play()` does nothing. Give elements a `time`, or fix the bar with the `extent` option. Times on shapes do not count: a graph whose only timed elements are shapes needs the `extent` option, and its histogram stays empty.
+With no element carrying a time and no `events`, the timeline has no extent (`state.extent` is `null`), no bins, and `play()` does nothing. Give elements a `time`, or fix the bar with the `extent` option. Times on shapes do not count: a graph whose only timed elements are shapes needs the `extent` option, and its histogram stays empty.
 
 ### MEDIUM Mixing local and UTC times
 
@@ -296,7 +348,7 @@ A hidden element keeps its place: layouts position every node whatever the windo
 
 ### MEDIUM A timeline outside `<Graph>` without a graph
 
-`<Timeline>` and `useTimeline` read the graph from context. Rendered elsewhere, they throw: pass `graph`, or `graph: null` while it is not there yet. A timeline created on a destroyed graph comes back destroyed, and one on a graph not made by `mountGraph` or `mountMapGraph` throws an `Error`.
+`<Timeline>` and `useTimeline` read the graph from context. Rendered elsewhere, they throw: pass `graph`, `graph: null` while it is not there yet, or `graph: false` for a timeline of events. A timeline created on a destroyed graph comes back destroyed, and one on a graph not made by `mountGraph` or `mountMapGraph` throws an `Error`.
 
 ## Completion
 
@@ -306,6 +358,7 @@ The task is done when:
 - the window is set with `initialTime`, `graph.time.set`, a timeline, or the controlled `time` and `onTimeChange` pair, answered with `update({ time })`;
 - period and window ends follow the exclusive end rule, and snapshots use `start` equal to `end`;
 - the timeline is created after the graph, mounted somewhere with a size, and destroyed with its graph (or before it, in reverse order);
+- a timeline of events is made with `graph: false` or no graph, with stable `events` and readers;
 - the page language or `format` and `labels` give readable ticks and accessible names;
 - `tsc` accepts the code with no cast.
 
@@ -313,6 +366,6 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- [Time](https://bruno00o.github.io/graph/docs/time), [createTimeline and mountTimeline](https://bruno00o.github.io/graph/docs/api/timeline), [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [edges](https://bruno00o.github.io/graph/docs/api/edges)
-- Examples: [the time window](https://bruno00o.github.io/graph/examples/time), [moments and periods](https://bruno00o.github.io/graph/examples/time-moments), [graph that grows](https://bruno00o.github.io/graph/examples/time-growth), [time slider of your own](https://bruno00o.github.io/graph/examples/time-slider), [map in time](https://bruno00o.github.io/graph/examples/map-time-window)
+- [Time](https://bruno00o.github.io/graph/docs/time), [events](https://bruno00o.github.io/graph/docs/time#events), [createTimeline and mountTimeline](https://bruno00o.github.io/graph/docs/api/timeline), [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [edges](https://bruno00o.github.io/graph/docs/api/edges)
+- Examples: [the time window](https://bruno00o.github.io/graph/examples/time), [moments and periods](https://bruno00o.github.io/graph/examples/time-moments), [graph that grows](https://bruno00o.github.io/graph/examples/time-growth), [time slider of your own](https://bruno00o.github.io/graph/examples/time-slider), [map in time](https://bruno00o.github.io/graph/examples/map-time-window), [history of changes](https://bruno00o.github.io/graph/examples/change-history)
 - Showing elements by zoom instead of time is in the view skill; both combine, an element shows when its zoom range and the window let it.

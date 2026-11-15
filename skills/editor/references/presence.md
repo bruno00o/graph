@@ -14,6 +14,7 @@ type Seen = {
   pointer: Point | null
   selection: PresenceSelection | null
   time: number
+  surface: string
 }
 
 declare const items: Item[]
@@ -47,10 +48,11 @@ presence.store.subscribe(() => console.log(presence.store.state.length))
 presence.stop()
 ```
 
-- A row holds `pointer` (world units, `null` off the graph), `selection` (`{ nodes, edges, shapes }` keys, or `null`) and `time` (milliseconds since the epoch); `fields` renames them. `create` is required: it builds the row of the local person the first time, with the three values and your own fields, such as a name. `me` is its key.
+- A row holds `pointer` (world units of the surface, `null` off the graph), `selection` (`{ nodes, edges, shapes }` keys, or `null`), `time` (milliseconds since the epoch) and `surface` (`'canvas'` or `'map'`, where the graph draws); `fields` renames them. `create` is required: it builds the row of the local person the first time, with the four values and your own fields, such as a name; spread `values` to keep `surface`. `me` is its key.
 - Selections show in the free states `presence1` to `presence8` that the definition declares, or in the list given in `states` (every name must be a free state, or it throws). A person takes the least used slot and keeps it while present; beyond the number of states, people share them. With no state declared, only cursors show. A state with `outline` styles nodes; give shapes a `stroke` through a style by kind, as above. These states belong to `showPresence`: do not set them yourself.
 - Cursors are anchored elements at a point: a colored dot without text by default (`var(--graph-cat-N)` for slot N, or `colors`), a function `cursor(participant)` for your own element, made once per person, or `cursor: false`. They follow the pointer on a flat map and on the globe and hide behind its horizon.
 - Pointers are in world units: two clients show a cursor at the same place only when their elements have the same positions (positions in the data, a map, a layout that does not depend on the client).
+- A cursor shows only while its person is on the same surface as the graph, since a point of the canvas and a point of the map are not the same place; selections show on every surface. When the graph moves, the local row is written again with its new surface and no pointer until the pointer moves there. A row without a surface (an older row, or a `create` that left it out) shows its cursor everywhere, and an existing row gets the field only when it already has it or when `fields.surface` names one.
 - The local row is written at most every `wait` ms (50), a slow write delaying the next by four times its cost, and rewritten every third of `expire` (30,000 ms) while idle. Rows older than `expire`, on the clock of this client, no longer count. Selections are cut to `maxSelection` keys per kind (500).
 - `presence.store` lists the other people (`id`, `slot`, `state`) and changes only when one joins or leaves. `presence.stop()`, destroying the graph or closing the page removes the local row, the cursors and the states.
 - The library never deletes the rows of others: rows of tabs closed abruptly stay in the collection, ignored once expired. To clean them yourself, skip the call when the list is empty: `collection.delete([])` throws (`No keys were passed to delete`).
@@ -65,7 +67,13 @@ import { type PresenceSelection, showPresence } from '@bruno00o/graph/db'
 import type { Collection } from '@tanstack/db'
 import { useEffect } from 'react'
 
-type Seen = { id: string; pointer: Point | null; selection: PresenceSelection | null; time: number }
+type Seen = {
+  id: string
+  pointer: Point | null
+  selection: PresenceSelection | null
+  time: number
+  surface: string
+}
 type Props = { graph: GraphInstance | null; crowd: Collection<Seen, string>; me: string }
 
 export function Presence({ graph, crowd, me }: Props) {

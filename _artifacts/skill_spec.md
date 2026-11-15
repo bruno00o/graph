@@ -69,7 +69,7 @@ Boundaries chosen from developer tasks, not from entry points:
 | 8   | Waiting edges taken for a bug                     | MEDIUM   | data guide                             |             |
 | 9   | A function that reads data outside the item       | MEDIUM   | data guide, `graph-instance.ts`        | react       |
 
-### react (7)
+### react (8)
 
 | #   | Mistake                                            | Priority | Source                                     | Cross-skill       |
 | --- | -------------------------------------------------- | -------- | ------------------------------------------ | ----------------- |
@@ -80,6 +80,7 @@ Boundaries chosen from developer tasks, not from entry points:
 | 5   | Graph structure read during render                 | MEDIUM   | `src/host/mount-graph.ts` (`flushPending`) |                   |
 | 6   | Controlled prop set after mount                    | MEDIUM   | React guide                                | view, interaction |
 | 7   | `initialPositions` given an iterator               | MEDIUM   | React and positions guides                 | layouts           |
+| 8   | Swapping `<Graph>` for `<MapGraph>` to change side | MEDIUM   | React guide, `src/react/graph.tsx`         | map               |
 
 ### shapes (13)
 
@@ -117,7 +118,7 @@ Boundaries chosen from developer tasks, not from entry points:
 | 12  | Snapping to the background without a background grid   | MEDIUM   | `src/editor/editor.ts`                  | tools       |
 | 13  | Keys that never reach the editor                       | MEDIUM   | editing shapes guide                    | interaction |
 | 14  | Selections of others that never show                   | MEDIUM   | `src/db/presence.ts`                    | interaction |
-| 15  | Cursors that land in different places                  | MEDIUM   | showPresence API                        | layouts     |
+| 15  | Cursors that land in different places or surfaces      | MEDIUM   | showPresence API                        | layouts     |
 
 ## Tensions
 
@@ -183,7 +184,7 @@ Scope decisions:
 
 #### Failure mode inventory
 
-##### layouts (10)
+##### layouts (11)
 
 | #   | Mistake                                              | Priority | Source                            | Cross-skill |
 | --- | ---------------------------------------------------- | -------- | --------------------------------- | ----------- |
@@ -197,6 +198,7 @@ Scope decisions:
 | 8   | `rank` inside `defineGraph` without the item type    | MEDIUM   | layouts API                       |             |
 | 9   | Laying out a subset next to anchors                  | MEDIUM   | layout guide, graph API           | core        |
 | 10  | Expecting `layout.compute` to move nodes             | MEDIUM   | layout guide, `layout-session.ts` | core        |
+| 11  | A group layout with a new function option per render | MEDIUM   | layout guide, nodes API           | react       |
 
 ##### edges (7)
 
@@ -210,7 +212,7 @@ Scope decisions:
 | 6   | Expecting bundles or routes immediately                         | MEDIUM   | bundling and routing guides |               |
 | 7   | Edge labels that never show                                     | MEDIUM   | labels guide                | styling       |
 
-##### groups (9)
+##### groups (10)
 
 | #   | Mistake                                         | Priority | Source                                          | Cross-skill |
 | --- | ----------------------------------------------- | -------- | ----------------------------------------------- | ----------- |
@@ -223,6 +225,7 @@ Scope decisions:
 | 7   | Using `hide` to shrink the layout               | MEDIUM   | transformations guide                           | layouts     |
 | 8   | Expecting merged edges across marks             | MEDIUM   | transformations guide                           | multilayer  |
 | 9   | Identifying an aggregated edge by its first key | MEDIUM   | groups and transformations guides               | interaction |
+| 10  | Expecting `foldedAsOne` to merge without `by`   | MEDIUM   | transformations guide, `src/core/projection.ts` |             |
 
 ##### multilayer (7)
 
@@ -270,10 +273,10 @@ Failure mode inventory:
 
 | Skill       | Mistakes | HIGH | Notes                                                                          |
 | ----------- | -------- | ---- | ------------------------------------------------------------------------------ |
-| view        | 7        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view |
+| view        | 8        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view |
 | interaction | 10       | 2    | lasso needs two options, unanswered controlled selection, per-node drag        |
-| map         | 9        | 3    | layout on a map, teardown order, view options on a map graph, snapshots        |
-| time        | 8        | 3    | string times, exclusive ends, controlled window without both props             |
+| map         | 12       | 3    | layout on a map, teardown order, view options on a map graph, snapshots        |
+| time        | 10       | 3    | string times, exclusive ends, controlled window without both props             |
 
 Cross-references proposed for the shared tables (the maintainer applies them after the batches merge):
 
@@ -295,7 +298,7 @@ Written: `tanstack-db`, `tanstack-query`, `cypher`, `file-formats`, `paths`, all
 
 | Skill          | Lines | Failure modes | Typechecked failures                            |
 | -------------- | ----- | ------------- | ----------------------------------------------- |
-| tanstack-db    | 440   | 9             | key option on a live mark, wrong field in where |
+| tanstack-db    | 468   | 10            | key option on a live mark, wrong field in where |
 | tanstack-query | 425   | 7             | types not inferred from a plain object          |
 | cypher         | 264   | 6             | untyped properties, edge mark without ends      |
 | file-formats   | 304   | 8             | color literal, a Response instead of text       |
@@ -347,6 +350,15 @@ Aligned for 0.27.1 (globe anchors and previews, writable geometry, snap warning,
 Layouts, export, positions, lasso, badges and halos, node order, restored positions, reads of what is drawn, aggregated edge ids (PRs 192 to 200). Failure modes added: `core` (a function that reads data outside the item, `graph.refresh`), `react` (an `initialPositions` iterator that StrictMode consumes), `layouts` (four: restoring with `positions.set`, `rank` without the item type, a subset laid out next to anchors, `layout.compute` that moves nothing), `groups` (an aggregated edge identified by its first key), `interaction` (pinning some nodes with `interaction.drag`; the lasso mode now names `LassoOptions`), `map` (a snapshot given to the other surface), `tanstack-db` (world units written into rows that hold degrees), `export` (`zoom` with `size`), `styling` (large nodes covering small ones). The `in` workaround for `datum` in `editor` is gone: `ShapeEdit<M>` narrows by `mark` and `persistShapes({ mark })` types `create`, so `editor` keeps 15 modes and its sentences on `canRaise`, `canLower` and the narrowing changed. `core` gained `references/live-data.md` (the loading overlay moved out to leave room), and its description of the instance now lists `shown`, `isShown`, `refresh`, `drawsOnMap`, `positions.reset` and `layout.compute`. A badge hides while the pill is under `minSize` pixels high, not while the node is under 10 pixels: the old sentence of `styling` was wrong before this release.
 
 Cross-references proposed for the shared tables: `layouts` to `react` and `map` (restoring positions), `groups` to `interaction` (`aggregate.id` in targets), `styling` to `map` (`order` at a shared place).
+
+### Aligned for 0.29.0
+
+Surfaces, group layouts, events on the timeline, hull labels, folded-group merge (PRs 202 to 214). Failure modes added: `map` (three: `display: none` on the map element, a graph moved with the definition of the other side, a second graph on one surface; the three older modes about layouts, views, snapshots and the minimap or lens now say "while the graph is on a map"), `layouts` (a group layout with a new function option on every render; the map mode now says layouts run again on the canvas), `groups` (`foldedAsOne` without `by`), `time` (two: `events` rebuilt in render, `graph: null` where `graph: false` was meant), `react` (swapping `<Graph>` for `<MapGraph>` to change side), `tools` (a hull label function without `by`, `expect-error=TS2769`; the minimap and lens mode now says the companions come back on the canvas), `view` (the view of one surface given to the other), `tanstack-db` (both surfaces written into the same fields). `editor` keeps 15 (the presence cursor mode now covers the surface). `core`, `edges` and `export` change sentences only.
+
+- New references: `map/references/surfaces.md` (the canvas and map recipes, vanilla and React), `layouts/references/group-layouts.md` and `references/saving-arrangements.md`, `tools/references/hulls.md` (hull targets, options and labels, moved out of the skill to leave room).
+- `layouts` and `map` lost their claims that a layout needs a built-in factory first and that a graph cannot move to a map without remounting; `tools` lost the claim that the minimap is inert on a map for good; `time` lost the claim that the timeline needs a graph and counts nodes and edges only; `react` lost the claim that a map always means `<MapGraph>`.
+- Tension: a graph that moves between surfaces keeps one definition for each side and applies both in one `update` (`map`, `react`, `view`, `tanstack-db`).
+- Cross-references proposed for the shared tables: `map` to `react` (`<Graph surface>`), `map` to `tanstack-db` (`persistPositions({ surfaces })`), `layouts` to `groups` (`container.layout`), `time` to `react` (`graph: false`, `<Timeline timeline>`), `tools` to `map` (companions that follow a surface).
 
 ## Coverage and batch history
 

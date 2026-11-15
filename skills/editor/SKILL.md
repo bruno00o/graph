@@ -191,7 +191,7 @@ createShapeEditor(graph, {
 - A drawing tool takes every press with the main button, on shapes and nodes too, except with Space held. The double click that ends a shape emits no `doubleclick` and folds no group. Set `'select'` to give the pointer back.
 - The tool stays active after each shape: `state.tool` does not return to `'select'`, so the next press draws another. A toolbar that wants one shape per click calls `editor.setTool('select')` from `onEdit`, on a batch that holds an `'add'`.
 - A finished shape is an `'add'` with `tool`, the key of `newKey` (`crypto.randomUUID()` by default) and the mark of `newMark` (first name of `marks`, else the first shape mark). It is selected at once.
-- `units: 'auto'` (default) draws in degrees on a map (GeoJSON `Polygon` and `LineString`, circles around a place with radii in meters) and in world units elsewhere (`{ x, y, width, height }`, `{ center, radius }`, `rings`, `points`); `'world'` and `'degrees'` force one. Edited shapes keep their own units.
+- `units: 'auto'` (default) draws in degrees on a map (GeoJSON `Polygon` and `LineString`, circles around a place with radii in meters) and in world units elsewhere (`{ x, y, width, height }`, `{ center, radius }`, `rings`, `points`), and follows a graph that moves between a canvas and a map, shape by shape; `'world'` and `'degrees'` force one. Edited shapes keep their own units.
 - `snap: { grid }` snaps drawn and dragged points, resized boxes and moved shapes (by the top left corner of their box) to a spacing in world units, or to the lines of the background grid shown at this zoom with `'background'`, which needs `background: { grid }` in the definition: without one nothing snaps and a development build warns once. A map has no background grid, so give a spacing there. The arrow keys do not snap.
 
 ### Copy, reorder, undo
@@ -285,6 +285,8 @@ export function Zones({ initial }: { initial: Zone[] }) {
 Inside `<Graph>` without `graph`, the edits are not typed by the marks: pass `graph` (the instance from the `ref`, `null` until mounted) or type arguments to type `datum` and `mark`.
 
 ### Maps and large edits
+
+- A graph that moves onto a map or back (`update({ surface })`, map skill) keeps its editor. A gesture or a drawing in progress is dropped, as with Escape, a text being typed is proposed, and edits waiting for their data stay; the next shape is drawn in the units of the side the graph is on.
 
 - On a map, flat or globe, the editor takes the gesture from the map: the map does not pan while a shape moves or is drawn, and the double click that ends a shape does not zoom. On the globe, a circle or a rectangle in world units, such as a pinned shape, faces the screen as the graph draws it, and so do its preview, its handles and its text input. Shapes in degrees get their edits in degrees, a circle around a place keeps its radii in meters, and a move is a translation on the flat Mercator plane, also on the globe (a shape pushed toward a pole grows on the ground).
 - Past 5,000 points in the shapes being moved, the graph slides its own shapes on the GPU instead of an SVG preview: sliding shapes are not picked until they land. A circle placed in degrees always moves as a preview. Dragging a polygon of 5,000 points costs about 1 ms per frame; reshaping it costs about 5 ms on release.
@@ -383,9 +385,9 @@ Delete, Escape, Enter, the arrows and the shortcuts only reach the editor while 
 
 `showPresence` shows selections only in the free states `presence1` to `presence8` that the definition declares: with none declared, only cursors show. Declare them with a style by kind ([presence](references/presence.md)).
 
-### MEDIUM Cursors that land in different places
+### MEDIUM Cursors that land in different places or on the wrong surface
 
-Pointers are written in world units. Two clients see a cursor and a selection at the same place only when their elements have the same positions: data positions, a map, or a deterministic layout.
+Pointers are written in world units of the surface the graph draws on. Two clients see a cursor and a selection at the same place only when their elements have the same positions: data positions, a map, or a deterministic layout. A cursor also shows only to people on the same surface, canvas or map: a row whose `surface` field is missing shows its cursor on every surface, so a `create` that drops `surface` shows the cursor on the wrong side ([presence](references/presence.md)).
 
 ## Completion
 

@@ -3,7 +3,8 @@ name: tools
 description: >
   Use when adding companions to a @bruno00o/graph graph, such as a minimap, a
   legend that filters, a magnifying lens, HTML pinned to nodes, hulls around sets
-  of nodes, a background grid, or the TanStack Devtools panel.
+  of nodes with a label that names them, a background grid, or the TanStack
+  Devtools panel.
 metadata:
   purpose: >
     The tools drawn beside or over a @bruno00o/graph graph: minimap, legend,
@@ -47,7 +48,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): the graph, its d
 | Background grid | Main entry | `background` in the definition |
 | Devtools | `@bruno00o/graph/devtools` and `/devtools/react` | `graphDevtoolsPlugin()` |
 
-Not on a map: a graph drawn by `mountMapGraph` or `<MapGraph>` keeps legends, anchors, hulls and devtools, but has no minimap (`createMinimap` draws nothing and warns in development; the map has its own navigation), no lens (`graph.lens.set` does nothing and warns in development) and no background grid (the map draws the background). See the map skill.
+Not on a map: a graph on a map keeps legends, anchors, hulls and devtools, but has no minimap (the map has its own navigation), no lens and no background grid (the map draws the background). A graph that only lives on a map (`mountMapGraph`, `<MapGraph>`) gets an empty minimap that warns in development, and `graph.lens.set` shows nothing. A graph that moves between its canvas and a map (map skill) keeps its companions: the minimap empties on the map and draws again on the canvas, the lens hides and comes back, and the devtools show the surface.
 
 ## Setup
 
@@ -191,7 +192,7 @@ A magnifier: a circle that draws the graph under it at a higher zoom, without mo
 
 - Off by default. `interaction: { lens: true }` or `{ lens: { radius, zoom, key } }` in `defineGraph` shows it under the pointer while `key` is held (`'Alt'`, Option on a Mac, by default; `key: null` for code only). `radius` is in screen pixels (120), `zoom` multiplies the view zoom (3, at least 1). The wheel over the lens changes its magnification from 1 to 32.
 - `graph.lens.set(input)` shows, moves or resizes it with or without the option; fields left out keep their value. `at` is a point in screen pixels relative to the graph element (a fixed lens, which you drag by its empty inside), `'pointer'` (follows the pointer, hides when it leaves) or `'focus'` (follows the keyboard-focused node). `set(null)` hides it. A non-finite `at`, `radius` or `zoom`, or a `radius` of 0 or less, throws a `RangeError`. `graph.lens.get()` returns the shown lens, or `null` when hidden, and `lens.toWorld(point)` converts a screen point through it. Each change emits `lenschange` and updates `lens` in the store.
-- The lens leaves out exports and the minimap, never moves anchored HTML, and does not work on a map. On a touch screen, show it from a button of your application.
+- The lens leaves out exports and the minimap, never moves anchored HTML, and is hidden while the graph is on a map (`lenschange` to `null`, shown again on return unless `lens.set(null)` removed it). On a touch screen, show it from a button of your application.
 
 ```ts
 import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
@@ -262,51 +263,15 @@ graph.on('contextmenu', ({ target, world, originalEvent }) => {
 
 ### Hulls and the background grid
 
-A hull is a shape drawn under edges and nodes around a set of nodes: build it with `hull()` and list it in `hulls`. It follows its nodes; for an area or a line with geometry of its own, such as a zone with a hole, use a `shapes()` mark (shapes skill). It encloses one of:
-
-- a list of keys: `hull({ nodes: ['a', 'b'] })`, missing keys skipped;
-- every node of a mark: `hull({ nodes: people })`, where `people` is **the same mark object** listed in `marks`;
-- the nodes of a mark grouped by a field or function: `hull({ nodes: people, by: 'group' })`, one hull per value, with color options that may be functions of the value;
-- the nodes in a state: `hull({ state: 'flagged' })`, which follows the state as it changes.
-
-Options: `shape` (`'rounded'` default, `'smooth'` bends the sides outward), `padding` (screen pixels, 16), `color` (outline, and a 12% fill), `fill`, `stroke`, `strokeWidth` (screen pixels, 1, `0` for no outline). Without colors a hull uses `--graph-group-fill` and `--graph-group-line`. A negative or non-finite `padding` or `strokeWidth` throws a `RangeError`. Hulls follow their nodes through layouts, drags and transitions, are convex, may cover nodes of other sets, and are drawn in exports. Use a hull for any set of nodes, overlapping sets and states; use group containers (the groups skill) when the structure is in the data and the reader folds it.
+A hull is a shape drawn under edges and nodes around a set of nodes: build it with `hull()` and list it in `hulls`. It encloses a list of keys, every node of a mark (`hull({ nodes: people })` with **the same mark object** listed in `marks`), the nodes of a mark grouped by a field (`by`, one hull per value) or the nodes in a state (`hull({ state })`). It follows its nodes through layouts, drags and transitions, may cover nodes of other sets, is drawn in exports, and takes `shape`, `padding`, `color`, `fill`, `stroke`, `strokeWidth` and a `label` that names it with text drawn by the graph. For an area with geometry of its own, use a `shapes()` mark (shapes skill); for structure the reader folds, use group containers (groups skill). Every option, the label and a typed example are in [references/hulls.md](references/hulls.md).
 
 `background: { grid: 'lines' | 'dots' }` draws a grid under everything that follows pan and zoom, in `--graph-grid` and `--graph-grid-major`. Lines fall on multiples of `spacing` (16, positive) times a power of 4 chosen by the zoom, and every fourth line is darker. `adaptive: false` keeps one level at `spacing` that grows and shrinks with the zoom and fades out when denser than about 8 pixels. The canvas stays transparent: the page paints `--graph-paper`.
-
-```ts
-import { defineGraph, edges, hull, nodes } from '@bruno00o/graph'
-
-type Item = { id: string; name: string; group: string }
-type Link = { id: string; from: string; to: string }
-
-const items: Item[] = []
-const links: Link[] = []
-
-const people = nodes(items, { color: 'group', label: 'name' })
-
-const definition = defineGraph({
-  marks: [edges(links, { source: 'from', target: 'to' }), people],
-  states: { flagged: { stroke: 'var(--graph-accent)' } },
-  hulls: [
-    hull({
-      nodes: people,
-      by: 'group',
-      shape: 'smooth',
-      padding: 24,
-      color: (group) => (group === 'core' ? 'var(--graph-cat-1)' : 'var(--graph-cat-2)'),
-    }),
-    hull({ state: 'flagged', color: 'var(--graph-accent)' }),
-    hull({ nodes: ['n1', 'n2'], strokeWidth: 0 }),
-  ],
-  background: { grid: 'dots', spacing: 20, adaptive: false, majorColor: 'var(--graph-grid)' },
-})
-```
 
 Examples: [drawing layers](https://bruno00o.github.io/graph/examples/drawing-layers), [backgrounds](https://bruno00o.github.io/graph/examples/backgrounds).
 
 ### Devtools panel
 
-`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node, edge and shape counts, the labels drawn (node, edge and shape labels), issues (shape problems included), selection, named states and layout runs, for every graph mounted on the page. A hovered shape shows as `shape <key>`; `messages.shapes`, `messages.shapeIssue` and `messages.shapeTarget` replace its texts, and `messages.labelCounts(nodes, edges, shapes)` formats the labels drawn (the shape count shows only when above 0; a function of two arguments leaves it out). The graph measures nothing until a panel is open and visible.
+`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node, edge and shape counts, the labels drawn (node, edge and shape labels), issues (shape problems included), selection, named states and layout runs, for every graph mounted on the page. The View section shows the surface the graph draws on, `messages.surface` and `messages.surfaceName` replace its texts, and the history survives a move onto a map and back. A hovered shape shows as `shape <key>`; `messages.shapes`, `messages.shapeIssue` and `messages.shapeTarget` replace its texts, and `messages.labelCounts(nodes, edges, shapes)` formats the labels drawn (the shape count shows only when above 0; a function of two arguments leaves it out). The graph measures nothing until a panel is open and visible.
 
 ```ts
 import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools'
@@ -338,7 +303,7 @@ Example: [devtools](https://bruno00o.github.io/graph/examples/devtools).
 
 ### HIGH A minimap or a lens on a map
 
-The minimap does not support a graph drawn on a map, and `graph.lens.set` does nothing there: the map owns the camera and has its own navigation. Do not add them to `mountMapGraph` or `<MapGraph>`. The legend, anchors and hulls work on a map; the background grid is dropped. On the globe an anchor sits where its target is drawn, scales with the globe there with `scale: true`, and hides behind the horizon (map skill, which also says where `graph.element` stacks).
+While a graph is on a map, the minimap is empty and `graph.lens.set` shows nothing: the map owns the camera and has its own navigation. Do not add them to a graph that only lives on a map (`mountMapGraph`, `<MapGraph>`); on a graph that moves between a canvas and a map they come back on the canvas. The legend, anchors and hulls work on a map; the background grid is dropped. On the globe an anchor sits where its target is drawn, scales with the globe there with `scale: true`, and hides behind the horizon (map skill, which also says where `graph.element` stacks).
 
 ### HIGH A legend state that the definition does not declare
 
@@ -381,6 +346,10 @@ defineGraph({
   hulls: [hull({ state: 'flagged' })],
 })
 ```
+
+### MEDIUM A function as the text of a hull without `by`
+
+`hull({ label: { text: (group) => … } })` reads the group of one hull of `by`. A hull around keys, a mark or a state has no group: the types refuse the function (`TS2769`, typed block in [references/hulls.md](references/hulls.md)) and a plain object cast to get past it draws no label. Give a string, or add `by`. An empty string also draws nothing.
 
 ### MEDIUM `when` on a point or a state anchor
 
@@ -463,9 +432,9 @@ A new `messages` object passed to `GraphDevtoolsPanel` mounts the panel again at
 The task is done when:
 
 - each companion is created from a mounted graph, once, and destroyed with it (nothing to clean up by hand except elements you placed yourself);
-- the minimap and the lens are absent from map graphs;
+- the minimap and the lens are left out of graphs that only live on a map;
 - the states named by the legend, hulls and anchors are declared in `states`, and `hidden` has `hide: true` when it must filter;
-- hulls use the mark constants listed in `marks`;
+- hulls use the mark constants listed in `marks`, and a label function sits on a hull with `by`;
 - the graph element is not covered by anchored HTML that should let pointer events through (`interactive` only for buttons and menus);
 - `tsc` accepts the code with no cast.
 
@@ -473,6 +442,6 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- Guides: [Minimap and legend](https://bruno00o.github.io/graph/docs/minimap-and-legend), [Lens](https://bruno00o.github.io/graph/docs/lens), [Drawing layers](https://bruno00o.github.io/graph/docs/drawing-layers), [TanStack Devtools](https://bruno00o.github.io/graph/docs/devtools)
+- Guides: [Minimap and legend](https://bruno00o.github.io/graph/docs/minimap-and-legend), [Lens](https://bruno00o.github.io/graph/docs/lens), [Drawing layers](https://bruno00o.github.io/graph/docs/drawing-layers) ([hull labels](https://bruno00o.github.io/graph/docs/drawing-layers#labels)), [TanStack Devtools](https://bruno00o.github.io/graph/docs/devtools)
 - API: [createMinimap](https://bruno00o.github.io/graph/docs/api/minimap), [createLegend and mountLegend](https://bruno00o.github.io/graph/docs/api/legend), [hull](https://bruno00o.github.io/graph/docs/api/hull), [Devtools](https://bruno00o.github.io/graph/docs/api/devtools), [Anchor](https://bruno00o.github.io/graph/docs/api/anchor)
 - The values a legend explains come from the scales: see the styling skill.
