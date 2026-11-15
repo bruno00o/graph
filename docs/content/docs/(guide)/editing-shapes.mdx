@@ -45,7 +45,7 @@ Points show on a single selected area or line. A rectangle, a circle and a selec
 
 A press away from the shapes the editor can edit goes to the graph as before: nodes drag, the background moves the view, and Shift and drag draws the [lasso](/docs/interaction#lasso). A still press on a shape emits `click`, as without the editor; a drag emits neither `click` nor `dragstart`. With touch, a second finger cancels the gesture and pinches.
 
-The selection is the selection of the graph: `graph.selection.get().shapes`, `selectionchange` and a [controlled selection](/docs/interaction#controlled-selection) work as before, and `editor.store.state.selected` lists the selected shapes that the editor can edit. With `interaction: { select: false }`, a press moves a shape without selecting it; with `'single'`, Shift does not add.
+The selection is the selection of the graph: `graph.selection.get().shapes`, `selectionchange` and a [controlled selection](/docs/interaction#controlled-selection) work as before, and `editor.store.state.selected` lists the selected shapes that the editor can edit. A shape that is not shown, in a [hidden layer](/docs/multilayer), out of its [zoom range](/docs/zoom) or of the [time window](/docs/time), or hidden by a state, stays selected but leaves `selected`: it has no handles and no proposed outline, the keys and the methods called without keys leave it alone, and a gesture whose shape hides is cancelled, as with Escape. With `interaction: { select: false }`, a press moves a shape without selecting it; with `'single'`, Shift does not add.
 
 ## Drawing shapes
 
@@ -176,7 +176,7 @@ const editor = createShapeEditor(graph, {
 
 ### Pending edits
 
-Until the data of a shape changes, the editor draws it as proposed and hides the shape of the graph, so that a slow save does not make it jump back. `editor.store.state.pending` lists these shapes. When the data does not change within `hold`, 10 seconds by default, the editor shows the data again and emits `editlost` with the edits: the save failed, or your code declined the edit. `hold: Infinity` waits for good.
+Until the data of a shape changes, the editor draws it as proposed and hides the shape of the graph, so that a slow save does not make it jump back. `editor.store.state.pending` lists these shapes. When the data does not change within `hold`, 10 seconds by default, the editor shows the data again and emits `editlost` with the edits: the save failed, or your code declined the edit. `hold: Infinity` waits for good, and so does a `hold` longer than a timer can wait, about 24.8 days.
 
 ```ts
 const editor = createShapeEditor(graph, { hold: 5000 })

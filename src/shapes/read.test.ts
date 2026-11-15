@@ -353,3 +353,33 @@ describe('readShape', () => {
     ).toBe('self-intersecting')
   })
 })
+
+describe('a polygon whose outer ring has no area', () => {
+  it('reports a flat ring, all of its points on one line, as empty', () => {
+    const shape = readShape({
+      rings: [
+        [
+          [0, 0],
+          [10, 10],
+          [20, 20],
+        ],
+      ],
+    })
+    expect(shape?.invalid).toBe('empty')
+  })
+
+  it('still draws a figure eight whose two loops have the same area', () => {
+    const shape = readShape({
+      rings: [
+        [
+          [0, 0],
+          [10, 10],
+          [10, 0],
+          [0, 10],
+        ],
+      ],
+    })
+    expect(shape?.invalid).toBe('self-intersecting')
+    expect(shape?.triangles.length).toBeGreaterThan(0)
+  })
+})

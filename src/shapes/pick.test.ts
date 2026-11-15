@@ -206,3 +206,26 @@ describe('the shape picker', () => {
     ).toEqual(['in', 'disc'])
   })
 })
+
+describe('the shape picker against what is drawn', () => {
+  it('leaves out of a lasso the shapes that paint nothing, as it does when picking', () => {
+    const { pick, inside } = setup([
+      shapes<Zone>(
+        [
+          { id: 'seen', geometry: { x: 0, y: 0, width: 10, height: 10 } },
+          { id: 'unseen', geometry: { x: 20, y: 0, width: 10, height: 10 } },
+        ],
+        { fill: (zone) => (zone.id === 'seen' ? '#888' : null), stroke: () => null },
+      ),
+    ])
+    expect(pick(25, 5)).toBeNull()
+    expect(
+      inside([
+        [-5, -5],
+        [40, -5],
+        [40, 20],
+        [-5, 20],
+      ]),
+    ).toEqual(['seen'])
+  })
+})

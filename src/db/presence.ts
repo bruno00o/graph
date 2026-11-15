@@ -5,7 +5,7 @@ import { isolateSubscribers, report } from '../host/isolate'
 import type { GraphInstance } from '../host/mount-graph'
 import { readonlyOf } from '../host/readonly-store'
 import type { FieldOf, FreeState, Key, KeyList, Point } from '../types'
-import { pace, type Settling } from './pending'
+import { clock, longestTimer, pace, type Settling } from './pending'
 
 /** Keys of the elements a participant has selected. */
 export interface PresenceSelection {
@@ -135,7 +135,6 @@ const defaultExpire = 30_000
 const defaultMax = 500
 const defaultSlots = 8
 const rest = 4
-const longestTimer = 2 ** 31 - 1
 
 interface Selected {
   readonly nodes: readonly Key[]
@@ -493,11 +492,11 @@ export function showPresence<
 
   const write = () => {
     if (stopped) return
-    written = Date.now()
+    written = clock()
     const values: PresenceValues = {
       pointer,
       selection,
-      time: written,
+      time: Date.now(),
       surface: graph.store.state.surface,
     }
     try {
@@ -555,9 +554,12 @@ export function showPresence<
   graph.element.addEventListener('pointerleave', onLeave)
   const heartbeat = expire / 3
   const beat = Number.isFinite(heartbeat)
-    ? setInterval(() => {
-        if (Date.now() - written >= heartbeat) paced.call()
-      }, heartbeat)
+    ? setInterval(
+        () => {
+          if (clock() - written >= heartbeat) paced.call()
+        },
+        Math.min(heartbeat, longestTimer),
+      )
     : undefined
   const onHide = () => leave()
   const hasWindow = typeof window !== 'undefined'

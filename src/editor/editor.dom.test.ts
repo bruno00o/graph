@@ -277,6 +277,19 @@ describe('createShapeEditor', () => {
     graph.destroy()
   })
 
+  it('keeps an edit waiting for good when hold is longer than a timer can wait', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const graph = mount()
+    const editor = createShapeEditor(graph, { hold: Number.MAX_SAFE_INTEGER })
+    const lost: ShapeEdit[] = []
+    editor.on('editlost', ({ edits }) => lost.push(...edits))
+    drag(graph, [-200, -150], [-150, -150])
+    vi.advanceTimersByTime(60_000)
+    expect(lost).toEqual([])
+    expect(editor.store.state.pending).toEqual(['box'])
+    graph.destroy()
+  })
+
   it('clicks select, Shift adds and removes, a click on a selected shape keeps only it', () => {
     const graph = mount()
     const editor = createShapeEditor(graph)

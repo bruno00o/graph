@@ -217,6 +217,12 @@ export function applyShapeEdits<T>(
   for (const item of items) {
     const key = keyOf(item)
     if (removed.has(key)) continue
+    const again = create ? added.get(key) : undefined
+    if (create && again) {
+      added.delete(key)
+      next.push(create(again))
+      continue
+    }
     const update = changed.get(key)
     next.push(update === undefined ? item : { ...item, ...update })
   }

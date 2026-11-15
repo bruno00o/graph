@@ -83,3 +83,25 @@ describe('applyShapeEdits', () => {
     ])
   })
 })
+
+describe('applyShapeEdits over edits of several batches', () => {
+  it('keeps one item when a shape is removed, then added back by an undo', () => {
+    const before: ShapeGeometry = { x: 0, y: 0, width: 10, height: 10 }
+    const moved: ShapeGeometry = { x: 50, y: 0, width: 10, height: 10 }
+    const items: Zone[] = [{ id: 'k', name: 'k', geometry: before }]
+    const edits: ShapeEdit[] = [
+      { type: 'change', key: 'k', mark: undefined, datum: items[0], geometry: moved },
+      { type: 'remove', key: 'k', mark: undefined, datum: items[0] },
+      {
+        type: 'add',
+        key: 'k',
+        mark: undefined,
+        geometry: moved,
+        datum: { id: 'k', name: 'k', geometry: moved },
+      },
+    ]
+    const next = applyShapeEdits(items, edits)
+    expect(next.filter((zone) => zone.id === 'k')).toHaveLength(1)
+    expect(next.find((zone) => zone.id === 'k')?.geometry).toEqual(moved)
+  })
+})

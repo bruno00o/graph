@@ -235,3 +235,50 @@ describe('outline edits', () => {
     expect(boundsOf(box)).toEqual([10, -4, 20, 4])
   })
 })
+
+describe('removing the first vertex of a ring written with its closing point', () => {
+  it('drops the vertex from a GeoJSON polygon and closes the ring on the new first point', () => {
+    const polygon = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [10, 0],
+          [10, 10],
+          [0, 10],
+          [0, 0],
+        ],
+      ],
+    }
+    const written = writeEditable(removeVertex(pathOf(polygon), 0, 0)) as unknown as {
+      readonly coordinates: number[][][]
+    }
+    expect(written.coordinates[0]).toEqual([
+      [10, 0],
+      [10, 10],
+      [0, 10],
+      [10, 0],
+    ])
+  })
+
+  it('drops the vertex from rings of objects that repeat their first point', () => {
+    const shape = {
+      rings: [
+        [
+          { x: 0, y: 0 },
+          { x: 10, y: 0 },
+          { x: 10, y: 10 },
+          { x: 0, y: 10 },
+          { x: 0, y: 0 },
+        ],
+      ],
+    }
+    const written = writeEditable(removeVertex(pathOf(shape), 0, 0))
+    const again = pathOf(written)
+    expect(again.parts[0]?.points.map(({ x, y }) => [x, y])).toEqual([
+      [10, 0],
+      [10, 10],
+      [0, 10],
+    ])
+  })
+})
