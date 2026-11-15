@@ -94,7 +94,7 @@ groups(items, {
 
 - `spread` is on by default. `spread: false` leaves the children where their positions put them.
 - `gap` is the space between two spread children: 4 by default, in pixels for children sized with `units: 'screen'`, else in world units. Children in pixels keep their gap at every zoom; children in world units are spread once and never move as you zoom.
-- Spreading applies to the direct children of the group that are placed by their data, or by nothing when the definition has no layout. A layout never moves a spread child, and layouts already keep their nodes apart.
+- Spreading applies to the direct children of the group that are placed by their data, or by nothing when the definition has no layout and no group above them has a [layout of its own](/docs/layout#a-layout-per-group). A layout never moves a spread child, and layouts already keep their nodes apart.
 - A child you drag, or place with `graph.positions.set`, leaves its pack and stays where you put it; the others close ranks. It joins its pack again when its data moves or when the group folds.
 - A hidden child keeps its place in the pack, so the others do not move when it hides or shows.
 - Children glide out of their place over `transitions.layout`, or appear at once with reduced motion.
@@ -206,6 +206,7 @@ The option names the edges it governs, those between groups, and its values say 
 - A node that was never shown appears around its group when the group unfolds, then the layout of the definition places it like any new node.
 - With a layout in the definition, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`, and so does the group when it is the smaller one. Nodes placed by the data and the node being dragged never move.
 - Layouts see a folded group as a single node. Unfolded groups are kept whole at every level of nesting: no container overlaps another container or a node next to it, padding included. See [groups in layouts](/docs/layout#groups) for how each layout does it.
+- `container.layout` gives a group a layout of its own: its members are laid out together, then the group moves as one block. See [a layout per group](/docs/layout#a-layout-per-group).
 - Fitting the view frames containers whole.
 - On a [map](/docs/map#hulls-and-groups), groups follow the map, and the `padding` of a container is in pixels.
 - Children that overlap in an unfolded group are [spread](#spread-children) around their place without changing their data.

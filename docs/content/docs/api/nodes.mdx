@@ -76,6 +76,7 @@ type ContainerShape = 'rectangle' | 'circle'
 <api-table path="index.ts" name="ContainerOptions" />
 
 - An unfolded group draws its container behind its children, sized to them and moved with them. Its label sits above the container by default, and its badges show only once it is folded: `label` and `badges` change them while it is unfolded. See [label and badges of an unfolded group](/docs/groups#label-and-badges-of-an-unfolded-group). Its other options apply when it is folded.
+- `layout` lays out the members of the unfolded group together, then the layout around it moves the group as one block. Layouts are compared by name and options, so a layout created again with the same options in a render runs nothing. See [a layout per group](/docs/layout#a-layout-per-group).
 - While a group is unfolded, `spread` moves its children that overlap apart around their place, `gap` pixels from each other, or `gap` world units for children sized in world units. See [spread children](/docs/groups#spread-children).
 - A `parent` that names no node is reported in `issues` as `missing-parent`, and the node stays at the top level until that node arrives. A `parent` that would make a node contain itself is reported as `parent-cycle`, and that node stays at the top level.
 

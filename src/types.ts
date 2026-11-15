@@ -645,6 +645,12 @@ export interface ContainerOptions<T> {
     | Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined> | undefined>>>
     | null
     | undefined
+  /**
+   * Layout that places the members of the unfolded group inside its container, or `null` for
+   * none. The layout around the group then moves the group as one block, as large as its
+   * container. Defaults to none: the layout around the group places its members.
+   */
+  readonly layout?: Style<T, Layout | null> | undefined
 }
 
 /**

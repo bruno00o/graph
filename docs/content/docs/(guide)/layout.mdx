@@ -135,6 +135,34 @@ Every layout keeps unfolded [groups](/docs/groups) whole, at every level of nest
 
 On 50,000 nodes in about 400 groups nested three deep, the force layout takes about twice as long on the GPU (1 second instead of 0.5) and about 13% longer on the CPU (14 seconds instead of 12.5). See the [forces with groups](/examples/force-with-groups) example.
 
+## A layout per group
+
+`container.layout` gives a group a layout of its own. Its members are laid out together, then the layout around the group places it as a single node as large as its container.
+
+```ts
+import { grid, layers } from '@bruno00o/graph/layouts'
+import { force } from '@bruno00o/graph/layouts/force'
+
+nodes(items, {
+  parent: 'parent',
+  container: { layout: (item) => (item.kind === 'pipeline' ? layers() : grid()) },
+})
+defineGraph({ marks, layout: force() })
+```
+
+<LiveExample slug="group-layouts" />
+
+- **Deepest first.** Groups are laid out from the deepest up. A nested group with a layout of its own stands in its parent as one block, padding and label included. A group without one is laid out with the layout of the group above it, as without `container.layout`.
+- **Edges.** An edge between two groups pulls on the blocks that hold its ends, in the closest group that holds both: it moves whole groups rather than tearing members out.
+- **Around the groups.** The layout of the definition then places the top-level nodes and blocks. Each block is turned to face its neighbors when its layout allows it, as its [`turns`](/docs/api/layouts#blocks-and-containers) says: any rotation or mirror for `force`, `rings` and `radial`, a mirror across the layers for `layers`, none for `grid`. Containers that still overlap are then pushed apart. Without a layout in the definition, the groups are laid out and only pushed apart.
+- **One run.** The groups and the layout around them make one run: `layoutstart` and `layoutend` are emitted once, named after the layout of the definition, or after the outermost group layout when it does not run. `layout.running` stays true until the end, `graph.layout.stop()` stops every layout of the run, and [`waitForData`](/docs/data#layout-and-fit-on-complete-data) holds the first one.
+- **Several at once.** Groups whose layouts do not depend on each other run side by side, up to four at a time.
+- **New nodes.** Nodes that arrive in a group run its layout alone: an incremental layout places the newcomers, the others lay out the whole group again. When its container grows, the nodes and containers around it glide out of the way, and the layout around it does not run. A group whose layout changes runs again alone, and so does a group with a layout that is not incremental when it loses members.
+- **From code.** `graph.layout.run(undefined, { keys })` arranges the given members with the layout of their group, and the group keeps its place. A group moves in the group above it only when its own key is in `keys`. A layout passed to `run` replaces the layout of the outermost groups that run, or the layout around the groups.
+- **Fixed nodes.** A member with `x` and `y` in your data keeps its place, and its group then stays where it is in the group above it.
+- **Built-in engine.** Groups are laid out by code that loads with the layouts of `@bruno00o/graph/layouts` or `/layouts/force`. A layout of your own works in a container once one of them has been created in the page; until then, a development warning says so and groups are laid out as if they had no layout.
+- **Not on a map.** On a [map](/docs/map), `container.layout` is ignored with a single development warning.
+
 ## When it runs
 
 - **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.

@@ -1,3 +1,5 @@
+import { isLayout, sameLayout } from './layout-scopes'
+
 const nestedLevels = 4
 
 function isPlain(value: unknown): value is object {
@@ -15,6 +17,7 @@ function definedKeys(value: object, ignored: ReadonlySet<string> | null): string
 
 function sameValue(a: unknown, b: unknown, levels: number): boolean {
   if (Object.is(a, b)) return true
+  if (isLayout(a) && isLayout(b)) return sameLayout(a, b)
   if (levels === 0 || !isPlain(a) || !isPlain(b)) return false
   if (Array.isArray(a) || Array.isArray(b)) {
     if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false

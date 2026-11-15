@@ -65,6 +65,7 @@ import {
   primaryWeight,
   type TextWidth,
 } from './label-width'
+import { readLayout } from './layout-scopes'
 import { MarkLayers } from './mark-layers'
 import { boxCornerShare } from './node-shape'
 import { Palette } from './palette'
@@ -810,6 +811,7 @@ export function createScene(
     nodes.alive[index] = 1
     nodes.slot[index] = nodeSlot
     nodes.size[index] = sizeOf(sizeValues[index] ?? Number.NaN, mark.sizeRaw)
+    if (!record.container && nodes.containerLayouts.size > 0) nodes.containerLayouts.delete(index)
     const held = record.container
       ? writeContainer(index, mark, datum)
       : writeLook(index, mark, datum, record.screenUnits ?? mark.screenUnits)
@@ -986,6 +988,9 @@ export function createScene(
     nodes.imageScale[index] = 1
     nodes.imageColor[index] = swapColor(palette, nodes.imageColor[index] ?? noColor, null, noColor)
     nodes.badges[index] = readBadges(look.badges, datum, palette, fallbacks)
+    const layout = readLayout(look.layout?.(datum))
+    if (layout) nodes.containerLayouts.set(index, layout)
+    else if (nodes.containerLayouts.size > 0) nodes.containerLayouts.delete(index)
     return undefined
   }
 

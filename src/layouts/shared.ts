@@ -1,6 +1,7 @@
 import { withoutUndefined } from '../core/without-undefined'
 import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 import { inBlocks } from './blocks'
+import { enableScopes } from './scopes'
 
 /**
  * Order of the nodes: `'degree'` puts the nodes with the most edges first, a function compares the
@@ -113,6 +114,7 @@ export function instant(
   blocks = true,
   turns: Layout['turns'] = 'none',
 ): Layout {
+  enableScopes()
   return Object.freeze({
     name,
     options: Object.freeze(withoutUndefined(options)),

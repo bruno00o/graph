@@ -222,7 +222,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     containers: projection.containers,
     eligible: (index) =>
       !Number.isNaN(positions.source[index * 2] ?? Number.NaN) ||
-      (definition.layout === null && positions.restored[index] !== 1),
+      (definition.layout === null && positions.restored[index] !== 1 && !layouts.placedBy(index)),
     settled: () => motion.settled(),
     claim: (index) => motion.free(index),
     camera: () => {
@@ -1148,7 +1148,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       pendingEdges: model.pendingCount,
       shapes: scene.shapes.count,
       issues: reads.issues,
-      layout: layouts.session?.layout.name ?? null,
+      layout: layouts.session?.name ?? null,
       renderer: render.renderer?.stats?.() ?? null,
     }
   }
