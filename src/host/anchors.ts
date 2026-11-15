@@ -184,7 +184,12 @@ export class AnchorLayer {
   readonly #box: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0, scale: 1 }
   readonly #part: AnchorBox = { x0: 0, y0: 0, x1: 0, y1: 0, scale: 1 }
 
-  constructor(host: HTMLElement, target: HTMLElement, locator: AnchorLocator, request: () => void) {
+  constructor(
+    host: HTMLElement,
+    target: () => HTMLElement,
+    locator: AnchorLocator,
+    request: () => void,
+  ) {
     this.#locator = locator
     this.#request = request
     this.layer = document.createElement('div')
@@ -195,7 +200,7 @@ export class AnchorLayer {
       (event) => {
         if (scrollable(event.target, this.layer, event)) return
         const copy = new WheelEvent('wheel', event)
-        target.dispatchEvent(copy)
+        target().dispatchEvent(copy)
         if (copy.defaultPrevented) event.preventDefault()
       },
       { passive: false },

@@ -10,6 +10,7 @@ import { readWindow } from '../core/time-range'
 import { toScreen, toWorld } from '../core/view'
 import { dev } from '../dev'
 import type { Key, Mark, Point } from '../types'
+import { canvasCapabilities } from './canvas-surface'
 import { loadedData } from './data-status'
 import { emptyKeys, toKeys } from './element-keys'
 import type { ElementKeys } from './events'
@@ -21,6 +22,7 @@ import type {
   GraphState,
   GraphStore,
   MountGraphOptions,
+  SurfaceCapabilities,
 } from './graph-instance'
 import { exposeInternals } from './internals'
 import { lensContains, lensView } from './lens'
@@ -236,7 +238,7 @@ export function untilDestroyed<T extends object>(live: T, dead: T, destroyed: ()
 export function stillborn<S extends string, M extends Mark>(
   options: MountGraphOptions<S, M>,
   signal: AbortSignal,
-  onMap = false,
+  capabilities: SurfaceCapabilities = canvasCapabilities,
 ): GraphInstance<S, M> {
   if (dev) console.warn('graph: the signal was aborted before the mount, nothing was mounted')
   const { definition } = options
@@ -275,12 +277,13 @@ export function stillborn<S extends string, M extends Mark>(
     signal,
     () => signal.reason,
     () => shaped,
-    onMap,
+    capabilities.onMap,
   )
   const scene = createScene()
   scene.setDefinition(definition)
   exposeInternals(graph, {
-    onMap,
+    onMap: capabilities.onMap,
+    surface: () => capabilities,
     scene,
     positions: new Positions(),
     definition: () => definition,

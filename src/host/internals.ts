@@ -5,6 +5,7 @@ import type { Scene } from '../core/scene'
 import type { ShapeShift } from '../core/shape-store'
 import type { Sight } from '../core/visibility'
 import type { EdgeEnd, GraphDefinition, Key } from '../types'
+import type { SurfaceCapabilities } from './graph-instance'
 import type { PointerTool } from './pointer-tool'
 import type { ContainerFrame } from './renderer'
 
@@ -24,6 +25,7 @@ export interface GraphWatcher {
 
 export interface GraphInternals {
   readonly onMap: boolean
+  surface(): SurfaceCapabilities
   readonly scene: Scene
   readonly positions: Positions
   definition(): GraphDefinition

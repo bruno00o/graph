@@ -1,7 +1,7 @@
 import { dev } from '../dev'
 import type { GraphDefinition, Point } from '../types'
 import type { Emitter } from './events'
-import type { GraphState } from './graph-instance'
+import type { GraphState, SurfaceCapabilities } from './graph-instance'
 import { finitePoint } from './inputs'
 import {
   clampLensZoom,
@@ -13,7 +13,7 @@ import {
 
 export interface LensSource {
   readonly element: HTMLElement
-  readonly onMap: boolean
+  surface(): SurfaceCapabilities
   readonly emitter: Emitter
   definition(): GraphDefinition
   viewport(): { width: number; height: number }
@@ -39,7 +39,7 @@ export class LensControl {
   update(): void {
     let next: GraphLensState | null = null
     const wanted = this.wanted
-    if (wanted && !this.#source.onMap) {
+    if (wanted && this.#source.surface().lens) {
       const { follow } = wanted
       const at =
         follow === 'pointer'
@@ -60,7 +60,7 @@ export class LensControl {
   set(input: LensInput | null): void {
     this.#keyLens = false
     const source = this.#source
-    if (source.onMap && input && dev && !this.#warned) {
+    if (!source.surface().lens && input && dev && !this.#warned) {
       this.#warned = true
       console.warn('graph: the lens does not work on a map')
     }
@@ -124,7 +124,8 @@ export class LensControl {
   #keyFor(event: KeyboardEvent): boolean {
     const source = this.#source
     const key = source.definition().interaction.lens.key
-    if (key === null || event.key !== key || source.onMap || source.destroyed()) return false
+    if (key === null || event.key !== key || !source.surface().lens || source.destroyed())
+      return false
     if (event.target !== source.element && editableTarget(event.target)) return false
     return this.pointer !== null || document.activeElement === source.element
   }
