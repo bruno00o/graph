@@ -168,7 +168,7 @@ A tap selects like a click. The canvas sets `touch-action: none`, so the browser
 
 ## Auto-pan
 
-While you drag a node or draw a lasso within 40 pixels of the edge of the graph element, the view scrolls toward that edge: slowly at 40 pixels, faster closer to it, and at full speed past the edge. It stops when the pointer moves back inside or the gesture ends. Dragged nodes stay under the pointer while the view moves, and the lasso keeps the area it covered.
+While you drag a node or draw a lasso within 40 pixels of the edge of the graph element, the view scrolls toward that edge: slowly at 40 pixels, faster closer to it, and at full speed past the edge. It stops when the pointer moves back inside or the gesture ends. Dragged nodes stay under the pointer while the view moves, and the lasso keeps the area it covered. A wheel notch during an auto-pan glides as usual, and the auto-pan goes on under it.
 
 ```ts
 defineGraph({ marks, interaction: { autoPan: { speed: 0.5 } } })

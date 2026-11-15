@@ -96,6 +96,8 @@ const [window, setWindow] = useState<TimeWindowInput | null>(null)
 <Graph definition={definition} time={window} onTimeChange={(event) => setWindow(event.window)} />
 ```
 
+As for the [selection](/docs/interaction#controlled-selection), each request starts from the last one not answered yet: asking for another window, then for the current one again before the application answers, asks for both.
+
 In React, `<Graph>` hands each request to `onTimeChange` in a microtask and renders the new state at once, before the next frame: playback stays smooth, and a `time.set` called from an effect does not make React warn. See the [time slider of your own](/examples/time-slider) example.
 
 ## Fade

@@ -43,7 +43,7 @@ Nothing else is needed: float textures are always read without filtering, and th
 
 ## Context loss
 
-The browser can take a WebGL context away at any time: the GPU process crashed, the driver updated, or too many pages hold a context. The graph then stops drawing and waits. When the browser gives the context back, the graph builds its renderer again from the scene it keeps on the CPU and draws the same picture: data, positions, view, selection, states, lens and theme are unchanged, and nothing is needed from you.
+The browser can take a WebGL context away at any time: the GPU process crashed, the driver updated, or too many pages hold a context. The graph then stops drawing and waits, as when [suspended](/docs/api/graph-instance#suspend): data and live sources, layouts, the view and its animations, controlled requests and the companions go on, and `graph.drawn()` waits for the context. When the browser gives the context back, the graph builds its renderer again from the scene it keeps on the CPU and draws the same picture: data, positions, view, selection, states, lens and theme are unchanged, and nothing is needed from you.
 
 An export in progress when the context is lost rejects with an error: call it again.
 
