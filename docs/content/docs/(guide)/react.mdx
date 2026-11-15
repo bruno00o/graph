@@ -156,6 +156,18 @@ const there = wanted && surface !== null
 
 See [One graph, on the map or not](/docs/map#one-graph-on-the-map-or-not) and the [React example](/examples/map-and-back-react).
 
+## Many graphs on a page
+
+A browser keeps 16 WebGL contexts per page in Chrome and Safari. With more graphs than that, pass `suspended` to the graphs out of sight: each one frees its context, keeps its instance, children and state, shows its last frame, and draws again once `suspended` turns `false`. Given `true` at mount, a graph creates no context until then. `onSuspendChange` and `useGraphState((state) => state.suspended)` tell whether it is suspended.
+
+```tsx
+<section ref={setCard}>
+  <Graph definition={definition} ariaLabel="Sample graph" suspended={!inSight} />
+</section>
+```
+
+See [Suspended](/docs/api/graph-component#suspended) for a card that follows its visibility, and [Many graphs on a page](/docs/browser-support#many-graphs-on-a-page).
+
 ## Controlled selection
 
 ```tsx

@@ -113,6 +113,47 @@ row.addEventListener('dblclick', () => legend.only(item.id))
 
 `legend.hover`, `legend.toggle`, `legend.only`, `legend.reset` and `legend.keys` drive the same behavior from a renderer of your own. `legend.keys` returns `shapes` next to `nodes` and `edges` in a graph with a shape mark. Like the minimap, `legend.update` changes only the options it is given. See the [legend of your own](/examples/custom-legend) example.
 
+### A legend declared by the application
+
+When elements take their colors from rules of the application, through style functions or states rather than through the scales of the definition, the sections above have nothing to read. Declare the entries yourself with `entries`: sections with a title, each with entries that carry their own label and swatch.
+
+```ts
+const legend = createLegend(graph, {
+  highlight: 'match',
+  hidden: 'off',
+  entries: [
+    {
+      title: 'Weight',
+      entries: [
+        {
+          id: 'heavy',
+          label: 'Heavy',
+          swatch: { kind: 'nodes', fill: 'var(--graph-cat-1)' },
+          nodes: (item) => item.weight >= 40,
+        },
+        {
+          id: 'strong',
+          label: 'Strong links',
+          swatch: { kind: 'edges', color: 'var(--graph-cat-2)', width: 3 },
+          edges: (link) => link.strength >= 0.66,
+        },
+      ],
+    },
+  ],
+})
+const view = mountLegend(legend, { sections: ['entries'] })
+```
+
+The legend writes no text of its own: `label` and `title` are yours. The `swatch` is drawn like the swatches of the legend itself: a node shape with a fill, an outline and an image, an edge line with a color, a width and a pattern, or a shape as an area or a line. Give the same values to the style of the mark so the swatch matches what the graph draws.
+
+An entry that has `nodes`, `edges` or `shapes` covers the elements for which that function returns `true`. It gets the item as given to its mark, typed from the marks of the definition, and the key. Such an entry works like a category: its elements go to the `highlight` state under the pointer, and to the `hidden` state when it is switched off, `only` keeps one entry of a section on, and `legend.store.state.entries` holds the number of nodes, edges and shapes drawn that belong to it. An entry without any of the three is only displayed, and is not a button. The id of its item is `a:` followed by its `id`, which `hover`, `toggle`, `only` and `keys` take.
+
+An entry may overlap another: an element belongs to every entry whose function accepts it. A function is called once per item, then again only for an item that changed, so keep it pure, and give a new function when its rule changes: the legend compares functions by identity. Inside a component, hoist the entries or memoize them, or each render evaluates every rule again. The first reading of a large graph is cut into slices of a few milliseconds, so the legend fills in a moment after the graph. A function that throws counts as `false` and is reported once through `reportError`.
+
+`sections` of `mountLegend` takes `'entries'` among the others to place the declared sections among the sections of the scales, or alone as above. Without `sections`, they come last. `empty: 'hide'` leaves out the entries that cover no element at the moment. `legend.update({ entries })` replaces them; an entry removed loses its switched off state.
+
+In React, `<Legend entries={…} />` and `useLegend({ entries })` take the same option. See the [rules legend](/examples/rule-legend) example, and the [API](/docs/api/legend#entries) for the types.
+
 ### Theming
 
 The default renderer is plain HTML styled inline with the [theme tokens](/docs/theming): `--graph-paper-raised`, `--graph-ink`, `--graph-font`, `--graph-node`, `--graph-edge`. Swatches use the colors of the scale as they are, so they follow the theme without drawing again. `[data-graph-legend]` marks the element, and `[data-item]` its items.
@@ -143,4 +184,5 @@ function Swatches() {
   <Card title="createMinimap" href="/docs/api/minimap" />
   <Card title="createLegend" href="/docs/api/legend" />
   <Card title="Example" href="/examples/minimap-and-legend" />
+  <Card title="Legend from your own rules" href="/examples/rule-legend" />
 </Cards>

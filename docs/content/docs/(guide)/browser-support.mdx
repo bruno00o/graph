@@ -36,7 +36,7 @@ The graph draws without any extension. A few make some features faster or tidier
 | Extension | Used for | Without it |
 | --- | --- | --- |
 | `EXT_color_buffer_float` and `EXT_float_blend` | The GPU engine of the [force layout](/docs/layout) | The layout runs on the CPU, in a worker |
-| `WEBGL_lose_context` | Freeing a context as soon as a graph or an export is destroyed | The browser frees it later |
+| `WEBGL_lose_context` | Freeing a context as soon as a graph or an export is destroyed, and when a graph is [suspended](#many-graphs-on-a-page) | The browser frees it later, and a suspended graph keeps its context: it only frees its textures and buffers |
 | `WEBGL_debug_renderer_info` | Recognizing a software renderer | The renderer name the browser reports is used |
 
 Nothing else is needed: float textures are always read without filtering, and the lens, the minimap, exports and the edge layer cap only use core WebGL2.
@@ -48,6 +48,14 @@ The browser can take a WebGL context away at any time: the GPU process crashed, 
 An export in progress when the context is lost rejects with an error: call it again.
 
 On a [map](/docs/map), the context belongs to the map. MapLibre rebuilds its style once the context comes back, but cannot rebuild custom layers, and logs a warning saying so. The graph listens for the map's `webglcontextrestored` event and adds its layer back, so the warning can be ignored.
+
+## Many graphs on a page
+
+A page holds at most 16 WebGL contexts in Chrome and Safari, and more in Firefox. Each graph takes one for its canvas, and a PNG export one more while it draws. The minimap draws without WebGL, and the GPU engine of the [force layout](/docs/layout) takes its context in a worker, which does not count. Past the limit, the browser takes the oldest context away and says so in the console: that graph stops drawing and waits for its context, as after any [context loss](#context-loss), but Chrome and Safari do not give back a context taken for this reason.
+
+With more graphs than that, [suspend](/docs/api/graph-instance#suspend) those out of sight and resume them as they come back. A suspended graph gives its context back to the browser, shows a copy of its last frame, and keeps everything else; once resumed, it takes a context again and draws the graph as it is now. On a page of 20 graphs of 400 nodes, with 8 resumed at a time, scrolling through every graph took no context away from a shown graph in Chrome, Firefox or Safari, and a graph drew again 130 to 280 ms after it came into sight, as a median, several graphs resuming at once. Mount the graphs that start out of sight with `suspended: true`: they create no context until they resume.
+
+Safari still counts the context of a suspended graph. Before it takes a context, a graph uses every other context of the page that is still drawing, so that Safari takes away one of a suspended graph, which is already free. With more than 16 graphs on the page, the console then reports `There are too many active WebGL contexts on this page, the oldest context will be lost.` and `WebGL: INVALID_OPERATION: loseContext: context already lost`: no shown graph loses its context, and the suspended graph gets one back when it resumes.
 
 ## Software rendering
 
@@ -108,7 +116,7 @@ Known limits:
 
 - On macOS, Safari can still open its tab overview on a pinch that also rotates, even though the graph prevents the gesture.
 - In Firefox, the console can report that a texture is initialized lazily the first time it is drawn. This is informational: the texture is filled before use.
-- In Firefox, the console reports `WebGL context was lost.` each time a graph, an export or the GPU layout frees its context on purpose, for instance when React mounts a component twice in development. Nothing is lost: see [Context loss](#context-loss) for a real one.
+- In Firefox, the console reports `WebGL context was lost.` each time a graph, an export or the GPU layout frees its context on purpose, for instance when React mounts a component twice in development, or when a graph is suspended. Nothing is lost: see [Context loss](#context-loss) for a real one.
 
 ## Testing on a small device
 

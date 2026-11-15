@@ -71,6 +71,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
   readonly onViewChange?: GraphEventHandler<'viewchange', M> | undefined
   /** Receives `surfacechange`: the graph moved to another surface. */
   readonly onSurfaceChange?: GraphEventHandler<'surfacechange', M> | undefined
+  /** Receives `suspendchange`: the graph was suspended or resumed. */
+  readonly onSuspendChange?: GraphEventHandler<'suspendchange', M> | undefined
   /** Receives `timechange`, or the window requests when `time` is given. */
   readonly onTimeChange?: GraphEventHandler<'timechange', M> | undefined
   /** Receives `layerchange`, or the layer requests when `hiddenLayers` is given. */
@@ -105,6 +107,7 @@ export const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>>
   foldchange: 'onFoldChange',
   viewchange: 'onViewChange',
   surfacechange: 'onSurfaceChange',
+  suspendchange: 'onSuspendChange',
   timechange: 'onTimeChange',
   layerchange: 'onLayerChange',
   lenschange: 'onLensChange',
@@ -129,6 +132,12 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    * Defaults to the own canvas.
    */
   readonly surface?: GraphSurface | null | undefined
+  /**
+   * `true` suspends the graph and `false` resumes it, as `suspend` and `resume` do: a suspended
+   * graph holds no WebGL context and keeps its state. Given `true` at mount, the graph creates no
+   * context until the prop turns `false`. Left out, suspension goes through the instance only.
+   */
+  readonly suspended?: boolean | undefined
   /** View at mount, read once. Without it and without `view`, the first data is fitted. */
   readonly initialView?: View | undefined
   /**
@@ -200,7 +209,7 @@ const surfaces = new WeakMap<object, GraphSurface | null>()
 
 type BoundProps<S extends string, M extends Mark> = Omit<
   GraphProps<S, M>,
-  'initialView' | 'className' | 'style' | 'children'
+  'initialView' | 'className' | 'style' | 'children' | 'suspended'
 >
 
 type SharedOptions<S extends string, M extends Mark> = Omit<
@@ -352,6 +361,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       view: initial.view,
       onViewChange: (next) => flushSync(() => latest.current.onViewChange?.(next)),
       surface,
+      suspended: initial.suspended,
     })
     surfaces.set(instance, surface)
     setGraph(instance)
@@ -362,6 +372,13 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
   }, [latest])
 
   useGraphBinding(graph, props, latest, props.surface ?? null)
+
+  const { suspended } = props
+  useLayoutEffect(() => {
+    if (!graph || suspended === undefined) return
+    if (suspended) graph.suspend()
+    else graph.resume()
+  }, [graph, suspended])
 
   return (
     <div ref={wrapper} className={className} style={style}>

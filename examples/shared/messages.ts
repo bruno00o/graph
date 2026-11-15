@@ -267,6 +267,17 @@ export const messages = {
       : `${from} vers ${to} : ${formatNumber(forward)}, retour : ${formatNumber(backward)}`,
   exchange: (from: string, to: string): string => `Échange de ${from} vers ${to}`,
   count: (value: number): string => formatNumber(value),
+  suspend: 'Graphes suspendus',
+  suspendHint: 'Faites défiler\u00a0: les graphes hors de vue rendent leur contexte WebGL.',
+  suspendGraph: (index: number): string => `Graphe ${index}`,
+  suspendLive: (live: number, total: number): string =>
+    `${formatNumber(live)} ${plural(live, 'contexte actif', 'contextes actifs')} sur ${formatNumber(total)} graphes`,
+  suspendLost: (lost: number): string =>
+    `${formatNumber(lost)} ${plural(lost, 'perte imprévue', 'pertes imprévues')}`,
+  suspendKept: (kept: number, total: number): string =>
+    `État conservé\u00a0: ${formatNumber(kept)} sur ${formatNumber(total)}`,
+  suspendTour: 'Tout parcourir',
+  suspendResume: (time: number): string => `Reprise en ${milliseconds(time)}`,
 }
 
 function milliseconds(value: number): string {

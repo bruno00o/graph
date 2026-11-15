@@ -8,13 +8,13 @@ import { type MapSurfaceOptions, mapSurface } from './index'
 
 /**
  * Props of `<MapGraph>`: those of `<Graph>` without the view, which the map owns, without
- * `surface`, and without `className` and `style`, since it renders no element of its own. `S` and
- * `M` come from the definition.
+ * `surface` and `suspended`, which concern the own canvas, and without `className` and `style`,
+ * since it renders no element of its own. `S` and `M` come from the definition.
  */
 export interface MapGraphProps<S extends string = string, M extends Mark = Mark>
   extends Omit<
     GraphProps<S, M>,
-    'initialView' | 'view' | 'onViewChange' | 'className' | 'style' | 'surface'
+    'initialView' | 'view' | 'onViewChange' | 'className' | 'style' | 'surface' | 'suspended'
   > {
   /** MapLibre map to draw the graph in. Another map mounts the graph again. */
   readonly map: MapLibreMap

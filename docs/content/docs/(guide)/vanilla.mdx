@@ -59,6 +59,20 @@ graph.pick({ x: 120, y: 80 })
 
 `neighbors` and `edgesOf` return keys. `endpoints` returns `{ source, target }` for an edge key. `pick` returns the element under a point in screen pixels, nodes before edges, or `null`.
 
+## Suspend
+
+A browser keeps 16 WebGL contexts per page in Chrome and Safari. With more graphs than that, `suspend` frees the context of a graph out of sight and keeps everything else, and `resume` draws it again. Mount the graphs that start out of sight with `suspended: true`.
+
+```ts
+const graph = mountGraph(card, { definition, ariaLabel: 'Sample graph', suspended: true })
+new IntersectionObserver(([entry]) => {
+  if (entry?.isIntersecting) graph.resume()
+  else graph.suspend()
+}).observe(card)
+```
+
+See [Suspend](/docs/api/graph-instance#suspend) and [Many graphs on a page](/docs/browser-support#many-graphs-on-a-page).
+
 ## Destroy
 
 `destroy` removes the element, stops every listener and frees the GPU resources.

@@ -67,6 +67,12 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
     palette: () => render.paletteColors,
     masks: () => buffers.nodeMask,
     edgeMembers: (index, end) => projection.keysAt(index, end),
+    datum: (kind, index) =>
+      kind === 'nodes'
+        ? projection.view.nodeAt(index)?.datum
+        : kind === 'edges'
+          ? projection.view.edgeAt(index)?.datum
+          : projection.view.shapeAt?.(index)?.datum,
     sight: (except) => source.sight(except ?? null),
     stamp: () => ({
       scene: source.sceneVersion(),

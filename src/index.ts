@@ -47,6 +47,7 @@ export type {
   GraphPositionEvent,
   GraphSelectionEvent,
   GraphSurfaceEvent,
+  GraphSuspendEvent,
   GraphTarget,
   GraphTargetEvent,
   GraphTimeEvent,

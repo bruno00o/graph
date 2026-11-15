@@ -82,6 +82,11 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
    * made by `mapSurface`. The view is in the units of that surface.
    */
   readonly surface: string
+  /**
+   * `true` while the graph is suspended: it holds no WebGL context for its own canvas and draws
+   * nothing there, and everything else goes on.
+   */
+  readonly suspended: boolean
 }
 
 /** Status of edge bundling. */
@@ -621,6 +626,12 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    */
   readonly surface?: GraphSurface | null | undefined
   /**
+   * Mounts the graph suspended: it creates no WebGL context until `resume` is called. Data, layouts
+   * and the store work as usual.
+   * @default false
+   */
+  readonly suspended?: boolean | undefined
+  /**
    * Destroys the graph when it aborts. A signal already aborted mounts nothing: the graph comes
    * back destroyed, and a warning is logged in development.
    */
@@ -768,6 +779,17 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * Rejects with the reason of `signal` once the graph is destroyed.
    */
   loaded(): Promise<void>
+  /**
+   * Frees the WebGL context of the own canvas, its textures and buffers, and keeps everything else:
+   * data, positions, view, selection, states, layouts, events and companions go on, and the canvas
+   * shows the last frame drawn until the theme changes. Calls while suspended do nothing.
+   */
+  suspend(): void
+  /**
+   * Takes a WebGL context again and draws the graph as it is now, from the scene kept on the CPU.
+   * `await drawn()` waits for that frame. Calls while not suspended do nothing.
+   */
+  resume(): void
   /**
    * Applies a new `definition`, `surface`, `ariaLabel`, `onSelectionChange`, `onFoldChange`,
    * `onViewChange`, `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`,
