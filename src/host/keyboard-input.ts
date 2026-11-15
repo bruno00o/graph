@@ -48,6 +48,7 @@ export class KeyboardInput {
       case 'pan': {
         if (!interaction.pan) return false
         const step = Math.min(size.width, size.height) * keyPan
+        views.animation = null
         views.commit(panBy(view, -action.direction.x * step, -action.direction.y * step), 'user')
         return true
       }
