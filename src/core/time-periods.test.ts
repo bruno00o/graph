@@ -102,7 +102,6 @@ describe('TimeSpans with several periods', () => {
     ])
     expect(b.packed).toEqual(a.packed)
     expect(b.list(0)).toBeUndefined()
-    expect(b.several).toBe(0)
   })
 
   it('never shows an empty list, and gives no time to null', () => {
@@ -169,7 +168,6 @@ describe('TimeSpans with several periods', () => {
     spans.read(0, [1, 5])
     spans.read(0, 3)
     expect(spans.list(0)).toBeUndefined()
-    expect(spans.several).toBe(0)
     spans.read(0, [1, 5])
     spans.clear(0)
     expect(spans.timed(0)).toBe(false)

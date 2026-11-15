@@ -8,7 +8,7 @@ import {
 } from '../core/shape-engine'
 import { type ShapeStore, unpinned } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
-import { openTime, type TimeFilter } from '../core/time-range'
+import { openTime } from '../core/time-range'
 import { detailedFrom } from '../shapes/simplify'
 import { onSphere } from '../shapes/subdivide'
 import { withCopies } from '../shapes/wrap'
@@ -245,7 +245,6 @@ export function createShapeLayer(
   let zoomUsed = false
   let timeUsed = false
   let swapCursor: LogCursor | null = null
-  let patchedFor: TimeFilter | null = null
   let capacity = 0
   let rank = new Uint32Array(0)
   let highlighted: readonly number[] = []
@@ -519,7 +518,6 @@ export function createShapeLayer(
       }
       made.time.upload(0, store.capacity - 1)
       swapCursor = store.time.swaps.cursor()
-      patchedFor = null
     }
   }
 
@@ -544,27 +542,7 @@ export function createShapeLayer(
       high = Math.max(high, index)
     }
     made.time.upload(low, high)
-    patchedFor = null
     return true
-  }
-
-  function patchWindow(store: ShapeStore, made: Passes, window: TimeFilter | null): void {
-    const wanted = window !== null && window !== store.time.placedFor && store.time.several > 0
-    if (!timeUsed || (!wanted && patchedFor === null) || (wanted && patchedFor === window)) return
-    const spans = made.time.data
-    const packed = store.time.packed
-    let low = Number.POSITIVE_INFINITY
-    let high = -1
-    store.time.forEachList((index) => {
-      const at = index * 4
-      if (at + 3 >= spans.length) return
-      if (wanted) store.time.pack(index, window, spans, at)
-      else if (at + 3 < packed.length) spans.set(packed.subarray(at, at + 4), at)
-      low = Math.min(low, index)
-      high = Math.max(high, index)
-    })
-    made.time.upload(low, high)
-    patchedFor = wanted ? window : null
   }
 
   function writeStates(states: StateBuffers, made: Passes, full: boolean): boolean {
@@ -1146,10 +1124,6 @@ export function createShapeLayer(
       styleVersion = store.styleVersion
       draftVersion = store.draftVersion
       return changed
-    },
-
-    window(filter) {
-      if (passes && shown) patchWindow(shown, passes, filter)
     },
 
     draw(layers, view, key) {

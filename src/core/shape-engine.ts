@@ -7,7 +7,6 @@ import type { LayerFilter } from './mark-layers'
 import type { PositionReader, Positions } from './positions'
 import type { ShapeStore } from './shape-store'
 import type { StateBuffers } from './state-buffers'
-import type { TimeFilter } from './time-range'
 import type { Sight } from './visibility'
 
 export const shapeKinds = { polygon: 0, line: 1, circle: 2, rectangle: 3 } as const
@@ -70,7 +69,6 @@ export interface ShapeLayer {
   labels(set: object, main: ShapeGlyphs, highlight: ShapeGlyphs): void
   drawLabels(set: object, pass: number, layers: LayerFilter | null): void
   forget(set: object): void
-  window?(filter: TimeFilter | null): void
   destroy(): void
 }
 

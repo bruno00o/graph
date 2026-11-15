@@ -27,7 +27,7 @@ A time is one of:
 
 - a moment, in milliseconds since the epoch or as a `Date`: the element exists at that moment only;
 - a period `{ start, end }`, from `start`, included, to `end`, left out. A missing or `null` end leaves the period open on that side: `{ start: date }` exists from `date` on, forever;
-- a list of moments and periods, an array or any iterable: the element exists in each of them. An empty list means the element never exists;
+- a list of moments and periods, an array or any iterable: the element exists in each of them. An empty list means the element never exists, and no window shows it;
 - `null`, `undefined`, or a value that is not a time: the element has no time and always shows.
 
 A period whose end comes before its start counts as the moment of its start. The types are in the reference of [`nodes`](/docs/api/nodes#options) and [`edges`](/docs/api/edges#options).
@@ -389,6 +389,14 @@ The time of each element is read when the data changes, like every style. Moving
 | Histogram, after every node changes its time | 120 ms |
 
 The timeline counts again only when times change, and only for the elements whose time changed and the edges that end on them.
+
+An element with [several periods](#several-periods) keeps on the GPU the one that counts for the window, so moving the window looks again at each of these elements, and the timeline counts the gaps between their periods. Measured on a laptop, at 100,000 nodes and 200,000 edges:
+
+| Step | One period per node | Three periods per node |
+| --- | --- | --- |
+| First frame | 300 to 310 ms | 370 to 375 ms |
+| Frame while playing | 3.4 to 4.5 ms | 4.8 to 5.8 ms |
+| Histogram, first count | 43 to 48 ms | 134 to 140 ms |
 
 Events cost little next to the graph. Measured on a laptop, with events spread over 30 days in five kinds:
 

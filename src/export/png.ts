@@ -1,4 +1,5 @@
 import { IndexSet } from '../core/index-set'
+import type { TimeFilter } from '../core/time-range'
 import type { Rgba } from '../dom/theme'
 import type { GraphSnapshot } from '../host/export-source'
 import type { LabelArea, LabelMode, Renderer, RenderInput } from '../host/renderer'
@@ -18,7 +19,15 @@ export interface PngRequest {
   readonly badges?: boolean
 }
 
-function load(renderer: Renderer, snapshot: GraphSnapshot, grid: boolean): void {
+function load(
+  renderer: Renderer,
+  snapshot: GraphSnapshot,
+  grid: boolean,
+  window: TimeFilter | null,
+): void {
+  const { nodes, edges, shapes } = snapshot.scene
+  const spans = [nodes.time, edges.time, shapes.time]
+  const live = spans.map((times) => times.placedFor)
   renderer.setTheme(snapshot.theme)
   renderer.setPalette(snapshot.palette, snapshot.scene.palette.colors.length)
   const input: RenderInput = {
@@ -34,7 +43,11 @@ function load(renderer: Renderer, snapshot: GraphSnapshot, grid: boolean): void 
     bundles: snapshot.bundles,
     bridges: snapshot.bridges ?? null,
   }
+  for (const times of spans) times.select(window)
   renderer.sync(input)
+  spans.forEach((times, at) => {
+    times.select(live[at] ?? null)
+  })
 }
 
 export function composite(pixels: Uint8Array, length: number, background: Rgba): void {
@@ -93,9 +106,9 @@ export async function renderPng(
       viewport[0] ?? tileLimit,
       viewport[1] ?? tileLimit,
     )
-    load(renderer, first, grid)
+    load(renderer, first, grid, frame.window ?? null)
     await Promise.all([renderer.ready?.(), document.fonts?.ready, first.scene.shapes.settled()])
-    load(renderer, take(), grid)
+    load(renderer, take(), grid, frame.window ?? null)
     const strip = Math.max(1, Math.min(limit, height, Math.floor(stripPixels / width)))
     const cssWidth = width / pixelRatio
     const cssHeight = height / pixelRatio

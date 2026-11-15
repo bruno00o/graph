@@ -7,7 +7,6 @@ import type {
   StepRecords,
 } from '../core/history'
 import { type Readiness, sourceReadiness, watchReadiness } from '../core/live-source'
-import { noPeriods, Periods, readBounds, readPeriods } from '../core/time-range'
 import type {
   EdgeMark,
   HistoryEntry,
@@ -274,27 +273,33 @@ export class Track implements HistoryTrack {
     const count = index.count(element)
     const bounds: number[] = []
     let state = unknown
-    let start = Number.NEGATIVE_INFINITY
     for (let at = 0; at < count; at++) {
       const id = index.at(element, at)
       const flag = index.presence[id] ?? unknown
       if (flag === unknown) continue
       const time = index.times[id] ?? 0
-      if (state === unknown) state = flag === present ? absent : present
-      if (flag === present && state === absent) {
-        start = time
+      if (state === unknown && flag === absent) {
+        bounds.push(Number.NEGATIVE_INFINITY)
+        state = present
+      }
+      if (flag === present && state !== present) {
+        if (bounds[bounds.length - 1] === time) bounds.pop()
+        else bounds.push(time)
         state = present
       } else if (flag === absent && state === present) {
-        if (time > start) bounds.push(start, time)
+        if ((bounds[bounds.length - 1] ?? time) < time) bounds.push(time)
+        else bounds.pop()
         state = absent
       }
     }
-    let periods: Float64Array | null = null
-    if (state !== unknown) {
-      if (state === present) bounds.push(start, Number.POSITIVE_INFINITY)
-      const merged = readPeriods(new Periods(Float64Array.from(bounds)))
-      periods = merged === noPeriods ? null : readBounds(merged)
-    }
+    if (state === present) bounds.push(Number.POSITIVE_INFINITY)
+    const periods =
+      state === unknown ||
+      (bounds.length === 2 &&
+        bounds[0] === Number.NEGATIVE_INFINITY &&
+        bounds[1] === Number.POSITIVE_INFINITY)
+        ? null
+        : Float64Array.from(bounds)
     this.#presence[element] = periods
     return periods
   }

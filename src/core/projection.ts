@@ -35,7 +35,6 @@ import { noPeriods, readBounds, readPeriods } from './time-range'
 import { withoutUndefined } from './without-undefined'
 
 const none = -1
-const noPeriodsAtAll: readonly unknown[] = Object.freeze([])
 const absent = 0
 const direct = 1
 const hidden = 2
@@ -139,7 +138,7 @@ function spanning(read: Read): (aggregate: AggregateEdge) => unknown {
       start = Math.min(start, bounds[0] ?? start)
       end = Math.max(end, bounds[bounds.length - 1] ?? end)
     }
-    if (start > end) return noPeriodsAtAll
+    if (start > end) return []
     return {
       start: start === Number.NEGATIVE_INFINITY ? null : start,
       end: end === Number.POSITIVE_INFINITY ? null : end,
