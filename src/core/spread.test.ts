@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { offsetAt, type PackInput, type Packing, packMembers, spreadStep, stepZoom } from './spread'
+import {
+  offsetAt,
+  type PackInput,
+  type Packing,
+  PlaceStacks,
+  packMembers,
+  spreadStep,
+  stepZoom,
+} from './spread'
 
 interface Member {
   readonly x: number
@@ -225,5 +233,73 @@ describe('spreadStep', () => {
     expect(spreadStep(2 ** (-0.7 / 4), 0)).toBe(-1)
     expect(spreadStep(2 ** (0.45 / 4), 1)).toBe(1)
     expect(stepZoom(4)).toBe(2)
+  })
+})
+
+describe('PlaceStacks', () => {
+  function random(seed: number): () => number {
+    let state = seed >>> 0
+    return () => {
+      state ^= state << 13
+      state ^= state >>> 17
+      state ^= state << 5
+      return (state >>> 0) / 4294967296
+    }
+  }
+
+  it('groups indices by their exact place and lists the places that changed', () => {
+    const stacks = new PlaceStacks()
+    expect(stacks.set(3, 1, 2)).toBe(true)
+    expect(stacks.set(1, 1, 2)).toBe(true)
+    expect(stacks.set(2, 1, 2.000001)).toBe(true)
+    expect(stacks.set(1, 1, 2)).toBe(false)
+    expect(stacks.set(4, -0, 0)).toBe(true)
+    expect(stacks.set(5, 0, -0)).toBe(true)
+    const place = stacks.placeOf(3)
+    expect(stacks.placeOf(1)).toBe(place)
+    expect(stacks.placeOf(2)).not.toBe(place)
+    expect(stacks.placeOf(4)).toBe(stacks.placeOf(5))
+    const members: number[] = []
+    stacks.members(place, members)
+    expect(members).toEqual([1, 3])
+    expect(stacks.size(place)).toBe(2)
+    expect([stacks.x(place), stacks.y(place)]).toEqual([1, 2])
+    expect(stacks.places).toBe(3)
+    expect(stacks.takeDirty().length).toBe(3)
+    expect(stacks.pending).toBe(false)
+    expect(stacks.remove(3)).toBe(true)
+    expect(stacks.remove(3)).toBe(false)
+    expect(stacks.takeDirty()).toEqual([place])
+    stacks.clear()
+    expect(stacks.places).toBe(0)
+    expect(stacks.placeOf(1)).toBe(-1)
+  })
+
+  it('agrees with a plain map through many moves and removals', () => {
+    const next = random(7)
+    const stacks = new PlaceStacks()
+    const truth = new Map<number, string>()
+    for (let step = 0; step < 40_000; step++) {
+      const index = Math.floor(next() * 3000)
+      if (next() < 0.3) {
+        stacks.remove(index)
+        truth.delete(index)
+      } else {
+        const x = Math.floor(next() * 60)
+        const y = Math.floor(next() * 60)
+        stacks.set(index, x, y)
+        truth.set(index, `${x},${y}`)
+      }
+    }
+    const byPlace = new Map<string, number[]>()
+    for (const [index, place] of truth) byPlace.set(place, [...(byPlace.get(place) ?? []), index])
+    expect(stacks.places).toBe(byPlace.size)
+    for (const [place, indices] of byPlace) {
+      const id = stacks.placeOf(indices[0] ?? -1)
+      expect(`${stacks.x(id)},${stacks.y(id)}`).toBe(place)
+      const members: number[] = []
+      stacks.members(id, members)
+      expect(members).toEqual(indices.sort((a, b) => a - b))
+    }
   })
 })

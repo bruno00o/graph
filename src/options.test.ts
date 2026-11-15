@@ -106,6 +106,7 @@ import type {
   ShapeOptions,
   ShapeScalesOptions,
   SourceSubscription,
+  SpreadOptions,
   StateHalo,
   StateKindStyles,
   StateLook,
@@ -311,6 +312,7 @@ interface Inputs {
   ShapeScalesOptions: ShapeScalesOptions
   ShowPresenceOptions: ShowPresenceOptions<Item, string, 'muted'>
   SourceSubscription: SourceSubscription
+  SpreadOptions: SpreadOptions
   SchemaInput: SchemaInput
   StateHalo: StateHalo
   StateKindStyles: StateKindStyles

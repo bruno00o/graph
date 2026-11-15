@@ -5,7 +5,7 @@ import type { Hierarchy } from '../core/hierarchy'
 import { boundingRadius } from '../core/node-shape'
 import type { PositionReader, Positions } from '../core/positions'
 import type { ProjectionChanges } from '../core/projection'
-import { type Packing, packMembers, spreadStep, stepZoom } from '../core/spread'
+import { type Packing, PlaceStacks, packMembers, spreadStep, stepZoom } from '../core/spread'
 import { easeInOut } from '../core/view'
 
 export const perFrameLimit = 20_000
@@ -15,6 +15,11 @@ const viewSlack = 0.25
 const zoomTolerance = 1e-9
 const globeTolerance = 1e-6
 const none = -1
+const rootBase = -2
+
+function rootOf(place: number): number {
+  return rootBase - place
+}
 
 export interface SpreadCamera {
   readonly zoom: number
@@ -28,6 +33,7 @@ export interface SpreadSource {
   readonly hierarchy: Hierarchy
   readonly positions: Positions
   readonly containers: ReadonlySet<number>
+  placeGap(): number | null
   eligible(index: number): boolean
   settled(): PositionReader
   claim(index: number): void
@@ -116,6 +122,8 @@ export class SpreadHost {
   #globeScale = Number.NaN
   #globeMix = Number.NaN
   #instant = false
+  readonly #places = new PlaceStacks()
+  #placeGap: number | null = null
 
   constructor(source: SpreadSource) {
     this.#source = source
@@ -126,7 +134,7 @@ export class SpreadHost {
   }
 
   get writing(): boolean {
-    return this.#moving || this.#rewrote || this.#dirty.size > 0
+    return this.#moving || this.#rewrote || this.#dirty.size > 0 || this.#places.pending
   }
 
   owns(index: number): boolean {
@@ -144,7 +152,9 @@ export class SpreadHost {
 
   changed(changes: GraphChanges, projected: ProjectionChanges, now: number): void {
     const { nodes, hierarchy, containers, positions } = this.#source
-    if (containers.size === 0 && this.#members.size === 0 && this.#count === 0) {
+    const rescan = this.#syncPlaces()
+    const placing = this.#placeGap !== null
+    if (!placing && containers.size === 0 && this.#members.size === 0 && this.#count === 0) {
       for (const { index } of changes.nodes.removed) this.attach(index)
       return
     }
@@ -154,6 +164,7 @@ export class SpreadHost {
       if (slot >= 0) this.#free(slot)
       this.#detached[index] = 0
       this.#forget(index)
+      if (placing) this.#places.remove(index)
       if (this.#members.has(index)) this.#dirty.add(index)
     }
     for (const group of projected.folded) {
@@ -170,6 +181,7 @@ export class SpreadHost {
         this.#free(slot)
       }
       this.#forget(index)
+      if (placing) this.#places.remove(index)
     }
     for (const group of projected.unfolded) {
       this.#dirty.add(group)
@@ -184,13 +196,15 @@ export class SpreadHost {
         }
       }
       for (const container of this.#members.keys()) {
-        if (!containers.has(container)) this.#dirty.add(container)
+        if (container >= 0 && !containers.has(container)) this.#dirty.add(container)
       }
     }
+    if (placing && (rescan || projected.containers)) this.#rescan()
     this.settle(now)
   }
 
   settle(now: number, budget: number = Number.POSITIVE_INFINITY): void {
+    this.#collect()
     if (this.#dirty.size === 0) return
     this.#freeze(now)
     const settled = this.#source.settled()
@@ -225,13 +239,15 @@ export class SpreadHost {
   }
 
   enter(now: number): void {
-    const { containers, nodes } = this.#source
+    const { containers, nodes, positions, hierarchy } = this.#source
     for (const container of containers) {
       if (nodes.spread[container] === 1) this.#dirty.add(container)
     }
-    if (this.#dirty.size === 0) return
-    const { positions, hierarchy } = this.#source
     this.#reserve(Math.max(nodes.capacity, positions.capacity, hierarchy.capacity))
+    this.#syncPlaces()
+    if (this.#placeGap !== null) this.#rescan()
+    this.#collect()
+    if (this.#dirty.size === 0) return
     this.#instant = true
     try {
       this.settle(now)
@@ -244,10 +260,12 @@ export class SpreadHost {
     if (index >= this.#holder.length) return
     const holder = this.#holder[index] ?? none
     const slot = this.#slotOf[index] ?? none
-    if (holder < 0 && slot < 0) return
+    const placed = this.#places.placeOf(index) >= 0
+    if (holder === none && slot < 0 && !placed) return
     this.#detached[index] = 1
+    if (placed) this.#places.remove(index)
     if (slot >= 0) this.#free(slot)
-    if (holder >= 0) this.#dirty.add(holder)
+    if (holder !== none) this.#dirty.add(holder)
   }
 
   attach(index: number): void {
@@ -274,7 +292,7 @@ export class SpreadHost {
     this.#baseX[slot] = x
     this.#baseY[slot] = y
     const holder = this.#holder[index] ?? none
-    if (holder >= 0) {
+    if (holder !== none) {
       this.#dirty.add(holder)
       return true
     }
@@ -287,6 +305,12 @@ export class SpreadHost {
 
   frame(now: number): boolean {
     this.#rewrote = false
+    if (this.#syncPlaces()) {
+      const { nodes, positions, hierarchy } = this.#source
+      this.#reserve(Math.max(nodes.capacity, positions.capacity, hierarchy.capacity))
+      this.#rescan()
+    }
+    this.#collect()
     if (this.#count === 0 && this.#screens.size === 0 && this.#dirty.size === 0) return false
     const camera = this.#source.camera()
     if (this.#screens.size > 0) {
@@ -335,9 +359,52 @@ export class SpreadHost {
 
   #forget(index: number): void {
     const holder = this.#holder[index] ?? none
-    if (holder < 0) return
+    if (holder === none) return
     this.#holder[index] = none
     this.#dirty.add(holder)
+  }
+
+  #syncPlaces(): boolean {
+    const gap = this.#source.placeGap()
+    if (gap === this.#placeGap) return false
+    const was = this.#placeGap
+    this.#placeGap = gap
+    if (gap === null || was !== null) {
+      for (const holder of this.#members.keys()) if (holder <= rootBase) this.#dirty.add(holder)
+    }
+    if (gap === null) this.#places.clear()
+    return was === null && gap !== null
+  }
+
+  #rescan(): void {
+    const capacity = this.#source.nodes.capacity
+    for (let index = 0; index < capacity; index++) this.#place(index)
+  }
+
+  #place(index: number): void {
+    const { nodes, hierarchy, positions } = this.#source
+    const x = positions.source[index * 2] ?? Number.NaN
+    const y = positions.source[index * 2 + 1] ?? Number.NaN
+    if (
+      nodes.alive[index] === 1 &&
+      nodes.shape[index] !== containerShape &&
+      (hierarchy.parent[index] ?? none) < 0 &&
+      this.#detached[index] !== 1 &&
+      !Number.isNaN(x) &&
+      !Number.isNaN(y)
+    ) {
+      this.#places.set(index, x, y)
+    } else {
+      this.#places.remove(index)
+    }
+  }
+
+  #collect(): void {
+    if (!this.#places.pending) return
+    for (const place of this.#places.takeDirty()) {
+      const holder = rootOf(place)
+      if (this.#places.size(place) >= 2 || this.#members.has(holder)) this.#dirty.add(holder)
+    }
   }
 
   #touchParent(index: number): void {
@@ -351,7 +418,8 @@ export class SpreadHost {
     const parent = hierarchy.parent[index] ?? none
     if (parent >= 0 && containers.has(parent)) this.#dirty.add(parent)
     const holder = this.#holder[index] ?? none
-    if (holder >= 0 && holder !== parent) this.#dirty.add(holder)
+    if (holder !== none && holder !== parent) this.#dirty.add(holder)
+    if (this.#placeGap !== null) this.#place(index)
   }
 
   #take(index: number): number {
@@ -437,17 +505,25 @@ export class SpreadHost {
   }
 
   #pack(container: number, settled: PositionReader, camera: SpreadCamera, aimed: number[]): void {
-    const { nodes, hierarchy, containers } = this.#source
+    const { nodes, hierarchy, containers, positions } = this.#source
     const previous = this.#members.get(container)
     const stamp = ++this.#stamp
-    const live =
-      containers.has(container) &&
-      nodes.alive[container] === 1 &&
-      nodes.shape[container] === containerShape &&
-      nodes.spread[container] === 1
+    const root = container <= rootBase
+    const live = root
+      ? this.#placeGap !== null
+      : containers.has(container) &&
+        nodes.alive[container] === 1 &&
+        nodes.shape[container] === containerShape &&
+        nodes.spread[container] === 1
     const list: number[] = []
     let screen = false
-    if (live) {
+    if (live && root) {
+      this.#places.members(rootBase - container, list)
+      for (const index of list) {
+        this.#seen[index] = stamp
+        if (nodes.screenUnits[index] === 1) screen = true
+      }
+    } else if (live) {
       for (
         let child = hierarchy.firstChild[container] ?? none;
         child >= 0;
@@ -466,7 +542,8 @@ export class SpreadHost {
         if (this.#seen[index] !== stamp) this.#leave(index, container)
       }
     }
-    if (!live || list.length === 0) {
+    if (!live || list.length < (root ? 2 : 1)) {
+      for (const index of list) this.#leave(index, container)
       this.#members.delete(container)
       this.#screens.delete(container)
       return
@@ -480,8 +557,18 @@ export class SpreadHost {
     const scale = new Float64Array(count)
     list.forEach((index, at) => {
       const slot = this.#slotOf[index] ?? none
-      const by = slot >= 0 ? (this.#baseY[slot] ?? 0) : settled.y(index)
-      x[at] = slot >= 0 ? (this.#baseX[slot] ?? 0) : settled.x(index)
+      const by =
+        slot >= 0
+          ? (this.#baseY[slot] ?? 0)
+          : root
+            ? (positions.source[index * 2 + 1] ?? 0)
+            : settled.y(index)
+      x[at] =
+        slot >= 0
+          ? (this.#baseX[slot] ?? 0)
+          : root
+            ? (positions.source[index * 2] ?? 0)
+            : settled.x(index)
       y[at] = by
       const s = screen ? this.#scaleAt(camera, zoom, by) : 1
       const r = boundingRadius(nodes, index)
@@ -492,9 +579,10 @@ export class SpreadHost {
           ? r + (nodes.outlineWidth[index] ?? 0)
           : r * s
     })
-    const input = { count, x, y, radius, scale, gap: nodes.gap[container] ?? 0 }
-    const joined = packMembers(input)
-    const wide = screen ? oversized(joined, radius, this.#limit) : null
+    const gap = root ? (this.#placeGap ?? 0) : (nodes.gap[container] ?? 0)
+    const input = { count, x, y, radius, scale, gap }
+    const joined = root ? packMembers(input, 0, false) : packMembers(input)
+    const wide = screen && !root ? oversized(joined, radius, this.#limit) : null
     const apart = wide ? packMembers(input, 0, false) : null
     list.forEach((index, at) => {
       this.#holder[index] = container

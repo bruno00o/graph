@@ -11,6 +11,8 @@ A node gets its first position in this order:
 2. Near its neighbors that are already placed, on a ring around them. A node that arrives while you explore appears next to what it connects to.
 3. Otherwise on a spiral around the origin. A first batch without coordinates starts as a compact disc.
 
+When some nodes are placed by their data, a node without coordinates goes near its placed neighbors from the first batch on, and the walk goes on through the nodes it places, so a chain of nodes without coordinates hangs from the placed node it connects to. A node with no placed neighbor at all, and the nodes that hang from it, start next to the node placed by its data that is nearest the middle of the others, not at the origin. The ring is sized in pixels at the zoom of the moment for a node sized with `units: 'screen'`, such as nodes on a [map](/docs/map), and in world units otherwise. A graph where every node, or no node, is placed by its data is placed as described above.
+
 With a layout in the definition, nodes without `x` and `y` then move to the place it computes: the first batch as a whole, later nodes next to their neighbors. See [Layouts](/docs/layout).
 
 ## Positions from your data
@@ -36,7 +38,27 @@ A node only moves when its own `x` or `y` value changes, or its `longitude` or `
 nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' })
 ```
 
-`geoToWorld` and `worldToGeo` convert between degrees and world units, for example to read where the user clicked. Edges between such nodes can follow [great circles](/docs/map#great-circles) with `geodesic`. To draw the nodes over a basemap, flat or on a globe, see [Map](/docs/map). Nodes placed this way never move, even when they overlap: to place them by their coordinates and still move apart those that overlap, use the [`geo` layout](/docs/layout#geography) instead.
+`geoToWorld` and `worldToGeo` convert between degrees and world units, for example to read where the user clicked. Edges between such nodes can follow [great circles](/docs/map#great-circles) with `geodesic`. To draw the nodes over a basemap, flat or on a globe, see [Map](/docs/map). Nodes placed this way never move, even when they overlap: to move apart on screen those at the very same place, see [Nodes at one place](#nodes-at-one-place); to place them by their coordinates and keep every node apart, use the [`geo` layout](/docs/layout#geography) instead.
+
+## Nodes at one place
+
+Nodes that the data places at the very same point draw on top of each other. `spread` in the definition moves them apart around that point, so that each one can be seen, hovered and dragged:
+
+```ts
+const definition = defineGraph({
+  marks: [nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' })],
+  spread: { gap: 4 },
+})
+```
+
+<api-table path="index.ts" name="SpreadOptions" />
+
+- `spread` is off by default; `true` takes a `gap` of 4. Nodes at the same point sit on a ring around it, or on a spiral past six. Nodes at different points never move, even when they touch: only the exact same `x` and `y`, or `longitude` and `latitude`, count.
+- Only the drawn position moves, as for the [children of a group](/docs/groups#spread-children): `graph.positions.get` gives where a node is drawn, no `positionchange` is emitted, so `persistPositions` never writes a spread position, and a layout never moves a spread node.
+- Nodes sized with `units: 'screen'`, such as nodes placed by `longitude` and `latitude`, keep their gap in pixels at every zoom; nodes in world units are spread once and never move as you zoom.
+- It applies to the nodes outside groups that are placed by their data. The children of an unfolded group follow the `spread` of their [container](/docs/groups#spread-children) instead.
+- A node you drag, or place with `graph.positions.set`, leaves the others and stays where you put it; they close ranks. It joins them again when its data moves, or with `graph.positions.reset`.
+- Nodes glide out of their place over `transitions.layout`, or appear at once with reduced motion.
 
 ## Move nodes from code
 

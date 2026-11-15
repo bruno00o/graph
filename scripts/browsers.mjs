@@ -51,6 +51,11 @@ const queryPages = [
   { name: 'map-shapes-flat', page: 'map', query: 'shapes&projection=mercator' },
   { name: 'map-pinned', page: 'map', query: 'shapes&pinned' },
   { name: 'map-switch', page: 'map', query: 'switch' },
+  {
+    name: 'map-unplaced',
+    page: 'map',
+    query: 'unplaced=0.3&shared=0.2&spread&projection=mercator',
+  },
 ]
 
 function examplePages(directory) {

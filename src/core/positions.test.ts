@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { edges, nodes } from '../marks'
 import { createGraphModel } from './graph-model'
-import { Positions, placeNodes, RestoredPositions } from './positions'
+import { type PlacementUnit, Positions, placeNodes, RestoredPositions } from './positions'
 
 type Item = { id: string; x?: number; y?: number; name?: string }
 type Link = { id: string; from: string; to: string }
@@ -98,6 +98,117 @@ describe('placeNodes', () => {
     expect(at('a')).toEqual({ x: 10, y: 10 })
     expect(update([{ id: 'a', x: 10, y: 10 }]).indices).toEqual([])
     expect(positions.source[index * 2]).toBe(10)
+  })
+})
+
+describe('placing nodes without a position among nodes placed by the data', () => {
+  function mixed(unit?: PlacementUnit) {
+    const model = createGraphModel()
+    const positions = new Positions()
+    const update = (items: Item[], links: Link[] = []) => {
+      model.setMarks([
+        nodes(items, { x: 'x', y: 'y' }),
+        edges(links, { source: 'from', target: 'to' }),
+      ])
+      return placeNodes(model, positions, model.flush(), null, unit)
+    }
+    const at = (key: string) => {
+      const index = model.node(key)?.index ?? -1
+      return { x: positions.x(index), y: positions.y(index) }
+    }
+    const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+      Math.hypot(a.x - b.x, a.y - b.y)
+    return { model, positions, update, at, distance }
+  }
+
+  it('places a node of the first data near its neighbors placed by the data', () => {
+    const { update, at, distance } = mixed()
+    update(
+      [{ id: 'a', x: 5000, y: 5000 }, { id: 'b', x: 5100, y: 5000 }, { id: 'c' }],
+      [
+        { id: 'ac', from: 'a', to: 'c' },
+        { id: 'cb', from: 'c', to: 'b' },
+      ],
+    )
+    expect(distance(at('c'), { x: 5050, y: 5000 })).toBeLessThan(40)
+  })
+
+  it('places a chain of nodes without a position one after the other from the placed node', () => {
+    const { update, at, distance } = mixed()
+    update(
+      [{ id: 'd' }, { id: 'c' }, { id: 'a', x: 5000, y: -3000 }, { id: 'b' }],
+      [
+        { id: 'ab', from: 'a', to: 'b' },
+        { id: 'bc', from: 'b', to: 'c' },
+        { id: 'cd', from: 'c', to: 'd' },
+      ],
+    )
+    expect(distance(at('b'), at('a'))).toBeLessThan(40)
+    expect(distance(at('c'), at('b'))).toBeLessThan(40)
+    expect(distance(at('d'), at('c'))).toBeLessThan(40)
+  })
+
+  it('places a node without placed neighbors next to the placed node nearest their middle', () => {
+    const { update, at, distance } = mixed()
+    update([
+      { id: 'a', x: 1000, y: 1000 },
+      { id: 'b', x: 1100, y: 1000 },
+      { id: 'c', x: 1210, y: 1000 },
+      { id: 'lone' },
+    ])
+    expect(distance(at('lone'), at('b'))).toBeLessThan(40)
+  })
+
+  it('keeps a group of linked nodes without a position together near the placed nodes', () => {
+    const { update, at, distance } = mixed()
+    update(
+      [{ id: 'a', x: 2000, y: 2000 }, { id: 'p' }, { id: 'q' }, { id: 'r' }],
+      [
+        { id: 'pq', from: 'p', to: 'q' },
+        { id: 'qr', from: 'q', to: 'r' },
+      ],
+    )
+    expect(distance(at('p'), at('a'))).toBeLessThan(40)
+    expect(distance(at('q'), at('p'))).toBeLessThan(40)
+    expect(distance(at('r'), at('q'))).toBeLessThan(40)
+  })
+
+  it('places later arrivals near their neighbors, placed in the same batch or before', () => {
+    const { update, at, distance } = mixed()
+    const base = [{ id: 'a', x: -800, y: 300 }, { id: 'b' }]
+    const links = [{ id: 'ab', from: 'a', to: 'b' }]
+    update(base, links)
+    update(
+      [...base, { id: 'c', x: 900, y: 900 }, { id: 'd' }, { id: 'e' }],
+      [...links, { id: 'cd', from: 'c', to: 'd' }, { id: 'be', from: 'b', to: 'e' }],
+    )
+    expect(distance(at('d'), at('c'))).toBeLessThan(40)
+    expect(distance(at('e'), at('b'))).toBeLessThan(40)
+  })
+
+  it('sizes the rings with the unit of the node, such as pixels at the zoom of the view', () => {
+    const unit: PlacementUnit = (index) => (index === 2 ? 0.001 : 1)
+    const { update, at, distance } = mixed(unit)
+    update(
+      [{ id: 'a', x: 10, y: 10 }, { id: 'w' }, { id: 's' }],
+      [
+        { id: 'aw', from: 'a', to: 'w' },
+        { id: 'as', from: 'a', to: 's' },
+      ],
+    )
+    expect(distance(at('w'), at('a'))).toBeGreaterThan(30)
+    expect(distance(at('s'), at('a'))).toBeLessThan(0.1)
+    expect(distance(at('s'), at('a'))).toBeGreaterThan(0.01)
+  })
+
+  it('counts the nodes placed by the data', () => {
+    const { update, positions } = mixed()
+    update([{ id: 'a', x: 1, y: 1 }, { id: 'b' }])
+    expect(positions.followed).toBe(1)
+    update([{ id: 'a' }, { id: 'b', x: 2, y: 2 }, { id: 'c', x: 3, y: 3 }])
+    expect(positions.followed).toBe(2)
+    update([{ id: 'c', x: 3, y: 3 }])
+    expect(positions.followed).toBe(1)
   })
 })
 

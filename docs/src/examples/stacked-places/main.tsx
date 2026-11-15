@@ -74,13 +74,14 @@ places.forEach(([longitude, latitude], place) => {
 
 interface Look {
   readonly spread: boolean
+  readonly grouped: boolean
   readonly between: EdgesBetweenGroups
   readonly fill: number
 }
 
-const initial: Look = { spread: true, between: 'members', fill: 50 }
+const initial: Look = { spread: true, grouped: true, between: 'members', fill: 50 }
 
-const define = ({ spread, between, fill }: Look) =>
+const define = ({ spread, grouped, between, fill }: Look) =>
   defineGraph({
     marks: [
       edges<Link>(links, {
@@ -97,16 +98,21 @@ const define = ({ spread, between, fill }: Look) =>
         color: 'kind',
         size: 14,
       }),
-      groups(spots, {
-        by: 'site',
-        name: 'sites',
-        min: 2,
-        folded: false,
-        size: 22,
-        label: (site) => messages.site(site.count),
-        container: { spread, gap: 4, fillOpacity: fill / 100 },
-      }),
+      ...(grouped
+        ? [
+            groups(spots, {
+              by: 'site',
+              name: 'sites',
+              min: 2,
+              folded: false,
+              size: 22,
+              label: (site) => messages.site(site.count),
+              container: { spread, gap: 4, fillOpacity: fill / 100 },
+            }),
+          ]
+        : []),
     ],
+    spread: spread && { gap: 4 },
   })
 
 function assign(ref: Ref<GraphInstance | null>, value: GraphInstance | null): void {
@@ -173,6 +179,15 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
         <button
           type="button"
           className="example-button"
+          aria-pressed={look.grouped}
+          onClick={() => change({ grouped: !look.grouped })}
+        >
+          {messages.grouped(look.grouped)}
+        </button>
+        <button
+          type="button"
+          className="example-button"
+          disabled={!look.grouped}
           onClick={() => change({ between: look.between === 'groups' ? 'members' : 'groups' })}
         >
           {messages.between(look.between)}
@@ -185,6 +200,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
             max={100}
             step={5}
             value={look.fill}
+            disabled={!look.grouped}
             onChange={(event) => change({ fill: Number(event.currentTarget.value) })}
           />
         </label>

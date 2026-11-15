@@ -39,11 +39,20 @@ const zones = params.has('shapes') ? createZones(Number(params.get('shapes') || 
 const crowded = zones.length > 100
 const pinned = params.has('pinned')
 const switching = params.has('switch')
+const unplaced = Number(params.get('unplaced') ?? 0)
+const shared = Number(params.get('shared') ?? 0)
+const spreading = params.has('spread')
 const generated = stack ? createStacks() : createPlaces(count, edgeCount)
 const places = generated.places
 const routes = winding ? withCrossing(generated.routes) : generated.routes
 const small = stack || count <= placeCount
 const placeOf = new Map(places.map((place) => [place.id, place]))
+const located = places.map((place, index) => {
+  if (index > 0 && ((index * 7919) % 100) / 100 < unplaced) return null
+  const host = index > 0 && ((index * 104729 + 13) % 100) / 100 < shared ? places[index - 1] : place
+  return host ?? place
+})
+const spotOf = new Map(places.map((place, index) => [place.id, located[index] ?? null]))
 const halos = pinned
   ? places.slice(0, 24).map((place) => ({
       id: `halo-${place.id}`,
@@ -110,8 +119,8 @@ function definitionOf(mode: FarMode) {
         arrow: (route) => (small && route.far ? 'target' : 'none'),
       }),
       nodes<Place>(places, {
-        longitude: 'longitude',
-        latitude: 'latitude',
+        longitude: (place) => spotOf.get(place.id)?.longitude ?? Number.NaN,
+        latitude: (place) => spotOf.get(place.id)?.latitude ?? Number.NaN,
         color: 'group',
         size: (place) => (small ? 10 + place.weight / 8 : 4 + place.weight / 10),
         shape: boxes ? 'box' : 'circle',
@@ -136,6 +145,7 @@ function definitionOf(mode: FarMode) {
     states: { muted: { opacity: 0.2, label: false }, active: { flow: true } },
     hulls: [hull({ state: 'selected', color: 'var(--graph-accent)', padding: 12 })],
     interaction: { lasso: true },
+    spread: spreading,
   })
 }
 
