@@ -64,6 +64,8 @@ export interface GraphEventProps<M extends Mark = Mark> {
    * synchronously, so a state update in the handler draws in the same frame.
    */
   readonly onViewChange?: GraphEventHandler<'viewchange', M> | undefined
+  /** Receives `surfacechange`: the graph moved to another surface. */
+  readonly onSurfaceChange?: GraphEventHandler<'surfacechange', M> | undefined
   /** Receives `timechange`, or the window requests when `time` is given. */
   readonly onTimeChange?: GraphEventHandler<'timechange', M> | undefined
   /** Receives `layerchange`, or the layer requests when `hiddenLayers` is given. */
@@ -97,6 +99,7 @@ export const eventProps: Readonly<Record<GraphEventName, keyof GraphEventProps>>
   focuschange: 'onFocusChange',
   foldchange: 'onFoldChange',
   viewchange: 'onViewChange',
+  surfacechange: 'onSurfaceChange',
   timechange: 'onTimeChange',
   layerchange: 'onLayerChange',
   lenschange: 'onLensChange',
@@ -189,7 +192,7 @@ type BoundProps<S extends string, M extends Mark> = Omit<
 
 type SharedOptions<S extends string, M extends Mark> = Omit<
   MountGraphOptions<S, M>,
-  'initialView' | 'view' | 'onViewChange' | 'signal'
+  'initialView' | 'view' | 'onViewChange' | 'signal' | 'surface'
 >
 
 function foldedAtMount<S extends string, M extends Mark>(

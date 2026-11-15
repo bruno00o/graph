@@ -687,7 +687,7 @@ export class PointerInput {
         const index = drag.indices[i] ?? 0
         moved.set(key, { x: positions.x(index), y: positions.y(index) })
       })
-      emitter.emit('positionchange', positionEvent('drag', moved, this.#source.surface().onMap))
+      emitter.emit('positionchange', positionEvent('drag', moved, this.#source.surface()))
     }
     this.#source.request()
   }
@@ -1028,6 +1028,41 @@ export class PointerInput {
     if (wheel === 'page' && zoom) {
       source.emitter.emit('zoomhint', { key: zoomKey(), originalEvent: event })
     }
+  }
+
+  abandon(): void {
+    const source = this.#source
+    const canvas = this.#canvas
+    this.stopMoves()
+    const held = this.#toolGesture
+    if (held) {
+      this.#endTool(held, new PointerEvent('pointercancel', { pointerId: held.id }), true)
+      if (source.destroyed()) return
+    }
+    const pinch = this.#pinch
+    this.#pinch = null
+    for (const id of pinch?.points.keys() ?? []) {
+      if (canvas.hasPointerCapture?.(id)) canvas.releasePointerCapture(id)
+    }
+    const ended = this.#gesture
+    this.#gesture = null
+    this.#autoPanning = false
+    if (ended) {
+      if (canvas.hasPointerCapture?.(ended.id)) canvas.releasePointerCapture(ended.id)
+      if (ended.lasso) this.#drawLasso(null)
+      if (ended.drag?.started) {
+        source.emitter.emit('dragend', this.#dragEvent(ended.drag, ended.event))
+        if (source.destroyed()) return
+      }
+    }
+    source.surface().claim(false)
+    this.#toolCursor = null
+    if (source.state().hovered) {
+      source.registry.set('hovered', {})
+      source.patch({ hovered: null })
+    }
+    canvas.style.cursor = ''
+    source.surface().hover(false)
   }
 
   stopMoves(): void {

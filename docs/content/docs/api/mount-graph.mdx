@@ -20,6 +20,8 @@ Appends the graph element to `container` and returns its [instance](/docs/api/gr
 
 The selection itself, as `onSelectionChange` receives it, is an [`ElementKeys`](/docs/api/graph-instance#selection).
 
+`surface` takes a surface made by [`mapSurface`](/docs/api/map#mapsurface), to draw the graph inside a map instead of its own canvas. Given again to `update`, it moves the graph, with its positions and view kept for each surface. See [With and without a map](/docs/map#with-and-without-a-map).
+
 ## Signal
 
 `signal` ties the graph to an `AbortController` of your own: the graph is destroyed when it aborts, and `graph.signal` aborts with the same reason. One controller can end a graph and the work around it at once.

@@ -7,14 +7,16 @@ import { stillborn } from '../host/lifecycle'
 import {
   createGraphHost,
   type GraphInstance,
+  type GraphSurface,
   type HostDriver,
   type HostSurface,
   type MountGraphOptions,
   type SurfaceCapabilities,
 } from '../host/mount-graph'
+import { exposeSurface } from '../host/surface-registry'
 import type { GraphDefinition, Mark, View } from '../types'
 import { createSharedRenderer, createWebglRenderer } from '../webgl/renderer'
-import { bindMap, unbindMap } from './binding'
+import { bindMap } from './binding'
 
 export type { ExportLabels } from '../export'
 export { exportMapPng, type MapPngOptions } from './export'
@@ -63,12 +65,13 @@ function holdNorth(map: MapLibreMap): void {
   map.setMaxPitch(0)
 }
 
-function releaseNorth(map: MapLibreMap): void {
+function releaseNorth(map: MapLibreMap, removed: boolean): void {
   const held = holds.get(map)
   if (!held) return
   held.count--
   if (held.count > 0) return
   holds.delete(map)
+  if (removed) return
   const { turned } = held
   if (turned.rotate) {
     map.dragRotate.enable()
@@ -79,9 +82,8 @@ function releaseNorth(map: MapLibreMap): void {
   map.setMaxPitch(turned.maxPitch)
 }
 
-/** Options of `mountMapGraph`. `S` and `M` come from the definition. */
-export interface MapGraphOptions<S extends string = string, M extends Mark = Mark>
-  extends Omit<MountGraphOptions<S, M>, 'initialView' | 'view' | 'onViewChange'> {
+/** Options of `mapSurface`. */
+export interface MapSurfaceOptions {
   /**
    * Id of the custom layer added to the map style.
    * @default 'graph'
@@ -94,30 +96,34 @@ export interface MapGraphOptions<S extends string = string, M extends Mark = Mar
   readonly beforeId?: string | undefined
 }
 
-/**
- * Draws a graph inside a MapLibre map, as a custom layer that shares the map's WebGL context. Nodes
- * placed by `longitude` and `latitude` follow the map, flat or on the globe projection; the map owns
- * pan, zoom and their gestures, and `view` calls move the map. The map stays north up and without
- * pitch: rotation and pitch are turned off until the last graph on the map is destroyed. Layouts,
- * edge bundling and the background grid of the definition are ignored; hulls and groups follow the
- * map, and the padding of group containers is in pixels.
- */
-export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
-  map: MapLibreMap,
-  options: MapGraphOptions<S, M>,
-): GraphInstance<S, M> {
-  const { id = 'graph', beforeId, ...rest } = options
-  if (rest.signal?.aborted) return stillborn(rest, rest.signal, mapCapabilities)
+/** Options of `mountMapGraph`. `S` and `M` come from the definition. */
+export interface MapGraphOptions<S extends string = string, M extends Mark = Mark>
+  extends Omit<MountGraphOptions<S, M>, 'initialView' | 'view' | 'onViewChange' | 'surface'> {
+  /**
+   * Id of the custom layer added to the map style.
+   * @default 'graph'
+   */
+  readonly id?: string | undefined
+  /**
+   * Id of the style layer to draw the graph under, such as the place labels of the basemap.
+   * Defaults to the top of the style. The layer keeps this place after `setStyle`.
+   */
+  readonly beforeId?: string | undefined
+}
+
+function hostSurface(map: MapLibreMap, options: MapSurfaceOptions): HostSurface {
+  const { id = 'graph', beforeId } = options
   const canvas = map.getCanvas()
   let driver: HostDriver | null = null
-  let destroyed = false
+  let active = false
+  let listening = false
+  let removed = false
+  let placed: HTMLElement | null = null
   let pendingView: View | null = null
   let warned = false
   let warnedLayout = false
   const claimed = { dragPan: false, boxZoom: false }
   let doubleClick = false
-  holdNorth(map)
-  if (map.getBearing() !== 0 || map.getPitch() !== 0) map.jumpTo({ bearing: 0, pitch: 0 })
 
   function shift(): { readonly x: number; readonly y: number } {
     const padding = map.getPadding()
@@ -141,7 +147,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   function moveMap(): void {
     const view = pendingView
     pendingView = null
-    if (!view || destroyed) return
+    if (!view || !active || removed) return
     const offset = shift()
     const zoom = Math.max(view.zoom, Number.MIN_VALUE)
     const x = view.x - offset.x / zoom
@@ -214,7 +220,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       driver?.detach()
     },
     render: (_, input) => {
-      if (!driver) return
+      if (!driver || !active) return
       warnTilted()
       const view = camera()
       const width = canvas.clientWidth
@@ -234,12 +240,12 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   }
 
   function addLayer(): void {
-    if (destroyed || map.getLayer(id)) return
+    if (!listening || map.getLayer(id)) return
     map.addLayer(layer, wantedBefore())
   }
 
   function keepPlace(): void {
-    if (destroyed || !map.getLayer(id)) return
+    if (!listening || !map.getLayer(id)) return
     const order = map.getLayersOrder()
     const at = order.indexOf(id)
     const before = wantedBefore()
@@ -253,7 +259,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   }
 
   function addWhenLoaded(): void {
-    if (!destroyed && !map.getLayer(id) && map.isStyleLoaded()) addLayer()
+    if (listening && !map.getLayer(id) && map.isStyleLoaded()) addLayer()
   }
 
   function onContextLost(): void {
@@ -261,25 +267,78 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   }
 
   function onContextRestored(): void {
-    if (destroyed) return
+    if (!listening) return
     if (map.getLayer(id)) map.removeLayer(id)
     addWhenLoaded()
+  }
+
+  function onMapRemoved(): void {
+    removed = true
+    if (active) {
+      if (dev) console.warn('graph: the map was removed, the graph went back to its own canvas')
+      driver?.evict()
+    }
+    unlisten()
+    driver?.detach()
+    driver = null
+  }
+
+  function listen(): void {
+    if (listening) return
+    listening = true
+    map.on('style.load', onStyleLoad)
+    map.on('data', addWhenLoaded)
+    map.on('webglcontextlost', onContextLost)
+    map.on('webglcontextrestored', onContextRestored)
+    map.on('remove', onMapRemoved)
+  }
+
+  function unlisten(): void {
+    if (!listening) return
+    listening = false
+    map.off('style.load', onStyleLoad)
+    map.off('data', addWhenLoaded)
+    map.off('webglcontextlost', onContextLost)
+    map.off('webglcontextrestored', onContextRestored)
+    map.off('remove', onMapRemoved)
   }
 
   const surface: HostSurface = {
     ...mapCapabilities,
     events: canvas,
     place: (element) => {
+      if (removed) throw new Error('graph: the map of this surface was removed')
+      if (active) throw new Error('graph: the surface already holds a graph')
+      active = true
+      placed = element
       element.style.cssText = elementStyle
       map.getCanvasContainer().after(element)
+      element.addEventListener('keydown', keepKeys)
+      holdNorth(map)
+      if (map.getBearing() !== 0 || map.getPitch() !== 0) map.jumpTo({ bearing: 0, pitch: 0 })
     },
+    unplace: (element) => {
+      if (!active) return
+      active = false
+      placed = null
+      pendingView = null
+      element.removeEventListener('keydown', keepKeys)
+      if (!removed) {
+        surface.claim(false)
+        surface.hover(false)
+      }
+      canvas.style.cursor = ''
+      releaseNorth(map, removed)
+    },
+    camera: () =>
+      removed ? null : { view: camera(), width: canvas.clientWidth, height: canvas.clientHeight },
     schedule: () => {
-      map.triggerRepaint()
+      if (!removed) map.triggerRepaint()
       return -1
     },
     cancel: () => {},
-    claim: (active) => {
-      if (active) {
+    claim: (on) => {
+      if (on) {
         claimed.dragPan = map.dragPan.isEnabled()
         claimed.boxZoom = map.boxZoom.isEnabled()
         map.dragPan.disable()
@@ -291,11 +350,11 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
       claimed.dragPan = false
       claimed.boxZoom = false
     },
-    hover: (active) => {
-      if (active && !doubleClick && map.doubleClickZoom.isEnabled()) {
+    hover: (on) => {
+      if (on && !doubleClick && map.doubleClickZoom.isEnabled()) {
         doubleClick = true
         map.doubleClickZoom.disable()
-      } else if (!active && doubleClick) {
+      } else if (!on && doubleClick) {
         doubleClick = false
         map.doubleClickZoom.enable()
       }
@@ -307,37 +366,63 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
     },
     adapt,
     bind: (next) => {
-      driver = next
+      if (driver !== next) {
+        if (listening && map.getLayer(id)) map.removeLayer(id)
+        driver?.detach()
+        driver = next
+      }
+      listen()
+      addWhenLoaded()
     },
     release: () => {
-      destroyed = true
-      if (doubleClick) map.doubleClickZoom.enable()
-      surface.claim(false)
-      map.off('style.load', onStyleLoad)
-      map.off('data', addWhenLoaded)
-      map.off('webglcontextlost', onContextLost)
-      map.off('webglcontextrestored', onContextRestored)
-      graph.element.removeEventListener('keydown', keepKeys)
-      if (map.getLayer(id)) map.removeLayer(id)
+      if (active) driver?.evict()
+      if (active && placed) surface.unplace(placed)
+      if (!removed && listening && map.getLayer(id)) map.removeLayer(id)
+      unlisten()
+      driver?.detach()
       driver = null
-      canvas.style.cursor = ''
-      releaseNorth(map)
-      unbindMap(graph)
     },
   }
+  bindMap(surface, map)
+  return surface
+}
 
-  const graph = createGraphHost(
+/**
+ * A surface that draws a graph inside a MapLibre map, as a custom layer that shares the map's
+ * WebGL context. Pass it as `surface` to `mountGraph` or to `update` to move a graph onto the map,
+ * and `null` to bring it back to its own canvas. The layer and its renderer are added when a graph
+ * first comes, and kept after it leaves, so that it comes back quickly: `release()` frees them.
+ * While the graph is on the map, the map stays north up and without pitch, and removing the map
+ * brings the graph back to its own canvas.
+ */
+export function mapSurface(map: MapLibreMap, options: MapSurfaceOptions = {}): GraphSurface {
+  const host = hostSurface(map, options)
+  const surface: GraphSurface = Object.freeze({
+    name: host.name,
+    release: () => host.release(),
+  })
+  exposeSurface(surface, host)
+  return surface
+}
+
+/**
+ * Draws a graph inside a MapLibre map, as a custom layer that shares the map's WebGL context. Nodes
+ * placed by `longitude` and `latitude` follow the map, flat or on the globe projection; the map owns
+ * pan, zoom and their gestures, and `view` calls move the map. The map stays north up and without
+ * pitch: rotation and pitch are turned off until the last graph on the map is destroyed. Layouts,
+ * edge bundling and the background grid of the definition are ignored; hulls and groups follow the
+ * map, and the padding of group containers is in pixels. It is `mountGraph` with a `mapSurface`
+ * released with the graph.
+ */
+export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
+  map: MapLibreMap,
+  options: MapGraphOptions<S, M>,
+): GraphInstance<S, M> {
+  const { id, beforeId, ...rest } = options
+  if (rest.signal?.aborted) return stillborn(rest, rest.signal, mapCapabilities)
+  return createGraphHost(
     map.getContainer(),
-    { ...rest, view: camera() },
+    { ...rest, surface: mapSurface(map, { id, beforeId }) },
     createWebglRenderer,
-    surface,
   )
-  bindMap(graph, map)
-  graph.element.addEventListener('keydown', keepKeys)
-  map.on('style.load', onStyleLoad)
-  map.on('data', addWhenLoaded)
-  map.on('webglcontextlost', onContextLost)
-  map.on('webglcontextrestored', onContextRestored)
-  addWhenLoaded()
-  return graph
 }

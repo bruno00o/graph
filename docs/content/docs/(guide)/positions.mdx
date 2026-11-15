@@ -103,7 +103,7 @@ Calling `positions.set` after the mount costs more: it applies the pending data 
 
 The entries serve the nodes of the first data: those that arrive while a live source with a `status` is loading, or in the first batch of any other data. Then they are dropped, so a node that arrives much later is a new node. With `waitForData`, nodes that have no entry wait for the data to load and are then laid out together, while the nodes with an entry are drawn at once.
 
-Nodes hidden in a folded group keep their restored place, and appear there when the group opens. A folded group keeps its own entry. Children of a group that [spread](/docs/groups#spread-children) stay where the snapshot puts them, as with `set`: it already holds the spread. A snapshot holds the positions of one surface: positions read on a map are in the world units of the map, so give them back to a map graph, and those of a plain graph to a plain one. See [With and without a map](/docs/map#with-and-without-a-map).
+Nodes hidden in a folded group keep their restored place, and appear there when the group opens. A folded group keeps its own entry. Children of a group that [spread](/docs/groups#spread-children) stay where the snapshot puts them, as with `set`: it already holds the spread. A snapshot holds the positions of one surface, the one the graph is on: positions read on a map are in the world units of the map, so give them back to a map graph, and those of a plain graph to a plain one. A graph moved with [`surface`](/docs/map#with-and-without-a-map) keeps the positions of each side by itself.
 
 ## Listen to moves
 

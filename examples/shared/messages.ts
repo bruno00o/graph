@@ -148,6 +148,7 @@ export const messages = {
   place: (index: string): string => `Lieu ${index}`,
   zone: (index: string): string => `Zone ${index}`,
   projection: 'Projection',
+  surface: 'Carte ou graphe seul',
   projections: { globe: 'Globe', mercator: 'Carte plane' },
   farRoutes: 'Liaisons lointaines',
   farRouteModes: { geodesic: 'Grands cercles', straight: 'Lignes droites', winding: 'Tracés' },

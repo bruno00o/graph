@@ -35,6 +35,12 @@ export class FrameCost {
     this.#timer = undefined
   }
 
+  reset(): void {
+    this.stop()
+    this.#last = 0
+    this.#previous = 0
+  }
+
   #record(cost: number): void {
     this.#previous = this.#last
     this.#last = Math.max(0, cost)
