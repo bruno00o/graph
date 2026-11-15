@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.0](https://github.com/bruno00o/graph/compare/0.30.0...0.31.0) (2026-11-15)
+
+
+### Features
+
+* glide the view after each notch of a mouse wheel ([#230](https://github.com/bruno00o/graph/issues/230)) ([b222602](https://github.com/bruno00o/graph/commit/b222602a84377ef4024592e5027b595ee4f7d392))
+
+
+### Bug Fixes
+
+* stop a wheel glide when the keyboard pans the view ([#233](https://github.com/bruno00o/graph/issues/233)) ([3a03df6](https://github.com/bruno00o/graph/commit/3a03df65efce1b5b2dc0c1380def40ecd3ee7eb3))
+
 ## [0.30.0](https://github.com/bruno00o/graph/compare/0.29.0...0.30.0) (2026-11-15)
 
 
