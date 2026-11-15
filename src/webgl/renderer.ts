@@ -42,6 +42,7 @@ import {
   sortDescending,
   sortEdgesByWidth,
 } from './label-layer'
+import { freshenContexts, trackContext } from './live-contexts'
 import {
   badgeFragment,
   badgeIconGlyph,
@@ -163,6 +164,7 @@ export function createWebglRenderer(
   canvas: HTMLCanvasElement,
   invalidate: () => void = () => {},
 ): Renderer {
+  freshenContexts()
   const context = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
@@ -172,7 +174,26 @@ export function createWebglRenderer(
     powerPreference: 'high-performance',
   })
   if (!context) throw new Error('graph: WebGL2 is not available')
-  return createRenderer(context, invalidate, false)
+  const renderer = createRenderer(context, invalidate, false)
+  const untrack = trackContext(context)
+  const destroy = renderer.destroy
+  renderer.destroy = () => {
+    untrack()
+    destroy()
+  }
+  renderer.suspend = () => {
+    const extension = context.isContextLost() ? null : context.getExtension('WEBGL_lose_context')
+    renderer.destroy()
+    if (!extension) return null
+    return {
+      restore: () => {
+        freshenContexts()
+        extension.restoreContext()
+      },
+      lose: () => extension.loseContext(),
+    }
+  }
+  return renderer
 }
 
 export function createSharedRenderer(

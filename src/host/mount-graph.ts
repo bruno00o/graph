@@ -200,6 +200,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   let destroyed = false
   let flushing = false
+  let framing = false
   let sceneVersion = 0
   let probe: GraphProbe | null = null
   let drafted: readonly Key[] = []
@@ -278,23 +279,26 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     (kind) => (kind === 'nodes' && scene.nodes.order.used ? scene.nodes.order : null),
   )
   const themeResolver = new ThemeResolver(element)
-  const render = new RenderHost({
-    surface: () => surface,
-    createRenderer,
-    scene,
-    themeResolver,
-    textWidths,
-    paths: () => bundles.paths,
-    state: () => store.get(),
-    patch,
-    remeasured: () => {
-      sceneVersion++
+  const render = new RenderHost(
+    {
+      surface: () => surface,
+      createRenderer,
+      scene,
+      themeResolver,
+      textWidths,
+      paths: () => bundles.paths,
+      state: () => store.get(),
+      patch,
+      remeasured: () => {
+        sceneVersion++
+      },
+      reconstrain: () => views.reconstrain(),
+      drawNow,
+      request: () => request(),
+      destroyed: () => destroyed,
     },
-    reconstrain: () => views.reconstrain(),
-    drawNow,
-    request: () => request(),
-    destroyed: () => destroyed,
-  })
+    options.suspended === true,
+  )
 
   registry.setShaped(definition.marks.some((mark) => mark.type === 'shapes'))
   registry.define(freeStateNames(definition.states))
@@ -348,6 +352,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     hiddenLayers: layers.hidden,
     data: loadedData,
     surface: surface.name,
+    suspended: options.suspended === true,
   })
   const readonlyStore: GraphStore = isolateSubscribers(readonlyOf(store))
   const bundles = new BundleHost(
@@ -859,6 +864,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function frame(now: number): void {
+    const was = framing
+    framing = true
+    try {
+      drawFrame(now)
+    } finally {
+      framing = was
+    }
+  }
+
+  function drawFrame(now: number): void {
     scheduler.started()
     if (destroyed || render.contextLost) return
     const start = clock()
@@ -942,7 +957,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       layers: layers.filter,
       globe: camera.globe,
     })
-    render.cost.drawn(now)
+    render.drawn(now)
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
@@ -956,6 +971,35 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function drawNow(): void {
     scheduler.takeFrame()
     frame(performance.now())
+  }
+
+  function suspend(): void {
+    if (destroyed || render.suspended) return
+    if (surface.ownCanvas) {
+      pointer.abandon()
+      if (destroyed) return
+      lens.leave()
+      if (destroyed || render.suspended) return
+    }
+    const draw = render.suspend()
+    patch({ suspended: true })
+    if (destroyed) return
+    emitter.emit('suspendchange', { suspended: true })
+    if (destroyed || !render.suspended || !draw) return
+    if (framing) {
+      request()
+      return
+    }
+    drawNow()
+    if (!destroyed) render.released()
+  }
+
+  function resume(): void {
+    if (destroyed || !render.suspended) return
+    render.resume()
+    patch({ suspended: false })
+    if (destroyed) return
+    emitter.emit('suspendchange', { suspended: false })
   }
 
   render.watch(element)
@@ -1427,6 +1471,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
     drawn: () => waiters.wait(),
     loaded: () => data.loaded(),
+    suspend,
+    resume,
     update(next) {
       const target = next.surface === undefined ? surface : (hostSurfaceOf(next.surface) ?? home)
       const moving = target !== surface

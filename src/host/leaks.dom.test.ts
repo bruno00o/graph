@@ -372,6 +372,26 @@ describe('global resources', () => {
     expect(snapshot()).toEqual(baseline)
   })
 
+  it('holds nothing more after 20 suspensions and resumes', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const baseline = snapshot()
+    const { graph, destroy } = mountAll()
+    flush(2)
+    const settled = snapshot()
+    for (let round = 0; round < 20; round++) {
+      graph.suspend()
+      flush(2)
+      graph.resume()
+      flush(2)
+      expect(snapshot()).toEqual(settled)
+      expect(graph.element.querySelectorAll('[data-graph-frame]')).toHaveLength(0)
+    }
+    graph.suspend()
+    destroy()
+    flush()
+    expect(snapshot()).toEqual(baseline)
+  })
+
   it('holds nothing more after moving onto a map and back 20 times', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const baseline = snapshot()

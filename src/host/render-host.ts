@@ -4,10 +4,24 @@ import type { Scene } from '../core/scene'
 import { dev } from '../dev'
 import { watchFonts } from '../dom/fonts'
 import type { TextWidths } from '../dom/text-width'
-import { observeTheme, type ThemeResolver, type ThemeWatch } from '../dom/theme'
+import { observeTheme, type ResolvedTheme, type ThemeResolver, type ThemeWatch } from '../dom/theme'
 import { FrameCost } from './frame-cost'
 import type { GraphState, HostSurface, RendererFactory } from './graph-instance'
-import type { Renderer } from './renderer'
+import { KeptFrame } from './kept-frame'
+import type { Renderer, RendererContext } from './renderer'
+
+type Given = 'none' | 'losing' | 'lost' | 'restoring'
+
+function sameTheme(a: ResolvedTheme | null, b: ResolvedTheme): boolean {
+  if (!a || a.font !== b.font) return false
+  const keys = Object.keys(b) as (keyof ResolvedTheme)[]
+  return keys.every((key) => key === 'font' || String(a[key]) === String(b[key]))
+}
+
+function samePalette(kept: Uint8Array, colors: Uint8Array): boolean {
+  for (let at = 0; at < kept.length; at++) if (kept[at] !== colors[at]) return false
+  return true
+}
 
 export interface RenderSource {
   surface(): HostSurface
@@ -48,11 +62,20 @@ export class RenderHost {
   readonly #lost = new Set<HostSurface>()
   #own: HostSurface | null = null
   readonly #source: RenderSource
+  #suspended: boolean
+  #given: Given = 'none'
+  #context: RendererContext | null = null
+  #wake: ReturnType<typeof setTimeout> | undefined
+  #hidden = false
+  #releasing = false
+  #theme: ResolvedTheme | null = null
+  readonly #kept = new KeptFrame()
 
-  constructor(source: RenderSource) {
+  constructor(source: RenderSource, suspended = false) {
     this.#source = source
+    this.#suspended = suspended
     const surface = source.surface()
-    if (surface.ownCanvas) {
+    if (surface.ownCanvas && !suspended) {
       this.#renderers.set(
         surface,
         source.createRenderer(surface.events, () => source.request()),
@@ -65,7 +88,11 @@ export class RenderHost {
   }
 
   get contextLost(): boolean {
-    return this.#lost.has(this.#source.surface())
+    return !this.#suspended && this.#lost.has(this.#source.surface())
+  }
+
+  get suspended(): boolean {
+    return this.#suspended
   }
 
   resolvePalette(all: boolean): void {
@@ -103,10 +130,120 @@ export class RenderHost {
   readonly refreshTheme = (): void => {
     const { scene, themeResolver, textWidths } = this.#source
     const theme = themeResolver.theme()
+    const previous = this.#theme
+    const kept = this.#kept.held ? this.paletteColors.slice(0, this.#paletteCount * 4) : null
+    this.#theme = theme
     this.renderer?.setTheme(theme)
     if (textWidths.setFont(theme.font) && scene.remeasure()) this.#source.remeasured()
     this.resolvePalette(true)
+    if (kept && !(sameTheme(previous, theme) && samePalette(kept, this.paletteColors))) {
+      this.#kept.drop()
+    }
     this.#source.request()
+  }
+
+  suspend(): boolean {
+    if (this.#suspended) return false
+    this.#suspended = true
+    const own = this.#own
+    if (!own) return false
+    if (this.#source.surface() === own && this.#renderers.has(own)) {
+      this.#releasing = true
+      return true
+    }
+    this.#hide(own)
+    const renderer = this.#renderers.get(own)
+    if (renderer) this.#release(own, renderer)
+    return false
+  }
+
+  resume(): void {
+    if (!this.#suspended) return
+    this.#suspended = false
+    if (this.#releasing) {
+      this.#releasing = false
+      return
+    }
+    const own = this.#own
+    if (own && this.#source.surface() === own && this.#acquire(own)) this.#ready()
+    this.#source.request()
+  }
+
+  drawn(now: number): void {
+    this.cost.drawn(now)
+    const own = this.#own
+    if (!own || this.#source.surface() !== own) return
+    if (this.#hidden && !this.#suspended) {
+      this.#hidden = false
+      own.events.style.visibility = ''
+      this.#kept.drop()
+    }
+    if (this.#releasing) this.#finish(own, true)
+  }
+
+  released(): void {
+    const own = this.#own
+    if (this.#releasing && own) this.#finish(own, false)
+  }
+
+  #finish(own: HostSurface, capture: boolean): void {
+    this.#releasing = false
+    const renderer = this.#renderers.get(own)
+    if (capture && renderer) {
+      const { width, height } = this.#source.state()
+      this.#kept.capture(own.events, width, height)
+    }
+    this.#hide(own)
+    if (renderer) this.#release(own, renderer)
+  }
+
+  #hide(own: HostSurface): void {
+    this.#hidden = true
+    own.events.style.visibility = 'hidden'
+  }
+
+  #release(own: HostSurface, renderer: Renderer): void {
+    this.#renderers.delete(own)
+    let context: RendererContext | null = null
+    if (renderer.suspend) context = renderer.suspend()
+    else renderer.destroy()
+    this.#context = context
+    this.#given = context ? 'losing' : 'none'
+  }
+
+  #acquire(own: HostSurface): boolean {
+    if (this.#renderers.has(own) || this.#lost.has(own)) return false
+    const given = this.#given
+    if (given === 'losing' || given === 'restoring') return false
+    if (given === 'lost' && this.#context) {
+      this.#given = 'restoring'
+      this.#context.restore()
+      return false
+    }
+    this.#given = 'none'
+    if (this.#create(own)) return true
+    this.#lost.add(own)
+    return false
+  }
+
+  #ready(): void {
+    this.full = true
+    this.positionsVersion = -1
+    this.cost.reset()
+    this.adoptLimits()
+    this.refreshTheme()
+    const { width, height } = this.#source.state()
+    this.resize(width, height)
+  }
+
+  #wakeLater(): void {
+    clearTimeout(this.#wake)
+    this.#wake = setTimeout(() => {
+      this.#wake = undefined
+      const own = this.#own
+      if (this.#source.destroyed() || this.#suspended || !own) return
+      if (this.#source.surface() === own && this.#acquire(own)) this.#ready()
+    })
   }
 
   resize(width: number, height: number, drawNow = true): void {
@@ -130,6 +267,7 @@ export class RenderHost {
       this.#warnedEmpty = true
       console.warn('graph: the container measures 0 px; give it a width and a height')
     }
+    this.#kept.place(width, height)
     this.#source.patch({ width, height })
     this.#source.reconstrain()
     if (cleared && drawNow && this.settled && this.renderer) {
@@ -181,6 +319,11 @@ export class RenderHost {
     event.preventDefault()
     const own = this.#own
     if (!own) return
+    if (this.#given === 'losing') {
+      this.#given = 'lost'
+      if (!this.#suspended) this.#wakeLater()
+      return
+    }
     this.#lost.add(own)
     this.#renderers.get(own)?.destroy()
     this.#renderers.delete(own)
@@ -191,16 +334,28 @@ export class RenderHost {
     const own = this.#own
     if (source.destroyed() || !own) return
     this.#lost.delete(own)
+    if (this.#given === 'restoring') this.#given = 'none'
+    if (this.#suspended) {
+      this.#giveBack(own)
+      return
+    }
     if (source.surface() !== own) return
     if (!this.#create(own)) {
       this.#lost.add(own)
       return
     }
-    this.full = true
-    this.adoptLimits()
-    this.refreshTheme()
-    const { width, height } = source.state()
-    this.resize(width, height)
+    this.#ready()
+  }
+
+  #giveBack(own: HostSurface): void {
+    if (this.#context) {
+      this.#given = 'losing'
+      this.#context.lose()
+      return
+    }
+    if (!this.#create(own)) return
+    const renderer = this.#renderers.get(own)
+    if (renderer) this.#release(own, renderer)
   }
 
   #create(surface: HostSurface): boolean {
@@ -224,6 +379,7 @@ export class RenderHost {
     canvas.addEventListener('webglcontextrestored', this.onContextRestored)
     this.#listened = canvas
     this.#own = surface
+    if (this.#suspended) this.#hide(surface)
   }
 
   unlisten(): void {
@@ -235,9 +391,8 @@ export class RenderHost {
   }
 
   enter(surface: HostSurface): void {
-    if (surface.ownCanvas && !this.#renderers.has(surface) && !this.#lost.has(surface)) {
-      if (!this.#create(surface)) this.#lost.add(surface)
-    }
+    if (surface.ownCanvas && !this.#suspended) this.#acquire(surface)
+    if (!surface.ownCanvas) this.#kept.drop()
     this.full = true
     this.positionsVersion = -1
     this.cost.reset()
@@ -266,6 +421,9 @@ export class RenderHost {
   }
 
   unwatch(): void {
+    clearTimeout(this.#wake)
+    this.#wake = undefined
+    this.#kept.drop()
     this.cost.stop()
     this.#resizeObserver?.disconnect()
     this.#ratioQuery?.removeEventListener('change', this.#onRatio)
