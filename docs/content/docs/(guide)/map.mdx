@@ -282,7 +282,18 @@ graph.update({ surface, definition: onMap, view: toMap(graph.view.get()) })
 
 A surface holds one graph at a time. It keeps its layer and its renderer after the graph leaves, so that the next visit is quick: `surface.release()` frees them, and brings back to its canvas a graph that is on it. Removing the map does the same, with a warning in development. `graph.destroy()` releases every surface the graph visited.
 
-[`persistPositions`](/docs/api/persist-positions) writes the moves made on the side the graph is on when you call it, and leaves out those of the other side: pass `surfaces: ['canvas', 'map']` to write both, in different fields or collections if they should not mix. `positionchange` carries the `surface` of its positions. [Edge bundling](/docs/bundling) and [routing](/docs/routing) run again on the way back. The [minimap](/docs/minimap-and-legend#minimap), the [lens](/docs/lens), the [shape editor](/docs/editing-shapes) and the [devtools](/docs/devtools) do not follow a move yet: create them again after one.
+[`persistPositions`](/docs/api/persist-positions) writes the moves made on the side the graph is on when you call it, and leaves out those of the other side: pass `surfaces: ['canvas', 'map']` to write both, in different fields or collections if they should not mix. `positionchange` carries the `surface` of its positions. [Edge bundling](/docs/bundling) and [routing](/docs/routing) run again on the way back.
+
+Companions follow the move, without being created again:
+
+- The [minimap](/docs/minimap-and-legend#minimap) empties and leaves the graph on the map, and draws again on the canvas, from the positions of the canvas.
+- The [lens](/docs/lens) hides on the map, with a `lenschange`, and shows again on the way back if it was still set.
+- The [shape editor](/docs/editing-shapes#on-a-map) draws in degrees on the map and in world units on the canvas with `units: 'auto'`. A gesture or a drawing in progress is dropped at the move, and a text being typed is proposed; edits waiting for their data stay.
+- The [devtools](/docs/devtools) show the surface in the View section and keep the history of the graph.
+- [Presence](/docs/editing-shapes#who-else-is-editing) writes the surface of each person: cursors show only between people on the same surface, and selections show on every surface.
+- The legend, the timeline and anchors need nothing: they follow keys and stores, and anchors live in the graph element, which moves with the graph.
+
+Code of your own that sits beside the graph does the same with `surfacechange`, or with `useGraphState((state) => state.surface)` in React: the event comes once the graph has moved, after the companions above. `graph.positions`, `graph.view` and `positionchange` already answer for the side the graph is on, and `graph.drawsOnMap` tells whether that side is a map.
 
 Nodes that overlap moved apart in the plain graph only, so a crowded place looks tighter on the map. With `units: 'screen'`, nodes keep the same size in pixels on both sides.
 

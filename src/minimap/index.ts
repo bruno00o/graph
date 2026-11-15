@@ -333,38 +333,26 @@ function localChannel(canvas: HTMLCanvasElement, drawn: (fit: RasterFit | null) 
 
 const warnedOnMap = new WeakSet<object>()
 
-function offMap(graph: object, internals: GraphInternals): Minimap {
-  if (dev && !warnedOnMap.has(graph)) {
-    warnedOnMap.add(graph)
-    console.warn('graph: the minimap does not work on a map')
-  }
-  const element = document.createElement('div')
-  element.setAttribute('data-graph-minimap', '')
-  element.setAttribute('aria-hidden', 'true')
-  let destroyed = false
-  let stopWatch: (() => void) | null = null
-  const destroy = () => {
-    if (destroyed) return
-    destroyed = true
-    stopWatch?.()
-    element.remove()
-  }
-  stopWatch = internals.watch({ frame: () => {}, destroy })
-  return { element, update: () => {}, destroy }
+function warnOnMap(graph: object): void {
+  if (!dev || warnedOnMap.has(graph)) return
+  warnedOnMap.add(graph)
+  console.warn('graph: the minimap draws nothing while the graph is on a map')
 }
 
 /**
  * Draws an overview of the whole graph with the rectangle of the current view, and moves the view
  * from it. It follows positions, data, theme and view, and draws in a worker when the browser
- * allows it, at a pace bounded by its cost on the page. On a graph drawn on a map, it draws
- * nothing and warns once in development: its element stays empty and its methods do nothing.
+ * allows it, at a pace bounded by its cost on the page. While the graph draws on a map, its
+ * element is empty and taken out of the graph, and it draws again when the graph comes back to its
+ * own canvas. Created on a map, it warns once in development.
  */
 export function createMinimap<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
   options: MinimapOptions = {},
 ): Minimap {
   const internals = internalsOf(graph, 'createMinimap')
-  if (!internals.surface().minimap) return offMap(graph, internals)
+  let awake = internals.surface().minimap
+  if (!awake) warnOnMap(graph)
   let given = options
   let settings = settle(given)
   const element = document.createElement('div')
@@ -375,10 +363,10 @@ export function createMinimap<S extends string, M extends Mark>(
   frame.style.cssText =
     'position:absolute;left:0;top:0;box-sizing:border-box;pointer-events:none;visibility:hidden;border-radius:2px'
   let canvas = createCanvas()
-  element.append(canvas, frame)
-  const resolver = new ThemeResolver(element)
+  let resolver: ThemeResolver | null = null
   const pending: Pending = { scene: true, colors: true, positions: true, masks: true, paint: true }
-  let channel = openChannel()
+  let channel: Channel | null = null
+  let resizeObserver: ResizeObserver | null = null
   let fit: RasterFit | null = null
   let ratio = 1
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -412,6 +400,11 @@ export function createMinimap<S extends string, M extends Mark>(
   }
 
   function style(): void {
+    if (!awake) {
+      element.style.cssText = ''
+      if (element.parentElement === graph.element) element.remove()
+      return
+    }
     const corner = settings.corner
     const place = corner
       ? `position:absolute;z-index:1;${corner.startsWith('top') ? 'top' : 'bottom'}:${settings.margin}px;${corner.endsWith('Left') ? 'left' : 'right'}:${settings.margin}px`
@@ -427,9 +420,11 @@ export function createMinimap<S extends string, M extends Mark>(
   }
 
   function resolveColors(): void {
+    const theme = resolver
+    if (!theme) return
     const toPacked = (css: string | null): number | null => {
       if (css === null) return null
-      const [r, g, b, a] = resolver.color(css)
+      const [r, g, b, a] = theme.color(css)
       return packColor(r, g, b, a)
     }
     nodeColor = toPacked(settings.nodeColor)
@@ -442,7 +437,7 @@ export function createMinimap<S extends string, M extends Mark>(
   }
 
   function schedule(): void {
-    if (timer !== undefined || inFlight || destroyed) return
+    if (timer !== undefined || inFlight || destroyed || !awake) return
     if (!pending.scene && !pending.colors && !pending.positions && !pending.masks && !pending.paint)
       return
     const wait = Math.max(0, lastSent + cooldown - performance.now())
@@ -467,9 +462,10 @@ export function createMinimap<S extends string, M extends Mark>(
 
   function send(): void {
     timer = undefined
-    if (destroyed || inFlight) return
+    const target = channel
+    if (destroyed || inFlight || !awake || !target) return
     const start = performance.now()
-    const copy = channel.copies
+    const copy = target.copies
     const stamp = internals.stamp()
     if (pending.colors) resolveColors()
     const painted = paint()
@@ -521,13 +517,13 @@ export function createMinimap<S extends string, M extends Mark>(
     drawnSelection = graph.store.state.selection
     inFlight = true
     lastSent = start
-    channel.send(request, copy ? buffersOf(request) : [])
+    target.send(request, copy ? buffersOf(request) : [])
     cooldown = Math.max(minInterval, (performance.now() - start) * costRatio)
   }
 
   function onDrawn(next: RasterFit | null): void {
     inFlight = false
-    if (destroyed) return
+    if (destroyed || !awake) return
     fit = next
       ? {
           minX: next.minX,
@@ -543,7 +539,7 @@ export function createMinimap<S extends string, M extends Mark>(
 
   function placeView(): void {
     const { view, width: viewWidth, height: viewHeight } = graph.store.state
-    if (!fit || viewWidth === 0 || viewHeight === 0) {
+    if (!awake || !fit || viewWidth === 0 || viewHeight === 0) {
       frame.style.visibility = 'hidden'
       return
     }
@@ -560,7 +556,7 @@ export function createMinimap<S extends string, M extends Mark>(
   }
 
   function toWorld(event: MouseEvent): Point | null {
-    if (!fit) return null
+    if (!awake || !fit) return null
     const rect = element.getBoundingClientRect()
     const x = event.clientX - rect.left - element.clientLeft
     const y = event.clientY - rect.top - element.clientTop
@@ -616,7 +612,7 @@ export function createMinimap<S extends string, M extends Mark>(
   }
 
   function onWheel(event: WheelEvent): void {
-    if (!settings.zoom) return
+    if (!settings.zoom || !awake) return
     event.preventDefault()
     if (event.ctrlKey && pinchGestures.active) return
     const height = graph.store.state.height
@@ -634,15 +630,39 @@ export function createMinimap<S extends string, M extends Mark>(
   }
   element.addEventListener('wheel', onWheel, { passive: false })
   const pinchGestures = listenPinch(element, {
-    start: () => settings.zoom,
+    start: () => settings.zoom && awake,
     change: ({ factor }) => graph.view.zoomBy(factor),
   })
 
-  const resizeObserver = new ResizeObserver(() => {
-    pending.paint = true
-    schedule()
-  })
-  resizeObserver.observe(element)
+  function wake(): void {
+    awake = true
+    element.append(canvas, frame)
+    resolver = new ThemeResolver(element)
+    channel ??= openChannel()
+    if (!resizeObserver) {
+      resizeObserver = new ResizeObserver(() => {
+        pending.paint = true
+        schedule()
+      })
+      resizeObserver.observe(element)
+    }
+    style()
+    invalidateAll()
+    placeView()
+  }
+
+  function sleep(): void {
+    awake = false
+    clearTimeout(timer)
+    timer = undefined
+    if (drag && element.hasPointerCapture?.(drag.id)) element.releasePointerCapture(drag.id)
+    drag = null
+    fit = null
+    resolver?.destroy()
+    resolver = null
+    element.replaceChildren()
+    style()
+  }
 
   const subscription = graph.store.subscribe(() => placeView())
   let stopWatch: (() => void) | null = null
@@ -653,21 +673,22 @@ export function createMinimap<S extends string, M extends Mark>(
     clearTimeout(timer)
     stopWatch?.()
     subscription.unsubscribe()
-    resizeObserver.disconnect()
+    resizeObserver?.disconnect()
     for (const [name, listener] of listeners) {
       element.removeEventListener(name, listener as EventListener)
     }
     element.removeEventListener('wheel', onWheel)
     pinchGestures.stop()
-    channel.destroy()
-    resolver.destroy()
+    channel?.destroy()
+    resolver?.destroy()
     element.remove()
   }
 
-  style()
-  schedule()
+  if (awake) wake()
+  else style()
   stopWatch = internals.watch({
     frame() {
+      if (!awake) return
       const stamp = internals.stamp()
       if (stamp.scene !== drawn.scene || stamp.detail !== drawn.detail) pending.scene = true
       if (stamp.palette !== drawn.palette) pending.colors = true
@@ -676,6 +697,11 @@ export function createMinimap<S extends string, M extends Mark>(
       }
       if (graph.store.state.selection !== drawnSelection) pending.masks = true
       schedule()
+    },
+    surface(capabilities) {
+      if (destroyed || capabilities.minimap === awake) return
+      if (capabilities.minimap) wake()
+      else sleep()
     },
     destroy: () => destroy(),
   })

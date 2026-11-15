@@ -64,7 +64,7 @@ The lens draws with the theme: `--graph-lens-fill` behind the graph, `--graph-le
 - [Exports](/docs/export) and the [minimap](/docs/minimap-and-legend) never show the lens.
 - [Anchors](/docs/api/graph-instance#anchors) stay where the view puts them, above the lens.
 - The lasso and the keyboard keep working on the view.
-- On a [map](/docs/map), the lens is not available: `graph.lens.set` does nothing, and warns in development.
+- On a [map](/docs/map), the lens is not available: `graph.lens.set` shows nothing, and warns in development. A graph that [moves onto a map](/docs/map#with-and-without-a-map) hides its lens, with a `lenschange` to `null`, and shows it again on the way back, where it was, unless `graph.lens.set(null)` removed it in the meantime.
 
 ## Cost
 

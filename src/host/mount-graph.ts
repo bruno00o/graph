@@ -1085,6 +1085,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     layouts.enter(arrived)
     if (destroyed) return
     patch({ surface: next.name })
+    if (destroyed) return
+    for (const watcher of [...watchers]) watcher.surface?.(next)
+    if (destroyed) return
     emitter.emit('surfacechange', { surface: next.name, previous: previous.name })
     if (destroyed) return
     if (focused) element.focus({ preventScroll: true })

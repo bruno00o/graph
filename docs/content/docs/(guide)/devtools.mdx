@@ -45,7 +45,7 @@ Graphs register themselves when they mount, whatever mounted them: `mountGraph`,
 | --- | --- |
 | Performance | Frames per second, the time of the last frame, a chart of the last 120 frames against a 60 Hz budget, the last durations of `flush`, of the scene update and of the renderer `sync` and `render`, the time of the last label selection, the labels drawn and an estimate of texture memory |
 | Elements | Node, edge and [shape](/docs/shapes) counts (the shape count is 0 without a `shapes()` mark), pending edges (edges waiting for an endpoint) and the problems present in the data, such as duplicate keys or a shape that cannot be read, as [`graph.issues()`](/docs/data#problems-in-the-data) returns them, including those found before the panel opened |
-| View | Center, zoom and size of the canvas |
+| View | Center, zoom and size of the canvas, and the surface the graph draws on, canvas or [map](/docs/map#with-and-without-a-map) |
 | Interaction | Selection counts, hovered and focused element, which can be a shape |
 | Named states | How many nodes and edges each state holds |
 | Layout | The running layout and its progress, then the name and duration of the last runs |
@@ -56,7 +56,7 @@ Times are measured on the main thread around each step of a frame. They do not i
 
 ## Cost
 
-A graph measures nothing until a panel is open and visible. Until then, a frame only reads a null probe; the clock is not called. The panel reads the graph at most four times a second, and stops when it is closed, hidden or removed from the page. Its history of frames survives a close, so reopening it shows the frames timed before.
+A graph measures nothing until a panel is open and visible. Until then, a frame only reads a null probe; the clock is not called. The panel reads the graph at most four times a second, and stops when it is closed, hidden or removed from the page. Its history of frames survives a close, so reopening it shows the frames timed before; it also survives a move onto a map and back.
 
 Leave the panel out of production builds as you do for the rest of TanStack Devtools: the `@tanstack/devtools-vite` plugin removes it from builds, and other bundlers can import it in development only. See [Production](https://tanstack.com/devtools/latest/docs/production).
 
