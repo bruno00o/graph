@@ -308,7 +308,7 @@ With the item type written on the call (`edges<Segment>(segments, { layer: 'segm
 
 ### MEDIUM Expecting toggling a layer to move the drawing
 
-Layouts place hidden elements and `view.fit` frames them, and a band keeps its place when another layer hides. If the drawing should close the gap, filter the data. A hidden layer is also not counted in `graph.count().shown`.
+Layouts place hidden elements and `view.fit` frames them, and a band keeps its place when another layer hides. If the drawing should close the gap, filter the data. A hidden layer is also not counted in `graph.count().shown`, nor listed by `graph.shown()`.
 
 ### MEDIUM Walking support on a key typed differently
 

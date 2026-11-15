@@ -103,7 +103,7 @@ graph.on('viewchange', ({ view: next, origin }) => console.log(next.zoom, origin
 
 Without `initialView`, the graph fits every node (and every shape, so a graph of shapes alone frames them) as soon as its first data arrives (an empty graph waits), and keeps the nodes framed while the first layout moves them, until the view is moved. Later data never moves the view. A gesture, the wheel or a key before the first fit cancels it. While a live source that reports its loading (a TanStack DB collection, a live query, `subset`, `createExploration`) has not loaded or failed, the automatic fit waits, so the view frames all the rows instead of the first batch; the limit is `waitForData` in `defineGraph` (10,000 ms from the first nodes by default, `true` for no limit, `false` or `0` to fit the first batch). A `view.fit()` you call never waits. `autoFit` in the `view` of the definition changes this:
 
-- `'first'`, the default: the first data and the first layout run.
+- `'first'`, the default: the first data and the first layout run. Nodes placed by `initialPositions` (layouts skill) have no layout to wait for: the first frame fits them, and `initialView` still wins.
 - `'layouts'`: also the end of every layout run, as long as the view has not moved since the last fit. A gesture, `view.set` or `view.zoomBy` stops it; the next `view.fit` starts it again.
 - `'never'`: the view stays where it starts.
 

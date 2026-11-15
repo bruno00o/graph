@@ -45,9 +45,11 @@ skills:
       - states
       - events
       - issues and count
+      - shown, isShown and refresh
       - live data loading (data, loadingchange, loaded, waitForData)
       - keys and pending edges
       - data updates by identity
+      - positions.reset, layout.compute and drawsOnMap
     tasks:
       - Draw a graph from an array of items and an array of links without a framework
       - Key nodes and edges that have no id field
@@ -140,6 +142,17 @@ skills:
         source: docs/content/docs/(guide)/data.mdx
         priority: MEDIUM
         status: active
+      - mistake: A function that reads data outside the item
+        mechanism: The graph reads an element again only when its item changes as an object, so a function that reads a Map or a value of the app is not called again when that thing changes.
+        wrong_pattern: |
+          names.set('n1', 'Renamed')
+          graph.update({ definition })
+        correct_pattern: |
+          names.set('n1', 'Renamed')
+          graph.refresh({ nodes: ['n1'] })
+        source: docs/content/docs/(guide)/data.mdx, docs/content/docs/api/graph-instance.mdx
+        priority: MEDIUM
+        status: active
   - name: react
     slug: react
     domain: graph-setup
@@ -155,6 +168,7 @@ skills:
       - controlled props
       - onLoadingChange and data in the state
       - StrictMode
+      - initialPositions and initialFolded as props
     tasks:
       - Render a graph from props or state without restyling on every render
       - Show a tooltip or overlay over the hovered node
@@ -218,6 +232,15 @@ skills:
         source: docs/content/docs/(guide)/react.mdx
         priority: MEDIUM
         status: active
+      - mistake: Giving initialPositions an iterator that StrictMode consumes
+        mechanism: initialPositions is read at the mount and StrictMode mounts twice with the same prop, so a one-shot iterator is spent by the first mount and the second restores nothing.
+        wrong_pattern: |
+          <Graph initialPositions={saved.entries()} />
+        correct_pattern: |
+          <Graph initialPositions={saved} />
+        source: docs/content/docs/(guide)/react.mdx, docs/content/docs/(guide)/positions.mdx
+        priority: MEDIUM
+        status: active
   - name: layouts
     slug: layouts
     domain: placement
@@ -236,6 +259,10 @@ skills:
       - relayout
       - autoFit of layouts
       - waitForData
+      - rank of layers
+      - placed
+      - layout.compute and others
+      - initialPositions
     tasks:
       - Place nodes without coordinates with a force layout
       - Lay out a hierarchy in layers, in a chosen direction
@@ -243,6 +270,9 @@ skills:
       - Run a layout from code, follow its progress and fit the result
       - Save positions and restore them
       - Write a custom layout
+      - Put layers where the data says
+      - Run positions computed by the app as a layout
+      - Restore positions when a graph mounts again
       - Lay out a graph that arrives in batches from a live source once, on the complete data
     failure_modes:
       - mistake: Importing force from the layouts entry point
@@ -299,6 +329,43 @@ skills:
         correct_pattern: |
           graph.on('dragend', ({ keys }) => save(keys.map((key) => [key, graph.positions.get(key)])))
         source: docs/content/docs/(guide)/positions.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Restoring positions with positions.set after mount
+        mechanism: positions.set after the mount applies the pending data first, which starts the first layout run on every node, pins the nodes and emits positionchange, where initialPositions places them while the data arrives with no run, no event and no pin.
+        wrong_pattern: |
+          const again = mountGraph(container, { definition, ariaLabel })
+          again.positions.set(saved)
+        correct_pattern: |
+          mountGraph(container, { definition, ariaLabel, initialPositions: saved })
+        source: docs/content/docs/(guide)/positions.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: rank inside defineGraph without the item type
+        mechanism: Like order, rank reads items that TypeScript does not pass to a layout in the same object, so a function gets unknown and a field name has no field to match.
+        wrong_pattern: |
+          layout: layers({ rank: 'level' })
+        correct_pattern: |
+          layout: layers<Step>({ rank: 'level' })
+        source: docs/content/docs/api/layouts.mdx, src/layouts/layers/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Laying out a subset next to nodes that stay as anchors
+        mechanism: run with keys keeps the other nodes in the graph the layout reads, and a force run on part of the graph starts with less energy and without the pull to the center, where others ignored lays the keys out as a graph of their own.
+        wrong_pattern: |
+          graph.layout.run(force(), { keys: graph.shown().nodes })
+        correct_pattern: |
+          graph.layout.run(force(), { keys: graph.shown().nodes, others: 'ignored' })
+        source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/api/graph-instance.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting layout.compute to move nodes
+        mechanism: compute resolves to the positions by key and moves nothing, emits nothing and changes no store, so the result has to be given to placed to run it.
+        wrong_pattern: |
+          await graph.layout.compute(grid())
+        correct_pattern: |
+          await graph.layout.run(placed(await graph.layout.compute(grid())))
+        source: docs/content/docs/(guide)/layout.mdx, src/host/layout-session.ts
         priority: MEDIUM
         status: active
   - name: edges
@@ -411,6 +478,9 @@ skills:
       - hide
       - relayout
       - controlled folded
+      - aggregate.id
+      - container drag, label and badges
+      - initialFolded as a function
     tasks:
       - Nest nodes in groups with a parent field
       - Group items by a field with groups()
@@ -492,6 +562,15 @@ skills:
         correct_pattern: |
           edges([...a, ...b], { merge: true })
         source: docs/content/docs/(guide)/transformations.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Identifying an aggregated edge by its first key
+        mechanism: target.key and aggregate.keys[0] are the first merged edge and change when it leaves or another arrives first, where aggregate.id stays while the line joins the same ends.
+        wrong_pattern: |
+          openKey = target.key
+        correct_pattern: |
+          openId = target.aggregate.id
+        source: docs/content/docs/(guide)/groups.mdx, docs/content/docs/(guide)/transformations.mdx
         priority: MEDIUM
         status: active
   - name: multilayer
@@ -692,6 +771,9 @@ skills:
       - autoPan
       - pointer events
       - target.direction of merged edge halves
+      - LassoOptions modifier and edges
+      - per-node drag and container.drag
+      - halo of a state
     tasks:
       - Configure selection, drag, lasso, wheel and touch
       - Control the selection from application state
@@ -700,11 +782,11 @@ skills:
       - Fade everything outside a state, raise members, or always show their labels
     failure_modes:
       - mistake: Expecting a lasso without both options
-        mechanism: The lasso needs lasso true and select multiple, so with select single or without lasso Shift and drag pans the view and selects nothing.
+        mechanism: The lasso needs lasso true or LassoOptions and select multiple, so with select single or without lasso Shift and drag pans the view and selects nothing, and edges join the selection only with edges true.
         wrong_pattern: |
           interaction: { select: 'single', lasso: true }
         correct_pattern: |
-          interaction: { select: 'multiple', lasso: true }
+          interaction: { select: 'multiple', lasso: { edges: true } }
         source: src/types.ts, docs/content/docs/(guide)/interaction.mdx
         priority: HIGH
         status: active
@@ -778,6 +860,15 @@ skills:
         correct_pattern: |
           map.scrollZoom.disable()
         source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Pinning some nodes with interaction.drag
+        mechanism: interaction drag false stops every node from being dragged, containers included, where the drag option of a mark takes a function of the item.
+        wrong_pattern: |
+          interaction: { drag: false }
+        correct_pattern: |
+          nodes(items, { drag: (item) => !item.locked })
+        source: docs/content/docs/(guide)/interaction.mdx, src/types.ts
         priority: MEDIUM
         status: active
   - name: map
@@ -882,6 +973,15 @@ skills:
         correct_pattern: |
           #map { height: 480px; }
         source: docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Giving a snapshot to the other surface
+        mechanism: A snapshot from a plain graph holds the units of its layout and one from a map the world units of the map, so passed as initialPositions to the other surface it places nodes without coordinates in the wrong place.
+        wrong_pattern: |
+          mountMapGraph(map, { definition, ariaLabel, initialPositions: plainGraph.positions.snapshot() })
+        correct_pattern: |
+          mountMapGraph(map, { definition, ariaLabel, initialPositions: saved.map })
+        source: docs/content/docs/(guide)/map.mdx, docs/content/docs/(guide)/positions.mdx
         priority: MEDIUM
         status: active
   - name: time
@@ -1069,6 +1169,15 @@ skills:
         correct_pattern: |
           useEffect(() => persistPositions(graph, { collection: items }), [graph, items])
         source: "docs/content/docs/api/persist-positions.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: Writing world units into rows that hold degrees
+        mechanism: Without longitude and latitude persistPositions writes x and y in world units, which a mark that reads longitude and latitude ignores, so a dragged node never moves in the rows.
+        wrong_pattern: |
+          persistPositions(graph, { collection: places })
+        correct_pattern: |
+          persistPositions(graph, { collection: places, longitude: 'lng', latitude: 'lat' })
+        source: docs/content/docs/api/persist-positions.mdx, src/db/index.ts
         priority: MEDIUM
         status: active
   - name: tanstack-query
@@ -1446,6 +1555,15 @@ skills:
         source: docs/content/docs/(guide)/data.mdx
         priority: MEDIUM
         status: active
+      - mistake: Large nodes covering small ones at one place
+        mechanism: Nodes draw in the order they arrived, so a large node that arrived last covers a small one and takes the click, where the order option of nodes draws lower values first.
+        wrong_pattern: |
+          nodes(places, { size: 'count' })
+        correct_pattern: |
+          nodes(places, { size: 'count', order: (place) => -place.count })
+        source: docs/content/docs/(guide)/marks.mdx, src/types.ts
+        priority: MEDIUM
+        status: active
   - name: tools
     slug: tools
     domain: tools-and-output
@@ -1639,6 +1757,15 @@ skills:
         correct_pattern: |
           await exportPng(graph, { region: 'graph' })
         source: src/export/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Passing zoom and size together
+        mechanism: size chooses the zoom so that the region fits, so a zoom next to it throws a RangeError, and with size the pixel ratio changes how much of the graph fits, not the number of pixels.
+        wrong_pattern: |
+          await exportPng(graph, { zoom: 2, size: { width: 640 } })
+        correct_pattern: |
+          await exportPng(graph, { size: { width: 640 } })
+        source: docs/content/docs/(guide)/export.mdx, src/export/size.ts
         priority: MEDIUM
         status: active
   - name: shapes
