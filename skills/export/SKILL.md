@@ -82,7 +82,7 @@ Both functions take the same options, plus `pixelRatio` for the PNG and `embedIm
 | `background` | Any CSS color resolved with the current theme, a `--graph-*` token, or `'transparent'` | `'var(--graph-paper)'` |
 | `time` | Moment, in milliseconds after they start, of the dashes of `flow` edges. The image is still | `0` |
 | `window` | Time window of the export (`{ start, end }`), or `null` for every element whatever its time | The window of the graph |
-| `pixelRatio` (PNG) | Image pixels per CSS pixel. Positive | Device pixel ratio of the graph |
+| `pixelRatio` (PNG) | Image pixels per CSS pixel. Positive | The ratio the graph draws at (1 in software with `pixelRatio: 'auto'`) |
 | `embedImages` (SVG) | Copy every node image into the document as a data URL | `true` |
 
 ```ts
@@ -109,7 +109,7 @@ const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff
 - By default the file shows what the graph shows: same area, same zoom, same labels, grid, shapes and hulls. `region: 'graph'` frames every node and shape instead, which is the usual choice for a file meant to be read without the screen.
 - `zoom` changes the scale of the content, with either region: it is the scale of the file in CSS pixels per world unit, so `zoom` alone sets the size of a `region: 'graph'` file. The current zoom of the view is `graph.store.get().view.zoom`: pass twice that value for twice the screen scale. Nodes sized in world units grow with it, while edge widths, labels and nodes with `units: 'screen'` keep their size in pixels, as when you zoom on screen. A larger `zoom` gives a larger file of the same region, never a crop.
 - `size` fixes the image instead: every file has the same pixels whatever the graph, which suits thumbnails and batches. The export picks the largest zoom at which the region fits inside, so the rest of the longer side shows the background. With `region: 'view'`, the whole area the view shows fits inside, so another aspect shows more of the graph around it. A PNG has exactly `size` pixels whatever `pixelRatio`; an SVG takes `size` as its width and height in CSS pixels. Giving `zoom` too throws a `RangeError`, as does a side that is not a finite number of pixels, 1 or more.
-- `pixelRatio` is image pixels per CSS pixel. Without `size`, the file is `CSS size x pixelRatio` pixels: raise it for print. With `size`, the pixels stay and the area drawn is `size / pixelRatio`: a smaller ratio draws the graph with relatively larger labels and edge widths.
+- `pixelRatio` is image pixels per CSS pixel, by default the one the graph draws at: the device ratio, the `pixelRatio` of the definition, or 1 when WebGL runs in software (core skill). Without `size`, the file is `CSS size x pixelRatio` pixels: raise it for print. With `size`, the pixels stay and the area drawn is `size / pixelRatio`: a smaller ratio draws the graph with relatively larger labels and edge widths.
 - Past 4,096 pixels on a side the PNG is drawn in tiles, so its size is bounded by memory, not by the GPU. Labels are chosen once for the whole image, so none is cut or doubled at a tile edge. The PNG records its pixel density.
 - Children of an unfolded group that are spread apart are drawn where the screen shows them; at another `zoom` their pixel gaps scale with it.
 
@@ -121,9 +121,9 @@ const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff
 - Edges with a `flow` are drawn as still dashes at `time`. At `0`, every pattern starts at the source of its edge, so two exports of the same graph match. The SVG holds no animation.
 - SVG text uses the font of the theme and is not embedded: a viewer without that font falls back to another one, so labels may be a little wider or narrower. An image the browser cannot load, for lack of CORS headers for instance, is left out of the file as it is on screen. Great-circle edges (`geodesic`) are not drawn as arcs in an SVG, and the SVG of a graph on a map always draws the flat map.
 
-### Large graphs
+### Large graphs and suspended graphs
 
-Both functions read the scene in one pass and build the output in memory. With 50,000 nodes and 100,000 edges, an SVG of the view takes about half a second and weighs about 25 MB, and a PNG of the view takes about the same time. Very large PNGs are encoded strip by strip (287 megapixels: about 11 seconds). For an SVG that heavy, prefer the PNG, or `labels: 'none'`, or a smaller region.
+A suspended graph (core skill) exports as usual: the PNG takes a WebGL context of its own while it draws, as for any graph, and gives it back at the end. Both functions read the scene in one pass and build the output in memory. With 50,000 nodes and 100,000 edges, an SVG of the view takes about half a second and weighs about 25 MB, and a PNG of the view takes about the same time. Very large PNGs are encoded strip by strip (287 megapixels: about 11 seconds). For an SVG that heavy, prefer the PNG, or `labels: 'none'`, or a smaller region.
 
 ## Common Mistakes
 
@@ -146,6 +146,10 @@ An export draws the scene only: no CSS background on the container, no HTML over
 ### MEDIUM Mixing up zoom and pixel ratio
 
 `zoom` rescales the content (world-sized nodes grow, edge widths and labels keep their pixel size), `pixelRatio` only adds pixels. A sharper print needs `pixelRatio`; a bigger area of detail needs `zoom`. Neither accepts zero, a negative number or `Infinity`: they throw a `RangeError`, as do a `padding` that is negative or not finite and a `time` that is not finite.
+
+### MEDIUM A blurry PNG from a graph drawn in software
+
+Where WebGL runs in software, a definition with the default `pixelRatio: 'auto'` draws at one pixel per CSS pixel, and `exportPng` takes that ratio by default: the file is half as sharp as on a GPU screen of ratio 2. Pass `pixelRatio: 2` or more to the export when the file must be sharp.
 
 ### MEDIUM Passing `zoom` and `size` together
 

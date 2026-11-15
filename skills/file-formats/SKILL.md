@@ -166,7 +166,7 @@ export function fileNodes(file: GraphFile) {
 ```
 
 - A `parent` that names no node leaves the node at the top level and shows up as `missing-parent` in `graph.issues()` (see the core skill).
-- Time: `time: 'time'` on `nodes()` and `edges()` with a `defineGraph({ time })` window (see the time skill). A GEXF period includes its end, but the time window excludes it, so an element disappears at exactly the moment its period ends. Dates without a zone are read as UTC; with `timeformat` `double` or `integer` the numbers are kept.
+- Time: `time: 'time'` on `nodes()` and `edges()`, and a time window from `initialTime`, `graph.time.set` or a timeline (see the time skill). An element of several GEXF spells has `time` from the start of the first to the end of the last, and `spells` with each of them: `time: (node) => node.spells ?? node.time` shows it only during its spells. A GEXF period includes its end, but the time window excludes it, so an element disappears at exactly the moment its period ends. Dates without a zone are read as UTC; with `timeformat` `double` or `integer` the numbers are kept.
 - Attributes that have no field stay in `attributes`, typed from the file's declarations (GraphML `<key>`, GEXF `<attributes>`, the JSON values), with declared defaults applied. Integers are numbers when exact, decimal strings beyond `Number.MAX_SAFE_INTEGER` (no digit is lost), and lists become arrays. Type them without casts by passing the attribute types to the reader; it is an assertion, the file is not checked.
 
 ```ts
@@ -284,6 +284,20 @@ It returns `{ nodes, edges }`: two texts to save as two files. A node without ke
 ### MEDIUM Expecting a round trip through a format with no slot
 
 A color the format cannot hold (GEXF without hexadecimal, `rgb()` or `rgba()`), or the `box` shape, is written as an attribute. Keep `fields` at its default when reading it back so the attribute returns to the field.
+
+### MEDIUM Reading only `time` from elements of several spells
+
+A GEXF element that exists more than once has `time` from the start of its first spell to the end of its last: `time: 'time'` shows it in the gaps between them too. Read the list when there is one:
+
+```ts
+import { nodes } from '@bruno00o/graph'
+import { readGexf } from '@bruno00o/graph/formats'
+
+declare const text: string
+const file = readGexf(text)
+
+const spells = nodes(file.nodes, { time: (node) => node.spells ?? node.time })
+```
 
 ## Completion
 

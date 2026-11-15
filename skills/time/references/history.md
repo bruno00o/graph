@@ -1,6 +1,6 @@
 # History: scales, legend, React and costs
 
-The journal behind `history` is read once and indexed by element. This page covers what the main skill leaves out: what the scales and the legend do with it, how entries that arrive later behave, how to keep it stable in React, and what it costs.
+The journal behind `history` is read once and indexed by element. This page covers what the main skill leaves out: what the scales and the legend do with it, how entries that arrive later behave, entries that say when an element is there, how to keep it stable in React, and what it costs.
 
 ## Scales cover the whole journal
 
@@ -37,6 +37,39 @@ The legend lists the categories of the whole journal and counts the elements dra
 ## Entries that arrive later
 
 A live source of entries (a TanStack DB collection) is followed: inserts, updates and deletes apply at the next frame and count in `data.loading`, `graph.loaded()` and `waitForData`. An entry later than the cursor still folds into the scales, so a late entry may extend them without moving the cursor. An invalid entry (no key, a time that is not valid, `values` that is not an object) is ignored with one warning per history in development, and nothing goes to `issues()`.
+
+## When elements are there
+
+An entry with `present: true` or `false` (or the field or function named by the `present` option) says whether its element is there from its moment on. The journal then gives each element periods of presence, read from every entry whatever the window, like a list of periods in `time`:
+
+```ts
+import { edges } from '@bruno00o/graph'
+import { historyFrom } from '@bruno00o/graph/history'
+
+type Link = { id: string; from: string; to: string }
+type Opening = { id: string; time: Date; link: string; open: boolean }
+declare const links: Link[]
+declare const openings: Opening[]
+
+const history = historyFrom(openings, { key: 'link', present: 'open' })
+export const roads = edges(links, { source: 'from', target: 'to', history })
+```
+
+- The first `true` of an element means it was not there before, the first `false` that it was; after its last entry it stays as that entry left it. An element without any presence keeps the `time` of its mark.
+- The element exists when both its presence and the `time` of its mark say so. It always reads as a copy of its item, and `graph.history.of` lists `present` on these entries.
+- An entry may give values and a presence. An entry with a presence needs no values; one with neither (no presence, `values` not an object) is ignored.
+- A journal of presences only must name `present`, even when the field is called `present`: the default reading expects `values` in every entry, and no form of `historyFrom` matches. With `present` named it returns a `HistorySource<NoValues>`.
+
+```ts expect-error=TS2769
+import { historyFrom } from '@bruno00o/graph/history'
+
+type Seen = { key: string; time: number; present: boolean }
+declare const seen: Seen[]
+
+historyFrom(seen)
+```
+
+Write `historyFrom(seen, { present: 'present' })`.
 
 ## React
 
@@ -80,10 +113,10 @@ Measured at 100,000 nodes and 200,000 edges with 1,000,000 entries over 30 days 
 | --- | --- |
 | Reading the entries, on top of mounting | 140 to 165 ms |
 | Scales over the journal, on top of the first frame | 210 to 260 ms |
-| Memory | about 40 bytes per entry, plus about 80 per element |
-| A step of one hour (about 1,400 entries) | 6 to 7 ms of work |
-| A step of one day (about 33,000 entries) | 48 to 50 ms |
-| A jump of 20 days, every node read again | 200 to 235 ms |
+| Memory | about 40 bytes per entry, plus about 90 per element for its scales and steps |
+| A step of one hour (about 1,400 entries) | 4.5 to 5.5 ms of work, 20 ms per frame |
+| A step of one day (about 33,000 entries) | 32 to 38 ms |
+| A jump of 20 days, every node read again | 155 to 175 ms |
 | Without a history, any step | under 0.2 ms |
 
-A history made again at each render is indexed again (400 to 560 ms at this size) and reads the elements of both again.
+When only the moment moves, a step writes the elements it crosses straight to their records. A step where the items, the marks or the journal change at the same time takes the full path, by key, and costs more. A history made again at each render is indexed again (400 to 560 ms at this size) and reads the elements of both again.

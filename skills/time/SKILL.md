@@ -1,15 +1,16 @@
 ---
 name: time
 description: >
-  Use when giving @bruno00o/graph nodes, edges and shapes a time or a period, showing
-  only what exists in a time window, fading elements in and out at the edges of
-  the window, controlling the window from application state, or adding a timeline
-  with a histogram that brushes, steps and plays (default element, a renderer of
-  your own, or the React Timeline component and useTimeline hook), counting the
-  events of the application on the bar, moving a single moment instead of a
-  window, a timeline that follows no graph, giving elements values that change
-  over time from a journal of changes (the history option and historyFrom, a
-  color, size or label that follows the cursor), also on a map graph.
+  Use when giving @bruno00o/graph nodes, edges and shapes a time, a period or
+  several periods, showing only what exists in a time window, fading elements
+  in and out at the edges of the window, controlling the window from
+  application state, or adding a timeline with a histogram that brushes, steps
+  and plays (default element, a renderer of your own, or the React Timeline
+  component and useTimeline hook), counting the events of the application on
+  the bar, moving a single moment instead of a window, a timeline that follows
+  no graph, giving elements values that change over time from a journal of
+  changes (the history option and historyFrom, a color, size or label that
+  follows the cursor, elements that come and go), also on a map graph.
 metadata:
   purpose: >
     Time in @bruno00o/graph: the time channel of nodes, edges and shapes, the time
@@ -31,6 +32,8 @@ sources:
   - src/host/events.ts
   - src/history/index.ts
   - src/core/history.ts
+  - src/core/periods.ts
+  - src/history/presence.ts
   - docs/content/docs/(guide)/time.mdx
   - docs/content/docs/api/timeline.mdx
   - docs/content/docs/api/history.mdx
@@ -50,6 +53,7 @@ Elements carry a `time`, the graph holds a time window, and only elements that e
 
 - a moment, in milliseconds or a `Date`: the element exists at that moment only;
 - a period `{ start, end }`: from `start`, included, to `end`, left out. A missing or `null` end leaves it open on that side, so `{ start: date }` exists from `date` on, forever;
+- a list of moments and periods, an array or any iterable: the element exists in each of them and is hidden between them (see [Give elements several periods](#give-elements-several-periods)). An empty list means it never exists;
 - `null`, `undefined`, or any other value (a string, `NaN`, `{}`): no time, the element always shows. A period whose end comes before its start counts as the moment of its start.
 
 ```ts
@@ -74,6 +78,28 @@ const definition = defineGraph({
 ```
 
 `time: { fade }` in `defineGraph` is optional (see Fade below).
+
+### Give elements several periods
+
+An element that comes and goes takes a list:
+
+```ts
+import { nodes } from '@bruno00o/graph'
+
+type Stay = { from: Date; to: Date | null }
+type Item = { id: string; stays: Stay[] }
+declare const items: Item[]
+
+const visits = nodes(items, {
+  time: (item) => item.stays.map((stay) => ({ start: stay.from, end: stay.to })),
+})
+```
+
+- Periods that overlap or touch merge, so `[{ start: 1, end: 5 }, { start: 5, end: 9 }]` is one period from 1 to 9, and a moment inside a period merges into it. The element shows when one of its periods meets the window. With a fade it takes the fade of the period that goes deepest into the window.
+- An edge exists where its own periods meet those of both ends. A merged edge spans from the earliest start to the latest end of its members, so it also shows in their common gaps.
+- The timeline counts an element once in a bin that two of its periods meet, and leaves out its gaps.
+- A journal can give the periods instead, with entries that say when an element is there (`present`, see below).
+- At 100,000 nodes and 200,000 edges, three periods per node against one: first frame 370 to 375 ms (300 to 310), a frame while playing 4.8 to 5.8 ms (3.4 to 4.5), first histogram 134 to 140 ms (43 to 48).
 
 ### Show a time window
 
@@ -225,44 +251,7 @@ timeline.store.subscribe(() => {
 
 ### Count events of the application, and move a moment
 
-`events` gives the bar something other than the graph to count: a log of what changed and when, as one histogram stacked by kind. Each event is a moment and a kind, read by `eventTime` and `eventKind` (field names or functions; defaults `time` and `kind`). `instant: true` makes the window a single moment, a cursor, so the graph shows what exists at that moment.
-
-```ts
-import type { GraphInstance } from '@bruno00o/graph'
-import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
-
-type Change = { at: Date; type: 'added' | 'changed' | 'removed'; key: string }
-declare const changes: Change[]
-declare const graphs: GraphInstance[]
-
-const timeline = createTimeline({
-  events: changes,
-  eventTime: 'at',
-  eventKind: 'type',
-  kinds: ['added', 'changed', 'removed'],
-  instant: true,
-})
-const view = mountTimeline(timeline, {
-  ariaLabel: 'Changes',
-  labels: { play: 'Play', cursor: 'Moment', kinds: 'Kinds of change' },
-  kindText: (kind) => kind,
-})
-document.body.append(view.element)
-
-timeline.store.subscribe(() => {
-  const { window } = timeline.store.get()
-  for (const graph of graphs) graph.time.set(window)
-})
-timeline.stepEvent()
-const window = timeline.store.get().window
-const made = window?.start == null ? [] : timeline.events(window.start)
-```
-
-- With a graph (`createTimeline(graph, { events })`) the timeline moves that graph's window; without one (`createTimeline({ events })`) it keeps the window in its own state, for you to apply to any graphs or none. The extent comes from the first and last event, and `bin.events` and `bin.kinds` count them while `bin.nodes` and `bin.edges` still count the graph.
-- Kinds stack in the order of `kinds`, then in the order events first give them, colored `--graph-cat-1` to `-12` or by `kindColors`. `state.kinds` lists them with color, count and `hidden`. `toggleKind(kind)` hides or shows one; `hiddenKinds` sets them only when the option changes. The bar shows a button for each kind when there are two or more (`legend: false` removes them, `kindText` writes their text, `labels.kinds` names the group).
-- `stepEvent(count?)` goes to the next event (back when negative), skipping hidden kinds and counting events at one moment once; with `instant` the cursor lands on it, otherwise the end of the window lands 1 ms after it. In the bar, Shift with the arrow keys does the same, and the cursor is a slider (`labels.cursor`) that snaps to the bins unless Alt is held.
-- `timeline.events(moment)` returns the events made at that moment, `events(a, b)` those from `a` included to `b` left out, in time order, for a panel of details. An event without a valid moment is left out, one without a kind belongs to `''`.
-- A new `events` array counts again at once; one that starts with the objects of the previous array (a log that grows) only reads the additions. Pass the `data` of a live query as it comes. It never changes the array in place.
+`createTimeline(graph, { events })` counts a log of what changed and when, read by `eventTime` and `eventKind` (defaults `time` and `kind`), as one histogram stacked by kind (`bin.events`, `bin.kinds`, `state.kinds`, `toggleKind`). `instant: true` makes the window a single moment, a cursor. Without a graph (`createTimeline({ events })`, `graph: false` in React) the timeline keeps the window in its own state, for you to apply to any graphs. `stepEvent(count?)` goes to the next event (Shift and the arrows in the bar), `timeline.events(moment)` or `events(a, b)` lists the events for a panel, and a new array that starts with the objects of the previous one only reads the additions. Recipe and details: [references/events.md](references/events.md).
 
 ### Give elements values that change over time
 
@@ -303,6 +292,7 @@ timeline.stepEvent()
 - Entries apply in time order, then in arrival order. A field set to `undefined` keeps its value, `null` sets it to `null`, and the fields named by the `key` and `time` options of the mark never change. Any other field can: label, color, the ends of an edge, the parent of a node, a position, the geometry of a shape.
 - `datumOf`, event targets, the accessors of the mark, the legend, paths and exports receive a copy of the item with the values applied (same prototype, frozen when the item is), a new object whenever an entry applies; an element with no entry before the moment keeps the item itself. Do not compare data by identity across moments.
 - `graph.history.of({ kind, key })` lists every entry of an element, before and after the moment, sorted, `time` in milliseconds; `graph.history.instant()` is the moment the values are read at (`Infinity` without window). Both apply pending data first.
+- An entry can also say whether its element is there from its moment on: `true` or `false` in its `present` field, or in the field or function of the `present` option. These entries make periods over the whole journal, whatever the window: the first `true` means the element was not there before, the first `false` that it was. The element shows when both these periods and the `time` of its mark say it exists, and always reads as a copy. A journal of presences only names `present`: see [references/history.md](references/history.md#when-elements-are-there).
 - A live source of entries, such as a TanStack DB collection, is followed, and its `status` counts in `data.loading`, `loaded()` and `waitForData`.
 - The scales over the whole journal, the legend, entries that arrive later, protected fields, React and costs are in [references/history.md](references/history.md).
 
@@ -361,6 +351,14 @@ nodes(items, { time: 'created' })
 ```
 
 Write `time: (item) => Date.parse(item.created)`, or store a number.
+
+### HIGH An empty list where no time was meant
+
+`time: (item) => item.stays.map(...)` returns `[]` for an item without stays, and an empty list means the element never exists: no window shows it, and nothing is reported. Return `null` when the element should always show: `item.stays.length > 0 ? item.stays.map(...) : null`.
+
+### MEDIUM One period from the first start to the last end
+
+An element that comes and goes, given `{ start: first, end: last }`, shows in every gap between its stays, and the histogram counts it there. Give the list of its periods. A GEXF file gives them as `spells` (file-formats skill).
 
 ### HIGH Expecting the end of a period to be inside the window
 
@@ -438,7 +436,7 @@ The scales of a mark with a history cover every value of the whole journal, so t
 
 ### MEDIUM A wide jump over a large journal
 
-A step reads again only the elements whose entries it crosses, so one change at a time costs almost nothing, but a jump (a brush over weeks, a window set far away, `time.set(null)`) reads every element it crosses: 200 to 235 ms at 100,000 nodes and 1,000,000 entries. Step by bins or by event, keep the window moving in small steps while it plays, and expect one slow frame when the cursor leaps.
+A step reads again only the elements whose entries it crosses, so one change at a time costs almost nothing, but a jump (a brush over weeks, a window set far away, `time.set(null)`) reads every element it crosses: 155 to 175 ms at 100,000 nodes and 1,000,000 entries. A step where the items, the marks or the journal change too takes the slower full path. Step by bins or by event, keep the window moving in small steps while it plays, and expect one slow frame when the cursor leaps.
 
 ### MEDIUM Mixing local and UTC times
 
@@ -460,7 +458,7 @@ A hidden element keeps its place: layouts position every node whatever the windo
 
 The task is done when:
 
-- every element that should be dated has a number, `Date`, or `{ start, end }` time, and no time is a string;
+- every element that should be dated has a number, `Date`, `{ start, end }` time or a list of them, no time is a string, and an element with no period returns `null`, not `[]`;
 - the window is set with `initialTime`, `graph.time.set`, a timeline, or the controlled `time` and `onTimeChange` pair, answered with `update({ time })`;
 - period and window ends follow the exclusive end rule, and snapshots use `start` equal to `end`;
 - the timeline is created after the graph, mounted somewhere with a size, and destroyed with its graph (or before it, in reverse order);
@@ -473,6 +471,6 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- [Time](https://bruno00o.github.io/graph/docs/time), [events](https://bruno00o.github.io/graph/docs/time#events), [values over time](https://bruno00o.github.io/graph/docs/time#values-over-time), [historyFrom](https://bruno00o.github.io/graph/docs/api/history), [createTimeline and mountTimeline](https://bruno00o.github.io/graph/docs/api/timeline), [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [edges](https://bruno00o.github.io/graph/docs/api/edges)
-- Examples: [the time window](https://bruno00o.github.io/graph/examples/time), [moments and periods](https://bruno00o.github.io/graph/examples/time-moments), [graph that grows](https://bruno00o.github.io/graph/examples/time-growth), [time slider of your own](https://bruno00o.github.io/graph/examples/time-slider), [map in time](https://bruno00o.github.io/graph/examples/map-time-window), [history of changes](https://bruno00o.github.io/graph/examples/change-history), [values over time](https://bruno00o.github.io/graph/examples/values-over-time)
+- [Time](https://bruno00o.github.io/graph/docs/time), [several periods](https://bruno00o.github.io/graph/docs/time#several-periods), [events](https://bruno00o.github.io/graph/docs/time#events), [values over time](https://bruno00o.github.io/graph/docs/time#values-over-time), [historyFrom](https://bruno00o.github.io/graph/docs/api/history), [createTimeline and mountTimeline](https://bruno00o.github.io/graph/docs/api/timeline), [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [edges](https://bruno00o.github.io/graph/docs/api/edges)
+- Examples: [the time window](https://bruno00o.github.io/graph/examples/time), [moments and periods](https://bruno00o.github.io/graph/examples/time-moments), [graph that grows](https://bruno00o.github.io/graph/examples/time-growth), [time slider of your own](https://bruno00o.github.io/graph/examples/time-slider), [map in time](https://bruno00o.github.io/graph/examples/map-time-window), [history of changes](https://bruno00o.github.io/graph/examples/change-history), [values over time](https://bruno00o.github.io/graph/examples/values-over-time), [several periods](https://bruno00o.github.io/graph/examples/several-periods)
 - Showing elements by zoom instead of time is in the view skill; both combine, an element shows when its zoom range and the window let it.
