@@ -69,6 +69,12 @@ export function panBy(view: View, dx: number, dy: number): View {
   return { x: view.x - dx / view.zoom, y: view.y - dy / view.zoom, zoom: view.zoom }
 }
 
+export function zoomAt(view: View, viewport: Viewport, anchor: Point, zoom: number): View {
+  const before = toWorld(view, viewport, anchor)
+  const after = toWorld({ x: view.x, y: view.y, zoom }, viewport, anchor)
+  return { x: view.x + before.x - after.x, y: view.y + before.y - after.y, zoom }
+}
+
 export function zoomAround(
   view: View,
   viewport: Viewport,
@@ -76,10 +82,7 @@ export function zoomAround(
   factor: number,
   limits: ZoomLimits = defaultZoomLimits,
 ): View {
-  const zoom = clampZoom(view.zoom * factor, limits)
-  const before = toWorld(view, viewport, anchor)
-  const after = toWorld({ x: view.x, y: view.y, zoom }, viewport, anchor)
-  return { x: view.x + before.x - after.x, y: view.y + before.y - after.y, zoom }
+  return zoomAt(view, viewport, anchor, clampZoom(view.zoom * factor, limits))
 }
 
 export interface Sides {
@@ -151,6 +154,27 @@ export function edgePush(position: number, length: number, zone: number): number
 
 export function easeInOut(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
+}
+
+export function easeOut(t: number): number {
+  return 1 - (1 - t) ** 3
+}
+
+export function glideView(
+  from: View,
+  to: View,
+  viewport: Viewport,
+  anchor: Point,
+  t: number,
+): View {
+  const zoom = Math.exp(Math.log(from.zoom) + (Math.log(to.zoom) - Math.log(from.zoom)) * t)
+  const start = toWorld(from, viewport, anchor)
+  const end = toWorld(to, viewport, anchor)
+  return {
+    x: start.x + (end.x - start.x) * t - (anchor.x - viewport.width / 2) / zoom,
+    y: start.y + (end.y - start.y) * t - (anchor.y - viewport.height / 2) / zoom,
+    zoom,
+  }
 }
 
 export function interpolateView(from: View, to: View, t: number): View {

@@ -197,6 +197,7 @@ describe('wheel', () => {
     expect(wheel(graph, { deltaX: 30, deltaY: -20 }).defaultPrevented).toBe(true)
     expect(viewOf(graph)).toEqual({ x: 30, y: -20, zoom: 1 })
     wheel(graph, { deltaY: 3, deltaMode: 1, shiftKey: true })
+    dom.flushFrames()
     expect(viewOf(graph)).toEqual({ x: 78, y: -20, zoom: 1 })
     wheel(graph, { deltaY: -10, ctrlKey: true })
     expect(viewOf(graph).zoom).toBeCloseTo(Math.exp(0.1))

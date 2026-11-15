@@ -30,6 +30,7 @@ describe('defineGraph', () => {
       pan: true,
       zoom: { speed: 1 },
       wheel: 'zoom',
+      wheelGlide: 200,
       autoPan: { speed: 1 },
       select: 'multiple',
       drag: true,
@@ -85,6 +86,9 @@ describe('defineGraph', () => {
       expect(() => defineGraph({ marks: [], interaction: { zoom: { speed } } })).toThrow(RangeError)
       expect(() => defineGraph({ marks: [], interaction: { autoPan: { speed } } })).toThrow(
         RangeError,
+      )
+      expect(() => defineGraph({ marks: [], interaction: { wheelGlide: speed } })).toThrow(
+        'defineGraph: interaction.wheelGlide must be a finite number, 0 or more',
       )
     }
   })

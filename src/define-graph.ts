@@ -57,6 +57,7 @@ export const defaultViewPadding: ResolvedPadding = Object.freeze({
 const defaultPositionTransition = 120
 const defaultLayoutTransition = 400
 const defaultGridSpacing = 16
+const defaultWheelGlide = 200
 const defaultLensRadius = 120
 const defaultLensZoom = 3
 const defaultLensKey = 'Alt'
@@ -111,6 +112,7 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
     pan: options.pan ?? true,
     zoom: resolveSpeed(options.zoom ?? true, defaultZoomSpeed, 'zoom'),
     wheel,
+    wheelGlide: atLeastZero(options.wheelGlide ?? defaultWheelGlide, 'interaction.wheelGlide'),
     autoPan: resolveSpeed(options.autoPan ?? true, defaultAutoPanSpeed, 'autoPan'),
     select: options.select ?? 'multiple',
     drag: options.drag ?? true,

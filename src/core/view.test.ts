@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   constrainView,
+  easeOut,
   edgePush,
   fitBounds,
+  glideView,
   interpolateView,
   panBy,
   toScreen,
@@ -10,6 +12,7 @@ import {
   wheelFactor,
   wheelPixels,
   zoomAround,
+  zoomAt,
 } from './view'
 
 const viewport = { width: 800, height: 600 }
@@ -130,5 +133,26 @@ describe('view', () => {
   it('interpolates zoom geometrically', () => {
     const view = interpolateView({ x: 0, y: 0, zoom: 1 }, { x: 10, y: 20, zoom: 4 }, 0.5)
     expect(view).toEqual({ x: 5, y: 10, zoom: 2 })
+  })
+
+  it('glides between two views around a still point', () => {
+    const at = { x: 620, y: 140 }
+    const from = { x: 12, y: -30, zoom: 0.8 }
+    const to = zoomAt(from, viewport, at, 3.2)
+    const still = toWorld(from, viewport, at)
+    for (const t of [0, 0.25, 0.5, 1]) {
+      const view = glideView(from, to, viewport, at, t)
+      expect(toWorld(view, viewport, at).x).toBeCloseTo(still.x, 10)
+      expect(toWorld(view, viewport, at).y).toBeCloseTo(still.y, 10)
+    }
+    expect(glideView(from, to, viewport, at, 0.5).zoom).toBeCloseTo(1.6, 12)
+    expect(glideView(from, to, viewport, at, 1).x).toBeCloseTo(to.x, 10)
+    expect(zoomAround(from, viewport, at, 4)).toEqual(to)
+  })
+
+  it('eases out from full speed to rest', () => {
+    expect(easeOut(0)).toBe(0)
+    expect(easeOut(1)).toBe(1)
+    expect(easeOut(0.5)).toBe(0.875)
   })
 })

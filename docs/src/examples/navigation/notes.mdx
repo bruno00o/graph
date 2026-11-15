@@ -6,12 +6,15 @@ Each wheel event left to the page emits `zoomhint`. The example shows its own hi
 
 The definition also sets `view: { minZoom: 0.2, maxZoom: 6, bounds: { margin: 80 } }`. Every move stays within these limits, from a gesture, a key or code: you can pan until the edge of the graph sits 80 pixels from the edge of the frame, and no further.
 
-The buttons rebuild the definition with another `wheel` or `bounds` and pass it to `graph.update`. The view, the positions and the selection stay.
+A notch of a mouse wheel does not jump: the view glides for `interaction.wheelGlide` milliseconds, 200 by default, to where the jump would take it. A trackpad, a pinch and a smooth wheel move the view at once.
+
+The buttons rebuild the definition with another `wheel`, `wheelGlide` or `bounds` and pass it to `graph.update`. The view, the positions and the selection stay.
 
 ## Try it
 
 - Scroll over the graph: the page scrolls and the hint appears. Hold Cmd or Ctrl and scroll to zoom.
 - Press **Wheel** to switch to `'pan'`, where a two-finger scroll moves the view and a pinch zooms, then to `'zoom'`.
+- With a mouse, turn the wheel one notch at a time, then quickly: each notch glides, and a quick spin keeps up. Press **Wheel glide** to try 400 ms, then to turn the glide off and compare.
 - Drag the background far to one side: the view stops at the margin. Press **Bounds** to lift the limit.
 - Drag a node toward an edge of the frame: the view scrolls, faster closer to the edge. Hold Shift and draw a lasso to the edge: it scrolls too.
 - On a touch screen, pinch with two fingers to zoom and pan at once, and tap a node to select it.

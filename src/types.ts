@@ -1611,6 +1611,13 @@ export interface InteractionOptions {
    */
   readonly wheel?: WheelMode | undefined
   /**
+   * Glide of the view to where a notch of a mouse wheel takes it, in milliseconds, at most twice
+   * the time since the previous wheel event; trackpads and pinches move it at once. 0 makes every
+   * notch jump: a finite number, 0 or more, or `defineGraph` throws a `RangeError`.
+   * @default 200
+   */
+  readonly wheelGlide?: number | undefined
+  /**
    * Scrolls the view while a node drag or a lasso nears the edge of the element, faster closer to
    * it. `{ speed }` multiplies the speed, 1 by default: a finite number, 0 or more, or
    * `defineGraph` throws a `RangeError`. Needs `pan`.
@@ -1707,6 +1714,8 @@ export interface ResolvedInteraction {
   readonly zoom: false | { readonly speed: number }
   /** What the wheel does without Cmd or Ctrl. */
   readonly wheel: WheelMode
+  /** Longest glide after a notch of a mouse wheel, in milliseconds; 0 when the view jumps. */
+  readonly wheelGlide: number
   /** `false`, or the auto-pan speed factor. */
   readonly autoPan: false | { readonly speed: number }
   /** Selection mode. */
