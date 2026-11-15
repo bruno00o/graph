@@ -149,6 +149,7 @@ export interface Scene {
   setDefinition(definition: GraphDefinition): void
   apply(model: SceneModel, changes: GraphChanges): void
   remeasure(): boolean
+  setGroupFillOpacity(opacity: number | null): boolean
   takeDirty(): SceneDirty
 }
 
@@ -553,7 +554,8 @@ export function createScene(
   textWidth: TextWidth = estimateTextWidth,
   options: SceneOptions = {},
 ): Scene {
-  const groupFillOpacity = options.groupFillOpacity ?? 1
+  let groupFillOpacity = options.groupFillOpacity ?? 1
+  let refill = false
   const nodes = new NodeColumns()
   const edges = new EdgeColumns()
   const palette = new Palette()
@@ -1422,6 +1424,14 @@ export function createScene(
     textWidth,
     remeasure,
 
+    setGroupFillOpacity(opacity) {
+      const next = opacity ?? 1
+      if (next === groupFillOpacity) return false
+      groupFillOpacity = next
+      refill = true
+      return true
+    },
+
     get layers() {
       return layers
     },
@@ -1548,7 +1558,13 @@ export function createScene(
             if (record) edgeBatch.add(record)
           }
         }
+        if (refill) {
+          for (const record of model.nodes()) {
+            if (nodes.shape[record.index] === containerShape) nodeBatch.add(record)
+          }
+        }
       }
+      refill = false
       if (nodeBatch.maxIndex >= 0) nodes.reserve(nodeBatch.maxIndex)
       if (edgeBatch.maxIndex >= 0) edges.reserve(edgeBatch.maxIndex)
       for (const record of nodeBatch.records) readNode(record)

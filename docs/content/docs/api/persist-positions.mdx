@@ -24,6 +24,7 @@ Listens to `positionchange` and writes `x` and `y` into the collection, or the l
 - With `mutationFn`, `createPacedMutations` writes optimistically and calls your function at the pace of the strategy. A failed mutation rolls back the optimistic write.
 - With `pendingState`, a node joins that state when it moves and leaves it once its write is done or has failed: the paced `collection.update` without `mutationFn`, the paced transaction with it. A node moved again stays until its last write ends. Stopping does not remove the nodes whose write is still in flight: they leave when it ends.
 - With `longitude` and `latitude`, the rows hold degrees, with the longitude from -180 up to 180, and `x` and `y` are written only when you name them too. Give both, or the call throws a `TypeError`. `create` receives the position in degrees as its third argument.
+- Each surface keeps its own positions. Only the moves made on the surfaces named by `surfaces` are written, by default the one the graph is on at the call: a graph moved onto a map and back writes its canvas moves, not its map ones. See [With and without a map](/docs/map#with-and-without-a-map).
 - Moves that come from the collection do not emit `positionchange`, so writes never echo.
 - Once written, layout results are data: nodes with `x` and `y` channels no longer move in later layout runs. See [Layouts](/docs/layout#save-the-result).
 

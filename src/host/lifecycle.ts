@@ -270,6 +270,7 @@ export function stillborn<S extends string, M extends Mark>(
     lens: null,
     hiddenLayers: [...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? [])],
     data: loadedData,
+    surface: capabilities.name,
   })
   const graph = afterDestroy(
     readonlyOf(store),

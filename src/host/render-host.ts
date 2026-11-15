@@ -26,8 +26,6 @@ export interface RenderSource {
 }
 
 export class RenderHost {
-  renderer: Renderer | null
-  contextLost = false
   full = true
   settled = false
   positionsVersion = -1
@@ -46,14 +44,28 @@ export class RenderHost {
   #resizeObserver: ResizeObserver | null = null
   #fontWatch: (() => void) | null = null
   #listened: HTMLCanvasElement | null = null
+  readonly #renderers = new Map<HostSurface, Renderer>()
+  readonly #lost = new Set<HostSurface>()
+  #own: HostSurface | null = null
   readonly #source: RenderSource
 
   constructor(source: RenderSource) {
     this.#source = source
     const surface = source.surface()
-    this.renderer = surface.ownCanvas
-      ? source.createRenderer(surface.events, () => source.request())
-      : null
+    if (surface.ownCanvas) {
+      this.#renderers.set(
+        surface,
+        source.createRenderer(surface.events, () => source.request()),
+      )
+    }
+  }
+
+  get renderer(): Renderer | null {
+    return this.#renderers.get(this.#source.surface()) ?? null
+  }
+
+  get contextLost(): boolean {
+    return this.#lost.has(this.#source.surface())
   }
 
   resolvePalette(all: boolean): void {
@@ -97,7 +109,7 @@ export class RenderHost {
     this.#source.request()
   }
 
-  resize(width: number, height: number): void {
+  resize(width: number, height: number, drawNow = true): void {
     const surface = this.#source.surface()
     let cleared = false
     if (surface.ownCanvas) {
@@ -120,7 +132,7 @@ export class RenderHost {
     }
     this.#source.patch({ width, height })
     this.#source.reconstrain()
-    if (cleared && this.settled && this.renderer) {
+    if (cleared && drawNow && this.settled && this.renderer) {
       this.#source.drawNow()
       return
     }
@@ -167,21 +179,23 @@ export class RenderHost {
 
   readonly onContextLost = (event: Event): void => {
     event.preventDefault()
-    this.contextLost = true
-    this.renderer?.destroy()
-    this.renderer = null
+    const own = this.#own
+    if (!own) return
+    this.#lost.add(own)
+    this.#renderers.get(own)?.destroy()
+    this.#renderers.delete(own)
   }
 
   readonly onContextRestored = (): void => {
     const source = this.#source
-    if (source.destroyed()) return
-    try {
-      this.renderer = source.createRenderer(source.surface().events, () => source.request())
-    } catch (error) {
-      if (dev) console.warn('graph: cannot restore the WebGL context', error)
+    const own = this.#own
+    if (source.destroyed() || !own) return
+    this.#lost.delete(own)
+    if (source.surface() !== own) return
+    if (!this.#create(own)) {
+      this.#lost.add(own)
       return
     }
-    this.contextLost = false
     this.full = true
     this.adoptLimits()
     this.refreshTheme()
@@ -189,13 +203,27 @@ export class RenderHost {
     this.resize(width, height)
   }
 
+  #create(surface: HostSurface): boolean {
+    const source = this.#source
+    try {
+      this.#renderers.set(
+        surface,
+        source.createRenderer(surface.events, () => source.request()),
+      )
+      return true
+    } catch (error) {
+      if (dev) console.warn('graph: cannot restore the WebGL context', error)
+      return false
+    }
+  }
+
   listen(surface: HostSurface): void {
-    this.unlisten()
-    if (!surface.ownCanvas) return
+    if (!surface.ownCanvas || this.#listened) return
     const canvas = surface.events
     canvas.addEventListener('webglcontextlost', this.onContextLost)
     canvas.addEventListener('webglcontextrestored', this.onContextRestored)
     this.#listened = canvas
+    this.#own = surface
   }
 
   unlisten(): void {
@@ -206,18 +234,35 @@ export class RenderHost {
     canvas.removeEventListener('webglcontextrestored', this.onContextRestored)
   }
 
-  attach(create: (invalidate: () => void) => Renderer): void {
-    this.renderer?.destroy()
-    this.renderer = create(() => this.#source.request())
+  enter(surface: HostSurface): void {
+    if (surface.ownCanvas && !this.#renderers.has(surface) && !this.#lost.has(surface)) {
+      if (!this.#create(surface)) this.#lost.add(surface)
+    }
+    this.full = true
+    this.positionsVersion = -1
+    this.cost.reset()
+    this.#themeWatch?.check()
+    this.adoptLimits()
+    this.refreshTheme()
+    this.#watchRatio()
+  }
+
+  attach(surface: HostSurface, create: (invalidate: () => void) => Renderer): void {
+    this.#renderers.get(surface)?.destroy()
+    this.#renderers.set(
+      surface,
+      create(() => this.#source.request()),
+    )
+    if (surface !== this.#source.surface()) return
     this.full = true
     this.adoptLimits()
     this.refreshTheme()
   }
 
-  detach(): void {
-    this.renderer?.destroy()
-    this.renderer = null
-    this.full = true
+  detach(surface: HostSurface): void {
+    this.#renderers.get(surface)?.destroy()
+    this.#renderers.delete(surface)
+    if (surface === this.#source.surface()) this.full = true
   }
 
   unwatch(): void {
@@ -231,7 +276,7 @@ export class RenderHost {
 
   release(): void {
     this.cost.stop()
-    this.renderer?.destroy()
-    this.renderer = null
+    for (const renderer of this.#renderers.values()) renderer.destroy()
+    this.#renderers.clear()
   }
 }
