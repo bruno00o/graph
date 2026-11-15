@@ -6,10 +6,11 @@ export class FrameScheduler {
   #laterRequest: ReturnType<typeof setTimeout> | undefined
   #quiet = false
   readonly #frame: (now: number) => void
-  readonly #surface: HostSurface | null
+  #scheduledOn: HostSurface | null = null
+  readonly #surface: () => HostSurface
   readonly #destroyed: () => boolean
 
-  constructor(frame: (now: number) => void, surface: HostSurface | null, destroyed: () => boolean) {
+  constructor(frame: (now: number) => void, surface: () => HostSurface, destroyed: () => boolean) {
     this.#frame = frame
     this.#surface = surface
     this.#destroyed = destroyed
@@ -22,12 +23,11 @@ export class FrameScheduler {
   request(flush = false): void {
     if (flush) this.needsFlush = true
     if (this.#frameRequest !== 0 || this.#destroyed() || (this.#quiet && !flush)) return
-    if (!this.#surface) {
-      this.#frameRequest = requestAnimationFrame(this.#frame)
-      return
-    }
+    const surface = this.#surface()
     this.#frameRequest = -1
-    this.#surface.schedule()
+    this.#scheduledOn = surface
+    const request = surface.schedule(this.#frame)
+    if (request > 0 && this.#frameRequest === -1) this.#frameRequest = request
   }
 
   hush(run: () => void): void {
@@ -53,7 +53,7 @@ export class FrameScheduler {
   }
 
   cancelFrame(): void {
-    if (this.#frameRequest > 0) cancelAnimationFrame(this.#frameRequest)
+    if (this.#frameRequest > 0) this.#scheduledOn?.cancel(this.#frameRequest)
   }
 
   takeFrame(): void {

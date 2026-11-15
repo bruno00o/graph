@@ -10,6 +10,7 @@ import {
   type HostDriver,
   type HostSurface,
   type MountGraphOptions,
+  type SurfaceCapabilities,
 } from '../host/mount-graph'
 import type { GraphDefinition, Mark, View } from '../types'
 import { createSharedRenderer, createWebglRenderer } from '../webgl/renderer'
@@ -17,6 +18,21 @@ import { bindMap, unbindMap } from './binding'
 
 export type { ExportLabels } from '../export'
 export { exportMapPng, type MapPngOptions } from './export'
+
+const mapCapabilities: SurfaceCapabilities = Object.freeze({
+  name: 'map',
+  ownCanvas: false,
+  ownCamera: false,
+  viewGestures: false,
+  layouts: false,
+  lens: false,
+  minimap: false,
+  onMap: true,
+  screenPadding: true,
+  groupFillOpacity: 0.5,
+})
+const elementStyle =
+  'position:absolute;inset:0;overflow:hidden;outline:none;outline-offset:-2px;pointer-events:none'
 
 interface Turned {
   readonly rotate: boolean
@@ -91,7 +107,7 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   options: MapGraphOptions<S, M>,
 ): GraphInstance<S, M> {
   const { id = 'graph', beforeId, ...rest } = options
-  if (rest.signal?.aborted) return stillborn(rest, rest.signal, true)
+  if (rest.signal?.aborted) return stillborn(rest, rest.signal, mapCapabilities)
   const canvas = map.getCanvas()
   let driver: HostDriver | null = null
   let destroyed = false
@@ -251,8 +267,17 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   }
 
   const surface: HostSurface = {
+    ...mapCapabilities,
     events: canvas,
-    schedule: () => map.triggerRepaint(),
+    place: (element) => {
+      element.style.cssText = elementStyle
+      map.getCanvasContainer().after(element)
+    },
+    schedule: () => {
+      map.triggerRepaint()
+      return -1
+    },
+    cancel: () => {},
     claim: (active) => {
       if (active) {
         claimed.dragPan = map.dragPan.isEnabled()
@@ -307,7 +332,6 @@ export function mountMapGraph<S extends string = string, M extends Mark = Mark>(
     createWebglRenderer,
     surface,
   )
-  map.getCanvasContainer().after(graph.element)
   bindMap(graph, map)
   graph.element.addEventListener('keydown', keepKeys)
   map.on('style.load', onStyleLoad)

@@ -29,6 +29,7 @@ import { createWebglRenderer } from '../webgl/renderer'
 import { BridgeHost } from './bridges'
 import { BundleHost } from './bundles'
 import { HostCamera } from './camera'
+import { canvasSurface } from './canvas-surface'
 import { ContainerBoxes } from './containers'
 import { DataReads, forEachEdgeKey } from './data-reads'
 import { DataStatus, loadedData } from './data-status'
@@ -120,13 +121,13 @@ export type {
   PositionResetOptions,
   PositionSnapshotOptions,
   RendererFactory,
+  SurfaceCapabilities,
   ViewOptions,
 } from './graph-instance'
 
 const idleLayout = Object.freeze({ running: false, progress: 0 })
 const idleBundling = Object.freeze({ running: false })
 const rebaseDistance = 2 ** 20
-const mapGroupFillOpacity = 0.5
 const visuallyHidden =
   'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap'
 
@@ -134,10 +135,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   container: HTMLElement,
   options: MountGraphOptions<S, M>,
   createRenderer: RendererFactory,
-  surface: HostSurface | null = null,
+  surface: HostSurface = canvasSurface(),
 ): GraphInstance<S, M> {
   let given: GraphDefinition = options.definition
-  let definition: GraphDefinition = surface ? surface.adapt(given) : given
+  let definition: GraphDefinition = surface.adapt(given)
   const controlled = options.selection !== undefined
   const viewControlled = options.view !== undefined
   const foldControlled = options.folded !== undefined
@@ -170,20 +171,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   element.setAttribute('data-graph', '')
   element.setAttribute('role', 'img')
   element.setAttribute('aria-label', options.ariaLabel)
-  element.style.cssText = surface
-    ? 'position:absolute;inset:0;overflow:hidden;outline:none;outline-offset:-2px;pointer-events:none'
-    : 'position:relative;width:100%;height:100%;overflow:hidden;outline:none;outline-offset:-2px'
-  const canvas = surface?.events ?? document.createElement('canvas')
+  surface.place(element, container)
   const announcer = document.createElement('div')
   announcer.setAttribute('aria-live', 'polite')
   announcer.style.cssText = visuallyHidden
-  if (surface) element.append(announcer)
-  else {
-    canvas.style.cssText =
-      'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none'
-    element.append(canvas, announcer)
-  }
-  container.append(element)
+  element.append(announcer)
 
   let destroyed = false
   let flushing = false
@@ -194,14 +186,18 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const watchers = new Set<GraphWatcher>()
   const lifetime = new AbortController()
   let endReason: unknown = null
-  const scheduler = new FrameScheduler(frame, surface, () => destroyed)
+  const scheduler = new FrameScheduler(
+    frame,
+    () => surface,
+    () => destroyed,
+  )
   const waiters = new FrameWaiters(() => scheduler.due || !render.renderer || render.contextLost)
 
   const model = createGraphModel({ schedule: () => request(true) })
   const textWidths = createTextWidths(defaultFont)
   const scene = createScene(
     textWidths.width,
-    surface ? { groupFillOpacity: mapGroupFillOpacity } : {},
+    surface.groupFillOpacity === null ? {} : { groupFillOpacity: surface.groupFillOpacity },
   )
   const positions = new Positions()
   let restore: RestoredPositions | null = null
@@ -261,8 +257,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   )
   const themeResolver = new ThemeResolver(element)
   const render = new RenderHost({
-    canvas,
-    surface,
+    surface: () => surface,
     createRenderer,
     scene,
     themeResolver,
@@ -379,7 +374,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   render.adoptLimits()
   const decorations = createDecorations({
     element,
-    canvas,
+    canvas: () => surface.events,
     model,
     scene,
     positions,
@@ -404,9 +399,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     frameCost: () => render.cost.value,
     deliver: (sent) =>
       scheduler.hush(() =>
-        surface
-          ? surface.move(sent.view)
-          : onViewChange?.({ view: sent.view, origin: originOf(sent.cause) }),
+        surface.ownCamera
+          ? onViewChange?.({ view: sent.view, origin: originOf(sent.cause) })
+          : surface.move(sent.view),
       ),
     published: () => pointer.redrawLasso(),
     measure: (keys) =>
@@ -444,7 +439,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     frameCost: () => render.cost.value,
   })
   const layouts = new LayoutHost({
-    onMap: surface !== null,
+    surface: () => surface,
     scene,
     model,
     positions,
@@ -549,7 +544,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   })
   const lens = new LensControl({
     element,
-    onMap: surface !== null,
+    surface: () => surface,
     emitter,
     definition: () => definition,
     viewport: () => views.viewport(),
@@ -559,9 +554,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     focusAt: () => focus.lensPoint(),
   })
   const pointer = new PointerInput({
-    canvas,
     element,
-    surface,
+    surface: () => surface,
     model,
     scene,
     hierarchy,
@@ -695,7 +689,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       positions,
       sceneVersion,
       store.get().view.zoom,
-      surface !== null,
+      surface.screenPadding,
     )
     scene.nodes.containerBoxes = containerBoxes.boxes
   }
@@ -948,27 +942,17 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     paths: bundles.paths,
   })
 
-  const listeners: ReadonlyArray<
-    readonly [string, (event: never) => void, AddEventListenerOptions?]
-  > = [
-    ['pointerdown', pointer.onPointerDown],
-    ['pointermove', pointer.onPointerMove],
-    ['pointerup', pointer.onPointerUp],
-    ['pointercancel', pointer.onPointerCancel],
-    ['pointerleave', pointer.onPointerLeave],
-    ['dblclick', pointer.onDoubleClick],
-    ['contextmenu', pointer.onContextMenu],
-    ['wheel', pointer.onWheel, { passive: false }],
-    ...(surface
-      ? []
-      : ([
-          ['webglcontextlost', render.onContextLost],
-          ['webglcontextrestored', render.onContextRestored],
-        ] as const)),
-  ]
-  for (const [name, listener, listenerOptions] of listeners) {
-    canvas.addEventListener(name, listener as EventListener, listenerOptions)
+  function listenSurface(): void {
+    pointer.listen(surface.events)
+    render.listen(surface)
   }
+
+  function unlistenSurface(): void {
+    pointer.unlisten()
+    render.unlisten()
+  }
+
+  listenSurface()
   const elementListeners: ReadonlyArray<readonly [string, (event: never) => void]> = [
     ['keydown', keyboard.onKeyDown],
     ['focus', focus.onFocus],
@@ -985,7 +969,6 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   for (const [name, listener] of windowListeners) {
     window.addEventListener(name, listener as EventListener)
   }
-  pointer.watchPinch()
   focus.applyKeyboard()
 
   model.setMarks(definition.marks)
@@ -1081,7 +1064,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       }
       motion.move(indices, to, positionOptions.duration ?? 0)
       if (moved.size > 0) {
-        emitter.emit('positionchange', positionEvent('api', moved, surface !== null))
+        emitter.emit('positionchange', positionEvent('api', moved, surface.onMap))
       }
     },
     reset: (keys, resetOptions = {}) => {
@@ -1123,7 +1106,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       motion.move(indices, to, resetOptions.duration ?? definition.transitions.positions)
       spread.settle(performance.now())
       if (moved.size > 0) {
-        emitter.emit('positionchange', positionEvent('api', moved, surface !== null))
+        emitter.emit('positionchange', positionEvent('api', moved, surface.onMap))
       }
     },
     snapshot: (snapshotOptions = {}) => {
@@ -1210,7 +1193,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     get destroyed() {
       return destroyed
     },
-    drawsOnMap: surface !== null,
+    get drawsOnMap() {
+      return surface.onMap
+    },
     lens: {
       get: () => lens.shown,
       set: (input) => lens.set(input),
@@ -1276,7 +1261,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     drawn: () => waiters.wait(),
     loaded: () => data.loaded(),
     update(next) {
-      if (viewControlled && next.view !== undefined && !surface) checkView(next.view)
+      if (viewControlled && next.view !== undefined && surface.ownCamera) checkView(next.view)
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
       if (next.onSelectionChange !== undefined) selection.listen(next.onSelectionChange)
       if (controlled && next.selection !== undefined) {
@@ -1288,8 +1273,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         check(next.folded, 'update({ folded })')
         folds.answer(next.folded)
       }
-      if (next.onViewChange !== undefined && !surface) onViewChange = isolated(next.onViewChange)
-      if (viewControlled && next.view !== undefined && !surface) views.apply(next.view)
+      if (next.onViewChange !== undefined && surface.ownCamera) {
+        onViewChange = isolated(next.onViewChange)
+      }
+      if (viewControlled && next.view !== undefined && surface.ownCamera) views.apply(next.view)
       if (next.onTimeChange !== undefined) timeWindow.listen(next.onTimeChange)
       if (timeControlled && next.time !== undefined) {
         timeWindow.apply(readWindow(next.time))
@@ -1304,7 +1291,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       if (next.definition && next.definition !== given) {
         const previous = definition.layout
         given = next.definition
-        definition = surface ? surface.adapt(given) : given
+        definition = surface.adapt(given)
         layouts.replaced(previous)
         model.setMarks(definition.marks)
         projection.setMarks(definition.marks)
@@ -1345,10 +1332,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       flows.destroy()
       bundles.destroy()
       bridges.destroy()
-      pointer.stopPinch()
-      for (const [name, listener] of listeners) {
-        canvas.removeEventListener(name, listener as EventListener)
-      }
+      unlistenSurface()
       for (const [name, listener] of elementListeners) {
         element.removeEventListener(name, listener as EventListener)
       }
@@ -1364,7 +1348,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       for (const watcher of [...watchers]) watcher.destroy()
       watchers.clear()
       element.remove()
-      surface?.release()
+      surface.release()
       waiters.reject(endReason)
       data.destroy(endReason)
       lifetime.abort(endReason)
@@ -1401,7 +1385,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   })
 
   exposeGraph(guarded, {
-    onMap: surface !== null,
+    surface: () => surface,
     element,
     scene,
     positions,
@@ -1447,7 +1431,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
   })
 
-  surface?.bind({
+  surface.bind({
     frame,
     follow: (next, ratio, width, height, globe = null) => {
       render.pixelRatio = ratio

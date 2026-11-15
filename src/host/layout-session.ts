@@ -15,6 +15,7 @@ import type {
   LayoutComputeOptions,
   LayoutOthers,
   LayoutRunOptions,
+  SurfaceCapabilities,
 } from './graph-instance'
 import { checkDuration, checkFit } from './inputs'
 import { layoutGraph } from './layout-graph'
@@ -54,7 +55,7 @@ export interface LayoutSession extends LayoutSettings {
 }
 
 export interface LayoutSource {
-  readonly onMap: boolean
+  surface(): SurfaceCapabilities
   readonly scene: Scene
   readonly model: GraphModel
   readonly positions: Positions
@@ -314,7 +315,7 @@ export class LayoutHost {
         moved.set(key, { x: positions.x(index), y: positions.y(index) })
       }
       if (moved.size > 0)
-        emitter.emit('positionchange', positionEvent('layout', moved, this.#source.onMap))
+        emitter.emit('positionchange', positionEvent('layout', moved, this.#source.surface().onMap))
     }
     if (completed) {
       views.frameLayout()
@@ -459,7 +460,8 @@ export class LayoutHost {
   #compute(layout: Layout | undefined, options: LayoutComputeOptions): Promise<Map<Key, Point>> {
     const signal = options.signal
     if (signal?.aborted) return Promise.reject(signal.reason)
-    if (this.#source.onMap) return Promise.reject(new Error('graph: layouts do not run on a map'))
+    if (!this.#source.surface().layouts)
+      return Promise.reject(new Error('graph: layouts do not run on a map'))
     const chosen = layout ?? this.#source.definition().layout
     if (!chosen) return Promise.reject(new Error('graph: no layout to compute'))
     let alone: boolean
@@ -509,7 +511,7 @@ export class LayoutHost {
     return {
       compute: (layout, computeOptions = {}) => this.#compute(layout, computeOptions),
       run: (layout, runOptions = {}) => {
-        if (this.#source.onMap)
+        if (!this.#source.surface().layouts)
           return Promise.reject(new Error('graph: layouts do not run on a map'))
         const definition = this.#source.definition()
         const chosen = layout ?? definition.layout

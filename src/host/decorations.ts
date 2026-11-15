@@ -20,7 +20,7 @@ const noKeys: readonly Key[] = []
 
 export interface DecorationContext {
   readonly element: HTMLElement
-  readonly canvas: HTMLCanvasElement
+  readonly canvas: () => HTMLCanvasElement
   readonly model: GraphModel
   readonly scene: Scene
   readonly positions: Positions

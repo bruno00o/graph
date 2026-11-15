@@ -364,7 +364,7 @@ export function createMinimap<S extends string, M extends Mark>(
   options: MinimapOptions = {},
 ): Minimap {
   const internals = internalsOf(graph, 'createMinimap')
-  if (internals.onMap) return offMap(graph, internals)
+  if (!internals.surface().minimap) return offMap(graph, internals)
   let given = options
   let settings = settle(given)
   const element = document.createElement('div')
