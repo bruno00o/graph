@@ -134,7 +134,7 @@ const measured = nodes(items, {
 })
 ```
 
-`color` takes no literal: one color for every node, or a color per item that must stay out of the scale, is the style `fill`. `fill` wins over `color`.
+`color` takes no literal: one color for every node, or a color per item that must stay out of the scale, is the style `fill`. `fill` wins over `color`. Colors from `fill`, `stroke`, `raw()` or states go through no scale, so the legend has no category for them: declare legend `entries` with the same values (tools skill).
 
 ### Scales of one mark
 
@@ -411,7 +411,7 @@ Without `@bruno00o/graph/theme.css` every variable falls back to its light value
 
 ### MEDIUM Large nodes covering small ones at one place
 
-Nodes at the same place draw in the order they arrived, so a large one that arrived last covers a small one, and a click picks the node on top. Give the mark an `order` that puts the large ones first (lower values draw first): `order: (place) => -place.count`. Sorting the data array is no substitute: a node already in the graph keeps its place.
+Nodes at the same place draw in the order they arrived, so a large one that arrived last covers a small one, and a click picks the node on top. Give the mark an `order` that puts the large ones first (lower values draw first): `order: (place) => -place.count`. Sorting the data array is no substitute: a node already in the graph keeps its place. Nodes at the very same point can also move apart on screen with `spread: true` in `defineGraph` (map skill).
 
 ```ts
 import { nodes } from '@bruno00o/graph'
@@ -420,6 +420,26 @@ type Place = { id: string; count: number }
 const places: Place[] = []
 
 const mark = nodes(places, { size: 'count', order: (place) => -place.count })
+```
+
+### MEDIUM A legend that cannot explain colors set by rules
+
+A graph colored by `fill` functions or by states shows those colors with no legend category: the legend reads the scales, not the styles. Keep the rule in one function, use it in the style, and give it to a legend entry with the same color (tools skill, `references/legend-entries.md`).
+
+```ts
+import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
+import { createLegend } from '@bruno00o/graph/legend'
+
+type Item = { id: string; weight: number }
+declare const items: Item[]
+const heavy = (item: Item) => item.weight >= 40
+const fill = (item: Item) => (heavy(item) ? 'var(--graph-cat-1)' : 'var(--graph-node)')
+
+const definition = defineGraph({ marks: [nodes(items, { fill })] })
+const graph = mountGraph(document.body, { definition, ariaLabel: 'Sample graph' })
+const swatch = { kind: 'nodes', fill: 'var(--graph-cat-1)' } as const
+const entries = [{ id: 'heavy', label: 'Heavy', swatch, nodes: heavy }]
+createLegend(graph, { entries: [{ title: 'Weight', entries }] })
 ```
 
 ### MEDIUM One image per node

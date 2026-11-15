@@ -162,7 +162,12 @@ A browser keeps 16 WebGL contexts per page in Chrome and Safari. With more graph
 
 ```tsx
 <section ref={setCard}>
-  <Graph definition={definition} ariaLabel="Sample graph" suspended={!inSight} />
+  <Graph
+    definition={definition}
+    ariaLabel="Sample graph"
+    style={{ height: 320 }}
+    suspended={!inSight}
+  />
 </section>
 ```
 

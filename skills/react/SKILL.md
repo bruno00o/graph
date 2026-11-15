@@ -6,9 +6,10 @@ description: >
   restyling on every render, drawing HTML overlays and tooltips over it, reading
   the hovered node, the selection or the view in components, handling clicks,
   driving the graph from a toolbar or side panel elsewhere in the page,
-  controlling the selection or the view from React state, and mounting under
-  StrictMode, and moving the graph onto a MapLibre map and back with a surface.
-  A graph that lives only inside a MapLibre map uses <MapGraph>.
+  controlling the selection or the view from React state, mounting under
+  StrictMode, moving the graph onto a MapLibre map and back with a surface, and
+  suspending the graphs out of sight on a page of many graphs. A graph that
+  lives only inside a MapLibre map uses <MapGraph>.
 metadata:
   purpose: >
     The React binding of @bruno00o/graph: the <Graph> component and its props,
@@ -82,6 +83,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, marks, sta
 - Build the definition outside the component, or in `useMemo` keyed on the data arrays.
 - Hoist functions used in mark options (`label: (item) => ...`) out of the component. Options are compared by content, functions by identity: a function created in render restyles every item of its mark on every render.
 - Make a `historyFrom(...)` journal once (module level, or `useMemo` keyed on its entries) and give the same object to each definition: one built in render is a new history, indexed again with every element read again (time skill).
+- Hoist the `entries` given to `<Legend>` or `useLegend` too: a rule function made in render reads every element again (tools skill).
 - Replace data arrays and changed items with new objects, as in the core skill. `setItems((items) => [...items, item])` is right; `items.push(item)` is not.
 
 ### Handle events with props
@@ -308,6 +310,39 @@ Folded groups (`folded`, `onFoldChange`), hidden layers (`hiddenLayers`, `onLaye
 
 `<Graph surface>` takes a surface from `useMapSurface(map)` (`@bruno00o/graph/map/react`), or `null` for its own canvas. A new `surface` and a new `definition` apply in one `update`, so give the definition of the side you move to in the same render; the instance, its children, the hooks and the companions stay mounted and keep their state, and the graph keeps its positions and view on each side. The map element is a child of `<Graph>`, hidden with `opacity` (never `display: none`) while the graph is on its canvas. Read the side with `useGraphState((state) => state.surface)` or `onSurfaceChange`. A map removed or a surface released sends the graph back to its canvas, and it stays there until the prop changes. Full recipe: map skill, `references/surfaces.md`.
 
+### Many graphs on a page
+
+Chrome and Safari keep at most 16 WebGL contexts per page, one per graph. Give `suspended` to the graphs out of sight: each one frees its context, keeps its instance, children, overlays and state, shows a copy of its last frame, and draws again once the prop turns `false` (60 to 120 ms at 100,000 nodes, against 300 to 450 ms for a first mount). Given `true` at the mount, a graph creates no context until then. `onSuspendChange` and `useGraphState((state) => state.suspended)` read it; `keepFrame={false}` keeps no copy (the box stays empty until the graph resumes). `<MapGraph>` has neither prop.
+
+```tsx
+import type { GraphDefinition } from '@bruno00o/graph'
+import { Graph } from '@bruno00o/graph/react'
+import { useEffect, useState } from 'react'
+
+export function Card({ definition }: { definition: GraphDefinition }) {
+  const [card, setCard] = useState<HTMLElement | null>(null)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    if (!card) return
+    const observer = new IntersectionObserver(([entry]) => setShown(entry?.isIntersecting ?? false))
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [card])
+  return (
+    <section ref={setCard} style={{ height: 320 }}>
+      <Graph
+        definition={definition}
+        ariaLabel="Card graph"
+        style={{ height: '100%' }}
+        suspended={!shown}
+      />
+    </section>
+  )
+}
+```
+
+A graph whose context the browser took (more than 16 on the page) stays empty and gets it back only from `resume()`: call it through the `ref` when the graph comes into sight, or let the prop turn `false` (core skill, `references/rendering.md`).
+
 ### StrictMode and lifetime
 
 `<Graph>` mounts the graph once, in a layout effect, and destroys it on unmount. StrictMode mounts, destroys and mounts again: one instance remains, and the `ref` receives the live one. Do not call `mountGraph` in a component; if you must, do it in `useEffect` and call `destroy()` in its cleanup.
@@ -412,6 +447,10 @@ export function Restored({ saved }: { saved: Map<Key, Point> }) {
 
 `<MapGraph>` mounts its own graph, and another `map`, `id` or `beforeId` mounts a new one. Rendering `<Graph>` on one side and `<MapGraph>` on the other destroys the graph at each switch: selection, positions, view, folded groups and companion state are lost. To move one graph, keep `<Graph>` and change its `surface` and `definition` together.
 
+### MEDIUM Unmounting the graphs out of sight
+
+Rendering `{shown && <Graph ... />}` to stay under the context limit destroys the graph each time it leaves the screen: view, selection, positions and child state are lost, the layout runs again and the first frame is paid again. Keep `<Graph>` mounted and pass `suspended={!shown}`.
+
 ### MEDIUM A `<Graph>` without a height
 
 `<Graph>` fills its own `div`, which takes its size from `className` or `style`: a `div` positioned by your class (`absolute inset-0`) still needs a height from its parent. Without a height it draws nothing. Development builds warn once.
@@ -426,6 +465,7 @@ The task is done when:
 - components outside `<Graph>` pass `graph` and handle the `null` first render;
 - positions restored at a remount are passed as `initialPositions`, as a `Map` or an array;
 - a graph that moves between a canvas and a map keeps one `<Graph>`, with `surface` and `definition` changing together;
+- a page of many graphs suspends those out of sight with `suspended` instead of unmounting them;
 - under StrictMode, the page shows one graph and no console error.
 
 ## References

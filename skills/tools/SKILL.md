@@ -2,7 +2,8 @@
 name: tools
 description: >
   Use when adding companions to a @bruno00o/graph graph, such as a minimap, a
-  legend that filters, a magnifying lens, HTML pinned to nodes, hulls around sets
+  legend that filters, a legend of entries declared by the application for
+  colors set by rules, a magnifying lens, HTML pinned to nodes, hulls around sets
   of nodes with a label that names them, a background grid, or the TanStack
   Devtools panel.
 metadata:
@@ -16,6 +17,7 @@ sources:
   - src/minimap/index.ts
   - src/legend/index.ts
   - src/legend/view.ts
+  - src/legend/entries.ts
   - src/host/lens.ts
   - src/host/anchors.ts
   - src/hulls.ts
@@ -48,7 +50,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): the graph, its d
 | Background grid | Main entry | `background` in the definition |
 | Devtools | `@bruno00o/graph/devtools` and `/devtools/react` | `graphDevtoolsPlugin()` |
 
-Not on a map: a graph on a map keeps legends, anchors, hulls and devtools, but has no minimap (the map has its own navigation), no lens and no background grid (the map draws the background). A graph that only lives on a map (`mountMapGraph`, `<MapGraph>`) gets an empty minimap that warns in development, and `graph.lens.set` shows nothing. A graph that moves between its canvas and a map (map skill) keeps its companions: the minimap empties on the map and draws again on the canvas, the lens hides and comes back, and the devtools show the surface.
+Not on a map: a graph on a map keeps legends, anchors, hulls and devtools, but has no minimap (the map has its own navigation), no lens and no background grid (the map draws the background). A graph that only lives on a map (`mountMapGraph`, `<MapGraph>`) gets an empty minimap that warns in development, and `graph.lens.set` shows nothing. A graph that moves between its canvas and a map (map skill) keeps its companions: the minimap empties on the map and draws again on the canvas, the lens hides and comes back, and the devtools show the surface. A suspended graph (core skill) keeps its minimap, legend and devtools, which show it suspended; hulls and grid wait in the copy of its last frame until it resumes, and the lens goes away.
 
 ## Setup
 
@@ -116,6 +118,7 @@ The legend is read from the scales and the marks, not written, for nodes, edges 
 - Under the pointer or the keyboard focus, an item puts its elements in the `highlight` state; a click, Enter or Space switches it off, and its elements go to the `hidden` state. Both are **free states you declare** in the definition, and name in `createLegend`.
 - `hidden` only restyles unless the state has `hide: true`: with `hide`, the elements of an off item disappear from the graph, keep their selection, and the item stays listed. Without a `hidden` state, switching off only changes `legend.store.state.off`, for you to filter the data with.
 - `legend.hover(id)`, `toggle(id, off?)`, `only(id)` (the others of its section off), `reset()` and `keys(id)` drive the same behavior from a renderer of your own. `legend.update(options)` merges like the minimap. Destroying the legend empties its two states.
+- Colors set by `fill`, `stroke`, style functions or states have no section to read. `entries` declares sections of your own: each entry has an `id`, a `label`, a `swatch` drawn like the legend's own, and rules `nodes`, `edges` or `shapes` (`(item, key) => boolean`, typed from the marks) that make it a category with the same highlight, switch and `only`, item id `a:` and its `id`. `legend.store.state.entries` holds them with their counts, and `sections` of `mountLegend` takes `'entries'`. Rules compare by identity, so hoist them. Recipe and costs: [references/legend-entries.md](references/legend-entries.md).
 
 Filter the data from the legend when no `hidden` state is given:
 
@@ -272,7 +275,7 @@ Examples: [drawing layers](https://bruno00o.github.io/graph/examples/drawing-lay
 
 ### Devtools panel
 
-`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node, edge and shape counts, the labels drawn (node, edge and shape labels), issues (shape problems included), selection, named states and layout runs, for every graph mounted on the page. The View section shows the surface the graph draws on, `messages.surface` and `messages.surfaceName` replace its texts, and the history survives a move onto a map and back. A hovered shape shows as `shape <key>`; `messages.shapes`, `messages.shapeIssue` and `messages.shapeTarget` replace its texts, and `messages.labelCounts(nodes, edges, shapes)` formats the labels drawn (the shape count shows only when above 0; a function of two arguments leaves it out). The graph measures nothing until a panel is open and visible.
+`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node, edge and shape counts, the labels drawn (node, edge and shape labels), issues (shape problems included), selection, named states and layout runs, for every graph mounted on the page. The View section shows the surface the graph draws on, whether it is active, suspended or lost its WebGL context (`GraphRendering`), whether WebGL draws on a GPU or in software (`GraphDrawing`), and the pixel ratio with its reason (`GraphPixelRatioReason`: `'device'`, `'software'`, `'definition'`, `'limit'`, `'map'`; core skill). `messages.surface`, `surfaceName`, `rendering`, `renderingName`, `drawing`, `drawingName`, `pixelRatio` and `pixelRatioName(ratio, reason)` replace their texts, and the history survives a move onto a map and back. Texture memory includes the vertex buffers of software rendering. A hovered shape shows as `shape <key>`; `messages.shapes`, `messages.shapeIssue` and `messages.shapeTarget` replace its texts, and `messages.labelCounts(nodes, edges, shapes)` formats the labels drawn (the shape count shows only when above 0; a function of two arguments leaves it out). The graph measures nothing until a panel is open and visible.
 
 ```ts
 import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools'
@@ -450,6 +453,7 @@ The task is done when:
 - each companion is created from a mounted graph, once, and destroyed with it (nothing to clean up by hand except elements you placed yourself);
 - the minimap and the lens are left out of graphs that only live on a map;
 - the states named by the legend, hulls and anchors are declared in `states`, and `hidden` has `hide: true` when it must filter;
+- colors set by rules of the app are explained by legend `entries` whose swatches use the values of the style, declared outside render;
 - hulls use the mark constants listed in `marks`, and a label function sits on a hull with `by`;
 - the graph element is not covered by anchored HTML that should let pointer events through (`interactive` only for buttons and menus);
 - `tsc` accepts the code with no cast.

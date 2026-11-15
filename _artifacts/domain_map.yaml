@@ -50,6 +50,9 @@ skills:
       - keys and pending edges
       - data updates by identity
       - positions.reset, layout.compute and drawsOnMap
+      - suspend, resume, suspended and keepFrame
+      - pixelRatio and software rendering
+      - spread and the placement of nodes without coordinates
     tasks:
       - Draw a graph from an array of items and an array of links without a framework
       - Key nodes and edges that have no id field
@@ -61,6 +64,8 @@ skills:
       - Show a loading overlay while live data loads and lay the graph out once on the complete data
       - Find why a graph stays blank, misses edges or does not update
       - Destroy a graph when its page goes away
+      - Keep many graphs on one page under the WebGL context limit
+      - Draw sharper or cheaper with the pixel ratio, also when WebGL runs in software
     failure_modes:
       - mistake: Changing the data array or items in place
         mechanism: The same mark object is not read twice and an item that is the same object counts as unchanged, so push or field assignment changes nothing on screen.
@@ -153,6 +158,43 @@ skills:
         source: docs/content/docs/(guide)/data.mdx, docs/content/docs/api/graph-instance.mdx
         priority: MEDIUM
         status: active
+      - mistake: Destroying and mounting graphs again to save contexts
+        mechanism: A page keeps at most 16 WebGL contexts, and a graph destroyed and mounted again loses its view, selection and positions, runs its layout again and pays the first frame again, where resume draws in 60 to 120 ms at 100,000 nodes.
+        wrong_pattern: |
+          observer: entry.isIntersecting ? mountGraph(card, options) : graph.destroy()
+        correct_pattern: |
+          observer: entry.isIntersecting ? graph.resume() : graph.suspend()
+        source: docs/content/docs/api/graph-instance.mdx, docs/content/docs/(guide)/browser-support.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Passing suspended to update
+        mechanism: suspended is read at the mount only and GraphUpdateOptions does not take it, so the call does not compile (TS2353).
+        wrong_pattern: |
+          graph.update({ suspended: true })
+        correct_pattern: |
+          graph.suspend()
+          graph.resume()
+        source: src/host/graph-instance.ts, docs/content/docs/api/mount-graph.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Waiting for a lost context to come back by itself
+        mechanism: Chrome and Safari never give back a context taken because the page holds more than 16, and the graph does not restore one by itself since that would take the context of another graph in a loop.
+        wrong_pattern: |
+          An empty graph left as it is after scrolling through many graphs
+        correct_pattern: |
+          Suspend the graphs out of sight, then graph.resume() on the graph that comes into sight
+        source: src/host/render-host.ts, docs/content/docs/(guide)/browser-support.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A blurry graph when WebGL runs in software
+        mechanism: With pixelRatio 'auto', the default, a graph drawn in software takes one canvas pixel per CSS pixel, so it looks soft on a screen of ratio 2.
+        wrong_pattern: |
+          defineGraph({ marks })
+        correct_pattern: |
+          defineGraph({ marks, pixelRatio: 'device' })
+        source: docs/content/docs/api/define-graph.mdx, docs/content/docs/(guide)/browser-support.mdx
+        priority: MEDIUM
+        status: active
   - name: react
     slug: react
     domain: graph-setup
@@ -169,6 +211,7 @@ skills:
       - onLoadingChange and data in the state
       - StrictMode
       - initialPositions and initialFolded as props
+      - suspended, keepFrame and onSuspendChange props
     tasks:
       - Render a graph from props or state without restyling on every render
       - Show a tooltip or overlay over the hovered node
@@ -177,6 +220,7 @@ skills:
       - Drive the graph from a toolbar or panel outside Graph
       - Control the selection or the view from React state
       - Mount the graph under StrictMode
+      - Suspend the graphs out of sight on a page of many graphs
     failure_modes:
       - mistake: Definition or option functions created in render
         mechanism: A new function restyles every item of its mark on each render and an unmemoized definition reads the whole data again.
@@ -248,6 +292,15 @@ skills:
         correct_pattern: |
           <Graph definition={there ? onMapDefinition : plain} surface={there ? surface : null} />
         source: docs/content/docs/(guide)/react.mdx, src/react/graph.tsx
+        priority: MEDIUM
+        status: active
+      - mistake: Unmounting the graphs out of sight
+        mechanism: A Graph rendered only while in sight is destroyed each time it leaves the screen, losing view, selection, positions and child state, and pays its layout and first frame again.
+        wrong_pattern: |
+          {shown && <Graph definition={definition} ariaLabel="Card" />}
+        correct_pattern: |
+          <Graph definition={definition} ariaLabel="Card" suspended={!shown} />
+        source: docs/content/docs/api/graph-component.mdx, src/react/graph.tsx
         priority: MEDIUM
         status: active
   - name: layouts
@@ -504,6 +557,7 @@ skills:
       - aggregate.id
       - container drag, label and badges
       - initialFolded as a function
+      - spread of the definition left to nodes outside groups
     tasks:
       - Nest nodes in groups with a parent field
       - Group items by a field with groups()
@@ -935,6 +989,8 @@ skills:
       - mapSurface and surface
       - useMapSurface
       - surfacechange
+      - spread of the definition on a map
+      - placement of nodes without coordinates near placed ones
     tasks:
       - Draw a graph on a MapLibre map
       - Place nodes by longitude and latitude
@@ -946,6 +1002,7 @@ skills:
       - Make the map worker load with a bundler
       - Draw areas and zones on the map
       - Move one graph between its own canvas and a map, in vanilla and in React
+      - Spread nodes that share a place on a map
     failure_modes:
       - mistake: Expecting a layout to place nodes on a map
         mechanism: The map layer ignores layout, background, bundling, routing and bridges, and layout.run rejects, so nodes need coordinates.
@@ -1059,6 +1116,24 @@ skills:
         source: src/map/index.ts, docs/content/docs/api/map.mdx
         priority: MEDIUM
         status: active
+      - mistake: Expecting spread to move nodes that only overlap
+        mechanism: spread moves apart nodes at the very same coordinates only, so places a few meters apart overlap at low zooms and stay put.
+        wrong_pattern: |
+          defineGraph({ marks: [nodes(places, { longitude: 'lng', latitude: 'lat' })], spread: true }) for nearby places
+        correct_pattern: |
+          groups(places, { by: (place) => place.city }) whose children spread when it unfolds, or the geo layout on the canvas
+        source: docs/content/docs/(guide)/positions.mdx, src/core/spread.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting a node without coordinates to follow the zoom
+        mechanism: A node without coordinates starts on a ring sized in pixels at the zoom of its arrival, then keeps that place in world units, so it drifts away when zooming in and covers its neighbor when zooming out.
+        wrong_pattern: |
+          nodes(places, { longitude: (place) => place.lng, latitude: (place) => place.lat }) with places lacking lng and lat
+        correct_pattern: |
+          Approximate coordinates for every node, or a group with its neighbor
+        source: docs/content/docs/(guide)/map.mdx, src/host/placement.ts
+        priority: MEDIUM
+        status: active
   - name: time
     slug: time
     domain: geography-and-time
@@ -1080,6 +1155,8 @@ skills:
       - historyFrom and the history option (values that change over time)
       - graph.history.of and graph.history.instant
       - scales over the whole journal
+      - several periods in the time channel
+      - presence entries in a journal (present)
     tasks:
       - Give nodes and edges a time or a period
       - Show only what exists in a time window
@@ -1089,6 +1166,8 @@ skills:
       - Draw a timeline of your own from its store
       - Count the events of the application on the bar and step through them
       - Show the values of each moment from a journal of changes
+      - Show elements that come and go over several periods
+      - Turn a journal of openings and closings into periods of presence
     failure_modes:
       - mistake: Giving times as strings
         mechanism: A string is not a time, so the element has no time and always shows, with nothing reported.
@@ -1230,6 +1309,33 @@ skills:
         source: docs/content/docs/(guide)/time.mdx, src/history/track.ts
         priority: MEDIUM
         status: active
+      - mistake: An empty list where no time was meant
+        mechanism: An empty list in the time channel means the element never exists, so an item without periods is hidden in every window, with nothing reported.
+        wrong_pattern: |
+          time: (item) => item.stays.map(toPeriod)
+        correct_pattern: |
+          time: (item) => (item.stays.length > 0 ? item.stays.map(toPeriod) : null)
+        source: src/core/time-range.ts, docs/content/docs/(guide)/time.mdx
+        priority: HIGH
+        status: active
+      - mistake: One period from the first start to the last end
+        mechanism: A single envelope period shows an element that comes and goes in every gap between its stays, and the histogram counts it there.
+        wrong_pattern: |
+          time: (item) => ({ start: item.stays[0].from, end: item.stays.at(-1).to })
+        correct_pattern: |
+          time: (item) => item.stays.map((stay) => ({ start: stay.from, end: stay.to }))
+        source: docs/content/docs/(guide)/time.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A journal of presences without the present option
+        mechanism: The default reading expects values in every entry, and the forms of historyFrom for presences only require present to be named, so the call does not compile (TS2769) even when the field is called present.
+        wrong_pattern: |
+          historyFrom(seen)
+        correct_pattern: |
+          historyFrom(seen, { present: 'present' })
+        source: src/history/index.ts, docs/content/docs/api/history.mdx
+        priority: MEDIUM
+        status: active
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations
@@ -1244,6 +1350,7 @@ skills:
       - "pendingState"
       - "loading status and data.failed"
       - "pointers to persistShapes and showPresence"
+      - historyFrom over a collection with present
     tasks:
       - "Draw a collection or a live query as it changes"
       - "Filter a large collection with subset"
@@ -1479,6 +1586,7 @@ skills:
       - "FormatError"
       - "issues"
       - "schema"
+      - GEXF spells as a list of periods
     tasks:
       - "Read a graph file into nodes and edges"
       - "Map positions, colors, sizes, parents and time of a file onto marks"
@@ -1532,6 +1640,15 @@ skills:
       - mistake: "Expecting writeCsv to return a string"
         mechanism: "writeCsv returns { nodes, edges }, two texts, and writers throw TypeError for a node without key."
         source: "docs/content/docs/api/formats.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: Reading only time from elements of several spells
+        mechanism: A GEXF element of several spells has time from the start of its first spell to the end of its last, so time alone shows it in the gaps between them.
+        wrong_pattern: |
+          nodes(file.nodes, { time: 'time' })
+        correct_pattern: |
+          nodes(file.nodes, { time: (node) => node.spells ?? node.time })
+        source: docs/content/docs/(guide)/file-formats.mdx, src/formats/types.ts
         priority: MEDIUM
         status: active
   - name: paths
@@ -1612,6 +1729,7 @@ skills:
       - outlines
       - theme tokens
       - color scale shared with shapes, category order across kinds
+      - legend entries for colors set by fill or states
     tasks:
       - Map data values to colors, sizes and widths with scales
       - Style node labels
@@ -1724,6 +1842,16 @@ skills:
         source: docs/content/docs/(guide)/marks.mdx, src/types.ts
         priority: MEDIUM
         status: active
+      - mistake: A legend that cannot explain colors set by rules
+        mechanism: The legend reads the scales, not the styles, so colors from fill, stroke, raw() or states have no category.
+        wrong_pattern: |
+          nodes(items, { fill: (item) => (item.weight >= 40 ? 'var(--graph-cat-1)' : 'var(--graph-node)') }) with createLegend(graph)
+        correct_pattern: |
+          const heavy = (item) => item.weight >= 40
+          createLegend(graph, { entries: [{ entries: [{ id: 'heavy', label: 'Heavy', swatch, nodes: heavy }] }] })
+        source: docs/content/docs/(guide)/minimap-and-legend.mdx
+        priority: MEDIUM
+        status: active
   - name: tools
     slug: tools
     domain: tools-and-output
@@ -1740,6 +1868,8 @@ skills:
       - background
       - devtools
       - shapes in the legend and the minimap
+      - legend entries declared by the application
+      - devtools Rendering, Drawing and Pixel ratio lines
     tasks:
       - Add a minimap
       - Add a legend that highlights and filters
@@ -1747,6 +1877,7 @@ skills:
       - Pin HTML to nodes and edges
       - Draw hulls around sets of nodes and a background grid
       - Inspect graphs in the TanStack Devtools panel
+      - Explain colors set by rules of the application with legend entries
     failure_modes:
       - mistake: A minimap or a lens on a map
         mechanism: "The map owns the camera: while the graph is on a map the minimap is empty and graph.lens.set shows nothing; both come back when the graph moves back to its canvas."
@@ -1863,6 +1994,34 @@ skills:
         source: docs/content/docs/api/hull.mdx, src/hulls.ts
         priority: MEDIUM
         status: active
+      - mistake: Rules of legend entries made in render
+        mechanism: Legend entries compare their rules by identity, so new functions at every render make the legend read every element again.
+        wrong_pattern: |
+          useLegend({ entries: [{ title: 'Weight', entries: [{ id: 'heavy', label: 'Heavy', swatch, nodes: (item) => item.weight >= 40 }] }] })
+        correct_pattern: |
+          const entries = [{ title: 'Weight', entries: [{ id: 'heavy', label: 'Heavy', swatch, nodes: heavy }] }]
+          useLegend({ entries })
+        source: src/legend/entries.ts, docs/content/docs/(guide)/minimap-and-legend.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A swatch that does not match the graph
+        mechanism: The swatch is drawn from its own values, not read from the marks, and a node swatch takes fill where an edge swatch takes color, so color on a node swatch does not compile (TS2353).
+        wrong_pattern: |
+          swatch: { kind: 'nodes', color: 'var(--graph-cat-1)' }
+        correct_pattern: |
+          swatch: { kind: 'nodes', fill: 'var(--graph-cat-1)' } with the same color in the fill of the mark
+        source: src/legend/entries.ts, docs/content/docs/api/legend.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A LegendState built by hand without entries
+        mechanism: LegendState has a required entries field since 0.30, so a state written by hand for a test or a story does not compile without it.
+        wrong_pattern: |
+          const state: LegendState = { color, size, width, marks, looks, layers, hovered: null, off: [] }
+        correct_pattern: |
+          const state: LegendState = { ...rest, entries: [] }
+        source: src/legend/index.ts
+        priority: LOW
+        status: active
   - name: export
     slug: export
     domain: tools-and-output
@@ -1875,6 +2034,7 @@ skills:
       - pixel ratio
       - labels
       - background
+      - default pixel ratio of the PNG export
     tasks:
       - Save the graph as a PNG image
       - Save the graph as an SVG document
@@ -1944,6 +2104,15 @@ skills:
         correct_pattern: |
           await exportPng(graph, { size: { width: 640 } })
         source: docs/content/docs/(guide)/export.mdx, src/export/size.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A blurry PNG from a graph drawn in software
+        mechanism: exportPng takes the pixel ratio the graph draws at by default, which is 1 when WebGL runs in software with pixelRatio 'auto'.
+        wrong_pattern: |
+          exportPng(graph, { region: 'graph' })
+        correct_pattern: |
+          exportPng(graph, { region: 'graph', pixelRatio: 2 })
+        source: docs/content/docs/api/define-graph.mdx, src/export/index.ts
         priority: MEDIUM
         status: active
   - name: shapes
@@ -2278,6 +2447,6 @@ gaps:
     context: Agents updating the package across breaking versions would need it; left out of the first plan.
     status: open
   - skill: core
-    question: Browser support, WebGL2 limits and software rendering have no skill yet.
-    context: The browser-support guide covers them; a skill is needed only if agents get them wrong.
+    question: WebGL2 limits and capacity fallbacks have no skill yet.
+    context: Since 0.30 the core skill covers the context limit, suspension, software rendering and the pixel ratio (references/rendering.md); the rest of the browser-support guide has none, needed only if agents get it wrong.
     status: open

@@ -55,32 +55,37 @@ Boundaries chosen from developer tasks, not from entry points:
 
 ## Failure mode inventory
 
-### core (9)
+### core (13)
 
-| #   | Mistake                                           | Priority | Source                                 | Cross-skill |
-| --- | ------------------------------------------------- | -------- | -------------------------------------- | ----------- |
-| 1   | Changing the data array or items in place         | HIGH     | data guide, `src/core/source-table.ts` | react       |
-| 2   | Constant CSS color passed to the color channel    | HIGH     | marks guide                            | styling     |
-| 3   | Container without a height                        | HIGH     | installation guide                     | react       |
-| 4   | Selection changed through `graph.states`          | MEDIUM   | `src/types.ts`, states guide           | interaction |
-| 5   | Item type written on the mark call                | MEDIUM   | TypeScript guide                       |             |
-| 6   | New option functions on every update              | MEDIUM   | data guide                             | react       |
-| 7   | Laying out or fitting before live data has loaded | HIGH     | data guide, `src/host/data-status.ts`  |             |
-| 8   | Waiting edges taken for a bug                     | MEDIUM   | data guide                             |             |
-| 9   | A function that reads data outside the item       | MEDIUM   | data guide, `graph-instance.ts`        | react       |
+| #   | Mistake                                               | Priority | Source                                     | Cross-skill |
+| --- | ----------------------------------------------------- | -------- | ------------------------------------------ | ----------- |
+| 1   | Changing the data array or items in place             | HIGH     | data guide, `src/core/source-table.ts`     | react       |
+| 2   | Constant CSS color passed to the color channel        | HIGH     | marks guide                                | styling     |
+| 3   | Container without a height                            | HIGH     | installation guide                         | react       |
+| 4   | Selection changed through `graph.states`              | MEDIUM   | `src/types.ts`, states guide               | interaction |
+| 5   | Item type written on the mark call                    | MEDIUM   | TypeScript guide                           |             |
+| 6   | New option functions on every update                  | MEDIUM   | data guide                                 | react       |
+| 7   | Laying out or fitting before live data has loaded     | HIGH     | data guide, `src/host/data-status.ts`      |             |
+| 8   | Waiting edges taken for a bug                         | MEDIUM   | data guide                                 |             |
+| 9   | A function that reads data outside the item           | MEDIUM   | data guide, `graph-instance.ts`            | react       |
+| 10  | Destroying and mounting graphs again to save contexts | MEDIUM   | graph instance API, browser-support guide  | react       |
+| 11  | Passing `suspended` to `update`                       | MEDIUM   | `src/host/graph-instance.ts`, mount API    |             |
+| 12  | Waiting for a lost context to come back by itself     | MEDIUM   | `src/host/render-host.ts`, browser-support |             |
+| 13  | A blurry graph when WebGL runs in software            | MEDIUM   | defineGraph API, browser-support guide     | export      |
 
-### react (8)
+### react (9)
 
-| #   | Mistake                                            | Priority | Source                                     | Cross-skill       |
-| --- | -------------------------------------------------- | -------- | ------------------------------------------ | ----------------- |
-| 1   | Definition or option functions created in render   | HIGH     | React guide                                | core              |
-| 2   | Hooks outside `<Graph>` without the `graph` option | HIGH     | React guide, `src/react/index.tsx`         |                   |
-| 3   | Object selector without `shallow`                  | HIGH     | React guide                                |                   |
-| 4   | Untyped selectors inside `<Graph>`                 | MEDIUM   | TypeScript guide                           |                   |
-| 5   | Graph structure read during render                 | MEDIUM   | `src/host/mount-graph.ts` (`flushPending`) |                   |
-| 6   | Controlled prop set after mount                    | MEDIUM   | React guide                                | view, interaction |
-| 7   | `initialPositions` given an iterator               | MEDIUM   | React and positions guides                 | layouts           |
-| 8   | Swapping `<Graph>` for `<MapGraph>` to change side | MEDIUM   | React guide, `src/react/graph.tsx`         | map               |
+| #   | Mistake                                            | Priority | Source                                       | Cross-skill       |
+| --- | -------------------------------------------------- | -------- | -------------------------------------------- | ----------------- |
+| 1   | Definition or option functions created in render   | HIGH     | React guide                                  | core              |
+| 2   | Hooks outside `<Graph>` without the `graph` option | HIGH     | React guide, `src/react/index.tsx`           |                   |
+| 3   | Object selector without `shallow`                  | HIGH     | React guide                                  |                   |
+| 4   | Untyped selectors inside `<Graph>`                 | MEDIUM   | TypeScript guide                             |                   |
+| 5   | Graph structure read during render                 | MEDIUM   | `src/host/mount-graph.ts` (`flushPending`)   |                   |
+| 6   | Controlled prop set after mount                    | MEDIUM   | React guide                                  | view, interaction |
+| 7   | `initialPositions` given an iterator               | MEDIUM   | React and positions guides                   | layouts           |
+| 8   | Swapping `<Graph>` for `<MapGraph>` to change side | MEDIUM   | React guide, `src/react/graph.tsx`           | map               |
+| 9   | Unmounting the graphs out of sight                 | MEDIUM   | `graph-component` API, `src/react/graph.tsx` | core              |
 
 ### shapes (13)
 
@@ -271,12 +276,12 @@ Decisions:
 
 Failure mode inventory:
 
-| Skill       | Mistakes | HIGH | Notes                                                                          |
-| ----------- | -------- | ---- | ------------------------------------------------------------------------------ |
-| view        | 8        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view |
-| interaction | 10       | 2    | lasso needs two options, unanswered controlled selection, per-node drag        |
-| map         | 12       | 3    | layout on a map, teardown order, view options on a map graph, snapshots        |
-| time        | 15       | 4    | string times, exclusive ends, controlled window, a history built in render     |
+| Skill       | Mistakes | HIGH | Notes                                                                             |
+| ----------- | -------- | ---- | --------------------------------------------------------------------------------- |
+| view        | 8        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view    |
+| interaction | 10       | 2    | lasso needs two options, unanswered controlled selection, per-node drag           |
+| map         | 14       | 3    | layout on a map, teardown order, view options on a map graph, snapshots, `spread` |
+| time        | 18       | 5    | string times, exclusive ends, an empty list of periods, a history built in render |
 
 Cross-references proposed for the shared tables (the maintainer applies them after the batches merge):
 
@@ -298,10 +303,10 @@ Written: `tanstack-db`, `tanstack-query`, `cypher`, `file-formats`, `paths`, all
 
 | Skill          | Lines | Failure modes | Typechecked failures                            |
 | -------------- | ----- | ------------- | ----------------------------------------------- |
-| tanstack-db    | 468   | 10            | key option on a live mark, wrong field in where |
+| tanstack-db    | 473   | 10            | key option on a live mark, wrong field in where |
 | tanstack-query | 425   | 7             | types not inferred from a plain object          |
 | cypher         | 264   | 6             | untyped properties, edge mark without ends      |
-| file-formats   | 304   | 8             | color literal, a Response instead of text       |
+| file-formats   | 318   | 9             | color literal, a Response instead of text       |
 | paths          | 272   | 7             | unknown direction, misspelled weight            |
 
 Decisions:
@@ -366,6 +371,16 @@ Surfaces, group layouts, events on the timeline, hull labels, folded-group merge
 
 - Cross-references proposed for the shared tables: `time` to `tanstack-db` (a collection as the journal), `time` to `tools` (legend counts of zero, `empty`), `time` to `styling` (category order).
 - Docs corrected by the same pull request: the guide and API pages `map` on `update({ view })` given with a `surface`, `onSurfaceChange` in the `react` guide and the `graph-component` page, the legend page on categories of a history, the `scales` guide on marks with a history, and the API `map` page on the minimap and layout when the graph returns to its canvas.
+
+### Aligned for 0.30.0
+
+Suspension, lost contexts, the pixel ratio and software rendering, legend entries, `spread` and the placement near placed nodes, several periods and presence in a journal (PRs 220 to 227). Failure modes added: `core` (four: destroying and mounting graphs again to save contexts, `suspended` passed to `update` with `expect-error=TS2353`, waiting for a lost context to come back, a blurry graph drawn in software; 9 to 13), `react` (unmounting the graphs out of sight; 8 to 9), `tools` (three: rules of legend entries made in render, a swatch that does not match the graph with `expect-error=TS2353`, a `LegendState` built by hand without `entries`; 12 to 15), `styling` (a legend that cannot explain colors set by rules; 11 to 12), `time` (three: an empty list where no time was meant, one period from the first start to the last end, a journal of presences without `present` with `expect-error=TS2769`; 15 to 18), `map` (two: expecting `spread` to move nodes that only overlap, expecting a node without coordinates to follow the zoom; 12 to 14), `file-formats` (reading only `time` from elements of several spells; 8 to 9), `export` (a blurry PNG from a graph drawn in software; 7 to 8). `groups` and `tanstack-db` change sentences only.
+
+- New references: `core/references/rendering.md` (suspension, contexts the browser takes, the pixel ratio and software rendering), `tools/references/legend-entries.md` (entries declared by the application), `time/references/events.md` (events of the application and the moment, moved out of the skill to leave room for several periods). `core/references/live-data.md` gained a live source of your own, `time/references/history.md` the entries that say when an element is there, `tanstack-db/references/journal.md` a collection of presences; all declared by hand in `skill_tree.yaml`.
+- `file-formats` lost its claim that `defineGraph({ time })` sets a window (it only takes `{ fade }`); `export` lost its claim that the PNG takes the device pixel ratio by default (it takes the ratio the graph draws at); `map` now says a node without coordinates and without a placed neighbor starts next to a placed node, not on a spiral.
+- The gap on browser support narrowed to WebGL2 limits and capacity fallbacks.
+- Cross-references proposed for the shared tables: `core` to `react` (the `suspended` and `keepFrame` props), `core` to `export` (the pixel ratio of a graph drawn in software), `styling` to `tools` (legend entries for colors set by rules), `time` to `file-formats` (GEXF spells), `map` to `groups` (`spread` against `container.spread`).
+- Docs corrected by the same pull request: the `react` guide and the `graph-component` page (a `<Graph>` without a height in the examples of many graphs on a page), the `time` guide (a block that used `links` without declaring them), the `export` guide (the default pixel ratio).
 
 ## Coverage and batch history
 

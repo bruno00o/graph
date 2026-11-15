@@ -6,9 +6,9 @@ description: >
   MapGraph in React, moving one graph between its own canvas and a map with a
   surface, drawing great circles and routes that follow roads or other lines,
   switching basemaps or the globe projection, putting a timeline on a map graph,
-  drawing areas and zones on the map, exporting the map and the graph as one PNG,
-  and finding why a layout, minimap, lens, rotation or view option does nothing
-  on a map. Not for a plain graph that only uses coordinates without a map.
+  drawing areas and zones on the map, spreading nodes that share a place,
+  exporting the map and the graph as one PNG, and finding why a layout,
+  minimap, lens, rotation or view option does nothing on a map. Not for a plain graph that only uses coordinates without a map.
 metadata:
   purpose: >
     The MapLibre adapter of @bruno00o/graph: mountMapGraph and MapGraph, map
@@ -25,6 +25,8 @@ sources:
   - src/map/export.ts
   - src/core/geo.ts
   - src/host/position-event.ts
+  - src/host/spread.ts
+  - src/host/placement.ts
   - src/shapes/wrap.ts
   - src/shapes/subdivide.ts
   - src/waypoints.ts
@@ -33,6 +35,7 @@ sources:
   - docs/content/docs/api/map.mdx
   - docs/content/docs/api/map-graph.mdx
   - docs/content/docs/api/graph-component.mdx
+  - docs/content/docs/(guide)/positions.mdx
 requires:
   - core
 ---
@@ -104,7 +107,7 @@ requires:
 ### Place nodes and frame them
 
 - `longitude` and `latitude` are channels (a field name or a function): degrees, Web Mercator, latitude from -85.05 to 85.05. Map centers are `[longitude, latitude]` in MapLibre, in that order.
-- `x` and `y` in world units work too (the world spans 512 units, longitude -180 at x 0). A node with neither is placed near its placed neighbors, or on a spiral.
+- `x` and `y` in world units work too (the world spans 512 units, longitude -180 at x 0). A node with neither starts near its neighbors placed by their coordinates, from the first data on, on a ring sized in pixels at the zoom of its arrival (a chain of such nodes hangs from the placed node it reaches); with no placed neighbor, it starts next to the placed node nearest the middle of the others. It stays there as the map zooms: give it coordinates, or drag it, to move it.
 - A node with `longitude` and `latitude` is sized in screen pixels (`units` defaults to `'screen'`): it keeps its size as the map zooms. `units: 'world'` scales it with the map (the world is 512 units wide at map zoom 0, so `size: 10` spans about 7 degrees). A node placed by `x` and `y`, or by neither, defaults to `'world'` and is huge at map zooms: give it `units: 'screen'`. A `groups()` mark takes the units of its first member. Edges are straight lines in Web Mercator unless they are great circles or have waypoints.
 - The map keeps its own camera at mount and the graph does not frame its nodes by itself. Call `graph.view.fit({ padding: 40 })` right after mounting; it waits until the map is measured. Every `fit` takes its own `padding` (32 pixels by default).
 - `geoToWorld({ longitude, latitude })` and `worldToGeo({ x, y })` convert between degrees and world units. The zoom of the graph is `2 ** map.getZoom()`.
@@ -119,8 +122,30 @@ The map owns the camera, its limits and its gestures. Dragging the background, t
 - On a flat map the graph is drawn once, between longitudes -180 and 180, on the world copy under the camera: across the antimeridian a node and its edges show on one side only (shapes in degrees show on both sides).
 
 - A node you drag stays where it was dropped, even when its data says otherwise, until its own coordinates change. `graph.positions.reset()` puts every node back on its `longitude` and `latitude` with a glide, `reset(keys)` only some; a node whose data gives no position stays. `positionchange` carries `geo` on a map: the moved nodes as `{ longitude, latitude }` in degrees, the longitude from -180 up to 180 even across the antimeridian. `persistPositions({ collection, longitude: 'lng', latitude: 'lat' })` writes them back (tanstack-db skill).
+- The map sets the pixel ratio: `pixelRatio` in the definition changes nothing there. The graph draws in the context of the map, so `graph.suspend()` keeps it drawing and only frees the context of its own canvas (core skill).
 - `graph.drawsOnMap` is `true` while the graph draws on a map, mounted there by `mountMapGraph` or `<MapGraph>` or moved there with a surface: code shared with a plain graph reads it to leave out what a map does not draw, such as a layout or the minimap.
-- Nodes that share a place draw in the order they arrived, so a large one can cover a small one. `order` on `nodes()` (lower values first, under the others; styling skill) stacks large nodes under small ones, and the node on top is the one a click picks.
+- Nodes that share a place draw in the order they arrived, so a large one can cover a small one (`spread: true` moves them apart, [below](#spread-nodes-at-one-place)). `order` on `nodes()` (lower values first, under the others; styling skill) stacks large nodes under small ones, and the node on top is the one a click picks.
+
+### Spread nodes at one place
+
+Nodes at the very same `longitude` and `latitude` draw on top of each other. `spread` in the definition moves them apart around their place, on screen only:
+
+```ts
+import { defineGraph, nodes } from '@bruno00o/graph'
+
+type Place = { id: string; name: string; lng: number; lat: number }
+declare const places: Place[]
+
+const definition = defineGraph({
+  marks: [nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' })],
+  spread: { gap: 4 },
+})
+```
+
+- Off by default; `true` takes a `gap` of 4 (a negative or infinite one throws a `RangeError`). Nodes at one point sit on a ring around it, on a spiral past six, glide out over `transitions.layout`, and keep their gaps in pixels as the map zooms, flat or on the globe. Nodes in world units are spread once.
+- Only the exact same coordinates count: points a few meters apart overlap at low zooms and do not move.
+- Only the drawn position moves: the data keeps its coordinates, `graph.positions.get` gives the drawn place, no `positionchange` is emitted, so `persistPositions` never writes it, and layouts never move a spread node. A node dragged or placed with `positions.set` leaves the others; it joins them again when its data moves, or with `graph.positions.reset`.
+- It applies to nodes outside groups. The children of an unfolded group follow `container.spread` (groups skill). To gather the nodes of a place under one node the reader opens, group them by place with `groups()`.
 
 ### Move one graph between its canvas and a map
 
@@ -307,7 +332,7 @@ On a flat map a shape in degrees that crosses the antimeridian shows on both sid
 
 ### Groups, hulls and spreading on a map
 
-Hulls and groups work, on the globe too. A group needs no coordinates: its container encloses its children, and a folded group starts at their center. A `groups()` mark without `units` takes the units of its members, so groups of geo-placed nodes keep their pixel size. The `padding` of a container is in pixels. Containers are translucent on a map by default (`container.fillOpacity` changes it, 1 is opaque). Places that share coordinates are spread around their place when their group unfolds, and go back when it folds; `container: { spread: false }` keeps them stacked.
+Hulls and groups work, on the globe too. A group needs no coordinates: its container encloses its children, and a folded group starts at their center. A `groups()` mark without `units` takes the units of its members, so groups of geo-placed nodes keep their pixel size. The `padding` of a container is in pixels. Containers are translucent on a map by default (`container.fillOpacity` changes it, 1 is opaque). Places that share coordinates are spread around their place when their group unfolds, and go back when it folds; `container: { spread: false }` keeps them stacked. Nodes outside groups spread with the `spread` of the definition, above.
 
 ## Common Mistakes
 
@@ -349,6 +374,14 @@ A graph moved with `surface` keeps the positions of each side by itself. When yo
 const plain = plainGraph.positions.snapshot()
 mountMapGraph(map, { definition: onMap, ariaLabel: 'Places', initialPositions: plain })
 ```
+
+### MEDIUM Expecting `spread` to move nodes that only overlap
+
+`spread` moves apart nodes at the very same coordinates only. Places a few meters or kilometers apart overlap at low zooms and stay where their data puts them. Gather them with a `groups()` mark by a key of place (a rounded cell, a city), whose children spread when it unfolds, or lay them out with the `geo` layout on the canvas, which keeps every node apart (layouts skill).
+
+### MEDIUM Expecting a node without coordinates to follow the zoom
+
+A node without coordinates starts on a ring around its placed neighbors, sized in pixels at the zoom of its arrival, then keeps that place in world units. Zoom far in and it drifts away from its neighbor; zoom out and it sits on top of it. Give it coordinates, even approximate ones, or a group with its neighbor.
 
 ### MEDIUM Swapping longitude and latitude
 
@@ -392,7 +425,7 @@ MapLibre sizes the map from its container. A container with no height draws noth
 The task is done when:
 
 - the map container has a height, MapLibre 6 is installed and its stylesheet is imported;
-- every node has `longitude` and `latitude` (or `x` and `y`), and no `layout`, `view`, `initialView`, `onViewChange` or `bundling` is set for the map graph;
+- every node has `longitude` and `latitude` (or `x` and `y`), nodes at one place are spread or grouped, and no `layout`, `view`, `initialView`, `onViewChange` or `bundling` is set for the map graph;
 - a graph that moves between its canvas and a map gets its surface and the definition of that side in one `update`, with the map element hidden by `opacity`;
 - the graph is framed with `graph.view.fit({ padding })` after mounting, and shapes on the map have geometry in degrees;
 - teardown destroys the graph before `map.remove()`, or a `signal` does it;

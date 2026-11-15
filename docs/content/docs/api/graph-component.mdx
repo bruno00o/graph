@@ -49,7 +49,12 @@ function Card({ definition }: { readonly definition: GraphDefinition }) {
   }, [card])
   return (
     <section ref={setCard} style={{ height: 320 }}>
-      <Graph definition={definition} ariaLabel="Sample graph" suspended={!shown} />
+      <Graph
+        definition={definition}
+        ariaLabel="Sample graph"
+        style={{ height: '100%' }}
+        suspended={!shown}
+      />
     </section>
   )
 }
