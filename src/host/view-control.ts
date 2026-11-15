@@ -242,6 +242,11 @@ export class ViewControl {
     this.#source.request()
   }
 
+  dropRequests(): void {
+    this.#outgoing = null
+    this.#sent = []
+  }
+
   followed(): ViewCause {
     const cause = this.#sent[this.#sent.length - 1]?.cause ?? 'user'
     this.#sent = []

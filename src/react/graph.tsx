@@ -12,7 +12,12 @@ import {
 } from 'react'
 import { flushSync } from 'react-dom'
 import type { ElementKeysInput, GraphEventHandler, GraphEventName } from '../host/events'
-import { type GraphInstance, type MountGraphOptions, mountGraph } from '../host/mount-graph'
+import {
+  type GraphInstance,
+  type GraphSurface,
+  type MountGraphOptions,
+  mountGraph,
+} from '../host/mount-graph'
 import type {
   GraphDefinition,
   Key,
@@ -117,6 +122,13 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
   readonly definition: GraphDefinition<S, M>
   /** Accessible name of the graph element. Applied with `update` when it changes. */
   readonly ariaLabel: string
+  /**
+   * Where the graph draws: a surface made by `useMapSurface` or `mapSurface` of
+   * `@bruno00o/graph/map`, or `null` for its own canvas. A new value moves the graph, in the same
+   * `update` as a new `definition`, and keeps its state, children and positions on each surface.
+   * Defaults to the own canvas.
+   */
+  readonly surface?: GraphSurface | null | undefined
   /** View at mount, read once. Without it and without `view`, the first data is fitted. */
   readonly initialView?: View | undefined
   /**
@@ -184,6 +196,7 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
 }
 
 const fill: CSSProperties = { position: 'absolute', inset: 0 }
+const surfaces = new WeakMap<object, GraphSurface | null>()
 
 type BoundProps<S extends string, M extends Mark> = Omit<
   GraphProps<S, M>,
@@ -233,6 +246,7 @@ export function useGraphBinding<S extends string, M extends Mark>(
   graph: GraphInstance<S, M> | null,
   props: BoundProps<S, M>,
   latest: { readonly current: BoundProps<S, M> },
+  surface: GraphSurface | null | undefined,
 ): void {
   const { definition, ariaLabel, selection, folded, view, time, hiddenLayers, ref } = props
 
@@ -255,8 +269,14 @@ export function useGraphBinding<S extends string, M extends Mark>(
     graph?.update({ hiddenLayers })
   }, [graph, hiddenLayers])
   useLayoutEffect(() => {
-    graph?.update({ definition })
-  }, [graph, definition])
+    if (!graph) return
+    if (surface === undefined || surfaces.get(graph) === surface) {
+      graph.update({ definition })
+      return
+    }
+    surfaces.set(graph, surface)
+    graph.update({ definition, surface })
+  }, [graph, definition, surface])
 
   useEffect(() => {
     if (!graph) return
@@ -325,12 +345,15 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
     const element = host.current
     if (!element) return
     const initial = latest.current
+    const surface = initial.surface ?? null
     const instance = mountGraph(element, {
       ...sharedOptions(latest),
       initialView: initial.initialView,
       view: initial.view,
       onViewChange: (next) => flushSync(() => latest.current.onViewChange?.(next)),
+      surface,
     })
+    surfaces.set(instance, surface)
     setGraph(instance)
     return () => {
       instance.destroy()
@@ -338,7 +361,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
     }
   }, [latest])
 
-  useGraphBinding(graph, props, latest)
+  useGraphBinding(graph, props, latest, props.surface ?? null)
 
   return (
     <div ref={wrapper} className={className} style={style}>

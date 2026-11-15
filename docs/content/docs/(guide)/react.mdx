@@ -143,6 +143,19 @@ The `graph` prop wins over the graph in context, and `null` waits for a graph, s
 
 The entry point does not import MapLibre: pass the map you created. See [Map](/docs/map#react) for the full component, and the [map component](/examples/map-component) example.
 
+To move one graph between its own canvas and a map, keep `<Graph>` and give it a `surface`, from `useMapSurface(map)`, or `null` for its canvas. `surface` and `definition` are applied together, in one `update`, and nothing remounts: the children, the hooks and the companions keep their state. `onSurfaceChange` and `useGraphState((state) => state.surface)` tell which side the graph is on.
+
+```tsx
+const surface = useMapSurface(map)
+const there = wanted && surface !== null
+
+<Graph definition={there ? onMap : plain} surface={there ? surface : null} ariaLabel="Places">
+  <Legend />
+</Graph>
+```
+
+See [One graph, on the map or not](/docs/map#one-graph-on-the-map-or-not) and the [React example](/examples/map-and-back-react).
+
 ## Controlled selection
 
 ```tsx

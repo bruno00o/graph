@@ -1,10 +1,9 @@
-import type { View } from '@bruno00o/graph'
-import { MapGraph } from '@bruno00o/graph/map/react'
+import type { GraphSurface, View } from '@bruno00o/graph'
 import { Graph, useGraph } from '@bruno00o/graph/react'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { type JSX, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type JSX, type ReactNode, useEffect, useRef } from 'react'
 import { mapCamera } from './camera'
 import type { AirDefinition, AirDoubleClick, AirGraph, AirMark, AirState } from './definition'
 import { type Basemap, messages } from './messages'
@@ -13,72 +12,33 @@ setWorkerUrl(workerUrl)
 
 export type Report = (graph: AirGraph | null) => void
 
-interface StageProps {
-  readonly definition: AirDefinition
-  readonly label: string
-  readonly report: Report
-  readonly fit: boolean
-  readonly onDoubleClick: AirDoubleClick
-  readonly children?: ReactNode
-}
-
-function Expose({ report, fit }: { readonly report: Report; readonly fit: boolean }): null {
+function Expose({ report }: { readonly report: Report }): null {
   const graph = useGraph<AirState, AirMark>()
   const latest = useRef(report)
   latest.current = report
   useEffect(() => {
     latest.current(graph)
-    if (fit) graph.view.fit({ padding: 56 })
     return () => latest.current(null)
-  }, [graph, fit])
+  }, [graph])
   return null
 }
 
-export function ClassicStage({
-  definition,
-  label,
-  report,
-  fit,
-  onDoubleClick,
-  initialView,
-  children,
-}: StageProps & { readonly initialView: View | undefined }): JSX.Element {
-  return (
-    <Graph
-      definition={definition}
-      ariaLabel={label}
-      initialView={initialView}
-      onDoubleClick={onDoubleClick}
-      style={{ position: 'absolute', inset: 0 }}
-    >
-      <Expose report={report} fit={fit && !initialView} />
-      {children}
-    </Graph>
-  )
-}
-
-export function MapStage({
-  definition,
-  label,
-  report,
-  fit,
-  onDoubleClick,
-  basemap,
-  camera,
-  onMapError,
-  children,
-}: StageProps & {
+interface BackdropProps {
+  readonly shown: boolean
   readonly basemap: Basemap
   readonly camera: View
+  readonly onMap: (map: MapLibreMap | null) => void
   readonly onMapError: (message: string | null) => void
-}): JSX.Element {
+}
+
+function Backdrop({ shown, basemap, camera, onMap, onMapError }: BackdropProps): JSX.Element {
   const host = useRef<HTMLDivElement>(null)
-  const [map, setMap] = useState<MapLibreMap | null>(null)
-  const first = useRef({ basemap, camera, onMapError })
+  const map = useRef<MapLibreMap | null>(null)
+  const first = useRef({ basemap, camera, onMap, onMapError })
   useEffect(() => {
     const container = host.current
     if (!container) return
-    const { basemap: initial, camera: start, onMapError: notify } = first.current
+    const { basemap: initial, camera: start, onMap: report, onMapError: notify } = first.current
     const created = new MapLibreMap({
       container,
       style: initial.style,
@@ -88,24 +48,59 @@ export function MapStage({
     })
     created.on('error', () => notify(messages.map.failed))
     created.on('styledata', () => notify(null))
-    setMap(created)
-    return () => created.remove()
+    map.current = created
+    report(created)
+    return () => {
+      map.current = null
+      report(null)
+      created.remove()
+    }
   }, [])
   const loaded = useRef(basemap)
   useEffect(() => {
-    if (!map || loaded.current === basemap) return
+    if (!map.current || loaded.current === basemap) return
     loaded.current = basemap
-    map.setStyle(basemap.style)
-  }, [map, basemap])
+    map.current.setStyle(basemap.style)
+  }, [basemap])
   return (
-    <>
-      <div ref={host} className="air-map" />
-      {map ? (
-        <MapGraph map={map} definition={definition} ariaLabel={label} onDoubleClick={onDoubleClick}>
-          <Expose report={report} fit={fit} />
-          {children}
-        </MapGraph>
-      ) : null}
-    </>
+    <div
+      ref={host}
+      className="air-map"
+      style={{ opacity: shown ? 1 : 0, pointerEvents: shown ? 'auto' : 'none' }}
+    />
+  )
+}
+
+interface StageProps {
+  readonly definition: AirDefinition
+  readonly surface: GraphSurface | null
+  readonly label: string
+  readonly report: Report
+  readonly onDoubleClick: AirDoubleClick
+  readonly map: Omit<BackdropProps, 'shown'> | null
+  readonly children?: ReactNode
+}
+
+export function Stage({
+  definition,
+  surface,
+  label,
+  report,
+  onDoubleClick,
+  map,
+  children,
+}: StageProps): JSX.Element {
+  return (
+    <Graph
+      definition={definition}
+      surface={surface}
+      ariaLabel={label}
+      onDoubleClick={onDoubleClick}
+      style={{ position: 'absolute', inset: 0 }}
+    >
+      <Expose report={report} />
+      {map ? <Backdrop shown={surface !== null} {...map} /> : null}
+      {children}
+    </Graph>
   )
 }
