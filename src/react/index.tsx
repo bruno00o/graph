@@ -320,13 +320,14 @@ const emptyLegend: LegendState = {
   marks: [],
   looks: [],
   layers: [],
+  entries: [],
   hovered: null,
   off: [],
 }
 
 /** Options of `useLegend`: the options of `createLegend`, and the graph. */
 export interface UseLegendOptions<S extends string = string, M extends Mark = Mark>
-  extends LegendOptions<S> {
+  extends LegendOptions<S, M> {
   /**
    * Graph to read, which types the looks. Defaults to the graph of the enclosing `<Graph>` or
    * `<MapGraph>`. With `null`, the state stays empty and `legend` is `null` until a graph is given.
@@ -336,7 +337,7 @@ export interface UseLegendOptions<S extends string = string, M extends Mark = Ma
 
 function useLegendInstance<S extends string, M extends Mark>(
   given: GraphInstance<S, M> | null | undefined,
-  options: LegendOptions<S>,
+  options: LegendOptions<S, M>,
   caller: string,
 ): LegendInstance<S, M> | null {
   const graph = useGraphOf(given, caller)
@@ -354,9 +355,10 @@ function useLegendInstance<S extends string, M extends Mark>(
   const highlight = options.highlight ?? null
   const hidden = options.hidden ?? null
   const empty = options.empty
+  const entries = options.entries
   useLayoutEffect(() => {
-    legend?.update({ highlight, hidden, empty })
-  }, [legend, highlight, hidden, empty])
+    legend?.update({ highlight, hidden, empty, entries })
+  }, [legend, highlight, hidden, empty, entries])
   return legend
 }
 
@@ -368,8 +370,8 @@ function useLegendInstance<S extends string, M extends Mark>(
 export function useLegend<S extends string = string, M extends Mark = Mark>(
   options: UseLegendOptions<S, M> = {},
 ): UseLegendResult<S, M> {
-  const { graph, highlight, hidden, empty } = options
-  const legend = useLegendInstance<S, M>(graph, { highlight, hidden, empty }, 'useLegend')
+  const { graph, highlight, hidden, empty, entries } = options
+  const legend = useLegendInstance<S, M>(graph, { highlight, hidden, empty, entries }, 'useLegend')
   const subscribe = useCallback(
     (notify: () => void) => {
       if (!legend) return () => {}
@@ -398,11 +400,11 @@ export interface LegendProps<S extends string = string, M extends Mark = Mark>
 export function Legend<S extends string = string, M extends Mark = Mark>(
   props: LegendProps<S, M>,
 ): ReactNode {
-  const { highlight, hidden, empty } = props
+  const { highlight, hidden, empty, entries } = props
   const view = pick<LegendViewOptions<M>>(legendViewKeys, props)
   const legend = useLegendInstance<S, M>(
     props.graph,
-    { highlight: highlight ?? null, hidden: hidden ?? null, empty },
+    { highlight: highlight ?? null, hidden: hidden ?? null, empty, entries },
     'Legend',
   )
   const slot = useRef<HTMLDivElement>(null)

@@ -34,6 +34,7 @@ export interface GraphInternals {
   palette(): Uint8Array
   masks(): Uint32Array
   edgeMembers(index: number, end?: EdgeEnd): readonly Key[] | null
+  datum(kind: 'nodes' | 'edges' | 'shapes', index: number): unknown
   sight(except?: string | null): Sight
   stamp(): GraphStamp
   watch(watcher: GraphWatcher): () => void

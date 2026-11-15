@@ -87,6 +87,11 @@ export interface RendererLimits {
   readonly software: boolean
 }
 
+export interface RendererContext {
+  restore(): void
+  lose(): void
+}
+
 export interface Renderer {
   sync(input: RenderInput): void
   setPalette(colors: Uint8Array, count: number): void
@@ -97,5 +102,6 @@ export interface Renderer {
   limits?(): RendererLimits
   ready?(): Promise<void>
   busy?(): boolean
+  suspend?(): RendererContext | null
   destroy(): void
 }

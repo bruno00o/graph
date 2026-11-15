@@ -96,6 +96,30 @@ The looks of a shape mark split its shapes into areas and lines, and by pattern,
 
 <api-table path="legend/index.ts" name="LegendShapeLook" />
 
+### Entries
+
+`entries` of `createLegend` declares sections of entries for a graph colored by rules of the application. The state keeps them in `entries`, in order, with their counts. The id of an item is `a:` followed by the id of the entry; a repeated id is ignored. `hover`, `toggle`, `only` and `keys` take it, and `only` switches off the other entries of the same section that cover elements. An entry that covers no element is displayed and cannot be switched off.
+
+<api-table path="legend/index.ts" name="LegendEntryGroup" />
+
+<api-table path="legend/index.ts" name="LegendEntry" />
+
+A swatch narrows on `kind`.
+
+```ts
+type LegendSwatch = LegendNodeSwatch | LegendEdgeSwatch | LegendShapeSwatch
+```
+
+<api-table path="legend/index.ts" name="LegendNodeSwatch" />
+
+<api-table path="legend/index.ts" name="LegendEdgeSwatch" />
+
+<api-table path="legend/index.ts" name="LegendShapeSwatch" />
+
+<api-table path="legend/index.ts" name="LegendEntrySection" />
+
+<api-table path="legend/index.ts" name="LegendEntryItem" />
+
 ### Layers
 
 One item per layer named by the marks, hidden layers included, with the id `l:` followed by the name. Switching a layer item off hides the layer through [`graph.layers`](/docs/api/graph-instance#layers), so it goes through `onLayerChange` in controlled mode; `off` lists the ids of the hidden layers along with the other items switched off. `keys` and the `highlight` state cover every element of the layer.
@@ -109,6 +133,8 @@ One item per layer named by the marks, hidden layers included, with the id `l:` 
 ```ts
 type LegendSection = 'color' | 'size' | 'width' | 'looks' | 'layers'
 ```
+
+`sections` also takes `'entries'`, for the sections declared with `entries`.
 
 A mark with scales of its own adds a block after the section of each of its scales, with `data-mark` set to the id of the mark and the title given by `markTitle`, or the name of the mark.
 
@@ -145,6 +171,7 @@ Use both inside the children of [`<Graph>`](/docs/api/graph-component) or [`<Map
 
 - Counts and keys cover what the graph draws: nodes hidden in a folded group or by a state with `hide` are left out, and an edge between folded groups counts once. The legend reads past its own `hidden` state, so the items it switches off stay listed even when that state hides its members.
 - A categorical scale lists the values of its `domain` even without elements, and the values that a mark with a [history](/docs/time#scales-over-the-whole-history) takes at other moments, with a count of zero, and at most 64 categories. `empty: 'hide'` leaves them all out. Items switched off stay listed while they have no element.
+- A rule of an entry runs once per item and again only for an item that changed: for the first reading, a pass over a large graph is cut into slices of a few milliseconds, and the state stays as it was until it completes. Each reading afterwards visits every element drawn once per kind that has an entry with a rule, about 40 ns per element. A function that throws counts as `false`, and the error is reported once through `reportError`.
 - The legend reads the graph again after a change of data or definition, never more often than ten times its own cost allows, and at least 50 ms apart.
 - Destroying the legend empties its `highlight` and `hidden` states. Destroying the graph destroys its legends, and a legend created on a destroyed graph comes back destroyed and empty.
 - In the default renderer, items are toggle buttons with `aria-pressed` when `toggle` is on, plain rows otherwise. The element carries `data-graph-legend`, its items `data-item` with their id.

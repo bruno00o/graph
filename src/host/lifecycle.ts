@@ -205,6 +205,8 @@ export function afterDestroy<S extends string, M extends Mark>(
     on: () => nothing,
     drawn: () => Promise.reject(reason()),
     loaded: () => Promise.reject(reason()),
+    suspend: nothing,
+    resume: nothing,
     update: nothing,
     destroy: nothing,
   }
@@ -273,6 +275,7 @@ export function stillborn<S extends string, M extends Mark>(
     hiddenLayers: [...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? [])],
     data: loadedData,
     surface: capabilities.name,
+    suspended: options.suspended === true,
   })
   const graph = afterDestroy(
     readonlyOf(store),
@@ -294,6 +297,7 @@ export function stillborn<S extends string, M extends Mark>(
     palette: () => new Uint8Array(0),
     masks: () => new Uint32Array(0),
     edgeMembers: () => null,
+    datum: () => undefined,
     sight: () => ({ zoom: 1, time: null, layers: null, hide: null }),
     stamp: () => ({ scene: 0, positions: 0, palette: 0, containers: -1, detail: 0 }),
     watch: (watcher) => {

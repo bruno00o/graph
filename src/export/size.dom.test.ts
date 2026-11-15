@@ -111,6 +111,16 @@ function attributes(svg: string): { width: number; height: number; viewBox: stri
 }
 
 describe('export size', () => {
+  it('exports a suspended graph without resuming it', async () => {
+    const shown = mount()
+    shown.suspend()
+    await exportPng(shown, { size: { width: 400, height: 300 }, pixelRatio: 1, labels: 'none' })
+    expect(frames).toHaveLength(1)
+    expect(frames[0]?.width).toBe(400)
+    expect(shown.store.state.suspended).toBe(true)
+    expect(attributes(await exportSvg(shown)).width).toBe(800)
+  })
+
   it('draws a PNG of the exact size with the region fitted inside', async () => {
     const shown = mount()
     await exportPng(shown, { region: 'graph', size: { width: 500, height: 500 }, labels: 'none' })
