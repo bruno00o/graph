@@ -216,8 +216,12 @@ export function createView(
       ({ drawing }) => (messages.drawingName ?? defaultMessages.drawingName ?? String)(drawing),
     ],
     [
-      messages.economy ?? defaultMessages.economy ?? '',
-      ({ economy }) => (messages.economyName ?? defaultMessages.economyName ?? String)(economy),
+      messages.pixelRatio ?? defaultMessages.pixelRatio ?? '',
+      ({ pixelRatio, pixelRatioReason }) =>
+        (messages.pixelRatioName ?? defaultMessages.pixelRatioName ?? String)(
+          pixelRatio,
+          pixelRatioReason,
+        ),
     ],
   ])
 

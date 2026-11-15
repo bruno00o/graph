@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { BufferCopies } from './buffer-copies'
 import {
   expandRecords,
   FlatDraws,
@@ -141,7 +142,8 @@ describe('flat draws', () => {
 
   it('draws the same vertices as an instanced strip', () => {
     const { gl, draws, vertices } = fakeGl({ corner: 0, instance: 1 })
-    const flat = new FlatDraws(gl)
+    const copies = new BufferCopies()
+    const flat = new FlatDraws(gl, copies)
     const corners = [
       [-1, -1],
       [1, -1],
@@ -150,10 +152,10 @@ describe('flat draws', () => {
     ]
     const cornerBuffer = gl.createBuffer()
     const cornerData = new Float32Array(corners.flat())
-    flat.track(cornerBuffer, cornerData)
+    copies.keep(cornerBuffer, cornerData)
     const indexBuffer = gl.createBuffer()
     const indexData = Uint32Array.of(4, 0, 9, 2)
-    flat.track(indexBuffer, indexData)
+    copies.keep(indexBuffer, indexData)
     const attributes: Attribute[] = [
       { name: 'corner', buffer: cornerBuffer, size: 2, type: gl.FLOAT, divisor: 0 },
       {
@@ -166,7 +168,7 @@ describe('flat draws', () => {
       },
     ]
     const vao = gl.createVertexArray()
-    flat.register(vao, attributes)
+    copies.arrays.set(vao, attributes)
     expect(flat.handles(vao)).toBe(true)
     const program = {} as WebGLProgram
     flat.draw(vao, program, 4, 3)
@@ -184,14 +186,15 @@ describe('flat draws', () => {
 
   it('follows new data and splits long draws', () => {
     const { gl, draws, vertices } = fakeGl({ corner: 0, instance: 1 })
-    const flat = new FlatDraws(gl)
+    const copies = new BufferCopies()
+    const flat = new FlatDraws(gl, copies)
     const corners = Array.from({ length: 12 }, (_, index) => [index, -index, index * 2])
     const cornerBuffer = gl.createBuffer()
-    flat.track(cornerBuffer, new Float32Array(corners.flat()))
+    copies.keep(cornerBuffer, new Float32Array(corners.flat()))
     const indexBuffer = gl.createBuffer()
-    flat.track(indexBuffer, Uint32Array.of(1, 2))
+    copies.keep(indexBuffer, Uint32Array.of(1, 2))
     const vao = gl.createVertexArray()
-    flat.register(vao, [
+    copies.arrays.set(vao, [
       { name: 'corner', buffer: cornerBuffer, size: 3, type: gl.FLOAT, divisor: 0 },
       {
         name: 'instance',
@@ -205,7 +208,7 @@ describe('flat draws', () => {
     const program = {} as WebGLProgram
     flat.draw(vao, program, 12, 2)
     const many = Uint32Array.from({ length: 30_000 }, (_, index) => 30_000 - index)
-    flat.track(indexBuffer, many)
+    copies.keep(indexBuffer, many)
     flat.draw(vao, program, 12, many.length)
     expect(draws.length).toBe(3)
     const [, first, second] = draws
@@ -218,15 +221,16 @@ describe('flat draws', () => {
 
   it('draws the triangles given for a corner buffer', () => {
     const { gl, draws, vertices } = fakeGl({ corner: 0, instance: 1 })
-    const flat = new FlatDraws(gl)
+    const copies = new BufferCopies()
     const corners = Float32Array.of(0, -1, 0, 1, 1, -1, 1, 1, 1, -1, 1, 1, 2, -1, 2, 1)
     const cornerBuffer = gl.createBuffer()
-    flat.track(cornerBuffer, corners)
-    flat.shape(cornerBuffer, pairedTriangles(corners, 2))
+    const flat = new FlatDraws(gl, copies, [cornerBuffer])
+    copies.keep(cornerBuffer, corners)
+    flat.arrows({ alive: Uint8Array.of(1, 0), arrow: Uint8Array.of(0, 3), capacity: 2 })
     const indexBuffer = gl.createBuffer()
-    flat.track(indexBuffer, Uint32Array.of(3, 5))
+    copies.keep(indexBuffer, Uint32Array.of(3, 5))
     const vao = gl.createVertexArray()
-    flat.register(vao, [
+    copies.arrays.set(vao, [
       { name: 'corner', buffer: cornerBuffer, size: 2, type: gl.FLOAT, divisor: 0 },
       {
         name: 'instance',
@@ -249,13 +253,60 @@ describe('flat draws', () => {
     ])
   })
 
+  it('keeps the joints of an edge strip that some live edge needs for its arrows', () => {
+    const { gl, draws } = fakeGl({ corner: 0, instance: 1 })
+    const copies = new BufferCopies()
+    const cornerBuffer = gl.createBuffer()
+    const flat = new FlatDraws(gl, copies, [cornerBuffer])
+    copies.keep(cornerBuffer, cornerEdge)
+    const indexBuffer = gl.createBuffer()
+    copies.keep(indexBuffer, Uint32Array.of(0, 1))
+    const vao = gl.createVertexArray()
+    copies.arrays.set(vao, [
+      { name: 'corner', buffer: cornerBuffer, size: 3, type: gl.FLOAT, divisor: 0 },
+      { name: 'instance', buffer: indexBuffer, size: 1, type: gl.UNSIGNED_INT, divisor: 1 },
+    ])
+    const vertices = cornerEdge.length / 3
+    const counts = [
+      [0, 0, 1, 1],
+      [0, 2, 1, 1],
+      [3, 2, 0, 1],
+      [1, 2, 1, 1],
+    ].map(([a, b, aliveA, aliveB]) => {
+      flat.arrows({
+        alive: Uint8Array.of(aliveA ?? 0, aliveB ?? 0),
+        arrow: Uint8Array.of(a ?? 0, b ?? 0),
+        capacity: 2,
+      })
+      flat.draw(vao, {} as WebGLProgram, vertices, 2)
+      return (draws.at(-1)?.count ?? 0) / 2
+    })
+    expect(counts).toEqual([18, 24, 24, 30])
+  })
+
+  it('keeps a copy of the data that later writes leave alone', () => {
+    const copies = new BufferCopies()
+    const buffer = {} as WebGLBuffer
+    const data = Uint8Array.of(9, 1, 2, 3, 4, 5)
+    copies.keep(buffer, data.subarray(1))
+    data.fill(0)
+    const first = copies.buffers.get(buffer)
+    expect(first?.version).toBe(0)
+    expect([...new Uint8Array(first?.words.buffer ?? new ArrayBuffer(0))]).toEqual([
+      1, 2, 3, 4, 5, 0, 0, 0,
+    ])
+    copies.keep(buffer, Float32Array.of(1))
+    expect(copies.buffers.get(buffer)?.version).toBe(1)
+  })
+
   it('leaves untracked buffers to instanced draws', () => {
     const { gl } = fakeGl({ corner: 0, instance: 1 })
-    const flat = new FlatDraws(gl)
+    const copies = new BufferCopies()
+    const flat = new FlatDraws(gl, copies)
     const tracked = gl.createBuffer()
-    flat.track(tracked, new Float32Array(8))
+    copies.keep(tracked, new Float32Array(8))
     const vao = gl.createVertexArray()
-    flat.register(vao, [
+    copies.arrays.set(vao, [
       { name: 'corner', buffer: tracked, size: 2, type: gl.FLOAT, divisor: 0 },
       { name: 'instance', buffer: gl.createBuffer(), size: 1, type: gl.UNSIGNED_INT, divisor: 1 },
     ])

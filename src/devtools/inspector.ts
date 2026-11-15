@@ -1,8 +1,8 @@
 import type { AnyIssue } from '../core/issues'
 import type { ElementKeys, GraphTarget } from '../host/events'
-import { type InspectedGraph, watchGraphs } from '../host/inspect'
+import { type GraphInspection, type InspectedGraph, watchGraphs } from '../host/inspect'
 import type { View } from '../types'
-import type { GraphDrawing, GraphRendering } from './messages'
+import type { GraphDrawing, GraphPixelRatioReason, GraphRendering } from './messages'
 
 export const chartFrames = 120
 const historyLength = 240
@@ -59,7 +59,8 @@ export interface GraphReport {
   readonly surface: string
   readonly rendering: GraphRendering
   readonly drawing: GraphDrawing
-  readonly economy: boolean
+  readonly pixelRatio: number
+  readonly pixelRatioReason: GraphPixelRatioReason
   readonly selection: ElementKeys
   readonly hovered: GraphTarget | null
   readonly focused: GraphTarget | null
@@ -204,6 +205,17 @@ export function inspectGraphs(listener: () => void): () => void {
   }
 }
 
+function ratioReason(surface: string, inspection: GraphInspection): GraphPixelRatioReason {
+  if (surface === 'map') return 'map'
+  const option = inspection.ratioOption
+  const device = window.devicePixelRatio || 1
+  const software = option === 'auto' && inspection.software === true
+  const wanted = typeof option === 'number' ? option : software ? Math.min(device, 1) : device
+  if (inspection.pixelRatio < wanted) return 'limit'
+  if (typeof option === 'number') return 'definition'
+  return software ? 'software' : 'device'
+}
+
 function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphReport {
   const instance = graph.graph
   const state = instance.store.state
@@ -224,7 +236,8 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
     surface: state.surface,
     rendering: state.suspended ? 'suspended' : inspection.contextLost ? 'lost' : 'active',
     drawing: inspection.software === null ? 'unknown' : inspection.software ? 'software' : 'gpu',
-    economy: inspection.economy,
+    pixelRatio: inspection.pixelRatio,
+    pixelRatioReason: ratioReason(state.surface, inspection),
     selection: state.selection,
     hovered: state.hovered,
     focused: state.focused,

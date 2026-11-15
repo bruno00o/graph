@@ -1,4 +1,4 @@
-import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { defineGraph, edges, nodes, type PixelRatioOption } from '@bruno00o/graph'
 import { GraphDevtoolsPanel } from '@bruno00o/graph/devtools/react'
 import { Graph, type GraphInstance } from '@bruno00o/graph/react'
 import { type Ref, useMemo, useState, useSyncExternalStore } from 'react'
@@ -26,7 +26,7 @@ function usePageTheme(): 'light' | 'dark' {
 
 export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
   const [size, setSize] = useState(sizes[0] ?? 2_000)
-  const [economy, setEconomy] = useState<boolean | 'auto'>('auto')
+  const [pixelRatio, setPixelRatio] = useState<PixelRatioOption>('auto')
   const theme = usePageTheme()
   const sample = useMemo(() => createSample(size, size * 2), [size])
   const definition = useMemo(
@@ -42,9 +42,9 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
             label: 'label',
           }),
         ],
-        economy,
+        pixelRatio,
       }),
-    [sample, economy],
+    [sample, pixelRatio],
   )
   return (
     <div className="devtools-example">
@@ -65,10 +65,10 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
           <button
             className="example-button"
             type="button"
-            aria-pressed={economy === true}
-            onClick={() => setEconomy(economy === true ? 'auto' : true)}
+            aria-pressed={pixelRatio === 1}
+            onClick={() => setPixelRatio(pixelRatio === 1 ? 'auto' : 1)}
           >
-            {messages.economy}
+            {messages.onePixel}
           </button>
         </div>
       </Graph>

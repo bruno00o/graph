@@ -65,7 +65,7 @@ A panel watches the graphs only while it is mounted, open and visible. The first
 | Labels drawn | Node, edge and shape labels kept by that selection; the shape count shows only when it is above 0 |
 | Texture memory | Size of the textures the renderer allocated: data, palette, glyph atlas and image atlas with its mipmaps, plus, when WebGL runs [in software](/docs/browser-support#software-rendering), the vertex buffers of the plain triangles |
 | Drawing | GPU, or Software when the browser draws WebGL without a GPU, read from the renderer name; Unknown while the graph holds no context |
-| Economy | Whether the [`economy`](/docs/api/define-graph#economy) of the definition is on: one canvas pixel per CSS pixel. Always Off on a map, which sets the pixel ratio |
+| Pixel ratio | Canvas pixels per CSS pixel the graph draws at, and why: the screen, software (one pixel per CSS pixel because WebGL runs in software and [`pixelRatio`](/docs/api/define-graph#pixel-ratio) is `'auto'`), the definition (a number given as `pixelRatio`), the drawing buffer (lowered to fit the largest one of the device), or the map the graph draws on |
 | Issues | Count of the issues reported by the flushes timed while a panel watched, and the last 20 |
 | Last runs | Name, duration and outcome of the last 5 layout runs |
 
@@ -74,5 +74,13 @@ A panel watches the graphs only while it is mounted, open and visible. The first
 Every text the panel shows. Strings are labels; functions format values.
 
 <api-table path="devtools/index.ts" name="GraphDevtoolsMessages" />
+
+The formatters of the View section receive these values:
+
+```ts
+type GraphRendering = 'active' | 'suspended' | 'lost'
+type GraphDrawing = 'gpu' | 'software' | 'unknown'
+type GraphPixelRatioReason = 'device' | 'software' | 'definition' | 'limit' | 'map'
+```
 
 `defaultMessages` from `@bruno00o/graph/devtools` holds the English defaults.

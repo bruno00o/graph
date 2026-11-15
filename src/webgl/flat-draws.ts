@@ -1,11 +1,8 @@
+import type { EdgeColumns } from '../core/columns'
+import type { BufferCopies } from './buffer-copies'
 import type { Attribute } from './gl'
 
 const chunkVertices = 1 << 18
-
-interface Source {
-  words: Uint32Array
-  version: number
-}
 
 interface Expanded {
   readonly buffer: WebGLBuffer
@@ -24,8 +21,10 @@ interface Pointer {
 interface Layout {
   readonly vao: WebGLVertexArrayObject
   readonly pointers: readonly Pointer[]
-  readonly corner: WebGLBuffer | null
+  readonly corner: Attribute | null
 }
+
+type EdgeArrows = Pick<EdgeColumns, 'alive' | 'arrow' | 'capacity'>
 
 function bytesOf(gl: WebGL2RenderingContext, type: number): number {
   if (type === gl.BYTE || type === gl.UNSIGNED_BYTE) return 1
@@ -115,16 +114,23 @@ export function expandRecords(
 
 export class FlatDraws {
   readonly #gl: WebGL2RenderingContext
-  readonly #sources = new Map<WebGLBuffer, Source>()
-  readonly #registered = new Map<WebGLVertexArrayObject, readonly Attribute[]>()
+  readonly #copies: BufferCopies
+  readonly #jointed: ReadonlySet<WebGLBuffer>
   readonly #layouts = new Map<WebGLVertexArrayObject, Map<WebGLProgram, Map<number, Layout>>>()
   readonly #expanded = new Map<WebGLBuffer, Map<string, Expanded>>()
   readonly #strips = new Map<Uint32Array, Expanded>()
-  readonly #shapes = new Map<WebGLBuffer, Uint32Array>()
+  readonly #shapes = new Map<WebGLBuffer, Uint32Array[]>()
   readonly #patterns = new Map<number, Uint32Array>()
+  #joints = 3
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(
+    gl: WebGL2RenderingContext,
+    copies: BufferCopies,
+    jointed: readonly WebGLBuffer[] = [],
+  ) {
     this.#gl = gl
+    this.#copies = copies
+    this.#jointed = new Set(jointed)
   }
 
   get bytes(): number {
@@ -135,36 +141,24 @@ export class FlatDraws {
     return bytes
   }
 
-  track(buffer: WebGLBuffer, data: ArrayBufferView): void {
-    const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-    const words = new Uint32Array(Math.ceil(bytes.byteLength / 4))
-    new Uint8Array(words.buffer).set(bytes)
-    const source = this.#sources.get(buffer)
-    if (source) {
-      source.words = words
-      source.version++
-    } else this.#sources.set(buffer, { words, version: 0 })
+  arrows(edges: EdgeArrows): void {
+    let joints = 0
+    for (let index = 0; index < edges.capacity && joints !== 3; index++) {
+      if (edges.alive[index] === 1) joints |= edges.arrow[index] ?? 0
+    }
+    this.#joints = joints
   }
 
   drop(buffer: WebGLBuffer): void {
-    this.#sources.delete(buffer)
     const map = this.#expanded.get(buffer)
     if (!map) return
     for (const expanded of map.values()) this.#gl.deleteBuffer(expanded.buffer)
     this.#expanded.delete(buffer)
   }
 
-  shape(buffer: WebGLBuffer, triangles: Uint32Array): void {
-    this.#shapes.set(buffer, triangles)
-  }
-
-  register(vao: WebGLVertexArrayObject, attributes: readonly Attribute[]): void {
-    this.#registered.set(vao, attributes)
-  }
-
   handles(vao: WebGLVertexArrayObject): boolean {
-    const attributes = this.#registered.get(vao)
-    return attributes?.every(({ buffer }) => this.#sources.has(buffer)) ?? false
+    const attributes = this.#copies.arrays.get(vao)
+    return attributes?.every(({ buffer }) => this.#copies.buffers.has(buffer)) ?? false
   }
 
   draw(vao: WebGLVertexArrayObject, program: WebGLProgram, vertices: number, count: number): void {
@@ -174,7 +168,7 @@ export class FlatDraws {
     if (!layout) return
     const per = Math.max(1, Math.floor(chunkVertices / vertices))
     const first = Math.min(per, count)
-    const triangles = (layout.corner && this.#shapes.get(layout.corner)) ?? this.#stripOf(vertices)
+    const triangles = this.#shapeOf(layout.corner, vertices)
     gl.bindVertexArray(layout.vao)
     const strips = this.#stripsOf(triangles, vertices, first, per)
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, strips.buffer)
@@ -195,7 +189,6 @@ export class FlatDraws {
   }
 
   forget(vao: WebGLVertexArrayObject): void {
-    this.#registered.delete(vao)
     const programs = this.#layouts.get(vao)
     if (!programs) return
     for (const layouts of programs.values())
@@ -211,12 +204,10 @@ export class FlatDraws {
     for (const strips of this.#strips.values()) gl.deleteBuffer(strips.buffer)
     this.#expanded.clear()
     this.#strips.clear()
-    this.#sources.clear()
-    this.#registered.clear()
   }
 
   #layout(vao: WebGLVertexArrayObject, program: WebGLProgram, vertices: number): Layout | null {
-    const attributes = this.#registered.get(vao)
+    const attributes = this.#copies.arrays.get(vao)
     if (!attributes) return null
     let programs = this.#layouts.get(vao)
     if (!programs) {
@@ -232,9 +223,9 @@ export class FlatDraws {
     if (known) return known
     const gl = this.#gl
     const pointers: Pointer[] = []
-    let corner: WebGLBuffer | null = null
+    let corner: Attribute | null = null
     for (const attribute of attributes) {
-      if (attribute.divisor === 0) corner ??= attribute.buffer
+      if (attribute.divisor === 0) corner ??= attribute
       const location = gl.getAttribLocation(program, attribute.name)
       if (location < 0) continue
       const record = attribute.stride || attribute.size * bytesOf(gl, attribute.type)
@@ -249,6 +240,25 @@ export class FlatDraws {
     const layout: Layout = { vao: flat, pointers, corner }
     layouts.set(vertices, layout)
     return layout
+  }
+
+  #shapeOf(corner: Attribute | null, vertices: number): Uint32Array {
+    const copy =
+      corner && this.#jointed.has(corner.buffer) && this.#copies.buffers.get(corner.buffer)
+    if (!corner || !copy) return this.#stripOf(vertices)
+    let shapes = this.#shapes.get(corner.buffer)
+    if (!shapes) {
+      shapes = []
+      this.#shapes.set(corner.buffer, shapes)
+    }
+    const joints = this.#joints
+    let shape = shapes[joints]
+    if (!shape) {
+      const joined = [1, 2].filter((part) => (joints & part) !== 0)
+      shape = pairedTriangles(new Float32Array(copy.words.buffer), corner.size, joined)
+      shapes[joints] = shape
+    }
+    return shape
   }
 
   #point(pointer: Pointer, buffer: WebGLBuffer, shift: number): void {
@@ -291,7 +301,7 @@ export class FlatDraws {
       expanded = { buffer: gl.createBuffer(), version: -1, records: 0, bytes: 0 }
       map.set(key, expanded)
     }
-    const source = this.#sources.get(buffer)
+    const source = this.#copies.buffers.get(buffer)
     if (!source) return expanded
     const words = pointer.record / 4
     const fresh = expanded.version === source.version

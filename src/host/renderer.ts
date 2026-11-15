@@ -102,6 +102,7 @@ export interface Renderer {
   stats?(): RendererStats
   limits?(): RendererLimits
   ready?(): Promise<void>
+  holding?(): boolean
   busy?(): boolean
   suspend?(): RendererContext | null
   destroy(): void

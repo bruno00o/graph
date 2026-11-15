@@ -217,7 +217,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     () => surface,
     () => destroyed,
   )
-  const waiters = new FrameWaiters(() => scheduler.due || !render.renderer || render.contextLost)
+  const waiters = new FrameWaiters(
+    () => scheduler.due || !render.renderer || render.contextLost || !!render.renderer.holding?.(),
+  )
 
   const model = createGraphModel({ schedule: () => request(true) })
   model.readAt(cutOf(timeWindow.window))
@@ -293,7 +295,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       themeResolver,
       textWidths,
       paths: () => bundles.paths,
-      economy: () => definition.economy,
+      pixelRatio: () => definition.pixelRatio,
       state: () => store.get(),
       patch,
       remeasured: () => {
@@ -977,7 +979,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       layers: layers.filter,
       globe: camera.globe,
     })
-    render.drawn(now)
+    const held = !!renderer.holding?.()
+    if (!held) render.drawn(now)
     decorations.place()
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
@@ -985,7 +988,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (views.animation || pointer.autoPanning || motion.active || easing || flowing || spreading) {
       request()
     } else if (wait >= 0) scheduler.later(wait)
-    waiters.drawn()
+    if (!held) waiters.drawn()
   }
 
   function drawNow(): void {
@@ -1070,7 +1073,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     pointer.updateCursor()
     views.reconstrain()
     data.refresh()
-    render.refreshEconomy()
+    render.refreshRatio()
   }
 
   function driverOf(target: HostSurface): HostDriver {
@@ -1385,7 +1388,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       renderer: render.renderer?.stats?.() ?? null,
       contextLost: render.contextLost,
       software: render.software,
-      economy: render.economical,
+      pixelRatio: render.pixelRatio,
+      ratioOption: definition.pixelRatio,
     }
   }
 

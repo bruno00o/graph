@@ -211,6 +211,7 @@ export type {
   PathFinder,
   PathOptions,
   PathWeight,
+  PixelRatioOption,
   Point,
   PolygonGeometry,
   RawAccessor,

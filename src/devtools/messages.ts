@@ -14,6 +14,14 @@ export type GraphRendering = 'active' | 'suspended' | 'lost'
  */
 export type GraphDrawing = 'gpu' | 'software' | 'unknown'
 
+/**
+ * Why a graph draws with its pixel ratio: `'device'`, the ratio of the screen; `'software'`, one
+ * canvas pixel per CSS pixel because WebGL runs in software and `pixelRatio` is `'auto'`;
+ * `'definition'`, the number given as `pixelRatio`; `'limit'`, lowered to fit the drawing buffer
+ * of the device; `'map'`, set by the map the graph draws on.
+ */
+export type GraphPixelRatioReason = 'device' | 'software' | 'definition' | 'limit' | 'map'
+
 /** Every text the devtools panel shows. Strings are labels; functions format values. */
 export interface GraphDevtoolsMessages {
   /**
@@ -187,12 +195,14 @@ export interface GraphDevtoolsMessages {
    */
   readonly drawingName?: ((drawing: GraphDrawing) => string) | undefined
   /**
-   * Label of whether the `economy` of the definition is on.
-   * @default 'Economy'
+   * Label of the canvas pixels per CSS pixel the graph draws with.
+   * @default 'Pixel ratio'
    */
-  readonly economy?: string | undefined
-  /** Formats whether the economy is on, such as `'On'` and `'Off'`. */
-  readonly economyName?: ((on: boolean) => string) | undefined
+  readonly pixelRatio?: string | undefined
+  /**
+   * Formats the pixel ratio drawn and why, such as `'2 (screen)'` and `'1 (software)'`.
+   */
+  readonly pixelRatioName?: ((ratio: number, reason: GraphPixelRatioReason) => string) | undefined
   /**
    * Title of the Interaction section.
    * @default 'Interaction'
@@ -271,6 +281,13 @@ export interface GraphDevtoolsMessages {
 
 const integer = new Intl.NumberFormat('en-US')
 const decimal = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
+const ratioReasons: Readonly<Record<GraphPixelRatioReason, string>> = {
+  device: 'screen',
+  software: 'software',
+  definition: 'definition',
+  limit: 'drawing buffer',
+  map: 'map',
+}
 const tenth = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const percent = new Intl.NumberFormat('en-US', { style: 'percent' })
 const units = ['B', 'KB', 'MB', 'GB']
@@ -371,8 +388,8 @@ export const defaultMessages: GraphDevtoolsMessages = {
   drawing: 'Drawing',
   drawingName: (drawing) =>
     drawing === 'gpu' ? 'GPU' : drawing === 'software' ? 'Software' : 'Unknown',
-  economy: 'Economy',
-  economyName: (on) => (on ? 'On' : 'Off'),
+  pixelRatio: 'Pixel ratio',
+  pixelRatioName: (ratio, reason) => `${decimal.format(ratio)} (${ratioReasons[reason]})`,
   interaction: 'Interaction',
   selection: 'Selection',
   elementCounts: (nodes, edges) =>

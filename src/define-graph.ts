@@ -17,6 +17,7 @@ import type {
   LassoOptions,
   LensOptions,
   Mark,
+  PixelRatioOption,
   ResolvedBackground,
   ResolvedBridges,
   ResolvedInteraction,
@@ -85,10 +86,10 @@ function resolveWait(option: boolean | number | undefined): number {
   return atLeastZero(option, 'waitForData')
 }
 
-function resolveEconomy(option: boolean | 'auto' | undefined): boolean | 'auto' {
-  if (option === undefined) return 'auto'
-  if (option === true || option === false || option === 'auto') return option
-  throw new TypeError("defineGraph: economy must be true, false or 'auto'")
+function resolveRatio(option: PixelRatioOption | undefined): PixelRatioOption {
+  if (option === undefined || option === 'auto' || option === 'device') return option ?? 'auto'
+  if (typeof option === 'number') return positive(option, 'pixelRatio')
+  throw new TypeError("defineGraph: pixelRatio must be 'auto', 'device' or a number")
 }
 
 function resolveSpeed(
@@ -367,6 +368,6 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     spread: resolveSpread(options.spread),
     time: resolveTime(options.time),
     support: resolveSupport(options.support as SupportStateOptions | null | undefined, free),
-    economy: resolveEconomy(options.economy),
+    pixelRatio: resolveRatio(options.pixelRatio),
   })
 }

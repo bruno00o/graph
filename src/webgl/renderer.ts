@@ -16,11 +16,12 @@ import type { LabelArea, LensFrame, Renderer, RenderFrame, RenderInput } from '.
 import type { View } from '../types'
 import { arcVertex } from './arc-shaders'
 import { createBackdrop } from './backdrop'
+import { BufferCopies } from './buffer-copies'
 import { createBundlePass } from './bundle-pass'
 import { bundleCorners } from './bundle-shaders'
 import { readCaps, warnLimit } from './caps'
 import { EdgeCover, layerCap } from './edge-cover'
-import { FlatDraws, pairedTriangles } from './flat-draws'
+import type { FlatDraws } from './flat-draws'
 import {
   type Attribute,
   createBuffer,
@@ -238,6 +239,7 @@ export function createSharedRenderer(
         textureBytes: 0,
       },
     ready: () => inner.ready?.() ?? Promise.resolve(),
+    holding: () => !!inner.holding?.(),
     destroy: () => state.guard(() => inner.destroy()),
   }
 }
@@ -251,23 +253,39 @@ function createRenderer(
   const capEdges = !shared && (gl.getContextAttributes()?.stencil ?? false)
   const format = formats(gl)
   const caps = readCaps(gl)
-  const flat = caps.software ? new FlatDraws(gl) : null
+  const copies = caps.software ? new BufferCopies() : null
+  let flat: FlatDraws | null = null
+  let holding = caps.software
+  let destroyed = false
+  const flatLoad = copies
+    ? import('./flat-draws')
+        .then(({ FlatDraws }) => {
+          if (destroyed || gl.isContextLost()) return
+          flat = new FlatDraws(gl, copies, [edgeCorner, curveCorner])
+          if (input) flat.arrows(input.scene.edges)
+        })
+        .catch(() => warnLimit('flat', 'the software drawing path failed to load'))
+        .then(() => {
+          holding = false
+          if (!destroyed) invalidate()
+        })
+    : null
   const arrayBuffer = (data: ArrayBufferView, usage: number): WebGLBuffer => {
     const buffer = createBuffer(gl, data, usage)
-    flat?.track(buffer, data)
+    copies?.keep(buffer, data)
     return buffer
   }
   const arrayData = (buffer: WebGLBuffer, data: ArrayBufferView, usage: number): void => {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.bufferData(gl.ARRAY_BUFFER, data, usage)
-    flat?.track(buffer, data)
+    copies?.keep(buffer, data)
   }
   const vertexArray = (
     program: WebGLProgram,
     attributes: readonly Attribute[],
   ): WebGLVertexArrayObject => {
     const vao = createVertexArray(gl, program, attributes)
-    flat?.register(vao, attributes)
+    copies?.arrays.set(vao, attributes)
     return vao
   }
   const dataLimit = caps.dataCapacity
@@ -420,7 +438,7 @@ function createRenderer(
     endPrograms.set(program, created)
     return created
   }
-  for (const program of new Set([labelProgram, glyphProgram])) {
+  for (const program of [labelProgram, glyphProgram]) {
     gl.useProgram(program)
     gl.uniform1f(gl.getUniformLocation(program, 'atlasFontSize'), atlasFontSize)
   }
@@ -723,10 +741,6 @@ function createRenderer(
   const curved = new Set<number>()
   let curvedFlags = new Uint8Array(0)
   let curvedChanged = false
-  let arrowFlags = new Uint8Array(0)
-  const arrowEnds = [0, 0]
-  let arrowShape = -1
-  const edgeShapes = new Map<number, readonly [Uint32Array, Uint32Array]>()
   const geodesics = new Set<number>()
   let geodesicChanged = false
   const halved = new Set<number>()
@@ -792,10 +806,12 @@ function createRenderer(
   function destroyLabelSet(set: LabelSet): void {
     shapeLayer?.forget(set)
     for (const buffer of [...set.buffers, set.hullGlyphs, set.hullAnchors]) {
+      copies?.buffers.delete(buffer)
       flat?.drop(buffer)
       gl.deleteBuffer(buffer)
     }
     for (const vao of [set.main, set.highlight, set.edgeMain, set.edgeHighlight, set.hulls]) {
+      copies?.arrays.delete(vao)
       flat?.forget(vao)
       gl.deleteVertexArray(vao)
     }
@@ -995,7 +1011,6 @@ function createRenderer(
     edgeStyle.data[at + 2] = bend
     edgeStyle.data[at + 3] = edges.flow[index] ?? 0
     if (capEdges) coverEdge(edges, index)
-    if (flat) countArrows(index, alive === 1 ? (edges.arrow[index] ?? 0) : 0)
     const isCurved =
       edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
     const isGeodesic = edges.alive[index] === 1 && edges.geodesic[index] === 1
@@ -1291,34 +1306,6 @@ function createRenderer(
     edgeState.upload(first, end - 1)
   }
 
-  function countArrows(index: number, arrow: number): void {
-    if (arrowFlags.length <= index) {
-      const flags = new Uint8Array(Math.max(index + 1, arrowFlags.length * 2))
-      flags.set(arrowFlags)
-      arrowFlags = flags
-    }
-    const was = arrowFlags[index] ?? 0
-    if (was === arrow) return
-    arrowEnds[0] = (arrowEnds[0] ?? 0) + (arrow & 1) - (was & 1)
-    arrowEnds[1] = (arrowEnds[1] ?? 0) + ((arrow >> 1) & 1) - ((was >> 1) & 1)
-    arrowFlags[index] = arrow
-  }
-
-  function shapeEdges(): void {
-    if (!flat) return
-    const key = ((arrowEnds[0] ?? 0) > 0 ? 1 : 0) | ((arrowEnds[1] ?? 0) > 0 ? 2 : 0)
-    if (key === arrowShape) return
-    arrowShape = key
-    let shapes = edgeShapes.get(key)
-    if (!shapes) {
-      const joined = [1, 2].filter((part) => (key & part) !== 0)
-      shapes = [pairedTriangles(cornerEdge, 3, joined), pairedTriangles(cornerCurve, 3, joined)]
-      edgeShapes.set(key, shapes)
-    }
-    flat.shape(edgeCorner, shapes[0])
-    flat.shape(curveCorner, shapes[1])
-  }
-
   function syncEdges(next: RenderInput): void {
     const edges = next.scene.edges
     if (edges.capacity > dataLimit) {
@@ -1349,8 +1336,10 @@ function createRenderer(
     }
     edgeTopology.upload(first, last)
     edgeStyle.upload(first, last)
-    shapeEdges()
-    if (last >= first) touch()
+    if (last >= first) {
+      flat?.arrows(edges)
+      touch()
+    }
     if (curvedChanged) {
       curvedChanged = false
       arrayData(curveIndices, Uint32Array.from(curved), gl.DYNAMIC_DRAW)
@@ -1985,10 +1974,7 @@ function createRenderer(
       refreshImages(next.scene.nodes)
       syncEdges(next)
       if (caps.software && next.scene.nodes.capacity + next.scene.edges.capacity > softwareCrowd) {
-        warnLimit(
-          'software',
-          'WebGL runs in software here: past 20,000 nodes and edges, a frame takes tens to hundreds of milliseconds, depending on the processor',
-        )
+        warnLimit('software', 'WebGL runs in software here: frames slow down past 20,000 elements')
       }
       syncZoom(next)
       syncTime(next)
@@ -2089,6 +2075,7 @@ function createRenderer(
     },
 
     render(given) {
+      if (holding) return -1
       const width = gl.drawingBufferWidth
       const height = gl.drawingBufferHeight
       const ratio = fittedRatio(given, width, height)
@@ -2204,7 +2191,9 @@ function createRenderer(
       }
     },
 
-    ready: () => images.settled(),
+    ready: () => Promise.all([images.settled(), flatLoad]).then(() => {}),
+
+    holding: () => holding,
 
     destroy() {
       if (fence) gl.deleteSync(fence)
@@ -2219,6 +2208,7 @@ function createRenderer(
       if (bridgeTexture) gl.deleteTexture(bridgeTexture)
       releaseLens()
       for (const set of labelSets) destroyLabelSet(set)
+      destroyed = true
       flat?.destroy()
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
       for (const vao of Object.values(vertexArrays)) gl.deleteVertexArray(vao)

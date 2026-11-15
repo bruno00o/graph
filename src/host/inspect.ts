@@ -1,4 +1,5 @@
 import type { AnyIssue } from '../core/issues'
+import type { PixelRatioOption } from '../types'
 import type { GraphInstance } from './graph-instance'
 import type { RendererStats } from './renderer'
 
@@ -17,7 +18,8 @@ export interface GraphInspection {
   readonly renderer: RendererStats | null
   readonly contextLost: boolean
   readonly software: boolean | null
-  readonly economy: boolean
+  readonly pixelRatio: number
+  readonly ratioOption: PixelRatioOption
 }
 
 export interface InspectedGraph {

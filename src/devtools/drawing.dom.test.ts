@@ -5,6 +5,7 @@ import { mountMapGraph } from '../map'
 import { nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { fakeMap } from '../testing/map'
+import type { PixelRatioOption } from '../types'
 import { GraphDevtoolsCore } from './core'
 import { graphReports } from './inspector'
 
@@ -21,21 +22,25 @@ const data = [
   { id: 'b', x: 260, y: 250 },
 ]
 
-function definitionOf(economy?: boolean) {
-  return defineGraph({ marks: [nodes(data, { x: 'x', y: 'y' })], economy })
+function definitionOf(pixelRatio?: PixelRatioOption) {
+  return defineGraph({ marks: [nodes(data, { x: 'x', y: 'y' })], pixelRatio })
 }
 
-function mount(software: boolean | null, economy?: boolean): GraphInstance {
+function mount(
+  software: boolean | null,
+  pixelRatio?: PixelRatioOption,
+  drawingBuffer = 8192,
+): GraphInstance {
   const container = document.createElement('div')
   document.body.append(container)
   const graph = createGraphHost(
     container,
-    { definition: definitionOf(economy), ariaLabel: 'graph' },
+    { definition: definitionOf(pixelRatio), ariaLabel: 'graph' },
     () => ({
       ...fakeRenderer(),
       ...(software === null
         ? {}
-        : { limits: () => ({ drawingBuffer: 8192, pathPoints: 8192 * 1024, software }) }),
+        : { limits: () => ({ drawingBuffer, pathPoints: 8192 * 1024, software }) }),
     }),
   ) as unknown as GraphInstance
   dom.flushFrames()
@@ -59,6 +64,7 @@ function value(element: HTMLElement, term: string): string | null | undefined {
 
 beforeEach(() => {
   dom = installDom()
+  vi.stubGlobal('devicePixelRatio', 2)
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
 })
 
@@ -67,41 +73,56 @@ afterEach(() => {
   core = null
   vi.useRealTimers()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   dom.restore()
   document.body.innerHTML = ''
 })
 
-describe('the devtools and software rendering', () => {
-  it('shows where WebGL draws and whether the economy is on', () => {
+describe('the devtools and the pixel ratio', () => {
+  it('shows where WebGL draws, the pixel ratio drawn and why', () => {
     const graph = mount(true)
     const element = open()
     expect(value(element, 'Drawing')).toBe('Software')
-    expect(value(element, 'Economy')).toBe('On')
-    expect(graphReports()[0]).toMatchObject({ drawing: 'software', economy: true })
-    graph.update({ definition: definitionOf(false) })
+    expect(value(element, 'Pixel ratio')).toBe('1 (software)')
+    expect(graphReports()[0]).toMatchObject({
+      drawing: 'software',
+      pixelRatio: 1,
+      pixelRatioReason: 'software',
+    })
+    graph.update({ definition: definitionOf('device') })
     vi.advanceTimersByTime(1100)
-    expect(value(element, 'Economy')).toBe('Off')
+    expect(value(element, 'Pixel ratio')).toBe('2 (screen)')
+    graph.update({ definition: definitionOf(1.5) })
+    vi.advanceTimersByTime(1100)
+    expect(value(element, 'Pixel ratio')).toBe('1.5 (definition)')
     graph.destroy()
   })
 
-  it('reports a GPU, and an unknown renderer', () => {
+  it('reports a GPU, an unknown renderer, and a ratio lowered for the drawing buffer', () => {
     const gpu = mount(false)
     open()
-    expect(graphReports()[0]).toMatchObject({ drawing: 'gpu', economy: false })
+    expect(graphReports()[0]).toMatchObject({
+      drawing: 'gpu',
+      pixelRatio: 2,
+      pixelRatioReason: 'device',
+    })
     gpu.destroy()
-    const unknown = mount(null, true)
-    expect(graphReports()[0]).toMatchObject({ drawing: 'unknown', economy: true })
+    const unknown = mount(null)
+    expect(graphReports()[0]).toMatchObject({ drawing: 'unknown', pixelRatioReason: 'device' })
     unknown.destroy()
+    const capped = mount(false, 'device', 1000)
+    expect(graphReports()[0]).toMatchObject({ pixelRatio: 1.25, pixelRatioReason: 'limit' })
+    capped.destroy()
   })
 
-  it('reports the economy off on a map, where the map sets the pixel ratio', () => {
+  it('reports the ratio of the map on a map', () => {
     const graph = mountMapGraph(fakeMap().map, {
-      definition: definitionOf(true),
+      definition: definitionOf(1),
       ariaLabel: 'graph',
     })
     dom.flushFrames()
     open()
-    expect(graphReports()[0]).toMatchObject({ economy: false })
+    expect(graphReports()[0]).toMatchObject({ pixelRatioReason: 'map' })
     graph.destroy()
   })
 
@@ -110,11 +131,11 @@ describe('the devtools and software rendering', () => {
     const element = open({
       drawing: 'Rendu',
       drawingName: (drawing: string) => `[${drawing}]`,
-      economy: 'Sobriété',
-      economyName: (on: boolean) => (on ? 'oui' : 'non'),
+      pixelRatio: 'Densité',
+      pixelRatioName: (ratio: number, reason: string) => `${ratio}/${reason}`,
     })
     expect(value(element, 'Rendu')).toBe('[software]')
-    expect(value(element, 'Sobriété')).toBe('oui')
+    expect(value(element, 'Densité')).toBe('1/software')
     graph.destroy()
   })
 })

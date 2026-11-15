@@ -1,3 +1,3 @@
 export const messages = {
-  economy: 'One pixel per CSS pixel',
+  onePixel: 'One pixel per CSS pixel',
 }

@@ -206,9 +206,15 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 
 `hulls` takes the results of [`hull()`](/docs/api/hull), drawn under edges and nodes in their order. A hull that follows a state must name a declared state, or `selected`, `hovered` or `focused`.
 
-## Economy
+## Pixel ratio
 
-`economy` draws the canvas at one pixel per CSS pixel, whatever the device pixel ratio: a frame then shades up to 4 times fewer pixels on a screen of ratio 2, and the graph is less sharp. `'auto'`, the default, turns it on when WebGL runs in software, `true` with any renderer, and `false` keeps the device pixel ratio even in software. A new definition with another `economy` resizes the canvas at once. [`exportPng`](/docs/api/export) takes the pixel ratio the graph draws at by default: pass `pixelRatio` for a sharper image. On a [map](/docs/map), the map sets the pixel ratio and `economy` changes nothing. See [Software rendering](/docs/browser-support#software-rendering).
+`pixelRatio` sets how many canvas pixels the graph draws per CSS pixel, like the `pixelRatio` of the [exports](/docs/api/export):
+
+```ts
+type PixelRatioOption = 'auto' | 'device' | number
+```
+
+`'auto'`, the default, follows the device pixel ratio, but draws one canvas pixel per CSS pixel when WebGL runs in software: a frame then shades up to 4 times fewer pixels on a screen of ratio 2, and the graph is less sharp. `'device'` follows the device pixel ratio with any renderer, sharp even in software. A number above 0 sets the ratio, `1` to spend less on a weak GPU or `3` to draw finer than the screen. The largest drawing buffer of the device caps every ratio. A new definition with another `pixelRatio` resizes the canvas at once. [`exportPng`](/docs/api/export) takes the pixel ratio the graph draws at by default: pass its own `pixelRatio` for a sharper image. On a [map](/docs/map), the map sets the pixel ratio and `pixelRatio` changes nothing. See [Software rendering](/docs/browser-support#software-rendering).
 
 ## Errors
 
@@ -218,7 +224,7 @@ The grid has three levels, `spacing` times a power of 4 apart, chosen from the z
 - `RangeError` when `background.spacing`, `bridges.size` or `interaction.lens.radius` is not a positive number, when `interaction.lens.zoom` is not a finite number of at least 1, or when `bridges.maxEdges` is negative or `NaN`.
 - `TypeError` when `background.grid` is not `'lines'` or `'dots'`, when a hull does not come from `hull()`, or when `bundling` or `routing` has no `start` function.
 - `TypeError` when both `bundling` and `routing` are given, or when `bridges.shape` is not `'arc'` or `'gap'`.
-- `TypeError` when `economy` is not `true`, `false` or `'auto'`.
+- `TypeError` when `pixelRatio` is neither `'auto'`, `'device'` nor a number, and `RangeError` when it is a number that is not finite or not above 0.
 - `RangeError` with more than 29 states besides `selected`, `hovered` and `focused`.
 - `TypeError` when a `layer` is not a non-empty string, or when a state of `support` is not a free state of `states`.
 - `RangeError` when a mark beyond the first 128 node marks or the first 128 edge marks names a layer.

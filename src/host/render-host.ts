@@ -5,6 +5,7 @@ import { dev } from '../dev'
 import { watchFonts } from '../dom/fonts'
 import type { TextWidths } from '../dom/text-width'
 import { observeTheme, type ResolvedTheme, type ThemeResolver, type ThemeWatch } from '../dom/theme'
+import type { PixelRatioOption } from '../types'
 import { FrameCost } from './frame-cost'
 import type { GraphState, HostSurface, RendererFactory } from './graph-instance'
 import { KeptFrame } from './kept-frame'
@@ -32,7 +33,7 @@ export interface RenderSource {
   readonly themeResolver: ThemeResolver
   readonly textWidths: TextWidths
   paths(): EdgePaths
-  economy(): boolean | 'auto'
+  pixelRatio(): PixelRatioOption
   state(): GraphState
   patch(next: Partial<GraphState>): void
   remeasured(): void
@@ -47,6 +48,7 @@ export class RenderHost {
   settled = false
   positionsVersion = -1
   pixelRatio: number = window.devicePixelRatio || 1
+  software: boolean | null = null
   flowTime = 0
   paletteColors: Uint8Array = new Uint8Array(256 * 4)
   paletteVersion = 0
@@ -54,8 +56,7 @@ export class RenderHost {
   readonly cost: FrameCost = new FrameCost(() => this.renderer)
   #paletteCount = 0
   #drawingLimit = Number.POSITIVE_INFINITY
-  #ratioLimit = Number.POSITIVE_INFINITY
-  #software: boolean | null = null
+  #wanted = 0
   #warnedEmpty = false
   #ratioQuery: MediaQueryList | null = null
   #themeWatch: ThemeWatch | null = null
@@ -140,26 +141,20 @@ export class RenderHost {
       limits?.pathPoints ?? defaultPointBudget,
     )
     this.#drawingLimit = limits?.drawingBuffer ?? Number.POSITIVE_INFINITY
-    this.#software = limits ? limits.software : null
-    this.#ratioLimit = this.economical ? 1 : Number.POSITIVE_INFINITY
+    this.software = limits ? limits.software : null
   }
 
-  get software(): boolean | null {
-    return this.#software
+  #wantedRatio(): number {
+    const device = window.devicePixelRatio || 1
+    const option = this.#source.pixelRatio()
+    if (option === 'auto') return this.software ? Math.min(device, 1) : device
+    return option === 'device' ? device : option
   }
 
-  get economical(): boolean {
-    if (!this.#source.surface().ownCanvas) return false
-    const economy = this.#source.economy()
-    return economy === 'auto' ? this.#software === true : economy
-  }
-
-  refreshEconomy(): void {
-    const limit = this.economical ? 1 : Number.POSITIVE_INFINITY
-    if (limit === this.#ratioLimit) return
-    this.#ratioLimit = limit
+  refreshRatio(): void {
+    if (!this.#source.surface().ownCanvas || this.#wanted === this.#wantedRatio()) return
     const { width, height } = this.#source.state()
-    if (width > 0 || height > 0) this.resize(width, height)
+    this.resize(width, height)
   }
 
   readonly refreshTheme = (): void => {
@@ -313,11 +308,8 @@ export class RenderHost {
     if (surface.ownCanvas) {
       const canvas = surface.events
       const side = Math.max(width, height, 1)
-      this.pixelRatio = Math.min(
-        window.devicePixelRatio || 1,
-        this.#ratioLimit,
-        this.#drawingLimit / side,
-      )
+      this.#wanted = this.#wantedRatio()
+      this.pixelRatio = Math.min(this.#wanted, this.#drawingLimit / side)
       const across = Math.min(this.#drawingLimit, Math.max(1, Math.round(width * this.pixelRatio)))
       const down = Math.min(this.#drawingLimit, Math.max(1, Math.round(height * this.pixelRatio)))
       cleared = canvas.width !== across || canvas.height !== down
