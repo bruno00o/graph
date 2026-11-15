@@ -49,6 +49,11 @@ export function pendingMarks(
 }
 
 export const defaultWait = 100
+export const longestTimer: number = 2 ** 31 - 1
+
+export function clock(): number {
+  return performance.now()
+}
 
 export function pace(
   wait: number,
@@ -61,24 +66,31 @@ export function pace(
   const fire = () => {
     timer = undefined
     pending = false
-    const start = Date.now()
+    const start = clock()
     next = start + wait
     run()
     if (rest > 0) {
-      const end = Date.now()
+      const end = clock()
       next = Math.max(next, end + (end - start) * rest)
     }
+  }
+  const arm = () => {
+    const delay = next - clock()
+    if (delay <= 0) fire()
+    else timer = setTimeout(delay > longestTimer ? wake : fire, Math.min(delay, longestTimer))
+  }
+  const wake = () => {
+    timer = undefined
+    arm()
   }
   return {
     call() {
       pending = true
-      if (timer !== undefined) return
-      const delay = next - Date.now()
-      if (delay <= 0) fire()
-      else timer = setTimeout(fire, delay)
+      if (timer === undefined) arm()
     },
     flush() {
       if (timer !== undefined) clearTimeout(timer)
+      timer = undefined
       if (pending) fire()
     },
     cancel() {

@@ -462,6 +462,7 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
         const mode = store.pick[index] ?? shapePicks.painted
         const geometry = store.geometry[index]
         if (mode === shapePicks.none || !isDrawn(geometry)) continue
+        if (!fills(index, geometry, mode) && !strokes(index, mode)) continue
         const node = store.pinNode?.[index] ?? -1
         const ox = node >= 0 ? positions.x(node) : 0
         const oy = node >= 0 ? positions.y(node) : 0

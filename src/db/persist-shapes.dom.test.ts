@@ -255,7 +255,7 @@ describe('persistShapes', () => {
   })
 
   it('puts a reshaped outline back when a live gesture is cancelled or the editor goes', () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.useFakeTimers({ toFake: ['Date', 'performance'] })
     const collection = zoneCollection()
     const graph = mount(collection)
     const editor = createShapeEditor(graph)
@@ -304,7 +304,7 @@ describe('persistShapes', () => {
   })
 
   it('paces live writes and writes the release at once', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] })
     const collection = zoneCollection()
     const graph = mount(collection)
     const editor = createShapeEditor(graph)

@@ -3,6 +3,7 @@ import { toAccessor } from '../core/accessor'
 import { worldSize } from '../core/geo'
 import type { GraphChanges, ShapeRecord } from '../core/graph-model'
 import { type ShapeShift, shiftSlots } from '../core/shape-store'
+import { type Sight, shapeShown } from '../core/visibility'
 import { dev } from '../dev'
 import type { GraphInstance } from '../host/graph-instance'
 import { internalsOf } from '../host/internals'
@@ -78,7 +79,8 @@ export interface ShapeEditorOptions<M extends Mark = Mark> {
   readonly onEdit?: ((edits: readonly ShapeEdit<M, WritableShapeGeometry>[]) => void) | undefined
   /**
    * How long a proposed shape stays drawn as proposed while its data does not change, in
-   * milliseconds; then the data wins and `editlost` is emitted. `Infinity` waits for good.
+   * milliseconds; then the data wins and `editlost` is emitted. `Infinity`, or any delay longer
+   * than a timer can wait (2^31 - 1 milliseconds), waits for good.
    * @default 10000
    */
   readonly hold?: number | undefined
@@ -167,7 +169,9 @@ export interface ShapeEditorText {
 
 /** State of a shape editor. */
 export interface ShapeEditorState {
-  /** Selected shapes that the editor can edit, in the order of the selection. */
+  /**
+   * Selected shapes that the editor can edit and that are shown, in the order of the selection.
+   */
   readonly selected: readonly Key[]
   /** The gesture in progress, or `null`. */
   readonly gesture: ShapeEditorGesture | null
@@ -441,6 +445,7 @@ interface ActiveVertex {
 const clickSlop = 4
 const touchSlop = 10
 const defaultHold = 10_000
+const longestTimer = 2 ** 31 - 1
 const defaultHandleSize = 8
 const arrowStep = 1
 const arrowLongStep = 10
@@ -587,6 +592,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
   let spaceHeld = false
   let request = 0
   let drawnStamp = ''
+  let seenDetail = -1
   let cachedStamp = ''
   let cached: { frame: EditorFrame; handles: readonly Handle[]; owner: Key | null } | null = null
   let lastSelection: unknown = null
@@ -704,7 +710,27 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   function selectedKeys(): Key[] {
     const shapes = (graph.selection.get() as { readonly shapes?: readonly Key[] }).shapes ?? []
-    return shapes.filter((key) => entryOf(key) !== null && pending.get(key)?.outline !== null)
+    const sight = internals.sight()
+    return shapes.filter((key) => {
+      const entry = entryOf(key)
+      return entry !== null && pending.get(key)?.outline !== null && !hidden(entry, sight)
+    })
+  }
+
+  function hidden(entry: Entry, sight: Sight): boolean {
+    return !shapeShown(internals.scene.shapes, entry.record.index, sight)
+  }
+
+  function hiddenKey(key: Key, sight: Sight): boolean {
+    const entry = entryOf(key)
+    return entry !== null && hidden(entry, sight)
+  }
+
+  function dropHidden(): void {
+    if (!gesture && !typing) return
+    const sight = internals.sight()
+    if (typing && hiddenKey(typing.key, sight)) endText()
+    if (gesture?.keys.some((key) => hiddenKey(key, sight))) cancelGesture()
   }
 
   function publish(): void {
@@ -1019,8 +1045,8 @@ export function createShapeEditor<S extends string, M extends Mark>(
 
   function stampOf(view: Screen): string {
     const { x, y, zoom } = view.view
-    const { scene, positions, palette } = internals.stamp()
-    return `${x}:${y}:${zoom}:${view.width}:${view.height}:${scene}:${positions}:${palette}`
+    const { scene, positions, palette, detail } = internals.stamp()
+    return `${x}:${y}:${zoom}:${view.width}:${view.height}:${scene}:${positions}:${palette}:${detail}`
   }
 
   function frame(): { frame: EditorFrame; handles: readonly Handle[]; owner: Key | null } {
@@ -1028,8 +1054,10 @@ export function createShapeEditor<S extends string, M extends Mark>(
     const stamp = `${stampOf(view)}:${hover?.x}:${hover?.y}`
     if (cached && cachedStamp === stamp && !view.globe) return cached
     const previews: PreviewShape[] = []
+    const sight = internals.sight()
     for (const key of drafted) {
       const entry = entryOf(key)
+      if (entry && hidden(entry, sight)) continue
       const waiting = pending.get(key)
       const outline = entry ? outlineOf(key, entry) : (waiting?.outline ?? null)
       const pin = entry ? entry.pin : (waiting?.pin ?? null)
@@ -1217,7 +1245,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       if (undoStack.length > historySize) undoStack.shift()
       redoStack.length = 0
     }
-    if (Number.isFinite(hold)) {
+    if (hold <= longestTimer) {
       const timer = setTimeout(() => {
         timers.delete(timer)
         expire(batch)
@@ -1991,8 +2019,10 @@ export function createShapeEditor<S extends string, M extends Mark>(
   }
 
   function hitPending(point: Point, view: Screen): Key | null {
+    const sight = internals.sight()
     for (const [key, waiting] of [...pending].reverse()) {
       const entry = entryOf(key)
+      if (entry && hidden(entry, sight)) continue
       const outline = waiting.outline
       const origin = entry && outline ? originOf(entry.pin, outline, view) : null
       const local = outline && origin ? shapeScreen(view, outline, origin.x, origin.y) : null
@@ -2423,6 +2453,14 @@ export function createShapeEditor<S extends string, M extends Mark>(
     frame() {
       if (destroyed) return
       checkBackground()
+      const { detail } = internals.stamp()
+      if (detail !== seenDetail) {
+        seenDetail = detail
+        dropHidden()
+        if (destroyed) return
+        cached = null
+        publish()
+      }
       if (listeners.size === 0) return
       const view = screen()
       const stamp = stampOf(view)

@@ -445,10 +445,14 @@ export function insertVertex(
 }
 
 export function removeVertex(outline: PathOutline, part: number, index: number): PathOutline {
-  const points = outline.parts[part]?.points.slice()
-  if (!points || points.length <= (outline.closed ? 3 : 2)) return outline
+  const current = outline.parts[part]
+  const points = current?.points.slice()
+  if (!current || !points || points.length <= (outline.closed ? 3 : 2)) return outline
   points.splice(index, 1)
-  return withPart(outline, part, points)
+  const close = index === 0 && current.close ? (points[0] ?? null) : current.close
+  const parts = outline.parts.slice()
+  parts[part] = { ...current, points, close }
+  return { ...outline, parts }
 }
 
 export function circleRadius(outline: CircleOutline): number {

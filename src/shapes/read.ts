@@ -38,6 +38,7 @@ export function filledWith(geometry: ShapeGeometryData, filled: Filled): ShapeGe
 }
 
 const sameTolerance = 1e-9
+const flatTolerance = 1e-12
 
 function sameIndices(a: Uint32Array | undefined, b: Uint32Array | undefined): boolean {
   if (a === b) return true
@@ -236,13 +237,28 @@ function finishPolygon(builder: Builder, firstRing: number): void {
     maxY = Math.max(maxY, xs[k + 1] ?? 0)
   }
   const box = (maxX - minX) * (maxY - minY)
-  if (!(box > 0) || outer === 0) {
+  const outerEnd = rings[firstRing] ?? first
+  const extent = maxX - minX + maxY - minY
+  if (!(box > 0) || (outer === 0 && flatRing(xs, first, outerEnd, extent))) {
     xs.length = first * 2
     rings.length = firstRing
-    if (box > 0) builder.invalid = 'self-intersecting'
     return
   }
   builder.polygons.push(firstRing)
+}
+
+function flatRing(points: readonly number[], from: number, to: number, extent: number): boolean {
+  const ox = points[from * 2] ?? 0
+  const oy = points[from * 2 + 1] ?? 0
+  const tolerance = extent * extent * flatTolerance
+  for (let i = from + 1; i + 1 < to; i++) {
+    const ax = (points[i * 2] ?? 0) - ox
+    const ay = (points[i * 2 + 1] ?? 0) - oy
+    const bx = (points[i * 2 + 2] ?? 0) - ox
+    const by = (points[i * 2 + 3] ?? 0) - oy
+    if (Math.abs(ax * by - ay * bx) > tolerance) return false
+  }
+  return true
 }
 
 function readRings(builder: Builder, rings: unknown, positions: boolean): void {
