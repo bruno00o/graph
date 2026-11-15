@@ -1,3 +1,4 @@
+import { report } from '../../host/isolate'
 import type { LayoutListener, LayoutRun } from '../../types'
 import { type Slice, sliced } from '../scope-runs'
 import { costOf, type PackedResults, packBatch, unpackResults } from './batch'
@@ -228,9 +229,16 @@ export class ForcePool {
     job.slice = sliced({
       step: (until) => {
         if (job.over) return true
-        if (!running.advance(until)) return false
+        let xy: Float32Array
+        try {
+          if (!running.advance(until)) return false
+          xy = running.result()
+        } catch (error) {
+          report(error)
+          xy = Float32Array.from(job.graph.xy)
+        }
         job.over = true
-        job.listener.end(running.result())
+        job.listener.end(xy)
         return true
       },
     })

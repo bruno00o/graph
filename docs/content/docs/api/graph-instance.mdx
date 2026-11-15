@@ -276,7 +276,7 @@ graph.refresh({ nodes: ['a'] })
 
 <api-table path="index.ts" name="GraphLayout" />
 
-`run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
+`run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. A layout that throws, when it starts or while it computes, does not end the run with an error: the error goes to `reportError`, the nodes stay where they are, and the run ends. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
 
 <api-table path="index.ts" name="LayoutRunOptions" />
 

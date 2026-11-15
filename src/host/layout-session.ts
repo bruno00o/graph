@@ -29,6 +29,7 @@ import type {
   SurfaceCapabilities,
 } from './graph-instance'
 import { checkDuration, checkFit } from './inputs'
+import { report } from './isolate'
 import { layoutGraph } from './layout-graph'
 import { positionEvent } from './position-event'
 import type { PositionMotion } from './position-motion'
@@ -818,7 +819,7 @@ export class LayoutHost {
       else run.stop()
     } catch (error) {
       this.#finish(current, false)
-      throw error
+      report(error)
     }
     return true
   }
@@ -894,7 +895,19 @@ export class LayoutHost {
     if (!this.#source.surface().layouts)
       return Promise.reject(new Error('graph: layouts do not run on a map'))
     const ready = this.#ready()
-    if (ready) return ready.then(() => this.#compute(layout, options))
+    if (ready) {
+      return new Promise<Map<Key, Point>>((resolve, reject) => {
+        const fail = (reason: unknown) => {
+          this.#computing.delete(fail)
+          reject(reason)
+        }
+        this.#computing.add(fail)
+        const proceed = () => {
+          if (this.#computing.delete(fail)) this.#compute(layout, options).then(resolve, reject)
+        }
+        ready.then(proceed, fail)
+      })
+    }
     const chosen = layout ?? this.#source.definition().layout
     if (!chosen && !this.#scopes()) {
       return Promise.reject(new Error('graph: no layout to compute'))
@@ -910,7 +923,7 @@ export class LayoutHost {
     const keyed = this.#keyed(options.keys) ?? (() => true)
     const launch = this.#prepare(chosen, keyed, alone ? keyed : null, false, layout ?? null, null)
     if (!launch) return Promise.resolve(new Map())
-    const keys = this.#source.scene.nodes.keys
+    const keys = this.#source.scene.nodes.keys.slice(0, launch.movable.length)
     return new Promise<Map<Key, Point>>((resolve, reject) => {
       let run: LayoutRun | null = null
       let done = false

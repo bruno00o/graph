@@ -54,7 +54,7 @@ With `rank`, the layers come from the data instead of the edges, and the rest of
 - **One set of layers.** The whole graph shares the layers: separate components sit side by side on the same layers instead of being packed in rows, so a layer is one line across the drawing.
 - **`root`** is ignored, and no cycle needs breaking.
 - **Groups.** Each unfolded group spans the layers of its members, as without ranks.
-- **Time.** The layering step is skipped. With ranks that follow the edges, 10,000 nodes and 15,000 edges take about 40 milliseconds instead of 65, and 50,000 nodes about 200 instead of 300. Ranks that ignore the edges make edges skip layers, each holding a place in every layer it crosses: with 8 random ranks, the same graphs take about 110 and 360 milliseconds.
+- **Time.** The layering step is skipped. With ranks that follow the edges, 10,000 nodes and 15,000 edges take about 40 milliseconds instead of 65, and 50,000 nodes about 200 instead of 300. Ranks that ignore the edges make edges skip layers, each holding a place in every layer it crosses: with 8 random ranks, the same graphs take about 110 and 360 milliseconds. With one distinct value per node the cost explodes, 3 seconds at 2,000 nodes and 13 seconds at 4,000: give few distinct ranks, and bin continuous values first.
 
 ## Order
 

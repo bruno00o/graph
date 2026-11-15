@@ -1,6 +1,7 @@
 import { toAccessor } from '../../core/accessor'
 import { groupGap, separateGroups } from '../../core/group-separation'
 import { groupTree } from '../../core/group-tree'
+import { dev } from '../../dev'
 import type { Channel, Key, Layout, LayoutGraph } from '../../types'
 import { centroid, instant, isPlain, movers } from '../shared'
 import { components, distinct } from './adjacency'
@@ -53,7 +54,8 @@ export interface LayersOptions<T = unknown> {
    * edges. Only the order of the values counts: the smallest goes on the first layer, and gaps
    * leave no empty layer. Nodes without a finite value go on one more layer after the last. Edges
    * within a layer are left out, edges against the order are laid out turned around, and `root`
-   * is ignored.
+   * is ignored. The cost grows with the number of layers an edge crosses: use few distinct
+   * values, and bin continuous ones first.
    */
   readonly rank?: Channel<T, number> | undefined
 }
@@ -89,6 +91,27 @@ const sidesOf: Readonly<Record<LayersDirection, Sides>> = {
 interface Arranged {
   readonly placed: Float64Array
   readonly clusters: Clusters | null
+}
+
+const crossingBudget = 50
+const crossingFloor = 100_000
+
+function warnLongEdges(
+  ranked: Int32Array,
+  from: Int32Array,
+  to: Int32Array,
+  edgeCount: number,
+  count: number,
+): void {
+  let crossings = 0
+  for (let edge = 0; edge < edgeCount; edge++) {
+    crossings += Math.max(0, (ranked[to[edge] ?? 0] ?? 0) - (ranked[from[edge] ?? 0] ?? 0) - 1)
+  }
+  if (crossings > crossingFloor && crossings > crossingBudget * (count + edgeCount)) {
+    console.warn(
+      `layers: rank puts ${count} nodes on many layers and ${crossings} virtual nodes are needed, which is slow. Give few distinct values, binning continuous ones first`,
+    )
+  }
 }
 
 function rankedLayers<T>(
@@ -178,6 +201,7 @@ function arrange<T>(
     const successors = distinct(count, from, to, edgeCount)
     const clusters = clustersOf(graph, indices, sidesOf[options.direction ?? 'down'])
     const component = new Int32Array(count)
+    if (dev) warnLongEdges(ranked, from, to, edgeCount, count)
     if (clusters) {
       const { layered, nest } = expandNested(count, ranked, component, successors, radius, clusters)
       return placeNested(layered, nest, nodeSpacing, layerSpacing, depth, clusters)

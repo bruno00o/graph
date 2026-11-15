@@ -316,6 +316,7 @@ function printOf(graph: LayoutGraph): Print {
     for (const space of groups.labelSpace ?? []) numbers.push(space)
   }
   numbers.push(graph.container?.circle ? 1 : 0)
+  data.push(graph.container?.datum)
   return { keys: graph.keys, data, numbers: Float64Array.from(numbers) }
 }
 
@@ -325,8 +326,12 @@ function samePrint(a: Print, b: Print): boolean {
   for (let at = 0; at < numbers.length; at++) {
     if (!Object.is(numbers[at], b.numbers[at])) return false
   }
+  if (a.data.length !== b.data.length) return false
   for (let at = 0; at < a.keys.length; at++) {
-    if (a.keys[at] !== b.keys[at] || a.data[at] !== b.data[at]) return false
+    if (a.keys[at] !== b.keys[at]) return false
+  }
+  for (let at = 0; at < a.data.length; at++) {
+    if (a.data[at] !== b.data[at]) return false
   }
   return true
 }
