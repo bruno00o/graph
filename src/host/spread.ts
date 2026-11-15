@@ -115,6 +115,7 @@ export class SpreadHost {
   #zoom = Number.NaN
   #globeScale = Number.NaN
   #globeMix = Number.NaN
+  #instant = false
 
   constructor(source: SpreadSource) {
     this.#source = source
@@ -205,6 +206,38 @@ export class SpreadHost {
     this.#countScreens()
     for (const index of aimed) this.#aim(index, camera)
     this.#begin(now, camera)
+  }
+
+  leave(): void {
+    if (this.#count === 0 && this.#members.size === 0) return
+    const positions = this.#source.positions
+    for (let slot = this.#count - 1; slot >= 0; slot--) {
+      const index = this.#index[slot] ?? 0
+      positions.set(index, this.#baseX[slot] ?? 0, this.#baseY[slot] ?? 0)
+      this.#slotOf[index] = none
+    }
+    this.#count = 0
+    this.#screenSlots = 0
+    this.#moving = false
+    this.#step = null
+    this.#detached.fill(0)
+    for (const container of this.#members.keys()) this.#dirty.add(container)
+  }
+
+  enter(now: number): void {
+    const { containers, nodes } = this.#source
+    for (const container of containers) {
+      if (nodes.spread[container] === 1) this.#dirty.add(container)
+    }
+    if (this.#dirty.size === 0) return
+    const { positions, hierarchy } = this.#source
+    this.#reserve(Math.max(nodes.capacity, positions.capacity, hierarchy.capacity))
+    this.#instant = true
+    try {
+      this.settle(now)
+    } finally {
+      this.#instant = false
+    }
   }
 
   detach(index: number): void {
@@ -547,7 +580,7 @@ export class SpreadHost {
     for (let slot = 0; slot < this.#count && !away; slot++) {
       if (this.#fromX[slot] !== 0 || this.#fromY[slot] !== 0) away = true
     }
-    const duration = away ? this.#source.duration() : 0
+    const duration = away && !this.#instant ? this.#source.duration() : 0
     if (duration > 0) {
       this.#moving = true
       this.#start = Math.min(now, performance.now())

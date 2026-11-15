@@ -5,6 +5,7 @@ import {
   type ScopeEngine,
   type ScopePlan,
   type ScopeRequest,
+  sameLayout,
 } from '../core/layout-scopes'
 import type {
   Key,
@@ -16,8 +17,10 @@ import type {
   LayoutRun,
 } from '../types'
 import { orientBlocks } from './orient'
+import { type ScopeRunner, scopeRunOf } from './scope-runs'
 
 const parallel = 4
+const pumpBudget = 8
 const goldenTurn = Math.PI * (3 - Math.sqrt(5))
 
 export interface Scope {
@@ -248,7 +251,14 @@ export function planScopes(request: ScopeRequest): ScopePlan | null {
     name,
     movable: structure.movable,
     partial: partialOf(structure),
-    start: (listener) => new Composite(structure, request.fresh, listener).begin(),
+    start: (listener) =>
+      new Composite(
+        structure,
+        request.fresh,
+        listener,
+        memoryOf(request.memory),
+        request.arrivals,
+      ).begin(),
   }
 }
 
@@ -261,10 +271,76 @@ function partialOf(structure: Structure): boolean {
   )
 }
 
+interface Remembered {
+  readonly layout: Layout
+  readonly print: Print
+  readonly relative: Float64Array
+}
+
+interface Print {
+  readonly keys: readonly (Key | undefined)[]
+  readonly data: readonly unknown[]
+  readonly numbers: Float64Array
+}
+
+const memories = new WeakMap<object, Map<Key, Remembered>>()
+
+function memoryOf(owner: object | undefined): Map<Key, Remembered> | null {
+  if (!owner) return null
+  let memory = memories.get(owner)
+  if (!memory) {
+    memory = new Map()
+    memories.set(owner, memory)
+  }
+  return memory
+}
+
+function printOf(graph: LayoutGraph): Print {
+  const numbers: number[] = [graph.capacity, graph.edges.length]
+  const data: unknown[] = []
+  for (let at = 0; at < graph.capacity; at++) {
+    data.push(graph.datum(at))
+    numbers.push(graph.alive[at] ?? 0, graph.radius[at] ?? 0)
+    numbers.push(graph.extents?.[at * 2] ?? -1, graph.extents?.[at * 2 + 1] ?? -1)
+    numbers.push(graph.blocks?.size[at] ?? -1)
+  }
+  for (const end of graph.edges) numbers.push(end)
+  const groups = graph.groups
+  if (groups) {
+    for (const at of groups.order) numbers.push(at)
+    for (const at of groups.parent) numbers.push(at)
+    for (const padding of groups.padding) numbers.push(padding)
+    for (const circle of groups.circle) numbers.push(circle)
+    for (const space of groups.labelSpace ?? []) numbers.push(space)
+  }
+  numbers.push(graph.container?.circle ? 1 : 0)
+  return { keys: graph.keys, data, numbers: Float64Array.from(numbers) }
+}
+
+function samePrint(a: Print, b: Print): boolean {
+  const { numbers } = a
+  if (numbers.length !== b.numbers.length || a.keys.length !== b.keys.length) return false
+  for (let at = 0; at < numbers.length; at++) {
+    if (!Object.is(numbers[at], b.numbers[at])) return false
+  }
+  for (let at = 0; at < a.keys.length; at++) {
+    if (a.keys[at] !== b.keys[at] || a.data[at] !== b.data[at]) return false
+  }
+  return true
+}
+
 export const scopeEngine: ScopeEngine = { plan: planScopes }
 
 export function enableScopes(): void {
   registerScopeEngine(scopeEngine)
+}
+
+interface Prepared {
+  readonly before: readonly [number, number] | null
+  readonly unit: Unit
+  readonly graph: LayoutGraph
+  readonly whole: boolean
+  print: Print | null
 }
 
 interface Unit {
@@ -283,16 +359,32 @@ class Composite implements LayoutRun {
   readonly #xy: Float32Array
   readonly #box: Float64Array
   readonly #queue: number[] = []
+  readonly #held: number[] = []
   readonly #running = new Map<number, { run: LayoutRun | null; unit: Unit }>()
   readonly #pins = new Map<number, readonly [number, number]>()
+  readonly #memory: Map<Key, Remembered> | null
+  readonly #recalls: boolean
+  readonly #ran = new Set<number>()
   #head = 0
+  #heldHead = 0
+  #starts = 0
+  #pumping = false
+  #later: ReturnType<typeof setTimeout> | undefined
   #stopped = false
   #base: Float32Array | null = null
 
-  constructor(structure: Structure, fresh: boolean, listener: LayoutListener) {
+  constructor(
+    structure: Structure,
+    fresh: boolean,
+    listener: LayoutListener,
+    memory: Map<Key, Remembered> | null,
+    recalls: boolean,
+  ) {
     this.#structure = structure
     this.#fresh = fresh
     this.#listener = listener
+    this.#memory = memory
+    this.#recalls = recalls
     this.#xy = Float32Array.from(structure.graph.xy)
     this.#box = new Float64Array(structure.tree.count * 4)
   }
@@ -325,14 +417,35 @@ class Composite implements LayoutRun {
 
   stop(): void {
     this.#stopped = true
+    clearTimeout(this.#later)
     for (const { run } of this.#running.values()) run?.stop()
     this.#running.clear()
   }
 
   #pump(): void {
-    while (!this.#stopped && this.#running.size < parallel && this.#head < this.#queue.length) {
-      const slot = this.#queue[this.#head++] ?? -1
-      this.#launch(slot)
+    if (this.#pumping || this.#later !== undefined) return
+    this.#pumping = true
+    const until = performance.now() + pumpBudget
+    try {
+      while (!this.#stopped) {
+        if (this.#head < this.#queue.length && performance.now() >= until) {
+          this.#later = setTimeout(() => {
+            this.#later = undefined
+            this.#pump()
+          }, 0)
+          break
+        }
+        if (this.#head < this.#queue.length) {
+          this.#launch(this.#queue[this.#head++] ?? -1)
+        } else if (this.#heldHead < this.#held.length && this.#starts < parallel) {
+          const slot = this.#held[this.#heldHead++] ?? -1
+          this.#begin(slot, this.#prepare(scopeOf(this.#structure, slot)), null)
+        } else {
+          break
+        }
+      }
+    } finally {
+      this.#pumping = false
     }
   }
 
@@ -342,12 +455,100 @@ class Composite implements LayoutRun {
       this.#done(slot)
       return
     }
-    const before = slot >= 0 ? this.#measure(slot) : null
+    const runner = scopeRunOf(scope.layout)
+    const prepared = this.#prepare(scope)
+    if (this.#recall(scope, prepared)) return
+    if (runner && this.#begin(slot, prepared, runner)) return
+    if (this.#starts < parallel) this.#begin(slot, prepared, null)
+    else this.#held.push(slot)
+  }
+
+  #prepare(scope: Scope): Prepared {
+    const before = scope.slot >= 0 ? this.#measure(scope.slot) : null
     const unit = this.#unit(scope)
     const graph = this.#local(scope, unit)
+    const whole = this.#pins.size === 0 && unit.movable.every((flag) => flag === 1)
+    return { before, unit, graph, whole, print: null }
+  }
+
+  #printed(prepared: Prepared): Print {
+    prepared.print ??= printOf(prepared.graph)
+    return prepared.print
+  }
+
+  #recall(scope: Scope, prepared: Prepared): boolean {
+    const memory = this.#memory
+    const key = prepared.graph.container?.key
+    if (!memory || !this.#recalls || key === undefined || !prepared.whole) return false
+    if (scope.blocks.some((slot) => this.#ran.has(slot))) return false
+    const remembered = memory.get(key)
+    if (!remembered || !sameLayout(remembered.layout, scope.layout)) return false
+    if (!samePrint(remembered.print, this.#printed(prepared))) return false
+    const { unit } = prepared
+    const units = unit.leaves.length + unit.blocks.length
+    let x = 0
+    let y = 0
+    for (let at = 0; at < units; at++) {
+      x += unit.origin[at * 2] ?? 0
+      y += unit.origin[at * 2 + 1] ?? 0
+    }
+    x /= Math.max(1, units)
+    y /= Math.max(1, units)
+    const result = new Float32Array(units * 2)
+    for (let at = 0; at < units; at++) {
+      result[at * 2] = (remembered.relative[at * 2] ?? 0) + x
+      result[at * 2 + 1] = (remembered.relative[at * 2 + 1] ?? 0) + y
+    }
+    this.#apply(scope, unit, result, prepared.before)
+    this.#done(scope.slot)
+    return true
+  }
+
+  #remember(scope: Scope, prepared: Prepared, xy: Float32Array): void {
+    const memory = this.#memory
+    const key = prepared.graph.container?.key
+    if (!memory || key === undefined || !scope.layout) return
+    if (!prepared.whole || this.#pins.size > 0) {
+      memory.delete(key)
+      return
+    }
+    const { unit } = prepared
+    const units = unit.leaves.length + unit.blocks.length
+    let x = 0
+    let y = 0
+    for (let at = 0; at < units; at++) {
+      x += xy[at * 2] ?? 0
+      y += xy[at * 2 + 1] ?? 0
+    }
+    x /= Math.max(1, units)
+    y /= Math.max(1, units)
+    const relative = new Float64Array(units * 2)
+    for (let at = 0; at < units; at++) {
+      const dx = (xy[at * 2] ?? Number.NaN) - x
+      const dy = (xy[at * 2 + 1] ?? Number.NaN) - y
+      if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+        memory.delete(key)
+        return
+      }
+      relative[at * 2] = dx
+      relative[at * 2 + 1] = dy
+    }
+    memory.set(key, { layout: scope.layout, print: this.#printed(prepared), relative })
+  }
+
+  #begin(slot: number, prepared: Prepared, runner: ScopeRunner | null): boolean {
+    const scope = scopeOf(this.#structure, slot)
+    const layout = scope.layout as Layout
+    const { unit, graph, before } = prepared
     const entry: { run: LayoutRun | null; unit: Unit } = { run: null, unit }
     this.#running.set(slot, entry)
+    if (!runner) this.#starts++
     let ended = false
+    const close = () => {
+      ended = true
+      this.#running.delete(slot)
+      if (!runner) this.#starts--
+    }
     const listener: LayoutListener = {
       progress: (xy, progress) => {
         if (this.#stopped || ended || slot >= 0) return
@@ -355,28 +556,34 @@ class Composite implements LayoutRun {
       },
       end: (xy) => {
         if (this.#stopped || ended) return
-        ended = true
-        this.#running.delete(slot)
+        close()
+        if (slot >= 0) this.#remember(scope, prepared, xy)
         this.#apply(scope, unit, xy, before)
         this.#done(slot)
       },
     }
     if (slot < 0) this.#base = Float32Array.from(this.#xy)
+    this.#ran.add(slot)
     try {
-      const run = scope.layout.start(graph, listener)
+      const run = runner ? runner(graph, listener) : layout.start(graph, listener)
+      if (!run) {
+        this.#running.delete(slot)
+        this.#ran.delete(slot)
+        return false
+      }
       if (ended || this.#stopped) {
         if (!ended) run.stop()
       } else {
         entry.run = run
       }
     } catch (error) {
-      ended = true
-      this.#running.delete(slot)
+      close()
       setTimeout(() => {
         throw error
       }, 0)
       this.#done(slot)
     }
+    return true
   }
 
   #done(slot: number): void {
@@ -762,7 +969,20 @@ class Composite implements LayoutRun {
     return this.#direct[slot] ?? []
   }
 
+  #forget(): void {
+    const memory = this.#memory
+    if (!memory) return
+    const { graph, tree, scoped } = this.#structure
+    const kept = new Set<Key>()
+    for (let slot = 0; slot < tree.count; slot++) {
+      const key = scoped[slot] === 1 ? graph.keys[tree.node[slot] ?? -1] : undefined
+      if (key !== undefined) kept.add(key)
+    }
+    for (const key of memory.keys()) if (!kept.has(key)) memory.delete(key)
+  }
+
   #finish(): void {
+    this.#forget()
     const structure = this.#structure
     const { graph, tree, movable } = structure
     const xy = this.#xy

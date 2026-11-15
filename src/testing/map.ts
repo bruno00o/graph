@@ -201,6 +201,11 @@ export function fakeMap(style: readonly string[] = []): FakeMap {
     triggerRepaint: () => {
       state.repaints++
     },
+    remove: () => {
+      for (const id of [...layers.keys()]) map.removeLayer(id)
+      canvasContainer.remove()
+      emit('remove')
+    },
   }
   const render = (input: unknown = flatInput) => {
     const layer = layers.get('graph')

@@ -51,6 +51,31 @@ export class RestoredPositions {
   }
 }
 
+interface PositionPlane {
+  readonly capacity: number
+  readonly xy: Float32Array
+  readonly placed: Uint8Array
+  readonly restored: Uint8Array
+  readonly source: Float64Array
+  readonly originX: number
+  readonly originY: number
+  readonly spiral: number
+  readonly rings: Map<number, number>
+}
+
+function grownPlane(plane: PositionPlane, capacity: number): PositionPlane {
+  if (plane.capacity >= capacity) return plane
+  const xy = new Float32Array(capacity * 2)
+  xy.set(plane.xy)
+  const placed = new Uint8Array(capacity)
+  placed.set(plane.placed)
+  const restored = new Uint8Array(capacity)
+  restored.set(plane.restored)
+  const source = new Float64Array(capacity * 2).fill(Number.NaN)
+  source.set(plane.source)
+  return { ...plane, capacity, xy, placed, restored, source }
+}
+
 export interface PositionReader {
   readonly source: Float64Array
   x(index: number): number
@@ -68,7 +93,8 @@ export class Positions implements PositionReader {
   originX = 0
   originY = 0
   #spiral = 0
-  readonly #rings = new Map<number, number>()
+  #rings = new Map<number, number>()
+  readonly #planes = new Map<object, PositionPlane>()
 
   reserve(index: number): void {
     if (index < this.capacity) return
@@ -155,6 +181,75 @@ export class Positions implements PositionReader {
     }
     this.follow(index, null)
     this.#rings.delete(index)
+    for (const plane of this.#planes.values()) {
+      plane.rings.delete(index)
+      if (index >= plane.capacity) continue
+      plane.placed[index] = 0
+      plane.restored[index] = 0
+      plane.source[index * 2] = Number.NaN
+      plane.source[index * 2 + 1] = Number.NaN
+    }
+  }
+
+  swap(from: object, to: object): number[] {
+    if (from === to) return []
+    this.#planes.set(from, {
+      capacity: this.capacity,
+      xy: this.xy,
+      placed: this.placed,
+      restored: this.restored,
+      source: this.source,
+      originX: this.originX,
+      originY: this.originY,
+      spiral: this.#spiral,
+      rings: this.#rings,
+    })
+    const kept = this.#planes.get(to)
+    this.#planes.delete(to)
+    const capacity = this.capacity
+    const plane = kept
+      ? grownPlane(kept, capacity)
+      : grownPlane(
+          {
+            capacity: 0,
+            xy: new Float32Array(0),
+            placed: new Uint8Array(0),
+            restored: new Uint8Array(0),
+            source: new Float64Array(0),
+            originX: 0,
+            originY: 0,
+            spiral: 0,
+            rings: new Map(),
+          },
+          capacity,
+        )
+    const stale: number[] = []
+    const fresh = this.source
+    const known = plane.source
+    for (let index = 0; index < capacity; index++) {
+      if (plane.placed[index] !== 1) continue
+      const x = fresh[index * 2] ?? Number.NaN
+      const y = fresh[index * 2 + 1] ?? Number.NaN
+      const was = known[index * 2] ?? Number.NaN
+      const wasY = known[index * 2 + 1] ?? Number.NaN
+      if (!Object.is(x, was) || !Object.is(y, wasY)) stale.push(index)
+    }
+    known.set(fresh.subarray(0, known.length))
+    this.capacity = plane.capacity
+    this.xy = plane.xy
+    this.placed = plane.placed
+    this.restored = plane.restored
+    this.source = plane.source
+    this.originX = plane.originX
+    this.originY = plane.originY
+    this.#spiral = plane.spiral
+    this.#rings = plane.rings
+    this.version++
+    this.blocks =
+      this.capacity === 0
+        ? new Float64Array(0)
+        : new Float64Array(((this.capacity - 1) >>> blockShift) + 1).fill(this.version)
+    return stale
   }
 
   follow(index: number, point: readonly [number, number] | null): boolean {
@@ -226,7 +321,7 @@ export function placeNodes(
     const record = model.nodeAt(index)
     if (!record) continue
     const point = channelPoint(record.mark, record.datum)
-    if (!positions.follow(index, point) || !point) continue
+    if (!positions.follow(index, point) || !point || positions.placed[index] !== 1) continue
     if (positions.holds(index, point[0], point[1])) {
       held.push(index)
       continue
@@ -280,34 +375,90 @@ export function placeNodes(
         continue
       }
     }
-    let sumX = 0
-    let sumY = 0
-    let count = 0
-    let anchor = -1
-    if (batch !== null) {
-      for (const neighbor of model.neighbors(key)) {
-        if (batch.has(neighbor)) continue
-        const other = model.node(neighbor)
-        if (!other || positions.placed[other.index] !== 1) continue
-        sumX += positions.x(other.index)
-        sumY += positions.y(other.index)
-        count++
-        if (anchor < 0) anchor = other.index
-      }
-    }
-    if (count === 0) {
-      const [sx, sy] = positions.nextSpiral()
-      positions.set(index, sx, sy)
-      continue
-    }
-    const ring = positions.nextRing(anchor)
-    const angle = ring * goldenAngle
-    const radius = placementSpacing * 1.5 * Math.sqrt(ring + 1)
-    positions.set(
-      index,
-      sumX / count + radius * Math.cos(angle),
-      sumY / count + radius * Math.sin(angle),
-    )
+    placeNear(model, positions, key, index, batch)
   }
   return { indices, to, held, restored }
+}
+
+function placeNear(
+  model: GraphModel,
+  positions: Positions,
+  key: Key,
+  index: number,
+  batch: ReadonlySet<Key> | null,
+): void {
+  let sumX = 0
+  let sumY = 0
+  let count = 0
+  let anchor = -1
+  if (batch !== null) {
+    for (const neighbor of model.neighbors(key)) {
+      if (batch.has(neighbor)) continue
+      const other = model.node(neighbor)
+      if (!other || positions.placed[other.index] !== 1) continue
+      sumX += positions.x(other.index)
+      sumY += positions.y(other.index)
+      count++
+      if (anchor < 0) anchor = other.index
+    }
+  }
+  if (count === 0) {
+    const [sx, sy] = positions.nextSpiral()
+    positions.set(index, sx, sy)
+    return
+  }
+  const ring = positions.nextRing(anchor)
+  const angle = ring * goldenAngle
+  const radius = placementSpacing * 1.5 * Math.sqrt(ring + 1)
+  positions.set(
+    index,
+    sumX / count + radius * Math.cos(angle),
+    sumY / count + radius * Math.sin(angle),
+  )
+}
+
+export function placeOnSurface(
+  model: GraphModel,
+  positions: Positions,
+  stale: readonly number[],
+  holder: (index: number) => number,
+): number[] {
+  const channelPoint = pointReader()
+  for (const index of stale) {
+    const record = model.nodeAt(index)
+    if (!record) continue
+    const point = channelPoint(record.mark, record.datum)
+    positions.follow(index, point)
+    if (point && !positions.holds(index, point[0], point[1])) {
+      positions.set(index, point[0], point[1])
+    }
+  }
+  const arrived: number[] = []
+  const rest: { readonly key: Key; readonly index: number }[] = []
+  const held: number[] = []
+  for (const record of model.nodes()) {
+    const index = record.index
+    if (positions.placed[index] === 1) continue
+    const point = channelPoint(record.mark, record.datum)
+    positions.follow(index, point)
+    if (point) positions.set(index, point[0], point[1])
+    else if (holder(index) >= 0) held.push(index)
+    else {
+      rest.push({ key: record.key, index })
+      arrived.push(index)
+    }
+  }
+  if (rest.length > 0) {
+    const batch = rest.length === model.nodeCount ? null : new Set<Key>(rest.map((ref) => ref.key))
+    for (const { key, index } of rest) placeNear(model, positions, key, index, batch)
+  }
+  for (const index of held) {
+    const at = holder(index)
+    if (positions.placed[at] === 1) positions.set(index, positions.x(at), positions.y(at))
+    else {
+      const [x, y] = positions.nextSpiral()
+      positions.set(index, x, y)
+    }
+  }
+  return arrived
 }

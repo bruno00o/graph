@@ -128,7 +128,7 @@ import type {
 } from './layouts'
 import type { ForceOptions } from './layouts/force'
 import type { LegendOptions, LegendViewOptions } from './legend'
-import type { MapGraphOptions, MapPngOptions } from './map'
+import type { MapGraphOptions, MapPngOptions, MapSurfaceOptions } from './map'
 import type { MapGraphProps } from './map/react'
 import type { MinimapOptions } from './minimap'
 import type { ExplorationOptions } from './query'
@@ -251,6 +251,7 @@ interface Inputs {
   LineWaypointsOptions: LineWaypointsOptions
   LiveSource: LiveSource<Item>
   MapGraphOptions: MapGraphOptions<'muted', Marks>
+  MapSurfaceOptions: MapSurfaceOptions
   MapGraphProps: MapGraphProps<'muted', Marks>
   MapPngOptions: MapPngOptions
   MinimapOptions: MinimapOptions

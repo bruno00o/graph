@@ -34,6 +34,34 @@ Bundles read best with thin, light edges: their opacity adds up where edges merg
 
 A definition takes `bundling` or [`routing`](/docs/routing), not both.
 
+## What strength does
+
+Every bundled edge is stored as offsets from the straight line between its ends, and `strength` multiplies all of them. At `1` an edge follows the path the computation gave it. At `0` every edge is a straight line, as if bundling were off. In between, each point of the path sits that share of the way from the line to the bundle, so the bundles loosen evenly and their edges spread back toward their own lines.
+
+The computation already treats the ends of an edge gently, and `strength` comes on top of that:
+
+- Near its ends an edge is pulled less. The pull fades to nothing over the first and last 18% of its length, and the ends themselves never move, so edges still leave their nodes in place.
+- An edge shorter than one and a half times the first radius is pulled in proportion to its length, so short edges hardly bend.
+- An edge with no other edge within its reach has little to bend toward and stays close to straight, at any strength.
+
+The 18% and the one and a half are fixed by the library, not options of `densityBundling`.
+
+Because `strength` scales the whole path, what it changes most is the middle of long edges, where the bundles are. In a dense view, where hundreds of edges leave the same node, a full bundle can draw them into one thick band that hides which neighbor each one goes to. Around `0.6`, the routes still show while the edges near their ends stay apart enough to read where each one starts and ends. Raise it toward `1` for an overview of the main routes, and lower it when edges near the nodes must stay readable.
+
+Changing `strength` alone is cheap. The computed paths are kept and drawn again with the new multiplier, easing there over `transitions.layout`, with no new computation and no wait for nodes to stand still. Changing `radius`, `iterations` or `maxEdges` computes again. See the [bundling strength](/examples/bundling-strength) example.
+
+```ts
+function setStrength(value: number) {
+  graph.update({
+    definition: defineGraph({
+      marks: [edges(links, { source: 'from', target: 'to', opacity: 0.5 })],
+      layout: force(),
+      bundling: densityBundling({ strength: value }),
+    }),
+  })
+}
+```
+
 ## When bundles are computed
 
 Bundles follow the positions of the nodes, so they are computed once nodes stand still:
