@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.29.0](https://github.com/bruno00o/graph/compare/0.28.0...0.29.0) (2026-11-15)
+
+
+### Features
+
+* arrange a group as it unfolds ([#207](https://github.com/bruno00o/graph/issues/207)) ([7b02305](https://github.com/bruno00o/graph/commit/7b0230528ec5eec8576a192bb654d8c6adbfc1fd))
+* companions follow a graph onto a map and back ([#214](https://github.com/bruno00o/graph/issues/214)) ([24a9d07](https://github.com/bruno00o/graph/commit/24a9d072553b177b340e122a04160d416dc24b34))
+* count events of the application on the timeline and point at a moment ([#211](https://github.com/bruno00o/graph/issues/211)) ([09f4ea8](https://github.com/bruno00o/graph/commit/09f4ea8d923e81f3bc32ee6e7d47c10db6bf87af))
+* lay out each group with a layout of its own ([#204](https://github.com/bruno00o/graph/issues/204)) ([999cd49](https://github.com/bruno00o/graph/commit/999cd496dd081e679ef04a1f8295f7c37a291c36))
+* merge the edges toward a folded group into one whatever the merge value ([#210](https://github.com/bruno00o/graph/issues/210)) ([b8fda0b](https://github.com/bruno00o/graph/commit/b8fda0bcdec77437bd0c049c18c672512282d475))
+* move a graph onto a map and back ([#208](https://github.com/bruno00o/graph/issues/208)) ([71b9808](https://github.com/bruno00o/graph/commit/71b98089959b405fe4a27b210d347360337162a3))
+* name hulls with labels drawn by the graph ([#212](https://github.com/bruno00o/graph/issues/212)) ([5bf1fab](https://github.com/bruno00o/graph/commit/5bf1fabd06834eac9bb66aa2701a29d0c278727b))
+* scales cover the whole history ([#217](https://github.com/bruno00o/graph/issues/217)) ([1660437](https://github.com/bruno00o/graph/commit/16604371b79b30cbe6b3c3815f92b5d0fc02abb7))
+* switch surfaces in react ([#213](https://github.com/bruno00o/graph/issues/213)) ([c1c0d57](https://github.com/bruno00o/graph/commit/c1c0d571a60519517e7750c45eb8d3e3dcf9e788))
+* values that change over time ([#215](https://github.com/bruno00o/graph/issues/215)) ([b47f58f](https://github.com/bruno00o/graph/commit/b47f58fa848a5fe6889cf28d2ceb8a2d775e8ecc))
+
+
+### Performance Improvements
+
+* lay out many groups in parallel workers ([#206](https://github.com/bruno00o/graph/issues/206)) ([72febfc](https://github.com/bruno00o/graph/commit/72febfc3102e9d6d058e731f1a44e606937764a3))
+
 ## [0.28.0](https://github.com/bruno00o/graph/compare/0.27.1...0.28.0) (2026-11-15)
 
 
