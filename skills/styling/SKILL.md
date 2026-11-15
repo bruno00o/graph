@@ -17,6 +17,7 @@ sources:
   - src/types.ts
   - src/marks.ts
   - src/theme/tokens.ts
+  - src/core/node-order.ts
   - src/theme/theme.css
   - docs/content/docs/(guide)/marks.mdx
   - docs/content/docs/(guide)/labels.mdx
@@ -229,10 +230,21 @@ const rings = nodes(items, {
 
 - On a box, `size` is the height. `width` is `'label'` by default (the longer label line plus half the height on each side, never narrower than tall), or a number in the units of `size`; a fixed width cuts the label with an ellipsis unless it sets its own `maxWidth`. `cornerRadius` defaults to a quarter of the height. Give a label with two lines a box tall enough for both. Edges, picking, hulls and exports follow the box border.
 - A label drawn inside its node (always on a box, on other shapes with `placement: 'center'` when it fits) has no halo, and without a `color` its text takes `--graph-ink` or `--graph-paper`, whichever contrasts more with the fill, in both themes.
-- `stroke` and `strokeWidth` draw a contour inside the shape (1 pixel, `--graph-node-ring` by default). `outline` and `outlineWidth` draw a ring outside it, in screen pixels. `outline` alone is 2 pixels wide, `outlineWidth` alone takes `--graph-node-ring` (the page color, so it reads as a gap), and an `outline` that returns `null` draws none whatever the width. The selection halo starts outside the outline.
+- `stroke` and `strokeWidth` draw a contour inside the shape (1 pixel, `--graph-node-ring` by default). `outline` and `outlineWidth` draw a ring outside it, in screen pixels. `outline` alone is 2 pixels wide, `outlineWidth` alone takes `--graph-node-ring` (the page color, so it reads as a gap), and an `outline` that returns `null` draws none whatever the width. A state halo (`halo: true`, or `{ color, width }` per state, interaction skill) starts outside the outline.
 - `units: 'screen'` keeps the node size in pixels at every zoom, for markers. Edge widths are always screen pixels. Nodes placed by `longitude` and `latitude` are in screen units by default.
 
-Examples: [node shapes](https://bruno00o.github.io/graph/examples/node-shapes), [box nodes](https://bruno00o.github.io/graph/examples/box-nodes), [stroke and outline](https://bruno00o.github.io/graph/examples/stroke-and-outline), [screen units](https://bruno00o.github.io/graph/examples/screen-units).
+- Nodes of a mark draw in the order they arrived. `order` (a field name or a function of the item) draws nodes with a lower value first, under the others, and the top node is the one a click picks. A node without a value counts as 0, and equal values keep the usual order. It holds inside each mark and each layer and in the PNG and SVG exports; a raised node (selected, hovered) still draws above every mark, and labels keep their own priority, by size. Sorting again after a change of order costs about 20 ms at 500,000 nodes.
+
+```ts
+import { nodes } from '@bruno00o/graph'
+
+type Place = { id: string; count: number }
+const places: Place[] = []
+
+const stacked = nodes(places, { size: 'count', order: (place) => -place.count })
+```
+
+Examples: [node shapes](https://bruno00o.github.io/graph/examples/node-shapes), [draw order](https://bruno00o.github.io/graph/examples/draw-order), [box nodes](https://bruno00o.github.io/graph/examples/box-nodes), [stroke and outline](https://bruno00o.github.io/graph/examples/stroke-and-outline), [screen units](https://bruno00o.github.io/graph/examples/screen-units).
 
 ### Images, tinted icons and badges
 
@@ -257,13 +269,20 @@ const icons = nodes(items, {
   badges: {
     topRight: (item) => (item.weight > 5 ? { text: item.weight } : null),
     bottomLeft: (item) => (item.weight < 2 ? { fill: 'var(--graph-cat-4)' } : null),
+    bottomRight: (item) => ({
+      image: { src: '/icons/bell.svg', color: 'white' },
+      text: item.weight,
+      stroke: 'var(--graph-paper)',
+      strokeWidth: 3,
+    }),
   },
 })
 ```
 
 - At most 256 distinct images are drawn at once, each stored once in a texture whose layers are 256 by 256 pixels. Past that, the other nodes stay plain, nothing is fetched for them, and development builds warn. Share icons between nodes, and put text in labels, never in an image per node.
 - Images load in the background and appear when ready. A failed image is not retried.
-- Badges sit in the corners `topLeft`, `topRight`, `bottomLeft` and `bottomRight`: each corner is a function that returns `{ text, fill, color }` or `null`. `text` is a string or a number, `fill` the pill color (`--graph-badge-fill`) and `color` the text color (`--graph-badge-ink`). Without `text` a badge is a dot. Badges hide under 10 pixels of node diameter, their text shows from 12, they are not picked, and a click on one reaches the node. On a box they sit on its corners.
+- Badges sit in the corners `topLeft`, `topRight`, `bottomLeft` and `bottomRight`: each corner is a function that returns `{ text, image, fill, color, stroke, strokeWidth, minSize }` or `null`. `text` is a string or a number, `fill` the pill color (`--graph-badge-fill`) and `color` the text color (`--graph-badge-ink`). Without `text` nor `image` a badge is a dot. `image` puts an icon at the start of the pill, before the text, which grows to hold both: a URL or `{ src, scale, color }` like a node image, cropped to a circle as high as the pill, `scale` 0.7 by default (1 covers the circle, for a picture), `color` painting it as a mask that follows the theme. `stroke` and `strokeWidth` set the ring around the pill (`--graph-node-ring`, 1.5 pixels; `0` for none), wider on a dark node or a busy map. The pill is 0.55 times the node diameter high on screen, up to 18 pixels, and hides while it is under `minSize` pixels high (10 by default); its text shows from `minSize` and 12 pixels at least. Badges are not picked, and a click on one reaches the node. On a box they sit on its corners; a group shows its badges folded, and unfolded only with `container.badges` (groups skill).
+- Badge icons share the 256 images of node images: an icon used by both counts once.
 - Pair an image with `outline` or a label `background` so it reads over its neighbors and edges.
 
 Example: [images and badges](https://bruno00o.github.io/graph/examples/images-and-badges).
@@ -390,6 +409,19 @@ nodes(items, { label: (item) => item.count })
 
 Without `@bruno00o/graph/theme.css` every variable falls back to its light value: labels stay dark on a dark page, and `.dark` or `data-theme="dark"` changes nothing. The library never injects the stylesheet.
 
+### MEDIUM Large nodes covering small ones at one place
+
+Nodes at the same place draw in the order they arrived, so a large one that arrived last covers a small one, and a click picks the node on top. Give the mark an `order` that puts the large ones first (lower values draw first): `order: (place) => -place.count`. Sorting the data array is no substitute: a node already in the graph keeps its place.
+
+```ts
+import { nodes } from '@bruno00o/graph'
+
+type Place = { id: string; count: number }
+const places: Place[] = []
+
+const mark = nodes(places, { size: 'count', order: (place) => -place.count })
+```
+
 ### MEDIUM One image per node
 
 An SVG that spells each node name, or a distinct URL per node, hits the 256 image limit at the 257th node: the rest stay plain circles, with a development warning. Share a few icons, and write text with `label`.
@@ -422,6 +454,6 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- Guides: [Marks and channels](https://bruno00o.github.io/graph/docs/marks), [Scales](https://bruno00o.github.io/graph/docs/scales), [Labels](https://bruno00o.github.io/graph/docs/labels), [Images and badges](https://bruno00o.github.io/graph/docs/images-and-badges), [Theming](https://bruno00o.github.io/graph/docs/theming)
+- Guides: [Draw order](https://bruno00o.github.io/graph/docs/marks#drawing-order), [Marks and channels](https://bruno00o.github.io/graph/docs/marks), [Scales](https://bruno00o.github.io/graph/docs/scales), [Labels](https://bruno00o.github.io/graph/docs/labels), [Images and badges](https://bruno00o.github.io/graph/docs/images-and-badges), [Theming](https://bruno00o.github.io/graph/docs/theming)
 - API: [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [Theme tokens](https://bruno00o.github.io/graph/docs/api/theme-tokens)
 - The legend explains colors, sizes and shapes to the reader: see the tools skill, or [Minimap and legend](https://bruno00o.github.io/graph/docs/minimap-and-legend#legend).

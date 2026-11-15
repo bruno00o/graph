@@ -2,18 +2,19 @@
 name: export
 description: >
   Use when saving a @bruno00o/graph graph as a PNG image or an SVG document,
-  choosing its region, scale, pixel ratio, labels and background, or exporting
-  large graphs.
+  choosing its region, scale or exact size, pixel ratio, labels, grid, badges
+  and background, or exporting large graphs.
 metadata:
   purpose: >
     Saving a mounted @bruno00o/graph graph as a PNG Blob or an SVG string with
-    exportPng and exportSvg: what each one draws, region, scale and pixel ratio,
-    labels, background, time window and flows, downloading the result, and the
-    errors and limits.
+    exportPng and exportSvg: what each one draws, region, scale or exact size,
+    pixel ratio, labels, grid and badges, background, time window and flows,
+    downloading the result, and the errors and limits.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
   - src/export/index.ts
+  - src/export/size.ts
   - docs/content/docs/(guide)/export.mdx
   - docs/content/docs/api/export.mdx
 requires:
@@ -29,7 +30,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`). `@bruno00o/graph
 | `exportPng(graph, options?)` | A `Blob` of type `image/png` | Offscreen, in a WebGL2 context of its own freed at the end |
 | `exportSvg(graph, options?)` | The text of an SVG document | Written from the scene, without reading pixels back: sharp at any size, selectable text |
 
-For a graph on a map that must include the map tiles, `exportMapPng` from `@bruno00o/graph/map` does it (map skill); `exportPng` and `exportSvg` draw the graph alone.
+For a graph on a map that must include the map tiles, `exportMapPng` from `@bruno00o/graph/map` does it (map skill): it takes `badges`, and no `size` or `grid`, since the image has the size of the map times `pixelRatio`. `exportPng` and `exportSvg` draw the graph alone.
 
 ## Setup
 
@@ -72,9 +73,12 @@ Both functions take the same options, plus `pixelRatio` for the PNG and `embedIm
 | Option | Values | Default |
 | --- | --- | --- |
 | `region` | `'view'`: what the graph shows now. `'graph'`: frames every node and every shape (a pinned one where it is drawn), plus the labels, loops and hulls that reach past them | `'view'` |
-| `zoom` | Scale of the file, in CSS pixels per world unit | Current zoom of the view |
-| `padding` | Margin around the content in CSS pixels. Used by `region: 'graph'` only. Finite, 0 or more | 32 |
+| `zoom` | Scale of the file, in CSS pixels per world unit. Throws a `RangeError` with `size` | Current zoom of the view |
+| `size` | `{ width?, height? }`: exact size of the image in pixels; the zoom is chosen so the region fits inside it, aspect kept. One side only: the other follows the region | The size of the region at its zoom |
+| `padding` | Margin around the content in CSS pixels. Used by `region: 'graph'` only, and stays this wide with `size`. Finite, 0 or more | 32 |
 | `labels` | `'visible'`: the screen rules (small labels hidden, no overlap). `'all'`: every label whatever its size or overlaps. `'none'` | `'visible'` |
+| `grid` | `false` leaves the background grid out, in a PNG and an SVG | `true` |
+| `badges` | `false` leaves the badges of the nodes out; nodes keep their size and labels | `true` |
 | `background` | Any CSS color resolved with the current theme, a `--graph-*` token, or `'transparent'` | `'var(--graph-paper)'` |
 | `time` | Moment, in milliseconds after they start, of the dashes of `flow` edges. The image is still | `0` |
 | `window` | Time window of the export (`{ start, end }`), or `null` for every element whatever its time | The window of the graph |
@@ -90,21 +94,28 @@ declare const graph: GraphInstance
 const framed = await exportPng(graph, { region: 'graph', padding: 48, pixelRatio: 2 })
 const poster = await exportPng(graph, { region: 'graph', pixelRatio: 4, background: 'transparent' })
 const readable = await exportSvg(graph, { region: 'graph', zoom: 2, labels: 'all', window: null })
+const thumbnail = await exportPng(graph, {
+  region: 'graph',
+  size: { width: 640, height: 400 },
+  grid: false,
+  badges: false,
+})
 const doubled = await exportSvg(graph, { zoom: graph.store.get().view.zoom * 2 })
 const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff' })
 ```
 
-### Choose region, zoom and pixel ratio
+### Choose region, zoom, size and pixel ratio
 
 - By default the file shows what the graph shows: same area, same zoom, same labels, grid, shapes and hulls. `region: 'graph'` frames every node and shape instead, which is the usual choice for a file meant to be read without the screen.
 - `zoom` changes the scale of the content, with either region: it is the scale of the file in CSS pixels per world unit, so `zoom` alone sets the size of a `region: 'graph'` file. The current zoom of the view is `graph.store.get().view.zoom`: pass twice that value for twice the screen scale. Nodes sized in world units grow with it, while edge widths, labels and nodes with `units: 'screen'` keep their size in pixels, as when you zoom on screen. A larger `zoom` gives a larger file of the same region, never a crop.
-- `pixelRatio` changes sharpness only: the number of image pixels per CSS pixel. The file is `CSS size x pixelRatio` pixels. Raise it for print.
+- `size` fixes the image instead: every file has the same pixels whatever the graph, which suits thumbnails and batches. The export picks the largest zoom at which the region fits inside, so the rest of the longer side shows the background. With `region: 'view'`, the whole area the view shows fits inside, so another aspect shows more of the graph around it. A PNG has exactly `size` pixels whatever `pixelRatio`; an SVG takes `size` as its width and height in CSS pixels. Giving `zoom` too throws a `RangeError`, as does a side that is not a finite number of pixels, 1 or more.
+- `pixelRatio` is image pixels per CSS pixel. Without `size`, the file is `CSS size x pixelRatio` pixels: raise it for print. With `size`, the pixels stay and the area drawn is `size / pixelRatio`: a smaller ratio draws the graph with relatively larger labels and edge widths.
 - Past 4,096 pixels on a side the PNG is drawn in tiles, so its size is bounded by memory, not by the GPU. Labels are chosen once for the whole image, so none is cut or doubled at a tile edge. The PNG records its pixel density.
 - Children of an unfolded group that are spread apart are drawn where the screen shows them; at another `zoom` their pixel gaps scale with it.
 
 ### What is in the file
 
-- Drawn: node shapes, fills, strokes, outlines, halos and opacity; images cut to the node shape and icons tinted with their `color`; badges; unfolded groups as containers behind their children, folded groups as nodes; straight and curved edges, loops, dashes, dots, arrows, edge ends, bundled and routed paths; labels with their placement, color, weight, second line and background; the background grid; shapes from `shapes()` (just after the grid, under the containers); hulls (over the containers, under the edges); the state styles in force, such as selection and hover; the theme colors of the moment.
+- Drawn: node shapes, fills, strokes, outlines, halos (with the color and width of the state) and opacity; images cut to the node shape and icons tinted with their `color`; badges (with their icons and rings, unless `badges` is `false`); unfolded groups as containers behind their children, folded groups as nodes; straight and curved edges, loops, dashes, dots, arrows, edge ends, bundled and routed paths; labels with their placement, color, weight, second line and background; the background grid (unless `grid` is `false`); shapes from `shapes()` (just after the grid, under the containers); hulls (over the containers, under the edges); the state styles in force, such as selection and hover; the theme colors of the moment.
 - Left out: HTML anchored with `graph.anchors` or `<Anchor>`, the minimap and the lens (they are not part of the scene), and elements outside the time window of the graph unless `window` says otherwise. Shapes follow the same rules as nodes: their states, raised ones, hidden ones, zoom range, time window and layers, and their labels are written too. On a graph on a map, the SVG draws the shapes on the flat map and `exportMapPng` draws them over the basemap.
 - The background is `--graph-paper`, filled by the export. On screen the canvas is transparent and the page paints what lies under the graph, which an export cannot read: a CSS pattern on the container is not in the file. Draw it with the `background` grid of the definition, or export with `'transparent'` and lay the image over the same background.
 - Edges with a `flow` are drawn as still dashes at `time`. At `0`, every pattern starts at the source of its edge, so two exports of the same graph match. The SVG holds no animation.
@@ -136,6 +147,20 @@ An export draws the scene only: no CSS background on the container, no HTML over
 
 `zoom` rescales the content (world-sized nodes grow, edge widths and labels keep their pixel size), `pixelRatio` only adds pixels. A sharper print needs `pixelRatio`; a bigger area of detail needs `zoom`. Neither accepts zero, a negative number or `Infinity`: they throw a `RangeError`, as do a `padding` that is negative or not finite and a `time` that is not finite.
 
+### MEDIUM Passing `zoom` and `size` together
+
+`size` chooses the zoom so that the region fits, so a `zoom` next to it has no meaning: the export throws a `RangeError` (it also throws for a `size` with no side, or a side that is not a finite number of pixels, 1 or more). Give one of them. With `size`, `pixelRatio` does not change the number of pixels: it changes how much of the graph fits.
+
+```ts
+import type { GraphInstance } from '@bruno00o/graph'
+import { exportPng } from '@bruno00o/graph/export'
+
+declare const graph: GraphInstance
+
+await exportPng(graph, { region: 'graph', zoom: 2, size: { width: 640 } }).catch((error) => console.log(error))
+await exportPng(graph, { region: 'graph', size: { width: 640 } })
+```
+
 ### MEDIUM Exporting a graph with no size
 
 A graph whose element is hidden, or measures less than one pixel (`display: none`, a container with no height), has nothing to draw: the export rejects with a `RangeError` (`nothing to export`). Export a graph that is visible, or with `region: 'graph'` after its first layout.
@@ -162,7 +187,7 @@ await exportPng(graph, { labels: 'visible-only' })
 The task is done when:
 
 - the export is awaited, from a visible, mounted and not destroyed graph;
-- the file has the region, scale and pixel size asked for, checked by opening it;
+- the file has the region, scale or `size`, and pixel size asked for, checked by opening it;
 - the background is what the file needs: the paper color, a chosen color or `'transparent'`;
 - a PNG is saved as a `Blob`, an SVG as a `Blob` of type `image/svg+xml`, and the object URL is revoked after the download;
 - every rejection (destroyed graph, no WebGL2, a drawing buffer refused, an empty area) is handled, with a message for the user;
@@ -172,6 +197,6 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- [Export](https://bruno00o.github.io/graph/docs/export), [exportPng and exportSvg](https://bruno00o.github.io/graph/docs/api/export)
+- [Export](https://bruno00o.github.io/graph/docs/export), [Exact size](https://bruno00o.github.io/graph/docs/export#exact-size), [exportPng and exportSvg](https://bruno00o.github.io/graph/docs/api/export)
 - Examples: [export](https://bruno00o.github.io/graph/examples/export), [PNG export options](https://bruno00o.github.io/graph/examples/png-export-options)
 - A graph on a map with its tiles: [Map](https://bruno00o.github.io/graph/docs/map#export)

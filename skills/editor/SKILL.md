@@ -72,7 +72,7 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 - `createShapeEditor` takes the pointer and the keys of the graph; `mountShapeEditor` draws the shapes being edited, the handles and the text input in an SVG layer over the graph. Without the layer, a shape being edited disappears: the graph hides it until its data changes.
 - One editor per graph: a second `createShapeEditor` on the same graph throws until the first is destroyed. `editor.destroy()` gives the pointer and the keys back and removes its layer; destroying the graph destroys both.
 - `marks` lists the names of the editable shape marks, every shape mark by default. Shapes of other marks, and shapes whose geometry cannot be read, take the pointer as without the editor.
-- The editor is typed by the graph: `edit.datum` is the item type of the mark, `edit.mark` its name. With several shape marks `datum` is the union of their item types and `mark` does not narrow it: narrow with `in` (`'text' in edit.datum`), as in [persistence](references/persistence.md).
+- The editor is typed by the graph: `edit.datum` is the item type of the mark, `edit.mark` its name. With several shape marks, `ShapeEdit<M>` is split by mark: narrow on `edit.type`, then on `edit.mark`, and `datum` takes the item type of that mark (below). Without a shape mark in `M`, or for the plain `Mark` type, it is one union over the items of every mark. `applyShapeEdits` stays wide: it takes the edits of every mark, and `mark` keeps those of one at run time.
 
 ## Core Patterns
 
@@ -92,7 +92,7 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 
 - The selection is the selection of the graph (`graph.selection.get().shapes`, `selectionchange`, controlled mode included); a press on a shape replaces the nodes and edges selected. With `interaction: { select: false }` a press moves a shape without selecting it, so no handles show; with `select: 'single'`, Shift does not add.
 - Points show on one selected area or line; a rectangle, a circle and several shapes show the 8 handles of their box. When points are closer than 6 screen pixels on average, or more than 1,000 show, only the nearest point and midpoint get a handle.
-- A press away from editable shapes goes to the graph: nodes drag, the background pans, Shift and drag draws the lasso. A still press on a shape emits `click`; a drag emits neither `click` nor `dragstart`. A second finger cancels the gesture and pinches.
+- A press away from editable shapes goes to the graph: nodes drag, the background pans, Shift and drag draws the lasso (any drag with `lasso: { modifier: null }`). A still press on a shape emits `click`; a drag emits neither `click` nor `dragstart`. A second finger cancels the gesture and pinches.
 - A pinned shape (`node`) moves around its node: its edits stay relative to the node, and the node does not move.
 
 ### Write edits back
@@ -145,6 +145,35 @@ const view = mountShapeEditor(editor, { placeholder: messages.typeHere })
 view.input.setAttribute('aria-label', messages.noteText)
 ```
 
+To read the item of an edit, narrow on `mark` and `datum` follows:
+
+```ts
+import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
+import { createShapeEditor } from '@bruno00o/graph/editor'
+import { shapes } from '@bruno00o/graph/shapes'
+
+type Zone = { id: string; tone: string; geometry: ShapeGeometry }
+type Note = { id: string; text: string; geometry: ShapeGeometry }
+const zones: Zone[] = []
+const notes: Note[] = []
+
+const graph = mountGraph(document.body, {
+  definition: defineGraph({
+    marks: [shapes(zones, { name: 'zones' }), shapes(notes, { name: 'notes', label: 'text' })],
+  }),
+  ariaLabel: 'Plan',
+})
+
+createShapeEditor(graph, {
+  onEdit: (edits) => {
+    for (const edit of edits) {
+      if (edit.type === 'add' && edit.mark === 'zones') console.log(edit.datum?.tone)
+      if (edit.type === 'remove' && edit.mark === 'notes') console.log(edit.datum.text)
+    }
+  },
+})
+```
+
 ### Draw new shapes
 
 `editor.setTool(tool)` or the `tool` option chooses what a press does; `editor.store.state.tool` holds it for a toolbar. `'select'` (default) selects, moves and reshapes; the others draw:
@@ -168,7 +197,7 @@ view.input.setAttribute('aria-label', messages.noteText)
 ### Copy, reorder, undo
 
 - `editor.duplicate()` (Cmd or Ctrl and D) proposes copies 16 screen pixels lower and to the right, as `'add'` edits whose `datum` is the copied item, and selects them.
-- `editor.raise()` and `editor.lower()` propose `'change'` edits with a new `order`, written by `applyShapeEdits` to `order`: the mark must read it with its `order` option.
+- `editor.raise()` and `editor.lower()` propose `'change'` edits with a new `order`, written by `applyShapeEdits` to `order`: the mark must read it with its `order` option. They propose nothing for a shape already above every other shape of its mark (`raise`) or under them (`lower`): `canRaise` and `canLower` in the store say whether the call would propose something for the selection, to grey the buttons.
 - `editor.remove(keys?)` proposes to remove shapes, the selected ones by default.
 - `editor.undo()` and `redo()` (Cmd or Ctrl and Z, Shift and Cmd or Ctrl and Z, Ctrl and Y) propose the edits that take back or make again a whole batch; `canUndo` and `canRedo` in the store drive buttons. The undo is selective: a batch whose shapes changed since, by someone else, by your code or by a declined write, is skipped and forgotten. Undoing a removal proposes an `'add'` with the same key and the removed item in `datum`. `history` keeps 100 batches, 0 for none. Changes that do not come from the editor are not in it.
 - `editor.cancel()` cancels the gesture, the drawing and the text being typed.
@@ -190,7 +219,7 @@ import type { ShapeEdit, ShapeEditorTool } from '@bruno00o/graph/editor'
 import { useShapeEditor } from '@bruno00o/graph/editor/react'
 import { useGraph } from '@bruno00o/graph/react'
 
-declare const labels: Record<ShapeEditorTool | 'undo', string>
+declare const labels: Record<ShapeEditorTool | 'undo' | 'raise', string>
 const tools: readonly ShapeEditorTool[] = ['select', 'rectangle', 'polygon', 'text']
 
 export function Toolbar({ onEdit }: { onEdit: (edits: readonly ShapeEdit[]) => void }) {
@@ -214,6 +243,9 @@ export function Toolbar({ onEdit }: { onEdit: (edits: readonly ShapeEdit[]) => v
       ))}
       <button type="button" disabled={!state.canUndo} onClick={() => editor?.undo()}>
         {labels.undo}
+      </button>
+      <button type="button" disabled={!state.canRaise} onClick={() => editor?.raise()}>
+        {labels.raise}
       </button>
     </div>
   )

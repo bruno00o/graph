@@ -21,6 +21,7 @@ sources:
   - src/map/react.tsx
   - src/map/export.ts
   - src/core/geo.ts
+  - src/host/position-event.ts
   - src/shapes/wrap.ts
   - src/shapes/subdivide.ts
   - src/waypoints.ts
@@ -106,12 +107,41 @@ requires:
 
 ### Know who moves what
 
-The map owns the camera, its limits and its gestures. Dragging the background, the wheel, pinches and double clicks on the background move the map, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera. The graph owns its elements: hover, clicks, selection, lasso, node drag, focus and keyboard. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom; a double click on a node does not zoom the map. A shape editor takes the gestures on the shapes it edits the same way.
+The map owns the camera, its limits and its gestures. Dragging the background, the wheel, pinches and double clicks on the background move the map, and the graph follows: `graph.view.get()` and `viewchange` report the map's camera. The graph owns its elements: hover, clicks, selection, lasso, node drag, focus and keyboard. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom; a double click on a node does not zoom the map. With a lasso whose `modifier` is `null` (interaction skill), every drag on the background draws a lasso, so the map moves with the wheel, pinches and the keyboard only. A shape editor takes the gestures on the shapes it edits the same way.
 
 - `graph.view.set`, `fit` and `zoomBy` move the map with `jumpTo`, animations included. The graph keyboard works: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit.
 - `update({ view })` has no effect. `initialView`, `view` and `onViewChange` are not options of `mountMapGraph`.
 - The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch (and the largest pitch) and gives them back when the last graph on the map is destroyed.
 - On a flat map the graph is drawn once, between longitudes -180 and 180, on the world copy under the camera: across the antimeridian a node and its edges show on one side only (shapes in degrees show on both sides).
+
+- A node you drag stays where it was dropped, even when its data says otherwise, until its own coordinates change. `graph.positions.reset()` puts every node back on its `longitude` and `latitude` with a glide, `reset(keys)` only some; a node whose data gives no position stays. `positionchange` carries `geo` on a map: the moved nodes as `{ longitude, latitude }` in degrees, the longitude from -180 up to 180 even across the antimeridian. `persistPositions({ collection, longitude: 'lng', latitude: 'lat' })` writes them back (tanstack-db skill).
+- `graph.drawsOnMap` is `true` for a graph mounted by `mountMapGraph` or `<MapGraph>`: code shared with a plain graph reads it to leave out what a map does not draw, such as a layout or the minimap.
+- Nodes that share a place draw in the order they arrived, so a large one can cover a small one. `order` on `nodes()` (lower values first, under the others; styling skill) stacks large nodes under small ones, and the node on top is the one a click picks.
+
+### Switch between a map and a plain graph
+
+The same data can show on a map and in a plain graph with the `geo` layout, which uses the same projection (layouts skill). To leave one surface and come back, destroy the graph, keep `positions.snapshot()` of each side and give it back as `initialPositions` of the next mount: the layout of the plain graph does not run again, and nodes without coordinates are on the map where you left them. The first time a side has no snapshot, so it starts as usual.
+
+```ts
+import type { GraphDefinition, GraphInstance, Key, Point } from '@bruno00o/graph'
+import { mountMapGraph } from '@bruno00o/graph/map'
+import type { Map as MapLibreMap } from 'maplibre-gl'
+
+const saved: { plain?: Map<Key, Point>; map?: Map<Key, Point> } = {}
+
+export function toMap(graph: GraphInstance, map: MapLibreMap, onMap: GraphDefinition) {
+  saved.plain = graph.positions.snapshot()
+  graph.destroy()
+  return mountMapGraph(map, {
+    definition: onMap,
+    ariaLabel: 'Places',
+    initialPositions: saved.map,
+  })
+}
+```
+
+- A snapshot belongs to one surface: positions on a map are in the world units of the map, those of a plain graph in the units of its layout. Nodes with `longitude` and `latitude` ignore their entry, and sit where their coordinates put them.
+- `initialPositions` is read once, at mount, and is not an option of `update`.
 
 ### Know where the graph sits
 
@@ -246,7 +276,7 @@ link.download = 'map.png'
 link.click()
 ```
 
-- `attribution` overrides the text, which defaults to what the map shows, or else the attribution of its sources. `labels` is `'visible'`, `'all'` or `'none'`. Tiles still missing after `timeout` (milliseconds) are left out. On the globe the image shows the globe as on screen.
+- `attribution` overrides the text, which defaults to what the map shows, or else the attribution of its sources. `labels` is `'visible'`, `'all'` or `'none'`. `badges: false` leaves the badges of the nodes out. The image has the size of the map times `pixelRatio`: the exact `size` and `grid` of `exportPng` do not exist here, since the map draws the area its camera shows. Tiles still missing after `timeout` (milliseconds) are left out. On the globe the image shows the globe as on screen.
 - It throws for a destroyed graph or one not mounted by `mountMapGraph`, and a `RangeError` for a `pixelRatio` that is not a positive number. It rejects when the hidden map cannot load its style. A map export takes 1 to 7 seconds depending on tiles.
 - `exportPng` and `exportSvg` from `@bruno00o/graph/export` draw the graph alone, without the map.
 
@@ -304,6 +334,15 @@ mountMapGraph(map, {
 ```
 
 Move the map instead (`map.jumpTo`, `graph.view.set` or `fit`). The `view` limits and `padding` of the definition change nothing either: the map's own zoom limits apply.
+
+### MEDIUM Giving a snapshot to the other surface
+
+A `positions.snapshot()` from a plain graph holds the units of its layout, and one from a map the world units of the map. Passed as `initialPositions` to the other surface, it places nodes without coordinates in the wrong place. Keep one snapshot for each side.
+
+```ts no-check
+const plain = plainGraph.positions.snapshot()
+mountMapGraph(map, { definition: onMap, ariaLabel: 'Places', initialPositions: plain })
+```
 
 ### MEDIUM Swapping longitude and latitude
 
