@@ -283,14 +283,15 @@ const stop = persistPositions(graph, {
 stop()
 ```
 
-- What is written: drags, `positions.set` and the result of each layout run that ends. Moves that come from the collection itself do not emit `positionchange`, so nothing echoes back.
+- What is written: drags, `positions.set`, `positions.reset` and the result of each layout run that ends. Moves that come from the collection itself do not emit `positionchange`, so nothing echoes back. Positions placed at mount by `initialPositions` (layouts skill) emit nothing, so restoring a snapshot writes nothing.
 - Without `mutationFn`, rows are updated with `collection.update` at most every 100 ms (first and last move included), and the collection persists them through its own handlers (Electric, Query, local storage...).
 - With `mutationFn`, the writes go through `createPacedMutations`: `x` and `y` are written optimistically and the strategy paces your function (`throttleStrategy` of 100 ms by default). A failed mutation rolls the optimistic write back and the node follows its data again.
 - `pendingState` names a free state declared in the definition. It holds each node whose write is pending, from the move until the write is done or has failed. It throws when the state is not declared, and with a typed graph it only accepts the free state names.
 - `mutationFn` receives `{ transaction }` of TanStack DB: `transaction.mutations` is `PendingMutation<Item>[]` (type exported by `@tanstack/db`). Annotate the parameter when you share one options object between graphs, and write `pendingState: 'saving' as const` for a shared constant.
 - `collection` is the collection that holds the rows, whatever the graph draws from: a graph drawn from a join whose `getKey` returns the item key can still persist into the items collection, because node keys equal row keys.
-- Only rows that exist are updated: a node with no row is skipped unless `create(nodeKey, point)` builds one.
+- Only rows that exist are updated: a node with no row is skipped unless `create(nodeKey, point, geo)` builds one, `point` in world units and `geo` in degrees.
 - `x` and `y` name other fields of the row; `key` maps a node key to a row key when they differ.
+- Nodes placed by `longitude` and `latitude`, on a map or not, are saved in degrees: name the fields with `longitude` and `latitude` (both, or the call throws a `TypeError`), and a drag, even a map drag in world units, is written back as degrees, the longitude from -180 up to 180. `x` and `y` are then written only when you name them too.
 - A layout result that is written becomes data: later layout runs leave those nodes in place, because positions read from rows win over layouts.
 
 Positions that live in their own collection:
@@ -331,9 +332,29 @@ export function SharedPositions({ items }: { items: Collection<Item, string> }) 
 }
 ```
 
+### Write degrees back
+
+```ts
+import type { GraphInstance } from '@bruno00o/graph'
+import { persistPositions } from '@bruno00o/graph/db'
+import type { Collection } from '@tanstack/db'
+
+type Place = { id: string; lng: number; lat: number }
+
+declare const graph: GraphInstance
+declare const places: Collection<Place, string>
+
+export const stop = persistPositions(graph, {
+  collection: places,
+  longitude: 'lng',
+  latitude: 'lat',
+  create: (key, _point, geo) => ({ id: String(key), lng: geo.longitude, lat: geo.latitude }),
+})
+```
+
 ### Shape edits and presence
 
-`persistShapes(editor, { collection, create })` writes the edits of a shape editor into the collection a `shapes()` mark draws from: changed fields only, removed rows, and new rows through `create`, optimistic and rolled back on failure. `showPresence(graph, { collection, me, create })` shows the cursors and selections of the other people from a collection of presence rows that your app syncs. Both come from `@bruno00o/graph/db`; load the editor skill for them.
+`persistShapes(editor, { collection, create })` writes the edits of a shape editor into the collection a `shapes()` mark draws from: changed fields only, removed rows, and new rows through `create`, optimistic and rolled back on failure. `showPresence(graph, { collection, me, create })` shows the cursors and selections of the other people from a collection of presence rows that your app syncs. With several shape marks, name one with `mark` to write only its edits and type what `create` receives with the item type of that mark. Both come from `@bruno00o/graph/db`; load the editor skill for them.
 
 ## Common Mistakes
 
@@ -391,6 +412,10 @@ subset(items, (item) => gte(item.wieght, 3))
 
 Rows with `x` and `y` that the marks read are data positions, so a layout never moves them. Persisting a layout result makes the nodes fixed from then on. To lay out again, clear the coordinates in the collection or leave `x` and `y` out of the mark.
 
+### MEDIUM Writing world units into rows that hold degrees
+
+Without `longitude` and `latitude`, `persistPositions` writes `x` and `y`, in world units. A mark that reads `longitude` and `latitude` ignores those fields, so a dragged node never moves in the rows and the saved fields stay empty or wrong. Name the degree fields (see "Write degrees back"); `create` then gets the position in degrees as its third argument.
+
 ### MEDIUM Forgetting to stop `persistPositions`
 
 It returns a function that removes its listener and flushes the last write. Call it when the graph or its component goes away; in React, return it from the effect.
@@ -404,7 +429,7 @@ The task is done when:
 - every join has a `getKey` that returns the node key;
 - a loading overlay or a wait for the rows reads `data` or `loadingchange` or awaits `graph.loaded()`, and `data.failed` is checked;
 - `graph.count().pending` is 0 once the edges' nodes are loaded, and `graph.issues()` is empty or expected;
-- positions persisted by `persistPositions` have their stop function called on cleanup, and `pendingState` is a declared free state;
+- positions persisted by `persistPositions` have their stop function called on cleanup, `pendingState` is a declared free state, and rows read as degrees are written with `longitude` and `latitude`;
 - `tsc` accepts the code.
 
 ## References

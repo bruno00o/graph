@@ -305,6 +305,30 @@ Folded groups (`folded`, `onFoldChange`), hidden layers (`hiddenLayers`, `onLaye
 
 `<Graph>` mounts the graph once, in a layout effect, and destroys it on unmount. StrictMode mounts, destroys and mounts again: one instance remains, and the `ref` receives the live one. Do not call `mountGraph` in a component; if you must, do it in `useEffect` and call `destroy()` in its cleanup.
 
+Props that start the graph are read once, at the mount, and StrictMode mounts twice: `initialView`, `initialTime`, `initialHiddenLayers`, `initialFolded` and `initialPositions`. To bring nodes back where they were when the component mounts again, keep `graph.positions.snapshot()` before it unmounts and pass it as `initialPositions` (layouts skill): a `Map` or an array, never a one-shot iterator. `initialFolded` also takes a function of the group node, asked once for each group when it first has a child (groups skill); the function of the latest render is the one called.
+
+```tsx
+import type { Key, Point } from '@bruno00o/graph'
+import { defineGraph, nodes } from '@bruno00o/graph'
+import { Graph } from '@bruno00o/graph/react'
+
+type Item = { id: string; parent: string | null }
+const items: Item[] = []
+const definition = defineGraph({ marks: [nodes(items, { parent: 'parent' })] })
+
+export function RestoredGraph({ saved }: { saved: Map<Key, Point> | undefined }) {
+  return (
+    <Graph
+      definition={definition}
+      ariaLabel="Sample graph"
+      style={{ height: 480 }}
+      initialPositions={saved}
+      initialFolded={(group) => group.key === 'archive'}
+    />
+  )
+}
+```
+
 ## Common Mistakes
 
 ### HIGH Creating option functions or the definition in render
@@ -352,7 +376,30 @@ Annotate the parameter (`(state: GraphState<string, Marks>) => ...`), type `useG
 
 ### MEDIUM Switching to a controlled prop after mount
 
-`selection`, `view`, `folded`, `hiddenLayers` and `time` decide at mount whether the graph is controlled. A prop that starts `undefined` and is set later does not take control. Initialize the state before the first render (`{ nodes: [] }`), or use `initialView`, `initialFolded`, `initialTime` and `initialHiddenLayers` for a starting value without control.
+`selection`, `view`, `folded`, `hiddenLayers` and `time` decide at mount whether the graph is controlled. A prop that starts `undefined` and is set later does not take control. Initialize the state before the first render (`{ nodes: [] }`), or use `initialView`, `initialFolded`, `initialTime`, `initialHiddenLayers` and `initialPositions` for a starting value without control.
+
+### MEDIUM Giving `initialPositions` an iterator that StrictMode consumes
+
+`initialPositions` is read at the mount, and StrictMode mounts, destroys and mounts again with the same prop. A one-shot iterator (`saved.entries()`, a generator) is spent by the first mount, so the second one restores nothing and the layout runs on every node. Pass the `Map` or an array.
+
+```tsx
+import type { Key, Point } from '@bruno00o/graph'
+import { defineGraph, nodes } from '@bruno00o/graph'
+import { Graph } from '@bruno00o/graph/react'
+
+type Item = { id: string }
+const items: Item[] = []
+const definition = defineGraph({ marks: [nodes(items)] })
+
+export function Restored({ saved }: { saved: Map<Key, Point> }) {
+  return (
+    <>
+      <Graph definition={definition} ariaLabel="Spent" initialPositions={saved.entries()} />
+      <Graph definition={definition} ariaLabel="Kept" initialPositions={saved} />
+    </>
+  )
+}
+```
 
 ### MEDIUM A `<Graph>` without a height
 
@@ -366,6 +413,7 @@ The task is done when:
 - selectors that build objects or arrays pass `compare: shallow`, and option functions live outside render;
 - selectors and handlers are typed (`tsc` passes without `any` or casts on `datum`);
 - components outside `<Graph>` pass `graph` and handle the `null` first render;
+- positions restored at a remount are passed as `initialPositions`, as a `Map` or an array;
 - under StrictMode, the page shows one graph and no console error.
 
 ## References

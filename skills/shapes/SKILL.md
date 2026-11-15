@@ -297,7 +297,7 @@ A shape is visible above its `minZoom` and below its `maxZoom` (zoom is screen p
 ### Frame, count and check
 
 - `graph.view.fit()` frames every node and every shape. `fit({ nodes })` or `fit({ edges })` frames only what they name. `fit({ shapes: ['north'] })` frames the box of those shapes, alone or with `nodes` and `edges`. Keys of unknown or unreadable shapes are ignored.
-- With a shape mark, `graph.count()` has `shapes` (one per key, without the pinned shapes that wait for their node), `pendingShapes` (those that wait) and `shown.shapes` (drawn: readable geometry, not hidden by zoom, time, layer or state). `fit` frames a pinned shape where its node is, or where a gliding layout takes it, and leaves a waiting one out.
+- With a shape mark, `graph.count()` has `shapes` (one per key, without the pinned shapes that wait for their node), `pendingShapes` (those that wait) and `shown.shapes` (drawn: readable geometry, not hidden by zoom, time, layer or state); `graph.shown().shapes` lists those keys and `graph.isShown({ kind: 'shape', key })` asks about one. `fit` frames a pinned shape where its node is, or where a gliding layout takes it, and leaves a waiting one out.
 - Geometry that cannot be drawn is listed by `graph.issues()`, never thrown: `{ type: 'invalid-shape', kind: 'shapes', key, reason }`, with `reason` `'empty'` (unreadable, or no area nor length) or `'self-intersecting'` (rings that cross: drawn as well as it can; in a batch of more than 100,000 points, triangulated in workers, it is reported once that fill arrives, not at once). An item without a usable key or with a duplicate key is a `missing-key` or `duplicate-key` issue with `kind: 'shapes'`. A typed graph has these issue types only when it has a shape mark.
 
 ```ts
@@ -385,7 +385,7 @@ A shape whose text is empty, `null` or not a string draws no label, and so does 
 
 ### MEDIUM Reading shape counts or keys on a graph without a shape mark
 
-`count().shapes`, `count().shown.shapes` and `selection.get().shapes` exist only when the marks of the definition include a shape mark. Without one, a typed graph has neither and the shape keys you pass are ignored.
+`count().shapes`, `count().shown.shapes`, `shown().shapes` and `selection.get().shapes` exist only when the marks of the definition include a shape mark. Without one, a typed graph has neither and the shape keys you pass are ignored.
 
 ```ts expect-error=TS2339
 import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
