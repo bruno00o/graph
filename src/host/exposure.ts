@@ -13,7 +13,7 @@ import type { HostCamera } from './camera'
 import type { ContainerBoxes } from './containers'
 import type { Decorations } from './decorations'
 import { exposeSnapshot } from './export-source'
-import type { GraphState, RendererFactory } from './graph-instance'
+import type { GraphState, RendererFactory, SurfaceCapabilities } from './graph-instance'
 import { exposeInternals, type GraphWatcher } from './internals'
 import type { LayerControl } from './layer-control'
 import type { PointerTool } from './pointer-tool'
@@ -22,7 +22,6 @@ import type { StateRegistry } from './state-registry'
 import type { TimeControl } from './time-control'
 
 export interface ExposureSource {
-  readonly onMap: boolean
   readonly element: HTMLElement
   readonly scene: Scene
   readonly positions: Positions
@@ -40,6 +39,7 @@ export interface ExposureSource {
   readonly camera: HostCamera
   readonly watchers: Set<GraphWatcher>
   readonly createRenderer: RendererFactory
+  surface(): SurfaceCapabilities
   definition(): GraphDefinition
   state(): GraphState
   sight(except?: string | null): Sight
@@ -56,7 +56,10 @@ export interface ExposureSource {
 export function exposeGraph(graph: object, source: ExposureSource): void {
   const { scene, positions, buffers, projection, containers, render, watchers } = source
   exposeInternals(graph, {
-    onMap: source.onMap,
+    get onMap() {
+      return source.surface().onMap
+    },
+    surface: () => source.surface(),
     scene,
     positions,
     definition: source.definition,

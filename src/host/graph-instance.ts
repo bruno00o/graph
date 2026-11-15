@@ -737,9 +737,24 @@ export interface HostDriver {
   detach(): void
 }
 
-export interface HostSurface {
+export interface SurfaceCapabilities {
+  readonly name: string
+  readonly ownCanvas: boolean
+  readonly ownCamera: boolean
+  readonly viewGestures: boolean
+  readonly layouts: boolean
+  readonly lens: boolean
+  readonly minimap: boolean
+  readonly onMap: boolean
+  readonly screenPadding: boolean
+  readonly groupFillOpacity: number | null
+}
+
+export interface HostSurface extends SurfaceCapabilities {
   readonly events: HTMLCanvasElement
-  schedule(): void
+  place(element: HTMLElement, container: HTMLElement): void
+  schedule(frame: (now: number) => void): number
+  cancel(request: number): void
   claim(active: boolean): void
   hover(active: boolean): void
   move(view: View): void

@@ -10,8 +10,7 @@ import type { GraphState, HostSurface, RendererFactory } from './graph-instance'
 import type { Renderer } from './renderer'
 
 export interface RenderSource {
-  readonly canvas: HTMLCanvasElement
-  readonly surface: HostSurface | null
+  surface(): HostSurface
   readonly createRenderer: RendererFactory
   readonly scene: Scene
   readonly themeResolver: ThemeResolver
@@ -46,13 +45,15 @@ export class RenderHost {
   #themeWatch: ThemeWatch | null = null
   #resizeObserver: ResizeObserver | null = null
   #fontWatch: (() => void) | null = null
+  #listened: HTMLCanvasElement | null = null
   readonly #source: RenderSource
 
   constructor(source: RenderSource) {
     this.#source = source
-    this.renderer = source.surface
-      ? null
-      : source.createRenderer(source.canvas, () => source.request())
+    const surface = source.surface()
+    this.renderer = surface.ownCanvas
+      ? source.createRenderer(surface.events, () => source.request())
+      : null
   }
 
   resolvePalette(all: boolean): void {
@@ -97,9 +98,10 @@ export class RenderHost {
   }
 
   resize(width: number, height: number): void {
-    const { canvas, surface } = this.#source
+    const surface = this.#source.surface()
     let cleared = false
-    if (!surface) {
+    if (surface.ownCanvas) {
+      const canvas = surface.events
       const side = Math.max(width, height, 1)
       this.pixelRatio = Math.min(
         window.devicePixelRatio || 1,
@@ -151,9 +153,9 @@ export class RenderHost {
   #watchRatio(): void {
     this.#ratioQuery?.removeEventListener('change', this.#onRatio)
     const ratio = window.devicePixelRatio || 1
-    this.#ratioQuery = this.#source.surface
-      ? null
-      : (window.matchMedia?.(`(resolution: ${ratio}dppx)`) ?? null)
+    this.#ratioQuery = this.#source.surface().ownCanvas
+      ? (window.matchMedia?.(`(resolution: ${ratio}dppx)`) ?? null)
+      : null
     this.#ratioQuery?.addEventListener('change', this.#onRatio)
   }
 
@@ -174,7 +176,7 @@ export class RenderHost {
     const source = this.#source
     if (source.destroyed()) return
     try {
-      this.renderer = source.createRenderer(source.canvas, () => source.request())
+      this.renderer = source.createRenderer(source.surface().events, () => source.request())
     } catch (error) {
       if (dev) console.warn('graph: cannot restore the WebGL context', error)
       return
@@ -185,6 +187,23 @@ export class RenderHost {
     this.refreshTheme()
     const { width, height } = source.state()
     this.resize(width, height)
+  }
+
+  listen(surface: HostSurface): void {
+    this.unlisten()
+    if (!surface.ownCanvas) return
+    const canvas = surface.events
+    canvas.addEventListener('webglcontextlost', this.onContextLost)
+    canvas.addEventListener('webglcontextrestored', this.onContextRestored)
+    this.#listened = canvas
+  }
+
+  unlisten(): void {
+    const canvas = this.#listened
+    if (!canvas) return
+    this.#listened = null
+    canvas.removeEventListener('webglcontextlost', this.onContextLost)
+    canvas.removeEventListener('webglcontextrestored', this.onContextRestored)
   }
 
   attach(create: (invalidate: () => void) => Renderer): void {

@@ -85,9 +85,8 @@ interface PointerMove {
 }
 
 export interface PointerSource {
-  readonly canvas: HTMLCanvasElement
   readonly element: HTMLElement
-  readonly surface: HostSurface | null
+  surface(): HostSurface
   readonly model: GraphModel
   readonly scene: Scene
   readonly hierarchy: Hierarchy
@@ -112,6 +111,8 @@ export interface PointerSource {
   request(): void
   destroyed(): boolean
 }
+
+type PointerListener = readonly [string, (event: never) => void, AddEventListenerOptions?]
 
 interface PinchWatch {
   readonly active: boolean
@@ -160,6 +161,10 @@ export class PointerInput {
   #moveRequest = 0
   #lassoLayer: SVGSVGElement | null = null
   #pinchGestures: PinchWatch | null = null
+  #listened: {
+    readonly canvas: HTMLCanvasElement
+    readonly listeners: readonly PointerListener[]
+  } | null = null
   #tool: PointerTool | null = null
   #toolGesture: ToolGesture | null = null
   #toolCursor: string | null = null
@@ -169,11 +174,45 @@ export class PointerInput {
     this.#source = source
   }
 
-  watchPinch(): void {
-    this.#pinchGestures = listenPinch(this.#source.canvas, {
+  get #canvas(): HTMLCanvasElement {
+    return this.#source.surface().events
+  }
+
+  listen(canvas: HTMLCanvasElement): void {
+    this.unlisten()
+    const listeners = this.#pointerListeners()
+    for (const [name, listener, options] of listeners) {
+      canvas.addEventListener(name, listener as EventListener, options)
+    }
+    this.#pinchGestures = listenPinch(canvas, {
       start: () => this.#onPinchStart(),
       change: (change) => this.#onPinchChange(change),
     })
+    this.#listened = { canvas, listeners }
+  }
+
+  unlisten(): void {
+    this.#pinchGestures?.stop()
+    this.#pinchGestures = null
+    const listened = this.#listened
+    if (!listened) return
+    this.#listened = null
+    for (const [name, listener] of listened.listeners) {
+      listened.canvas.removeEventListener(name, listener as EventListener)
+    }
+  }
+
+  #pointerListeners(): readonly PointerListener[] {
+    return [
+      ['pointerdown', this.onPointerDown],
+      ['pointermove', this.onPointerMove],
+      ['pointerup', this.onPointerUp],
+      ['pointercancel', this.onPointerCancel],
+      ['pointerleave', this.onPointerLeave],
+      ['dblclick', this.onDoubleClick],
+      ['contextmenu', this.onContextMenu],
+      ['wheel', this.onWheel, { passive: false }],
+    ]
   }
 
   get tool(): PointerTool | null {
@@ -184,8 +223,8 @@ export class PointerInput {
     const held = this.#toolGesture
     if (held) {
       this.#toolGesture = null
-      this.#source.surface?.claim(false)
-      const canvas = this.#source.canvas
+      this.#source.surface().claim(false)
+      const canvas = this.#canvas
       if (canvas.hasPointerCapture?.(held.id)) canvas.releasePointerCapture(held.id)
     }
     this.#tool = tool
@@ -211,7 +250,7 @@ export class PointerInput {
   }
 
   #local(event: MouseEvent): Point {
-    const rect = this.#source.canvas.getBoundingClientRect()
+    const rect = this.#canvas.getBoundingClientRect()
     return { x: event.clientX - rect.left, y: event.clientY - rect.top }
   }
 
@@ -243,7 +282,7 @@ export class PointerInput {
   updateCursor(): void {
     const source = this.#source
     const gesture = this.#gesture
-    const canvas = source.canvas
+    const canvas = this.#canvas
     const interaction = source.definition().interaction
     const interactive = interaction.select !== false || interaction.drag
     const tooled = this.#toolCursor !== null && !gesture && !this.#pinch
@@ -252,7 +291,7 @@ export class PointerInput {
     else if (gesture?.moved) canvas.style.cursor = 'grabbing'
     else if (source.state().hovered && interactive) canvas.style.cursor = 'pointer'
     else canvas.style.cursor = ''
-    source.surface?.hover(source.state().hovered !== null || this.#toolCursor !== null)
+    source.surface().hover(source.state().hovered !== null || this.#toolCursor !== null)
   }
 
   #drawLasso(points: readonly Point[] | null): void {
@@ -324,11 +363,11 @@ export class PointerInput {
   cancelLasso(): boolean {
     const gesture = this.#gesture
     if (!gesture?.lasso) return false
-    const canvas = this.#source.canvas
+    const canvas = this.#canvas
     if (canvas.hasPointerCapture?.(gesture.id)) canvas.releasePointerCapture(gesture.id)
     this.#gesture = null
     this.#autoPanning = false
-    this.#source.surface?.claim(false)
+    this.#source.surface().claim(false)
     this.#drawLasso(null)
     this.updateCursor()
     return true
@@ -462,8 +501,8 @@ export class PointerInput {
       moved: false,
       stopped: false,
     }
-    source.canvas.setPointerCapture?.(event.pointerId)
-    if (drag || lassoing) source.surface?.claim(true)
+    this.#canvas.setPointerCapture?.(event.pointerId)
+    if (drag || lassoing) source.surface().claim(true)
     if (lassoing) this.updateCursor()
   }
 
@@ -486,8 +525,8 @@ export class PointerInput {
       last: point,
       moved: false,
     }
-    source.canvas.setPointerCapture?.(event.pointerId)
-    source.surface?.claim(true)
+    this.#canvas.setPointerCapture?.(event.pointerId)
+    source.surface().claim(true)
     this.#toolCursor = tool.cursor({ event, point, hit })
     this.updateCursor()
     return true
@@ -511,8 +550,8 @@ export class PointerInput {
   #endTool(held: ToolGesture, event: PointerEvent, cancelled: boolean): void {
     const source = this.#source
     this.#toolGesture = null
-    source.surface?.claim(false)
-    const canvas = source.canvas
+    source.surface().claim(false)
+    const canvas = this.#canvas
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     const point = this.#local(event)
     const click = this.#tool?.up({ event, point, hit: held.hit }, cancelled) ?? false
@@ -535,7 +574,7 @@ export class PointerInput {
     const source = this.#source
     this.#toolGesture = null
     this.#toolCursor = null
-    source.surface?.claim(false)
+    source.surface().claim(false)
     this.#tool?.up({ event, point: held.last, hit: held.hit }, true)
     if (source.destroyed()) return
     source.views.animation = null
@@ -556,7 +595,7 @@ export class PointerInput {
   #beginPinch(current: Gesture, event: PointerEvent): void {
     const source = this.#source
     this.#gesture = null
-    source.surface?.claim(false)
+    source.surface().claim(false)
     this.#autoPanning = false
     source.views.animation = null
     if (current.drag?.started)
@@ -572,13 +611,13 @@ export class PointerInput {
       [event.pointerId, this.#local(event)],
     ])
     this.#pinch = { points, ...pinchShape(points) }
-    this.#source.canvas.setPointerCapture?.(event.pointerId)
+    this.#canvas.setPointerCapture?.(event.pointerId)
     this.updateCursor()
   }
 
   #movePinch(current: Pinch): void {
     const source = this.#source
-    if (source.surface) return
+    if (!source.surface().viewGestures) return
     const { center, distance } = pinchShape(current.points)
     const definition = source.definition()
     const { zoom, pan } = definition.interaction
@@ -595,7 +634,7 @@ export class PointerInput {
   }
 
   #endPinch(current: Pinch, event: PointerEvent): void {
-    const canvas = this.#source.canvas
+    const canvas = this.#canvas
     current.points.delete(event.pointerId)
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     this.#pinch = null
@@ -648,7 +687,7 @@ export class PointerInput {
         const index = drag.indices[i] ?? 0
         moved.set(key, { x: positions.x(index), y: positions.y(index) })
       })
-      emitter.emit('positionchange', positionEvent('drag', moved, this.#source.surface !== null))
+      emitter.emit('positionchange', positionEvent('drag', moved, this.#source.surface().onMap))
     }
     this.#source.request()
   }
@@ -792,7 +831,7 @@ export class PointerInput {
       this.#followEdge()
       return
     }
-    if (source.definition().interaction.pan && !source.surface) {
+    if (source.definition().interaction.pan && source.surface().viewGestures) {
       const views = source.views
       views.commit(panBy(views.base(), point.x - gesture.last.x, point.y - gesture.last.y), 'user')
     }
@@ -843,8 +882,8 @@ export class PointerInput {
     if (!ended || ended.id !== event.pointerId) return
     this.#gesture = null
     this.#autoPanning = false
-    source.surface?.claim(false)
-    const canvas = source.canvas
+    source.surface().claim(false)
+    const canvas = this.#canvas
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     if (ended.drag?.started) source.emitter.emit('dragend', this.#dragEvent(ended.drag, event))
     if (source.destroyed()) return
@@ -905,7 +944,7 @@ export class PointerInput {
 
   #pinchPoint(change: PinchGesture): Point {
     if (change.clientX !== null && change.clientY !== null) {
-      const rect = this.#source.canvas.getBoundingClientRect()
+      const rect = this.#canvas.getBoundingClientRect()
       return { x: change.clientX - rect.left, y: change.clientY - rect.top }
     }
     const pointer = this.#source.lens.pointer
@@ -916,7 +955,7 @@ export class PointerInput {
 
   #onPinchStart(): boolean {
     const source = this.#source
-    if (source.surface || source.destroyed()) return false
+    if (!source.surface().viewGestures || source.destroyed()) return false
     const lens = source.lens
     return Boolean(source.definition().interaction.zoom) || Boolean(lens.shown && lens.wanted)
   }
@@ -942,7 +981,7 @@ export class PointerInput {
 
   readonly onWheel = (event: WheelEvent): void => {
     const source = this.#source
-    if (source.surface) return
+    if (!source.surface().viewGestures) return
     if (event.ctrlKey && this.#pinchGestures?.active) {
       event.preventDefault()
       return
@@ -994,9 +1033,5 @@ export class PointerInput {
   stopMoves(): void {
     if (this.#moveRequest !== 0) cancelAnimationFrame(this.#moveRequest)
     this.#pendingMove = null
-  }
-
-  stopPinch(): void {
-    this.#pinchGestures?.stop()
   }
 }
