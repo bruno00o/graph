@@ -8,6 +8,15 @@ import type { GraphInstance } from '../host/mount-graph'
 import { readonlyOf } from '../host/readonly-store'
 import type { FreeState, GraphDefinition, LayerName, Mark } from '../types'
 import {
+  type EntryCounts,
+  EntryIndex,
+  entryPrefix,
+  type LegendEntryGroup,
+  type LegendEntryItem,
+  type LegendEntrySection,
+  sameGroups,
+} from './entries'
+import {
   type KeyScope,
   keysOf,
   type LegendCategory,
@@ -20,7 +29,7 @@ import {
 } from './read'
 
 /** Options of `createLegend`. */
-export interface LegendOptions<S extends string = string> {
+export interface LegendOptions<S extends string = string, M extends Mark = Mark> {
   /**
    * Free state given to the nodes, edges and shapes of the item under the pointer or the keyboard,
    * or `null` for none. Declare it in `states` with the style of a highlight. Defaults to `null`.
@@ -39,6 +48,13 @@ export interface LegendOptions<S extends string = string> {
    * @default 'show'
    */
   readonly empty?: LegendEmpty | undefined
+  /**
+   * Entries the application declares, in sections with their own titles, for a graph that colors
+   * its elements by rules of its own instead of scales. An entry that tells which elements it
+   * covers highlights them, switches them off and counts them like a category; the others are
+   * only displayed. Defaults to none.
+   */
+  readonly entries?: readonly LegendEntryGroup<M>[] | undefined
 }
 
 /** What a legend does with categories that no element draws: `'show'` or `'hide'`. */
@@ -75,6 +91,8 @@ export interface LegendState<M extends Mark = Mark> {
   readonly looks: readonly LegendLook<M>[]
   /** Layers of the graph, in the order of their first mark, hidden ones included. */
   readonly layers: readonly LegendLayer<M>[]
+  /** Sections of the entries the application declared with `entries`, in order. */
+  readonly entries: readonly LegendEntrySection[]
   /** Id of the item under the pointer or the keyboard, or `null`. */
   readonly hovered: string | null
   /** Ids of the items switched off, hidden layers included. */
@@ -94,8 +112,8 @@ export interface Legend<S extends string = string, M extends Mark = Mark> {
   toggle(id: string, off?: boolean): void
   /**
    * Switches an item on and every other item of its section off: the other categories of its
-   * `color` scale, the other looks of the same kind of element, or the other layers. An unknown id
-   * changes nothing.
+   * `color` scale, the other looks of the same kind of element, the other layers, or the other
+   * entries of its section that cover elements. An unknown id changes nothing.
    */
   only(id: string): void
   /** Switches every item on again, layers included. */
@@ -109,7 +127,7 @@ export interface Legend<S extends string = string, M extends Mark = Mark> {
    * Changes the options: an option left out keeps its current value, an option set to `undefined`
    * returns to its default.
    */
-  update(options?: LegendOptions<S>): void
+  update(options?: LegendOptions<S, M>): void
   /** Stops following the graph and empties the states of the legend. */
   destroy(): void
 }
@@ -123,9 +141,12 @@ const emptyState: LegendState = {
   marks: [],
   looks: [],
   layers: [],
+  entries: [],
   hovered: null,
   off: [],
 }
+
+const sliceBudget = 6
 
 function readLayers<M extends Mark>(
   names: readonly string[],
@@ -155,7 +176,7 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
  */
 export function createLegend<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
-  options: LegendOptions<S> = {},
+  options: LegendOptions<S, M> = {},
 ): Legend<S, M> {
   const internals = internalsOf(graph, 'createLegend')
   const states = graph.states as unknown as {
@@ -163,7 +184,7 @@ export function createLegend<S extends string, M extends Mark>(
     add(name: string, keys: ElementKeys): void
     clear(name: string): void
   }
-  let given: LegendOptions<S> = options
+  let given: LegendOptions<S, M> = options
   let highlight: string | null = options.highlight ?? null
   let hidden: string | null = options.hidden ?? null
   let empty: LegendEmpty = options.empty ?? 'show'
@@ -178,7 +199,13 @@ export function createLegend<S extends string, M extends Mark>(
     set(hidden: Iterable<string>): void
   }
   const known = new Map<string, LegendCategory>()
-  const scope: KeyScope = { members: (index, end) => internals.edgeMembers(index, end) }
+  const entryIndex = new EntryIndex(internals.scene, internals.datum)
+  let entryGroups: readonly LegendEntryGroup<never>[] = options.entries ?? []
+  entryIndex.set(entryGroups)
+  const scope: KeyScope = {
+    members: (index, end) => internals.edgeMembers(index, end),
+    entries: entryIndex,
+  }
   let crowded: ReadonlySet<number> = new Set()
   let readScene = -1
   let readDetail = -1
@@ -186,17 +213,27 @@ export function createLegend<S extends string, M extends Mark>(
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastRead = Number.NEGATIVE_INFINITY
   let cooldown = minInterval
+  let spent = 0
   let destroyed = false
 
-  function read(): void {
+  function read(slice: boolean): boolean {
     timer = undefined
-    if (destroyed) return
+    if (destroyed) return true
     const start = performance.now()
+    const sight = internals.sight(hidden)
+    let counts: EntryCounts | null = null
+    if (entryIndex.size > 0) {
+      counts = entryIndex.count(sight, slice ? start + sliceBudget : Number.POSITIVE_INFINITY)
+      if (counts === null) {
+        spent += performance.now() - start
+        timer = setTimeout(refresh, 0)
+        return false
+      }
+    }
     const stamp = internals.stamp()
     readScene = stamp.scene
     readDetail = stamp.detail
     readDefinition = internals.definition()
-    const sight = internals.sight(hidden)
     const reading = readLegend(
       internals.scene,
       readDefinition.marks,
@@ -220,11 +257,67 @@ export function createLegend<S extends string, M extends Mark>(
       marks: reading.marks as readonly LegendScalesOf<M>[],
       looks: reading.looks as readonly LegendLook<M>[],
       layers: nextLayers,
+      entries: readEntries(counts, previous.entries),
       hovered: previous.hovered,
       off: sameIds(previous.off, ids) ? previous.off : ids,
     }))
     lastRead = performance.now()
-    cooldown = Math.max(minInterval, (lastRead - start) * costRatio)
+    cooldown = Math.max(minInterval, (spent + lastRead - start) * costRatio)
+    spent = 0
+    return true
+  }
+
+  function readEntries(
+    counts: EntryCounts | null,
+    previous: readonly LegendEntrySection[],
+  ): readonly LegendEntrySection[] {
+    const sections = entryIndex.sections.map((group, at): LegendEntrySection => {
+      const items: LegendEntryItem[] = []
+      for (const entry of group.entries) {
+        const bit = entryIndex.bitOf(entry.id)
+        const interactive =
+          entry.nodes !== undefined || entry.edges !== undefined || entry.shapes !== undefined
+        const nodes = counts?.nodes[bit] ?? 0
+        const edges = counts?.edges[bit] ?? 0
+        const shapes = counts?.shapes[bit] ?? 0
+        const id = entryPrefix + entry.id
+        const isOff = off.has(id)
+        if (empty === 'hide' && interactive && nodes + edges + shapes === 0 && !isOff) continue
+        const before = previous[at]?.items.find((item) => item.id === id)
+        items.push(
+          before &&
+            before.label === entry.label &&
+            before.swatch === entry.swatch &&
+            before.interactive === interactive &&
+            before.nodes === nodes &&
+            before.edges === edges &&
+            before.shapes === shapes &&
+            before.off === isOff
+            ? before
+            : {
+                id,
+                label: entry.label,
+                swatch: entry.swatch,
+                interactive,
+                nodes,
+                edges,
+                shapes,
+                off: isOff,
+              },
+        )
+      }
+      const before = previous[at]
+      return before &&
+        before.title === group.title &&
+        before.items.length === items.length &&
+        before.items.every((item, place) => item === items[place])
+        ? before
+        : { title: group.title, items }
+    })
+    return sections.length === previous.length &&
+      sections.every((each, at) => each === previous[at])
+      ? previous
+      : sections
   }
 
   function offIds(list: readonly LegendLayer<M>[]): string[] {
@@ -245,7 +338,7 @@ export function createLegend<S extends string, M extends Mark>(
   }
 
   function refresh(): void {
-    read()
+    if (!read(true)) return
     quietly(() => {
       applyHidden()
       applyHighlight()
@@ -292,7 +385,7 @@ export function createLegend<S extends string, M extends Mark>(
     const indices = (refs: readonly (readonly ElementRef[])[]) =>
       refs.flatMap((list) => list.map((ref) => ref.index))
     const keys = keysOf(internals.scene, off, crowded, {
-      members: scope.members,
+      ...scope,
       nodes: indices([nodes.added, nodes.updated]),
       edges: indices([edges.added, edges.updated]),
       shapes: shapes ? indices([shapes.added, shapes.updated]) : [],
@@ -313,6 +406,14 @@ export function createLegend<S extends string, M extends Mark>(
       : color
   }
 
+  function entryItem(id: string): LegendEntryItem | undefined {
+    for (const section of store.state.entries) {
+      const item = section.items.find((each) => each.id === id)
+      if (item) return item
+    }
+    return undefined
+  }
+
   function publishOff(): void {
     const ids = offIds(store.state.layers)
     store.setState((state) => ({
@@ -325,6 +426,14 @@ export function createLegend<S extends string, M extends Mark>(
       looks: state.looks.map((look) =>
         look.off === off.has(look.id) ? look : { ...look, off: off.has(look.id) },
       ),
+      entries: state.entries.map((section) => {
+        const items = section.items.map((item) =>
+          item.off === off.has(item.id) ? item : { ...item, off: off.has(item.id) },
+        )
+        return items.every((item, at) => item === section.items[at])
+          ? section
+          : { ...section, items }
+      }),
     }))
     applyHidden()
   }
@@ -362,7 +471,7 @@ export function createLegend<S extends string, M extends Mark>(
   })
 
   try {
-    read()
+    read(false)
     applyHidden()
     applyHighlight()
   } catch (error) {
@@ -386,6 +495,7 @@ export function createLegend<S extends string, M extends Mark>(
         else layers.hide([layer.name])
         return
       }
+      if (id.startsWith(entryPrefix) && !entryItem(id)?.interactive) return
       const next = value ?? !off.has(id)
       if (next === off.has(id)) return
       if (next) off.add(id)
@@ -405,11 +515,15 @@ export function createLegend<S extends string, M extends Mark>(
         .map((color) => (color?.type === 'categories' ? color.items : []))
         .find((items) => items.some((item) => item.id === id))
       const look = state.looks.find((each) => each.id === id)
+      const entries = state.entries.find((each) => each.items.some((item) => item.id === id))
       const section = categories
         ? categories.map((item) => item.id)
         : look
           ? state.looks.filter((each) => each.kind === look.kind).map((each) => each.id)
-          : []
+          : entries
+            ? entries.items.filter((item) => item.interactive).map((item) => item.id)
+            : []
+      if (entries && !entryItem(id)?.interactive) return
       let changed = false
       for (const sibling of section) {
         const switched = sibling !== id
@@ -445,15 +559,39 @@ export function createLegend<S extends string, M extends Mark>(
         empty = nextEmpty
         schedule()
       }
+      const nextGroups = (given.entries ?? []) as readonly LegendEntryGroup<never>[]
+      const regrouped = !sameGroups(entryGroups, nextGroups)
+      if (regrouped) {
+        entryGroups = nextGroups
+        entryIndex.set(nextGroups)
+        for (const id of [...off]) {
+          if (id.startsWith(entryPrefix) && entryIndex.bitOf(id.slice(entryPrefix.length)) < 0) {
+            off.delete(id)
+          }
+        }
+        clearTimeout(timer)
+        timer = undefined
+      }
       if (changed) {
         applyHidden()
         applyHighlight()
       }
+      if (regrouped) refresh()
     },
     destroy,
   }
 }
 
+export type {
+  LegendEdgeSwatch,
+  LegendEntry,
+  LegendEntryGroup,
+  LegendEntryItem,
+  LegendEntrySection,
+  LegendNodeSwatch,
+  LegendShapeSwatch,
+  LegendSwatch,
+} from './entries'
 export type {
   LegendCategories,
   LegendCategory,

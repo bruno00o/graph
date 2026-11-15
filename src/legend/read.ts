@@ -15,6 +15,7 @@ import type {
   NodeShape,
   ShapeMark,
 } from '../types'
+import { type EntryMatch, entryPrefix } from './entries'
 
 /** A value of the `color` channel, as read from an item. */
 export type LegendValue = string | number | boolean
@@ -701,6 +702,7 @@ function layerSlots(layers: Int32Array, names: readonly string[], ids: ReadonlyS
 }
 
 export interface KeyScope {
+  readonly entries?: EntryMatch | undefined
   readonly members?: ((index: number, end?: EdgeEnd) => readonly Key[] | null) | undefined
   readonly nodes?: readonly number[] | undefined
   readonly edges?: readonly number[] | undefined
@@ -724,7 +726,12 @@ export function keysOf(
     : { nodes: [], edges: [] }
   if (ids.size === 0) return keys
   let looks = false
-  for (const id of ids) if (!id.startsWith('c:') && !id.startsWith(layerPrefix)) looks = true
+  for (const id of ids) {
+    if (!id.startsWith('c:') && !id.startsWith(layerPrefix) && !id.startsWith(entryPrefix)) {
+      looks = true
+    }
+  }
+  const entryBits = scope.entries?.bits(ids) ?? null
   const { names, nodeLayers, edgeLayers, shapeLayers } = scene.markLayers
   const nodeSlots = layerSlots(nodeLayers, names, ids)
   const edgeSlots = layerSlots(edgeLayers, names, ids)
@@ -749,7 +756,9 @@ export function keysOf(
     if (
       nodeSlots[slot] === 1 ||
       matches(nodeColor[index], owners.own ? owners.node(slot) : '') ||
-      (looks && ids.has(nodeLookOf(nodes, index, crowded)))
+      (looks && ids.has(nodeLookOf(nodes, index, crowded))) ||
+      (entryBits !== null &&
+        scope.entries?.covers('nodes', index, entryBits, scope.nodes !== undefined))
     ) {
       keys.nodes.push(key)
     }
@@ -764,7 +773,11 @@ export function keysOf(
     const value = edgeColor[index]
     const near = split && matches(endColor[index * 2] ?? value, mark)
     const far = split && matches(endColor[index * 2 + 1] ?? value, mark)
-    const whole = edgeSlots[slot] === 1 || look
+    const whole =
+      edgeSlots[slot] === 1 ||
+      look ||
+      (entryBits !== null &&
+        scope.entries?.covers('edges', index, entryBits, scope.edges !== undefined) === true)
     if (!whole && !(split ? near || far : matches(value, mark))) return
     const end = !whole && near !== far ? (near ? 'source' : 'target') : undefined
     const members = scope.members?.(index, end)
@@ -784,7 +797,9 @@ export function keysOf(
     if (
       shapeSlots[slot] === 1 ||
       matches(shapeColor[index], owners.own ? owners.shape(slot) : '') ||
-      (looks && ids.has(shapeLookId(shapes, index)))
+      (looks && ids.has(shapeLookId(shapes, index))) ||
+      (entryBits !== null &&
+        scope.entries?.covers('shapes', index, entryBits, scope.shapes !== undefined))
     ) {
       shapeKeys.push(key)
     }
