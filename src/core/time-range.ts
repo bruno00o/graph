@@ -336,7 +336,7 @@ export class TimeSpans {
   }
 
   list(index: number): Float64Array | undefined {
-    return this.#lists[index]
+    return this.#listed.size > 0 ? this.#lists[index] : undefined
   }
 
   reserve(capacity: number): void {

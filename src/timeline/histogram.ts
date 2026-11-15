@@ -156,10 +156,6 @@ export class SpanCounts {
     end.set(this.#end)
     this.#start = start
     this.#end = end
-    const lists: (Float64Array | null)[] = new Array(capacity).fill(null)
-    for (let index = 0; index < this.#lists.length; index++)
-      lists[index] = this.#lists[index] ?? null
-    this.#lists = lists
   }
 
   #visit(index: number, capacity: number, read: SpanReader, pass: Pass): void {
@@ -167,7 +163,7 @@ export class SpanCounts {
     let list: Float64Array | null = null
     if (index < capacity) list = read(index, span)
     else span[0] = span[1] = never
-    const old = this.#lists[index] ?? null
+    const old = this.#listCount > 0 ? (this.#lists[index] ?? null) : null
     if (list) {
       if (old && sameList(old, list)) return
       pass.changed++
