@@ -117,7 +117,7 @@ nodes(items, {
 
 ### Spread overlapping children
 
-Children of an unfolded group that overlap, such as nodes at the same coordinates, move apart around their place (`container.spread`, on by default; `gap` 4 in pixels for `units: 'screen'` nodes, else world units). Only the drawn position moves: the data keeps its place, no `positionchange` is emitted, so `persistPositions` never stores a spread position, and children return at once when the group folds. `graph.positions.get` and `snapshot()` give the drawn positions. A child you drag or `positions.set` leaves its pack. Layouts never move a spread child, and members that a group layout arranges are not spread. Set `container: { spread: false }` to leave children stacked.
+Children of an unfolded group that overlap, such as nodes at the same coordinates, move apart around their place (`container.spread`, on by default; `gap` 4 in pixels for `units: 'screen'` nodes, else world units). Only the drawn position moves: the data keeps its place, no `positionchange` is emitted, so `persistPositions` never stores a spread position, and children return at once when the group folds. `graph.positions.get` and `snapshot()` give the drawn positions. A child you drag or `positions.set` leaves its pack. Layouts never move a spread child, and members that a group layout arranges are not spread. Set `container: { spread: false }` to leave children stacked. The `spread` option of `defineGraph` (map skill) is another thing: it moves apart nodes outside groups at the very same point, and never touches the children of an unfolded group.
 
 ### Fold and unfold from code
 

@@ -338,6 +338,12 @@ An entry can also say whether its element is there from its moment on: `true` or
 import { edges } from '@bruno00o/graph'
 import { historyFrom } from '@bruno00o/graph/history'
 
+interface Link {
+  readonly id: string
+  readonly from: string
+  readonly to: string
+}
+
 interface Opening {
   readonly id: string
   readonly time: Date
@@ -345,6 +351,7 @@ interface Opening {
   readonly open: boolean
 }
 
+declare const links: Link[]
 declare const openings: Opening[]
 
 const history = historyFrom(openings, { key: 'link', present: 'open' })

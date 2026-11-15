@@ -40,9 +40,10 @@ skills:
       with defineGraph, nodes() and edges(), mounting it with mountGraph,
       mapping fields to color, size and labels, typing the data so events and
       targets are typed, highlighting or fading sets of nodes with states,
-      reacting to clicks and selection, replacing the data, and finding why a
-      graph stays blank, misses edges or does not update. Load it before any
-      other skill of this package; React apps load the react skill after it.
+      reacting to clicks and selection, replacing the data, finding why a graph
+      stays blank, misses edges or does not update, and keeping many graphs on
+      one page under the WebGL context limit. Load it before any other skill of
+      this package; React apps load the react skill after it.
     purpose: >
       The setup every task with @bruno00o/graph builds on: data and keys, marks
       and their channels, the definition, mounting, the instance API, states,
@@ -71,9 +72,12 @@ skills:
       - docs/content/docs/api/mount-graph.mdx
       - docs/content/docs/api/graph-instance.mdx
       - docs/content/docs/api/events.mdx
+      - docs/content/docs/(guide)/browser-support.mdx
+      - src/host/render-host.ts
     requires: []
     references:
       - references/live-data.md
+      - references/rendering.md
   - name: react
     slug: react
     domain: graph-setup
@@ -84,10 +88,10 @@ skills:
       without restyling on every render, drawing HTML overlays and tooltips over
       it, reading the hovered node, the selection or the view in components,
       handling clicks, driving the graph from a toolbar or side panel elsewhere
-      in the page, controlling the selection or the view from React state, and
-      mounting under StrictMode, and moving the graph onto a MapLibre map and
-      back with a surface. A graph that lives only inside a MapLibre map uses
-      <MapGraph>.
+      in the page, controlling the selection or the view from React state,
+      mounting under StrictMode, moving the graph onto a MapLibre map and back
+      with a surface, and suspending the graphs out of sight on a page of many
+      graphs. A graph that lives only inside a MapLibre map uses <MapGraph>.
     purpose: >
       The React binding of @bruno00o/graph: the <Graph> component and its props,
       the useGraph, useGraphState and useGraphEvent hooks inside and outside
@@ -323,9 +327,10 @@ skills:
       canvas and a map with a surface, drawing great circles and routes that
       follow roads or other lines, switching basemaps or the globe projection,
       putting a timeline on a map graph, drawing areas and zones on the map,
-      exporting the map and the graph as one PNG, and finding why a layout,
-      minimap, lens, rotation or view option does nothing on a map. Not for a
-      plain graph that only uses coordinates without a map.
+      spreading nodes that share a place, exporting the map and the graph as one
+      PNG, and finding why a layout, minimap, lens, rotation or view option does
+      nothing on a map. Not for a plain graph that only uses coordinates without
+      a map.
     sources:
       - src/map/index.ts
       - src/map/react.tsx
@@ -333,6 +338,8 @@ skills:
       - src/map/export.ts
       - src/core/geo.ts
       - src/host/position-event.ts
+      - src/host/spread.ts
+      - src/host/placement.ts
       - src/shapes/wrap.ts
       - src/shapes/subdivide.ts
       - src/waypoints.ts
@@ -341,6 +348,7 @@ skills:
       - docs/content/docs/api/map.mdx
       - docs/content/docs/api/map-graph.mdx
       - docs/content/docs/api/graph-component.mdx
+      - docs/content/docs/(guide)/positions.mdx
     requires:
       - core
     purpose: >
@@ -356,16 +364,17 @@ skills:
     domain: geography-and-time
     path: skills/time/SKILL.md
     description: >
-      Use when giving @bruno00o/graph nodes, edges and shapes a time or a
-      period, showing only what exists in a time window, fading elements in and
-      out at the edges of the window, controlling the window from application
-      state, or adding a timeline with a histogram that brushes, steps and plays
-      (default element, a renderer of your own, or the React Timeline component
-      and useTimeline hook), counting the events of the application on the bar,
-      moving a single moment instead of a window, a timeline that follows no
-      graph, giving elements values that change over time from a journal of
-      changes (the history option and historyFrom, a color, size or label that
-      follows the cursor), also on a map graph.
+      Use when giving @bruno00o/graph nodes, edges and shapes a time, a period
+      or several periods, showing only what exists in a time window, fading
+      elements in and out at the edges of the window, controlling the window
+      from application state, or adding a timeline with a histogram that
+      brushes, steps and plays (default element, a renderer of your own, or the
+      React Timeline component and useTimeline hook), counting the events of the
+      application on the bar, moving a single moment instead of a window, a
+      timeline that follows no graph, giving elements values that change over
+      time from a journal of changes (the history option and historyFrom, a
+      color, size or label that follows the cursor, elements that come and go),
+      also on a map graph.
     sources:
       - src/timeline/index.ts
       - src/timeline/view.ts
@@ -377,6 +386,8 @@ skills:
       - src/host/events.ts
       - src/history/index.ts
       - src/core/history.ts
+      - src/core/periods.ts
+      - src/history/presence.ts
       - docs/content/docs/(guide)/time.mdx
       - docs/content/docs/api/timeline.mdx
       - docs/content/docs/api/history.mdx
@@ -391,6 +402,7 @@ skills:
       leave everything showing, nothing playing or a window one moment off.
     references:
       - references/history.md
+      - references/events.md
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations
@@ -559,13 +571,15 @@ skills:
     path: skills/tools/SKILL.md
     description: >
       Use when adding companions to a @bruno00o/graph graph, such as a minimap,
-      a legend that filters, a magnifying lens, HTML pinned to nodes, hulls
-      around sets of nodes with a label that names them, a background grid, or
-      the TanStack Devtools panel.
+      a legend that filters, a legend of entries declared by the application for
+      colors set by rules, a magnifying lens, HTML pinned to nodes, hulls around
+      sets of nodes with a label that names them, a background grid, or the
+      TanStack Devtools panel.
     sources:
       - src/minimap/index.ts
       - src/legend/index.ts
       - src/legend/view.ts
+      - src/legend/entries.ts
       - src/host/lens.ts
       - src/host/anchors.ts
       - src/hulls.ts
@@ -589,6 +603,7 @@ skills:
       work.
     references:
       - references/hulls.md
+      - references/legend-entries.md
   - name: export
     slug: export
     domain: tools-and-output

@@ -6,9 +6,10 @@ description: >
   defineGraph, nodes() and edges(), mounting it with mountGraph, mapping fields to
   color, size and labels, typing the data so events and targets are typed,
   highlighting or fading sets of nodes with states, reacting to clicks and
-  selection, replacing the data, and finding why a graph stays blank, misses
-  edges or does not update. Load it before any other skill of this package; React
-  apps load the react skill after it.
+  selection, replacing the data, finding why a graph stays blank, misses edges
+  or does not update, and keeping many graphs on one page under the WebGL
+  context limit. Load it before any other skill of this package; React apps
+  load the react skill after it.
 metadata:
   purpose: >
     The setup every task with @bruno00o/graph builds on: data and keys, marks and
@@ -40,6 +41,8 @@ sources:
   - docs/content/docs/api/mount-graph.mdx
   - docs/content/docs/api/graph-instance.mdx
   - docs/content/docs/api/events.mdx
+  - docs/content/docs/(guide)/browser-support.mdx
+  - src/host/render-host.ts
 ---
 
 # Draw a graph with @bruno00o/graph
@@ -105,9 +108,7 @@ A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges(
    })
    ```
 
-   Result: nodes colored by group and sized by weight, edges with arrows under them, the view fitted to the nodes with a 32 pixel margin. Marks draw in order, so edges listed first sit under the nodes. Pan, zoom, drag, click selection and keyboard navigation work without options. Nodes without `x` and `y` are placed in a spiral or next to their neighbors; for a real layout, pass `layout` to `defineGraph` (see the layout guide below).
-
-In React, use `<Graph>` instead of `mountGraph`: load the react skill.
+   Result: nodes colored by group and sized by weight, edges with arrows under them, the view fitted to the nodes with a 32 pixel margin. Marks draw in order, so edges listed first sit under the nodes. Pan, zoom, drag, click selection and keyboard navigation work without options. Nodes without `x` and `y` are placed in a spiral or next to their placed neighbors; for a real layout, pass `layout` to `defineGraph` (see the layout guide below). In React, use `<Graph>` instead of `mountGraph`: load the react skill.
 
 ## Core Patterns
 
@@ -296,13 +297,13 @@ Options are compared by content, so a rebuilt definition with equal options rewr
 ### Read the instance
 
 - `graph.store.get()` and `graph.store.subscribe(listener)` (a read-only TanStack Store): view, size, `hovered`, `focused`, `selection`, members of every state, layout status, and `positionsVersion`.
-- Positions are not in the store: read `graph.positions.get(key)` when `positionsVersion` changes; move nodes with `graph.positions.set([[key, { x, y }]])`, and put dragged or set nodes back where their data places them with `graph.positions.reset(keys?)` (a node whose data gives no position stays). `initialPositions` at mount restores a snapshot without a layout run (layouts skill).
+- Positions are not in the store: read `graph.positions.get(key)` when `positionsVersion` changes; move nodes with `graph.positions.set([[key, { x, y }]])`, and put dragged or set nodes back where their data places them with `graph.positions.reset(keys?)` (a node whose data gives no position stays). `initialPositions` at mount restores a snapshot without a layout run (layouts skill). Nodes that the data places at the very same point overlap: `spread: true` (or `{ gap }`, 4 pixels by default) in `defineGraph` moves them apart on screen only, outside groups (map skill). When some nodes are placed by their data, a node without coordinates starts near its placed neighbors.
 - What is drawn: `graph.count().shown` counts it, `graph.shown()` lists the keys (a folded group gives its own key, not those of the nodes it hides; a merged edge gives each of its edges) and `graph.isShown({ kind: 'node', key })` asks about one element. They apply pending data first, like `count()`. `graph.refresh(keys)` reads elements again from their items. `graph.drawsOnMap` is `true` while the graph draws on a map, and `store.surface` is `'canvas'` or `'map'` (a graph moves between them with `update({ surface })`, map skill).
 - Layouts: `graph.layout.run(layout?, options)` lays nodes out, and `graph.layout.compute(layout?, options)` computes the positions without moving anything (layouts skill).
 - Structure: `graph.neighbors(key)`, `graph.edgesOf(key)`, `graph.endpoints(edgeKey)`, `graph.datumOf({ kind: 'node', key })`, `graph.pick({ x, y })` (screen pixels).
 - Values over time: a mark with a `history` (time skill) gives `datumOf`, event targets and the functions of its options a copy of the item with the values read at the end of the time window, a new object each time an entry applies, so an item is not the same object across moments. `graph.history.of({ kind, key })` lists the entries of an element and `graph.history.instant()` gives the moment read. A `history` that `historyFrom` did not make makes `defineGraph` throw a `TypeError`.
 - View: `graph.view.fit({ nodes: [key], duration: 400 })`, `graph.view.set(view)`, `graph.view.zoomBy(2)`.
-- `await graph.drawn()` resolves after the next frame is drawn. It says nothing about live data: `await graph.loaded()` does (next section).
+- `await graph.drawn()` resolves after the next frame is drawn, and waits for `resume` while the graph is suspended. It says nothing about live data: `await graph.loaded()` does (next section).
 
 ### Check the data
 
@@ -331,16 +332,15 @@ Here `issues()` holds one `duplicate-key` and `count().pending` is 1: edge `e1` 
 
 A live source (a TanStack DB collection, a live query, `subset`, the sources of `createExploration`) may deliver its rows over time. The graph reads its `status` and `status:change` event with nothing to configure. Array data, and live sources without a `status`, are always loaded.
 
-- `graph.store.get().data` is `{ loading, failed }`: `loading` is `true` while a live source of the current definition has not finished its first load, `failed` lists the sources whose load failed. A failure is never an issue: `graph.issues()` stays about the data. The graph keeps drawing what a failed source delivered.
-- `loadingchange` fires when either changes, with the new `data`. In React, `onLoadingChange` or `useGraphState((state) => state.data)`.
+- `graph.store.get().data` is `{ loading, failed }`: `loading` is `true` while a live source of the current definition has not finished its first load, `failed` lists the sources whose load failed. A failure is never an issue: `graph.issues()` stays about the data. The graph keeps drawing what a failed source delivered. `loadingchange` fires when either changes, with the new `data`; in React, `onLoadingChange` or `useGraphState((state) => state.data)`.
 - `await graph.loaded()` resolves once nothing loads and what the sources delivered is applied: `count()` and `issues()` are complete. It resolves at once when nothing loads, and also after a failure. It rejects once the graph is destroyed. It is not `drawn()`: a layout may still run, so wait for `layoutend` or `await graph.drawn()` after it if you need the picture.
-- The graph draws no loading indicator: show your own from `data`.
-
-A loading overlay of your own, from `data` and `loadingchange`, with `await graph.loaded()` before reading the counts, is shown in [live data](references/live-data.md).
+- The graph draws no loading indicator: show your own from `data`. An overlay that awaits `graph.loaded()` before reading the counts, and the `status` a live source of your own reports, are in [live data](references/live-data.md).
 
 `waitForData` in `defineGraph` decides what waits. While a source loads, its batches are drawn as they come. The first automatic full layout (also after a new layout, or with `relayout`) and the automatic fits wait until every source has loaded or failed, so a collection that syncs in three batches is laid out once, on all its rows. The wait is 10,000 ms from the first nodes by default; when the time is up they run on what is there. `true` waits for as long as sources load, `false` or `0` runs on the first batch as array data does, a negative number or `NaN` throws a `RangeError`. Turn it off when the source never reports ready (a stream that stays open) or when a first picture matters more than a complete layout. An explicit `graph.layout.run()` and `graph.view.fit()` never wait. Nodes that arrive after the first layout are placed as before.
 
-A live source of your own may report `status` (`'loading'`, `'loadingSubset'` or `'idle'` mean loading, `'error'` or `'crashed'` failed, anything else loaded) and `on('status:change', listener)` returning a stop function. A `status` that stays `'idle'` once loaded counts as loading until it changes. Leave both out when the source has no first load.
+### Many graphs on a page, and the pixel ratio
+
+Chrome and Safari keep at most 16 WebGL contexts per page, one per graph, and take the oldest away past that. `graph.suspend()` frees the context of a graph out of sight behind a copy of its last frame and keeps everything else (data, layouts, view, selection, states, events, companions, exports); `graph.resume()` draws it again, and also gets back a context the browser took. Mount the graphs that start out of sight with `suspended: true`. `pixelRatio` in `defineGraph` sets the canvas pixels per CSS pixel: `'auto'`, the default, follows the screen but draws one pixel per CSS pixel when WebGL runs in software. Recipes, costs and limits: [references/rendering.md](references/rendering.md).
 
 ### Destroy
 
@@ -350,9 +350,7 @@ A live source of your own may report `status` (`'loading'`, `'loadingSubset'` or
 
 ### HIGH Changing the data array or its items in place
 
-The graph does not read the same mark object twice, and an item that is the same object as before counts as unchanged. A `push` or an assignment to a field changes nothing on screen.
-
-Wrong:
+The graph does not read the same mark object twice, and an item that is the same object as before counts as unchanged. A `push` or an assignment to a field changes nothing on screen:
 
 ```ts no-check
 items.push({ id: 'n4', label: 'Node 4' })
@@ -360,7 +358,7 @@ items[0].label = 'Renamed'
 graph.update({ definition })
 ```
 
-Correct:
+Build new objects instead:
 
 ```ts no-check
 items = [{ ...items[0], label: 'Renamed' }, ...items.slice(1), { id: 'n4', label: 'Node 4' }]
@@ -454,6 +452,10 @@ names.set('n1', 'Renamed')
 graph.refresh({ nodes: ['n1'] })
 ```
 
+### MEDIUM Destroying and mounting graphs again to save contexts
+
+Destroying a graph that scrolls out of sight, to stay under the 16 contexts of a page, and mounting it again loses its view, selection and positions, runs its layout again and pays the first frame again (300 to 450 ms at 100,000 nodes, against 60 to 120 ms for `resume`). Keep the instance and call `graph.suspend()` and `graph.resume()` from an `IntersectionObserver` ([references/rendering.md](references/rendering.md); the `suspended` prop in React).
+
 ### MEDIUM Treating a waiting edge as a bug
 
 An edge whose `source` or `target` names no node is not dropped and not reported: it waits for that node. When edges are missing on screen, compare `graph.count().edges` with `graph.count().pending`, and check that the key types match (`1` and `'1'` are different keys).
@@ -468,7 +470,7 @@ The task is done when:
 - `tsc` accepts the code with no `any` or cast on targets, events and state names;
 - data changes go through new arrays, new item objects and `graph.update`, or through a live source, and what lives outside the items is followed with `graph.refresh`;
 - a graph over live sources that load shows its loading from `data` or `loadingchange`, and code that needs the complete data awaits `graph.loaded()`, not `drawn()`;
-- every mounted graph is destroyed, or its `signal` aborted, when its page or component goes away.
+- every mounted graph is destroyed, or its `signal` aborted, when its page or component goes away, and a page of many graphs suspends those out of sight instead.
 
 ## References
 

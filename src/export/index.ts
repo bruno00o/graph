@@ -105,7 +105,8 @@ export interface ExportOptions {
 export interface PngExportOptions extends ExportOptions {
   /**
    * Image pixels per CSS pixel. Large images are drawn in tiles, so the size is bounded by memory,
-   * not by the GPU. Defaults to the device pixel ratio of the graph.
+   * not by the GPU. Defaults to the ratio the graph draws at: the device pixel ratio, or the
+   * `pixelRatio` of the definition, which `'auto'` lowers to 1 when WebGL runs in software.
    */
   readonly pixelRatio?: number | undefined
 }

@@ -73,7 +73,7 @@ await exportSvg(graph, { region: 'graph', size: { width: 320 } })
 
 ## Pixel ratio
 
-`pixelRatio` is the number of image pixels per CSS pixel. It defaults to the device pixel ratio of the graph, so the image is as sharp as the screen. Raise it for print.
+`pixelRatio` is the number of image pixels per CSS pixel. It defaults to the pixel ratio the graph draws at, so the image is as sharp as the screen: the device pixel ratio, unless the [`pixelRatio`](/docs/api/define-graph#pixel-ratio) of the definition sets another, or WebGL runs in software and the graph draws one pixel per CSS pixel. Raise it for print.
 
 ```ts
 await exportPng(graph, { region: 'graph', pixelRatio: 4 })

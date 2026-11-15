@@ -1,4 +1,4 @@
-# A loading overlay over live data
+# Live data: a loading overlay and sources of your own
 
 Show your own loading state from `data` and `loadingchange`, and wait for the complete rows with `graph.loaded()`. The graph draws no indicator, and an overlay of your own reads the same store as any other component.
 
@@ -34,3 +34,7 @@ export async function whenComplete() {
 ```
 
 The overlay shows while `data.loading` is `true` and hides on `loadingchange`. `loaded()` resolves also after a failure, so check `failed` before trusting the counts.
+
+## A live source of your own
+
+A live source of your own may report `status` (`'loading'`, `'loadingSubset'` or `'idle'` mean loading, `'error'` or `'crashed'` failed, anything else loaded) and `on('status:change', listener)` returning a stop function. A `status` that stays `'idle'` once loaded counts as loading until it changes. Leave both out when the source has no first load.
