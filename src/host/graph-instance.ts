@@ -11,6 +11,8 @@ import type {
   GraphPaths,
   GraphSupport,
   HasShapes,
+  HistoryEntry,
+  HistoryValues,
   Key,
   KeyList,
   LayerName,
@@ -390,6 +392,32 @@ export interface GraphTime {
   set(window: TimeWindowInput | null): void
 }
 
+/** Item type of the elements of kind `K` among the marks `M`. */
+export type ElementDatum<
+  M extends Mark,
+  K extends GraphElement['kind'] | 'shape',
+> = K extends 'node' ? NodeDatum<M> : K extends 'edge' ? EdgeDatum<M> : ShapeDatum<M>
+
+/**
+ * The history of the elements, from the `history` option of their marks: the values they show are
+ * those read at the end of the time window.
+ */
+export interface GraphHistory<M extends Mark = Mark> {
+  /**
+   * Entries of the history of a node, an edge or a shape, sorted by time, with `time` in
+   * milliseconds. Empty for an element without history or an unknown key.
+   */
+  of<K extends GraphElement['kind'] | 'shape'>(element: {
+    readonly kind: K
+    readonly key: Key
+  }): readonly HistoryEntry<HistoryValues<ElementDatum<M, K>>>[]
+  /**
+   * Moment the values are read at: the end of the time window, `Infinity` without a window or with
+   * an open end. Entries at that moment count only for a single-moment window.
+   */
+  instant(): number
+}
+
 /** Options of `positions.snapshot`. */
 export interface PositionSnapshotOptions {
   /**
@@ -648,6 +676,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly routing: GraphRouting
   /** The time window that filters elements with a `time`. */
   readonly time: GraphTime
+  /** The history of the elements, read at the end of the time window. */
+  readonly history: GraphHistory<M>
   /** The magnifying lens. */
   readonly lens: GraphLens
   /** The `div` added to the container, which holds the canvas. */
@@ -678,7 +708,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   endpoints(key: Key): Endpoints | undefined
   /**
    * Item of a node, an edge or a shape, as given to its mark, or `undefined` for an unknown key.
-   * The key of a group made by `groups()` gives its `NodeGroup`.
+   * With a `history`, a copy with the values read at `history.instant()`. The key of a group made
+   * by `groups()` gives its `NodeGroup`.
    */
   datumOf<K extends GraphElement['kind'] | 'shape'>(element: {
     readonly kind: K

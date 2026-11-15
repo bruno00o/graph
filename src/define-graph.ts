@@ -1,3 +1,4 @@
+import { historyEngineOf } from './core/history'
 import { maxLayerSlots } from './core/mark-layers'
 import { shapeEngineOf } from './core/shape-engine'
 import { byKind, freeStateNames, maxFreeStates } from './core/state-names'
@@ -305,6 +306,10 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
       }
     } else if (mark?.type !== 'nodes' && mark?.type !== 'edges') {
       throw new TypeError('defineGraph: every mark must come from nodes(), edges() or shapes()')
+    }
+    const history = (mark as { readonly options?: { readonly history?: unknown } }).options?.history
+    if (history !== undefined && !historyEngineOf(history)) {
+      throw new TypeError('defineGraph: the history option of a mark must come from historyFrom()')
     }
   }
   for (const hull of options.hulls ?? []) {

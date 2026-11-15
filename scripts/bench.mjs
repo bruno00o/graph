@@ -644,6 +644,92 @@ async function benchEdit(page, out) {
   )
 }
 
+async function benchHistory(page, out) {
+  await page.evaluate('__bench.settle()')
+  await page.send('HeapProfiler.enable')
+  await page.send('HeapProfiler.collectGarbage')
+  const heap = await page.send('Runtime.getHeapUsage')
+  const results = {
+    date: new Date().toISOString(),
+    params: options.params,
+    renderer: await page.evaluate(`(() => {
+      const gl = document.createElement('canvas').getContext('webgl2')
+      const info = gl?.getExtension('WEBGL_debug_renderer_info')
+      return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : null
+    })()`),
+    load: await page.evaluate('window.bench.timings'),
+    heap: heap.result ?? null,
+  }
+  const step = (count, span, from) => `(async () => {
+    const { graph, journalStart } = window.bench
+    graph.view.fit()
+    await __bench.settle()
+    const start = journalStart + ${from}
+    return __bench.drive(${count}, (i) => {
+      const at = start + (i + 1) * ${span}
+      graph.time.set({ start: at, end: at })
+    })
+  })()`
+  results.hourForward = await page.evaluate(step(240, 3_600_000, 10 * 86_400_000))
+  results.hourBack = await page.evaluate(step(240, -3_600_000, 20 * 86_400_000))
+  results.dayForward = await page.evaluate(step(29, 86_400_000, 0))
+  results.window = await page.evaluate(`(async () => {
+    const { graph, journalStart } = window.bench
+    await __bench.settle()
+    return __bench.drive(60, (i) => {
+      const end = journalStart + (i % 2 === 0 ? 25 : 5) * 86_400_000
+      graph.time.set({ start: journalStart, end })
+    })
+  })()`)
+  results.renew = await page.evaluate(`(async () => {
+    const { graph, nextFrame, attachJournal } = window.bench
+    if (!attachJournal) return null
+    const at = window.bench.journalStart + 15 * 86_400_000
+    graph.time.set({ start: at, end: at })
+    await __bench.settle()
+    const runs = []
+    for (let time = 0; time < 3; time++) {
+      const definition = window.bench.renewHistory()
+      const t0 = performance.now()
+      graph.update({ definition })
+      graph.count()
+      const applied = performance.now() - t0
+      await nextFrame()
+      __bench.finish()
+      runs.push({ applied, drawn: performance.now() - t0 })
+      await __bench.settle()
+    }
+    return runs
+  })()`)
+  results.errors = page.errors
+  writeFileSync(join(out, 'history.json'), `${JSON.stringify(results, null, 2)}\n`)
+  const ms = (value) => `${value.toFixed(2)} ms`
+  const row = (name, run) =>
+    `| ${name} | ${ms(run.frame.median)} | ${ms(run.frame.p95)} | ${ms(run.cost.median)} | ${ms(run.cost.p95)} |`
+  console.log(
+    [
+      `${options.params}, ${results.renderer}`,
+      `load: data ${ms(results.load.generate)}, mount ${ms(results.load.mount)}, first frame ${ms(results.load.firstFrame)}, heap ${Object.entries(
+        results.heap ?? {},
+      )
+        .map(([name, bytes]) => `${name} ${(bytes / 2 ** 20).toFixed(1)} MiB`)
+        .join(', ')}`,
+      '',
+      '| scenario | frame median | frame p95 | host median | host p95 |',
+      '| --- | --- | --- | --- | --- |',
+      row('hour forward', results.hourForward),
+      row('hour back', results.hourBack),
+      row('day forward', results.dayForward),
+      row('window 5 and 25 days', results.window),
+      '',
+      results.renew
+        ? `new history: ${results.renew.map((run) => `${ms(run.applied)} applied, ${ms(run.drawn)} drawn`).join('; ')}`
+        : 'no history attached',
+      `errors ${results.errors.length}, results in ${out}`,
+    ].join('\n'),
+  )
+}
+
 async function benchLayout(page, out) {
   await page.evaluate(`new Promise((done) => {
     const check = () => (window.bench.layoutRuns.length > 0 ? done() : setTimeout(check, 20))
@@ -736,6 +822,7 @@ try {
 
   if (options.layout) await benchLayout(page, out)
   else if (new URLSearchParams(options.params).has('edit')) await benchEdit(page, out)
+  else if (new URLSearchParams(options.params).has('history')) await benchHistory(page, out)
   else await benchRender(page, out)
   socket.close()
 } finally {

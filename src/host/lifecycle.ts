@@ -1,5 +1,6 @@
 import { createStore } from '@tanstack/store'
 import { groupKey } from '../core/group-index'
+import { cutOf, noEntries } from '../core/history'
 import type { GraphIssue } from '../core/issues'
 import { noReach } from '../core/path-query'
 import { Positions } from '../core/positions'
@@ -177,6 +178,7 @@ export function afterDestroy<S extends string, M extends Mark>(
     bundling: { run: () => Promise.resolve(false) },
     routing: { run: () => Promise.resolve(false) },
     time: { get: () => state().time, set: nothing },
+    history: { of: () => noEntries as never, instant: () => cutOf(state().time).time },
     lens: {
       get: () => state().lens,
       set: nothing,

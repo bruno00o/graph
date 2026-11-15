@@ -10,6 +10,7 @@ export interface TimeSource {
   definition(): GraphDefinition
   patch(next: Partial<GraphState>): void
   request(): void
+  readAt(window: TimeWindow | null): void
 }
 
 export class TimeControl {
@@ -40,6 +41,7 @@ export class TimeControl {
     if (sameWindow(next, this.window)) return
     this.window = next
     this.filter = timeFilter(next, this.fade)
+    this.#source.readAt(next)
     this.#source.patch({ time: next })
     this.#source.emitter.emit('timechange', { window: next })
     this.#source.request()

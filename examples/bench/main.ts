@@ -10,6 +10,7 @@ import {
   type SourceChange,
 } from '@bruno00o/graph'
 import { createShapeEditor, mountShapeEditor, type ShapeEdit } from '@bruno00o/graph/editor'
+import { historyFrom } from '@bruno00o/graph/history'
 import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
 import { shapes } from '@bruno00o/graph/shapes'
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
@@ -54,6 +55,10 @@ const editing = params.has('edit')
 const badgeKind = params.get('badges')
 const halo = params.get('halo')
 const ordering = params.get('order')
+const journalSize = Number(params.get('history') ?? 0)
+const attachJournal = !params.has('nohistory')
+const hour = 3_600_000
+const journalStart = Date.UTC(2026, 0, 1)
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const rankOf = (item: Item | TimedItem) => (item as { rank?: number }).rank ?? 0
@@ -83,7 +88,28 @@ const pins = Array.from({ length: Math.min(pinCount, items.length) }, (_, index)
   node: items[index]?.id ?? '',
   geometry: { center: { x: 0, y: 0 }, radius: 24, inner: 12 },
 }))
+const journal = journalOf(items, journalSize)
 const generated = performance.now()
+
+function journalOf(list: readonly (Item | TimedItem)[], count: number) {
+  let seed = 41
+  const next = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    return seed / 2 ** 32
+  }
+  const groupNames = [...new Set(list.slice(0, 1000).map((item) => item.group))]
+  return Array.from({ length: count }, (_, index) => {
+    const item = list[Math.floor(next() * list.length)] as Item | TimedItem
+    const time = journalStart + Math.floor(next() * 30 * 24) * hour
+    const values =
+      index % 2 === 0
+        ? { weight: list[Math.floor(next() * list.length)]?.weight ?? item.weight }
+        : { group: groupNames[Math.floor(next() * groupNames.length)] ?? item.group }
+    return { key: item.id, time, values }
+  })
+}
+
+let nodeHistory = journal.length > 0 && attachJournal ? historyFrom(journal) : null
 
 function scatteredZones(
   list: readonly (Item | TimedItem)[],
@@ -281,6 +307,7 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
         color: 'group',
         size: 'weight',
         label: 'label',
+        ...(nodeHistory ? { history: nodeHistory } : {}),
         ...(boxed ? { shape: 'box' as const } : {}),
         ...(ordering === 'rank' ? { order: rankOf } : {}),
         ...(badgeKind === 'image'
@@ -326,7 +353,9 @@ const graph = mountGraph(main, {
   definition,
   ...(history
     ? { initialTime: { start: history.start, end: history.start + 90 * 86_400_000 } }
-    : {}),
+    : journal.length > 0
+      ? { initialTime: { start: journalStart, end: journalStart } }
+      : {}),
   ariaLabel: messages.graphLabel(formatNumber(items.length), formatNumber(links.length)),
 })
 const mounted = performance.now()
@@ -383,6 +412,13 @@ Object.assign(window, {
     history,
     timeline,
     define,
+    journal,
+    journalStart,
+    attachJournal,
+    renewHistory: () => {
+      nodeHistory = historyFrom(journal)
+      return define(items)
+    },
     timings: {
       timeline: timelineReady - firstFrame,
       generate: generated - started,

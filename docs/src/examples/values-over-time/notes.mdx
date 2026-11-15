@@ -1,0 +1,13 @@
+## How it works
+
+The changes are one journal: each has a moment, a kind, the node it changes and its new value. The timeline counts them with `events`, stacked by kind, and points at one moment with `instant: true`.
+
+`historyFrom(changes, { key: 'node', values })` reads the same journal as the history of the nodes: `values` turns a change into the fields it sets, `{ state }` or `{ level }`, and a field left `undefined` stays as it was. Passed to the `history` option of `nodes()`, it makes each node read as its item plus the values of every change up to the cursor, included. Color, size and label read those values like any other field.
+
+Stepping the cursor only touches the nodes whose changes it crosses. Without a time window, the nodes show their latest values.
+
+## Try it
+
+- Focus the cursor and press <kbd>Shift</kbd> with the arrow keys to step from one change to the next: the changed node lights up.
+- Press **Replay** to watch the nodes change color and size over the month.
+- Hide a kind with its button: stepping skips it, but the graph still reads every change.

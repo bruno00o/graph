@@ -1,5 +1,6 @@
 import { createStore } from '@tanstack/store'
 import { createGraphModel, type GraphChanges } from '../core/graph-model'
+import { cutOf, noEntries } from '../core/history'
 import { checkLists, stringCheck } from '../core/key-list'
 import { createPathQueries } from '../core/path-query'
 import {
@@ -95,6 +96,7 @@ import { TimeControl } from './time-control'
 import { fitRequest, originOf, sameView, ViewControl, type ViewMemory } from './view-control'
 
 export type {
+  ElementDatum,
   FitOptions,
   GraphBundling,
   GraphBundlingStatus,
@@ -103,6 +105,7 @@ export type {
   GraphElement,
   GraphFocus,
   GraphGroups,
+  GraphHistory,
   GraphInstance,
   GraphLayers,
   GraphLayout,
@@ -172,6 +175,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       definition: () => definition,
       patch,
       request: () => request(),
+      readAt: (window) => model.readAt(cutOf(window)),
     },
     options.time ?? options.initialTime ?? null,
     options.onTimeChange,
@@ -211,6 +215,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const waiters = new FrameWaiters(() => scheduler.due || !render.renderer || render.contextLost)
 
   const model = createGraphModel({ schedule: () => request(true) })
+  model.readAt(cutOf(timeWindow.window))
   const textWidths = createTextWidths(defaultFont)
   const scene = createScene(
     textWidths.width,
@@ -1314,6 +1319,15 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     groups: folds.api(),
     paths,
     time: timeWindow.api(),
+    history: {
+      of: (element) => {
+        flushPending()
+        const kind =
+          element.kind === 'node' ? 'nodes' : element.kind === 'edge' ? 'edges' : 'shapes'
+        return (model.history(kind, element.key) ?? noEntries) as never
+      },
+      instant: () => cutOf(timeWindow.window).time,
+    },
     layers: layers.api(),
     support: {
       carriers: (key, walk) => {

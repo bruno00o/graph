@@ -250,6 +250,65 @@ function Replay() {
 }
 ```
 
+## Values over time
+
+`time` says when an element exists. A history says what its fields are at each moment: a journal of changes, each a key, a moment and values. `historyFrom` from `@bruno00o/graph/history` reads it, and the `history` option of `nodes()`, `edges()` or [`shapes()`](/docs/shapes) applies it to the elements of the mark.
+
+```ts
+import { defineGraph, nodes } from '@bruno00o/graph'
+import { historyFrom } from '@bruno00o/graph/history'
+
+interface Item {
+  readonly id: string
+  readonly state: 'idle' | 'active'
+  readonly level: number
+}
+
+interface Change {
+  readonly id: string
+  readonly time: Date
+  readonly kind: 'state' | 'level'
+  readonly node: string
+  readonly state?: 'idle' | 'active'
+  readonly level?: number
+}
+
+declare const items: Item[]
+declare const changes: Change[]
+
+const history = historyFrom(changes, {
+  key: 'node',
+  values: (change) => ({ state: change.state, level: change.level }),
+})
+
+const definition = defineGraph({
+  marks: [nodes(items, { color: 'state', label: 'id', history })],
+})
+```
+
+The graph reads each element as its item plus the values of its entries up to the end of the time window:
+
+- with a single-moment window, as the cursor of a timeline with `instant: true`, the entries at that moment count;
+- with a window, only the entries before its end count, as the end is left out;
+- without a window, or with an open end, every entry counts: the elements show their latest values.
+
+Entries apply in the order of their moments. Each sets the fields it names; `undefined` leaves a field as it was, so a function can return every field it might set. The values may change any field but those named by the `key` and `time` options of the mark: the label and the color, and also the ends of an edge, the parent of a node, its position or the geometry of a shape. Every reader sees the values of the moment: styles, `datumOf`, events, the legend, paths and exports.
+
+By default, `historyFrom` reads entries that are already `{ key, time, values }`; its `key`, `time` and `values` options read entries of any other shape. Entries can be an array or a live source, such as a TanStack DB collection. The values must fit the items: a field they do not have is refused by TypeScript. See the [API](/docs/api/history) for the details.
+
+`graph.history.of({ kind: 'node', key })` lists the entries of an element, and `graph.history.instant()` returns the moment the values are read at.
+
+### One journal for the timeline and the graph
+
+A journal of changes is also a list of [events](#events): pass the same array to the timeline and to `historyFrom`. The timeline counts the changes and steps from one to the next, and the graph shows the values of each moment:
+
+```ts
+const timeline = createTimeline(graph, { events: changes, eventKind: 'kind', instant: true })
+timeline.stepEvent()
+```
+
+Moving the cursor reads again only the elements whose entries it crosses: stepping from one change to the next touches one element. See the [values over time](/examples/values-over-time) example.
+
 ## Performance
 
 The time of each element is read when the data changes, like every style. Moving the window only compares it with them on the GPU: playback costs no work per element. Measured on a laptop, at 500,000 nodes and 1,000,000 edges, each with a random period:

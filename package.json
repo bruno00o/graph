@@ -108,6 +108,10 @@
       "types": "./dist/timeline.d.ts",
       "import": "./dist/timeline.js"
     },
+    "./history": {
+      "types": "./dist/history.d.ts",
+      "import": "./dist/history.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },

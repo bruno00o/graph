@@ -1,5 +1,6 @@
-import type { EdgeMark, Key, LiveSource, Mark, NodeMark, ShapeMark } from '../types'
+import type { EdgeMark, HistoryEntry, Key, LiveSource, Mark, NodeMark, ShapeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
+import type { HistoryCut } from './history'
 import { IndexPool } from './index-pool'
 import { IndexSet } from './index-set'
 import type { AnyIssue } from './issues'
@@ -105,6 +106,8 @@ export interface GraphModel {
   pendingEdges(): Key[]
   adjacency(): Adjacency
   refresh(kind: 'nodes' | 'edges' | 'shapes', keys: Iterable<Key>): number
+  readAt(cut: HistoryCut): void
+  history(kind: 'nodes' | 'edges' | 'shapes', key: Key): readonly HistoryEntry[] | null
   destroy(): void
 }
 
@@ -729,6 +732,18 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
       }
       if (marked > 0) schedule()
       return marked
+    },
+
+    readAt(cut) {
+      const nodes = nodeSources.readAt(cut)
+      const edges = edgeSources.readAt(cut)
+      if (shapeSources.readAt(cut) || nodes || edges) schedule()
+    },
+
+    history(kind, key) {
+      if (!isKey(key)) return null
+      const table = kind === 'nodes' ? nodeSources : kind === 'edges' ? edgeSources : shapeSources
+      return table.history(key)
     },
 
     edge(key) {

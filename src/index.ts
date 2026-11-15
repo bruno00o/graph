@@ -62,6 +62,7 @@ export type {
 } from './host/events'
 export type { GraphLens, GraphLensState, LensFollow, LensInput } from './host/lens'
 export type {
+  ElementDatum,
   FitOptions,
   GraphBundling,
   GraphBundlingStatus,
@@ -70,6 +71,7 @@ export type {
   GraphElement,
   GraphFocus,
   GraphGroups,
+  GraphHistory,
   GraphInstance,
   GraphLayers,
   GraphLayout,
@@ -152,6 +154,9 @@ export type {
   GraphSupport,
   GroupOptions,
   HasShapes,
+  HistoryEntry,
+  HistorySource,
+  HistoryValues,
   Hull,
   HullGroupOptions,
   HullKeysOptions,
