@@ -10,6 +10,7 @@ export interface ScopeRequest {
   readonly rerun: ReadonlySet<number> | null
   readonly arrivals: boolean
   readonly fresh: boolean
+  readonly memory?: object
 }
 
 export interface ScopePlan {

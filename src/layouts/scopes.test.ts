@@ -70,6 +70,7 @@ function build(spec: Spec): Built {
   const keys = Array.from({ length: capacity }, (_, index) =>
     index < count ? `n${index}` : `g${index - count}`,
   )
+  const data = keys.map((key) => ({ key }))
   const graph: LayoutGraph = {
     capacity,
     alive,
@@ -79,7 +80,7 @@ function build(spec: Spec): Built {
     edges: Uint32Array.from(spec.edges ?? []),
     groups: { order: Uint32Array.from(order), parent, padding, circle },
     keys,
-    datum: (index) => ({ key: keys[index] }),
+    datum: (index) => data[index],
   }
   return { graph, layouts, count }
 }
@@ -503,5 +504,106 @@ describe('scopes', () => {
     await new Promise((resolve) => setTimeout(resolve, 5))
     expect(stopped.sort()).toEqual(['a', 'b'])
     expect(ended).toBe(false)
+  })
+
+  it('keeps, on a run of its own, the last arrangement of a scope that did not change', async () => {
+    const starts: string[] = []
+    const counted = (inner: Layout, name = 'counted'): Layout => ({
+      name,
+      options: {},
+      start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
+        starts.push(String(graph.container?.key))
+        return inner.start(graph, listener)
+      },
+    })
+    const inside = counted(rings())
+    const built = build({
+      groups: [
+        { parent: -1, layout: inside },
+        { parent: -1, layout: inside },
+      ],
+      nodes: [0, 0, 0, 0, 1, 1, 1].map((group) => ({ group })),
+      edges: [0, 1, 1, 2, 4, 5],
+    })
+    const memory = {}
+    const first = await run(built, force(), { memory, arrivals: true })
+    expect(starts.sort()).toEqual(['g0', 'g1'])
+    starts.length = 0
+    const second = await run(built, force(), { memory, arrivals: true, fresh: false })
+    expect(starts).toEqual([])
+    const offset = (xy: Float32Array | undefined, a: number, b: number) => [
+      (xy?.[a * 2] ?? 0) - (xy?.[b * 2] ?? 0),
+      (xy?.[a * 2 + 1] ?? 0) - (xy?.[b * 2 + 1] ?? 0),
+    ]
+    for (const [a, b] of [
+      [0, 2],
+      [4, 6],
+    ] as const) {
+      const before = offset(first?.xy, a, b)
+      const after = offset(second?.xy, a, b)
+      expect(Math.hypot(before[0] ?? 0, before[1] ?? 0)).toBeCloseTo(
+        Math.hypot(after[0] ?? 0, after[1] ?? 0),
+        2,
+      )
+    }
+    built.graph.radius[5] = 9
+    await run(built, force(), { memory, arrivals: true, fresh: false })
+    expect(starts).toEqual(['g1'])
+    starts.length = 0
+    await run(built, null, { memory, arrivals: true, fresh: false, replace: counted(grid(), 'other') })
+    expect(starts.sort()).toEqual(['g0', 'g1'])
+    starts.length = 0
+    await run(built, force(), { arrivals: true, fresh: false })
+    expect(starts.sort()).toEqual(['g0', 'g1'])
+    starts.length = 0
+    await run(built, force(), { memory, fresh: false })
+    expect(starts.sort()).toEqual(['g0', 'g1'])
+  })
+
+  it('runs a scope again when one of its members is pinned or kept in place', async () => {
+    const starts: string[] = []
+    const inside: Layout = {
+      name: 'counted',
+      options: {},
+      start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
+        starts.push(String(graph.container?.key))
+        return grid().start(graph, listener)
+      },
+    }
+    const built = build({
+      groups: [{ parent: -1, layout: inside }],
+      nodes: [0, 0, 0].map((group) => ({ group })),
+    })
+    const memory = {}
+    await run(built, null, { memory, arrivals: true })
+    const keyed = new Uint8Array(built.graph.capacity).fill(1)
+    keyed[1] = 0
+    await run(built, null, { memory, keyed, fresh: false })
+    expect(starts).toEqual(['g0', 'g0'])
+  })
+
+  it('stops the force and grid scopes waiting in the pool and in slices', async () => {
+    const groups = Array.from({ length: 40 }, (_, at) => ({
+      parent: -1,
+      layout: at % 2 === 0 ? force() : grid(),
+    }))
+    const built = build({
+      groups,
+      nodes: Array.from({ length: 6000 }, (_, index) => ({ group: index % 40 })),
+    })
+    const plan = planScopes(request(built, force()))
+    let ended = false
+    const handle = plan?.start({
+      progress: () => {},
+      end: () => {
+        ended = true
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    handle?.stop()
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(ended).toBe(false)
+    const again = await run(built, force())
+    expect(again?.xy.length).toBe(built.graph.capacity * 2)
   })
 })

@@ -1,6 +1,7 @@
 import { withoutUndefined } from '../core/without-undefined'
 import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 import { inBlocks } from './blocks'
+import { instantRun, registerScopeRun } from './scope-runs'
 import { enableScopes } from './scopes'
 
 /**
@@ -115,7 +116,8 @@ export function instant(
   turns: Layout['turns'] = 'none',
 ): Layout {
   enableScopes()
-  return Object.freeze({
+  const place = (graph: LayoutGraph) => (blocks ? inBlocks(graph, compute) : compute(graph))
+  const layout: Layout = Object.freeze({
     name,
     options: Object.freeze(withoutUndefined(options)),
     incremental: false,
@@ -123,7 +125,7 @@ export function instant(
     start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
       let stopped = false
       queueMicrotask(() => {
-        if (!stopped) listener.end(blocks ? inBlocks(graph, compute) : compute(graph))
+        if (!stopped) listener.end(place(graph))
       })
       return {
         pin() {},
@@ -133,4 +135,6 @@ export function instant(
       }
     },
   })
+  registerScopeRun(layout, (graph, listener) => instantRun(() => place(graph), listener))
+  return layout
 }
