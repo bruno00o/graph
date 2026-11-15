@@ -68,6 +68,7 @@ layers<Item>({ rank: 'level', direction: 'right' })
 - **No rank.** Nodes whose value is missing, `null` or not a finite number go together on one more layer after the last. In the code above, `indexOf` gives `-1` for an unknown kind, which puts it first: return `null` instead to send it last.
 - **Edges.** An edge against the order, from a later layer to an earlier one, is laid out as if it were turned around; it still points to its target. An edge between two nodes of the same layer is left out of the layout and drawn straight along the layer.
 - **One line per layer.** Separate parts of the graph share the same layers, side by side, so every layer is a single line across the drawing.
+- **Few distinct values.** Every distinct value is a layer, and an edge holds a place in each layer it crosses, so the cost grows with the number of layers the edges span. A score or a timestamp with one value per node can take seconds at a few thousand nodes: bin continuous values first, for example `Math.floor(score * 10)`. In development, a warning tells when the ranks cross too many layers.
 - `root` is ignored with `rank`.
 
 Example: [layers fixed by the data](/examples/ranked-layers).

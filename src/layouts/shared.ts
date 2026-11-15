@@ -1,7 +1,7 @@
 import { withoutUndefined } from '../core/without-undefined'
 import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 import { inBlocks } from './blocks'
-import { instantRun, registerScopeRun } from './scope-runs'
+import { endWith, instantRun, registerScopeRun } from './scope-runs'
 import { enableScopes } from './scopes'
 
 /**
@@ -125,7 +125,7 @@ export function instant(
     start(graph: LayoutGraph, listener: LayoutListener): LayoutRun {
       let stopped = false
       queueMicrotask(() => {
-        if (!stopped) listener.end(place(graph))
+        if (!stopped) endWith(graph, listener, () => place(graph))
       })
       return {
         pin() {},
@@ -135,6 +135,6 @@ export function instant(
       }
     },
   })
-  registerScopeRun(layout, (graph, listener) => instantRun(() => place(graph), listener))
+  registerScopeRun(layout, (graph, listener) => instantRun(graph, () => place(graph), listener))
   return layout
 }

@@ -1,3 +1,4 @@
+import { report } from '../host/isolate'
 import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 
 export type ScopeRunner = (graph: LayoutGraph, listener: LayoutListener) => LayoutRun | null
@@ -76,10 +77,29 @@ function work(): void {
   }
 }
 
-export function instantRun(compute: () => Float32Array, listener: LayoutListener): LayoutRun {
+export function endWith(
+  graph: Pick<LayoutGraph, 'xy'>,
+  listener: LayoutListener,
+  compute: () => Float32Array,
+): void {
+  let xy: Float32Array
+  try {
+    xy = compute()
+  } catch (error) {
+    report(error)
+    xy = Float32Array.from(graph.xy)
+  }
+  listener.end(xy)
+}
+
+export function instantRun(
+  graph: Pick<LayoutGraph, 'xy'>,
+  compute: () => Float32Array,
+  listener: LayoutListener,
+): LayoutRun {
   const slice = sliced({
     step() {
-      listener.end(compute())
+      endWith(graph, listener, compute)
       return true
     },
   })
