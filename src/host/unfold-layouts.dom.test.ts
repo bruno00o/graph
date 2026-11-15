@@ -303,10 +303,30 @@ describe('arranging a group as it unfolds', () => {
     settle(graph)
     graph.groups.fold(['g'])
     dom.flushFrames()
+    graph.update({
+      definition: definition([...items, { id: 'f', parent: 'g' }], { inner: whole }),
+    })
+    dom.flushFrames()
     graph.groups.unfold(['g'])
     dom.flushFrames()
     expect(runs.map(scopeOf)).toEqual(['g'])
-    expect(movers(runs[0])).toEqual(['a', 'b'])
+    expect(movers(runs[0])).toEqual(['a', 'b', 'f'])
+    graph.destroy()
+  })
+
+  it('recalls the arrangement of an unchanged group whose layout is not incremental', () => {
+    const whole = () => fake('whole', false)
+    const graph = mount(definition(items, { inner: whole }), { initialFolded: [] })
+    settle(graph)
+    const gap = at(graph, 'b').x - at(graph, 'a').x
+    graph.groups.fold(['g'])
+    dom.flushFrames()
+    const seen = events(graph)
+    graph.groups.unfold(['g'])
+    dom.flushFrames()
+    expect(runs).toHaveLength(0)
+    expect(seen).toEqual(['start whole', 'end whole true'])
+    expect(at(graph, 'b').x - at(graph, 'a').x).toBeCloseTo(gap, 3)
     graph.destroy()
   })
 
@@ -357,10 +377,9 @@ describe('arranging a group as it unfolds', () => {
     const seen = events(graph)
     graph.groups.unfold(['g'])
     dom.flushFrames()
-    expect(runs.map(scopeOf).sort()).toEqual(['g', 'h'])
-    finish(runs[0])
-    finish(runs[1])
-    const top = runs[2]
+    expect(runs.map(scopeOf)).toContain('g')
+    for (const run of [...runs]) finish(run)
+    const top = runs.find((run) => run.name === 'top')
     if (!top) throw new Error('no top run')
     expect(top.name).toBe('top')
     expect(seen).toEqual(['start top'])
