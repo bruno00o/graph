@@ -334,3 +334,16 @@ Events cost little next to the graph. Measured on a laptop, with events spread o
 | First `events` after a change, then each one | 7 ms, then 0.02 ms | 77 ms, then 0.13 ms |
 
 Stepping through the events of the [history of changes](/examples/change-history) example at every frame keeps 60 frames per second.
+
+A [history](#values-over-time) costs work only where a step crosses entries. Measured on a laptop, at 100,000 nodes and 200,000 edges, with 1,000,000 entries spread over 30 days on the nodes:
+
+| Step | Time |
+| --- | --- |
+| Reading the entries, on top of mounting | 140 to 165 ms |
+| Memory of the history | about 40 bytes per entry |
+| A step of one hour, about 1,400 entries | 6 to 7 ms of work, 21 ms per frame |
+| A step of one day, about 33,000 entries | 48 to 50 ms of work |
+| A jump of 20 days, every node read again | 200 to 235 ms of work |
+| Without a history, any step | under 0.2 ms of work |
+
+Marks without a history cost nothing more.

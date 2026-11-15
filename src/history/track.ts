@@ -55,7 +55,8 @@ export function addEntry(
   ) {
     return false
   }
-  index.add(key, time, values, entry)
+  if (entry === undefined) index.load(key, time, values)
+  else index.add(key, time, values, entry)
   return true
 }
 
@@ -65,12 +66,13 @@ export function readEntries(reader: EntryReader, data: Iterable<unknown>): Histo
   let skipped = 0
   for (const datum of data) if (!addEntry(index, reader, datum)) skipped++
   if (skipped > 0) reader.skipped(skipped)
-  index.settle()
+  index.build()
   return index
 }
 
 export class Track implements HistoryTrack {
   readonly live: LiveSource<unknown> | null
+  readonly #origin: object
   readonly #index: HistoryIndex
   readonly #reader: EntryReader
   readonly #guard: readonly string[]
@@ -87,15 +89,18 @@ export class Track implements HistoryTrack {
   #effective: unknown[] = []
   #base: unknown[] = []
   #closed = false
+  #users = 0
   readiness: Readiness = 'ready'
 
   constructor(
+    origin: object,
     index: HistoryIndex | null,
     data: LiveSource<unknown> | null,
     reader: EntryReader,
     host: HistoryHost,
     guard: readonly string[],
   ) {
+    this.#origin = origin
     this.#index = index ?? new HistoryIndex()
     this.#reader = reader
     this.#guard = guard
@@ -117,6 +122,23 @@ export class Track implements HistoryTrack {
       this.close()
       throw error
     }
+  }
+
+  fits(origin: object, guard: readonly string[]): boolean {
+    return (
+      !this.#closed &&
+      origin === this.#origin &&
+      guard.length === this.#guard.length &&
+      guard.every((name, at) => name === this.#guard[at])
+    )
+  }
+
+  retain(): void {
+    this.#users++
+  }
+
+  release(): void {
+    if (--this.#users <= 0) this.close()
   }
 
   drain(cut: HistoryCut, mark: (key: Key) => void): void {

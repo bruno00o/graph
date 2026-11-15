@@ -9,7 +9,13 @@ import type {
   SourceSubscription,
 } from '../types'
 import { isKey, toAccessor } from './accessor'
-import { type HistoryCut, type HistoryTrack, historyEngineOf, wholeHistory } from './history'
+import {
+  type HistoryCut,
+  type HistoryHost,
+  type HistoryTrack,
+  historyEngineOf,
+  wholeHistory,
+} from './history'
 import type { AnyIssue, ElementKind, MissingKeyIssue } from './issues'
 import { type KeyedItems, KeyMap, NativeKeyMap } from './key-map'
 import { isLiveSource, type Readiness, sourceReadiness, watchReadiness } from './live-source'
@@ -31,29 +37,6 @@ const noItems: KeyedItems<unknown> = new NativeKeyMap()
 
 export type AnyMark = NodeMark<unknown> | EdgeMark<unknown> | ShapeMark<unknown>
 
-interface HistoryHold {
-  readonly source: object
-  readonly guard: string
-  track: HistoryTrack | null
-  users: number
-  closed: boolean
-}
-
-function guardOf(mark: AnyMark): readonly string[] {
-  const guard: string[] = []
-  const { key, time } = mark.options
-  if (key === undefined) guard.push('id')
-  else if (typeof key === 'string') guard.push(key)
-  if (typeof time === 'string') guard.push(time)
-  return guard
-}
-
-function unhold(hold: HistoryHold | null): void {
-  if (!hold || --hold.users > 0 || hold.closed) return
-  hold.closed = true
-  hold.track?.close()
-}
-
 export interface Source<M extends AnyMark> {
   readonly slot: number
   mark: M
@@ -67,7 +50,7 @@ export interface Source<M extends AnyMark> {
   rejected: Map<unknown, MissingKeyIssue<ElementKind>> | null
   readiness: Readiness
   unwatch: (() => void) | null
-  hold: HistoryHold | null
+  hold: HistoryTrack | null
 }
 
 export interface PackedSource<M extends AnyMark> extends Source<M> {
@@ -82,7 +65,7 @@ interface LiveState<M extends AnyMark> extends Source<M> {
 export interface SourcePlan<M extends AnyMark> {
   readonly marks: readonly M[]
   readonly next: readonly Source<M>[]
-  readonly holds: readonly (HistoryHold | null)[]
+  readonly holds: readonly (HistoryTrack | null)[]
 }
 
 function isPacked<M extends AnyMark>(source: Source<M>): source is PackedSource<M> {
@@ -126,7 +109,7 @@ function release<M extends AnyMark>(source: Source<M>): void {
   source.unwatch = null
   source.subscription?.unsubscribe()
   source.subscription = null
-  unhold(source.hold)
+  source.hold?.release()
   source.hold = null
 }
 
@@ -173,7 +156,7 @@ export class SourceTable<M extends AnyMark> {
   get loadingCount(): number {
     let count = 0
     for (const source of this.#sources) {
-      if (source.readiness === 'loading' || source.hold?.track?.readiness === 'loading') count++
+      if (source.readiness === 'loading' || source.hold?.readiness === 'loading') count++
     }
     return count
   }
@@ -181,8 +164,8 @@ export class SourceTable<M extends AnyMark> {
   collectFailed(into: LiveSource<unknown>[]): void {
     for (const source of this.#sources) {
       if (source.readiness === 'error' && source.live) into.push(source.live)
-      const track = source.hold?.track ?? null
-      if (track?.readiness === 'error' && track.live) into.push(track.live)
+      const hold = source.hold
+      if (hold?.readiness === 'error' && hold.live) into.push(hold.live)
     }
   }
 
@@ -196,12 +179,15 @@ export class SourceTable<M extends AnyMark> {
 
   prepare(marks: readonly M[]): SourcePlan<M> {
     const next: Source<M>[] = []
-    const holds: (HistoryHold | null)[] = []
+    const holds: (HistoryTrack | null)[] = []
     try {
       marks.forEach((mark, slot) => {
         const old = this.#sources[slot]
         next.push(this.#prepare(slot, mark, old))
-        holds.push(this.#holdFor(mark, old))
+        const options = mark.options
+        holds.push(
+          historyEngineOf(options.history)?.track(options, old?.hold ?? null, this.#host) ?? null,
+        )
       })
     } catch (error) {
       this.abandon({ marks, next, holds })
@@ -214,12 +200,9 @@ export class SourceTable<M extends AnyMark> {
     plan.next.forEach((source, slot) => {
       if (source !== this.#sources[slot]) release(source)
     })
-    for (const hold of plan.holds) {
-      if (hold && hold.users === 0) {
-        hold.users = 1
-        unhold(hold)
-      }
-    }
+    plan.holds.forEach((hold, slot) => {
+      if (hold && hold !== this.#sources[slot]?.hold) hold.release()
+    })
   }
 
   readAt(cut: HistoryCut): boolean {
@@ -229,10 +212,10 @@ export class SourceTable<M extends AnyMark> {
 
   history(key: Key): readonly HistoryEntry[] | null {
     const owner = this.owner(key)
-    const owned = owner?.source.hold?.track?.entries(key)
+    const owned = owner?.source.hold?.entries(key)
     if (owned) return owned
     for (const source of this.#sources) {
-      const entries = source.hold?.track?.entries(key)
+      const entries = source.hold?.entries(key)
       if (entries) return entries
     }
     return null
@@ -318,9 +301,9 @@ export class SourceTable<M extends AnyMark> {
     const fresh = this.#fresh
     fresh.forEach((source, position) => {
       if (this.#sources.length === 1 && dirty.size === 0) {
-        const track = source.hold?.track ?? null
+        const hold = source.hold
         source.items.forEach((datum, key, at) => {
-          visit(key, false, source, track ? track.datum(key, datum) : datum, at)
+          visit(key, false, source, hold ? hold.datum(key, datum) : datum, at)
         })
         return
       }
@@ -368,7 +351,7 @@ export class SourceTable<M extends AnyMark> {
           this.#markDirty(key, true)
         })
       }
-      source.hold?.track?.drain(this.#cut, this.#markKey)
+      source.hold?.drain(this.#cut, this.#markKey)
     }
   }
 
@@ -384,8 +367,8 @@ export class SourceTable<M extends AnyMark> {
         }
         return owner
       }
-      const track = source.hold?.track ?? null
-      owner = { source, datum: track ? track.datum(key, datum) : datum }
+      const hold = source.hold
+      owner = { source, datum: hold ? hold.datum(key, datum) : datum }
     }
     if (this.#duplicates.size > 0 && this.#duplicates.delete(key)) this.#issueVersion++
     return owner
@@ -427,46 +410,26 @@ export class SourceTable<M extends AnyMark> {
     return source
   }
 
-  #holdFor(mark: M, old: Source<M> | undefined): HistoryHold | null {
-    const wanted = mark.options.history
-    const engine = historyEngineOf(wanted)
-    if (!engine || !wanted) return null
-    const guard = guardOf(mark)
-    const id = guard.join('\u0000')
-    const current = old?.hold ?? null
-    if (current && current.source === wanted && current.guard === id) return current
-    const hold: HistoryHold = { source: wanted, guard: id, track: null, users: 0, closed: false }
-    hold.track = engine.open(
-      {
-        notify: () => {
-          if (!hold.closed) this.#notify()
-        },
-        recheck: () => {
-          if (hold.closed) return
-          this.#readinessVersion++
-          this.#notify()
-        },
-      },
-      guard,
-    )
-    return hold
-  }
-
-  #swapHold(source: Source<M>, old: Source<M> | undefined, hold: HistoryHold | null): void {
+  #swapHold(source: Source<M>, old: Source<M> | undefined, hold: HistoryTrack | null): void {
     const was = old?.hold ?? null
     if (source === old && was === hold) return
-    if (hold) hold.users++
+    hold?.retain()
     if (was !== hold) {
-      was?.track?.forEachKey(this.#markKey)
-      const ready = (held: HistoryHold | null) => (held?.track?.readiness ?? 'ready') === 'ready'
-      if (!ready(was) || !ready(hold)) this.#readinessVersion++
-    }
-    if (source !== old) {
-      source.hold = hold
-      return
+      was?.forEachKey(this.#markKey)
+      if ((was?.readiness ?? 'ready') !== 'ready' || (hold?.readiness ?? 'ready') !== 'ready') {
+        this.#readinessVersion++
+      }
     }
     source.hold = hold
-    unhold(was)
+    if (source === old) was?.release()
+  }
+
+  readonly #host: HistoryHost = {
+    notify: () => this.#notify(),
+    recheck: () => {
+      this.#readinessVersion++
+      this.#notify()
+    },
   }
 
   readonly #markKey = (key: Key): void => {

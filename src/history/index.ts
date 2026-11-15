@@ -1,5 +1,10 @@
 import { toAccessor } from '../core/accessor'
-import { type HistoryHost, registerHistoryEngine } from '../core/history'
+import {
+  type HistoryHost,
+  type HistoryMarkOptions,
+  type HistoryTrack,
+  registerHistoryEngine,
+} from '../core/history'
 import { isLiveSource } from '../core/live-source'
 import { toTime } from '../core/time-range'
 import { dev } from '../dev'
@@ -80,11 +85,17 @@ class History {
     }
   }
 
-  open(host: HistoryHost, guard: readonly string[]): Track {
+  track(options: HistoryMarkOptions, current: HistoryTrack | null, host: HistoryHost): Track {
+    const guard: string[] = []
+    const { key, time } = options
+    if (key === undefined) guard.push('id')
+    else if (typeof key === 'string') guard.push(key)
+    if (typeof time === 'string') guard.push(time)
+    if (current instanceof Track && current.fits(this, guard)) return current
     const data = this.#data
-    if (isLiveSource(data)) return new Track(null, data, this.#reader, host, guard)
+    if (isLiveSource(data)) return new Track(this, null, data, this.#reader, host, guard)
     this.#index ??= readEntries(this.#reader, data)
-    return new Track(this.#index, null, this.#reader, host, guard)
+    return new Track(this, this.#index, null, this.#reader, host, guard)
   }
 }
 

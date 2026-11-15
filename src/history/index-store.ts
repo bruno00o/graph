@@ -83,6 +83,20 @@ export class HistoryIndex {
     }
   }
 
+  load(key: Key, time: number, values: unknown): void {
+    const id = this.size++
+    if (id >= this.times.length) this.reserve(id + 1)
+    this.times[id] = time + 0
+    this.owners[id] = this.#intern(key)
+    this.values[id] = values
+    this.live++
+  }
+
+  build(): void {
+    this.#rebuild()
+    this.version++
+  }
+
   remove(entry: Key): void {
     const id = this.#entries?.get(entry)
     if (id === undefined) return

@@ -321,6 +321,25 @@ describe('history of a mark', () => {
     expect(log.subscribed).toBe(false)
   })
 
+  it('lets go of a live source of entries when the marks are refused', () => {
+    const log = live<HistoryEntry<HistoryValues<Item>>>()
+    const broken: LiveSource<Item> = {
+      subscribeChanges() {
+        throw new Error('refused')
+      },
+    }
+    const model = createGraphModel()
+    expect(() =>
+      model.setMarks([nodes(items, { history: historyFrom(log.source) }), nodes(broken)]),
+    ).toThrow('refused')
+    expect(log.subscribed).toBe(false)
+    const kept = historyFrom(log.source)
+    model.setMarks([nodes(items, { history: kept })])
+    expect(log.subscribed).toBe(true)
+    expect(() => model.setMarks([nodes(items, { history: kept }), nodes(broken)])).toThrow()
+    expect(log.subscribed).toBe(true)
+  })
+
   it('leaves a mark without history as it was', () => {
     const model = createGraphModel()
     const schedule = vi.fn()

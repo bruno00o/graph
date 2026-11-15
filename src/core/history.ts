@@ -27,11 +27,17 @@ export interface HistoryTrack {
   datum(key: Key, row: unknown): unknown
   entries(key: Key): readonly HistoryEntry[] | null
   forEachKey(visit: (key: Key) => void): void
-  close(): void
+  retain(): void
+  release(): void
+}
+
+export interface HistoryMarkOptions {
+  readonly key?: unknown
+  readonly time?: unknown
 }
 
 export interface HistoryEngine {
-  open(host: HistoryHost, guard: readonly string[]): HistoryTrack
+  track(options: HistoryMarkOptions, current: HistoryTrack | null, host: HistoryHost): HistoryTrack
 }
 
 const engines = new WeakMap<object, HistoryEngine>()
