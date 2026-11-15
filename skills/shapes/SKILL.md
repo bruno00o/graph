@@ -165,7 +165,7 @@ console.log(picked, zone?.title)
 - A click selects a shape; with `select: 'multiple'` (the default), Shift, Cmd or Ctrl adds it or removes it. A click on the background and Escape clear the selection, shapes included. `selection`, `selectionchange` and the members of a state have a `shapes` list next to `nodes` and `edges`, only when the definition has a shape mark. In controlled mode, pass `shapes` with the other keys (interaction skill).
 - Nodes, edges and containers drawn over a shape always take the pointer first. Between shapes the one drawn last wins, and a raised one comes before the others.
 - Dragging a shape moves the view, like the background, unless a shape editor edits it (editor skill). A double click on a shape does nothing. Keyboard focus stays on nodes: shapes are neither focused nor announced.
-- The lasso (`lasso: true` with `select: 'multiple'`, interaction skill) may start on a shape. It takes the nodes inside it and the shapes whose every point is inside; a shape that contains the lasso is not taken.
+- The lasso (`lasso: true` with `select: 'multiple'`, interaction skill) may start on a shape. It takes the nodes inside it and the shapes whose every point is inside, only those that paint (a fill or a stroke, as for a click; `pick: 'stroke'` as before); a shape that contains the lasso is not taken.
 - Holes are not part of a shape: a pointer in a hole goes through to what lies under it.
 
 ### Choose what takes the pointer
