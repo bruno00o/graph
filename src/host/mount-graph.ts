@@ -2,7 +2,7 @@ import { createStore } from '@tanstack/store'
 import { createGraphModel, type GraphChanges } from '../core/graph-model'
 import { checkLists, stringCheck } from '../core/key-list'
 import { createPathQueries } from '../core/path-query'
-import { type PositionReader, Positions, placeNodes } from '../core/positions'
+import { type PositionReader, Positions, placeNodes, RestoredPositions } from '../core/positions'
 import { Projection, type ProjectionChanges } from '../core/projection'
 import { createScene } from '../core/scene'
 import { type ShapeShift, shiftSlots } from '../core/shape-store'
@@ -204,6 +204,16 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     surface ? { groupFillOpacity: mapGroupFillOpacity } : {},
   )
   const positions = new Positions()
+  let restore: RestoredPositions | null = null
+  if (options.initialPositions !== undefined) {
+    restore = new RestoredPositions(options.initialPositions)
+    if (dev && restore.skipped > 0) {
+      console.warn(
+        `graph: initialPositions skipped ${restore.skipped} entr${restore.skipped === 1 ? 'y' : 'ies'} without a key and a finite x and y`,
+      )
+    }
+    if (restore.size === 0) restore = null
+  }
   const buffers = new StateBuffers()
   const projection = new Projection(model)
   const support = new SupportIndex(model)
@@ -215,7 +225,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     positions,
     containers: projection.containers,
     eligible: (index) =>
-      !Number.isNaN(positions.source[index * 2] ?? Number.NaN) || definition.layout === null,
+      !Number.isNaN(positions.source[index * 2] ?? Number.NaN) ||
+      (definition.layout === null && positions.restored[index] !== 1),
     settled: () => motion.settled(),
     claim: (index) => motion.free(index),
     camera: () => {
@@ -759,9 +770,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function applyChanges(changes: GraphChanges, projected: ProjectionChanges): void {
     pointer.dropLostDrag(changes.nodes.removed)
     if (destroyed) return
-    motion.follow(placeNodes(model, positions, changes))
+    const moves = placeNodes(model, positions, changes, restore)
+    if (restore && (restore.size === 0 || (model.nodeCount > 0 && !data.loading))) restore = null
+    for (const index of moves.restored) projection.markSeen(index)
+    motion.follow(moves)
     spread.release(projected.unfolded)
-    const fresh = folds.reveal(changes, projected)
+    const fresh = folds.reveal(changes, projected, moves.restored)
     spread.changed(changes, projected, performance.now())
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity, scene.shapes.capacity)
     const result = registry.apply(changes)

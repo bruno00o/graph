@@ -31,6 +31,7 @@ export function SampleGraph({ items, links }: { items: Item[]; links: Link[] }) 
 - Build the definition with `useMemo`, or outside the component. A new definition is applied with `update`, so positions, view and selection stay.
 - Declare the functions of mark options, such as `label: (item) => item.name`, outside the component. Options are compared by content, but functions by identity: a new function restyles every item of its mark. See [Update the data](/docs/data#update-the-data).
 - The graph is mounted once and destroyed on unmount. StrictMode mounts, destroys and mounts again: one instance remains.
+- To bring the nodes back where they were when the component mounts again, keep `graph.positions.snapshot()` before it unmounts and pass it as `initialPositions`, as a `Map` or an array, since StrictMode mounts twice. Like `initialView`, it is read once, at the mount. See [Restore at mount](/docs/positions#restore-at-mount).
 
 Every prop, with the event props, is listed in [`<Graph>`](/docs/api/graph-component#props).
 

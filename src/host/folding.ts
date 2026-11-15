@@ -139,6 +139,7 @@ export class FoldControl {
     changes: GraphChanges,
     projected: ProjectionChanges,
     tracked: (index: number) => boolean,
+    restored: ReadonlySet<number> | null,
   ): Set<number> {
     const { positions, projection } = this.#source
     const hierarchy = projection.hierarchy
@@ -149,7 +150,7 @@ export class FoldControl {
     for (const { index } of projected.scene.nodes.added) {
       if (hierarchy.folded[index] !== 1 || (hierarchy.childCount[index] ?? 0) === 0) continue
       added ??= new Set(changes.nodes.added.map((ref) => ref.index))
-      if (!tracked(index) && (added.has(index) || fresh.has(index))) {
+      if (!tracked(index) && !restored?.has(index) && (added.has(index) || fresh.has(index))) {
         let minX = Number.POSITIVE_INFINITY
         let minY = Number.POSITIVE_INFINITY
         let maxX = Number.NEGATIVE_INFINITY
@@ -173,7 +174,11 @@ export class FoldControl {
     return grouped
   }
 
-  reveal(changes: GraphChanges, projected: ProjectionChanges): number[] {
+  reveal(
+    changes: GraphChanges,
+    projected: ProjectionChanges,
+    restored: readonly number[] = [],
+  ): number[] {
     const { positions, projection, scene } = this.#source
     const hierarchy = projection.hierarchy
     const origins = this.#origins
@@ -198,7 +203,12 @@ export class FoldControl {
       })
     }
     const grouped = projection.active
-      ? this.#placeFolded(changes, projected, tracked)
+      ? this.#placeFolded(
+          changes,
+          projected,
+          tracked,
+          restored.length > 0 ? new Set(restored) : null,
+        )
       : new Set<number>()
     if (projected.revealed.length === 0) return []
     const fresh = new Set(projected.fresh)

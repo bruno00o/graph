@@ -139,6 +139,7 @@ On 50,000 nodes in about 400 groups nested three deep, the force layout takes ab
 
 - **First nodes.** The layout runs on the first batch of nodes as soon as it arrives. Unless you passed `initialView`, the view keeps the graph framed while it settles, and once more at the end, as long as you do not pan or zoom.
 - **New nodes.** With `force`, nodes added later are laid out alone. They start next to their placed neighbors and settle there, while the rest of the graph stays still. Nodes that arrive during a run join it. With `layers`, `grid`, `rings`, `radial` and `geo`, every free node is laid out again.
+- **Restored positions.** Nodes placed by [`initialPositions`](/docs/positions#restore-at-mount) count as laid out, so no run starts for them. The nodes that have no entry follow the rule of new nodes above.
 - **New layout.** A definition with another layout, or the same layout with other options, lays out every free node again on the next frame, starting from where the nodes are. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
 - **No layout.** `layout: null`, the default, turns it off. An automatic run in progress stops, and nodes stay where they are.
 

@@ -157,7 +157,7 @@ graph.positions.reset(['n1', 'n2'], { duration: 0 })
 
 <api-table path="index.ts" name="PositionResetOptions" />
 
-`snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it.
+`snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it, or to `initialPositions` of a new mount to restore it without a layout run: see [Restore at mount](/docs/positions#restore-at-mount).
 
 ```ts
 const saved = graph.positions.snapshot()

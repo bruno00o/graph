@@ -489,7 +489,12 @@ export type GraphCountOf<M extends Mark> = HasShapes<M> extends true ? GraphShap
 export type GraphUpdateOptions<S extends string = string, M extends Mark = Mark> = {
   readonly [K in Exclude<
     keyof MountGraphOptions<S, M>,
-    'initialView' | 'initialFolded' | 'initialTime' | 'initialHiddenLayers' | 'signal'
+    | 'initialView'
+    | 'initialFolded'
+    | 'initialPositions'
+    | 'initialTime'
+    | 'initialHiddenLayers'
+    | 'signal'
   >]?: MountGraphOptions<S, M>[K] | undefined
 }
 
@@ -544,6 +549,15 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * request starts from the last one that `update({ folded })` has not answered yet.
    */
   readonly onFoldChange?: ((event: GraphFoldEvent) => void) | undefined
+  /**
+   * Positions at mount, by key, in world units: what `positions.snapshot` returns or
+   * `positions.set` takes. A node with an entry is drawn there and counts as laid out: no layout
+   * runs for it, nothing is emitted and `persistPositions` writes nothing. A node without one is
+   * placed by the layout next to its placed neighbors, as when data arrives later. Positions from
+   * the data win, and entries that are not finite are skipped. The entries serve the nodes that
+   * arrive while the data loads, then are dropped.
+   */
+  readonly initialPositions?: Iterable<readonly [Key, Point]> | undefined
   /** Time window at mount, or `null` for none. Later changes go through `time`. */
   readonly initialTime?: TimeWindowInput | null | undefined
   /**

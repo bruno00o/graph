@@ -136,6 +136,30 @@ describe('MapGraph', () => {
     expect(selections).toEqual([{ nodes: ['a'], edges: [] }])
   })
 
+  it('places nodes without coordinates at initialPositions, read once', () => {
+    const map = fakeMap()
+    const sparse = defineGraph({
+      marks: [nodes([{ id: 'a' }, { id: 'b' }], { size: 20 })],
+      layout: null,
+    })
+    const seen: { graph: GraphInstance | null } = { graph: null }
+    const scene = (entries: Iterable<readonly [string, { x: number; y: number }]>) => (
+      <MapGraph
+        map={map.map}
+        definition={sparse}
+        ariaLabel="carte"
+        initialPositions={entries}
+        ref={(instance) => {
+          seen.graph = instance
+        }}
+      />
+    )
+    render(scene([['a', { x: 300, y: 200 }]]))
+    expect(seen.graph?.positions.get('a')).toEqual({ x: 300, y: 200 })
+    render(scene([['a', { x: 1, y: 1 }]]))
+    expect(seen.graph?.positions.get('a')).toEqual({ x: 300, y: 200 })
+  })
+
   it('mounts again on another map, and leaves the map on unmount', () => {
     const first = fakeMap()
     const second = fakeMap()

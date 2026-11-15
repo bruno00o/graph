@@ -25,6 +25,12 @@ interface Both extends Spot {
   readonly y: number
 }
 
+interface Bare {
+  readonly id: string
+  readonly x?: number
+  readonly y?: number
+}
+
 interface Place {
   readonly id: string
   readonly x: number
@@ -244,6 +250,40 @@ describe('persistPositions', () => {
     stop()
     expect(mutationFn).not.toHaveBeenCalled()
     for (const id of ['a', 'b', 'c']) expect(stacked.get(id)).toMatchObject({ x: 0, y: 0 })
+  })
+
+  it('writes nothing when the positions of a snapshot are restored at mount', async () => {
+    const bare = createCollection(
+      localOnlyCollectionOptions({
+        id: `bare-${serial++}`,
+        getKey: (place: Bare) => place.id,
+        initialData: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] as Bare[],
+      }),
+    )
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      {
+        definition: defineGraph({ marks: [nodes(bare, { x: 'x', y: 'y' })], layout: null }),
+        ariaLabel: 'graphe',
+        initialPositions: [
+          ['a', { x: 10, y: 20 }],
+          ['b', { x: 30, y: 40 }],
+        ],
+      },
+      fakeRenderer,
+    )
+    const mutationFn = vi.fn(async () => {})
+    const stop = persistPositions(graph, { collection: bare, mutationFn })
+    await vi.waitFor(() => {
+      dom.flushFrames()
+      expect(graph.positions.get('b')).toEqual({ x: 30, y: 40 })
+    })
+    stop()
+    expect(mutationFn).not.toHaveBeenCalled()
+    expect(bare.get('a')).toMatchObject({ id: 'a' })
+    expect(bare.get('a')).not.toHaveProperty('x')
   })
 
   it('refuses a pending state the definition does not declare', async () => {

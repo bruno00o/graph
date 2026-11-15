@@ -363,6 +363,40 @@ describe('<Graph>', () => {
     expect(captured.graph?.positions.get('c')).toEqual({ x: 100, y: 0 })
   })
 
+  it('places the nodes at initialPositions, read once, with no positionchange', () => {
+    const entries = new Map([
+      ['a', { x: 11, y: 12 }],
+      ['b', { x: 13, y: 14 }],
+    ])
+    const loose = defineGraph({
+      marks: [nodes([{ id: 'a' }, { id: 'b' }])],
+      layout: grid(),
+    })
+    const starts: string[] = []
+    render(
+      <Graph
+        definition={loose}
+        ariaLabel="graphe"
+        ref={capture}
+        initialPositions={entries}
+        onLayoutStart={() => starts.push('start')}
+        onPositionChange={() => starts.push('moved')}
+      />,
+    )
+    expect(captured.graph?.positions.get('a')).toEqual({ x: 11, y: 12 })
+    expect(captured.graph?.positions.get('b')).toEqual({ x: 13, y: 14 })
+    render(
+      <Graph
+        definition={loose}
+        ariaLabel="graphe"
+        ref={capture}
+        initialPositions={new Map([['a', { x: 99, y: 99 }]])}
+      />,
+    )
+    expect(captured.graph?.positions.get('a')).toEqual({ x: 11, y: 12 })
+    expect(starts).toEqual([])
+  })
+
   it('rewrites nothing when rendered again with an identical inline definition', async () => {
     render(<Inline />)
     await act(async () => {})

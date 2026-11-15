@@ -74,7 +74,36 @@ graph.positions.set(new Map(JSON.parse(localStorage.getItem('positions') ?? '[]'
 
 A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where it is going, so a snapshot taken mid-glide is the layout you will see. `snapshot({ settled: false })` reads where nodes are drawn now, as `get` does.
 
+To restore a snapshot when you mount a graph again, use `initialPositions` instead of `set`: see [Restore at mount](#restore-at-mount).
+
 Examples: [save and restore positions](/examples/save-positions) takes a snapshot and sets it back, and [snap to a grid](/examples/snap-to-grid) moves a dropped node to the nearest grid point.
+
+## Restore at mount
+
+An app that mounts a graph again, after a route change, a remount in React or a switch between a plain graph and a map, wants the nodes back where they were. Pass the snapshot as `initialPositions`, to `mountGraph`, `mountMapGraph`, `<Graph>` or `<MapGraph>`. It takes what `positions.snapshot()` returns, and what `positions.set` accepts.
+
+```ts
+const saved = graph.positions.snapshot()
+graph.destroy()
+
+const again = mountGraph(container, {
+  definition,
+  ariaLabel: 'Sample graph',
+  initialPositions: saved,
+})
+```
+
+Calling `positions.set` after the mount costs more: it applies the pending data first, which starts the first layout run on every node, then pins the nodes, and emits `positionchange`. `initialPositions` places the nodes while the data arrives:
+
+- A node with an entry is drawn there and counts as laid out. No layout runs for it, `layoutstart` and `layoutend` do not fire for it, `positionchange` does not fire, and [`persistPositions`](/docs/tanstack-db) has nothing to write. It is not pinned: a later `layout.run` or a new layout moves it like any other free node.
+- A node without an entry is new to the graph. The layout places it as an arrival, next to its placed neighbors, while the placed nodes stay still. With `force`, that is the run of [new nodes](/docs/layout#when-it-runs); with `layers`, `grid`, `rings`, `radial` and `geo`, which lay every free node out again when nodes arrive, the placed nodes move too.
+- Positions from your data win: a node with `x` and `y`, or `longitude` and `latitude`, ignores its entry.
+- With `autoFit: 'first'`, the first frame fits the restored nodes. It does not wait for a layout, and `initialView` still wins.
+- An entry whose `x` or `y` is not finite is skipped, with a warning in development. An entry whose key never arrives does nothing.
+
+The entries serve the nodes of the first data: those that arrive while a live source with a `status` is loading, or in the first batch of any other data. Then they are dropped, so a node that arrives much later is a new node. With `waitForData`, nodes that have no entry wait for the data to load and are then laid out together, while the nodes with an entry are drawn at once.
+
+Nodes hidden in a folded group keep their restored place, and appear there when the group opens. A folded group keeps its own entry. Children of a group that [spread](/docs/groups#spread-children) stay where the snapshot puts them, as with `set`: it already holds the spread. A snapshot holds the positions of one surface: positions read on a map are in the world units of the map, so give them back to a map graph, and those of a plain graph to a plain one. See [With and without a map](/docs/map#with-and-without-a-map).
 
 ## Listen to moves
 

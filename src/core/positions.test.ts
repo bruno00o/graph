@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { edges, nodes } from '../marks'
 import { createGraphModel } from './graph-model'
-import { Positions, placeNodes } from './positions'
+import { Positions, placeNodes, RestoredPositions } from './positions'
 
 type Item = { id: string; x?: number; y?: number; name?: string }
 type Link = { id: string; from: string; to: string }
@@ -64,7 +64,12 @@ describe('placeNodes', () => {
     const { update, at, model } = setup()
     update([{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 10, y: 0.1 }, { id: 'c' }])
     const moves = update([{ id: 'a', x: 50, y: 5 }, { id: 'b', x: 10, y: 0.1 }, { id: 'c' }])
-    expect(moves).toEqual({ indices: [model.node('a')?.index], to: [50, 5], held: [] })
+    expect(moves).toEqual({
+      indices: [model.node('a')?.index],
+      to: [50, 5],
+      held: [],
+      restored: [],
+    })
     expect(at('a')).toEqual({ x: 0, y: 0 })
   })
 
@@ -77,6 +82,7 @@ describe('placeNodes', () => {
       indices: [],
       to: [],
       held: [model.node('a')?.index],
+      restored: [],
     })
     expect(update([{ id: 'a', x: 1, y: 99 }]).indices).toEqual([model.node('a')?.index])
   })
@@ -132,5 +138,85 @@ describe('Positions.changedSince', () => {
     positions.set(2, 4, 4)
     positions.reserve(3000)
     expect(ranges(positions, before)).toEqual([[0, 1023]])
+  })
+})
+
+describe('restored positions', () => {
+  function restoring(entries: Iterable<readonly [string | number, { x: number; y: number }]>) {
+    const model = createGraphModel()
+    const positions = new Positions()
+    const restore = new RestoredPositions(entries)
+    const update = (items: Item[], links: Link[] = []) => {
+      model.setMarks([
+        nodes(items, { x: 'x', y: 'y' }),
+        edges(links, { source: 'from', target: 'to' }),
+      ])
+      return placeNodes(model, positions, model.flush(), restore)
+    }
+    const at = (key: string) => {
+      const index = model.node(key)?.index ?? -1
+      return { x: positions.x(index), y: positions.y(index) }
+    }
+    return { model, positions, restore, update, at }
+  }
+
+  it('places arriving nodes where the entries say, flagged as restored', () => {
+    const { model, positions, update, at } = restoring([
+      ['a', { x: 10, y: 20 }],
+      ['b', { x: -4, y: 6 }],
+    ])
+    const moves = update([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
+    expect(at('a')).toEqual({ x: 10, y: 20 })
+    expect(at('b')).toEqual({ x: -4, y: 6 })
+    expect(moves.restored).toEqual([model.node('a')?.index, model.node('b')?.index])
+    expect(positions.restored[model.node('a')?.index ?? -1]).toBe(1)
+    expect(positions.restored[model.node('c')?.index ?? -1]).toBe(0)
+    expect(positions.source[(model.node('a')?.index ?? 0) * 2]).toBeNaN()
+  })
+
+  it('lets the positions of the data win', () => {
+    const { update, at, restore } = restoring([['a', { x: 10, y: 20 }]])
+    const moves = update([{ id: 'a', x: 1, y: 2 }])
+    expect(at('a')).toEqual({ x: 1, y: 2 })
+    expect(moves.restored).toEqual([])
+    expect(restore.size).toBe(0)
+  })
+
+  it('places a node with no entry next to its restored neighbors in the same batch', () => {
+    const { update, at } = restoring([['a', { x: 1000, y: 1000 }]])
+    update([{ id: 'a' }, { id: 'b' }], [{ id: 'ab', from: 'a', to: 'b' }])
+    const b = at('b')
+    expect(Math.hypot(b.x - 1000, b.y - 1000)).toBeLessThan(100)
+  })
+
+  it('uses the spiral when no neighbor is placed', () => {
+    const { update, at } = restoring([['a', { x: 1000, y: 1000 }]])
+    update([{ id: 'a' }, { id: 'b' }])
+    expect(at('b')).toEqual({ x: 0, y: 0 })
+  })
+
+  it('uses an entry once, and not for keys that are not strings or numbers or points', () => {
+    const entries = [
+      ['a', { x: 1, y: 2 }],
+      ['b', { x: Number.NaN, y: 2 }],
+      [{}, { x: 1, y: 1 }],
+      ['c', null],
+    ] as unknown as Iterable<readonly [string, { x: number; y: number }]>
+    const { update, restore, at } = restoring(entries)
+    expect(restore.size).toBe(1)
+    expect(restore.skipped).toBe(3)
+    update([{ id: 'a' }, { id: 'b' }])
+    expect(at('a')).toEqual({ x: 1, y: 2 })
+    expect(restore.size).toBe(0)
+    update([{ id: 'a' }])
+    expect(at('a')).toEqual({ x: 1, y: 2 })
+  })
+
+  it('forgets the flag when a node leaves', () => {
+    const { model, positions, update } = restoring([['a', { x: 1, y: 2 }]])
+    update([{ id: 'a' }])
+    const index = model.node('a')?.index ?? -1
+    update([])
+    expect(positions.restored[index]).toBe(0)
   })
 })

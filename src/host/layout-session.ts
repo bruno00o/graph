@@ -89,6 +89,8 @@ export class LayoutHost {
   #laidOut = false
   #relayout = false
   #waited = false
+  #restoring = false
+  readonly #late = new Set<number>()
   readonly #source: LayoutSource
   readonly #check: StringCheck = stringCheck()
   readonly #computing = new Set<(reason: unknown) => void>()
@@ -153,18 +155,43 @@ export class LayoutHost {
     const layout = this.#source.definition().layout
     if (!layout || this.#source.destroyed()) return
     const projection = this.#source.projection
+    const restored = this.#source.positions.restored
+    let anyRestored = false
     const added = [
-      ...changes.nodes.added.filter((ref) => projection.nodeShown(ref.index)),
+      ...changes.nodes.added.filter((ref) => {
+        if (restored[ref.index] === 1) {
+          anyRestored = true
+          this.#late.delete(ref.index)
+          return false
+        }
+        return projection.nodeShown(ref.index)
+      }),
       ...revealed.map((index) => ({ index })),
     ]
+    if (anyRestored && !this.#laidOut) {
+      this.#laidOut = true
+      this.#restoring = true
+    }
     if (this.#relayout || !this.#laidOut) {
       if (!this.#relayout && added.length === 0 && !this.#waited) return
       if (this.#source.waiting()) {
         this.#waited = true
+        for (const { index } of added) this.#late.add(index)
         return
       }
       this.#runAll(layout)
       return
+    }
+    if (this.#restoring && (added.length > 0 || this.#late.size > 0)) {
+      if (this.#source.waiting()) {
+        this.#waited = true
+        for (const { index } of added) this.#late.add(index)
+        return
+      }
+      this.#restoring = false
+      this.#waited = false
+      for (const index of this.#late) added.push({ index })
+      this.#late.clear()
     }
     if (added.length === 0) return
     if (layout.incremental === false) {
@@ -189,11 +216,26 @@ export class LayoutHost {
   release(): void {
     const layout = this.#source.definition().layout
     if (!this.#waited || !layout || this.#source.destroyed()) return
-    if (this.#relayout || !this.#laidOut) this.#runAll(layout)
+    if (this.#relayout || !this.#laidOut) {
+      this.#runAll(layout)
+      return
+    }
+    this.#restoring = false
+    this.#waited = false
+    const late = new Set(this.#late)
+    this.#late.clear()
+    if (late.size === 0) return
+    if (layout.incremental === false) {
+      void this.begin(layout, () => true, true, this.#autoSettings())
+      return
+    }
+    void this.begin(layout, (index) => late.has(index), true, this.#autoSettings())
   }
 
   #runAll(layout: Layout): void {
     this.#waited = false
+    this.#restoring = false
+    this.#late.clear()
     this.#relayout = false
     this.#laidOut = true
     void this.begin(layout, () => true, true, this.#autoSettings())
