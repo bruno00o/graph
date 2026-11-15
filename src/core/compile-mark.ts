@@ -71,6 +71,7 @@ export interface CompiledContainer {
   readonly gap: Read | null
   readonly label: CompiledNodeLabel | null
   readonly badges: CompiledBadges
+  readonly layout: Read | null
 }
 
 export interface CompiledLabelText {
@@ -272,6 +273,7 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
       gap: style(container?.gap),
       label: container?.label === undefined ? null : compileNodeLabel(container.label ?? undefined),
       badges: compileBadges(container?.badges),
+      layout: style(container?.layout),
     },
   }
   nodeCache.set(mark, compiled)

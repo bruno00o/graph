@@ -1,5 +1,6 @@
 import { withFinitePositions } from '../../core/finite-positions'
 import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../../types'
+import { enableScopes } from '../scopes'
 import type { FromWorker, ToWorker } from './protocol'
 import { runForce, runMultilevelForce } from './runner'
 import {
@@ -83,6 +84,7 @@ function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutList
  */
 export function force(options: ForceOptions = {}): Layout {
   const settings = resolveForce(options)
+  enableScopes()
   return Object.freeze({
     name: 'force',
     options: settings,

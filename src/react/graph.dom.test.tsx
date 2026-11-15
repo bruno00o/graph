@@ -211,6 +211,26 @@ function Inline() {
   )
 }
 
+const grouped = [
+  { id: 'g' },
+  { id: 'a', parent: 'g' },
+  { id: 'b', parent: 'g' },
+  { id: 'c', parent: 'g' },
+]
+
+function GroupedInline() {
+  return (
+    <Graph
+      definition={defineGraph({
+        marks: [nodes(grouped, { parent: 'parent', container: { layout: grid({ spacing: 4 }) } })],
+        layout: grid(),
+      })}
+      ariaLabel="graphe"
+      ref={capture}
+    />
+  )
+}
+
 function Outside() {
   useGraph()
   return null
@@ -412,6 +432,25 @@ describe('<Graph>', () => {
     await act(async () => {})
     expect(written).toEqual({ nodes: 0, edges: 0 })
     expect(starts).toEqual([])
+  })
+
+  it('runs no group layout again when rendered with an identical inline layout', async () => {
+    render(<GroupedInline />)
+    await act(async () => {})
+    act(() => {
+      dom.flushFrames()
+    })
+    const starts: string[] = []
+    captured.graph?.on('layoutstart', () => starts.push('start'))
+    const before = captured.graph?.positions.get('b')
+    render(<GroupedInline />)
+    render(<GroupedInline />)
+    await act(async () => {})
+    act(() => {
+      dom.flushFrames()
+    })
+    expect(starts).toEqual([])
+    expect(captured.graph?.positions.get('b')).toEqual(before)
   })
 
   it('removes the graph on unmount', () => {

@@ -5,6 +5,7 @@ import type {
   EdgeDash,
   Key,
   LabelPlacement,
+  Layout,
   NodeShape,
 } from '../types'
 import { EdgeWaypoints } from './edge-waypoints'
@@ -125,6 +126,7 @@ export class NodeColumns {
   spread: Uint8Array = new Uint8Array(0)
   gap: Float32Array = new Float32Array(0)
   containerBoxes: Float32Array | null = null
+  readonly containerLayouts: Map<number, Layout> = new Map()
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
   readonly order: NodeOrder = new NodeOrder()
@@ -178,6 +180,7 @@ export class NodeColumns {
     this.labelFont[index] = null
     this.image[index] = null
     this.badges[index] = null
+    if (this.containerLayouts.size > 0) this.containerLayouts.delete(index)
   }
 }
 

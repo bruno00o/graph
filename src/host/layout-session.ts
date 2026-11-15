@@ -1,11 +1,20 @@
 import type { GraphChanges, GraphModel } from '../core/graph-model'
 import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
+import { type ScopePlan, sameLayout, scopeEngine } from '../core/layout-scopes'
 import type { Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
-import { shallowEqual } from '../core/shallow-equal'
 import type { Bounds } from '../core/view'
-import type { GraphDefinition, Key, Layout, LayoutGraph, LayoutRun, Point } from '../types'
+import { dev } from '../dev'
+import type {
+  GraphDefinition,
+  Key,
+  Layout,
+  LayoutGraph,
+  LayoutListener,
+  LayoutRun,
+  Point,
+} from '../types'
 import type { BundleHost } from './bundles'
 import { countAlive } from './element-keys'
 import type { Emitter } from './events'
@@ -28,6 +37,7 @@ export interface LayoutSettings {
   readonly fit: FitRequest | null
   readonly duration: number
   readonly alone: boolean
+  readonly replace: Layout | null
 }
 
 const others: readonly LayoutOthers[] = ['anchors', 'ignored']
@@ -42,7 +52,9 @@ function checkOthers(options: { readonly others?: LayoutOthers | undefined }): b
 }
 
 export interface LayoutSession extends LayoutSettings {
-  readonly layout: Layout
+  readonly layout: Layout | null
+  readonly name: string
+  readonly partial: boolean
   readonly movable: Uint8Array
   readonly auto: boolean
   readonly resolve: (completed: boolean) => void
@@ -79,9 +91,16 @@ export interface LayoutSource {
   waiting(): boolean
 }
 
-export function sameLayout(a: Layout | null, b: Layout | null): boolean {
-  if (a === b) return true
-  return a !== null && b !== null && a.name === b.name && shallowEqual(a.options, b.options)
+interface Launch {
+  readonly name: string
+  readonly movable: Uint8Array
+  readonly partial: boolean
+  start(listener: LayoutListener): LayoutRun
+}
+
+function firstName(scopes: ReadonlyMap<number, Layout> | null): string {
+  for (const layout of scopes?.values() ?? []) return layout.name
+  return ''
 }
 
 export class LayoutHost {
@@ -94,6 +113,11 @@ export class LayoutHost {
   readonly #source: LayoutSource
   readonly #check: StringCheck = stringCheck()
   readonly #computing = new Set<(reason: unknown) => void>()
+  #seed = false
+  #warnedMap = false
+  #warnedEngine = false
+  #known: Map<number, Layout | null> | null = null
+  #counts: Map<number, number> | null = null
 
   constructor(source: LayoutSource) {
     this.#source = source
@@ -107,8 +131,85 @@ export class LayoutHost {
     const layout = this.#source.definition().layout
     if (!sameLayout(previous, layout)) {
       if (this.session?.auto) this.stop()
-      this.#relayout = layout !== null
+      this.#relayout = layout !== null || this.#scopes() !== null
     }
+  }
+
+  #scopes(): Map<number, Layout> | null {
+    const { scene, projection, onMap } = this.#source
+    const layouts = scene.nodes.containerLayouts
+    if (layouts.size === 0) return null
+    if (onMap) {
+      if (dev && !this.#warnedMap) {
+        this.#warnedMap = true
+        console.warn('graph: container layouts do not run on a map')
+      }
+      return null
+    }
+    let found: Map<number, Layout> | null = null
+    for (const index of projection.containers) {
+      const layout = layouts.get(index)
+      if (!layout) continue
+      found ??= new Map()
+      found.set(index, layout)
+    }
+    if (found && !scopeEngine()) {
+      if (dev && !this.#warnedEngine) {
+        this.#warnedEngine = true
+        console.warn(
+          'graph: container.layout needs a layout from @bruno00o/graph/layouts, groups are laid out as if they had none',
+        )
+      }
+      return null
+    }
+    return found
+  }
+
+  placedBy(index: number): boolean {
+    const { scene, projection, onMap } = this.#source
+    const layouts = scene.nodes.containerLayouts
+    if (layouts.size === 0 || onMap || !scopeEngine()) return false
+    const hierarchy = projection.hierarchy
+    for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
+      if (layouts.has(at) && projection.containers.has(at)) return true
+    }
+    return false
+  }
+
+  #rerun(changes: GraphChanges, scopes: ReadonlyMap<number, Layout>): Set<number> | null {
+    const { scene, projection } = this.#source
+    let rerun: Set<number> | null = null
+    const added = new Set<number>()
+    for (const ref of changes.nodes.added) added.add(ref.index)
+    const known = this.#known
+    const next = new Map<number, Layout | null>()
+    for (const index of projection.containers) {
+      const layout = scene.nodes.containerLayouts.get(index) ?? null
+      next.set(index, layout)
+      if (!layout || added.has(index) || !this.#laidOut) continue
+      const before = known ? known.get(index) : null
+      if (before === undefined || sameLayout(before, layout)) continue
+      rerun ??= new Set()
+      rerun.add(index)
+    }
+    this.#known = next
+    if (changes.nodes.added.length === 0 && changes.nodes.removed.length === 0) return rerun
+    const hierarchy = projection.hierarchy
+    const counts = new Map<number, number>()
+    for (const [index, layout] of scopes) {
+      if (layout.incremental !== false) continue
+      let count = 0
+      hierarchy.forEachDescendant(index, () => {
+        count++
+      })
+      counts.set(index, count)
+      const before = this.#counts?.get(index)
+      if (before === undefined || count >= before) continue
+      rerun ??= new Set()
+      rerun.add(index)
+    }
+    this.#counts = counts
+    return rerun
   }
 
   #dragged(): Set<number> | null {
@@ -116,7 +217,7 @@ export class LayoutHost {
     return dragging ? new Set(dragging) : null
   }
 
-  makeRoom(moving: readonly number[], to: readonly number[]): void {
+  makeRoom(moving: readonly number[], to: readonly number[], hold = false): void {
     const { scene, model, projection, spread, motion } = this.#source
     const keep = new Set(moving)
     const dragged = this.#dragged()
@@ -128,7 +229,9 @@ export class LayoutHost {
       (index) =>
         !dragged?.has(index) &&
         !spread.owns(index) &&
-        (keep.has(index) || motion.owned(index) === 0),
+        (hold
+          ? !keep.has(index) && motion.owned(index) === 0
+          : keep.has(index) || motion.owned(index) === 0),
       (key) => model.node(key)?.datum,
       { indices: projection.containers, hierarchy: projection.hierarchy },
     )
@@ -152,8 +255,11 @@ export class LayoutHost {
   }
 
   follow(changes: GraphChanges, revealed: readonly number[]): void {
+    if (this.#source.destroyed()) return
+    const scopes = this.#scopes()
     const layout = this.#source.definition().layout
-    if (!layout || this.#source.destroyed()) return
+    if (!layout && !scopes) return
+    const rerun = scopes ? this.#rerun(changes, scopes) : null
     const projection = this.#source.projection
     const restored = this.#source.positions.restored
     let anyRestored = false
@@ -193,8 +299,8 @@ export class LayoutHost {
       for (const index of this.#late) added.push({ index })
       this.#late.clear()
     }
-    if (added.length === 0) return
-    if (layout.incremental === false) {
+    if (added.length === 0 && !rerun) return
+    if (!scopes && layout?.incremental === false) {
       void this.begin(layout, () => true, true, this.#autoSettings())
       return
     }
@@ -206,16 +312,18 @@ export class LayoutHost {
       const movable = (index: number) => current.movable[index] === 1 || fresh.has(index)
       const within = current.scope
       const scope = within ? (index: number) => within(index) || fresh.has(index) : null
-      if (!this.#launch(current.layout, movable, current, scope))
-        this.#settle(current.layout, current, current.resolve)
+      if (!this.#launch(current.layout, movable, current, scope, rerun))
+        this.#settle(current.name, current, current.resolve)
       return
     }
-    void this.begin(layout, (index) => fresh.has(index), true, this.#autoSettings())
+    void this.begin(layout, (index) => fresh.has(index), true, this.#autoSettings(), rerun)
   }
 
   release(): void {
     const layout = this.#source.definition().layout
-    if (!this.#waited || !layout || this.#source.destroyed()) return
+    if (!this.#waited || this.#source.destroyed()) return
+    const scopes = this.#scopes()
+    if (!layout && !scopes) return
     if (this.#relayout || !this.#laidOut) {
       this.#runAll(layout)
       return
@@ -225,24 +333,31 @@ export class LayoutHost {
     const late = new Set(this.#late)
     this.#late.clear()
     if (late.size === 0) return
-    if (layout.incremental === false) {
+    if (!scopes && layout?.incremental === false) {
       void this.begin(layout, () => true, true, this.#autoSettings())
       return
     }
     void this.begin(layout, (index) => late.has(index), true, this.#autoSettings())
   }
 
-  #runAll(layout: Layout): void {
+  #runAll(layout: Layout | null): void {
     this.#waited = false
     this.#restoring = false
     this.#late.clear()
     this.#relayout = false
     this.#laidOut = true
+    this.#seed = true
     void this.begin(layout, () => true, true, this.#autoSettings())
+    this.#seed = false
   }
 
   #autoSettings(): LayoutSettings {
-    return { fit: null, duration: this.#source.definition().transitions.layout, alone: false }
+    return {
+      fit: null,
+      duration: this.#source.definition().transitions.layout,
+      alone: false,
+      replace: null,
+    }
   }
 
   #place(current: LayoutSession, xy: Float32Array): void {
@@ -290,6 +405,20 @@ export class LayoutHost {
     current.animation = motion.move(indices, to, current.duration, () =>
       this.#finish(current, true),
     )
+    if (current.partial) this.makeRoom(indices, to, true)
+  }
+
+  #room(current: LayoutSession, xy: Float32Array): void {
+    const { scene } = this.#source
+    const indices: number[] = []
+    const to: number[] = []
+    const limit = Math.min(current.movable.length, xy.length / 2, scene.nodes.capacity)
+    for (let index = 0; index < limit; index++) {
+      if (current.movable[index] !== 1 || scene.nodes.alive[index] !== 1) continue
+      indices.push(index)
+      to.push(xy[index * 2] ?? 0, xy[index * 2 + 1] ?? 0)
+    }
+    this.makeRoom(indices, to, true)
   }
 
   #finish(current: LayoutSession, completed: boolean): void {
@@ -321,7 +450,7 @@ export class LayoutHost {
       views.framing = false
     }
     if (completed && current.fit && !current.fitted) views.pendingFit = current.fit
-    emitter.emit('layoutend', { name: current.layout.name, completed })
+    emitter.emit('layoutend', { name: current.name, completed })
     this.#source.request()
   }
 
@@ -345,30 +474,109 @@ export class LayoutHost {
     )
   }
 
+  #prepare(
+    layout: Layout | null,
+    movable: (index: number) => boolean,
+    scope: ((index: number) => boolean) | null,
+    auto: boolean,
+    replace: Layout | null,
+    rerun: ReadonlySet<number> | null,
+  ): Launch | null {
+    const scopes = this.#scopes()
+    if (scopes) return this.#plan(layout, movable, scope, scopes, auto, replace, rerun)
+    if (!layout) return null
+    const graph = this.#graph(movable, scope)
+    if (!graph.movable.includes(1)) return null
+    return {
+      name: layout.name,
+      movable: graph.movable,
+      partial: false,
+      start: (listener) => layout.start(graph, listener),
+    }
+  }
+
+  #plan(
+    layout: Layout | null,
+    movable: (index: number) => boolean,
+    scope: ((index: number) => boolean) | null,
+    scopes: ReadonlyMap<number, Layout>,
+    auto: boolean,
+    replace: Layout | null,
+    rerun: ReadonlySet<number> | null,
+  ): ScopePlan | null {
+    const engine = scopeEngine()
+    if (!engine) return null
+    const graph = this.#graph(() => true, scope)
+    const keyed = new Uint8Array(graph.capacity)
+    for (let index = 0; index < graph.capacity; index++) keyed[index] = movable(index) ? 1 : 0
+    return engine.plan({
+      graph,
+      keyed,
+      top: layout,
+      layouts: scopes,
+      replace,
+      rerun,
+      arrivals: auto,
+      fresh: this.#seed,
+    })
+  }
+
+  #listener(current: LayoutSession): LayoutListener {
+    const views = this.#source.views
+    return {
+      progress: (xy, progress) => {
+        if (this.session !== current) return
+        current.progressed = true
+        this.#place(current, xy)
+        this.#source.patch({ layout: { running: true, progress } })
+        views.frameLayout()
+        this.#source.request()
+      },
+      end: (xy) => {
+        if (this.session !== current) return
+        if (current.progressed || current.duration <= 0) {
+          this.#place(current, xy)
+          if (current.partial) this.#room(current, xy)
+          this.#finish(current, true)
+        } else {
+          this.#glide(current, xy)
+        }
+      },
+    }
+  }
+
   #launch(
-    layout: Layout,
+    layout: Layout | null,
     movable: (index: number) => boolean,
     previous: LayoutSettings & Pick<LayoutSession, 'auto' | 'resolve'>,
     scope: ((index: number) => boolean) | null = previous.alone ? movable : null,
+    rerun: ReadonlySet<number> | null = null,
+    early?: Launch | null,
   ): boolean {
     if (this.#source.destroyed()) return false
-    const { scene, motion, views } = this.#source
-    const graph = this.#graph(movable, scope)
-    if (!graph.movable.includes(1)) return false
+    const { scene, motion } = this.#source
+    const launch =
+      early !== undefined
+        ? early
+        : this.#prepare(layout, movable, scope, previous.auto, previous.replace, rerun)
+    if (!launch) return false
     let moving = 0
-    for (const flag of graph.movable) moving += flag
+    for (const flag of launch.movable) moving += flag
     if (moving * 2 > countAlive(scene.nodes.alive, scene.nodes.capacity)) {
       this.#source.bundles.fade()
     }
-    motion.freeMovable(graph.movable, graph.capacity)
+    motion.freeMovable(launch.movable, launch.movable.length)
     const current: LayoutSession = {
       layout,
-      movable: graph.movable,
+      name: launch.name,
+      partial: launch.partial,
+      movable: launch.movable,
       auto: previous.auto,
       resolve: previous.resolve,
       fit: previous.fit,
       duration: previous.duration,
       alone: previous.alone,
+      replace: previous.replace,
       scope,
       run: null,
       progressed: false,
@@ -377,25 +585,7 @@ export class LayoutHost {
     }
     this.session = current
     try {
-      const run = layout.start(graph, {
-        progress: (xy, progress) => {
-          if (this.session !== current) return
-          current.progressed = true
-          this.#place(current, xy)
-          this.#source.patch({ layout: { running: true, progress } })
-          views.frameLayout()
-          this.#source.request()
-        },
-        end: (xy) => {
-          if (this.session !== current) return
-          if (current.progressed || current.duration <= 0) {
-            this.#place(current, xy)
-            this.#finish(current, true)
-          } else {
-            this.#glide(current, xy)
-          }
-        },
-      })
+      const run = launch.start(this.#listener(current))
       if (this.session === current) current.run = run
       else run.stop()
     } catch (error) {
@@ -406,30 +596,44 @@ export class LayoutHost {
   }
 
   begin(
-    layout: Layout,
+    layout: Layout | null,
     movable: (index: number) => boolean,
     auto: boolean,
     settings: LayoutSettings,
+    rerun: ReadonlySet<number> | null = null,
   ): Promise<boolean> {
     this.stop()
     return new Promise<boolean>((resolve) => {
+      const scopes = this.#scopes()
+      const early = scopes
+        ? this.#plan(
+            layout,
+            movable,
+            settings.alone ? movable : null,
+            scopes,
+            auto,
+            settings.replace,
+            rerun,
+          )
+        : undefined
+      const name = early?.name ?? layout?.name ?? firstName(scopes)
       this.#source.patch({ layout: { running: true, progress: 0 } })
-      this.#source.emitter.emit('layoutstart', { name: layout.name })
+      this.#source.emitter.emit('layoutstart', { name })
       if (this.#source.destroyed()) {
         resolve(false)
         return
       }
-      if (!this.#launch(layout, movable, { ...settings, auto, resolve })) {
-        this.#settle(layout, settings, resolve)
+      if (!this.#launch(layout, movable, { ...settings, auto, resolve }, undefined, rerun, early)) {
+        this.#settle(name, settings, resolve)
       }
     })
   }
 
-  #settle(layout: Layout, settings: LayoutSettings, resolve: (completed: boolean) => void): void {
+  #settle(name: string, settings: LayoutSettings, resolve: (completed: boolean) => void): void {
     resolve(true)
     if (settings.fit) this.#source.views.pendingFit = settings.fit
     this.#source.patch({ layout: { running: false, progress: 1 } })
-    this.#source.emitter.emit('layoutend', { name: layout.name, completed: true })
+    this.#source.emitter.emit('layoutend', { name, completed: true })
   }
 
   stop(): void {
@@ -461,7 +665,9 @@ export class LayoutHost {
     if (signal?.aborted) return Promise.reject(signal.reason)
     if (this.#source.onMap) return Promise.reject(new Error('graph: layouts do not run on a map'))
     const chosen = layout ?? this.#source.definition().layout
-    if (!chosen) return Promise.reject(new Error('graph: no layout to compute'))
+    if (!chosen && !this.#scopes()) {
+      return Promise.reject(new Error('graph: no layout to compute'))
+    }
     let alone: boolean
     try {
       alone = checkOthers(options)
@@ -471,8 +677,9 @@ export class LayoutHost {
     this.#check(options.keys, 'layout.compute({ keys })')
     this.#source.prepare()
     const keyed = this.#keyed(options.keys) ?? (() => true)
-    const graph = this.#graph(keyed, alone ? keyed : null)
-    if (!graph.movable.includes(1)) return Promise.resolve(new Map())
+    const launch = this.#prepare(chosen, keyed, alone ? keyed : null, false, layout ?? null, null)
+    if (!launch) return Promise.resolve(new Map())
+    const keys = this.#source.scene.nodes.keys
     return new Promise<Map<Key, Point>>((resolve, reject) => {
       let run: LayoutRun | null = null
       let done = false
@@ -492,10 +699,10 @@ export class LayoutHost {
       this.#computing.add(fail)
       signal?.addEventListener('abort', abort, { once: true })
       try {
-        run = chosen.start(graph, {
+        run = launch.start({
           progress: () => {},
           end: (xy) => {
-            if (finish()) resolve(positionsOf(graph, xy))
+            if (finish()) resolve(positionsOf(keys, launch.movable, xy))
           },
         })
         if (done) run.stop()
@@ -513,7 +720,9 @@ export class LayoutHost {
           return Promise.reject(new Error('graph: layouts do not run on a map'))
         const definition = this.#source.definition()
         const chosen = layout ?? definition.layout
-        if (!chosen) return Promise.reject(new Error('graph: no layout to run'))
+        if (!chosen && !this.#scopes()) {
+          return Promise.reject(new Error('graph: no layout to run'))
+        }
         let alone: boolean
         try {
           checkDuration(runOptions)
@@ -535,6 +744,7 @@ export class LayoutHost {
             runOptions.duration ?? this.#source.definition().transitions.layout,
           ),
           alone,
+          replace: layout ?? null,
         }
         return this.begin(chosen, this.#keyed(runOptions.keys) ?? (() => true), false, settings)
       },
@@ -551,12 +761,16 @@ export class LayoutHost {
   }
 }
 
-function positionsOf(graph: LayoutGraph, xy: Float32Array): Map<Key, Point> {
+function positionsOf(
+  keys: readonly (Key | undefined)[],
+  movable: Uint8Array,
+  xy: Float32Array,
+): Map<Key, Point> {
   const positions = new Map<Key, Point>()
-  const limit = Math.min(graph.capacity, xy.length / 2)
+  const limit = Math.min(movable.length, xy.length / 2)
   for (let index = 0; index < limit; index++) {
-    const key = graph.keys[index]
-    if (graph.movable[index] !== 1 || key === undefined) continue
+    const key = keys[index]
+    if (movable[index] !== 1 || key === undefined) continue
     positions.set(key, { x: xy[index * 2] ?? 0, y: xy[index * 2 + 1] ?? 0 })
   }
   return positions

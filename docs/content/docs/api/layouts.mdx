@@ -124,6 +124,8 @@ When the graph a layout reads has [`blocks`](/docs/api/define-graph#layout), nod
 | `geo` | A block without a place of its own goes to the mean of the places of its nodes, in Web Mercator. The typical size that sets the default `spacing` and `scale` comes from the plain nodes. | `'none'` |
 | `placed` | A block without a position of its own goes to the mean of the positions given to its nodes, read by key or through the function; with none, it stays where it is. | `'none'` |
 
+The groups of [`container.layout`](/docs/layout#a-layout-per-group) reach the layouts this way: each group with a layout of its own is a block in the layout around it, and its members are laid out with `container` set. After the layout around them, a block is turned to face its neighbors as its layout's `turns` allows.
+
 Inside a [container](/docs/api/define-graph#layout), `force` pulls the nodes toward their center with `cohesion` instead of `gravity`, and takes 120 steps below 1,000 nodes unless `steps` is given: a group laid out on its own stays as compact as it would among the rest of the graph. The other layouts do not read `container`.
 
 ## Exports
