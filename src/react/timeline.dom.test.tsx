@@ -58,6 +58,32 @@ function Frise({ initial }: { readonly initial: TimeWindowInput | null }) {
   )
 }
 
+interface Change {
+  readonly at: number
+  readonly type: string
+}
+
+const changes: Change[] = [
+  { at: 0, type: 'added' },
+  { at: 4, type: 'changed' },
+  { at: 8, type: 'added' },
+]
+let found: readonly Change[] = []
+let shown: TimelineState['window'] = null
+
+function Replay({ alone }: { readonly alone: boolean }) {
+  const { state, timeline } = useTimeline({
+    graph: alone ? false : undefined,
+    events: changes,
+    eventTime: 'at',
+    eventKind: 'type',
+    instant: true,
+  })
+  shown = state.window
+  found = state.window && timeline ? timeline.events(state.window.start ?? 0) : []
+  return <Timeline timeline={timeline} labels={{ cursor: 'Moment' }} />
+}
+
 function render(element: ReactNode): void {
   act(() => {
     root.render(element)
@@ -119,32 +145,15 @@ describe('Timeline', () => {
   })
 
   it('renders a timeline of events made by useTimeline, with or without a graph', () => {
-    interface Change {
-      readonly at: number
-      readonly type: string
-    }
-    const changes: Change[] = [
-      { at: 0, type: 'added' },
-      { at: 4, type: 'changed' },
-      { at: 8, type: 'added' },
-    ]
-    let found: readonly Change[] = []
-    let window: TimelineState['window'] = null
-    function Replay({ alone }: { readonly alone: boolean }) {
-      const { state, timeline } = useTimeline({
-        graph: alone ? false : undefined,
-        events: changes,
-        eventTime: 'at',
-        eventKind: 'type',
-        instant: true,
-      })
-      window = state.window
-      found = state.window && timeline ? timeline.events(state.window.start ?? 0) : []
-      return <Timeline timeline={timeline} labels={{ cursor: 'Moment' }} />
-    }
     render(
       <StrictMode>
-        <Graph definition={definition} ariaLabel="graph" ref={(instance) => void (graph = instance)}>
+        <Graph
+          definition={definition}
+          ariaLabel="graph"
+          ref={(instance) => {
+            graph = instance
+          }}
+        >
           <Replay alone={false} />
         </Graph>
       </StrictMode>,
@@ -166,7 +175,7 @@ describe('Timeline', () => {
         new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }),
       )
     })
-    expect(window).toEqual({ start: 8, end: 8 })
+    expect(shown).toEqual({ start: 8, end: 8 })
     expect(found).toEqual([changes[2]])
   })
 

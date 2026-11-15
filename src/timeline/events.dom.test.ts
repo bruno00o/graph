@@ -91,7 +91,8 @@ describe('a timeline of events', () => {
       { kind: 'added', color: 'var(--graph-cat-2)', count: 3, hidden: false },
       { kind: 'changed', color: 'red', count: 2, hidden: false },
     ])
-    const bin = (offset: number) => state.bins.find((entry) => entry.start === origin + offset * day)
+    const bin = (offset: number) =>
+      state.bins.find((entry) => entry.start === origin + offset * day)
     expect(bin(0)).toMatchObject({ events: 2, kinds: [0, 2, 0], nodes: 2 })
     expect(bin(5)).toMatchObject({ events: 2, kinds: [1, 1, 0] })
     expect(bin(1)).toMatchObject({ events: 0, kinds: [0, 0, 0] })

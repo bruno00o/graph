@@ -106,7 +106,8 @@ export interface TimelineOptions<E = TimelineEvent> {
    */
   readonly kindColors?: Readonly<Record<string, string>> | undefined
   /**
-   * Kinds left out of the histogram, of event stepping and of `events`. `toggleKind` changes them.
+   * Kinds left out of the histogram, of event stepping and of `events`. The option sets them when
+   * it changes; `toggleKind` changes them in between.
    */
   readonly hiddenKinds?: KeyList<string> | undefined
   /**

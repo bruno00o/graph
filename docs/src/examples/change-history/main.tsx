@@ -1,12 +1,6 @@
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
-import {
-  Graph,
-  type GraphInstance,
-  Timeline,
-  useGraph,
-  useTimeline,
-} from '@bruno00o/graph/react'
+import { Graph, type GraphInstance, Timeline, useGraph, useTimeline } from '@bruno00o/graph/react'
 import { type Ref, useLayoutEffect } from 'react'
 import { createHistory, day, type Member, type Tie } from './history'
 import { messages } from './messages'

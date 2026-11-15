@@ -10,4 +10,5 @@ export default {
   tags: ['React'],
   api: ['timeline'],
   guides: ['time#events', 'time#a-moment-instead-of-a-window'],
+  thumbnail: { panels: true },
 } satisfies ExampleMeta
