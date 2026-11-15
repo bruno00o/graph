@@ -550,7 +550,12 @@ describe('scopes', () => {
     await run(built, force(), { memory, arrivals: true, fresh: false })
     expect(starts).toEqual(['g1'])
     starts.length = 0
-    await run(built, null, { memory, arrivals: true, fresh: false, replace: counted(grid(), 'other') })
+    await run(built, null, {
+      memory,
+      arrivals: true,
+      fresh: false,
+      replace: counted(grid(), 'other'),
+    })
     expect(starts.sort()).toEqual(['g0', 'g1'])
     starts.length = 0
     await run(built, force(), { arrivals: true, fresh: false })

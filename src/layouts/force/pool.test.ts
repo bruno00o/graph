@@ -174,7 +174,9 @@ describe('ForcePool', () => {
   it('spreads many jobs over its workers and ends each as the main thread would', async () => {
     const made = await workers(4)
     const pool = new ForcePool(spawner(made), 3)
-    const graphs = Array.from({ length: 60 }, (_, at) => graphOf(100 + (at % 7) * 40, at + 1, at % 3 === 0))
+    const graphs = Array.from({ length: 60 }, (_, at) =>
+      graphOf(100 + (at % 7) * 40, at + 1, at % 3 === 0),
+    )
     const { ended } = submit(pool, graphs)
     await until(() => ended.size === graphs.length)
     expect(ended.size).toBe(graphs.length)
