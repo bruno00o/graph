@@ -1,5 +1,6 @@
 import { themeColor } from '../theme/tokens'
 import type { Mark } from '../types'
+import type { LegendEdgeSwatch, LegendNodeSwatch, LegendShapeSwatch, LegendSwatch } from './entries'
 import type { Legend, LegendLayer, LegendState } from './index'
 import type {
   LegendColor,
@@ -24,10 +25,11 @@ export interface LegendViewOptions<M extends Mark = Mark> {
   readonly titles?: Partial<Readonly<Record<LegendSection, string | undefined>>> | undefined
   /**
    * Sections to show, in this order. Looks show only for a kind of element drawn with more than
-   * one look, layers only when a mark names a layer.
-   * @default ['color', 'size', 'width', 'looks', 'layers']
+   * one look, layers only when a mark names a layer, and `'entries'` stands for the sections of
+   * the entries the application declared, each with its own title.
+   * @default ['color', 'size', 'width', 'looks', 'layers', 'entries']
    */
-  readonly sections?: readonly LegendSection[] | undefined
+  readonly sections?: readonly (LegendSection | 'entries')[] | undefined
   /**
    * Text of a value of a scale. Defaults to the value, numbers formatted for the language of the
    * page with at most two decimals.
@@ -66,7 +68,14 @@ export interface LegendView<M extends Mark = Mark> {
   destroy(): void
 }
 
-const allSections: readonly LegendSection[] = ['color', 'size', 'width', 'looks', 'layers']
+const allSections: readonly (LegendSection | 'entries')[] = [
+  'color',
+  'size',
+  'width',
+  'looks',
+  'layers',
+  'entries',
+]
 let headings = 0
 const maxDiameter = 40
 const maxWidth = 12
@@ -123,6 +132,13 @@ function structure(state: LegendState): string {
   for (const look of state.looks) parts.push(look.id)
   parts.push('|')
   for (const layer of state.layers) parts.push(layer.id)
+  parts.push('|')
+  for (const section of state.entries) {
+    parts.push(section.title ?? '', '/')
+    for (const item of section.items) {
+      parts.push(item.id, item.label, String(item.interactive), JSON.stringify(item.swatch))
+    }
+  }
   return parts.join('\u0000')
 }
 
@@ -148,16 +164,19 @@ export function mountLegend<S extends string, M extends Mark>(
   }
 
   function section(
-    name: LegendSection,
+    name: LegendSection | 'entries',
     body: HTMLElement,
     mark: LegendScalesOf<M> | null = null,
+    own?: string,
   ): HTMLElement {
     const block = element('section', 'margin:0')
     block.setAttribute('data-section', name)
     if (mark) block.setAttribute('data-mark', mark.id)
     const title = mark
       ? (settings.markTitle?.(mark, name as 'color' | 'size' | 'width') ?? mark.mark)
-      : settings.titles?.[name]
+      : name === 'entries'
+        ? own
+        : settings.titles?.[name]
     if (title !== undefined) {
       const heading = element('div', titleStyle, title)
       heading.id = `graph-legend-${++headings}`
@@ -268,7 +287,12 @@ export function mountLegend<S extends string, M extends Mark>(
     return blocks.filter((block): block is HTMLElement => block !== null)
   }
 
-  function nodeSymbol(look: LegendNodeLook): HTMLElement {
+  function nodeSymbol(
+    look: Pick<LegendNodeLook, 'shape' | 'image' | 'imageColor'> & {
+      readonly fill?: string | undefined
+      readonly stroke?: string | undefined
+    },
+  ): HTMLElement {
     const shape =
       look.shape === 'square'
         ? 'width:12px;height:12px;border-radius:1px'
@@ -281,7 +305,11 @@ export function mountLegend<S extends string, M extends Mark>(
       'span',
       'flex:none;display:flex;align-items:center;justify-content:center;width:16px;height:16px',
     )
-    const body = element('span', `${shape};overflow:hidden;background:${themeColor('node')}`)
+    const outline = look.stroke ? `;box-sizing:border-box;border:1.5px solid ${look.stroke}` : ''
+    const body = element(
+      'span',
+      `${shape};overflow:hidden;background:${look.fill ?? themeColor('node')}${outline}`,
+    )
     if (look.image !== null) {
       const url = `url(${JSON.stringify(look.image)})`
       if (look.imageColor === null) {
@@ -297,16 +325,29 @@ export function mountLegend<S extends string, M extends Mark>(
     return symbol
   }
 
-  function edgeSymbol(look: LegendEdgeLook): HTMLElement {
+  function edgeSymbol(
+    look: Pick<LegendEdgeLook, 'dash'> & {
+      readonly color?: string | undefined
+      readonly width?: number | undefined
+    },
+  ): HTMLElement {
     const symbol = element(
       'span',
       'flex:none;display:flex;align-items:center;width:24px;height:16px',
     )
-    symbol.append(element('span', `width:100%;border-top:2px ${look.dash} ${themeColor('edge')}`))
+    const width = Math.min(maxWidth, Math.max(1, look.width ?? 2))
+    symbol.append(
+      element(
+        'span',
+        `width:100%;border-top:${width}px ${look.dash} ${look.color ?? themeColor('edge')}`,
+      ),
+    )
     return symbol
   }
 
-  function shapeSymbol(look: LegendShapeLook): HTMLElement {
+  function shapeSymbol(
+    look: Pick<LegendShapeLook, 'geometry' | 'dash' | 'fill' | 'stroke'>,
+  ): HTMLElement {
     const symbol = element(
       'span',
       'flex:none;display:flex;align-items:center;justify-content:center;width:24px;height:16px',
@@ -321,6 +362,41 @@ export function mountLegend<S extends string, M extends Mark>(
           ),
     )
     return symbol
+  }
+
+  function swatchSymbol(swatch: LegendSwatch): HTMLElement {
+    if (swatch.kind === 'nodes') {
+      const node: LegendNodeSwatch = swatch
+      return nodeSymbol({
+        shape: node.shape ?? 'circle',
+        image: node.image ?? null,
+        imageColor: node.imageColor ?? null,
+        fill: node.fill,
+        stroke: node.stroke,
+      })
+    }
+    if (swatch.kind === 'edges') {
+      const edge: LegendEdgeSwatch = swatch
+      return edgeSymbol({ dash: edge.dash ?? 'solid', color: edge.color, width: edge.width })
+    }
+    const area: LegendShapeSwatch = swatch
+    return shapeSymbol({
+      geometry: area.geometry ?? 'area',
+      dash: area.dash ?? 'solid',
+      fill: area.fill === undefined ? themeColor('shape-fill') : area.fill,
+      stroke: area.stroke === undefined ? themeColor('shape-stroke') : area.stroke,
+    })
+  }
+
+  function entriesSections(state: LegendState<M>): HTMLElement[] {
+    return state.entries
+      .filter((group) => group.items.length > 0)
+      .map((group) => {
+        const rows = group.items.map((entry) =>
+          item(entry.interactive ? entry.id : null, swatchSymbol(entry.swatch), entry.label),
+        )
+        return section('entries', list(rows), null, group.title)
+      })
   }
 
   function looksSection(state: LegendState<M>): HTMLElement | null {
@@ -370,7 +446,9 @@ export function mountLegend<S extends string, M extends Mark>(
     items.clear()
     const blocks: HTMLElement[] = []
     for (const name of settings.sections ?? allSections) {
-      if (name === 'looks' || name === 'layers') {
+      if (name === 'entries') {
+        blocks.push(...entriesSections(state))
+      } else if (name === 'looks' || name === 'layers') {
         const block = name === 'looks' ? looksSection(state) : layersSection(state)
         if (block) blocks.push(block)
       } else {
