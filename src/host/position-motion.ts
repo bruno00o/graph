@@ -48,10 +48,10 @@ export class PositionMotion {
     if (index < this.#owner.length) this.#owner[index] = 0
   }
 
-  freeMovable(movable: Uint8Array, capacity: number): void {
+  freeMovable(movable: Uint8Array, capacity: number, keep?: ReadonlySet<number>): void {
     const owner = this.#owner
     for (let index = 0; index < Math.min(capacity, owner.length); index++) {
-      if (movable[index] === 1) owner[index] = 0
+      if (movable[index] === 1 && keep?.has(index) !== true) owner[index] = 0
     }
   }
 
@@ -100,6 +100,31 @@ export class PositionMotion {
       }
       return false
     })
+  }
+
+  carry(id: number, xy: Float32Array): boolean {
+    const animation = this.#animations.find((each) => each.id === id)
+    if (!animation) return false
+    const owner = this.#owner
+    animation.indices.forEach((index, i) => {
+      if (owner[index] !== id) return
+      const x = xy[index * 2]
+      const y = xy[index * 2 + 1]
+      if (x === undefined || y === undefined) return
+      const dx = x - (animation.to[i * 2] ?? 0)
+      const dy = y - (animation.to[i * 2 + 1] ?? 0)
+      animation.to[i * 2] = x
+      animation.to[i * 2 + 1] = y
+      animation.from[i * 2] = (animation.from[i * 2] ?? 0) + dx
+      animation.from[i * 2 + 1] = (animation.from[i * 2 + 1] ?? 0) + dy
+    })
+    return true
+  }
+
+  release(id: number, indices: Iterable<number>): void {
+    if (id === 0) return
+    const owner = this.#owner
+    for (const index of indices) if (owner[index] === id) owner[index] = 0
   }
 
   move(

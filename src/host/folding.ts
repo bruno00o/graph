@@ -2,10 +2,12 @@ import { containerShape } from '../core/columns'
 import type { GraphChanges, GraphModel } from '../core/graph-model'
 import { groupingOf, groupKey } from '../core/group-index'
 import { type StringCheck, stringCheck } from '../core/key-list'
+import { sameLayout } from '../core/layout-scopes'
 import { goldenAngle, type Positions, placementSpacing } from '../core/positions'
 import type { Projection, ProjectionChanges } from '../core/projection'
 import type { Scene } from '../core/scene'
-import type { GraphDefinition, Key } from '../types'
+import type { GraphDefinition, Key, Layout } from '../types'
+import type { ArrangedPlaces } from './arranged-places'
 import { requestMemory, sameList } from './element-keys'
 import type { Emitter, GraphFoldEvent } from './events'
 import type { GraphGroups, GraphState } from './graph-instance'
@@ -24,10 +26,27 @@ export interface FoldSource {
   state(): GraphState
   patch(next: Partial<GraphState>): void
   definition(): GraphDefinition
+  readonly arranged: ArrangedPlaces
   makeRoom(moving: readonly number[], to: readonly number[]): void
+  arranger(index: number): Layout | null
+  arranges(): boolean
   request(flush: boolean): void
   prepare(): void
 }
+
+export interface Revealed {
+  readonly placed: readonly number[]
+  readonly keyed: readonly number[]
+  readonly whole: readonly number[]
+  readonly growing: readonly number[]
+}
+
+export const nothingRevealed: Revealed = Object.freeze({
+  placed: [],
+  keyed: [],
+  whole: [],
+  growing: [],
+})
 
 export class FoldControl {
   readonly #asks = new PendingRequests<readonly Key[]>(sameList, requestMemory)
@@ -178,7 +197,7 @@ export class FoldControl {
     changes: GraphChanges,
     projected: ProjectionChanges,
     restored: readonly number[] = [],
-  ): number[] {
+  ): Revealed {
     const { positions, projection, scene } = this.#source
     const hierarchy = projection.hierarchy
     const origins = this.#origins
@@ -210,7 +229,7 @@ export class FoldControl {
           restored.length > 0 ? new Set(restored) : null,
         )
       : new Set<number>()
-    if (projected.revealed.length === 0) return []
+    if (projected.revealed.length === 0) return nothingRevealed
     const fresh = new Set(projected.fresh)
     const anchorOf = (index: number): number => {
       for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
@@ -218,14 +237,21 @@ export class FoldControl {
       }
       return -1
     }
+    const arranging = this.#arranging(projected, opened)
     const indices: number[] = []
     const to: number[] = []
+    const room: number[] = []
+    const roomTo: number[] = []
     const placed: number[] = []
     for (const index of projected.revealed) {
       const anchor = anchorOf(index)
       if (anchor < 0 || tracked(index) || scene.nodes.shape[index] === containerShape) continue
       const ax = positions.x(anchor)
       const ay = positions.y(anchor)
+      if (arranging?.place(index, fresh.has(index) && !grouped.has(index))) {
+        positions.set(index, ax, ay)
+        continue
+      }
       if (fresh.has(index) && !grouped.has(index)) {
         const ring = positions.nextRing(anchor)
         const angle = ring * goldenAngle
@@ -234,14 +260,48 @@ export class FoldControl {
         placed.push(index)
         continue
       }
+      const x = positions.x(index)
+      const y = positions.y(index)
       indices.push(index)
-      to.push(positions.x(index), positions.y(index))
+      to.push(x, y)
+      room.push(index)
+      roomTo.push(x, y)
       positions.set(index, ax, ay)
+    }
+    const plan = arranging?.decide() ?? null
+    if (arranging && plan) {
+      for (const [index, [x, y]] of arranging.starts) {
+        indices.push(index)
+        to.push(x, y)
+      }
+      for (const [index, x, y] of plan.settled) {
+        room.push(index)
+        roomTo.push(x, y)
+      }
     }
     const definition = this.#source.definition()
     this.#source.motion.move(indices, to, definition.transitions.layout)
-    if (definition.layout && indices.length > 0) this.#source.makeRoom(indices, to)
-    return placed
+    if ((definition.layout || this.#source.arranges()) && room.length > 0) {
+      this.#source.makeRoom(room, roomTo)
+    }
+    if (!plan) return placed.length > 0 ? { ...nothingRevealed, placed } : nothingRevealed
+    return { placed, keyed: plan.keyed, whole: plan.whole, growing: plan.growing }
+  }
+
+  #arranging(projected: ProjectionChanges, opened: ReadonlySet<number>): Arranging | null {
+    const source = this.#source
+    let homes: Set<number> | null = null
+    for (const group of projected.unfolded) {
+      if (!source.arranger(group)) continue
+      homes ??= new Set()
+      homes.add(group)
+    }
+    for (const index of projected.revealed) {
+      if (source.scene.nodes.shape[index] !== containerShape || !source.arranger(index)) continue
+      homes ??= new Set()
+      homes.add(index)
+    }
+    return homes ? new Arranging(source, homes, opened) : null
   }
 
   api(): GraphGroups {
@@ -290,5 +350,173 @@ export class FoldControl {
       },
       keyOf: (name, value, parent) => groupKey(name, value, parent),
     }
+  }
+}
+
+interface ArrangePlan {
+  readonly keyed: number[]
+  readonly whole: number[]
+  readonly growing: number[]
+  readonly settled: (readonly [number, number, number])[]
+}
+
+interface Unit {
+  readonly index: number
+  readonly recorded: boolean
+}
+
+class Arranging {
+  readonly #source: FoldSource
+  readonly #homes: ReadonlySet<number>
+  readonly #opened: ReadonlySet<number>
+  readonly #units = new Map<number, Unit[]>()
+  readonly #starts = new Map<number, readonly [number, number]>()
+  readonly #refs = new Map<number, readonly [number, number]>()
+  readonly #valid = new Map<number, boolean>()
+  readonly #rings = new Map<number, number>()
+
+  constructor(source: FoldSource, homes: ReadonlySet<number>, opened: ReadonlySet<number>) {
+    this.#source = source
+    this.#homes = homes
+    this.#opened = opened
+    for (const block of homes) {
+      const home = this.#homeOf(block)
+      if (home >= 0 && homes.has(home)) this.#unit(home, block, this.#recorded(home, block))
+    }
+  }
+
+  place(index: number, fresh: boolean): boolean {
+    const home = this.#homeOf(index)
+    if (home < 0 || !this.#homes.has(home)) return false
+    const { positions, projection } = this.#source
+    const parent = projection.hierarchy.parent[index] ?? -1
+    const at = this.#ref(parent)
+    const recorded = this.#recorded(home, index)
+    const offset = recorded ? this.#source.arranged.offset(index, parent) : null
+    if (offset) {
+      this.#starts.set(index, [at[0] + offset[0], at[1] + offset[1]])
+    } else if (fresh) {
+      const ring = this.#rings.get(parent) ?? 0
+      this.#rings.set(parent, ring + 1)
+      const radius = placementSpacing * Math.sqrt(ring + 1)
+      this.#starts.set(index, [
+        at[0] + radius * Math.cos(ring * goldenAngle),
+        at[1] + radius * Math.sin(ring * goldenAngle),
+      ])
+    } else {
+      this.#starts.set(index, [positions.x(index), positions.y(index)])
+    }
+    this.#unit(home, index, recorded)
+    return true
+  }
+
+  get starts(): ReadonlyMap<number, readonly [number, number]> {
+    return this.#starts
+  }
+
+  decide(): ArrangePlan {
+    const plan: ArrangePlan = { keyed: [], whole: [], growing: [], settled: [] }
+    for (const home of this.#homes) {
+      if (!this.#homes.has(this.#homeOf(home))) this.#decide(home, false, plan)
+    }
+    return plan
+  }
+
+  #decide(home: number, moved: boolean, plan: ArrangePlan): void {
+    const units = this.#units.get(home) ?? []
+    const layout = this.#source.arranger(home)
+    const recorded = units.filter((unit) => unit.recorded).length
+    const whole = units.length > 0 && (layout?.incremental === false || recorded === 0)
+    const keyed = !whole && recorded < units.length
+    if (whole) {
+      plan.whole.push(home)
+      this.#center(home)
+    }
+    for (const unit of units) {
+      if (keyed && !unit.recorded) plan.keyed.push(unit.index)
+      const runs = whole || (keyed && !unit.recorded)
+      const start = this.#starts.get(unit.index)
+      if (!start) {
+        this.#decide(unit.index, moved || runs, plan)
+        continue
+      }
+      if (moved || runs) plan.growing.push(unit.index)
+      else plan.settled.push([unit.index, start[0], start[1]])
+    }
+  }
+
+  #center(home: number): void {
+    const leaves: number[] = []
+    const collect = (at: number): void => {
+      for (const unit of this.#units.get(at) ?? []) {
+        if (this.#starts.has(unit.index)) leaves.push(unit.index)
+        else collect(unit.index)
+      }
+    }
+    collect(home)
+    if (leaves.length === 0) return
+    let minX = Number.POSITIVE_INFINITY
+    let minY = Number.POSITIVE_INFINITY
+    let maxX = Number.NEGATIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+    for (const index of leaves) {
+      const [x, y] = this.#starts.get(index) ?? [0, 0]
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+    }
+    const [x, y] = this.#ref(home)
+    const dx = x - (minX + maxX) / 2
+    const dy = y - (minY + maxY) / 2
+    for (const index of leaves) {
+      const [sx, sy] = this.#starts.get(index) ?? [0, 0]
+      this.#starts.set(index, [sx + dx, sy + dy])
+    }
+  }
+
+  #unit(home: number, index: number, recorded: boolean): void {
+    let units = this.#units.get(home)
+    if (!units) {
+      units = []
+      this.#units.set(home, units)
+    }
+    units.push({ index, recorded })
+  }
+
+  #recorded(home: number, index: number): boolean {
+    let valid = this.#valid.get(home)
+    if (valid === undefined) {
+      valid = sameLayout(this.#source.arranged.layout(home), this.#source.arranger(home))
+      this.#valid.set(home, valid)
+    }
+    if (!valid) return false
+    const parent = this.#source.projection.hierarchy.parent[index] ?? -1
+    return this.#source.arranged.offset(index, parent) !== null
+  }
+
+  #homeOf(index: number): number {
+    const hierarchy = this.#source.projection.hierarchy
+    for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
+      if (this.#source.arranger(at)) return at
+    }
+    return -1
+  }
+
+  #ref(container: number): readonly [number, number] {
+    const known = this.#refs.get(container)
+    if (known) return known
+    const { positions, projection, arranged } = this.#source
+    let ref: readonly [number, number] = [positions.x(container), positions.y(container)]
+    if (!this.#opened.has(container)) {
+      const parent = projection.hierarchy.parent[container] ?? -1
+      const offset = arranged.offset(container, parent)
+      if (offset) {
+        const above = this.#ref(parent)
+        ref = [above[0] + offset[0], above[1] + offset[1]]
+      }
+    }
+    this.#refs.set(container, ref)
+    return ref
   }
 }
