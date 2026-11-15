@@ -35,6 +35,7 @@ export class Hierarchy {
   readonly #stack: number[] = []
   #issueVersion = 0
   #foldedKeys: Set<Key> = new Set()
+  #flipped: number[] = []
   #decided: Set<Key> | null = null
   #born: Key[] = []
   foldNew: ((index: number) => boolean) | null = null
@@ -195,6 +196,7 @@ export class Hierarchy {
       if (index < 0 || this.present[index] !== 1 || this.folded[index] === folded) return
       this.folded[index] = folded
       this.#touched.add(index)
+      this.#flipped.push(index)
       roots.push(index)
     }
     for (const key of previous) if (!next.has(key)) flip(key, 0)
@@ -221,6 +223,12 @@ export class Hierarchy {
     const moved = this.#moved
     this.#moved = []
     return moved
+  }
+
+  takeFlipped(): number[] {
+    const flipped = this.#flipped
+    if (flipped.length > 0) this.#flipped = []
+    return flipped
   }
 
   takeRelinked(): number[] {
@@ -268,6 +276,7 @@ export class Hierarchy {
     this.firstChild[parent] = index
     const count = this.childCount[parent] ?? 0
     this.childCount[parent] = count + 1
+    if (count === 0) this.#flipped.push(parent)
     if (count === 0 && this.foldNew) this.#decide(parent)
     this.#touched.add(parent)
     this.#relinked.push(index)
@@ -286,6 +295,7 @@ export class Hierarchy {
     this.folded[group] = 1
     this.#foldedKeys.add(key)
     this.#born.push(key)
+    this.#flipped.push(group)
   }
 
   #detach(index: number): void {
@@ -308,7 +318,9 @@ export class Hierarchy {
     this.parent[index] = none
     this.nextSibling[index] = none
     this.previousSibling[index] = none
-    this.childCount[parent] = (this.childCount[parent] ?? 1) - 1
+    const left = (this.childCount[parent] ?? 1) - 1
+    this.childCount[parent] = left
+    if (left === 0) this.#flipped.push(parent)
     this.#touched.add(parent)
     this.#relinked.push(index)
     this.#reshaped = true
