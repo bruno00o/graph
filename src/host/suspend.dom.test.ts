@@ -445,6 +445,43 @@ describe('suspend and resume', () => {
 })
 
 describe('a context the browser takes away', () => {
+  it('hides the canvas until a frame is drawn again', () => {
+    const graph = mount()
+    const canvas = canvasOf(graph)
+    expect(canvas.style.visibility).toBe('')
+    lose(canvas)
+    expect(canvas.style.visibility).toBe('hidden')
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    expect(canvas.style.visibility).toBe('hidden')
+    dom.flushFrames()
+    expect(canvas.style.visibility).toBe('')
+  })
+
+  it('shows the canvas again once resume brings the context back', () => {
+    const graph = mount({ context: true })
+    const canvas = canvasOf(graph)
+    const handle = (() => {
+      lose(canvas)
+      const made = handles.at(-1) as Handle
+      made.gone = true
+      return made
+    })()
+    expect(canvas.style.visibility).toBe('hidden')
+    graph.resume()
+    expect(handle.restores).toBe(1)
+    handle.gone = false
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    dom.flushFrames()
+    expect(canvas.style.visibility).toBe('')
+  })
+
+  it('does not take suspended in update', () => {
+    const graph = mount()
+    // @ts-expect-error
+    graph.update({ suspended: true })
+    expect(graph.store.state.suspended).toBe(false)
+  })
+
   function evict(graph: GraphInstance): Handle {
     const canvas = canvasOf(graph)
     lose(canvas)

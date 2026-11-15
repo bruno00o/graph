@@ -365,6 +365,7 @@ export class RenderHost {
       return
     }
     this.#lost.add(own)
+    this.#hide(own)
     const renderer = this.#renderers.get(own)
     this.#renderers.delete(own)
     if (!renderer) return

@@ -532,6 +532,7 @@ export type GraphUpdateOptions<S extends string = string, M extends Mark = Mark>
     | 'initialPositions'
     | 'initialTime'
     | 'initialHiddenLayers'
+    | 'suspended'
     | 'signal'
   >]?: MountGraphOptions<S, M>[K] | undefined
 }
@@ -627,7 +628,7 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
   readonly surface?: GraphSurface | null | undefined
   /**
    * Mounts the graph suspended: it creates no WebGL context until `resume` is called. Data, layouts
-   * and the store work as usual.
+   * and the store work as usual. Read at the mount only: `update` ignores it.
    * @default false
    */
   readonly suspended?: boolean | undefined

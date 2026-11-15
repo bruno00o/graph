@@ -24,7 +24,7 @@ The selection itself, as `onSelectionChange` receives it, is an [`ElementKeys`](
 
 ## Suspended
 
-`suspended: true` mounts the graph without a WebGL context: it reads its data, lays it out, answers every call and fills its store, and draws nothing until [`resume`](/docs/api/graph-instance#suspend). Mount the graphs of a long page this way and resume each one as it comes into sight, so that the page asks for no more contexts than the graphs it shows.
+`suspended: true` mounts the graph without a WebGL context: it reads its data, lays it out, answers every call and fills its store, and draws nothing until [`resume`](/docs/api/graph-instance#suspend). It is read at the mount only: afterwards, `suspend` and `resume` do the work. Mount the graphs of a long page this way and resume each one as it comes into sight, so that the page asks for no more contexts than the graphs it shows.
 
 ```ts
 const graph = mountGraph(card, { definition, ariaLabel: 'Sample graph', suspended: true })
