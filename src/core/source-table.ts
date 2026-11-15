@@ -15,6 +15,7 @@ import {
   type HistoryTrack,
   type HistoryTrail,
   historyEngineOf,
+  type StepRecords,
   wholeHistory,
 } from './history'
 import type { AnyIssue, ElementKind, MissingKeyIssue } from './issues'
@@ -140,6 +141,7 @@ export class SourceTable<M extends AnyMark> {
   #issueVersion = 0
   #readinessVersion = 0
   #rowVersion = 0
+  #steady = false
   #cut: HistoryCut = wholeHistory
 
   constructor(kind: ElementKind, notify: () => void) {
@@ -241,6 +243,7 @@ export class SourceTable<M extends AnyMark> {
   commit(plan: SourcePlan<M>): void {
     const previous = this.#sources
     this.#rowVersion++
+    this.#steady = false
     const { marks, next } = plan
     const replaced: Source<M>[] = []
     this.#sources = [...next]
@@ -343,7 +346,12 @@ export class SourceTable<M extends AnyMark> {
     this.#fresh.length = 0
     this.#restyled = null
     this.#draining = false
+    this.#steady = true
     this.#settled = this.#sources.map((source) => source.mark)
+  }
+
+  defer(key: Key): void {
+    this.#markKey(key)
   }
 
   markAt(slot: number): M {
@@ -352,9 +360,10 @@ export class SourceTable<M extends AnyMark> {
     return mark
   }
 
-  drain(): void {
+  drain(step: StepRecords | null = null): void {
     this.#draining = true
     const restyled = this.#restyled
+    let held = false
     for (const source of this.#sources) {
       if (isLive(source)) this.#apply(source)
       const previous = source.previous
@@ -369,7 +378,23 @@ export class SourceTable<M extends AnyMark> {
           this.#markDirty(key, true)
         })
       }
-      source.hold?.drain(this.#cut, this.#markKey)
+      if (source.hold) held = true
+    }
+    if (!held) return
+    const direct =
+      step !== null &&
+      this.#steady &&
+      this.#dirty.size === 0 &&
+      this.#fresh.length === 0 &&
+      this.#sources.every((source) => !source.hold?.queued)
+    for (const source of this.#sources) {
+      const hold = source.hold
+      if (!hold) continue
+      hold.drain(
+        this.#cut,
+        this.#markKey,
+        direct ? { records: step, slot: source.slot, mark: source.mark } : null,
+      )
     }
   }
 

@@ -22,10 +22,39 @@ export interface HistoryHost {
   recheck(): void
 }
 
+export interface StepRecord {
+  readonly key: Key
+  readonly index: number
+  readonly slot: number
+  datum: unknown
+  readonly source?: Key | null
+  readonly target?: Key | null
+}
+
+export interface StepRecords {
+  epoch: number
+  readonly ends: boolean
+  find(key: Key): number
+  at(id: number): StepRecord | undefined
+  defer(key: Key): void
+  updated(record: StepRecord): void
+}
+
+export interface HistoryStep {
+  readonly records: StepRecords
+  readonly slot: number
+  readonly mark: Mark
+}
+
 export interface HistoryTrack {
   readonly readiness: Readiness
   readonly live: LiveSource<unknown> | null
-  drain(cut: HistoryCut, mark: (key: Key, forced?: boolean) => void): void
+  readonly queued: boolean
+  drain(
+    cut: HistoryCut,
+    mark: (key: Key, forced?: boolean) => void,
+    step?: HistoryStep | null,
+  ): void
   datum(key: Key, row: unknown): unknown
   entries(key: Key): readonly HistoryEntry[] | null
   forEachKey(visit: (key: Key) => void): void
