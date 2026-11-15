@@ -2,6 +2,7 @@ import type { Attribute } from './gl'
 
 export const glyphStride = 40
 export const worldGlyph = 256
+export const hullGlyph = 512
 
 export function glyphAttributes(
   gl: WebGL2RenderingContext,
@@ -34,5 +35,12 @@ export function glyphAttributes(
     field('glyphUv', 24, 4, gl.UNSIGNED_SHORT, false, true),
     field('glyphColor', 32, 1, gl.UNSIGNED_INT, true),
     field('glyphSize', 36, 1, gl.FLOAT, false),
+  ]
+}
+
+export function anchorAttributes(gl: WebGL2RenderingContext, buffer: WebGLBuffer): Attribute[] {
+  return [
+    { name: 'glyphAnchor', buffer, size: 4, type: gl.FLOAT, divisor: 1, stride: 24, offset: 0 },
+    { name: 'glyphFit', buffer, size: 2, type: gl.FLOAT, divisor: 1, stride: 24, offset: 16 },
   ]
 }

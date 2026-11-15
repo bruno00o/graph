@@ -3,7 +3,7 @@ import { defineGraph } from '../define-graph'
 import { hull } from '../hulls'
 import { nodes } from '../marks'
 import type { Hull, Key } from '../types'
-import { containerShape } from './columns'
+import { containerShape, noColor } from './columns'
 import { createGraphModel } from './graph-model'
 import { outlineStride } from './hull-geometry'
 import { HullLayer, type HullSource, hullInstanceWords } from './hull-layer'
@@ -200,5 +200,83 @@ describe('HullLayer', () => {
     update()
     expect(layer.count).toBe(0)
     expect(layer.shapes).toHaveLength(0)
+  })
+
+  it('places a label above the top of the hull, centered on a flat top', () => {
+    const { layer, update, move } = setup(items, () => [hull({ nodes: ['a', 'b'], label: 'Ab' })])
+    update()
+    const label = layer.shapes[0]?.label
+    expect(label).toMatchObject({ text: 'Ab', x: expect.closeTo(50, 3), y: expect.closeTo(-5, 3) })
+    expect(label?.extent).toBeCloseTo(110, 3)
+    move('b', 100, -40)
+    update()
+    expect(layer.shapes[0]?.label).toMatchObject({
+      x: expect.closeTo(100, 0),
+      y: expect.closeTo(-45, 2),
+    })
+  })
+
+  it('puts the label of a single node above it', () => {
+    const { layer, update } = setup(items, () => [hull({ nodes: ['d'], label: { text: 'D' } })])
+    update()
+    expect(layer.shapes[0]?.label).toMatchObject({ x: expect.closeTo(500, 3), y: 490 })
+  })
+
+  it('names each hull of a grouping from its value and members', () => {
+    const seen: unknown[] = []
+    const { layer, update } = setup(items, (mark) => [
+      hull<Item>({
+        nodes: mark,
+        by: 'group',
+        label: {
+          text: (group) => {
+            seen.push(group)
+            return group.value === 'two' ? '' : `${group.value} (${group.count})`
+          },
+          color: (value) => (value === 'one' ? 'red' : 'blue'),
+          background: true,
+          weight: 'bold',
+          size: 14,
+        },
+      }),
+    ])
+    update()
+    expect(seen).toEqual([
+      { value: 'one', count: 3, keys: ['a', 'b', 'c'], data: items.slice(0, 3) },
+      { value: 'two', count: 2, keys: ['d', 'e'], data: items.slice(3) },
+    ])
+    const one = layer.shapes[0]?.label
+    expect(one).toMatchObject({ text: 'one (3)', size: 14, weight: 700, count: 3 })
+    expect(one?.color).not.toBe(noColor)
+    expect(one?.background).not.toBe(noColor)
+    expect(layer.shapes[1]?.label).toBeNull()
+  })
+
+  it('counts a label version when hulls are rebuilt, not when they move', () => {
+    const { layer, update, move, setState } = setup(items, () => [
+      hull({ state: 'picked', label: 'Picked' }),
+    ])
+    update()
+    expect(layer.shapes).toHaveLength(0)
+    const empty = layer.labelVersion
+    setState('picked', ['a', 'b'])
+    update()
+    expect(layer.labelVersion).toBeGreaterThan(empty)
+    expect(layer.shapes[0]?.label?.text).toBe('Picked')
+    const shown = layer.labelVersion
+    const version = layer.version
+    move('a', 10, 10)
+    update()
+    expect(layer.labelVersion).toBe(shown)
+    expect(layer.version).toBeGreaterThan(version)
+  })
+
+  it('draws no label without text', () => {
+    const { layer, update } = setup(items, () => [
+      hull({ nodes: ['a'] }),
+      hull({ nodes: ['b'], label: '' }),
+    ])
+    update()
+    expect(layer.shapes.map((shape) => shape.label)).toEqual([null, null])
   })
 })

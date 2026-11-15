@@ -5,7 +5,6 @@ import {
   type Hull,
   type HullShape,
   hull,
-  type Key,
   mountGraph,
   nodes,
 } from '@bruno00o/graph'
@@ -31,37 +30,6 @@ function button(text: string, onClick: (button: HTMLButtonElement) => void): HTM
   return element
 }
 
-const nameGap = 16
-function nameSide(
-  keys: readonly Key[],
-  others: readonly Key[],
-  point: (key: Key) => { readonly x: number; readonly y: number } | undefined,
-  reach: number,
-): 'top' | 'bottom' {
-  let minX = Number.POSITIVE_INFINITY
-  let maxX = Number.NEGATIVE_INFINITY
-  let minY = Number.POSITIVE_INFINITY
-  let maxY = Number.NEGATIVE_INFINITY
-  for (const key of keys) {
-    const at = point(key)
-    if (!at) continue
-    minX = Math.min(minX, at.x)
-    maxX = Math.max(maxX, at.x)
-    minY = Math.min(minY, at.y)
-    maxY = Math.max(maxY, at.y)
-  }
-  if (maxX < minX) return 'top'
-  const room = (y: number) => {
-    let nearest = Number.POSITIVE_INFINITY
-    for (const key of others) {
-      const at = point(key)
-      if (at) nearest = Math.min(nearest, Math.hypot(at.x - (minX + maxX) / 2, at.y - y))
-    }
-    return nearest
-  }
-  return room(minY - reach) >= room(maxY + reach) ? 'top' : 'bottom'
-}
-
 function cycle<T>(values: readonly T[], value: T): T {
   return values[(values.indexOf(value) + 1) % values.length] ?? value
 }
@@ -76,7 +44,16 @@ export function mount(container: HTMLElement): GraphInstance {
   let shape: HullShape = 'rounded'
 
   const hulls = (): Hull<'selected'>[] => {
-    if (mode === 'groups') return [hull<Item>({ nodes: itemMark, by: 'group', shape })]
+    if (mode === 'groups') {
+      return [
+        hull<Item>({
+          nodes: itemMark,
+          by: 'group',
+          shape,
+          label: { text: ({ value }) => messages.group(String(value)), weight: 600 },
+        }),
+      ]
+    }
     if (mode === 'selection') {
       return [hull({ state: 'selected', shape, color: 'var(--graph-accent)', padding: 12 })]
     }
@@ -147,35 +124,6 @@ export function mount(container: HTMLElement): GraphInstance {
     graph.anchors.set(tooltip, { edge: target.key, side: 'top', when: 'hovered' })
   })
 
-  const groups = new Map<string, Key[]>()
-  for (const item of items) groups.set(item.group, [...(groups.get(item.group) ?? []), item.id])
-  const names = [...groups].map(([group, keys]) => {
-    const name = document.createElement('div')
-    name.className = 'drawing-group'
-    name.textContent = messages.group(group)
-    return { name, keys }
-  })
-  const showNames = () => {
-    const point = (key: Key) => graph.positions.get(key)
-    const reach = 40 / graph.view.get().zoom
-    for (const { name, keys } of names) {
-      if (mode !== 'groups') {
-        graph.anchors.remove(name)
-        continue
-      }
-      const others = items.filter((item) => !keys.includes(item.id)).map((item) => item.id)
-      const side = nameSide(keys, others, point, reach)
-      graph.anchors.set(name, {
-        nodes: keys,
-        side,
-        offset: { x: 0, y: side === 'top' ? -nameGap : nameGap },
-      })
-    }
-  }
-  showNames()
-  graph.on('layoutend', showNames)
-  graph.on('positionchange', showNames)
-
   const actions = document.createElement('div')
   actions.className = 'example-actions'
   actions.append(
@@ -187,7 +135,6 @@ export function mount(container: HTMLElement): GraphInstance {
     button(messages.hulls(messages.hullModes[mode]), (element) => {
       mode = cycle(modes, mode)
       element.textContent = messages.hulls(messages.hullModes[mode])
-      showNames()
       redraw()
     }),
     button(messages.hullShape(messages.hullShapes[shape]), (element) => {

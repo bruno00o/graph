@@ -1,5 +1,6 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
+import type { HullShape } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { ShapeStore } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
@@ -27,6 +28,7 @@ export interface LabelSource {
   readonly boxes?: Float32Array | null
   readonly bundles?: EdgePaths | null
   readonly shapes?: ShapeStore | null
+  readonly hulls?: readonly HullShape[] | null
 }
 
 export interface Box {
@@ -92,6 +94,7 @@ export function selectLabels(
       statePaint: states.paint,
       mode,
       sink,
+      hulls: source.hulls ?? null,
       paths: source.bundles ?? null,
       shapes:
         source.shapes?.labels && source.shapes.engine
@@ -153,6 +156,12 @@ export function fitLabels(
     bottom: height - padding,
   }
   const local: Box = { left: 0, top: 0, right: 0, bottom: 0 }
+  const around = (label: PlacedLabel, ox: number, oy: number) => {
+    const scale = label.pixels / atlasFontSize
+    labelBox(label, local)
+    grow(bounds, ox + local.left * scale, oy + local.top * scale)
+    grow(bounds, ox + local.right * scale, oy + local.bottom * scale)
+  }
   const x = (index: number) => (source.positions.x(index) - view.x) * zoom + width / 2
   const y = (index: number) => (source.positions.y(index) - view.y) * zoom + height / 2
   selectLabels(source, frame, mode, measure, {
@@ -195,12 +204,8 @@ export function fitLabels(
         }
       }
     },
-    shape: (_index, label, ox, oy) => {
-      const scale = label.pixels / atlasFontSize
-      labelBox(label, local)
-      grow(bounds, ox + local.left * scale, oy + local.top * scale)
-      grow(bounds, ox + local.right * scale, oy + local.bottom * scale)
-    },
+    shape: (_index, label, ox, oy) => around(label, ox, oy),
+    hull: (_shape, label, ox, oy) => around(label, ox, oy),
   })
   const left = bounds.left - padding
   const top = bounds.top - padding

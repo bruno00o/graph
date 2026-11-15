@@ -12,6 +12,7 @@ import {
 import type { EdgePaths, PathPoint, PathSpot } from '../core/edge-paths'
 import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
+import type { HullShape } from '../core/hull-layer'
 import { primaryWeight, secondaryFactor, secondaryWeight } from '../core/label-width'
 import {
   isBox,
@@ -35,7 +36,7 @@ import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
 import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
-import { glyphStride, worldGlyph } from './glyph-attributes'
+import { glyphStride, hullGlyph, worldGlyph } from './glyph-attributes'
 import {
   builtInRaise,
   cullMargin,
@@ -112,6 +113,7 @@ export interface LabelFrame {
   readonly paths?: EdgePaths | null
   readonly globe?: GlobeCamera | null
   readonly shapes?: ShapeLabelFrame | null
+  readonly hulls?: readonly HullShape[] | null
 }
 
 export type TextMeasure = Pick<GlyphAtlas, 'height' | 'generation' | 'line' | 'fit'>
@@ -141,6 +143,7 @@ export interface LabelSink {
   node(index: number, label: PlacedLabel): void
   edge(index: number, label: PlacedLabel, anchor: Readonly<EdgeAnchor>): void
   shape?(index: number, label: PlacedLabel, x: number, y: number): void
+  hull?(shape: HullShape, label: PlacedLabel, x: number, y: number): void
 }
 
 export interface EdgeAnchor {
@@ -763,9 +766,11 @@ export class LabelLayer {
   readonly edgeHighlight: GlyphBuffer = new GlyphBuffer()
   readonly shapeMain: GlyphBuffer = new GlyphBuffer()
   readonly shapeHighlight: GlyphBuffer = new GlyphBuffer()
+  readonly hullMain: GlyphBuffer = new GlyphBuffer()
   nodeLabels = 0
   edgeLabels = 0
   shapeLabels = 0
+  hullLabels = 0
   #occupancy: Uint8Array = new Uint8Array(0)
   #cols = 0
   #rows = 0
@@ -904,9 +909,11 @@ export class LabelLayer {
     this.edgeHighlight.clear()
     this.shapeMain.clear()
     this.shapeHighlight.clear()
+    this.hullMain.clear()
     this.nodeLabels = 0
     this.edgeLabels = 0
     this.shapeLabels = 0
+    this.hullLabels = 0
     const { nodes, edges, positions, view, width, height } = frame
     const sight: Sight = frame.sight ?? { zoom: view.zoom, time: null, layers: null, hide: null }
     this.#nodeExtents.prepare(nodes.capacity, atlas.generation)
@@ -1327,6 +1334,89 @@ export class LabelLayer {
     }
     placeShapes(2)
 
+    const hulls = frame.hulls ?? []
+    const labeled: HullShape[] = []
+    for (const shape of hulls) if (shape.label && shape.outline.length > 0) labeled.push(shape)
+    labeled.sort((a, b) => (b.label?.count ?? 0) - (a.label?.count ?? 0))
+    for (const shape of labeled) {
+      const label = shape.label
+      if (!label || placed >= limit) break
+      const size = label.size || nodeLabelSize
+      const worldX = label.x + positions.originX
+      const worldY = label.y + positions.originY
+      let x = (worldX - view.x) * view.zoom + width / 2
+      let y = (worldY - view.y) * view.zoom + height / 2
+      if (globe) {
+        if (globeScreen(globe, worldX, worldY, projected) < 0) continue
+        x = projected.x
+        y = projected.y
+      }
+      const zoom = globe ? globeScale(globe, worldY) : view.zoom
+      y -= hullLift(shape)
+      if (x < -cullMargin || x > width + cullMargin) continue
+      if (y < -cullMargin || y > height + cullMargin) continue
+      const block = textBlock(
+        atlas,
+        label.text,
+        null,
+        label.weight || primaryWeight,
+        label.font,
+        label.maxWidth,
+        size,
+      )
+      label.width = (block.width * size) / atlasFontSize
+      const pixels = size * hullFit(shape, zoom)
+      if (pixels < minimumPixels) continue
+      const background = label.background
+      const plated = background !== noColor
+      const scale = pixels / atlasFontSize
+      const box = this.#box
+      boxEdges(box, x, y, 1, plated, block.width, block.height, scale)
+      if (box.right < 0 || box.left > width || box.bottom < 0 || box.top > height) continue
+      if (!this.#claimBox(box.left, box.top, box.right, box.bottom, all)) continue
+      const total = block.height + (plated ? plateDrop : 0)
+      const top = -total
+      const plate = plated
+        ? { cx: 0, cy: top + total / 2, hx: block.width / 2 + padUnits, hy: total / 2 }
+        : null
+      const flags = hullGlyph | (plated ? platedGlyph : 0)
+      if (plate) {
+        this.hullMain.pushPlate(
+          label.id,
+          flags,
+          plate.cx,
+          plate.cy,
+          plate.hx,
+          plate.hy,
+          background,
+          size,
+        )
+      }
+      emit(this.hullMain, label.id, flags, block, atlas.height, top, 0, 0, label.color, size)
+      sink?.hull?.(
+        shape,
+        {
+          block,
+          top,
+          align: 0,
+          shift: 0,
+          placement: 1,
+          inside: false,
+          plate,
+          background,
+          color: label.color,
+          size,
+          highlight: false,
+          end: 0,
+          pixels,
+        },
+        x,
+        y,
+      )
+      placed++
+      this.hullLabels++
+    }
+
     const xy = positions.xy
     const centerX = view.x - positions.originX
     const centerY = view.y - positions.originY
@@ -1422,6 +1512,16 @@ export class LabelLayer {
     }
     placeShapes(3)
   }
+}
+
+export function hullLift(shape: HullShape): number {
+  return shape.padding + shape.strokeWidth / 2 + labelGap
+}
+
+export function hullFit(shape: HullShape, zoom: number): number {
+  const label = shape.label
+  if (!label || label.width <= 0) return 1
+  return Math.min(1, (label.extent * zoom + shape.padding * 2) / label.width)
 }
 
 export interface EdgeLabelOrder {

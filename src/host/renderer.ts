@@ -2,6 +2,7 @@ import type { GridInput } from '../core/background-grid'
 import type { BridgeSet } from '../core/bridges'
 import type { EdgePaths } from '../core/edge-paths'
 import type { GlobeCamera } from '../core/globe'
+import type { HullShape } from '../core/hull-layer'
 import type { LayerFilter } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import type { Scene, SceneDirty } from '../core/scene'
@@ -16,6 +17,8 @@ export interface HullInput {
   readonly data: ArrayBuffer
   readonly count: number
   readonly version: number
+  readonly shapes?: readonly HullShape[]
+  readonly labelVersion?: number
 }
 
 export interface RenderInput {

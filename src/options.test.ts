@@ -75,6 +75,7 @@ import type {
   GroupOptions,
   HullGroupOptions,
   HullKeysOptions,
+  HullLabelOptions,
   HullMarkOptions,
   HullOptions,
   HullStateOptions,
@@ -235,6 +236,7 @@ interface Inputs {
   HistoryValues: HistoryValues<Item>
   HullGroupOptions: HullGroupOptions<Item>
   HullKeysOptions: HullKeysOptions
+  HullLabelOptions: HullLabelOptions<string, string>
   HullMarkOptions: HullMarkOptions<Item>
   HullOptions: HullOptions<Item, 'muted'>
   HullStateOptions: HullStateOptions<'muted'>
