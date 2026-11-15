@@ -27,6 +27,7 @@ sources:
   - src/core/source-table.ts
   - src/core/live-source.ts
   - src/host/data-status.ts
+  - src/host/data-reads.ts
   - src/host/graph-instance.ts
   - src/host/events.ts
   - docs/content/docs/(guide)/installation.mdx
@@ -226,7 +227,7 @@ graph.selection.set({ nodes: ['n3'] })
 graph.selection.clear()
 ```
 
-- Style properties: `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo`, `label` (`true`, `false` or `'always'`), `labelColor`, `flow`, `raise`, `hide`, and `others`, the style of every element outside a state that has members.
+- Style properties: `opacity`, `fill`, `stroke`, `strokeWidth`, `outline`, `outlineWidth`, `halo` (`true` for the soft glow, or `{ color, width }` for the glow of one state; interaction skill), `label` (`true`, `false` or `'always'`), `labelColor`, `flow`, `raise`, `hide`, and `others`, the style of every element outside a state that has members.
 - `selected`, `hovered` and `focused` are built in. Declaring one restyles it; their members change through `graph.selection` and user input, never `graph.states`.
 - When several states set one property, the first wins: `selected`, `hovered`, `focused`, then your states in declaration order.
 - A key may join a state before its element exists; the element takes the style when it arrives.
@@ -290,12 +291,14 @@ links = [...links, { id: 'e1', from: 'n1', to: 'n2' }]
 graph.update({ definition: define() })
 ```
 
-Options are compared by content, so a rebuilt definition with equal options rewrites nothing. Functions compare by identity: declare them once, as `itemOptions` does, or every update restyles every item of the mark. Data that streams its changes (a TanStack DB collection) needs no `update`; see the data guide below.
+Options are compared by content, so a rebuilt definition with equal options rewrites nothing. Functions compare by identity: declare them once, as `itemOptions` does, or every update restyles every item of the mark. When a function of a mark reads something besides its item (a `Map` of names kept by your app), the item is the same object and nothing is read again: call `graph.refresh({ nodes: [key] })` (`edges` and `shapes` too) instead of rebuilding the array. Data that streams its changes (a TanStack DB collection) needs no `update`; see the data guide below.
 
 ### Read the instance
 
 - `graph.store.get()` and `graph.store.subscribe(listener)` (a read-only TanStack Store): view, size, `hovered`, `focused`, `selection`, members of every state, layout status, and `positionsVersion`.
-- Positions are not in the store: read `graph.positions.get(key)` when `positionsVersion` changes; move nodes with `graph.positions.set([[key, { x, y }]])`.
+- Positions are not in the store: read `graph.positions.get(key)` when `positionsVersion` changes; move nodes with `graph.positions.set([[key, { x, y }]])`, and put dragged or set nodes back where their data places them with `graph.positions.reset(keys?)` (a node whose data gives no position stays). `initialPositions` at mount restores a snapshot without a layout run (layouts skill).
+- What is drawn: `graph.count().shown` counts it, `graph.shown()` lists the keys (a folded group gives its own key, not those of the nodes it hides; a merged edge gives each of its edges) and `graph.isShown({ kind: 'node', key })` asks about one element. They apply pending data first, like `count()`. `graph.refresh(keys)` reads elements again from their items. `graph.drawsOnMap` is `true` for a graph on a map.
+- Layouts: `graph.layout.run(layout?, options)` lays nodes out, and `graph.layout.compute(layout?, options)` computes the positions without moving anything (layouts skill).
 - Structure: `graph.neighbors(key)`, `graph.edgesOf(key)`, `graph.endpoints(edgeKey)`, `graph.datumOf({ kind: 'node', key })`, `graph.pick({ x, y })` (screen pixels).
 - View: `graph.view.fit({ nodes: [key], duration: 400 })`, `graph.view.set(view)`, `graph.view.zoomBy(2)`.
 - `await graph.drawn()` resolves after the next frame is drawn. It says nothing about live data: `await graph.loaded()` does (next section).
@@ -332,36 +335,7 @@ A live source (a TanStack DB collection, a live query, `subset`, the sources of 
 - `await graph.loaded()` resolves once nothing loads and what the sources delivered is applied: `count()` and `issues()` are complete. It resolves at once when nothing loads, and also after a failure. It rejects once the graph is destroyed. It is not `drawn()`: a layout may still run, so wait for `layoutend` or `await graph.drawn()` after it if you need the picture.
 - The graph draws no loading indicator: show your own from `data`.
 
-```ts
-import { defineGraph, type LiveSource, mountGraph, nodes } from '@bruno00o/graph'
-import { force } from '@bruno00o/graph/layouts/force'
-
-type Item = { id: string; label: string }
-
-declare const rows: LiveSource<Item>
-
-const definition = defineGraph({
-  marks: [nodes(rows, { label: 'label' })],
-  layout: force(),
-})
-const graph = mountGraph(document.body, { definition, ariaLabel: 'Graph of live rows' })
-
-const overlay = document.createElement('p')
-overlay.setAttribute('role', 'status')
-overlay.textContent = 'Loading'
-overlay.hidden = !graph.store.get().data.loading
-document.body.append(overlay)
-
-graph.on('loadingchange', ({ loading, failed }) => {
-  overlay.hidden = !loading
-  if (!loading && failed.length > 0) overlay.textContent = 'Some data could not be loaded'
-})
-
-export async function whenComplete() {
-  await graph.loaded()
-  return graph.count().nodes
-}
-```
+A loading overlay of your own, from `data` and `loadingchange`, with `await graph.loaded()` before reading the counts, is shown in [live data](references/live-data.md).
 
 `waitForData` in `defineGraph` decides what waits. While a source loads, its batches are drawn as they come. The first automatic full layout (also after a new layout, or with `relayout`) and the automatic fits wait until every source has loaded or failed, so a collection that syncs in three batches is laid out once, on all its rows. The wait is 10,000 ms from the first nodes by default; when the time is up they run on what is there. `true` waits for as long as sources load, `false` or `0` runs on the first batch as array data does, a negative number or `NaN` throws a `RangeError`. Turn it off when the source never reports ready (a stream that stays open) or when a first picture matters more than a complete layout. An explicit `graph.layout.run()` and `graph.view.fit()` never wait. Nodes that arrive after the first layout are placed as before.
 
@@ -457,6 +431,28 @@ Use `graph.selection.set({ nodes: ['n1'] })` for the selection, and declare ever
 
 Options are compared by content, but functions by identity. A `label: (item) => item.name` written inside the code that rebuilds the definition is a new function each time, and every item of its mark is restyled on each update. Declare such functions once, outside that code.
 
+### MEDIUM A function that reads data outside the item
+
+The graph reads an element again only when its item changes, as an object. A `label` that looks a name up in a `Map` of your own, or reads a value of the app, is not called again when that thing changes: the item is the same object. Tell the graph which elements to read again.
+
+```ts
+import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+const names = new Map<string, string>()
+const items: Item[] = [{ id: 'n1' }]
+
+const graph = mountGraph(document.body, {
+  definition: defineGraph({
+    marks: [nodes(items, { label: (item) => names.get(item.id) ?? item.id })],
+  }),
+  ariaLabel: 'Sample graph',
+})
+
+names.set('n1', 'Renamed')
+graph.refresh({ nodes: ['n1'] })
+```
+
 ### MEDIUM Treating a waiting edge as a bug
 
 An edge whose `source` or `target` names no node is not dropped and not reported: it waits for that node. When edges are missing on screen, compare `graph.count().edges` with `graph.count().pending`, and check that the key types match (`1` and `'1'` are different keys).
@@ -469,7 +465,7 @@ The task is done when:
 - `graph.issues()` is empty, or holds only problems you expect;
 - `graph.count()` gives the expected `nodes` and `edges`, and `pending` is 0 unless edges wait on purpose;
 - `tsc` accepts the code with no `any` or cast on targets, events and state names;
-- data changes go through new arrays, new item objects and `graph.update`, or through a live source;
+- data changes go through new arrays, new item objects and `graph.update`, or through a live source, and what lives outside the items is followed with `graph.refresh`;
 - a graph over live sources that load shows its loading from `data` or `loadingchange`, and code that needs the complete data awaits `graph.loaded()`, not `drawn()`;
 - every mounted graph is destroyed, or its `signal` aborted, when its page or component goes away.
 

@@ -2,7 +2,7 @@
 name: interaction
 description: >
   Use when configuring how people work with a @bruno00o/graph graph: selection
-  modes, node drag, the lasso, what the wheel and a trackpad do (zoom, pan or
+  modes, node drag (for all nodes or some), the lasso, what the wheel and a trackpad do (zoom, pan or
   scroll the page), touch, auto-pan, turning gestures off, keyboard navigation and
   focus; reacting to clicks, hovers, drags and the pointer; controlling the
   selection from application state; and styling states beyond a basic highlight:
@@ -13,9 +13,9 @@ description: >
 metadata:
   purpose: >
     The interaction model of a @bruno00o/graph graph: the interaction options of
-    defineGraph, selection and its controlled mode, drag and lasso, wheel,
-    touch and keyboard, pointer events and their targets, and the advanced
-    state styles others, raise, hide and label always.
+    defineGraph, selection and its controlled mode, drag, per-node drag and the
+    lasso, wheel, touch and keyboard, pointer events and their targets, and the
+    advanced state styles others, raise, hide, label always and halo.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
@@ -24,6 +24,8 @@ sources:
   - src/host/events.ts
   - src/host/graph-instance.ts
   - src/host/keyboard.ts
+  - src/host/pointer-input.ts
+  - src/core/lasso.ts
   - src/host/selection-control.ts
   - src/host/element-keys.ts
   - src/core/state-names.ts
@@ -69,6 +71,7 @@ const definition = defineGraph({
 ```
 
 - `select`: `'multiple'` (Shift, Cmd or Ctrl adds or removes), `'single'`, or `false` for none.
+- `drag: false` turns node dragging off for every node. To pin some nodes only, give `drag` to their mark (below). `lasso` is `true`, `false` or `LassoOptions` (below).
 - `zoom` and `autoPan` take `true`, `false`, or `{ speed }` (a finite number, 0 or more, or `defineGraph` throws a `RangeError`).
 - `wheel` is `'zoom'`, `'pan'` or `'page'`; anything else throws a `TypeError`.
 - `fold` makes a double click on a group, or Enter on a focused group, fold it. `lens` belongs to the tools skill.
@@ -160,11 +163,11 @@ graph.on('dragend', ({ keys }) => console.log(keys))
 controller.abort()
 ```
 
-- `target` is `{ kind, key, datum, mark }`, with `kind` `'node'`, `'edge'`, or `'shape'` when the definition has a shape mark (a shape under the pointer never beats a node, an edge or a container drawn over it). It is `null` over the background for `click`, `doubleclick`, `contextmenu` and `pointermove`, and never `null` for `pointerenter` and `pointerleave`. An edge target also has `endpoints` (the key of a folded group stands for an end hidden in it), `end` (`'source'` or `'target'`) on a mark with `ends`, and `aggregate` (every merged edge, split into `forward` and `backward`) on a merged edge or an edge between folded groups. On a half of a two-way merged edge (`merge: { directed: false, halves: true }`), `direction` is `'forward'` for the half next to `aggregate.target` and `'backward'` for the half next to `aggregate.source`; `key` and `datum` are those of the first edge of that direction. Hover enters and leaves per half too (`pointerleave` then `pointerenter` when the pointer crosses from one half to the other).
+- `target` is `{ kind, key, datum, mark }`, with `kind` `'node'`, `'edge'`, or `'shape'` when the definition has a shape mark (a shape under the pointer never beats a node, an edge or a container drawn over it). It is `null` over the background for `click`, `doubleclick`, `contextmenu` and `pointermove`, and never `null` for `pointerenter` and `pointerleave`. An edge target also has `endpoints` (the key of a folded group stands for an end hidden in it), `end` (`'source'` or `'target'`) on a mark with `ends`, and `aggregate` (every merged edge, split into `forward` and `backward`, plus `id`, the identity of the aggregated edge) on a merged edge or an edge between folded groups. On a half of a two-way merged edge (`merge: { directed: false, halves: true }`), `direction` is `'forward'` for the half next to `aggregate.target` and `'backward'` for the half next to `aggregate.source`; `key` and `datum` are those of the first edge of that direction. Hover enters and leaves per half too (`pointerleave` then `pointerenter` when the pointer crosses from one half to the other).
 - `click` fires before the default selection, so a handler sees the selection as it was. A `doubleclick` on a group folds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 - `contextmenu` only reports the secondary click: it does not stop the menu of the browser. Call `originalEvent.preventDefault()` in the handler, as above, to show your own.
 - `pointermove` fires at most once per frame; the graph tracks the pointer for it only while a handler is subscribed. During a drag its target is the dragged node.
-- `dragstart`, `drag` and `dragend` carry `keys`: every moved node (the whole selection when the dragged node is selected, the nodes inside a dragged group). `positionchange` reports the positions, with `origin` `'drag'`, `'api'` or `'layout'`.
+- `dragstart`, `drag` and `dragend` carry `keys`: every moved node (the whole selection when the dragged node is selected, the nodes inside a dragged group). `positionchange` reports the positions, with `origin` `'drag'`, `'api'` or `'layout'`; on a map it also carries `geo`, the same nodes in degrees.
 - A handler that throws stops neither the other handlers nor the click: its error goes to `reportError`. A handler may destroy the graph; the graph then does nothing more for that event.
 - Pass a `signal` to remove handlers together. `graph.signal` aborts when the graph is destroyed: give it to listeners you add elsewhere.
 
@@ -172,7 +175,41 @@ controller.abort()
 
 Dragging a node starts after 4 pixels and emits no click. Dragging a selected node moves the whole selection, and a group's container moves its children. During a layout run, a dragged node stays where it is dropped and the others settle around it. Dragging a shape pans the view like the background, and a double click on a shape does nothing, unless a shape editor edits it (editor skill).
 
-`lasso: true` with `select: 'multiple'` draws a lasso with Shift and a drag from the background, or from a shape; the nodes inside join the selection on release, and so do the shapes whose every point is inside (never a shape that contains the lasso). Edges are not taken. Without the lasso, Shift and drag pans. A long press never starts a lasso, and Escape cancels one in progress.
+To pin some nodes only, give their mark `drag`, a constant or a function of the item, and a container its own `container.drag` (it defaults to the `drag` of its node, so `drag: false` on the mark pins the containers too):
+
+```ts
+import { defineGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string; locked: boolean }
+const items: Item[] = []
+
+const definition = defineGraph({
+  marks: [nodes(items, { drag: (item) => !item.locked, container: { drag: false } })],
+})
+```
+
+A press on a node that cannot be dragged pans the view, or draws a lasso, as on the background, and a click still selects it. A dragged selection moves only the members that can be dragged; the children of a dragged container move with it whatever their own `drag`, and a container with `drag: false` still lets its children be dragged one by one.
+
+`lasso: true` with `select: 'multiple'` draws a lasso with Shift and a drag from the background, from a shape or from a node that cannot be dragged. The nodes inside join the selection on release, and so do the shapes whose every point is inside (never a shape that contains the lasso). Without the lasso, Shift and drag pans. A long press never starts a lasso, and Escape cancels one in progress. Pass `LassoOptions` instead of `true`:
+
+- `modifier: null` draws a lasso from every drag that does not move a node, with no key, as in the lasso mode of a drawing tool. The view then pans only with the wheel, the keyboard or two fingers (on a map, the map stops panning by drag).
+- `edges: true` also selects the edges whose two drawn ends are inside: a merged edge gives all its edges, a hidden edge is left out. Without it, edges are never taken.
+
+To switch between panning and drawing from a button, update with a new definition that keeps the same marks, so the data is not read again and the next press uses the new mode:
+
+```ts
+import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+const items: Item[] = []
+const marks = [nodes(items)]
+
+const panning = defineGraph({ marks, interaction: { lasso: true } })
+const drawing = defineGraph({ marks, interaction: { lasso: { modifier: null, edges: true } } })
+const graph = mountGraph(document.body, { definition: panning, ariaLabel: 'Sample graph' })
+
+graph.update({ definition: drawing })
+```
 
 ### Choose what the wheel does
 
@@ -272,7 +309,7 @@ const definition = defineGraph({
       raise: true,
       others: { opacity: 0.15, label: false },
     },
-    landmark: { label: 'always' },
+    landmark: { label: 'always', halo: { color: 'var(--graph-cat-3)', width: 10 } },
     off: { hide: true },
     only: { others: { hide: true } },
     near: {
@@ -291,6 +328,7 @@ graph.states.clear('path')
 ```
 
 - To light a hovered node, its neighbors and the edges among them, fill a free by-kind state on `pointerenter` and clear it on `pointerleave`: nodes are the hovered key and `graph.neighbors(key)`, edges are the `graph.edgesOf(key)` of each of those nodes whose two `graph.endpoints` are in the node set (or `graph.paths.reach(key, { maxCost: 1 })`, which returns `{ nodes, edges }`). A built-in `hovered: { others }` only spares the hovered element itself.
+- `halo: true` is the soft `--graph-halo` glow, 6 pixels wide. `{ color, width }` gives a state its own glow: any CSS color (its alpha sets how strong the glow is) and a width in screen pixels, up to 255 (negative or not finite throws a `RangeError` in `defineGraph`). A search result and a focused element can glow in different colors. The first state that sets a halo gives color and width together. Nodes and edges only, not shapes; PNG and SVG exports draw it.
 - `others` styles every element outside the state, as long as the state has at least one member (a key whose element does not exist yet does not count). It takes the same properties except `raise` and `others`. Setting members costs the same with or without `others`.
 - A state of edges also fades the nodes outside it, its own ends included, and the shapes too: a member of any kind activates `others` for every kind. Put the ends in the state, or style by kind: `{ nodes, edges, shapes }`, each a full style, with `others` applying to that kind only. A style is by kind or for both, never mixed (`{ opacity: 0.2, nodes: {} }` does not compile). A kind left out has no style, or its default for built-in states.
 - `raise: true` draws members above every mark, labels them first and picks them first, in exports too. It is `true` for `selected`, `hovered` and `focused`; `raise: false` draws them in place. It costs one more draw of the raised elements. A raised shape comes first only among shapes: it stays under containers, hulls, edges and nodes.
@@ -304,7 +342,23 @@ graph.states.clear('path')
 
 ### HIGH Expecting a lasso without both options
 
-The lasso needs `lasso: true` (default `false`) and `select: 'multiple'` (the default). With `select: 'single'` or `false`, or without `lasso`, Shift and drag pans the view and selects nothing. Edges are never taken by the lasso.
+The lasso needs `lasso` (`true` or `LassoOptions`, default `false`) and `select: 'multiple'` (the default). With `select: 'single'` or `false`, or without `lasso`, Shift and drag pans the view and selects nothing. Edges join the selection only with `lasso: { edges: true }`.
+
+```ts
+import { defineGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+const items: Item[] = []
+
+const definition = defineGraph({
+  marks: [nodes(items)],
+  interaction: { select: 'multiple', lasso: { edges: true } },
+})
+```
+
+### MEDIUM Pinning some nodes with `interaction.drag`
+
+`interaction: { drag: false }` stops every node from being dragged, containers included. To pin some, give their mark `drag` as a function of the item (`drag: (item) => !item.locked`), and `container.drag` for the containers of groups.
 
 ### HIGH Controlling the selection without answering requests
 
@@ -382,13 +436,13 @@ Narrow first: `if (target?.kind === 'edge') console.log(target.direction)`.
 
 ### MEDIUM Expecting the graph to own the wheel and drag on a map
 
-On a graph inside a MapLibre map, the map owns the camera and its gestures: wheel, pinch and background drag move the map. The graph keeps hover, click, selection, lasso, node drag and keyboard. The `wheel` option, the pointer pan and pinch, and auto-pan do not apply: configure the map instead (map skill).
+On a graph inside a MapLibre map, the map owns the camera and its gestures: wheel, pinch and background drag move the map. The graph keeps hover, click, selection, lasso, node drag and keyboard (with `lasso: { modifier: null }`, a drag on the background draws a lasso, so the map no longer pans by drag). The `wheel` option, the pointer pan and pinch, and auto-pan do not apply: configure the map instead (map skill).
 
 ## Completion
 
 The task is done when:
 
-- gesture options sit in `interaction`, with `lasso` and `select: 'multiple'` set together when a lasso is wanted;
+- gesture options sit in `interaction`, with `lasso` and `select: 'multiple'` set together when a lasso is wanted, and `drag` on the marks for nodes that stay put;
 - a controlled selection is mounted with `selection` and `onSelectionChange`, and every request is answered with `update({ selection })`;
 - handlers narrow `target` on `kind` before reading `datum` or `direction`, and are removed with a `signal` or the function `on` returns;
 - state styles use `others`, `raise`, `hide` and `label: 'always'` as needed, with by-kind styles where only one kind must change;
@@ -400,5 +454,5 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- [Interaction](https://bruno00o.github.io/graph/docs/interaction), [States](https://bruno00o.github.io/graph/docs/states), [Events](https://bruno00o.github.io/graph/docs/api/events), [defineGraph](https://bruno00o.github.io/graph/docs/api/define-graph), [GraphInstance](https://bruno00o.github.io/graph/docs/api/graph-instance)
-- Examples: [named states](https://bruno00o.github.io/graph/examples/named-states), [selection synced with a list](https://bruno00o.github.io/graph/examples/controlled-selection), [keyboard navigation](https://bruno00o.github.io/graph/examples/keyboard-navigation), [event log](https://bruno00o.github.io/graph/examples/event-log), [context menu](https://bruno00o.github.io/graph/examples/context-menu), [hover neighborhood](https://bruno00o.github.io/graph/examples/hover-neighborhood), [filter by degree](https://bruno00o.github.io/graph/examples/degree-filter), [page that scrolls](https://bruno00o.github.io/graph/examples/navigation)
+- [Interaction](https://bruno00o.github.io/graph/docs/interaction), [States](https://bruno00o.github.io/graph/docs/states), [Events](https://bruno00o.github.io/graph/docs/api/events), [defineGraph](https://bruno00o.github.io/graph/docs/api/define-graph#interaction), [GraphInstance](https://bruno00o.github.io/graph/docs/api/graph-instance)
+- Examples: [selection](https://bruno00o.github.io/graph/examples/selection), [named states](https://bruno00o.github.io/graph/examples/named-states), [selection synced with a list](https://bruno00o.github.io/graph/examples/controlled-selection), [keyboard navigation](https://bruno00o.github.io/graph/examples/keyboard-navigation), [event log](https://bruno00o.github.io/graph/examples/event-log), [context menu](https://bruno00o.github.io/graph/examples/context-menu), [hover neighborhood](https://bruno00o.github.io/graph/examples/hover-neighborhood), [filter by degree](https://bruno00o.github.io/graph/examples/degree-filter), [page that scrolls](https://bruno00o.github.io/graph/examples/navigation)

@@ -50,7 +50,7 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 - The last writer wins, shape by shape, with no merge of points. A change from elsewhere does not stop your gesture, and your release writes over it; a removal from elsewhere ends your gesture.
 - An edit whose row is not in the collection is skipped, so two `persistShapes` on two collections keep to their own rows. Writes that come from elsewhere never go back out.
 
-With several shape marks, give each its own collection and its own `persistShapes`, each with its `mark`. The `mark` option only skips the edits of other marks at run time: it does not narrow `edit.datum` in `create`, which is the union of the item types of the graph. Narrow with `in`:
+With several shape marks, give each its own collection and its own `persistShapes`, each with its `mark`. `mark` skips the edits of other marks at run time and types `create`: it receives the new shapes of the marks of that name only, with the `datum` type of their items, so no narrowing is needed.
 
 ```ts
 import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
@@ -82,7 +82,7 @@ persistShapes(editor, {
   mark: 'zones',
   create: (edit) => ({
     id: String(edit.key),
-    tone: edit.datum && 'tone' in edit.datum ? edit.datum.tone : 'new',
+    tone: edit.datum?.tone ?? 'new',
     geometry: edit.geometry,
   }),
 })

@@ -55,7 +55,7 @@ Boundaries chosen from developer tasks, not from entry points:
 
 ## Failure mode inventory
 
-### core (8)
+### core (9)
 
 | #   | Mistake                                           | Priority | Source                                 | Cross-skill |
 | --- | ------------------------------------------------- | -------- | -------------------------------------- | ----------- |
@@ -67,8 +67,9 @@ Boundaries chosen from developer tasks, not from entry points:
 | 6   | New option functions on every update              | MEDIUM   | data guide                             | react       |
 | 7   | Laying out or fitting before live data has loaded | HIGH     | data guide, `src/host/data-status.ts`  |             |
 | 8   | Waiting edges taken for a bug                     | MEDIUM   | data guide                             |             |
+| 9   | A function that reads data outside the item       | MEDIUM   | data guide, `graph-instance.ts`        | react       |
 
-### react (6)
+### react (7)
 
 | #   | Mistake                                            | Priority | Source                                     | Cross-skill       |
 | --- | -------------------------------------------------- | -------- | ------------------------------------------ | ----------------- |
@@ -78,6 +79,7 @@ Boundaries chosen from developer tasks, not from entry points:
 | 4   | Untyped selectors inside `<Graph>`                 | MEDIUM   | TypeScript guide                           |                   |
 | 5   | Graph structure read during render                 | MEDIUM   | `src/host/mount-graph.ts` (`flushPending`) |                   |
 | 6   | Controlled prop set after mount                    | MEDIUM   | React guide                                | view, interaction |
+| 7   | `initialPositions` given an iterator               | MEDIUM   | React and positions guides                 | layouts           |
 
 ### shapes (13)
 
@@ -181,16 +183,20 @@ Scope decisions:
 
 #### Failure mode inventory
 
-##### layouts (6)
+##### layouts (10)
 
-| #   | Mistake                                             | Priority | Source                         | Cross-skill |
-| --- | --------------------------------------------------- | -------- | ------------------------------ | ----------- |
-| 1   | Importing `force` from the layouts entry point      | HIGH     | layout guide, force API        |             |
-| 2   | Expecting a layout to move nodes that have `x`, `y` | HIGH     | layout and positions guides    | core        |
-| 3   | Running a layout on a map                           | HIGH     | map guide, `layout-session.ts` | map         |
-| 4   | `grid` or `rings` with `order` inside `defineGraph` | MEDIUM   | TypeScript guide, layouts API  |             |
-| 5   | Expecting an instant layout to be incremental       | MEDIUM   | layouts API                    |             |
-| 6   | Writing positions back on every drag move           | MEDIUM   | positions guide                |             |
+| #   | Mistake                                              | Priority | Source                            | Cross-skill |
+| --- | ---------------------------------------------------- | -------- | --------------------------------- | ----------- |
+| 1   | Importing `force` from the layouts entry point       | HIGH     | layout guide, force API           |             |
+| 2   | Expecting a layout to move nodes that have `x`, `y`  | HIGH     | layout and positions guides       | core        |
+| 3   | Running a layout on a map                            | HIGH     | map guide, `layout-session.ts`    | map         |
+| 4   | `grid` or `rings` with `order` inside `defineGraph`  | MEDIUM   | TypeScript guide, layouts API     |             |
+| 5   | Expecting an instant layout to be incremental        | MEDIUM   | layouts API                       |             |
+| 6   | Writing positions back on every drag move            | MEDIUM   | positions guide                   |             |
+| 7   | Restoring positions with `positions.set` after mount | MEDIUM   | positions guide                   | react, map  |
+| 8   | `rank` inside `defineGraph` without the item type    | MEDIUM   | layouts API                       |             |
+| 9   | Laying out a subset next to anchors                  | MEDIUM   | layout guide, graph API           | core        |
+| 10  | Expecting `layout.compute` to move nodes             | MEDIUM   | layout guide, `layout-session.ts` | core        |
 
 ##### edges (7)
 
@@ -204,18 +210,19 @@ Scope decisions:
 | 6   | Expecting bundles or routes immediately                         | MEDIUM   | bundling and routing guides |               |
 | 7   | Edge labels that never show                                     | MEDIUM   | labels guide                | styling       |
 
-##### groups (8)
+##### groups (9)
 
-| #   | Mistake                                        | Priority | Source                                          | Cross-skill |
-| --- | ---------------------------------------------- | -------- | ----------------------------------------------- | ----------- |
-| 1   | Setting `halves` without `directed: false`     | HIGH     | transformations guide, `src/core/projection.ts` |             |
-| 2   | Passing a string to `fold`, `unfold` or `set`  | HIGH     | `graph-instance.ts`                             |             |
-| 3   | Building the key of a `groups()` node by hand  | HIGH     | transformations guide, groups API               |             |
-| 4   | Expecting folding or merging to relayout       | HIGH     | transformations guide                           | layouts     |
-| 5   | Switching to a controlled `folded` after mount | MEDIUM   | groups guide                                    | react       |
-| 6   | Rebuilding `by` functions in render            | MEDIUM   | groups API                                      | core, react |
-| 7   | Using `hide` to shrink the layout              | MEDIUM   | transformations guide                           | layouts     |
-| 8   | Expecting merged edges across marks            | MEDIUM   | transformations guide                           | multilayer  |
+| #   | Mistake                                         | Priority | Source                                          | Cross-skill |
+| --- | ----------------------------------------------- | -------- | ----------------------------------------------- | ----------- |
+| 1   | Setting `halves` without `directed: false`      | HIGH     | transformations guide, `src/core/projection.ts` |             |
+| 2   | Passing a string to `fold`, `unfold` or `set`   | HIGH     | `graph-instance.ts`                             |             |
+| 3   | Building the key of a `groups()` node by hand   | HIGH     | transformations guide, groups API               |             |
+| 4   | Expecting folding or merging to relayout        | HIGH     | transformations guide                           | layouts     |
+| 5   | Switching to a controlled `folded` after mount  | MEDIUM   | groups guide                                    | react       |
+| 6   | Rebuilding `by` functions in render             | MEDIUM   | groups API                                      | core, react |
+| 7   | Using `hide` to shrink the layout               | MEDIUM   | transformations guide                           | layouts     |
+| 8   | Expecting merged edges across marks             | MEDIUM   | transformations guide                           | multilayer  |
+| 9   | Identifying an aggregated edge by its first key | MEDIUM   | groups and transformations guides               | interaction |
 
 ##### multilayer (7)
 
@@ -264,8 +271,8 @@ Failure mode inventory:
 | Skill       | Mistakes | HIGH | Notes                                                                          |
 | ----------- | -------- | ---- | ------------------------------------------------------------------------------ |
 | view        | 7        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view |
-| interaction | 9        | 2    | lasso needs two options, unanswered controlled selection                       |
-| map         | 8        | 3    | layout on a map, teardown order, view options on a map graph                   |
+| interaction | 10       | 2    | lasso needs two options, unanswered controlled selection, per-node drag        |
+| map         | 9        | 3    | layout on a map, teardown order, view options on a map graph, snapshots        |
 | time        | 8        | 3    | string times, exclusive ends, controlled window without both props             |
 
 Cross-references proposed for the shared tables (the maintainer applies them after the batches merge):
@@ -288,7 +295,7 @@ Written: `tanstack-db`, `tanstack-query`, `cypher`, `file-formats`, `paths`, all
 
 | Skill          | Lines | Failure modes | Typechecked failures                            |
 | -------------- | ----- | ------------- | ----------------------------------------------- |
-| tanstack-db    | 415   | 8             | key option on a live mark, wrong field in where |
+| tanstack-db    | 440   | 9             | key option on a live mark, wrong field in where |
 | tanstack-query | 425   | 7             | types not inferred from a plain object          |
 | cypher         | 264   | 6             | untyped properties, edge mark without ends      |
 | file-formats   | 304   | 8             | color literal, a Response instead of text       |
@@ -334,6 +341,12 @@ Aligned for 0.27.1 (globe anchors and previews, writable geometry, snap warning,
 
 - Tension: the editor proposes and the application writes; an edit the data does not take ends in `editlost` after `hold`, whether the write failed or was never made (`editor`, `core`, `tanstack-db`).
 - Cross-references proposed for the shared tables: `shapes` to `editor` (drawing and editing), `editor` to `shapes` (marks, labels, units), `editor` to `tanstack-db` (collections), `tanstack-db` to `editor` (`persistShapes`, `showPresence`), `tools` to `shapes` (legend and minimap of shapes).
+
+### Aligned for 0.28.0
+
+Layouts, export, positions, lasso, badges and halos, node order, restored positions, reads of what is drawn, aggregated edge ids (PRs 192 to 200). Failure modes added: `core` (a function that reads data outside the item, `graph.refresh`), `react` (an `initialPositions` iterator that StrictMode consumes), `layouts` (four: restoring with `positions.set`, `rank` without the item type, a subset laid out next to anchors, `layout.compute` that moves nothing), `groups` (an aggregated edge identified by its first key), `interaction` (pinning some nodes with `interaction.drag`; the lasso mode now names `LassoOptions`), `map` (a snapshot given to the other surface), `tanstack-db` (world units written into rows that hold degrees), `export` (`zoom` with `size`), `styling` (large nodes covering small ones). The `in` workaround for `datum` in `editor` is gone: `ShapeEdit<M>` narrows by `mark` and `persistShapes({ mark })` types `create`, so `editor` keeps 15 modes and its sentences on `canRaise`, `canLower` and the narrowing changed. `core` gained `references/live-data.md` (the loading overlay moved out to leave room), and its description of the instance now lists `shown`, `isShown`, `refresh`, `drawsOnMap`, `positions.reset` and `layout.compute`. A badge hides while the pill is under `minSize` pixels high, not while the node is under 10 pixels: the old sentence of `styling` was wrong before this release.
+
+Cross-references proposed for the shared tables: `layouts` to `react` and `map` (restoring positions), `groups` to `interaction` (`aggregate.id` in targets), `styling` to `map` (`order` at a shared place).
 
 ## Coverage and batch history
 

@@ -5,14 +5,15 @@ description: >
   adding a force layout, layers for a hierarchy or flow, a grid, rings, a radial
   tree or a geographic layout, running or stopping a layout from code, following
   its progress, framing the result, keeping dragged or data-given positions,
-  saving and restoring positions, writing a custom layout, or finding why nodes
-  do not move or pile up.
+  saving and restoring positions, layers fixed by a field, positions computed by
+  your own code, writing a custom layout, or finding why nodes do not move or
+  pile up.
 metadata:
   purpose: >
-    Where nodes go: the five ready-made layouts and when to pick each, the
+    Where nodes go: the ready-made layouts and when to pick each, the
     definition and run-time ways to start a layout, which nodes a layout may
-    move, positions from data and from code, and the mistakes that leave nodes
-    on a spiral or still.
+    move, positions from data and from code, restoring them at mount, and the
+    mistakes that leave nodes on a spiral or still.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
@@ -23,6 +24,7 @@ sources:
   - src/layouts/rings.ts
   - src/layouts/radial.ts
   - src/layouts/geo.ts
+  - src/layouts/placed.ts
   - src/types.ts
   - src/host/graph-instance.ts
   - src/host/layout-session.ts
@@ -49,8 +51,9 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, marks and 
 | One hub in the middle, the rest in rings by rank       | `rings`  | `@bruno00o/graph/layouts`        |
 | Tree or distance from a root, drawn in rings           | `radial` | `@bruno00o/graph/layouts`        |
 | Places with longitude and latitude, no basemap         | `geo`    | `@bruno00o/graph/layouts`        |
+| Positions your own code computed                       | `placed` | `@bruno00o/graph/layouts`        |
 
-`force` lives in its own entry point so that a graph without it carries none of its code; the others share `@bruno00o/graph/layouts`. `force` animates while it settles, in a Web Worker, and handles hundreds of thousands of nodes. The other four report their result at once, on the main thread, in milliseconds for thousands of nodes, and nodes glide to it.
+`force` lives in its own entry point so that a graph without it carries none of its code; the others share `@bruno00o/graph/layouts`. `force` animates while it settles, in a Web Worker, and handles hundreds of thousands of nodes. The others report their result at once, on the main thread, in milliseconds for thousands of nodes, and nodes glide to it.
 
 ## Setup
 
@@ -105,6 +108,7 @@ const definition = defineGraph({
 - `root` (a key or an array of keys) forces nodes onto the first layer; edges into them are turned around. Edges that close a cycle are turned around too, as few as possible, and still drawn.
 - `layerSpacing` and `nodeSpacing` are gaps between node borders, in world units. Defaults: twice the largest diameter (at least diameter plus 24) between layers, the largest diameter (at least 8) inside a layer.
 - Separate components and lone nodes sit side by side, the largest first. The same graph always gives the same result.
+- `rank` (a field name or a function of the item) takes the layers from the data instead of the edges: the smallest value goes on the first layer, the next distinct one on the second, and only the order counts, so gaps leave no empty layer. Nodes without a finite value share one more layer after the last. An edge against the order is laid out turned around and still drawn to its target; an edge inside one layer is left out of the layout and drawn straight. Components share the layers instead of sitting side by side, and `root` is ignored. Inside `defineGraph`, write `layers<Step>({ rank })`.
 
 ### Grid, rings, radial
 
@@ -131,7 +135,7 @@ const ranked = defineGraph({ marks, layout: rings({ center: 'hub', order: 'degre
 const tree = defineGraph({ marks, layout: radial({ root: 'hub', spacing: 32 }) })
 ```
 
-- `grid`: rows from the top left, as many columns as rows unless `columns` says otherwise. `order` is `'degree'` or a comparator of two items.
+- `grid`: rows from the top left, as many columns as rows unless `columns` says otherwise. `order` is `'degree'` or a comparator of two items. `spacing: { rows, columns }` sets one gap for each direction, for room under the nodes for labels.
 - `rings`: the first node of `order` in the middle (default `'degree'`, busiest first, or `center`), then rings outward.
 - `radial`: a breadth-first walk from `root` (a key, an array, or the busiest node), each node on the ring of its distance, each branch with a slice of the circle in proportion to its size. Unreachable nodes go on an outer ring.
 - `spacing` is a gap between the borders of the largest nodes. Default: the largest diameter, at least 24. `0` is allowed.
@@ -179,16 +183,43 @@ await graph.layout.run(undefined, { keys: graph.selection.get().nodes })
 await graph.layout.run(force({ edgeLength: 100 }), { fit: true })
 await graph.layout.run(grid(), { fit: { padding: 48 }, duration: 600 })
 await graph.layout.run(rings(), { duration: 0 })
+await graph.layout.run(force(), { keys: graph.shown().nodes, others: 'ignored', fit: true })
 graph.layout.stop()
 console.log(completed)
 ```
 
 - `run()` lays out every free node with the layout of the definition, from where nodes are, after applying pending data changes. A layout passed to `run` serves that run only.
 - `keys` limits the run to those nodes; the others stay still and act as anchors. The run starts with less energy and without the pull to the center, so moved nodes stay near the rest.
+- `others` says what the nodes left out of `keys` are: `'anchors'` (default) keeps them in the graph the layout reads, still; `'ignored'` leaves them out with their edges, so the keys are laid out as a whole graph of their own, with the full energy and the pull to the center of a `force` run on everything. Use `'ignored'` for what a filter leaves on screen (`graph.shown().nodes`, core skill). Any other value rejects with a `TypeError`.
 - `fit` frames the result: `true`, or fit options (`nodes`, `edges`, `padding`, `maxZoom`, `duration`). It aims at the final positions, so the view moves with the nodes.
 - `duration` is the glide of a result reported at once, in milliseconds; default `transitions.layout` (400); `0` places nodes at once. It does not affect `force`, which animates by itself.
 - The promise resolves `true` when the run ends, `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout, on a map, or when an option is not finite.
 - `stop()` ends the run and leaves every node where it is.
+
+### Positions computed by your code
+
+When the app computes its own arrangement (by kind, along a chain, from a place), run it with `placed`: it behaves like any layout, with the promise, `layoutstart`, `layoutend`, `positionchange` (origin `'layout'`), the glide, `fit`, `layout.stop` and `persistPositions`. `graph.layout.compute` gives the result of a layout by key without moving anything, to combine with your own placement.
+
+```ts
+import type { GraphInstance, Key, Point } from '@bruno00o/graph'
+import { layers, placed } from '@bruno00o/graph/layouts'
+
+export async function sideBySide(graph: GraphInstance, parts: readonly (readonly Key[])[]) {
+  const positions = new Map<Key, Point>()
+  let offset = 0
+  for (const keys of parts) {
+    const part = await graph.layout.compute(layers(), { keys, others: 'ignored' })
+    const xs = [...part.values()].map((point) => point.x)
+    const shift = offset - Math.min(...xs)
+    for (const [key, point] of part) positions.set(key, { x: point.x + shift, y: point.y })
+    offset += Math.max(...xs) - Math.min(...xs) + 120
+  }
+  return graph.layout.run(placed(positions), { fit: true, duration: 500 })
+}
+```
+
+- `placed(positions)` takes entries of key and point (a `Map`, `positions.snapshot()`, a `compute` result; a `Map` is used as it is, so leave it alone after the call), or a function of the item that returns a point, `null` or `undefined` (`placed<Item>((item) => item.home ?? null)`). Positions are in world units. A free node without a position, or with a non-finite one, stays; nodes with `x` and `y` in the data, dragged nodes and nodes outside `keys` never move.
+- `compute(layout?, { keys, others, signal })` resolves to a `Map` of the nodes it lays out. It applies pending data first, starts from where nodes are (or glide to), emits nothing and leaves a run in progress going. It resolves to an empty map when no node is free, and rejects without a layout, on a map, when `signal` aborts (with its reason) and when the graph is destroyed.
 
 ### Follow the progress
 
@@ -218,6 +249,7 @@ export function watchLayout(graph: GraphInstance, bar: HTMLProgressElement) {
 - First batch of nodes: the whole layout runs. Nodes added later: with `force` only the new nodes run, starting next to their placed neighbors while the rest stays still; with `layers`, `grid`, `rings`, `radial` and `geo` (`incremental: false`) every free node is laid out again.
 - A graph that arrives in batches therefore looks different from one that arrives at once. When the data is complete, call `graph.layout.run()` to lay out the whole graph.
 - Live sources that report their loading (a TanStack DB collection, a live query, `subset`, `createExploration`) are the exception: the first automatic layout over every node, and the one that follows a new layout or `relayout`, wait until they have loaded or failed, so a collection that syncs in batches is laid out once, on all its rows. The wait is `waitForData` in `defineGraph`: 10,000 ms from the first nodes by default (then the layout runs on what is there), `true` for no limit, `false` or `0` to lay out the first batch at once. Array data never waits, and neither does `graph.layout.run()`. Know when the data is in with `await graph.loaded()` (core skill).
+- Nodes placed by `initialPositions` count as laid out: no run starts for them. A node without an entry is an arrival: with `force` it is placed next to its placed neighbors; with the non-incremental layouts every free node is laid out again, the restored ones included.
 - A definition with another layout, or the same layout with other options, lays out every free node again on the next frame. Options are compared one by one, so calling `force({ edgeLength: 60 })` again in a render restarts nothing.
 - `layout: null` (the default) stops an automatic run and leaves nodes where they are.
 - The view follows only the first run. Set `view: { autoFit: 'layouts' }` to frame every run, until the user pans or zooms.
@@ -229,23 +261,23 @@ export function watchLayout(graph: GraphInstance, bar: HTMLProgressElement) {
 - A node dragged during a run, or set with `graph.positions.set`, stays pinned until the run ends.
 - Fixed nodes are left out of the places of `grid`, `rings` and `radial`: they keep their place, so free nodes fill the grid around them and holes can remain where fixed nodes sit.
 - A node moves with its data only when its own `x` or `y` changes; a node the user dragged does not jump back when another field changes.
+- `graph.positions.reset(keys?, { duration })` puts nodes back where their data places them (`x` and `y`, or `longitude` and `latitude`) after a drag or a `set`. A node whose data gives no position, or that is already there, stays.
 - Layouts do not run on a map. Positions there come from `longitude` and `latitude` (the `map` skill).
 
 ### Move, save and restore positions
 
 ```ts
-import type { GraphInstance, Key, Point } from '@bruno00o/graph'
+import { type GraphDefinition, type GraphInstance, type Key, mountGraph, type Point } from '@bruno00o/graph'
 
 export function savePositions(graph: GraphInstance) {
   const saved = graph.positions.snapshot()
   localStorage.setItem('positions', JSON.stringify([...saved]))
 }
 
-export function restorePositions(graph: GraphInstance) {
+export function mountRestored(container: HTMLElement, definition: GraphDefinition) {
   const stored = localStorage.getItem('positions')
-  if (!stored) return
-  const entries: [Key, Point][] = JSON.parse(stored)
-  graph.positions.set(new Map(entries), { duration: 400 })
+  const entries: [Key, Point][] = stored ? JSON.parse(stored) : []
+  return mountGraph(container, { definition, ariaLabel: 'Sample graph', initialPositions: entries })
 }
 
 export function arrange(graph: GraphInstance) {
@@ -257,7 +289,9 @@ export function arrange(graph: GraphInstance) {
 }
 ```
 
-Helpers that take a bare `GraphInstance` accept the instance of any definition. `positions.set` moves a node even when its position comes from data channels (it stays there until its own `x` or `y` changes in the data). `snapshot()` reads every node of the data in a new `Map` that `set` takes back as is. A node still gliding is read where it is going; `snapshot({ settled: false })` reads where it is drawn now. A pair whose `x` or `y` is not finite is skipped, with a warning in development.
+Helpers that take a bare `GraphInstance` accept the instance of any definition. To bring nodes back when a graph mounts again (a route change, a remount, a switch between a map and a plain graph), pass the snapshot as `initialPositions` to `mountGraph`, `mountMapGraph`, `<Graph>` or `<MapGraph>`: nodes with an entry are drawn there and count as laid out, with no layout run, no `positionchange` and nothing for `persistPositions` to write, and they are not pinned. Nodes without an entry are arrivals. Positions from the data win, entries that are not finite are skipped, and the entries serve only the first data (the nodes that arrive while a live source loads, or in the first batch). `autoFit: 'first'` frames the restored nodes on the first frame, and `initialView` still wins. A snapshot belongs to one surface: positions read on a map are in map world units, so give them back to a map graph.
+
+`positions.set` moves a node even when its position comes from data channels (it stays there until its own `x` or `y` changes in the data). `snapshot()` reads every node of the data in a new `Map` that `set` takes back as is. A node still gliding is read where it is going; `snapshot({ settled: false })` reads where it is drawn now. A pair whose `x` or `y` is not finite is skipped, with a warning in development.
 
 `positionchange` fires after a drag, `positions.set` or a finished layout run, with `origin` `'drag'`, `'api'` or `'layout'`; moves that come from the data never emit it, so writing positions back to the data does not loop. It fires on every pointer move during a drag: save on `dragend`, or pace the writes. A stopped run emits nothing.
 
@@ -296,6 +330,7 @@ export function circle(radius = 300): Layout {
 - `name` and `options` decide whether a new definition lays out again, compared one by one; keep options a flat object.
 - `incremental: false` lays out every free node again when nodes arrive.
 - Unfolded groups arrive in `graph.groups`. A layout that ignores it still works, but does not keep containers apart.
+- `turns` (`'free'`, `'flip'` or `'none'`, the default) says how the result may be turned to face its neighbors when the layout places the members of a group. `blocks` (nodes that stand for a whole group laid out on its own: `size` per index, `items(index)`, `keys(index)`) and `container` (the group a layout runs inside) are optional fields of `LayoutGraph` that the graph does not set yet; a layout that ignores them still works.
 
 ## Common Mistakes
 
@@ -316,6 +351,63 @@ Channels `x` and `y` on the node mark pin every node with finite values: the lay
 ### HIGH Running a layout on a map
 
 Layouts do not run in map mode: positions come from `longitude` and `latitude`, nodes without them stay near their neighbors, a layout in the definition logs a warning in development and `graph.layout.run` rejects. Use `geo` on a graph without a map to get the same projection.
+
+### MEDIUM Restoring positions with `positions.set` after mount
+
+`positions.set` right after mounting applies the pending data first, which starts the first layout run on every node, then pins the nodes and emits `positionchange` (so `persistPositions` writes the positions back). Pass the snapshot as `initialPositions` instead: the nodes are placed while the data arrives, with no run, no event and no pin.
+
+```ts no-check
+const again = mountGraph(container, { definition, ariaLabel: 'Sample graph' })
+again.positions.set(saved)
+```
+
+```ts no-check
+const again = mountGraph(container, { definition, ariaLabel: 'Sample graph', initialPositions: saved })
+```
+
+### MEDIUM `rank` inside `defineGraph` without the item type
+
+Like `order`, `rank` reads items that TypeScript does not pass to a layout in the same object: a function gets `unknown`, and a field name has no field to match. Give the type argument.
+
+```ts expect-error=TS2322
+import { defineGraph, nodes } from '@bruno00o/graph'
+import { layers } from '@bruno00o/graph/layouts'
+
+type Step = { id: string; level: number }
+const steps: Step[] = []
+
+defineGraph({
+  marks: [nodes(steps)],
+  layout: layers({ rank: 'level' }),
+})
+```
+
+### MEDIUM Laying out a subset next to nodes that stay as anchors
+
+`run({ keys })` keeps the other nodes in the graph the layout reads, still, and a `force` run starts with less energy and without the pull to the center: a subset laid out beside hidden or filtered nodes stays loose around them. When the keys are what should be laid out, ignore the others.
+
+```ts
+import type { GraphInstance } from '@bruno00o/graph'
+import { force } from '@bruno00o/graph/layouts/force'
+
+export function layOutShown(graph: GraphInstance) {
+  return graph.layout.run(force(), { keys: graph.shown().nodes, others: 'ignored', fit: true })
+}
+```
+
+### MEDIUM Expecting `layout.compute` to move nodes
+
+`compute` resolves to the positions by key and moves nothing, emits nothing and changes no store. Give the result to `placed` to run it, or to `positions.set`.
+
+```ts
+import type { GraphInstance } from '@bruno00o/graph'
+import { grid, placed } from '@bruno00o/graph/layouts'
+
+export async function arrange(graph: GraphInstance) {
+  const result = await graph.layout.compute(grid())
+  return graph.layout.run(placed(result), { fit: true })
+}
+```
 
 ### MEDIUM `grid` or `rings` with `order` inside `defineGraph`
 
@@ -357,14 +449,15 @@ The task is done when:
 - the layout comes from the right entry point and nodes with data coordinates are the only fixed ones;
 - the graph is framed after the run (first run is automatic; `autoFit: 'layouts'` or `fit` for later ones);
 - code that waits for the result awaits `graph.layout.run()` and handles `false`;
-- `grid` and `rings` with `order` inside `defineGraph` carry their type argument;
+- `grid` and `rings` with `order`, and `layers` with `rank`, inside `defineGraph` carry their type argument;
+- positions saved by a previous mount come back through `initialPositions`, not `positions.set`;
 - `tsc` passes with no cast on layouts or positions.
 
 ## References
 
 Every page has a Markdown version: add `.md` to its URL. The site documents the latest release.
 
-- Guides: [Layouts](https://bruno00o.github.io/graph/docs/layout), [Positions](https://bruno00o.github.io/graph/docs/positions)
-- API: [force](https://bruno00o.github.io/graph/docs/api/force), [layers, grid, rings, radial, geo](https://bruno00o.github.io/graph/docs/api/layouts)
-- Examples: [force layout](https://bruno00o.github.io/graph/examples/force-layout), [force parameters](https://bruno00o.github.io/graph/examples/force-parameters), [layer direction and spacing](https://bruno00o.github.io/graph/examples/layer-spacing), [sorted grid](https://bruno00o.github.io/graph/examples/sorted-grid), [rings](https://bruno00o.github.io/graph/examples/ranked-rings), [radial tree](https://bruno00o.github.io/graph/examples/radial-tree), [geo layout](https://bruno00o.github.io/graph/examples/geo-layout), [fixed and free nodes](https://bruno00o.github.io/graph/examples/fixed-and-free-nodes), [save positions](https://bruno00o.github.io/graph/examples/save-positions), [custom layout](https://bruno00o.github.io/graph/examples/custom-layout)
+- Guides: [Layouts](https://bruno00o.github.io/graph/docs/layout), [Positions](https://bruno00o.github.io/graph/docs/positions), [Restore at mount](https://bruno00o.github.io/graph/docs/positions#restore-at-mount)
+- API: [force](https://bruno00o.github.io/graph/docs/api/force), [layers, grid, rings, radial, geo, placed](https://bruno00o.github.io/graph/docs/api/layouts)
+- Examples: [force layout](https://bruno00o.github.io/graph/examples/force-layout), [force parameters](https://bruno00o.github.io/graph/examples/force-parameters), [layer direction and spacing](https://bruno00o.github.io/graph/examples/layer-spacing), [sorted grid](https://bruno00o.github.io/graph/examples/sorted-grid), [rings](https://bruno00o.github.io/graph/examples/ranked-rings), [radial tree](https://bruno00o.github.io/graph/examples/radial-tree), [geo layout](https://bruno00o.github.io/graph/examples/geo-layout), [fixed and free nodes](https://bruno00o.github.io/graph/examples/fixed-and-free-nodes), [save positions](https://bruno00o.github.io/graph/examples/save-positions), [custom layout](https://bruno00o.github.io/graph/examples/custom-layout), [layers fixed by the data](https://bruno00o.github.io/graph/examples/ranked-layers), [positions computed by the app](https://bruno00o.github.io/graph/examples/computed-positions)
 - Groups in layouts: [how each layout keeps unfolded groups whole](https://bruno00o.github.io/graph/docs/layout#groups)

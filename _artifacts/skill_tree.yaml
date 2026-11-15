@@ -58,6 +58,7 @@ skills:
       - src/core/source-table.ts
       - src/core/live-source.ts
       - src/host/data-status.ts
+      - src/host/data-reads.ts
       - src/host/graph-instance.ts
       - src/host/events.ts
       - docs/content/docs/(guide)/installation.mdx
@@ -71,6 +72,8 @@ skills:
       - docs/content/docs/api/graph-instance.mdx
       - docs/content/docs/api/events.mdx
     requires: []
+    references:
+      - references/live-data.md
   - name: react
     slug: react
     domain: graph-setup
@@ -110,8 +113,9 @@ skills:
       and adding a force layout, layers for a hierarchy or flow, a grid, rings,
       a radial tree or a geographic layout, running or stopping a layout from
       code, following its progress, framing the result, keeping dragged or
-      data-given positions, saving and restoring positions, writing a custom
-      layout, or finding why nodes do not move or pile up.
+      data-given positions, saving and restoring positions, layers fixed by a
+      field, positions computed by your own code, writing a custom layout, or
+      finding why nodes do not move or pile up.
     sources:
       - src/layouts/index.ts
       - src/layouts/force/index.ts
@@ -120,6 +124,7 @@ skills:
       - src/layouts/rings.ts
       - src/layouts/radial.ts
       - src/layouts/geo.ts
+      - src/layouts/placed.ts
       - src/types.ts
       - src/host/graph-instance.ts
       - src/host/layout-session.ts
@@ -131,10 +136,10 @@ skills:
     requires:
       - core
     purpose: >
-      Where nodes go: the five ready-made layouts and when to pick each, the
+      Where nodes go: the ready-made layouts and when to pick each, the
       definition and run-time ways to start a layout, which nodes a layout may
-      move, positions from data and from code, and the mistakes that leave nodes
-      on a spiral or still.
+      move, positions from data and from code, restoring them at mount, and the
+      mistakes that leave nodes on a spiral or still.
   - name: edges
     slug: edges
     domain: appearance
@@ -186,6 +191,8 @@ skills:
       - src/host/graph-instance.ts
       - src/host/events.ts
       - src/core/projection.ts
+      - src/core/hierarchy.ts
+      - src/host/folding.ts
       - src/host/picking.ts
       - src/host/element-keys.ts
       - docs/content/docs/(guide)/groups.mdx
@@ -264,21 +271,23 @@ skills:
     path: skills/interaction/SKILL.md
     description: >
       Use when configuring how people work with a @bruno00o/graph graph:
-      selection modes, node drag, the lasso, what the wheel and a trackpad do
-      (zoom, pan or scroll the page), touch, auto-pan, turning gestures off,
-      keyboard navigation and focus; reacting to clicks, hovers, drags and the
-      pointer; controlling the selection from application state; and styling
-      states beyond a basic highlight: fading everything outside a state,
-      drawing members above the rest, hiding members, always showing their
-      labels, or styling nodes, edges and shapes apart. The first graph, plain
-      states and event basics are in the core skill; moving the view from code
-      is in the view skill.
+      selection modes, node drag (for all nodes or some), the lasso, what the
+      wheel and a trackpad do (zoom, pan or scroll the page), touch, auto-pan,
+      turning gestures off, keyboard navigation and focus; reacting to clicks,
+      hovers, drags and the pointer; controlling the selection from application
+      state; and styling states beyond a basic highlight: fading everything
+      outside a state, drawing members above the rest, hiding members, always
+      showing their labels, or styling nodes, edges and shapes apart. The first
+      graph, plain states and event basics are in the core skill; moving the
+      view from code is in the view skill.
     sources:
       - src/types.ts
       - src/define-graph.ts
       - src/host/events.ts
       - src/host/graph-instance.ts
       - src/host/keyboard.ts
+      - src/host/pointer-input.ts
+      - src/core/lasso.ts
       - src/host/selection-control.ts
       - src/host/element-keys.ts
       - src/core/state-names.ts
@@ -290,9 +299,9 @@ skills:
       - core
     purpose: >
       The interaction model of a @bruno00o/graph graph: the interaction options
-      of defineGraph, selection and its controlled mode, drag and lasso, wheel,
-      touch and keyboard, pointer events and their targets, and the advanced
-      state styles others, raise, hide and label always.
+      of defineGraph, selection and its controlled mode, drag, per-node drag and
+      the lasso, wheel, touch and keyboard, pointer events and their targets,
+      and the advanced state styles others, raise, hide, label always and halo.
   - name: map
     slug: map
     domain: geography-and-time
@@ -311,6 +320,7 @@ skills:
       - src/map/react.tsx
       - src/map/export.ts
       - src/core/geo.ts
+      - src/host/position-event.ts
       - src/shapes/wrap.ts
       - src/shapes/subdivide.ts
       - src/waypoints.ts
@@ -496,6 +506,7 @@ skills:
       - src/types.ts
       - src/marks.ts
       - src/theme/tokens.ts
+      - src/core/node-order.ts
       - src/theme/theme.css
       - docs/content/docs/(guide)/marks.mdx
       - docs/content/docs/(guide)/labels.mdx
@@ -550,19 +561,20 @@ skills:
     path: skills/export/SKILL.md
     description: >
       Use when saving a @bruno00o/graph graph as a PNG image or an SVG document,
-      choosing its region, scale, pixel ratio, labels and background, or
-      exporting large graphs.
+      choosing its region, scale or exact size, pixel ratio, labels, grid,
+      badges and background, or exporting large graphs.
     sources:
       - src/export/index.ts
+      - src/export/size.ts
       - docs/content/docs/(guide)/export.mdx
       - docs/content/docs/api/export.mdx
     requires:
       - core
     purpose: >
       Saving a mounted @bruno00o/graph graph as a PNG Blob or an SVG string with
-      exportPng and exportSvg: what each one draws, region, scale and pixel
-      ratio, labels, background, time window and flows, downloading the result,
-      and the errors and limits.
+      exportPng and exportSvg: what each one draws, region, scale or exact size,
+      pixel ratio, labels, grid and badges, background, time window and flows,
+      downloading the result, and the errors and limits.
   - name: shapes
     slug: shapes
     domain: structure
