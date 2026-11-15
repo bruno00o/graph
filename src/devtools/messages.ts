@@ -2,6 +2,12 @@ import type { GraphIssue, ShapeIssue } from '../core/issues'
 import { withoutUndefined } from '../core/without-undefined'
 import type { EdgeMark, Key, NodeMark } from '../types'
 
+/**
+ * How a graph draws: `'active'`, `'suspended'` while `suspend` holds its WebGL context back, or
+ * `'lost'` when the browser took the context away.
+ */
+export type GraphRendering = 'active' | 'suspended' | 'lost'
+
 /** Every text the devtools panel shows. Strings are labels; functions format values. */
 export interface GraphDevtoolsMessages {
   /**
@@ -154,6 +160,16 @@ export interface GraphDevtoolsMessages {
   readonly surface?: string | undefined
   /** Formats the name of a surface, such as `'Canvas'` for `'canvas'` and `'Map'` for `'map'`. */
   readonly surfaceName?: ((name: string) => string) | undefined
+  /**
+   * Label of whether the graph draws, is suspended, or lost its WebGL context.
+   * @default 'Rendering'
+   */
+  readonly rendering?: string | undefined
+  /**
+   * Formats the rendering state of a graph: `'active'`, `'suspended'` or `'lost'`, such as
+   * `'Active'`, `'Suspended'` and `'Context lost'`.
+   */
+  readonly renderingName?: ((state: GraphRendering) => string) | undefined
   /**
    * Title of the Interaction section.
    * @default 'Interaction'
@@ -326,6 +342,9 @@ export const defaultMessages: GraphDevtoolsMessages = {
   dimensions: (width, height) => `${integer.format(width)} × ${integer.format(height)} px`,
   surface: 'Surface',
   surfaceName: (name) => (name === 'canvas' ? 'Canvas' : name === 'map' ? 'Map' : name),
+  rendering: 'Rendering',
+  renderingName: (state) =>
+    state === 'suspended' ? 'Suspended' : state === 'lost' ? 'Context lost' : 'Active',
   interaction: 'Interaction',
   selection: 'Selection',
   elementCounts: (nodes, edges) =>

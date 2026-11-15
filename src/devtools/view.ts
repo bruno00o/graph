@@ -206,6 +206,11 @@ export function createView(
       messages.surface ?? defaultMessages.surface ?? '',
       ({ surface }) => (messages.surfaceName ?? defaultMessages.surfaceName ?? String)(surface),
     ],
+    [
+      messages.rendering ?? defaultMessages.rendering ?? '',
+      ({ rendering }) =>
+        (messages.renderingName ?? defaultMessages.renderingName ?? String)(rendering),
+    ],
   ])
 
   const target = (value: GraphReport['hovered']) =>

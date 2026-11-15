@@ -26,6 +26,7 @@ const params = new URLSearchParams(location.search)
 const count = Number(params.get('graphs') ?? 20)
 const budget = Number(params.get('live') ?? 8)
 const nodeCount = Number(params.get('nodes') ?? 400)
+const keepFrame = params.get('frame') !== '0'
 const edgeCount = Number(params.get('edges') ?? nodeCount * 2)
 
 const { header, main } = createPage(messages.suspend)
@@ -132,6 +133,7 @@ for (let index = 0; index < count; index++) {
     }),
     ariaLabel: messages.suspendGraph(index + 1),
     suspended: true,
+    keepFrame,
   })
   graph.selection.set({ nodes: [`n${index}`] })
   const tile: Tile = {

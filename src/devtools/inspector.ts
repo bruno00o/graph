@@ -2,6 +2,7 @@ import type { AnyIssue } from '../core/issues'
 import type { ElementKeys, GraphTarget } from '../host/events'
 import { type InspectedGraph, watchGraphs } from '../host/inspect'
 import type { View } from '../types'
+import type { GraphRendering } from './messages'
 
 export const chartFrames = 120
 const historyLength = 240
@@ -56,6 +57,7 @@ export interface GraphReport {
   readonly issues: readonly AnyIssue[]
   readonly view: View
   readonly surface: string
+  readonly rendering: GraphRendering
   readonly selection: ElementKeys
   readonly hovered: GraphTarget | null
   readonly focused: GraphTarget | null
@@ -218,6 +220,7 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
     issues: inspection.issues.slice(0, listedIssues),
     view: state.view,
     surface: state.surface,
+    rendering: state.suspended ? 'suspended' : inspection.contextLost ? 'lost' : 'active',
     selection: state.selection,
     hovered: state.hovered,
     focused: state.focused,

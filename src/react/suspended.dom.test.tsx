@@ -41,7 +41,7 @@ let root: Root
 let graph: GraphInstance | null = null
 let seen: GraphSuspendEvent[] = []
 
-function render(suspended: boolean | undefined): void {
+function render(suspended: boolean | undefined, keepFrame?: boolean): void {
   act(() => {
     root.render(
       <StrictMode>
@@ -49,6 +49,7 @@ function render(suspended: boolean | undefined): void {
           definition={definition}
           ariaLabel="graph"
           suspended={suspended}
+          keepFrame={keepFrame}
           onSuspendChange={(event) => seen.push(event)}
           ref={(instance) => {
             graph = instance
@@ -100,5 +101,27 @@ describe('<Graph suspended>', () => {
     render(undefined)
     expect(made.live).toBe(0)
     expect(graph?.store.state.suspended).toBe(true)
+  })
+
+  it('keeps no copy of the last frame with keepFrame false, and follows the prop', () => {
+    const original = HTMLCanvasElement.prototype.getContext
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (
+      this: HTMLCanvasElement,
+      kind: string,
+      options?: unknown,
+    ) {
+      if (kind === '2d' && this.width >= 800)
+        return { drawImage: () => {} } as unknown as CanvasRenderingContext2D
+      return original.call(this, kind as '2d', options as CanvasRenderingContext2DSettings)
+    } as typeof HTMLCanvasElement.prototype.getContext)
+    const frames = () => graph?.element.querySelectorAll('[data-graph-frame]').length
+    render(false, false)
+    render(true, false)
+    expect(frames()).toBe(0)
+    render(false, true)
+    render(true, true)
+    expect(frames()).toBe(1)
+    render(true, false)
+    expect(frames()).toBe(0)
   })
 })

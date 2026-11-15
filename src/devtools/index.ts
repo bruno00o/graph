@@ -3,5 +3,6 @@ export {
   defaultMessages,
   type GraphDevtoolsMessages,
   type GraphDevtoolsMessagesInput,
+  type GraphRendering,
 } from './messages'
 export { type GraphDevtoolsPluginOptions, graphDevtoolsPlugin } from './plugin'

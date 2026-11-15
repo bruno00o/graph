@@ -138,6 +138,13 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    * context until the prop turns `false`. Left out, suspension goes through the instance only.
    */
   readonly suspended?: boolean | undefined
+  /**
+   * `false` keeps no copy of the last frame while the graph is suspended, which saves width ×
+   * height × pixel ratio² × 4 bytes for each suspended graph and leaves an empty box until it
+   * resumes. Can change after the mount.
+   * @default true
+   */
+  readonly keepFrame?: boolean | undefined
   /** View at mount, read once. Without it and without `view`, the first data is fitted. */
   readonly initialView?: View | undefined
   /**
@@ -209,7 +216,7 @@ const surfaces = new WeakMap<object, GraphSurface | null>()
 
 type BoundProps<S extends string, M extends Mark> = Omit<
   GraphProps<S, M>,
-  'initialView' | 'className' | 'style' | 'children' | 'suspended'
+  'initialView' | 'className' | 'style' | 'children' | 'suspended' | 'keepFrame'
 >
 
 type SharedOptions<S extends string, M extends Mark> = Omit<
@@ -362,6 +369,7 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
       onViewChange: (next) => flushSync(() => latest.current.onViewChange?.(next)),
       surface,
       suspended: initial.suspended,
+      keepFrame: initial.keepFrame,
     })
     surfaces.set(instance, surface)
     setGraph(instance)
@@ -373,7 +381,10 @@ export function Graph<S extends string = string, M extends Mark = Mark>(
 
   useGraphBinding(graph, props, latest, props.surface ?? null)
 
-  const { suspended } = props
+  const { suspended, keepFrame } = props
+  useLayoutEffect(() => {
+    graph?.update({ keepFrame: keepFrame ?? true })
+  }, [graph, keepFrame])
   useLayoutEffect(() => {
     if (!graph || suspended === undefined) return
     if (suspended) graph.suspend()
