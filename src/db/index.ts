@@ -76,11 +76,18 @@ export interface PersistPositionsOptions<
    * the write is done or has failed. Without it, no state is set.
    */
   readonly pendingState?: S | undefined
+  /**
+   * Names of the surfaces whose moves are written, such as `['canvas', 'map']`: each surface keeps
+   * its own positions, and moves on the others are left out. Defaults to the surface the graph
+   * draws on when `persistPositions` is called.
+   */
+  readonly surfaces?: readonly string[] | undefined
 }
 
 /**
  * Writes the positions of moved nodes to a TanStack DB collection, in world units or as degrees:
- * drags, `positions.set`, `positions.reset` and layout results. Returns a function that stops listening and writes the last pending move at once.
+ * drags, `positions.set`, `positions.reset` and layout results, on the surfaces named by
+ * `surfaces`. Returns a function that stops listening and writes the last pending move at once.
  * Throws when `pendingState` is not a free state of the graph.
  */
 export function persistPositions<
@@ -100,6 +107,7 @@ export function persistPositions<
   const latitudeField: string | undefined = options.latitude
   const keyOf = options.key ?? ((key: Key) => key as TKey)
   const marks = pendingMarks(graph, options.pendingState, 'nodes')
+  const surfaces = new Set(options.surfaces ?? [graph.store.state.surface])
 
   const write = (positions: ReadonlyMap<Key, Point>): Settling[] => {
     const keys: TKey[] = []
@@ -146,6 +154,7 @@ export function persistPositions<
     })
     const tracked = new WeakSet<object>()
     return graph.on('positionchange', (event: GraphPositionEvent) => {
+      if (!surfaces.has(event.surface)) return
       const transaction = mutate(event.positions)
       if (!marks) return
       marks.hold(event.positions.keys(), transaction)
@@ -167,6 +176,7 @@ export function persistPositions<
     }
   })
   const stop = graph.on('positionchange', (event: GraphPositionEvent) => {
+    if (!surfaces.has(event.surface)) return
     for (const [key, point] of event.positions) pending.set(key, point)
     marks?.hold(event.positions.keys(), pending)
     paced.call()

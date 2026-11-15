@@ -283,6 +283,19 @@ export interface GraphPositionEvent {
    * to -180 up to 180. Absent on a graph that is not on a map.
    */
   readonly geo?: ReadonlyMap<Key, GeoPoint>
+  /**
+   * Name of the surface the positions belong to, `'canvas'` or `'map'`: each surface keeps its own
+   * positions.
+   */
+  readonly surface: string
+}
+
+/** Payload of `surfacechange`. */
+export interface GraphSurfaceEvent {
+  /** Name of the surface the graph draws on now, `'canvas'` or `'map'`. */
+  readonly surface: string
+  /** Name of the surface the graph left. */
+  readonly previous: string
 }
 
 /** Every event of the graph, by name, with its payload. `M` is the union of the marks. */
@@ -327,6 +340,8 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly foldchange: GraphFoldEvent
   /** The view changed. In controlled mode, only when `update({ view })` moves it. */
   readonly viewchange: GraphViewEvent
+  /** The graph moved to another surface, with `update({ surface })`, or back to its canvas. */
+  readonly surfacechange: GraphSurfaceEvent
   /** The time window changed. In controlled mode, only when `update({ time })` moves it. */
   readonly timechange: GraphTimeEvent
   /**

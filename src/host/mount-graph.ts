@@ -2,7 +2,13 @@ import { createStore } from '@tanstack/store'
 import { createGraphModel, type GraphChanges } from '../core/graph-model'
 import { checkLists, stringCheck } from '../core/key-list'
 import { createPathQueries } from '../core/path-query'
-import { type PositionReader, Positions, placeNodes, RestoredPositions } from '../core/positions'
+import {
+  type PositionReader,
+  Positions,
+  placeNodes,
+  placeOnSurface,
+  RestoredPositions,
+} from '../core/positions'
 import { Projection, type ProjectionChanges } from '../core/projection'
 import { createScene } from '../core/scene'
 import { type ShapeShift, shiftSlots } from '../core/shape-store'
@@ -24,12 +30,12 @@ import { dev } from '../dev'
 import { createTextWidths } from '../dom/text-width'
 import { ThemeResolver } from '../dom/theme'
 import { defaultFont } from '../theme/tokens'
-import type { GraphDefinition, Key, KeyList, Mark, Point } from '../types'
+import type { GraphDefinition, Key, KeyList, Layout, Mark, Point, View } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import { BridgeHost } from './bridges'
 import { BundleHost } from './bundles'
 import { HostCamera } from './camera'
-import { canvasSurface } from './canvas-surface'
+import { canvasCapabilities, canvasSurface } from './canvas-surface'
 import { ContainerBoxes } from './containers'
 import { DataReads, forEachEdgeKey } from './data-reads'
 import { DataStatus, loadedData } from './data-status'
@@ -58,6 +64,7 @@ import type {
   GraphState,
   GraphStore,
   GraphView,
+  HostDriver,
   HostSurface,
   MountGraphOptions,
   RendererFactory,
@@ -83,8 +90,9 @@ import { SelectionControl } from './selection-control'
 import { SpreadHost } from './spread'
 import { StateRegistry } from './state-registry'
 import { applyStateStyles } from './state-styles'
+import { hostSurfaceOf } from './surface-registry'
 import { TimeControl } from './time-control'
-import { fitRequest, originOf, sameView, ViewControl } from './view-control'
+import { fitRequest, originOf, sameView, ViewControl, type ViewMemory } from './view-control'
 
 export type {
   FitOptions,
@@ -109,6 +117,7 @@ export type {
   GraphState,
   GraphStates,
   GraphStore,
+  GraphSurface,
   GraphTime,
   GraphUpdateOptions,
   GraphView,
@@ -121,6 +130,7 @@ export type {
   PositionResetOptions,
   PositionSnapshotOptions,
   RendererFactory,
+  SurfaceCamera,
   SurfaceCapabilities,
   ViewOptions,
 } from './graph-instance'
@@ -135,8 +145,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   container: HTMLElement,
   options: MountGraphOptions<S, M>,
   createRenderer: RendererFactory,
-  surface: HostSurface = canvasSurface(),
+  home: HostSurface = canvasSurface(),
 ): GraphInstance<S, M> {
+  let surface: HostSurface = hostSurfaceOf(options.surface) ?? home
   let given: GraphDefinition = options.definition
   let definition: GraphDefinition = surface.adapt(given)
   const controlled = options.selection !== undefined
@@ -172,6 +183,12 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   element.setAttribute('role', 'img')
   element.setAttribute('aria-label', options.ariaLabel)
   surface.place(element, container)
+  const visited = new Set<HostSurface>([home, surface])
+  const drivers = new Map<HostSurface, HostDriver>()
+  const memories = new Map<HostSurface, ViewMemory>()
+  let heldView: View | null = null
+  const startCamera = surface.camera()
+  const startView = options.view ?? options.initialView ?? null
   const announcer = document.createElement('div')
   announcer.setAttribute('aria-live', 'polite')
   announcer.style.cssText = visuallyHidden
@@ -309,9 +326,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     options.onSelectionChange,
   )
   const store = createStore<GraphState>({
-    view: options.view ?? options.initialView ?? { x: 0, y: 0, zoom: 1 },
-    width: 0,
-    height: 0,
+    view: startCamera?.view ?? startView ?? { x: 0, y: 0, zoom: 1 },
+    width: startCamera?.width ?? 0,
+    height: startCamera?.height ?? 0,
     hovered: null,
     focused: null,
     selection: controlled ? registry.members('selected') : emptyKeys(registry.shaped),
@@ -325,6 +342,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     lens: null,
     hiddenLayers: layers.hidden,
     data: loadedData,
+    surface: surface.name,
   })
   const readonlyStore: GraphStore = isolateSubscribers(readonlyOf(store))
   const bundles = new BundleHost(
@@ -389,8 +407,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   })
 
   const views = new ViewControl({
-    controlled: viewControlled,
-    given: options.initialView !== undefined || viewControlled,
+    controlled: () => viewControlled || !surface.ownCamera,
+    given: options.initialView !== undefined || viewControlled || startCamera !== null,
     emitter,
     state: () => store.get(),
     patch,
@@ -956,6 +974,133 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     render.unlisten()
   }
 
+  function applyDefinition(): void {
+    definition = surface.adapt(given)
+    model.setMarks(definition.marks)
+    projection.setMarks(definition.marks)
+    support.setMarks(definition.marks)
+    scene.setDefinition(definition)
+    decorations.setDefinition(definition)
+    bundles.setBundling(definition.bundling, definition.routing)
+    bridges.setOptions(definition.bridges)
+    timeWindow.refreshFade()
+    layers.arrange()
+    layers.refresh()
+    const reshaped = registry.setShaped(scene.shapes.marked)
+    if (registry.define(freeStateNames(definition.states)) || reshaped) {
+      patch({ states: selection.freeStates() })
+    }
+    if (reshaped) patch({ selection: registry.members('selected') })
+    selection.lightSupport()
+    applyStyles()
+    focus.applyKeyboard()
+    pointer.updateCursor()
+    views.reconstrain()
+    data.refresh()
+  }
+
+  function driverOf(target: HostSurface): HostDriver {
+    const known = drivers.get(target)
+    if (known) return known
+    const driver: HostDriver = {
+      frame: (now) => {
+        if (surface === target) frame(now)
+      },
+      follow: (next, ratio, width, height, globe = null) => {
+        if (surface !== target || destroyed) return
+        render.pixelRatio = ratio
+        camera.globe = globe
+        scheduler.hush(() => {
+          const state = store.get()
+          if (state.width !== width || state.height !== height) patch({ width, height })
+          const cause = views.followed()
+          const far = Math.max(
+            Math.abs(next.x - positions.originX),
+            Math.abs(next.y - positions.originY),
+          )
+          if (far * next.zoom > rebaseDistance) {
+            positions.rebase(next.x, next.y)
+            request()
+          }
+          if (!sameView(next, state.view)) views.publish(next, cause)
+        })
+      },
+      attach: (create) => render.attach(target, create),
+      detach: () => render.detach(target),
+      evict: () => {
+        if (surface === target && !destroyed) moveTo(home, null)
+      },
+    }
+    drivers.set(target, driver)
+    return driver
+  }
+
+  function moveTo(next: HostSurface, wanted: View | null): void {
+    const previous = surface
+    flushPending()
+    if (destroyed) return
+    const focused = document.activeElement === element
+    next.place(element, container)
+    visited.add(next)
+    pointer.abandon()
+    if (destroyed) return
+    motion.finish()
+    if (destroyed) return
+    layouts.leave()
+    if (destroyed) return
+    spread.leave()
+    memories.set(previous, views.leave())
+    camera.globe = null
+    scheduler.takeFrame()
+    pointer.unlisten()
+    previous.unplace(element)
+    surface = next
+    const stale = positions.swap(previous, next)
+    restore = null
+    render.listen(next)
+    render.enter(next)
+    pointer.listen(next.events)
+    next.bind(driverOf(next))
+    applyDefinition()
+    if (destroyed) return
+    if (scene.setGroupFillOpacity(next.groupFillOpacity)) scheduler.needsFlush = true
+    flushPending()
+    if (destroyed) return
+    const arrived = placeOnSurface(model, positions, stale, (index) =>
+      projection.active && !projection.nodeShown(index) ? hierarchy.representative(index) : -1,
+    )
+    for (const index of arrived) projection.markSeen(index)
+    const cameraView = next.camera()
+    const memory = memories.get(next) ?? null
+    const kept = next.ownCamera ? (wanted ?? heldView ?? memory?.view ?? null) : null
+    if (next.ownCamera) heldView = null
+    const shown = cameraView?.view ?? kept
+    if (shown && !sameView(shown, store.get().view)) views.publish(shown, 'api')
+    if (destroyed) return
+    views.enter(memory, kept === null && cameraView === null)
+    if (wanted || kept) views.pendingFit = null
+    const size = cameraView ?? measured()
+    render.resize(size.width, size.height, false)
+    if (wanted && !next.ownCamera) next.move(views.constrain(wanted))
+    spread.enter(performance.now())
+    lens.update()
+    if (destroyed) return
+    layouts.enter(arrived)
+    if (destroyed) return
+    patch({ surface: next.name })
+    emitter.emit('surfacechange', { surface: next.name, previous: previous.name })
+    if (destroyed) return
+    if (focused) element.focus({ preventScroll: true })
+    request(true)
+  }
+
+  function measured(): { readonly width: number; readonly height: number } {
+    const box = element.getBoundingClientRect()
+    if (box.width > 0 && box.height > 0) return { width: box.width, height: box.height }
+    const { width, height } = store.get()
+    return { width, height }
+  }
+
   listenSurface()
   const elementListeners: ReadonlyArray<readonly [string, (event: never) => void]> = [
     ['keydown', keyboard.onKeyDown],
@@ -1068,7 +1213,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       }
       motion.move(indices, to, positionOptions.duration ?? 0)
       if (moved.size > 0) {
-        emitter.emit('positionchange', positionEvent('api', moved, surface.onMap))
+        emitter.emit('positionchange', positionEvent('api', moved, surface))
       }
     },
     reset: (keys, resetOptions = {}) => {
@@ -1110,7 +1255,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       motion.move(indices, to, resetOptions.duration ?? definition.transitions.positions)
       spread.settle(performance.now())
       if (moved.size > 0) {
-        emitter.emit('positionchange', positionEvent('api', moved, surface.onMap))
+        emitter.emit('positionchange', positionEvent('api', moved, surface))
       }
     },
     snapshot: (snapshotOptions = {}) => {
@@ -1265,7 +1410,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     drawn: () => waiters.wait(),
     loaded: () => data.loaded(),
     update(next) {
-      if (viewControlled && next.view !== undefined && surface.ownCamera) checkView(next.view)
+      const target = next.surface === undefined ? surface : (hostSurfaceOf(next.surface) ?? home)
+      const moving = target !== surface
+      if (next.view !== undefined && (moving || viewControlled)) checkView(next.view)
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
       if (next.onSelectionChange !== undefined) selection.listen(next.onSelectionChange)
       if (controlled && next.selection !== undefined) {
@@ -1277,10 +1424,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         check(next.folded, 'update({ folded })')
         folds.answer(next.folded)
       }
-      if (next.onViewChange !== undefined && surface.ownCamera) {
-        onViewChange = isolated(next.onViewChange)
+      if (next.onViewChange !== undefined) onViewChange = isolated(next.onViewChange)
+      if (viewControlled && next.view !== undefined && !moving) {
+        if (surface.ownCamera) views.apply(next.view)
+        else heldView = next.view
       }
-      if (viewControlled && next.view !== undefined && surface.ownCamera) views.apply(next.view)
       if (next.onTimeChange !== undefined) timeWindow.listen(next.onTimeChange)
       if (timeControlled && next.time !== undefined) {
         timeWindow.apply(readWindow(next.time))
@@ -1292,32 +1440,17 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         check(next.hiddenLayers, 'update({ hiddenLayers })')
         layers.answer(next.hiddenLayers)
       }
+      if (moving) {
+        if (next.definition) given = next.definition
+        moveTo(target, next.view ?? null)
+        return
+      }
       if (next.definition && next.definition !== given) {
-        const previous = definition.layout
+        const previous: Layout | null = definition.layout
         given = next.definition
         definition = surface.adapt(given)
         layouts.replaced(previous)
-        model.setMarks(definition.marks)
-        projection.setMarks(definition.marks)
-        support.setMarks(definition.marks)
-        scene.setDefinition(definition)
-        decorations.setDefinition(definition)
-        bundles.setBundling(definition.bundling, definition.routing)
-        bridges.setOptions(definition.bridges)
-        timeWindow.refreshFade()
-        layers.arrange()
-        layers.refresh()
-        const reshaped = registry.setShaped(scene.shapes.marked)
-        if (registry.define(freeStateNames(definition.states)) || reshaped) {
-          patch({ states: selection.freeStates() })
-        }
-        if (reshaped) patch({ selection: registry.members('selected') })
-        selection.lightSupport()
-        applyStyles()
-        focus.applyKeyboard()
-        pointer.updateCursor()
-        views.reconstrain()
-        data.refresh()
+        applyDefinition()
         if (destroyed) return
         request(true)
       }
@@ -1352,7 +1485,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       for (const watcher of [...watchers]) watcher.destroy()
       watchers.clear()
       element.remove()
-      surface.release()
+      for (const each of visited) each.release()
       waiters.reject(endReason)
       data.destroy(endReason)
       lifetime.abort(endReason)
@@ -1435,29 +1568,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     },
   })
 
-  surface.bind({
-    frame,
-    follow: (next, ratio, width, height, globe = null) => {
-      render.pixelRatio = ratio
-      camera.globe = globe
-      scheduler.hush(() => {
-        const state = store.get()
-        if (state.width !== width || state.height !== height) patch({ width, height })
-        const cause = views.followed()
-        const far = Math.max(
-          Math.abs(next.x - positions.originX),
-          Math.abs(next.y - positions.originY),
-        )
-        if (far * next.zoom > rebaseDistance) {
-          positions.rebase(next.x, next.y)
-          request()
-        }
-        if (!sameView(next, state.view)) views.publish(next, cause)
-      })
-    },
-    attach: (create) => render.attach(create),
-    detach: () => render.detach(),
-  })
+  surface.bind(driverOf(surface))
+  if (startCamera && startView) surface.move(startView)
 
   render.settled = true
   return guarded as unknown as GraphInstance<S, M>
@@ -1471,6 +1583,8 @@ export function mountGraph<S extends string = string, M extends Mark = Mark>(
   container: HTMLElement,
   options: MountGraphOptions<S, M>,
 ): GraphInstance<S, M> {
-  if (options.signal?.aborted) return stillborn(options, options.signal)
+  if (options.signal?.aborted) {
+    return stillborn(options, options.signal, hostSurfaceOf(options.surface) ?? canvasCapabilities)
+  }
   return createGraphHost(container, options, createWebglRenderer)
 }

@@ -1,15 +1,17 @@
 ---
-title: mountMapGraph and exportMapPng
-description: Draw a graph inside a MapLibre map, and export the map and the graph as one PNG.
+title: mountMapGraph, mapSurface and exportMapPng
+description: Draw a graph inside a MapLibre map, move a graph onto a map and back, and export the map and the graph as one PNG.
 ---
 
 ```ts
-import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
+import { exportMapPng, mapSurface, mountMapGraph } from '@bruno00o/graph/map'
 
 function mountMapGraph<S extends string = string, M extends Mark = Mark>(
   map: Map,
   options: MapGraphOptions<S, M>,
 ): GraphInstance<S, M>
+
+function mapSurface(map: Map, options?: MapSurfaceOptions): GraphSurface
 
 function exportMapPng<S extends string>(
   graph: GraphInstance<S>,
@@ -24,6 +26,20 @@ function exportMapPng<S extends string>(
 <api-table path="map/index.ts" name="MapGraphOptions" />
 
 The other options are those of [`mountGraph`](/docs/api/mount-graph#options), except `initialView`, `view` and `onViewChange`: the map holds the view. A [`signal`](/docs/api/mount-graph#signal) that aborts destroys the graph and removes its layer; a signal already aborted leaves the map untouched. In React, use [`<MapGraph>`](/docs/api/map-graph).
+
+## mapSurface
+
+`mapSurface` makes a surface on the map that a graph mounted by `mountGraph` can move to: pass it as `surface` to [`mountGraph`](/docs/api/mount-graph#options) or to [`graph.update`](/docs/api/graph-instance), and `null` to bring the graph back to its own canvas. See [With and without a map](/docs/map#with-and-without-a-map).
+
+<api-table path="map/index.ts" name="MapSurfaceOptions" />
+
+<api-table path="index.ts" name="GraphSurface" />
+
+- A surface holds one graph at a time: moving a second graph onto it throws an `Error`, and so does a surface whose map was removed.
+- The layer and its renderer are added at the first visit and kept after the graph leaves. `release()` removes them, and brings back to its canvas a graph that is on the surface. `graph.destroy()` releases every surface the graph visited.
+- `map.remove()` while a graph is on the surface brings the graph back to its canvas, and logs a warning in development.
+- While a graph is on the surface, everything of the [behavior](#behavior) below applies to it, as to a graph mounted by `mountMapGraph`. On its canvas again, its layout, background, bundling, routing and lens come back.
+- `mountGraph(container, { surface })` mounts the graph straight on the map; its canvas is made the first time it moves back. `mountMapGraph(map, options)` is `mountGraph(map.getContainer(), { ...options, surface: mapSurface(map, { id, beforeId }) })`, with the surface released with the graph.
 
 ## exportMapPng options
 
@@ -44,7 +60,7 @@ function worldToGeo(point: Point): GeoPoint
 
 ## Errors
 
-- `exportMapPng` throws an `Error` for a destroyed graph or a graph not mounted by `mountMapGraph`, and a `RangeError` for a `pixelRatio` that is not a positive number or a map smaller than one pixel.
+- `exportMapPng` throws an `Error` for a destroyed graph or a graph that is not on a map, and a `RangeError` for a `pixelRatio` that is not a positive number or a map smaller than one pixel.
 - `exportMapPng` rejects when the hidden map fails to load its style. Tiles that are still missing after `timeout` are left out of the image.
 
 ## Behavior

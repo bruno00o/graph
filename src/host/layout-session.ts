@@ -153,9 +153,12 @@ export class LayoutHost {
   readonly #growth = new Set<number>()
   readonly #lateRerun = new Set<number>()
   readonly arranged: ArrangedPlaces = new ArrangedPlaces()
+  #layout: Layout | null | undefined
+  #paused: Set<number> | null = null
 
   constructor(source: LayoutSource) {
     this.#source = source
+    this.#layout = source.surface().layouts ? source.definition().layout : undefined
   }
 
   reshaped(): void {
@@ -163,8 +166,11 @@ export class LayoutHost {
   }
 
   replaced(previous: Layout | null): void {
+    if (!this.#source.surface().layouts) return
     const layout = this.#source.definition().layout
-    if (!sameLayout(previous, layout)) {
+    const before = this.#layout === undefined ? previous : this.#layout
+    this.#layout = layout
+    if (!sameLayout(before, layout)) {
       if (this.session?.auto) this.stop()
       this.#relayout = layout !== null || this.#scopes() !== null
     }
@@ -406,6 +412,55 @@ export class LayoutHost {
     void this.begin(layout, (index) => fresh.has(index), true, this.#autoSettings(), rerun)
   }
 
+  leave(): void {
+    const current = this.session
+    if (!current) return
+    if (current.auto) {
+      const paused = this.#paused ?? new Set<number>()
+      current.movable.forEach((flag, index) => {
+        if (flag === 1) paused.add(index)
+      })
+      this.#paused = paused
+    }
+    this.stop()
+  }
+
+  enter(arrived: readonly number[]): void {
+    if (!this.#source.surface().layouts || this.#source.destroyed()) return
+    const layout = this.#source.definition().layout
+    const before = this.#layout
+    this.#layout = layout
+    if (before !== undefined && !sameLayout(before, layout)) this.#relayout = layout !== null
+    const held = this.#held()
+    const scopes = held ? null : this.#scopes()
+    const paused = this.#paused
+    this.#paused = null
+    if (!layout && !scopes && !held) return
+    if (held) {
+      this.#waited = true
+      for (const index of [...(paused ?? []), ...arrived]) this.#late.add(index)
+      return
+    }
+    if (this.#relayout || !this.#laidOut) {
+      if (this.#source.waiting()) {
+        this.#waited = true
+        return
+      }
+      this.#runAll(layout)
+      return
+    }
+    const fresh = new Set(paused)
+    for (const index of arrived) fresh.add(index)
+    const alive = this.#source.scene.nodes.alive
+    for (const index of fresh) if (alive[index] !== 1) fresh.delete(index)
+    if (fresh.size === 0) return
+    if (!scopes && layout?.incremental === false) {
+      void this.begin(layout, () => true, true, this.#autoSettings())
+      return
+    }
+    void this.begin(layout, (index) => fresh.has(index), true, this.#autoSettings())
+  }
+
   release(): void {
     if (!this.#waited || this.#source.destroyed()) return
     if (this.#held()) return
@@ -597,7 +652,7 @@ export class LayoutHost {
         moved.set(key, { x: positions.x(index), y: positions.y(index) })
       }
       if (moved.size > 0)
-        emitter.emit('positionchange', positionEvent('layout', moved, this.#source.surface().onMap))
+        emitter.emit('positionchange', positionEvent('layout', moved, this.#source.surface()))
     }
     if (completed) {
       views.frameLayout()

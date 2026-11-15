@@ -1,5 +1,14 @@
-import { type Badge, defineGraph, edges, geoToWorld, groups, hull, nodes } from '@bruno00o/graph'
-import { exportMapPng, mountMapGraph } from '@bruno00o/graph/map'
+import {
+  type Badge,
+  defineGraph,
+  edges,
+  geoToWorld,
+  groups,
+  hull,
+  mountGraph,
+  nodes,
+} from '@bruno00o/graph'
+import { exportMapPng, mapSurface, mountMapGraph } from '@bruno00o/graph/map'
 import { shapes } from '@bruno00o/graph/shapes'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -29,6 +38,7 @@ const winding = params.has('waypoints')
 const zones = params.has('shapes') ? createZones(Number(params.get('shapes') || 0)) : []
 const crowded = zones.length > 100
 const pinned = params.has('pinned')
+const switching = params.has('switch')
 const generated = stack ? createStacks() : createPlaces(count, edgeCount)
 const places = generated.places
 const routes = winding ? withCrossing(generated.routes) : generated.routes
@@ -134,11 +144,25 @@ const container = document.createElement('div')
 container.style.cssText = 'position:absolute;inset:0'
 main.append(container)
 
+const plain = document.createElement('div')
+plain.style.cssText = 'position:absolute;inset:0'
+if (switching) container.before(plain)
+
 const map = new MapLibreMap({ container, style, center: [10, 48], zoom: small ? 2 : 1.6 })
 map.on('style.load', () => map.setProjection({ type: projection }))
-const graph = mountMapGraph(map, {
-  definition: definitionOf(winding ? 'winding' : 'geodesic'),
-  ariaLabel: messages.mapLabel(places.length, routes.length),
+const surface = switching ? mapSurface(map) : null
+const graph = surface
+  ? mountGraph(plain, {
+      definition: definitionOf(winding ? 'winding' : 'geodesic'),
+      ariaLabel: messages.mapLabel(places.length, routes.length),
+      surface,
+    })
+  : mountMapGraph(map, {
+      definition: definitionOf(winding ? 'winding' : 'geodesic'),
+      ariaLabel: messages.mapLabel(places.length, routes.length),
+    })
+graph.on('surfacechange', ({ surface: name }) => {
+  container.style.visibility = name === 'map' ? 'visible' : 'hidden'
 })
 
 async function showSite(value: string, zoom: number): Promise<void> {
@@ -244,8 +268,15 @@ header.append(
     },
   ),
   button(messages.fit, () => graph.view.fit({ duration: 400 })),
+  ...(surface
+    ? [
+        button(messages.surface, () =>
+          graph.update({ surface: graph.store.state.surface === 'map' ? null : surface }),
+        ),
+      ]
+    : []),
   exporting,
   themeToggle(messages.dark, messages.light),
 )
 
-Object.assign(window, { graph, map, exportMapPng, pathOf, routes, geoToWorld })
+Object.assign(window, { graph, map, surface, exportMapPng, pathOf, routes, geoToWorld })

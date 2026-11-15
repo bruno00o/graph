@@ -75,6 +75,11 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly hiddenLayers: readonly LayerName<M>[]
   /** Loading of the live sources of the current definition. */
   readonly data: GraphDataStatus
+  /**
+   * Name of the surface the graph draws on: `'canvas'` for its own canvas, `'map'` for a surface
+   * made by `mapSurface`. The view is in the units of that surface.
+   */
+  readonly surface: string
 }
 
 /** Status of edge bundling. */
@@ -580,10 +585,32 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    */
   readonly onLayerChange?: ((event: GraphLayerEvent<M>) => void) | undefined
   /**
+   * Where the graph draws: a surface made by `mapSurface` of `@bruno00o/graph/map`, or `null` for
+   * its own canvas in the container. Given to `update` with a new `definition`, both apply
+   * together. Each surface keeps its own node positions and view: back on a surface, the graph is
+   * where it was left, without a layout run.
+   * @default null
+   */
+  readonly surface?: GraphSurface | null | undefined
+  /**
    * Destroys the graph when it aborts. A signal already aborted mounts nothing: the graph comes
    * back destroyed, and a warning is logged in development.
    */
   readonly signal?: AbortSignal | undefined
+}
+
+/**
+ * A place a graph can draw on other than its own canvas, made by `mapSurface`. It holds one graph
+ * at a time, and keeps what it needs to draw it again quickly after the graph leaves.
+ */
+export interface GraphSurface {
+  /** Name the store gives while a graph draws on the surface, such as `'map'`. */
+  readonly name: string
+  /**
+   * Frees what the surface holds for its graph, such as the layer and the renderer kept on a map.
+   * A graph on the surface goes back to its own canvas. The surface can be used again afterwards.
+   */
+  release(): void
 }
 
 /**
@@ -633,7 +660,10 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly signal: AbortSignal
   /** `true` once the graph is destroyed. */
   readonly destroyed: boolean
-  /** `true` when the graph draws on a map, mounted by `mountMapGraph` or `<MapGraph>`. */
+  /**
+   * `true` while the graph draws on a map: mounted by `mountMapGraph` or `<MapGraph>`, or moved to a
+   * surface made by `mapSurface`.
+   */
   readonly drawsOnMap: boolean
   /**
    * Element under a point in screen pixels, nodes before edges and edges before shapes, or `null`.
@@ -708,10 +738,12 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    */
   loaded(): Promise<void>
   /**
-   * Applies a new `definition`, `ariaLabel`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
-   * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled
-   * `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and selection stay.
-   * Throws a `RangeError`, and applies nothing, for a controlled `view` that is not finite.
+   * Applies a new `definition`, `surface`, `ariaLabel`, `onSelectionChange`, `onFoldChange`,
+   * `onViewChange`, `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`,
+   * controlled `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and
+   * selection stay. With a new `surface`, a `view` given alongside is the view to take there,
+   * controlled or not. Throws a `RangeError`, and applies nothing, for a controlled `view` or a
+   * `view` given with a new `surface` that is not finite.
    */
   update(options: GraphUpdateOptions<S, M>): void
   /**
@@ -735,6 +767,7 @@ export interface HostDriver {
   ): void
   attach(create: (invalidate: () => void) => Renderer): void
   detach(): void
+  evict(): void
 }
 
 export interface SurfaceCapabilities {
@@ -750,9 +783,17 @@ export interface SurfaceCapabilities {
   readonly groupFillOpacity: number | null
 }
 
+export interface SurfaceCamera {
+  readonly view: View
+  readonly width: number
+  readonly height: number
+}
+
 export interface HostSurface extends SurfaceCapabilities {
   readonly events: HTMLCanvasElement
   place(element: HTMLElement, container: HTMLElement): void
+  unplace(element: HTMLElement): void
+  camera(): SurfaceCamera | null
   schedule(frame: (now: number) => void): number
   cancel(request: number): void
   claim(active: boolean): void

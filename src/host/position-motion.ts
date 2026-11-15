@@ -196,6 +196,24 @@ export class PositionMotion {
     this.move(indices, to, this.#source.definition().transitions.positions)
   }
 
+  finish(): void {
+    if (this.#animations.length === 0) return
+    const positions = this.#source.positions
+    const owner = this.#owner
+    const animations = this.#animations
+    this.#animations = []
+    const finished: (() => void)[] = []
+    for (const animation of animations) {
+      animation.indices.forEach((index, i) => {
+        if (owner[index] !== animation.id) return
+        owner[index] = 0
+        positions.set(index, animation.to[i * 2] ?? 0, animation.to[i * 2 + 1] ?? 0)
+      })
+      if (animation.done) finished.push(animation.done)
+    }
+    for (const done of finished) done()
+  }
+
   step(now: number): void {
     const positions = this.#source.positions
     const owner = this.#owner
