@@ -644,6 +644,62 @@ async function benchEdit(page, out) {
   )
 }
 
+async function benchTime(page, out) {
+  await page.evaluate('__bench.settle()')
+  const results = {
+    date: new Date().toISOString(),
+    params: options.params,
+    renderer: await page.evaluate(`(() => {
+      const gl = document.createElement('canvas').getContext('webgl2')
+      const info = gl?.getExtension('WEBGL_debug_renderer_info')
+      return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : null
+    })()`),
+    load: await page.evaluate('window.bench.timings'),
+  }
+  const slide = (count, span, width) => `(async () => {
+    const { graph, history } = window.bench
+    graph.view.fit()
+    await __bench.settle()
+    const start = history.start
+    return __bench.drive(${count}, (i) => {
+      const at = start + (i + 1) * ${span}
+      graph.time.set({ start: at, end: at + ${width} })
+    })
+  })()`
+  results.dayStep = await page.evaluate(slide(240, 86_400_000, 90 * 86_400_000))
+  results.weekStep = await page.evaluate(slide(150, 7 * 86_400_000, 30 * 86_400_000))
+  results.moment = await page.evaluate(slide(240, 3 * 86_400_000, 0))
+  results.jump = await page.evaluate(`(async () => {
+    const { graph, history } = window.bench
+    await __bench.settle()
+    const span = history.end - history.start
+    return __bench.drive(60, (i) => {
+      const at = history.start + (i % 2 === 0 ? 0.2 : 0.8) * span
+      graph.time.set({ start: at, end: at + 30 * 86_400_000 })
+    })
+  })()`)
+  results.errors = page.errors
+  writeFileSync(join(out, 'time.json'), `${JSON.stringify(results, null, 2)}\n`)
+  const ms = (value) => `${value.toFixed(2)} ms`
+  const row = (name, run) =>
+    `| ${name} | ${ms(run.frame.median)} | ${ms(run.frame.p95)} | ${ms(run.cost.median)} | ${ms(run.cost.p95)} |`
+  console.log(
+    [
+      `${options.params}, ${results.renderer}`,
+      `load: data ${ms(results.load.generate)}, mount ${ms(results.load.mount)}, first frame ${ms(results.load.firstFrame)}, timeline ${ms(results.load.timeline)}`,
+      '',
+      '| scenario | frame median | frame p95 | host median | host p95 |',
+      '| --- | --- | --- | --- | --- |',
+      row('window of 90 days, step of a day', results.dayStep),
+      row('window of 30 days, step of a week', results.weekStep),
+      row('moment, step of 3 days', results.moment),
+      row('jump of 60 % of the extent', results.jump),
+      '',
+      `errors ${results.errors.length}, results in ${out}`,
+    ].join('\n'),
+  )
+}
+
 async function benchHistory(page, out) {
   await page.evaluate('__bench.settle()')
   await page.send('HeapProfiler.enable')
@@ -823,6 +879,7 @@ try {
   if (options.layout) await benchLayout(page, out)
   else if (new URLSearchParams(options.params).has('edit')) await benchEdit(page, out)
   else if (new URLSearchParams(options.params).has('history')) await benchHistory(page, out)
+  else if (new URLSearchParams(options.params).has('time')) await benchTime(page, out)
   else await benchRender(page, out)
   socket.close()
 } finally {

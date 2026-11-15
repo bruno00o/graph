@@ -116,6 +116,12 @@ nodes(file.nodes, {
 
 Time is in milliseconds. GEXF dates without a zone are read as UTC, with `timeformat` `double` or `integer` the numbers are kept as they are. A GEXF period includes its end; the [time window](/docs/time) of the graph excludes it, so an element is hidden at exactly the moment its period ends.
 
+An element of several GEXF spells has `time` from the start of the first to the end of the last, and `spells` with each of them. The [`time` channel](/docs/time#several-periods) takes the list, so the element shows only during its spells:
+
+```ts
+nodes(file.nodes, { time: (node) => node.spells ?? node.time })
+```
+
 ### Issues
 
 `issues` lists the problems of the file. A reader never throws for them: it skips what it cannot read and goes on.

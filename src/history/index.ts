@@ -19,6 +19,7 @@ import type {
   TimeInstant,
 } from '../types'
 import type { HistoryIndex } from './index-store'
+import { presentTime } from './presence'
 import { Scales } from './scales'
 import { type EntryReader, readEntries, Track } from './track'
 
@@ -51,12 +52,24 @@ export interface HistoryFromOptions<T, V = unknown> {
    * @default 'values'
    */
   readonly values?: keyof T | Accessor<T, V> | undefined
+  /**
+   * Field or function that tells whether the element is there from the moment of the entry on:
+   * `true` or `false` turn the journal into periods of presence, combined with the `time` of the
+   * mark, and any other value says nothing. The first `false` of an element means it was there
+   * before, the first `true` that it was not. An entry with a presence needs no values.
+   * @default 'present'
+   */
+  readonly present?: keyof T | Accessor<T, boolean | null | undefined> | undefined
 }
+
+/** Values of a history whose entries only give a presence: no field. */
+export type NoValues = { readonly [K in never]?: never }
 
 interface LooseOptions {
   readonly key?: unknown
   readonly time?: unknown
   readonly values?: unknown
+  readonly present?: unknown
 }
 
 class History {
@@ -72,15 +85,19 @@ class History {
     const values = toAccessor<unknown, unknown>(
       (options.values as string | Accessor<unknown, unknown> | undefined) ?? 'values',
     )
+    const present = toAccessor<unknown, unknown>(
+      (options.present as string | Accessor<unknown, unknown> | undefined) ?? 'present',
+    )
     this.#reader = {
       key,
       time: (entry) => toTime(time(entry)),
       values,
+      present,
       skipped: (count) => {
         if (!dev || this.#warned) return
         this.#warned = true
         console.warn(
-          `graph: history ignored ${count} entr${count === 1 ? 'y' : 'ies'} without a key, a valid time or values`,
+          `graph: history ignored ${count} entr${count === 1 ? 'y' : 'ies'} without a key, a valid time, or values or a presence`,
         )
       },
     }
@@ -88,6 +105,10 @@ class History {
 
   scales(): Scales {
     return new Scales()
+  }
+
+  time(read: ((datum: unknown) => unknown) | null): (datum: unknown) => unknown {
+    return presentTime(read)
   }
 
   track(options: HistoryMarkOptions, current: HistoryTrack | null, host: HistoryHost): Track {
@@ -140,6 +161,22 @@ export function historyFrom<T, F extends keyof T>(
   data: Iterable<T>,
   options: HistoryFromOptions<NoInfer<T>> & { readonly values: F },
 ): HistorySource<NonNullable<T[F]>>
+/** History of a mark read from a live source of entries that only tell when elements are there. */
+export function historyFrom<T>(
+  data: LiveSource<T>,
+  options: HistoryFromOptions<NoInfer<T>, never> & {
+    readonly present: keyof T | Accessor<NoInfer<T>, boolean | null | undefined>
+    readonly values?: undefined
+  },
+): HistorySource<NoValues>
+/** History of a mark read from entries that only tell when elements are there. */
+export function historyFrom<T>(
+  data: Iterable<T>,
+  options: HistoryFromOptions<NoInfer<T>, never> & {
+    readonly present: keyof T | Accessor<NoInfer<T>, boolean | null | undefined>
+    readonly values?: undefined
+  },
+): HistorySource<NoValues>
 export function historyFrom(
   data: GraphData<unknown>,
   options: LooseOptions = {},

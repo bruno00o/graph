@@ -59,6 +59,25 @@ describe('history types', () => {
     historyFrom(changes, { key: 'node', time: 'status', values: () => ({}) })
   })
 
+  it('reads a journal that only gives a presence', () => {
+    type Span = { id: string; link: string; time: number; open: boolean }
+    const spans: Span[] = []
+    const history = historyFrom(spans, { key: 'link', present: 'open' })
+    edges(links, { source: 'from', target: 'to', history })
+    nodes(items, { history: historyFrom(spans, { key: 'link', present: (span) => span.open }) })
+    const both = historyFrom(changes, {
+      key: 'node',
+      values: (change) => ({ status: change.status }),
+      present: 'flagged',
+    })
+    expectTypeOf(both).toEqualTypeOf<HistorySource<{ status: string | undefined }>>()
+    // @ts-expect-error
+    historyFrom(spans, { key: 'link' })
+    nodes(items, {
+      history: historyFrom([{ key: 'a', time: 1, values: {}, present: false }]),
+    })
+  })
+
   it('lets the ends of an edge change', () => {
     const history = historyFrom(changes, { key: 'node', values: () => ({ to: 'b' }) })
     edges(links, { source: 'from', target: 'to', history })

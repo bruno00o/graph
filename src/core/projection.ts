@@ -26,11 +26,12 @@ import type {
 } from './graph-model'
 import { type Grouping, groupingOf } from './group-index'
 import { Hierarchy } from './hierarchy'
+import { historyTime } from './history'
 import { IndexSet } from './index-set'
 import { raw, rawRead } from './raw'
 import { sameOptions } from './same-options'
 import type { SceneEdgeRecord, SceneModel, SceneNodeRecord } from './scene'
-import { readSpan } from './time-range'
+import { noPeriods, readBounds, readPeriods } from './time-range'
 import { withoutUndefined } from './without-undefined'
 
 const none = -1
@@ -130,12 +131,14 @@ function spanning(read: Read): (aggregate: AggregateEdge) => unknown {
     let start = Number.POSITIVE_INFINITY
     let end = Number.NEGATIVE_INFINITY
     for (const datum of aggregate.data) {
-      const span = readSpan(read(datum))
-      if (!span) return null
-      start = Math.min(start, span[0])
-      end = Math.max(end, span[1])
+      const count = readPeriods(read(datum))
+      if (count === noPeriods) return null
+      if (count === 0) continue
+      const bounds = readBounds(count)
+      start = Math.min(start, bounds[0] ?? start)
+      end = Math.max(end, bounds[bounds.length - 1] ?? end)
     }
-    if (start > end) return null
+    if (start > end) return []
     return {
       start: start === Number.NEGATIVE_INFINITY ? null : start,
       end: end === Number.POSITIVE_INFINITY ? null : end,
@@ -231,7 +234,11 @@ export function aggregateLook(mark: EdgeMark<unknown>): EdgeMark<unknown> {
   for (const name of ['dash', 'stroke', 'opacity', 'flow', 'minZoom', 'maxZoom'] as const) {
     if (options[name] !== undefined) fallback[name] = lifted(options[name])
   }
-  if (options.time !== undefined) fallback.time = spanning(toAccessor(options.time))
+  const time = historyTime(
+    options.history,
+    options.time === undefined ? null : toAccessor(options.time),
+  )
+  if (time) fallback.time = spanning(time)
   if (options.waypoints !== undefined) fallback.waypoints = first(toAccessor(options.waypoints))
   if (options.label !== undefined) fallback.label = liftedLabel(options.label)
   if (options.ends !== undefined) fallback.ends = liftedEnds(options.ends)
