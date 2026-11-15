@@ -139,7 +139,7 @@ Hidden elements behave like elements outside a zoom range: not drawn (label, bad
 
 ### Control the window from state
 
-Pass `time` at mount with `onTimeChange`: from then on `graph.time.set` and the timeline only call `onTimeChange`, and only `update({ time })` moves the window. Pass `time: null` for a controlled graph with no window yet: any value other than `undefined` makes it controlled, for its whole life.
+Pass `time` at mount with `onTimeChange`: from then on `graph.time.set` and the timeline only call `onTimeChange`, and only `update({ time })` moves the window. Each request starts from the last one not answered yet, as for selection, folds and layers: a window asked again after another one is sent again (A, B, A sends the second A), while a window already waiting is not asked twice. Pass `time: null` for a controlled graph with no window yet: any value other than `undefined` makes it controlled, for its whole life.
 
 ```ts
 import { defineGraph, mountGraph, nodes, type TimeWindowInput } from '@bruno00o/graph'
