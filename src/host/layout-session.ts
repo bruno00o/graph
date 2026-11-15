@@ -1,6 +1,6 @@
 import type { GraphChanges, GraphModel } from '../core/graph-model'
 import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
-import { type ScopePlan, sameLayout, scopeEngine } from '../core/layout-scopes'
+import { type ArrangedPlaces, sameLayout, scopeEngine } from '../core/layout-scopes'
 import type { Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
@@ -13,11 +13,13 @@ import type {
   LayoutGraph,
   LayoutListener,
   LayoutRun,
+  NodeOptions,
   Point,
 } from '../types'
 import type { BundleHost } from './bundles'
 import { countAlive } from './element-keys'
 import type { Emitter } from './events'
+import { nothingRevealed, type Revealed } from './folding'
 import type {
   GraphLayout,
   GraphState,
@@ -60,7 +62,12 @@ export interface LayoutSession extends LayoutSettings {
   readonly auto: boolean
   readonly resolve: (completed: boolean) => void
   readonly scope: ((index: number) => boolean) | null
+  readonly scoped: boolean
+  readonly rerun: ReadonlySet<number> | null
+  readonly inner: readonly number[] | null
   run: LayoutRun | null
+  carry: number
+  carried: boolean
   progressed: boolean
   animation: number
   fitted: boolean
@@ -88,6 +95,7 @@ export interface LayoutSource {
   ): Bounds | null
   prepare(): void
   request(): void
+  containers(): void
   destroyed(): boolean
   waiting(): boolean
 }
@@ -96,7 +104,37 @@ interface Launch {
   readonly name: string
   readonly movable: Uint8Array
   readonly partial: boolean
+  readonly scoped?: boolean
   start(listener: LayoutListener): LayoutRun
+}
+
+let engineLoad: Promise<void> | null = null
+let engineFailed = false
+
+function loadEngine(): Promise<void> {
+  engineLoad ??= import('../layouts/scopes').then(
+    (module) => {
+      module.enableScopes()
+    },
+    (error: unknown) => {
+      engineFailed = true
+      if (dev) {
+        console.warn(
+          'graph: the engine of container.layout did not load, groups are laid out as if they had no layout',
+          error,
+        )
+      }
+    },
+  )
+  return engineLoad
+}
+
+function declaresLayouts(definition: GraphDefinition): boolean {
+  return definition.marks.some((mark) => {
+    if (mark.type !== 'nodes') return false
+    const options = (mark as { readonly options?: NodeOptions<unknown> }).options
+    return options?.container?.layout !== undefined && options.container.layout !== null
+  })
 }
 
 function firstName(scopes: ReadonlyMap<number, Layout> | null): string {
@@ -117,9 +155,12 @@ export class LayoutHost {
   #seed = false
   readonly #memory: object = {}
   #warnedMap = false
-  #warnedEngine = false
+  #loading = false
   #known: Map<number, Layout | null> | null = null
   #counts: Map<number, number> | null = null
+  readonly #growth = new Set<number>()
+  readonly #lateRerun = new Set<number>()
+  #arranged: ArrangedPlaces | null = null
   #layout: Layout | null | undefined
   #paused: Set<number> | null = null
 
@@ -143,7 +184,7 @@ export class LayoutHost {
     }
   }
 
-  #scopes(): Map<number, Layout> | null {
+  #found(): Map<number, Layout> | null {
     const { scene, projection } = this.#source
     const onMap = this.#source.surface().onMap
     const layouts = scene.nodes.containerLayouts
@@ -155,6 +196,7 @@ export class LayoutHost {
       }
       return null
     }
+    if (engineFailed) return null
     let found: Map<number, Layout> | null = null
     for (const index of projection.containers) {
       const layout = layouts.get(index)
@@ -162,23 +204,60 @@ export class LayoutHost {
       found ??= new Map()
       found.set(index, layout)
     }
-    if (found && !scopeEngine()) {
-      if (dev && !this.#warnedEngine) {
-        this.#warnedEngine = true
-        console.warn(
-          'graph: container.layout needs a layout from @bruno00o/graph/layouts, groups are laid out as if they had none',
-        )
-      }
-      return null
-    }
     return found
+  }
+
+  #scopes(): Map<number, Layout> | null {
+    return scopeEngine() ? this.#found() : null
+  }
+
+  places(): ArrangedPlaces | null {
+    this.#arranged ??= scopeEngine()?.places() ?? null
+    return this.#arranged
+  }
+
+  #load(): void {
+    if (this.#loading) return
+    this.#loading = true
+    void loadEngine().then(() => {
+      this.#loading = false
+      if (this.#source.destroyed()) return
+      this.release()
+      this.#source.request()
+    })
+  }
+
+  #held(): boolean {
+    if (scopeEngine() || !this.#found()) return false
+    this.#load()
+    return true
+  }
+
+  #ready(): Promise<void> | null {
+    return this.#held() ? (engineLoad ?? Promise.resolve()) : null
+  }
+
+  arranger(index: number): Layout | null {
+    const { scene, projection } = this.#source
+    const layouts = scene.nodes.containerLayouts
+    if (layouts.size === 0 || engineFailed || !this.#source.surface().layouts) return null
+    if (!projection.containers.has(index)) return null
+    return layouts.get(index) ?? null
+  }
+
+  arranges(): boolean {
+    return (
+      this.#source.scene.nodes.containerLayouts.size > 0 &&
+      !engineFailed &&
+      this.#source.surface().layouts
+    )
   }
 
   placedBy(index: number): boolean {
     const { scene, projection } = this.#source
     const onMap = this.#source.surface().onMap
     const layouts = scene.nodes.containerLayouts
-    if (layouts.size === 0 || onMap || !scopeEngine()) return false
+    if (layouts.size === 0 || onMap || engineFailed) return false
     const hierarchy = projection.hierarchy
     for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
       if (layouts.has(at) && projection.containers.has(at)) return true
@@ -264,12 +343,27 @@ export class LayoutHost {
     motion.move(indices, targets, this.#source.definition().transitions.layout)
   }
 
-  follow(changes: GraphChanges, revealed: readonly number[]): void {
+  follow(changes: GraphChanges, revealed: Revealed = nothingRevealed): void {
     if (this.#source.destroyed()) return
-    const scopes = this.#scopes()
+    const arranged = this.#arranged
+    if (arranged && !arranged.empty) {
+      for (const { index } of changes.nodes.removed) arranged.forget(index)
+    }
+    for (const index of revealed.growing) this.#growth.add(index)
+    this.#follow(changes, revealed)
+    if (!this.#waited) this.#growth.clear()
+  }
+
+  #follow(changes: GraphChanges, revealed: Revealed): void {
+    if (!scopeEngine() && !engineFailed && this.#source.surface().layouts) {
+      if (declaresLayouts(this.#source.definition())) this.#load()
+    }
+    const held = this.#held()
+    const scopes = held ? null : this.#scopes()
     const layout = this.#source.definition().layout
-    if (!layout && !scopes) return
-    const rerun = scopes ? this.#rerun(changes, scopes) : null
+    if (!layout && !scopes && !held) return
+    let rerun = scopes ? this.#rerun(changes, scopes) : null
+    if (revealed.whole.length > 0) rerun = new Set([...(rerun ?? []), ...revealed.whole])
     const projection = this.#source.projection
     const restored = this.#source.positions.restored
     let anyRestored = false
@@ -282,14 +376,21 @@ export class LayoutHost {
         }
         return projection.nodeShown(ref.index)
       }),
-      ...revealed.map((index) => ({ index })),
+      ...revealed.placed.map((index) => ({ index })),
+      ...revealed.keyed.map((index) => ({ index })),
     ]
     if (anyRestored && !this.#laidOut) {
       this.#laidOut = true
       this.#restoring = true
     }
+    if (held) {
+      this.#waited = true
+      for (const { index } of added) this.#late.add(index)
+      for (const index of rerun ?? []) this.#lateRerun.add(index)
+      return
+    }
     if (this.#relayout || !this.#laidOut) {
-      if (!this.#relayout && added.length === 0 && !this.#waited) return
+      if (!this.#relayout && added.length === 0 && !rerun && !this.#waited) return
       if (this.#source.waiting()) {
         this.#waited = true
         for (const { index } of added) this.#late.add(index)
@@ -322,7 +423,9 @@ export class LayoutHost {
       const movable = (index: number) => current.movable[index] === 1 || fresh.has(index)
       const within = current.scope
       const scope = within ? (index: number) => within(index) || fresh.has(index) : null
-      if (!this.#launch(current.layout, movable, current, scope, rerun))
+      const all =
+        current.rerun || rerun ? new Set([...(current.rerun ?? []), ...(rerun ?? [])]) : null
+      if (!this.#launch(current.layout, movable, current, scope, all))
         this.#settle(current.name, current, current.resolve)
       return
     }
@@ -348,10 +451,16 @@ export class LayoutHost {
     const before = this.#layout
     this.#layout = layout
     if (before !== undefined && !sameLayout(before, layout)) this.#relayout = layout !== null
-    const scopes = this.#scopes()
+    const held = this.#held()
+    const scopes = held ? null : this.#scopes()
     const paused = this.#paused
     this.#paused = null
-    if (!layout && !scopes) return
+    if (!layout && !scopes && !held) return
+    if (held) {
+      this.#waited = true
+      for (const index of [...(paused ?? []), ...arrived]) this.#late.add(index)
+      return
+    }
     if (this.#relayout || !this.#laidOut) {
       if (this.#source.waiting()) {
         this.#waited = true
@@ -373,8 +482,9 @@ export class LayoutHost {
   }
 
   release(): void {
-    const layout = this.#source.definition().layout
     if (!this.#waited || this.#source.destroyed()) return
+    if (this.#held()) return
+    const layout = this.#source.definition().layout
     const scopes = this.#scopes()
     if (!layout && !scopes) return
     if (this.#relayout || !this.#laidOut) {
@@ -385,21 +495,25 @@ export class LayoutHost {
     this.#waited = false
     const late = new Set(this.#late)
     this.#late.clear()
-    if (late.size === 0) return
+    const rerun = this.#lateRerun.size > 0 ? new Set(this.#lateRerun) : null
+    this.#lateRerun.clear()
+    if (late.size === 0 && !rerun) return
     if (!scopes && layout?.incremental === false) {
       void this.begin(layout, () => true, true, this.#autoSettings())
       return
     }
-    void this.begin(layout, (index) => late.has(index), true, this.#autoSettings())
+    void this.begin(layout, (index) => late.has(index), true, this.#autoSettings(), rerun)
   }
 
   #runAll(layout: Layout | null): void {
+    const first = !this.#laidOut
     this.#waited = false
     this.#restoring = false
     this.#late.clear()
+    this.#lateRerun.clear()
     this.#relayout = false
     this.#laidOut = true
-    this.#seed = true
+    this.#seed = first
     void this.begin(layout, () => true, true, this.#autoSettings())
     this.#seed = false
   }
@@ -461,6 +575,53 @@ export class LayoutHost {
     if (current.partial) this.makeRoom(indices, to, true)
   }
 
+  #innerOf(movable: Uint8Array): readonly number[] | null {
+    const inner: number[] = []
+    const alive = this.#source.scene.nodes.alive
+    for (let index = 0; index < movable.length; index++) {
+      if (movable[index] === 1 && alive[index] === 1 && this.placedBy(index)) inner.push(index)
+    }
+    return inner.length > 0 ? inner : null
+  }
+
+  #carry(current: LayoutSession, xy: Float32Array): void {
+    const inner = current.inner
+    if (!inner) return
+    const { scene, positions, spread, motion } = this.#source
+    if (!current.carried) {
+      current.carried = true
+      const dragged = this.#dragged()
+      const indices: number[] = []
+      const to: number[] = []
+      for (const index of inner) {
+        if (scene.nodes.alive[index] !== 1 || dragged?.has(index) || spread.owns(index)) continue
+        if (!Number.isNaN(positions.source[index * 2] ?? Number.NaN)) continue
+        indices.push(index)
+        to.push(xy[index * 2] ?? 0, xy[index * 2 + 1] ?? 0)
+      }
+      current.carry = motion.move(indices, to, current.duration)
+      return
+    }
+    if (current.carry !== 0 && !motion.carry(current.carry, xy)) {
+      motion.release(current.carry, inner)
+      current.carry = 0
+    }
+  }
+
+  #record(current: LayoutSession): void {
+    const arranged = this.places()
+    if (!arranged) return
+    const { scene, positions, projection } = this.#source
+    this.#source.containers()
+    arranged.remember(
+      current.movable,
+      scene.nodes,
+      projection.hierarchy,
+      positions,
+      this.#dragged(),
+    )
+  }
+
   #room(current: LayoutSession, xy: Float32Array): void {
     const { scene } = this.#source
     const indices: number[] = []
@@ -479,6 +640,7 @@ export class LayoutHost {
     const { scene, positions, emitter, views } = this.#source
     this.session = null
     if (current.animation !== 0) this.#source.motion.cancel(current.animation)
+    if (completed && current.scoped) this.#record(current)
     current.resolve(completed)
     this.#source.patch({
       layout: {
@@ -556,13 +718,13 @@ export class LayoutHost {
     auto: boolean,
     replace: Layout | null,
     rerun: ReadonlySet<number> | null,
-  ): ScopePlan | null {
+  ): Launch | null {
     const engine = scopeEngine()
     if (!engine) return null
     const graph = this.#graph(() => true, scope)
     const keyed = new Uint8Array(graph.capacity)
     for (let index = 0; index < graph.capacity; index++) keyed[index] = movable(index) ? 1 : 0
-    return engine.plan({
+    const plan = engine.plan({
       graph,
       keyed,
       top: layout,
@@ -573,6 +735,7 @@ export class LayoutHost {
       fresh: this.#seed,
       memory: this.#memory,
     })
+    return plan && { ...plan, scoped: true }
   }
 
   #listener(current: LayoutSession): LayoutListener {
@@ -581,6 +744,7 @@ export class LayoutHost {
       progress: (xy, progress) => {
         if (this.session !== current) return
         current.progressed = true
+        this.#carry(current, xy)
         this.#place(current, xy)
         this.#source.patch({ layout: { running: true, progress } })
         views.frameLayout()
@@ -588,7 +752,9 @@ export class LayoutHost {
       },
       end: (xy) => {
         if (this.session !== current) return
-        if (current.progressed || current.duration <= 0) {
+        if (current.progressed && current.inner && current.duration > 0) {
+          this.#glide(current, xy)
+        } else if (current.progressed || current.duration <= 0) {
           this.#place(current, xy)
           if (current.partial) this.#room(current, xy)
           this.#finish(current, true)
@@ -619,7 +785,10 @@ export class LayoutHost {
     if (moving * 2 > countAlive(scene.nodes.alive, scene.nodes.capacity)) {
       this.#source.bundles.fade()
     }
-    motion.freeMovable(launch.movable, launch.movable.length)
+    const growth = this.#growth.size > 0 ? new Set(this.#growth) : undefined
+    this.#growth.clear()
+    motion.freeMovable(launch.movable, launch.movable.length, growth)
+    const scoped = launch.scoped === true
     const current: LayoutSession = {
       layout,
       name: launch.name,
@@ -632,7 +801,12 @@ export class LayoutHost {
       alone: previous.alone,
       replace: previous.replace,
       scope,
+      scoped,
+      rerun,
+      inner: scoped ? this.#innerOf(launch.movable) : null,
       run: null,
+      carry: 0,
+      carried: false,
       progressed: false,
       animation: 0,
       fitted: false,
@@ -719,6 +893,8 @@ export class LayoutHost {
     if (signal?.aborted) return Promise.reject(signal.reason)
     if (!this.#source.surface().layouts)
       return Promise.reject(new Error('graph: layouts do not run on a map'))
+    const ready = this.#ready()
+    if (ready) return ready.then(() => this.#compute(layout, options))
     const chosen = layout ?? this.#source.definition().layout
     if (!chosen && !this.#scopes()) {
       return Promise.reject(new Error('graph: no layout to compute'))
@@ -770,41 +946,43 @@ export class LayoutHost {
   api(): GraphLayout {
     return {
       compute: (layout, computeOptions = {}) => this.#compute(layout, computeOptions),
-      run: (layout, runOptions = {}) => {
-        if (!this.#source.surface().layouts)
-          return Promise.reject(new Error('graph: layouts do not run on a map'))
-        const definition = this.#source.definition()
-        const chosen = layout ?? definition.layout
-        if (!chosen && !this.#scopes()) {
-          return Promise.reject(new Error('graph: no layout to run'))
-        }
-        let alone: boolean
-        try {
-          checkDuration(runOptions)
-          if (runOptions.fit && runOptions.fit !== true) checkFit(runOptions.fit)
-          alone = checkOthers(runOptions)
-        } catch (error) {
-          return Promise.reject(error)
-        }
-        this.#check(runOptions.keys, 'layout.run({ keys })')
-        if (runOptions.fit && runOptions.fit !== true) {
-          checkLists(this.#check, runOptions.fit, 'layout.run({ fit: { $ } })')
-        }
-        this.#source.prepare()
-        const fit = runOptions.fit === true ? {} : runOptions.fit || null
-        const settings: LayoutSettings = {
-          fit: fit && fitRequest(fit),
-          duration: Math.max(
-            0,
-            runOptions.duration ?? this.#source.definition().transitions.layout,
-          ),
-          alone,
-          replace: layout ?? null,
-        }
-        return this.begin(chosen, this.#keyed(runOptions.keys) ?? (() => true), false, settings)
-      },
+      run: (layout, runOptions = {}) => this.#run(layout, runOptions),
       stop: () => this.stop(),
     }
+  }
+
+  #run(layout: Layout | undefined, runOptions: LayoutRunOptions): Promise<boolean> {
+    if (!this.#source.surface().layouts)
+      return Promise.reject(new Error('graph: layouts do not run on a map'))
+    const ready = this.#ready()
+    if (ready)
+      return ready.then(() => (this.#source.destroyed() ? false : this.#run(layout, runOptions)))
+    const definition = this.#source.definition()
+    const chosen = layout ?? definition.layout
+    if (!chosen && !this.#scopes()) {
+      return Promise.reject(new Error('graph: no layout to run'))
+    }
+    let alone: boolean
+    try {
+      checkDuration(runOptions)
+      if (runOptions.fit && runOptions.fit !== true) checkFit(runOptions.fit)
+      alone = checkOthers(runOptions)
+    } catch (error) {
+      return Promise.reject(error)
+    }
+    this.#check(runOptions.keys, 'layout.run({ keys })')
+    if (runOptions.fit && runOptions.fit !== true) {
+      checkLists(this.#check, runOptions.fit, 'layout.run({ fit: { $ } })')
+    }
+    this.#source.prepare()
+    const fit = runOptions.fit === true ? {} : runOptions.fit || null
+    const settings: LayoutSettings = {
+      fit: fit && fitRequest(fit),
+      duration: Math.max(0, runOptions.duration ?? this.#source.definition().transitions.layout),
+      alone,
+      replace: layout ?? null,
+    }
+    return this.begin(chosen, this.#keyed(runOptions.keys) ?? (() => true), false, settings)
   }
 
   destroy(reason?: unknown): void {

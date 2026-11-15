@@ -2,10 +2,11 @@ import { containerShape } from '../core/columns'
 import type { GraphChanges, GraphModel } from '../core/graph-model'
 import { groupingOf, groupKey } from '../core/group-index'
 import { type StringCheck, stringCheck } from '../core/key-list'
+import { type ArrangedPlaces, scopeEngine, type UnfoldArranging } from '../core/layout-scopes'
 import { goldenAngle, type Positions, placementSpacing } from '../core/positions'
 import type { Projection, ProjectionChanges } from '../core/projection'
 import type { Scene } from '../core/scene'
-import type { GraphDefinition, Key } from '../types'
+import type { GraphDefinition, Key, Layout } from '../types'
 import { requestMemory, sameList } from './element-keys'
 import type { Emitter, GraphFoldEvent } from './events'
 import type { GraphGroups, GraphState } from './graph-instance'
@@ -24,10 +25,27 @@ export interface FoldSource {
   state(): GraphState
   patch(next: Partial<GraphState>): void
   definition(): GraphDefinition
+  places(): ArrangedPlaces | null
   makeRoom(moving: readonly number[], to: readonly number[]): void
+  arranger(index: number): Layout | null
+  arranges(): boolean
   request(flush: boolean): void
   prepare(): void
 }
+
+export interface Revealed {
+  readonly placed: readonly number[]
+  readonly keyed: readonly number[]
+  readonly whole: readonly number[]
+  readonly growing: readonly number[]
+}
+
+export const nothingRevealed: Revealed = Object.freeze({
+  placed: [],
+  keyed: [],
+  whole: [],
+  growing: [],
+})
 
 export class FoldControl {
   readonly #asks = new PendingRequests<readonly Key[]>(sameList, requestMemory)
@@ -178,7 +196,7 @@ export class FoldControl {
     changes: GraphChanges,
     projected: ProjectionChanges,
     restored: readonly number[] = [],
-  ): number[] {
+  ): Revealed {
     const { positions, projection, scene } = this.#source
     const hierarchy = projection.hierarchy
     const origins = this.#origins
@@ -210,7 +228,7 @@ export class FoldControl {
           restored.length > 0 ? new Set(restored) : null,
         )
       : new Set<number>()
-    if (projected.revealed.length === 0) return []
+    if (projected.revealed.length === 0) return nothingRevealed
     const fresh = new Set(projected.fresh)
     const anchorOf = (index: number): number => {
       for (let at = hierarchy.parent[index] ?? -1; at >= 0; at = hierarchy.parent[at] ?? -1) {
@@ -218,14 +236,22 @@ export class FoldControl {
       }
       return -1
     }
+    const homes = this.#homes(projected, opened)
+    const arranging = homes ? this.#arranging(homes, opened) : null
     const indices: number[] = []
     const to: number[] = []
+    const room: number[] = []
+    const roomTo: number[] = []
     const placed: number[] = []
     for (const index of projected.revealed) {
       const anchor = anchorOf(index)
       if (anchor < 0 || tracked(index) || scene.nodes.shape[index] === containerShape) continue
       const ax = positions.x(anchor)
       const ay = positions.y(anchor)
+      if (arranging?.place(index, fresh.has(index) && !grouped.has(index))) {
+        positions.set(index, ax, ay)
+        continue
+      }
       if (fresh.has(index) && !grouped.has(index)) {
         const ring = positions.nextRing(anchor)
         const angle = ring * goldenAngle
@@ -234,14 +260,59 @@ export class FoldControl {
         placed.push(index)
         continue
       }
+      const x = positions.x(index)
+      const y = positions.y(index)
       indices.push(index)
-      to.push(positions.x(index), positions.y(index))
+      to.push(x, y)
+      room.push(index)
+      roomTo.push(x, y)
       positions.set(index, ax, ay)
+    }
+    const plan = arranging?.decide() ?? null
+    if (arranging && plan) {
+      for (const [index, [x, y]] of arranging.starts) {
+        indices.push(index)
+        to.push(x, y)
+      }
+      for (const [index, x, y] of plan.settled) {
+        room.push(index)
+        roomTo.push(x, y)
+      }
     }
     const definition = this.#source.definition()
     this.#source.motion.move(indices, to, definition.transitions.layout)
-    if (definition.layout && indices.length > 0) this.#source.makeRoom(indices, to)
-    return placed
+    if ((definition.layout || this.#source.arranges()) && room.length > 0) {
+      this.#source.makeRoom(room, roomTo)
+    }
+    if (homes && !arranging) return { ...nothingRevealed, placed, whole: [...homes] }
+    if (!plan) return placed.length > 0 ? { ...nothingRevealed, placed } : nothingRevealed
+    return { placed, keyed: plan.keyed, whole: plan.whole, growing: plan.growing }
+  }
+
+  #homes(projected: ProjectionChanges, opened: ReadonlySet<number>): Set<number> | null {
+    const source = this.#source
+    let homes: Set<number> | null = null
+    for (const group of opened) {
+      if (!source.arranger(group)) continue
+      homes ??= new Set()
+      homes.add(group)
+    }
+    for (const index of projected.revealed) {
+      if (source.scene.nodes.shape[index] !== containerShape || !source.arranger(index)) continue
+      homes ??= new Set()
+      homes.add(index)
+    }
+    return homes
+  }
+
+  #arranging(homes: ReadonlySet<number>, opened: ReadonlySet<number>): UnfoldArranging | null {
+    const source = this.#source
+    const engine = scopeEngine()
+    const arranged = engine && source.places()
+    if (!engine || !arranged) return null
+    const { positions, projection } = source
+    const arranger = (index: number) => source.arranger(index)
+    return engine.arrange({ positions, projection, arranged, arranger }, homes, opened)
   }
 
   api(): GraphGroups {

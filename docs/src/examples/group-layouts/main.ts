@@ -38,6 +38,10 @@ function button(text: string, onClick: (button: HTMLButtonElement) => void): HTM
   return element
 }
 
+function groupKeys(items: readonly Member[]): string[] {
+  return items.filter((item) => item.group && item.parent === null).map((item) => item.id)
+}
+
 export function mount(container: HTMLElement): GraphInstance {
   const sample = createGroups()
   let items: Member[] = sample.items
@@ -103,6 +107,12 @@ export function mount(container: HTMLElement): GraphInstance {
     }),
     button(messages.arrange, () => {
       void graph.layout.run(undefined, { fit: true })
+    }),
+    button(messages.fold, (element) => {
+      const folding = graph.groups.folded().length === 0
+      if (folding) graph.groups.fold(groupKeys(items))
+      else graph.groups.unfold()
+      element.textContent = folding ? messages.unfold : messages.fold
     }),
   )
   container.append(actions)
