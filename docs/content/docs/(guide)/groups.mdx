@@ -168,9 +168,11 @@ edges(links, {
 })
 ```
 
+When `merge` splits edges by a value, the edges toward a folded group split by it too: `merge: { foldedAsOne: true }` draws them as one line instead, see [One line toward a folded group](/docs/transformations#one-line-toward-a-folded-group).
+
 Without `aggregate`, an aggregated edge takes the look of its first merged edge, and shows a label only when it stands for a single edge. `merge` also merges the parallel edges between visible nodes, both directions on one line if you want: see [Merge parallel edges](/docs/transformations#merge-parallel-edges).
 
-Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. `aggregate.id` names the aggregated edge itself: it is built from the name of the mark, or its position, from the two visible ends, in a fixed order when `merge.directed` is `false`, and from the value of `merge.by`. It stays the same while the edge draws between the same ends, whichever edges it merges, so you can keep a tooltip or a panel on it when its first edge leaves. Clicking it selects every merged edge, hovering it hovers them all, and an aggregated edge shows the states of any of its edges.
+Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. `aggregate.id` names the aggregated edge itself: it is built from the name of the mark, or its position, from the two visible ends, in a fixed order when `merge.directed` is `false`, and from the value of `merge.by`, or a `null` for the edges that `merge.foldedAsOne` merges whole. It stays the same while the edge draws between the same ends, whichever edges it merges, so you can keep a tooltip or a panel on it when its first edge leaves. Clicking it selects every merged edge, hovering it hovers them all, and an aggregated edge shows the states of any of its edges.
 
 ```ts
 graph.on('click', ({ target }) => {

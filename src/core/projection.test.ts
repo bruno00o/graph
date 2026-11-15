@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
-import type { AggregateEdge, GraphDefinitionOptions, Key } from '../types'
+import type { AggregateEdge, EdgeMergeOptions, GraphDefinitionOptions, Key } from '../types'
 import { arrowCodes, containerShape } from './columns'
 import { createGraphModel, type GraphIssue } from './graph-model'
 import { Projection } from './projection'
@@ -669,6 +669,129 @@ describe('Projection merges', () => {
     })
     fold([])
     expect(drawnEdges()).toHaveLength(5)
+  })
+
+  describe('folded groups as one', () => {
+    const grouped = [item('g'), item('a', 'g'), item('c', 'g'), item('b')]
+    const pairs = [
+      wire('ab1', 'a', 'b'),
+      wire('ab2', 'a', 'b', 'b'),
+      wire('ab3', 'a', 'b'),
+      wire('ba1', 'b', 'a'),
+      wire('ac1', 'a', 'c'),
+      wire('gb1', 'g', 'b', 'a'),
+      wire('gb2', 'g', 'b', 'b'),
+    ]
+    const options = (extra: EdgeMergeOptions<Wire> = {}): EdgeMergeOptions<Wire> => ({
+      by: 'kind',
+      min: 1,
+      foldedAsOne: true,
+      ...extra,
+    })
+
+    it('merges the edges toward a folded group whatever the value, and splits them again', () => {
+      const { fold, drawnEdges, projection } = setup(merging(options(), pairs, grouped))
+      expect(drawnEdges().filter(([from, to]) => from === 'a' && to === 'b')).toHaveLength(2)
+      fold(['g'])
+      expect(drawnEdges()).toEqual([
+        ['b', 'g'],
+        ['g', 'b'],
+      ])
+      const whole = projection.aggregateAt(projection.edgeIndexOf('ab1'))
+      expect(whole).toMatchObject({
+        source: 'g',
+        target: 'b',
+        count: 5,
+        keys: ['ab1', 'ab2', 'ab3', 'gb1', 'gb2'],
+      })
+      expect(whole).not.toHaveProperty('value')
+      expect(projection.edgeIndexOf('ab2')).toBe(projection.edgeIndexOf('ab1'))
+      fold([])
+      expect(drawnEdges().filter(([from, to]) => from === 'a' && to === 'b')).toHaveLength(2)
+      expect(projection.aggregateAt(projection.edgeIndexOf('ab2'))).toMatchObject({ value: 'b' })
+    })
+
+    it('keeps the split by value without the option', () => {
+      const { fold, drawnEdges } = setup(merging({ by: 'kind', min: 1 }, pairs, grouped))
+      fold(['g'])
+      expect(drawnEdges().filter(([from, to]) => from === 'g' && to === 'b')).toHaveLength(2)
+    })
+
+    it('merges the edges of a group that folds around its own edges', () => {
+      const { fold, drawnEdges, projection } = setup(merging(options(), pairs, grouped))
+      expect(drawnEdges().filter(([from, to]) => from === 'g' && to === 'b')).toHaveLength(2)
+      fold(['g'])
+      expect(projection.aggregateAt(projection.edgeIndexOf('gb1'))?.count).toBe(5)
+      fold([])
+      expect(projection.aggregateAt(projection.edgeIndexOf('gb1'))).toMatchObject({
+        count: 1,
+        value: 'a',
+      })
+    })
+
+    it('merges the edges between two folded groups', () => {
+      const both = [item('g'), item('a', 'g'), item('h'), item('b', 'h')]
+      const { fold, drawnEdges, projection } = setup(merging(options(), pairs.slice(0, 3), both))
+      expect(drawnEdges()).toHaveLength(2)
+      fold(['g'])
+      expect(drawnEdges()).toEqual([['g', 'b']])
+      fold(['g', 'h'])
+      expect(drawnEdges()).toEqual([['g', 'h']])
+      expect(projection.aggregateAt(projection.edgeIndexOf('ab1'))?.count).toBe(3)
+      fold(['h'])
+      expect(drawnEdges()).toEqual([['a', 'h']])
+      fold([])
+      expect(drawnEdges()).toHaveLength(2)
+    })
+
+    it('gives the merged edge an identifier of its own', () => {
+      const { fold, projection } = setup(merging(options(), pairs, grouped))
+      const split = projection.aggregateAt(projection.edgeIndexOf('ab1'))
+      fold(['g'])
+      const whole = projection.aggregateAt(projection.edgeIndexOf('ab1'))
+      expect(whole?.id).toBe(JSON.stringify([0, 'g', 'b', null]))
+      expect(whole?.id).not.toBe(split?.id)
+      fold([])
+      expect(projection.aggregateAt(projection.edgeIndexOf('ab1'))?.id).toBe(split?.id)
+    })
+
+    it('merges below the minimum at a folded group like before', () => {
+      const { fold, projection } = setup(merging(options({ min: 9 }), pairs, grouped))
+      fold(['g'])
+      expect(projection.aggregateAt(projection.edgeIndexOf('ab2'))?.count).toBe(5)
+    })
+
+    it('keeps merging by value between plain nodes next to a folded group', () => {
+      const { fold, drawnEdges } = setup(
+        merging(options(), [...pairs, wire('bx', 'b', 'x')], [...grouped, item('x')]),
+      )
+      fold(['g'])
+      expect(drawnEdges()).toEqual([
+        ['b', 'g'],
+        ['b', 'x'],
+        ['g', 'b'],
+      ])
+    })
+
+    it('turns on and off with the option', () => {
+      const { render, fold, drawnEdges } = setup(
+        merging(options({ foldedAsOne: false }), pairs, grouped),
+        ['g'],
+      )
+      expect(drawnEdges().filter(([from, to]) => from === 'g' && to === 'b')).toHaveLength(2)
+      render(merging(options(), pairs, grouped))
+      expect(drawnEdges().filter(([from, to]) => from === 'g' && to === 'b')).toHaveLength(1)
+      render(merging(options({ foldedAsOne: false }), pairs, grouped))
+      expect(drawnEdges().filter(([from, to]) => from === 'g' && to === 'b')).toHaveLength(2)
+      fold([])
+    })
+
+    it('folds a group that gets its first child after the edges', () => {
+      const { render, projection } = setup(merging(options(), pairs, [item('g'), item('b')]), ['g'])
+      expect(projection.aggregateAt(projection.edgeIndexOf('gb1'))?.count).toBe(1)
+      render(merging(options(), pairs, grouped))
+      expect(projection.aggregateAt(projection.edgeIndexOf('gb1'))?.count).toBe(5)
+    })
   })
 
   it('moves an edge whose value changes to its new merged edge', () => {

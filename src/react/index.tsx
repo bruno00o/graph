@@ -30,6 +30,7 @@ import {
 import {
   createTimeline,
   mountTimeline,
+  type TimelineEvent,
   type Timeline as TimelineInstance,
   type TimelineOptions,
   type TimelineState,
@@ -83,6 +84,13 @@ const timelineKeys: Known<TimelineOptions> = {
   mode: true,
   loop: true,
   extent: true,
+  events: true,
+  eventTime: true,
+  eventKind: true,
+  kinds: true,
+  kindColors: true,
+  hiddenKinds: true,
+  instant: true,
 }
 
 const timelineViewKeys: Known<TimelineViewOptions> = {
@@ -92,6 +100,8 @@ const timelineViewKeys: Known<TimelineViewOptions> = {
   height: true,
   wheel: true,
   snap: true,
+  legend: true,
+  kindText: true,
 }
 
 /**
@@ -417,11 +427,11 @@ export function Legend<S extends string = string, M extends Mark = Mark>(
 }
 
 /** What `useTimeline` returns. */
-export interface UseTimelineResult {
+export interface UseTimelineResult<E = TimelineEvent> {
   /** State of the timeline, empty until the first layout effect. */
   readonly state: TimelineState
   /** The timeline, to brush, step or play, or `null` until the first layout effect. */
-  readonly timeline: TimelineInstance | null
+  readonly timeline: TimelineInstance<E> | null
 }
 
 const emptyTimeline: TimelineState = {
@@ -436,33 +446,41 @@ const emptyTimeline: TimelineState = {
   speed: 0,
   mode: 'slide',
   loop: false,
+  instant: false,
+  kinds: [],
 }
 
 /** Options of `useTimeline`: the options of `createTimeline`, and the graph. */
-export interface UseTimelineOptions extends TimelineOptions {
+export interface UseTimelineOptions<E = TimelineEvent> extends TimelineOptions<E> {
   /**
    * Graph to follow. Defaults to the graph of the enclosing `<Graph>` or `<MapGraph>`. With
-   * `null`, the state stays empty and `timeline` is `null` until a graph is given.
+   * `null`, the state stays empty and `timeline` is `null` until a graph is given. With `false`,
+   * the timeline follows no graph: it counts `events` and keeps its window in its state.
    */
-  readonly graph?: GraphInstance | null | undefined
+  readonly graph?: GraphInstance | null | false | undefined
 }
 
-function useTimelineInstance(props: UseTimelineOptions, caller: string): TimelineInstance | null {
-  const options = pick<TimelineOptions>(timelineKeys, props)
-  const graph = useGraphOf(props.graph, caller)
-  const [timeline, setTimeline] = useState<TimelineInstance | null>(null)
+function useTimelineInstance<E>(
+  props: UseTimelineOptions<E>,
+  caller: string,
+  wanted = true,
+): TimelineInstance<E> | null {
+  const options = pick<TimelineOptions<E>>(timelineKeys, props)
+  const alone = wanted && props.graph === false
+  const graph = useGraphOf(wanted && props.graph !== false ? props.graph : null, caller)
+  const [timeline, setTimeline] = useState<TimelineInstance<E> | null>(null)
   const latest = useLatest(options)
   const applied = useRef(options)
   useLayoutEffect(() => {
-    if (!graph) return
-    const created = createTimeline(graph, latest.current)
+    if (!graph && !alone) return
+    const created = graph ? createTimeline(graph, latest.current) : createTimeline(latest.current)
     applied.current = latest.current
     setTimeline(created)
     return () => {
       created.destroy()
       setTimeline(null)
     }
-  }, [graph, latest])
+  }, [graph, alone, latest])
   useLayoutEffect(() => {
     if (!timeline || shallowEqual(applied.current, options)) return
     applied.current = options
@@ -475,7 +493,9 @@ function useTimelineInstance(props: UseTimelineOptions, caller: string): Timelin
  * Reads a timeline of a graph and renders again when it changes, for a timeline drawn by the
  * application. Without `graph`, it follows the enclosing `<Graph>` or `<MapGraph>`.
  */
-export function useTimeline(options: UseTimelineOptions = {}): UseTimelineResult {
+export function useTimeline<E = TimelineEvent>(
+  options: UseTimelineOptions<E> = {},
+): UseTimelineResult<E> {
   const timeline = useTimelineInstance(options, 'useTimeline')
   const subscribe = useCallback(
     (notify: () => void) => {
@@ -494,15 +514,25 @@ export function useTimeline(options: UseTimelineOptions = {}): UseTimelineResult
  * Props of `Timeline`: the options of `createTimeline` and of `mountTimeline`, and the graph. A
  * prop that goes away returns to its default.
  */
-export interface TimelineProps extends UseTimelineOptions, TimelineViewOptions {}
+export interface TimelineProps<E = TimelineEvent>
+  extends UseTimelineOptions<E>,
+    TimelineViewOptions {
+  /**
+   * A timeline to render, such as the one `useTimeline` returns, instead of one of its own: the
+   * options of `createTimeline` and `graph` are then left to it. `null` renders nothing yet.
+   */
+  readonly timeline?: TimelineInstance<E> | null | undefined
+}
 
 /**
  * Renders the default timeline of a graph where the component stands. Without `graph`, it follows
  * the enclosing `<Graph>` or `<MapGraph>`.
  */
-export function Timeline(props: TimelineProps): ReactNode {
+export function Timeline<E = TimelineEvent>(props: TimelineProps<E>): ReactNode {
   const view = pick<TimelineViewOptions>(timelineViewKeys, props)
-  const timeline = useTimelineInstance(props, 'Timeline')
+  const given = props.timeline
+  const own = useTimelineInstance(props, 'Timeline', given === undefined)
+  const timeline = given === undefined ? own : given
   const slot = useRef<HTMLDivElement>(null)
   const mounted = useRef<{ readonly view: TimelineView; options: object } | null>(null)
   const latest = useLatest(view)

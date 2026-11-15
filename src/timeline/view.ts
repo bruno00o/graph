@@ -3,7 +3,7 @@ import { listenPinch } from '../dom/gestures'
 import { themeColor } from '../theme/tokens'
 import type { TimeWindow } from '../types'
 import type { TimeUnit } from './calendar'
-import type { Timeline, TimelineBin, TimelineEnd, TimelineState } from './index'
+import type { Timeline, TimelineBin, TimelineEnd, TimelineKind, TimelineState } from './index'
 
 /**
  * Text of a time: `'tick'` for a tick of the bar, `'value'` for the value of a handle read by
@@ -21,6 +21,10 @@ export interface TimelineLabels {
   readonly end?: string | undefined
   /** Name of the window, which moves both ends at once. */
   readonly window?: string | undefined
+  /** Name of the cursor, the handle of the moment with `instant`. */
+  readonly cursor?: string | undefined
+  /** Name of the group of buttons that hide or show the kinds of events. */
+  readonly kinds?: string | undefined
   /**
    * Text of the window for assistive technologies, from the texts of its ends. Defaults to both
    * texts separated by a comma.
@@ -56,6 +60,14 @@ export interface TimelineViewOptions {
    * @default true
    */
   readonly snap?: boolean | undefined
+  /**
+   * Shows a button for each kind of event, which hides or shows it, when the events have more
+   * than one kind.
+   * @default true
+   */
+  readonly legend?: boolean | undefined
+  /** Text of a kind of event in the buttons of the kinds. Defaults to the kind itself. */
+  readonly kindText?: ((kind: string) => string) | undefined
 }
 
 /** A timeline in the page, made by `mountTimeline`. */
@@ -83,6 +95,11 @@ const buttonStyle = `display:grid;place-items:center;width:28px;height:28px;padd
 const trackStyle = 'position:relative;touch-action:none;cursor:crosshair;min-width:0'
 const brushStyle = `position:absolute;top:0;bottom:0;box-sizing:border-box;min-width:2px;border-inline:1px solid ${themeColor('accent')};background:color-mix(in srgb, ${themeColor('accent')} 10%, transparent);cursor:grab;outline-offset:1px`
 const handleStyle = `position:absolute;top:50%;width:8px;height:22px;margin-left:-4px;transform:translateY(-50%);box-sizing:border-box;border:1px solid ${themeColor('accent')};border-radius:3px;background:${themeColor('paper-raised')};cursor:ew-resize;outline-offset:1px`
+const cursorStyle = `position:absolute;top:0;bottom:0;width:12px;margin-left:-6px;background:linear-gradient(${themeColor('accent')},${themeColor('accent')}) center/2px 100% no-repeat;cursor:ew-resize;outline-offset:1px`
+const legendStyle = 'grid-column:2;display:flex;flex-wrap:wrap;gap:2px 10px'
+const kindStyle =
+  'display:inline-flex;align-items:center;gap:4px;padding:1px 2px;border:0;background:none;color:inherit;font:inherit;cursor:pointer'
+const swatchStyle = 'display:inline-block;width:8px;height:8px;border-radius:2px'
 const ticksStyle = `grid-column:2;position:relative;height:14px;overflow:hidden;color:${themeColor('ink-muted')}`
 const tickStyle = `position:absolute;top:0;padding-left:3px;border-left:1px solid ${border};white-space:nowrap`
 const fills = {
@@ -91,6 +108,7 @@ const fills = {
   nodesInside: themeColor('accent'),
   edgesInside: `color-mix(in srgb, ${themeColor('accent')} 38%, transparent)`,
 }
+const faded = (color: string) => `color-mix(in srgb, ${color} 35%, transparent)`
 const playIcon = 'M5 3.5v9l8-4.5z'
 const pauseIcon = 'M4.5 3.5h2.5v9H4.5zM9 3.5h2.5v9H9z'
 
@@ -153,6 +171,7 @@ function svg<K extends keyof SVGElementTagNameMap>(
 }
 
 type Drag =
+  | { readonly kind: 'cursor' }
   | { readonly kind: 'start'; readonly other: number | null }
   | { readonly kind: 'end'; readonly other: number | null }
   | { readonly kind: 'move'; readonly from: number; readonly window: TimeWindow }
@@ -160,15 +179,21 @@ type Drag =
 
 /**
  * Renders a timeline in a plain element styled by the `--graph-…` tokens: a play button, a
- * histogram of nodes and edges over time, the window as a brush with two handles, and ticks. The
- * window moves by pointer and keyboard; the wheel zooms the bar.
+ * histogram of nodes and edges over time, or of events stacked by kind, the window as a brush with
+ * two handles or the moment as a cursor, and ticks. The window moves by pointer and keyboard; the
+ * wheel zooms the bar.
  */
-export function mountTimeline(timeline: Timeline, options: TimelineViewOptions = {}): TimelineView {
+export function mountTimeline<E>(
+  timeline: Timeline<E>,
+  options: TimelineViewOptions = {},
+): TimelineView {
   let settings = options
   let destroyed = false
   let drag: Drag | null = null
   let shownBins: readonly TimelineBin[] | null = null
   let shownTicks: TimelineState['ticks'] | null = null
+  let shownKinds: readonly TimelineKind[] | null = null
+  let kindButtons: HTMLButtonElement[] = []
   const clipId = `graph-timeline-clip-${++clips}`
 
   const root = element('div', rootStyle)
@@ -201,13 +226,22 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     node.setAttribute('role', 'slider')
     node.setAttribute('aria-orientation', 'horizontal')
   }
+  const cursor = element('div', cursorStyle)
+  cursor.tabIndex = 0
+  cursor.setAttribute('role', 'slider')
+  cursor.setAttribute('aria-orientation', 'horizontal')
+  cursor.setAttribute('data-part', 'cursor')
   brush.setAttribute('data-part', 'window')
   startHandle.setAttribute('data-part', 'start')
   endHandle.setAttribute('data-part', 'end')
-  track.append(chart, brush, startHandle, endHandle)
+  track.append(chart, brush, startHandle, endHandle, cursor)
   const ticks = element('div', ticksStyle)
   ticks.setAttribute('aria-hidden', 'true')
-  root.append(button, track, ticks)
+  const legend = element('div', legendStyle)
+  legend.setAttribute('role', 'group')
+  legend.setAttribute('data-part', 'kinds')
+  legend.hidden = true
+  root.append(button, track, ticks, legend)
 
   function format(time: number, unit: TimeUnit, use: 'tick' | 'value'): string {
     return (settings.format ?? defaultFormat)(time, unit, use)
@@ -219,9 +253,35 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     return (time - range.start) / (range.end - range.start)
   }
 
+  function drawEvents(state: TimelineState): void {
+    let most = 0
+    for (const bin of state.bins) most = Math.max(most, bin.events)
+    if (most === 0) return
+    for (const bin of state.bins) {
+      const x = share(bin.start, state) * viewWidth
+      const width = Math.max(0, (share(bin.end, state) - share(bin.start, state)) * viewWidth)
+      const gap = width > 4 ? width * 0.12 : 0
+      let top = 100
+      state.kinds.forEach((kind, id) => {
+        const count = bin.kinds[id] ?? 0
+        if (kind.hidden || count === 0) return
+        const height = (count / most) * 100
+        top -= height
+        const bar = (fill: string) =>
+          svg('rect', { x: x + gap / 2, y: top, width: Math.max(0, width - gap), height, fill })
+        base.append(bar(faded(kind.color)))
+        inside.append(bar(kind.color))
+      })
+    }
+  }
+
   function drawBins(state: TimelineState): void {
     base.replaceChildren()
     inside.replaceChildren()
+    if (state.kinds.length > 0) {
+      drawEvents(state)
+      return
+    }
     let most = 0
     for (const bin of state.bins) most = Math.max(most, bin.nodes + bin.edges)
     if (most === 0) return
@@ -266,6 +326,39 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     else node.removeAttribute('aria-label')
   }
 
+  function drawKinds(state: TimelineState): void {
+    const kinds = state.kinds
+    legend.hidden = settings.legend === false || kinds.length < 2
+    const previous = shownKinds
+    shownKinds = kinds
+    const same =
+      previous !== null &&
+      previous.length === kinds.length &&
+      previous.every((entry, index) => entry.kind === kinds[index]?.kind)
+    if (!same) {
+      kindButtons = kinds.map((entry) => {
+        const node = element('button', kindStyle)
+        node.type = 'button'
+        node.setAttribute('data-kind', entry.kind)
+        const swatch = element('span', swatchStyle)
+        swatch.setAttribute('aria-hidden', 'true')
+        const text = element('span', '')
+        text.textContent = settings.kindText ? settings.kindText(entry.kind) : entry.kind
+        node.append(swatch, text)
+        return node
+      })
+      legend.replaceChildren(...kindButtons)
+    }
+    kinds.forEach((entry, index) => {
+      const node = kindButtons[index]
+      if (!node) return
+      node.setAttribute('aria-pressed', String(!entry.hidden))
+      node.style.opacity = entry.hidden ? '0.5' : ''
+      const swatch = node.firstElementChild as HTMLElement | null
+      if (swatch) swatch.style.background = entry.color
+    })
+  }
+
   function paint(state: TimelineState): void {
     const pressed = String(state.playing)
     if (button.getAttribute('aria-pressed') !== pressed) {
@@ -279,9 +372,23 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     if (!window || !range || !extent) {
       clipRect.setAttribute('x', '0')
       clipRect.setAttribute('width', String(viewWidth))
-      for (const node of [brush, startHandle, endHandle]) node.hidden = true
+      for (const node of [brush, startHandle, endHandle, cursor]) node.hidden = true
       return
     }
+    if (state.instant) {
+      for (const node of [brush, startHandle, endHandle]) node.hidden = true
+      const at = window.start ?? window.end ?? range.start
+      const to = Math.max(0, Math.min(1, share(at, state)))
+      clipRect.setAttribute('x', '0')
+      clipRect.setAttribute('width', String(to * viewWidth))
+      cursor.hidden = false
+      cursor.style.left = `${to * 100}%`
+      const low = Math.min(extent.start, range.start)
+      const high = Math.max(extent.end, range.end)
+      setValue(cursor, at, low, high, format(at, state.unit, 'value'))
+      return
+    }
+    cursor.hidden = true
     const from = Math.max(0, Math.min(1, window.start === null ? 0 : share(window.start, state)))
     const to = Math.max(from, Math.min(1, window.end === null ? 1 : share(window.end, state)))
     clipRect.setAttribute('x', String(from * viewWidth))
@@ -316,6 +423,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
       shownTicks = state.ticks
       drawTicks(state)
     }
+    if (state.kinds !== shownKinds) drawKinds(state)
     paint(state)
   }
 
@@ -325,6 +433,8 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     label(startHandle, settings.labels?.start)
     label(endHandle, settings.labels?.end)
     label(brush, settings.labels?.window)
+    label(cursor, settings.labels?.cursor)
+    label(legend, settings.labels?.kinds)
     track.style.height = `${Math.max(8, settings.height ?? 48)}px`
   }
 
@@ -364,7 +474,11 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     const part = partOf(event.target)
     const window = timeline.store.state.window
     const time = timeAt(event.clientX)
-    if (window && part === 'start') {
+    if (timeline.store.state.instant) {
+      drag = { kind: 'cursor' }
+      const at = snapTime(time, event.altKey)
+      timeline.set({ start: at, end: at })
+    } else if (window && part === 'start') {
       drag = { kind: 'start', other: window.end }
     } else if (window && part === 'end') {
       drag = { kind: 'end', other: window.start }
@@ -390,7 +504,10 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     if (!current) return
     const time = timeAt(event.clientX)
     const free = event.altKey
-    if (current.kind === 'start') {
+    if (current.kind === 'cursor') {
+      const at = snapTime(time, free)
+      timeline.set({ start: at, end: at })
+    } else if (current.kind === 'start') {
       const at = snapTime(time, free)
       const other = current.other
       timeline.set({ start: other === null ? at : Math.min(at, other), end: other })
@@ -452,7 +569,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
 
   function keyEnd(part: string | null): TimelineEnd | null {
     if (part === 'start' || part === 'end') return part
-    return part === 'window' ? 'both' : null
+    return part === 'window' || part === 'cursor' ? 'both' : null
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -462,7 +579,11 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
     const window = state.window
     const extent = state.extent
     let handled = true
-    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') timeline.nudge(end, 1)
+    const forward = event.key === 'ArrowRight' || event.key === 'ArrowUp'
+    const backward = event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+    if (event.shiftKey && end === 'both' && state.kinds.length > 0 && (forward || backward)) {
+      timeline.stepEvent(forward ? 1 : -1)
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') timeline.nudge(end, 1)
     else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') timeline.nudge(end, -1)
     else if (event.key === 'PageUp') timeline.nudge(end, pageStep)
     else if (event.key === 'PageDown') timeline.nudge(end, -pageStep)
@@ -482,6 +603,14 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
 
   const onClick = () => timeline.toggle()
 
+  const onKind = (event: MouseEvent) => {
+    const node = (event.target as Element | null)?.closest('[data-kind]') ?? null
+    const kind = node?.getAttribute('data-kind')
+    if (node && kind !== null && kind !== undefined && legend.contains(node)) {
+      timeline.toggleKind(kind)
+    }
+  }
+
   track.addEventListener('pointerdown', onPointerDown)
   track.addEventListener('pointermove', onPointerMove)
   track.addEventListener('pointerup', onPointerUp)
@@ -489,6 +618,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
   track.addEventListener('wheel', onWheel, { passive: false })
   track.addEventListener('keydown', onKeyDown)
   button.addEventListener('click', onClick)
+  legend.addEventListener('click', onKind)
   const subscription = timeline.store.subscribe(render)
 
   applySettings()
@@ -501,6 +631,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
       settings = { ...settings, ...next }
       shownBins = null
       shownTicks = null
+      shownKinds = null
       applySettings()
       render()
     },
@@ -516,6 +647,7 @@ export function mountTimeline(timeline: Timeline, options: TimelineViewOptions =
       pinchGestures.stop()
       track.removeEventListener('keydown', onKeyDown)
       button.removeEventListener('click', onClick)
+      legend.removeEventListener('click', onKind)
       root.remove()
     },
   }
