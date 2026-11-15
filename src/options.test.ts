@@ -24,7 +24,7 @@ import type {
 } from './editor'
 import type { ShapeEditorProps, UseShapeEditorOptions } from './editor/react'
 import type { ShapeEditorViewOptions } from './editor/view'
-import type { ExportOptions, PngExportOptions, SvgExportOptions } from './export'
+import type { ExportOptions, ExportSize, PngExportOptions, SvgExportOptions } from './export'
 import type {
   AttributeDeclaration,
   CsvReadOptions,
@@ -95,6 +95,7 @@ import type {
   NodeScalesOptions,
   NumberScale,
   PathOptions,
+  PositionResetOptions,
   PositionSnapshotOptions,
   ReachOptions,
   ScalesOptions,
@@ -202,6 +203,7 @@ interface Inputs {
   ElementKeysInput: ElementKeysInput
   ExplorationOptions: ExplorationOptions<Item, Link>
   ExportOptions: ExportOptions
+  ExportSize: ExportSize
   FitOptions: FitOptions
   FitPadding: FitPadding
   ForceOptions: ForceOptions
@@ -260,6 +262,7 @@ interface Inputs {
   PersistShapeFields: PersistShapeFields<Item>
   PersistShapesOptions: PersistShapesOptions<Item, string, Marks>
   PngExportOptions: PngExportOptions
+  PositionResetOptions: PositionResetOptions
   PositionSnapshotOptions: PositionSnapshotOptions
   PresenceFields: PresenceFields<Item>
   PresenceSelection: PresenceSelection

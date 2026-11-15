@@ -396,6 +396,15 @@ export interface PositionSnapshotOptions {
   readonly settled?: boolean | undefined
 }
 
+/** Options of `positions.reset`. */
+export interface PositionResetOptions {
+  /**
+   * Animation duration in milliseconds, zero with `prefers-reduced-motion`. A duration that is not
+   * finite throws a `RangeError`. Defaults to `transitions.positions` of the definition.
+   */
+  readonly duration?: number | undefined
+}
+
 /** Node positions, in world units. */
 export interface GraphPositions {
   /** Position of a node, as drawn now, or `undefined` for an unknown key. */
@@ -406,6 +415,14 @@ export interface GraphPositions {
    * with a warning in development.
    */
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
+  /**
+   * Puts nodes back where their data places them, through the `x` and `y` channels or the
+   * `longitude` and `latitude` ones, after a drag or a `positions.set`. Takes the keys to put back,
+   * or every node without them. A node with no position in its data, or already there, stays,
+   * and so does a node a layout spread inside a group. Animates over `duration`, pins the nodes in
+   * a running layout and emits `positionchange` with the origin `'api'` for the nodes that moved.
+   */
+  reset(keys?: KeyList<Key>, options?: PositionResetOptions): void
   /**
    * Positions of every node of the data, by key, groups and nodes hidden in folded groups
    * included. Gliding nodes give where their glide ends, unless `settled` is `false`. A new map

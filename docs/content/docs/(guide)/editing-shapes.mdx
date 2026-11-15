@@ -95,6 +95,16 @@ editor.update({ snap: { grid: 'background' } })
 shapes(zones, { name: 'zones', order: 'order' })
 ```
 
+A shape already above every other shape of its mark makes `raise` propose nothing, and the same for `lower` at the bottom. `editor.store.state.canRaise` and `canLower` say whether the call would propose something for the selection, as `canUndo` does for `undo`, so that a toolbar can grey its buttons:
+
+```ts
+editor.store.subscribe(() => {
+  const { canRaise, canLower } = editor.store.state
+  raiseButton.disabled = !canRaise
+  lowerButton.disabled = !canLower
+})
+```
+
 ## Text
 
 A shape has text when its mark has a [`label`](/docs/shapes#labels). Double click it, or press Enter while it is the only selected shape, and an input opens over it, with the text of its label, in its font and at its size on the screen. The label hides while you type. Enter starts a new line; Escape, Cmd or Ctrl and Enter, a click elsewhere or another tool closes the input and proposes a `'change'` edit with the new `text`, which `applyShapeEdits` writes to the `text` field. `editor.cancel()` closes it with no edit.
@@ -149,6 +159,19 @@ editor.on('edit', ({ edits }) => {
 
 The new geometry keeps the form of the old one: `{ x, y }` points stay objects with their other fields, `[x, y]` pairs keep their extra values, GeoJSON keeps its type, its other fields and the closing point of each ring, and degrees stay degrees, with longitudes from -180 to 180. The points that did not move are the same values as before. GeoJSON `bbox` is dropped, since it would be stale.
 
+With several shape marks, narrow an edit on its `mark` and its `datum` takes the item type of that mark:
+
+```ts
+const editor = createShapeEditor(graph, {
+  onEdit: (edits) => {
+    for (const edit of edits) {
+      if (edit.type === 'add' && edit.mark === 'zones') copyLabel(edit.datum?.label)
+      if (edit.type === 'remove' && edit.mark === 'notes') forget(edit.datum.text)
+    }
+  },
+})
+```
+
 `applyShapeEdits(items, edits, fields)` applies a batch to an array and returns a new one: the changed items are copies, the others the same objects, so that the graph updates only what changed, and the new items come last, copies of `datum` when the edit has one. It reads keys from `id`, writes outlines to `geometry` and orders to `order` by default; with several shape marks, pass `mark` to take the edits of one. A mark whose `geometry` is a function needs its own writer.
 
 ### Pending edits
@@ -186,6 +209,7 @@ function SavedShapes() {
 ```
 
 - A change writes only the fields it changes, `geometry` by default, so `transaction.mutations[i].changes` holds the outline alone. A server that merges rows field by field keeps a color that someone else changed meanwhile. `fields` names the fields of your rows.
+- With several shape marks, name one with `mark`: only its edits are written, and `create` receives the new shapes of that mark, with the `datum` type of its items.
 - A removal deletes the row. `raise` and `lower` write the `order` field. A new shape, drawn or copied, needs `create`, which builds its whole row from the edit, the copied item in `edit.datum` for a copy. Without `create`, the undo of a removal still inserts the removed row again, its `datum` with the outline of the edit; other new shapes are left out.
 - The write is optimistic: the collection holds the new outline at once, and its change ends the wait of the editor in the next frame. Any change of the row ends the wait, so a server that rounds the points or turns the rings does not leave the shape waiting.
 - Without `mutationFn`, the collection persists the writes through its own handlers. With `mutationFn`, `createPacedMutations` calls it at the pace of `strategy`, and a mutation that rejects rolls the rows back and emits `editlost` with the edits it carried.

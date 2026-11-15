@@ -221,6 +221,11 @@ export class SpreadHost {
     if (index < this.#detached.length) this.#detached[index] = 0
   }
 
+  reattach(index: number): void {
+    this.attach(index)
+    this.#touch(index)
+  }
+
   carry(index: number, dx: number, dy: number): void {
     const slot = this.#slotOf[index] ?? none
     if (slot < 0) return

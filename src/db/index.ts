@@ -5,9 +5,10 @@ import {
   type Strategy,
   throttleStrategy,
 } from '@tanstack/db'
+import { degreesOf } from '../core/geo'
 import type { GraphPositionEvent } from '../host/events'
 import type { GraphInstance } from '../host/mount-graph'
-import type { FieldOf, FreeState, Key, Point } from '../types'
+import type { FieldOf, FreeState, GeoPoint, Key, Point } from '../types'
 import { defaultWait, pace, pendingMarks, type Settling } from './pending'
 
 export {
@@ -35,19 +36,31 @@ export interface PersistPositionsOptions<
   /** Collection to write to. */
   readonly collection: Collection<T, TKey>
   /**
-   * Field of the horizontal position.
-   * @default 'x'
+   * Field of the horizontal position, in world units. Defaults to `'x'`, unless `longitude` and
+   * `latitude` are set: then it is written only when you name it.
    */
   readonly x?: FieldOf<T, number> | undefined
   /**
-   * Field of the vertical position.
-   * @default 'y'
+   * Field of the vertical position, in world units. Defaults to `'y'`, unless `longitude` and
+   * `latitude` are set: then it is written only when you name it.
    */
   readonly y?: FieldOf<T, number> | undefined
+  /**
+   * Field of the longitude, in degrees from -180 up to 180, for nodes placed by `longitude` and
+   * `latitude`, on a map or not. Needs `latitude`, and throws without it.
+   */
+  readonly longitude?: FieldOf<T, number> | undefined
+  /**
+   * Field of the latitude, in degrees. Needs `longitude`, and throws without it.
+   */
+  readonly latitude?: FieldOf<T, number> | undefined
   /** Maps a node key to a row key. Defaults to the node key itself. */
   readonly key?: ((key: Key) => TKey) | undefined
-  /** Builds the row of a node that has none. Without it, such nodes are skipped. */
-  readonly create?: ((key: Key, point: Point) => T) | undefined
+  /**
+   * Builds the row of a node that has none, from its position in world units and in degrees.
+   * Without it, such nodes are skipped.
+   */
+  readonly create?: ((key: Key, point: Point, geo: GeoPoint) => T) | undefined
   /**
    * Persists through `createPacedMutations`, with an optimistic write that a failure rolls back.
    * Without it, the collection persists the updates through its own handlers.
@@ -66,8 +79,8 @@ export interface PersistPositionsOptions<
 }
 
 /**
- * Writes the positions of moved nodes to a TanStack DB collection: drags, `positions.set` and
- * layout results. Returns a function that stops listening and writes the last pending move at once.
+ * Writes the positions of moved nodes to a TanStack DB collection, in world units or as degrees:
+ * drags, `positions.set`, `positions.reset` and layout results. Returns a function that stops listening and writes the last pending move at once.
  * Throws when `pendingState` is not a free state of the graph.
  */
 export function persistPositions<
@@ -76,8 +89,15 @@ export function persistPositions<
   S extends string = string,
 >(graph: GraphInstance<S>, options: PersistPositionsOptions<T, TKey, FreeState<S>>): () => void {
   const { collection, mutationFn, create } = options
+  const degrees = options.longitude !== undefined || options.latitude !== undefined
+  if (degrees && (options.longitude === undefined || options.latitude === undefined)) {
+    throw new TypeError('graph: persistPositions needs both longitude and latitude')
+  }
+  const world = !degrees || options.x !== undefined || options.y !== undefined
   const xField: string = options.x ?? 'x'
   const yField: string = options.y ?? 'y'
+  const longitudeField: string | undefined = options.longitude
+  const latitudeField: string | undefined = options.latitude
   const keyOf = options.key ?? ((key: Key) => key as TKey)
   const marks = pendingMarks(graph, options.pendingState, 'nodes')
 
@@ -91,7 +111,7 @@ export function persistPositions<
         keys.push(rowKey)
         points.push(point)
       } else if (create) {
-        transactions.push(collection.insert(create(key, point)))
+        transactions.push(collection.insert(create(key, point, degreesOf(point))))
       }
     }
     if (keys.length === 0) return transactions
@@ -100,8 +120,15 @@ export function persistPositions<
         const point = points[i]
         if (!point) return
         const row = draft as Record<string, unknown>
-        row[xField] = point.x
-        row[yField] = point.y
+        if (world) {
+          row[xField] = point.x
+          row[yField] = point.y
+        }
+        if (longitudeField !== undefined && latitudeField !== undefined) {
+          const geo = degreesOf(point)
+          row[longitudeField] = geo.longitude
+          row[latitudeField] = geo.latitude
+        }
       })
     })
     transactions.push(update)

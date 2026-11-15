@@ -90,6 +90,7 @@ export type {
   LayoutOthers,
   LayoutRunOptions,
   MountGraphOptions,
+  PositionResetOptions,
   PositionSnapshotOptions,
   ViewOptions,
 } from './host/mount-graph'

@@ -22,6 +22,11 @@ export interface MapPngOptions {
    */
   readonly labels?: ExportLabels | undefined
   /**
+   * Whether to draw the badges of the nodes. `false` leaves them out.
+   * @default true
+   */
+  readonly badges?: boolean | undefined
+  /**
    * Text burned into the bottom right corner, or `''` for none. Defaults to the attribution the map
    * shows, or else to the attribution of its sources.
    */
@@ -212,6 +217,7 @@ export async function exportMapPng<S extends string>(
     exportPng(graph, {
       pixelRatio,
       labels: options.labels ?? 'visible',
+      badges: options.badges,
       background: 'transparent',
     })
       .then((blob) => createImageBitmap(blob))

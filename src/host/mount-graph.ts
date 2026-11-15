@@ -73,6 +73,7 @@ import { LensControl } from './lens-control'
 import { afterDestroy, destroyedReason, FrameWaiters, stillborn, untilDestroyed } from './lifecycle'
 import { HostPicker } from './picking'
 import { PointerInput } from './pointer-input'
+import { positionEvent } from './position-event'
 import { PositionMotion } from './position-motion'
 import { readonlyOf } from './readonly-store'
 import { reducedMotion } from './reduced-motion'
@@ -116,6 +117,7 @@ export type {
   LayoutOthers,
   LayoutRunOptions,
   MountGraphOptions,
+  PositionResetOptions,
   PositionSnapshotOptions,
   RendererFactory,
   ViewOptions,
@@ -1063,7 +1065,51 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         console.warn(`graph: positions.set skipped ${skipped} node(s) without a finite x and y`)
       }
       motion.move(indices, to, positionOptions.duration ?? 0)
-      if (moved.size > 0) emitter.emit('positionchange', { origin: 'api', positions: moved })
+      if (moved.size > 0) {
+        emitter.emit('positionchange', positionEvent('api', moved, surface !== null))
+      }
+    },
+    reset: (keys, resetOptions = {}) => {
+      checkDuration(resetOptions)
+      flushPending()
+      if (keys !== undefined) check(keys, 'positions.reset')
+      const reader = motion.settled()
+      const indices: number[] = []
+      const to: number[] = []
+      const moved = new Map<Key, Point>()
+      const visit = (key: Key, index: number) => {
+        const x = positions.source[index * 2] ?? Number.NaN
+        const y = positions.source[index * 2 + 1] ?? Number.NaN
+        if (Number.isNaN(x) || Number.isNaN(y) || spread.owns(index)) return
+        const here = Math.fround(reader.x(index) - positions.originX)
+        const there = Math.fround(x - positions.originX)
+        const aside = Math.fround(reader.y(index) - positions.originY)
+        const beyond = Math.fround(y - positions.originY)
+        spread.reattach(index)
+        if (here === there && aside === beyond) return
+        indices.push(index)
+        to.push(x, y)
+        moved.set(key, { x, y })
+        projection.markSeen(index)
+      }
+      if (keys === undefined) {
+        for (const record of model.nodes()) visit(record.key, record.index)
+      } else {
+        for (const key of keys) {
+          const record = model.node(key)
+          if (record) visit(record.key, record.index)
+        }
+      }
+      const run = layouts.session?.run
+      if (run) {
+        for (const [i, index] of indices.entries())
+          run.pin(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
+      }
+      motion.move(indices, to, resetOptions.duration ?? definition.transitions.positions)
+      spread.settle(performance.now())
+      if (moved.size > 0) {
+        emitter.emit('positionchange', positionEvent('api', moved, surface !== null))
+      }
     },
     snapshot: (snapshotOptions = {}) => {
       flushPending()
