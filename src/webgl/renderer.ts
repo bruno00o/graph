@@ -176,16 +176,17 @@ export function createWebglRenderer(
   if (!context) throw new Error('graph: WebGL2 is not available')
   const renderer = createRenderer(context, invalidate, false)
   const untrack = trackContext(context)
+  const extension = context.getExtension('WEBGL_lose_context')
   const destroy = renderer.destroy
   renderer.destroy = () => {
     untrack()
     destroy()
   }
   renderer.suspend = () => {
-    const extension = context.isContextLost() ? null : context.getExtension('WEBGL_lose_context')
     renderer.destroy()
     if (!extension) return null
     return {
+      lost: () => context.isContextLost(),
       restore: () => {
         freshenContexts()
         extension.restoreContext()

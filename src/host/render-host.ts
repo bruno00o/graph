@@ -12,6 +12,8 @@ import type { Renderer, RendererContext } from './renderer'
 
 type Given = 'none' | 'losing' | 'lost' | 'restoring'
 
+const restoreWait = 2000
+
 function sameTheme(a: ResolvedTheme | null, b: ResolvedTheme): boolean {
   if (!a || a.font !== b.font) return false
   const keys = Object.keys(b) as (keyof ResolvedTheme)[]
@@ -63,7 +65,9 @@ export class RenderHost {
   #own: HostSurface | null = null
   readonly #source: RenderSource
   #suspended: boolean
+  #keep: boolean
   #given: Given = 'none'
+  #asked = 0
   #context: RendererContext | null = null
   #wake: ReturnType<typeof setTimeout> | undefined
   #hidden = false
@@ -71,9 +75,10 @@ export class RenderHost {
   #theme: ResolvedTheme | null = null
   readonly #kept = new KeptFrame()
 
-  constructor(source: RenderSource, suspended = false) {
+  constructor(source: RenderSource, suspended = false, keepFrame = true) {
     this.#source = source
     this.#suspended = suspended
+    this.#keep = keepFrame
     const surface = source.surface()
     if (surface.ownCanvas && !suspended) {
       this.#renderers.set(
@@ -93,6 +98,15 @@ export class RenderHost {
 
   get suspended(): boolean {
     return this.#suspended
+  }
+
+  get keepsFrame(): boolean {
+    return this.#keep
+  }
+
+  set keepsFrame(keep: boolean) {
+    this.#keep = keep
+    if (!keep) this.#kept.drop()
   }
 
   resolvePalette(all: boolean): void {
@@ -147,7 +161,7 @@ export class RenderHost {
     this.#suspended = true
     const own = this.#own
     if (!own) return false
-    if (this.#source.surface() === own && this.#renderers.has(own)) {
+    if (this.#keep && this.#source.surface() === own && this.#renderers.has(own)) {
       this.#releasing = true
       return true
     }
@@ -166,6 +180,13 @@ export class RenderHost {
     }
     const own = this.#own
     if (own && this.#source.surface() === own && this.#acquire(own)) this.#ready()
+    this.#source.request()
+  }
+
+  recover(): void {
+    const own = this.#own
+    if (this.#suspended || !own || !this.#lost.has(own) || this.#source.surface() !== own) return
+    if (this.#acquire(own)) this.#ready()
     this.#source.request()
   }
 
@@ -189,7 +210,7 @@ export class RenderHost {
   #finish(own: HostSurface, capture: boolean): void {
     this.#releasing = false
     const renderer = this.#renderers.get(own)
-    if (capture && renderer) {
+    if (capture && this.#keep && renderer) {
       const { width, height } = this.#source.state()
       this.#kept.capture(own.events, width, height)
     }
@@ -212,7 +233,8 @@ export class RenderHost {
   }
 
   #acquire(own: HostSurface): boolean {
-    if (this.#renderers.has(own) || this.#lost.has(own)) return false
+    if (this.#renderers.has(own)) return false
+    if (this.#lost.has(own)) return this.#retrieve(own)
     const given = this.#given
     if (given === 'losing' || given === 'restoring') return false
     if (given === 'lost' && this.#context) {
@@ -220,6 +242,24 @@ export class RenderHost {
       this.#context.restore()
       return false
     }
+    this.#given = 'none'
+    if (this.#create(own)) return true
+    this.#lost.add(own)
+    return false
+  }
+
+  #retrieve(own: HostSurface): boolean {
+    const now = performance.now()
+    if (this.#given === 'restoring' && now - this.#asked < restoreWait) return false
+    const context = this.#context
+    if (context?.lost()) {
+      this.#given = 'restoring'
+      this.#asked = now
+      context.restore()
+      return false
+    }
+    if (!context) return false
+    this.#lost.delete(own)
     this.#given = 'none'
     if (this.#create(own)) return true
     this.#lost.add(own)
@@ -325,8 +365,11 @@ export class RenderHost {
       return
     }
     this.#lost.add(own)
-    this.#renderers.get(own)?.destroy()
+    const renderer = this.#renderers.get(own)
     this.#renderers.delete(own)
+    if (!renderer) return
+    if (renderer.suspend) this.#context = renderer.suspend()
+    else renderer.destroy()
   }
 
   readonly onContextRestored = (): void => {
@@ -361,6 +404,7 @@ export class RenderHost {
   #create(surface: HostSurface): boolean {
     const source = this.#source
     try {
+      this.#renderers.get(surface)?.destroy()
       this.#renderers.set(
         surface,
         source.createRenderer(surface.events, () => source.request()),

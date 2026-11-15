@@ -34,6 +34,8 @@ new IntersectionObserver(([entry]) => {
 }).observe(card)
 ```
 
+`keepFrame: false` keeps no copy of the last frame while the graph is suspended: it saves width × height × pixel ratio² × 4 bytes for each suspended graph, and the page shows an empty box until `resume` draws again. It defaults to `true`, and `update` changes it. See [Suspend](/docs/api/graph-instance#suspend).
+
 ## Signal
 
 `signal` ties the graph to an `AbortController` of your own: the graph is destroyed when it aborts, and `graph.signal` aborts with the same reason. One controller can end a graph and the work around it at once.

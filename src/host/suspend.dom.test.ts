@@ -42,6 +42,7 @@ interface Made {
 interface Handle extends RendererContext {
   restores: number
   loses: number
+  gone: boolean
 }
 
 let dom: FakeDom
@@ -87,11 +88,14 @@ function factory(withContext: boolean) {
         const handle: Handle = {
           restores: 0,
           loses: 0,
+          gone: false,
+          lost: () => handle.gone,
           restore: () => {
             handle.restores++
           },
           lose: () => {
             handle.loses++
+            handle.gone = true
           },
         }
         handles.push(handle)
@@ -102,12 +106,17 @@ function factory(withContext: boolean) {
   }
 }
 
-function mount(options: { suspended?: boolean; context?: boolean } = {}) {
+function mount(options: { suspended?: boolean; context?: boolean; keepFrame?: boolean } = {}) {
   const container = document.createElement('div')
   document.body.append(container)
   const graph = createGraphHost(
     container,
-    { definition: definition(), ariaLabel: 'graph', suspended: options.suspended },
+    {
+      definition: definition(),
+      ariaLabel: 'graph',
+      suspended: options.suspended,
+      keepFrame: options.keepFrame,
+    },
     factory(options.context === true),
   )
   dom.flushFrames()
@@ -348,6 +357,50 @@ describe('suspend and resume', () => {
     expect((made[2] as Made).frames.length).toBeGreaterThan(0)
   })
 
+  it('keeps no copy of the last frame when told not to', () => {
+    const graph = mount({ keepFrame: false })
+    const first = made[0] as Made
+    const drawn = first.frames.length
+    graph.suspend()
+    expect(copies).toBe(0)
+    expect(keptImage(graph)).toBeNull()
+    expect(first.frames.length).toBe(drawn)
+    expect(first.destroyed).toBe(true)
+    expect(canvasOf(graph).style.visibility).toBe('hidden')
+    expect(graph.store.state.suspended).toBe(true)
+    graph.resume()
+    dom.flushFrames()
+    expect((made[1] as Made).frames.length).toBeGreaterThan(0)
+    expect(canvasOf(graph).style.visibility).toBe('')
+  })
+
+  it('changes whether the last frame is kept with update', () => {
+    const graph = mount()
+    graph.update({ keepFrame: false })
+    graph.suspend()
+    expect(keptImage(graph)).toBeNull()
+    graph.resume()
+    dom.flushFrames()
+    graph.update({ keepFrame: true })
+    graph.suspend()
+    expect(keptImage(graph)).not.toBeNull()
+    graph.update({ keepFrame: false })
+    expect(keptImage(graph)).toBeNull()
+    graph.update({})
+    graph.resume()
+    dom.flushFrames()
+    expect(keptImage(graph)).toBeNull()
+  })
+
+  it('suspends without drawing when called while a frame is drawn', () => {
+    const graph = mount({ keepFrame: false })
+    graph.on('viewchange', () => graph.suspend())
+    graph.view.set({ x: 3, y: 0, zoom: 2 })
+    dom.flushFrames()
+    expect(graph.store.state.suspended).toBe(true)
+    expect(copies).toBe(0)
+  })
+
   it('lets a handler resume during the suspension', () => {
     const graph = mount()
     graph.on('suspendchange', (event) => {
@@ -379,5 +432,129 @@ describe('suspend and resume', () => {
     graph.resume()
     expect(graph.store.state.suspended).toBe(false)
     graph.destroy()
+  })
+
+  it('suspends without keeping the first frame of a graph mounted suspended', () => {
+    const graph = mount({ suspended: true, keepFrame: false })
+    expect(keptImage(graph)).toBeNull()
+    expect(copies).toBe(0)
+    graph.resume()
+    dom.flushFrames()
+    expect(made).toHaveLength(1)
+  })
+})
+
+describe('a context the browser takes away', () => {
+  function evict(graph: GraphInstance): Handle {
+    const canvas = canvasOf(graph)
+    lose(canvas)
+    const handle = handles.at(-1) as Handle
+    handle.gone = true
+    return handle
+  }
+
+  it('comes back with resume, without being suspended', () => {
+    const graph = mount({ context: true })
+    const canvas = canvasOf(graph)
+    const handle = evict(graph)
+    expect((made[0] as Made).destroyed).toBe(true)
+    expect(graph.store.state.suspended).toBe(false)
+    const seen: boolean[] = []
+    graph.on('suspendchange', (event) => seen.push(event.suspended))
+    graph.resume()
+    expect(handle.restores).toBe(1)
+    graph.resume()
+    expect(handle.restores).toBe(1)
+    handle.gone = false
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    expect(made).toHaveLength(2)
+    dom.flushFrames()
+    expect((made[1] as Made).frames.length).toBeGreaterThan(0)
+    expect((made[1] as Made).syncs[0]?.full).toBe(true)
+    expect(seen).toEqual([])
+  })
+
+  it('asks for nothing when the context is there', () => {
+    const graph = mount({ context: true })
+    graph.resume()
+    graph.resume()
+    expect(made).toHaveLength(1)
+    expect(handles).toHaveLength(0)
+    expect((made[0] as Made).destroyed).toBe(false)
+  })
+
+  it('is valid to suspend, and resume brings it back', () => {
+    const graph = mount({ context: true })
+    const canvas = canvasOf(graph)
+    const handle = evict(graph)
+    graph.suspend()
+    expect(graph.store.state.suspended).toBe(true)
+    expect(keptImage(graph)).toBeNull()
+    expect(canvas.style.visibility).toBe('hidden')
+    graph.resume()
+    expect(handle.restores).toBe(1)
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    expect(made).toHaveLength(2)
+    dom.flushFrames()
+    expect(canvas.style.visibility).toBe('')
+    expect((made[1] as Made).frames.length).toBeGreaterThan(0)
+  })
+
+  it('gives the context back when the browser restores it during a suspension', () => {
+    const graph = mount({ context: true })
+    const canvas = canvasOf(graph)
+    const handle = evict(graph)
+    graph.suspend()
+    handle.gone = false
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    expect(handle.loses).toBe(1)
+    expect(made).toHaveLength(1)
+    lose(canvas)
+    graph.resume()
+    expect(handle.restores).toBe(1)
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    expect(made).toHaveLength(2)
+  })
+
+  it('waits for the browser when the renderer gives no way to restore', () => {
+    const graph = mount()
+    const canvas = canvasOf(graph)
+    lose(canvas)
+    graph.resume()
+    expect(made).toHaveLength(1)
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    expect(made).toHaveLength(2)
+  })
+
+  it('does not ask twice while a restore is pending', () => {
+    const graph = mount({ context: true })
+    const handle = evict(graph)
+    graph.resume()
+    graph.suspend()
+    graph.resume()
+    expect(handle.restores).toBe(1)
+  })
+
+  it('creates a renderer again when the context is there and the first try failed', () => {
+    let failing = true
+    const graph = createGraphHost(
+      document.body.appendChild(document.createElement('div')),
+      { definition: definition(), ariaLabel: 'graph' },
+      () => {
+        if (made.length > 0 && failing) {
+          failing = false
+          throw new Error('no context')
+        }
+        return factory(true)()
+      },
+    ) as GraphInstance
+    dom.flushFrames()
+    const canvas = canvasOf(graph)
+    const handle = evict(graph)
+    handle.gone = false
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    expect(made).toHaveLength(1)
+    graph.resume()
+    expect(made).toHaveLength(2)
   })
 })

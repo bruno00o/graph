@@ -15,6 +15,7 @@ export interface GraphInspection {
   readonly issues: readonly AnyIssue[]
   readonly layout: string | null
   readonly renderer: RendererStats | null
+  readonly contextLost: boolean
 }
 
 export interface InspectedGraph {

@@ -88,6 +88,7 @@ export interface RendererLimits {
 }
 
 export interface RendererContext {
+  lost(): boolean
   restore(): void
   lose(): void
 }

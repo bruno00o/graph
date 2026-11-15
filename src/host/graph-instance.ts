@@ -632,6 +632,13 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    */
   readonly suspended?: boolean | undefined
   /**
+   * Keeps a copy of the last frame over the graph while it is suspended, so that the page shows it
+   * instead of an empty box until `resume` draws again. The copy costs width × height × pixel
+   * ratio² × 4 bytes for each suspended graph: `false` keeps none. It can change with `update`.
+   * @default true
+   */
+  readonly keepFrame?: boolean | undefined
+  /**
    * Destroys the graph when it aborts. A signal already aborted mounts nothing: the graph comes
    * back destroyed, and a warning is logged in development.
    */
@@ -782,12 +789,14 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   /**
    * Frees the WebGL context of the own canvas, its textures and buffers, and keeps everything else:
    * data, positions, view, selection, states, layouts, events and companions go on, and the canvas
-   * shows the last frame drawn until the theme changes. Calls while suspended do nothing.
+   * shows the last frame drawn until the theme changes, unless `keepFrame` is `false`. It also
+   * works on a graph whose context the browser took away. Calls while suspended do nothing.
    */
   suspend(): void
   /**
    * Takes a WebGL context again and draws the graph as it is now, from the scene kept on the CPU.
-   * `await drawn()` waits for that frame. Calls while not suspended do nothing.
+   * `await drawn()` waits for that frame, and a context the browser took away comes back first.
+   * Called on a graph that is not suspended, it only brings back a context the browser took away.
    */
   resume(): void
   /**
