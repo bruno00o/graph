@@ -144,6 +144,10 @@ export class ShapeStore {
     if (shown.length > 0) this.#writer?.revealed(shown)
   }
 
+  fillHidden(): void {
+    this.#writer?.revealed(this.#drafted)
+  }
+
   setShift(slot: number, x: number, y: number): void {
     const at = slot * 2
     if (this.shift[at] === x && this.shift[at + 1] === y) return

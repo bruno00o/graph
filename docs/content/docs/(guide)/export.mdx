@@ -32,9 +32,9 @@ download(new Blob([await exportSvg(graph)], { type: 'image/svg+xml' }), 'graph.s
 
 ## Region and scale
 
-By default, the file shows what the graph shows: the same area, the same zoom, the same labels, the background grid, the [shapes](/docs/shapes) and the hulls. `region: 'graph'` frames every node instead, with the shapes, labels, loops and hulls that reach past them, and a `padding` in CSS pixels around them.
+By default, the file shows what the graph shows: the same area, the same zoom, the same labels, the background grid, the [shapes](/docs/shapes) and the hulls. `region: 'graph'` frames every node instead, with the shapes, labels, loops, curved edges and hulls that reach past them, and a `padding` in CSS pixels around them.
 
-Elements outside the [time window](/docs/time) of the graph are left out, as on screen. `window` exports another window, or every element with `null`:
+Elements outside the [time window](/docs/time) of the graph are left out, as on screen. `window` exports another window, or every element with `null`, and the hulls then wrap the nodes of that window:
 
 ```ts
 await exportSvg(graph, { region: 'graph', window: null })
@@ -65,7 +65,7 @@ await exportPng(graph, { region: 'graph', size: { width: 640, height: 400 } })
 await exportSvg(graph, { region: 'graph', size: { width: 320 } })
 ```
 
-- With `region: 'graph'`, the nodes, labels, loops and hulls fit inside the size with `padding` around them, which stays in CSS pixels. Since edge widths and labels keep their size in pixels, the zoom is found by search, not by a ratio of sizes.
+- With `region: 'graph'`, the nodes, labels, loops, curved edges and hulls fit inside the size with `padding` around them, which stays in CSS pixels. Since edge widths and labels keep their size in pixels, the zoom is found by search, not by a ratio of sizes.
 - With `region: 'view'`, the whole area the view shows fits inside, so a size of another aspect shows more of the graph around it. `padding` applies to `region: 'graph'` only.
 - The space the region leaves over, on the longer side, shows the background.
 - A PNG has exactly `size` pixels, whatever `pixelRatio`, which keeps its meaning: edge widths and labels are drawn at their CSS size times it, and the area drawn is `size` divided by it. A smaller ratio draws the graph with relatively larger labels. An SVG takes `size` as its width and height, in CSS pixels.

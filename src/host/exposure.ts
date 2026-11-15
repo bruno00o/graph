@@ -127,9 +127,16 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
       width,
       height,
       pixelRatio: render.pixelRatio,
+      software: render.software,
       globe: source.camera.sphere(),
       title: source.element.getAttribute('aria-label'),
       color: (css) => themeResolver.color(css),
+      ratioFor: (software) => render.ratioFor(software),
+      hullsFor(sight, at, boxes) {
+        const hulls = decorations.hullsFor(sight, at, boxes)
+        if (scene.palette.version !== render.paletteVersion) render.resolvePalette(false)
+        return hulls
+      },
       createRenderer: source.createRenderer,
     }
   })

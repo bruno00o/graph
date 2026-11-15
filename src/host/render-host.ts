@@ -141,14 +141,20 @@ export class RenderHost {
       limits?.pathPoints ?? defaultPointBudget,
     )
     this.#drawingLimit = limits?.drawingBuffer ?? Number.POSITIVE_INFINITY
-    this.software = limits ? limits.software : null
+    if (limits || this.renderer) this.software = limits ? limits.software : null
   }
 
-  #wantedRatio(): number {
+  #wantedRatio(software = this.software): number {
     const device = window.devicePixelRatio || 1
     const option = this.#source.pixelRatio()
-    if (option === 'auto') return this.software ? Math.min(device, 1) : device
+    if (option === 'auto') return software ? Math.min(device, 1) : device
     return option === 'device' ? device : option
+  }
+
+  ratioFor(software: boolean): number {
+    if (!this.#source.surface().ownCanvas) return this.pixelRatio
+    const { width, height } = this.#source.state()
+    return Math.min(this.#wantedRatio(software), this.#drawingLimit / Math.max(width, height, 1))
   }
 
   refreshRatio(): void {

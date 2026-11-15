@@ -1,6 +1,7 @@
 import { containerShape, type EdgeColumns, type NodeColumns } from '../core/columns'
-import { type Cubic, loopCurve, loopMinimum, loopReach } from '../core/edge-curve'
+import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '../core/edge-curve'
 import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
+import { arcPolyline, arcStations } from '../core/geo-arc'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
 import type { LayerFilter } from '../core/mark-layers'
@@ -87,7 +88,7 @@ function point(curve: Cubic, t: number): [number, number] {
   ]
 }
 
-const loopSamples = 16
+const curveSamples = 16
 
 export function exportFrame(source: FrameSource, options: FrameOptions): ExportFrame {
   const zoom = options.zoom ?? source.view.zoom
@@ -150,30 +151,50 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     maxY = Math.max(maxY, geometry.maxY * zoom + oy + reach)
   }
   if (maxX < minX) return viewFrame
+  const bundles = source.bundles
+  const arc = new Float64Array(arcStations * 2)
   for (let index = 0; index < edges.capacity; index++) {
-    const node = edges.source[index] ?? 0
-    if (edges.alive[index] !== 1 || edges.target[index] !== node) continue
+    if (edges.alive[index] !== 1) continue
+    const from = edges.source[index] ?? 0
+    const to = edges.target[index] ?? 0
+    const loop = from === to
+    const geodesic = !loop && edges.geodesic[index] === 1
+    const bend = edges.bend[index] ?? 0
+    if (!loop && !geodesic && bend === 0) continue
+    if (!loop && bundles?.any && bundles.count(index) >= 2) continue
     if (!edgeShown(nodes, edges, index, sight)) continue
-    const radius = screenRadius(nodes, node, zoom)
     const width = Math.max(widthOf(index), 0.5)
     const reach = Math.max(
       width / 2,
       (edges.arrow[index] ?? 0) !== 0 ? Math.max(width * 1.6, 3) : 0,
     )
-    const curve = loopCurve(
-      positions.x(node) * zoom + loopShift(nodes, node, zoom),
-      positions.y(node) * zoom,
-      loopReach(radius, edges.bend[index] ?? 0, loopMinimum),
-    )
-    for (let step = 0; step <= loopSamples; step++) {
-      const [x, y] = point(curve, step / loopSamples)
+    const add = (x: number, y: number) => {
       minX = Math.min(minX, x - reach)
       minY = Math.min(minY, y - reach)
       maxX = Math.max(maxX, x + reach)
       maxY = Math.max(maxY, y + reach)
     }
+    const ax = positions.x(from)
+    const ay = positions.y(from)
+    const dx = positions.x(to)
+    const dy = positions.y(to)
+    if (geodesic) {
+      const count = arcPolyline(ax, ay, dx, dy, bend, true, arc)
+      for (let k = 0; k < count; k++) add((arc[k * 2] ?? 0) * zoom, (arc[k * 2 + 1] ?? 0) * zoom)
+      continue
+    }
+    const curve = loop
+      ? loopCurve(
+          ax * zoom + loopShift(nodes, from, zoom),
+          ay * zoom,
+          loopReach(screenRadius(nodes, from, zoom), bend, loopMinimum),
+        )
+      : parallelCurve(ax * zoom, ay * zoom, dx * zoom, dy * zoom, bend)
+    for (let step = 0; step <= curveSamples; step++) {
+      const [x, y] = point(curve, step / curveSamples)
+      add(x, y)
+    }
   }
-  const bundles = source.bundles
   if (bundles?.any) {
     const line = new Float64Array(Math.max(maxPathPoints, bundles.longest) * 2)
     for (let index = 0; index < edges.capacity; index++) {

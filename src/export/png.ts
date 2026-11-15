@@ -4,6 +4,7 @@ import type { Rgba } from '../dom/theme'
 import type { GraphSnapshot } from '../host/export-source'
 import type { LabelArea, LabelMode, Renderer, RenderInput } from '../host/renderer'
 import type { ExportFrame } from './frame'
+import { withoutDrafts } from './frozen'
 import { PngWriter } from './png-encoder'
 
 const tileLimit = 4096
@@ -44,7 +45,7 @@ function load(
     bridges: snapshot.bridges ?? null,
   }
   for (const times of spans) times.select(window)
-  renderer.sync(input)
+  withoutDrafts(shapes, () => renderer.sync(input))
   spans.forEach((times, at) => {
     times.select(live[at] ?? null)
   })
@@ -82,9 +83,20 @@ export function composite(pixels: Uint8Array, length: number, background: Rgba):
   }
 }
 
+export interface PngCanvas {
+  readonly canvas: HTMLCanvasElement
+  readonly renderer: Renderer
+}
+
+export function openCanvas(snapshot: GraphSnapshot): PngCanvas {
+  const canvas = document.createElement('canvas')
+  return { canvas, renderer: snapshot.createRenderer(canvas, () => {}) }
+}
+
 export async function renderPng(
   take: () => GraphSnapshot,
   first: GraphSnapshot,
+  opened: PngCanvas,
   request: PngRequest,
 ): Promise<Blob> {
   const { frame, pixelRatio, labels, time } = request
@@ -92,11 +104,10 @@ export async function renderPng(
   const badges = request.badges !== false
   const width = Math.max(1, Math.round(frame.width * pixelRatio))
   const height = Math.max(1, Math.round(frame.height * pixelRatio))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.min(width, tileLimit)
-  canvas.height = Math.min(height, tileLimit)
-  const renderer = first.createRenderer(canvas, () => {})
+  const { canvas, renderer } = opened
   try {
+    canvas.width = Math.min(width, tileLimit)
+    canvas.height = Math.min(height, tileLimit)
     const gl = canvas.getContext('webgl2')
     if (!gl) throw new Error('graph: WebGL2 is not available')
     const viewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array
@@ -106,8 +117,10 @@ export async function renderPng(
       viewport[0] ?? tileLimit,
       viewport[1] ?? tileLimit,
     )
+    const shapes = first.scene.shapes
     load(renderer, first, grid, frame.window ?? null)
-    await Promise.all([renderer.ready?.(), document.fonts?.ready, first.scene.shapes.settled()])
+    shapes.fillHidden()
+    await Promise.all([renderer.ready?.(), document.fonts?.ready, shapes.settled()])
     load(renderer, take(), grid, frame.window ?? null)
     const strip = Math.max(1, Math.min(limit, height, Math.floor(stripPixels / width)))
     const cssWidth = width / pixelRatio
@@ -136,22 +149,24 @@ export async function renderPng(
         if (gl.drawingBufferWidth !== tileWidth || gl.drawingBufferHeight !== tileHeight) {
           throw new Error('graph: the browser refused a drawing buffer for the export')
         }
-        renderer.render({
-          view: {
-            x: view.x + ((left + tileWidth / 2) / pixelRatio - cssWidth / 2) / view.zoom,
-            y: view.y + ((top + tileHeight / 2) / pixelRatio - cssHeight / 2) / view.zoom,
-            zoom: view.zoom,
-          },
-          width: tileWidth / pixelRatio,
-          height: tileHeight / pixelRatio,
-          pixelRatio,
-          labels: area,
-          time,
-          badges,
-          globe,
-          window: frame.window ?? null,
-          layers: frame.layers ?? null,
-        })
+        withoutDrafts(shapes, () =>
+          renderer.render({
+            view: {
+              x: view.x + ((left + tileWidth / 2) / pixelRatio - cssWidth / 2) / view.zoom,
+              y: view.y + ((top + tileHeight / 2) / pixelRatio - cssHeight / 2) / view.zoom,
+              zoom: view.zoom,
+            },
+            width: tileWidth / pixelRatio,
+            height: tileHeight / pixelRatio,
+            pixelRatio,
+            labels: area,
+            time,
+            badges,
+            globe,
+            window: frame.window ?? null,
+            layers: frame.layers ?? null,
+          }),
+        )
         const pixels = tile.subarray(0, tileWidth * tileHeight * 4)
         gl.readPixels(0, 0, tileWidth, tileHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
         if (gl.isContextLost())
