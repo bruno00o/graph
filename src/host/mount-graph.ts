@@ -300,6 +300,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       destroyed: () => destroyed,
     },
     options.suspended === true,
+    options.keepFrame !== false,
   )
 
   registry.setShaped(definition.marks.some((mark) => mark.type === 'shapes'))
@@ -1001,7 +1002,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   }
 
   function resume(): void {
-    if (destroyed || !render.suspended) return
+    if (destroyed) return
+    if (!render.suspended) {
+      render.recover()
+      return
+    }
     render.resume()
     patch({ suspended: false })
     if (destroyed) return
@@ -1364,6 +1369,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       issues: reads.issues,
       layout: layouts.session?.name ?? null,
       renderer: render.renderer?.stats?.() ?? null,
+      contextLost: render.contextLost,
     }
   }
 
@@ -1490,6 +1496,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       const moving = target !== surface
       if (next.view !== undefined && (moving || viewControlled)) checkView(next.view)
       if (next.ariaLabel !== undefined) element.setAttribute('aria-label', next.ariaLabel)
+      if (next.keepFrame !== undefined) render.keepsFrame = next.keepFrame
       if (next.onSelectionChange !== undefined) selection.listen(next.onSelectionChange)
       if (controlled && next.selection !== undefined) {
         checkLists(check, next.selection, 'update({ selection: { $ } })')

@@ -392,6 +392,31 @@ describe('global resources', () => {
     expect(snapshot()).toEqual(baseline)
   })
 
+  it('holds nothing more after 20 suspensions without a frame and 20 lost contexts', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const baseline = snapshot()
+    const { graph, destroy } = mountAll()
+    flush(2)
+    const settled = snapshot()
+    const canvas = graph.element.querySelector('canvas') as HTMLCanvasElement
+    for (let round = 0; round < 20; round++) {
+      graph.update({ keepFrame: round % 2 === 0 })
+      graph.suspend()
+      flush(2)
+      graph.resume()
+      flush(2)
+      canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+      graph.resume()
+      canvas.dispatchEvent(new Event('webglcontextrestored'))
+      flush(2)
+      expect(snapshot()).toEqual(settled)
+      expect(graph.element.querySelectorAll('[data-graph-frame]')).toHaveLength(0)
+    }
+    destroy()
+    flush()
+    expect(snapshot()).toEqual(baseline)
+  })
+
   it('holds nothing more after moving onto a map and back 20 times', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const baseline = snapshot()

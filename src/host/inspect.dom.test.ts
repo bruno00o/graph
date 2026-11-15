@@ -159,6 +159,7 @@ describe('graph inspection', () => {
       issues: [],
       layout: null,
       renderer: null,
+      contextLost: false,
     })
     const measured = inspected(mount(() => ({ ...fakeRenderer(), stats: () => stats })))
     expect(measured.inspect().renderer).toEqual(stats)
