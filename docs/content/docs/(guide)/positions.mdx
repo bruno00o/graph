@@ -105,6 +105,103 @@ The entries serve the nodes of the first data: those that arrive while a live so
 
 Nodes hidden in a folded group keep their restored place, and appear there when the group opens. A folded group keeps its own entry. Children of a group that [spread](/docs/groups#spread-children) stay where the snapshot puts them, as with `set`: it already holds the spread. A snapshot holds the positions of one surface: positions read on a map are in the world units of the map, so give them back to a map graph, and those of a plain graph to a plain one. See [With and without a map](/docs/map#with-and-without-a-map).
 
+## Save a whole arrangement
+
+An app can let the user save the arrangement of a view on request, as one record of its own: one value that holds every node, instead of one row per node as [`persistPositions`](/docs/tanstack-db#write-positions-back) writes. Take the record from `positions.snapshot()`, and give it back at the next mount with `initialPositions`, or to a live graph with `positions.set`.
+
+```ts
+import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
+import type { Key, Point } from '@bruno00o/graph'
+
+interface Item {
+  id: string
+  label: string
+}
+declare const items: Item[]
+declare const container: HTMLElement
+declare function loadArrangement(): [Key, Point][] | undefined
+declare function storeArrangement(entries: [Key, Point][]): void
+
+const definition = defineGraph({ marks: [nodes(items, { label: 'label' })] })
+
+const graph = mountGraph(container, {
+  definition,
+  ariaLabel: 'Sample graph',
+  initialPositions: loadArrangement(),
+})
+
+function save() {
+  storeArrangement([...graph.positions.snapshot()])
+}
+```
+
+`initialPositions` is read once, and `undefined` means no entries. To go back to a saved arrangement on a graph that is already mounted, pass the record to `positions.set`, with a `duration` to glide.
+
+```ts
+function restore(entries: Iterable<readonly [Key, Point]>) {
+  graph.positions.set(entries, { duration: 400 })
+}
+```
+
+### Keys that no longer exist
+
+A record outlives the data. An entry whose key is not a node of the graph is ignored by both ways of restoring, without a warning, and the other entries apply. A node that has no entry is a new node: the layout places it next to its placed neighbors, or it starts on the spiral without a layout. A snapshot is complete, so the next save drops the stale entries by itself. To clean a record you hold, keep the entries whose key `positions.get` knows.
+
+```ts
+function pruned(entries: [Key, Point][]) {
+  return entries.filter(([key]) => graph.positions.get(key) !== undefined)
+}
+```
+
+### Tell user moves from replayed ones
+
+`positionchange` says where a move comes from in its `origin`: `'drag'` for a node the user dragged, `'layout'` for a layout run that ended, and `'api'` for `positions.set` and `positions.reset`. Restoring through `initialPositions` emits nothing. Restoring through `set` emits `'api'`, as does any other call of yours, so a flag around your own replay keeps it from counting as an edit.
+
+```ts
+let restoring = false
+let unsaved = false
+
+graph.on('positionchange', ({ origin }) => {
+  if (origin === 'api' && restoring) return
+  unsaved = true
+})
+
+function replay(entries: Iterable<readonly [Key, Point]>) {
+  restoring = true
+  graph.positions.set(entries)
+  restoring = false
+  unsaved = false
+}
+```
+
+The event fires inside `set`, so the flag only has to span that call. A layout result is an edit too: the arrangement changed, and `'layout'` marks it unsaved until the next save.
+
+### On a map
+
+A snapshot is in the world units of its surface, so on a map graph it is a record of the map. The snapshot of a plain graph does not fit a map graph, and the other way round. When the nodes are placed by `longitude` and `latitude` and the record has to survive a change of surface, save degrees: `worldToGeo` on each point at save time, `geoToWorld` at restore time. `worldToGeo` does not wrap the longitude, so a node dragged past the antimeridian comes back outside -180 to 180 and you wrap it. The `geo` of `positionchange` is already wrapped, and only exists on a map.
+
+```ts
+import { geoToWorld, worldToGeo } from '@bruno00o/graph'
+import type { GeoPoint, Key, Point } from '@bruno00o/graph'
+
+function wrap(longitude: number) {
+  return ((((longitude + 180) % 360) + 360) % 360) - 180
+}
+
+function degrees(entries: Iterable<readonly [Key, Point]>) {
+  return [...entries].map(([key, point]) => {
+    const { longitude, latitude } = worldToGeo(point)
+    return [key, { longitude: wrap(longitude), latitude }] as const
+  })
+}
+
+function world(entries: Iterable<readonly [Key, GeoPoint]>) {
+  return [...entries].map(([key, geo]) => [key, geoToWorld(geo)] as const)
+}
+```
+
+See [With and without a map](/docs/map#with-and-without-a-map) for nodes placed by coordinates.
+
 ## Listen to moves
 
 `positionchange` fires when nodes are moved by a drag, by `positions.set`, or by a layout run that ended, with their target positions. Its `origin` is `'drag'`, `'api'` or `'layout'`. Moves that come from your data do not emit it, so writing the positions back to the data never loops.
