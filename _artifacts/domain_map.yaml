@@ -2465,6 +2465,15 @@ skills:
         source: docs/content/docs/api/show-presence.mdx
         priority: MEDIUM
         status: active
+      - mistake: Editing a shape that is hidden
+        mechanism: A shape hidden by a layer, the time window, a zoom range or a hide state drops out of state.selected and loses its handles, previews and keyboard edits though it stays in the selection of the graph, and a gesture or text box open on it ends as it hides.
+        wrong_pattern: |
+          const keys = editor.store.state.selected
+        correct_pattern: |
+          const keys = graph.selection.get().shapes
+        source: src/editor/editor.ts
+        priority: MEDIUM
+        status: active
 tensions:
   - name: Rebuilt definitions against stable identities
     skills:

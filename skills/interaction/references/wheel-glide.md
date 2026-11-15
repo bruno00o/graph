@@ -34,7 +34,7 @@ The duration of a glide is the smaller of `wheelGlide` and twice the time since 
 
 ## What stops a glide
 
-A press, a touch pinch, a Safari pinch, a key that pans, zooms or fits the view, any call of `graph.view` that moves the view (`set`, `fit`, `zoomBy`) and the framing that follows a layout. A notch during one of these animations starts from the view shown at that moment and replaces it. When the pointer moves between two notches, the next notch zooms around the new point.
+A press, a touch pinch, a Safari pinch, a key that pans, zooms or fits the view, any call of `graph.view` that moves the view (`set`, `fit`, `zoomBy`) and the framing that follows a layout. A notch during one of these animations starts from the view shown at that moment and replaces it; during the first layout, it also stops the automatic framing at once, so no notch is lost. Edge auto-pan during a glide moves the glide along with the view instead of being undone. When the pointer moves between two notches, the next notch zooms around the new point.
 
 ## Reading the view
 

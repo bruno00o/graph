@@ -105,7 +105,7 @@ Boundaries chosen from developer tasks, not from entry points:
 | 12  | Looking for a waiting shape in `count()` or `issues()` | MEDIUM   | `data-reads.ts`, shapes guide      |             |
 | 13  | World-unit shapes on a map                             | MEDIUM   | `src/shapes/read.ts`, map guide    | map         |
 
-### editor (15)
+### editor (16)
 
 | #   | Mistake                                                | Priority | Source                                  | Cross-skill |
 | --- | ------------------------------------------------------ | -------- | --------------------------------------- | ----------- |
@@ -124,6 +124,7 @@ Boundaries chosen from developer tasks, not from entry points:
 | 13  | Keys that never reach the editor                       | MEDIUM   | editing shapes guide                    | interaction |
 | 14  | Selections of others that never show                   | MEDIUM   | `src/db/presence.ts`                    | interaction |
 | 15  | Cursors that land in different places or surfaces      | MEDIUM   | showPresence API                        | layouts     |
+| 16  | Editing a shape that is hidden                         | MEDIUM   | `src/editor/editor.ts`                  | tools       |
 
 ## Tensions
 
@@ -387,6 +388,10 @@ Suspension, lost contexts, the pixel ratio and software rendering, legend entrie
 The glide of a mouse wheel (PR 230). Failure modes added: `interaction` (two, 10 to 12: a `wheelGlide` that is not a number with `expect-error=TS2322`, the view read right after a notch), `view` (two, 8 to 10: requests of a controlled view answered late, the view saved on every `'user'` change). `interaction` gained `references/wheel-glide.md` (what counts as a notch, Firefox on macOS, what stops a glide, reduced motion and slow frames, reading the view), declared by hand in `skill_tree.yaml`. No other skill changes.
 
 - Docs corrected by the same pull request: the `interaction` guide (a key that moves the view stops a glide; Shift + arrows did not until the next pull request fixed it) and the `view` guide (a glide fires `viewchange` on every frame, with origin `'user'`).
+
+### Aligned for 0.31.1
+
+Fixes of the 0.31 code review (PRs 235, 236, 238, 239, 240, 241). Failure modes added: `editor` (one, 15 to 16: a shape hidden by a layer, the time window, a zoom range or a `hide` state is not edited). Sentences corrected: `editor` (an `'add'` with an existing key replaces the item, `hold` past 2^31 - 1 ms waits for good, hidden shapes leave `state.selected`, presence pacing on a monotonic clock), `shapes` (the lasso takes painted shapes only), `export` (curved and great-circle edges in the frame, hulls of the export's own window and zoom, positions read once, no editor drafts, ratio of a suspended graph), `tools` and `core` (a lens set at a point stays through a suspension, a lost context stops only the drawing), `time` (controlled requests start from the last unanswered one), `layouts` (a layout that throws ends the run without rejecting, `layers({ rank })` wants few distinct values), `view` and `interaction` (a move made during the first layout stops its framing at once, auto-pan under a wheel glide). No reference added.
 
 ## Coverage and batch history
 

@@ -94,14 +94,15 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 - Points show on one selected area or line; a rectangle, a circle and several shapes show the 8 handles of their box. When points are closer than 6 screen pixels on average, or more than 1,000 show, only the nearest point and midpoint get a handle.
 - A press away from editable shapes goes to the graph: nodes drag, the background pans, Shift and drag draws the lasso (any drag with `lasso: { modifier: null }`). A still press on a shape emits `click`; a drag emits neither `click` nor `dragstart`. A second finger cancels the gesture and pinches.
 - A pinned shape (`node`) moves around its node: its edits stay relative to the node, and the node does not move.
+- A shape that is not shown (hidden by its layer, the time window, the zoom range or a state with `hide`) is not edited: it leaves `state.selected` (it stays in the selection of the graph), has no handles or previews, and a gesture or text input on it ends when it hides.
 
 ### Write edits back
 
 An edit is `{ type: 'add', key, mark, geometry, datum?, tool?, text? }`, `{ type: 'change', key, mark, datum, geometry?, order?, text? }` (only the fields that change) or `{ type: 'remove', key, mark, datum }`; `datum` is the item before the edit. `onEdit` and the `edit` event receive the same batch, once per gesture.
 
-- `applyShapeEdits(items, edits, fields)` returns a new array: changed items are copies, the others the same objects, new items at the end (a copy of `datum` for a duplicate). It reads keys from `id` and writes `geometry`, `order` and `text`; `fields` renames them, `mark` keeps the edits of one mark, `create` builds new items. `items` is never changed.
+- `applyShapeEdits(items, edits, fields)` returns a new array: changed items are copies, the others the same objects, new items at the end (a copy of `datum` for a duplicate). An `'add'` whose key is still in `items` replaces that item in place instead of adding a second one (with `create`). It reads keys from `id` and writes `geometry`, `order` and `text`; `fields` renames them, `mark` keeps the edits of one mark, `create` builds new items. `items` is never changed.
 - The new geometry keeps the form of the old one: object points stay objects with their other fields, pairs stay pairs, GeoJSON keeps its type and closing point, degrees stay degrees (longitudes from -180 to 180), points that did not move are the same values, and a GeoJSON `bbox` is dropped.
-- Until the data of a shape changes, the editor hides the shape of the graph and draws the proposal; `editor.store.state.pending` lists these shapes. Any change of the item ends the wait. When nothing changes within `hold` (10,000 ms, `Infinity` waits for good), the data wins again and `editlost` carries the edits: the write failed, or your code declined it.
+- Until the data of a shape changes, the editor hides the shape of the graph and draws the proposal; `editor.store.state.pending` lists these shapes. Any change of the item ends the wait. When nothing changes within `hold` (10,000 ms; `Infinity`, or more than 2,147,483,647 ms, waits for good), the data wins again and `editlost` carries the edits: the write failed, or your code declined it.
 - A mark whose `geometry` is a function is edited, but `applyShapeEdits` writes a field: write the edits yourself.
 - The `geometry` of an edit is a fresh `WritableShapeGeometry`: writable all the way down, never frozen, sharing nothing with your items. It assigns to a `ShapeGeometry` and to the draft of `collection.update` with no cast. Let `onEdit` infer the type of its edits; a parameter annotated `ShapeEdit` has a read-only geometry (`ShapeEdit<Mark, WritableShapeGeometry>` is the writable one).
 
@@ -388,6 +389,10 @@ Delete, Escape, Enter, the arrows and the shortcuts only reach the editor while 
 ### MEDIUM Cursors that land in different places or on the wrong surface
 
 Pointers are written in world units of the surface the graph draws on. Two clients see a cursor and a selection at the same place only when their elements have the same positions: data positions, a map, or a deterministic layout. A cursor also shows only to people on the same surface, canvas or map: a row whose `surface` field is missing shows its cursor on every surface, so a `create` that drops `surface` shows the cursor on the wrong side ([presence](references/presence.md)).
+
+### MEDIUM Editing a shape that is hidden
+
+A shape hidden by a layer, the time window, a zoom range or a `hide` state drops out of `state.selected` and loses its handles, previews and keyboard edits, though it stays in `graph.selection`. A drag or a text box open on it ends as it hides, with nothing proposed. Read `graph.selection` for the keys, and `state.selected` for what can be edited now.
 
 ## Completion
 
