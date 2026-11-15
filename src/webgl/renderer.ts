@@ -1,4 +1,5 @@
 import { type BridgeSet, bridgeRadiusAt } from '../core/bridges'
+import type { LogCursor } from '../core/change-log'
 import { boxShape, type EdgeColumns, type NodeColumns, noColor } from '../core/columns'
 import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
@@ -273,6 +274,9 @@ function createRenderer(
   let zoomUsed = false
   let boxesSeen = false
   let timeUsed = false
+  const swapCursors: (LogCursor | null)[] = [null, null]
+  const patchedFor: (TimeFilter | null)[] = [null, null]
+  let patchStale = false
   const nodeTextures = [nodePosition, nodeStyle, nodePaint, nodeState, nodeDecor, nodeBox]
   const images = new ImageAtlas(gl, invalidate, caps.maxArrayLayers)
   const floatBits = new Float32Array(1)
@@ -1198,12 +1202,16 @@ function createRenderer(
       timeUsed = true
       full = true
     }
+    patchStale = true
     const pairs = [
-      [nodeTime, nodes.time, nodes.capacity, next.dirty.nodes],
-      [edgeTime, edges.time, edges.capacity, next.dirty.edges],
+      [nodeTime, nodes.time, nodes.capacity, next.dirty.nodes, 0],
+      [edgeTime, edges.time, edges.capacity, next.dirty.edges, 1],
     ] as const
-    for (const [texture, spans, capacity, dirty] of pairs) {
-      const all = texture.reserve(capacity) || full
+    for (const [texture, spans, capacity, dirty, slot] of pairs) {
+      const cursor = swapCursors[slot] ?? null
+      const swapped = cursor ? spans.swaps.since(cursor) : null
+      swapCursors[slot] = spans.swaps.cursor()
+      const all = texture.reserve(capacity) || full || (cursor !== null && swapped === null)
       let first = all ? 0 : Number.POSITIVE_INFINITY
       let last = all ? capacity - 1 : -1
       if (all) {
@@ -1216,9 +1224,45 @@ function createRenderer(
           first = Math.min(first, index)
           last = Math.max(last, index)
         }
+        if (swapped) {
+          for (const index of swapped) {
+            if (index >= capacity) continue
+            packSpan(texture, spans, index)
+            first = Math.min(first, index)
+            last = Math.max(last, index)
+          }
+        }
       }
       texture.upload(first, last)
     }
+  }
+
+  function patchTimes(window: TimeFilter | null): void {
+    if (!input || !timeUsed) return
+    const { nodes, edges } = input.scene
+    const pairs = [
+      [nodeTime, nodes.time, 0],
+      [edgeTime, edges.time, 1],
+    ] as const
+    for (const [texture, spans, slot] of pairs) {
+      const wanted = window !== null && window !== spans.placedFor && spans.several > 0
+      const patched = patchedFor[slot] ?? null
+      if (!wanted && patched === null) continue
+      if (wanted && patched === window && !patchStale) continue
+      const data = texture.data
+      let first = Number.POSITIVE_INFINITY
+      let last = -1
+      spans.forEachList((index) => {
+        if (index * 4 + 3 >= data.length) return
+        if (wanted) spans.pack(index, window, data, index * 4)
+        else packSpan(texture, spans, index)
+        first = Math.min(first, index)
+        last = Math.max(last, index)
+      })
+      texture.upload(first, last)
+      patchedFor[slot] = wanted ? window : null
+    }
+    patchStale = false
   }
 
   function windowFading(window: TimeFilter | null | undefined): boolean {
@@ -2049,6 +2093,8 @@ function createRenderer(
         timeWindow = window
         touch()
       }
+      patchTimes(window)
+      shapeLayer?.window?.(window)
       const layers = frame.layers ?? null
       if (layers !== layerFilter) {
         layerFilter = layers

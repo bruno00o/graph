@@ -129,6 +129,7 @@ export interface PastScales {
 export interface HistoryEngine {
   track(options: HistoryMarkOptions, current: HistoryTrack | null, host: HistoryHost): HistoryTrack
   scales(): PastScales
+  time(read: ((datum: unknown) => unknown) | null): (datum: unknown) => unknown
 }
 
 const engines = new WeakMap<object, HistoryEngine>()
@@ -139,4 +140,12 @@ export function registerHistoryEngine(source: object, engine: HistoryEngine): vo
 
 export function historyEngineOf(source: unknown): HistoryEngine | undefined {
   return typeof source === 'object' && source !== null ? engines.get(source) : undefined
+}
+
+export function historyTime(
+  history: unknown,
+  read: ((datum: unknown) => unknown) | null,
+): ((datum: unknown) => unknown) | null {
+  const engine = historyEngineOf(history)
+  return engine ? engine.time(read) : read
 }

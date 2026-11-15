@@ -2,6 +2,7 @@ import { isKey, toAccessor } from '../core/accessor'
 import { dashCodes, noColor } from '../core/columns'
 import { type CompiledLabelText, labelText } from '../core/compile-mark'
 import type { ElementChanges, ShapeRecord } from '../core/graph-model'
+import { historyTime } from '../core/history'
 import type { AnyIssue } from '../core/issues'
 import { readBackground, toText, writeLabelText } from '../core/label-text'
 import {
@@ -112,10 +113,12 @@ function compileShapeMark(mark: ShapeMark<unknown>): CompiledShapeMark {
         : toAccessor<unknown, unknown>(options.order as string | Read),
     minZoom: style(options.minZoom),
     maxZoom: style(options.maxZoom),
-    time:
+    time: historyTime(
+      options.history,
       options.time === undefined
         ? null
         : toAccessor<unknown, unknown>(options.time as string | Read),
+    ),
     pick:
       options.pick === false
         ? shapePicks.none

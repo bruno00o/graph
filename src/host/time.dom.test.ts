@@ -21,7 +21,7 @@ interface Link {
   readonly id: string
   readonly from: string
   readonly to: string
-  readonly time?: TimeValue
+  readonly time?: TimeValue | readonly TimeValue[]
 }
 
 const items: Item[] = [
@@ -37,10 +37,10 @@ const links: Link[] = [
   { id: 'ac', from: 'a', to: 'c', time: { start: 10, end: 40 } },
 ]
 
-function define(data: readonly Item[] = items, fade = 0) {
+function define(data: readonly Item[] = items, fade = 0, edgeData: readonly Link[] = links) {
   return defineGraph({
     marks: [
-      edges<Link>(links, { source: 'from', target: 'to', time: 'time' }),
+      edges<Link>(edgeData, { source: 'from', target: 'to', time: 'time' }),
       nodes<Item>(data, {
         x: 'x',
         y: 'y',
@@ -222,6 +222,43 @@ describe('time window', () => {
       spans.push([scene.edges.time.start[index] ?? 0, scene.edges.time.end[index] ?? 0])
     }
     expect(spans).toEqual([[10, 80]])
+  })
+
+  it('spans the periods of the edges a folded group gathers', () => {
+    const nested: Item[] = [
+      { id: 'g', x: 0, y: 0, group: 'north' },
+      { id: 'a', x: -100, y: 0, group: 'north', parent: 'g' },
+      { id: 'b', x: 100, y: 0, group: 'north', parent: 'g' },
+      { id: 'c', x: 0, y: 100, group: 'south' },
+    ]
+    const listed: Link[] = [
+      { id: 'ac', from: 'a', to: 'c', time: [{ start: 20, end: 30 }, 50] },
+      {
+        id: 'bc',
+        from: 'b',
+        to: 'c',
+        time: [
+          { start: 10, end: 15 },
+          { start: 60, end: 70 },
+        ],
+      },
+    ]
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      { definition: define(nested, 0, listed), ariaLabel: 'graph', initialFolded: ['g'] },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const scene = internalsOf(graph, 'test').scene
+    const spans: number[][] = []
+    for (let index = 0; index < scene.edges.capacity; index++) {
+      if (scene.edges.alive[index] !== 1 || !scene.edges.time.timed(index)) continue
+      spans.push([scene.edges.time.start[index] ?? 0, scene.edges.time.end[index] ?? 0])
+    }
+    expect(spans).toEqual([[10, 70]])
+    graph.destroy()
   })
 
   it('forgets the time of removed nodes', () => {

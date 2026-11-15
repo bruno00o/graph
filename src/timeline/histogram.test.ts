@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EdgeColumns, NodeColumns } from '../core/columns'
+import { noPeriods, readBounds, readPeriods } from '../core/time-range'
 import { mergeSorted, readEdgeSpan, SpanCounts } from './histogram'
 
 function naive(spans: ReadonlyArray<readonly [number, number] | null>, from: number, to: number) {
@@ -16,6 +17,7 @@ function counts(spans: ReadonlyArray<readonly [number, number] | null>): SpanCou
     const span = spans[index]
     out[0] = span ? span[0] : Number.NaN
     out[1] = span ? span[1] : Number.NaN
+    return null
   })
   return result
 }
@@ -59,6 +61,7 @@ describe('SpanCounts', () => {
         const span = spans[index]
         out[0] = span ? span[0] : Number.NaN
         out[1] = span ? span[1] : Number.NaN
+        return null
       })
     expect(update()).toBe(false)
     spans[5] = [500, 500]
@@ -86,10 +89,11 @@ describe('SpanCounts', () => {
       i + 10,
     ])
     const table = counts(spans)
-    const read = (index: number, out: Float64Array) => {
+    const read = (index: number, out: Float64Array): null => {
       const span = spans[index]
       out[0] = span ? span[0] : Number.NaN
       out[1] = span ? span[1] : Number.NaN
+      return null
     }
     spans[3] = [200, 200]
     spans[4] = null
@@ -106,6 +110,57 @@ describe('SpanCounts', () => {
       expect(table.count(from, to)).toBe(naive(spans, from, to))
     }
     expect(table.patch(spans.length, [1, 2], read)).toBe(false)
+  })
+
+  it('counts an element with several periods once in each bin it meets', () => {
+    const next = random(11)
+    const lists = Array.from({ length: 300 }, (): number[] => {
+      const value: unknown[] = []
+      const count = Math.floor(next() * 5)
+      for (let at = 0; at < count; at++) {
+        const start = Math.floor(next() * 100)
+        const roll = next()
+        if (roll < 0.3) value.push(start)
+        else if (roll < 0.35) value.push({ end: start })
+        else value.push({ start, end: start + 1 + Math.floor(next() * 20) })
+      }
+      const periods = readPeriods(value)
+      return periods === noPeriods ? [] : Array.from(readBounds(periods))
+    })
+    const meets = (list: readonly number[], from: number, to: number): boolean => {
+      for (let at = 0; at < list.length; at += 2) {
+        const start = list[at] ?? 0
+        const end = list[at + 1] ?? 0
+        if (start === end ? start >= from && start < to : start < to && end > from) return true
+      }
+      return false
+    }
+    const table = new SpanCounts()
+    const read = (index: number, out: Float64Array): Float64Array | null => {
+      const list = lists[index] ?? []
+      out[0] = out[1] = Number.NaN
+      if (list.length > 2) return Float64Array.from(list)
+      if (list.length === 2) {
+        out[0] = list[0] ?? 0
+        out[1] = list[1] ?? 0
+      }
+      return null
+    }
+    table.update(lists.length, read)
+    const check = () => {
+      for (let from = -5; from < 125; from += 3) {
+        for (const width of [1, 4, 30]) {
+          const naive = lists.filter((list) => meets(list, from, from + width)).length
+          expect(table.count(from, from + width)).toBe(naive)
+        }
+      }
+    }
+    check()
+    lists[4] = [10, 10]
+    lists[5] = [1, 3, 7, 7, 20, 40]
+    lists[6] = []
+    table.patch(lists.length, [4, 5, 6], read)
+    check()
   })
 
   it('merges sorted values', () => {

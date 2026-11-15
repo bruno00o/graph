@@ -38,6 +38,7 @@ const flow = params.has('flow')
 const decor = params.has('decor')
 const screen = params.has('screen')
 const timed = params.has('time')
+const periods = Math.max(1, Number(params.get('periods') ?? 1))
 const split = params.has('ends')
 const boxed = params.has('box')
 const stack = Number(params.get('stack') ?? 0)
@@ -234,8 +235,21 @@ function backwards(list: readonly (Link | TimedLink)[]): readonly (Link | TimedL
   return [...list, ...reversed]
 }
 
+function periodsOf(start: number, end: number | null) {
+  const last = end ?? (history?.end ?? start) + 1
+  const piece = (last - start) / (periods * 2 - 1)
+  return Array.from({ length: periods }, (_, at) => ({
+    start: start + Math.floor(piece * at * 2),
+    end: at === periods - 1 ? end : start + Math.floor(piece * (at * 2 + 1)),
+  }))
+}
+
 const spanOf = (element: Item | TimedItem | Link | TimedLink) =>
-  'start' in element ? { start: element.start, end: element.end } : null
+  'start' in element
+    ? periods > 1 && !('from' in element)
+      ? periodsOf(element.start, element.end)
+      : { start: element.start, end: element.end }
+    : null
 
 function stacked(list: readonly (Item | TimedItem)[]): readonly (Item | TimedItem)[] {
   if (!(stack > 0)) return list

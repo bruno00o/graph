@@ -18,13 +18,23 @@ function historyFrom<T, F extends keyof T>(
   data: Iterable<T> | LiveSource<T>,
   options: HistoryFromOptions<T> & { values: F },
 ): HistorySource<NonNullable<T[F]>>
+function historyFrom<T>(
+  data: Iterable<T> | LiveSource<T>,
+  options: HistoryFromOptions<T, never> & {
+    present: keyof T | Accessor<T, boolean | null | undefined>
+    values?: undefined
+  },
+): HistorySource<NoValues>
 ```
 
 Returns the history to pass to the `history` option of [`nodes()`](/docs/api/nodes#options), [`edges()`](/docs/api/edges#options) or [`shapes()`](/docs/api/shapes). Each entry gives the key of an element, a moment and values: from that moment on, the element reads as its item with those values. See [Values over time](/docs/time#values-over-time) for a walkthrough.
 
 ```ts
 type HistoryValues<T> = { readonly [K in keyof T]?: T[K] | undefined }
+type NoValues = { readonly [K in never]?: never }
 ```
+
+The last form reads a journal whose entries only tell when elements are there, and change no field: see [When elements are there](/docs/time#when-elements-are-there).
 
 The values of a history must fit the items of the mark they are passed to: a `HistorySource<V>` is accepted where `V` is assignable to `HistoryValues<T>`. A field the items do not have, or a value of another type, is refused.
 
@@ -41,9 +51,10 @@ The values of a history must fit the items of the mark they are passed to: a `Hi
 - The values are read at the end of the [time window](/docs/time#the-time-window): an entry counts when its moment comes before the end, or at the end with a single-moment window. Without a window, or with an open end, every entry counts.
 - The entries of an element apply in the order of their moments, then in the order they arrive. Each entry sets the fields it names: `undefined` leaves a field as it was, `null` sets it to `null`. The fields named by the `key` and `time` options of the mark never change.
 - Values may change any other field: the label, the color, the `source` and `target` of an edge, the `parent` of a node, `x` and `y`, the geometry of a shape.
-- The item the graph reads is a copy of yours with the values applied, with the same prototype, and frozen when your item is. `datumOf`, events, accessors, the legend and the exports all see it. An element without entries before the moment keeps your item itself.
+- The item the graph reads is a copy of yours with the values applied, with the same prototype, and frozen when your item is. `datumOf`, events, accessors, the legend and the exports all see it. An element without entries before the moment keeps your item itself, unless the journal gives it a presence.
+- Entries whose `present` is `true` or `false` turn the journal into periods of presence of their element, read from every entry whatever the window: the first `true` means the element was not there before, the first `false` that it was. The element exists when it is there by the journal and by the `time` of the mark, and shows when that meets the window. `history.of` lists `present` on these entries.
 - Moving the window reads again only the elements whose entries the move crosses.
-- An entry without a key, with a moment that is not a valid time, or whose values are not an object, is ignored, with one warning per history in development. Nothing goes to [`issues`](/docs/api/graph-instance#issues).
+- An entry without a key, with a moment that is not a valid time, or whose values are not an object and that gives no presence, is ignored, with one warning per history in development. Nothing goes to [`issues`](/docs/api/graph-instance#issues).
 - A live source of entries, such as a TanStack DB collection, is followed: inserts, updates and deletes apply at the next frame. Its `status` counts in `data.loading`, `loaded()` and `waitForData`, like the sources of the marks.
 - Keep the same history across definitions: a mark rebuilt with the same history keeps its index. A new history is indexed again, and reads the elements of both again.
 - `groups()` takes no history.

@@ -1,3 +1,4 @@
+import type { LogCursor } from '../core/change-log'
 import {
   type ShapeGeometryData,
   type ShapeGlyphs,
@@ -7,7 +8,7 @@ import {
 } from '../core/shape-engine'
 import { type ShapeStore, unpinned } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
-import { openTime } from '../core/time-range'
+import { openTime, type TimeFilter } from '../core/time-range'
 import { detailedFrom } from '../shapes/simplify'
 import { onSphere } from '../shapes/subdivide'
 import { withCopies } from '../shapes/wrap'
@@ -243,6 +244,8 @@ export function createShapeLayer(
   let flags = 0
   let zoomUsed = false
   let timeUsed = false
+  let swapCursor: LogCursor | null = null
+  let patchedFor: TimeFilter | null = null
   let capacity = 0
   let rank = new Uint32Array(0)
   let highlighted: readonly number[] = []
@@ -515,7 +518,53 @@ export function createShapeLayer(
         spans[at + 3] = known ? (packed[at + 3] ?? 0) : 0
       }
       made.time.upload(0, store.capacity - 1)
+      swapCursor = store.time.swaps.cursor()
+      patchedFor = null
     }
+  }
+
+  function writeSwaps(store: ShapeStore, made: Passes): boolean {
+    if (!timeUsed || !swapCursor) return false
+    const swapped = store.time.swaps.since(swapCursor)
+    swapCursor = store.time.swaps.cursor()
+    if (!swapped) {
+      writeStyles(store, made)
+      return true
+    }
+    if (swapped.length === 0) return false
+    const spans = made.time.data
+    const packed = store.time.packed
+    let low = Number.POSITIVE_INFINITY
+    let high = -1
+    for (const index of swapped) {
+      const at = index * 4
+      if (at + 3 >= spans.length || at + 3 >= packed.length) continue
+      spans.set(packed.subarray(at, at + 4), at)
+      low = Math.min(low, index)
+      high = Math.max(high, index)
+    }
+    made.time.upload(low, high)
+    patchedFor = null
+    return true
+  }
+
+  function patchWindow(store: ShapeStore, made: Passes, window: TimeFilter | null): void {
+    const wanted = window !== null && window !== store.time.placedFor && store.time.several > 0
+    if (!timeUsed || (!wanted && patchedFor === null) || (wanted && patchedFor === window)) return
+    const spans = made.time.data
+    const packed = store.time.packed
+    let low = Number.POSITIVE_INFINITY
+    let high = -1
+    store.time.forEachList((index) => {
+      const at = index * 4
+      if (at + 3 >= spans.length) return
+      if (wanted) store.time.pack(index, window, spans, at)
+      else if (at + 3 < packed.length) spans.set(packed.subarray(at, at + 4), at)
+      low = Math.min(low, index)
+      high = Math.max(high, index)
+    })
+    made.time.upload(low, high)
+    patchedFor = wanted ? window : null
   }
 
   function writeStates(states: StateBuffers, made: Passes, full: boolean): boolean {
@@ -1082,6 +1131,7 @@ export function createShapeLayer(
         writeDrafts(store, made)
         changed = true
       }
+      if (writeSwaps(store, made)) changed = true
       if (writeStates(states, made, grown)) changed = true
       if (store.shiftVersion !== shiftVersion) {
         shiftVersion = store.shiftVersion
@@ -1096,6 +1146,10 @@ export function createShapeLayer(
       styleVersion = store.styleVersion
       draftVersion = store.draftVersion
       return changed
+    },
+
+    window(filter) {
+      if (passes && shown) patchWindow(shown, passes, filter)
     },
 
     draw(layers, view, key) {

@@ -7,6 +7,7 @@ import type {
   StepRecords,
 } from '../core/history'
 import { type Readiness, sourceReadiness, watchReadiness } from '../core/live-source'
+import { noPeriods, Periods, readBounds, readPeriods } from '../core/time-range'
 import type {
   EdgeMark,
   HistoryEntry,
@@ -17,11 +18,13 @@ import type {
   TimeInstant,
 } from '../types'
 import { before, HistoryIndex } from './index-store'
+import { markPresence } from './presence'
 
 export interface EntryReader {
   key(entry: unknown): unknown
   time(entry: unknown): number
   values(entry: unknown): unknown
+  present(entry: unknown): unknown
   skipped(count: number): void
 }
 
@@ -61,6 +64,11 @@ function readable(values: unknown): values is Record<string, unknown> {
   return typeof values === 'object' && values !== null
 }
 
+const noValues: Readonly<Record<string, unknown>> = Object.freeze({})
+const absent = 0
+const present = 1
+const unknown = -1
+
 export function addEntry(
   index: HistoryIndex,
   reader: EntryReader,
@@ -70,17 +78,20 @@ export function addEntry(
   const key = reader.key(datum)
   const time = reader.time(datum)
   const values = reader.values(datum)
+  const presence = reader.present(datum)
+  const flag = presence === true ? present : presence === false ? absent : unknown
   if (
     !(
       (typeof key === 'string' || (typeof key === 'number' && Number.isFinite(key))) &&
       Number.isFinite(time) &&
-      readable(values)
+      (readable(values) || flag !== unknown)
     )
   ) {
     return false
   }
-  if (entry === undefined) index.load(key, time, values)
-  else index.add(key, time, values, entry)
+  const given = readable(values) ? values : noValues
+  if (entry === undefined) index.load(key, time, given, flag)
+  else index.add(key, time, given, flag, entry)
   return true
 }
 
@@ -113,6 +124,7 @@ export class Track implements HistoryTrack {
   #generation = 0
   #effective: unknown[] = []
   #base: unknown[] = []
+  #presence: (Float64Array | null | undefined)[] = []
   #rows: unknown[] = []
   #moved: Int32Array = new Int32Array(0)
   #ids: Int32Array = new Int32Array(0)
@@ -255,9 +267,47 @@ export class Track implements HistoryTrack {
     return this.#datumOf(element, row)
   }
 
+  #periods(element: number): Float64Array | null {
+    const known = this.#presence[element]
+    if (known !== undefined) return known
+    const index = this.#index
+    const count = index.count(element)
+    const bounds: number[] = []
+    let state = unknown
+    let start = Number.NEGATIVE_INFINITY
+    for (let at = 0; at < count; at++) {
+      const id = index.at(element, at)
+      const flag = index.presence[id] ?? unknown
+      if (flag === unknown) continue
+      const time = index.times[id] ?? 0
+      if (state === unknown) state = flag === present ? absent : present
+      if (flag === present && state === absent) {
+        start = time
+        state = present
+      } else if (flag === absent && state === present) {
+        if (time > start) bounds.push(start, time)
+        state = absent
+      }
+    }
+    let periods: Float64Array | null = null
+    if (state !== unknown) {
+      if (state === present) bounds.push(start, Number.POSITIVE_INFINITY)
+      const merged = readPeriods(new Periods(Float64Array.from(bounds)))
+      periods = merged === noPeriods ? null : readBounds(merged)
+    }
+    this.#presence[element] = periods
+    return periods
+  }
+
   #datumOf(element: number, row: unknown): unknown {
+    const out = this.#effectiveOf(element, row)
+    if (out !== row) markPresence(out, this.#periods(element))
+    return out
+  }
+
+  #effectiveOf(element: number, row: unknown): unknown {
     const count = this.#active[element] ?? 0
-    if (count === 0 || !readable(row)) {
+    if (!readable(row) || (count === 0 && !this.#periods(element))) {
       if (this.#base[element] !== undefined) {
         this.#base[element] = undefined
         this.#effective[element] = undefined
@@ -296,7 +346,14 @@ export class Track implements HistoryTrack {
     for (let at = 0; at < count; at++) {
       const id = index.at(element, at)
       const time: TimeInstant = index.times[id] ?? 0
-      entries.push(Object.freeze({ key, time, values: index.values[id] }))
+      const flag = index.presence[id] ?? unknown
+      entries.push(
+        Object.freeze(
+          flag === unknown
+            ? { key, time, values: index.values[id] }
+            : { key, time, values: index.values[id], present: flag === present },
+        ),
+      )
     }
     return Object.freeze(entries)
   }
@@ -360,7 +417,7 @@ export class Track implements HistoryTrack {
     const keys = this.#index.keys
     const active = this.#active
     for (let element = 0; element < active.length; element++) {
-      if ((active[element] ?? 0) > 0) visit(keys[element] as Key)
+      if ((active[element] ?? 0) > 0 || this.#periods(element)) visit(keys[element] as Key)
     }
   }
 
@@ -394,6 +451,7 @@ export class Track implements HistoryTrack {
     extend(this.#rows, length)
     extend(this.#base, length)
     extend(this.#effective, length)
+    extend(this.#presence, length)
   }
 
   #receive(changes: ReadonlyArray<SourceChange<unknown>>): void {
@@ -427,6 +485,7 @@ export class Track implements HistoryTrack {
     const cut = this.#cut
     for (const [element, earliest] of changed) {
       this.#journal[element] = ++serial
+      this.#presence[element] = undefined
       if (!before(earliest, cut)) {
         mark(index.keys[element] as Key, true)
         continue
