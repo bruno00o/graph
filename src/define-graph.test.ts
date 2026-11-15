@@ -11,6 +11,7 @@ import {
   type LensOptions,
   type Mark,
   nodes,
+  type StateStyle,
 } from './index'
 import { orthogonalRouting } from './routing'
 
@@ -313,6 +314,24 @@ describe('defineGraph', () => {
     expect(() =>
       defineGraph({ marks: [], states: { ...fewer, selected: { halo: false } } }),
     ).not.toThrow()
+  })
+
+  it('checks the halo width of states and freezes the halo', () => {
+    for (const width of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => defineGraph({ marks: [], states: { found: { halo: { width } } } })).toThrow(
+        RangeError,
+      )
+      expect(() =>
+        defineGraph({ marks: [], states: { found: { others: { halo: { width } } } } }),
+      ).toThrow(RangeError)
+    }
+    const definition = defineGraph({
+      marks: [],
+      states: { found: { halo: { color: 'red', width: 0 } } },
+    })
+    const halo = (definition.states.found as StateStyle | undefined)?.halo
+    expect(halo).toEqual({ color: 'red', width: 0 })
+    expect(Object.isFrozen(halo)).toBe(true)
   })
 
   it('checks layer names and their count', () => {

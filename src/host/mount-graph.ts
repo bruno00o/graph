@@ -246,6 +246,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       halvedAt: (index) => projection.halvedAt(index),
     },
     (kind, index) => layers.position(kind, index),
+    (kind) => (kind === 'nodes' && scene.nodes.order.used ? scene.nodes.order : null),
   )
   const themeResolver = new ThemeResolver(element)
   const render = new RenderHost({

@@ -276,8 +276,10 @@ async function imageSources(
   const { nodes } = snapshot.scene
   const sources = new Set<string>()
   for (let index = 0; index < nodes.capacity; index++) {
+    if (nodes.alive[index] !== 1) continue
     const src = nodes.image[index]
-    if (src && nodes.alive[index] === 1) sources.add(src)
+    if (src) sources.add(src)
+    for (const badge of nodes.badges[index] ?? []) if (badge.image) sources.add(badge.image)
   }
   const list = [...sources]
   const images = await Promise.all(list.map((src) => imageOf(src, copy)))

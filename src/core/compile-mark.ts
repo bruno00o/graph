@@ -5,6 +5,7 @@ import type {
   EdgeMark,
   LabelTextOptions,
   NodeMark,
+  NodeOptions,
   ShapeMark,
 } from '../types'
 import { toAccessor } from './accessor'
@@ -12,7 +13,18 @@ import { rawRead } from './raw'
 
 export type Read = (datum: unknown) => unknown
 
-export interface CompiledNodeMark {
+export interface CompiledNodeLabel {
+  readonly label: Read | null
+  readonly secondary: Read | null
+  readonly labelBackground: Read | null
+  readonly labelText: CompiledLabelText
+  readonly labelPlacement: Read | null
+  readonly labelMinScreenSize: Read | null
+}
+
+export type CompiledBadges = ReadonlyArray<readonly [BadgeCorner, Read]>
+
+export interface CompiledNodeMark extends CompiledNodeLabel {
   readonly color: Read | null
   readonly colorRaw: boolean
   readonly size: Read | null
@@ -21,12 +33,7 @@ export interface CompiledNodeMark {
   readonly y: Read | null
   readonly longitude: Read | null
   readonly latitude: Read | null
-  readonly label: Read | null
-  readonly secondary: Read | null
-  readonly labelBackground: Read | null
-  readonly labelText: CompiledLabelText
-  readonly labelPlacement: Read | null
-  readonly labelMinScreenSize: Read | null
+  readonly order: Read | null
   readonly shape: Read | null
   readonly width: Read | null
   readonly cornerRadius: Read | null
@@ -40,7 +47,7 @@ export interface CompiledNodeMark {
   readonly maxZoom: Read | null
   readonly time: Read | null
   readonly image: Read | null
-  readonly badges: ReadonlyArray<readonly [BadgeCorner, Read]>
+  readonly badges: CompiledBadges
   readonly screenUnits: boolean
   readonly parent: Read | null
   readonly container: CompiledContainer
@@ -62,6 +69,8 @@ export interface CompiledContainer {
   readonly strokeWidth: Read | null
   readonly spread: Read | null
   readonly gap: Read | null
+  readonly label: CompiledNodeLabel | null
+  readonly badges: CompiledBadges
 }
 
 export interface CompiledLabelText {
@@ -196,16 +205,31 @@ export function compileShapeColor(mark: ShapeMark<unknown>): CompiledShapeColor 
 }
 const edgeCache = new WeakMap<EdgeMark<unknown>, CompiledEdgeMark>()
 
+function compileNodeLabel(label: NodeOptions<unknown>['label']): CompiledNodeLabel {
+  return {
+    label: channel(typeof label === 'object' ? label.text : label),
+    secondary: channel(typeof label === 'object' ? label.secondary : undefined),
+    labelBackground: style(typeof label === 'object' ? label.background : undefined),
+    labelText: labelText(typeof label === 'object' ? label : null),
+    labelPlacement: style(typeof label === 'object' ? label.placement : undefined),
+    labelMinScreenSize: style(typeof label === 'object' ? label.minScreenSize : undefined),
+  }
+}
+
+function compileBadges(options: NodeOptions<unknown>['badges'] | null): CompiledBadges {
+  const badges: Array<readonly [BadgeCorner, Read]> = []
+  for (const corner of badgeCorners) {
+    const read = options?.[corner]
+    if (read) badges.push([corner, read])
+  }
+  return badges
+}
+
 export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
   const cached = nodeCache.get(mark)
   if (cached) return cached
   const options = mark.options
-  const label = options.label
-  const badges: Array<readonly [BadgeCorner, Read]> = []
-  for (const corner of badgeCorners) {
-    const read = options.badges?.[corner]
-    if (read) badges.push([corner, read])
-  }
+  const container = options.container
   const compiled: CompiledNodeMark = {
     color: colorChannel(options.color),
     colorRaw: isRaw(options.color, false),
@@ -215,12 +239,8 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     y: channel(options.y),
     longitude: channel(options.longitude),
     latitude: channel(options.latitude),
-    label: channel(typeof label === 'object' ? label.text : label),
-    secondary: channel(typeof label === 'object' ? label.secondary : undefined),
-    labelBackground: style(typeof label === 'object' ? label.background : undefined),
-    labelText: labelText(typeof label === 'object' ? label : null),
-    labelPlacement: style(typeof label === 'object' ? label.placement : undefined),
-    labelMinScreenSize: style(typeof label === 'object' ? label.minScreenSize : undefined),
+    ...compileNodeLabel(options.label),
+    order: channel(options.order),
     shape: style(options.shape),
     width: style(options.width),
     cornerRadius: style(options.cornerRadius),
@@ -234,7 +254,7 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     maxZoom: style(options.maxZoom),
     time: channel(options.time),
     image: style(options.image),
-    badges,
+    badges: compileBadges(options.badges),
     screenUnits:
       options.units === 'screen' ||
       (options.units === undefined &&
@@ -242,14 +262,16 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
         options.latitude !== undefined),
     parent: channel(options.parent),
     container: {
-      shape: style(options.container?.shape),
-      padding: style(options.container?.padding),
-      fill: style(options.container?.fill),
-      fillOpacity: style(options.container?.fillOpacity),
-      stroke: style(options.container?.stroke),
-      strokeWidth: style(options.container?.strokeWidth),
-      spread: style(options.container?.spread),
-      gap: style(options.container?.gap),
+      shape: style(container?.shape),
+      padding: style(container?.padding),
+      fill: style(container?.fill),
+      fillOpacity: style(container?.fillOpacity),
+      stroke: style(container?.stroke),
+      strokeWidth: style(container?.strokeWidth),
+      spread: style(container?.spread),
+      gap: style(container?.gap),
+      label: container?.label === undefined ? null : compileNodeLabel(container.label ?? undefined),
+      badges: compileBadges(container?.badges),
     },
   }
   nodeCache.set(mark, compiled)

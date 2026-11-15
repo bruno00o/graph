@@ -42,6 +42,8 @@ import {
 } from './label-layer'
 import {
   badgeFragment,
+  badgeIconGlyph,
+  badgeTextMin,
   badgeVertex,
   boxFlag,
   clippedEdgeFragment,
@@ -76,7 +78,7 @@ function blockBindings(
 }
 const paletteWidth = 256
 const labelInterval = 120
-const badgeStride = 20
+const badgeStride = 40
 const lensRing = 1.5
 const lensShadow = 10
 const lensMargin = 2
@@ -426,10 +428,11 @@ function createRenderer(
     name: string,
     offset: number,
     type: number = gl.UNSIGNED_INT,
+    size = 1,
   ): Attribute => ({
     name,
     buffer,
-    size: 1,
+    size,
     type,
     integer: type === gl.UNSIGNED_INT,
     divisor: 1,
@@ -443,6 +446,8 @@ function createRenderer(
     badgeField(buffer, 'badgeFill', 8),
     badgeField(buffer, 'badgeRingColor', 12),
     badgeField(buffer, 'badgeText', 16, gl.FLOAT),
+    badgeField(buffer, 'badgeImage', 20, gl.UNSIGNED_INT, 2),
+    badgeField(buffer, 'badgeLook', 28, gl.FLOAT, 3),
   ]
   const vertexArrays = {
     nodes: createVertexArray(gl, nodeProgram, [corner(nodeCorner), instance(nodeIndices)]),
@@ -695,6 +700,8 @@ function createRenderer(
   let originX = 0
   let originY = 0
   let orderStale = true
+  let nodeDrawCount = 0
+  let nodeOrderVersion = -1
   let contentVersion = 0
   let timeWindow: TimeFilter | null = null
   let layerFilter: LayerFilter | null = null
@@ -743,6 +750,8 @@ function createRenderer(
     contentVersion++
   }
   const imageOf: (string | null)[] = []
+  const badgeImageOf: (string[] | null)[] = []
+  let badgeImageNodes = 0
   const badged = new Set<number>()
   const badgeGlyphs = new GlyphBuffer()
   let badgeData = new ArrayBuffer(badgeStride * 64)
@@ -788,11 +797,20 @@ function createRenderer(
     if (badges || badged.has(index)) badgesStale = true
     if (badges) badged.add(index)
     else badged.delete(index)
+    const sources = badges?.flatMap((badge) => (badge.image ? [badge.image] : [])) ?? []
+    const icons = sources.length > 0 ? sources : null
+    const held = badgeImageOf[index] ?? null
+    if (!icons && !held) return
+    for (const icon of icons ?? []) images.acquire(icon)
+    for (const icon of held ?? []) images.release(icon)
+    badgeImageNodes += (icons ? 1 : 0) - (held ? 1 : 0)
+    badgeImageOf[index] = icons
   }
 
   function refreshImages(nodes: NodeColumns): void {
     const loaded = images.takeLoaded()
     if (!loaded) return
+    if (badgeImageNodes > 0) badgesStale = true
     let first = Number.POSITIVE_INFINITY
     let last = -1
     for (let index = 0; index < nodes.capacity; index++) {
@@ -815,7 +833,12 @@ function createRenderer(
     badgeCount = 0
     let words = new Uint32Array(badgeData)
     let floats = new Float32Array(badgeData)
-    for (const index of badged) {
+    const order = nodes.order
+    const listed =
+      order.used && badged.size > 1
+        ? [...badged].sort((a, b) => order.rankOf(a) - order.rankOf(b))
+        : badged
+    for (const index of listed) {
       for (const badge of nodes.badges[index] ?? []) {
         if ((badgeCount + 1) * badgeStride > badgeData.byteLength) {
           const grown = new ArrayBuffer(badgeData.byteLength * 2)
@@ -826,13 +849,22 @@ function createRenderer(
         }
         const line = badge.text ? atlas.line(badge.text, 500) : null
         const at = badgeCount * (badgeStride / 4)
+        const icon = badge.image ? 8 : 0
         words[at] = index
-        words[at + 1] = badge.corner | (line ? 4 : 0)
+        words[at + 1] = badge.corner | (line ? 4 : 0) | icon
         words[at + 2] = badge.fill
         words[at + 3] = badge.ring
         floats[at + 4] = line?.width ?? 0
-        if (line)
-          badgeGlyphs.push(index, 2 | (badge.corner << 2), line, atlas.height, 0, 0, 1, badge.color)
+        words[at + 5] = badge.image ? images.layer(badge.image) + 1 : 0
+        words[at + 6] = badge.imageColor
+        floats[at + 7] = badge.ringWidth
+        floats[at + 8] = badge.imageScale
+        floats[at + 9] = badge.minSize
+        if (line) {
+          const kind = 2 | (badge.corner << 2) | (icon ? badgeIconGlyph : 0)
+          const shown = Math.max(badge.minSize, badgeTextMin)
+          badgeGlyphs.push(index, kind, line, atlas.height, 0, 0, 1, badge.color, shown)
+        }
         badgeCount++
       }
     }
@@ -968,10 +1000,24 @@ function createRenderer(
       warnLimit('nodes', `this device draws at most ${dataLimit} nodes, the others are hidden`)
     }
     const grown = nodeTextures.map((texture) => texture.reserve(nodes.capacity)).some(Boolean)
+    const order = nodes.order
     if (nodes.capacity > nodeCapacity) {
       nodeCapacity = nodes.capacity
+      if (!order.used) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, nodeIndices)
+        gl.bufferData(gl.ARRAY_BUFFER, iota(nodeCapacity), gl.STATIC_DRAW)
+        nodeDrawCount = Math.min(nodeCapacity, dataLimit)
+      }
+    }
+    if (order.used && order.version !== nodeOrderVersion) {
+      nodeOrderVersion = order.version
+      const list = order.list.subarray(0, order.length)
+      const drawn = nodeCapacity > dataLimit ? list.filter((index) => index < dataLimit) : list
       gl.bindBuffer(gl.ARRAY_BUFFER, nodeIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, iota(nodeCapacity), gl.STATIC_DRAW)
+      gl.bufferData(gl.ARRAY_BUFFER, drawn, gl.DYNAMIC_DRAW)
+      nodeDrawCount = drawn.length
+      if (badged.size > 1) badgesStale = true
+      touch()
     }
     let first = Number.POSITIVE_INFINITY
     let last = -1
@@ -1662,7 +1708,7 @@ function createRenderer(
         }
         if (edgeLayers > 0) gl.disable(gl.STENCIL_TEST)
       } else {
-        draw(nodeProgram, vertexArrays.nodes, Math.min(nodeCapacity, dataLimit), layer.slot, 0)
+        draw(nodeProgram, vertexArrays.nodes, nodeDrawCount, layer.slot, 0)
         stencilClean = false
       }
     }

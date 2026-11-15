@@ -21,8 +21,11 @@ const fields = Object.keys(messages.fields) as Field[]
 const bandOf = (item: Item) => (item.weight < 10 ? 'light' : item.weight < 40 ? 'medium' : 'heavy')
 const groupSize = raw((group: NodeGroup<Item>) => 20 + Math.sqrt(group.count) * 4)
 const groupColor = (group: NodeGroup<Item>) => String(group.value)
+const groupName = (group: NodeGroup<Item>) => messages.groupName(String(group.value))
+const bandName = (group: NodeGroup<Item>) => messages.bandName(String(group.value))
 const groupLabel = (group: NodeGroup<Item>) => messages.group(String(group.value), group.count)
 const bandLabel = (group: NodeGroup<Item>) => messages.band(String(group.value), group.count)
+const countBadge = { topRight: (group: NodeGroup<Item>) => ({ text: group.count }) }
 
 export function mount(container: HTMLElement): GraphInstance {
   const { items, links } = createSample(120, 170, 5, 7, 0.12)
@@ -31,19 +34,21 @@ export function mount(container: HTMLElement): GraphInstance {
     return {
       group: groups(items, {
         size: groupSize,
-        container,
+        container: { ...container, label: groupLabel },
         by: 'group',
         name: 'groups',
         color: groupColor,
-        label: groupLabel,
+        label: groupName,
+        badges: countBadge,
       }),
       band: groups(items, {
         size: groupSize,
-        container,
+        container: { ...container, label: bandLabel },
         by: bandOf,
         name: 'bands',
         fill: 'var(--graph-ink-muted)',
-        label: bandLabel,
+        label: bandName,
+        badges: countBadge,
       }),
     }
   }
