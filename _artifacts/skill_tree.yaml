@@ -363,7 +363,9 @@ skills:
       (default element, a renderer of your own, or the React Timeline component
       and useTimeline hook), counting the events of the application on the bar,
       moving a single moment instead of a window, a timeline that follows no
-      graph, also on a map graph.
+      graph, giving elements values that change over time from a journal of
+      changes (the history option and historyFrom, a color, size or label that
+      follows the cursor), also on a map graph.
     sources:
       - src/timeline/index.ts
       - src/timeline/view.ts
@@ -373,16 +375,22 @@ skills:
       - src/types.ts
       - src/host/graph-instance.ts
       - src/host/events.ts
+      - src/history/index.ts
+      - src/core/history.ts
       - docs/content/docs/(guide)/time.mdx
       - docs/content/docs/api/timeline.mdx
+      - docs/content/docs/api/history.mdx
     requires:
       - core
     purpose: >
       Time in @bruno00o/graph: the time channel of nodes, edges and shapes, the
       time window and its exact boundaries, the fade, the controlled window, the
       timeline companion with its store and actions, events of the application
-      and a moment as cursor, and the mistakes that leave everything showing,
-      nothing playing or a window one moment off.
+      and a moment as cursor, values that change over time from a journal of
+      changes (history, scales over the whole journal), and the mistakes that
+      leave everything showing, nothing playing or a window one moment off.
+    references:
+      - references/history.md
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations
@@ -406,6 +414,7 @@ skills:
       - docs/content/docs/(guide)/data.mdx
       - docs/content/docs/api/subset.mdx
       - docs/content/docs/api/persist-positions.mdx
+      - docs/content/docs/api/history.mdx
     requires:
       - core
     purpose: >
@@ -413,6 +422,8 @@ skills:
       queries as live sources, the subset helper, on-demand loading, and
       persistPositions, with the mistakes that rewrite every node, leave edges
       pointing at nothing or load a whole collection.
+    references:
+      - references/journal.md
   - name: tanstack-query
     slug: tanstack-query
     domain: data-integrations

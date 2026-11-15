@@ -35,7 +35,7 @@ export function SampleGraph({ items, links }: { items: Item[]; links: Link[] }) 
 
 Every prop, with the event props, is listed in [`<Graph>`](/docs/api/graph-component#props).
 
-Event props always call the latest function you pass, without subscribing again.
+Event props always call the latest function you pass, without subscribing again. `onSurfaceChange` is one of them: it receives `surfacechange` when the graph moves onto a map or back to its canvas, as [described below](#maps).
 
 ## Overlays
 

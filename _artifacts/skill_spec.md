@@ -276,7 +276,7 @@ Failure mode inventory:
 | view        | 8        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view |
 | interaction | 10       | 2    | lasso needs two options, unanswered controlled selection, per-node drag        |
 | map         | 12       | 3    | layout on a map, teardown order, view options on a map graph, snapshots        |
-| time        | 10       | 3    | string times, exclusive ends, controlled window without both props             |
+| time        | 15       | 4    | string times, exclusive ends, controlled window, a history built in render     |
 
 Cross-references proposed for the shared tables (the maintainer applies them after the batches merge):
 
@@ -359,6 +359,13 @@ Surfaces, group layouts, events on the timeline, hull labels, folded-group merge
 - `layouts` and `map` lost their claims that a layout needs a built-in factory first and that a graph cannot move to a map without remounting; `tools` lost the claim that the minimap is inert on a map for good; `time` lost the claim that the timeline needs a graph and counts nodes and edges only; `react` lost the claim that a map always means `<MapGraph>`.
 - Tension: a graph that moves between surfaces keeps one definition for each side and applies both in one `update` (`map`, `react`, `view`, `tanstack-db`).
 - Cross-references proposed for the shared tables: `map` to `react` (`<Graph surface>`), `map` to `tanstack-db` (`persistPositions({ surfaces })`), `layouts` to `groups` (`container.layout`), `time` to `react` (`graph: false`, `<Timeline timeline>`), `tools` to `map` (companions that follow a surface).
+
+### Aligned for 0.29.0, values over time
+
+`historyFrom`, the `history` option, `graph.history` and the scales over the whole journal (PRs 215 and 217). Failure modes added: `time` (five: a history built in render, `history` on `groups()` with `expect-error=TS2353`, a history that `historyFrom` did not make, expecting the scales to follow the moment, a wide jump over a large journal; the skill passes from 10 to 15) and `tools` (one: assuming that a listed legend category has elements; 11 to 12). `time` gained `references/history.md` (scales, legend, live entries, React, costs) and `tanstack-db` gained `references/journal.md` (a collection of changes as the history of a mark), both declared by hand in `skill_tree.yaml`. `core` (copy of the item at the read moment, `graph.history`, the `TypeError` for a hand-made history), `react` (make the history once, `graph.history.of` not during render), `tanstack-db` and `styling` (category order over the whole journal) change sentences only; their counts are unchanged.
+
+- Cross-references proposed for the shared tables: `time` to `tanstack-db` (a collection as the journal), `time` to `tools` (legend counts of zero, `empty`), `time` to `styling` (category order).
+- Docs corrected by the same pull request: the guide and API pages `map` on `update({ view })` given with a `surface`, `onSurfaceChange` in the `react` guide and the `graph-component` page, the legend page on categories of a history, the `scales` guide on marks with a history, and the API `map` page on the minimap and layout when the graph returns to its canvas.
 
 ## Coverage and batch history
 

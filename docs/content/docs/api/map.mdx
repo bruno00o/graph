@@ -66,8 +66,8 @@ function worldToGeo(point: Point): GeoPoint
 ## Behavior
 
 - The graph follows the map's camera at every frame of the map, and draws nothing when the map does not render: an idle map costs nothing. `graph.drawn()` resolves once the map has drawn the layer.
-- `graph.view.set`, `fit`, `zoomBy` and the keyboard move the map with `jumpTo`, one step per frame for animated calls. `update({ view })` is ignored.
+- `graph.view.set`, `fit`, `zoomBy` and the keyboard move the map with `jumpTo`, one step per frame for animated calls. `update({ view })` is ignored while the graph stays on the map, unless it comes with a new `surface`: that `view` is then the one to take on the other side, and on a map it moves the map once the graph has arrived.
 - During a node drag or a lasso, the map's drag pan and box zoom are off. Over a node, its double click zoom is off. They come back as they were.
 - `destroy` removes the layer and the graph element, and gives back rotation, pitch and the largest pitch of the map. When the style changes, the layer is added again.
 - The graph follows the flat and the globe projections, and the change from one to the other. On the globe, elements on the far side are hidden and never picked.
-- A layout, `background` and `bundling` in the definition are ignored, and `graph.layout.run` rejects with an `Error`. In development, a layout logs a warning once. The lens and the minimap are not supported: a minimap of a map graph draws nothing, starts no worker and warns once in development. Hulls, groups and the legend work; the `padding` of group containers is in pixels.
+- A layout, `background` and `bundling` in the definition are ignored, and `graph.layout.run` rejects with an `Error`. In development, a layout logs a warning once. The lens and the minimap are not supported while the graph is on a map: a minimap of a map graph draws nothing, starts no worker and warns once in development. A graph moved back to its canvas with `update({ surface })` draws its minimap and lens again, and runs its layout again. Hulls, groups and the legend work; the `padding` of group containers is in pixels.

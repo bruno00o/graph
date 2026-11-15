@@ -3,101 +3,102 @@
   "baseline": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
   "items": {
     "skill:skills/core/SKILL.md": {
-      "fingerprint": "15949cfc4b17b5ee887a785af500e739036df7d4e5a321821809a0baf45d6762",
+      "fingerprint": "042226c5ee0880053454cc72fa50496e0a6e485b0b5d6079c4a5cd65ecbb7bb2",
       "snapshot": {
-        "docs/content/docs/(guide)/data.mdx": "ae5dd22eb3694e663816f6a89aecfb393adc5a1ab5e6f6993a77c73ed5fa45ac",
+        "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
         "docs/content/docs/(guide)/installation.mdx": "cadc4dd42f5dc07b6ac198b7e2d465156cf616ec6b61f156b332815f422e4a82",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/(guide)/vanilla.mdx": "fc260ce0c3bc1bde2a469e881a44252de6890aca5fc94c2060cca14df29d1206",
         "docs/content/docs/api/define-graph.mdx": "9c7834919d0e449ced056a7f21f3e4a7d7ae90947459dda326956604bf3126ac",
-        "docs/content/docs/api/events.mdx": "0dec882c325cf4ef3d3ee0a6f3814fd2e9e8c1568d4812f4431667ef21dabf9b",
-        "docs/content/docs/api/graph-instance.mdx": "caff157bf587111be879eba77f199e6bf8189675746d5c417e9a402faa9d4c53",
-        "docs/content/docs/api/mount-graph.mdx": "00bd8e435b22b57bc3ffe3362f7ec5a7b5f6ab712f04db0ebe0ea5df0af21d46",
-        "skills/core/SKILL.md": "5431fad7adadbef201f7574bf13b0bf07feaf4dd96185bce9e759e9659d2beb2",
+        "docs/content/docs/api/events.mdx": "46125f9d32d245fed91fa2a96f4d6bd3a50257a275d8e0e7599c689e2b6a0ed6",
+        "docs/content/docs/api/graph-instance.mdx": "79d7b40caae47fdbea77c2d5008d2a8399fdfbfb682102c7ce1ac74e2f950685",
+        "docs/content/docs/api/mount-graph.mdx": "7dca029e6d3c522167fad23b726ef26fd4f4abdd37915cee30d66f2582b26690",
+        "skills/core/SKILL.md": "6980a339e08399465c8a29489d3bc3bb75bc74baba6fd1f705bb32ce97aeadc9",
         "skills/core/references/live-data.md": "f14baa156f30baf0ff43a036ab159b0c40cf9c972f5592e6536f2a30029a898d",
         "src/core/issues.ts": "96cde3472ef876d05d7aa40fe160daa8b1ddd9b66ebbf20cc2865bedc1ef8a9e",
         "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
         "src/core/raw.ts": "d04297fb30d75cc597292405bcf74258cb0e62df5eeecd29305829e20b0b1dff",
-        "src/core/source-table.ts": "8af2967a223e59628249434b72e0e835eb28f4f5156d99dc024e0ce17d696f5d",
-        "src/define-graph.ts": "8e4e9c3f25bd67edd0974a68d2da8306a3830e0bb2e78bb9800178178fefea1c",
+        "src/core/source-table.ts": "2689f055607372666c64f7ea0ac5e596534d8f6048bc375fd9ff3e5d078d2e44",
+        "src/define-graph.ts": "ee99b51df8ea3ec678cc04d4d7e576bc263910e3aa6099bf7501c9824247d83f",
         "src/host/data-reads.ts": "ef5b8583152930b6c8c3cc1fb92c833a0ba3152ec8aac29c0b886b895f9c805d",
         "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
-        "src/host/events.ts": "9487d6d2781bf78bc8e9d9471a4508a2c1856f43e835c964e4f1fe5e9ad4c273",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
-        "src/index.ts": "94372bdd78a2f6658f711fd418b17110671461802e66ad7c787c28f5accbe747",
+        "src/host/events.ts": "fc228c1ddec87fb5d5844a7c0799fd8a0cbb6b7f06bee786a20bac6684c5c544",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
+        "src/index.ts": "7e7caa4821d1bfaa322b352d645bd20324c0e86a2143801ad3382185b41fc9e7",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: halo object, shown(), isShown(), refresh(), drawsOnMap, positions.reset, layout.compute and initialPositions (PRs 192 to 198); loading overlay moved to references/live-data.md.",
+      "reason": "PRs 216 and 218: surfacechange, store.surface and drawsOnMap that change with the surface (PR 208); datumOf and accessors receive the effective copy at the read instant, TypeError on a hand-made history (PR 215).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/core/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/core/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/react/SKILL.md": {
-      "fingerprint": "607b5b33fe2d99b8b4710048401e471e41081b2dab38f32564d639b80a10f7ef",
+      "fingerprint": "997291a934dc3fde60d7b34c95a92f7a2064d2a305c832647e25d546369836b2",
       "snapshot": {
-        "docs/content/docs/(guide)/react.mdx": "a03011d1de5505dd2de6965f0e318a59c7e06ff3ca7390f5c9c58ced49d7b7cb",
+        "docs/content/docs/(guide)/react.mdx": "4972b84830bc283bbb5f8aed31d5fa5cf5fbd787cd07fb5f77f25b64ce2b3e65",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
-        "docs/content/docs/api/graph-component.mdx": "15054751d6ab53856a3c48ed3ee5918042ba9c13faa1c2e5b863c0a00cd087a8",
+        "docs/content/docs/api/graph-component.mdx": "b60334215cc9059749bcabad03cf2ebea7528270e6f5cac32badaa34ae79239e",
         "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
-        "skills/react/SKILL.md": "bc03e6908e2d3d740a80827d57d6ae9b6cf066c7c6f9f3150082708111e24448",
+        "skills/react/SKILL.md": "bb1e717f7a719040119e68d3f284028309b58be699ede834dd922b197e57472a",
         "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
+        "src/map/react.tsx": "590c714df46a7284e9d5499c39421a733b397a91dbfef5bb2aa8f2772949f7a4",
         "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
-        "src/react/graph.tsx": "cb1497e28e0a4ceafe4789310f6a2bb76611ba1d95fc30139c22829b000f31cc",
-        "src/react/index.tsx": "824404244a6edd85f9a37fe2125233d3f43a8fb31feab6b5c6febb78b0a3ec74"
+        "src/react/graph.tsx": "9c814950d33d5126155b8480e436a7eeb78f87615e18cdc38c44bde8b2e90370",
+        "src/react/index.tsx": "934baba3d125e8411764a0f12d82be6ba28ea6031a7756b87e2fbf29ea487734"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: initialPositions read once from a Map or an array, initialFolded as a function reads the last render (PRs 194 and 198).",
+      "reason": "PRs 216 and 218: surface prop of Graph with useMapSurface, onSurfaceChange, map element as a child of Graph (PR 213); hoist historyFrom out of the component (PR 215).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/react/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/react/SKILL.md sampled against src/"
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "ac2f95726a40f64af6d322e0d370b68739c4a6719ad03c6070b127fe56970926",
+      "fingerprint": "dcbe2756c9e4d90a840f1025af33d7804ed85285c771cfe1768dca9a95390d79",
       "snapshot": {
-        "_artifacts/domain_map.yaml": "cf9e0f0965c5ca6079d1ad5347d841cb453ad1368c33fefd0af19b022d444ff4",
-        "_artifacts/skill_spec.md": "fd488c292d696477b61b049b3b236090d1035f29e7b55a7daf5a128f238d7f81",
-        "_artifacts/skill_tree.yaml": "8a295d68919c2af8cb66bda78dc7abf013f4ab41447b9a218afddda4df388acb",
-        "docs/content/docs/(guide)/bundling.mdx": "858894ebeedbc628d8ffeeeb61949856adee1925ae79353bdd4727d00aeb0c51",
+        "_artifacts/domain_map.yaml": "3425d7db21c6f8dc3bbebe9826bfd1552bfb862db4d29514772f1a5dd9cd2f2c",
+        "_artifacts/skill_spec.md": "bbeb3ec0499ed2ccc1247b3995a345faf61e1683b31dcd0b79f4ab7fb8d44e00",
+        "_artifacts/skill_tree.yaml": "e7e4175f3301014fe2ad943da0d7c2eb68eec9fb8ff7a452d25e24cfa0b6ee42",
+        "docs/content/docs/(guide)/bundling.mdx": "2e7ce5553a531b1f791438feb857d2a29b765ce34c965dfac7e305de5b22c8a8",
         "docs/content/docs/(guide)/cypher.mdx": "1d613e42bf6edbe5022fb2f810ad30a3afbb212242fc98ddd4a72573b843fe17",
-        "docs/content/docs/(guide)/data.mdx": "ae5dd22eb3694e663816f6a89aecfb393adc5a1ab5e6f6993a77c73ed5fa45ac",
-        "docs/content/docs/(guide)/devtools.mdx": "b7b819a171c7ceff5126843e419bbd8fc2bcf14a996fef256e64c2521e1027b7",
-        "docs/content/docs/(guide)/drawing-layers.mdx": "6a87382c90d3627d6f996d7dc105ef566ee11d0c45e3a5978955ecff74294a5f",
-        "docs/content/docs/(guide)/editing-shapes.mdx": "54d3da169f10e9698924ad6605adc4921faeb47e3052afa4ad056e463891f476",
+        "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
+        "docs/content/docs/(guide)/devtools.mdx": "2912f03655bfa6144d294ae10b81a0b7ef08be8fd633a9d7ff09f41b56393087",
+        "docs/content/docs/(guide)/drawing-layers.mdx": "e25c877c66d652679a700d12cc07c289186341d9c926c0694077580aad36b498",
+        "docs/content/docs/(guide)/editing-shapes.mdx": "6a8cf276203d1325df92328a458b952ea6ea699b4c5970301bfba522608974d5",
         "docs/content/docs/(guide)/export.mdx": "98eb09bd801af469e2845a19f6756aae4fef170f88045ad228a6426b5f275068",
         "docs/content/docs/(guide)/file-formats.mdx": "0d7b2cf687e81e4b259f24b250c2bc61a0a4554f4034f7fbd7018d08a41d8369",
-        "docs/content/docs/(guide)/groups.mdx": "00ffb00e37f59f8517bde5402e85e05fe63044e905f297ab0c3d4323a03a7133",
+        "docs/content/docs/(guide)/groups.mdx": "2a5c067d8168ba948cd8d4ec8546b22e74752f1b57389c043be0a5bd5b0348dd",
         "docs/content/docs/(guide)/images-and-badges.mdx": "9ac154d92f4d562b7112575a93c935307d3e42f2ec56de5f2d34728abc705159",
         "docs/content/docs/(guide)/installation.mdx": "cadc4dd42f5dc07b6ac198b7e2d465156cf616ec6b61f156b332815f422e4a82",
         "docs/content/docs/(guide)/interaction.mdx": "7a8d17664401bfc6d85bfbb07a4b419dc4f34a25e7024883a514c828bcd2ed48",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
-        "docs/content/docs/(guide)/layout.mdx": "4a7141ad5488bfbdb29e953c623879ac12c16c1a22bd4776c31f68089ac26aa0",
-        "docs/content/docs/(guide)/lens.mdx": "55ea245c07d3dd099f2586777d4bb8d5b27e5beeb2164a9bb45487ea96d1be87",
-        "docs/content/docs/(guide)/map.mdx": "93b4b8f95224e05978394fff06f7632432d04fd2b58766f1c297299677b60108",
+        "docs/content/docs/(guide)/layout.mdx": "328358b80ec65216ef635bb55175c990b2988a3bcf57b873866638342de88835",
+        "docs/content/docs/(guide)/lens.mdx": "5e685f6bf608babf66059101901f18313e75cd9bd21702bc260c7d3dd7f30ff8",
+        "docs/content/docs/(guide)/map.mdx": "1953663e2f621708550fe6b3edd85ed9962e497e3f6a1a712c2bed09d4b2605f",
         "docs/content/docs/(guide)/marks.mdx": "dcc47236207cc2e6c3bdf17f7aaea53a55cc432c6be4067fe7ab37f8ddd5440a",
-        "docs/content/docs/(guide)/minimap-and-legend.mdx": "373719ae833d0fbacedafd94767bf34b47e0bce28619fe7622245e8112f9f63b",
+        "docs/content/docs/(guide)/minimap-and-legend.mdx": "23bc415df4585b27da889272d6d32fbad586d8ffd8de74d525e4da89d499e8d9",
         "docs/content/docs/(guide)/multilayer.mdx": "a527b9a14d71cf3b554d25405c9e681462f60dfaa7bc948062902262446ff565",
         "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
-        "docs/content/docs/(guide)/positions.mdx": "12becbbafb8491adcf46e50c8b49520557d7b276d693b83fc5ec5987d1b4c60f",
+        "docs/content/docs/(guide)/positions.mdx": "2ee80f0123181a23fae6cfd806003abb850f8331a605c15727d1af46688dd0c2",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
-        "docs/content/docs/(guide)/react.mdx": "a03011d1de5505dd2de6965f0e318a59c7e06ff3ca7390f5c9c58ced49d7b7cb",
+        "docs/content/docs/(guide)/react.mdx": "4972b84830bc283bbb5f8aed31d5fa5cf5fbd787cd07fb5f77f25b64ce2b3e65",
         "docs/content/docs/(guide)/routing.mdx": "fccaa9b9054028a68aa567a0a0de7a9bd7425015dd37b256a770afc23a853c1d",
-        "docs/content/docs/(guide)/scales.mdx": "bd04e279ffe16e9d8d757d56386d8757ffdd2d3e167fe0ffd43dfbb29dc719b1",
+        "docs/content/docs/(guide)/scales.mdx": "953c8fa7e73d4a25a57abefe823325aa8c21c9252b5655b6360d953487d19bb6",
         "docs/content/docs/(guide)/shapes.mdx": "9baaa69ed437c38e5daeb0532a9773af1ee85325e34b60cf2aabd18dd931f681",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
-        "docs/content/docs/(guide)/tanstack-db.mdx": "83f2f4428424884d26d0c303ab35e4da1c2295c379d58cbacd9cb5c84e96c7fe",
+        "docs/content/docs/(guide)/tanstack-db.mdx": "4a39ca2242284846f7adc4e351aa4597b5559e4b85f9a196744d890c9ce9b36f",
         "docs/content/docs/(guide)/tanstack-query.mdx": "6a1ad350d197965ebd20063e7f985c3346d525ee41142d957feab2909d475ba7",
         "docs/content/docs/(guide)/theming.mdx": "2728008ab69642327d8886e6f6812783ce12093ab99db265242cd9fbd1a80b40",
-        "docs/content/docs/(guide)/time.mdx": "1377a9d824860aad23d05798140e9c551d30077481188974e01e9c85bbbc2c6f",
-        "docs/content/docs/(guide)/transformations.mdx": "14f4f0b536fe94f367ad591735835e20e070e5c413a21be748bf118f44e98023",
+        "docs/content/docs/(guide)/time.mdx": "895baf943f77e3cac688f8a018879c39eebd5d5efcd1e84f5e50ba5645256530",
+        "docs/content/docs/(guide)/transformations.mdx": "974cb22fc229bc7469f30c89549f4fe5ab5795b8249a65d734eecf0ad29d1421",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/(guide)/vanilla.mdx": "fc260ce0c3bc1bde2a469e881a44252de6890aca5fc94c2060cca14df29d1206",
         "docs/content/docs/(guide)/view.mdx": "683c38fd7b7c981bf5c1e47fc1b8d99f58ff5067be32cd1a3901406b0cde4480",
@@ -108,92 +109,100 @@
         "docs/content/docs/api/cypher-graph.mdx": "b77d3fb5828acbcbe706facf41faab5f8d9d370f070bb39e5a87b24250e7f0fd",
         "docs/content/docs/api/define-graph.mdx": "9c7834919d0e449ced056a7f21f3e4a7d7ae90947459dda326956604bf3126ac",
         "docs/content/docs/api/devtools.mdx": "abad8e79a1fb76b0d1f53ef9bbfa4a2442547c7ae56d395158b8f5833087788d",
-        "docs/content/docs/api/edges.mdx": "e00fd4c2da043538754d3191fd8ab2cc2407e9148a2c86d182edfe02db5fb8f4",
+        "docs/content/docs/api/edges.mdx": "af7b277d3a5cc41d459621afdc239a5da9f691c5692de7d9c60220fa09ca127d",
         "docs/content/docs/api/editor.mdx": "8643c96f6f48dcd398a2d03a3386f38d2f6785e5065d851ed5a0b7e5e898aab9",
-        "docs/content/docs/api/events.mdx": "0dec882c325cf4ef3d3ee0a6f3814fd2e9e8c1568d4812f4431667ef21dabf9b",
+        "docs/content/docs/api/events.mdx": "46125f9d32d245fed91fa2a96f4d6bd3a50257a275d8e0e7599c689e2b6a0ed6",
         "docs/content/docs/api/export.mdx": "b2465cebaca5b63c95325d26f8fa995ef3b566b26a4a922315b46344a2a39166",
         "docs/content/docs/api/force.mdx": "a04fee2ec0c0716895d83e61a65a10540f531a19d47bf0fa553c57ed64df281a",
         "docs/content/docs/api/formats.mdx": "f37ea7d64a0660710538a3d83611d11bf7c68e8341c5daa7a89d9ccc541542f7",
-        "docs/content/docs/api/graph-component.mdx": "15054751d6ab53856a3c48ed3ee5918042ba9c13faa1c2e5b863c0a00cd087a8",
-        "docs/content/docs/api/graph-instance.mdx": "caff157bf587111be879eba77f199e6bf8189675746d5c417e9a402faa9d4c53",
+        "docs/content/docs/api/graph-component.mdx": "b60334215cc9059749bcabad03cf2ebea7528270e6f5cac32badaa34ae79239e",
+        "docs/content/docs/api/graph-instance.mdx": "79d7b40caae47fdbea77c2d5008d2a8399fdfbfb682102c7ce1ac74e2f950685",
         "docs/content/docs/api/groups.mdx": "124959871577a32a36c80321651d7eff2df3ea4ee726d10521c426cc401f86ff",
+        "docs/content/docs/api/history.mdx": "99911e7dbcf9948014aac7b5f7f8fe3ab7461c002f7865d7dc183816ff4ea45a",
         "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
-        "docs/content/docs/api/hull.mdx": "494d6644cc51544cd4e4c6cc181ee4f224a0bac9626e7fd8d43325354db80dbc",
-        "docs/content/docs/api/layouts.mdx": "58d62085efcfb97075a638643240acba6a6b187ee403dc259dacd4c043bf99d4",
-        "docs/content/docs/api/legend.mdx": "709b12052d9f1c64ee4d0471c49f64bb30cded49abfc839221fad26182c6fe0e",
-        "docs/content/docs/api/map-graph.mdx": "a2ec05056f682f4f8b388bddcad55ce6d84d17b71150fb5392d64afd5b5a9b8a",
-        "docs/content/docs/api/map.mdx": "0510f95c951f4490aca5156cdf1e571b92b8a760d9668aa70b575bc5c07d4cd7",
+        "docs/content/docs/api/hull.mdx": "3c192acfb729196c214dc96cb2390288b053d48fefa3dbbab51083d0aabe63ed",
+        "docs/content/docs/api/layouts.mdx": "5a9b23a61d1469ecf094291e2770467fc647f1d1fb3be7cdf920882abdf8bbcb",
+        "docs/content/docs/api/legend.mdx": "1dd642f7d559935c374f24f472aaa21a0458837eed1032f7d9e398573b07ce03",
+        "docs/content/docs/api/map-graph.mdx": "c14328cb9f7aae7b78cee22ca17d66c307e4541be265981b91bc36dfc9595fd0",
+        "docs/content/docs/api/map.mdx": "0bb4a8bbea94ab2f2fa3ed4801dd76a8f2c66683e7111ccc00d6fc74221d6314",
         "docs/content/docs/api/minimap.mdx": "e9bc24c66975dc0d1d7eb6591b1ba585fd7599c00278a21f869c23459c34f261",
-        "docs/content/docs/api/mount-graph.mdx": "00bd8e435b22b57bc3ffe3362f7ec5a7b5f6ab712f04db0ebe0ea5df0af21d46",
-        "docs/content/docs/api/nodes.mdx": "8903786c385e6dc3144e1dc8d8a594be48a62213e98cf71858f5473196a33eaf",
+        "docs/content/docs/api/mount-graph.mdx": "7dca029e6d3c522167fad23b726ef26fd4f4abdd37915cee30d66f2582b26690",
+        "docs/content/docs/api/nodes.mdx": "16c152d4afb7c92a95409dcb6cd31ce26df353354d7424d4bb79815a89bb8a11",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
-        "docs/content/docs/api/persist-positions.mdx": "82f24ed20f5f87bffde4903c5899c502954b947ec4119e60893497ae047fb6ff",
+        "docs/content/docs/api/persist-positions.mdx": "e934d44506485380ed6dea4b8c1e74d3290321e1fd6bff17c7bc61bb528ffb5a",
         "docs/content/docs/api/persist-shapes.mdx": "7cea5a41868ba7254d05dfdf4ebd5c96e800e9d8dc9a6bbe45f25918a3f60dda",
         "docs/content/docs/api/routing.mdx": "d24ae8bbeaf2cc8e8eef1633f70c1c2a76f51ef0502537b2e3d27a8d7e92582d",
         "docs/content/docs/api/shape-editor.mdx": "fbe9a1ed16c1cd9787940be683db3ef5c0859cdd6d8b6fd10bc88d09ab3c8939",
-        "docs/content/docs/api/shapes.mdx": "aa6fa66a8dd4cf34d4994f6a3d15db1bcbf4a99256cdebbe4607694f2386d1fa",
-        "docs/content/docs/api/show-presence.mdx": "2e48322132cdb36c5cacc56616a55c7fcc71b6722e452762684299668f7e75af",
+        "docs/content/docs/api/shapes.mdx": "dc0b22a768d4bc6a1d5ec6464ac4f79e673ac4cdef6923caa69b0bd4727b72b3",
+        "docs/content/docs/api/show-presence.mdx": "0a753e1a58cd450c7c5ffe343661ab7fec58d7634c298caf39bf362eedfa13f4",
         "docs/content/docs/api/subset.mdx": "c853303f9c7a06eafc06b68f40dd9d0a2f6b094a16f4d46d59526d786b825365",
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
         "docs/content/docs/api/theme-tokens.mdx": "08d5697b13bf523987647ebde18b8e548f2839671063d02a411bd802a55deb36",
-        "docs/content/docs/api/timeline.mdx": "6beddb4d6602f83b448b909110d66085a7938dc103684f38477144106fe76222",
-        "skills/core/SKILL.md": "5431fad7adadbef201f7574bf13b0bf07feaf4dd96185bce9e759e9659d2beb2",
+        "docs/content/docs/api/timeline.mdx": "e643d057340c41e835940e900f8a9db106b5a087c7f7423a641d8ff310777a8b",
+        "skills/core/SKILL.md": "6980a339e08399465c8a29489d3bc3bb75bc74baba6fd1f705bb32ce97aeadc9",
         "skills/core/references/live-data.md": "f14baa156f30baf0ff43a036ab159b0c40cf9c972f5592e6536f2a30029a898d",
         "skills/cypher/SKILL.md": "9893f7a888d2a19a82429c1c734e2628aafdeac79eaee74f3fa4e5b40e4c6886",
-        "skills/edges/SKILL.md": "4f076ab642059c15e70d557dc6e35fc5b8c3008ef051d453601e6f2e3405daae",
-        "skills/editor/SKILL.md": "7d8fc5e6612be408b006f2381ecafffe4dc7d04627f93e70a4ff6b15c7c22bdb",
+        "skills/edges/SKILL.md": "4b8fafd150380b6a6242b02583a20a523f67f65e203d5006eec963f4df61f4b8",
+        "skills/editor/SKILL.md": "76531bbec9b74d74db7b7e7e5dcfecb1c9fddfa9e253ccfe33cb6f0290244ecc",
         "skills/editor/references/persistence.md": "d2406b144f8667c630d66571a64dd7c065899523ddfa449eb9b5d3722a8c0f01",
-        "skills/editor/references/presence.md": "e407f681932bf46aca03b5eb6d69d3670a07233f462d19f2e96d93719cb496a0",
-        "skills/export/SKILL.md": "fcb37c42e1026616511e9f6aa6e13b65e9a2670d87e33ada5a52a40e9b6e611e",
+        "skills/editor/references/presence.md": "648d9ddb0238abc823dd514ec02414e092d58525a8aa02e21d92e68c22ea0433",
+        "skills/export/SKILL.md": "714ae902a466ad1a2fd7915789f52acf7bf5517e3097ec17383f926f63099b9f",
         "skills/file-formats/SKILL.md": "e0147c80c714ce561c91acf1e6512f5268c5270dc7d1613d8db2be50adff252d",
-        "skills/groups/SKILL.md": "7faddcfa5937da2dbf832b1a7bc4fea3aaddb1a816239f321cd86d848c5d9932",
+        "skills/groups/SKILL.md": "5d4f91994516ba6340841463f3eaf23bd9bb5f130537ae60bde2bbbfb199e468",
         "skills/interaction/SKILL.md": "aba383406be7bf41519b5522b772dab616acd2339c6692669339882a27a58db4",
-        "skills/layouts/SKILL.md": "3f3fb40e9ae976c515f4704d75a37d6c0f9a111277bb1486c0e7d6827eacd724",
-        "skills/map/SKILL.md": "ab6d919decb33e1701dfec5c8503b508d61a56d2100578af6cbdbaf90442d39b",
+        "skills/layouts/SKILL.md": "7556a46875b05bb0e2c352637d81f76c47f2ccc838864740681fc8c3929b2193",
+        "skills/layouts/references/group-layouts.md": "471e562b481844cfaf5fa0ff3f71ae61f92aec685770a63ee899f3f93a5dfefc",
+        "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
+        "skills/map/SKILL.md": "1cf9e3950b20de07935ce32b1bfba8ecc75a9f7f74e386c6735aabdbb114c013",
+        "skills/map/references/surfaces.md": "674dd4af13ae21a4e457ed34d1a657176b4874f8984478f70769385103ad830d",
         "skills/multilayer/SKILL.md": "cd7eae8468a807d4a7e5f11744f9c8598dac50bbe749b9fa608857ee3a4a480f",
         "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
-        "skills/react/SKILL.md": "bc03e6908e2d3d740a80827d57d6ae9b6cf066c7c6f9f3150082708111e24448",
+        "skills/react/SKILL.md": "bb1e717f7a719040119e68d3f284028309b58be699ede834dd922b197e57472a",
         "skills/shapes/SKILL.md": "1b8217518965ab2e9ed32d3a5b5da8eb73a7d320f0475b87c594f2038567f644",
         "skills/shapes/references/labels-and-pins.md": "c0e4ae66bda4895ea9ea52ad732a7b3f73d97f269bfeae33e2bac809ab83bb69",
         "skills/shapes/references/maps.md": "bcf6f4641b271d6987b8b61f77acb1c02092dcf3a55b9f26edc7a69dd210a739",
-        "skills/styling/SKILL.md": "fd5fe4f57418fbad0eca5c68b37475410e3d94ee909034e24983c81f8ad03f65",
-        "skills/tanstack-db/SKILL.md": "092933ee82bba31e0ae2115a1dc10fbbfa1d40a0ba1c229cab0b2b1f5f3ad20f",
+        "skills/styling/SKILL.md": "be8d14c535f8264f422008ce4a35614c32204b02391b51cfcd042f370ae444c1",
+        "skills/tanstack-db/SKILL.md": "c7a81f2085eced8c3fc59351159ee9943ff1ba06a5c81805a5a58930bd1759fa",
+        "skills/tanstack-db/references/journal.md": "4a2715a2b3d7a30125e8fbbc749424d1746ea9e065ad8445d57098f4d2f94f8d",
         "skills/tanstack-query/SKILL.md": "f0ea86d00190d771a624215ab7e7baf523be31988103e6bcb2349ded52d8a4be",
-        "skills/time/SKILL.md": "426df6b347be08199bbe0b60c950cac9d7e74c6996d1f767a1bb7841338ff4f3",
-        "skills/tools/SKILL.md": "c80c27c526757d7aff100f3de2c16952ac387a8a2c77bcb21a7a75e918e8039e",
-        "skills/view/SKILL.md": "ad3c4b208e32ec8ccb7fd7c939e7acf7c066cce8784d923d9ccee3a3cb88205a",
+        "skills/time/SKILL.md": "d2d2f1cb89a3bd542328a876e5cd45a7b5812f4453f0751522a8921c1e0ba57d",
+        "skills/time/references/history.md": "2d7dcaab47ca8eb6b61dc59d983853d99ea5934d0a83f3d9580d1ad522d23522",
+        "skills/tools/SKILL.md": "e851708be328bef54bce9239cebefe92b54cfa242b8e50e69474273d6329df4a",
+        "skills/tools/references/hulls.md": "be59e08cbce460403bf959cd29136a311b4636b88fa1e087315fc30f5704d79b",
+        "skills/view/SKILL.md": "992a86374e641a979118d66fa12c64bcac465beaa69dc4287f5795f8697a1b7f",
         "src/bundling/density.ts": "607e5b3d0bc8e84719501ee527969d5d9cbd933d59f20895689bd73f6d97ee9a",
         "src/bundling/index.ts": "a18666d589ac222df7b3517d55f8f329f292c976b7794261829ddb59c11b1dc3",
         "src/core/geo.ts": "086260640f45190182b6ff576227d98fcf7e2c267a936283d4f7e3a2960135d0",
-        "src/core/hierarchy.ts": "af072db8bdaf084f2cbe11e26d1a9edebd35c893421d64efe608f3a1a113bac2",
+        "src/core/hierarchy.ts": "8f32d5b30633fe9a6b042d5ddf81d4fb6716f1119aaba940773c07d9e55b839d",
+        "src/core/history.ts": "362f946932accc82576a9c4db30ecf9b8fd26f326ec818dcbc0a07abc9c6b4bf",
         "src/core/issues.ts": "96cde3472ef876d05d7aa40fe160daa8b1ddd9b66ebbf20cc2865bedc1ef8a9e",
         "src/core/lasso.ts": "e6e337b0baa0757d1bbb5c9d3620013b9c9c8a8b0052afc02dd3a948b91879fe",
         "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
         "src/core/node-order.ts": "7c61a89ceebabd31a847be1e79686003853887f48c7606c1813b97f466bedd8e",
-        "src/core/projection.ts": "6d8efcb7bc2e833e238f3ba51f75d5e0bfff8486d2802c8933879cb18cb6c2d4",
+        "src/core/projection.ts": "a0edd9104cb3598cbcb02a2b0e2679f7489b76dd592d5ba8259038b86e9aa8d3",
         "src/core/raw.ts": "d04297fb30d75cc597292405bcf74258cb0e62df5eeecd29305829e20b0b1dff",
         "src/core/shape-engine.ts": "0e1b50679f787295db69d8c02d365226d42ad38f0606f583822510275a8bc9a8",
         "src/core/shape-store.ts": "16bf89b754a58e7ca4177259557c997e77a8da6bcd6d175908f1b2ffbdbce8a1",
-        "src/core/source-table.ts": "8af2967a223e59628249434b72e0e835eb28f4f5156d99dc024e0ce17d696f5d",
+        "src/core/source-table.ts": "2689f055607372666c64f7ea0ac5e596534d8f6048bc375fd9ff3e5d078d2e44",
         "src/core/state-names.ts": "2fe7d95242b293721fdd61489248c618e2641eaac1fca1111d9f417431a3935a",
         "src/core/time-range.ts": "66554a7d34012abf7fdbab65ec50eac1dcc7ed80805315810c23cd21ebf67e8a",
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
         "src/cypher/index.ts": "c9a6b965c8da0b6b2f4fe163897f5ed0238d09d949423e07ee7573dd13523695",
         "src/cypher/values.ts": "3be46fe29b635d0c187624bc5a4b91d641dd0defd7e317be74379b18ed6b1661",
-        "src/db/index.ts": "c6a73b84102ecb9dc5225ad51c14272536bc56cfcaf7f4eeaf308642a12362dd",
+        "src/db/index.ts": "56212563b43892f6251b2c74f1271fee6edd6e32e88c24824ac1343046ffe3c1",
         "src/db/persist-shapes.ts": "ae5589ffc1c2d8796dd3394143970792570863ab0d771b327592a96ac689f20f",
-        "src/db/presence.ts": "ccb82caa616c9302ea3541ca2e9cf931dd735e014fd53ef116682a97faf00cea",
+        "src/db/presence.ts": "96e109bb935847f34291f0a2f0636557da532f5f69abdd4f997ff39e4469b543",
         "src/db/subset.ts": "23364a86c1db26a77d85371f1b6e101addc5eb0352500ad63208aec4d3d93398",
-        "src/define-graph.ts": "8e4e9c3f25bd67edd0974a68d2da8306a3830e0bb2e78bb9800178178fefea1c",
+        "src/define-graph.ts": "ee99b51df8ea3ec678cc04d4d7e576bc263910e3aa6099bf7501c9824247d83f",
         "src/devtools/index.ts": "7b078d35d4d24ce5ff2fcfe27b1a34b8c7a3be462097f99e9c525d9e7f80d348",
         "src/devtools/react.tsx": "015b341e7b502b5942a8b1c5f5c83fe2c87b46f234dcf332e5367f72e2de4cfa",
         "src/editor/draw.ts": "a22f89beef72156dd3d25dea462a60bb2c3e72a9557067ca2a15e75c1aa3eaeb",
-        "src/editor/editor.ts": "a02b07c13a0290d64e4084671749c4dd9ea0ff3581648b34bcad6d7566f551c3",
+        "src/editor/editor.ts": "1f7723752c169c930abe996a2816fd188d67b2a8e62db0d04c9e8f05dd55c340",
         "src/editor/edits.ts": "a1fa76f86213021408848f03894183bcab419f1ce570fdfc42af596857e9b21e",
         "src/editor/index.ts": "c01bcb3f845d604122efd3e0396473e4eb5e1e7adb9d107f57f1fca5c3109f65",
         "src/editor/react.tsx": "7ba2eb1ab033b9be50c8b7970e36e30d484b30b1c0c87d521a319bc590e111b3",
         "src/editor/view.ts": "52693c80acc770dad2e4749f543a7229d1179fb4b2ec155c079c8ffc80df338d",
-        "src/export/index.ts": "245611618990d9143934f970b247b5dade51daa56b6eb7109f28ebe6257f4528",
+        "src/export/index.ts": "97ed4e573c64c27c2565f7078de0cfe6aceee971512a52ca6d9c36bb8dc67ebc",
         "src/export/size.ts": "ffe31ceae62d538bb968a5bf2cb83a1d32d2ffc4953755b235b9316513b31b5f",
         "src/formats/csv.ts": "e4dacd48f38261104fca459ec6c8ce228abd06c2e0ca172b8755e675cf31e309",
         "src/formats/detect.ts": "cb53b7c807b0bed180ea5e8418ded4e33a9931d4fd4ab62fcfba4219d5001923",
@@ -203,24 +212,26 @@
         "src/formats/index.ts": "791dc256c84c78c0074d0ecfd2799f67496037ce0d5ef7c88093ce24136db868",
         "src/formats/json-graph.ts": "3c3e35e0930a051236d9e58db4915b7927133268917bd4c4bf86394b2106b89f",
         "src/formats/types.ts": "391d1d6410372514c6b95909fa96a699f81ac2448c24e77a8d8c996f4a6007ef",
-        "src/host/anchors.ts": "9d325a1cef17ff7687cb272a5aff9d4206cf3a2228af3991c791e7541a253d51",
+        "src/history/index.ts": "eceb5abcf18b049a311df8960ab80b34f3fa2167c137cb840ec62dfa49529429",
+        "src/host/anchors.ts": "49d27873dbb4ffa6b0ba4532585ae6f22f2843aed7d302e2eaf96d1597ee9d93",
+        "src/host/canvas-surface.ts": "4d0866f8480006cea92e8d5b030485a8c94f6c9a4a2fa824810c2ce7c883fa9b",
         "src/host/data-reads.ts": "ef5b8583152930b6c8c3cc1fb92c833a0ba3152ec8aac29c0b886b895f9c805d",
         "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "9487d6d2781bf78bc8e9d9471a4508a2c1856f43e835c964e4f1fe5e9ad4c273",
-        "src/host/folding.ts": "00cf0ad3c39f59a3ea35584330ef52c258cd6b9aa646859525583937a313a3fd",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
+        "src/host/events.ts": "fc228c1ddec87fb5d5844a7c0799fd8a0cbb6b7f06bee786a20bac6684c5c544",
+        "src/host/folding.ts": "c17e0b17249d2b377a88101b0188ac21f36c0b5a087077f920c8b677605bfd35",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
-        "src/host/layout-session.ts": "613970ffc9e96a6336c3f64e243e2cb8bcb72e86dbc549a91f1c24c88a3b1810",
-        "src/host/lens.ts": "cd9fb833781aa7b752e1b14e6d8065da2e3ec44f8365828659cc75e5610ee56b",
+        "src/host/layout-session.ts": "e0ba0b637c5e469f09446fd554fe91f9d80ad3ef681216348398c65b9fe882c5",
+        "src/host/lens.ts": "1c6a66c6e0c2e6a669940ffd7577412f2158b447eebf265cf1d0934ca5523b50",
         "src/host/picking.ts": "90e0e4c157310606a97719849c0b33a9d702813b5c2226aeea5402f350b58578",
-        "src/host/pointer-input.ts": "967f9447e207f65855f265b698d9bcec422053d3e1eaabaa124e7554c6131302",
-        "src/host/position-event.ts": "fe8ef92928c61f5977228a3ef09546a5d5cf8923f3a32de4ed970b20cf9ef6ab",
+        "src/host/pointer-input.ts": "3c5bf21370b030abb28c73e44b85647b54c43016967ab60ca0ae66fdca3b4fef",
+        "src/host/position-event.ts": "4d1595dac089312fbce0a1997e909049a17da55b3c4865932c3bfef661bd1f80",
         "src/host/selection-control.ts": "72fb5ad16edc71414eb171b2ca5d4ebd8b1e88562fe90b7cfcf39ded10bd984b",
-        "src/host/view-control.ts": "229c49656be7f2e02bf00999ff4456d9939629676e1d585ff516ee411f30ad9c",
-        "src/hulls.ts": "0c9030aabf0da1878e4c08ddddb9820dd199cec5bc2b4ced1e61f428a904437d",
-        "src/index.ts": "94372bdd78a2f6658f711fd418b17110671461802e66ad7c787c28f5accbe747",
-        "src/layouts/force/index.ts": "70836bd5a85812065186fa6cdb54bcac122891f1fe03ea06122bb6ffc6cce40d",
+        "src/host/view-control.ts": "ff1c692ea9a1fa6c2af36035fb1fbd5fd305ff392d7b3cf088205833e1c9d886",
+        "src/hulls.ts": "0d083a6b8c4374b8d1a5d1cba2796ed8e00206e9968a489227464bc7000cd2ca",
+        "src/index.ts": "7e7caa4821d1bfaa322b352d645bd20324c0e86a2143801ad3382185b41fc9e7",
+        "src/layouts/force/index.ts": "bf9ff2f81750925c492082067c25a85ddcce7cbb902e7c6823293d9d21236452",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
         "src/layouts/grid.ts": "4c43b1fc14da84d51cfa4b67d2a84e154a9fc6fee7b93ceb0927582db935d956",
         "src/layouts/index.ts": "8057ab910e50d7191fb1f23fd443820c619fd52c77279699feb62eb918df315c",
@@ -228,18 +239,19 @@
         "src/layouts/placed.ts": "58c6c9a92ffd33fb14c233dccd3a4096808ca09147a7d3f18977213a9ad0410d",
         "src/layouts/radial.ts": "da8d87ee636e525aabbee8e9980e51a076542c3321ebff261d57b20721a627b9",
         "src/layouts/rings.ts": "4134366ac22aa39533dc86fbec60e196f9b0cb86b41ecfdc1c350575745cf881",
-        "src/legend/index.ts": "cd1c8deda9aa55b2714814b51abeefd12375d5f91d460c6d36bc7ad91b3e374f",
+        "src/layouts/scopes.ts": "50d067d5f27132be5eb9350573e8f67b8ded95546f32333c113696e9c667781b",
+        "src/legend/index.ts": "fc66ec1665fa4b8f2778067a5302a51ffc90f6a7678a9156404a775f0144ce5f",
         "src/legend/view.ts": "9c2e457330290ce84969310675317676bf712c1ded5496d3a7f970c6ed72bf98",
         "src/map/export.ts": "9d029056151d873c700d75f0d431062c561e1a7576fae6a00421196a5bdca7aa",
-        "src/map/index.ts": "3b270ca6a45cf88c9d5e43371eedd19c9bee95d2fef4f122f26ee706e9be2984",
-        "src/map/react.tsx": "0b78922a0acca6c29e9ccaba8957add0d5567e3d5a925bdefdf0fda1310a6c6a",
+        "src/map/index.ts": "cd14547e684d88ab899ef41e4451bbf313c1732e788e06ff21930afb3a11ebbe",
+        "src/map/react.tsx": "590c714df46a7284e9d5499c39421a733b397a91dbfef5bb2aa8f2772949f7a4",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
-        "src/minimap/index.ts": "72421154efcc728dead7d7d65635604663ba16eceb345bcea1465f0b1ff4f162",
+        "src/minimap/index.ts": "8b68ba37826a815ed7c8002f5b85b77119d9a4081ddb24a12b8bf2b32d730f44",
         "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
         "src/query/index.ts": "a9db94902b0883c71a3b354d27ee09552405c9057df38f9c1a1eb889d059eb4e",
         "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
-        "src/react/graph.tsx": "cb1497e28e0a4ceafe4789310f6a2bb76611ba1d95fc30139c22829b000f31cc",
-        "src/react/index.tsx": "824404244a6edd85f9a37fe2125233d3f43a8fb31feab6b5c6febb78b0a3ec74",
+        "src/react/graph.tsx": "9c814950d33d5126155b8480e436a7eeb78f87615e18cdc38c44bde8b2e90370",
+        "src/react/index.tsx": "934baba3d125e8411764a0f12d82be6ba28ea6031a7756b87e2fbf29ea487734",
         "src/routing/index.ts": "6eac7e321603e3910d57e72bd9e68a2e87704a06887ce735621a0a2cb67814a7",
         "src/shapes/anchor.ts": "faa6c99b6e97aefabe7457db463d272fa46924089916ca0410bbaa0bc9bf2e6b",
         "src/shapes/index.ts": "8cd1a77e357f4f6ab984353e909f1cd7d3238d3004b8d5f573d5d346e56b7b53",
@@ -250,14 +262,15 @@
         "src/support.ts": "447f57be80e2a3915d79cbda6bed07c747ced73d2d754528bbc7a4c97aba3a83",
         "src/theme/theme.css": "244a97cbd97835d55a01d3e84df3e0aedcbd319f11635c36e7d50b7c9f4784b1",
         "src/theme/tokens.ts": "df0e8f890f8a294f9673675ab3f41cc2d2e942f1edb9ea2c82c47ed02a92ab20",
-        "src/timeline/index.ts": "74b1fc0ec146faf2df3f7a68d216781b4e934acd00dd28e04cf67ac4babcf540",
-        "src/timeline/view.ts": "b57f59b177f46ffb61d6d97fecfd904f2f1a808d1ca12aee4a4ab2f70ae08ff2",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc",
+        "src/timeline/events.ts": "a8184670257037031a48eb6fddb82d9573802a9dff03a9e684105d88d874cc7f",
+        "src/timeline/index.ts": "1dbb3f53b41f75ced36626505294e805457a86679a4b53365154659fa7819e1d",
+        "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201 added 12 failure modes and rewrote one (interaction lasso) in domain_map.yaml, aligned skill_spec.md titles and rows, and declared skills/core/references/live-data.md and new sources in skill_tree.yaml.",
+      "reason": "PRs 216 and 218 added failure modes to map, layouts, groups, time, react, tools, view and tanstack-db in domain_map.yaml, aligned skill_spec.md titles and rows, and declared the new references in skill_tree.yaml.",
       "evidence": [
         "intent maintainer status reports 0 files to sync and 0 authoring issues"
       ]
@@ -304,46 +317,46 @@
       ]
     },
     "skill:skills/edges/SKILL.md": {
-      "fingerprint": "75c1f77c9f1962c4b08bdca1bfe70c6303bd00f548fababa8eceacc2f9089745",
+      "fingerprint": "b5f7aafca9d1796b287f76d4af6a5f47fc2f1314010257c85cd5a1bd8438f564",
       "snapshot": {
-        "docs/content/docs/(guide)/bundling.mdx": "858894ebeedbc628d8ffeeeb61949856adee1925ae79353bdd4727d00aeb0c51",
+        "docs/content/docs/(guide)/bundling.mdx": "2e7ce5553a531b1f791438feb857d2a29b765ce34c965dfac7e305de5b22c8a8",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
         "docs/content/docs/(guide)/marks.mdx": "dcc47236207cc2e6c3bdf17f7aaea53a55cc432c6be4067fe7ab37f8ddd5440a",
         "docs/content/docs/(guide)/routing.mdx": "fccaa9b9054028a68aa567a0a0de7a9bd7425015dd37b256a770afc23a853c1d",
         "docs/content/docs/api/bundling.mdx": "da6d79979c997144343299a7a5083996fd91f383d8949973c3caf4d3cafcddf7",
-        "docs/content/docs/api/edges.mdx": "e00fd4c2da043538754d3191fd8ab2cc2407e9148a2c86d182edfe02db5fb8f4",
+        "docs/content/docs/api/edges.mdx": "af7b277d3a5cc41d459621afdc239a5da9f691c5692de7d9c60220fa09ca127d",
         "docs/content/docs/api/routing.mdx": "d24ae8bbeaf2cc8e8eef1633f70c1c2a76f51ef0502537b2e3d27a8d7e92582d",
-        "skills/edges/SKILL.md": "4f076ab642059c15e70d557dc6e35fc5b8c3008ef051d453601e6f2e3405daae",
+        "skills/edges/SKILL.md": "4b8fafd150380b6a6242b02583a20a523f67f65e203d5006eec963f4df61f4b8",
         "src/bundling/density.ts": "607e5b3d0bc8e84719501ee527969d5d9cbd933d59f20895689bd73f6d97ee9a",
         "src/bundling/index.ts": "a18666d589ac222df7b3517d55f8f329f292c976b7794261829ddb59c11b1dc3",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
         "src/routing/index.ts": "6eac7e321603e3910d57e72bd9e68a2e87704a06887ce735621a0a2cb67814a7",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc",
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
-      "outcome": "no-change",
-      "reason": "Edge marks, labels, ends and merges unchanged since 0.27.1; the aggregate id is taught by groups and halos by interaction.",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "updated",
+      "reason": "PR 216: what bundling strength does, fixed taper and short constants, around 0.6 for dense views (PR 209); bundling and routing off while the graph is on a map (PR 208).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Changed files since 0.27.1 read against skills/edges/SKILL.md: nothing it states changed"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/edges/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/export/SKILL.md": {
-      "fingerprint": "03cce3413fb250ec306be82753c1451e41bede7d8e43d8ee274f48c68b124a70",
+      "fingerprint": "91dccf2c52ae238ac2f5524b090c68735965c8bf959903b2d7541b5767b871c1",
       "snapshot": {
         "docs/content/docs/(guide)/export.mdx": "98eb09bd801af469e2845a19f6756aae4fef170f88045ad228a6426b5f275068",
         "docs/content/docs/api/export.mdx": "b2465cebaca5b63c95325d26f8fa995ef3b566b26a4a922315b46344a2a39166",
-        "skills/export/SKILL.md": "fcb37c42e1026616511e9f6aa6e13b65e9a2670d87e33ada5a52a40e9b6e611e",
-        "src/export/index.ts": "245611618990d9143934f970b247b5dade51daa56b6eb7109f28ebe6257f4528",
+        "skills/export/SKILL.md": "714ae902a466ad1a2fd7915789f52acf7bf5517e3097ec17383f926f63099b9f",
+        "src/export/index.ts": "97ed4e573c64c27c2565f7078de0cfe6aceee971512a52ca6d9c36bb8dc67ebc",
         "src/export/size.ts": "ffe31ceae62d538bb968a5bf2cb83a1d32d2ffc4953755b235b9316513b31b5f"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: size, grid and badges options, zoom with size throws, pixelRatio with size, exportMapPng takes badges only (PR 193).",
+      "reason": "PR 216: hull labels drawn in PNG and SVG and counted by region graph (PR 212).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/export/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/export/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/file-formats/SKILL.md": {
@@ -371,69 +384,71 @@
       ]
     },
     "skill:skills/groups/SKILL.md": {
-      "fingerprint": "c990781ac605b93cfab4cf44b71c37153719c713d5be4559a5b0a7b9af809e3e",
+      "fingerprint": "cf9c1cf49b8a73377f77f5c3df5a4ff7cc5263f760e7f6e755359f37caf26806",
       "snapshot": {
-        "docs/content/docs/(guide)/groups.mdx": "00ffb00e37f59f8517bde5402e85e05fe63044e905f297ab0c3d4323a03a7133",
-        "docs/content/docs/(guide)/transformations.mdx": "14f4f0b536fe94f367ad591735835e20e070e5c413a21be748bf118f44e98023",
+        "docs/content/docs/(guide)/groups.mdx": "2a5c067d8168ba948cd8d4ec8546b22e74752f1b57389c043be0a5bd5b0348dd",
+        "docs/content/docs/(guide)/transformations.mdx": "974cb22fc229bc7469f30c89549f4fe5ab5795b8249a65d734eecf0ad29d1421",
         "docs/content/docs/api/groups.mdx": "124959871577a32a36c80321651d7eff2df3ea4ee726d10521c426cc401f86ff",
-        "skills/groups/SKILL.md": "7faddcfa5937da2dbf832b1a7bc4fea3aaddb1a816239f321cd86d848c5d9932",
-        "src/core/hierarchy.ts": "af072db8bdaf084f2cbe11e26d1a9edebd35c893421d64efe608f3a1a113bac2",
-        "src/core/projection.ts": "6d8efcb7bc2e833e238f3ba51f75d5e0bfff8486d2802c8933879cb18cb6c2d4",
+        "skills/groups/SKILL.md": "5d4f91994516ba6340841463f3eaf23bd9bb5f130537ae60bde2bbbfb199e468",
+        "src/core/hierarchy.ts": "8f32d5b30633fe9a6b042d5ddf81d4fb6716f1119aaba940773c07d9e55b839d",
+        "src/core/projection.ts": "a0edd9104cb3598cbcb02a2b0e2679f7489b76dd592d5ba8259038b86e9aa8d3",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "9487d6d2781bf78bc8e9d9471a4508a2c1856f43e835c964e4f1fe5e9ad4c273",
-        "src/host/folding.ts": "00cf0ad3c39f59a3ea35584330ef52c258cd6b9aa646859525583937a313a3fd",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
+        "src/host/events.ts": "fc228c1ddec87fb5d5844a7c0799fd8a0cbb6b7f06bee786a20bac6684c5c544",
+        "src/host/folding.ts": "c17e0b17249d2b377a88101b0188ac21f36c0b5a087077f920c8b677605bfd35",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
         "src/host/picking.ts": "90e0e4c157310606a97719849c0b33a9d702813b5c2226aeea5402f350b58578",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: container.drag (PR 194), label and badges of an unfolded group (PR 196), initialFolded as a function and AggregateEdge.id (PR 194), restored positions of folded members (PR 198).",
+      "reason": "PR 216: container.layout and arrangement on unfold (PRs 204, 206, 207), merge.foldedAsOne with value absent and id ending in null (PR 210), no spread for arranged members.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/groups/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/groups/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/interaction/SKILL.md": {
-      "fingerprint": "deb2fc9619a549c9f178737ab1cc69f6b52970a21241c18c8488233fd8538ab7",
+      "fingerprint": "9ec3b656837179af6febb6a963202ee69a8429e8125a2a4c6cd546d039b5a1ec",
       "snapshot": {
         "docs/content/docs/(guide)/interaction.mdx": "7a8d17664401bfc6d85bfbb07a4b419dc4f34a25e7024883a514c828bcd2ed48",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
         "docs/content/docs/api/define-graph.mdx": "9c7834919d0e449ced056a7f21f3e4a7d7ae90947459dda326956604bf3126ac",
-        "docs/content/docs/api/events.mdx": "0dec882c325cf4ef3d3ee0a6f3814fd2e9e8c1568d4812f4431667ef21dabf9b",
+        "docs/content/docs/api/events.mdx": "46125f9d32d245fed91fa2a96f4d6bd3a50257a275d8e0e7599c689e2b6a0ed6",
         "skills/interaction/SKILL.md": "aba383406be7bf41519b5522b772dab616acd2339c6692669339882a27a58db4",
         "src/core/lasso.ts": "e6e337b0baa0757d1bbb5c9d3620013b9c9c8a8b0052afc02dd3a948b91879fe",
         "src/core/state-names.ts": "2fe7d95242b293721fdd61489248c618e2641eaac1fca1111d9f417431a3935a",
-        "src/define-graph.ts": "8e4e9c3f25bd67edd0974a68d2da8306a3830e0bb2e78bb9800178178fefea1c",
+        "src/define-graph.ts": "ee99b51df8ea3ec678cc04d4d7e576bc263910e3aa6099bf7501c9824247d83f",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "9487d6d2781bf78bc8e9d9471a4508a2c1856f43e835c964e4f1fe5e9ad4c273",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
+        "src/host/events.ts": "fc228c1ddec87fb5d5844a7c0799fd8a0cbb6b7f06bee786a20bac6684c5c544",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
-        "src/host/pointer-input.ts": "967f9447e207f65855f265b698d9bcec422053d3e1eaabaa124e7554c6131302",
+        "src/host/pointer-input.ts": "3c5bf21370b030abb28c73e44b85647b54c43016967ab60ca0ae66fdca3b4fef",
         "src/host/selection-control.ts": "72fb5ad16edc71414eb171b2ca5d4ebd8b1e88562fe90b7cfcf39ded10bd984b",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
-      "outcome": "updated",
-      "reason": "PR 201: LassoOptions modifier and edges, per-node drag and container.drag (PR 194), halo color and width (PR 196), positionchange.geo (PR 193), aggregate id.",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Gestures, states, selection and lasso unchanged since 0.28.0.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/interaction/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Changed files since 0.28.0 read against skills/interaction/SKILL.md: nothing it states changed"
       ]
     },
     "skill:skills/layouts/SKILL.md": {
-      "fingerprint": "edc2e20ff064c975fc255b58ec8253074fadb3d7811d7f0235f230d8c88faae8",
+      "fingerprint": "0c60723cbdf03d85b7647857f918fd3df07c6dd09423292ddef8a126c3f1315b",
       "snapshot": {
-        "docs/content/docs/(guide)/layout.mdx": "4a7141ad5488bfbdb29e953c623879ac12c16c1a22bd4776c31f68089ac26aa0",
-        "docs/content/docs/(guide)/positions.mdx": "12becbbafb8491adcf46e50c8b49520557d7b276d693b83fc5ec5987d1b4c60f",
+        "docs/content/docs/(guide)/layout.mdx": "328358b80ec65216ef635bb55175c990b2988a3bcf57b873866638342de88835",
+        "docs/content/docs/(guide)/positions.mdx": "2ee80f0123181a23fae6cfd806003abb850f8331a605c15727d1af46688dd0c2",
         "docs/content/docs/api/force.mdx": "a04fee2ec0c0716895d83e61a65a10540f531a19d47bf0fa553c57ed64df281a",
-        "docs/content/docs/api/layouts.mdx": "58d62085efcfb97075a638643240acba6a6b187ee403dc259dacd4c043bf99d4",
-        "skills/layouts/SKILL.md": "3f3fb40e9ae976c515f4704d75a37d6c0f9a111277bb1486c0e7d6827eacd724",
+        "docs/content/docs/api/layouts.mdx": "5a9b23a61d1469ecf094291e2770467fc647f1d1fb3be7cdf920882abdf8bbcb",
+        "skills/layouts/SKILL.md": "7556a46875b05bb0e2c352637d81f76c47f2ccc838864740681fc8c3929b2193",
+        "skills/layouts/references/group-layouts.md": "471e562b481844cfaf5fa0ff3f71ae61f92aec685770a63ee899f3f93a5dfefc",
+        "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
         "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
-        "src/host/layout-session.ts": "613970ffc9e96a6336c3f64e243e2cb8bcb72e86dbc549a91f1c24c88a3b1810",
-        "src/layouts/force/index.ts": "70836bd5a85812065186fa6cdb54bcac122891f1fe03ea06122bb6ffc6cce40d",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
+        "src/host/layout-session.ts": "e0ba0b637c5e469f09446fd554fe91f9d80ad3ef681216348398c65b9fe882c5",
+        "src/layouts/force/index.ts": "bf9ff2f81750925c492082067c25a85ddcce7cbb902e7c6823293d9d21236452",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
         "src/layouts/grid.ts": "4c43b1fc14da84d51cfa4b67d2a84e154a9fc6fee7b93ceb0927582db935d956",
         "src/layouts/index.ts": "8057ab910e50d7191fb1f23fd443820c619fd52c77279699feb62eb918df315c",
@@ -441,120 +456,126 @@
         "src/layouts/placed.ts": "58c6c9a92ffd33fb14c233dccd3a4096808ca09147a7d3f18977213a9ad0410d",
         "src/layouts/radial.ts": "da8d87ee636e525aabbee8e9980e51a076542c3321ebff261d57b20721a627b9",
         "src/layouts/rings.ts": "4134366ac22aa39533dc86fbec60e196f9b0cb86b41ecfdc1c350575745cf881",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/layouts/scopes.ts": "50d067d5f27132be5eb9350573e8f67b8ded95546f32333c113696e9c667781b",
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: placed, layers rank, grid spacing per axis, others ignored, layout.compute (PR 192), initialPositions instead of positions.set after mount (PR 198), positions.reset (PR 193), port fields turns, blocks and container (PR 200).",
+      "reason": "PR 216: a layout of its own per group, one run named after the outermost layout, worker pool, arrangement on unfold, engine loaded on demand (PRs 204, 206, 207); layouts off while on a map (PR 208); references group-layouts.md and saving-arrangements.md (PR 209).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/layouts/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/layouts/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/map/SKILL.md": {
-      "fingerprint": "264ca70333a8fb4f1f3fd34cfb3bb7bcc5f43c896f126fe2086e27e6118c52fe",
+      "fingerprint": "1b672eb6c40d56c509ca88c08e138969de91a89b1aa5d5315dc01c22d59ec042",
       "snapshot": {
-        "docs/content/docs/(guide)/map.mdx": "93b4b8f95224e05978394fff06f7632432d04fd2b58766f1c297299677b60108",
-        "docs/content/docs/api/map-graph.mdx": "a2ec05056f682f4f8b388bddcad55ce6d84d17b71150fb5392d64afd5b5a9b8a",
-        "docs/content/docs/api/map.mdx": "0510f95c951f4490aca5156cdf1e571b92b8a760d9668aa70b575bc5c07d4cd7",
-        "skills/map/SKILL.md": "ab6d919decb33e1701dfec5c8503b508d61a56d2100578af6cbdbaf90442d39b",
+        "docs/content/docs/(guide)/map.mdx": "1953663e2f621708550fe6b3edd85ed9962e497e3f6a1a712c2bed09d4b2605f",
+        "docs/content/docs/api/graph-component.mdx": "b60334215cc9059749bcabad03cf2ebea7528270e6f5cac32badaa34ae79239e",
+        "docs/content/docs/api/map-graph.mdx": "c14328cb9f7aae7b78cee22ca17d66c307e4541be265981b91bc36dfc9595fd0",
+        "docs/content/docs/api/map.mdx": "0bb4a8bbea94ab2f2fa3ed4801dd76a8f2c66683e7111ccc00d6fc74221d6314",
+        "skills/map/SKILL.md": "1cf9e3950b20de07935ce32b1bfba8ecc75a9f7f74e386c6735aabdbb114c013",
+        "skills/map/references/surfaces.md": "674dd4af13ae21a4e457ed34d1a657176b4874f8984478f70769385103ad830d",
         "src/core/geo.ts": "086260640f45190182b6ff576227d98fcf7e2c267a936283d4f7e3a2960135d0",
-        "src/host/position-event.ts": "fe8ef92928c61f5977228a3ef09546a5d5cf8923f3a32de4ed970b20cf9ef6ab",
+        "src/host/canvas-surface.ts": "4d0866f8480006cea92e8d5b030485a8c94f6c9a4a2fa824810c2ce7c883fa9b",
+        "src/host/position-event.ts": "4d1595dac089312fbce0a1997e909049a17da55b3c4865932c3bfef661bd1f80",
         "src/map/export.ts": "9d029056151d873c700d75f0d431062c561e1a7576fae6a00421196a5bdca7aa",
-        "src/map/index.ts": "3b270ca6a45cf88c9d5e43371eedd19c9bee95d2fef4f122f26ee706e9be2984",
-        "src/map/react.tsx": "0b78922a0acca6c29e9ccaba8957add0d5567e3d5a925bdefdf0fda1310a6c6a",
+        "src/map/index.ts": "cd14547e684d88ab899ef41e4451bbf313c1732e788e06ff21930afb3a11ebbe",
+        "src/map/react.tsx": "590c714df46a7284e9d5499c39421a733b397a91dbfef5bb2aa8f2772949f7a4",
         "src/shapes/subdivide.ts": "b1576a97844313f4ac12eb43304aac3b01b66837f1871d6005fa7329a147f664",
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc",
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: lasso without a modifier, positions.reset and positionchange.geo, drawsOnMap, node order, one snapshot per surface, badges false in map exports (PRs 193, 194, 196, 198).",
+      "reason": "PR 216: one graph moved between its canvas and a map with update({ surface }), mapSurface, release, map.remove, companions that follow, hide the map with opacity (PRs 208, 213, 214); references/surfaces.md.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/map/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/map/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/multilayer/SKILL.md": {
-      "fingerprint": "fdc66583b83420b2b993f01253db5519562bc26fb742a73292938fb4c78a1a46",
+      "fingerprint": "74d3ed070441f69e26d5c0a1fae8c38926a229dd833429501e3ffa26d134f595",
       "snapshot": {
         "docs/content/docs/(guide)/multilayer.mdx": "a527b9a14d71cf3b554d25405c9e681462f60dfaa7bc948062902262446ff565",
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
         "skills/multilayer/SKILL.md": "cd7eae8468a807d4a7e5f11744f9c8598dac50bbe749b9fa608857ee3a4a480f",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
         "src/support.ts": "447f57be80e2a3915d79cbda6bed07c747ced73d2d754528bbc7a4c97aba3a83",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
-      "outcome": "updated",
-      "reason": "PR 201: shown() to read what a hidden layer leaves drawn (PR 194).",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Layers and support unchanged since 0.28.0.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/multilayer/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Changed files since 0.28.0 read against skills/multilayer/SKILL.md: nothing it states changed"
       ]
     },
     "skill:skills/paths/SKILL.md": {
-      "fingerprint": "ce2cbd0d016931473d9c29cf881287246c0049dac651a3651bb90d5c6973a764",
+      "fingerprint": "2c004c450b2350f6895977a347e3c6a7bdc75a045bdb65ae22a3fe35e51b128a",
       "snapshot": {
         "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
         "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
         "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Path search unchanged since 0.27.1.",
+      "reason": "Path search unchanged since 0.28.0.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Changed files since 0.27.1 read against skills/paths/SKILL.md: nothing it states changed"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Changed files since 0.28.0 read against skills/paths/SKILL.md: nothing it states changed"
       ]
     },
     "skill:skills/styling/SKILL.md": {
-      "fingerprint": "f8c25a201bc99a118989fe81ff9b0d149aded08feed2f502c0aab9fbe17490ec",
+      "fingerprint": "7d6d677856afe662bcf8315d6ee0d6a1b8826b7940ea8c92fa244a4411c5feae",
       "snapshot": {
         "docs/content/docs/(guide)/images-and-badges.mdx": "9ac154d92f4d562b7112575a93c935307d3e42f2ec56de5f2d34728abc705159",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
         "docs/content/docs/(guide)/marks.mdx": "dcc47236207cc2e6c3bdf17f7aaea53a55cc432c6be4067fe7ab37f8ddd5440a",
-        "docs/content/docs/(guide)/scales.mdx": "bd04e279ffe16e9d8d757d56386d8757ffdd2d3e167fe0ffd43dfbb29dc719b1",
+        "docs/content/docs/(guide)/scales.mdx": "953c8fa7e73d4a25a57abefe823325aa8c21c9252b5655b6360d953487d19bb6",
         "docs/content/docs/(guide)/theming.mdx": "2728008ab69642327d8886e6f6812783ce12093ab99db265242cd9fbd1a80b40",
-        "docs/content/docs/api/nodes.mdx": "8903786c385e6dc3144e1dc8d8a594be48a62213e98cf71858f5473196a33eaf",
+        "docs/content/docs/api/nodes.mdx": "16c152d4afb7c92a95409dcb6cd31ce26df353354d7424d4bb79815a89bb8a11",
         "docs/content/docs/api/theme-tokens.mdx": "08d5697b13bf523987647ebde18b8e548f2839671063d02a411bd802a55deb36",
-        "skills/styling/SKILL.md": "fd5fe4f57418fbad0eca5c68b37475410e3d94ee909034e24983c81f8ad03f65",
+        "skills/styling/SKILL.md": "be8d14c535f8264f422008ce4a35614c32204b02391b51cfcd042f370ae444c1",
         "src/core/node-order.ts": "7c61a89ceebabd31a847be1e79686003853887f48c7606c1813b97f466bedd8e",
         "src/marks.ts": "7b1deb7ea35728106cdad670f71b0614be2e8aaea657214fd0dca5da0d9063af",
         "src/theme/theme.css": "244a97cbd97835d55a01d3e84df3e0aedcbd319f11635c36e7d50b7c9f4784b1",
         "src/theme/tokens.ts": "df0e8f890f8a294f9673675ab3f41cc2d2e942f1edb9ea2c82c47ed02a92ab20",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: Badge.image, ring, minSize as the pill height, nodes order (PR 196).",
+      "reason": "PR 218: category order of a mark with a history (PR 217).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/styling/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/styling/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/tanstack-db/SKILL.md": {
-      "fingerprint": "773fdb84214fd23844f4854a0a8f663ce0faf7fb92442f98ff148350822b457a",
+      "fingerprint": "c7bf9cd4d9235dfd443a15cf6774b8cb15f357d2740a7d3b8ed1bfd752556cd4",
       "snapshot": {
-        "docs/content/docs/(guide)/data.mdx": "ae5dd22eb3694e663816f6a89aecfb393adc5a1ab5e6f6993a77c73ed5fa45ac",
-        "docs/content/docs/(guide)/tanstack-db.mdx": "83f2f4428424884d26d0c303ab35e4da1c2295c379d58cbacd9cb5c84e96c7fe",
-        "docs/content/docs/api/persist-positions.mdx": "82f24ed20f5f87bffde4903c5899c502954b947ec4119e60893497ae047fb6ff",
+        "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
+        "docs/content/docs/(guide)/tanstack-db.mdx": "4a39ca2242284846f7adc4e351aa4597b5559e4b85f9a196744d890c9ce9b36f",
+        "docs/content/docs/api/history.mdx": "99911e7dbcf9948014aac7b5f7f8fe3ab7461c002f7865d7dc183816ff4ea45a",
+        "docs/content/docs/api/persist-positions.mdx": "e934d44506485380ed6dea4b8c1e74d3290321e1fd6bff17c7bc61bb528ffb5a",
         "docs/content/docs/api/subset.mdx": "c853303f9c7a06eafc06b68f40dd9d0a2f6b094a16f4d46d59526d786b825365",
-        "skills/tanstack-db/SKILL.md": "092933ee82bba31e0ae2115a1dc10fbbfa1d40a0ba1c229cab0b2b1f5f3ad20f",
+        "skills/tanstack-db/SKILL.md": "c7a81f2085eced8c3fc59351159ee9943ff1ba06a5c81805a5a58930bd1759fa",
+        "skills/tanstack-db/references/journal.md": "4a2715a2b3d7a30125e8fbbc749424d1746ea9e065ad8445d57098f4d2f94f8d",
         "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
-        "src/db/index.ts": "c6a73b84102ecb9dc5225ad51c14272536bc56cfcaf7f4eeaf308642a12362dd",
+        "src/db/index.ts": "56212563b43892f6251b2c74f1271fee6edd6e32e88c24824ac1343046ffe3c1",
         "src/db/subset.ts": "23364a86c1db26a77d85371f1b6e101addc5eb0352500ad63208aec4d3d93398",
         "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: persistPositions in degrees with create(key, point, geo), reset written back, restored positions write nothing, persistShapes mark (PRs 193 and 198).",
+      "reason": "PRs 216 and 218: persistPositions surfaces and positionchange.surface (PR 208), presence surface field (PR 214), historyFrom over a collection of entries with loading counted (PR 215); references/journal.md.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/tanstack-db/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/tanstack-db/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/tanstack-query/SKILL.md": {
@@ -576,91 +597,97 @@
       ]
     },
     "skill:skills/time/SKILL.md": {
-      "fingerprint": "e35dc3e7b49519a30abf819da72e30c70774058a5b59ed040a2fa8e6c28deeb7",
+      "fingerprint": "f78b4593c985107d31602ecaea8c9e34ee566eacb9922a1b9b87da3fe7e621a4",
       "snapshot": {
-        "docs/content/docs/(guide)/time.mdx": "1377a9d824860aad23d05798140e9c551d30077481188974e01e9c85bbbc2c6f",
-        "docs/content/docs/api/timeline.mdx": "6beddb4d6602f83b448b909110d66085a7938dc103684f38477144106fe76222",
-        "skills/time/SKILL.md": "426df6b347be08199bbe0b60c950cac9d7e74c6996d1f767a1bb7841338ff4f3",
+        "docs/content/docs/(guide)/time.mdx": "895baf943f77e3cac688f8a018879c39eebd5d5efcd1e84f5e50ba5645256530",
+        "docs/content/docs/api/history.mdx": "99911e7dbcf9948014aac7b5f7f8fe3ab7461c002f7865d7dc183816ff4ea45a",
+        "docs/content/docs/api/timeline.mdx": "e643d057340c41e835940e900f8a9db106b5a087c7f7423a641d8ff310777a8b",
+        "skills/time/SKILL.md": "d2d2f1cb89a3bd542328a876e5cd45a7b5812f4453f0751522a8921c1e0ba57d",
+        "skills/time/references/history.md": "2d7dcaab47ca8eb6b61dc59d983853d99ea5934d0a83f3d9580d1ad522d23522",
+        "src/core/history.ts": "362f946932accc82576a9c4db30ecf9b8fd26f326ec818dcbc0a07abc9c6b4bf",
         "src/core/time-range.ts": "66554a7d34012abf7fdbab65ec50eac1dcc7ed80805315810c23cd21ebf67e8a",
-        "src/host/events.ts": "9487d6d2781bf78bc8e9d9471a4508a2c1856f43e835c964e4f1fe5e9ad4c273",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
-        "src/react/index.tsx": "824404244a6edd85f9a37fe2125233d3f43a8fb31feab6b5c6febb78b0a3ec74",
-        "src/timeline/index.ts": "74b1fc0ec146faf2df3f7a68d216781b4e934acd00dd28e04cf67ac4babcf540",
-        "src/timeline/view.ts": "b57f59b177f46ffb61d6d97fecfd904f2f1a808d1ca12aee4a4ab2f70ae08ff2",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/history/index.ts": "eceb5abcf18b049a311df8960ab80b34f3fa2167c137cb840ec62dfa49529429",
+        "src/host/events.ts": "fc228c1ddec87fb5d5844a7c0799fd8a0cbb6b7f06bee786a20bac6684c5c544",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
+        "src/react/index.tsx": "934baba3d125e8411764a0f12d82be6ba28ea6031a7756b87e2fbf29ea487734",
+        "src/timeline/events.ts": "a8184670257037031a48eb6fddb82d9573802a9dff03a9e684105d88d874cc7f",
+        "src/timeline/index.ts": "1dbb3f53b41f75ced36626505294e805457a86679a4b53365154659fa7819e1d",
+        "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
-      "outcome": "no-change",
-      "reason": "Time windows and the timeline unchanged since 0.27.1.",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "updated",
+      "reason": "PRs 216 and 218: timeline events, instant cursor, stepEvent, events(), kind buttons, timeline without a graph (PR 211); historyFrom, history option, read cut, scales over the whole journal (PRs 215 and 217); references/history.md.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Changed files since 0.27.1 read against skills/time/SKILL.md: nothing it states changed"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/time/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/tools/SKILL.md": {
-      "fingerprint": "8eb80a2bfe03fcfae342b522fe0e9f98f8f7dc00ba73167c94a816bb90bcbf4a",
+      "fingerprint": "aa74356e56143d5580a0c30c6d311edd462fa0716e82ae6f56a9741f3a133bd9",
       "snapshot": {
-        "docs/content/docs/(guide)/devtools.mdx": "b7b819a171c7ceff5126843e419bbd8fc2bcf14a996fef256e64c2521e1027b7",
-        "docs/content/docs/(guide)/drawing-layers.mdx": "6a87382c90d3627d6f996d7dc105ef566ee11d0c45e3a5978955ecff74294a5f",
-        "docs/content/docs/(guide)/lens.mdx": "55ea245c07d3dd099f2586777d4bb8d5b27e5beeb2164a9bb45487ea96d1be87",
-        "docs/content/docs/(guide)/minimap-and-legend.mdx": "373719ae833d0fbacedafd94767bf34b47e0bce28619fe7622245e8112f9f63b",
+        "docs/content/docs/(guide)/devtools.mdx": "2912f03655bfa6144d294ae10b81a0b7ef08be8fd633a9d7ff09f41b56393087",
+        "docs/content/docs/(guide)/drawing-layers.mdx": "e25c877c66d652679a700d12cc07c289186341d9c926c0694077580aad36b498",
+        "docs/content/docs/(guide)/lens.mdx": "5e685f6bf608babf66059101901f18313e75cd9bd21702bc260c7d3dd7f30ff8",
+        "docs/content/docs/(guide)/minimap-and-legend.mdx": "23bc415df4585b27da889272d6d32fbad586d8ffd8de74d525e4da89d499e8d9",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/devtools.mdx": "abad8e79a1fb76b0d1f53ef9bbfa4a2442547c7ae56d395158b8f5833087788d",
-        "docs/content/docs/api/hull.mdx": "494d6644cc51544cd4e4c6cc181ee4f224a0bac9626e7fd8d43325354db80dbc",
-        "docs/content/docs/api/legend.mdx": "709b12052d9f1c64ee4d0471c49f64bb30cded49abfc839221fad26182c6fe0e",
+        "docs/content/docs/api/hull.mdx": "3c192acfb729196c214dc96cb2390288b053d48fefa3dbbab51083d0aabe63ed",
+        "docs/content/docs/api/legend.mdx": "1dd642f7d559935c374f24f472aaa21a0458837eed1032f7d9e398573b07ce03",
         "docs/content/docs/api/minimap.mdx": "e9bc24c66975dc0d1d7eb6591b1ba585fd7599c00278a21f869c23459c34f261",
-        "skills/tools/SKILL.md": "c80c27c526757d7aff100f3de2c16952ac387a8a2c77bcb21a7a75e918e8039e",
+        "skills/tools/SKILL.md": "e851708be328bef54bce9239cebefe92b54cfa242b8e50e69474273d6329df4a",
+        "skills/tools/references/hulls.md": "be59e08cbce460403bf959cd29136a311b4636b88fa1e087315fc30f5704d79b",
         "src/devtools/index.ts": "7b078d35d4d24ce5ff2fcfe27b1a34b8c7a3be462097f99e9c525d9e7f80d348",
         "src/devtools/react.tsx": "015b341e7b502b5942a8b1c5f5c83fe2c87b46f234dcf332e5367f72e2de4cfa",
-        "src/host/anchors.ts": "9d325a1cef17ff7687cb272a5aff9d4206cf3a2228af3991c791e7541a253d51",
-        "src/host/lens.ts": "cd9fb833781aa7b752e1b14e6d8065da2e3ec44f8365828659cc75e5610ee56b",
-        "src/hulls.ts": "0c9030aabf0da1878e4c08ddddb9820dd199cec5bc2b4ced1e61f428a904437d",
-        "src/legend/index.ts": "cd1c8deda9aa55b2714814b51abeefd12375d5f91d460c6d36bc7ad91b3e374f",
+        "src/host/anchors.ts": "49d27873dbb4ffa6b0ba4532585ae6f22f2843aed7d302e2eaf96d1597ee9d93",
+        "src/host/lens.ts": "1c6a66c6e0c2e6a669940ffd7577412f2158b447eebf265cf1d0934ca5523b50",
+        "src/hulls.ts": "0d083a6b8c4374b8d1a5d1cba2796ed8e00206e9968a489227464bc7000cd2ca",
+        "src/legend/index.ts": "fc66ec1665fa4b8f2778067a5302a51ffc90f6a7678a9156404a775f0144ce5f",
         "src/legend/view.ts": "9c2e457330290ce84969310675317676bf712c1ded5496d3a7f970c6ed72bf98",
-        "src/minimap/index.ts": "72421154efcc728dead7d7d65635604663ba16eceb345bcea1465f0b1ff4f162"
+        "src/minimap/index.ts": "8b68ba37826a815ed7c8002f5b85b77119d9a4081ddb24a12b8bf2b32d730f44"
       },
-      "head": "0e905dbed94d6a3da526c68a6a3b2ddc0def630a",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 195: devtools count shape labels with labelCounts(nodes, edges, shapes) (PR 189), anchors on the globe (PR 188), the context menu example prevents the browser menu.",
+      "reason": "PRs 216 and 218: minimap asleep and lens hidden on a map, devtools Surface row (PR 214); hull labels in references/hulls.md (PR 212); legend zero counts and empty hide (PR 217).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 0e905db: every fence typechecked, published copies under 500 lines (core 484, the longest)",
-        "Maintainer review of PR 195: no em dash, no comments in examples, no other library named; skills/tools/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/tools/SKILL.md sampled against src/"
       ]
     },
     "skill:skills/view/SKILL.md": {
-      "fingerprint": "f9c01e739f960d5841e1486ba8810d0389f08e02d77e6ae1b83179296a564a7b",
+      "fingerprint": "7eb6a4a9a11bc9d59d06811dcc4e78127d49c4b500552a76005f3f0c78535586",
       "snapshot": {
         "docs/content/docs/(guide)/view.mdx": "683c38fd7b7c981bf5c1e47fc1b8d99f58ff5067be32cd1a3901406b0cde4480",
         "docs/content/docs/(guide)/zoom.mdx": "3ba61e43cda3aa11cb485a3da120469588ca9fc796f909f11ba607c76db69fca",
         "docs/content/docs/api/define-graph.mdx": "9c7834919d0e449ced056a7f21f3e4a7d7ae90947459dda326956604bf3126ac",
-        "docs/content/docs/api/graph-instance.mdx": "caff157bf587111be879eba77f199e6bf8189675746d5c417e9a402faa9d4c53",
-        "skills/view/SKILL.md": "ad3c4b208e32ec8ccb7fd7c939e7acf7c066cce8784d923d9ccee3a3cb88205a",
+        "docs/content/docs/api/graph-instance.mdx": "79d7b40caae47fdbea77c2d5008d2a8399fdfbfb682102c7ce1ac74e2f950685",
+        "skills/view/SKILL.md": "992a86374e641a979118d66fa12c64bcac465beaa69dc4287f5795f8697a1b7f",
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
-        "src/define-graph.ts": "8e4e9c3f25bd67edd0974a68d2da8306a3830e0bb2e78bb9800178178fefea1c",
+        "src/define-graph.ts": "ee99b51df8ea3ec678cc04d4d7e576bc263910e3aa6099bf7501c9824247d83f",
         "src/host/data-status.ts": "737962d67952859ee4232c7360f29cf43698ed4a672eff1ecff1bbca4cee7a12",
-        "src/host/events.ts": "9487d6d2781bf78bc8e9d9471a4508a2c1856f43e835c964e4f1fe5e9ad4c273",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
-        "src/host/view-control.ts": "229c49656be7f2e02bf00999ff4456d9939629676e1d585ff516ee411f30ad9c",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/host/events.ts": "fc228c1ddec87fb5d5844a7c0799fd8a0cbb6b7f06bee786a20bac6684c5c544",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
+        "src/host/view-control.ts": "ff1c692ea9a1fa6c2af36035fb1fbd5fd305ff392d7b3cf088205833e1c9d886",
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: autoFit first frames restored positions on the first frame (PR 198).",
+      "reason": "PR 216: one view per surface, a view given with the switch, a controlled view applied on return (PRs 208 and 213).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/view/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/view/SKILL.md sampled against src/"
       ]
     },
     "source:docs/content/docs/api/index.mdx": {
-      "fingerprint": "a2a3cdff610f990cef5962d4a17b7c02cb2486256a8f84451747586b5c7cff77",
+      "fingerprint": "70c44efd4c61b10c3d0e6bb91ab8b6b0f5e78b5729547f323d30384b3d004e64",
       "snapshot": {
-        "docs/content/docs/api/index.mdx": "1bf0301512e3855e9fed2489c0e63f38b9c8ba2c53e661298bec50315ba35c4c"
+        "docs/content/docs/api/index.mdx": "faaa37b5ceacd11e10a062993192b14765041d68ef134351e95d67b1404efdcc"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Index lists placed, LayoutBlocks and LayoutContainer (PRs 192 and 200); taught by the layouts skill.",
+      "reason": "Index lists history, mapSurface, useMapSurface and the new timeline and hull types; taught by time, map, react and tools.",
       "evidence": [
-        "Diff of docs/content/docs/api/index.mdx since 0.27.1 read in PRs 192 to 200"
+        "Diff of docs/content/docs/api/index.mdx since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/core/key-list.ts": {
@@ -677,15 +704,15 @@
       ]
     },
     "source:src/host/exposure.ts": {
-      "fingerprint": "eaa3d4b43b4a4903e68f3ee1904abae840341a5afd810d28b0fa959fedc38b0d",
+      "fingerprint": "6ec80a7199804b4a551ac1e4e3b550e1fda15889b9eef888697e34f91a4c7cf7",
       "snapshot": {
-        "src/host/exposure.ts": "d333576c0fc10027cca7276baeda5a5ba55d0a29d09cd61c928a48c154c9e80a"
+        "src/host/exposure.ts": "584c46d4882e000077d0eaf6548ebfdae42ee0fc83b04c9d41ad068448a9a4f2"
       },
-      "head": "d7c8d144b0e311aa1dfd74fafc4a2edb8c15767c",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Host internals of PRs 180 to 185 (pointer tool port, drafts, shifts, anchors on the globe); the behavior is in the editor, interaction and map skills.",
+      "reason": "Snapshot follows the current surface (PR 208); taught by map and export.",
       "evidence": [
-        "Diff of src/host/exposure.ts since 0.26.1 read in PRs 178 to 186"
+        "Diff of src/host/exposure.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/host/folding.ts": {
@@ -701,15 +728,15 @@
       ]
     },
     "source:src/host/internals.ts": {
-      "fingerprint": "893e6421c32f12dc46d3024692cea5fced6640265bffc891592ebb8b405d778d",
+      "fingerprint": "e8bfb467edeee117e6fea769d2c7c4e464157070ef10865d1fd36b47b66f12a6",
       "snapshot": {
-        "src/host/internals.ts": "9dc9f6776942d29d73929f51ebd52acb52bc59a4822dd4d1dc6c017a00772ce7"
+        "src/host/internals.ts": "3ee92066be833d8ed2b57aee5d5899c78fdf3318416d68f301ebeae745a144c7"
       },
-      "head": "d7c8d144b0e311aa1dfd74fafc4a2edb8c15767c",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Host internals of PRs 180 to 185 (pointer tool port, drafts, shifts, anchors on the globe); the behavior is in the editor, interaction and map skills.",
+      "reason": "GraphWatcher.surface hook for companions (PR 214); taught by the map skill.",
       "evidence": [
-        "Diff of src/host/internals.ts since 0.26.1 read in PRs 178 to 186"
+        "Diff of src/host/internals.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/host/layer-control.ts": {
@@ -739,27 +766,27 @@
       ]
     },
     "source:src/host/lifecycle.ts": {
-      "fingerprint": "2ab3eb8ae5d1b24ad540f85e5bc81b05f24ba3fb90e443a25bca7c71556a3f4c",
+      "fingerprint": "93b1a2e2a31874316b850bace25532fb1273df6adcea269752973d83b34f089f",
       "snapshot": {
-        "src/host/lifecycle.ts": "9765669d5f3250cfd2ba4d68cbf237a9d02ab1e9c7d542e0db4596974aaea8b5"
+        "src/host/lifecycle.ts": "b3fd775e2651d7d5d7fda10f0c35eabae335b5e9c9440f78f2983e2bfa6aba93"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Dead versions of positions.reset, layout.compute, shown, isShown and refresh (PRs 192 to 194); taught by the core skill.",
+      "reason": "Dead versions of history.of and history.instant (PR 215); taught by the core and time skills.",
       "evidence": [
-        "Diff of src/host/lifecycle.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/host/lifecycle.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/host/mount-graph.ts": {
-      "fingerprint": "6a93a58534327d09e82ab4cad7095d9767792a54c0bb3d86107f8bfcc26a66a8",
+      "fingerprint": "21f2dea66b47a2fef50bc4f704eca56c0c580988e6d6ad7d5fac6805e23aa96c",
       "snapshot": {
-        "src/host/mount-graph.ts": "f61e37b0f3521149c98415d7ea847fe7fcfaa500dab26ce23fb35d4453f1632c"
+        "src/host/mount-graph.ts": "75003003766d3e3ea173daa8736a96bcb2035c7da9b2b807a44844cca46bf1b7"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Wiring of initialPositions, positions.reset, compute, lasso options, shown and refresh (PRs 192 to 198); taught by core, layouts and interaction.",
+      "reason": "moveTo, surface option, history read instant and companions hook (PRs 208, 213, 214, 215); taught by map, view, react and time.",
       "evidence": [
-        "Diff of src/host/mount-graph.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/host/mount-graph.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/host/selection-control.ts": {
@@ -788,27 +815,27 @@
       ]
     },
     "source:src/core/columns.ts": {
-      "fingerprint": "8bb79f3b96977265733a1da7f14effdf8710f34a97f267e10387db187b05e107",
+      "fingerprint": "643de0388d68a8a53ea1357dfc46c3e12b3826efa1c5f4e4d6fe7e53b00f54ce",
       "snapshot": {
-        "src/core/columns.ts": "73c101fd7bb30865284bc53ddaddf15993060b10e10862c518de8812ff192d01"
+        "src/core/columns.ts": "844f1d9923ef8077e88202a3009419a88690eab9494c620e05ff122c0201e299"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Badge icon, ring and order columns (PR 196); taught by the styling skill.",
+      "reason": "Container layout column (PR 204); taught by the layouts skill.",
       "evidence": [
-        "Diff of src/core/columns.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/core/columns.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/core/graph-model.ts": {
-      "fingerprint": "a02bcec6bab15c771b44eb924050c4b1e45f0292bfb2c416f35ecc3228669607",
+      "fingerprint": "6eae81b4cc37e533489b61588a67fa0229154955949519c1d90e9683b1da7d0d",
       "snapshot": {
-        "src/core/graph-model.ts": "7915b435ac414ee89770610abdb1cbffbca4495a4596552d77453b5cabfcc209"
+        "src/core/graph-model.ts": "b80521b0ca13c9ba33229f648d089efb41b1f4fd5cf3389560870575f63c66b7"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "refresh(kind, keys) behind graph.refresh (PR 194); taught by the core skill.",
+      "reason": "readAt cut and rowVersion for history (PRs 215 and 217); taught by the time skill.",
       "evidence": [
-        "Diff of src/core/graph-model.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/core/graph-model.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/core/group-index.ts": {
@@ -838,15 +865,15 @@
       ]
     },
     "source:src/core/scene.ts": {
-      "fingerprint": "a48bdee2087421d96a8d792fb550e19214c956415639b9f77c6105127e508118",
+      "fingerprint": "4e5e2876beef0549d7167c12e829fb3229e62db8de6f5d49b626eb2e66a16850",
       "snapshot": {
-        "src/core/scene.ts": "22988551b7a50c35b1cd23384b4f49f897444c63a29d0e0a2c92869a6b31ec1e"
+        "src/core/scene.ts": "4e899ab6225f305e59210aad1565f83d09a8fd1ea47c5ae529fcf02237b599ee"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Badge images, halo colors and node order written to the columns (PR 196); taught by the styling skill.",
+      "reason": "Container layouts, history scale probes and group fill opacity per surface (PRs 204, 208, 217); taught by layouts, time and map.",
       "evidence": [
-        "Diff of src/core/scene.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/core/scene.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/core/state-buffers.ts": {
@@ -886,15 +913,15 @@
       ]
     },
     "source:src/export/svg.ts": {
-      "fingerprint": "c9bfd5014c6f97410789c429118eb04052af0f410a6993761bec040472ee2bbe",
+      "fingerprint": "0dd7b546d6a0694929dc94811fa7a13da9b2b568bed761e8d4cc7a08e7ee62c9",
       "snapshot": {
-        "src/export/svg.ts": "e7763cf0e5c57540cd41082e50133deb2daf30cba0f487912f89d3698aace77a"
+        "src/export/svg.ts": "4c7ccf022f22cb3b08d9659521c8480a4675c22e4c0f4a23a1fed4b63323c8b1"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "size, grid and badges options of exportSvg, badge icons and halo colors (PRs 193 and 196); taught by the export skill.",
+      "reason": "Hull labels in SVG (PR 212); taught by the export skill.",
       "evidence": [
-        "Diff of src/export/svg.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/export/svg.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/host/state-registry.ts": {
@@ -910,15 +937,15 @@
       ]
     },
     "source:src/legend/read.ts": {
-      "fingerprint": "a8f78a0a92de95326a3ae33d7ddf82b7a283526a2a4ae40c75a35b8eb3f947dd",
+      "fingerprint": "e273222ab93ab430b543e8029a2698bc0a2be7bd5dc016cf9ce23bd8aec984c0",
       "snapshot": {
-        "src/legend/read.ts": "58d4b788479cffd7b71bf146350b5ab1ff2e860b9a66f34afdb9dcb5700cac54"
+        "src/legend/read.ts": "ffd74e1373313f44af491733fd79109479de47f333398569343ebf89757b36ae"
       },
-      "head": "d7c8d144b0e311aa1dfd74fafc4a2edb8c15767c",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Legend read of shapes (PR 178); taught by the tools skill.",
+      "reason": "Zero-count categories from history and empty option (PR 217); taught by the tools skill.",
       "evidence": [
-        "Diff of src/legend/read.ts since 0.26.1 read in PRs 178 to 186"
+        "Diff of src/legend/read.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/webgl/arc-shaders.ts": {
@@ -983,27 +1010,27 @@
       ]
     },
     "source:src/webgl/renderer.ts": {
-      "fingerprint": "0a8e375a514e1fc13b53b7b4efda0f2b47a36e168bf8b456935390dbb1631388",
+      "fingerprint": "da9448c98f02a6865e57177ac34681b2a89f81c69386c054131c92995fdfa694",
       "snapshot": {
-        "src/webgl/renderer.ts": "551f69ba97148e2d9f4329104699c8b37dac6dd8798eaa233070602fdcb1822b"
+        "src/webgl/renderer.ts": "a753fc2a55e87aa098206428214e83293c9631b1622a904e076b65fb57821775"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Badge icons in the image atlas, node draw order buffer, badges off for exports (PRs 193 and 196); taught by styling and export.",
+      "reason": "Hull label buffers and per-surface renderer reuse (PRs 208 and 212); taught by tools and map.",
       "evidence": [
-        "Diff of src/webgl/renderer.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/webgl/renderer.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/webgl/shaders.ts": {
-      "fingerprint": "d0067e1725da9b65a82a8609e0239e4ad90a862f0af75f3533631ac5ccc626e2",
+      "fingerprint": "e7df37d92c4316f842078c8219fadfd3877578c82e2a4548175e74c55b39e316",
       "snapshot": {
-        "src/webgl/shaders.ts": "b79c3c0226d7b22d920d469699769314361d97fe2c58bb2aec97c1ac873e0b6f"
+        "src/webgl/shaders.ts": "c64e6a3dbfc0dfe4e512035c38651e29e5ee58baa01bbc5afc72cb29921dc4a5"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Badge icon fragment, halo word and node order (PR 196); taught by the styling and interaction skills.",
+      "reason": "labelVertex places hull glyphs (PR 212); no public behavior beyond the tools skill.",
       "evidence": [
-        "Diff of src/webgl/shaders.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/webgl/shaders.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/webgl/waypoint-shaders.ts": {
@@ -1019,44 +1046,44 @@
       ]
     },
     "skill:skills/shapes/SKILL.md": {
-      "fingerprint": "f93685f909e66480847da50f885f2d807ec1e850b01502e2f43762fd4eb8376a",
+      "fingerprint": "79a62bd1a01ad11a99c544994f82f8f25416798f5d55a0aacb5ba7766b142583",
       "snapshot": {
-        "docs/content/docs/(guide)/map.mdx": "93b4b8f95224e05978394fff06f7632432d04fd2b58766f1c297299677b60108",
+        "docs/content/docs/(guide)/map.mdx": "1953663e2f621708550fe6b3edd85ed9962e497e3f6a1a712c2bed09d4b2605f",
         "docs/content/docs/(guide)/shapes.mdx": "9baaa69ed437c38e5daeb0532a9773af1ee85325e34b60cf2aabd18dd931f681",
-        "docs/content/docs/api/shapes.mdx": "aa6fa66a8dd4cf34d4994f6a3d15db1bcbf4a99256cdebbe4607694f2386d1fa",
+        "docs/content/docs/api/shapes.mdx": "dc0b22a768d4bc6a1d5ec6464ac4f79e673ac4cdef6923caa69b0bd4727b72b3",
         "skills/shapes/SKILL.md": "1b8217518965ab2e9ed32d3a5b5da8eb73a7d320f0475b87c594f2038567f644",
         "skills/shapes/references/labels-and-pins.md": "c0e4ae66bda4895ea9ea52ad732a7b3f73d97f269bfeae33e2bac809ab83bb69",
         "skills/shapes/references/maps.md": "bcf6f4641b271d6987b8b61f77acb1c02092dcf3a55b9f26edc7a69dd210a739",
         "src/core/shape-engine.ts": "0e1b50679f787295db69d8c02d365226d42ad38f0606f583822510275a8bc9a8",
         "src/core/shape-store.ts": "16bf89b754a58e7ca4177259557c997e77a8da6bcd6d175908f1b2ffbdbce8a1",
-        "src/host/events.ts": "9487d6d2781bf78bc8e9d9471a4508a2c1856f43e835c964e4f1fe5e9ad4c273",
-        "src/host/graph-instance.ts": "73b242100b56d6dea321f273eeabe8180cdfd87400bd7b75d07a283e688b406e",
+        "src/host/events.ts": "fc228c1ddec87fb5d5844a7c0799fd8a0cbb6b7f06bee786a20bac6684c5c544",
+        "src/host/graph-instance.ts": "d59274ccc788812cc11a42fcba1615ab52a5076f24c6556dbcb8a281989c453c",
         "src/shapes/anchor.ts": "faa6c99b6e97aefabe7457db463d272fa46924089916ca0410bbaa0bc9bf2e6b",
         "src/shapes/index.ts": "8cd1a77e357f4f6ab984353e909f1cd7d3238d3004b8d5f573d5d346e56b7b53",
         "src/shapes/pick.ts": "c18027e1e1565ad9ea92c2a0a81cef88f96b1133ecc8f49f081494f2dd84cffb",
         "src/shapes/read.ts": "99fc9af9aa8d44c3e5596aa649db42734c8ca4a59fb8cc207cf5f221aad4f9b3",
         "src/shapes/subdivide.ts": "b1576a97844313f4ac12eb43304aac3b01b66837f1871d6005fa7329a147f664",
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
-        "src/types.ts": "9211160fe3a83c5213c69b3e58542ca55e8f3852ead24e64678566f43b5406bc"
+        "src/types.ts": "70516c3beee7489c3f568f717536cf8f6c45ff5b4b491494212f1c273907e51e"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
-      "outcome": "updated",
-      "reason": "PR 201: shown().shapes lists the shapes drawn (PR 194).",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Shapes unchanged since 0.28.0; history on shapes is taught by the time skill and the map statements still hold.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/shapes/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Changed files since 0.28.0 read against skills/shapes/SKILL.md: nothing it states changed"
       ]
     },
     "source:docs/content/docs/api/meta.json": {
-      "fingerprint": "f9328ed1740db8ce9be753cc07c9d71f01d443c73af219492c05b291f6b8fd6d",
+      "fingerprint": "85051fe26c7ae38f12234a2f671a0acf77827207adc23a500149a59f891eb1db",
       "snapshot": {
-        "docs/content/docs/api/meta.json": "677a2bc1dfd8eedd1cd8843ee23133e0d86cff94ed292f5924fc299a23ff8807"
+        "docs/content/docs/api/meta.json": "b2061e16c8c188af2f1bf05e3ac122df58885ca5d2e362858b2eed04a2fa771b"
       },
-      "head": "d7c8d144b0e311aa1dfd74fafc4a2edb8c15767c",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Docs of PRs 178 to 185 (guide and API indexes, upgrading 0.27.0); the skills link the docs by URL and state the same behavior.",
+      "reason": "Adds the history API page to the navigation; taught by the time skill.",
       "evidence": [
-        "Diff of docs/content/docs/api/meta.json since 0.26.1 read in PRs 178 to 186"
+        "Diff of docs/content/docs/api/meta.json since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/core/hierarchy.ts": {
@@ -1099,39 +1126,39 @@
       ]
     },
     "source:src/devtools/inspector.ts": {
-      "fingerprint": "8f8ce659bac425a1bed1fec92ad9792d3f434b620e893d80e1ea16d8e1972a6c",
+      "fingerprint": "05bbb31c109a22ebe72954dd0ed16bcb677309a8d1e0c580a5757ff51dda5251",
       "snapshot": {
-        "src/devtools/inspector.ts": "df24a171866be4355f8574c61544ed02714ff85ec26120352cb6c44028e526d4"
+        "src/devtools/inspector.ts": "87b830e9c1e77c08eed2571db058453e9f23a0e1328be7f2d64dca1375f561ac"
       },
-      "head": "0e905dbed94d6a3da526c68a6a3b2ddc0def630a",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Shape label counts in the devtools panel (PR 189); taught by the tools skill.",
+      "reason": "Surface in the graph report (PR 214); taught by the tools skill.",
       "evidence": [
-        "Diff of src/devtools/inspector.ts since 0.27.0 read in PRs 188, 189 and 191"
+        "Diff of src/devtools/inspector.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/devtools/messages.ts": {
-      "fingerprint": "c20493293a50dc211fba518059fba3fc4f62ad38a90e3f057a9af6081d3968d2",
+      "fingerprint": "6d758a9d612ec81c2d77c8cc540bf00ec012cefbd3969be234303801fa3d14e7",
       "snapshot": {
-        "src/devtools/messages.ts": "2bca6910db5852695603d65c263719763fcdb0309054b269ba3dac4425c27d12"
+        "src/devtools/messages.ts": "f50642bfb2aa41b57ccaa2167a6e0cb696b3cefb706edec5ad05e2f141c3bac3"
       },
-      "head": "0e905dbed94d6a3da526c68a6a3b2ddc0def630a",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Shape label counts in the devtools panel (PR 189); taught by the tools skill.",
+      "reason": "Surface and surfaceName messages (PR 214); taught by the tools skill.",
       "evidence": [
-        "Diff of src/devtools/messages.ts since 0.27.0 read in PRs 188, 189 and 191"
+        "Diff of src/devtools/messages.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/devtools/view.ts": {
-      "fingerprint": "b9718906d1abf42035540305218426c2bbae5fb005e13219bc6190c1f4175583",
+      "fingerprint": "85b5db98eaf188ec682708a2d2baf47f0d8f26249ffe864e22b42f49d5b8b779",
       "snapshot": {
-        "src/devtools/view.ts": "bec8868f7fea6c65bbf18e6cf79245726ac3a7f3a97b1795c97540e0ca520521"
+        "src/devtools/view.ts": "8dc1ca5379f9d1a55e6802ccf5c68eb0b4e8f0c6144258228949861a5a7d7840"
       },
-      "head": "0e905dbed94d6a3da526c68a6a3b2ddc0def630a",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Shape label counts in the devtools panel (PR 189); taught by the tools skill.",
+      "reason": "Surface row of the View section (PR 214); taught by the tools skill.",
       "evidence": [
-        "Diff of src/devtools/view.ts since 0.27.0 read in PRs 188, 189 and 191"
+        "Diff of src/devtools/view.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/export/frame.ts": {
@@ -1306,15 +1333,15 @@
       ]
     },
     "source:src/core/compile-mark.ts": {
-      "fingerprint": "dbd044295d4d374067c5ccd8851dd8a07a7f71f823575bb1b9abebc469eea691",
+      "fingerprint": "d0fd7c63cf08dd59b817dc956508408706dada5e6bfbc53554fe901dc2340e69",
       "snapshot": {
-        "src/core/compile-mark.ts": "50104f35f03de657a1085ffb583e0613d2a603780f9f62d25dae3f5106157132"
+        "src/core/compile-mark.ts": "a624b708567f36fade29c7e2de5e7ebf950f43fee2d6e31882494b8493c39bc7"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Compiles badge icons, halo objects, node order, container label, badges and drag (PRs 194 and 196); taught by styling, groups and interaction.",
+      "reason": "Compiles container.layout, history and hull label options (PRs 204, 212, 215); taught by layouts, time and tools.",
       "evidence": [
-        "Diff of src/core/compile-mark.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/core/compile-mark.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/core/label-text.ts": {
@@ -1330,15 +1357,15 @@
       ]
     },
     "source:src/export/labels.ts": {
-      "fingerprint": "48450d8bced5a56796928119387e420fe100b4d1fa5fa8a6892c83b4346671e9",
+      "fingerprint": "59ac815625f64c031f2057039cc1979bfff1580c5dab54d4b9f0c9745cbc8298",
       "snapshot": {
-        "src/export/labels.ts": "cff02c839e95491fa46d1289545fbd555add169865d9f3f1f8c7eddc2422aaab"
+        "src/export/labels.ts": "72abd09f82c1b0f717d01421b3c5951621378df35df1be436a7c0996a03477f5"
       },
-      "head": "ce4e77ddc158139baeb6c0e7b00a5a7b21d5c407",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Export internals of PRs 170, 172 or 174 (shapes on maps, shape labels, PNG waiting for fills); the behavior is in the export and shapes skills.",
+      "reason": "Hull labels in export frames (PR 212); taught by the export skill.",
       "evidence": [
-        "Diff of src/export/labels.ts since 0.25.0 read in PRs 170, 172 and 174"
+        "Diff of src/export/labels.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/export/png.ts": {
@@ -1438,27 +1465,27 @@
       ]
     },
     "source:src/webgl/glyph-attributes.ts": {
-      "fingerprint": "bc39c6067b7685189d88b45cecadb3361d9befc6a559d03f69ed83f8016eba77",
+      "fingerprint": "9779aec4905843b84464579c8a888252d5de607fe193eadf5b5e3cb55168f58a",
       "snapshot": {
-        "src/webgl/glyph-attributes.ts": "7c5a6ed3a578bbaf4b6467f061c9ad183a8a0a00a203d1e1c3983ad5f4a5b5fd"
+        "src/webgl/glyph-attributes.ts": "2d36df07c354d70e60fb81af780bf3db5ba900b31f242deea28af7871bc95133"
       },
-      "head": "d7c8d144b0e311aa1dfd74fafc4a2edb8c15767c",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Rendering internals of PRs 183 and 185 (shifts, fill chunks, world glyphs); no public API.",
+      "reason": "Glyph anchor and fit attributes for hull labels (PR 212); no public behavior beyond the tools skill.",
       "evidence": [
-        "Diff of src/webgl/glyph-attributes.ts since 0.26.1 read in PRs 178 to 186"
+        "Diff of src/webgl/glyph-attributes.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/webgl/label-layer.ts": {
-      "fingerprint": "9b94af9bcd2cbf3eba8e7a5df9799acd8d75d949be2b49e8452a54753b440bbd",
+      "fingerprint": "c0000498d60ac8975836c9a22105478f53e3f069bd802a35ae2d36e266e84849",
       "snapshot": {
-        "src/webgl/label-layer.ts": "961f35cf2b19af92e37d61292be3755820ee02b27ac93b82c248a96ca73ed535"
+        "src/webgl/label-layer.ts": "d132142efba6cac3c38f1a9454e79336c5d71735c19a29c83f682c772bdd4ba7"
       },
-      "head": "d7c8d144b0e311aa1dfd74fafc4a2edb8c15767c",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Rendering internals of PRs 183 and 185 (shifts, fill chunks, world glyphs); no public API.",
+      "reason": "Hull labels selected after forced labels (PR 212); taught by the tools skill.",
       "evidence": [
-        "Diff of src/webgl/label-layer.ts since 0.26.1 read in PRs 178 to 186"
+        "Diff of src/webgl/label-layer.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/webgl/label-levels.ts": {
@@ -1486,31 +1513,31 @@
       ]
     },
     "skill:skills/editor/SKILL.md": {
-      "fingerprint": "fd4f459bfb2dc11d717f580998a693b242fd8612f94bf477f0f87eaeac7e53c9",
+      "fingerprint": "a3e37e9957c2dad0aa69cb5f0006db174c8ccfb4692519ee1e67199cc7b4dbeb",
       "snapshot": {
-        "docs/content/docs/(guide)/editing-shapes.mdx": "54d3da169f10e9698924ad6605adc4921faeb47e3052afa4ad056e463891f476",
+        "docs/content/docs/(guide)/editing-shapes.mdx": "6a8cf276203d1325df92328a458b952ea6ea699b4c5970301bfba522608974d5",
         "docs/content/docs/api/editor.mdx": "8643c96f6f48dcd398a2d03a3386f38d2f6785e5065d851ed5a0b7e5e898aab9",
         "docs/content/docs/api/persist-shapes.mdx": "7cea5a41868ba7254d05dfdf4ebd5c96e800e9d8dc9a6bbe45f25918a3f60dda",
         "docs/content/docs/api/shape-editor.mdx": "fbe9a1ed16c1cd9787940be683db3ef5c0859cdd6d8b6fd10bc88d09ab3c8939",
-        "docs/content/docs/api/show-presence.mdx": "2e48322132cdb36c5cacc56616a55c7fcc71b6722e452762684299668f7e75af",
-        "skills/editor/SKILL.md": "7d8fc5e6612be408b006f2381ecafffe4dc7d04627f93e70a4ff6b15c7c22bdb",
+        "docs/content/docs/api/show-presence.mdx": "0a753e1a58cd450c7c5ffe343661ab7fec58d7634c298caf39bf362eedfa13f4",
+        "skills/editor/SKILL.md": "76531bbec9b74d74db7b7e7e5dcfecb1c9fddfa9e253ccfe33cb6f0290244ecc",
         "skills/editor/references/persistence.md": "d2406b144f8667c630d66571a64dd7c065899523ddfa449eb9b5d3722a8c0f01",
-        "skills/editor/references/presence.md": "e407f681932bf46aca03b5eb6d69d3670a07233f462d19f2e96d93719cb496a0",
+        "skills/editor/references/presence.md": "648d9ddb0238abc823dd514ec02414e092d58525a8aa02e21d92e68c22ea0433",
         "src/db/persist-shapes.ts": "ae5589ffc1c2d8796dd3394143970792570863ab0d771b327592a96ac689f20f",
-        "src/db/presence.ts": "ccb82caa616c9302ea3541ca2e9cf931dd735e014fd53ef116682a97faf00cea",
+        "src/db/presence.ts": "96e109bb935847f34291f0a2f0636557da532f5f69abdd4f997ff39e4469b543",
         "src/editor/draw.ts": "a22f89beef72156dd3d25dea462a60bb2c3e72a9557067ca2a15e75c1aa3eaeb",
-        "src/editor/editor.ts": "a02b07c13a0290d64e4084671749c4dd9ea0ff3581648b34bcad6d7566f551c3",
+        "src/editor/editor.ts": "1f7723752c169c930abe996a2816fd188d67b2a8e62db0d04c9e8f05dd55c340",
         "src/editor/edits.ts": "a1fa76f86213021408848f03894183bcab419f1ce570fdfc42af596857e9b21e",
         "src/editor/index.ts": "c01bcb3f845d604122efd3e0396473e4eb5e1e7adb9d107f57f1fca5c3109f65",
         "src/editor/react.tsx": "7ba2eb1ab033b9be50c8b7970e36e30d484b30b1c0c87d521a319bc590e111b3",
         "src/editor/view.ts": "52693c80acc770dad2e4749f543a7229d1179fb4b2ec155c079c8ffc80df338d"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "updated",
-      "reason": "PR 201: canRaise and canLower, ShapeEdit narrowed by mark so the in workaround is gone, applyShapeEdits stays wide (PR 193).",
+      "reason": "PR 216: units auto follows the surface, gesture abandoned and text proposed at a switch, presence surface field (PR 214).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 9ffce69: every fence typechecked, published copies under 500 lines (shapes 486, the longest)",
-        "Maintainer review of PR 201: no em dash, no comments in examples, no other library named, only skills/ and _artifacts/ changed; skills/editor/SKILL.md sampled against src/"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 891bae9: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PRs 216 and 218: no em dash, no comments in examples, no other library named, only skills/, _artifacts/ and four docs sentences changed; skills/editor/SKILL.md sampled against src/"
       ]
     },
     "source:docs/content/docs/(guide)/index.mdx": {
@@ -1586,15 +1613,15 @@
       ]
     },
     "source:src/host/decorations.ts": {
-      "fingerprint": "73e0b994731fe842f9908d89aea83d17d4e191a25398ad16b51c138ed73d7203",
+      "fingerprint": "338d68eba46a8c85554fb0d3998acee0f0cb91a10d2c54260f3aef73cf882ec5",
       "snapshot": {
-        "src/host/decorations.ts": "a087b74a88846a49051dc9ed2cb314c94975ff99dcd000a0c0a171e8819fa089"
+        "src/host/decorations.ts": "542377489afc0771744775af556254c092f9609083caf72632492b12de78c872"
       },
-      "head": "0e905dbed94d6a3da526c68a6a3b2ddc0def630a",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "Anchors on the globe (PR 188); taught by the map and tools skills.",
+      "reason": "Hull label anchors handed to the label layer (PR 212); taught by the tools skill.",
       "evidence": [
-        "Diff of src/host/decorations.ts since 0.27.0 read in PRs 188, 189 and 191"
+        "Diff of src/host/decorations.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/host/pointer-tool.ts": {
@@ -1682,27 +1709,27 @@
       ]
     },
     "source:src/host/renderer.ts": {
-      "fingerprint": "4bceab42ea72c29972d766643b7f45dca47527d6541916f53a575dcfbdd33e2d",
+      "fingerprint": "37c7f0c9f58fca8f7d8aefe50dadb003f6a7b17e113295cb59d952a6f8fbc2a8",
       "snapshot": {
-        "src/host/renderer.ts": "72be0e9f03e0d15c70f44adccb9159e71720c9b56b5e54530478a937cf086e52"
+        "src/host/renderer.ts": "e109b3d6c1718951768861542ba124fb6c964644d13cda7fa3177278b1e7b3c0"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "RenderFrame.badges in the renderer port (PR 193); taught by the export skill.",
+      "reason": "Renderer port gains hull labels and surface limits (PRs 208 and 212); taught by tools and map.",
       "evidence": [
-        "Diff of src/host/renderer.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/host/renderer.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/core/positions.ts": {
-      "fingerprint": "975073894ed1cd719b1a8ca4f82b86e468f9889db8eb727b8b52be2dff7b5f54",
+      "fingerprint": "291ef8c084429ebc858005b1cab13613b4790a168c2fc1846a5b7cc9e9808ceb",
       "snapshot": {
-        "src/core/positions.ts": "1fc3c175e2dc0cc4568ac2b5a523f8060b2afbc6c7e513c6bf09e1364f924e64"
+        "src/core/positions.ts": "a7fd9f26a679d25e64c2a42a4b3f3a45dced7bdb4f9dfa6c89710bf2de4af53d"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "RestoredPositions for initialPositions (PR 198); taught by core, layouts, react and view.",
+      "reason": "One plane of positions per surface (PR 208); taught by map and view.",
       "evidence": [
-        "Diff of src/core/positions.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/core/positions.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/host/layout-graph.ts": {
@@ -1718,15 +1745,15 @@
       ]
     },
     "source:src/host/spread.ts": {
-      "fingerprint": "3cda67fbe72fb5af25cd33e8ab9870124fdf5c814013addf432ed1b7b4d82d5a",
+      "fingerprint": "30996425cc4e047d35b452301be8a49a9ede772966121a45f27cc568dc6e09b2",
       "snapshot": {
-        "src/host/spread.ts": "e5eb2a5b72b365588f0ec09032dcdfaa6215737f5c900ce6abccfc8b104e8602"
+        "src/host/spread.ts": "aef928c3954d90a7977e756e5e53443ebeabfbe8df93fe911eb1982934d90d70"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "reattach for positions.reset of spread members (PR 193); taught by the core skill.",
+      "reason": "Spread leave and enter at a switch, no spread for arranged members (PRs 204 and 208); taught by groups and map.",
       "evidence": [
-        "Diff of src/host/spread.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/host/spread.ts since 0.28.0 read in PRs 202 to 217"
       ]
     },
     "source:src/layouts/blocks.ts": {
@@ -1778,15 +1805,315 @@
       ]
     },
     "source:src/layouts/shared.ts": {
-      "fingerprint": "9616b9fe6163627d11f73aed1d38d08f12189eec278784930d15a84eef6786e0",
+      "fingerprint": "917305f1cf5f9c63fca72ffb6cbaf96c3a0cd6f1424a19347ee1671afbaf1927",
       "snapshot": {
-        "src/layouts/shared.ts": "61b5354e2904c11025eb631361cd9223c54660e502f5bf76ff360df6d8175449"
+        "src/layouts/shared.ts": "c803f1b2fb501bfc7139b93c3d70cdb3a045bd80dfe2c5e8e3cc9c72be7e3160"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
       "outcome": "no-change",
-      "reason": "stepsOf and gapOf for grid spacing per axis (PR 192), spacings from plain nodes (PR 200); taught by the layouts skill.",
+      "reason": "Instant runs sliced for group scopes (PR 206); taught by the layouts skill.",
       "evidence": [
-        "Diff of src/layouts/shared.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/layouts/shared.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/core/edge-merges.ts": {
+      "fingerprint": "94eb24d09b238bb5616d13070e5b76f8f64474309ca91de3acf3b214646d08d1",
+      "snapshot": {
+        "src/core/edge-merges.ts": "b6027024a95fcad34c8e2bf4df056b0fa4b1fa87908bc5e6feb5e708ace0a41d"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Whole aggregates toward folded groups (PR 210); taught by the groups skill.",
+      "evidence": [
+        "Diff of src/core/edge-merges.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/core/hull-layer.ts": {
+      "fingerprint": "97db87f92fa37c6c21073d4e32165e02706c5d4e02cfb0c3406a735a79bd2e4e",
+      "snapshot": {
+        "src/core/hull-layer.ts": "115f93a4fdd1a3fc799fa07f48549527c4120258aa34b96f6de1c9e632b5bcf8"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Hull label anchors and fit (PR 212); taught by the tools skill.",
+      "evidence": [
+        "Diff of src/core/hull-layer.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/core/layout-scopes.ts": {
+      "fingerprint": "cf55b809a69764ea6278fead7149bc490671e4b7db3369177369c23cea1de00a",
+      "snapshot": {
+        "src/core/layout-scopes.ts": "39ecd891291ef77966ed4c7bfa771e89be11de26777838c1b691c853bd5e0756"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Scope engine port and arrangement types (PRs 204 and 207); taught by the layouts skill.",
+      "evidence": [
+        "Diff of src/core/layout-scopes.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/core/same-options.ts": {
+      "fingerprint": "dc0518cceef8da8f3dd4760742f4be5e8b28e97a78e7a623aea357d156dfee6b",
+      "snapshot": {
+        "src/core/same-options.ts": "5635994c9c407421cd0aade64ae6a2a5e486a6993a4eac0cc7ab44ed87a16ccc"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Comparison used for container layouts recreated with equal options (PR 204); taught by the layouts skill.",
+      "evidence": [
+        "Diff of src/core/same-options.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/history/index-store.ts": {
+      "fingerprint": "5e108f46017bcb2356ffd8f2c6466c3cbf51a041d5c2d21fed52f1f89cda0301",
+      "snapshot": {
+        "src/history/index-store.ts": "4f81e31dfca764e9d9c400d6fc8da79452cfd87c2a6ebd6651b330384c7028a3"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Time-key index of history (PR 215); internal, behavior taught by the time skill.",
+      "evidence": [
+        "Diff of src/history/index-store.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/history/order.ts": {
+      "fingerprint": "30b5a44e647b1d7fbdbd85e320c6658404f1dbcca11bdb41f0ed8911592379ed",
+      "snapshot": {
+        "src/history/order.ts": "cb0886e74a0912722f975c2c1d7a6b001f6019df99320c83dab2ae9ac3f7a1ca"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Radix order of entry times (PR 215); internal, no public behavior beyond the time skill.",
+      "evidence": [
+        "Diff of src/history/order.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/history/scales.ts": {
+      "fingerprint": "455c4a870f88533940638f0d8563f1a84b4df642a1b989aa6f8288a43021977c",
+      "snapshot": {
+        "src/history/scales.ts": "96a44eb7ac9cb20a062a55c711aad415e182135c0eb89766c9396cabc587c479"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Scales over the whole journal (PR 217); taught by the time and tools skills.",
+      "evidence": [
+        "Diff of src/history/scales.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/history/track.ts": {
+      "fingerprint": "1d15bb611768ac01d8aad61ce380bb074cdcf8e645423b2ff6663ab1388fd3f6",
+      "snapshot": {
+        "src/history/track.ts": "cb11e23392521134ba138f4886ebcb3fe97cb63ddfc702de7f74760c0dee9ddd"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Cursor steps over entries (PR 215); taught by the time skill.",
+      "evidence": [
+        "Diff of src/history/track.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/host/frame-cost.ts": {
+      "fingerprint": "8d895498e55305b6ae499ce7a4705047010cf846eb057396a1cd950cf51e98d0",
+      "snapshot": {
+        "src/host/frame-cost.ts": "a8609de0d87bd286e25f418ad1ce3ce9e87c4c084a499aea29cda11422d80d71"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Frame cost probe per surface renderer (PR 208); no public behavior.",
+      "evidence": [
+        "Diff of src/host/frame-cost.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/host/frame-scheduler.ts": {
+      "fingerprint": "e2b4f6523728d76fd0db605aa79a6a31bc7bd40104b09f6623d3e5b69f27dd9f",
+      "snapshot": {
+        "src/host/frame-scheduler.ts": "09ef82687ebf9668c43e5c32260f268218f5174c47cdff491ea426edf248ee43"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Frames scheduled on the current surface (PRs 202 and 208); taught by the map skill.",
+      "evidence": [
+        "Diff of src/host/frame-scheduler.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/host/lens-control.ts": {
+      "fingerprint": "9c7814b40f21e5f6451e3fbce328b25f5d74bd987e9a03357e652435f4fe67fb",
+      "snapshot": {
+        "src/host/lens-control.ts": "73208d5398029c61c551a7793bfccb61d20ce5910ff13b703e218983002c53e6"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Lens hidden on a map and back on return (PR 214); taught by the tools skill.",
+      "evidence": [
+        "Diff of src/host/lens-control.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/host/position-motion.ts": {
+      "fingerprint": "eab564e0bfd1fe34b33b28c9c65b65afe0a20ff316c045113976ee9e3128713b",
+      "snapshot": {
+        "src/host/position-motion.ts": "060cfe4013c319ea414530a5220838fe58d30494690e5cd59661a550f5ebe83a"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "carry and release for arrangement on unfold (PR 207); taught by the groups skill.",
+      "evidence": [
+        "Diff of src/host/position-motion.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/host/render-host.ts": {
+      "fingerprint": "0fb2b80a1098fdb7ac654fa66c530f7a700010361b74451706a6f2619b3ce9a9",
+      "snapshot": {
+        "src/host/render-host.ts": "7c5f4c40022ac02ccb8e5427aa0e706fbc13d95048a65ce592319acad6aea5e5"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "One renderer per surface (PR 208); taught by the map skill.",
+      "evidence": [
+        "Diff of src/host/render-host.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/host/surface-registry.ts": {
+      "fingerprint": "bca156988208cc08709afe046dbb86702cb82a2603af947b0fa114e3da670d96",
+      "snapshot": {
+        "src/host/surface-registry.ts": "4c009111379322d89d599cd6b2102779b84a71f883c152088fe3926fd69b4a01"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Registry of map surfaces (PR 208); taught by the map skill.",
+      "evidence": [
+        "Diff of src/host/surface-registry.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/host/time-control.ts": {
+      "fingerprint": "bdafd56486caf5c1b3fd40db52fe007ce12dfe828c5d07e951808dec561370bc",
+      "snapshot": {
+        "src/host/time-control.ts": "7091bc5a28a8d714b94aa3b3c424ec714cf4787ff959031b67762ef5be9fd302"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Read instant passed to history (PR 215); taught by the time skill.",
+      "evidence": [
+        "Diff of src/host/time-control.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/arranged-places.ts": {
+      "fingerprint": "e30035b9493a0b0b6564022c9c2da1110e013508a5a8d89ce08069f031dd0596",
+      "snapshot": {
+        "src/layouts/arranged-places.ts": "d0c96880c4bbbc4dcdc45bddc1d38f82ac9a17ac0b180676ac59b2328423686d"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Places remembered per group for unfolds (PR 207); taught by the groups and layouts skills.",
+      "evidence": [
+        "Diff of src/layouts/arranged-places.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/force/batch.ts": {
+      "fingerprint": "e51194e4ef21d14e8a96882c9821e3f77e249044c6145a83fd309150ebc78094",
+      "snapshot": {
+        "src/layouts/force/batch.ts": "c0a306e67191e8f538b984c3064ef42546e8d8f4cd65d8bd05d50885acf8e9d9"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Batched groups for the worker pool (PR 206); taught by the layouts skill.",
+      "evidence": [
+        "Diff of src/layouts/force/batch.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/force/pool.ts": {
+      "fingerprint": "727744c595fae4bc804b188646346fc5d4bd908ff29f27290506a429cd866a96",
+      "snapshot": {
+        "src/layouts/force/pool.ts": "bbebc1adf93cf6f87e233cdc0e5b5647f366f34f057f07f50baf74ed4890efa7"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Worker pool for group layouts (PR 206); taught by the layouts skill.",
+      "evidence": [
+        "Diff of src/layouts/force/pool.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/force/protocol.ts": {
+      "fingerprint": "9a0127396f1e4ce3545948ebcfe485d5356af5b27b23e50ae6beea2b199cc75b",
+      "snapshot": {
+        "src/layouts/force/protocol.ts": "1c57e9a5b39d7b108e16102d4a9e038cf1d970f965523433d8062e6a23b17a36"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Worker messages for batches (PR 206); internal.",
+      "evidence": [
+        "Diff of src/layouts/force/protocol.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/force/runner.ts": {
+      "fingerprint": "2d5b16f9a43ddceb12b8c2872164287f57d334a2618d58b12579adbafbbffe3e",
+      "snapshot": {
+        "src/layouts/force/runner.ts": "6c4784c873bff0cbf0eaf2577f90498db04373d990121574f89ee70190a33567"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "ForceJob shared by the pool and runForce (PR 206); internal, same results.",
+      "evidence": [
+        "Diff of src/layouts/force/runner.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/force/worker.ts": {
+      "fingerprint": "c9305ceb8865b88c5bbb07d58d26323f111c9779aa894e86ddaf16488a6681c9",
+      "snapshot": {
+        "src/layouts/force/worker.ts": "2b9743d4fbe943dabe6140036b377facafa96b2d629cccf30d717a26087af81a"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Worker handles batches (PR 206); internal.",
+      "evidence": [
+        "Diff of src/layouts/force/worker.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/orient.ts": {
+      "fingerprint": "8172aa9aff5fdf99116a3e1eb229ec6aa8e08af442185be037a4dc5d41eadcfe",
+      "snapshot": {
+        "src/layouts/orient.ts": "de667465d0b95416f02a6c22265c564e621f10723329a845a88a9c35e60ec48d"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Weighted Procrustes orientation of blocks (PR 204); taught by the layouts skill (turns).",
+      "evidence": [
+        "Diff of src/layouts/orient.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/scope-runs.ts": {
+      "fingerprint": "8e12eaac2c0714f2ff443973e98a0903a40fb0571457d4bc716c7070bea0c43f",
+      "snapshot": {
+        "src/layouts/scope-runs.ts": "9aff0617b7abfdc2945f49bb3de59a07237acbb1f33ce6930a16fabba981a8fd"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Scope runners registered by instant and force (PR 206); taught by the layouts skill.",
+      "evidence": [
+        "Diff of src/layouts/scope-runs.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/layouts/unfold-arranging.ts": {
+      "fingerprint": "d1fa8d4ab2ac9d270f3d25dbf880e66ab4f7d99105ef0a47017f8e5bfb5edcac",
+      "snapshot": {
+        "src/layouts/unfold-arranging.ts": "2768c47a13e2ae1d3b4e08a7a1ad386c45ba50200572660db05df7ff99b88ff8"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Arrangement of a group as it unfolds (PR 207); taught by the groups and layouts skills.",
+      "evidence": [
+        "Diff of src/layouts/unfold-arranging.ts since 0.28.0 read in PRs 202 to 217"
+      ]
+    },
+    "source:src/map/binding.ts": {
+      "fingerprint": "9c8dc0a3fdf50f60cd365007b58096fa6ae62c5a4d4f7114a24b1ed2d91122ca",
+      "snapshot": {
+        "src/map/binding.ts": "920b69a2890951eda16824b16449ad628f40c488c0ed0385faaa41a28aa7255b"
+      },
+      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "outcome": "no-change",
+      "reason": "Map surface binding, layer handover between surfaces (PRs 208 and 213); taught by the map skill.",
+      "evidence": [
+        "Diff of src/map/binding.ts since 0.28.0 read in PRs 202 to 217"
       ]
     }
   }
