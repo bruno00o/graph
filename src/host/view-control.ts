@@ -205,8 +205,7 @@ export class ViewControl {
   }
 
   publish(view: View, cause: ViewCause): void {
-    if (!this.#framedOnce && cause === 'user') this.skipFirstFit()
-    if (this.#framedOnce && (cause === 'user' || cause === 'api')) this.moved = true
+    this.#claim(cause)
     this.#source.patch({ view })
     this.#source.emitter.emit('viewchange', { view, origin: originOf(cause) })
     this.#source.published()
@@ -218,7 +217,18 @@ export class ViewControl {
     )
   }
 
+  #claim(cause: ViewCause): void {
+    if (cause !== 'user' && cause !== 'api') return
+    if (!this.#framedOnce) {
+      if (cause === 'user') this.skipFirstFit()
+      return
+    }
+    this.moved = true
+    if (this.pendingFit?.automatic && !this.stillFraming()) this.pendingFit = null
+  }
+
   propose(view: View, cause: ViewCause): void {
+    this.#claim(cause)
     if (!this.#source.controlled()) {
       this.publish(view, cause)
       return
@@ -284,6 +294,7 @@ export class ViewControl {
       return
     }
     const to = this.constrain(target)
+    this.#claim(cause)
     this.animation = {
       from: this.base(),
       to,
@@ -377,6 +388,7 @@ export class ViewControl {
   }
 
   #glideTo(from: View, to: View, anchor: Point, start: number, duration: number): void {
+    this.#claim('user')
     this.animation = { from, to, start, duration, cause: 'user', anchor }
     this.#reached = 0
     this.#source.request()
