@@ -278,8 +278,8 @@ Failure mode inventory:
 
 | Skill       | Mistakes | HIGH | Notes                                                                             |
 | ----------- | -------- | ---- | --------------------------------------------------------------------------------- |
-| view        | 8        | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view    |
-| interaction | 10       | 2    | lasso needs two options, unanswered controlled selection, per-node drag           |
+| view        | 10       | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view    |
+| interaction | 12       | 2    | lasso needs two options, unanswered controlled selection, per-node drag           |
 | map         | 14       | 3    | layout on a map, teardown order, view options on a map graph, snapshots, `spread` |
 | time        | 18       | 5    | string times, exclusive ends, an empty list of periods, a history built in render |
 
@@ -381,6 +381,12 @@ Suspension, lost contexts, the pixel ratio and software rendering, legend entrie
 - The gap on browser support narrowed to WebGL2 limits and capacity fallbacks.
 - Cross-references proposed for the shared tables: `core` to `react` (the `suspended` and `keepFrame` props), `core` to `export` (the pixel ratio of a graph drawn in software), `styling` to `tools` (legend entries for colors set by rules), `time` to `file-formats` (GEXF spells), `map` to `groups` (`spread` against `container.spread`).
 - Docs corrected by the same pull request: the `react` guide and the `graph-component` page (a `<Graph>` without a height in the examples of many graphs on a page), the `time` guide (a block that used `links` without declaring them), the `export` guide (the default pixel ratio).
+
+### Aligned for 0.31.0
+
+The glide of a mouse wheel (PR 230). Failure modes added: `interaction` (two, 10 to 12: a `wheelGlide` that is not a number with `expect-error=TS2322`, the view read right after a notch), `view` (two, 8 to 10: requests of a controlled view answered late, the view saved on every `'user'` change). `interaction` gained `references/wheel-glide.md` (what counts as a notch, Firefox on macOS, what stops a glide, reduced motion and slow frames, reading the view), declared by hand in `skill_tree.yaml`. No other skill changes.
+
+- Docs corrected by the same pull request: the `interaction` guide (the keys that stop a glide are the zoom and fit keys, not every key) and the `view` guide (a glide fires `viewchange` on every frame, with origin `'user'`).
 
 ## Coverage and batch history
 
