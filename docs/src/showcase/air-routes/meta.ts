@@ -13,7 +13,7 @@ export default {
       page: 'transformations#merge-parallel-edges',
     },
     {
-      text: 'The graph and the map share one data set and one camera: the geo layout places airports like the map does.',
+      text: 'One graph moves between its plain view and the map, keeping its selection, groups and opened routes; the geo layout places airports like the map does.',
       page: 'map#with-and-without-a-map',
     },
     {

@@ -111,6 +111,55 @@ See the [map component](/examples/map-component) example.
 
 <LiveExample slug="map-component" />
 
+### One graph, on the map or not
+
+To move one graph between its own canvas and a map, render `<Graph>` and give it a `surface`: [`useMapSurface(map)`](/docs/api/map-graph#usemapsurface) makes one for the map you created and releases it on unmount, and `null` keeps the graph on its canvas. `<Graph>` applies `surface` and `definition` in one `update`, so give each side its definition in the same render, as in [With and without a map](#with-and-without-a-map). The instance stays, and so do its children: the hooks, `<Legend>`, `<Timeline>` and `<Anchor>` keep their state across the moves.
+
+```tsx title="Places.tsx"
+import { useMapSurface } from '@bruno00o/graph/map/react'
+import { Graph, Legend } from '@bruno00o/graph/react'
+import { Map } from 'maplibre-gl'
+import { useEffect, useRef, useState } from 'react'
+
+function Backdrop({ shown, onMap }: { shown: boolean; onMap: (map: Map | null) => void }) {
+  const host = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!host.current) return
+    const created = new Map({ container: host.current, style, center: [10, 48], zoom: 3 })
+    onMap(created)
+    return () => {
+      onMap(null)
+      created.remove()
+    }
+  }, [onMap])
+  const hidden = { opacity: shown ? 1 : 0, pointerEvents: shown ? 'auto' : 'none' } as const
+  return <div ref={host} style={{ position: 'absolute', inset: 0, ...hidden }} />
+}
+
+export function Places({ wanted }: { wanted: boolean }) {
+  const [map, setMap] = useState<Map | null>(null)
+  const surface = useMapSurface(map)
+  const there = wanted && surface !== null
+  return (
+    <Graph
+      definition={there ? onMap : plain}
+      surface={there ? surface : null}
+      ariaLabel="Places"
+      className="stage"
+    >
+      <Backdrop shown={there} onMap={setMap} />
+      <Legend />
+    </Graph>
+  )
+}
+```
+
+The element of the map is a child of `<Graph>`, before the overlays: it sits above the canvas, hidden while the graph is there, and under the legend on both sides. Hide it with `opacity` rather than `display: none`, so that it keeps its size. Read the side the graph is on with `useGraphState((state) => state.surface)` or `onSurfaceChange`.
+
+To show the same area on both sides, move the map before the switch with `map.jumpTo`, from the plain view converted as below, and set the plain view in a layout effect of the parent after the switch back: it runs after the one of `<Graph>`. A map removed while the graph is on it sends the graph back to its canvas; it stays there until `surface` changes again. See the [React example](/examples/map-and-back-react).
+
+<LiveExample slug="map-and-back-react" />
+
 ## Globe
 
 The graph follows the projection of the map. Set the globe projection of MapLibre, in the style or at any time, and nodes, edges, labels, badges, images, hulls, [anchors](/docs/drawing-layers#anchored-html) and the lasso go with it:
@@ -249,6 +298,8 @@ Code of your own that sits beside the graph does the same with `surfacechange`, 
 Nodes that overlap moved apart in the plain graph only, so a crowded place looks tighter on the map. With `units: 'screen'`, nodes keep the same size in pixels on both sides.
 
 <LiveExample slug="map-and-back" />
+
+In React, give the surface to `<Graph>`: see [One graph, on the map or not](#one-graph-on-the-map-or-not).
 
 Without `surface`, mount one graph for each side: read the camera and `positions.snapshot()` of one, destroy it, then mount the other with `initialView` and [`initialPositions`](/docs/positions#restore-at-mount). Each side gets its own snapshot, and nodes that have `longitude` and `latitude` ignore their entry.
 

@@ -43,6 +43,7 @@ interface Turned {
 }
 
 const holds = new WeakMap<MapLibreMap, { count: number; readonly turned: Turned }>()
+const holders = new WeakMap<CustomLayerInterface, () => boolean>()
 
 function holdNorth(map: MapLibreMap): void {
   const held = holds.get(map)
@@ -239,13 +240,29 @@ function hostSurface(map: MapLibreMap, options: MapSurfaceOptions): HostSurface 
     return beforeId !== undefined && map.getLayer(beforeId) ? beforeId : undefined
   }
 
+  function placedLayer(): CustomLayerInterface | null | undefined {
+    const found: unknown = map.getLayer(id)
+    if (!found) return null
+    const custom =
+      (found as { readonly implementation?: CustomLayerInterface }).implementation ??
+      (found as CustomLayerInterface)
+    return holders.has(custom) ? custom : undefined
+  }
+
   function addLayer(): void {
-    if (!listening || map.getLayer(id)) return
+    if (!listening) return
+    const found = placedLayer()
+    if (found === layer) return
+    if (found !== null) {
+      const holding = found ? holders.get(found) : undefined
+      if (!holding || holding()) return
+      map.removeLayer(id)
+    }
     map.addLayer(layer, wantedBefore())
   }
 
   function keepPlace(): void {
-    if (!listening || !map.getLayer(id)) return
+    if (!listening || placedLayer() !== layer) return
     const order = map.getLayersOrder()
     const at = order.indexOf(id)
     const before = wantedBefore()
@@ -254,12 +271,12 @@ function hostSurface(map: MapLibreMap, options: MapSurfaceOptions): HostSurface 
   }
 
   function onStyleLoad(): void {
-    if (map.getLayer(id)) keepPlace()
+    if (placedLayer() === layer) keepPlace()
     else addLayer()
   }
 
   function addWhenLoaded(): void {
-    if (listening && !map.getLayer(id) && map.isStyleLoaded()) addLayer()
+    if (listening && placedLayer() !== layer && map.isStyleLoaded()) addLayer()
   }
 
   function onContextLost(): void {
@@ -268,7 +285,7 @@ function hostSurface(map: MapLibreMap, options: MapSurfaceOptions): HostSurface 
 
   function onContextRestored(): void {
     if (!listening) return
-    if (map.getLayer(id)) map.removeLayer(id)
+    if (placedLayer() === layer) map.removeLayer(id)
     addWhenLoaded()
   }
 
@@ -367,7 +384,7 @@ function hostSurface(map: MapLibreMap, options: MapSurfaceOptions): HostSurface 
     adapt,
     bind: (next) => {
       if (driver !== next) {
-        if (listening && map.getLayer(id)) map.removeLayer(id)
+        if (listening && placedLayer() === layer) map.removeLayer(id)
         driver?.detach()
         driver = next
       }
@@ -377,12 +394,13 @@ function hostSurface(map: MapLibreMap, options: MapSurfaceOptions): HostSurface 
     release: () => {
       if (active) driver?.evict()
       if (active && placed) surface.unplace(placed)
-      if (!removed && listening && map.getLayer(id)) map.removeLayer(id)
+      if (!removed && listening && placedLayer() === layer) map.removeLayer(id)
       unlisten()
       driver?.detach()
       driver = null
     },
   }
+  holders.set(layer, () => active)
   bindMap(surface, map)
   return surface
 }

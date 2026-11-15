@@ -1,18 +1,21 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { type ReactNode, useLayoutEffect, useState } from 'react'
-import type { GraphInstance } from '../host/mount-graph'
+import { type ReactNode, useEffect, useLayoutEffect, useState } from 'react'
+import { type GraphInstance, type GraphSurface, mountGraph } from '../host/mount-graph'
 import { GraphContext, useLatest } from '../react/context'
 import { type GraphProps, sharedOptions, useGraphBinding } from '../react/graph'
 import type { Mark } from '../types'
-import { mountMapGraph } from './index'
+import { type MapSurfaceOptions, mapSurface } from './index'
 
 /**
- * Props of `<MapGraph>`: those of `<Graph>` without the view, which the map owns, and without
- * `className` and `style`, since it renders no element of its own. `S` and `M` come from the
- * definition.
+ * Props of `<MapGraph>`: those of `<Graph>` without the view, which the map owns, without
+ * `surface`, and without `className` and `style`, since it renders no element of its own. `S` and
+ * `M` come from the definition.
  */
 export interface MapGraphProps<S extends string = string, M extends Mark = Mark>
-  extends Omit<GraphProps<S, M>, 'initialView' | 'view' | 'onViewChange' | 'className' | 'style'> {
+  extends Omit<
+    GraphProps<S, M>,
+    'initialView' | 'view' | 'onViewChange' | 'className' | 'style' | 'surface'
+  > {
   /** MapLibre map to draw the graph in. Another map mounts the graph again. */
   readonly map: MapLibreMap
   /**
@@ -27,10 +30,45 @@ export interface MapGraphProps<S extends string = string, M extends Mark = Mark>
   readonly beforeId?: string | undefined
 }
 
+interface HeldSurface {
+  readonly map: MapLibreMap
+  readonly id: string | undefined
+  readonly beforeId: string | undefined
+  readonly surface: GraphSurface
+}
+
 /**
- * Mounts a graph inside a MapLibre map with `mountMapGraph`, and destroys it on unmount. Its
- * children render where the component stands, with the graph in context: the hooks, `<Anchor>`,
- * `<Legend>` and `<Timeline>` work inside it as inside `<Graph>`.
+ * Makes a surface on a MapLibre map with `mapSurface`, for the `surface` prop of `<Graph>`, and
+ * releases it on unmount. It returns `null` while `map` is `null` or `undefined`, and the same
+ * surface until `map`, `id` or `beforeId` change: another value releases the surface and makes a
+ * new one, which a graph on the old one moves to.
+ */
+export function useMapSurface(
+  map: MapLibreMap | null | undefined,
+  options: MapSurfaceOptions = {},
+): GraphSurface | null {
+  const { id, beforeId } = options
+  const [held, setHeld] = useState<HeldSurface | null>(null)
+  let current = held
+  if (!map) current = null
+  else if (!held || held.map !== map || held.id !== id || held.beforeId !== beforeId) {
+    current = { map, id, beforeId, surface: mapSurface(map, { id, beforeId }) }
+  }
+  if (current !== held) setHeld(current)
+  const surface = current?.surface ?? null
+
+  useEffect(() => {
+    if (!surface) return
+    return () => surface.release()
+  }, [surface])
+
+  return surface
+}
+
+/**
+ * Mounts a graph inside a MapLibre map, on a `mapSurface` released with the graph, and destroys it
+ * on unmount. Its children render where the component stands, with the graph in context: the
+ * hooks, `<Anchor>`, `<Legend>` and `<Timeline>` work inside it as inside `<Graph>`.
  */
 export function MapGraph<S extends string = string, M extends Mark = Mark>(
   props: MapGraphProps<S, M>,
@@ -40,7 +78,10 @@ export function MapGraph<S extends string = string, M extends Mark = Mark>(
   const latest = useLatest(props)
 
   useLayoutEffect(() => {
-    const instance = mountMapGraph(map, { ...sharedOptions(latest), id, beforeId })
+    const instance = mountGraph(map.getContainer(), {
+      ...sharedOptions(latest),
+      surface: mapSurface(map, { id, beforeId }),
+    })
     setGraph(instance)
     return () => {
       instance.destroy()
@@ -48,7 +89,7 @@ export function MapGraph<S extends string = string, M extends Mark = Mark>(
     }
   }, [map, id, beforeId, latest])
 
-  useGraphBinding(graph, props, latest)
+  useGraphBinding(graph, props, latest, undefined)
 
   return graph ? <GraphContext value={graph}>{children}</GraphContext> : null
 }

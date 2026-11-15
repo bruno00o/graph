@@ -1066,6 +1066,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       projection.active && !projection.nodeShown(index) ? hierarchy.representative(index) : -1,
     )
     for (const index of arrived) projection.markSeen(index)
+    views.dropRequests()
     const cameraView = next.camera()
     const memory = memories.get(next) ?? null
     const kept = next.ownCamera ? (wanted ?? heldView ?? memory?.view ?? null) : null
