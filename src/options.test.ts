@@ -128,7 +128,15 @@ import type {
   RingsOptions,
 } from './layouts'
 import type { ForceOptions } from './layouts/force'
-import type { LegendOptions, LegendViewOptions } from './legend'
+import type {
+  LegendEdgeSwatch,
+  LegendEntry,
+  LegendEntryGroup,
+  LegendNodeSwatch,
+  LegendOptions,
+  LegendShapeSwatch,
+  LegendViewOptions,
+} from './legend'
 import type { MapGraphOptions, MapPngOptions, MapSurfaceOptions } from './map'
 import type { MapGraphProps } from './map/react'
 import type { MinimapOptions } from './minimap'
@@ -250,8 +258,13 @@ interface Inputs {
   Layout: Layout<Item>
   LayoutComputeOptions: LayoutComputeOptions
   LayoutRunOptions: LayoutRunOptions
-  LegendOptions: LegendOptions<'muted'>
+  LegendEdgeSwatch: LegendEdgeSwatch
+  LegendEntry: LegendEntry<Marks>
+  LegendEntryGroup: LegendEntryGroup<Marks>
+  LegendNodeSwatch: LegendNodeSwatch
+  LegendOptions: LegendOptions<'muted', Marks>
   LegendProps: LegendProps<'muted'>
+  LegendShapeSwatch: LegendShapeSwatch
   LegendTitles: NonNullable<LegendViewOptions['titles']>
   LegendViewOptions: LegendViewOptions<Marks>
   LassoOptions: LassoOptions
