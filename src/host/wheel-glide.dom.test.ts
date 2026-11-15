@@ -351,6 +351,19 @@ describe('wheel glide', () => {
     expect(viewOf(graph).zoom).not.toBeCloseTo(jump(keyed, { x: 400, y: 300 }).zoom, 6)
   })
 
+  it('stops when the keyboard pans the view', () => {
+    const graph = mount()
+    wheel(graph, { time: 1_000 })
+    frame(1_040)
+    const shown = viewOf(graph)
+    graph.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }),
+    )
+    play(1_040)
+    expect(viewOf(graph).zoom).toBe(shown.zoom)
+    expect(viewOf(graph).x).not.toBeCloseTo(shown.x, 6)
+  })
+
   it('takes over a fit in progress from where it is', () => {
     const graph = mount()
     graph.view.fit({ duration: 400 })

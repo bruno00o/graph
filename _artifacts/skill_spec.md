@@ -386,7 +386,7 @@ Suspension, lost contexts, the pixel ratio and software rendering, legend entrie
 
 The glide of a mouse wheel (PR 230). Failure modes added: `interaction` (two, 10 to 12: a `wheelGlide` that is not a number with `expect-error=TS2322`, the view read right after a notch), `view` (two, 8 to 10: requests of a controlled view answered late, the view saved on every `'user'` change). `interaction` gained `references/wheel-glide.md` (what counts as a notch, Firefox on macOS, what stops a glide, reduced motion and slow frames, reading the view), declared by hand in `skill_tree.yaml`. No other skill changes.
 
-- Docs corrected by the same pull request: the `interaction` guide (the keys that stop a glide are the zoom and fit keys, not every key) and the `view` guide (a glide fires `viewchange` on every frame, with origin `'user'`).
+- Docs corrected by the same pull request: the `interaction` guide (a key that moves the view stops a glide; Shift + arrows did not until the next pull request fixed it) and the `view` guide (a glide fires `viewchange` on every frame, with origin `'user'`).
 
 ## Coverage and batch history
 
