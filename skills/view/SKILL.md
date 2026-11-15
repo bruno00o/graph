@@ -95,10 +95,10 @@ graph.view.zoomBy(1 / 1.5)
 graph.on('viewchange', ({ view: next, origin }) => console.log(next.zoom, origin, view.zoom))
 ```
 
-- Animated calls interrupt each other: the last one wins. `duration` is in milliseconds and is zero with `prefers-reduced-motion`.
+- Animated calls interrupt each other: the last one wins. `duration` is in milliseconds and is zero with `prefers-reduced-motion`. They also stop the glide of a mouse wheel notch (`wheelGlide`, interaction skill), and a call without `duration` stops it too.
 - `zoomBy` multiplies the zoom around the center of the view. Every move, gestures and animation frames included, stays within the view limits.
 - `x`, `y`, `zoom`, `factor` and `duration` must be finite, or the call throws a `RangeError` and changes nothing. `zoomBy` also needs a factor above 0.
-- `viewchange` carries `origin`: `'user'` for gestures, the wheel, the keyboard and edge scrolling, `'api'` for `graph.view`, `update({ view })` and automatic framing. Use it to ignore your own moves.
+- `viewchange` carries `origin`: `'user'` for gestures, the wheel, the keyboard and edge scrolling, `'api'` for `graph.view`, `update({ view })` and automatic framing. Use it to ignore your own moves. A glide after a wheel notch fires `viewchange` on every frame with `origin: 'user'` (about 30 frames for 200 ms), so debounce whatever you do with it.
 
 ### Choose what frames on its own
 
@@ -158,6 +158,7 @@ const graph = mountGraph(document.body, {
 - A view applied inside `onViewChange` is drawn in the same frame, so a controlled view follows the pointer without lag. An application that answers later still gets smooth gestures: each request starts from the last one not answered yet.
 - The mode is fixed at mount. A graph mounted without `view` ignores `update({ view })`; one mounted with `view` stays controlled for its whole life. In React, pass the `view` and `onViewChange` props of `<Graph>` from the first render (see the react skill).
 - A controlled graph does not run its first automatic fit: give `view` the starting view, and call `view.fit` yourself for a first framing. `viewchange` fires only when an applied view differs from the current one.
+- The glide of a wheel notch is requested frame by frame too, each frame a request with `origin: 'user'`: answer each one with `update({ view })` as it comes, and the glide plays as it does on an uncontrolled graph. `view.set` and `fit` stop a glide that is under way.
 - Fits and animations are requests too, frame by frame, so a handler that rewrites part of the view (here `y: 0`) rewrites it for every animation frame and the fit lands with that part forced.
 - `graph` is used inside its own `onViewChange`: that is valid, the handler runs after the assignment.
 - A request that is never applied freezes the gesture: `onViewChange` must call `update({ view })` with a view, even the unchanged one.
@@ -282,6 +283,35 @@ Write `graph.view.fit({ nodes: ['n1', 'n2'] })`. A `Set` of keys goes in `nodes`
 ### HIGH Ignoring a request of a controlled view
 
 In controlled mode a gesture changes nothing until `onViewChange` answers with `update({ view })`. A handler that only logs, or that sets state without reaching `update` (a React parent that does not render the new `view` prop), leaves the graph frozen: no pan, no zoom, no fit.
+
+### MEDIUM Answering the requests of a controlled view late
+
+Each frame of a wheel glide, like each frame of any animation, is a request. A handler that debounces, throttles or defers `update({ view })` turns the glide into a stutter or a freeze. Apply each request at once and debounce only what you do on the side, such as saving the view.
+
+```ts
+import { defineGraph, mountGraph, nodes, type View } from '@bruno00o/graph'
+
+type Item = { id: string }
+const items: Item[] = []
+
+let saved: ReturnType<typeof setTimeout> | undefined
+let view: View = { x: 0, y: 0, zoom: 1 }
+const graph = mountGraph(document.body, {
+  definition: defineGraph({ marks: [nodes(items)] }),
+  ariaLabel: 'Sample graph',
+  view,
+  onViewChange: (event) => {
+    view = event.view
+    graph.update({ view })
+    clearTimeout(saved)
+    saved = setTimeout(() => localStorage.setItem('view', JSON.stringify(view)), 250)
+  },
+})
+```
+
+### MEDIUM Saving the view on every `'user'` change
+
+`origin: 'user'` covers the wheel, and a wheel notch glides over many frames, each a `viewchange`. Writing storage, the URL or a server on each one floods it. Debounce, or save on a pause, and keep the `'api'` moves out of it with the same `origin` test.
 
 ### MEDIUM Reading the zoom of a mark as the zoom limits of the view
 

@@ -286,14 +286,14 @@ skills:
     description: >
       Use when configuring how people work with a @bruno00o/graph graph:
       selection modes, node drag (for all nodes or some), the lasso, what the
-      wheel and a trackpad do (zoom, pan or scroll the page), touch, auto-pan,
-      turning gestures off, keyboard navigation and focus; reacting to clicks,
-      hovers, drags and the pointer; controlling the selection from application
-      state; and styling states beyond a basic highlight: fading everything
-      outside a state, drawing members above the rest, hiding members, always
-      showing their labels, or styling nodes, edges and shapes apart. The first
-      graph, plain states and event basics are in the core skill; moving the
-      view from code is in the view skill.
+      wheel and a trackpad do (zoom, pan or scroll the page, and how a mouse
+      notch glides), touch, auto-pan, turning gestures off, keyboard navigation
+      and focus; reacting to clicks, hovers, drags and the pointer; controlling
+      the selection from application state; and styling states beyond a basic
+      highlight: fading everything outside a state, drawing members above the
+      rest, hiding members, always showing their labels, or styling nodes, edges
+      and shapes apart. The first graph, plain states and event basics are in
+      the core skill; moving the view from code is in the view skill.
     sources:
       - src/types.ts
       - src/define-graph.ts
@@ -301,6 +301,7 @@ skills:
       - src/host/graph-instance.ts
       - src/host/keyboard.ts
       - src/host/pointer-input.ts
+      - src/host/wheel-glide.ts
       - src/core/lasso.ts
       - src/host/selection-control.ts
       - src/host/element-keys.ts
@@ -316,6 +317,8 @@ skills:
       of defineGraph, selection and its controlled mode, drag, per-node drag and
       the lasso, wheel, touch and keyboard, pointer events and their targets,
       and the advanced state styles others, raise, hide, label always and halo.
+    references:
+      - references/wheel-glide.md
   - name: map
     slug: map
     domain: geography-and-time

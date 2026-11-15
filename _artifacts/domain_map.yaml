@@ -761,6 +761,7 @@ skills:
       - graph.view.toScreen and toWorld
       - view padding
       - level of detail by zoom
+      - requests of a controlled view during a wheel glide
     tasks:
       - Fit the view to some nodes or edges
       - Zoom and pan from code with animation
@@ -845,6 +846,24 @@ skills:
         source: docs/content/docs/(guide)/map.mdx, src/host/mount-graph.ts
         priority: MEDIUM
         status: active
+      - mistake: Answering the requests of a controlled view late
+        mechanism: Each frame of a wheel glide or of any animation is a request, so a handler that debounces or defers update view makes the glide stutter or freeze.
+        wrong_pattern: |
+          onViewChange: debounce((event) => graph.update({ view: event.view }), 100)
+        correct_pattern: |
+          onViewChange: (event) => { graph.update({ view: event.view }); save(event.view) }
+        source: src/host/view-control.ts, docs/content/docs/(guide)/view.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Saving the view on every user change
+        mechanism: A wheel notch glides over many frames, each one a viewchange with origin user, so writing storage or the URL on each one floods it.
+        wrong_pattern: |
+          graph.on('viewchange', ({ view }) => localStorage.setItem('view', JSON.stringify(view)))
+        correct_pattern: |
+          graph.on('viewchange', () => saveSoon(graph.view.get()))
+        source: src/host/view-control.ts, docs/content/docs/(guide)/interaction.mdx
+        priority: MEDIUM
+        status: active
   - name: interaction
     slug: interaction
     domain: navigation-and-input
@@ -865,6 +884,7 @@ skills:
       - hide
       - label always
       - wheel modes and zoomhint
+      - wheelGlide
       - autoPan
       - pointer events
       - target.direction of merged edge halves
@@ -966,6 +986,24 @@ skills:
         correct_pattern: |
           nodes(items, { drag: (item) => !item.locked })
         source: docs/content/docs/(guide)/interaction.mdx, src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Giving wheelGlide a duration that is not a number
+        mechanism: wheelGlide takes milliseconds as a finite number of 0 or more, so a string does not compile and a negative or non-finite number makes defineGraph throw a RangeError.
+        wrong_pattern: |
+          interaction: { wheelGlide: '200ms' }
+        correct_pattern: |
+          interaction: { wheelGlide: 200 }
+        source: src/types.ts, src/define-graph.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Reading the view right after a wheel notch
+        mechanism: A notch glides over wheelGlide milliseconds, so the view read straight after the event is not the final one and viewchange fires on every frame, which a test or a save on each change gets wrong.
+        wrong_pattern: |
+          wheel(element); expect(graph.view.get().zoom).toBe(2)
+        correct_pattern: |
+          interaction: { wheelGlide: 0 }
+        source: src/host/wheel-glide.ts, docs/content/docs/(guide)/interaction.mdx
         priority: MEDIUM
         status: active
   - name: map

@@ -3,7 +3,7 @@ name: interaction
 description: >
   Use when configuring how people work with a @bruno00o/graph graph: selection
   modes, node drag (for all nodes or some), the lasso, what the wheel and a trackpad do (zoom, pan or
-  scroll the page), touch, auto-pan, turning gestures off, keyboard navigation and
+  scroll the page, and how a mouse notch glides), touch, auto-pan, turning gestures off, keyboard navigation and
   focus; reacting to clicks, hovers, drags and the pointer; controlling the
   selection from application state; and styling states beyond a basic highlight:
   fading everything outside a state, drawing members above the rest, hiding
@@ -25,6 +25,7 @@ sources:
   - src/host/graph-instance.ts
   - src/host/keyboard.ts
   - src/host/pointer-input.ts
+  - src/host/wheel-glide.ts
   - src/core/lasso.ts
   - src/host/selection-control.ts
   - src/host/element-keys.ts
@@ -59,6 +60,7 @@ const definition = defineGraph({
     pan: true,
     zoom: { speed: 1 },
     wheel: 'zoom',
+    wheelGlide: 200,
     autoPan: { speed: 1 },
     select: 'multiple',
     drag: true,
@@ -74,6 +76,7 @@ const definition = defineGraph({
 - `drag: false` turns node dragging off for every node. To pin some nodes only, give `drag` to their mark (below). `lasso` is `true`, `false` or `LassoOptions` (below).
 - `zoom` and `autoPan` take `true`, `false`, or `{ speed }` (a finite number, 0 or more, or `defineGraph` throws a `RangeError`).
 - `wheel` is `'zoom'`, `'pan'` or `'page'`; anything else throws a `TypeError`.
+- `wheelGlide` is the glide of a mouse notch in milliseconds, 200 by default and 0 to jump; a finite number, 0 or more, or `defineGraph` throws a `RangeError`.
 - `fold` makes a double click on a group, or Enter on a focused group, fold it. `lens` belongs to the tools skill.
 - The zoom range and the reachable area are not here: they are the `view` of `defineGraph` (view skill).
 
@@ -247,6 +250,8 @@ Wheel lines and pages (Firefox) are converted to pixels. With `zoom: false`, whe
 
 Zoom speed: a wheel event that zooms multiplies the zoom by `exp(-delta * 0.0025 * speed)`, `speed` being `interaction.zoom.speed` (1 by default) and `delta` the `deltaY` in pixels (a line is 16, a page the graph height), capped at 120 pixels. A trackpad pinch (wheel with Ctrl) uses 0.01 and a cap of 30; a Safari pinch multiplies by `(scale / previous scale) ** speed`. For a factor `N` per notch of a mouse wheel that reports 100 pixels, set `speed` to `Math.log(N) / 0.25`: about 2.77 for 2 per notch, 1.62 for 1.5. Another delta, or a line-based wheel, gives another factor.
 
+Glide: a notch of a mouse wheel eases the view to where the jump would take it, in `wheelGlide` milliseconds, and the point under the pointer stays under it; a run of notches ends where the same jumps would. Trackpad scrolls, pinches and smooth wheels move the view at once, and so do the notches of a mouse in Firefox on macOS (it reports pixels). Reduced motion and frames that take more than half the glide make it jump; a press, a pinch, the zoom and fit keys and `graph.view` calls stop it. The lens and the map do not glide. Signals, limits and reading the view during a glide: [references/wheel-glide.md](references/wheel-glide.md).
+
 ### Touch, auto-pan and turning gestures off
 
 - Touch: one finger pans and drags like the mouse, two fingers pinch (zoom by the distance, move by the midpoint). A second finger ends a node drag or a lasso. A tap selects like a click. The canvas sets `touch-action: none`, so the page does not scroll under the graph.
@@ -404,6 +409,23 @@ defineGraph({
 
 `pan: false` and `zoom: false` also disable the matching keys: `0` fits nothing unless both are on, and with `pan: false` the view no longer follows the focused node. Code still moves the view.
 
+### MEDIUM Giving `wheelGlide` a duration that is not a number
+
+`wheelGlide` takes milliseconds as a number: a string does not compile, and a negative or non-finite number makes `defineGraph` throw a `RangeError`. `wheelGlide: 0` makes each notch jump.
+
+```ts expect-error=TS2322
+import { defineGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+const items: Item[] = []
+
+defineGraph({ marks: [nodes(items)], interaction: { wheelGlide: '200ms' } })
+```
+
+### MEDIUM Reading the view right after a wheel notch
+
+A notch glides, so `graph.view.get()` straight after a wheel event is not the final view, and `viewchange` fires on every frame with `origin: 'user'`. Read the view later, save it once changes stop (debounce), and set `wheelGlide: 0` in the definition of a test that sends wheel events. Do not raise `wheelGlide` to smooth a trackpad: only mouse notches glide, and the map and the lens ignore it ([references/wheel-glide.md](references/wheel-glide.md)).
+
 ### MEDIUM Showing a page-scroll hint yourself in `'page'` mode
 
 In `wheel: 'page'` the graph shows no text. Subscribe to `zoomhint` and show your own hint, in the page language. A wheel left to the page never calls `preventDefault`, and `zoomhint` fires for every such event: debounce the hint.
@@ -444,6 +466,7 @@ The task is done when:
 
 - gesture options sit in `interaction`, with `lasso` and `select: 'multiple'` set together when a lasso is wanted, and `drag` on the marks for nodes that stay put;
 - a controlled selection is mounted with `selection` and `onSelectionChange`, and every request is answered with `update({ selection })`;
+- `wheelGlide` is a number of milliseconds (0 to jump), and nothing reads the view right after a wheel notch;
 - handlers narrow `target` on `kind` before reading `datum` or `direction`, and are removed with a `signal` or the function `on` returns;
 - state styles use `others`, `raise`, `hide` and `label: 'always'` as needed, with by-kind styles where only one kind must change;
 - keyboard and focus are left on unless the page has its own shortcuts, and `focus.set` is used for programmatic focus;
