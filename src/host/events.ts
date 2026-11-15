@@ -298,6 +298,12 @@ export interface GraphSurfaceEvent {
   readonly previous: string
 }
 
+/** Payload of `suspendchange`. */
+export interface GraphSuspendEvent {
+  /** `true` once the graph is suspended, `false` once it is resumed. */
+  readonly suspended: boolean
+}
+
 /** Every event of the graph, by name, with its payload. `M` is the union of the marks. */
 export interface GraphEvents<M extends Mark = Mark> {
   /**
@@ -342,6 +348,8 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly viewchange: GraphViewEvent
   /** The graph moved to another surface, with `update({ surface })`, or back to its canvas. */
   readonly surfacechange: GraphSurfaceEvent
+  /** The graph was suspended with `suspend` or resumed with `resume`. */
+  readonly suspendchange: GraphSuspendEvent
   /** The time window changed. In controlled mode, only when `update({ time })` moves it. */
   readonly timechange: GraphTimeEvent
   /**

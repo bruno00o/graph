@@ -1,0 +1,27 @@
+.tiles {
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  align-content: start;
+}
+
+.tiles-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.tile h2 {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 6px;
+}
+
+.tile-graph {
+  position: relative;
+  height: 280px;
+  border: 1px solid var(--graph-grid);
+  border-radius: 6px;
+  overflow: hidden;
+}

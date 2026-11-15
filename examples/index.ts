@@ -25,6 +25,7 @@ for (const [href, text] of [
   ['./lens/', messages.lens],
   ['./multilayer/', messages.multilayer],
   ['./transforms/', messages.transforms],
+  ['./suspend/', messages.suspend],
 ] as const) {
   const item = document.createElement('li')
   const link = document.createElement('a')

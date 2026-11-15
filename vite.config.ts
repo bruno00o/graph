@@ -75,6 +75,7 @@ export default defineConfig({
         lens: resolve(import.meta.dirname, 'examples/lens/index.html'),
         multilayer: resolve(import.meta.dirname, 'examples/multilayer/index.html'),
         transforms: resolve(import.meta.dirname, 'examples/transforms/index.html'),
+        suspend: resolve(import.meta.dirname, 'examples/suspend/index.html'),
       },
     },
   },

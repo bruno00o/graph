@@ -40,7 +40,7 @@ const response = await fetch(url, { signal: graph.signal })
 
 ### Drawn
 
-`drawn()` resolves after the next frame the graph draws, the first one included. It never asks for a frame of its own: when no frame is due, it resolves on the next animation frame, without drawing. While the WebGL context is lost, it waits for the context to come back. On a [map](/docs/map), it resolves once the map has drawn the layer of the graph. Once the graph is destroyed, it rejects with the reason of `signal`.
+`drawn()` resolves after the next frame the graph draws, the first one included. It never asks for a frame of its own: when no frame is due, it resolves on the next animation frame, without drawing. While the WebGL context is lost, it waits for the context to come back, and while the graph is [suspended](#suspend), for `resume`. On a [map](/docs/map), it resolves once the map has drawn the layer of the graph. Once the graph is destroyed, it rejects with the reason of `signal`.
 
 ```ts
 graph.update({ definition: next })
@@ -57,6 +57,26 @@ const graph = mountGraph(element, { definition, ariaLabel: 'Sample graph' })
 await graph.loaded()
 report(graph.count().nodes)
 ```
+
+### Suspend
+
+Browsers keep a limited number of WebGL contexts per page, 16 in Chrome and Safari, and take the oldest one away when a page asks for more. With many graphs on a page, such as one per card of a dashboard, suspend those out of sight so that the others keep theirs.
+
+```ts
+const observer = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    const graph = graphs.get(entry.target)
+    if (entry.isIntersecting) graph?.resume()
+    else graph?.suspend()
+  }
+})
+```
+
+`suspend()` draws a last frame, copies it onto a 2D canvas laid over the graph, then frees the WebGL context of the canvas, with its textures and buffers. Everything else goes on: data and live sources, layouts in their worker or on the main thread, the view, the selection, the states, the time window, the events, the store, the companions and the [exports](/docs/export). A drag or a lasso in progress ends, the hover and the lens go away, and the canvas takes no pointer event until it resumes. The copy keeps its size and stays centered when the element resizes. It goes away when the theme or the palette changes, since it would show the old colors: the page then shows through. It costs width × height × pixel ratio² × 4 bytes, about 1.9 MB for 800 × 600 CSS pixels at a ratio of 1.
+
+`resume()` takes a context again, the same one when the browser can give it back, and draws the graph as it is now from the scene kept on the CPU: the copy stays until that frame is drawn. `await graph.drawn()` waits for it. At 100,000 nodes and 200,000 edges, that frame comes 60 to 120 ms after `resume`, where the first frame after the mount takes 300 to 450 ms.
+
+Each call that changes something emits `suspendchange` and updates `suspended` in the store; a call that changes nothing emits nothing. Pass `suspended: true` to [`mountGraph`](/docs/api/mount-graph#suspended) to create no context before `resume`, and the `suspended` prop to [`<Graph>`](/docs/api/graph-component#suspended) in React. On a [map](/docs/map), the graph draws in the context of the map, which it does not own: it keeps drawing there, and `suspend` only frees the context its own canvas holds for its return. Back on its canvas while suspended, it takes no context until `resume`. See [Many graphs on a page](/docs/browser-support#many-graphs-on-a-page).
 
 ### After destroy
 
@@ -78,7 +98,7 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `count` | Zero for every count |
 | `paths.reach`, `support.carriers`, `support.carried` | An empty result |
 | `on`, `anchors.set` | Register nothing and return a function that does nothing |
-| `update`, `destroy`, `refresh`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
+| `update`, `destroy`, `refresh`, `suspend`, `resume`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
 | `layout.run`, `bundling.run`, `routing.run` | Resolve to `false`. A layout run in progress at `destroy` resolves to `false` too |
 | `layout.compute` | Rejects with `signal.reason`, also while it computes at `destroy` |
 | `drawn`, `loaded` | Reject with `signal.reason` |
@@ -384,4 +404,4 @@ Walks the `supportedBy` links of edges, down to the edges that carry an edge and
 
 <api-table path="index.ts" name="GraphDataStatus" />
 
-`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are. `data.loading` is `true` while a [live source](/docs/data#loading) of the definition is loading, and `data.failed` lists the sources whose load failed; `loadingchange` fires when either changes.
+`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are. `data.loading` is `true` while a [live source](/docs/data#loading) of the definition is loading, and `data.failed` lists the sources whose load failed; `loadingchange` fires when either changes. `suspended` is `true` while the graph is [suspended](#suspend).

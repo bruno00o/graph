@@ -346,6 +346,8 @@ describe('after destroy', () => {
     graph.lens.set({ at: { x: 1, y: 1 } })
     graph.update({ ariaLabel: 'autre', definition: definition() })
     graph.layout.stop()
+    graph.suspend()
+    graph.resume()
     const anchor = document.createElement('div')
     graph.anchors.set(anchor, { node: 'a' })()
     graph.anchors.remove(anchor)
@@ -438,8 +440,12 @@ describe('mount with an aborted signal', () => {
       initialView: { x: 5, y: 6, zoom: 2 },
       selection: { nodes: new Set(['b']) },
       onSelectionChange: () => {},
+      suspended: true,
       signal: AbortSignal.abort(reason),
     })
+    expect(graph.store.state.suspended).toBe(true)
+    graph.resume()
+    expect(graph.store.state.suspended).toBe(true)
     expect(container.childElementCount).toBe(0)
     expect(made.renderers).toBe(0)
     expect(dom.pendingFrames()).toBe(0)

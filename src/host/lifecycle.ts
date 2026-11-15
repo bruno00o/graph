@@ -205,6 +205,8 @@ export function afterDestroy<S extends string, M extends Mark>(
     on: () => nothing,
     drawn: () => Promise.reject(reason()),
     loaded: () => Promise.reject(reason()),
+    suspend: nothing,
+    resume: nothing,
     update: nothing,
     destroy: nothing,
   }
@@ -273,6 +275,7 @@ export function stillborn<S extends string, M extends Mark>(
     hiddenLayers: [...new Set<string>(options.hiddenLayers ?? options.initialHiddenLayers ?? [])],
     data: loadedData,
     surface: capabilities.name,
+    suspended: options.suspended === true,
   })
   const graph = afterDestroy(
     readonlyOf(store),
