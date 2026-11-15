@@ -139,7 +139,7 @@ const around = (keys: string[]) =>
 
 ## Write positions back
 
-`persistPositions` from `@bruno00o/graph/db` listens to `positionchange` and writes `x` and `y` into the collection. It returns a function that stops listening. Positions placed at mount by [`initialPositions`](/docs/positions#restore-at-mount) emit nothing, so restoring a snapshot writes nothing back.
+`persistPositions` from `@bruno00o/graph/db` listens to `positionchange` and writes `x` and `y` into the collection. It returns a function that stops listening. Positions placed at mount by [`initialPositions`](/docs/positions#restore-at-mount) emit nothing, so restoring a snapshot writes nothing back. To save a whole arrangement as one record of your own, on an explicit save, see [Save a whole arrangement](/docs/positions#save-a-whole-arrangement).
 
 ```ts tab="Vanilla" tab-group="framework"
 import { persistPositions } from '@bruno00o/graph/db'

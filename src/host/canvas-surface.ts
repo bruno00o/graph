@@ -28,9 +28,15 @@ export function canvasSurface(): HostSurface {
     events: canvas,
     place: (element, container) => {
       element.style.cssText = elementStyle
-      element.append(canvas)
-      container.append(element)
+      canvas.style.display = 'block'
+      if (canvas.parentNode !== element) element.prepend(canvas)
+      if (element.parentNode !== container) container.append(element)
     },
+    unplace: () => {
+      canvas.style.display = 'none'
+      canvas.style.cursor = ''
+    },
+    camera: () => null,
     schedule: (frame) => requestAnimationFrame(frame),
     cancel: (request) => cancelAnimationFrame(request),
     claim: nothing,

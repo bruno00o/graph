@@ -7,6 +7,7 @@ import { edges, nodes } from '../marks'
 import { shapes } from '../shapes'
 import { syncPoints } from '../shapes/writer'
 import { fakeRenderer } from '../testing/dom'
+import { fakeMap } from '../testing/map'
 import { createTimeline, mountTimeline } from '../timeline'
 import { createGraphHost, type GraphInstance } from './mount-graph'
 
@@ -36,9 +37,14 @@ const { FakeWorker } = vi.hoisted(() => {
 })
 
 vi.mock('../minimap/worker?worker&inline', () => ({ default: FakeWorker }))
+vi.mock('../webgl/renderer', async (original) => ({
+  ...(await original<typeof import('../webgl/renderer')>()),
+  createSharedRenderer: () => fakeRenderer(),
+}))
 vi.mock('../shapes/fill-worker?worker&inline', () => ({ default: FakeWorker }))
 
 const { createMinimap } = await import('../minimap')
+const { mapSurface } = await import('../map')
 
 interface Item {
   readonly id: string
@@ -358,6 +364,29 @@ describe('global resources', () => {
       destroy()
     }
     await new Promise((resolve) => setTimeout(resolve, 0))
+    flush()
+    expect(snapshot()).toEqual(baseline)
+  })
+
+  it('holds nothing more after moving onto a map and back 20 times', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const baseline = snapshot()
+    const { map, render, listeners } = fakeMap()
+    const surface = mapSurface(map)
+    const { graph, destroy } = mountAll()
+    flush(2)
+    const settled = snapshot()
+    for (let round = 0; round < 20; round++) {
+      graph.update({ surface })
+      render()
+      flush(2)
+      graph.update({ surface: null })
+      flush(2)
+      expect(snapshot()).toEqual(settled)
+    }
+    surface.release()
+    expect([...listeners.values()].every((set) => set.size === 0)).toBe(true)
+    destroy()
     flush()
     expect(snapshot()).toEqual(baseline)
   })

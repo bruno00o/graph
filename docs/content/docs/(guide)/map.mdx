@@ -172,29 +172,17 @@ See the [routes along a network](/examples/map-routes) example.
 
 ## With and without a map
 
-The same data can switch between a map and a plain graph. On the map, the `longitude` and `latitude` channels pin each node to its place. Without the map, the [`geo` layout](/docs/layout#geography) uses the same projection, and moves apart the nodes that overlap. Keep the sources, and build one definition for each mode:
+One graph can move between its own canvas and a map, and back. `mapSurface(map)` makes a surface for a MapLibre map; pass it as `surface` to `graph.update` to move the graph onto the map, and `null` to bring it back. The graph keeps its data, selection, states, folded groups, hidden layers, time window and event handlers across the moves.
+
+On the map, the `longitude` and `latitude` channels pin each node to its place. Without the map, the [`geo` layout](/docs/layout#geography) uses the same projection, and moves apart the nodes that overlap. Build one definition for each side, and give it with the surface: both apply together, so the layout and the positions never see one without the other.
 
 ```ts
-import {
-  defineGraph,
-  edges,
-  geoToWorld,
-  type Key,
-  nodes,
-  type Point,
-  type View,
-} from '@bruno00o/graph'
+import { defineGraph, edges, geoToWorld, mountGraph, nodes, type View } from '@bruno00o/graph'
 import { geo } from '@bruno00o/graph/layouts'
+import { mapSurface } from '@bruno00o/graph/map'
 
 const center = { longitude: 10, latitude: 48 }
 const scale = 2048
-
-const onMap = defineGraph({
-  marks: [
-    edges(routes, { source: 'from', target: 'to' }),
-    nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' }),
-  ],
-})
 
 const plain = defineGraph({
   marks: [
@@ -203,62 +191,55 @@ const plain = defineGraph({
   ],
   layout: geo<Place>({ longitude: 'lng', latitude: 'lat', center, scale }),
 })
+
+const onMap = defineGraph({
+  marks: [
+    edges(routes, { source: 'from', target: 'to' }),
+    nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' }),
+  ],
+})
+
+const graph = mountGraph(element, { definition: plain, ariaLabel: 'Places' })
+const surface = mapSurface(map)
+
+function showMap(): void {
+  graph.update({ surface, definition: onMap })
+}
+
+function hideMap(): void {
+  graph.update({ surface: null, definition: plain })
+}
 ```
 
-With `center` and `scale` given, a point of the map world maps to the plain graph by a shift and a factor. The zoom of a graph on a map is `2 ** map.getZoom()`, so the same camera reads:
+The map lives in its own element: while the graph is on its canvas, hide it with `opacity: 0` and `pointer-events: none` rather than `display: none`, so that it keeps its size for when the graph comes. `surfacechange` and the `surface` field of the store, `'canvas'` or `'map'`, tell which side the graph is on.
+
+Each surface keeps its own positions and its own view. On the way back, nodes are where you left them, without a layout run, and the view is the one you left. Nodes added while the graph was away are placed when it comes back: on the canvas, by the layout, near the others; on the map, by their coordinates. A node whose `longitude` and `latitude` changed moves to its new place. A layout run that the move stopped starts again on the way back. Positions on a map are in the world units of the map, and those of a plain graph in the units of its layout, so [`positions.snapshot()`](/docs/positions#restore-at-mount) reads the side the graph is on.
+
+The first time on the map, the graph takes the camera of the map as it is. To show the same area as the plain graph, give `view` with the surface. With `center` and `scale` given to `geo`, a point of the map world maps to the plain graph by a shift and a factor, and the zoom of a graph on a map is `2 ** map.getZoom()`:
 
 ```ts
 const origin = geoToWorld(center)
-
-const toPlain = (view: View): View => ({
-  x: (view.x - origin.x) * scale,
-  y: (view.y - origin.y) * scale,
-  zoom: view.zoom / scale,
-})
 
 const toMap = (view: View): View => ({
   x: view.x / scale + origin.x,
   y: view.y / scale + origin.y,
   zoom: view.zoom * scale,
 })
+
+graph.update({ surface, definition: onMap, view: toMap(graph.view.get()) })
 ```
 
-To leave the map, read its camera, destroy the map graph, then mount the plain one at the same view. To come back, do the reverse. Keep the positions of each side with `positions.snapshot()` and give them back as [`initialPositions`](/docs/positions#restore-at-mount): the layout of the plain graph does not run again, and the nodes without coordinates are on the map where you left them.
+`view` given with a new surface is the view to take there, on the canvas too: the reverse conversion brings the plain graph to the area shown on the map. A controlled [`view`](/docs/view#controlled-view) is ignored on the map, as with `mountMapGraph`, and applies again on the canvas.
 
-```ts
-const saved: { plain?: Map<Key, Point>; map?: Map<Key, Point> } = {}
+A surface holds one graph at a time. It keeps its layer and its renderer after the graph leaves, so that the next visit is quick: `surface.release()` frees them, and brings back to its canvas a graph that is on it. Removing the map does the same, with a warning in development. `graph.destroy()` releases every surface the graph visited.
 
-function leaveMap(map: Map, mapGraph: GraphInstance): GraphInstance {
-  const view = toPlain(mapGraph.view.get())
-  saved.map = mapGraph.positions.snapshot()
-  mapGraph.destroy()
-  map.remove()
-  return mountGraph(element, {
-    definition: plain,
-    initialView: view,
-    initialPositions: saved.plain,
-    ariaLabel: 'Places',
-  })
-}
+[`persistPositions`](/docs/api/persist-positions) writes the moves made on the side the graph is on when you call it, and leaves out those of the other side: pass `surfaces: ['canvas', 'map']` to write both, in different fields or collections if they should not mix. `positionchange` carries the `surface` of its positions. [Edge bundling](/docs/bundling) and [routing](/docs/routing) run again on the way back. The [minimap](/docs/minimap-and-legend#minimap), the [lens](/docs/lens), the [shape editor](/docs/editing-shapes) and the [devtools](/docs/devtools) do not follow a move yet: create them again after one.
 
-function backToMap(graph: GraphInstance): GraphInstance {
-  const view = toMap(graph.view.get())
-  saved.plain = graph.positions.snapshot()
-  graph.destroy()
-  const map = new Map({ container, style })
-  const mapGraph = mountMapGraph(map, {
-    definition: onMap,
-    initialPositions: saved.map,
-    ariaLabel: 'Places',
-  })
-  mapGraph.view.set(view)
-  return mapGraph
-}
-```
+Nodes that overlap moved apart in the plain graph only, so a crowded place looks tighter on the map. With `units: 'screen'`, nodes keep the same size in pixels on both sides.
 
-The first time, `saved.plain` is `undefined` and the layout runs as usual. Each side gets its own snapshot: positions on a map are in the world units of the map, and those of a plain graph are in the units of its layout, so a snapshot from one does not suit the other. Nodes that have `longitude` and `latitude` ignore their entry, and sit where their coordinates put them.
+<LiveExample slug="map-and-back" />
 
-Nodes that overlap moved apart in the plain graph only, so a crowded place looks tighter on the map. With `units: 'screen'`, nodes keep the same size in pixels in both modes, and the spread is computed for the zoom at which the layout runs.
+Without `surface`, mount one graph for each side: read the camera and `positions.snapshot()` of one, destroy it, then mount the other with `initialView` and [`initialPositions`](/docs/positions#restore-at-mount). Each side gets its own snapshot, and nodes that have `longitude` and `latitude` ignore their entry.
 
 ## Who moves what
 
@@ -266,13 +247,13 @@ The map owns the camera. Dragging the background, the wheel, pinches and double 
 
 The graph owns its elements: hover, clicks, the selection, the lasso and node drags. While a node is dragged or a lasso drawn, the graph pauses the map's drag and box zoom, and a double click on a node does not zoom the map. With a [lasso](/docs/interaction#lasso) whose `modifier` is `null`, every drag on the background draws a lasso: the map then moves with the wheel, pinches and the keyboard.
 
-`graph.drawsOnMap` is `true` for a graph mounted by `mountMapGraph` or `<MapGraph>`: code shared between a plain graph and a map graph reads it to leave out what a map does not draw, such as a layout or the minimap.
+`graph.drawsOnMap` is `true` while the graph draws on a map, mounted by `mountMapGraph` or `<MapGraph>`, or moved there with a [`surface`](#with-and-without-a-map): code shared between a plain graph and a map graph reads it to leave out what a map does not draw, such as a layout or the minimap.
 
 A dragged node stays where it was dropped, even when its data says otherwise, until its own coordinates change. `graph.positions.reset()` puts every node back on its `longitude` and `latitude`, with a glide, and `reset(keys)` only some. `positionchange` carries `geo`, the moved nodes in degrees, and `persistPositions` writes them into the fields you name with `longitude` and `latitude`. See [Positions](/docs/positions#put-nodes-back).
 
 `graph.view.set`, `fit` and `zoomBy` move the map, animations included, and the keyboard of the graph does too: arrows move the focus, Shift and arrows pan, `+`, `-` and `0` zoom and fit. `update({ view })` has no effect: move the map instead.
 
-The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch, and gives them back when the last graph on the map is destroyed. On a flat map, the graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
+The map stays north up and without pitch: `mountMapGraph` turns off rotation and pitch, and gives them back when the last graph on the map is destroyed or leaves it. On a flat map, the graph is drawn once, between longitudes -180 and 180, on the world copy the camera is over: across the antimeridian, a node and its edges show on one side only.
 
 ## Time
 

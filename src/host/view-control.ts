@@ -52,8 +52,17 @@ interface LimitBox {
   readonly box: Bounds | null
 }
 
+export interface ViewMemory {
+  readonly view: View
+  readonly moved: boolean
+  readonly framing: boolean
+  readonly framedOnce: boolean
+  readonly frameTarget: FitRequest
+  readonly pendingFit: FitRequest | null
+}
+
 export interface ViewSource {
-  readonly controlled: boolean
+  controlled(): boolean
   readonly given: boolean
   readonly emitter: Emitter
   state(): GraphState
@@ -112,6 +121,42 @@ export class ViewControl {
     this.moved = source.given
   }
 
+  leave(): ViewMemory {
+    const memory: ViewMemory = {
+      view: this.#source.state().view,
+      moved: this.moved,
+      framing: this.framing,
+      framedOnce: this.#framedOnce,
+      frameTarget: this.frameTarget,
+      pendingFit: this.pendingFit,
+    }
+    this.animation = null
+    this.pendingFit = null
+    this.pendingBounds = null
+    this.#fitAnimation = null
+    this.#outgoing = null
+    this.#sent = []
+    this.#limitBox = null
+    return memory
+  }
+
+  enter(memory: ViewMemory | null, fresh: boolean): void {
+    if (memory) {
+      this.moved = memory.moved
+      this.framing = memory.framing
+      this.#framedOnce = memory.framedOnce
+      this.frameTarget = memory.frameTarget
+      this.pendingFit = memory.pendingFit
+      return
+    }
+    const fits = fresh && this.#source.definition().view.autoFit !== 'never'
+    this.moved = !fits
+    this.framing = fits
+    this.#framedOnce = !fits
+    this.frameTarget = this.wholeFit
+    this.pendingFit = fits ? { ...this.wholeFit, automatic: true } : null
+  }
+
   viewport(): { width: number; height: number } {
     const { width, height } = this.#source.state()
     return { width, height }
@@ -156,7 +201,7 @@ export class ViewControl {
   }
 
   propose(view: View, cause: ViewCause): void {
-    if (!this.#source.controlled) {
+    if (!this.#source.controlled()) {
       this.publish(view, cause)
       return
     }
