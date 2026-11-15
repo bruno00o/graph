@@ -60,7 +60,7 @@ report(graph.count().nodes)
 
 ### Suspend
 
-Browsers keep a limited number of WebGL contexts per page, 16 in Chrome and Safari, and take the oldest one away when a page asks for more. With many graphs on a page, such as one per card of a dashboard, suspend those out of sight so that the others keep theirs.
+Browsers keep a limited number of WebGL contexts per page, 16 in Chrome and Safari, and take the oldest one away when a page asks for more. With many graphs on a page, suspend those out of sight so that the others keep theirs.
 
 ```ts
 const observer = new IntersectionObserver((entries) => {
