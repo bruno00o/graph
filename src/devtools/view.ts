@@ -202,6 +202,10 @@ export function createView(
     [messages.center, ({ view: { x, y } }) => messages.point(x, y)],
     [messages.zoom, ({ view: { zoom } }) => messages.number(zoom)],
     [messages.size, ({ width, height }) => messages.dimensions(width, height)],
+    [
+      messages.surface ?? defaultMessages.surface ?? '',
+      ({ surface }) => (messages.surfaceName ?? defaultMessages.surfaceName ?? String)(surface),
+    ],
   ])
 
   const target = (value: GraphReport['hovered']) =>

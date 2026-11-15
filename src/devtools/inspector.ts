@@ -55,6 +55,7 @@ export interface GraphReport {
   readonly issueCount: number
   readonly issues: readonly AnyIssue[]
   readonly view: View
+  readonly surface: string
   readonly selection: ElementKeys
   readonly hovered: GraphTarget | null
   readonly focused: GraphTarget | null
@@ -216,6 +217,7 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
     issueCount: inspection.issues.length,
     issues: inspection.issues.slice(0, listedIssues),
     view: state.view,
+    surface: state.surface,
     selection: state.selection,
     hovered: state.hovered,
     focused: state.focused,

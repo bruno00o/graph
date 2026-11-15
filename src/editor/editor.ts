@@ -2452,6 +2452,18 @@ export function createShapeEditor<S extends string, M extends Mark>(
       if (touched || changes.shapes.added.length > 0) changed()
       if (ended) dropped(ended)
     },
+    surface() {
+      if (destroyed) return
+      cancelGesture()
+      stopDrawing()
+      endText()
+      hover = null
+      active = null
+      lastClick = null
+      drawnStamp = ''
+      cached = null
+      changed()
+    },
     destroy() {
       teardown()
     },

@@ -35,7 +35,8 @@ export interface LensInput {
 
 /**
  * The magnifying lens: a circle that draws the graph under it at a higher zoom, without moving the
- * view. Picking inside it hits what it shows. It never enters exports, and does not work on a map.
+ * view. Picking inside it hits what it shows. It never enters exports, and hides while the graph
+ * draws on a map, to show again when it comes back to its canvas.
  */
 export interface GraphLens {
   /** Current lens, or `null` when hidden. */

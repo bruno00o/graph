@@ -1,6 +1,17 @@
 import { type GraphInstance, geoToWorld, type View } from '@bruno00o/graph'
-import { type JSX, type Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { scale, toMap, toPlain } from './camera'
+import { useMapSurface } from '@bruno00o/graph/map/react'
+import type { Map as MapLibreMap } from 'maplibre-gl'
+import {
+  type JSX,
+  type Ref,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { mapCamera, scale, toMap, toPlain } from './camera'
 import {
   type DatasetId,
   type Filters,
@@ -22,7 +33,7 @@ import {
 import { Details } from './details'
 import { type Basemap, dark as darkBasemap, messages, positron } from './messages'
 import { Panel } from './panel'
-import { ClassicStage, MapStage } from './stages'
+import { Stage } from './stages'
 import './air-routes.css'
 
 type Scheme = 'light' | 'dark'
@@ -88,8 +99,14 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
   const [camera, setCamera] = useState<View | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [graph, setGraph] = useState<AirGraph | null>(null)
+  const [map, setMap] = useState<MapLibreMap | null>(null)
+  const [mapMade, setMapMade] = useState(false)
+  const surface = useMapSurface(map)
+  const onTheMap = mode === 'map' && surface !== null
   const graphRef = useRef<AirGraph | null>(null)
   const sequence = useRef(0)
+  const fitOnMap = useRef(false)
+  const plainView = useRef<View | null>(null)
 
   const loading = useRef(0)
   const load = useCallback((id: DatasetId) => {
@@ -131,13 +148,13 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
         places: visible.places,
         flights: visible.flights,
         opened,
-        mode,
+        mode: onTheMap ? 'map' : 'classic',
         grouped,
         layout,
         center: network?.center ?? { longitude: 0, latitude: 0 },
         scale,
       }),
-    [visible, opened, mode, grouped, layout, network],
+    [visible, opened, onTheMap, grouped, layout, network],
   )
 
   const report = useCallback(
@@ -210,14 +227,34 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
   }
   const onDoubleClick = useCallback<AirDoubleClick>((event) => doubleClick.current(event), [])
 
+  useLayoutEffect(() => {
+    const current = graphRef.current
+    if (!current) return
+    if (onTheMap && fitOnMap.current) {
+      fitOnMap.current = false
+      current.view.fit({ padding: 56 })
+    }
+    const view = plainView.current
+    if (!onTheMap && view) {
+      plainView.current = null
+      current.view.set(view)
+    }
+  }, [onTheMap])
+
   const changeMode = (next: Mode) => {
     if (next === mode) return
     const current = graphRef.current
-    if (current && network && layout === 'geo') {
-      const view = current.view.get()
-      setCamera(next === 'map' ? toMap(view, network.center) : toPlain(view, network.center))
-    } else {
-      setCamera(null)
+    const geo = current !== null && network !== null && layout === 'geo'
+    if (next === 'map') {
+      setMapMade(true)
+      fitOnMap.current = !geo
+      if (current && network && geo) {
+        const view = toMap(current.view.get(), network.center)
+        if (map) map.jumpTo(mapCamera(view))
+        else setCamera(view)
+      }
+    } else if (current && network && geo && onTheMap) {
+      plainView.current = toPlain(current.view.get(), network.center)
     }
     setMode(next)
   }
@@ -231,6 +268,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
     setSelected(null)
     setRequest(null)
     setCamera(null)
+    fitOnMap.current = mode === 'map'
   }
 
   const pick = (place: Place) => {
@@ -252,8 +290,7 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
     const world = geoToWorld(center)
     return { x: world.x, y: world.y, zoom: startZoom[dataset] }
   }, [network, dataset])
-  const dark = mode === 'map' && basemap.scheme === 'dark'
-  const stageKey = `${dataset}-${mode}`
+  const dark = onTheMap && basemap.scheme === 'dark'
 
   return (
     <div className="air-app">
@@ -282,33 +319,25 @@ export function App({ ref }: { readonly ref: Ref<GraphInstance | null> }): JSX.E
       />
       <div className={dark ? 'air-stage dark' : 'air-stage'}>
         {network ? (
-          mode === 'classic' ? (
-            <ClassicStage
-              key={stageKey}
-              definition={definition}
-              label={label}
-              report={report}
-              fit={camera === null}
-              onDoubleClick={onDoubleClick}
-              initialView={camera ?? undefined}
-            >
-              <Details network={network} opened={pairs} />
-            </ClassicStage>
-          ) : (
-            <MapStage
-              key={stageKey}
-              definition={definition}
-              label={label}
-              report={report}
-              fit={camera === null}
-              onDoubleClick={onDoubleClick}
-              basemap={basemap}
-              camera={camera ?? startCamera}
-              onMapError={setMapError}
-            >
-              <Details network={network} opened={pairs} />
-            </MapStage>
-          )
+          <Stage
+            definition={definition}
+            surface={onTheMap ? surface : null}
+            label={label}
+            report={report}
+            onDoubleClick={onDoubleClick}
+            map={
+              mapMade
+                ? {
+                    basemap,
+                    camera: camera ?? startCamera,
+                    onMap: setMap,
+                    onMapError: setMapError,
+                  }
+                : null
+            }
+          >
+            <Details network={network} opened={pairs} />
+          </Stage>
         ) : (
           <div className="air-loading" role="status">
             {failed ? (

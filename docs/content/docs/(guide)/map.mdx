@@ -111,6 +111,55 @@ See the [map component](/examples/map-component) example.
 
 <LiveExample slug="map-component" />
 
+### One graph, on the map or not
+
+To move one graph between its own canvas and a map, render `<Graph>` and give it a `surface`: [`useMapSurface(map)`](/docs/api/map-graph#usemapsurface) makes one for the map you created and releases it on unmount, and `null` keeps the graph on its canvas. `<Graph>` applies `surface` and `definition` in one `update`, so give each side its definition in the same render, as in [With and without a map](#with-and-without-a-map). The instance stays, and so do its children: the hooks, `<Legend>`, `<Timeline>` and `<Anchor>` keep their state across the moves.
+
+```tsx title="Places.tsx"
+import { useMapSurface } from '@bruno00o/graph/map/react'
+import { Graph, Legend } from '@bruno00o/graph/react'
+import { Map } from 'maplibre-gl'
+import { useEffect, useRef, useState } from 'react'
+
+function Backdrop({ shown, onMap }: { shown: boolean; onMap: (map: Map | null) => void }) {
+  const host = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!host.current) return
+    const created = new Map({ container: host.current, style, center: [10, 48], zoom: 3 })
+    onMap(created)
+    return () => {
+      onMap(null)
+      created.remove()
+    }
+  }, [onMap])
+  const hidden = { opacity: shown ? 1 : 0, pointerEvents: shown ? 'auto' : 'none' } as const
+  return <div ref={host} style={{ position: 'absolute', inset: 0, ...hidden }} />
+}
+
+export function Places({ wanted }: { wanted: boolean }) {
+  const [map, setMap] = useState<Map | null>(null)
+  const surface = useMapSurface(map)
+  const there = wanted && surface !== null
+  return (
+    <Graph
+      definition={there ? onMap : plain}
+      surface={there ? surface : null}
+      ariaLabel="Places"
+      className="stage"
+    >
+      <Backdrop shown={there} onMap={setMap} />
+      <Legend />
+    </Graph>
+  )
+}
+```
+
+The element of the map is a child of `<Graph>`, before the overlays: it sits above the canvas, hidden while the graph is there, and under the legend on both sides. Hide it with `opacity` rather than `display: none`, so that it keeps its size. Read the side the graph is on with `useGraphState((state) => state.surface)` or `onSurfaceChange`.
+
+To show the same area on both sides, move the map before the switch with `map.jumpTo`, from the plain view converted as below, and set the plain view in a layout effect of the parent after the switch back: it runs after the one of `<Graph>`. A map removed while the graph is on it sends the graph back to its canvas; it stays there until `surface` changes again. See the [React example](/examples/map-and-back-react).
+
+<LiveExample slug="map-and-back-react" />
+
 ## Globe
 
 The graph follows the projection of the map. Set the globe projection of MapLibre, in the style or at any time, and nodes, edges, labels, badges, images, hulls, [anchors](/docs/drawing-layers#anchored-html) and the lasso go with it:
@@ -233,11 +282,24 @@ graph.update({ surface, definition: onMap, view: toMap(graph.view.get()) })
 
 A surface holds one graph at a time. It keeps its layer and its renderer after the graph leaves, so that the next visit is quick: `surface.release()` frees them, and brings back to its canvas a graph that is on it. Removing the map does the same, with a warning in development. `graph.destroy()` releases every surface the graph visited.
 
-[`persistPositions`](/docs/api/persist-positions) writes the moves made on the side the graph is on when you call it, and leaves out those of the other side: pass `surfaces: ['canvas', 'map']` to write both, in different fields or collections if they should not mix. `positionchange` carries the `surface` of its positions. [Edge bundling](/docs/bundling) and [routing](/docs/routing) run again on the way back. The [minimap](/docs/minimap-and-legend#minimap), the [lens](/docs/lens), the [shape editor](/docs/editing-shapes) and the [devtools](/docs/devtools) do not follow a move yet: create them again after one.
+[`persistPositions`](/docs/api/persist-positions) writes the moves made on the side the graph is on when you call it, and leaves out those of the other side: pass `surfaces: ['canvas', 'map']` to write both, in different fields or collections if they should not mix. `positionchange` carries the `surface` of its positions. [Edge bundling](/docs/bundling) and [routing](/docs/routing) run again on the way back.
+
+Companions follow the move, without being created again:
+
+- The [minimap](/docs/minimap-and-legend#minimap) empties and leaves the graph on the map, and draws again on the canvas, from the positions of the canvas.
+- The [lens](/docs/lens) hides on the map, with a `lenschange`, and shows again on the way back if it was still set.
+- The [shape editor](/docs/editing-shapes#on-a-map) draws in degrees on the map and in world units on the canvas with `units: 'auto'`. A gesture or a drawing in progress is dropped at the move, and a text being typed is proposed; edits waiting for their data stay.
+- The [devtools](/docs/devtools) show the surface in the View section and keep the history of the graph.
+- [Presence](/docs/editing-shapes#who-else-is-editing) writes the surface of each person: cursors show only between people on the same surface, and selections show on every surface.
+- The legend, the timeline and anchors need nothing: they follow keys and stores, and anchors live in the graph element, which moves with the graph.
+
+Code of your own that sits beside the graph does the same with `surfacechange`, or with `useGraphState((state) => state.surface)` in React: the event comes once the graph has moved, after the companions above. `graph.positions`, `graph.view` and `positionchange` already answer for the side the graph is on, and `graph.drawsOnMap` tells whether that side is a map.
 
 Nodes that overlap moved apart in the plain graph only, so a crowded place looks tighter on the map. With `units: 'screen'`, nodes keep the same size in pixels on both sides.
 
 <LiveExample slug="map-and-back" />
+
+In React, give the surface to `<Graph>`: see [One graph, on the map or not](#one-graph-on-the-map-or-not).
 
 Without `surface`, mount one graph for each side: read the camera and `positions.snapshot()` of one, destroy it, then mount the other with `initialView` and [`initialPositions`](/docs/positions#restore-at-mount). Each side gets its own snapshot, and nodes that have `longitude` and `latitude` ignore their entry.
 

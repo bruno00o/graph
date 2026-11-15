@@ -25,6 +25,11 @@ export interface PresenceValues {
   readonly selection: PresenceSelection | null
   /** Time of the write, in milliseconds since the epoch. */
   readonly time: number
+  /**
+   * Name of the surface the graph draws on, `'canvas'` or `'map'`: the pointer is in the world
+   * units of that surface.
+   */
+  readonly surface: string
 }
 
 /** Fields of a presence row that `showPresence` reads and writes. `T` is the type of the rows. */
@@ -44,6 +49,13 @@ export interface PresenceFields<T> {
    * @default 'time'
    */
   readonly time?: FieldOf<T, number> | undefined
+  /**
+   * Field of the surface the participant is on, `'canvas'` or `'map'`. Rows without it show their
+   * cursor on every surface, and an existing row gets it written only when it already has the
+   * field or when this option is given.
+   * @default 'surface'
+   */
+  readonly surface?: FieldOf<T, string> | undefined
 }
 
 /** Another participant, as `showPresence` lists it. `TKey` is the type of the row keys. */
@@ -137,6 +149,7 @@ interface Entry<TKey extends string | number> {
   readonly element: HTMLElement | null
   readonly order: number
   pointer: Point | null
+  surface: string | null
   selected: Selected
   time: number
   placed: boolean
@@ -215,7 +228,8 @@ function defaultCursor(color: string): HTMLElement {
 
 /**
  * Shows who else is editing, from a collection of presence rows that the app shares between
- * clients: a cursor for the pointer of each other participant, and their selections in free states.
+ * clients: a cursor for the pointer of each other participant on the same surface, canvas or
+ * map, and their selections in free states, whatever their surface.
  * It writes the pointer and the selection of the local participant at most every `wait`
  * milliseconds, and ignores the rows older than `expire`. It sends nothing itself: the collection
  * handlers carry the rows. Throws when a name of `states` is not a free state of the graph.
@@ -259,7 +273,9 @@ export function showPresence<
     pointer: options.fields?.pointer ?? 'pointer',
     selection: options.fields?.selection ?? 'selection',
     time: options.fields?.time ?? 'time',
+    surface: options.fields?.surface ?? 'surface',
   }
+  const surfaceGiven = options.fields?.surface !== undefined
 
   const store = createStore<readonly PresenceParticipant<TKey>[]>([])
   const view = isolateSubscribers(readonlyOf(store))
@@ -310,6 +326,7 @@ export function showPresence<
       element,
       order: arrivals++,
       pointer: null,
+      surface: null,
       selected: nobody,
       time: 0,
       placed: false,
@@ -322,7 +339,7 @@ export function showPresence<
   const place = (entry: Entry<TKey>) => {
     const element = entry.element
     if (!element) return
-    if (entry.pointer) {
+    if (entry.pointer && (entry.surface === null || entry.surface === graph.store.state.surface)) {
       graph.anchors.set(element, { point: entry.pointer, side: 'center', align: 'center' })
       entry.placed = true
     } else if (entry.placed) {
@@ -343,9 +360,12 @@ export function showPresence<
     const record = row as Record<string, unknown>
     entry.time = record[fields.time] as number
     const pointer = pointOf(record[fields.pointer])
+    const given = record[fields.surface]
+    const surface = typeof given === 'string' ? given : null
     const before = entry.pointer
-    if (pointer?.x !== before?.x || pointer?.y !== before?.y) {
+    if (pointer?.x !== before?.x || pointer?.y !== before?.y || surface !== entry.surface) {
       entry.pointer = pointer
+      entry.surface = surface
       place(entry)
     }
     const selected = selectedOf(record[fields.selection], max)
@@ -474,15 +494,23 @@ export function showPresence<
   const write = () => {
     if (stopped) return
     written = Date.now()
-    const values: PresenceValues = { pointer, selection, time: written }
+    const values: PresenceValues = {
+      pointer,
+      selection,
+      time: written,
+      surface: graph.store.state.surface,
+    }
     try {
-      if (collection.has(me)) {
+      const mine = collection.get(me)
+      if (mine !== undefined) {
+        const withSurface = surfaceGiven || fields.surface in mine
         track(
           collection.update(me, (draft) => {
             const row = draft as Record<string, unknown>
             row[fields.pointer] = values.pointer
             row[fields.selection] = values.selection
             row[fields.time] = values.time
+            if (withSurface) row[fields.surface] = values.surface
           }),
         )
       } else {
@@ -514,6 +542,11 @@ export function showPresence<
     selection = selectionNow()
     paced.call()
   })
+  const offSurface = graph.on('surfacechange', () => {
+    pointer = null
+    for (const entry of entries.values()) place(entry)
+    paced.call()
+  })
   const onLeave = () => {
     if (pointer === null) return
     pointer = null
@@ -537,6 +570,7 @@ export function showPresence<
     subscription?.unsubscribe()
     offMove()
     offSelect()
+    offSurface()
     graph.element.removeEventListener('pointerleave', onLeave)
     if (beat !== undefined) clearInterval(beat)
     if (sweeper !== undefined) clearTimeout(sweeper)
