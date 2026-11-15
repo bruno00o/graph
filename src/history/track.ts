@@ -1,6 +1,14 @@
-import type { HistoryCut, HistoryHost, HistoryTrack } from '../core/history'
+import { isKey, toAccessor } from '../core/accessor'
+import type {
+  HistoryCut,
+  HistoryHost,
+  HistoryStep,
+  HistoryTrack,
+  StepRecords,
+} from '../core/history'
 import { type Readiness, sourceReadiness, watchReadiness } from '../core/live-source'
 import type {
+  EdgeMark,
   HistoryEntry,
   Key,
   LiveSource,
@@ -23,6 +31,12 @@ export function journalSerial(): number {
   return serial
 }
 
+const noAccess = (): unknown => undefined
+
+function endOf(value: unknown): Key | null {
+  return isKey(value) ? value : null
+}
+
 const nothing: HistoryCut = Object.freeze({ time: -Infinity, inclusive: false })
 
 function grownInts(array: Int32Array, length: number): Int32Array {
@@ -37,6 +51,10 @@ function grownStamps(array: Uint32Array, length: number): Uint32Array {
   const next = new Uint32Array(Math.max(16, array.length * 2, length))
   next.set(array)
   return next
+}
+
+function extend(list: unknown[], length: number): void {
+  while (list.length < length) list.push(undefined)
 }
 
 function readable(values: unknown): values is Record<string, unknown> {
@@ -95,6 +113,15 @@ export class Track implements HistoryTrack {
   #generation = 0
   #effective: unknown[] = []
   #base: unknown[] = []
+  #rows: unknown[] = []
+  #moved: Int32Array = new Int32Array(0)
+  #ids: Int32Array = new Int32Array(0)
+  #records: StepRecords | null = null
+  #epoch = -1
+  #slot = -1
+  #mark: unknown = null
+  #source: (datum: unknown) => unknown = noAccess
+  #target: (datum: unknown) => unknown = noAccess
   #closed = false
   #users = 0
   readiness: Readiness = 'ready'
@@ -148,14 +175,87 @@ export class Track implements HistoryTrack {
     if (--this.#users <= 0) this.close()
   }
 
-  drain(cut: HistoryCut, mark: (key: Key, forced?: boolean) => void): void {
+  get queued(): boolean {
+    return this.#queue.length > 0
+  }
+
+  drain(
+    cut: HistoryCut,
+    mark: (key: Key, forced?: boolean) => void,
+    step: HistoryStep | null = null,
+  ): void {
     if (this.#queue.length > 0) this.#apply(mark)
-    this.#move(cut, mark)
+    if (step) this.#prepare(step)
+    this.#move(
+      cut,
+      step
+        ? (element) => this.#step(step, element)
+        : (element) => mark(this.#index.keys[element] as Key),
+    )
+  }
+
+  #prepare(step: HistoryStep): void {
+    const records = step.records
+    if (this.#records !== records || this.#epoch !== records.epoch || this.#slot !== step.slot) {
+      this.#records = records
+      this.#epoch = records.epoch
+      this.#slot = step.slot
+      this.#ids.fill(-1)
+    }
+    const count = this.#index.elementCount
+    if (this.#ids.length < count) {
+      const ids = new Int32Array(Math.max(16, this.#ids.length * 2, count)).fill(-1)
+      ids.set(this.#ids)
+      this.#ids = ids
+    }
+    if (records.ends && step.mark !== this.#mark) {
+      this.#mark = step.mark
+      const options = (step.mark as EdgeMark<unknown>).options
+      this.#source = toAccessor<unknown, unknown>(options.source)
+      this.#target = toAccessor<unknown, unknown>(options.target)
+    }
+  }
+
+  #step(step: HistoryStep, element: number): void {
+    const records = step.records
+    let id = this.#ids[element] ?? -2
+    if (id === -1) {
+      const key = this.#index.keys[element]
+      id = isKey(key) ? records.find(key) : -2
+      if (id < 0) id = -2
+      this.#ids[element] = id
+    }
+    const record = id < 0 ? undefined : records.at(id)
+    if (!record || record.slot !== step.slot) return
+    const datum = this.datumAt(element)
+    if (datum === record.datum) return
+    if (datum === undefined) records.defer(record.key)
+    else if (
+      records.ends &&
+      !(
+        endOf(this.#source(datum)) === record.source && endOf(this.#target(datum)) === record.target
+      )
+    ) {
+      records.defer(record.key)
+    } else {
+      record.datum = datum
+      records.updated(record)
+    }
+  }
+
+  datumAt(element: number): unknown {
+    const row = this.#rows[element]
+    return row === undefined ? undefined : this.#datumOf(element, row)
   }
 
   datum(key: Key, row: unknown): unknown {
     const element = this.#index.elementOf(key)
     if (element < 0 || element >= this.#active.length) return row
+    this.#rows[element] = row
+    return this.#datumOf(element, row)
+  }
+
+  #datumOf(element: number, row: unknown): unknown {
     const count = this.#active[element] ?? 0
     if (count === 0 || !readable(row)) {
       if (this.#base[element] !== undefined) {
@@ -290,6 +390,10 @@ export class Track implements HistoryTrack {
     this.#built = grownInts(this.#built, count)
     this.#stamp = grownStamps(this.#stamp, count)
     this.#journal = grownStamps(this.#journal, count)
+    const length = this.#active.length
+    extend(this.#rows, length)
+    extend(this.#base, length)
+    extend(this.#effective, length)
   }
 
   #receive(changes: ReadonlyArray<SourceChange<unknown>>): void {
@@ -335,7 +439,7 @@ export class Track implements HistoryTrack {
     this.#position = cut === nothing ? 0 : index.bound(cut)
   }
 
-  #move(cut: HistoryCut, mark: (key: Key) => void): void {
+  #move(cut: HistoryCut, visit: (element: number) => void): void {
     const index = this.#index
     this.#reserve()
     const from = this.#position
@@ -343,14 +447,13 @@ export class Track implements HistoryTrack {
     this.#cut = cut
     if (from === to) return
     this.#position = to
-    const keys = index.keys
     const active = this.#active
     if (Math.abs(to - from) * 4 > index.live) {
       for (let element = 0; element < index.elementCount; element++) {
         const count = index.countBefore(element, cut)
         if (count === (active[element] ?? 0)) continue
         active[element] = count
-        mark(keys[element] as Key)
+        visit(element)
       }
       return
     }
@@ -361,13 +464,17 @@ export class Track implements HistoryTrack {
     const step = to > from ? 1 : -1
     const low = Math.min(from, to)
     const high = Math.max(from, to)
+    const moved = this.#moved.length < high - low ? new Int32Array(high - low) : this.#moved
+    this.#moved = moved
+    let count = 0
     for (let at = low; at < high; at++) {
       const element = owners[sorted[at] ?? 0] ?? -1
       if (element < 0) continue
       active[element] = (active[element] ?? 0) + step
       if (stamp[element] === generation) continue
       stamp[element] = generation
-      mark(keys[element] as Key)
+      moved[count++] = element
     }
+    for (let at = 0; at < count; at++) visit(moved[at] ?? 0)
   }
 }
