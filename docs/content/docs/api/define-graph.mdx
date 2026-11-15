@@ -148,7 +148,7 @@ type BridgeShape = 'arc' | 'gap'
 
 <api-table path="index.ts" name="InteractionOptions" />
 
-`wheel` takes `'zoom'`, `'pan'` or `'page'`. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad), [Touch](/docs/interaction#touch) and [Auto-pan](/docs/interaction#auto-pan).
+`wheel` takes `'zoom'`, `'pan'` or `'page'`. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad), [Wheel glide](/docs/interaction#wheel-glide), [Touch](/docs/interaction#touch) and [Auto-pan](/docs/interaction#auto-pan).
 
 `lasso` takes `true` or the options of the [lasso](/docs/interaction#lasso):
 
@@ -220,7 +220,7 @@ type PixelRatioOption = 'auto' | 'device' | number
 
 - `TypeError` when a mark does not come from `nodes()` or `edges()`, or when `interaction.wheel` is not `'zoom'`, `'pan'` or `'page'`.
 - `RangeError` when `view.minZoom` is not positive, `view.maxZoom` is not finite or is smaller than `minZoom`, or `view.bounds` holds a value that is not finite or a rectangle whose minimum exceeds its maximum.
-- `RangeError` when `transitions.positions`, `transitions.layout`, `time.fade`, `interaction.zoom.speed` or `interaction.autoPan.speed` is not a finite number of 0 or more.
+- `RangeError` when `transitions.positions`, `transitions.layout`, `time.fade`, `interaction.zoom.speed`, `interaction.wheelGlide` or `interaction.autoPan.speed` is not a finite number of 0 or more.
 - `RangeError` when `background.spacing`, `bridges.size` or `interaction.lens.radius` is not a positive number, when `interaction.lens.zoom` is not a finite number of at least 1, or when `bridges.maxEdges` is negative or `NaN`.
 - `TypeError` when `background.grid` is not `'lines'` or `'dots'`, when a hull does not come from `hull()`, or when `bundling` or `routing` has no `start` function.
 - `TypeError` when both `bundling` and `routing` are given, or when `bridges.shape` is not `'arc'` or `'gap'`.

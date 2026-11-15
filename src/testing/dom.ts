@@ -3,6 +3,7 @@ import type { Renderer } from '../host/renderer'
 
 export interface FakeDom {
   flushFrames(): void
+  runFrames(time: number): void
   pendingFrames(): number
   resize(width: number, height: number): void
   restore(): void
@@ -53,6 +54,11 @@ export function installDom(width = 800, height = 600): FakeDom {
         frames = []
         for (const callback of pending) callback(performance.now() + 10_000)
       }
+    },
+    runFrames(time) {
+      const pending = frames
+      frames = []
+      for (const callback of pending) callback(time)
     },
     pendingFrames() {
       return frames.length

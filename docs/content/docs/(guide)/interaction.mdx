@@ -146,6 +146,20 @@ graph.on('zoomhint', ({ key }) => {
 
 In React, pass `onZoomHint` to [`<Graph>`](/docs/api/graph-component#props).
 
+### Wheel glide
+
+A notch of a mouse wheel does not jump: the view eases to where the jump would take it, in `wheelGlide` milliseconds, 200 by default. The glide starts fast and slows down, and the point under the pointer stays under it. Each notch multiplies the zoom as [above](#zoom-speed), so a run of notches ends where the same jumps would. A notch during a glide adds to where that glide was going, and quick notches glide for twice the time between them at most, so a fast spin of the wheel keeps up. When the pointer moves between notches, the next notch zooms around the new point, from the view shown at that moment. In `'pan'` mode, a notch glides the same way, and Cmd or Ctrl with the wheel glides in every mode.
+
+```ts
+defineGraph({ marks, interaction: { wheelGlide: 120 } })
+```
+
+`wheelGlide: 0` makes each notch jump.
+
+Only notches glide. Trackpad scrolls, trackpad pinches, Safari pinch gestures and wheels that scroll smoothly send many small deltas that already follow the hand: the view follows them at once. The graph takes a wheel event for a notch when its deltas are counted in lines or pages, when it carries whole wheel ticks, steps of 120 in `wheelDelta`, that a trackpad would not give for its pixel delta, or when its pixel delta is a fixed-point line step, as macOS mice report in Safari and Chrome. Firefox on macOS reports the notches of a mouse in pixels, like a trackpad scroll: they move the view at once there. An event taken for a notch by mistake glides for at most twice the time since the previous wheel event, a few milliseconds while a trackpad scrolls.
+
+The glide gives way to anything else that moves the view: a press, a pinch, a key, `graph.view` calls and the framing of a layout stop it, and a notch during another animation of the view starts from where the view is. With `prefers-reduced-motion`, notches jump, and they jump too when a frame takes more than half the glide, as on a large graph drawn in [software](/docs/browser-support#software-rendering). In a [controlled view](/docs/view#controlled-view), each frame of the glide is a request to `onViewChange`, with `origin: 'user'`. The wheel over the [lens](/docs/lens) changes its magnification at once, and on a [map](/docs/map) the map owns the wheel: `wheelGlide` changes nothing there.
+
 ## Touch
 
 One finger pans the background and drags nodes, like the mouse. Two fingers pinch: the view zooms with the distance between them and follows their midpoint, so the point under your fingers stays under them. A second finger that lands during a node drag or a lasso ends it, and the pinch takes over; lifting one finger of a pinch goes on panning with the other.

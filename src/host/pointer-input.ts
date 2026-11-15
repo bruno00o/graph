@@ -26,6 +26,7 @@ import type { SelectionControl } from './selection-control'
 import type { SpreadHost } from './spread'
 import type { StateRegistry } from './state-registry'
 import type { ViewControl } from './view-control'
+import { glideDuration, type WheelSample } from './wheel-glide'
 
 const svgNamespace = 'http://www.w3.org/2000/svg'
 const lassoStep = 3
@@ -147,6 +148,20 @@ function draggableMarks(definition: GraphDefinition): boolean {
   })
 }
 
+function wheelSample(
+  event: WheelEvent,
+  mode: number,
+  delta: number,
+  vertical: boolean,
+): WheelSample {
+  const legacy = event as WheelEvent & {
+    readonly wheelDeltaX?: unknown
+    readonly wheelDeltaY?: unknown
+  }
+  const ticks = vertical ? legacy.wheelDeltaY : legacy.wheelDeltaX
+  return { mode, delta, ticks: typeof ticks === 'number' ? ticks : undefined, pinch: event.ctrlKey }
+}
+
 function stopGesture(current: Gesture): void {
   current.stopped = true
   current.moved = true
@@ -168,6 +183,7 @@ export class PointerInput {
   #tool: PointerTool | null = null
   #toolGesture: ToolGesture | null = null
   #toolCursor: string | null = null
+  #wheelTime = Number.NEGATIVE_INFINITY
   readonly #source: PointerSource
 
   constructor(source: PointerSource) {
@@ -986,12 +1002,16 @@ export class PointerInput {
       event.preventDefault()
       return
     }
+    const deltaX = event.deltaX
+    const deltaY = event.deltaY
+    const deltaMode = event.deltaMode
+    const gap = event.timeStamp - this.#wheelTime
+    this.#wheelTime = event.timeStamp
     const definition = source.definition()
-    const { zoom, pan, wheel } = definition.interaction
+    const { zoom, pan, wheel, wheelGlide } = definition.interaction
     const command = event.ctrlKey || event.metaKey
     const { width, height } = source.state()
     const views = source.views
-    const view = views.base()
     const lens = source.lens
     const shown = lens.shown
     if (
@@ -1002,27 +1022,25 @@ export class PointerInput {
     ) {
       event.preventDefault()
       const speed = zoom ? zoom.speed : 1
-      lens.magnify(wheelFactor(event.deltaY, event.deltaMode, height, speed, event.ctrlKey))
+      lens.magnify(wheelFactor(deltaY, deltaMode, height, speed, event.ctrlKey))
       return
     }
     if (zoom && (command || wheel === 'zoom')) {
       event.preventDefault()
-      views.animation = null
-      const factor = wheelFactor(event.deltaY, event.deltaMode, height, zoom.speed, event.ctrlKey)
-      views.commit(
-        zoomAround(view, views.viewport(), this.#local(event), factor, definition.view),
-        'user',
-      )
+      const factor = wheelFactor(deltaY, deltaMode, height, zoom.speed, event.ctrlKey)
+      const sample = wheelSample(event, deltaMode, deltaY, true)
+      views.glideZoom(this.#local(event), factor, glideDuration(gap, sample, wheelGlide))
       return
     }
     if (command) return
     if (wheel === 'pan' && pan) {
       event.preventDefault()
-      views.animation = null
-      let dx = wheelPixels(event.deltaX, event.deltaMode, width)
-      let dy = wheelPixels(event.deltaY, event.deltaMode, height)
+      const vertical = Math.abs(deltaY) >= Math.abs(deltaX)
+      const sample = wheelSample(event, deltaMode, vertical ? deltaY : deltaX, vertical)
+      let dx = wheelPixels(deltaX, deltaMode, width)
+      let dy = wheelPixels(deltaY, deltaMode, height)
       if (event.shiftKey && dx === 0) [dx, dy] = [dy, 0]
-      views.commit(panBy(view, -dx, -dy), 'user')
+      views.glidePan(dx, dy, this.#local(event), glideDuration(gap, sample, wheelGlide))
       return
     }
     if (wheel === 'page' && zoom) {

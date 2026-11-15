@@ -1,13 +1,19 @@
 import {
   type Bounds,
+  clampZoom,
   constrainView,
   easeInOut,
+  easeOut,
   fitBounds,
+  glideView,
   interpolateView,
   type PanLimits,
+  panBy,
   resolvePadding,
+  zoomAround,
+  zoomAt,
 } from '../core/view'
-import type { GraphDefinition, Key, View } from '../types'
+import type { GraphDefinition, Key, Point, View } from '../types'
 import { requestMemory } from './element-keys'
 import type { Emitter, ViewOrigin } from './events'
 import { progress } from './frame-cost'
@@ -16,12 +22,20 @@ import { reducedMotion } from './reduced-motion'
 
 export type ViewCause = 'user' | 'api' | 'userFit' | 'apiFit' | 'limit'
 
+const glideLead = 16
+const frameMemory = 250
+
 export interface ViewAnimation {
   readonly from: View
   readonly to: View
   readonly start: number
   readonly duration: number
   readonly cause: ViewCause
+  readonly anchor: Point | null
+}
+
+interface ViewGlide extends ViewAnimation {
+  readonly anchor: Point
 }
 
 export interface ViewRequest {
@@ -105,6 +119,10 @@ export class ViewControl {
   framing: boolean
   moved: boolean
   #fitAnimation: ViewAnimation | null = null
+  #reached = 0
+  #stepAt = Number.NEGATIVE_INFINITY
+  #interval = 0
+  #intervalAt = Number.NEGATIVE_INFINITY
   #framedOnce = false
   #outgoing: ViewRequest | null = null
   #sent: ViewRequest[] = []
@@ -266,7 +284,101 @@ export class ViewControl {
       return
     }
     const to = this.constrain(target)
-    this.animation = { from: this.base(), to, start: performance.now(), duration: ms, cause }
+    this.animation = {
+      from: this.base(),
+      to,
+      start: performance.now(),
+      duration: ms,
+      cause,
+      anchor: null,
+    }
+    this.#source.request()
+  }
+
+  glideZoom(at: Point, factor: number, longest: number): void {
+    const duration = this.#paced(longest)
+    const limits = this.#source.definition().view
+    const size = this.viewport()
+    const shown = this.base()
+    const glide = this.#glide()
+    if (!glide) {
+      this.#begin(shown, zoomAround(shown, size, at, factor, limits), at, duration)
+      return
+    }
+    if (duration <= 0) {
+      const after = zoomAround(shown, size, at, factor, limits)
+      this.#carry(glide, after, zoomAround(glide.to, size, at, factor, limits))
+      return
+    }
+    const still = glide.anchor.x === at.x && glide.anchor.y === at.y
+    const target = still
+      ? zoomAround(glide.to, size, at, factor, limits)
+      : zoomAt(shown, size, at, clampZoom(glide.to.zoom * factor, limits))
+    this.#retarget(glide, shown, target, at, duration)
+  }
+
+  glidePan(dx: number, dy: number, at: Point, longest: number): void {
+    const duration = this.#paced(longest)
+    const shown = this.base()
+    const glide = this.#glide()
+    if (!glide) {
+      this.#begin(shown, panBy(shown, -dx, -dy), at, duration)
+      return
+    }
+    const target = panBy(glide.to, -dx, -dy)
+    if (duration <= 0) this.#carry(glide, panBy(shown, -dx, -dy), target)
+    else this.#retarget(glide, shown, target, glide.anchor, duration)
+  }
+
+  #frameTime(now: number): number {
+    const since = now - this.#intervalAt
+    const recent = since < Math.max(frameMemory, 2 * this.#interval) ? this.#interval : 0
+    return Math.max(this.#source.frameCost(), recent)
+  }
+
+  #paced(duration: number): number {
+    if (!(duration > 0)) return 0
+    return this.#frameTime(performance.now()) * 2 < duration ? duration : 0
+  }
+
+  #glide(): ViewGlide | null {
+    const animation = this.animation
+    return animation?.anchor ? (animation as ViewGlide) : null
+  }
+
+  #begin(shown: View, target: View, at: Point, duration: number): void {
+    this.animation = null
+    if (duration <= 0) {
+      this.commit(target, 'user')
+      return
+    }
+    const to = this.constrain(target)
+    if (sameView(to, shown)) return
+    this.#stepAt = Number.NEGATIVE_INFINITY
+    this.#glideTo(shown, to, at, performance.now(), duration)
+  }
+
+  #retarget(glide: ViewGlide, shown: View, target: View, at: Point, duration: number): void {
+    const to = this.constrain(target)
+    if (sameView(to, glide.to)) return
+    this.#glideTo(shown, to, at, performance.now(), duration)
+  }
+
+  #carry(glide: ViewGlide, after: View, target: View): void {
+    const now = performance.now()
+    const left = glide.start + glide.duration - now
+    const to = this.constrain(target)
+    if (!(left > 0)) {
+      this.animation = null
+      this.commit(to, 'user')
+      return
+    }
+    this.#glideTo(this.constrain(after), to, glide.anchor, now, left)
+  }
+
+  #glideTo(from: View, to: View, anchor: Point, start: number, duration: number): void {
+    this.animation = { from, to, start, duration, cause: 'user', anchor }
+    this.#reached = 0
     this.#source.request()
   }
 
@@ -347,9 +459,33 @@ export class ViewControl {
   step(now: number): void {
     const animation = this.animation
     if (!animation) return
+    if (animation.anchor) {
+      this.#stepGlide(animation as ViewGlide, now)
+      return
+    }
     const t = progress(now, animation.start, animation.duration, this.#source.frameCost())
     const view = this.constrain(interpolateView(animation.from, animation.to, easeInOut(t)))
     if (t >= 1) this.animation = null
     this.propose(view, animation.cause)
+  }
+
+  #stepGlide(glide: ViewGlide, now: number): void {
+    if (this.#stepAt > Number.NEGATIVE_INFINITY) {
+      this.#interval = now - this.#stepAt
+      this.#intervalAt = now
+    }
+    this.#stepAt = now
+    const frame = Math.max(this.#frameTime(now), glideLead)
+    const ahead = progress(now + frame, glide.start, glide.duration, frame)
+    const t = Math.max(ahead, this.#reached)
+    this.#reached = t
+    if (t >= 1) {
+      this.#stepAt = Number.NEGATIVE_INFINITY
+      this.animation = null
+      this.propose(glide.to, glide.cause)
+      return
+    }
+    const view = glideView(glide.from, glide.to, this.viewport(), glide.anchor, easeOut(t))
+    this.propose(this.constrain(view), glide.cause)
   }
 }

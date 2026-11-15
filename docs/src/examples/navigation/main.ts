@@ -10,12 +10,14 @@ import {
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
+import { glideMessages } from './messages'
 
 type BoundsMode = keyof typeof messages.boundsModes
 
 const wheelModes = Object.keys(messages.wheelModes) as WheelMode[]
 const boundsModes = Object.keys(messages.boundsModes) as BoundsMode[]
 const areas: Record<BoundsMode, ViewBounds | null> = { nodes: { margin: 80 }, none: null }
+const glides = [200, 400, 0]
 const hintDuration = 1500
 
 function button(text: string, onClick: (button: HTMLButtonElement) => void): HTMLButtonElement {
@@ -31,6 +33,7 @@ export function mount(container: HTMLElement): GraphInstance {
   const { items, links } = createSample(600, 1_200)
   let wheel: WheelMode = 'page'
   let bounds: BoundsMode = 'nodes'
+  let glide = 200
 
   const define = () =>
     defineGraph({
@@ -38,7 +41,7 @@ export function mount(container: HTMLElement): GraphInstance {
         edges<Link>(links, { source: 'from', target: 'to', arrow: 'target' }),
         nodes<Item>(items, { x: 'x', y: 'y', color: 'group', size: 'weight', label: 'label' }),
       ],
-      interaction: { wheel, lasso: true },
+      interaction: { wheel, wheelGlide: glide, lasso: true },
       view: { minZoom: 0.2, maxZoom: 6, bounds: areas[bounds] },
     })
 
@@ -75,6 +78,11 @@ export function mount(container: HTMLElement): GraphInstance {
       wheel = wheelModes[(wheelModes.indexOf(wheel) + 1) % wheelModes.length] ?? 'page'
       element.textContent = messages.wheelMode(messages.wheelModes[wheel])
       hint.hidden = true
+      graph.update({ definition: define() })
+    }),
+    button(glideMessages.glide(glide), (element) => {
+      glide = glides[(glides.indexOf(glide) + 1) % glides.length] ?? 200
+      element.textContent = glideMessages.glide(glide)
       graph.update({ definition: define() })
     }),
     button(messages.boundsMode(messages.boundsModes[bounds]), (element) => {
