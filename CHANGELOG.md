@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.30.0](https://github.com/bruno00o/graph/compare/0.29.0...0.30.0) (2026-11-15)
+
+
+### Features
+
+* draw faster when webgl runs in software ([#227](https://github.com/bruno00o/graph/issues/227)) ([c7cf90c](https://github.com/bruno00o/graph/commit/c7cf90c2d895f38335dc9d6c3b567010bc50c07a))
+* legend entries declared by the application ([#220](https://github.com/bruno00o/graph/issues/220)) ([506529d](https://github.com/bruno00o/graph/commit/506529dabc43c1bfabb0ced664777779274902bd))
+* let a suspended graph keep no last frame and let resume bring back a context taken by the browser ([#225](https://github.com/bruno00o/graph/issues/225)) ([8d9ae8a](https://github.com/bruno00o/graph/commit/8d9ae8aa2654c89e5004cf2cbe3f67f6fd5f0ff2))
+* show elements over several periods of time ([#226](https://github.com/bruno00o/graph/issues/226)) ([75208a9](https://github.com/bruno00o/graph/commit/75208a93b52465bd14f4afea597c2e5b53c43d8e))
+* spread nodes that share a place and start nodes without coordinates near placed ones ([#224](https://github.com/bruno00o/graph/issues/224)) ([8179227](https://github.com/bruno00o/graph/commit/81792275b91f11e8be74263ed533cbb110bd9866))
+* suspend a graph without destroying it ([#223](https://github.com/bruno00o/graph/issues/223)) ([981ab9c](https://github.com/bruno00o/graph/commit/981ab9ccea8c2d2e8fe91c643db3202cdfe26e7f))
+
+
+### Performance Improvements
+
+* rewrite only the look of elements whose values change ([#222](https://github.com/bruno00o/graph/issues/222)) ([ccd17cc](https://github.com/bruno00o/graph/commit/ccd17cc2ba27180a3894898629b85ab8311cdb7e))
+
 ## [0.29.0](https://github.com/bruno00o/graph/compare/0.28.0...0.29.0) (2026-11-15)
 
 
