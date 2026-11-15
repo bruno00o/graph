@@ -12,8 +12,9 @@ import '../shared/overlays.css'
 interface Spot {
   readonly id: string
   readonly label: string
-  readonly x: number
-  readonly y: number
+  readonly parent: string | null
+  readonly x?: number
+  readonly y?: number
 }
 
 interface Link {
@@ -35,15 +36,22 @@ function random(): number {
   return seed / 2147483647
 }
 
-const spots: Spot[] = Array.from({ length: 6 }, (_, at) => {
-  const angle = (at / 6) * Math.PI * 2 - Math.PI / 2
-  return {
-    id: `s${at}`,
-    label: messages.node(at + 1),
-    x: Math.cos(angle) * 220,
-    y: Math.sin(angle) * 220,
-  }
-})
+const zones = ['z0', 'z1']
+const zoneOf = (at: number) => (at === 1 || at === 2 ? 'z0' : at === 4 || at === 5 ? 'z1' : null)
+
+const spots: Spot[] = [
+  ...zones.map((id, at) => ({ id, label: messages.group(at + 1), parent: null })),
+  ...Array.from({ length: 6 }, (_, at) => {
+    const angle = (at / 6) * Math.PI * 2 - Math.PI / 2
+    return {
+      id: `s${at}`,
+      label: messages.node(at + 1),
+      parent: zoneOf(at),
+      x: Math.cos(angle) * 220,
+      y: Math.sin(angle) * 220,
+    }
+  }),
+]
 const links: Link[] = []
 for (let at = 0; at < spots.length; at++) {
   for (const step of at % 2 === 0 ? [1, 2] : [1]) {
@@ -59,13 +67,22 @@ for (let at = 0; at < spots.length; at++) {
   }
 }
 
-const labels = new Map(spots.map((spot) => [spot.id, spot.label]))
+const labels = new Map<unknown, string>(spots.map((spot) => [spot.id, spot.label]))
 
 export function mount(container: HTMLElement): GraphInstance {
   let mode: Mode = 'kind'
   let min = minimums[0] ?? 2
+  let groupsFolded = false
+  let oneLine = true
   const merge = (): EdgeMergeOptions<Link> | false =>
-    mode === 'off' ? false : { directed: false, min, ...(mode === 'kind' ? { by: 'kind' } : {}) }
+    mode === 'off'
+      ? false
+      : {
+          directed: false,
+          min,
+          foldedAsOne: oneLine,
+          ...(mode === 'kind' ? { by: 'kind' } : {}),
+        }
 
   const define = () =>
     defineGraph({
@@ -81,7 +98,7 @@ export function mount(container: HTMLElement): GraphInstance {
             label: { text: (aggregate) => String(aggregate.count), background: true },
           },
         }),
-        nodes<Spot>(spots, { x: 'x', y: 'y', size: 30, label: 'label' }),
+        nodes<Spot>(spots, { x: 'x', y: 'y', parent: 'parent', size: 30, label: 'label' }),
       ],
       scales: {
         color: { domain: kinds },
@@ -91,7 +108,7 @@ export function mount(container: HTMLElement): GraphInstance {
 
   const graph = mountGraph(container, {
     definition: define(),
-    ariaLabel: messages.graphLabel(spots.length, links.length),
+    ariaLabel: messages.graphLabel(spots.length - zones.length, links.length),
   })
 
   const status = document.createElement('output')
@@ -100,8 +117,8 @@ export function mount(container: HTMLElement): GraphInstance {
   graph.on('pointerenter', ({ target }) => {
     if (target.kind !== 'edge') return
     const merged = target.aggregate
-    const from = labels.get(target.datum.from) ?? ''
-    const to = labels.get(target.datum.to) ?? ''
+    const from = labels.get(merged?.source ?? target.datum.from) ?? ''
+    const to = labels.get(merged?.target ?? target.datum.to) ?? ''
     status.textContent = merged
       ? messages.merged(
           merged.count,
@@ -140,6 +157,20 @@ export function mount(container: HTMLElement): GraphInstance {
       () => messages.min(min),
       () => {
         min = minimums[(minimums.indexOf(min) + 1) % minimums.length] ?? 2
+      },
+    ),
+    button(
+      () => messages.groups(groupsFolded),
+      () => {
+        groupsFolded = !groupsFolded
+        if (groupsFolded) graph.groups.fold(zones)
+        else graph.groups.unfold(zones)
+      },
+    ),
+    button(
+      () => messages.folded(oneLine),
+      () => {
+        oneLine = !oneLine
       },
     ),
   )

@@ -72,6 +72,10 @@ export class EdgeMerges {
     return value < 0 ? undefined : this.#valueKeys[value]
   }
 
+  whole(id: number): boolean {
+    return ((this.#keys[id * fields] ?? 0) & 4) !== 0
+  }
+
   reserveEdges(length: number): void {
     this.of = grownInts(this.of, length)
     this.next = grownInts(this.next, length)
@@ -118,11 +122,12 @@ export class EdgeMerges {
     directed: boolean,
     value: Key | undefined,
     lifted = false,
+    whole = false,
   ): number {
     const low = directed ? source : Math.min(source, target)
     const high = directed ? target : Math.max(source, target)
     const valueId = value === undefined ? none : this.#valueId(value)
-    const tag = slot * 4 + (directed ? 0 : 1) + (lifted ? 2 : 0)
+    const tag = slot * 8 + (directed ? 0 : 1) + (lifted ? 2 : 0) + (whole ? 4 : 0)
     if ((this.#used + 1) * 2 > this.#mask + 1) this.#resize(Math.max(16, (this.#live + 1) * 2))
     const found = this.#locate(tag, low, high, valueId)
     if (found >= 0) return this.#table[found] ?? none

@@ -61,6 +61,7 @@ interface MergeRule {
   readonly channel: unknown
   readonly directed: boolean
   readonly halves: boolean
+  readonly foldedAsOne: boolean
   readonly min: number
 }
 
@@ -73,6 +74,7 @@ function ruleOf(option: boolean | EdgeMergeOptions<unknown> | undefined): MergeR
     channel: given.by,
     directed: given.directed !== false,
     halves: given.directed === false && given.halves === true,
+    foldedAsOne: given.foldedAsOne === true,
     min: Number.isFinite(min) ? Math.max(1, Math.floor(min)) : defaultMin,
   }
 }
@@ -87,6 +89,7 @@ function sameRule(a: MergeRule | null | undefined, b: MergeRule | null | undefin
     Object.is(a.channel, b.channel) &&
     a.directed === b.directed &&
     a.halves === b.halves &&
+    a.foldedAsOne === b.foldedAsOne &&
     a.min === b.min
   )
 }
@@ -312,8 +315,10 @@ function aggregateId(
   target: Key,
   undirected: boolean,
   value: Key | undefined,
+  whole: boolean,
 ): string {
   const ends = undirected && keyOrder(source, target) > 0 ? [target, source] : [source, target]
+  if (whole) return JSON.stringify([mark, ...ends, null])
   return JSON.stringify(value === undefined ? [mark, ...ends] : [mark, ...ends, value])
 }
 
@@ -353,6 +358,7 @@ export class Projection {
   #endSource = none
   #endTarget = none
   #merging = false
+  #foldedOnes = false
   readonly #remerge = new Set<number>()
   readonly #relift = new Set<number>()
   readonly #restyle = new Set<number>()
@@ -395,6 +401,7 @@ export class Projection {
     const lifts: boolean[] = []
     let merging = false
     let lifting = false
+    let foldedOnes = false
     edgeMarks.forEach((mark, slot) => {
       if (!slots.has(mark)) slots.set(mark, slot)
       const known = this.#rules[slot]
@@ -403,6 +410,7 @@ export class Projection {
       const rule = known !== undefined && sameRule(given, known) ? known : given
       rules.push(rule)
       if (rule) merging = true
+      if (rule?.foldedAsOne) foldedOnes = true
       looks.push(mark.options.aggregate)
       const lift = mark.options.betweenGroups === 'groups'
       lifts.push(lift)
@@ -422,6 +430,7 @@ export class Projection {
     this.#lifts = lifts
     this.#lifting = lifting
     this.#merging = merging
+    this.#foldedOnes = foldedOnes
     this.#records.length = 0
   }
 
@@ -654,6 +663,7 @@ export class Projection {
     this.#lifts.push(lift)
     if (lift) this.#lifting = true
     if (rule) this.#merging = true
+    if (rule?.foldedAsOne) this.#foldedOnes = true
     return slot
   }
 
@@ -739,6 +749,11 @@ export class Projection {
     this.#touchedEdges.add(index)
   }
 
+  #endFolded(end: number): boolean {
+    const hierarchy = this.hierarchy
+    return hierarchy.folded[end] === 1 && (hierarchy.childCount[end] ?? 0) > 0
+  }
+
   #valueOf(index: number, read: Read): Key | undefined {
     const value = read(this.#model.edgeAt(index)?.datum)
     return isKey(value) ? value : undefined
@@ -801,7 +816,9 @@ export class Projection {
     else if (shown && !rule) mode = direct
     else {
       mode = merged
-      const value = rule?.by ? this.#valueOf(index, rule.by) : undefined
+      const whole =
+        rule?.foldedAsOne === true && (this.#endFolded(source) || this.#endFolded(target))
+      const value = rule?.by && !whole ? this.#valueOf(index, rule.by) : undefined
       aggregate = merges.find(
         slot,
         source,
@@ -809,6 +826,7 @@ export class Projection {
         rule?.directed ?? true,
         value,
         this.#lifts[slot] === true,
+        whole,
       )
     }
     const previous = merges.of[index] ?? none
@@ -867,6 +885,19 @@ export class Projection {
     }
   }
 
+  #reprojectFolded(nodes: readonly number[]): void {
+    const rules = this.#rules
+    const slots = this.#edgeSlot
+    for (const node of nodes) {
+      for (let edge = this.#outHead[node] ?? none; edge >= 0; edge = this.#outNext[edge] ?? none) {
+        if (rules[slots[edge] ?? none]?.foldedAsOne === true) this.#project(edge)
+      }
+      for (let edge = this.#inHead[node] ?? none; edge >= 0; edge = this.#inNext[edge] ?? none) {
+        if (rules[slots[edge] ?? none]?.foldedAsOne === true) this.#project(edge)
+      }
+    }
+  }
+
   #reprojectAround(nodes: readonly number[]): void {
     for (const node of nodes) {
       for (let edge = this.#outHead[node] ?? none; edge >= 0; edge = this.#outNext[edge] ?? none)
@@ -886,6 +917,8 @@ export class Projection {
     const hierarchy = this.hierarchy
     hierarchy.settle()
     this.#reprojectAround(hierarchy.takeMoved())
+    const flipped = hierarchy.takeFlipped()
+    if (this.#foldedOnes && flipped.length > 0) this.#reprojectFolded(flipped)
     const relinked = hierarchy.takeRelinked()
     if (this.#lifting && relinked.length > 0) this.#reprojectBelow(relinked)
     const scene = emptyChanges(changes.shapes)
@@ -1078,7 +1111,7 @@ export class Projection {
       forward,
       backward,
       ...(value !== undefined ? { value } : {}),
-      id: aggregateId(name ?? slot, from, to, split, value),
+      id: aggregateId(name ?? slot, from, to, split, value, merges.whole(aggregate)),
     })
     this.#data[aggregate] = datum
     return datum

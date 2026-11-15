@@ -51,6 +51,23 @@ See the [merge parallel edges by kind](/examples/merge-by-kind) example.
 
 `betweenGroups: 'groups'` draws the edges between two unfolded groups as one aggregated edge per pair of groups, from container to container, with the same `aggregate`, `merge.by` and `merge.directed` as above. See [one edge between two groups](/docs/groups#one-edge-between-two-groups).
 
+### One line toward a folded group
+
+With `merge: { by: 'kind' }`, the edges toward a folded group split by kind like any other, which clutters a group that stands for many nodes. `foldedAsOne: true` draws the edges that end in a folded group as one aggregated edge whatever `by`: between a node and a folded group, or between two folded groups. Between plain nodes `by` still splits them, and unfolding the group brings back one line per kind.
+
+```ts
+edges(links, {
+  source: 'from',
+  target: 'to',
+  merge: { by: 'kind', foldedAsOne: true },
+})
+```
+
+- The aggregated edge has no `value`, so a channel such as `color: (aggregate) => aggregate.value` reads `undefined` for it: give it a fallback. Its `id` ends with `null` where a by-value edge has its value, so it never equals the id of a by-value edge of the same ends.
+- `directed` and `halves` apply as before: edges that go the other way stay on their own line unless `directed: false`. `min` does not matter, since edges that end in a folded group always merge.
+- Only an end that is a folded group counts: the groups drawn as boxes by [`betweenGroups: 'groups'`](#between-groups) keep their split by value. Clicking, hovering, states, `hide` and the legend act on every merged edge, as for any aggregated edge.
+- Without `by`, or without the option, nothing changes.
+
 ### Both directions on one line
 
 With `directed: false`, an aggregated edge points the way of the first edge in its `keys`. `source` and `target` follow that orientation, and the merged edges split by direction relative to it:
