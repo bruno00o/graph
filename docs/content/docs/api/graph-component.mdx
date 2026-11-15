@@ -21,7 +21,7 @@ function Graph<S extends string = string, M extends Mark = Mark>(props: GraphPro
 
 Each event prop receives the payload of the matching [event](/docs/api/events). The latest function passed is always called. An event prop or a controlled callback, such as `onSelectionChange`, that throws stops neither the other handlers nor the graph: see [Errors in handlers](/docs/api/events#errors-in-handlers).
 
-With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does. `folded` and `onFoldChange` work the same way for [groups](/docs/groups), `view` and `onViewChange` for the [view](/docs/view#controlled-view), and `time` and `onTimeChange` for the [time window](/docs/time#controlled-window).
+With `selection`, `onSelectionChange` receives selection requests and the graph only changes when `selection` does. `folded` and `onFoldChange` work the same way for [groups](/docs/groups), `view` and `onViewChange` for the [view](/docs/view#controlled-view), and `time` and `onTimeChange` for the [time window](/docs/time#controlled-window). `onSurfaceChange` receives `surfacechange` once the graph has moved onto a map or back to its canvas, whether `surface` or the map itself moved it: see [Map](/docs/map#with-and-without-a-map).
 
 ## Behavior
 
