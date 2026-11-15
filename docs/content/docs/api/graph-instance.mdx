@@ -5,7 +5,7 @@ description: The object returned by mountGraph, and by the ref of the Graph comp
 
 `S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
-Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `issues`, `count`, `shown`, `isShown`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
+Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `history.of`, `issues`, `count`, `shown`, `isShown`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
 
 ## Members
 
@@ -66,13 +66,13 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | --- | --- |
 | `store` | Keeps its last state and notifies no one again |
 | `element` | Removed from the page |
-| `view.get`, `view.toScreen`, `view.toWorld`, `selection.get`, `focus.get`, `states.get`, `states.has`, `groups.folded`, `groups.isFolded`, `layers.hidden`, `layers.isHidden`, `time.get`, `lens.get`, `lens.toWorld` | Answer from the last state of the store |
+| `view.get`, `view.toScreen`, `view.toWorld`, `selection.get`, `focus.get`, `states.get`, `states.has`, `groups.folded`, `groups.isFolded`, `layers.hidden`, `layers.isHidden`, `time.get`, `history.instant`, `lens.get`, `lens.toWorld` | Answer from the last state of the store |
 | `groups.keyOf` | Returns the key, as before |
 | `drawsOnMap` | Keeps its value |
 | `isShown` | `false` |
 | `pick`, `paths.shortest` | `null` |
 | `endpoints`, `datumOf`, `positions.get`, `groups.parent` | `undefined` |
-| `neighbors`, `edgesOf`, `issues`, `groups.children`, `layers.names` | An empty array |
+| `neighbors`, `edgesOf`, `issues`, `history.of`, `groups.children`, `layers.names` | An empty array |
 | `shown` | Empty lists of keys |
 | `positions.snapshot` | An empty `Map` |
 | `count` | Zero for every count |
@@ -289,6 +289,12 @@ Routes are computed on their own once nodes stand still. `run` routes now, from 
 <api-table path="index.ts" name="TimeWindowInput" />
 
 <api-table path="index.ts" name="TimeWindow" />
+
+## History
+
+<api-table path="index.ts" name="GraphHistory" />
+
+`of` lists the entries of the [history](/docs/api/history) of an element, all of them, before and after the moment shown, with `time` in milliseconds. `instant` returns the moment the values are read at: the end of the time window, or `Infinity` without a window or with an open end. With a single-moment window, entries at that moment count; otherwise only those before it. See [Values over time](/docs/time#values-over-time).
 
 ## Lens
 

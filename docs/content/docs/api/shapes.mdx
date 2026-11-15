@@ -33,7 +33,7 @@ A **channel** is a field name or a function. A **style** is a constant or a func
 
 `strokeWidth` and the dashes are in screen pixels: they keep their size at every zoom. Fills and outlines are antialiased.
 
-`minZoom`, `maxZoom`, `time` and `layer` read as for [nodes](/docs/api/nodes#options): see [Zoom, time and layers](/docs/shapes#zoom-time-and-layers).
+`minZoom`, `maxZoom`, `time` and `layer` read as for [nodes](/docs/api/nodes#options): see [Zoom, time and layers](/docs/shapes#zoom-time-and-layers). `history` changes the fields of the items over time, the geometry included: see [`historyFrom`](/docs/api/history).
 
 ```ts
 type ShapePick = 'painted' | 'stroke' | false

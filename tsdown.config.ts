@@ -58,6 +58,7 @@ export default defineConfig({
     routing: 'src/routing/index.ts',
     shapes: 'src/shapes/index.ts',
     timeline: 'src/timeline/index.ts',
+    history: 'src/history/index.ts',
   },
   format: 'esm',
   platform: 'neutral',

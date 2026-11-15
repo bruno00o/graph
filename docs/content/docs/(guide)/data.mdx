@@ -45,6 +45,8 @@ A live source may load its items over time: a collection fetching from a server,
 
 The subscription that `subscribeChanges` returns may have the same two members, for what that one subscription asked for, such as the rows of a `where`. The graph is loading while the source or its subscription is.
 
+A live source of [history entries](/docs/time#values-over-time) counts the same way: the graph is loading while it loads.
+
 ```ts
 const source: LiveSource<Item> = {
   get status() {

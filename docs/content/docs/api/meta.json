@@ -42,6 +42,8 @@
     "formats",
     "---@bruno00o/graph/timeline---",
     "timeline",
+    "---@bruno00o/graph/history---",
+    "history",
     "---@bruno00o/graph/export---",
     "export",
     "---@bruno00o/graph/map---",

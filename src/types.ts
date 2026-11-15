@@ -208,6 +208,39 @@ export interface TimeSpan {
 export type TimeValue = TimeInstant | TimeSpan
 
 /**
+ * One change in the history of an element: from `time` on, the element of key `key` takes
+ * `values`, on top of the values of its earlier entries.
+ */
+export interface HistoryEntry<V = unknown> {
+  /** Key of the node, edge or shape that changes. */
+  readonly key: Key
+  /** Moment of the change, in milliseconds or as a `Date`. */
+  readonly time: TimeInstant
+  /**
+   * Fields the element takes from `time` on. A field left `undefined` keeps its value, and `null`
+   * sets it to `null`.
+   */
+  readonly values: V
+}
+
+/**
+ * Values an entry of history can give an element of type `T`: any of its fields, `undefined` to
+ * keep a field as it is.
+ */
+export type HistoryValues<T> = { readonly [K in keyof T]?: T[K] | undefined }
+
+declare const historyValues: unique symbol
+
+/**
+ * History of the elements of a mark, made by `historyFrom` of `@bruno00o/graph/history` and given
+ * to the `history` option of `nodes()`, `edges()` or `shapes()`. `V` is the type of the values.
+ */
+export interface HistorySource<V> {
+  /** Type of the values, never set. */
+  readonly [historyValues]?: V | undefined
+}
+
+/**
  * A time window, as the graph holds it: from `start`, included, to `end`, excluded, in
  * milliseconds. A `null` end leaves the window open on that side.
  */
@@ -542,6 +575,13 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * its label, its badges and its edges otherwise. `null` or no value: the node always exists.
    */
   readonly time?: Channel<T, TimeValue> | undefined
+  /**
+   * History of the nodes: entries that change fields of their items from a moment on. The nodes
+   * then show the values read at the end of the time window, at its moment for a single-moment
+   * window, and the latest values without a window. Values never change the fields named by `key`
+   * and `time`.
+   */
+  readonly history?: HistorySource<HistoryValues<T>> | undefined
   /** Picture or icon inside the node: a URL, an image with options, or `null` for none. */
   readonly image?: Style<T, string | NodeImage | null> | undefined
   /** A function per corner that returns the badge of an item, or `null` for none. */
@@ -728,6 +768,13 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * window. `null` or no value: the edge exists whenever its ends do.
    */
   readonly time?: Channel<T, TimeValue> | undefined
+  /**
+   * History of the edges: entries that change fields of their items from a moment on. The edges
+   * then show the values read at the end of the time window, at its moment for a single-moment
+   * window, and the latest values without a window. Values never change the fields named by `key`
+   * and `time`.
+   */
+  readonly history?: HistorySource<HistoryValues<T>> | undefined
   /**
    * Dashes that move along the edge, from its source to its target: `true` at 40 screen pixels per
    * second, a speed in screen pixels per second, negative toward the source, or `false`, `0` or
@@ -1016,7 +1063,7 @@ export interface NodeGroup<T = unknown> {
  * `NodeGroup`. A group node folds and unfolds as any group, and edges into a folded group merge.
  */
 export interface GroupOptions<T, N extends MarkName = MarkName, L extends MarkLayer = MarkLayer>
-  extends Omit<NodeOptions<NodeGroup<T>, N, L>, 'key' | 'parent'> {
+  extends Omit<NodeOptions<NodeGroup<T>, N, L>, 'key' | 'parent' | 'history'> {
   /**
    * Field or function whose value groups the items: one group node per value. An item without a
    * value stays out of any group.
@@ -1237,6 +1284,13 @@ export interface ShapeOptions<T, N extends MarkName = MarkName, L extends MarkLa
    * no value: the shape always exists.
    */
   readonly time?: Channel<T, TimeValue> | undefined
+  /**
+   * History of the shapes: entries that change fields of their items from a moment on. The shapes
+   * then show the values read at the end of the time window, at its moment for a single-moment
+   * window, and the latest values without a window. Values never change the fields named by `key`
+   * and `time`.
+   */
+  readonly history?: HistorySource<HistoryValues<T>> | undefined
   /**
    * What takes the pointer: `'painted'`, the inside of a filled shape and the outline of a stroked
    * one; `'stroke'`, the outline only; `false`, nothing, for a shape that only decorates. A shape

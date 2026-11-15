@@ -42,6 +42,7 @@ import type {
   SchemaInput,
   WriteOptions,
 } from './formats'
+import type { HistoryEntry, HistoryFromOptions, HistoryValues } from './history'
 import type {
   AggregateEdgeOptions,
   AnchorEdgeTarget,
@@ -230,6 +231,9 @@ interface Inputs {
   GridOptions: GridOptions<Item>
   GridSpacing: GridSpacing
   GroupOptions: GroupOptions<Item>
+  HistoryEntry: HistoryEntry<HistoryValues<Item>>
+  HistoryFromOptions: HistoryFromOptions<Item>
+  HistoryValues: HistoryValues<Item>
   HullGroupOptions: HullGroupOptions<Item>
   HullKeysOptions: HullKeysOptions
   HullLabelOptions: HullLabelOptions<string, string>
