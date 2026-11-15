@@ -7,14 +7,17 @@ description: >
   with a histogram that brushes, steps and plays (default element, a renderer of
   your own, or the React Timeline component and useTimeline hook), counting the
   events of the application on the bar, moving a single moment instead of a
-  window, a timeline that follows no graph, also on a map graph.
+  window, a timeline that follows no graph, giving elements values that change
+  over time from a journal of changes (the history option and historyFrom, a
+  color, size or label that follows the cursor), also on a map graph.
 metadata:
   purpose: >
     Time in @bruno00o/graph: the time channel of nodes, edges and shapes, the time
     window and its exact boundaries, the fade, the controlled window, the
     timeline companion with its store and actions, events of the application and
-    a moment as cursor, and the mistakes that leave everything showing, nothing
-    playing or a window one moment off.
+    a moment as cursor, values that change over time from a journal of changes
+    (history, scales over the whole journal), and the mistakes that leave
+    everything showing, nothing playing or a window one moment off.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
@@ -26,8 +29,11 @@ sources:
   - src/types.ts
   - src/host/graph-instance.ts
   - src/host/events.ts
+  - src/history/index.ts
+  - src/core/history.ts
   - docs/content/docs/(guide)/time.mdx
   - docs/content/docs/api/timeline.mdx
+  - docs/content/docs/api/history.mdx
 requires:
   - core
 ---
@@ -258,6 +264,48 @@ const made = window?.start == null ? [] : timeline.events(window.start)
 - `timeline.events(moment)` returns the events made at that moment, `events(a, b)` those from `a` included to `b` left out, in time order, for a panel of details. An event without a valid moment is left out, one without a kind belongs to `''`.
 - A new `events` array counts again at once; one that starts with the objects of the previous array (a log that grows) only reads the additions. Pass the `data` of a live query as it comes. It never changes the array in place.
 
+### Give elements values that change over time
+
+`time` says when an element exists; a history says what its fields are at each moment. A journal of changes, each a key, a moment and values, goes through `historyFrom` (`@bruno00o/graph/history`) into the `history` option of `nodes()`, `edges()` or `shapes()` (not `groups()`). The graph then reads each element as its item plus the values of the entries up to the end of the window, and the same journal can drive the bar.
+
+```ts
+import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
+import { historyFrom } from '@bruno00o/graph/history'
+import { createTimeline } from '@bruno00o/graph/timeline'
+
+type Item = { id: string; state: 'idle' | 'active'; level: number }
+type Change = {
+  time: Date
+  kind: 'state' | 'level'
+  node: string
+  state?: Item['state']
+  level?: number
+}
+
+declare const items: Item[]
+declare const changes: Change[]
+
+const history = historyFrom(changes, {
+  key: 'node',
+  values: (change) => ({ state: change.state, level: change.level }),
+})
+
+const graph = mountGraph(document.body, {
+  definition: defineGraph({ marks: [nodes(items, { color: 'state', size: 'level', history })] }),
+  ariaLabel: 'Sample graph',
+})
+const timeline = createTimeline(graph, { events: changes, eventKind: 'kind', instant: true })
+timeline.stepEvent()
+```
+
+- Entries are read as `{ key, time, values }` by default; the `key`, `time` and `values` options read other shapes (a field name or a function; `values` also a function that returns the fields). `data` is an array or a live source. A value that does not fit the item (a field it lacks, another type) is refused by the types.
+- The values are read at the end of the window: with a single-moment window (`instant: true`) the entries at that moment count, with a period only those before its end (the end is left out), and without a window or with an open end every entry counts, so the elements show their latest values.
+- Entries apply in time order, then in arrival order. A field set to `undefined` keeps its value, `null` sets it to `null`, and the fields named by the `key` and `time` options of the mark never change. Any other field can: label, color, the ends of an edge, the parent of a node, a position, the geometry of a shape.
+- `datumOf`, event targets, the accessors of the mark, the legend, paths and exports receive a copy of the item with the values applied (same prototype, frozen when the item is), a new object whenever an entry applies; an element with no entry before the moment keeps the item itself. Do not compare data by identity across moments.
+- `graph.history.of({ kind, key })` lists every entry of an element, before and after the moment, sorted, `time` in milliseconds; `graph.history.instant()` is the moment the values are read at (`Infinity` without window). Both apply pending data first.
+- A live source of entries, such as a TanStack DB collection, is followed, and its `status` counts in `data.loading`, `loaded()` and `waitForData`.
+- The scales over the whole journal, the legend, entries that arrive later, protected fields, React and costs are in [references/history.md](references/history.md).
+
 ### Use the timeline in React
 
 `<Timeline>` and `useTimeline` come from `@bruno00o/graph/react`. Both read the graph of the `<Graph>` or `<MapGraph>` around them; elsewhere pass it with the `graph` prop or option. `<Timeline>` takes the options of `createTimeline` and `mountTimeline`; `useTimeline` returns `{ state, timeline }` (`timeline` is `null` until the first layout effect) and renders again when the state changes.
@@ -322,6 +370,25 @@ Ends are exclusive on both the period and the window. A period `{ start: 1, end:
 
 Controlled mode is decided at mount and never changes. `update({ time })` on a graph mounted without `time` does nothing; a graph mounted with `time` (even `null`) ignores `time.set` and the timeline until `update({ time })` or the `time` prop answers. `onTimeChange` that does not apply the window leaves the window frozen and playback stuck.
 
+### HIGH Building the history in render
+
+`historyFrom(changes, …)` makes an object that the graph keeps its index on. One built again at every render, or in a definition function called at every update, is a new history: the journal is indexed again and every element reads again. Make it once, at module level or in `useMemo` keyed on the entries (the react skill), and give the same object to each definition. Pass a live source or a new array only when the entries change.
+
+```ts
+import { defineGraph, nodes } from '@bruno00o/graph'
+import { historyFrom } from '@bruno00o/graph/history'
+
+type Item = { id: string; state: string }
+type Change = { key: string; time: number; values: { state: string } }
+declare const items: Item[]
+
+export function definitionOf(changes: Change[]) {
+  return defineGraph({ marks: [nodes(items, { color: 'state', history: historyFrom(changes) })] })
+}
+```
+
+Build `const history = historyFrom(changes)` once, outside, and use `{ history }`.
+
 ### MEDIUM Rebuilding `events` or its readers in render
 
 `useTimeline({ events: log.map(toEvent), eventTime: (event) => event.at })` in a component makes a new array of new objects and a new function on every render, so the timeline counts every event again each time. Keep the array in state or `useMemo` (a growing log whose array starts with the same objects only reads the additions), give a field name to `eventTime` and `eventKind`, or declare the functions outside the component.
@@ -333,6 +400,45 @@ Controlled mode is decided at mount and never changes. `update({ time })` on a g
 ### MEDIUM A timeline over data with no times
 
 With no element carrying a time and no `events`, the timeline has no extent (`state.extent` is `null`), no bins, and `play()` does nothing. Give elements a `time`, or fix the bar with the `extent` option. Times on shapes do not count: a graph whose only timed elements are shapes needs the `extent` option, and its histogram stays empty.
+
+### MEDIUM `history` on `groups()`
+
+A group has no history: `groups()` refuses the option. Give the history to the `nodes()` mark whose items the groups gather; an aggregated edge or a group container reads the values of the moment and takes no part in the scales of the journal.
+
+```ts expect-error=TS2353
+import { groups } from '@bruno00o/graph'
+import { historyFrom } from '@bruno00o/graph/history'
+
+type Item = { id: string; state: string }
+type Change = { key: string; time: number; values: { state: string } }
+declare const items: Item[]
+declare const changes: Change[]
+
+groups(items, { by: 'state', history: historyFrom(changes) })
+```
+
+### MEDIUM A `history` that `historyFrom` did not make
+
+`history` accepts only what `historyFrom` returns, but the type is open: an object typed by hand compiles, and `defineGraph` throws a `TypeError` ("the history option of a mark must come from historyFrom()"). Keep the object that `historyFrom` returns, and do not copy or spread it.
+
+```ts
+import { defineGraph, type HistorySource, type HistoryValues, nodes } from '@bruno00o/graph'
+
+type Item = { id: string; state: string }
+declare const items: Item[]
+
+const history: HistorySource<HistoryValues<Item>> = {}
+
+export const definition = defineGraph({ marks: [nodes(items, { color: 'state', history })] })
+```
+
+### MEDIUM Expecting the scales to follow the moment
+
+The scales of a mark with a history cover every value of the whole journal, so the cursor never rescales anything: a sequential color or a size spans the smallest and largest value ever taken, and a category keeps the color of its first appearance. A graph that shows only small values at the moment looks compressed, and there is no option to read the values of the moment alone (it would rewrite every element at each step). Set `scales.size` or `scales.color` with a `domain` to fix the bounds yourself.
+
+### MEDIUM A wide jump over a large journal
+
+A step reads again only the elements whose entries it crosses, so one change at a time costs almost nothing, but a jump (a brush over weeks, a window set far away, `time.set(null)`) reads every element it crosses: 200 to 235 ms at 100,000 nodes and 1,000,000 entries. Step by bins or by event, keep the window moving in small steps while it plays, and expect one slow frame when the cursor leaps.
 
 ### MEDIUM Mixing local and UTC times
 
@@ -359,6 +465,7 @@ The task is done when:
 - period and window ends follow the exclusive end rule, and snapshots use `start` equal to `end`;
 - the timeline is created after the graph, mounted somewhere with a size, and destroyed with its graph (or before it, in reverse order);
 - a timeline of events is made with `graph: false` or no graph, with stable `events` and readers;
+- a journal of changes goes through one `historyFrom` made once, and the same entries feed the bar and the graph;
 - the page language or `format` and `labels` give readable ticks and accessible names;
 - `tsc` accepts the code with no cast.
 
@@ -366,6 +473,6 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- [Time](https://bruno00o.github.io/graph/docs/time), [events](https://bruno00o.github.io/graph/docs/time#events), [createTimeline and mountTimeline](https://bruno00o.github.io/graph/docs/api/timeline), [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [edges](https://bruno00o.github.io/graph/docs/api/edges)
-- Examples: [the time window](https://bruno00o.github.io/graph/examples/time), [moments and periods](https://bruno00o.github.io/graph/examples/time-moments), [graph that grows](https://bruno00o.github.io/graph/examples/time-growth), [time slider of your own](https://bruno00o.github.io/graph/examples/time-slider), [map in time](https://bruno00o.github.io/graph/examples/map-time-window), [history of changes](https://bruno00o.github.io/graph/examples/change-history)
+- [Time](https://bruno00o.github.io/graph/docs/time), [events](https://bruno00o.github.io/graph/docs/time#events), [values over time](https://bruno00o.github.io/graph/docs/time#values-over-time), [historyFrom](https://bruno00o.github.io/graph/docs/api/history), [createTimeline and mountTimeline](https://bruno00o.github.io/graph/docs/api/timeline), [nodes](https://bruno00o.github.io/graph/docs/api/nodes), [edges](https://bruno00o.github.io/graph/docs/api/edges)
+- Examples: [the time window](https://bruno00o.github.io/graph/examples/time), [moments and periods](https://bruno00o.github.io/graph/examples/time-moments), [graph that grows](https://bruno00o.github.io/graph/examples/time-growth), [time slider of your own](https://bruno00o.github.io/graph/examples/time-slider), [map in time](https://bruno00o.github.io/graph/examples/map-time-window), [history of changes](https://bruno00o.github.io/graph/examples/change-history), [values over time](https://bruno00o.github.io/graph/examples/values-over-time)
 - Showing elements by zoom instead of time is in the view skill; both combine, an element shows when its zoom range and the window let it.

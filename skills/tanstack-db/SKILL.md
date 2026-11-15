@@ -25,6 +25,7 @@ sources:
   - docs/content/docs/(guide)/data.mdx
   - docs/content/docs/api/subset.mdx
   - docs/content/docs/api/persist-positions.mdx
+  - docs/content/docs/api/history.mdx
 requires:
   - core
 ---
@@ -375,6 +376,10 @@ export const stopMap = persistPositions(graph, {
   surfaces: ['map'],
 })
 ```
+
+### Read a journal of changes from a collection
+
+`historyFrom(collection, { key, values })` (`@bruno00o/graph/history`, time skill) takes a collection or live query of changes as the `history` of a mark: each row is a key, a moment and values, and the nodes read as their items with the values up to the end of the time window. The journal is a source of its own: inserts, updates and deletes apply at the next frame, its status counts in `data.loading`, `graph.loaded()` and `waitForData` (so the first layout and fit wait for it), and a new value extends the scales without moving the others. Make the call once and keep it across definitions. The recipe is in [references/journal.md](references/journal.md).
 
 ### Shape edits and presence
 

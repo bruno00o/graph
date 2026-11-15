@@ -1077,6 +1077,9 @@ skills:
       - events of the application on the timeline
       - instant (a moment as cursor) and stepEvent
       - a timeline without a graph
+      - historyFrom and the history option (values that change over time)
+      - graph.history.of and graph.history.instant
+      - scales over the whole journal
     tasks:
       - Give nodes and edges a time or a period
       - Show only what exists in a time window
@@ -1085,6 +1088,7 @@ skills:
       - Control the time window from state
       - Draw a timeline of your own from its store
       - Count the events of the application on the bar and step through them
+      - Show the values of each moment from a journal of changes
     failure_modes:
       - mistake: Giving times as strings
         mechanism: A string is not a time, so the element has no time and always shows, with nothing reported.
@@ -1176,6 +1180,54 @@ skills:
         correct_pattern: |
           useTimeline({ graph: false, events })
         source: src/react/index.tsx, docs/content/docs/api/timeline.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Building the history in render
+        mechanism: "A historyFrom call made at each render or update is a new history, so the journal is indexed again and every element reads again; the same object across definitions keeps its index."
+        wrong_pattern: |
+          defineGraph({ marks: [nodes(items, { history: historyFrom(changes) })] })
+        correct_pattern: |
+          const history = historyFrom(changes)
+          defineGraph({ marks: [nodes(items, { history })] })
+        source: docs/content/docs/api/history.mdx, src/history/index.ts
+        priority: HIGH
+        status: active
+      - mistake: history on groups
+        mechanism: "A group has no history, so groups() refuses the option; give the history to the nodes mark, and aggregates and containers read the values of the moment."
+        wrong_pattern: |
+          groups(items, { by: 'state', history })
+        correct_pattern: |
+          nodes(items, { history })
+        source: docs/content/docs/api/history.mdx, src/types.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A history that historyFrom did not make
+        mechanism: "The type is open, so an object typed by hand compiles, and defineGraph throws a TypeError for a history that historyFrom did not return."
+        wrong_pattern: |
+          const history: HistorySource<HistoryValues<Item>> = {}
+          nodes(items, { history })
+        correct_pattern: |
+          const history = historyFrom(changes)
+          nodes(items, { history })
+        source: src/define-graph.ts, src/core/history.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the scales to follow the moment
+        mechanism: "The scales of a mark with a history cover every value of the whole journal, so the cursor never rescales and a size or sequential color spans values not shown now; there is no instant-only option, a domain fixes the bounds."
+        wrong_pattern: |
+          nodes(items, { size: 'level', history })
+        correct_pattern: |
+          defineGraph({ marks, scales: { size: { domain: [0, 10] } } })
+        source: docs/content/docs/(guide)/time.mdx, src/history/scales.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A wide jump over a large journal
+        mechanism: "A step reads again only the elements whose entries it crosses, so a jump over weeks reads every element it crosses and costs one slow frame."
+        wrong_pattern: |
+          graph.time.set(null)
+        correct_pattern: |
+          timeline.stepEvent()
+        source: docs/content/docs/(guide)/time.mdx, src/history/track.ts
         priority: MEDIUM
         status: active
   - name: tanstack-db
@@ -1772,6 +1824,15 @@ skills:
         correct_pattern: |
           switch (look.kind) { case 'nodes': ...; case 'edges': ...; case 'shapes': ... }
         source: src/legend/read.ts, docs/content/docs/api/legend.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Assuming that a listed category has elements
+        mechanism: "A legend category can have counts of zero, a domain value with no element or a value a history gives at other moments, so code that divides by a count or takes the first category must test it or use empty hide."
+        wrong_pattern: |
+          const first = legend.store.state.color.items[0]
+        correct_pattern: |
+          createLegend(graph, { empty: 'hide' })
+        source: docs/content/docs/(guide)/minimap-and-legend.mdx, src/legend/read.ts
         priority: MEDIUM
         status: active
       - mistake: The lens that never shows

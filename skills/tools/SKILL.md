@@ -111,6 +111,7 @@ The legend is read from the scales and the marks, not written, for nodes, edges 
 
 - `legend.store.state` holds sections: `color` (categories with the nodes, edges and, in a graph with a shape mark, shapes drawn in each, or a ramp for a sequential scale), `size` and `width` (the ends of the domain and a rounded value between), `marks` (the sections of marks with `scales` of their own, nodes first, then edges, then shapes; ids `n0`, `e1`, `s0`), `looks` (node shapes and images, edge line patterns, and shapes split into areas and lines by pattern with their fill and outline, ids like `s:0:area:0`; shown for a kind of element drawn with more than one look), `layers`, `hovered` and `off` (the ids switched off). `legend.keys(id)` has `shapes` only in a graph with a shape mark.
 - Raw colors (`raw()`) and `fill` or `stroke` colors have no category: those elements count only under their look. At most 64 categories are listed, plus the ones switched off.
+- A category that no element draws at the moment stays listed with counts of zero: a value of a `domain`, or a value that a `history` (time skill) gives at other moments, since the scales of a mark with a history cover its whole journal. `createLegend(graph, { empty: 'hide' })` (also `<Legend empty="hide" />` and `useLegend({ empty: 'hide' })`) leaves them out; `'show'` is the default. Counts are those of the moment.
 - `mountLegend` writes no text of its own. Titles come from `titles`, values from `format`, looks from `lookText`, layers from `layerText`, and the scales of a mark from `markTitle` or its `name`. Pass `sections` to choose and order them. `view.destroy()` removes the legend element and leaves the legend itself. A helper that takes the graph types it `GraphInstance` (`import type { GraphInstance } from '@bruno00o/graph'`) or `ReturnType` of the function that mounts it. Items are toggle buttons unless `toggle: false`; `[data-graph-legend]` marks the element and `[data-item]` its items.
 - Under the pointer or the keyboard focus, an item puts its elements in the `highlight` state; a click, Enter or Space switches it off, and its elements go to the `hidden` state. Both are **free states you declare** in the definition, and name in `createLegend`.
 - `hidden` only restyles unless the state has `hide: true`: with `hide`, the elements of an off item disappear from the graph, keep their selection, and the item stays listed. Without a `hidden` state, switching off only changes `legend.store.state.off`, for you to filter the data with.
@@ -376,6 +377,21 @@ Anchors are HTML over the canvas, not part of the scene: `exportPng` and `export
 ### MEDIUM A minimap with `corner: null` that is never placed
 
 With `corner: null` the minimap is not added to the page: append `minimap.element` yourself (in React, `<Minimap corner={null} />` renders the `div`).
+
+### MEDIUM Assuming that a listed category has elements
+
+A legend category can have counts of zero: a `domain` value with no element, or a value that a history gives at other moments, listed with its color so that it does not appear and disappear while the cursor moves. Code that takes the first category, divides by a count or draws a bar from it must test the counts, or ask the legend to leave the empty ones out.
+
+```ts
+import type { GraphInstance } from '@bruno00o/graph'
+import { createLegend } from '@bruno00o/graph/legend'
+
+declare const graph: GraphInstance
+
+const legend = createLegend(graph, { empty: 'hide' })
+const { color } = legend.store.state
+const drawn = color?.type === 'categories' ? color.items.filter((item) => item.nodes + item.edges > 0) : []
+```
 
 ### MEDIUM A switch over legend looks without `case 'shapes'`
 

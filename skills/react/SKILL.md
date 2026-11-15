@@ -81,6 +81,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, marks, sta
 
 - Build the definition outside the component, or in `useMemo` keyed on the data arrays.
 - Hoist functions used in mark options (`label: (item) => ...`) out of the component. Options are compared by content, functions by identity: a function created in render restyles every item of its mark on every render.
+- Make a `historyFrom(...)` journal once (module level, or `useMemo` keyed on its entries) and give the same object to each definition: one built in render is a new history, indexed again with every element read again (time skill).
 - Replace data arrays and changed items with new objects, as in the core skill. `setItems((items) => [...items, item])` is right; `items.push(item)` is not.
 
 ### Handle events with props
@@ -339,7 +340,7 @@ export function RestoredGraph({ saved }: { saved: Map<Key, Point> | undefined })
 
 ### HIGH Creating option functions or the definition in render
 
-A definition rebuilt in render with an inline function (`label: (item) => item.name`) restyles every item of the mark on every render, and an unmemoized definition also reads the whole data again. Build it in `useMemo` keyed on the data, and hoist the functions. Source: [The Graph component](https://bruno00o.github.io/graph/docs/react#the-graph-component).
+A definition rebuilt in render with an inline function (`label: (item) => item.name`) restyles every item of the mark on every render, and an unmemoized definition also reads the whole data again. Build it in `useMemo` keyed on the data, and hoist the functions. The same goes for `historyFrom(changes)` in render: a new history indexes its journal again and reads every element again. Source: [The Graph component](https://bruno00o.github.io/graph/docs/react#the-graph-component).
 
 ### HIGH Calling the hooks outside `<Graph>` without `graph`
 
@@ -378,7 +379,7 @@ Annotate the parameter (`(state: GraphState<string, Marks>) => ...`), type `useG
 
 ### MEDIUM Reading the graph structure during render
 
-`graph.neighbors`, `graph.edgesOf`, `graph.datumOf`, `graph.count` and `graph.issues` first apply pending data changes, which updates the store and renders the components that read it. Called while React renders, this can trigger React's "Cannot update a component while rendering a different component" warning. Call them in event handlers, effects or `useGraphEvent` handlers, and keep their results in state.
+`graph.neighbors`, `graph.edgesOf`, `graph.datumOf`, `graph.history.of`, `graph.count` and `graph.issues` first apply pending data changes, which updates the store and renders the components that read it. Called while React renders, this can trigger React's "Cannot update a component while rendering a different component" warning. Call them in event handlers, effects or `useGraphEvent` handlers, and keep their results in state.
 
 ### MEDIUM Switching to a controlled prop after mount
 

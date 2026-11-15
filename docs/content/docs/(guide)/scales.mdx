@@ -37,7 +37,7 @@ scales: {
 }
 ```
 
-Values outside an explicit domain are clamped to it. Without a domain, the scale uses the extent of the data and follows it as the data changes.
+Values outside an explicit domain are clamped to it. Without a domain, the scale uses the extent of the data and follows it as the data changes. A mark with a [history](/docs/time#scales-over-the-whole-history) is the exception: its scales cover every value of the journal, whatever the moment shown, and give a `domain` to fix them by hand.
 
 Examples: [categorical colors](/examples/categorical-colors) and [sequential colors](/examples/sequential-colors), each with its legend.
 
