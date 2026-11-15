@@ -1208,6 +1208,8 @@ export class Projection {
       edgeAt,
       shapeAt: (index) => model.shapeAt(index),
       node: (key) => model.node(key),
+      trail: (kind, key) => model.trail(kind, key),
+      rowVersion: () => model.rowVersion(),
       shapes: () => model.shapes(),
       *nodes() {
         for (const record of model.nodes()) {

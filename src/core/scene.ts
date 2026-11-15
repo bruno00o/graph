@@ -42,6 +42,7 @@ import {
   type CompiledEdgeMark,
   type CompiledEnd,
   type CompiledNodeMark,
+  type CompiledShapeColor,
   compileEdgeMark,
   compileNodeMark,
   compileShapeColor,
@@ -55,6 +56,7 @@ import type {
   NodeRecord,
   ShapeRecord,
 } from './graph-model'
+import { type HistoryTrail, historyEngineOf, type PastScales, type PastSink } from './history'
 import { IndexSet } from './index-set'
 import { positive, readBackground, swapColor, toColor, toText, writeLabelText } from './label-text'
 import {
@@ -105,6 +107,8 @@ export interface SceneModel {
   shapes?(): Iterable<ShapeRecord>
   shapeAt?(index: number): ShapeRecord | undefined
   node?(key: Key): { readonly index: number } | undefined
+  trail?(kind: 'nodes' | 'edges' | 'shapes', key: Key): HistoryTrail | null
+  rowVersion?(): number
 }
 
 export interface SceneColorScale {
@@ -112,6 +116,7 @@ export interface SceneColorScale {
   readonly slot: number
   readonly scale: ResolvedColorScale
   readonly extent: Extent | null
+  readonly past: ReadonlyMap<unknown, number> | null
 }
 
 export interface SceneNumberScale {
@@ -173,6 +178,8 @@ class ColorState {
   readonly shapes: ExtentTracker = new ExtentTracker()
   members: Map<unknown, number> | null = null
   readonly idle: Set<unknown> = new Set()
+  past: Extent | null = null
+  pastHeld: Map<unknown, number> | null = null
 
   constructor(
     public options: ColorScale | undefined,
@@ -184,8 +191,8 @@ class ColorState {
 
   dataExtent(ends: boolean): Extent | null {
     const own = combineExtents(
-      combineExtents(this.nodes.extent, this.edges.extent),
-      this.shapes.extent,
+      combineExtents(combineExtents(this.nodes.extent, this.edges.extent), this.shapes.extent),
+      this.past,
     )
     return ends ? combineExtents(own, this.ends.extent) : own
   }
@@ -221,7 +228,7 @@ class ColorState {
     for (const value of this.idle) {
       if (scale.size() <= scale.range.length) return
       this.idle.delete(value)
-      if (!members.has(value)) scale.forget(value)
+      if (!members.has(value) && !this.pastHeld?.has(value)) scale.forget(value)
     }
   }
 
@@ -232,6 +239,8 @@ class ColorState {
 
   clear(): void {
     this.extent = null
+    this.past = null
+    this.pastHeld = null
     this.nodes.clear()
     this.edges.clear()
     this.ends.clear()
@@ -264,6 +273,7 @@ interface ColorFallbacks {
 
 class NumberState {
   domain: Extent | null = null
+  past: Extent | null = null
   readonly values: ExtentTracker = new ExtentTracker()
   readonly ends: ExtentTracker = new ExtentTracker()
 
@@ -274,11 +284,13 @@ class NumberState {
   ) {}
 
   dataExtent(ends: boolean): Extent | null {
-    return ends ? combineExtents(this.values.extent, this.ends.extent) : this.values.extent
+    const own = combineExtents(this.values.extent, this.past)
+    return ends ? combineExtents(own, this.ends.extent) : own
   }
 
   clear(): void {
     this.domain = null
+    this.past = null
     this.values.clear()
     this.ends.clear()
   }
@@ -618,6 +630,30 @@ export function createScene(
   const widthValues: number[] = []
   const endWidthValues: number[] = []
   let endsSeen = false
+  let past: PastScales | null = null
+  function probeEnd(end: CompiledEdgeMark | CompiledEnd, datum: unknown, sink: PastSink): void {
+    if (end.width && !end.widthRaw) sink.number(toNumber(end.width(datum)))
+    if (end.color && !end.colorRaw) sink.color(end.color(datum))
+  }
+
+  const probeNode = (datum: unknown, sink: PastSink): void => {
+    const mark = compiledNode as CompiledNodeMark
+    if (mark.size && !mark.sizeRaw) sink.number(toNumber(mark.size(datum)))
+    if (mark.color && !mark.colorRaw) sink.color(mark.color(datum))
+  }
+
+  const probeEdge = (datum: unknown, sink: PastSink): void => {
+    const mark = compiledEdge as CompiledEdgeMark
+    probeEnd(mark, datum, sink)
+    if (!mark.ends) return
+    probeEnd(mark.ends.source, datum, sink)
+    probeEnd(mark.ends.target, datum, sink)
+  }
+
+  let shapeLook: CompiledShapeColor | null = null
+  const probeShape = (datum: unknown, sink: PastSink): void => {
+    if (shapeLook && !shapeLook.colorRaw) sink.color(shapeLook.color(datum))
+  }
 
   function track(tracker: ExtentTracker, index: number, value: unknown): void {
     if (typeof value === 'number' && Number.isFinite(value)) tracker.set(index, value)
@@ -680,6 +716,7 @@ export function createScene(
       nodeColorValues[index] = undefined
       nodeSize.values.delete(index)
       nodeColor.nodes.delete(index)
+      past?.drop(0, index)
       return
     }
     const size = mark.size ? toNumber(mark.size(record.datum)) : Number.NaN
@@ -689,6 +726,7 @@ export function createScene(
     if (mark.sizeRaw) nodeSize.values.delete(index)
     else track(nodeSize.values, index, size)
     track(nodeColor.nodes, index, color)
+    past?.read(0, record, nodeColor, nodeSize, probeNode)
   }
 
   function readEdge(record: EdgeRecord): void {
@@ -711,6 +749,7 @@ export function createScene(
     } else if (endsSeen) {
       forgetEnds(index, edgeColor, edgeWidth)
     }
+    past?.read(1, record, edgeColor, edgeWidth, probeEdge)
   }
 
   function readEnd(id: number, end: CompiledEnd, datum: unknown): void {
@@ -1157,6 +1196,7 @@ export function createScene(
       color.release(held)
       nodeHeld[index] = undefined
     }
+    past?.drop(0, index)
     nodes.order.remove(index)
     nodes.clear(index)
     sizeValues[index] = Number.NaN
@@ -1185,6 +1225,7 @@ export function createScene(
       endHeld[index * 2] = undefined
       endHeld[index * 2 + 1] = undefined
     }
+    past?.drop(1, index)
     lanes.unlink(index)
     edges.clear(index)
     widthValues[index] = Number.NaN
@@ -1211,6 +1252,8 @@ export function createScene(
     const value = look && !look.colorRaw ? look.color(record.datum) : undefined
     shapeColorValues[index] = value
     if (state) track(state.shapes, index, value)
+    shapeLook = look
+    past?.read(2, record, state ?? null, null, probeShape)
   }
 
   function writeShape(record: ShapeRecord): boolean {
@@ -1264,6 +1307,7 @@ export function createScene(
   }
 
   function removeShape(index: number): void {
+    past?.drop(2, index)
     const state = shapeIn[index]
     if (!state) return
     state.shapes.delete(index)
@@ -1315,6 +1359,7 @@ export function createScene(
       slot: state.slot,
       scale: state.scale,
       extent: state.dataExtent(endsSeen),
+      past: state.pastHeld,
     }
   }
 
@@ -1469,6 +1514,10 @@ export function createScene(
       }
       scales = next
       const marks = definition.marks
+      for (const mark of marks) {
+        past ??= historyEngineOf((mark as ScaledMark).options.history)?.scales() ?? null
+      }
+      if (past?.define(marks)) full = true
       if (
         marks.some((mark) => mark.type === 'nodes' && (mark as NodeMark<unknown>).options.order)
       ) {
@@ -1509,6 +1558,7 @@ export function createScene(
     },
 
     apply(model, changes) {
+      past?.begin(model)
       claimAll(model, changes)
       if (shapeColorSeen && changes.shapes) {
         for (const { index } of changes.shapes.removed) removeShape(index)
@@ -1520,6 +1570,7 @@ export function createScene(
         for (const state of colorStates()) state.clear()
         for (const state of numberStates(sharedSize, sizes)) state.clear()
         for (const state of numberStates(sharedWidth, widths)) state.clear()
+        past?.reset()
         moved = false
         full = true
       }
@@ -1533,6 +1584,7 @@ export function createScene(
         endHeld = []
         shapeHeld = []
         for (const state of colorStates()) state.recount()
+        past?.refold()
         for (const record of model.nodes()) nodeBatch.add(record)
         for (const record of model.edges()) edgeBatch.add(record)
         if (shapeColorSeen) for (const record of model.shapes?.() ?? []) shapeBatch.add(record)
@@ -1570,6 +1622,7 @@ export function createScene(
       for (const record of nodeBatch.records) readNode(record)
       for (const record of edgeBatch.records) readEdge(record)
       for (const record of shapeBatch.records) readShape(record)
+      past?.settle()
 
       const nodeAt = (index: number) => model.nodeAt(index)
       const edgeAt = (index: number) => model.edgeAt(index)

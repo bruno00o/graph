@@ -353,9 +353,10 @@ function useLegendInstance<S extends string, M extends Mark>(
   }, [graph, latest])
   const highlight = options.highlight ?? null
   const hidden = options.hidden ?? null
+  const empty = options.empty
   useLayoutEffect(() => {
-    legend?.update({ highlight, hidden })
-  }, [legend, highlight, hidden])
+    legend?.update({ highlight, hidden, empty })
+  }, [legend, highlight, hidden, empty])
   return legend
 }
 
@@ -367,8 +368,8 @@ function useLegendInstance<S extends string, M extends Mark>(
 export function useLegend<S extends string = string, M extends Mark = Mark>(
   options: UseLegendOptions<S, M> = {},
 ): UseLegendResult<S, M> {
-  const { graph, highlight, hidden } = options
-  const legend = useLegendInstance<S, M>(graph, { highlight, hidden }, 'useLegend')
+  const { graph, highlight, hidden, empty } = options
+  const legend = useLegendInstance<S, M>(graph, { highlight, hidden, empty }, 'useLegend')
   const subscribe = useCallback(
     (notify: () => void) => {
       if (!legend) return () => {}
@@ -397,11 +398,11 @@ export interface LegendProps<S extends string = string, M extends Mark = Mark>
 export function Legend<S extends string = string, M extends Mark = Mark>(
   props: LegendProps<S, M>,
 ): ReactNode {
-  const { highlight, hidden } = props
+  const { highlight, hidden, empty } = props
   const view = pick<LegendViewOptions<M>>(legendViewKeys, props)
   const legend = useLegendInstance<S, M>(
     props.graph,
-    { highlight: highlight ?? null, hidden: hidden ?? null },
+    { highlight: highlight ?? null, hidden: hidden ?? null, empty },
     'Legend',
   )
   const slot = useRef<HTMLDivElement>(null)

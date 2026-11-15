@@ -309,6 +309,25 @@ timeline.stepEvent()
 
 Moving the cursor reads again only the elements whose entries it crosses: stepping from one change to the next touches one element. See the [values over time](/examples/values-over-time) example.
 
+### Scales over the whole history
+
+The scales of a mark with a history cover every value its elements take over the whole journal, not only those of the moment. A state keeps its color and a level its size at every moment, and moving the cursor never rewrites elements that its step does not cross:
+
+- a numeric scale, for a size, a width or a sequential color, spans the smallest and the largest value of the journal;
+- a categorical color gives each value its color in the order of its first appearance in the journal, the values of the items first, so the colors are the same whatever the moment shown first. A `domain` still comes first.
+
+Entries that arrive later, from a live source, extend the scales: a new value takes the next color and the others keep theirs. Marks without a history keep scales on their current values.
+
+The [legend](/docs/minimap-and-legend#sections) lists the categories of the whole history and counts the elements of the moment, zero for a value not drawn then. `empty: 'hide'` leaves those out:
+
+```ts
+const legend = createLegend(graph, { empty: 'hide' })
+```
+
+Scales do not follow the values of the moment only: each step would move their ends and rewrite every element. A `domain` sets them by hand.
+
+Merged edges and folded groups read their aggregate at the moment and take no part in the scales of the history.
+
 ## Performance
 
 The time of each element is read when the data changes, like every style. Moving the window only compares it with them on the GPU: playback costs no work per element. Measured on a laptop, at 500,000 nodes and 1,000,000 edges, each with a random period:
@@ -340,10 +359,11 @@ A [history](#values-over-time) costs work only where a step crosses entries. Mea
 | Step | Time |
 | --- | --- |
 | Reading the entries, on top of mounting | 140 to 165 ms |
-| Memory of the history | about 40 bytes per entry |
+| [Scales over the whole history](#scales-over-the-whole-history), on top of the first frame | 210 to 260 ms, about 0.25 µs per entry |
+| Memory of the history | about 40 bytes per entry, plus about 80 bytes per element for its scales |
 | A step of one hour, about 1,400 entries | 6 to 7 ms of work, 21 ms per frame |
 | A step of one day, about 33,000 entries | 48 to 50 ms of work |
 | A jump of 20 days, every node read again | 200 to 235 ms of work |
 | Without a history, any step | under 0.2 ms of work |
 
-Marks without a history cost nothing more.
+The scales of the history are read once, then again only for the elements whose entries or items change: the steps above cost the same as without them. Marks without a history cost nothing more.
