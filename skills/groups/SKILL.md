@@ -3,8 +3,9 @@ name: groups
 description: >
   Use when nesting @bruno00o/graph nodes in groups with a parent field or by a
   field value with groups(), styling group containers, folding and unfolding
-  groups from code, from a double-click or from React state, merging parallel
-  edges or the edges between groups into one, hiding elements with a state
+  groups from code, from a double-click or from React state, giving a group a
+  layout of its own, merging parallel edges, the edges between groups or the
+  edges toward a folded group into one, hiding elements with a state
   without removing their data, or finding why a group does not fold, a key does
   not match or the layout ignores a fold.
 metadata:
@@ -91,9 +92,10 @@ A layout that follows folds comes from the layouts skill: `import { force } from
 
 ### Style the container
 
-The `container` option of `nodes()` styles a node while it is an unfolded group: `shape` (`'rectangle'` default, `'circle'`), `padding` (default 16), `fill` (default `--graph-group-fill`), `fillOpacity` (0..1, default 1, translucent on a map), `stroke` (`--graph-group-line`), `strokeWidth` (1), `spread` and `gap`, plus `drag`, `label` and `badges` below. A folded group draws with the ordinary options of its mark (color, size, shape, label, badges). States apply to containers like nodes. Edges that end on a container stop at its border.
+The `container` option of `nodes()` styles a node while it is an unfolded group: `shape` (`'rectangle'` default, `'circle'`), `padding` (default 16), `fill` (default `--graph-group-fill`), `fillOpacity` (0..1, default 1, translucent on a map), `stroke` (`--graph-group-line`), `strokeWidth` (1), `spread` and `gap`, plus `drag`, `label`, `badges` and `layout` below. A folded group draws with the ordinary options of its mark (color, size, shape, label, badges). States apply to containers like nodes. Edges that end on a container stop at its border.
 
 - `container.drag: false` keeps a container in place: a press inside it pans the view or draws a lasso, and its children can still be dragged one by one. It defaults to the `drag` of the node, so `drag: false` on the mark pins the containers too (interaction skill).
+- `container.layout` (a layout, `null` or a function of the group item) lays the members of the unfolded group out together, and the layout around places the group as one block (layouts skill: workers, unfolding, limits). It works on `nodes()` and `groups()` and is ignored on a map.
 - An unfolded group keeps its label, above the container, and shows its badges only while folded. `container.label` and `container.badges` set them while it is unfolded, with the values of the `label` and `badges` options of `nodes()` (`null` draws none); container badges sit on the corners of the container. The same options apply to the groups of `groups()`.
 
 ```ts
@@ -115,7 +117,7 @@ nodes(items, {
 
 ### Spread overlapping children
 
-Children of an unfolded group that overlap, such as nodes at the same coordinates, move apart around their place (`container.spread`, on by default; `gap` 4 in pixels for `units: 'screen'` nodes, else world units). Only the drawn position moves: the data keeps its place, no `positionchange` is emitted, so `persistPositions` never stores a spread position, and children return at once when the group folds. `graph.positions.get` and `snapshot()` give the drawn positions. A child you drag or `positions.set` leaves its pack. Layouts never move a spread child. Set `container: { spread: false }` to leave children stacked.
+Children of an unfolded group that overlap, such as nodes at the same coordinates, move apart around their place (`container.spread`, on by default; `gap` 4 in pixels for `units: 'screen'` nodes, else world units). Only the drawn position moves: the data keeps its place, no `positionchange` is emitted, so `persistPositions` never stores a spread position, and children return at once when the group folds. `graph.positions.get` and `snapshot()` give the drawn positions. A child you drag or `positions.set` leaves its pack. Layouts never move a spread child, and members that a group layout arranges are not spread. Set `container: { spread: false }` to leave children stacked.
 
 ### Fold and unfold from code
 
@@ -218,7 +220,7 @@ graph.groups.unfold([key])
 
 To reuse option objects, hoist them as functions typed with `AggregateEdge<Link>`, a type exported from the main entry (`(aggregate: AggregateEdge<Link>) => aggregate.count`); callbacks written inline in `edges()` are inferred.
 
-`merge: true` draws the edges of one mark that join the same two visible nodes in the same direction as one aggregated edge; `aggregate` styles it. The aggregated edge is read again whenever one of its edges changes, arrives or leaves, so its `count`, `keys`, `data` and the width, color and label computed from them follow the data: updating one merged edge is enough. Its channels and styles read an `AggregateEdge`: `id`, `source`, `target`, `count`, `keys`, `data`, `forward`, `backward` (each `{ count, keys, data }`), and `value` when `by` is set.
+`merge: true` draws the edges of one mark that join the same two visible nodes in the same direction as one aggregated edge; `aggregate` styles it. The aggregated edge is read again whenever one of its edges changes, arrives or leaves, so its `count`, `keys`, `data` and the width, color and label computed from them follow the data: updating one merged edge is enough. Its channels and styles read an `AggregateEdge`: `id`, `source`, `target`, `count`, `keys`, `data`, `forward`, `backward` (each `{ count, keys, data }`), and `value` when `by` is set (not for edges merged by `foldedAsOne`).
 
 ```ts
 import { edges } from '@bruno00o/graph'
@@ -243,10 +245,11 @@ edges(links, {
 ```
 
 - `by` splits the merge: edges of two values between the same nodes draw as two aggregated edges side by side. `directed: false` puts both directions on one line that points the way of the first edge in `keys`, and `forward` and `backward` tell the directions apart (one end each through `aggregate.ends`). `min` (default 2) is the fewest edges that merge; edges that end in a folded group always merge.
+- With `by`, the edges toward a folded group split by value too. `foldedAsOne: true` draws the edges that end in a folded group (from a node, or between two folded groups) as one aggregated edge whatever `by`; between plain nodes `by` still splits them, and unfolding brings back one line per value. That line has no `value` (a channel such as `color: (aggregate) => aggregate.value` reads `undefined`: give it a fallback) and its `id` ends with `null`. It does nothing without `by`, and the groups that `betweenGroups: 'groups'` draws as boxes are not folded groups.
 - `min` governs parallel edges between visible nodes and edges into folded groups only. With `betweenGroups: 'groups'`, every edge that rises to a pair of groups draws as an aggregated edge, even a single one, whatever `min`.
 - Merging is per mark, so an aggregated edge stays in the layer of its mark. Without `merge`, an edge pair A to B and B to A is two curves.
 - Without `aggregate`, an aggregated edge takes the look of its first merged edge; labels (end labels too) show only when it stands for one edge. The first edge is the first to have reached the graph and stays while it is in the data.
-- Picking returns the first edge with `target.aggregate` holding all of them: `graph.on('click', ({ target }) => target?.kind === 'edge' && target.aggregate?.keys)`. `aggregate.id` names the aggregated edge itself: built from the mark, its two visible ends (in a fixed order when `merge.directed` is `false`) and the `by` value, it stays the same while the edge joins the same ends, whichever edges it merges. Key a panel or a tooltip on it, not on `target.key` or `keys[0]`, which change when the first edge leaves. Clicking selects every merged edge, hovering hovers them all, and an aggregated edge shows the states of any of its edges. It hides when all its edges hide.
+- Picking returns the first edge with `target.aggregate` holding all of them: `graph.on('click', ({ target }) => target?.kind === 'edge' && target.aggregate?.keys)`. `aggregate.id` names the aggregated edge itself: built from the mark, its two visible ends (in a fixed order when `merge.directed` is `false`) and the `by` value (`null` with `foldedAsOne`), it stays the same while the edge joins the same ends, whichever edges it merges. Key a panel or a tooltip on it, not on `target.key` or `keys[0]`, which change when the first edge leaves. Clicking selects every merged edge, hovering hovers them all, and an aggregated edge shows the states of any of its edges. It hides when all its edges hide.
 - Keep a `by` function stable, as for `groups()`.
 
 ### One direction per half
@@ -343,7 +346,7 @@ A fold, an unfold, or a change of `groups()` or `merge` changes what the layout 
 
 ### Positions and unfolding
 
-Hidden nodes keep their positions, restored ones (`initialPositions`, layouts skill) included: a hidden member appears at its restored place when the group opens, a folded group keeps its own entry, and restored members are not spread. On unfolding, nodes return where they were, shifted by how far the group moved while folded, and glide out over `transitions.layout`; nodes placed by `x` and `y` stay where the data puts them; a node never shown appears around its group. With a layout in the definition, an unfolding group makes room for itself.
+Hidden nodes keep their positions, restored ones (`initialPositions`, layouts skill) included: a hidden member appears at its restored place when the group opens, a folded group keeps its own entry, and restored members are not spread. On unfolding, nodes return where they were, shifted by how far the group moved while folded, and glide out over `transitions.layout`; nodes placed by `x` and `y` stay where the data puts them; a node never shown appears around its group. With a layout in the definition, or a layout of its own in any group, an unfolding group makes room for itself. A group with `container.layout` arranges its members as they come out of it: an incremental layout puts back the members it arranged before and places only the new ones (layouts skill).
 
 ## Common Mistakes
 
@@ -373,7 +376,7 @@ The key of a group node made by `groups()` is internal, so guessing it (`'sector
 
 ### HIGH Expecting folding or merging to relayout
 
-Folding, unfolding and a change of `groups()` or `merge` place only the nodes that appear. For the whole layout to run again, set `relayout: true`; otherwise call `graph.layout.run()`.
+Folding, unfolding and a change of `groups()` or `merge` place only the nodes that appear (a group with `container.layout` also arranges its own members as it unfolds). For the whole layout to run again, set `relayout: true`; otherwise call `graph.layout.run()`.
 
 ### MEDIUM Giving `groups()` a different array than the items mark
 
@@ -386,6 +389,10 @@ Folding is controlled or not for the life of the graph, decided at mount by `fol
 ### HIGH Setting `halves` without `directed: false`
 
 `halves: true` is ignored unless `directed` is `false`: the type accepts the combination (`directed` may come from a variable), development builds only log a warning once per graph, and the line stays whole, so `target.direction` is never set and a click still selects both directions. Write `merge: { directed: false, halves: true }`. The same happens for a line with edges one way only, which is correct: only two-way lines split, so handle a click target without `direction`.
+
+### MEDIUM Expecting `foldedAsOne` to merge without `by`
+
+`merge: { foldedAsOne: true }` only changes how a `by` split treats the edges toward a folded group. Without `by` those edges already merge, and nothing changes. The merged line has no `value`, so a color or width that reads `aggregate.value` gets `undefined` for it, and its `id` has a `null` where a by-value line has the value: never compare the two.
 
 ### MEDIUM Identifying an aggregated edge by its first key
 
@@ -446,6 +453,7 @@ The task is done when:
 - a layout that must follow folds has `relayout: true`;
 - controlled folding is initialized before the first render and answers every `onFoldChange`;
 - a two-way line that must select one direction per click has `merge: { directed: false, halves: true }`, and handlers treat a target without `direction` as the whole line;
+- a group that needs its own arrangement has `container.layout`, and `foldedAsOne` sits next to a `by`;
 - merge options and `by` functions are declared once, panels on aggregated edges are keyed by `aggregate.id`, and `tsc` passes with no cast on `AggregateEdge`.
 
 ## References
@@ -454,4 +462,4 @@ Every page has a Markdown version: add `.md` to its URL. The site documents the 
 
 - Guides: [Groups](https://bruno00o.github.io/graph/docs/groups), [Transformations](https://bruno00o.github.io/graph/docs/transformations), [groups in layouts](https://bruno00o.github.io/graph/docs/layout#groups)
 - API: [groups](https://bruno00o.github.io/graph/docs/api/groups), [edges](https://bruno00o.github.io/graph/docs/api/edges), [GraphInstance](https://bruno00o.github.io/graph/docs/api/graph-instance)
-- Examples: [nested groups](https://bruno00o.github.io/graph/examples/nested-groups), [group by a field](https://bruno00o.github.io/graph/examples/group-by-field), [merge by kind](https://bruno00o.github.io/graph/examples/merge-by-kind), [transformations](https://bruno00o.github.io/graph/examples/transformations), [lay out again after a fold](https://bruno00o.github.io/graph/examples/relayout-on-fold), [filter with a hidden state](https://bruno00o.github.io/graph/examples/threshold-filter), [group tree beside the graph](https://bruno00o.github.io/graph/examples/group-tree), [forces with groups](https://bruno00o.github.io/graph/examples/force-with-groups)
+- Examples: [nested groups](https://bruno00o.github.io/graph/examples/nested-groups), [group by a field](https://bruno00o.github.io/graph/examples/group-by-field), [merge by kind](https://bruno00o.github.io/graph/examples/merge-by-kind), [layouts per group](https://bruno00o.github.io/graph/examples/group-layouts), [transformations](https://bruno00o.github.io/graph/examples/transformations), [lay out again after a fold](https://bruno00o.github.io/graph/examples/relayout-on-fold), [filter with a hidden state](https://bruno00o.github.io/graph/examples/threshold-filter), [group tree beside the graph](https://bruno00o.github.io/graph/examples/group-tree), [forces with groups](https://bruno00o.github.io/graph/examples/force-with-groups)

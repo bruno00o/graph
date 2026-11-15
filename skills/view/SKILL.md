@@ -8,8 +8,9 @@ description: >
   state, converting between screen pixels and world units to place overlays or
   drop nodes, and showing nodes, edges and shapes only within a range of zoom (level of
   detail, clusters that give way to members). Gesture options such as the wheel
-  belong to the interaction skill; a graph inside a MapLibre map does not use
-  this skill's view limits and is covered by the map skill.
+  belong to the interaction skill; a graph on a MapLibre map does not use this
+  skill's view limits, and the view of a graph that moves between its canvas and
+  a map is covered by the map skill.
 metadata:
   purpose: >
     The camera of a @bruno00o/graph graph: the view as a center and a zoom,
@@ -161,6 +162,10 @@ const graph = mountGraph(document.body, {
 - `graph` is used inside its own `onViewChange`: that is valid, the handler runs after the assignment.
 - A request that is never applied freezes the gesture: `onViewChange` must call `update({ view })` with a view, even the unchanged one.
 
+### Views of a graph that moves between a canvas and a map
+
+A graph moved with `update({ surface })` (map skill) keeps one view for each surface: back on the canvas, the view is the one it had. A `view` given in the same `update` is the view to take on the new surface, controlled or not. The two views are in different units (the map's zoom is `2 ** map.getZoom()`, the canvas has the units of its layout), so convert one into the other before giving it. A controlled `view` is ignored on the map and applies again on the canvas. `store.surface` says which side the graph is on.
+
 ### Convert between screen and world
 
 ```ts
@@ -292,14 +297,18 @@ An outgoing mark with `maxZoom: t` and an incoming one with `minZoom: t` leave a
 
 ### MEDIUM Setting `view` limits or `padding` on a map
 
-On a graph drawn by `mountMapGraph`, the map owns the camera and its limits: `minZoom`, `maxZoom`, `bounds`, `padding` and `autoFit` of the definition change nothing, `update({ view })` is ignored, and each `fit` takes its own `padding`. See the map skill.
+While the graph is on a map, the map owns the camera and its limits: `minZoom`, `maxZoom`, `bounds`, `padding` and `autoFit` of the definition change nothing, `update({ view })` moves nothing, and each `fit` takes its own `padding`. They apply again when the graph is back on its canvas. See the map skill.
+
+### MEDIUM Giving the view of one surface to the other
+
+A `view` read on the canvas, given with `update({ surface: map, view })` as it is, shows another place: the zoom of a map graph is `2 ** map.getZoom()` and its center is in the 512-unit world, while the canvas view is in layout units. Convert with the same `center` and `scale` that the `geo` layout uses, or leave `view` out to keep the camera of the map.
 
 ## Completion
 
 The task is done when:
 
 - every `fit` call passes an options object (`{ nodes }`, `{ edges }`, a path or a selection), never a list;
-- limits, `padding` and `autoFit` live in the `view` of `defineGraph`, and none of them is set for a map graph;
+- limits, `padding` and `autoFit` live in the `view` of `defineGraph`, and none of them is set for a map graph, whose views are converted when a graph moves between surfaces;
 - a controlled view is mounted with both `view` and `onViewChange`, and the handler always calls `update({ view })`;
 - elements that show by zoom use `minZoom` and `maxZoom` on the marks, with handovers offset by `2 ** 0.25`;
 - `tsc` accepts the code with no cast on `View`, targets or options.

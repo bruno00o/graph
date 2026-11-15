@@ -7,7 +7,8 @@ description: >
   the hovered node, the selection or the view in components, handling clicks,
   driving the graph from a toolbar or side panel elsewhere in the page,
   controlling the selection or the view from React state, and mounting under
-  StrictMode. Not for a graph inside a MapLibre map, which uses <MapGraph>.
+  StrictMode, and moving the graph onto a MapLibre map and back with a surface.
+  A graph that lives only inside a MapLibre map uses <MapGraph>.
 metadata:
   purpose: >
     The React binding of @bruno00o/graph: the <Graph> component and its props,
@@ -21,6 +22,7 @@ sources:
   - src/react/index.tsx
   - src/react/graph.tsx
   - src/react/context.ts
+  - src/map/react.tsx
   - src/host/data-status.ts
   - docs/content/docs/(guide)/react.mdx
   - docs/content/docs/(guide)/typescript.mdx
@@ -270,7 +272,7 @@ export function Page() {
 }
 ```
 
-The `graph` option wins over the graph in context. `<Legend>`, `<Minimap>`, `<Timeline>`, `useLegend` and `useTimeline` take the same `graph` prop or option.
+The `graph` option wins over the graph in context. `<Legend>`, `<Minimap>`, `<Timeline>`, `useLegend` and `useTimeline` take the same `graph` prop or option: `null` waits for a graph, and `graph: false` on the timeline follows none (time skill).
 
 ### Control the selection or the view
 
@@ -300,6 +302,10 @@ export function ControlledGraph() {
 ```
 
 Folded groups (`folded`, `onFoldChange`), hidden layers (`hiddenLayers`, `onLayerChange`) and the time window (`time`, `onTimeChange`) work the same way.
+
+### Move the graph onto a map and back
+
+`<Graph surface>` takes a surface from `useMapSurface(map)` (`@bruno00o/graph/map/react`), or `null` for its own canvas. A new `surface` and a new `definition` apply in one `update`, so give the definition of the side you move to in the same render; the instance, its children, the hooks and the companions stay mounted and keep their state, and the graph keeps its positions and view on each side. The map element is a child of `<Graph>`, hidden with `opacity` (never `display: none`) while the graph is on its canvas. Read the side with `useGraphState((state) => state.surface)` or `onSurfaceChange`. A map removed or a surface released sends the graph back to its canvas, and it stays there until the prop changes. Full recipe: map skill, `references/surfaces.md`.
 
 ### StrictMode and lifetime
 
@@ -401,6 +407,10 @@ export function Restored({ saved }: { saved: Map<Key, Point> }) {
 }
 ```
 
+### MEDIUM Swapping `<Graph>` for `<MapGraph>` to change side
+
+`<MapGraph>` mounts its own graph, and another `map`, `id` or `beforeId` mounts a new one. Rendering `<Graph>` on one side and `<MapGraph>` on the other destroys the graph at each switch: selection, positions, view, folded groups and companion state are lost. To move one graph, keep `<Graph>` and change its `surface` and `definition` together.
+
 ### MEDIUM A `<Graph>` without a height
 
 `<Graph>` fills its own `div`, which takes its size from `className` or `style`: a `div` positioned by your class (`absolute inset-0`) still needs a height from its parent. Without a height it draws nothing. Development builds warn once.
@@ -414,6 +424,7 @@ The task is done when:
 - selectors and handlers are typed (`tsc` passes without `any` or casts on `datum`);
 - components outside `<Graph>` pass `graph` and handle the `null` first render;
 - positions restored at a remount are passed as `initialPositions`, as a `Map` or an array;
+- a graph that moves between a canvas and a map keeps one `<Graph>`, with `surface` and `definition` changing together;
 - under StrictMode, the page shows one graph and no console error.
 
 ## References
@@ -423,4 +434,4 @@ Every page has a Markdown version: add `.md` to its URL. The site documents the 
 - [React guide](https://bruno00o.github.io/graph/docs/react), [TypeScript and React](https://bruno00o.github.io/graph/docs/typescript#react)
 - API: [`<Graph>` props](https://bruno00o.github.io/graph/docs/api/graph-component), [hooks](https://bruno00o.github.io/graph/docs/api/hooks), [`<Anchor>`](https://bruno00o.github.io/graph/docs/api/anchor)
 - Examples: [first graph in React](https://bruno00o.github.io/graph/examples/first-graph-react), [overlays](https://bruno00o.github.io/graph/examples/react-overlays), [controlled selection](https://bruno00o.github.io/graph/examples/controlled-selection)
-- A graph inside a MapLibre map uses `<MapGraph>` from `@bruno00o/graph/map/react`: see the [map guide](https://bruno00o.github.io/graph/docs/map#react).
+- A graph that lives only inside a MapLibre map uses `<MapGraph>`, one that moves between a canvas and a map `<Graph surface>`, both from `@bruno00o/graph/map/react` with `useMapSurface`: see the [map guide](https://bruno00o.github.io/graph/docs/map#react) and [one graph, on the map or not](https://bruno00o.github.io/graph/docs/map#one-graph-on-the-map-or-not).

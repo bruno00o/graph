@@ -261,7 +261,7 @@ stop()
 controller.abort()
 ```
 
-Events: `click`, `doubleclick`, `contextmenu`, `pointermove`, `pointerenter`, `pointerleave`, `dragstart`, `drag`, `dragend`, `positionchange`, `selectionchange`, `focuschange`, `foldchange`, `viewchange`, `timechange`, `layerchange`, `lenschange`, `issueschange`, `zoomhint`, `layoutstart`, `layoutend`, `loadingchange`.
+Events: `click`, `doubleclick`, `contextmenu`, `pointermove`, `pointerenter`, `pointerleave`, `dragstart`, `drag`, `dragend`, `positionchange`, `selectionchange`, `focuschange`, `foldchange`, `viewchange`, `surfacechange`, `timechange`, `layerchange`, `lenschange`, `issueschange`, `zoomhint`, `layoutstart`, `layoutend`, `loadingchange`.
 
 A target is a node or an edge, plus `kind: 'shape'` when the definition has a shape mark. An untyped `GraphInstance` (a helper that takes the instance) may see all three kinds: narrow on `target.kind` before reading `endpoints` or `datum`.
 
@@ -297,7 +297,7 @@ Options are compared by content, so a rebuilt definition with equal options rewr
 
 - `graph.store.get()` and `graph.store.subscribe(listener)` (a read-only TanStack Store): view, size, `hovered`, `focused`, `selection`, members of every state, layout status, and `positionsVersion`.
 - Positions are not in the store: read `graph.positions.get(key)` when `positionsVersion` changes; move nodes with `graph.positions.set([[key, { x, y }]])`, and put dragged or set nodes back where their data places them with `graph.positions.reset(keys?)` (a node whose data gives no position stays). `initialPositions` at mount restores a snapshot without a layout run (layouts skill).
-- What is drawn: `graph.count().shown` counts it, `graph.shown()` lists the keys (a folded group gives its own key, not those of the nodes it hides; a merged edge gives each of its edges) and `graph.isShown({ kind: 'node', key })` asks about one element. They apply pending data first, like `count()`. `graph.refresh(keys)` reads elements again from their items. `graph.drawsOnMap` is `true` for a graph on a map.
+- What is drawn: `graph.count().shown` counts it, `graph.shown()` lists the keys (a folded group gives its own key, not those of the nodes it hides; a merged edge gives each of its edges) and `graph.isShown({ kind: 'node', key })` asks about one element. They apply pending data first, like `count()`. `graph.refresh(keys)` reads elements again from their items. `graph.drawsOnMap` is `true` while the graph draws on a map, and `store.surface` is `'canvas'` or `'map'` (a graph moves between them with `update({ surface })`, map skill).
 - Layouts: `graph.layout.run(layout?, options)` lays nodes out, and `graph.layout.compute(layout?, options)` computes the positions without moving anything (layouts skill).
 - Structure: `graph.neighbors(key)`, `graph.edgesOf(key)`, `graph.endpoints(edgeKey)`, `graph.datumOf({ kind: 'node', key })`, `graph.pick({ x, y })` (screen pixels).
 - View: `graph.view.fit({ nodes: [key], duration: 400 })`, `graph.view.set(view)`, `graph.view.zoomBy(2)`.

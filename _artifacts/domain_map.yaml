@@ -241,6 +241,15 @@ skills:
         source: docs/content/docs/(guide)/react.mdx, docs/content/docs/(guide)/positions.mdx
         priority: MEDIUM
         status: active
+      - mistake: Swapping Graph for MapGraph to change side
+        mechanism: "MapGraph mounts its own graph, so rendering Graph on one side and MapGraph on the other destroys the graph at each switch and loses its state; one Graph with a surface prop moves it."
+        wrong_pattern: |
+          {onMap ? <MapGraph map={map} definition={onMapDefinition} /> : <Graph definition={plain} />}
+        correct_pattern: |
+          <Graph definition={there ? onMapDefinition : plain} surface={there ? surface : null} />
+        source: docs/content/docs/(guide)/react.mdx, src/react/graph.tsx
+        priority: MEDIUM
+        status: active
   - name: layouts
     slug: layouts
     domain: placement
@@ -263,6 +272,8 @@ skills:
       - placed
       - layout.compute and others
       - initialPositions
+      - container.layout and arrangement at unfolding
+      - saving a whole arrangement
     tasks:
       - Place nodes without coordinates with a force layout
       - Lay out a hierarchy in layers, in a chosen direction
@@ -274,6 +285,8 @@ skills:
       - Run positions computed by the app as a layout
       - Restore positions when a graph mounts again
       - Lay out a graph that arrives in batches from a live source once, on the complete data
+      - Give each group a layout of its own and arrange a group as it unfolds
+      - Save a whole arrangement as one record and replay it
     failure_modes:
       - mistake: Importing force from the layouts entry point
         mechanism: force has its own entry point so graphs without it ship none of its code; the layouts entry does not export it.
@@ -296,7 +309,7 @@ skills:
         priority: HIGH
         status: active
       - mistake: Running a layout on a map
-        mechanism: "Layouts do not run in map mode: the definition layout is ignored with a development warning and graph.layout.run rejects."
+        mechanism: "Layouts do not run while the graph is on a map: the definition layout and container.layout are ignored with a development warning and graph.layout.run rejects; they run again on the canvas."
         wrong_pattern: |
           await mapGraph.layout.run(force())
         correct_pattern: |
@@ -366,6 +379,16 @@ skills:
         correct_pattern: |
           await graph.layout.run(placed(await graph.layout.compute(grid())))
         source: docs/content/docs/(guide)/layout.mdx, src/host/layout-session.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A group layout with a new function option on every render
+        mechanism: "Layouts are compared by name and options, one by one, so a function option rebuilt in render differs every time and every update runs the layout of every group again."
+        wrong_pattern: |
+          container: { layout: grid({ order: (a, b) => a.rank - b.rank }) }
+        correct_pattern: |
+          const byRank = (a: Item, b: Item) => a.rank - b.rank
+          container: { layout: grid<Item>({ order: byRank }) }
+        source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/api/nodes.mdx
         priority: MEDIUM
         status: active
   - name: edges
@@ -573,6 +596,17 @@ skills:
         source: docs/content/docs/(guide)/groups.mdx, docs/content/docs/(guide)/transformations.mdx
         priority: MEDIUM
         status: active
+      - mistake: Expecting foldedAsOne to merge without by
+        mechanism: "foldedAsOne only changes how a by split treats the edges toward a folded group, so without by nothing changes, and the merged line has no value and an id that ends with null."
+        wrong_pattern: |
+          merge: { foldedAsOne: true }
+          color: (aggregate) => aggregate.value
+        correct_pattern: |
+          merge: { by: 'kind', foldedAsOne: true }
+          color: (aggregate) => aggregate.value ?? 'neutral'
+        source: docs/content/docs/(guide)/transformations.mdx, src/core/projection.ts
+        priority: MEDIUM
+        status: active
   - name: multilayer
     slug: multilayer
     domain: structure
@@ -748,6 +782,15 @@ skills:
         source: src/map/index.ts, docs/content/docs/(guide)/map.mdx
         priority: MEDIUM
         status: active
+      - mistake: Giving the view of one surface to the other
+        mechanism: "The zoom of a map graph is 2 to the map zoom and its center is in the 512-unit world, while the canvas view is in layout units, so a view read on one side shows another place on the other."
+        wrong_pattern: |
+          graph.update({ surface, definition: onMap, view: graph.view.get() })
+        correct_pattern: |
+          graph.update({ surface, definition: onMap, view: toMap(graph.view.get()) })
+        source: docs/content/docs/(guide)/map.mdx, src/host/mount-graph.ts
+        priority: MEDIUM
+        status: active
   - name: interaction
     slug: interaction
     domain: navigation-and-input
@@ -889,6 +932,9 @@ skills:
       - lineWaypoints
       - setWorkerUrl with bundlers
       - shapes drawn on a map
+      - mapSurface and surface
+      - useMapSurface
+      - surfacechange
     tasks:
       - Draw a graph on a MapLibre map
       - Place nodes by longitude and latitude
@@ -899,6 +945,7 @@ skills:
       - Route edges along a network with waypoints
       - Make the map worker load with a bundler
       - Draw areas and zones on the map
+      - Move one graph between its own canvas and a map, in vanilla and in React
     failure_modes:
       - mistake: Expecting a layout to place nodes on a map
         mechanism: The map layer ignores layout, background, bundling, routing and bridges, and layout.run rejects, so nodes need coordinates.
@@ -921,7 +968,7 @@ skills:
         priority: HIGH
         status: active
       - mistake: Passing a view to a map graph
-        mechanism: The map holds the view, so initialView, view and onViewChange are not options of mountMapGraph and update view is ignored.
+        mechanism: The map holds the view, so initialView, view and onViewChange are not options of mountMapGraph and update view moves nothing on a map, except a view given with a new surface, which is the view to take there.
         wrong_pattern: |
           mountMapGraph(map, { definition, ariaLabel: 'Places', view })
         correct_pattern: |
@@ -940,7 +987,7 @@ skills:
         priority: MEDIUM
         status: active
       - mistake: Expecting rotation, pitch, lens or minimap on a map
-        mechanism: The map stays north up and without pitch, and the lens and the minimap are not supported on a map graph.
+        mechanism: The map stays north up and without pitch, and while the graph is on a map the lens shows nothing and the minimap is empty; both come back on the canvas.
         wrong_pattern: |
           graph.lens.set({ at: pointer })
         correct_pattern: |
@@ -976,12 +1023,40 @@ skills:
         priority: MEDIUM
         status: active
       - mistake: Giving a snapshot to the other surface
-        mechanism: A snapshot from a plain graph holds the units of its layout and one from a map the world units of the map, so passed as initialPositions to the other surface it places nodes without coordinates in the wrong place.
+        mechanism: A graph moved with surface keeps the positions of each side by itself; when it is destroyed and mounted again, a snapshot from a plain graph holds the units of its layout and one from a map the world units of the map, so passed as initialPositions to the other surface it places nodes without coordinates in the wrong place.
         wrong_pattern: |
           mountMapGraph(map, { definition, ariaLabel, initialPositions: plainGraph.positions.snapshot() })
         correct_pattern: |
           mountMapGraph(map, { definition, ariaLabel, initialPositions: saved.map })
         source: docs/content/docs/(guide)/map.mdx, docs/content/docs/(guide)/positions.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Hiding the map element with display none
+        mechanism: "A graph that moves back to its canvas leaves the map element in the page, and display none gives the map a size of 0, so the graph that comes back to it draws nothing."
+        wrong_pattern: |
+          mapElement.style.display = 'none'
+        correct_pattern: |
+          mapElement.style.opacity = '0'
+          mapElement.style.pointerEvents = 'none'
+        source: docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Moving a graph with the definition of the other side
+        mechanism: "update surface without the matching definition keeps the old one: longitude and latitude on the canvas pin every node at its place in the 512-unit world and no layout moves them, and a definition without coordinates on the map leaves nodes near their neighbors."
+        wrong_pattern: |
+          graph.update({ surface: null })
+        correct_pattern: |
+          graph.update({ surface: null, definition: plain })
+        source: docs/content/docs/(guide)/map.mdx, src/core/positions.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A second graph on one surface
+        mechanism: "A surface holds one graph at a time, so moving another graph onto it, or onto a surface whose map was removed, throws an Error."
+        wrong_pattern: |
+          other.update({ surface })
+        correct_pattern: |
+          other.update({ surface: mapSurface(map, { id: 'other' }) })
+        source: src/map/index.ts, docs/content/docs/api/map.mdx
         priority: MEDIUM
         status: active
   - name: time
@@ -999,6 +1074,9 @@ skills:
       - useTimeline
       - time window boundaries
       - timeline store and actions
+      - events of the application on the timeline
+      - instant (a moment as cursor) and stepEvent
+      - a timeline without a graph
     tasks:
       - Give nodes and edges a time or a period
       - Show only what exists in a time window
@@ -1006,6 +1084,7 @@ skills:
       - Add a timeline that brushes, steps and plays
       - Control the time window from state
       - Draw a timeline of your own from its store
+      - Count the events of the application on the bar and step through them
     failure_modes:
       - mistake: Giving times as strings
         mechanism: A string is not a time, so the element has no time and always shows, with nothing reported.
@@ -1036,7 +1115,7 @@ skills:
         priority: HIGH
         status: active
       - mistake: A timeline over data with no times
-        mechanism: Without elements that have a time the timeline has no extent and play does nothing.
+        mechanism: Without elements that have a time, and without events, the timeline has no extent and play does nothing.
         wrong_pattern: |
           createTimeline(graph)
         correct_pattern: |
@@ -1077,6 +1156,25 @@ skills:
           <Timeline />
         correct_pattern: |
           <Timeline graph={graph} />
+        source: src/react/index.tsx, docs/content/docs/api/timeline.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Rebuilding events or its readers in render
+        mechanism: "A new array of new objects, or a new eventTime or eventKind function, counts every event again on each render; an array that starts with the same objects only reads the additions."
+        wrong_pattern: |
+          useTimeline({ graph: false, events: log.map(toEvent), eventTime: (event) => event.at })
+        correct_pattern: |
+          const events = useMemo(() => log.map(toEvent), [log])
+          useTimeline({ graph: false, events, eventTime: 'at' })
+        source: docs/content/docs/api/timeline.mdx, src/timeline/events.ts
+        priority: MEDIUM
+        status: active
+      - mistake: graph null where graph false was meant
+        mechanism: "graph null waits for a graph, so the state stays empty and the timeline stays null; graph false makes a timeline without a graph that counts its events."
+        wrong_pattern: |
+          useTimeline({ graph: null, events })
+        correct_pattern: |
+          useTimeline({ graph: false, events })
         source: src/react/index.tsx, docs/content/docs/api/timeline.mdx
         priority: MEDIUM
         status: active
@@ -1178,6 +1276,16 @@ skills:
         correct_pattern: |
           persistPositions(graph, { collection: places, longitude: 'lng', latitude: 'lat' })
         source: docs/content/docs/api/persist-positions.mdx, src/db/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Writing both surfaces into the same fields
+        mechanism: "Canvas positions are in layout units and map positions in the world units of the map, so one pair of fields written for both surfaces flips between two scales and nodes jump when the graph changes side."
+        wrong_pattern: |
+          persistPositions(graph, { collection, surfaces: ['canvas', 'map'] })
+        correct_pattern: |
+          persistPositions(graph, { collection, surfaces: ['canvas'] })
+          persistPositions(graph, { collection, longitude: 'lng', latitude: 'lat', surfaces: ['map'] })
+        source: src/db/index.ts, docs/content/docs/api/persist-positions.mdx
         priority: MEDIUM
         status: active
   - name: tanstack-query
@@ -1589,7 +1697,7 @@ skills:
       - Inspect graphs in the TanStack Devtools panel
     failure_modes:
       - mistake: A minimap or a lens on a map
-        mechanism: "The map owns the camera: the minimap does not support a map graph and graph.lens.set does nothing there."
+        mechanism: "The map owns the camera: while the graph is on a map the minimap is empty and graph.lens.set shows nothing; both come back when the graph moves back to its canvas."
         wrong_pattern: |
           mountMapGraph(map, { definition, ariaLabel })
           createMinimap(graph)
@@ -1683,6 +1791,15 @@ skills:
           const messages = { title: 'Graph' }
           <GraphDevtoolsPanel messages={messages} />
         source: docs/content/docs/api/devtools.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A function as the text of a hull without by
+        mechanism: "The function receives the group of one hull of by, so a hull around keys, a mark or a state has none: the types refuse it and no label is drawn."
+        wrong_pattern: |
+          hull({ nodes: ['a', 'b'], label: ({ value }) => String(value) })
+        correct_pattern: |
+          hull({ nodes: people, by: 'team', label: ({ value }) => String(value) })
+        source: docs/content/docs/api/hull.mdx, src/hulls.ts
         priority: MEDIUM
         status: active
   - name: export
@@ -2071,8 +2188,8 @@ skills:
         source: src/db/presence.ts, docs/content/docs/api/show-presence.mdx
         priority: MEDIUM
         status: active
-      - mistake: Cursors that land in different places
-        mechanism: Pointers are written in world units, so clients whose elements sit at different positions, as after a layout that depends on the client, show cursors and selections elsewhere.
+      - mistake: Cursors that land in different places or on the wrong surface
+        mechanism: Pointers are written in world units of a surface, so clients whose elements sit at different positions, as after a layout that depends on the client, or who are on another surface, show cursors and selections elsewhere, and a row without a surface shows its cursor everywhere.
         wrong_pattern: |
           A force layout on each client with showPresence
         correct_pattern: |

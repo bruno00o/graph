@@ -199,10 +199,10 @@ const definition = defineGraph({
 })
 ```
 
-- `strength` (0..1, default 0.85): share of the bundled shape drawn; a new strength alone eases the edges, without computing again. `radius` (0..1, default 0.06): reach at the first pass as a share of the larger side of the graph; larger merges edges from further into fewer, thicker bundles. `iterations` (default 12, at most 64): more passes, tighter bundles. `maxEdges` (default 200,000): above it every edge stays straight and development builds warn; `Infinity` lifts the limit.
+- `strength` (0..1, default 0.85): a multiplier on every stored offset from the straight line between the ends. At 1 an edge follows its computed path, at 0 it is straight, and in between the bundles loosen evenly toward the edges' own lines. A new strength alone eases the edges over `transitions.layout`, without computing again. `radius` (0..1, default 0.06): reach at the first pass as a share of the larger side of the graph; larger merges edges from further into fewer, thicker bundles. `iterations` (default 12, at most 64): more passes, tighter bundles. `maxEdges` (default 200,000): above it every edge stays straight and development builds warn; `Infinity` lifts the limit.
 - Bundles are computed in a Web Worker once nodes stand still: after a layout run and its glide, 150 ms after a drag or a `positions.set`, after edges are added or removed, after a definition changes the bundling (except `strength` alone). While nodes move, bundled edges follow their ends; new edges stay straight until the next computation. When a layout moves most nodes, edges ease back to straight and bundle again at its end. Shape changes glide over `transitions.layout`.
 - `await graph.bundling.run()` computes now, from the current positions (call it after `layoutend`, or nodes may still be moving), and resolves `true` once drawn; `graph.store.get().bundling.running` is `true` during a computation.
-- Every edge bundles except loops and edges with waypoints; `bundle: false` (a style, constant or function) leaves an edge straight and pulling no other. Bundled edges keep width, color, arrows, dashes, flows, states and `ends`; they are picked along their path and labeled at its middle. Bundles read best with thin, light edges.
+- Every edge bundles except loops and edges with waypoints; `bundle: false` (a style, constant or function) leaves an edge straight and pulling no other. Bundled edges keep width, color, arrows, dashes, flows, states and `ends`; they are picked along their path and labeled at its middle. Bundles read best with thin, light edges. Near its ends an edge is pulled less (the pull fades to nothing over the first and last 18% of its length, and the ends never move), an edge shorter than one and a half times the first radius bends in proportion to its length, and an edge with no neighbor in reach stays near straight at any strength: those constants are not options. `strength` mostly changes the middle of long edges: in a dense view around 0.6 keeps the routes visible while the edges near the nodes stay apart enough to read where each one goes, and 1 suits an overview of the main routes.
 - Cost (laptop, communities): 10,000 edges 60 ms, 100,000 edges 0.2 s, one million 1.7 s; at random about four times longer. Frames: 2.3 ms bundled versus 2.1 ms straight at 10,000 edges.
 
 ### Route edges around nodes, with bridges
@@ -244,7 +244,7 @@ const definition = defineGraph({
 
 ### Not on a map
 
-On a map (`mountMapGraph`) there is no bundling, routing or bridges: edges stay straight, or follow great circles with `geodesic` (a style, between nodes placed by `longitude` and `latitude`; the map skill). Do not set them in a map definition.
+While the graph is on a map there is no bundling, routing or bridges: edges stay straight, or follow great circles with `geodesic` (a style, between nodes placed by `longitude` and `latitude`; the map skill). Do not set them in a definition for a graph that only lives on a map; a graph that moves back to its canvas bundles or routes again there.
 
 ## Common Mistakes
 

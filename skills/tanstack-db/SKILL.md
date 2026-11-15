@@ -293,6 +293,7 @@ stop()
 - `x` and `y` name other fields of the row; `key` maps a node key to a row key when they differ.
 - Nodes placed by `longitude` and `latitude`, on a map or not, are saved in degrees: name the fields with `longitude` and `latitude` (both, or the call throws a `TypeError`), and a drag, even a map drag in world units, is written back as degrees, the longitude from -180 up to 180. `x` and `y` are then written only when you name them too.
 - A layout result that is written becomes data: later layout runs leave those nodes in place, because positions read from rows win over layouts.
+- Each surface keeps its own positions (a graph that moves between its canvas and a map, map skill). `surfaces` names the sides whose moves are written (`'canvas'`, `'map'`): by default only the side the graph is on when you call `persistPositions`, so a graph moved onto a map and back writes its canvas moves and leaves the map ones. `positionchange.surface` names the side of an event.
 
 Positions that live in their own collection:
 
@@ -352,9 +353,32 @@ export const stop = persistPositions(graph, {
 })
 ```
 
+### Write each surface into its own fields
+
+Canvas positions are in layout units and map positions in the world units of the map, so one pair of fields cannot hold both. Call `persistPositions` once for each side, with its own fields (or collection):
+
+```ts
+import type { GraphInstance } from '@bruno00o/graph'
+import { persistPositions } from '@bruno00o/graph/db'
+import type { Collection } from '@tanstack/db'
+
+type Place = { id: string; x: number; y: number; lng: number; lat: number }
+
+declare const graph: GraphInstance
+declare const places: Collection<Place, string>
+
+export const stopCanvas = persistPositions(graph, { collection: places, surfaces: ['canvas'] })
+export const stopMap = persistPositions(graph, {
+  collection: places,
+  longitude: 'lng',
+  latitude: 'lat',
+  surfaces: ['map'],
+})
+```
+
 ### Shape edits and presence
 
-`persistShapes(editor, { collection, create })` writes the edits of a shape editor into the collection a `shapes()` mark draws from: changed fields only, removed rows, and new rows through `create`, optimistic and rolled back on failure. `showPresence(graph, { collection, me, create })` shows the cursors and selections of the other people from a collection of presence rows that your app syncs. With several shape marks, name one with `mark` to write only its edits and type what `create` receives with the item type of that mark. Both come from `@bruno00o/graph/db`; load the editor skill for them.
+`persistShapes(editor, { collection, create })` writes the edits of a shape editor into the collection a `shapes()` mark draws from: changed fields only, removed rows, and new rows through `create`, optimistic and rolled back on failure. `showPresence(graph, { collection, me, create })` shows the cursors and selections of the other people from a collection of presence rows that your app syncs; a row also holds the `surface` the graph draws on (spread `values` in `create`), and a cursor shows only between people on the same surface. With several shape marks, name one with `mark` to write only its edits and type what `create` receives with the item type of that mark. Both come from `@bruno00o/graph/db`; load the editor skill for them.
 
 ## Common Mistakes
 
@@ -416,6 +440,10 @@ Rows with `x` and `y` that the marks read are data positions, so a layout never 
 
 Without `longitude` and `latitude`, `persistPositions` writes `x` and `y`, in world units. A mark that reads `longitude` and `latitude` ignores those fields, so a dragged node never moves in the rows and the saved fields stay empty or wrong. Name the degree fields (see "Write degrees back"); `create` then gets the position in degrees as its third argument.
 
+### MEDIUM Writing both surfaces into the same fields
+
+`persistPositions({ surfaces: ['canvas', 'map'] })` into one pair of fields writes layout units after a canvas move and map world units after a map move, so the rows flip between two scales and nodes jump when the graph changes side. By default only the side the graph is on at the call is written, so a call made on the canvas never saves a map move, and the reverse. Write each side into its own fields (see "Write each surface into its own fields").
+
 ### MEDIUM Forgetting to stop `persistPositions`
 
 It returns a function that removes its listener and flushes the last write. Call it when the graph or its component goes away; in React, return it from the effect.
@@ -429,7 +457,7 @@ The task is done when:
 - every join has a `getKey` that returns the node key;
 - a loading overlay or a wait for the rows reads `data` or `loadingchange` or awaits `graph.loaded()`, and `data.failed` is checked;
 - `graph.count().pending` is 0 once the edges' nodes are loaded, and `graph.issues()` is empty or expected;
-- positions persisted by `persistPositions` have their stop function called on cleanup, `pendingState` is a declared free state, and rows read as degrees are written with `longitude` and `latitude`;
+- positions persisted by `persistPositions` have their stop function called on cleanup, `pendingState` is a declared free state, and rows read as degrees are written with `longitude` and `latitude`, and each surface of a graph that moves has its own call and fields;
 - `tsc` accepts the code.
 
 ## References

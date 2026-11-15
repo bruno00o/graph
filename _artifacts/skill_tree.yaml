@@ -85,8 +85,9 @@ skills:
       it, reading the hovered node, the selection or the view in components,
       handling clicks, driving the graph from a toolbar or side panel elsewhere
       in the page, controlling the selection or the view from React state, and
-      mounting under StrictMode. Not for a graph inside a MapLibre map, which
-      uses <MapGraph>.
+      mounting under StrictMode, and moving the graph onto a MapLibre map and
+      back with a surface. A graph that lives only inside a MapLibre map uses
+      <MapGraph>.
     purpose: >
       The React binding of @bruno00o/graph: the <Graph> component and its props,
       the useGraph, useGraphState and useGraphEvent hooks inside and outside
@@ -96,6 +97,7 @@ skills:
       - src/react/index.tsx
       - src/react/graph.tsx
       - src/react/context.ts
+      - src/map/react.tsx
       - src/host/data-status.ts
       - docs/content/docs/(guide)/react.mdx
       - docs/content/docs/(guide)/typescript.mdx
@@ -113,7 +115,8 @@ skills:
       and adding a force layout, layers for a hierarchy or flow, a grid, rings,
       a radial tree or a geographic layout, running or stopping a layout from
       code, following its progress, framing the result, keeping dragged or
-      data-given positions, saving and restoring positions, layers fixed by a
+      data-given positions, saving and restoring positions, giving each group a
+      layout of its own and arranging a group as it unfolds, layers fixed by a
       field, positions computed by your own code, writing a custom layout, or
       finding why nodes do not move or pile up.
     sources:
@@ -128,6 +131,7 @@ skills:
       - src/types.ts
       - src/host/graph-instance.ts
       - src/host/layout-session.ts
+      - src/layouts/scopes.ts
       - src/host/data-status.ts
       - docs/content/docs/(guide)/layout.mdx
       - docs/content/docs/(guide)/positions.mdx
@@ -137,9 +141,13 @@ skills:
       - core
     purpose: >
       Where nodes go: the ready-made layouts and when to pick each, the
-      definition and run-time ways to start a layout, which nodes a layout may
-      move, positions from data and from code, restoring them at mount, and the
-      mistakes that leave nodes on a spiral or still.
+      definition and run-time ways to start a layout, a layout for each group,
+      which nodes a layout may move, positions from data and from code, saving
+      and restoring them, and the mistakes that leave nodes on a spiral or
+      still.
+    references:
+      - references/group-layouts.md
+      - references/saving-arrangements.md
   - name: edges
     slug: edges
     domain: appearance
@@ -182,7 +190,8 @@ skills:
       Use when nesting @bruno00o/graph nodes in groups with a parent field or by
       a field value with groups(), styling group containers, folding and
       unfolding groups from code, from a double-click or from React state,
-      merging parallel edges or the edges between groups into one, hiding
+      giving a group a layout of its own, merging parallel edges, the edges
+      between groups or the edges toward a folded group into one, hiding
       elements with a state without removing their data, or finding why a group
       does not fold, a key does not match or the layout ignores a fold.
     sources:
@@ -244,8 +253,9 @@ skills:
       screen pixels and world units to place overlays or drop nodes, and showing
       nodes, edges and shapes only within a range of zoom (level of detail,
       clusters that give way to members). Gesture options such as the wheel
-      belong to the interaction skill; a graph inside a MapLibre map does not
-      use this skill's view limits and is covered by the map skill.
+      belong to the interaction skill; a graph on a MapLibre map does not use
+      this skill's view limits, and the view of a graph that moves between its
+      canvas and a map is covered by the map skill.
     sources:
       - src/types.ts
       - src/define-graph.ts
@@ -309,7 +319,8 @@ skills:
     description: >
       Use when drawing a @bruno00o/graph graph inside a MapLibre map: placing
       nodes by longitude and latitude, mounting the graph on a map with
-      mountMapGraph or MapGraph in React, drawing great circles and routes that
+      mountMapGraph or MapGraph in React, moving one graph between its own
+      canvas and a map with a surface, drawing great circles and routes that
       follow roads or other lines, switching basemaps or the globe projection,
       putting a timeline on a map graph, drawing areas and zones on the map,
       exporting the map and the graph as one PNG, and finding why a layout,
@@ -318,6 +329,7 @@ skills:
     sources:
       - src/map/index.ts
       - src/map/react.tsx
+      - src/host/canvas-surface.ts
       - src/map/export.ts
       - src/core/geo.ts
       - src/host/position-event.ts
@@ -328,13 +340,17 @@ skills:
       - docs/content/docs/(guide)/map.mdx
       - docs/content/docs/api/map.mdx
       - docs/content/docs/api/map-graph.mdx
+      - docs/content/docs/api/graph-component.mdx
     requires:
       - core
     purpose: >
-      The MapLibre adapter of @bruno00o/graph: mountMapGraph and MapGraph, the
-      longitude and latitude channels, who owns the camera, projections,
-      geodesic edges and waypoints, what a map graph leaves out, exportMapPng,
-      and the mistakes that hide the graph or leak the map.
+      The MapLibre adapter of @bruno00o/graph: mountMapGraph and MapGraph, map
+      surfaces that move a graph onto a map and back, the longitude and latitude
+      channels, who owns the camera, projections, geodesic edges and waypoints,
+      what a map graph leaves out, exportMapPng, and the mistakes that hide the
+      graph or leak the map.
+    references:
+      - references/surfaces.md
   - name: time
     slug: time
     domain: geography-and-time
@@ -345,10 +361,13 @@ skills:
       out at the edges of the window, controlling the window from application
       state, or adding a timeline with a histogram that brushes, steps and plays
       (default element, a renderer of your own, or the React Timeline component
-      and useTimeline hook), also on a map graph.
+      and useTimeline hook), counting the events of the application on the bar,
+      moving a single moment instead of a window, a timeline that follows no
+      graph, also on a map graph.
     sources:
       - src/timeline/index.ts
       - src/timeline/view.ts
+      - src/timeline/events.ts
       - src/core/time-range.ts
       - src/react/index.tsx
       - src/types.ts
@@ -361,8 +380,9 @@ skills:
     purpose: >
       Time in @bruno00o/graph: the time channel of nodes, edges and shapes, the
       time window and its exact boundaries, the fade, the controlled window, the
-      timeline companion with its store and actions, and the mistakes that leave
-      everything showing, nothing playing or a window one moment off.
+      timeline companion with its store and actions, events of the application
+      and a moment as cursor, and the mistakes that leave everything showing,
+      nothing playing or a window one moment off.
   - name: tanstack-db
     slug: tanstack-db
     domain: data-integrations
@@ -529,7 +549,8 @@ skills:
     description: >
       Use when adding companions to a @bruno00o/graph graph, such as a minimap,
       a legend that filters, a magnifying lens, HTML pinned to nodes, hulls
-      around sets of nodes, a background grid, or the TanStack Devtools panel.
+      around sets of nodes with a label that names them, a background grid, or
+      the TanStack Devtools panel.
     sources:
       - src/minimap/index.ts
       - src/legend/index.ts
@@ -555,6 +576,8 @@ skills:
       lens, anchored HTML, hulls, background grid and the devtools panel, how
       each one is created and destroyed, what it reads, and where it does not
       work.
+    references:
+      - references/hulls.md
   - name: export
     slug: export
     domain: tools-and-output
