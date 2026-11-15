@@ -2,7 +2,7 @@
 
 The changes are one journal: each has a moment, a kind, the node it changes and its new value. The timeline counts them with `events`, stacked by kind, and points at one moment with `instant: true`.
 
-`historyFrom(changes, { key: 'node', values })` reads the same journal as the history of the nodes: `values` turns a change into the fields it sets, `{ state }` or `{ level }`, and a field left `undefined` stays as it was. Passed to the `history` option of `nodes()`, it makes each node read as its item plus the values of every change up to the cursor, included. Color, size and label read those values like any other field.
+`historyFrom(changes, { key: 'node', values })` reads the same journal as the history of the nodes: `values` turns a change into the fields it sets, `{ state }` or `{ level }`, and a field left `undefined` stays as it was. Passed to the `history` option of `nodes()`, it makes each node read as its item plus the values of every change up to the cursor, included. Color, size and label read those values like any other field. Their scales cover every value of the journal: a state keeps its color and a level its size at every moment, without a `domain`.
 
 Stepping the cursor only touches the nodes whose changes it crosses. Without a time window, the nodes show their latest values.
 

@@ -13,6 +13,7 @@ import {
   type HistoryCut,
   type HistoryHost,
   type HistoryTrack,
+  type HistoryTrail,
   historyEngineOf,
   wholeHistory,
 } from './history'
@@ -138,6 +139,7 @@ export class SourceTable<M extends AnyMark> {
   #draining = false
   #issueVersion = 0
   #readinessVersion = 0
+  #rowVersion = 0
   #cut: HistoryCut = wholeHistory
 
   constructor(kind: ElementKind, notify: () => void) {
@@ -147,6 +149,10 @@ export class SourceTable<M extends AnyMark> {
 
   get issueVersion(): number {
     return this.#issueVersion
+  }
+
+  get rowVersion(): number {
+    return this.#rowVersion
   }
 
   get readinessVersion(): number {
@@ -221,8 +227,20 @@ export class SourceTable<M extends AnyMark> {
     return null
   }
 
+  trail(key: Key): HistoryTrail | null {
+    for (const source of this.#sources) {
+      const row = source.items.get(key)
+      if (row === undefined && !source.items.has(key)) continue
+      this.#trail.hold = source.hold
+      this.#trail.row = row
+      return this.#trail
+    }
+    return null
+  }
+
   commit(plan: SourcePlan<M>): void {
     const previous = this.#sources
+    this.#rowVersion++
     const { marks, next } = plan
     const replaced: Source<M>[] = []
     this.#sources = [...next]
@@ -432,8 +450,10 @@ export class SourceTable<M extends AnyMark> {
     },
   }
 
-  readonly #markKey = (key: Key): void => {
-    this.#markDirty(key)
+  readonly #trail: HistoryTrail = { hold: null, row: undefined }
+
+  readonly #markKey = (key: Key, forced?: boolean): void => {
+    this.#dirty.set(key, forced === true || this.#dirty.get(key) === true)
   }
 
   #recheck(source: LiveState<M>): void {
@@ -571,6 +591,7 @@ export class SourceTable<M extends AnyMark> {
   }
 
   #markDirty(key: Key, forced = false): void {
+    this.#rowVersion++
     this.#dirty.set(key, forced || this.#dirty.get(key) === true)
   }
 }

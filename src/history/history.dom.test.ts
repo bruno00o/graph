@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
+import { createLegend, type LegendCategory } from '../legend'
 import { nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { createTimeline } from '../timeline'
@@ -112,5 +113,41 @@ describe('values over time in a graph', () => {
     graph.destroy()
     expect(graph.history.of({ kind: 'node', key: 'a' })).toEqual([])
     expect(graph.history.instant()).toBe(Infinity)
+  })
+
+  it('keeps the categories of the whole history in the legend, counted at the moment', () => {
+    const colored = defineGraph({
+      marks: [nodes(items, { x: 'x', y: 'y', color: 'status', history })],
+    })
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      { definition: colored, ariaLabel: 'graph', initialTime: { start: origin, end: origin } },
+      () => fakeRenderer(),
+    )
+    dom.flushFrames()
+    const legend = createLegend(graph)
+    const categories = () => {
+      const color = legend.store.state.color
+      return color?.type === 'categories' ? color.items : []
+    }
+    const row = (item: LegendCategory) => [item.value, item.nodes]
+    expect(categories().map(row)).toEqual([
+      ['idle', 1],
+      ['busy', 1],
+      ['done', 0],
+    ])
+    legend.update({ empty: 'hide' })
+    vi.runAllTimers()
+    expect(categories().map(row)).toEqual([
+      ['idle', 1],
+      ['busy', 1],
+    ])
+    legend.update({ empty: undefined })
+    vi.runAllTimers()
+    expect(categories()).toHaveLength(3)
+    legend.destroy()
+    graph.destroy()
   })
 })

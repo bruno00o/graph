@@ -69,6 +69,8 @@ The legend describes nodes, edges and [shapes](/docs/shapes).
 - `looks`: the shapes and images of the nodes, the line patterns of the edges, and for shapes, areas or lines with their fill, outline and pattern, by mark. When the shapes of a look differ in fill or outline, as with `color`, the look shows the theme tokens `--graph-shape-fill` and `--graph-shape-stroke`.
 - `layers`: the [layers](/docs/multilayer) of the marks, hidden ones included. Switching a layer off hides it in the graph.
 
+A category that no element draws at the moment stays in place, with counts of zero: a value of a `domain`, or a value that a [history](/docs/time#scales-over-the-whole-history) gives at other moments. `empty: 'hide'` leaves them out.
+
 The default renderer writes no text of its own. Titles come from `titles`, and from `markTitle` or the name of the mark for the scales of a mark, values go through `format`, looks show the `name` of their mark, or the text of `lookText`, and layers their name, or the text of `layerText`. Looks show only for nodes, edges or shapes drawn with more than one look.
 
 ### Highlight and switch off

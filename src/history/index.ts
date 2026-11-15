@@ -19,6 +19,7 @@ import type {
   TimeInstant,
 } from '../types'
 import type { HistoryIndex } from './index-store'
+import { Scales } from './scales'
 import { type EntryReader, readEntries, Track } from './track'
 
 export type { HistoryEntry, HistorySource, HistoryValues }
@@ -83,6 +84,10 @@ class History {
         )
       },
     }
+  }
+
+  scales(): Scales {
+    return new Scales()
   }
 
   track(options: HistoryMarkOptions, current: HistoryTrack | null, host: HistoryHost): Track {

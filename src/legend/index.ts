@@ -32,7 +32,17 @@ export interface LegendOptions<S extends string = string> {
    * Defaults to `null`.
    */
   readonly hidden?: FreeState<S> | null | undefined
+  /**
+   * Categories that no element draws at the moment, such as the values a history gives at other
+   * moments or values of a `domain`: `'show'` keeps them in place with counts of zero, `'hide'`
+   * leaves them out.
+   * @default 'show'
+   */
+  readonly empty?: LegendEmpty | undefined
 }
+
+/** What a legend does with categories that no element draws: `'show'` or `'hide'`. */
+export type LegendEmpty = 'show' | 'hide'
 
 /** A layer of the graph in its legend. Switching it off hides the layer in the graph. */
 export interface LegendLayer<M extends Mark = Mark> {
@@ -156,6 +166,7 @@ export function createLegend<S extends string, M extends Mark>(
   let given: LegendOptions<S> = options
   let highlight: string | null = options.highlight ?? null
   let hidden: string | null = options.hidden ?? null
+  let empty: LegendEmpty = options.empty ?? 'show'
   const store = createStore<LegendState<M>>(emptyState as LegendState<M>)
   const readonlyStore: ReadonlyStore<LegendState<M>> = isolateSubscribers(readonlyOf(store))
   const off = new Set<string>()
@@ -186,7 +197,14 @@ export function createLegend<S extends string, M extends Mark>(
     readDetail = stamp.detail
     readDefinition = internals.definition()
     const sight = internals.sight(hidden)
-    const reading = readLegend(internals.scene, readDefinition.marks, off, known, sight)
+    const reading = readLegend(
+      internals.scene,
+      readDefinition.marks,
+      off,
+      known,
+      sight,
+      empty === 'hide',
+    )
     crowded = reading.crowded
     known.clear()
     for (const color of [reading.color, ...reading.marks.map((mark) => mark.color)]) {
@@ -422,6 +440,11 @@ export function createLegend<S extends string, M extends Mark>(
       const changed = highlight !== nextHighlight || hidden !== nextHidden
       highlight = nextHighlight
       hidden = nextHidden
+      const nextEmpty = given.empty ?? 'show'
+      if (nextEmpty !== empty) {
+        empty = nextEmpty
+        schedule()
+      }
       if (changed) {
         applyHidden()
         applyHighlight()

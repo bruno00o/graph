@@ -17,6 +17,12 @@ export interface EntryReader {
   skipped(count: number): void
 }
 
+let serial = 0
+
+export function journalSerial(): number {
+  return serial
+}
+
 const nothing: HistoryCut = Object.freeze({ time: -Infinity, inclusive: false })
 
 function grownInts(array: Int32Array, length: number): Int32Array {
@@ -85,6 +91,7 @@ export class Track implements HistoryTrack {
   #active: Int32Array = new Int32Array(0)
   #built: Int32Array = new Int32Array(0)
   #stamp: Uint32Array = new Uint32Array(0)
+  #journal: Uint32Array = new Uint32Array(0)
   #generation = 0
   #effective: unknown[] = []
   #base: unknown[] = []
@@ -141,7 +148,7 @@ export class Track implements HistoryTrack {
     if (--this.#users <= 0) this.close()
   }
 
-  drain(cut: HistoryCut, mark: (key: Key) => void): void {
+  drain(cut: HistoryCut, mark: (key: Key, forced?: boolean) => void): void {
     if (this.#queue.length > 0) this.#apply(mark)
     this.#move(cut, mark)
   }
@@ -172,15 +179,7 @@ export class Track implements HistoryTrack {
     } else {
       out = this.#copy(row)
     }
-    const index = this.#index
-    const guard = this.#guard
-    for (let at = from; at < count; at++) {
-      const values = index.values[index.at(element, at)] as Record<string, unknown>
-      for (const name of Object.keys(values)) {
-        const value = values[name]
-        if (value !== undefined && !guard.includes(name)) out[name] = value
-      }
-    }
+    for (let at = from; at < count; at++) this.#merge(out, this.#index.at(element, at))
     if (Object.isFrozen(row)) Object.freeze(out)
     this.#base[element] = row
     this.#built[element] = count
@@ -200,6 +199,61 @@ export class Track implements HistoryTrack {
       entries.push(Object.freeze({ key, time, values: index.values[id] }))
     }
     return Object.freeze(entries)
+  }
+
+  element(key: Key): number {
+    return this.#index.elementOf(key)
+  }
+
+  stamp(element: number): number {
+    return element < 0 ? 0 : (this.#journal[element] ?? 0)
+  }
+
+  fold(
+    element: number,
+    row: unknown,
+    visit: (datum: unknown, time: number) => void,
+    fields: boolean,
+  ): void {
+    visit(row, -Infinity)
+    const index = this.#index
+    const count = element < 0 ? 0 : index.count(element)
+    if (count === 0 || !readable(row)) return
+    const times = index.times
+    if (fields) {
+      for (let at = 0; at < count; at++) {
+        const id = index.at(element, at)
+        visit(this.#unguarded(id), times[id] ?? 0)
+      }
+      return
+    }
+    const out = this.#copy(row)
+    for (let at = 0; at < count; at++) {
+      const id = index.at(element, at)
+      this.#merge(out, id)
+      visit(out, times[id] ?? 0)
+    }
+  }
+
+  #unguarded(id: number): unknown {
+    const values = this.#index.values[id] as Record<string, unknown>
+    const guard = this.#guard
+    for (let at = 0; at < guard.length; at++) {
+      if (values[guard[at] as string] === undefined) continue
+      const out: Record<string, unknown> = {}
+      for (const name of Object.keys(values)) if (!guard.includes(name)) out[name] = values[name]
+      return out
+    }
+    return values
+  }
+
+  #merge(out: Record<string, unknown>, id: number): void {
+    const values = this.#index.values[id] as Record<string, unknown>
+    const guard = this.#guard
+    for (const name of Object.keys(values)) {
+      const value = values[name]
+      if (value !== undefined && !guard.includes(name)) out[name] = value
+    }
   }
 
   forEachKey(visit: (key: Key) => void): void {
@@ -235,6 +289,7 @@ export class Track implements HistoryTrack {
     this.#active = grownInts(this.#active, count)
     this.#built = grownInts(this.#built, count)
     this.#stamp = grownStamps(this.#stamp, count)
+    this.#journal = grownStamps(this.#journal, count)
   }
 
   #receive(changes: ReadonlyArray<SourceChange<unknown>>): void {
@@ -251,7 +306,7 @@ export class Track implements HistoryTrack {
     this.#host.recheck()
   }
 
-  #apply(mark: (key: Key) => void): void {
+  #apply(mark: (key: Key, forced?: boolean) => void): void {
     const index = this.#index
     const queue = this.#queue
     this.#queue = []
@@ -267,7 +322,11 @@ export class Track implements HistoryTrack {
     this.#reserve()
     const cut = this.#cut
     for (const [element, earliest] of changed) {
-      if (!before(earliest, cut)) continue
+      this.#journal[element] = ++serial
+      if (!before(earliest, cut)) {
+        mark(index.keys[element] as Key, true)
+        continue
+      }
       this.#base[element] = undefined
       this.#effective[element] = undefined
       this.#active[element] = index.countBefore(element, cut)

@@ -418,6 +418,8 @@ function readColor(
   off: ReadonlySet<string>,
   known: ReadonlyMap<string, LegendCategory>,
   shaped: boolean,
+  past: ReadonlyMap<unknown, number> | null,
+  hideEmpty: boolean,
 ): LegendColor | null {
   if (scale.kind === 'sequential') {
     const domain = scale.domain ?? extent
@@ -431,7 +433,7 @@ function readColor(
     if (seen.has(id) || color === null) return
     const count = counts.get(value)
     const isOff = off.has(id)
-    if (!count && !isOff && !listed) return
+    if (!count && !isOff && (hideEmpty || !(listed || past?.has(value)))) return
     seen.add(id)
     const item: LegendCategory = {
       id,
@@ -469,6 +471,7 @@ function readMarks(
   off: ReadonlySet<string>,
   known: ReadonlyMap<string, LegendCategory>,
   shaped: boolean,
+  hideEmpty: boolean,
 ): AnyScales[] {
   const names = markNames(marks)
   const read: AnyScales[] = []
@@ -487,8 +490,11 @@ function readMarks(
     const used =
       own?.scale.kind === 'sequential'
         ? own.extent !== null
-        : values !== undefined || hasOff(off, id)
-    const color = own && used ? readColor(own, id, values ?? noCounts, off, known, shaped) : null
+        : values !== undefined || hasOff(off, id) || (!hideEmpty && (own?.past?.size ?? 0) > 0)
+    const color =
+      own && used
+        ? readColor(own, id, values ?? noCounts, off, known, shaped, own.past, hideEmpty)
+        : null
     const size = sizes && sizes.extent !== null ? readSizes(sizes) : null
     if (color === null && size === null) return
     read.push({
@@ -657,6 +663,7 @@ export function readLegend(
   off: ReadonlySet<string>,
   known: ReadonlyMap<string, LegendCategory>,
   sight: Sight,
+  hideEmpty = false,
 ): LegendReading {
   const scales = scene.scales()
   const crowded = crowdedSlots(scene)
@@ -664,12 +671,21 @@ export function readLegend(
   const counts = countValues(scene, scales, owners, sight)
   const shaped = scene.shapes.marked
   return {
-    color: readColor(scales.color, '', counts.get('') ?? noCounts, off, known, shaped),
+    color: readColor(
+      scales.color,
+      '',
+      counts.get('') ?? noCounts,
+      off,
+      known,
+      shaped,
+      scales.color.past,
+      hideEmpty,
+    ),
     size: readSizes(scales.size),
     width: readSizes(scales.width),
     marks:
       owners.own || scales.sizes.some(Boolean) || scales.widths.some(Boolean)
-        ? readMarks(scales, marks, counts, off, known, shaped)
+        ? readMarks(scales, marks, counts, off, known, shaped, hideEmpty)
         : [],
     looks: readLooks(scene, marks, off, crowded, sight),
     crowded,

@@ -1,4 +1,4 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
+import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { historyFrom } from '@bruno00o/graph/history'
 import { force } from '@bruno00o/graph/layouts/force'
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
@@ -80,11 +80,11 @@ const definition = defineGraph({
     nodes(items, {
       label: 'label',
       color: 'state',
-      size: raw((item) => 8 + item.level * 4),
+      size: 'level',
       history,
     }),
   ],
-  scales: { color: { domain: states } },
+  scales: { size: { range: [12, 28] } },
   states: { current: { raise: true, halo: true, label: 'always' } },
   layout: force(),
   view: { padding: { top: 40, right: 260, bottom: 150, left: 40 } },

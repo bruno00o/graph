@@ -1,6 +1,6 @@
 import type { EdgeMark, HistoryEntry, Key, LiveSource, Mark, NodeMark, ShapeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
-import type { HistoryCut } from './history'
+import type { HistoryCut, HistoryTrail } from './history'
 import { IndexPool } from './index-pool'
 import { IndexSet } from './index-set'
 import type { AnyIssue } from './issues'
@@ -108,6 +108,8 @@ export interface GraphModel {
   refresh(kind: 'nodes' | 'edges' | 'shapes', keys: Iterable<Key>): number
   readAt(cut: HistoryCut): void
   history(kind: 'nodes' | 'edges' | 'shapes', key: Key): readonly HistoryEntry[] | null
+  trail(kind: 'nodes' | 'edges' | 'shapes', key: Key): HistoryTrail | null
+  rowVersion(): number
   destroy(): void
 }
 
@@ -235,6 +237,8 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   const nodeSources = new SourceTable<NodeMark<unknown>>('nodes', schedule)
   const edgeSources = new SourceTable<EdgeMark<unknown>>('edges', schedule)
   const shapeSources = new SourceTable<ShapeMark<unknown>>('shapes', schedule)
+  const tableOf = (kind: 'nodes' | 'edges' | 'shapes') =>
+    kind === 'nodes' ? nodeSources : kind === 'edges' ? edgeSources : shapeSources
   const shapesByKey = new Map<Key, ShapeEntry>()
   const shapesByIndex: (ShapeEntry | undefined)[] = []
   const shapePool = new IndexPool()
@@ -741,9 +745,16 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     },
 
     history(kind, key) {
-      if (!isKey(key)) return null
-      const table = kind === 'nodes' ? nodeSources : kind === 'edges' ? edgeSources : shapeSources
-      return table.history(key)
+      return isKey(key) ? tableOf(kind).history(key) : null
+    },
+
+    rowVersion() {
+      return (
+        tableOf('nodes').rowVersion + tableOf('edges').rowVersion + tableOf('shapes').rowVersion
+      )
+    },
+    trail(kind, key) {
+      return tableOf(kind).trail(key)
     },
 
     edge(key) {
