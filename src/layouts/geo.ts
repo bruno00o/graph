@@ -5,7 +5,7 @@ import { groupTree } from '../core/group-tree'
 import { offsetAt } from '../core/spread'
 import type { Channel, GeoPoint, Layout, LayoutGraph } from '../types'
 import { CellTable, Occupancy } from './occupancy'
-import { degrees, instant, movers, type NodeOrder } from './shared'
+import { degrees, instant, isPlain, movers, type NodeOrder } from './shared'
 
 /** Options of `geo`. */
 export interface GeoOptions<T = unknown> {
@@ -25,7 +25,7 @@ export interface GeoOptions<T = unknown> {
   readonly scale?: number | undefined
   /**
    * Gap kept between the borders of nodes that would overlap, in world units. Defaults to a quarter
-   * of the median diameter.
+   * of the median diameter, blocks aside.
    */
   readonly spacing?: number | undefined
   /**
@@ -221,6 +221,28 @@ function crowdOf(places: Places, scale: number, cell: number): Int32Array {
   const crowd = new Int32Array(count)
   for (let id = 0; id < count; id++) crowd[id] = table.get(cellX[id] ?? 0, cellY[id] ?? 0)
   return crowd
+}
+
+function blockPlace<T>(
+  items: readonly T[],
+  place: (datum: T, at: number) => boolean,
+  x: Float64Array,
+  y: Float64Array,
+  at: number,
+): boolean {
+  let sumX = 0
+  let sumY = 0
+  let found = 0
+  for (const datum of items) {
+    if (!place(datum, at)) continue
+    sumX += x[at] ?? 0
+    sumY += y[at] ?? 0
+    found++
+  }
+  if (found === 0) return false
+  x[at] = sumX / found + 0
+  y[at] = sumY / found + 0
+  return true
 }
 
 function median(values: Float64Array): number {
@@ -429,20 +451,29 @@ export function geo<T = unknown>(options: GeoOptions<T> = {}): Layout<T> {
       const x = new Float64Array(count)
       const y = new Float64Array(count)
       const valid = new Uint8Array(count)
-      const diameters = new Float64Array(count)
-      for (let k = 0; k < count; k++) {
-        const index = nodes[k] ?? 0
-        diameters[k] = radiusAt(graph, index) * 2
-        const datum = graph.datum(index) as T
+      const diameters: number[] = []
+      const blocks = graph.blocks
+      const place = (datum: T, at: number): boolean => {
         const longitude = readLongitude(datum)
         const latitude = readLatitude(datum)
-        if (typeof longitude !== 'number' || !Number.isFinite(longitude)) continue
-        if (typeof latitude !== 'number' || !Number.isFinite(latitude)) continue
-        x[k] = projectLongitude(longitude) + 0
-        y[k] = projectLatitude(latitude) + 0
-        valid[k] = 1
+        if (typeof longitude !== 'number' || !Number.isFinite(longitude)) return false
+        if (typeof latitude !== 'number' || !Number.isFinite(latitude)) return false
+        x[at] = projectLongitude(longitude) + 0
+        y[at] = projectLatitude(latitude) + 0
+        return true
       }
-      const typical = median(diameters)
+      for (let k = 0; k < count; k++) {
+        const index = nodes[k] ?? 0
+        if (isPlain(graph, index)) diameters.push(radiusAt(graph, index) * 2)
+        if (place(graph.datum(index) as T, k)) valid[k] = 1
+        else if (blocks && !isPlain(graph, index)) {
+          if (blockPlace(blocks.items(index) as readonly T[], place, x, y, k)) valid[k] = 1
+        }
+      }
+      if (diameters.length === 0) {
+        for (const index of nodes) diameters.push(radiusAt(graph, index) * 2)
+      }
+      const typical = median(Float64Array.from(diameters))
       const given = options.spacing
       const spacing =
         given !== undefined && Number.isFinite(given) && given >= 0 ? given : typical / 4

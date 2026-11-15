@@ -149,7 +149,7 @@ export class GpuForce {
     const capacity = graph.capacity
     this.capacity = capacity
     this.#radius = graph.radius
-    this.#mass = level?.mass ?? null
+    this.#mass = level?.mass ?? graph.mass ?? null
     this.#alive = graph.alive.slice(0, capacity)
     this.#width = Math.max(1, Math.ceil(Math.sqrt(capacity)))
     this.#height = Math.max(1, Math.ceil(capacity / this.#width))

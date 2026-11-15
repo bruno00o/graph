@@ -1,6 +1,6 @@
 import { groupGap, separateGroups } from '../core/group-separation'
 import { type GroupTree, groupTree } from '../core/group-tree'
-import type { Key, LayoutGraph } from '../types'
+import type { Key, LayoutBlocks, LayoutGraph } from '../types'
 
 interface Box {
   readonly x: number
@@ -183,10 +183,12 @@ class Blocks<T> {
     const keys: (Key | undefined)[] = []
     const items: (T | undefined)[] = []
     const boxes: Box[] = []
+    const sizes = graph.blocks ? new Uint32Array(count) : null
     units.forEach((unit, at) => {
       let box: Box
       if (unit.kind === 'leaf') {
         local.set(unit.id, at)
+        if (sizes) sizes[at] = graph.blocks?.size[unit.id] ?? 0
         box = {
           x: this.#xy[unit.id * 2] ?? 0,
           y: this.#xy[unit.id * 2 + 1] ?? 0,
@@ -235,6 +237,7 @@ class Blocks<T> {
       edges: Uint32Array.from(pairs),
       keys,
       datum: (index) => items[index],
+      ...(sizes ? { blocks: this.#blocksOf(units, sizes) } : {}),
     })
     units.forEach((unit, at) => {
       if (movable[at] !== 1) return
@@ -252,6 +255,19 @@ class Blocks<T> {
         this.#xy[index * 2 + 1] = (this.#xy[index * 2 + 1] ?? 0) + dy
       }
     })
+  }
+
+  #blocksOf(units: readonly Unit[], size: Uint32Array): LayoutBlocks {
+    const blocks = this.#graph.blocks
+    const leafOf = (at: number) => {
+      const unit = units[at]
+      return unit?.kind === 'leaf' ? unit.id : -1
+    }
+    return {
+      size,
+      items: (at) => (leafOf(at) >= 0 ? (blocks?.items(leafOf(at)) ?? []) : []),
+      keys: (at) => (leafOf(at) >= 0 ? (blocks?.keys(leafOf(at)) ?? []) : []),
+    }
   }
 
   #looseBox(loose: readonly number[]): Box {

@@ -336,7 +336,7 @@ export function coarsen(graph: ForceGraph, options: CoarsenOptions): CoarseLevel
   const levels: CoarseLevel[] = []
   const half = options.edgeLength / 2
   let current = graph
-  let mass: Float32Array = new Float32Array(graph.capacity).fill(1)
+  let mass: Float32Array = graph.mass?.slice() ?? new Float32Array(graph.capacity).fill(1)
   let reach: Float32Array = new Float32Array(graph.capacity)
   let weights: Float32Array | null = null
   let movers = 0

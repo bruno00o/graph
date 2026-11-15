@@ -170,6 +170,8 @@ export type {
   LassoOptions,
   LayerName,
   Layout,
+  LayoutBlocks,
+  LayoutContainer,
   LayoutGraph,
   LayoutGroups,
   LayoutListener,
