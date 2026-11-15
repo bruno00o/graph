@@ -146,9 +146,75 @@ timeline.play()
 
 See the [graph that grows](/examples/time-growth) example, which plays in `'grow'` mode.
 
+### A moment instead of a window
+
+With `instant: true`, the window is a single moment, a cursor: `start` equals `end`, and the graph shows what exists at that moment. The bar draws a cursor instead of the brush; a press or a drag on the bar moves it, and it snaps to the bins unless you hold <kbd>Alt</kbd>. The arrow keys move it by a bin, `step` and `nudge` too, and playback moves it at `speed`.
+
+```ts
+const timeline = createTimeline(graph, { instant: true })
+timeline.set({ start: new Date(2024, 5, 1), end: new Date(2024, 5, 1) })
+timeline.step()
+timeline.play()
+```
+
+The window stays the default; `update({ instant: true })` switches a timeline without moving its window, and `set` still takes any window.
+
+### Events
+
+The histogram counts the nodes and edges of the graph by default. Pass `events` to count the events of your application instead, such as a log of what changed and when: each event is a moment and a kind, and the bins stack the kinds.
+
+```ts
+interface Change {
+  readonly at: Date
+  readonly type: 'added' | 'changed' | 'removed'
+  readonly key: string
+}
+
+declare const changes: Change[]
+
+const timeline = createTimeline(graph, {
+  events: changes,
+  eventTime: 'at',
+  eventKind: 'type',
+  kinds: ['added', 'changed', 'removed'],
+  instant: true,
+})
+```
+
+- `eventTime` and `eventKind` read the moment and the kind of an event, as a field name or a function; by default, the fields `time` and `kind`. An event without a valid moment is left out; one without a kind belongs to the kind `''`.
+- The kinds stack in the order of `kinds`, then in the order the events first give them, colored by the category tokens `--graph-cat-1` to `--graph-cat-12`, or by `kindColors`. `state.kinds` lists them, with their colors and counts, and each bin counts them in `bin.kinds`, in the same order.
+- `toggleKind` hides a kind, or shows it again; `hiddenKinds` sets the hidden kinds when it changes. A hidden kind leaves the stacks, `bin.events`, stepping and `timeline.events`. The bar shows a button per kind, which hides or shows it, when there is more than one; `legend: false` removes them, `kindText` writes their text.
+- The extent comes from the events: from the first to the last. The bins still count nodes and edges, for a renderer of your own.
+- `events` takes a new array for each change; the array is never changed in place. When the new array starts with the items of the previous one, as a log does when it grows, only the items added are read. The `data` of a [TanStack DB](/docs/tanstack-db) live query is a new array for each change: pass it as it comes.
+
+`stepEvent` moves to the next event, or back with a negative count, skipping hidden kinds and counting events at the same moment once. With `instant`, the cursor lands on the event, and `timeline.events(moment)` returns the events made at that moment, for a panel of details; `timeline.events(bin.start, bin.end)` returns those of a bin. Without `instant`, the end of the window lands 1 ms after the event, so that the window includes it. In the bar, <kbd>Shift</kbd> with the arrow keys steps from event to event on the cursor and on the window.
+
+```ts
+timeline.stepEvent()
+const window = timeline.store.state.window
+const made = window?.start == null ? [] : timeline.events(window.start)
+```
+
+See the [history of changes](/examples/change-history) example, which replays a graph over thirty days of generated changes.
+
+Bins follow the calendar and the zoom of the bar, so the timeline needs the events themselves, not counts per day: 100,000 events cost a few tens of milliseconds to read (see [Performance](#performance)).
+
+### Without a graph
+
+A timeline does not need a graph: `createTimeline(options)`, without a graph, counts its `events` and keeps the window in its state instead of moving the window of a graph. Apply it to as many graphs as you want, or to none:
+
+```ts
+const timeline = createTimeline({ events: changes, eventTime: 'at', eventKind: 'type', instant: true })
+timeline.store.subscribe(({ window }) => {
+  for (const graph of graphs) graph.time.set(window)
+})
+```
+
+In React, `useTimeline({ graph: false, events })` does the same.
+
 ### Text
 
-The timeline writes no text of its own. `labels` names the play button, the handles and the window for assistive technologies, and `labels.range` writes the value of the window from the values of its ends. Ticks and values are dates and times written by `Intl.DateTimeFormat` in the language of the page (`<html lang>`), as precise as the unit of the bins; pass `format` to write them yourself:
+The timeline writes no text of its own. `labels` names the play button, the handles, the window, the cursor and the group of the buttons of the kinds for assistive technologies, and `labels.range` writes the value of the window from the values of its ends. Ticks and values are dates and times written by `Intl.DateTimeFormat` in the language of the page (`<html lang>`), as precise as the unit of the bins; pass `format` to write them yourself:
 
 ```ts
 mountTimeline(timeline, {
@@ -166,7 +232,23 @@ import { Graph, Timeline, useTimeline } from '@bruno00o/graph/react'
 </Graph>
 ```
 
-`<Timeline>` renders the default timeline where it stands. `useTimeline` returns the state and the timeline, for a timeline drawn by your components, as in the [time slider of your own](/examples/time-slider) example. Both read the graph of the `<Graph>` or [`<MapGraph>`](/docs/map#react) around them; elsewhere, pass it with `<Timeline graph={graph} />` or `useTimeline({ graph })`.
+`<Timeline>` renders the default timeline where it stands. `useTimeline` returns the state and the timeline, for a timeline drawn by your components, as in the [time slider of your own](/examples/time-slider) example. Both read the graph of the `<Graph>` or [`<MapGraph>`](/docs/map#react) around them; elsewhere, pass it with `<Timeline graph={graph} />` or `useTimeline({ graph })`, or `graph: false` for a timeline without a graph.
+
+To draw the timeline that `useTimeline` made, and read it at the same time, pass it to `<Timeline timeline={timeline} />`: the bar and your components then share one timeline.
+
+```tsx
+function Replay() {
+  const { state, timeline } = useTimeline({ events: changes, eventTime: 'at', instant: true })
+  const moment = state.window?.start
+  const made = timeline && moment != null ? timeline.events(moment) : []
+  return (
+    <>
+      <Details changes={made} />
+      <Timeline timeline={timeline} labels={labels} />
+    </>
+  )
+}
+```
 
 ## Performance
 
@@ -181,3 +263,15 @@ The time of each element is read when the data changes, like every style. Moving
 | Histogram, after every node changes its time | 120 ms |
 
 The timeline counts again only when times change, and only for the elements whose time changed and the edges that end on them.
+
+Events cost little next to the graph. Measured on a laptop, with events spread over 30 days in five kinds:
+
+| Step | 100,000 events | 1,000,000 events |
+| --- | --- | --- |
+| First count | 3 to 4 ms | 31 ms |
+| Count after 1,000 events are added at the end | 0.7 ms | 30 ms |
+| Count of a new array in another order | 3 to 4 ms | 32 ms |
+| `stepEvent` | under 0.01 ms | under 0.01 ms |
+| First `events` after a change, then each one | 7 ms, then 0.02 ms | 77 ms, then 0.13 ms |
+
+Stepping through the events of the [history of changes](/examples/change-history) example at every frame keeps 60 frames per second.

@@ -251,6 +251,20 @@ describe('moving a graph onto a map and back', () => {
     graph.destroy()
   })
 
+  it('keeps the camera of the map when the plain view lies outside its limits', async () => {
+    const { map, state, render, camera } = fakeMap()
+    const graph = mount({ initialView: { x: -400, y: -900, zoom: 0.2 } })
+    await settle()
+    graph.update({ surface: mapSurface(map) })
+    render()
+    await settle()
+    render()
+    expect(state.jumps).toEqual([])
+    expect(camera.zoom).toBe(4)
+    expect(graph.view.get().zoom).toBeCloseTo(16)
+    graph.destroy()
+  })
+
   it('applies on its return the controlled view given while on the map', async () => {
     const { map, render, state } = fakeMap()
     const requests: View[] = []

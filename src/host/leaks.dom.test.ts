@@ -1,6 +1,10 @@
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { densityBundling } from '../bundling'
+import { showPresence } from '../db'
 import { defineGraph } from '../define-graph'
+import { GraphDevtoolsCore } from '../devtools/core'
+import { createShapeEditor, mountShapeEditor } from '../editor'
 import { force } from '../layouts/force'
 import { createLegend, mountLegend } from '../legend'
 import { edges, nodes } from '../marks'
@@ -387,6 +391,51 @@ describe('global resources', () => {
     surface.release()
     expect([...listeners.values()].every((set) => set.size === 0)).toBe(true)
     destroy()
+    flush()
+    expect(snapshot()).toEqual(baseline)
+  })
+
+  it('holds nothing more with every companion alive during 20 moves onto a map and back', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const baseline = snapshot()
+    const { map, render } = fakeMap()
+    const surface = mapSurface(map)
+    const { graph, destroy } = mountAll()
+    const editor = createShapeEditor(graph, { tool: 'polygon' })
+    const editorView = mountShapeEditor(editor)
+    const collection = createCollection(
+      localOnlyCollectionOptions({
+        id: 'leak-presence',
+        getKey: (row: { id: string }) => row.id,
+      }),
+    )
+    const presence = showPresence(graph, {
+      collection,
+      me: 'me',
+      create: (id, values) => ({ id, ...values }),
+    })
+    const panel = new GraphDevtoolsCore()
+    const host = document.createElement('div')
+    document.body.append(host)
+    panel.mount(host)
+    flush(2)
+    const { timers: _, ...settled } = snapshot()
+    for (let round = 0; round < 20; round++) {
+      graph.update({ surface })
+      render()
+      flush(2)
+      graph.update({ surface: null })
+      flush(2)
+      const { timers: __, ...now } = snapshot()
+      expect(now).toEqual(settled)
+    }
+    surface.release()
+    panel.unmount()
+    presence.stop()
+    editorView.destroy()
+    editor.destroy()
+    destroy()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     flush()
     expect(snapshot()).toEqual(baseline)
   })

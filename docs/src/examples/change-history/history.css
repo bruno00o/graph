@@ -1,0 +1,8 @@
+.change-panel {
+  position: absolute;
+  width: 210px;
+}
+
+.change-panel li {
+  margin: 2px 0;
+}

@@ -144,7 +144,12 @@ import type {
   UseTimelineOptions,
 } from './react'
 import type { OrthogonalRoutingOptions } from './routing'
-import type { TimelineLabels, TimelineOptions, TimelineViewOptions } from './timeline'
+import type {
+  TimelineEvent,
+  TimelineLabels,
+  TimelineOptions,
+  TimelineViewOptions,
+} from './timeline'
 
 interface Item {
   readonly id: string
@@ -297,6 +302,7 @@ interface Inputs {
   SupportStateOptions: SupportStateOptions<'muted'>
   SupportWalkOptions: SupportWalkOptions
   SvgExportOptions: SvgExportOptions
+  TimelineEvent: TimelineEvent
   TimelineLabels: TimelineLabels
   TimelineOptions: TimelineOptions
   TimelineProps: TimelineProps

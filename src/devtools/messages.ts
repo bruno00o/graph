@@ -148,6 +148,13 @@ export interface GraphDevtoolsMessages {
   /** Formats a size, such as `'800 × 600 px'`. */
   readonly dimensions: (width: number, height: number) => string
   /**
+   * Label of the surface the graph draws on.
+   * @default 'Surface'
+   */
+  readonly surface?: string | undefined
+  /** Formats the name of a surface, such as `'Canvas'` for `'canvas'` and `'Map'` for `'map'`. */
+  readonly surfaceName?: ((name: string) => string) | undefined
+  /**
    * Title of the Interaction section.
    * @default 'Interaction'
    */
@@ -317,6 +324,8 @@ export const defaultMessages: GraphDevtoolsMessages = {
   zoom: 'Zoom',
   size: 'Size',
   dimensions: (width, height) => `${integer.format(width)} × ${integer.format(height)} px`,
+  surface: 'Surface',
+  surfaceName: (name) => (name === 'canvas' ? 'Canvas' : name === 'map' ? 'Map' : name),
   interaction: 'Interaction',
   selection: 'Selection',
   elementCounts: (nodes, edges) =>

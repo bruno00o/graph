@@ -58,6 +58,32 @@ function Frise({ initial }: { readonly initial: TimeWindowInput | null }) {
   )
 }
 
+interface Change {
+  readonly at: number
+  readonly type: string
+}
+
+const changes: Change[] = [
+  { at: 0, type: 'added' },
+  { at: 4, type: 'changed' },
+  { at: 8, type: 'added' },
+]
+let found: readonly Change[] = []
+let shown: TimelineState['window'] = null
+
+function Replay({ alone }: { readonly alone: boolean }) {
+  const { state, timeline } = useTimeline({
+    graph: alone ? false : undefined,
+    events: changes,
+    eventTime: 'at',
+    eventKind: 'type',
+    instant: true,
+  })
+  shown = state.window
+  found = state.window && timeline ? timeline.events(state.window.start ?? 0) : []
+  return <Timeline timeline={timeline} labels={{ cursor: 'Moment' }} />
+}
+
 function render(element: ReactNode): void {
   act(() => {
     root.render(element)
@@ -116,6 +142,41 @@ describe('Timeline', () => {
     expect(button?.getAttribute('aria-label')).toBe('Lecture')
     render(bar())
     expect(button?.getAttribute('aria-label')).toBeNull()
+  })
+
+  it('renders a timeline of events made by useTimeline, with or without a graph', () => {
+    render(
+      <StrictMode>
+        <Graph
+          definition={definition}
+          ariaLabel="graph"
+          ref={(instance) => {
+            graph = instance
+          }}
+        >
+          <Replay alone={false} />
+        </Graph>
+      </StrictMode>,
+    )
+    expect(document.querySelectorAll('[data-graph-timeline]')).toHaveLength(1)
+    const cursor = document.querySelector<HTMLElement>('[data-graph-timeline] [data-part=cursor]')
+    expect(cursor?.getAttribute('aria-label')).toBe('Moment')
+    act(() => {
+      cursor?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }),
+      )
+    })
+    expect(graph?.time.get()).toEqual({ start: 0, end: 0 })
+    expect(found.map((change) => change.type)).toEqual(['added'])
+    render(<Replay alone />)
+    const alone = document.querySelector<HTMLElement>('[data-graph-timeline] [data-part=cursor]')
+    act(() => {
+      alone?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }),
+      )
+    })
+    expect(shown).toEqual({ start: 8, end: 8 })
+    expect(found).toEqual([changes[2]])
   })
 
   it('removes its element on unmount', () => {

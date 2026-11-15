@@ -241,7 +241,7 @@ It takes `mutationFn`, `strategy` and `pendingState` as `persistPositions` does,
 
 ## Show who else is editing
 
-`showPresence` reads a collection with one row for each person editing, and shows the others on the graph: a cursor at each pointer, and each selection in a free state of its own. It writes the row of the local person too, at most every 50 milliseconds, and ignores the rows older than 30 seconds. The collection carries the rows: a TanStack DB collection has no ephemeral channel, so what travels, and how, is yours to decide.
+`showPresence` reads a collection with one row for each person editing, and shows the others on the graph: a cursor at each pointer on the same surface, canvas or map, and each selection in a free state of its own. It writes the row of the local person too, at most every 50 milliseconds, and ignores the rows older than 30 seconds. The collection carries the rows: a TanStack DB collection has no ephemeral channel, so what travels, and how, is yours to decide.
 
 ```ts
 import { showPresence } from '@bruno00o/graph/db'
