@@ -2,6 +2,9 @@ export const messages = {
   graphLabel: (nodes: number, edges: number) =>
     `Graph of ${nodes} nodes linked by ${edges} edges of three kinds`,
   node: (index: number) => `Node ${index}`,
+  group: (index: number) => `Group ${index}`,
+  groups: (folded: boolean) => `Groups: ${folded ? 'folded' : 'unfolded'}`,
+  folded: (oneLine: boolean) => `Toward a folded group: ${oneLine ? 'one line' : 'one per kind'}`,
   mode: (name: string) => `Merge: ${name}`,
   modes: { kind: 'by kind', all: 'every kind together', off: 'off' },
   min: (count: number) => `Fewest edges that merge: ${count}`,

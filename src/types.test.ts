@@ -395,6 +395,9 @@ describe('public types', () => {
       aggregate: { source: 'from' },
     })
     edges(links, { source: 'from', target: 'to', merge: { directed: false, halves: true } })
+    edges(links, { source: 'from', target: 'to', merge: { by: 'to', foldedAsOne: true } })
+    // @ts-expect-error
+    edges(links, { source: 'from', target: 'to', merge: { by: 'to', foldedAsOne: 'yes' } })
     // @ts-expect-error
     edges(links, { source: 'from', target: 'to', merge: { directed: false, halves: 'yes' } })
   })
