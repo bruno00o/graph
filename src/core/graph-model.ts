@@ -1,6 +1,6 @@
 import type { EdgeMark, HistoryEntry, Key, LiveSource, Mark, NodeMark, ShapeMark } from '../types'
 import { isKey, toAccessor } from './accessor'
-import type { HistoryCut, HistoryTrail } from './history'
+import type { HistoryCut, HistoryTrail, StepRecords } from './history'
 import { IndexPool } from './index-pool'
 import { IndexSet } from './index-set'
 import type { AnyIssue } from './issues'
@@ -77,6 +77,7 @@ export const linkStride = 6
 
 export interface GraphModelOptions {
   readonly schedule?: () => void
+  readonly steps?: boolean
 }
 
 export interface GraphModel {
@@ -264,6 +265,38 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
   let arrivals = 0
   let flushedIssues = 0
   let flushedReadiness = 0
+  const steps = options.steps ?? true
+  const nodeSteps: StepRecords = {
+    epoch: 0,
+    ends: false,
+    find: (key) => nodeOf(key)?.index ?? -1,
+    at: (index) => nodesByIndex[index],
+    defer: (key) => nodeSources.defer(key),
+    updated: ({ key, index }) => stepped.nodes.updated.push({ key, index }),
+  }
+  const edgeSteps: StepRecords = {
+    epoch: 0,
+    ends: true,
+    find: (key) => edgeIds.get(key),
+    at: (id) => entries[id],
+    defer: (key) => edgeSources.defer(key),
+    updated: ({ key, index }) => {
+      if (index >= 0) stepped.edges.updated.push({ key, index })
+    },
+  }
+  const shapeSteps: StepRecords = {
+    epoch: 0,
+    ends: false,
+    find: (key) => shapesByKey.get(key)?.index ?? -1,
+    at: (index) => shapesByIndex[index],
+    defer: (key) => shapeSources.defer(key),
+    updated: ({ key, index }) => stepped.shapes.updated.push({ key, index }),
+  }
+  let stepped: GraphChanges & {
+    readonly nodes: MutableChanges
+    readonly edges: MutableChanges
+    readonly shapes: MutableChanges
+  } = { nodes: emptyChanges(), edges: { ...emptyChanges(), pending: [] }, shapes: emptyChanges() }
 
   function issueVersion(): number {
     return nodeSources.issueVersion + edgeSources.issueVersion + shapeSources.issueVersion
@@ -291,6 +324,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         const index = shapePool.acquire()
         const created = new ShapeEntry(key, index, datum, source.slot, shapeSources)
         shapesByKey.set(key, created)
+        shapeSteps.epoch++
         shapesByIndex[index] = created
         changes.added.push({ key, index })
         return
@@ -439,6 +473,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         bindNode(created, position)
         nodesByIndex[created] = new NodeEntry(key, created, datum, sole.slot, nodeSources)
         nodeCount++
+        nodeSteps.epoch++
         changes.added.push({ key, index: created })
         return
       }
@@ -465,6 +500,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
         bindNode(created, at)
         nodesByIndex[created] = new NodeEntry(key, created, datum, slot, nodeSources)
         nodeCount++
+        nodeSteps.epoch++
         changes.added.push({ key, index: created })
         touch(at)
         return
@@ -580,6 +616,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
             position,
           )
           entries[position] = entry
+          edgeSteps.epoch++
           link(position)
         } else if (!entry) {
           const created = entryPool.acquire()
@@ -596,6 +633,7 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
             arrivals++,
           )
           edgeIds.add(key, created)
+          edgeSteps.epoch++
           entries[created] = entry
           links[created * linkStride] = sourceEndOf(source)
           links[created * linkStride + 1] = targetEndOf(target)
@@ -693,13 +731,14 @@ export function createGraphModel(options: GraphModelOptions = {}): GraphModel {
     },
 
     flush() {
-      nodeSources.drain()
-      edgeSources.drain()
-      shapeSources.drain()
       const nodes = emptyChanges()
       const shapes = emptyChanges()
       const freedShapes: number[] = []
       const edges = { ...emptyChanges(), pending: [] as Key[] }
+      stepped = { nodes, edges, shapes }
+      nodeSources.drain(steps ? nodeSteps : null)
+      edgeSources.drain(steps && !nodeSources.pending ? edgeSteps : null)
+      shapeSources.drain(steps ? shapeSteps : null)
       const freedNodes: number[] = []
       const freedEdges: number[] = []
       const freedEntries: number[] = []

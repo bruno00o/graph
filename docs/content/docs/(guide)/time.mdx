@@ -360,10 +360,10 @@ A [history](#values-over-time) costs work only where a step crosses entries. Mea
 | --- | --- |
 | Reading the entries, on top of mounting | 140 to 165 ms |
 | [Scales over the whole history](#scales-over-the-whole-history), on top of the first frame | 210 to 260 ms, about 0.25 µs per entry |
-| Memory of the history | about 40 bytes per entry, plus about 80 bytes per element for its scales |
-| A step of one hour, about 1,400 entries | 6 to 7 ms of work, 21 ms per frame |
-| A step of one day, about 33,000 entries | 48 to 50 ms of work |
-| A jump of 20 days, every node read again | 200 to 235 ms of work |
+| Memory of the history | about 40 bytes per entry, plus about 90 bytes per element for its scales and steps |
+| A step of one hour, about 1,400 entries | 4.5 to 5.5 ms of work, 20 ms per frame |
+| A step of one day, about 33,000 entries | 32 to 38 ms of work |
+| A jump of 20 days, every node read again | 155 to 175 ms of work |
 | Without a history, any step | under 0.2 ms of work |
 
 The scales of the history are read once, then again only for the elements whose entries or items change: the steps above cost the same as without them. Marks without a history cost nothing more.
