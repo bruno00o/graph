@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ShapeStore } from '../core/shape-store'
 import { defineGraph } from '../define-graph'
+import { internalsOf } from '../host/internals'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import type { Renderer, RenderInput } from '../host/renderer'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import type { Mark } from '../types'
+import type { Mark, ShapeGeometry } from '../types'
 import { exportPng, exportSvg } from '.'
 
 vi.mock('@mapbox/tiny-sdf', () => ({
@@ -228,5 +229,68 @@ describe('exports with shapes', () => {
   it('writes no shape without a shape mark', async () => {
     const svg = await exportSvg(mount(false))
     expect(svg).not.toContain('fill-rule="evenodd"')
+  })
+
+  it('draws the shapes an editor holds as drafts at their data in the PNG', async () => {
+    const triangle = (x: number, width = 100): ShapeGeometry => ({
+      rings: [
+        [
+          { x, y: 0 },
+          { x: x + width, y: 0 },
+          { x: x + width / 2, y: 80 },
+        ],
+      ],
+    })
+    const container = document.createElement('div')
+    document.body.append(container)
+    const seen: { drafts: number[]; filled: boolean[]; left: number[] }[] = []
+    let made = 0
+    const definitionOf = (x: number, width: number) =>
+      defineGraph({
+        marks: [
+          shapes([
+            { id: 'hidden', geometry: triangle(x, width) },
+            { id: 'shifted', geometry: triangle(300) },
+          ]),
+        ],
+        layout: null,
+      })
+    const created = createGraphHost(
+      container,
+      { definition: definitionOf(0, 100), ariaLabel: 'graph' },
+      (): Renderer => {
+        made++
+        if (made === 1) return fakeRenderer()
+        return {
+          ...fakeRenderer(),
+          sync: (input: RenderInput) => {
+            const store = input.scene.shapes
+            const indices = [0, 1]
+            seen.push({
+              drafts: indices.map((index) => store.draft[index] ?? 0),
+              filled: indices.map((index) => (store.geometry[index]?.triangles.length ?? 0) > 0),
+              left: indices.map((index) => store.geometry[index]?.minX ?? Number.NaN),
+            })
+          },
+        }
+      },
+    )
+    graph = created
+    dom.flushFrames()
+    const internals = internalsOf(created, 'test')
+    internals.draft(['hidden'], [{ keys: ['shifted'], x: 40, y: 0 }])
+    dom.flushFrames()
+    created.update({ definition: definitionOf(-200, 160) })
+    dom.flushFrames()
+    const store = internals.scene.shapes
+    const hidden = internals.shape('hidden')?.index ?? -1
+    expect(store.geometry[hidden]?.triangles.length).toBe(0)
+    await exportPng(created, { pixelRatio: 1 })
+    const last = seen[seen.length - 1]
+    expect(last?.drafts).toEqual([0, 0])
+    expect(last?.filled).toEqual([true, true])
+    expect(last?.left).toEqual([-200, 300])
+    expect(store.draft[hidden]).toBe(1)
+    expect(store.draft[internals.shape('shifted')?.index ?? -1]).toBe(2)
   })
 })

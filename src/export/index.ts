@@ -1,20 +1,23 @@
+import type { Positions } from '../core/positions'
 import { readWindow, timeFilter } from '../core/time-range'
+import { detailStep, type Sight } from '../core/visibility'
 import type { Rgba } from '../dom/theme'
 import { type GraphSnapshot, takeSnapshot } from '../host/export-source'
 import type { GraphInstance } from '../host/mount-graph'
-import type { LabelMode } from '../host/renderer'
+import type { ContainerFrame, HullInput, LabelMode, Renderer } from '../host/renderer'
 import { themeColor } from '../theme/tokens'
 import type { TimeWindowInput } from '../types'
 import { GlyphAtlas } from '../webgl/glyph-atlas'
 import { type ExportFrame, exportFrame } from './frame'
+import { frozenContainers, frozenHulls, frozenPositions, withoutDrafts } from './frozen'
 import { fitLabels } from './labels'
-import { renderPng } from './png'
+import { openCanvas, type PngCanvas, renderPng } from './png'
 import { checkSize, fitZoom } from './size'
 import { type SvgImage, writeSvg } from './svg'
 
 /**
  * Part of the graph an export covers: `'view'` is what the graph shows now, `'graph'` frames every
- * node.
+ * node, with the labels, curved edges and hulls that reach past them.
  */
 export type ExportRegion = 'view' | 'graph'
 
@@ -51,7 +54,7 @@ export interface ExportOptions {
   readonly zoom?: number | undefined
   /**
    * Exact size of the image, in pixels. The zoom is chosen so that the region fits inside it: with
-   * `region: 'graph'`, the nodes, labels, loops and hulls and the `padding` around them; with
+   * `region: 'graph'`, the nodes, labels, curved edges and hulls and the `padding` around them; with
    * `region: 'view'`, the whole area the view shows, so a different aspect shows more of the
    * graph around it. A PNG has this size in pixels whatever `pixelRatio`, which keeps its meaning
    * of image pixels per CSS pixel: labels and edge widths are drawn at their CSS size times it,
@@ -60,8 +63,9 @@ export interface ExportOptions {
    */
   readonly size?: ExportSize | undefined
   /**
-   * Margin around the nodes, labels and loops when `region` is `'graph'`, in CSS pixels. Must be
-   * finite, 0 or more. With `size`, the margin stays this wide in CSS pixels and the zoom adapts.
+   * Margin around the nodes, labels and curved edges when `region` is `'graph'`, in CSS pixels.
+   * Must be finite, 0 or more. With `size`, the margin stays this wide in CSS pixels and the zoom
+   * adapts.
    * @default 32
    */
   readonly padding?: number | undefined
@@ -124,11 +128,18 @@ export interface SvgExportOptions extends ExportOptions {
 interface Prepared {
   readonly snapshot: GraphSnapshot
   readonly frame: ExportFrame
+  readonly positions: Positions
+  readonly containers: ContainerFrame | null
+  readonly hulls: HullInput
   readonly background: Rgba
   readonly labels: LabelMode
   readonly measure: GlyphAtlas
   readonly time: number
   readonly pixelRatio: number
+}
+
+function softwareOf(renderer: Renderer): boolean {
+  return renderer.limits?.().software ?? false
 }
 
 function checkRatio(pixelRatio: number): number {
@@ -158,8 +169,10 @@ async function prepare(
   }
   await document.fonts?.ready
   const snapshot = takeSnapshot(graph)
-  const { scene, positions, states } = snapshot
-  const boxes = snapshot.containers?.boxes ?? null
+  const { scene, states } = snapshot
+  const positions = frozenPositions(snapshot.positions)
+  const containers = frozenContainers(snapshot.containers)
+  const boxes = containers?.boxes ?? null
   const region = options.region ?? 'view'
   const labels = options.labels ?? 'visible'
   const measure = new GlyphAtlas(snapshot.theme.font)
@@ -167,42 +180,71 @@ async function prepare(
     options.window === undefined
       ? snapshot.window
       : timeFilter(readWindow(options.window), snapshot.fade)
-  const base = {
-    nodes: scene.nodes,
-    edges: scene.edges,
-    positions,
-    boxes,
-    view: snapshot.view,
-    width: snapshot.width,
-    height: snapshot.height,
-    window: shownWindow,
+  const sightAt = (zoom: number, time: Sight['time']): Sight => ({
+    zoom,
+    time,
     layers: snapshot.layers,
-    hide: snapshot.states.hide,
-    hulls: snapshot.hulls.shapes,
-    bundles: snapshot.bundles,
-    states,
-    shapes: scene.shapes,
-  }
-  const labelSource = {
-    nodes: scene.nodes,
-    edges: scene.edges,
-    positions,
-    states,
-    boxes,
-    bundles: snapshot.bundles,
-    shapes: scene.shapes,
-    hulls: snapshot.hulls.shapes,
+    hide: states.hide,
+  })
+  const screenDetail = detailStep(
+    scene.nodes,
+    scene.edges,
+    sightAt(snapshot.view.zoom, snapshot.window),
+  )
+  let screenHulls: HullInput | null = null
+  const sightHulls = new Map<number, HullInput>()
+  const hullsAt = (zoom: number): HullInput => {
+    const sight = sightAt(zoom, shownWindow)
+    const detail = detailStep(scene.nodes, scene.edges, sight)
+    if (shownWindow === snapshot.window && detail === screenDetail) {
+      screenHulls ??= frozenHulls(snapshot.hulls)
+      return screenHulls
+    }
+    let hulls = sightHulls.get(detail)
+    if (!hulls) {
+      hulls = snapshot.hullsFor(sight, positions, containers)
+      sightHulls.set(detail, hulls)
+    }
+    return hulls
   }
   const fitsLabels = region === 'graph' && labels !== 'none'
   const frameAt = (zoom: number | undefined, withLabels: boolean): ExportFrame => {
-    const frame = exportFrame(base, { region, zoom, padding })
-    return withLabels && fitsLabels
-      ? fitLabels(labelSource, frame, labels, measure, padding)
-      : frame
+    const hulls = hullsAt(zoom ?? snapshot.view.zoom).shapes ?? []
+    const frame = exportFrame(
+      {
+        nodes: scene.nodes,
+        edges: scene.edges,
+        positions,
+        boxes,
+        view: snapshot.view,
+        width: snapshot.width,
+        height: snapshot.height,
+        window: shownWindow,
+        layers: snapshot.layers,
+        hide: states.hide,
+        hulls,
+        bundles: snapshot.bundles,
+        states,
+        shapes: scene.shapes,
+      },
+      { region, zoom, padding },
+    )
+    if (!withLabels || !fitsLabels) return frame
+    const source = {
+      nodes: scene.nodes,
+      edges: scene.edges,
+      positions,
+      states,
+      boxes,
+      bundles: snapshot.bundles,
+      shapes: scene.shapes,
+      hulls,
+    }
+    return fitLabels(source, frame, labels, measure, padding)
   }
   const pixelRatio = ratioOf(snapshot)
-  let frame: ExportFrame
-  if (size) {
+  const frame = withoutDrafts(scene.shapes, () => {
+    if (!size) return frameAt(options.zoom, true)
     const boxWidth = size.width === null ? Number.POSITIVE_INFINITY : size.width / pixelRatio
     const boxHeight = size.height === null ? Number.POSITIVE_INFINITY : size.height / pixelRatio
     const start = snapshot.view.zoom
@@ -216,17 +258,26 @@ async function prepare(
     const content = frameAt(zoom, true)
     const width = size.width ?? Math.max(1, Math.ceil(content.width * pixelRatio - 1e-6))
     const height = size.height ?? Math.max(1, Math.ceil(content.height * pixelRatio - 1e-6))
-    frame = { ...content, width: width / pixelRatio, height: height / pixelRatio }
-  } else {
-    frame = frameAt(options.zoom, true)
-  }
+    return { ...content, width: width / pixelRatio, height: height / pixelRatio }
+  })
   if (!(frame.width >= 1 && frame.height >= 1)) {
     throw new RangeError('graph: nothing to export, the graph measures less than one pixel')
   }
   const background = snapshot.color(options.background ?? themeColor('paper'))
   const time = options.time ?? 0
   if (!Number.isFinite(time)) throw new RangeError('graph: the time must be a finite number')
-  return { snapshot, frame, background, labels, measure, time: time / 1000, pixelRatio }
+  return {
+    snapshot,
+    frame,
+    positions,
+    containers,
+    hulls: hullsAt(frame.view.zoom),
+    background,
+    labels,
+    measure,
+    time: time / 1000,
+    pixelRatio,
+  }
 }
 
 function readAsDataUrl(blob: Blob): Promise<string | null> {
@@ -302,37 +353,36 @@ export async function exportSvg<S extends string>(
   graph: GraphInstance<S>,
   options: SvgExportOptions = {},
 ): Promise<string> {
-  const { snapshot, frame, background, labels, measure, time } = await prepare(
-    graph,
-    options,
-    () => 1,
-  )
+  const prepared = await prepare(graph, options, () => 1)
+  const { snapshot, frame, positions, containers, hulls } = prepared
   const images = await imageSources(snapshot, options.embedImages ?? true)
   const current = takeSnapshot(graph)
   const { scene } = current
-  return writeSvg({
-    nodes: scene.nodes,
-    edges: scene.edges,
-    layers: scene.layers,
-    positions: current.positions,
-    states: current.states,
-    grid: options.grid === false ? null : current.grid,
-    badges: options.badges !== false,
-    shapes: scene.shapes,
-    hulls: current.hulls.shapes,
-    containers: current.containers,
-    bundles: current.bundles,
-    bridges: current.bridges ?? null,
-    palette: current.palette,
-    theme: current.theme,
-    frame,
-    background,
-    labels,
-    measure,
-    images,
-    title: current.title,
-    time,
-  })
+  return withoutDrafts(scene.shapes, () =>
+    writeSvg({
+      nodes: scene.nodes,
+      edges: scene.edges,
+      layers: scene.layers,
+      positions,
+      states: current.states,
+      grid: options.grid === false ? null : current.grid,
+      badges: options.badges !== false,
+      shapes: scene.shapes,
+      hulls: hulls.shapes ?? [],
+      containers,
+      bundles: current.bundles,
+      bridges: current.bridges ?? null,
+      palette: current.palette,
+      theme: current.theme,
+      frame,
+      background: prepared.background,
+      labels: prepared.labels,
+      measure: prepared.measure,
+      images,
+      title: current.title,
+      time: prepared.time,
+    }),
+  )
 }
 
 /**
@@ -343,18 +393,34 @@ export async function exportPng<S extends string>(
   graph: GraphInstance<S>,
   options: PngExportOptions = {},
 ): Promise<Blob> {
-  const { snapshot, frame, background, labels, time, pixelRatio } = await prepare(
-    graph,
-    options,
-    (taken) => checkRatio(options.pixelRatio ?? taken.pixelRatio),
-  )
-  return renderPng(() => takeSnapshot(graph), snapshot, {
-    frame,
-    pixelRatio,
-    labels,
-    background,
-    time,
-    grid: options.grid !== false,
-    badges: options.badges !== false,
-  })
+  const probe: { canvas: PngCanvas | null } = { canvas: null }
+  try {
+    const prepared = await prepare(graph, options, (taken) => {
+      if (options.pixelRatio !== undefined) return checkRatio(options.pixelRatio)
+      if (taken.software !== null) return taken.pixelRatio
+      const opened = openCanvas(taken)
+      probe.canvas = opened
+      return taken.ratioFor(softwareOf(opened.renderer))
+    })
+    const { snapshot, frame, positions, containers, hulls } = prepared
+    const held = (taken: GraphSnapshot): GraphSnapshot => ({
+      ...taken,
+      positions,
+      containers,
+      hulls,
+    })
+    const opened = probe.canvas ?? openCanvas(snapshot)
+    probe.canvas = null
+    return await renderPng(() => held(takeSnapshot(graph)), held(snapshot), opened, {
+      frame,
+      pixelRatio: prepared.pixelRatio,
+      labels: prepared.labels,
+      background: prepared.background,
+      time: prepared.time,
+      grid: options.grid !== false,
+      badges: options.badges !== false,
+    })
+  } finally {
+    probe.canvas?.renderer.destroy()
+  }
 }

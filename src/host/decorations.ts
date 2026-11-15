@@ -42,6 +42,7 @@ export interface Decorations {
   changed(): void
   prepare(): void
   settle(): void
+  hullsFor(sight: Sight, positions: Positions, containers: ContainerSource | null): HullLayer
   place(): void
   destroy(): void
 }
@@ -206,6 +207,14 @@ export function createDecorations(context: DecorationContext): Decorations {
     },
     settle() {
       hulls.update(source(), Number.POSITIVE_INFINITY, () => 0)
+    },
+    hullsFor(sight, at, containers) {
+      const layer = new HullLayer()
+      layer.setHulls(definition?.hulls ?? [])
+      const detail = detailStep(scene.nodes, scene.edges, sight)
+      const from = { ...source(), sight, detail, positions: at, containers }
+      layer.update(from, Number.POSITIVE_INFINITY, () => 0)
+      return layer
     },
     place() {
       layer.update()
