@@ -1,10 +1,10 @@
 ---
-title: MapGraph
-description: The React component that mounts a graph inside a MapLibre map.
+title: MapGraph and useMapSurface
+description: The React component that mounts a graph inside a MapLibre map, and the hook that moves a graph onto a map and back.
 ---
 
 ```tsx
-import { MapGraph } from '@bruno00o/graph/map/react'
+import { MapGraph, useMapSurface } from '@bruno00o/graph/map/react'
 
 <MapGraph map={map} definition={definition} ariaLabel="Places and routes">
   <Timeline mode="grow" />
@@ -15,20 +15,34 @@ import { MapGraph } from '@bruno00o/graph/map/react'
 function MapGraph<S extends string = string, M extends Mark = Mark>(
   props: MapGraphProps<S, M>,
 ): ReactNode
+
+function useMapSurface(map: Map | null | undefined, options?: MapSurfaceOptions): GraphSurface | null
 ```
 
-Mounts the graph on `map` with [`mountMapGraph`](/docs/api/map), and destroys it on unmount. `S` and `M` come from `definition`, as with [`<Graph>`](/docs/api/graph-component). See [Map](/docs/map#react) for a walkthrough.
+`<MapGraph>` is for a graph that only lives on a map. To move one graph between its own canvas and a map, give `<Graph>` the surface of [`useMapSurface`](#usemapsurface).
 
-## Props
+## MapGraph
+
+Mounts the graph on `map` with [`mountGraph`](/docs/api/mount-graph) and a [`mapSurface`](/docs/api/map#mapsurface) released with the graph, as [`mountMapGraph`](/docs/api/map) does, and destroys it on unmount. `S` and `M` come from `definition`, as with [`<Graph>`](/docs/api/graph-component). See [Map](/docs/map#react) for a walkthrough.
 
 <api-table path="map/react.tsx" name="MapGraphProps" />
 
-The props are those of `<Graph>` except `initialView`, `view` and `onViewChange`, since the map holds the view, and `className` and `style`, since the component renders no element. The event props, the controlled selection, groups, layers and time window, and `ref` work as with `<Graph>`.
-
-## Behavior
+The props are those of `<Graph>` except `initialView`, `view` and `onViewChange`, since the map holds the view, `surface`, and `className` and `style`, since the component renders no element. The event props, the controlled selection, groups, layers and time window, and `ref` work as with `<Graph>`.
 
 - The graph mounts in a layout effect, once `map` is given. Under StrictMode, one instance remains.
 - Another `map`, `id` or `beforeId` destroys the graph and mounts a new one. The other props go through `update`.
 - Children render where the component stands, once the graph exists, with the graph in the context of `<Graph>`: `useGraph`, `useGraphState`, `useGraphEvent`, `<Anchor>`, `<Legend>` and `<Timeline>` work inside it. `<Anchor>` pins its element over the map.
 - The entry point imports no MapLibre code: the map you create is the only one.
 - Remove the map after the graph: create it in `useEffect`, whose cleanup runs after the layout cleanup of `<MapGraph>`.
+
+## useMapSurface
+
+Makes a [`mapSurface`](/docs/api/map#mapsurface) on `map`, for the [`surface`](/docs/api/graph-component#props) prop of `<Graph>`, and releases it on unmount. See [With and without a map](/docs/map#with-and-without-a-map) and the [React example](/examples/map-and-back-react).
+
+<api-table path="map/index.ts" name="MapSurfaceOptions" />
+
+- It returns `null` while `map` is `null` or `undefined`, which is what a state holds until the map exists.
+- It returns the same surface until `map`, `id` or `beforeId` change. Another value makes a new surface and releases the old one after the commit: a graph whose `surface` prop follows moves to the new one, with one layer on the map.
+- The surface is made during the render, without touching the map: its layer is added when a graph first comes. A render that React throws away leaves nothing behind.
+- Under StrictMode, the release and the second mount are safe: a released surface can take a graph again.
+- The release runs in a passive effect, after the layout cleanup of `<Graph>`: on unmount, the graph is destroyed on the map, without a trip back to its canvas.
