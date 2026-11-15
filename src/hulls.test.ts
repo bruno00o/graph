@@ -38,6 +38,49 @@ describe('hull', () => {
     warn.mockRestore()
   })
 
+  it('rejects invalid label numbers', () => {
+    const mark = nodes([{ id: 'a', group: 'x' }], {})
+    for (const value of [...invalid, 0]) {
+      expect(() => hull({ nodes: ['a'], label: { text: 'A', size: value } })).toThrow(
+        new RangeError('hull: label.size must be a finite number, more than 0'),
+      )
+      expect(() =>
+        hull({ nodes: mark, by: 'group', label: { text: () => 'A', size: value } }),
+      ).toThrow(RangeError)
+    }
+    for (const value of invalid) {
+      expect(() => hull({ state: 'selected', label: { text: 'A', maxWidth: value } })).toThrow(
+        new RangeError('hull: label.maxWidth must be a finite number, 0 or more'),
+      )
+    }
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, 0, 1001]) {
+      expect(() => hull({ nodes: mark, label: { text: 'A', weight: value } })).toThrow(
+        new RangeError('hull: label.weight must be a finite number from 1 to 1000'),
+      )
+    }
+  })
+
+  it('accepts a text, label options and undefined numbers, and freezes them', () => {
+    expect(hull({ nodes: ['a'], label: 'A' }).options.label).toBe('A')
+    const made = hull({
+      nodes: ['a'],
+      label: { text: 'A', size: 14, maxWidth: 0, weight: 'bold', color: undefined },
+    })
+    expect(made.options.label).toEqual({ text: 'A', size: 14, maxWidth: 0, weight: 'bold' })
+    expect(Object.isFrozen(made.options.label)).toBe(true)
+    expect(() => hull({ nodes: ['a'], label: { text: 'A', size: undefined } })).not.toThrow()
+  })
+
+  it('types a label function from the data of the mark, for one hull per value only', () => {
+    const mark = nodes([{ id: 'a', group: 'x', name: 'A' }], {})
+    const named = hull({ nodes: mark, by: 'group', label: ({ data }) => data[0]?.name ?? '' })
+    expect(typeof named.options.label).toBe('function')
+    // @ts-expect-error
+    hull({ nodes: ['a'], label: () => 'A' })
+    // @ts-expect-error
+    hull({ nodes: mark, label: { text: 'A', color: () => 'red' } })
+  })
+
   it('throws before defineGraph sees the hull', () => {
     expect(() =>
       defineGraph({ marks: [], hulls: [hull({ nodes: ['a'], padding: Number.NaN })] }),

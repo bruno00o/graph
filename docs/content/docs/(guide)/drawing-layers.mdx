@@ -71,6 +71,26 @@ hull({
 - Without colors, a hull is filled with `--graph-group-fill` and outlined with `--graph-group-line`. `color` sets the outline and a 12% fill; `fill` and `stroke` set each one. With `by`, each color option can be a function of the group value.
 - `strokeWidth` is in screen pixels, 1 by default, `0` for no outline.
 
+### Labels
+
+`label` names a hull with text drawn by the graph, in PNG and SVG exports too. With `by`, it can be a function of the group: its value, its members and their data.
+
+```ts
+hull({
+  nodes: people,
+  by: 'team',
+  label: { text: ({ value, count }) => `${value} (${count})`, weight: 'bold' },
+})
+```
+
+- The label sits centered above the highest point of the hull, outside the outline, past its padding: it never covers the nodes of its hull. It follows the hull as its nodes move.
+- It keeps its size in pixels while the hull is at least as wide on screen as the text. Once you zoom out further, it shrinks with the hull, and hides under 8 pixels like other labels.
+- It hides with its hull: when its nodes are hidden by a zoom range, the time window, a layer, a state with `hide` or a folded group, and on the far side of the globe.
+- It takes the usual text options: `color` (a function of the value with `by`), `size` (12 by default), `weight`, `font`, `maxWidth` and `background` for a plate. See [`HullLabelOptions`](/docs/api/hull#labels).
+- Labels give way to each other. Hull labels come after the labels of hovered, focused, highlighted and `label: 'always'` elements, and before the other node, edge and shape labels: one hull label names many nodes, and it sits outside them, where it rarely hides a node label. The hull with the most nodes is placed first.
+
+For text that holds buttons or HTML, use an [anchor](#anchored-html) on the same nodes instead: `graph.anchors.set(element, { nodes: keys, side: 'top' })`.
+
 ## Anchored HTML
 
 `graph.anchors.set(element, options)` pins an HTML element to the graph. The graph places it at each frame with a CSS transform, so it follows pan, zoom and node moves with no code of yours and no React render.

@@ -20,7 +20,7 @@ defineGraph({
   marks: [people],
   states: { flagged: { stroke: 'var(--graph-accent)' } },
   hulls: [
-    hull({ nodes: people, by: 'team' }),
+    hull({ nodes: people, by: 'team', label: ({ value }) => String(value) }),
     hull({ state: 'flagged', color: 'var(--graph-accent)', shape: 'smooth' }),
     hull({ nodes: ['a', 'b', 'c'], strokeWidth: 0 }),
   ],
@@ -47,6 +47,24 @@ A hull with no node draws nothing. A hull with one node is a circle around it.
 The padding counts from the edge of each node and its outline, in screen pixels: hulls keep their margin at every zoom level.
 
 `hull` throws a `RangeError` when `padding` or `strokeWidth` is negative, `NaN` or infinite. Leave an option out, or pass `undefined`, for its default.
+
+## Labels
+
+`label` takes the text, or the text and its style:
+
+<api-table path="index.ts" name="HullLabelOptions" />
+
+With `by`, the text can be a function. It receives the group of each hull and returns its text; an empty string draws no label. It runs again when the members of the hull change, including when some of them hide.
+
+```ts
+type HullGroupLabel<T> = string | ((group: HullGroup<T>) => string)
+```
+
+<api-table path="index.ts" name="HullGroup" />
+
+The label sits centered above the highest point of the hull, past its padding and outline. It keeps its size while the hull is at least as wide on screen as the text, then shrinks with the hull, and hides under 8 pixels. It hides with the hull, and PNG and SVG exports draw it; `region: 'graph'` makes room for it. See [Drawing layers](/docs/drawing-layers#labels) for its place among the other labels.
+
+`hull` throws a `RangeError` when `label.size` is not more than 0, `label.maxWidth` is negative, or `label.weight` is a number outside 1 to 1000, and when any of them is `NaN` or infinite.
 
 ## Shapes
 

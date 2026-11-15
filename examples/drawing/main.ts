@@ -57,7 +57,16 @@ let mode: HullMode = 'groups'
 let shape: HullShape = 'rounded'
 
 function hulls(): Hull<'selected'>[] {
-  if (mode === 'groups') return [hull<Item>({ nodes: itemMark, by: 'group', shape })]
+  if (mode === 'groups') {
+    return [
+      hull<Item>({
+        nodes: itemMark,
+        by: 'group',
+        shape,
+        label: { text: ({ value }) => String(value), weight: 600 },
+      }),
+    ]
+  }
   if (mode === 'selection') {
     return [hull({ state: 'selected', shape, color: 'var(--graph-accent)', padding: 12 })]
   }

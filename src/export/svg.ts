@@ -1244,6 +1244,20 @@ export function writeSvg(scene: SvgScene): string {
     body.push(`${open(look.opacity * shapeOpacity(scene.shapes, index, sight))}${parts}</g>`)
   }
 
+  const hullLook: Look = {
+    opacity: 1,
+    strokeWidth: 0,
+    halo: 0,
+    haloColor: noColor,
+    label: true,
+    fill: noColor,
+    stroke: noColor,
+    outline: noColor,
+    outlineWidth: 0,
+    labelColor: noColor,
+    flow: 0,
+  }
+  const hullLabels: string[] = []
   const queued = {
     nodes: [[], []] as QueuedLabel[][],
     edges: [[], []] as QueuedLabel[][],
@@ -1260,12 +1274,28 @@ export function writeSvg(scene: SvgScene): string {
       const anchor = { x, y, ax: 1, ay: 0, room: 0 }
       queued.shapes[label.highlight ? 1 : 0]?.push({ index, label, anchor })
     },
+    hull: (shape, label, x, y) => {
+      const text = shape.label
+      if (!text) return
+      const parts = labelParts(
+        label,
+        x,
+        y,
+        0,
+        label.pixels,
+        hullLook,
+        text.weight || 500,
+        text.font,
+      )
+      hullLabels.push(`<g>${parts}</g>`)
+    },
   })
 
   function drawLabels(pass: 0 | 1): void {
     for (const { index, label, anchor } of queued.shapes[pass] ?? []) {
       if (anchor) drawShapeLabel(index, label, anchor.x, anchor.y)
     }
+    if (pass === 0) body.push(...hullLabels)
     for (const { index, label, anchor } of queued.edges[pass] ?? []) {
       if (anchor) drawEdgeLabel(index, label, anchor)
     }

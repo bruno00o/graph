@@ -2,6 +2,7 @@ import {
   defineGraph,
   edges,
   groups,
+  hull,
   type LiveSource,
   mountGraph,
   nodes,
@@ -54,6 +55,8 @@ const editing = params.has('edit')
 const badgeKind = params.get('badges')
 const halo = params.get('halo')
 const ordering = params.get('order')
+const hullCount = Number(params.get('hulls') ?? 0)
+const hullLabels = params.has('hulllabels')
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const rankOf = (item: Item | TimedItem) => (item as { rank?: number }).rank ?? 0
@@ -233,8 +236,52 @@ const zoneOptions: Omit<ShapeOptions<Zone>, 'key'> = {
   ...(shapeLabels ? { label: (zone: (typeof zones)[number]) => zone.id } : {}),
 }
 
-const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones = zones) =>
-  defineGraph({
+function hullCell(list: readonly (Item | TimedItem)[], count: number) {
+  const side = Math.max(1, Math.round(Math.sqrt(count)))
+  let left = Number.POSITIVE_INFINITY
+  let top = Number.POSITIVE_INFINITY
+  let right = Number.NEGATIVE_INFINITY
+  let bottom = Number.NEGATIVE_INFINITY
+  for (const item of list) {
+    left = Math.min(left, item.x)
+    right = Math.max(right, item.x)
+    top = Math.min(top, item.y)
+    bottom = Math.max(bottom, item.y)
+  }
+  const width = (right - left) / side || 1
+  const height = (bottom - top) / side || 1
+  return (item: Item | TimedItem) => {
+    const column = Math.min(side - 1, Math.floor((item.x - left) / width))
+    const row = Math.min(side - 1, Math.floor((item.y - top) / height))
+    return row * side + column
+  }
+}
+
+const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones = zones) => {
+  const nodeMark = nodes<Item | TimedItem>(nodeData, {
+    ...(engine ? {} : { x: 'x', y: 'y' }),
+    ...(timed ? { time: spanOf } : {}),
+    ...(screen ? { units: 'screen' as const } : {}),
+    color: 'group',
+    size: 'weight',
+    label: 'label',
+    ...(boxed ? { shape: 'box' as const } : {}),
+    ...(ordering === 'rank' ? { order: rankOf } : {}),
+    ...(badgeKind === 'image'
+      ? { badges: { topRight: () => ({ image: { src: icon, color: 'white' } }) } }
+      : badgeKind === 'dot'
+        ? { badges: { topRight: () => ({}) } }
+        : {}),
+    ...(decor
+      ? {
+          outline: (item) => (item.weight > 20 ? 'var(--graph-accent)' : null),
+          image: (item) =>
+            item.weight % 3 === 0 ? { src: icon, scale: 0.7, color: 'white' } : null,
+          badges: { topRight: (item) => (item.weight > 50 ? { text: item.weight } : null) },
+        }
+      : {}),
+  })
+  return defineGraph({
     marks: [
       ...(zoneData.length > 0
         ? [live ? shapes(live, zoneOptions) : shapes(zoneData, zoneOptions)]
@@ -274,29 +321,7 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
             }
           : {}),
       }),
-      nodes<Item | TimedItem>(nodeData, {
-        ...(engine ? {} : { x: 'x', y: 'y' }),
-        ...(timed ? { time: spanOf } : {}),
-        ...(screen ? { units: 'screen' as const } : {}),
-        color: 'group',
-        size: 'weight',
-        label: 'label',
-        ...(boxed ? { shape: 'box' as const } : {}),
-        ...(ordering === 'rank' ? { order: rankOf } : {}),
-        ...(badgeKind === 'image'
-          ? { badges: { topRight: () => ({ image: { src: icon, color: 'white' } }) } }
-          : badgeKind === 'dot'
-            ? { badges: { topRight: () => ({}) } }
-            : {}),
-        ...(decor
-          ? {
-              outline: (item) => (item.weight > 20 ? 'var(--graph-accent)' : null),
-              image: (item) =>
-                item.weight % 3 === 0 ? { src: icon, scale: 0.7, color: 'white' } : null,
-              badges: { topRight: (item) => (item.weight > 50 ? { text: item.weight } : null) },
-            }
-          : {}),
-      }),
+      nodeMark,
       ...(stack > 0
         ? [
             groups(nodeData.slice(0, stack), {
@@ -317,8 +342,19 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
             : { color: 'var(--graph-cat-2)', width: halo === 'wide' ? 12 : 6 },
       },
     },
+    hulls:
+      hullCount > 0
+        ? [
+            hull({
+              nodes: nodeMark,
+              by: hullCell(nodeData, hullCount),
+              ...(hullLabels ? { label: ({ value }) => String(value) } : {}),
+            }),
+          ]
+        : [],
     layout: engine ? force({ engine, multilevel }) : null,
   })
+}
 const definition = define(items)
 
 const { main } = createPage(messages.bench(formatNumber(items.length), formatNumber(links.length)))

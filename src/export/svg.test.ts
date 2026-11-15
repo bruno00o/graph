@@ -1124,6 +1124,41 @@ describe('fitLabels', () => {
     })
   })
 
+  it('frames hull labels above the hull', () => {
+    const plain = frameOf(labelled, 'visible')
+    const definition = {
+      ...labelled,
+      hulls: [hull({ nodes: ['a'], padding: 40, label: 'Above' })],
+    }
+    const model = createGraphModel()
+    const scene = createScene()
+    const defined = defineGraph(definition)
+    model.setMarks(defined.marks)
+    scene.setDefinition(defined)
+    const changes = model.flush()
+    scene.apply(model, changes)
+    const positions = new Positions()
+    placeNodes(model, positions, changes)
+    const states = new StateBuffers()
+    states.reserve(scene.nodes.capacity, scene.edges.capacity)
+    const hulls = new HullLayer()
+    hulls.setHulls(defined.hulls)
+    hulls.update(
+      { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes: () => [] },
+      Number.POSITIVE_INFINITY,
+      () => 0,
+    )
+    const source = { nodes: scene.nodes, edges: scene.edges, positions, states }
+    const frame = exportFrame(
+      { ...source, hulls: hulls.shapes, view: { x: 0, y: 0, zoom: 1 }, width: 400, height: 300 },
+      { region: 'graph', zoom: 1, padding: 10 },
+    )
+    const fitted = fitLabels({ ...source, hulls: hulls.shapes }, frame, 'visible', measure, 10)
+    const top = fitted.view.y - fitted.height / 2
+    expect(top).toBeLessThan(-10 - 40 - 0.5 - 3 - 15)
+    expect(top).toBeLessThan(plain.view.y - plain.height / 2 - 40)
+  })
+
   it('frames loops beyond their node', () => {
     const fitted = frameOf(
       {
@@ -1351,6 +1386,22 @@ describe('background grid and hulls', () => {
     const xs = numbers(path).filter((_, at) => at % 2 === 0)
     expect(Math.min(...xs)).toBeCloseTo(200 - 200 - 16 - 10, 0)
     expect(svg).not.toContain('stroke-linejoin="round"/>')
+  })
+
+  it('writes a hull label above the hull, before the edge and node labels', () => {
+    const svg = render({
+      ...pair,
+      hulls: [hull({ nodes: ['a', 'b'], label: { text: 'Pair', color: '#123456' } })],
+    })
+    const at = svg.indexOf('>Pair<')
+    expect(at).toBeGreaterThan(svg.indexOf('stroke-linejoin="round"/>'))
+    expect(at).toBeLessThan(svg.indexOf('>Alpha<'))
+    expect(svg.slice(0, at)).toMatch(/fill="#123456"[^<]*$/)
+    const top = 150 - 8 - 16
+    const lift = 16 + 0.5 + 3
+    const group = [...svg.slice(0, at).matchAll(/translate\(([-\d.]+) ([-\d.]+)\) scale/g)].pop()
+    expect(Number(group?.[1])).toBeCloseTo(200, 0)
+    expect(Number(group?.[2])).toBeCloseTo(top + 16 - lift, 0)
   })
 
   it('draws neither without a background or hulls', () => {
