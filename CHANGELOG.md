@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.1](https://github.com/bruno00o/graph/compare/0.31.0...0.31.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* end layout runs whose layout throws and keep compute keys and destroy sound ([#236](https://github.com/bruno00o/graph/issues/236)) ([62930a6](https://github.com/bruno00o/graph/commit/62930a61daa9ed33a0a867e97b4cf1c85571d4af))
+* export the frame it measured, with curved edges, its own hulls and shapes at their data ([#240](https://github.com/bruno00o/graph/issues/240)) ([01663bd](https://github.com/bruno00o/graph/commit/01663bdc509dfd140674872c1d94cd48317b2413))
+* keep shape edits, hidden shapes and presence timers right ([#238](https://github.com/bruno00o/graph/issues/238)) ([c313141](https://github.com/bruno00o/graph/commit/c31314196a623cd53acf4cc8db003c567a650b96))
+* keep the frame work going while the context is lost, resend a time window asked again, and carry auto-pan under a wheel glide ([#241](https://github.com/bruno00o/graph/issues/241)) ([0924d91](https://github.com/bruno00o/graph/commit/0924d91d4f00e22cb70cd5c8cf1a3d77cce59291))
+* keep wheel notches and view moves made while the first layout frames the view ([#235](https://github.com/bruno00o/graph/issues/235)) ([378ec4e](https://github.com/bruno00o/graph/commit/378ec4e64cc7f3ec0d8c5cb9bb72b822d4979e6a))
+* show history, legend and timeline counts in step with the time window ([#239](https://github.com/bruno00o/graph/issues/239)) ([970ad95](https://github.com/bruno00o/graph/commit/970ad954c10d595abe2e11ecee4e1ef72e6a435a))
+
 ## [0.31.0](https://github.com/bruno00o/graph/compare/0.30.0...0.31.0) (2026-11-15)
 
 
