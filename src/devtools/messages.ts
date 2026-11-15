@@ -8,6 +8,12 @@ import type { EdgeMark, Key, NodeMark } from '../types'
  */
 export type GraphRendering = 'active' | 'suspended' | 'lost'
 
+/**
+ * Where WebGL draws a graph: `'gpu'`, `'software'` when the browser draws without a GPU, or
+ * `'unknown'` while the graph holds no WebGL context.
+ */
+export type GraphDrawing = 'gpu' | 'software' | 'unknown'
+
 /** Every text the devtools panel shows. Strings are labels; functions format values. */
 export interface GraphDevtoolsMessages {
   /**
@@ -170,6 +176,23 @@ export interface GraphDevtoolsMessages {
    * `'Active'`, `'Suspended'` and `'Context lost'`.
    */
   readonly renderingName?: ((state: GraphRendering) => string) | undefined
+  /**
+   * Label of whether WebGL draws on a GPU or in software.
+   * @default 'Drawing'
+   */
+  readonly drawing?: string | undefined
+  /**
+   * Formats where WebGL draws: `'gpu'`, `'software'` or `'unknown'`, such as `'GPU'`,
+   * `'Software'` and `'Unknown'`.
+   */
+  readonly drawingName?: ((drawing: GraphDrawing) => string) | undefined
+  /**
+   * Label of whether the `economy` of the definition is on.
+   * @default 'Economy'
+   */
+  readonly economy?: string | undefined
+  /** Formats whether the economy is on, such as `'On'` and `'Off'`. */
+  readonly economyName?: ((on: boolean) => string) | undefined
   /**
    * Title of the Interaction section.
    * @default 'Interaction'
@@ -345,6 +368,11 @@ export const defaultMessages: GraphDevtoolsMessages = {
   rendering: 'Rendering',
   renderingName: (state) =>
     state === 'suspended' ? 'Suspended' : state === 'lost' ? 'Context lost' : 'Active',
+  drawing: 'Drawing',
+  drawingName: (drawing) =>
+    drawing === 'gpu' ? 'GPU' : drawing === 'software' ? 'Software' : 'Unknown',
+  economy: 'Economy',
+  economyName: (on) => (on ? 'On' : 'Off'),
   interaction: 'Interaction',
   selection: 'Selection',
   elementCounts: (nodes, edges) =>

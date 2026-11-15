@@ -3,7 +3,8 @@ import { GraphDevtoolsPanel } from '@bruno00o/graph/devtools/react'
 import { Graph, type GraphInstance } from '@bruno00o/graph/react'
 import { type Ref, useMemo, useState, useSyncExternalStore } from 'react'
 import { createSample, type Item, type Link } from '../shared/data'
-import { messages } from '../shared/messages'
+import { messages as shared } from '../shared/messages'
+import { messages } from './messages'
 import '../shared/overlays.css'
 import './devtools.css'
 
@@ -25,6 +26,7 @@ function usePageTheme(): 'light' | 'dark' {
 
 export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
   const [size, setSize] = useState(sizes[0] ?? 2_000)
+  const [economy, setEconomy] = useState<boolean | 'auto'>('auto')
   const theme = usePageTheme()
   const sample = useMemo(() => createSample(size, size * 2), [size])
   const definition = useMemo(
@@ -40,8 +42,9 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
             label: 'label',
           }),
         ],
+        economy,
       }),
-    [sample],
+    [sample, economy],
   )
   return (
     <div className="devtools-example">
@@ -49,7 +52,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
         ref={ref}
         className="example-graph"
         definition={definition}
-        ariaLabel={messages.graphLabel(sample.items.length, sample.links.length)}
+        ariaLabel={shared.graphLabel(sample.items.length, sample.links.length)}
       >
         <div className="example-actions">
           <button
@@ -57,7 +60,15 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
             type="button"
             onClick={() => setSize(sizes[(sizes.indexOf(size) + 1) % sizes.length] ?? size)}
           >
-            {messages.nodeCount(size)}
+            {shared.nodeCount(size)}
+          </button>
+          <button
+            className="example-button"
+            type="button"
+            aria-pressed={economy === true}
+            onClick={() => setEconomy(economy === true ? 'auto' : true)}
+          >
+            {messages.economy}
           </button>
         </div>
       </Graph>

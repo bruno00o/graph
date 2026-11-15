@@ -32,6 +32,7 @@ export interface RenderSource {
   readonly themeResolver: ThemeResolver
   readonly textWidths: TextWidths
   paths(): EdgePaths
+  economy(): boolean | 'auto'
   state(): GraphState
   patch(next: Partial<GraphState>): void
   remeasured(): void
@@ -54,6 +55,7 @@ export class RenderHost {
   #paletteCount = 0
   #drawingLimit = Number.POSITIVE_INFINITY
   #ratioLimit = Number.POSITIVE_INFINITY
+  #software: boolean | null = null
   #warnedEmpty = false
   #ratioQuery: MediaQueryList | null = null
   #themeWatch: ThemeWatch | null = null
@@ -138,7 +140,26 @@ export class RenderHost {
       limits?.pathPoints ?? defaultPointBudget,
     )
     this.#drawingLimit = limits?.drawingBuffer ?? Number.POSITIVE_INFINITY
-    this.#ratioLimit = limits?.software ? 1 : Number.POSITIVE_INFINITY
+    this.#software = limits ? limits.software : null
+    this.#ratioLimit = this.economical ? 1 : Number.POSITIVE_INFINITY
+  }
+
+  get software(): boolean | null {
+    return this.#software
+  }
+
+  get economical(): boolean {
+    if (!this.#source.surface().ownCanvas) return false
+    const economy = this.#source.economy()
+    return economy === 'auto' ? this.#software === true : economy
+  }
+
+  refreshEconomy(): void {
+    const limit = this.economical ? 1 : Number.POSITIVE_INFINITY
+    if (limit === this.#ratioLimit) return
+    this.#ratioLimit = limit
+    const { width, height } = this.#source.state()
+    if (width > 0 || height > 0) this.resize(width, height)
   }
 
   readonly refreshTheme = (): void => {

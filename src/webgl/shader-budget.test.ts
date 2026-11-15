@@ -34,6 +34,7 @@ import {
   header,
   labelFragment,
   labelVertex,
+  labelVertexOf,
   lensFragment,
   lensVertex,
   nodeFragment,
@@ -68,6 +69,7 @@ const endless: readonly Program[] = [
 const programs: readonly Program[] = [
   ['node', nodeVertex, nodeFragment],
   ['label', labelVertex, labelFragment],
+  ['label without edge glyphs', labelVertexOf(false), labelFragment],
   ['badge', badgeVertex, badgeFragment],
   ...endless,
   ...endless.map(

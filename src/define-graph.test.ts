@@ -260,6 +260,7 @@ describe('defineGraph', () => {
       bridges: { size: undefined },
       time: { fade: undefined },
       support: undefined,
+      economy: undefined,
     })
     const left = defineGraph({
       marks: [],
@@ -303,6 +304,14 @@ describe('defineGraph', () => {
       expect(() => defineGraph({ marks: [], bridges: { maxEdges } })).toThrow(RangeError)
     }
     expect(() => defineGraph({ marks: [], bridges: { shape: 'hop' as 'arc' } })).toThrow(TypeError)
+  })
+
+  it('resolves the economy', () => {
+    expect(defineGraph({ marks: [] }).economy).toBe('auto')
+    expect(defineGraph({ marks: [], economy: true }).economy).toBe(true)
+    expect(defineGraph({ marks: [], economy: false }).economy).toBe(false)
+    expect(defineGraph({ marks: [], economy: 'auto' }).economy).toBe('auto')
+    expect(() => defineGraph({ marks: [], economy: 'on' as 'auto' })).toThrow(TypeError)
   })
 
   it('limits the number of free states', () => {

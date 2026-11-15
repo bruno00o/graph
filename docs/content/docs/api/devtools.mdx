@@ -63,7 +63,9 @@ A panel watches the graphs only while it is mounted, open and visible. The first
 | Renderer sync, Render | Upload of changed columns, and the draw calls, in the last frame |
 | Label selection | The last selection of visible labels, run at most every 120 ms |
 | Labels drawn | Node, edge and shape labels kept by that selection; the shape count shows only when it is above 0 |
-| Texture memory | Size of the textures the renderer allocated: data, palette, glyph atlas and image atlas with its mipmaps |
+| Texture memory | Size of the textures the renderer allocated: data, palette, glyph atlas and image atlas with its mipmaps, plus, when WebGL runs [in software](/docs/browser-support#software-rendering), the vertex buffers of the plain triangles |
+| Drawing | GPU, or Software when the browser draws WebGL without a GPU, read from the renderer name; Unknown while the graph holds no context |
+| Economy | Whether the [`economy`](/docs/api/define-graph#economy) of the definition is on: one canvas pixel per CSS pixel. Always Off on a map, which sets the pixel ratio |
 | Issues | Count of the issues reported by the flushes timed while a panel watched, and the last 20 |
 | Last runs | Name, duration and outcome of the last 5 layout runs |
 

@@ -85,6 +85,12 @@ function resolveWait(option: boolean | number | undefined): number {
   return atLeastZero(option, 'waitForData')
 }
 
+function resolveEconomy(option: boolean | 'auto' | undefined): boolean | 'auto' {
+  if (option === undefined) return 'auto'
+  if (option === true || option === false || option === 'auto') return option
+  throw new TypeError("defineGraph: economy must be true, false or 'auto'")
+}
+
 function resolveSpeed(
   option: boolean | { readonly speed?: number | undefined },
   fallback: number,
@@ -361,5 +367,6 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     spread: resolveSpread(options.spread),
     time: resolveTime(options.time),
     support: resolveSupport(options.support as SupportStateOptions | null | undefined, free),
+    economy: resolveEconomy(options.economy),
   })
 }

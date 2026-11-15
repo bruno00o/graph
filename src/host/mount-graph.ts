@@ -289,6 +289,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       themeResolver,
       textWidths,
       paths: () => bundles.paths,
+      economy: () => definition.economy,
       state: () => store.get(),
       patch,
       remeasured: () => {
@@ -1057,6 +1058,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     pointer.updateCursor()
     views.reconstrain()
     data.refresh()
+    render.refreshEconomy()
   }
 
   function driverOf(target: HostSurface): HostDriver {
@@ -1370,6 +1372,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       layout: layouts.session?.name ?? null,
       renderer: render.renderer?.stats?.() ?? null,
       contextLost: render.contextLost,
+      software: render.software,
+      economy: render.economical,
     }
   }
 

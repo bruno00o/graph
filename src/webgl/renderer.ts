@@ -19,6 +19,7 @@ import { createBundlePass } from './bundle-pass'
 import { bundleCorners } from './bundle-shaders'
 import { readCaps, warnLimit } from './caps'
 import { EdgeCover, layerCap } from './edge-cover'
+import { FlatDraws, pairedTriangles } from './flat-draws'
 import {
   type Attribute,
   createBuffer,
@@ -63,6 +64,7 @@ import {
   endWidthUnit,
   labelFragment,
   labelVertex,
+  labelVertexOf,
   lensFragment,
   lensVertex,
   nodeFragment,
@@ -248,6 +250,25 @@ function createRenderer(
   const capEdges = !shared && (gl.getContextAttributes()?.stencil ?? false)
   const format = formats(gl)
   const caps = readCaps(gl)
+  const flat = caps.software ? new FlatDraws(gl) : null
+  const arrayBuffer = (data: ArrayBufferView, usage: number): WebGLBuffer => {
+    const buffer = createBuffer(gl, data, usage)
+    flat?.track(buffer, data)
+    return buffer
+  }
+  const arrayData = (buffer: WebGLBuffer, data: ArrayBufferView, usage: number): void => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.bufferData(gl.ARRAY_BUFFER, data, usage)
+    flat?.track(buffer, data)
+  }
+  const vertexArray = (
+    program: WebGLProgram,
+    attributes: readonly Attribute[],
+  ): WebGLVertexArrayObject => {
+    const vao = createVertexArray(gl, program, attributes)
+    flat?.register(vao, attributes)
+    return vao
+  }
   const dataLimit = caps.dataCapacity
   const floats = (texture: TextureFormat) =>
     new DataTexture(gl, texture, (length) => new Float32Array(length), caps.maxTextureSize)
@@ -341,7 +362,11 @@ function createRenderer(
   const edgeProgram = createProgram(gl, edgeVertex, clippedEdgeFragment, blocks)
   const labelProgram = createProgram(gl, labelVertex, labelFragment, blocks)
   const badgeProgram = createProgram(gl, badgeVertex, badgeFragment, blocks)
+  const glyphProgram = caps.software
+    ? createProgram(gl, labelVertexOf(false), labelFragment, blocks)
+    : labelProgram
   const programs = [nodeProgram, edgeProgram, labelProgram, badgeProgram]
+  if (glyphProgram !== labelProgram) programs.push(glyphProgram)
   const locations = new Map<
     WebGLProgram,
     {
@@ -393,8 +418,10 @@ function createRenderer(
     endPrograms.set(program, created)
     return created
   }
-  gl.useProgram(labelProgram)
-  gl.uniform1f(gl.getUniformLocation(labelProgram, 'atlasFontSize'), atlasFontSize)
+  for (const program of new Set([labelProgram, glyphProgram])) {
+    gl.useProgram(program)
+    gl.uniform1f(gl.getUniformLocation(program, 'atlasFontSize'), atlasFontSize)
+  }
 
   const backdrop = createBackdrop(gl, blocks)
   let shapeLayer: ShapeLayer | null = null
@@ -402,22 +429,22 @@ function createRenderer(
   let hullLabelVersion: number | undefined = -1
   let hullAnchorVersion = -1
   let shapeShift = 0
-  const nodeCorner = createBuffer(gl, cornerNode, gl.STATIC_DRAW)
-  const edgeCorner = createBuffer(gl, cornerEdge, gl.STATIC_DRAW)
-  const curveCorner = createBuffer(gl, cornerCurve, gl.STATIC_DRAW)
-  const labelCorner = createBuffer(gl, cornerLabel, gl.STATIC_DRAW)
-  const nodeIndices = createBuffer(gl, new Uint32Array(0), gl.STATIC_DRAW)
-  const edgeIndices = createBuffer(gl, new Uint32Array(0), gl.STATIC_DRAW)
-  const nodeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
-  const edgeOverlayIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
-  const curveIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
-  const halfIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
-  const containerIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
-  const badgeBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
-  const badgeGlyphBuffer = createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
-  const warmIndex = createBuffer(gl, new Uint32Array(1), gl.STATIC_DRAW)
-  const warmGlyph = createBuffer(gl, new Uint8Array(glyphStride), gl.STATIC_DRAW)
-  const warmBadge = createBuffer(gl, new Uint8Array(badgeStride), gl.STATIC_DRAW)
+  const nodeCorner = arrayBuffer(cornerNode, gl.STATIC_DRAW)
+  const edgeCorner = arrayBuffer(cornerEdge, gl.STATIC_DRAW)
+  const curveCorner = arrayBuffer(cornerCurve, gl.STATIC_DRAW)
+  const labelCorner = arrayBuffer(cornerLabel, gl.STATIC_DRAW)
+  const nodeIndices = arrayBuffer(new Uint32Array(0), gl.STATIC_DRAW)
+  const edgeIndices = arrayBuffer(new Uint32Array(0), gl.STATIC_DRAW)
+  const nodeOverlayIndices = arrayBuffer(new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const edgeOverlayIndices = arrayBuffer(new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const curveIndices = arrayBuffer(new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const halfIndices = arrayBuffer(new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const containerIndices = arrayBuffer(new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const badgeBuffer = arrayBuffer(new Uint8Array(0), gl.DYNAMIC_DRAW)
+  const badgeGlyphBuffer = arrayBuffer(new Uint8Array(0), gl.DYNAMIC_DRAW)
+  const warmIndex = arrayBuffer(new Uint32Array(1), gl.STATIC_DRAW)
+  const warmGlyph = arrayBuffer(new Uint8Array(glyphStride), gl.STATIC_DRAW)
+  const warmBadge = arrayBuffer(new Uint8Array(badgeStride), gl.STATIC_DRAW)
   const buffers = [
     nodeCorner,
     edgeCorner,
@@ -480,31 +507,23 @@ function createRenderer(
     badgeField(buffer, 'badgeLook', 28, gl.FLOAT, 3),
   ]
   const vertexArrays = {
-    nodes: createVertexArray(gl, nodeProgram, [corner(nodeCorner), instance(nodeIndices)]),
-    nodeOverlay: createVertexArray(gl, nodeProgram, [
-      corner(nodeCorner),
-      instance(nodeOverlayIndices),
-    ]),
-    containers: createVertexArray(gl, nodeProgram, [
-      corner(nodeCorner),
-      instance(containerIndices),
-    ]),
-    edges: createVertexArray(gl, edgeProgram, [corner(edgeCorner, 3), instance(edgeIndices)]),
-    edgeOverlay: createVertexArray(gl, edgeProgram, [
-      corner(edgeCorner, 3),
-      instance(edgeOverlayIndices),
-    ]),
-    edgeHalves: createVertexArray(gl, edgeProgram, [corner(edgeCorner, 3), instance(halfIndices)]),
-    badges: createVertexArray(gl, badgeProgram, badgeAttributes(badgeBuffer)),
-    badgeGlyphs: createVertexArray(gl, labelProgram, glyphs(badgeGlyphBuffer)),
+    nodes: vertexArray(nodeProgram, [corner(nodeCorner), instance(nodeIndices)]),
+    nodeOverlay: vertexArray(nodeProgram, [corner(nodeCorner), instance(nodeOverlayIndices)]),
+    containers: vertexArray(nodeProgram, [corner(nodeCorner), instance(containerIndices)]),
+    edges: vertexArray(edgeProgram, [corner(edgeCorner, 3), instance(edgeIndices)]),
+    edgeOverlay: vertexArray(edgeProgram, [corner(edgeCorner, 3), instance(edgeOverlayIndices)]),
+    edgeHalves: vertexArray(edgeProgram, [corner(edgeCorner, 3), instance(halfIndices)]),
+    badges: vertexArray(badgeProgram, badgeAttributes(badgeBuffer)),
+    badgeGlyphs: vertexArray(glyphProgram, glyphs(badgeGlyphBuffer)),
   }
   const vertexCounts = new Map<WebGLProgram, number>([
     [nodeProgram, cornerNode.length / 2],
     [edgeProgram, cornerEdge.length / 3],
     [labelProgram, cornerLabel.length / 2],
+    [glyphProgram, cornerLabel.length / 2],
     [badgeProgram, cornerNode.length / 2],
   ])
-  let warmed = false
+  let warmed = caps.software
   let fence: WebGLSync | null = null
   const bundles = createBundlePass(
     gl,
@@ -514,9 +533,9 @@ function createRenderer(
     halfIndices,
     caps.maxTextureSize,
   )
-  const arcCorner = createBuffer(gl, bundleCorners(arcStations), gl.STATIC_DRAW)
-  const geodesicIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
-  const spanIndices = createBuffer(gl, new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const arcCorner = arrayBuffer(bundleCorners(arcStations), gl.STATIC_DRAW)
+  const geodesicIndices = arrayBuffer(new Uint32Array(0), gl.DYNAMIC_DRAW)
+  const spanIndices = arrayBuffer(new Uint32Array(0), gl.DYNAMIC_DRAW)
   buffers.push(arcCorner, geodesicIndices, spanIndices)
   let arcPass: {
     readonly program: WebGLProgram
@@ -558,8 +577,7 @@ function createRenderer(
     sortDescending(spanOrder, spanLength, spanValues)
     if (spanSorted.length < spanLength) spanSorted = new Float32Array(spanOrder.length)
     for (let at = 0; at < spanLength; at++) spanSorted[at] = spanValues[spanOrder[at] ?? 0] ?? 0
-    gl.bindBuffer(gl.ARRAY_BUFFER, spanIndices)
-    gl.bufferData(gl.ARRAY_BUFFER, spanOrder.subarray(0, spanLength), gl.DYNAMIC_DRAW)
+    arrayData(spanIndices, spanOrder.subarray(0, spanLength), gl.DYNAMIC_DRAW)
   }
 
   function spanCount(threshold: number): number {
@@ -583,10 +601,10 @@ function createRenderer(
     const strip = corner(arcCorner)
     arcPass = {
       program,
-      geodesic: createVertexArray(gl, program, [strip, instance(geodesicIndices)]),
-      spans: createVertexArray(gl, program, [strip, instance(spanIndices)]),
-      overlay: createVertexArray(gl, program, [strip, instance(edgeOverlayIndices)]),
-      halves: createVertexArray(gl, program, [strip, instance(halfIndices)]),
+      geodesic: vertexArray(program, [strip, instance(geodesicIndices)]),
+      spans: vertexArray(program, [strip, instance(spanIndices)]),
+      overlay: vertexArray(program, [strip, instance(edgeOverlayIndices)]),
+      halves: vertexArray(program, [strip, instance(halfIndices)]),
     }
     return arcPass
   }
@@ -622,12 +640,9 @@ function createRenderer(
     vertexCounts.set(program, cornerEdge.length / 3)
     bridgePass = {
       program,
-      main: createVertexArray(gl, program, [corner(edgeCorner, 3), instance(edgeIndices)]),
-      overlay: createVertexArray(gl, program, [
-        corner(edgeCorner, 3),
-        instance(edgeOverlayIndices),
-      ]),
-      halves: createVertexArray(gl, program, [corner(edgeCorner, 3), instance(halfIndices)]),
+      main: vertexArray(program, [corner(edgeCorner, 3), instance(edgeIndices)]),
+      overlay: vertexArray(program, [corner(edgeCorner, 3), instance(edgeOverlayIndices)]),
+      halves: vertexArray(program, [corner(edgeCorner, 3), instance(halfIndices)]),
     }
     return bridgePass
   }
@@ -680,12 +695,9 @@ function createRenderer(
     vertexCounts.set(program, cornerCurve.length / 3)
     curvePass = {
       program,
-      main: createVertexArray(gl, program, [corner(curveCorner, 3), instance(curveIndices)]),
-      overlay: createVertexArray(gl, program, [
-        corner(curveCorner, 3),
-        instance(edgeOverlayIndices),
-      ]),
-      halves: createVertexArray(gl, program, [corner(curveCorner, 3), instance(halfIndices)]),
+      main: vertexArray(program, [corner(curveCorner, 3), instance(curveIndices)]),
+      overlay: vertexArray(program, [corner(curveCorner, 3), instance(edgeOverlayIndices)]),
+      halves: vertexArray(program, [corner(curveCorner, 3), instance(halfIndices)]),
     }
     return curvePass
   }
@@ -709,6 +721,10 @@ function createRenderer(
   const curved = new Set<number>()
   let curvedFlags = new Uint8Array(0)
   let curvedChanged = false
+  let arrowFlags = new Uint8Array(0)
+  const arrowEnds = [0, 0]
+  let arrowShape = -1
+  const edgeShapes = new Map<number, readonly [Uint32Array, Uint32Array]>()
   const geodesics = new Set<number>()
   let geodesicChanged = false
   const halved = new Set<number>()
@@ -743,9 +759,10 @@ function createRenderer(
   const lensColors = new Float32Array(12)
 
   function createLabelSet(): LabelSet {
-    const empty = () => createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
+    const empty = () => arrayBuffer(new Uint8Array(0), gl.DYNAMIC_DRAW)
     const buffers = [empty(), empty(), empty(), empty()] as const
-    const vao = (buffer: WebGLBuffer) => createVertexArray(gl, labelProgram, glyphs(buffer))
+    const vao = (buffer: WebGLBuffer, program = glyphProgram) =>
+      vertexArray(program, glyphs(buffer))
     const hullGlyphs = empty()
     const hullAnchors = empty()
     return {
@@ -753,11 +770,11 @@ function createRenderer(
       buffers,
       main: vao(buffers[0]),
       highlight: vao(buffers[1]),
-      edgeMain: vao(buffers[2]),
-      edgeHighlight: vao(buffers[3]),
+      edgeMain: vao(buffers[2], labelProgram),
+      edgeHighlight: vao(buffers[3], labelProgram),
       hullGlyphs,
       hullAnchors,
-      hulls: createVertexArray(gl, labelProgram, [
+      hulls: vertexArray(glyphProgram, [
         ...glyphs(hullGlyphs),
         ...anchorAttributes(gl, hullAnchors),
       ]),
@@ -772,9 +789,14 @@ function createRenderer(
 
   function destroyLabelSet(set: LabelSet): void {
     shapeLayer?.forget(set)
-    for (const buffer of [...set.buffers, set.hullGlyphs, set.hullAnchors]) gl.deleteBuffer(buffer)
-    for (const vao of [set.main, set.highlight, set.edgeMain, set.edgeHighlight, set.hulls])
+    for (const buffer of [...set.buffers, set.hullGlyphs, set.hullAnchors]) {
+      flat?.drop(buffer)
+      gl.deleteBuffer(buffer)
+    }
+    for (const vao of [set.main, set.highlight, set.edgeMain, set.edgeHighlight, set.hulls]) {
+      flat?.forget(vao)
       gl.deleteVertexArray(vao)
+    }
   }
 
   function writeHullAnchors(set: LabelSet): void {
@@ -801,8 +823,7 @@ function createRenderer(
       anchors[at + 4] = label && width > 0 ? label.extent / width : 0
       anchors[at + 5] = shape && width > 0 ? (shape.padding * 2) / width : 0
     }
-    gl.bindBuffer(gl.ARRAY_BUFFER, set.hullAnchors)
-    gl.bufferData(gl.ARRAY_BUFFER, anchors.subarray(0, count * 6), gl.DYNAMIC_DRAW)
+    arrayData(set.hullAnchors, anchors.subarray(0, count * 6), gl.DYNAMIC_DRAW)
   }
 
   function invalidateLabels(): void {
@@ -943,15 +964,9 @@ function createRenderer(
     touch()
     badgesStale = false
     badgeGeneration = atlas.generation
-    gl.bindBuffer(gl.ARRAY_BUFFER, badgeBuffer)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Uint8Array(badgeData, 0, badgeCount * badgeStride),
-      gl.DYNAMIC_DRAW,
-    )
-    gl.bindBuffer(gl.ARRAY_BUFFER, badgeGlyphBuffer)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
+    arrayData(badgeBuffer, new Uint8Array(badgeData, 0, badgeCount * badgeStride), gl.DYNAMIC_DRAW)
+    arrayData(
+      badgeGlyphBuffer,
       new Uint8Array(badgeGlyphs.data, 0, badgeGlyphs.count * glyphStride),
       gl.DYNAMIC_DRAW,
     )
@@ -978,6 +993,7 @@ function createRenderer(
     edgeStyle.data[at + 2] = bend
     edgeStyle.data[at + 3] = edges.flow[index] ?? 0
     if (capEdges) coverEdge(edges, index)
+    if (flat) countArrows(index, alive === 1 ? (edges.arrow[index] ?? 0) : 0)
     const isCurved =
       edges.alive[index] === 1 && (bend !== 0 || edges.source[index] === edges.target[index])
     const isGeodesic = edges.alive[index] === 1 && edges.geodesic[index] === 1
@@ -1071,8 +1087,7 @@ function createRenderer(
     if (nodes.capacity > nodeCapacity) {
       nodeCapacity = nodes.capacity
       if (!order.used) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, nodeIndices)
-        gl.bufferData(gl.ARRAY_BUFFER, iota(nodeCapacity), gl.STATIC_DRAW)
+        arrayData(nodeIndices, iota(nodeCapacity), gl.STATIC_DRAW)
         nodeDrawCount = Math.min(nodeCapacity, dataLimit)
       }
     }
@@ -1080,8 +1095,7 @@ function createRenderer(
       nodeOrderVersion = order.version
       const list = order.list.subarray(0, order.length)
       const drawn = nodeCapacity > dataLimit ? list.filter((index) => index < dataLimit) : list
-      gl.bindBuffer(gl.ARRAY_BUFFER, nodeIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, drawn, gl.DYNAMIC_DRAW)
+      arrayData(nodeIndices, drawn, gl.DYNAMIC_DRAW)
       nodeDrawCount = drawn.length
       if (badged.size > 1) badgesStale = true
       touch()
@@ -1235,8 +1249,7 @@ function createRenderer(
     data.set(containers.boxes.subarray(0, Math.min(containers.boxes.length, data.length)))
     nodeBox.upload(0, nodeCapacity - 1)
     containerCount = containers.count
-    gl.bindBuffer(gl.ARRAY_BUFFER, containerIndices)
-    gl.bufferData(gl.ARRAY_BUFFER, containers.order.subarray(0, containerCount), gl.DYNAMIC_DRAW)
+    arrayData(containerIndices, containers.order.subarray(0, containerCount), gl.DYNAMIC_DRAW)
     moveLabels()
     touch()
   }
@@ -1265,6 +1278,34 @@ function createRenderer(
     edgeState.upload(first, end - 1)
   }
 
+  function countArrows(index: number, arrow: number): void {
+    if (arrowFlags.length <= index) {
+      const flags = new Uint8Array(Math.max(index + 1, arrowFlags.length * 2))
+      flags.set(arrowFlags)
+      arrowFlags = flags
+    }
+    const was = arrowFlags[index] ?? 0
+    if (was === arrow) return
+    arrowEnds[0] = (arrowEnds[0] ?? 0) + (arrow & 1) - (was & 1)
+    arrowEnds[1] = (arrowEnds[1] ?? 0) + ((arrow >> 1) & 1) - ((was >> 1) & 1)
+    arrowFlags[index] = arrow
+  }
+
+  function shapeEdges(): void {
+    if (!flat) return
+    const key = ((arrowEnds[0] ?? 0) > 0 ? 1 : 0) | ((arrowEnds[1] ?? 0) > 0 ? 2 : 0)
+    if (key === arrowShape) return
+    arrowShape = key
+    let shapes = edgeShapes.get(key)
+    if (!shapes) {
+      const joined = [1, 2].filter((part) => (key & part) !== 0)
+      shapes = [pairedTriangles(cornerEdge, 3, joined), pairedTriangles(cornerCurve, 3, joined)]
+      edgeShapes.set(key, shapes)
+    }
+    flat.shape(edgeCorner, shapes[0])
+    flat.shape(curveCorner, shapes[1])
+  }
+
   function syncEdges(next: RenderInput): void {
     const edges = next.scene.edges
     if (edges.capacity > dataLimit) {
@@ -1278,8 +1319,7 @@ function createRenderer(
     }
     if (edges.capacity > edgeCapacity) {
       edgeCapacity = edges.capacity
-      gl.bindBuffer(gl.ARRAY_BUFFER, edgeIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, iota(edgeCapacity), gl.STATIC_DRAW)
+      arrayData(edgeIndices, iota(edgeCapacity), gl.STATIC_DRAW)
     }
     let first = Number.POSITIVE_INFINITY
     let last = -1
@@ -1296,22 +1336,20 @@ function createRenderer(
     }
     edgeTopology.upload(first, last)
     edgeStyle.upload(first, last)
+    shapeEdges()
     if (last >= first) touch()
     if (curvedChanged) {
       curvedChanged = false
-      gl.bindBuffer(gl.ARRAY_BUFFER, curveIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(curved), gl.DYNAMIC_DRAW)
+      arrayData(curveIndices, Uint32Array.from(curved), gl.DYNAMIC_DRAW)
     }
     if (geodesicChanged) {
       geodesicChanged = false
-      gl.bindBuffer(gl.ARRAY_BUFFER, geodesicIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(geodesics), gl.DYNAMIC_DRAW)
+      arrayData(geodesicIndices, Uint32Array.from(geodesics), gl.DYNAMIC_DRAW)
     }
     if (halvedChanged) {
       halvedChanged = false
       const list = Uint32Array.from(halved)
-      gl.bindBuffer(gl.ARRAY_BUFFER, halfIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, list, gl.DYNAMIC_DRAW)
+      arrayData(halfIndices, list, gl.DYNAMIC_DRAW)
       bundles.halve(Array.from(list))
     }
     const states = next.states
@@ -1372,10 +1410,8 @@ function createRenderer(
       highlightVersion = states.highlightVersion
       nodeOverlayCount = states.highlightedNodes.length
       edgeOverlayCount = states.highlightedEdges.length
-      gl.bindBuffer(gl.ARRAY_BUFFER, nodeOverlayIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(states.highlightedNodes), gl.DYNAMIC_DRAW)
-      gl.bindBuffer(gl.ARRAY_BUFFER, edgeOverlayIndices)
-      gl.bufferData(gl.ARRAY_BUFFER, Uint32Array.from(states.highlightedEdges), gl.DYNAMIC_DRAW)
+      arrayData(nodeOverlayIndices, Uint32Array.from(states.highlightedNodes), gl.DYNAMIC_DRAW)
+      arrayData(edgeOverlayIndices, Uint32Array.from(states.highlightedEdges), gl.DYNAMIC_DRAW)
       bundles.highlight(states.highlightedEdges)
       invalidateLabels()
       touch()
@@ -1498,17 +1534,13 @@ function createRenderer(
     syncAtlas()
     const uploads = [layer.main, layer.highlight, layer.edgeMain, layer.edgeHighlight] as const
     uploads.forEach((glyphs, at) => {
-      gl.bindBuffer(gl.ARRAY_BUFFER, set.buffers[at] ?? null)
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Uint8Array(glyphs.data, 0, glyphs.count * glyphStride),
-        gl.DYNAMIC_DRAW,
-      )
+      const buffer = set.buffers[at]
+      if (!buffer) return
+      arrayData(buffer, new Uint8Array(glyphs.data, 0, glyphs.count * glyphStride), gl.DYNAMIC_DRAW)
     })
     shapeLayer?.labels(set, layer.shapeMain, layer.shapeHighlight)
-    gl.bindBuffer(gl.ARRAY_BUFFER, set.hullGlyphs)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
+    arrayData(
+      set.hullGlyphs,
       new Uint8Array(layer.hullMain.data, 0, layer.hullMain.count * glyphStride),
       gl.DYNAMIC_DRAW,
     )
@@ -1569,7 +1601,8 @@ function createRenderer(
       atlasRows * atlasWidth +
       images.bytes +
       bundles.bytes +
-      bridgeBytes
+      bridgeBytes +
+      (flat?.bytes ?? 0)
     for (const texture of [...nodeTextures, ...edgeTextures, ...rangeTextures]) {
       bytes += texture.data.byteLength
     }
@@ -1597,8 +1630,11 @@ function createRenderer(
     if (location?.bridgeLook) gl.uniform2f(location.bridgeLook, bridgeShown, bridgeGap)
     if (location?.arcPiece) gl.uniform1f(location.arcPiece, arcPiece)
     if (location?.edgeHalf) gl.uniform1i(location.edgeHalf, edgeHalf)
-    gl.bindVertexArray(vao)
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, count)
+    if (flat?.handles(vao)) flat.draw(vao, used, vertices, count)
+    else {
+      gl.bindVertexArray(vao)
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, count)
+    }
   }
 
   function warm(): void {
@@ -1790,12 +1826,12 @@ function createRenderer(
     const layer = set.layer
     if (badgesOn) {
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 0)
-      draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
+      draw(glyphProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
     }
     shapeLayer?.drawLabels(set, 0, layerFilter)
-    draw(labelProgram, set.hulls, layer.hullMain.count, 0, 0)
+    draw(glyphProgram, set.hulls, layer.hullMain.count, 0, 0)
     draw(labelProgram, set.edgeMain, layer.edgeMain.count, 0, 0)
-    draw(labelProgram, set.main, layer.main.count, 0, 0)
+    draw(glyphProgram, set.main, layer.main.count, 0, 0)
     drawEdgeList('overlay', edgeOverlayCount, 0, 1, jumping, globe)
     if (halvesUsed && halved.size > 0) {
       edgeHalf = 1
@@ -1805,11 +1841,11 @@ function createRenderer(
     draw(nodeProgram, vertexArrays.nodeOverlay, nodeOverlayCount, 0, 1)
     if (nodeOverlayCount > 0 && badgesOn) {
       draw(badgeProgram, vertexArrays.badges, badgeCount, 0, 1)
-      draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
+      draw(glyphProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 1)
     }
     shapeLayer?.drawLabels(set, 1, layerFilter)
     draw(labelProgram, set.edgeHighlight, layer.edgeHighlight.count, 0, 1)
-    draw(labelProgram, set.highlight, layer.highlight.count, 0, 1)
+    draw(glyphProgram, set.highlight, layer.highlight.count, 0, 1)
     gl.bindVertexArray(null)
   }
 
@@ -1938,7 +1974,7 @@ function createRenderer(
       if (caps.software && next.scene.nodes.capacity + next.scene.edges.capacity > softwareCrowd) {
         warnLimit(
           'software',
-          'WebGL runs in software here: each frame costs about 1 ms per 100 elements',
+          'WebGL runs in software here: past 20,000 nodes and edges, a frame takes tens to hundreds of milliseconds, depending on the processor',
         )
       }
       syncZoom(next)
@@ -2170,6 +2206,7 @@ function createRenderer(
       if (bridgeTexture) gl.deleteTexture(bridgeTexture)
       releaseLens()
       for (const set of labelSets) destroyLabelSet(set)
+      flat?.destroy()
       for (const buffer of [...buffers, frameBuffer, statesBuffer]) gl.deleteBuffer(buffer)
       for (const vao of Object.values(vertexArrays)) gl.deleteVertexArray(vao)
       for (const pass of [curvePass, bridgePass]) {

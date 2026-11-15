@@ -2218,6 +2218,13 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly support?: SupportStateOptions<FreeState<NoInfer<S>>> | null | undefined
+  /**
+   * Draws one canvas pixel per CSS pixel instead of following the screen density, which keeps
+   * frames short where WebGL draws without a GPU. `'auto'` turns it on only when WebGL runs in
+   * software, `true` on every device, `false` never. On a map, the map sets the pixel density.
+   * @default 'auto'
+   */
+  readonly economy?: boolean | 'auto' | undefined
 }
 
 /**
@@ -2262,6 +2269,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly time: ResolvedTimeOptions
   /** Free states that light the support of the selected edges, or `null` for none. */
   readonly support: ResolvedSupportStates | null
+  /** Whether the graph draws one canvas pixel per CSS pixel: `'auto'` when WebGL runs in software. */
+  readonly economy: boolean | 'auto'
 }
 
 /** Options of the `time` of `defineGraph`. */

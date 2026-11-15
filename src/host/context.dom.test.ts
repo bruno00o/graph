@@ -24,6 +24,16 @@ const items: Item[] = [
 ]
 const links: Link[] = [{ id: 'ab', from: 'a', to: 'b' }]
 
+function definitionOf(economy?: boolean | 'auto') {
+  return defineGraph({
+    marks: [
+      edges<Link>(links, { source: 'from', target: 'to' }),
+      nodes<Item>(items, { x: 'x', y: 'y' }),
+    ],
+    economy,
+  })
+}
+
 interface Made {
   readonly syncs: RenderInput[]
   readonly frames: RenderFrame[]
@@ -35,18 +45,17 @@ interface Made {
 let dom: FakeDom
 let made: Made[] = []
 
-function mount(limits?: RendererLimits, failing: () => boolean = () => false) {
+function mount(
+  limits?: RendererLimits,
+  failing: () => boolean = () => false,
+  economy?: boolean | 'auto',
+) {
   const container = document.createElement('div')
   document.body.append(container)
   const graph = createGraphHost(
     container,
     {
-      definition: defineGraph({
-        marks: [
-          edges<Link>(links, { source: 'from', target: 'to' }),
-          nodes<Item>(items, { x: 'x', y: 'y' }),
-        ],
-      }),
+      definition: definitionOf(economy),
       ariaLabel: 'graphe',
     },
     (): Renderer => {
@@ -183,6 +192,24 @@ describe('renderer limits', () => {
     expect(canvas.width).toBe(800)
     expect(made[0]?.frames.at(-1)?.pixelRatio).toBe(1)
     graph.destroy()
+  })
+
+  it('follows the economy of the definition', () => {
+    const gpu = { drawingBuffer: 8192, pathPoints: 8192 * 1024, software: false }
+    const graph = mount(gpu, () => false, true)
+    const canvas = canvasOf(graph)
+    expect(canvas.width).toBe(800)
+    graph.update({ definition: definitionOf('auto') })
+    expect(canvas.width).toBe(1600)
+    dom.flushFrames()
+    expect(made[0]?.frames.at(-1)?.pixelRatio).toBe(2)
+    graph.update({ definition: definitionOf(true) })
+    expect(canvas.width).toBe(800)
+    graph.destroy()
+    made = []
+    const software = mount({ ...gpu, software: true }, () => false, false)
+    expect(canvasOf(software).width).toBe(1600)
+    software.destroy()
   })
 
   it('bounds the points of edge paths by the texture size', () => {
