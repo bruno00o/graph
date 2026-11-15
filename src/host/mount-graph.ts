@@ -518,7 +518,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       state: () => store.get(),
       patch,
       definition: () => definition,
-      arranged: layouts.arranged,
+      places: () => layouts.places(),
       makeRoom: (moving, to) => layouts.makeRoom(moving, to),
       arranger: (index) => layouts.arranger(index),
       arranges: () => layouts.arranges(),

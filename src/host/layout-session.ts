@@ -1,6 +1,6 @@
 import type { GraphChanges, GraphModel } from '../core/graph-model'
 import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
-import { sameLayout, scopeEngine } from '../core/layout-scopes'
+import { type ArrangedPlaces, sameLayout, scopeEngine } from '../core/layout-scopes'
 import type { Positions } from '../core/positions'
 import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
@@ -13,9 +13,9 @@ import type {
   LayoutGraph,
   LayoutListener,
   LayoutRun,
+  NodeOptions,
   Point,
 } from '../types'
-import { ArrangedPlaces } from './arranged-places'
 import type { BundleHost } from './bundles'
 import { countAlive } from './element-keys'
 import type { Emitter } from './events'
@@ -129,6 +129,14 @@ function loadEngine(): Promise<void> {
   return engineLoad
 }
 
+function declaresLayouts(definition: GraphDefinition): boolean {
+  return definition.marks.some((mark) => {
+    if (mark.type !== 'nodes') return false
+    const options = (mark as { readonly options?: NodeOptions<unknown> }).options
+    return options?.container?.layout !== undefined && options.container.layout !== null
+  })
+}
+
 function firstName(scopes: ReadonlyMap<number, Layout> | null): string {
   for (const layout of scopes?.values() ?? []) return layout.name
   return ''
@@ -152,7 +160,7 @@ export class LayoutHost {
   #counts: Map<number, number> | null = null
   readonly #growth = new Set<number>()
   readonly #lateRerun = new Set<number>()
-  readonly arranged: ArrangedPlaces = new ArrangedPlaces()
+  #arranged: ArrangedPlaces | null = null
   #layout: Layout | null | undefined
   #paused: Set<number> | null = null
 
@@ -203,17 +211,25 @@ export class LayoutHost {
     return scopeEngine() ? this.#found() : null
   }
 
+  places(): ArrangedPlaces | null {
+    this.#arranged ??= scopeEngine()?.places() ?? null
+    return this.#arranged
+  }
+
+  #load(): void {
+    if (this.#loading) return
+    this.#loading = true
+    void loadEngine().then(() => {
+      this.#loading = false
+      if (this.#source.destroyed()) return
+      this.release()
+      this.#source.request()
+    })
+  }
+
   #held(): boolean {
     if (scopeEngine() || !this.#found()) return false
-    if (!this.#loading) {
-      this.#loading = true
-      void loadEngine().then(() => {
-        this.#loading = false
-        if (this.#source.destroyed()) return
-        this.release()
-        this.#source.request()
-      })
-    }
+    this.#load()
     return true
   }
 
@@ -329,8 +345,9 @@ export class LayoutHost {
 
   follow(changes: GraphChanges, revealed: Revealed = nothingRevealed): void {
     if (this.#source.destroyed()) return
-    if (!this.arranged.empty) {
-      for (const { index } of changes.nodes.removed) this.arranged.forget(index)
+    const arranged = this.#arranged
+    if (arranged && !arranged.empty) {
+      for (const { index } of changes.nodes.removed) arranged.forget(index)
     }
     for (const index of revealed.growing) this.#growth.add(index)
     this.#follow(changes, revealed)
@@ -338,6 +355,9 @@ export class LayoutHost {
   }
 
   #follow(changes: GraphChanges, revealed: Revealed): void {
+    if (!scopeEngine() && !engineFailed && this.#source.surface().layouts) {
+      if (declaresLayouts(this.#source.definition())) this.#load()
+    }
     const held = this.#held()
     const scopes = held ? null : this.#scopes()
     const layout = this.#source.definition().layout
@@ -589,31 +609,17 @@ export class LayoutHost {
   }
 
   #record(current: LayoutSession): void {
+    const arranged = this.places()
+    if (!arranged) return
     const { scene, positions, projection } = this.#source
     this.#source.containers()
-    const hierarchy = projection.hierarchy
-    const layouts = scene.nodes.containerLayouts
-    const dragged = this.#dragged()
-    const done = new Set<number>()
-    const limit = Math.min(current.movable.length, scene.nodes.capacity)
-    for (let index = 0; index < limit; index++) {
-      if (current.movable[index] !== 1 || scene.nodes.alive[index] !== 1) continue
-      if (dragged?.has(index)) continue
-      for (let at = index; !done.has(at); ) {
-        done.add(at)
-        const parent = hierarchy.parent[at] ?? -1
-        if (parent < 0) break
-        this.arranged.record(
-          at,
-          parent,
-          positions.x(at) - positions.x(parent),
-          positions.y(at) - positions.y(parent),
-        )
-        const layout = layouts.get(parent)
-        if (layout) this.arranged.arrangedWith(parent, layout)
-        at = parent
-      }
-    }
+    arranged.remember(
+      current.movable,
+      scene.nodes,
+      projection.hierarchy,
+      positions,
+      this.#dragged(),
+    )
   }
 
   #room(current: LayoutSession, xy: Float32Array): void {

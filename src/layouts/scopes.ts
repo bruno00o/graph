@@ -16,8 +16,10 @@ import type {
   LayoutListener,
   LayoutRun,
 } from '../types'
+import { ArrangedPlaces } from './arranged-places'
 import { orientBlocks } from './orient'
 import { type ScopeRunner, scopeRunOf } from './scope-runs'
+import { Arranging } from './unfold-arranging'
 
 const parallel = 4
 const pumpBudget = 8
@@ -329,7 +331,11 @@ function samePrint(a: Print, b: Print): boolean {
   return true
 }
 
-export const scopeEngine: ScopeEngine = { plan: planScopes }
+export const scopeEngine: ScopeEngine = {
+  plan: planScopes,
+  places: () => new ArrangedPlaces(),
+  arrange: (source, homes, opened) => new Arranging(source, homes, opened),
+}
 
 export function enableScopes(): void {
   registerScopeEngine(scopeEngine)
