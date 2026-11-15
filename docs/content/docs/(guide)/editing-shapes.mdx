@@ -77,7 +77,7 @@ const editor = createShapeEditor(graph, {
 })
 ```
 
-Drawn shapes are in world units, rectangles as `{ x, y, width, height }`, circles as `{ center, radius }`, lines and areas as `points` and `rings`. On a map, `units: 'auto'` draws in degrees instead: GeoJSON `Polygon` and `LineString`, counterclockwise rings closed by their first point, and circles around a place with a radius in meters. `units: 'world'` and `'degrees'` choose one or the other everywhere.
+Drawn shapes are in world units, rectangles as `{ x, y, width, height }`, circles as `{ center, radius }`, lines and areas as `points` and `rings`. On a map, `units: 'auto'` draws in degrees instead: GeoJSON `Polygon` and `LineString`, counterclockwise rings closed by their first point, and circles around a place with a radius in meters. `units: 'world'` and `'degrees'` choose one or the other everywhere. `'auto'` follows a graph that [moves onto a map and back](/docs/map#with-and-without-a-map), shape by shape.
 
 ### Snapping
 
@@ -256,7 +256,7 @@ const presence = showPresence(graph, {
 })
 ```
 
-A row holds the `pointer` in world units, the `selection` as keys of `nodes`, `edges` and `shapes`, and the `time` of its last write; `fields` names yours. `create` builds the row of the local person the first time, with the three values, and the fields of your own, such as a name. `me` is its key. The pointer is written in world units, so a cursor lands on the same place for everyone as long as they see the same world: positions in the data, a map, or a layout with a result that does not depend on the client.
+A row holds the `pointer` in world units, the `selection` as keys of `nodes`, `edges` and `shapes`, the `time` of its last write and the `surface` the graph draws on, `'canvas'` or `'map'`; `fields` names yours. `create` builds the row of the local person the first time, with the four values, and the fields of your own, such as a name. `me` is its key. The pointer is written in world units, so a cursor lands on the same place for everyone as long as they see the same world: positions in the data, a map, or a layout with a result that does not depend on the client.
 
 The selections show in free states that you declare, `presence1` to `presence8` by default, each with the color you give it. A person takes the first free one and keeps it while present, and beyond eight people share them. The states of the graph that you did not declare are left out, so a graph with three states shows three colors.
 
@@ -276,7 +276,7 @@ defineGraph({
 })
 ```
 
-The cursors are elements in the [anchor layer](/docs/drawing-layers#anchored-html): a colored dot without text by default, with the color of `var(--graph-cat-N)` for slot N. Give `cursor` a function that makes your own element, such as an arrow with a name, once for each person; `cursor: false` shows none. They follow the pointer on a flat map and on the globe, and hide behind its horizon.
+The cursors are elements in the [anchor layer](/docs/drawing-layers#anchored-html): a colored dot without text by default, with the color of `var(--graph-cat-N)` for slot N. Give `cursor` a function that makes your own element, such as an arrow with a name, once for each person; `cursor: false` shows none. They follow the pointer on a flat map and on the globe, and hide behind its horizon. A cursor shows only to people on the same surface, since a point of the canvas and a point of the map are not the same place; selections show on every surface. A row without a `surface`, written by a `create` that leaves it out, shows its cursor everywhere, and its later writes leave the field out too, unless `fields.surface` names one.
 
 ```ts
 showPresence(graph, {
@@ -302,6 +302,8 @@ A shape [pinned to a node](/docs/shapes#pin-shapes-to-nodes) moves around its no
 ## On a map
 
 On a [map](/docs/map#shapes), flat or on the globe, the editor takes the gesture from the map: the map does not pan while a shape moves or is drawn, and a double click that ends a shape does not zoom. Shapes in degrees get their edits in degrees, the closing point of a GeoJSON ring included. A circle around a place keeps its radii in meters. On the globe, a circle or a rectangle in world units, such as a shape pinned to a node, faces the screen as the graph draws it, and so do its handles and its text input. A move is a translation on the flat map, on the globe too: a shape moved toward a pole keeps its look on the flat map and grows on the ground, as Web Mercator does.
+
+A graph that [moves onto a map or back](/docs/map#with-and-without-a-map) keeps its editor: a gesture or a drawing in progress is dropped, as with Escape, a text being typed is proposed, and edits waiting for their data stay. With `units: 'auto'`, the next shape is drawn in degrees on the map and in world units on the canvas.
 
 ## React
 

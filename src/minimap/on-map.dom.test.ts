@@ -77,7 +77,7 @@ describe('createMinimap on a map', () => {
     dom.flushFrames()
     expect(made.workers).toBe(0)
     expect(warn.mock.calls.filter(([message]) => /minimap/.test(String(message)))).toEqual([
-      ['graph: the minimap does not work on a map'],
+      ['graph: the minimap draws nothing while the graph is on a map'],
     ])
     for (const minimap of [first, second]) {
       expect(minimap.element.isConnected).toBe(false)

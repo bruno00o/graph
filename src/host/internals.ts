@@ -20,6 +20,7 @@ export interface GraphStamp {
 export interface GraphWatcher {
   frame(): void
   changed?(changes: GraphChanges): void
+  surface?(capabilities: SurfaceCapabilities): void
   destroy(): void
 }
 
