@@ -115,6 +115,7 @@ export class LayoutHost {
   readonly #check: StringCheck = stringCheck()
   readonly #computing = new Set<(reason: unknown) => void>()
   #seed = false
+  readonly #memory: object = {}
   #warnedMap = false
   #warnedEngine = false
   #known: Map<number, Layout | null> | null = null
@@ -521,6 +522,7 @@ export class LayoutHost {
       rerun,
       arrivals: auto,
       fresh: this.#seed,
+      memory: this.#memory,
     })
   }
 
