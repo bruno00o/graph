@@ -42,7 +42,7 @@ nodes(places, { longitude: 'lng', latitude: 'lat', label: 'name' })
 
 ## Nodes at one place
 
-Nodes that the data places at the very same point, such as several items at one address, draw on top of each other. `spread` in the definition moves them apart around that point, so that each one can be seen, hovered and dragged:
+Nodes that the data places at the very same point draw on top of each other. `spread` in the definition moves them apart around that point, so that each one can be seen, hovered and dragged:
 
 ```ts
 const definition = defineGraph({
