@@ -190,6 +190,7 @@ async function prepare(
     boxes,
     bundles: snapshot.bundles,
     shapes: scene.shapes,
+    hulls: snapshot.hulls.shapes,
   }
   const fitsLabels = region === 'graph' && labels !== 'none'
   const frameAt = (zoom: number | undefined, withLabels: boolean): ExportFrame => {

@@ -3,6 +3,8 @@ import { arrowCodes, containerShape, EdgeColumns, NodeColumns, noColor } from '.
 import { loopMinimum, loopReach } from '../core/edge-curve'
 import { geoToWorld } from '../core/geo'
 import { createGraphModel } from '../core/graph-model'
+import { Outline } from '../core/hull-geometry'
+import { HullLabel, type HullShape } from '../core/hull-layer'
 import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
 import type { ShapeLabelFrame } from '../core/shape-engine'
@@ -13,7 +15,7 @@ import { shapes } from '../shapes'
 import { globeCamera } from '../testing/globe'
 import type { GraphDefinition, ShapeGeometry, ShapeLabelOptions } from '../types'
 import type { Glyph, GlyphAtlas, LineLayout } from './glyph-atlas'
-import { worldGlyph } from './glyph-attributes'
+import { hullGlyph, worldGlyph } from './glyph-attributes'
 import {
   type EdgeAnchor,
   edgeAnchor,
@@ -1015,5 +1017,155 @@ describe('shape labels', () => {
     expect(anchors).toHaveLength(1)
     expect(anchors[0]?.[0]).toBeCloseTo(400)
     expect(anchors[0]?.[1]).toBeCloseTo(300)
+  })
+})
+
+describe('hull labels', () => {
+  const glyph: Glyph = { x: 0, y: 0, width: 10, height: 20, left: 0, top: 4, advance: 9 }
+  const atlas = {
+    height: 256,
+    line: (text: string): LineLayout => ({ width: text.length * 24, glyphs: [{ glyph, x: 0 }] }),
+  } as unknown as GlyphAtlas
+
+  function hullOf(
+    id: number,
+    text: string,
+    x: number,
+    y: number,
+    options: { extent?: number; count?: number; background?: number } = {},
+  ): HullShape {
+    const outline = new Outline()
+    outline.push(x, y, 0, -1, 0)
+    const label = new HullLabel(id)
+    label.text = text
+    label.x = x
+    label.y = y
+    label.extent = options.extent ?? 200
+    label.count = options.count ?? 1
+    label.background = options.background ?? noColor
+    return { outline, fill: 0, stroke: 0, strokeWidth: 2, padding: 16, label }
+  }
+
+  function frameOf(nodes: NodeColumns, positions: Positions, hulls: HullShape[], zoom = 1) {
+    const order = new Uint32Array(nodes.capacity)
+    const sorted = sortBySize(nodes, order)
+    return {
+      nodes,
+      positions,
+      view: { x: 0, y: 0, zoom },
+      width: 800,
+      height: 600,
+      nodeMask: new Uint32Array(nodes.capacity),
+      labelFlags: new Int8Array(32).fill(-1),
+      highlighted: [],
+      order,
+      orderLength: sorted.length,
+      screenLabels: sorted.screenLabels,
+      largestLabel: sorted.largest,
+      hulls,
+      ...noEdges,
+    }
+  }
+
+  function owners(buffer: GlyphBuffer): number[] {
+    const words = new Uint32Array(buffer.data)
+    return Array.from({ length: buffer.count }, (_, at) => words[at * (glyphStride / 4)] ?? -1)
+  }
+
+  it('sits centered above the top of the hull, past its padding and outline', () => {
+    const placed: { x: number; y: number; top: number; pixels: number }[] = []
+    const layer = new LabelLayer()
+    const nodes = columns([{ size: 10, label: null }])
+    layer.select(
+      {
+        ...frameOf(nodes, new Positions(), [hullOf(7, 'Name', 100, 50)]),
+        sink: {
+          node: () => {},
+          edge: () => {},
+          hull: (_, label, x, y) => placed.push({ x, y, top: label.top, pixels: label.pixels }),
+        },
+      },
+      atlas,
+    )
+    expect(placed).toEqual([{ x: 500, y: 350 - 16 - 1 - 3, top: -30, pixels: 12 }])
+    expect(owners(layer.hullMain)).toEqual([7])
+    const kind = new Uint32Array(layer.hullMain.data)[1] ?? 0
+    expect(kind & hullGlyph).toBe(hullGlyph)
+    expect(layer.hullLabels).toBe(1)
+    expect(layer.main.count + layer.edgeMain.count).toBe(0)
+  })
+
+  it('comes after hovered labels and before the other node labels', () => {
+    const nodes = columns([
+      { size: 10, label: 'node' },
+      { size: 10, label: 'hover' },
+    ])
+    const positions = new Positions()
+    positions.set(0, 0, -40)
+    positions.set(1, 0, -40)
+    const layer = new LabelLayer()
+    const frame = frameOf(nodes, positions, [hullOf(3, 'Hull', 0, 0)])
+    layer.select(frame, atlas)
+    expect(owners(layer.hullMain)).toEqual([3])
+    expect(owners(layer.main)).toEqual([])
+    layer.select({ ...frame, nodeMask: new Uint32Array([0, 0b10]), highlighted: [1] }, atlas)
+    expect(owners(layer.highlight)).toEqual([1])
+    expect(owners(layer.hullMain)).toEqual([])
+  })
+
+  it('places the hull with the most members first', () => {
+    const layer = new LabelLayer()
+    const nodes = columns([{ size: 10, label: null }])
+    const hulls = [hullOf(1, 'Small', 0, 0, { count: 2 }), hullOf(2, 'Large', 0, 0, { count: 9 })]
+    layer.select(frameOf(nodes, new Positions(), hulls), atlas)
+    expect(owners(layer.hullMain)).toEqual([2])
+  })
+
+  it('keeps its size while the hull is wider than the text, then shrinks and hides with it', () => {
+    const nodes = columns([{ size: 10, label: null }])
+    const pixels = (extent: number, zoom: number) => {
+      const seen: number[] = []
+      new LabelLayer().select(
+        {
+          ...frameOf(nodes, new Positions(), [hullOf(1, 'Long name', 0, 0, { extent })], zoom),
+          sink: { node: () => {}, edge: () => {}, hull: (_, label) => seen.push(label.pixels) },
+        },
+        atlas,
+      )
+      return seen
+    }
+    expect(pixels(400, 0.3)).toEqual([12])
+    expect(pixels(400, 0.1)).toEqual([expect.closeTo((12 * (40 + 32)) / 108, 6)])
+    expect(pixels(40, 0.05)).toEqual([])
+  })
+
+  it('pushes a plate before its glyphs', () => {
+    const layer = new LabelLayer()
+    const nodes = columns([{ size: 10, label: null }])
+    layer.select(frameOf(nodes, new Positions(), [hullOf(4, 'A', 0, 0, { background: 5 })]), atlas)
+    const words = new Uint32Array(layer.hullMain.data)
+    expect(layer.hullMain.count).toBe(2)
+    expect((words[1] ?? 0) & 3).toBe(3)
+    expect(words[8]).toBe(5)
+  })
+
+  it('stays on the side of the globe that faces the camera', () => {
+    const front = geoToWorld({ longitude: -70, latitude: -20 })
+    const back = geoToWorld({ longitude: 110, latitude: 20 })
+    const seen: number[] = []
+    const nodes = columns([{ size: 10, label: null }])
+    new LabelLayer().select(
+      {
+        ...frameOf(nodes, new Positions(), [
+          hullOf(1, 'Front', front.x, front.y),
+          hullOf(2, 'Back', back.x, back.y),
+        ]),
+        view: { x: front.x, y: front.y, zoom: 8 },
+        globe: globeCamera({ longitude: -70, latitude: -20, zoom: 3, width: 800, height: 600 }),
+        sink: { node: () => {}, edge: () => {}, hull: (shape) => seen.push(shape.label?.id ?? 0) },
+      },
+      atlas,
+    )
+    expect(seen).toEqual([1])
   })
 })

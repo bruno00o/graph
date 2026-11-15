@@ -6,6 +6,7 @@ import { zoomFade } from '../core/zoom-range'
 import { bridgeData, bridgeFragment, straightBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
 import { atlasFontSize } from './glyph-atlas'
+import { hullGlyph } from './glyph-attributes'
 
 export { nodeLabelSize } from '../core/label-width'
 
@@ -1080,7 +1081,9 @@ vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor, uint insi
 }
 `
 
-export const labelVertex: string = `${header}${nodeData}${nodeLookData}${edgeData}${curveData}${bundlePath}${glyphLayout}vec4 fixedMiddle(uvec4 path, vec2 a, vec2 d, vec2 wraps, float shift) {
+export const labelVertex: string = `${header}${nodeData}${nodeLookData}${edgeData}${curveData}${bundlePath}${glyphLayout}in vec4 glyphAnchor;
+in vec2 glyphFit;
+vec4 fixedMiddle(uvec4 path, vec2 a, vec2 d, vec2 wraps, float shift) {
   int inner = int(path.y) - 2;
   vec2 p = fixedPoint(path, 1, a, d, wraps);
   vec2 q = fixedPoint(path, inner, a, d, wraps);
@@ -1289,6 +1292,13 @@ void main() {
   vUv = mix(glyphUv.xy, glyphUv.zw, corner);
   if (kind != 2u && (glyphKind & 8u) != 0u) {
     edgeGlyph(kind);
+    return;
+  }
+  if (kind != 2u && (glyphKind & ${hullGlyph}u) != 0u) {
+    float hullPixels = glyphSize * min(1.0, glyphFit.x * scaleAt(glyphAnchor.xy) + glyphFit.y);
+    vOpacity = 1.0;
+    gl_Position = glyphAnchor.w < 0.5 || hullPixels < labelMin || worldSide(glyphAnchor.xy) < 0.0 ? hidden
+      : toClip(toScreen(glyphAnchor.xy) - vec2(0.0, glyphAnchor.z) + layoutGlyph(kind, hullPixels, 0.0, none, 0u));
     return;
   }
   ivec2 t = texel(glyphNode);

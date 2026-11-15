@@ -3,6 +3,7 @@ import { boxShape, type EdgeColumns, type NodeColumns, noColor } from '../core/c
 import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
+import type { HullShape } from '../core/hull-layer'
 import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import type { ShapeLabelFrame, ShapeLayer } from '../core/shape-engine'
@@ -29,11 +30,12 @@ import {
 } from './gl'
 import { GlState } from './gl-state'
 import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
-import { glyphAttributes } from './glyph-attributes'
+import { anchorAttributes, glyphAttributes } from './glyph-attributes'
 import { ImageAtlas } from './image-atlas'
 import {
   GlyphBuffer,
   glyphStride,
+  hullLift,
   LabelLayer,
   LabelPlan,
   sortBySize,
@@ -99,6 +101,10 @@ interface LabelSet {
   readonly highlight: WebGLVertexArrayObject
   readonly edgeMain: WebGLVertexArrayObject
   readonly edgeHighlight: WebGLVertexArrayObject
+  readonly hullGlyphs: WebGLBuffer
+  readonly hullAnchors: WebGLBuffer
+  readonly hulls: WebGLVertexArrayObject
+  anchors: Float32Array
   stale: boolean
   moved: boolean
   time: number
@@ -371,6 +377,8 @@ function createRenderer(
   const backdrop = createBackdrop(gl, blocks)
   let shapeLayer: ShapeLayer | null = null
   let shapeLabelKey = ''
+  let hullLabelVersion: number | undefined = -1
+  let hullAnchorVersion = -1
   let shapeShift = 0
   const nodeCorner = createBuffer(gl, cornerNode, gl.STATIC_DRAW)
   const edgeCorner = createBuffer(gl, cornerEdge, gl.STATIC_DRAW)
@@ -716,6 +724,8 @@ function createRenderer(
     const empty = () => createBuffer(gl, new Uint8Array(0), gl.DYNAMIC_DRAW)
     const buffers = [empty(), empty(), empty(), empty()] as const
     const vao = (buffer: WebGLBuffer) => createVertexArray(gl, labelProgram, glyphs(buffer))
+    const hullGlyphs = empty()
+    const hullAnchors = empty()
     return {
       layer: new LabelLayer(),
       buffers,
@@ -723,6 +733,13 @@ function createRenderer(
       highlight: vao(buffers[1]),
       edgeMain: vao(buffers[2]),
       edgeHighlight: vao(buffers[3]),
+      hullGlyphs,
+      hullAnchors,
+      hulls: createVertexArray(gl, labelProgram, [
+        ...glyphs(hullGlyphs),
+        ...anchorAttributes(gl, hullAnchors),
+      ]),
+      anchors: new Float32Array(0),
       stale: true,
       moved: false,
       time: Number.NEGATIVE_INFINITY,
@@ -733,9 +750,37 @@ function createRenderer(
 
   function destroyLabelSet(set: LabelSet): void {
     shapeLayer?.forget(set)
-    for (const buffer of set.buffers) gl.deleteBuffer(buffer)
-    for (const vao of [set.main, set.highlight, set.edgeMain, set.edgeHighlight])
+    for (const buffer of [...set.buffers, set.hullGlyphs, set.hullAnchors]) gl.deleteBuffer(buffer)
+    for (const vao of [set.main, set.highlight, set.edgeMain, set.edgeHighlight, set.hulls])
       gl.deleteVertexArray(vao)
+  }
+
+  function writeHullAnchors(set: LabelSet): void {
+    const glyphs = set.layer.hullMain
+    const count = glyphs.count
+    if (count === 0) return
+    if (set.anchors.length < count * 6) {
+      set.anchors = new Float32Array(Math.max(count * 6, set.anchors.length * 2))
+    }
+    const anchors = set.anchors
+    const shown = new Map<number, HullShape>()
+    for (const shape of input?.hulls?.shapes ?? [])
+      if (shape.label) shown.set(shape.label.id, shape)
+    const owners = new Uint32Array(glyphs.data, 0, count * (glyphStride / 4))
+    for (let i = 0; i < count; i++) {
+      const shape = shown.get(owners[i * (glyphStride / 4)] ?? 0)
+      const label = shape?.label
+      const width = label && label.width > 0 ? label.width : 0
+      const at = i * 6
+      anchors[at] = label?.x ?? 0
+      anchors[at + 1] = label?.y ?? 0
+      anchors[at + 2] = shape ? hullLift(shape) : 0
+      anchors[at + 3] = shape && width > 0 ? 1 : 0
+      anchors[at + 4] = label && width > 0 ? label.extent / width : 0
+      anchors[at + 5] = shape && width > 0 ? (shape.padding * 2) / width : 0
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, set.hullAnchors)
+    gl.bufferData(gl.ARRAY_BUFFER, anchors.subarray(0, count * 6), gl.DYNAMIC_DRAW)
   }
 
   function invalidateLabels(): void {
@@ -1420,6 +1465,7 @@ function createRenderer(
         paths: input.bundles ?? null,
         globe: frame.globe && frame.globe.mix > 0 ? frame.globe : null,
         shapes: shapeLabelFrame(input),
+        hulls: input.hulls?.shapes ?? null,
       },
       atlas,
     )
@@ -1438,6 +1484,13 @@ function createRenderer(
       )
     })
     shapeLayer?.labels(set, layer.shapeMain, layer.shapeHighlight)
+    gl.bindBuffer(gl.ARRAY_BUFFER, set.hullGlyphs)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Uint8Array(layer.hullMain.data, 0, layer.hullMain.count * glyphStride),
+      gl.DYNAMIC_DRAW,
+    )
+    writeHullAnchors(set)
     set.stale = false
     set.moved = false
     set.time = now
@@ -1718,6 +1771,7 @@ function createRenderer(
       draw(labelProgram, vertexArrays.badgeGlyphs, badgeGlyphs.count, 0, 0)
     }
     shapeLayer?.drawLabels(set, 0, layerFilter)
+    draw(labelProgram, set.hulls, layer.hullMain.count, 0, 0)
     draw(labelProgram, set.edgeMain, layer.edgeMain.count, 0, 0)
     draw(labelProgram, set.main, layer.main.count, 0, 0)
     drawEdgeList('overlay', edgeOverlayCount, 0, 1, jumping, globe)
@@ -1875,6 +1929,15 @@ function createRenderer(
       }
       if (syncBridges(next.bridges)) touch()
       if (backdrop.sync(next)) touch()
+      const hulls = next.hulls
+      if (hulls && hulls.labelVersion !== hullLabelVersion) {
+        hullLabelVersion = hulls.labelVersion
+        invalidateLabels()
+      }
+      if (hulls && hulls.version !== hullAnchorVersion) {
+        hullAnchorVersion = hulls.version
+        for (const set of labelSets) writeHullAnchors(set)
+      }
       const shapes = next.scene.shapes
       if (!shapeLayer && shapes.any && shapes.engine) {
         shapeLayer = shapes.engine.layer(gl, blocks)

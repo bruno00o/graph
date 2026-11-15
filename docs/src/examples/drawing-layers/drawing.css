@@ -39,11 +39,3 @@
 .drawing-tooltip span:empty {
   display: none;
 }
-
-.drawing-group {
-  color: var(--graph-ink-muted);
-  font-family: var(--graph-font);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
