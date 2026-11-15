@@ -1,6 +1,8 @@
 import { withFinitePositions } from '../../core/finite-positions'
 import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../../types'
+import { registerScopeRun } from '../scope-runs'
 import { enableScopes } from '../scopes'
+import { ForcePool } from './pool'
 import type { FromWorker, ToWorker } from './protocol'
 import { runForce, runMultilevelForce } from './runner'
 import {
@@ -8,6 +10,7 @@ import {
   type ForceOptions,
   type ForceSettings,
   forceGraphOf,
+  prefersGpu,
   prefersMultilevel,
   resolveForce,
   settingsIn,
@@ -35,6 +38,16 @@ function spawn(): Worker | null {
   }
 }
 
+let pool: ForcePool | null = null
+
+function pooled(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener) {
+  const graph = forceGraphOf(withFinitePositions(given))
+  if (prefersGpu(graph, settings) || prefersMultilevel(graph, settings)) return null
+  const cores = globalThis.navigator?.hardwareConcurrency ?? 2
+  pool ??= new ForcePool(spawn, Math.min(4, cores - 1))
+  return pool.run(graph, settings, listener)
+}
+
 function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
   const graph = forceGraphOf(withFinitePositions(given))
   const worker = spawn()
@@ -52,6 +65,7 @@ function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutList
       listener.progress(message.xy, message.progress)
       return
     }
+    if (message.type !== 'end') return
     stopped = true
     worker.terminate()
     listener.end(message.xy)
@@ -85,11 +99,15 @@ function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutList
 export function force(options: ForceOptions = {}): Layout {
   const settings = resolveForce(options)
   enableScopes()
-  return Object.freeze({
+  const layout: Layout = Object.freeze({
     name: 'force',
     options: settings,
     turns: 'free',
     start: (graph: LayoutGraph, listener: LayoutListener) =>
       start(graph, settingsIn(graph, settings, options), listener),
   })
+  registerScopeRun(layout, (graph, listener) =>
+    pooled(graph, settingsIn(graph, settings, options), listener),
+  )
+  return layout
 }

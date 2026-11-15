@@ -47,31 +47,21 @@ export function runForce(
   budget: number,
   schedule: Schedule,
 ): LayoutRun {
-  const simulation = new ForceSimulation(graph, settings)
+  const job = new ForceJob(graph, settings)
   let stopped = false
-  const snapshot = () => {
-    const xy = new Float32Array(graph.capacity * 2)
-    simulation.write(xy)
-    return xy
-  }
   const loop = () => {
     if (stopped) return
-    const until = performance.now() + budget
-    do simulation.step()
-    while (!simulation.done && performance.now() < until)
-    if (simulation.done) {
+    if (job.advance(performance.now() + budget)) {
       stopped = true
-      const xy = snapshot()
-      if (simulation.tree) settle(graph, simulation.tree, simulation.fixed, xy, settings)
-      listener.end(xy)
+      listener.end(job.result())
       return
     }
-    listener.progress(snapshot(), simulation.progress)
+    listener.progress(job.snapshot(), job.progress)
     schedule(loop)
   }
   schedule(loop)
   return {
-    pin: (index, x, y) => simulation.pin(index, x, y),
+    pin: (index, x, y) => job.pin(index, x, y),
     stop: () => {
       stopped = true
     },
@@ -157,4 +147,44 @@ export function runMultilevelForce(
     gpu,
     settle: (fixed, xy) => settle(graph, null, fixed, xy, settings),
   })
+}
+
+export class ForceJob {
+  readonly #graph: ForceGraph
+  readonly #settings: ForceSettings
+  readonly #simulation: ForceSimulation
+
+  constructor(graph: ForceGraph, settings: ForceSettings) {
+    this.#graph = graph
+    this.#settings = settings
+    this.#simulation = new ForceSimulation(graph, settings)
+  }
+
+  get progress(): number {
+    return this.#simulation.progress
+  }
+
+  pin(index: number, x: number, y: number): void {
+    this.#simulation.pin(index, x, y)
+  }
+
+  advance(until: number): boolean {
+    const simulation = this.#simulation
+    do simulation.step()
+    while (!simulation.done && performance.now() < until)
+    return simulation.done
+  }
+
+  snapshot(): Float32Array {
+    const xy = new Float32Array(this.#graph.capacity * 2)
+    this.#simulation.write(xy)
+    return xy
+  }
+
+  result(): Float32Array {
+    const xy = this.snapshot()
+    const simulation = this.#simulation
+    if (simulation.tree) settle(this.#graph, simulation.tree, simulation.fixed, xy, this.#settings)
+    return xy
+  }
 }
