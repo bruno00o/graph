@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.28.0](https://github.com/bruno00o/graph/compare/0.27.1...0.28.0) (2026-11-15)
+
+
+### Features
+
+* draw icons in badges, color halos per state and order nodes ([#196](https://github.com/bruno00o/graph/issues/196)) ([9008364](https://github.com/bruno00o/graph/commit/90083649c929be05f1cfb7cc3b8a87f3cf983eaa))
+* export at an exact size and put moved nodes back ([#193](https://github.com/bruno00o/graph/issues/193)) ([33a5496](https://github.com/bruno00o/graph/commit/33a5496bfe1f426983185c01e0816236e36d8c4f))
+* lasso without shift and read what is shown ([#194](https://github.com/bruno00o/graph/issues/194)) ([663e867](https://github.com/bruno00o/graph/commit/663e867c7c71ffc3f54e2ca8d97d99288912d891))
+* let layouts see groups that are laid out on their own ([#200](https://github.com/bruno00o/graph/issues/200)) ([d8baafb](https://github.com/bruno00o/graph/commit/d8baafbdc2881c0d8b480919d789181562b4765e))
+* restore positions without a layout run ([#198](https://github.com/bruno00o/graph/issues/198)) ([e28d660](https://github.com/bruno00o/graph/commit/e28d6609e3d5a28f873c6f0ba8884383f64307ad))
+* take layers from the data, run app positions as a layout and compute layouts without moving nodes ([#192](https://github.com/bruno00o/graph/issues/192)) ([fdbfc63](https://github.com/bruno00o/graph/commit/fdbfc6398918dc42f6de97c9a88aed02a02e8229))
+
 ## [0.27.1](https://github.com/bruno00o/graph/compare/0.27.0...0.27.1) (2026-11-14)
 
 
