@@ -40,7 +40,7 @@ const response = await fetch(url, { signal: graph.signal })
 
 ### Drawn
 
-`drawn()` resolves after the next frame the graph draws, the first one included. It never asks for a frame of its own: when no frame is due, it resolves on the next animation frame, without drawing. While the WebGL context is lost, it waits for the context to come back, and while the graph is [suspended](#suspend), for `resume`. On a [map](/docs/map), it resolves once the map has drawn the layer of the graph. Once the graph is destroyed, it rejects with the reason of `signal`.
+`drawn()` resolves after the next frame the graph draws, the first one included. It never asks for a frame of its own: when no frame is due, it resolves on the next animation frame, without drawing. While the WebGL context is lost, it waits for the context to come back, while the graph is [suspended](#suspend), for `resume`, and when WebGL runs in software, for the code of its [drawing path](/docs/browser-support#software-rendering). On a [map](/docs/map), it resolves once the map has drawn the layer of the graph. Once the graph is destroyed, it rejects with the reason of `signal`.
 
 ```ts
 graph.update({ definition: next })

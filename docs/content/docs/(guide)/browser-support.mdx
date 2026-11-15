@@ -63,19 +63,32 @@ Safari still counts the context of a suspended graph. Before it takes a context,
 
 Without a usable GPU, a browser either refuses WebGL or draws it on the CPU with a software rasterizer, as on some virtual machines, remote desktops and test runners. Chrome no longer falls back to one by itself. The graph recognizes a software renderer by its name and adapts:
 
-- The canvas is drawn at one pixel per CSS pixel, whatever the device pixel ratio.
+- **Plain triangles instead of instances.** A software rasterizer pays a fixed cost for each instance of an instanced draw, about 6 microseconds in Chrome, whatever its size. In software, the graph repeats the data of each node, edge, label and badge for every corner of its shape, and draws plain triangles, tens of times cheaper per element. When no edge has an arrow at one end, it also leaves out the triangles that join that arrow to the line. The picture is the same, pixel for pixel. The vertex buffers take more memory, counted in the texture memory of the [devtools](/docs/devtools). Bundled and routed edges, edges with waypoints, shapes and hulls keep their instanced draws. The code of plain triangles comes in a chunk of its own, loaded only once WebGL turns out to run in software, so a browser with a GPU downloads nothing more. The graph waits for that chunk before its first frame, and [`drawn()`](/docs/api/graph-instance#drawn) with it; should it fail to load, the graph draws instances and warns in development.
+- **Programs prepared when first used.** With a GPU, the graph draws each program once at startup, so that the first labels do not stall a later frame. In software it does not, and the program of node labels and badges leaves out the code of edge labels: the first frame comes about 2 seconds earlier.
+- **One pixel per CSS pixel.** The `pixelRatio` option of [`defineGraph`](/docs/api/define-graph#pixel-ratio), `'auto'` by default, draws the canvas at one pixel per CSS pixel when WebGL runs in software, whatever the device pixel ratio: the graph is less sharp on a high density screen. `'device'` keeps the device pixel ratio, and a number sets the ratio with any renderer, `1` to spend less on a weak GPU.
 - The `'auto'` engine of the [force layout](/docs/layout) runs on the CPU: on a software renderer it is several times faster than the GPU engine.
 - In development, a graph of more than 20,000 nodes and edges warns once.
 
-What remains costs about 10 microseconds per node or edge drawn, at any canvas size. Measured in Chrome with its software rasterizer, while the view moves:
+Nothing else is left out: labels, arrows, dashes, halos, the selection and the hover look the same as with a GPU. The [devtools](/docs/devtools) panel shows whether WebGL draws on a GPU or in software, and the pixel ratio the graph draws at, with its reason.
 
-| Graph | Time per frame |
-| --- | --- |
-| 1,000 nodes and 1,800 edges | 40 ms |
-| 10,000 nodes and 20,000 edges | 350 ms |
-| 50,000 nodes and 100,000 edges | 1.8 s |
+```ts
+const definition = defineGraph({
+  marks: [edges(links, { source: 'from', target: 'to' }), nodes(items, { label: 'name' })],
+  pixelRatio: 'device',
+})
+```
 
-The first frame takes about 3 seconds more while the shaders compile, and the graph draws nothing at rest. Where the browser composes the page without a GPU too, as Chrome does on Linux, the page waits for each frame of the graph to be drawn before it answers again, so a frame of a large graph freezes the page for its whole time. With any renderer, the graph measures how long its frames take, and a move of the view, of nodes or of edge shapes goes straight to its end when the last frames took longer than what is left of it: a click that frames a node costs one frame, not several. Software rendering suits graphs of a few thousand elements; past that, filter or aggregate the data first.
+A frame costs about the same at rest, while the view moves and on hover. It grows with the number of nodes and edges drawn, through the triangles the rasterizer sets up, more than with the size of the canvas. Software rasterizers spread a frame over the cores of the processor, so the time depends on how many the browser gets. Measured while the view moves and on hover, the whole graph in view on a canvas of 1280 × 800 pixels, with arrows and labels, in Chrome on macOS with 12 cores and in Chrome and Firefox in a Linux container limited to 4 cores of the same machine:
+
+| Graph | Chrome, 12 cores | Chrome, 4 cores | Firefox, 4 cores |
+| --- | --- | --- | --- |
+| 1,000 nodes and 2,000 edges | 6 ms | 18 ms | 17 ms |
+| 10,000 nodes and 20,000 edges | 32 to 43 ms | 190 to 200 ms | 100 to 105 ms |
+| 50,000 nodes and 100,000 edges | 150 to 205 ms | 0.9 to 1.1 s | 480 to 530 ms |
+
+Firefox on Linux draws WebGL with llvmpipe, another software rasterizer, which pays no fixed cost per instance: with few cores, it draws large graphs faster than Chrome. WebKit on Linux draws with llvmpipe too, but reports a GPU, so the graph keeps the device pixel ratio there unless `pixelRatio` sets one; its frames take about as long as in Firefox.
+
+The first frame takes 2 to 2.5 seconds in Chrome from 1,000 to 50,000 nodes, and about 1 second in Firefox, most of it to create the WebGL context and prepare the programs, and the graph draws nothing at rest. Where the browser composes the page without a GPU too, as Chrome does on Linux, the page waits for each frame of the graph to be drawn before it answers again, so a frame of a large graph freezes the page for its whole time. With any renderer, the graph measures how long its frames take, and a move of the view, of nodes or of edge shapes goes straight to its end when the last frames took longer than what is left of it: a click that frames a node costs one frame, not several. Software rendering suits graphs of a few tens of thousands of elements on a desktop processor, and fewer on a virtual machine of a few cores; past that, filter or aggregate the data first.
 
 ## Tested browsers
 
@@ -86,7 +99,7 @@ Every pull request opens each example of this site and of the repository in Chro
 
 ## Device pixel ratio and size
 
-The canvas follows the device pixel ratio, including when a window moves to a screen with another one. A resized graph is drawn again before the browser paints, so dragging a window edge never shows an empty frame. A container of 0 pixels is allowed; the graph warns once in development and draws nothing until it gets a size.
+The canvas follows the device pixel ratio, including when a window moves to a screen with another one, unless the [`pixelRatio`](/docs/api/define-graph#pixel-ratio) of the definition sets another; the largest drawing buffer of the device caps it. A resized graph is drawn again before the browser paints, so dragging a window edge never shows an empty frame. A container of 0 pixels is allowed; the graph warns once in development and draws nothing until it gets a size.
 
 ## Safari, Firefox and Chrome
 

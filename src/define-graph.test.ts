@@ -260,6 +260,7 @@ describe('defineGraph', () => {
       bridges: { size: undefined },
       time: { fade: undefined },
       support: undefined,
+      pixelRatio: undefined,
     })
     const left = defineGraph({
       marks: [],
@@ -303,6 +304,20 @@ describe('defineGraph', () => {
       expect(() => defineGraph({ marks: [], bridges: { maxEdges } })).toThrow(RangeError)
     }
     expect(() => defineGraph({ marks: [], bridges: { shape: 'hop' as 'arc' } })).toThrow(TypeError)
+  })
+
+  it('resolves the pixel ratio', () => {
+    expect(defineGraph({ marks: [] }).pixelRatio).toBe('auto')
+    expect(defineGraph({ marks: [], pixelRatio: 'auto' }).pixelRatio).toBe('auto')
+    expect(defineGraph({ marks: [], pixelRatio: 'device' }).pixelRatio).toBe('device')
+    expect(defineGraph({ marks: [], pixelRatio: 1.5 }).pixelRatio).toBe(1.5)
+    for (const ratio of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => defineGraph({ marks: [], pixelRatio: ratio })).toThrow(RangeError)
+    }
+    expect(() => defineGraph({ marks: [], pixelRatio: 'screen' as 'auto' })).toThrow(TypeError)
+    expect(() => defineGraph({ marks: [], pixelRatio: true as unknown as 'auto' })).toThrow(
+      TypeError,
+    )
   })
 
   it('limits the number of free states', () => {

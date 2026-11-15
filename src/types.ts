@@ -2226,7 +2226,23 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly support?: SupportStateOptions<FreeState<NoInfer<S>>> | null | undefined
+  /**
+   * Canvas pixels per CSS pixel: `'auto'` follows the screen, but draws one canvas pixel per CSS
+   * pixel when WebGL runs in software, which keeps frames short there; `'device'` follows the
+   * screen everywhere; a number above 0 sets the ratio. The drawing buffer limits of the device
+   * cap every ratio. Any other value makes `defineGraph` throw: a `TypeError` for a value that is
+   * not a number, a `RangeError` for a number that is not finite or not above 0. On a map, the
+   * map sets the ratio.
+   * @default 'auto'
+   */
+  readonly pixelRatio?: PixelRatioOption | undefined
 }
+
+/**
+ * Canvas pixels per CSS pixel of a graph: `'auto'`, the screen ratio except when WebGL runs in
+ * software; `'device'`, the screen ratio; or a number above 0.
+ */
+export type PixelRatioOption = 'auto' | 'device' | number
 
 /**
  * A frozen graph definition, made by `defineGraph`, with every option resolved. `S` is the union of
@@ -2270,6 +2286,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly time: ResolvedTimeOptions
   /** Free states that light the support of the selected edges, or `null` for none. */
   readonly support: ResolvedSupportStates | null
+  /** Canvas pixels per CSS pixel: `'auto'`, `'device'` or a number above 0. */
+  readonly pixelRatio: PixelRatioOption
 }
 
 /** Options of the `time` of `defineGraph`. */

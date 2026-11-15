@@ -211,6 +211,18 @@ export function createView(
       ({ rendering }) =>
         (messages.renderingName ?? defaultMessages.renderingName ?? String)(rendering),
     ],
+    [
+      messages.drawing ?? defaultMessages.drawing ?? '',
+      ({ drawing }) => (messages.drawingName ?? defaultMessages.drawingName ?? String)(drawing),
+    ],
+    [
+      messages.pixelRatio ?? defaultMessages.pixelRatio ?? '',
+      ({ pixelRatio, pixelRatioReason }) =>
+        (messages.pixelRatioName ?? defaultMessages.pixelRatioName ?? String)(
+          pixelRatio,
+          pixelRatioReason,
+        ),
+    ],
   ])
 
   const target = (value: GraphReport['hovered']) =>

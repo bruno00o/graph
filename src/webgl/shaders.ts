@@ -1081,8 +1081,7 @@ vec2 layoutGlyph(uint kind, float pixels, float lift, uint stateColor, uint insi
 }
 `
 
-export const labelVertex: string = `${header}${nodeData}${nodeLookData}${edgeData}${curveData}${bundlePath}${glyphLayout}in vec4 glyphAnchor;
-in vec2 glyphFit;
+const edgeGlyph = `
 vec4 fixedMiddle(uvec4 path, vec2 a, vec2 d, vec2 wraps, float shift) {
   int inner = int(path.y) - 2;
   vec2 p = fixedPoint(path, 1, a, d, wraps);
@@ -1285,13 +1284,17 @@ void edgeGlyph(uint kind) {
   float lift = (glyphKind & 4u) != 0u ? 0.0 : max(look.strokeWidth, 0.5) * 0.5 + ${edgeLabelGap.toFixed(1)};
   vec2 local = layoutGlyph(kind, pixels, lift, look.labelColor, 0u);
   gl_Position = toClip(spot + axis * local.x + across * local.y);
-}
+}`
+
+export function labelVertexOf(edges: boolean): string {
+  return `${header}${nodeData}${nodeLookData}${edgeData}${curveData}${bundlePath}${glyphLayout}in vec4 glyphAnchor;
+in vec2 glyphFit;${edges ? edgeGlyph : ''}
 void main() {
   vPlate = vec4(0.0);
   uint kind = glyphKind & 3u;
   vUv = mix(glyphUv.xy, glyphUv.zw, corner);
   if (kind != 2u && (glyphKind & 8u) != 0u) {
-    edgeGlyph(kind);
+    ${edges ? 'edgeGlyph(kind);' : 'gl_Position = hidden;'}
     return;
   }
   if (kind != 2u && (glyphKind & ${hullGlyph}u) != 0u) {
@@ -1349,6 +1352,9 @@ void main() {
   gl_Position = toClip(anchor + layoutGlyph(kind, pixels, 0.0, look.labelColor, fill));
 }
 `
+}
+
+export const labelVertex: string = labelVertexOf(true)
 
 export const labelFragment: string = `${header}
 uniform sampler2D atlas;

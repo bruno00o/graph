@@ -270,6 +270,32 @@ describe('drawn', () => {
     expect(renders).toBe(before + 1)
   })
 
+  it('waits for a renderer that holds its frames until it can draw', async () => {
+    let holding = true
+    let wake = () => {}
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      { definition: definition(), ariaLabel: 'graphe' },
+      (_canvas, invalidate) => {
+        wake = invalidate
+        return { ...counting(), holding: () => holding }
+      },
+    )
+    const first = graph.drawn()
+    settle()
+    expect(renders).toBeGreaterThan(0)
+    expect(await settled(first)).toBe(false)
+    holding = false
+    wake()
+    expect(dom.pendingFrames()).toBe(1)
+    const before = renders
+    dom.flushFrames()
+    expect(renders).toBe(before + 1)
+    expect(await settled(first)).toBe(true)
+  })
+
   it('rejects with the reason of the signal once destroyed', async () => {
     const graph = mount()
     const pending = graph.drawn()

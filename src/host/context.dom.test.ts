@@ -3,6 +3,7 @@ import { defaultPointBudget } from '../core/edge-paths'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
+import type { PixelRatioOption } from '../types'
 import { createGraphHost, type GraphInstance } from './mount-graph'
 import type { Renderer, RendererLimits, RenderFrame, RenderInput } from './renderer'
 
@@ -24,6 +25,16 @@ const items: Item[] = [
 ]
 const links: Link[] = [{ id: 'ab', from: 'a', to: 'b' }]
 
+function definitionOf(pixelRatio?: PixelRatioOption) {
+  return defineGraph({
+    marks: [
+      edges<Link>(links, { source: 'from', target: 'to' }),
+      nodes<Item>(items, { x: 'x', y: 'y' }),
+    ],
+    pixelRatio,
+  })
+}
+
 interface Made {
   readonly syncs: RenderInput[]
   readonly frames: RenderFrame[]
@@ -35,18 +46,17 @@ interface Made {
 let dom: FakeDom
 let made: Made[] = []
 
-function mount(limits?: RendererLimits, failing: () => boolean = () => false) {
+function mount(
+  limits?: RendererLimits,
+  failing: () => boolean = () => false,
+  pixelRatio?: PixelRatioOption,
+) {
   const container = document.createElement('div')
   document.body.append(container)
   const graph = createGraphHost(
     container,
     {
-      definition: defineGraph({
-        marks: [
-          edges<Link>(links, { source: 'from', target: 'to' }),
-          nodes<Item>(items, { x: 'x', y: 'y' }),
-        ],
-      }),
+      definition: definitionOf(pixelRatio),
       ariaLabel: 'graphe',
     },
     (): Renderer => {
@@ -183,6 +193,32 @@ describe('renderer limits', () => {
     expect(canvas.width).toBe(800)
     expect(made[0]?.frames.at(-1)?.pixelRatio).toBe(1)
     graph.destroy()
+  })
+
+  it('follows the pixel ratio of the definition', () => {
+    const gpu = { drawingBuffer: 8192, pathPoints: 8192 * 1024, software: false }
+    const graph = mount(gpu, () => false, 1)
+    const canvas = canvasOf(graph)
+    expect(canvas.width).toBe(800)
+    graph.update({ definition: definitionOf('auto') })
+    expect(canvas.width).toBe(1600)
+    dom.flushFrames()
+    expect(made[0]?.frames.at(-1)?.pixelRatio).toBe(2)
+    graph.update({ definition: definitionOf(3) })
+    expect(canvas.width).toBe(2400)
+    graph.update({ definition: definitionOf('device') })
+    expect(canvas.width).toBe(1600)
+    graph.destroy()
+    made = []
+    const software = mount({ ...gpu, software: true }, () => false, 'device')
+    expect(canvasOf(software).width).toBe(1600)
+    software.update({ definition: definitionOf('auto') })
+    expect(canvasOf(software).width).toBe(800)
+    software.destroy()
+    made = []
+    const small = mount({ ...gpu, drawingBuffer: 1000 }, () => false, 3)
+    expect(canvasOf(small).width).toBe(1000)
+    small.destroy()
   })
 
   it('bounds the points of edge paths by the texture size', () => {
