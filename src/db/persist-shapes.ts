@@ -6,7 +6,7 @@ import {
   throttleStrategy,
 } from '@tanstack/db'
 import type { ShapeEditor } from '../editor/editor'
-import type { ShapeAddEdit, ShapeEdit, ShapeMarkName } from '../editor/edits'
+import type { ShapeAddEdit, ShapeAddEditOf, ShapeEdit, ShapeMarkName } from '../editor/edits'
 import { editorLink } from '../editor/link'
 import type { FieldOf, Key, Mark, ShapeGeometry, WritableShapeGeometry } from '../types'
 import { defaultWait, pace, pendingMarks, type Settling } from './pending'
@@ -30,11 +30,15 @@ export interface PersistShapeFields<T> {
   readonly text?: FieldOf<T, string> | undefined
 }
 
-/** Options of `persistShapes`. `M` is the union of the marks of the graph. */
+/**
+ * Options of `persistShapes`. `M` is the union of the marks of the graph, and `N` the name given
+ * to `mark`, which narrows the edits that `create` receives to the marks of that name.
+ */
 export interface PersistShapesOptions<
   T extends object,
   TKey extends string | number,
   M extends Mark = Mark,
+  N extends ShapeMarkName<M> = ShapeMarkName<M>,
 > {
   /** Collection to write to. */
   readonly collection: Collection<T, TKey>
@@ -46,13 +50,13 @@ export interface PersistShapesOptions<
    * Saves only the edits of the mark with this name. Defaults to every edit whose row is in the
    * collection, which suits a graph with one shape mark.
    */
-  readonly mark?: ShapeMarkName<M> | undefined
+  readonly mark?: N | undefined
   /**
    * Builds the row of a new shape, drawn or copied; a copy carries the copied item in `datum`.
    * Without it, an add whose `datum` with the new outline has the key of the shape, as the undo of a
    * removal has, inserts that row, and the other new shapes are left out.
    */
-  readonly create?: ((edit: ShapeAddEdit<M, WritableShapeGeometry>) => T) | undefined
+  readonly create?: ((edit: ShapeAddEditOf<M, N, WritableShapeGeometry>) => T) | undefined
   /**
    * Persists through `createPacedMutations`, with an optimistic write that a failure rolls back.
    * Without it, the collection persists the writes through its own handlers.
@@ -129,10 +133,12 @@ function sameValue(a: unknown, b: unknown): boolean {
  * changed shape, the removed rows and, with `create`, the new ones. Returns a function that stops
  * writing. Throws when `pendingState` is not a free state of the graph.
  */
-export function persistShapes<T extends object, TKey extends string | number, M extends Mark>(
-  editor: ShapeEditor<M>,
-  options: PersistShapesOptions<T, TKey, M>,
-): () => void {
+export function persistShapes<
+  T extends object,
+  TKey extends string | number,
+  M extends Mark,
+  N extends ShapeMarkName<M> = ShapeMarkName<M>,
+>(editor: ShapeEditor<M>, options: PersistShapesOptions<T, TKey, M, N>): () => void {
   const link = editorLink(editor, 'persistShapes')
   const { collection, mutationFn, create } = options
   const wait = liveWait(options.live)
@@ -175,7 +181,9 @@ export function persistShapes<T extends object, TKey extends string | number, M 
     for (const edit of edits) {
       if (only !== undefined && edit.mark !== only) continue
       if (edit.type === 'add') {
-        const row = create ? create(edit as ShapeAddEdit<M, WritableShapeGeometry>) : restored(edit)
+        const row = create
+          ? create(edit as unknown as ShapeAddEditOf<M, N, WritableShapeGeometry>)
+          : restored(edit)
         if (row === null) continue
         batch.written.push({ transaction: collection.insert(row), edits: [edit] })
         batch.edits.push(edit)

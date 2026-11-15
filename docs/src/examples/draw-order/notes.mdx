@@ -1,0 +1,12 @@
+## How it works
+
+Each place holds two to five nodes at the same position, with sizes from their count. Within a mark, nodes draw in the order they arrived, so a big node that arrives last covers the small ones under it.
+
+`order` on `nodes()` changes that: nodes with a lower value draw first. `order: (place) => -place.count` draws the big nodes first, under the small ones, so every node of a stack shows as a ring. A click picks the node drawn on top, the smallest one, and the status names it.
+
+The button rebuilds the definition with `order: (place) => place.count` and passes it to `graph.update`: only the order of the nodes changes, and the biggest node of each stack now covers the others.
+
+## Try it
+
+- Click a stack: the smallest node is selected and drawn above the others.
+- Reverse the order: each stack shows only its biggest node, and a click now picks it.

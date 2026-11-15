@@ -157,6 +157,26 @@ function forward(direction: LayersDirection, from: number, to: number, xy: Float
 const directions: readonly LayersDirection[] = ['down', 'up', 'right', 'left']
 
 describe('layers with groups', () => {
+  it('keeps containers apart with ranks given by the data', async () => {
+    for (const seed of [1, 2, 3]) {
+      for (const direction of directions) {
+        const sample = graphOf({ ...nestedSample(seed, true), label: 18 })
+        const graph = { ...sample, datum: (index: number) => ({ tier: index % 4 }) }
+        const xy = await run(graph, { direction, rank: (item) => (item as { tier: number }).tier })
+        expect(collisions(graph, xy)).toEqual([])
+        const axis = direction === 'down' || direction === 'up' ? 1 : 0
+        const along = new Map<number, number>()
+        for (let index = 9; index < graph.capacity; index++) {
+          const tier = index % 4
+          const at = Math.round(xy[index * 2 + axis] ?? 0)
+          expect(along.get(tier) ?? at).toBe(at)
+          along.set(tier, at)
+        }
+        expect(new Set(along.values()).size).toBe(4)
+      }
+    }
+  })
+
   it('points every edge forward, edges between groups included', async () => {
     for (const direction of directions) {
       const graph = graphOf(nestedSample(4))

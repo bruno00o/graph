@@ -21,7 +21,7 @@ flat out float vEnd;
 flat out float vHalfWidth;
 flat out float vArrowLength;
 flat out float vArrowHalf;
-flat out float vHaloWidth;
+flat out uint vHalo;
 flat out uint vDash;
 flat out uint vArrow;
 #ifdef ENDS
@@ -82,7 +82,8 @@ void main() {
   float width = max(line.width, line.farWidth);
   uint arrow = (packed >> 2u) & 3u;
   float arrowHalf = max(width * 1.6, 3.0);
-  float halo = look.halo > 0.5 ? haloWidth : 0.0;
+  uint haloBits = haloWord(look);
+  float halo = haloSize(haloBits);
   float margin = 0.5 / pixelRatio + 0.25;
   float startHead = (arrow & 1u) != 0u && visible > line.width * 8.0 ? max(line.width * 4.0, 6.0) : 0.0;
   float endHead = (arrow & 2u) != 0u && visible > line.farWidth * 8.0 ? max(line.farWidth * 4.0, 6.0) : 0.0;
@@ -98,7 +99,7 @@ void main() {
   vHalfWidth = line.width * 0.5;
   vArrowLength = (arrow & 1u) != 0u ? startHead : endHead;
   vArrowHalf = max(line.width * 1.6, 3.0);
-  vHaloWidth = halo;
+  vHalo = haloBits;
   vDash = line.dash | (line.farDash << 2u) | (part << 4u);
   vFlow = flow * flowTime;
   vArrow = arrow;

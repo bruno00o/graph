@@ -54,7 +54,7 @@ ShapeLook shapeLook(uint index) {
   }
   if (shown <= 0.0) return result;
   float opacity = float((style.w >> 8u) & 255u) / 255.0;
-  Look look = resolve(mask, Look(opacity, uintBitsToFloat(style.z), 0.0, 0.0, style.x, style.y, none, 0.0, none), 128);
+  Look look = resolve(mask, Look(opacity, uintBitsToFloat(style.z), 0.0, 0.0, style.x, style.y, none, 0.0, none, none), 128);
   float alpha = look.opacity * shown;
   result.halfWidth = max(look.strokeWidth, 0.0) * 0.5;
   result.fill = shapePaint(look.fill, alpha);
@@ -378,7 +378,7 @@ void main() {
     at += texelFetch(nodePosition, n, 0).xy;
     shown *= nodeShown(n);
   }
-  Look look = resolve(mask, Look(1.0, 0.0, 0.0, 1.0, none, none, none, 0.0, none), 128);
+  Look look = resolve(mask, Look(1.0, 0.0, 0.0, 1.0, none, none, none, 0.0, none, none), 128);
   bool world = (glyphKind & ${worldGlyph}u) != 0u;
   float pixels = glyphSize * (world ? scaleAt(at) : min(1.0, zoom));
   if (look.label > 1.5) pixels = max(pixels, world ? labelMin : min(glyphSize, labelMin));

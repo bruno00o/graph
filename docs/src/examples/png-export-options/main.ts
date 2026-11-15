@@ -14,13 +14,22 @@ const backgrounds: Record<Background, string> = {
 }
 const scales = [null, 1, 2]
 const ratios = [1, 2, 3]
+const sizes = [null, { width: 400, height: 300 }, { width: 240, height: 240 }] as const
 const { items, links } = createSample(240, 360, 5, 37, 0.05)
 
 const definition = defineGraph({
   marks: [
     edges<Link>(links, { source: 'from', target: 'to', opacity: 0.6 }),
-    nodes<Item>(items, { x: 'x', y: 'y', color: 'group', size: 'weight', label: 'label' }),
+    nodes<Item>(items, {
+      x: 'x',
+      y: 'y',
+      color: 'group',
+      size: 'weight',
+      label: 'label',
+      badges: { topRight: (item) => (item.weight > 60 ? { text: item.weight } : null) },
+    }),
   ],
+  background: { grid: 'dots' },
 })
 
 function cycle<T>(values: readonly T[], value: T): T {
@@ -40,6 +49,9 @@ export function mount(container: HTMLElement): GraphInstance {
   const graph = mountGraph(container, { definition, ariaLabel: messages.graphLabel })
   let region: ExportRegion = 'graph'
   let scale = scales[0] ?? null
+  let size: (typeof sizes)[number] = sizes[0]
+  let grid = true
+  let badges = true
   let pixelRatio = ratios[0] ?? 1
   let background: Background = 'theme'
   let blob: Blob | null = null
@@ -65,7 +77,9 @@ export function mount(container: HTMLElement): GraphInstance {
     region,
     pixelRatio,
     background: backgrounds[background],
-    zoom: scale ?? undefined,
+    ...(size ? { size } : { zoom: scale ?? undefined }),
+    grid,
+    badges,
   })
   let pending = 0
   const refresh = async () => {
@@ -80,7 +94,7 @@ export function mount(container: HTMLElement): GraphInstance {
       image.src = URL.createObjectURL(next)
     })
     blob = next
-    caption.textContent = messages.size(naturalWidth, naturalHeight, next.size, time)
+    caption.textContent = messages.image(naturalWidth, naturalHeight, next.size, time)
   }
   let timer: ReturnType<typeof setTimeout> | undefined
   const later = () => {
@@ -88,7 +102,7 @@ export function mount(container: HTMLElement): GraphInstance {
     timer = setTimeout(() => void refresh(), 250)
   }
   graph.on('viewchange', () => {
-    if (region === 'view' || scale === null) later()
+    if (region === 'view' || (scale === null && size === null)) later()
   })
   const theme = new MutationObserver(later)
   theme.observe(document.documentElement, {
@@ -113,6 +127,11 @@ export function mount(container: HTMLElement): GraphInstance {
       element.textContent = messages.scale(scale)
       later()
     }),
+    button(messages.size(size), (element) => {
+      size = cycle(sizes, size)
+      element.textContent = messages.size(size)
+      later()
+    }),
     button(messages.ratio(pixelRatio), (element) => {
       pixelRatio = cycle(ratios, pixelRatio)
       element.textContent = messages.ratio(pixelRatio)
@@ -121,6 +140,16 @@ export function mount(container: HTMLElement): GraphInstance {
     button(messages.background(messages.backgrounds[background]), (element) => {
       background = cycle(Object.keys(backgrounds) as Background[], background)
       element.textContent = messages.background(messages.backgrounds[background])
+      later()
+    }),
+    button(messages.grid(grid), (element) => {
+      grid = !grid
+      element.textContent = messages.grid(grid)
+      later()
+    }),
+    button(messages.badges(badges), (element) => {
+      badges = !badges
+      element.textContent = messages.badges(badges)
       later()
     }),
   )

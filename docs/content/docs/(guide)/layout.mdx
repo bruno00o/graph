@@ -52,6 +52,25 @@ Examples: [layer direction and spacing](/examples/layer-spacing), and [layers fr
 
 The result is centered on the current center of the nodes it moves. Nodes with `x` and `y` in your data keep their place, and their edges are left out. A graph with 10,000 nodes and 15,000 edges is laid out in a few tens of milliseconds, and one with 50,000 nodes in a few hundred. Edges that skip many layers cost more. Groups add about half: 40 milliseconds instead of 28 for 10,000 nodes in about 100 groups nested three deep, half a second instead of a quarter for 50,000 nodes in 500 groups.
 
+## Layers by rank
+
+When your data already says which layer a node belongs to, such as one layer per kind of node in an order you choose, give it as `rank`: a field name or a function of the item. The layers then come from the data, and the order inside each layer, the placement and the groups work as above.
+
+```ts
+const order = ['A', 'B', 'C', 'D']
+
+layers<Item>({ rank: (item) => order.indexOf(item.kind) })
+
+layers<Item>({ rank: 'level', direction: 'right' })
+```
+
+- **Order of the values.** The smallest value goes on the first layer, the next one on the second. Only the order counts: values 1, 5 and 20 make three layers next to each other, and a value nobody holds leaves no empty layer.
+- **No rank.** Nodes whose value is missing, `null` or not a finite number go together on one more layer after the last. In the code above, `indexOf` gives `-1` for an unknown kind, which puts it first: return `null` instead to send it last.
+- **Edges.** An edge against the order, from a later layer to an earlier one, is laid out as if it were turned around; it still points to its target. An edge between two nodes of the same layer is left out of the layout and drawn straight along the layer.
+- **One line per layer.** Separate parts of the graph share the same layers, side by side, so every layer is a single line across the drawing.
+- `root` is ignored with `rank`.
+
+Example: [layers fixed by the data](/examples/ranked-layers).
 ## Grid, rings and radial
 
 The other layouts of `@bruno00o/graph/layouts` take no account of edge direction, and lay out thousands of nodes in a few milliseconds.
@@ -70,7 +89,7 @@ radial({ root: 'hub' })
 - **`rings`** puts the first node in the middle and fills rings outward, each ring longer than the last. Nodes come by degree, the busiest first, unless `order` says otherwise. `center` picks the middle node.
 - **`radial`** walks the graph from `root` and places each node on the ring of its distance to the root, next to the node it was reached from. Each branch gets a slice of the circle in proportion to its size. Without `root`, it starts from the node with the most edges. Nodes it cannot reach go on an outer ring.
 
-The three are centered on the current center of the nodes they move. Their `spacing` is the gap left between the borders of the largest nodes, as in every layout here; it defaults to the largest diameter, and at least 24. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it. On a grid, columns are as wide as the widest [box](/docs/marks#boxes) and rows as tall as the tallest; rings, radial, `force` and `geo` see a box as the circle around it, so boxes never overlap but sit further apart than they would need to side by side.
+The three are centered on the current center of the nodes they move. Their `spacing` is the gap left between the borders of the largest nodes, as in every layout here; it defaults to the largest diameter, and at least 24. A grid also takes one gap per direction, such as `grid({ spacing: { rows: 28, columns: 8 } })` to leave room for labels below the nodes. A fixed `center` or `root`, one with `x` and `y` in your data, stays where it is and the others gather around it. On a grid, columns are as wide as the widest [box](/docs/marks#boxes) and rows as tall as the tallest; rings, radial, `force` and `geo` see a box as the circle around it, so boxes never overlap but sit further apart than they would need to side by side.
 
 These layouts, and `layers`, are not incremental: when nodes arrive, every free node is laid out again, so the layers, the grid or the rings stay whole. See [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) for every option.
 
@@ -154,11 +173,14 @@ await graph.layout.run(force({ edgeLength: 100 }))
 
 await graph.layout.run(grid(), { fit: true, duration: 600 })
 
+await graph.layout.run(force(), { keys: shown, others: 'ignored', fit: true })
+
 graph.layout.stop()
 ```
 
 - `run()` lays out every free node with the layout of the definition, from the current positions. Pending data changes are applied first.
 - `keys` limits the run to these nodes. The others stay still and act as anchors. A run on part of the graph starts with less energy and without the pull to the center, so the moved nodes stay near the rest.
+- `others: 'ignored'` leaves the nodes outside `keys` out of the run, with their edges: the keys are laid out as a whole graph of their own, and a force run starts with full energy and its pull to the center. Use it to lay out what a filter leaves on screen.
 - A layout passed to `run` is used for this run only. The definition keeps its own.
 - `fit` frames the result. With `true`, the view fits every node; pass [fit options](/docs/view#fit) to frame some `nodes` or `edges`, or for padding or a duration. It aims at the final positions, so the view moves while the nodes do.
 - The promise resolves to `true` when the run ends, and to `false` when it is stopped, replaced by another run, or when the graph is destroyed. It rejects when neither the call nor the definition has a layout.
@@ -179,6 +201,37 @@ await graph.layout.run(rings(), { duration: 0 })
 ```
 
 Dragged nodes and nodes with `x` and `y` in your data do not glide. `stop()` during the glide leaves nodes where they are at that moment.
+
+## Positions from your code
+
+When your app computes its own arrangement, by kind, along a chain, from a place, run it with `placed` instead of `positions.set`: it behaves like any layout. The promise resolves when nodes arrive, `layoutstart`, `layoutend` and `positionchange` fire, the glide follows `transitions.layout` or `duration`, `fit` frames the result, `layout.stop` freezes it, and [`persistPositions`](/docs/tanstack-db) saves it.
+
+```ts
+import { placed } from '@bruno00o/graph/layouts'
+
+const positions = new Map<Key, Point>()
+items.forEach((item, at) => positions.set(item.id, { x: (at % 10) * 40, y: Math.floor(at / 10) * 40 }))
+
+await graph.layout.run(placed(positions), { fit: true, duration: 500 })
+
+await graph.layout.run(placed<Item>((item) => item.home ?? null))
+```
+
+A free node with no position stays where it is. Nodes with `x` and `y` in your data, dragged nodes and nodes outside `keys` never move. See [`placed`](/docs/api/layouts#placed).
+
+## Compute without moving
+
+`graph.layout.compute` runs a layout and gives you its result, by key, without moving a node or emitting an event. Combine it with your own placement, then run the whole with `placed`:
+
+```ts
+const trees = []
+for (const keys of parts) {
+  trees.push(await graph.layout.compute(layers(), { keys, others: 'ignored' }))
+}
+await graph.layout.run(placed(sideBySide(trees)), { fit: true })
+```
+
+It takes the same `keys` and `others` as `run`, and a `signal` to stop it. It starts from where nodes are, or where they glide to, and runs where `run` would: `force` computes in its worker or on the GPU. A run in progress goes on. The [positions computed by the app](/examples/computed-positions) example lays out a tree per group this way, and places the trees side by side.
 
 ## Follow the progress
 

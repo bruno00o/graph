@@ -280,10 +280,24 @@ export interface GraphLayers<L extends string = string> {
   set(hidden: KeyList<L>): void
 }
 
+/**
+ * What a layout run makes of the nodes left out of its `keys`: `'anchors'` keeps them in the
+ * graph it lays out, still, so moving nodes settle around them; `'ignored'` leaves them out, with
+ * their edges, so the keys are laid out as a whole graph of their own.
+ */
+export type LayoutOthers = 'anchors' | 'ignored'
+
 /** Options of `layout.run`. */
 export interface LayoutRunOptions {
-  /** Nodes to lay out. The others stay still and act as anchors. */
+  /** Nodes to lay out. The others stay still and act as anchors, unless `others` is `'ignored'`. */
   readonly keys?: KeyList | undefined
+  /**
+   * What the nodes left out of `keys` are to the run: `'anchors'` or `'ignored'`. With
+   * `'ignored'`, a force run on the keys starts with full energy and its pull to the center, as a
+   * run on the whole graph does.
+   * @default 'anchors'
+   */
+  readonly others?: LayoutOthers | undefined
   /**
    * Frames the result: every node and shape with `true`, or the `nodes`, `edges` and `shapes` of
    * fit options, every node and shape when they name none. A result reported at once is framed
@@ -297,15 +311,35 @@ export interface LayoutRunOptions {
   readonly duration?: number | undefined
 }
 
+/** Options of `layout.compute`. */
+export interface LayoutComputeOptions {
+  /** Nodes to lay out. Defaults to every free node. */
+  readonly keys?: KeyList | undefined
+  /**
+   * What the nodes left out of `keys` are to the layout: `'anchors'` or `'ignored'`, as for a run.
+   * @default 'anchors'
+   */
+  readonly others?: LayoutOthers | undefined
+  /** Stops the computation when aborted: the promise then rejects with the reason of the signal. */
+  readonly signal?: AbortSignal | undefined
+}
+
 /** Layout runs of a graph. `M` is the union of the marks, whose node items layouts read. */
 export interface GraphLayout<M extends Mark = Mark> {
   /**
    * Applies pending data changes, then lays out every free node, or only `keys`, with `layout` or
    * the layout of the definition. Resolves to `true` when the run ends and `false` when it is
-   * stopped or replaced. Rejects when there is no layout to run, the graph is on a map, or an
-   * option holds a number that is not finite.
+   * stopped or replaced. Rejects when there is no layout to run, the graph is on a map, an option
+   * holds a number that is not finite, or `others` is not one of its values.
    */
   run(layout?: Layout<NodeDatum<M>>, options?: LayoutRunOptions): Promise<boolean>
+  /**
+   * Applies pending data changes, then computes `layout`, or the layout of the definition, from
+   * the current positions, and resolves to the positions it gives the nodes it lays out, by key.
+   * Moves nothing and emits nothing; a run in progress goes on. Rejects when there is no layout,
+   * on a map, for an unknown `others`, when `signal` aborts, or when the graph is destroyed.
+   */
+  compute(layout?: Layout<NodeDatum<M>>, options?: LayoutComputeOptions): Promise<Map<Key, Point>>
   /** Ends the current run and leaves nodes where they are. */
   stop(): void
 }
@@ -362,6 +396,15 @@ export interface PositionSnapshotOptions {
   readonly settled?: boolean | undefined
 }
 
+/** Options of `positions.reset`. */
+export interface PositionResetOptions {
+  /**
+   * Animation duration in milliseconds, zero with `prefers-reduced-motion`. A duration that is not
+   * finite throws a `RangeError`. Defaults to `transitions.positions` of the definition.
+   */
+  readonly duration?: number | undefined
+}
+
 /** Node positions, in world units. */
 export interface GraphPositions {
   /** Position of a node, as drawn now, or `undefined` for an unknown key. */
@@ -372,6 +415,14 @@ export interface GraphPositions {
    * with a warning in development.
    */
   set(entries: Iterable<readonly [Key, Point]>, options?: ViewOptions): void
+  /**
+   * Puts nodes back where their data places them, through the `x` and `y` channels or the
+   * `longitude` and `latitude` ones, after a drag or a `positions.set`. Takes the keys to put back,
+   * or every node without them. A node with no position in its data, or already there, stays,
+   * and so does a node a layout spread inside a group. Animates over `duration`, pins the nodes in
+   * a running layout and emits `positionchange` with the origin `'api'` for the nodes that moved.
+   */
+  reset(keys?: KeyList<Key>, options?: PositionResetOptions): void
   /**
    * Positions of every node of the data, by key, groups and nodes hidden in folded groups
    * included. Gliding nodes give where their glide ends, unless `settled` is `false`. A new map
@@ -478,8 +529,16 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * request starts from the last one that `update({ selection })` has not answered yet.
    */
   readonly onSelectionChange?: ((event: GraphSelectionEvent<M>) => void) | undefined
-  /** Groups folded at mount, by key. Later changes go through `groups`. */
-  readonly initialFolded?: KeyList | undefined
+  /**
+   * Groups folded at mount, by key, or a function that decides, once for each group, whether it
+   * folds when it first has a child: at mount, and for groups that arrive later, before they are
+   * drawn. With controlled `folded`, the function folds the group at once and asks `onFoldChange`
+   * to keep it. Later changes go through `groups`.
+   */
+  readonly initialFolded?:
+    | KeyList
+    | ((group: Extract<GraphTarget<M>, { readonly kind: 'node' }>) => boolean)
+    | undefined
   /**
    * Folded groups. Passing it makes folding controlled for the life of the graph: requests go to
    * `onFoldChange` and only `update({ folded })` applies them.
@@ -574,6 +633,8 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly signal: AbortSignal
   /** `true` once the graph is destroyed. */
   readonly destroyed: boolean
+  /** `true` when the graph draws on a map, mounted by `mountMapGraph` or `<MapGraph>`. */
+  readonly drawsOnMap: boolean
   /**
    * Element under a point in screen pixels, nodes before edges and edges before shapes, or `null`.
    * Inside the lens, the element it shows there.
@@ -606,6 +667,24 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * The same object is returned until the counts can change.
    */
   count(): GraphCountOf<M>
+  /**
+   * Keys of the elements drawn now, whether in the view or not, after pending data changes are
+   * applied: the elements that `count().shown` counts. A folded group gives its key, not those of
+   * the nodes it hides, and an edge drawn for several merged edges gives the key of each of them.
+   * The same object is returned until it can change.
+   */
+  shown(): ElementKeys<M>
+  /**
+   * Whether a node, an edge or a shape is drawn now, by the rules of `shown`. A node hidden in a
+   * folded group, an unknown key and an edge that waits for an end are not.
+   */
+  isShown(element: GraphElement | { readonly kind: 'shape'; readonly key: Key }): boolean
+  /**
+   * Reads the given nodes, edges and shapes again from their items at the next frame, every
+   * channel and style, as if their items had changed. Unknown keys are ignored. Use it when a
+   * function of a mark reads data that changed outside the item.
+   */
+  refresh(keys: ElementKeysInput): void
   /**
    * Subscribes to an event until the returned function is called or the `signal` of the options
    * aborts, and subscribes nothing once the graph is destroyed. A handler that throws stops neither

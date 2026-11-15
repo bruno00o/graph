@@ -26,6 +26,10 @@ type ExportRegion = 'view' | 'graph'
 type ExportLabels = 'visible' | 'all' | 'none'
 ```
 
+## Size
+
+<api-table path="export/index.ts" name="ExportSize" />
+
 ## exportPng options
 
 <api-table path="export/index.ts" name="PngExportOptions" />
@@ -37,7 +41,7 @@ type ExportLabels = 'visible' | 'all' | 'none'
 ## Errors
 
 - A graph that was not created by `mountGraph`, or that is destroyed, throws an `Error`.
-- A `zoom` or a `pixelRatio` that is not a positive number throws a `RangeError`, as does an area smaller than one pixel.
+- A `zoom` or a `pixelRatio` that is not a positive number throws a `RangeError`, as does an area smaller than one pixel, a `size` with no side or a side that is not a finite number of pixels, 1 or more, and a `size` given with a `zoom`.
 - Without WebGL2, or when the browser refuses a drawing buffer, `exportPng` rejects with an `Error`.
 
 ## Behavior
@@ -45,6 +49,7 @@ type ExportLabels = 'visible' | 'all' | 'none'
 - The export reads the graph as it is when the call starts: pending data is flushed first. Moves during an export do not tear the image.
 - Sizes set in screen pixels, such as edge widths, labels and nodes with `units: 'screen'`, keep their size whatever the `zoom` of the export.
 - `region: 'graph'` frames every node, plus the labels, loops and hulls that reach past them, with `padding` around them. `padding` must be finite, 0 or more, or the export throws a `RangeError`.
-- The background grid and the hulls are drawn as on screen: grid, group containers, hulls, then edges and nodes. HTML anchors are not part of the scene and stay out of both exports.
+- With `size`, the image has exactly that size in pixels and the zoom is chosen to fit the region inside it; `pixelRatio` still sets the image pixels per CSS pixel, so the area drawn is `size` divided by it.
+- The background grid, unless `grid` is `false`, and the hulls are drawn as on screen: grid, group containers, hulls, then edges and nodes. HTML anchors are not part of the scene and stay out of both exports.
 - Past 4,096 pixels on a side, the PNG is drawn in tiles and encoded strip by strip. Labels are chosen once for the whole image.
 - The PNG records its pixel density in a `pHYs` chunk, at 96 dots per inch times `pixelRatio`.

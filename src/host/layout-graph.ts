@@ -116,6 +116,19 @@ function extentsOf(
   return extents
 }
 
+function heldContainers(alive: Uint8Array, containers: LayoutContainers): LayoutContainers {
+  const { indices, hierarchy } = containers
+  const held = new Set<number>()
+  for (let index = 0; index < alive.length; index++) {
+    if (alive[index] !== 1) continue
+    for (let above = hierarchy.parent[index] ?? -1; above >= 0 && !held.has(above); ) {
+      if (indices.has(above)) held.add(above)
+      above = hierarchy.parent[above] ?? -1
+    }
+  }
+  return { indices: held, hierarchy }
+}
+
 export function layoutGraph(
   nodes: NodeColumns,
   edges: EdgeColumns,
@@ -124,12 +137,13 @@ export function layoutGraph(
   movable: (index: number) => boolean,
   datum: (key: Key) => unknown,
   containers?: LayoutContainers,
+  scope?: (index: number) => boolean,
 ): LayoutGraph {
   const capacity = nodes.capacity
   const present = nodes.alive.slice(0, capacity)
   const alive = present.slice()
   for (let index = 0; index < capacity; index++) {
-    if (nodes.shape[index] === containerShape) alive[index] = 0
+    if (nodes.shape[index] === containerShape || (scope && !scope(index))) alive[index] = 0
   }
   const mobile = new Uint8Array(capacity)
   const xy = new Float32Array(capacity * 2)
@@ -171,7 +185,8 @@ export function layoutGraph(
     pairs[at++] = target
   }
   const keys = nodes.keys.slice(0, capacity)
-  const groups = containers ? groupsOf(nodes, alive, containers) : undefined
+  const held = containers && scope ? heldContainers(alive, containers) : containers
+  const groups = held ? groupsOf(nodes, alive, held) : undefined
   return withFinitePositions({
     capacity,
     alive,

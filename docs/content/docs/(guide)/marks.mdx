@@ -266,3 +266,14 @@ Picking reports the end under the pointer in `target.end`, `'source'` or `'targe
 ## Drawing order
 
 Shapes draw in mark order, then all labels, then a final pass for hovered, selected and focused elements so they stay visible inside a dense cluster. Put edges first to keep them under the nodes.
+
+Within a node mark, nodes draw in the order they arrived. `order` changes it: nodes with a lower value draw first, under the others, and the node on top is the one a click picks. Nodes without a value count as 0, and nodes with the same value keep the order they would have without `order`. When several nodes share a place, such as a stack of places on a [map](/docs/map), big ones can go under small ones:
+
+```ts
+nodes(places, {
+  size: 'count',
+  order: (place) => -place.count,
+})
+```
+
+The order holds inside each mark and each [layer](/docs/multilayer), in the PNG and SVG exports, and among raised elements: a selected node still draws above every mark. Labels keep their own priority, by size. Without `order`, nothing is sorted. With it, a change of order sorts again: about 20 ms for 500,000 nodes, and about 4 ms when a handful of nodes change.

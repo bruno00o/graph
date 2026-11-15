@@ -12,6 +12,7 @@ import type {
   GraphDefinition,
   GraphDefinitionOptions,
   InteractionOptions,
+  LassoOptions,
   LensOptions,
   Mark,
   ResolvedBackground,
@@ -24,6 +25,7 @@ import type {
   ResolvedTransitions,
   ResolvedViewLimits,
   StateKindStyles,
+  StateLook,
   StateStyle,
   StateStyles,
   SupportStateOptions,
@@ -101,11 +103,22 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
     autoPan: resolveSpeed(options.autoPan ?? true, defaultAutoPanSpeed, 'autoPan'),
     select: options.select ?? 'multiple',
     drag: options.drag ?? true,
-    lasso: options.lasso ?? false,
+    ...resolveLasso(options.lasso ?? false),
     keyboard: options.keyboard ?? true,
     fold: options.fold ?? true,
     lens: resolveLens(options.lens ?? false),
   })
+}
+
+function resolveLasso(
+  options: boolean | LassoOptions,
+): Pick<ResolvedInteraction, 'lasso' | 'lassoModifier' | 'lassoEdges'> {
+  const given = typeof options === 'object' ? options : {}
+  const modifier = given.modifier === undefined ? 'Shift' : given.modifier
+  if (modifier !== 'Shift' && modifier !== null) {
+    throw new TypeError("defineGraph: interaction.lasso.modifier must be 'Shift' or null")
+  }
+  return { lasso: options !== false, lassoModifier: modifier, lassoEdges: given.edges === true }
 }
 
 function resolveLens(options: boolean | LensOptions): ResolvedLens {
@@ -246,10 +259,18 @@ function resolveSupport(
   return carriers === null && carried === null ? null : Object.freeze({ carriers, carried })
 }
 
+function freezeLook<T extends StateLook>(style: T): T {
+  const own = withoutUndefined(style)
+  const halo = own.halo
+  if (typeof halo !== 'object') return own
+  if (halo.width !== undefined) atLeastZero(halo.width, 'state halo.width')
+  return { ...own, halo: Object.freeze(withoutUndefined(halo)) }
+}
+
 function freezeStyle(style: StateStyle | undefined): StateStyle {
-  const own = withoutUndefined(style ?? {})
+  const own = freezeLook(style ?? {})
   const others = style?.others
-  return Object.freeze(others ? { ...own, others: Object.freeze(withoutUndefined(others)) } : own)
+  return Object.freeze(others ? { ...own, others: Object.freeze(freezeLook(others)) } : own)
 }
 
 function freezeStates<S extends string>(states: StateStyles<S>): StateStyles<S> {

@@ -99,6 +99,8 @@ export const defaults: Defaults = {
 }
 
 export const ringWidth = 2
+export const haloWidth = 6
+export const haloLimit = 255
 
 export type BuiltInStyles = Readonly<Record<BuiltInState, StateStyle>>
 

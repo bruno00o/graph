@@ -1,5 +1,6 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { geoToWorld } from '../core/geo'
 import { defineGraph } from '../define-graph'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { groups, nodes } from '../marks'
@@ -9,6 +10,17 @@ import { persistPositions } from './index'
 
 interface Item {
   readonly id: string
+  readonly x: number
+  readonly y: number
+}
+
+interface Spot {
+  readonly id: string
+  readonly lng: number
+  readonly lat: number
+}
+
+interface Both extends Spot {
   readonly x: number
   readonly y: number
 }
@@ -283,5 +295,72 @@ describe('persistPositions', () => {
     )
     // @ts-expect-error
     expect(() => persistPositions(graph, { collection, pendingState: 'other' })).toThrow()
+  })
+
+  it('writes degrees into longitude and latitude fields', async () => {
+    const collection = itemCollection()
+    const graph = mount(collection)
+    await ready(graph)
+    const spots = createCollection(
+      localOnlyCollectionOptions({
+        id: `spots-${serial++}`,
+        getKey: (spot: Spot) => spot.id,
+        initialData: [{ id: 'a', lng: 0, lat: 0 }],
+      }),
+    )
+    const stop = persistPositions(graph, {
+      collection: spots,
+      longitude: 'lng',
+      latitude: 'lat',
+      key: String,
+      create: (key, _point, geo) => ({
+        id: String(key),
+        ...{ lng: geo.longitude, lat: geo.latitude },
+      }),
+    })
+    const target = geoToWorld({ longitude: 13.4, latitude: 52.52 })
+    graph.positions.set([
+      ['a', target],
+      ['b', { x: target.x + 512, y: target.y }],
+    ])
+    stop()
+    expect(spots.get('a')?.lng).toBeCloseTo(13.4, 6)
+    expect(spots.get('a')?.lat).toBeCloseTo(52.52, 6)
+    expect(spots.get('a')).not.toHaveProperty('x')
+    expect(spots.get('b')?.lng).toBeCloseTo(13.4, 6)
+  })
+
+  it('writes world units too when x and y are named next to degrees', async () => {
+    const collection = itemCollection()
+    const graph = mount(collection)
+    await ready(graph)
+    const both = createCollection(
+      localOnlyCollectionOptions({
+        id: `both-${serial++}`,
+        getKey: (row: Both) => row.id,
+        initialData: [{ id: 'a', x: 0, y: 0, lng: 0, lat: 0 }],
+      }),
+    )
+    const stop = persistPositions(graph, {
+      collection: both,
+      x: 'x',
+      y: 'y',
+      longitude: 'lng',
+      latitude: 'lat',
+      key: String,
+    })
+    graph.positions.set([['a', { x: 256, y: 256 }]])
+    stop()
+    expect(both.get('a')).toMatchObject({ x: 256, y: 256, lng: 0 })
+  })
+
+  it('needs longitude and latitude together', async () => {
+    const spots = createCollection(
+      localOnlyCollectionOptions({ id: `lone-${serial++}`, getKey: (spot: Spot) => spot.id }),
+    )
+    const graph = mount(itemCollection())
+    expect(() => persistPositions(graph, { collection: spots, longitude: 'lng' })).toThrow(
+      TypeError,
+    )
   })
 })

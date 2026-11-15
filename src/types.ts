@@ -255,12 +255,17 @@ export type LabelPlacement = 'bottom' | 'top' | 'right' | 'left' | 'center'
 export type LabelWeight = 'normal' | 'bold' | number
 
 /**
- * A pill in a corner of a node. It hides while the node measures less than 10 pixels on screen, and
- * its text shows from 12.
+ * A pill in a corner of a node, 0.55 times as high as the node diameter on screen, up to 18
+ * pixels. It hides while it is less than `minSize` pixels high, and its text shows from 12.
  */
 export interface Badge {
-  /** Text or number in the pill. Without it, the badge is a dot. */
+  /** Text or number in the pill. Without it nor `image`, the badge is a dot. */
   readonly text?: string | number | undefined
+  /**
+   * Icon at the start of the pill, before the text: a URL or an image with options. It goes
+   * through the same image loading as node images.
+   */
+  readonly image?: string | BadgeImage | undefined
   /**
    * Pill color.
    * @default --graph-badge-fill
@@ -270,6 +275,35 @@ export interface Badge {
    * Text color.
    * @default --graph-badge-ink
    */
+  readonly color?: string | undefined
+  /**
+   * Color of the ring around the pill.
+   * @default --graph-node-ring
+   */
+  readonly stroke?: string | undefined
+  /**
+   * Width of the ring around the pill, in screen pixels; 0 draws none.
+   * @default 1.5
+   */
+  readonly strokeWidth?: number | undefined
+  /**
+   * Smallest height of the pill on screen, in pixels, for the badge to show; its text shows from
+   * this height and 12 pixels at least.
+   * @default 10
+   */
+  readonly minSize?: number | undefined
+}
+
+/** An icon in a badge, cropped to the circle at the start of the pill. */
+export interface BadgeImage {
+  /** Image URL: SVG, PNG, JPEG or anything the browser can draw. */
+  readonly src: string
+  /**
+   * Size of the image relative to the height of the pill.
+   * @default 0.7
+   */
+  readonly scale?: number | undefined
+  /** Draws the image as a mask of this color, such as an icon that follows the theme. */
   readonly color?: string | undefined
 }
 
@@ -486,6 +520,12 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly opacity?: Style<T, number> | undefined
   /**
+   * Drawing order within the mark: nodes with a lower value draw first, under the others, and the
+   * node on top is picked first. Nodes without a value count as 0; nodes with the same value keep
+   * their usual order. Raised nodes still draw above every mark.
+   */
+  readonly order?: Channel<T, number> | undefined
+  /**
    * Zoom at and below which the node is hidden, in screen pixels per world unit, as in `View`.
    * Above it, the node fades in over a quarter of a zoom doubling. A hidden node hides its label,
    * its badges and its edges, and is neither picked, exported nor counted. Defaults to no limit.
@@ -521,6 +561,13 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   readonly parent?: Channel<T, Key> | undefined
   /** Look of the node while it is an unfolded group, drawn as a container behind its children. */
   readonly container?: ContainerOptions<T> | undefined
+  /**
+   * Whether the user can drag the node, with `interaction.drag`. A press on a node that cannot be
+   * dragged moves the view, or draws the lasso, as on the background, and a dragged selection
+   * leaves it in place. An unfolded group takes the `drag` of its `container` when set.
+   * @default true
+   */
+  readonly drag?: Style<T, boolean> | undefined
   /**
    * Scales of this mark alone, each with its own extent and categories. A scale left out is the
    * one of the definition, shared with the other marks.
@@ -579,6 +626,25 @@ export interface ContainerOptions<T> {
    * @default 4
    */
   readonly gap?: Style<T, number> | undefined
+  /**
+   * Whether the user can drag the unfolded group by its container, carrying its children. Defaults
+   * to the `drag` of the node.
+   */
+  readonly drag?: Style<T, boolean> | undefined
+  /**
+   * Label while the group is unfolded, as the `label` option of `nodes()`, or `null` for none.
+   * Defaults to the label of the node, above the container.
+   */
+  readonly label?: Channel<T, string> | LabelOptions<T> | null | undefined
+  /**
+   * Badges while the group is unfolded, at the corners of the container, as the `badges` option
+   * of `nodes()`, or `null` for none. Defaults to none: the badges of the node show only while it
+   * is folded.
+   */
+  readonly badges?:
+    | Readonly<Partial<Record<BadgeCorner, Accessor<T, Badge | null | undefined> | undefined>>>
+    | null
+    | undefined
 }
 
 /**
@@ -855,6 +921,11 @@ export interface AggregateEdge<T = unknown> {
   readonly backward: AggregateDirection<T>
   /** Value of the `by` option of `merge` that the merged edges share. Missing without one. */
   readonly value?: Key
+  /**
+   * Identifier of the aggregated edge, made from its mark, its two ends, the `by` value and, for
+   * directed merges, its direction. Unlike `keys[0]`, it stays while the aggregated edge exists.
+   */
+  readonly id: string
 }
 
 /** Merged edges of an `AggregateEdge` that go one way. */
@@ -1345,8 +1416,11 @@ export interface StateLook {
   readonly outline?: string | undefined
   /** Width of the ring outside a node, in screen pixels. Nodes only. */
   readonly outlineWidth?: number | undefined
-  /** Draws the soft `--graph-halo` glow behind the element. */
-  readonly halo?: boolean | undefined
+  /**
+   * Draws a soft glow behind a node or an edge: `true` for the `--graph-halo` glow, 6 pixels wide,
+   * or a `StateHalo` with its own color and width. Shapes have no glow.
+   */
+  readonly halo?: boolean | StateHalo | undefined
   /**
    * Shows or hides the label while the state applies: `true`, `false`, or `'always'`, which also
    * shows it when it is smaller than 8 pixels or its node is under `minScreenSize`, at 8 pixels
@@ -1368,6 +1442,20 @@ export interface StateLook {
    * @default false
    */
   readonly hide?: boolean | undefined
+}
+
+/** Glow of a state around its nodes and edges. */
+export interface StateHalo {
+  /**
+   * Color of the glow, any CSS color; its alpha sets how strong the glow is next to the element.
+   * Defaults to `--graph-halo`.
+   */
+  readonly color?: string | undefined
+  /**
+   * Width of the glow beyond the element, in screen pixels, up to 255.
+   * @default 6
+   */
+  readonly width?: number | undefined
 }
 
 /**
@@ -1462,10 +1550,11 @@ export interface InteractionOptions {
   readonly drag?: boolean | undefined
   /**
    * Shift and drag from the background draws a lasso that adds the nodes inside to the selection.
-   * Needs `select: 'multiple'`.
+   * `LassoOptions` sets the key to hold, or none, and whether edges are taken. Needs
+   * `select: 'multiple'`.
    * @default false
    */
-  readonly lasso?: boolean | undefined
+  readonly lasso?: boolean | LassoOptions | undefined
   /**
    * Focus, select and move the view from the keyboard. The graph element becomes focusable.
    * @default true
@@ -1483,6 +1572,21 @@ export interface InteractionOptions {
    * @default false
    */
   readonly lens?: boolean | LensOptions | undefined
+}
+
+/** Options of the lasso, in `interaction.lasso`. */
+export interface LassoOptions {
+  /**
+   * Key to hold while dragging to draw a lasso, or `null` for no key: then every drag that does not
+   * move a node draws a lasso instead of moving the view, as in a lasso mode of a toolbar.
+   * @default 'Shift'
+   */
+  readonly modifier?: 'Shift' | null | undefined
+  /**
+   * Also adds to the selection the edges whose two ends, as drawn, are inside the lasso.
+   * @default false
+   */
+  readonly edges?: boolean | undefined
 }
 
 /** Options of the magnifying lens, in `interaction.lens`. */
@@ -1529,8 +1633,12 @@ export interface ResolvedInteraction {
   readonly select: SelectMode
   /** Whether nodes can be dragged. */
   readonly drag: boolean
-  /** Whether Shift and drag draws a lasso. */
+  /** Whether a drag can draw a lasso. */
   readonly lasso: boolean
+  /** Key to hold while dragging to draw a lasso, or `null` when every drag can draw one. */
+  readonly lassoModifier: 'Shift' | null
+  /** Whether the lasso takes the edges whose two ends are inside. */
+  readonly lassoEdges: boolean
   /** Whether the keyboard drives the graph. */
   readonly keyboard: boolean
   /** Whether double-click and Enter fold and unfold groups. */

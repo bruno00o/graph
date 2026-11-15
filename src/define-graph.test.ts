@@ -7,9 +7,11 @@ import {
   edges,
   type Hull,
   hull,
+  type LassoOptions,
   type LensOptions,
   type Mark,
   nodes,
+  type StateStyle,
 } from './index'
 import { orthogonalRouting } from './routing'
 
@@ -32,10 +34,34 @@ describe('defineGraph', () => {
       select: 'multiple',
       drag: true,
       lasso: false,
+      lassoModifier: 'Shift',
+      lassoEdges: false,
       keyboard: true,
       fold: true,
       lens: { radius: 120, zoom: 3, key: null },
     })
+  })
+
+  it('resolves lasso options', () => {
+    const resolve = (option: boolean | LassoOptions) => {
+      const { lasso, lassoModifier, lassoEdges } = defineGraph({
+        marks: [],
+        interaction: { lasso: option },
+      }).interaction
+      return { lasso, lassoModifier, lassoEdges }
+    }
+    expect(resolve(true)).toEqual({ lasso: true, lassoModifier: 'Shift', lassoEdges: false })
+    expect(resolve({ modifier: null, edges: true })).toEqual({
+      lasso: true,
+      lassoModifier: null,
+      lassoEdges: true,
+    })
+    expect(resolve({ modifier: undefined, edges: undefined })).toEqual({
+      lasso: true,
+      lassoModifier: 'Shift',
+      lassoEdges: false,
+    })
+    expect(() => resolve({ modifier: 'Alt' as 'Shift' })).toThrow(TypeError)
   })
 
   it('resolves lens options', () => {
@@ -288,6 +314,24 @@ describe('defineGraph', () => {
     expect(() =>
       defineGraph({ marks: [], states: { ...fewer, selected: { halo: false } } }),
     ).not.toThrow()
+  })
+
+  it('checks the halo width of states and freezes the halo', () => {
+    for (const width of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => defineGraph({ marks: [], states: { found: { halo: { width } } } })).toThrow(
+        RangeError,
+      )
+      expect(() =>
+        defineGraph({ marks: [], states: { found: { others: { halo: { width } } } } }),
+      ).toThrow(RangeError)
+    }
+    const definition = defineGraph({
+      marks: [],
+      states: { found: { halo: { color: 'red', width: 0 } } },
+    })
+    const halo = (definition.states.found as StateStyle | undefined)?.halo
+    expect(halo).toEqual({ color: 'red', width: 0 })
+    expect(Object.isFrozen(halo)).toBe(true)
   })
 
   it('checks layer names and their count', () => {

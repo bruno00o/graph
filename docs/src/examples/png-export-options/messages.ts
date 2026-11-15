@@ -9,9 +9,13 @@ export const messages = {
   regions: { view: 'view', graph: 'whole graph' },
   scale: (zoom: number | null) =>
     zoom === null ? 'Scale: current zoom' : `Scale: ${numbers.format(zoom)} px per unit`,
+  size: (size: { readonly width: number; readonly height: number } | null) =>
+    size === null ? 'Size: from the region' : `Size: ${size.width} × ${size.height} px`,
+  grid: (on: boolean) => `Grid: ${on ? 'on' : 'off'}`,
+  badges: (on: boolean) => `Badges: ${on ? 'on' : 'off'}`,
   ratio: (value: number) => `Pixel ratio: ${numbers.format(value)}`,
   background: (name: string) => `Background: ${name}`,
   backgrounds: { theme: 'theme', transparent: 'transparent', white: 'white' },
-  size: (width: number, height: number, bytes: number, time: number) =>
+  image: (width: number, height: number, bytes: number, time: number) =>
     `${numbers.format(width)} × ${numbers.format(height)} px, ${kilobytes.format(bytes / 1024)} KB, ${kilobytes.format(time)} ms`,
 } as const

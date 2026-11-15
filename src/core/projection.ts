@@ -301,6 +301,22 @@ function emptyChanges(shapes: ElementChanges): SceneChanges {
   }
 }
 
+function keyOrder(a: Key, b: Key): number {
+  if (typeof a !== typeof b) return typeof a === 'number' ? -1 : 1
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+function aggregateId(
+  mark: Key,
+  source: Key,
+  target: Key,
+  undirected: boolean,
+  value: Key | undefined,
+): string {
+  const ends = undirected && keyOrder(source, target) > 0 ? [target, source] : [source, target]
+  return JSON.stringify(value === undefined ? [mark, ...ends] : [mark, ...ends, value])
+}
+
 export class Projection {
   readonly hierarchy: Hierarchy
   readonly view: SceneModel
@@ -1051,13 +1067,18 @@ export class Projection {
     const forward = sides ? direction(sides[0]) : Object.freeze(all)
     const backward = sides ? direction(sides[1]) : noEdges
     const value = merges.value(aggregate)
+    const from = hierarchy.keys[source] as Key
+    const to = hierarchy.keys[merges.target[aggregate] ?? none] as Key
+    const slot = merges.slot[aggregate] ?? none
+    const name = this.#model.edgeAt(merges.carrier[aggregate] ?? none)?.mark.name
     const datum: AggregateEdge = Object.freeze({
-      source: hierarchy.keys[source] as Key,
-      target: hierarchy.keys[merges.target[aggregate] ?? none] as Key,
+      source: from,
+      target: to,
       ...all,
       forward,
       backward,
       ...(value !== undefined ? { value } : {}),
+      id: aggregateId(name ?? slot, from, to, split, value),
     })
     this.#data[aggregate] = datum
     return datum

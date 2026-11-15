@@ -14,6 +14,7 @@ export {
 export {
   applyShapeEdits,
   type ShapeAddEdit,
+  type ShapeAddEditOf,
   type ShapeChangeEdit,
   type ShapeEdit,
   type ShapeEditFields,

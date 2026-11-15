@@ -263,6 +263,25 @@ const scenarios = {
     await nextFrame()
     return { call, set, pan, clear: performance.now() - t1 }
   })()`,
+  reorder: `(async () => {
+    const { graph, items, define, nextFrame } = window.bench
+    graph.view.fit()
+    await __bench.settle()
+    const update = async (list) => {
+      const t = performance.now()
+      graph.update({ definition: define(list) })
+      await nextFrame()
+      await nextFrame()
+      return performance.now() - t
+    }
+    const ranked = items.map((item, index) => ({ ...item, rank: (index * 7919) % 1000 }))
+    const all = await update(ranked)
+    await __bench.settle()
+    const one = ranked.slice()
+    one[1] = { ...one[1], rank: -1 }
+    const single = await update(one)
+    return { all, single }
+  })()`,
   nodeDrag: `(async () => {
     const { graph } = window.bench
     __bench.focus()
@@ -328,6 +347,9 @@ async function benchRender(page, out) {
   results.pick = await page.evaluate(scenarios.pick)
   results.selectAndMute = await page.evaluate(scenarios.selectAndMute)
   results.others = await page.evaluate(scenarios.others)
+  if (new URLSearchParams(options.params).has('order')) {
+    results.reorder = await page.evaluate(scenarios.reorder)
+  }
   results.nodeDrag = await measureDrag(page)
   await page.evaluate(`(async () => {
     const { graph, items, links } = window.bench
@@ -376,6 +398,9 @@ async function benchRender(page, out) {
       `pick: first ${ms(results.pick.firstPickWithBuild)}, then median ${ms(results.pick.pick.median)}, p95 ${ms(results.pick.pick.p95)}`,
       `select ${ms(results.selectAndMute.select)}, mute ${ms(results.selectAndMute.mute)} (call ${ms(results.selectAndMute.muteCall)}), clear ${ms(results.selectAndMute.clear)}`,
       `others: set ${ms(results.others.set)} (call ${ms(results.others.call)}), clear ${ms(results.others.clear)}`,
+      ...(results.reorder
+        ? [`reorder: all ${ms(results.reorder.all)}, one ${ms(results.reorder.single)}`]
+        : []),
       results.nodeDrag
         ? `node drag: host median ${ms(results.nodeDrag.cost.median)}, p95 ${ms(results.nodeDrag.cost.p95)}`
         : 'node drag: no node found',

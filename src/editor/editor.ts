@@ -181,6 +181,16 @@ export interface ShapeEditorState {
   readonly canUndo: boolean
   /** Whether `redo` has an edit to make again. */
   readonly canRedo: boolean
+  /**
+   * Whether `raise` with no keys would propose something: a selected shape the editor can edit is
+   * not yet above every other shape of its mark. `false` with no such shape.
+   */
+  readonly canRaise: boolean
+  /**
+   * Whether `lower` with no keys would propose something: a selected shape the editor can edit is
+   * not yet under every other shape of its mark. `false` with no such shape.
+   */
+  readonly canLower: boolean
   /** The text being typed into a shape, or `null`. */
   readonly text: ShapeEditorText | null
 }
@@ -343,6 +353,13 @@ interface Proposal {
 
 type Proposed = readonly [Key, Outline | null, (Point | null)?]
 
+interface Reach {
+  readonly keys: Key[]
+  readonly orders: number[]
+  low: number
+  high: number
+}
+
 interface Moved {
   readonly key: Key
   readonly base: Snapshot
@@ -454,6 +471,8 @@ const emptyState: ShapeEditorState = Object.freeze({
   drawing: null,
   canUndo: false,
   canRedo: false,
+  canRaise: false,
+  canLower: false,
   text: null,
 })
 const resizeCursors = [
@@ -707,6 +726,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
         : previous.drawing?.tool === draw.tool && previous.drawing.points === points
           ? previous.drawing
           : Object.freeze({ tool: draw.tool, points })
+    const reach = gesture === null && selected.length > 0 ? reaches(selected) : null
+    const canRaise = gesture === null ? reach !== null && movable(reach, true) : previous.canRaise
+    const canLower = gesture === null ? reach !== null && movable(reach, false) : previous.canLower
     const next: ShapeEditorState = {
       selected: sameKeys(previous.selected, selected) ? previous.selected : Object.freeze(selected),
       gesture: nextGesture,
@@ -715,6 +737,8 @@ export function createShapeEditor<S extends string, M extends Mark>(
       drawing,
       canUndo: prune(undoStack, 'after'),
       canRedo: prune(redoStack, 'before'),
+      canRaise,
+      canLower,
       text: textState(previous.text),
     }
     if (
@@ -725,7 +749,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
       next.tool === previous.tool &&
       next.drawing === previous.drawing &&
       next.canUndo === previous.canUndo &&
-      next.canRedo === previous.canRedo
+      next.canRedo === previous.canRedo &&
+      next.canRaise === previous.canRaise &&
+      next.canLower === previous.canLower
     ) {
       return
     }
@@ -1372,32 +1398,66 @@ export function createShapeEditor<S extends string, M extends Mark>(
     selectKeys(proposals.map((proposal) => proposal.edit.key))
   }
 
-  function reorder(keys: readonly Key[], up: boolean): void {
+  function reaches(keys: readonly Key[]): Map<number, Reach> {
     const store = internals.scene.shapes
-    const groups = new Map<number, Moved[]>()
+    const groups = new Map<number, Reach>()
     const moved = new Set<number>()
     for (const key of keys) {
       const entry = entryOf(key)
-      const base = snapshotOf(key)
-      if (!entry || !base) continue
+      if (!entry) continue
+      const waiting = pending.get(key)
+      if (waiting && !waiting.outline) continue
       const index = entry.record.index
-      const slot = store.slot[index] ?? 0
       moved.add(index)
-      const group = groups.get(slot) ?? []
-      group.push({ key, base, entry })
-      groups.set(slot, group)
-    }
-    const proposals: Proposal[] = []
-    for (const [slot, group] of groups) {
-      let edge = up ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY
-      for (let index = 0; index < store.capacity; index++) {
-        if (store.alive[index] !== 1 || store.slot[index] !== slot || moved.has(index)) continue
-        const order = orderAt(index)
-        edge = up ? Math.max(edge, order) : Math.min(edge, order)
+      const slot = store.slot[index] ?? 0
+      let reach = groups.get(slot)
+      if (!reach) {
+        reach = {
+          keys: [],
+          orders: [],
+          low: Number.POSITIVE_INFINITY,
+          high: Number.NEGATIVE_INFINITY,
+        }
+        groups.set(slot, reach)
       }
-      if (!Number.isFinite(edge)) continue
-      const orders = group.map(({ base }) => base.order)
-      if (up ? Math.min(...orders) > edge : Math.max(...orders) < edge) continue
+      reach.keys.push(key)
+      reach.orders.push(waiting?.order ?? orderAt(index))
+    }
+    if (groups.size === 0) return groups
+    for (let index = 0; index < store.capacity; index++) {
+      if (store.alive[index] !== 1 || moved.has(index)) continue
+      const reach = groups.get(store.slot[index] ?? 0)
+      if (!reach) continue
+      const order = orderAt(index)
+      reach.low = Math.min(reach.low, order)
+      reach.high = Math.max(reach.high, order)
+    }
+    return groups
+  }
+
+  function movesAcross(reach: Reach, up: boolean): boolean {
+    const edge = up ? reach.high : reach.low
+    if (!Number.isFinite(edge)) return false
+    return up ? Math.min(...reach.orders) <= edge : Math.max(...reach.orders) >= edge
+  }
+
+  function movable(groups: ReadonlyMap<number, Reach>, up: boolean): boolean {
+    for (const reach of groups.values()) if (movesAcross(reach, up)) return true
+    return false
+  }
+
+  function reorder(keys: readonly Key[], up: boolean): void {
+    const store = internals.scene.shapes
+    const proposals: Proposal[] = []
+    for (const reach of reaches(keys).values()) {
+      if (!movesAcross(reach, up)) continue
+      const edge = up ? reach.high : reach.low
+      const group: Moved[] = []
+      for (const key of reach.keys) {
+        const entry = entryOf(key)
+        const base = snapshotOf(key)
+        if (entry && base) group.push({ key, base, entry })
+      }
       group.sort(
         (a, b) =>
           a.base.order - b.base.order ||
@@ -2442,7 +2502,9 @@ export function createShapeEditor<S extends string, M extends Mark>(
       state.drawing === null &&
       state.text === null &&
       !state.canUndo &&
-      !state.canRedo
+      !state.canRedo &&
+      !state.canRaise &&
+      !state.canLower
         ? state
         : Object.freeze({
             ...state,
@@ -2451,6 +2513,8 @@ export function createShapeEditor<S extends string, M extends Mark>(
             drawing: null,
             canUndo: false,
             canRedo: false,
+            canRaise: false,
+            canLower: false,
             text: null,
           }),
     )

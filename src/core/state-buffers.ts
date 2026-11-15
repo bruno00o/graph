@@ -24,7 +24,8 @@ const otherRows: Readonly<Record<StateKind, number>> = {
 export interface ResolvedStateStyle {
   readonly opacity?: number | undefined
   readonly strokeWidth?: number | undefined
-  readonly halo?: boolean | undefined
+  readonly halo?: number | undefined
+  readonly haloColor?: number | undefined
   readonly label?: boolean | 'always' | undefined
   readonly fill?: number | undefined
   readonly stroke?: number | undefined
@@ -356,7 +357,7 @@ export class StateBuffers {
     const at = row * 4
     this.numbers[at] = style?.opacity ?? -1
     this.numbers[at + 1] = style?.strokeWidth ?? -1
-    this.numbers[at + 2] = style?.halo === undefined ? -1 : style.halo ? 1 : 0
+    this.numbers[at + 2] = style?.halo ?? -1
     this.numbers[at + 3] = labelWord(style?.label)
     this.paint[at] = style?.fill ?? noPaint
     this.paint[at + 1] = style?.stroke ?? noPaint
@@ -365,6 +366,7 @@ export class StateBuffers {
       style?.outlineWidth === undefined ? noPaint : floatWord(Math.max(0, style.outlineWidth))
     this.labels[at] = style?.labelColor ?? noPaint
     this.labels[at + 1] = style?.flow === undefined ? noPaint : floatWord(style.flow)
+    this.labels[at + 2] = style?.haloColor ?? noPaint
   }
 
   setStyle(

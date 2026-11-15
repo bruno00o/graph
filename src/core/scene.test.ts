@@ -199,6 +199,70 @@ describe('createScene', () => {
     expect(scene.edges.arrow[edge]).toBe(arrowCodes.both)
   })
 
+  it('reads badge icons, rings and minimum sizes, and drops their colors', () => {
+    const icon = 'data:image/svg+xml,icon'
+    const { scene, render } = setup({
+      marks: [
+        nodes<Item>([{ id: 'a' }], {
+          badges: {
+            topRight: () => ({ image: { src: icon, color: '#fff', scale: 0.5 }, text: 3 }),
+            topLeft: () => ({ image: icon, stroke: '#123', strokeWidth: -2, minSize: 4 }),
+            bottomLeft: () => ({ image: { src: '' }, strokeWidth: Number.NaN, minSize: -1 }),
+          },
+        }),
+      ],
+    })
+    const colors = scene.palette.colors
+    expect(
+      (scene.nodes.badges[0] ?? []).map((badge) => [
+        badge.corner,
+        badge.image,
+        badge.imageScale,
+        colors[badge.imageColor] ?? null,
+        colors[badge.ring],
+        badge.ringWidth,
+        badge.minSize,
+      ]),
+    ).toEqual([
+      [cornerCodes.topLeft, icon, 0.7, null, '#123', 0, 4],
+      [cornerCodes.topRight, icon, 0.5, '#fff', 'var(--graph-node-ring)', 1.5, 10],
+      [cornerCodes.bottomLeft, null, 0.7, null, 'var(--graph-node-ring)', 1.5, 0],
+    ])
+    render({ marks: [nodes<Item>([{ id: 'a' }])] })
+    expect(scene.nodes.badges[0]).toBeNull()
+    const length = scene.palette.colors.length
+    render({
+      marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], { fill: (item) => `#${item.id}00` })],
+    })
+    expect(scene.palette.colors).toHaveLength(length)
+    expect(scene.palette.colors).not.toContain('#123')
+    expect(scene.palette.colors).not.toContain('#fff')
+  })
+
+  it('writes the draw order only once a mark has one', () => {
+    const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    const ranks = new Map([
+      ['a', 2],
+      ['b', -1],
+      ['c', 2],
+    ])
+    const { scene, nodeIndex, render } = setup({ marks: [nodes<Item>(items)] })
+    expect(scene.nodes.order.used).toBe(false)
+    render({ marks: [nodes<Item>(items, { order: (item) => ranks.get(item.id) ?? 0 })] })
+    expect(scene.nodes.order.used).toBe(true)
+    const drawn = () =>
+      [...scene.nodes.order.list.subarray(0, scene.nodes.order.length)].map(
+        (index) => scene.nodes.keys[index],
+      )
+    expect(drawn()).toEqual(['b', 'a', 'c'])
+    expect(scene.nodes.order.rankOf(nodeIndex('c'))).toBe(2)
+    ranks.set('c', -5)
+    render({ marks: [nodes<Item>([...items], { order: (item) => ranks.get(item.id) ?? 0 })] })
+    expect(drawn()).toEqual(['c', 'b', 'a'])
+    render({ marks: [nodes<Item>(items.slice(1), { order: (item) => ranks.get(item.id) ?? 0 })] })
+    expect(drawn()).toEqual(['c', 'b'])
+  })
+
   it('draws an outline only when asked, two pixels wide by default', () => {
     const { scene, nodeIndex } = setup({
       marks: [
