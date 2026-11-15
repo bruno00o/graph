@@ -842,6 +842,14 @@ export interface EdgeMergeOptions<T> {
    */
   readonly halves?: boolean | undefined
   /**
+   * Draws the edges toward a folded group as one aggregated edge whatever `by`: between a node and
+   * a folded group, or two folded groups, edges with different values merge together, with no
+   * `value`. Between plain nodes `by` still splits them, and unfolding the group brings back one
+   * line per value. Without a `by`, nothing changes.
+   * @default false
+   */
+  readonly foldedAsOne?: boolean | undefined
+  /**
    * Fewest parallel edges that merge between two visible nodes: fewer edges draw one by one. Edges
    * that end in a folded group always merge.
    * @default 2
@@ -925,11 +933,15 @@ export interface AggregateEdge<T = unknown> {
    * `false`.
    */
   readonly backward: AggregateDirection<T>
-  /** Value of the `by` option of `merge` that the merged edges share. Missing without one. */
+  /**
+   * Value of the `by` option of `merge` that the merged edges share. Missing without one, and for
+   * edges toward a folded group merged by `foldedAsOne`.
+   */
   readonly value?: Key
   /**
    * Identifier of the aggregated edge, made from its mark, its two ends, the `by` value and, for
    * directed merges, its direction. Unlike `keys[0]`, it stays while the aggregated edge exists.
+   * An edge merged by `foldedAsOne` has a null where the value goes.
    */
   readonly id: string
 }

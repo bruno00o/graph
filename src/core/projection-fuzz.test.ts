@@ -26,6 +26,7 @@ const leafIds = ['n0', 'n1', 'n2', 'n3', 'n4', 'n5', 'n6']
 
 let mergeMode = 0
 let betweenGroups: 'members' | 'groups' = 'members'
+let foldedAsOne = false
 const seeds = 80
 
 function definition(items: Item[], links: Link[], directed: boolean): GraphDefinitionOptions {
@@ -39,9 +40,9 @@ function definition(items: Item[], links: Link[], directed: boolean): GraphDefin
         width: 'weight',
         merge:
           mergeMode === 0
-            ? { by: 'kind', min: 2, directed }
+            ? { by: 'kind', min: 2, directed, foldedAsOne }
             : mergeMode === 1
-              ? { min: 3, directed }
+              ? { min: 3, directed, foldedAsOne }
               : undefined,
         aggregate: { width: (aggregate: AggregateEdge<Link>) => aggregate.count, stroke: 'black' },
         betweenGroups,
@@ -230,6 +231,7 @@ describe('incremental projection and scene against a fresh build', () => {
         let { items, links } = initial(next)
         mergeMode = Math.floor(next() * 3)
         betweenGroups = next() < 0.5 ? 'groups' : 'members'
+        foldedAsOne = next() < 0.5
         if (next() < 0.3) {
           items = items.map((item) => ({ ...item, parent: null }))
           mergeMode = 2
@@ -240,6 +242,7 @@ describe('incremental projection and scene against a fresh build', () => {
         for (let step = 0; step < 30; step++) {
           if (next() < 0.1) {
             mergeMode = Math.floor(next() * 3)
+            if (next() < 0.5) foldedAsOne = !foldedAsOne
             if (next() < 0.5) betweenGroups = betweenGroups === 'groups' ? 'members' : 'groups'
             live.render(definition(items, links, directed))
           } else if (next() < 0.25) {
