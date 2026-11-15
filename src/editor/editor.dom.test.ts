@@ -245,6 +245,8 @@ describe('createShapeEditor', () => {
       drawing: null,
       canUndo: true,
       canRedo: false,
+      canRaise: true,
+      canLower: true,
       text: null,
     })
     expect(drafted(graph, 'box')).toBe(true)

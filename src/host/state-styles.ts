@@ -2,9 +2,15 @@ import { flowSpeed } from '../core/flow'
 import type { ResolvedStateStyle, StateBuffers } from '../core/state-buffers'
 import { isBuiltInState, styleFor } from '../core/state-names'
 import { withoutUndefined } from '../core/without-undefined'
-import { builtInStyles, defaults } from '../theme/tokens'
+import { builtInStyles, defaults, haloLimit, haloWidth } from '../theme/tokens'
 import type { GraphDefinition, StateLook } from '../types'
 import type { StateRegistry } from './state-registry'
+
+function haloOf(halo: StateLook['halo']): number | undefined {
+  if (halo === undefined) return undefined
+  if (typeof halo !== 'object') return halo ? haloWidth : 0
+  return Math.min(halo.width ?? haloWidth, haloLimit)
+}
 
 export function resolveStyle(
   style: StateLook & { readonly raise?: boolean | undefined },
@@ -15,7 +21,8 @@ export function resolveStyle(
   return {
     opacity: style.opacity,
     strokeWidth: style.strokeWidth,
-    halo: style.halo,
+    halo: haloOf(style.halo),
+    haloColor: typeof style.halo === 'object' ? color(style.halo.color) : undefined,
     label: style.label,
     fill: color(style.fill),
     stroke: color(style.stroke),

@@ -56,6 +56,21 @@ The children of an unfolded group that are [spread](/docs/groups#spread-children
 
 The [PNG export options](/examples/png-export-options) example previews the region, the scale, the pixel ratio and the background, with the size of the image.
 
+## Exact size
+
+`size` sets the size of the image in pixels, instead of the zoom: the export picks the largest zoom at which the region fits inside it, with its aspect kept. It suits thumbnails and batches, where every image must have the same size whatever the graph. Give a `width`, a `height`, or both; with one side only, the other follows the aspect of the region.
+
+```ts
+await exportPng(graph, { region: 'graph', size: { width: 640, height: 400 } })
+await exportSvg(graph, { region: 'graph', size: { width: 320 } })
+```
+
+- With `region: 'graph'`, the nodes, labels, loops and hulls fit inside the size with `padding` around them, which stays in CSS pixels. Since edge widths and labels keep their size in pixels, the zoom is found by search, not by a ratio of sizes.
+- With `region: 'view'`, the whole area the view shows fits inside, so a size of another aspect shows more of the graph around it. `padding` applies to `region: 'graph'` only.
+- The space the region leaves over, on the longer side, shows the background.
+- A PNG has exactly `size` pixels, whatever `pixelRatio`, which keeps its meaning: edge widths and labels are drawn at their CSS size times it, and the area drawn is `size` divided by it. A smaller ratio draws the graph with relatively larger labels. An SVG takes `size` as its width and height, in CSS pixels.
+- `size` sets the zoom, so passing `zoom` too throws a `RangeError`, as does a side that is not a finite number of pixels, 1 or more.
+
 ## Pixel ratio
 
 `pixelRatio` is the number of image pixels per CSS pixel. It defaults to the device pixel ratio of the graph, so the image is as sharp as the screen. Raise it for print.
@@ -65,6 +80,14 @@ await exportPng(graph, { region: 'graph', pixelRatio: 4 })
 ```
 
 The image is drawn in a WebGL context of its own, freed at the end. Past 4,096 pixels on a side it is drawn in tiles, so its size is bounded by memory rather than by the GPU. Labels are chosen once for the whole image, so none is cut or doubled at a tile edge. The PNG records its pixel density, so a viewer shows it at its CSS size.
+
+## Grid and badges
+
+The background grid of the definition and the badges of the nodes are drawn by default. `grid: false` leaves the grid out and `badges: false` the badges, in a PNG and in an SVG, so a batch of images can show the same graph without them. The nodes keep their size, their labels and their place.
+
+```ts
+await exportPng(graph, { grid: false, badges: false })
+```
 
 ## Labels
 
@@ -101,11 +124,11 @@ The SVG is written from the scene, without reading pixels back, so it stays shar
 - the [shapes](/docs/shapes) of `shapes()` marks, with fill, outline, line and opacity, over the background grid and under the containers, hulls, edges and nodes;
 - node shapes, fills, inner strokes, outlines, halos and opacity;
 - pictures cut to the node shape, and icons tinted with their `color`;
-- badges with their text;
+- badges with their text, unless `badges` is `false`;
 - unfolded groups as containers behind their children, rectangles or circles, and folded groups as nodes;
 - straight and curved edges, loops, dashes, dots, flows as still dashes, and arrows;
 - labels with their placement, color, weight, second line and background;
-- the background grid, as one pattern per level, and the fills and outlines of hulls, over the containers and under the edges;
+- the background grid, as one pattern per level, unless `grid` is `false`, and the fills and outlines of hulls, over the containers and under the edges;
 - the state styles in force, such as selection, hover and your own states;
 - colors of the current theme, as hex values.
 

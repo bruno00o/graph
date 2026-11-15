@@ -1918,7 +1918,7 @@ skills:
         priority: MEDIUM
         status: active
       - mistake: Snapping to the background without a background grid
-        mechanism: snap.grid 'background' follows the background grid of the definition, so without one nothing snaps and nothing warns.
+        mechanism: snap.grid 'background' follows the background grid of the definition, so without one nothing snaps and a development build only warns once; a map never has a background grid.
         wrong_pattern: |
           createShapeEditor(graph, { snap: { grid: 'background' } }) on a graph without background
         correct_pattern: |

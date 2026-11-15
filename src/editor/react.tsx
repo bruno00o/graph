@@ -43,6 +43,8 @@ const emptyState: ShapeEditorState = Object.freeze({
   drawing: null,
   canUndo: false,
   canRedo: false,
+  canRaise: false,
+  canLower: false,
   text: null,
 })
 

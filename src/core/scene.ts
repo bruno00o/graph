@@ -21,6 +21,9 @@ import type {
 } from '../types'
 import {
   arrowCodes,
+  badgeImageScale,
+  badgeMinSize,
+  badgeRingWidth,
   boxShape,
   containerCodes,
   containerShape,
@@ -35,6 +38,7 @@ import {
   shapeCodes,
 } from './columns'
 import {
+  type CompiledBadges,
   type CompiledEdgeMark,
   type CompiledEnd,
   type CompiledNodeMark,
@@ -336,34 +340,48 @@ function codeOf<T extends string>(codes: Readonly<Record<T, number>>, value: unk
 }
 
 function readBadges(
-  mark: CompiledNodeMark,
+  compiled: CompiledBadges,
   datum: unknown,
   palette: Palette,
   fallbacks: ColorFallbacks,
 ): NodeBadge[] | null {
-  if (mark.badges.length === 0) return null
+  if (compiled.length === 0) return null
   const badges: NodeBadge[] = []
-  for (const [corner, read] of mark.badges) {
+  for (const [corner, read] of compiled) {
     const badge = read(datum)
     if (typeof badge !== 'object' || badge === null) continue
-    const { text, fill, color } = badge as Record<string, unknown>
+    const { text, fill, color, image, stroke, strokeWidth, minSize } = badge as Record<
+      string,
+      unknown
+    >
+    const icon = readImage(image, badgeImageScale)
     badges.push({
       corner: cornerCodes[corner],
       text: typeof text === 'number' ? String(text) : toText(text) || null,
       fill: swapColor(palette, noColor, toColor(fill), fallbacks.badgeFill),
       color: swapColor(palette, noColor, toColor(color), fallbacks.badgeInk),
-      ring: fallbacks.badgeRing,
+      ring: swapColor(palette, noColor, toColor(stroke), fallbacks.badgeRing),
+      ringWidth: Math.max(0, finiteOr(strokeWidth, badgeRingWidth)),
+      image: icon?.src ?? null,
+      imageScale: icon?.scale ?? badgeImageScale,
+      imageColor: swapColor(palette, noColor, icon?.color ?? null, noColor),
+      minSize: Math.max(0, finiteOr(minSize, badgeMinSize)),
     })
   }
   return badges.length === 0 ? null : badges
 }
 
-function readImage(value: unknown): { src: string; scale: number; color: string | null } | null {
-  if (typeof value === 'string') return value === '' ? null : { src: value, scale: 1, color: null }
+function readImage(
+  value: unknown,
+  scaleFallback = 1,
+): { src: string; scale: number; color: string | null } | null {
+  if (typeof value === 'string') {
+    return value === '' ? null : { src: value, scale: scaleFallback, color: null }
+  }
   if (typeof value !== 'object' || value === null) return null
   const { src, scale, color } = value as Record<string, unknown>
   if (typeof src !== 'string' || src === '') return null
-  return { src, scale: Math.max(0, finiteOr(scale, 1)), color: toColor(color) }
+  return { src, scale: Math.max(0, finiteOr(scale, scaleFallback)), color: toColor(color) }
 }
 
 class RecordBatch<R extends { readonly index: number }> {
@@ -741,6 +759,8 @@ export function createScene(
     for (const badge of badges) {
       palette.drop(badge.fill)
       palette.drop(badge.color)
+      palette.drop(badge.ring)
+      palette.drop(badge.imageColor)
     }
   }
 
@@ -797,22 +817,24 @@ export function createScene(
     nodes.zoom.set(index, readMinZoom(mark.minZoom?.(datum)), readMaxZoom(mark.maxZoom?.(datum)))
     if (mark.time) nodes.time.read(index, mark.time(datum))
     else nodes.time.clear(index)
-    nodes.label[index] = toText(mark.label?.(datum))
-    nodes.secondary[index] = toText(mark.secondary?.(datum))
+    if (nodes.order.used) nodes.order.set(index, mark.order?.(datum))
+    const text = record.container ? (mark.container.label ?? mark) : mark
+    nodes.label[index] = toText(text.label?.(datum))
+    nodes.secondary[index] = toText(text.secondary?.(datum))
     nodes.labelBackground[index] = readBackground(
       nodes.labelBackground[index] ?? noColor,
-      mark.labelBackground?.(datum),
+      text.labelBackground?.(datum),
       palette,
       fallbacks,
     )
-    writeLabelText(nodes, index, mark.labelText, datum, palette)
+    writeLabelText(nodes, index, text.labelText, datum, palette)
     nodes.labelPlacement[index] =
-      record.container && !mark.labelPlacement
+      record.container && !text.labelPlacement
         ? placementCodes.top
-        : !mark.labelPlacement && nodes.shape[index] === boxShape
+        : !text.labelPlacement && nodes.shape[index] === boxShape
           ? placementCodes.center
-          : codeOf<LabelPlacement>(placementCodes, mark.labelPlacement?.(datum))
-    nodes.labelMinScreenSize[index] = positive(mark.labelMinScreenSize?.(datum))
+          : codeOf<LabelPlacement>(placementCodes, text.labelPlacement?.(datum))
+    nodes.labelMinScreenSize[index] = positive(text.labelMinScreenSize?.(datum))
     writeBox(index, mark, datum)
     const previous = nodeColors[previousSlot] ?? sharedColor
     if (held !== before || previous !== nodeColor) {
@@ -921,7 +943,7 @@ export function createScene(
       image?.color ?? null,
       noColor,
     )
-    nodes.badges[index] = readBadges(mark, datum, palette, fallbacks)
+    nodes.badges[index] = readBadges(mark.badges, datum, palette, fallbacks)
     return held
   }
 
@@ -963,7 +985,7 @@ export function createScene(
     nodes.image[index] = null
     nodes.imageScale[index] = 1
     nodes.imageColor[index] = swapColor(palette, nodes.imageColor[index] ?? noColor, null, noColor)
-    nodes.badges[index] = null
+    nodes.badges[index] = readBadges(look.badges, datum, palette, fallbacks)
     return undefined
   }
 
@@ -1128,6 +1150,7 @@ export function createScene(
       color.release(held)
       nodeHeld[index] = undefined
     }
+    nodes.order.remove(index)
     nodes.clear(index)
     sizeValues[index] = Number.NaN
     nodeColorValues[index] = undefined
@@ -1431,6 +1454,11 @@ export function createScene(
       }
       scales = next
       const marks = definition.marks
+      if (
+        marks.some((mark) => mark.type === 'nodes' && (mark as NodeMark<unknown>).options.order)
+      ) {
+        nodes.order.use()
+      }
       shapes.setMarks(marks)
       wanted = {
         nodes: wantedColors(marks, 'nodes'),
@@ -1556,6 +1584,7 @@ export function createScene(
       for (const record of shapeBatch.records) if (writeShape(record)) painted = true
       if (painted) shapes.styleVersion++
       for (const state of colorStates()) state.settle(countHeld)
+      nodes.order.settle(nodes.alive, nodes.capacity)
     },
 
     takeDirty() {

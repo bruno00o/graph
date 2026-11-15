@@ -83,6 +83,27 @@ describe('StateRegistry', () => {
     expect(buffers.highlightedNodes).toEqual([index('b'), index('c'), index('a')])
   })
 
+  it('orders raised nodes by layer, then by draw rank, and follows a new order', () => {
+    const model = createGraphModel()
+    model.setMarks([nodes([{ id: 'a' }, { id: 'b' }, { id: 'c' }])])
+    const changes = model.flush()
+    const buffers = new StateBuffers()
+    const index = (key: string) => model.node(key)?.index ?? -1
+    const order = { version: 1, ranks: [2, 0, 1] }
+    const rankOf = (at: number) => order.ranks[at] ?? at
+    const registry = new StateRegistry(model, buffers, null, null, (kind) =>
+      kind === 'nodes' ? { version: order.version, rankOf } : null,
+    )
+    registry.apply(changes)
+    registry.set('selected', { nodes: ['a', 'b', 'c'] })
+    registry.takeHighlighted()
+    expect(buffers.highlightedNodes).toEqual([index('b'), index('c'), index('a')])
+    order.ranks = [0, 2, 1]
+    order.version++
+    registry.takeHighlighted()
+    expect(buffers.highlightedNodes).toEqual([index('a'), index('c'), index('b')])
+  })
+
   it('applies free states to elements that arrive later', () => {
     const model = createGraphModel()
     const buffers = new StateBuffers()

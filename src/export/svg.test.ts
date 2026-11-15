@@ -14,6 +14,7 @@ import { readWindow, timeFilter } from '../core/time-range'
 import { defineGraph } from '../define-graph'
 import { ContainerBoxes } from '../host/containers'
 import type { LabelMode } from '../host/renderer'
+import { resolveStyle } from '../host/state-styles'
 import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
 import { shapes } from '../shapes'
@@ -120,6 +121,7 @@ function render(
     arch?: number
     bridges?: BridgeShape
     waypoints?: boolean
+    badges?: boolean
   } = {},
 ): string {
   const model = createGraphModel()
@@ -139,10 +141,14 @@ function render(
   const alwaysNodes: number[] = []
   names.forEach((name, bit) => {
     const style = setup.states?.[name] ?? {}
+    const haloOf = (halo: StateLook['halo']) => {
+      const resolved = resolveStyle({ halo }, (color) => scene.palette.id(color))
+      return { halo: resolved.halo, haloColor: resolved.haloColor }
+    }
     const look = (from: StateLook) => ({
       ...(from.opacity !== undefined ? { opacity: from.opacity } : {}),
       ...(from.strokeWidth !== undefined ? { strokeWidth: from.strokeWidth } : {}),
-      ...(from.halo !== undefined ? { halo: from.halo } : {}),
+      ...(from.halo !== undefined ? haloOf(from.halo) : {}),
       ...(from.label !== undefined ? { label: from.label } : {}),
       ...(from.stroke !== undefined ? { stroke: scene.palette.id(from.stroke) } : {}),
       ...(from.flow !== undefined ? { flow: flowSpeed(from.flow) } : {}),
@@ -232,6 +238,7 @@ function render(
     images: new Map([['icon.svg', { href: 'data:image/svg+xml,%3Csvg%2F%3E', aspect: 2 }]]),
     title: 'Sample <graph>',
     ...(extra.time !== undefined ? { time: extra.time } : {}),
+    ...(extra.badges !== undefined ? { badges: extra.badges } : {}),
     ...(extra.arch !== undefined ? { bundles: arches(scene.edges, positions, extra.arch) } : {}),
     ...(extra.bridges ? { bridges } : {}),
     ...(extra.waypoints ? { bundles: waypointPaths(scene.edges) } : {}),
@@ -587,6 +594,25 @@ describe('writeSvg', () => {
     expect(svg).not.toContain('>Beta</text>')
   })
 
+  it('draws the halo of a state in its own color and width', () => {
+    const svg = render(pair, {
+      states: {
+        selected: {},
+        hovered: {},
+        focused: {},
+        found: { halo: { color: '#00aa00', width: 12 } },
+      },
+      members: { found: ['a', 'ab'] },
+    })
+    expect(svg).toMatch(
+      /<circle cx="100" cy="150" r="14" fill="none" stroke="#00aa00" stroke-opacity="[\d.]+" stroke-width="12"\/>/,
+    )
+    expect(svg).toMatch(
+      /<path d="M108 150L292 150" fill="none" stroke="#00aa00" stroke-opacity="[\d.]+" stroke-width="25.5"\/>/,
+    )
+    expect(svg).not.toContain('#c93700')
+  })
+
   it('draws the others of a state and its always labels below the threshold', () => {
     const svg = render(
       pair,
@@ -686,6 +712,60 @@ describe('writeSvg', () => {
     expect(svg).toMatch(
       /scale\(0.495\)" text-anchor="middle" font-size="24" font-weight="500" fill="#f7f7f4">7<\/text>/,
     )
+  })
+
+  it('leaves the badges out when asked', () => {
+    const options: GraphDefinitionOptions = {
+      marks: [
+        nodes<Item>([{ id: 'a', x: 0, y: 0 }], {
+          x: 'x',
+          y: 'y',
+          size: () => 40,
+          badges: { topRight: () => ({ text: 7 }) },
+        }),
+      ],
+      scales: { size: (value) => value },
+    }
+    expect(render(options, {}, { badges: false })).not.toContain('>7</text>')
+    expect(render(options, {}, { badges: true })).toContain('>7</text>')
+  })
+
+  it('draws badge icons clipped to the pill, with their ring and their minimum size', () => {
+    const svg = render({
+      marks: [
+        nodes<Item>([{ id: 'a', x: 0, y: 0 }], {
+          x: 'x',
+          y: 'y',
+          size: () => 40,
+          badges: {
+            topRight: () => ({
+              image: { src: 'icon.svg', color: '#ff0000' },
+              stroke: '#00ff00',
+              strokeWidth: 3,
+            }),
+            topLeft: () => ({ image: 'icon.svg', text: 4, strokeWidth: 0 }),
+            bottomLeft: () => ({ text: 1, minSize: 30 }),
+          },
+        }),
+      ],
+      scales: { size: (value) => value },
+    })
+    expect(svg).toMatch(
+      /<rect x="[\d.]+" y="[\d.]+" width="21" height="21" rx="10.5" fill="#[0-9a-f]+" stroke="#00ff00" stroke-width="3"\/>/,
+    )
+    expect(svg).toMatch(/<clipPath id="graph\d+-c\d+"><circle cx="0.5" cy="0.5" r="0.71/)
+    expect(
+      count(
+        svg,
+        /<use href="#graph\d+-i0" width="1" height="1" transform="translate\([^)]+\) scale\(12.6\)"/,
+      ),
+    ).toBe(2)
+    expect(svg).toMatch(/filter="url\(#graph\d+-t\d+\)"/)
+    expect(svg).toMatch(
+      /<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="18" rx="9" fill="#[0-9a-f]+"\/>/,
+    )
+    expect(svg).toMatch(/>4<\/text>/)
+    expect(svg).not.toMatch(/>1<\/text>/)
   })
 
   const boxes = (

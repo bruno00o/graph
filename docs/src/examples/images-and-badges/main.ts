@@ -58,6 +58,7 @@ const icons = {
   ),
   plus: svg('0 0 24 24', '<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z"/>'),
   triangle: svg('0 0 24 24', '<path d="M12 3l10 18H2z"/>'),
+  check: svg('0 0 24 24', '<path d="M9.5 15.6 5.4 11.5 3 13.9l6.5 6.5L21 8.9l-2.4-2.4z"/>'),
 }
 
 const icon = (src: string): NodeImage => ({ src, scale: 0.55, color: 'var(--graph-paper)' })
@@ -131,10 +132,23 @@ const define = (background: boolean) =>
         image: (item) => item.image,
         badges: {
           topRight: (item): Badge | null =>
-            item.count === null ? null : { text: item.count > 99 ? '99+' : item.count },
+            item.count === null
+              ? null
+              : {
+                  text: item.count > 99 ? '99+' : item.count,
+                  ...(typeof item.image === 'string'
+                    ? { stroke: 'var(--graph-paper)', strokeWidth: 2.5 }
+                    : {}),
+                },
           topLeft: (item): Badge | null =>
             item.flag === null ? null : { text: item.flag, fill: 'var(--graph-cat-4)' },
-          bottomRight: (item): Badge | null => (item.dot ? { fill: 'var(--graph-cat-6)' } : null),
+          bottomRight: (item): Badge | null =>
+            item.dot
+              ? {
+                  image: { src: icons.check, color: 'var(--graph-paper)' },
+                  fill: 'var(--graph-cat-6)',
+                }
+              : null,
         },
       }),
     ],

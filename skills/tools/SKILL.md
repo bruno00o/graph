@@ -251,7 +251,8 @@ graph.on('pointerenter', ({ target }) => {
 })
 
 const menu = document.createElement('div')
-graph.on('contextmenu', ({ target, world }) => {
+graph.on('contextmenu', ({ target, world, originalEvent }) => {
+  originalEvent.preventDefault()
   const at = target?.kind === 'node' ? { node: target.key } : { point: world }
   graph.anchors.set(menu, { ...at, side: 'right', align: 'start', interactive: true })
 })
@@ -305,7 +306,7 @@ Examples: [drawing layers](https://bruno00o.github.io/graph/examples/drawing-lay
 
 ### Devtools panel
 
-`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node, edge and shape counts, issues (shape problems included), selection, named states and layout runs, for every graph mounted on the page. A hovered shape shows as `shape <key>`; `messages.shapes`, `messages.shapeIssue` and `messages.shapeTarget` replace its texts. The graph measures nothing until a panel is open and visible.
+`graphDevtoolsPlugin()` adds a Graph panel to TanStack Devtools: frame rate and timings, node, edge and shape counts, the labels drawn (node, edge and shape labels), issues (shape problems included), selection, named states and layout runs, for every graph mounted on the page. A hovered shape shows as `shape <key>`; `messages.shapes`, `messages.shapeIssue` and `messages.shapeTarget` replace its texts, and `messages.labelCounts(nodes, edges, shapes)` formats the labels drawn (the shape count shows only when above 0; a function of two arguments leaves it out). The graph measures nothing until a panel is open and visible.
 
 ```ts
 import { graphDevtoolsPlugin } from '@bruno00o/graph/devtools'
@@ -337,7 +338,7 @@ Example: [devtools](https://bruno00o.github.io/graph/examples/devtools).
 
 ### HIGH A minimap or a lens on a map
 
-The minimap does not support a graph drawn on a map, and `graph.lens.set` does nothing there: the map owns the camera and has its own navigation. Do not add them to `mountMapGraph` or `<MapGraph>`. The legend, anchors and hulls work on a map; the background grid is dropped.
+The minimap does not support a graph drawn on a map, and `graph.lens.set` does nothing there: the map owns the camera and has its own navigation. Do not add them to `mountMapGraph` or `<MapGraph>`. The legend, anchors and hulls work on a map; the background grid is dropped. On the globe an anchor sits where its target is drawn, scales with the globe there with `scale: true`, and hides behind the horizon (map skill, which also says where `graph.element` stacks).
 
 ### HIGH A legend state that the definition does not declare
 

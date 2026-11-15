@@ -5,7 +5,8 @@ import { noPaint, type StateBuffers, type StateKind, stateRow } from '../core/st
 export interface Look {
   opacity: number
   strokeWidth: number
-  halo: boolean
+  halo: number
+  haloColor: number
   label: boolean
   fill: number
   stroke: number
@@ -45,7 +46,8 @@ function resolve(states: StateBuffers, mask: number, look: Look, kind: StateKind
       found |= 2
     }
     if (!(found & 4) && halo >= 0) {
-      look.halo = halo > 0.5
+      look.halo = halo
+      look.haloColor = labels[at + 2] ?? noPaint
       found |= 4
     }
     if (!(found & 8) && label >= 0) {
@@ -93,7 +95,8 @@ export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number
     {
       opacity: nodes.opacity[index] ?? 1,
       strokeWidth: nodes.strokeWidth[index] ?? 0,
-      halo: false,
+      halo: 0,
+      haloColor: noPaint,
       label: true,
       fill: nodes.fill[index] ?? 0,
       stroke: nodes.stroke[index] ?? 0,
@@ -113,7 +116,8 @@ export function shapeLook(shapes: ShapeStore, states: StateBuffers, index: numbe
     {
       opacity: shapes.opacity[index] ?? 1,
       strokeWidth: shapes.strokeWidth[index] ?? 0,
-      halo: false,
+      halo: 0,
+      haloColor: noPaint,
       label: false,
       fill: shapes.fill[index] ?? noPaint,
       stroke: shapes.stroke[index] ?? noPaint,
@@ -133,7 +137,8 @@ export function shapeLabelLook(states: StateBuffers, index: number): Look {
     {
       opacity: 1,
       strokeWidth: 0,
-      halo: false,
+      halo: 0,
+      haloColor: noPaint,
       label: true,
       fill: noPaint,
       stroke: noPaint,
@@ -168,7 +173,8 @@ export function edgeLine(
     {
       opacity: 1,
       strokeWidth: -1,
-      halo: false,
+      halo: 0,
+      haloColor: noPaint,
       label: true,
       fill: noPaint,
       stroke: noPaint,
@@ -216,7 +222,8 @@ export function edgeLook(
     {
       opacity: edges.opacity[index] ?? 1,
       strokeWidth: edges.width[index] ?? 0,
-      halo: false,
+      halo: 0,
+      haloColor: noPaint,
       label: true,
       fill: noPaint,
       stroke: edges.color[index] ?? 0,

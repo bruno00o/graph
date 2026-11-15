@@ -2,14 +2,23 @@ import type { GraphModel } from '../core/graph-model'
 import type { Hierarchy } from '../core/hierarchy'
 import { type AnyIssue, describeIssues, IssueSet } from '../core/issues'
 import type { LayerFilter } from '../core/mark-layers'
+import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
 import type { HideFilter, StateBuffers } from '../core/state-buffers'
 import type { SupportIndex } from '../core/support'
 import type { TimeFilter } from '../core/time-range'
-import { edgeShown, filtered, nodeShown, type Sight, shapeShown } from '../core/visibility'
+import {
+  edgeHalfHidden,
+  edgeShown,
+  filtered,
+  nodeShown,
+  type Sight,
+  shapeShown,
+} from '../core/visibility'
 import { dev } from '../dev'
+import type { Key } from '../types'
 import { countAlive } from './element-keys'
-import type { Emitter } from './events'
+import type { ElementKeys, Emitter } from './events'
 import type { GraphCount } from './graph-instance'
 
 interface CountKey {
@@ -36,6 +45,7 @@ function sameCountKey(a: CountKey, b: CountKey): boolean {
 
 export interface ReadSource {
   readonly model: GraphModel
+  readonly projection: Projection
   readonly hierarchy: Hierarchy
   readonly support: SupportIndex
   readonly scene: Scene
@@ -43,11 +53,37 @@ export interface ReadSource {
   readonly emitter: Emitter
 }
 
+export function forEachEdgeKey(
+  projection: Projection,
+  keys: readonly (Key | undefined)[],
+  index: number,
+  seen: Sight,
+  visit: (key: Key) => void,
+): void {
+  const members = projection.keysAt(index)
+  if (!members) {
+    const key = keys[index]
+    if (key !== undefined) visit(key)
+    return
+  }
+  if (seen.hide !== null && projection.halvedAt(index)) {
+    if (!edgeHalfHidden(index, 'target', seen))
+      for (const key of projection.keysAt(index, 'target') ?? []) visit(key)
+    if (!edgeHalfHidden(index, 'source', seen))
+      for (const key of projection.keysAt(index, 'source') ?? []) visit(key)
+    return
+  }
+  for (const key of members) visit(key)
+}
+
 export class DataReads {
   readonly #issues = new IssueSet()
   #issuesAt = 0
   #countKey: CountKey | null = null
   #lastCount: GraphCount | null = null
+  #shownKey: CountKey | null = null
+  #drawnShapes: { readonly version: number; readonly set: Uint8Array } | null = null
+  #lastShown: ElementKeys | null = null
   #counted = -1
   #alive = { nodes: 0, edges: 0 }
   readonly #source: ReadSource
@@ -77,12 +113,12 @@ export class DataReads {
     this.#source.emitter.emit('issueschange', { issues: this.#issues.list })
   }
 
-  count(seen: Sight, sceneVersion: number): GraphCount {
-    const { model, scene, buffers } = this.#source
+  #keyOf(seen: Sight, sceneVersion: number): CountKey {
+    const { scene, buffers } = this.#source
     const nodes = scene.nodes
     const edges = scene.edges
     const shapes = scene.shapes
-    const key: CountKey = {
+    return {
       scene: sceneVersion,
       zoom: nodes.zoom.count > 0 || edges.zoom.count > 0 || shapes.zoom.count > 0 ? seen.zoom : 0,
       time: seen.time,
@@ -93,6 +129,93 @@ export class DataReads {
         : 0,
       shapes: shapes.styleVersion,
     }
+  }
+
+  shown(seen: Sight, sceneVersion: number): ElementKeys {
+    const key = this.#keyOf(seen, sceneVersion)
+    const last = this.#lastShown
+    if (last && this.#shownKey && sameCountKey(this.#shownKey, key)) return last
+    const { scene, projection } = this.#source
+    const { nodes, edges, shapes } = scene
+    const allNodes = !filtered(nodes, seen)
+    const nodeKeys: Key[] = []
+    for (let index = 0; index < nodes.capacity; index++) {
+      if (nodes.alive[index] !== 1 || !(allNodes || nodeShown(nodes, index, seen))) continue
+      const nodeKey = nodes.keys[index]
+      if (nodeKey !== undefined) nodeKeys.push(nodeKey)
+    }
+    const allEdges = allNodes && !filtered(edges, seen)
+    const edgeKeys: Key[] = []
+    const visit = (edgeKey: Key) => {
+      edgeKeys.push(edgeKey)
+    }
+    const merged = projection.active
+    for (let index = 0; index < edges.capacity; index++) {
+      if (edges.alive[index] !== 1 || !(allEdges || edgeShown(nodes, edges, index, seen))) continue
+      if (merged) forEachEdgeKey(projection, edges.keys, index, seen, visit)
+      else {
+        const edgeKey = edges.keys[index]
+        if (edgeKey !== undefined) edgeKeys.push(edgeKey)
+      }
+    }
+    const result: ElementKeys = shapes.marked
+      ? Object.freeze({
+          nodes: Object.freeze(nodeKeys),
+          edges: Object.freeze(edgeKeys),
+          shapes: Object.freeze(this.#shownShapeKeys(seen)),
+        })
+      : Object.freeze({ nodes: Object.freeze(nodeKeys), edges: Object.freeze(edgeKeys) })
+    this.#shownKey = key
+    this.#lastShown = result
+    return result
+  }
+
+  isShown(kind: 'node' | 'edge' | 'shape', key: Key, seen: Sight): boolean {
+    const { model, scene, projection } = this.#source
+    if (kind === 'node') {
+      const index = model.node(key)?.index ?? -1
+      return index >= 0 && scene.nodes.alive[index] === 1 && nodeShown(scene.nodes, index, seen)
+    }
+    if (kind === 'shape') {
+      const index = model.shape(key)?.index ?? -1
+      return index >= 0 && this.#shapeDrawn(index) && shapeShown(scene.shapes, index, seen)
+    }
+    const index = projection.edgeIndexOf(key)
+    if (index < 0 || scene.edges.alive[index] !== 1) return false
+    if (!edgeShown(scene.nodes, scene.edges, index, seen)) return false
+    if (seen.hide === null || !projection.halvedAt(index)) return true
+    const forward = projection.keysAt(index, 'target') ?? []
+    return !edgeHalfHidden(index, forward.includes(key) ? 'target' : 'source', seen)
+  }
+
+  #shapeDrawn(index: number): boolean {
+    const shapes = this.#source.scene.shapes
+    if (this.#drawnShapes?.version !== this.#source.scene.shapes.version) {
+      const set = new Uint8Array(shapes.capacity)
+      for (const at of shapes.drawOrder()) set[at] = 1
+      this.#drawnShapes = { version: shapes.version, set }
+    }
+    return this.#drawnShapes.set[index] === 1
+  }
+
+  #shownShapeKeys(seen: Sight): Key[] {
+    const shapes = this.#source.scene.shapes
+    const all = !filtered(shapes, seen) && shapes.pinCount === 0
+    const keys: Key[] = []
+    for (const index of shapes.drawOrder()) {
+      if (!all && !shapeShown(shapes, index, seen)) continue
+      const shapeKey = shapes.keys[index]
+      if (shapeKey !== undefined) keys.push(shapeKey)
+    }
+    return keys
+  }
+
+  count(seen: Sight, sceneVersion: number): GraphCount {
+    const { model, scene } = this.#source
+    const nodes = scene.nodes
+    const edges = scene.edges
+    const shapes = scene.shapes
+    const key = this.#keyOf(seen, sceneVersion)
     const last = this.#lastCount
     if (last && this.#countKey && sameCountKey(this.#countKey, key)) return last
     const allNodes = !filtered(nodes, seen)

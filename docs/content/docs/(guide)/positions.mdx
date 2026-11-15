@@ -48,6 +48,17 @@ graph.positions.set(new Map([['n3', { x: 40, y: 60 }]]))
 
 `set` takes any iterable of `[key, point]` pairs; a `Map` works. Without a duration, the nodes move at once. A pair whose `x` or `y` is not a finite number, such as `NaN` or a missing value, is skipped with a warning in development: its node stays where it is, and the other pairs apply.
 
+## Put nodes back
+
+`positions.reset` puts nodes back where their data places them, which a drag or `set` has changed: the `x` and `y` channels, or `longitude` and `latitude`. It animates over `transitions.positions`, or over the `duration` you pass, for the keys you give or for every node without them. On a map, where the camera is the only other way to restore a view, it is the way to undo what the user dragged.
+
+```ts
+graph.positions.reset()
+graph.positions.reset(['n1', 'n2'], { duration: 600 })
+```
+
+A node whose data has no position, because a layout places it, stays where it is: the data has nothing to put it back to. A node that is already where its data says does not move, and does not appear in `positionchange`.
+
 ## Save and restore
 
 `positions.snapshot()` reads every node at once, in a new `Map` from key to point that `set` takes back as is. It holds every node of the data, those hidden in folded groups included.
@@ -81,4 +92,12 @@ graph.on('dragend', ({ keys }) => {
 })
 ```
 
-To write positions to a TanStack DB collection, use [`persistPositions`](/docs/tanstack-db).
+On a map, `positionchange` also carries `geo`: the same moved nodes as longitude and latitude in degrees, the longitude from -180 up to 180, so a drag across the antimeridian still gives a valid coordinate. Off a map, it is absent: convert with `worldToGeo` when your nodes are placed by coordinates.
+
+```ts
+graph.on('positionchange', ({ geo }) => {
+  for (const [key, { longitude, latitude }] of geo ?? []) save(key, longitude, latitude)
+})
+```
+
+To write positions to a TanStack DB collection, use [`persistPositions`](/docs/tanstack-db), which can write degrees.

@@ -51,7 +51,12 @@ const shapeColor = params.get('shapecolor')
 const smoothOutline = params.get('outline') === 'smooth'
 const pinCount = Number(params.get('pinned') ?? 0)
 const editing = params.has('edit')
+const badgeKind = params.get('badges')
+const halo = params.get('halo')
+const ordering = params.get('order')
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
+
+const rankOf = (item: Item | TimedItem) => (item as { rank?: number }).rank ?? 0
 
 const nativeFrame = window.requestAnimationFrame.bind(window)
 const frameCosts: number[] = []
@@ -277,6 +282,12 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
         size: 'weight',
         label: 'label',
         ...(boxed ? { shape: 'box' as const } : {}),
+        ...(ordering === 'rank' ? { order: rankOf } : {}),
+        ...(badgeKind === 'image'
+          ? { badges: { topRight: () => ({ image: { src: icon, color: 'white' } }) } }
+          : badgeKind === 'dot'
+            ? { badges: { topRight: () => ({}) } }
+            : {}),
         ...(decor
           ? {
               outline: (item) => (item.weight > 20 ? 'var(--graph-accent)' : null),
@@ -299,6 +310,12 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
     states: {
       muted: { opacity: 0.06, label: false },
       near: { others: { opacity: 0.06, label: false } },
+      glow: {
+        halo:
+          halo === 'plain'
+            ? true
+            : { color: 'var(--graph-cat-2)', width: halo === 'wide' ? 12 : 6 },
+      },
     },
     layout: engine ? force({ engine, multilevel }) : null,
   })
@@ -337,6 +354,7 @@ graph.on('layoutstart', () => {
 graph.on('layoutend', ({ completed }) => {
   layoutRuns.push({ ms: performance.now() - layoutStarted, completed })
 })
+if (halo) graph.states.set('glow', { nodes: items.map((item) => item.id) })
 await nextFrame()
 await nextFrame()
 const firstFrame = performance.now()

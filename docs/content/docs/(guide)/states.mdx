@@ -60,6 +60,22 @@ A style sets any of the properties of [`StateStyle`](/docs/api/define-graph#stat
 
 `label: true` shows the label of a member, but still hides it when it is smaller than 8 pixels. `label: 'always'` shows it at every zoom: see [Show labels at any size](#show-labels-at-any-size).
 
+### Halo color and width
+
+`halo: true` draws the soft `--graph-halo` glow, 6 pixels wide, behind nodes and edges. An object gives a state its own glow, so a search result and a focused element glow in different colors:
+
+```ts
+defineGraph({
+  marks,
+  states: {
+    found: { halo: { color: 'var(--graph-cat-3)', width: 10 } },
+    linked: { halo: { color: '#2a7fff66' } },
+  },
+})
+```
+
+`color` takes any CSS color or theme token, and its alpha sets how strong the glow is next to the element. `width` is in screen pixels beyond the element, up to 255; a negative or non-finite width throws a `RangeError`. See [`StateHalo`](/docs/api/define-graph#halo-of-a-state). When an element is in several states, the first state that sets a halo gives its color and width, as for the other properties. Shapes have no glow. The PNG and SVG exports draw the same glow.
+
 ## Style the others
 
 `others` styles every element outside the state, as long as the state has a member. It takes the same properties as a style, except `raise` and `others`.

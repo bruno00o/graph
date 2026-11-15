@@ -46,6 +46,10 @@ type StateStyles<S extends string = string> = { readonly [K in S]: StateStyle | 
 
 <api-table path="index.ts" name="StateLook" />
 
+### Halo of a state
+
+<api-table path="index.ts" name="StateHalo" />
+
 ### Style by kind
 
 <api-table path="index.ts" name="StateKindStyles" />
@@ -139,6 +143,10 @@ type BridgeShape = 'arc' | 'gap'
 <api-table path="index.ts" name="InteractionOptions" />
 
 `wheel` takes `'zoom'`, `'pan'` or `'page'`. See [Wheel and trackpad](/docs/interaction#wheel-and-trackpad), [Touch](/docs/interaction#touch) and [Auto-pan](/docs/interaction#auto-pan).
+
+`lasso` takes `true` or the options of the [lasso](/docs/interaction#lasso):
+
+<api-table path="index.ts" name="LassoOptions" />
 
 `lens` takes `true` or the options of the [lens](/docs/lens):
 

@@ -24,7 +24,7 @@ import type {
 } from './editor'
 import type { ShapeEditorProps, UseShapeEditorOptions } from './editor/react'
 import type { ShapeEditorViewOptions } from './editor/view'
-import type { ExportOptions, PngExportOptions, SvgExportOptions } from './export'
+import type { ExportOptions, ExportSize, PngExportOptions, SvgExportOptions } from './export'
 import type {
   AttributeDeclaration,
   CsvReadOptions,
@@ -54,6 +54,7 @@ import type {
   AnchorTarget,
   BackgroundOptions,
   Badge,
+  BadgeImage,
   BridgeOptions,
   ColorScale,
   ContainerOptions,
@@ -80,6 +81,7 @@ import type {
   InteractionOptions,
   LabelOptions,
   LabelTextOptions,
+  LassoOptions,
   Layout,
   LayoutComputeOptions,
   LayoutRunOptions,
@@ -94,6 +96,7 @@ import type {
   NodeScalesOptions,
   NumberScale,
   PathOptions,
+  PositionResetOptions,
   PositionSnapshotOptions,
   ReachOptions,
   ScalesOptions,
@@ -101,6 +104,7 @@ import type {
   ShapeOptions,
   ShapeScalesOptions,
   SourceSubscription,
+  StateHalo,
   StateKindStyles,
   StateLook,
   StateStyle,
@@ -180,6 +184,7 @@ interface Inputs {
   AutoPan: Exclude<InteractionOptions['autoPan'], boolean | undefined>
   BackgroundOptions: BackgroundOptions
   Badge: Badge
+  BadgeImage: BadgeImage
   Badges: NonNullable<NodeOptions<Item>['badges']>
   BridgeOptions: BridgeOptions
   ColorScale: ColorScale
@@ -201,6 +206,7 @@ interface Inputs {
   ElementKeysInput: ElementKeysInput
   ExplorationOptions: ExplorationOptions<Item, Link>
   ExportOptions: ExportOptions
+  ExportSize: ExportSize
   FitOptions: FitOptions
   FitPadding: FitPadding
   ForceOptions: ForceOptions
@@ -237,6 +243,7 @@ interface Inputs {
   LegendProps: LegendProps<'muted'>
   LegendTitles: NonNullable<LegendViewOptions['titles']>
   LegendViewOptions: LegendViewOptions<Marks>
+  LassoOptions: LassoOptions
   LensInput: LensInput
   LensOptions: LensOptions
   LineWaypointsOptions: LineWaypointsOptions
@@ -258,6 +265,7 @@ interface Inputs {
   PersistShapeFields: PersistShapeFields<Item>
   PersistShapesOptions: PersistShapesOptions<Item, string, Marks>
   PngExportOptions: PngExportOptions
+  PositionResetOptions: PositionResetOptions
   PositionSnapshotOptions: PositionSnapshotOptions
   PresenceFields: PresenceFields<Item>
   PresenceSelection: PresenceSelection
@@ -279,6 +287,7 @@ interface Inputs {
   ShowPresenceOptions: ShowPresenceOptions<Item, string, 'muted'>
   SourceSubscription: SourceSubscription
   SchemaInput: SchemaInput
+  StateHalo: StateHalo
   StateKindStyles: StateKindStyles
   StateLook: StateLook
   StateStyle: StateStyle

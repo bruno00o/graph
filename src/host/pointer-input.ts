@@ -2,13 +2,13 @@ import { containerShape } from '../core/columns'
 import { globeWorld } from '../core/globe'
 import type { GraphModel } from '../core/graph-model'
 import type { Hierarchy } from '../core/hierarchy'
-import { nodesInside } from '../core/lasso'
+import { edgesBetween, forEachNodeInside } from '../core/lasso'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { edgePush, panBy, toWorld, wheelFactor, wheelPixels, zoomAround } from '../core/view'
 import type { Sight } from '../core/visibility'
 import { listenPinch, type PinchGesture } from '../dom/gestures'
-import type { GraphDefinition, Key, Point } from '../types'
+import type { GraphDefinition, Key, NodeOptions, Point, Style } from '../types'
 import type { HostCamera } from './camera'
 import { keysOf, sameEnd, sameTarget } from './element-keys'
 import type { Emitter, GraphTarget, ZoomKey } from './events'
@@ -20,6 +20,7 @@ import { lensContains } from './lens'
 import type { LensControl } from './lens-control'
 import type { HostPicker } from './picking'
 import type { PointerTool, ToolPointer } from './pointer-tool'
+import { positionEvent } from './position-event'
 import type { PositionMotion } from './position-motion'
 import type { SelectionControl } from './selection-control'
 import type { SpreadHost } from './spread'
@@ -107,6 +108,7 @@ export interface PointerSource {
   patch(next: Partial<GraphState>): void
   definition(): GraphDefinition
   sight(): Sight
+  edgeKeys(index: number, sight: Sight, visit: (key: Key) => void): void
   request(): void
   destroyed(): boolean
 }
@@ -129,6 +131,19 @@ function zoomKey(): ZoomKey {
   const agent = navigator as Navigator & { userAgentData?: { platform?: string } }
   const platform = agent.userAgentData?.platform || agent.platform || ''
   return /mac|iphone|ipad|ipod/i.test(platform) ? 'Meta' : 'Control'
+}
+
+function dragStyle(options: NodeOptions<unknown>, container: boolean): Style<unknown, boolean> {
+  const own = container ? options.container?.drag : undefined
+  return own ?? options.drag ?? true
+}
+
+function draggableMarks(definition: GraphDefinition): boolean {
+  return definition.marks.some((mark) => {
+    if (mark.type !== 'nodes') return false
+    const options = (mark as { readonly options?: NodeOptions<unknown> }).options
+    return options?.drag !== undefined || options?.container?.drag !== undefined
+  })
 }
 
 function stopGesture(current: Gesture): void {
@@ -267,24 +282,41 @@ export class PointerInput {
   }
 
   #selectInside(polygon: readonly Point[]): void {
-    const { model, scene, positions, registry, camera, selection, picker } = this.#source
-    const sight = this.#source.sight()
-    const inside = nodesInside(polygon, scene.nodes, positions, sight).filter(
-      (key) =>
-        !registry.has('selected', 'nodes', key) &&
-        camera.facing(model.node(key)?.index ?? -1) &&
-        scene.nodes.shape[model.node(key)?.index ?? -1] !== containerShape,
-    )
+    const source = this.#source
+    const { scene, positions, registry, camera, selection, picker } = source
+    const sight = source.sight()
+    const edges = source.definition().interaction.lassoEdges
+    const inside: Key[] = []
+    const within = edges ? new Uint8Array(scene.nodes.capacity) : null
+    forEachNodeInside(polygon, scene.nodes, positions, sight, (index) => {
+      if (!camera.facing(index)) return
+      if (within) within[index] = 1
+      const key = scene.nodes.keys[index]
+      if (key === undefined || scene.nodes.shape[index] === containerShape) return
+      if (!registry.has('selected', 'nodes', key)) inside.push(key)
+    })
+    const lines: Key[] = []
+    if (within) {
+      const taken = new Set<Key>()
+      edgesBetween(within, scene.nodes, scene.edges, sight, (index) => {
+        source.edgeKeys(index, sight, (key) => {
+          if (taken.has(key) || registry.has('selected', 'edges', key)) return
+          taken.add(key)
+          lines.push(key)
+        })
+      })
+    }
     const shapes = registry.shaped
       ? picker
           .shapesInside(polygon, sight)
           .filter((key) => !registry.has('selected', 'shapes', key))
       : []
-    if (inside.length === 0 && shapes.length === 0) return
+    if (inside.length === 0 && lines.length === 0 && shapes.length === 0) return
     const current = selection.base()
     selection.ask({
       ...current,
       nodes: [...current.nodes, ...inside],
+      ...(lines.length > 0 ? { edges: [...current.edges, ...lines] } : {}),
       ...(registry.shaped ? { shapes: [...(current.shapes ?? []), ...shapes] } : {}),
     })
   }
@@ -302,9 +334,28 @@ export class PointerInput {
     return true
   }
 
+  #draggable(index: number): boolean {
+    const record = this.#source.model.nodeAt(index)
+    if (!record) return false
+    const style = dragStyle(
+      record.mark.options,
+      this.#source.scene.nodes.shape[index] === containerShape,
+    )
+    return (typeof style === 'function' ? style(record.datum) : style) !== false
+  }
+
+  #pinned(hit: GraphTarget | null): boolean {
+    if (hit?.kind !== 'node' || !draggableMarks(this.#source.definition())) return false
+    const index = this.#source.model.node(hit.key)?.index ?? -1
+    return index >= 0 && !this.#draggable(index)
+  }
+
   #startDrag(hit: GraphTarget, point: Point): NodeDrag | null {
     if (hit.kind !== 'node' || !this.#source.definition().interaction.drag) return null
     const { model, scene, hierarchy, positions, registry, motion, camera, lens } = this.#source
+    const chosen = draggableMarks(this.#source.definition())
+    const pressed = model.node(hit.key)?.index ?? -1
+    if (chosen && pressed >= 0 && !this.#draggable(pressed)) return null
     const group = registry.has('selected', 'nodes', hit.key)
       ? registry.members('selected').nodes
       : [hit.key]
@@ -317,11 +368,12 @@ export class PointerInput {
     const carried = new Set<number>()
     const carry = (index: number) => {
       carried.add(index)
-      take(index)
+      take(index, true)
     }
-    const take = (index: number) => {
+    const take = (index: number, held = false) => {
       const key = scene.nodes.keys[index]
       if (taken.has(index) || key === undefined || scene.nodes.alive[index] !== 1) return
+      if (chosen && !held && !this.#draggable(index)) return
       taken.add(index)
       if (scene.nodes.shape[index] === containerShape) {
         hierarchy.forEachDescendant(index, carry)
@@ -340,10 +392,9 @@ export class PointerInput {
       offsets[i * 2] = positions.x(index) - world.x
       offsets[i * 2 + 1] = positions.y(index) - world.y
     })
-    const index = model.node(hit.key)?.index ?? -1
     return {
       target: { ...hit, kind: 'node' },
-      index,
+      index: pressed,
       indices,
       keys,
       offsets,
@@ -391,9 +442,11 @@ export class PointerInput {
     const hit = source.picker.pick(point)
     if (this.#tool && this.#takeTool(this.#tool, event, point, hit)) return
     const drag = hit ? this.#startDrag(hit, point) : null
-    const { lasso, select } = source.definition().interaction
+    const { lasso, select, lassoModifier } = source.definition().interaction
     const solid = hit !== null && hit.kind !== 'shape'
-    const lassoing = !solid && event.shiftKey && lasso && select === 'multiple'
+    const loose = !solid || (drag === null && (lassoModifier === null || this.#pinned(hit)))
+    const keyed = lassoModifier === null || event.shiftKey
+    const lassoing = loose && keyed && lasso && select === 'multiple'
     const shown = source.lens.shown
     const moveLens = !solid && !lassoing && shown?.follow === null && lensContains(shown, point)
     this.#gesture = {
@@ -595,7 +648,7 @@ export class PointerInput {
         const index = drag.indices[i] ?? 0
         moved.set(key, { x: positions.x(index), y: positions.y(index) })
       })
-      emitter.emit('positionchange', { origin: 'drag', positions: moved })
+      emitter.emit('positionchange', positionEvent('drag', moved, this.#source.surface !== null))
     }
     this.#source.request()
   }
