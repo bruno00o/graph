@@ -2111,6 +2111,22 @@ export interface BridgeOptions {
   readonly maxEdges?: number | undefined
 }
 
+/** Options of the `spread` option of `defineGraph`. */
+export interface SpreadOptions {
+  /**
+   * Space kept between spread nodes, in pixels for nodes sized in screen units, else in world
+   * units: a finite number, 0 or more, or `defineGraph` throws a `RangeError`.
+   * @default 4
+   */
+  readonly gap?: number | undefined
+}
+
+/** Spread options with every default applied, as `defineGraph` resolves them. */
+export interface ResolvedSpread {
+  /** Space kept between spread nodes. */
+  readonly gap: number
+}
+
 /** Bridge options with every default applied, as `defineGraph` resolves them. */
 export interface ResolvedBridges {
   /** Look of each jump. */
@@ -2187,6 +2203,13 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
    * @default null
    */
   readonly bridges?: BridgeOptions | boolean | null | undefined
+  /**
+   * Moves apart the nodes outside groups that the data places at the very same point, around that
+   * point, as an unfolded group does with `container.spread`: `true`, options, or `null` for none.
+   * Their data keeps its position.
+   * @default null
+   */
+  readonly spread?: SpreadOptions | boolean | null | undefined
   /** How elements with a `time` enter and leave the time window. */
   readonly time?: TimeOptions | undefined
   /**
@@ -2233,6 +2256,8 @@ export interface GraphDefinition<S extends string = string, M extends Mark = Mar
   readonly routing: EdgeRouting<EdgeDatum<M>> | null
   /** Bridges at edge crossings, defaults applied, or `null` for none. */
   readonly bridges: ResolvedBridges | null
+  /** Spreading of the nodes outside groups at one place, or `null` for none. */
+  readonly spread: ResolvedSpread | null
   /** Time options, defaults applied. */
   readonly time: ResolvedTimeOptions
   /** Free states that light the support of the selected edges, or `null` for none. */

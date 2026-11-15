@@ -52,6 +52,19 @@ On a map, a node with `longitude` and `latitude` is sized in screen pixels: `uni
 
 A node placed by `x` and `y` in world units, or without coordinates, defaults to `'world'` and is huge at the zooms of a map: set `units: 'screen'` on it. A `groups()` mark takes the units of its first member.
 
+## Nodes at one place
+
+Nodes at the very same `longitude` and `latitude` draw on top of each other. With `spread: true` in the definition, they move apart around their place, `gap` pixels apart, and keep their gaps as the map zooms, flat or on the globe. Their data keeps its coordinates. To gather them instead, put them in a [group](/docs/groups#spread-children) by place: its children spread while it is unfolded. See [Nodes at one place](/docs/positions#nodes-at-one-place).
+
+```ts
+const definition = defineGraph({
+  marks: [nodes(places, { longitude: 'lng', latitude: 'lat' })],
+  spread: true,
+})
+```
+
+A node without coordinates starts near its neighbors placed by theirs, from the first data on, at a distance in pixels when it is sized in screen units; with no placed neighbor, it starts next to the placed nodes. It stays there as the map zooms: give it coordinates, or drag it, to move it.
+
 ## Switching the basemap
 
 Call `map.setStyle(style)` to change the basemap: the graph stays on the map, whether the style is a URL or an object and whether MapLibre patches the old style or loads the new one from scratch. It is drawn on top of the new style, or under the layer named by `beforeId` when the new style has that layer.
@@ -383,7 +396,7 @@ mountMapGraph(map, {
 
 On a map, the definition keeps its marks, states, scales, labels, images, badges, flows, hulls, groups, shapes, [time window](/docs/time) and interaction options, and the [legend](/docs/minimap-and-legend#legend) works as on any graph. These parts are left out:
 
-- `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units. A node without coordinates is placed near its placed neighbors, or on a spiral. In development, a layout in the definition logs a warning, and `graph.layout.run` rejects.
+- `layout`: positions come from the coordinates. Give every node a `longitude` and a `latitude`, or `x` and `y` in world units. A node without coordinates starts near its placed neighbors, or next to the placed nodes: see [Nodes at one place](#nodes-at-one-place). In development, a layout in the definition logs a warning, and `graph.layout.run` rejects.
 - `background`, `bundling`, `routing` and `bridges`.
 - The [lens](/docs/lens): `graph.lens.set` does nothing.
 - The [minimap](/docs/minimap-and-legend#minimap): the map has its own navigation. `createMinimap` and `<Minimap>` draw nothing on a map graph, and warn once in development.

@@ -1,6 +1,7 @@
 import { historyEngineOf } from './core/history'
 import { maxLayerSlots } from './core/mark-layers'
 import { shapeEngineOf } from './core/shape-engine'
+import { spreadGap } from './core/spread'
 import { byKind, freeStateNames, maxFreeStates } from './core/state-names'
 import { resolvePadding } from './core/view'
 import { withoutUndefined } from './core/without-undefined'
@@ -21,10 +22,12 @@ import type {
   ResolvedInteraction,
   ResolvedLens,
   ResolvedPadding,
+  ResolvedSpread,
   ResolvedSupportStates,
   ResolvedTimeOptions,
   ResolvedTransitions,
   ResolvedViewLimits,
+  SpreadOptions,
   StateKindStyles,
   StateLook,
   StateStyle,
@@ -215,6 +218,12 @@ function resolveBridges(
   })
 }
 
+function resolveSpread(options: SpreadOptions | boolean | null | undefined): ResolvedSpread | null {
+  if (!options) return null
+  const given = options === true ? {} : options
+  return Object.freeze({ gap: atLeastZero(given.gap ?? spreadGap, 'spread.gap') })
+}
+
 function resolveTime(options: TimeOptions = {}): ResolvedTimeOptions {
   return Object.freeze({ fade: atLeastZero(options.fade ?? 0, 'time.fade') })
 }
@@ -349,6 +358,7 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     bundling,
     routing,
     bridges: resolveBridges(options.bridges),
+    spread: resolveSpread(options.spread),
     time: resolveTime(options.time),
     support: resolveSupport(options.support as SupportStateOptions | null | undefined, free),
   })

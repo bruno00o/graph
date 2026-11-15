@@ -81,6 +81,7 @@ import { lensFrame } from './lens'
 import { LensControl } from './lens-control'
 import { afterDestroy, destroyedReason, FrameWaiters, stillborn, untilDestroyed } from './lifecycle'
 import { HostPicker } from './picking'
+import { placementUnit } from './placement'
 import { PointerInput } from './pointer-input'
 import { positionEvent } from './position-event'
 import { PositionMotion } from './position-motion'
@@ -242,6 +243,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     hierarchy,
     positions,
     containers: projection.containers,
+    placeGap: () => definition.spread?.gap ?? null,
     eligible: (index) =>
       !Number.isNaN(positions.source[index * 2] ?? Number.NaN) ||
       (definition.layout === null && positions.restored[index] !== 1 && !layouts.placedBy(index)),
@@ -453,6 +455,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     viewport: () => views.viewport(),
     lens: () => lens.shown,
   })
+  const placing = (zoom: () => number) =>
+    placementUnit({ nodes: scene.nodes, model, zoom, globe: () => camera.sphere() })
+  const placement = placing(() => store.get().view.zoom)
   const motion = new PositionMotion({
     positions,
     spread,
@@ -529,6 +534,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       arranges: () => layouts.arranges(),
       request: (flush) => request(flush),
       prepare: flushPending,
+      unit: placement,
     },
     options.onFoldChange,
   )
@@ -791,7 +797,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   function applyChanges(changes: GraphChanges, projected: ProjectionChanges): void {
     pointer.dropLostDrag(changes.nodes.removed)
     if (destroyed) return
-    const moves = placeNodes(model, positions, changes, restore)
+    const moves = placeNodes(model, positions, changes, restore, placement)
     if (restore && (restore.size === 0 || (model.nodeCount > 0 && !data.loading))) restore = null
     for (const index of moves.restored) projection.markSeen(index)
     motion.follow(moves)
@@ -1071,8 +1077,14 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     if (scene.setGroupFillOpacity(next.groupFillOpacity)) scheduler.needsFlush = true
     flushPending()
     if (destroyed) return
-    const arrived = placeOnSurface(model, positions, stale, (index) =>
-      projection.active && !projection.nodeShown(index) ? hierarchy.representative(index) : -1,
+    const arriving = next.camera()?.view.zoom ?? store.get().view.zoom
+    const arrived = placeOnSurface(
+      model,
+      positions,
+      stale,
+      (index) =>
+        projection.active && !projection.nodeShown(index) ? hierarchy.representative(index) : -1,
+      placing(() => arriving),
     )
     for (const index of arrived) projection.markSeen(index)
     views.dropRequests()

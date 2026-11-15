@@ -433,6 +433,212 @@ function arrange(
   return { packs, packOf, size, anchorX, anchorY, offsetX, offsetY, reach, scale: packScale }
 }
 
+function grownInts(array: Int32Array, length: number, fill: number): Int32Array {
+  if (array.length >= length) return array
+  const next = new Int32Array(Math.max(16, array.length * 2, length)).fill(fill)
+  next.set(array)
+  return next
+}
+
+function grownFloats(array: Float64Array, length: number): Float64Array {
+  if (array.length >= length) return array
+  const next = new Float64Array(Math.max(16, array.length * 2, length))
+  next.set(array)
+  return next
+}
+
+export class PlaceStacks {
+  #table: Int32Array = new Int32Array(16).fill(-1)
+  #x: Float64Array = new Float64Array(0)
+  #y: Float64Array = new Float64Array(0)
+  #hash: Int32Array = new Int32Array(0)
+  #size: Int32Array = new Int32Array(0)
+  #head: Int32Array = new Int32Array(0)
+  #flagged: Int32Array = new Int32Array(0)
+  #placeOf: Int32Array = new Int32Array(0)
+  #next: Int32Array = new Int32Array(0)
+  #previous: Int32Array = new Int32Array(0)
+  readonly #free: number[] = []
+  #dirty: number[] = []
+  #ids = 0
+  #live = 0
+
+  get places(): number {
+    return this.#live
+  }
+
+  get pending(): boolean {
+    return this.#dirty.length > 0
+  }
+
+  placeOf(index: number): number {
+    return this.#placeOf[index] ?? -1
+  }
+
+  size(place: number): number {
+    return this.#size[place] ?? 0
+  }
+
+  x(place: number): number {
+    return this.#x[place] ?? 0
+  }
+
+  y(place: number): number {
+    return this.#y[place] ?? 0
+  }
+
+  members(place: number, into: number[]): void {
+    const start = into.length
+    for (let at = this.#head[place] ?? -1; at >= 0; at = this.#next[at] ?? -1) into.push(at)
+    if (into.length - start > 1) {
+      const sorted = into.slice(start).sort((a, b) => a - b)
+      for (let at = 0; at < sorted.length; at++) into[start + at] = sorted[at] ?? 0
+    }
+  }
+
+  set(index: number, x: number, y: number): boolean {
+    const px = x + 0
+    const py = y + 0
+    const current = this.placeOf(index)
+    if (current >= 0 && this.#x[current] === px && this.#y[current] === py) return false
+    if (current >= 0) this.#leave(index, current)
+    this.#reserve(index)
+    const place = this.#find(px, py, true)
+    const head = this.#head[place] ?? -1
+    this.#next[index] = head
+    this.#previous[index] = -1
+    if (head >= 0) this.#previous[head] = index
+    this.#head[place] = index
+    this.#size[place] = (this.#size[place] ?? 0) + 1
+    this.#placeOf[index] = place
+    this.#flag(place)
+    return true
+  }
+
+  remove(index: number): boolean {
+    const current = this.placeOf(index)
+    if (current < 0) return false
+    this.#leave(index, current)
+    return true
+  }
+
+  takeDirty(): number[] {
+    const dirty = this.#dirty
+    this.#dirty = []
+    for (const place of dirty) this.#flagged[place] = 0
+    return dirty
+  }
+
+  clear(): void {
+    this.#table.fill(-1)
+    this.#placeOf.fill(-1)
+    this.#size.fill(0)
+    this.#head.fill(-1)
+    this.#flagged.fill(0)
+    this.#free.length = 0
+    this.#dirty = []
+    this.#ids = 0
+    this.#live = 0
+  }
+
+  #reserve(index: number): void {
+    if (index < this.#placeOf.length) return
+    this.#placeOf = grownInts(this.#placeOf, index + 1, -1)
+    this.#next = grownInts(this.#next, index + 1, -1)
+    this.#previous = grownInts(this.#previous, index + 1, -1)
+  }
+
+  #flag(place: number): void {
+    if (this.#flagged[place] === 1) return
+    this.#flagged[place] = 1
+    this.#dirty.push(place)
+  }
+
+  #leave(index: number, place: number): void {
+    const next = this.#next[index] ?? -1
+    const previous = this.#previous[index] ?? -1
+    if (previous >= 0) this.#next[previous] = next
+    else this.#head[place] = next
+    if (next >= 0) this.#previous[next] = previous
+    this.#next[index] = -1
+    this.#previous[index] = -1
+    this.#placeOf[index] = -1
+    const size = (this.#size[place] ?? 1) - 1
+    this.#size[place] = size
+    this.#flag(place)
+    if (size === 0) this.#drop(place)
+  }
+
+  #find(x: number, y: number, create: boolean): number {
+    const hash = pointHash(x, y) | 0
+    const table = this.#table
+    const mask = table.length - 1
+    let slot = hash & mask
+    for (;;) {
+      const id = table[slot] ?? -1
+      if (id < 0) break
+      if (this.#x[id] === x && this.#y[id] === y) return id
+      slot = (slot + 1) & mask
+    }
+    if (!create) return -1
+    if ((this.#live + 1) * 2 > table.length) {
+      this.#rehash(table.length * 2)
+      return this.#find(x, y, true)
+    }
+    const id = this.#free.pop() ?? this.#ids++
+    if (id >= this.#x.length) {
+      this.#x = grownFloats(this.#x, id + 1)
+      this.#y = grownFloats(this.#y, id + 1)
+      this.#hash = grownInts(this.#hash, id + 1, 0)
+      this.#size = grownInts(this.#size, id + 1, 0)
+      this.#head = grownInts(this.#head, id + 1, -1)
+      this.#flagged = grownInts(this.#flagged, id + 1, 0)
+    }
+    this.#x[id] = x
+    this.#y[id] = y
+    this.#hash[id] = hash
+    this.#size[id] = 0
+    this.#head[id] = -1
+    table[slot] = id
+    this.#live++
+    return id
+  }
+
+  #drop(place: number): void {
+    const table = this.#table
+    const mask = table.length - 1
+    let hole = (this.#hash[place] ?? 0) & mask
+    while ((table[hole] ?? -1) !== place) hole = (hole + 1) & mask
+    table[hole] = -1
+    let slot = (hole + 1) & mask
+    for (;;) {
+      const id = table[slot] ?? -1
+      if (id < 0) break
+      const home = (this.#hash[id] ?? 0) & mask
+      if (((slot - home) & mask) >= ((slot - hole) & mask)) {
+        table[hole] = id
+        table[slot] = -1
+        hole = slot
+      }
+      slot = (slot + 1) & mask
+    }
+    this.#live--
+    this.#free.push(place)
+  }
+
+  #rehash(length: number): void {
+    const table = new Int32Array(length).fill(-1)
+    const mask = length - 1
+    for (const id of this.#table) {
+      if (id < 0) continue
+      let slot = (this.#hash[id] ?? 0) & mask
+      while ((table[slot] ?? -1) >= 0) slot = (slot + 1) & mask
+      table[slot] = id
+    }
+    this.#table = table
+  }
+}
+
 export function packMembers(input: PackInput, rounds: number = spreadRounds, join = true): Packing {
   const { count, x, y, radius, scale, gap } = input
   const placeOf = new Int32Array(count).fill(-1)

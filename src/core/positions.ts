@@ -2,11 +2,22 @@ import type { Key, NodeMark, Point } from '../types'
 import { isKey } from './accessor'
 import { type CompiledNodeMark, compileNodeMark } from './compile-mark'
 import { projectLatitude, projectLongitude } from './geo'
-import type { GraphChanges, GraphModel } from './graph-model'
+import { type GraphChanges, type GraphModel, linkStride } from './graph-model'
 
 export const goldenAngle: number = Math.PI * (3 - Math.sqrt(5))
 
 export const placementSpacing = 24
+
+const ringSpacing = placementSpacing * 1.5
+
+export type PlacementUnit = (index: number, y: number) => number
+
+const worldUnit: PlacementUnit = () => 1
+
+interface NodeRef {
+  readonly key: Key
+  readonly index: number
+}
 
 const blockShift = 10
 
@@ -92,6 +103,7 @@ export class Positions implements PositionReader {
   blocks: Float64Array = new Float64Array(0)
   originX = 0
   originY = 0
+  followed = 0
   #spiral = 0
   #rings = new Map<number, number>()
   readonly #planes = new Map<object, PositionPlane>()
@@ -256,8 +268,9 @@ export class Positions implements PositionReader {
     this.reserve(index)
     const x = point ? point[0] : Number.NaN
     const y = point ? point[1] : Number.NaN
-    const changed =
-      point !== null && (this.source[index * 2] !== x || this.source[index * 2 + 1] !== y)
+    const was = this.source[index * 2] ?? Number.NaN
+    const changed = point !== null && (was !== x || this.source[index * 2 + 1] !== y)
+    if (Number.isNaN(was) !== (point === null)) this.followed += point === null ? -1 : 1
     this.source[index * 2] = x
     this.source[index * 2 + 1] = y
     return changed
@@ -310,6 +323,7 @@ export function placeNodes(
   positions: Positions,
   changes: GraphChanges,
   restore: RestoredPositions | null = null,
+  unit: PlacementUnit = worldUnit,
 ): PositionMoves {
   for (const { index } of changes.nodes.removed) positions.release(index)
   const channelPoint = pointReader()
@@ -333,51 +347,50 @@ export function placeNodes(
   const last = added[added.length - 1]
   if (last) positions.reserve(last.index)
   const restoring = restore !== null && restore.size > 0
-  let arrivals = added
-  if (restoring) {
-    const rest: (typeof added)[number][] = []
-    for (const ref of added) {
-      const record = model.nodeAt(ref.index)
-      if (!record) continue
-      const point = channelPoint(record.mark, record.datum)
-      positions.follow(ref.index, point)
-      if (point) {
-        restore.take(ref.key)
-        positions.set(ref.index, point[0], point[1])
-        continue
-      }
-      const kept = restore.take(ref.key)
-      if (!kept) {
-        rest.push(ref)
-        continue
-      }
-      positions.set(ref.index, kept.x, kept.y)
-      positions.restored[ref.index] = 1
-      restored.push(ref.index)
+  const rest: NodeRef[] = []
+  for (const ref of added) {
+    const record = model.nodeAt(ref.index)
+    if (!record) continue
+    const point = channelPoint(record.mark, record.datum)
+    positions.follow(ref.index, point)
+    if (point) {
+      restore?.take(ref.key)
+      positions.set(ref.index, point[0], point[1])
+      continue
     }
-    arrivals = rest
+    const kept = restoring ? restore.take(ref.key) : undefined
+    if (!kept) {
+      rest.push(ref)
+      continue
+    }
+    positions.set(ref.index, kept.x, kept.y)
+    positions.restored[ref.index] = 1
+    restored.push(ref.index)
   }
   const batch = restoring
-    ? arrivals.length === model.nodeCount
+    ? rest.length === model.nodeCount
       ? null
-      : new Set<Key>(arrivals.map((ref) => ref.key))
+      : new Set<Key>(rest.map((ref) => ref.key))
     : model.nodeCount === added.length
       ? null
       : new Set<Key>(added.map((ref) => ref.key))
-  for (const { key, index } of arrivals) {
-    const record = model.nodeAt(index)
-    if (!record) continue
-    if (!restoring) {
-      const point = channelPoint(record.mark, record.datum)
-      positions.follow(index, point)
-      if (point) {
-        positions.set(index, point[0], point[1])
-        continue
-      }
-    }
-    placeNear(model, positions, key, index, batch)
-  }
+  placeRest(model, positions, rest, batch, unit)
   return { indices, to, held, restored }
+}
+
+function placeRest(
+  model: GraphModel,
+  positions: Positions,
+  rest: readonly NodeRef[],
+  batch: ReadonlySet<Key> | null,
+  unit: PlacementUnit,
+): void {
+  if (rest.length === 0) return
+  if (positions.followed === 0) {
+    for (const { key, index } of rest) placeNear(model, positions, key, index, batch)
+    return
+  }
+  placeAround(model, positions, rest, unit)
 }
 
 function placeNear(
@@ -409,7 +422,7 @@ function placeNear(
   }
   const ring = positions.nextRing(anchor)
   const angle = ring * goldenAngle
-  const radius = placementSpacing * 1.5 * Math.sqrt(ring + 1)
+  const radius = ringSpacing * Math.sqrt(ring + 1)
   positions.set(
     index,
     sumX / count + radius * Math.cos(angle),
@@ -417,11 +430,141 @@ function placeNear(
   )
 }
 
+function placeOnRing(
+  positions: Positions,
+  index: number,
+  anchor: number,
+  x: number,
+  y: number,
+  unit: PlacementUnit,
+): void {
+  const ring = positions.nextRing(anchor)
+  const angle = ring * goldenAngle
+  const scale = unit(index, y)
+  const radius =
+    ringSpacing * Math.sqrt(ring + 1) * (scale > 0 && Number.isFinite(scale) ? scale : 1)
+  positions.set(index, x + radius * Math.cos(angle), y + radius * Math.sin(angle))
+}
+
+function centralNode(positions: Positions): number {
+  const { source, placed, capacity } = positions
+  let sumX = 0
+  let sumY = 0
+  let count = 0
+  for (let index = 0; index < capacity; index++) {
+    const x = source[index * 2] ?? Number.NaN
+    if (Number.isNaN(x) || placed[index] !== 1) continue
+    sumX += x
+    sumY += source[index * 2 + 1] ?? 0
+    count++
+  }
+  if (count === 0) return -1
+  const meanX = sumX / count
+  const meanY = sumY / count
+  let best = -1
+  let nearest = Number.POSITIVE_INFINITY
+  for (let index = 0; index < capacity; index++) {
+    const x = source[index * 2] ?? Number.NaN
+    if (Number.isNaN(x) || placed[index] !== 1) continue
+    const away = Math.hypot(x - meanX, (source[index * 2 + 1] ?? 0) - meanY)
+    if (away < nearest) {
+      nearest = away
+      best = index
+    }
+  }
+  return best
+}
+
+function placeAround(
+  model: GraphModel,
+  positions: Positions,
+  rest: readonly NodeRef[],
+  unit: PlacementUnit,
+): void {
+  const { endNode, endHead, nodeEnd, links } = model.adjacency()
+  const { placed } = positions
+  const waiting = new Uint8Array(positions.capacity)
+  const stamp = new Int32Array(positions.capacity)
+  const queued = new Int32Array(positions.capacity)
+  for (const { index } of rest) waiting[index] = 1
+  let generation = 1
+  const visit = (index: number, step: (other: number) => void) => {
+    const end = nodeEnd[index] ?? -1
+    let id = end < 0 ? -1 : (endHead[end] ?? -1)
+    while (id !== -1) {
+      const at = id * linkStride
+      const source = links[at] ?? -1
+      const outgoing = source === end
+      const other = endNode[outgoing ? (links[at + 1] ?? -1) : source] ?? -1
+      id = links[at + (outgoing ? 2 : 4)] ?? -1
+      if (other >= 0 && other !== index) step(other)
+    }
+  }
+  const enqueue = (index: number, into: number[]) => {
+    visit(index, (other) => {
+      if (waiting[other] !== 1 || queued[other] === generation + 1) return
+      queued[other] = generation + 1
+      into.push(other)
+    })
+  }
+  let sumX = 0
+  let sumY = 0
+  let count = 0
+  let anchor = -1
+  const gather = (other: number) => {
+    if (waiting[other] === 1 || placed[other] !== 1 || (stamp[other] ?? 0) >= generation) return
+    sumX += positions.x(other)
+    sumY += positions.y(other)
+    count++
+    if (anchor < 0) anchor = other
+  }
+  const spread = (first: number[]) => {
+    let front = first
+    while (front.length > 0) {
+      const next: number[] = []
+      for (const index of front) {
+        if (waiting[index] !== 1) continue
+        sumX = 0
+        sumY = 0
+        count = 0
+        anchor = -1
+        visit(index, gather)
+        if (count === 0) continue
+        placeOnRing(positions, index, anchor, sumX / count, sumY / count, unit)
+        waiting[index] = 0
+        stamp[index] = generation
+        enqueue(index, next)
+      }
+      front = next
+      generation++
+    }
+  }
+  spread(rest.map((ref) => ref.index))
+  let center = -2
+  for (const { index } of rest) {
+    if (waiting[index] !== 1) continue
+    if (center === -2) center = centralNode(positions)
+    if (center < 0) {
+      const [sx, sy] = positions.nextSpiral()
+      positions.set(index, sx, sy)
+    } else {
+      placeOnRing(positions, index, center, positions.x(center), positions.y(center), unit)
+    }
+    waiting[index] = 0
+    stamp[index] = generation
+    const next: number[] = []
+    enqueue(index, next)
+    generation++
+    spread(next)
+  }
+}
+
 export function placeOnSurface(
   model: GraphModel,
   positions: Positions,
   stale: readonly number[],
   holder: (index: number) => number,
+  unit: PlacementUnit = worldUnit,
 ): number[] {
   const channelPoint = pointReader()
   for (const index of stale) {
@@ -434,7 +577,7 @@ export function placeOnSurface(
     }
   }
   const arrived: number[] = []
-  const rest: { readonly key: Key; readonly index: number }[] = []
+  const rest: NodeRef[] = []
   const held: number[] = []
   for (const record of model.nodes()) {
     const index = record.index
@@ -450,7 +593,7 @@ export function placeOnSurface(
   }
   if (rest.length > 0) {
     const batch = rest.length === model.nodeCount ? null : new Set<Key>(rest.map((ref) => ref.key))
-    for (const { key, index } of rest) placeNear(model, positions, key, index, batch)
+    placeRest(model, positions, rest, batch, unit)
   }
   for (const index of held) {
     const at = holder(index)

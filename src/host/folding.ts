@@ -3,7 +3,12 @@ import type { GraphChanges, GraphModel } from '../core/graph-model'
 import { groupingOf, groupKey } from '../core/group-index'
 import { type StringCheck, stringCheck } from '../core/key-list'
 import { type ArrangedPlaces, scopeEngine, type UnfoldArranging } from '../core/layout-scopes'
-import { goldenAngle, type Positions, placementSpacing } from '../core/positions'
+import {
+  goldenAngle,
+  type PlacementUnit,
+  type Positions,
+  placementSpacing,
+} from '../core/positions'
 import type { Projection, ProjectionChanges } from '../core/projection'
 import type { Scene } from '../core/scene'
 import type { GraphDefinition, Key, Layout } from '../types'
@@ -31,6 +36,7 @@ export interface FoldSource {
   arranges(): boolean
   request(flush: boolean): void
   prepare(): void
+  unit: PlacementUnit
 }
 
 export interface Revealed {
@@ -255,7 +261,8 @@ export class FoldControl {
       if (fresh.has(index) && !grouped.has(index)) {
         const ring = positions.nextRing(anchor)
         const angle = ring * goldenAngle
-        const radius = placementSpacing * Math.sqrt(ring + 1)
+        const scale = positions.followed > 0 ? this.#source.unit(index, ay) : 1
+        const radius = placementSpacing * Math.sqrt(ring + 1) * scale
         positions.set(index, ax + radius * Math.cos(angle), ay + radius * Math.sin(angle))
         placed.push(index)
         continue
