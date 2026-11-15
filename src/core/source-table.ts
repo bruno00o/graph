@@ -459,6 +459,7 @@ export class SourceTable<M extends AnyMark> {
     hold?.retain()
     if (was !== hold) {
       was?.forEachKey(this.#markKey)
+      if (old) hold?.forEachKey(this.#markKey)
       if ((was?.readiness ?? 'ready') !== 'ready' || (hold?.readiness ?? 'ready') !== 'ready') {
         this.#readinessVersion++
       }

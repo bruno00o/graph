@@ -510,6 +510,6 @@ export class TimeSpans {
     const n = sorted.length * 2 + 1
     const from = lowerBound(sorted, filter.start) + upperBound(sorted, filter.start)
     const to = lowerBound(sorted, filter.end) + upperBound(sorted, filter.end)
-    return ((from * n + to) * 2 + (filter.point ? 1 : 0)) * 2 + (filter.fade > 0 ? 1 : 0)
+    return ((from * n + to) * 2 + (filter.point ? 1 : 0)) * 2 + (filter.fade > 0 ? 1 : 0) + 1
   }
 }

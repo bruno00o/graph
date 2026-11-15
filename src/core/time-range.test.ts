@@ -146,6 +146,12 @@ describe('time filter', () => {
     expect(at(11, 15)).not.toBe(at(10, 15))
     expect(columns.step(null)).toBe(0)
   })
+
+  it('gives a window before every time of the data a step apart from no window', () => {
+    const columns = spans([10, 20], [30, 40])
+    expect(columns.step(timeFilter({ start: 0, end: 1 }, 0))).not.toBe(columns.step(null))
+    expect(columns.step(timeFilter({ start: 0, end: 0 }, 0))).not.toBe(columns.step(null))
+  })
 })
 
 describe('TimeSpans boundaries', () => {
