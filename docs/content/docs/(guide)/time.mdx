@@ -27,9 +27,29 @@ A time is one of:
 
 - a moment, in milliseconds since the epoch or as a `Date`: the element exists at that moment only;
 - a period `{ start, end }`, from `start`, included, to `end`, left out. A missing or `null` end leaves the period open on that side: `{ start: date }` exists from `date` on, forever;
+- a list of moments and periods, an array or any iterable: the element exists in each of them. An empty list means the element never exists, and no window shows it;
 - `null`, `undefined`, or a value that is not a time: the element has no time and always shows.
 
 A period whose end comes before its start counts as the moment of its start. The types are in the reference of [`nodes`](/docs/api/nodes#options) and [`edges`](/docs/api/edges#options).
+
+### Several periods
+
+An element that comes and goes takes a list:
+
+```ts
+import { nodes } from '@bruno00o/graph'
+
+interface Item {
+  readonly id: string
+  readonly stays: readonly { readonly from: Date; readonly to: Date | null }[]
+}
+
+declare const items: Item[]
+
+nodes(items, { time: (item) => item.stays.map((stay) => ({ start: stay.from, end: stay.to })) })
+```
+
+Periods that overlap or touch merge into one, so `[{ start: 1, end: 5 }, { start: 5, end: 9 }]` is the period from 1 to 9: the element does not fade out and back in where they meet. A moment inside a period merges into it. An element with several periods shows when one of them meets the window, and is hidden between them. See the [several periods](/examples/several-periods) example.
 
 ## The time window
 
@@ -51,6 +71,7 @@ The window too goes from `start`, included, to `end`, left out, and a missing en
 - a period shows when it starts before the window ends and ends after the window starts. A period that ends where the window starts does not show, nor one that starts where the window ends;
 - a moment shows from the start of the window, included, to its end, left out;
 - with `start` equal to `end`, the window is a single moment, and shows what exists at that moment: periods that contain it, moments equal to it;
+- an element with several periods shows when one of them does;
 - an edge shows only when it, its source and its target all show. An edge without a time follows its ends.
 
 `graph.time.get()` returns the window as numbers, or `null`. Each change emits `timechange` and updates `time` in the [store](/docs/api/graph-instance#graph-state):
@@ -85,7 +106,7 @@ By default, elements appear and disappear at once. `time.fade` in `defineGraph` 
 defineGraph({ marks, time: { fade: 30 * 86_400_000 } })
 ```
 
-With a fade, an element exactly at the edge of the window has faded out, and counts as hidden. The fade multiplies the opacity of the element and of its label. An edge takes the faintest of its own fade and those of its ends. See the [moments and periods](/examples/time-moments) example.
+With a fade, an element exactly at the edge of the window has faded out, and counts as hidden. The fade multiplies the opacity of the element and of its label. An edge takes the faintest of its own fade and those of its ends. An element with several periods takes the fade of the one that goes deepest into the window: while one of its periods is fully in, the element shows fully, even when another is fading. See the [moments and periods](/examples/time-moments) example.
 
 ## What a hidden element is
 
@@ -99,7 +120,7 @@ An element outside the window behaves like one outside its [zoom range](/docs/zo
 
 A hidden element stays in the data, in the selection and in states. `view.fit` still frames it, and layouts place every node, in the window or not, with all its edges: the nodes in the window keep the places they have in the whole graph, and the graph does not move when the window moves.
 
-In a [group](/docs/groups), each node follows its own time. An edge drawn in place of edges that end in a folded group exists from the earliest start to the latest end of its members, and has no time when one of them has none. `aggregate.time` reads it from the [aggregated edge](/docs/api/edges#merged-edges) instead.
+In a [group](/docs/groups), each node follows its own time. An edge drawn in place of edges that end in a folded group exists from the earliest start to the latest end of its members, their several periods included, and has no time when one of them has none. `aggregate.time` reads it from the [aggregated edge](/docs/api/edges#merged-edges) instead.
 
 ## Timeline
 
@@ -122,7 +143,7 @@ A timeline follows a graph on a map the same way: see [Map](/docs/map#time) and 
 
 ### Histogram
 
-Bins follow the calendar: a day, a week starting on Monday, a month, a year, or a multiple of them, chosen so that the bar holds about `bins` of them. A bin counts the nodes and the edges whose time meets it, the same way the window does, so a bin brushed alone shows what it counts. An edge counts over the time when it and both its ends exist. Elements without time are not counted.
+Bins follow the calendar: a day, a week starting on Monday, a month, a year, or a multiple of them, chosen so that the bar holds about `bins` of them. A bin counts the nodes and the edges whose time meets it, the same way the window does, so a bin brushed alone shows what it counts. An element with several periods counts once in a bin that two of them meet. An edge counts over the time when it and both its ends exist. Elements without time are not counted.
 
 [Shapes](/docs/shapes) follow the window like any element, but the timeline counts only nodes and edges: it draws no bar for a shape, and the extent ignores their times.
 
@@ -309,6 +330,33 @@ timeline.stepEvent()
 
 Moving the cursor reads again only the elements whose entries it crosses: stepping from one change to the next touches one element. See the [values over time](/examples/values-over-time) example.
 
+### When elements are there
+
+An entry can also say whether its element is there from its moment on: `true` or `false` in its `present` field, or in the field or function of the `present` option. Those entries turn the journal into periods during which the element exists, on top of the `time` of the mark: the element shows when both say it exists.
+
+```ts
+import { edges } from '@bruno00o/graph'
+import { historyFrom } from '@bruno00o/graph/history'
+
+interface Opening {
+  readonly id: string
+  readonly time: Date
+  readonly link: string
+  readonly open: boolean
+}
+
+declare const openings: Opening[]
+
+const history = historyFrom(openings, { key: 'link', present: 'open' })
+
+edges(links, { source: 'from', target: 'to', history })
+```
+
+- The first `true` of an element means it was not there before it, the first `false` that it was. After the last entry, the element stays as that entry left it.
+- The presence comes from the whole journal, not from the entries up to the window: the element shows in each of its periods wherever the window is, like a list of periods in `time`.
+- An entry with a presence needs no values. Entries can give both, values and a presence; a journal of presences only names its `present` option, as above.
+- An element without any presence in the journal keeps the `time` of its mark.
+
 ### Scales over the whole history
 
 The scales of a mark with a history cover every value its elements take over the whole journal, not only those of the moment. A state keeps its color and a level its size at every moment, and moving the cursor never rewrites elements that its step does not cross:
@@ -341,6 +389,14 @@ The time of each element is read when the data changes, like every style. Moving
 | Histogram, after every node changes its time | 120 ms |
 
 The timeline counts again only when times change, and only for the elements whose time changed and the edges that end on them.
+
+An element with [several periods](#several-periods) keeps on the GPU the one that counts for the window, so moving the window looks again at each of these elements, and the timeline counts the gaps between their periods. Measured on a laptop, at 100,000 nodes and 200,000 edges:
+
+| Step | One period per node | Three periods per node |
+| --- | --- | --- |
+| First frame | 300 to 310 ms | 370 to 375 ms |
+| Frame while playing | 3.4 to 4.5 ms | 4.8 to 5.8 ms |
+| Histogram, first count | 43 to 48 ms | 134 to 140 ms |
 
 Events cost little next to the graph. Measured on a laptop, with events spread over 30 days in five kinds:
 

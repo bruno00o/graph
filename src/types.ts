@@ -221,6 +221,11 @@ export interface HistoryEntry<V = unknown> {
    * sets it to `null`.
    */
   readonly values: V
+  /**
+   * Whether the element is there from `time` on. Entries with a presence turn the journal into
+   * periods during which the element shows. Defaults to no change of presence.
+   */
+  readonly present?: boolean | undefined
 }
 
 /**
@@ -570,11 +575,12 @@ export interface NodeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly maxZoom?: Style<T, number | null> | undefined
   /**
-   * When the node exists: a moment, or a period with optional open ends, in milliseconds or as
-   * `Date`. With a time window set, the node shows only while it exists in the window, and hides
-   * its label, its badges and its edges otherwise. `null` or no value: the node always exists.
+   * When the node exists: a moment, a period with optional open ends, or a list of them, in
+   * milliseconds or as `Date`. With a time window set, the node shows only while it exists in the
+   * window, and hides its label, its badges and its edges otherwise. Periods of a list that touch
+   * or overlap merge; an empty list never shows. `null` or no value: the node always exists.
    */
-  readonly time?: Channel<T, TimeValue> | undefined
+  readonly time?: Channel<T, TimeValue | Iterable<TimeValue>> | undefined
   /**
    * History of the nodes: entries that change fields of their items from a moment on. The nodes
    * then show the values read at the end of the time window, at its moment for a single-moment
@@ -763,11 +769,12 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    */
   readonly maxZoom?: Style<T, number | null> | undefined
   /**
-   * When the edge exists: a moment, or a period with optional open ends, in milliseconds or as
-   * `Date`. With a time window set, the edge shows only while it and both of its ends exist in the
-   * window. `null` or no value: the edge exists whenever its ends do.
+   * When the edge exists: a moment, a period with optional open ends, or a list of them, in
+   * milliseconds or as `Date`. With a time window set, the edge shows only while it and both of its
+   * ends exist in the window. Periods of a list that touch or overlap merge; an empty list never
+   * shows. `null` or no value: the edge exists whenever its ends do.
    */
-  readonly time?: Channel<T, TimeValue> | undefined
+  readonly time?: Channel<T, TimeValue | Iterable<TimeValue>> | undefined
   /**
    * History of the edges: entries that change fields of their items from a moment on. The edges
    * then show the values read at the end of the time window, at its moment for a single-moment
@@ -1279,11 +1286,12 @@ export interface ShapeOptions<T, N extends MarkName = MarkName, L extends MarkLa
    */
   readonly maxZoom?: Style<T, number | null> | undefined
   /**
-   * When the shape exists: a moment, or a period with optional open ends, in milliseconds or as
-   * `Date`. With a time window set, the shape shows only while it exists in the window. `null` or
-   * no value: the shape always exists.
+   * When the shape exists: a moment, a period with optional open ends, or a list of them, in
+   * milliseconds or as `Date`. With a time window set, the shape shows only while it exists in the
+   * window. Periods of a list that touch or overlap merge; an empty list never shows. `null` or no
+   * value: the shape always exists.
    */
-  readonly time?: Channel<T, TimeValue> | undefined
+  readonly time?: Channel<T, TimeValue | Iterable<TimeValue>> | undefined
   /**
    * History of the shapes: entries that change fields of their items from a moment on. The shapes
    * then show the values read at the end of the time window, at its moment for a single-moment

@@ -56,7 +56,7 @@ With `shape: 'box'`, `size` is the height of the box and `width` its width: `'la
 
 ## Time
 
-`time` takes a moment or a period. See [Time](/docs/time). `history` changes the fields of the items over time, read at the end of the time window: see [`historyFrom`](/docs/api/history).
+`time` takes a moment, a period, or a list of them, an array or any iterable, for an element that exists over several periods. See [Time](/docs/time). `history` changes the fields of the items over time, read at the end of the time window: see [`historyFrom`](/docs/api/history).
 
 ```ts
 type TimeInstant = number | Date

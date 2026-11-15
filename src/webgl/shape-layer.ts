@@ -1,3 +1,4 @@
+import type { LogCursor } from '../core/change-log'
 import {
   type ShapeGeometryData,
   type ShapeGlyphs,
@@ -243,6 +244,7 @@ export function createShapeLayer(
   let flags = 0
   let zoomUsed = false
   let timeUsed = false
+  let swapCursor: LogCursor | null = null
   let capacity = 0
   let rank = new Uint32Array(0)
   let highlighted: readonly number[] = []
@@ -515,7 +517,32 @@ export function createShapeLayer(
         spans[at + 3] = known ? (packed[at + 3] ?? 0) : 0
       }
       made.time.upload(0, store.capacity - 1)
+      swapCursor = store.time.swaps.cursor()
     }
+  }
+
+  function writeSwaps(store: ShapeStore, made: Passes): boolean {
+    if (!timeUsed || !swapCursor) return false
+    const swapped = store.time.swaps.since(swapCursor)
+    swapCursor = store.time.swaps.cursor()
+    if (!swapped) {
+      writeStyles(store, made)
+      return true
+    }
+    if (swapped.length === 0) return false
+    const spans = made.time.data
+    const packed = store.time.packed
+    let low = Number.POSITIVE_INFINITY
+    let high = -1
+    for (const index of swapped) {
+      const at = index * 4
+      if (at + 3 >= spans.length || at + 3 >= packed.length) continue
+      spans.set(packed.subarray(at, at + 4), at)
+      low = Math.min(low, index)
+      high = Math.max(high, index)
+    }
+    made.time.upload(low, high)
+    return true
   }
 
   function writeStates(states: StateBuffers, made: Passes, full: boolean): boolean {
@@ -1082,6 +1109,7 @@ export function createShapeLayer(
         writeDrafts(store, made)
         changed = true
       }
+      if (writeSwaps(store, made)) changed = true
       if (writeStates(states, made, grown)) changed = true
       if (store.shiftVersion !== shiftVersion) {
         shiftVersion = store.shiftVersion

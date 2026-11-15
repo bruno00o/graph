@@ -176,7 +176,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       definition: () => definition,
       patch,
       request: () => request(),
-      readAt: (window) => model.readAt(cutOf(window)),
+      readAt: (window) => {
+        model.readAt(cutOf(window))
+        selectTimes()
+      },
     },
     options.time ?? options.initialTime ?? null,
     options.onTimeChange,
@@ -223,6 +226,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     textWidths.width,
     surface.groupFillOpacity === null ? {} : { groupFillOpacity: surface.groupFillOpacity },
   )
+  selectTimes()
   const positions = new Positions()
   let restore: RestoredPositions | null = null
   if (options.initialPositions !== undefined) {
@@ -881,12 +885,20 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
   }
 
+  function selectTimes(): void {
+    const filter = timeWindow.filter
+    scene.nodes.time.select(filter)
+    scene.edges.time.select(filter)
+    scene.shapes.time.select(filter)
+  }
+
   function drawFrame(now: number): void {
     scheduler.started()
     if (destroyed || render.contextLost) return
     const start = clock()
     flushPending()
     if (destroyed) return
+    selectTimes()
     views.settle()
     views.step(now)
     if (pointer.autoPanning) pointer.stepAutoPan(now)

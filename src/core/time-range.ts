@@ -50,27 +50,123 @@ function edge(value: unknown, open: number): number {
 
 let spanStart = 0
 let spanEnd = 0
+const invalidSpan = 0
+const validSpan = 1
+const openSpan = 2
 
-function parseSpan(value: unknown): boolean {
-  if (value === null || value === undefined) return false
+function spanOf(value: unknown): number {
+  if (value === null || value === undefined) return invalidSpan
   if (typeof value === 'number' || value instanceof Date) {
     const time = toTime(value)
     spanStart = spanEnd = time
-    return !Number.isNaN(time)
+    return Number.isNaN(time) ? invalidSpan : validSpan
   }
-  if (typeof value !== 'object') return false
+  if (typeof value !== 'object') return invalidSpan
   const { start: from, end: to } = value as { start?: unknown; end?: unknown }
   const start = edge(from, Number.NEGATIVE_INFINITY)
   const end = edge(to, Number.POSITIVE_INFINITY)
-  if (Number.isNaN(start) || Number.isNaN(end)) return false
-  if (start === Number.NEGATIVE_INFINITY && end === Number.POSITIVE_INFINITY) return false
+  if (Number.isNaN(start) || Number.isNaN(end)) return invalidSpan
+  if (start === Number.NEGATIVE_INFINITY && end === Number.POSITIVE_INFINITY) return openSpan
   spanStart = start
   spanEnd = Math.max(start, end)
-  return true
+  return validSpan
+}
+
+function parseSpan(value: unknown): boolean {
+  return spanOf(value) === validSpan
 }
 
 export function readSpan(value: unknown): readonly [number, number] | null {
   return parseSpan(value) ? [spanStart, spanEnd] : null
+}
+
+function listed(value: unknown): value is Iterable<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !(value instanceof Date) &&
+    typeof (value as Iterable<unknown>)[Symbol.iterator] === 'function'
+  )
+}
+
+const farKey = Math.fround(openTime)
+
+export function timeKey(value: number): number {
+  if (value <= -openTime) return -farKey
+  if (value >= openTime) return farKey
+  const high = Math.fround(value)
+  return high + Math.fround(value - high)
+}
+
+const found: number[] = []
+let merged = new Float64Array(16)
+
+function mergeFound(): number {
+  const count = found.length / 2
+  const keys = found.map(timeKey)
+  const order = Array.from({ length: count }, (_, at) => at).sort(
+    (a, b) =>
+      (keys[a * 2] ?? 0) - (keys[b * 2] ?? 0) || (keys[b * 2 + 1] ?? 0) - (keys[a * 2 + 1] ?? 0),
+  )
+  if (merged.length < count * 2) merged = new Float64Array(count * 2)
+  let length = -1
+  let start = 0
+  let end = 0
+  let startKey = 0
+  let endKey = 0
+  for (const rank of order) {
+    const nextStart = found[rank * 2] ?? 0
+    const nextEnd = found[rank * 2 + 1] ?? 0
+    const nextStartKey = keys[rank * 2] ?? 0
+    const nextEndKey = keys[rank * 2 + 1] ?? 0
+    if (
+      length >= 0 &&
+      (nextStartKey < endKey ||
+        (nextStartKey === endKey && !(startKey < endKey && nextStartKey === nextEndKey)))
+    ) {
+      if (nextStartKey === startKey && nextStart < start) start = nextStart
+      if (nextEndKey > endKey || (nextEndKey === endKey && nextEnd > end)) {
+        end = nextEnd
+        endKey = nextEndKey
+      }
+    } else {
+      length++
+      start = nextStart
+      startKey = nextStartKey
+      end = nextEnd
+      endKey = nextEndKey
+    }
+    merged[length * 2] = start
+    merged[length * 2 + 1] = end
+  }
+  return length + 1
+}
+
+export const noPeriods = -1
+
+export function readPeriods(value: unknown): number {
+  found.length = 0
+  if (listed(value)) {
+    for (const item of value) {
+      const kind = spanOf(item)
+      if (kind === openSpan) return noPeriods
+      if (kind === validSpan) found.push(spanStart, spanEnd)
+    }
+  } else if (spanOf(value) === validSpan) found.push(spanStart, spanEnd)
+  else return noPeriods
+  const count = mergeFound()
+  if (
+    count === 1 &&
+    merged[0] === Number.NEGATIVE_INFINITY &&
+    merged[1] === Number.POSITIVE_INFINITY
+  ) {
+    return noPeriods
+  }
+  return count
+}
+
+export function readBounds(count: number): Float64Array {
+  return merged.slice(0, count * 2)
 }
 
 export function packTime(value: number, out: Float32Array, at: number): void {
@@ -104,6 +200,7 @@ export class TimeFilter {
   readonly point: boolean
   readonly packed: Float32Array = new Float32Array(4)
   readonly serial: number = ++serials
+  readonly endKey: number
 
   constructor(start: number, end: number, fade: number) {
     this.start = start
@@ -113,6 +210,7 @@ export class TimeFilter {
     packTime(end, this.packed, 2)
     const p = this.packed
     this.point = same(p[0] ?? 0, p[1] ?? 0, p[2] ?? 0, p[3] ?? 0)
+    this.endKey = (p[2] ?? 0) + (p[3] ?? 0)
   }
 
   covers(packed: Float32Array, at: number): boolean {
@@ -175,20 +273,71 @@ function upperBound(values: Float64Array, value: number): number {
   return low
 }
 
+const scratchSpan = new Float32Array(4)
+
+function packPeriod(list: Float64Array, period: number, out: Float32Array, at: number): void {
+  packTime(list[period * 2] ?? 0, out, at)
+  packTime(list[period * 2 + 1] ?? 0, out, at + 2)
+}
+
+function started(list: Float64Array, period: number, filter: TimeFilter): boolean {
+  const key = timeKey(list[period * 2] ?? 0)
+  return key < filter.endKey || (filter.point && key === filter.endKey)
+}
+
+function choose(list: Float64Array, filter: TimeFilter | null): number {
+  const count = list.length / 2
+  if (!filter) return count - 1
+  if (filter.fade > 0) {
+    let best = -1
+    let deepest = -1
+    for (let period = 0; period < count; period++) {
+      packPeriod(list, period, scratchSpan, 0)
+      if (!filter.covers(scratchSpan, 0)) continue
+      const depth = filter.depth(list[period * 2] ?? 0, list[period * 2 + 1] ?? 0)
+      if (depth >= deepest) {
+        best = period
+        deepest = depth
+      }
+    }
+    if (best >= 0) return best
+  }
+  for (let period = count - 1; period > 0; period--) {
+    if (started(list, period, filter)) return period
+  }
+  return 0
+}
+
 export class TimeSpans {
   start: Float64Array = new Float64Array(0)
   end: Float64Array = new Float64Array(0)
   packed: Float32Array = new Float32Array(0)
   count = 0
   readonly changes: ChangeLog = new ChangeLog()
+  readonly swaps: ChangeLog = new ChangeLog()
+  readonly #lists: (Float64Array | undefined)[] = []
+  readonly #listed: Set<number> = new Set()
+  #placing: TimeFilter | null = null
   readonly #boundaries: Boundaries = new Boundaries(exactBoundaries, (visit) => {
     for (let index = 0; index < this.start.length; index++) {
-      visit(this.start[index] ?? Number.NaN)
-      visit(this.end[index] ?? Number.NaN)
+      const list = this.#lists[index]
+      if (list) for (const bound of list) visit(bound)
+      else {
+        visit(this.start[index] ?? Number.NaN)
+        visit(this.end[index] ?? Number.NaN)
+      }
     }
   })
 
   #capacity = 0
+
+  get placedFor(): TimeFilter | null {
+    return this.#placing
+  }
+
+  list(index: number): Float64Array | undefined {
+    return this.#listed.size > 0 ? this.#lists[index] : undefined
+  }
 
   reserve(capacity: number): void {
     if (capacity <= this.#capacity) return
@@ -229,17 +378,53 @@ export class TimeSpans {
     const before = this.timed(index)
     const startBefore = this.start[index] ?? Number.NEGATIVE_INFINITY
     const endBefore = this.end[index] ?? Number.POSITIVE_INFINITY
-    if (startBefore === start && endBefore === end) return
+    const list = this.#lists[index]
+    if (list) this.#unlist(index, list)
+    else {
+      if (startBefore === start && endBefore === end) return
+      this.#boundaries.remove(startBefore)
+      this.#boundaries.remove(endBefore)
+    }
     this.touch(index)
-    this.#boundaries.remove(startBefore)
-    this.#boundaries.remove(endBefore)
-    this.start[index] = start
-    this.end[index] = end
     if (before !== timed) this.count += timed ? 1 : -1
-    packTime(start, this.packed, index * 4)
-    packTime(end, this.packed, index * 4 + 2)
+    this.#place(index, start, end)
     this.#boundaries.add(start)
     this.#boundaries.add(end)
+  }
+
+  #place(index: number, start: number, end: number): void {
+    this.start[index] = start
+    this.end[index] = end
+    packTime(start, this.packed, index * 4)
+    packTime(end, this.packed, index * 4 + 2)
+  }
+
+  #unlist(index: number, list: Float64Array): void {
+    for (const bound of list) this.#boundaries.remove(bound)
+    this.#lists[index] = undefined
+    this.#listed.delete(index)
+  }
+
+  #setList(index: number, bounds: Float64Array, length: number): void {
+    if (index >= this.start.length) {
+      this.reserve(index + 1)
+      this.#grow(this.#capacity)
+    }
+    const old = this.#lists[index]
+    const before = this.timed(index)
+    if (old) for (const bound of old) this.#boundaries.remove(bound)
+    else {
+      this.#boundaries.remove(this.start[index] ?? Number.NEGATIVE_INFINITY)
+      this.#boundaries.remove(this.end[index] ?? Number.POSITIVE_INFINITY)
+      this.#listed.add(index)
+    }
+    const list = bounds.slice(0, length)
+    this.#lists[index] = list
+    for (const bound of list) this.#boundaries.add(bound)
+    this.touch(index)
+    if (!before) this.count++
+    const period = choose(list, this.#placing)
+    this.#place(index, list[period * 2] ?? 0, list[period * 2 + 1] ?? 0)
   }
 
   touch(index: number): void {
@@ -252,8 +437,16 @@ export class TimeSpans {
   }
 
   read(index: number, value: unknown): void {
-    if (parseSpan(value)) this.set(index, spanStart, spanEnd)
-    else this.clear(index)
+    if (!listed(value)) {
+      if (parseSpan(value)) this.set(index, spanStart, spanEnd)
+      else this.clear(index)
+      return
+    }
+    const count = readPeriods(value)
+    if (count === noPeriods) this.clear(index)
+    else if (count === 0) this.set(index, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY)
+    else if (count === 1) this.set(index, merged[0] ?? 0, merged[1] ?? 0)
+    else this.#setList(index, merged, count * 2)
   }
 
   clear(index: number): void {
@@ -262,18 +455,52 @@ export class TimeSpans {
     }
   }
 
+  select(filter: TimeFilter | null): void {
+    const old = this.#placing
+    if (!filter || filter === old) return
+    this.#placing = filter
+    if (
+      old &&
+      !(filter.fade > 0 || old.fade > 0) &&
+      old.endKey === filter.endKey &&
+      old.point === filter.point
+    ) {
+      return
+    }
+    for (const index of this.#listed) this.#replace(index)
+  }
+
+  #replace(index: number): void {
+    const list = this.#lists[index]
+    if (!list) return
+    const period = choose(list, this.#placing)
+    const start = list[period * 2] ?? 0
+    const end = list[period * 2 + 1] ?? 0
+    if (Object.is(this.start[index], start) && Object.is(this.end[index], end)) return
+    this.#place(index, start, end)
+    this.swaps.add(index, this.#capacity)
+  }
+
   shown(index: number, filter: TimeFilter | null): boolean {
-    if (this.count === 0 || !filter) return true
-    return filter.covers(this.packed, index * 4)
+    return this.opacity(index, filter) > 0
   }
 
   opacity(index: number, filter: TimeFilter | null): number {
     if (this.count === 0 || !filter) return 1
-    if (!filter.covers(this.packed, index * 4)) return 0
-    return filter.depth(
-      this.start[index] ?? Number.NEGATIVE_INFINITY,
-      this.end[index] ?? Number.POSITIVE_INFINITY,
-    )
+    let packed = this.packed
+    let at = index * 4
+    let start = this.start[index] ?? Number.NEGATIVE_INFINITY
+    let end = this.end[index] ?? Number.POSITIVE_INFINITY
+    const list = filter !== this.#placing && this.#listed.size > 0 ? this.#lists[index] : undefined
+    if (list) {
+      const period = choose(list, filter)
+      start = list[period * 2] ?? 0
+      end = list[period * 2 + 1] ?? 0
+      packPeriod(list, period, scratchSpan, 0)
+      packed = scratchSpan
+      at = 0
+    }
+    return filter.covers(packed, at) ? filter.depth(start, end) : 0
   }
 
   step(filter: TimeFilter | null): number {

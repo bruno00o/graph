@@ -18,6 +18,13 @@ function grownInts(array: Int32Array, length: number): Int32Array {
   return next
 }
 
+function grownFlags(array: Int8Array, length: number): Int8Array {
+  if (length <= array.length) return array
+  const next = new Int8Array(Math.max(16, array.length * 2, length))
+  next.set(array)
+  return next
+}
+
 function grownFloats(array: Float64Array, length: number): Float64Array {
   if (length <= array.length) return array
   const next = new Float64Array(Math.max(16, array.length * 2, length))
@@ -30,6 +37,7 @@ export class HistoryIndex {
   readonly keys: Key[] = []
   times: Float64Array = new Float64Array(0)
   owners: Int32Array = new Int32Array(0)
+  presence: Int8Array = new Int8Array(0)
   values: unknown[] = []
   size = 0
   live = 0
@@ -65,14 +73,16 @@ export class HistoryIndex {
   reserve(count: number): void {
     this.times = grownFloats(this.times, count)
     this.owners = grownInts(this.owners, count)
+    this.presence = grownFlags(this.presence, count)
   }
 
-  add(key: Key, time: number, values: unknown, entry?: Key): void {
+  add(key: Key, time: number, values: unknown, present: number, entry?: Key): void {
     const id = this.size++
     this.reserve(this.size)
     const element = this.#intern(key)
     this.times[id] = time + 0
     this.owners[id] = element
+    this.presence[id] = present
     this.values[id] = values
     this.live++
     this.#added.push(id)
@@ -83,11 +93,12 @@ export class HistoryIndex {
     }
   }
 
-  load(key: Key, time: number, values: unknown): void {
+  load(key: Key, time: number, values: unknown, present: number): void {
     const id = this.size++
     if (id >= this.times.length) this.reserve(id + 1)
     this.times[id] = time + 0
     this.owners[id] = this.#intern(key)
+    this.presence[id] = present
     this.values[id] = values
     this.live++
   }
@@ -174,6 +185,7 @@ export class HistoryIndex {
     if (remap) {
       const times = new Float64Array(live)
       const owners = new Int32Array(live)
+      const presence = new Int8Array(live)
       const values: unknown[] = new Array(live)
       let next = 0
       for (let id = 0; id < size; id++) {
@@ -182,11 +194,13 @@ export class HistoryIndex {
         remap[id] = next
         times[next] = this.times[id] ?? 0
         owners[next] = owner
+        presence[next] = this.presence[id] ?? -1
         values[next] = this.values[id]
         next++
       }
       this.times = times
       this.owners = owners
+      this.presence = presence
       this.values = values
       this.size = live
       const entries = this.#entries

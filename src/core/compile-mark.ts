@@ -9,6 +9,7 @@ import type {
   ShapeMark,
 } from '../types'
 import { toAccessor } from './accessor'
+import { historyTime } from './history'
 import { rawRead } from './raw'
 
 export type Read = (datum: unknown) => unknown
@@ -127,6 +128,10 @@ export interface CompiledEnds {
 
 function channel(value: string | Read | undefined): Read | null {
   return value === undefined ? null : toAccessor(value)
+}
+
+function timeChannel(value: string | Read | undefined, history: unknown): Read | null {
+  return history === undefined ? channel(value) : historyTime(history, channel(value))
 }
 
 function numberChannel(value: unknown): Read | null {
@@ -253,7 +258,7 @@ export function compileNodeMark(mark: NodeMark<unknown>): CompiledNodeMark {
     opacity: style(options.opacity),
     minZoom: style(options.minZoom),
     maxZoom: style(options.maxZoom),
-    time: channel(options.time),
+    time: timeChannel(options.time, options.history),
     image: style(options.image),
     badges: compileBadges(options.badges),
     screenUnits:
@@ -299,7 +304,7 @@ export function compileEdgeMark(mark: EdgeMark<unknown>): CompiledEdgeMark {
     opacity: style(options.opacity),
     minZoom: style(options.minZoom),
     maxZoom: style(options.maxZoom),
-    time: channel(options.time),
+    time: timeChannel(options.time, options.history),
     flow: style(options.flow),
     bundle: style(options.bundle),
     route: style(options.route),

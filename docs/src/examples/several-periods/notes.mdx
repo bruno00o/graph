@@ -1,0 +1,12 @@
+## How it works
+
+Each node has a list of stays, and its `time` returns that list: the node shows while the window meets one of its stays, and hides between them. Stays that touch would merge into one.
+
+The edges have no time of their own. A journal of openings, one entry per change with `open: true` or `false`, is read by `historyFrom(openings, { key: 'link', present: 'open' })` and passed to the `history` option of `edges()`: each edge exists between an opening and the next closing, and shows only while both its nodes show too.
+
+The timeline counts each element once in a bin, even when two of its stays meet it.
+
+## Try it
+
+- Press **Play** to slide the window over the year: nodes leave and come back.
+- Switch to **Periods: whole span** to give each node a single period, from its first stay to its last: the gaps fill in and the counts grow.
