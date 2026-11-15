@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Key, LayoutGraph } from '../../types'
+import type { Key, Layout, LayoutGraph } from '../../types'
 import { components, distinct } from './adjacency'
 import { acyclicRanks } from './cycles'
 import { type LayersOptions, layers } from './index'
@@ -32,6 +32,14 @@ function run(graph: LayoutGraph, options: LayersOptions = {}): Promise<Float32Ar
   return new Promise((resolve) =>
     layers(options).start(graph, { progress: () => {}, end: resolve }),
   )
+}
+
+interface Tiered {
+  readonly tier: number | null | undefined
+}
+
+function runLayout(layout: Layout, graph: LayoutGraph): Promise<Float32Array> {
+  return new Promise((resolve) => layout.start(graph, { progress: () => {}, end: resolve }))
 }
 
 function point(xy: Float32Array, index: number): [number, number] {
@@ -274,7 +282,53 @@ describe('layers', () => {
     expect(point(right, 1)[0] - point(right, 0)[0]).toBeCloseTo(120, 3)
   })
 
+  it('puts each node on the layer of its rank, in the order of the ranks', async () => {
+    const tiers = [5, 2, 2, 9, null, 5, 9, -1]
+    const graph = {
+      ...graphOf({ count: 8, edges: [0, 1, 1, 2, 3, 0, 4, 3, 6, 5, 7, 6] }),
+      datum: (index: number) => ({ tier: tiers[index] }),
+    }
+    const xy = await runLayout(layers<Tiered>({ rank: 'tier' }), graph)
+    const y = (index: number) => Math.round(point(xy, index)[1])
+    expect(y(1)).toBe(y(2))
+    expect(y(0)).toBe(y(5))
+    expect(y(3)).toBe(y(6))
+    const order = [7, 1, 0, 3, 4].map(y)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+    expect(new Set(order).size).toBe(5)
+    const steps = order.slice(1).map((value, at) => value - (order[at] ?? 0))
+    expect(new Set(steps).size).toBe(1)
+    const up = await runLayout(layers<Tiered>({ rank: 'tier', direction: 'up' }), graph)
+    expect(point(up, 7)[1]).toBeGreaterThan(point(up, 3)[1])
+  })
+
+  it('lays out edges against the ranks turned around and leaves edges within a layer out', async () => {
+    const graph = {
+      ...graphOf({ count: 4, edges: [1, 0, 2, 1, 1, 3, 3, 1] }),
+      datum: (index: number) => ({ tier: [0, 1, 2, 1][index] }),
+    }
+    const xy = await run(graph, { rank: (item: unknown) => (item as { tier: number }).tier })
+    expect(point(xy, 0)[1]).toBeLessThan(point(xy, 1)[1])
+    expect(point(xy, 1)[1]).toBeLessThan(point(xy, 2)[1])
+    expect(point(xy, 1)[1]).toBe(point(xy, 3)[1])
+    expect(Math.abs(point(xy, 1)[0] - point(xy, 3)[0])).toBeGreaterThanOrEqual(10)
+  })
+
+  it('lines every component up on the same layers with ranks', async () => {
+    const graph = {
+      ...graphOf({ count: 6, edges: [0, 1, 2, 3, 4, 5] }),
+      datum: (index: number) => ({ tier: index % 2 }),
+    }
+    const xy = await runLayout(layers<Tiered>({ rank: 'tier' }), graph)
+    const ys = new Set([0, 2, 4].map((index) => point(xy, index)[1]))
+    expect(ys.size).toBe(1)
+  })
+
   it('types its options', () => {
+    layers<{ tier: number; name: string }>({ rank: 'tier' })
+    layers<{ tier: number | null }>({ rank: (item) => item.tier })
+    // @ts-expect-error
+    layers<{ tier: number; name: string }>({ rank: 'name' })
     layers({ direction: 'left', root: ['a', 2], layerSpacing: 40, nodeSpacing: 8 })
     layers({ root: 'a' })
     // @ts-expect-error

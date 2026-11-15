@@ -5,7 +5,7 @@ description: The object returned by mountGraph, and by the ref of the Graph comp
 
 `S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
-Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `issues`, `count`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
+Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `issues`, `count`, `shown`, `isShown`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
 
 ## Members
 
@@ -68,15 +68,19 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `element` | Removed from the page |
 | `view.get`, `view.toScreen`, `view.toWorld`, `selection.get`, `focus.get`, `states.get`, `states.has`, `groups.folded`, `groups.isFolded`, `layers.hidden`, `layers.isHidden`, `time.get`, `lens.get`, `lens.toWorld` | Answer from the last state of the store |
 | `groups.keyOf` | Returns the key, as before |
+| `drawsOnMap` | Keeps its value |
+| `isShown` | `false` |
 | `pick`, `paths.shortest` | `null` |
 | `endpoints`, `datumOf`, `positions.get`, `groups.parent` | `undefined` |
 | `neighbors`, `edgesOf`, `issues`, `groups.children`, `layers.names` | An empty array |
+| `shown` | Empty lists of keys |
 | `positions.snapshot` | An empty `Map` |
 | `count` | Zero for every count |
 | `paths.reach`, `support.carriers`, `support.carried` | An empty result |
 | `on`, `anchors.set` | Register nothing and return a function that does nothing |
-| `update`, `destroy`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
+| `update`, `destroy`, `refresh`, and the methods that change the view, the selection, the focus, the states, the positions, the groups, the layers, the time, the lens or the anchors | Do nothing |
 | `layout.run`, `bundling.run`, `routing.run` | Resolve to `false`. A layout run in progress at `destroy` resolves to `false` too |
+| `layout.compute` | Rejects with `signal.reason`, also while it computes at `destroy` |
 | `drawn`, `loaded` | Reject with `signal.reason` |
 | [`exportPng`, `exportSvg`](/docs/api/export) and [`exportMapPng`](/docs/api/map) | Reject with an error |
 | [`createMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Return a companion already destroyed: empty, it holds no worker, observer or timer, never changes and never plays |
@@ -144,6 +148,15 @@ The selection, and the members of a state, hold `shapes` when the definition has
 
 Positions are in world units. `set` emits `positionchange` with the origin `'api'`. During a layout run, the nodes moved by `set` are pinned until the run ends. An entry whose `x` or `y` is not finite is skipped, with a warning in development: see [Numbers](#numbers).
 
+`reset` puts nodes back where their data places them, after a drag or a `positions.set`: through the `x` and `y` channels, or `longitude` and `latitude`, on a map or not. It takes the keys to put back, or every node without them. A node whose data gives no position stays, as does a node already there and a node that a group [spreads](/docs/groups#spread-children) around its place. The nodes glide over `duration`, `transitions.positions` by default, are pinned in a running layout until it ends, and `positionchange` fires with the origin `'api'` for the nodes that moved.
+
+```ts
+graph.positions.reset()
+graph.positions.reset(['n1', 'n2'], { duration: 0 })
+```
+
+<api-table path="index.ts" name="PositionResetOptions" />
+
 `snapshot` reads every node of the data at once: nodes hidden in folded groups, group nodes and nodes placed by your data included. A node that glides, after `set` with a duration, after a layout result or toward new `x` and `y` values, is read where its glide ends, so a snapshot taken during the glide saves where the nodes are going. Pass `settled: false` to read where they are drawn now, as `get` does. Give the map back to `set` to restore it.
 
 ```ts
@@ -209,6 +222,34 @@ const { nodes, shown } = graph.count()
 status.textContent = `${shown.nodes} of ${nodes} nodes shown`
 ```
 
+## Shown elements
+
+```ts
+shown(): ElementKeys<M>
+isShown(element: GraphElement | { readonly kind: 'shape'; readonly key: Key }): boolean
+```
+
+`shown()` lists the keys of what `count().shown` counts, in the order of their indices: a folded group gives its own key and none of the nodes it hides, and an edge drawn for several merged edges gives the key of each of them, those of a hidden half of a [merged pair](/docs/transformations#one-direction-per-half) left out. The lists hold `shapes` when the definition has a shape mark. Like `count()`, it reads every element, then returns the same object until something it depends on changes. `isShown` answers for one element without reading the others: `false` for an unknown key, a node hidden in a folded group or an edge that waits for an end.
+
+```ts
+const visible = graph.shown()
+exportRows(rows.filter((row) => visible.nodes.includes(row.id)))
+graph.isShown({ kind: 'node', key: 'a' })
+```
+
+## Read again
+
+```ts
+refresh(keys: ElementKeysInput): void
+```
+
+The graph reads an element again only when its item changes, as an object: see [Data](/docs/data). When a function of a mark reads something else, such as a `Map` of names or a value of your app, `refresh` reads the given nodes, edges and shapes again at the next frame, every channel and style, as if their items had changed, and leaves the others alone. Unknown keys are ignored. An edge merged in an aggregated edge is read again, and the aggregated edge with it.
+
+```ts
+names.set('a', 'Renamed')
+graph.refresh({ nodes: ['a'] })
+```
+
 ## Layout
 
 <api-table path="index.ts" name="GraphLayout" />
@@ -216,6 +257,16 @@ status.textContent = `${shown.nodes} of ${nodes} nodes shown`
 `run` applies pending data changes, stops the current run, then lays out every free node, or only `keys`, with `layout` or the layout of the definition. It resolves to `true` when the run ends and `false` when it is stopped, replaced or the graph is destroyed. It rejects when there is no layout to run. `stop` ends the current run and leaves nodes where they are. See [Layouts](/docs/layout).
 
 <api-table path="index.ts" name="LayoutRunOptions" />
+
+```ts
+type LayoutOthers = 'anchors' | 'ignored'
+```
+
+`others` decides what the nodes left out of `keys` are to the layout. With `'anchors'`, they stay in the graph it reads, still: moving nodes settle around them, and a force run on part of the graph starts with less energy and without the pull to the center, so the moved nodes stay near the rest. With `'ignored'`, they and their edges are left out, as if the keys were the whole graph: a force run starts with full energy and its pull to the center. Without `keys`, both give the same run. A value outside these two rejects with a `TypeError`.
+
+`compute` applies pending data changes, then computes `layout`, or the layout of the definition, from the current positions, and resolves to the positions it gives the nodes it lays out, by key: every free node, or only `keys`. It moves nothing, emits no event, changes nothing in the store, and leaves a run in progress going; nodes that glide count where their glide ends. It runs where `run` would, in the worker or on the GPU for `force`. Give its result to [`placed`](/docs/api/layouts#placed) to run it, or to `positions.set`. It resolves to an empty map when no node is free, and rejects when there is no layout, on a map, when `signal` aborts, with the reason of the signal, and when the graph is destroyed, with the reason of `graph.signal`.
+
+<api-table path="index.ts" name="LayoutComputeOptions" />
 
 ## Bundling
 

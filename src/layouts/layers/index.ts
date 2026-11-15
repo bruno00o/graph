@@ -1,6 +1,7 @@
+import { toAccessor } from '../../core/accessor'
 import { groupGap, separateGroups } from '../../core/group-separation'
 import { groupTree } from '../../core/group-tree'
-import type { Key, Layout, LayoutGraph } from '../../types'
+import type { Channel, Key, Layout, LayoutGraph } from '../../types'
 import { centroid, instant, movers } from '../shared'
 import { components, distinct } from './adjacency'
 import { acyclicRanks } from './cycles'
@@ -11,6 +12,7 @@ import {
   type Extents,
   expandNested,
   extentsOf,
+  type Nesting,
   type Sides,
   separations,
 } from './nesting'
@@ -24,7 +26,7 @@ import { expand, type Layered, sortAdjacency } from './structure'
 export type LayersDirection = 'down' | 'up' | 'right' | 'left'
 
 /** Options of `layers`. */
-export interface LayersOptions {
+export interface LayersOptions<T = unknown> {
   /**
    * Where edges point: `'down'` puts the first layer at the top, `'right'` at the left.
    * @default 'down'
@@ -46,6 +48,14 @@ export interface LayersOptions {
    * largest diameter, and at least 8.
    */
   readonly nodeSpacing?: number | undefined
+  /**
+   * Layer of each node, a field name or a function of its item, instead of layers derived from the
+   * edges. Only the order of the values counts: the smallest goes on the first layer, and gaps
+   * leave no empty layer. Nodes without a finite value go on one more layer after the last. Edges
+   * within a layer are left out, edges against the order are laid out turned around, and `root`
+   * is ignored.
+   */
+  readonly rank?: Channel<T, number> | undefined
 }
 
 function gapOf(value: number | undefined, fallback: number): number {
@@ -81,7 +91,49 @@ interface Arranged {
   readonly clusters: Clusters | null
 }
 
-function arrange(graph: LayoutGraph, indices: readonly number[], options: LayersOptions): Arranged {
+function rankedLayers<T>(
+  graph: LayoutGraph,
+  indices: readonly number[],
+  rank: Channel<T, number>,
+): Int32Array {
+  const read = toAccessor<T, unknown>(rank as string | ((datum: T) => unknown))
+  const values = new Float64Array(indices.length)
+  const sorted: number[] = []
+  indices.forEach((index, at) => {
+    const value = read(graph.datum(index) as T)
+    const finite = typeof value === 'number' && Number.isFinite(value)
+    values[at] = finite ? value + 0 : Number.NaN
+    if (finite) sorted.push(value + 0)
+  })
+  sorted.sort((a, b) => a - b)
+  const distinctValues: number[] = []
+  for (const value of sorted) {
+    if (distinctValues[distinctValues.length - 1] !== value) distinctValues.push(value)
+  }
+  const layer = new Int32Array(indices.length)
+  for (let at = 0; at < indices.length; at++) {
+    const value = values[at] ?? Number.NaN
+    layer[at] = Number.isNaN(value) ? distinctValues.length : lowerBound(distinctValues, value)
+  }
+  return layer
+}
+
+function lowerBound(values: readonly number[], value: number): number {
+  let low = 0
+  let high = values.length
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    if ((values[middle] ?? 0) < value) low = middle + 1
+    else high = middle
+  }
+  return low
+}
+
+function arrange<T>(
+  graph: LayoutGraph,
+  indices: readonly number[],
+  options: LayersOptions<T>,
+): Arranged {
   const count = indices.length
   const local = new Int32Array(graph.capacity).fill(-1)
   const radius = new Float64Array(count)
@@ -100,7 +152,8 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
   })
   const nodeSpacing = gapOf(options.nodeSpacing, Math.max(largest, 8))
   const layerSpacing = gapOf(options.layerSpacing, Math.max(largest * 2, largest + 24))
-  const pinned = pinnedOf(graph, indices, options.root)
+  const ranked = options.rank === undefined ? null : rankedLayers(graph, indices, options.rank)
+  const pinned = ranked ? new Uint8Array(indices.length) : pinnedOf(graph, indices, options.root)
   const from = new Int32Array(graph.edges.length / 2)
   const to = new Int32Array(graph.edges.length / 2)
   let edgeCount = 0
@@ -109,9 +162,28 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
     const target = local[graph.edges[at + 1] ?? 0] ?? -1
     if (source < 0 || target < 0 || source === target) continue
     if (pinned[source] === 1 && pinned[target] === 1) continue
-    from[edgeCount] = source
-    to[edgeCount] = target
+    if (ranked) {
+      const a = ranked[source] ?? 0
+      const b = ranked[target] ?? 0
+      if (a === b) continue
+      from[edgeCount] = a < b ? source : target
+      to[edgeCount] = a < b ? target : source
+    } else {
+      from[edgeCount] = source
+      to[edgeCount] = target
+    }
     edgeCount++
+  }
+  if (ranked) {
+    const successors = distinct(count, from, to, edgeCount)
+    const clusters = clustersOf(graph, indices, sidesOf[options.direction ?? 'down'])
+    const component = new Int32Array(count)
+    if (clusters) {
+      const { layered, nest } = expandNested(count, ranked, component, successors, radius, clusters)
+      return placeNested(layered, nest, nodeSpacing, layerSpacing, depth, clusters)
+    }
+    const layered = expand(count, ranked, component, successors, radius)
+    return placeFlat(layered, nodeSpacing, layerSpacing, depth)
   }
   const roots = Int32Array.from(indices.keys()).filter((at) => pinned[at] === 1)
   const rank = acyclicRanks(count, from.subarray(0, edgeCount), to.subarray(0, edgeCount), roots)
@@ -137,33 +209,46 @@ function arrange(graph: LayoutGraph, indices: readonly number[], options: Layers
       radius,
       clusters,
     )
-    orderNested(layered, nest)
-    sortAdjacency(layered)
-    const separation = separations(layered, nest, nodeSpacing)
-    const across = placeNodes(layered, {
-      separation,
-      above: nest.above,
-      below: nest.below,
-    })
-    return {
-      placed: pack(
-        layered,
-        across,
-        layerSpacing,
-        depth,
-        nest.side,
-        extentsOf(layered, nest, depth),
-      ),
-      clusters,
-    }
+    return placeNested(layered, nest, nodeSpacing, layerSpacing, depth, clusters)
   }
   const component = components(count, successors)
   const layer = layerNodes(count, successors, topological, component, pinned)
   const layered = expand(count, layer, component, successors, radius)
+  return placeFlat(layered, nodeSpacing, layerSpacing, depth)
+}
+
+function placeFlat(
+  layered: Layered,
+  nodeSpacing: number,
+  layerSpacing: number,
+  depth: Float64Array,
+): Arranged {
   orderLayers(layered)
   sortAdjacency(layered)
   const across = relaxNodes(layered, nodeSpacing)
   return { placed: pack(layered, across, layerSpacing, depth), clusters: null }
+}
+
+function placeNested(
+  layered: Layered,
+  nest: Nesting,
+  nodeSpacing: number,
+  layerSpacing: number,
+  depth: Float64Array,
+  clusters: Clusters,
+): Arranged {
+  orderNested(layered, nest)
+  sortAdjacency(layered)
+  const separation = separations(layered, nest, nodeSpacing)
+  const across = placeNodes(layered, {
+    separation,
+    above: nest.above,
+    below: nest.below,
+  })
+  return {
+    placed: pack(layered, across, layerSpacing, depth, nest.side, extentsOf(layered, nest, depth)),
+    clusters,
+  }
 }
 
 function pack(
@@ -283,7 +368,7 @@ function pack(
  * layer to a later one. It ends at once, and nodes glide to their place. Fixed nodes stay put and
  * push moving nodes aside across the layers; where they leave too little room, overlaps may remain.
  */
-export function layers(options: LayersOptions = {}): Layout {
+export function layers<T = unknown>(options: LayersOptions<T> = {}): Layout<T> {
   return instant(
     'layers',
     options,

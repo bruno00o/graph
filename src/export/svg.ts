@@ -73,6 +73,7 @@ export interface SvgScene {
   readonly positions: Positions
   readonly states: StateBuffers
   readonly grid?: GridInput | null
+  readonly badges?: boolean
   readonly shapes?: ShapeStore | null
   readonly hulls?: readonly HullShape[]
   readonly containers?: ContainerFrame | null
@@ -1043,6 +1044,7 @@ export function writeSvg(scene: SvgScene): string {
   }
 
   function drawBadges(indices: Iterable<number>): void {
+    if (scene.badges === false) return
     const pills: string[] = []
     const texts: string[] = []
     for (const index of indices) {

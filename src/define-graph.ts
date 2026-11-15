@@ -12,6 +12,7 @@ import type {
   GraphDefinition,
   GraphDefinitionOptions,
   InteractionOptions,
+  LassoOptions,
   LensOptions,
   Mark,
   ResolvedBackground,
@@ -102,11 +103,22 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
     autoPan: resolveSpeed(options.autoPan ?? true, defaultAutoPanSpeed, 'autoPan'),
     select: options.select ?? 'multiple',
     drag: options.drag ?? true,
-    lasso: options.lasso ?? false,
+    ...resolveLasso(options.lasso ?? false),
     keyboard: options.keyboard ?? true,
     fold: options.fold ?? true,
     lens: resolveLens(options.lens ?? false),
   })
+}
+
+function resolveLasso(
+  options: boolean | LassoOptions,
+): Pick<ResolvedInteraction, 'lasso' | 'lassoModifier' | 'lassoEdges'> {
+  const given = typeof options === 'object' ? options : {}
+  const modifier = given.modifier === undefined ? 'Shift' : given.modifier
+  if (modifier !== 'Shift' && modifier !== null) {
+    throw new TypeError("defineGraph: interaction.lasso.modifier must be 'Shift' or null")
+  }
+  return { lasso: options !== false, lassoModifier: modifier, lassoEdges: given.edges === true }
 }
 
 function resolveLens(options: boolean | LensOptions): ResolvedLens {

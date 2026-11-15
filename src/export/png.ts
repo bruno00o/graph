@@ -14,9 +14,11 @@ export interface PngRequest {
   readonly labels: LabelMode
   readonly background: Rgba
   readonly time: number
+  readonly grid?: boolean
+  readonly badges?: boolean
 }
 
-function load(renderer: Renderer, snapshot: GraphSnapshot): void {
+function load(renderer: Renderer, snapshot: GraphSnapshot, grid: boolean): void {
   renderer.setTheme(snapshot.theme)
   renderer.setPalette(snapshot.palette, snapshot.scene.palette.colors.length)
   const input: RenderInput = {
@@ -26,7 +28,7 @@ function load(renderer: Renderer, snapshot: GraphSnapshot): void {
     positionsChanged: true,
     states: snapshot.states.copy(),
     full: true,
-    grid: snapshot.grid,
+    grid: grid ? snapshot.grid : null,
     hulls: snapshot.hulls,
     containers: snapshot.containers ?? undefined,
     bundles: snapshot.bundles,
@@ -73,6 +75,8 @@ export async function renderPng(
   request: PngRequest,
 ): Promise<Blob> {
   const { frame, pixelRatio, labels, time } = request
+  const grid = request.grid !== false
+  const badges = request.badges !== false
   const width = Math.max(1, Math.round(frame.width * pixelRatio))
   const height = Math.max(1, Math.round(frame.height * pixelRatio))
   const canvas = document.createElement('canvas')
@@ -89,9 +93,9 @@ export async function renderPng(
       viewport[0] ?? tileLimit,
       viewport[1] ?? tileLimit,
     )
-    load(renderer, first)
+    load(renderer, first, grid)
     await Promise.all([renderer.ready?.(), document.fonts?.ready, first.scene.shapes.settled()])
-    load(renderer, take())
+    load(renderer, take(), grid)
     const strip = Math.max(1, Math.min(limit, height, Math.floor(stripPixels / width)))
     const cssWidth = width / pixelRatio
     const cssHeight = height / pixelRatio
@@ -130,6 +134,7 @@ export async function renderPng(
           pixelRatio,
           labels: area,
           time,
+          badges,
           globe,
           window: frame.window ?? null,
           layers: frame.layers ?? null,

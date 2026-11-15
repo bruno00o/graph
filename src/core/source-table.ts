@@ -270,6 +270,10 @@ export class SourceTable<M extends AnyMark> {
     })
   }
 
+  force(key: Key): void {
+    this.#markDirty(key, true)
+  }
+
   clearDirty(): void {
     this.#dirty.clear()
     this.#fresh.length = 0

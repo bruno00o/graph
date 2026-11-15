@@ -4,6 +4,7 @@ import type {
   AggregateEdge,
   EdgeEnd,
   EdgeMark,
+  GeoPoint,
   HasShapes,
   Key,
   KeyList,
@@ -277,6 +278,11 @@ export interface GraphPositionEvent {
   readonly origin: PositionOrigin
   /** Target position of each moved node, in world units. */
   readonly positions: ReadonlyMap<Key, Point>
+  /**
+   * On a map, the same positions as longitude and latitude in degrees, the longitude brought back
+   * to -180 up to 180. Absent on a graph that is not on a map.
+   */
+  readonly geo?: ReadonlyMap<Key, GeoPoint>
 }
 
 /** Every event of the graph, by name, with its payload. `M` is the union of the marks. */

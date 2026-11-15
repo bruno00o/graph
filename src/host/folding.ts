@@ -121,6 +121,20 @@ export class FoldControl {
     return folded
   }
 
+  adopt(): void {
+    const source = this.#source
+    const born = source.projection.hierarchy.takeBorn()
+    if (born.length === 0) return
+    const folded = [...new Set([...source.state().folded, ...born])]
+    if (source.controlled) {
+      const asked = [...new Set([...this.base(), ...born])]
+      source.patch({ folded })
+      this.#asks.send(asked)
+      this.#listener?.({ folded: asked })
+    } else source.patch({ folded })
+    source.emitter.emit('foldchange', { folded })
+  }
+
   #placeFolded(
     changes: GraphChanges,
     projected: ProjectionChanges,

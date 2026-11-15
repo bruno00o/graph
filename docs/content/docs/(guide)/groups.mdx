@@ -59,6 +59,8 @@ nodes(items, { parent: 'parent', container: { fillOpacity: 0.4 } })
 
 Edges that end on a container stop at its border, the rounded corners included, as edges stop at the border of a node.
 
+`container.drag: false` keeps a container in place: a press inside it pans the view, or draws a [lasso](/docs/interaction#lasso), and its children can still be dragged one by one. It defaults to the `drag` of the node, so `drag: false` on the mark pins the containers too. See [Drag](/docs/interaction#drag).
+
 ### Label and badges of an unfolded group
 
 A group keeps its label while it is unfolded, above the container, and shows its [badges](/docs/images-and-badges#badges) only while it is folded. `container.label` and `container.badges` set them while it is unfolded, with the same values as the `label` and `badges` options of `nodes()`; `null` draws none.
@@ -118,6 +120,16 @@ graph.on('foldchange', ({ folded }) => console.log(folded))
 
 `fold`, `unfold`, `set` and `initialFolded` take a list of keys, an array or a `Set`, never a single string: TypeScript refuses `fold('g')`, which would fold one group per character. `fold()` without keys folds every group, nested ones included, and `unfold()` unfolds them all. A folded group inside a folded group stays folded when its parent opens. A folded key that names no node yet applies when the group arrives.
 
+`initialFolded` also takes a function of the group node, called once for each group when it first has a child, before it is drawn: at mount, and for every group that arrives later, from new data or a live source. A group it folds stays folded until you unfold it, and a group already decided is not asked again, even after it leaves and comes back. `foldchange` reports the groups it folds. With controlled `folded`, the function folds the group at once and sends the request to `onFoldChange`, so keep it in your state or answer with another list. An error thrown by the function is reported and leaves the group unfolded.
+
+```ts
+mountGraph(element, {
+  definition,
+  ariaLabel: 'Groups',
+  initialFolded: (group) => group.datum.collapsed === true,
+})
+```
+
 With `interaction.fold`, on by default, double-clicking a group, or pressing Enter on a focused group, folds or unfolds it. A `doubleclick` handler that calls `originalEvent.preventDefault()` keeps the group as it is.
 
 ### Controlled folding
@@ -158,7 +170,7 @@ edges(links, {
 
 Without `aggregate`, an aggregated edge takes the look of its first merged edge, and shows a label only when it stands for a single edge. `merge` also merges the parallel edges between visible nodes, both directions on one line if you want: see [Merge parallel edges](/docs/transformations#merge-parallel-edges).
 
-Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. Clicking it selects every merged edge, hovering it hovers them all, and an aggregated edge shows the states of any of its edges.
+Picking an aggregated edge returns its first edge, with `aggregate` holding all of them. `aggregate.id` names the aggregated edge itself: it is built from the name of the mark, or its position, from the two visible ends, in a fixed order when `merge.directed` is `false`, and from the value of `merge.by`. It stays the same while the edge draws between the same ends, whichever edges it merges, so you can keep a tooltip or a panel on it when its first edge leaves. Clicking it selects every merged edge, hovering it hovers them all, and an aggregated edge shows the states of any of its edges.
 
 ```ts
 graph.on('click', ({ target }) => {

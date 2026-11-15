@@ -29,3 +29,8 @@ export function worldToGeo(point: Point): GeoPoint {
   const n = Math.PI * (1 - (2 * point.y) / worldSize)
   return { longitude, latitude: Math.atan(Math.sinh(n)) / degrees }
 }
+
+export function degreesOf(point: Point): GeoPoint {
+  const geo = worldToGeo(point)
+  return { longitude: ((((geo.longitude + 180) % 360) + 360) % 360) - 180, latitude: geo.latitude }
+}

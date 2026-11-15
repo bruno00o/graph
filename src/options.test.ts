@@ -24,7 +24,7 @@ import type {
 } from './editor'
 import type { ShapeEditorProps, UseShapeEditorOptions } from './editor/react'
 import type { ShapeEditorViewOptions } from './editor/view'
-import type { ExportOptions, PngExportOptions, SvgExportOptions } from './export'
+import type { ExportOptions, ExportSize, PngExportOptions, SvgExportOptions } from './export'
 import type {
   AttributeDeclaration,
   CsvReadOptions,
@@ -81,7 +81,9 @@ import type {
   InteractionOptions,
   LabelOptions,
   LabelTextOptions,
+  LassoOptions,
   Layout,
+  LayoutComputeOptions,
   LayoutRunOptions,
   LensInput,
   LensOptions,
@@ -94,6 +96,7 @@ import type {
   NodeScalesOptions,
   NumberScale,
   PathOptions,
+  PositionResetOptions,
   PositionSnapshotOptions,
   ReachOptions,
   ScalesOptions,
@@ -115,7 +118,13 @@ import type {
   ViewLimitOptions,
   ViewOptions,
 } from './index'
-import type { GridOptions, LayersOptions, RadialOptions, RingsOptions } from './layouts'
+import type {
+  GridOptions,
+  GridSpacing,
+  LayersOptions,
+  RadialOptions,
+  RingsOptions,
+} from './layouts'
 import type { ForceOptions } from './layouts/force'
 import type { LegendOptions, LegendViewOptions } from './legend'
 import type { MapGraphOptions, MapPngOptions } from './map'
@@ -197,6 +206,7 @@ interface Inputs {
   ElementKeysInput: ElementKeysInput
   ExplorationOptions: ExplorationOptions<Item, Link>
   ExportOptions: ExportOptions
+  ExportSize: ExportSize
   FitOptions: FitOptions
   FitPadding: FitPadding
   ForceOptions: ForceOptions
@@ -212,6 +222,7 @@ interface Inputs {
   GraphInput: GraphInput<Item, Link>
   GraphProps: GraphProps<'muted', Marks>
   GridOptions: GridOptions<Item>
+  GridSpacing: GridSpacing
   GroupOptions: GroupOptions<Item>
   HullGroupOptions: HullGroupOptions<Item>
   HullKeysOptions: HullKeysOptions
@@ -224,13 +235,15 @@ interface Inputs {
   JsonGraphWriteOptions: JsonGraphWriteOptions<Item, Link>
   LabelOptions: LabelOptions<Item>
   LabelTextOptions: LabelTextOptions<Item>
-  LayersOptions: LayersOptions
+  LayersOptions: LayersOptions<Item>
   Layout: Layout<Item>
+  LayoutComputeOptions: LayoutComputeOptions
   LayoutRunOptions: LayoutRunOptions
   LegendOptions: LegendOptions<'muted'>
   LegendProps: LegendProps<'muted'>
   LegendTitles: NonNullable<LegendViewOptions['titles']>
   LegendViewOptions: LegendViewOptions<Marks>
+  LassoOptions: LassoOptions
   LensInput: LensInput
   LensOptions: LensOptions
   LineWaypointsOptions: LineWaypointsOptions
@@ -252,6 +265,7 @@ interface Inputs {
   PersistShapeFields: PersistShapeFields<Item>
   PersistShapesOptions: PersistShapesOptions<Item, string, Marks>
   PngExportOptions: PngExportOptions
+  PositionResetOptions: PositionResetOptions
   PositionSnapshotOptions: PositionSnapshotOptions
   PresenceFields: PresenceFields<Item>
   PresenceSelection: PresenceSelection

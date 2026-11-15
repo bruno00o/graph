@@ -117,8 +117,12 @@ export interface GraphProps<S extends string = string, M extends Mark = Mark>
    * and only this prop changes the selection.
    */
   readonly selection?: ElementKeysInput | undefined
-  /** Groups folded at mount, read once. */
-  readonly initialFolded?: KeyList | undefined
+  /**
+   * Groups folded at mount, read once, or a function that decides, once for each group, whether
+   * it folds when it first has a child, before it is drawn. The function of the latest render is
+   * called.
+   */
+  readonly initialFolded?: MountGraphOptions<S, M>['initialFolded']
   /**
    * Makes folding controlled when given at mount: `onFoldChange` receives the requests, and only
    * this prop changes the folded groups.
@@ -174,6 +178,17 @@ type SharedOptions<S extends string, M extends Mark> = Omit<
   'initialView' | 'view' | 'onViewChange' | 'signal'
 >
 
+function foldedAtMount<S extends string, M extends Mark>(
+  initial: MountGraphOptions<S, M>['initialFolded'],
+  latest: { readonly current: BoundProps<S, M> },
+): MountGraphOptions<S, M>['initialFolded'] {
+  if (typeof initial !== 'function') return initial
+  return (group) => {
+    const current = latest.current.initialFolded
+    return (typeof current === 'function' ? current : initial)(group)
+  }
+}
+
 export function sharedOptions<S extends string, M extends Mark>(latest: {
   readonly current: BoundProps<S, M>
 }): SharedOptions<S, M> {
@@ -183,7 +198,7 @@ export function sharedOptions<S extends string, M extends Mark>(latest: {
     ariaLabel: initial.ariaLabel,
     selection: initial.selection,
     onSelectionChange: (next) => latest.current.onSelectionChange?.(next),
-    initialFolded: initial.initialFolded,
+    initialFolded: foldedAtMount(initial.initialFolded, latest),
     folded: initial.folded,
     onFoldChange: (next) => latest.current.onFoldChange?.(next),
     initialTime: initial.initialTime,

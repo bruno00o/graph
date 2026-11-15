@@ -9,6 +9,7 @@ import { GlyphAtlas } from '../webgl/glyph-atlas'
 import { type ExportFrame, exportFrame } from './frame'
 import { fitLabels } from './labels'
 import { renderPng } from './png'
+import { checkSize, fitZoom } from './size'
 import { type SvgImage, writeSvg } from './svg'
 
 /**
@@ -23,6 +24,18 @@ export type ExportRegion = 'view' | 'graph'
  */
 export type ExportLabels = 'visible' | 'all' | 'none'
 
+/**
+ * Output size of an export, in pixels. The region is fitted inside it with its aspect kept, and
+ * the rest of the image shows the background. With one side only, the other follows the aspect of
+ * the region.
+ */
+export interface ExportSize {
+  /** Width of the image, in pixels. A value that is not a finite number of 1 or more throws. */
+  readonly width?: number | undefined
+  /** Height of the image, in pixels. A value that is not a finite number of 1 or more throws. */
+  readonly height?: number | undefined
+}
+
 /** Options of `exportPng` and `exportSvg`. */
 export interface ExportOptions {
   /**
@@ -33,11 +46,22 @@ export interface ExportOptions {
   /**
    * Scale of the export, in CSS pixels per world unit. Sizes set in screen pixels, such as edge
    * widths, labels and nodes with `units: 'screen'`, keep their size. Defaults to the current zoom.
+   * Throws a `RangeError` with `size`, which sets the zoom itself.
    */
   readonly zoom?: number | undefined
   /**
+   * Exact size of the image, in pixels. The zoom is chosen so that the region fits inside it: with
+   * `region: 'graph'`, the nodes, labels, loops and hulls and the `padding` around them; with
+   * `region: 'view'`, the whole area the view shows, so a different aspect shows more of the
+   * graph around it. A PNG has this size in pixels whatever `pixelRatio`, which keeps its meaning
+   * of image pixels per CSS pixel: labels and edge widths are drawn at their CSS size times it,
+   * and the area drawn is `size` divided by it. An SVG takes `size` as its width and height, in
+   * CSS pixels. Defaults to the size the region has at its zoom.
+   */
+  readonly size?: ExportSize | undefined
+  /**
    * Margin around the nodes, labels and loops when `region` is `'graph'`, in CSS pixels. Must be
-   * finite, 0 or more.
+   * finite, 0 or more. With `size`, the margin stays this wide in CSS pixels and the zoom adapts.
    * @default 32
    */
   readonly padding?: number | undefined
@@ -46,6 +70,18 @@ export interface ExportOptions {
    * @default 'visible'
    */
   readonly labels?: ExportLabels | undefined
+  /**
+   * Whether to draw the background grid of the graph. `false` leaves it out, as if the definition
+   * had no `background`.
+   * @default true
+   */
+  readonly grid?: boolean | undefined
+  /**
+   * Whether to draw the badges of the nodes. `false` leaves them out, and the nodes keep their
+   * size and their labels.
+   * @default true
+   */
+  readonly badges?: boolean | undefined
   /**
    * Background color, any CSS color resolved with the current theme. `'transparent'` leaves the
    * background empty.
@@ -91,6 +127,14 @@ interface Prepared {
   readonly labels: LabelMode
   readonly measure: GlyphAtlas
   readonly time: number
+  readonly pixelRatio: number
+}
+
+function checkRatio(pixelRatio: number): number {
+  if (!(pixelRatio > 0) || !Number.isFinite(pixelRatio)) {
+    throw new RangeError('graph: the pixel ratio must be a positive number')
+  }
+  return pixelRatio
 }
 
 function checkPadding(padding: number | undefined): number {
@@ -101,8 +145,16 @@ function checkPadding(padding: number | undefined): number {
   return padding
 }
 
-async function prepare(graph: object, options: ExportOptions): Promise<Prepared> {
+async function prepare(
+  graph: object,
+  options: ExportOptions,
+  ratioOf: (snapshot: GraphSnapshot) => number,
+): Promise<Prepared> {
   const padding = checkPadding(options.padding)
+  const size = checkSize(options.size)
+  if (size && options.zoom !== undefined) {
+    throw new RangeError('graph: the export takes a size or a zoom, not both')
+  }
   await document.fonts?.ready
   const snapshot = takeSnapshot(graph)
   const { scene, positions, states } = snapshot
@@ -114,36 +166,57 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
     options.window === undefined
       ? snapshot.window
       : timeFilter(readWindow(options.window), snapshot.fade)
-  let frame = exportFrame(
-    {
-      nodes: scene.nodes,
-      edges: scene.edges,
-      positions,
-      boxes,
-      view: snapshot.view,
-      width: snapshot.width,
-      height: snapshot.height,
-      window: shownWindow,
-      layers: snapshot.layers,
-      hide: snapshot.states.hide,
-      hulls: snapshot.hulls.shapes,
-      bundles: snapshot.bundles,
-      states,
-      shapes: scene.shapes,
-    },
-    { region, zoom: options.zoom, padding },
-  )
-  if (region === 'graph' && labels !== 'none') {
-    const source = {
-      nodes: scene.nodes,
-      edges: scene.edges,
-      positions,
-      states,
-      boxes,
-      bundles: snapshot.bundles,
-      shapes: scene.shapes,
+  const base = {
+    nodes: scene.nodes,
+    edges: scene.edges,
+    positions,
+    boxes,
+    view: snapshot.view,
+    width: snapshot.width,
+    height: snapshot.height,
+    window: shownWindow,
+    layers: snapshot.layers,
+    hide: snapshot.states.hide,
+    hulls: snapshot.hulls.shapes,
+    bundles: snapshot.bundles,
+    states,
+    shapes: scene.shapes,
+  }
+  const labelSource = {
+    nodes: scene.nodes,
+    edges: scene.edges,
+    positions,
+    states,
+    boxes,
+    bundles: snapshot.bundles,
+    shapes: scene.shapes,
+  }
+  const fitsLabels = region === 'graph' && labels !== 'none'
+  const frameAt = (zoom: number | undefined, withLabels: boolean): ExportFrame => {
+    const frame = exportFrame(base, { region, zoom, padding })
+    return withLabels && fitsLabels
+      ? fitLabels(labelSource, frame, labels, measure, padding)
+      : frame
+  }
+  const pixelRatio = ratioOf(snapshot)
+  let frame: ExportFrame
+  if (size) {
+    const boxWidth = size.width === null ? Number.POSITIVE_INFINITY : size.width / pixelRatio
+    const boxHeight = size.height === null ? Number.POSITIVE_INFINITY : size.height / pixelRatio
+    const start = snapshot.view.zoom
+    let zoom: number
+    if (region === 'view') {
+      zoom = start * Math.min(boxWidth / snapshot.width, boxHeight / snapshot.height)
+    } else {
+      zoom = fitZoom((at) => frameAt(at, false), boxWidth, boxHeight, start)
+      if (fitsLabels) zoom = fitZoom((at) => frameAt(at, true), boxWidth, boxHeight, zoom)
     }
-    frame = fitLabels(source, frame, labels, measure, padding)
+    const content = frameAt(zoom, true)
+    const width = size.width ?? Math.max(1, Math.ceil(content.width * pixelRatio - 1e-6))
+    const height = size.height ?? Math.max(1, Math.ceil(content.height * pixelRatio - 1e-6))
+    frame = { ...content, width: width / pixelRatio, height: height / pixelRatio }
+  } else {
+    frame = frameAt(options.zoom, true)
   }
   if (!(frame.width >= 1 && frame.height >= 1)) {
     throw new RangeError('graph: nothing to export, the graph measures less than one pixel')
@@ -151,7 +224,7 @@ async function prepare(graph: object, options: ExportOptions): Promise<Prepared>
   const background = snapshot.color(options.background ?? themeColor('paper'))
   const time = options.time ?? 0
   if (!Number.isFinite(time)) throw new RangeError('graph: the time must be a finite number')
-  return { snapshot, frame, background, labels, measure, time: time / 1000 }
+  return { snapshot, frame, background, labels, measure, time: time / 1000, pixelRatio }
 }
 
 function readAsDataUrl(blob: Blob): Promise<string | null> {
@@ -227,7 +300,11 @@ export async function exportSvg<S extends string>(
   graph: GraphInstance<S>,
   options: SvgExportOptions = {},
 ): Promise<string> {
-  const { snapshot, frame, background, labels, measure, time } = await prepare(graph, options)
+  const { snapshot, frame, background, labels, measure, time } = await prepare(
+    graph,
+    options,
+    () => 1,
+  )
   const images = await imageSources(snapshot, options.embedImages ?? true)
   const current = takeSnapshot(graph)
   const { scene } = current
@@ -237,7 +314,8 @@ export async function exportSvg<S extends string>(
     layers: scene.layers,
     positions: current.positions,
     states: current.states,
-    grid: current.grid,
+    grid: options.grid === false ? null : current.grid,
+    badges: options.badges !== false,
     shapes: scene.shapes,
     hulls: current.hulls.shapes,
     containers: current.containers,
@@ -263,16 +341,18 @@ export async function exportPng<S extends string>(
   graph: GraphInstance<S>,
   options: PngExportOptions = {},
 ): Promise<Blob> {
-  const { snapshot, frame, background, labels, time } = await prepare(graph, options)
-  const pixelRatio = options.pixelRatio ?? snapshot.pixelRatio
-  if (!(pixelRatio > 0) || !Number.isFinite(pixelRatio)) {
-    throw new RangeError('graph: the pixel ratio must be a positive number')
-  }
+  const { snapshot, frame, background, labels, time, pixelRatio } = await prepare(
+    graph,
+    options,
+    (taken) => checkRatio(options.pixelRatio ?? taken.pixelRatio),
+  )
   return renderPng(() => takeSnapshot(graph), snapshot, {
     frame,
     pixelRatio,
     labels,
     background,
     time,
+    grid: options.grid !== false,
+    badges: options.badges !== false,
   })
 }

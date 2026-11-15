@@ -24,13 +24,13 @@ import { dev } from '../dev'
 import { createTextWidths } from '../dom/text-width'
 import { ThemeResolver } from '../dom/theme'
 import { defaultFont } from '../theme/tokens'
-import type { GraphDefinition, Key, Mark, Point } from '../types'
+import type { GraphDefinition, Key, KeyList, Mark, Point } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import { BridgeHost } from './bridges'
 import { BundleHost } from './bundles'
 import { HostCamera } from './camera'
 import { ContainerBoxes } from './containers'
-import { DataReads } from './data-reads'
+import { DataReads, forEachEdgeKey } from './data-reads'
 import { DataStatus, loadedData } from './data-status'
 import { createDecorations } from './decorations'
 import { emptyKeys, toKeys } from './element-keys'
@@ -64,7 +64,7 @@ import type {
 import { checkDuration, checkFactor, checkFit, checkView, finitePoint } from './inputs'
 import { type GraphInspection, type GraphProbe, registerGraph } from './inspect'
 import type { GraphWatcher } from './internals'
-import { isolated, isolateSubscribers } from './isolate'
+import { isolated, isolateSubscribers, report } from './isolate'
 import { KeyboardInput } from './keyboard-input'
 import { LayerControl, type LayerListener } from './layer-control'
 import { LayoutHost } from './layout-session'
@@ -73,6 +73,7 @@ import { LensControl } from './lens-control'
 import { afterDestroy, destroyedReason, FrameWaiters, stillborn, untilDestroyed } from './lifecycle'
 import { HostPicker } from './picking'
 import { PointerInput } from './pointer-input'
+import { positionEvent } from './position-event'
 import { PositionMotion } from './position-motion'
 import { readonlyOf } from './readonly-store'
 import { reducedMotion } from './reduced-motion'
@@ -112,8 +113,11 @@ export type {
   GraphView,
   HostDriver,
   HostSurface,
+  LayoutComputeOptions,
+  LayoutOthers,
   LayoutRunOptions,
   MountGraphOptions,
+  PositionResetOptions,
   PositionSnapshotOptions,
   RendererFactory,
   ViewOptions,
@@ -141,7 +145,9 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   const layersControlled = options.hiddenLayers !== undefined
   let onViewChange = isolated(options.onViewChange)
   const check = stringCheck()
-  check(options.initialFolded, 'the initialFolded option')
+  const foldNew = typeof options.initialFolded === 'function' ? options.initialFolded : null
+  const initialFolded = foldNew ? undefined : (options.initialFolded as KeyList | undefined)
+  check(initialFolded, 'the initialFolded option')
   check(options.folded, 'the folded option')
   check(options.initialHiddenLayers, 'the initialHiddenLayers option')
   check(options.hiddenLayers, 'the hiddenLayers option')
@@ -265,7 +271,24 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
   registry.setShaped(definition.marks.some((mark) => mark.type === 'shapes'))
   registry.define(freeStateNames(definition.states))
   if (options.selection !== undefined) registry.set('selected', options.selection)
-  projection.setFolded(options.folded ?? options.initialFolded ?? [])
+  projection.setFolded(options.folded ?? initialFolded ?? [])
+  if (foldNew) {
+    hierarchy.foldNew = (index) => {
+      const record = model.nodeAt(index)
+      if (!record) return false
+      try {
+        return foldNew({
+          kind: 'node',
+          key: record.key,
+          datum: record.datum,
+          mark: record.mark.name,
+        } as never)
+      } catch (error) {
+        report(error)
+        return false
+      }
+    }
+  }
   const selection = new SelectionControl(
     {
       controlled,
@@ -548,6 +571,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     patch,
     definition: () => definition,
     sight: () => sight(),
+    edgeKeys: (index, seen, visit) =>
+      forEachEdgeKey(projection, scene.edges.keys, index, seen, visit),
     request: () => request(),
     destroyed: () => destroyed,
   })
@@ -563,7 +588,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     prepare: flushPending,
     tool: () => pointer.tool,
   })
-  const reads = new DataReads({ model, hierarchy, support, scene, buffers, emitter })
+  const reads = new DataReads({ model, projection, hierarchy, support, scene, buffers, emitter })
   scene.shapes.wake = () => {
     if (destroyed) return
     reads.refreshIssues()
@@ -700,6 +725,8 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     scene.apply(projection.view, projected.scene)
     const applied = clock()
     applyChanges(changes, projected)
+    if (destroyed) return
+    if (foldNew) folds.adopt()
     if (destroyed) return
     if (drafted.length + shifted.length > 0) writeDrafts()
     for (const watcher of watchers) watcher.changed?.(projected.scene)
@@ -1039,7 +1066,51 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
         console.warn(`graph: positions.set skipped ${skipped} node(s) without a finite x and y`)
       }
       motion.move(indices, to, positionOptions.duration ?? 0)
-      if (moved.size > 0) emitter.emit('positionchange', { origin: 'api', positions: moved })
+      if (moved.size > 0) {
+        emitter.emit('positionchange', positionEvent('api', moved, surface !== null))
+      }
+    },
+    reset: (keys, resetOptions = {}) => {
+      checkDuration(resetOptions)
+      flushPending()
+      if (keys !== undefined) check(keys, 'positions.reset')
+      const reader = motion.settled()
+      const indices: number[] = []
+      const to: number[] = []
+      const moved = new Map<Key, Point>()
+      const visit = (key: Key, index: number) => {
+        const x = positions.source[index * 2] ?? Number.NaN
+        const y = positions.source[index * 2 + 1] ?? Number.NaN
+        if (Number.isNaN(x) || Number.isNaN(y) || spread.owns(index)) return
+        const here = Math.fround(reader.x(index) - positions.originX)
+        const there = Math.fround(x - positions.originX)
+        const aside = Math.fround(reader.y(index) - positions.originY)
+        const beyond = Math.fround(y - positions.originY)
+        spread.reattach(index)
+        if (here === there && aside === beyond) return
+        indices.push(index)
+        to.push(x, y)
+        moved.set(key, { x, y })
+        projection.markSeen(index)
+      }
+      if (keys === undefined) {
+        for (const record of model.nodes()) visit(record.key, record.index)
+      } else {
+        for (const key of keys) {
+          const record = model.node(key)
+          if (record) visit(record.key, record.index)
+        }
+      }
+      const run = layouts.session?.run
+      if (run) {
+        for (const [i, index] of indices.entries())
+          run.pin(index, to[i * 2] ?? 0, to[i * 2 + 1] ?? 0)
+      }
+      motion.move(indices, to, resetOptions.duration ?? definition.transitions.positions)
+      spread.settle(performance.now())
+      if (moved.size > 0) {
+        emitter.emit('positionchange', positionEvent('api', moved, surface !== null))
+      }
     },
     snapshot: (snapshotOptions = {}) => {
       flushPending()
@@ -1125,6 +1196,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     get destroyed() {
       return destroyed
     },
+    drawsOnMap: surface !== null,
     lens: {
       get: () => lens.shown,
       set: (input) => lens.set(input),
@@ -1151,6 +1223,20 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       return reads.issues
     },
     count: countElements,
+    shown: () => {
+      flushPending()
+      return reads.shown(sight(), sceneVersion)
+    },
+    isShown: (element) => {
+      flushPending()
+      return reads.isShown(element.kind, element.key, sight())
+    },
+    refresh: (keys) => {
+      checkLists(check, keys, 'refresh({ $ })')
+      if (keys.nodes) model.refresh('nodes', keys.nodes)
+      if (keys.edges) model.refresh('edges', keys.edges)
+      if (keys.shapes) model.refresh('shapes', keys.shapes)
+    },
     datumOf: (element) => {
       flushPending()
       const record =
@@ -1237,7 +1323,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       endReason ??= destroyedReason()
       unregister()
       probe = null
-      layouts.destroy()
+      layouts.destroy(endReason)
       scheduler.cancelFrame()
       pointer.stopMoves()
       scheduler.cancelLater()

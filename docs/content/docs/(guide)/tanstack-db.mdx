@@ -176,6 +176,16 @@ persistPositions(graph, {
 })
 ```
 
+### Write degrees
+
+Nodes placed by `longitude` and `latitude` are saved the same way: name the fields of the row, and a drag on a map, which moves a node in world units, is written back as degrees.
+
+```ts
+persistPositions(graph, { collection: places, longitude: 'lng', latitude: 'lat' })
+```
+
+`x` and `y` are then not written, unless you name them as well. A new row built by `create` receives the position in degrees as its third argument.
+
 ### Show the writes in flight
 
 `pendingState` names a free state of the definition that holds each node whose write is pending: from the move until the write is done or has failed, with or without `mutationFn`. A node moved again before its write ends stays in the state until its last write ends.

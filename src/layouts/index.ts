@@ -1,6 +1,7 @@
 export { type GeoOptions, geo } from './geo'
-export { type GridOptions, grid } from './grid'
+export { type GridOptions, type GridSpacing, grid } from './grid'
 export { type LayersDirection, type LayersOptions, layers } from './layers'
+export { type PlacedPositions, placed } from './placed'
 export { type RadialOptions, radial } from './radial'
 export { type RingsOptions, rings } from './rings'
 export type { NodeOrder } from './shared'
