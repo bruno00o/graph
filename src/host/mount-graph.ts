@@ -488,6 +488,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       ),
     prepare: flushPending,
     request: () => request(),
+    containers: () => syncContainers(),
     destroyed: () => destroyed,
     waiting: () => data.holds(),
   })
@@ -517,7 +518,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       state: () => store.get(),
       patch,
       definition: () => definition,
+      places: () => layouts.places(),
       makeRoom: (moving, to) => layouts.makeRoom(moving, to),
+      arranger: (index) => layouts.arranger(index),
+      arranges: () => layouts.arranges(),
       request: (flush) => request(flush),
       prepare: flushPending,
     },
@@ -787,7 +791,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     for (const index of moves.restored) projection.markSeen(index)
     motion.follow(moves)
     spread.release(projected.unfolded)
-    const fresh = folds.reveal(changes, projected, moves.restored)
+    const revealed = folds.reveal(changes, projected, moves.restored)
     spread.changed(changes, projected, performance.now())
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity, scene.shapes.capacity)
     const result = registry.apply(changes)
@@ -837,7 +841,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
     }
     if (destroyed) return
     if (projected.reshaped) layouts.reshaped()
-    layouts.follow(changes, fresh)
+    layouts.follow(changes, revealed)
   }
 
   function concealed(element: GraphTarget): boolean {

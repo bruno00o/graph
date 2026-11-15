@@ -205,10 +205,10 @@ The option names the edges it governs, those between groups, and its values say 
 
 - Dragging a container moves every node inside it. Dragging a folded group moves only the group.
 - Hidden nodes keep their positions. When a group unfolds, its nodes come back where they were, shifted by how far the group moved while folded, and glide out of the group over `transitions.layout`. Nodes placed by their `x` and `y` channels stay where the data puts them.
-- A node that was never shown appears around its group when the group unfolds, then the layout of the definition places it like any new node.
-- With a layout in the definition, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`, and so does the group when it is the smaller one. Nodes placed by the data and the node being dragged never move.
+- A node that was never shown appears around its group when the group unfolds, then the layout of its group, or else of the definition, places it like any new node.
+- With a layout in the definition, or a layout of its own in any group, a group that unfolds makes room for itself: the free nodes and containers it would cover glide out of the way over `transitions.layout`, and so does the group when it is the smaller one. Nodes placed by the data and the node being dragged never move.
 - Layouts see a folded group as a single node. Unfolded groups are kept whole at every level of nesting: no container overlaps another container or a node next to it, padding included. See [groups in layouts](/docs/layout#groups) for how each layout does it.
-- `container.layout` gives a group a layout of its own: its members are laid out together, then the group moves as one block. See [a layout per group](/docs/layout#a-layout-per-group).
+- `container.layout` gives a group a layout of its own: its members are laid out together, then the group moves as one block. When the group unfolds, its members come out of it and the layout arranges them: an incremental layout puts back the members it arranged before, even dragged ones, and places only the others. Members placed by their data stay where the data puts them. See [a layout per group](/docs/layout#a-layout-per-group).
 - Fitting the view frames containers whole.
 - On a [map](/docs/map#hulls-and-groups), groups follow the map, and the `padding` of a container is in pixels.
 - Children that overlap in an unfolded group are [spread](#spread-children) around their place without changing their data.

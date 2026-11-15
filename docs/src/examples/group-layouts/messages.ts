@@ -9,4 +9,6 @@ export const messages = {
   },
   add: 'Add a node to a group',
   arrange: 'Arrange every group again',
+  fold: 'Fold the groups',
+  unfold: 'Unfold the groups',
 } as const
