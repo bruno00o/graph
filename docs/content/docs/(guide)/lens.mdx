@@ -65,6 +65,7 @@ The lens draws with the theme: `--graph-lens-fill` behind the graph, `--graph-le
 - [Anchors](/docs/api/graph-instance#anchors) stay where the view puts them, above the lens.
 - The lasso and the keyboard keep working on the view.
 - On a [map](/docs/map), the lens is not available: `graph.lens.set` shows nothing, and warns in development. A graph that [moves onto a map](/docs/map#with-and-without-a-map) hides its lens, with a `lenschange` to `null`, and shows it again on the way back, where it was, unless `graph.lens.set(null)` removed it in the meantime.
+- A [suspended](/docs/api/graph-instance#suspend) graph takes no pointer event: a lens that follows the pointer goes away until the pointer moves over the graph again after `resume`. A lens set at a point stays, shows on the copy of the last frame, and is still there after `resume`.
 
 ## Cost
 

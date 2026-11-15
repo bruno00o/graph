@@ -896,7 +896,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
   function drawFrame(now: number): void {
     scheduler.started()
-    if (destroyed || render.contextLost) return
+    if (destroyed) return
     const start = clock()
     flushPending()
     if (destroyed) return
@@ -1534,7 +1534,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       }
       if (next.onTimeChange !== undefined) timeWindow.listen(next.onTimeChange)
       if (timeControlled && next.time !== undefined) {
-        timeWindow.apply(readWindow(next.time))
+        timeWindow.answer(readWindow(next.time))
       }
       if (next.onLayerChange !== undefined) {
         layers.listen(next.onLayerChange as LayerListener)

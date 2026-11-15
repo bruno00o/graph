@@ -245,6 +245,20 @@ export class ViewControl {
     return true
   }
 
+  panAlong(dx: number, dy: number): boolean {
+    const before = this.base()
+    if (!this.commit(panBy(before, dx, dy), 'user')) return false
+    const glide = this.#glide()
+    if (!glide) return true
+    const after = this.base()
+    const x = after.x - before.x
+    const y = after.y - before.y
+    const from = { x: glide.from.x + x, y: glide.from.y + y, zoom: glide.from.zoom }
+    const to = this.constrain({ x: glide.to.x + x, y: glide.to.y + y, zoom: glide.to.zoom })
+    this.animation = { ...glide, from, to }
+    return true
+  }
+
   send(): void {
     const sent = this.#outgoing
     if (!sent) return

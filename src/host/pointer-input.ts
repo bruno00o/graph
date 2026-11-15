@@ -750,10 +750,9 @@ export class PointerInput {
         ? autoPanFirstStep
         : Math.min(autoPanLongestStep, Math.max(0, now - this.#autoPanTime))
     this.#autoPanTime = now
-    const views = this.#source.views
-    const panned = views.commit(
-      panBy(views.base(), (-velocity.x * elapsed) / 1000, (-velocity.y * elapsed) / 1000),
-      'user',
+    const panned = this.#source.views.panAlong(
+      (-velocity.x * elapsed) / 1000,
+      (-velocity.y * elapsed) / 1000,
     )
     if (!panned) {
       if (elapsed > 0) this.#autoPanning = false
