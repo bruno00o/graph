@@ -1,7 +1,16 @@
 import { themeColor } from '../theme/tokens'
-import type { Hull, HullOptions, Key, MarkLayer, MarkName, NodeMark } from '../types'
+import type {
+  Hull,
+  HullGroup,
+  HullLabelOptions,
+  HullOptions,
+  Key,
+  MarkLayer,
+  MarkName,
+  NodeMark,
+} from '../types'
 import { isKey, toAccessor } from './accessor'
-import { boxShape, containerShape, type NodeColumns } from './columns'
+import { boxShape, containerShape, type NodeColumns, noColor } from './columns'
 import type { GraphModel } from './graph-model'
 import {
   HullScratch,
@@ -10,6 +19,7 @@ import {
   type OutlineShape,
   outlineStride,
 } from './hull-geometry'
+import { readWeight, toColor } from './label-text'
 import type { Palette } from './palette'
 import type { Positions } from './positions'
 import { nodeShown, type Sight } from './visibility'
@@ -21,6 +31,7 @@ const defaultStrokeWidth = 1
 const fillShare = 12
 const snapshotStride = 4
 const flat = 1e-6
+const plateau = 0.02
 
 export interface HullSource {
   readonly model: GraphModel
@@ -44,9 +55,38 @@ export interface HullShape {
   readonly stroke: number
   readonly strokeWidth: number
   readonly padding: number
+  readonly label: HullLabel | null
+}
+
+export class HullLabel {
+  text = ''
+  color: number = noColor
+  background: number = noColor
+  size = 0
+  weight = 0
+  font: string | null = null
+  maxWidth = 0
+  x = 0
+  y = 0
+  extent = 0
+  width = 0
+  count = 0
+
+  constructor(readonly id: number) {}
 }
 
 type ColorOption = string | ((value: Key) => string) | undefined
+type LabelText = string | ((group: HullGroup) => string)
+
+interface LabelSpec {
+  readonly text: LabelText
+  readonly color: ColorOption
+  readonly background: unknown
+  readonly size: number
+  readonly weight: number
+  readonly font: string | null
+  readonly maxWidth: number
+}
 
 interface Spec {
   readonly hull: Hull
@@ -58,6 +98,7 @@ interface Spec {
   readonly shape: OutlineShape
   readonly padding: number
   readonly strokeWidth: number
+  readonly label: LabelSpec | null
   stateKeys: readonly Key[] | null
 }
 
@@ -70,6 +111,7 @@ class Group implements HullShape {
   stroke = 0
   strokeWidth = 0
   padding = 0
+  label: HullLabel | null = null
   dirty = true
 
   constructor(
@@ -114,7 +156,29 @@ function toSpec(hull: Hull): Spec {
     shape: options.shape === 'smooth' ? 'smooth' : 'rounded',
     padding: Number.isFinite(padding) ? Math.max(0, padding) : defaultPadding,
     strokeWidth: Number.isFinite(strokeWidth) ? Math.max(0, strokeWidth) : defaultStrokeWidth,
+    label: labelSpec(options.label),
     stateKeys: null,
+  }
+}
+
+function labelSpec(label: HullOptions['label']): LabelSpec | null {
+  const given: HullLabelOptions<ColorOption, LabelText> | null =
+    typeof label === 'object' && label !== null
+      ? (label as HullLabelOptions<ColorOption, LabelText>)
+      : label === undefined
+        ? null
+        : { text: label as LabelText }
+  if (!given || (typeof given.text !== 'string' && typeof given.text !== 'function')) return null
+  const size = given.size ?? 0
+  const maxWidth = given.maxWidth ?? 0
+  return {
+    text: given.text,
+    color: given.color,
+    background: given.background,
+    size: size > 0 && Number.isFinite(size) ? size : 0,
+    weight: readWeight(given.weight),
+    font: toColor(given.font),
+    maxWidth: maxWidth > 0 && Number.isFinite(maxWidth) ? maxWidth : 0,
   }
 }
 
@@ -134,6 +198,8 @@ export class HullLayer {
   #boxVersion = -1
   #detail = 0
   #packed = true
+  #labelIds = 0
+  labelVersion = 0
   readonly #scratch = new HullScratch()
 
   get shapes(): readonly HullShape[] {
@@ -158,6 +224,7 @@ export class HullLayer {
     if (this.#specs.length === 0) {
       if (this.#groups.length > 0) {
         this.#groups = []
+        this.labelVersion++
         this.#pack()
       }
       return false
@@ -171,6 +238,7 @@ export class HullLayer {
       this.#membership = false
       this.#rebuild(source, () => true)
       groupsChanged = true
+      this.labelVersion++
     } else {
       const states = new Set<Spec>()
       for (const spec of this.#specs) {
@@ -181,6 +249,7 @@ export class HullLayer {
       if (states.size > 0) {
         this.#rebuild(source, (spec) => states.has(spec))
         groupsChanged = true
+        this.labelVersion++
       }
     }
     const boxVersion = source.containers?.version ?? -1
@@ -283,6 +352,7 @@ export class HullLayer {
         : `color-mix(in srgb, ${color} ${fillShare}%, transparent)`)
     const fillId = source.palette.id(fill)
     const strokeId = source.palette.id(stroke)
+    this.#label(group, source)
     const changed =
       fillId !== group.fill ||
       strokeId !== group.stroke ||
@@ -291,6 +361,48 @@ export class HullLayer {
     group.stroke = strokeId
     group.strokeWidth = group.spec.strokeWidth
     if (changed && !group.dirty) this.#instances(group)
+  }
+
+  #label(group: Group, source: HullSource): void {
+    const spec = group.spec.label
+    if (!spec) {
+      group.label = null
+      return
+    }
+    let text: unknown = spec.text
+    if (typeof text === 'function') {
+      if (group.value === undefined || !group.spec.by) {
+        group.label = null
+        return
+      }
+      const keys: Key[] = []
+      const data: unknown[] = []
+      for (const index of group.members) {
+        const record = source.model.nodeAt(index)
+        if (!record) continue
+        keys.push(record.key)
+        data.push(record.datum)
+      }
+      text = text({ value: group.value, count: keys.length, keys, data })
+    }
+    if (typeof text !== 'string' || text === '') {
+      group.label = null
+      return
+    }
+    group.label ??= new HullLabel(this.#labelIds++)
+    const label = group.label
+    label.text = text
+    const color = colorOf(spec.color, group.value)
+    label.color = color === undefined ? noColor : source.palette.id(color)
+    const background =
+      spec.background === true ? themeColor('label-background') : toColor(spec.background)
+    label.background = background === null ? noColor : source.palette.id(background)
+    label.size = spec.size
+    label.weight = spec.weight
+    label.font = spec.font
+    label.maxWidth = spec.maxWidth
+    label.count = group.members.length
+    if (!group.dirty) hullTop(group.outline, label)
   }
 
   #moved(group: Group, source: HullSource): boolean {
@@ -390,6 +502,7 @@ export class HullLayer {
     scratch.count = disk
     hullOutline(scratch, group.spec.shape, group.outline)
     group.padding = group.spec.padding + screen
+    if (group.label) hullTop(group.outline, group.label)
     group.dirty = false
     this.#instances(group)
   }
@@ -442,4 +555,36 @@ export class HullLayer {
     this.count = at / hullInstanceWords
     this.version++
   }
+}
+
+export function hullTop(outline: Outline, out: { x: number; y: number; extent: number }): void {
+  const { data, length } = outline
+  let top = Number.POSITIVE_INFINITY
+  let bottom = Number.NEGATIVE_INFINITY
+  let minX = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  for (let k = 0; k < length; k++) {
+    const at = k * outlineStride
+    const extent = data[at + 4] ?? 0
+    const y = (data[at + 1] ?? 0) + (data[at + 3] ?? 0) * extent
+    const x = (data[at] ?? 0) + (data[at + 2] ?? 0) * extent
+    top = Math.min(top, y)
+    bottom = Math.max(bottom, y)
+    minX = Math.min(minX, x)
+    maxX = Math.max(maxX, x)
+  }
+  out.extent = length > 0 ? Math.max(maxX - minX, bottom - top) : 0
+  const reach = top + (bottom - top) * plateau
+  let left = Number.POSITIVE_INFINITY
+  let right = Number.NEGATIVE_INFINITY
+  for (let k = 0; k < length; k++) {
+    const at = k * outlineStride
+    const extent = data[at + 4] ?? 0
+    if ((data[at + 1] ?? 0) + (data[at + 3] ?? 0) * extent > reach) continue
+    const x = (data[at] ?? 0) + (data[at + 2] ?? 0) * extent
+    left = Math.min(left, x)
+    right = Math.max(right, x)
+  }
+  out.x = length > 0 ? (left + right) / 2 : 0
+  out.y = length > 0 ? top : 0
 }

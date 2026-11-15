@@ -2259,8 +2259,11 @@ export interface ResolvedBackground {
  */
 export type HullShape = 'rounded' | 'smooth'
 
-/** Drawing options shared by every hull. `C` is the type of a color option. */
-export interface HullStyle<C> {
+/**
+ * Drawing options shared by every hull. `C` is the type of a color option, `L` that of the text
+ * of its label.
+ */
+export interface HullStyle<C, L = string> {
   /**
    * Outline shape, `'rounded'` or `'smooth'`.
    * @default 'rounded'
@@ -2286,7 +2289,64 @@ export interface HullStyle<C> {
    * @default 1
    */
   readonly strokeWidth?: number | undefined
+  /**
+   * Label centered above the top of the hull, outside its outline: the text, or the text and its
+   * style. It hides with the hull, and under 8 pixels like other labels.
+   */
+  readonly label?: L | HullLabelOptions<C, L> | undefined
 }
+
+/**
+ * Text and style of a hull label. `C` is the type of its color, `L` that of its text: a string,
+ * or for one hull per value a function of the `HullGroup` that returns a string.
+ */
+export interface HullLabelOptions<C, L = string> {
+  /** Text, where `\n` starts a new line. Anything but a non-empty string draws no label. */
+  readonly text: L
+  /**
+   * Plate behind the label: a CSS color, `true` for `--graph-label-background`, `false` or `null`
+   * for none. A plated label has no halo.
+   */
+  readonly background?: string | boolean | null | undefined
+  /** Color of the text. Defaults to `--graph-ink`. */
+  readonly color?: C | undefined
+  /**
+   * Font size in pixels at zoom 1. The label shrinks when you zoom out, not when you zoom in. Must
+   * be finite, more than 0.
+   * @default 12
+   */
+  readonly size?: number | undefined
+  /**
+   * Font weight: `'normal'` (400), `'bold'` (700), or a finite number from 1 to 1000.
+   * @default 500
+   */
+  readonly weight?: LabelWeight | undefined
+  /**
+   * CSS font family.
+   * @default --graph-font
+   */
+  readonly font?: string | undefined
+  /**
+   * Width in pixels at zoom 1 past which each line ends with an ellipsis, `0` for none. Must be
+   * finite, 0 or more.
+   */
+  readonly maxWidth?: number | undefined
+}
+
+/** What a hull label function receives for one hull of `hull({ by })`. */
+export interface HullGroup<T = unknown> {
+  /** Value of `by` that the members share. */
+  readonly value: Key
+  /** Number of members drawn in the hull. */
+  readonly count: number
+  /** Keys of the members drawn in the hull. */
+  readonly keys: readonly Key[]
+  /** Data of the members, in the order of `keys`. */
+  readonly data: readonly T[]
+}
+
+/** Text of the label of a hull per value: a string, or a function of the `HullGroup`. */
+export type HullGroupLabel<T> = string | ((group: HullGroup<T>) => string)
 
 /** Options of `hull()` around a list of keys. Keys of missing nodes are skipped. */
 export interface HullKeysOptions extends HullStyle<string> {
@@ -2309,12 +2369,12 @@ export interface HullMarkOptions<T> extends HullStyle<string> {
 }
 
 /** Options of `hull()` with one hull per value of a channel. */
-export interface HullGroupOptions<T> extends HullStyle<Style<Key, string>> {
+export interface HullGroupOptions<T> extends HullStyle<Style<Key, string>, HullGroupLabel<T>> {
   /** The mark whose nodes are grouped, as passed to `marks`. */
   readonly nodes: NodeMark<T, MarkName, MarkLayer>
   /**
-   * Field or function giving the group of a node. Nodes without a value are left out, and color
-   * functions receive the value.
+   * Field or function giving the group of a node. Nodes without a value are left out, color
+   * functions receive the value, and a label function its `HullGroup`.
    */
   readonly by: Channel<T, Key>
 }
