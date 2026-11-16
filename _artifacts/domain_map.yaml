@@ -453,6 +453,7 @@ skills:
       - arrow
       - dash
       - width
+      - widthScale and minWidth
       - flow
       - edge labels
       - ends
@@ -468,6 +469,7 @@ skills:
       - bundle, route and bridge options
     tasks:
       - Add arrows, dashes, widths, labels and flows to edges
+      - Let edge widths narrow when zooming out, down to a floor
       - Color the two ends of an edge differently
       - Draw edges through waypoints or along line geometries
       - Bundle the edges of a dense graph
@@ -535,6 +537,51 @@ skills:
         correct_pattern: |
           graph.view.zoomBy(2)
         source: docs/content/docs/(guide)/labels.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting minWidth to act without shrink
+        mechanism: minWidth is read only with widthScale shrink; alone it changes nothing and the type accepts it, so widths stay in screen pixels at every zoom.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to', width: 'weight', minWidth: 0.5 })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', width: 'weight', widthScale: 'shrink', minWidth: 0.5 })
+        source: docs/content/docs/(guide)/marks.mdx, src/core/width-scale.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting minWidth to widen a thin line
+        mechanism: The drawn width is max(width * min(1, zoom), min(width, minWidth)), so a line already narrower than minWidth keeps its own width.
+        wrong_pattern: |
+          edges(links, { source: 'from', target: 'to', width: 0.4, widthScale: 'shrink', minWidth: 2 })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', width: 2, widthScale: 'shrink', minWidth: 0.75 })
+        source: docs/content/docs/(guide)/marks.mdx, src/core/width-scale.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting widthScale to do something on a map
+        mechanism: The graph zoom on a map is 2 to the power of the map zoom, so it is 1 or more from map zoom 0 and no line shrinks.
+        wrong_pattern: |
+          mountMapGraph(map, { definition: defineGraph({ marks: [edges(links, { source: 'from', target: 'to', widthScale: 'shrink' })] }) })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', width: 'weight' })
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the halo to shrink with the line
+        mechanism: A state halo keeps its width in screen pixels around the drawn line, so a wide halo on a thin zoomed-out line reads as a thick band.
+        wrong_pattern: |
+          states: { hot: { halo: { width: 12 } } }
+        correct_pattern: |
+          states: { hot: { halo: { width: 3 } } }
+        source: docs/content/docs/(guide)/marks.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Looking for widthScale on nodes, or giving it a wrong value
+        mechanism: Only edges() and shapes() take widthScale and minWidth, and an unknown value throws a TypeError from edges() at run time; a node follows the zoom through units.
+        wrong_pattern: |
+          nodes(items, { widthScale: 'shrink' })
+        correct_pattern: |
+          nodes(items, { units: 'screen' })
+        source: docs/content/docs/(guide)/marks.mdx, src/core/width-scale.ts
         priority: MEDIUM
         status: active
   - name: groups
@@ -2162,6 +2209,7 @@ skills:
       - shapes
       - geometry forms and units
       - fill, stroke, strokeWidth, dash, opacity, order
+      - widthScale and minWidth on strokeWidth
       - pick
       - shape labels and their anchors
       - node pins and pending shapes

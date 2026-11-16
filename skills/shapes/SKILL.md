@@ -20,6 +20,7 @@ sources:
   - src/shapes/anchor.ts
   - src/shapes/wrap.ts
   - src/shapes/subdivide.ts
+  - src/core/width-scale.ts
   - src/core/shape-store.ts
   - src/core/shape-engine.ts
   - src/types.ts
@@ -101,7 +102,7 @@ Result: two zones drawn with the theme fill and outline, under the edge and the 
 
 ### Style and order
 
-`fill`, `stroke`, `strokeWidth`, `dash` and `opacity` are styles: a constant or a function of the item, never a field name. `fill` and `stroke` default to the `color` below, else to the theme tokens `--graph-shape-fill` and `--graph-shape-stroke`, and `null` draws none. `fill` colors the inside of polygons, discs, rings and rectangles, `stroke` their outline and the lines. `strokeWidth` is in screen pixels (1 by default) and keeps its size at every zoom, `dash` is `'solid'`, `'dashed'` or `'dotted'`, and `opacity` fades fill and outline together.
+`fill`, `stroke`, `strokeWidth`, `dash` and `opacity` are styles: a constant or a function of the item, never a field name. `fill` and `stroke` default to the `color` below, else to the theme tokens `--graph-shape-fill` and `--graph-shape-stroke`, and `null` draws none. `fill` colors the inside of polygons, discs, rings and rectangles, `stroke` their outline and the lines. `strokeWidth` is in screen pixels (1 by default) and keeps its size at every zoom unless `widthScale: 'shrink'` narrows it below zoom 1, down to `minWidth` (0.75 by default, read only with `'shrink'`; a stroke already thinner keeps its width; dashes follow; edges skill has the formula), `dash` is `'solid'`, `'dashed'` or `'dotted'`, and `opacity` fades fill and outline together.
 
 ```ts
 import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
@@ -178,7 +179,7 @@ console.log(picked, zone?.title)
 | `'stroke'` | The outline only, filled or not |
 | `false` | Nothing: hover, clicks and the lasso go through |
 
-An outline takes the pointer within half its width plus 4 pixels, at every zoom. A shape with `fill: null` and `stroke: null` is not picked either. A large zone under everything is easy to click by mistake: give it `pick: 'stroke'` to select it by its border, or use `pick: false` on a mark that only decorates. To mix both in one graph, use two marks, the decorative one first so it draws under, with keys apart:
+An outline takes the pointer within half its drawn width plus 4 pixels, at every zoom. A shape with `fill: null` and `stroke: null` is not picked either. A large zone under everything is easy to click by mistake: give it `pick: 'stroke'` to select it by its border, or use `pick: false` on a mark that only decorates. To mix both in one graph, use two marks, the decorative one first so it draws under, with keys apart:
 
 ```ts
 import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
