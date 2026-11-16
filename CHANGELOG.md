@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/bruno00o/graph/compare/0.31.1...0.32.0) (2026-11-16)
+
+
+### Features
+
+* let edge and outline widths shrink when zooming out ([#244](https://github.com/bruno00o/graph/issues/244)) ([f1ba97c](https://github.com/bruno00o/graph/commit/f1ba97c79743845aa3d57a3bdd4a903299fe04b1))
+
 ## [0.31.1](https://github.com/bruno00o/graph/compare/0.31.0...0.31.1) (2026-11-15)
 
 
