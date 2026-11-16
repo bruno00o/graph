@@ -206,17 +206,22 @@ Scope decisions:
 | 10  | Expecting `layout.compute` to move nodes             | MEDIUM   | layout guide, `layout-session.ts` | core        |
 | 11  | A group layout with a new function option per render | MEDIUM   | layout guide, nodes API           | react       |
 
-##### edges (7)
+##### edges (12)
 
-| #   | Mistake                                                         | Priority | Source                      | Cross-skill   |
-| --- | --------------------------------------------------------------- | -------- | --------------------------- | ------------- |
-| 1   | Setting `bundling` and `routing` together                       | HIGH     | bundling and routing guides |               |
-| 2   | Importing bundling or routing from the main entry               | HIGH     | bundling and routing APIs   |               |
-| 3   | Expecting waypoints, geodesic edges or loops to bundle or route | HIGH     | bundling and marks guides   | map           |
-| 4   | Passing a constant color to `color`                             | MEDIUM   | marks guide                 | core, styling |
-| 5   | Expecting a state to style one end of an edge                   | MEDIUM   | marks guide                 | interaction   |
-| 6   | Expecting bundles or routes immediately                         | MEDIUM   | bundling and routing guides |               |
-| 7   | Edge labels that never show                                     | MEDIUM   | labels guide                | styling       |
+| #   | Mistake                                                         | Priority | Source                        | Cross-skill   |
+| --- | --------------------------------------------------------------- | -------- | ----------------------------- | ------------- |
+| 1   | Setting `bundling` and `routing` together                       | HIGH     | bundling and routing guides   |               |
+| 2   | Importing bundling or routing from the main entry               | HIGH     | bundling and routing APIs     |               |
+| 3   | Expecting waypoints, geodesic edges or loops to bundle or route | HIGH     | bundling and marks guides     | map           |
+| 4   | Passing a constant color to `color`                             | MEDIUM   | marks guide                   | core, styling |
+| 5   | Expecting a state to style one end of an edge                   | MEDIUM   | marks guide                   | interaction   |
+| 6   | Expecting bundles or routes immediately                         | MEDIUM   | bundling and routing guides   |               |
+| 7   | Edge labels that never show                                     | MEDIUM   | labels guide                  | styling       |
+| 8   | Expecting `minWidth` to act without `'shrink'`                  | MEDIUM   | marks guide, `width-scale.ts` |               |
+| 9   | Expecting `minWidth` to widen a thin line                       | MEDIUM   | marks guide, `width-scale.ts` | styling       |
+| 10  | Expecting `widthScale` to do something on a map                 | MEDIUM   | marks guide                   | map           |
+| 11  | Expecting the halo to shrink with the line                      | MEDIUM   | marks guide                   | interaction   |
+| 12  | Looking for `widthScale` on nodes, or giving it a wrong value   | MEDIUM   | marks guide, `width-scale.ts` | styling       |
 
 ##### groups (10)
 
@@ -392,6 +397,12 @@ The glide of a mouse wheel (PR 230). Failure modes added: `interaction` (two, 10
 ### Aligned for 0.31.1
 
 Fixes of the 0.31 code review (PRs 235, 236, 238, 239, 240, 241). Failure modes added: `editor` (one, 15 to 16: a shape hidden by a layer, the time window, a zoom range or a `hide` state is not edited). Sentences corrected: `editor` (an `'add'` with an existing key replaces the item, `hold` past 2^31 - 1 ms waits for good, hidden shapes leave `state.selected`, presence pacing on a monotonic clock), `shapes` (the lasso takes painted shapes only), `export` (curved and great-circle edges in the frame, hulls of the export's own window and zoom, positions read once, no editor drafts, ratio of a suspended graph), `tools` and `core` (a lens set at a point stays through a suspension, a lost context stops only the drawing), `time` (controlled requests start from the last unanswered one), `layouts` (a layout that throws ends the run without rejecting, `layers({ rank })` wants few distinct values), `view` and `interaction` (a move made during the first layout stops its framing at once, auto-pan under a wheel glide). No reference added.
+
+### Aligned for 0.32.0
+
+Widths that shrink when zooming out (PR 244). Failure modes added: `edges` (five, 7 to 12: `minWidth` without `'shrink'`, `minWidth` to widen a thin line, `widthScale` on a map, a halo that does not shrink, `widthScale` on nodes or with an unknown value, the last with two `expect-error=TS2769` fences). Sentences corrected: `styling` (edge widths and shape outlines are in pixels unless the mark shrinks), `shapes` (`strokeWidth`, `widthScale`, `minWidth`, picking on the drawn width), `export` (an export zoom below 1 narrows marks that shrink), `map` (no shrinking from map zoom 0). No reference added.
+
+- Code against docs: the guide says `minWidth: 0` lets a width follow the zoom all the way, but the edge shaders and the SVG export floor the drawn width at 0.5 pixel (already so before the option), so on edges `minWidth` under 0.5 acts as 0.5; shapes have no floor. The skill follows the code.
 
 ## Coverage and batch history
 

@@ -197,7 +197,7 @@ defineGraph({
 ```
 
 - At zoom 1 and above, nothing changes: the width is drawn as given, in screen pixels.
-- Below zoom 1, the drawn width is the width times the zoom, and at least `minWidth`, 0.75 pixels by default. A line already narrower than `minWidth` keeps its width. With `minWidth: 0`, the width follows the zoom all the way.
+- Below zoom 1, the drawn width is the width times the zoom, and at least `minWidth`, 0.75 pixels by default. A line already narrower than `minWidth` keeps its width. An edge is never drawn narrower than half a pixel, whatever `minWidth` says; a shape outline with `minWidth: 0` follows the zoom all the way.
 - Everything that reads the width follows the drawn one: arrow heads, dashes, dots and flows, the gap between an edge and its label, [edge ends](#edge-ends) and the `strokeWidth` of [states](/docs/states), picking, and the [exports](/docs/export) at their own zoom. The [lens](/docs/lens) draws at its own zoom too. A halo keeps its width in pixels, around the drawn line.
 - [`shapes()`](/docs/shapes#style) takes the same two options for `strokeWidth`.
 - Node sizes don't take this option: [`units`](#screen-units) decides whether a node follows the zoom.

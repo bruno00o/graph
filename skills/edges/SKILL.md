@@ -2,12 +2,12 @@
 name: edges
 description: >
   Use when shaping how @bruno00o/graph draws edges beyond source and target:
-  arrows, dashes, widths and colors, edge labels, moving dashes (flows), a
-  different look and label at each end of an edge, edges through waypoints or
-  along GeoJSON lines, parallel edges and loops, bundling the edges of a dense
-  graph, orthogonal routing around nodes, and bridges over crossings. Also for
-  finding why edges stay straight, ignore bundling or routing, or lose their
-  labels.
+  arrows, dashes, widths that shrink when zooming out and colors, edge labels,
+  moving dashes (flows), a different look and label at each end of an edge,
+  edges through waypoints or along GeoJSON lines, parallel edges and loops,
+  bundling the edges of a dense graph, orthogonal routing around nodes, and
+  bridges over crossings. Also for finding why edges stay straight, ignore
+  bundling or routing, or lose their labels.
 metadata:
   purpose: >
     Everything an edge mark can look like and how its geometry is computed: the
@@ -20,6 +20,7 @@ metadata:
 sources:
   - src/types.ts
   - src/marks.ts
+  - src/core/width-scale.ts
   - src/waypoints.ts
   - src/bundling/index.ts
   - src/bundling/density.ts
@@ -78,7 +79,7 @@ const definition = defineGraph({
 const graph = mountGraph(document.body, { definition, ariaLabel: 'Sample graph' })
 ```
 
-- Channels: `color` (category or number through the color scale), `width` (number through the width scale, screen pixels, default range 1 to 6), `label`. Styles: `stroke` (a CSS color, wins over `color`), `dash` (`'solid'`, `'dashed'`, `'dotted'`), `arrow` (`'none'` default, `'source'`, `'target'`, `'both'`), `opacity`, `flow`, `minZoom`, `maxZoom`. Without options an edge is `--graph-edge` at 1.5 pixels.
+- Channels: `color` (category or number through the color scale), `width` (number through the width scale, screen pixels, default range 1 to 6), `label`. Styles: `stroke` (a CSS color, wins over `color`), `dash` (`'solid'`, `'dashed'`, `'dotted'`), `arrow` (`'none'` default, `'source'`, `'target'`, `'both'`), `opacity`, `flow`, `minZoom`, `maxZoom`. Constants: `widthScale` and `minWidth` (below). Without options an edge is `--graph-edge` at 1.5 pixels at every zoom.
 - A number literal (`width: 2`) and a function wrapped in `raw()` skip the scale. A constant color goes in `stroke`, never in `color`.
 - List edge marks before node marks: marks draw in order, so edges sit under the nodes.
 - A helper that takes a graph types it `GraphInstance`, exported from the main entry; it accepts the instance of any definition.
@@ -106,6 +107,28 @@ edges(links, {
 ```
 
 `flow` is a style: `true` is 40 screen pixels per second, a number is that speed, negative flows toward the source, `false`, `0` and `null` stop it. A solid edge flows as dashes, a dashed edge moves its own pattern, arrowheads stay still, and `prefers-reduced-motion` freezes it. A state can start flows without touching data: `states: { path: { flow: true } }`. The graph draws frames only while a flowing edge is on screen.
+
+### Widths that shrink when zooming out
+
+An edge width is in screen pixels: a 4 pixel edge is 4 pixels wide at every zoom, so far out, wide edges cover their nodes and each other. `widthScale: 'shrink'` multiplies the width by the zoom below 1 and stops at `minWidth` (screen pixels, `0.75` by default).
+
+```ts
+import { edges } from '@bruno00o/graph'
+
+type Link = { id: string; from: string; to: string; weight: number }
+const links: Link[] = []
+
+edges(links, { source: 'from', target: 'to', width: 'weight', widthScale: 'shrink' })
+edges(links, { source: 'from', target: 'to', width: 'weight', widthScale: 'shrink', minWidth: 0.5 })
+```
+
+- Both are constants of the mark, not channels or styles: one value for all its edges, changed with `update({ definition })`. `widthScale` is `'screen'` (default) or `'shrink'`; `minWidth` is read only with `'shrink'`.
+- The drawn width is `max(width * min(1, zoom), min(width, minWidth))`: unchanged at zoom 1 and above, narrowing below, never under `minWidth`, and a line already narrower than `minWidth` keeps its own width. `width` here is the value after the scale, a state's `strokeWidth` and the width of an `ends` part included.
+- Everything that derives from the line follows the drawn width: dashes, dots and the flow period, arrow heads, the gap between an edge and its labels, picking, and PNG and SVG exports at their own zoom (an export `zoom` or `size` below 1 shrinks too). The lens draws at its own zoom. Arrow heads keep their minimum size (3 pixels half width, 6 long), so a thin line far out still has a readable arrow.
+- A state `halo` keeps its width in pixels around the drawn line. The legend and the minimap draw at fixed widths. Nodes have no such option: their `units` decide how they follow the zoom (styling skill).
+- Edges are never drawn under 0.5 pixel, in WebGL and SVG: a `minWidth` under 0.5, `0` included, acts as 0.5 on edges. `shapes()` have no such floor.
+- Only the first 128 edge marks of a definition can shrink: `defineGraph` throws a `RangeError` for a later one that sets `widthScale: 'shrink'`. An unknown `widthScale` throws a `TypeError` and a negative, `NaN` or infinite `minWidth` a `RangeError`, both from `edges()` itself, which the compiler does not catch for a non-literal value. `shapes()` has the same options (shapes skill).
+- On a map the graph zoom is 2 to the power of the map zoom: it is 1 or more from map zoom 0, so lines shrink only on a world view below that. Do not expect an effect there.
 
 ### Two looks for one edge: `ends`
 
@@ -316,6 +339,77 @@ They are computed after nodes stand still, in a worker. Before that, and for edg
 
 An edge label shows only when it fits in the visible length between its nodes and is at least 8 pixels tall on screen (its size times the smaller of the zoom and 1). Zoom in, shorten the text or lower `size`; do not assume the option is ignored.
 
+### MEDIUM Expecting `minWidth` to act without `'shrink'`
+
+`minWidth` is read only with `widthScale: 'shrink'`. Alone it changes nothing, and the type accepts it: widths stay in screen pixels at every zoom.
+
+Wrong:
+
+```ts
+import { edges } from '@bruno00o/graph'
+
+type Link = { id: string; from: string; to: string; weight: number }
+const links: Link[] = []
+
+edges(links, { source: 'from', target: 'to', width: 'weight', minWidth: 0.5 })
+```
+
+Right:
+
+```ts
+import { edges } from '@bruno00o/graph'
+
+type Link = { id: string; from: string; to: string; weight: number }
+const links: Link[] = []
+
+edges(links, { source: 'from', target: 'to', width: 'weight', widthScale: 'shrink', minWidth: 0.5 })
+```
+
+### MEDIUM Expecting `minWidth` to widen a thin line
+
+`minWidth` is a floor for the shrinking, not for the width: a line already narrower keeps its width, since the drawn width is `max(width * min(1, zoom), min(width, minWidth))`. To make thin edges thicker, raise the `width` range of the scale (styling skill).
+
+Wrong:
+
+```ts
+import { edges } from '@bruno00o/graph'
+
+type Link = { id: string; from: string; to: string }
+const links: Link[] = []
+
+edges(links, { source: 'from', target: 'to', width: 0.4, widthScale: 'shrink', minWidth: 2 })
+```
+
+### MEDIUM Expecting `widthScale` to do something on a map
+
+On a map the graph zoom is 2 to the power of the map zoom, so it stays 1 or more from map zoom 0 and no line shrinks. Size the widths for the map (the `width` range of the scale) instead of waiting for a zoom out.
+
+### MEDIUM Expecting the halo to shrink with the line
+
+A state `halo` keeps its width in screen pixels, around the drawn line. On a zoomed-out view a wide halo around a thin line reads as a thick band. Give states that glow a narrow `halo: { width }`, or none.
+
+### MEDIUM Looking for `widthScale` on nodes, or giving it a wrong value
+
+Only `edges()` and `shapes()` take `widthScale` and `minWidth`. A node follows the zoom through its `units`. Typed code cannot give another value than `'screen'` or `'shrink'`; a value from JavaScript or a cast throws a `TypeError` when `edges()` runs.
+
+```ts expect-error=TS2769
+import { nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+const items: Item[] = []
+
+nodes(items, { widthScale: 'shrink' })
+```
+
+```ts expect-error=TS2769
+import { edges } from '@bruno00o/graph'
+
+type Link = { id: string; from: string; to: string }
+const links: Link[] = []
+
+edges(links, { source: 'from', target: 'to', widthScale: 'narrow' })
+```
+
 ### MEDIUM Writing bridges for a map or for bundled paths
 
 `bridges` apply to straight edges and routes only. In map mode, with bundling, on parallel curves, on waypoints and on great circles they do nothing.
@@ -328,7 +422,8 @@ The task is done when:
 - the definition has `bundling` or `routing`, not both, imported from their entry points;
 - a dense or layered graph is checked in the browser after nodes settle: bundles or routes are drawn, not straight lines;
 - axis and layout direction agree when routing a layered graph;
-- nothing in a map definition sets bundling, routing or bridges.
+- nothing in a map definition sets bundling, routing or bridges;
+- `widthScale: 'shrink'` is set only on a graph that lives on the canvas, and a state that glows has a narrow halo.
 
 ## References
 
