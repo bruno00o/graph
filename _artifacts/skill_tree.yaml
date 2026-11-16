@@ -158,15 +158,16 @@ skills:
     path: skills/edges/SKILL.md
     description: >
       Use when shaping how @bruno00o/graph draws edges beyond source and target:
-      arrows, dashes, widths and colors, edge labels, moving dashes (flows), a
-      different look and label at each end of an edge, edges through waypoints
-      or along GeoJSON lines, parallel edges and loops, bundling the edges of a
-      dense graph, orthogonal routing around nodes, and bridges over crossings.
-      Also for finding why edges stay straight, ignore bundling or routing, or
-      lose their labels.
+      arrows, dashes, widths that shrink when zooming out and colors, edge
+      labels, moving dashes (flows), a different look and label at each end of
+      an edge, edges through waypoints or along GeoJSON lines, parallel edges
+      and loops, bundling the edges of a dense graph, orthogonal routing around
+      nodes, and bridges over crossings. Also for finding why edges stay
+      straight, ignore bundling or routing, or lose their labels.
     sources:
       - src/types.ts
       - src/marks.ts
+      - src/core/width-scale.ts
       - src/waypoints.ts
       - src/bundling/index.ts
       - src/bundling/density.ts
@@ -646,6 +647,7 @@ skills:
       - src/shapes/anchor.ts
       - src/shapes/wrap.ts
       - src/shapes/subdivide.ts
+      - src/core/width-scale.ts
       - src/core/shape-store.ts
       - src/core/shape-engine.ts
       - src/types.ts
