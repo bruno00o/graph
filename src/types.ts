@@ -752,7 +752,8 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   readonly widthScale?: WidthScale | undefined
   /**
    * Narrowest width in screen pixels of a line that shrinks with `widthScale: 'shrink'`. A line
-   * already narrower keeps its width. Read only with `'shrink'`.
+   * already narrower keeps its width, and no edge is drawn narrower than 0.5 pixels. Read only
+   * with `'shrink'`.
    * @default 0.75
    */
   readonly minWidth?: number | undefined
