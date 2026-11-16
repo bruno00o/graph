@@ -2,7 +2,7 @@
 
 Three options of `edges()` draw the line:
 
-- `width: 'weight'` is a channel. The weight goes through the `width` scale of the definition, here linear from the extent of the data to 1 to 9 screen pixels. Edge widths are always in screen pixels: zooming does not thicken them.
+- `width: 'weight'` is a channel. The weight goes through the `width` scale of the definition, here linear from the extent of the data to 1 to 9 screen pixels. Edge widths are in screen pixels: zooming does not thicken them.
 - `dash` is a style: `'solid'`, `'dashed'` or `'dotted'`, as a constant or a function of the item. A style never takes a field name, so the function reads `link.dash`.
 - `arrow` is a style too: `'target'`, `'source'`, `'both'` or `'none'`. The edge from Node A2 to Node B2 has its head at its source, Node A2, and the one between Node A4 and Node B3 has two.
 
@@ -10,10 +10,13 @@ Arrow heads grow with the width of their line, and dashes keep their rhythm alon
 
 The button swaps the width scale for a square root, which narrows the gap between heavy and light edges, then removes the width channel: every edge takes the default 1.5 pixels.
 
+The second button sets `widthScale: 'shrink'`. Below zoom 1, every width is then multiplied by the zoom, down to `minWidth`, 0.75 pixels by default: a zoomed out view keeps the thick edges thicker than the thin ones without covering the nodes. Arrow heads, dashes and the gap under the labels follow the drawn width. At zoom 1 and above, nothing changes.
+
 The numbers on the edges are edge labels, which sit halfway and turn with the line.
 
 ## Try it
 
 - Switch the width and compare the edges of weight 1 and 10.
 - Zoom in and out: widths and arrow heads keep their size on screen.
+- Switch to widths that shrink and zoom out: the edges narrow with the zoom, the edge of weight 1 stops at 0.75 pixels.
 - Hover a dotted edge: picking follows the line, not the dots.

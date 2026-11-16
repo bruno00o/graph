@@ -2,6 +2,7 @@ import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-c
 import { arcThreshold } from '../core/geo-arc'
 import { boxBadgeInset } from '../core/node-shape'
 import { leastFade } from '../core/time-range'
+import { widthSlots } from '../core/width-scale'
 import { zoomFade } from '../core/zoom-range'
 import { bridgeData, bridgeFragment, straightBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
@@ -66,6 +67,7 @@ layout(std140) uniform Frame {
   uvec4 hiddenNodes;
   uvec4 hiddenEdges;
   vec4 labelPaper;
+  vec4 widthFloors[${widthSlots / 2}];
 };
 layout(std140) uniform States {
   vec4 stateNumbers[192];
@@ -120,6 +122,15 @@ bool slotHidden(uvec4 mask, uint slot) {
   uint word = slot >> 5u;
   uint bits = word == 0u ? mask.x : word == 1u ? mask.y : word == 2u ? mask.z : mask.w;
   return (bits & (1u << (slot & 31u))) != 0u;
+}
+float floorAt(uint at) {
+  vec4 row = widthFloors[at >> 2u];
+  uint part = at & 3u;
+  return part == 0u ? row.x : part == 1u ? row.y : part == 2u ? row.z : row.w;
+}
+float edgeLeast(uint slot) { return slot < ${widthSlots}u ? floorAt(slot) : -1.0; }
+float drawnWidth(float width, float least) {
+  return least < 0.0 ? width : max(width * min(zoom, 1.0), min(width, least));
 }
 vec4 paletteColor(uint id) { return texelFetch(palette, ivec2(int(id & 255u), int(id >> 8u)), 0); }
 struct Look { float opacity; float strokeWidth; float halo; float label; uint fill; uint stroke; uint outline; float outlineWidth; uint labelColor; uint haloColor; };
@@ -467,8 +478,9 @@ Line edgeLine(ivec2 t, uvec4 topology, vec4 style, Look look, float flow) {
   Line line;
   line.color = painted ? look.stroke : split ? ends.x : topology.z;
   line.farColor = painted || !split ? line.color : ends.y;
-  line.width = max(sized ? look.strokeWidth : split ? float(ends.z & 65535u) / ${endWidthUnit.toFixed(1)} : style.x, 0.5);
-  line.farWidth = sized || !split ? line.width : max(float(ends.z >> 16u) / ${endWidthUnit.toFixed(1)}, 0.5);
+  float least = edgeLeast(topology.w >> 6u);
+  line.width = max(drawnWidth(sized ? look.strokeWidth : split ? float(ends.z & 65535u) / ${endWidthUnit.toFixed(1)} : style.x, least), 0.5);
+  line.farWidth = sized || !split ? line.width : max(drawnWidth(float(ends.z >> 16u) / ${endWidthUnit.toFixed(1)}, least), 0.5);
   uint dash = split ? (ends.w >> 16u) & 3u : topology.w & 3u;
   uint farDash = split ? (ends.w >> 18u) & 3u : dash;
   line.dash = dash == 0u && flow != 0.0 ? 1u : dash;
@@ -1182,6 +1194,7 @@ void edgeGlyph(uint kind) {
   uint end = (glyphKind >> 4u) & 3u;
   float base = end == 0u ? style.x : float(glyphKind >> 20u) / ${endLabelWidthUnit.toFixed(1)};
   Look look = resolve(mask, Look(style.y, base, 0.0, 1.0, none, topology.z, none, 0.0, none, none), 32);
+  look.strokeWidth = drawnWidth(look.strokeWidth, edgeLeast(topology.w >> 6u));
   look.opacity *= edgeShown(t, topology, mask);
   if (look.opacity <= 0.0) {
     gl_Position = hidden;

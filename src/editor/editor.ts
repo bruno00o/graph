@@ -4,6 +4,7 @@ import { worldSize } from '../core/geo'
 import type { GraphChanges, ShapeRecord } from '../core/graph-model'
 import { type ShapeShift, shiftSlots } from '../core/shape-store'
 import { type Sight, shapeShown } from '../core/visibility'
+import { screenSlot } from '../core/width-scale'
 import { dev } from '../dev'
 import type { GraphInstance } from '../host/graph-instance'
 import { internalsOf } from '../host/internals'
@@ -303,6 +304,7 @@ interface Look {
   readonly fill: string | null
   readonly stroke: string | null
   readonly width: number
+  readonly slot: number
   readonly dash: number
   readonly opacity: number
 }
@@ -463,6 +465,7 @@ const drawnLook: Look = Object.freeze({
   fill: `color-mix(in srgb,${accent} 20%,transparent)`,
   stroke: accent,
   width: 1.5,
+  slot: screenSlot,
   dash: 0,
   opacity: 1,
 })
@@ -885,6 +888,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
       fill: color(palette, shapes.fill[index]),
       stroke: color(palette, shapes.stroke[index]),
       width: shapes.strokeWidth[index] ?? 1,
+      slot: shapes.slot[index] ?? 0,
       dash: shapes.dash[index] ?? 0,
       opacity: shapes.opacity[index] ?? 1,
     }
@@ -1068,7 +1072,14 @@ export function createShapeEditor<S extends string, M extends Mark>(
       const path: string[] = []
       const rings = ringsOf(outline)
       tracePath(local, rings, origin.x, origin.y, path)
-      previews.push({ ...look, d: path.join(' '), fill: rings.filled ? look.fill : null })
+      previews.push({
+        d: path.join(' '),
+        fill: rings.filled ? look.fill : null,
+        stroke: look.stroke,
+        width: internals.scene.shapes.floors.drawn(look.width, look.slot, sight.zoom),
+        dash: look.dash,
+        opacity: look.opacity,
+      })
     }
     const handles: Handle[] = []
     const box: string[] = []

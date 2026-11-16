@@ -72,6 +72,7 @@ Without a color or a size, nodes take the theme color `--graph-node` and a diame
 | `ends` | object | A look and a label for each end. See [Edge ends](#edge-ends) |
 | `waypoints` | channel | Points the edge passes through. See [Waypoints](#waypoints) |
 | `scales` | object | `color` and `width` scales of this mark alone. See [Scales](/docs/scales#scales-of-a-mark) |
+| `widthScale`, `minWidth` | constant | Widths that shrink when zooming out. See [Widths and zoom](#widths-and-zoom) |
 
 Without a color or a width, edges take `--graph-edge` and a width of 1.5 pixels. Defaults and details are in [`edges`](/docs/api/edges#options). Examples: [arrows and dashes](/examples/arrows-and-dashes), and [edge width, dashes and arrows](/examples/edge-styles) from the data.
 
@@ -180,7 +181,31 @@ A number literal is drawn as given, so every node is 12 pixels wide.
 
 Without `units`, nodes placed by `longitude` and `latitude` are in screen units, and the group nodes of [`groups()`](/docs/transformations#group-items-by-a-field) take the units of their members.
 
-Edge widths are always in screen pixels. See the [screen units](/examples/screen-units) example.
+Edge widths are in screen pixels, and can shrink when zooming out: see [widths and zoom](#widths-and-zoom). See the [screen units](/examples/screen-units) example.
+
+## Widths and zoom
+
+Edge widths and shape outlines are in screen pixels: a 4 pixel edge stays 4 pixels wide at every zoom level. Zoomed far out, wide edges cover their nodes and each other. With `widthScale: 'shrink'`, a width is multiplied by the zoom below 1, and never drawn narrower than `minWidth`.
+
+```ts
+defineGraph({
+  marks: [
+    edges(links, { source: 'from', target: 'to', width: 'weight', widthScale: 'shrink' }),
+    nodes(items, {}),
+  ],
+})
+```
+
+- At zoom 1 and above, nothing changes: the width is drawn as given, in screen pixels.
+- Below zoom 1, the drawn width is the width times the zoom, and at least `minWidth`, 0.75 pixels by default. A line already narrower than `minWidth` keeps its width. With `minWidth: 0`, the width follows the zoom all the way.
+- Everything that reads the width follows the drawn one: arrow heads, dashes, dots and flows, the gap between an edge and its label, [edge ends](#edge-ends) and the `strokeWidth` of [states](/docs/states), picking, and the [exports](/docs/export) at their own zoom. The [lens](/docs/lens) draws at its own zoom too. A halo keeps its width in pixels, around the drawn line.
+- [`shapes()`](/docs/shapes#style) takes the same two options for `strokeWidth`.
+- Node sizes don't take this option: [`units`](#screen-units) decides whether a node follows the zoom.
+- On a [map](/docs/map), the zoom of the graph is 2 to the power of the zoom of the map, 1 or more as soon as the map zoom is 0 or more: lines don't shrink there.
+- The legend and the minimap draw their own symbols, at a fixed width.
+- Only the first 128 edge marks and the first 128 shape marks of a definition can shrink.
+
+<LiveExample slug="edge-styles" />
 
 ## Parallel edges and loops
 

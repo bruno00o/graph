@@ -940,7 +940,11 @@ export class LabelLayer {
         nodes.outlineWidth[index] ?? 0,
       )
     const strokeAt = (index: number, base: number): number =>
-      stateStroke(frame.stateNumbers, frame.edgeMask[index] ?? 0, edgeOthers, base)
+      edges.floors.drawn(
+        stateStroke(frame.stateNumbers, frame.edgeMask[index] ?? 0, edgeOthers, base),
+        edges.slot[index] ?? 0,
+        view.zoom,
+      )
     const level = (index: number) =>
       labelLevel(frame.nodeMask[index] ?? 0, frame.labelFlags, others)
     const edgeLevel = (index: number) =>

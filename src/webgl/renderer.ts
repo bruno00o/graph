@@ -10,6 +10,7 @@ import type { Positions } from '../core/positions'
 import type { ShapeLabelFrame, ShapeLayer } from '../core/shape-engine'
 import { maxStates, noPaint, type StateBuffers, stateRow, stateRows } from '../core/state-buffers'
 import { openTime, type TimeFilter, type TimeSpans } from '../core/time-range'
+import { screenWidth, type WidthFloors, widthSlots } from '../core/width-scale'
 import type { ZoomRanges } from '../core/zoom-range'
 import type { ResolvedTheme } from '../dom/theme'
 import type { LabelArea, LensFrame, Renderer, RenderFrame, RenderInput } from '../host/renderer'
@@ -90,6 +91,7 @@ const lensRing = 1.5
 const lensShadow = 10
 const lensMargin = 2
 const statesBlockSize = stateRows * 48 + 48
+const frameFloats = 80
 
 const units = textureUnits
 const unitCount = Math.max(...Object.values(units)) + 1
@@ -364,11 +366,15 @@ function createRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
   }
 
-  const frameBlock = new Float32Array(80)
+  const frameBlock = new Float32Array(frameFloats + widthSlots * 2).fill(screenWidth, frameFloats)
   const frameWords = new Uint32Array(frameBlock.buffer)
   const frameBuffer = gl.createBuffer()
   gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
-  gl.bufferData(gl.UNIFORM_BUFFER, frameBlock.byteLength, gl.DYNAMIC_DRAW)
+  gl.bufferData(gl.UNIFORM_BUFFER, frameBlock, gl.DYNAMIC_DRAW)
+  let edgeFloorsSent: WidthFloors | null = null
+  let shapeFloorsSent: WidthFloors | null = null
+  let edgeFloorsVersion = -1
+  let shapeFloorsVersion = -1
   gl.bindBufferBase(gl.UNIFORM_BUFFER, blocks.Frame, frameBuffer)
   const statesBlock = new ArrayBuffer(statesBlockSize)
   const statesBuffer = gl.createBuffer()
@@ -1705,7 +1711,26 @@ function createRenderer(
     if (layerFilter) frameWords.set(layerFilter.masks.subarray(0, 8), 68)
     else frameWords.fill(0, 68, 76)
     gl.bindBuffer(gl.UNIFORM_BUFFER, frameBuffer)
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock)
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, frameBlock, 0, frameFloats + floorsToSend())
+  }
+
+  function floorsToSend(): number {
+    const edges = input?.scene.edges.floors ?? null
+    const shapes = input?.scene.shapes.floors ?? null
+    let send = 0
+    if (edges && (edges !== edgeFloorsSent || edges.version !== edgeFloorsVersion)) {
+      frameBlock.set(edges.least, frameFloats)
+      edgeFloorsSent = edges
+      edgeFloorsVersion = edges.version
+      send = widthSlots
+    }
+    if (shapes && (shapes !== shapeFloorsSent || shapes.version !== shapeFloorsVersion)) {
+      frameBlock.set(shapes.least, frameFloats + widthSlots)
+      shapeFloorsSent = shapes
+      shapeFloorsVersion = shapes.version
+      send = widthSlots * 2
+    }
+    return send
   }
 
   function drawPiece(

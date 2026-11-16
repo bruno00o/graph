@@ -1,5 +1,5 @@
 import { dev } from '../dev'
-import type { Key, Mark } from '../types'
+import type { Key, Mark, ShapeMark } from '../types'
 import { ChangeLog } from './change-log'
 import type { ElementChanges } from './graph-model'
 import type { AnyIssue } from './issues'
@@ -13,6 +13,7 @@ import {
   shapeEngineOf,
 } from './shape-engine'
 import { TimeSpans } from './time-range'
+import { leastWidth, WidthFloors } from './width-scale'
 import { ZoomRanges } from './zoom-range'
 
 export interface PinNodes {
@@ -52,6 +53,7 @@ export class ShapeStore {
   pick: Uint8Array = new Uint8Array(0)
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
+  readonly floors: WidthFloors = new WidthFloors()
   readonly geometry: (ShapeGeometryData | null)[] = []
   readonly keys: (Key | undefined)[] = []
   version = 0
@@ -98,9 +100,11 @@ export class ShapeStore {
 
   setMarks(marks: readonly Mark[]): void {
     const slots = new Map<object, number>()
+    const floors: number[] = []
     for (const mark of marks) {
       if (mark.type !== 'shapes' || slots.has(mark)) continue
       slots.set(mark, slots.size)
+      floors.push(leastWidth((mark as ShapeMark<unknown>).options))
       const engine = shapeEngineOf(mark)
       if (engine) this.engine ??= engine
       else if (dev && !this.#warned) {
@@ -111,6 +115,7 @@ export class ShapeStore {
       }
     }
     this.slots = slots
+    this.floors.set(floors)
   }
 
   apply(

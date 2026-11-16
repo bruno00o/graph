@@ -27,6 +27,7 @@ interface Link {
 }
 
 type Width = keyof typeof messages.widths
+type Scale = keyof typeof messages.scales
 
 const columns = [
   { x: -320, rows: [-180, -60, 60, 180] },
@@ -69,12 +70,13 @@ const links: Link[] = [
 
 const widths = Object.keys(messages.widths) as Width[]
 
-const define = (width: Width) =>
+const define = (width: Width, scale: Scale) =>
   defineGraph({
     marks: [
       edges<Link>(links, {
         source: 'from',
         target: 'to',
+        widthScale: scale,
         dash: (link) => link.dash,
         arrow: (link) => link.arrow,
         label: { text: (link) => messages.weight(link.weight), size: 10 },
@@ -89,7 +91,11 @@ const define = (width: Width) =>
 
 export function mount(container: HTMLElement): GraphInstance {
   let width: Width = 'linear'
-  const graph = mountGraph(container, { definition: define(width), ariaLabel: messages.graphLabel })
+  let scale: Scale = 'screen'
+  const graph = mountGraph(container, {
+    definition: define(width, scale),
+    ariaLabel: messages.graphLabel,
+  })
 
   const button = document.createElement('button')
   button.type = 'button'
@@ -98,12 +104,30 @@ export function mount(container: HTMLElement): GraphInstance {
   button.addEventListener('click', () => {
     width = widths[(widths.indexOf(width) + 1) % widths.length] ?? 'linear'
     button.textContent = messages.width(messages.widths[width])
-    graph.update({ definition: define(width) })
+    graph.update({ definition: define(width, scale) })
   })
+
+  const zoom = document.createElement('button')
+  zoom.type = 'button'
+  zoom.className = 'example-button'
+  zoom.textContent = messages.scale(messages.scales[scale])
+  zoom.addEventListener('click', () => {
+    scale = scale === 'screen' ? 'shrink' : 'screen'
+    zoom.textContent = messages.scale(messages.scales[scale])
+    graph.update({ definition: define(width, scale) })
+  })
+
+  const status = document.createElement('output')
+  status.className = 'example-status'
+  const show = () => {
+    status.textContent = messages.zoom(graph.view.get().zoom)
+  }
+  show()
+  graph.on('viewchange', show)
 
   const actions = document.createElement('div')
   actions.className = 'example-actions'
-  actions.append(button)
-  container.append(actions)
+  actions.append(button, zoom)
+  container.append(actions, status)
   return graph
 }

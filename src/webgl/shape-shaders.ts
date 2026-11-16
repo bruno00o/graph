@@ -1,3 +1,4 @@
+import { widthSlots } from '../core/width-scale'
 import { worldGlyph } from './glyph-attributes'
 import { glyphLayout, header, nodeSamplers, nodeSight, spanData } from './shaders'
 
@@ -56,7 +57,9 @@ ShapeLook shapeLook(uint index) {
   float opacity = float((style.w >> 8u) & 255u) / 255.0;
   Look look = resolve(mask, Look(opacity, uintBitsToFloat(style.z), 0.0, 0.0, style.x, style.y, none, 0.0, none, none), 128);
   float alpha = look.opacity * shown;
-  result.halfWidth = max(look.strokeWidth, 0.0) * 0.5;
+  uint slot = (style.w >> 16u) & 255u;
+  float least = slot < ${widthSlots}u ? floorAt(${widthSlots}u + slot) : -1.0;
+  result.halfWidth = max(drawnWidth(look.strokeWidth, least), 0.0) * 0.5;
   result.fill = shapePaint(look.fill, alpha);
   result.stroke = result.halfWidth > 0.0 ? shapePaint(look.stroke, alpha) : vec4(0.0);
   return result;

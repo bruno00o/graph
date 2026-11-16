@@ -342,7 +342,7 @@ export function writeSvg(scene: SvgScene): string {
   const partFade = (index: number, part: EdgePart) =>
     part !== 0 && edgeHalfHidden(index, partEnd(part), sight) ? 0 : edgeFade(index)
   const edgeLookAt = (index: number, part: EdgePart = 0) =>
-    faded(edgeLook(edges, states, index, partMask(index, part)), partFade(index, part))
+    faded(edgeLook(edges, states, index, zoom, partMask(index, part)), partFade(index, part))
   const prefix = `graph${++documents}-`
   const body: string[] = []
   const defs: string[] = []
@@ -924,7 +924,7 @@ export function writeSvg(scene: SvgScene): string {
     const loop = source === target
     const bend = edges.bend[index] ?? 0
     const look = edgeLookAt(index, part)
-    const line = edgeLine(edges, states, index, partMask(index, part))
+    const line = edgeLine(edges, states, index, zoom, partMask(index, part))
     const width = Math.max(line.width, line.farWidth)
     const ax = sx(source)
     const ay = sy(source)
@@ -1206,7 +1206,7 @@ export function writeSvg(scene: SvgScene): string {
     const pixels = label.pixels
     const ends = label.end === 0 ? null : edges.ends
     const id = index * 2 + label.end - 1
-    const line = ends ? edgeLine(edges, states, index) : null
+    const line = ends ? edgeLine(edges, states, index, zoom) : null
     const width = line ? (label.end === 1 ? line.width : line.farWidth) : look.strokeWidth
     const lift = label.plate ? 0 : Math.max(width, 0.5) * 0.5 + edgeLabelGap
     const angle = (Math.atan2(anchor.ay, anchor.ax) * 180) / Math.PI
@@ -1367,7 +1367,7 @@ export function writeSvg(scene: SvgScene): string {
     const shapeLookAt = (index: number) => {
       const fade = shapeOpacity(shapes, index, sight)
       if (fade <= 0) return null
-      const look = shapeLook(shapes, states, index)
+      const look = shapeLook(shapes, states, index, zoom)
       return {
         fill: look.fill,
         stroke: look.stroke,

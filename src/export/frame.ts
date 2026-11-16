@@ -117,7 +117,16 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
       nodes.outlineWidth[index] ?? 0,
     )
   const widthOf = (index: number): number =>
-    stateStroke(states?.numbers, states?.edgeMask[index] ?? 0, edgeOthers, edges.width[index] ?? 0)
+    edges.floors.drawn(
+      stateStroke(
+        states?.numbers,
+        states?.edgeMask[index] ?? 0,
+        edgeOthers,
+        edges.width[index] ?? 0,
+      ),
+      edges.slot[index] ?? 0,
+      zoom,
+    )
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
@@ -139,8 +148,8 @@ export function exportFrame(source: FrameSource, options: FrameOptions): ExportF
     const geometry = shapes.alive[index] === 1 ? shapes.geometry[index] : null
     if (!isDrawn(geometry) || !shapeShown(shapes, index, sight)) continue
     const width = states
-      ? shapeLook(shapes, states, index).strokeWidth
-      : (shapes.strokeWidth[index] ?? 0)
+      ? shapeLook(shapes, states, index, zoom).strokeWidth
+      : shapes.floors.drawn(shapes.strokeWidth[index] ?? 0, shapes.slot[index] ?? 0, zoom)
     const reach = Math.max(width, 0) / 2
     const node = shapes.pinNode?.[index] ?? -1
     const ox = node >= 0 ? positions.x(node) * zoom : 0

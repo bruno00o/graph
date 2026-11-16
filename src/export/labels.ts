@@ -189,7 +189,11 @@ export function fitLabels(
       const scale = label.pixels / atlasFontSize
       const base =
         label.end === 0 ? edges.width[index] : edges.ends?.width[index * 2 + label.end - 1]
-      const width = stateStroke(states.numbers, states.edgeMask[index] ?? 0, edgeOthers, base ?? 0)
+      const width = edges.floors.drawn(
+        stateStroke(states.numbers, states.edgeMask[index] ?? 0, edgeOthers, base ?? 0),
+        edges.slot[index] ?? 0,
+        zoom,
+      )
       const lift = label.plate ? 0 : Math.max(width, 0.5) / 2 + edgeLabelGap
       labelBox(label, local)
       for (const along of [local.left, local.right]) {

@@ -1,6 +1,7 @@
 import { toAccessor } from './core/accessor'
 import { GroupIndex, GroupSource, type GroupSpec, registerGrouping } from './core/group-index'
 import { isLiveSource } from './core/live-source'
+import { checkWidthScale } from './core/width-scale'
 import { withoutUndefined } from './core/without-undefined'
 import type {
   EdgeMark,
@@ -126,6 +127,7 @@ export function edges<T>(
   data: GraphData<T>,
   options: EdgeOptions<T>,
 ): EdgeMark<T, MarkName, MarkLayer> {
+  checkWidthScale('edges', options)
   return Object.freeze({
     type: 'edges',
     name: options.name,

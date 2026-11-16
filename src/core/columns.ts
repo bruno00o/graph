@@ -11,6 +11,7 @@ import type {
 import { EdgeWaypoints } from './edge-waypoints'
 import { NodeOrder } from './node-order'
 import { TimeSpans } from './time-range'
+import { WidthFloors } from './width-scale'
 import { ZoomRanges } from './zoom-range'
 
 export interface NodeBadge {
@@ -285,6 +286,7 @@ export class EdgeColumns {
   waypoints: EdgeWaypoints | null = null
   readonly zoom: ZoomRanges = new ZoomRanges()
   readonly time: TimeSpans = new TimeSpans()
+  readonly floors: WidthFloors = new WidthFloors()
 
   useEnds(): EdgeEnds {
     this.ends ??= new EdgeEnds()

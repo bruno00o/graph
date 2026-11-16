@@ -30,6 +30,12 @@ function edges<T, N extends MarkName = undefined, L extends MarkLayer = undefine
 
 <api-table path="index.ts" name="EdgeOptions" />
 
+```ts
+type WidthScale = 'screen' | 'shrink'
+```
+
+`widthScale` and `minWidth` are constants of the mark. With `'shrink'`, the drawn width is the width times the zoom below 1, and at least `minWidth`: arrow heads, dashes, label gaps, edge ends, the `strokeWidth` of states, picking and the exports follow it. See [Widths and zoom](/docs/marks#widths-and-zoom).
+
 ## Scales
 
 `scales` gives the mark its own `color` and `width` scales, with their own extents and categories. The ends of its edges use them too. Other marks keep the shared scales of [`defineGraph`](/docs/api/define-graph#scales). See [Scales of a mark](/docs/scales#scales-of-a-mark).

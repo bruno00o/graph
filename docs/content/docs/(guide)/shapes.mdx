@@ -49,7 +49,7 @@ A geometry that cannot be read, and a polygon whose rings cross, are listed by `
 
 ## Style
 
-`fill` colors polygons, discs, rings and rectangles, and `stroke` their outline and the lines. Both default to the theme, `--graph-shape-fill` and `--graph-shape-stroke`, and `null` draws none. `strokeWidth` is in screen pixels, 1 by default, and `dash` takes `'solid'`, `'dashed'` or `'dotted'`, as for edges. `opacity` fades the fill and the outline together.
+`fill` colors polygons, discs, rings and rectangles, and `stroke` their outline and the lines. Both default to the theme, `--graph-shape-fill` and `--graph-shape-stroke`, and `null` draws none. `strokeWidth` is in screen pixels, 1 by default, and `dash` takes `'solid'`, `'dashed'` or `'dotted'`, as for edges. With `widthScale: 'shrink'`, outlines and lines narrow below zoom 1, down to `minWidth`, as [edge widths](/docs/marks#widths-and-zoom) do. `opacity` fades the fill and the outline together.
 
 ```ts
 shapes(zones, {

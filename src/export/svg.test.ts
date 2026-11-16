@@ -21,6 +21,7 @@ import { shapes } from '../shapes'
 import { lightTheme } from '../theme/tokens'
 import type {
   BridgeShape,
+  EdgeOptions,
   GraphDefinitionOptions,
   Hull,
   Key,
@@ -504,6 +505,99 @@ describe('writeSvg', () => {
     expect(dotted).toContain(
       'stroke-width="2" stroke-linecap="round" stroke-dasharray="0 4" stroke-dashoffset="-2"',
     )
+  })
+
+  it('shrinks the width, the dashes and the label gap of an edge below zoom 1', () => {
+    const drawn = (
+      zoom: number,
+      options: Partial<EdgeOptions<Link>> = {},
+    ): [number, number, number] => {
+      const svg = render(
+        {
+          marks: [
+            edges<Link>([{ id: 'ab', from: 'a', to: 'b', label: 'Link' }], {
+              source: 'from',
+              target: 'to',
+              width: 8,
+              dash: 'dashed',
+              label: { text: 'label', size: 40 },
+              ...options,
+            }),
+            nodes<Item>(
+              [
+                { id: 'a', x: -400, y: 0 },
+                { id: 'b', x: 400, y: 0 },
+              ],
+              { x: 'x', y: 'y' },
+            ),
+          ],
+        },
+        {},
+        { frame: { view: { x: 0, y: 0, zoom } } },
+      )
+      const line = svg.match(/stroke-width="([\d.]+)" stroke-dasharray="([\d.]+) ([\d.]+)"/)
+      const label = svg.match(
+        /<g transform="translate\([\d.]+ [\d.]+\)"><g transform="translate\(0 ([-\d.]+)\) scale/,
+      )
+      return [Number(line?.[1]), Number(line?.[2]) + Number(line?.[3]), Number(label?.[1])]
+    }
+    const [screen, screenPeriod, screenLabel] = drawn(0.25)
+    expect([screen, screenPeriod]).toEqual([8, 40])
+    const [shrunk, shrunkPeriod, shrunkLabel] = drawn(0.25, { widthScale: 'shrink' })
+    expect([shrunk, shrunkPeriod]).toEqual([2, 10])
+    expect(shrunkLabel - screenLabel).toBeCloseTo(3, 5)
+    expect(drawn(0.25, { widthScale: 'shrink', minWidth: 3 }).slice(0, 2)).toEqual([3, 15])
+    expect(drawn(0.25, { widthScale: 'shrink', minWidth: 20 }).slice(0, 2)).toEqual([8, 40])
+    expect(drawn(4, { widthScale: 'shrink' }).slice(0, 2)).toEqual([8, 40])
+    expect(drawn(1, { widthScale: 'shrink' })).toEqual(drawn(1))
+  })
+
+  it('shrinks state widths and edge ends with their edge', () => {
+    const svg = render(
+      {
+        marks: [
+          edges<Link>([{ id: 'ab', from: 'a', to: 'b' }], {
+            source: 'from',
+            target: 'to',
+            widthScale: 'shrink',
+            minWidth: 0,
+            ends: { source: { width: 4 }, target: { width: 12 } },
+          }),
+          nodes<Item>(
+            [
+              { id: 'a', x: -400, y: 0 },
+              { id: 'b', x: 400, y: 0 },
+            ],
+            { x: 'x', y: 'y' },
+          ),
+        ],
+      },
+      {},
+      { frame: { view: { x: 0, y: 0, zoom: 0.5 } } },
+    )
+    const widths = [...svg.matchAll(/fill="none" stroke="#[0-9a-f]+" stroke-width="([\d.]+)"/g)]
+    expect(widths.slice(0, 2).map((match) => Number(match[1]))).toEqual([2, 6])
+    const lit = render(
+      {
+        marks: [
+          edges<Link>([{ id: 'ab', from: 'a', to: 'b' }], {
+            source: 'from',
+            target: 'to',
+            widthScale: 'shrink',
+          }),
+          nodes<Item>(
+            [
+              { id: 'a', x: -400, y: 0 },
+              { id: 'b', x: 400, y: 0 },
+            ],
+            { x: 'x', y: 'y' },
+          ),
+        ],
+      },
+      { states: { lit: { strokeWidth: 6 } }, members: { lit: ['ab'] } },
+      { frame: { view: { x: 0, y: 0, zoom: 0.5 } } },
+    )
+    expect(lit).toMatch(/fill="none" stroke="#[0-9a-f]+" stroke-width="3"/)
   })
 
   it('draws each end in its own color and width, with a continuous dash pattern', () => {
@@ -1465,6 +1559,35 @@ describe('shapes', () => {
       'M200 130A20 20 0 1 1 200 170A20 20 0 1 1 200 130ZM200 140A10 10 0 1 1 200 160A10 10 0 1 1 200 140Z',
     )
     expect(paths[1]?.[1]).toContain('A4 4 0 0 1 240 154')
+  })
+
+  it('shrinks the outline below zoom 1 with widthScale shrink', () => {
+    const square: Zone = {
+      id: 'z',
+      geometry: {
+        rings: [
+          [
+            [-200, -200],
+            [200, -200],
+            [200, 200],
+            [-200, 200],
+          ],
+        ],
+      },
+    }
+    const outline = (options: Omit<ShapeOptions<Zone>, 'key'>) =>
+      Number(
+        render(
+          zone([square], { strokeWidth: 6, ...options }),
+          {},
+          {
+            frame: { view: { x: 0, y: 0, zoom: 0.5 } },
+          },
+        ).match(/stroke="#868c92" stroke-width="([\d.]+)"/)?.[1],
+      )
+    expect(outline({})).toBe(6)
+    expect(outline({ widthScale: 'shrink' })).toBe(3)
+    expect(outline({ widthScale: 'shrink', minWidth: 4 })).toBe(4)
   })
 
   it('draws lines without fill and dashes fitted to closed outlines', () => {

@@ -1,4 +1,5 @@
 import { registerShapeEngine, type ShapeEngine } from '../core/shape-engine'
+import { checkWidthScale } from '../core/width-scale'
 import { withoutUndefined } from '../core/without-undefined'
 import { writeShapesSvg } from '../export/shape-svg'
 import type {
@@ -130,6 +131,7 @@ export function shapes<T>(
   data: GraphData<T>,
   options: ShapeOptions<T> = {},
 ): ShapeMark<T, MarkName, MarkLayer> {
+  checkWidthScale('shapes', options)
   const mark: ShapeMark<T, MarkName, MarkLayer> = Object.freeze({
     type: 'shapes',
     name: options.name,
