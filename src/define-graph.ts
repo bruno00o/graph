@@ -4,6 +4,7 @@ import { shapeEngineOf } from './core/shape-engine'
 import { spreadGap } from './core/spread'
 import { byKind, freeStateNames, maxFreeStates } from './core/state-names'
 import { resolvePadding } from './core/view'
+import { leastWidth, type WidthScaleOptions, widthSlots } from './core/width-scale'
 import { withoutUndefined } from './core/without-undefined'
 import { themeColor } from './theme/tokens'
 import type {
@@ -261,6 +262,18 @@ function checkLayers(marks: readonly Mark[]): void {
   }
 }
 
+function checkWidths(marks: readonly Mark[]): void {
+  const slots = { nodes: 0, edges: 0, shapes: 0 }
+  for (const mark of marks) {
+    const slot = slots[mark.type]++
+    if (mark.type === 'nodes' || slot < widthSlots) continue
+    if (leastWidth((mark as { readonly options?: WidthScaleOptions }).options ?? {}) < 0) continue
+    throw new RangeError(
+      `defineGraph: only the first ${widthSlots} edge marks and shape marks can shrink their width`,
+    )
+  }
+}
+
 function resolveSupport(
   options: SupportStateOptions | null | undefined,
   states: readonly string[],
@@ -345,6 +358,7 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     throw new TypeError('defineGraph: use bundling or routing, not both')
   }
   checkLayers(options.marks)
+  checkWidths(options.marks)
   const states = freezeStates(options.states ?? ({} as StateStyles<S>))
   const free = freeStateNames(states)
   if (free.length > maxFreeStates) {

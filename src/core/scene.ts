@@ -74,6 +74,7 @@ import { Palette } from './palette'
 import { shapeKinds } from './shape-engine'
 import { ShapeStore } from './shape-store'
 import { spreadGap } from './spread'
+import { leastWidth } from './width-scale'
 import { readMaxZoom, readMinZoom } from './zoom-range'
 
 export interface Layer {
@@ -1546,6 +1547,9 @@ export function createScene(
       layered.forEach((mark, position) => {
         slots.set(mark, nextLayers[position]?.slot ?? 0)
       })
+      edges.floors.set(
+        layered.flatMap((mark) => (mark.type === 'edges' ? [leastWidth(mark.options)] : [])),
+      )
       const changed =
         nextLayers.length !== layers.length ||
         nextLayers.some(

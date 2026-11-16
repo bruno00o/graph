@@ -98,6 +98,7 @@ export interface ShapePickQuery {
   readonly x: number
   readonly y: number
   readonly scale: number
+  readonly zoom: number
   readonly tolerance: number
   readonly current: boolean
   shown(index: number): boolean

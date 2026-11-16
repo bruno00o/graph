@@ -318,7 +318,9 @@ export function createShapePicker(store: ShapeStore, positions: PickPositions): 
     const mode = store.pick[index] ?? shapePicks.painted
     const stroked = strokes(index, mode)
     const reach = stroked
-      ? ((store.strokeWidth[index] ?? 0) / 2 + query.tolerance) / query.scale
+      ? (store.floors.drawn(store.strokeWidth[index] ?? 0, store.slot[index] ?? 0, query.zoom) / 2 +
+          query.tolerance) /
+        query.scale
       : 0
     const { x, y } = query
     if (

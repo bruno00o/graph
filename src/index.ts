@@ -269,5 +269,6 @@ export type {
   ViewLimitOptions,
   WaypointInput,
   WheelMode,
+  WidthScale,
 } from './types'
 export { lineWaypoints } from './waypoints'

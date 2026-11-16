@@ -280,6 +280,12 @@ export type EdgeDash = 'solid' | 'dashed' | 'dotted'
 /** Ends of an edge that carry an arrow head. */
 export type EdgeArrow = 'none' | 'source' | 'target' | 'both'
 
+/**
+ * How a line width follows the zoom: `'screen'` keeps it in screen pixels at every zoom, `'shrink'`
+ * multiplies it by the zoom below 1, down to a narrowest width.
+ */
+export type WidthScale = 'screen' | 'shrink'
+
 /** One end of an edge: `'source'` or `'target'`. */
 export type EdgeEnd = 'source' | 'target'
 
@@ -737,6 +743,19 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
    * @default 1.5
    */
   readonly width?: NumberChannel<T> | undefined
+  /**
+   * How the width follows the zoom: `'screen'` keeps it in screen pixels at every zoom, `'shrink'`
+   * multiplies it by the zoom below 1, down to `minWidth`. Arrow heads, dashes, flows and the gap
+   * under labels follow the drawn width, edge ends and state widths included.
+   * @default 'screen'
+   */
+  readonly widthScale?: WidthScale | undefined
+  /**
+   * Narrowest width in screen pixels of a line that shrinks with `widthScale: 'shrink'`. A line
+   * already narrower keeps its width. Read only with `'shrink'`.
+   * @default 0.75
+   */
+  readonly minWidth?: number | undefined
   /** Label text, or the text with its style. */
   readonly label?: Channel<T, string> | EdgeLabelOptions<T> | undefined
   /**
@@ -1259,6 +1278,19 @@ export interface ShapeOptions<T, N extends MarkName = MarkName, L extends MarkLa
    * @default 1
    */
   readonly strokeWidth?: Style<T, number> | undefined
+  /**
+   * How `strokeWidth` follows the zoom: `'screen'` keeps it in screen pixels at every zoom,
+   * `'shrink'` multiplies it by the zoom below 1, down to `minWidth`. Dashes follow the drawn width,
+   * state widths included.
+   * @default 'screen'
+   */
+  readonly widthScale?: WidthScale | undefined
+  /**
+   * Narrowest width in screen pixels of an outline or a line that shrinks with
+   * `widthScale: 'shrink'`. A stroke already narrower keeps its width. Read only with `'shrink'`.
+   * @default 0.75
+   */
+  readonly minWidth?: number | undefined
   /**
    * Pattern of the outline and of a line: `'solid'`, `'dashed'` or `'dotted'`.
    * @default 'solid'

@@ -109,8 +109,13 @@ export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number
   )
 }
 
-export function shapeLook(shapes: ShapeStore, states: StateBuffers, index: number): Look {
-  return resolve(
+export function shapeLook(
+  shapes: ShapeStore,
+  states: StateBuffers,
+  index: number,
+  zoom: number,
+): Look {
+  const look = resolve(
     states,
     states.shapeMask[index] ?? 0,
     {
@@ -128,6 +133,8 @@ export function shapeLook(shapes: ShapeStore, states: StateBuffers, index: numbe
     },
     'shapes',
   )
+  look.strokeWidth = shapes.floors.drawn(look.strokeWidth, shapes.slot[index] ?? 0, zoom)
+  return look
 }
 
 export function shapeLabelLook(states: StateBuffers, index: number): Look {
@@ -165,6 +172,7 @@ export function edgeLine(
   edges: EdgeColumns,
   states: StateBuffers,
   index: number,
+  zoom: number,
   mask: number = states.edgeMask[index] ?? 0,
 ): EdgeLine {
   const probe = resolve(
@@ -194,16 +202,17 @@ export function edgeLine(
     : split
       ? (ends.color[index * 2] ?? 0)
       : (edges.color[index] ?? 0)
-  const width = Math.max(
+  const slot = edges.slot[index] ?? 0
+  const drawn = (width: number) => Math.max(edges.floors.drawn(width, slot, zoom), 0.5)
+  const width = drawn(
     sized ? probe.strokeWidth : split ? (ends.width[index * 2] ?? 0) : (edges.width[index] ?? 0),
-    0.5,
   )
   const dash = split ? (ends.dash[index * 2] ?? 0) : (edges.dash[index] ?? 0)
   return {
     color,
     farColor: painted || !split ? color : (ends.color[index * 2 + 1] ?? 0),
     width,
-    farWidth: sized || !split ? width : Math.max(ends.width[index * 2 + 1] ?? 0, 0.5),
+    farWidth: sized || !split ? width : drawn(ends.width[index * 2 + 1] ?? 0),
     dash,
     farDash: split ? (ends.dash[index * 2 + 1] ?? 0) : dash,
     split: split || ends?.halves[index] === 1 ? (ends?.split[index] ?? 0.5) : -1,
@@ -214,9 +223,10 @@ export function edgeLook(
   edges: EdgeColumns,
   states: StateBuffers,
   index: number,
+  zoom: number,
   mask: number = states.edgeMask[index] ?? 0,
 ): Look {
-  return resolve(
+  const look = resolve(
     states,
     mask,
     {
@@ -234,4 +244,6 @@ export function edgeLook(
     },
     'edges',
   )
+  look.strokeWidth = edges.floors.drawn(look.strokeWidth, edges.slot[index] ?? 0, zoom)
+  return look
 }

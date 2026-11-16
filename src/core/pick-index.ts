@@ -855,7 +855,8 @@ export class PickIndex {
     let bestOrder = Number.NEGATIVE_INFINITY
     const halves = edges.ends && edges.ends.halvesCount > 0 ? edges.ends.halves : null
     const consider = (index: number, distance: number) => {
-      if (distance > ((edges.width[index] ?? 0) / 2 + tolerance) / scale) return
+      const width = edges.floors.drawn(edges.width[index] ?? 0, edges.slot[index] ?? 0, sight.zoom)
+      if (distance > (width / 2 + tolerance) / scale) return
       let end: EdgeEnd | null = null
       if (halves?.[index] === 1) {
         end = this.#endOf(source, index, x, y, scale)

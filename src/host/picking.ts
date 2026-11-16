@@ -166,6 +166,7 @@ export class HostPicker {
       x: world.x,
       y: world.y,
       scale,
+      zoom: seen.zoom,
       tolerance: pickTolerance,
       current,
       shown: (at) => shapeShown(shapes, at, seen),

@@ -25,6 +25,7 @@ function setup(marks: readonly Mark[]) {
     x,
     y,
     scale: 1,
+    zoom: more.scale ?? 1,
     tolerance: 4,
     current: true,
     shown: () => true,
