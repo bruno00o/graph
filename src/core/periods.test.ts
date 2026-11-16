@@ -94,6 +94,7 @@ describe('intersectPeriods', () => {
 
   it('matches every pair of periods on random lists', () => {
     const next = random(5)
+    const misses: string[] = []
     for (let round = 0; round < 2_000; round++) {
       const a = periods(next)
       const b = periods(next)
@@ -103,13 +104,13 @@ describe('intersectPeriods', () => {
       const strict = intersectPeriods(a, b, true)
       const strictThree = intersectThree(a, b, c, true)
       for (let moment = -2; moment < 80; moment += 0.5) {
-        expect(covers(strict, moment), `round ${round} at ${moment}`).toBe(
-          covers(a, moment) && covers(b, moment),
-        )
-        expect(covers(strictThree, moment), `round ${round} at ${moment}`).toBe(
-          covers(a, moment) && covers(b, moment) && covers(c, moment),
-        )
+        const both = covers(a, moment) && covers(b, moment)
+        if (covers(strict, moment) !== both) misses.push(`round ${round} at ${moment}, two lists`)
+        if (covers(strictThree, moment) !== (both && covers(c, moment))) {
+          misses.push(`round ${round} at ${moment}, three lists`)
+        }
       }
     }
+    expect(misses).toEqual([])
   })
 })
