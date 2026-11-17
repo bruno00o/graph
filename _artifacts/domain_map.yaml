@@ -1164,6 +1164,15 @@ skills:
         source: docs/content/docs/(guide)/map.mdx
         priority: MEDIUM
         status: active
+      - mistake: Sizing the map container with Tailwind CSS v4 utilities
+        mechanism: "The MapLibre stylesheet sets position: relative on the container through the class maplibregl-map, outside any cascade layer, so it beats Tailwind CSS v4 utilities in @layer utilities; a container with absolute inset-0 stays relative, 0 px high, and nothing warns on a map."
+        wrong_pattern: |
+          <div ref={setContainer} className="absolute inset-0" />
+        correct_pattern: |
+          <div ref={setContainer} style={{ position: 'absolute', inset: 0 }} />
+        source: docs/content/docs/(guide)/map.mdx
+        priority: MEDIUM
+        status: active
       - mistake: Giving a snapshot to the other surface
         mechanism: A graph moved with surface keeps the positions of each side by itself; when it is destroyed and mounted again, a snapshot from a plain graph holds the units of its layout and one from a map the world units of the map, so passed as initialPositions to the other surface it places nodes without coordinates in the wrong place.
         wrong_pattern: |

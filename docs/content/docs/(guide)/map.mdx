@@ -36,6 +36,16 @@ const graph = mountMapGraph(map, { definition, ariaLabel: 'Places and routes' })
 
 The graph adds its own layer back after the browser restores a lost WebGL context: MapLibre then warns that it cannot restore custom layers. See [Browser support](/docs/browser-support#context-loss).
 
+## Size of the map
+
+MapLibre sizes the map from its container: a container 0 px high draws nothing, graph included, and nothing warns. The MapLibre stylesheet also sets `position: relative` on that container, through the class `maplibregl-map` it adds to it. This rule sits in no cascade layer, so it beats every rule inside a layer, whatever its specificity. The utilities of Tailwind CSS v4 live in `@layer utilities`: a container with the classes `absolute inset-0` stays relative, and with no content of its own it is 0 px high.
+
+Give the container its size with an inline style, or with a rule outside any layer that comes after the MapLibre stylesheet:
+
+```tsx
+<div ref={setContainer} style={{ position: 'absolute', inset: 0 }} />
+```
+
 ## Where the graph sits
 
 `graph.element` is a `div` that `mountMapGraph` inserts into the container of the map, right after the canvas container of MapLibre: a sibling of it, not a child. It is positioned absolutely over the whole map, so it measures what the map measures and clips its content at the edges of the map, and it takes no pointer events itself: the map canvas keeps them. It has no `z-index`, so it stacks by order in the document. From bottom to top: the map canvas and its markers, which live in the canvas container; the graph element; the popups of MapLibre, which are added to the map container later; then the controls, whose `z-index` is 2.

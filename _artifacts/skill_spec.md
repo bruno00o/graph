@@ -282,12 +282,12 @@ Decisions:
 
 Failure mode inventory:
 
-| Skill       | Mistakes | HIGH | Notes                                                                             |
-| ----------- | -------- | ---- | --------------------------------------------------------------------------------- |
-| view        | 10       | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view    |
-| interaction | 12       | 2    | lasso needs two options, unanswered controlled selection, per-node drag           |
-| map         | 14       | 3    | layout on a map, teardown order, view options on a map graph, snapshots, `spread` |
-| time        | 18       | 5    | string times, exclusive ends, an empty list of periods, a history built in render |
+| Skill       | Mistakes | HIGH | Notes                                                                                                    |
+| ----------- | -------- | ---- | -------------------------------------------------------------------------------------------------------- |
+| view        | 10       | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view                           |
+| interaction | 12       | 2    | lasso needs two options, unanswered controlled selection, per-node drag                                  |
+| map         | 15       | 3    | layout on a map, teardown order, view options on a map graph, snapshots, `spread`, Tailwind v4 utilities |
+| time        | 18       | 5    | string times, exclusive ends, an empty list of periods, a history built in render                        |
 
 Cross-references proposed for the shared tables (the maintainer applies them after the batches merge):
 
