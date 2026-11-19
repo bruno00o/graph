@@ -58,7 +58,7 @@ On the server, `JSON.stringify(result.records)` is enough. Integers serialize as
 
 A query that returns paths sends every node again in every row: a node that sits in four paths arrives four times, with all its properties. For a large result, wrap the query so that the database sends each distinct node and relationship once, with only the properties the graph draws. This is written in your backend, since the library runs no query; what it guarantees is the shape of the rows it reads, which are [plain maps](/docs/api/cypher-graph#rows-as-maps) as well as driver objects.
 
-The wrapper needs Neo4j 5.23 or later, for the `CALL () { … }` form, and the `IS ::` type predicates of 5.9 or later. Memgraph, Neptune, Apache AGE and FalkorDB do not support this form.
+The wrapper needs Neo4j 5.23 or later, for the `CALL () { … }` form, and the `IS ::` type predicates of 5.9 or later. This form is Neo4j's: other databases that speak Cypher, such as Memgraph, Neptune, Apache AGE or FalkorDB, may not accept it.
 
 ```cypher
 CALL () {
