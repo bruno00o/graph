@@ -3,7 +3,7 @@ import { paperOnFill } from '../core/contrast'
 import { loopCurve, loopMinimum, loopReach } from '../core/edge-curve'
 import type { EdgePaths } from '../core/edge-paths'
 import { arcPolyline, arcStations } from '../core/geo-arc'
-import { nodeLabelSize } from '../core/label-width'
+import { nodeLabelSize } from '../core/label-metrics'
 import type { LayerFilter } from '../core/mark-layers'
 import {
   diamondReach,
