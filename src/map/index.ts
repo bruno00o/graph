@@ -3,7 +3,6 @@ import { projectLatitude, projectLongitude, worldSize, worldToGeo } from '../cor
 import { createGlobeCamera, type GlobeCamera } from '../core/globe'
 import { defaultViewPadding } from '../define-graph'
 import { dev } from '../dev'
-import { stillborn } from '../host/lifecycle'
 import {
   createGraphHost,
   type GraphInstance,
@@ -13,6 +12,7 @@ import {
   type MountGraphOptions,
   type SurfaceCapabilities,
 } from '../host/mount-graph'
+import { stillborn } from '../host/page-lifecycle'
 import { exposeSurface } from '../host/surface-registry'
 import type { GraphDefinition, Mark, View } from '../types'
 import { createSharedRenderer, createWebglRenderer } from '../webgl/renderer'

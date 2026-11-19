@@ -10,8 +10,7 @@ import { noWalk } from '../core/support'
 import { readWindow } from '../core/time-range'
 import { toScreen, toWorld } from '../core/view'
 import { dev } from '../dev'
-import type { Key, Mark, Point } from '../types'
-import { canvasCapabilities } from './canvas-surface'
+import type { Key, Mark } from '../types'
 import { loadedData } from './data-status'
 import { emptyKeys, toKeys } from './element-keys'
 import type { ElementKeys } from './events'
@@ -26,13 +25,22 @@ import type {
   SurfaceCapabilities,
 } from './graph-instance'
 import { exposeInternals } from './internals'
-import { lensContains, lensView } from './lens'
 import { readonlyOf } from './readonly-store'
 
-interface Waiter {
-  readonly resolve: () => void
-  readonly reject: (reason: unknown) => void
-}
+export type PageMember =
+  | 'focus'
+  | 'anchors'
+  | 'lens'
+  | 'element'
+  | 'drawsOnMap'
+  | 'drawn'
+  | 'suspend'
+  | 'resume'
+
+export type CoreMembers<S extends string = string, M extends Mark = Mark> = Omit<
+  GraphInstance<S, M>,
+  PageMember
+>
 
 const idle = Object.freeze({ running: false })
 const idleLayout = Object.freeze({ running: false, progress: 0 })
@@ -52,7 +60,7 @@ const noShapeCount: GraphShapeCount = Object.freeze({
   shown: Object.freeze({ nodes: 0, edges: 0, shapes: 0 }),
 })
 
-function nothing(): void {}
+export function nothing(): void {}
 
 export function destroyedReason(): DOMException {
   return new DOMException('graph: the graph was destroyed', 'AbortError')
@@ -62,71 +70,18 @@ export function destroyedError(): Error {
   return new Error('graph: cannot export a destroyed graph')
 }
 
-export class FrameWaiters {
-  readonly #pending: () => boolean
-  #drawn: Waiter[] = []
-  #idle: Waiter[] = []
-  #request = 0
-
-  constructor(pending: () => boolean) {
-    this.#pending = pending
-  }
-
-  wait(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const waiter = { resolve, reject }
-      if (this.#pending()) {
-        this.#drawn.push(waiter)
-        return
-      }
-      this.#idle.push(waiter)
-      if (this.#request === 0) this.#request = requestAnimationFrame(() => this.#settleIdle())
-    })
-  }
-
-  drawn(): void {
-    if (this.#drawn.length === 0 && this.#idle.length === 0) return
-    const waiting = [...this.#drawn, ...this.#idle]
-    this.#drawn = []
-    this.#idle = []
-    for (const waiter of waiting) waiter.resolve()
-  }
-
-  reject(reason: unknown): void {
-    if (this.#request !== 0) cancelAnimationFrame(this.#request)
-    this.#request = 0
-    const waiting = [...this.#drawn, ...this.#idle]
-    this.#drawn = []
-    this.#idle = []
-    for (const waiter of waiting) waiter.reject(reason)
-  }
-
-  #settleIdle(): void {
-    this.#request = 0
-    const waiting = this.#idle
-    this.#idle = []
-    if (this.#pending()) {
-      this.#drawn.push(...waiting)
-      return
-    }
-    for (const waiter of waiting) waiter.resolve()
-  }
-}
-
-export function afterDestroy<S extends string, M extends Mark>(
+export function coreAfterDestroy<S extends string, M extends Mark>(
   store: GraphStore<S, M>,
-  element: HTMLElement,
   signal: AbortSignal,
   reason: () => unknown,
   shaped: () => boolean,
-  onMap = false,
-): GraphInstance<S, M> {
+): CoreMembers<S, M> {
   const state = (): GraphState => store.state as GraphState
   const size = () => ({ width: state().width, height: state().height })
   const has = (keys: ElementKeys | undefined, kind: 'node' | 'edge' | 'shape', key: Key) =>
     (kind === 'node' ? keys?.nodes : kind === 'edge' ? keys?.edges : keys?.shapes)?.includes(key) ??
     false
-  const graph: GraphInstance = {
+  const graph: CoreMembers = {
     store,
     view: {
       get: () => state().view,
@@ -137,7 +92,6 @@ export function afterDestroy<S extends string, M extends Mark>(
       toWorld: (point) => toWorld(state().view, size(), point),
     },
     selection: { get: () => state().selection, set: nothing, clear: nothing },
-    focus: { get: () => state().focused, set: nothing },
     states: {
       set: nothing,
       add: nothing,
@@ -152,7 +106,6 @@ export function afterDestroy<S extends string, M extends Mark>(
       compute: () => Promise.reject(reason()),
       stop: nothing,
     },
-    anchors: { set: () => nothing, remove: nothing },
     groups: {
       folded: () => state().folded,
       isFolded: (key) => state().folded.includes(key),
@@ -179,19 +132,8 @@ export function afterDestroy<S extends string, M extends Mark>(
     routing: { run: () => Promise.resolve(false) },
     time: { get: () => state().time, set: nothing },
     history: { of: () => noEntries as never, instant: () => cutOf(state().time).time },
-    lens: {
-      get: () => state().lens,
-      set: nothing,
-      toWorld: (point: Point) => {
-        const { view, lens } = state()
-        const seen = lens && lensContains(lens, point) ? lensView(view, size(), lens) : view
-        return toWorld(seen, size(), point)
-      },
-    },
-    element,
     signal,
     destroyed: true,
-    drawsOnMap: onMap,
     pick: () => null,
     neighbors: () => [],
     edgesOf: () => [],
@@ -203,14 +145,11 @@ export function afterDestroy<S extends string, M extends Mark>(
     isShown: () => false,
     refresh: nothing,
     on: () => nothing,
-    drawn: () => Promise.reject(reason()),
     loaded: () => Promise.reject(reason()),
-    suspend: nothing,
-    resume: nothing,
     update: nothing,
     destroy: nothing,
   }
-  return graph as unknown as GraphInstance<S, M>
+  return graph as unknown as CoreMembers<S, M>
 }
 
 function plain(value: unknown): value is Record<string, unknown> {
@@ -239,18 +178,14 @@ export function untilDestroyed<T extends object>(live: T, dead: T, destroyed: ()
   return guarded as T
 }
 
-export function stillborn<S extends string, M extends Mark>(
+export function coreStillborn<S extends string, M extends Mark, G extends object>(
   options: MountGraphOptions<S, M>,
-  signal: AbortSignal,
-  capabilities: SurfaceCapabilities = canvasCapabilities,
-): GraphInstance<S, M> {
+  capabilities: SurfaceCapabilities,
+  dead: (store: GraphStore<S, M>, shaped: () => boolean) => G,
+): G {
   if (dev) console.warn('graph: the signal was aborted before the mount, nothing was mounted')
   const { definition } = options
   const shaped = definition.marks.some((mark) => mark.type === 'shapes')
-  const element = document.createElement('div')
-  element.setAttribute('data-graph', '')
-  element.setAttribute('role', 'img')
-  element.setAttribute('aria-label', options.ariaLabel)
   const store = createStore<GraphState>({
     view: options.view ?? options.initialView ?? { x: 0, y: 0, zoom: 1 },
     width: 0,
@@ -277,14 +212,7 @@ export function stillborn<S extends string, M extends Mark>(
     surface: capabilities.name,
     suspended: options.suspended === true,
   })
-  const graph = afterDestroy(
-    readonlyOf(store),
-    element,
-    signal,
-    () => signal.reason,
-    () => shaped,
-    capabilities.onMap,
-  )
+  const graph = dead(readonlyOf(store) as unknown as GraphStore<S, M>, () => shaped)
   const scene = createScene()
   scene.setDefinition(definition)
   exposeInternals(graph, {
@@ -312,5 +240,5 @@ export function stillborn<S extends string, M extends Mark>(
   exposeSnapshot(graph, () => {
     throw destroyedError()
   })
-  return graph as unknown as GraphInstance<S, M>
+  return graph
 }

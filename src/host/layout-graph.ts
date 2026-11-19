@@ -8,11 +8,16 @@ import {
 } from '../core/columns'
 import { withFinitePositions } from '../core/finite-positions'
 import type { Hierarchy } from '../core/hierarchy'
+import {
+  atlasFontSize,
+  labelGap,
+  lineHeight,
+  nodeLabelSize,
+  plateDrop,
+  secondaryFactor,
+} from '../core/label-metrics'
 import type { PositionReader } from '../core/positions'
 import type { Key, LayoutGraph, LayoutGroups } from '../types'
-import { atlasFontSize } from '../webgl/glyph-atlas'
-import { lineHeight, secondaryFactor } from '../webgl/label-layer'
-import { labelGap, nodeLabelSize, plateDrop } from '../webgl/shaders'
 
 const circle = 2
 const characterWidth = 0.6

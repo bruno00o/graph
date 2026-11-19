@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { estimateTextWidth, labelWidth, secondaryFactor, type TextWidth } from './label-width'
+import { secondaryFactor } from './label-metrics'
+import { estimateTextWidth, labelWidth, type TextWidth } from './label-width'
 
 const calls: string[] = []
 const measure: TextWidth = (text, weight) => {

@@ -13,7 +13,15 @@ import type { EdgePaths, PathPoint, PathSpot } from '../core/edge-paths'
 import { type ArcFrame, arcPoint, edgeRoute, screenOf } from '../core/geo-arc'
 import { type GlobeCamera, globeScale, globeScreen } from '../core/globe'
 import type { HullShape } from '../core/hull-layer'
-import { primaryWeight, secondaryFactor, secondaryWeight } from '../core/label-width'
+import {
+  atlasFontSize,
+  labelGap,
+  lineHeight,
+  nodeLabelSize,
+  plateDrop,
+  secondaryFactor,
+} from '../core/label-metrics'
+import { primaryWeight, secondaryWeight } from '../core/label-width'
 import {
   isBox,
   loopShift,
@@ -35,7 +43,7 @@ import { labelAlways, maxStates, noPaint, stateRow, wordFloat } from '../core/st
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
 import type { LabelMode } from '../host/renderer'
 import type { View } from '../types'
-import { atlasFontSize, atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
+import { atlasWidth, type GlyphAtlas, type LineLayout } from './glyph-atlas'
 import { glyphStride, hullGlyph, worldGlyph } from './glyph-attributes'
 import {
   builtInRaise,
@@ -54,15 +62,11 @@ import {
   endLabelGap,
   endLabelWidthUnit,
   insideGlyph,
-  labelGap,
-  nodeLabelSize,
-  plateDrop,
   platePadX,
   uprightSlack,
 } from './shaders'
 
-export const lineHeight = 1.25
-export { glyphStride, labelLevel, secondaryFactor }
+export { glyphStride, labelLevel }
 
 const cell = 8
 const maxLabels = 4000

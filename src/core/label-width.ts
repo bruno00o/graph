@@ -1,7 +1,7 @@
+import { secondaryFactor } from './label-metrics'
+
 export type TextWidth = (text: string, weight: number, font: string | null) => number
 
-export const nodeLabelSize = 12
-export const secondaryFactor: number = 11 / 12
 export const primaryWeight = 500
 export const secondaryWeight = 400
 export const boxPadding = 0.5
