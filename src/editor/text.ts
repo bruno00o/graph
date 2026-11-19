@@ -1,6 +1,7 @@
 import { toAccessor } from '../core/accessor'
+import { nodeLabelSize } from '../core/label-metrics'
 import { positive, readWeight, toText } from '../core/label-text'
-import { nodeLabelSize, primaryWeight, type TextWidth } from '../core/label-width'
+import { primaryWeight, type TextWidth } from '../core/label-width'
 import { metersToWorld, wrapMargin, wrapText } from '../shapes/text'
 import type { ShapeMark } from '../types'
 import { type Bounds, boundsOf, geoOutline, type Outline, scaleOutline } from './geometry'

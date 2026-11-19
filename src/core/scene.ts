@@ -58,12 +58,12 @@ import type {
 } from './graph-model'
 import { type HistoryTrail, historyEngineOf, type PastScales, type PastSink } from './history'
 import { IndexSet } from './index-set'
+import { nodeLabelSize } from './label-metrics'
 import { positive, readBackground, swapColor, toColor, toText, writeLabelText } from './label-text'
 import {
   boxPadding,
   estimateTextWidth,
   labelWidth,
-  nodeLabelSize,
   primaryWeight,
   type TextWidth,
 } from './label-width'

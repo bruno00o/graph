@@ -5,6 +5,7 @@ import { pathTextureWidth } from '../core/edge-paths'
 import { arcSpan, arcStations, latitudeOf } from '../core/geo-arc'
 import type { GlobeCamera } from '../core/globe'
 import type { HullShape } from '../core/hull-layer'
+import { atlasFontSize } from '../core/label-metrics'
 import { type LayerFilter, maxLayerSlots } from '../core/mark-layers'
 import type { Positions } from '../core/positions'
 import type { ShapeLabelFrame, ShapeLayer } from '../core/shape-engine'
@@ -33,7 +34,7 @@ import {
   type TextureFormat,
 } from './gl'
 import { GlState } from './gl-state'
-import { atlasFontSize, atlasWidth, GlyphAtlas } from './glyph-atlas'
+import { atlasWidth, GlyphAtlas } from './glyph-atlas'
 import { anchorAttributes, glyphAttributes } from './glyph-attributes'
 import { ImageAtlas } from './image-atlas'
 import {

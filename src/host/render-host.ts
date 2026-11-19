@@ -4,11 +4,13 @@ import type { Scene } from '../core/scene'
 import { dev } from '../dev'
 import { watchFonts } from '../dom/fonts'
 import type { TextWidths } from '../dom/text-width'
-import { observeTheme, type ResolvedTheme, type ThemeResolver, type ThemeWatch } from '../dom/theme'
+import { observeTheme, type ResolvedTheme, type ThemeWatch } from '../dom/theme'
 import type { PixelRatioOption } from '../types'
+import type { ColorSource } from './environment'
 import { FrameCost } from './frame-cost'
 import type { GraphState, HostSurface, RendererFactory } from './graph-instance'
 import { KeptFrame } from './kept-frame'
+import type { PaletteColors } from './palette-colors'
 import type { Renderer, RendererContext } from './renderer'
 
 type Given = 'none' | 'losing' | 'lost' | 'restoring'
@@ -30,7 +32,8 @@ export interface RenderSource {
   surface(): HostSurface
   readonly createRenderer: RendererFactory
   readonly scene: Scene
-  readonly themeResolver: ThemeResolver
+  readonly colors: ColorSource
+  readonly palette: PaletteColors
   readonly textWidths: TextWidths
   paths(): EdgePaths
   pixelRatio(): PixelRatioOption
@@ -50,11 +53,7 @@ export class RenderHost {
   pixelRatio: number = window.devicePixelRatio || 1
   software: boolean | null = null
   flowTime = 0
-  paletteColors: Uint8Array = new Uint8Array(256 * 4)
-  paletteVersion = 0
-  paletteStamp = 0
   readonly cost: FrameCost = new FrameCost(() => this.renderer)
-  #paletteCount = 0
   #drawingLimit = Number.POSITIVE_INFINITY
   #wanted = 0
   #warnedEmpty = false
@@ -112,28 +111,6 @@ export class RenderHost {
     if (!keep) this.#kept.drop()
   }
 
-  resolvePalette(all: boolean): void {
-    const { scene, themeResolver } = this.#source
-    const palette = scene.palette
-    const colors = palette.colors
-    if (colors.length * 4 > this.paletteColors.length) {
-      const next = new Uint8Array(Math.max(colors.length * 4, this.paletteColors.length * 2))
-      next.set(this.paletteColors)
-      this.paletteColors = next
-    }
-    const paletteColors = this.paletteColors
-    if (all) themeResolver.palette(colors, paletteColors)
-    else {
-      palette.changed(this.paletteVersion, (id, color) => {
-        paletteColors.set(themeResolver.color(color), id * 4)
-      })
-    }
-    this.paletteVersion = palette.version
-    this.#paletteCount = colors.length
-    this.paletteStamp++
-    this.renderer?.setPalette(paletteColors, this.#paletteCount)
-  }
-
   adoptLimits(): void {
     const limits = this.renderer?.limits?.()
     this.#source.paths().pointBudget = Math.min(
@@ -164,15 +141,15 @@ export class RenderHost {
   }
 
   readonly refreshTheme = (): void => {
-    const { scene, themeResolver, textWidths } = this.#source
-    const theme = themeResolver.theme()
+    const { scene, colors, palette, textWidths } = this.#source
+    const theme = colors.theme()
     const previous = this.#theme
-    const kept = this.#kept.held ? this.paletteColors.slice(0, this.#paletteCount * 4) : null
+    const kept = this.#kept.held ? palette.colors.slice(0, palette.count * 4) : null
     this.#theme = theme
     this.renderer?.setTheme(theme)
     if (textWidths.setFont(theme.font) && scene.remeasure()) this.#source.remeasured()
-    this.resolvePalette(true)
-    if (kept && !(sameTheme(previous, theme) && samePalette(kept, this.paletteColors))) {
+    palette.resolve(true)
+    if (kept && !(sameTheme(previous, theme) && samePalette(kept, palette.colors))) {
       this.#kept.drop()
     }
     this.#source.request()

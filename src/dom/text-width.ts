@@ -1,6 +1,6 @@
 import { type LoadedFamilies, usesFamily } from '../core/font-family'
+import { atlasFontSize } from '../core/label-metrics'
 import { estimateTextWidth, type TextWidth } from '../core/label-width'
-import { atlasFontSize } from '../webgl/glyph-atlas'
 
 type MeasureContext = Pick<CanvasRenderingContext2D, 'font' | 'measureText'>
 

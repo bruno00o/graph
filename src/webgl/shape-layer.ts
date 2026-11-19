@@ -1,4 +1,5 @@
 import type { LogCursor } from '../core/change-log'
+import { atlasFontSize } from '../core/label-metrics'
 import {
   type ShapeGeometryData,
   type ShapeGlyphs,
@@ -13,7 +14,6 @@ import { detailedFrom } from '../shapes/simplify'
 import { onSphere } from '../shapes/subdivide'
 import { withCopies } from '../shapes/wrap'
 import { createBuffer, createProgram, createVertexArray, DataTexture, formats } from './gl'
-import { atlasFontSize } from './glyph-atlas'
 import { glyphAttributes, glyphStride } from './glyph-attributes'
 import { cornerLabel, labelFragment } from './shaders'
 import {

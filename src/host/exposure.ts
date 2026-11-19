@@ -5,24 +5,29 @@ import type { Scene } from '../core/scene'
 import type { ShapeShift } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import { detailStep, type Sight } from '../core/visibility'
-import type { ThemeResolver } from '../dom/theme'
 import type { GraphDefinition, Key } from '../types'
 import type { BridgeHost } from './bridges'
 import type { BundleHost } from './bundles'
 import type { HostCamera } from './camera'
 import type { ContainerBoxes } from './containers'
 import type { Decorations } from './decorations'
+import type { ColorSource } from './environment'
 import { exposeSnapshot } from './export-source'
 import type { GraphState, RendererFactory, SurfaceCapabilities } from './graph-instance'
 import { exposeInternals, type GraphWatcher } from './internals'
 import type { LayerControl } from './layer-control'
+import type { PaletteColors } from './palette-colors'
 import type { PointerTool } from './pointer-tool'
-import type { RenderHost } from './render-host'
 import type { StateRegistry } from './state-registry'
 import type { TimeControl } from './time-control'
 
+export interface ExposureRatio {
+  readonly pixelRatio: number
+  readonly software: boolean | null
+  ratioFor(software: boolean): number
+}
+
 export interface ExposureSource {
-  readonly element: HTMLElement
   readonly scene: Scene
   readonly positions: Positions
   readonly buffers: StateBuffers
@@ -32,8 +37,9 @@ export interface ExposureSource {
   readonly decorations: Decorations
   readonly bundles: BundleHost
   readonly bridges: BridgeHost
-  readonly render: RenderHost
-  readonly themeResolver: ThemeResolver
+  readonly palette: PaletteColors
+  readonly colors: ColorSource
+  readonly render: ExposureRatio
   readonly time: TimeControl
   readonly layers: LayerControl
   readonly camera: HostCamera
@@ -51,10 +57,11 @@ export interface ExposureSource {
   tool(tool: PointerTool | null): boolean
   draft(keys: readonly Key[], shifts?: readonly ShapeShift[]): void
   shape(key: Key): ShapeRecord | null
+  title(): string | null
 }
 
 export function exposeGraph(graph: object, source: ExposureSource): void {
-  const { scene, positions, buffers, projection, containers, render, watchers } = source
+  const { scene, positions, buffers, projection, containers, palette, watchers } = source
   exposeInternals(graph, {
     get onMap() {
       return source.surface().onMap
@@ -64,7 +71,7 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
     positions,
     definition: source.definition,
     containers: () => (projection.active ? containers : null),
-    palette: () => render.paletteColors,
+    palette: () => palette.colors,
     masks: () => buffers.nodeMask,
     edgeMembers: (index, end) => projection.keysAt(index, end),
     datum: (kind, index) =>
@@ -77,7 +84,7 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
     stamp: () => ({
       scene: source.sceneVersion(),
       positions: positions.version,
-      palette: render.paletteStamp,
+      palette: palette.stamp,
       containers: projection.active ? containers.version : -1,
       detail: detailStep(scene.nodes, scene.edges, source.sight(), scene.shapes),
     }),
@@ -100,12 +107,12 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
 
   exposeSnapshot(graph, () => {
     if (source.destroyed()) throw new Error('graph: cannot export a destroyed graph')
-    const { decorations, bundles, bridges, themeResolver, time, layers } = source
+    const { decorations, bundles, bridges, colors, render, time, layers } = source
     source.prepare()
     source.registry.takeHighlighted()
     source.syncContainers()
     decorations.settle()
-    if (scene.palette.version !== render.paletteVersion) render.resolvePalette(false)
+    if (scene.palette.version !== palette.version) palette.resolve(false)
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity)
     source.request()
     const { view, width, height } = source.state()
@@ -118,8 +125,8 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
       containers: projection.active ? containers : null,
       bundles: bundles.paths.any ? bundles.paths : null,
       bridges: bridges.active ? bridges.set : null,
-      palette: render.paletteColors,
-      theme: themeResolver.theme(),
+      palette: palette.colors,
+      theme: colors.theme(),
       view,
       window: time.filter,
       layers: layers.filter,
@@ -129,12 +136,12 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
       pixelRatio: render.pixelRatio,
       software: render.software,
       globe: source.camera.sphere(),
-      title: source.element.getAttribute('aria-label'),
-      color: (css) => themeResolver.color(css),
+      title: source.title(),
+      color: (css) => colors.color(css),
       ratioFor: (software) => render.ratioFor(software),
       hullsFor(sight, at, boxes) {
         const hulls = decorations.hullsFor(sight, at, boxes)
-        if (scene.palette.version !== render.paletteVersion) render.resolvePalette(false)
+        if (scene.palette.version !== palette.version) palette.resolve(false)
         return hulls
       },
       createRenderer: source.createRenderer,
