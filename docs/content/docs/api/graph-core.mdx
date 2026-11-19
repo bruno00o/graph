@@ -1,9 +1,9 @@
 ---
 title: GraphCore
-description: The part of a graph that needs no page, which GraphInstance extends, and settled().
+description: The part of a graph that needs no page, returned by createGraph and extended by GraphInstance.
 ---
 
-`GraphCore` is the graph without its element: data, layouts, view, selection, states, time, history, paths, the store and the events. [`GraphInstance`](/docs/api/graph-instance), returned by `mountGraph`, extends it with the element, the focus, the lens, the anchors, `drawn`, `suspend` and `resume`. A function that takes a `GraphCore`, such as [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline), [`exportDrawio`](/docs/api/export) or [`exportVsdx`](/docs/api/export), reads none of these.
+`GraphCore` is the graph without its element: data, layouts, view, selection, states, time, history, paths, the store and the events. [`createGraph`](/docs/api/create-graph) returns one, and [`GraphInstance`](/docs/api/graph-instance), returned by `mountGraph`, extends it with the element, the focus, the lens, the anchors, `drawn`, `suspend` and `resume`. A function that takes a `GraphCore` takes a mounted graph as well.
 
 `S` is the union of the state names and `M` the union of the marks of the definition, as for `GraphInstance`. See [TypeScript](/docs/typescript).
 
@@ -11,21 +11,23 @@ description: The part of a graph that needs no page, which GraphInstance extends
 
 <api-table path="index.ts" name="GraphCore" />
 
-The members work as on a mounted graph: see [GraphInstance](/docs/api/graph-instance) for the view, the selection, the positions, the layouts and the lifecycle.
+The members work as on a mounted graph: see [GraphInstance](/docs/api/graph-instance) for the view, the selection, the positions, the layouts and the lifecycle. Without a page, the view works on `size`: `pick`, `view.toScreen`, `view.toWorld` and `view.fit` take the size given to `createGraph`, 1,024 × 768 by default, and `store.state.width` and `height` hold it. The `focused`, `hovered` and `lens` fields of the store stay `null`, and `surface` is `'none'`.
 
 ## Options
 
-The options of a graph that need no page. [`MountGraphOptions`](/docs/api/mount-graph#options) extends them with `ariaLabel`, `surface`, `suspended` and `keepFrame`.
+`createGraph` and `mountGraph` share these options. `mountGraph` adds `ariaLabel`, `surface`, `suspended` and `keepFrame`, and `createGraph` adds `size`, `theme`, `measureText` and `title`.
 
 <api-table path="index.ts" name="GraphOptions" />
 
+<api-table path="index.ts" name="GraphSize" />
+
 ## Settled
 
-`settled()` resolves once nothing is left to do: data changes applied, live sources loaded or the [`waitForData`](/docs/api/define-graph#wait-for-the-data) deadline past, no layout run, no view or position animation, edge bundling, edge routing and bridges computed, the fills of large shapes triangulated and the hulls ready. Frames do not count: `await graph.drawn()` afterwards waits for the frame that shows the result.
+`settled()` resolves once nothing is left to do: data changes applied, live sources loaded or the [`waitForData`](/docs/api/define-graph#wait-for-the-data) deadline past, no layout run, no view or position animation, edge bundling, edge routing and bridges computed, the fills of large shapes triangulated and the hulls ready. Frames do not count: on a mounted graph, `await graph.drawn()` afterwards waits for the frame that shows the result.
 
 ```ts
+const graph = createGraph({ definition })
 await graph.settled()
-await graph.drawn()
 report(graph.positions.snapshot())
 ```
 

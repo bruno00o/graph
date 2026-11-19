@@ -37,7 +37,8 @@
       "@bruno00o/graph/routing": ["./src/routing/index.ts"],
       "@bruno00o/graph/shapes": ["./src/shapes/index.ts"],
       "@bruno00o/graph/timeline": ["./src/timeline/index.ts"],
-      "@bruno00o/graph/history": ["./src/history/index.ts"]
+      "@bruno00o/graph/history": ["./src/history/index.ts"],
+      "@bruno00o/graph/headless": ["./src/headless/index.ts"]
     }
   },
   "include": ["src", "examples"]

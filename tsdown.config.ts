@@ -59,6 +59,7 @@ export default defineConfig({
     shapes: 'src/shapes/index.ts',
     timeline: 'src/timeline/index.ts',
     history: 'src/history/index.ts',
+    headless: 'src/headless/index.ts',
   },
   format: 'esm',
   platform: 'neutral',

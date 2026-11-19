@@ -1944,7 +1944,7 @@ export interface LayoutGraph<T = unknown> {
 
 /**
  * How a layout, an edge bundling or an edge routing may spread its work. A graph on a page gives
- * 8 ms slices and allows Web Workers.
+ * 8 ms slices and allows Web Workers; a graph made by `createGraph` gives 50 ms slices and none.
  */
 export interface LayoutWork {
   /** Longest stretch of work on the main thread before it gives the event loop back, in ms. */

@@ -1,0 +1,71 @@
+---
+title: createGraph
+description: Create a graph that runs without a page, such as in Node or a worker.
+---
+
+```ts
+import { createGraph } from '@bruno00o/graph/headless'
+
+function createGraph<S extends string = string, M extends Mark = Mark>(
+  options: CreateGraphOptions<S, M>,
+): GraphCore<S, M>
+```
+
+Returns a [`GraphCore`](/docs/api/graph-core) built from the same definition as a mounted graph: it reads the data and the live sources, lays them out, bundles or routes the edges, and answers `pick`, `positions`, `paths`, `count`, the selection, the states, the time window and the history. It touches no DOM global and creates no WebGL context, so it runs in Node, a worker, or a page that only needs the numbers; it is tested in Node 24. `S` and `M` come from the definition.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { exportDrawio } from '@bruno00o/graph/export'
+import { createGraph } from '@bruno00o/graph/headless'
+import { force } from '@bruno00o/graph/layouts/force'
+
+const graph = createGraph({
+  definition: defineGraph({
+    marks: [nodes(items, { label: 'label' }), edges(links, { source: 'from', target: 'to' })],
+    layout: force(),
+  }),
+})
+await graph.settled()
+const positions = graph.positions.snapshot()
+const drawio = await exportDrawio(graph)
+graph.destroy()
+```
+
+`positions.snapshot()` passes as is to [`initialPositions`](/docs/api/mount-graph#options) of a graph mounted later in a page, which then shows the same layout without running it.
+
+## Options
+
+<api-table path="headless/index.ts" name="CreateGraphOptions" />
+
+`update` takes the options of [`GraphCore`](/docs/api/graph-core#members) that can change, `size` included. A `size` that is not finite and above 0 throws a `RangeError`, at the creation as in `update`.
+
+## Work and time
+
+Without a page, the graph works on the calling thread and keeps no frame loop:
+
+- layouts, edge bundling, edge routing and the triangulation of large shapes run in slices of 50 ms, never in a Web Worker, and give the event loop back between two slices;
+- animations end at once: a `view.set` or `view.fit` with a `duration`, the glide of a layout result, a position that moves in the data;
+- edge bundling, edge routing and bridges start as soon as nothing moves, instead of 150 ms later;
+- the work of a frame runs in a macrotask, after the calls of the current task.
+
+`await graph.settled()` waits for all of it: see [Settled](/docs/api/graph-core#settled).
+
+## Theme
+
+`theme` takes `'light'`, `'dark'`, or tokens of your own over one of them. Token names are those of the [theme stylesheet](/docs/api/theme-tokens) without the `--graph-` prefix. Colors in the definition, such as `var(--graph-cat-3)` or `color-mix(in srgb, var(--graph-accent) 40%, white)`, resolve against these tokens as a browser would.
+
+<api-table path="headless/index.ts" name="GraphThemeOptions" />
+
+```ts
+createGraph({ definition, theme: { base: 'dark', colors: { accent: '#7a3ff2' } } })
+```
+
+## Text widths
+
+Label boxes, the choice of the labels shown, the room `layers` leaves for labels and the bounds of the diagram exports depend on the width of the text. Without a page, nothing measures it: `measureText` gives it, in em. By default, the graph uses the advance widths of Arial, which Liberation Sans and Helvetica share, for the Latin letters, digits and signs; wide CJK characters count 1 em and other characters 0.5 em. Bold text counts 6 % wider. The default font of the theme is that family: `Arial, "Liberation Sans", Helvetica, sans-serif`.
+
+For text drawn in another font, pass its family as the `font` of the theme and a `measureText` of your own for its widths, so that the boxes fit the text drawn.
+
+## What needs a page
+
+`createLegend`, `createTimeline`, `exportDrawio` and `exportVsdx` take a `GraphCore`. The rest needs a mounted graph: the element, the focus, the lens, the anchors, `drawn`, `suspend` and `resume`, `exportPng` and `exportSvg`, the minimap, the devtools panel, the shape editor, the React components and map surfaces.

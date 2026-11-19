@@ -67,6 +67,7 @@ export default defineConfig({
       { find: /^@bruno00o\/graph\/shapes$/, replacement: resolve(library, 'shapes/index.ts') },
       { find: /^@bruno00o\/graph\/timeline$/, replacement: resolve(library, 'timeline/index.ts') },
       { find: /^@bruno00o\/graph\/history$/, replacement: resolve(library, 'history/index.ts') },
+      { find: /^@bruno00o\/graph\/headless$/, replacement: resolve(library, 'headless/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(library, 'index.ts') },
     ],
     dedupe: [

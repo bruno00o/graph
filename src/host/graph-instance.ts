@@ -47,9 +47,9 @@ import type { Renderer } from './renderer'
 export interface GraphState<S extends string = string, M extends Mark = Mark> {
   /** Current view. */
   readonly view: View
-  /** Width of the graph element, in CSS pixels. */
+  /** Width of the graph element, or `size` without a page, in CSS pixels. */
   readonly width: number
-  /** Height of the graph element, in CSS pixels. */
+  /** Height of the graph element, or `size` without a page, in CSS pixels. */
   readonly height: number
   /** Element under the pointer, or `null`. */
   readonly hovered: GraphTarget<M> | null
@@ -79,7 +79,8 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
   readonly data: GraphDataStatus
   /**
    * Name of the surface the graph draws on: `'canvas'` for its own canvas, `'map'` for a surface
-   * made by `mapSurface`. The view is in the units of that surface.
+   * made by `mapSurface`, `'none'` for a graph made by `createGraph`. The view is in the units of
+   * that surface.
    */
   readonly surface: string
   /**
@@ -520,6 +521,14 @@ export interface GraphShownShapeCount extends GraphShownCount {
  */
 export type GraphCountOf<M extends Mark> = HasShapes<M> extends true ? GraphShapeCount : GraphCount
 
+/** Width and height of a graph made by `createGraph`, in CSS pixels. */
+export interface GraphSize {
+  /** Width, in CSS pixels. */
+  readonly width: number
+  /** Height, in CSS pixels. */
+  readonly height: number
+}
+
 /**
  * Options of `graph.update` on a `GraphCore`: the options that can change after the creation, each
  * one left out to keep its current value.
@@ -534,6 +543,12 @@ export type GraphCoreUpdateOptions<S extends string = string, M extends Mark = M
     | 'initialHiddenLayers'
     | 'signal'
   >]?: GraphOptions<S, M>[K] | undefined
+} & {
+  /**
+   * Size of a graph made by `createGraph`, in CSS pixels: the view, `pick` and `view.fit` work on
+   * it. A mounted graph takes the size of its element and ignores it.
+   */
+  readonly size?: GraphSize | undefined
 }
 
 /**
@@ -554,7 +569,7 @@ export type GraphUpdateOptions<S extends string = string, M extends Mark = Mark>
 }
 
 /**
- * Options of a graph that need no page, which `MountGraphOptions` extends. `S` and `M` come from
+ * Options shared by `mountGraph` and `createGraph`, those that need no page. `S` and `M` come from
  * the definition.
  */
 export interface GraphOptions<S extends string = string, M extends Mark = Mark> {
@@ -685,9 +700,9 @@ export interface GraphSurface {
 }
 
 /**
- * The part of a graph that needs no page: data, layouts, view, selection, states, time, history,
- * store and events. `GraphInstance` extends it. `S` is the union of the state names and `M` that
- * of the marks, both taken from the definition.
+ * A graph without a page, returned by `createGraph`, and the part of a mounted graph that needs
+ * none. `S` is the union of the state names and `M` that of the marks, both taken from the
+ * definition.
  */
 export interface GraphCore<S extends string = string, M extends Mark = Mark> {
   /** Read-only TanStack Store of the graph state. */
@@ -801,7 +816,7 @@ export interface GraphCore<S extends string = string, M extends Mark = Mark> {
    */
   settled(): Promise<void>
   /**
-   * Applies a new `definition`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
+   * Applies a new `definition`, `size`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
    * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled
    * `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and selection stay.
    * Throws a `RangeError`, and applies nothing, for a controlled `view` that is not finite.
