@@ -219,6 +219,150 @@ describe('cypherGraph', () => {
   })
 })
 
+describe('lean rows', () => {
+  const person = {
+    elementId: 'p1',
+    labels: ['Person'],
+    properties: { name: 'Ada', born: int(1815) },
+  }
+  const friend = { elementId: 'p2', labels: ['Person'], properties: { name: 'Bob' } }
+  const tie = {
+    elementId: 'k1',
+    type: 'KNOWS',
+    startNodeElementId: 'p1',
+    endNodeElementId: 'p2',
+    properties: { since: int(2020) },
+  }
+
+  it('reads plain maps as nodes and relationships', () => {
+    const graph = cypherGraph([person, friend, tie])
+    expect(graph.nodes).toEqual([
+      { id: 'p1', labels: ['Person'], properties: { name: 'Ada', born: 1815 } },
+      { id: 'p2', labels: ['Person'], properties: { name: 'Bob' } },
+    ])
+    expect(graph.edges).toEqual([
+      { id: 'k1', type: 'KNOWS', source: 'p1', target: 'p2', properties: { since: 2020 } },
+    ])
+  })
+
+  it('converts integers given as driver values or as pairs', () => {
+    const wide = {
+      elementId: 'w',
+      labels: [],
+      properties: { count: { low: 3, high: 0 }, big: { low: 0, high: 2147483647 }, driver: int(7) },
+    }
+    expect(cypherGraph(wide).nodes[0]?.properties).toEqual({
+      count: 3,
+      big: '9223372032559808512',
+      driver: 7,
+    })
+    expect(cypherGraph(wide, { integers: 'bigint' }).nodes[0]?.properties).toEqual({
+      count: 3n,
+      big: 9223372032559808512n,
+      driver: 7n,
+    })
+  })
+
+  it('reads maps inside records, through keys and get', () => {
+    const records = [row({ element: person }), row({ element: friend }), row({ element: tie })]
+    const graph = cypherGraph({ records })
+    expect(graph.nodes.map((item) => item.id)).toEqual(['p1', 'p2'])
+    expect(graph.edges.map((item) => item.id)).toEqual(['k1'])
+    expect(cypherGraph(serialized({ records }))).toEqual(graph)
+    const named = {
+      keys: ['element'],
+      get: (key: string) => (key === 'element' ? tie : undefined),
+    }
+    expect(cypherGraph(named).edges).toHaveLength(1)
+  })
+
+  it('reads maps nested in lists and maps', () => {
+    const graph = cypherGraph([[[person]], { deep: [{ rel: tie }, [friend]] }])
+    expect(graph.nodes.map((item) => item.id)).toEqual(['p1', 'p2'])
+    expect(graph.edges.map((item) => item.id)).toEqual(['k1'])
+  })
+
+  it('keeps a relationship whose end nodes are not in the result', () => {
+    const graph = cypherGraph([tie])
+    expect(graph.nodes).toEqual([])
+    expect(graph.edges.map((item) => [item.source, item.target])).toEqual([['p1', 'p2']])
+    const model = createGraphModel()
+    model.setMarks([nodes(graph.nodes), edges(graph.edges, { source: 'source', target: 'target' })])
+    model.flush()
+    expect(model.pendingEdges()).toEqual(['k1'])
+    model.setMarks([
+      nodes(cypherGraph([person, friend]).nodes),
+      edges(graph.edges, { source: 'source', target: 'target' }),
+    ])
+    model.flush()
+    expect(model.pendingEdges()).toEqual([])
+  })
+
+  it('reads the ends of a relationship from start and end, or drops it without ends', () => {
+    const { startNodeElementId: _start, endNodeElementId: _end, ...bare } = tie
+    expect(cypherGraph({ ...bare, start: 'p1', end: 'p2' }).edges).toEqual([
+      { id: 'k1', type: 'KNOWS', source: 'p1', target: 'p2', properties: { since: 2020 } },
+    ])
+    expect(cypherGraph({ ...bare, start: int(1), end: int(2) }).edges[0]).toMatchObject({
+      source: '1',
+      target: '2',
+    })
+    expect(cypherGraph(bare).edges).toEqual([])
+    expect(cypherGraph([bare, person]).nodes).toHaveLength(1)
+  })
+
+  it('deduplicates lean maps with driver objects by element id', () => {
+    const graph = cypherGraph([ada, { elementId: 'n1', labels: ['Other'], properties: {} }])
+    expect(graph.nodes).toHaveLength(1)
+    expect(graph.nodes[0]?.labels).toEqual(['Person', 'Admin'])
+  })
+})
+
+describe('null properties', () => {
+  it('leaves null properties out of a lean map', () => {
+    const graph = cypherGraph([
+      { elementId: 'a', labels: ['Person'], properties: { name: null, born: 1815 } },
+      {
+        elementId: 'r',
+        type: 'KNOWS',
+        startNodeElementId: 'a',
+        endNodeElementId: 'b',
+        properties: { since: null, note: 'x' },
+      },
+    ])
+    expect(graph.nodes[0]?.properties).toEqual({ born: 1815 })
+    expect('name' in (graph.nodes[0]?.properties ?? {})).toBe(false)
+    expect(graph.edges[0]?.properties).toEqual({ note: 'x' })
+  })
+
+  it('leaves null properties out of a driver node and a driver relationship', () => {
+    const odd = node(9, ['Person'], { name: 'Eve', nick: null })
+    const link = relation(20, odd, ada, 'KNOWS', { since: null, weight: int(2) })
+    const graph = cypherGraph(row({ a: odd, r: link }))
+    expect(graph.nodes[0]?.properties).toEqual({ name: 'Eve' })
+    expect(Object.keys(graph.nodes[0]?.properties ?? {})).toEqual(['name'])
+    expect(graph.edges[0]?.properties).toEqual({ weight: 2 })
+  })
+
+  it('keeps nulls inside list values and maps', () => {
+    const graph = cypherGraph({
+      elementId: 'a',
+      labels: [],
+      properties: { list: [1, null], map: { inner: null }, gone: null },
+    })
+    expect(graph.nodes[0]?.properties).toEqual({ list: [1, null], map: { inner: null } })
+  })
+
+  it('does not read the properties of an element as a date, a point or an integer', () => {
+    const graph = cypherGraph([
+      { elementId: 'd', labels: [], properties: { year: 2020, month: 1, day: 2 } },
+      { elementId: 'i', labels: [], properties: { low: 1, high: 0 } },
+    ])
+    expect(graph.nodes[0]?.properties).toEqual({ year: 2020, month: 1, day: 2 })
+    expect(graph.nodes[1]?.properties).toEqual({ low: 1, high: 0 })
+  })
+})
+
 describe('integers', () => {
   const big = int('9007199254740993')
   const negative = int('-9007199254740993')

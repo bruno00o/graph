@@ -1,4 +1,4 @@
-import { convertValue, type IntegerMode, integerText, isObject } from './values'
+import { convertProperties, type IntegerMode, integerText, isObject } from './values'
 
 /** Properties of a node or a relationship, with integers, dates and points already converted. */
 export type CypherProperties = Readonly<Record<string, unknown>>
@@ -9,7 +9,7 @@ export interface CypherNode<P extends object = CypherProperties> {
   readonly id: string
   /** Labels of the node, in the order the database returned them. */
   readonly labels: readonly string[]
-  /** Properties of the node. */
+  /** Properties of the node. A property whose value is `null` is left out. */
   readonly properties: P
 }
 
@@ -26,7 +26,7 @@ export interface CypherEdge<P extends object = CypherProperties> {
   readonly source: string
   /** The `elementId` of the end node. */
   readonly target: string
-  /** Properties of the relationship. */
+  /** Properties of the relationship. A property whose value is `null` is left out. */
   readonly properties: P
 }
 
@@ -44,7 +44,10 @@ export interface CypherGraph<
   readonly edges: readonly CypherEdge<E>[]
 }
 
-/** The part of a driver `Node` that the adapter reads. */
+/**
+ * The part of a driver `Node` that the adapter reads. A plain map with the same fields, such as
+ * one built by a query, is read the same way.
+ */
 export interface CypherNodeLike {
   /** Identifier of the node, unique in the database. */
   readonly elementId: string
@@ -54,7 +57,11 @@ export interface CypherNodeLike {
   readonly properties: object
 }
 
-/** The part of a driver `Relationship` that the adapter reads. */
+/**
+ * The part of a driver `Relationship` that the adapter reads. A plain map with the same fields is
+ * read the same way. Without both end ids, `start` and `end` are used, and a relationship with
+ * neither is left out.
+ */
 export interface CypherRelationshipLike {
   /** Identifier of the relationship, unique in the database. */
   readonly elementId: string
@@ -173,7 +180,7 @@ function addNode(value: Shape, collector: Collector): void {
   collector.nodes.set(id, {
     id,
     labels: (value.labels as unknown[]).map(String),
-    properties: convertValue(value.properties, collector.mode) as CypherProperties,
+    properties: convertProperties(value.properties, collector.mode) as CypherProperties,
   })
 }
 
@@ -192,7 +199,7 @@ function addEdge(value: Shape, collector: Collector): void {
     type: value.type as string,
     source,
     target,
-    properties: convertValue(value.properties, collector.mode) as CypherProperties,
+    properties: convertProperties(value.properties, collector.mode) as CypherProperties,
   })
 }
 

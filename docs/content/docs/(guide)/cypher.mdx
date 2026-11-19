@@ -54,6 +54,84 @@ const graph = cypherGraph(await response.json())
 
 On the server, `JSON.stringify(result.records)` is enough. Integers serialize as `{ low, high }` pairs and the adapter reads them back, so there is no need to convert them before sending (`JSON.stringify` cannot write a `bigint`, so leave `useBigInt` off). You can also convert the result on the server, with `cypherGraph(result)`, and send `{ nodes, edges }`: that is plain JSON already.
 
+## Large results
+
+A query that returns paths sends every node again in every row: a node that sits in four paths arrives four times, with all its properties. For a large result, wrap the query so that the database sends each distinct node and relationship once, with only the properties the graph draws. This is written in your backend, since the library runs no query; what it guarantees is the shape of the rows it reads, which are [plain maps](/docs/api/cypher-graph#rows-as-maps) as well as driver objects.
+
+The wrapper needs Neo4j 5.23 or later, for the `CALL () { … }` form, and the `IS ::` type predicates of 5.9 or later. This form is Neo4j's: other databases that speak Cypher, such as Memgraph, Neptune, Apache AGE or FalkorDB, may not accept it.
+
+```cypher
+CALL () {
+  MATCH p = (a:Person)-[:KNOWS*1..2]->(b:Person)
+  RETURN p AS path, [a, b] AS pair, {first: a} AS info
+}
+UNWIND [{v: path}, {v: pair}, {v: info}] AS box
+WITH box.v AS element
+WITH CASE
+  WHEN element IS :: PATH THEN nodes(element) + relationships(element)
+  WHEN element IS :: LIST<ANY> THEN element
+  WHEN element IS :: MAP THEN [key IN keys(element) | element[key]]
+  ELSE [element]
+END AS items
+UNWIND items AS element
+WITH CASE
+  WHEN element IS :: PATH THEN nodes(element) + relationships(element)
+  WHEN element IS :: LIST<ANY> THEN element
+  WHEN element IS :: MAP THEN [key IN keys(element) | element[key]]
+  ELSE [element]
+END AS items
+UNWIND items AS element
+WITH CASE
+  WHEN element IS :: PATH THEN nodes(element) + relationships(element)
+  WHEN element IS :: LIST<ANY> THEN element
+  WHEN element IS :: MAP THEN [key IN keys(element) | element[key]]
+  ELSE [element]
+END AS items
+UNWIND items AS element
+WITH DISTINCT element
+WHERE element IS :: NODE OR element IS :: RELATIONSHIP
+RETURN CASE
+  WHEN element IS :: NODE THEN {
+    elementId: elementId(element),
+    labels: labels(element),
+    properties: element { .name, .born }
+  }
+  ELSE {
+    elementId: elementId(element),
+    type: type(element),
+    startNodeElementId: elementId(startNode(element)),
+    endNodeElementId: elementId(endNode(element)),
+    properties: element { .since }
+  }
+END AS element
+```
+
+- **The query** goes inside `CALL () { … }`, unchanged except that every returned column must have an alias. Without one, Neo4j refuses the query with `Expression in CALL { RETURN ... } must be aliased (use AS)`, for `n.name` and `count(*)` alike.
+- **The boxes.** The application reads the column names from the query without running it, and writes the `UNWIND [{v: …}]` line from them. Each value goes in a one-field map so that it reaches the next step with no static type. Without the box, a query whose columns are all paths fails at analysis (`Type mismatch: expected Map, Node or Relationship but was Path`), and so does one whose columns are all nodes (`expected Path but was Node`), because Neo4j checks every branch of the `CASE` against the type of the column, taken or not. A name that is not a plain identifier needs backticks.
+- **The steps.** Each step opens one level: a path becomes its nodes and relationships, a list is unwound, a map unfolds its values, and anything else stays as it is. The template has three steps, enough for a path, a list of paths, or a map that holds a list of paths. A deeper result, such as a list of maps of lists of paths, needs one more block per level: elements still wrapped after the last step are dropped without any error, so test with the deepest query you expect.
+- **The end.** `WITH DISTINCT` keeps one copy of each element, the filter drops numbers, text, dates, points and `null`, and the maps carry `elementId`, `labels` or `type`, the ends of a relationship and the properties you list. `element { .name, .born }` is a map projection: list the properties of nodes and of relationships separately, or write `element { .* }` to send them all.
+
+```ts
+import { cypherGraph } from '@bruno00o/graph/cypher'
+
+const { keys } = await driver.executeQuery(`EXPLAIN ${query}`)
+const boxes = keys.map((key) => `{v: \`${key}\`}`).join(', ')
+const result = await driver.executeQuery(lean(query, boxes))
+const graph = cypherGraph(result)
+```
+
+Here `lean` is a function that returns the query above with `query` and `boxes` written in.
+
+`EXPLAIN` plans the query and returns its column names in `keys` without running it. With `session.run`, call `keys()` on the result before awaiting it: the awaited result has no `keys`.
+
+A few things differ from the plain query:
+
+- **Order.** `WITH DISTINCT` does not keep the order of the rows. Categorical colors are given in the order of arrival, and the first placement of the nodes follows it too, so the same result can come back with different colors. Give the color scale a `domain` to fix them: see [Color](/docs/scales#color).
+- **Missing properties.** A projection returns `name: null` for a property the element does not have. `cypherGraph` leaves null properties out, so `node.properties` has the same keys as with the plain query, restricted to the ones you listed.
+- **Integers, dates and points** in the projected properties are converted as usual.
+
+On a graph of 20 000 nodes with 20 properties each and 40 000 relationships, returned as 40 000 paths (each node arrives four times), the plain query and `cypherGraph` took 600 ms and the wrapped query 185 ms, with three properties per node and one per relationship. The wrapped query returns 60 000 rows of one map each, against 40 000 rows of one path. This was measured against a local Neo4j 5.26 in Docker, median of five runs, so the transfer over a network is not in the figure.
+
 ## Relationships whose end node is missing
 
 A relationship stays in `edges` even when one of its end nodes is not in the result, as with `RETURN r` alone. The graph keeps the edge pending until the node arrives, then draws it: see [edges that arrive first](/docs/data#edges-that-arrive-first). `graph.count().pending` tells how many wait. Query the nodes with the relationships, or pass them in a later `update`.
