@@ -204,3 +204,13 @@ export function convertValue(value: unknown, mode: IntegerMode): unknown {
   for (const key of Object.keys(value)) out[key] = convertValue(value[key], mode)
   return out
 }
+
+export function convertProperties(value: unknown, mode: IntegerMode): unknown {
+  if (!isObject(value) || Array.isArray(value) || !isPlain(value)) return convertValue(value, mode)
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(value)) {
+    const item = value[key]
+    if (item !== null) out[key] = convertValue(item, mode)
+  }
+  return out
+}
