@@ -421,11 +421,21 @@ Node and edge colors that read on a light style vanish on a dark one or on image
 
 MapLibre sizes the map from its container. A container with no height draws nothing, graph included; give it a height in CSS before creating the map.
 
+### MEDIUM Sizing the map container with Tailwind CSS v4 utilities
+
+The MapLibre stylesheet sets `position: relative` on the container through the class `maplibregl-map`, in no cascade layer, so it beats the utilities of Tailwind CSS v4, which live in `@layer utilities`. A container with `absolute inset-0` stays relative, measures 0 px high and draws nothing; nothing warns on a map. Size it with an inline style, or with an unlayered rule that comes after the MapLibre stylesheet.
+
+```ts
+const container = document.createElement('div')
+container.style.position = 'absolute'
+container.style.inset = '0'
+```
+
 ## Completion
 
 The task is done when:
 
-- the map container has a height, MapLibre 6 is installed and its stylesheet is imported;
+- the map container has a height that the MapLibre stylesheet does not override (an inline style, not a Tailwind CSS v4 utility), MapLibre 6 is installed and its stylesheet is imported;
 - every node has `longitude` and `latitude` (or `x` and `y`), nodes at one place are spread or grouped, and no `layout`, `view`, `initialView`, `onViewChange` or `bundling` is set for the map graph;
 - a graph that moves between its canvas and a map gets its surface and the definition of that side in one `update`, with the map element hidden by `opacity`;
 - the graph is framed with `graph.view.fit({ padding })` after mounting, and shapes on the map have geometry in degrees;
