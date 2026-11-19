@@ -1,0 +1,519 @@
+chrome 158.0.8127.18
+light	aliceblue	240,248,255,255
+light	antiquewhite	250,235,215,255
+light	aqua	0,255,255,255
+light	aquamarine	127,255,212,255
+light	azure	240,255,255,255
+light	beige	245,245,220,255
+light	bisque	255,228,196,255
+light	black	0,0,0,255
+light	blanchedalmond	255,235,205,255
+light	blue	0,0,255,255
+light	blueviolet	138,43,226,255
+light	brown	165,42,42,255
+light	burlywood	222,184,135,255
+light	cadetblue	95,158,160,255
+light	chartreuse	127,255,0,255
+light	chocolate	210,105,30,255
+light	coral	255,127,80,255
+light	cornflowerblue	100,149,237,255
+light	cornsilk	255,248,220,255
+light	crimson	220,20,60,255
+light	cyan	0,255,255,255
+light	darkblue	0,0,139,255
+light	darkcyan	0,139,139,255
+light	darkgoldenrod	184,134,11,255
+light	darkgray	169,169,169,255
+light	darkgreen	0,100,0,255
+light	darkgrey	169,169,169,255
+light	darkkhaki	189,183,107,255
+light	darkmagenta	139,0,139,255
+light	darkolivegreen	85,107,47,255
+light	darkorange	255,140,0,255
+light	darkorchid	153,50,204,255
+light	darkred	139,0,0,255
+light	darksalmon	233,150,122,255
+light	darkseagreen	143,188,143,255
+light	darkslateblue	72,61,139,255
+light	darkslategray	47,79,79,255
+light	darkslategrey	47,79,79,255
+light	darkturquoise	0,206,209,255
+light	darkviolet	148,0,211,255
+light	deeppink	255,20,147,255
+light	deepskyblue	0,191,255,255
+light	dimgray	105,105,105,255
+light	dimgrey	105,105,105,255
+light	dodgerblue	30,144,255,255
+light	firebrick	178,34,34,255
+light	floralwhite	255,250,240,255
+light	forestgreen	34,139,34,255
+light	fuchsia	255,0,255,255
+light	gainsboro	220,220,220,255
+light	ghostwhite	248,248,255,255
+light	gold	255,215,0,255
+light	goldenrod	218,165,32,255
+light	gray	128,128,128,255
+light	green	0,128,0,255
+light	greenyellow	173,255,47,255
+light	grey	128,128,128,255
+light	honeydew	240,255,240,255
+light	hotpink	255,105,180,255
+light	indianred	205,92,92,255
+light	indigo	75,0,130,255
+light	ivory	255,255,240,255
+light	khaki	240,230,140,255
+light	lavender	230,230,250,255
+light	lavenderblush	255,240,245,255
+light	lawngreen	124,252,0,255
+light	lemonchiffon	255,250,205,255
+light	lightblue	173,216,230,255
+light	lightcoral	240,128,128,255
+light	lightcyan	224,255,255,255
+light	lightgoldenrodyellow	250,250,210,255
+light	lightgray	211,211,211,255
+light	lightgreen	144,238,144,255
+light	lightgrey	211,211,211,255
+light	lightpink	255,182,193,255
+light	lightsalmon	255,160,122,255
+light	lightseagreen	32,178,170,255
+light	lightskyblue	135,206,250,255
+light	lightslategray	119,136,153,255
+light	lightslategrey	119,136,153,255
+light	lightsteelblue	176,196,222,255
+light	lightyellow	255,255,224,255
+light	lime	0,255,0,255
+light	limegreen	50,205,50,255
+light	linen	250,240,230,255
+light	magenta	255,0,255,255
+light	maroon	128,0,0,255
+light	mediumaquamarine	102,205,170,255
+light	mediumblue	0,0,205,255
+light	mediumorchid	186,85,211,255
+light	mediumpurple	147,112,219,255
+light	mediumseagreen	60,179,113,255
+light	mediumslateblue	123,104,238,255
+light	mediumspringgreen	0,250,154,255
+light	mediumturquoise	72,209,204,255
+light	mediumvioletred	199,21,133,255
+light	midnightblue	25,25,112,255
+light	mintcream	245,255,250,255
+light	mistyrose	255,228,225,255
+light	moccasin	255,228,181,255
+light	navajowhite	255,222,173,255
+light	navy	0,0,128,255
+light	oldlace	253,245,230,255
+light	olive	128,128,0,255
+light	olivedrab	107,142,35,255
+light	orange	255,165,0,255
+light	orangered	255,69,0,255
+light	orchid	218,112,214,255
+light	palegoldenrod	238,232,170,255
+light	palegreen	152,251,152,255
+light	paleturquoise	175,238,238,255
+light	palevioletred	219,112,147,255
+light	papayawhip	255,239,213,255
+light	peachpuff	255,218,185,255
+light	peru	205,133,63,255
+light	pink	255,192,203,255
+light	plum	221,160,221,255
+light	powderblue	176,224,230,255
+light	purple	128,0,128,255
+light	rebeccapurple	102,51,153,255
+light	red	255,0,0,255
+light	rosybrown	188,143,143,255
+light	royalblue	65,105,225,255
+light	saddlebrown	139,69,19,255
+light	salmon	250,128,114,255
+light	sandybrown	244,164,96,255
+light	seagreen	46,139,87,255
+light	seashell	255,245,238,255
+light	sienna	160,82,45,255
+light	silver	192,192,192,255
+light	skyblue	135,206,235,255
+light	slateblue	106,90,205,255
+light	slategray	112,128,144,255
+light	slategrey	112,128,144,255
+light	snow	255,250,250,255
+light	springgreen	0,255,127,255
+light	steelblue	70,130,180,255
+light	tan	210,180,140,255
+light	teal	0,128,128,255
+light	thistle	216,191,216,255
+light	tomato	255,99,71,255
+light	turquoise	64,224,208,255
+light	violet	238,130,238,255
+light	wheat	245,222,179,255
+light	white	255,255,255,255
+light	whitesmoke	245,245,245,255
+light	yellow	255,255,0,255
+light	yellowgreen	154,205,50,255
+light	var(--graph-paper)	247,247,244,255
+light	var(--graph-paper-raised)	255,255,255,255
+light	var(--graph-grid)	196,224,221,255
+light	var(--graph-grid-major)	159,200,196,255
+light	var(--graph-ink)	25,29,34,255
+light	var(--graph-ink-muted)	91,97,103,255
+light	var(--graph-node)	71,78,85,255
+light	var(--graph-edge)	127,133,140,255
+light	var(--graph-group-fill)	231,239,238,255
+light	var(--graph-group-line)	110,141,139,255
+light	var(--graph-shape-fill)	88,98,108,26
+light	var(--graph-shape-stroke)	134,140,146,255
+light	var(--graph-accent)	201,55,0,255
+light	var(--graph-on-accent)	255,255,255,255
+light	var(--graph-focus-ring)	201,55,0,255
+light	var(--graph-halo)	201,54,0,71
+light	var(--graph-label-halo)	247,247,244,255
+light	var(--graph-label-background)	255,255,255,255
+light	var(--graph-node-ring)	247,247,244,255
+light	var(--graph-badge-fill)	25,29,34,255
+light	var(--graph-badge-ink)	247,247,244,255
+light	var(--graph-lens-fill)	247,247,244,255
+light	var(--graph-lens-ring)	91,97,103,255
+light	var(--graph-lens-shadow)	25,31,31,41
+light	var(--graph-cat-1)	39,105,183,255
+light	var(--graph-cat-2)	164,124,19,255
+light	var(--graph-cat-3)	18,134,124,255
+light	var(--graph-cat-4)	155,53,127,255
+light	var(--graph-cat-5)	65,137,173,255
+light	var(--graph-cat-6)	68,131,53,255
+light	var(--graph-cat-7)	93,64,153,255
+light	var(--graph-cat-8)	116,83,56,255
+light	var(--graph-cat-9)	182,68,100,255
+light	var(--graph-cat-10)	98,106,9,255
+light	var(--graph-cat-11)	116,113,214,255
+light	var(--graph-cat-12)	166,107,185,255
+light	#abc	170,187,204,255
+light	#abcd	170,187,204,221
+light	#a1b2c3	161,178,195,255
+light	#a1b2c380	161,177,195,128
+light	transparent	0,0,0,0
+light	RED	255,0,0,255
+light	 teal 	0,128,128,255
+light	rgb(10, 20, 30)	10,20,30,255
+light	rgba(10, 20, 30, 0.5)	10,20,30,128
+light	rgb(10 20 30)	10,20,30,255
+light	rgb(10 20 30 / 25%)	12,20,32,64
+light	rgb(50%, 25%, 100%)	128,64,255,255
+light	rgba(255,0,0,.3)	255,0,0,77
+light	hsl(120, 50%, 40%)	51,153,51,255
+light	hsla(300, 80%, 60%, 0.7)	235,71,235,179
+light	hsl(210deg 40% 50%)	77,128,179,255
+light	hsl(0.5turn 60% 45% / 0.4)	45,185,185,102
+light	var(--graph-unknown, #123456)	18,52,86,255
+light	color-mix(in srgb, red, blue)	128,0,128,255
+light	color-mix(in srgb, red 30%, blue)	77,0,179,255
+light	color-mix(in srgb, red 30%, blue 30%)	128,0,128,153
+light	color-mix(in srgb, #ff000080 40%, #00ff00)	64,191,0,204
+light	color-mix(in oklab, red, blue)	140,83,162,255
+light	color-mix(in oklab, white 25%, black)	34,34,34,255
+light	color-mix(in oklab, #2769b7, #a47c13 70%)	131,123,94,255
+light	color-mix(in srgb, var(--graph-node) 10%, transparent)	69,78,88,26
+light	color-mix(in srgb, var(--graph-node) 20%, transparent)	70,80,85,51
+light	color-mix(in srgb, var(--graph-node) 35%, transparent)	72,77,86,89
+light	color-mix(in srgb, var(--graph-node) 47%, transparent)	70,79,85,120
+light	color-mix(in srgb, var(--graph-node) 50%, transparent)	72,78,86,128
+light	color-mix(in srgb, var(--graph-node) 80%, transparent)	71,77,85,204
+light	color-mix(in srgb, var(--graph-edge) 10%, transparent)	128,137,137,26
+light	color-mix(in srgb, var(--graph-edge) 20%, transparent)	125,135,140,51
+light	color-mix(in srgb, var(--graph-edge) 35%, transparent)	126,132,140,89
+light	color-mix(in srgb, var(--graph-edge) 47%, transparent)	127,134,140,120
+light	color-mix(in srgb, var(--graph-edge) 50%, transparent)	128,133,139,128
+light	color-mix(in srgb, var(--graph-edge) 80%, transparent)	128,132,140,204
+light	color-mix(in srgb, var(--graph-cat-1) 10%, transparent)	39,108,186,26
+light	color-mix(in srgb, var(--graph-cat-1) 20%, transparent)	40,105,185,51
+light	color-mix(in srgb, var(--graph-cat-1) 35%, transparent)	40,106,183,89
+light	color-mix(in srgb, var(--graph-cat-1) 47%, transparent)	38,104,183,120
+light	color-mix(in srgb, var(--graph-cat-1) 50%, transparent)	40,106,183,128
+light	color-mix(in srgb, var(--graph-cat-1) 80%, transparent)	39,105,182,204
+light	color-mix(in srgb, var(--graph-cat-3) 10%, transparent)	20,137,128,26
+light	color-mix(in srgb, var(--graph-cat-3) 20%, transparent)	20,135,125,51
+light	color-mix(in srgb, var(--graph-cat-3) 35%, transparent)	17,135,123,89
+light	color-mix(in srgb, var(--graph-cat-3) 47%, transparent)	17,134,123,120
+light	color-mix(in srgb, var(--graph-cat-3) 50%, transparent)	18,133,124,128
+light	color-mix(in srgb, var(--graph-cat-3) 80%, transparent)	17,134,124,204
+light	color-mix(in srgb, var(--graph-cat-9) 10%, transparent)	186,69,98,26
+light	color-mix(in srgb, var(--graph-cat-9) 20%, transparent)	180,70,100,51
+light	color-mix(in srgb, var(--graph-cat-9) 35%, transparent)	183,69,100,89
+light	color-mix(in srgb, var(--graph-cat-9) 47%, transparent)	183,68,100,120
+light	color-mix(in srgb, var(--graph-cat-9) 50%, transparent)	181,68,100,128
+light	color-mix(in srgb, var(--graph-cat-9) 80%, transparent)	182,67,100,204
+light	color-mix(in srgb, var(--graph-accent) 10%, transparent)	196,59,0,26
+light	color-mix(in srgb, var(--graph-accent) 20%, transparent)	200,55,0,51
+light	color-mix(in srgb, var(--graph-accent) 35%, transparent)	201,54,0,89
+light	color-mix(in srgb, var(--graph-accent) 47%, transparent)	202,55,0,120
+light	color-mix(in srgb, var(--graph-accent) 50%, transparent)	201,56,0,128
+light	color-mix(in srgb, var(--graph-accent) 80%, transparent)	201,55,0,204
+light	color-mix(in srgb, var(--graph-group-fill) 10%, transparent)	235,235,235,26
+light	color-mix(in srgb, var(--graph-group-fill) 20%, transparent)	230,240,240,51
+light	color-mix(in srgb, var(--graph-group-fill) 35%, transparent)	232,238,238,89
+light	color-mix(in srgb, var(--graph-group-fill) 47%, transparent)	232,238,238,120
+light	color-mix(in srgb, var(--graph-group-fill) 50%, transparent)	231,239,237,128
+light	color-mix(in srgb, var(--graph-group-fill) 80%, transparent)	231,239,237,204
+light	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 5%)	64,135,174,255
+light	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 20%)	59,131,175,255
+light	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 35%)	55,126,177,255
+light	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 50%)	51,121,178,255
+light	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 65%)	47,117,180,255
+light	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 80%)	44,112,181,255
+light	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 95%)	40,107,183,255
+light	color-mix(in srgb, color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 40%) 20%, transparent)	55,125,175,51
+dark	aliceblue	240,248,255,255
+dark	antiquewhite	250,235,215,255
+dark	aqua	0,255,255,255
+dark	aquamarine	127,255,212,255
+dark	azure	240,255,255,255
+dark	beige	245,245,220,255
+dark	bisque	255,228,196,255
+dark	black	0,0,0,255
+dark	blanchedalmond	255,235,205,255
+dark	blue	0,0,255,255
+dark	blueviolet	138,43,226,255
+dark	brown	165,42,42,255
+dark	burlywood	222,184,135,255
+dark	cadetblue	95,158,160,255
+dark	chartreuse	127,255,0,255
+dark	chocolate	210,105,30,255
+dark	coral	255,127,80,255
+dark	cornflowerblue	100,149,237,255
+dark	cornsilk	255,248,220,255
+dark	crimson	220,20,60,255
+dark	cyan	0,255,255,255
+dark	darkblue	0,0,139,255
+dark	darkcyan	0,139,139,255
+dark	darkgoldenrod	184,134,11,255
+dark	darkgray	169,169,169,255
+dark	darkgreen	0,100,0,255
+dark	darkgrey	169,169,169,255
+dark	darkkhaki	189,183,107,255
+dark	darkmagenta	139,0,139,255
+dark	darkolivegreen	85,107,47,255
+dark	darkorange	255,140,0,255
+dark	darkorchid	153,50,204,255
+dark	darkred	139,0,0,255
+dark	darksalmon	233,150,122,255
+dark	darkseagreen	143,188,143,255
+dark	darkslateblue	72,61,139,255
+dark	darkslategray	47,79,79,255
+dark	darkslategrey	47,79,79,255
+dark	darkturquoise	0,206,209,255
+dark	darkviolet	148,0,211,255
+dark	deeppink	255,20,147,255
+dark	deepskyblue	0,191,255,255
+dark	dimgray	105,105,105,255
+dark	dimgrey	105,105,105,255
+dark	dodgerblue	30,144,255,255
+dark	firebrick	178,34,34,255
+dark	floralwhite	255,250,240,255
+dark	forestgreen	34,139,34,255
+dark	fuchsia	255,0,255,255
+dark	gainsboro	220,220,220,255
+dark	ghostwhite	248,248,255,255
+dark	gold	255,215,0,255
+dark	goldenrod	218,165,32,255
+dark	gray	128,128,128,255
+dark	green	0,128,0,255
+dark	greenyellow	173,255,47,255
+dark	grey	128,128,128,255
+dark	honeydew	240,255,240,255
+dark	hotpink	255,105,180,255
+dark	indianred	205,92,92,255
+dark	indigo	75,0,130,255
+dark	ivory	255,255,240,255
+dark	khaki	240,230,140,255
+dark	lavender	230,230,250,255
+dark	lavenderblush	255,240,245,255
+dark	lawngreen	124,252,0,255
+dark	lemonchiffon	255,250,205,255
+dark	lightblue	173,216,230,255
+dark	lightcoral	240,128,128,255
+dark	lightcyan	224,255,255,255
+dark	lightgoldenrodyellow	250,250,210,255
+dark	lightgray	211,211,211,255
+dark	lightgreen	144,238,144,255
+dark	lightgrey	211,211,211,255
+dark	lightpink	255,182,193,255
+dark	lightsalmon	255,160,122,255
+dark	lightseagreen	32,178,170,255
+dark	lightskyblue	135,206,250,255
+dark	lightslategray	119,136,153,255
+dark	lightslategrey	119,136,153,255
+dark	lightsteelblue	176,196,222,255
+dark	lightyellow	255,255,224,255
+dark	lime	0,255,0,255
+dark	limegreen	50,205,50,255
+dark	linen	250,240,230,255
+dark	magenta	255,0,255,255
+dark	maroon	128,0,0,255
+dark	mediumaquamarine	102,205,170,255
+dark	mediumblue	0,0,205,255
+dark	mediumorchid	186,85,211,255
+dark	mediumpurple	147,112,219,255
+dark	mediumseagreen	60,179,113,255
+dark	mediumslateblue	123,104,238,255
+dark	mediumspringgreen	0,250,154,255
+dark	mediumturquoise	72,209,204,255
+dark	mediumvioletred	199,21,133,255
+dark	midnightblue	25,25,112,255
+dark	mintcream	245,255,250,255
+dark	mistyrose	255,228,225,255
+dark	moccasin	255,228,181,255
+dark	navajowhite	255,222,173,255
+dark	navy	0,0,128,255
+dark	oldlace	253,245,230,255
+dark	olive	128,128,0,255
+dark	olivedrab	107,142,35,255
+dark	orange	255,165,0,255
+dark	orangered	255,69,0,255
+dark	orchid	218,112,214,255
+dark	palegoldenrod	238,232,170,255
+dark	palegreen	152,251,152,255
+dark	paleturquoise	175,238,238,255
+dark	palevioletred	219,112,147,255
+dark	papayawhip	255,239,213,255
+dark	peachpuff	255,218,185,255
+dark	peru	205,133,63,255
+dark	pink	255,192,203,255
+dark	plum	221,160,221,255
+dark	powderblue	176,224,230,255
+dark	purple	128,0,128,255
+dark	rebeccapurple	102,51,153,255
+dark	red	255,0,0,255
+dark	rosybrown	188,143,143,255
+dark	royalblue	65,105,225,255
+dark	saddlebrown	139,69,19,255
+dark	salmon	250,128,114,255
+dark	sandybrown	244,164,96,255
+dark	seagreen	46,139,87,255
+dark	seashell	255,245,238,255
+dark	sienna	160,82,45,255
+dark	silver	192,192,192,255
+dark	skyblue	135,206,235,255
+dark	slateblue	106,90,205,255
+dark	slategray	112,128,144,255
+dark	slategrey	112,128,144,255
+dark	snow	255,250,250,255
+dark	springgreen	0,255,127,255
+dark	steelblue	70,130,180,255
+dark	tan	210,180,140,255
+dark	teal	0,128,128,255
+dark	thistle	216,191,216,255
+dark	tomato	255,99,71,255
+dark	turquoise	64,224,208,255
+dark	violet	238,130,238,255
+dark	wheat	245,222,179,255
+dark	white	255,255,255,255
+dark	whitesmoke	245,245,245,255
+dark	yellow	255,255,0,255
+dark	yellowgreen	154,205,50,255
+dark	var(--graph-paper)	15,17,19,255
+dark	var(--graph-paper-raised)	23,26,29,255
+dark	var(--graph-grid)	30,50,51,255
+dark	var(--graph-grid-major)	45,75,76,255
+dark	var(--graph-ink)	239,238,235,255
+dark	var(--graph-ink-muted)	166,171,177,255
+dark	var(--graph-node)	183,191,199,255
+dark	var(--graph-edge)	111,117,123,255
+dark	var(--graph-group-fill)	19,27,28,255
+dark	var(--graph-group-line)	93,123,123,255
+dark	var(--graph-shape-fill)	165,173,181,31
+dark	var(--graph-shape-stroke)	115,121,127,255
+dark	var(--graph-accent)	250,128,84,255
+dark	var(--graph-on-accent)	15,17,19,255
+dark	var(--graph-focus-ring)	250,128,84,255
+dark	var(--graph-halo)	251,129,83,71
+dark	var(--graph-label-halo)	15,17,19,255
+dark	var(--graph-label-background)	23,26,29,255
+dark	var(--graph-node-ring)	15,17,19,255
+dark	var(--graph-badge-fill)	239,238,235,255
+dark	var(--graph-badge-ink)	15,17,19,255
+dark	var(--graph-lens-fill)	15,17,19,255
+dark	var(--graph-lens-ring)	166,171,177,255
+dark	var(--graph-lens-shadow)	0,0,0,153
+dark	var(--graph-cat-1)	111,167,238,255
+dark	var(--graph-cat-2)	231,191,87,255
+dark	var(--graph-cat-3)	92,198,185,255
+dark	var(--graph-cat-4)	225,126,185,255
+dark	var(--graph-cat-5)	156,211,241,255
+dark	var(--graph-cat-6)	129,206,112,255
+dark	var(--graph-cat-7)	158,135,224,255
+dark	var(--graph-cat-8)	170,139,116,255
+dark	var(--graph-cat-9)	249,139,157,255
+dark	var(--graph-cat-10)	150,161,66,255
+dark	var(--graph-cat-11)	171,171,248,255
+dark	var(--graph-cat-12)	223,165,236,255
+dark	#abc	170,187,204,255
+dark	#abcd	170,187,204,221
+dark	#a1b2c3	161,178,195,255
+dark	#a1b2c380	161,177,195,128
+dark	transparent	0,0,0,0
+dark	RED	255,0,0,255
+dark	 teal 	0,128,128,255
+dark	rgb(10, 20, 30)	10,20,30,255
+dark	rgba(10, 20, 30, 0.5)	10,20,30,128
+dark	rgb(10 20 30)	10,20,30,255
+dark	rgb(10 20 30 / 25%)	12,20,32,64
+dark	rgb(50%, 25%, 100%)	128,64,255,255
+dark	rgba(255,0,0,.3)	255,0,0,77
+dark	hsl(120, 50%, 40%)	51,153,51,255
+dark	hsla(300, 80%, 60%, 0.7)	235,71,235,179
+dark	hsl(210deg 40% 50%)	77,128,179,255
+dark	hsl(0.5turn 60% 45% / 0.4)	45,185,185,102
+dark	var(--graph-unknown, #123456)	18,52,86,255
+dark	color-mix(in srgb, red, blue)	128,0,128,255
+dark	color-mix(in srgb, red 30%, blue)	77,0,179,255
+dark	color-mix(in srgb, red 30%, blue 30%)	128,0,128,153
+dark	color-mix(in srgb, #ff000080 40%, #00ff00)	64,191,0,204
+dark	color-mix(in oklab, red, blue)	140,83,162,255
+dark	color-mix(in oklab, white 25%, black)	34,34,34,255
+dark	color-mix(in oklab, #2769b7, #a47c13 70%)	131,123,94,255
+dark	color-mix(in srgb, var(--graph-node) 10%, transparent)	186,186,196,26
+dark	color-mix(in srgb, var(--graph-node) 20%, transparent)	185,190,200,51
+dark	color-mix(in srgb, var(--graph-node) 35%, transparent)	183,192,198,89
+dark	color-mix(in srgb, var(--graph-node) 47%, transparent)	183,191,200,120
+dark	color-mix(in srgb, var(--graph-node) 50%, transparent)	183,191,199,128
+dark	color-mix(in srgb, var(--graph-node) 80%, transparent)	182,191,199,204
+dark	color-mix(in srgb, var(--graph-edge) 10%, transparent)	108,118,128,26
+dark	color-mix(in srgb, var(--graph-edge) 20%, transparent)	110,115,125,51
+dark	color-mix(in srgb, var(--graph-edge) 35%, transparent)	112,117,123,89
+dark	color-mix(in srgb, var(--graph-edge) 47%, transparent)	110,117,123,120
+dark	color-mix(in srgb, var(--graph-edge) 50%, transparent)	112,118,124,128
+dark	color-mix(in srgb, var(--graph-edge) 80%, transparent)	111,117,122,204
+dark	color-mix(in srgb, var(--graph-cat-1) 10%, transparent)	108,167,235,26
+dark	color-mix(in srgb, var(--graph-cat-1) 20%, transparent)	110,165,240,51
+dark	color-mix(in srgb, var(--graph-cat-1) 35%, transparent)	112,166,238,89
+dark	color-mix(in srgb, var(--graph-cat-1) 47%, transparent)	110,168,238,120
+dark	color-mix(in srgb, var(--graph-cat-1) 50%, transparent)	112,167,237,128
+dark	color-mix(in srgb, var(--graph-cat-1) 80%, transparent)	111,168,237,204
+dark	color-mix(in srgb, var(--graph-cat-3) 10%, transparent)	88,196,186,26
+dark	color-mix(in srgb, var(--graph-cat-3) 20%, transparent)	90,200,185,51
+dark	color-mix(in srgb, var(--graph-cat-3) 35%, transparent)	92,198,186,89
+dark	color-mix(in srgb, var(--graph-cat-3) 47%, transparent)	91,198,185,120
+dark	color-mix(in srgb, var(--graph-cat-3) 50%, transparent)	92,197,185,128
+dark	color-mix(in srgb, var(--graph-cat-3) 80%, transparent)	92,198,185,204
+dark	color-mix(in srgb, var(--graph-cat-9) 10%, transparent)	245,137,157,26
+dark	color-mix(in srgb, var(--graph-cat-9) 20%, transparent)	250,140,155,51
+dark	color-mix(in srgb, var(--graph-cat-9) 35%, transparent)	249,140,158,89
+dark	color-mix(in srgb, var(--graph-cat-9) 47%, transparent)	249,138,157,120
+dark	color-mix(in srgb, var(--graph-cat-9) 50%, transparent)	249,139,157,128
+dark	color-mix(in srgb, var(--graph-cat-9) 80%, transparent)	249,139,158,204
+dark	color-mix(in srgb, var(--graph-accent) 10%, transparent)	245,128,88,26
+dark	color-mix(in srgb, var(--graph-accent) 20%, transparent)	250,130,85,51
+dark	color-mix(in srgb, var(--graph-accent) 35%, transparent)	249,129,83,89
+dark	color-mix(in srgb, var(--graph-accent) 47%, transparent)	251,127,85,120
+dark	color-mix(in srgb, var(--graph-accent) 50%, transparent)	249,128,84,128
+dark	color-mix(in srgb, var(--graph-accent) 80%, transparent)	250,128,84,204
+dark	color-mix(in srgb, var(--graph-group-fill) 10%, transparent)	20,29,29,26
+dark	color-mix(in srgb, var(--graph-group-fill) 20%, transparent)	20,25,30,51
+dark	color-mix(in srgb, var(--graph-group-fill) 35%, transparent)	20,26,29,89
+dark	color-mix(in srgb, var(--graph-group-fill) 47%, transparent)	19,28,28,120
+dark	color-mix(in srgb, var(--graph-group-fill) 50%, transparent)	20,28,28,128
+dark	color-mix(in srgb, var(--graph-group-fill) 80%, transparent)	19,27,27,204
+dark	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 5%)	154,209,241,255
+dark	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 20%)	147,202,241,255
+dark	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 35%)	140,196,240,255
+dark	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 50%)	133,189,240,255
+dark	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 65%)	126,183,239,255
+dark	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 80%)	120,176,239,255
+dark	color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 95%)	113,169,238,255
+dark	color-mix(in srgb, color-mix(in oklab, var(--graph-cat-5), var(--graph-cat-1) 40%) 20%, transparent)	140,195,240,51

@@ -112,6 +112,10 @@
       "types": "./dist/history.d.ts",
       "import": "./dist/history.js"
     },
+    "./headless": {
+      "types": "./dist/headless.d.ts",
+      "import": "./dist/headless.js"
+    },
     "./theme.css": "./dist/theme.css",
     "./package.json": "./package.json"
   },

@@ -45,6 +45,8 @@
     "timeline",
     "---@bruno00o/graph/history---",
     "history",
+    "---@bruno00o/graph/headless---",
+    "create-graph",
     "---@bruno00o/graph/export---",
     "export",
     "---@bruno00o/graph/map---",

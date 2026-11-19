@@ -97,6 +97,10 @@ Every pull request opens each example of this site and of the repository in Chro
 - **Firefox on Linux** creates no WebGL context without a display server, even when headless. To test a page with a graph in headless Firefox on Linux, run it under a virtual display.
 - **WebKit on Linux** has no WebGL2 in workers, so the [force layout](/docs/layout) runs on the CPU there.
 
+## Without a browser
+
+[`createGraph`](/docs/api/create-graph) of `@bruno00o/graph/headless` makes a graph that needs neither a browser nor WebGL: it reads no DOM global and creates no worker. It is tested in Node 24, and uses no API that Deno, Bun or a web worker lack. Its layouts, edge bundling and edge routing run on the calling thread, in slices of 50 ms. A test suite runs it in Node with every global of the DOM replaced by a getter that throws, so that a change that would reach for the page fails the build.
+
 ## Device pixel ratio and size
 
 The canvas follows the device pixel ratio, including when a window moves to a screen with another one, unless the [`pixelRatio`](/docs/api/define-graph#pixel-ratio) of the definition sets another; the largest drawing buffer of the device caps it. A resized graph is drawn again before the browser paints, so dragging a window edge never shows an empty frame. A container of 0 pixels is allowed; the graph warns once in development and draws nothing until it gets a size.

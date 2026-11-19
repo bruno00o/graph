@@ -87,6 +87,7 @@ export type {
   GraphShapeCount,
   GraphShownCount,
   GraphShownShapeCount,
+  GraphSize,
   GraphState,
   GraphStates,
   GraphStore,

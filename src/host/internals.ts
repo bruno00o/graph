@@ -54,6 +54,6 @@ export function exposeInternals(graph: object, internals: GraphInternals): void 
 
 export function internalsOf(graph: object, caller: string): GraphInternals {
   const internals = exposed.get(graph)
-  if (!internals) throw new Error(`${caller}: needs a graph created by mountGraph`)
+  if (!internals) throw new Error(`${caller}: needs a graph made by mountGraph or createGraph`)
   return internals
 }

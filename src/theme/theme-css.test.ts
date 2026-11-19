@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { darkTheme } from './dark-tokens'
 import { lightTheme } from './tokens'
 
 interface Block {
@@ -57,6 +58,13 @@ describe('theme.css', () => {
     for (const [name, value] of Object.entries(lightTheme)) {
       expect(light.declarations.get(`--graph-${name}`)).toBe(value)
     }
+  })
+
+  it('matches the dark tokens of a graph without a page', () => {
+    const declared = [...dark.declarations].filter(([name]) => name.startsWith('--graph-'))
+    expect(Object.fromEntries(declared.map(([name, value]) => [name.slice(8), value]))).toEqual(
+      darkTheme,
+    )
   })
 
   it('keeps the font out of the light block so a nested light theme keeps an override', () => {

@@ -1,5 +1,9 @@
 import { secondaryFactor } from './label-metrics'
 
+/**
+ * Width of one line of text in em, the font size taken as 1. `weight` is a CSS font weight, such
+ * as 400 or 700, and `font` the font family of the label, or `null` for the font of the theme.
+ */
 export type TextWidth = (text: string, weight: number, font: string | null) => number
 
 export const primaryWeight = 500
