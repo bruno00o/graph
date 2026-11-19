@@ -3,7 +3,7 @@ title: GraphInstance
 description: The object returned by mountGraph, and by the ref of the Graph component.
 ---
 
-`S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
+A `GraphInstance` is a [`GraphCore`](/docs/api/graph-core) with the element, the focus, the lens, the anchors, `drawn`, `suspend` and `resume`. `S` is the union of the state names and `M` the union of the marks of the definition. They type the state methods, and the targets of `pick`, `focus.get`, the events and the store. `update` takes a definition of the same marks, or of fewer. See [TypeScript](/docs/typescript).
 
 Data changes, from `update` or from a live source, are applied at the next frame. Every method that reads or moves elements by key or by point applies them first, so it sees the data you just passed: `pick`, `neighbors`, `edgesOf`, `endpoints`, `datumOf`, `history.of`, `issues`, `count`, `shown`, `isShown`, `view.fit`, `focus.set`, `positions`, `groups`, `paths`, `support`, `layout.run`, `bundling.run` and `routing.run`. When nothing is pending, this costs nothing. States and the selection hold keys, with or without an element, so they need no data.
 
@@ -47,6 +47,10 @@ graph.update({ definition: next })
 await graph.drawn()
 const canvas = graph.element.querySelector('canvas')
 ```
+
+### Settled
+
+`settled()` resolves once the data is applied and loaded, no layout runs, no animation moves the view or the nodes, and edge bundling, edge routing, bridges, shape fills and hulls are computed. Frames do not count: `await graph.drawn()` afterwards waits for the frame that shows the result. See [Settled](/docs/api/graph-core#settled).
 
 ### Loaded
 

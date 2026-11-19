@@ -223,7 +223,7 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
   const renderer = inspection.renderer
   return {
     id: trace.id,
-    label: instance.element.getAttribute('aria-label') ?? '',
+    label: graph.label(),
     width: state.width,
     height: state.height,
     nodes: inspection.nodes,

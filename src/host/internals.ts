@@ -5,6 +5,7 @@ import type { Scene } from '../core/scene'
 import type { ShapeShift } from '../core/shape-store'
 import type { Sight } from '../core/visibility'
 import type { EdgeEnd, GraphDefinition, Key } from '../types'
+import type { FrameClock } from './environment'
 import type { SurfaceCapabilities } from './graph-instance'
 import type { PointerTool } from './pointer-tool'
 import type { ContainerFrame } from './renderer'
@@ -42,6 +43,7 @@ export interface GraphInternals {
   draft(keys: readonly Key[], shifts?: readonly ShapeShift[]): void
   shape(key: Key): ShapeRecord | null
   globe(): GlobeCamera | null
+  readonly frames: FrameClock
 }
 
 const exposed = new WeakMap<object, GraphInternals>()

@@ -59,17 +59,20 @@ import {
 } from './framing'
 import type {
   FitOptions,
+  GraphCore,
+  GraphCoreUpdateOptions,
   GraphCount,
   GraphFocus,
   GraphInstance,
+  GraphOptions,
   GraphPositions,
   GraphState,
   GraphStore,
+  GraphSurface,
   GraphUpdateOptions,
   GraphView,
   HostDriver,
   HostSurface,
-  MountGraphOptions,
   RendererFactory,
 } from './graph-instance'
 import { checkDuration, checkFactor, checkFit, checkView, finitePoint } from './inputs'
@@ -145,9 +148,22 @@ export interface PageApi {
   readonly focus: GraphFocus
   readonly anchors: GraphInstance['anchors']
   readonly lens: GraphInstance['lens']
+  readonly drawsOnMap: boolean
   drawn(): Promise<void>
   suspend(): void
   resume(): void
+}
+
+export type CoreOptions<S extends string = string, M extends Mark = Mark> = GraphOptions<S, M> & {
+  readonly surface?: GraphSurface | null | undefined
+  readonly suspended?: boolean | undefined
+}
+
+export type CoreUpdate = GraphUpdateOptions & GraphCoreUpdateOptions
+
+interface Waiter {
+  readonly resolve: () => void
+  readonly reject: (reason: unknown) => void
 }
 
 export interface PageControls {
@@ -157,7 +173,7 @@ export interface PageControls {
   readonly lens: Pick<LensControl, 'shown' | 'wanted' | 'update'>
   readonly anchors: AnchorHost
   readonly waiters: Pick<FrameWaiters, 'drawn' | 'reject'>
-  readonly api: PageApi
+  readonly api: object
   start(): FlowWatch
 }
 
@@ -211,13 +227,13 @@ export interface HostPage {
   measure(): { readonly width: number; readonly height: number }
   unlisten(): void
   remove(): void
-  update(next: GraphUpdateOptions): void
+  update(next: CoreUpdate): void
   dead(
     store: GraphStore,
     signal: AbortSignal,
     reason: () => unknown,
     shaped: () => boolean,
-  ): GraphInstance
+  ): GraphCore
   title(): string | null
 }
 
@@ -226,11 +242,11 @@ const idleBundling = Object.freeze({ running: false })
 const rebaseDistance = 2 ** 20
 
 export function createGraphCore<S extends string = string, M extends Mark = Mark>(
-  options: MountGraphOptions<S, M>,
+  options: CoreOptions<S, M>,
   environment: GraphEnvironment,
   page: HostPage,
-): GraphInstance<S, M> {
-  const { home, colors, textWidths, still } = environment
+): GraphCore<S, M> {
+  const { home, colors, textWidths, still, work, quiet, frames } = environment
   let surface: HostSurface = hostSurfaceOf(options.surface) ?? home
   let given: GraphDefinition = options.definition
   let definition: GraphDefinition = surface.adapt(given)
@@ -289,6 +305,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
   const watchers = new Set<GraphWatcher>()
   const lifetime = new AbortController()
   let endReason: unknown = null
+  const settling: Waiter[] = []
+  let settleCheck: ReturnType<typeof setTimeout> | undefined
   const scheduler = new FrameScheduler(
     frame,
     () => surface,
@@ -302,6 +320,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     surface.groupFillOpacity === null ? {} : { groupFillOpacity: surface.groupFillOpacity },
   )
   selectTimes()
+  scene.shapes.work = work
   const positions = new Positions()
   let restore: RestoredPositions | null = null
   if (options.initialPositions !== undefined) {
@@ -439,6 +458,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
         const above = hierarchy.parent[index] ?? -1
         return above >= 0 && projection.containers.has(above) ? above : -1
       },
+      work,
+      quiet,
     },
     still,
   )
@@ -457,6 +478,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     busy: () => layouts.session !== null || motion.active || pointer.hasDrag(),
     request: () => request(),
     sight: () => sight(),
+    quiet,
+    slice: work.slice,
   })
   const decorations = createDecorations({
     ...base,
@@ -530,6 +553,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     views,
     bundles,
     emitter,
+    work,
     dragging: () => pointer.dragging(),
     boundsAfter: (indices, to, keys) =>
       withShapes(
@@ -934,6 +958,10 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     buffers.reserve(scene.nodes.capacity, scene.edges.capacity, scene.shapes.capacity)
     const renderer = render.renderer
     if (!renderer) {
+      if (positions.version !== store.get().positionsVersion) {
+        patch({ positionsVersion: positions.version })
+        if (destroyed) return
+      }
       anchors.place()
       for (const watcher of watchers) watcher.frame()
       if (views.animation || pointer.autoPanning || motion.active || easing || spreading) request()
@@ -993,6 +1021,40 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
   function drawNow(): void {
     scheduler.takeFrame()
     frame(performance.now())
+  }
+
+  function idle(): boolean {
+    return !(
+      scheduler.needsFlush ||
+      data.waiting ||
+      layouts.busy ||
+      views.animation !== null ||
+      motion.active ||
+      spread.pending ||
+      bundles.busy ||
+      bridges.busy ||
+      scene.shapes.filling ||
+      decorations.pending
+    )
+  }
+
+  function checkSettled(): void {
+    settleCheck = undefined
+    if (destroyed || settling.length === 0) return
+    flushPending()
+    if (destroyed) return
+    if (!idle()) {
+      settleCheck = setTimeout(checkSettled, 0)
+      return
+    }
+    for (const waiter of settling.splice(0)) waiter.resolve()
+  }
+
+  function settled(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      settling.push({ resolve, reject })
+      if (settleCheck === undefined) checkSettled()
+    })
   }
 
   function applyDefinition(): void {
@@ -1299,11 +1361,10 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     }
   }
 
-  const instance: GraphInstance<S> = {
+  const instance: GraphCore<S> = {
     store: readonlyStore,
     view,
     selection: selection.selectionApi(),
-    ...api,
     states: selection.statesApi(),
     positions: positionsApi,
     layout: layouts.api(),
@@ -1345,9 +1406,6 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     signal: lifetime.signal,
     get destroyed() {
       return destroyed
-    },
-    get drawsOnMap() {
-      return surface.onMap
     },
     pick: (point) => {
       flushPending()
@@ -1407,7 +1465,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       return stop
     },
     loaded: () => data.loaded(),
-    update(next) {
+    settled,
+    update(next: CoreUpdate) {
       const target = next.surface === undefined ? surface : (hostSurfaceOf(next.surface) ?? home)
       const moving = target !== surface
       if (next.view !== undefined && (moving || viewControlled)) checkView(next.view)
@@ -1459,6 +1518,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       endReason ??= destroyedReason()
       unregister()
       probe = null
+      clearTimeout(settleCheck)
+      for (const waiter of settling.splice(0)) waiter.reject(endReason)
       layouts.destroy(endReason)
       scheduler.cancelFrame()
       pointer.stopMoves()
@@ -1484,8 +1545,9 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     },
   }
 
+  Object.defineProperties(instance, Object.getOwnPropertyDescriptors(api))
   const guarded = untilDestroyed(
-    instance as GraphInstance,
+    instance as GraphCore,
     page.dead(
       readonlyStore as GraphStore,
       lifetime.signal,
@@ -1505,7 +1567,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
   )
 
   const unregister = registerGraph({
-    graph: guarded as GraphInstance,
+    graph: guarded as GraphCore,
+    label: () => page.title() ?? '',
     inspect: inspection,
     probe: (next) => {
       probe = next
@@ -1544,11 +1607,12 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       return model.shape(key) ?? null
     },
     title: () => page.title(),
+    frames,
   })
 
   surface.bind(driverOf(surface))
   if (startCamera && startView) surface.move(startView)
 
   render.settled = true
-  return guarded as unknown as GraphInstance<S, M>
+  return guarded as unknown as GraphCore<S, M>
 }

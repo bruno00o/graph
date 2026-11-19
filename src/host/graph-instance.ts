@@ -521,6 +521,22 @@ export interface GraphShownShapeCount extends GraphShownCount {
 export type GraphCountOf<M extends Mark> = HasShapes<M> extends true ? GraphShapeCount : GraphCount
 
 /**
+ * Options of `graph.update` on a `GraphCore`: the options that can change after the creation, each
+ * one left out to keep its current value.
+ */
+export type GraphCoreUpdateOptions<S extends string = string, M extends Mark = Mark> = {
+  readonly [K in Exclude<
+    keyof GraphOptions<S, M>,
+    | 'initialView'
+    | 'initialFolded'
+    | 'initialPositions'
+    | 'initialTime'
+    | 'initialHiddenLayers'
+    | 'signal'
+  >]?: GraphOptions<S, M>[K] | undefined
+}
+
+/**
  * Options of `graph.update`: the options of `mountGraph` that can change after the mount, each one
  * left out to keep its current value.
  */
@@ -537,12 +553,13 @@ export type GraphUpdateOptions<S extends string = string, M extends Mark = Mark>
   >]?: MountGraphOptions<S, M>[K] | undefined
 }
 
-/** Options of `mountGraph`. `S` and `M` come from the definition. */
-export interface MountGraphOptions<S extends string = string, M extends Mark = Mark> {
+/**
+ * Options of a graph that need no page, which `MountGraphOptions` extends. `S` and `M` come from
+ * the definition.
+ */
+export interface GraphOptions<S extends string = string, M extends Mark = Mark> {
   /** What to draw: the result of `defineGraph`. */
   readonly definition: GraphDefinition<S, M>
-  /** Accessible name of the graph element. */
-  readonly ariaLabel: string
   /**
    * View at mount, within the `view` limits of the definition. Without it and without `view`, the
    * first data is fitted with the `padding` of the `view` of the definition, unless its `autoFit`
@@ -619,6 +636,18 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    */
   readonly onLayerChange?: ((event: GraphLayerEvent<M>) => void) | undefined
   /**
+   * Destroys the graph when it aborts. A signal already aborted mounts nothing: the graph comes
+   * back destroyed, and a warning is logged in development.
+   */
+  readonly signal?: AbortSignal | undefined
+}
+
+/** Options of `mountGraph`. `S` and `M` come from the definition. */
+export interface MountGraphOptions<S extends string = string, M extends Mark = Mark>
+  extends GraphOptions<S, M> {
+  /** Accessible name of the graph element. */
+  readonly ariaLabel: string
+  /**
    * Where the graph draws: a surface made by `mapSurface` of `@bruno00o/graph/map`, or `null` for
    * its own canvas in the container. Given to `update` with a new `definition`, both apply
    * together. Each surface keeps its own node positions and view: back on a surface, the graph is
@@ -639,11 +668,6 @@ export interface MountGraphOptions<S extends string = string, M extends Mark = M
    * @default true
    */
   readonly keepFrame?: boolean | undefined
-  /**
-   * Destroys the graph when it aborts. A signal already aborted mounts nothing: the graph comes
-   * back destroyed, and a warning is logged in development.
-   */
-  readonly signal?: AbortSignal | undefined
 }
 
 /**
@@ -661,26 +685,23 @@ export interface GraphSurface {
 }
 
 /**
- * A mounted graph, returned by `mountGraph` and by the ref of `<Graph>`. `S` is the union of the
- * state names and `M` that of the marks, both taken from the definition.
+ * The part of a graph that needs no page: data, layouts, view, selection, states, time, history,
+ * store and events. `GraphInstance` extends it. `S` is the union of the state names and `M` that
+ * of the marks, both taken from the definition.
  */
-export interface GraphInstance<S extends string = string, M extends Mark = Mark> {
+export interface GraphCore<S extends string = string, M extends Mark = Mark> {
   /** Read-only TanStack Store of the graph state. */
   readonly store: GraphStore<S, M>
   /** The camera. */
   readonly view: GraphView
   /** The selection. */
   readonly selection: GraphSelection<M>
-  /** The keyboard focus. */
-  readonly focus: GraphFocus<M>
   /** Members of the free states. */
   readonly states: GraphStates<FreeState<S>, M>
   /** Node positions. */
   readonly positions: GraphPositions
   /** Layout runs. */
   readonly layout: GraphLayout<M>
-  /** HTML elements pinned to nodes, edges or points. */
-  readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
   /** Folding of nested groups. */
   readonly groups: GraphGroups
   /** Shortest paths and reachable nodes, on the data or on the graph as drawn. */
@@ -697,26 +718,17 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly time: GraphTime
   /** The history of the elements, read at the end of the time window. */
   readonly history: GraphHistory<M>
-  /** The magnifying lens. */
-  readonly lens: GraphLens
-  /** The `div` added to the container, which holds the canvas. */
-  readonly element: HTMLElement
   /**
    * Aborted when the graph is destroyed, with an `AbortError` `DOMException`, or with the reason of
-   * the `signal` of the mount when it destroyed the graph. Pass it to `fetch`, `addEventListener`
+   * the `signal` of the options when it destroyed the graph. Pass it to `fetch`, `addEventListener`
    * or `on` to stop the work tied to the graph.
    */
   readonly signal: AbortSignal
   /** `true` once the graph is destroyed. */
   readonly destroyed: boolean
   /**
-   * `true` while the graph draws on a map: mounted by `mountMapGraph` or `<MapGraph>`, or moved to a
-   * surface made by `mapSurface`.
-   */
-  readonly drawsOnMap: boolean
-  /**
    * Element under a point in screen pixels, nodes before edges and edges before shapes, or `null`.
-   * Inside the lens, the element it shows there.
+   * Inside the lens of a mounted graph, the element it shows there.
    */
   pick(point: Point): GraphTarget<M> | null
   /** Keys of the nodes connected to a node. */
@@ -776,17 +788,59 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
     options?: GraphEventOptions,
   ): () => void
   /**
-   * Resolves after the next frame is drawn, the first one included. When no frame is due, it
-   * resolves on the next animation frame, without drawing one. Rejects with the reason of `signal`
-   * once the graph is destroyed.
-   */
-  drawn(): Promise<void>
-  /**
    * Resolves once no live source of the definition is loading and what they delivered is applied,
    * at once when none is. A source that failed counts as done: `store.state.data.failed` lists it.
    * Rejects with the reason of `signal` once the graph is destroyed.
    */
   loaded(): Promise<void>
+  /**
+   * Resolves once nothing is left to do: data changes applied, live sources loaded or the
+   * `waitForData` deadline past, no layout run, no view or position animation, edge bundling,
+   * routing and bridges computed, shape fills triangulated and hulls ready. Frames do not count.
+   * Rejects with the reason of `signal` once the graph is destroyed, also while it waits.
+   */
+  settled(): Promise<void>
+  /**
+   * Applies a new `definition`, `onSelectionChange`, `onFoldChange`, `onViewChange`,
+   * `onTimeChange`, `onLayerChange`, controlled `selection`, controlled `folded`, controlled
+   * `view`, controlled `time` or controlled `hiddenLayers`. Positions, view and selection stay.
+   * Throws a `RangeError`, and applies nothing, for a controlled `view` that is not finite.
+   */
+  update(options: GraphCoreUpdateOptions<S, M>): void
+  /**
+   * Frees every resource, removes the element of a mounted graph and aborts `signal`. A layout run
+   * in progress resolves to `false`. Afterwards, reads return the last state or nothing, and
+   * actions do nothing.
+   */
+  destroy(): void
+}
+
+/**
+ * A mounted graph, returned by `mountGraph` and by the ref of `<Graph>`: a `GraphCore` with its
+ * element, focus, lens and anchors. `S` is the union of the state names and `M` that of the marks,
+ * both taken from the definition.
+ */
+export interface GraphInstance<S extends string = string, M extends Mark = Mark>
+  extends GraphCore<S, M> {
+  /** The keyboard focus. */
+  readonly focus: GraphFocus<M>
+  /** HTML elements pinned to nodes, edges or points. */
+  readonly anchors: GraphAnchors<FreeState<S> | BuiltInState>
+  /** The magnifying lens. */
+  readonly lens: GraphLens
+  /** The `div` added to the container, which holds the canvas. */
+  readonly element: HTMLElement
+  /**
+   * `true` while the graph draws on a map: mounted by `mountMapGraph` or `<MapGraph>`, or moved to a
+   * surface made by `mapSurface`.
+   */
+  readonly drawsOnMap: boolean
+  /**
+   * Resolves after the next frame is drawn, the first one included. When no frame is due, it
+   * resolves on the next animation frame, without drawing one. Rejects with the reason of `signal`
+   * once the graph is destroyed.
+   */
+  drawn(): Promise<void>
   /**
    * Frees the WebGL context of the own canvas, its textures and buffers, and keeps everything else:
    * data, positions, view, selection, states, layouts, events and companions go on, and the canvas
@@ -809,12 +863,6 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * `view` given with a new `surface` that is not finite.
    */
   update(options: GraphUpdateOptions<S, M>): void
-  /**
-   * Removes the element, frees every resource and aborts `signal`. A layout run in progress
-   * resolves to `false`. Afterwards, reads return the last state or nothing, and actions do
-   * nothing.
-   */
-  destroy(): void
 }
 
 export type RendererFactory = (canvas: HTMLCanvasElement, invalidate: () => void) => Renderer

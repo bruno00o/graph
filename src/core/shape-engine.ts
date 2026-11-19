@@ -117,6 +117,7 @@ export interface ShapeSource {
 }
 
 export interface ShapeWriter {
+  readonly filling: boolean
   apply(model: ShapeSource, changes: ElementChanges | undefined, nodes: ElementChanges | null): void
   collect(into: AnyIssue[]): void
   drawOrder(): Uint32Array

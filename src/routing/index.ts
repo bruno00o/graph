@@ -73,13 +73,13 @@ function edgeLimit(value: number | undefined): number {
   return Math.max(0, Math.floor(finiteOr(value, defaultMaxEdges, 0, maxLimit)))
 }
 
-function inline(message: ToWorker, listener: BundleListener): BundleRun {
+function inline(message: ToWorker, listener: BundleListener, budget = inlineBudget): BundleRun {
   const router = new OrthogonalRouter(message, message.settings)
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
   const loop = () => {
     if (stopped) return
-    const paths = router.step(performance.now() + inlineBudget)
+    const paths = router.step(performance.now() + budget)
     if (paths) listener.end(paths)
     else timer = setTimeout(loop, 0)
   }
@@ -113,6 +113,7 @@ function start(
     ends: graph.ends,
     settings,
   }
+  if (graph.work?.workers === false) return inline(message, listener, graph.work.slice)
   const worker = spawn()
   if (!worker) return inline(message, listener)
   let stopped = false

@@ -133,6 +133,10 @@ export class SpreadHost {
     return this.#moving
   }
 
+  get pending(): boolean {
+    return this.#moving || this.#dirty.size > 0 || this.#places.pending
+  }
+
   get writing(): boolean {
     return this.#moving || this.#rewrote || this.#dirty.size > 0 || this.#places.pending
   }

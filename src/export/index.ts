@@ -4,7 +4,7 @@ import { readWindow, timeFilter } from '../core/time-range'
 import { detailStep, type Sight } from '../core/visibility'
 import type { Rgba } from '../dom/theme'
 import { type GraphSnapshot, takeSnapshot } from '../host/export-source'
-import type { GraphInstance } from '../host/mount-graph'
+import type { GraphCore, GraphInstance } from '../host/mount-graph'
 import type { ContainerFrame, HullInput, LabelMode, Renderer } from '../host/renderer'
 import { themeColor } from '../theme/tokens'
 import type { Key, TimeWindowInput } from '../types'
@@ -497,7 +497,7 @@ function checkZoom(zoom: number): number {
   return zoom
 }
 
-function parentsOf<S extends string>(graph: GraphInstance<S>, nodes: NodeColumns): Int32Array {
+function parentsOf<S extends string>(graph: GraphCore<S>, nodes: NodeColumns): Int32Array {
   const indices = new Map<Key, number>()
   for (let index = 0; index < nodes.capacity; index++) {
     const key = nodes.keys[index]
@@ -521,10 +521,7 @@ function absoluteUrl(src: string): string {
   }
 }
 
-function diagramOf<S extends string>(
-  graph: GraphInstance<S>,
-  options: DiagramExportOptions,
-): Diagram {
+function diagramOf<S extends string>(graph: GraphCore<S>, options: DiagramExportOptions): Diagram {
   const padding = checkPadding(options.padding)
   const size = checkSize(options.size)
   if (size && options.zoom !== undefined) {
@@ -553,6 +550,7 @@ function diagramOf<S extends string>(
     title: snapshot.title,
     background: snapshot.color(options.background ?? themeColor('paper')),
     imageUrl: absoluteUrl,
+    textWidth: scene.textWidth,
   }
   const frameAt = (zoom: number): DiagramFrame => ({
     region,
@@ -593,7 +591,7 @@ function diagramOf<S extends string>(
  * the current theme.
  */
 export async function exportDrawio<S extends string>(
-  graph: GraphInstance<S>,
+  graph: GraphCore<S>,
   options: DiagramExportOptions = {},
 ): Promise<string> {
   return writeDrawio(diagramOf(graph, options))
@@ -606,7 +604,7 @@ export async function exportDrawio<S extends string>(
  * 1/96 inch. Resolves to a `Blob` of type `application/vnd.ms-visio.drawing`.
  */
 export async function exportVsdx<S extends string>(
-  graph: GraphInstance<S>,
+  graph: GraphCore<S>,
   options: DiagramExportOptions = {},
 ): Promise<Blob> {
   return writeVsdx(diagramOf(graph, options))

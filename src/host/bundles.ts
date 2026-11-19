@@ -13,6 +13,7 @@ import type {
   BundleRun,
   EdgeBundling,
   EdgeRouting,
+  LayoutWork,
 } from '../types'
 import { progress } from './frame-cost'
 
@@ -30,6 +31,8 @@ export interface BundleContext {
   readonly boxes: () => Float32Array | null
   readonly holder: (index: number) => number
   readonly sight: () => Sight
+  readonly work: LayoutWork
+  readonly quiet: number
 }
 
 export type PathKind = 'bundle' | 'route'
@@ -38,7 +41,6 @@ type Method =
   | { readonly kind: 'bundle'; readonly bundling: EdgeBundling }
   | { readonly kind: 'route'; readonly routing: EdgeRouting }
 
-const quiet = 150
 const zoomDrift = 1.5
 
 function sameSettings(a: EdgeBundling | EdgeRouting, b: EdgeBundling | EdgeRouting): boolean {
@@ -93,6 +95,10 @@ export class BundleHost {
 
   get running(): boolean {
     return this.#run !== null
+  }
+
+  get busy(): boolean {
+    return this.#run !== null || this.#timer !== undefined || this.#animation !== null
   }
 
   get kind(): PathKind | null {
@@ -244,7 +250,7 @@ export class BundleHost {
     for (const resolve of waiters) resolve(outcome)
   }
 
-  #schedule(delay = quiet): void {
+  #schedule(delay = this.#context.quiet): void {
     if (!this.#method) return
     clearTimeout(this.#timer)
     this.#timer = setTimeout(() => {
@@ -302,6 +308,7 @@ export class BundleHost {
       edges: indices,
       ends: ends.slice(),
       keys: edges.keys,
+      work: this.#context.work,
       datum: this.#context.datum,
     }
     const serial = ++this.#serial

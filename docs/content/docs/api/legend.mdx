@@ -7,7 +7,7 @@ description: A legend read from the scales and the marks of a graph, and its def
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
 
 function createLegend<S extends string, M extends Mark>(
-  graph: GraphInstance<S, M>,
+  graph: GraphCore<S, M>,
   options?: LegendOptions<S>,
 ): Legend<S, M>
 

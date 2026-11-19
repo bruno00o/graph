@@ -4,6 +4,7 @@ import { loopCurve, loopMinimum, loopReach } from '../core/edge-curve'
 import type { EdgePaths } from '../core/edge-paths'
 import { arcPolyline, arcStations } from '../core/geo-arc'
 import { nodeLabelSize } from '../core/label-metrics'
+import type { TextWidth } from '../core/label-width'
 import type { LayerFilter } from '../core/mark-layers'
 import {
   diamondReach,
@@ -125,6 +126,7 @@ export interface DiagramSource {
   readonly title: string | null
   readonly background: Rgba
   readonly imageUrl: (src: string) => string
+  readonly textWidth: TextWidth
 }
 
 export interface DiagramFrame {
@@ -139,7 +141,6 @@ export interface DiagramFrame {
 const builtInBits = 0b111
 const shapeNames: readonly DiagramShape[] = ['ellipse', 'rectangle', 'diamond']
 const placements: readonly DiagramPlacement[] = ['bottom', 'top', 'right', 'left', 'center']
-const charWidth = 0.6
 const lineHeight = 1.25
 const straightness = 1e-6
 
@@ -178,19 +179,22 @@ function cellId(prefix: string, key: Key): string {
   return `${prefix}${typeof key === 'number' ? '#' : ':'}${encodeKey(key)}`
 }
 
+function widestLine(measure: TextWidth, text: string, weight: number, font: string | null) {
+  let widest = 0
+  for (const line of text.split('\n')) widest = Math.max(widest, measure(line, weight, font))
+  return widest
+}
+
 function textBounds(
   text: DiagramText,
+  width: number,
   placement: DiagramPlacement,
   x: number,
   y: number,
   halfWidth: number,
   halfHeight: number,
 ): readonly [number, number, number, number] {
-  const lines = text.text.split('\n')
-  let longest = 0
-  for (const line of lines) longest = Math.max(longest, line.length)
-  const width = longest * text.size * charWidth
-  const height = lines.length * text.size * lineHeight
+  const height = text.text.split('\n').length * text.size * lineHeight
   if (placement === 'bottom') {
     return [x - width / 2, y + halfHeight, x + width / 2, y + halfHeight + height]
   }
@@ -378,11 +382,13 @@ export function readDiagram(
     const secondary = nodes.secondary[index] ?? null
     const joined = main && secondary ? `${main}\n${secondary}` : (main ?? secondary)
     const size = (nodes.labelSize[index] || nodeLabelSize) * (unit === 1 ? 1 : shrink)
+    const weight = nodes.labelWeight[index] || 500
+    const labelFont = nodes.labelFont[index] ?? null
     const label = text(
       joined,
       size,
-      nodes.labelWeight[index] || 500,
-      nodes.labelFont[index] ?? null,
+      weight,
+      labelFont,
       labelColor ?? ink,
       nodes.labelBackground[index] ?? noColor,
       opacity,
@@ -416,7 +422,10 @@ export function readDiagram(
     }
     const ring = outlined ? outer : 0
     reach(x - halfWidth - ring, y - halfHeight - ring, x + halfWidth + ring, y + halfHeight + ring)
-    if (label) reach(...textBounds(label, placement, x, y, halfWidth + ring, halfHeight + ring))
+    if (label) {
+      const width = widestLine(source.textWidth, label.text, weight, labelFont) * size
+      reach(...textBounds(label, width, placement, x, y, halfWidth + ring, halfHeight + ring))
+    }
     return node
   }
 

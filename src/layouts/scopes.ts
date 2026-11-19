@@ -436,7 +436,7 @@ class Composite implements LayoutRun {
   #pump(): void {
     if (this.#pumping || this.#later !== undefined) return
     this.#pumping = true
-    const until = performance.now() + pumpBudget
+    const until = performance.now() + (this.#structure.graph.work?.slice ?? pumpBudget)
     try {
       while (!this.#stopped) {
         if (this.#head < this.#queue.length && performance.now() >= until) {
@@ -778,6 +778,7 @@ class Composite implements LayoutRun {
           }
         : {}),
       keys,
+      ...(graph.work ? { work: graph.work } : {}),
       datum: (at) => {
         const source = sources[at]
         return source === undefined || source < 0 ? undefined : graph.datum(source)

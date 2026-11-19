@@ -47,6 +47,10 @@ export class DataStatus {
     return this.#source.model.loadingSources > 0
   }
 
+  get waiting(): boolean {
+    return this.loading && !this.#expired
+  }
+
   holds(): boolean {
     const { model } = this.#source
     if (this.#expired || model.loadingSources === 0) return false

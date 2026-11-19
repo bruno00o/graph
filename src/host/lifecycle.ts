@@ -15,32 +15,17 @@ import { loadedData } from './data-status'
 import { emptyKeys, toKeys } from './element-keys'
 import type { ElementKeys } from './events'
 import { exposeSnapshot } from './export-source'
+import type { CoreOptions } from './graph-core'
 import type {
+  GraphCore,
   GraphCount,
-  GraphInstance,
   GraphShapeCount,
   GraphState,
   GraphStore,
-  MountGraphOptions,
   SurfaceCapabilities,
 } from './graph-instance'
 import { exposeInternals } from './internals'
 import { readonlyOf } from './readonly-store'
-
-export type PageMember =
-  | 'focus'
-  | 'anchors'
-  | 'lens'
-  | 'element'
-  | 'drawsOnMap'
-  | 'drawn'
-  | 'suspend'
-  | 'resume'
-
-export type CoreMembers<S extends string = string, M extends Mark = Mark> = Omit<
-  GraphInstance<S, M>,
-  PageMember
->
 
 const idle = Object.freeze({ running: false })
 const idleLayout = Object.freeze({ running: false, progress: 0 })
@@ -62,6 +47,8 @@ const noShapeCount: GraphShapeCount = Object.freeze({
 
 export function nothing(): void {}
 
+const stillFrames = Object.freeze({ request: () => 0, cancel: nothing })
+
 export function destroyedReason(): DOMException {
   return new DOMException('graph: the graph was destroyed', 'AbortError')
 }
@@ -75,13 +62,13 @@ export function coreAfterDestroy<S extends string, M extends Mark>(
   signal: AbortSignal,
   reason: () => unknown,
   shaped: () => boolean,
-): CoreMembers<S, M> {
+): GraphCore<S, M> {
   const state = (): GraphState => store.state as GraphState
   const size = () => ({ width: state().width, height: state().height })
   const has = (keys: ElementKeys | undefined, kind: 'node' | 'edge' | 'shape', key: Key) =>
     (kind === 'node' ? keys?.nodes : kind === 'edge' ? keys?.edges : keys?.shapes)?.includes(key) ??
     false
-  const graph: CoreMembers = {
+  const graph: GraphCore = {
     store,
     view: {
       get: () => state().view,
@@ -146,10 +133,11 @@ export function coreAfterDestroy<S extends string, M extends Mark>(
     refresh: nothing,
     on: () => nothing,
     loaded: () => Promise.reject(reason()),
+    settled: () => Promise.reject(reason()),
     update: nothing,
     destroy: nothing,
   }
-  return graph as unknown as CoreMembers<S, M>
+  return graph as unknown as GraphCore<S, M>
 }
 
 function plain(value: unknown): value is Record<string, unknown> {
@@ -179,7 +167,7 @@ export function untilDestroyed<T extends object>(live: T, dead: T, destroyed: ()
 }
 
 export function coreStillborn<S extends string, M extends Mark, G extends object>(
-  options: MountGraphOptions<S, M>,
+  options: CoreOptions<S, M>,
   capabilities: SurfaceCapabilities,
   dead: (store: GraphStore<S, M>, shaped: () => boolean) => G,
 ): G {
@@ -236,6 +224,7 @@ export function coreStillborn<S extends string, M extends Mark, G extends object
     draft: () => {},
     shape: () => null,
     globe: () => null,
+    frames: stillFrames,
   })
   exposeSnapshot(graph, () => {
     throw destroyedError()

@@ -17,10 +17,9 @@ export interface BridgeContext {
   readonly busy: () => boolean
   readonly request: () => void
   readonly sight: () => Sight
+  readonly quiet: number
+  readonly slice: number
 }
-
-const quiet = 150
-const slice = 8
 
 export class BridgeHost {
   readonly set: BridgeSet = new BridgeSet()
@@ -51,6 +50,10 @@ export class BridgeHost {
 
   get active(): boolean {
     return this.#options !== null && this.set.count > 0
+  }
+
+  get busy(): boolean {
+    return this.#timer !== undefined || this.#finder !== null
   }
 
   setOptions(options: ResolvedBridges | null): void {
@@ -100,7 +103,7 @@ export class BridgeHost {
     this.#finder = null
   }
 
-  #schedule(delay = quiet): void {
+  #schedule(delay = this.#context.quiet): void {
     if (!this.#options) return
     this.#stop()
     this.#timer = setTimeout(() => {
@@ -133,7 +136,7 @@ export class BridgeHost {
     const loop = (): void => {
       this.#timer = undefined
       if (this.#finder !== finder) return
-      const done = finder.step(performance.now() + slice, this.set)
+      const done = finder.step(performance.now() + this.#context.slice, this.set)
       if (!done) {
         this.#timer = setTimeout(loop, 0)
         return

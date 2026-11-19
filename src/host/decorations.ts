@@ -23,6 +23,7 @@ export interface DecorationContext {
 export interface Decorations {
   readonly hulls: HullLayer
   grid: GridInput | null
+  pending: boolean
   setDefinition(definition: GraphDefinition): void
   changed(): void
   prepare(): void
@@ -64,6 +65,7 @@ export function createDecorations(context: DecorationContext): Decorations {
   const decorations: Decorations = {
     hulls,
     grid: null,
+    pending: false,
     setDefinition(next) {
       definition = next
       hulls.setHulls(next.hulls)
@@ -73,12 +75,15 @@ export function createDecorations(context: DecorationContext): Decorations {
       hulls.changed()
     },
     prepare() {
+      decorations.pending = false
       if (hulls.empty && hulls.count === 0) return
       const start = performance.now()
-      if (hulls.update(source(), start + hullBudget, () => performance.now())) context.request()
+      decorations.pending = hulls.update(source(), start + hullBudget, () => performance.now())
+      if (decorations.pending) context.request()
     },
     settle() {
       hulls.update(source(), Number.POSITIVE_INFINITY, () => 0)
+      decorations.pending = false
     },
     hullsFor(sight, at, containers) {
       const layer = new HullLayer()

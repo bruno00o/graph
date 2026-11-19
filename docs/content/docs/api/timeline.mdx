@@ -7,7 +7,7 @@ description: A timeline of the nodes and edges of a graph, or of events of the a
 import { createTimeline, mountTimeline } from '@bruno00o/graph/timeline'
 
 function createTimeline<S extends string, M extends Mark, E = TimelineEvent>(
-  graph: GraphInstance<S, M>,
+  graph: GraphCore<S, M>,
   options?: TimelineOptions<E>,
 ): Timeline<E>
 function createTimeline<E = TimelineEvent>(options?: TimelineOptions<E>): Timeline<E>
