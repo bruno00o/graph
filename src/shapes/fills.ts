@@ -1,3 +1,4 @@
+import type { LayoutWork } from '../types'
 import {
   type Filled,
   type FillInput,
@@ -29,6 +30,7 @@ function spawn(): Worker | null {
 
 export class FillPool {
   readonly #done: Done
+  readonly #work: LayoutWork | null
   readonly #jobs = new Map<number, FillJob>()
   readonly #queue: FillJob[] = []
   #workers: Worker[] = []
@@ -38,8 +40,10 @@ export class FillPool {
   #partial: Filled[] = []
   #destroyed = false
 
-  constructor(done: Done) {
+  constructor(done: Done, work: LayoutWork | null = null) {
     this.#done = done
+    this.#work = work
+    this.#inline = work?.workers === false
   }
 
   send(id: number, shapes: readonly FillInput[]): void {
@@ -104,7 +108,7 @@ export class FillPool {
   readonly #step = (): void => {
     this.#timer = undefined
     if (this.#destroyed) return
-    const until = performance.now() + sliceBudget
+    const until = performance.now() + (this.#work?.slice ?? sliceBudget)
     while (this.#queue.length > 0 && performance.now() < until) {
       const job = this.#queue[0] as FillJob
       const shape = job.shapes[this.#partial.length]

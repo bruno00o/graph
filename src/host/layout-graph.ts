@@ -19,7 +19,7 @@ import {
 } from '../core/label-metrics'
 import { labelWidth, primaryWeight, type TextWidth } from '../core/label-width'
 import type { PositionReader } from '../core/positions'
-import type { Key, LayoutGraph, LayoutGroups } from '../types'
+import type { Key, LayoutGraph, LayoutGroups, LayoutWork } from '../types'
 
 const circle = 2
 
@@ -156,6 +156,7 @@ export function layoutGraph(
   datum: (key: Key) => unknown,
   containers?: LayoutContainers,
   scope?: (index: number) => boolean,
+  work?: LayoutWork,
 ): LayoutGraph {
   const capacity = nodes.capacity
   const present = nodes.alive.slice(0, capacity)
@@ -215,6 +216,7 @@ export function layoutGraph(
     edges: pairs,
     ...(groups ? { groups } : {}),
     keys,
+    ...(work ? { work } : {}),
     datum: (index) => {
       const key = keys[index]
       return key === undefined || present[index] !== 1 ? undefined : datum(key)

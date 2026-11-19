@@ -24,6 +24,7 @@ export function scopeRunOf(layout: Layout): ScopeRunner | null {
 
 interface Entry {
   readonly task: SliceTask
+  readonly budget: number
   stopped: boolean
 }
 
@@ -31,8 +32,8 @@ const queue: Entry[] = []
 let head = 0
 let scheduled = false
 
-export function sliced(task: SliceTask): Slice {
-  const entry: Entry = { task, stopped: false }
+export function sliced(task: SliceTask, budget: number = sliceBudget): Slice {
+  const entry: Entry = { task, budget, stopped: false }
   queue.push(entry)
   if (!scheduled) {
     scheduled = true
@@ -46,7 +47,7 @@ export function sliced(task: SliceTask): Slice {
 }
 
 function work(): void {
-  const until = performance.now() + sliceBudget
+  const until = performance.now() + (queue[head]?.budget ?? sliceBudget)
   while (head < queue.length) {
     const entry = queue[head] as Entry
     if (!entry.stopped) {
@@ -93,15 +94,18 @@ export function endWith(
 }
 
 export function instantRun(
-  graph: Pick<LayoutGraph, 'xy'>,
+  graph: Pick<LayoutGraph, 'xy' | 'work'>,
   compute: () => Float32Array,
   listener: LayoutListener,
 ): LayoutRun {
-  const slice = sliced({
-    step() {
-      endWith(graph, listener, compute)
-      return true
+  const slice = sliced(
+    {
+      step() {
+        endWith(graph, listener, compute)
+        return true
+      },
     },
-  })
+    graph.work?.slice,
+  )
   return { pin() {}, stop: () => slice.stop() }
 }

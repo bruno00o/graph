@@ -13,6 +13,7 @@ import type {
   LayoutGraph,
   LayoutListener,
   LayoutRun,
+  LayoutWork,
   NodeOptions,
   Point,
 } from '../types'
@@ -85,6 +86,7 @@ export interface LayoutSource {
   readonly views: ViewControl
   readonly bundles: BundleHost
   readonly emitter: Emitter
+  readonly work: LayoutWork
   state(): GraphState
   patch(next: Partial<GraphState>): void
   definition(): GraphDefinition
@@ -168,6 +170,10 @@ export class LayoutHost {
   constructor(source: LayoutSource) {
     this.#source = source
     this.#layout = source.surface().layouts ? source.definition().layout : undefined
+  }
+
+  get busy(): boolean {
+    return this.session !== null || this.#loading
   }
 
   reshaped(): void {
@@ -695,6 +701,7 @@ export class LayoutHost {
           }
         : undefined,
       scope ?? undefined,
+      this.#source.work,
     )
   }
 

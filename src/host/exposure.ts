@@ -11,7 +11,7 @@ import type { BundleHost } from './bundles'
 import type { HostCamera } from './camera'
 import type { ContainerBoxes } from './containers'
 import type { Decorations } from './decorations'
-import type { ColorSource } from './environment'
+import type { ColorSource, FrameClock } from './environment'
 import { exposeSnapshot } from './export-source'
 import type { GraphState, RendererFactory, SurfaceCapabilities } from './graph-instance'
 import { exposeInternals, type GraphWatcher } from './internals'
@@ -45,6 +45,7 @@ export interface ExposureSource {
   readonly camera: HostCamera
   readonly watchers: Set<GraphWatcher>
   readonly createRenderer: RendererFactory
+  readonly frames: FrameClock
   surface(): SurfaceCapabilities
   definition(): GraphDefinition
   state(): GraphState
@@ -103,6 +104,7 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
     draft: source.draft,
     shape: source.shape,
     globe: () => source.camera.sphere(),
+    frames: source.frames,
   })
 
   exposeSnapshot(graph, () => {

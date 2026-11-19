@@ -4,7 +4,7 @@ import { dev } from '../dev'
 import type { ElementKeys } from '../host/events'
 import { internalsOf } from '../host/internals'
 import { isolateSubscribers } from '../host/isolate'
-import type { GraphInstance } from '../host/mount-graph'
+import type { GraphCore } from '../host/mount-graph'
 import { readonlyOf } from '../host/readonly-store'
 import type { FreeState, GraphDefinition, LayerName, Mark } from '../types'
 import {
@@ -175,7 +175,7 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
  * definition, and can highlight or switch off the elements of an item through free states.
  */
 export function createLegend<S extends string, M extends Mark>(
-  graph: GraphInstance<S, M>,
+  graph: GraphCore<S, M>,
   options: LegendOptions<S, M> = {},
 ): Legend<S, M> {
   const internals = internalsOf(graph, 'createLegend')

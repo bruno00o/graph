@@ -1,5 +1,5 @@
 import { dev } from '../dev'
-import type { Key, Mark, ShapeMark } from '../types'
+import type { Key, LayoutWork, Mark, ShapeMark } from '../types'
 import { ChangeLog } from './change-log'
 import type { ElementChanges } from './graph-model'
 import type { AnyIssue } from './issues'
@@ -78,6 +78,7 @@ export class ShapeStore {
   readonly shift: Float64Array = new Float64Array(shiftSlots * 2)
   shiftVersion = 0
   wake: () => void = () => {}
+  work: LayoutWork | null = null
   readonly palette: Palette
   readonly nodes: PinNodes | null
   #writer: ShapeWriter | null = null
@@ -171,6 +172,10 @@ export class ShapeStore {
 
   collectIssues(into: AnyIssue[]): void {
     this.#writer?.collect(into)
+  }
+
+  get filling(): boolean {
+    return this.#writer?.filling ?? false
   }
 
   settled(): Promise<void> {

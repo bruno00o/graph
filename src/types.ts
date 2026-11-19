@@ -1936,8 +1936,21 @@ export interface LayoutGraph<T = unknown> {
   readonly container?: LayoutContainer | undefined
   /** Key of each node or unfolded group, `undefined` for a free slot. */
   readonly keys: readonly (Key | undefined)[]
+  /** How the run may spread its work. Missing: 8 ms slices, Web Workers allowed. */
+  readonly work?: LayoutWork | undefined
   /** Item a node or an unfolded group comes from, as given to `nodes()`. `undefined` otherwise. */
   datum(index: number): T | undefined
+}
+
+/**
+ * How a layout, an edge bundling or an edge routing may spread its work. A graph on a page gives
+ * 8 ms slices and allows Web Workers.
+ */
+export interface LayoutWork {
+  /** Longest stretch of work on the main thread before it gives the event loop back, in ms. */
+  readonly slice: number
+  /** `false` when the run must not start a Web Worker: it works on the main thread, in slices. */
+  readonly workers: boolean
 }
 
 /**
@@ -2040,6 +2053,8 @@ export interface BundleGraph<T = unknown> {
   readonly ends: Uint32Array
   /** Key of the edge at each index, `undefined` for a free slot. */
   readonly keys: readonly (Key | undefined)[]
+  /** How the computation may spread its work. Missing: 8 ms slices, Web Workers allowed. */
+  readonly work?: LayoutWork | undefined
   /** Item an edge comes from, as given to `edges()`, by edge index. `undefined` otherwise. */
   datum(index: number): T | undefined
 }

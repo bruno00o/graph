@@ -14,6 +14,7 @@ interface Job {
   readonly settings: ForceSettings
   readonly listener: LayoutListener
   readonly cost: number
+  readonly budget: number | undefined
   readonly pins: Map<number, readonly [number, number]>
   holder: Holder | null
   slice: Slice | null
@@ -50,13 +51,19 @@ export class ForcePool {
     return this.#holders.length
   }
 
-  run(graph: ForceGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+  run(
+    graph: ForceGraph,
+    settings: ForceSettings,
+    listener: LayoutListener,
+    budget?: number,
+  ): LayoutRun {
     const job: Job = {
       id: this.#next++,
       graph,
       settings,
       listener,
       cost: costOf(graph, settings),
+      budget,
       pins: new Map(),
       holder: null,
       slice: null,
@@ -226,22 +233,25 @@ export class ForcePool {
     const running = new ForceJob(job.graph, job.settings)
     for (const [index, [x, y]] of job.pins) running.pin(index, x, y)
     job.inline = running
-    job.slice = sliced({
-      step: (until) => {
-        if (job.over) return true
-        let xy: Float32Array
-        try {
-          if (!running.advance(until)) return false
-          xy = running.result()
-        } catch (error) {
-          report(error)
-          xy = Float32Array.from(job.graph.xy)
-        }
-        job.over = true
-        job.listener.end(xy)
-        return true
+    job.slice = sliced(
+      {
+        step: (until) => {
+          if (job.over) return true
+          let xy: Float32Array
+          try {
+            if (!running.advance(until)) return false
+            xy = running.result()
+          } catch (error) {
+            report(error)
+            xy = Float32Array.from(job.graph.xy)
+          }
+          job.over = true
+          job.listener.end(xy)
+          return true
+        },
       },
-    })
+      job.budget,
+    )
   }
 
   #rest(): void {

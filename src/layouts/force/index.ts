@@ -21,12 +21,17 @@ export type { ForceEngine, ForceOptions, ForceSettings } from './simulation'
 
 const inlineBudget = 8
 
-function inline(graph: ForceGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+function inline(
+  graph: ForceGraph,
+  settings: ForceSettings,
+  listener: LayoutListener,
+  budget = inlineBudget,
+): LayoutRun {
   const schedule = (task: () => void) => setTimeout(task, 0)
   if (prefersMultilevel(graph, settings)) {
-    return runMultilevelForce(graph, settings, listener, inlineBudget, schedule, null)
+    return runMultilevelForce(graph, settings, listener, budget, schedule, null)
   }
-  return runForce(graph, settings, listener, inlineBudget, schedule)
+  return runForce(graph, settings, listener, budget, schedule)
 }
 
 function spawn(): Worker | null {
@@ -39,10 +44,15 @@ function spawn(): Worker | null {
 }
 
 let pool: ForcePool | null = null
+let threadPool: ForcePool | null = null
 
 function pooled(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener) {
   const graph = forceGraphOf(withFinitePositions(given))
   if (prefersGpu(graph, settings) || prefersMultilevel(graph, settings)) return null
+  if (given.work?.workers === false) {
+    threadPool ??= new ForcePool(() => null, 1)
+    return threadPool.run(graph, settings, listener, given.work.slice)
+  }
   const cores = globalThis.navigator?.hardwareConcurrency ?? 2
   pool ??= new ForcePool(spawn, Math.min(4, cores - 1))
   return pool.run(graph, settings, listener)
@@ -50,6 +60,7 @@ function pooled(given: LayoutGraph, settings: ForceSettings, listener: LayoutLis
 
 function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
   const graph = forceGraphOf(withFinitePositions(given))
+  if (given.work?.workers === false) return inline(graph, settings, listener, given.work.slice)
   const worker = spawn()
   if (!worker) return inline(graph, settings, listener)
   const pins = new Map<number, readonly [number, number]>()

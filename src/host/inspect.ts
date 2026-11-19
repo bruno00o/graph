@@ -1,6 +1,6 @@
 import type { AnyIssue } from '../core/issues'
 import type { PixelRatioOption } from '../types'
-import type { GraphInstance } from './graph-instance'
+import type { GraphCore } from './graph-instance'
 import type { RendererStats } from './renderer'
 
 export interface GraphProbe {
@@ -23,7 +23,8 @@ export interface GraphInspection {
 }
 
 export interface InspectedGraph {
-  readonly graph: GraphInstance
+  readonly graph: GraphCore
+  label(): string
   inspect(): GraphInspection
   probe(probe: GraphProbe | null): void
 }

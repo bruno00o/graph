@@ -2,13 +2,14 @@ import { toWorld } from '../core/view'
 import { createTextWidths } from '../dom/text-width'
 import { ThemeResolver } from '../dom/theme'
 import { defaultFont } from '../theme/tokens'
-import type { Mark } from '../types'
+import type { LayoutWork, Mark } from '../types'
 import { createWebglRenderer } from '../webgl/renderer'
 import { createAnchorHost } from './anchor-host'
 import { canvasCapabilities, canvasSurface } from './canvas-surface'
+import type { FrameClock } from './environment'
 import { createFlowWatch } from './flows'
 import { FocusControl } from './focus-control'
-import { createGraphCore, type HostParts, type PageControls } from './graph-core'
+import { createGraphCore, type HostParts, type PageApi, type PageControls } from './graph-core'
 import type {
   GraphInstance,
   HostSurface,
@@ -28,6 +29,8 @@ export type {
   FitOptions,
   GraphBundling,
   GraphBundlingStatus,
+  GraphCore,
+  GraphCoreUpdateOptions,
   GraphCount,
   GraphCountOf,
   GraphElement,
@@ -38,6 +41,7 @@ export type {
   GraphLayers,
   GraphLayout,
   GraphLayoutStatus,
+  GraphOptions,
   GraphPositions,
   GraphRouting,
   GraphRoutingStatus,
@@ -76,6 +80,13 @@ function listen(target: EventTarget, listeners: Listeners, on: boolean): void {
     if (on) target.addEventListener(name, listener as EventListener)
     else target.removeEventListener(name, listener as EventListener)
   }
+}
+
+const pageWork: LayoutWork = Object.freeze({ slice: 8, workers: true })
+
+const frames: FrameClock = {
+  request: (frame) => requestAnimationFrame(frame),
+  cancel: (request) => cancelAnimationFrame(request),
 }
 
 export function createGraphHost<S extends string = string, M extends Mark = Mark>(
@@ -171,6 +182,36 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       emitter.emit('suspendchange', { suspended: false })
     }
 
+    const api: PageApi = {
+      element,
+      anchors: anchors.anchors,
+      focus: {
+        get: () => state().focused,
+        set: (next) => {
+          given.prepare()
+          const resolved = next ? given.target(next.kind, next.key) : null
+          if (next && (!resolved || given.concealed(resolved))) return
+          focus.remembered = null
+          focus.set(resolved, 'api')
+          if (destroyed()) return
+          if (resolved && definition().interaction.keyboard) {
+            element.focus({ preventScroll: true })
+          }
+        },
+      },
+      lens: {
+        get: () => lens.shown,
+        set: (input) => lens.set(input),
+        toWorld: (point) => toWorld(camera.viewAt(point), views.viewport(), point),
+      },
+      get drawsOnMap() {
+        return given.surface().onMap
+      },
+      drawn: () => waiters.wait(),
+      suspend,
+      resume,
+    }
+
     return {
       start() {
         render.watch(element)
@@ -204,38 +245,13 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       lens,
       anchors,
       waiters,
-      api: {
-        element,
-        anchors: anchors.anchors,
-        focus: {
-          get: () => state().focused,
-          set: (next) => {
-            given.prepare()
-            const resolved = next ? given.target(next.kind, next.key) : null
-            if (next && (!resolved || given.concealed(resolved))) return
-            focus.remembered = null
-            focus.set(resolved, 'api')
-            if (destroyed()) return
-            if (resolved && definition().interaction.keyboard) {
-              element.focus({ preventScroll: true })
-            }
-          },
-        },
-        lens: {
-          get: () => lens.shown,
-          set: (input) => lens.set(input),
-          toWorld: (point) => toWorld(camera.viewAt(point), views.viewport(), point),
-        },
-        drawn: () => waiters.wait(),
-        suspend,
-        resume,
-      },
+      api,
     }
   }
 
   return createGraphCore(
     options,
-    { home, colors, textWidths, still: reducedMotion },
+    { home, colors, textWidths, still: reducedMotion, work: pageWork, quiet: 150, frames },
     {
       createRenderer,
       place: (surface) => surface.place(element, container),
@@ -262,7 +278,7 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       dead: (store, signal, reason, shaped) => afterDestroy(store, element, signal, reason, shaped),
       title: () => element.getAttribute('aria-label'),
     },
-  )
+  ) as GraphInstance<S, M>
 }
 
 /**

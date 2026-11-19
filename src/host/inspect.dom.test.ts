@@ -4,7 +4,12 @@ import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition } from '../types'
 import { type GraphProbe, type InspectedGraph, watchGraphs } from './inspect'
-import { createGraphHost, type GraphInstance, type RendererFactory } from './mount-graph'
+import {
+  createGraphHost,
+  type GraphCore,
+  type GraphInstance,
+  type RendererFactory,
+} from './mount-graph'
 
 interface Item {
   readonly id: string
@@ -88,8 +93,8 @@ afterEach(() => {
 describe('graph inspection', () => {
   it('lists mounted graphs to watchers and forgets destroyed ones', () => {
     const first = mount()
-    const added: GraphInstance[] = []
-    const removed: GraphInstance[] = []
+    const added: GraphCore[] = []
+    const removed: GraphCore[] = []
     const stop = watchGraphs({
       added: (entry) => added.push(entry.graph),
       removed: (entry) => removed.push(entry.graph),

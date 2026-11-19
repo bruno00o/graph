@@ -4,7 +4,7 @@ import type { LogCursor } from '../core/change-log'
 import { readWindow, sameWindow, toTime } from '../core/time-range'
 import { type GraphInternals, internalsOf } from '../host/internals'
 import { isolateSubscribers } from '../host/isolate'
-import type { GraphInstance } from '../host/mount-graph'
+import type { GraphCore } from '../host/mount-graph'
 import { readonlyOf } from '../host/readonly-store'
 import { categoricalRange } from '../theme/tokens'
 import type {
@@ -357,7 +357,7 @@ interface Port {
 
 const noEvents: readonly never[] = []
 
-function isGraph(value: unknown): value is GraphInstance {
+function isGraph(value: unknown): value is GraphCore {
   if (typeof value !== 'object' || value === null) return false
   const candidate = value as { readonly time?: unknown; readonly on?: unknown }
   return typeof candidate.time === 'object' && typeof candidate.on === 'function'
@@ -369,7 +369,7 @@ function isGraph(value: unknown): value is GraphInstance {
  * brushing, stepping and playback. The histogram is counted again only when the data changes.
  */
 export function createTimeline<S extends string, M extends Mark, E = TimelineEvent>(
-  graph: GraphInstance<S, M>,
+  graph: GraphCore<S, M>,
   options?: TimelineOptions<E>,
 ): Timeline<E>
 /**
@@ -378,7 +378,7 @@ export function createTimeline<S extends string, M extends Mark, E = TimelineEve
  */
 export function createTimeline<E = TimelineEvent>(options?: TimelineOptions<E>): Timeline<E>
 export function createTimeline<E>(
-  first?: GraphInstance | TimelineOptions<E>,
+  first?: GraphCore | TimelineOptions<E>,
   second?: TimelineOptions<E>,
 ): Timeline<E> {
   const graph = isGraph(first) ? first : null
@@ -389,7 +389,7 @@ export function createTimeline<E>(
   const nodeCounts = new SpanCounts()
   const edgeCounts = new SpanCounts()
   const eventCounts = new EventCounts<E>()
-  const clock = frames()
+  const clock = internals?.frames ?? frames()
   let own: TimeWindow | null = null
   let extent: TimeRange | null = null
   let zoomed: TimeRange | null = null

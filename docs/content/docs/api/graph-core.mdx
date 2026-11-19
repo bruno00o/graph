@@ -1,0 +1,32 @@
+---
+title: GraphCore
+description: The part of a graph that needs no page, which GraphInstance extends, and settled().
+---
+
+`GraphCore` is the graph without its element: data, layouts, view, selection, states, time, history, paths, the store and the events. [`GraphInstance`](/docs/api/graph-instance), returned by `mountGraph`, extends it with the element, the focus, the lens, the anchors, `drawn`, `suspend` and `resume`. A function that takes a `GraphCore`, such as [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline), [`exportDrawio`](/docs/api/export) or [`exportVsdx`](/docs/api/export), reads none of these.
+
+`S` is the union of the state names and `M` the union of the marks of the definition, as for `GraphInstance`. See [TypeScript](/docs/typescript).
+
+## Members
+
+<api-table path="index.ts" name="GraphCore" />
+
+The members work as on a mounted graph: see [GraphInstance](/docs/api/graph-instance) for the view, the selection, the positions, the layouts and the lifecycle.
+
+## Options
+
+The options of a graph that need no page. [`MountGraphOptions`](/docs/api/mount-graph#options) extends them with `ariaLabel`, `surface`, `suspended` and `keepFrame`.
+
+<api-table path="index.ts" name="GraphOptions" />
+
+## Settled
+
+`settled()` resolves once nothing is left to do: data changes applied, live sources loaded or the [`waitForData`](/docs/api/define-graph#wait-for-the-data) deadline past, no layout run, no view or position animation, edge bundling, edge routing and bridges computed, the fills of large shapes triangulated and the hulls ready. Frames do not count: `await graph.drawn()` afterwards waits for the frame that shows the result.
+
+```ts
+await graph.settled()
+await graph.drawn()
+report(graph.positions.snapshot())
+```
+
+It applies pending data changes first, like the other reads, and checks again after each step of work, so a layout that a live source restarts keeps it waiting. Once the graph is destroyed, it rejects with the reason of `signal`, also while it waits.

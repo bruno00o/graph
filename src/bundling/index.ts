@@ -60,13 +60,14 @@ function inline(
   ends: Uint32Array,
   settings: DensitySettings,
   listener: BundleListener,
+  budget = inlineBudget,
 ): BundleRun {
   const bundler = new DensityBundler(xy, ends, settings)
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
   const loop = () => {
     if (stopped) return
-    const until = performance.now() + inlineBudget
+    const until = performance.now() + budget
     do bundler.step()
     while (!bundler.done && performance.now() < until)
     if (bundler.done) listener.end(bundler.paths())
@@ -91,6 +92,9 @@ function spawn(): Worker | null {
 }
 
 function start(graph: BundleGraph, settings: DensitySettings, listener: BundleListener): BundleRun {
+  if (graph.work?.workers === false) {
+    return inline(graph.xy, graph.ends, settings, listener, graph.work.slice)
+  }
   const worker = spawn()
   if (!worker) return inline(graph.xy, graph.ends, settings, listener)
   let stopped = false

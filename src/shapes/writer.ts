@@ -255,6 +255,10 @@ class Writer implements ShapeWriter {
     this.#store.fillVersion++
   }
 
+  get filling(): boolean {
+    return this.#pending > 0
+  }
+
   settled(): Promise<void> {
     if (this.#pending === 0) return Promise.resolve()
     return new Promise((done) => this.#settle.push(done))
@@ -287,7 +291,7 @@ class Writer implements ShapeWriter {
       }
       return
     }
-    this.#pool ??= new FillPool((id, filled) => this.#arrive(id, filled))
+    this.#pool ??= new FillPool((id, filled) => this.#arrive(id, filled), this.#store.work)
     let part: Waiting[] = []
     let points = 0
     const send = () => {

@@ -17,17 +17,17 @@ function exportSvg<S extends string>(
 ): Promise<string>
 
 function exportDrawio<S extends string>(
-  graph: GraphInstance<S>,
+  graph: GraphCore<S>,
   options?: DiagramExportOptions,
 ): Promise<string>
 
 function exportVsdx<S extends string>(
-  graph: GraphInstance<S>,
+  graph: GraphCore<S>,
   options?: DiagramExportOptions,
 ): Promise<Blob>
 ```
 
-`exportPng` draws the graph offscreen in a WebGL context of its own and resolves to a `Blob` of type `image/png`. `exportSvg` writes an SVG document from the scene, without reading pixels back, and resolves to its text. Both wait for the images of the nodes and for the fonts of the page. `exportDrawio` resolves to the text of an uncompressed draw.io file and `exportVsdx` to a `Blob` of type `application/vnd.ms-visio.drawing`, a Visio drawing; in both, shapes and connectors stay editable. See [Export](/docs/export) for a walkthrough, [draw.io diagrams](/docs/export#drawio-diagrams) and [Visio drawings](/docs/export#visio-drawings) for what the diagrams hold.
+`exportPng` draws the graph offscreen in a WebGL context of its own and resolves to a `Blob` of type `image/png`. `exportSvg` writes an SVG document from the scene, without reading pixels back, and resolves to its text. Both wait for the images of the nodes and for the fonts of the page. `exportDrawio` resolves to the text of an uncompressed draw.io file and `exportVsdx` to a `Blob` of type `application/vnd.ms-visio.drawing`, a Visio drawing; in both, shapes and connectors stay editable. Their label boxes are sized from the width of the text as the graph measures it, in the font of the label. See [Export](/docs/export) for a walkthrough, [draw.io diagrams](/docs/export#drawio-diagrams) and [Visio drawings](/docs/export#visio-drawings) for what the diagrams hold.
 
 ## Types
 
