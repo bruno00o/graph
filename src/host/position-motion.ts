@@ -2,7 +2,6 @@ import type { PositionMoves, PositionReader, Positions } from '../core/positions
 import { easeInOut } from '../core/view'
 import type { GraphDefinition } from '../types'
 import { progress } from './frame-cost'
-import { reducedMotion } from './reduced-motion'
 import type { SpreadHost } from './spread'
 
 interface PositionAnimation {
@@ -22,6 +21,7 @@ export interface MotionSource {
   dragging(): readonly number[] | undefined
   request(): void
   frameCost(): number
+  still(): boolean
 }
 
 export class PositionMotion {
@@ -138,7 +138,7 @@ export class PositionMotion {
       done?.()
       return 0
     }
-    const ms = reducedMotion() ? 0 : duration
+    const ms = this.#source.still() ? 0 : duration
     if (ms <= 0) {
       indices.forEach((index, i) => {
         if (index < this.#owner.length) this.#owner[index] = 0

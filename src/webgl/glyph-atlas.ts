@@ -1,8 +1,8 @@
 import TinySDF from '@mapbox/tiny-sdf'
 import { type LoadedFamilies, usesFamily } from '../core/font-family'
+import { atlasFontSize } from '../core/label-metrics'
 import { warnLimit } from './caps'
 
-export const atlasFontSize = 24
 export const atlasWidth = 1024
 const glyphBuffer = 3
 const heightLimit = 4096

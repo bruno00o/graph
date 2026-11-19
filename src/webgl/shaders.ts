@@ -1,15 +1,13 @@
 import { curveSegments, loopGrowth, loopMinimum, loopTurn } from '../core/edge-curve'
 import { arcThreshold } from '../core/geo-arc'
+import { atlasFontSize, labelGap } from '../core/label-metrics'
 import { boxBadgeInset } from '../core/node-shape'
 import { leastFade } from '../core/time-range'
 import { widthSlots } from '../core/width-scale'
 import { zoomFade } from '../core/zoom-range'
 import { bridgeData, bridgeFragment, straightBridges } from './bridge-glsl'
 import { bundlePath } from './bundle-glsl'
-import { atlasFontSize } from './glyph-atlas'
 import { hullGlyph } from './glyph-attributes'
-
-export { nodeLabelSize } from '../core/label-width'
 
 export const badgeLimit = 18
 export const badgeTextMin = 12
@@ -19,8 +17,6 @@ export const badgeTextShift = 0.35
 export const badgeIconGlyph = 16
 export const platePadX = 0.45
 export const plateRadius = 0.25
-export const plateDrop = 6
-export const labelGap = 3
 export const edgeLabelSize = 11
 export const edgeDescent = 3.6
 export const edgeLabelGap = 1.5

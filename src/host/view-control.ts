@@ -18,7 +18,6 @@ import { requestMemory } from './element-keys'
 import type { Emitter, ViewOrigin } from './events'
 import { progress } from './frame-cost'
 import type { FitOptions, GraphState } from './graph-instance'
-import { reducedMotion } from './reduced-motion'
 
 export type ViewCause = 'user' | 'api' | 'userFit' | 'apiFit' | 'limit'
 
@@ -84,6 +83,7 @@ export interface ViewSource {
   definition(): GraphDefinition
   request(): void
   frameCost(): number
+  still(): boolean
   deliver(sent: ViewRequest): void
   published(): void
   measure(keys: FitKeys | null): Bounds | null
@@ -301,7 +301,7 @@ export class ViewControl {
   }
 
   animateTo(target: View, duration: number | undefined, cause: ViewCause): void {
-    const ms = reducedMotion() ? 0 : (duration ?? 0)
+    const ms = this.#source.still() ? 0 : (duration ?? 0)
     if (ms <= 0) {
       this.animation = null
       this.commit(target, cause)

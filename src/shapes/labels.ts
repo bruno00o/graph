@@ -1,5 +1,6 @@
 import { noColor } from '../core/columns'
 import { globeScale, globeScreen } from '../core/globe'
+import { atlasFontSize, nodeLabelSize, plateDrop } from '../core/label-metrics'
 import { primaryWeight } from '../core/label-width'
 import {
   isDrawn,
@@ -14,7 +15,6 @@ import {
 import type { ShapeStore } from '../core/shape-store'
 import { labelAlways, maxStates } from '../core/state-buffers'
 import { shapeShown } from '../core/visibility'
-import { atlasFontSize } from '../webgl/glyph-atlas'
 import {
   builtInRaise,
   cullMargin,
@@ -25,7 +25,7 @@ import {
   lifted,
   TextExtents,
 } from '../webgl/label-levels'
-import { nodeLabelSize, plateDrop, platePadX } from '../webgl/shaders'
+import { platePadX } from '../webgl/shaders'
 import { shapeAnchor } from './anchor'
 import { metersToWorld, wrapMargin, wrapText } from './text'
 

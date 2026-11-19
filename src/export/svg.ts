@@ -6,6 +6,7 @@ import { type Cubic, loopCurve, loopMinimum, loopReach, parallelCurve } from '..
 import { type EdgePaths, maxPathPoints } from '../core/edge-paths'
 import { outlineStride } from '../core/hull-geometry'
 import type { HullShape } from '../core/hull-layer'
+import { atlasFontSize, labelGap, lineHeight } from '../core/label-metrics'
 import {
   boxBadgeInset,
   boxDistance,
@@ -35,13 +36,7 @@ import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { ContainerFrame, GridInput, LabelMode } from '../host/renderer'
 import { haloLimit } from '../theme/tokens'
 import type { EdgeEnd } from '../types'
-import { atlasFontSize } from '../webgl/glyph-atlas'
-import {
-  type EdgeAnchor,
-  lineHeight,
-  type PlacedLabel,
-  type TextMeasure,
-} from '../webgl/label-layer'
+import type { EdgeAnchor, PlacedLabel, TextMeasure } from '../webgl/label-layer'
 import {
   badgeFont,
   badgeIconWidth,
@@ -49,7 +44,6 @@ import {
   badgeTextMin,
   badgeTextShift,
   edgeLabelGap,
-  labelGap,
   mutedPaper,
   plateRadius,
 } from '../webgl/shaders'

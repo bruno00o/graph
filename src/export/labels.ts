@@ -1,11 +1,11 @@
 import type { EdgeColumns, NodeColumns } from '../core/columns'
 import type { EdgePaths } from '../core/edge-paths'
 import type { HullShape } from '../core/hull-layer'
+import { atlasFontSize, labelGap } from '../core/label-metrics'
 import type { Positions } from '../core/positions'
 import type { ShapeStore } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import type { LabelMode } from '../host/renderer'
-import { atlasFontSize } from '../webgl/glyph-atlas'
 import {
   type EdgeAnchor,
   LabelLayer,
@@ -17,7 +17,7 @@ import {
   stateStroke,
   type TextMeasure,
 } from '../webgl/label-layer'
-import { edgeLabelGap, labelGap } from '../webgl/shaders'
+import { edgeLabelGap } from '../webgl/shaders'
 import { type ExportFrame, frameSight, screenExtent } from './frame'
 
 export interface LabelSource {
