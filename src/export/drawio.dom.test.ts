@@ -4,6 +4,7 @@ import { defineGraph } from '../define-graph'
 import { attributeOf, parseXml, type XmlElement } from '../formats/xml'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { edges, nodes } from '../marks'
+import { mockCanvasColors } from '../testing/canvas-colors'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinitionOptions, Key } from '../types'
 import { exportDrawio } from '.'
@@ -29,40 +30,12 @@ interface Link {
   readonly way?: readonly { readonly x: number; readonly y: number }[]
 }
 
-const named: Readonly<Record<string, string>> = {
-  'var(--graph-paper)': '#f7f7f4ff',
-  'var(--graph-ink)': '#191d22ff',
-}
-
 let dom: FakeDom
 let mounted: GraphInstance | null = null
 
 beforeEach(() => {
   dom = installDom()
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => {
-    let style = '#000000'
-    return {
-      clearRect() {},
-      fillRect() {},
-      set fillStyle(value: string) {
-        style = value
-      },
-      get fillStyle() {
-        return style
-      },
-      getImageData() {
-        const hex = (
-          /#([0-9a-f]{6,8})/i.exec(named[style] ?? style)?.[1] ??
-          (style === 'transparent' ? '00000000' : '000000')
-        ).padEnd(8, 'f')
-        return {
-          data: new Uint8ClampedArray(
-            [0, 2, 4, 6].map((at) => Number.parseInt(hex.slice(at, at + 2), 16)),
-          ),
-        }
-      },
-    } as unknown as CanvasRenderingContext2D
-  }) as unknown as HTMLCanvasElement['getContext'])
+  mockCanvasColors()
 })
 
 afterEach(() => {
