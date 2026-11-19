@@ -17,6 +17,7 @@ import { fitLabels } from './labels'
 import { openCanvas, type PngCanvas, renderPng } from './png'
 import { checkSize, fitZoom } from './size'
 import { type SvgImage, writeSvg } from './svg'
+import { writeVsdx } from './vsdx'
 
 /**
  * Part of the graph an export covers: `'view'` is what the graph shows now, `'graph'` frames every
@@ -136,8 +137,8 @@ export interface SvgExportOptions extends ExportOptions {
  */
 export type ExportStates = 'all' | 'custom' | 'none'
 
-/** Options of `exportDrawio`. */
-export interface DrawioExportOptions {
+/** Options of `exportDrawio` and `exportVsdx`. */
+export interface DiagramExportOptions {
   /**
    * Part of the graph to export. `'graph'` takes every node shown; `'view'` takes the nodes the
    * view shows, even in part, and the edges between them.
@@ -145,19 +146,20 @@ export interface DrawioExportOptions {
    */
   readonly region?: ExportRegion | undefined
   /**
-   * Scale of the diagram, in draw.io units per world unit. Sizes set in screen pixels, such as
-   * edge widths, labels and nodes with `units: 'screen'`, keep their size in draw.io units. Throws
-   * a `RangeError` with `size`, which sets the zoom itself.
+   * Scale of the diagram, in diagram units per world unit. A diagram unit is a draw.io unit, and
+   * 1/96 inch in Visio. Sizes set in screen pixels, such as edge widths, labels and nodes with
+   * `units: 'screen'`, keep their size in diagram units. Throws a `RangeError` with `size`, which
+   * sets the zoom itself.
    * @default 1
    */
   readonly zoom?: number | undefined
   /**
-   * Size of the page, in draw.io units. The zoom is chosen so that the region fits inside it, as
+   * Size of the page, in diagram units. The zoom is chosen so that the region fits inside it, as
    * with `exportSvg`. Defaults to the size the region has at its zoom.
    */
   readonly size?: ExportSize | undefined
   /**
-   * Margin around the nodes, edges and labels when `region` is `'graph'`, in draw.io units. Must
+   * Margin around the nodes, edges and labels when `region` is `'graph'`, in diagram units. Must
    * be finite, 0 or more.
    * @default 32
    */
@@ -519,16 +521,10 @@ function absoluteUrl(src: string): string {
   }
 }
 
-/**
- * Serializes the graph into an uncompressed draw.io (diagrams.net) file, with one page: nodes
- * become shapes and edges become connectors attached to them, so moving a node in the editor
- * drags its edges. Unfolded groups become containers holding their children. Colors are those of
- * the current theme.
- */
-export async function exportDrawio<S extends string>(
+function diagramOf<S extends string>(
   graph: GraphInstance<S>,
-  options: DrawioExportOptions = {},
-): Promise<string> {
+  options: DiagramExportOptions,
+): Diagram {
   const padding = checkPadding(options.padding)
   const size = checkSize(options.size)
   if (size && options.zoom !== undefined) {
@@ -567,7 +563,7 @@ export async function exportDrawio<S extends string>(
     height: (snapshot.height * zoom) / view.zoom,
   })
   const diagramAt = (zoom: number): Diagram => readDiagram(source, frameAt(zoom), states)
-  if (!size) return writeDrawio(diagramAt(checkZoom(options.zoom ?? 1)))
+  if (!size) return diagramAt(checkZoom(options.zoom ?? 1))
   const boxWidth = size.width ?? Number.POSITIVE_INFINITY
   const boxHeight = size.height ?? Number.POSITIVE_INFINITY
   const zoom =
@@ -583,11 +579,35 @@ export async function exportDrawio<S extends string>(
           1,
         )
   const content = diagramAt(zoom)
-  return writeDrawio(
-    centered(
-      content,
-      size.width ?? Math.max(1, Math.ceil(content.width - 1e-6)),
-      size.height ?? Math.max(1, Math.ceil(content.height - 1e-6)),
-    ),
+  return centered(
+    content,
+    size.width ?? Math.max(1, Math.ceil(content.width - 1e-6)),
+    size.height ?? Math.max(1, Math.ceil(content.height - 1e-6)),
   )
+}
+
+/**
+ * Serializes the graph into an uncompressed draw.io (diagrams.net) file, with one page: nodes
+ * become shapes and edges become connectors attached to them, so moving a node in the editor
+ * drags its edges. Unfolded groups become containers holding their children. Colors are those of
+ * the current theme.
+ */
+export async function exportDrawio<S extends string>(
+  graph: GraphInstance<S>,
+  options: DiagramExportOptions = {},
+): Promise<string> {
+  return writeDrawio(diagramOf(graph, options))
+}
+
+/**
+ * Serializes the graph into a Visio drawing (`.vsdx`, Visio 2013 and later), with one page: nodes
+ * become shapes and edges become connectors glued to them, so moving a node in Visio keeps its
+ * edges attached. Unfolded groups become Visio groups holding their children. One diagram unit is
+ * 1/96 inch. Resolves to a `Blob` of type `application/vnd.ms-visio.drawing`.
+ */
+export async function exportVsdx<S extends string>(
+  graph: GraphInstance<S>,
+  options: DiagramExportOptions = {},
+): Promise<Blob> {
+  return writeVsdx(diagramOf(graph, options))
 }

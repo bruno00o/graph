@@ -1,10 +1,10 @@
 ---
-title: exportPng, exportSvg and exportDrawio
-description: Save a mounted graph as a PNG image, a standalone SVG document or an editable draw.io diagram.
+title: exportPng, exportSvg, exportDrawio and exportVsdx
+description: Save a mounted graph as a PNG image, a standalone SVG document, or an editable draw.io or Visio diagram.
 ---
 
 ```ts
-import { exportDrawio, exportPng, exportSvg } from '@bruno00o/graph/export'
+import { exportDrawio, exportPng, exportSvg, exportVsdx } from '@bruno00o/graph/export'
 
 function exportPng<S extends string>(
   graph: GraphInstance<S>,
@@ -18,11 +18,16 @@ function exportSvg<S extends string>(
 
 function exportDrawio<S extends string>(
   graph: GraphInstance<S>,
-  options?: DrawioExportOptions,
+  options?: DiagramExportOptions,
 ): Promise<string>
+
+function exportVsdx<S extends string>(
+  graph: GraphInstance<S>,
+  options?: DiagramExportOptions,
+): Promise<Blob>
 ```
 
-`exportPng` draws the graph offscreen in a WebGL context of its own and resolves to a `Blob` of type `image/png`. `exportSvg` writes an SVG document from the scene, without reading pixels back, and resolves to its text. Both wait for the images of the nodes and for the fonts of the page. `exportDrawio` resolves to the text of an uncompressed draw.io file whose shapes and connectors stay editable. See [Export](/docs/export) for a walkthrough, and [draw.io diagrams](/docs/export#drawio-diagrams) for what the diagram holds.
+`exportPng` draws the graph offscreen in a WebGL context of its own and resolves to a `Blob` of type `image/png`. `exportSvg` writes an SVG document from the scene, without reading pixels back, and resolves to its text. Both wait for the images of the nodes and for the fonts of the page. `exportDrawio` resolves to the text of an uncompressed draw.io file and `exportVsdx` to a `Blob` of type `application/vnd.ms-visio.drawing`, a Visio drawing; in both, shapes and connectors stay editable. See [Export](/docs/export) for a walkthrough, [draw.io diagrams](/docs/export#drawio-diagrams) and [Visio drawings](/docs/export#visio-drawings) for what the diagrams hold.
 
 ## Types
 
@@ -44,16 +49,16 @@ type ExportStates = 'all' | 'custom' | 'none'
 
 <api-table path="export/index.ts" name="SvgExportOptions" />
 
-## exportDrawio options
+## exportDrawio and exportVsdx options
 
-<api-table path="export/index.ts" name="DrawioExportOptions" />
+<api-table path="export/index.ts" name="DiagramExportOptions" />
 
 ## Errors
 
 - A graph that was not created by `mountGraph`, or that is destroyed, throws an `Error`.
 - A `zoom` or a `pixelRatio` that is not a positive number throws a `RangeError`, as does an area smaller than one pixel, a `size` with no side or a side that is not a finite number of pixels, 1 or more, and a `size` given with a `zoom`.
 - Without WebGL2, or when the browser refuses a drawing buffer, `exportPng` rejects with an `Error`.
-- `exportDrawio` throws a `TypeError` for an unknown `states`.
+- `exportDrawio` and `exportVsdx` throw a `TypeError` for an unknown `states`.
 
 ## Behavior
 
@@ -64,5 +69,6 @@ type ExportStates = 'all' | 'custom' | 'none'
 - With `size`, the image has exactly that size in pixels and the zoom is chosen to fit the region inside it; `pixelRatio` still sets the image pixels per CSS pixel, so the area drawn is `size` divided by it.
 - The background grid, unless `grid` is `false`, and the hulls are drawn as on screen: grid, group containers, hulls, then edges and nodes. With a `window` or a `zoom` that shows other nodes than the screen, each hull wraps the nodes the export shows. HTML anchors are not part of the scene and stay out of both exports.
 - Past 4,096 pixels on a side, the PNG is drawn in tiles and encoded strip by strip. Labels are chosen once for the whole image.
-- `exportDrawio` writes one draw.io unit per world unit at `zoom: 1`, its default, and does not wait for images or fonts: pictures are linked to their URL, not copied into the file. Cell ids come from the keys of the elements, `n:` for nodes and `e:` for edges, `#` for number keys, with characters that XML cannot hold written as `%` and their hexadecimal code.
+- `exportDrawio` and `exportVsdx` write one diagram unit per world unit at `zoom: 1`, their default, and do not wait for images or fonts: `exportDrawio` links pictures to their URL, `exportVsdx` leaves them out. A diagram unit is a draw.io unit, and 1/96 inch in Visio. draw.io cell ids come from the keys of the elements, `n:` for nodes and `e:` for edges, `#` for number keys, with characters that XML cannot hold written as `%` and their hexadecimal code. Visio shapes carry the key in a `Key` shape data field.
+- `exportVsdx` compresses the parts of the file with `CompressionStream` where the runtime has it, and stores them uncompressed otherwise.
 - The PNG records its pixel density in a `pHYs` chunk, at 96 dots per inch times `pixelRatio`.

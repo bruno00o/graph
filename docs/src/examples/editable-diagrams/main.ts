@@ -1,5 +1,10 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
-import { type ExportRegion, type ExportStates, exportDrawio } from '@bruno00o/graph/export'
+import {
+  type ExportRegion,
+  type ExportStates,
+  exportDrawio,
+  exportVsdx,
+} from '@bruno00o/graph/export'
 import { messages } from './messages'
 import '../shared/overlays.css'
 
@@ -97,22 +102,26 @@ export function mount(container: HTMLElement): GraphInstance {
   const status = document.createElement('div')
   status.className = 'example-status'
 
-  const download = async () => {
-    const file = await exportDrawio(graph, { states, region })
-    const blob = new Blob([file], { type: 'application/vnd.jgraph.mxfile' })
+  const save = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'teams.drawio'
+    link.download = name
     link.click()
     URL.revokeObjectURL(url)
-    status.textContent = messages.saved(file.split('<mxCell ').length - 1, blob.size)
+    status.textContent = messages.saved(name, blob.size)
   }
+  const drawio = async () => {
+    const file = await exportDrawio(graph, { states, region })
+    save(new Blob([file], { type: 'application/vnd.jgraph.mxfile' }), 'teams.drawio')
+  }
+  const vsdx = async () => save(await exportVsdx(graph, { states, region }), 'teams.vsdx')
 
   const actions = document.createElement('div')
   actions.className = 'example-actions'
   actions.append(
-    button(messages.download, () => void download()),
+    button(messages.drawio, () => void drawio()),
+    button(messages.vsdx, () => void vsdx()),
     button(messages.states(messages.stateNames[states]), (element) => {
       states = stateOrder[(stateOrder.indexOf(states) + 1) % stateOrder.length] ?? 'custom'
       element.textContent = messages.states(messages.stateNames[states])

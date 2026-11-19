@@ -1,6 +1,6 @@
 ---
 title: Export
-description: Save the graph as a PNG image, a standalone SVG document or an editable draw.io diagram.
+description: Save the graph as a PNG image, a standalone SVG document, or an editable draw.io or Visio diagram.
 ---
 
 ## PNG and SVG
@@ -170,7 +170,34 @@ Some looks have no equivalent and are approximated: an edge whose two ends have 
 
 Each cell takes its id from the key of its element (`n:` for a node, `e:` for an edge, with `#` instead of `:` for a number key), so two exports of the same graph line up and a script can find a cell again. The diagram uses the page background of the theme, or none with `background: 'transparent'`.
 
-draw.io itself saves a diagram as a PDF, a PNG, an SVG or a Visio (`.vsdx`) file, from the editor or from the command line of draw.io Desktop, for example `drawio --export --format pdf graph.drawio`. To export many graphs from a script, mount each one in a page of a headless browser, such as one driven by Playwright, call `exportDrawio` there, and write the text it returns: the diagram does not need a GPU.
+draw.io itself saves a diagram as a PDF, a PNG or an SVG file, from the editor or from the command line of draw.io Desktop, for example `drawio --export --format pdf graph.drawio`. To export many graphs from a script, mount each one in a page of a headless browser, such as one driven by Playwright, call `exportDrawio` there, and write the text it returns: the diagram does not need a GPU.
+
+## Visio drawings
+
+`exportVsdx` writes the same diagram as a Visio drawing (`.vsdx`, Visio 2013 and later) and resolves to a `Blob`. It takes the options of `exportDrawio`, with the same region, scale, states and hidden elements, and needs no dependency.
+
+```ts
+import { exportVsdx } from '@bruno00o/graph/export'
+
+download(await exportVsdx(graph), 'graph.vsdx')
+```
+
+One diagram unit is 1/96 inch, so at `zoom: 1` a node 96 world units from another is one inch from it, and the page fits the content. What the drawing holds:
+
+| On screen | In Visio |
+| --- | --- |
+| circle, square, diamond and box nodes | shapes with their own geometry (no masters), with fill, line color, weight, dashes, rounded corners and transparency |
+| node labels | the text of the shape, below, above, left, right or centered through its text block, in a font of the document, with size, weight, color and background color |
+| edges | connectors glued to the whole of their two nodes, with color, width, dashes, dots, arrows at either end, and their label above the middle |
+| curved edges, loops, arcs and bundled paths | connectors through points sampled along the curve |
+| orthogonal routes and waypoints | connectors through their bends |
+| unfolded groups | Visio groups holding their members, drawn behind them |
+
+Moving a node in Visio keeps its edges attached: their ends slide along the outline of the node. The bends of an edge stay where they are on the page, so only the first and last segments follow the node; a curve, written as points, keeps its shape and only its ends move. An edge stays glued to a member inside a group, and moving the group moves its members and their edges.
+
+Labels at the ends of an edge become separate text shapes, which stay in place when a node moves. Pictures are left out, as are halos, flows, badges, hulls, the background grid and the shapes of `shapes()` marks. The page background is a locked rectangle under the drawing, or nothing with `background: 'transparent'`. Each shape keeps the key of its element in a `Key` shape data field. Fonts take the first family of the theme, with Calibri instead of `system-ui` and `sans-serif`.
+
+The parts of the file are compressed with `CompressionStream`, where the browser or Node has it, and stored uncompressed otherwise.
 
 ## Large graphs
 
