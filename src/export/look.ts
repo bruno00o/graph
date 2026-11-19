@@ -24,11 +24,17 @@ function wordFloat(word: number): number {
   return float[0] ?? 0
 }
 
-function resolve(states: StateBuffers, mask: number, look: Look, kind: StateKind): Look {
+function resolve(
+  states: StateBuffers,
+  mask: number,
+  look: Look,
+  kind: StateKind,
+  exclude: number,
+): Look {
   const { numbers, paint, labels } = states
   const base = look.opacity
   let found = 0
-  let rest = (mask | states.others(kind)) >>> 0
+  let rest = ((mask | states.others(kind)) & ~exclude) >>> 0
   while (rest !== 0) {
     const bit = 31 - Math.clz32(rest & -rest)
     rest &= rest - 1
@@ -88,7 +94,12 @@ function resolve(states: StateBuffers, mask: number, look: Look, kind: StateKind
   return look
 }
 
-export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number): Look {
+export function nodeLook(
+  nodes: NodeColumns,
+  states: StateBuffers,
+  index: number,
+  exclude = 0,
+): Look {
   return resolve(
     states,
     states.nodeMask[index] ?? 0,
@@ -106,6 +117,7 @@ export function nodeLook(nodes: NodeColumns, states: StateBuffers, index: number
       flow: 0,
     },
     'nodes',
+    exclude,
   )
 }
 
@@ -132,6 +144,7 @@ export function shapeLook(
       flow: 0,
     },
     'shapes',
+    0,
   )
   look.strokeWidth = shapes.floors.drawn(look.strokeWidth, shapes.slot[index] ?? 0, zoom)
   return look
@@ -155,6 +168,7 @@ export function shapeLabelLook(states: StateBuffers, index: number): Look {
       flow: 0,
     },
     'shapes',
+    0,
   )
 }
 
@@ -174,6 +188,7 @@ export function edgeLine(
   index: number,
   zoom: number,
   mask: number = states.edgeMask[index] ?? 0,
+  exclude = 0,
 ): EdgeLine {
   const probe = resolve(
     states,
@@ -192,6 +207,7 @@ export function edgeLine(
       flow: 0,
     },
     'edges',
+    exclude,
   )
   const ends = edges.ends
   const split = ends !== null && ends.styled[index] === 1
@@ -225,6 +241,7 @@ export function edgeLook(
   index: number,
   zoom: number,
   mask: number = states.edgeMask[index] ?? 0,
+  exclude = 0,
 ): Look {
   const look = resolve(
     states,
@@ -243,6 +260,7 @@ export function edgeLook(
       flow: edges.flow[index] ?? 0,
     },
     'edges',
+    exclude,
   )
   look.strokeWidth = edges.floors.drawn(look.strokeWidth, edges.slot[index] ?? 0, zoom)
   return look

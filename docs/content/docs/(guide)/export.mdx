@@ -1,6 +1,6 @@
 ---
 title: Export
-description: Save the graph as a PNG image or a standalone SVG document.
+description: Save the graph as a PNG image, a standalone SVG document or an editable draw.io diagram.
 ---
 
 ## PNG and SVG
@@ -136,6 +136,42 @@ Images are copied into the document as data URLs, so the file stands alone. Pass
 
 Text uses the font of the theme. A viewer without that font falls back to another one, so labels may be a little wider or narrower than on screen.
 
+## draw.io diagrams
+
+`exportDrawio` writes the graph as a [draw.io](https://www.drawio.com) (diagrams.net) file that stays editable: every node becomes a shape, every edge a connector attached to its two nodes, so moving a node in the editor drags its edges along. It resolves to the text of an uncompressed `.drawio` file with one page.
+
+```ts
+import { exportDrawio } from '@bruno00o/graph/export'
+
+const file = await exportDrawio(graph)
+download(new Blob([file], { type: 'application/vnd.jgraph.mxfile' }), 'graph.drawio')
+```
+
+By default the page frames the whole graph, with a `padding` of 32 units, at one draw.io unit per world unit (`zoom: 1`): a node 100 world units from another is 100 units from it in the editor. Sizes set in screen pixels, such as edge widths, labels and nodes with `units: 'screen'`, keep their size in units whatever the `zoom`. `zoom` scales the diagram, and `size` chooses the zoom that fits a page of that size. On a [map](/docs/map), the world is 512 units wide: pass a `zoom` or a `size` to get a readable page. `region: 'view'` keeps the nodes the view shows, even in part, and the edges between them. Elements hidden by a `hide` state, a [layer](/docs/multilayer), a [zoom range](/docs/zoom) or the [time window](/docs/time) stay out of the file, as on screen; `window` works as for the other exports.
+
+The file keeps the states the definition adds, such as a state that marks the leads of a team, and leaves out the selection, the hover and the focus, whose rings and dimmed `others` would be frozen in the drawing. `states: 'all'` keeps them, as the PNG and the SVG do, and `states: 'none'` keeps no state at all.
+
+What the file holds:
+
+| On screen | In draw.io |
+| --- | --- |
+| circle, square, diamond and box nodes | ellipse, rectangle, rhombus and rounded rectangle of the same size, corner radius included |
+| fill, inner stroke and its width, opacity | fill, line and its width, opacity; the outline stands for the line when the node has no inner stroke |
+| node labels | the text of the shape, with its placement, size, weight, color, font family, second line and background color |
+| pictures | an image shape inside the node, linked to its URL (data URLs are kept), cut to a circle, square or diamond |
+| unfolded groups | containers holding their children, with their box and label; folded groups are ordinary shapes |
+| edges | connectors with color, width, dashes, dots and arrows at either end, and their label |
+| curved parallel edges, loops, great circle arcs, bundled paths | curved connectors through control points |
+| orthogonal routes and waypoints | straight connectors through their bends |
+| labels at the ends of an edge | labels on the connector, near each end |
+| merged edges | one connector for the whole set |
+
+Some looks have no equivalent and are approximated: an edge whose two ends have different colors takes the color, width and dash of its longer end; an image tinted with `color` keeps its own colors; the scale of an image inside its node is kept, its maximum label width is not. Halos, flows, badges, [hulls](/docs/drawing-layers#hulls), the background grid and the [shapes](/docs/shapes) of `shapes()` marks are left out. Colors are those of the current theme, as hex values with an opacity.
+
+Each cell takes its id from the key of its element (`n:` for a node, `e:` for an edge, with `#` instead of `:` for a number key), so two exports of the same graph line up and a script can find a cell again. The diagram uses the page background of the theme, or none with `background: 'transparent'`.
+
+draw.io itself saves a diagram as a PDF, a PNG, an SVG or a Visio (`.vsdx`) file, from the editor or from the command line of draw.io Desktop, for example `drawio --export --format pdf graph.drawio`. To export many graphs from a script, mount each one in a page of a headless browser, such as one driven by Playwright, call `exportDrawio` there, and write the text it returns: the diagram does not need a GPU.
+
 ## Large graphs
 
-Both functions read the scene in a single pass and build their output in memory. On 50,000 nodes and 100,000 edges, an SVG of the view takes about half a second and weighs about 25 MB; a PNG of the view takes about the same time. For very large images, the PNG is encoded strip by strip.
+`exportPng` and `exportSvg` read the scene in a single pass and build their output in memory. On 50,000 nodes and 100,000 edges, an SVG of the view takes about half a second and weighs about 25 MB; a PNG of the view takes about the same time. For very large images, the PNG is encoded strip by strip.

@@ -8,6 +8,8 @@ import type { ContainerFrame, HullInput, LabelMode, Renderer } from '../host/ren
 import { themeColor } from '../theme/tokens'
 import type { TimeWindowInput } from '../types'
 import { GlyphAtlas } from '../webgl/glyph-atlas'
+import { centered, type Diagram, type DiagramFrame, readDiagram } from './diagram'
+import { writeDrawio } from './drawio'
 import { type ExportFrame, exportFrame } from './frame'
 import { frozenContainers, frozenHulls, frozenPositions, withoutDrafts } from './frozen'
 import { fitLabels } from './labels'
@@ -123,6 +125,58 @@ export interface SvgExportOptions extends ExportOptions {
    * @default true
    */
   readonly embedImages?: boolean | undefined
+}
+
+/**
+ * State styles an editable export keeps: `'all'` keeps every state in force, as the SVG does;
+ * `'custom'` keeps the states the definition adds and leaves out `selected`, `hovered` and
+ * `focused`, so the file does not freeze a selection or a hover; `'none'` keeps none. Hidden
+ * elements stay out whatever this option.
+ */
+export type ExportStates = 'all' | 'custom' | 'none'
+
+/** Options of `exportDrawio`. */
+export interface DrawioExportOptions {
+  /**
+   * Part of the graph to export. `'graph'` takes every node shown; `'view'` takes the nodes the
+   * view shows, even in part, and the edges between them.
+   * @default 'graph'
+   */
+  readonly region?: ExportRegion | undefined
+  /**
+   * Scale of the diagram, in draw.io units per world unit. Sizes set in screen pixels, such as
+   * edge widths, labels and nodes with `units: 'screen'`, keep their size in draw.io units. Throws
+   * a `RangeError` with `size`, which sets the zoom itself.
+   * @default 1
+   */
+  readonly zoom?: number | undefined
+  /**
+   * Size of the page, in draw.io units. The zoom is chosen so that the region fits inside it, as
+   * with `exportSvg`. Defaults to the size the region has at its zoom.
+   */
+  readonly size?: ExportSize | undefined
+  /**
+   * Margin around the nodes, edges and labels when `region` is `'graph'`, in draw.io units. Must
+   * be finite, 0 or more.
+   * @default 32
+   */
+  readonly padding?: number | undefined
+  /**
+   * Time window of the export: elements with a `time` are kept only while they exist in it, as on
+   * screen. `null` keeps every element whatever its time. Defaults to the window of the graph.
+   */
+  readonly window?: TimeWindowInput | null | undefined
+  /**
+   * State styles to keep, from `'all'`, `'custom'` and `'none'`.
+   * @default 'custom'
+   */
+  readonly states?: ExportStates | undefined
+  /**
+   * Background of the page, any CSS color resolved with the current theme. `'transparent'` leaves
+   * the page without a background.
+   * @default 'var(--graph-paper)'
+   */
+  readonly background?: string | undefined
 }
 
 interface Prepared {
@@ -423,4 +477,102 @@ export async function exportPng<S extends string>(
   } finally {
     probe.canvas?.renderer.destroy()
   }
+}
+
+function checkStates(states: ExportStates | undefined): ExportStates {
+  if (states === undefined) return 'custom'
+  if (states !== 'all' && states !== 'custom' && states !== 'none') {
+    throw new TypeError(`graph: unknown export states ${String(states)}`)
+  }
+  return states
+}
+
+function checkZoom(zoom: number): number {
+  if (!(zoom > 0) || !Number.isFinite(zoom)) {
+    throw new RangeError('graph: the export zoom must be a positive number')
+  }
+  return zoom
+}
+
+function absoluteUrl(src: string): string {
+  const base = globalThis.document?.baseURI
+  if (!base || src.startsWith('data:')) return src
+  try {
+    return new URL(src, base).href
+  } catch {
+    return src
+  }
+}
+
+/**
+ * Serializes the graph into an uncompressed draw.io (diagrams.net) file, with one page: nodes
+ * become shapes and edges become connectors attached to them, so moving a node in the editor
+ * drags its edges. Unfolded groups become containers holding their children. Colors are those of
+ * the current theme.
+ */
+export async function exportDrawio<S extends string>(
+  graph: GraphInstance<S>,
+  options: DrawioExportOptions = {},
+): Promise<string> {
+  const padding = checkPadding(options.padding)
+  const size = checkSize(options.size)
+  if (size && options.zoom !== undefined) {
+    throw new RangeError('graph: the export takes a size or a zoom, not both')
+  }
+  const states = checkStates(options.states)
+  const snapshot = takeSnapshot(graph)
+  const { scene, view } = snapshot
+  const region = options.region ?? 'graph'
+  const source = {
+    nodes: scene.nodes,
+    edges: scene.edges,
+    layers: scene.layers,
+    positions: snapshot.positions,
+    states: snapshot.states,
+    containers: snapshot.containers,
+    parents: snapshot.parents ?? null,
+    bundles: snapshot.bundles,
+    palette: snapshot.palette,
+    theme: snapshot.theme,
+    window:
+      options.window === undefined
+        ? snapshot.window
+        : timeFilter(readWindow(options.window), snapshot.fade),
+    layerFilter: snapshot.layers,
+    title: snapshot.title,
+    background: snapshot.color(options.background ?? themeColor('paper')),
+    imageUrl: absoluteUrl,
+  }
+  const frameAt = (zoom: number): DiagramFrame => ({
+    region,
+    zoom,
+    padding,
+    view,
+    width: (snapshot.width * zoom) / view.zoom,
+    height: (snapshot.height * zoom) / view.zoom,
+  })
+  const diagramAt = (zoom: number): Diagram => readDiagram(source, frameAt(zoom), states)
+  if (!size) return writeDrawio(diagramAt(checkZoom(options.zoom ?? 1)))
+  const boxWidth = size.width ?? Number.POSITIVE_INFINITY
+  const boxHeight = size.height ?? Number.POSITIVE_INFINITY
+  const zoom =
+    region === 'view'
+      ? view.zoom * Math.min(boxWidth / snapshot.width, boxHeight / snapshot.height)
+      : fitZoom(
+          (at) => {
+            const { width, height } = diagramAt(at)
+            return { view: { x: 0, y: 0, zoom: at }, width, height }
+          },
+          boxWidth,
+          boxHeight,
+          1,
+        )
+  const content = diagramAt(zoom)
+  return writeDrawio(
+    centered(
+      content,
+      size.width ?? Math.max(1, Math.ceil(content.width - 1e-6)),
+      size.height ?? Math.max(1, Math.ceil(content.height - 1e-6)),
+    ),
+  )
 }
