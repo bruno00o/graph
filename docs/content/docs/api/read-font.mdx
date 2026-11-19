@@ -1,0 +1,27 @@
+---
+title: readFont
+description: Read the family and the advance widths of a font file, so that labels fit the font that draws them.
+---
+
+```ts
+import { readFont } from '@bruno00o/graph/headless'
+
+function readFont(bytes: Uint8Array | ArrayBuffer, face?: number): FontFile
+```
+
+Reads a TrueType (`.ttf`) or OpenType (`.otf`) file, or the face of index `face` of a collection (`.ttc`, 0 by default), and returns its family name and a text measure for [`createGraph`](/docs/api/create-graph#text-widths). Pass both: the family to the theme, so that exports name the font, and the widths to `measureText`, so that label boxes are sized for it.
+
+```ts
+const font = readFont(await readFile('fonts/Inter-Regular.ttf'))
+const graph = createGraph({ definition, theme: { font: font.family }, measureText: font.width })
+```
+
+<api-table path="headless/index.ts" name="FontFile" />
+
+```ts
+type TextWidth = (text: string, weight: number, font: string | null) => number
+```
+
+The width is the sum of the advances of the characters, read from the `cmap` (formats 4 and 12), `hmtx`, `hhea` and `head` tables, in em. It ignores kerning and shaping, and the `weight` and `font` arguments: one file is one face, so read the bold file too if bold labels matter, and choose in a function of your own. A character the font lacks counts the advance of its missing glyph.
+
+WOFF and WOFF2 files are not read: decompress them first, or use the TrueType file they come from. A file that is not a font throws a `TypeError`, and a face the collection lacks a `RangeError`.
