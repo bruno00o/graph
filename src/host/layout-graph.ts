@@ -14,15 +14,20 @@ import {
   lineHeight,
   nodeLabelSize,
   plateDrop,
+  platePadX,
   secondaryFactor,
 } from '../core/label-metrics'
+import { labelWidth, primaryWeight, type TextWidth } from '../core/label-width'
 import type { PositionReader } from '../core/positions'
 import type { Key, LayoutGraph, LayoutGroups } from '../types'
 
 const circle = 2
-const characterWidth = 0.6
 
-function labelSpace(nodes: NodeColumns, order: readonly number[]): Float32Array | undefined {
+function labelSpace(
+  nodes: NodeColumns,
+  order: readonly number[],
+  measure: TextWidth,
+): Float32Array | undefined {
   let space: Float32Array | undefined
   for (const index of order) {
     const label = nodes.label[index]
@@ -35,11 +40,6 @@ function labelSpace(nodes: NodeColumns, order: readonly number[]): Float32Array 
     const plated = (nodes.labelBackground[index] ?? noColor) !== noColor
     const drop = plated ? (plateDrop * size) / atlasFontSize : 0
     const height = (lines.length + secondary.length * secondaryFactor) * lineHeight * size
-    let longest = 0
-    for (const line of [...lines, ...secondary]) longest = Math.max(longest, line.length)
-    const limit = nodes.labelMaxWidth[index] ?? 0
-    const wide = longest * characterWidth * size
-    const width = limit > 0 ? Math.min(wide, limit) : wide
     space ??= new Float32Array(nodes.capacity * 4)
     const side =
       placement === placementCodes.top
@@ -49,7 +49,19 @@ function labelSpace(nodes: NodeColumns, order: readonly number[]): Float32Array 
           : placement === placementCodes.bottom
             ? 2
             : 3
-    space[index * 4 + side] = gap + (side % 2 === 0 ? height + drop : width)
+    space[index * 4 + side] =
+      gap +
+      (side % 2 === 0
+        ? height + drop
+        : labelWidth(
+            measure,
+            label,
+            nodes.secondary[index] ?? null,
+            nodes.labelWeight[index] || primaryWeight,
+            nodes.labelFont[index] ?? null,
+            nodes.labelMaxWidth[index] ?? 0,
+            size,
+          ) + (plated ? 2 * platePadX * size : 0))
   }
   return space
 }
@@ -57,6 +69,7 @@ function labelSpace(nodes: NodeColumns, order: readonly number[]): Float32Array 
 export interface LayoutContainers {
   readonly indices: ReadonlySet<number>
   readonly hierarchy: Hierarchy
+  readonly measure: TextWidth
 }
 
 function groupsOf(
@@ -64,7 +77,7 @@ function groupsOf(
   alive: Uint8Array,
   containers: LayoutContainers,
 ): LayoutGroups | undefined {
-  const { indices, hierarchy } = containers
+  const { indices, hierarchy, measure } = containers
   if (indices.size === 0) return undefined
   const capacity = alive.length
   const parent = new Int32Array(capacity).fill(-1)
@@ -93,7 +106,7 @@ function groupsOf(
     padding[index] = nodes.padding[index] ?? 0
     round[index] = nodes.container[index] === circle ? 1 : 0
   }
-  const space = labelSpace(nodes, order)
+  const space = labelSpace(nodes, order, measure)
   return {
     order: Uint32Array.from(order),
     parent,
@@ -122,7 +135,7 @@ function extentsOf(
 }
 
 function heldContainers(alive: Uint8Array, containers: LayoutContainers): LayoutContainers {
-  const { indices, hierarchy } = containers
+  const { indices, hierarchy, measure } = containers
   const held = new Set<number>()
   for (let index = 0; index < alive.length; index++) {
     if (alive[index] !== 1) continue
@@ -131,7 +144,7 @@ function heldContainers(alive: Uint8Array, containers: LayoutContainers): Layout
       above = hierarchy.parent[above] ?? -1
     }
   }
-  return { indices: held, hierarchy }
+  return { indices: held, hierarchy, measure }
 }
 
 export function layoutGraph(

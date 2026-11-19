@@ -15,7 +15,6 @@ export const badgeFont = 0.66
 export const badgeIconWidth = 1.3
 export const badgeTextShift = 0.35
 export const badgeIconGlyph = 16
-export const platePadX = 0.45
 export const plateRadius = 0.25
 export const edgeLabelSize = 11
 export const edgeDescent = 3.6
