@@ -116,7 +116,6 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
       grid: decorations.grid,
       hulls: decorations.hulls,
       containers: projection.active ? containers : null,
-      parents: projection.active ? projection.hierarchy.parent : null,
       bundles: bundles.paths.any ? bundles.paths : null,
       bridges: bridges.active ? bridges.set : null,
       palette: render.paletteColors,

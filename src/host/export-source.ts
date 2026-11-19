@@ -19,7 +19,6 @@ export interface GraphSnapshot {
   readonly grid: GridInput | null
   readonly hulls: HullInput
   readonly containers: ContainerFrame | null
-  readonly parents?: Int32Array | null
   readonly bundles: EdgePaths | null
   readonly bridges?: BridgeSet | null
   readonly palette: Uint8Array

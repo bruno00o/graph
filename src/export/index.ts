@@ -1,3 +1,4 @@
+import type { NodeColumns } from '../core/columns'
 import type { Positions } from '../core/positions'
 import { readWindow, timeFilter } from '../core/time-range'
 import { detailStep, type Sight } from '../core/visibility'
@@ -6,7 +7,7 @@ import { type GraphSnapshot, takeSnapshot } from '../host/export-source'
 import type { GraphInstance } from '../host/mount-graph'
 import type { ContainerFrame, HullInput, LabelMode, Renderer } from '../host/renderer'
 import { themeColor } from '../theme/tokens'
-import type { TimeWindowInput } from '../types'
+import type { Key, TimeWindowInput } from '../types'
 import { GlyphAtlas } from '../webgl/glyph-atlas'
 import { centered, type Diagram, type DiagramFrame, readDiagram } from './diagram'
 import { writeDrawio } from './drawio'
@@ -494,6 +495,20 @@ function checkZoom(zoom: number): number {
   return zoom
 }
 
+function parentsOf<S extends string>(graph: GraphInstance<S>, nodes: NodeColumns): Int32Array {
+  const indices = new Map<Key, number>()
+  for (let index = 0; index < nodes.capacity; index++) {
+    const key = nodes.keys[index]
+    if (nodes.alive[index] === 1 && key !== undefined) indices.set(key, index)
+  }
+  const parents = new Int32Array(nodes.capacity).fill(-1)
+  for (const [key, index] of indices) {
+    const parent = graph.groups.parent(key)
+    if (parent !== undefined) parents[index] = indices.get(parent) ?? -1
+  }
+  return parents
+}
+
 function absoluteUrl(src: string): string {
   const base = globalThis.document?.baseURI
   if (!base || src.startsWith('data:')) return src
@@ -530,7 +545,7 @@ export async function exportDrawio<S extends string>(
     positions: snapshot.positions,
     states: snapshot.states,
     containers: snapshot.containers,
-    parents: snapshot.parents ?? null,
+    parents: snapshot.containers ? parentsOf(graph, scene.nodes) : null,
     bundles: snapshot.bundles,
     palette: snapshot.palette,
     theme: snapshot.theme,
