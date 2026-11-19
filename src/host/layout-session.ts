@@ -323,7 +323,11 @@ export class LayoutHost {
           ? !keep.has(index) && motion.owned(index) === 0
           : keep.has(index) || motion.owned(index) === 0),
       (key) => model.node(key)?.datum,
-      { indices: projection.containers, hierarchy: projection.hierarchy },
+      {
+        indices: projection.containers,
+        hierarchy: projection.hierarchy,
+        measure: scene.textWidth,
+      },
     )
     moving.forEach((index, at) => {
       graph.xy[index * 2] = to[at * 2] ?? 0
@@ -684,7 +688,11 @@ export class LayoutHost {
       (index) => movable(index) && !dragged?.has(index) && !spread.owns(index),
       (key) => model.node(key)?.datum,
       projection.active
-        ? { indices: projection.containers, hierarchy: projection.hierarchy }
+        ? {
+            indices: projection.containers,
+            hierarchy: projection.hierarchy,
+            measure: scene.textWidth,
+          }
         : undefined,
       scope ?? undefined,
     )

@@ -1,6 +1,6 @@
 import { noColor } from '../core/columns'
 import { globeScale, globeScreen } from '../core/globe'
-import { atlasFontSize, nodeLabelSize, plateDrop } from '../core/label-metrics'
+import { atlasFontSize, nodeLabelSize, plateDrop, platePadX } from '../core/label-metrics'
 import { primaryWeight } from '../core/label-width'
 import {
   isDrawn,
@@ -25,7 +25,6 @@ import {
   lifted,
   TextExtents,
 } from '../webgl/label-levels'
-import { platePadX } from '../webgl/shaders'
 import { shapeAnchor } from './anchor'
 import { metersToWorld, wrapMargin, wrapText } from './text'
 

@@ -19,6 +19,7 @@ import {
   lineHeight,
   nodeLabelSize,
   plateDrop,
+  platePadX,
   secondaryFactor,
 } from '../core/label-metrics'
 import { primaryWeight, secondaryWeight } from '../core/label-width'
@@ -62,7 +63,6 @@ import {
   endLabelGap,
   endLabelWidthUnit,
   insideGlyph,
-  platePadX,
   uprightSlack,
 } from './shaders'
 
