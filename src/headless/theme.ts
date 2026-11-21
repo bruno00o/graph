@@ -1,3 +1,4 @@
+import { dev } from '../dev'
 import type { ResolvedTheme, Rgba } from '../dom/theme'
 import type { ColorSource } from '../host/environment'
 import { themeColor } from '../theme/tokens'
@@ -20,7 +21,9 @@ export class ScriptTheme implements ColorSource {
   color(css: string): Rgba {
     const known = this.#cache.get(css)
     if (known) return known
-    const color = resolveColor(css, this.#tokens) ?? black
+    const resolved = resolveColor(css, this.#tokens)
+    if (resolved === null && dev) console.warn(`createGraph: cannot read the color "${css}"`)
+    const color = resolved ?? black
     this.#cache.set(css, color)
     return color
   }

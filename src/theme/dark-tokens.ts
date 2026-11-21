@@ -1,4 +1,6 @@
-export const darkTheme: Readonly<Record<string, string>> = {
+import type { GraphToken } from './tokens'
+
+export const darkTheme: Readonly<Record<GraphToken, string>> = {
   paper: '#0f1113',
   'paper-raised': '#171a1d',
   grid: '#1e3233',

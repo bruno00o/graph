@@ -120,4 +120,25 @@ describe('default pixel ratio of a PNG export in software', () => {
     await exportPng(shown, { region: 'view', pixelRatio: 3 })
     expect(exported[0]?.pixelRatio).toBe(3)
   })
+
+  it("takes 'device' as the device ratio, even in software", async () => {
+    const shown = mount(false)
+    exported.length = 0
+    await exportPng(shown, { region: 'view', pixelRatio: 'device' })
+    expect(exported[0]?.pixelRatio).toBe(2)
+  })
+
+  it("takes 'auto' as the device ratio lowered to 1 in software", async () => {
+    const shown = mount(true)
+    exported.length = 0
+    await exportPng(shown, { region: 'view', pixelRatio: 'auto' })
+    expect(exported[0]?.pixelRatio).toBe(1)
+  })
+
+  it('refuses a ratio that is not a number or a known word', async () => {
+    const shown = mount(false)
+    await expect(exportPng(shown, { pixelRatio: 'sharp' as never })).rejects.toThrow(TypeError)
+    await expect(exportPng(shown, { pixelRatio: 0 })).rejects.toThrow(RangeError)
+    await expect(exportPng(shown, { pixelRatio: Number.NaN })).rejects.toThrow(RangeError)
+  })
 })

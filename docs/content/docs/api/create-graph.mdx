@@ -56,7 +56,7 @@ Without a page, the graph works on the calling thread and keeps no frame loop:
 
 ## Theme
 
-`theme` takes `'light'`, `'dark'`, or tokens of your own over one of them. Token names are those of the [theme stylesheet](/docs/api/theme-tokens) without the `--graph-` prefix. Colors in the definition, such as `var(--graph-cat-3)` or `color-mix(in srgb, var(--graph-accent) 40%, white)`, resolve against these tokens as a browser would.
+`theme` takes `'light'`, `'dark'`, or tokens of your own over one of them. Token names are those of the [theme stylesheet](/docs/api/theme-tokens) without the `--graph-` prefix, and `GraphToken` is their union: a name that is not one does not compile. In development, `createGraph` also warns once about a name that is not a token and about a color it cannot read, which is drawn black. Colors in the definition, such as `var(--graph-cat-3)` or `color-mix(in srgb, var(--graph-accent) 40%, white)`, resolve against these tokens as a browser would.
 
 <api-table path="headless/index.ts" name="GraphThemeOptions" />
 

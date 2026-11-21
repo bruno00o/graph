@@ -60,7 +60,7 @@ function worldToGeo(point: Point): GeoPoint
 
 ## Errors
 
-- `exportMapPng` throws an `Error` for a destroyed graph or a graph that is not on a map, and a `RangeError` for a `pixelRatio` that is not a positive number or a map smaller than one pixel.
+- `exportMapPng` throws an `Error` for a destroyed graph or a graph that is not on a map, and a `RangeError` for a `pixelRatio` number that is not positive or a map smaller than one pixel.
 - `exportMapPng` rejects when the hidden map fails to load its style. Tiles that are still missing after `timeout` are left out of the image.
 
 ## Behavior

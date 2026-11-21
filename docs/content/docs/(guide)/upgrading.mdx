@@ -142,6 +142,34 @@ if (!graph.store.state.drawable) showFallback()
 
 `GraphState` gains the `drawable` field, so an object built by hand as a `GraphState` needs it. `GraphRendering` of the devtools gains `'unavailable'`: a `renderingName` formatter that covers every case needs a branch for it. `exportPng` without WebGL2 now rejects with a `DOMException` named `NotSupportedError` instead of an `Error`.
 
+### `readFont` takes an options object
+
+The face of a collection is now an option, so that more options can join it:
+
+```ts
+// Before
+const font = readFont(bytes, 2)
+
+// After
+const font = readFont(bytes, { face: 2 })
+```
+
+### Theme colors of `createGraph` are typed by token
+
+`GraphThemeOptions.colors` is now `Partial<Record<GraphToken, string>>`, where [`GraphToken`](/docs/api/create-graph#theme) is the union of the token names of the theme stylesheet, without the `--graph-` prefix. A name that is not a token no longer compiles, and in development `createGraph` warns about it and about a color it cannot read, which is drawn black.
+
+```ts
+// Before: compiled, and the typo was ignored
+createGraph({ definition, theme: { colors: { acent: '#7a3ff2' } } })
+
+// After
+createGraph({ definition, theme: { colors: { accent: '#7a3ff2' } } })
+```
+
+### `pixelRatio` of the PNG exports takes `'auto'` and `'device'`
+
+The `pixelRatio` of `exportPng` and `exportMapPng` has the type of the `pixelRatio` of `defineGraph`, `'auto' | 'device' | number`, and a number keeps its meaning. A value that is neither throws a `TypeError`. The default, the ratio the graph draws at, does not change. A type that held the option as a `number` must now accept `PixelRatioOption`.
+
 ## 0.27.0
 
 ### The legend lists shapes

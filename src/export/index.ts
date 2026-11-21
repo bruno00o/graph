@@ -7,7 +7,7 @@ import { type GraphSnapshot, onPage, takeSnapshot } from '../host/export-source'
 import type { GraphCore, GraphInstance } from '../host/mount-graph'
 import type { ContainerFrame, HullInput, LabelMode, Renderer } from '../host/renderer'
 import { themeColor } from '../theme/tokens'
-import type { Key, TimeWindowInput } from '../types'
+import type { Key, PixelRatioOption, TimeWindowInput } from '../types'
 import { GlyphAtlas } from '../webgl/glyph-atlas'
 import type { TextMeasure } from '../webgl/label-layer'
 import { centered, type Diagram, type DiagramFrame, readDiagram } from './diagram'
@@ -16,6 +16,7 @@ import { type ExportFrame, exportFrame } from './frame'
 import { frozenContainers, frozenHulls, frozenPositions, withoutDrafts } from './frozen'
 import { fitLabels } from './labels'
 import { openCanvas, type PngCanvas, renderPng } from './png'
+import { exportRatio } from './ratio'
 import { checkSize, fitZoom } from './size'
 import { type SvgImage, writeSvg } from './svg'
 import { writeVsdx } from './vsdx'
@@ -23,7 +24,8 @@ import { widthMeasure } from './width-measure'
 
 /**
  * Part of the graph an export covers: `'view'` is what the graph shows now, `'graph'` frames every
- * node, with the labels, curved edges and hulls that reach past them.
+ * node and shape, with the labels, the curved edges (parallel edges, loops and great circles), the
+ * bundled edges, the edges with waypoints and the hulls that reach past them.
  */
 export type ExportRegion = 'view' | 'graph'
 
@@ -60,7 +62,7 @@ export interface ExportOptions {
   readonly zoom?: number | undefined
   /**
    * Exact size of the image, in pixels. The zoom is chosen so that the region fits inside it: with
-   * `region: 'graph'`, the nodes, labels, curved edges and hulls and the `padding` around them; with
+   * `region: 'graph'`, what that region frames and the `padding` around it; with
    * `region: 'view'`, the whole area the view shows, so a different aspect shows more of the
    * graph around it. A PNG has this size in pixels whatever `pixelRatio`, which keeps its meaning
    * of image pixels per CSS pixel: labels and edge widths are drawn at their CSS size times it,
@@ -114,11 +116,15 @@ export interface ExportOptions {
 /** Options of `exportPng`. */
 export interface PngExportOptions extends ExportOptions {
   /**
-   * Image pixels per CSS pixel. Large images are drawn in tiles, so the size is bounded by memory,
-   * not by the GPU. Defaults to the ratio the graph draws at: the device pixel ratio, or the
-   * `pixelRatio` of the definition, which `'auto'` lowers to 1 when WebGL runs in software.
+   * Image pixels per CSS pixel, with the values of the `pixelRatio` of `defineGraph`: `'auto'` is
+   * the device pixel ratio, lowered to 1 when WebGL runs in software; `'device'` is the device
+   * pixel ratio everywhere; a number above 0 sets the ratio. Any other value throws: a `TypeError`
+   * for a value that is not a number, a `RangeError` for a number that is not finite or not above
+   * 0. Large images are drawn in tiles, so the size is bounded by memory, not by the GPU, and the
+   * drawing buffer limits of the device do not cap the ratio. Defaults to the ratio the graph draws
+   * at: the `pixelRatio` of its definition, capped by those limits.
    */
-  readonly pixelRatio?: number | undefined
+  readonly pixelRatio?: PixelRatioOption | undefined
 }
 
 /** An image as `exportSvg` writes it, given by its `images` option. */
@@ -217,13 +223,6 @@ interface Prepared {
 
 function softwareOf(renderer: Renderer): boolean {
   return renderer.limits?.().software ?? false
-}
-
-function checkRatio(pixelRatio: number): number {
-  if (!(pixelRatio > 0) || !Number.isFinite(pixelRatio)) {
-    throw new RangeError('graph: the pixel ratio must be a positive number')
-  }
-  return pixelRatio
 }
 
 function checkPadding(padding: number | undefined): number {
@@ -501,11 +500,15 @@ export async function exportPng<S extends string>(
   const probe: { canvas: PngCanvas | null } = { canvas: null }
   try {
     const prepared = await prepare(graph, options, (taken) => {
-      if (options.pixelRatio !== undefined) return checkRatio(options.pixelRatio)
-      if (taken.software !== null) return taken.pixelRatio
+      const option = options.pixelRatio
+      if (option !== undefined && option !== 'auto') return exportRatio(option, false)
+      if (taken.software !== null) {
+        return option === undefined ? taken.pixelRatio : exportRatio(option, taken.software)
+      }
       const opened = openCanvas(taken)
       probe.canvas = opened
-      return taken.ratioFor(softwareOf(opened.renderer))
+      const software = softwareOf(opened.renderer)
+      return option === undefined ? taken.ratioFor(software) : exportRatio(option, software)
     })
     const { snapshot, frame, positions, containers, hulls } = prepared
     const held = (taken: GraphSnapshot): GraphSnapshot => ({

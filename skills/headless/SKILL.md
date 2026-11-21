@@ -105,11 +105,11 @@ Result: an SVG 1,600 pixels wide, framed on the whole graph, and the PNG resvg d
 | Option | Meaning | Default |
 | --- | --- | --- |
 | `size` | `{ width, height }` in CSS pixels: `pick`, `view.toScreen`, `view.fit` and the first fit work on it, and `update({ size })` changes it | 1,024 x 768 |
-| `theme` | `'light'`, `'dark'`, or `{ base, colors, font }`: tokens by name without `--graph-`, over a base | `'light'` |
+| `theme` | `'light'`, `'dark'`, or `{ base, colors, font }`: `colors` takes `GraphToken` names without `--graph-`, over a base | `'light'` |
 | `measureText` | `(text, weight, font) => width in em`, for label boxes, the choice of labels and the room a layout leaves for labels | Arial advance widths |
 | `title` | Title written into exports | none |
 
-A `size` that is not finite and above 0 throws a `RangeError`, at creation and in `update`. `theme` resolves `var(--graph-cat-3)`, `color-mix(in srgb, …)`, hex, names, `rgb()` and `hsl()` in your marks as a browser would, against the tokens of the theme; a token you leave out comes from the base.
+A `size` that is not finite and above 0 throws a `RangeError`, at creation and in `update`. `theme` resolves `var(--graph-cat-3)`, `color-mix(in srgb, …)`, hex, names, `rgb()` and `hsl()` in your marks as a browser would, against the tokens of the theme; a token you leave out comes from the base. A color name that is not a `GraphToken` does not compile, and in development a name that is not a token and a color that cannot be read (drawn black) each warn.
 
 ### Wait with `settled()`
 
@@ -146,7 +146,7 @@ graph.destroy()
 
 Label boxes, plates, cut labels, the choice of labels shown, the room `layers` keeps on the left and right of group containers and the bounds of the diagram exports all depend on the width of the text, which nothing measures without a page. By default the graph uses the advance widths of Arial (Liberation Sans and Helvetica share them) for Latin letters, digits and signs, 1 em for wide CJK characters, 0.5 em for the rest, and counts bold 6 % wider. The default font family is `Arial, "Liberation Sans", Helvetica, sans-serif`.
 
-For text drawn in another font, `readFont(bytes, face?)` reads a TrueType or OpenType file (a `.ttc` takes the index `face`, 0 by default) and returns `{ family, width }`. Pass the family to `theme.font` and the width to `measureText`, and give the same file to the rasterizer: the text it draws then has the width the graph made room for. Measured with DejaVu Sans drawn by resvg, the default widths fall short of the drawn text by 11 % on the median (up to 20 %); the widths of the file are within 1 % for nine labels in ten and 5 % at most, mostly kerning, which `readFont` leaves out.
+For text drawn in another font, `readFont(bytes, { face })` reads a TrueType or OpenType file (a `.ttc` takes the index `face`, 0 by default) and returns `{ family, width }`. Pass the family to `theme.font` and the width to `measureText`, and give the same file to the rasterizer: the text it draws then has the width the graph made room for. Measured with DejaVu Sans drawn by resvg, the default widths fall short of the drawn text by 11 % on the median (up to 20 %); the widths of the file are within 1 % for nine labels in ten and 5 % at most, mostly kerning, which `readFont` leaves out.
 
 - One file is one face. Labels are weight 500 by default, which resvg takes from the regular face when no medium one is loaded. For bold labels, load the bold file in resvg too, and write a `measureText` of your own that picks the widths of each file by its `weight` argument.
 - WOFF and WOFF2 are not read: use the TrueType file they come from. A file that is not a font, a truncated one, or one with no horizontal metrics throws a `TypeError` whose message starts with `readFont:`; a `face` the collection lacks throws a `RangeError`. A font that `readFont` returns never throws while it measures.

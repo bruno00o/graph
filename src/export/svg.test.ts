@@ -19,7 +19,7 @@ import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
 import { resolvedOf } from '../resolved-definition'
 import { shapes } from '../shapes'
-import { lightTheme } from '../theme/tokens'
+import { lightTokens } from '../theme/tokens'
 import type {
   BridgeShape,
   EdgeOptions,
@@ -57,7 +57,7 @@ type Link = {
 const tokenPattern = /^var\(--graph-([a-z0-9-]+)\)$/
 
 function rgba(css: string): [number, number, number, number] {
-  const hex = css.replace(tokenPattern, (_, name: string) => lightTheme[name] ?? '#000000')
+  const hex = css.replace(tokenPattern, (_, name: string) => lightTokens[name] ?? '#000000')
   const digits = hex.slice(1)
   const channel = (at: number) => Number.parseInt(digits.slice(at, at + 2), 16)
   return [channel(0), channel(2), channel(4), digits.length === 8 ? channel(6) : 255]

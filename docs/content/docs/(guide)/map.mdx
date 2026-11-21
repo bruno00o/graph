@@ -422,7 +422,7 @@ import { exportMapPng } from '@bruno00o/graph/map'
 const png = await exportMapPng(graph, { pixelRatio: 2 })
 ```
 
-`badges: false` leaves the badges of the nodes out. The image has the size of the map times `pixelRatio`: the exact `size` of `exportPng` does not apply, because the map draws the area its camera shows.
+`badges: false` leaves the badges of the nodes out. The image has the size of the map times `pixelRatio`, which takes `'auto'`, `'device'` or a number as in `exportPng` and defaults to the pixel ratio of the map: the exact `size` of `exportPng` does not apply, because the map draws the area its camera shows.
 
 The attribution is the text the map shows, or else the attribution of its sources. Pass `attribution` to write your own. On the globe, the image shows the globe as on screen. `exportPng` and `exportSvg` from [`@bruno00o/graph/export`](/docs/export) draw the graph alone, without the map: `exportPng` follows the globe for the region on screen, and `exportSvg` always draws the flat map.
 
