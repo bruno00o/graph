@@ -6,6 +6,7 @@ import { showcases } from '../showcase/catalog'
 import { changelog, npmPackage, repository, version } from '../site'
 import { absoluteUrl, cleaned, siteOrigin } from './agent-text'
 import { markdownDocs } from './markdown-docs'
+import { pageUrl } from './seo'
 import { source } from './source'
 
 type DocsPage = ReturnType<typeof source.getPages>[number]
@@ -18,6 +19,7 @@ interface Section {
 export const markdownType = 'text/markdown; charset=utf-8'
 export const textType = 'text/plain; charset=utf-8'
 export const jsonType = 'application/json; charset=utf-8'
+export const xmlType = 'application/xml; charset=utf-8'
 
 const origin = siteOrigin()
 const entryPoint = '@bruno00o/graph'
@@ -143,6 +145,37 @@ export async function llmsFull(): Promise<string> {
   const head = [`# ${messages.siteTitle}`, '', `> ${await summaryOf()}`].join('\n')
   const pages = await Promise.all(docsPages().map((page) => pageMarkdown(page)))
   return `${[head, ...pages.map((page) => page.trimEnd())].join('\n\n')}\n`
+}
+
+function escaped(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+const topPages = ['/', '/examples', '/showcase', '/benchmark'] as const
+
+export function sitemapPaths(): string[] {
+  return [
+    ...topPages,
+    ...source.getPages().map((page) => page.url),
+    ...examples.map((example) => `/examples/${example.slug}`),
+    ...showcases.map((app) => `/showcase/${app.slug}`),
+  ]
+}
+
+export function sitemap(): string {
+  const urls = sitemapPaths().map((path) => `  <url><loc>${escaped(pageUrl(path))}</loc></url>`)
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...urls,
+    '</urlset>',
+    '',
+  ].join('\n')
 }
 
 export interface ArdEntry {

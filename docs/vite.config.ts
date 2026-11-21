@@ -1,10 +1,10 @@
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import react from '@vitejs/plugin-react'
 import { fumadocsMdx } from 'fumadocs-mdx/vite'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 
 const library = resolve(import.meta.dirname, '../src')
 const { DOCS_BASE: requestedBase = '/' } = process.env
@@ -24,6 +24,35 @@ function markdownPages(directory = content, parents: string[] = []): { path: str
     const slugs = name === 'index' ? parents : [...parents, name]
     return [{ path: slugs.length === 0 ? '/docs/index.md' : `/docs/${slugs.join('/')}.md` }]
   })
+}
+
+function previewThumbnails(): Plugin {
+  const folders = ['examples', 'showcase'] as const
+  return {
+    name: 'preview-thumbnails',
+    apply: 'build',
+    applyToEnvironment: (environment) => environment.name === 'client',
+    async generateBundle() {
+      const { default: sharp } = await import('sharp')
+      const files = folders.flatMap((folder) => {
+        const directory = resolve(import.meta.dirname, 'src', folder)
+        return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+          const file = join(directory, entry.name, 'thumbnail.webp')
+          return entry.isDirectory() && existsSync(file)
+            ? [{ file, name: `og/${folder}/${entry.name}.png` }]
+            : []
+        })
+      })
+      const images = await Promise.all(
+        files.map(({ file }) =>
+          sharp(readFileSync(file)).png({ compressionLevel: 9, palette: true }).toBuffer(),
+        ),
+      )
+      files.forEach(({ name }, index) => {
+        this.emitFile({ type: 'asset', fileName: name, source: images[index] as Buffer })
+      })
+    },
+  }
 }
 
 export default defineConfig({
@@ -83,6 +112,7 @@ export default defineConfig({
   build: { target: 'es2023' },
   plugins: [
     fumadocsMdx(),
+    previewThumbnails(),
     tailwindcss(),
     tanstackStart({
       prerender: { enabled: true, crawlLinks: true, failOnError: true },
@@ -91,6 +121,7 @@ export default defineConfig({
         { path: '/llms.txt' },
         { path: '/llms-full.txt' },
         { path: '/ard.json' },
+        { path: '/sitemap.xml' },
         ...markdownPages(),
         { path: '/not-found', prerender: { outputPath: '/404.html', autoSubfolderIndex: false } },
       ],

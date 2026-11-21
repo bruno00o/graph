@@ -360,6 +360,189 @@ function checkAgentFiles() {
   return count + markdown.length + 3
 }
 
+function decoded(text) {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+function headOf(html) {
+  const end = html.indexOf('</head>')
+  return end === -1 ? html : html.slice(0, end)
+}
+
+function attributesOf(tag) {
+  const found = {}
+  for (const [, name, value] of tag.matchAll(/([\w:-]+)="([^"]*)"/g)) found[name] = decoded(value)
+  return found
+}
+
+function metaOf(head) {
+  const found = new Map()
+  for (const [tag] of head.matchAll(/<meta\b[^>]*>/g)) {
+    const attributes = attributesOf(tag)
+    const key = attributes.property ?? attributes.name
+    if (key === undefined) continue
+    found.set(key, [...(found.get(key) ?? []), attributes.content ?? ''])
+  }
+  return found
+}
+
+function linksOf(head, rel) {
+  return [...head.matchAll(/<link\b[^>]*>/g)]
+    .map(([tag]) => attributesOf(tag))
+    .filter((attributes) => attributes.rel === rel)
+}
+
+function dataOf(where, head) {
+  const nodes = []
+  for (const [, text = ''] of head.matchAll(
+    /<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g,
+  )) {
+    try {
+      const data = JSON.parse(text)
+      nodes.push(...(Array.isArray(data['@graph']) ? data['@graph'] : [data]))
+    } catch (error) {
+      fail(where, `JSON-LD does not parse: ${error.message}`)
+    }
+  }
+  return nodes
+}
+
+function canonicalOf(path) {
+  return `${siteOrigin}${path.endsWith('/') ? path : `${path}/`}`
+}
+
+function checkStructuredData(where, path, head, canonical) {
+  const types = new Set()
+  const nodes = dataOf(where, head)
+  for (const node of nodes) {
+    const kinds = Array.isArray(node['@type']) ? node['@type'] : [node['@type']]
+    for (const kind of kinds) types.add(kind)
+  }
+  const docs = path.startsWith(`${base}docs/`) || path === `${base}docs`
+  const required =
+    path === base
+      ? ['WebSite', 'SoftwareSourceCode']
+      : docs
+        ? ['TechArticle', 'BreadcrumbList']
+        : []
+  for (const kind of required) {
+    if (!types.has(kind)) fail(where, `no ${kind} in the JSON-LD`)
+  }
+  if (path === base) {
+    const code = nodes.find((node) => node['@type'] === 'SoftwareSourceCode')
+    if (code && (!code.codeRepository || !code.license || !code.name)) {
+      fail(where, 'SoftwareSourceCode lacks name, codeRepository or license')
+    }
+  }
+  const list = nodes.find((node) => node['@type'] === 'BreadcrumbList')
+  if (list) {
+    const items = list.itemListElement ?? []
+    if (items.length < 2) fail(where, 'the breadcrumb has less than two items')
+    items.forEach((item, index) => {
+      if (item.position !== index + 1 || !item.name || !item.item) {
+        fail(where, `breadcrumb item ${index + 1} is malformed`)
+      }
+    })
+    if (items.at(-1)?.item !== canonical) fail(where, 'the breadcrumb does not end on the page')
+  }
+  const article = nodes.find((node) => node['@type'] === 'TechArticle')
+  if (article && (article.url !== canonical || !article.headline || !article.description)) {
+    fail(where, 'TechArticle lacks headline or description, or its url is not the canonical')
+  }
+}
+
+function checkSeo() {
+  const titles = new Map()
+  const pages = new Set()
+  let count = 0
+  for (const file of htmlFiles(docsSite)) {
+    const path = urlOf(file)
+    const name = relative(docsSite, file).split(sep).join('/')
+    const head = headOf(readFileSync(file, 'utf8'))
+    const meta = metaOf(head)
+    const one = (key) => meta.get(key)?.[0] ?? ''
+    if (path === null) {
+      if (!/noindex/.test(one('robots'))) fail(name, 'the not-found page is not noindex')
+      if (linksOf(head, 'canonical').length > 0) fail(name, 'the not-found page has a canonical')
+      continue
+    }
+    count++
+    const where = path
+    const canonical = canonicalOf(path)
+    pages.add(canonical)
+    if (/noindex/.test(one('robots'))) fail(where, 'a page of the sitemap is noindex')
+    const title = decoded(/<title>([\s\S]*?)<\/title>/.exec(head)?.[1] ?? '').trim()
+    if (title === '') fail(where, 'no title')
+    else if (titles.has(title)) fail(where, `same title as ${titles.get(title)}: ${title}`)
+    else titles.set(title, where)
+    const description = one('description').trim()
+    if (description === '') fail(where, 'no description')
+    const canonicals = linksOf(head, 'canonical')
+    if (canonicals.length !== 1) fail(where, `${canonicals.length} canonical links`)
+    else if (canonicals[0].href !== canonical) {
+      fail(where, `canonical ${canonicals[0].href} instead of ${canonical}`)
+    }
+    const expected = {
+      'og:title': title,
+      'og:description': description,
+      'og:url': canonical,
+      'twitter:title': title,
+      'twitter:description': description,
+    }
+    for (const [key, value] of Object.entries(expected)) {
+      const values = meta.get(key) ?? []
+      if (values.length !== 1) fail(where, `${values.length} ${key} tags`)
+      else if (values[0] !== value)
+        fail(where, `${key} is not the ${key.split(':')[1]} of the page`)
+    }
+    for (const key of ['og:type', 'og:site_name', 'twitter:card']) {
+      if ((meta.get(key) ?? []).length !== 1) fail(where, `no single ${key}`)
+    }
+    const image = one('og:image')
+    const needsImage = /^examples\/[^/]+$|^showcase\/[^/]+$/.test(path.slice(base.length))
+    if (needsImage && image === '') fail(where, 'no og:image')
+    if (image !== '') {
+      if (one('twitter:image') !== image) fail(where, 'twitter:image differs from og:image')
+      if (one('twitter:card') !== 'summary_large_image') fail(where, 'twitter:card is not large')
+      if (!image.startsWith(`${siteOrigin}${base}`)) fail(where, `og:image is not under the site`)
+      else {
+        const found = resolveSite(image.slice(siteOrigin.length))
+        if (found.status !== 200 || !found.file?.endsWith('.png')) {
+          fail(where, `og:image does not resolve to a PNG: ${image}`)
+        }
+      }
+      for (const key of ['og:image:width', 'og:image:height', 'og:image:alt']) {
+        if (one(key) === '') fail(where, `no ${key}`)
+      }
+    } else if (one('twitter:card') !== 'summary') {
+      fail(where, 'twitter:card should be summary without an image')
+    }
+    checkStructuredData(where, path, head, canonical)
+  }
+  const sitemap = readSite('sitemap.xml', 'sitemap.xml')
+  let listed = 0
+  if (sitemap !== null) {
+    const locs = [...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(([, loc]) => decoded(loc))
+    listed = locs.length
+    if (!sitemap.includes('http://www.sitemaps.org/schemas/sitemap/0.9')) {
+      fail('sitemap.xml', 'no sitemap namespace')
+    }
+    if (new Set(locs).size !== locs.length) fail('sitemap.xml', 'duplicate addresses')
+    for (const loc of locs) {
+      if (!pages.has(loc)) fail('sitemap.xml', `lists a page that is not prerendered: ${loc}`)
+    }
+    for (const page of pages) {
+      if (!locs.includes(page)) fail('sitemap.xml', `misses ${page}`)
+    }
+  }
+  return { count, listed }
+}
+
 function webToolsBrowser(flag) {
   return chromium.launch({
     args: [...browserArgs('chromium', options.software), ...(flag ? [flag] : [])],
@@ -612,6 +795,7 @@ try {
   await checkMissing(browser, origin, seen)
   const links = checkLinks(origin, seen)
   const agentChecks = checkAgentFiles()
+  const seo = checkSeo()
   await checkWithoutWebTools(browser, origin)
   await checkWebTools(origin)
   const seconds = Math.round((performance.now() - started) / 1000)
@@ -619,6 +803,7 @@ try {
     `${entries.length} pages and ${links} local links checked under ${base} in ${seconds} s`,
   )
   console.log(`${agentChecks} links and files of llms.txt, ard.json and the Markdown pages checked`)
+  console.log(`${seo.count} pages checked for their head, ${seo.listed} addresses in sitemap.xml`)
 } finally {
   await browser.close()
   server.close()

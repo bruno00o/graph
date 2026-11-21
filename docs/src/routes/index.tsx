@@ -15,6 +15,8 @@ import {
 } from '../home/figures'
 import { describeReact, describeVanilla, labelsSnippet, reactSnippet } from '../home/snippets'
 import { homeOptions } from '../lib/layout'
+import { previewImage } from '../lib/og'
+import { pageHead, siteData } from '../lib/seo'
 import { formatNumber, messages } from '../messages'
 import { benchmark } from '../site'
 
@@ -29,6 +31,14 @@ const LayoutGraph = lazy(() =>
 )
 
 export const Route = createFileRoute('/')({
+  head: () =>
+    pageHead({
+      path: '/',
+      title: messages.seo.homeTitle,
+      description: messages.siteDescription,
+      image: previewImage('/', false),
+      data: [siteData()],
+    }),
   component: Home,
 })
 

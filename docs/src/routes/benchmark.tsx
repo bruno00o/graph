@@ -4,7 +4,9 @@ import type { JSX } from 'react'
 import { SiteFooter } from '../components/footer'
 import { mdxComponents } from '../components/mdx'
 import { homeOptions } from '../lib/layout'
+import { previewImage } from '../lib/og'
 import { pages } from '../lib/pages'
+import { pageHead } from '../lib/seo'
 import { messages } from '../messages'
 
 const path = 'benchmark.mdx'
@@ -15,14 +17,15 @@ export const Route = createFileRoute('/benchmark')({
     if (!page) throw notFound()
     return { title: page.title, description: page.description ?? '' }
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: messages.pageTitle(loaderData.title) },
-          { name: 'description', content: loaderData.description },
-        ]
-      : [],
-  }),
+  head: ({ loaderData }) =>
+    loaderData
+      ? pageHead({
+          path: '/benchmark',
+          title: messages.pageTitle(loaderData.title),
+          description: loaderData.description,
+          image: previewImage('/benchmark', false),
+        })
+      : {},
   component: Benchmark,
 })
 
