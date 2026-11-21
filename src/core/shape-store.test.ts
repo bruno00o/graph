@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { shapes } from '../shapes'
 import { labelAnchor, labelOrder } from '../shapes/labels'
 import { readShape } from '../shapes/read'
@@ -40,7 +41,7 @@ function setup() {
   const render = (marks: readonly Mark[]) => {
     const definition: GraphDefinition = defineGraph({ marks })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(model, model.flush())
   }
   const store = scene.shapes

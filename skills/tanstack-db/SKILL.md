@@ -253,7 +253,7 @@ export const define = (keys: string[]) =>
 
 ### Write positions back with `persistPositions`
 
-`persistPositions(graph, { collection })` listens to `positionchange` and writes `x` and `y` into the collection. It returns a function that stops listening and writes the last pending move at once.
+`persistPositions(graph, { collection })` listens to `positionchange` and writes `x` and `y` into the collection. It returns `{ stop }`, whose `stop()` stops listening and writes the last pending move at once. It takes a mounted graph or one made by `createGraph` (headless skill).
 
 ```ts
 import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
@@ -272,7 +272,7 @@ const definition = defineGraph({
 })
 const graph = mountGraph(document.body, { definition, ariaLabel: 'Saved positions' })
 
-const stop = persistPositions(graph, {
+const { stop } = persistPositions(graph, {
   collection: items,
   mutationFn: async ({ transaction }) => {
     await fetch('/positions', { method: 'POST', body: JSON.stringify(transaction.mutations) })
@@ -308,7 +308,7 @@ type Place = { id: string; node: string; x: number; y: number }
 declare const graph: GraphInstance
 declare const places: Collection<Place, string>
 
-export const stop = persistPositions(graph, {
+export const { stop } = persistPositions(graph, {
   collection: places,
   key: (nodeKey) => `place:${nodeKey}`,
   create: (nodeKey, point) => ({ id: `place:${nodeKey}`, node: String(nodeKey), ...point }),
@@ -317,7 +317,7 @@ export const stop = persistPositions(graph, {
 
 Read them back with a live query that joins nodes and places, keyed by the node key (`getKey`).
 
-In React, call it from an effect in a component under `<Graph>` (with `useGraph()`), and return the stop function:
+In React, call it from an effect in a component under `<Graph>` (with `useGraph()`), and return its `stop` method:
 
 ```tsx
 import { persistPositions } from '@bruno00o/graph/db'
@@ -329,7 +329,7 @@ type Item = { id: string; x: number; y: number }
 
 export function SharedPositions({ items }: { items: Collection<Item, string> }) {
   const graph = useGraph()
-  useEffect(() => persistPositions(graph, { collection: items }), [graph, items])
+  useEffect(() => persistPositions(graph, { collection: items }).stop, [graph, items])
   return null
 }
 ```
@@ -346,7 +346,7 @@ type Place = { id: string; lng: number; lat: number }
 declare const graph: GraphInstance
 declare const places: Collection<Place, string>
 
-export const stop = persistPositions(graph, {
+export const { stop } = persistPositions(graph, {
   collection: places,
   longitude: 'lng',
   latitude: 'lat',
@@ -368,8 +368,8 @@ type Place = { id: string; x: number; y: number; lng: number; lat: number }
 declare const graph: GraphInstance
 declare const places: Collection<Place, string>
 
-export const stopCanvas = persistPositions(graph, { collection: places, surfaces: ['canvas'] })
-export const stopMap = persistPositions(graph, {
+export const canvas = persistPositions(graph, { collection: places, surfaces: ['canvas'] })
+export const map = persistPositions(graph, {
   collection: places,
   longitude: 'lng',
   latitude: 'lat',
@@ -451,7 +451,7 @@ Without `longitude` and `latitude`, `persistPositions` writes `x` and `y`, in wo
 
 ### MEDIUM Forgetting to stop `persistPositions`
 
-It returns a function that removes its listener and flushes the last write. Call it when the graph or its component goes away; in React, return it from the effect.
+It returns `{ stop }`: `stop()` removes its listener and flushes the last write. Call it when the graph or its component goes away; in React, return the method from the effect (`useEffect(() => persistPositions(graph, options).stop, [graph])`). Returning the object itself does not compile.
 
 ## Completion
 
@@ -462,7 +462,7 @@ The task is done when:
 - every join has a `getKey` that returns the node key;
 - a loading overlay or a wait for the rows reads `data` or `loadingchange` or awaits `graph.loaded()`, and `data.failed` is checked;
 - `graph.count().pending` is 0 once the edges' nodes are loaded, and `graph.issues()` is empty or expected;
-- positions persisted by `persistPositions` have their stop function called on cleanup, `pendingState` is a declared free state, and rows read as degrees are written with `longitude` and `latitude`, and each surface of a graph that moves has its own call and fields;
+- positions persisted by `persistPositions` have their `stop` method called on cleanup, `pendingState` is a declared free state, and rows read as degrees are written with `longitude` and `latitude`, and each surface of a graph that moves has its own call and fields;
 - `tsc` accepts the code.
 
 ## References

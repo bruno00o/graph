@@ -4,6 +4,7 @@ import type { HistoryCut } from '../core/history'
 import { createScene } from '../core/scene'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { shapes } from '../shapes'
 import type { GraphDefinitionOptions, HistoryEntry, HistoryValues, Mark } from '../types'
 import { historyFrom } from '.'
@@ -19,7 +20,7 @@ function setup(options: GraphDefinitionOptions) {
   const render = (next: GraphDefinitionOptions = options) => {
     const definition = defineGraph(next)
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(model, model.flush())
     return scene.takeDirty()
   }
@@ -66,7 +67,7 @@ describe('scales over the whole history', () => {
     early.readAt(at(0))
     const definition = defineGraph({ marks: marks() })
     early.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(early, early.flush())
     expect([...scene.scales().color.scale.categories()]).toEqual([
       ...late.scene.scales().color.scale.categories(),

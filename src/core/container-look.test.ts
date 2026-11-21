@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { groups, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { ContainerOptions, Key, NodeGroup } from '../types'
 import { cornerCodes, placementCodes } from './columns'
 import { createGraphModel } from './graph-model'
@@ -38,7 +39,7 @@ function setup(container: ContainerOptions<Item> | undefined) {
   })
   model.setMarks(definition.marks)
   projection.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   step()
   const index = (key: Key) => model.node(key)?.index ?? -1
   const label = (key: Key) => scene.nodes.label[index(key)]
@@ -111,7 +112,7 @@ describe('container look', () => {
     })
     model.setMarks(definition.marks)
     projection.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(projection.view, projection.apply(model.flush()).scene)
     const labels: string[] = []
     for (let index = 0; index < scene.nodes.capacity; index++) {

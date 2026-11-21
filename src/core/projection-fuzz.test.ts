@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { AggregateEdge, GraphDefinitionOptions, Key } from '../types'
 import { containerShape } from './columns'
 import { createGraphModel } from './graph-model'
@@ -61,7 +62,7 @@ function build(options: GraphDefinitionOptions, folded: Key[]) {
     const defined = defineGraph(next)
     model.setMarks(defined.marks)
     projection.setMarks(defined.marks)
-    scene.setDefinition(defined)
+    scene.setDefinition(resolvedOf(defined))
     const result = projection.apply(model.flush())
     scene.apply(projection.view, result.scene)
     scene.takeDirty()

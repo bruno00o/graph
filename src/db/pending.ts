@@ -1,4 +1,4 @@
-import type { GraphInstance } from '../host/mount-graph'
+import type { GraphCore } from '../host/graph-instance'
 import type { Key } from '../types'
 
 export interface Settling {
@@ -11,7 +11,7 @@ export interface PendingMarks {
 }
 
 export function pendingMarks(
-  graph: GraphInstance,
+  graph: GraphCore,
   name: string | undefined,
   kind: 'nodes' | 'shapes',
 ): PendingMarks | null {

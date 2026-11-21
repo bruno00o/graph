@@ -183,9 +183,11 @@ const editor = createShapeEditor(graph, { hold: 5000 })
 editor.on('editlost', ({ edits }) => notify(edits.length))
 ```
 
+`editor.on` returns a function that stops the handler, and takes a `signal` as its third argument, as [`graph.on`](/docs/api/events) does: `editor.on('edit', save, { signal: graph.signal })` stops with the graph. The handlers stop when the editor is destroyed.
+
 ## Saving edits
 
-With a [TanStack DB collection](/docs/tanstack-db) as the source of the shapes, `persistShapes` from `@bruno00o/graph/db` writes each edit into it, and returns a function that stops writing:
+With a [TanStack DB collection](/docs/tanstack-db) as the source of the shapes, `persistShapes` from `@bruno00o/graph/db` writes each edit into it, and returns an object whose `stop` method stops writing:
 
 ```ts tab="Vanilla" tab-group="framework"
 import { persistShapes } from '@bruno00o/graph/db'
@@ -193,7 +195,7 @@ import { createShapeEditor, mountShapeEditor } from '@bruno00o/graph/editor'
 
 const editor = createShapeEditor(graph)
 mountShapeEditor(editor)
-const stop = persistShapes(editor, { collection: zones })
+const { stop } = persistShapes(editor, { collection: zones })
 ```
 
 ```tsx tab="React" tab-group="framework"
@@ -203,7 +205,7 @@ import { useEffect } from 'react'
 
 function SavedShapes() {
   const { editor } = useShapeEditor()
-  useEffect(() => (editor ? persistShapes(editor, { collection: zones }) : undefined), [editor])
+  useEffect(() => (editor ? persistShapes(editor, { collection: zones }).stop : undefined), [editor])
   return null
 }
 ```
@@ -213,7 +215,7 @@ function SavedShapes() {
 - A removal deletes the row. `raise` and `lower` write the `order` field. A new shape, drawn or copied, needs `create`, which builds its whole row from the edit, the copied item in `edit.datum` for a copy. Without `create`, the undo of a removal still inserts the removed row again, its `datum` with the outline of the edit; other new shapes are left out.
 - The write is optimistic: the collection holds the new outline at once, and its change ends the wait of the editor in the next frame. Any change of the row ends the wait, so a server that rounds the points or turns the rings does not leave the shape waiting.
 - Without `mutationFn`, the collection persists the writes through its own handlers. With `mutationFn`, `createPacedMutations` calls it at the pace of `strategy`, and a mutation that rejects rolls the rows back and emits `editlost` with the edits it carried.
-- `pendingState` names a free state that holds each shape from its write until the write is done or has failed, to show the saves in flight.
+- `pendingState` names a free state that holds each shape from its write until the write is done or has failed, to show the saves in flight. With a typed graph, only its free state names compile.
 - To write edits yourself with `collection.update`, assign `edit.geometry` to the draft as it is: the geometry the editor hands out is a fresh, writable copy (`WritableShapeGeometry`), so it needs no cast. Let `onEdit` infer the type of its edits, or annotate `ShapeEdit<Mark, WritableShapeGeometry>`; the plain `ShapeEdit` keeps a read-only geometry.
 
 ### While a shape moves

@@ -14,12 +14,14 @@ import {
 } from '../host/mount-graph'
 import { stillborn } from '../host/page-lifecycle'
 import { exposeSurface } from '../host/surface-registry'
-import type { GraphDefinition, Mark, View } from '../types'
+import type { Mark, View } from '../types'
 import { createSharedRenderer, createWebglRenderer } from '../webgl/renderer'
 import { bindMap } from './binding'
 
 export type { ExportLabels } from '../export'
 export { exportMapPng, type MapPngOptions } from './export'
+
+import type { ResolvedDefinition } from '../resolved-definition'
 
 const mapCapabilities: SurfaceCapabilities = Object.freeze({
   name: 'map',
@@ -157,7 +159,7 @@ function hostSurface(map: MapLibreMap, options: MapSurfaceOptions): HostSurface 
     map.jumpTo({ center: [center.longitude, center.latitude], zoom: Math.log2(zoom) })
   }
 
-  function adapt(definition: GraphDefinition): GraphDefinition {
+  function adapt(definition: ResolvedDefinition): ResolvedDefinition {
     if (dev && definition.layout && !warnedLayout) {
       warnedLayout = true
       console.warn(

@@ -398,7 +398,7 @@ export type GraphEventHandler<K extends GraphEventName, M extends Mark = Mark> =
   event: GraphEvents<M>[K],
 ) => void
 
-/** Options of `graph.on`. */
+/** Options of `graph.on`, and of `on` on a shape editor. */
 export interface GraphEventOptions {
   /** Unsubscribes the handler when this signal aborts. A signal already aborted subscribes nothing. */
   readonly signal?: AbortSignal | undefined

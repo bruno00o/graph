@@ -162,6 +162,7 @@ const graph = mountGraph(document.body, {
 - Fits and animations are requests too, frame by frame, so a handler that rewrites part of the view (here `y: 0`) rewrites it for every animation frame and the fit lands with that part forced.
 - `graph` is used inside its own `onViewChange`: that is valid, the handler runs after the assignment.
 - A request that is never applied freezes the gesture: `onViewChange` must call `update({ view })` with a view, even the unchanged one.
+- Give back the object received, as is or spread (`{ ...event.view, y: 0 }`), never `{ x, y, zoom }` rebuilt from it: `View` may gain optional fields in a minor version, and a rebuilt view drops them.
 
 ### Views of a graph that moves between a canvas and a map
 

@@ -2,6 +2,7 @@ import type { ReadonlyStore } from '@tanstack/store'
 import type { GlobeCamera } from '../core/globe'
 import type { Endpoints } from '../core/graph-model'
 import type { GraphIssue } from '../core/issues'
+import type { ResolvedDefinition } from '../resolved-definition'
 import type {
   BuiltInState,
   EdgeDatum,
@@ -818,8 +819,9 @@ export interface GraphCore<S extends string = string, M extends Mark = Mark> {
   /**
    * Resolves once nothing is left to do: data changes applied, live sources loaded or the
    * `waitForData` deadline past, no layout run, no view or position animation, edge bundling,
-   * routing and bridges computed, shape fills triangulated and hulls ready. Frames do not count.
-   * Rejects with the reason of `signal` once the graph is destroyed, also while it waits.
+   * routing and bridges computed, shape fills triangulated and hulls ready, and any deferred work
+   * a later minor version adds. Frames do not count. Rejects with the reason of `signal` once the
+   * graph is destroyed, also while it waits.
    */
   settled(): Promise<void>
   /**
@@ -932,7 +934,7 @@ export interface HostSurface extends SurfaceCapabilities {
   claim(active: boolean): void
   hover(active: boolean): void
   move(view: View): void
-  adapt(definition: GraphDefinition): GraphDefinition
+  adapt(definition: ResolvedDefinition): ResolvedDefinition
   bind(driver: HostDriver): void
   release(): void
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { ContainerOptions } from '../types'
 import { createGraphModel } from './graph-model'
 import { Projection } from './projection'
@@ -23,7 +24,7 @@ function setup(options: SceneOptions = {}) {
     const definition = defineGraph({ marks: [nodes<Item>(items, { parent: 'parent', container })] })
     model.setMarks(definition.marks)
     projection.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(projection.view, projection.apply(model.flush()).scene)
     scene.takeDirty()
   }
