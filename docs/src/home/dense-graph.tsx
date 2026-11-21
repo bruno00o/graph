@@ -14,6 +14,8 @@ const definition = defineGraph({
   interaction: { pan: false, zoom: false, select: false, drag: false, keyboard: false },
 })
 
+const fill = { position: 'absolute', inset: 0 } as const
+
 export function DenseGraph(): JSX.Element {
-  return <Graph className="dense" definition={definition} ariaLabel={messages.home.denseLabel} />
+  return <Graph definition={definition} ariaLabel={messages.home.denseLabel} style={fill} />
 }

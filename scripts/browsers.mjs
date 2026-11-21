@@ -95,13 +95,13 @@ const suites = [
     name: 'docs',
     directory: docsSite,
     build: ['pnpm', ['docs:build']],
-    pages: () => docs.map(({ slug }) => ({ name: slug, path: `/examples/${slug}` })),
+    pages: () => docs.map(({ slug }) => ({ name: slug, path: `/examples/${slug}/` })),
   },
   {
     name: 'showcase',
     directory: docsSite,
     build: ['pnpm', ['docs:build']],
-    pages: () => showcases.map(({ slug }) => ({ name: slug, path: `/showcase/${slug}` })),
+    pages: () => showcases.map(({ slug }) => ({ name: slug, path: `/showcase/${slug}/` })),
   },
 ]
 

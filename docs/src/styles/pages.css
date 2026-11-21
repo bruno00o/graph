@@ -286,6 +286,11 @@
   min-height: 680px;
 }
 
+.hero-stage {
+  position: absolute;
+  inset: 0;
+}
+
 .overlay {
   position: absolute;
   display: flex;
