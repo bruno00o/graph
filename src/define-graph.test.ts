@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { densityBundling } from './bundling'
 import {
-  defineGraph,
+  defineGraph as definePublic,
   type EdgeBundling,
   type EdgeRouting,
   edges,
+  type GraphDefinitionOptions,
   type Hull,
   hull,
   type LassoOptions,
@@ -13,7 +14,14 @@ import {
   nodes,
   type StateStyle,
 } from './index'
+import { type ResolvedDefinition, resolvedOf } from './resolved-definition'
 import { orthogonalRouting } from './routing'
+
+function defineGraph<S extends string = never, M extends Mark = never>(
+  options: GraphDefinitionOptions<S, M>,
+): ResolvedDefinition<S, M> {
+  return resolvedOf(definePublic(options))
+}
 
 const items = [{ id: 'a' }, { id: 'b' }]
 const links = [{ id: 'ab', from: 'a', to: 'b' }]

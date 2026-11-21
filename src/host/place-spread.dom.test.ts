@@ -4,6 +4,7 @@ import { defineGraph } from '../define-graph'
 import { grid } from '../layouts'
 import { mapSurface, mountMapGraph } from '../map'
 import { edges, groups, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { fakeMap, globeInput } from '../testing/map'
 import type { Key, Point, SpreadOptions } from '../types'
@@ -135,10 +136,10 @@ function canvasOf(graph: GraphInstance): HTMLCanvasElement {
 describe('the spread option', () => {
   it('resolves to null by default and to a gap of 4 with true', () => {
     const marks = [nodes(stacked, { x: 'x', y: 'y' })]
-    expect(defineGraph({ marks }).spread).toBeNull()
-    expect(defineGraph({ marks, spread: false }).spread).toBeNull()
-    expect(defineGraph({ marks, spread: true }).spread).toEqual({ gap: 4 })
-    expect(defineGraph({ marks, spread: { gap: 0 } }).spread).toEqual({ gap: 0 })
+    expect(resolvedOf(defineGraph({ marks })).spread).toBeNull()
+    expect(resolvedOf(defineGraph({ marks, spread: false })).spread).toBeNull()
+    expect(resolvedOf(defineGraph({ marks, spread: true })).spread).toEqual({ gap: 4 })
+    expect(resolvedOf(defineGraph({ marks, spread: { gap: 0 } })).spread).toEqual({ gap: 0 })
     expect(() => defineGraph({ marks, spread: { gap: -1 } })).toThrow(RangeError)
     expect(() => defineGraph({ marks, spread: { gap: Number.NaN } })).toThrow(RangeError)
     expect(() => defineGraph({ marks, spread: { gap: Number.POSITIVE_INFINITY } })).toThrow(

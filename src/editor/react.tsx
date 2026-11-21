@@ -23,12 +23,12 @@ export interface UseShapeEditorOptions<S extends string = string, M extends Mark
   readonly placeholder?: string | undefined
 }
 
-/** What `useShapeEditor` returns. `M` types the edits. */
-export interface UseShapeEditorResult<M extends Mark = Mark> {
+/** What `useShapeEditor` returns. `M` types the edits, and `S` the state names. */
+export interface UseShapeEditorResult<M extends Mark = Mark, S extends string = string> {
   /** State of the editor, empty until the first layout effect. */
   readonly state: ShapeEditorState
   /** The editor, to remove shapes or cancel a gesture, or `null` until the first layout effect. */
-  readonly editor: ShapeEditorInstance<M> | null
+  readonly editor: ShapeEditorInstance<M, S> | null
 }
 
 /** Props of `<ShapeEditor>`: the options of `useShapeEditor`. */
@@ -63,9 +63,9 @@ function sameMarks(a: Iterable<string> | undefined, b: Iterable<string> | undefi
  */
 export function useShapeEditor<S extends string = string, M extends Mark = Mark>(
   options: UseShapeEditorOptions<S, M> = {},
-): UseShapeEditorResult<M> {
+): UseShapeEditorResult<M, S> {
   const graph = useGraphOf(options.graph, 'useShapeEditor')
-  const [editor, setEditor] = useState<ShapeEditorInstance<M> | null>(null)
+  const [editor, setEditor] = useState<ShapeEditorInstance<M, S> | null>(null)
   const [view, setView] = useState<ShapeEditorView | null>(null)
   const latest = useLatest(options)
   const [shown] = useState(() => ({ marks: options.marks as Iterable<string> | undefined }))

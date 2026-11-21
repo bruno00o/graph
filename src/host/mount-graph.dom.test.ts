@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'v
 import { noPaint, type StateBuffers } from '../core/state-buffers'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import type { ResolvedDefinition } from '../resolved-definition'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition } from '../types'
 import type { ElementKeys, GraphEventName } from './events'
@@ -215,7 +216,7 @@ describe('createGraphHost', () => {
   })
 
   it('keeps the built-in look of a state whose style sets undefined', () => {
-    const buffers = (states: GraphDefinition['states']) => {
+    const buffers = (states: ResolvedDefinition['states']) => {
       let found: StateBuffers | null = null
       const container = document.createElement('div')
       document.body.append(container)

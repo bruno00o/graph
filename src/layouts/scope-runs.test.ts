@@ -59,6 +59,25 @@ describe('sliced', () => {
     expect(ends).toEqual([Float32Array.of(1, 2)])
   })
 
+  it('hands the error of an instant run to the fail of its listener, and nothing else', async () => {
+    const reported: unknown[] = []
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error))
+    const failure = new Error('boom')
+    const ends: Float32Array[] = []
+    const fails: unknown[] = []
+    instantRun(
+      { xy: Float32Array.of(3, 4) },
+      () => {
+        throw failure
+      },
+      { progress() {}, end: (xy) => ends.push(xy), fail: (error) => fails.push(error) },
+    )
+    await Promise.resolve()
+    expect(fails).toEqual([failure])
+    expect(ends).toEqual([])
+    expect(reported).toEqual([])
+  })
+
   it('ends an instant run with the positions it started from when its computation throws', async () => {
     const reported: unknown[] = []
     vi.stubGlobal('reportError', (error: unknown) => reported.push(error))

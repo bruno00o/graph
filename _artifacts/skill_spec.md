@@ -432,6 +432,10 @@ Editable diagrams, the host split into core and page, `settled()`, graphs withou
 - Verified by running the recipe of the guide: `pnpm docs:extracts` (24 graphs of 200 nodes, 4 threads) and a shorter script against `dist`. resvg with `loadSystemFonts: false` and no font file draws no ink (0 dark pixels against 3,241 with the DejaVu file); the `pixels` getter of a rendered image copies the whole buffer at each access, so a loop that reads `image.pixels[i]` is killed for memory.
 - Cross-references proposed for the shared tables: `core` to `headless` (`GraphCore`, `settled()`), `export` to `headless` (the SVG without a page, PNG by resvg), `headless` to `export` (options of the exports), `headless` to `layouts` (label widths, work on the calling thread).
 
+### Aligned for 0.34.0, layouts
+
+Layout API before 1.0: `root` of `radial` and `layers` takes any list of keys, `layout.run` takes a `signal`, and a layout that throws fails its run (`layoutend` carries `error`, the port gains `fail?(error)`, `compute` rejects with the error). Sentences corrected: `layouts` (run options, promise, `compute`, `layoutend`, the listener of a layout of your own) and its `group-layouts` reference (a group layout that throws fails the whole run). No failure mode added.
+
 ## Coverage and batch history
 
 - 0.22.0, foundation: Intent 0.5.6 set up (single package, records in `_artifacts/`), CI workflow, packaging, consumer docs page `agent-skills`, full plan of eighteen skills, and the `core` and `react` skills written from `src/` and the docs at commit 651f9b7. Both skills pass `intent validate` with typechecked examples, including four `expect-error` fences. Fresh consumer and discovery checks are recorded in the review state evidence. Before merge, the pull request gate moved to validation only, with the source review before each release.

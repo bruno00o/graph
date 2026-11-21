@@ -1,5 +1,5 @@
 import { withoutUndefined } from '../core/without-undefined'
-import type { Key, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
+import type { Key, KeyList, Layout, LayoutGraph, LayoutListener, LayoutRun } from '../types'
 import { inBlocks } from './blocks'
 import { endWith, instantRun, registerScopeRun } from './scope-runs'
 import { enableScopes } from './scopes'
@@ -9,6 +9,11 @@ import { enableScopes } from './scopes'
  * items of two nodes, as given to `nodes()`. Ties keep the internal order.
  */
 export type NodeOrder<T> = 'degree' | ((a: T, b: T) => number)
+
+export function rootKeys(root: Key | KeyList | undefined): readonly Key[] {
+  if (root === undefined || root === null) return []
+  return typeof root === 'object' ? [...root] : [root]
+}
 
 export function movers(graph: LayoutGraph): number[] {
   const indices: number[] = []

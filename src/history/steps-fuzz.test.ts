@@ -4,6 +4,7 @@ import type { HistoryCut } from '../core/history'
 import { createScene, type Scene } from '../core/scene'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { shapes } from '../shapes'
 import type { Key, LiveSource, Mark, SourceChange } from '../types'
 import { historyFrom } from '.'
@@ -211,7 +212,7 @@ function run(seed: number): void {
     const definition = defineGraph({ marks })
     for (const { model, scene } of worlds) {
       model.setMarks(definition.marks)
-      scene.setDefinition(definition)
+      scene.setDefinition(resolvedOf(definition))
     }
   }
   for (const { model } of worlds) model.readAt(cut)

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { AggregateEdge, EdgeMergeOptions, GraphDefinitionOptions, Key } from '../types'
 import { arrowCodes, containerShape } from './columns'
 import { createGraphModel, type GraphIssue } from './graph-model'
@@ -36,7 +37,7 @@ function setup(options: GraphDefinitionOptions, folded: Key[] = []) {
     const definition = defineGraph(next)
     model.setMarks(definition.marks)
     projection.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     return step()
   }
   const fold = (keys: Key[]) => {
