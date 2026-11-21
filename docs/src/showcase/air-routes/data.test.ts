@@ -18,7 +18,7 @@ import {
   searchPlaces,
   visibleOf,
 } from './data'
-import { definitionOf, openedOf } from './definition'
+import { definitionOf, layoutOf, openedOf } from './definition'
 
 const folder = fileURLToPath(new URL('.', import.meta.url))
 const published = join(folder, '../../../public/showcase-data/air-routes')
@@ -246,8 +246,8 @@ describe('definition', () => {
   })
 
   it('drops the layout on a map', () => {
-    expect(definitionOf({ ...input, mode: 'map' }).layout).toBeNull()
-    expect(definitionOf(input).layout?.name).toBe('geo')
+    expect(layoutOf({ ...input, mode: 'map' })).toBeNull()
+    expect(layoutOf(input)?.name).toBe('geo')
   })
 })
 

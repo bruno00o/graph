@@ -1,5 +1,5 @@
 import { panBy, toScreen, zoomAround } from '../core/view'
-import type { GraphDefinition } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
 import type { FocusControl } from './focus-control'
 import { keyDuration } from './focus-control'
 import type { FoldControl } from './folding'
@@ -18,7 +18,7 @@ export interface KeyboardSource {
   readonly selection: SelectionControl
   readonly folds: FoldControl
   state(): GraphState
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   cancelLasso(): boolean
   prepare(): void
   tool(): PointerTool | null

@@ -58,7 +58,11 @@ export interface LineWaypointsOptions {
   readonly keepEnds?: boolean | undefined
 }
 
-/** The camera: the world point at the center of the graph element, and a zoom factor. */
+/**
+ * The camera: the world point at the center of the graph element, and a zoom factor. It may gain
+ * optional fields in a minor version: a controlled view gives back the object it receives, as is
+ * or spread, never `{ x, y, zoom }` rebuilt from it.
+ */
 export interface View {
   /** Horizontal coordinate of the center, in world units. */
   readonly x: number
@@ -132,7 +136,10 @@ export type ColorChannel<T> =
   | Channel<T, string | number | boolean>
   | RawAccessor<T, string | null | undefined>
 
-/** One change of a live source. */
+/**
+ * One change of a live source.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
 export interface SourceChange<T> {
   /** What happened to the item. */
   readonly type: 'insert' | 'update' | 'delete'
@@ -145,10 +152,14 @@ export interface SourceChange<T> {
 /**
  * Calls `listener` each time the `status` of a live source or of a subscription changes, until the
  * returned function is called. The graph only listens to `'status:change'`.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export type StatusListen = (event: 'status:change', listener: () => void) => () => void
 
-/** What `subscribeChanges` returns. */
+/**
+ * What `subscribeChanges` returns.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
 export interface SourceSubscription {
   /** Stops the calls to the callback. */
   unsubscribe(): void
@@ -164,6 +175,7 @@ export interface SourceSubscription {
 /**
  * Data that streams its changes, such as a TanStack DB collection. A mark recognizes it by its
  * `subscribeChanges` method, before trying to iterate it.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface LiveSource<T> {
   /**
@@ -864,7 +876,8 @@ export interface EdgeOptions<T, N extends MarkName = MarkName, L extends MarkLay
   /**
    * Look of the edges drawn in place of the edges of this mark that end in a folded group, or that
    * `merge` merges: one per pair of visible ends, direction and merge value. Each function is
-   * called again whenever an edge it merges changes, arrives or leaves.
+   * called again whenever an edge it merges changes, arrives or leaves. A channel it leaves out,
+   * such as `color`, reads the first merged edge, so it depends on the order the edges arrived in.
    */
   readonly aggregate?: AggregateEdgeOptions<T> | undefined
   /**
@@ -1729,46 +1742,6 @@ export interface LensOptions {
   readonly key?: string | null | undefined
 }
 
-/** Lens options with every default applied. */
-export interface ResolvedLens {
-  /** Radius, in screen pixels. */
-  readonly radius: number
-  /** Magnification relative to the view zoom. */
-  readonly zoom: number
-  /** Key that shows the lens while held, or `null`. */
-  readonly key: string | null
-}
-
-/** Interaction options with every default applied, as `defineGraph` resolves them. */
-export interface ResolvedInteraction {
-  /** Whether gestures move the view. */
-  readonly pan: boolean
-  /** `false`, or the wheel zoom speed. */
-  readonly zoom: false | { readonly speed: number }
-  /** What the wheel does without Cmd or Ctrl. */
-  readonly wheel: WheelMode
-  /** Longest glide after a notch of a mouse wheel, in milliseconds; 0 when the view jumps. */
-  readonly wheelGlide: number
-  /** `false`, or the auto-pan speed factor. */
-  readonly autoPan: false | { readonly speed: number }
-  /** Selection mode. */
-  readonly select: SelectMode
-  /** Whether nodes can be dragged. */
-  readonly drag: boolean
-  /** Whether a drag can draw a lasso. */
-  readonly lasso: boolean
-  /** Key to hold while dragging to draw a lasso, or `null` when every drag can draw one. */
-  readonly lassoModifier: 'Shift' | null
-  /** Whether the lasso takes the edges whose two ends are inside. */
-  readonly lassoEdges: boolean
-  /** Whether the keyboard drives the graph. */
-  readonly keyboard: boolean
-  /** Whether double-click and Enter fold and unfold groups. */
-  readonly fold: boolean
-  /** Radius, magnification and key of the lens; the key is `null` when the lens is off. */
-  readonly lens: ResolvedLens
-}
-
 /**
  * Area the view cannot leave: a rectangle in world units, or `{ margin }`, the box of every node
  * grown by `margin` screen pixels.
@@ -1788,18 +1761,6 @@ export interface FitPadding {
   readonly bottom?: number | undefined
   /** Margin left of the area, in screen pixels. */
   readonly left?: number | undefined
-}
-
-/** Margin on each side of a fitted area, in screen pixels, with every side resolved. */
-export interface ResolvedPadding {
-  /** Margin above the area. */
-  readonly top: number
-  /** Margin right of the area. */
-  readonly right: number
-  /** Margin below the area. */
-  readonly bottom: number
-  /** Margin left of the area. */
-  readonly left: number
 }
 
 /**
@@ -1850,20 +1811,6 @@ export interface ViewLimitOptions {
   readonly autoFit?: AutoFit | undefined
 }
 
-/** View options with every default applied, as `defineGraph` resolves them. */
-export interface ResolvedViewLimits {
-  /** Smallest zoom. */
-  readonly minZoom: number
-  /** Largest zoom. */
-  readonly maxZoom: number
-  /** Area the view cannot leave, or `null`. */
-  readonly bounds: ViewBounds | null
-  /** Margin of every fit, per side. */
-  readonly padding: ResolvedPadding
-  /** When the view frames the nodes on its own. */
-  readonly autoFit: AutoFit
-}
-
 /**
  * Durations of animated moves, in milliseconds: finite numbers, 0 or more, or `defineGraph` throws
  * a `RangeError`.
@@ -1881,14 +1828,6 @@ export interface TransitionOptions {
   readonly layout?: number | undefined
 }
 
-/** Transition durations in milliseconds, with every default applied. */
-export interface ResolvedTransitions {
-  /** Moves of nodes whose `x` or `y` changes in the data. */
-  readonly positions: number
-  /** Glide of nodes to a layout result reported at once. */
-  readonly layout: number
-}
-
 /** Names of the states every graph has. Declare one in `states` to change its style. */
 export type BuiltInState = 'selected' | 'hovered' | 'focused'
 
@@ -1901,6 +1840,7 @@ export type StateStyles<S extends string> = { readonly [K in S]: StateStyle | St
 /**
  * What a layout reads: copies of the graph in typed arrays, indexed by the internal index of each
  * node. `T` is the type of the items of the nodes.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface LayoutGraph<T = unknown> {
   /** Length of the per-node arrays. */
@@ -1945,6 +1885,7 @@ export interface LayoutGraph<T = unknown> {
 /**
  * How a layout, an edge bundling or an edge routing may spread its work. A graph on a page gives
  * 8 ms slices and allows Web Workers; a graph made by `createGraph` gives 50 ms slices and none.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface LayoutWork {
   /** Longest stretch of work on the main thread before it gives the event loop back, in ms. */
@@ -1956,6 +1897,7 @@ export interface LayoutWork {
 /**
  * Unfolded groups of a `LayoutGraph`, by internal index. An unfolded group is not a node of the
  * layout: its `alive` is `0`, and its container fits its members plus its padding.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface LayoutGroups {
   /** Indices of the unfolded groups, each after the group that holds it. */
@@ -1976,6 +1918,7 @@ export interface LayoutGroups {
 /**
  * Blocks of a `LayoutGraph`, by internal index: nodes that stand for a group laid out on its own.
  * A block is a node of the graph like the others, with the radius and extents of its container.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface LayoutBlocks {
   /** Number of nodes inside each block, `0` for a plain node. */
@@ -1986,7 +1929,10 @@ export interface LayoutBlocks {
   keys(index: number): readonly Key[]
 }
 
-/** Container whose members a `LayoutGraph` holds, when a layout runs inside one group. */
+/**
+ * Container whose members a `LayoutGraph` holds, when a layout runs inside one group.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
 export interface LayoutContainer {
   /** Key of the group. */
   readonly key: Key
@@ -1996,7 +1942,10 @@ export interface LayoutContainer {
   readonly circle: boolean
 }
 
-/** Receives the positions a layout computes. Every array holds `capacity × 2` numbers. */
+/**
+ * Receives the positions a layout computes. Every array holds `capacity × 2` numbers.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
 export interface LayoutListener {
   /** Reports intermediate positions, and the progress from 0 to 1. */
   progress(xy: Float32Array, progress: number): void
@@ -2004,7 +1953,10 @@ export interface LayoutListener {
   end(xy: Float32Array): void
 }
 
-/** A layout run in progress, as `Layout.start` returns it. */
+/**
+ * A layout run in progress, as `Layout.start` returns it.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
 export interface LayoutRun {
   /** Called when a node is dragged or set during the run: keep it at this position. */
   pin(index: number, x: number, y: number): void
@@ -2015,6 +1967,7 @@ export interface LayoutRun {
 /**
  * Places the nodes that have no `x` and `y`. Any object of this shape works, such as the result
  * of `force()` or `grid()`. `T` is the type of the items of the nodes it reads.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface Layout<T = unknown> {
   /**
@@ -2043,6 +1996,7 @@ export interface Layout<T = unknown> {
 /**
  * What an edge bundling reads: the edges to bundle and a copy of the node positions, by internal
  * index. `T` is the type of the items of the edges.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface BundleGraph<T = unknown> {
   /** Node positions in world units, `x` then `y` for each node index. */
@@ -2062,6 +2016,7 @@ export interface BundleGraph<T = unknown> {
 /**
  * Paths of the listed edges of a `BundleGraph` or a `RouteGraph`, one polyline per edge, in the
  * same order.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface BundlePaths {
   /** Index of the first point of each path, then the number of points: `edges.length + 1` values. */
@@ -2074,13 +2029,19 @@ export interface BundlePaths {
   readonly points: Float32Array
 }
 
-/** Receives the paths an edge bundling or an edge routing computes. */
+/**
+ * Receives the paths an edge bundling or an edge routing computes.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
 export interface BundleListener {
   /** Reports the paths, once. */
   end(paths: BundlePaths): void
 }
 
-/** A bundling or routing computation in progress, as `start` returns it. */
+/**
+ * A bundling or routing computation in progress, as `start` returns it.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
 export interface BundleRun {
   /** Called when the result is no longer wanted. Do not call the listener after it. */
   stop(): void
@@ -2089,6 +2050,7 @@ export interface BundleRun {
 /**
  * Routes edges into bundles. Any object of this shape works, such as the result of
  * `densityBundling()`. `T` is the type of the items of the edges it reads.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface EdgeBundling<T = unknown> {
   /** Name of the method. With `options`, decides whether a new definition computes again. */
@@ -2109,6 +2071,7 @@ export interface EdgeBundling<T = unknown> {
 /**
  * What an edge routing reads: the edges to route, a copy of the node positions and the boxes to go
  * around, by internal index. `T` is the type of the items of the edges.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface RouteGraph<T = unknown> extends BundleGraph<T> {
   /**
@@ -2128,6 +2091,7 @@ export interface RouteGraph<T = unknown> extends BundleGraph<T> {
 /**
  * Routes edges around nodes. Any object of this shape works, such as the result of
  * `orthogonalRouting()`. `T` is the type of the items of the edges it reads.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface EdgeRouting<T = unknown> {
   /** Name of the method. With `options`, decides whether a new definition computes again. */
@@ -2184,22 +2148,6 @@ export interface SpreadOptions {
    * @default 4
    */
   readonly gap?: number | undefined
-}
-
-/** Spread options with every default applied, as `defineGraph` resolves them. */
-export interface ResolvedSpread {
-  /** Space kept between spread nodes. */
-  readonly gap: number
-}
-
-/** Bridge options with every default applied, as `defineGraph` resolves them. */
-export interface ResolvedBridges {
-  /** Look of each jump. */
-  readonly shape: BridgeShape
-  /** Width of each jump, in screen pixels. */
-  readonly size: number
-  /** Most edges checked for crossings. */
-  readonly maxEdges: number
 }
 
 /**
@@ -2301,50 +2249,19 @@ export interface GraphDefinitionOptions<S extends string = string, M extends Mar
  */
 export type PixelRatioOption = 'auto' | 'device' | number
 
+declare const definitionStates: unique symbol
+
 /**
- * A frozen graph definition, made by `defineGraph`, with every option resolved. `S` is the union of
- * the state names and `M` the union of the marks.
+ * A frozen graph definition, made by `defineGraph` and read by the graph alone: besides its marks,
+ * its options cannot be read back, so that they may grow without breaking your code. Keep the
+ * options you need to read in your own variables. `S` is the union of the state names and `M` the
+ * union of the marks.
  */
 export interface GraphDefinition<S extends string = string, M extends Mark = Mark> {
   /** Marks: node and edge marks draw in this order, shape marks under them. */
   readonly marks: readonly M[]
-  /** Scales shared by every mark without a scale of its own. */
-  readonly scales: ScalesOptions
-  /** Style of each declared state. */
-  readonly states: StateStyles<S>
-  /** Layout of the graph, or `null` for none. */
-  readonly layout: Layout<NodeDatum<M>> | null
-  /** Whether the layout runs again after a fold, an unfold, or a change of groups or merges. */
-  readonly relayout: boolean
-  /**
-   * Milliseconds that automatic full layouts and automatic fits wait for loading live sources,
-   * `Infinity` for no limit.
-   */
-  readonly waitForData: number
-  /** Interaction options, defaults applied. */
-  readonly interaction: ResolvedInteraction
-  /** View limits, defaults applied. */
-  readonly view: ResolvedViewLimits
-  /** Transition durations in milliseconds, defaults applied. */
-  readonly transitions: ResolvedTransitions
-  /** Grid drawn under the graph, or `null` for none. */
-  readonly background: ResolvedBackground | null
-  /** Hulls drawn under edges and nodes. */
-  readonly hulls: readonly Hull[]
-  /** Edge bundling, or `null` for none. */
-  readonly bundling: EdgeBundling<EdgeDatum<M>> | null
-  /** Edge routing, or `null` for none. */
-  readonly routing: EdgeRouting<EdgeDatum<M>> | null
-  /** Bridges at edge crossings, defaults applied, or `null` for none. */
-  readonly bridges: ResolvedBridges | null
-  /** Spreading of the nodes outside groups at one place, or `null` for none. */
-  readonly spread: ResolvedSpread | null
-  /** Time options, defaults applied. */
-  readonly time: ResolvedTimeOptions
-  /** Free states that light the support of the selected edges, or `null` for none. */
-  readonly support: ResolvedSupportStates | null
-  /** Canvas pixels per CSS pixel: `'auto'`, `'device'` or a number above 0. */
-  readonly pixelRatio: PixelRatioOption
+  /** Style of each state, by name, never read. */
+  readonly [definitionStates]: StateStyles<S>
 }
 
 /** Options of the `time` of `defineGraph`. */
@@ -2357,12 +2274,6 @@ export interface TimeOptions {
    * @default 0
    */
   readonly fade?: number | undefined
-}
-
-/** Time options with every default applied, as `defineGraph` resolves them. */
-export interface ResolvedTimeOptions {
-  /** Fade duration, in milliseconds of the data. */
-  readonly fade: number
 }
 
 /** Pattern of the background grid: `'lines'`, or `'dots'` where the lines would cross. */
@@ -2399,20 +2310,6 @@ export interface BackgroundOptions {
    * @default true
    */
   readonly adaptive?: boolean | undefined
-}
-
-/** Background grid with every default applied, as `defineGraph` resolves it. */
-export interface ResolvedBackground {
-  /** `'lines'` or `'dots'`. */
-  readonly grid: BackgroundGrid
-  /** Distance between lines in world units, before the zoom picks a power of 4 of it. */
-  readonly spacing: number
-  /** Color of the grid. */
-  readonly color: string
-  /** Color of every fourth line. */
-  readonly majorColor: string
-  /** Whether the grid switches between levels as the zoom changes. */
-  readonly adaptive: boolean
 }
 
 /**
@@ -2709,12 +2606,4 @@ export interface SupportStateOptions<N extends string = string> {
   readonly carriers?: N | null | undefined
   /** Free state given to the edges the selected edges carry, and to their ends. */
   readonly carried?: N | null | undefined
-}
-
-/** Support states with every default applied, as `defineGraph` resolves them. */
-export interface ResolvedSupportStates {
-  /** Free state of the carriers of the selected edges, or `null`. */
-  readonly carriers: string | null
-  /** Free state of the edges the selected edges carry, or `null`. */
-  readonly carried: string | null
 }

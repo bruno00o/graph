@@ -2,8 +2,9 @@ import { flowSpeed } from '../core/flow'
 import type { ResolvedStateStyle, StateBuffers } from '../core/state-buffers'
 import { isBuiltInState, styleFor } from '../core/state-names'
 import { withoutUndefined } from '../core/without-undefined'
+import type { ResolvedDefinition } from '../resolved-definition'
 import { builtInStyles, defaults, haloLimit, haloWidth } from '../theme/tokens'
-import type { GraphDefinition, StateLook } from '../types'
+import type { StateLook } from '../types'
 import type { StateRegistry } from './state-registry'
 
 function haloOf(halo: StateLook['halo']): number | undefined {
@@ -36,7 +37,7 @@ export function resolveStyle(
 }
 
 export function applyStateStyles(
-  states: GraphDefinition['states'],
+  states: ResolvedDefinition['states'],
   registry: StateRegistry,
   buffers: StateBuffers,
   id: (color: string) => number,

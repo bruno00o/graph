@@ -1,7 +1,8 @@
 import { checkLists, type StringCheck, stringCheck } from '../core/key-list'
 import { freeStateNames, isBuiltInState } from '../core/state-names'
 import type { SupportIndex } from '../core/support'
-import type { GraphDefinition, Key, SupportWalk } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key, SupportWalk } from '../types'
 import { emptyKeys, kindOf, mergedKeys, requestMemory, sameKeys, toKeys } from './element-keys'
 import type { ElementKeys, Emitter, GraphSelectionEvent, GraphTarget } from './events'
 import type { GraphSelection, GraphState, GraphStates } from './graph-instance'
@@ -16,7 +17,7 @@ export interface SelectionSource {
   readonly emitter: Emitter
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   request(): void
 }
 

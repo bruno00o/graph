@@ -6,8 +6,8 @@ import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
 import type { Bounds } from '../core/view'
 import { dev } from '../dev'
+import type { ResolvedDefinition } from '../resolved-definition'
 import type {
-  GraphDefinition,
   Key,
   Layout,
   LayoutGraph,
@@ -89,7 +89,7 @@ export interface LayoutSource {
   readonly work: LayoutWork
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   dragging(): readonly number[] | undefined
   boundsAfter(
     indices: readonly number[],
@@ -132,7 +132,7 @@ function loadEngine(): Promise<void> {
   return engineLoad
 }
 
-function declaresLayouts(definition: GraphDefinition): boolean {
+function declaresLayouts(definition: ResolvedDefinition): boolean {
   return definition.marks.some((mark) => {
     if (mark.type !== 'nodes') return false
     const options = (mark as { readonly options?: NodeOptions<unknown> }).options

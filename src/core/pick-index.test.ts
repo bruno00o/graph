@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { NodeOptions } from '../types'
 import { containerShape } from './columns'
 import { loopCurve, loopMinimum, loopReach, pointOnCubic } from './edge-curve'
@@ -27,7 +28,7 @@ function setup(items: Item[], links: Link[], options: NodeOptions<Item> = {}) {
     scales: { size: (value) => value },
   })
   model.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   const changes = model.flush()
   scene.apply(model, changes)
   placeNodes(model, positions, changes)
@@ -125,7 +126,7 @@ describe('PickIndex', () => {
       ],
     })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     const changes = model.flush()
     scene.apply(model, changes)
     placeNodes(model, positions, changes)
@@ -206,7 +207,7 @@ describe('PickIndex', () => {
         marks: [edges(links, { source: 'from', target: 'to' }), nodes(items, { x: 'x', y: 'y' })],
       })
       model.setMarks(definition.marks)
-      scene.setDefinition(definition)
+      scene.setDefinition(resolvedOf(definition))
       const changes = model.flush()
       scene.apply(model, changes)
       const moves = placeNodes(model, positions, changes)
@@ -394,7 +395,7 @@ describe('PickIndex', () => {
       scales: { size: (value) => value },
     })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     const changes = model.flush()
     scene.apply(model, changes)
     placeNodes(model, positions, changes)
@@ -463,7 +464,7 @@ describe('PickIndex with sizes out of range', () => {
       ],
     })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     const changes = model.flush()
     scene.apply(model, changes)
     placeNodes(model, positions, changes)

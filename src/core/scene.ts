@@ -1,3 +1,4 @@
+import type { ResolvedDefinition } from '../resolved-definition'
 import { type ResolvedColorScale, resolveColorScale } from '../scales/color-scale'
 import { combineExtents, type Extent, ExtentTracker, sameExtent } from '../scales/extent'
 import { type ResolvedNumberScale, resolveNumberScale } from '../scales/number-scale'
@@ -8,7 +9,6 @@ import type {
   EdgeArrow,
   EdgeDash,
   EdgeMark,
-  GraphDefinition,
   Key,
   LabelPlacement,
   Mark,
@@ -152,7 +152,7 @@ export interface Scene {
   readonly shapes: ShapeStore
   readonly textWidth: TextWidth
   scales(): SceneScales
-  setDefinition(definition: GraphDefinition): void
+  setDefinition(definition: ResolvedDefinition): void
   apply(model: SceneModel, changes: GraphChanges): void
   remeasure(): boolean
   setGroupFillOpacity(opacity: number | null): boolean

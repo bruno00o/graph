@@ -85,7 +85,7 @@ export function openedOf(drilled: readonly Flight[]): Flight[] {
   return drilled.map((flight) => ({ ...flight, id: `${flight.id}~` }))
 }
 
-function layoutOf(input: DefinitionInput) {
+export function layoutOf(input: DefinitionInput) {
   if (input.mode === 'map') return null
   if (input.layout === 'force') return force({ edgeLength: 90 })
   if (input.layout === 'rings') return rings<Item>({ order: 'degree' })

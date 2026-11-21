@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { GraphDefinitionOptions } from '../types'
 import { geoToWorld, latitudeLimit, worldToGeo } from './geo'
 import { createGraphModel } from './graph-model'
@@ -45,7 +46,7 @@ describe('longitude and latitude channels', () => {
     const scene = createScene()
     const positions = new Positions()
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     const changes = model.flush()
     scene.apply(model, changes)
     placeNodes(model, positions, changes)

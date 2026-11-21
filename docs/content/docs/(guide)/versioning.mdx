@@ -1,0 +1,49 @@
+---
+title: Versioning
+description: What a version number promises from 1.0 on, which parts stay outside that promise, and what a minor version may still add.
+---
+
+Versions before 1.0 may break the API in a minor version: [Upgrading](/docs/upgrading) lists each break with what to do. From 1.0 on, the package follows [semantic versioning](https://semver.org) on its public API, with the rules on this page.
+
+## The public API
+
+The public API is what the entry points of the package export, `@bruno00o/graph` and its subpaths such as `/layouts` or `/react`, with their types, and the behavior this documentation describes. A patch version fixes a bug, a minor version adds to the API, and only a major version breaks it: it removes or renames an export, an option or a method, narrows a type you pass in, or changes a default or a documented behavior.
+
+Files inside `dist` and anything an entry point does not export are not part of it.
+
+A [graph definition](/docs/api/define-graph#result) only gives back its `marks`: its options are read by the graph alone, so that the graph can add to them without changing a type you read. Keep in your own variables the options your code needs again.
+
+## Experimental ports
+
+A port is a shape you implement yourself, to give the graph your own layout, edge bundling, edge routing or live data. Ports stay outside the promise: a minor version may change them, and [Upgrading](/docs/upgrading) says how. Their JSDoc carries an `@experimental` tag.
+
+| Port | Types |
+| --- | --- |
+| Layout | `Layout`, `LayoutGraph`, `LayoutGroups`, `LayoutBlocks`, `LayoutContainer`, `LayoutListener`, `LayoutRun`, `LayoutWork` |
+| Edge bundling | `EdgeBundling`, `BundleGraph`, `BundlePaths`, `BundleListener`, `BundleRun` |
+| Edge routing | `EdgeRouting`, `RouteGraph` |
+| Live data | `LiveSource`, `SourceSubscription`, `SourceChange`, `StatusListen` |
+
+A change of a port concerns the code that implements it or reads its fields. The layouts, bundling and routing of the package, such as `force()`, `grid()`, `densityBundling()` or `orthogonalRouting()`, follow it in the same version, and passing them to `defineGraph` stays covered by the promise.
+
+`TextWidth`, the function given to `measureText` of [`createGraph`](/docs/api/create-graph), is a port too, but a stable one, inside the promise.
+
+## Unions that grow
+
+A union of values the graph gives you may gain a member in a minor version: the kinds of [problems](/docs/api/graph-instance#issues) of `issues()`, the event names of `GraphEventName`, the origins `ViewOrigin` and `PositionOrigin`, and the like. Keep a `default` branch in a `switch` over one of them, or let it ignore what it does not know.
+
+A union you pass in only grows: a value that works keeps working.
+
+## Interfaces the graph returns
+
+The objects the graph hands you may gain members in a minor version: `GraphCore`, `GraphInstance`, `GraphState`, the payloads of events, `LegendState`, `TimelineState` and the other interfaces the package returns. Read them, but do not implement them yourself: an object written by hand to match `GraphInstance`, in a test for instance, may stop compiling when a member is added. Use a graph from [`createGraph`](/docs/api/create-graph) instead, which needs no page.
+
+`settled()` waits for every kind of deferred work of the graph, including the kinds a minor version adds: code that awaits it before it reads positions or exports stays right.
+
+## New looks are off by default
+
+A visual feature added in a 1.x version is off by default: a graph that does not ask for it keeps its look across minor versions.
+
+## Views
+
+`View` holds `x`, `y` and `zoom`, and may gain optional fields in a minor version. A [controlled view](/docs/view#controlled-view) gives back the object `onViewChange` receives, as is, or spread to change a field: a `{ x, y, zoom }` rebuilt from it would drop the fields a later version adds.

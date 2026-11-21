@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { GraphDefinitionOptions, WaypointInput } from '../types'
 import { EdgePaths, type PathPoint, type PathSpot } from './edge-paths'
 import { EdgeWaypoints, maxWaypoints } from './edge-waypoints'
@@ -251,7 +252,7 @@ function setup(links: Link[], extra: Partial<Parameters<typeof edges<Link>>[1]> 
     }
     const definition = defineGraph(options)
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(model, model.flush())
   }
   render(links)
