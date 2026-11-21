@@ -4,20 +4,20 @@
 
 ## Domains
 
-| Domain               | Description                                                                | Skills                                            |
-| -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------- |
-| graph-setup          | Data, keys, marks, definition, mounting, instance, states, events, updates | core, react                                       |
-| appearance           | How nodes, labels and edges look                                           | styling, edges                                    |
-| structure            | Groups, merged and hidden elements, layers, support, paths, free shapes    | groups, multilayer, paths, shapes, editor         |
-| placement            | Layouts and positions                                                      | layouts                                           |
-| navigation-and-input | View, zoom ranges, selection, gestures, keyboard, advanced states          | view, interaction                                 |
-| geography-and-time   | Graphs in a MapLibre map, time windows and the timeline                    | map, time                                         |
-| data-integrations    | TanStack DB, TanStack Query, Cypher results, graph files                   | tanstack-db, tanstack-query, cypher, file-formats |
-| tools-and-output     | Minimap, legend, lens, anchors, hulls, grid, devtools, PNG and SVG         | tools, export                                     |
+| Domain               | Description                                                                                            | Skills                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| graph-setup          | Data, keys, marks, definition, mounting, instance, states, events, updates                             | core, react                                       |
+| appearance           | How nodes, labels and edges look                                                                       | styling, edges                                    |
+| structure            | Groups, merged and hidden elements, layers, support, paths, free shapes                                | groups, multilayer, paths, shapes, editor         |
+| placement            | Layouts and positions                                                                                  | layouts                                           |
+| navigation-and-input | View, zoom ranges, selection, gestures, keyboard, advanced states                                      | view, interaction                                 |
+| geography-and-time   | Graphs in a MapLibre map, time windows and the timeline                                                | map, time                                         |
+| data-integrations    | TanStack DB, TanStack Query, Cypher results, graph files                                               | tanstack-db, tanstack-query, cypher, file-formats |
+| tools-and-output     | Minimap, legend, lens, anchors, hulls, grid, devtools, PNG, SVG, draw.io, Visio, graphs without a page | tools, export, headless                           |
 
 ## Skill plan
 
-Twenty skills. Every skill other than `core` requires `core` (`editor` also requires `shapes`); `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
+Twenty-one skills. Every skill other than `core` requires `core` (`editor` also requires `shapes`); `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
 
 | Skill          | Type              | Domain               | Owner      |
 | -------------- | ----------------- | -------------------- | ---------- |
@@ -41,6 +41,7 @@ Twenty skills. Every skill other than `core` requires `core` (`editor` also requ
 | export         | sub-skill         | tools-and-output     | batch D    |
 | shapes         | sub-skill         | structure            | shapes     |
 | editor         | sub-skill         | structure            | editor     |
+| headless       | sub-skill         | tools-and-output     | headless   |
 
 Boundaries chosen from developer tasks, not from entry points:
 
@@ -48,9 +49,10 @@ Boundaries chosen from developer tasks, not from entry points:
 - `edges` owns every edge option beyond `source`, `target` and a basic `arrow`, plus bundling, routing and bridges. Edge labels belong to `edges`; node labels to `styling`.
 - `view` owns zoom ranges (`minZoom`, `maxZoom` on marks) because they are read against the view.
 - `time` owns the timeline companion; `tools` owns the minimap, legend, lens, anchors, hulls, background grid and devtools.
-- `map` owns `exportMapPng`; `export` owns `exportPng` and `exportSvg`.
+- `map` owns `exportMapPng`; `export` owns `exportPng`, `exportSvg`, `exportDrawio` and `exportVsdx`.
 - `paths` sits in batch C to balance the batches; it reads the same data as the integrations and has no file in common with them.
 - `shapes` owns the `shapes()` mark, its geometry, `pick`, its states by kind and everything that only concerns shapes; the other skills carry the sentences where a shape changes their rules (targets and selection in `interaction`, `fit` in `view`, the two tokens in `styling`) and point to it. Hulls and anchors stay in `tools`, group containers in `groups`.
+- `headless` owns `createGraph`, `readFont`, `settled` on a graph without a page, and the recipe that rasterizes the SVG with resvg on worker threads; the options of the exports stay in `export`, which it points to, and `core` introduces `GraphCore` and `settled()` and points to it.
 - `editor` owns the shape editor (`/editor`, `/editor/react`), `applyShapeEdits`, and `persistShapes` and `showPresence` of `/db`. `tanstack-db` names them and points to it; `shapes`, `interaction` and `map` carry one sentence where an editor changes their gestures.
 
 ## Failure mode inventory
@@ -125,6 +127,23 @@ Boundaries chosen from developer tasks, not from entry points:
 | 14  | Selections of others that never show                   | MEDIUM   | `src/db/presence.ts`                    | interaction |
 | 15  | Cursors that land in different places or surfaces      | MEDIUM   | showPresence API                        | layouts     |
 | 16  | Editing a shape that is hidden                         | MEDIUM   | `src/editor/editor.ts`                  | tools       |
+
+### headless (12)
+
+| #   | Mistake                                       | Priority | Source                                  | Cross-skill |
+| --- | --------------------------------------------- | -------- | --------------------------------------- | ----------- |
+| 1   | Rasterizing the SVG without the font file     | HIGH     | server-side extracts guide              | export      |
+| 2   | Exporting before the graph has settled        | HIGH     | GraphCore API                           | core        |
+| 3   | Edges that never appear                       | HIGH     | `src/marks.ts`                          | core        |
+| 4   | Calling `exportPng` on a graph without a page | HIGH     | export API                              | export      |
+| 5   | Boxes that do not fit the drawn text          | MEDIUM   | readFont API                            | layouts     |
+| 6   | Labels missing from a small image             | MEDIUM   | server-side extracts guide              | export      |
+| 7   | Pictures that are square or missing           | MEDIUM   | export API                              | export      |
+| 8   | Treating a big graph like a page              | MEDIUM   | server-side extracts guide              | layouts     |
+| 9   | Waiting for an animation or a frame           | MEDIUM   | createGraph API                         | view        |
+| 10  | Keeping a graph after its export              | MEDIUM   | server-side extracts guide              | core        |
+| 11  | A size that is not above 0                    | MEDIUM   | createGraph API, `src/headless/page.ts` |             |
+| 12  | Measuring bold labels with the regular face   | MEDIUM   | readFont API                            |             |
 
 ## Tensions
 
@@ -403,6 +422,14 @@ Fixes of the 0.31 code review (PRs 235, 236, 238, 239, 240, 241). Failure modes 
 Widths that shrink when zooming out (PR 244). Failure modes added: `edges` (five, 7 to 12: `minWidth` without `'shrink'`, `minWidth` to widen a thin line, `widthScale` on a map, a halo that does not shrink, `widthScale` on nodes or with an unknown value, the last with two `expect-error=TS2769` fences). Sentences corrected: `styling` (edge widths and shape outlines are in pixels unless the mark shrinks), `shapes` (`strokeWidth`, `widthScale`, `minWidth`, picking on the drawn width), `export` (an export zoom below 1 narrows marks that shrink), `map` (no shrinking from map zoom 0). No reference added.
 
 - Code against docs: the guide says `minWidth: 0` lets a width follow the zoom all the way, but the edge shaders and the SVG export floor the drawn width at 0.5 pixel (already so before the option), so on edges `minWidth` under 0.5 acts as 0.5; shapes have no floor. The skill follows the code.
+
+### Aligned for 0.33.0
+
+Editable diagrams, the host split into core and page, `settled()`, graphs without a page, text widths from a font file, server-side extracts, null properties and rows as maps in the Cypher adapter, label room in `layers` (PRs 251 to 261). Written: `headless` (12 failure modes, requires `core`, reference `references/extracts-at-scale.md`; the entry is written by hand in `skill_tree.yaml`, then `maintainer sync`; examples are typechecked with three `expect-error` fences: TS2769 for `edges()` without `source` and `target`, TS2740 for `exportPng` given a `GraphCore`). Failure modes added: `export` (two, 8 to 10: the selection that a diagram leaves out with `states: 'custom'`, a tiny page from a graph on a map), `cypher` (two, 6 to 8 in the record: whole paths for a large result, a test for `null` on a property that is left out; reference `references/large-results.md`, declared in `skill_tree.yaml`). Sentences changed: `core` (`GraphCore` against `GraphInstance`, `settled()`), `layouts` (label room on the left and right of a container in `layers`, layouts without a page, `LayoutGraph.work`), `tools` and `time` (`createLegend` and `createTimeline` take a `GraphCore`), `export` (draw.io and Visio options, what each keeps, ids, the `images` option, `GraphCore` in the signatures). `map` and `react` need nothing: the Tailwind note of PR 250 was already in `map` before 0.32.0.
+
+- Documented by the docs and checked against the code: `exportPng` is typed `GraphInstance`, so on a `GraphCore` the error is TS2740 (a missing-members error), not TS2345.
+- Verified by running the recipe of the guide: `pnpm docs:extracts` (24 graphs of 200 nodes, 4 threads) and a shorter script against `dist`. resvg with `loadSystemFonts: false` and no font file draws no ink (0 dark pixels against 3,241 with the DejaVu file); the `pixels` getter of a rendered image copies the whole buffer at each access, so a loop that reads `image.pixels[i]` is killed for memory.
+- Cross-references proposed for the shared tables: `core` to `headless` (`GraphCore`, `settled()`), `export` to `headless` (the SVG without a page, PNG by resvg), `headless` to `export` (options of the exports), `headless` to `layouts` (label widths, work on the calling thread).
 
 ## Coverage and batch history
 

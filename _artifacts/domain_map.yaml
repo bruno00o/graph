@@ -1620,11 +1620,15 @@ skills:
       - "paths"
       - "JSON results"
       - "explore with a query"
+      - "rows as plain maps"
+      - "null properties left out"
+      - "large results wrapped in one query"
     tasks:
       - "Turn a Cypher result from a driver or its JSON into nodes and edges"
       - "Keep large integers, dates and points usable"
       - "Handle relationships whose end node is missing"
       - "Explore a graph database one neighborhood at a time"
+      - "Send a large path result without repeating each node"
     failure_modes:
       - mistake: "Using a stored id property as the key"
         mechanism: "Node and edge keys are the elementId of the database, so a property called id is not the key and edges pointing at elementIds wait for nodes that never match."
@@ -1657,6 +1661,24 @@ skills:
       - mistake: "Query that returns only relationships"
         mechanism: "RETURN r gives edges without their end nodes, which stay pending."
         source: "docs/content/docs/(guide)/cypher.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Returning whole paths for a large result"
+        mechanism: "A query that returns paths sends every node again in every row with all its properties, and the wrapped form of the Cypher guide sends each distinct element once; WITH DISTINCT loses the row order, so categorical colors need a domain."
+        wrong_pattern: |
+          RETURN p
+        correct_pattern: |
+          CALL () { MATCH p = (a)-[:KNOWS*1..2]->(b) RETURN p AS path } UNWIND [{v: path}] AS box ...
+        source: "docs/content/docs/(guide)/cypher.mdx"
+        priority: MEDIUM
+        status: active
+      - mistake: "Testing a property for null"
+        mechanism: "A property whose value is null is left out of properties, in nodes, relationships and maps alike, so the key is absent and a test against null never matches."
+        wrong_pattern: |
+          node.properties.born === null
+        correct_pattern: |
+          node.properties.born ?? 'unknown'
+        source: "src/cypher/values.ts, docs/content/docs/api/cypher-graph.mdx"
         priority: MEDIUM
         status: active
       - mistake: "Letting TypeScript infer the types of an exploration"
@@ -2120,19 +2142,25 @@ skills:
     slug: export
     domain: tools-and-output
     type: sub-skill
-    description: Save the graph as a PNG image or an SVG document.
+    description: Save the graph as a PNG image, an SVG document, or an editable draw.io or Visio diagram.
     covers:
       - exportPng
       - exportSvg
+      - exportDrawio
+      - exportVsdx
       - region
       - pixel ratio
       - labels
       - background
       - default pixel ratio of the PNG export
+      - states kept in a diagram
+      - what a diagram keeps and leaves out
+      - the images option of exportSvg
     tasks:
       - Save the graph as a PNG image
       - Save the graph as an SVG document
       - Export a region at a scale, with a background
+      - Save the graph as a draw.io file or a Visio drawing that stays editable
     failure_modes:
       - mistake: Exporting a destroyed graph
         mechanism: An export of a destroyed graph, or of one not made by mountGraph, rejects instead of producing a file.
@@ -2207,6 +2235,24 @@ skills:
         correct_pattern: |
           exportPng(graph, { region: 'graph', pixelRatio: 2 })
         source: docs/content/docs/api/define-graph.mdx, src/export/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the selection in a diagram
+        mechanism: exportDrawio and exportVsdx default to states custom, which keeps the states the definition adds and leaves out selected, hovered and focused, so a node selected on screen shows no selection in the file.
+        wrong_pattern: |
+          await exportDrawio(graph)
+        correct_pattern: |
+          await exportDrawio(graph, { states: 'all' })
+        source: docs/content/docs/(guide)/export.mdx, src/export/index.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A tiny page from a graph on a map
+        mechanism: A diagram has one unit per world unit at zoom 1 and the world of a map is 512 units wide, so a graph on a map gives a page a few hundred units across.
+        wrong_pattern: |
+          await exportDrawio(mapGraph)
+        correct_pattern: |
+          await exportDrawio(mapGraph, { size: { width: 2000 } })
+        source: docs/content/docs/(guide)/export.mdx
         priority: MEDIUM
         status: active
   - name: shapes
@@ -2529,6 +2575,141 @@ skills:
         correct_pattern: |
           const keys = graph.selection.get().shapes
         source: src/editor/editor.ts
+        priority: MEDIUM
+        status: active
+  - name: headless
+    slug: headless
+    domain: tools-and-output
+    type: sub-skill
+    description: Run a graph without a browser, in Node or a worker, lay it out and write it as SVG, PNG, draw.io or Visio files.
+    covers:
+      - createGraph
+      - GraphCore
+      - settled
+      - size, theme, measureText and title
+      - readFont and text widths
+      - exportSvg, exportDrawio and exportVsdx without a page
+      - the images option of exportSvg
+      - a PNG from the SVG with resvg
+      - many extracts on worker threads
+      - what a graph without a page lacks
+    tasks:
+      - Lay out a graph in Node and write it as an SVG file
+      - Turn the SVG into a PNG with the same font file the labels were measured with
+      - Write many extracts in a row on worker threads
+      - Read positions, counts, paths or picks of a graph as numbers
+      - Write a draw.io or Visio file from a script
+    failure_modes:
+      - mistake: Rasterizing the SVG without the font file
+        mechanism: resvg draws a label only with a font it has, so with the system fonts off and no font file it draws no text, and with its default it draws the fonts of the machine, which are not the font the graph measured.
+        wrong_pattern: |
+          new Resvg(svg, { font: { loadSystemFonts: false } })
+        correct_pattern: |
+          new Resvg(svg, { font: { loadSystemFonts: false, fontFiles: [fontFile], defaultFontFamily: font.family } })
+        source: docs/content/docs/(guide)/server-side-extracts.mdx
+        priority: HIGH
+        status: active
+      - mistake: Exporting before the graph has settled
+        mechanism: The layout runs in slices of 50 ms after createGraph returns, so an export or a read of positions made straight away sees a layout in progress.
+        wrong_pattern: |
+          const svg = await exportSvg(graph)
+        correct_pattern: |
+          await graph.settled()
+          const svg = await exportSvg(graph)
+        source: docs/content/docs/api/graph-core.mdx
+        priority: HIGH
+        status: active
+      - mistake: Edges that never appear
+        mechanism: edges() needs source and target even in a script, so without them the edges wait for ends that no one names, count().pending holds them all and issues() is empty.
+        wrong_pattern: |
+          edges(links, { arrow: 'target' })
+        correct_pattern: |
+          edges(links, { source: 'from', target: 'to', arrow: 'target' })
+        source: src/marks.ts
+        priority: HIGH
+        status: active
+      - mistake: Calling exportPng on a graph without a page
+        mechanism: The PNG export draws in WebGL, so it does not compile for a GraphCore and rejects with a TypeError for a graph made by createGraph.
+        wrong_pattern: |
+          await exportPng(graph)
+        correct_pattern: |
+          const svg = await exportSvg(graph)
+        source: docs/content/docs/api/export.mdx
+        priority: HIGH
+        status: active
+      - mistake: Boxes that do not fit the drawn text
+        mechanism: Without measureText the graph measures with the widths of Arial, so labels drawn in another font overflow their plates; the widths of readFont and its family in the theme make the boxes fit the font that draws them.
+        wrong_pattern: |
+          createGraph({ definition })
+        correct_pattern: |
+          createGraph({ definition, theme: { font: font.family }, measureText: font.width })
+        source: docs/content/docs/api/read-font.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Labels missing from a small image
+        mechanism: labels visible applies the screen rules, so in a small image of a large graph every label is under 8 pixels and none is written.
+        wrong_pattern: |
+          await exportSvg(graph, { size: { width: 400 } })
+        correct_pattern: |
+          await exportSvg(graph, { size: { width: 400 }, labels: 'all' })
+        source: docs/content/docs/(guide)/server-side-extracts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Pictures that are square or missing
+        mechanism: Without a page nothing loads the images of the nodes, exportSvg writes each URL as it is and draws the picture square, and resvg loads only data URLs and local files.
+        wrong_pattern: |
+          await exportSvg(graph)
+        correct_pattern: |
+          await exportSvg(graph, { images: async (src) => ({ href: dataUrl(src), width, height }) })
+        source: docs/content/docs/api/export.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Treating a big graph like a page
+        mechanism: Layouts, bundling and routing run on the calling thread in slices of 50 ms and never in a worker, so many graphs on one thread share it, and the GPU engine of the force layout never runs.
+        wrong_pattern: |
+          await Promise.all(jobs.map(extract))
+        correct_pattern: |
+          new Worker(new URL(import.meta.url), { workerData: share })
+        source: docs/content/docs/(guide)/server-side-extracts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Waiting for an animation or a frame
+        mechanism: A graph without a page has no frame loop and no drawn(), and a duration on view.set, view.fit, layout.run or positions.set ends at once.
+        wrong_pattern: |
+          graph.view.fit({ duration: 400 })
+          await sleep(400)
+        correct_pattern: |
+          graph.view.fit({ duration: 400 })
+          await graph.settled()
+        source: docs/content/docs/api/create-graph.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Keeping a graph after its export
+        mechanism: A graph that is not destroyed keeps its data, scene and layout state in memory, so a job that makes one graph per extract grows; after destroy reads return the last state, actions do nothing and settled rejects.
+        wrong_pattern: |
+          const svg = await exportSvg(graph)
+        correct_pattern: |
+          const svg = await exportSvg(graph)
+          graph.destroy()
+        source: docs/content/docs/(guide)/server-side-extracts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A size that is not above 0
+        mechanism: size takes a finite width and height above 0, and a size that is 0, NaN or Infinity throws a RangeError at creation and in update, which then changes nothing.
+        wrong_pattern: |
+          createGraph({ definition, size: { width: 0, height: 600 } })
+        correct_pattern: |
+          createGraph({ definition, size: { width: Math.max(1, width), height: 600 } })
+        source: docs/content/docs/api/create-graph.mdx, src/headless/page.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Measuring bold labels with the regular face
+        mechanism: readFont reads one face, so every weight gets the widths of that file and bold labels drawn from the bold file are wider than their boxes.
+        wrong_pattern: |
+          createGraph({ definition, measureText: regular.width })
+        correct_pattern: |
+          createGraph({ definition, measureText: (text, weight, font) => (weight >= 600 ? bold : regular).width(text, weight, font) })
+        source: docs/content/docs/api/read-font.mdx
         priority: MEDIUM
         status: active
 tensions:

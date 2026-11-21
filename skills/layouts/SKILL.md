@@ -29,6 +29,7 @@ sources:
   - src/types.ts
   - src/host/graph-instance.ts
   - src/host/layout-session.ts
+  - src/host/layout-graph.ts
   - src/layouts/scopes.ts
   - src/host/data-status.ts
   - docs/content/docs/(guide)/layout.mdx
@@ -110,6 +111,7 @@ const definition = defineGraph({
 - `root` (a key or an array of keys) forces nodes onto the first layer; edges into them are turned around. Edges that close a cycle are turned around too, as few as possible, and still drawn.
 - `layerSpacing` and `nodeSpacing` are gaps between node borders, in world units. Defaults: twice the largest diameter (at least diameter plus 24) between layers, the largest diameter (at least 8) inside a layer.
 - Separate components and lone nodes sit side by side, the largest first. The same graph always gives the same result.
+- With unfolded groups, `layers` keeps room on the left and right of a container for its label at the width it is drawn with, measured in the font of the label, with its `maxWidth` cut and its background plate; a label above or below takes its height only. Without a page (headless skill), the width comes from `measureText`.
 - `rank` (a field name or a function of the item) takes the layers from the data instead of the edges: the smallest value goes on the first layer, the next distinct one on the second, and only the order counts, so gaps leave no empty layer. Nodes without a finite value share one more layer after the last. An edge against the order is laid out turned around and still drawn to its target; an edge inside one layer is left out of the layout and drawn straight. Components share the layers instead of sitting side by side, and `root` is ignored. The cost grows with the layers an edge crosses, so give it few distinct values: bin continuous values into tens or hundreds of ranks first (2,000 nodes with all-distinct ranks took 3 s, 4,000 took 13 s; 100 ranks, 0.05 to 0.3 s). A development build warns once per run when the virtual nodes pass a limit. Inside `defineGraph`, write `layers<Step>({ rank })`.
 
 ### Grid, rings, radial
@@ -248,6 +250,8 @@ export function watchLayout(graph: GraphInstance, bar: HTMLProgressElement) {
 
 ### Decide when layouts run again
 
+Without a page (`createGraph`, headless skill), layouts run on the calling thread in slices of 50 ms, never in a Web Worker, so the GPU engine of `force` does not run, and `await graph.settled()` waits for the end of the run.
+
 - First batch of nodes: the whole layout runs. Nodes added later: with `force` only the new nodes run, starting next to their placed neighbors while the rest stays still; with `layers`, `grid`, `rings`, `radial` and `geo` (`incremental: false`) every free node is laid out again.
 - A graph that arrives in batches therefore looks different from one that arrives at once. When the data is complete, call `graph.layout.run()` to lay out the whole graph.
 - Live sources that report their loading (a TanStack DB collection, a live query, `subset`, `createExploration`) are the exception: the first automatic layout over every node, and the one that follows a new layout or `relayout`, wait until they have loaded or failed, so a collection that syncs in batches is laid out once, on all its rows. The wait is `waitForData` in `defineGraph`: 10,000 ms from the first nodes by default (then the layout runs on what is there), `true` for no limit, `false` or `0` to lay out the first batch at once. Array data never waits, and neither does `graph.layout.run()`. Know when the data is in with `await graph.loaded()` (core skill).
@@ -334,7 +338,7 @@ export function circle(radius = 300): Layout {
 }
 ```
 
-- `start(graph, listener)` receives a `LayoutGraph`: typed arrays indexed by the internal node index (`capacity`, `alive`, `movable`, `xy`, `radius`, `extents` when some node is a box, `edges` as pairs of indices with loops left out, `keys`, `groups`) and `datum(index)` for the item.
+- `start(graph, listener)` receives a `LayoutGraph`: typed arrays indexed by the internal node index (`capacity`, `alive`, `movable`, `xy`, `radius`, `extents` when some node is a box, `edges` as pairs of indices with loops left out, `keys`, `groups`, and `work`: `{ slice, workers }`, the longest stretch in ms before giving the event loop back and whether a Web Worker may start, 8 ms with workers on a page and 50 ms without on a graph from `createGraph`; read it instead of hard-coding a budget or a `Worker`) and `datum(index)` for the item.
 - Report with `listener.progress(xy, progress)` as often as you like, then `listener.end(xy)` once. Each array holds `capacity × 2` numbers, every node, and non-movable nodes must stay where they are. Ending without `progress` makes nodes glide to the result.
 - Return `pin(index, x, y)` (a node was dragged or set during the run) and `stop()` (never call the listener after it). A layout that ends at once can leave `pin` empty, as above.
 - `name` and `options` decide whether a new definition lays out again, compared one by one; keep options a flat object.
