@@ -28,7 +28,7 @@ function markdownPages(directory = content, parents: string[] = []): { path: str
 }
 
 function previewThumbnails(): Plugin {
-  const folders = ['examples', 'showcase'] as const
+  const folders = ['examples'] as const
   return {
     name: 'preview-thumbnails',
     apply: 'build',

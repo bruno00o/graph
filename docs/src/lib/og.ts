@@ -9,8 +9,6 @@ export interface PreviewImage {
 export const thumbnailSize = { width: 640, height: 400 } as const
 export const drawnSize = { width: 1200, height: 630 } as const
 
-const drawnPages = false
-
 export function trimmed(path: string): string {
   return path.replace(/^\/+|\/+$/g, '')
 }
@@ -24,7 +22,6 @@ export function ogImage(path: string): string {
   return absoluteUrl(ogPath(path))
 }
 
-export function previewImage(path: string, thumbnail: boolean): PreviewImage | null {
-  if (thumbnail) return { url: ogImage(path), ...thumbnailSize }
-  return drawnPages ? { url: ogImage(path), ...drawnSize } : null
+export function previewImage(path: string, thumbnail: boolean): PreviewImage {
+  return { url: ogImage(path), ...(thumbnail ? thumbnailSize : drawnSize) }
 }

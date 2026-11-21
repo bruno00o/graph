@@ -42,5 +42,5 @@
       "@bruno00o/graph/headless": ["../src/headless/index.ts"]
     }
   },
-  "include": ["src", "source.config.ts", "vite.config.ts"]
+  "include": ["src", "og", "source.config.ts", "vite.config.ts"]
 }
