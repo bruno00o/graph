@@ -324,8 +324,8 @@ describe('typed data', () => {
     graph.layers.toggle('links')
     // @ts-expect-error
     graph.layers.toggle('other')
-    graph.on('layerchange', ({ hidden }) => {
-      expectTypeOf(hidden).toEqualTypeOf<readonly ('people' | 'links')[]>()
+    graph.on('layerchange', ({ hiddenLayers }) => {
+      expectTypeOf(hiddenLayers).toEqualTypeOf<readonly ('people' | 'links')[]>()
     })
     expectTypeOf(graph).toExtend<GraphInstance>()
     expect(() =>

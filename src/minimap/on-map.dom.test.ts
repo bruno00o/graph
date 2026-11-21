@@ -39,7 +39,7 @@ vi.mock('../webgl/renderer', () => ({
   createSharedRenderer: () => fakeRenderer(),
 }))
 
-const { createMinimap } = await import('./index')
+const { mountMinimap } = await import('./index')
 
 let dom: FakeDom
 
@@ -50,7 +50,7 @@ function definition() {
   })
 }
 
-describe('createMinimap on a map', () => {
+describe('mountMinimap on a map', () => {
   beforeEach(() => {
     dom = installDom(400, 200)
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
@@ -71,8 +71,8 @@ describe('createMinimap on a map', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { map } = fakeMap()
     const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'map' })
-    const first = createMinimap(graph)
-    const second = createMinimap(graph, { corner: null })
+    const first = mountMinimap(graph)
+    const second = mountMinimap(graph, { corner: null })
     vi.runOnlyPendingTimers()
     dom.flushFrames()
     expect(made.workers).toBe(0)
@@ -97,7 +97,7 @@ describe('createMinimap on a map', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { map } = fakeMap()
     const graph = mountMapGraph(map, { definition: definition(), ariaLabel: 'map' })
-    const minimap = createMinimap(graph, { corner: null })
+    const minimap = mountMinimap(graph, { corner: null })
     document.body.append(minimap.element)
     dom.flushFrames()
     expect(minimap.element.childElementCount).toBe(0)
@@ -113,7 +113,7 @@ describe('createMinimap on a map', () => {
     ) as unknown as GraphInstance
     dom.flushFrames()
     const warn = vi.spyOn(console, 'warn')
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     expect(made.workers).toBe(1)
     expect(minimap.element.parentElement).toBe(graph.element)
     expect(warn).not.toHaveBeenCalled()

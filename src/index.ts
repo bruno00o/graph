@@ -43,6 +43,7 @@ export type {
   GraphLayoutEndEvent,
   GraphLayoutEvent,
   GraphLensEvent,
+  GraphLoadingEvent,
   GraphPointerEvent,
   GraphPositionEvent,
   GraphSelectionEvent,

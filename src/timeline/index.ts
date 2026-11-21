@@ -222,7 +222,9 @@ export interface Timeline<E = TimelineEvent> {
    * Moves to the event a number of events ahead, or back for a negative count, skipping hidden
    * kinds and counting events at the same moment once. With `instant`, the moment lands on the
    * event; otherwise the end of the window lands 1 ms after it, keeping the width in `'slide'`
-   * mode and the start in `'grow'` mode. Defaults to the next event.
+   * mode and the start in `'grow'` mode. Without a window, it starts from the beginning of the
+   * extent: the first event, in a window that starts at the extent in `'grow'` mode and is a tenth
+   * of the extent wide in `'slide'` mode. Defaults to the next event.
    */
   stepEvent(count?: number): void
   /**
@@ -638,7 +640,16 @@ export function createTimeline<E>(
       if (at !== null) request(moment(at))
       return
     }
-    if (!window || window.end === null) return
+    if (!window) {
+      if (!extent) return
+      const first = walk(extent.start - 1, steps)
+      if (first === null) return
+      const end = first + 1
+      if (settings.mode === 'grow') request({ start: extent.start, end })
+      else request({ start: end - (extent.end - extent.start) / startWidth, end })
+      return
+    }
+    if (window.end === null) return
     const at = walk(window.end - 1, steps)
     if (at === null) return
     const end = at + 1
@@ -748,7 +759,7 @@ export function createTimeline<E>(
     if (!sameWindow(store.state.window, window)) patch({ window })
   }
 
-  const stopTime = graph ? graph.on('timechange', ({ window }) => changed(window)) : () => {}
+  const stopTime = graph ? graph.on('timechange', ({ time }) => changed(time)) : () => {}
 
   let stopWatch: (() => void) | null = null
 

@@ -1,6 +1,6 @@
 ## How it works
 
-`createMinimap` draws every node, and the edges up to a limit, in a canvas of its own, with the rectangle of the view on top. It draws in a worker when the browser allows it, at a pace bounded by its own cost, so panning and layouts keep their frame rate. The rectangle follows the view at every frame.
+`mountMinimap` draws every node, and the edges up to a limit, in a canvas of its own, with the rectangle of the view on top. It draws in a worker when the browser allows it, at a pace bounded by its own cost, so panning and layouts keep their frame rate. The rectangle follows the view at every frame.
 
 `createLegend` reads the scales of the definition: the categories of `color` with their colors and counts, and a few values of `size`. `mountLegend` renders them as plain HTML styled by the theme tokens. The legend writes no text of its own: the titles come from the example.
 

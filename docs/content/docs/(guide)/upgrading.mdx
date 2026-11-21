@@ -7,6 +7,56 @@ Versions before 1.0 may break the API in a minor release. Each change is listed 
 
 ## 0.34.0
 
+### `createMinimap` is `mountMinimap`
+
+The function puts an element in the page, so it follows the rule of the package: `create` builds something without a page, `mount` builds something with one. There is no alias.
+
+```ts
+// before
+import { createMinimap } from '@bruno00o/graph/minimap'
+const minimap = createMinimap(graph, { corner: 'bottomRight' })
+
+// after
+import { mountMinimap } from '@bruno00o/graph/minimap'
+const minimap = mountMinimap(graph, { corner: 'bottomRight' })
+```
+
+`<Minimap>` in React is unchanged.
+
+### `layerchange` and `timechange` carry the names of the store
+
+The payload of `layerchange` has `hiddenLayers` instead of `hidden`, and the payload of `timechange` has `time` instead of `window`, the names of the same values in the store. The controlled callbacks `onLayerChange` and `onTimeChange`, on `mountGraph` and on `<Graph>`, receive the same payloads.
+
+```ts
+// before
+graph.on('layerchange', ({ hidden }) => show(hidden))
+graph.on('timechange', ({ window }) => show(window))
+
+// after
+graph.on('layerchange', ({ hiddenLayers }) => show(hiddenLayers))
+graph.on('timechange', ({ time }) => show(time))
+```
+
+### `loadingchange` has a named payload
+
+The payload of `loadingchange` is the new type `GraphLoadingEvent`. It has the same fields as before, `loading` and `failed`, so a handler keeps working. `GraphDataStatus` stays the type of `data` in the store.
+
+### `defaultMessages` is `defaultDevtoolsMessages`
+
+The English texts exported by `@bruno00o/graph/devtools` take a name that says what they belong to.
+
+```ts
+// before
+import { defaultMessages } from '@bruno00o/graph/devtools'
+
+// after
+import { defaultDevtoolsMessages } from '@bruno00o/graph/devtools'
+```
+
+### `stepEvent` without a window starts at the first event
+
+`timeline.stepEvent()` used to do nothing when the graph had no time window and `instant` was off. It now starts from the beginning of the extent: the window ends 1 ms after the first event, starting at the extent in `'grow'` mode and a tenth of the extent wide in `'slide'` mode. With `instant`, it already moved the moment to the first event. A code that relied on the no-op, such as a button that calls `stepEvent` while the window is cleared, now sets a window.
+
 ### A layout that throws fails its run
 
 When a built-in layout throws during a run, such as a `grid` whose `order` throws, or a group layout, the run now fails: `layout.run` resolves to `false` and `layoutend` has `completed: false` and the `error`. Before, the run ended as if it had completed, with nodes left in place. `layout.compute` now rejects with the error instead of resolving to unchanged positions. The error is still reported as an uncaught error.

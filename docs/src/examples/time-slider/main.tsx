@@ -82,7 +82,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       definition={definition}
       time={time}
       onTimeChange={(event) => {
-        if (typeof event.window?.start === 'number') setMoment(event.window.start)
+        if (typeof event.time?.start === 'number') setMoment(event.time.start)
       }}
       ariaLabel={messages.graphLabel(history.items.length, history.links.length)}
     >

@@ -51,7 +51,7 @@ function mount(time?: TimeWindow | null, onTime?: (window: TimeWindow | null) =>
     {
       definition,
       ariaLabel: 'graph',
-      ...(time !== undefined ? { time, onTimeChange: ({ window }) => onTime?.(window) } : {}),
+      ...(time !== undefined ? { time, onTimeChange: ({ time: window }) => onTime?.(window) } : {}),
     },
     () => fakeRenderer(),
   )
@@ -182,6 +182,23 @@ describe('a timeline of events', () => {
     expect(graph.time.get()).toEqual({ start: origin + day + 1, end: origin + 5 * day + 1 })
     timeline.stepEvent(-1)
     expect(graph.time.get()?.end).toBe(origin + 2 * day + 1)
+    timeline.destroy()
+  })
+
+  it('steps from the start of the extent when there is no window', () => {
+    const graph = mount()
+    const timeline = createTimeline(graph, { events: history, eventTime: 'at', eventKind: 'type' })
+    const width = (9 * day + 1) / 10
+    expect(graph.time.get()).toBeNull()
+    timeline.stepEvent()
+    expect(graph.time.get()).toEqual({ start: origin + 1 - width, end: origin + 1 })
+    timeline.clear()
+    timeline.update({ mode: 'grow' })
+    timeline.stepEvent()
+    expect(graph.time.get()).toEqual({ start: origin, end: origin + 1 })
+    timeline.clear()
+    timeline.stepEvent(-1)
+    expect(graph.time.get()).toBeNull()
     timeline.destroy()
   })
 
