@@ -3,10 +3,11 @@ import { withoutUndefined } from '../core/without-undefined'
 import type { EdgeMark, Key, NodeMark } from '../types'
 
 /**
- * How a graph draws: `'active'`, `'suspended'` while `suspend` holds its WebGL context back, or
- * `'lost'` when the browser took the context away.
+ * How a graph draws: `'active'`, `'suspended'` while `suspend` holds its WebGL context back,
+ * `'lost'` when the browser took the context away, or `'unavailable'` when the browser gives no
+ * WebGL2 context at all.
  */
-export type GraphRendering = 'active' | 'suspended' | 'lost'
+export type GraphRendering = 'active' | 'suspended' | 'lost' | 'unavailable'
 
 /**
  * Where WebGL draws a graph: `'gpu'`, `'software'` when the browser draws without a GPU, or
@@ -175,13 +176,13 @@ export interface GraphDevtoolsMessages {
   /** Formats the name of a surface, such as `'Canvas'` for `'canvas'` and `'Map'` for `'map'`. */
   readonly surfaceName?: ((name: string) => string) | undefined
   /**
-   * Label of whether the graph draws, is suspended, or lost its WebGL context.
+   * Label of whether the graph draws, is suspended, lost its WebGL context, or has none.
    * @default 'Rendering'
    */
   readonly rendering?: string | undefined
   /**
-   * Formats the rendering state of a graph: `'active'`, `'suspended'` or `'lost'`, such as
-   * `'Active'`, `'Suspended'` and `'Context lost'`.
+   * Formats the rendering state of a graph: `'active'`, `'suspended'`, `'lost'` or
+   * `'unavailable'`, such as `'Active'`, `'Suspended'`, `'Context lost'` and `'No WebGL2'`.
    */
   readonly renderingName?: ((state: GraphRendering) => string) | undefined
   /**
@@ -383,7 +384,13 @@ export const defaultDevtoolsMessages: GraphDevtoolsMessages = {
   surfaceName: (name) => (name === 'canvas' ? 'Canvas' : name === 'map' ? 'Map' : name),
   rendering: 'Rendering',
   renderingName: (state) =>
-    state === 'suspended' ? 'Suspended' : state === 'lost' ? 'Context lost' : 'Active',
+    state === 'suspended'
+      ? 'Suspended'
+      : state === 'lost'
+        ? 'Context lost'
+        : state === 'unavailable'
+          ? 'No WebGL2'
+          : 'Active',
   drawing: 'Drawing',
   drawingName: (drawing) =>
     drawing === 'gpu' ? 'GPU' : drawing === 'software' ? 'Software' : 'Unknown',

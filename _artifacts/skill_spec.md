@@ -57,7 +57,7 @@ Boundaries chosen from developer tasks, not from entry points:
 
 ## Failure mode inventory
 
-### core (13)
+### core (14)
 
 | #   | Mistake                                               | Priority | Source                                     | Cross-skill |
 | --- | ----------------------------------------------------- | -------- | ------------------------------------------ | ----------- |
@@ -73,7 +73,8 @@ Boundaries chosen from developer tasks, not from entry points:
 | 10  | Destroying and mounting graphs again to save contexts | MEDIUM   | graph instance API, browser-support guide  | react       |
 | 11  | Passing `suspended` to `update`                       | MEDIUM   | `src/host/graph-instance.ts`, mount API    |             |
 | 12  | Waiting for a lost context to come back by itself     | MEDIUM   | `src/host/render-host.ts`, browser-support |             |
-| 13  | A blurry graph when WebGL runs in software            | MEDIUM   | defineGraph API, browser-support guide     | export      |
+| 13  | Catching an error to detect a browser without WebGL2  | MEDIUM   | `src/host/render-host.ts`, browser-support |             |
+| 14  | A blurry graph when WebGL runs in software            | MEDIUM   | defineGraph API, browser-support guide     | export      |
 
 ### react (9)
 

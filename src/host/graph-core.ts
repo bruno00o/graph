@@ -111,6 +111,7 @@ export type PageRender = Pick<
   | 'pixelRatio'
   | 'software'
   | 'contextLost'
+  | 'drawable'
   | 'settled'
   | 'cost'
   | 'drawn'
@@ -432,6 +433,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     data: loadedData,
     surface: surface.name,
     suspended: options.suspended === true,
+    drawable: surface.ownCanvas || surface.onMap,
   })
   const readonlyStore: GraphStore = isolateSubscribers(readonlyOf(store))
   const bundles = new BundleHost(
@@ -963,9 +965,11 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
         patch({ positionsVersion: positions.version })
         if (destroyed) return
       }
+      if (!render.drawable) render.drawn(now)
       anchors.place()
       for (const watcher of watchers) watcher.frame()
       if (views.animation || pointer.autoPanning || motion.active || easing || spreading) request()
+      if (!render.drawable) waiters.drawn()
       return
     }
     const positionsChanged = positions.version !== render.positionsVersion

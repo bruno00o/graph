@@ -200,6 +200,7 @@ export function coreStillborn<S extends string, M extends Mark, G extends object
     data: loadedData,
     surface: capabilities.name,
     suspended: options.suspended === true,
+    drawable: false,
   })
   const graph = dead(readonlyOf(store) as unknown as GraphStore<S, M>, () => shaped)
   const scene = createScene()

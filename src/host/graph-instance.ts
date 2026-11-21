@@ -89,6 +89,12 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
    * nothing there, and everything else goes on.
    */
   readonly suspended: boolean
+  /**
+   * `false` when the graph cannot draw where it is: the browser gives no WebGL2 context for its own
+   * canvas, or the graph was made by `createGraph`. Data, layouts, view, selection, picking,
+   * events and SVG exports still work. A graph mounted suspended reads `true` until it resumes.
+   */
+  readonly drawable: boolean
 }
 
 /** Status of edge bundling. */
@@ -861,8 +867,9 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly drawsOnMap: boolean
   /**
    * Resolves after the next frame is drawn, the first one included. When no frame is due, it
-   * resolves on the next animation frame, without drawing one. Rejects with the reason of `signal`
-   * once the graph is destroyed.
+   * resolves on the next animation frame, without drawing one. Resolves as well, without drawing,
+   * when the graph cannot draw (`drawable` is `false`). Rejects with the reason of `signal` once
+   * the graph is destroyed.
    */
   drawn(): Promise<void>
   /**
@@ -876,6 +883,7 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * Takes a WebGL context again and draws the graph as it is now, from the scene kept on the CPU.
    * `await drawn()` waits for that frame, and a context the browser took away comes back first.
    * Called on a graph that is not suspended, it only brings back a context the browser took away.
+   * On a graph that could not take a WebGL2 context (`drawable` is `false`), it tries once more.
    */
   resume(): void
   /**

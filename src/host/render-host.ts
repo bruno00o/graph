@@ -17,6 +17,8 @@ type Given = 'none' | 'losing' | 'lost' | 'restoring'
 
 const restoreWait = 2000
 
+let warnedUnavailable = false
+
 function sameTheme(a: ResolvedTheme | null, b: ResolvedTheme): boolean {
   if (!a || a.font !== b.font) return false
   const keys = Object.keys(b) as (keyof ResolvedTheme)[]
@@ -74,6 +76,7 @@ export class RenderHost {
   #wake: ReturnType<typeof setTimeout> | undefined
   #hidden = false
   #releasing = false
+  #unavailable = false
   #theme: ResolvedTheme | null = null
   readonly #kept = new KeptFrame()
 
@@ -82,12 +85,7 @@ export class RenderHost {
     this.#suspended = suspended
     this.#keep = keepFrame
     const surface = source.surface()
-    if (surface.ownCanvas && !suspended) {
-      this.#renderers.set(
-        surface,
-        source.createRenderer(surface.events, () => source.request()),
-      )
-    }
+    if (surface.ownCanvas && !suspended && !this.#create(surface, true)) this.#publish()
   }
 
   get renderer(): Renderer | null {
@@ -100,6 +98,10 @@ export class RenderHost {
 
   get suspended(): boolean {
     return this.#suspended
+  }
+
+  get drawable(): boolean {
+    return !this.#unavailable || !this.#source.surface().ownCanvas
   }
 
   get keepsFrame(): boolean {
@@ -178,26 +180,41 @@ export class RenderHost {
       return
     }
     const own = this.#own
-    if (own && this.#source.surface() === own && this.#acquire(own)) this.#ready()
+    if (own && this.#source.surface() === own) this.#take(own)
     this.#source.request()
   }
 
   recover(): void {
     const own = this.#own
-    if (this.#suspended || !own || !this.#lost.has(own) || this.#source.surface() !== own) return
-    if (this.#acquire(own)) this.#ready()
+    if (this.#suspended || !own || this.#source.surface() !== own) return
+    if (!this.#unavailable && !this.#lost.has(own)) return
+    this.#take(own)
     this.#source.request()
+  }
+
+  #take(own: HostSurface): void {
+    if (this.#acquire(own)) this.#ready()
+    else if (this.#unavailable) this.#show(own)
+    this.#publish()
+  }
+
+  #publish(): void {
+    const drawable = this.drawable
+    if (this.#source.state().drawable !== drawable) this.#source.patch({ drawable })
+  }
+
+  #show(own: HostSurface): void {
+    if (!this.#hidden || this.#suspended) return
+    this.#hidden = false
+    own.events.style.visibility = ''
+    this.#kept.drop()
   }
 
   drawn(now: number): void {
     this.cost.drawn(now)
     const own = this.#own
     if (!own || this.#source.surface() !== own) return
-    if (this.#hidden && !this.#suspended) {
-      this.#hidden = false
-      own.events.style.visibility = ''
-      this.#kept.drop()
-    }
+    this.#show(own)
     if (this.#releasing) this.#finish(own, true)
   }
 
@@ -242,9 +259,7 @@ export class RenderHost {
       return false
     }
     this.#given = 'none'
-    if (this.#create(own)) return true
-    this.#lost.add(own)
-    return false
+    return this.#create(own, true)
   }
 
   #retrieve(own: HostSurface): boolean {
@@ -281,7 +296,7 @@ export class RenderHost {
       this.#wake = undefined
       const own = this.#own
       if (this.#source.destroyed() || this.#suspended || !own) return
-      if (this.#source.surface() === own && this.#acquire(own)) this.#ready()
+      if (this.#source.surface() === own) this.#take(own)
     })
   }
 
@@ -398,7 +413,7 @@ export class RenderHost {
     if (renderer) this.#release(own, renderer)
   }
 
-  #create(surface: HostSurface): boolean {
+  #create(surface: HostSurface, fresh = false): boolean {
     const source = this.#source
     try {
       this.#renderers.get(surface)?.destroy()
@@ -406,11 +421,24 @@ export class RenderHost {
         surface,
         source.createRenderer(surface.events, () => source.request()),
       )
+      this.#unavailable = false
       return true
     } catch (error) {
-      if (dev) console.warn('graph: cannot restore the WebGL context', error)
+      if (fresh) this.#refused(error)
+      else if (dev) console.warn('graph: cannot restore the WebGL context', error)
       return false
     }
+  }
+
+  #refused(error: unknown): void {
+    this.#unavailable = true
+    if (!dev || warnedUnavailable) return
+    warnedUnavailable = true
+    console.warn(
+      'graph: WebGL2 is not available, so the graph draws nothing; data, layouts, view, ' +
+        'selection, picking and SVG exports still work, and the store reads drawable: false',
+      error,
+    )
   }
 
   listen(surface: HostSurface): void {
@@ -432,7 +460,10 @@ export class RenderHost {
   }
 
   enter(surface: HostSurface): void {
-    if (surface.ownCanvas && !this.#suspended) this.#acquire(surface)
+    if (surface.ownCanvas && !this.#suspended && !this.#acquire(surface) && this.#unavailable) {
+      this.#show(surface)
+    }
+    this.#publish()
     if (!surface.ownCanvas) this.#kept.drop()
     this.full = true
     this.positionsVersion = -1

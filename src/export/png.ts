@@ -90,7 +90,15 @@ export interface PngCanvas {
 
 export function openCanvas(snapshot: GraphSnapshot): PngCanvas {
   const canvas = document.createElement('canvas')
-  return { canvas, renderer: snapshot.createRenderer(canvas, () => {}) }
+  try {
+    return { canvas, renderer: snapshot.createRenderer(canvas, () => {}) }
+  } catch (error) {
+    if (!(error instanceof DOMException) || error.name !== 'NotSupportedError') throw error
+    throw new DOMException(
+      'graph: exportPng needs WebGL2, which this browser does not give; use exportSvg instead',
+      'NotSupportedError',
+    )
+  }
 }
 
 export async function renderPng(
