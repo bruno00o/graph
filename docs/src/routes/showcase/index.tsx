@@ -5,17 +5,20 @@ import type { JSX } from 'react'
 import { SiteFooter } from '../../components/footer'
 import { ThumbnailPair } from '../../components/thumbnail'
 import { homeOptions } from '../../lib/layout'
+import { previewImage } from '../../lib/og'
+import { pageHead } from '../../lib/seo'
 import { messages } from '../../messages'
 import { showcases } from '../../showcase/catalog'
 import type { Showcase } from '../../showcase/types'
 
 export const Route = createFileRoute('/showcase/')({
-  head: () => ({
-    meta: [
-      { title: messages.pageTitle(messages.showcase.title) },
-      { name: 'description', content: messages.showcase.lead },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: '/showcase',
+      title: messages.pageTitle(messages.showcase.title),
+      description: messages.showcase.lead,
+      image: previewImage('/showcase', false),
+    }),
   component: Index,
 })
 

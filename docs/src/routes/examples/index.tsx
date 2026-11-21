@@ -9,6 +9,8 @@ import { examples } from '../../examples/catalog'
 import { type CategoryId, categories } from '../../examples/categories'
 import { type Example, type ExampleTag, exampleTags } from '../../examples/types'
 import { homeOptions } from '../../lib/layout'
+import { previewImage } from '../../lib/og'
+import { pageHead } from '../../lib/seo'
 import { messages } from '../../messages'
 
 interface GallerySearch {
@@ -59,12 +61,13 @@ function matches(example: Example, filters: GallerySearch): boolean {
 
 export const Route = createFileRoute('/examples/')({
   validateSearch: readSearch,
-  head: () => ({
-    meta: [
-      { title: messages.pageTitle(messages.examples.title) },
-      { name: 'description', content: messages.examples.lead },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: '/examples',
+      title: messages.pageTitle(messages.examples.title),
+      description: messages.examples.lead,
+      image: previewImage('/examples', false),
+    }),
   component: Gallery,
 })
 

@@ -48,6 +48,8 @@ await writeFile('graph.png', png)
 - Labels follow the rules of the screen: a label smaller than 8 pixels in the image is left out, so a large graph fitted into a small image may show none. `labels: 'all'` draws them all.
 - `exportPng` needs WebGL, and rejects a graph made by `createGraph` with a pointer to this guide.
 
+The same code runs in a Web Worker of a page, which has no DOM either: the [layout in a Web Worker](/examples/layout-in-a-worker) example lays a graph out and exports its SVG there, then mounts the graph from the positions with `initialPositions`.
+
 ## One font file, two uses
 
 Label boxes, plates, cut labels and the room a layout leaves for labels all depend on the width of the text, which a graph without a page cannot measure. Read the font file with [`readFont`](/docs/api/read-font), give its widths to `measureText` and its family to the theme, and give the same file to the rasterizer: the text it draws then has the width the graph made room for.
