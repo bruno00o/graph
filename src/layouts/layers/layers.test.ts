@@ -168,6 +168,13 @@ describe('layers', () => {
     expect(point(xy, 3)[1]).toBeGreaterThan(top)
   })
 
+  it('takes its roots from any list of keys', async () => {
+    const graph = graphOf({ count: 4, edges: [0, 1, 1, 2, 3, 2] })
+    const fromSet = await run(graph, { root: new Set(['n2']) })
+    expect(fromSet).toEqual(await run(graph, { root: ['n2'] }))
+    expect(fromSet).toEqual(await run(graph, { root: 'n2' }))
+  })
+
   it('shortens long edges by lowering nodes that only feed deeper ones', async () => {
     const xy = await run(graphOf({ count: 5, edges: [0, 1, 1, 2, 2, 3, 4, 3] }))
     expect(point(xy, 4)[1]).toBe(point(xy, 2)[1])
@@ -331,6 +338,7 @@ describe('layers', () => {
     layers<{ tier: number; name: string }>({ rank: 'name' })
     layers({ direction: 'left', root: ['a', 2], layerSpacing: 40, nodeSpacing: 8 })
     layers({ root: 'a' })
+    layers({ root: new Set(['a', 'b']) })
     // @ts-expect-error
     layers({ direction: 'sideways' })
     // @ts-expect-error

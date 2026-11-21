@@ -1,13 +1,13 @@
-import type { Key, Layout, LayoutGraph } from '../types'
-import { centroid, degrees, indexOfKey, instant, movers, spacingOf } from './shared'
+import type { Key, KeyList, Layout, LayoutGraph } from '../types'
+import { centroid, degrees, indexOfKey, instant, movers, rootKeys, spacingOf } from './shared'
 
 /** Options of `radial`. */
 export interface RadialOptions {
   /**
-   * Start of the walk, the free node with the most edges by default. Several roots share the inner
-   * ring, and a single fixed root keeps its place.
+   * Start of the walk: a key or a list of keys, the free node with the most edges by default.
+   * Several roots share the inner ring, and a single fixed root keeps its place.
    */
-  readonly root?: Key | readonly Key[] | undefined
+  readonly root?: Key | KeyList | undefined
   /**
    * Smallest gap between two rings, and between two nodes of a ring, from the borders of the
    * largest nodes, in world units. Defaults to the largest diameter, blocks aside, and at least 24.
@@ -23,7 +23,7 @@ interface Tree {
 }
 
 function rootsOf(graph: LayoutGraph, indices: readonly number[], root: RadialOptions['root']) {
-  const keys = root === undefined ? [] : Array.isArray(root) ? root : [root as Key]
+  const keys = rootKeys(root)
   const found = keys.map((key) => indexOfKey(graph, key)).filter((index) => index >= 0)
   if (found.length > 0) return [...new Set(found)]
   const degree = degrees(graph)

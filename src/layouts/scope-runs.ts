@@ -78,6 +78,19 @@ function work(): void {
   }
 }
 
+export function failWith(
+  listener: LayoutListener,
+  error: unknown,
+  start: () => Float32Array,
+): void {
+  if (listener.fail) {
+    listener.fail(error)
+    return
+  }
+  report(error)
+  listener.end(start())
+}
+
 export function endWith(
   graph: Pick<LayoutGraph, 'xy'>,
   listener: LayoutListener,
@@ -87,8 +100,8 @@ export function endWith(
   try {
     xy = compute()
   } catch (error) {
-    report(error)
-    xy = Float32Array.from(graph.xy)
+    failWith(listener, error, () => Float32Array.from(graph.xy))
+    return
   }
   listener.end(xy)
 }
