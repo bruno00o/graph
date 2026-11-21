@@ -23,9 +23,9 @@ import {
   mountLegend,
 } from '../legend/index'
 import {
-  createMinimap,
   type Minimap as MinimapInstance,
   type MinimapOptions,
+  mountMinimap,
 } from '../minimap/index'
 import {
   createTimeline,
@@ -257,7 +257,7 @@ export function Anchor<S extends string = string>(props: AnchorProps<S>): ReactN
 }
 
 /**
- * Props of `Minimap`: the options of `createMinimap`, and the graph. A prop that goes away returns
+ * Props of `Minimap`: the options of `mountMinimap`, and the graph. A prop that goes away returns
  * to its default.
  */
 export interface MinimapProps extends MinimapOptions {
@@ -282,7 +282,7 @@ export function Minimap(props: MinimapProps): ReactNode {
   const latest = useLatest(options)
   useLayoutEffect(() => {
     if (!graph) return
-    const created = createMinimap(graph, latest.current)
+    const created = mountMinimap(graph, latest.current)
     applied.current = latest.current
     minimap.current = created
     return () => {

@@ -44,7 +44,7 @@ function Frise({ initial }: { readonly initial: TimeWindowInput | null }) {
       definition={definition}
       ariaLabel="graph"
       time={time}
-      onTimeChange={({ window }) => {
+      onTimeChange={({ time: window }) => {
         requests++
         setTime(window)
       }}

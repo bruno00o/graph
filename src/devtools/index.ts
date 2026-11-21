@@ -1,6 +1,6 @@
 export { GraphDevtoolsCore, type GraphDevtoolsOptions, type GraphDevtoolsProps } from './core'
 export {
-  defaultMessages,
+  defaultDevtoolsMessages,
   type GraphDevtoolsMessages,
   type GraphDevtoolsMessagesInput,
   type GraphDrawing,

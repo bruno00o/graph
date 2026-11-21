@@ -29,7 +29,7 @@ description: Every export of the package, by entry point.
 | `HistoryEntry`, `HistorySource`, `HistoryValues` | types | [historyFrom](/docs/api/history) |
 | `TimeInstant`, `TimeSpan`, `TimeValue` | types | [nodes](/docs/api/nodes#time), [edges](/docs/api/edges#time) |
 | `TimeOptions`, `ResolvedTimeOptions` | types | [defineGraph](/docs/api/define-graph#time) |
-| `GraphEvents`, `GraphEventOptions`, `GraphTarget`, `NodeTarget`, `EdgeTarget`, `ShapeTarget` and the event payloads, `GraphSelectionEvent`, `GraphViewEvent`, `ViewOrigin`, `GraphTimeEvent`, `GraphLayoutEvent`, `GraphLayoutEndEvent`, `GraphZoomHintEvent` and `ZoomKey` included | types | [Events](/docs/api/events) |
+| `GraphEvents`, `GraphEventOptions`, `GraphTarget`, `NodeTarget`, `EdgeTarget`, `ShapeTarget` and the event payloads, `GraphSelectionEvent`, `GraphViewEvent`, `ViewOrigin`, `GraphTimeEvent`, `GraphLoadingEvent`, `GraphLayoutEvent`, `GraphLayoutEndEvent`, `GraphZoomHintEvent` and `ZoomKey` included | types | [Events](/docs/api/events) |
 | `geoToWorld`, `worldToGeo`, `GeoPoint` | functions and type | [Map](/docs/api/map#coordinates) |
 | `lineWaypoints`, `WaypointInput`, `LineGeometry`, `LineStringGeometry`, `MultiLineStringGeometry`, `LineWaypointsOptions` | function and types | [edges](/docs/api/edges#waypoints) |
 | `NodeDatum`, `EdgeDatum`, `MarkName` | types | [TypeScript](/docs/typescript) |
@@ -51,7 +51,7 @@ description: Every export of the package, by entry point.
 | `Graph` | component | [Graph](/docs/api/graph-component) |
 | `useGraph`, `useGraphState`, `useGraphEvent`, `UseGraphStateOptions`, `UseGraphEventOptions` | hooks | [Hooks](/docs/api/hooks) |
 | `Anchor`, `AnchorProps` | component | [Anchor](/docs/api/anchor) |
-| `Minimap`, `MinimapProps` | component | [createMinimap](/docs/api/minimap#minimap-component) |
+| `Minimap`, `MinimapProps` | component | [mountMinimap](/docs/api/minimap#minimap-component) |
 | `Legend`, `LegendProps`, `useLegend`, `UseLegendOptions`, `UseLegendResult` | component, hook | [createLegend and mountLegend](/docs/api/legend#react) |
 | `Timeline`, `TimelineProps`, `useTimeline`, `UseTimelineOptions`, `UseTimelineResult` | component, hook | [createTimeline and mountTimeline](/docs/api/timeline#react) |
 
@@ -82,8 +82,8 @@ description: Every export of the package, by entry point.
 
 | Export | Kind | Page |
 | --- | --- | --- |
-| `createMinimap` | function | [createMinimap](/docs/api/minimap) |
-| `Minimap`, `MinimapOptions`, `MinimapCorner` | types | [createMinimap](/docs/api/minimap) |
+| `mountMinimap` | function | [mountMinimap](/docs/api/minimap) |
+| `Minimap`, `MinimapOptions`, `MinimapCorner` | types | [mountMinimap](/docs/api/minimap) |
 
 ## `@bruno00o/graph/legend`
 
@@ -211,7 +211,7 @@ description: Every export of the package, by entry point.
 | --- | --- | --- |
 | `graphDevtoolsPlugin` | function | [Devtools](/docs/api/devtools#graphdevtoolsplugin) |
 | `GraphDevtoolsCore` | class | [Devtools](/docs/api/devtools#graphdevtoolscore) |
-| `defaultMessages` | object | [Devtools](/docs/api/devtools#graphdevtoolsmessages) |
+| `defaultDevtoolsMessages` | object | [Devtools](/docs/api/devtools#graphdevtoolsmessages) |
 | `GraphDevtoolsOptions`, `GraphDevtoolsPluginOptions`, `GraphDevtoolsProps`, `GraphDevtoolsMessages`, `GraphDevtoolsMessagesInput` | types | [Devtools](/docs/api/devtools) |
 
 ## `@bruno00o/graph/devtools/react`
