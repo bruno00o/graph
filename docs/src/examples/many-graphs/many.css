@@ -1,0 +1,46 @@
+.many {
+  background: var(--graph-paper);
+}
+
+.many-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.many-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.many-card {
+  position: relative;
+  height: 240px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+  border-radius: 4px;
+  background: var(--graph-paper);
+}
+
+.many-title {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  color: var(--graph-ink-muted);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.example-panel.many-count {
+  top: auto;
+  right: 18px;
+  bottom: 14px;
+  width: auto;
+  padding: 6px 10px;
+  pointer-events: none;
+}

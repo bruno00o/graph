@@ -46,12 +46,12 @@ const hidePanels = `
 const examples = (await docsExamples()).map((example) => ({
   ...example,
   id: example.slug,
-  path: `/examples/${example.slug}`,
+  path: `/examples/${example.slug}/`,
 }))
 const showcases = (await docsShowcases()).map((showcase) => ({
   ...showcase,
   id: `showcase/${showcase.slug}`,
-  path: `/showcase/${showcase.slug}`,
+  path: `/showcase/${showcase.slug}/`,
 }))
 const all = [...examples, ...showcases]
 const unknown = positionals.filter((id) => !all.some((item) => item.id === id))

@@ -1,8 +1,7 @@
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
 import { force } from '@bruno00o/graph/layouts/force'
 import { Graph } from '@bruno00o/graph/react'
-import { type JSX, useRef } from 'react'
-import { useVisible } from '../components/example-stage'
+import type { JSX } from 'react'
 import { createCommunities, type Item, type Link } from '../examples/shared/data'
 import { messages } from '../messages'
 
@@ -21,13 +20,5 @@ const definition = defineGraph({
 const fill = { position: 'absolute', inset: 0 } as const
 
 export function LayoutGraph(): JSX.Element {
-  const box = useRef<HTMLDivElement>(null)
-  const visible = useVisible(box)
-  return (
-    <div ref={box} className="dense">
-      {visible ? (
-        <Graph definition={definition} ariaLabel={messages.home.layoutLabel} style={fill} />
-      ) : null}
-    </div>
-  )
+  return <Graph definition={definition} ariaLabel={messages.home.layoutLabel} style={fill} />
 }

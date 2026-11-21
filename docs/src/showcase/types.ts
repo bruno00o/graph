@@ -1,5 +1,6 @@
 import type { GraphInstance } from '@bruno00o/graph'
 import type { ComponentType, Ref } from 'react'
+import type { Thumbnail } from '../lib/thumbnail'
 
 export interface ShowcaseFeature {
   readonly text: string
@@ -34,6 +35,6 @@ export interface ShowcaseModule {
 
 export interface Showcase extends ShowcaseMeta {
   readonly slug: string
-  readonly images: { readonly light: string; readonly dark: string } | null
+  readonly images: Thumbnail | null
   readonly load: () => Promise<ShowcaseApp>
 }

@@ -111,7 +111,11 @@ function urlOf(file) {
   const path = relative(docsSite, file).split(sep).join('/')
   if (path === '404.html') return null
   if (path === 'index.html') return base
-  return `${base}${path.replace(/\/index\.html$/, '').replace(/\.html$/, '')}`
+  return `${base}${path.replace(/index\.html$/, '').replace(/\.html$/, '/')}`
+}
+
+function isRedirect(status) {
+  return status >= 300 && status < 400
 }
 
 function ids(file) {
@@ -172,6 +176,9 @@ async function visit(browser, origin, entry, seen) {
     if (local(response.url()) && response.status() >= 400) {
       fail(where, `${response.status()} ${response.url()}`)
     }
+    if (local(response.url()) && isRedirect(response.status())) {
+      fail(where, `${response.status()} redirect from ${response.url()}`)
+    }
   })
   try {
     const response = await page.goto(`${origin}${entry.path}`, { waitUntil: 'load' })
@@ -202,7 +209,11 @@ function checkLinks(origin, seen) {
     const found = resolveRequest(docsSite, path.slice(origin.length))
     if (!checked.has(path)) {
       checked.add(path)
-      if (found.status !== 200 && !found.redirect) fail(path, `local link answers ${found.status}`)
+      if (found.redirect) {
+        fail(path, `local link ends in a 301: link to ${found.redirect} instead`)
+      } else if (found.status !== 200) {
+        fail(path, `local link answers ${found.status}`)
+      }
     }
     if (hash && found.status === 200 && found.file.endsWith('.html')) {
       if (!ids(found.file).has(decodeURIComponent(hash))) fail(url, 'anchor not found in the page')
@@ -247,6 +258,11 @@ function checkMarkdownLinks(where, text, checked) {
     if (!link.startsWith(prefix)) continue
     count++
     const [path = '', hash = ''] = link.slice(siteOrigin.length).split('#')
+    const direct = resolveRequest(docsSite, path)
+    if (direct.redirect && !checked.has(path)) {
+      fail(where, `link ends in a 301, link to ${siteOrigin}${direct.redirect} instead: ${link}`)
+      checked.add(path)
+    }
     const found = resolveSite(path)
     if (found.status !== 200 || !found.file) {
       if (!checked.has(path)) fail(where, `link answers ${found.status}: ${link}`)
@@ -298,7 +314,9 @@ function checkManifest(text) {
     }
     if (entry.url) {
       if (!entry.url.startsWith(prefix)) fail(where, `${label}: url is not under ${prefix}`)
-      else if (resolveSite(entry.url.slice(siteOrigin.length)).status !== 200) {
+      else if (resolveRequest(docsSite, entry.url.slice(siteOrigin.length)).redirect) {
+        fail(where, `${label}: url ends in a 301`)
+      } else if (resolveSite(entry.url.slice(siteOrigin.length)).status !== 200) {
         fail(where, `${label}: url does not resolve`)
       }
     }
@@ -319,7 +337,7 @@ function checkAgentFiles() {
       'llms-full.txt',
       'docs/index.md',
       'docs/api/define-graph.md',
-      'examples/selection',
+      'examples/selection/',
       'ard.json',
     ]) {
       if (!index.includes(`](${prefix}${required})`)) fail('llms.txt', `no link to ${required}`)
@@ -358,6 +376,189 @@ function checkAgentFiles() {
     fail('docs/api/nodes', 'no link to its Markdown page')
   }
   return count + markdown.length + 3
+}
+
+function decoded(text) {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+function headOf(html) {
+  const end = html.indexOf('</head>')
+  return end === -1 ? html : html.slice(0, end)
+}
+
+function attributesOf(tag) {
+  const found = {}
+  for (const [, name, value] of tag.matchAll(/([\w:-]+)="([^"]*)"/g)) found[name] = decoded(value)
+  return found
+}
+
+function metaOf(head) {
+  const found = new Map()
+  for (const [tag] of head.matchAll(/<meta\b[^>]*>/g)) {
+    const attributes = attributesOf(tag)
+    const key = attributes.property ?? attributes.name
+    if (key === undefined) continue
+    found.set(key, [...(found.get(key) ?? []), attributes.content ?? ''])
+  }
+  return found
+}
+
+function linksOf(head, rel) {
+  return [...head.matchAll(/<link\b[^>]*>/g)]
+    .map(([tag]) => attributesOf(tag))
+    .filter((attributes) => attributes.rel === rel)
+}
+
+function dataOf(where, head) {
+  const nodes = []
+  for (const [, text = ''] of head.matchAll(
+    /<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g,
+  )) {
+    try {
+      const data = JSON.parse(text)
+      nodes.push(...(Array.isArray(data['@graph']) ? data['@graph'] : [data]))
+    } catch (error) {
+      fail(where, `JSON-LD does not parse: ${error.message}`)
+    }
+  }
+  return nodes
+}
+
+function canonicalOf(path) {
+  return `${siteOrigin}${path.endsWith('/') ? path : `${path}/`}`
+}
+
+function checkStructuredData(where, path, head, canonical) {
+  const types = new Set()
+  const nodes = dataOf(where, head)
+  for (const node of nodes) {
+    const kinds = Array.isArray(node['@type']) ? node['@type'] : [node['@type']]
+    for (const kind of kinds) types.add(kind)
+  }
+  const docs = path.startsWith(`${base}docs/`) || path === `${base}docs`
+  const required =
+    path === base
+      ? ['WebSite', 'SoftwareSourceCode']
+      : docs
+        ? ['TechArticle', 'BreadcrumbList']
+        : []
+  for (const kind of required) {
+    if (!types.has(kind)) fail(where, `no ${kind} in the JSON-LD`)
+  }
+  if (path === base) {
+    const code = nodes.find((node) => node['@type'] === 'SoftwareSourceCode')
+    if (code && (!code.codeRepository || !code.license || !code.name)) {
+      fail(where, 'SoftwareSourceCode lacks name, codeRepository or license')
+    }
+  }
+  const list = nodes.find((node) => node['@type'] === 'BreadcrumbList')
+  if (list) {
+    const items = list.itemListElement ?? []
+    if (items.length < 2) fail(where, 'the breadcrumb has less than two items')
+    items.forEach((item, index) => {
+      if (item.position !== index + 1 || !item.name || !item.item) {
+        fail(where, `breadcrumb item ${index + 1} is malformed`)
+      }
+    })
+    if (items.at(-1)?.item !== canonical) fail(where, 'the breadcrumb does not end on the page')
+  }
+  const article = nodes.find((node) => node['@type'] === 'TechArticle')
+  if (article && (article.url !== canonical || !article.headline || !article.description)) {
+    fail(where, 'TechArticle lacks headline or description, or its url is not the canonical')
+  }
+}
+
+function checkSeo() {
+  const titles = new Map()
+  const pages = new Set()
+  let count = 0
+  for (const file of htmlFiles(docsSite)) {
+    const path = urlOf(file)
+    const name = relative(docsSite, file).split(sep).join('/')
+    const head = headOf(readFileSync(file, 'utf8'))
+    const meta = metaOf(head)
+    const one = (key) => meta.get(key)?.[0] ?? ''
+    if (path === null) {
+      if (!/noindex/.test(one('robots'))) fail(name, 'the not-found page is not noindex')
+      if (linksOf(head, 'canonical').length > 0) fail(name, 'the not-found page has a canonical')
+      continue
+    }
+    count++
+    const where = path
+    const canonical = canonicalOf(path)
+    pages.add(canonical)
+    if (/noindex/.test(one('robots'))) fail(where, 'a page of the sitemap is noindex')
+    const title = decoded(/<title>([\s\S]*?)<\/title>/.exec(head)?.[1] ?? '').trim()
+    if (title === '') fail(where, 'no title')
+    else if (titles.has(title)) fail(where, `same title as ${titles.get(title)}: ${title}`)
+    else titles.set(title, where)
+    const description = one('description').trim()
+    if (description === '') fail(where, 'no description')
+    const canonicals = linksOf(head, 'canonical')
+    if (canonicals.length !== 1) fail(where, `${canonicals.length} canonical links`)
+    else if (canonicals[0].href !== canonical) {
+      fail(where, `canonical ${canonicals[0].href} instead of ${canonical}`)
+    }
+    const expected = {
+      'og:title': title,
+      'og:description': description,
+      'og:url': canonical,
+      'twitter:title': title,
+      'twitter:description': description,
+    }
+    for (const [key, value] of Object.entries(expected)) {
+      const values = meta.get(key) ?? []
+      if (values.length !== 1) fail(where, `${values.length} ${key} tags`)
+      else if (values[0] !== value)
+        fail(where, `${key} is not the ${key.split(':')[1]} of the page`)
+    }
+    for (const key of ['og:type', 'og:site_name', 'twitter:card']) {
+      if ((meta.get(key) ?? []).length !== 1) fail(where, `no single ${key}`)
+    }
+    const image = one('og:image')
+    const needsImage = /^examples\/[^/]+$|^showcase\/[^/]+$/.test(path.slice(base.length))
+    if (needsImage && image === '') fail(where, 'no og:image')
+    if (image !== '') {
+      if (one('twitter:image') !== image) fail(where, 'twitter:image differs from og:image')
+      if (one('twitter:card') !== 'summary_large_image') fail(where, 'twitter:card is not large')
+      if (!image.startsWith(`${siteOrigin}${base}`)) fail(where, `og:image is not under the site`)
+      else {
+        const found = resolveSite(image.slice(siteOrigin.length))
+        if (found.status !== 200 || !found.file?.endsWith('.png')) {
+          fail(where, `og:image does not resolve to a PNG: ${image}`)
+        }
+      }
+      for (const key of ['og:image:width', 'og:image:height', 'og:image:alt']) {
+        if (one(key) === '') fail(where, `no ${key}`)
+      }
+    } else if (one('twitter:card') !== 'summary') {
+      fail(where, 'twitter:card should be summary without an image')
+    }
+    checkStructuredData(where, path, head, canonical)
+  }
+  const sitemap = readSite('sitemap.xml', 'sitemap.xml')
+  let listed = 0
+  if (sitemap !== null) {
+    const locs = [...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(([, loc]) => decoded(loc))
+    listed = locs.length
+    if (!sitemap.includes('http://www.sitemaps.org/schemas/sitemap/0.9')) {
+      fail('sitemap.xml', 'no sitemap namespace')
+    }
+    if (new Set(locs).size !== locs.length) fail('sitemap.xml', 'duplicate addresses')
+    for (const loc of locs) {
+      if (!pages.has(loc)) fail('sitemap.xml', `lists a page that is not prerendered: ${loc}`)
+    }
+    for (const page of pages) {
+      if (!locs.includes(page)) fail('sitemap.xml', `misses ${page}`)
+    }
+  }
+  return { count, listed }
 }
 
 function webToolsBrowser(flag) {
@@ -479,6 +680,8 @@ async function checkSearch(browser, origin) {
     if (!response.url().startsWith(origin)) return
     asked.push(response.url())
     if (response.status() >= 400) fail(where, `${response.status()} ${response.url()}`)
+    if (isRedirect(response.status()))
+      fail(where, `${response.status()} redirect from ${response.url()}`)
   })
   try {
     await page.goto(`${origin}${base}`, { waitUntil: 'load' })
@@ -520,12 +723,15 @@ async function checkNavigation(browser, origin) {
     if (response.url().startsWith(origin) && response.status() >= 400) {
       fail(where, `${response.status()} ${response.url()}`)
     }
+    if (response.url().startsWith(origin) && isRedirect(response.status())) {
+      fail(where, `${response.status()} redirect from ${response.url()}`)
+    }
   })
   try {
     await page.goto(`${origin}${base}`, { waitUntil: 'load' })
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
     for (const target of ['docs', 'examples', 'showcase', 'benchmark']) {
-      await page.locator(`header a[href="${base}${target}"]`).first().click()
+      await page.locator(`header a[href="${base}${target}/"]`).first().click()
       await page.waitForURL((url) => url.pathname.replace(/\/$/, '') === `${base}${target}`, {
         timeout: 10000,
       })
@@ -580,8 +786,8 @@ checkBuild()
 const examples = await docsExamples()
 const showcases = await docsShowcases()
 const graphPaths = new Set([
-  ...examples.map(({ slug }) => `${base}examples/${slug}`),
-  ...showcases.map(({ slug }) => `${base}showcase/${slug}`),
+  ...examples.map(({ slug }) => `${base}examples/${slug}/`),
+  ...showcases.map(({ slug }) => `${base}showcase/${slug}/`),
 ])
 const entries = htmlFiles(docsSite)
   .map(urlOf)
@@ -612,6 +818,7 @@ try {
   await checkMissing(browser, origin, seen)
   const links = checkLinks(origin, seen)
   const agentChecks = checkAgentFiles()
+  const seo = checkSeo()
   await checkWithoutWebTools(browser, origin)
   await checkWebTools(origin)
   const seconds = Math.round((performance.now() - started) / 1000)
@@ -619,6 +826,7 @@ try {
     `${entries.length} pages and ${links} local links checked under ${base} in ${seconds} s`,
   )
   console.log(`${agentChecks} links and files of llms.txt, ard.json and the Markdown pages checked`)
+  console.log(`${seo.count} pages checked for their head, ${seo.listed} addresses in sitemap.xml`)
 } finally {
   await browser.close()
   server.close()

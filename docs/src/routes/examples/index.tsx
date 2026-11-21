@@ -4,10 +4,13 @@ import { HomeLayout } from 'fumadocs-ui/layouts/home'
 import { type JSX, useEffect, useId, useState } from 'react'
 import { SiteFooter } from '../../components/footer'
 import { Icon } from '../../components/icon'
+import { ThumbnailPair } from '../../components/thumbnail'
 import { examples } from '../../examples/catalog'
 import { type CategoryId, categories } from '../../examples/categories'
 import { type Example, type ExampleTag, exampleTags } from '../../examples/types'
 import { homeOptions } from '../../lib/layout'
+import { previewImage } from '../../lib/og'
+import { pageHead } from '../../lib/seo'
 import { messages } from '../../messages'
 
 interface GallerySearch {
@@ -17,6 +20,7 @@ interface GallerySearch {
 }
 
 const noFilters: GallerySearch = {}
+const eagerCards = 2
 
 function text(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
@@ -57,41 +61,32 @@ function matches(example: Example, filters: GallerySearch): boolean {
 
 export const Route = createFileRoute('/examples/')({
   validateSearch: readSearch,
-  head: () => ({
-    meta: [
-      { title: messages.pageTitle(messages.examples.title) },
-      { name: 'description', content: messages.examples.lead },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: '/examples',
+      title: messages.pageTitle(messages.examples.title),
+      description: messages.examples.lead,
+      image: previewImage('/examples', false),
+    }),
   component: Gallery,
 })
 
-function Card({ example }: { readonly example: Example }): JSX.Element {
-  const alt = messages.examples.preview(example.title)
+function Card({
+  example,
+  eager,
+}: {
+  readonly example: Example
+  readonly eager: boolean
+}): JSX.Element {
   return (
     <li className="card">
       <div className="thumb sheet">
         {example.images ? (
-          <>
-            <img
-              className="thumb-light"
-              src={example.images.light}
-              alt={alt}
-              width={640}
-              height={400}
-              loading="lazy"
-              decoding="async"
-            />
-            <img
-              className="thumb-dark"
-              src={example.images.dark}
-              alt={alt}
-              width={640}
-              height={400}
-              loading="lazy"
-              decoding="async"
-            />
-          </>
+          <ThumbnailPair
+            images={example.images}
+            alt={messages.examples.preview(example.title)}
+            eager={eager}
+          />
         ) : null}
       </div>
       <div className="card-body">
@@ -152,6 +147,12 @@ function Gallery(): JSX.Element {
     }))
     .filter((section) => section.items.length > 0)
   const filtered = Object.keys(filters).length > 0
+  const eager = new Set(
+    sections
+      .flatMap(({ items }) => items)
+      .slice(0, eagerCards)
+      .map((example) => example.slug),
+  )
   return (
     <HomeLayout {...homeOptions()}>
       <main id="content" className="wrap">
@@ -231,7 +232,7 @@ function Gallery(): JSX.Element {
             </div>
             <ul className="gallery">
               {items.map((example) => (
-                <Card key={example.slug} example={example} />
+                <Card key={example.slug} example={example} eager={eager.has(example.slug)} />
               ))}
             </ul>
           </section>

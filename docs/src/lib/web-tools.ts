@@ -59,7 +59,11 @@ function json(value: unknown): ToolResult {
 }
 
 function siteUrl(path: string): string {
-  return new URL(`${base}${path.replace(/^\/+/, '')}`, location.origin).href
+  const [target = '', ...hash] = path.replace(/^\/+/, '').split('#')
+  const page =
+    target === '' || target.endsWith('/') || /\.[a-z0-9]+$/i.test(target) ? target : `${target}/`
+  return new URL(`${base}${page}${hash.length > 0 ? `#${hash.join('#')}` : ''}`, location.origin)
+    .href
 }
 
 function wordsOf(value: unknown): string {
