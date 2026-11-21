@@ -32,7 +32,7 @@ vi.mock('../webgl/renderer', () => ({
   createSharedRenderer: () => fakeRenderer(),
 }))
 
-const { createMinimap } = await import('./index')
+const { mountMinimap } = await import('./index')
 
 let dom: FakeDom
 let container: HTMLElement
@@ -84,7 +84,7 @@ describe('a minimap when the graph moves to a map and back', () => {
     const draw = vi.spyOn(MinimapPainter.prototype, 'draw')
     const { map, render } = fakeMap()
     const graph = mount()
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     tick()
     expect(draw).toHaveBeenCalled()
     const frame = minimap.element.querySelector('[data-view]') as HTMLElement
@@ -137,7 +137,7 @@ describe('a minimap when the graph moves to a map and back', () => {
     const { map, render } = fakeMap()
     const graph = mount(mapSurface(map))
     render()
-    const minimap = createMinimap(graph, { corner: 'topLeft' })
+    const minimap = mountMinimap(graph, { corner: 'topLeft' })
     tick()
     expect(made.workers).toBe(0)
     expect(minimap.element.childElementCount).toBe(0)
@@ -159,7 +159,7 @@ describe('a minimap when the graph moves to a map and back', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const first = fakeMap()
     const graph = mount()
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     tick()
     const surface = mapSurface(first.map)
     graph.update({ surface })

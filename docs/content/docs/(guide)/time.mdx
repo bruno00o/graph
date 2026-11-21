@@ -77,8 +77,8 @@ The window too goes from `start`, included, to `end`, left out, and a missing en
 `graph.time.get()` returns the window as numbers, or `null`. Each change emits `timechange` and updates `time` in the [store](/docs/api/graph-instance#graph-state):
 
 ```ts tab="Vanilla" tab-group="framework"
-graph.on('timechange', ({ window }) => {
-  status.textContent = window ? format(window) : ''
+graph.on('timechange', ({ time }) => {
+  status.textContent = time ? format(time) : ''
 })
 ```
 
@@ -93,7 +93,7 @@ Pass `time` to own the window, as for the [view](/docs/view#controlled-view). `g
 ```tsx
 const [window, setWindow] = useState<TimeWindowInput | null>(null)
 
-<Graph definition={definition} time={window} onTimeChange={(event) => setWindow(event.window)} />
+<Graph definition={definition} time={window} onTimeChange={(event) => setWindow(event.time)} />
 ```
 
 As for the [selection](/docs/interaction#controlled-selection), each request starts from the last one not answered yet: asking for another window, then for the current one again before the application answers, asks for both.
@@ -210,7 +210,7 @@ const timeline = createTimeline(graph, {
 - The extent comes from the events: from the first to the last. The bins still count nodes and edges, for a renderer of your own.
 - `events` takes a new array for each change; the array is never changed in place. When the new array starts with the items of the previous one, as a log does when it grows, only the items added are read. The `data` of a [TanStack DB](/docs/tanstack-db) live query is a new array for each change: pass it as it comes.
 
-`stepEvent` moves to the next event, or back with a negative count, skipping hidden kinds and counting events at the same moment once. With `instant`, the cursor lands on the event, and `timeline.events(moment)` returns the events made at that moment, for a panel of details; `timeline.events(bin.start, bin.end)` returns those of a bin. Without `instant`, the end of the window lands 1 ms after the event, so that the window includes it. In the bar, <kbd>Shift</kbd> with the arrow keys steps from event to event on the cursor and on the window.
+`stepEvent` moves to the next event, or back with a negative count, skipping hidden kinds and counting events at the same moment once. With `instant`, the cursor lands on the event, and `timeline.events(moment)` returns the events made at that moment, for a panel of details; `timeline.events(bin.start, bin.end)` returns those of a bin. Without `instant`, the end of the window lands 1 ms after the event, so that the window includes it. With no window yet, it starts from the beginning of the extent, at the first event. In the bar, <kbd>Shift</kbd> with the arrow keys steps from event to event on the cursor and on the window.
 
 ```ts
 timeline.stepEvent()

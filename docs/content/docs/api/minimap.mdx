@@ -1,12 +1,12 @@
 ---
-title: createMinimap
+title: mountMinimap
 description: An overview of the whole graph with the rectangle of the view, that moves the view.
 ---
 
 ```ts
-import { createMinimap } from '@bruno00o/graph/minimap'
+import { mountMinimap } from '@bruno00o/graph/minimap'
 
-function createMinimap<S extends string, M extends Mark>(
+function mountMinimap<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
   options?: MinimapOptions,
 ): Minimap

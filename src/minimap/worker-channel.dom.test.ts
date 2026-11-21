@@ -46,7 +46,7 @@ class FakeWorker {
 
 vi.mock('./worker?worker&inline', () => ({ default: FakeWorker }))
 
-const { createMinimap } = await import('./index')
+const { mountMinimap } = await import('./index')
 
 let dom: FakeDom
 let shown: ImageBitmap[]
@@ -117,7 +117,7 @@ describe('the minimap worker', () => {
 
   it('shows each frame the worker draws without handing it the canvas', () => {
     const graph = mount()
-    const minimap = createMinimap(graph, { width: 100, height: 60 })
+    const minimap = mountMinimap(graph, { width: 100, height: 60 })
     vi.runOnlyPendingTimers()
     const [worker] = workers
     expect(worker?.requests).toHaveLength(1)
@@ -137,7 +137,7 @@ describe('the minimap worker', () => {
 
   it('draws on the page with a new canvas when the worker fails', () => {
     const graph = mount()
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     vi.runOnlyPendingTimers()
     const before = minimap.element.querySelector('canvas')
     workers[0]?.fail()

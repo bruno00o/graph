@@ -109,7 +109,7 @@ Every member stays callable after `destroy`, and none throws. Reads answer from 
 | `layout.compute` | Rejects with `signal.reason`, also while it computes at `destroy` |
 | `drawn`, `loaded` | Reject with `signal.reason` |
 | [`exportPng`, `exportSvg`](/docs/api/export) and [`exportMapPng`](/docs/api/map) | Reject with an error |
-| [`createMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Return a companion already destroyed: empty, it holds no worker, observer or timer, never changes and never plays |
+| [`mountMinimap`](/docs/api/minimap), [`createLegend`](/docs/api/legend), [`createTimeline`](/docs/api/timeline) | Return a companion already destroyed: empty, it holds no worker, observer or timer, never changes and never plays |
 
 A graph mounted with a signal already aborted comes back in this state: nothing is mounted, its element is never added to the page, and a warning is logged in development. Its store holds the view, the selection, the states, the folded groups, the time window and the hidden layers of the options.
 

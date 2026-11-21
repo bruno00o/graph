@@ -23,7 +23,7 @@ import MinimapWorker from './worker?worker&inline'
 /** Corner of the graph element that holds a minimap. */
 export type MinimapCorner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
 
-/** Options of `createMinimap`. Every color is a CSS color, resolved with the current theme. */
+/** Options of `mountMinimap`. Every color is a CSS color, resolved with the current theme. */
 export interface MinimapOptions {
   /**
    * Corner of the graph element where the minimap sits, or `null` to leave the element for the
@@ -104,7 +104,7 @@ export interface MinimapOptions {
   readonly zoom?: boolean | undefined
 }
 
-/** A minimap made by `createMinimap`. */
+/** A minimap made by `mountMinimap`. */
 export interface Minimap {
   /** The element of the minimap: in a corner of the graph, or for the application to place. */
   readonly element: HTMLElement
@@ -346,11 +346,11 @@ function warnOnMap(graph: object): void {
  * element is empty and taken out of the graph, and it draws again when the graph comes back to its
  * own canvas. Created on a map, it warns once in development.
  */
-export function createMinimap<S extends string, M extends Mark>(
+export function mountMinimap<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
   options: MinimapOptions = {},
 ): Minimap {
-  const internals = internalsOf(graph, 'createMinimap')
+  const internals = internalsOf(graph, 'mountMinimap')
   let awake = internals.surface().minimap
   if (!awake) warnOnMap(graph)
   let given = options
