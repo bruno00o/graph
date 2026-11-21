@@ -11,6 +11,16 @@ export interface FontFile {
   readonly width: TextWidth
 }
 
+/** Options of `readFont`. */
+export interface ReadFontOptions {
+  /**
+   * Index of the face to read in a font collection (a `.ttc` or `.otc` file). A file that is not a
+   * collection ignores it. An index the collection does not have throws a `RangeError`.
+   * @default 0
+   */
+  readonly face?: number | undefined
+}
+
 const collectionTag = 0x74746366
 const faceTags = new Set([0x00010000, 0x4f54544f, 0x74727565])
 
@@ -139,7 +149,8 @@ function familyOf(view: DataView, name: number | undefined): string {
  * of a collection, so that a graph made by `createGraph` sizes its labels for the font that draws
  * them. WOFF and WOFF2 files are not read: decompress them first.
  */
-export function readFont(bytes: Uint8Array | ArrayBuffer, face = 0): FontFile {
+export function readFont(bytes: Uint8Array | ArrayBuffer, options: ReadFontOptions = {}): FontFile {
+  const face = options.face ?? 0
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
   const tag = data.byteLength >= 12 ? view.getUint32(0) : 0

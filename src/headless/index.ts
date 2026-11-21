@@ -23,8 +23,9 @@ export type {
   GraphOptions,
   GraphSize,
 } from '../host/graph-instance'
+export type { GraphToken } from '../theme/tokens'
 export type { GraphTheme, GraphThemeBase, GraphThemeOptions } from './colors'
-export { type FontFile, readFont } from './read-font'
+export { type FontFile, type ReadFontOptions, readFont } from './read-font'
 
 /** Options of `createGraph`. `S` and `M` come from the definition. */
 export interface CreateGraphOptions<S extends string = string, M extends Mark = Mark>

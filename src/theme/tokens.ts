@@ -1,7 +1,46 @@
 import type { Extent } from '../scales/extent'
 import type { BuiltInState, StateStyle } from '../types'
 
-export const lightTheme: Readonly<Record<string, string>> = {
+/** Name of a theme token, without the `--graph-` prefix: `'paper'`, `'accent'`, `'cat-3'`. */
+export type GraphToken =
+  | 'paper'
+  | 'paper-raised'
+  | 'grid'
+  | 'grid-major'
+  | 'ink'
+  | 'ink-muted'
+  | 'node'
+  | 'edge'
+  | 'group-fill'
+  | 'group-line'
+  | 'shape-fill'
+  | 'shape-stroke'
+  | 'accent'
+  | 'on-accent'
+  | 'focus-ring'
+  | 'halo'
+  | 'label-halo'
+  | 'label-background'
+  | 'node-ring'
+  | 'badge-fill'
+  | 'badge-ink'
+  | 'lens-fill'
+  | 'lens-ring'
+  | 'lens-shadow'
+  | 'cat-1'
+  | 'cat-2'
+  | 'cat-3'
+  | 'cat-4'
+  | 'cat-5'
+  | 'cat-6'
+  | 'cat-7'
+  | 'cat-8'
+  | 'cat-9'
+  | 'cat-10'
+  | 'cat-11'
+  | 'cat-12'
+
+export const lightTheme: Readonly<Record<GraphToken, string>> = {
   paper: '#f7f7f4',
   'paper-raised': '#ffffff',
   grid: '#c4e0dd',
@@ -39,6 +78,8 @@ export const lightTheme: Readonly<Record<string, string>> = {
   'cat-11': '#7471d6',
   'cat-12': '#a66bb9',
 }
+
+export const lightTokens: Readonly<Record<string, string>> = lightTheme
 
 export const defaultFont = 'system-ui, sans-serif'
 

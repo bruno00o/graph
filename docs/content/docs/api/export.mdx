@@ -72,10 +72,14 @@ const svg = await exportSvg(graph, {
 
 <api-table path="export/index.ts" name="DiagramExportOptions" />
 
+## Defaults
+
+The images and the diagrams have different defaults: see [Defaults side by side](/docs/export#defaults-side-by-side).
+
 ## Errors
 
 - A graph that was not created by `mountGraph` or `createGraph`, or that is destroyed, throws an `Error`.
-- A `zoom` or a `pixelRatio` that is not a positive number throws a `RangeError`, as does an area smaller than one pixel, a `size` with no side or a side that is not a finite number of pixels, 1 or more, and a `size` given with a `zoom`.
+- A `zoom` or a `pixelRatio` that is a number but not a positive one throws a `RangeError`, and a `pixelRatio` that is neither `'auto'`, `'device'` nor a number a `TypeError`, as does an area smaller than one pixel, a `size` with no side or a side that is not a finite number of pixels, 1 or more, and a `size` given with a `zoom`.
 - Without WebGL2, or when the browser refuses a drawing buffer, `exportPng` rejects with an `Error`. Given a graph made by `createGraph`, it rejects with a `TypeError` that points to the SVG.
 - An `images` function that throws or rejects makes `exportSvg` reject with its error.
 - `exportDrawio` and `exportVsdx` throw a `TypeError` for an unknown `states`.
@@ -85,7 +89,7 @@ const svg = await exportSvg(graph, {
 - The export reads the graph as it is when the call starts: pending data is flushed first. Nodes that move while the export waits for images, fonts or shape fills are drawn where they were when it started, so the image never tears and every node it frames stays inside it.
 - Shapes are drawn at their data, in the PNG as in the SVG, even while a [shape editor](/docs/api/editor) shows one as a preview, slides it, or waits for its data to answer an edit.
 - Sizes set in screen pixels, such as edge widths, labels and nodes with `units: 'screen'`, keep their size whatever the `zoom` of the export.
-- `region: 'graph'` frames every node, plus the labels, loops, curved parallel edges, great circle arcs and hulls that reach past them, with `padding` around them. `padding` must be finite, 0 or more, or the export throws a `RangeError`.
+- `region: 'graph'` frames every node and shape, plus the labels, loops, curved parallel edges, great circle arcs, bundled edges, edges with waypoints and hulls that reach past them, with `padding` around them. `padding` must be finite, 0 or more, or the export throws a `RangeError`.
 - With `size`, the image has exactly that size in pixels and the zoom is chosen to fit the region inside it; `pixelRatio` still sets the image pixels per CSS pixel, so the area drawn is `size` divided by it.
 - The background grid, unless `grid` is `false`, and the hulls are drawn as on screen: grid, group containers, hulls, then edges and nodes. With a `window` or a `zoom` that shows other nodes than the screen, each hull wraps the nodes the export shows. HTML anchors are not part of the scene and stay out of both exports.
 - Past 4,096 pixels on a side, the PNG is drawn in tiles and encoded strip by strip. Labels are chosen once for the whole image.

@@ -1,6 +1,7 @@
+import { dev } from '../dev'
 import type { Rgba } from '../dom/theme'
 import { darkTheme } from '../theme/dark-tokens'
-import { lightTheme } from '../theme/tokens'
+import { type GraphToken, lightTokens } from '../theme/tokens'
 
 type Color = [number, number, number, number]
 
@@ -233,9 +234,11 @@ export interface GraphThemeOptions {
   readonly base?: GraphThemeBase | undefined
   /**
    * Token values by name without the `--graph-` prefix, such as `{ accent: '#7a3ff2', 'cat-1':
-   * 'teal' }`: hex, named colors, `rgb()`, `hsl()`, `color-mix()` and `var(--graph-…)`.
+   * 'teal' }`: hex, named colors, `rgb()`, `hsl()`, `color-mix()` and `var(--graph-…)`. A name
+   * that is not a `GraphToken`, and a color that cannot be read, are reported with a warning in
+   * development.
    */
-  readonly colors?: Readonly<Record<string, string>> | undefined
+  readonly colors?: Readonly<Partial<Record<GraphToken, string>>> | undefined
   /**
    * Font of the labels, as a CSS font family list, written into exports. Give the same font to
    * `measureText`, or the label boxes will not fit the text drawn.
@@ -249,7 +252,14 @@ export type GraphTheme = GraphThemeBase | GraphThemeOptions
 
 export function themeTokens(theme: GraphTheme | undefined): TokenReader {
   const input = typeof theme === 'string' ? { base: theme } : (theme ?? {})
-  const base = input.base === 'dark' ? darkTheme : lightTheme
-  const colors = input.colors ?? {}
+  const base: Readonly<Record<string, string>> = input.base === 'dark' ? darkTheme : lightTokens
+  const colors: Readonly<Record<string, string | undefined>> = input.colors ?? {}
+  if (dev) {
+    for (const name of Object.keys(colors)) {
+      if (!(name in lightTokens)) {
+        console.warn(`createGraph: "${name}" is not a theme token`)
+      }
+    }
+  }
   return (name) => colors[name] ?? base[name]
 }

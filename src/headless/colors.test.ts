@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { darkTheme } from '../theme/dark-tokens'
-import { lightTheme } from '../theme/tokens'
-import { resolveColor, themeTokens } from './colors'
+import { type GraphToken, lightTheme } from '../theme/tokens'
+import { type GraphThemeOptions, resolveColor, themeTokens } from './colors'
 import { ScriptTheme } from './theme'
 
 const [, ...cases] = readFileSync(new URL('./chrome-colors.tsv', import.meta.url), 'utf8')
@@ -56,5 +56,46 @@ describe('ScriptTheme', () => {
     expect(new ScriptTheme('light').theme().font).toBe(
       'Arial, "Liberation Sans", Helvetica, sans-serif',
     )
+  })
+})
+
+describe('GraphToken', () => {
+  it('names the tokens of tokens.ts, which colors takes by name', () => {
+    expectTypeOf<GraphToken>().toEqualTypeOf<keyof typeof lightTheme>()
+    expectTypeOf<NonNullable<GraphThemeOptions['colors']>>().toEqualTypeOf<
+      Readonly<Partial<Record<GraphToken, string>>>
+    >()
+    const names: GraphToken[] = ['paper', 'accent', 'cat-12']
+    expect(names.every((name) => name in lightTheme)).toBe(true)
+    const wrong: GraphThemeOptions = {
+      colors: {
+        // @ts-expect-error
+        acent: '#fff',
+      },
+    }
+    expect(wrong).toBeDefined()
+  })
+})
+
+describe('theme warnings', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('warns about a token name that does not exist', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    themeTokens({ colors: { accent: '#fff', acent: '#000' } as never })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[0]).toContain('"acent"')
+  })
+
+  it('warns once about a color it cannot read, and draws it black', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const theme = new ScriptTheme('light')
+    expect(theme.color('nonsense')).toEqual([0, 0, 0, 255])
+    expect(theme.color('nonsense')).toEqual([0, 0, 0, 255])
+    expect(theme.color('#fff')).toEqual([255, 255, 255, 255])
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[0]).toContain('"nonsense"')
   })
 })

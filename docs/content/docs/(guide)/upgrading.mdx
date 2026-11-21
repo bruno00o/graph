@@ -5,6 +5,36 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.34.0
+
+### `readFont` takes an options object
+
+The face of a collection is now an option, so that more options can join it:
+
+```ts
+// Before
+const font = readFont(bytes, 2)
+
+// After
+const font = readFont(bytes, { face: 2 })
+```
+
+### Theme colors of `createGraph` are typed by token
+
+`GraphThemeOptions.colors` is now `Partial<Record<GraphToken, string>>`, where [`GraphToken`](/docs/api/create-graph#theme) is the union of the token names of the theme stylesheet, without the `--graph-` prefix. A name that is not a token no longer compiles, and in development `createGraph` warns about it and about a color it cannot read, which is drawn black.
+
+```ts
+// Before: compiled, and the typo was ignored
+createGraph({ definition, theme: { colors: { acent: '#7a3ff2' } } })
+
+// After
+createGraph({ definition, theme: { colors: { accent: '#7a3ff2' } } })
+```
+
+### `pixelRatio` of the PNG exports takes `'auto'` and `'device'`
+
+The `pixelRatio` of `exportPng` and `exportMapPng` has the type of the `pixelRatio` of `defineGraph`, `'auto' | 'device' | number`, and a number keeps its meaning. A value that is neither throws a `TypeError`. The default, the ratio the graph draws at, does not change. A type that held the option as a `number` must now accept `PixelRatioOption`.
+
 ## 0.27.0
 
 ### The legend lists shapes

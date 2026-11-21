@@ -39,7 +39,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`). `@bruno00o/graph
 
 `exportSvg`, `exportDrawio` and `exportVsdx` take a `GraphCore`, so they also work on a graph from `createGraph` without a browser (headless skill). `exportPng` takes a mounted graph only.
 
-For a graph on a map that must include the map tiles, `exportMapPng` from `@bruno00o/graph/map` does it (map skill): it takes `badges`, and no `size` or `grid`, since the image has the size of the map times `pixelRatio`. `exportPng` and `exportSvg` draw the graph alone.
+For a graph on a map that must include the map tiles, `exportMapPng` from `@bruno00o/graph/map` does it (map skill): it takes `badges`, and no `size` or `grid`, since the image has the size of the map times `pixelRatio`, which takes `'auto'`, `'device'` or a number as in `exportPng`. `exportPng` and `exportSvg` draw the graph alone.
 
 ## Setup
 
@@ -93,7 +93,7 @@ In React, read the graph with `useGraph()` inside `<Graph>`, or keep the instanc
 | `background` | Any CSS color resolved with the current theme, a `--graph-*` token, or `'transparent'` | `'var(--graph-paper)'` |
 | `time` | Moment, in milliseconds after they start, of the dashes of `flow` edges. The image is still | `0` |
 | `window` | Time window of the export (`{ start, end }`), or `null` for every element whatever its time | The window of the graph |
-| `pixelRatio` (PNG) | Image pixels per CSS pixel. Positive | The ratio the graph draws at (1 in software with `pixelRatio: 'auto'`) |
+| `pixelRatio` (PNG) | Image pixels per CSS pixel: a number above 0, `'device'` (the device ratio) or `'auto'` (the device ratio, 1 in software) | The ratio the graph draws at (1 in software with `pixelRatio: 'auto'`) |
 | `embedImages` (SVG) | Copy every node image into the document as a data URL | `true` |
 | `images` (SVG) | `(src) => { href, width, height } \| null`, async allowed: reads each image URL once and gives the URL to write and the size, or `null` to leave it out. It replaces loading and `embedImages`; made for a graph without a page, which loads nothing | none |
 
@@ -121,7 +121,7 @@ const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff
 - By default the file shows what the graph shows: same area, same zoom, same labels, grid, shapes and hulls. `region: 'graph'` frames every node and shape instead, which is the usual choice for a file meant to be read without the screen.
 - `zoom` changes the scale of the content, with either region: it is the scale of the file in CSS pixels per world unit, so `zoom` alone sets the size of a `region: 'graph'` file. The current zoom of the view is `graph.store.get().view.zoom`: pass twice that value for twice the screen scale. Nodes sized in world units grow with it, while edge widths, labels and nodes with `units: 'screen'` keep their size in pixels, as when you zoom on screen; a mark with `widthScale: 'shrink'` (edges skill) narrows its edges and shape outlines when the export zoom is below 1, as on screen. A larger `zoom` gives a larger file of the same region, never a crop.
 - `size` fixes the image instead: every file has the same pixels whatever the graph, which suits thumbnails and batches. The export picks the largest zoom at which the region fits inside, so the rest of the longer side shows the background. With `region: 'view'`, the whole area the view shows fits inside, so another aspect shows more of the graph around it. A PNG has exactly `size` pixels whatever `pixelRatio`; an SVG takes `size` as its width and height in CSS pixels. Giving `zoom` too throws a `RangeError`, as does a side that is not a finite number of pixels, 1 or more.
-- `pixelRatio` is image pixels per CSS pixel, by default the one the graph draws at: the device ratio, the `pixelRatio` of the definition, or 1 when WebGL runs in software (core skill), also for a graph that was suspended or mounted suspended. Without `size`, the file is `CSS size x pixelRatio` pixels: raise it for print. With `size`, the pixels stay and the area drawn is `size / pixelRatio`: a smaller ratio draws the graph with relatively larger labels and edge widths.
+- `pixelRatio` is image pixels per CSS pixel and takes the values of the `pixelRatio` of `defineGraph` (`'auto'`, `'device'`, a number above 0; anything else throws), which ignore the definition and the drawing buffer limits. By default it is the one the graph draws at: the device ratio, the `pixelRatio` of the definition, or 1 when WebGL runs in software (core skill), also for a graph that was suspended or mounted suspended. Without `size`, the file is `CSS size x pixelRatio` pixels: raise it for print. With `size`, the pixels stay and the area drawn is `size / pixelRatio`: a smaller ratio draws the graph with relatively larger labels and edge widths.
 - Past 4,096 pixels on a side the PNG is drawn in tiles, so its size is bounded by memory, not by the GPU. Labels are chosen once for the whole image, so none is cut or doubled at a tile edge. The PNG records its pixel density.
 - The file is one picture of one moment: positions, containers and hulls are read when the export starts, so a layout or a drag that goes on during the call does not tear it. Hulls follow the `window` and `zoom` of the export, not those of the screen. Shapes are drawn at their data, never at the draft of a shape editor in progress.
 - Children of an unfolded group that are spread apart are drawn where the screen shows them; at another `zoom` their pixel gaps scale with it.
@@ -196,7 +196,7 @@ An export draws the scene only: no CSS background on the container, no HTML over
 
 ### MEDIUM A blurry PNG from a graph drawn in software
 
-Where WebGL runs in software, a definition with the default `pixelRatio: 'auto'` draws at one pixel per CSS pixel, and `exportPng` takes that ratio by default: the file is half as sharp as on a GPU screen of ratio 2. Pass `pixelRatio: 2` or more to the export when the file must be sharp.
+Where WebGL runs in software, a definition with the default `pixelRatio: 'auto'` draws at one pixel per CSS pixel, and `exportPng` takes that ratio by default: the file is half as sharp as on a GPU screen of ratio 2. Pass `pixelRatio: 'device'`, or a number such as 2, to the export when the file must be sharp.
 
 ### MEDIUM Passing `zoom` and `size` together
 

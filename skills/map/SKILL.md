@@ -308,8 +308,8 @@ link.download = 'map.png'
 link.click()
 ```
 
-- `attribution` overrides the text, which defaults to what the map shows, or else the attribution of its sources. `labels` is `'visible'`, `'all'` or `'none'`. `badges: false` leaves the badges of the nodes out. The image has the size of the map times `pixelRatio`: the exact `size` and `grid` of `exportPng` do not exist here, since the map draws the area its camera shows. Tiles still missing after `timeout` (milliseconds) are left out. On the globe the image shows the globe as on screen.
-- It throws for a destroyed graph or one not mounted by `mountMapGraph`, and a `RangeError` for a `pixelRatio` that is not a positive number. It rejects when the hidden map cannot load its style. A map export takes 1 to 7 seconds depending on tiles.
+- `attribution` overrides the text, which defaults to what the map shows, or else the attribution of its sources. `labels` is `'visible'`, `'all'` or `'none'`. `badges: false` leaves the badges of the nodes out. The image has the size of the map times `pixelRatio` (`'auto'`, `'device'` or a number, the pixel ratio of the map by default): the exact `size` and `grid` of `exportPng` do not exist here, since the map draws the area its camera shows. Tiles still missing after `timeout` (milliseconds) are left out. On the globe the image shows the globe as on screen.
+- It throws for a destroyed graph or one not mounted by `mountMapGraph`, and a `RangeError` for a `pixelRatio` number that is not positive. It rejects when the hidden map cannot load its style. A map export takes 1 to 7 seconds depending on tiles.
 - `exportPng` and `exportSvg` from `@bruno00o/graph/export` draw the graph alone, without the map.
 
 ### Make MapLibre's worker load with a bundler

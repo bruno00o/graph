@@ -103,4 +103,12 @@ describe('exportMapPng failures', () => {
     expect(leftovers()).toHaveLength(0)
     graph.destroy()
   })
+
+  it('refuses a pixel ratio that is not a number or a known word before drawing', async () => {
+    const graph = mount(HiddenMap.prototype)
+    await expect(exportMapPng(graph, { pixelRatio: 'sharp' as never })).rejects.toThrow(TypeError)
+    await expect(exportMapPng(graph, { pixelRatio: 0 })).rejects.toThrow(RangeError)
+    expect(hiddenMaps).toHaveLength(0)
+    graph.destroy()
+  })
 })
