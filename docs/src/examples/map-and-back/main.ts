@@ -9,7 +9,7 @@ import {
 } from '@bruno00o/graph'
 import { geo } from '@bruno00o/graph/layouts'
 import { mapSurface } from '@bruno00o/graph/map'
-import { createMinimap } from '@bruno00o/graph/minimap'
+import { mountMinimap } from '@bruno00o/graph/minimap'
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -135,7 +135,7 @@ export function mount(container: HTMLElement): GraphInstance {
     definition: plain,
     ariaLabel: messages.graphLabel(spots.length),
   })
-  createMinimap(graph, { width: 160, height: 110 })
+  mountMinimap(graph, { width: 160, height: 110 })
 
   const toggle = button(messages.toMap, () => {
     const leaving = graph.store.state.surface === 'map'

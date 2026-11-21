@@ -1974,7 +1974,7 @@ skills:
     type: sub-skill
     description: Add a minimap, a legend, a lens, anchored HTML, hulls, a background grid or the devtools panel.
     covers:
-      - createMinimap
+      - mountMinimap
       - Minimap
       - createLegend
       - Legend
@@ -1999,7 +1999,7 @@ skills:
         mechanism: "The map owns the camera: while the graph is on a map the minimap is empty and graph.lens.set shows nothing; both come back when the graph moves back to its canvas."
         wrong_pattern: |
           mountMapGraph(map, { definition, ariaLabel })
-          createMinimap(graph)
+          mountMinimap(graph)
         correct_pattern: |
           mountMapGraph(map, { definition, ariaLabel })
         source: docs/content/docs/(guide)/map.mdx, src/host/lens.ts
@@ -2058,9 +2058,9 @@ skills:
       - mistake: A minimap with corner null that is never placed
         mechanism: With corner null the minimap leaves its element to you, so nothing shows until minimap.element is added to the page.
         wrong_pattern: |
-          createMinimap(graph, { corner: null })
+          mountMinimap(graph, { corner: null })
         correct_pattern: |
-          panel.append(createMinimap(graph, { corner: null }).element)
+          panel.append(mountMinimap(graph, { corner: null }).element)
         source: docs/content/docs/api/minimap.mdx
         priority: MEDIUM
         status: active

@@ -90,12 +90,12 @@ export function toggleLayers(graph: GraphInstance) {
   graph.layers.toggle('paths')
   graph.layers.show()
   graph.layers.set(['segments'])
-  return graph.on('layerchange', ({ hidden }) => console.log(hidden))
+  return graph.on('layerchange', ({ hiddenLayers }) => console.log(hiddenLayers))
 }
 ```
 
 - `names` lists layers in the order of the first mark of each; `hidden` the hidden ones. `hide` and `show` without a list act on every layer. A hidden name that no mark gives yet applies when a mark gives it.
-- Each change emits `layerchange` (`{ hidden }`) and updates `hiddenLayers` in the store: `graph.store.get().hiddenLayers`.
+- Each change emits `layerchange` (`{ hiddenLayers }`) and updates `hiddenLayers` in the store: `graph.store.get().hiddenLayers`.
 - The legend has a `layers` section with one toggle per layer, through `graph.layers` (`layerText` customizes its text; tools skill).
 - Toggling costs about one frame however large the layer: the graph keeps one mask of hidden marks and the GPU tests it. No data is read.
 
@@ -124,7 +124,7 @@ const graph = mountGraph(document.body, {
   ariaLabel: 'Layers',
   hiddenLayers: hidden,
   onLayerChange: (event) => {
-    hidden = [...event.hidden]
+    hidden = [...event.hiddenLayers]
     graph.update({ hiddenLayers: hidden })
   },
 })

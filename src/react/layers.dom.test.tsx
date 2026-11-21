@@ -34,7 +34,7 @@ function Layers() {
       definition={definition}
       ariaLabel="graph"
       hiddenLayers={hidden}
-      onLayerChange={({ hidden: next }) => {
+      onLayerChange={({ hiddenLayers: next }) => {
         requests.push([...next])
         setHidden(next)
       }}
@@ -70,7 +70,7 @@ describe('Graph layers', () => {
       )
     })
     expect(graph?.layers.hidden()).toEqual(['upper'])
-    graph?.on('layerchange', ({ hidden }) => changes.push([...hidden]))
+    graph?.on('layerchange', ({ hiddenLayers }) => changes.push([...hiddenLayers]))
     act(() => graph?.layers.toggle('lower'))
     expect(requests).toEqual([['lower', 'upper']])
     expect(graph?.layers.hidden()).toEqual(['lower', 'upper'])
