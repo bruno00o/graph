@@ -3,6 +3,7 @@ import Link from 'fumadocs-core/link'
 import { HomeLayout } from 'fumadocs-ui/layouts/home'
 import type { JSX } from 'react'
 import { SiteFooter } from '../../components/footer'
+import { ThumbnailPair } from '../../components/thumbnail'
 import { homeOptions } from '../../lib/layout'
 import { messages } from '../../messages'
 import { showcases } from '../../showcase/catalog'
@@ -18,32 +19,22 @@ export const Route = createFileRoute('/showcase/')({
   component: Index,
 })
 
-function Card({ showcase }: { readonly showcase: Showcase }): JSX.Element {
-  const alt = messages.showcase.preview(showcase.title)
+function Card({
+  showcase,
+  eager,
+}: {
+  readonly showcase: Showcase
+  readonly eager: boolean
+}): JSX.Element {
   return (
     <li className="card">
       <div className="thumb sheet">
         {showcase.images ? (
-          <>
-            <img
-              className="thumb-light"
-              src={showcase.images.light}
-              alt={alt}
-              width={640}
-              height={400}
-              loading="lazy"
-              decoding="async"
-            />
-            <img
-              className="thumb-dark"
-              src={showcase.images.dark}
-              alt={alt}
-              width={640}
-              height={400}
-              loading="lazy"
-              decoding="async"
-            />
-          </>
+          <ThumbnailPair
+            images={showcase.images}
+            alt={messages.showcase.preview(showcase.title)}
+            eager={eager}
+          />
         ) : null}
       </div>
       <div className="card-body">
@@ -74,7 +65,7 @@ function Index(): JSX.Element {
         </div>
         <ul className="gallery showcase-gallery">
           {showcases.map((showcase) => (
-            <Card key={showcase.slug} showcase={showcase} />
+            <Card key={showcase.slug} showcase={showcase} eager />
           ))}
         </ul>
       </main>

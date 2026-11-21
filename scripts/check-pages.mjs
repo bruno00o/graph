@@ -111,7 +111,11 @@ function urlOf(file) {
   const path = relative(docsSite, file).split(sep).join('/')
   if (path === '404.html') return null
   if (path === 'index.html') return base
-  return `${base}${path.replace(/\/index\.html$/, '').replace(/\.html$/, '')}`
+  return `${base}${path.replace(/index\.html$/, '').replace(/\.html$/, '/')}`
+}
+
+function isRedirect(status) {
+  return status >= 300 && status < 400
 }
 
 function ids(file) {
@@ -172,6 +176,9 @@ async function visit(browser, origin, entry, seen) {
     if (local(response.url()) && response.status() >= 400) {
       fail(where, `${response.status()} ${response.url()}`)
     }
+    if (local(response.url()) && isRedirect(response.status())) {
+      fail(where, `${response.status()} redirect from ${response.url()}`)
+    }
   })
   try {
     const response = await page.goto(`${origin}${entry.path}`, { waitUntil: 'load' })
@@ -202,7 +209,11 @@ function checkLinks(origin, seen) {
     const found = resolveRequest(docsSite, path.slice(origin.length))
     if (!checked.has(path)) {
       checked.add(path)
-      if (found.status !== 200 && !found.redirect) fail(path, `local link answers ${found.status}`)
+      if (found.redirect) {
+        fail(path, `local link ends in a 301: link to ${found.redirect} instead`)
+      } else if (found.status !== 200) {
+        fail(path, `local link answers ${found.status}`)
+      }
     }
     if (hash && found.status === 200 && found.file.endsWith('.html')) {
       if (!ids(found.file).has(decodeURIComponent(hash))) fail(url, 'anchor not found in the page')
@@ -247,6 +258,11 @@ function checkMarkdownLinks(where, text, checked) {
     if (!link.startsWith(prefix)) continue
     count++
     const [path = '', hash = ''] = link.slice(siteOrigin.length).split('#')
+    const direct = resolveRequest(docsSite, path)
+    if (direct.redirect && !checked.has(path)) {
+      fail(where, `link ends in a 301, link to ${siteOrigin}${direct.redirect} instead: ${link}`)
+      checked.add(path)
+    }
     const found = resolveSite(path)
     if (found.status !== 200 || !found.file) {
       if (!checked.has(path)) fail(where, `link answers ${found.status}: ${link}`)
@@ -298,7 +314,9 @@ function checkManifest(text) {
     }
     if (entry.url) {
       if (!entry.url.startsWith(prefix)) fail(where, `${label}: url is not under ${prefix}`)
-      else if (resolveSite(entry.url.slice(siteOrigin.length)).status !== 200) {
+      else if (resolveRequest(docsSite, entry.url.slice(siteOrigin.length)).redirect) {
+        fail(where, `${label}: url ends in a 301`)
+      } else if (resolveSite(entry.url.slice(siteOrigin.length)).status !== 200) {
         fail(where, `${label}: url does not resolve`)
       }
     }
@@ -319,7 +337,7 @@ function checkAgentFiles() {
       'llms-full.txt',
       'docs/index.md',
       'docs/api/define-graph.md',
-      'examples/selection',
+      'examples/selection/',
       'ard.json',
     ]) {
       if (!index.includes(`](${prefix}${required})`)) fail('llms.txt', `no link to ${required}`)
@@ -479,6 +497,8 @@ async function checkSearch(browser, origin) {
     if (!response.url().startsWith(origin)) return
     asked.push(response.url())
     if (response.status() >= 400) fail(where, `${response.status()} ${response.url()}`)
+    if (isRedirect(response.status()))
+      fail(where, `${response.status()} redirect from ${response.url()}`)
   })
   try {
     await page.goto(`${origin}${base}`, { waitUntil: 'load' })
@@ -520,12 +540,15 @@ async function checkNavigation(browser, origin) {
     if (response.url().startsWith(origin) && response.status() >= 400) {
       fail(where, `${response.status()} ${response.url()}`)
     }
+    if (response.url().startsWith(origin) && isRedirect(response.status())) {
+      fail(where, `${response.status()} redirect from ${response.url()}`)
+    }
   })
   try {
     await page.goto(`${origin}${base}`, { waitUntil: 'load' })
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
     for (const target of ['docs', 'examples', 'showcase', 'benchmark']) {
-      await page.locator(`header a[href="${base}${target}"]`).first().click()
+      await page.locator(`header a[href="${base}${target}/"]`).first().click()
       await page.waitForURL((url) => url.pathname.replace(/\/$/, '') === `${base}${target}`, {
         timeout: 10000,
       })
@@ -580,8 +603,8 @@ checkBuild()
 const examples = await docsExamples()
 const showcases = await docsShowcases()
 const graphPaths = new Set([
-  ...examples.map(({ slug }) => `${base}examples/${slug}`),
-  ...showcases.map(({ slug }) => `${base}showcase/${slug}`),
+  ...examples.map(({ slug }) => `${base}examples/${slug}/`),
+  ...showcases.map(({ slug }) => `${base}showcase/${slug}/`),
 ])
 const entries = htmlFiles(docsSite)
   .map(urlOf)

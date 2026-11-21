@@ -135,7 +135,7 @@ describe('search_docs', () => {
     expect(parsed.results[0]).toMatchObject({
       title: 'Layouts',
       section: 'Guides',
-      url: 'https://example.test/graph/docs/layout',
+      url: 'https://example.test/graph/docs/layout/',
       read: { tool: 'read_docs_page', path: 'layout' },
     })
     expect(parsed.results[1].read.path).toBe('api/force')
@@ -211,7 +211,7 @@ describe('examples', () => {
       .examples[0]
     const out = await tool('get_example').execute({ slug: first.slug })
     const example = JSON.parse(out.content[0]?.text ?? '{}')
-    expect(example.url).toBe(`https://example.test/graph/examples/${first.slug}`)
+    expect(example.url).toBe(`https://example.test/graph/examples/${first.slug}/`)
     expect(example.api.every((url: string) => url.includes('/graph/docs/api/'))).toBe(true)
     expect(example.api.length).toBeGreaterThan(0)
   })

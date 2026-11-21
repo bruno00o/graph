@@ -16,6 +16,13 @@ describe('absoluteUrl', () => {
     expect(text.absoluteUrl('llms.txt')).toBe('https://example.test/graph/llms.txt')
     expect(text.absoluteUrl('/docs/index.md')).toBe('https://example.test/graph/docs/index.md')
   })
+
+  it('ends a page address with a slash and leaves files alone', () => {
+    expect(text.absoluteUrl('docs')).toBe('https://example.test/graph/docs/')
+    expect(text.absoluteUrl('/examples/x/')).toBe('https://example.test/graph/examples/x/')
+    expect(text.absoluteUrl('')).toBe('https://example.test/graph/')
+    expect(text.absoluteUrl('ard.json')).toBe('https://example.test/graph/ard.json')
+  })
 })
 
 describe('cleaned', () => {
@@ -28,7 +35,7 @@ describe('cleaned', () => {
     expect(out).toBe(
       'See [marks](https://example.test/graph/docs/marks.md#channels), ' +
         '[docs](https://example.test/graph/docs/index.md) and ' +
-        '[more](https://example.test/graph/examples).',
+        '[more](https://example.test/graph/examples/).',
     )
   })
 
@@ -50,10 +57,10 @@ describe('cleaned', () => {
         '</Cards>',
       ].join('\n'),
     )
-    expect(out).toContain(`](https://example.test/graph/examples/${slug})`)
+    expect(out).toContain(`](https://example.test/graph/examples/${slug}/)`)
     expect(out).toContain('> **Limit.** First line.\n> Second line.')
     expect(out).toContain('- [Marks](https://example.test/graph/docs/marks.md): Map fields')
-    expect(out).toContain('- [Example](https://example.test/graph/examples/x)')
+    expect(out).toContain('- [Example](https://example.test/graph/examples/x/)')
     expect(out).not.toMatch(/<(?:LiveExample|Callout|Cards?)\b/)
   })
 

@@ -25,26 +25,6 @@ function VanillaStage({
   return <div ref={host} className="vanilla-host" />
 }
 
-export function useVisible<T extends Element>(ref: RefObject<T | null>, enabled = true): boolean {
-  const [visible, setVisible] = useState(!enabled)
-  useEffect(() => {
-    const element = ref.current
-    if (!enabled || !element) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setVisible(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: '200px' },
-    )
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [ref, enabled])
-  return visible
-}
-
 export function ExampleStage({
   example,
   graphRef,

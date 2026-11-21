@@ -1,5 +1,6 @@
 import type { GraphInstance } from '@bruno00o/graph'
 import type { ComponentType, Ref } from 'react'
+import type { Thumbnail } from '../lib/thumbnail'
 import type { CategoryId } from './categories'
 
 export const exampleTags = [
@@ -38,11 +39,6 @@ export type LoadedExample =
       readonly kind: 'react'
       readonly Example: ComponentType<{ readonly ref: Ref<GraphInstance | null> }>
     }
-
-export interface Thumbnail {
-  readonly light: string
-  readonly dark: string
-}
 
 export interface Example extends ExampleMeta {
   readonly slug: string
