@@ -4,6 +4,7 @@ import type { HistoryCut } from '../core/history'
 import { createScene } from '../core/scene'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { HistoryValues, LiveSource, SourceChange } from '../types'
 import { historyFrom } from '.'
 
@@ -122,7 +123,7 @@ function run(seed: number, fields: boolean): void {
     ],
   })
   model.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   const apply = () => {
     scene.apply(model, model.flush())
     return scene.takeDirty()

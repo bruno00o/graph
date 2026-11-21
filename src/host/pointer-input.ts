@@ -8,7 +8,8 @@ import type { Scene } from '../core/scene'
 import { edgePush, panBy, toWorld, wheelFactor, wheelPixels, zoomAround } from '../core/view'
 import type { Sight } from '../core/visibility'
 import { listenPinch, type PinchGesture } from '../dom/gestures'
-import type { GraphDefinition, Key, NodeOptions, Point, Style } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key, NodeOptions, Point, Style } from '../types'
 import type { HostCamera } from './camera'
 import { keysOf, sameEnd, sameTarget } from './element-keys'
 import type { Emitter, GraphTarget, ZoomKey } from './events'
@@ -106,7 +107,7 @@ export interface PointerSource {
   readonly emitter: Emitter
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   sight(): Sight
   edgeKeys(index: number, sight: Sight, visit: (key: Key) => void): void
   request(): void
@@ -140,7 +141,7 @@ function dragStyle(options: NodeOptions<unknown>, container: boolean): Style<unk
   return own ?? options.drag ?? true
 }
 
-function draggableMarks(definition: GraphDefinition): boolean {
+function draggableMarks(definition: ResolvedDefinition): boolean {
   return definition.marks.some((mark) => {
     if (mark.type !== 'nodes') return false
     const options = (mark as { readonly options?: NodeOptions<unknown> }).options

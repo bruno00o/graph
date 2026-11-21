@@ -1,6 +1,6 @@
 import type { PositionMoves, PositionReader, Positions } from '../core/positions'
 import { easeInOut } from '../core/view'
-import type { GraphDefinition } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
 import { progress } from './frame-cost'
 import type { SpreadHost } from './spread'
 
@@ -17,7 +17,7 @@ interface PositionAnimation {
 export interface MotionSource {
   readonly positions: Positions
   readonly spread: SpreadHost
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   dragging(): readonly number[] | undefined
   request(): void
   frameCost(): number

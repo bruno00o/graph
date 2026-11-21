@@ -32,7 +32,8 @@ import {
   shapeShown,
 } from '../core/visibility'
 import { dev } from '../dev'
-import type { GraphDefinition, Key, KeyList, Layout, Mark, Point, View } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key, KeyList, Layout, Mark, Point, View } from '../types'
 import type { AnchorHost } from './anchor-host'
 import { BridgeHost } from './bridges'
 import { BundleHost } from './bundles'
@@ -198,7 +199,7 @@ export interface HostParts {
   surface(): HostSurface
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   sight(except?: string | null): Sight
   prepare(): void
   request(): void
@@ -248,8 +249,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
 ): GraphCore<S, M> {
   const { home, colors, textWidths, still, work, quiet, frames } = environment
   let surface: HostSurface = hostSurfaceOf(options.surface) ?? home
-  let given: GraphDefinition = options.definition
-  let definition: GraphDefinition = surface.adapt(given)
+  let given: ResolvedDefinition = options.definition as ResolvedDefinition<S, M>
+  let definition: ResolvedDefinition = surface.adapt(given)
   const controlled = options.selection !== undefined
   const viewControlled = options.view !== undefined
   const foldControlled = options.folded !== undefined
@@ -1498,13 +1499,13 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
         layers.answer(next.hiddenLayers)
       }
       if (moving) {
-        if (next.definition) given = next.definition
+        if (next.definition) given = next.definition as ResolvedDefinition
         moveTo(target, next.view ?? null)
         return
       }
       if (next.definition && next.definition !== given) {
         const previous: Layout | null = definition.layout
-        given = next.definition
+        given = next.definition as ResolvedDefinition
         definition = surface.adapt(given)
         layouts.replaced(previous)
         applyDefinition()

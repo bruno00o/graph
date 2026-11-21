@@ -74,8 +74,9 @@ const links: Link[] = [
   { id: 'ac', from: 'a', to: 'c' },
 ]
 
-function definition(data: readonly Item[], top: string) {
+function definition(data: readonly Item[], top: string, relayout = false) {
   return defineGraph({
+    relayout,
     marks: [
       edges<Link>(links, { source: 'from', target: 'to' }),
       nodes<Item>(data, { parent: 'parent', container: { layout: () => fake('inner') } }),
@@ -127,7 +128,7 @@ describe('groups that did not change', () => {
     dom.flushFrames()
     const inside = gap(graph, 'a', 'b')
     runs.length = 0
-    graph.update({ definition: { ...definition(items, 'other'), relayout: true } })
+    graph.update({ definition: definition(items, 'other', true) })
     dom.flushFrames()
     expect(runs.map((run) => run.name)).toEqual(['other'])
     finish(runs[0], 900)

@@ -1,4 +1,5 @@
-import type { BackgroundGrid, ResolvedBackground, View } from '../types'
+import type { ResolvedBackground } from '../resolved-definition'
+import type { BackgroundGrid, View } from '../types'
 import type { Palette } from './palette'
 import type { Viewport } from './view'
 

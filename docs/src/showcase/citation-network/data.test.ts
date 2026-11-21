@@ -156,10 +156,6 @@ describe('definition', () => {
     })
   })
 
-  it('carries no layout of its own: the positions come from the data build', () => {
-    expect(definitionOf(input).layout).toBeNull()
-  })
-
   it('adds arrows on the cited edges only while a neighborhood is lit, and leaves the works alone', () => {
     const plain = definitionOf(input)
     const lit = definitionOf({ ...input, arrows: new Set(['l0>out', 'l1>in']) })

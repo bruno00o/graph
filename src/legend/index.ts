@@ -6,7 +6,7 @@ import { internalsOf } from '../host/internals'
 import { isolateSubscribers } from '../host/isolate'
 import type { GraphCore } from '../host/mount-graph'
 import { readonlyOf } from '../host/readonly-store'
-import type { FreeState, GraphDefinition, LayerName, Mark } from '../types'
+import type { FreeState, LayerName, Mark } from '../types'
 import {
   type EntryCounts,
   EntryIndex,
@@ -209,7 +209,7 @@ export function createLegend<S extends string, M extends Mark>(
   let crowded: ReadonlySet<number> = new Set()
   let readScene = -1
   let readDetail = -1
-  let readDefinition: GraphDefinition | null = null
+  let readDefinition: ResolvedDefinition | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastRead = Number.NEGATIVE_INFINITY
   let cooldown = minInterval
@@ -610,3 +610,5 @@ export type {
   LegendValue,
 } from './read'
 export { type LegendSection, type LegendView, type LegendViewOptions, mountLegend } from './view'
+
+import type { ResolvedDefinition } from '../resolved-definition'

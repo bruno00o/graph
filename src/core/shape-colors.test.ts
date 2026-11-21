@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { shapes } from '../shapes'
 import { defaults } from '../theme/tokens'
 import type { GraphDefinition, Mark, ScalesOptions, ShapeGeometry } from '../types'
@@ -33,7 +34,7 @@ function setup() {
   const render = (marks: readonly Mark[], scales: ScalesOptions = {}) => {
     const definition: GraphDefinition = defineGraph({ marks, scales })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(model, model.flush())
   }
   const store = scene.shapes

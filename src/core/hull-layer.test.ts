@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { hull } from '../hulls'
 import { nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { Hull, Key } from '../types'
 import { containerShape, noColor } from './columns'
 import { createGraphModel } from './graph-model'
@@ -19,7 +20,7 @@ function setup(items: Item[], build: (mark: ReturnType<typeof nodes<Item>>) => H
   const mark = nodes<Item>(items, { x: 'x', y: 'y', size: 'size' })
   const definition = defineGraph({ marks: [mark], scales: { size: (value) => value } })
   model.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   const changes = model.flush()
   scene.apply(model, changes)
   placeNodes(model, positions, changes)

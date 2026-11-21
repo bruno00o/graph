@@ -13,7 +13,8 @@ import {
   zoomAround,
   zoomAt,
 } from '../core/view'
-import type { GraphDefinition, Key, Point, View } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key, Point, View } from '../types'
 import { requestMemory } from './element-keys'
 import type { Emitter, ViewOrigin } from './events'
 import { progress } from './frame-cost'
@@ -80,7 +81,7 @@ export interface ViewSource {
   readonly emitter: Emitter
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   request(): void
   frameCost(): number
   still(): boolean

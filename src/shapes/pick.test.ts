@@ -4,6 +4,7 @@ import { Positions } from '../core/positions'
 import { createScene } from '../core/scene'
 import type { ShapePickQuery } from '../core/shape-engine'
 import { defineGraph } from '../define-graph'
+import { resolvedOf } from '../resolved-definition'
 import type { Mark, ShapeGeometry } from '../types'
 import { shapes } from './index'
 import { createShapePicker } from './pick'
@@ -15,7 +16,7 @@ function setup(marks: readonly Mark[]) {
   const scene = createScene()
   const definition = defineGraph({ marks })
   model.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   scene.apply(model, model.flush())
   const store = scene.shapes
   const positions = new Positions()
@@ -159,7 +160,7 @@ describe('the shape picker', () => {
     expect(pick(5, 5)).toBe('a')
     const definition = defineGraph({ marks: [shapes([square('a', 100, 0, 10)])] })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(model, model.flush())
     expect(pick(5, 5)).toBeNull()
     expect(pick(105, 5)).toBe('a')
@@ -171,7 +172,7 @@ describe('the shape picker', () => {
     const render = (next: readonly Zone[], width?: number) => {
       const definition = defineGraph({ marks: [shapes(next, { strokeWidth: width })] })
       model.setMarks(definition.marks)
-      scene.setDefinition(definition)
+      scene.setDefinition(resolvedOf(definition))
       scene.apply(model, model.flush())
     }
     expect(pick(5, 5)).toBe('a')
