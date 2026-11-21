@@ -107,7 +107,7 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
     frames: source.frames,
   })
 
-  exposeSnapshot(graph, () => {
+  exposeSnapshot(graph, source.surface().name !== 'none', () => {
     if (source.destroyed()) throw new Error('graph: cannot export a destroyed graph')
     const { decorations, bundles, bridges, colors, render, time, layers } = source
     source.prepare()

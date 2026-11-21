@@ -40,13 +40,23 @@ export interface GraphSnapshot {
 }
 
 const sources = new WeakMap<object, () => GraphSnapshot>()
+const pages = new WeakMap<object, boolean>()
 
-export function exposeSnapshot(graph: object, take: () => GraphSnapshot): void {
+export function exposeSnapshot(
+  graph: object,
+  page: boolean | null,
+  take: () => GraphSnapshot,
+): void {
   sources.set(graph, take)
+  if (page !== null) pages.set(graph, page)
+}
+
+export function onPage(graph: object): boolean | undefined {
+  return pages.get(graph)
 }
 
 export function takeSnapshot(graph: object): GraphSnapshot {
   const take = sources.get(graph)
-  if (!take) throw new Error('graph: export needs a graph created by mountGraph')
+  if (!take) throw new Error('graph: export needs a graph created by mountGraph or createGraph')
   return take()
 }

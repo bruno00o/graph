@@ -18,15 +18,13 @@ export const estimateTextWidth: TextWidth = (text) => {
   return count * estimatedAdvance
 }
 
-function fittedWidth(
+export function cutText(
   measure: TextWidth,
   text: string,
   weight: number,
   font: string | null,
   limit: number,
-): number {
-  const whole = measure(text, weight, font)
-  if (limit <= 0 || whole <= limit) return whole
+): string {
   const room = limit - measure(ellipsis, weight, font)
   let pen = 0
   let end = 0
@@ -37,7 +35,19 @@ function fittedWidth(
     pen += advance
     end++
   }
-  return measure(`${chars.slice(0, end).join('').trimEnd()}${ellipsis}`, weight, font)
+  return `${chars.slice(0, end).join('').trimEnd()}${ellipsis}`
+}
+
+function fittedWidth(
+  measure: TextWidth,
+  text: string,
+  weight: number,
+  font: string | null,
+  limit: number,
+): number {
+  const whole = measure(text, weight, font)
+  if (limit <= 0 || whole <= limit) return whole
+  return measure(cutText(measure, text, weight, font, limit), weight, font)
 }
 
 export function labelWidth(

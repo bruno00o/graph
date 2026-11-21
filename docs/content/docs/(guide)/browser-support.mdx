@@ -99,7 +99,7 @@ Every pull request opens each example of this site and of the repository in Chro
 
 ## Without a browser
 
-[`createGraph`](/docs/api/create-graph) of `@bruno00o/graph/headless` makes a graph that needs neither a browser nor WebGL: it reads no DOM global and creates no worker. It is tested in Node 24, and uses no API that Deno, Bun or a web worker lack. Its layouts, edge bundling and edge routing run on the calling thread, in slices of 50 ms. A test suite runs it in Node with every global of the DOM replaced by a getter that throws, so that a change that would reach for the page fails the build.
+[`createGraph`](/docs/api/create-graph) of `@bruno00o/graph/headless` makes a graph that needs neither a browser nor WebGL: it reads no DOM global and creates no worker. It is tested in Node 24, and uses no API that Deno, Bun or a web worker lack. Its layouts, edge bundling and edge routing run on the calling thread, in slices of 50 ms. A test suite runs it in Node with every global of the DOM replaced by a getter that throws, so that a change that would reach for the page fails the build. Such a graph exports SVG, draw.io and Visio files, not PNG: [Server-side extracts](/docs/server-side-extracts) rasterizes the SVG with resvg.
 
 ## Device pixel ratio and size
 

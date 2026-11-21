@@ -226,7 +226,7 @@ export function coreStillborn<S extends string, M extends Mark, G extends object
     globe: () => null,
     frames: stillFrames,
   })
-  exposeSnapshot(graph, () => {
+  exposeSnapshot(graph, null, () => {
     throw destroyedError()
   })
   return graph

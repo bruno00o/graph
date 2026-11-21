@@ -41,6 +41,7 @@ interface Face {
   readonly unitsPerEm: number
   readonly advances: ReadonlyMap<number, number>
   readonly format: 4 | 12
+  readonly metrics?: number
 }
 
 function cmapOf(codes: readonly number[], format: 4 | 12): Bytes {
@@ -128,7 +129,7 @@ function tablesOf(face: Face): [string, Bytes][] {
   for (let at = 20; at < 54; at++) head.u8(0)
   const hhea = new Bytes()
   for (let at = 0; at < 34; at++) hhea.u8(0)
-  hhea.u16(glyphs - 1)
+  hhea.u16(face.metrics ?? glyphs - 1)
   const hmtx = new Bytes().u16(face.unitsPerEm / 2).u16(0)
   const advances = [...face.advances.values()]
   for (const advance of advances.slice(0, -1)) hmtx.u16(advance).u16(0)
@@ -232,6 +233,70 @@ describe('readFont', () => {
     expect(() => readFont(new Uint8Array(4))).toThrow(TypeError)
     const woff = Uint8Array.from([0x77, 0x4f, 0x46, 0x46, 0, 1, 0, 0, 0, 0, 0, 0])
     expect(() => readFont(woff)).toThrow('readFont: not a TrueType, OpenType or collection file')
+  })
+
+  function damage(file: Uint8Array): unknown[] {
+    const escaped: unknown[] = []
+    try {
+      const font = readFont(file)
+      const width = font.width('AaC€B😀', 400, null)
+      if (!Number.isFinite(width)) escaped.push(width)
+    } catch (error) {
+      if (!(error instanceof TypeError && error.message.startsWith('readFont: '))) {
+        escaped.push(error)
+      }
+    }
+    return escaped
+  }
+
+  it('throws a readFont TypeError for a truncated file, never a DataView error', () => {
+    const files = [fontFile(sample), fontFile({ ...sample, format: 12 }), collection([sample])]
+    const escaped: unknown[] = []
+    let refused = 0
+    for (const file of files) {
+      for (let length = 12; length < file.length; length++) {
+        const cut = file.slice(0, length)
+        escaped.push(...damage(cut))
+        try {
+          readFont(cut)
+        } catch {
+          refused++
+        }
+      }
+    }
+    expect(escaped).toEqual([])
+    expect(refused).toBeGreaterThan(0)
+    expect(() => readFont(fontFile(sample).slice(0, 40))).toThrow(
+      'readFont: the file is truncated or corrupt',
+    )
+  })
+
+  it('throws a readFont TypeError for corrupt bytes, never a DataView error', () => {
+    const files = [fontFile(sample), fontFile({ ...sample, format: 12 }), collection([sample])]
+    const escaped: unknown[] = []
+    let seed = 7
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) >>> 0
+      return seed / 2 ** 32
+    }
+    for (const file of files) {
+      for (let round = 0; round < 3000; round++) {
+        const copy = file.slice()
+        const hits = 1 + Math.floor(next() * 4)
+        for (let hit = 0; hit < hits; hit++) {
+          copy[Math.floor(next() * copy.length)] = Math.floor(next() * 256)
+        }
+        escaped.push(...damage(copy))
+      }
+    }
+    expect(escaped).toEqual([])
+  })
+
+  it('refuses a font without horizontal metrics or units per em', () => {
+    expect(() => readFont(fontFile({ ...sample, metrics: 0 }))).toThrow(
+      'readFont: the hhea table gives no horizontal metrics',
+    )
+    expect(() => readFont(fontFile({ ...sample, unitsPerEm: 0 }))).toThrow(TypeError)
   })
 
   const arial = [
