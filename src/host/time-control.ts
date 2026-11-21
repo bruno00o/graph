@@ -47,7 +47,7 @@ export class TimeControl {
     this.filter = timeFilter(next, this.fade)
     this.#source.readAt(next)
     this.#source.patch({ time: next })
-    this.#source.emitter.emit('timechange', { window: next })
+    this.#source.emitter.emit('timechange', { time: next })
     this.#source.request()
   }
 
@@ -63,7 +63,7 @@ export class TimeControl {
     }
     if (sameWindow(next, this.#asks.base(this.window))) return
     this.#asks.send(next)
-    this.#listener?.({ window: next })
+    this.#listener?.({ time: next })
   }
 
   refreshFade(): void {

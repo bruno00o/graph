@@ -161,7 +161,7 @@ function TimeFromEffect() {
       ariaLabel="graphe"
       ref={setGraph}
       time={time}
-      onTimeChange={(event) => setTime(event.window)}
+      onTimeChange={(event) => setTime(event.time)}
     >
       <Grab />
     </Graph>

@@ -42,7 +42,7 @@ Load the core skill first (`intent load @bruno00o/graph#core`): the graph, its d
 
 | Tool | Where it lives | Created with |
 | --- | --- | --- |
-| Minimap | Own entry `@bruno00o/graph/minimap` | `createMinimap(graph, options)` |
+| Minimap | Own entry `@bruno00o/graph/minimap` | `mountMinimap(graph, options)` |
 | Legend | Own entry `@bruno00o/graph/legend` | `createLegend(graph, options)` then `mountLegend(legend, options)` |
 | Lens | Main entry | `interaction.lens` in the definition, `graph.lens.set(...)` |
 | Anchored HTML | Main entry | `graph.anchors.set(element, options)` |
@@ -59,7 +59,7 @@ The companions need a mounted graph: one made by `mountGraph` (or `<Graph>`, `mo
 ```ts
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
-import { createMinimap } from '@bruno00o/graph/minimap'
+import { mountMinimap } from '@bruno00o/graph/minimap'
 
 type Item = { id: string; name: string; group: string; weight: number }
 type Link = { id: string; from: string; to: string }
@@ -79,7 +79,7 @@ const definition = defineGraph({
 })
 const graph = mountGraph(document.body, { definition, ariaLabel: 'Sample graph' })
 
-const minimap = createMinimap(graph, { corner: 'bottomRight', width: 200, height: 150 })
+const minimap = mountMinimap(graph, { corner: 'bottomRight', width: 200, height: 150 })
 
 const legend = createLegend(graph, { highlight: 'match', hidden: 'faded' })
 const view = mountLegend(legend, { titles: { color: 'Group', size: 'Weight' } })
@@ -90,7 +90,7 @@ document.body.append(view.element)
 
 ### Minimap
 
-`createMinimap(graph, options)` draws the whole graph (its nodes, its edges up to `maxEdges`, and under them the shapes of `shapes()` marks as pale fills and thin outlines) with the rectangle of the current view. Shapes are simplified to half a pixel of the minimap, those under 3 pixels drawn as their box; past `maxShapePoints` points in all (200,000), the next ones are boxes, and `0` draws no shapes. Dragging the rectangle pans, pressing elsewhere centers the view there, and the wheel zooms.
+`mountMinimap(graph, options)` draws the whole graph (its nodes, its edges up to `maxEdges`, and under them the shapes of `shapes()` marks as pale fills and thin outlines) with the rectangle of the current view. Shapes are simplified to half a pixel of the minimap, those under 3 pixels drawn as their box; past `maxShapePoints` points in all (200,000), the next ones are boxes, and `0` draws no shapes. Dragging the rectangle pans, pressing elsewhere centers the view there, and the wheel zooms.
 
 - It sits in a `corner` of the graph element: `'topLeft'`, `'topRight'`, `'bottomLeft'` or `'bottomRight'` (default). With `corner: null`, it leaves `minimap.element` to you, to place anywhere in the page.
 - `width` and `height` default to 200 by 150, and a value that is not above 0 falls back to the default. Other options: `margin`, `padding`, `maxEdges` (20,000: past it the minimap draws nodes only), `maxShapePoints`, `nodeSize`, `nodeColor`, `selectionColor`, `background`, `mask`, `viewColor`, `pan`, `zoom`. Colors are CSS colors, `--graph-*` tokens included, resolved with the theme.
@@ -98,9 +98,9 @@ document.body.append(view.element)
 - It draws in a worker when the browser has workers and `OffscreenCanvas`, at a pace bounded by its cost; at 500,000 nodes it costs the page a few milliseconds. It draws nodes, group containers and edges, never labels, badges, hulls or the grid. It is hidden from assistive technologies and takes no focus.
 
 ```ts
-import { createMinimap } from '@bruno00o/graph/minimap'
+import { mountMinimap } from '@bruno00o/graph/minimap'
 
-const placed = createMinimap(graph, { corner: null, width: 240, height: 160, nodeSize: 3 })
+const placed = mountMinimap(graph, { corner: null, width: 240, height: 160, nodeSize: 3 })
 document.querySelector('#overview')?.append(placed.element)
 placed.update({ width: 300, selectionColor: null })
 ```
@@ -463,5 +463,5 @@ The task is done when:
 Every page has a Markdown version: add `.md` to its URL.
 
 - Guides: [Minimap and legend](https://bruno00o.github.io/graph/docs/minimap-and-legend), [Lens](https://bruno00o.github.io/graph/docs/lens), [Drawing layers](https://bruno00o.github.io/graph/docs/drawing-layers) ([hull labels](https://bruno00o.github.io/graph/docs/drawing-layers#labels)), [TanStack Devtools](https://bruno00o.github.io/graph/docs/devtools)
-- API: [createMinimap](https://bruno00o.github.io/graph/docs/api/minimap), [createLegend and mountLegend](https://bruno00o.github.io/graph/docs/api/legend), [hull](https://bruno00o.github.io/graph/docs/api/hull), [Devtools](https://bruno00o.github.io/graph/docs/api/devtools), [Anchor](https://bruno00o.github.io/graph/docs/api/anchor)
+- API: [mountMinimap](https://bruno00o.github.io/graph/docs/api/minimap), [createLegend and mountLegend](https://bruno00o.github.io/graph/docs/api/legend), [hull](https://bruno00o.github.io/graph/docs/api/hull), [Devtools](https://bruno00o.github.io/graph/docs/api/devtools), [Anchor](https://bruno00o.github.io/graph/docs/api/anchor)
 - The values a legend explains come from the scales: see the styling skill.

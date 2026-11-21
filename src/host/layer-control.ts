@@ -63,7 +63,7 @@ export class LayerControl {
     this.hidden = list
     this.refresh()
     this.#source.patch({ hiddenLayers: list })
-    this.#source.emitter.emit('layerchange', { hidden: list })
+    this.#source.emitter.emit('layerchange', { hiddenLayers: list })
     this.#source.request()
   }
 
@@ -85,7 +85,7 @@ export class LayerControl {
     }
     if (sameList(list, this.base())) return
     this.#asks.send(list)
-    this.#listener?.({ hidden: list })
+    this.#listener?.({ hiddenLayers: list })
   }
 
   position(kind: StateKind, index: number): number {

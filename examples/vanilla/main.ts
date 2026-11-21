@@ -1,6 +1,6 @@
 import { defineGraph, edges, mountGraph, nodes, type WheelMode } from '@bruno00o/graph'
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
-import { createMinimap } from '@bruno00o/graph/minimap'
+import { mountMinimap } from '@bruno00o/graph/minimap'
 import { createSample, type Item, type Link } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
@@ -48,7 +48,7 @@ const graph = mountGraph(main, {
   ariaLabel: messages.graphLabel(formatNumber(items.length), formatNumber(links.length)),
 })
 
-createMinimap(graph)
+mountMinimap(graph)
 const legend = createLegend(graph, { highlight: 'match', hidden: 'faded' })
 const legendView = mountLegend(legend, {
   titles: messages.legendTitles,
