@@ -82,7 +82,7 @@ const definition = defineGraph({
 const graph = mountGraph(document.body, { definition, ariaLabel: 'Sample graph' })
 ```
 
-Result: nodes settle over about 300 steps, the view keeps the graph framed while it settles (until the user pans or zooms), and the page stays responsive. Options of `force` (defaults): `edgeLength` 40, `repulsion` 80, `gravity` 0.04, `spacing` 6, `cohesion` 0.5, `groupSpacing` 16, `steps` 300, `engine` `'auto'`, `multilevel` `'auto'`. A negative or non-finite value falls back to its default. Full table: [force API](https://bruno00o.github.io/graph/docs/api/force).
+Result: nodes settle over about 300 steps, the view keeps the graph framed while it settles (until the user pans or zooms), and the page stays responsive. Options of `force` (defaults): `edgeLength` 40, `repulsion` 80, `gravity` 0.04, `spacing` 6, `cohesion` 0.5, `groupSpacing` 16, `steps` 300, `engine` `'auto'`, `multilevel` `'auto'` (levels from 100 moving nodes, on runs that move at least half of them). A negative or non-finite value falls back to its default. Full table: [force API](https://bruno00o.github.io/graph/docs/api/force).
 
 ## Core Patterns
 

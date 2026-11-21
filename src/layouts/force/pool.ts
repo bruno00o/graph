@@ -2,7 +2,7 @@ import type { LayoutListener, LayoutRun } from '../../types'
 import { failWith, type Slice, sliced } from '../scope-runs'
 import { costOf, type PackedResults, packBatch, unpackResults } from './batch'
 import type { FromWorker, ToWorker } from './protocol'
-import { ForceJob } from './runner'
+import { type PooledJob, pooledJob } from './runner'
 import type { ForceGraph, ForceSettings } from './simulation'
 
 export type Spawn = () => Worker | null
@@ -17,7 +17,7 @@ interface Job {
   readonly pins: Map<number, readonly [number, number]>
   holder: Holder | null
   slice: Slice | null
-  inline: ForceJob | null
+  inline: PooledJob | null
   over: boolean
 }
 
@@ -229,7 +229,7 @@ export class ForcePool {
 
   #inline(job: Job): void {
     if (job.over) return
-    const running = new ForceJob(job.graph, job.settings)
+    const running = pooledJob(job.graph, job.settings)
     for (const [index, [x, y]] of job.pins) running.pin(index, x, y)
     job.inline = running
     job.slice = sliced(

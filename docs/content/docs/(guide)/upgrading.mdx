@@ -170,6 +170,18 @@ createGraph({ definition, theme: { colors: { accent: '#7a3ff2' } } })
 
 The `pixelRatio` of `exportPng` and `exportMapPng` has the type of the `pixelRatio` of `defineGraph`, `'auto' | 'device' | number`, and a number keeps its meaning. A value that is neither throws a `TypeError`. The default, the ratio the graph draws at, does not change. A type that held the option as a `number` must now accept `PixelRatioOption`.
 
+### `force` works in levels from 100 nodes
+
+With `multilevel: 'auto'`, the default, `force` lays a run out in levels from 100 moving nodes instead of 1,000, and so does a group laid out by `force` through `container.layout`. Graphs of 100 to 999 nodes get a different layout, usually with fewer crossed edges and in less time. Pass `multilevel: false` to keep a single level.
+
+```ts
+// Before: a single level below 1,000 moving nodes
+defineGraph({ marks, layout: force() })
+
+// After: the same result for 100 to 999 moving nodes
+defineGraph({ marks, layout: force({ multilevel: false }) })
+```
+
 ## 0.27.0
 
 ### The legend lists shapes

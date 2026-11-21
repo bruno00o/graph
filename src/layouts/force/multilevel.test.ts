@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { LayoutRun } from '../../types'
 import type { GpuForce } from './gpu'
-import { Ladder, type MultilevelEngines, multilevelPlan, runMultilevel } from './multilevel'
+import {
+  Ladder,
+  LadderJob,
+  type MultilevelEngines,
+  multilevelPlan,
+  runMultilevel,
+} from './multilevel'
 import { type ForceGraph, ForceSimulation, forceDefaults } from './simulation'
 
 function scattered(capacity: number): Float32Array {
@@ -251,5 +257,39 @@ describe('runMultilevel', () => {
     expect(gpu).toHaveBeenCalledOnce()
     expect(settle).not.toHaveBeenCalled()
     expect(end.every(Number.isFinite)).toBe(true)
+  })
+})
+
+describe('LadderJob', () => {
+  const finish = (job: LadderJob, slice: number) => {
+    let rounds = 0
+    while (!job.advance(slice === 0 ? 0 : performance.now() + slice)) rounds++
+    return { xy: job.result(), rounds }
+  }
+
+  it('gives the bytes of a multilevel run, in one go or in slices', async () => {
+    const graph = withLoners(grid(12, [7]), 24)
+    const expected = await record(graph).end
+    const whole = finish(new LadderJob(graph, forceDefaults), Number.POSITIVE_INFINITY)
+    const sliced = finish(new LadderJob(graph, forceDefaults), 0)
+    expect(Array.from(whole.xy)).toEqual(Array.from(expected))
+    expect(Array.from(sliced.xy)).toEqual(Array.from(expected))
+    expect(sliced.rounds).toBeGreaterThan(whole.rounds)
+  })
+
+  it('holds a pin on every level and in its result', async () => {
+    const graph = grid(12)
+    const recorded = record(graph, { budget: 0 })
+    recorded.run.pin(5, 900, -900)
+    const expected = await recorded.end
+    const job = new LadderJob(graph, forceDefaults)
+    expect(job.advance(0)).toBe(false)
+    job.pin(5, 900, -900)
+    job.pin(-1, 0, 0)
+    job.pin(3, Number.NaN, 0)
+    const { xy } = finish(job, Number.POSITIVE_INFINITY)
+    expect([xy[10], xy[11]]).toEqual([900, -900])
+    expect(Array.from(xy)).toEqual(Array.from(expected))
+    expect(job.progress).toBe(1)
   })
 })
