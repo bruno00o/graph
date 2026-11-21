@@ -6,14 +6,16 @@ description: >
   relationships and paths into nodes and edges, typing node and relationship
   properties, keeping 64-bit integers, dates, durations and spatial points
   usable, handling relationships whose end node was not returned, merging
-  several queries, and exploring a database one neighborhood at a time with a
-  query per expanded node.
+  several queries, sending large path results without repeating each node,
+  reading rows built as plain maps, and exploring a database one neighborhood at
+  a time with a query per expanded node.
 metadata:
   purpose: >
     The @bruno00o/graph/cypher entry point: cypherGraph, which reads the values
     of a Cypher result into deduplicated nodes and edges for the marks, and how
-    to combine it with createExploration, with the mistakes that lose digits,
-    leave edges waiting or break typing.
+    to combine it with createExploration, how a large result is wrapped so each
+    node is sent once, and the mistakes that lose digits, leave edges waiting or
+    break typing.
   type: composition
   library: '@bruno00o/graph'
 sources:
@@ -66,7 +68,7 @@ const graph = mountGraph(document.body, { definition, ariaLabel: 'Query result' 
 console.log(graph.count())
 ```
 
-- Nodes: `{ id, labels, properties }`, where `id` is the `elementId`. Nodes need no `key` option: `id` is the default key.
+- Nodes: `{ id, labels, properties }`, where `id` is the `elementId`. Nodes need no `key` option: `id` is the default key. A property whose value is `null` is left out of `properties`.
 - Edges: `{ id, type, source, target, properties }`, where `source` and `target` are the `elementId` of the start and end nodes. The edge mark needs `source: 'source'` and `target: 'target'`.
 - Node `id` and edge `id` are the database's `elementId` strings, never a property you stored called `id`.
 
@@ -79,6 +81,8 @@ console.log(graph.count())
 - Elements are deduplicated by `elementId`, the first occurrence wins. A node returned in every row appears once. Pass an array of results to merge several queries: `cypherGraph([first, second])`.
 - Nodes and edges keep the order they first appear in. A path contributes its nodes and relationships in path order.
 - `elementId` is read from `elementId` or, on old servers, from `identity` (and `start` / `end` stand in for `startNodeElementId` / `endNodeElementId`).
+- A node or a relationship does not have to come from the driver: a map with `labels`, `properties` and an `elementId` (or `identity`) is a node, and a map with `type`, `properties`, an id and the two end ids (`startNodeElementId` and `endNodeElementId`, or else `start` and `end`) is a relationship; one with neither pair of ends is left out. Such maps are found in rows, lists and maps like driver objects, and converted the same way. A query can return `{ elementId, labels, properties }` instead of whole nodes: this is how a large result is slimmed down.
+- A property whose value is `null` is left out, in nodes, relationships and maps of properties alike, so `node.properties.born` is absent, not `null`: type optional properties as `born?: number`. A `null` inside a list value or a nested map stays.
 - Type the properties with the type arguments: `cypherGraph<{ name: string }, { since: number }>(result)`. It is an assertion, like the type of `JSON.parse`: the database does not check it. Without them, `properties` is `Readonly<Record<string, unknown>>` and a channel that needs a string must convert (`String(node.properties.name)`).
 
 ### Send results from a backend
@@ -134,6 +138,10 @@ Under `'safe'` every integer property is typed `number | string` (a number when 
 ### Relationships whose end node is missing
 
 A relationship stays in `edges` even when an end node is not in the result, as with `RETURN r` alone. The graph keeps it pending until the node arrives (`graph.count().pending`), then draws it. Query the nodes with their relationships, or merge a later result into the next `update`.
+
+### Large results
+
+A query that returns paths sends every node again in every row. Wrap it on the backend so the database sends each distinct node and relationship once, with only the properties the graph draws: the rows are the plain maps above, and `cypherGraph` reads them as it reads driver objects. On 20,000 nodes and 40,000 paths this took 185 ms against 600 ms for the plain query, on a local Neo4j 5.26. The wrapper uses `CALL () { … }` (Neo4j 5.23 or later) and `IS ::` (5.9 or later), is not checked on other databases, loses the order of the rows (give the color scale a `domain`), and drops without any error the elements wrapped deeper than its three steps. The template, the rules and the code that reads the column names are in [references/large-results.md](references/large-results.md).
 
 ### Explore a database one neighborhood at a time
 
@@ -233,6 +241,30 @@ edges(links, { color: 'type' })
 
 `RETURN r` gives relationships without their end nodes: the edges are kept but wait (`graph.count().pending`). Return the end nodes too (`RETURN a, r, b`).
 
+### MEDIUM Returning whole paths for a large result
+
+`RETURN p` over tens of thousands of paths repeats every node in every row, with all its properties, and the transfer and the parsing grow with it. Wrap the query so that each distinct element comes once, with the properties you list ([references/large-results.md](references/large-results.md)), and give the color scale a `domain`, since `WITH DISTINCT` does not keep the row order and categories take their color in the order of arrival.
+
+```cypher
+MATCH p = (a:Person)-[:KNOWS*1..2]->(b:Person)
+RETURN p
+```
+
+### MEDIUM Testing a property for `null`
+
+A property whose value is `null` is left out of `properties`: a projection `element { .name, .born }` returns `born: null` for a person without one, and `cypherGraph` drops it, so the key is absent. A test `=== null` never matches; read it as optional.
+
+```ts
+import { nodes } from '@bruno00o/graph'
+import { cypherGraph, type CypherInput } from '@bruno00o/graph/cypher'
+
+declare const result: CypherInput
+
+const { nodes: items } = cypherGraph<{ name: string; born?: number }>(result)
+
+nodes(items, { label: (node) => `${node.properties.name} ${node.properties.born ?? ''}` })
+```
+
 ### MEDIUM Not expecting a map of your own to be read as a value
 
 A property map with exactly the fields of a date, duration, point or integer pair is converted. Rename the fields of such a map, or pass `integers: 'keep'` for integer pairs.
@@ -250,7 +282,8 @@ With a plain `{ queryKey, queryFn }`, `createExploration` gives nodes the type `
 The task is done when:
 
 - the query returns the nodes with their relationships (`RETURN a, r, b`, or `OPTIONAL MATCH` for neighborhoods);
-- `cypherGraph` receives the result (or its parsed JSON) with property types, and the marks read `id`, `source` and `target`;
+- `cypherGraph` receives the result (or its parsed JSON) with property types, optional where the database may hold `null`, and the marks read `id`, `source` and `target`;
+- a large path result is wrapped on the backend, not sent whole;
 - integers use the default `'safe'` unless you chose another mode on purpose;
 - `graph.count().pending` is 0, or the waiting edges are expected;
 - queries run on a backend when they need credentials;
@@ -260,5 +293,5 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- [Cypher guide](https://bruno00o.github.io/graph/docs/cypher), [cypherGraph](https://bruno00o.github.io/graph/docs/api/cypher-graph), [TanStack Query](https://bruno00o.github.io/graph/docs/tanstack-query)
+- [Cypher guide](https://bruno00o.github.io/graph/docs/cypher), [Large results](https://bruno00o.github.io/graph/docs/cypher#large-results), [cypherGraph](https://bruno00o.github.io/graph/docs/api/cypher-graph), [Rows as maps](https://bruno00o.github.io/graph/docs/api/cypher-graph#rows-as-maps), [TanStack Query](https://bruno00o.github.io/graph/docs/tanstack-query)
 - Example: [Cypher results](https://bruno00o.github.io/graph/examples/cypher-results)

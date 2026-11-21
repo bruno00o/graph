@@ -7,9 +7,10 @@ description: >
   color, size and labels, typing the data so events and targets are typed,
   highlighting or fading sets of nodes with states, reacting to clicks and
   selection, replacing the data, finding why a graph stays blank, misses edges
-  or does not update, and keeping many graphs on one page under the WebGL
-  context limit. Load it before any other skill of this package; React apps
-  load the react skill after it.
+  or does not update, waiting until layouts and animations are done with
+  settled, and keeping many graphs on one page under the WebGL context limit.
+  Load it before any other skill of this package; React apps load the react
+  skill after it.
 metadata:
   purpose: >
     The setup every task with @bruno00o/graph builds on: data and keys, marks and
@@ -30,6 +31,7 @@ sources:
   - src/host/data-status.ts
   - src/host/data-reads.ts
   - src/host/graph-instance.ts
+  - src/host/graph-core.ts
   - src/host/events.ts
   - docs/content/docs/(guide)/installation.mdx
   - docs/content/docs/(guide)/quick-start.mdx
@@ -40,6 +42,7 @@ sources:
   - docs/content/docs/api/define-graph.mdx
   - docs/content/docs/api/mount-graph.mdx
   - docs/content/docs/api/graph-instance.mdx
+  - docs/content/docs/api/graph-core.mdx
   - docs/content/docs/api/events.mdx
   - docs/content/docs/(guide)/browser-support.mdx
   - src/host/render-host.ts
@@ -47,7 +50,7 @@ sources:
 
 # Draw a graph with @bruno00o/graph
 
-A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges()`, and `shapes()` for free areas and lines, from `@bruno00o/graph/shapes`: shapes skill), mounted into an element (`mountGraph`) that returns an instance. The instance drives everything at run time: view, selection, states, positions, events, updates. Rendering uses WebGL2, so it needs a browser.
+A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges()`, and `shapes()` for free areas and lines, from `@bruno00o/graph/shapes`: shapes skill), mounted into an element (`mountGraph`) that returns an instance. The instance drives everything at run time: view, selection, states, positions, events, updates. Rendering uses WebGL2, so a mounted graph needs a browser; `createGraph` from `@bruno00o/graph/headless` makes the same graph without one (headless skill). The instance is a `GraphInstance`, which extends `GraphCore`: everything below except `element`, `focus`, `anchors`, `lens`, `drawn`, `suspend` and `resume` is on `GraphCore`, and a function typed `GraphCore` (`createLegend`, `createTimeline`, `exportSvg`, `exportDrawio`, `exportVsdx`) takes both.
 
 ## Setup
 
@@ -303,7 +306,7 @@ Options are compared by content, so a rebuilt definition with equal options rewr
 - Structure: `graph.neighbors(key)`, `graph.edgesOf(key)`, `graph.endpoints(edgeKey)`, `graph.datumOf({ kind: 'node', key })`, `graph.pick({ x, y })` (screen pixels).
 - Values over time: a mark with a `history` (time skill) gives `datumOf`, event targets and the functions of its options a copy of the item with the values read at the end of the time window, a new object each time an entry applies, so an item is not the same object across moments. `graph.history.of({ kind, key })` lists the entries of an element and `graph.history.instant()` gives the moment read. A `history` that `historyFrom` did not make makes `defineGraph` throw a `TypeError`.
 - View: `graph.view.fit({ nodes: [key], duration: 400 })`, `graph.view.set(view)`, `graph.view.zoomBy(2)`.
-- `await graph.drawn()` resolves after the next frame is drawn, and waits for `resume` while the graph is suspended. It says nothing about live data: `await graph.loaded()` does (next section).
+- `await graph.drawn()` resolves after the next frame is drawn, and waits for `resume` while the graph is suspended. It says nothing about live data: `await graph.loaded()` does (next section). `await graph.settled()` resolves once the data is applied and nothing is left to do: no layout, no view or position animation, bundling, routing, bridges, shape fills and hulls done. It rejects once the graph is destroyed, also while it waits, and frames do not count: after it, `await graph.drawn()` waits for the frame that shows the result. A graph without a page needs it before any export or read of positions.
 
 ### Check the data
 

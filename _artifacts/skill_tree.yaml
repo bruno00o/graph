@@ -41,9 +41,10 @@ skills:
       mapping fields to color, size and labels, typing the data so events and
       targets are typed, highlighting or fading sets of nodes with states,
       reacting to clicks and selection, replacing the data, finding why a graph
-      stays blank, misses edges or does not update, and keeping many graphs on
-      one page under the WebGL context limit. Load it before any other skill of
-      this package; React apps load the react skill after it.
+      stays blank, misses edges or does not update, waiting until layouts and
+      animations are done with settled, and keeping many graphs on one page
+      under the WebGL context limit. Load it before any other skill of this
+      package; React apps load the react skill after it.
     purpose: >
       The setup every task with @bruno00o/graph builds on: data and keys, marks
       and their channels, the definition, mounting, the instance API, states,
@@ -61,6 +62,7 @@ skills:
       - src/host/data-status.ts
       - src/host/data-reads.ts
       - src/host/graph-instance.ts
+      - src/host/graph-core.ts
       - src/host/events.ts
       - docs/content/docs/(guide)/installation.mdx
       - docs/content/docs/(guide)/quick-start.mdx
@@ -71,6 +73,7 @@ skills:
       - docs/content/docs/api/define-graph.mdx
       - docs/content/docs/api/mount-graph.mdx
       - docs/content/docs/api/graph-instance.mdx
+      - docs/content/docs/api/graph-core.mdx
       - docs/content/docs/api/events.mdx
       - docs/content/docs/(guide)/browser-support.mdx
       - src/host/render-host.ts
@@ -135,6 +138,7 @@ skills:
       - src/types.ts
       - src/host/graph-instance.ts
       - src/host/layout-session.ts
+      - src/host/layout-graph.ts
       - src/layouts/scopes.ts
       - src/host/data-status.ts
       - docs/content/docs/(guide)/layout.mdx
@@ -473,8 +477,9 @@ skills:
       records, nodes, relationships and paths into nodes and edges, typing node
       and relationship properties, keeping 64-bit integers, dates, durations and
       spatial points usable, handling relationships whose end node was not
-      returned, merging several queries, and exploring a database one
-      neighborhood at a time with a query per expanded node.
+      returned, merging several queries, sending large path results without
+      repeating each node, reading rows built as plain maps, and exploring a
+      database one neighborhood at a time with a query per expanded node.
     sources:
       - src/cypher/index.ts
       - src/cypher/values.ts
@@ -485,8 +490,11 @@ skills:
     purpose: >
       The @bruno00o/graph/cypher entry point: cypherGraph, which reads the
       values of a Cypher result into deduplicated nodes and edges for the marks,
-      and how to combine it with createExploration, with the mistakes that lose
-      digits, leave edges waiting or break typing.
+      and how to combine it with createExploration, how a large result is
+      wrapped so each node is sent once, and the mistakes that lose digits,
+      leave edges waiting or break typing.
+    references:
+      - references/large-results.md
   - name: file-formats
     slug: file-formats
     domain: data-integrations
@@ -613,21 +621,26 @@ skills:
     domain: tools-and-output
     path: skills/export/SKILL.md
     description: >
-      Use when saving a @bruno00o/graph graph as a PNG image or an SVG document,
-      choosing its region, scale or exact size, pixel ratio, labels, grid,
-      badges and background, or exporting large graphs.
+      Use when saving a @bruno00o/graph graph as a PNG image, an SVG document,
+      or an editable draw.io or Visio diagram, choosing its region, scale or
+      exact size, pixel ratio, labels, grid, badges and background, keeping or
+      dropping the selection in a diagram, or exporting large graphs.
     sources:
       - src/export/index.ts
       - src/export/size.ts
+      - src/export/diagram.ts
+      - src/export/drawio.ts
+      - src/export/vsdx.ts
       - docs/content/docs/(guide)/export.mdx
       - docs/content/docs/api/export.mdx
     requires:
       - core
     purpose: >
-      Saving a mounted @bruno00o/graph graph as a PNG Blob or an SVG string with
-      exportPng and exportSvg: what each one draws, region, scale or exact size,
-      pixel ratio, labels, grid and badges, background, time window and flows,
-      downloading the result, and the errors and limits.
+      Saving a @bruno00o/graph graph as a PNG Blob, an SVG string, a draw.io
+      file or a Visio drawing with exportPng, exportSvg, exportDrawio and
+      exportVsdx: what each one draws or keeps, region, scale or exact size,
+      pixel ratio, labels, grid and badges, background, states, time window and
+      flows, downloading the result, and the errors and limits.
   - name: shapes
     slug: shapes
     domain: structure
@@ -701,3 +714,39 @@ skills:
     references:
       - references/persistence.md
       - references/presence.md
+  - name: headless
+    slug: headless
+    domain: tools-and-output
+    path: skills/headless/SKILL.md
+    description: >
+      Use when running a @bruno00o/graph graph without a browser, such as in
+      Node, a worker or a script: laying a graph out and writing it as an SVG,
+      PNG, draw.io or Visio file, many graphs in a row, reading positions,
+      counts, paths or picks as numbers, tests of a definition, fitting label
+      boxes to a font file with createGraph and readFont, waiting for a layout
+      with settled, rasterizing the SVG with resvg, and finding why a headless
+      graph has no text, no edges, a blocked thread or a PNG that throws.
+    sources:
+      - src/headless/index.ts
+      - src/headless/read-font.ts
+      - src/headless/colors.ts
+      - src/headless/text-estimate.ts
+      - src/headless/page.ts
+      - src/host/graph-core.ts
+      - src/host/graph-instance.ts
+      - src/export/index.ts
+      - docs/content/docs/(guide)/server-side-extracts.mdx
+      - docs/content/docs/api/create-graph.mdx
+      - docs/content/docs/api/read-font.mdx
+      - docs/content/docs/api/graph-core.mdx
+      - docs/content/docs/api/export.mdx
+    requires:
+      - core
+    purpose: >
+      Graphs that need no page: createGraph from @bruno00o/graph/headless, what
+      settled waits for, text widths and readFont, exportSvg, exportDrawio and
+      exportVsdx on a graph without a page, a PNG through resvg with the same
+      font file, many extracts on worker threads, what a graph without a page
+      lacks, and the mistakes that leave labels missing or boxes too small.
+    references:
+      - references/extracts-at-scale.md

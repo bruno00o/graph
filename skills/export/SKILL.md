@@ -1,40 +1,49 @@
 ---
 name: export
 description: >
-  Use when saving a @bruno00o/graph graph as a PNG image or an SVG document,
-  choosing its region, scale or exact size, pixel ratio, labels, grid, badges
-  and background, or exporting large graphs.
+  Use when saving a @bruno00o/graph graph as a PNG image, an SVG document, or
+  an editable draw.io or Visio diagram, choosing its region, scale or exact
+  size, pixel ratio, labels, grid, badges and background, keeping or dropping
+  the selection in a diagram, or exporting large graphs.
 metadata:
   purpose: >
-    Saving a mounted @bruno00o/graph graph as a PNG Blob or an SVG string with
-    exportPng and exportSvg: what each one draws, region, scale or exact size,
-    pixel ratio, labels, grid and badges, background, time window and flows,
+    Saving a @bruno00o/graph graph as a PNG Blob, an SVG string, a draw.io file
+    or a Visio drawing with exportPng, exportSvg, exportDrawio and exportVsdx:
+    what each one draws or keeps, region, scale or exact size, pixel ratio,
+    labels, grid and badges, background, states, time window and flows,
     downloading the result, and the errors and limits.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
   - src/export/index.ts
   - src/export/size.ts
+  - src/export/diagram.ts
+  - src/export/drawio.ts
+  - src/export/vsdx.ts
   - docs/content/docs/(guide)/export.mdx
   - docs/content/docs/api/export.mdx
 requires:
   - core
 ---
 
-# Export a graph as PNG or SVG
+# Export a graph as PNG, SVG, draw.io or Visio
 
-Load the core skill first (`intent load @bruno00o/graph#core`). `@bruno00o/graph/export` turns a mounted graph into a file. Both functions are asynchronous, read the graph as it is when called (pending data is flushed first) and leave the graph on screen untouched.
+Load the core skill first (`intent load @bruno00o/graph#core`). `@bruno00o/graph/export` turns a graph into a file. All four functions are asynchronous, read the graph as it is when called (pending data is flushed first) and leave the graph on screen untouched.
 
-| Function | Resolves to | How it draws |
+| Function | Resolves to | How it works |
 | --- | --- | --- |
-| `exportPng(graph, options?)` | A `Blob` of type `image/png` | Offscreen, in a WebGL2 context of its own freed at the end |
+| `exportPng(graph, options?)` | A `Blob` of type `image/png` | Draws offscreen, in a WebGL2 context of its own freed at the end; needs a mounted graph |
 | `exportSvg(graph, options?)` | The text of an SVG document | Written from the scene, without reading pixels back: sharp at any size, selectable text |
+| `exportDrawio(graph, options?)` | The text of an uncompressed `.drawio` file | One page; every node a shape and every edge a connector attached to its two nodes, so the file stays editable |
+| `exportVsdx(graph, options?)` | A `Blob` of type `application/vnd.ms-visio.drawing` | The same diagram as a Visio drawing (Visio 2013 and later), with no dependency |
+
+`exportSvg`, `exportDrawio` and `exportVsdx` take a `GraphCore`, so they also work on a graph from `createGraph` without a browser (headless skill). `exportPng` takes a mounted graph only.
 
 For a graph on a map that must include the map tiles, `exportMapPng` from `@bruno00o/graph/map` does it (map skill): it takes `badges`, and no `size` or `grid`, since the image has the size of the map times `pixelRatio`. `exportPng` and `exportSvg` draw the graph alone.
 
 ## Setup
 
-1. Mount the graph first (`mountGraph`, `<Graph>` or the map equivalents). A graph not made by one of them throws.
+1. Mount the graph first (`mountGraph`, `<Graph>` or the map equivalents), or create it with `createGraph` for the SVG and the diagrams. A graph not made by one of them throws.
 2. Import the functions and wrap the result in a download. A PNG is already a `Blob`; an SVG is a string, so wrap it in a `Blob` of type `image/svg+xml`.
 
 ```ts
@@ -60,7 +69,9 @@ download(await exportPng(graph), 'graph.png')
 download(new Blob([await exportSvg(graph)], { type: 'image/svg+xml' }), 'graph.svg')
 ```
 
-The functions take a `GraphInstance`: a typed instance from `mountGraph` is accepted as is, so a helper can declare its parameter `GraphInstance` (`import type { GraphInstance } from '@bruno00o/graph'`) or a generic `GraphInstance<S>`. There is no flag to ask whether a graph is destroyed: await the export inside `try` and treat any rejection as a failure.
+An editable diagram is downloaded the same way: `exportDrawio` gives text, so wrap it in a `Blob` of type `application/vnd.jgraph.mxfile`, and `exportVsdx` gives the `Blob` itself.
+
+`exportPng` takes a `GraphInstance`; the other three take a `GraphCore`, which a mounted graph is too. A typed instance from `mountGraph` is accepted as is, so a helper can declare its parameter `GraphInstance` (`import type { GraphInstance } from '@bruno00o/graph'`), a generic `GraphInstance<S>`, or `GraphCore` for the SVG and the diagrams. There is no flag to ask whether a graph is destroyed: await the export inside `try` and treat any rejection as a failure.
 
 In React, read the graph with `useGraph()` inside `<Graph>`, or keep the instance from the `ref` (react skill), and call the same functions from an event handler.
 
@@ -68,7 +79,7 @@ In React, read the graph with `useGraph()` inside `<Graph>`, or keep the instanc
 
 ### Options
 
-Both functions take the same options, plus `pixelRatio` for the PNG and `embedImages` for the SVG. Every one is optional.
+`exportPng` and `exportSvg` take the same options, plus `pixelRatio` for the PNG and `embedImages` and `images` for the SVG. Every one is optional. The diagrams take fewer options, described in the next section.
 
 | Option | Values | Default |
 | --- | --- | --- |
@@ -84,6 +95,7 @@ Both functions take the same options, plus `pixelRatio` for the PNG and `embedIm
 | `window` | Time window of the export (`{ start, end }`), or `null` for every element whatever its time | The window of the graph |
 | `pixelRatio` (PNG) | Image pixels per CSS pixel. Positive | The ratio the graph draws at (1 in software with `pixelRatio: 'auto'`) |
 | `embedImages` (SVG) | Copy every node image into the document as a data URL | `true` |
+| `images` (SVG) | `(src) => { href, width, height } \| null`, async allowed: reads each image URL once and gives the URL to write and the size, or `null` to leave it out. It replaces loading and `embedImages`; made for a graph without a page, which loads nothing | none |
 
 ```ts
 import { exportPng, exportSvg } from '@bruno00o/graph/export'
@@ -114,7 +126,41 @@ const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff
 - The file is one picture of one moment: positions, containers and hulls are read when the export starts, so a layout or a drag that goes on during the call does not tear it. Hulls follow the `window` and `zoom` of the export, not those of the screen. Shapes are drawn at their data, never at the draft of a shape editor in progress.
 - Children of an unfolded group that are spread apart are drawn where the screen shows them; at another `zoom` their pixel gaps scale with it.
 
-### What is in the file
+### Editable diagrams: draw.io and Visio
+
+`exportDrawio` and `exportVsdx` take the same options, `DiagramExportOptions`. They differ from the PNG and SVG options: no `labels`, `grid`, `badges` or `pixelRatio`, and the units are diagram units, 1 per world unit at `zoom: 1` (a draw.io unit, or 1/96 inch in Visio).
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `region` | `'graph'`: every node shown. `'view'`: the nodes the view shows, even in part, and the edges between them | `'graph'` |
+| `zoom` | Diagram units per world unit. Sizes set in screen pixels (edge widths, labels, `units: 'screen'` nodes) keep their size in units. Throws a `RangeError` with `size` | `1` |
+| `size` | `{ width?, height? }` of the page in units; the zoom is chosen so the region fits | the size at `zoom` |
+| `padding` | Margin in units around the content for `region: 'graph'`. Finite, 0 or more | 32 |
+| `window` | Time window, or `null` for every element | The window of the graph |
+| `states` | `'custom'`: the states the definition adds, without `selected`, `hovered` and `focused` or their dimmed `others`. `'all'`: every state in force, as the SVG does. `'none'`: no state | `'custom'` |
+| `background` | Any CSS color resolved with the theme, or `'transparent'` for none | `'var(--graph-paper)'` |
+
+```ts
+import type { GraphCore } from '@bruno00o/graph'
+import { exportDrawio, exportVsdx } from '@bruno00o/graph/export'
+
+declare const graph: GraphCore
+
+const drawio = await exportDrawio(graph, { size: { width: 1200 }, padding: 48 })
+const framed = await exportDrawio(graph, { region: 'view', states: 'all' })
+const visio = await exportVsdx(graph, { background: 'transparent', window: null })
+console.log(drawio.length, framed.length, visio.size)
+```
+
+- Hidden elements stay out whatever `states` says: a `hide` state, a layer, a zoom range and the time window apply as on screen.
+- Unfolded groups become containers holding their children (draw.io) or groups drawn behind their members (Visio); folded groups are ordinary shapes. Merged edges become one connector.
+- Kept: circle, square, diamond and box nodes with fill, stroke, opacity, labels (placement, size, weight, color, font, second line, background); edges with color, width, dashes, dots, arrows at either end and their label; curved edges, loops, arcs and bundled paths as curved connectors (Visio: points sampled along the curve); orthogonal routes and waypoints as connectors through their bends. Labels at the ends of an edge become labels near each end (draw.io) or separate text shapes that stay put when a node moves (Visio).
+- Approximated: an edge whose two ends have different colors takes the color, width and dash of its longer end. Pictures are an image shape linked to their URL in draw.io (data URLs kept) and left out of Visio. Left out of both: halos, flows, badges, hulls, the background grid and the shapes of `shapes()` marks. A graph on a map has no tiles in the file.
+- Ids: a draw.io cell takes `n:` or `e:` and the key of its element (`#` instead of `:` for a number key), so two exports line up and a script can find a cell again; a Visio shape keeps the key in a `Key` shape data field.
+- Moving a node in the editor keeps its edges attached. In Visio the bends of an edge stay where they are, so only its first and last segments follow; a curve keeps its shape and only its ends move.
+- Neither waits for images or fonts. The text uses the first family of the theme (Visio: Calibri for `system-ui` and `sans-serif`). `exportVsdx` compresses the parts with `CompressionStream` where the runtime has it, and stores them uncompressed otherwise. draw.io itself saves a PDF, a PNG or an SVG file, from the editor or from the command line of draw.io Desktop (`drawio --export --format pdf graph.drawio`).
+
+### What is in the PNG and SVG file
 
 - Drawn: node shapes, fills, strokes, outlines, halos (with the color and width of the state) and opacity; images cut to the node shape and icons tinted with their `color`; badges (with their icons and rings, unless `badges` is `false`); unfolded groups as containers behind their children, folded groups as nodes; straight and curved edges, loops, dashes, dots, arrows, edge ends, bundled and routed paths; labels with their placement, color, weight, second line and background; the background grid (unless `grid` is `false`); shapes from `shapes()` (just after the grid, under the containers); hulls with their labels (over the containers, under the edges); the state styles in force, such as selection and hover; the theme colors of the moment.
 - Left out: HTML anchored with `graph.anchors` or `<Anchor>`, the minimap and the lens (they are not part of the scene), and elements outside the time window of the graph unless `window` says otherwise. Shapes follow the same rules as nodes: their states, raised ones, hidden ones, zoom range, time window and layers, and their labels are written too. On a graph on a map, the SVG draws the shapes on the flat map and `exportMapPng` draws them over the basemap.
@@ -124,17 +170,17 @@ const linked = await exportSvg(graph, { embedImages: false, background: '#ffffff
 
 ### Large graphs and suspended graphs
 
-A suspended graph (core skill) exports as usual: the PNG takes a WebGL context of its own while it draws, as for any graph, and gives it back at the end. Both functions read the scene in one pass and build the output in memory. With 50,000 nodes and 100,000 edges, an SVG of the view takes about half a second and weighs about 25 MB, and a PNG of the view takes about the same time. Very large PNGs are encoded strip by strip (287 megapixels: about 11 seconds). For an SVG that heavy, prefer the PNG, or `labels: 'none'`, or a smaller region.
+A suspended graph (core skill) exports as usual: the PNG takes a WebGL context of its own while it draws, as for any graph, and gives it back at the end. `exportPng` and `exportSvg` read the scene in one pass and build the output in memory. With 50,000 nodes and 100,000 edges, an SVG of the view takes about half a second and weighs about 25 MB, and a PNG of the view takes about the same time. Very large PNGs are encoded strip by strip (287 megapixels: about 11 seconds). For an SVG that heavy, prefer the PNG, or `labels: 'none'`, or a smaller region.
 
 ## Common Mistakes
 
 ### HIGH Exporting a destroyed graph
 
-An export of a graph that was destroyed rejects with `graph: cannot export a destroyed graph`, like a graph not made by `mountGraph`. Export before `destroy()`, and catch the rejection when the graph can go away during the call (a route change, an unmount). In React, call the export from a handler while `<Graph>` is mounted.
+An export of a graph that was destroyed rejects with `graph: cannot export a destroyed graph`, like a graph not made by `mountGraph` or `createGraph`. Export before `destroy()`, and catch the rejection when the graph can go away during the call (a route change, an unmount). In React, call the export from a handler while `<Graph>` is mounted.
 
 ### HIGH Not awaiting the export
 
-Both functions return a promise. Passing it unawaited to a download helper, or calling `blob.size` on it, works on a promise, not on a file. Await it, and for the SVG wrap the string: `new Blob([svg], { type: 'image/svg+xml' })`.
+Every export returns a promise. Passing it unawaited to a download helper, or calling `blob.size` on it, works on a promise, not on a file. Await it, and for the SVG wrap the string: `new Blob([svg], { type: 'image/svg+xml' })`.
 
 ### MEDIUM Expecting a transparent PNG by default
 
@@ -166,6 +212,36 @@ await exportPng(graph, { region: 'graph', zoom: 2, size: { width: 640 } }).catch
 await exportPng(graph, { region: 'graph', size: { width: 640 } })
 ```
 
+### MEDIUM Expecting the selection in a diagram
+
+`exportDrawio` and `exportVsdx` default to `states: 'custom'`: the states the definition adds are kept, but the selection, the hover and the focus, with the rings and the dimmed `others` that come with them, are left out so the file does not freeze them. A diagram exported with a node selected shows no selection. Pass `states: 'all'` to keep what is on screen, as the SVG does, or `'none'` to keep no state. Any other value throws a `TypeError`.
+
+```ts
+import type { GraphCore } from '@bruno00o/graph'
+import { exportDrawio } from '@bruno00o/graph/export'
+
+declare const graph: GraphCore
+
+const plain = await exportDrawio(graph)
+const asOnScreen = await exportDrawio(graph, { states: 'all' })
+console.log(plain === asOnScreen)
+```
+
+### MEDIUM A tiny page from a graph on a map
+
+A diagram has one unit per world unit at `zoom: 1`, and the world of a map is 512 units wide: a graph on a map gives a page a few hundred units across, with every node packed together. Pass `size` or `zoom` to get a page you can read.
+
+```ts
+import type { GraphCore } from '@bruno00o/graph'
+import { exportDrawio } from '@bruno00o/graph/export'
+
+declare const mapGraph: GraphCore
+
+const tiny = await exportDrawio(mapGraph)
+const readable = await exportDrawio(mapGraph, { size: { width: 2000 } })
+console.log(tiny.length, readable.length)
+```
+
 ### MEDIUM Exporting a graph with no size
 
 A graph whose element is hidden, or measures less than one pixel (`display: none`, a container with no height), has nothing to draw: the export rejects with a `RangeError` (`nothing to export`). Export a graph that is visible, or with `region: 'graph'` after its first layout.
@@ -194,7 +270,8 @@ The task is done when:
 - the export is awaited, from a visible, mounted and not destroyed graph;
 - the file has the region, scale or `size`, and pixel size asked for, checked by opening it;
 - the background is what the file needs: the paper color, a chosen color or `'transparent'`;
-- a PNG is saved as a `Blob`, an SVG as a `Blob` of type `image/svg+xml`, and the object URL is revoked after the download;
+- a PNG is saved as a `Blob`, an SVG as a `Blob` of type `image/svg+xml`, a draw.io file as a `Blob` of type `application/vnd.jgraph.mxfile`, a Visio drawing as the `Blob` `exportVsdx` returns, and the object URL is revoked after the download;
+- a diagram has the `states` it needs and a `size` or `zoom` that suits a map;
 - every rejection (destroyed graph, no WebGL2, a drawing buffer refused, an empty area) is handled, with a message for the user;
 - `tsc` accepts the code.
 
@@ -202,6 +279,7 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
-- [Export](https://bruno00o.github.io/graph/docs/export), [Exact size](https://bruno00o.github.io/graph/docs/export#exact-size), [exportPng and exportSvg](https://bruno00o.github.io/graph/docs/api/export)
-- Examples: [export](https://bruno00o.github.io/graph/examples/export), [PNG export options](https://bruno00o.github.io/graph/examples/png-export-options)
+- [Export](https://bruno00o.github.io/graph/docs/export), [Exact size](https://bruno00o.github.io/graph/docs/export#exact-size), [draw.io diagrams](https://bruno00o.github.io/graph/docs/export#drawio-diagrams), [Visio drawings](https://bruno00o.github.io/graph/docs/export#visio-drawings), [exportPng, exportSvg, exportDrawio and exportVsdx](https://bruno00o.github.io/graph/docs/api/export)
+- Without a browser: the headless skill and [Server-side extracts](https://bruno00o.github.io/graph/docs/server-side-extracts)
+- Examples: [export](https://bruno00o.github.io/graph/examples/export), [PNG export options](https://bruno00o.github.io/graph/examples/png-export-options), [editable diagrams](https://bruno00o.github.io/graph/examples/editable-diagrams)
 - A graph on a map with its tiles: [Map](https://bruno00o.github.io/graph/docs/map#export)

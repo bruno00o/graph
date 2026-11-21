@@ -191,7 +191,7 @@ By default elements appear and disappear at once. `time: { fade }` in `defineGra
 
 ### Add a timeline
 
-`createTimeline(graph, options)` follows the time of a graph made by `mountGraph` or `mountMapGraph` (on its canvas or on a map), keeps its state in `timeline.store`, and moves the graph's window. `mountTimeline(timeline, options)` renders it in a plain element: a play button, the histogram of nodes and edges over time, the window as a brush with two handles, and ticks.
+`createTimeline(graph, options)` follows the time of a graph made by `mountGraph` or `mountMapGraph` (on its canvas or on a map), or by `createGraph` without a page (headless skill), keeps its state in `timeline.store`, and moves the graph's window. `mountTimeline(timeline, options)` renders it in a plain element: a play button, the histogram of nodes and edges over time, the window as a brush with two handles, and ticks.
 
 ```ts
 import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
