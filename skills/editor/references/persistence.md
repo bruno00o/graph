@@ -1,6 +1,6 @@
 # Save shape edits to a collection
 
-`persistShapes(editor, options)` from `@bruno00o/graph/db` listens to the `edit` event of a shape editor and writes each edit into a TanStack DB collection, the one the shape mark draws from. It returns a function that stops writing. Install `@tanstack/db` yourself (tanstack-db skill).
+`persistShapes(editor, options)` from `@bruno00o/graph/db` listens to the `edit` event of a shape editor and writes each edit into a TanStack DB collection, the one the shape mark draws from. It returns `{ stop }`, whose `stop()` stops writing. Install `@tanstack/db` yourself (tanstack-db skill).
 
 ```ts
 import { defineGraph, mountGraph, type ShapeGeometry } from '@bruno00o/graph'
@@ -26,7 +26,7 @@ const graph = mountGraph(document.body, {
 const editor = createShapeEditor(graph)
 mountShapeEditor(editor)
 
-const stop = persistShapes(editor, {
+const { stop } = persistShapes(editor, {
   collection: zones,
   create: (edit) => ({
     id: String(edit.key),
@@ -45,7 +45,7 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 - A row of a collection carries the virtual properties of TanStack DB (`$key`, `$origin` and others) in `datum`: pick the fields you need in `create` instead of spreading `datum`.
 - The write is optimistic: the collection changes at once and the wait of the editor ends in the next frame. Any change of the row ends it, so a server that rounds points does not leave the shape waiting. An edit whose row already holds it answers at once.
 - Without `mutationFn`, the collection persists through its own handlers. With `mutationFn`, `createPacedMutations` calls it at the pace of `strategy` (100 ms throttle by default); a rejected mutation rolls the rows back, then the editor emits `editlost` with the edits it carried.
-- `pendingState` names a free state declared in the definition, held by each shape from its write until it is done or has failed. A name that is not a free state throws.
+- `pendingState` names a free state declared in the definition, held by each shape from its write until it is done or has failed. The editor carries the state names of its graph: with a typed graph, another name does not compile; with an untyped one, it throws.
 - `live: true` writes the shapes of a gesture every 100 ms while it runs (a number sets the period), then the release at once. A slow write delays the next one by four times its cost. A cancelled gesture (Escape, a second finger, `editor.cancel()`) writes the shapes back as they were. Each write is read again by every client: keep `live` for a few shapes at a time (1,000 shapes moved together drop frames).
 - The last writer wins, shape by shape, with no merge of points. A change from elsewhere does not stop your gesture, and your release writes over it; a removal from elsewhere ends your gesture.
 - An edit whose row is not in the collection is skipped, so two `persistShapes` on two collections keep to their own rows. Writes that come from elsewhere never go back out.
@@ -97,7 +97,7 @@ With `exactOptionalPropertyTypes` in your `tsconfig`, set `skipLibCheck: true`: 
 
 To share the shapes between tabs or windows, give the collection `localStorageCollectionOptions({ id, storageKey, getKey })` from `@tanstack/db` instead of `localOnlyCollectionOptions`: tabs on the same origin see each other's writes through the `storage` event, and `persistShapes` and `showPresence` need nothing else. A sync engine or the handlers of your own collection work the same way.
 
-In React, call it from an effect once the editor exists, and return the stop function:
+In React, call it from an effect once the editor exists, and return its `stop` method:
 
 ```tsx
 import type { ShapeGeometry } from '@bruno00o/graph'
@@ -116,7 +116,7 @@ export function SavedShapes({ zones }: { zones: Collection<Zone, string> }) {
         ? persistShapes(editor, {
             collection: zones,
             create: (edit) => ({ id: String(edit.key), geometry: edit.geometry }),
-          })
+          }).stop
         : undefined,
     [editor, zones],
   )

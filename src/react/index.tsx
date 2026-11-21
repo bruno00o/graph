@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom'
 import { shallowEqual } from '../core/shallow-equal'
 import type { AnchorOptions } from '../host/anchors'
 import type { GraphEventName, GraphEvents } from '../host/events'
+import type { GraphCore } from '../host/graph-instance'
 import type { GraphInstance, GraphState, GraphStore } from '../host/mount-graph'
 import {
   createLegend,
@@ -115,7 +116,7 @@ export function useGraph<S extends string = string, M extends Mark = Mark>(): Gr
 }
 
 interface Selected<T, S extends string, M extends Mark> {
-  readonly graph: GraphInstance<S, M>
+  readonly graph: GraphCore<S, M>
   readonly state: GraphState<S, M>
   readonly selector: (state: GraphState<S, M>) => T
   readonly value: T
@@ -132,9 +133,9 @@ export interface UseGraphStateOptions<T, S extends string = string, M extends Ma
   /**
    * Graph to read, which types the state. Defaults to the graph of the enclosing `<Graph>` or
    * `<MapGraph>`. Pass `null` while the graph does not exist yet, as with the `ref` of `<Graph>`:
-   * the hook then returns `undefined`.
+   * the hook then returns `undefined`. A graph made by `createGraph` works too.
    */
-  readonly graph?: GraphInstance<S, M> | null | undefined
+  readonly graph?: GraphCore<S, M> | null | undefined
 }
 
 /**
@@ -146,11 +147,11 @@ export interface UseGraphStateOptions<T, S extends string = string, M extends Ma
  */
 export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
   selector: (state: GraphState<S, M>) => T,
-  options: UseGraphStateOptions<T, S, M> & { readonly graph: GraphInstance<S, M> },
+  options: UseGraphStateOptions<T, S, M> & { readonly graph: GraphCore<S, M> },
 ): T
 export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
   selector: (state: GraphState<S, M>) => T,
-  options: UseGraphStateOptions<T, S, M> & { readonly graph: GraphInstance<S, M> | null },
+  options: UseGraphStateOptions<T, S, M> & { readonly graph: GraphCore<S, M> | null },
 ): T | undefined
 export function useGraphState<T, S extends string = string, M extends Mark = Mark>(
   selector: (state: GraphState<S, M>) => T,
@@ -165,7 +166,7 @@ export function useGraphState<T, S extends string = string, M extends Mark = Mar
   options: UseGraphStateOptions<T, S, M> = {},
 ): T | undefined {
   const compare = options.compare ?? Object.is
-  const graph = useGraphOf<S, M>(options.graph, 'useGraphState')
+  const graph = useGraphOf<GraphCore<S, M>>(options.graph, 'useGraphState')
   const cache = useRef<Selected<T, S, M> | null>(null)
   const subscribe = useCallback(
     (notify: () => void) => {
@@ -200,9 +201,10 @@ export function useGraphState<T, S extends string = string, M extends Mark = Mar
 export interface UseGraphEventOptions<S extends string = string, M extends Mark = Mark> {
   /**
    * Graph to listen to, which types the payload. Defaults to the graph of the enclosing `<Graph>`
-   * or `<MapGraph>`. Pass `null` while the graph does not exist yet: nothing is subscribed.
+   * or `<MapGraph>`. Pass `null` while the graph does not exist yet: nothing is subscribed. A graph
+   * made by `createGraph` works too.
    */
-  readonly graph?: GraphInstance<S, M> | null | undefined
+  readonly graph?: GraphCore<S, M> | null | undefined
 }
 
 /**
@@ -215,7 +217,7 @@ export interface UseGraphEventOptions<S extends string = string, M extends Mark 
 export function useGraphEvent<K extends GraphEventName, S extends string, M extends Mark>(
   name: K,
   handler: (event: GraphEvents<M>[K]) => void,
-  options: UseGraphEventOptions<S, M> & { readonly graph: GraphInstance<S, M> | null },
+  options: UseGraphEventOptions<S, M> & { readonly graph: GraphCore<S, M> | null },
 ): void
 export function useGraphEvent<K extends GraphEventName, E extends GraphEvents[K] = GraphEvents[K]>(
   name: K,
@@ -331,12 +333,13 @@ export interface UseLegendOptions<S extends string = string, M extends Mark = Ma
   /**
    * Graph to read, which types the looks. Defaults to the graph of the enclosing `<Graph>` or
    * `<MapGraph>`. With `null`, the state stays empty and `legend` is `null` until a graph is given.
+   * A graph made by `createGraph` works too.
    */
-  readonly graph?: GraphInstance<S, M> | null | undefined
+  readonly graph?: GraphCore<S, M> | null | undefined
 }
 
 function useLegendInstance<S extends string, M extends Mark>(
-  given: GraphInstance<S, M> | null | undefined,
+  given: GraphCore<S, M> | null | undefined,
   options: LegendOptions<S, M>,
   caller: string,
 ): LegendInstance<S, M> | null {
@@ -458,9 +461,10 @@ export interface UseTimelineOptions<E = TimelineEvent> extends TimelineOptions<E
   /**
    * Graph to follow. Defaults to the graph of the enclosing `<Graph>` or `<MapGraph>`. With
    * `null`, the state stays empty and `timeline` is `null` until a graph is given. With `false`,
-   * the timeline follows no graph: it counts `events` and keeps its window in its state.
+   * the timeline follows no graph: it counts `events` and keeps its window in its state. A graph
+   * made by `createGraph` works too.
    */
-  readonly graph?: GraphInstance | null | false | undefined
+  readonly graph?: GraphCore | null | false | undefined
 }
 
 function useTimelineInstance<E>(

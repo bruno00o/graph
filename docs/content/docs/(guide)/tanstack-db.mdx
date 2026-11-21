@@ -139,12 +139,12 @@ const around = (keys: string[]) =>
 
 ## Write positions back
 
-`persistPositions` from `@bruno00o/graph/db` listens to `positionchange` and writes `x` and `y` into the collection. It returns a function that stops listening. Positions placed at mount by [`initialPositions`](/docs/positions#restore-at-mount) emit nothing, so restoring a snapshot writes nothing back. To save a whole arrangement as one record of your own, on an explicit save, see [Save a whole arrangement](/docs/positions#save-a-whole-arrangement).
+`persistPositions` from `@bruno00o/graph/db` listens to `positionchange` and writes `x` and `y` into the collection. It returns an object whose `stop` method stops listening. It takes a mounted graph, or one made by [`createGraph`](/docs/api/create-graph). Positions placed at mount by [`initialPositions`](/docs/positions#restore-at-mount) emit nothing, so restoring a snapshot writes nothing back. To save a whole arrangement as one record of your own, on an explicit save, see [Save a whole arrangement](/docs/positions#save-a-whole-arrangement).
 
 ```ts tab="Vanilla" tab-group="framework"
 import { persistPositions } from '@bruno00o/graph/db'
 
-const stop = persistPositions(graph, { collection: items })
+const { stop } = persistPositions(graph, { collection: items })
 ```
 
 ```tsx tab="React" tab-group="framework"
@@ -154,7 +154,7 @@ import { useEffect } from 'react'
 
 function SharedPositions() {
   const graph = useGraph()
-  useEffect(() => persistPositions(graph, { collection: items }), [graph])
+  useEffect(() => persistPositions(graph, { collection: items }).stop, [graph])
   return null
 }
 ```
@@ -234,7 +234,7 @@ import { persistShapes } from '@bruno00o/graph/db'
 
 const editor = createShapeEditor(graph)
 mountShapeEditor(editor)
-const stop = persistShapes(editor, { collection: zones, live: true })
+const { stop } = persistShapes(editor, { collection: zones, live: true })
 ```
 
 It takes `mutationFn`, `strategy` and `pendingState` as `persistPositions` does, and `live` to send the shapes while they move. See [Saving edits](/docs/editing-shapes#saving-edits) and [`persistShapes`](/docs/api/persist-shapes#options).
