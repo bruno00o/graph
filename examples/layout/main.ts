@@ -1,6 +1,6 @@
 import { defineGraph, edges, mountGraph, nodes } from '@bruno00o/graph'
 import { type ForceEngine, force } from '@bruno00o/graph/layouts/force'
-import { createMinimap } from '@bruno00o/graph/minimap'
+import { mountMinimap } from '@bruno00o/graph/minimap'
 import { createCommunities, type Item, type Link, nestCommunities } from '../shared/data'
 import { formatNumber, messages } from '../shared/messages'
 import { button, choice, createPage, status, themeToggle } from '../shared/page'
@@ -47,7 +47,7 @@ const graph = mountGraph(main, {
 })
 
 const withMinimap = params.get('minimap') !== 'off'
-if (withMinimap) createMinimap(graph)
+if (withMinimap) mountMinimap(graph)
 
 const progress = status()
 let started = performance.now()

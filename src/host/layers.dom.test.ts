@@ -105,7 +105,7 @@ describe('layers', () => {
     graph.layers.show()
     graph.layers.hide()
     graph.layers.set(['ground'])
-    expect(events.map((event) => event.hidden)).toEqual([
+    expect(events.map((event) => event.hiddenLayers)).toEqual([
       ['middle', 'top'],
       ['middle'],
       [],
@@ -150,11 +150,11 @@ describe('layers', () => {
     const changes: GraphLayerEvent[] = []
     graph.on('layerchange', (event) => changes.push(event))
     graph.layers.toggle('middle')
-    expect(requests).toEqual([{ hidden: ['middle'] }])
+    expect(requests).toEqual([{ hiddenLayers: ['middle'] }])
     expect(graph.layers.hidden()).toEqual([])
     graph.update({ hiddenLayers: ['middle'] })
     expect(graph.layers.hidden()).toEqual(['middle'])
-    expect(changes).toEqual([{ hidden: ['middle'] }])
+    expect(changes).toEqual([{ hiddenLayers: ['middle'] }])
     graph.layers.hide(['middle'])
     expect(requests).toHaveLength(1)
   })

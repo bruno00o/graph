@@ -222,14 +222,14 @@ export interface GraphSelectionEvent<M extends Mark = Mark> {
 
 /** Payload of `timechange` and of the controlled `onTimeChange` callback. */
 export interface GraphTimeEvent {
-  /** The time window, or `null` when every element shows. */
-  readonly window: TimeWindow | null
+  /** The time window in milliseconds, or `null` when every element shows. */
+  readonly time: TimeWindow | null
 }
 
 /** Payload of `layerchange` and of the controlled `onLayerChange` callback. */
 export interface GraphLayerEvent<M extends Mark = Mark> {
   /** Names of the hidden layers. */
-  readonly hidden: readonly LayerName<M>[]
+  readonly hiddenLayers: readonly LayerName<M>[]
 }
 
 /** Payload of `issueschange`. `M` is the union of the marks. */
@@ -251,6 +251,11 @@ export interface GraphDataStatus {
    */
   readonly failed: readonly LiveSource<unknown>[]
 }
+
+/**
+ * Payload of `loadingchange`: the new `data` of the store, as `GraphDataStatus` describes it.
+ */
+export type GraphLoadingEvent = GraphDataStatus
 
 /** Payload of `lenschange`. */
 export interface GraphLensEvent {
@@ -284,15 +289,18 @@ export interface GraphPositionEvent {
    */
   readonly geo?: ReadonlyMap<Key, GeoPoint>
   /**
-   * Name of the surface the positions belong to, `'canvas'` or `'map'`: each surface keeps its own
-   * positions.
+   * Name of the surface the positions belong to, `'canvas'`, `'map'`, or `'none'` for a graph
+   * made by `createGraph`: each surface keeps its own positions.
    */
   readonly surface: string
 }
 
 /** Payload of `surfacechange`. */
 export interface GraphSurfaceEvent {
-  /** Name of the surface the graph draws on now, `'canvas'` or `'map'`. */
+  /**
+   * Name of the surface the graph draws on now, `'canvas'`, `'map'`, or `'none'` for a graph made
+   * by `createGraph`.
+   */
   readonly surface: string
   /** Name of the surface the graph left. */
   readonly previous: string
@@ -377,7 +385,7 @@ export interface GraphEvents<M extends Mark = Mark> {
    * The live sources of the definition start or finish loading, or one fails or recovers: the
    * payload is the new `data` of the store.
    */
-  readonly loadingchange: GraphDataStatus
+  readonly loadingchange: GraphLoadingEvent
 }
 
 /** Name of a graph event. */

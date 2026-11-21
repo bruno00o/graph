@@ -39,8 +39,8 @@ graph.layers.hidden()
 
 ```ts tab="Vanilla" tab-group="framework"
 const graph = mountGraph(container, { definition, initialHiddenLayers: ['routes'] })
-graph.on('layerchange', ({ hidden }) => {
-  status.textContent = hidden.join(', ')
+graph.on('layerchange', ({ hiddenLayers }) => {
+  status.textContent = hiddenLayers.join(', ')
 })
 ```
 
@@ -59,7 +59,7 @@ const [hidden, setHidden] = useState<string[]>([])
   definition={definition}
   ariaLabel="Graph"
   hiddenLayers={hidden}
-  onLayerChange={(event) => setHidden([...event.hidden])}
+  onLayerChange={(event) => setHidden([...event.hiddenLayers])}
 />
 ```
 

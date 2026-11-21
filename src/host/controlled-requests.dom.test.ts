@@ -119,7 +119,7 @@ describe('controlled requests', () => {
     const requests: (readonly string[])[] = []
     const graph = mount({
       hiddenLayers: [],
-      onLayerChange: ({ hidden }) => requests.push(hidden),
+      onLayerChange: ({ hiddenLayers }) => requests.push(hiddenLayers),
     })
     graph.layers.toggle('lower')
     graph.layers.hide(['upper'])

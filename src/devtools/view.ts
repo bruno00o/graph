@@ -1,6 +1,6 @@
 import type { AnyIssue, ShapeIssue } from '../core/issues'
 import { chartFrames, type GraphReport } from './inspector'
-import { defaultMessages, type GraphDevtoolsMessages } from './messages'
+import { defaultDevtoolsMessages, type GraphDevtoolsMessages } from './messages'
 
 export const frameBudget: number = 1000 / 60
 export const rateWindow = 1000
@@ -187,10 +187,13 @@ export function createView(
     [messages.nodes, (report) => messages.number(report.nodes)],
     [messages.edges, (report) => messages.number(report.edges)],
     [messages.pendingEdges, (report) => messages.number(report.pendingEdges)],
-    [messages.shapes ?? defaultMessages.shapes ?? '', (report) => messages.number(report.shapes)],
+    [
+      messages.shapes ?? defaultDevtoolsMessages.shapes ?? '',
+      (report) => messages.number(report.shapes),
+    ],
     [messages.issues, (report) => messages.number(report.issueCount)],
   ])
-  const shapeIssue = messages.shapeIssue ?? defaultMessages.shapeIssue
+  const shapeIssue = messages.shapeIssue ?? defaultDevtoolsMessages.shapeIssue
   const describe = (issue: AnyIssue) =>
     issue.kind === 'shapes'
       ? (shapeIssue?.(issue as ShapeIssue) ?? '')
@@ -203,22 +206,24 @@ export function createView(
     [messages.zoom, ({ view: { zoom } }) => messages.number(zoom)],
     [messages.size, ({ width, height }) => messages.dimensions(width, height)],
     [
-      messages.surface ?? defaultMessages.surface ?? '',
-      ({ surface }) => (messages.surfaceName ?? defaultMessages.surfaceName ?? String)(surface),
+      messages.surface ?? defaultDevtoolsMessages.surface ?? '',
+      ({ surface }) =>
+        (messages.surfaceName ?? defaultDevtoolsMessages.surfaceName ?? String)(surface),
     ],
     [
-      messages.rendering ?? defaultMessages.rendering ?? '',
+      messages.rendering ?? defaultDevtoolsMessages.rendering ?? '',
       ({ rendering }) =>
-        (messages.renderingName ?? defaultMessages.renderingName ?? String)(rendering),
+        (messages.renderingName ?? defaultDevtoolsMessages.renderingName ?? String)(rendering),
     ],
     [
-      messages.drawing ?? defaultMessages.drawing ?? '',
-      ({ drawing }) => (messages.drawingName ?? defaultMessages.drawingName ?? String)(drawing),
+      messages.drawing ?? defaultDevtoolsMessages.drawing ?? '',
+      ({ drawing }) =>
+        (messages.drawingName ?? defaultDevtoolsMessages.drawingName ?? String)(drawing),
     ],
     [
-      messages.pixelRatio ?? defaultMessages.pixelRatio ?? '',
+      messages.pixelRatio ?? defaultDevtoolsMessages.pixelRatio ?? '',
       ({ pixelRatio, pixelRatioReason }) =>
-        (messages.pixelRatioName ?? defaultMessages.pixelRatioName ?? String)(
+        (messages.pixelRatioName ?? defaultDevtoolsMessages.pixelRatioName ?? String)(
           pixelRatio,
           pixelRatioReason,
         ),
