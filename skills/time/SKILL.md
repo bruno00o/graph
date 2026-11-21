@@ -123,7 +123,7 @@ graph.time.set({ start: new Date(2024, 0, 1) })
 graph.time.set({ start: Date.UTC(2024, 5, 1), end: Date.UTC(2024, 5, 1) })
 const current = graph.time.get()
 graph.time.set(null)
-graph.on('timechange', ({ window }) => console.log(window, current))
+graph.on('timechange', ({ time }) => console.log(time, current))
 ```
 
 An element shows when it exists at some moment of the window:
@@ -154,7 +154,7 @@ const graph = mountGraph(document.body, {
   ariaLabel: 'Sample graph',
   time: window,
   onTimeChange: (event) => {
-    window = event.window
+    window = event.time
     graph.update({ time: window })
   },
 })
@@ -179,7 +179,7 @@ export function Controlled() {
       ariaLabel="Sample graph"
       style={{ height: 480 }}
       time={window}
-      onTimeChange={(event) => setWindow(event.window)}
+      onTimeChange={(event) => setWindow(event.time)}
     />
   )
 }

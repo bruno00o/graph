@@ -312,13 +312,12 @@ function bytes(value: number): string {
   return `${decimal.format(amount)} ${units[unit]}`
 }
 
-/** The English texts of the devtools panel. */
 /** Texts and formats of the devtools panel to replace, each one left out to keep its default. */
 export type GraphDevtoolsMessagesInput = {
   readonly [K in keyof GraphDevtoolsMessages]?: GraphDevtoolsMessages[K] | undefined
 }
 
-export const defaultMessages: GraphDevtoolsMessages = {
+export const defaultDevtoolsMessages: GraphDevtoolsMessages = {
   title: 'Graph',
   empty: 'No graph is mounted on this page.',
   graph: 'Graph',
@@ -422,5 +421,7 @@ export const defaultMessages: GraphDevtoolsMessages = {
 export function resolveMessages(
   messages: GraphDevtoolsMessagesInput | undefined,
 ): GraphDevtoolsMessages {
-  return messages ? { ...defaultMessages, ...withoutUndefined(messages) } : defaultMessages
+  return messages
+    ? { ...defaultDevtoolsMessages, ...withoutUndefined(messages) }
+    : defaultDevtoolsMessages
 }

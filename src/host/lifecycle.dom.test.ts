@@ -3,7 +3,7 @@ import { defineGraph } from '../define-graph'
 import { exportPng, exportSvg } from '../export'
 import { createLegend } from '../legend'
 import { edges, nodes } from '../marks'
-import { createMinimap } from '../minimap'
+import { mountMinimap } from '../minimap'
 import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { createTimeline } from '../timeline'
@@ -443,7 +443,7 @@ describe('after destroy', () => {
     const graph = mount()
     settle()
     graph.destroy()
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     const legend = createLegend(graph)
     const timeline = createTimeline(graph)
     settle()
@@ -514,7 +514,7 @@ describe('mount with an aborted signal', () => {
       ariaLabel: 'graphe',
       signal: AbortSignal.abort(),
     })
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     const legend = createLegend(graph)
     const timeline = createTimeline(graph)
     settle()

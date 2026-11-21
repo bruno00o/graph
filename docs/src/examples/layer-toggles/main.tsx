@@ -90,7 +90,7 @@ export function Example({ ref }: { readonly ref: Ref<GraphInstance | null> }) {
       definition={definition}
       ariaLabel={messages.graphLabel(core.length + 1, satellites.length)}
       hiddenLayers={hidden}
-      onLayerChange={(event) => setHidden(event.hidden)}
+      onLayerChange={(event) => setHidden(event.hiddenLayers)}
     >
       <div className="example-actions">
         {layers.map((layer) => (
