@@ -1,0 +1,42 @@
+.worker {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  background: var(--graph-paper);
+}
+
+.worker-panel {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.worker-preview {
+  display: grid;
+  place-items: center;
+  border-left: 1px solid color-mix(in srgb, var(--graph-ink) 13%, var(--graph-paper));
+}
+
+.worker-preview img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.worker-caption {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  color: var(--graph-ink-muted);
+  font-family: var(--graph-font);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.worker-preview .worker-caption {
+  right: auto;
+  left: 14px;
+}
+
+.worker-actions {
+  z-index: 1;
+}
