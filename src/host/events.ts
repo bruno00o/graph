@@ -184,8 +184,10 @@ export interface GraphLayoutEvent {
 
 /** Payload of `layoutend`. */
 export interface GraphLayoutEndEvent extends GraphLayoutEvent {
-  /** `false` when the run was stopped or replaced before its end. */
+  /** `false` when the run was stopped, replaced or aborted before its end, or failed. */
   readonly completed: boolean
+  /** The value the layout threw, only when the run failed. */
+  readonly error?: unknown
 }
 
 /** Payload of `foldchange` and of the controlled `onFoldChange` callback. */
@@ -371,7 +373,7 @@ export interface GraphEvents<M extends Mark = Mark> {
   readonly zoomhint: GraphZoomHintEvent
   /** A layout run starts. Nodes that join a run do not start another. */
   readonly layoutstart: GraphLayoutEvent
-  /** A layout run ends, is stopped or is replaced. */
+  /** A layout run ends, is stopped, is replaced, is aborted or fails. */
   readonly layoutend: GraphLayoutEndEvent
   /**
    * The live sources of the definition start or finish loading, or one fails or recovers: the

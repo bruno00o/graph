@@ -6,6 +6,7 @@ import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { LoadingSource } from '../testing/loading-source'
 import type { Key, Layout, LayoutGraph, LayoutListener } from '../types'
+import type { GraphLayoutEndEvent } from './events'
 import { createGraphHost, type GraphInstance } from './mount-graph'
 
 interface Item {
@@ -127,22 +128,17 @@ describe('a layout that throws', () => {
         transitions: { layout: 0 },
       }),
     )
-    const ended: boolean[] = []
-    graph.on('layoutend', ({ completed }) => ended.push(completed))
-    let settled = false
-    void graph.layout.run(grid<Item>({ order })).then(
-      () => {
-        settled = true
-      },
-      () => {
-        settled = true
-      },
-    )
+    const ended: GraphLayoutEndEvent[] = []
+    graph.on('layoutend', (event) => ended.push(event))
+    let result: boolean | undefined
+    void graph.layout.run(grid<Item>({ order })).then((completed) => {
+      result = completed
+    })
     await settle()
     expect(reported).toHaveLength(1)
     expect(graph.store.get().layout.running).toBe(false)
-    expect(settled).toBe(true)
-    expect(ended).toHaveLength(1)
+    expect(result).toBe(false)
+    expect(ended).toEqual([{ name: 'grid', completed: false, error: reported[0] }])
     graph.destroy()
   })
 
@@ -160,11 +156,14 @@ describe('a layout that throws', () => {
         transitions: { layout: 0 },
       }),
     )
+    const ended: GraphLayoutEndEvent[] = []
+    graph.on('layoutend', (event) => ended.push(event))
     await settle()
     await new Promise((resolve) => setTimeout(resolve, 50))
     await settle()
     expect(graph.store.get().layout.running).toBe(false)
     expect(reported).toHaveLength(1)
+    expect(ended).toEqual([{ name: 'grid', completed: false, error: reported[0] }])
     graph.destroy()
   })
 
@@ -184,8 +183,147 @@ describe('a layout that throws', () => {
         throw failure
       },
     }
+    const ended: GraphLayoutEndEvent[] = []
+    graph.on('layoutend', (event) => ended.push(event))
     expect(await graph.layout.run(broken)).toBe(false)
     expect(reported).toEqual([failure])
+    expect(ended).toEqual([{ name: 'broken', completed: false, error: failure }])
+    expect(graph.store.get().layout.running).toBe(false)
+    graph.destroy()
+  })
+
+  it('ends the run on fail, leaves nodes where they are, and reports the error', async () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], {})],
+        layout: null,
+        transitions: { layout: 0 },
+      }),
+    )
+    const before = graph.positions.snapshot()
+    const ended: GraphLayoutEndEvent[] = []
+    graph.on('layoutend', (event) => ended.push(event))
+    const done = graph.layout.run(fake('failing'))
+    const run = runs[0]
+    if (!run) throw new Error('no run')
+    const failure = new Error('lost')
+    run.listener.fail?.(failure)
+    expect(await done).toBe(false)
+    expect(ended).toEqual([{ name: 'failing', completed: false, error: failure }])
+    expect(reported).toEqual([failure])
+    expect(graph.positions.snapshot()).toEqual(before)
+    expect(graph.store.get().layout.running).toBe(false)
+    graph.destroy()
+  })
+
+  it('carries no error when a run is stopped', async () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], {})],
+        layout: null,
+        transitions: { layout: 0 },
+      }),
+    )
+    const ended: GraphLayoutEndEvent[] = []
+    graph.on('layoutend', (event) => ended.push(event))
+    const done = graph.layout.run(fake('stopped'))
+    graph.layout.stop()
+    expect(await done).toBe(false)
+    expect(ended).toEqual([{ name: 'stopped', completed: false }])
+    expect('error' in (ended[0] ?? {})).toBe(false)
+    graph.destroy()
+  })
+
+  it('rejects a computation whose layout fails', async () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], {})],
+        layout: null,
+        transitions: { layout: 0 },
+      }),
+    )
+    const computed = graph.layout.compute(fake('failing'))
+    const failure = new Error('lost')
+    runs[0]?.listener.fail?.(failure)
+    await expect(computed).rejects.toBe(failure)
+    expect(reported).toEqual([])
+    graph.destroy()
+  })
+})
+
+describe('the signal of a run', () => {
+  it('stops the run when it aborts, as stop does', async () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], {})],
+        layout: null,
+        transitions: { layout: 0 },
+      }),
+    )
+    const before = graph.positions.snapshot()
+    const ended: GraphLayoutEndEvent[] = []
+    graph.on('layoutend', (event) => ended.push(event))
+    const controller = new AbortController()
+    const done = graph.layout.run(fake('long'), { signal: controller.signal })
+    expect(graph.store.get().layout.running).toBe(true)
+    controller.abort()
+    expect(await done).toBe(false)
+    expect(runs[0]?.stopped).toBe(true)
+    expect(ended).toEqual([{ name: 'long', completed: false }])
+    expect(graph.store.get().layout.running).toBe(false)
+    expect(graph.positions.snapshot()).toEqual(before)
+    graph.destroy()
+  })
+
+  it('starts nothing when the signal is already aborted', async () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], {})],
+        layout: null,
+        transitions: { layout: 0 },
+      }),
+    )
+    const events: string[] = []
+    graph.on('layoutstart', () => events.push('start'))
+    graph.on('layoutend', () => events.push('end'))
+    expect(await graph.layout.run(fake('never'), { signal: AbortSignal.abort() })).toBe(false)
+    expect(runs).toHaveLength(0)
+    expect(events).toEqual([])
+    graph.destroy()
+  })
+
+  it('leaves alone a later run after the run it bounded ended', async () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], {})],
+        layout: null,
+        transitions: { layout: 0 },
+      }),
+    )
+    const controller = new AbortController()
+    const first = graph.layout.run(fake('first'), { signal: controller.signal })
+    finish(runs[0])
+    expect(await first).toBe(true)
+    const second = graph.layout.run(fake('second'))
+    controller.abort()
+    expect(runs[1]?.stopped).toBe(false)
+    finish(runs[1])
+    expect(await second).toBe(true)
+    graph.destroy()
+  })
+
+  it('stops a run aborted from a layoutstart handler', async () => {
+    const graph = mount(
+      defineGraph({
+        marks: [nodes<Item>([{ id: 'a' }, { id: 'b' }], {})],
+        layout: null,
+        transitions: { layout: 0 },
+      }),
+    )
+    const controller = new AbortController()
+    graph.on('layoutstart', () => controller.abort())
+    expect(await graph.layout.run(fake('early'), { signal: controller.signal })).toBe(false)
+    expect(runs[0]?.stopped).toBe(true)
     expect(graph.store.get().layout.running).toBe(false)
     graph.destroy()
   })

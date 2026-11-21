@@ -5,6 +5,29 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.34.0
+
+### A layout that throws fails its run
+
+When a built-in layout throws during a run, such as a `grid` whose `order` throws, or a group layout, the run now fails: `layout.run` resolves to `false` and `layoutend` has `completed: false` and the `error`. Before, the run ended as if it had completed, with nodes left in place. `layout.compute` now rejects with the error instead of resolving to unchanged positions. The error is still reported as an uncaught error.
+
+Before:
+
+```ts
+graph.on('layoutend', ({ completed }) => completed && save())
+```
+
+After:
+
+```ts
+graph.on('layoutend', ({ completed, error }) => {
+  if (error !== undefined) showError(error)
+  else if (completed) save()
+})
+```
+
+A layout of your own can call the new `listener.fail(error)` instead of `listener.end(xy)` to fail its run the same way. See [Write your own layout](/docs/layout#write-your-own-layout).
+
 ## 0.27.0
 
 ### The legend lists shapes

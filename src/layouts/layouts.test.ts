@@ -174,6 +174,17 @@ describe('radial', () => {
     expect(Math.hypot(dx - ax, dy - ay)).toBeCloseTo(30, 4)
   })
 
+  it('takes its roots from any list of keys, and a string as one key', async () => {
+    const graph = graphOf({ points: origin(4), edges: [0, 1, 2, 3] })
+    const fromSet = await run(radial({ root: new Set(['n0', 'n2']), spacing: 0 }), graph)
+    const fromArray = await run(radial({ root: ['n0', 'n2'], spacing: 0 }), graph)
+    expect(fromSet).toEqual(fromArray)
+    expect(fromSet).not.toEqual(await run(radial({ spacing: 0 }), graph))
+    const single = await run(radial({ root: 'n2', spacing: 0 }), graph)
+    const listed = await run(radial({ root: ['n2'], spacing: 0 }), graph)
+    expect(single).toEqual(listed)
+  })
+
   it('starts from the busiest moving node', async () => {
     const graph = graphOf({ points: origin(4), edges: [2, 0, 2, 1, 2, 3] })
     const xy = await run(radial({ spacing: 0 }), graph)
@@ -254,6 +265,7 @@ describe('layout options', () => {
     grid({ order: 'name' })
     rings({ center: 'a', order: 'degree', spacing: 40 })
     radial({ root: ['a', 1] })
+    radial({ root: new Set<Key>(['a', 1]) })
     // @ts-expect-error
     radial({ root: {} })
   })
