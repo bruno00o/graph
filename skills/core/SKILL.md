@@ -50,7 +50,7 @@ sources:
 
 # Draw a graph with @bruno00o/graph
 
-A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges()`, and `shapes()` for free areas and lines, from `@bruno00o/graph/shapes`: shapes skill), mounted into an element (`mountGraph`) that returns an instance. The instance drives everything at run time: view, selection, states, positions, events, updates. Rendering uses WebGL2, so a mounted graph needs a browser; `createGraph` from `@bruno00o/graph/headless` makes the same graph without one (headless skill). The instance is a `GraphInstance`, which extends `GraphCore`: everything below except `element`, `focus`, `anchors`, `lens`, `drawn`, `suspend` and `resume` is on `GraphCore`, and a function typed `GraphCore` (`createLegend`, `createTimeline`, `exportSvg`, `exportDrawio`, `exportVsdx`) takes both.
+A graph is a frozen definition (`defineGraph`) made of marks (`nodes()`, `edges()`, and `shapes()` for free areas and lines, from `@bruno00o/graph/shapes`: shapes skill), mounted into an element (`mountGraph`) that returns an instance. The instance drives everything at run time: view, selection, states, positions, events, updates. Rendering uses WebGL2, so a mounted graph needs a browser (without WebGL2 it mounts, draws nothing and reads `drawable: false` in its store: [references/rendering.md](references/rendering.md)); `createGraph` from `@bruno00o/graph/headless` makes the same graph without one (headless skill). The instance is a `GraphInstance`, which extends `GraphCore`: everything below except `element`, `focus`, `anchors`, `lens`, `drawn`, `suspend` and `resume` is on `GraphCore`, and a function typed `GraphCore` (`createLegend`, `createTimeline`, `exportSvg`, `exportDrawio`, `exportVsdx`) takes both.
 
 ## Setup
 

@@ -12,6 +12,8 @@ function mountGraph<S extends string = string, M extends Mark = Mark>(
 
 Appends the graph element to `container` and returns its [instance](/docs/api/graph-instance). The graph fills the container; give the container a size. `mountGraph` never changes the style of the container. `S` and `M` come from the definition.
 
+Without WebGL2, `mountGraph` does not throw: the graph mounts, draws nothing and reads `drawable: false` in its store, and everything but the drawing works. See [Without WebGL2](/docs/browser-support#without-webgl2).
+
 ## Options
 
 <api-table path="index.ts" name="MountGraphOptions" />

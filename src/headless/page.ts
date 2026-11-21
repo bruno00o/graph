@@ -95,6 +95,7 @@ const stillFlows: FlowWatch = Object.freeze({
 class StillRender implements PageRender {
   readonly renderer = null
   readonly contextLost = false
+  readonly drawable = false
   readonly cost: FrameCost = new FrameCost(() => null)
   full = true
   settled = false

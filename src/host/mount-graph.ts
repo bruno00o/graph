@@ -147,7 +147,11 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
       tool: () => pointer.tool,
     })
     const waiters = new FrameWaiters(
-      () => given.due() || !render.renderer || render.contextLost || !!render.renderer.holding?.(),
+      () =>
+        given.due() ||
+        (!render.renderer && render.drawable) ||
+        render.contextLost ||
+        !!render.renderer?.holding?.(),
     )
 
     function suspend(): void {
@@ -284,7 +288,10 @@ export function createGraphHost<S extends string = string, M extends Mark = Mark
 
 /**
  * Mounts a graph into `container` and returns its instance. The graph fills the container: give the
- * container a size.
+ * container a size. Without WebGL2 it does not throw: the graph mounts and draws nothing, the store
+ * reads `drawable: false`, and data, layouts, view, selection, picking, events, companions, SVG and
+ * diagram exports still work; `drawn` resolves, `exportPng` rejects with a `NotSupportedError`, and
+ * `resume` tries the context again.
  */
 export function mountGraph<S extends string = string, M extends Mark = Mark>(
   container: HTMLElement,

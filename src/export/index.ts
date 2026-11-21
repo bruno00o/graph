@@ -485,7 +485,8 @@ export async function exportSvg<S extends string>(
 /**
  * Draws the graph offscreen at the chosen pixel ratio and encodes it as a PNG. The drawing uses a
  * WebGL context of its own, freed at the end, and tiles past 4,096 pixels. A graph made by
- * `createGraph` has no WebGL: rasterize its `exportSvg` document instead.
+ * `createGraph` has no WebGL: rasterize its `exportSvg` document instead. Without WebGL2, it
+ * rejects with a `DOMException` named `NotSupportedError`.
  */
 export async function exportPng<S extends string>(
   graph: GraphInstance<S>,

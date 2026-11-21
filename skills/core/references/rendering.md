@@ -1,6 +1,6 @@
-# Rendering: many graphs, suspension and the pixel ratio
+# Rendering: many graphs, suspension, no WebGL2 and the pixel ratio
 
-Each graph draws in a WebGL context of its own canvas. This page covers what to do when a page holds many graphs, how a suspended graph behaves, and how many canvas pixels a graph draws, with a GPU or in software. In React, the `suspended` and `keepFrame` props do the same through `<Graph>` (react skill).
+Each graph draws in a WebGL context of its own canvas. This page covers what to do when a page holds many graphs, how a suspended graph behaves, what a graph does without WebGL2, and how many canvas pixels a graph draws, with a GPU or in software. In React, the `suspended` and `keepFrame` props do the same through `<Graph>` (react skill).
 
 ## Suspend the graphs out of sight
 
@@ -41,6 +41,25 @@ for (const card of cards) observer.observe(card)
 A graph whose context the browser took, because the page asked for more than 16, stays empty in Chrome and Safari, which never give such a context back. `resume()` gets it back, on a graph suspended or not: the graph asks the browser to restore its context and draws again, at the price of the oldest context of another graph. On a graph that lost nothing it does nothing. Nothing restores a context on its own, since taking one from another graph would start a loop: suspend the graphs out of sight first, and call `resume()` on those that come into sight. While a context is lost, the canvas is hidden and takes no pointer event. Only the drawing stops: data, layouts, the view, controlled requests and companions go on as for a suspended graph, and `drawn()` waits until the context is back.
 
 Safari still counts the context of a suspended graph. With more than 16 graphs, its console reports `There are too many active WebGL contexts on this page, the oldest context will be lost.` and `WebGL: INVALID_OPERATION: loseContext: context already lost`: the graph makes sure Safari takes a context that is already free, no shown graph loses its own. Firefox reports `WebGL context was lost.` for each suspended graph, which is expected.
+
+## Without WebGL2
+
+When the browser gives no WebGL2 context (WebGL turned off, a blocked GPU, happy-dom or jsdom, Firefox on Linux without a display server), or the renderer throws while it is created, `mountGraph` and `<Graph>` do not throw. The graph mounts and draws nothing, and its store reads `drawable: false`; the first such graph of the page warns once in development. Data, layouts, the view, selection, hover and the lasso (picking runs on the CPU), states, events, companions and the SVG, draw.io and Visio exports work. `drawn()` resolves at the next frame, `exportPng` rejects with a `DOMException` named `NotSupportedError`, and `resume()` tries the context again (`drawable` turns `true` if the browser gives one). A graph mounted suspended reads `drawable: true` until it resumes. A graph made by `createGraph` reads `drawable: false`.
+
+```ts
+import { defineGraph, mountGraph, nodes } from '@bruno00o/graph'
+
+type Item = { id: string }
+declare const items: Item[]
+declare const element: HTMLElement
+declare function showFallback(): void
+
+const graph = mountGraph(element, {
+  definition: defineGraph({ marks: [nodes(items)] }),
+  ariaLabel: 'Sample graph',
+})
+if (!graph.store.state.drawable) showFallback()
+```
 
 ## The pixel ratio and software rendering
 
@@ -87,6 +106,10 @@ graph.update({ suspended: true })
 ### MEDIUM Waiting for a lost context to come back
 
 With more graphs than contexts, a graph whose context the browser took stays empty in Chrome and Safari, and nothing brings it back by itself. Call `resume()` on it when it comes into sight, after suspending the graphs out of sight so that it does not take the context of a shown one.
+
+### MEDIUM Catching an error to detect a browser without WebGL2
+
+`mountGraph` does not throw without WebGL2: a `try` around it never reaches its `catch`, and the page shows an empty box. Read `drawable` in the store, or `useGraphState((state) => state.drawable)` in React.
 
 ### MEDIUM A blurry graph when WebGL runs in software
 

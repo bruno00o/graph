@@ -5,7 +5,7 @@ description: What the graph needs from the browser and the GPU, how Safari, Fire
 
 ## Requirements
 
-The graph needs WebGL2. Every current desktop and mobile browser has it. It is written against the minimum limits of the WebGL2 specification rather than the limits of a fast GPU, so it runs on any conformant device:
+The graph draws with WebGL2. Every current desktop and mobile browser has it. It is written against the minimum limits of the WebGL2 specification rather than the limits of a fast GPU, so it runs on any conformant device:
 
 | Resource | Used at most | WebGL2 minimum |
 | --- | --- | --- |
@@ -17,6 +17,25 @@ The graph needs WebGL2. Every current desktop and mobile browser has it. It is w
 | Vertex attributes | 7 | 16 |
 
 A unit test compiles the budget of every shader variant against these minimums, so a change that would fail on a small GPU fails the build instead.
+
+## Without WebGL2
+
+When the browser gives no WebGL2 context, because WebGL is turned off, the GPU is blocked, or the page runs in a DOM emulation such as happy-dom or in Firefox on Linux without a display server, [`mountGraph`](/docs/api/mount-graph) and [`<Graph>`](/docs/api/graph-component) do not throw. The graph mounts and draws nothing; the canvas stays in the page and takes pointer events. The same holds when the renderer throws while it is created.
+
+- **What still works.** Data and live sources, layouts, the view and its gestures, selection, hover and the lasso with picking on the CPU, states, events, the store, the companions ([minimap](/docs/minimap-and-legend), legend, [timeline](/docs/time), devtools), and the [SVG, draw.io and Visio exports](/docs/export).
+- **What the application reads.** `drawable` is `false` in the [store](/docs/api/graph-instance#graph-state), so the page can show something else in place of the graph, and the [devtools](/docs/devtools) show the rendering as unavailable. In development, the first graph of the page warns once.
+- **`drawn()`** resolves at the next frame instead of waiting for one that would never come.
+- **`exportPng`** rejects with a `DOMException` named `NotSupportedError`; export SVG instead.
+- **`suspend()` and `resume()`** stay safe. `resume()` tries the context again: should the browser give one, the graph draws and `drawable` turns `true`.
+
+```tsx
+function Panel() {
+  const drawable = useGraphState((state) => state.drawable)
+  return drawable ? null : <StaticPicture />
+}
+```
+
+A unit test of a component that mounts `<Graph>` in happy-dom or jsdom needs no fake renderer: picking, clicks, keys and the store work there. A graph mounted [suspended](/docs/api/mount-graph#suspended) reads `drawable: true` until it resumes, since it asks for no context before.
 
 ## Limits read at startup
 
@@ -94,7 +113,7 @@ The first frame takes 2 to 2.5 seconds in Chrome from 1,000 to 50,000 nodes, and
 
 Every pull request opens each example of this site and of the repository in Chromium, Firefox and WebKit, on Linux without a GPU, and a few of them again with the WebGL2 minimum limits. Each page must draw, pick the node under the pointer, select it on click and zoom on the wheel, with no error in the console.
 
-- **Firefox on Linux** creates no WebGL context without a display server, even when headless. To test a page with a graph in headless Firefox on Linux, run it under a virtual display.
+- **Firefox on Linux** creates no WebGL context without a display server, even when headless: the graph mounts there [without drawing](#without-webgl2). To test the drawing of a page in headless Firefox on Linux, run it under a virtual display.
 - **WebKit on Linux** has no WebGL2 in workers, so the [force layout](/docs/layout) runs on the CPU there.
 
 ## Without a browser
