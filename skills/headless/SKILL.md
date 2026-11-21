@@ -181,7 +181,7 @@ const svg = await exportSvg(graph, {
 })
 ```
 
-The width and height of a PNG are the 32-bit numbers at bytes 16 and 20. An `images` function that throws or rejects makes `exportSvg` reject with its error. `createLegend` and `createTimeline` also take a `GraphCore`.
+The width and height of a PNG are the 32-bit numbers at bytes 16 and 20. An `images` function that throws or rejects makes `exportSvg` reject with its error. `createLegend`, `createTimeline` and `persistPositions` also take a `GraphCore`, as do the `graph` option of `useGraphState`, `useGraphEvent`, `useLegend` and `useTimeline` and the `graph` prop of `<Legend>` and `<Timeline>`.
 
 ### Many extracts
 
@@ -189,7 +189,7 @@ Create one graph per extract and destroy it once exported. Each graph works on o
 
 ### What a graph without a page lacks
 
-Not available, and the types say so: `element`, `focus`, `anchors`, `lens`, `drawn`, `suspend`, `resume`, `drawsOnMap`, `exportPng`, the minimap, the devtools panel, the shape editor, `showPresence`, the React components and map surfaces. `store.state.focused`, `hovered` and `lens` stay `null`, and `surface` is `'none'`. A function that takes a `GraphCore` takes a mounted graph as well, so write helpers against `GraphCore` and run them in both places.
+Not available, and the types say so: `element`, `focus`, `anchors`, `lens`, `drawn`, `suspend`, `resume`, `drawsOnMap`, `exportPng`, the minimap, the devtools panel, the shape editor, `showPresence`, the other React components and map surfaces. `store.state.focused`, `hovered` and `lens` stay `null`, and `surface` is `'none'`. A function that takes a `GraphCore` takes a mounted graph as well, so write helpers against `GraphCore` and run them in both places.
 
 ## Common Mistakes
 

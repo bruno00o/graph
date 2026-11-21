@@ -6,6 +6,7 @@ import { type ShapeShift, shiftSlots } from '../core/shape-store'
 import { type Sight, shapeShown } from '../core/visibility'
 import { screenSlot } from '../core/width-scale'
 import { dev } from '../dev'
+import type { GraphEventOptions } from '../host/events'
 import type { GraphInstance } from '../host/graph-instance'
 import { internalsOf } from '../host/internals'
 import { isolateSubscribers, report } from '../host/isolate'
@@ -217,14 +218,23 @@ export interface ShapeEditorEvents<M extends Mark = Mark> {
   readonly editlost: ShapeEditEvent<M>
 }
 
-/** A shape editor, made by `createShapeEditor`. `M` is the union of the marks of the graph. */
-export interface ShapeEditor<M extends Mark = Mark> {
+/**
+ * A shape editor, made by `createShapeEditor`. `M` is the union of the marks of the graph, and `S`
+ * that of its state names, both taken from the graph.
+ */
+export interface ShapeEditor<M extends Mark = Mark, S extends string = string> {
+  /** The graph whose shapes the editor edits. */
+  readonly graph: GraphInstance<S, M>
   /** State of the editor. */
   readonly store: ReadonlyStore<ShapeEditorState>
-  /** Listens to an event; returns a function that stops listening. */
+  /**
+   * Listens to an event until the returned function is called, the `signal` of the options aborts
+   * or the editor is destroyed. Listens to nothing once the editor is destroyed.
+   */
   on<K extends keyof ShapeEditorEvents<M>>(
     name: K,
     handler: (event: ShapeEditorEvents<M>[K]) => void,
+    options?: GraphEventOptions,
   ): () => void
   /** Chooses the tool of the next press, and cancels the shape being drawn. */
   setTool(tool: ShapeEditorTool): void
@@ -553,7 +563,7 @@ function squares(handles: readonly Handle[], size: number): string {
 export function createShapeEditor<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
   options: ShapeEditorOptions<M> = {},
-): ShapeEditor<M> {
+): ShapeEditor<M, S> {
   const internals = internalsOf(graph, 'createShapeEditor')
   if (editing.has(graph)) {
     throw new Error('createShapeEditor: this graph has an editor already, destroy it first')
@@ -580,6 +590,7 @@ export function createShapeEditor<S extends string, M extends Mark>(
   const store = createStore<ShapeEditorState>(emptyState)
   const readonlyStore = isolateSubscribers(readonlyOf(store))
   const handlers = new Map<string, Set<(event: never) => void>>()
+  const lifetime = new AbortController()
   const listeners = new Set<(destroyed: boolean) => void>()
   const entries = new Map<Key, Entry>()
   const pending = new Map<Key, Pending>()
@@ -2582,12 +2593,15 @@ export function createShapeEditor<S extends string, M extends Mark>(
     notify()
     listeners.clear()
     handlers.clear()
+    lifetime.abort()
   }
 
-  const editor: ShapeEditor<M> = {
+  const editor: ShapeEditor<M, S> = {
+    graph,
     store: readonlyStore,
-    on(name, handler) {
-      if (destroyed) return () => {}
+    on(name, handler, listen) {
+      const until = listen?.signal
+      if (destroyed || until?.aborted) return () => {}
       let set = handlers.get(name)
       if (!set) {
         set = new Set()
@@ -2595,9 +2609,12 @@ export function createShapeEditor<S extends string, M extends Mark>(
       }
       const entry = handler as (event: never) => void
       set.add(entry)
-      return () => {
+      const off = () => {
         set.delete(entry)
+        until?.removeEventListener('abort', off)
       }
+      until?.addEventListener('abort', off, { once: true, signal: lifetime.signal })
+      return off
     },
     setTool,
     remove(keys) {

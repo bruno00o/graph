@@ -2,6 +2,7 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { geoToWorld } from '../core/geo'
 import { defineGraph } from '../define-graph'
+import { createGraph } from '../headless'
 import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { groups, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
@@ -108,7 +109,7 @@ describe('persistPositions', () => {
     const collection = itemCollection()
     const graph = mount(collection)
     await ready(graph)
-    const stop = persistPositions(graph, { collection })
+    const { stop } = persistPositions(graph, { collection })
     drag(graph, 'a', 40)
     const dropped = graph.positions.get('a')
     await vi.waitFor(() => expect(collection.get('a')).toMatchObject({ ...dropped }))
@@ -117,11 +118,28 @@ describe('persistPositions', () => {
     stop()
   })
 
+  it('writes the moves of a graph made by createGraph', async () => {
+    const collection = itemCollection()
+    const graph = createGraph({
+      definition: defineGraph({
+        marks: [nodes(collection, { x: 'x', y: 'y' })],
+        states: { saving: { opacity: 0.5 } },
+      }),
+    })
+    await graph.settled()
+    const { stop } = persistPositions(graph, { collection, pendingState: 'saving' })
+    graph.positions.set([['b', { x: 5, y: 6 }]])
+    expect(graph.states.get('saving').nodes).toEqual(['b'])
+    expect(collection.get('b')).toMatchObject({ x: 5, y: 6 })
+    stop()
+    graph.destroy()
+  })
+
   it('writes the last move when stopped before the pace allows it', async () => {
     const collection = itemCollection()
     const graph = mount(collection)
     await ready(graph)
-    const stop = persistPositions(graph, { collection })
+    const { stop } = persistPositions(graph, { collection })
     graph.positions.set([['a', { x: 1, y: 2 }]])
     graph.positions.set([['a', { x: 3, y: 4 }]])
     expect(collection.get('a')).toMatchObject({ x: 1, y: 2 })
@@ -151,7 +169,7 @@ describe('persistPositions', () => {
     const places = createCollection(
       localOnlyCollectionOptions({ id: `places-${serial++}`, getKey: (place: Place) => place.id }),
     )
-    const stop = persistPositions(graph, {
+    const { stop } = persistPositions(graph, {
       collection: places,
       key: String,
       create: (key, point) => ({ id: String(key), ...point }),
@@ -165,7 +183,7 @@ describe('persistPositions', () => {
     const collection = itemCollection()
     const graph = mount(collection)
     await ready(graph)
-    const stop = persistPositions(graph, { collection, pendingState: 'saving' })
+    const { stop } = persistPositions(graph, { collection, pendingState: 'saving' })
     graph.positions.set([['a', { x: 1, y: 2 }]])
     graph.positions.set([['b', { x: 3, y: 4 }]])
     expect(saving(graph)).toEqual(['a', 'b'])
@@ -240,7 +258,7 @@ describe('persistPositions', () => {
       expect(graph.positions.get('a')?.y).toBeLessThan(0)
     })
     const mutationFn = vi.fn(async () => {})
-    const stop = persistPositions(graph, { collection: stacked, mutationFn })
+    const { stop } = persistPositions(graph, { collection: stacked, mutationFn })
     graph.view.set({ x: 0, y: 0, zoom: 3 })
     dom.flushFrames()
     graph.groups.fold()
@@ -275,7 +293,7 @@ describe('persistPositions', () => {
       fakeRenderer,
     )
     const mutationFn = vi.fn(async () => {})
-    const stop = persistPositions(graph, { collection: bare, mutationFn })
+    const { stop } = persistPositions(graph, { collection: bare, mutationFn })
     await vi.waitFor(() => {
       dom.flushFrames()
       expect(graph.positions.get('b')).toEqual({ x: 30, y: 40 })
@@ -308,7 +326,7 @@ describe('persistPositions', () => {
         initialData: [{ id: 'a', lng: 0, lat: 0 }],
       }),
     )
-    const stop = persistPositions(graph, {
+    const { stop } = persistPositions(graph, {
       collection: spots,
       longitude: 'lng',
       latitude: 'lat',
@@ -341,7 +359,7 @@ describe('persistPositions', () => {
         initialData: [{ id: 'a', x: 0, y: 0, lng: 0, lat: 0 }],
       }),
     )
-    const stop = persistPositions(graph, {
+    const { stop } = persistPositions(graph, {
       collection: both,
       x: 'x',
       y: 'y',

@@ -30,7 +30,7 @@ import { useShapeEditor } from '@bruno00o/graph/editor/react'
 
 function useShapeEditor<S extends string = string, M extends Mark = Mark>(
   options?: UseShapeEditorOptions<S, M>,
-): UseShapeEditorResult<M>
+): UseShapeEditorResult<M, S>
 ```
 
 Does what `<ShapeEditor>` does, and renders again when the state of the editor changes.

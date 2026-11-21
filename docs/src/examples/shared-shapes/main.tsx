@@ -153,7 +153,7 @@ function SharedEdits({ live }: { readonly live: boolean }) {
   const { editor } = useShapeEditor()
   useEffect(() => {
     if (!editor) return
-    return persistShapes(editor, { collection: zones, live, pendingState: 'saving' })
+    return persistShapes(editor, { collection: zones, live, pendingState: 'saving' }).stop
   }, [editor, live])
   return null
 }

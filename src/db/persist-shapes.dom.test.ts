@@ -142,7 +142,7 @@ describe('persistShapes', () => {
     const collection = zoneCollection()
     const graph = mount(collection)
     const editor = createShapeEditor(graph)
-    const stop = persistShapes(editor, { collection })
+    const { stop } = persistShapes(editor, { collection })
     const before = collection.get('box')
     drag(graph, [-200, -150], [-150, -150])
     expect(collection.get('box')).toMatchObject({
@@ -510,6 +510,7 @@ describe('persistShapes', () => {
     const collection = zoneCollection()
     const graph = mount(collection)
     const editor = createShapeEditor(graph)
+    // @ts-expect-error
     expect(() => persistShapes(editor, { collection, pendingState: 'other' })).toThrow(
       'pendingState "other"',
     )
