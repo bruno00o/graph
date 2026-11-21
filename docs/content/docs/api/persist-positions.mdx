@@ -7,16 +7,20 @@ description: Write the positions of dragged nodes to a TanStack DB collection.
 import { persistPositions } from '@bruno00o/graph/db'
 
 function persistPositions<T extends object, TKey extends string | number, S extends string = string>(
-  graph: GraphInstance<S>,
+  graph: GraphCore<S>,
   options: PersistPositionsOptions<T, TKey, FreeState<S>>,
-): () => void
+): PositionPersistence
 ```
 
-Listens to `positionchange` and writes `x` and `y` into the collection, or the longitude and latitude in degrees into the fields you name with `longitude` and `latitude`: drags, `positions.set`, `positions.reset`, and the result of each layout run that ends. Returns a function that stops listening and writes the last pending move at once. Throws when `pendingState` is not a free state of the definition.
+Listens to `positionchange` and writes `x` and `y` into the collection, or the longitude and latitude in degrees into the fields you name with `longitude` and `latitude`: drags, `positions.set`, `positions.reset`, and the result of each layout run that ends. Takes a mounted graph, or one made by [`createGraph`](/docs/api/create-graph). Returns an object whose `stop` stops listening and writes the last pending move at once. Throws when `pendingState` is not a free state of the definition.
 
 ## Options
 
 <api-table path="db/index.ts" name="PersistPositionsOptions" />
+
+## Result
+
+<api-table path="db/index.ts" name="PositionPersistence" />
 
 ## Behavior
 

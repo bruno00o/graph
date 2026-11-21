@@ -4,7 +4,8 @@ import type { Scene } from '../core/scene'
 import { nearestNode, nodeToward } from '../core/spatial'
 import { toScreen } from '../core/view'
 import type { Sight } from '../core/visibility'
-import type { GraphDefinition, Key, Point } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key, Point } from '../types'
 import type { HostCamera } from './camera'
 import { kindOf, sameTarget } from './element-keys'
 import type { Emitter, GraphTarget } from './events'
@@ -28,7 +29,7 @@ export interface FocusSource {
   readonly emitter: Emitter
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   sight(): Sight
   target(kind: 'node' | 'edge', key: Key): GraphTarget | null
   prepare(): void

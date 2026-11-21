@@ -42,7 +42,7 @@ function resetPositions(): void {
 
 function SharedPositions() {
   const graph = useGraph()
-  useEffect(() => persistPositions(graph, { collection: items }), [graph])
+  useEffect(() => persistPositions(graph, { collection: items }).stop, [graph])
   return null
 }
 

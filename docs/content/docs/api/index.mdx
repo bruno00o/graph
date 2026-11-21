@@ -18,8 +18,8 @@ description: Every export of the package, by entry point.
 | `ShapeIssue`, `InvalidShapeIssue`, `InvalidShapeReason` | types | [shapes](/docs/api/shapes#problems) |
 | `GraphCountOf`, `GraphShapeCount`, `GraphShownShapeCount` | types | [GraphInstance](/docs/api/graph-instance#count) |
 | `Hull`, `HullOptions`, `HullKeysOptions`, `HullStateOptions`, `HullMarkOptions`, `HullGroupOptions`, `HullStyle`, `HullShape` | types | [hull](/docs/api/hull) |
-| `BackgroundOptions`, `BackgroundGrid`, `ResolvedBackground` | types | [defineGraph](/docs/api/define-graph#background) |
-| `ViewLimitOptions`, `ViewBounds`, `Bounds`, `ResolvedViewLimits`, `AutoFit`, `FitPadding`, `ResolvedPadding` | types | [defineGraph](/docs/api/define-graph#view) |
+| `BackgroundOptions`, `BackgroundGrid` | types | [defineGraph](/docs/api/define-graph#background) |
+| `ViewLimitOptions`, `ViewBounds`, `Bounds`, `AutoFit`, `FitPadding` | types | [defineGraph](/docs/api/define-graph#view) |
 | `WheelMode` | type | [defineGraph](/docs/api/define-graph#interaction) |
 | `GraphAnchors`, `AnchorOptions`, `AnchorTarget`, `AnchorNodeTarget`, `AnchorNodesTarget`, `AnchorEdgeTarget`, `AnchorPointTarget`, `AnchorStateTarget`, `AnchorPlacement`, `AnchorSide`, `AnchorAlign` | types | [GraphInstance](/docs/api/graph-instance#anchors) |
 | `GraphInstance`, `GraphUpdateOptions`, `GraphView`, `FitOptions`, `GraphSelection`, `ElementKeys`, `NodeEdgeKeys`, `ShapeKeys`, `GraphFocus`, `GraphStates`, `GraphPositions`, `GraphLayout`, `LayoutRunOptions`, `LayoutComputeOptions`, `LayoutOthers`, `GraphState`, `GraphLayoutStatus`, `GraphStore`, `Endpoints` | types | [GraphInstance](/docs/api/graph-instance) |
@@ -28,7 +28,7 @@ description: Every export of the package, by entry point.
 | `GraphHistory`, `ElementDatum` | types | [GraphInstance](/docs/api/graph-instance#history) |
 | `HistoryEntry`, `HistorySource`, `HistoryValues` | types | [historyFrom](/docs/api/history) |
 | `TimeInstant`, `TimeSpan`, `TimeValue` | types | [nodes](/docs/api/nodes#time), [edges](/docs/api/edges#time) |
-| `TimeOptions`, `ResolvedTimeOptions` | types | [defineGraph](/docs/api/define-graph#time) |
+| `TimeOptions` | types | [defineGraph](/docs/api/define-graph#time) |
 | `GraphEvents`, `GraphEventOptions`, `GraphTarget`, `NodeTarget`, `EdgeTarget`, `ShapeTarget` and the event payloads, `GraphSelectionEvent`, `GraphViewEvent`, `ViewOrigin`, `GraphTimeEvent`, `GraphLoadingEvent`, `GraphLayoutEvent`, `GraphLayoutEndEvent`, `GraphZoomHintEvent` and `ZoomKey` included | types | [Events](/docs/api/events) |
 | `geoToWorld`, `worldToGeo`, `GeoPoint` | functions and type | [Map](/docs/api/map#coordinates) |
 | `lineWaypoints`, `WaypointInput`, `LineGeometry`, `LineStringGeometry`, `MultiLineStringGeometry`, `LineWaypointsOptions` | function and types | [edges](/docs/api/edges#waypoints) |
@@ -38,8 +38,8 @@ description: Every export of the package, by entry point.
 | `Layout`, `LayoutGraph`, `LayoutGroups`, `LayoutBlocks`, `LayoutContainer`, `LayoutListener`, `LayoutRun`, `LayoutWork` | types | [defineGraph](/docs/api/define-graph#layout) |
 | `EdgeBundling`, `BundleGraph`, `BundleListener`, `BundlePaths`, `BundleRun`, `GraphBundling`, `GraphBundlingStatus` | types | [defineGraph](/docs/api/define-graph#bundling), [GraphInstance](/docs/api/graph-instance#bundling) |
 | `EdgeRouting`, `RouteGraph`, `GraphRouting`, `GraphRoutingStatus` | types | [defineGraph](/docs/api/define-graph#routing), [GraphInstance](/docs/api/graph-instance#routing) |
-| `BridgeOptions`, `BridgeShape`, `ResolvedBridges` | types | [defineGraph](/docs/api/define-graph#bridges) |
-| `SpreadOptions`, `ResolvedSpread` | types | [defineGraph](/docs/api/define-graph#spread) |
+| `BridgeOptions`, `BridgeShape` | types | [defineGraph](/docs/api/define-graph#bridges) |
+| `SpreadOptions` | types | [defineGraph](/docs/api/define-graph#spread) |
 | `LiveSource`, `SourceChange`, `SourceSubscription`, `StatusListen`, `GraphData`, `Key` | types | [nodes](/docs/api/nodes#live-sources), [Data and live sources](/docs/data) |
 | `GraphDataStatus` | type | [GraphInstance](/docs/api/graph-instance#graph-state) |
 | `KeyList` | type | [GraphInstance](/docs/api/graph-instance#lists-of-keys) |
@@ -123,8 +123,11 @@ description: Every export of the package, by entry point.
 | Export | Kind | Page |
 | --- | --- | --- |
 | `persistPositions` | function | [persistPositions](/docs/api/persist-positions) |
+| `PersistPositionsOptions` | type | [persistPositions](/docs/api/persist-positions#options) |
+| `PositionPersistence` | type | [persistPositions](/docs/api/persist-positions#result) |
 | `persistShapes` | function | [persistShapes](/docs/api/persist-shapes) |
 | `PersistShapesOptions`, `PersistShapeFields` | types | [persistShapes](/docs/api/persist-shapes#options) |
+| `ShapePersistence` | type | [persistShapes](/docs/api/persist-shapes#result) |
 | `showPresence` | function | [showPresence](/docs/api/show-presence) |
 | `ShowPresenceOptions`, `PresenceFields`, `PresenceValues`, `PresenceSelection` | types | [showPresence](/docs/api/show-presence#options) |
 | `Presence`, `PresenceParticipant` | types | [showPresence](/docs/api/show-presence#result) |

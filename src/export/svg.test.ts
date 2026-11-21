@@ -17,6 +17,7 @@ import type { LabelMode } from '../host/renderer'
 import { resolveStyle } from '../host/state-styles'
 import { hull } from '../hulls'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { shapes } from '../shapes'
 import { lightTokens } from '../theme/tokens'
 import type {
@@ -129,7 +130,7 @@ function render(
   const scene = createScene()
   const definition = defineGraph(options)
   model.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   const changes = model.flush()
   scene.apply(model, changes)
   const positions = new Positions()
@@ -182,7 +183,7 @@ function render(
   states.setHighlighted(highlightedNodes, highlightedEdges)
   states.setAlways(alwaysNodes, [])
   const hulls = new HullLayer()
-  hulls.setHulls(definition.hulls)
+  hulls.setHulls(resolvedOf(definition).hulls)
   hulls.update(
     { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes: () => [] },
     Number.POSITIVE_INFINITY,
@@ -200,7 +201,7 @@ function render(
       maxEdges: 100,
     }).step(Number.POSITIVE_INFINITY, bridges)
   }
-  const grid = gridInput(definition.background, scene.palette)
+  const grid = gridInput(resolvedOf(definition).background, scene.palette)
   const colors = scene.palette.colors
   const palette = new Uint8Array(colors.length * 4)
   colors.forEach((color, id) => {
@@ -309,7 +310,7 @@ function renderGroups(
     hulls,
   })
   model.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   const changes = model.flush()
   const projected = projection.apply(changes)
   scene.apply(projection.view, projected.scene)
@@ -327,7 +328,7 @@ function renderGroups(
   )
   scene.nodes.containerBoxes = containers.boxes
   const layer = new HullLayer()
-  layer.setHulls(definition.hulls)
+  layer.setHulls(resolvedOf(definition).hulls)
   layer.update(
     {
       model,
@@ -1119,7 +1120,7 @@ describe('exportFrame', () => {
     scales: { size: (value) => value },
   })
   model.setMarks(definition.marks)
-  scene.setDefinition(definition)
+  scene.setDefinition(resolvedOf(definition))
   const changes = model.flush()
   scene.apply(model, changes)
   const positions = new Positions()
@@ -1178,7 +1179,7 @@ describe('fitLabels', () => {
     const scene = createScene()
     const definition = defineGraph(options)
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     const changes = model.flush()
     scene.apply(model, changes)
     const positions = new Positions()
@@ -1228,7 +1229,7 @@ describe('fitLabels', () => {
     const scene = createScene()
     const defined = defineGraph(definition)
     model.setMarks(defined.marks)
-    scene.setDefinition(defined)
+    scene.setDefinition(resolvedOf(defined))
     const changes = model.flush()
     scene.apply(model, changes)
     const positions = new Positions()
@@ -1236,7 +1237,7 @@ describe('fitLabels', () => {
     const states = new StateBuffers()
     states.reserve(scene.nodes.capacity, scene.edges.capacity)
     const hulls = new HullLayer()
-    hulls.setHulls(defined.hulls)
+    hulls.setHulls(resolvedOf(defined).hulls)
     hulls.update(
       { model, nodes: scene.nodes, positions, palette: scene.palette, stateNodes: () => [] },
       Number.POSITIVE_INFINITY,
@@ -1310,7 +1311,7 @@ describe('graph region with labels', () => {
       ],
     })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     const changes = model.flush()
     scene.apply(model, changes)
     const positions = new Positions()
@@ -1384,7 +1385,7 @@ describe('labels under a state outline', () => {
       ],
     })
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     const changes = model.flush()
     scene.apply(model, changes)
     const positions = new Positions()

@@ -5,7 +5,8 @@ import type { Scene } from '../core/scene'
 import type { ShapeShift } from '../core/shape-store'
 import type { StateBuffers } from '../core/state-buffers'
 import { detailStep, type Sight } from '../core/visibility'
-import type { GraphDefinition, Key } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key } from '../types'
 import type { BridgeHost } from './bridges'
 import type { BundleHost } from './bundles'
 import type { HostCamera } from './camera'
@@ -47,7 +48,7 @@ export interface ExposureSource {
   readonly createRenderer: RendererFactory
   readonly frames: FrameClock
   surface(): SurfaceCapabilities
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   state(): GraphState
   sight(except?: string | null): Sight
   sceneVersion(): number

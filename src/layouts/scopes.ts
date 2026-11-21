@@ -7,6 +7,7 @@ import {
   type ScopeRequest,
   sameLayout,
 } from '../core/layout-scopes'
+import { report } from '../host/isolate'
 import type {
   Key,
   Layout,
@@ -18,7 +19,7 @@ import type {
 } from '../types'
 import { ArrangedPlaces } from './arranged-places'
 import { orientBlocks } from './orient'
-import { type ScopeRunner, scopeRunOf } from './scope-runs'
+import { failWith, type ScopeRunner, scopeRunOf } from './scope-runs'
 import { Arranging } from './unfold-arranging'
 
 const parallel = 4
@@ -572,6 +573,14 @@ class Composite implements LayoutRun {
         this.#apply(scope, unit, xy, before)
         this.#done(slot)
       },
+      fail: (error) => {
+        if (this.#stopped || ended) {
+          report(error)
+          return
+        }
+        close()
+        this.#fail(error)
+      },
     }
     if (slot < 0) this.#base = Float32Array.from(this.#xy)
     this.#ran.add(slot)
@@ -589,12 +598,15 @@ class Composite implements LayoutRun {
       }
     } catch (error) {
       close()
-      setTimeout(() => {
-        throw error
-      }, 0)
-      this.#done(slot)
+      if (this.#stopped) report(error)
+      else this.#fail(error)
     }
     return true
+  }
+
+  #fail(error: unknown): void {
+    this.stop()
+    failWith(this.#listener, error, () => Float32Array.from(this.#structure.graph.xy))
   }
 
   #done(slot: number): void {

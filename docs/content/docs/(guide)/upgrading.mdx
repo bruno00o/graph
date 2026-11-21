@@ -3,9 +3,34 @@ title: Upgrading
 description: What changes in your code from one version to the next.
 ---
 
-Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
+Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do, and [Versioning](/docs/versioning) says what 1.0 promises. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
 ## 0.34.0
+
+### A definition only gives back its marks
+
+`defineGraph` returns an opaque `GraphDefinition<S, M>`: besides `marks`, its resolved options can no longer be read, and the `Resolved*` types (`ResolvedInteraction`, `ResolvedViewLimits`, `ResolvedPadding`, `ResolvedTransitions`, `ResolvedLens`, `ResolvedBackground`, `ResolvedBridges`, `ResolvedSpread`, `ResolvedTimeOptions`, `ResolvedSupportStates`) are no longer exported. Keep the options your code reads in your own variables. `S` and `M` still type the graph, and `GraphDefinition<infer S, infer M>` still reads them back.
+
+```ts
+// Before
+const definition = defineGraph({ marks, interaction: { select: 'single' } })
+const single = definition.interaction.select === 'single'
+
+// After
+const interaction = { select: 'single' } as const
+const definition = defineGraph({ marks, interaction })
+const single = interaction.select === 'single'
+```
+
+An object written by hand no longer types as a `GraphDefinition`, nor does a copy of a definition with an option changed: call `defineGraph` again.
+
+```ts
+// Before
+graph.update({ definition: { ...definition, relayout: true } })
+
+// After
+graph.update({ definition: defineGraph({ ...options, relayout: true }) })
+```
 
 ### `createMinimap` is `mountMinimap`
 
@@ -56,6 +81,66 @@ import { defaultDevtoolsMessages } from '@bruno00o/graph/devtools'
 ### `stepEvent` without a window starts at the first event
 
 `timeline.stepEvent()` used to do nothing when the graph had no time window and `instant` was off. It now starts from the beginning of the extent: the window ends 1 ms after the first event, starting at the extent in `'grow'` mode and a tenth of the extent wide in `'slide'` mode. With `instant`, it already moved the moment to the first event. A code that relied on the no-op, such as a button that calls `stepEvent` while the window is cleared, now sets a window.
+
+### `persistPositions` and `persistShapes` return `{ stop }`
+
+Both return an object, as `showPresence` does, instead of a function. Call its `stop` method:
+
+```ts
+// Before
+const stop = persistPositions(graph, { collection })
+stop()
+
+// After
+const { stop } = persistPositions(graph, { collection })
+stop()
+```
+
+In a React effect, return the method: `useEffect(() => persistShapes(editor, options).stop, [editor])`.
+
+### `pendingState` of `persistShapes` takes the state names of the graph
+
+A shape editor now carries the state names of its graph, and `pendingState` only accepts one of its free states, as with `persistPositions`. A name that the graph does not declare no longer compiles, where it threw at run time. Nothing changes for an editor of an untyped graph.
+
+### A layout that throws fails its run
+
+When a built-in layout throws during a run, such as a `grid` whose `order` throws, or a group layout, the run now fails: `layout.run` resolves to `false` and `layoutend` has `completed: false` and the `error`. Before, the run ended as if it had completed, with nodes left in place. `layout.compute` now rejects with the error instead of resolving to unchanged positions. The error is still reported as an uncaught error.
+
+Before:
+
+```ts
+graph.on('layoutend', ({ completed }) => completed && save())
+```
+
+After:
+
+```ts
+graph.on('layoutend', ({ completed, error }) => {
+  if (error !== undefined) showError(error)
+  else if (completed) save()
+})
+```
+
+A layout of your own can call the new `listener.fail(error)` instead of `listener.end(xy)` to fail its run the same way. See [Write your own layout](/docs/layout#write-your-own-layout).
+
+### A graph mounts without WebGL2
+
+`mountGraph` and `<Graph>` no longer throw when the browser gives no WebGL2 context: the graph mounts, draws nothing, and reads `drawable: false` in its store. Code that caught the error to show something else reads the store instead. See [Without WebGL2](/docs/browser-support#without-webgl2).
+
+```ts
+// Before
+try {
+  mountGraph(element, options)
+} catch {
+  showFallback()
+}
+
+// After
+const graph = mountGraph(element, options)
+if (!graph.store.state.drawable) showFallback()
+```
+
+`GraphState` gains the `drawable` field, so an object built by hand as a `GraphState` needs it. `GraphRendering` of the devtools gains `'unavailable'`: a `renderingName` formatter that covers every case needs a branch for it. `exportPng` without WebGL2 now rejects with a `DOMException` named `NotSupportedError` instead of an `Error`.
 
 ### `readFont` takes an options object
 

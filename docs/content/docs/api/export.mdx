@@ -80,7 +80,7 @@ The images and the diagrams have different defaults: see [Defaults side by side]
 
 - A graph that was not created by `mountGraph` or `createGraph`, or that is destroyed, throws an `Error`.
 - A `zoom` or a `pixelRatio` that is a number but not a positive one throws a `RangeError`, and a `pixelRatio` that is neither `'auto'`, `'device'` nor a number a `TypeError`, as does an area smaller than one pixel, a `size` with no side or a side that is not a finite number of pixels, 1 or more, and a `size` given with a `zoom`.
-- Without WebGL2, or when the browser refuses a drawing buffer, `exportPng` rejects with an `Error`. Given a graph made by `createGraph`, it rejects with a `TypeError` that points to the SVG.
+- Without WebGL2, `exportPng` rejects with a `DOMException` named `NotSupportedError`; when the browser refuses a drawing buffer, with an `Error`. Given a graph made by `createGraph`, it rejects with a `TypeError` that points to the SVG.
 - An `images` function that throws or rejects makes `exportSvg` reject with its error.
 - `exportDrawio` and `exportVsdx` throw a `TypeError` for an unknown `states`.
 

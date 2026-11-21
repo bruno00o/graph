@@ -10,6 +10,7 @@ import { noWalk } from '../core/support'
 import { readWindow } from '../core/time-range'
 import { toScreen, toWorld } from '../core/view'
 import { dev } from '../dev'
+import type { ResolvedDefinition } from '../resolved-definition'
 import type { Key, Mark } from '../types'
 import { loadedData } from './data-status'
 import { emptyKeys, toKeys } from './element-keys'
@@ -172,7 +173,7 @@ export function coreStillborn<S extends string, M extends Mark, G extends object
   dead: (store: GraphStore<S, M>, shaped: () => boolean) => G,
 ): G {
   if (dev) console.warn('graph: the signal was aborted before the mount, nothing was mounted')
-  const { definition } = options
+  const definition = options.definition as ResolvedDefinition<S, M>
   const shaped = definition.marks.some((mark) => mark.type === 'shapes')
   const store = createStore<GraphState>({
     view: options.view ?? options.initialView ?? { x: 0, y: 0, zoom: 1 },
@@ -199,6 +200,7 @@ export function coreStillborn<S extends string, M extends Mark, G extends object
     data: loadedData,
     surface: capabilities.name,
     suspended: options.suspended === true,
+    drawable: false,
   })
   const graph = dead(readonlyOf(store) as unknown as GraphStore<S, M>, () => shaped)
   const scene = createScene()

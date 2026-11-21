@@ -2,8 +2,8 @@ import { toAccessor } from '../../core/accessor'
 import { groupGap, separateGroups } from '../../core/group-separation'
 import { groupTree } from '../../core/group-tree'
 import { dev } from '../../dev'
-import type { Channel, Key, Layout, LayoutGraph } from '../../types'
-import { centroid, instant, isPlain, movers } from '../shared'
+import type { Channel, Key, KeyList, Layout, LayoutGraph } from '../../types'
+import { centroid, instant, isPlain, movers, rootKeys } from '../shared'
 import { components, distinct } from './adjacency'
 import { acyclicRanks } from './cycles'
 import { orderNested } from './nested-order'
@@ -34,10 +34,10 @@ export interface LayersOptions<T = unknown> {
    */
   readonly direction?: LayersDirection | undefined
   /**
-   * Nodes forced onto the first layer, the nodes without incoming edges by default. Edges into them
-   * are turned around, and edges between two roots are left out.
+   * Nodes forced onto the first layer, a key or a list of keys, the nodes without incoming edges by
+   * default. Edges into them are turned around, and edges between two roots are left out.
    */
-  readonly root?: Key | readonly Key[] | undefined
+  readonly root?: Key | KeyList | undefined
   /**
    * Gap between two layers, from the borders of their largest nodes, in world units. Defaults to
    * twice the largest diameter, blocks aside, and at least that diameter plus 24. The diameter of a
@@ -71,7 +71,7 @@ function pinnedOf(
 ): Uint8Array {
   const pinned = new Uint8Array(indices.length)
   if (root === undefined) return pinned
-  const keys = new Set<Key>(Array.isArray(root) ? root : [root as Key])
+  const keys = new Set<Key>(rootKeys(root))
   indices.forEach((index, at) => {
     const key = graph.keys[index]
     if (key !== undefined && keys.has(key)) pinned[at] = 1

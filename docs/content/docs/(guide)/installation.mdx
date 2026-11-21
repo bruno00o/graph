@@ -9,7 +9,7 @@ description: Add the package, its theme and the peer dependencies of the entry p
 npm install @bruno00o/graph
 ```
 
-The package ships ES modules only, with TypeScript declarations. It needs a browser with WebGL2: see [Browser support](/docs/browser-support) for Safari and Firefox, small GPUs, context loss and software rendering. To lay out, query or export a graph without a page, as in Node, import [`createGraph`](/docs/api/create-graph) from `@bruno00o/graph/headless`, which needs no DOM and no WebGL.
+The package ships ES modules only, with TypeScript declarations. It draws with WebGL2; without it, a graph still mounts and draws nothing: see [Browser support](/docs/browser-support) for Safari and Firefox, small GPUs, context loss, software rendering and browsers without WebGL2. To lay out, query or export a graph without a page, as in Node, import [`createGraph`](/docs/api/create-graph) from `@bruno00o/graph/headless`, which needs no DOM and no WebGL.
 
 ## Import the theme
 

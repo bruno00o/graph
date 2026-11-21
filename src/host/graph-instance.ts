@@ -2,6 +2,7 @@ import type { ReadonlyStore } from '@tanstack/store'
 import type { GlobeCamera } from '../core/globe'
 import type { Endpoints } from '../core/graph-model'
 import type { GraphIssue } from '../core/issues'
+import type { ResolvedDefinition } from '../resolved-definition'
 import type {
   BuiltInState,
   EdgeDatum,
@@ -88,6 +89,12 @@ export interface GraphState<S extends string = string, M extends Mark = Mark> {
    * nothing there, and everything else goes on.
    */
   readonly suspended: boolean
+  /**
+   * `false` when the graph cannot draw where it is: the browser gives no WebGL2 context for its own
+   * canvas, or the graph was made by `createGraph`. Data, layouts, view, selection, picking,
+   * events and SVG exports still work. A graph mounted suspended reads `true` until it resumes.
+   */
+  readonly drawable: boolean
 }
 
 /** Status of edge bundling. */
@@ -322,6 +329,11 @@ export interface LayoutRunOptions {
    * places nodes at once.
    */
   readonly duration?: number | undefined
+  /**
+   * Stops the run when aborted, as `stop` does: nodes stay where they are and the run resolves to
+   * `false`. Already aborted, nothing starts.
+   */
+  readonly signal?: AbortSignal | undefined
 }
 
 /** Options of `layout.compute`. */
@@ -342,15 +354,17 @@ export interface GraphLayout<M extends Mark = Mark> {
   /**
    * Applies pending data changes, then lays out every free node, or only `keys`, with `layout` or
    * the layout of the definition. Resolves to `true` when the run ends and `false` when it is
-   * stopped or replaced. Rejects when there is no layout to run, the graph is on a map, an option
-   * holds a number that is not finite, or `others` is not one of its values.
+   * stopped, replaced or aborted by `signal`, or when the layout throws: `layoutend` then carries
+   * the `error`, which is also reported. Rejects when there is no layout to run, the graph is on a
+   * map, an option holds a number that is not finite, or `others` is not one of its values.
    */
   run(layout?: Layout<NodeDatum<M>>, options?: LayoutRunOptions): Promise<boolean>
   /**
    * Applies pending data changes, then computes `layout`, or the layout of the definition, from
    * the current positions, and resolves to the positions it gives the nodes it lays out, by key.
    * Moves nothing and emits nothing; a run in progress goes on. Rejects when there is no layout,
-   * on a map, for an unknown `others`, when `signal` aborts, or when the graph is destroyed.
+   * on a map, for an unknown `others`, when `signal` aborts, when the layout throws, or when the
+   * graph is destroyed.
    */
   compute(layout?: Layout<NodeDatum<M>>, options?: LayoutComputeOptions): Promise<Map<Key, Point>>
   /** Ends the current run and leaves nodes where they are. */
@@ -811,8 +825,9 @@ export interface GraphCore<S extends string = string, M extends Mark = Mark> {
   /**
    * Resolves once nothing is left to do: data changes applied, live sources loaded or the
    * `waitForData` deadline past, no layout run, no view or position animation, edge bundling,
-   * routing and bridges computed, shape fills triangulated and hulls ready. Frames do not count.
-   * Rejects with the reason of `signal` once the graph is destroyed, also while it waits.
+   * routing and bridges computed, shape fills triangulated and hulls ready, and any deferred work
+   * a later minor version adds. Frames do not count. Rejects with the reason of `signal` once the
+   * graph is destroyed, also while it waits.
    */
   settled(): Promise<void>
   /**
@@ -852,8 +867,9 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
   readonly drawsOnMap: boolean
   /**
    * Resolves after the next frame is drawn, the first one included. When no frame is due, it
-   * resolves on the next animation frame, without drawing one. Rejects with the reason of `signal`
-   * once the graph is destroyed.
+   * resolves on the next animation frame, without drawing one. Resolves as well, without drawing,
+   * when the graph cannot draw (`drawable` is `false`). Rejects with the reason of `signal` once
+   * the graph is destroyed.
    */
   drawn(): Promise<void>
   /**
@@ -867,6 +883,7 @@ export interface GraphInstance<S extends string = string, M extends Mark = Mark>
    * Takes a WebGL context again and draws the graph as it is now, from the scene kept on the CPU.
    * `await drawn()` waits for that frame, and a context the browser took away comes back first.
    * Called on a graph that is not suspended, it only brings back a context the browser took away.
+   * On a graph that could not take a WebGL2 context (`drawable` is `false`), it tries once more.
    */
   resume(): void
   /**
@@ -925,7 +942,7 @@ export interface HostSurface extends SurfaceCapabilities {
   claim(active: boolean): void
   hover(active: boolean): void
   move(view: View): void
-  adapt(definition: GraphDefinition): GraphDefinition
+  adapt(definition: ResolvedDefinition): ResolvedDefinition
   bind(driver: HostDriver): void
   release(): void
 }

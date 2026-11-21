@@ -57,7 +57,7 @@ Boundaries chosen from developer tasks, not from entry points:
 
 ## Failure mode inventory
 
-### core (13)
+### core (14)
 
 | #   | Mistake                                               | Priority | Source                                     | Cross-skill |
 | --- | ----------------------------------------------------- | -------- | ------------------------------------------ | ----------- |
@@ -73,7 +73,8 @@ Boundaries chosen from developer tasks, not from entry points:
 | 10  | Destroying and mounting graphs again to save contexts | MEDIUM   | graph instance API, browser-support guide  | react       |
 | 11  | Passing `suspended` to `update`                       | MEDIUM   | `src/host/graph-instance.ts`, mount API    |             |
 | 12  | Waiting for a lost context to come back by itself     | MEDIUM   | `src/host/render-host.ts`, browser-support |             |
-| 13  | A blurry graph when WebGL runs in software            | MEDIUM   | defineGraph API, browser-support guide     | export      |
+| 13  | Catching an error to detect a browser without WebGL2  | MEDIUM   | `src/host/render-host.ts`, browser-support |             |
+| 14  | A blurry graph when WebGL runs in software            | MEDIUM   | defineGraph API, browser-support guide     | export      |
 
 ### react (9)
 
@@ -430,6 +431,10 @@ Editable diagrams, the host split into core and page, `settled()`, graphs withou
 - Documented by the docs and checked against the code: `exportPng` is typed `GraphInstance`, so on a `GraphCore` the error is TS2740 (a missing-members error), not TS2345.
 - Verified by running the recipe of the guide: `pnpm docs:extracts` (24 graphs of 200 nodes, 4 threads) and a shorter script against `dist`. resvg with `loadSystemFonts: false` and no font file draws no ink (0 dark pixels against 3,241 with the DejaVu file); the `pixels` getter of a rendered image copies the whole buffer at each access, so a loop that reads `image.pixels[i]` is killed for memory.
 - Cross-references proposed for the shared tables: `core` to `headless` (`GraphCore`, `settled()`), `export` to `headless` (the SVG without a page, PNG by resvg), `headless` to `export` (options of the exports), `headless` to `layouts` (label widths, work on the calling thread).
+
+### Aligned for 0.34.0, layouts
+
+Layout API before 1.0: `root` of `radial` and `layers` takes any list of keys, `layout.run` takes a `signal`, and a layout that throws fails its run (`layoutend` carries `error`, the port gains `fail?(error)`, `compute` rejects with the error). Sentences corrected: `layouts` (run options, promise, `compute`, `layoutend`, the listener of a layout of your own) and its `group-layouts` reference (a group layout that throws fails the whole run). No failure mode added.
 
 ## Coverage and batch history
 

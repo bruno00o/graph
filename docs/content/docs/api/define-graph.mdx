@@ -231,6 +231,12 @@ type PixelRatioOption = 'auto' | 'device' | number
 
 ## Result
 
-<api-table path="index.ts" name="GraphDefinition" />
+`defineGraph` returns a `GraphDefinition<S, M>`: a frozen object whose only readable field is `marks`. The options are checked and resolved once, then read by the graph alone, so keep in your own variables any option your code needs to read again. `S`, the union of the state names, and `M`, the union of the marks, carry the types to `mountGraph`, `createGraph` and `<Graph>`, and can be read back from the type of a definition:
 
-Options are resolved: `interaction.zoom` and `interaction.autoPan` are `false` or `{ speed }`, `view` holds `minZoom`, `maxZoom` and `bounds` (`null` without bounds), `transitions.positions` and `transitions.layout` are numbers of milliseconds, `background` is `null` or carries its spacing and colors, and `support` is `null` or names its two states, `null` for one left out.
+```ts
+import type { GraphDefinition, GraphInstance } from '@bruno00o/graph'
+
+type InstanceOf<D> = D extends GraphDefinition<infer S, infer M> ? GraphInstance<S, M> : never
+```
+
+Only `defineGraph` makes a definition: an object written by hand does not type as one.

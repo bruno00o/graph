@@ -1,5 +1,6 @@
 import { dev } from '../dev'
-import type { GraphDefinition, Point } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Point } from '../types'
 import type { Emitter } from './events'
 import type { GraphState, SurfaceCapabilities } from './graph-instance'
 import { finitePoint } from './inputs'
@@ -15,7 +16,7 @@ export interface LensSource {
   readonly element: HTMLElement
   surface(): SurfaceCapabilities
   readonly emitter: Emitter
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   viewport(): { width: number; height: number }
   patch(next: Partial<GraphState>): void
   request(): void

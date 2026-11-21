@@ -40,7 +40,7 @@ const response = await fetch(url, { signal: graph.signal })
 
 ### Drawn
 
-`drawn()` resolves after the next frame the graph draws, the first one included. It never asks for a frame of its own: when no frame is due, it resolves on the next animation frame, without drawing. While the WebGL context is lost, it waits for the context to come back, while the graph is [suspended](#suspend), for `resume`, and when WebGL runs in software, for the code of its [drawing path](/docs/browser-support#software-rendering). On a [map](/docs/map), it resolves once the map has drawn the layer of the graph. Once the graph is destroyed, it rejects with the reason of `signal`.
+`drawn()` resolves after the next frame the graph draws, the first one included. It never asks for a frame of its own: when no frame is due, it resolves on the next animation frame, without drawing. While the WebGL context is lost, it waits for the context to come back, while the graph is [suspended](#suspend), for `resume`, and when WebGL runs in software, for the code of its [drawing path](/docs/browser-support#software-rendering). On a [map](/docs/map), it resolves once the map has drawn the layer of the graph. On a graph that cannot draw ([`drawable`](#graph-state) is `false`), it resolves at the next frame without drawing. Once the graph is destroyed, it rejects with the reason of `signal`.
 
 ```ts
 graph.update({ definition: next })
@@ -410,4 +410,4 @@ Walks the `supportedBy` links of edges, down to the edges that carry an edge and
 
 <api-table path="index.ts" name="GraphDataStatus" />
 
-`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are. `data.loading` is `true` while a [live source](/docs/data#loading) of the definition is loading, and `data.failed` lists the sources whose load failed; `loadingchange` fires when either changes. `suspended` is `true` while the graph is [suspended](#suspend).
+`width` and `height` are the size of the graph in CSS pixels. `positionsVersion` changes whenever a position changes; read the positions themselves with `positions.get`. `layout.progress` goes from 0 to 1 during a run. `bundling.running` is `true` while bundles are computed, and `routing.running` while routes are. `data.loading` is `true` while a [live source](/docs/data#loading) of the definition is loading, and `data.failed` lists the sources whose load failed; `loadingchange` fires when either changes. `suspended` is `true` while the graph is [suspended](#suspend). `drawable` is `false` when the graph cannot draw where it is: the browser gave its canvas no [WebGL2 context](/docs/browser-support#without-webgl2), or it was made by `createGraph`; `resume()` tries the context again.

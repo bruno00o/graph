@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { wheelFactor, zoomAround } from '../core/view'
 import { defineGraph } from '../define-graph'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { InteractionOptions, Point, View } from '../types'
 import type { GraphViewEvent } from './events'
@@ -406,7 +407,7 @@ describe('wheel glide', () => {
     for (const wheelGlide of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(() => definition({ wheelGlide })).toThrow(RangeError)
     }
-    expect(definition({}).interaction.wheelGlide).toBe(200)
-    expect(definition({ wheelGlide: 0 }).interaction.wheelGlide).toBe(0)
+    expect(resolvedOf(definition({})).interaction.wheelGlide).toBe(200)
+    expect(resolvedOf(definition({ wheelGlide: 0 })).interaction.wheelGlide).toBe(0)
   })
 })

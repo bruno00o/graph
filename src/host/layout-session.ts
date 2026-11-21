@@ -6,8 +6,8 @@ import type { Projection } from '../core/projection'
 import type { Scene } from '../core/scene'
 import type { Bounds } from '../core/view'
 import { dev } from '../dev'
+import type { ResolvedDefinition } from '../resolved-definition'
 import type {
-  GraphDefinition,
   Key,
   Layout,
   LayoutGraph,
@@ -43,6 +43,7 @@ export interface LayoutSettings {
   readonly duration: number
   readonly alone: boolean
   readonly replace: Layout | null
+  readonly signal: AbortSignal | null
 }
 
 const others: readonly LayoutOthers[] = ['anchors', 'ignored']
@@ -89,7 +90,7 @@ export interface LayoutSource {
   readonly work: LayoutWork
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   dragging(): readonly number[] | undefined
   boundsAfter(
     indices: readonly number[],
@@ -132,7 +133,7 @@ function loadEngine(): Promise<void> {
   return engineLoad
 }
 
-function declaresLayouts(definition: GraphDefinition): boolean {
+function declaresLayouts(definition: ResolvedDefinition): boolean {
   return definition.marks.some((mark) => {
     if (mark.type !== 'nodes') return false
     const options = (mark as { readonly options?: NodeOptions<unknown> }).options
@@ -535,6 +536,7 @@ export class LayoutHost {
       duration: this.#source.definition().transitions.layout,
       alone: false,
       replace: null,
+      signal: null,
     }
   }
 
@@ -646,7 +648,11 @@ export class LayoutHost {
     this.makeRoom(indices, to, true)
   }
 
-  #finish(current: LayoutSession, completed: boolean): void {
+  #finish(
+    current: LayoutSession,
+    completed: boolean,
+    failure: { readonly error: unknown } | null = null,
+  ): void {
     if (this.session !== current) return
     const { scene, positions, emitter, views } = this.#source
     this.session = null
@@ -676,7 +682,12 @@ export class LayoutHost {
       views.framing = false
     }
     if (completed && current.fit && !current.fitted) views.pendingFit = current.fit
-    emitter.emit('layoutend', { name: current.name, completed })
+    emitter.emit(
+      'layoutend',
+      failure
+        ? { name: current.name, completed, error: failure.error }
+        : { name: current.name, completed },
+    )
     this.#source.request()
   }
 
@@ -778,6 +789,10 @@ export class LayoutHost {
           this.#glide(current, xy)
         }
       },
+      fail: (error) => {
+        if (this.session === current) this.#finish(current, false, { error })
+        report(error)
+      },
     }
   }
 
@@ -816,6 +831,7 @@ export class LayoutHost {
       duration: previous.duration,
       alone: previous.alone,
       replace: previous.replace,
+      signal: previous.signal,
       scope,
       scoped,
       rerun,
@@ -833,7 +849,7 @@ export class LayoutHost {
       if (this.session === current) current.run = run
       else run.stop()
     } catch (error) {
-      this.#finish(current, false)
+      this.#finish(current, false, { error })
       report(error)
     }
     return true
@@ -963,6 +979,9 @@ export class LayoutHost {
           end: (xy) => {
             if (finish()) resolve(positionsOf(keys, launch.movable, xy))
           },
+          fail: (error) => {
+            if (finish()) reject(error)
+          },
         })
         if (done) run.stop()
       } catch (error) {
@@ -980,6 +999,8 @@ export class LayoutHost {
   }
 
   #run(layout: Layout | undefined, runOptions: LayoutRunOptions): Promise<boolean> {
+    const signal = runOptions.signal
+    if (signal?.aborted) return Promise.resolve(false)
     if (!this.#source.surface().layouts)
       return Promise.reject(new Error('graph: layouts do not run on a map'))
     const ready = this.#ready()
@@ -1009,8 +1030,19 @@ export class LayoutHost {
       duration: Math.max(0, runOptions.duration ?? this.#source.definition().transitions.layout),
       alone,
       replace: layout ?? null,
+      signal: signal ?? null,
     }
-    return this.begin(chosen, this.#keyed(runOptions.keys) ?? (() => true), false, settings)
+    const done = this.begin(chosen, this.#keyed(runOptions.keys) ?? (() => true), false, settings)
+    if (!signal) return done
+    const abort = () => {
+      if (this.session?.signal === signal) this.stop()
+    }
+    if (signal.aborted) abort()
+    else signal.addEventListener('abort', abort, { once: true })
+    return done.then((completed) => {
+      signal.removeEventListener('abort', abort)
+      return completed
+    })
   }
 
   destroy(reason?: unknown): void {

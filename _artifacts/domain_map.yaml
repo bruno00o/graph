@@ -186,6 +186,16 @@ skills:
         source: src/host/render-host.ts, docs/content/docs/(guide)/browser-support.mdx
         priority: MEDIUM
         status: active
+      - mistake: Catching an error to detect a browser without WebGL2
+        mechanism: "Since 0.34 mountGraph and Graph do not throw without WebGL2: the graph mounts, draws nothing and reads drawable false in its store, so a catch block never runs."
+        wrong_pattern: |
+          try { mountGraph(element, options) } catch { showFallback() }
+        correct_pattern: |
+          const graph = mountGraph(element, options)
+          if (!graph.store.state.drawable) showFallback()
+        source: src/host/render-host.ts, docs/content/docs/(guide)/browser-support.mdx
+        priority: MEDIUM
+        status: active
       - mistake: A blurry graph when WebGL runs in software
         mechanism: With pixelRatio 'auto', the default, a graph drawn in software takes one canvas pixel per CSS pixel, so it looks soft on a screen of ratio 2.
         wrong_pattern: |
@@ -1514,11 +1524,11 @@ skills:
         priority: MEDIUM
         status: active
       - mistake: "Forgetting to stop persistPositions"
-        mechanism: "persistPositions returns a function that removes its listener and flushes the last write, so a graph or component that goes away without calling it leaks the listener and may lose the last move."
+        mechanism: "persistPositions returns { stop }, whose stop removes its listener and flushes the last write, so a graph or component that goes away without calling it leaks the listener and may lose the last move."
         wrong_pattern: |
           useEffect(() => { persistPositions(graph, { collection: items }) }, [graph, items])
         correct_pattern: |
-          useEffect(() => persistPositions(graph, { collection: items }), [graph, items])
+          useEffect(() => persistPositions(graph, { collection: items }).stop, [graph, items])
         source: "docs/content/docs/api/persist-positions.mdx"
         priority: MEDIUM
         status: active
