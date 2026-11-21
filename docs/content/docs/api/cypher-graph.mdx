@@ -63,6 +63,6 @@ Fields that are not listed are ignored, and `identity`, `start` and `end` stand 
 
 A node does not have to come from the driver: any map with `labels`, `properties` and an `elementId` (or `identity`) is read as a node, and any map with `type`, `properties` and an id as a relationship. The ends of a relationship come from `startNodeElementId` and `endNodeElementId`, or else from `start` and `end`; a relationship with neither is left out. A query can therefore return `{ elementId, labels, properties }` and `{ elementId, type, startNodeElementId, endNodeElementId, properties }` instead of whole nodes and relationships. They are found in rows, lists and maps like driver objects, and their integers and other values are converted the same way. See [Large results](/docs/cypher#large-results).
 
-A property whose value is `null` is left out of `properties`, in nodes, relationships and maps alike. Nulls inside list values or nested maps stay as they are.
+A property whose value is `null` is left out of `properties`, in nodes and relationships, whether they come from the driver or from maps read as such. Only the first level is cleaned: nulls inside list values or nested maps stay as they are.
 
 See [Cypher](/docs/cypher) for a walkthrough.
