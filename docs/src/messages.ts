@@ -7,7 +7,8 @@ export function formatNumber(value: number): string {
 export const messages = {
   siteName: 'graph',
   siteTitle: '@bruno00o/graph',
-  pageTitle: (title: string) => `${title} | graph`,
+  pageTitle: (title: string, section?: string) =>
+    section ? `${title} | ${section} | graph` : `${title} | graph`,
   siteDescription: 'Typed graph visualization for any framework, rendered with WebGL2.',
   nav: {
     docs: 'Docs',
@@ -249,6 +250,15 @@ export const messages = {
       unknownPage: 'No documentation page matches that path.',
       unknownExample: 'No example has that slug.',
     },
+  },
+  seo: {
+    homeTitle: '@bruno00o/graph | Typed graph visualization for any framework',
+    language: 'en',
+    locale: 'en_US',
+    home: 'Home',
+    docsPage: 'Documentation',
+    programmingLanguage: 'TypeScript',
+    previewAlt: (title: string) => `Preview of ${title}`,
   },
   notFound: {
     title: 'Page not found',

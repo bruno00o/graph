@@ -8,6 +8,8 @@ import { SiteFooter } from '../../components/footer'
 import { Icon } from '../../components/icon'
 import { ShowcaseFrame } from '../../components/showcase-frame'
 import { homeOptions } from '../../lib/layout'
+import { previewImage } from '../../lib/og'
+import { pageHead } from '../../lib/seo'
 import { source } from '../../lib/source'
 import { messages } from '../../messages'
 import { findShowcase, problemsOf } from '../../showcase/catalog'
@@ -34,6 +36,7 @@ export const Route = createFileRoute('/showcase/$slug')({
     if (!showcase) throw notFound()
     return {
       slug: showcase.slug,
+      thumbnail: showcase.images !== null,
       title: showcase.title,
       description: showcase.description,
       features: showcase.features.map((feature) => ({
@@ -43,14 +46,17 @@ export const Route = createFileRoute('/showcase/$slug')({
       api: showcase.api.map((page) => pageOf(showcase.slug, page, true)),
     }
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: messages.pageTitle(loaderData.title) },
-          { name: 'description', content: loaderData.description },
-        ]
-      : [],
-  }),
+  head: ({ loaderData }) => {
+    if (!loaderData) return {}
+    const path = `/showcase/${loaderData.slug}`
+    return pageHead({
+      path,
+      title: messages.pageTitle(loaderData.title, messages.showcase.title),
+      description: loaderData.description,
+      image: previewImage(path, loaderData.thumbnail),
+      imageAlt: messages.showcase.preview(loaderData.title),
+    })
+  },
   component: ShowcasePage,
 })
 

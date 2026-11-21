@@ -12,6 +12,8 @@ import { exampleNotes } from '../../examples/notes'
 import { sourcesOf } from '../../examples/sources'
 import type { Example } from '../../examples/types'
 import { homeOptions } from '../../lib/layout'
+import { previewImage } from '../../lib/og'
+import { pageHead } from '../../lib/seo'
 import { source } from '../../lib/source'
 import { messages } from '../../messages'
 import { sourceUrl } from '../../site'
@@ -45,6 +47,7 @@ export const Route = createFileRoute('/examples/$slug')({
     ])
     return {
       slug: example.slug,
+      thumbnail: example.images !== null,
       title: example.title,
       description: example.description,
       files: sources.files,
@@ -55,14 +58,17 @@ export const Route = createFileRoute('/examples/$slug')({
       ],
     }
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: messages.pageTitle(loaderData.title) },
-          { name: 'description', content: loaderData.description },
-        ]
-      : [],
-  }),
+  head: ({ loaderData }) => {
+    if (!loaderData) return {}
+    const path = `/examples/${loaderData.slug}`
+    return pageHead({
+      path,
+      title: messages.pageTitle(loaderData.title, messages.examples.title),
+      description: loaderData.description,
+      image: previewImage(path, loaderData.thumbnail),
+      imageAlt: messages.examples.preview(loaderData.title),
+    })
+  },
   component: ExamplePage,
 })
 

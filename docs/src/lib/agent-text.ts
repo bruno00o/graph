@@ -1,13 +1,8 @@
 import { findExample } from '../examples/catalog'
 import { messages } from '../messages'
+import { absoluteUrl } from './origin'
 
-export function siteOrigin(): string {
-  return import.meta.env.DOCS_ORIGIN.replace(/\/+$/, '')
-}
-
-export function absoluteUrl(path: string): string {
-  return `${siteOrigin()}${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
-}
+export { absoluteUrl, siteOrigin } from './origin'
 
 function targetOf(target: string): string {
   const [path = '', hash] = target.split('#')
