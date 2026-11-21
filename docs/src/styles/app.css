@@ -78,6 +78,26 @@ figure.shiki {
   background: var(--code-paper);
 }
 
+.tk-k,
+.tk-c {
+  --shiki-light: var(--code-muted);
+  --shiki-dark: var(--code-muted);
+}
+
+.tk-s {
+  --shiki-light: var(--code-literal);
+  --shiki-dark: var(--code-literal);
+}
+
+.tk-c {
+  --shiki-light-font-style: italic;
+  --shiki-dark-font-style: italic;
+}
+
+.tk-f {
+  font-weight: 600;
+}
+
 .ulink {
   text-decoration: underline;
   text-decoration-color: var(--graph-edge);

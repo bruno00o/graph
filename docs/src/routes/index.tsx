@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import Link from 'fumadocs-core/link'
 import { HomeLayout } from 'fumadocs-ui/layouts/home'
-import { type JSX, lazy, Suspense } from 'react'
+import { type JSX, lazy } from 'react'
 import { CodeTabs, CopyButton, SourceCode } from '../components/code'
 import { SiteFooter } from '../components/footer'
 import { Icon } from '../components/icon'
 import { inline } from '../components/inline'
+import { WhenVisible } from '../components/when-visible'
 import {
   CollectionFigure,
   ExplorationFigure,
@@ -67,9 +68,9 @@ function Hero(): JSX.Element {
           </div>
         </div>
         <div className="hero-graph">
-          <Suspense>
+          <WhenVisible className="hero-stage">
             <HeroGraph />
-          </Suspense>
+          </WhenVisible>
         </div>
       </div>
     </section>
@@ -155,9 +156,9 @@ function Covers(): JSX.Element {
               </Link>
             </div>
             <div className="cell-visual sheet">
-              <Suspense>
+              <WhenVisible className="dense">
                 <DenseGraph />
-              </Suspense>
+              </WhenVisible>
             </div>
           </Cell>
           <Cell title={features.typed.title} text={features.typed.text}>
@@ -187,9 +188,9 @@ function Covers(): JSX.Element {
             text={features.layout.text}
           >
             <div className="cell-visual sheet">
-              <Suspense>
+              <WhenVisible className="dense">
                 <LayoutGraph />
-              </Suspense>
+              </WhenVisible>
             </div>
           </Cell>
           <Cell title={features.labels.title} text={features.labels.text}>

@@ -1,9 +1,11 @@
+import { thumbnailImage } from '../lib/thumbnail'
 import type { Showcase, ShowcaseApp, ShowcaseMeta, ShowcaseModule } from './types'
 
 export interface CatalogInput {
   readonly metas: Readonly<Record<string, unknown>>
   readonly entries: Readonly<Record<string, () => Promise<ShowcaseModule>>>
   readonly images: Readonly<Record<string, string>>
+  readonly resized?: Readonly<Record<string, string>>
 }
 
 export interface Catalog {
@@ -122,8 +124,10 @@ export function createCatalog(input: CatalogInput): Catalog {
     const found = checkMeta(slug, meta)
     problems.push(...found)
     if (found.length > 0 || !load) continue
-    const light = input.images[`./${slug}/${thumbnailFiles.light}`]
-    const dark = input.images[`./${slug}/${thumbnailFiles.dark}`]
+    const lightPath = `./${slug}/${thumbnailFiles.light}`
+    const darkPath = `./${slug}/${thumbnailFiles.dark}`
+    const light = thumbnailImage(input.images[lightPath], input.resized?.[lightPath])
+    const dark = thumbnailImage(input.images[darkPath], input.resized?.[darkPath])
     if (!light) missingThumbnails.push(`${slug}/${thumbnailFiles.light}`)
     if (!dark) missingThumbnails.push(`${slug}/${thumbnailFiles.dark}`)
     showcases.push({
@@ -143,6 +147,11 @@ export const catalog: Catalog = createCatalog({
   images: import.meta.glob<string>(['./*/thumbnail.webp', './*/thumbnail-dark.webp'], {
     eager: true,
     query: '?url',
+    import: 'default',
+  }),
+  resized: import.meta.glob<string>(['./*/thumbnail.webp', './*/thumbnail-dark.webp'], {
+    eager: true,
+    query: { w: '320;480', format: 'webp', quality: 80, as: 'srcset' },
     import: 'default',
   }),
 })

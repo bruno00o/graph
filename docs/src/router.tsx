@@ -6,6 +6,7 @@ export function getRouter() {
   return createRouter({
     routeTree,
     basepath: import.meta.env.BASE_URL,
+    trailingSlash: 'always',
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultNotFoundComponent: NotFound,

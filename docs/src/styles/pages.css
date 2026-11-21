@@ -179,20 +179,6 @@
   font-size: 14px;
 }
 
-.tk-k,
-.tk-p {
-  color: var(--code-muted);
-}
-
-.tk-s,
-.tk-n {
-  color: var(--code-literal);
-}
-
-.tk-f {
-  font-weight: 600;
-}
-
 .lead {
   font-size: 19px;
   line-height: 1.5;
@@ -284,6 +270,11 @@
   flex: 1 1 760px;
   min-width: 0;
   min-height: 680px;
+}
+
+.hero-stage {
+  position: absolute;
+  inset: 0;
 }
 
 .overlay {
