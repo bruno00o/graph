@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.33.0](https://github.com/bruno00o/graph/compare/0.32.0...0.33.0) (2026-11-21)
+
+
+### Features
+
+* create a graph without a page ([#259](https://github.com/bruno00o/graph/issues/259)) ([5b05581](https://github.com/bruno00o/graph/commit/5b0558124dcb6c0695fb8698c4a7cebcd0d425a7))
+* export a graph as an editable draw.io diagram ([#253](https://github.com/bruno00o/graph/issues/253)) ([f7f7be2](https://github.com/bruno00o/graph/commit/f7f7be28c55b26f50d65b9cf976529034fe68d96))
+* export a graph as an editable Visio drawing ([#255](https://github.com/bruno00o/graph/issues/255)) ([676d8c3](https://github.com/bruno00o/graph/commit/676d8c36f788f9dc765c69b0173ccd97231ce31d))
+* export svg from a graph without a page ([#261](https://github.com/bruno00o/graph/issues/261)) ([d7d168e](https://github.com/bruno00o/graph/commit/d7d168e7cdae9e5b8c9954ae430248c3b8c0d43c))
+* read label widths from a font file ([#260](https://github.com/bruno00o/graph/issues/260)) ([60b939f](https://github.com/bruno00o/graph/commit/60b939fe26ed566a2210f0a94dea787a2cb093ee))
+* wait until a graph has settled ([#258](https://github.com/bruno00o/graph/issues/258)) ([4777492](https://github.com/bruno00o/graph/commit/4777492a38e22f94f7b080d2372373197b171a09))
+
+
+### Bug Fixes
+
+* drop null properties from cypher elements and document lean result rows ([#251](https://github.com/bruno00o/graph/issues/251)) ([1530f25](https://github.com/bruno00o/graph/commit/1530f255502f8d7734065ecf4b34376d08066b9d))
+* open visio exports in microsoft visio ([#264](https://github.com/bruno00o/graph/issues/264)) ([f9dad7c](https://github.com/bruno00o/graph/commit/f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb))
+* reserve label space in layers from measured widths ([#257](https://github.com/bruno00o/graph/issues/257)) ([92e86c5](https://github.com/bruno00o/graph/commit/92e86c5379d9b000b29f742df5dcd3f4d87ea338))
+
 ## [0.32.0](https://github.com/bruno00o/graph/compare/0.31.1...0.32.0) (2026-11-16)
 
 
