@@ -24,6 +24,7 @@ export type {
   GraphSize,
 } from '../host/graph-instance'
 export type { GraphTheme, GraphThemeBase, GraphThemeOptions } from './colors'
+export { type FontFile, readFont } from './read-font'
 
 /** Options of `createGraph`. `S` and `M` come from the definition. */
 export interface CreateGraphOptions<S extends string = string, M extends Mark = Mark>
@@ -42,8 +43,8 @@ export interface CreateGraphOptions<S extends string = string, M extends Mark = 
   readonly theme?: GraphTheme | undefined
   /**
    * Width of a text in em, for label boxes, label selection and the layouts that leave room for
-   * labels, given for the font that will draw the labels. Defaults to the advance widths of
-   * Arial, which Liberation Sans and Helvetica share.
+   * labels. Pass `readFont(bytes).width` for the font that will draw the labels. Defaults to the
+   * advance widths of Arial, which Liberation Sans and Helvetica share.
    */
   readonly measureText?: TextWidth | undefined
   /** Title of the graph, written into exports. */

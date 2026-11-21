@@ -14,16 +14,20 @@ function createGraph<S extends string = string, M extends Mark = Mark>(
 Returns a [`GraphCore`](/docs/api/graph-core) built from the same definition as a mounted graph: it reads the data and the live sources, lays them out, bundles or routes the edges, and answers `pick`, `positions`, `paths`, `count`, the selection, the states, the time window and the history. It touches no DOM global and creates no WebGL context, so it runs in Node, a worker, or a page that only needs the numbers; it is tested in Node 24. `S` and `M` come from the definition.
 
 ```ts
+import { readFileSync } from 'node:fs'
 import { defineGraph, edges, nodes } from '@bruno00o/graph'
 import { exportDrawio } from '@bruno00o/graph/export'
-import { createGraph } from '@bruno00o/graph/headless'
+import { createGraph, readFont } from '@bruno00o/graph/headless'
 import { force } from '@bruno00o/graph/layouts/force'
 
+const font = readFont(readFileSync('fonts/Inter-Regular.ttf'))
 const graph = createGraph({
   definition: defineGraph({
     marks: [nodes(items, { label: 'label' }), edges(links, { source: 'from', target: 'to' })],
     layout: force(),
   }),
+  theme: { font: font.family },
+  measureText: font.width,
 })
 await graph.settled()
 const positions = graph.positions.snapshot()
@@ -64,7 +68,7 @@ createGraph({ definition, theme: { base: 'dark', colors: { accent: '#7a3ff2' } }
 
 Label boxes, the choice of the labels shown, the room `layers` leaves for labels and the bounds of the diagram exports depend on the width of the text. Without a page, nothing measures it: `measureText` gives it, in em. By default, the graph uses the advance widths of Arial, which Liberation Sans and Helvetica share, for the Latin letters, digits and signs; wide CJK characters count 1 em and other characters 0.5 em. Bold text counts 6 % wider. The default font of the theme is that family: `Arial, "Liberation Sans", Helvetica, sans-serif`.
 
-For text drawn in another font, pass its family as the `font` of the theme and a `measureText` of your own for its widths, so that the boxes fit the text drawn.
+For text drawn in another font, read its file with [`readFont`](/docs/api/read-font) and pass both its family and its widths, so that the boxes fit the text drawn.
 
 ## What needs a page
 

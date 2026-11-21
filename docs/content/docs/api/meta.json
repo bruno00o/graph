@@ -47,6 +47,7 @@
     "history",
     "---@bruno00o/graph/headless---",
     "create-graph",
+    "read-font",
     "---@bruno00o/graph/export---",
     "export",
     "---@bruno00o/graph/map---",
