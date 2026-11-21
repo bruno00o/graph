@@ -381,9 +381,8 @@ function edgeShape(writer: Writer, edge: DiagramEdge): string {
     const x = point.x - start.x
     const y = start.y - point.y
     const last = index === path.length - 1
-    const fx = index === 0 ? 'Width*0' : last ? 'Width*1' : `${inches(point.x)} in-BeginX`
-    const fy =
-      index === 0 ? 'Height*0' : last ? 'Height*1' : `${inches(height - point.y)} in-BeginY`
+    const fx = index === 0 ? 'Width*0' : last ? 'Width*1' : `${inches(point.x)}IN-BeginX`
+    const fy = index === 0 ? 'Height*0' : last ? 'Height*1' : `${inches(height - point.y)}IN-BeginY`
     return row(
       index === 0 ? 'MoveTo' : 'LineTo',
       index + 1,
@@ -600,15 +599,15 @@ function documentPart(faces: ReadonlyMap<string, number>): string {
     '<DynamicGridEnabled>0</DynamicGridEnabled><ProtectStyles>0</ProtectStyles><ProtectShapes>0</ProtectShapes>',
     '<ProtectMasters>0</ProtectMasters><ProtectBkgnds>0</ProtectBkgnds>',
     '</DocumentSettings>',
-    '<Colors><ColorEntry IX="0" RGB="#000000"/><ColorEntry IX="1" RGB="#FFFFFF"/></Colors>',
-    `<FaceNames>${names.map((name) => `<FaceName NameU="${attribute(name)}" Name="${attribute(name)}"/>`).join('')}</FaceNames>`,
+    `<FaceNames>${names.map((name) => `<FaceName NameU="${attribute(name)}"/>`).join('')}</FaceNames>`,
     styleSheet,
+    '<DocumentSheet NameU="TheDoc" Name="TheDoc" LineStyle="0" FillStyle="0" TextStyle="0"/>',
     '</VisioDocument>',
   ].join('')
 }
 
 function pagesPart(diagram: Diagram): string {
-  const name = attribute(diagram.title ?? 'Page-1')
+  const name = attribute(diagram.title || 'Page-1')
   return [
     xmlHead,
     `<Pages xmlns="${mainNamespace}" xmlns:r="${relationNamespace}" xml:space="preserve">`,

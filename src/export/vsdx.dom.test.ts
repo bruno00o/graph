@@ -331,7 +331,7 @@ describe('exportVsdx', () => {
     const cy = shapeByKey(page, 'cy')
     const bend = rows[1] as XmlElement
     const x = all(bend, 'Cell').find((c) => attributeOf(c, 'N') === 'X') as XmlElement
-    expect(attributeOf(x, 'F')).toMatch(/^[\d.]+ in-BeginX$/)
+    expect(attributeOf(x, 'F')).toMatch(/^[\d.]+IN-BeginX$/)
     expect(Number(attributeOf(x, 'V')) + numberOf(way, 'BeginX')).toBeCloseTo(
       numberOf(cy, 'PinX'),
       4,
@@ -399,5 +399,275 @@ describe('exportVsdx', () => {
     const sheet = all(part(sized, 'visio/pages/pages.xml'), 'PageSheet')[0] as XmlElement
     expect(numberOf(sheet, 'PageWidth')).toBe(10)
     expect(numberOf(sheet, 'PageHeight')).toBe(5)
+  })
+})
+
+interface Rule {
+  readonly attributes: readonly string[]
+  readonly required?: readonly string[]
+  readonly slots?: readonly (readonly string[])[]
+  readonly once?: readonly string[]
+  readonly least?: readonly string[]
+}
+
+const sheetAttributes = ['LineStyle', 'FillStyle', 'TextStyle']
+const sheetSlot = ['Cell', 'Trigger', 'Section']
+const leaf: Rule = { attributes: [] }
+const settings = [
+  'GlueSettings',
+  'SnapSettings',
+  'SnapExtensions',
+  'SnapAngles',
+  'DynamicGridEnabled',
+  'ProtectStyles',
+  'ProtectShapes',
+  'ProtectMasters',
+  'ProtectBkgnds',
+]
+
+const rules: Readonly<Record<string, Rule>> = {
+  VisioDocument: {
+    attributes: ['space'],
+    slots: [
+      ['DocumentSettings'],
+      ['Colors'],
+      ['FaceNames'],
+      ['StyleSheets'],
+      ['DocumentSheet'],
+      ['EventList'],
+      ['HeaderFooter'],
+      ['PublishSettings'],
+    ],
+    once: ['DocumentSettings', 'Colors', 'FaceNames', 'StyleSheets', 'DocumentSheet'],
+  },
+  DocumentSettings: {
+    attributes: [
+      'TopPage',
+      'DefaultTextStyle',
+      'DefaultLineStyle',
+      'DefaultFillStyle',
+      'DefaultGuideStyle',
+    ],
+    slots: settings.map((name) => [name]),
+    once: settings,
+  },
+  ...Object.fromEntries(settings.map((name) => [name, leaf])),
+  Colors: { attributes: [], slots: [['ColorEntry']], least: ['ColorEntry'] },
+  ColorEntry: { attributes: ['IX', 'RGB'], required: ['IX', 'RGB'] },
+  FaceNames: { attributes: [], slots: [['FaceName']], least: ['FaceName'] },
+  FaceName: {
+    attributes: ['NameU', 'UnicodeRanges', 'CharSets', 'Panos', 'Panose', 'Flags'],
+    required: ['NameU'],
+  },
+  StyleSheets: { attributes: [], slots: [['StyleSheet']] },
+  StyleSheet: {
+    attributes: ['ID', 'Name', 'NameU', 'IsCustomName', 'IsCustomNameU', ...sheetAttributes],
+    required: ['ID'],
+    slots: [sheetSlot],
+  },
+  DocumentSheet: {
+    attributes: ['Name', 'NameU', 'IsCustomName', 'IsCustomNameU', 'UniqueID', ...sheetAttributes],
+    slots: [sheetSlot],
+  },
+  Section: {
+    attributes: ['N', 'Del', 'IX'],
+    required: ['N'],
+    slots: [['Cell'], ['Trigger'], ['Row']],
+  },
+  Row: { attributes: ['N', 'LocalName', 'IX', 'T', 'Del'], slots: [['Cell'], ['Trigger']] },
+  Cell: { attributes: ['N', 'U', 'E', 'F', 'V'], required: ['N'], slots: [['RefBy']] },
+  Pages: { attributes: ['space'], slots: [['Page']] },
+  Page: {
+    attributes: [
+      'ID',
+      'Name',
+      'NameU',
+      'IsCustomName',
+      'IsCustomNameU',
+      'Background',
+      'BackPage',
+      'ViewScale',
+      'ViewCenterX',
+      'ViewCenterY',
+      'ReviewerID',
+      'AssociatedPage',
+    ],
+    required: ['ID'],
+    slots: [['PageSheet'], ['Rel']],
+    once: ['PageSheet', 'Rel'],
+    least: ['Rel'],
+  },
+  PageSheet: { attributes: ['UniqueID', ...sheetAttributes], slots: [sheetSlot] },
+  Rel: { attributes: ['id'], required: ['id'] },
+  PageContents: {
+    attributes: ['space'],
+    slots: [['Shapes'], ['Connects']],
+    once: ['Shapes', 'Connects'],
+  },
+  Shapes: { attributes: [], slots: [['Shape']] },
+  Shape: {
+    attributes: [
+      'ID',
+      'OriginalID',
+      'Del',
+      'MasterShape',
+      'UniqueID',
+      'Name',
+      'NameU',
+      'IsCustomName',
+      'IsCustomNameU',
+      'Master',
+      'Type',
+      ...sheetAttributes,
+    ],
+    required: ['ID'],
+    slots: [sheetSlot, ['Text'], ['Data1'], ['Data2'], ['Data3'], ['ForeignData'], ['Shapes']],
+    once: ['Text', 'Data1', 'Data2', 'Data3', 'ForeignData', 'Shapes'],
+  },
+  Text: { attributes: [], slots: [['cp', 'pp', 'tp', 'fld']] },
+  cp: { attributes: ['IX'], required: ['IX'] },
+  pp: { attributes: ['IX'], required: ['IX'] },
+  Connects: { attributes: [], slots: [['Connect']] },
+  Connect: {
+    attributes: ['FromSheet', 'FromCell', 'FromPart', 'ToSheet', 'ToCell', 'ToPart'],
+    required: ['FromSheet', 'ToSheet'],
+  },
+}
+
+function breaches(element: XmlElement, path = element.name): string[] {
+  const rule = rules[element.name]
+  if (!rule) return [`${path}: unknown element`]
+  const found: string[] = []
+  const names = element.attributes.filter((_, index) => index % 2 === 0)
+  for (const name of names) {
+    if (!rule.attributes.includes(name)) found.push(`${path}: attribute ${name}`)
+  }
+  for (const name of rule.required ?? []) {
+    if (!names.includes(name)) found.push(`${path}: missing ${name}`)
+  }
+  const slots = rule.slots ?? []
+  let reached = 0
+  for (const child of element.children) {
+    const slot = slots.findIndex((allowed) => allowed.includes(child.name))
+    if (slot < 0) found.push(`${path}: child ${child.name}`)
+    else if (slot < reached) found.push(`${path}: ${child.name} out of order`)
+    else reached = slot
+  }
+  for (const name of rule.once ?? []) {
+    if (own(element, name).length > 1) found.push(`${path}: several ${name}`)
+  }
+  for (const name of rule.least ?? []) {
+    if (own(element, name).length === 0) found.push(`${path}: no ${name}`)
+  }
+  for (const child of element.children) found.push(...breaches(child, `${path}/${child.name}`))
+  return found
+}
+
+async function richEntries(): Promise<Entry[]> {
+  const members: Person[] = [
+    { id: 'team', x: 0, y: 0, name: 'Team' },
+    { id: 'in1', x: 100, y: 100, name: 'In one', parent: 'team', shape: 'box' },
+    { id: 'in2', x: 200, y: 140, name: 'In two', parent: 'team', shape: 'diamond' },
+    { id: 'out', x: 400, y: 0, name: 'Out' },
+  ]
+  const list: Link[] = [
+    { id: 'across', from: 'out', to: 'in1', label: 'across' },
+    { id: 'one', from: 'in1', to: 'in2' },
+    { id: 'two', from: 'in1', to: 'in2', dash: 'dashed' },
+    { id: 'loop', from: 'out', to: 'out' },
+    {
+      id: 'way',
+      from: 'in2',
+      to: 'out',
+      way: [
+        { x: 200, y: 300 },
+        { x: 400, y: 300 },
+      ],
+    },
+  ]
+  const graph = mount({
+    marks: [
+      edges(list, {
+        source: 'from',
+        target: 'to',
+        label: { text: 'label', background: true },
+        dash: (link) => link.dash ?? 'solid',
+        arrow: 'both',
+        waypoints: (link) => link.way ?? null,
+        ends: {
+          source: { label: (link) => `${link.from}` },
+          target: { label: (link) => `${link.to}` },
+        },
+      }),
+      nodes(members, {
+        x: 'x',
+        y: 'y',
+        label: 'name',
+        parent: 'parent',
+        shape: (person) => person.shape ?? 'circle',
+        size: 24,
+      }),
+    ],
+  })
+  return unzip(await exportVsdx(graph))
+}
+
+describe('exportVsdx against MS-VSDX', () => {
+  it('writes Visio parts with the elements, attributes and order of the schema', async () => {
+    const entries = await richEntries()
+    const visio = entries.filter(
+      (entry) => entry.name.startsWith('visio/') && !entry.name.includes('_rels'),
+    )
+    expect(visio.map((entry) => entry.name).sort()).toEqual([
+      'visio/document.xml',
+      'visio/pages/page1.xml',
+      'visio/pages/pages.xml',
+    ])
+    for (const entry of visio) expect(breaches(part(entries, entry.name))).toEqual([])
+  })
+
+  it('keeps fonts, colors and formulas within what the format defines', async () => {
+    const entries = await richEntries()
+    const document = part(entries, 'visio/document.xml')
+    const faces = all(document, 'FaceName').map((face) => attributeOf(face, 'NameU'))
+    for (const entry of all(document, 'ColorEntry')) {
+      expect(Number(attributeOf(entry, 'IX'))).toBeGreaterThan(23)
+    }
+    const page = part(entries, 'visio/pages/page1.xml')
+    const cells = [...all(document, 'Cell'), ...all(page, 'Cell')]
+    const fonts = cells.filter((cell) => attributeOf(cell, 'N') === 'Font')
+    expect(fonts.length).toBeGreaterThan(0)
+    for (const font of fonts) expect(faces).toContain(attributeOf(font, 'V'))
+    const formulas = cells.flatMap((cell) => attributeOf(cell, 'F') ?? [])
+    expect(formulas.some((formula) => formula.endsWith('IN-BeginX'))).toBe(true)
+    for (const formula of formulas) expect(formula).not.toMatch(/\s/)
+    for (const cell of cells) {
+      const unit = attributeOf(cell, 'U')
+      if (unit !== undefined) expect(['STR', 'IN_F', 'BOOL']).toContain(unit)
+    }
+    const first = all(part(entries, 'visio/pages/pages.xml'), 'Page')[0] as XmlElement
+    expect(attributeOf(first, 'Name')).not.toBe('')
+  })
+
+  it('gives every part a content type and every relationship a target', async () => {
+    const entries = await richEntries()
+    const types = part(entries, '[Content_Types].xml')
+    const defaults = own(types, 'Default').map((item) => attributeOf(item, 'Extension'))
+    const overrides = own(types, 'Override').map((item) => attributeOf(item, 'PartName'))
+    const names = entries.map((entry) => entry.name)
+    expect(new Set(names.map((name) => name.toLowerCase())).size).toBe(names.length)
+    for (const name of names) {
+      if (name === '[Content_Types].xml') continue
+      const extension = name.slice(name.lastIndexOf('.') + 1)
+      expect(overrides.includes(`/${name}`) || defaults.includes(extension)).toBe(true)
+    }
+    for (const name of names.filter((item) => item.endsWith('.rels'))) {
+      const ids = own(part(entries, name), 'Relationship').map((item) => attributeOf(item, 'Id'))
+      expect(new Set(ids).size).toBe(ids.length)
+    }
+    const root = own(part(entries, '_rels/.rels'), 'Relationship').map((item) =>
+      attributeOf(item, 'Type'),
+    )
+    expect(root).toContain('http://schemas.microsoft.com/visio/2010/relationships/document')
   })
 })
