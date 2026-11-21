@@ -381,9 +381,8 @@ function edgeShape(writer: Writer, edge: DiagramEdge): string {
     const x = point.x - start.x
     const y = start.y - point.y
     const last = index === path.length - 1
-    const fx = index === 0 ? 'Width*0' : last ? 'Width*1' : `${inches(point.x)} in-BeginX`
-    const fy =
-      index === 0 ? 'Height*0' : last ? 'Height*1' : `${inches(height - point.y)} in-BeginY`
+    const fx = index === 0 ? 'Width*0' : last ? 'Width*1' : `${inches(point.x)}IN-BeginX`
+    const fy = index === 0 ? 'Height*0' : last ? 'Height*1' : `${inches(height - point.y)}IN-BeginY`
     return row(
       index === 0 ? 'MoveTo' : 'LineTo',
       index + 1,
@@ -531,6 +530,8 @@ const contentTypes = [
   '<Override PartName="/visio/document.xml" ContentType="application/vnd.ms-visio.drawing.main+xml"/>',
   '<Override PartName="/visio/pages/pages.xml" ContentType="application/vnd.ms-visio.pages+xml"/>',
   '<Override PartName="/visio/pages/page1.xml" ContentType="application/vnd.ms-visio.page+xml"/>',
+  '<Override PartName="/visio/windows.xml" ContentType="application/vnd.ms-visio.windows+xml"/>',
+  '<Override PartName="/visio/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>',
   '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>',
   '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>',
   '</Types>',
@@ -600,15 +601,15 @@ function documentPart(faces: ReadonlyMap<string, number>): string {
     '<DynamicGridEnabled>0</DynamicGridEnabled><ProtectStyles>0</ProtectStyles><ProtectShapes>0</ProtectShapes>',
     '<ProtectMasters>0</ProtectMasters><ProtectBkgnds>0</ProtectBkgnds>',
     '</DocumentSettings>',
-    '<Colors><ColorEntry IX="0" RGB="#000000"/><ColorEntry IX="1" RGB="#FFFFFF"/></Colors>',
-    `<FaceNames>${names.map((name) => `<FaceName NameU="${attribute(name)}" Name="${attribute(name)}"/>`).join('')}</FaceNames>`,
+    `<FaceNames>${names.map((name) => `<FaceName NameU="${attribute(name)}"/>`).join('')}</FaceNames>`,
     styleSheet,
+    '<DocumentSheet NameU="TheDoc" Name="TheDoc" LineStyle="0" FillStyle="0" TextStyle="0"/>',
     '</VisioDocument>',
   ].join('')
 }
 
 function pagesPart(diagram: Diagram): string {
-  const name = attribute(diagram.title ?? 'Page-1')
+  const name = attribute(diagram.title || 'Page-1')
   return [
     xmlHead,
     `<Pages xmlns="${mainNamespace}" xmlns:r="${relationNamespace}" xml:space="preserve">`,
@@ -658,6 +659,57 @@ const appPart = [
   '</Properties>',
 ].join('')
 
+function windowsPart(diagram: Diagram): string {
+  return [
+    xmlHead,
+    `<Windows ClientWidth="1280" ClientHeight="800" xmlns="${mainNamespace}" xmlns:r="${relationNamespace}" xml:space="preserve">`,
+    '<Window ID="0" WindowType="Drawing" WindowState="1073741824" WindowLeft="0" WindowTop="0"',
+    ' WindowWidth="1280" WindowHeight="800" ContainerType="Page" Page="0" ViewScale="1"',
+    ` ViewCenterX="${inches(diagram.width / 2)}" ViewCenterY="${inches(diagram.height / 2)}">`,
+    '<ShowRulers>1</ShowRulers><ShowGrid>1</ShowGrid><ShowPageBreaks>0</ShowPageBreaks>',
+    '<ShowGuides>1</ShowGuides><ShowConnectionPoints>1</ShowConnectionPoints>',
+    '<GlueSettings>9</GlueSettings><SnapSettings>65847</SnapSettings><SnapExtensions>34</SnapExtensions>',
+    '<SnapAngles/><DynamicGridEnabled>0</DynamicGridEnabled><TabSplitterPos>0.5</TabSplitterPos>',
+    '</Window></Windows>',
+  ].join('')
+}
+
+const themeColors: readonly [string, string][] = [
+  ['dk1', '000000'],
+  ['lt1', 'FFFFFF'],
+  ['dk2', '2B2D31'],
+  ['lt2', 'F2F2F0'],
+  ['accent1', '2A6FDB'],
+  ['accent2', 'E07B39'],
+  ['accent3', '3A9E6B'],
+  ['accent4', 'C9A227'],
+  ['accent5', '7A5CC7'],
+  ['accent6', 'C2477A'],
+  ['hlink', '2A6FDB'],
+  ['folHlink', '7A5CC7'],
+]
+
+const themeFace = '<a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/>'
+const themeFill = '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+const themeLine =
+  '<a:ln w="9525"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln>'
+const themeEffect = '<a:effectStyle><a:effectLst/></a:effectStyle>'
+
+const themePart = [
+  xmlHead,
+  '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Graph">',
+  '<a:themeElements><a:clrScheme name="Graph">',
+  ...themeColors.map(([name, value]) => `<a:${name}><a:srgbClr val="${value}"/></a:${name}>`),
+  '</a:clrScheme><a:fontScheme name="Graph">',
+  `<a:majorFont>${themeFace}</a:majorFont><a:minorFont>${themeFace}</a:minorFont>`,
+  '</a:fontScheme><a:fmtScheme name="Graph">',
+  `<a:fillStyleLst>${themeFill.repeat(3)}</a:fillStyleLst>`,
+  `<a:lnStyleLst>${themeLine.repeat(3)}</a:lnStyleLst>`,
+  `<a:effectStyleLst>${themeEffect.repeat(3)}</a:effectStyleLst>`,
+  `<a:bgFillStyleLst>${themeFill.repeat(3)}</a:bgFillStyleLst>`,
+  '</a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>',
+].join('')
+
 export function vsdxParts(diagram: Diagram): ZipEntry[] {
   const encoder = new TextEncoder()
   const faces = new Map<string, number>()
@@ -675,7 +727,16 @@ export function vsdxParts(diagram: Diagram): ZipEntry[] {
     ['docProps/core.xml', corePart(diagram)],
     ['docProps/app.xml', appPart],
     ['visio/document.xml', documentPart(faces)],
-    ['visio/_rels/document.xml.rels', relations([[`${visioRelations}/pages`, 'pages/pages.xml']])],
+    [
+      'visio/_rels/document.xml.rels',
+      relations([
+        [`${visioRelations}/pages`, 'pages/pages.xml'],
+        [`${visioRelations}/windows`, 'windows.xml'],
+        [`${relationNamespace}/theme`, 'theme/theme1.xml'],
+      ]),
+    ],
+    ['visio/windows.xml', windowsPart(diagram)],
+    ['visio/theme/theme1.xml', themePart],
     ['visio/pages/pages.xml', pagesPart(diagram)],
     ['visio/pages/_rels/pages.xml.rels', relations([[`${visioRelations}/page`, 'page1.xml']])],
     ['visio/pages/page1.xml', page],
