@@ -1514,11 +1514,11 @@ skills:
         priority: MEDIUM
         status: active
       - mistake: "Forgetting to stop persistPositions"
-        mechanism: "persistPositions returns a function that removes its listener and flushes the last write, so a graph or component that goes away without calling it leaks the listener and may lose the last move."
+        mechanism: "persistPositions returns { stop }, whose stop removes its listener and flushes the last write, so a graph or component that goes away without calling it leaks the listener and may lose the last move."
         wrong_pattern: |
           useEffect(() => { persistPositions(graph, { collection: items }) }, [graph, items])
         correct_pattern: |
-          useEffect(() => persistPositions(graph, { collection: items }), [graph, items])
+          useEffect(() => persistPositions(graph, { collection: items }).stop, [graph, items])
         source: "docs/content/docs/api/persist-positions.mdx"
         priority: MEDIUM
         status: active

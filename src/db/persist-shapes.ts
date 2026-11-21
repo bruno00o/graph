@@ -8,7 +8,7 @@ import {
 import type { ShapeEditor } from '../editor/editor'
 import type { ShapeAddEdit, ShapeAddEditOf, ShapeEdit, ShapeMarkName } from '../editor/edits'
 import { editorLink } from '../editor/link'
-import type { FieldOf, Key, Mark, ShapeGeometry, WritableShapeGeometry } from '../types'
+import type { FieldOf, FreeState, Key, Mark, ShapeGeometry, WritableShapeGeometry } from '../types'
 import { defaultWait, pace, pendingMarks, type Settling } from './pending'
 
 /** Fields of a row that `persistShapes` writes. `T` is the type of the rows. */
@@ -31,14 +31,16 @@ export interface PersistShapeFields<T> {
 }
 
 /**
- * Options of `persistShapes`. `M` is the union of the marks of the graph, and `N` the name given
- * to `mark`, which narrows the edits that `create` receives to the marks of that name.
+ * Options of `persistShapes`. `M` is the union of the marks of the graph, `N` the name given to
+ * `mark`, which narrows the edits that `create` receives to the marks of that name, and `S` the
+ * union of the free state names of the graph.
  */
 export interface PersistShapesOptions<
   T extends object,
   TKey extends string | number,
   M extends Mark = Mark,
   N extends ShapeMarkName<M> = ShapeMarkName<M>,
+  S extends string = string,
 > {
   /** Collection to write to. */
   readonly collection: Collection<T, TKey>
@@ -76,7 +78,13 @@ export interface PersistShapesOptions<
    * Free state of the definition that holds the shapes whose write is pending, from the write
    * until it is done or has failed. Without it, no state is set.
    */
-  readonly pendingState?: string | undefined
+  readonly pendingState?: S | undefined
+}
+
+/** What `persistShapes` returns. */
+export interface ShapePersistence {
+  /** Stops writing the edits of the editor. */
+  stop(): void
 }
 
 const liveRest = 4
@@ -130,15 +138,19 @@ function sameValue(a: unknown, b: unknown): boolean {
 
 /**
  * Writes the edits of a shape editor to a TanStack DB collection: the changed fields of each
- * changed shape, the removed rows and, with `create`, the new ones. Returns a function that stops
- * writing. Throws when `pendingState` is not a free state of the graph.
+ * changed shape, the removed rows and, with `create`, the new ones. Throws when `pendingState` is
+ * not a free state of the graph.
  */
 export function persistShapes<
   T extends object,
   TKey extends string | number,
   M extends Mark,
   N extends ShapeMarkName<M> = ShapeMarkName<M>,
->(editor: ShapeEditor<M>, options: PersistShapesOptions<T, TKey, M, N>): () => void {
+  S extends string = string,
+>(
+  editor: ShapeEditor<M, S>,
+  options: PersistShapesOptions<T, TKey, M, N, FreeState<S>>,
+): ShapePersistence {
   const link = editorLink(editor, 'persistShapes')
   const { collection, mutationFn, create } = options
   const wait = liveWait(options.live)
@@ -342,9 +354,11 @@ export function persistShapes<
     wrote = false
     write(edits, true)
   })
-  return () => {
-    unlisten()
-    unwatch()
-    paced?.cancel()
+  return {
+    stop() {
+      unlisten()
+      unwatch()
+      paced?.cancel()
+    },
   }
 }

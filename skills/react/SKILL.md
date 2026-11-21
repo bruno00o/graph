@@ -227,7 +227,7 @@ export function LiveGraph() {
 
 ### Drive the graph from outside `<Graph>`
 
-A toolbar, panel or status bar elsewhere in the page gets the instance through the `ref` of `<Graph>`, kept in state, and passes it in the `graph` option of the hooks. The instance is `null` on the first render: the hooks then return `undefined` and subscribe to nothing, and follow the graph once it exists. With a typed `graph`, selectors and handlers need no annotation. The package exports no helper for the instance type of a definition: declare `InstanceOf` below once in your app.
+A toolbar, panel or status bar elsewhere in the page gets the instance through the `ref` of `<Graph>`, kept in state, and passes it in the `graph` option of the hooks. The instance is `null` on the first render: the hooks then return `undefined` and subscribe to nothing, and follow the graph once it exists. With a typed `graph`, selectors and handlers need no annotation. The `graph` option of `useGraphState`, `useGraphEvent`, `useLegend` and `useTimeline`, and the `graph` prop of `<Legend>` and `<Timeline>`, also take a `GraphCore` made by `createGraph` (headless skill). The package exports no helper for the instance type of a definition: declare `InstanceOf` below once in your app.
 
 ```tsx
 import { defineGraph, edges, type GraphDefinition, type GraphInstance, nodes } from '@bruno00o/graph'

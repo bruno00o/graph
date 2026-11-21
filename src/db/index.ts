@@ -7,7 +7,7 @@ import {
 } from '@tanstack/db'
 import { degreesOf } from '../core/geo'
 import type { GraphPositionEvent } from '../host/events'
-import type { GraphInstance } from '../host/mount-graph'
+import type { GraphCore } from '../host/graph-instance'
 import type { FieldOf, FreeState, GeoPoint, Key, Point } from '../types'
 import { defaultWait, pace, pendingMarks, type Settling } from './pending'
 
@@ -15,6 +15,7 @@ export {
   type PersistShapeFields,
   type PersistShapesOptions,
   persistShapes,
+  type ShapePersistence,
 } from './persist-shapes'
 export {
   type Presence,
@@ -84,17 +85,26 @@ export interface PersistPositionsOptions<
   readonly surfaces?: readonly string[] | undefined
 }
 
+/** What `persistPositions` returns. */
+export interface PositionPersistence {
+  /** Stops listening to the moves, and writes the last pending one at once. */
+  stop(): void
+}
+
 /**
  * Writes the positions of moved nodes to a TanStack DB collection, in world units or as degrees:
  * drags, `positions.set`, `positions.reset` and layout results, on the surfaces named by
- * `surfaces`. Returns a function that stops listening and writes the last pending move at once.
- * Throws when `pendingState` is not a free state of the graph.
+ * `surfaces`. Takes a mounted graph or one made by `createGraph`. Throws when `pendingState` is
+ * not a free state of the graph.
  */
 export function persistPositions<
   T extends object,
   TKey extends string | number,
   S extends string = string,
->(graph: GraphInstance<S>, options: PersistPositionsOptions<T, TKey, FreeState<S>>): () => void {
+>(
+  graph: GraphCore<S>,
+  options: PersistPositionsOptions<T, TKey, FreeState<S>>,
+): PositionPersistence {
   const { collection, mutationFn, create } = options
   const degrees = options.longitude !== undefined || options.latitude !== undefined
   if (degrees && (options.longitude === undefined || options.latitude === undefined)) {
@@ -153,7 +163,7 @@ export function persistPositions<
         options.strategy ?? throttleStrategy({ wait: defaultWait, leading: true, trailing: true }),
     })
     const tracked = new WeakSet<object>()
-    return graph.on('positionchange', (event: GraphPositionEvent) => {
+    const off = graph.on('positionchange', (event: GraphPositionEvent) => {
       if (!surfaces.has(event.surface)) return
       const transaction = mutate(event.positions)
       if (!marks) return
@@ -162,6 +172,7 @@ export function persistPositions<
       tracked.add(transaction)
       marks.settle(transaction, [transaction])
     })
+    return { stop: off }
   }
 
   let pending = new Map<Key, Point>()
@@ -181,8 +192,10 @@ export function persistPositions<
     marks?.hold(event.positions.keys(), pending)
     paced.call()
   })
-  return () => {
-    stop()
-    paced.flush()
+  return {
+    stop() {
+      stop()
+      paced.flush()
+    },
   }
 }

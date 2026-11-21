@@ -11,16 +11,24 @@ function persistShapes<
   TKey extends string | number,
   M extends Mark,
   N extends ShapeMarkName<M> = ShapeMarkName<M>,
->(editor: ShapeEditor<M>, options: PersistShapesOptions<T, TKey, M, N>): () => void
+  S extends string = string,
+>(
+  editor: ShapeEditor<M, S>,
+  options: PersistShapesOptions<T, TKey, M, N, FreeState<S>>,
+): ShapePersistence
 ```
 
-Listens to the `edit` event of a [shape editor](/docs/api/editor) and writes each edit into the collection: the changed fields of a changed shape, the removal of a removed one and, with `create`, the row of a new one. Returns a function that stops writing. Throws when `pendingState` is not a free state of the definition, when `live` is negative or NaN, and when `editor` was not made by `createShapeEditor`.
+Listens to the `edit` event of a [shape editor](/docs/api/editor) and writes each edit into the collection: the changed fields of a changed shape, the removal of a removed one and, with `create`, the row of a new one. Returns an object whose `stop` stops writing. `pendingState` only accepts a free state of the graph of the editor, and the call throws when it is not one, when `live` is negative or NaN, and when `editor` was not made by `createShapeEditor`.
 
 ## Options
 
 <api-table path="db/index.ts" name="PersistShapesOptions" />
 
 <api-table path="db/index.ts" name="PersistShapeFields" />
+
+## Result
+
+<api-table path="db/index.ts" name="ShapePersistence" />
 
 ## Behavior
 

@@ -5,6 +5,28 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.34.0
+
+### `persistPositions` and `persistShapes` return `{ stop }`
+
+Both return an object, as `showPresence` does, instead of a function. Call its `stop` method:
+
+```ts
+// Before
+const stop = persistPositions(graph, { collection })
+stop()
+
+// After
+const { stop } = persistPositions(graph, { collection })
+stop()
+```
+
+In a React effect, return the method: `useEffect(() => persistShapes(editor, options).stop, [editor])`.
+
+### `pendingState` of `persistShapes` takes the state names of the graph
+
+A shape editor now carries the state names of its graph, and `pendingState` only accepts one of its free states, as with `persistPositions`. A name that the graph does not declare no longer compiles, where it threw at run time. Nothing changes for an editor of an untyped graph.
+
 ## 0.27.0
 
 ### The legend lists shapes

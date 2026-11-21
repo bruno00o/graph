@@ -71,6 +71,7 @@ editor.on('editlost', ({ edits }) => console.log('not saved', edits.length))
 
 - `createShapeEditor` takes the pointer and the keys of the graph; `mountShapeEditor` draws the shapes being edited, the handles and the text input in an SVG layer over the graph. Without the layer, a shape being edited disappears: the graph hides it until its data changes.
 - One editor per graph: a second `createShapeEditor` on the same graph throws until the first is destroyed. `editor.destroy()` gives the pointer and the keys back and removes its layer; destroying the graph destroys both.
+- `editor.on(name, handler, { signal })` returns a function that stops the handler, and stops it too when `signal` aborts, as `graph.on` does (`{ signal: graph.signal }` ties it to the graph). Destroying the editor stops every handler.
 - `marks` lists the names of the editable shape marks, every shape mark by default. Shapes of other marks, and shapes whose geometry cannot be read, take the pointer as without the editor.
 - The editor is typed by the graph: `edit.datum` is the item type of the mark, `edit.mark` its name. With several shape marks, `ShapeEdit<M>` is split by mark: narrow on `edit.type`, then on `edit.mark`, and `datum` takes the item type of that mark (below). Without a shape mark in `M`, or for the plain `Mark` type, it is one union over the items of every mark. `applyShapeEdits` stays wide: it takes the edits of every mark, and `mark` keeps those of one at run time.
 
@@ -294,7 +295,7 @@ Inside `<Graph>` without `graph`, the edits are not typed by the marks: pass `gr
 
 ### Save to a collection, show others
 
-With a TanStack DB collection as the source of the shapes, `persistShapes(editor, { collection, create })` writes each edit into it (changed fields only, removed rows, new rows through `create`) and returns a function that stops. `live: true` writes during the gesture too. `showPresence(graph, { collection, me, create })` shows the cursors and selections of the other people from a collection of presence rows, with or without an editor. Details: [persistence](references/persistence.md), [presence](references/presence.md).
+With a TanStack DB collection as the source of the shapes, `persistShapes(editor, { collection, create })` writes each edit into it (changed fields only, removed rows, new rows through `create`) and returns `{ stop }`. `live: true` writes during the gesture too. `showPresence(graph, { collection, me, create })` shows the cursors and selections of the other people from a collection of presence rows, with or without an editor. Details: [persistence](references/persistence.md), [presence](references/presence.md).
 
 ## Common Mistakes
 
