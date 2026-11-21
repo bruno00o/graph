@@ -449,7 +449,7 @@ describe('moving a graph onto a map and back', () => {
     )
     const graph = mount()
     await settle()
-    const stop = persistPositions(graph, { collection: rows })
+    const { stop } = persistPositions(graph, { collection: rows })
     const both = createCollection(
       localOnlyCollectionOptions({
         id: 'switch-both',
@@ -457,7 +457,10 @@ describe('moving a graph onto a map and back', () => {
         initialData: [{ id: 'c', x: 0, y: 0 }],
       }),
     )
-    const stopBoth = persistPositions(graph, { collection: both, surfaces: ['canvas', 'map'] })
+    const { stop: stopBoth } = persistPositions(graph, {
+      collection: both,
+      surfaces: ['canvas', 'map'],
+    })
     graph.update({ surface: mapSurface(map) })
     render()
     graph.positions.set([['c', { x: 7, y: 8 }]])

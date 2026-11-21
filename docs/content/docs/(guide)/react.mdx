@@ -116,6 +116,8 @@ The option wins over the graph in context. The `ref` is `null` on the first rend
 
 `useLegend`, `useTimeline`, `<Minimap>`, `<Legend>` and `<Timeline>` take the same `graph` and accept `null` too: they draw nothing, and their state stays empty, until a graph is given.
 
+All of them but `<Minimap>` read nothing of the page, so their `graph` can also be a graph made by [`createGraph`](/docs/api/create-graph), with no element of its own: a panel can show the state, the legend and the timeline of a graph that only lives in memory.
+
 ## Companions beside the graph
 
 `<Minimap>`, `<Legend>`, `<Timeline>`, `useLegend` and `useTimeline` follow the `<Graph>` around them. To place one elsewhere in the page, pass the graph in its `graph` prop or option. Keep the instance in state with the `ref` of `<Graph>`, so the companion renders once the graph exists:

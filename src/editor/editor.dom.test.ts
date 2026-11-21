@@ -514,6 +514,28 @@ describe('createShapeEditor', () => {
     graph.destroy()
   })
 
+  it('stops a handler when the signal given to on aborts', () => {
+    const graph = mount()
+    const editor = createShapeEditor(graph)
+    const controller = new AbortController()
+    const seen: string[] = []
+    editor.on('edit', () => seen.push('signal'), { signal: controller.signal })
+    editor.on('edit', () => seen.push('aborted'), { signal: AbortSignal.abort() })
+    const stop = editor.on('edit', () => seen.push('plain'))
+    editor.remove(['box'])
+    expect(seen).toEqual(['signal', 'plain'])
+    controller.abort()
+    stop()
+    editor.remove(['tri'])
+    expect(seen).toEqual(['signal', 'plain'])
+    const later = new AbortController()
+    editor.on('edit', () => seen.push('later'), { signal: later.signal })
+    editor.destroy()
+    later.abort()
+    expect(seen).toEqual(['signal', 'plain'])
+    graph.destroy()
+  })
+
   it('edits only the marks it is given, and leaves the rest to the graph', () => {
     const graph = mount()
     const editor = createShapeEditor(graph, { marks: ['pinned'] })

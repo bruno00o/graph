@@ -2,6 +2,8 @@ import { act, type ReactNode, StrictMode, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
+import { createGraph } from '../headless'
+import type { GraphCore } from '../host/graph-instance'
 import { mountGraph } from '../host/mount-graph'
 import { nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
@@ -300,6 +302,32 @@ describe('a null graph in the companions', () => {
     expect(text()).toBe('false:true:false:false')
     render(<Companions graph={null} />)
     expect(container.querySelector('[data-graph-timeline]')).toBeNull()
+    graph.destroy()
+  })
+})
+
+function Scripted({ graph }: { readonly graph: GraphCore<'match', Marks> }): ReactNode {
+  const count = useGraphState((state) => state.selection.nodes.length, { graph })
+  const [events, setEvents] = useState(0)
+  useGraphEvent('selectionchange', () => setEvents((value) => value + 1), { graph })
+  return (
+    <>
+      <Legend graph={graph} />
+      <Timeline graph={graph} />
+      <output>{`${count}:${events}`}</output>
+    </>
+  )
+}
+
+describe('a graph made by createGraph', () => {
+  it('feeds the hooks, the legend and the timeline', () => {
+    const graph = createGraph({ definition })
+    render(<Scripted graph={graph} />)
+    expect(text()).toBe('0:0')
+    act(() => graph.selection.set({ nodes: ['a'] }))
+    expect(text()).toBe('1:1')
+    expect(container.querySelector('[data-graph-legend]')).not.toBeNull()
+    expect(container.querySelector('[data-graph-timeline]')).not.toBeNull()
     graph.destroy()
   })
 })

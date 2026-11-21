@@ -9,10 +9,10 @@ import { createShapeEditor, mountShapeEditor } from '@bruno00o/graph/editor'
 function createShapeEditor<S extends string, M extends Mark>(
   graph: GraphInstance<S, M>,
   options?: ShapeEditorOptions<M>,
-): ShapeEditor<M>
+): ShapeEditor<M, S>
 ```
 
-Creates the shape editor of a graph made by [`mountGraph`](/docs/api/mount-graph) or [`mountMapGraph`](/docs/api/map). `M`, the union of the marks of the graph, types the mark names and the items of the edits. See [Editing shapes](/docs/editing-shapes) for a walkthrough.
+Creates the shape editor of a graph made by [`mountGraph`](/docs/api/mount-graph) or [`mountMapGraph`](/docs/api/map). `M`, the union of the marks of the graph, types the mark names and the items of the edits; `S`, the union of its state names, types the `pendingState` of [`persistShapes`](/docs/api/persist-shapes). See [Editing shapes](/docs/editing-shapes) for a walkthrough.
 
 ## Options
 

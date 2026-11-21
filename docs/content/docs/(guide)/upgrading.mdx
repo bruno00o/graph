@@ -57,6 +57,26 @@ import { defaultDevtoolsMessages } from '@bruno00o/graph/devtools'
 
 `timeline.stepEvent()` used to do nothing when the graph had no time window and `instant` was off. It now starts from the beginning of the extent: the window ends 1 ms after the first event, starting at the extent in `'grow'` mode and a tenth of the extent wide in `'slide'` mode. With `instant`, it already moved the moment to the first event. A code that relied on the no-op, such as a button that calls `stepEvent` while the window is cleared, now sets a window.
 
+### `persistPositions` and `persistShapes` return `{ stop }`
+
+Both return an object, as `showPresence` does, instead of a function. Call its `stop` method:
+
+```ts
+// Before
+const stop = persistPositions(graph, { collection })
+stop()
+
+// After
+const { stop } = persistPositions(graph, { collection })
+stop()
+```
+
+In a React effect, return the method: `useEffect(() => persistShapes(editor, options).stop, [editor])`.
+
+### `pendingState` of `persistShapes` takes the state names of the graph
+
+A shape editor now carries the state names of its graph, and `pendingState` only accepts one of its free states, as with `persistPositions`. A name that the graph does not declare no longer compiles, where it threw at run time. Nothing changes for an editor of an untyped graph.
+
 ## 0.27.0
 
 ### The legend lists shapes
