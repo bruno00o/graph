@@ -2002,6 +2002,12 @@ export interface LayoutListener {
   progress(xy: Float32Array, progress: number): void
   /** Reports the final positions, once. Without a `progress` before it, nodes glide there. */
   end(xy: Float32Array): void
+  /**
+   * Reports that the run failed with `error`, in place of `end`, once. The graph leaves nodes
+   * where they are and ends the run with `completed: false` and this `error`. When a listener has
+   * none, a layout calls `end` with the positions the run started from.
+   */
+  fail?(error: unknown): void
 }
 
 /** A layout run in progress, as `Layout.start` returns it. */

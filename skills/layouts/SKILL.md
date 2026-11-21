@@ -108,7 +108,7 @@ const definition = defineGraph({
 ```
 
 - Every edge points from one layer to a later one, in `direction` (`'down'` default, `'up'`, `'right'`, `'left'`; `'down'` puts the first layer at the top).
-- `root` (a key or an array of keys) forces nodes onto the first layer; edges into them are turned around. Edges that close a cycle are turned around too, as few as possible, and still drawn.
+- `root` (a key, or a list of keys such as an array or a `Set`) forces nodes onto the first layer; edges into them are turned around. Edges that close a cycle are turned around too, as few as possible, and still drawn.
 - `layerSpacing` and `nodeSpacing` are gaps between node borders, in world units. Defaults: twice the largest diameter (at least diameter plus 24) between layers, the largest diameter (at least 8) inside a layer.
 - Separate components and lone nodes sit side by side, the largest first. The same graph always gives the same result.
 - With unfolded groups, `layers` keeps room on the left and right of a container for its label at the width it is drawn with, measured in the font of the label, with its `maxWidth` cut and its background plate; a label above or below takes its height only. Without a page (headless skill), the width comes from `measureText`.
@@ -141,7 +141,7 @@ const tree = defineGraph({ marks, layout: radial({ root: 'hub', spacing: 32 }) }
 
 - `grid`: rows from the top left, as many columns as rows unless `columns` says otherwise. `order` is `'degree'` or a comparator of two items. `spacing: { rows, columns }` sets one gap for each direction, for room under the nodes for labels.
 - `rings`: the first node of `order` in the middle (default `'degree'`, busiest first, or `center`), then rings outward.
-- `radial`: a breadth-first walk from `root` (a key, an array, or the busiest node), each node on the ring of its distance, each branch with a slice of the circle in proportion to its size. Unreachable nodes go on an outer ring.
+- `radial`: a breadth-first walk from `root` (a key, a list of keys, or the busiest node), each node on the ring of its distance, each branch with a slice of the circle in proportion to its size. Unreachable nodes go on an outer ring.
 - `spacing` is a gap between the borders of the largest nodes. Default: the largest diameter, at least 24. `0` is allowed.
 - `order` takes items typed by the node marks. Inside `defineGraph` the types of `marks` do not reach the layout: write `grid<Item>(...)`. `graph.layout.run` infers them.
 
@@ -188,6 +188,7 @@ await graph.layout.run(force({ edgeLength: 100 }), { fit: true })
 await graph.layout.run(grid(), { fit: { padding: 48 }, duration: 600 })
 await graph.layout.run(rings(), { duration: 0 })
 await graph.layout.run(force(), { keys: graph.shown().nodes, others: 'ignored', fit: true })
+await graph.layout.run(force(), { signal: AbortSignal.timeout(2000) })
 graph.layout.stop()
 console.log(completed)
 ```
@@ -197,7 +198,8 @@ console.log(completed)
 - `others` says what the nodes left out of `keys` are: `'anchors'` (default) keeps them in the graph the layout reads, still; `'ignored'` leaves them out with their edges, so the keys are laid out as a whole graph of their own, with the full energy and the pull to the center of a `force` run on everything. Use `'ignored'` for what a filter leaves on screen (`graph.shown().nodes`, core skill). Any other value rejects with a `TypeError`.
 - `fit` frames the result: `true`, or fit options (`nodes`, `edges`, `padding`, `maxZoom`, `duration`). It aims at the final positions, so the view moves with the nodes.
 - `duration` is the glide of a result reported at once, in milliseconds; default `transitions.layout` (400); `0` places nodes at once. It does not affect `force`, which animates by itself.
-- The promise resolves `true` when the run ends, `false` when it is stopped, replaced, the graph is destroyed or the layout throws (in `start` or while it computes, also inside `container.layout`): the error goes to `reportError`, the run ends with the nodes where they were, and `run()` does not reject. It rejects when there is no layout (in the definition, or in a group), on a map, or when an option is not finite.
+- `signal` stops the run when it aborts, as `stop()` does; already aborted, nothing starts.
+- The promise resolves `true` when the run ends, `false` when it is stopped, aborted, replaced, the graph is destroyed or the layout throws (in `start` or while it computes, also inside `container.layout`): the error goes to `reportError` and to the `error` of `layoutend`, the nodes stay where they were, and `run()` does not reject. It rejects when there is no layout (in the definition, or in a group), on a map, or when an option is not finite.
 - `stop()` ends the run and leaves every node where it is.
 
 ### Positions computed by your code
@@ -223,7 +225,7 @@ export async function sideBySide(graph: GraphInstance, parts: readonly (readonly
 ```
 
 - `placed(positions)` takes entries of key and point (a `Map`, `positions.snapshot()`, a `compute` result; a `Map` is used as it is, so leave it alone after the call), or a function of the item that returns a point, `null` or `undefined` (`placed<Item>((item) => item.home ?? null)`). Positions are in world units. A free node without a position, or with a non-finite one, stays; nodes with `x` and `y` in the data, dragged nodes and nodes outside `keys` never move.
-- `compute(layout?, { keys, others, signal })` resolves to a `Map` of the nodes it lays out. It applies pending data first, starts from where nodes are (or glide to), emits nothing and leaves a run in progress going. It resolves to an empty map when no node is free, and rejects without a layout, on a map, when `signal` aborts (with its reason) and when the graph is destroyed.
+- `compute(layout?, { keys, others, signal })` resolves to a `Map` of the nodes it lays out. It applies pending data first, starts from where nodes are (or glide to), emits nothing and leaves a run in progress going. It resolves to an empty map when no node is free, and rejects without a layout, on a map, when `signal` aborts (with its reason), when the layout throws (with its error) and when the graph is destroyed.
 
 ### Follow the progress
 
@@ -236,8 +238,9 @@ export function watchLayout(graph: GraphInstance, bar: HTMLProgressElement) {
     bar.hidden = !running
     bar.value = progress
   })
-  const off = graph.on('layoutend', ({ name, completed }) => {
-    console.log(name, completed ? 'done' : 'stopped')
+  const off = graph.on('layoutend', ({ name, completed, error }) => {
+    if (error !== undefined) console.error(name, error)
+    else console.log(name, completed ? 'done' : 'stopped')
   })
   return () => {
     off()
@@ -246,7 +249,7 @@ export function watchLayout(graph: GraphInstance, bar: HTMLProgressElement) {
 }
 ```
 
-`layoutstart` carries `{ name }`, `layoutend` `{ name, completed }`. Nodes that arrive during a run join it without a new `layoutstart`. In React, read `useGraphState((state) => state.layout)` (react skill).
+`layoutstart` carries `{ name }`, `layoutend` `{ name, completed, error }`, `error` only when the layout threw. Nodes that arrive during a run join it without a new `layoutstart`. In React, read `useGraphState((state) => state.layout)` (react skill).
 
 ### Decide when layouts run again
 
@@ -339,7 +342,7 @@ export function circle(radius = 300): Layout {
 ```
 
 - `start(graph, listener)` receives a `LayoutGraph`: typed arrays indexed by the internal node index (`capacity`, `alive`, `movable`, `xy`, `radius`, `extents` when some node is a box, `edges` as pairs of indices with loops left out, `keys`, `groups`, and `work`: `{ slice, workers }`, the longest stretch in ms before giving the event loop back and whether a Web Worker may start, 8 ms with workers on a page and 50 ms without on a graph from `createGraph`; read it instead of hard-coding a budget or a `Worker`) and `datum(index)` for the item.
-- Report with `listener.progress(xy, progress)` as often as you like, then `listener.end(xy)` once. Each array holds `capacity × 2` numbers, every node, and non-movable nodes must stay where they are. Ending without `progress` makes nodes glide to the result.
+- Report with `listener.progress(xy, progress)` as often as you like, then `listener.end(xy)` once. Each array holds `capacity × 2` numbers, every node, and non-movable nodes must stay where they are. Ending without `progress` makes nodes glide to the result. A run that fails later (in a worker, a timer) calls `listener.fail?.(error)` instead of `end`: `completed: false`, the `error` on `layoutend`, nodes left in place. A throw from `start` itself ends the run the same way.
 - Return `pin(index, x, y)` (a node was dragged or set during the run) and `stop()` (never call the listener after it). A layout that ends at once can leave `pin` empty, as above.
 - `name` and `options` decide whether a new definition lays out again, compared one by one; keep options a flat object.
 - `incremental: false` lays out every free node again when nodes arrive.

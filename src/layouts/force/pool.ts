@@ -1,6 +1,5 @@
-import { report } from '../../host/isolate'
 import type { LayoutListener, LayoutRun } from '../../types'
-import { type Slice, sliced } from '../scope-runs'
+import { failWith, type Slice, sliced } from '../scope-runs'
 import { costOf, type PackedResults, packBatch, unpackResults } from './batch'
 import type { FromWorker, ToWorker } from './protocol'
 import { ForceJob } from './runner'
@@ -242,8 +241,9 @@ export class ForcePool {
             if (!running.advance(until)) return false
             xy = running.result()
           } catch (error) {
-            report(error)
-            xy = Float32Array.from(job.graph.xy)
+            job.over = true
+            failWith(job.listener, error, () => Float32Array.from(job.graph.xy))
+            return true
           }
           job.over = true
           job.listener.end(xy)
