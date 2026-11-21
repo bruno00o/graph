@@ -622,8 +622,50 @@ describe('exportVsdx against MS-VSDX', () => {
       'visio/document.xml',
       'visio/pages/page1.xml',
       'visio/pages/pages.xml',
+      'visio/theme/theme1.xml',
+      'visio/windows.xml',
     ])
-    for (const entry of visio) expect(breaches(part(entries, entry.name))).toEqual([])
+    for (const name of ['visio/document.xml', 'visio/pages/pages.xml', 'visio/pages/page1.xml']) {
+      expect(breaches(part(entries, name))).toEqual([])
+    }
+  })
+
+  it('opens a drawing window on the page and carries a theme', async () => {
+    const entries = await richEntries()
+    const overrides = new Map(
+      own(part(entries, '[Content_Types].xml'), 'Override').map((item) => [
+        attributeOf(item, 'PartName'),
+        attributeOf(item, 'ContentType'),
+      ]),
+    )
+    expect(overrides.get('/visio/windows.xml')).toBe('application/vnd.ms-visio.windows+xml')
+    expect(overrides.get('/visio/theme/theme1.xml')).toBe(
+      'application/vnd.openxmlformats-officedocument.theme+xml',
+    )
+    const relations = own(part(entries, 'visio/_rels/document.xml.rels'), 'Relationship').map(
+      (item) => [attributeOf(item, 'Type'), attributeOf(item, 'Target')],
+    )
+    expect(relations).toContainEqual([
+      'http://schemas.microsoft.com/visio/2010/relationships/windows',
+      'windows.xml',
+    ])
+    expect(relations).toContainEqual([
+      'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
+      'theme/theme1.xml',
+    ])
+    const windows = own(part(entries, 'visio/windows.xml'), 'Window')
+    expect(windows).toHaveLength(1)
+    const window = windows[0] as XmlElement
+    expect(attributeOf(window, 'WindowType')).toBe('Drawing')
+    expect(attributeOf(window, 'ContainerType')).toBe('Page')
+    expect(attributeOf(window, 'Page')).toBe('0')
+    const theme = part(entries, 'visio/theme/theme1.xml')
+    expect(theme.name).toBe('theme')
+    expect((all(theme, 'clrScheme')[0] as XmlElement).children).toHaveLength(12)
+    for (const list of ['fillStyleLst', 'lnStyleLst', 'effectStyleLst', 'bgFillStyleLst']) {
+      expect((all(theme, list)[0] as XmlElement).children.length).toBeGreaterThanOrEqual(3)
+    }
+    expect(attributeOf(all(theme, 'latin')[0] as XmlElement, 'typeface')).toBe('Calibri')
   })
 
   it('keeps fonts, colors and formulas within what the format defines', async () => {
