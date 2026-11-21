@@ -10,7 +10,7 @@ const codeLines = createCodeLines([css, json, ts, tsx])
 export function highlight(code: string, language = 'ts'): ReactNode[] {
   const nodes: ReactNode[] = []
   let offset = 0
-  for (const tokens of codeLines(code, language, true)) {
+  for (const tokens of codeLines(code, language)) {
     const start = offset
     const children: ReactNode[] = []
     for (const token of tokens) {

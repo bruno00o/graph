@@ -64,7 +64,7 @@ const highlighter: Highlighter = {
               type: 'element',
               tagName: 'code',
               properties: {},
-              children: lineNodes(codeLines(code, lang, false)),
+              children: lineNodes(codeLines(code, lang)),
             },
           ],
         },
