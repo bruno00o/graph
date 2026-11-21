@@ -47,7 +47,7 @@ vi.mock('../webgl/renderer', async (original) => ({
 }))
 vi.mock('../shapes/fill-worker?worker&inline', () => ({ default: FakeWorker }))
 
-const { createMinimap } = await import('../minimap')
+const { mountMinimap } = await import('../minimap')
 const { mapSurface } = await import('../map')
 
 interface Item {
@@ -305,7 +305,7 @@ function mountAll(): { graph: GraphInstance; destroy: () => void } {
   )
   const legend = createLegend(graph, { highlight: 'lit' })
   const legendView = mountLegend(legend)
-  const minimap = createMinimap(graph)
+  const minimap = mountMinimap(graph)
   const timeline = createTimeline(graph)
   const timelineView = mountTimeline(timeline)
   container.append(legendView.element, timelineView.element)
@@ -503,7 +503,7 @@ describe('companions of a destroyed graph', () => {
   it('opens no worker, observer or timer for a minimap', () => {
     const graph = destroyedGraph()
     const baseline = snapshot()
-    const minimap = createMinimap(graph, { corner: 'topLeft' })
+    const minimap = mountMinimap(graph, { corner: 'topLeft' })
     flush()
     expect(snapshot()).toEqual(baseline)
     expect(minimap.element.isConnected).toBe(false)

@@ -1,5 +1,5 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
-import { createMinimap, type MinimapOptions } from '@bruno00o/graph/minimap'
+import { type MinimapOptions, mountMinimap } from '@bruno00o/graph/minimap'
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from './messages'
 import '../shared/overlays.css'
@@ -54,7 +54,7 @@ export function mount(container: HTMLElement): GraphInstance {
     selectionColor: colors === 'graph' ? 'var(--graph-accent)' : 'var(--graph-cat-1)',
     viewColor: colors === 'graph' ? 'var(--graph-ink)' : 'var(--graph-accent)',
   })
-  const minimap = createMinimap(graph, options())
+  const minimap = mountMinimap(graph, options())
   const refresh = () => minimap.update(options())
 
   const actions = document.createElement('div')

@@ -1,6 +1,6 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes } from '@bruno00o/graph'
 import { createLegend, mountLegend } from '@bruno00o/graph/legend'
-import { createMinimap } from '@bruno00o/graph/minimap'
+import { mountMinimap } from '@bruno00o/graph/minimap'
 import { createSample, type Item, type Link } from '../shared/data'
 import { messages } from '../shared/messages'
 import '../shared/overlays.css'
@@ -23,7 +23,7 @@ export function mount(container: HTMLElement): GraphInstance {
     definition,
     ariaLabel: messages.graphLabel(items.length, links.length),
   })
-  createMinimap(graph)
+  mountMinimap(graph)
   const legend = createLegend(graph, { highlight: 'match', hidden: 'hidden' })
   const view = mountLegend(legend, {
     titles: { color: messages.legendGroup, size: messages.legendWeight },

@@ -39,7 +39,7 @@ function mount(requests: (TimeWindow | null)[], time: TimeWindow): GraphInstance
       }),
       ariaLabel: 'graph',
       time,
-      onTimeChange: ({ window }) => requests.push(window),
+      onTimeChange: ({ time: window }) => requests.push(window),
     },
     fakeRenderer,
   )

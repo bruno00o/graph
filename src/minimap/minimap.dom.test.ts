@@ -4,7 +4,7 @@ import { createGraphHost, type GraphInstance } from '../host/mount-graph'
 import { nodes } from '../marks'
 import { shapes } from '../shapes'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
-import { createMinimap } from './index'
+import { mountMinimap } from './index'
 
 interface Item {
   readonly id: string
@@ -47,7 +47,7 @@ function pointer(type: string, x: number, y: number, extra: PointerEventInit = {
   })
 }
 
-describe('createMinimap', () => {
+describe('mountMinimap', () => {
   beforeEach(() => {
     dom = installDom(400, 200)
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
@@ -60,7 +60,7 @@ describe('createMinimap', () => {
 
   it('sits in a corner of the graph and frames the view once drawn', () => {
     const graph = mount()
-    const minimap = createMinimap(graph, { width: 100, height: 60, padding: 0 })
+    const minimap = mountMinimap(graph, { width: 100, height: 60, padding: 0 })
     expect(minimap.element.parentElement).toBe(graph.element)
     expect(minimap.element.getAttribute('aria-hidden')).toBe('true')
     expect(minimap.element.style.bottom).toBe('12px')
@@ -86,7 +86,7 @@ describe('createMinimap', () => {
       () => fakeRenderer(),
     )
     dom.flushFrames()
-    const minimap = createMinimap(graph, { width: 100, height: 60, padding: 0 })
+    const minimap = mountMinimap(graph, { width: 100, height: 60, padding: 0 })
     vi.runOnlyPendingTimers()
     const frame = minimap.element.querySelector('[data-view]') as HTMLElement
     expect(frame.style.visibility).toBe('visible')
@@ -96,7 +96,7 @@ describe('createMinimap', () => {
 
   it('centers the view on a press and moves it while dragging', () => {
     const graph = mount()
-    const minimap = createMinimap(graph, { width: 100, height: 60, padding: 0 })
+    const minimap = mountMinimap(graph, { width: 100, height: 60, padding: 0 })
     vi.runOnlyPendingTimers()
     const view = vi.spyOn(graph.view, 'set')
     minimap.element.dispatchEvent(pointer('pointerdown', 95, 55))
@@ -113,7 +113,7 @@ describe('createMinimap', () => {
 
   it('zooms the view with the wheel unless told not to', () => {
     const graph = mount()
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     const zoom = graph.store.state.view.zoom
     minimap.element.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, cancelable: true }))
     expect(graph.store.state.view.zoom).toBeGreaterThan(zoom)
@@ -125,7 +125,7 @@ describe('createMinimap', () => {
 
   it('zooms the view with a trackpad pinch and ignores its wheel events', () => {
     const graph = mount()
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     const zoom = graph.store.state.view.zoom
     const send = (type: string, scale: number) => {
       const event = new Event(type, { cancelable: true })
@@ -148,7 +148,7 @@ describe('createMinimap', () => {
 
   it('keeps the options left out of update and resets those set to undefined', () => {
     const graph = mount()
-    const minimap = createMinimap(graph, { zoom: false, width: 120 })
+    const minimap = mountMinimap(graph, { zoom: false, width: 120 })
     minimap.update({ height: 90 })
     expect(minimap.element.style.width).toBe('120px')
     expect(minimap.element.style.height).toBe('90px')
@@ -163,7 +163,7 @@ describe('createMinimap', () => {
 
   it('falls back to the default size for a size that is not above 0', () => {
     const graph = mount()
-    const minimap = createMinimap(graph, { width: 0, height: 0 })
+    const minimap = mountMinimap(graph, { width: 0, height: 0 })
     expect(minimap.element.style.width).toBe('200px')
     expect(minimap.element.style.height).toBe('150px')
     minimap.update({ width: -4, height: Number.NaN })
@@ -177,7 +177,7 @@ describe('createMinimap', () => {
 
   it('leaves the element to the application without a corner', () => {
     const graph = mount()
-    const minimap = createMinimap(graph, { corner: null })
+    const minimap = mountMinimap(graph, { corner: null })
     expect(minimap.element.parentElement).toBeNull()
     minimap.update({ corner: 'topLeft' })
     expect(minimap.element.parentElement).toBe(graph.element)
@@ -186,13 +186,13 @@ describe('createMinimap', () => {
 
   it('goes away with the graph', () => {
     const graph = mount()
-    const minimap = createMinimap(graph)
+    const minimap = mountMinimap(graph)
     graph.destroy()
     expect(minimap.element.isConnected).toBe(false)
     expect(() => vi.runOnlyPendingTimers()).not.toThrow()
   })
 
   it('refuses an object that is not a graph', () => {
-    expect(() => createMinimap({} as GraphInstance)).toThrow(/createMinimap/)
+    expect(() => mountMinimap({} as GraphInstance)).toThrow(/mountMinimap/)
   })
 })
