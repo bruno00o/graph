@@ -234,7 +234,13 @@ function report(graph: InspectedGraph, trace: GraphTrace, now: number): GraphRep
     issues: inspection.issues.slice(0, listedIssues),
     view: state.view,
     surface: state.surface,
-    rendering: state.suspended ? 'suspended' : inspection.contextLost ? 'lost' : 'active',
+    rendering: !state.drawable
+      ? 'unavailable'
+      : state.suspended
+        ? 'suspended'
+        : inspection.contextLost
+          ? 'lost'
+          : 'active',
     drawing: inspection.software === null ? 'unknown' : inspection.software ? 'software' : 'gpu',
     pixelRatio: inspection.pixelRatio,
     pixelRatioReason: ratioReason(state.surface, inspection),

@@ -180,7 +180,7 @@ export function createWebglRenderer(
     preserveDrawingBuffer: false,
     powerPreference: 'high-performance',
   })
-  if (!context) throw new Error('graph: WebGL2 is not available')
+  if (!context) throw new DOMException('graph: WebGL2 is not available', 'NotSupportedError')
   const renderer = createRenderer(context, invalidate, false)
   const untrack = trackContext(context)
   const extension = context.getExtension('WEBGL_lose_context')

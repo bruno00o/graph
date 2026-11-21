@@ -44,6 +44,7 @@ for (const name of names) {
 const examples = join(root, 'dist-examples')
 const buildExamples = ['pnpm', ['exec', 'vite', 'build']]
 const lowCapsPages = ['vanilla', 'routing', 'ends', 'bundling', 'layout']
+const noWebglPages = ['vanilla', 'react']
 const queryPages = [
   { name: 'map-stack', page: 'map', query: 'stack' },
   { name: 'map-waypoints', page: 'map', query: 'waypoints&projection=mercator' },
@@ -90,6 +91,15 @@ const suites = [
       examplePages(directory)
         .filter((entry) => lowCapsPages.includes(entry.name))
         .map((entry) => ({ ...entry, path: `${entry.path}?caps=low` })),
+  },
+  {
+    name: 'nowebgl',
+    directory: examples,
+    build: buildExamples,
+    pages: (directory) =>
+      examplePages(directory)
+        .filter((entry) => noWebglPages.includes(entry.name))
+        .map((entry) => ({ ...entry, webgl: false })),
   },
   {
     name: 'docs',
@@ -209,6 +219,13 @@ function changedPixels(first, second) {
 
 class Failure extends Error {}
 
+function refuseWebgl() {
+  const getContext = HTMLCanvasElement.prototype.getContext
+  HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+    return type === 'webgl2' || type === 'webgl' ? null : getContext.call(this, type, ...rest)
+  }
+}
+
 const answerLimit = 60000
 
 async function becomes(page, check, argument) {
@@ -297,6 +314,7 @@ async function visit(browser, name, suite, entry) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1 })
   await isolate(context)
   await context.addInitScript(install)
+  if (entry.webgl === false) await context.addInitScript(refuseWebgl)
   const page = await context.newPage()
   page.on('console', (message) => {
     const text = message.text()
@@ -327,8 +345,16 @@ async function visit(browser, name, suite, entry) {
     await page.waitForTimeout(300)
     mkdirSync(folder, { recursive: true })
     await page.screenshot({ path: join(folder, `${file}.png`) })
-    result.drawn = await drawnPixels(page)
-    if (result.drawn < 100) throw new Failure(`canvas draws ${result.drawn} pixels`)
+    if (entry.webgl === false) {
+      const drawable = await page.evaluate(async () => {
+        await window.graph.drawn()
+        return window.graph.store.get().drawable
+      })
+      if (drawable !== false) throw new Failure('the store does not read drawable: false')
+    } else {
+      result.drawn = await drawnPixels(page)
+      if (result.drawn < 100) throw new Failure(`canvas draws ${result.drawn} pixels`)
+    }
     const node = await page.evaluate(() => window.__harness.find())
     if (!node) throw new Failure('no node to point at')
     let point = node

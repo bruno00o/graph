@@ -82,6 +82,27 @@ describe('the devtools when the graph is suspended', () => {
     graph.destroy()
   })
 
+  it('shows a graph that has no WebGL2', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const container = document.createElement('div')
+    document.body.append(container)
+    const graph = createGraphHost(
+      container,
+      { definition: defineGraph({ marks: [nodes([{ id: 'a' }])] }), ariaLabel: 'graph' },
+      () => {
+        throw new DOMException('graph: WebGL2 is not available', 'NotSupportedError')
+      },
+    )
+    dom.flushFrames()
+    const element = open()
+    expect(value(element, 'Rendering')).toBe('No WebGL2')
+    expect(graphReports()[0]?.rendering).toBe('unavailable')
+    graph.suspend()
+    vi.advanceTimersByTime(1100)
+    expect(value(element, 'Rendering')).toBe('No WebGL2')
+    graph.destroy()
+  })
+
   it('takes the texts from the messages', () => {
     const graph = mount()
     const element = open({
