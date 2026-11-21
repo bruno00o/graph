@@ -54,7 +54,12 @@
   --hover: color-mix(in srgb, var(--graph-ink) 7%, transparent);
   --code-ink: var(--graph-ink);
   --code-muted: var(--graph-ink-muted);
-  --code-literal: var(--graph-cat-1);
+  --code-keyword: var(--graph-cat-7);
+  --code-string: var(--graph-cat-6);
+  --code-number: var(--graph-cat-10);
+  --code-type: var(--graph-cat-1);
+  --code-function: var(--graph-cat-4);
+  --code-attribute: var(--graph-cat-8);
   --code-paper: var(--graph-paper-raised);
   --fd-layout-width: 1440px;
 }
@@ -78,24 +83,41 @@ figure.shiki {
   background: var(--code-paper);
 }
 
-.tk-k,
-.tk-c {
-  --shiki-light: var(--code-muted);
-  --shiki-dark: var(--code-muted);
+.tk-k {
+  --shiki-light: var(--code-keyword);
+  --shiki-dark: var(--code-keyword);
 }
 
 .tk-s {
-  --shiki-light: var(--code-literal);
-  --shiki-dark: var(--code-literal);
+  --shiki-light: var(--code-string);
+  --shiki-dark: var(--code-string);
 }
 
-.tk-c {
-  --shiki-light-font-style: italic;
-  --shiki-dark-font-style: italic;
+.tk-n {
+  --shiki-light: var(--code-number);
+  --shiki-dark: var(--code-number);
+}
+
+.tk-t {
+  --shiki-light: var(--code-type);
+  --shiki-dark: var(--code-type);
 }
 
 .tk-f {
-  font-weight: 600;
+  --shiki-light: var(--code-function);
+  --shiki-dark: var(--code-function);
+}
+
+.tk-a {
+  --shiki-light: var(--code-attribute);
+  --shiki-dark: var(--code-attribute);
+}
+
+.tk-c {
+  --shiki-light: var(--code-muted);
+  --shiki-dark: var(--code-muted);
+  --shiki-light-font-style: italic;
+  --shiki-dark-font-style: italic;
 }
 
 .ulink {

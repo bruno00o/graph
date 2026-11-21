@@ -1,6 +1,6 @@
 import { createHighlighter, type LanguageDefinition } from '@tanstack/highlight/core'
 
-export type CodeKind = 'k' | 's' | 'c' | 'f'
+export type CodeKind = 'k' | 's' | 'n' | 't' | 'f' | 'a' | 'c'
 
 export interface CodeToken {
   readonly kind?: CodeKind
@@ -9,30 +9,33 @@ export interface CodeToken {
 
 const kinds: Readonly<Record<string, CodeKind>> = {
   keyword: 'k',
-  tag: 'k',
   string: 's',
-  number: 's',
-  literal: 's',
-  comment: 'c',
+  number: 'n',
+  literal: 'n',
+  type: 't',
+  tag: 't',
   function: 'f',
+  command: 'f',
+  attr: 'a',
+  variable: 'a',
+  comment: 'c',
 }
 
 const kindsByLanguage: Readonly<Record<string, Readonly<Record<string, CodeKind>>>> = {
-  json: { property: 'k' },
-  css: { selector: 'k' },
+  json: { property: 't' },
+  css: { selector: 't', property: 'a' },
 }
 
 export function createCodeLines(
   languages: readonly LanguageDefinition[],
-): (code: string, language: string, functions: boolean) => CodeToken[][] {
+): (code: string, language: string) => CodeToken[][] {
   const highlighter = createHighlighter({ languages })
-  return (code, language, functions) => {
+  return (code, language) => {
     const own = kindsByLanguage[highlighter.normalizeLanguage(language)]
     const lines: CodeToken[][] = [[]]
     for (const token of highlighter.tokenize(code.replace(/\n$/, ''), { lang: language }).tokens) {
       const name = token.className ?? ''
-      const kind = own?.[name] ?? kinds[name]
-      const shown = kind === 'f' && !functions ? undefined : kind
+      const shown = own?.[name] ?? kinds[name]
       token.value.split('\n').forEach((value, index) => {
         if (index > 0) lines.push([])
         if (value === '') return
