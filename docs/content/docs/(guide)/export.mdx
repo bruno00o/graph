@@ -75,8 +75,11 @@ await exportSvg(graph, { region: 'graph', size: { width: 320 } })
 
 `pixelRatio` is the number of image pixels per CSS pixel. It defaults to the pixel ratio the graph draws at, so the image is as sharp as the screen: the device pixel ratio, unless the [`pixelRatio`](/docs/api/define-graph#pixel-ratio) of the definition sets another, or WebGL runs in software and the graph draws one pixel per CSS pixel. Raise it for print.
 
+It takes the values of the `pixelRatio` of the [definition](/docs/api/define-graph#pixel-ratio): a number above 0 sets the ratio, `'device'` is the device pixel ratio, and `'auto'` is the device pixel ratio too, lowered to 1 when WebGL runs in software. Unlike the default, these three ignore the `pixelRatio` of the definition and the limits of the drawing buffer, since the image is drawn in tiles.
+
 ```ts
 await exportPng(graph, { region: 'graph', pixelRatio: 4 })
+await exportPng(graph, { pixelRatio: 'device' })
 ```
 
 The image is drawn in a WebGL context of its own, freed at the end. Past 4,096 pixels on a side it is drawn in tiles, so its size is bounded by memory rather than by the GPU. Labels are chosen once for the whole image, so none is cut or doubled at a tile edge. The PNG records its pixel density, so a viewer shows it at its CSS size.
@@ -202,6 +205,27 @@ Moving a node in Visio keeps its edges attached: their ends slide along the outl
 Labels at the ends of an edge become separate text shapes, which stay in place when a node moves. Pictures are left out, as are halos, flows, badges, hulls, the background grid and the shapes of `shapes()` marks. The page background is a locked rectangle under the drawing, or nothing with `background: 'transparent'`. Each shape keeps the key of its element in a `Key` shape data field. Fonts take the first family of the theme, with Calibri instead of `system-ui` and `sans-serif`.
 
 The parts of the file are compressed with `CompressionStream`, where the browser or Node has it, and stored uncompressed otherwise.
+
+## Defaults side by side
+
+The images and the diagrams do not start from the same defaults, because a diagram you edit wants the whole graph at its own scale, while an image shows what the screen shows. A cell with a dash is an option that format does not have.
+
+| Option | `exportPng` | `exportSvg` | `exportDrawio` | `exportVsdx` |
+| --- | --- | --- | --- | --- |
+| `region` | `'view'` | `'view'` | `'graph'` | `'graph'` |
+| `zoom` | the zoom of the view | the zoom of the view | `1` | `1` |
+| `padding` (with `region: 'graph'`) | 32 CSS pixels | 32 CSS pixels | 32 diagram units | 32 diagram units |
+| `size` | the size of the region at its zoom, in pixels | the size of the region at its zoom, in CSS pixels | the size of the region at its zoom, in diagram units | the size of the region at its zoom, in diagram units |
+| `window` | the window of the graph | the window of the graph | the window of the graph | the window of the graph |
+| `background` | `'var(--graph-paper)'` | `'var(--graph-paper)'` | `'var(--graph-paper)'` | `'var(--graph-paper)'` |
+| `states` | every state in force, no option | every state in force, no option | `'custom'` | `'custom'` |
+| `labels` | `'visible'` | `'visible'` | all labels, no option | all labels, no option |
+| `grid` and `badges` | drawn | drawn | not drawn, no option | not drawn, no option |
+| `time` of the flows | `0` | `0` | none | none |
+| `pixelRatio` | the ratio the graph draws at | none | none | none |
+| `embedImages` and `images` | none | `true` | none | none |
+
+A diagram unit is a draw.io unit, and 1/96 inch in Visio. `padding` applies to `region: 'graph'` only, in all four.
 
 ## Large graphs
 

@@ -223,10 +223,10 @@ describe('readFont', () => {
     const other: Face = { ...sample, family: 'Sample Serif', advances: new Map([[0x41, 1024]]) }
     const file = collection([sample, other])
     expect(readFont(file).family).toBe('Sample Sans')
-    const second = readFont(file, 1)
+    const second = readFont(file, { face: 1 })
     expect(second.family).toBe('Sample Serif')
     expect(second.width('AA', 400, null)).toBe(1)
-    expect(() => readFont(file, 2)).toThrow(RangeError)
+    expect(() => readFont(file, { face: 2 })).toThrow(RangeError)
   })
 
   it('refuses what is not a font file', () => {

@@ -1,4 +1,4 @@
-import { defaultFont, lightTheme, themeColor } from '../theme/tokens'
+import { defaultFont, lightTokens, themeColor } from '../theme/tokens'
 
 export type Rgba = readonly [number, number, number, number]
 
@@ -18,7 +18,7 @@ const tokenPattern = /var\(\s*--graph-([a-z0-9-]+)\s*\)/g
 
 export function withFallbacks(color: string): string {
   return color.replace(tokenPattern, (match, name: string) => {
-    const fallback = lightTheme[name]
+    const fallback = lightTokens[name]
     return fallback === undefined ? match : `var(--graph-${name}, ${fallback})`
   })
 }

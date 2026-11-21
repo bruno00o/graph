@@ -2,20 +2,23 @@ import type { Map as MapLibreMap, MapOptions } from 'maplibre-gl'
 import { worldSize, worldToGeo } from '../core/geo'
 import type { Rgba } from '../dom/theme'
 import { type ExportLabels, exportPng } from '../export'
+import { exportRatio } from '../export/ratio'
 import { takeSnapshot } from '../host/export-source'
 import { destroyedError } from '../host/lifecycle'
 import type { GraphInstance } from '../host/mount-graph'
 import { themeColor } from '../theme/tokens'
-import type { View } from '../types'
+import type { PixelRatioOption, View } from '../types'
 import { mapOf } from './binding'
 
 /** Options of `exportMapPng`. */
 export interface MapPngOptions {
   /**
-   * Image pixels per CSS pixel, for both the map and the graph. Defaults to the pixel ratio of the
-   * map.
+   * Image pixels per CSS pixel, for both the map and the graph, with the values of the
+   * `pixelRatio` of `exportPng`: `'auto'` is the device pixel ratio, lowered to 1 when WebGL runs
+   * in software; `'device'` is the device pixel ratio; a number above 0 sets the ratio. Defaults to
+   * the pixel ratio of the map.
    */
-  readonly pixelRatio?: number | undefined
+  readonly pixelRatio?: PixelRatioOption | undefined
   /**
    * Labels to draw: `'visible'`, `'all'` or `'none'`.
    * @default 'visible'
@@ -194,15 +197,15 @@ export async function exportMapPng<S extends string>(
 ): Promise<Blob> {
   if (graph.destroyed) throw destroyedError()
   const live = mapOf(graph)
-  const pixelRatio = options.pixelRatio ?? live.getPixelRatio()
-  if (!(pixelRatio > 0) || !Number.isFinite(pixelRatio)) {
-    throw new RangeError('graph: the pixel ratio must be a positive number')
-  }
   const { width, height } = graph.store.get()
+  const snapshot = takeSnapshot(graph)
+  const pixelRatio =
+    options.pixelRatio === undefined
+      ? exportRatio(live.getPixelRatio(), false)
+      : exportRatio(options.pixelRatio, snapshot.software === true)
   if (!(width >= 1 && height >= 1)) {
     throw new RangeError('graph: nothing to export, the map measures less than one pixel')
   }
-  const snapshot = takeSnapshot(graph)
   const stop = new AbortController()
   const [map, image] = await Promise.allSettled([
     drawMap(

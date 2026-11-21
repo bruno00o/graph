@@ -6,15 +6,17 @@ description: Read the family and the advance widths of a font file, so that labe
 ```ts
 import { readFont } from '@bruno00o/graph/headless'
 
-function readFont(bytes: Uint8Array | ArrayBuffer, face?: number): FontFile
+function readFont(bytes: Uint8Array | ArrayBuffer, options?: ReadFontOptions): FontFile
 ```
 
-Reads a TrueType (`.ttf`) or OpenType (`.otf`) file, or the face of index `face` of a collection (`.ttc`, 0 by default), and returns its family name and a text measure for [`createGraph`](/docs/api/create-graph#text-widths). Pass both: the family to the theme, so that exports name the font, and the widths to `measureText`, so that label boxes are sized for it.
+Reads a TrueType (`.ttf`) or OpenType (`.otf`) file, or the face of index `options.face` of a collection (`.ttc`), and returns its family name and a text measure for [`createGraph`](/docs/api/create-graph#text-widths). Pass both: the family to the theme, so that exports name the font, and the widths to `measureText`, so that label boxes are sized for it.
 
 ```ts
 const font = readFont(await readFile('fonts/Inter-Regular.ttf'))
 const graph = createGraph({ definition, theme: { font: font.family }, measureText: font.width })
 ```
+
+<api-table path="headless/index.ts" name="ReadFontOptions" />
 
 <api-table path="headless/index.ts" name="FontFile" />
 
