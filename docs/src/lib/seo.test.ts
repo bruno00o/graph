@@ -36,13 +36,17 @@ describe('ogPath', () => {
 })
 
 describe('previewImage', () => {
-  it('uses the copy of a thumbnail and nothing for a page without image', () => {
+  it('uses the copy of a thumbnail, and a drawn image for any other page', () => {
     expect(og.previewImage('/examples/selection', true)).toEqual({
       url: 'https://example.test/graph/og/examples/selection.png',
       width: 640,
       height: 400,
     })
-    expect(og.previewImage('/docs/quick-start', false)).toBeNull()
+    expect(og.previewImage('/docs/quick-start', false)).toEqual({
+      url: 'https://example.test/graph/og/docs/quick-start.png',
+      width: 1200,
+      height: 630,
+    })
   })
 })
 

@@ -36,7 +36,6 @@ export const Route = createFileRoute('/showcase/$slug')({
     if (!showcase) throw notFound()
     return {
       slug: showcase.slug,
-      thumbnail: showcase.images !== null,
       title: showcase.title,
       description: showcase.description,
       features: showcase.features.map((feature) => ({
@@ -53,7 +52,7 @@ export const Route = createFileRoute('/showcase/$slug')({
       path,
       title: messages.pageTitle(loaderData.title, messages.showcase.title),
       description: loaderData.description,
-      image: previewImage(path, loaderData.thumbnail),
+      image: previewImage(path, false),
       imageAlt: messages.showcase.preview(loaderData.title),
     })
   },

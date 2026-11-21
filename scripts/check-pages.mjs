@@ -456,6 +456,8 @@ function checkStructuredData(where, path, head, canonical) {
   }
 }
 
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
 function checkSeo() {
   const titles = new Map()
   const pages = new Set()
@@ -504,23 +506,35 @@ function checkSeo() {
       if ((meta.get(key) ?? []).length !== 1) fail(where, `no single ${key}`)
     }
     const image = one('og:image')
-    const needsImage = /^examples\/[^/]+$|^showcase\/[^/]+$/.test(path.slice(base.length))
-    if (needsImage && image === '') fail(where, 'no og:image')
-    if (image !== '') {
+    const rel = path.slice(base.length).replace(/\/$/, '')
+    const expectedImage = `${siteOrigin}${base}og/${rel === '' ? 'index' : rel}.png`
+    if (image === '') fail(where, 'no og:image')
+    else {
+      if (image !== expectedImage) fail(where, `og:image is ${image}, not ${expectedImage}`)
       if (one('twitter:image') !== image) fail(where, 'twitter:image differs from og:image')
       if (one('twitter:card') !== 'summary_large_image') fail(where, 'twitter:card is not large')
-      if (!image.startsWith(`${siteOrigin}${base}`)) fail(where, `og:image is not under the site`)
-      else {
-        const found = resolveSite(image.slice(siteOrigin.length))
-        if (found.status !== 200 || !found.file?.endsWith('.png')) {
-          fail(where, `og:image does not resolve to a PNG: ${image}`)
-        }
-      }
       for (const key of ['og:image:width', 'og:image:height', 'og:image:alt']) {
         if (one(key) === '') fail(where, `no ${key}`)
       }
-    } else if (one('twitter:card') !== 'summary') {
-      fail(where, 'twitter:card should be summary without an image')
+      const found = resolveSite(image.slice(siteOrigin.length))
+      if (found.status !== 200 || !found.file?.endsWith('.png')) {
+        fail(where, `og:image does not resolve to a PNG: ${image}`)
+      } else {
+        const bytes = readFileSync(found.file)
+        const png = bytes.subarray(0, 8).equals(pngSignature)
+        const width = png ? bytes.readUInt32BE(16) : 0
+        const height = png ? bytes.readUInt32BE(20) : 0
+        if (!png) fail(where, `og:image is not a PNG file: ${image}`)
+        else if (
+          String(width) !== one('og:image:width') ||
+          String(height) !== one('og:image:height')
+        ) {
+          fail(
+            where,
+            `og:image is ${width} x ${height}, the tags say ${one('og:image:width')} x ${one('og:image:height')}`,
+          )
+        }
+      }
     }
     checkStructuredData(where, path, head, canonical)
   }
