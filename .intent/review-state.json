@@ -3,190 +3,192 @@
   "baseline": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
   "items": {
     "skill:skills/core/SKILL.md": {
-      "fingerprint": "b2622a1783ceaf27f5d7c157e8423d82deefd50a40b626f8915e6798529a7e9e",
+      "fingerprint": "2feee61cc4fe2c6eb27a21ddf4aaab4fcc0e7da6ef3659d5c7c72b704dd597fe",
       "snapshot": {
-        "docs/content/docs/(guide)/browser-support.mdx": "18ec861a5f485075df425ccd0f6d71c56d033591f1b176c7d80e43e400ee7a64",
+        "docs/content/docs/(guide)/browser-support.mdx": "39d77f111e55dce95fdd48b2e8bea5c8eab825ba2f2d663700df9aa8ac57033e",
         "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
-        "docs/content/docs/(guide)/installation.mdx": "ab0505cd73a6ddc00047745ebd885adef7b63432406825611af3ef51ecc83144",
+        "docs/content/docs/(guide)/installation.mdx": "b5ad1722b7f08e9bd559b0de611bec1325bc64b7dcbc48a3c53b3307bb74949b",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
-        "docs/content/docs/(guide)/vanilla.mdx": "344ca05f29353f1c1503917f134260f9ab1176949ca2c72884c221ff5dbcf995",
-        "docs/content/docs/api/define-graph.mdx": "7c9805b9a583c1d0f61b953714543b507d672a75db09b3935b80474f5d93260b",
-        "docs/content/docs/api/events.mdx": "7f68afc17911b78f1256f6ed472230f23ba82bfd816116fc2693561570bab7e6",
+        "docs/content/docs/(guide)/vanilla.mdx": "dabaa2aa2557ed477e71c19db6fc6e421b030bc6f0284ec8290f123cbf1e6e48",
+        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
         "docs/content/docs/api/graph-core.mdx": "edd40bc3a2add08f8f4a5a61a738abc085b87980a86c69a54dba1dceba7eca7e",
-        "docs/content/docs/api/graph-instance.mdx": "c8864abae64e71bceca5f4dbbf89880c4500162fa5779664ed2e746868c87b56",
-        "docs/content/docs/api/mount-graph.mdx": "8adc587da0fc27c811083410b5df7f4d69cfe1028f0c40f46431906a2b0b039d",
-        "skills/core/SKILL.md": "0789cd159ebbd7c7175e2a17fbfc5bfcfe7ab63cfbac562f492e99cfbad820ea",
+        "docs/content/docs/api/graph-instance.mdx": "7d7d4da954a38a10298257f3806981683e9a22de870ff6f634b8dc13b591495e",
+        "docs/content/docs/api/mount-graph.mdx": "dce06feb8fd1afaf122d8e0655eab01c537a012ce0e6566f718d519367600ef0",
+        "skills/core/SKILL.md": "b5ee661b4db508f93b02282e19fe4010e9bbfecdfe5bf9b3b461e43a72838934",
         "skills/core/references/live-data.md": "93ea5f644e8bac16d887a869f5d9b9e9dd7bb04f35dee1d568e027df718cbb3f",
-        "skills/core/references/rendering.md": "c5a220309e13039fb9fd1a0c856f02c426bc80708ae66fa565bd52e721f26115",
+        "skills/core/references/rendering.md": "9d62574cfb660723ad8ad272519e42b24dbd3e17b5b9fa2c504cb7a1650dc800",
         "src/core/issues.ts": "96cde3472ef876d05d7aa40fe160daa8b1ddd9b66ebbf20cc2865bedc1ef8a9e",
         "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
         "src/core/raw.ts": "d04297fb30d75cc597292405bcf74258cb0e62df5eeecd29305829e20b0b1dff",
         "src/core/source-table.ts": "e87d5be1f924607bed22035877fcdbf28669fb526d5436641bf01faad16e1f12",
-        "src/define-graph.ts": "91e3a3f52efb4be3223c9835136289cd2687a8fb833332f9353c82b8f728ce82",
+        "src/define-graph.ts": "864e9df1528964f3236d7690134ef79cc91cfe910eb451e5e478d00ddb123687",
         "src/host/data-reads.ts": "ef5b8583152930b6c8c3cc1fb92c833a0ba3152ec8aac29c0b886b895f9c805d",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
-        "src/host/events.ts": "3752d47b8883f5f51734fb1286c3b3d5818984f17249e9c4e01bd8c317badb99",
-        "src/host/graph-core.ts": "262a0006cf2265bc95fb74c7611adad304595a764b8a09b70dec51b8078a6c61",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
-        "src/host/render-host.ts": "b17eb513b85ba7c774e7ef55f3c54404bd6dc5720c309db47426964b278261ca",
-        "src/index.ts": "c3739027ceb63dcc929c1b08d04d1d65c539ec6f17dbd5c08aa5300100382a42",
+        "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
+        "src/host/graph-core.ts": "a640933cfd039eaf82be859492126250d16ee0ce518e34ac87f326196e2a800c",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
+        "src/host/render-host.ts": "6e77c815a2c219f9777f13e35246593ebaf730b7a0f155a4c5f26d83df25b3bb",
+        "src/index.ts": "a0f098afe81504748866a608cb81615e38202a7ba62808ad7038da541501eecb",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 262: GraphCore against GraphInstance and settled(), what it waits for and its rejection on destroy (PRs 254, 258).",
+      "reason": "PR 276: mountGraph no longer throws without WebGL2, drawable in the store, a try around the mount never catches (references/rendering.md).",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 262: only skills/ and _artifacts/ changed, no comments in examples, no other library named, recipe of the headless skill run against the dist (pnpm docs:extracts)",
-        "Diff of docs/content/docs/(guide)/browser-support.mdx, docs/content/docs/(guide)/installation.mdx, docs/content/docs/api/graph-core.mdx, docs/content/docs/api/graph-instance.mdx, docs/content/docs/api/mount-graph.mdx, src/host/data-status.ts, src/host/graph-core.ts, src/host/graph-instance.ts, src/host/render-host.ts, src/index.ts, src/types.ts since 0.32.0 read against skills/core/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 276: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/browser-support.mdx, docs/content/docs/(guide)/installation.mdx, docs/content/docs/(guide)/vanilla.mdx, docs/content/docs/api/define-graph.mdx, docs/content/docs/api/events.mdx, docs/content/docs/api/graph-instance.mdx, docs/content/docs/api/mount-graph.mdx, src/define-graph.ts, src/host/events.ts, src/host/graph-core.ts, src/host/graph-instance.ts, src/host/render-host.ts, src/index.ts, src/types.ts since 0.33.0 read against skills/core/SKILL.md"
       ]
     },
     "skill:skills/react/SKILL.md": {
-      "fingerprint": "3e1c1da2fa7bbba91e04f6df55e380e83401b78024cd3d503366d9438c66d11c",
+      "fingerprint": "22a64b57356c7ec8865d3ac3856110aff4e0357247b9587c9974fc0290b5f47e",
       "snapshot": {
-        "docs/content/docs/(guide)/react.mdx": "7586eaa977bd48b74ef9ee6f8a3a97f035d0f54898c9b9c352b595350a18e962",
+        "docs/content/docs/(guide)/react.mdx": "8423bfc7ad4cb5e1d8ec5249b78891e4ad9e65193bad8544f9125c376b6a6441",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/graph-component.mdx": "4d95a6364b252748a73229e4721ea9773475846fb832b332c0bf335571bb25f5",
-        "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
-        "skills/react/SKILL.md": "08e4663c4a8695b73cc6f075cbb6fcb9168c129d86ca67f128cfc5ff562fc5f3",
+        "docs/content/docs/api/hooks.mdx": "c8af98e45765e3c0cbc5cb5b8341d48c694186af5a5d5046e05fbf3017c15193",
+        "skills/react/SKILL.md": "676e05a044a368885457241d1d4c06e0495610b16c7e0aa6a20aedfb80e847b0",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/map/react.tsx": "a1c0cf0e01a8c1a1687c246063264fa11a69b2fa700939eeef4456129fc77cff",
-        "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
+        "src/react/context.ts": "51df2586df88b3345743f4060f286f909494df64776e7fd9368f37d0b0eb9ef4",
         "src/react/graph.tsx": "636adeaede36f1618c0b8b13517913a237cef6905c6752c0ed29c8ace1be9a9f",
-        "src/react/index.tsx": "4854e965cd43e2c6cb9987476df3b8d1f9a10336243b827f1ca6330ffd28f51d"
+        "src/react/index.tsx": "c466533b238a52afd2d9b3fe3c89dad885e86b75df82ce2b4caacd995d1f7361"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
-      "outcome": "no-change",
-      "reason": "data-status.ts gains the waiting flag read by settled() (PR 258): the hooks and components are unchanged.",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "updated",
+      "reason": "PR 275: hooks and companions that read no page take a GraphCore, panels elsewhere in the page through the ref.",
       "evidence": [
-        "Diff of src/host/data-status.ts since 0.32.0 read against skills/react/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 275: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/react.mdx, docs/content/docs/api/hooks.mdx, src/react/context.ts, src/react/index.tsx since 0.33.0 read against skills/react/SKILL.md"
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "a26574b23b3ac70cf5cf1ee22b9df5e23ee36d6fb664d0bf21c70bc891b24c86",
+      "fingerprint": "6587d9a446eb6f2ed9e8f1490a8f9cf7ea007088461268772a67ba386788cb91",
       "snapshot": {
-        "_artifacts/domain_map.yaml": "28722f3169a047b74ee9439031b6a5de19aa90c736a9be2d136b68134e7d897d",
-        "_artifacts/skill_spec.md": "5079ebcff2ecac945aef5ac07a32729dedb72571373a53b3d94a425a2ffb02fc",
+        "_artifacts/domain_map.yaml": "9c895fec99c14cc67795e6ba3124d65fb072178ceee7a45d56822c19936890cf",
+        "_artifacts/skill_spec.md": "4e6ed816ecf287ff31b9456a729155197ba7034cd87b916a17f9135846bee811",
         "_artifacts/skill_tree.yaml": "35dcfc5774f5a44e375a7e8b2318aaed249081d9174429cf3b9814361b98e2eb",
-        "docs/content/docs/(guide)/browser-support.mdx": "18ec861a5f485075df425ccd0f6d71c56d033591f1b176c7d80e43e400ee7a64",
+        "docs/content/docs/(guide)/browser-support.mdx": "39d77f111e55dce95fdd48b2e8bea5c8eab825ba2f2d663700df9aa8ac57033e",
         "docs/content/docs/(guide)/bundling.mdx": "2e7ce5553a531b1f791438feb857d2a29b765ce34c965dfac7e305de5b22c8a8",
         "docs/content/docs/(guide)/cypher.mdx": "28358088adf95d4075fa90b91a9d44e62cc7fe17a057cbf87a4f7c9545871ca8",
         "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
         "docs/content/docs/(guide)/devtools.mdx": "1bd12deb1d29cd3e0663daf5c02795173d83bf50e8829be9e5f13a40ed6ba38e",
         "docs/content/docs/(guide)/drawing-layers.mdx": "e25c877c66d652679a700d12cc07c289186341d9c926c0694077580aad36b498",
-        "docs/content/docs/(guide)/editing-shapes.mdx": "ee0775c573fdb14b88a6dae92c8bae337334d62ae18007957edbaa08ee1bee61",
-        "docs/content/docs/(guide)/export.mdx": "a1e12376b27b59c9385a1c723231acbdac81cd5c63c385644e46a8954d4356da",
+        "docs/content/docs/(guide)/editing-shapes.mdx": "838c2e86b6407710b595b77a097b610fa3308e370fd0a7948b52bcdc700596bb",
+        "docs/content/docs/(guide)/export.mdx": "5b4e3602a6c48bdc974857aeccb064d429a9a79911519730430ecc3436c42a74",
         "docs/content/docs/(guide)/file-formats.mdx": "85a5b67a9641ff47830a6679cb54605f798fcd548d2056574a679ea912868026",
         "docs/content/docs/(guide)/groups.mdx": "e65ddc00d5c0e7ef1d8c596ab4882df2aa1cb9d5adae90475656210a24dbe6f7",
         "docs/content/docs/(guide)/images-and-badges.mdx": "9ac154d92f4d562b7112575a93c935307d3e42f2ec56de5f2d34728abc705159",
-        "docs/content/docs/(guide)/installation.mdx": "ab0505cd73a6ddc00047745ebd885adef7b63432406825611af3ef51ecc83144",
+        "docs/content/docs/(guide)/installation.mdx": "b5ad1722b7f08e9bd559b0de611bec1325bc64b7dcbc48a3c53b3307bb74949b",
         "docs/content/docs/(guide)/interaction.mdx": "826d443567ba25cd1e188819ef9c262c2b945156025f243f27fb6da54803591a",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
-        "docs/content/docs/(guide)/layout.mdx": "9de080179be0e0bdaf8e4990e4429c7a5e0a6eab8ea918c2638142ea381213a9",
+        "docs/content/docs/(guide)/layout.mdx": "c49a73bd9dadc43eafaf7f3ea9f55dd484a5e15a8148f9eb769a9f8053eb3a1c",
         "docs/content/docs/(guide)/lens.mdx": "175c2f78a9f174344d13cdc9b2383b50a40ecf65d00e189995182503676eaf5a",
-        "docs/content/docs/(guide)/map.mdx": "5f540b194ed5c17c0a38b684fbb5be33fbbf0fb4eb946bf0b620b034079b49c4",
+        "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
         "docs/content/docs/(guide)/marks.mdx": "2628b8f641447a5cf7156b33d1acba7c2d9337c3495938b92623a8b287f3a6f9",
-        "docs/content/docs/(guide)/minimap-and-legend.mdx": "c10a3fe308879feb4ea4c343b04e357a6af46f52ae711d57108e220554f34da3",
-        "docs/content/docs/(guide)/multilayer.mdx": "a527b9a14d71cf3b554d25405c9e681462f60dfaa7bc948062902262446ff565",
+        "docs/content/docs/(guide)/minimap-and-legend.mdx": "00911429a72f29a998d41eaa92712c0a8a658bd52d9a8772312c724e3650cbf9",
+        "docs/content/docs/(guide)/multilayer.mdx": "5d2b375c32c23813b510704e49675482ae450937219c8aaa5c1405b2de387c01",
         "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
-        "docs/content/docs/(guide)/positions.mdx": "34c1fe2d5f83a12b651f6343d332eac38a9995e30417bbbb0f2ecd6ded0e7c7d",
+        "docs/content/docs/(guide)/positions.mdx": "d02131fdd0609de777d46afabd95ef55c8763f3aaba5cd31a8d68bff1f6dc043",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
-        "docs/content/docs/(guide)/react.mdx": "7586eaa977bd48b74ef9ee6f8a3a97f035d0f54898c9b9c352b595350a18e962",
+        "docs/content/docs/(guide)/react.mdx": "8423bfc7ad4cb5e1d8ec5249b78891e4ad9e65193bad8544f9125c376b6a6441",
         "docs/content/docs/(guide)/routing.mdx": "fccaa9b9054028a68aa567a0a0de7a9bd7425015dd37b256a770afc23a853c1d",
         "docs/content/docs/(guide)/scales.mdx": "953c8fa7e73d4a25a57abefe823325aa8c21c9252b5655b6360d953487d19bb6",
-        "docs/content/docs/(guide)/server-side-extracts.mdx": "deeb5bd8ae20ffbd2ed4b28510bfae538ddae82f875560a7c138ca9e99ab19d4",
+        "docs/content/docs/(guide)/server-side-extracts.mdx": "b1eff300db342fe9e7654ad1d43d92865a0e12f3b09a2e3c4892bfe20f3c440b",
         "docs/content/docs/(guide)/shapes.mdx": "54adb1d1319dd8c484854e50826c9fe3eed47e43be071b12d19073f7aab8d8e6",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
-        "docs/content/docs/(guide)/tanstack-db.mdx": "4a39ca2242284846f7adc4e351aa4597b5559e4b85f9a196744d890c9ce9b36f",
+        "docs/content/docs/(guide)/tanstack-db.mdx": "8fca81ee2d187bd837d669140209d7b576d356c39d9ef36097ebb1ee748bd3ca",
         "docs/content/docs/(guide)/tanstack-query.mdx": "6a1ad350d197965ebd20063e7f985c3346d525ee41142d957feab2909d475ba7",
         "docs/content/docs/(guide)/theming.mdx": "2728008ab69642327d8886e6f6812783ce12093ab99db265242cd9fbd1a80b40",
-        "docs/content/docs/(guide)/time.mdx": "989d549315a96e0e71afa684441c62ac53c0fa638c1d47ebd13e9aec2c767c94",
-        "docs/content/docs/(guide)/transformations.mdx": "974cb22fc229bc7469f30c89549f4fe5ab5795b8249a65d734eecf0ad29d1421",
+        "docs/content/docs/(guide)/time.mdx": "78dc4e69f2b43361925aaecced96d3f1c6eb6d160601944daa48952854cf1085",
+        "docs/content/docs/(guide)/transformations.mdx": "b9d5c818e34d962650bf6f7edb6f6eda7995ad4c40839d012a2b3f0cbabb133b",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
-        "docs/content/docs/(guide)/vanilla.mdx": "344ca05f29353f1c1503917f134260f9ab1176949ca2c72884c221ff5dbcf995",
-        "docs/content/docs/(guide)/view.mdx": "5e34ea33fcbbd0039583cfe624089262b382be5639d0805f1512038f6b7a07fa",
+        "docs/content/docs/(guide)/vanilla.mdx": "dabaa2aa2557ed477e71c19db6fc6e421b030bc6f0284ec8290f123cbf1e6e48",
+        "docs/content/docs/(guide)/view.mdx": "7dcfd8f22c1304722fc8dec8e40afb5b925ddde0b555c26f8bcd531dd2542eb7",
         "docs/content/docs/(guide)/zoom.mdx": "3ba61e43cda3aa11cb485a3da120469588ca9fc796f909f11ba607c76db69fca",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/bundling.mdx": "da6d79979c997144343299a7a5083996fd91f383d8949973c3caf4d3cafcddf7",
         "docs/content/docs/api/create-exploration.mdx": "3bd905d354f9ed09c3778a3475eb293e7202bc6d9e702a017174344a4a3c3f69",
-        "docs/content/docs/api/create-graph.mdx": "88ad13d161456939bd66fc8955ced279c79c75d57a492be10be3d296f072026e",
+        "docs/content/docs/api/create-graph.mdx": "66b0bf7cd06151d434494064d99a1891e965d2c2dafbad11412f3fc7c1c87070",
         "docs/content/docs/api/cypher-graph.mdx": "f78a2096a958c625e497769bb7d6d515bfc19928b63ee80223f9a180c26ae5c6",
-        "docs/content/docs/api/define-graph.mdx": "7c9805b9a583c1d0f61b953714543b507d672a75db09b3935b80474f5d93260b",
-        "docs/content/docs/api/devtools.mdx": "63a2e825f13c6ffe2bc08ef817ad28ef0679d8f57fb2036a992beee94e5a84ef",
+        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/devtools.mdx": "154824212bf4f7394efc66231f3678d5984db846a40d95b2c8288e401b67746f",
         "docs/content/docs/api/edges.mdx": "f8fe1b31b38c5de8d30e44f8128fc9a8acac86214f3eccf8aef4327ae674b907",
-        "docs/content/docs/api/editor.mdx": "8643c96f6f48dcd398a2d03a3386f38d2f6785e5065d851ed5a0b7e5e898aab9",
-        "docs/content/docs/api/events.mdx": "7f68afc17911b78f1256f6ed472230f23ba82bfd816116fc2693561570bab7e6",
-        "docs/content/docs/api/export.mdx": "177a49c3815ff71113b2739c6fd9532854e859aaab295221a4f7433000bb1c61",
+        "docs/content/docs/api/editor.mdx": "2e72adfd0f2ee2156b57d8b2af0569226d33708ca389f0c8cf38ed2350799b0f",
+        "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
+        "docs/content/docs/api/export.mdx": "82661801d9a04fa8a4810e9ca941ed2de441e5770b51b475bad45d6a9e09085f",
         "docs/content/docs/api/force.mdx": "a04fee2ec0c0716895d83e61a65a10540f531a19d47bf0fa553c57ed64df281a",
         "docs/content/docs/api/formats.mdx": "f37ea7d64a0660710538a3d83611d11bf7c68e8341c5daa7a89d9ccc541542f7",
         "docs/content/docs/api/graph-component.mdx": "4d95a6364b252748a73229e4721ea9773475846fb832b332c0bf335571bb25f5",
         "docs/content/docs/api/graph-core.mdx": "edd40bc3a2add08f8f4a5a61a738abc085b87980a86c69a54dba1dceba7eca7e",
-        "docs/content/docs/api/graph-instance.mdx": "c8864abae64e71bceca5f4dbbf89880c4500162fa5779664ed2e746868c87b56",
+        "docs/content/docs/api/graph-instance.mdx": "7d7d4da954a38a10298257f3806981683e9a22de870ff6f634b8dc13b591495e",
         "docs/content/docs/api/groups.mdx": "124959871577a32a36c80321651d7eff2df3ea4ee726d10521c426cc401f86ff",
         "docs/content/docs/api/history.mdx": "6955b82f05e83c0b87dcfb727d0202b87f875e6b5fc5499afe7ccb26b7071c18",
-        "docs/content/docs/api/hooks.mdx": "2232a49130af94de1a159c0cd2e9687ef85448d086686cfa0f1ebc0364aef592",
+        "docs/content/docs/api/hooks.mdx": "c8af98e45765e3c0cbc5cb5b8341d48c694186af5a5d5046e05fbf3017c15193",
         "docs/content/docs/api/hull.mdx": "3c192acfb729196c214dc96cb2390288b053d48fefa3dbbab51083d0aabe63ed",
         "docs/content/docs/api/layouts.mdx": "77216db768bdbea2cf776a877fe60d4af718d84ca72038d6969947efc5c90d9f",
-        "docs/content/docs/api/legend.mdx": "cef11c9dda5d243ec6993ef1110a7aa3e1288115eaf9203e9b339e0ce7e665be",
+        "docs/content/docs/api/legend.mdx": "7225f93bc6912ddfb434cbb693c053f7eac93c5a408e510704768ea261480615",
         "docs/content/docs/api/map-graph.mdx": "c14328cb9f7aae7b78cee22ca17d66c307e4541be265981b91bc36dfc9595fd0",
-        "docs/content/docs/api/map.mdx": "0bb4a8bbea94ab2f2fa3ed4801dd76a8f2c66683e7111ccc00d6fc74221d6314",
-        "docs/content/docs/api/minimap.mdx": "e9bc24c66975dc0d1d7eb6591b1ba585fd7599c00278a21f869c23459c34f261",
-        "docs/content/docs/api/mount-graph.mdx": "8adc587da0fc27c811083410b5df7f4d69cfe1028f0c40f46431906a2b0b039d",
+        "docs/content/docs/api/map.mdx": "2c8cc6c38f3ebd46473b893135ec12f8b8417f54ba027b0e0c493b5ba6c1c04c",
+        "docs/content/docs/api/minimap.mdx": "2127b036c924b781a21124955eba59de0edab9e6ce9299e0ee05d146cd1d789a",
+        "docs/content/docs/api/mount-graph.mdx": "dce06feb8fd1afaf122d8e0655eab01c537a012ce0e6566f718d519367600ef0",
         "docs/content/docs/api/nodes.mdx": "fc94c031ec775727618bd81201433346899c207f7a98b4f6fdb79eb74b1c4ee5",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
-        "docs/content/docs/api/persist-positions.mdx": "e934d44506485380ed6dea4b8c1e74d3290321e1fd6bff17c7bc61bb528ffb5a",
-        "docs/content/docs/api/persist-shapes.mdx": "7cea5a41868ba7254d05dfdf4ebd5c96e800e9d8dc9a6bbe45f25918a3f60dda",
-        "docs/content/docs/api/read-font.mdx": "2d58b938fc70cfa5630de4c0f8af7f287a34bdc163a580142738ab53e9752b77",
+        "docs/content/docs/api/persist-positions.mdx": "8e50465b62934e29452ed46661f3ef31b304b21b7c0e732676c480753033fcfb",
+        "docs/content/docs/api/persist-shapes.mdx": "7a36746e9c7d61552b2187f5d60cdba7683c801a5d5ac79d230e07bfbd014b62",
+        "docs/content/docs/api/read-font.mdx": "7f390c894bff244d66ad6016fce0b66cef6b327e21a5471b03424c3370728949",
         "docs/content/docs/api/routing.mdx": "d24ae8bbeaf2cc8e8eef1633f70c1c2a76f51ef0502537b2e3d27a8d7e92582d",
-        "docs/content/docs/api/shape-editor.mdx": "fbe9a1ed16c1cd9787940be683db3ef5c0859cdd6d8b6fd10bc88d09ab3c8939",
+        "docs/content/docs/api/shape-editor.mdx": "d7d684e32140a332799b307b489cdee76666611d2a342cdadd828aad9efaccf4",
         "docs/content/docs/api/shapes.mdx": "b2b3aac8da52ff84dc435c33786248de7f6bd82ad6474902f8899fa229663472",
         "docs/content/docs/api/show-presence.mdx": "0a753e1a58cd450c7c5ffe343661ab7fec58d7634c298caf39bf362eedfa13f4",
         "docs/content/docs/api/subset.mdx": "c853303f9c7a06eafc06b68f40dd9d0a2f6b094a16f4d46d59526d786b825365",
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
         "docs/content/docs/api/theme-tokens.mdx": "08d5697b13bf523987647ebde18b8e548f2839671063d02a411bd802a55deb36",
-        "docs/content/docs/api/timeline.mdx": "9bb7324d19196ac293f7ab488d65ee4ea6a329acd54ef2de2240de21aecf3450",
-        "skills/core/SKILL.md": "0789cd159ebbd7c7175e2a17fbfc5bfcfe7ab63cfbac562f492e99cfbad820ea",
+        "docs/content/docs/api/timeline.mdx": "9c6481a7005fe7c91fd50104295afcb4c8e6e21ffa0c0f5c29e43c77b213c98b",
+        "skills/core/SKILL.md": "b5ee661b4db508f93b02282e19fe4010e9bbfecdfe5bf9b3b461e43a72838934",
         "skills/core/references/live-data.md": "93ea5f644e8bac16d887a869f5d9b9e9dd7bb04f35dee1d568e027df718cbb3f",
-        "skills/core/references/rendering.md": "c5a220309e13039fb9fd1a0c856f02c426bc80708ae66fa565bd52e721f26115",
+        "skills/core/references/rendering.md": "9d62574cfb660723ad8ad272519e42b24dbd3e17b5b9fa2c504cb7a1650dc800",
         "skills/cypher/SKILL.md": "0efc1906d9f86083e9505b268990f293150e2b6c6300302816aee565ce2a6887",
         "skills/cypher/references/large-results.md": "92249a1b0cba5ec7dbae76488f6ac3f649a27f81416a9bbdaae1364b9b8fdcc0",
         "skills/edges/SKILL.md": "3abc58e0da7f575f3c3fa5953f3c70de01216c2f6c289e47088920a1763af503",
-        "skills/editor/SKILL.md": "9dd9a9b1197074436e61bd8010fb0466b6f80892772726beb6a69c2b5d8fed73",
-        "skills/editor/references/persistence.md": "d2406b144f8667c630d66571a64dd7c065899523ddfa449eb9b5d3722a8c0f01",
+        "skills/editor/SKILL.md": "22516a25f165df9503c6c88b4a913e8279a289c08e962268938fa1bb155f0b9b",
+        "skills/editor/references/persistence.md": "d1da99f00e7dc839d3ef3c0510d62fba5a438634bd9e014a9791e809a86aedd0",
         "skills/editor/references/presence.md": "870cfcffa895be4a1b0c80ce72d3f550516cb5c186ccd59048faabc68bb8fed0",
-        "skills/export/SKILL.md": "67a0f5359c1ca1c5a1bd6bf5eb0d34dc3fa33ad6de2aac2606e1b39fb751ad6a",
+        "skills/export/SKILL.md": "fbea7d644753b0ca349da02b05f1e5a5e73280905842a24e604cb8ab467c2594",
         "skills/file-formats/SKILL.md": "0b271302cf58a68989b89ffa80e9940a7243313ca739968a96c98613aea7d240",
         "skills/groups/SKILL.md": "a78153f6c920d63437d7bb55a7a4dfd6c65a29808d30c5ed0712d42b6e2db4d5",
-        "skills/headless/SKILL.md": "4b2dc69ecd489605775d493e281c3902d8a0c8c52c87f7ae4709bf83d7053254",
+        "skills/headless/SKILL.md": "7afe21783674a4113c215274eefe516c181f0ae8ab84924095dade67a0e9b826",
         "skills/headless/references/extracts-at-scale.md": "11c1a5c935446398409aadac74305c7ccacf44ce8b729c11d20cde8b29547092",
         "skills/interaction/SKILL.md": "3246c5e955e2fe012bbe1fb82c05ca9180bded0717761d563a170ebbb490f263",
         "skills/interaction/references/wheel-glide.md": "5ad5be31b578aa7090baf52da3ecfb29f49a076629c899ade4fe1684c522211b",
-        "skills/layouts/SKILL.md": "2ee3e6e1d20ad8c8b247ecce56ef6fff73731c760f0adde9f276d6bfd30232c4",
-        "skills/layouts/references/group-layouts.md": "471e562b481844cfaf5fa0ff3f71ae61f92aec685770a63ee899f3f93a5dfefc",
+        "skills/layouts/SKILL.md": "4ee7f7d1d4d4c7f9af680bc3ac4ccbd582bf0d0e666ca8cc84c97cd47d621bcb",
+        "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
         "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
-        "skills/map/SKILL.md": "db12230f9f730674bbffe94d59c3e6ec8089cd96734811c0cda2a84e4e437001",
+        "skills/map/SKILL.md": "ba05670d8fe8ddc321014b85dba2b4c21baed9ced5f8dee030aec16962a1dcd4",
         "skills/map/references/surfaces.md": "674dd4af13ae21a4e457ed34d1a657176b4874f8984478f70769385103ad830d",
-        "skills/multilayer/SKILL.md": "cd7eae8468a807d4a7e5f11744f9c8598dac50bbe749b9fa608857ee3a4a480f",
+        "skills/multilayer/SKILL.md": "a498eaa93f1be65d672e34568683e183fbddd0690f4b76689dda5078c9967342",
         "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
-        "skills/react/SKILL.md": "08e4663c4a8695b73cc6f075cbb6fcb9168c129d86ca67f128cfc5ff562fc5f3",
+        "skills/react/SKILL.md": "676e05a044a368885457241d1d4c06e0495610b16c7e0aa6a20aedfb80e847b0",
         "skills/shapes/SKILL.md": "c2d0ad9c97515ea267f184ab36854a20bd18f8430a88073176f643828bfd75ed",
         "skills/shapes/references/labels-and-pins.md": "c0e4ae66bda4895ea9ea52ad732a7b3f73d97f269bfeae33e2bac809ab83bb69",
         "skills/shapes/references/maps.md": "bcf6f4641b271d6987b8b61f77acb1c02092dcf3a55b9f26edc7a69dd210a739",
         "skills/styling/SKILL.md": "deee39f73c9f6d8482be348c499db513e5e2b0e37efdcf15c4c629f3403f07e6",
-        "skills/tanstack-db/SKILL.md": "bb48a30c6d2115581a0f7e2d0268c392be832c9f8840d4565f484bb721382903",
+        "skills/tanstack-db/SKILL.md": "d855871f6aecb05793efbea301e6228363f32dd5dccf3f6332f99a3101f5098e",
         "skills/tanstack-db/references/journal.md": "8587e5be6f3272160a6bb4284971728116cd534406d10da15d522b338baca91e",
         "skills/tanstack-query/SKILL.md": "f0ea86d00190d771a624215ab7e7baf523be31988103e6bcb2349ded52d8a4be",
-        "skills/time/SKILL.md": "c7c7b727a8ac6df8fa1ecef50c6d1a995f5a94b6a67bbb4c7832f6289f01145f",
-        "skills/time/references/events.md": "ef4d487118a244c2aad3fd5290152813fbbc9616bdb15879979ce466522a80fb",
+        "skills/time/SKILL.md": "4adacf9a4dd27879c2eca9c1eec3d8cf4f7e9858dacbf9b59e278e3ec1aa74ff",
+        "skills/time/references/events.md": "906382655609f022ae08459025a9c4a6d3028aa6a7cda5900211f17572abbbcc",
         "skills/time/references/history.md": "85047720f8860c849b9fddf4a1a18b03925cc6ed9b023242e42321e8c4015923",
-        "skills/tools/SKILL.md": "f82fa855664cb7fb0a770cbadd5ee7a88c4118491c3036b87bfbbe911dff5f3b",
+        "skills/tools/SKILL.md": "76a0d1145c601b9812ad5e06678859891f3906281e8e0ad5d03ab37a9663f468",
         "skills/tools/references/hulls.md": "be59e08cbce460403bf959cd29136a311b4636b88fa1e087315fc30f5704d79b",
         "skills/tools/references/legend-entries.md": "bec300adfa2daed6a466bd700a119e05338a0e619dcb1f8be8f3beb0cc584a04",
-        "skills/view/SKILL.md": "87287e89914b8e0e90cc94e083346f113c420632d04b75a5418869a9628e5cd0",
+        "skills/view/SKILL.md": "b0344f7b9d4b6cce300c05dbd09c7fb23ca55b44cce4f892783dc33fccd48ac7",
         "src/bundling/density.ts": "607e5b3d0bc8e84719501ee527969d5d9cbd933d59f20895689bd73f6d97ee9a",
         "src/bundling/index.ts": "76ed00fc9692eccc94c7a8dc4a31cefe2887f16eb609413f0ca6bae7d66f8b8c",
         "src/core/geo.ts": "086260640f45190182b6ff576227d98fcf7e2c267a936283d4f7e3a2960135d0",
@@ -208,22 +210,22 @@
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
         "src/cypher/index.ts": "6b9c8c11d9009a432aa520f4985e93903887da8feaa15ebe89e2e7fa76537141",
         "src/cypher/values.ts": "39500f54814e9aab4ce5b82c2de0dead2e9bffe77ac17217014ae553937b9193",
-        "src/db/index.ts": "56212563b43892f6251b2c74f1271fee6edd6e32e88c24824ac1343046ffe3c1",
-        "src/db/persist-shapes.ts": "ae5589ffc1c2d8796dd3394143970792570863ab0d771b327592a96ac689f20f",
+        "src/db/index.ts": "21cddec8903e1b89ee4985aab5479820da7bae331157e06cd9a1f4d9747047f6",
+        "src/db/persist-shapes.ts": "957b4139f282a9bcde37ececc75d3feb1e2206fc36b0aaa2b2221c7dfe5cf716",
         "src/db/presence.ts": "92ada31a3dc5e3f9b3b12e81c2a49f21fd7dd1086adee94b04cd207e8cb87d9e",
         "src/db/subset.ts": "23364a86c1db26a77d85371f1b6e101addc5eb0352500ad63208aec4d3d93398",
-        "src/define-graph.ts": "91e3a3f52efb4be3223c9835136289cd2687a8fb833332f9353c82b8f728ce82",
-        "src/devtools/index.ts": "76ad7a702146491b56bf430cbed81bdf03c8d30d55de12f21f6e7100fa03b1ae",
+        "src/define-graph.ts": "864e9df1528964f3236d7690134ef79cc91cfe910eb451e5e478d00ddb123687",
+        "src/devtools/index.ts": "3d9e3657b1c8b4badaf7e87d7fb1ad7957704a026623287e30d017565a9619cc",
         "src/devtools/react.tsx": "015b341e7b502b5942a8b1c5f5c83fe2c87b46f234dcf332e5367f72e2de4cfa",
         "src/editor/draw.ts": "a22f89beef72156dd3d25dea462a60bb2c3e72a9557067ca2a15e75c1aa3eaeb",
-        "src/editor/editor.ts": "dfe4a2db768ba6c98d08b6640ab86e5fbfda51bffa8e18411996061187f2974c",
+        "src/editor/editor.ts": "5e8e60f8b0f924830a383579a519e42815ed14e83ae74a76dc481cb44ff7ff51",
         "src/editor/edits.ts": "439204c5d900bd464c3f4b2af7455c49c2042b27c3194c4c51857fee5c942138",
         "src/editor/index.ts": "c01bcb3f845d604122efd3e0396473e4eb5e1e7adb9d107f57f1fca5c3109f65",
-        "src/editor/react.tsx": "7ba2eb1ab033b9be50c8b7970e36e30d484b30b1c0c87d521a319bc590e111b3",
+        "src/editor/react.tsx": "7d3916cb89ee5391773f93687443996cd7bddd1a5a0d36e0e18e7a550cd4a0d2",
         "src/editor/view.ts": "52693c80acc770dad2e4749f543a7229d1179fb4b2ec155c079c8ffc80df338d",
         "src/export/diagram.ts": "e0d124c57ea28e5edf568c098c6208af1719d341a061de205be2a9785d1b9784",
         "src/export/drawio.ts": "834a05d256d86d9bf05f100f1064d2afab230eb6e47967d6a1f165934d068c3e",
-        "src/export/index.ts": "5d3e4beba80e240bd2eda4a8e0c272aefe759c4c2d764fd5c5fffd0af04e8b00",
+        "src/export/index.ts": "8aa86c8cc10a251c2d07a4a5c362721237bf9be136c3bca8450382431f94abd7",
         "src/export/size.ts": "ffe31ceae62d538bb968a5bf2cb83a1d32d2ffc4953755b235b9316513b31b5f",
         "src/export/vsdx.ts": "9e13d25c9f7a2da0353693f3271f9b6122fb45cdfd867ba2cf3c9af51f6f1880",
         "src/formats/csv.ts": "e4dacd48f38261104fca459ec6c8ce228abd06c2e0ca172b8755e675cf31e309",
@@ -234,10 +236,10 @@
         "src/formats/index.ts": "791dc256c84c78c0074d0ecfd2799f67496037ce0d5ef7c88093ce24136db868",
         "src/formats/json-graph.ts": "3c3e35e0930a051236d9e58db4915b7927133268917bd4c4bf86394b2106b89f",
         "src/formats/types.ts": "391d1d6410372514c6b95909fa96a699f81ac2448c24e77a8d8c996f4a6007ef",
-        "src/headless/colors.ts": "e00188ae50e4d7998e0632e54d62fbbe7962b96b01cab86fdb3f2575dd04622a",
-        "src/headless/index.ts": "0a8aba4f1ad728606de7e260e5495298a13c45f16fb03e46ac93c5a7ee94e94e",
-        "src/headless/page.ts": "0fece70005cafbe946164382671099325b24b72984dbe968dc156a5716e9d462",
-        "src/headless/read-font.ts": "ff3445070774a01b49890acbf6950ccb83f05ae7431e9663ba85c7521d710b6a",
+        "src/headless/colors.ts": "5ce33e239a7ddb0ec3b1ad693d5a5c3466318027395c2217656148ead0ff90d2",
+        "src/headless/index.ts": "1ac59929a38a416ece3807586cf05ece35668a462a0571498397f8ac81637553",
+        "src/headless/page.ts": "3bfb91c6cf3f20731c409335fe953a36cae5edb4cb4122fc690a981ab8a3a4f9",
+        "src/headless/read-font.ts": "4ffffdb7317d1cc8708e7504df459a9b3235c30d3cfafc8c742b834f7c3c0cd0",
         "src/headless/text-estimate.ts": "5d4fc7b8aa1915c40b0f9b51c3d750d512a12b94ac5ead099c07a7f3bbe660cb",
         "src/history/index.ts": "0d27712ad7e058f10c1d4524dc9cb3765490cbf6f10c87818d34508e6cf20692",
         "src/history/presence.ts": "a7d46e8c3afa1ede44a1c226919fcfc33c8424e67c90436cc0b8a4e418062207",
@@ -246,47 +248,47 @@
         "src/host/data-reads.ts": "ef5b8583152930b6c8c3cc1fb92c833a0ba3152ec8aac29c0b886b895f9c805d",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "3752d47b8883f5f51734fb1286c3b3d5818984f17249e9c4e01bd8c317badb99",
-        "src/host/folding.ts": "176bea816f7b955799eafe66135abd036c3022ccae6ba501a78eead94180b266",
-        "src/host/graph-core.ts": "262a0006cf2265bc95fb74c7611adad304595a764b8a09b70dec51b8078a6c61",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
+        "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
+        "src/host/folding.ts": "67312b45a1146b2b312fc2571d6ec3119791b08d7fadb6e40773abc81885e63b",
+        "src/host/graph-core.ts": "a640933cfd039eaf82be859492126250d16ee0ce518e34ac87f326196e2a800c",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
-        "src/host/layout-session.ts": "2453175d2eca468ba68ae7ba659b4b7fbaf0bcd39c646d1a97a227f49de5fb2c",
+        "src/host/layout-session.ts": "6fea7c9e39370b105782ddf14273fc111ccb7bbfc71aefd99e362b1519846586",
         "src/host/lens.ts": "1c6a66c6e0c2e6a669940ffd7577412f2158b447eebf265cf1d0934ca5523b50",
         "src/host/picking.ts": "8afd5e22871861af2b8f796b755b885bd74d0dc3773ae057435516e54a4721e6",
         "src/host/placement.ts": "a1cf5ac92e5392085feb20cefda934752dc989b77812a8a2cde817494dc638a8",
-        "src/host/pointer-input.ts": "88a28b54b4dbf7267b5f527bf103a058c2007d235da12c4ef1ab832f8ea47b3e",
+        "src/host/pointer-input.ts": "03108b49d2095e392364a0c468508ea89fcace29baa300a06fbd21890ea2bc16",
         "src/host/position-event.ts": "4d1595dac089312fbce0a1997e909049a17da55b3c4865932c3bfef661bd1f80",
-        "src/host/render-host.ts": "b17eb513b85ba7c774e7ef55f3c54404bd6dc5720c309db47426964b278261ca",
-        "src/host/selection-control.ts": "72fb5ad16edc71414eb171b2ca5d4ebd8b1e88562fe90b7cfcf39ded10bd984b",
+        "src/host/render-host.ts": "6e77c815a2c219f9777f13e35246593ebaf730b7a0f155a4c5f26d83df25b3bb",
+        "src/host/selection-control.ts": "a4758724ac15b068f070e95b166994a888e5af21726a6163cf3b0f809de07a66",
         "src/host/spread.ts": "62c04cc87cc156e8643560bbd352070aa8056767d4c26b4fcce4271c70f6af59",
-        "src/host/view-control.ts": "d9e0c2d27930b7975a72e07ef145a987e9f356e03595d39bdd20493e7d7d6904",
+        "src/host/view-control.ts": "1b64ef8fe66551eb6fea31d19751a50f2a0d2f61d71517a3724bb11fe51d0780",
         "src/host/wheel-glide.ts": "d1fe92a37e3703e3f134f775f56c1f7cd6afcca705acbc1db236c674015ff87a",
         "src/hulls.ts": "0d083a6b8c4374b8d1a5d1cba2796ed8e00206e9968a489227464bc7000cd2ca",
-        "src/index.ts": "c3739027ceb63dcc929c1b08d04d1d65c539ec6f17dbd5c08aa5300100382a42",
+        "src/index.ts": "a0f098afe81504748866a608cb81615e38202a7ba62808ad7038da541501eecb",
         "src/layouts/force/index.ts": "3de942c3402f902e9124e717a9c442d9527be133c47f93a39f5cc32d8fcce46e",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
         "src/layouts/grid.ts": "4c43b1fc14da84d51cfa4b67d2a84e154a9fc6fee7b93ceb0927582db935d956",
         "src/layouts/index.ts": "8057ab910e50d7191fb1f23fd443820c619fd52c77279699feb62eb918df315c",
-        "src/layouts/layers/index.ts": "0fa4d62cb67da3d4a38bedb422380f8af7875e62e393ed60877aa2addf65bc6d",
+        "src/layouts/layers/index.ts": "6ed5cc3d382fdde98be0cbf257687606fe3adc2882566c10db510faf2c8f914a",
         "src/layouts/placed.ts": "58c6c9a92ffd33fb14c233dccd3a4096808ca09147a7d3f18977213a9ad0410d",
-        "src/layouts/radial.ts": "da8d87ee636e525aabbee8e9980e51a076542c3321ebff261d57b20721a627b9",
+        "src/layouts/radial.ts": "16ae8c37710e473c461bbf7633de9aaa5df5ace0ba27561cb5d6dd9d14705b32",
         "src/layouts/rings.ts": "4134366ac22aa39533dc86fbec60e196f9b0cb86b41ecfdc1c350575745cf881",
-        "src/layouts/scopes.ts": "22c91bc2316e408bccb19b35efaf4cd999cb3870e07a8ab4739721a89061d463",
+        "src/layouts/scopes.ts": "bb82987ae7fc0aa125f493cb21df782fa510cc181a6e74d0887b54a30cf7684f",
         "src/legend/entries.ts": "458504e59c696c18bd600a2ccde20a556f5f5770bb016f659271ce737c78f30e",
-        "src/legend/index.ts": "3545c6d5c1bc930d791e8960932a5e1487848b2ad9e6020996ca26bd31245089",
+        "src/legend/index.ts": "2a06c4580ce68212b189e307c5e106e2e84ed0436e1b54c6bbe9693caa024346",
         "src/legend/view.ts": "595599935153d05b21df58aa5e0ec49a5633dff0a00de33a4f63a4bd2283a952",
-        "src/map/export.ts": "9d029056151d873c700d75f0d431062c561e1a7576fae6a00421196a5bdca7aa",
-        "src/map/index.ts": "7d55a2170b9e47128fbd771442195c52f2601dc261cbf3865b293a9dee3e5478",
+        "src/map/export.ts": "f02e9fac3f65b68c8fde3ddd1d60689042e44cbdd323f39c07e4cf3245344daa",
+        "src/map/index.ts": "1261290b128e874a578250e5347a85adb4583b87ddb5496bf70fb42c85ac215e",
         "src/map/react.tsx": "a1c0cf0e01a8c1a1687c246063264fa11a69b2fa700939eeef4456129fc77cff",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
-        "src/minimap/index.ts": "8b68ba37826a815ed7c8002f5b85b77119d9a4081ddb24a12b8bf2b32d730f44",
+        "src/minimap/index.ts": "98ab556c067a23e377a7655ffacfa2a15e120bef29e68fa8fdb44bd7b648a99e",
         "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
         "src/query/index.ts": "a9db94902b0883c71a3b354d27ee09552405c9057df38f9c1a1eb889d059eb4e",
-        "src/react/context.ts": "b2afb2f6acac1a261c7e33a0b45b691961f67191de51c3f25fca4b5cac0dad50",
+        "src/react/context.ts": "51df2586df88b3345743f4060f286f909494df64776e7fd9368f37d0b0eb9ef4",
         "src/react/graph.tsx": "636adeaede36f1618c0b8b13517913a237cef6905c6752c0ed29c8ace1be9a9f",
-        "src/react/index.tsx": "4854e965cd43e2c6cb9987476df3b8d1f9a10336243b827f1ca6330ffd28f51d",
+        "src/react/index.tsx": "c466533b238a52afd2d9b3fe3c89dad885e86b75df82ce2b4caacd995d1f7361",
         "src/routing/index.ts": "51199b83111e41368ce1141c60236508664a68ef125b4d9a63a9036eb91283b1",
         "src/shapes/anchor.ts": "faa6c99b6e97aefabe7457db463d272fa46924089916ca0410bbaa0bc9bf2e6b",
         "src/shapes/index.ts": "b1862eb6735485ce72ddc698ab30f71b1a2518bd62364e8635a9a32b6cab4c09",
@@ -296,19 +298,19 @@
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
         "src/support.ts": "447f57be80e2a3915d79cbda6bed07c747ced73d2d754528bbc7a4c97aba3a83",
         "src/theme/theme.css": "244a97cbd97835d55a01d3e84df3e0aedcbd319f11635c36e7d50b7c9f4784b1",
-        "src/theme/tokens.ts": "df0e8f890f8a294f9673675ab3f41cc2d2e942f1edb9ea2c82c47ed02a92ab20",
+        "src/theme/tokens.ts": "6201ae723f26f7642cf5beefc1dca4784ab59721e11acb00a7538ecc15baeec4",
         "src/timeline/events.ts": "a8184670257037031a48eb6fddb82d9573802a9dff03a9e684105d88d874cc7f",
-        "src/timeline/index.ts": "198fcdf7e5beabe5feeb19f6244abd424b0bbb7ee3e313e8f7ce871ff50459c3",
+        "src/timeline/index.ts": "080999a96307ef64453daf9d6be4da3e79af430ad5e6fc96132a6d88768f052d",
         "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63",
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 262: headless entry written by hand in skill_tree.yaml then maintainer sync, headless, export and cypher failure modes in domain_map.yaml, skill_spec.md aligned; PR 250: map failure mode.",
+      "reason": "PRs 272, 274, 275, 276: failure modes of the renamed and new APIs in domain_map.yaml, skill_spec.md aligned.",
       "evidence": [
         "intent maintainer status reports 0 files to sync and 0 authoring issues",
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines"
       ]
     },
     "source:docs/content/docs/(guide)/agent-skills.mdx": {
@@ -324,15 +326,15 @@
       ]
     },
     "source:docs/content/docs/(guide)/meta.json": {
-      "fingerprint": "b7094fcd15cdfbab563de0d2d5751c2c71d3cebab7ccc5a7186c70a578991450",
+      "fingerprint": "094f054a0cc6f3e4eec26cdb6e88be6bb05bdf85355c71a4cfc19a95c175b063",
       "snapshot": {
-        "docs/content/docs/(guide)/meta.json": "c1725641c6f09397bf5b519b2225615224bb55eabcf060fa86d4fe6f15589fca"
+        "docs/content/docs/(guide)/meta.json": "e1b647a7675ab6a06452dd439b2262d3ffbf18f6d924b0bd6e6767ad2031c285"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Adds the server-side-extracts page to the guide index (PR 261); the skills link the page by URL.",
+      "reason": "Adds the versioning page to the guide index (PR 277); nothing to teach.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/meta.json since 0.32.0 read"
+        "Diff of docs/content/docs/(guide)/meta.json since 0.33.0 read"
       ]
     },
     "skill:skills/cypher/SKILL.md": {
@@ -355,7 +357,7 @@
       ]
     },
     "skill:skills/edges/SKILL.md": {
-      "fingerprint": "a50094fa914a60638139b3040177d2a02dc1f727e32e8d8e0ab1bb923b23767d",
+      "fingerprint": "6269b3477facc2e5638cece6a3ee98a41c08a6c0293c4db9c4cc51d922d5c463",
       "snapshot": {
         "docs/content/docs/(guide)/bundling.mdx": "2e7ce5553a531b1f791438feb857d2a29b765ce34c965dfac7e305de5b22c8a8",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
@@ -370,35 +372,35 @@
         "src/core/width-scale.ts": "50c4c93ce11bc11bc724beb23b6a95ff362c9d5eaa912c8cb1a54686b072deb9",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/routing/index.ts": "51199b83111e41368ce1141c60236508664a68ef125b4d9a63a9036eb91283b1",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63",
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "PR 258 adds an optional work field to BundleGraph and RouteGraph, read by the built-in bundling and routing: a port detail the skill does not teach.",
+      "reason": "types.ts moves the resolved options out of GraphDefinition and marks the ports @experimental (PR 277): the edges(), bundling and routing options the skill teaches are unchanged.",
       "evidence": [
-        "Diff of src/bundling/index.ts, src/routing/index.ts, src/types.ts since 0.32.0 read against skills/edges/SKILL.md"
+        "Diff of src/types.ts since 0.33.0 read against skills/edges/SKILL.md"
       ]
     },
     "skill:skills/export/SKILL.md": {
-      "fingerprint": "7f6f4403ea25d9ef18ef592bee8b4c4fd0dec0e6e693c231ed692876f1473708",
+      "fingerprint": "0c4b0434097de6526cf366ae6541675acce3829a54a9dd0d771c16671f8b3dae",
       "snapshot": {
-        "docs/content/docs/(guide)/export.mdx": "a1e12376b27b59c9385a1c723231acbdac81cd5c63c385644e46a8954d4356da",
-        "docs/content/docs/api/export.mdx": "177a49c3815ff71113b2739c6fd9532854e859aaab295221a4f7433000bb1c61",
-        "skills/export/SKILL.md": "67a0f5359c1ca1c5a1bd6bf5eb0d34dc3fa33ad6de2aac2606e1b39fb751ad6a",
+        "docs/content/docs/(guide)/export.mdx": "5b4e3602a6c48bdc974857aeccb064d429a9a79911519730430ecc3436c42a74",
+        "docs/content/docs/api/export.mdx": "82661801d9a04fa8a4810e9ca941ed2de441e5770b51b475bad45d6a9e09085f",
+        "skills/export/SKILL.md": "fbea7d644753b0ca349da02b05f1e5a5e73280905842a24e604cb8ab467c2594",
         "src/export/diagram.ts": "e0d124c57ea28e5edf568c098c6208af1719d341a061de205be2a9785d1b9784",
         "src/export/drawio.ts": "834a05d256d86d9bf05f100f1064d2afab230eb6e47967d6a1f165934d068c3e",
-        "src/export/index.ts": "5d3e4beba80e240bd2eda4a8e0c272aefe759c4c2d764fd5c5fffd0af04e8b00",
+        "src/export/index.ts": "8aa86c8cc10a251c2d07a4a5c362721237bf9be136c3bca8450382431f94abd7",
         "src/export/size.ts": "ffe31ceae62d538bb968a5bf2cb83a1d32d2ffc4953755b235b9316513b31b5f",
         "src/export/vsdx.ts": "9e13d25c9f7a2da0353693f3271f9b6122fb45cdfd867ba2cf3c9af51f6f1880"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 262: exportDrawio and exportVsdx with DiagramExportOptions, exportSvg on a GraphCore with images, exportPng refused without a page (PRs 253, 255, 261). PR 264 only adds the window and theme parts Visio needs: nothing to teach.",
+      "reason": "PR 273: pixelRatio of exportPng takes 'auto', 'device' or a number, the default stays the ratio drawn.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 262: only skills/ and _artifacts/ changed, no comments in examples, no other library named, recipe of the headless skill run against the dist (pnpm docs:extracts)",
-        "Diff of docs/content/docs/(guide)/export.mdx, docs/content/docs/api/export.mdx, src/export/diagram.ts, src/export/drawio.ts, src/export/index.ts, src/export/vsdx.ts since 0.32.0 read against skills/export/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 273: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/export.mdx, docs/content/docs/api/export.mdx, src/export/index.ts since 0.33.0 read against skills/export/SKILL.md"
       ]
     },
     "skill:skills/file-formats/SKILL.md": {
@@ -425,158 +427,160 @@
       ]
     },
     "skill:skills/groups/SKILL.md": {
-      "fingerprint": "27a32414aa6b1781d6c727a3766604a776e3f90ac1c19f1567a3b889d5663659",
+      "fingerprint": "05d458c27aa730f88a944f1fa968666b87fe7c7cd603c2567d9b2e63081acbf2",
       "snapshot": {
         "docs/content/docs/(guide)/groups.mdx": "e65ddc00d5c0e7ef1d8c596ab4882df2aa1cb9d5adae90475656210a24dbe6f7",
-        "docs/content/docs/(guide)/transformations.mdx": "974cb22fc229bc7469f30c89549f4fe5ab5795b8249a65d734eecf0ad29d1421",
+        "docs/content/docs/(guide)/transformations.mdx": "b9d5c818e34d962650bf6f7edb6f6eda7995ad4c40839d012a2b3f0cbabb133b",
         "docs/content/docs/api/groups.mdx": "124959871577a32a36c80321651d7eff2df3ea4ee726d10521c426cc401f86ff",
         "skills/groups/SKILL.md": "a78153f6c920d63437d7bb55a7a4dfd6c65a29808d30c5ed0712d42b6e2db4d5",
         "src/core/hierarchy.ts": "8f32d5b30633fe9a6b042d5ddf81d4fb6716f1119aaba940773c07d9e55b839d",
         "src/core/projection.ts": "1a883328745fea297e1a3d0335d387405390566d2ea6cd58b3b6a727c0144c23",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "3752d47b8883f5f51734fb1286c3b3d5818984f17249e9c4e01bd8c317badb99",
-        "src/host/folding.ts": "176bea816f7b955799eafe66135abd036c3022ccae6ba501a78eead94180b266",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
+        "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
+        "src/host/folding.ts": "67312b45a1146b2b312fc2571d6ec3119791b08d7fadb6e40773abc81885e63b",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/picking.ts": "8afd5e22871861af2b8f796b755b885bd74d0dc3773ae057435516e54a4721e6",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "graph-instance.ts and types.ts only split GraphCore from GraphInstance and add LayoutWork (PRs 254, 258): no groups API changed.",
+      "reason": "folding.ts reads ResolvedDefinition (PR 277), transformations.mdx says an aggregated edge without aggregate takes the look of its first edge, which the skill already says; events.ts renames payloads of layerchange and timechange only: foldchange unchanged.",
       "evidence": [
-        "Diff of src/host/graph-instance.ts, src/types.ts since 0.32.0 read against skills/groups/SKILL.md"
+        "Diff of docs/content/docs/(guide)/transformations.mdx, src/host/events.ts, src/host/folding.ts, src/host/graph-instance.ts, src/types.ts since 0.33.0 read against skills/groups/SKILL.md"
       ]
     },
     "skill:skills/interaction/SKILL.md": {
-      "fingerprint": "2af10cce767939569dedee23c7b56c8fdc3f1b16ed9f454d0a033769505a6fe8",
+      "fingerprint": "a9bfd745e1d18c2ac9f576b7479650ec9f1de3976e10f7ce495c1239e12e9572",
       "snapshot": {
         "docs/content/docs/(guide)/interaction.mdx": "826d443567ba25cd1e188819ef9c262c2b945156025f243f27fb6da54803591a",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
-        "docs/content/docs/api/define-graph.mdx": "7c9805b9a583c1d0f61b953714543b507d672a75db09b3935b80474f5d93260b",
-        "docs/content/docs/api/events.mdx": "7f68afc17911b78f1256f6ed472230f23ba82bfd816116fc2693561570bab7e6",
+        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
         "skills/interaction/SKILL.md": "3246c5e955e2fe012bbe1fb82c05ca9180bded0717761d563a170ebbb490f263",
         "skills/interaction/references/wheel-glide.md": "5ad5be31b578aa7090baf52da3ecfb29f49a076629c899ade4fe1684c522211b",
         "src/core/lasso.ts": "e6e337b0baa0757d1bbb5c9d3620013b9c9c8a8b0052afc02dd3a948b91879fe",
         "src/core/state-names.ts": "2fe7d95242b293721fdd61489248c618e2641eaac1fca1111d9f417431a3935a",
-        "src/define-graph.ts": "91e3a3f52efb4be3223c9835136289cd2687a8fb833332f9353c82b8f728ce82",
+        "src/define-graph.ts": "864e9df1528964f3236d7690134ef79cc91cfe910eb451e5e478d00ddb123687",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "3752d47b8883f5f51734fb1286c3b3d5818984f17249e9c4e01bd8c317badb99",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
+        "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
-        "src/host/pointer-input.ts": "88a28b54b4dbf7267b5f527bf103a058c2007d235da12c4ef1ab832f8ea47b3e",
-        "src/host/selection-control.ts": "72fb5ad16edc71414eb171b2ca5d4ebd8b1e88562fe90b7cfcf39ded10bd984b",
+        "src/host/pointer-input.ts": "03108b49d2095e392364a0c468508ea89fcace29baa300a06fbd21890ea2bc16",
+        "src/host/selection-control.ts": "a4758724ac15b068f070e95b166994a888e5af21726a6163cf3b0f809de07a66",
         "src/host/wheel-glide.ts": "d1fe92a37e3703e3f134f775f56c1f7cd6afcca705acbc1db236c674015ff87a",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "graph-instance.ts and types.ts only split GraphCore from GraphInstance and add LayoutWork (PRs 254, 258): pointer, keyboard and lasso unchanged.",
+      "reason": "pointer-input.ts and define-graph.ts read ResolvedDefinition (PR 277), events.ts renames the payloads of layerchange and timechange (PR 272), taught by multilayer and time: pointer, keyboard and lasso unchanged.",
       "evidence": [
-        "Diff of src/host/graph-instance.ts, src/types.ts since 0.32.0 read against skills/interaction/SKILL.md"
+        "Diff of docs/content/docs/api/define-graph.mdx, docs/content/docs/api/events.mdx, src/define-graph.ts, src/host/events.ts, src/host/graph-instance.ts, src/host/pointer-input.ts, src/host/selection-control.ts, src/types.ts since 0.33.0 read against skills/interaction/SKILL.md"
       ]
     },
     "skill:skills/layouts/SKILL.md": {
-      "fingerprint": "3ed3dc018e1d9d62326937803697f10ef6e9f2d42453dee43f5c1cf39a34938a",
+      "fingerprint": "7a00054e2126b6573f8724be16133cb6db678054a4fcd542c5776ec2bfe7c520",
       "snapshot": {
-        "docs/content/docs/(guide)/layout.mdx": "9de080179be0e0bdaf8e4990e4429c7a5e0a6eab8ea918c2638142ea381213a9",
-        "docs/content/docs/(guide)/positions.mdx": "34c1fe2d5f83a12b651f6343d332eac38a9995e30417bbbb0f2ecd6ded0e7c7d",
+        "docs/content/docs/(guide)/layout.mdx": "c49a73bd9dadc43eafaf7f3ea9f55dd484a5e15a8148f9eb769a9f8053eb3a1c",
+        "docs/content/docs/(guide)/positions.mdx": "d02131fdd0609de777d46afabd95ef55c8763f3aaba5cd31a8d68bff1f6dc043",
         "docs/content/docs/api/force.mdx": "a04fee2ec0c0716895d83e61a65a10540f531a19d47bf0fa553c57ed64df281a",
         "docs/content/docs/api/layouts.mdx": "77216db768bdbea2cf776a877fe60d4af718d84ca72038d6969947efc5c90d9f",
-        "skills/layouts/SKILL.md": "2ee3e6e1d20ad8c8b247ecce56ef6fff73731c760f0adde9f276d6bfd30232c4",
-        "skills/layouts/references/group-layouts.md": "471e562b481844cfaf5fa0ff3f71ae61f92aec685770a63ee899f3f93a5dfefc",
+        "skills/layouts/SKILL.md": "4ee7f7d1d4d4c7f9af680bc3ac4ccbd582bf0d0e666ca8cc84c97cd47d621bcb",
+        "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
         "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
-        "src/host/layout-session.ts": "2453175d2eca468ba68ae7ba659b4b7fbaf0bcd39c646d1a97a227f49de5fb2c",
+        "src/host/layout-session.ts": "6fea7c9e39370b105782ddf14273fc111ccb7bbfc71aefd99e362b1519846586",
         "src/layouts/force/index.ts": "3de942c3402f902e9124e717a9c442d9527be133c47f93a39f5cc32d8fcce46e",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
         "src/layouts/grid.ts": "4c43b1fc14da84d51cfa4b67d2a84e154a9fc6fee7b93ceb0927582db935d956",
         "src/layouts/index.ts": "8057ab910e50d7191fb1f23fd443820c619fd52c77279699feb62eb918df315c",
-        "src/layouts/layers/index.ts": "0fa4d62cb67da3d4a38bedb422380f8af7875e62e393ed60877aa2addf65bc6d",
+        "src/layouts/layers/index.ts": "6ed5cc3d382fdde98be0cbf257687606fe3adc2882566c10db510faf2c8f914a",
         "src/layouts/placed.ts": "58c6c9a92ffd33fb14c233dccd3a4096808ca09147a7d3f18977213a9ad0410d",
-        "src/layouts/radial.ts": "da8d87ee636e525aabbee8e9980e51a076542c3321ebff261d57b20721a627b9",
+        "src/layouts/radial.ts": "16ae8c37710e473c461bbf7633de9aaa5df5ace0ba27561cb5d6dd9d14705b32",
         "src/layouts/rings.ts": "4134366ac22aa39533dc86fbec60e196f9b0cb86b41ecfdc1c350575745cf881",
-        "src/layouts/scopes.ts": "22c91bc2316e408bccb19b35efaf4cd999cb3870e07a8ab4739721a89061d463",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/layouts/scopes.ts": "bb82987ae7fc0aa125f493cb21df782fa510cc181a6e74d0887b54a30cf7684f",
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 262: layers keeps the measured label width on the left and right (PR 257), layouts without a page and LayoutGraph.work (PR 258).",
+      "reason": "PR 274: a layout that throws fails its run (false, layoutend.error), signal of layout.run, compute rejects with the error, root of radial and layers a key or a list of keys.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 262: only skills/ and _artifacts/ changed, no comments in examples, no other library named, recipe of the headless skill run against the dist (pnpm docs:extracts)",
-        "Diff of docs/content/docs/(guide)/layout.mdx, src/host/data-status.ts, src/host/graph-instance.ts, src/host/layout-graph.ts, src/host/layout-session.ts, src/layouts/force/index.ts, src/layouts/scopes.ts, src/types.ts since 0.32.0 read against skills/layouts/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 274: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/layout.mdx, docs/content/docs/(guide)/positions.mdx, src/host/graph-instance.ts, src/host/layout-session.ts, src/layouts/layers/index.ts, src/layouts/radial.ts, src/layouts/scopes.ts, src/types.ts since 0.33.0 read against skills/layouts/SKILL.md"
       ]
     },
     "skill:skills/map/SKILL.md": {
-      "fingerprint": "6070dfc204661d815ea6f22eff04a29996b1868c1f828bead97ef3309ae2b556",
+      "fingerprint": "914786f26923cf431a34338fb872bc3b583d35a85a9b0bc17ff506bc85f71f66",
       "snapshot": {
-        "docs/content/docs/(guide)/map.mdx": "5f540b194ed5c17c0a38b684fbb5be33fbbf0fb4eb946bf0b620b034079b49c4",
-        "docs/content/docs/(guide)/positions.mdx": "34c1fe2d5f83a12b651f6343d332eac38a9995e30417bbbb0f2ecd6ded0e7c7d",
+        "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
+        "docs/content/docs/(guide)/positions.mdx": "d02131fdd0609de777d46afabd95ef55c8763f3aaba5cd31a8d68bff1f6dc043",
         "docs/content/docs/api/graph-component.mdx": "4d95a6364b252748a73229e4721ea9773475846fb832b332c0bf335571bb25f5",
         "docs/content/docs/api/map-graph.mdx": "c14328cb9f7aae7b78cee22ca17d66c307e4541be265981b91bc36dfc9595fd0",
-        "docs/content/docs/api/map.mdx": "0bb4a8bbea94ab2f2fa3ed4801dd76a8f2c66683e7111ccc00d6fc74221d6314",
-        "skills/map/SKILL.md": "db12230f9f730674bbffe94d59c3e6ec8089cd96734811c0cda2a84e4e437001",
+        "docs/content/docs/api/map.mdx": "2c8cc6c38f3ebd46473b893135ec12f8b8417f54ba027b0e0c493b5ba6c1c04c",
+        "skills/map/SKILL.md": "ba05670d8fe8ddc321014b85dba2b4c21baed9ced5f8dee030aec16962a1dcd4",
         "skills/map/references/surfaces.md": "674dd4af13ae21a4e457ed34d1a657176b4874f8984478f70769385103ad830d",
         "src/core/geo.ts": "086260640f45190182b6ff576227d98fcf7e2c267a936283d4f7e3a2960135d0",
         "src/host/canvas-surface.ts": "4d0866f8480006cea92e8d5b030485a8c94f6c9a4a2fa824810c2ce7c883fa9b",
         "src/host/placement.ts": "a1cf5ac92e5392085feb20cefda934752dc989b77812a8a2cde817494dc638a8",
         "src/host/position-event.ts": "4d1595dac089312fbce0a1997e909049a17da55b3c4865932c3bfef661bd1f80",
         "src/host/spread.ts": "62c04cc87cc156e8643560bbd352070aa8056767d4c26b4fcce4271c70f6af59",
-        "src/map/export.ts": "9d029056151d873c700d75f0d431062c561e1a7576fae6a00421196a5bdca7aa",
-        "src/map/index.ts": "7d55a2170b9e47128fbd771442195c52f2601dc261cbf3865b293a9dee3e5478",
+        "src/map/export.ts": "f02e9fac3f65b68c8fde3ddd1d60689042e44cbdd323f39c07e4cf3245344daa",
+        "src/map/index.ts": "1261290b128e874a578250e5347a85adb4583b87ddb5496bf70fb42c85ac215e",
         "src/map/react.tsx": "a1c0cf0e01a8c1a1687c246063264fa11a69b2fa700939eeef4456129fc77cff",
         "src/shapes/subdivide.ts": "b1576a97844313f4ac12eb43304aac3b01b66837f1871d6005fa7329a147f664",
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63",
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 250: the MapLibre stylesheet beats Tailwind v4 utilities on the map container, failure mode added.",
+      "reason": "PR 273: pixelRatio of exportMapPng takes 'auto', 'device' or a number.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 250: skills/map/SKILL.md and its guide changed together",
-        "Diff of docs/content/docs/(guide)/map.mdx, src/host/spread.ts, src/map/index.ts, src/types.ts since 0.32.0 read against skills/map/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 273: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/map.mdx, docs/content/docs/(guide)/positions.mdx, docs/content/docs/api/map.mdx, src/map/export.ts, src/map/index.ts, src/types.ts since 0.33.0 read against skills/map/SKILL.md"
       ]
     },
     "skill:skills/multilayer/SKILL.md": {
-      "fingerprint": "22240c208f7458a11ffb37b2087629a6f3e641d7b9b9de602a0a490b0ff969eb",
+      "fingerprint": "09348afcce62a85271316f3e4ffafd177c8a711b79cd72ee3e9b5c8166116603",
       "snapshot": {
-        "docs/content/docs/(guide)/multilayer.mdx": "a527b9a14d71cf3b554d25405c9e681462f60dfaa7bc948062902262446ff565",
+        "docs/content/docs/(guide)/multilayer.mdx": "5d2b375c32c23813b510704e49675482ae450937219c8aaa5c1405b2de387c01",
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
-        "skills/multilayer/SKILL.md": "cd7eae8468a807d4a7e5f11744f9c8598dac50bbe749b9fa608857ee3a4a480f",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
+        "skills/multilayer/SKILL.md": "a498eaa93f1be65d672e34568683e183fbddd0690f4b76689dda5078c9967342",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/support.ts": "447f57be80e2a3915d79cbda6bed07c747ced73d2d754528bbc7a4c97aba3a83",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
-      "outcome": "no-change",
-      "reason": "graph-instance.ts and types.ts only split GraphCore from GraphInstance and add LayoutWork (PRs 254, 258): layers and support unchanged.",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "updated",
+      "reason": "PR 272: layerchange and onLayerChange carry { hiddenLayers }.",
       "evidence": [
-        "Diff of src/host/graph-instance.ts, src/types.ts since 0.32.0 read against skills/multilayer/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 272: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/multilayer.mdx, src/host/graph-instance.ts, src/types.ts since 0.33.0 read against skills/multilayer/SKILL.md"
       ]
     },
     "skill:skills/paths/SKILL.md": {
-      "fingerprint": "d07be8c3eb514a6253dba870102cb39c289706316ecc6c234427748c3622c700",
+      "fingerprint": "25d472825b34e6285bbd068219dcac06e17de9ab4fabd3d66ecb3003f89e500c",
       "snapshot": {
         "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
         "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
         "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "types.ts only adds LayoutWork and the work fields (PR 258): path searches unchanged.",
+      "reason": "types.ts moves the resolved options out of GraphDefinition (PR 277): path searches unchanged.",
       "evidence": [
-        "Diff of src/types.ts since 0.32.0 read against skills/paths/SKILL.md"
+        "Diff of src/types.ts since 0.33.0 read against skills/paths/SKILL.md"
       ]
     },
     "skill:skills/styling/SKILL.md": {
-      "fingerprint": "a1fad588cc4939ded177804c615b77ae64db18dde0e7b242c2c5cf1a64c1a098",
+      "fingerprint": "20a3fc191753eaa674dcd2da6f37dd6145f3ee6d1a0e1d849e20a8cda27f104b",
       "snapshot": {
         "docs/content/docs/(guide)/images-and-badges.mdx": "9ac154d92f4d562b7112575a93c935307d3e42f2ec56de5f2d34728abc705159",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
@@ -589,36 +593,38 @@
         "src/core/node-order.ts": "7c61a89ceebabd31a847be1e79686003853887f48c7606c1813b97f466bedd8e",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/theme/theme.css": "244a97cbd97835d55a01d3e84df3e0aedcbd319f11635c36e7d50b7c9f4784b1",
-        "src/theme/tokens.ts": "df0e8f890f8a294f9673675ab3f41cc2d2e942f1edb9ea2c82c47ed02a92ab20",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/theme/tokens.ts": "6201ae723f26f7642cf5beefc1dca4784ab59721e11acb00a7538ecc15baeec4",
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "types.ts only adds LayoutWork and the work fields (PR 258): no style option changed.",
+      "reason": "tokens.ts types the token names as GraphToken (PR 273), used by the theme colors of createGraph, taught by headless; the CSS variables and style options the skill teaches are unchanged.",
       "evidence": [
-        "Diff of src/types.ts since 0.32.0 read against skills/styling/SKILL.md"
+        "Diff of src/theme/tokens.ts, src/types.ts since 0.33.0 read against skills/styling/SKILL.md"
       ]
     },
     "skill:skills/tanstack-db/SKILL.md": {
-      "fingerprint": "3fe28b727ee0cf36fb78fd934c6683da0092134b5799e393dcc1f7d6e8db8303",
+      "fingerprint": "b6fa5db45367c9b71f37f3ac5633ca4d2db7035c81080a17f171dc7b2f123626",
       "snapshot": {
         "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
-        "docs/content/docs/(guide)/tanstack-db.mdx": "4a39ca2242284846f7adc4e351aa4597b5559e4b85f9a196744d890c9ce9b36f",
+        "docs/content/docs/(guide)/tanstack-db.mdx": "8fca81ee2d187bd837d669140209d7b576d356c39d9ef36097ebb1ee748bd3ca",
         "docs/content/docs/api/history.mdx": "6955b82f05e83c0b87dcfb727d0202b87f875e6b5fc5499afe7ccb26b7071c18",
-        "docs/content/docs/api/persist-positions.mdx": "e934d44506485380ed6dea4b8c1e74d3290321e1fd6bff17c7bc61bb528ffb5a",
+        "docs/content/docs/api/persist-positions.mdx": "8e50465b62934e29452ed46661f3ef31b304b21b7c0e732676c480753033fcfb",
         "docs/content/docs/api/subset.mdx": "c853303f9c7a06eafc06b68f40dd9d0a2f6b094a16f4d46d59526d786b825365",
-        "skills/tanstack-db/SKILL.md": "bb48a30c6d2115581a0f7e2d0268c392be832c9f8840d4565f484bb721382903",
+        "skills/tanstack-db/SKILL.md": "d855871f6aecb05793efbea301e6228363f32dd5dccf3f6332f99a3101f5098e",
         "skills/tanstack-db/references/journal.md": "8587e5be6f3272160a6bb4284971728116cd534406d10da15d522b338baca91e",
         "src/core/live-source.ts": "c8238bcf8d17ae8be6bbc2a948e19f78be3b936f7f9a1089b6a5ff9d1ecbd856",
-        "src/db/index.ts": "56212563b43892f6251b2c74f1271fee6edd6e32e88c24824ac1343046ffe3c1",
+        "src/db/index.ts": "21cddec8903e1b89ee4985aab5479820da7bae331157e06cd9a1f4d9747047f6",
         "src/db/subset.ts": "23364a86c1db26a77d85371f1b6e101addc5eb0352500ad63208aec4d3d93398",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
-      "outcome": "no-change",
-      "reason": "data-status.ts gains the waiting flag read by settled() (PR 258): live sources and their status are read as before.",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "updated",
+      "reason": "PR 275: persistPositions returns { stop } and takes a GraphCore, React effects return stop.",
       "evidence": [
-        "Diff of src/host/data-status.ts since 0.32.0 read against skills/tanstack-db/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 275: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/tanstack-db.mdx, docs/content/docs/api/persist-positions.mdx, src/db/index.ts since 0.33.0 read against skills/tanstack-db/SKILL.md"
       ]
     },
     "skill:skills/tanstack-query/SKILL.md": {
@@ -638,103 +644,105 @@
       ]
     },
     "skill:skills/time/SKILL.md": {
-      "fingerprint": "74623527d2b33ada5594aa2acd930cc358a4f15153f0611bff96a17c11fec15d",
+      "fingerprint": "c44cadf44449f4cc9fe8b3f40411834c49108fd921bbe53e677127e5344ae66e",
       "snapshot": {
-        "docs/content/docs/(guide)/time.mdx": "989d549315a96e0e71afa684441c62ac53c0fa638c1d47ebd13e9aec2c767c94",
+        "docs/content/docs/(guide)/time.mdx": "78dc4e69f2b43361925aaecced96d3f1c6eb6d160601944daa48952854cf1085",
         "docs/content/docs/api/history.mdx": "6955b82f05e83c0b87dcfb727d0202b87f875e6b5fc5499afe7ccb26b7071c18",
-        "docs/content/docs/api/timeline.mdx": "9bb7324d19196ac293f7ab488d65ee4ea6a329acd54ef2de2240de21aecf3450",
-        "skills/time/SKILL.md": "c7c7b727a8ac6df8fa1ecef50c6d1a995f5a94b6a67bbb4c7832f6289f01145f",
-        "skills/time/references/events.md": "ef4d487118a244c2aad3fd5290152813fbbc9616bdb15879979ce466522a80fb",
+        "docs/content/docs/api/timeline.mdx": "9c6481a7005fe7c91fd50104295afcb4c8e6e21ffa0c0f5c29e43c77b213c98b",
+        "skills/time/SKILL.md": "4adacf9a4dd27879c2eca9c1eec3d8cf4f7e9858dacbf9b59e278e3ec1aa74ff",
+        "skills/time/references/events.md": "906382655609f022ae08459025a9c4a6d3028aa6a7cda5900211f17572abbbcc",
         "skills/time/references/history.md": "85047720f8860c849b9fddf4a1a18b03925cc6ed9b023242e42321e8c4015923",
         "src/core/history.ts": "be05f8fb5ae4f7f681c89697e072f3b0537b9442ed01d937b8db4378273f0812",
         "src/core/periods.ts": "32441071eb91097f6281b0063445dc42025e6c6b20733fb8754360228ca72fff",
         "src/core/time-range.ts": "a4dfab2cee1e8ab17929202cf8245057d2af8426c0b5a1960edd022b42ec09b0",
         "src/history/index.ts": "0d27712ad7e058f10c1d4524dc9cb3765490cbf6f10c87818d34508e6cf20692",
         "src/history/presence.ts": "a7d46e8c3afa1ede44a1c226919fcfc33c8424e67c90436cc0b8a4e418062207",
-        "src/host/events.ts": "3752d47b8883f5f51734fb1286c3b3d5818984f17249e9c4e01bd8c317badb99",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
-        "src/react/index.tsx": "4854e965cd43e2c6cb9987476df3b8d1f9a10336243b827f1ca6330ffd28f51d",
+        "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
+        "src/react/index.tsx": "c466533b238a52afd2d9b3fe3c89dad885e86b75df82ce2b4caacd995d1f7361",
         "src/timeline/events.ts": "a8184670257037031a48eb6fddb82d9573802a9dff03a9e684105d88d874cc7f",
-        "src/timeline/index.ts": "198fcdf7e5beabe5feeb19f6244abd424b0bbb7ee3e313e8f7ce871ff50459c3",
+        "src/timeline/index.ts": "080999a96307ef64453daf9d6be4da3e79af430ad5e6fc96132a6d88768f052d",
         "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 262: createTimeline takes a GraphCore (PR 258).",
+      "reason": "PR 272: timechange and onTimeChange carry { time }, stepEvent without a window starts at the first event.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 262: only skills/ and _artifacts/ changed, no comments in examples, no other library named, recipe of the headless skill run against the dist (pnpm docs:extracts)",
-        "Diff of docs/content/docs/api/timeline.mdx, src/host/graph-instance.ts, src/timeline/index.ts, src/types.ts since 0.32.0 read against skills/time/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 272: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/time.mdx, docs/content/docs/api/timeline.mdx, src/host/events.ts, src/host/graph-instance.ts, src/react/index.tsx, src/timeline/index.ts, src/types.ts since 0.33.0 read against skills/time/SKILL.md"
       ]
     },
     "skill:skills/tools/SKILL.md": {
-      "fingerprint": "fd17cef696300d06fe7273aeaf38bdcbd21dc3425917c3a7732d52c1fc5c081f",
+      "fingerprint": "163861613e5ab7650d0c285cf2acdd6de937d789f38674a82bd9eaf90ffb7120",
       "snapshot": {
         "docs/content/docs/(guide)/devtools.mdx": "1bd12deb1d29cd3e0663daf5c02795173d83bf50e8829be9e5f13a40ed6ba38e",
         "docs/content/docs/(guide)/drawing-layers.mdx": "e25c877c66d652679a700d12cc07c289186341d9c926c0694077580aad36b498",
         "docs/content/docs/(guide)/lens.mdx": "175c2f78a9f174344d13cdc9b2383b50a40ecf65d00e189995182503676eaf5a",
-        "docs/content/docs/(guide)/minimap-and-legend.mdx": "c10a3fe308879feb4ea4c343b04e357a6af46f52ae711d57108e220554f34da3",
+        "docs/content/docs/(guide)/minimap-and-legend.mdx": "00911429a72f29a998d41eaa92712c0a8a658bd52d9a8772312c724e3650cbf9",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
-        "docs/content/docs/api/devtools.mdx": "63a2e825f13c6ffe2bc08ef817ad28ef0679d8f57fb2036a992beee94e5a84ef",
+        "docs/content/docs/api/devtools.mdx": "154824212bf4f7394efc66231f3678d5984db846a40d95b2c8288e401b67746f",
         "docs/content/docs/api/hull.mdx": "3c192acfb729196c214dc96cb2390288b053d48fefa3dbbab51083d0aabe63ed",
-        "docs/content/docs/api/legend.mdx": "cef11c9dda5d243ec6993ef1110a7aa3e1288115eaf9203e9b339e0ce7e665be",
-        "docs/content/docs/api/minimap.mdx": "e9bc24c66975dc0d1d7eb6591b1ba585fd7599c00278a21f869c23459c34f261",
-        "skills/tools/SKILL.md": "f82fa855664cb7fb0a770cbadd5ee7a88c4118491c3036b87bfbbe911dff5f3b",
+        "docs/content/docs/api/legend.mdx": "7225f93bc6912ddfb434cbb693c053f7eac93c5a408e510704768ea261480615",
+        "docs/content/docs/api/minimap.mdx": "2127b036c924b781a21124955eba59de0edab9e6ce9299e0ee05d146cd1d789a",
+        "skills/tools/SKILL.md": "76a0d1145c601b9812ad5e06678859891f3906281e8e0ad5d03ab37a9663f468",
         "skills/tools/references/hulls.md": "be59e08cbce460403bf959cd29136a311b4636b88fa1e087315fc30f5704d79b",
         "skills/tools/references/legend-entries.md": "bec300adfa2daed6a466bd700a119e05338a0e619dcb1f8be8f3beb0cc584a04",
-        "src/devtools/index.ts": "76ad7a702146491b56bf430cbed81bdf03c8d30d55de12f21f6e7100fa03b1ae",
+        "src/devtools/index.ts": "3d9e3657b1c8b4badaf7e87d7fb1ad7957704a026623287e30d017565a9619cc",
         "src/devtools/react.tsx": "015b341e7b502b5942a8b1c5f5c83fe2c87b46f234dcf332e5367f72e2de4cfa",
         "src/host/anchors.ts": "49d27873dbb4ffa6b0ba4532585ae6f22f2843aed7d302e2eaf96d1597ee9d93",
         "src/host/lens.ts": "1c6a66c6e0c2e6a669940ffd7577412f2158b447eebf265cf1d0934ca5523b50",
         "src/hulls.ts": "0d083a6b8c4374b8d1a5d1cba2796ed8e00206e9968a489227464bc7000cd2ca",
         "src/legend/entries.ts": "458504e59c696c18bd600a2ccde20a556f5f5770bb016f659271ce737c78f30e",
-        "src/legend/index.ts": "3545c6d5c1bc930d791e8960932a5e1487848b2ad9e6020996ca26bd31245089",
+        "src/legend/index.ts": "2a06c4580ce68212b189e307c5e106e2e84ed0436e1b54c6bbe9693caa024346",
         "src/legend/view.ts": "595599935153d05b21df58aa5e0ec49a5633dff0a00de33a4f63a4bd2283a952",
-        "src/minimap/index.ts": "8b68ba37826a815ed7c8002f5b85b77119d9a4081ddb24a12b8bf2b32d730f44"
+        "src/minimap/index.ts": "98ab556c067a23e377a7655ffacfa2a15e120bef29e68fa8fdb44bd7b648a99e"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 262: createLegend takes a GraphCore (PR 258).",
+      "reason": "PR 272: mountMinimap replaces createMinimap, defaultDevtoolsMessages; PR 276: the Rendering row of the devtools reads 'unavailable'.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 262: only skills/ and _artifacts/ changed, no comments in examples, no other library named, recipe of the headless skill run against the dist (pnpm docs:extracts)",
-        "Diff of docs/content/docs/api/legend.mdx, src/legend/index.ts since 0.32.0 read against skills/tools/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 272, 276: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/minimap-and-legend.mdx, docs/content/docs/api/devtools.mdx, docs/content/docs/api/legend.mdx, docs/content/docs/api/minimap.mdx, src/devtools/index.ts, src/legend/index.ts, src/minimap/index.ts since 0.33.0 read against skills/tools/SKILL.md"
       ]
     },
     "skill:skills/view/SKILL.md": {
-      "fingerprint": "807c3fbeaa0051408b2619fddd79d438fd6c3d2b5b65bb791e86c37cc2926454",
+      "fingerprint": "56c29a83b7f7e13063ac8b41eed5895c917fcc38ddd6809088237b30e429ac54",
       "snapshot": {
-        "docs/content/docs/(guide)/view.mdx": "5e34ea33fcbbd0039583cfe624089262b382be5639d0805f1512038f6b7a07fa",
+        "docs/content/docs/(guide)/view.mdx": "7dcfd8f22c1304722fc8dec8e40afb5b925ddde0b555c26f8bcd531dd2542eb7",
         "docs/content/docs/(guide)/zoom.mdx": "3ba61e43cda3aa11cb485a3da120469588ca9fc796f909f11ba607c76db69fca",
-        "docs/content/docs/api/define-graph.mdx": "7c9805b9a583c1d0f61b953714543b507d672a75db09b3935b80474f5d93260b",
-        "docs/content/docs/api/graph-instance.mdx": "c8864abae64e71bceca5f4dbbf89880c4500162fa5779664ed2e746868c87b56",
-        "skills/view/SKILL.md": "87287e89914b8e0e90cc94e083346f113c420632d04b75a5418869a9628e5cd0",
+        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/graph-instance.mdx": "7d7d4da954a38a10298257f3806981683e9a22de870ff6f634b8dc13b591495e",
+        "skills/view/SKILL.md": "b0344f7b9d4b6cce300c05dbd09c7fb23ca55b44cce4f892783dc33fccd48ac7",
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
-        "src/define-graph.ts": "91e3a3f52efb4be3223c9835136289cd2687a8fb833332f9353c82b8f728ce82",
+        "src/define-graph.ts": "864e9df1528964f3236d7690134ef79cc91cfe910eb451e5e478d00ddb123687",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
-        "src/host/events.ts": "3752d47b8883f5f51734fb1286c3b3d5818984f17249e9c4e01bd8c317badb99",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
-        "src/host/view-control.ts": "d9e0c2d27930b7975a72e07ef145a987e9f356e03595d39bdd20493e7d7d6904",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
+        "src/host/view-control.ts": "1b64ef8fe66551eb6fea31d19751a50f2a0d2f61d71517a3724bb11fe51d0780",
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
-      "outcome": "no-change",
-      "reason": "view-control.ts reads still() from the environment (PR 254), graph-instance.mdx moves members to GraphCore: the view API is unchanged; animations that end at once without a page are taught by headless.",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "updated",
+      "reason": "PR 277: a controlled view gives back the object received, View may gain optional fields in a minor version (versioning page).",
       "evidence": [
-        "Diff of docs/content/docs/api/graph-instance.mdx, src/host/data-status.ts, src/host/graph-instance.ts, src/host/view-control.ts, src/types.ts since 0.32.0 read against skills/view/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 277: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/view.mdx, docs/content/docs/api/define-graph.mdx, docs/content/docs/api/graph-instance.mdx, src/define-graph.ts, src/host/events.ts, src/host/graph-instance.ts, src/host/view-control.ts, src/types.ts since 0.33.0 read against skills/view/SKILL.md"
       ]
     },
     "source:docs/content/docs/api/index.mdx": {
-      "fingerprint": "b6950fcf6c061d35ae4d0355bfbaba49b405158b1021f2f00f156840cc29170a",
+      "fingerprint": "b9f5a18ab69875c1e1f33273683410b731afbc9f7e2a99e3623d6bd6eec6865d",
       "snapshot": {
-        "docs/content/docs/api/index.mdx": "1344a33592fb72f099560ac101d903cfea883e74e55dc7831914c1ede6cb9f4e"
+        "docs/content/docs/api/index.mdx": "a0f1a1bbdf44f1c531134bc4c2fe3f756746b29498a589b3ef7dd4bf8c2faa3b"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Index of the API pages gains createGraph, readFont, GraphCore and the diagram exports (PRs 253 to 261); the skills link these pages.",
+      "reason": "Index of the API pages follows the renamed and new exports (PRs 272 to 277); the skills link the pages.",
       "evidence": [
-        "Diff of docs/content/docs/api/index.mdx since 0.32.0 read"
+        "Diff of docs/content/docs/api/index.mdx since 0.33.0 read"
       ]
     },
     "source:src/core/key-list.ts": {
@@ -751,15 +759,15 @@
       ]
     },
     "source:src/host/exposure.ts": {
-      "fingerprint": "1328cc9e2b9f53d78d4e3f07021f856073426eb37ef2fbeeb9cb87c4e72b9539",
+      "fingerprint": "710a745aaf706cc5e0dfc1c38be8ee88309df26f746e01b4ec60b826201fc57d",
       "snapshot": {
-        "src/host/exposure.ts": "de37fdeb405e1b1858eca78524c1e9e72a6ab67c7365bb214101da6bb16cb294"
+        "src/host/exposure.ts": "a9a668a5dc955d295771cf4d9a2cb6d78450f478d7c359286bf4e25c632298cf"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/exposure.ts since 0.32.0 read"
+        "Diff of src/host/exposure.ts since 0.33.0 read"
       ]
     },
     "source:src/host/folding.ts": {
@@ -775,28 +783,27 @@
       ]
     },
     "source:src/host/internals.ts": {
-      "fingerprint": "436ac8ad39341aad4fe483f209bbea1d1700e4d17fdced01bb43c4386839d365",
+      "fingerprint": "6e8b86513b08070201ff623aadf7b05f9a02d62dc5e2bd157bbd7804182d089b",
       "snapshot": {
-        "src/host/internals.ts": "260802ee8b2544dee12c5d2d747283e03a2f1034e21db9c17a8b75697eb2b9e8"
+        "src/host/internals.ts": "51b32e60aaa652018800442bcd89ef06979892e874878fd9f7ad555df22c1014"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/internals.ts since 0.32.0 read"
+        "Diff of src/host/internals.ts since 0.33.0 read"
       ]
     },
     "source:src/host/layer-control.ts": {
-      "fingerprint": "ffa965f16de4de5ae68a0006360d84383d2f0ed40fb9afc5522e8b235147019b",
+      "fingerprint": "4088fa15a4e25633916648fc46906c7bf8855141254768c4d9b4a8357e444ae5",
       "snapshot": {
-        "src/host/layer-control.ts": "774d681e1391cbc5f57f2420c988b300d4d6fd1e108f62b75d28614c925c8167"
+        "src/host/layer-control.ts": "53c2f59d4b77834bb2b23e8f0324ac0410fc0725901d04ab19eece0a3a9e87b3"
       },
-      "head": "43c3fd509657ff33e3efceced62cf563340e453a",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Implementation or docs of PR 163 (halves warning, guide blocks), 165 (shapes drawn), 166 (shapes selected and styled) or 168 (gliding fit, default geometry field); the public behavior is stated in shapes, core, interaction, view, styling, export, multilayer, time, tools and map.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "git diff 0.24.0..43c3fd5 -- src/host/layer-control.ts: internal to PR 163, 165, 166 or 168",
-        "intent validate skills in pnpm verify passes on main at 43c3fd5 plus the shapes skill fix of this PR: 19 skill files, every fence typechecked"
+        "Diff of src/host/layer-control.ts since 0.33.0 read"
       ]
     },
     "source:src/host/layout-session.ts": {
@@ -813,27 +820,27 @@
       ]
     },
     "source:src/host/lifecycle.ts": {
-      "fingerprint": "d3bb0124f9248e08a1b30c1fd9d5f21a9116d1a6645e7c5986f5e2c6ef90fbdc",
+      "fingerprint": "d9ad446540352724aee14c239afcddc76f0461f826f3f8bf55dfce4770dcdd70",
       "snapshot": {
-        "src/host/lifecycle.ts": "2143cb426e7a99304d74461b44b0969f1cc3f2f6e84937bf593c9830757df168"
+        "src/host/lifecycle.ts": "405561b2af5a46c7f96824df13a0d3b1e60284c04136b35fffe0b3fe97e1a7b8"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/lifecycle.ts since 0.32.0 read"
+        "Diff of src/host/lifecycle.ts since 0.33.0 read"
       ]
     },
     "source:src/host/mount-graph.ts": {
-      "fingerprint": "9ecc02c8b4caee0933de78024eb4e9cc81744f166b01820d48e04e755a0f3b11",
+      "fingerprint": "81c8b3d461d6c04c20bf413e09efafdd2014dbdfc7beda27d61b7b157ef0d049",
       "snapshot": {
-        "src/host/mount-graph.ts": "6945b3c63c14f8656d6f8c167103b9cdef4614e736fcf449574d4aecfe9d1302"
+        "src/host/mount-graph.ts": "5b68690b7a643df63ce48ea0d4bada9d015c9334491c516fac4d0f7f1f509a8c"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/mount-graph.ts since 0.32.0 read"
+        "Diff of src/host/mount-graph.ts since 0.33.0 read"
       ]
     },
     "source:src/host/selection-control.ts": {
@@ -850,15 +857,15 @@
       ]
     },
     "source:docs/content/docs/(guide)/upgrading.mdx": {
-      "fingerprint": "d7561f6b872c0b0f599e923ae92decbaf11f23848bb5914bf60fe603e5291f48",
+      "fingerprint": "6fc289c1731f8bca5c08ae41b951b709941efe8f27fe66648f254cbaac747d10",
       "snapshot": {
-        "docs/content/docs/(guide)/upgrading.mdx": "22a9b82dcf989464a2cd87df67b34b88abdfb8bacef1a9862ef76bf5bf84fdd4"
+        "docs/content/docs/(guide)/upgrading.mdx": "0e2fd80c9a8df5b3a98e77798856b9ab5aaaf26210a0344dedca17ca8bf1a963"
       },
-      "head": "d7c8d144b0e311aa1dfd74fafc4a2edb8c15767c",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Docs of PRs 178 to 185 (guide and API indexes, upgrading 0.27.0); the skills link the docs by URL and state the same behavior.",
+      "reason": "Section 0.34.0 with one subsection per break of PRs 272 to 277; each break is taught by the skill of its area.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/upgrading.mdx since 0.26.1 read in PRs 178 to 186"
+        "Diff of docs/content/docs/(guide)/upgrading.mdx since 0.33.0 read"
       ]
     },
     "source:src/core/columns.ts": {
@@ -911,15 +918,15 @@
       ]
     },
     "source:src/core/scene.ts": {
-      "fingerprint": "ed44f6fe824f44da014a82a15c7fc26f44e7d9acbaad816540e3c74b066b9899",
+      "fingerprint": "34beff67c559715b0919335ff41d8a521e84b174280f9c6715d8f7b5b161bc9c",
       "snapshot": {
-        "src/core/scene.ts": "98f1a5ddf6a8de09164417dfd357fe5a0faa9c601f15c8c9f4158ff5f93ddabe"
+        "src/core/scene.ts": "c13e0bd9a9dfe0cc4f8977eb03c16fe8bb001b9678e42710fd2907e5b70837dc"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/core/scene.ts since 0.32.0 read"
+        "Diff of src/core/scene.ts since 0.33.0 read"
       ]
     },
     "source:src/core/state-buffers.ts": {
@@ -1056,15 +1063,15 @@
       ]
     },
     "source:src/webgl/renderer.ts": {
-      "fingerprint": "7958529ec6ce219630e53bc77a4e499032b9c59b39ee6347c6ade3b3acaedfa5",
+      "fingerprint": "0e7608d32ebb57c0678e7386ba4c9eb8207221785bc9a138b502f9f07948207f",
       "snapshot": {
-        "src/webgl/renderer.ts": "7903e628b541b3a829259fceb57f1b0ee85b8b36356d2cc14c53e8a757443c7b"
+        "src/webgl/renderer.ts": "afaa3a2702287cdb4fe8c44845a89d336a1bda90d2ff972bca51dfc7f905034a"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/webgl/renderer.ts since 0.32.0 read"
+        "Diff of src/webgl/renderer.ts since 0.33.0 read"
       ]
     },
     "source:src/webgl/shaders.ts": {
@@ -1092,9 +1099,9 @@
       ]
     },
     "skill:skills/shapes/SKILL.md": {
-      "fingerprint": "1213889d9de3e1a36ab00bf9d7d3189afaf1392e1f67fb4531f3239e5206f4da",
+      "fingerprint": "54ee488c9b6a5512817d8607a1e2a70fa28f8a71c449f94df476ce032c662e5a",
       "snapshot": {
-        "docs/content/docs/(guide)/map.mdx": "5f540b194ed5c17c0a38b684fbb5be33fbbf0fb4eb946bf0b620b034079b49c4",
+        "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
         "docs/content/docs/(guide)/shapes.mdx": "54adb1d1319dd8c484854e50826c9fe3eed47e43be071b12d19073f7aab8d8e6",
         "docs/content/docs/api/shapes.mdx": "b2b3aac8da52ff84dc435c33786248de7f6bd82ad6474902f8899fa229663472",
         "skills/shapes/SKILL.md": "c2d0ad9c97515ea267f184ab36854a20bd18f8430a88073176f643828bfd75ed",
@@ -1103,21 +1110,21 @@
         "src/core/shape-engine.ts": "fb204a6b9accbcc4930c71e415051da42f6f63dd845497f121239f5d3039133f",
         "src/core/shape-store.ts": "d40bcad9fd3805557e5ca61c74c21a992dc8192ba3b5856b958f4620b47f1c4c",
         "src/core/width-scale.ts": "50c4c93ce11bc11bc724beb23b6a95ff362c9d5eaa912c8cb1a54686b072deb9",
-        "src/host/events.ts": "3752d47b8883f5f51734fb1286c3b3d5818984f17249e9c4e01bd8c317badb99",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775",
+        "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/shapes/anchor.ts": "faa6c99b6e97aefabe7457db463d272fa46924089916ca0410bbaa0bc9bf2e6b",
         "src/shapes/index.ts": "b1862eb6735485ce72ddc698ab30f71b1a2518bd62364e8635a9a32b6cab4c09",
         "src/shapes/pick.ts": "edf9bfa400511cbb732c20611552a1a3884d802fce262a787d62e632774e5f49",
         "src/shapes/read.ts": "81c55d633f91fd51580d34fa505ccf1a0df7790b9a3346bfcc35815a5f48c713",
         "src/shapes/subdivide.ts": "b1576a97844313f4ac12eb43304aac3b01b66837f1871d6005fa7329a147f664",
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
-        "src/types.ts": "4052ac874dc2fe3f4a35bd06d9fc6aeb9d4df206f3b3c628d4952b8af656cb63"
+        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "shape-engine.ts and shape-store.ts read the work of the environment for fills (PR 258), map.mdx gains the stylesheet warning (PR 250): no shapes API changed.",
+      "reason": "graph-instance.ts, events.ts and types.ts change payload names, the opaque definition and drawable (PRs 272, 276, 277): no shapes API changed; map.mdx gains the pixelRatio words, taught by map and export.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/map.mdx, src/core/shape-engine.ts, src/core/shape-store.ts, src/host/graph-instance.ts, src/types.ts since 0.32.0 read against skills/shapes/SKILL.md"
+        "Diff of docs/content/docs/(guide)/map.mdx, src/host/events.ts, src/host/graph-instance.ts, src/types.ts since 0.33.0 read against skills/shapes/SKILL.md"
       ]
     },
     "source:docs/content/docs/api/meta.json": {
@@ -1172,39 +1179,39 @@
       ]
     },
     "source:src/devtools/inspector.ts": {
-      "fingerprint": "89c0b9a4dff45ae747186fd9bc4f8b6c73a9ebc06e8ac2a48ac61755577e38fd",
+      "fingerprint": "a2c038a703ed51c6e4c2575b98e9e5bdd0c66b6680dc39c537ee50bbdac12453",
       "snapshot": {
-        "src/devtools/inspector.ts": "898d6f92f4174360d4b2c36b9facaa45b7a032a6f7854f2051fba7167e197afb"
+        "src/devtools/inspector.ts": "0a7a16becf36aa251c3e467956453116c7e8744dd5fcc7689b6752c26f54d22c"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/devtools/inspector.ts since 0.32.0 read"
+        "Diff of src/devtools/inspector.ts since 0.33.0 read"
       ]
     },
     "source:src/devtools/messages.ts": {
-      "fingerprint": "d94c14166d27092b56c43e3a9e8e544af2db8a0b33c63226b0e4fef2570b59b6",
+      "fingerprint": "a9791493c607103e8db66ced8a7073addfa4ed670c4b4c1590ffc1ba892fa9b6",
       "snapshot": {
-        "src/devtools/messages.ts": "fba6370665be017678cdc090dd8bd5febe19ac4b8ab0224dc31eee121042ee09"
+        "src/devtools/messages.ts": "426a39baa5a52c075778b13a17efa96b8181e6d774796ac7d3846fc4a0e6c551"
       },
-      "head": "f1f677d61349e84e9e5a9b449c634d61fde65c96",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Rendering, drawing and pixel ratio messages (PRs 225, 227); taught by the tools skill.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/devtools/messages.ts since 0.29.0 read in PRs 220 to 228"
+        "Diff of src/devtools/messages.ts since 0.33.0 read"
       ]
     },
     "source:src/devtools/view.ts": {
-      "fingerprint": "727b58bfb0c7e2831398971a1bc111c24feec48c51ea67ba39dade9bfaa53363",
+      "fingerprint": "1c2f0432c831cf3d1634392a19be33f2473df2371d6fadf623721243ed25809b",
       "snapshot": {
-        "src/devtools/view.ts": "162c6dded5550d832f8db9c018b429429ab742307f0019d06d0ef18dcf6152b8"
+        "src/devtools/view.ts": "988194f52097cb4c56637e5d5c23301bbaf272d6834755715f71ba7bf455e922"
       },
-      "head": "f1f677d61349e84e9e5a9b449c634d61fde65c96",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Rendering, Drawing and Pixel ratio rows (PRs 225, 227); taught by the tools skill.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/devtools/view.ts since 0.29.0 read in PRs 220 to 228"
+        "Diff of src/devtools/view.ts since 0.33.0 read"
       ]
     },
     "source:src/export/frame.ts": {
@@ -1257,16 +1264,15 @@
       ]
     },
     "source:src/host/focus-control.ts": {
-      "fingerprint": "f9263345d97bbd4789ac9217df8538f9a6d96e237aa76fc54cdc5fe56436b6f0",
+      "fingerprint": "cce6bcd7e889c2c9c8c33ce7b5feeab31320b0b7089cb51a52b6f47aa99dfac0",
       "snapshot": {
-        "src/host/focus-control.ts": "fba65a7b25c3b21cf3178e79044748e9b68ea74e0871deefeac2e4ca7f9818f9"
+        "src/host/focus-control.ts": "434a8ce56fee41ebdb15f9eba42826b19862f8243b4f205112e421bf32f8203d"
       },
-      "head": "43c3fd509657ff33e3efceced62cf563340e453a",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Implementation or docs of PR 163 (halves warning, guide blocks), 165 (shapes drawn), 166 (shapes selected and styled) or 168 (gliding fit, default geometry field); the public behavior is stated in shapes, core, interaction, view, styling, export, multilayer, time, tools and map.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "git diff 0.24.0..43c3fd5 -- src/host/focus-control.ts: internal to PR 163, 165, 166 or 168",
-        "intent validate skills in pnpm verify passes on main at 43c3fd5 plus the shapes skill fix of this PR: 19 skill files, every fence typechecked"
+        "Diff of src/host/focus-control.ts since 0.33.0 read"
       ]
     },
     "source:src/host/framing.ts": {
@@ -1294,15 +1300,15 @@
       ]
     },
     "source:src/host/keyboard-input.ts": {
-      "fingerprint": "c07dddb38a4a01fd7750e97efeeecca5fd9d3288d76deb20bc161387e0878658",
+      "fingerprint": "bad59673c29bd394a77d2d9399dfe8309f6f96f559997982f29091c5e9617c09",
       "snapshot": {
-        "src/host/keyboard-input.ts": "406162079adf220d4ca9c8f20b71ffa9e09794580ca976b0e0aa13984df1eae2"
+        "src/host/keyboard-input.ts": "ad7ebe57dc1be91da61eaab6d6ff7704b3d77b523b233b7720769593b3ce5c21"
       },
-      "head": "3a03df65efce1b5b2dc0c1380def40ecd3ee7eb3",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Shift + arrows stops a view animation (PR 233); taught by interaction.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/keyboard-input.ts since 0.30.0 read in PRs 230 and 233"
+        "Diff of src/host/keyboard-input.ts since 0.33.0 read"
       ]
     },
     "source:src/host/pointer-input.ts": {
@@ -1318,15 +1324,15 @@
       ]
     },
     "source:src/host/state-styles.ts": {
-      "fingerprint": "ac6a63eadba35880ae92c9ced25d8615bab69cfbd25e88f5041fef99e61a4469",
+      "fingerprint": "fbf63f45134b90a34ed3748182b98390bded2cef0c298297400e5add3f6d83c2",
       "snapshot": {
-        "src/host/state-styles.ts": "bfaf582236136d410732955daf13bd0f2d6ee9ebc2daa7c3dad3c3ab144344b2"
+        "src/host/state-styles.ts": "086e32779b3685d88acfff637769580f6af1954c867c11e4352d0849ad2dc15b"
       },
-      "head": "9ffce69a968853e5464b4336ffd09655900c6caf",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "StateHalo validation and freezing (PR 196); taught by the interaction skill.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/state-styles.ts since 0.27.1 read in PRs 192 to 200"
+        "Diff of src/host/state-styles.ts since 0.33.0 read"
       ]
     },
     "source:src/shapes/triangulate.ts": {
@@ -1414,15 +1420,15 @@
       ]
     },
     "source:src/export/png.ts": {
-      "fingerprint": "fccf76c2a50eff0632b6f6dcee53cdda4a7707bf95d5fc2403a1742b3505cb44",
+      "fingerprint": "2b7838864b654d7dcf14cd237f6186cef6a9e8c2e1360598cd43bc29ebfabec1",
       "snapshot": {
-        "src/export/png.ts": "b7c35a121e94c6d9deac02a18be7c772ccff7d9ad6e988d670d3a968f1d5bfa2"
+        "src/export/png.ts": "37f94b314f1e7287368595c3681d4b4795254718a30026c7b46b8e376e9cc6e6"
       },
-      "head": "c62eb1b490b26598cd5d70602183ab89bf1a6bbf",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Opened canvas, drafts ignored, software ratio (PR 240); taught by the export skill.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/export/png.ts since 0.31.0 read in PRs 235 to 241"
+        "Diff of src/export/png.ts since 0.33.0 read"
       ]
     },
     "source:src/shapes/fill-worker.ts": {
@@ -1558,30 +1564,32 @@
       ]
     },
     "skill:skills/editor/SKILL.md": {
-      "fingerprint": "e7661d22171f5d7c23ec0327ceb57f47750c35e435733849aa84601f2d16d3c2",
+      "fingerprint": "baad08fed4fd12f8bd2e92f448fcf7d74c7385cdf91f9b84966f2f4da755027e",
       "snapshot": {
-        "docs/content/docs/(guide)/editing-shapes.mdx": "ee0775c573fdb14b88a6dae92c8bae337334d62ae18007957edbaa08ee1bee61",
-        "docs/content/docs/api/editor.mdx": "8643c96f6f48dcd398a2d03a3386f38d2f6785e5065d851ed5a0b7e5e898aab9",
-        "docs/content/docs/api/persist-shapes.mdx": "7cea5a41868ba7254d05dfdf4ebd5c96e800e9d8dc9a6bbe45f25918a3f60dda",
-        "docs/content/docs/api/shape-editor.mdx": "fbe9a1ed16c1cd9787940be683db3ef5c0859cdd6d8b6fd10bc88d09ab3c8939",
+        "docs/content/docs/(guide)/editing-shapes.mdx": "838c2e86b6407710b595b77a097b610fa3308e370fd0a7948b52bcdc700596bb",
+        "docs/content/docs/api/editor.mdx": "2e72adfd0f2ee2156b57d8b2af0569226d33708ca389f0c8cf38ed2350799b0f",
+        "docs/content/docs/api/persist-shapes.mdx": "7a36746e9c7d61552b2187f5d60cdba7683c801a5d5ac79d230e07bfbd014b62",
+        "docs/content/docs/api/shape-editor.mdx": "d7d684e32140a332799b307b489cdee76666611d2a342cdadd828aad9efaccf4",
         "docs/content/docs/api/show-presence.mdx": "0a753e1a58cd450c7c5ffe343661ab7fec58d7634c298caf39bf362eedfa13f4",
-        "skills/editor/SKILL.md": "9dd9a9b1197074436e61bd8010fb0466b6f80892772726beb6a69c2b5d8fed73",
-        "skills/editor/references/persistence.md": "d2406b144f8667c630d66571a64dd7c065899523ddfa449eb9b5d3722a8c0f01",
+        "skills/editor/SKILL.md": "22516a25f165df9503c6c88b4a913e8279a289c08e962268938fa1bb155f0b9b",
+        "skills/editor/references/persistence.md": "d1da99f00e7dc839d3ef3c0510d62fba5a438634bd9e014a9791e809a86aedd0",
         "skills/editor/references/presence.md": "870cfcffa895be4a1b0c80ce72d3f550516cb5c186ccd59048faabc68bb8fed0",
-        "src/db/persist-shapes.ts": "ae5589ffc1c2d8796dd3394143970792570863ab0d771b327592a96ac689f20f",
+        "src/db/persist-shapes.ts": "957b4139f282a9bcde37ececc75d3feb1e2206fc36b0aaa2b2221c7dfe5cf716",
         "src/db/presence.ts": "92ada31a3dc5e3f9b3b12e81c2a49f21fd7dd1086adee94b04cd207e8cb87d9e",
         "src/editor/draw.ts": "a22f89beef72156dd3d25dea462a60bb2c3e72a9557067ca2a15e75c1aa3eaeb",
-        "src/editor/editor.ts": "dfe4a2db768ba6c98d08b6640ab86e5fbfda51bffa8e18411996061187f2974c",
+        "src/editor/editor.ts": "5e8e60f8b0f924830a383579a519e42815ed14e83ae74a76dc481cb44ff7ff51",
         "src/editor/edits.ts": "439204c5d900bd464c3f4b2af7455c49c2042b27c3194c4c51857fee5c942138",
         "src/editor/index.ts": "c01bcb3f845d604122efd3e0396473e4eb5e1e7adb9d107f57f1fca5c3109f65",
-        "src/editor/react.tsx": "7ba2eb1ab033b9be50c8b7970e36e30d484b30b1c0c87d521a319bc590e111b3",
+        "src/editor/react.tsx": "7d3916cb89ee5391773f93687443996cd7bddd1a5a0d36e0e18e7a550cd4a0d2",
         "src/editor/view.ts": "52693c80acc770dad2e4749f543a7229d1179fb4b2ec155c079c8ffc80df338d"
       },
-      "head": "c65bd31f483b007e11872677b0ac4d9853692174",
-      "outcome": "no-change",
-      "reason": "editor.ts previews outlines at the drawn width (PR 244); the skill makes no claim on preview widths.",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "updated",
+      "reason": "PR 275: persistShapes returns { stop }, editor.graph, editor.on with { signal }, pendingState typed by the state names of the graph.",
       "evidence": [
-        "Diff of src/editor/editor.ts since 0.31.1 read against skills/editor/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 275: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/editing-shapes.mdx, docs/content/docs/api/editor.mdx, docs/content/docs/api/persist-shapes.mdx, docs/content/docs/api/shape-editor.mdx, src/db/persist-shapes.ts, src/editor/editor.ts, src/editor/react.tsx since 0.33.0 read against skills/editor/SKILL.md"
       ]
     },
     "source:docs/content/docs/(guide)/index.mdx": {
@@ -1597,15 +1605,15 @@
       ]
     },
     "source:src/db/pending.ts": {
-      "fingerprint": "5726d8d8d4d44de3d374c58130809cb843f7a3c72b7c60cbd8c461f2172280a2",
+      "fingerprint": "db0cf3d851a6ab87fb16e0d603820cf16d8fdd0905114ceab2d4b0e41f0fffc0",
       "snapshot": {
-        "src/db/pending.ts": "a1064c331582d8c987198208905b45d962b6c4fc858f3b886310ddbd10af2702"
+        "src/db/pending.ts": "d0193babf48d8c01d7de3c1f1758d763d8b3684871a6a5f049907f93394f90c7"
       },
-      "head": "c62eb1b490b26598cd5d70602183ab89bf1a6bbf",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "pace on a monotonic clock, timers clamped (PR 238); taught by editor references/presence.md.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/db/pending.ts since 0.31.0 read in PRs 235 to 241"
+        "Diff of src/db/pending.ts since 0.33.0 read"
       ]
     },
     "source:src/editor/geometry.ts": {
@@ -1657,15 +1665,15 @@
       ]
     },
     "source:src/host/decorations.ts": {
-      "fingerprint": "fb4d1df12278f745a275879fdb501f20944eaeeb3f0df700061f6916d02586cf",
+      "fingerprint": "88f0c5f64ddc38b4844e872463a67b1f329c11a07941bfb7d90421d0c71824c8",
       "snapshot": {
-        "src/host/decorations.ts": "05e4becc6c88ce33753f21a61139666124ff84585d18d02c1ac26a1b8d6887b0"
+        "src/host/decorations.ts": "2ebc1613617462d3a2f8f312e3f5fb8d392bb361a915ee55cf17800eac587332"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/decorations.ts since 0.32.0 read"
+        "Diff of src/host/decorations.ts since 0.33.0 read"
       ]
     },
     "source:src/host/pointer-tool.ts": {
@@ -1849,15 +1857,15 @@
       ]
     },
     "source:src/layouts/shared.ts": {
-      "fingerprint": "879a32af0158efc2e6ff3e1311b9ffca938fef0bb52fc675b745fcf22980fb17",
+      "fingerprint": "ea84c0f0b61995d0f431e3dc6c20891b19f052ce39e7018387a037618b123a15",
       "snapshot": {
-        "src/layouts/shared.ts": "2ebbc4cc279c35a76d6fbf4df296fc7db14b886b39d78286fd3c09babd58b48e"
+        "src/layouts/shared.ts": "eac587416680b220caa1ec6cdceb4af1f9cbbf9c1bc8490fd8fa2bc5159211ee"
       },
-      "head": "c62eb1b490b26598cd5d70602183ab89bf1a6bbf",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Instant layouts end through endWith (PR 236); taught by the layouts skill.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/layouts/shared.ts since 0.31.0 read in PRs 235 to 241"
+        "Diff of src/layouts/shared.ts since 0.33.0 read"
       ]
     },
     "source:src/core/edge-merges.ts": {
@@ -1981,27 +1989,27 @@
       ]
     },
     "source:src/host/lens-control.ts": {
-      "fingerprint": "9c7814b40f21e5f6451e3fbce328b25f5d74bd987e9a03357e652435f4fe67fb",
+      "fingerprint": "74f8f70ca6e0c45402d39832231653427592c4d49c573c08fdc5dfda33f9f437",
       "snapshot": {
-        "src/host/lens-control.ts": "73208d5398029c61c551a7793bfccb61d20ce5910ff13b703e218983002c53e6"
+        "src/host/lens-control.ts": "0108287ee2008c46e5eb1c5c7a562ea8b99252843ad0ad821bb8af5faad7aa9b"
       },
-      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Lens hidden on a map and back on return (PR 214); taught by the tools skill.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/lens-control.ts since 0.28.0 read in PRs 202 to 217"
+        "Diff of src/host/lens-control.ts since 0.33.0 read"
       ]
     },
     "source:src/host/position-motion.ts": {
-      "fingerprint": "9c8fa5b0a09061b957cd4098aa5425d70bc5272f9f0a267a120fa4378e3ae0a1",
+      "fingerprint": "2d7d9414bc8dcf810a3bc03f677d6167161c52b21708678509742b93ca02bed0",
       "snapshot": {
-        "src/host/position-motion.ts": "c4dd395873fbf6fe4006b303f21966cdfc11781ffbd75c7e41ebd460f429d940"
+        "src/host/position-motion.ts": "f441d6e0200d1e8766163756de137336db605b16e3cf8e3a98bcc66e692280bc"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/position-motion.ts since 0.32.0 read"
+        "Diff of src/host/position-motion.ts since 0.33.0 read"
       ]
     },
     "source:src/host/render-host.ts": {
@@ -2029,15 +2037,15 @@
       ]
     },
     "source:src/host/time-control.ts": {
-      "fingerprint": "9dc06ef7d4963300df5e6806d3362c89f62b31c3c33f63e7945f6d331d40d62d",
+      "fingerprint": "58c0e333d5c79dde6ce79dd3b956b84d7956661ad1efe414a5ae098c3e77aa90",
       "snapshot": {
-        "src/host/time-control.ts": "cca700f842a898249061bc92fd64b33d9ed571a140664cc2d0b0e830deeda8fc"
+        "src/host/time-control.ts": "629b7e0b9571bfbc55678bb163ad6e6d1e0ef225ad407e735818b8bf2dc3b526"
       },
-      "head": "c62eb1b490b26598cd5d70602183ab89bf1a6bbf",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "PendingRequests for controlled time (PR 241); taught by the time skill.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/time-control.ts since 0.31.0 read in PRs 235 to 241"
+        "Diff of src/host/time-control.ts since 0.33.0 read"
       ]
     },
     "source:src/layouts/arranged-places.ts": {
@@ -2065,15 +2073,15 @@
       ]
     },
     "source:src/layouts/force/pool.ts": {
-      "fingerprint": "d4d12bd1761eb64e0c4646bb3546ed4af97b1e72a832d122f231b9bd63df2513",
+      "fingerprint": "1c8744e32f2fc0b3153c6e90ba796185c132f79d6042c92736bc2c94e38a908f",
       "snapshot": {
-        "src/layouts/force/pool.ts": "09759761357294463e722a893db2deea9864aa298989f069cfa743ef6fe05638"
+        "src/layouts/force/pool.ts": "03e57484f556741c959d64a8e4befecc9ddc2c95cb4d1c2de1d35887acb6fe9d"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/layouts/force/pool.ts since 0.32.0 read"
+        "Diff of src/layouts/force/pool.ts since 0.33.0 read"
       ]
     },
     "source:src/layouts/force/protocol.ts": {
@@ -2125,15 +2133,15 @@
       ]
     },
     "source:src/layouts/scope-runs.ts": {
-      "fingerprint": "ecc46a3dc18989993a6f339c1e570f28a5f4d08dc93be407da7ec7726d9c948a",
+      "fingerprint": "b2a326447fd71be4eb0e663d6a9e3ad9b432e171d2ac3f351dc3296e83edd54a",
       "snapshot": {
-        "src/layouts/scope-runs.ts": "6574ec9bc29b533ce421c7b11f47d6cc46c5fd2556d2d3bf092d5aa9b5e8a66a"
+        "src/layouts/scope-runs.ts": "aa0eda0d788d6584f4292b5aebe8cedb6b54ef3d15e8464c77e9862c72bba43c"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/layouts/scope-runs.ts since 0.32.0 read"
+        "Diff of src/layouts/scope-runs.ts since 0.33.0 read"
       ]
     },
     "source:src/layouts/unfold-arranging.ts": {
@@ -2269,31 +2277,31 @@
       ]
     },
     "skill:skills/headless/SKILL.md": {
-      "fingerprint": "65e336d09f080be6bfe5c4f8a0c434fbecdf64fbc0c54dcdcbb29853410e26e1",
+      "fingerprint": "eadec447f99678395e86895bcc723b725e0a96deac1034f3f0c15e5576a24838",
       "snapshot": {
-        "docs/content/docs/(guide)/server-side-extracts.mdx": "deeb5bd8ae20ffbd2ed4b28510bfae538ddae82f875560a7c138ca9e99ab19d4",
-        "docs/content/docs/api/create-graph.mdx": "88ad13d161456939bd66fc8955ced279c79c75d57a492be10be3d296f072026e",
-        "docs/content/docs/api/export.mdx": "177a49c3815ff71113b2739c6fd9532854e859aaab295221a4f7433000bb1c61",
+        "docs/content/docs/(guide)/server-side-extracts.mdx": "b1eff300db342fe9e7654ad1d43d92865a0e12f3b09a2e3c4892bfe20f3c440b",
+        "docs/content/docs/api/create-graph.mdx": "66b0bf7cd06151d434494064d99a1891e965d2c2dafbad11412f3fc7c1c87070",
+        "docs/content/docs/api/export.mdx": "82661801d9a04fa8a4810e9ca941ed2de441e5770b51b475bad45d6a9e09085f",
         "docs/content/docs/api/graph-core.mdx": "edd40bc3a2add08f8f4a5a61a738abc085b87980a86c69a54dba1dceba7eca7e",
-        "docs/content/docs/api/read-font.mdx": "2d58b938fc70cfa5630de4c0f8af7f287a34bdc163a580142738ab53e9752b77",
-        "skills/headless/SKILL.md": "4b2dc69ecd489605775d493e281c3902d8a0c8c52c87f7ae4709bf83d7053254",
+        "docs/content/docs/api/read-font.mdx": "7f390c894bff244d66ad6016fce0b66cef6b327e21a5471b03424c3370728949",
+        "skills/headless/SKILL.md": "7afe21783674a4113c215274eefe516c181f0ae8ab84924095dade67a0e9b826",
         "skills/headless/references/extracts-at-scale.md": "11c1a5c935446398409aadac74305c7ccacf44ce8b729c11d20cde8b29547092",
-        "src/export/index.ts": "5d3e4beba80e240bd2eda4a8e0c272aefe759c4c2d764fd5c5fffd0af04e8b00",
-        "src/headless/colors.ts": "e00188ae50e4d7998e0632e54d62fbbe7962b96b01cab86fdb3f2575dd04622a",
-        "src/headless/index.ts": "0a8aba4f1ad728606de7e260e5495298a13c45f16fb03e46ac93c5a7ee94e94e",
-        "src/headless/page.ts": "0fece70005cafbe946164382671099325b24b72984dbe968dc156a5716e9d462",
-        "src/headless/read-font.ts": "ff3445070774a01b49890acbf6950ccb83f05ae7431e9663ba85c7521d710b6a",
+        "src/export/index.ts": "8aa86c8cc10a251c2d07a4a5c362721237bf9be136c3bca8450382431f94abd7",
+        "src/headless/colors.ts": "5ce33e239a7ddb0ec3b1ad693d5a5c3466318027395c2217656148ead0ff90d2",
+        "src/headless/index.ts": "1ac59929a38a416ece3807586cf05ece35668a462a0571498397f8ac81637553",
+        "src/headless/page.ts": "3bfb91c6cf3f20731c409335fe953a36cae5edb4cb4122fc690a981ab8a3a4f9",
+        "src/headless/read-font.ts": "4ffffdb7317d1cc8708e7504df459a9b3235c30d3cfafc8c742b834f7c3c0cd0",
         "src/headless/text-estimate.ts": "5d4fc7b8aa1915c40b0f9b51c3d750d512a12b94ac5ead099c07a7f3bbe660cb",
-        "src/host/graph-core.ts": "262a0006cf2265bc95fb74c7611adad304595a764b8a09b70dec51b8078a6c61",
-        "src/host/graph-instance.ts": "d141b1d35b085d88135029d829487767914359a1604575e390a8621fdcfde775"
+        "src/host/graph-core.ts": "a640933cfd039eaf82be859492126250d16ee0ce518e34ac87f326196e2a800c",
+        "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "updated",
-      "reason": "PR 262: new skill for createGraph, settled, readFont, exports without a page, resvg with the same font and worker_threads (PRs 259, 260, 261).",
+      "reason": "PR 273: readFont(bytes, { face }), theme colors of createGraph typed by GraphToken; PR 275: persistPositions takes a GraphCore.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at f9dad7c: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 262: only skills/ and _artifacts/ changed, no comments in examples, no other library named, recipe of the headless skill run against the dist (pnpm docs:extracts)",
-        "Diff of docs/content/docs/(guide)/server-side-extracts.mdx, docs/content/docs/api/create-graph.mdx, docs/content/docs/api/export.mdx, docs/content/docs/api/graph-core.mdx, docs/content/docs/api/read-font.mdx, src/export/index.ts, src/headless/colors.ts, src/headless/index.ts, src/headless/page.ts, src/headless/read-font.ts, src/headless/text-estimate.ts, src/host/graph-core.ts, src/host/graph-instance.ts since 0.32.0 read against skills/headless/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 273, 275: skills changed with the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/server-side-extracts.mdx, docs/content/docs/api/create-graph.mdx, docs/content/docs/api/export.mdx, docs/content/docs/api/read-font.mdx, src/export/index.ts, src/headless/colors.ts, src/headless/index.ts, src/headless/page.ts, src/headless/read-font.ts, src/host/graph-core.ts, src/host/graph-instance.ts since 0.33.0 read against skills/headless/SKILL.md"
       ]
     },
     "source:src/core/label-metrics.ts": {
@@ -2369,39 +2377,39 @@
       ]
     },
     "source:src/headless/theme.ts": {
-      "fingerprint": "cdb80c2d7d969f65cef5d9f99312fd5ae6ca5f40e8d3bea0b03e1e4ef86b7d4d",
+      "fingerprint": "345d3f5e781f1a1eb25b16e233941b066b3ccfcf762178192258c33e81e3c4e0",
       "snapshot": {
-        "src/headless/theme.ts": "a9f04b92d04b57d387b1116b7221351489cac5902b6d0e3122c9e146e127f16f"
+        "src/headless/theme.ts": "dc08d37164b27dc6b7096f324cd2a8c1e1e565c72bcc33a35df573e974a3c746"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/headless/theme.ts since 0.32.0 read"
+        "Diff of src/headless/theme.ts since 0.33.0 read"
       ]
     },
     "source:src/host/anchor-host.ts": {
-      "fingerprint": "4dade814573d6ab11d2a0f6a3dac9024570f0c71ed97cd2c3c7017c3d34d9617",
+      "fingerprint": "97e0cb8d8e6ece10db62bd58e9ad3a9afe368f8d45b418ec594b5a8c8e0422d7",
       "snapshot": {
-        "src/host/anchor-host.ts": "89dce491bd434ad1b648fe0d062d14f300d4842810f46b2a2ccec162dd18fe93"
+        "src/host/anchor-host.ts": "f87daa5c137ca46f8eb951fa08482df8d009fb5f2c1067d1f8c049f569e124f5"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/anchor-host.ts since 0.32.0 read"
+        "Diff of src/host/anchor-host.ts since 0.33.0 read"
       ]
     },
     "source:src/host/bridges.ts": {
-      "fingerprint": "efbd30c7563ccd96c679dc074949bc7f121d65bd6ea9404a397e5d0782845a41",
+      "fingerprint": "01552f4e985daeec22bc35375c98db3854a41f7f6728e820f3d2efb63ef17ef9",
       "snapshot": {
-        "src/host/bridges.ts": "b8fd90be55b93f7c035b9b6283cc24e880bd351e180f609e92e21d7a6cd27d01"
+        "src/host/bridges.ts": "4033d2a20a076fbd3c443850cfcd4dbd6a09a5ed31b9eb9f6404d0ed81229fa9"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/host/bridges.ts since 0.32.0 read"
+        "Diff of src/host/bridges.ts since 0.33.0 read"
       ]
     },
     "source:src/host/bundles.ts": {
@@ -2453,15 +2461,15 @@
       ]
     },
     "source:src/theme/dark-tokens.ts": {
-      "fingerprint": "1d70297d1f4a9018abc4e76541622fd674145429127f5dc7380d01b572bc20df",
+      "fingerprint": "e81a2543c0834229a0bded544a9c2b2067c6c55f86d74916fcebf4f55502ee90",
       "snapshot": {
-        "src/theme/dark-tokens.ts": "0c8adf446a2e52904c61c7e8394a8ddf61276d1fa773df6ee49c40c7e71777e9"
+        "src/theme/dark-tokens.ts": "7120ed79b5921cad7824c7784fe1adf98c29973cb4e6ab053ed7641b9beb8513"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
       "evidence": [
-        "Diff of src/theme/dark-tokens.ts since 0.32.0 read"
+        "Diff of src/theme/dark-tokens.ts since 0.33.0 read"
       ]
     },
     "source:src/theme/node-fs.d.ts": {
@@ -2486,6 +2494,114 @@
       "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
       "evidence": [
         "Diff of src/webgl/glyph-atlas.ts since 0.32.0 read"
+      ]
+    },
+    "source:docs/content/docs/(guide)/versioning.mdx": {
+      "fingerprint": "5a6477c0de0e0d2e2705bf1b6d4324f39c656ba1517fb7bc79bfeb4501525308",
+      "snapshot": {
+        "docs/content/docs/(guide)/versioning.mdx": "44b385cad5607cfa220ea7e192a5a6ecf242963df4fc2b5f1294178fb584a6b4"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "New page on what a minor version may change and the experimental ports (PR 277); its rule on controlled views is taught by view.",
+      "evidence": [
+        "Diff of docs/content/docs/(guide)/versioning.mdx since 0.33.0 read"
+      ]
+    },
+    "source:docs/og/card.ts": {
+      "fingerprint": "1e85904f35d642049623a3d8257b84bfa00946b7ccf317c9d7930ea5334ec2ad",
+      "snapshot": {
+        "docs/og/card.ts": "16180ec586c6c252d5deb78d2f5424b32227ff7f0104d115b9b2ab8f874cd8dd"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Link preview images of the documentation site (PR 270): not library code.",
+      "evidence": [
+        "Diff of docs/og/card.ts since 0.33.0 read"
+      ]
+    },
+    "source:docs/og/generate.ts": {
+      "fingerprint": "2017922eb1364af5e238da4fd4ed146bb7ee7113b819f0c962a9cd3bbff5cc37",
+      "snapshot": {
+        "docs/og/generate.ts": "3944a9d7c02c8a5967ce471a355b8ce0d808b65c0220ea9affc868c961ebdc14"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Link preview images of the documentation site (PR 270): not library code.",
+      "evidence": [
+        "Diff of docs/og/generate.ts since 0.33.0 read"
+      ]
+    },
+    "source:docs/og/sample.ts": {
+      "fingerprint": "bf13d2bfd99e0fb9d0f926d805a765ac761ff01d23f3a18e63844e125a0d08f3",
+      "snapshot": {
+        "docs/og/sample.ts": "24e084437c4df323092bb7bde2c84b052254ef5a7f27a8fa48334aff42ecffe6"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Link preview images of the documentation site (PR 270): not library code.",
+      "evidence": [
+        "Diff of docs/og/sample.ts since 0.33.0 read"
+      ]
+    },
+    "source:docs/og/woff.ts": {
+      "fingerprint": "07cdb54b88eda2535a525c6a001ca8e50d9ccaf90afb79c0f68530ab12cae150",
+      "snapshot": {
+        "docs/og/woff.ts": "704b5c617e1c8c8b1a74170c923fb0bee63b632d3fcdb7d7b39458204ed430f0"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Link preview images of the documentation site (PR 270): not library code.",
+      "evidence": [
+        "Diff of docs/og/woff.ts since 0.33.0 read"
+      ]
+    },
+    "source:src/core/background-grid.ts": {
+      "fingerprint": "c2a352053f5fc8357f4ff9c097d4fa7a4c53e555b9f42bb3e30b88b64aa4ea34",
+      "snapshot": {
+        "src/core/background-grid.ts": "8572a7c95da67bb395fe88f99aaa34386d536051597574449edcc3e86b1006c8"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
+      "evidence": [
+        "Diff of src/core/background-grid.ts since 0.33.0 read"
+      ]
+    },
+    "source:src/dom/theme.ts": {
+      "fingerprint": "4db35c44b313346af8161cc8395389081b3ef675969af4de294e2b1236f4c43f",
+      "snapshot": {
+        "src/dom/theme.ts": "7ae258c8bf0f3ef7bd4039546488002aa3f76cbebbb6bebfaebf71379aa539fe"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
+      "evidence": [
+        "Diff of src/dom/theme.ts since 0.33.0 read"
+      ]
+    },
+    "source:src/export/ratio.ts": {
+      "fingerprint": "c5361810743a5d1b1ca846fbc2bea6fce9eb5b24e133cc6c45e47b5420575786",
+      "snapshot": {
+        "src/export/ratio.ts": "7e1559bf36d2f426cdf7f9574341837e9a9d8b2192354e889bb2b299ecacabef"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
+      "evidence": [
+        "Diff of src/export/ratio.ts since 0.33.0 read"
+      ]
+    },
+    "source:src/resolved-definition.ts": {
+      "fingerprint": "7941d8641f547ccce4d9b7648961d3a0c55d0c7b59d0ff49e59520f6513739a8",
+      "snapshot": {
+        "src/resolved-definition.ts": "e5a0cdcd04de8273e6cf7aeca2320b30ed4ab465e593c33bd7e8b46b592b18cb"
+      },
+      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "outcome": "no-change",
+      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
+      "evidence": [
+        "Diff of src/resolved-definition.ts since 0.33.0 read"
       ]
     }
   }
