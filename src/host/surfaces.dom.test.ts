@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { mountMapGraph } from '../map'
 import { edges, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import { fakeMap } from '../testing/map'
 import { canvasCapabilities, canvasSurface } from './canvas-surface'
@@ -140,7 +141,7 @@ describe('canvas surface', () => {
     expect(element.style.position).toBe('relative')
     expect(surface.events.style.touchAction).toBe('none')
     const given = definition()
-    expect(surface.adapt(given)).toBe(given)
+    expect(surface.adapt(resolvedOf(given))).toBe(given)
   })
 
   it('schedules frames with animation frames', () => {

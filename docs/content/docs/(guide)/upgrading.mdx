@@ -3,7 +3,34 @@ title: Upgrading
 description: What changes in your code from one version to the next.
 ---
 
-Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
+Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do, and [Versioning](/docs/versioning) says what 1.0 promises. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
+
+## 0.34.0
+
+### A definition only gives back its marks
+
+`defineGraph` returns an opaque `GraphDefinition<S, M>`: besides `marks`, its resolved options can no longer be read, and the `Resolved*` types (`ResolvedInteraction`, `ResolvedViewLimits`, `ResolvedPadding`, `ResolvedTransitions`, `ResolvedLens`, `ResolvedBackground`, `ResolvedBridges`, `ResolvedSpread`, `ResolvedTimeOptions`, `ResolvedSupportStates`) are no longer exported. Keep the options your code reads in your own variables. `S` and `M` still type the graph, and `GraphDefinition<infer S, infer M>` still reads them back.
+
+```ts
+// Before
+const definition = defineGraph({ marks, interaction: { select: 'single' } })
+const single = definition.interaction.select === 'single'
+
+// After
+const interaction = { select: 'single' } as const
+const definition = defineGraph({ marks, interaction })
+const single = interaction.select === 'single'
+```
+
+An object written by hand no longer types as a `GraphDefinition`, nor does a copy of a definition with an option changed: call `defineGraph` again.
+
+```ts
+// Before
+graph.update({ definition: { ...definition, relayout: true } })
+
+// After
+graph.update({ definition: defineGraph({ ...options, relayout: true }) })
+```
 
 ## 0.27.0
 

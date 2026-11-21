@@ -6,6 +6,19 @@ import { byKind, freeStateNames, maxFreeStates } from './core/state-names'
 import { resolvePadding } from './core/view'
 import { leastWidth, type WidthScaleOptions, widthSlots } from './core/width-scale'
 import { withoutUndefined } from './core/without-undefined'
+import type {
+  ResolvedBackground,
+  ResolvedBridges,
+  ResolvedDefinition,
+  ResolvedInteraction,
+  ResolvedLens,
+  ResolvedPadding,
+  ResolvedSpread,
+  ResolvedSupportStates,
+  ResolvedTimeOptions,
+  ResolvedTransitions,
+  ResolvedViewLimits,
+} from './resolved-definition'
 import { themeColor } from './theme/tokens'
 import type {
   AutoFit,
@@ -19,16 +32,6 @@ import type {
   LensOptions,
   Mark,
   PixelRatioOption,
-  ResolvedBackground,
-  ResolvedBridges,
-  ResolvedInteraction,
-  ResolvedLens,
-  ResolvedPadding,
-  ResolvedSpread,
-  ResolvedSupportStates,
-  ResolvedTimeOptions,
-  ResolvedTransitions,
-  ResolvedViewLimits,
   SpreadOptions,
   StateKindStyles,
   StateLook,
@@ -366,7 +369,8 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
       `defineGraph: at most ${maxFreeStates} states besides selected, hovered and focused`,
     )
   }
-  return Object.freeze({
+  const definition: Omit<ResolvedDefinition<S, M>, keyof GraphDefinition> &
+    Pick<GraphDefinition<S, M>, 'marks'> = Object.freeze({
     marks: Object.freeze([...options.marks]),
     scales: Object.freeze(withoutUndefined(options.scales ?? {})),
     states,
@@ -386,4 +390,5 @@ export function defineGraph<S extends string = never, M extends Mark = never>(
     support: resolveSupport(options.support as SupportStateOptions | null | undefined, free),
     pixelRatio: resolveRatio(options.pixelRatio),
   })
+  return definition as unknown as GraphDefinition<S, M>
 }

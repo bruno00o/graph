@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineGraph } from '../define-graph'
 import { edges, groups, nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import type { GraphDefinition, GraphDefinitionOptions, LabelPlacement, NodeOptions } from '../types'
 import { arrowCodes, cornerCodes, dashCodes, noColor, placementCodes, shapeCodes } from './columns'
 import { createGraphModel } from './graph-model'
@@ -18,7 +19,7 @@ function setup(options: GraphDefinitionOptions) {
   const render = (next: GraphDefinitionOptions) => {
     const definition: GraphDefinition = defineGraph(next)
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(model, model.flush())
     return scene.takeDirty()
   }
@@ -935,7 +936,7 @@ describe('groups and scales', () => {
     })
     model.setMarks(definition.marks)
     projection.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(projection.view, projection.apply(model.flush()).scene)
     expect(scene.scales().size.extent).toEqual([1, 10])
     expect(scene.nodes.size[model.node('b')?.index ?? -1]).toBe(32)
@@ -980,7 +981,7 @@ describe('box nodes', () => {
     const render = (next: NodeOptions<Item, undefined, undefined>) => {
       const definition = defineGraph({ marks: [nodes<Item>(items, next)] })
       model.setMarks(definition.marks)
-      scene.setDefinition(definition)
+      scene.setDefinition(resolvedOf(definition))
       scene.apply(model, model.flush())
       scene.takeDirty()
     }

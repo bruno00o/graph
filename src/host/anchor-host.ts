@@ -8,7 +8,8 @@ import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { isBuiltInState } from '../core/state-names'
 import { edgeShown, nodeShown, type Sight } from '../core/visibility'
-import type { GraphDefinition, Key, Point, View } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key, Point, View } from '../types'
 import { type EdgeAnchor, edgeAnchor } from '../webgl/label-layer'
 import { type AnchorBox, AnchorLayer, type GraphAnchors } from './anchors'
 import { stateNodes } from './decorations'
@@ -25,7 +26,7 @@ export interface AnchorContext {
   readonly state: () => GraphState
   readonly sight: () => Sight
   readonly request: () => void
-  readonly definition: () => GraphDefinition
+  readonly definition: () => ResolvedDefinition
   readonly containers: () => ContainerSource | null
   readonly edgeIndex: (key: Key) => number
   readonly paths?: EdgePaths

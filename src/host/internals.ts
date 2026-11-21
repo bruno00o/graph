@@ -4,7 +4,8 @@ import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import type { ShapeShift } from '../core/shape-store'
 import type { Sight } from '../core/visibility'
-import type { EdgeEnd, GraphDefinition, Key } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { EdgeEnd, Key } from '../types'
 import type { FrameClock } from './environment'
 import type { SurfaceCapabilities } from './graph-instance'
 import type { PointerTool } from './pointer-tool'
@@ -30,7 +31,7 @@ export interface GraphInternals {
   surface(): SurfaceCapabilities
   readonly scene: Scene
   readonly positions: Positions
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   containers(): ContainerFrame | null
   palette(): Uint8Array
   masks(): Uint32Array

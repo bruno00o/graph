@@ -11,7 +11,8 @@ import {
 } from '../core/positions'
 import type { Projection, ProjectionChanges } from '../core/projection'
 import type { Scene } from '../core/scene'
-import type { GraphDefinition, Key, Layout } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key, Layout } from '../types'
 import { requestMemory, sameList } from './element-keys'
 import type { Emitter, GraphFoldEvent } from './events'
 import type { GraphGroups, GraphState } from './graph-instance'
@@ -29,7 +30,7 @@ export interface FoldSource {
   readonly emitter: Emitter
   state(): GraphState
   patch(next: Partial<GraphState>): void
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   places(): ArrangedPlaces | null
   makeRoom(moving: readonly number[], to: readonly number[]): void
   arranger(index: number): Layout | null

@@ -16,7 +16,7 @@ import {
   searchLanguages,
   yearTime,
 } from './data'
-import { definitionOf } from './definition'
+import { definitionOf, layoutOf } from './definition'
 import { messages } from './messages'
 import { scopeOf } from './scope'
 
@@ -181,12 +181,12 @@ describe('definition', () => {
   })
 
   it('switches the layout and its direction', () => {
-    expect(definitionOf(input).layout?.name).toBe('layers')
-    expect(definitionOf({ ...input, layout: 'force' }).layout?.name).toBe('force')
+    expect(layoutOf(input.layout, input.direction).name).toBe('layers')
+    expect(layoutOf('force', input.direction).name).toBe('force')
     expect(
       sameOptions(
-        definitionOf(input).layout?.options ?? {},
-        definitionOf({ ...input, direction: 'down' }).layout?.options ?? {},
+        layoutOf(input.layout, input.direction).options ?? {},
+        layoutOf(input.layout, 'down').options ?? {},
       ),
     ).toBe(false)
   })

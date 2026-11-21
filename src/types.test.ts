@@ -299,6 +299,28 @@ describe('public types', () => {
     expectTypeOf<Instance>().toExtend<GraphInstance>()
   })
 
+  it('keeps the options of a definition out of reach, but not its marks and its types', () => {
+    const items = [{ id: 'a' }]
+    const definition = defineGraph({
+      marks: [nodes(items, { name: 'items' })],
+      states: { muted: { opacity: 0.2 } },
+      interaction: { select: 'single' },
+    })
+    expectTypeOf(definition.marks[0]?.name).toEqualTypeOf<'items' | undefined>()
+    // @ts-expect-error
+    expectTypeOf(definition.interaction).toBeUnknown()
+    // @ts-expect-error
+    expectTypeOf(definition.states).toBeUnknown()
+    type Parts<D> = D extends GraphDefinition<infer S, infer M> ? { state: S; mark: M } : never
+    expectTypeOf<Parts<typeof definition>['state']>().toEqualTypeOf<'muted'>()
+    expectTypeOf<Parts<typeof definition>['mark']>().toEqualTypeOf<
+      NodeMark<{ id: string }, 'items', undefined>
+    >()
+    // @ts-expect-error
+    const literal: GraphDefinition = { marks: [] }
+    expectTypeOf(literal).toExtend<GraphDefinition>()
+  })
+
   it('takes one style for both kinds or one per kind, with the look of the others', () => {
     const definition = defineGraph({
       marks: [],

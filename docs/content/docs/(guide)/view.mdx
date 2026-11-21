@@ -135,6 +135,8 @@ const graph = mountGraph(container, {
 
 Here the application keeps the view on a horizontal line: vertical moves are dropped, the rest goes through.
 
+Give back the object `onViewChange` receives, as is, or spread it to change a field as above: never a `{ x, y, zoom }` rebuilt from it. `View` may gain optional fields in a minor version (see [Versioning](/docs/versioning#views)), and a view rebuilt from three fields would drop them.
+
 A view applied inside `onViewChange` is drawn in the same frame, so a controlled view follows the pointer without lag. An application that answers later still gets smooth gestures: each new request starts from the last request it has not answered yet, and a view it applies that matches none of them replaces them all. Applying the current view again changes nothing and keeps the requests, so a parent that renders for another reason in the middle of a gesture does not lose a step.
 
 Requests carry an `origin` like `viewchange`, and a view you apply with `update({ view })` keeps the origin of the request it answers, `'api'` when it answers none.

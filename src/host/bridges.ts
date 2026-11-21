@@ -5,7 +5,7 @@ import type { Positions } from '../core/positions'
 import { nodeOutline, type Outline } from '../core/route-shape'
 import { edgeShown, type Sight } from '../core/visibility'
 import { dev } from '../dev'
-import type { ResolvedBridges } from '../types'
+import type { ResolvedBridges } from '../resolved-definition'
 
 export interface BridgeContext {
   readonly edges: EdgeColumns

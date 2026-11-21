@@ -4,7 +4,8 @@ import { type ContainerSource, HullLayer } from '../core/hull-layer'
 import type { Positions } from '../core/positions'
 import type { Scene } from '../core/scene'
 import { detailStep, type Sight } from '../core/visibility'
-import type { GraphDefinition, Key } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { Key } from '../types'
 import type { GraphState } from './graph-instance'
 
 const hullBudget = 6
@@ -24,7 +25,7 @@ export interface Decorations {
   readonly hulls: HullLayer
   grid: GridInput | null
   pending: boolean
-  setDefinition(definition: GraphDefinition): void
+  setDefinition(definition: ResolvedDefinition): void
   changed(): void
   prepare(): void
   settle(): void
@@ -45,7 +46,7 @@ export function stateNodes(state: GraphState, name: string): readonly Key[] {
 
 export function createDecorations(context: DecorationContext): Decorations {
   const { model, scene, positions } = context
-  let definition: GraphDefinition | null = null
+  let definition: ResolvedDefinition | null = null
   const hulls = new HullLayer()
 
   function source() {

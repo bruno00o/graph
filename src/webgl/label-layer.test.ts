@@ -11,6 +11,7 @@ import type { ShapeLabelFrame } from '../core/shape-engine'
 import type { ShapeStore } from '../core/shape-store'
 import { defineGraph } from '../define-graph'
 import { nodes } from '../marks'
+import { resolvedOf } from '../resolved-definition'
 import { shapes } from '../shapes'
 import { globeCamera } from '../testing/globe'
 import type { GraphDefinition, ShapeGeometry, ShapeLabelOptions } from '../types'
@@ -768,7 +769,7 @@ describe('shape labels', () => {
       ],
     }) as GraphDefinition
     model.setMarks(definition.marks)
-    scene.setDefinition(definition)
+    scene.setDefinition(resolvedOf(definition))
     scene.apply(model, model.flush())
     return scene
   }

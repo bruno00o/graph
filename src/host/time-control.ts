@@ -1,5 +1,6 @@
 import { readWindow, sameWindow, type TimeFilter, timeFilter } from '../core/time-range'
-import type { GraphDefinition, TimeWindow, TimeWindowInput } from '../types'
+import type { ResolvedDefinition } from '../resolved-definition'
+import type { TimeWindow, TimeWindowInput } from '../types'
 import { requestMemory } from './element-keys'
 import type { Emitter, GraphTimeEvent } from './events'
 import type { GraphState, GraphTime } from './graph-instance'
@@ -9,7 +10,7 @@ import { PendingRequests } from './requests'
 export interface TimeSource {
   readonly controlled: boolean
   readonly emitter: Emitter
-  definition(): GraphDefinition
+  definition(): ResolvedDefinition
   patch(next: Partial<GraphState>): void
   request(): void
   readAt(window: TimeWindow | null): void
