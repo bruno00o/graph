@@ -132,9 +132,13 @@ The SVG is written from the scene, without reading pixels back, so it stays shar
 - the state styles in force, such as selection, hover and your own states;
 - colors of the current theme, as hex values.
 
-Images are copied into the document as data URLs, so the file stands alone. Pass `embedImages: false` to keep links to their URLs instead. An image the browser cannot load, for lack of CORS headers for instance, is left out, as it is on screen.
+Images are copied into the document as data URLs, so the file stands alone. Pass `embedImages: false` to keep links to their URLs instead. An image the browser cannot load, for lack of CORS headers for instance, is left out, as it is on screen. The `images` option reads them yourself instead: it returns the URL to write and the size of each image.
 
 Text uses the font of the theme. A viewer without that font falls back to another one, so labels may be a little wider or narrower than on screen.
+
+## Without a page
+
+`exportSvg`, `exportDrawio` and `exportVsdx` also take a graph made by [`createGraph`](/docs/api/create-graph), in Node or a worker. The SVG then measures its labels with the text measure of the graph, and keeps the URL of each image as it is, drawn square, unless `images` reads them. `exportPng` needs WebGL and rejects such a graph: rasterize the SVG instead. [Server-side extracts](/docs/server-side-extracts) shows the whole script, with resvg and one font file for both the widths and the drawing.
 
 ## draw.io diagrams
 
@@ -170,7 +174,7 @@ Some looks have no equivalent and are approximated: an edge whose two ends have 
 
 Each cell takes its id from the key of its element (`n:` for a node, `e:` for an edge, with `#` instead of `:` for a number key), so two exports of the same graph line up and a script can find a cell again. The diagram uses the page background of the theme, or none with `background: 'transparent'`.
 
-draw.io itself saves a diagram as a PDF, a PNG or an SVG file, from the editor or from the command line of draw.io Desktop, for example `drawio --export --format pdf graph.drawio`. To export many graphs from a script, mount each one in a page of a headless browser, such as one driven by Playwright, call `exportDrawio` there, and write the text it returns: the diagram does not need a GPU.
+draw.io itself saves a diagram as a PDF, a PNG or an SVG file, from the editor or from the command line of draw.io Desktop, for example `drawio --export --format pdf graph.drawio`. To export many graphs from a script, create each one with [`createGraph`](/docs/api/create-graph), await `settled()`, call `exportDrawio`, and write the text it returns: see [Server-side extracts](/docs/server-side-extracts).
 
 ## Visio drawings
 

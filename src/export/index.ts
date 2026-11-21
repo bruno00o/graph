@@ -3,12 +3,13 @@ import type { Positions } from '../core/positions'
 import { readWindow, timeFilter } from '../core/time-range'
 import { detailStep, type Sight } from '../core/visibility'
 import type { Rgba } from '../dom/theme'
-import { type GraphSnapshot, takeSnapshot } from '../host/export-source'
+import { type GraphSnapshot, onPage, takeSnapshot } from '../host/export-source'
 import type { GraphCore, GraphInstance } from '../host/mount-graph'
 import type { ContainerFrame, HullInput, LabelMode, Renderer } from '../host/renderer'
 import { themeColor } from '../theme/tokens'
 import type { Key, TimeWindowInput } from '../types'
 import { GlyphAtlas } from '../webgl/glyph-atlas'
+import type { TextMeasure } from '../webgl/label-layer'
 import { centered, type Diagram, type DiagramFrame, readDiagram } from './diagram'
 import { writeDrawio } from './drawio'
 import { type ExportFrame, exportFrame } from './frame'
@@ -18,6 +19,7 @@ import { openCanvas, type PngCanvas, renderPng } from './png'
 import { checkSize, fitZoom } from './size'
 import { type SvgImage, writeSvg } from './svg'
 import { writeVsdx } from './vsdx'
+import { widthMeasure } from './width-measure'
 
 /**
  * Part of the graph an export covers: `'view'` is what the graph shows now, `'graph'` frames every
@@ -119,14 +121,31 @@ export interface PngExportOptions extends ExportOptions {
   readonly pixelRatio?: number | undefined
 }
 
+/** An image as `exportSvg` writes it, given by its `images` option. */
+export interface ExportImage {
+  /** URL written in the document, such as a data URL, a file path or a web address. */
+  readonly href: string
+  /** Width of the image, in pixels. With `height`, it gives the aspect the image is cut to. */
+  readonly width: number
+  /** Height of the image, in pixels. A width or height that is not above 0 counts as square. */
+  readonly height: number
+}
+
 /** Options of `exportSvg`. */
 export interface SvgExportOptions extends ExportOptions {
   /**
    * Copies every node image into the document as a data URL, so the file stands alone. Without it,
-   * images stay linked by their URL.
+   * images stay linked by their URL. A graph without a page ignores it.
    * @default true
    */
   readonly embedImages?: boolean | undefined
+  /**
+   * Reads the images of the nodes and badges, once per source URL: returns the URL to write and
+   * the size of the image, or `null` to leave the image out. It replaces the loading of the page
+   * and `embedImages`. Without it, a graph without a page writes each URL as it is and draws its
+   * image square.
+   */
+  readonly images?: ((src: string) => ExportImage | null | Promise<ExportImage | null>) | undefined
 }
 
 /**
@@ -190,9 +209,10 @@ interface Prepared {
   readonly hulls: HullInput
   readonly background: Rgba
   readonly labels: LabelMode
-  readonly measure: GlyphAtlas
+  readonly measure: TextMeasure
   readonly time: number
   readonly pixelRatio: number
+  readonly page: boolean
 }
 
 function softwareOf(renderer: Renderer): boolean {
@@ -224,7 +244,8 @@ async function prepare(
   if (size && options.zoom !== undefined) {
     throw new RangeError('graph: the export takes a size or a zoom, not both')
   }
-  await document.fonts?.ready
+  const page = onPage(graph)
+  if (page) await document.fonts?.ready
   const snapshot = takeSnapshot(graph)
   const { scene, states } = snapshot
   const positions = frozenPositions(snapshot.positions)
@@ -232,7 +253,7 @@ async function prepare(
   const boxes = containers?.boxes ?? null
   const region = options.region ?? 'view'
   const labels = options.labels ?? 'visible'
-  const measure = new GlyphAtlas(snapshot.theme.font)
+  const measure = page ? new GlyphAtlas(snapshot.theme.font) : widthMeasure(scene.textWidth)
   const shownWindow =
     options.window === undefined
       ? snapshot.window
@@ -334,6 +355,7 @@ async function prepare(
     measure,
     time: time / 1000,
     pixelRatio,
+    page: page === true,
   }
 }
 
@@ -379,9 +401,26 @@ async function imageOf(src: string, copy: boolean): Promise<SvgImage | null> {
   return aspect === null ? null : { href, aspect }
 }
 
+type ImageReader = (src: string) => SvgImage | null | Promise<SvgImage | null>
+
+function imageReader(page: boolean, options: SvgExportOptions): ImageReader {
+  const { images } = options
+  if (images) {
+    return async (src) => {
+      const found = await images(src)
+      if (!found) return null
+      const aspect = found.width / found.height
+      return { href: found.href, aspect: aspect > 0 && Number.isFinite(aspect) ? aspect : 1 }
+    }
+  }
+  if (!page) return (src) => ({ href: src, aspect: 1 })
+  const copy = options.embedImages ?? true
+  return (src) => imageOf(src, copy)
+}
+
 async function imageSources(
   snapshot: GraphSnapshot,
-  copy: boolean,
+  read: ImageReader,
 ): Promise<ReadonlyMap<string, SvgImage>> {
   const { nodes } = snapshot.scene
   const sources = new Set<string>()
@@ -392,7 +431,7 @@ async function imageSources(
     for (const badge of nodes.badges[index] ?? []) if (badge.image) sources.add(badge.image)
   }
   const list = [...sources]
-  const images = await Promise.all(list.map((src) => imageOf(src, copy)))
+  const images = await Promise.all(list.map(async (src) => read(src)))
   const found = new Map<string, SvgImage>()
   list.forEach((src, at) => {
     const image = images[at]
@@ -404,15 +443,16 @@ async function imageSources(
 /**
  * Serializes the graph into a standalone SVG document, without reading pixels back: shapes,
  * images, badges, group containers, edges, arrows and labels, with state styles and colors of the
- * current theme. Text uses the theme font, which the viewer needs to have.
+ * current theme. Text uses the theme font, which the viewer needs to have. Also takes a graph made
+ * by `createGraph`, whose labels are measured with its text measure.
  */
 export async function exportSvg<S extends string>(
-  graph: GraphInstance<S>,
+  graph: GraphCore<S>,
   options: SvgExportOptions = {},
 ): Promise<string> {
   const prepared = await prepare(graph, options, () => 1)
   const { snapshot, frame, positions, containers, hulls } = prepared
-  const images = await imageSources(snapshot, options.embedImages ?? true)
+  const images = await imageSources(snapshot, imageReader(prepared.page, options))
   const current = takeSnapshot(graph)
   const { scene } = current
   return withoutDrafts(scene.shapes, () =>
@@ -444,12 +484,19 @@ export async function exportSvg<S extends string>(
 
 /**
  * Draws the graph offscreen at the chosen pixel ratio and encodes it as a PNG. The drawing uses a
- * WebGL context of its own, freed at the end, and tiles past 4,096 pixels.
+ * WebGL context of its own, freed at the end, and tiles past 4,096 pixels. A graph made by
+ * `createGraph` has no WebGL: rasterize its `exportSvg` document instead.
  */
 export async function exportPng<S extends string>(
   graph: GraphInstance<S>,
   options: PngExportOptions = {},
 ): Promise<Blob> {
+  if (onPage(graph) === false) {
+    throw new TypeError(
+      'graph: exportPng needs a page; for a graph made by createGraph, rasterize the document of ' +
+        'exportSvg, as the server-side extracts guide shows',
+    )
+  }
   const probe: { canvas: PngCanvas | null } = { canvas: null }
   try {
     const prepared = await prepare(graph, options, (taken) => {
@@ -549,7 +596,7 @@ function diagramOf<S extends string>(graph: GraphCore<S>, options: DiagramExport
     layerFilter: snapshot.layers,
     title: snapshot.title,
     background: snapshot.color(options.background ?? themeColor('paper')),
-    imageUrl: absoluteUrl,
+    imageUrl: onPage(graph) ? absoluteUrl : (src: string) => src,
     textWidth: scene.textWidth,
   }
   const frameAt = (zoom: number): DiagramFrame => ({

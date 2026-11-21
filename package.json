@@ -131,6 +131,7 @@
     "docs:check-pages": "node scripts/check-pages.mjs",
     "docs:new-example": "node scripts/new-example.mjs",
     "docs:showcase-data": "node scripts/showcase-data.mjs",
+    "docs:extracts": "node scripts/server-extracts.mjs",
     "bench": "node scripts/bench.mjs",
     "build": "tsdown",
     "check": "biome check .",
@@ -183,6 +184,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@biomejs/biome": "2.6.5",
+    "@resvg/resvg-js": "2.6.2",
     "@tanstack/db": "1.0.0-rc.1.3",
     "@tanstack/devtools": "0.16.0",
     "@tanstack/devtools-utils": "0.7.2",
@@ -194,6 +196,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.2.1",
+    "dejavu-fonts-ttf": "2.37.3",
     "happy-dom": "21.0.4",
     "maplibre-gl": "6.16.0",
     "neo4j-driver": "6.3.0",

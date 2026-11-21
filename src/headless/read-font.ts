@@ -14,9 +14,17 @@ export interface FontFile {
 const collectionTag = 0x74746366
 const faceTags = new Set([0x00010000, 0x4f54544f, 0x74727565])
 
+function need(view: DataView, at: number, length: number): void {
+  if (!(at >= 0 && length >= 0 && at + length <= view.byteLength)) {
+    throw new TypeError('readFont: the file is truncated or corrupt')
+  }
+}
+
 function tablesAt(view: DataView, at: number): Map<string, number> {
   const found = new Map<string, number>()
+  need(view, at, 12)
   const count = view.getUint16(at + 4)
+  need(view, at + 12, count * 16)
   for (let index = 0; index < count; index++) {
     const record = at + 12 + index * 16
     let tag = ''
@@ -27,13 +35,15 @@ function tablesAt(view: DataView, at: number): Map<string, number> {
 }
 
 function segmentGlyphs(view: DataView, at: number): (code: number) => number {
-  const segments = view.getUint16(at + 6) / 2
+  need(view, at, 14)
+  const segments = view.getUint16(at + 6) >> 1
   const ends = at + 14
   const starts = ends + segments * 2 + 2
   const deltas = starts + segments * 2
   const offsets = deltas + segments * 2
+  need(view, ends, segments * 8 + 2)
   return (code) => {
-    if (code > 0xffff) return 0
+    if (code > 0xffff || segments === 0) return 0
     let low = 0
     let high = segments - 1
     while (low < high) {
@@ -46,13 +56,17 @@ function segmentGlyphs(view: DataView, at: number): (code: number) => number {
     const delta = view.getUint16(deltas + low * 2)
     const offset = view.getUint16(offsets + low * 2)
     if (offset === 0) return (code + delta) & 0xffff
-    const glyph = view.getUint16(offsets + low * 2 + offset + (code - start) * 2)
+    const address = offsets + low * 2 + offset + (code - start) * 2
+    if (address + 2 > view.byteLength) return 0
+    const glyph = view.getUint16(address)
     return glyph === 0 ? 0 : (glyph + delta) & 0xffff
   }
 }
 
 function groupGlyphs(view: DataView, at: number): (code: number) => number {
+  need(view, at, 16)
   const groups = view.getUint32(at + 12)
+  need(view, at + 16, groups * 12)
   return (code) => {
     let low = 0
     let high = groups - 1
@@ -69,13 +83,16 @@ function groupGlyphs(view: DataView, at: number): (code: number) => number {
 
 function glyphsOf(view: DataView, cmap: number): (code: number) => number {
   let segments = -1
+  need(view, cmap, 4)
   const count = view.getUint16(cmap + 2)
+  need(view, cmap + 4, count * 8)
   for (let index = 0; index < count; index++) {
     const record = cmap + 4 + index * 8
     const platform = view.getUint16(record)
     const encoding = view.getUint16(record + 2)
     if (platform !== 0 && !(platform === 3 && (encoding === 1 || encoding === 10))) continue
     const at = cmap + view.getUint32(record + 4)
+    need(view, at, 2)
     const format = view.getUint16(at)
     if (format === 12) return groupGlyphs(view, at)
     if (format === 4 && segments < 0) segments = at
@@ -85,8 +102,10 @@ function glyphsOf(view: DataView, cmap: number): (code: number) => number {
 
 function familyOf(view: DataView, name: number | undefined): string {
   if (name === undefined) return ''
+  need(view, name, 6)
   const count = view.getUint16(name + 2)
   const strings = name + view.getUint16(name + 4)
+  need(view, name + 6, count * 12)
   let best = ''
   let rank = 0
   for (let index = 0; index < count; index++) {
@@ -99,6 +118,7 @@ function familyOf(view: DataView, name: number | undefined): string {
     if (score <= rank) continue
     const length = view.getUint16(record + 8)
     const at = strings + view.getUint16(record + 10)
+    need(view, at, length)
     let text = ''
     if (wide) {
       for (let byte = 0; byte + 1 < length; byte += 2) {
@@ -130,6 +150,7 @@ export function readFont(bytes: Uint8Array | ArrayBuffer, face = 0): FontFile {
   if (collection && !(Number.isInteger(face) && face >= 0 && face < view.getUint32(8))) {
     throw new RangeError(`readFont: the collection has no face ${face}`)
   }
+  if (collection) need(view, 12 + face * 4, 4)
   const tables = tablesAt(view, collection ? view.getUint32(12 + face * 4) : 0)
   const head = tables.get('head')
   const hhea = tables.get('hhea')
@@ -138,9 +159,16 @@ export function readFont(bytes: Uint8Array | ArrayBuffer, face = 0): FontFile {
   if (head === undefined || hhea === undefined || hmtx === undefined || cmap === undefined) {
     throw new TypeError('readFont: the font has no head, hhea, hmtx or cmap table')
   }
+  need(view, head, 20)
+  need(view, hhea, 36)
   const unitsPerEm = view.getUint16(head + 18)
-  const last = view.getUint16(hhea + 34) - 1
+  if (unitsPerEm === 0) throw new TypeError('readFont: the head table gives 0 units per em')
+  const metrics = view.getUint16(hhea + 34)
+  if (metrics === 0) throw new TypeError('readFont: the hhea table gives no horizontal metrics')
+  need(view, hmtx, metrics * 4)
+  const last = metrics - 1
   const glyph = glyphsOf(view, cmap)
+  const family = familyOf(view, tables.get('name'))
   const advances = new Map<number, number>()
   const advance = (code: number): number => {
     let found = advances.get(code)
@@ -151,7 +179,7 @@ export function readFont(bytes: Uint8Array | ArrayBuffer, face = 0): FontFile {
     return found
   }
   return {
-    family: familyOf(view, tables.get('name')),
+    family,
     width: (text) => {
       let total = 0
       for (const char of text) total += advance(char.codePointAt(0) ?? 0)

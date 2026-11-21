@@ -1,6 +1,6 @@
 ---
 title: exportPng, exportSvg, exportDrawio and exportVsdx
-description: Save a mounted graph as a PNG image, a standalone SVG document, or an editable draw.io or Visio diagram.
+description: Save a graph as a PNG image, a standalone SVG document, or an editable draw.io or Visio diagram.
 ---
 
 ```ts
@@ -12,7 +12,7 @@ function exportPng<S extends string>(
 ): Promise<Blob>
 
 function exportSvg<S extends string>(
-  graph: GraphInstance<S>,
+  graph: GraphCore<S>,
   options?: SvgExportOptions,
 ): Promise<string>
 
@@ -27,7 +27,9 @@ function exportVsdx<S extends string>(
 ): Promise<Blob>
 ```
 
-`exportPng` draws the graph offscreen in a WebGL context of its own and resolves to a `Blob` of type `image/png`. `exportSvg` writes an SVG document from the scene, without reading pixels back, and resolves to its text. Both wait for the images of the nodes and for the fonts of the page. `exportDrawio` resolves to the text of an uncompressed draw.io file and `exportVsdx` to a `Blob` of type `application/vnd.ms-visio.drawing`, a Visio drawing; in both, shapes and connectors stay editable. Both also take a graph made by [`createGraph`](/docs/api/create-graph), without a page; their label bounds follow the text measure of the graph. See [Export](/docs/export) for a walkthrough, [draw.io diagrams](/docs/export#drawio-diagrams) and [Visio drawings](/docs/export#visio-drawings) for what the diagrams hold.
+`exportPng` draws the graph offscreen in a WebGL context of its own and resolves to a `Blob` of type `image/png`. `exportSvg` writes an SVG document from the scene, without reading pixels back, and resolves to its text. On a page, both wait for the images of the nodes and for the fonts of the page. `exportDrawio` resolves to the text of an uncompressed draw.io file and `exportVsdx` to a `Blob` of type `application/vnd.ms-visio.drawing`, a Visio drawing; in both, shapes and connectors stay editable. See [Export](/docs/export) for a walkthrough, [draw.io diagrams](/docs/export#drawio-diagrams) and [Visio drawings](/docs/export#visio-drawings) for what the diagrams hold.
+
+`exportSvg`, `exportDrawio` and `exportVsdx` also take a graph made by [`createGraph`](/docs/api/create-graph), without a page. Their labels, plates and label bounds then follow the text measure of the graph, `measureText`, and `exportSvg` writes the URL of each image as it is, drawn square, unless its `images` option reads them. `exportPng` needs WebGL: see [Server-side extracts](/docs/server-side-extracts) to turn the SVG into a PNG.
 
 ## Types
 
@@ -49,15 +51,33 @@ type ExportStates = 'all' | 'custom' | 'none'
 
 <api-table path="export/index.ts" name="SvgExportOptions" />
 
+`images` is called once for each image URL of the nodes and badges. It suits a graph without a page, which loads nothing itself: read the file, write it as a data URL, and give its size so that the picture is cut to the right aspect. A rasterizer such as resvg loads only data URLs and local files. For PNG files, the width and the height are the 32-bit numbers at bytes 16 and 20:
+
+```ts
+const svg = await exportSvg(graph, {
+  images: async (src) => {
+    const bytes = await readFile(join('public', src))
+    return {
+      href: `data:image/png;base64,${bytes.toString('base64')}`,
+      width: bytes.readUInt32BE(16),
+      height: bytes.readUInt32BE(20),
+    }
+  },
+})
+```
+
+<api-table path="export/index.ts" name="ExportImage" />
+
 ## exportDrawio and exportVsdx options
 
 <api-table path="export/index.ts" name="DiagramExportOptions" />
 
 ## Errors
 
-- A graph that was not created by `mountGraph`, or that is destroyed, throws an `Error`.
+- A graph that was not created by `mountGraph` or `createGraph`, or that is destroyed, throws an `Error`.
 - A `zoom` or a `pixelRatio` that is not a positive number throws a `RangeError`, as does an area smaller than one pixel, a `size` with no side or a side that is not a finite number of pixels, 1 or more, and a `size` given with a `zoom`.
-- Without WebGL2, or when the browser refuses a drawing buffer, `exportPng` rejects with an `Error`.
+- Without WebGL2, or when the browser refuses a drawing buffer, `exportPng` rejects with an `Error`. Given a graph made by `createGraph`, it rejects with a `TypeError` that points to the SVG.
+- An `images` function that throws or rejects makes `exportSvg` reject with its error.
 - `exportDrawio` and `exportVsdx` throw a `TypeError` for an unknown `states`.
 
 ## Behavior

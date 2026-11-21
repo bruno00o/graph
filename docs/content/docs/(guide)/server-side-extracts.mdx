@@ -1,0 +1,128 @@
+---
+title: Server-side extracts
+description: Lay out graphs in Node and write them as SVG and PNG files, many at a time, without a browser.
+---
+
+A graph made by [`createGraph`](/docs/api/create-graph) runs in Node without a browser or a GPU, and [`exportSvg`](/docs/api/export) writes it as an SVG document. A rasterizer then turns the document into a PNG: this guide uses [resvg](https://github.com/linebender/resvg) through `@resvg/resvg-js`. The library ships no rasterizer of its own, so the options that matter, the fonts and the size of the image, stay in your hands.
+
+## One extract
+
+```ts
+import { readFile, writeFile } from 'node:fs/promises'
+import { Resvg } from '@resvg/resvg-js'
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { exportSvg } from '@bruno00o/graph/export'
+import { createGraph, readFont } from '@bruno00o/graph/headless'
+import { force } from '@bruno00o/graph/layouts/force'
+
+const fontFile = 'fonts/DejaVuSans.ttf'
+const font = readFont(await readFile(fontFile))
+
+const graph = createGraph({
+  definition: defineGraph({
+    marks: [
+      nodes(items, { label: (item) => item.label, color: (item) => item.group }),
+      edges(links, { source: (link) => link.from, target: (link) => link.to, arrow: 'target' }),
+    ],
+    layout: force(),
+  }),
+  theme: { font: font.family },
+  measureText: font.width,
+})
+await graph.settled()
+const svg = await exportSvg(graph, { region: 'graph', size: { width: 1600 } })
+graph.destroy()
+
+const png = new Resvg(svg, {
+  font: { loadSystemFonts: false, fontFiles: [fontFile], defaultFontFamily: font.family },
+})
+  .render()
+  .asPng()
+
+await writeFile('graph.svg', svg)
+await writeFile('graph.png', png)
+```
+
+- `settled()` resolves once the layout, the edge bundling or routing, the fills of large shapes and the hulls are done, so the export reads the final picture. Without a page, the graph works on the calling thread in slices of 50 ms and ends every animation at once.
+- `region: 'graph'` frames every node with its labels, and `size` sets the image size in pixels: with the width alone, the height follows the shape of the graph. See [Exact size](/docs/export#exact-size).
+- Labels follow the rules of the screen: a label smaller than 8 pixels in the image is left out, so a large graph fitted into a small image may show none. `labels: 'all'` draws them all.
+- `exportPng` needs WebGL, and rejects a graph made by `createGraph` with a pointer to this guide.
+
+## One font file, two uses
+
+Label boxes, plates, cut labels and the room a layout leaves for labels all depend on the width of the text, which a graph without a page cannot measure. Read the font file with [`readFont`](/docs/api/read-font), give its widths to `measureText` and its family to the theme, and give the same file to the rasterizer: the text it draws then has the width the graph made room for.
+
+A server has no `system-ui` font, and resvg draws no text at all without a font. Measured on a set of names and titles, each drawn by resvg in DejaVu Sans, the font of many Linux systems: with the default widths, those of Arial, the room made for a label falls short of the drawn text by 11 % on the median, and is off by up to 20 %; with the widths of the DejaVu file, it is off by 1 % for nine labels in ten and by 5 % at most, mostly kerning, which `readFont` leaves out.
+
+- `loadSystemFonts: false` and `fontFiles` keep resvg from reading every font of the system at each `new Resvg`: on macOS, that costs about 60 ms per image, and about a second for the first one.
+- `defaultFontFamily` draws a label whose `font` names a family that is not loaded.
+- `readFont` reads one face. Labels are drawn at weight 500 by default, which resvg takes from the regular face when no medium one is loaded. For bold labels, load the bold file in resvg too, and measure with a function of your own that picks the widths of each file by `weight`.
+
+## Images
+
+Without a page, nothing loads the images of the nodes: `exportSvg` writes each URL as it is and draws the picture square. resvg loads only data URLs and local files. The `images` option of `exportSvg` reads them yourself, once per URL: return the URL to write and the size of the image, or `null` to leave it out.
+
+```ts
+const svg = await exportSvg(graph, {
+  images: async (src) => {
+    const bytes = await readFile(join('public', src))
+    return {
+      href: `data:image/png;base64,${bytes.toString('base64')}`,
+      width: bytes.readUInt32BE(16),
+      height: bytes.readUInt32BE(20),
+    }
+  },
+})
+```
+
+## Many extracts
+
+Create one graph per extract, and destroy it once exported. Each graph works on one thread, so spread the extracts over `worker_threads`, one graph at a time per thread, each thread reading the font once.
+
+```ts
+import { readFileSync, writeFileSync } from 'node:fs'
+import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads'
+
+if (isMainThread) {
+  const jobs = [1, 2, 3, 4, 5, 6, 7, 8]
+  const threads = 4
+  await Promise.all(
+    Array.from({ length: threads }, (_, thread) => {
+      const share = jobs.filter((_, at) => at % threads === thread)
+      const worker = new Worker(new URL(import.meta.url), { workerData: share })
+      return new Promise((resolve, reject) => {
+        worker.once('message', resolve)
+        worker.once('error', reject)
+      })
+    }),
+  )
+} else {
+  const font = readFont(readFileSync(fontFile))
+  for (const job of workerData) {
+    const { svg, png } = await extract(font, job)
+    writeFileSync(`graph-${job}.svg`, svg)
+    writeFileSync(`graph-${job}.png`, png)
+  }
+  parentPort.postMessage('done')
+}
+```
+
+`extract` is the code of [One extract](#one-extract), from `createGraph` to `asPng`. The whole script, with generated data, is [`scripts/server-extracts.mjs`](https://github.com/bruno00o/graph/blob/main/scripts/server-extracts.mjs) in the repository, and runs on every change of the library.
+
+Graphs per second, from the start of the threads to the last graph done, with the force layout, labels and arrows, and an image 1,600 pixels wide, in Node 24 on Linux with 12 cores:
+
+| Threads | 200 nodes, SVG | 200 nodes, SVG and PNG | 2,000 nodes, SVG | 2,000 nodes, SVG and PNG |
+| --- | --- | --- | --- | --- |
+| 1 | 44 | 8.1 | 4.9 | 3.0 |
+| 2 | 76 | 15 | 9.3 | 5.6 |
+| 4 | 150 | 30 | 18 | 11 |
+| 8 | 248 | 54 | 30 | 19 |
+
+At 200 nodes, the layout takes 17 ms and the SVG 3 ms, while resvg takes about 70 ms to draw the image and 25 ms to encode the PNG. At 2,000 nodes, the layout takes about half of the time. On macOS, resvg threads that load the same font file slow each other down: at 200 nodes, the rate with the PNG stays near 24 graphs per second from four threads on, and a copy of the file for each thread brings eight threads to 42.
+
+## What changes without a page
+
+- Fonts are not embedded in the SVG, as on a page: the viewer, or the rasterizer, needs the font of the theme.
+- Without `images`, pictures keep their URL and are drawn square.
+- Great circle arcs are drawn straight in the SVG, on a page as without one.
+- There is no map under the graph: nodes placed by `longitude` and `latitude` keep their places, but no tiles are drawn.

@@ -72,4 +72,4 @@ For text drawn in another font, read its file with [`readFont`](/docs/api/read-f
 
 ## What needs a page
 
-`createLegend`, `createTimeline`, `exportDrawio` and `exportVsdx` take a `GraphCore`. The rest needs a mounted graph: the element, the focus, the lens, the anchors, `drawn`, `suspend` and `resume`, `exportPng` and `exportSvg`, the minimap, the devtools panel, the shape editor, the React components and map surfaces.
+`createLegend`, `createTimeline`, `exportSvg`, `exportDrawio` and `exportVsdx` take a `GraphCore`. The rest needs a mounted graph: the element, the focus, the lens, the anchors, `drawn`, `suspend` and `resume`, `exportPng`, the minimap, the devtools panel, the shape editor, the React components and map surfaces. For a PNG, rasterize the SVG, as in [Server-side extracts](/docs/server-side-extracts).

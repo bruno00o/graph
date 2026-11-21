@@ -24,4 +24,10 @@ type TextWidth = (text: string, weight: number, font: string | null) => number
 
 The width is the sum of the advances of the characters, read from the `cmap` (formats 4 and 12), `hmtx`, `hhea` and `head` tables, in em. It ignores kerning and shaping, and the `weight` and `font` arguments: one file is one face, so read the bold file too if bold labels matter, and choose in a function of your own. A character the font lacks counts the advance of its missing glyph.
 
-WOFF and WOFF2 files are not read: decompress them first, or use the TrueType file they come from. A file that is not a font throws a `TypeError`, and a face the collection lacks a `RangeError`.
+WOFF and WOFF2 files are not read: decompress them first, or use the TrueType file they come from.
+
+## Errors
+
+- A file that is not a font throws a `TypeError`, as does a truncated or corrupt file, a `head` table that gives 0 units per em and an `hhea` table that gives no horizontal metrics. Their messages start with `readFont:`.
+- A face the collection lacks throws a `RangeError`.
+- Every offset is checked before it is read, so a font that `readFont` returns never throws while it measures.
