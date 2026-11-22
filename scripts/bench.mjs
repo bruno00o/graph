@@ -824,6 +824,89 @@ async function benchLayout(page, out) {
   )
 }
 
+async function benchDrag(page, out) {
+  await page.evaluate(`new Promise((done) => {
+    const check = () => (window.bench.layoutRuns.length > 0 ? done() : setTimeout(check, 20))
+    check()
+  })`)
+  await page.evaluate('__bench.settle()')
+  const target = await page.evaluate(scenarios.nodeDrag)
+  if (!target) throw new Error('no node to drag')
+  await page.evaluate(`(() => {
+    const { graph, frameCosts } = window.bench
+    window.__moves = { from: frameCosts.length, events: [], handlers: [] }
+    let began = 0
+    window.addEventListener('pointermove', () => { began = performance.now() }, true)
+    window.addEventListener('pointermove', () => {
+      window.__moves.handlers.push(performance.now() - began)
+    })
+    graph.on('positionchange', ({ origin, positions }) =>
+      window.__moves.events.push({ origin, count: positions.size, at: performance.now() }),
+    )
+  })()`)
+  await page.mouse('mouseMoved', target.x, target.y, { button: 'none' })
+  await page.mouse('mousePressed', target.x, target.y)
+  for (let step = 1; step <= 120; step++) {
+    await page.mouse('mouseMoved', target.x + step * 2, target.y + Math.sin(step / 10) * 40, {
+      buttons: 1,
+    })
+    await page.evaluate('window.bench.nextFrame()')
+  }
+  const held = await page.evaluate(`(() => {
+    const costs = window.bench.frameCosts.slice(window.__moves.from)
+    window.__moves.from = window.bench.frameCosts.length
+    window.__moves.released = performance.now()
+    return { ...__bench.stats(costs), moves: __bench.stats(window.__moves.handlers), first: window.__moves.handlers[0] }
+  })()`)
+  await page.screenshot(join(out, 'held.png'))
+  await page.mouse('mouseReleased', target.x + 240, target.y)
+  const after = await page.evaluate(`(async () => {
+    const { frameCosts, nextFrame } = window.bench
+    let quiet = 0
+    let last = frameCosts.length
+    while (quiet < 3) {
+      await new Promise((done) => setTimeout(done, 100))
+      quiet = frameCosts.length === last ? quiet + 1 : 0
+      last = frameCosts.length
+    }
+    const costs = frameCosts.slice(window.__moves.from)
+    const rest = frameCosts.length
+    await new Promise((done) => setTimeout(done, 1000))
+    const followed = window.__moves.events.filter((event) => event.at > window.__moves.released)
+    return {
+      cost: __bench.stats(costs),
+      idleFrames: frameCosts.length - rest,
+      followed: followed.map((event) => ({
+        count: event.count,
+        after: event.at - window.__moves.released,
+      })),
+    }
+  })()`)
+  await page.screenshot(join(out, 'rest.png'))
+  const results = {
+    date: new Date().toISOString(),
+    nodes: Number(nodeCount),
+    edges: Number(edgeCount),
+    params: options.params,
+    held,
+    after,
+    errors: page.errors,
+  }
+  writeFileSync(join(out, 'drag.json'), `${JSON.stringify(results, null, 2)}\n`)
+  const ms = (value) => `${value.toFixed(2)} ms`
+  console.log(
+    [
+      `${nodeCount} nodes, ${edgeCount} edges, drag with ${options.params || 'no params'}`,
+      `host per frame while held: median ${ms(held.median)}, p95 ${ms(held.p95)}, ${held.count} frames`,
+      `pointer moves: first ${ms(held.first)}, median ${ms(held.moves.median)}, max ${ms(held.moves.max)}`,
+      `after the drop: median ${ms(after.cost.median)}, p95 ${ms(after.cost.p95)}, ${after.cost.count} frames`,
+      `frames in the second after rest: ${after.idleFrames}`,
+      `positionchange after the drop: ${JSON.stringify(after.followed)}`,
+      `errors ${page.errors.length}, results in ${out}`,
+    ].join('\n'),
+  )
+}
+
 const server = await createServer({
   configFile: resolve(root, 'vite.config.ts'),
   logLevel: 'error',
@@ -876,7 +959,8 @@ try {
   rmSync(out, { recursive: true, force: true })
   mkdirSync(out, { recursive: true })
 
-  if (options.layout) await benchLayout(page, out)
+  if (options.layout && new URLSearchParams(options.params).has('drag')) await benchDrag(page, out)
+  else if (options.layout) await benchLayout(page, out)
   else if (new URLSearchParams(options.params).has('edit')) await benchEdit(page, out)
   else if (new URLSearchParams(options.params).has('history')) await benchHistory(page, out)
   else if (new URLSearchParams(options.params).has('time')) await benchTime(page, out)

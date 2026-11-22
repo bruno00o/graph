@@ -120,6 +120,7 @@ const expectations = {
   'examples/filter': { select: false },
   ...Object.fromEntries(docs.map(({ slug, meta }) => [`docs/${slug}`, meta.harness ?? {}])),
 }
+expectations['docs/elastic-drag'] = { ...expectations['docs/elastic-drag'], elastic: true }
 
 const allowedErrors = []
 
@@ -304,6 +305,25 @@ async function wheelZooms(page) {
   if (!(await zoomed(start.zoom))) throw new Failure('control and wheel did not zoom')
 }
 
+async function neighborsFollow(page, point, key) {
+  await page.evaluate((dragged) => {
+    window.__harness.followed = 0
+    window.graph.on('positionchange', ({ origin, positions }) => {
+      if (origin !== 'drag') return
+      const others = [...positions.keys()].filter((moved) => moved !== dragged).length
+      window.__harness.followed = Math.max(window.__harness.followed, others)
+    })
+  }, key)
+  await page.mouse.move(point.x, point.y)
+  await page.mouse.down()
+  await page.mouse.move(point.x + 60, point.y + 30, { steps: 8 })
+  await page.evaluate(() => window.__harness.frames(4))
+  await page.mouse.up()
+  if (!(await becomes(page, () => window.__harness.followed > 0))) {
+    throw new Failure('no node followed the elastic drag')
+  }
+}
+
 async function visit(browser, name, suite, entry) {
   const id = `${suite.name}/${entry.name}`
   const expect = expectations[id] ?? {}
@@ -388,6 +408,7 @@ async function visit(browser, name, suite, entry) {
         throw new Failure('click did not select the node')
       }
     }
+    if (expect.elastic) await neighborsFollow(page, point, node.key)
     await wheelZooms(page)
     if (errors.length > 0) throw new Failure(`console: ${errors[0]}`)
   } catch (error) {

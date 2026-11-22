@@ -1,0 +1,11 @@
+## How it works
+
+`interaction: { drag: 'elastic' }` asks the layout of the definition to follow each drag. `force()` does: every edge becomes a spring as long as it is when the drag starts, and the nodes next to the dragged one wake up and move first. A node wakes only once a neighbor has moved half a screen pixel, so the motion fades out after a few hops, and nodes the dragged one brushes past step aside.
+
+When the node is dropped, it stays there, and the others slow down and stop where they were pulled. They then send one `positionchange` with origin `'drag'`: the status counts its keys, leaving out the dragged nodes, which the usual events already reported. The button passes a new definition with `drag: true`, and a drag moves only the dragged node again.
+
+## Try it
+
+- Drag a node at the edge of a cluster away: its neighbors stretch after it.
+- Drag a node through a cluster: the nodes on its way step aside.
+- Turn the springs off and drag again to compare.

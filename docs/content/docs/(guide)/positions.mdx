@@ -179,7 +179,7 @@ function pruned(entries: [Key, Point][]) {
 
 ### Tell user moves from replayed ones
 
-`positionchange` says where a move comes from in its `origin`: `'drag'` for a node the user dragged, `'layout'` for a layout run that ended, and `'api'` for `positions.set` and `positions.reset`. Restoring through `initialPositions` emits nothing. Restoring through `set` emits `'api'`, as does any other call of yours, so a flag around your own replay keeps it from counting as an edit.
+`positionchange` says where a move comes from in its `origin`: `'drag'` for a node the user dragged, and for the nodes that followed it with [`drag: 'elastic'`](/docs/interaction#let-the-neighbors-follow), once they are calm, `'layout'` for a layout run that ended, and `'api'` for `positions.set` and `positions.reset`. Restoring through `initialPositions` emits nothing. Restoring through `set` emits `'api'`, as does any other call of yours, so a flag around your own replay keeps it from counting as an edit.
 
 ```ts
 let restoring = false

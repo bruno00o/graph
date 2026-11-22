@@ -1677,10 +1677,13 @@ export interface InteractionOptions {
    */
   readonly select?: SelectMode | undefined
   /**
-   * Drag nodes. Dragging a selected node moves the whole selection.
+   * Drag nodes. Dragging a selected node moves the whole selection. `'elastic'` also lets the
+   * nodes around the dragged ones follow them, as if the edges were springs, when the layout of
+   * the definition can follow a drag, as `force()` does, and no layout runs; they settle where
+   * they are pulled once the node is dropped.
    * @default true
    */
-  readonly drag?: boolean | undefined
+  readonly drag?: boolean | 'elastic' | undefined
   /**
    * Shift and drag from the background draws a lasso that adds the nodes inside to the selection.
    * `LassoOptions` sets the key to hold, or none, and whether edges are taken. Needs
@@ -1987,6 +1990,28 @@ export interface LayoutRun {
 }
 
 /**
+ * Moves the nodes around those the user drags, as `Layout.follow` returns it. The graph calls it
+ * once per frame while the drag lasts, then until it is calm.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
+export interface LayoutFollower {
+  /** Called when a dragged node moves: keep it at this position, in world units. */
+  hold(index: number, x: number, y: number): void
+  /** Called once, when the nodes are dropped. */
+  release(): void
+  /**
+   * Advances by `time` milliseconds of motion, or until it is calm with `Infinity`, without
+   * working past `until` (a time of `performance.now()`). Writes the nodes it moves in the `xy`
+   * of the graph it was given, and returns whether they still move.
+   */
+  step(time: number, until: number): boolean
+  /** Indices of the nodes it has moved since it started. */
+  readonly moved: Iterable<number>
+  /** Called when the graph stops following, before or after `release`. */
+  stop(): void
+}
+
+/**
  * Places the nodes that have no `x` and `y`. Any object of this shape works, such as the result
  * of `force()` or `grid()`. `T` is the type of the items of the nodes it reads.
  * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
@@ -2013,6 +2038,16 @@ export interface Layout<T = unknown> {
   readonly turns?: 'free' | 'flip' | 'none' | undefined
   /** Starts a run. Nodes that are not movable must keep their place in every array it reports. */
   start(graph: LayoutGraph<T>, listener: LayoutListener): LayoutRun
+  /**
+   * Lets the nodes around those being dragged follow them, with `interaction.drag: 'elastic'`.
+   * `held` lists the dragged nodes, `pixel` is the size of a screen pixel in world units. Only
+   * `movable` nodes may move. Returns `null` to leave the other nodes in place.
+   */
+  readonly follow?:
+    | {
+        follow(graph: LayoutGraph<T>, held: readonly number[], pixel: number): LayoutFollower | null
+      }['follow']
+    | undefined
 }
 
 /**

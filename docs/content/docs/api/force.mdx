@@ -42,6 +42,18 @@ A negative or non-finite value falls back to its default. `steps` is rounded and
 - Unfolded groups stay whole: members pull toward their group with `cohesion`, edges between groups move whole groups, and at the end no container overlaps another container or a node next to it, with `groupSpacing` around each. See [groups in layouts](/docs/layout#groups).
 - A [block](/docs/api/layouts#blocks-and-containers) pushes the other nodes as hard as all the nodes it holds, on the CPU, the GPU and every level. Inside a [container](/docs/api/define-graph#layout), `cohesion` pulls the nodes toward their center in place of `gravity`, and below 1,000 nodes a run takes 120 steps unless `steps` is given. The layout's `turns` is `'free'`.
 
+## Follow a drag
+
+`force().follow` lets the neighbors of a dragged node follow it with [`interaction.drag: 'elastic'`](/docs/interaction#let-the-neighbors-follow). It runs on the main thread, on the dragged nodes and the nodes around them only:
+
+- Each edge is a spring whose rest length is its length when the drag starts, stiffer around nodes of low degree, and each node is held lightly to its starting place.
+- Two nodes closer than their radii plus 12 units push apart, never further than they were.
+- A node wakes once a neighbor has moved half a screen pixel, at most 5,000 of them; it takes 120 steps per second of motion.
+- After the drop, the motion cools down over 90 steps, or stops sooner once no node moves more than a twentieth of a screen pixel per step.
+- It gives the same positions for the same moves.
+
+The cost per frame grows with the nodes in motion, not with the graph: see [Interaction](/docs/interaction#let-the-neighbors-follow).
+
 ## Exports
 
 | Export | Kind |

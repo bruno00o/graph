@@ -119,12 +119,19 @@ function resolveInteraction(options: InteractionOptions = {}): ResolvedInteracti
     wheelGlide: atLeastZero(options.wheelGlide ?? defaultWheelGlide, 'interaction.wheelGlide'),
     autoPan: resolveSpeed(options.autoPan ?? true, defaultAutoPanSpeed, 'autoPan'),
     select: options.select ?? 'multiple',
-    drag: options.drag ?? true,
+    drag: resolveDrag(options.drag ?? true),
     ...resolveLasso(options.lasso ?? false),
     keyboard: options.keyboard ?? true,
     fold: options.fold ?? true,
     lens: resolveLens(options.lens ?? false),
   })
+}
+
+function resolveDrag(drag: boolean | 'elastic'): boolean | 'elastic' {
+  if (drag !== true && drag !== false && drag !== 'elastic') {
+    throw new TypeError("defineGraph: interaction.drag must be true, false or 'elastic'")
+  }
+  return drag
 }
 
 function resolveLasso(
