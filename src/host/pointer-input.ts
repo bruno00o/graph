@@ -11,6 +11,7 @@ import { listenPinch, type PinchGesture } from '../dom/gestures'
 import type { ResolvedDefinition } from '../resolved-definition'
 import type { Key, NodeOptions, Point, Style } from '../types'
 import type { HostCamera } from './camera'
+import type { DragFollow } from './drag-follow'
 import { keysOf, sameEnd, sameTarget } from './element-keys'
 import type { Emitter, GraphTarget, ZoomKey } from './events'
 import type { FocusControl } from './focus-control'
@@ -104,6 +105,7 @@ export interface PointerSource {
   readonly folds: FoldControl
   readonly picker: HostPicker
   readonly layouts: LayoutHost
+  readonly follow: DragFollow
   readonly emitter: Emitter
   state(): GraphState
   patch(next: Partial<GraphState>): void
@@ -615,8 +617,10 @@ export class PointerInput {
     source.surface().claim(false)
     this.#autoPanning = false
     source.views.animation = null
-    if (current.drag?.started)
+    if (current.drag?.started) {
+      source.follow.release()
       source.emitter.emit('dragend', this.#dragEvent(current.drag, current.event))
+    }
     if (source.destroyed()) return
     if (current.lasso) this.#drawLasso(null)
     this.#startPinch(current.id, current.last, event)
@@ -683,6 +687,7 @@ export class PointerInput {
       if (this.#source.destroyed()) return
       for (const index of drag.indices) if (!drag.carried.has(index)) spread.detach(index)
       spread.settle(performance.now())
+      this.#source.follow.start(drag.indices)
     }
     const globe = camera.sphere()
     const world = globe
@@ -696,6 +701,7 @@ export class PointerInput {
       positions.set(index, x, y)
     })
     this.#source.layouts.pin(drag.indices)
+    this.#source.follow.hold(drag.indices)
     emitter.emit('drag', this.#dragEvent(drag, event))
     if (this.#source.destroyed()) return
     if (emitter.has('positionchange')) {
@@ -863,7 +869,9 @@ export class PointerInput {
     if (gone.has(drag.index)) {
       current.drag = null
       stopGesture(current)
-      if (drag.started) this.#source.emitter.emit('dragend', this.#dragEvent(drag, current.event))
+      if (!drag.started) return
+      this.#source.follow.release()
+      this.#source.emitter.emit('dragend', this.#dragEvent(drag, current.event))
       return
     }
     if (!drag.indices.some((index) => gone.has(index))) return
@@ -901,7 +909,10 @@ export class PointerInput {
     source.surface().claim(false)
     const canvas = this.#canvas
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
-    if (ended.drag?.started) source.emitter.emit('dragend', this.#dragEvent(ended.drag, event))
+    if (ended.drag?.started) {
+      source.follow.release()
+      source.emitter.emit('dragend', this.#dragEvent(ended.drag, event))
+    }
     if (source.destroyed()) return
     if (ended.lasso) {
       this.#drawLasso(null)
@@ -1069,6 +1080,7 @@ export class PointerInput {
       if (canvas.hasPointerCapture?.(ended.id)) canvas.releasePointerCapture(ended.id)
       if (ended.lasso) this.#drawLasso(null)
       if (ended.drag?.started) {
+        source.follow.release()
         source.emitter.emit('dragend', this.#dragEvent(ended.drag, ended.event))
         if (source.destroyed()) return
       }

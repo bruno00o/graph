@@ -189,6 +189,7 @@ export type {
   LayoutBlocks,
   LayoutContainer,
   LayoutEndOptions,
+  LayoutFollower,
   LayoutGraph,
   LayoutGroups,
   LayoutListener,

@@ -305,7 +305,7 @@ Failure mode inventory:
 | Skill       | Mistakes | HIGH | Notes                                                                                                    |
 | ----------- | -------- | ---- | -------------------------------------------------------------------------------------------------------- |
 | view        | 10       | 3    | `fit` with a list, uncontrolled `update({ view })`, unanswered controlled view                           |
-| interaction | 12       | 2    | lasso needs two options, unanswered controlled selection, per-node drag                                  |
+| interaction | 13       | 2    | lasso needs two options, unanswered controlled selection, per-node drag, elastic drag without `follow`   |
 | map         | 15       | 3    | layout on a map, teardown order, view options on a map graph, snapshots, `spread`, Tailwind v4 utilities |
 | time        | 18       | 5    | string times, exclusive ends, an empty list of periods, a history built in render                        |
 
@@ -435,6 +435,10 @@ Editable diagrams, the host split into core and page, `settled()`, graphs withou
 ### Aligned for 0.34.0, layouts
 
 Layout API before 1.0: `root` of `radial` and `layers` takes any list of keys, `layout.run` takes a `signal`, and a layout that throws fails its run (`layoutend` carries `error`, the port gains `fail?(error)`, `compute` rejects with the error). Sentences corrected: `layouts` (run options, promise, `compute`, `layoutend`, the listener of a layout of your own) and its `group-layouts` reference (a group layout that throws fails the whole run). No failure mode added.
+
+### Aligned for 0.35.0, elastic drag
+
+Neighbors that follow a dragged node (`interaction.drag: 'elastic'`, the experimental port `Layout.follow` and `LayoutFollower`, `force().follow`). Failure modes added: `interaction` (one, 12 to 13: `drag: 'elastic'` without a layout that follows). `interaction` gained `references/elastic-drag.md` (what follows and what never moves, events and saving, reduced motion, a layout of its own), declared by hand in `skill_tree.yaml`, and one sentence in its options. No other skill changes.
 
 ## Coverage and batch history
 

@@ -947,6 +947,7 @@ skills:
       - target.direction of merged edge halves
       - LassoOptions modifier and edges
       - per-node drag and container.drag
+      - elastic drag and LayoutFollower
       - halo of a state
     tasks:
       - Configure selection, drag, lasso, wheel and touch
@@ -1061,6 +1062,15 @@ skills:
         correct_pattern: |
           interaction: { wheelGlide: 0 }
         source: src/host/wheel-glide.ts, docs/content/docs/(guide)/interaction.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting drag elastic without a layout that follows
+        mechanism: The neighbors follow a dragged node only when the layout of the definition has follow, as force does, and no layout runs, so with layout null, grid or on a map a drag moves the dragged nodes only, with no error.
+        wrong_pattern: |
+          defineGraph({ marks, layout: grid(), interaction: { drag: 'elastic' } })
+        correct_pattern: |
+          defineGraph({ marks, layout: force(), interaction: { drag: 'elastic' } })
+        source: src/host/drag-follow.ts, docs/content/docs/(guide)/interaction.mdx
         priority: MEDIUM
         status: active
   - name: map

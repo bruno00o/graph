@@ -276,7 +276,10 @@ export interface GraphZoomHintEvent {
   readonly originalEvent: WheelEvent
 }
 
-/** What moved the nodes: a drag, `positions.set`, or the end of a layout run. */
+/**
+ * What moved the nodes: a drag, with the nodes that followed it under `interaction.drag:
+ * 'elastic'`, `positions.set`, or the end of a layout run.
+ */
 export type PositionOrigin = 'drag' | 'api' | 'layout'
 
 /** Payload of `positionchange`. Moves that come from your data do not emit it. */

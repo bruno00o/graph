@@ -31,7 +31,7 @@ export interface ResolvedInteraction {
   readonly wheelGlide: number
   readonly autoPan: false | { readonly speed: number }
   readonly select: SelectMode
-  readonly drag: boolean
+  readonly drag: boolean | 'elastic'
   readonly lasso: boolean
   readonly lassoModifier: 'Shift' | null
   readonly lassoEdges: boolean

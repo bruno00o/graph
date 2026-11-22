@@ -44,6 +44,11 @@ export class PositionMotion {
     return this.#owner[index] ?? 0
   }
 
+  moving(index: number): boolean {
+    const id = this.#owner[index] ?? 0
+    return id !== 0 && this.#animations.some((animation) => animation.id === id)
+  }
+
   free(index: number): void {
     if (index < this.#owner.length) this.#owner[index] = 0
   }

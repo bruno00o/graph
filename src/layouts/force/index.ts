@@ -3,6 +3,7 @@ import { dev } from '../../dev'
 import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../../types'
 import { registerScopeRun } from '../scope-runs'
 import { enableScopes } from '../scopes'
+import { follow } from './follow'
 import { ForcePool } from './pool'
 import type { FromWorker, ToWorker } from './protocol'
 import { runForce, runMultilevelForce } from './runner'
@@ -144,6 +145,7 @@ export function force(options: ForceOptions = {}): Layout {
     turns: 'free',
     start: (graph: LayoutGraph, listener: LayoutListener) =>
       start(graph, settingsIn(graph, settings, options), listener, dense),
+    follow,
   })
   registerScopeRun(layout, (graph, listener) =>
     pooled(graph, settingsIn(graph, settings, options), listener),

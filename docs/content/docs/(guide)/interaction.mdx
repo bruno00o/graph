@@ -84,6 +84,31 @@ nodes(items, {
 
 A press on a node that cannot be dragged pans the view, or draws a lasso, as on the background; a click still selects it. Dragging a selection moves only the members that can be dragged, and the nodes inside a dragged container move with it whatever their own `drag`.
 
+### Let the neighbors follow
+
+With `drag: 'elastic'`, the nodes around a dragged node follow it as if the edges were springs. The closer a node is to the dragged one, the more it moves: a neighbor follows most of the way, a node a few hops away hardly moves, and nodes the dragged node passes close to step aside. When you drop the node, it stays where you dropped it, and the others settle in a moment where they were pulled; they do not go back.
+
+```ts
+import { defineGraph, edges, nodes } from '@bruno00o/graph'
+import { force } from '@bruno00o/graph/layouts/force'
+
+const definition = defineGraph({
+  marks: [nodes(items), edges(links, { source: 'from', target: 'to' })],
+  layout: force(),
+  interaction: { drag: 'elastic' },
+})
+```
+
+- It needs a layout that can follow a drag, as [`force()`](/docs/api/force#follow-a-drag) does. With `layout: null` or a layout without `follow`, such as `grid()`, a drag moves only the dragged nodes.
+- It works between layout runs. During a run, a dragged node is pinned and the run settles the others around it, as with `drag: true`; a run that starts while the others still move stops them where they are.
+- Nodes placed by their data (`x` and `y`), members of unfolded [groups](/docs/groups), nodes still gliding, and the other nodes of a dragged selection never move. Containers do not push the others away.
+- At most 5,000 nodes move, starting from the neighbors of the dragged nodes. A node wakes once a node next to it has moved half a screen pixel, so nodes far away stay still at every zoom.
+- `positionchange` reports the dragged nodes on every move, as usual, and the nodes that followed once, when they are calm, with origin `'drag'`. [`persistPositions`](/docs/tanstack-db) saves them like a drag. `settled()` waits for them.
+- With [reduced motion](/docs/positions), the others do not move during the drag and jump to where they were pulled after the drop.
+- On a [map](/docs/map), it does nothing: the graph has no layout there.
+
+Nodes or edges that come or go during the drag start the network again from the positions reached, unless they start a layout run, as new nodes do with `force()`; after the drop, they stop it. A custom layout can follow a drag too: see [Follow a drag](/docs/api/define-graph#follow-a-drag). See the [elastic drag](/examples/elastic-drag) example.
+
 ## Lasso
 
 With `lasso: true` and `select: 'multiple'`, Shift and drag from the background, or from a [shape](/docs/shapes#selecting-and-hovering), draws a lasso. The nodes inside, and the shapes whose every point is inside, are added to the selection when you release; a shape that contains the lasso is not taken. Without the lasso, Shift and drag pans the view. Escape cancels a lasso in progress. A long press never starts a lasso.

@@ -190,7 +190,7 @@ The view then follows each run and frames its end, as long as you do not pan or 
 ## Which nodes move
 
 - **Positions from your data win.** Nodes whose mark has `x` and `y` channels, with finite values, never move. They still push and pull the others, so free nodes settle around them. A node whose `x` or `y` is `null` is free.
-- **Dragging pins.** A node dragged during a run stays where you drop it, and the others settle around it. `graph.positions.set` pins its nodes the same way. The pin lasts until the end of the run.
+- **Dragging pins.** A node dragged during a run stays where you drop it, and the others settle around it. `graph.positions.set` pins its nodes the same way. The pin lasts until the end of the run. Between runs, `interaction.drag: 'elastic'` lets the neighbors of a dragged node follow it: see [Let the neighbors follow](/docs/interaction#let-the-neighbors-follow).
 
 To keep a node in place for good, give it coordinates in your data. See the [fixed nodes among free ones](/examples/fixed-and-free-nodes) example.
 
@@ -429,6 +429,7 @@ export function circle(radius = 300): Layout {
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.
 - `incremental: false` lays out every free node again when nodes arrive, instead of the new ones only.
 - `turns` tells how the result may be turned to face its neighbors when the layout places the members of a group: `'free'`, `'flip'` across the direction of its layers, or `'none'`, the default.
+- `follow(graph, held, pixel)`, optional, lets the nodes around dragged nodes follow them with `interaction.drag: 'elastic'`. It returns a `LayoutFollower` that the graph calls once per frame. See [Follow a drag](/docs/api/define-graph#follow-a-drag).
 - Two optional fields describe a graph made of groups laid out on their own, and the graph does not set them yet. `blocks` marks the nodes that stand for a whole group: `size` gives the number of nodes in each block, `0` for a plain node, and `items(index)` and `keys(index)` give them. A layout can weigh a block by its `size`, take its default gaps from plain nodes only, or place a block where its nodes belong. `container` is set when the layout places the members of one group: its `key`, its `datum` and whether it is a `circle`. A layout that ignores both still works. See [blocks and containers](/docs/api/layouts#blocks-and-containers) for what the built-in layouts do with them.
 
 See [`force`](/docs/api/force), [`layers`, `grid`, `rings`, `radial`](/docs/api/layouts) and [`defineGraph`](/docs/api/define-graph#layout) for the types, and the [layout of your own](/examples/custom-layout) example.

@@ -96,6 +96,14 @@ The layout reports positions through a `LayoutListener`:
 
 Every array passed to the listener holds `capacity × 2` numbers. Nodes that are not movable must keep their place.
 
+### Follow a drag
+
+With [`interaction.drag: 'elastic'`](/docs/interaction#let-the-neighbors-follow), the graph calls `follow` when the user starts to drag nodes, if no layout runs. It passes a fresh `LayoutGraph` whose `movable` leaves out the dragged nodes, the nodes placed by their data, the members of unfolded groups, the nodes [spread apart](/docs/groups#spread-children) and the nodes already moving, the indices of the dragged nodes, and the size of a screen pixel in world units. `follow` returns a `LayoutFollower`, or `null` to leave the other nodes in place; a layout without `follow` leaves them in place too. [`force()`](/docs/api/force#follow-a-drag) has one.
+
+<api-table path="index.ts" name="LayoutFollower" />
+
+The graph calls `hold` on every move, `step` once per frame with the time since the last one, at most 100 milliseconds, and `release` at the drop. It writes the positions of `moved` from `xy` after each step, stops calling `step` once it returns `false` after the drop, then calls `stop` and sends one `positionchange` with origin `'drag'` for the moved nodes. It also calls `stop` when a layout starts, when nodes or edges come or go (and calls `follow` again if the drag goes on), and when the graph moves to another surface. With reduced motion, it calls `step` only after the drop, with `Infinity` as time, first before calling `release`, then after, and writes the positions once at the end.
+
 ### Wait for the data
 
 `waitForData` holds back the automatic layout over every node, the first one and the one after a new layout, and the automatic fits, while a [live source](/docs/data#loading) of the definition is loading: they run once every source has loaded or failed. The time counts from the first nodes: 10,000 milliseconds by default, `true` for no limit, `false` or `0` to run on the first nodes as array data does. When the time is up, they run on what is there, and later batches are placed as they arrive. Array data and sources without a `status` never wait.

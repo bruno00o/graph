@@ -42,6 +42,7 @@ import { ContainerBoxes } from './containers'
 import { DataReads, forEachEdgeKey } from './data-reads'
 import { DataStatus, loadedData } from './data-status'
 import { createDecorations } from './decorations'
+import { DragFollow } from './drag-follow'
 import { emptyKeys, toKeys } from './element-keys'
 import type { GraphEnvironment } from './environment'
 import { Emitter, type GraphTarget } from './events'
@@ -194,6 +195,7 @@ export interface HostParts {
   readonly folds: FoldControl
   readonly picker: HostPicker
   readonly layouts: LayoutHost
+  readonly follow: DragFollow
   readonly emitter: Emitter
   readonly bundles: BundleHost
   readonly palette: PaletteColors
@@ -445,7 +447,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
         const key = scene.edges.keys[index]
         return key === undefined ? undefined : model.edge(key)?.datum
       },
-      busy: () => layouts.session !== null || motion.active || pointer.hasDrag(),
+      busy: () => layouts.session !== null || motion.active || pointer.hasDrag() || follow.active,
       duration: () => definition.transitions.layout,
       frameCost: () => render.cost.value,
       request: () => request(),
@@ -478,7 +480,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     paths: bundles.paths,
     zoom: () => store.get().view.zoom,
     boxes: routeBoxes,
-    busy: () => layouts.session !== null || motion.active || pointer.hasDrag(),
+    busy: () => layouts.session !== null || motion.active || pointer.hasDrag() || follow.active,
     request: () => request(),
     sight: () => sight(),
     quiet,
@@ -577,6 +579,21 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     containers: () => syncContainers(),
     waiting: () => data.holds(),
   })
+  const follow = new DragFollow({
+    scene,
+    positions,
+    hierarchy,
+    spread,
+    motion,
+    emitter,
+    definition: () => definition,
+    surface: () => surface,
+    still,
+    running: () => layouts.session !== null,
+    zoom: () => store.get().view.zoom,
+    datum: (key) => model.node(key)?.datum,
+    request: () => request(),
+  })
   const data = new DataStatus({
     ...base,
     model,
@@ -625,7 +642,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     syncContainers,
     sceneVersion: () => sceneVersion,
     dragging: () => pointer.hasDrag(),
-    moving: () => layouts.session !== null || motion.active || spread.writing,
+    moving: () => layouts.session !== null || motion.active || spread.writing || follow.active,
   })
   const reads = new DataReads({ model, projection, hierarchy, support, scene, buffers, emitter })
   scene.shapes.wake = () => {
@@ -649,6 +666,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     folds,
     picker,
     layouts,
+    follow,
     emitter,
     bundles,
     palette,
@@ -894,6 +912,16 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     if (destroyed) return
     if (projected.reshaped) layouts.reshaped()
     layouts.follow(changes, revealed)
+    if (destroyed) return
+    const { nodes: shownNodes, edges: shownEdges } = projected.scene
+    follow.changed(
+      shownNodes.added.length +
+        shownNodes.removed.length +
+        shownEdges.added.length +
+        shownEdges.removed.length >
+        0,
+      pointer.dragging(),
+    )
   }
 
   function concealed(element: GraphTarget): boolean {
@@ -935,6 +963,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     views.send()
     if (destroyed) return
     if (motion.active) motion.step(now)
+    const following = follow.frame(now)
+    if (destroyed) return
     const spreading = spread.frame(now)
     if (lens.wanted?.follow === 'focus') lens.update()
     if (destroyed) return
@@ -968,7 +998,15 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       if (!render.drawable) render.drawn(now)
       anchors.place()
       for (const watcher of watchers) watcher.frame()
-      if (views.animation || pointer.autoPanning || motion.active || easing || spreading) request()
+      if (
+        views.animation ||
+        pointer.autoPanning ||
+        motion.active ||
+        easing ||
+        spreading ||
+        following
+      )
+        request()
       if (!render.drawable) waiters.drawn()
       return
     }
@@ -1017,7 +1055,15 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     const end = clock()
     probe?.framed(start, end - start, synced - syncStart, end - renderStart)
     for (const watcher of watchers) watcher.frame()
-    if (views.animation || pointer.autoPanning || motion.active || easing || flowing || spreading) {
+    if (
+      views.animation ||
+      pointer.autoPanning ||
+      motion.active ||
+      easing ||
+      flowing ||
+      spreading ||
+      following
+    ) {
       request()
     } else if (wait >= 0) scheduler.later(wait)
     if (!held) waiters.drawn()
@@ -1035,6 +1081,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       layouts.busy ||
       views.animation !== null ||
       motion.active ||
+      follow.settling ||
       spread.pending ||
       bundles.busy ||
       bridges.busy ||
@@ -1132,6 +1179,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     page.place(next)
     visited.add(next)
     pointer.abandon()
+    if (destroyed) return
+    follow.stop()
     if (destroyed) return
     motion.finish()
     if (destroyed) return
@@ -1526,6 +1575,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       clearTimeout(settleCheck)
       for (const waiter of settling.splice(0)) waiter.reject(endReason)
       layouts.destroy(endReason)
+      follow.destroy()
       scheduler.cancelFrame()
       pointer.stopMoves()
       scheduler.cancelLater()

@@ -65,6 +65,7 @@ const journalStart = Date.UTC(2026, 0, 1)
 const hullCount = Number(params.get('hulls') ?? 0)
 const hullLabels = params.has('hulllabels')
 const shrinking = params.has('shrink')
+const elastic = params.has('elastic')
 const icon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="black"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7z" fill="black"/></svg>')}`
 
 const rankOf = (item: Item | TimedItem) => (item as { rank?: number }).rank ?? 0
@@ -397,6 +398,7 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
           ]
         : [],
     layout: engine ? force({ engine, multilevel, untangle }) : null,
+    interaction: { drag: elastic ? 'elastic' : true },
   })
 }
 const definition = define(items)

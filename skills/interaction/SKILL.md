@@ -73,7 +73,7 @@ const definition = defineGraph({
 ```
 
 - `select`: `'multiple'` (Shift, Cmd or Ctrl adds or removes), `'single'`, or `false` for none.
-- `drag: false` turns node dragging off for every node. To pin some nodes only, give `drag` to their mark (below). `lasso` is `true`, `false` or `LassoOptions` (below).
+- `drag: false` turns node dragging off for every node. To pin some nodes only, give `drag` to their mark (below). `drag: 'elastic'` also lets the neighbors follow a dragged node, with a layout that can follow ([elastic drag](references/elastic-drag.md)). `lasso` is `true`, `false` or `LassoOptions` (below).
 - `zoom` and `autoPan` take `true`, `false`, or `{ speed }` (a finite number, 0 or more, or `defineGraph` throws a `RangeError`).
 - `wheel` is `'zoom'`, `'pan'` or `'page'`; anything else throws a `TypeError`.
 - `wheelGlide` is the glide of a mouse notch in milliseconds, 200 by default and 0 to jump; a finite number, 0 or more, or `defineGraph` throws a `RangeError`.
@@ -365,6 +365,10 @@ const definition = defineGraph({
 
 `interaction: { drag: false }` stops every node from being dragged, containers included. To pin some, give their mark `drag` as a function of the item (`drag: (item) => !item.locked`), and `container.drag` for the containers of groups.
 
+### MEDIUM Expecting `drag: 'elastic'` without a layout that follows
+
+The neighbors follow a dragged node only when the layout of the definition has `follow`, as `force()` does, and no layout runs. With `layout: null`, `grid()` or another layout without it, and on a map, a drag moves the dragged nodes only, with no error. Nodes placed by `x` and `y` never follow ([elastic drag](references/elastic-drag.md)).
+
 ### HIGH Controlling the selection without answering requests
 
 In controlled mode a click only calls `onSelectionChange`. A handler that does not end in `update({ selection })` (or, in React, a parent that does not render the new `selection` prop) leaves the selection frozen. The mode is fixed at mount: `update({ selection })` on a graph mounted without `selection` does nothing.
@@ -477,5 +481,6 @@ The task is done when:
 
 Every page has a Markdown version: add `.md` to its URL.
 
+- [Elastic drag](references/elastic-drag.md): what follows, events, reduced motion, a layout of your own
 - [Interaction](https://bruno00o.github.io/graph/docs/interaction), [States](https://bruno00o.github.io/graph/docs/states), [Events](https://bruno00o.github.io/graph/docs/api/events), [defineGraph](https://bruno00o.github.io/graph/docs/api/define-graph#interaction), [GraphInstance](https://bruno00o.github.io/graph/docs/api/graph-instance)
 - Examples: [selection](https://bruno00o.github.io/graph/examples/selection), [named states](https://bruno00o.github.io/graph/examples/named-states), [selection synced with a list](https://bruno00o.github.io/graph/examples/controlled-selection), [keyboard navigation](https://bruno00o.github.io/graph/examples/keyboard-navigation), [event log](https://bruno00o.github.io/graph/examples/event-log), [context menu](https://bruno00o.github.io/graph/examples/context-menu), [hover neighborhood](https://bruno00o.github.io/graph/examples/hover-neighborhood), [filter by degree](https://bruno00o.github.io/graph/examples/degree-filter), [page that scrolls](https://bruno00o.github.io/graph/examples/navigation)
