@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.34.0](https://github.com/bruno00o/graph/compare/0.33.0...0.34.0) (2026-11-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* untangle crossed edges once force settles ([#282](https://github.com/bruno00o/graph/issues/282))
+* lay out force runs in levels from 100 moving nodes ([#280](https://github.com/bruno00o/graph/issues/280))
+* type theme tokens, give readFont options and accept pixel ratio words in PNG exports ([#273](https://github.com/bruno00o/graph/issues/273))
+* mount a graph that draws nothing when webgl2 is missing ([#276](https://github.com/bruno00o/graph/issues/276))
+* fail a layout run that throws, abort runs by signal and take any list of roots ([#274](https://github.com/bruno00o/graph/issues/274))
+* hide the resolved options of a graph definition ([#277](https://github.com/bruno00o/graph/issues/277))
+* return { stop } from persistPositions and persistShapes, and type pendingState by the graph ([#275](https://github.com/bruno00o/graph/issues/275))
+* mount the minimap and name event payloads after the store ([#272](https://github.com/bruno00o/graph/issues/272))
+
+### Features
+
+* fail a layout run that throws, abort runs by signal and take any list of roots ([#274](https://github.com/bruno00o/graph/issues/274)) ([4e116d2](https://github.com/bruno00o/graph/commit/4e116d2539684bfb662858ae87a0455efbfc310d))
+* hide the resolved options of a graph definition ([#277](https://github.com/bruno00o/graph/issues/277)) ([c742851](https://github.com/bruno00o/graph/commit/c74285145d2e753a3bc8df93de62157a84cd0c2a))
+* lay out force runs in levels from 100 moving nodes ([#280](https://github.com/bruno00o/graph/issues/280)) ([0294694](https://github.com/bruno00o/graph/commit/0294694cd7f412668d6228ef2d795e436d1ae8f8))
+* mount a graph that draws nothing when webgl2 is missing ([#276](https://github.com/bruno00o/graph/issues/276)) ([0d9d103](https://github.com/bruno00o/graph/commit/0d9d1036f089103ffe49dd19b236aa8f6efa59b5))
+* mount the minimap and name event payloads after the store ([#272](https://github.com/bruno00o/graph/issues/272)) ([08b0e9b](https://github.com/bruno00o/graph/commit/08b0e9b5763fb3be2089f639d61377f2a3f42e1f))
+* return { stop } from persistPositions and persistShapes, and type pendingState by the graph ([#275](https://github.com/bruno00o/graph/issues/275)) ([13a7b36](https://github.com/bruno00o/graph/commit/13a7b36171cb2edf1612d9c9529bb3129f6a1a3f))
+* type theme tokens, give readFont options and accept pixel ratio words in PNG exports ([#273](https://github.com/bruno00o/graph/issues/273)) ([db40df6](https://github.com/bruno00o/graph/commit/db40df6965db7c3183b51df79162be3456ed992f))
+* untangle crossed edges once force settles ([#282](https://github.com/bruno00o/graph/issues/282)) ([7d3d122](https://github.com/bruno00o/graph/commit/7d3d1222fc894aea672bf0e4fd07e0c84618e3cd))
+
 ## [0.33.0](https://github.com/bruno00o/graph/compare/0.32.0...0.33.0) (2026-11-21)
 
 
