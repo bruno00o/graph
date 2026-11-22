@@ -64,7 +64,7 @@ export interface ForceOptions {
   readonly engine?: ForceEngine | undefined
   /**
    * Lays out a coarse version of the graph first, then refines it level by level, on runs that
-   * move at least half of the nodes: `'auto'` from 1,000 moving nodes, `true` at any size,
+   * move at least half of the nodes: `'auto'` from 100 moving nodes, `true` at any size,
    * `false` never. Off when the graph has unfolded groups.
    * @default 'auto'
    */
@@ -113,7 +113,7 @@ const jitterScale = 1e-6
 const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 
 const gpuFrom = 2000
-const multilevelFrom = 1000
+const multilevelFrom = 100
 
 export function prefersGpu(graph: ForceGraph, settings: ForceSettings): boolean {
   if (settings.engine !== 'auto') return settings.engine === 'gpu'

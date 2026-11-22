@@ -284,6 +284,92 @@ function without(graph: ForceGraph, loose: LooseParts): ForceGraph {
   return { ...graph, alive }
 }
 
+export class LadderJob {
+  readonly #ladder: Ladder
+  readonly #settings: ForceSettings
+  readonly #pins = new Map<number, readonly [number, number]>()
+  readonly #total: number
+  #level: number
+  #simulation: ForceSimulation
+  #worked = 0
+  #xy: Float32Array
+  #done = false
+
+  constructor(graph: ForceGraph, settings: ForceSettings) {
+    const ladder = new Ladder(graph, settings)
+    this.#ladder = ladder
+    this.#settings = settings
+    let total = 0
+    for (let at = ladder.top; at >= -1; at--) total += ladder.work(at)
+    this.#total = total
+    this.#level = ladder.top
+    this.#xy = ladder.graphAt(ladder.top).xy
+    this.#simulation = this.#start()
+  }
+
+  get progress(): number {
+    if (this.#done) return 1
+    const done = this.#worked + this.#ladder.work(this.#level) * this.#simulation.progress
+    return this.#total === 0 ? 1 : Math.min(1, done / this.#total)
+  }
+
+  pin(index: number, x: number, y: number): void {
+    const graph = this.#ladder.graph
+    if (index < 0 || index >= graph.capacity || !Number.isFinite(x) || !Number.isFinite(y)) return
+    this.#pins.set(index, [x, y])
+    if (this.#done) return
+    const near = this.#ladder.ancestor(index, this.#level)
+    if (near >= 0) this.#simulation.pin(near, x, y)
+  }
+
+  advance(until: number): boolean {
+    const ladder = this.#ladder
+    while (!this.#done) {
+      const simulation = this.#simulation
+      do simulation.step()
+      while (!simulation.done && performance.now() < until)
+      if (!simulation.done) return false
+      const out = new Float32Array(ladder.graphAt(this.#level).capacity * 2)
+      simulation.write(out)
+      this.#worked += ladder.work(this.#level)
+      if (this.#level < 0) {
+        this.#xy = out
+        this.#done = true
+        break
+      }
+      this.#level--
+      this.#xy = ladder.prolong(this.#level, out)
+      this.#simulation = this.#start()
+      if (performance.now() >= until) return false
+    }
+    return true
+  }
+
+  result(): Float32Array {
+    const xy = this.#xy.slice()
+    for (const [index, [x, y]] of this.#pins) {
+      xy[index * 2] = x
+      xy[index * 2 + 1] = y
+    }
+    return xy
+  }
+
+  #start(): ForceSimulation {
+    const ladder = this.#ladder
+    const level = this.#level
+    const simulation = new ForceSimulation(
+      { ...ladder.graphAt(level), xy: this.#xy },
+      this.#settings,
+      ladder.runAt(level),
+    )
+    for (const [index, [x, y]] of this.#pins) {
+      const near = ladder.ancestor(index, level)
+      if (near >= 0) simulation.pin(near, x, y)
+    }
+    return simulation
+  }
+}
+
 export type Schedule = (task: () => void) => void
 
 export interface MultilevelEngines {

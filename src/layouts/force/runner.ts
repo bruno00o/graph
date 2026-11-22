@@ -3,8 +3,14 @@ import { type GroupTree, groupTree } from '../../core/group-tree'
 import type { LayoutListener, LayoutRun } from '../../types'
 import { separate } from './collider'
 import type { GpuForce } from './gpu'
-import { Ladder, runMultilevel } from './multilevel'
-import { type ForceGraph, type ForceSettings, ForceSimulation, type LevelRun } from './simulation'
+import { Ladder, LadderJob, runMultilevel } from './multilevel'
+import {
+  type ForceGraph,
+  type ForceSettings,
+  ForceSimulation,
+  type LevelRun,
+  prefersMultilevel,
+} from './simulation'
 
 export type Schedule = (task: () => void) => void
 
@@ -187,4 +193,16 @@ export class ForceJob {
     if (simulation.tree) settle(this.#graph, simulation.tree, simulation.fixed, xy, this.#settings)
     return xy
   }
+}
+
+export interface PooledJob {
+  pin(index: number, x: number, y: number): void
+  advance(until: number): boolean
+  result(): Float32Array
+}
+
+export function pooledJob(graph: ForceGraph, settings: ForceSettings): PooledJob {
+  return prefersMultilevel(graph, settings)
+    ? new LadderJob(graph, settings)
+    : new ForceJob(graph, settings)
 }

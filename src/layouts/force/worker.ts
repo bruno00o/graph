@@ -2,7 +2,7 @@ import type { LayoutListener, LayoutRun } from '../../types'
 import { type BatchJob, packResults, unpackBatch } from './batch'
 import { GpuForce } from './gpu'
 import type { FromWorker, ToWorker } from './protocol'
-import { ForceJob, runForce, runGpuForce, runMultilevelForce } from './runner'
+import { type PooledJob, pooledJob, runForce, runGpuForce, runMultilevelForce } from './runner'
 import {
   type ForceGraph,
   type ForceSettings,
@@ -18,7 +18,7 @@ interface WorkerScope {
 
 interface Queued {
   readonly job: BatchJob
-  running: ForceJob | null
+  running: PooledJob | null
 }
 
 const scope = globalThis as unknown as WorkerScope
@@ -44,7 +44,7 @@ function work(): void {
   while (jobs.length > 0) {
     const queued = jobs[0] as Queued
     if (!queued.running) {
-      queued.running = new ForceJob(queued.job.graph, queued.job.settings)
+      queued.running = pooledJob(queued.job.graph, queued.job.settings)
       for (const [index, x, y] of pins.get(queued.job.id) ?? []) queued.running.pin(index, x, y)
       pins.delete(queued.job.id)
     }

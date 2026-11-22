@@ -137,10 +137,11 @@ describe('ForceSimulation', () => {
         [],
         Array.from({ length: fixed }, (_, index) => index),
       )
-    expect(prefersMultilevel(sized(999), forceDefaults)).toBe(false)
-    expect(prefersMultilevel(sized(1000), forceDefaults)).toBe(true)
-    expect(prefersMultilevel(sized(2400, 1000), forceDefaults)).toBe(true)
-    expect(prefersMultilevel(sized(2400, 1300), forceDefaults)).toBe(false)
+    expect(prefersMultilevel(sized(99), forceDefaults)).toBe(false)
+    expect(prefersMultilevel(sized(100), forceDefaults)).toBe(true)
+    expect(prefersMultilevel(sized(240, 100), forceDefaults)).toBe(true)
+    expect(prefersMultilevel(sized(240, 130), forceDefaults)).toBe(false)
+    expect(prefersMultilevel(sized(120, 30), forceDefaults)).toBe(false)
     expect(prefersMultilevel(sized(20), { ...forceDefaults, multilevel: true })).toBe(true)
     expect(prefersMultilevel(sized(20, 20), { ...forceDefaults, multilevel: true })).toBe(false)
     expect(prefersMultilevel(sized(5000), { ...forceDefaults, multilevel: false })).toBe(false)

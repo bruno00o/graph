@@ -48,7 +48,7 @@ let threadPool: ForcePool | null = null
 
 function pooled(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener) {
   const graph = forceGraphOf(withFinitePositions(given))
-  if (prefersGpu(graph, settings) || prefersMultilevel(graph, settings)) return null
+  if (prefersGpu(graph, settings)) return null
   if (given.work?.workers === false) {
     threadPool ??= new ForcePool(() => null, 1)
     return threadPool.run(graph, settings, listener, given.work.slice)

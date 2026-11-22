@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { packBatch, packResults, unpackBatch, unpackResults } from './batch'
 import { ForcePool } from './pool'
 import type { FromWorker, ToWorker } from './protocol'
-import { ForceJob } from './runner'
+import { pooledJob } from './runner'
 import { type ForceGraph, type ForceSettings, resolveForce } from './simulation'
 
 const settings: ForceSettings = { ...resolveForce({ steps: 60 }), gravity: 0.5 }
@@ -49,7 +49,7 @@ function graphOf(count: number, seed: number, grouped = false): ForceGraph {
 }
 
 function inline(graph: ForceGraph, pins: readonly [number, number, number][] = []): Float32Array {
-  const job = new ForceJob(graph, settings)
+  const job = pooledJob(graph, settings)
   for (const [index, x, y] of pins) job.pin(index, x, y)
   while (!job.advance(Number.POSITIVE_INFINITY)) {}
   return job.result()
