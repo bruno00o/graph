@@ -25,7 +25,7 @@ function fakeJob(rounds: number, moved = true, skipped = false) {
   return { job, pins }
 }
 
-function setup(job: UntangleJob, untangle = 1000, load?: UntangleStage['load']) {
+function setup(job: UntangleJob, untangle = 300, load?: UntangleStage['load']) {
   const tasks: (() => void)[] = []
   const ends: [number[], LayoutEndOptions | undefined][] = []
   const progress: number[] = []
@@ -133,11 +133,11 @@ describe('untangling', () => {
 
   it('waits for a pass loaded on demand, and ends without it when loading fails', async () => {
     const { job } = fakeJob(1)
-    const later = setup(job, 1000, () => Promise.resolve(() => job))
+    const later = setup(job, 300, () => Promise.resolve(() => job))
     later.inner().end(Float32Array.of(9, 9, 9, 9, 9, 9))
     await later.drain()
     expect(later.ends).toEqual([[[1, 2, 3, 4, 5, 6], { glide: true }]])
-    const failed = setup(job, 1000, () => Promise.reject(new Error('offline')))
+    const failed = setup(job, 300, () => Promise.reject(new Error('offline')))
     failed.inner().end(Float32Array.of(9, 9, 9, 9, 9, 9))
     await failed.drain()
     expect(failed.ends).toEqual([[[9, 9, 9, 9, 9, 9], undefined]])

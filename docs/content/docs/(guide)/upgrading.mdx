@@ -184,7 +184,7 @@ defineGraph({ marks, layout: force({ multilevel: false }) })
 
 ### `force` untangles its result
 
-Once the forces settle, `force` runs a last pass that turns branches and moves nodes to remove edge crossings, then nodes glide to their new places on `transitions.layout`. Sparse graphs get fewer crossed edges, a run takes up to a second more, and its promise and `layoutend` come after the glide. Pass `untangle: false` to keep the result of the forces alone.
+Once the forces settle, `force` runs a last pass that turns branches and moves nodes to remove edge crossings, then nodes glide to their new places on `transitions.layout`. Sparse graphs get fewer crossed edges, a run takes up to 0.3 seconds more, and its promise and `layoutend` come after the glide. Pass `untangle: false` to keep the result of the forces alone.
 
 ```ts
 // Before: the result of the forces

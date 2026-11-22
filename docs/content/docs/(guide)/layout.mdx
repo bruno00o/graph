@@ -380,9 +380,9 @@ The pass counts every crossing, then tries two kinds of moves, round after round
 
 A move is kept only when it leaves fewer crossings, puts no node on another node or on an edge, and keeps the edges of the node within three times their length. The rounds stop when one removes less than 2 % of the crossings left, or when the time runs out.
 
-Across the 40 examples of the gallery laid out by `force`, it removes a quarter of the crossings, 48,541 down to 37,048, and more than nine in ten on the sparsest ones. A run takes up to 50 milliseconds more below 500 nodes, about 0.35 seconds more at 3,000 nodes and 0.7 seconds at 5,000.
+Across the 40 examples of the gallery laid out by `force`, it removes a fifth of the crossings, 48,541 down to 37,856, and more than nine in ten on the sparsest ones. A run takes up to 50 milliseconds more below 500 nodes, and about 0.3 seconds more at 3,000 and 5,000 nodes, where the budget stops it. A larger budget removes a little more on large graphs: at 5,000 nodes, 17,616 crossings are left, and 16,808 with `budget: 1000`.
 
-- **Option.** `untangle: false` turns it off. `untangle: { budget }` sets how long it may work, in milliseconds, 1,000 by default; `Infinity` lets it stop by itself. A negative or non-finite budget other than `Infinity` falls back to the default.
+- **Option.** `untangle: false` turns it off. `untangle: { budget }` sets how long it may work, in milliseconds, 300 by default; `Infinity` lets it stop by itself. A negative or non-finite budget other than `Infinity` falls back to the default.
 - **Dense graphs.** With more than 4 crossings per edge, moving single nodes removes few of them: the pass stops after counting and leaves the graph as the forces left it, without a glide. From 16,384 edges, a sample of the edges tells it first, so 80,000 nodes in communities take about as long as before. A warning in development says so when `untangle` is written in your options.
 - **Where it does not run.** A graph with unfolded groups, groups with a `container.layout` among them, and a graph with fewer than two edges.
 - **Fixed and pinned nodes.** Nodes with `x` and `y` never move, nor nodes left out of `run({ keys })`. A node dragged during the run stays where it is dropped.

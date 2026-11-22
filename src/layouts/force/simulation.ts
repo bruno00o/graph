@@ -84,7 +84,7 @@ export interface UntangleOptions {
   /**
    * Longest time the pass may work, in milliseconds. `Infinity` lets it end by itself. A negative
    * or NaN value falls back to the default.
-   * @default 1000
+   * @default 300
    */
   readonly budget?: number | undefined
 }
@@ -123,7 +123,7 @@ export const forceDefaults: ForceSettings = {
   steps: 300,
   engine: 'auto',
   multilevel: 'auto',
-  untangle: 1000,
+  untangle: 300,
 }
 
 export const alphaMin = 0.001
@@ -177,7 +177,7 @@ export function resolveForce(options: ForceOptions = {}): ForceSettings {
   }
 }
 
-const untangleBudget = 1000
+const untangleBudget = 300
 
 function untangleOf(value: ForceOptions['untangle']): number {
   if (value === undefined) return forceDefaults.untangle
