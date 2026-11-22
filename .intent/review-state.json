@@ -3,7 +3,7 @@
   "baseline": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
   "items": {
     "skill:skills/core/SKILL.md": {
-      "fingerprint": "2feee61cc4fe2c6eb27a21ddf4aaab4fcc0e7da6ef3659d5c7c72b704dd597fe",
+      "fingerprint": "f9a7c9d42d31e90c5eb00562b8f2f2f6b8d57d90260f8da555ebea74e3f7121c",
       "snapshot": {
         "docs/content/docs/(guide)/browser-support.mdx": "39d77f111e55dce95fdd48b2e8bea5c8eab825ba2f2d663700df9aa8ac57033e",
         "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
@@ -12,7 +12,7 @@
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/(guide)/vanilla.mdx": "dabaa2aa2557ed477e71c19db6fc6e421b030bc6f0284ec8290f123cbf1e6e48",
-        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/define-graph.mdx": "d3191823bc51045b600e442258036bfb8c0dc0437a3551e2dca898e10a746fe5",
         "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
         "docs/content/docs/api/graph-core.mdx": "edd40bc3a2add08f8f4a5a61a738abc085b87980a86c69a54dba1dceba7eca7e",
         "docs/content/docs/api/graph-instance.mdx": "7d7d4da954a38a10298257f3806981683e9a22de870ff6f634b8dc13b591495e",
@@ -31,17 +31,15 @@
         "src/host/graph-core.ts": "a640933cfd039eaf82be859492126250d16ee0ce518e34ac87f326196e2a800c",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/render-host.ts": "6e77c815a2c219f9777f13e35246593ebaf730b7a0f155a4c5f26d83df25b3bb",
-        "src/index.ts": "a0f098afe81504748866a608cb81615e38202a7ba62808ad7038da541501eecb",
+        "src/index.ts": "649ed19ce85c89b1e7169752bbc4dcea008ba99328a5b88f2031185146cae5f4",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
-      "outcome": "updated",
-      "reason": "PR 276: mountGraph no longer throws without WebGL2, drawable in the store, a try around the mount never catches (references/rendering.md).",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts; define-graph.mdx tabulates LayoutEndOptions and index.ts exports it: nothing the core skill teaches changed.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 276: skills changed with the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/browser-support.mdx, docs/content/docs/(guide)/installation.mdx, docs/content/docs/(guide)/vanilla.mdx, docs/content/docs/api/define-graph.mdx, docs/content/docs/api/events.mdx, docs/content/docs/api/graph-instance.mdx, docs/content/docs/api/mount-graph.mdx, src/define-graph.ts, src/host/events.ts, src/host/graph-core.ts, src/host/graph-instance.ts, src/host/render-host.ts, src/index.ts, src/types.ts since 0.33.0 read against skills/core/SKILL.md"
+        "Diff of docs/content/docs/api/define-graph.mdx, src/index.ts, src/types.ts in PR 282 read against skills/core/SKILL.md"
       ]
     },
     "skill:skills/react/SKILL.md": {
@@ -69,7 +67,7 @@
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "f49f5aa5c1e661ae774d62a96e10a45f2e6c626e1d493be6bbaaf5cfea38b727",
+      "fingerprint": "0a9198e35fceda2f8ed1d549550813968c9a74255d32d25bb0f17dbb530ea524",
       "snapshot": {
         "_artifacts/domain_map.yaml": "9c895fec99c14cc67795e6ba3124d65fb072178ceee7a45d56822c19936890cf",
         "_artifacts/skill_spec.md": "4e6ed816ecf287ff31b9456a729155197ba7034cd87b916a17f9135846bee811",
@@ -88,7 +86,7 @@
         "docs/content/docs/(guide)/installation.mdx": "b5ad1722b7f08e9bd559b0de611bec1325bc64b7dcbc48a3c53b3307bb74949b",
         "docs/content/docs/(guide)/interaction.mdx": "826d443567ba25cd1e188819ef9c262c2b945156025f243f27fb6da54803591a",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
-        "docs/content/docs/(guide)/layout.mdx": "30ecc83dab7302105864fb25d6563a4c9a79514d84daa9ae7beb135b388e88cd",
+        "docs/content/docs/(guide)/layout.mdx": "be9eceb823c34cba2823f7b0fccfbecbbb91363b7e2e08438ad03df9d74207c3",
         "docs/content/docs/(guide)/lens.mdx": "175c2f78a9f174344d13cdc9b2383b50a40ecf65d00e189995182503676eaf5a",
         "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
         "docs/content/docs/(guide)/marks.mdx": "2628b8f641447a5cf7156b33d1acba7c2d9337c3495938b92623a8b287f3a6f9",
@@ -117,13 +115,13 @@
         "docs/content/docs/api/create-exploration.mdx": "3bd905d354f9ed09c3778a3475eb293e7202bc6d9e702a017174344a4a3c3f69",
         "docs/content/docs/api/create-graph.mdx": "66b0bf7cd06151d434494064d99a1891e965d2c2dafbad11412f3fc7c1c87070",
         "docs/content/docs/api/cypher-graph.mdx": "f78a2096a958c625e497769bb7d6d515bfc19928b63ee80223f9a180c26ae5c6",
-        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/define-graph.mdx": "d3191823bc51045b600e442258036bfb8c0dc0437a3551e2dca898e10a746fe5",
         "docs/content/docs/api/devtools.mdx": "154824212bf4f7394efc66231f3678d5984db846a40d95b2c8288e401b67746f",
         "docs/content/docs/api/edges.mdx": "f8fe1b31b38c5de8d30e44f8128fc9a8acac86214f3eccf8aef4327ae674b907",
         "docs/content/docs/api/editor.mdx": "2e72adfd0f2ee2156b57d8b2af0569226d33708ca389f0c8cf38ed2350799b0f",
         "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
         "docs/content/docs/api/export.mdx": "82661801d9a04fa8a4810e9ca941ed2de441e5770b51b475bad45d6a9e09085f",
-        "docs/content/docs/api/force.mdx": "4ad59d35cdd3cf5dae57f5c18b543df3f6afa9c3b4d6c9c9496033ca94768ed1",
+        "docs/content/docs/api/force.mdx": "1b380f678130dd26133dd3cc0eef7f8c417ce75bee98affd5d40a63d797e3bd2",
         "docs/content/docs/api/formats.mdx": "f37ea7d64a0660710538a3d83611d11bf7c68e8341c5daa7a89d9ccc541542f7",
         "docs/content/docs/api/graph-component.mdx": "4d95a6364b252748a73229e4721ea9773475846fb832b332c0bf335571bb25f5",
         "docs/content/docs/api/graph-core.mdx": "edd40bc3a2add08f8f4a5a61a738abc085b87980a86c69a54dba1dceba7eca7e",
@@ -167,7 +165,7 @@
         "skills/headless/references/extracts-at-scale.md": "11c1a5c935446398409aadac74305c7ccacf44ce8b729c11d20cde8b29547092",
         "skills/interaction/SKILL.md": "3246c5e955e2fe012bbe1fb82c05ca9180bded0717761d563a170ebbb490f263",
         "skills/interaction/references/wheel-glide.md": "5ad5be31b578aa7090baf52da3ecfb29f49a076629c899ade4fe1684c522211b",
-        "skills/layouts/SKILL.md": "fc3bd6792b173a7ed78e78db439faeb909f1003b7bcc6686d3be096c87dbad7e",
+        "skills/layouts/SKILL.md": "156b08d803cc0a0d319f1bf3805a047bdfc1c108f88b4082ee138c63b35d5cf6",
         "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
         "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
         "skills/map/SKILL.md": "ba05670d8fe8ddc321014b85dba2b4c21baed9ced5f8dee030aec16962a1dcd4",
@@ -254,7 +252,7 @@
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
-        "src/host/layout-session.ts": "6fea7c9e39370b105782ddf14273fc111ccb7bbfc71aefd99e362b1519846586",
+        "src/host/layout-session.ts": "6a9469b69491a9570fa48ff734e3f9007c1bafcc254788879cf3209bf6bfe033",
         "src/host/lens.ts": "1c6a66c6e0c2e6a669940ffd7577412f2158b447eebf265cf1d0934ca5523b50",
         "src/host/picking.ts": "8afd5e22871861af2b8f796b755b885bd74d0dc3773ae057435516e54a4721e6",
         "src/host/placement.ts": "a1cf5ac92e5392085feb20cefda934752dc989b77812a8a2cde817494dc638a8",
@@ -266,8 +264,8 @@
         "src/host/view-control.ts": "1b64ef8fe66551eb6fea31d19751a50f2a0d2f61d71517a3724bb11fe51d0780",
         "src/host/wheel-glide.ts": "d1fe92a37e3703e3f134f775f56c1f7cd6afcca705acbc1db236c674015ff87a",
         "src/hulls.ts": "0d083a6b8c4374b8d1a5d1cba2796ed8e00206e9968a489227464bc7000cd2ca",
-        "src/index.ts": "a0f098afe81504748866a608cb81615e38202a7ba62808ad7038da541501eecb",
-        "src/layouts/force/index.ts": "29c0479660b8035c8f8a044109ed8b128bc5362ff43d47a5436867fd7952f9e1",
+        "src/index.ts": "649ed19ce85c89b1e7169752bbc4dcea008ba99328a5b88f2031185146cae5f4",
+        "src/layouts/force/index.ts": "baeeb3546fa7c7170d7cb0ee26416590e7ba2a76fbdf96f3387a3550f9620d08",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
         "src/layouts/grid.ts": "4c43b1fc14da84d51cfa4b67d2a84e154a9fc6fee7b93ceb0927582db935d956",
         "src/layouts/index.ts": "8057ab910e50d7191fb1f23fd443820c619fd52c77279699feb62eb918df315c",
@@ -302,15 +300,15 @@
         "src/timeline/events.ts": "a8184670257037031a48eb6fddb82d9573802a9dff03a9e684105d88d874cc7f",
         "src/timeline/index.ts": "080999a96307ef64453daf9d6be4da3e79af430ad5e6fc96132a6d88768f052d",
         "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683",
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "0294694cd7f412668d6228ef2d795e436d1ae8f8",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "PR 280 changes a threshold the registries do not state: no failure mode names the size at which levels start.",
+      "reason": "PR 282 adds the untangle pass, taught in the layouts skill text; no failure mode of the registries is about crossings or the end of a custom layout.",
       "evidence": [
-        "grep of _artifacts for the old threshold finds nothing",
-        "intent maintainer status reports 0 files to sync and 0 authoring issues"
+        "intent maintainer status reports 0 files to sync and 0 authoring issues",
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 7d3d122: every fence typechecked, published copies under 500 lines"
       ]
     },
     "source:docs/content/docs/(guide)/agent-skills.mdx": {
@@ -357,7 +355,7 @@
       ]
     },
     "skill:skills/edges/SKILL.md": {
-      "fingerprint": "6269b3477facc2e5638cece6a3ee98a41c08a6c0293c4db9c4cc51d922d5c463",
+      "fingerprint": "2d789c7e6037793be5cacc7e21809ad2d68109456a41e1f2cdc2fd6692088206",
       "snapshot": {
         "docs/content/docs/(guide)/bundling.mdx": "2e7ce5553a531b1f791438feb857d2a29b765ce34c965dfac7e305de5b22c8a8",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
@@ -372,14 +370,14 @@
         "src/core/width-scale.ts": "50c4c93ce11bc11bc724beb23b6a95ff362c9d5eaa912c8cb1a54686b072deb9",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/routing/index.ts": "51199b83111e41368ce1141c60236508664a68ef125b4d9a63a9036eb91283b1",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683",
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "types.ts moves the resolved options out of GraphDefinition and marks the ports @experimental (PR 277): the edges(), bundling and routing options the skill teaches are unchanged.",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "Diff of src/types.ts since 0.33.0 read against skills/edges/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/edges/SKILL.md"
       ]
     },
     "skill:skills/export/SKILL.md": {
@@ -427,7 +425,7 @@
       ]
     },
     "skill:skills/groups/SKILL.md": {
-      "fingerprint": "05d458c27aa730f88a944f1fa968666b87fe7c7cd603c2567d9b2e63081acbf2",
+      "fingerprint": "a755dd6b6d4a45a8eac625b190837ea7a8919c87fe1ce4399823504ca40c6dd7",
       "snapshot": {
         "docs/content/docs/(guide)/groups.mdx": "e65ddc00d5c0e7ef1d8c596ab4882df2aa1cb9d5adae90475656210a24dbe6f7",
         "docs/content/docs/(guide)/transformations.mdx": "b9d5c818e34d962650bf6f7edb6f6eda7995ad4c40839d012a2b3f0cbabb133b",
@@ -441,21 +439,21 @@
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/picking.ts": "8afd5e22871861af2b8f796b755b885bd74d0dc3773ae057435516e54a4721e6",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "folding.ts reads ResolvedDefinition (PR 277), transformations.mdx says an aggregated edge without aggregate takes the look of its first edge, which the skill already says; events.ts renames payloads of layerchange and timechange only: foldchange unchanged.",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/transformations.mdx, src/host/events.ts, src/host/folding.ts, src/host/graph-instance.ts, src/types.ts since 0.33.0 read against skills/groups/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/groups/SKILL.md"
       ]
     },
     "skill:skills/interaction/SKILL.md": {
-      "fingerprint": "a9bfd745e1d18c2ac9f576b7479650ec9f1de3976e10f7ce495c1239e12e9572",
+      "fingerprint": "4106be0e82b2ef15db8a1beaa9d29eb989eaee9a8798e0e586c38bc7f4ec094d",
       "snapshot": {
         "docs/content/docs/(guide)/interaction.mdx": "826d443567ba25cd1e188819ef9c262c2b945156025f243f27fb6da54803591a",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
-        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/define-graph.mdx": "d3191823bc51045b600e442258036bfb8c0dc0437a3551e2dca898e10a746fe5",
         "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
         "skills/interaction/SKILL.md": "3246c5e955e2fe012bbe1fb82c05ca9180bded0717761d563a170ebbb490f263",
         "skills/interaction/references/wheel-glide.md": "5ad5be31b578aa7090baf52da3ecfb29f49a076629c899ade4fe1684c522211b",
@@ -469,30 +467,30 @@
         "src/host/pointer-input.ts": "03108b49d2095e392364a0c468508ea89fcace29baa300a06fbd21890ea2bc16",
         "src/host/selection-control.ts": "a4758724ac15b068f070e95b166994a888e5af21726a6163cf3b0f809de07a66",
         "src/host/wheel-glide.ts": "d1fe92a37e3703e3f134f775f56c1f7cd6afcca705acbc1db236c674015ff87a",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "pointer-input.ts and define-graph.ts read ResolvedDefinition (PR 277), events.ts renames the payloads of layerchange and timechange (PR 272), taught by multilayer and time: pointer, keyboard and lasso unchanged.",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts; define-graph.mdx only gains the LayoutEndOptions table: pointer, keyboard and lasso unchanged.",
       "evidence": [
-        "Diff of docs/content/docs/api/define-graph.mdx, docs/content/docs/api/events.mdx, src/define-graph.ts, src/host/events.ts, src/host/graph-instance.ts, src/host/pointer-input.ts, src/host/selection-control.ts, src/types.ts since 0.33.0 read against skills/interaction/SKILL.md"
+        "Diff of docs/content/docs/api/define-graph.mdx, src/types.ts in PR 282 read against skills/interaction/SKILL.md"
       ]
     },
     "skill:skills/layouts/SKILL.md": {
-      "fingerprint": "991d859719ccc83c4060212f0166c44c55bd37339b1583c96ebdfdf50a49ac98",
+      "fingerprint": "157b8896017b5876a6aae074336f4c4605289f85c4f2dd39c5c1ba079f49ad6a",
       "snapshot": {
-        "docs/content/docs/(guide)/layout.mdx": "30ecc83dab7302105864fb25d6563a4c9a79514d84daa9ae7beb135b388e88cd",
+        "docs/content/docs/(guide)/layout.mdx": "be9eceb823c34cba2823f7b0fccfbecbbb91363b7e2e08438ad03df9d74207c3",
         "docs/content/docs/(guide)/positions.mdx": "d02131fdd0609de777d46afabd95ef55c8763f3aaba5cd31a8d68bff1f6dc043",
-        "docs/content/docs/api/force.mdx": "4ad59d35cdd3cf5dae57f5c18b543df3f6afa9c3b4d6c9c9496033ca94768ed1",
+        "docs/content/docs/api/force.mdx": "1b380f678130dd26133dd3cc0eef7f8c417ce75bee98affd5d40a63d797e3bd2",
         "docs/content/docs/api/layouts.mdx": "77216db768bdbea2cf776a877fe60d4af718d84ca72038d6969947efc5c90d9f",
-        "skills/layouts/SKILL.md": "fc3bd6792b173a7ed78e78db439faeb909f1003b7bcc6686d3be096c87dbad7e",
+        "skills/layouts/SKILL.md": "156b08d803cc0a0d319f1bf3805a047bdfc1c108f88b4082ee138c63b35d5cf6",
         "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
         "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
-        "src/host/layout-session.ts": "6fea7c9e39370b105782ddf14273fc111ccb7bbfc71aefd99e362b1519846586",
-        "src/layouts/force/index.ts": "29c0479660b8035c8f8a044109ed8b128bc5362ff43d47a5436867fd7952f9e1",
+        "src/host/layout-session.ts": "6a9469b69491a9570fa48ff734e3f9007c1bafcc254788879cf3209bf6bfe033",
+        "src/layouts/force/index.ts": "baeeb3546fa7c7170d7cb0ee26416590e7ba2a76fbdf96f3387a3550f9620d08",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
         "src/layouts/grid.ts": "4c43b1fc14da84d51cfa4b67d2a84e154a9fc6fee7b93ceb0927582db935d956",
         "src/layouts/index.ts": "8057ab910e50d7191fb1f23fd443820c619fd52c77279699feb62eb918df315c",
@@ -501,19 +499,19 @@
         "src/layouts/radial.ts": "16ae8c37710e473c461bbf7633de9aaa5df5ace0ba27561cb5d6dd9d14705b32",
         "src/layouts/rings.ts": "4134366ac22aa39533dc86fbec60e196f9b0cb86b41ecfdc1c350575745cf881",
         "src/layouts/scopes.ts": "bb82987ae7fc0aa125f493cb21df782fa510cc181a6e74d0887b54a30cf7684f",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "0294694cd7f412668d6228ef2d795e436d1ae8f8",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "updated",
-      "reason": "PR 280: force works in levels from 100 moving nodes with multilevel: 'auto', small graphs may end with a different result, multilevel: false keeps one level.",
+      "reason": "PR 282: force({ untangle }) on by default, budget 300 ms, skipped above 4 crossings per edge and with unfolded groups, false keeps the forces' result; listener.end(xy, { glide: true }) for custom layouts.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 0294694: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 280: skill changed with the code, no other library named",
-        "Diff of layout.mdx, force.mdx and src/layouts/force/index.ts since the last record read against skills/layouts/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 7d3d122: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 282: skill changed with the code, no other library named",
+        "Diff of layout.mdx, force.mdx, layout-session.ts, force/index.ts and types.ts in PR 282 read against skills/layouts/SKILL.md"
       ]
     },
     "skill:skills/map/SKILL.md": {
-      "fingerprint": "914786f26923cf431a34338fb872bc3b583d35a85a9b0bc17ff506bc85f71f66",
+      "fingerprint": "5915ab7a7db97e9434d0b5cbc959fbc3b94854dafeeb0ab6222895238292a05c",
       "snapshot": {
         "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
         "docs/content/docs/(guide)/positions.mdx": "d02131fdd0609de777d46afabd95ef55c8763f3aaba5cd31a8d68bff1f6dc043",
@@ -532,55 +530,51 @@
         "src/map/react.tsx": "a1c0cf0e01a8c1a1687c246063264fa11a69b2fa700939eeef4456129fc77cff",
         "src/shapes/subdivide.ts": "b1576a97844313f4ac12eb43304aac3b01b66837f1871d6005fa7329a147f664",
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683",
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
-      "outcome": "updated",
-      "reason": "PR 273: pixelRatio of exportMapPng takes 'auto', 'device' or a number.",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 273: skills changed with the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/map.mdx, docs/content/docs/(guide)/positions.mdx, docs/content/docs/api/map.mdx, src/map/export.ts, src/map/index.ts, src/types.ts since 0.33.0 read against skills/map/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/map/SKILL.md"
       ]
     },
     "skill:skills/multilayer/SKILL.md": {
-      "fingerprint": "09348afcce62a85271316f3e4ffafd177c8a711b79cd72ee3e9b5c8166116603",
+      "fingerprint": "32cbf54470675655244c16b13b09cf23072ef3bb0ca266182981dbee0f6e972e",
       "snapshot": {
         "docs/content/docs/(guide)/multilayer.mdx": "5d2b375c32c23813b510704e49675482ae450937219c8aaa5c1405b2de387c01",
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
         "skills/multilayer/SKILL.md": "a498eaa93f1be65d672e34568683e183fbddd0690f4b76689dda5078c9967342",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/support.ts": "447f57be80e2a3915d79cbda6bed07c747ced73d2d754528bbc7a4c97aba3a83",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
-      "outcome": "updated",
-      "reason": "PR 272: layerchange and onLayerChange carry { hiddenLayers }.",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 272: skills changed with the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/multilayer.mdx, src/host/graph-instance.ts, src/types.ts since 0.33.0 read against skills/multilayer/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/multilayer/SKILL.md"
       ]
     },
     "skill:skills/paths/SKILL.md": {
-      "fingerprint": "25d472825b34e6285bbd068219dcac06e17de9ab4fabd3d66ecb3003f89e500c",
+      "fingerprint": "8d54855b70df52697e00a7b11fa9e5a1872200134a94c15ec0fd298b51d9eabf",
       "snapshot": {
         "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
         "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
         "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "types.ts moves the resolved options out of GraphDefinition (PR 277): path searches unchanged.",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "Diff of src/types.ts since 0.33.0 read against skills/paths/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/paths/SKILL.md"
       ]
     },
     "skill:skills/styling/SKILL.md": {
-      "fingerprint": "20a3fc191753eaa674dcd2da6f37dd6145f3ee6d1a0e1d849e20a8cda27f104b",
+      "fingerprint": "ddc127f9e8cc02c4c76aab6d146e408987dbe1e01d5b8e910e1043fa84f271ee",
       "snapshot": {
         "docs/content/docs/(guide)/images-and-badges.mdx": "9ac154d92f4d562b7112575a93c935307d3e42f2ec56de5f2d34728abc705159",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
@@ -594,13 +588,13 @@
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/theme/theme.css": "244a97cbd97835d55a01d3e84df3e0aedcbd319f11635c36e7d50b7c9f4784b1",
         "src/theme/tokens.ts": "6201ae723f26f7642cf5beefc1dca4784ab59721e11acb00a7538ecc15baeec4",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "tokens.ts types the token names as GraphToken (PR 273), used by the theme colors of createGraph, taught by headless; the CSS variables and style options the skill teaches are unchanged.",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "Diff of src/theme/tokens.ts, src/types.ts since 0.33.0 read against skills/styling/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/styling/SKILL.md"
       ]
     },
     "skill:skills/tanstack-db/SKILL.md": {
@@ -644,7 +638,7 @@
       ]
     },
     "skill:skills/time/SKILL.md": {
-      "fingerprint": "c44cadf44449f4cc9fe8b3f40411834c49108fd921bbe53e677127e5344ae66e",
+      "fingerprint": "0d0b949ac151652421d35f5c1cfa3c8b727ef4f0ed5b3cc98041665ad3470d74",
       "snapshot": {
         "docs/content/docs/(guide)/time.mdx": "78dc4e69f2b43361925aaecced96d3f1c6eb6d160601944daa48952854cf1085",
         "docs/content/docs/api/history.mdx": "6955b82f05e83c0b87dcfb727d0202b87f875e6b5fc5499afe7ccb26b7071c18",
@@ -663,15 +657,13 @@
         "src/timeline/events.ts": "a8184670257037031a48eb6fddb82d9573802a9dff03a9e684105d88d874cc7f",
         "src/timeline/index.ts": "080999a96307ef64453daf9d6be4da3e79af430ad5e6fc96132a6d88768f052d",
         "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
-      "outcome": "updated",
-      "reason": "PR 272: timechange and onTimeChange carry { time }, stepEvent without a window starts at the first event.",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 272: skills changed with the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/time.mdx, docs/content/docs/api/timeline.mdx, src/host/events.ts, src/host/graph-instance.ts, src/react/index.tsx, src/timeline/index.ts, src/types.ts since 0.33.0 read against skills/time/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/time/SKILL.md"
       ]
     },
     "skill:skills/tools/SKILL.md": {
@@ -709,11 +701,11 @@
       ]
     },
     "skill:skills/view/SKILL.md": {
-      "fingerprint": "56c29a83b7f7e13063ac8b41eed5895c917fcc38ddd6809088237b30e429ac54",
+      "fingerprint": "6831cf50aa29644f565b64367afa25e66cb141b03d913d2f8d604a7e5156ee18",
       "snapshot": {
         "docs/content/docs/(guide)/view.mdx": "7dcfd8f22c1304722fc8dec8e40afb5b925ddde0b555c26f8bcd531dd2542eb7",
         "docs/content/docs/(guide)/zoom.mdx": "3ba61e43cda3aa11cb485a3da120469588ca9fc796f909f11ba607c76db69fca",
-        "docs/content/docs/api/define-graph.mdx": "d1def7b499a12cef901f5315ac59610d9aa81e8c48c6860fa9d37a073a8ceb3b",
+        "docs/content/docs/api/define-graph.mdx": "d3191823bc51045b600e442258036bfb8c0dc0437a3551e2dca898e10a746fe5",
         "docs/content/docs/api/graph-instance.mdx": "7d7d4da954a38a10298257f3806981683e9a22de870ff6f634b8dc13b591495e",
         "skills/view/SKILL.md": "b0344f7b9d4b6cce300c05dbd09c7fb23ca55b44cce4f892783dc33fccd48ac7",
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
@@ -722,27 +714,25 @@
         "src/host/events.ts": "f53f5078f60181ed7011ad1fe2cea24cf0f376952455c28087a4f1f247f7bc13",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/view-control.ts": "1b64ef8fe66551eb6fea31d19751a50f2a0d2f61d71517a3724bb11fe51d0780",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
-      "outcome": "updated",
-      "reason": "PR 277: a controlled view gives back the object received, View may gain optional fields in a minor version (versioning page).",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts; define-graph.mdx only gains the LayoutEndOptions table: the view API is unchanged.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 277: skills changed with the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/view.mdx, docs/content/docs/api/define-graph.mdx, docs/content/docs/api/graph-instance.mdx, src/define-graph.ts, src/host/events.ts, src/host/graph-instance.ts, src/host/view-control.ts, src/types.ts since 0.33.0 read against skills/view/SKILL.md"
+        "Diff of docs/content/docs/api/define-graph.mdx, src/types.ts in PR 282 read against skills/view/SKILL.md"
       ]
     },
     "source:docs/content/docs/api/index.mdx": {
-      "fingerprint": "b9f5a18ab69875c1e1f33273683410b731afbc9f7e2a99e3623d6bd6eec6865d",
+      "fingerprint": "7d6e6057c64e172aa652d72a33d60f78975a3a7eb2da15e92a85c774c024f101",
       "snapshot": {
-        "docs/content/docs/api/index.mdx": "a0f1a1bbdf44f1c531134bc4c2fe3f756746b29498a589b3ef7dd4bf8c2faa3b"
+        "docs/content/docs/api/index.mdx": "6cf230e696dcb80a9d2769ec47b58152a55d21e167b9608eb7793872d5548f29"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "Index of the API pages follows the renamed and new exports (PRs 272 to 277); the skills link the pages.",
+      "reason": "Index of the API pages lists UntangleOptions and LayoutEndOptions (PR 282).",
       "evidence": [
-        "Diff of docs/content/docs/api/index.mdx since 0.33.0 read"
+        "Diff of docs/content/docs/api/index.mdx in PR 282 read"
       ]
     },
     "source:src/core/key-list.ts": {
@@ -857,15 +847,15 @@
       ]
     },
     "source:docs/content/docs/(guide)/upgrading.mdx": {
-      "fingerprint": "dcddd903f8a87a5b77391b88d93e729077d8e89187873cb2c95f4473a3d73948",
+      "fingerprint": "5281773f4b003d8b6f0bbb3d3f2f59208b21697ba832596117788fe2bcb2f65f",
       "snapshot": {
-        "docs/content/docs/(guide)/upgrading.mdx": "916afffb36d86a12182422de4c91a7d9e3934aaf6c05cb1bf01f04f3aaaaddb3"
+        "docs/content/docs/(guide)/upgrading.mdx": "57e5a6863e6f3515509cabf652a124f3412816bb7bf235581f09a109bbf0b5a9"
       },
-      "head": "0294694cd7f412668d6228ef2d795e436d1ae8f8",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "Subsection on levels from 100 nodes under 0.34.0 (PR 280), taught by layouts.",
+      "reason": "Subsection on untangle on by default under 0.34.0 (PR 282), taught by layouts.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/upgrading.mdx in PR 280 read"
+        "Diff of docs/content/docs/(guide)/upgrading.mdx in PR 282 read"
       ]
     },
     "source:src/core/columns.ts": {
@@ -1099,7 +1089,7 @@
       ]
     },
     "skill:skills/shapes/SKILL.md": {
-      "fingerprint": "54ee488c9b6a5512817d8607a1e2a70fa28f8a71c449f94df476ce032c662e5a",
+      "fingerprint": "3bf39a8390636fa0320d6fb4519c6211ca77461d3c92dd3c343075e44c8dfeb5",
       "snapshot": {
         "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
         "docs/content/docs/(guide)/shapes.mdx": "54adb1d1319dd8c484854e50826c9fe3eed47e43be071b12d19073f7aab8d8e6",
@@ -1118,13 +1108,13 @@
         "src/shapes/read.ts": "81c55d633f91fd51580d34fa505ccf1a0df7790b9a3346bfcc35815a5f48c713",
         "src/shapes/subdivide.ts": "b1576a97844313f4ac12eb43304aac3b01b66837f1871d6005fa7329a147f664",
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
-        "src/types.ts": "0d140a78285e11134c97a35b10b2a5ec5b9f318fd64be2f6c9ee095a245d4683"
+        "src/types.ts": "3ea218316836f5434e9ea355bbe08e6afa225a845b6ca6b2a38943130d0d6f63"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "graph-instance.ts, events.ts and types.ts change payload names, the opaque definition and drawable (PRs 272, 276, 277): no shapes API changed; map.mdx gains the pixelRatio words, taught by map and export.",
+      "reason": "types.ts adds LayoutEndOptions and the glide option of LayoutListener.end (PR 282), a port detail taught by layouts: no option of this skill changed.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/map.mdx, src/host/events.ts, src/host/graph-instance.ts, src/types.ts since 0.33.0 read against skills/shapes/SKILL.md"
+        "Diff of src/types.ts in PR 282 read against skills/shapes/SKILL.md"
       ]
     },
     "source:docs/content/docs/api/meta.json": {
@@ -1845,15 +1835,15 @@
       ]
     },
     "source:src/layouts/force/simulation.ts": {
-      "fingerprint": "4d4a0680687825a8ee59d2279d4aff2ca9df1be6da82eb65b43a67379cd09e87",
+      "fingerprint": "0fedf1a8c78702c958328e5a60a0a71eb75691f969b569325261a6a9ce41e3d2",
       "snapshot": {
-        "src/layouts/force/simulation.ts": "602190b36459cba1988e4a19f031f3763b6d2f6fffd535f586e7dc90c8a6f1b6"
+        "src/layouts/force/simulation.ts": "63452581120fe02dd289aa9274d6c76855cf4dcb615c92784d5b1ede14177559"
       },
-      "head": "0294694cd7f412668d6228ef2d795e436d1ae8f8",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "Internal module of the force layout: levels from 100 nodes and LadderJob, the level run inside the shared worker pool (PR 280); its public effect is taught by layouts.",
+      "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
       "evidence": [
-        "Diff of src/layouts/force/simulation.ts in PR 280 read"
+        "Diff of src/layouts/force/simulation.ts in PR 282 read"
       ]
     },
     "source:src/layouts/shared.ts": {
@@ -2061,15 +2051,15 @@
       ]
     },
     "source:src/layouts/force/batch.ts": {
-      "fingerprint": "e51194e4ef21d14e8a96882c9821e3f77e249044c6145a83fd309150ebc78094",
+      "fingerprint": "3446eaf14a73b12fa83ee1abea1e9374f8d11cac3790fd8e0d9f7fd0aeb52470",
       "snapshot": {
-        "src/layouts/force/batch.ts": "c0a306e67191e8f538b984c3064ef42546e8d8f4cd65d8bd05d50885acf8e9d9"
+        "src/layouts/force/batch.ts": "a17eda6fce384c470e338abe407d70fdf564945e292e4b1aa40893053f202ee0"
       },
-      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "Batched groups for the worker pool (PR 206); taught by the layouts skill.",
+      "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
       "evidence": [
-        "Diff of src/layouts/force/batch.ts since 0.28.0 read in PRs 202 to 217"
+        "Diff of src/layouts/force/batch.ts in PR 282 read"
       ]
     },
     "source:src/layouts/force/pool.ts": {
@@ -2085,15 +2075,15 @@
       ]
     },
     "source:src/layouts/force/protocol.ts": {
-      "fingerprint": "9a0127396f1e4ce3545948ebcfe485d5356af5b27b23e50ae6beea2b199cc75b",
+      "fingerprint": "329b27813a2151e35fcacd821cda077f7583246e65e44a19be0223407e939190",
       "snapshot": {
-        "src/layouts/force/protocol.ts": "1c57e9a5b39d7b108e16102d4a9e038cf1d970f965523433d8062e6a23b17a36"
+        "src/layouts/force/protocol.ts": "672956d4fd761d5dc2fa5a9cc58222d4dce0945d66b4793f7f401bf535c815b7"
       },
-      "head": "891bae93812502bb4a884590c3afce26dcdf3b24",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "Worker messages for batches (PR 206); internal.",
+      "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
       "evidence": [
-        "Diff of src/layouts/force/protocol.ts since 0.28.0 read in PRs 202 to 217"
+        "Diff of src/layouts/force/protocol.ts in PR 282 read"
       ]
     },
     "source:src/layouts/force/runner.ts": {
@@ -2109,15 +2099,15 @@
       ]
     },
     "source:src/layouts/force/worker.ts": {
-      "fingerprint": "ee5d0284b556e0c50e9044dbc1500baed7176da95ca47a654fbcca411f23c840",
+      "fingerprint": "18f4a3cd75a8d321805432b7517969a0111695bae167a4fc4da0d92ecfefd9f9",
       "snapshot": {
-        "src/layouts/force/worker.ts": "acc61fbac7148c385722d0dd4f7f51905de27b8e5ce0cdfc07920fc708db0f59"
+        "src/layouts/force/worker.ts": "57bc71d12a6c1a4ac43705423bf70f172e9fe6fb5e6e5ce5c169567ce8a5b01b"
       },
-      "head": "0294694cd7f412668d6228ef2d795e436d1ae8f8",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "Internal module of the force layout: levels from 100 nodes and LadderJob, the level run inside the shared worker pool (PR 280); its public effect is taught by layouts.",
+      "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
       "evidence": [
-        "Diff of src/layouts/force/worker.ts in PR 280 read"
+        "Diff of src/layouts/force/worker.ts in PR 282 read"
       ]
     },
     "source:src/layouts/orient.ts": {
@@ -2497,15 +2487,15 @@
       ]
     },
     "source:docs/content/docs/(guide)/versioning.mdx": {
-      "fingerprint": "5a6477c0de0e0d2e2705bf1b6d4324f39c656ba1517fb7bc79bfeb4501525308",
+      "fingerprint": "e9b3198698bfc5ea397c24eacc1616b40e3aed50bfc012c204ed13fd4fe22662",
       "snapshot": {
-        "docs/content/docs/(guide)/versioning.mdx": "44b385cad5607cfa220ea7e192a5a6ecf242963df4fc2b5f1294178fb584a6b4"
+        "docs/content/docs/(guide)/versioning.mdx": "d588b1d9af632d92d338d76c58bc5f06b3e5066595226306c9ab6e4b13216337"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
       "outcome": "no-change",
-      "reason": "New page on what a minor version may change and the experimental ports (PR 277); its rule on controlled views is taught by view.",
+      "reason": "LayoutEndOptions joins the table of experimental ports (PR 282); nothing to teach.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/versioning.mdx since 0.33.0 read"
+        "Diff of docs/content/docs/(guide)/versioning.mdx in PR 282 read"
       ]
     },
     "source:docs/og/card.ts": {
@@ -2614,6 +2604,42 @@
       "reason": "Internal module of the force layout: levels from 100 nodes and LadderJob, the level run inside the shared worker pool (PR 280); its public effect is taught by layouts.",
       "evidence": [
         "Diff of src/layouts/force/multilevel.ts in PR 280 read"
+      ]
+    },
+    "source:src/layouts/force/crossings.ts": {
+      "fingerprint": "3114a13411ddaa6da718c29d175456fa91e34a5750b12af01c69e6efbe4b463e",
+      "snapshot": {
+        "src/layouts/force/crossings.ts": "1100c6075b1b6857448fb27bc7d2da972fe616bcbd5f05a7951d4856b43d3aba"
+      },
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
+      "evidence": [
+        "Diff of src/layouts/force/crossings.ts in PR 282 read"
+      ]
+    },
+    "source:src/layouts/force/untangle-stage.ts": {
+      "fingerprint": "8208eb36b0af3f32e6f4ceb8e338082f6a92b92166eeac45a19c5a68b23b3a1f",
+      "snapshot": {
+        "src/layouts/force/untangle-stage.ts": "fa2b8b4fb59536b59fdd1c1d8f4acfc012a5f618775063e568ec6d9176039c7a"
+      },
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
+      "evidence": [
+        "Diff of src/layouts/force/untangle-stage.ts in PR 282 read"
+      ]
+    },
+    "source:src/layouts/force/untangle.ts": {
+      "fingerprint": "c57631173ac3256a7465ab34b6f6b9076a924db6b5e3856d5908d428751a1541",
+      "snapshot": {
+        "src/layouts/force/untangle.ts": "126b3d05ec9b84b1bb8409efa3f05ee81e1002d1f5137d29652ade46a4ed6b24"
+      },
+      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "outcome": "no-change",
+      "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
+      "evidence": [
+        "Diff of src/layouts/force/untangle.ts in PR 282 read"
       ]
     }
   }
