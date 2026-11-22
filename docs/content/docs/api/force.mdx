@@ -21,6 +21,10 @@ type ForceEngine = 'auto' | 'gpu' | 'cpu'
 
 A negative or non-finite value falls back to its default. `steps` is rounded and at least 1.
 
+`untangle` takes `true`, `false` or its options:
+
+<api-table path="layouts/force/index.ts" name="UntangleOptions" />
+
 ## Result
 
 <api-table path="layouts/force/index.ts" name="ForceSettings" />
@@ -33,6 +37,7 @@ A negative or non-finite value falls back to its default. `steps` is rounded and
 - On the GPU, it runs in WebGL2 on an `OffscreenCanvas` inside the worker, and needs `EXT_color_buffer_float` and `EXT_float_blend`. Without them, or when the context is lost, the CPU takes over from the last positions.
 - Without `Worker`, when the content security policy refuses `worker-src blob:`, or when the worker fails, the simulation continues on the main thread in slices of 8 milliseconds.
 - From 100 moving nodes, on runs that move at least half of the nodes, the graph is laid out in levels: a coarse copy first, then finer ones, the last being the graph itself. Coarse levels run on the CPU in the worker, levels of 4,000 nodes or more on the GPU when it is chosen. `multilevel` turns this on at any size or off. Graphs with unfolded groups use a single level. See [Large graphs](/docs/layout#large-graphs).
+- Once the forces settle, a last pass turns branches and moves nodes to remove edge crossings, and nodes glide to the result. It stops at its `budget`, skips graphs with more than 4 crossings per edge, and does not run with unfolded groups. See [Untangle crossed edges](/docs/layout#untangle-crossed-edges).
 - Nodes with `x` and `y` channels never move. Pinned nodes, dragged or set through `positions.set` during the run, keep their place.
 - Unfolded groups stay whole: members pull toward their group with `cohesion`, edges between groups move whole groups, and at the end no container overlaps another container or a node next to it, with `groupSpacing` around each. See [groups in layouts](/docs/layout#groups).
 - A [block](/docs/api/layouts#blocks-and-containers) pushes the other nodes as hard as all the nodes it holds, on the CPU, the GPU and every level. Inside a [container](/docs/api/define-graph#layout), `cohesion` pulls the nodes toward their center in place of `gravity`, and below 1,000 nodes a run takes 120 steps unless `steps` is given. The layout's `turns` is `'free'`.
@@ -42,4 +47,4 @@ A negative or non-finite value falls back to its default. `steps` is rounded and
 | Export | Kind |
 | --- | --- |
 | `force` | function |
-| `ForceOptions`, `ForceSettings`, `ForceEngine` | types |
+| `ForceOptions`, `ForceSettings`, `ForceEngine`, `UntangleOptions` | types |

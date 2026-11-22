@@ -303,6 +303,28 @@ describe('layouts in the host', () => {
     expect(view.y).toBeCloseTo(50, 0)
   })
 
+  it('glides after progress when the end asks for it', async () => {
+    const { layout, runs } = fakeLayout()
+    const graph = mount(null, loose)
+    const done = graph.layout.run(layout)
+    const run = runs[0] as FakeRun
+    run.listener.progress(spread(run, 20), 0.9)
+    dom.flushFrames()
+    expect(graph.positions.get('b')).toEqual({ x: 20, y: 20 })
+    run.listener.end(spread(run, 100), { glide: true })
+    expect(graph.positions.get('b')).toEqual({ x: 20, y: 20 })
+    expect(graph.store.get().layout).toEqual({ running: true, progress: 1 })
+    dom.flushFrames()
+    await expect(done).resolves.toBe(true)
+    expect(graph.positions.get('b')).toEqual({ x: 100, y: 100 })
+    const placed = graph.layout.run(layout)
+    const next = runs[1] as FakeRun
+    next.listener.progress(spread(next, 20), 0.9)
+    next.listener.end(spread(next, 300))
+    expect(graph.positions.get('b')).toEqual({ x: 300, y: 300 })
+    await expect(placed).resolves.toBe(true)
+  })
+
   it('frames the nodes and the padding of the fit option of a run', async () => {
     const { layout, runs } = fakeLayout()
     const graph = mount(null, loose)

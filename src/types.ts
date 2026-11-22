@@ -1943,14 +1943,30 @@ export interface LayoutContainer {
 }
 
 /**
+ * Options of `LayoutListener.end`.
+ * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
+ */
+export interface LayoutEndOptions {
+  /**
+   * Makes the nodes glide from where the last `progress` put them to the final positions, on
+   * `transitions.layout` or the `duration` of the run. Without it, nodes glide only when no
+   * `progress` came before.
+   */
+  readonly glide?: boolean | undefined
+}
+
+/**
  * Receives the positions a layout computes. Every array holds `capacity × 2` numbers.
  * @experimental A port of the graph, outside the semver promise: it may change in a minor version.
  */
 export interface LayoutListener {
   /** Reports intermediate positions, and the progress from 0 to 1. */
   progress(xy: Float32Array, progress: number): void
-  /** Reports the final positions, once. Without a `progress` before it, nodes glide there. */
-  end(xy: Float32Array): void
+  /**
+   * Reports the final positions, once. Without a `progress` before it, or with `glide: true`,
+   * nodes glide there.
+   */
+  end(xy: Float32Array, options?: LayoutEndOptions): void
   /**
    * Reports that the run failed with `error`, in place of `end`, once. The graph leaves nodes
    * where they are and ends the run with `completed: false` and this `error`. When a listener has

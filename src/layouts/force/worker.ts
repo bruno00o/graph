@@ -10,6 +10,8 @@ import {
   prefersGpu,
   prefersMultilevel,
 } from './simulation'
+import { startUntangle } from './untangle'
+import { type UntangleStage, untangling } from './untangle-stage'
 
 interface WorkerScope {
   onmessage: ((event: MessageEvent<ToWorker>) => void) | null
@@ -68,23 +70,35 @@ function wake(): void {
   schedule(work)
 }
 
-function startRun(graph: ForceGraph, settings: ForceSettings): void {
-  run?.stop()
-  const listener: LayoutListener = {
-    progress: (xy, progress) => scope.postMessage({ type: 'progress', xy, progress }, [xy.buffer]),
-    end: (xy) => scope.postMessage({ type: 'end', xy }, [xy.buffer]),
-  }
+const stage: UntangleStage = {
+  slice: sliceBudget,
+  schedule,
+  load: () => startUntangle,
+  dense: () => scope.postMessage({ type: 'dense' }, []),
+}
+
+function forces(graph: ForceGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
   const useGpu = prefersGpu(graph, settings)
   if (prefersMultilevel(graph, settings)) {
     const engine = useGpu
       ? (level: ForceGraph, plan: LevelRun) => GpuForce.create(level, settings, plan)
       : null
-    run = runMultilevelForce(graph, settings, listener, 16, schedule, engine)
-    return
+    return runMultilevelForce(graph, settings, listener, sliceBudget, schedule, engine)
   }
-  const cpu = (xy: Float32Array) => runForce({ ...graph, xy }, settings, listener, 16, schedule)
+  const cpu = (xy: Float32Array) =>
+    runForce({ ...graph, xy }, settings, listener, sliceBudget, schedule)
   const gpu = useGpu ? GpuForce.create(graph, settings) : null
-  run = gpu ? runGpuForce(gpu, graph, settings, listener, cpu) : cpu(graph.xy)
+  return gpu ? runGpuForce(gpu, graph, settings, listener, cpu) : cpu(graph.xy)
+}
+
+function startRun(graph: ForceGraph, settings: ForceSettings): void {
+  run?.stop()
+  const listener: LayoutListener = {
+    progress: (xy, progress) => scope.postMessage({ type: 'progress', xy, progress }, [xy.buffer]),
+    end: (xy, options) =>
+      scope.postMessage({ type: 'end', xy, glide: options?.glide === true }, [xy.buffer]),
+  }
+  run = untangling(graph, settings, listener, stage, (inner) => forces(graph, settings, inner))
 }
 
 function pinJob(id: number, index: number, x: number, y: number): void {

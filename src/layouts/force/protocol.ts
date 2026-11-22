@@ -16,5 +16,6 @@ export type ToWorker =
 
 export type FromWorker =
   | { readonly type: 'progress'; readonly xy: Float32Array; readonly progress: number }
-  | { readonly type: 'end'; readonly xy: Float32Array }
+  | { readonly type: 'end'; readonly xy: Float32Array; readonly glide: boolean }
+  | { readonly type: 'dense' }
   | PackedResults
