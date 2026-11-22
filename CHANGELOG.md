@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/bruno00o/graph/compare/0.34.0...0.35.0) (2026-11-22)
+
+
+### Features
+
+* let the neighbors of a dragged node follow it ([#284](https://github.com/bruno00o/graph/issues/284)) ([2f85f2d](https://github.com/bruno00o/graph/commit/2f85f2de56184366a544384630216b2dc294daa7))
+
 ## [0.34.0](https://github.com/bruno00o/graph/compare/0.33.0...0.34.0) (2026-11-22)
 
 
