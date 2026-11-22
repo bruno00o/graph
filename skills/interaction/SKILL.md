@@ -26,6 +26,8 @@ sources:
   - src/host/keyboard.ts
   - src/host/pointer-input.ts
   - src/host/wheel-glide.ts
+  - src/host/drag-follow.ts
+  - src/layouts/force/follow.ts
   - src/core/lasso.ts
   - src/host/selection-control.ts
   - src/host/element-keys.ts
