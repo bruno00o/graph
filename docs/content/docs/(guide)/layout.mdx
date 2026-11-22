@@ -239,6 +239,8 @@ await graph.layout.run(rings(), { duration: 0 })
 
 Dragged nodes and nodes with `x` and `y` in your data do not glide. `stop()` during the glide leaves nodes where they are at that moment.
 
+`force` glides too, after its snapshots, when its last pass [untangles crossed edges](#untangle-crossed-edges).
+
 ## Positions from your code
 
 When your app computes its own arrangement, by kind, along a chain, from a place, run it with `placed` instead of `positions.set`: it behaves like any layout. The promise resolves when nodes arrive, `layoutstart`, `layoutend` and `positionchange` fire, the glide follows `transitions.layout` or `duration`, `fit` frames the result, `layout.stop` freezes it, and [`persistPositions`](/docs/tanstack-db) saves it.
@@ -326,7 +328,7 @@ To keep a result without a collection, take `graph.positions.snapshot()` once th
 ## Force options
 
 ```ts
-force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto', multilevel: 'auto' })
+force({ edgeLength: 40, repulsion: 80, gravity: 0.04, spacing: 6, steps: 300, engine: 'auto', multilevel: 'auto', untangle: true })
 ```
 
 Every option, with its default, is listed in [`ForceOptions`](/docs/api/force#options).
@@ -365,6 +367,32 @@ Long shapes come out unfolded: a grid lies flat and a tree spreads its branches,
 Since 0.34.0, `'auto'` uses levels from 100 moving nodes instead of 1,000, so graphs of 100 to 999 nodes look different. Pass `multilevel: false` to get the single-level result.
 </Callout>
 
+## Untangle crossed edges
+
+Forces leave some edges crossed that a small move would uncross: a branch that settled across another part of the graph, a node caught on the wrong side of an edge. Once the forces settle, `force` runs a last pass on these crossings, then the nodes glide from where the forces left them to their new places, in one glide on `transitions.layout`. With `prefers-reduced-motion`, they jump.
+
+<LiveExample slug="untangled-edges" />
+
+The pass counts every crossing, then tries two kinds of moves, round after round:
+
+- **Branches.** A part of the graph that hangs from the rest by a single edge, of at most 256 nodes and half its component, turns around the node it hangs from, or flips over.
+- **Nodes.** A node of a crossed edge moves to one of a few dozen places around its neighbors.
+
+A move is kept only when it leaves fewer crossings, puts no node on another node or on an edge, and keeps the edges of the node within three times their length. The rounds stop when one removes less than 2 % of the crossings left, or when the time runs out.
+
+Across the 40 examples of the gallery laid out by `force`, it removes a fifth of the crossings, 48,541 down to 37,856, and more than nine in ten on the sparsest ones. A run takes up to 50 milliseconds more below 500 nodes, and about 0.3 seconds more at 3,000 and 5,000 nodes, where the budget stops it. A larger budget removes a little more on large graphs: at 5,000 nodes, 17,616 crossings are left, and 16,808 with `budget: 1000`.
+
+- **Option.** `untangle: false` turns it off. `untangle: { budget }` sets how long it may work, in milliseconds, 300 by default; `Infinity` lets it stop by itself. A negative or non-finite budget other than `Infinity` falls back to the default.
+- **Dense graphs.** With more than 4 crossings per edge, moving single nodes removes few of them: the pass stops after counting and leaves the graph as the forces left it, without a glide. From 16,384 edges, a sample of the edges tells it first, so 80,000 nodes in communities take about as long as before. A warning in development says so when `untangle` is written in your options.
+- **Where it does not run.** A graph with unfolded groups, groups with a `container.layout` among them, and a graph with fewer than two edges.
+- **Fixed and pinned nodes.** Nodes with `x` and `y` never move, nor nodes left out of `run({ keys })`. A node dragged during the run stays where it is dropped.
+- **Same result.** The same graph and the same positions give the same result, unless the budget stops the pass: where it stops depends on the machine. On the GPU, the forces themselves may differ by rounding.
+- **Where it runs.** In the Web Worker of the forces, on both engines. On the main thread, without workers, it runs in the same slices as the forces, and its code loads only then.
+
+<Callout title="An untangled result since 0.34.0">
+Since 0.34.0, `force` untangles its result by default, so graphs laid out by `force` look different, and a run ends with a glide when the pass moves nodes. Pass `untangle: false` to get the result of the forces alone.
+</Callout>
+
 ## Write your own layout
 
 `layout` takes any object that implements the `Layout` port, exported as types from `@bruno00o/graph`.
@@ -395,7 +423,7 @@ export function circle(radius = 300): Layout {
 ```
 
 - `start` receives a `LayoutGraph`: typed arrays indexed by the internal index of each node, with `alive`, `movable`, `xy`, `radius`, and `edges` as pairs of indices, loops left out. For a [box](/docs/marks#boxes), `radius` is the radius of the circle around it, and `extents` gives the half width and half height of every node when the graph has a box. `keys[index]` is the key of a node, and `datum(index)` the item it comes from. With unfolded groups, `groups` gives the group of each node, the padding of each container and the room its label takes outside it; a layout that ignores it still works, but it does not keep containers apart.
-- It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place. Ending without progress makes nodes glide to the result.
+- It reports positions with `listener.progress(xy, progress)` as often as it likes, then `listener.end(xy)` once. Each array holds every node, and nodes that are not movable must keep their place. Ending without progress makes nodes glide to the result, and so does `listener.end(xy, { glide: true })` after progress, for a last step that should not jump.
 - When it fails after `start` returned, in a worker or a later task, it calls `listener.fail(error)` instead of `end`: the run ends with `completed: false` and this `error`, and nodes stay where they are. `fail` is optional on the listener type: when a listener has none, throw the error from a task of its own and end with the positions the run started from. An error thrown by `start` itself ends the run the same way.
 - It returns `pin(index, x, y)`, called when a node is dragged or set during the run, and `stop()`, after which it must not call the listener again.
 - `name` and `options` decide whether a new definition lays out again: they are compared one by one.

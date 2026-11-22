@@ -777,9 +777,10 @@ export class LayoutHost {
         views.frameLayout()
         this.#source.request()
       },
-      end: (xy) => {
+      end: (xy, options) => {
         if (this.session !== current) return
-        if (current.progressed && current.inner && current.duration > 0) {
+        const glides = current.inner !== null || options?.glide === true
+        if (current.progressed && glides && current.duration > 0) {
           this.#glide(current, xy)
         } else if (current.progressed || current.duration <= 0) {
           this.#place(current, xy)

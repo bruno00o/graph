@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { LayoutGraph } from '../../types'
+import type { LayoutEndOptions, LayoutGraph } from '../../types'
+import { crosses } from './crossings'
 import { force } from './index'
 import { forceDefaults } from './simulation'
 
@@ -162,5 +163,92 @@ describe('force', () => {
     expect([levels[224], levels[225]]).toEqual([mesh.xy[224], mesh.xy[225]])
     expect(folds(levels)).toBeLessThan(0.1)
     expect(folds(single)).toBeGreaterThan(folds(levels))
+  })
+
+  it('untangles crossed edges once the forces settle, and asks for a glide', async () => {
+    const width = 12
+    const count = width * width
+    const edges: number[] = []
+    for (let at = 0; at < count; at++) {
+      if (at % width < width - 1) edges.push(at, at + 1)
+      if (at + width < count) edges.push(at, at + width)
+    }
+    const mesh: LayoutGraph = {
+      capacity: count,
+      alive: new Uint8Array(count).fill(1),
+      movable: new Uint8Array(count).fill(1),
+      xy: Float32Array.from({ length: count * 2 }, (_, at) => ((at * 7919) % 997) - 498),
+      radius: new Float32Array(count).fill(5),
+      edges: Uint32Array.from(edges),
+      keys: [],
+      datum: () => undefined,
+    }
+    const crossings = (xy: Float32Array) => {
+      let total = 0
+      for (let e = 0; e < edges.length; e += 2) {
+        for (let f = e + 2; f < edges.length; f += 2) {
+          const ends = [edges[e] ?? 0, edges[e + 1] ?? 0, edges[f] ?? 0, edges[f + 1] ?? 0]
+          const [a, b, c, d] = ends
+          if (c === a || c === b || d === a || d === b) continue
+          const at = (i: number) => xy[i] ?? 0
+          const pair = ends.flatMap((i) => [at(i * 2), at(i * 2 + 1)]) as [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+          ]
+          if (crosses(...pair)) total++
+        }
+      }
+      return total
+    }
+    const run = (untangle: boolean) =>
+      new Promise<[Float32Array, LayoutEndOptions | undefined]>((resolve) =>
+        force({ engine: 'cpu', multilevel: false, untangle }).start(mesh, {
+          progress: () => {},
+          end: (xy, options) => resolve([xy, options]),
+        }),
+      )
+    const [plain, still] = await run(false)
+    const [untangled, glide] = await run(true)
+    expect(still).toBeUndefined()
+    expect(glide).toEqual({ glide: true })
+    expect(crossings(untangled)).toBeLessThan(crossings(plain))
+  })
+
+  it('warns in development when an asked pass skips a dense graph', async () => {
+    const count = 200
+    let seed = 7
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648
+      return seed / 2147483648
+    }
+    const dense: LayoutGraph = {
+      capacity: count,
+      alive: new Uint8Array(count).fill(1),
+      movable: new Uint8Array(count).fill(1),
+      xy: Float32Array.from({ length: count * 2 }, () => next() * 1000),
+      radius: new Float32Array(count).fill(5),
+      edges: Uint32Array.from({ length: count * 16 }, () => Math.floor(next() * count)),
+      keys: [],
+      datum: () => undefined,
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const run = (untangle?: boolean) =>
+      new Promise<void>((resolve) =>
+        force({ engine: 'cpu', steps: 5, untangle }).start(dense, {
+          progress: () => {},
+          end: () => resolve(),
+        }),
+      )
+    await run()
+    expect(warn).not.toHaveBeenCalled()
+    await run(true)
+    expect(warn).toHaveBeenCalledOnce()
+    warn.mockRestore()
   })
 })

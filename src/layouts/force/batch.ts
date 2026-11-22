@@ -59,7 +59,7 @@ function bytesOf(field: number, length: number): number {
 }
 
 function settingsKey(settings: ForceSettings): string {
-  return `${settings.edgeLength},${settings.repulsion},${settings.gravity},${settings.spacing},${settings.cohesion},${settings.groupSpacing},${settings.steps},${settings.engine},${settings.multilevel}`
+  return `${settings.edgeLength},${settings.repulsion},${settings.gravity},${settings.spacing},${settings.cohesion},${settings.groupSpacing},${settings.steps},${settings.engine},${settings.multilevel},${settings.untangle}`
 }
 
 export function costOf(graph: ForceGraph, settings: ForceSettings): number {

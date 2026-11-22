@@ -82,7 +82,7 @@ const definition = defineGraph({
 const graph = mountGraph(document.body, { definition, ariaLabel: 'Sample graph' })
 ```
 
-Result: nodes settle over about 300 steps, the view keeps the graph framed while it settles (until the user pans or zooms), and the page stays responsive. Options of `force` (defaults): `edgeLength` 40, `repulsion` 80, `gravity` 0.04, `spacing` 6, `cohesion` 0.5, `groupSpacing` 16, `steps` 300, `engine` `'auto'`, `multilevel` `'auto'` (levels from 100 moving nodes, on runs that move at least half of them). A negative or non-finite value falls back to its default. Full table: [force API](https://bruno00o.github.io/graph/docs/api/force).
+Result: nodes settle over about 300 steps, the view keeps the graph framed while it settles (until the user pans or zooms), and the page stays responsive. Options of `force` (defaults): `edgeLength` 40, `repulsion` 80, `gravity` 0.04, `spacing` 6, `cohesion` 0.5, `groupSpacing` 16, `steps` 300, `engine` `'auto'`, `multilevel` `'auto'` (levels from 100 moving nodes, on runs that move at least half of them), `untangle` `true` (once the forces settle, a pass turns branches and moves nodes to remove edge crossings, then nodes glide there and the run ends after the glide; `{ budget }` in ms, 300 by default; skipped above 4 crossings per edge and with unfolded groups; `false` keeps the forces' result). A negative or non-finite value falls back to its default. Full table: [force API](https://bruno00o.github.io/graph/docs/api/force).
 
 ## Core Patterns
 
@@ -342,7 +342,7 @@ export function circle(radius = 300): Layout {
 ```
 
 - `start(graph, listener)` receives a `LayoutGraph`: typed arrays indexed by the internal node index (`capacity`, `alive`, `movable`, `xy`, `radius`, `extents` when some node is a box, `edges` as pairs of indices with loops left out, `keys`, `groups`, and `work`: `{ slice, workers }`, the longest stretch in ms before giving the event loop back and whether a Web Worker may start, 8 ms with workers on a page and 50 ms without on a graph from `createGraph`; read it instead of hard-coding a budget or a `Worker`) and `datum(index)` for the item.
-- Report with `listener.progress(xy, progress)` as often as you like, then `listener.end(xy)` once. Each array holds `capacity × 2` numbers, every node, and non-movable nodes must stay where they are. Ending without `progress` makes nodes glide to the result. A run that fails later (in a worker, a timer) calls `listener.fail?.(error)` instead of `end`: `completed: false`, the `error` on `layoutend`, nodes left in place. A throw from `start` itself ends the run the same way.
+- Report with `listener.progress(xy, progress)` as often as you like, then `listener.end(xy)` once. Each array holds `capacity × 2` numbers, every node, and non-movable nodes must stay where they are. Ending without `progress`, or with `listener.end(xy, { glide: true })`, makes nodes glide to the result. A run that fails later (in a worker, a timer) calls `listener.fail?.(error)` instead of `end`: `completed: false`, the `error` on `layoutend`, nodes left in place. A throw from `start` itself ends the run the same way.
 - Return `pin(index, x, y)` (a node was dragged or set during the run) and `stop()` (never call the listener after it). A layout that ends at once can leave `pin` empty, as above.
 - `name` and `options` decide whether a new definition lays out again, compared one by one; keep options a flat object.
 - `incremental: false` lays out every free node again when nodes arrive.

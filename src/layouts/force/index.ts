@@ -1,4 +1,5 @@
 import { withFinitePositions } from '../../core/finite-positions'
+import { dev } from '../../dev'
 import type { Layout, LayoutGraph, LayoutListener, LayoutRun } from '../../types'
 import { registerScopeRun } from '../scope-runs'
 import { enableScopes } from '../scopes'
@@ -15,23 +16,29 @@ import {
   resolveForce,
   settingsIn,
 } from './simulation'
+import { untangling } from './untangle-stage'
 import ForceWorker from './worker?worker&inline'
 
-export type { ForceEngine, ForceOptions, ForceSettings } from './simulation'
+export type { ForceEngine, ForceOptions, ForceSettings, UntangleOptions } from './simulation'
 
 const inlineBudget = 8
+
+const loadUntangle = () => import('./untangle').then((module) => module.startUntangle)
 
 function inline(
   graph: ForceGraph,
   settings: ForceSettings,
   listener: LayoutListener,
+  dense: () => void,
   budget = inlineBudget,
 ): LayoutRun {
   const schedule = (task: () => void) => setTimeout(task, 0)
-  if (prefersMultilevel(graph, settings)) {
-    return runMultilevelForce(graph, settings, listener, budget, schedule, null)
-  }
-  return runForce(graph, settings, listener, budget, schedule)
+  const stage = { slice: budget, schedule, load: loadUntangle, dense }
+  return untangling(graph, settings, listener, stage, (inner) =>
+    prefersMultilevel(graph, settings)
+      ? runMultilevelForce(graph, settings, inner, budget, schedule, null)
+      : runForce(graph, settings, inner, budget, schedule),
+  )
 }
 
 function spawn(): Worker | null {
@@ -58,11 +65,19 @@ function pooled(given: LayoutGraph, settings: ForceSettings, listener: LayoutLis
   return pool.run(graph, settings, listener)
 }
 
-function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutListener): LayoutRun {
+function start(
+  given: LayoutGraph,
+  chosen: ForceSettings,
+  listener: LayoutListener,
+  dense: () => void,
+): LayoutRun {
   const graph = forceGraphOf(withFinitePositions(given))
-  if (given.work?.workers === false) return inline(graph, settings, listener, given.work.slice)
+  const settings = given.blocks || given.container ? { ...chosen, untangle: 0 } : chosen
+  if (given.work?.workers === false) {
+    return inline(graph, settings, listener, dense, given.work.slice)
+  }
   const worker = spawn()
-  if (!worker) return inline(graph, settings, listener)
+  if (!worker) return inline(graph, settings, listener, dense)
   const pins = new Map<number, readonly [number, number]>()
   let latest: Float32Array | null = null
   let fallback: LayoutRun | null = null
@@ -76,16 +91,21 @@ function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutList
       listener.progress(message.xy, message.progress)
       return
     }
+    if (message.type === 'dense') {
+      dense()
+      return
+    }
     if (message.type !== 'end') return
     stopped = true
     worker.terminate()
-    listener.end(message.xy)
+    if (message.glide) listener.end(message.xy, { glide: true })
+    else listener.end(message.xy)
   }
   worker.onerror = (event) => {
     event.preventDefault()
     worker.terminate()
     if (stopped) return
-    fallback = inline({ ...graph, xy: latest ?? graph.xy }, settings, listener)
+    fallback = inline({ ...graph, xy: latest ?? graph.xy }, settings, listener, dense)
     for (const [index, [x, y]] of pins) fallback.pin(index, x, y)
   }
   post({ type: 'start', graph, settings })
@@ -110,12 +130,20 @@ function start(given: LayoutGraph, settings: ForceSettings, listener: LayoutList
 export function force(options: ForceOptions = {}): Layout {
   const settings = resolveForce(options)
   enableScopes()
+  let warned = !dev || options.untangle === undefined
+  const dense = () => {
+    if (warned) return
+    warned = true
+    console.warn(
+      'force: untangle skipped this graph, which has more than 4 edge crossings per edge, where moving single nodes removes few of them',
+    )
+  }
   const layout: Layout = Object.freeze({
     name: 'force',
     options: settings,
     turns: 'free',
     start: (graph: LayoutGraph, listener: LayoutListener) =>
-      start(graph, settingsIn(graph, settings, options), listener),
+      start(graph, settingsIn(graph, settings, options), listener, dense),
   })
   registerScopeRun(layout, (graph, listener) =>
     pooled(graph, settingsIn(graph, settings, options), listener),

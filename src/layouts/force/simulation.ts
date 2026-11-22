@@ -69,6 +69,24 @@ export interface ForceOptions {
    * @default 'auto'
    */
   readonly multilevel?: boolean | 'auto' | undefined
+  /**
+   * Once the forces settle, moves single nodes, and turns branches that hang from a single edge,
+   * wherever that removes edge crossings without overlapping nodes or stretching edges much; nodes
+   * then glide to their new place. `false` turns it off, options set its time budget. Skipped on
+   * graphs with unfolded groups, inside a group, and on graphs with more than 4 crossings per edge.
+   * @default true
+   */
+  readonly untangle?: boolean | UntangleOptions | undefined
+}
+
+/** Options of the `untangle` pass of `force`. */
+export interface UntangleOptions {
+  /**
+   * Longest time the pass may work, in milliseconds. `Infinity` lets it end by itself. A negative
+   * or NaN value falls back to the default.
+   * @default 300
+   */
+  readonly budget?: number | undefined
 }
 
 /** Force options with every default applied, as `layout.options` holds them. */
@@ -91,6 +109,8 @@ export interface ForceSettings {
   readonly engine: ForceEngine
   /** Whether runs that move at least half of the nodes start from a coarse version of the graph. */
   readonly multilevel: boolean | 'auto'
+  /** Time budget of the pass that removes edge crossings, in milliseconds, `0` when it is off. */
+  readonly untangle: number
 }
 
 export const forceDefaults: ForceSettings = {
@@ -103,6 +123,7 @@ export const forceDefaults: ForceSettings = {
   steps: 300,
   engine: 'auto',
   multilevel: 'auto',
+  untangle: 300,
 }
 
 export const alphaMin = 0.001
@@ -152,7 +173,18 @@ export function resolveForce(options: ForceOptions = {}): ForceSettings {
       ? (options.engine as ForceEngine)
       : forceDefaults.engine,
     multilevel: typeof options.multilevel === 'boolean' ? options.multilevel : 'auto',
+    untangle: untangleOf(options.untangle),
   }
+}
+
+const untangleBudget = 300
+
+function untangleOf(value: ForceOptions['untangle']): number {
+  if (value === undefined) return forceDefaults.untangle
+  if (value === false) return 0
+  if (value === true || typeof value !== 'object' || value === null) return untangleBudget
+  const budget = value.budget
+  return typeof budget === 'number' && budget >= 0 ? budget : untangleBudget
 }
 
 const containerSteps = 120

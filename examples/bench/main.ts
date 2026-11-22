@@ -34,6 +34,7 @@ const engines: readonly ForceEngine[] = ['auto', 'gpu', 'cpu']
 const engine = engines.find((value) => value === params.get('layout'))
 const levels = params.get('multilevel')
 const multilevel = levels === 'off' ? false : levels === 'on' ? true : 'auto'
+const untangle = params.get('untangle') === 'off' ? false : undefined
 const flow = params.has('flow')
 const decor = params.has('decor')
 const screen = params.has('screen')
@@ -395,7 +396,7 @@ const define = (nodeData: readonly (Item | TimedItem)[], zoneData: typeof zones 
             }),
           ]
         : [],
-    layout: engine ? force({ engine, multilevel }) : null,
+    layout: engine ? force({ engine, multilevel, untangle }) : null,
   })
 }
 const definition = define(items)
