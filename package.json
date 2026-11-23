@@ -40,6 +40,10 @@
       "types": "./dist/query.d.ts",
       "import": "./dist/query.js"
     },
+    "./ways": {
+      "types": "./dist/ways.d.ts",
+      "import": "./dist/ways.js"
+    },
     "./cypher": {
       "types": "./dist/cypher.d.ts",
       "import": "./dist/cypher.js"

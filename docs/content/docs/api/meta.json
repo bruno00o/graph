@@ -12,6 +12,8 @@
     "hull",
     "paths",
     "support",
+    "---@bruno00o/graph/ways---",
+    "ways",
     "mount-graph",
     "graph-instance",
     "graph-core",
