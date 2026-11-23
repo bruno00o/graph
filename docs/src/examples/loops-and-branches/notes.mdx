@@ -1,0 +1,22 @@
+## How it works
+
+The two squares are bases. Each loop leaves one base and comes back to the other, so it is not a cycle by itself: the pair of bases closes it. To find the cycles anyway, the analysis adds a virtual node joined once to each base. A loop between two bases becomes a cycle through that node.
+
+One depth-first walk from the virtual node splits the graph into biconnected components (Hopcroft and Tarjan, 1973). A node in the component of the virtual node has two paths that share no node and end on two different bases (Menger's theorem). Its edges are solid. The rest hangs on a single node: dashed edges, and the node where the only way joins the rest is the first ancestor of the walk that has two ways out.
+
+- The loop at the top left comes back to the base it left: everything on it goes through that base alone.
+- The loop at the bottom left lacks one link between two of its nodes: each half hangs on one base.
+- The node between the two loops at the bottom right has two ways out, though it belongs to no loop.
+- The link between the two loops at the top gives node 10 a second way out to B, through the other loop.
+
+The `loop` field of the data only draws the loops as rings around the bases: the analysis reads the edges alone. `placed` runs that arrangement like any layout, and branches fan out from the node they hang on.
+
+On `click`, the two ways come from a flow of two units from the node to the virtual node, every node split in two so that the ways share none (Ford and Fulkerson). A node with one way out shows it with `graph.paths.shortest` up to the node it goes through, then the two ways of that node. The states `first`, `second` and `single` color the ways, and `route` fades everything else.
+
+## Try it
+
+- Click a node on a loop: its two ways reach both bases.
+- Click a node at the end of a branch: one way, then the two ways of the node it hangs on.
+- Click a node of the loop at the top left, then one of the loop at the bottom left.
+- Click node 10: its way to B goes through the top loop.
+- Click the background to clear.
