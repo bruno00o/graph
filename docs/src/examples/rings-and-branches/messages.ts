@@ -1,13 +1,13 @@
 const steps = (count: number) => `${count} ${count === 1 ? 'step' : 'steps'}`
 
 export const messages = {
-  graphLabel: (count: number) =>
-    `Graph of ${count} nodes: loops that start and end on two bases, with branches`,
+  graphLabel: (count: number, rings: number) =>
+    `Graph of ${count} nodes, with ${rings} chains drawn as rings between the bases that close them`,
   legend: {
     base: 'Base',
-    two: 'Two ways out',
-    one: 'One way out',
-    dashed: 'Link with no second way',
+    two: 'On a chain between two bases',
+    one: 'Hangs on one node',
+    closure: 'Two bases closing a chain',
   },
   summary: (two: number, one: number) =>
     `${two} nodes have two ways out, ${one} have only one. Click a node.`,

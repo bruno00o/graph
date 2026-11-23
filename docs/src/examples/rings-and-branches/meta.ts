@@ -1,9 +1,9 @@
 import type { ExampleMeta } from '../types'
 
 export default {
-  title: 'Loops and branches',
+  title: 'Rings and branches',
   description:
-    'Loops start and end on two bases, branches hang off them. One depth-first walk tells which nodes have two ways out that share no node, ending on two different bases, and which hang on a single node.',
+    'Chains of nodes run from one base to another, and the two bases close them. One depth-first walk finds the nodes with two ways out to two different bases; the rings are drawn as circles through their bases, with the branches around them.',
   hint: 'Click a node to see its two ways out, or the node its only way goes through.',
   category: 'analysis',
   order: 100,

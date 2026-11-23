@@ -1,19 +1,27 @@
 import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
 import { placed } from '@bruno00o/graph/layouts'
 import { messages } from './messages'
-import { petals } from './petals'
-import { createLoops, type Link, type Spot } from './sample'
+import { findRings, ringLayout } from './rings'
+import { createChains, type Link, type Spot } from './sample'
 import { findWays, type Way } from './ways'
 import '../shared/overlays.css'
 
-const { spots, links } = createLoops(11)
+const { spots, links } = createChains()
 const ways = findWays(spots, links)
+const rings = findRings(spots, links, ways.twoWays)
 const byId = new Map(spots.map((spot) => [spot.id, spot]))
 
+const linked = new Set(
+  links.flatMap((link) => [`${link.from}|${link.to}`, `${link.to}|${link.from}`]),
+)
+const closures: Link[] = rings
+  .filter((ring) => ring.from !== ring.to && !linked.has(`${ring.from}|${ring.to}`))
+  .map((ring) => ({ id: `${ring.from}~${ring.to}`, from: ring.from, to: ring.to }))
+
 const colors = {
-  base: 'var(--graph-ink)',
-  two: 'var(--graph-cat-3)',
-  one: 'var(--graph-cat-9)',
+  base: 'var(--graph-cat-6)',
+  two: 'var(--graph-cat-9)',
+  one: 'color-mix(in srgb, var(--graph-cat-9) 35%, var(--graph-paper))',
 } as const
 const kindOf = (spot: Spot): keyof typeof colors =>
   spot.base ? 'base' : ways.twoWays.has(spot.id) ? 'two' : 'one'
@@ -25,15 +33,24 @@ const way = (color: string) => ({
 
 const definition = defineGraph({
   marks: [
+    edges<Link>(closures, {
+      name: 'closures',
+      source: 'from',
+      target: 'to',
+      dash: 'dotted',
+      stroke: 'var(--graph-cat-6)',
+    }),
     edges<Link>(links, {
+      name: 'links',
       source: 'from',
       target: 'to',
       dash: (link) => (ways.sharedEdges.has(link.id) ? 'solid' : 'dashed'),
     }),
     nodes<Spot>(spots, {
-      shape: (spot) => (spot.base ? 'square' : 'circle'),
-      size: raw((spot) => (spot.base ? 26 : 14)),
+      size: raw((spot) => (spot.base ? 22 : 16)),
       fill: (spot) => colors[kindOf(spot)],
+      stroke: (spot) => (spot.base ? colors.base : 'var(--graph-cat-9)'),
+      strokeWidth: 1.5,
       label: 'label',
     }),
   ],
@@ -41,9 +58,9 @@ const definition = defineGraph({
     route: { raise: true, label: 'always', others: { opacity: 0.2, label: false } },
     first: way('var(--graph-cat-1)'),
     second: way('var(--graph-cat-7)'),
-    single: way('var(--graph-cat-9)'),
+    single: way('var(--graph-cat-2)'),
   },
-  layout: placed(petals(spots, links)),
+  layout: placed(ringLayout(spots, links, rings)),
   view: { padding: { top: 64, right: 32, bottom: 64, left: 32 } },
 })
 
@@ -54,7 +71,7 @@ const ends = (path: Way) => labelOf(path.nodes[path.nodes.length - 1] as string)
 export function mount(container: HTMLElement): GraphInstance {
   const graph = mountGraph(container, {
     definition,
-    ariaLabel: messages.graphLabel(spots.length),
+    ariaLabel: messages.graphLabel(spots.length, rings.length),
   })
 
   const legend = document.createElement('div')
@@ -62,7 +79,7 @@ export function mount(container: HTMLElement): GraphInstance {
   for (const kind of ['base', 'two', 'one'] as const) {
     const swatch = document.createElement('i')
     swatch.style.background = colors[kind]
-    if (kind === 'base') swatch.style.borderRadius = '2px'
+    swatch.style.boxShadow = `inset 0 0 0 1.5px ${kind === 'base' ? colors.base : 'var(--graph-cat-9)'}`
     const item = document.createElement('span')
     item.append(swatch, messages.legend[kind])
     legend.append(item)
@@ -73,11 +90,11 @@ export function mount(container: HTMLElement): GraphInstance {
     height: '0',
     borderRadius: '0',
     background: 'none',
-    borderTop: '2px dashed var(--graph-edge)',
+    borderTop: '2px dotted var(--graph-cat-6)',
   })
-  const dashed = document.createElement('span')
-  dashed.append(line, messages.legend.dashed)
-  legend.append(dashed)
+  const dotted = document.createElement('span')
+  dotted.append(line, messages.legend.closure)
+  legend.append(dotted)
   container.append(legend)
 
   const two = ways.twoWays.size
@@ -116,10 +133,7 @@ export function mount(container: HTMLElement): GraphInstance {
     } else if (join) {
       const single = graph.paths.shortest(key, join)
       if (single) {
-        mark('single', {
-          nodes: single.nodes.map(String),
-          edges: single.edges.map(String),
-        })
+        mark('single', { nodes: single.nodes.map(String), edges: single.edges.map(String) })
       }
       const after = ways.pair(join)
       if (after) {
