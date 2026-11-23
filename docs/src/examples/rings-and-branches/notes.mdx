@@ -1,0 +1,25 @@
+## How it works
+
+Each chain of nodes runs from one base, in green, to another. It is not a cycle on its own: the two bases close it. When a chain ends on two different bases, every node on it has two ways out.
+
+To find these chains, the analysis adds a virtual node joined once to each base, so a chain between two bases becomes a cycle through it. One depth-first walk from the virtual node splits the graph into biconnected components (Hopcroft and Tarjan, 1973). A node in the component of the virtual node has two paths that share no node and end on two different bases (Menger's theorem). The rest hangs on a single node: light nodes and dashed edges.
+
+The placement follows from the analysis, not from a field of the data. A group of nodes with two ways out that forms a single chain from base to base is a ring:
+
+- A ring with its own two bases is a circle with the bases at the top, linked (C and D) or not (A and B). The dotted line shows the pair that closes it.
+- Rings that share a base (E, F and G) sit side by side, as half circles under their bases.
+- Branches fan out from the node they hang on.
+
+`placed` runs that arrangement like any layout. Two traps in the data:
+
+- The second chain between C and D lacks one link: each half hangs on one base and is drawn as a branch above it.
+- The chain on H comes back to the base it left: it looks like a ring, but everything on it goes through H.
+
+On `click`, the two ways come from a flow of two units from the node to the virtual node, every node split in two so that the ways share none (Ford and Fulkerson). A node with one way out shows it with `graph.paths.shortest` up to the node it goes through, then the two ways of that node. The states `first`, `second` and `single` color the ways, and `route` fades everything else.
+
+## Try it
+
+- Click a node of the ring between A and B: one way to each base.
+- Click node 7: one way out up to node 2, then the two ways of node 2.
+- Click a node above C or D, then one on the ring of H.
+- Click the background to clear.
