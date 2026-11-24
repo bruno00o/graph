@@ -60,6 +60,8 @@
     "layouts",
     "---@bruno00o/graph/layouts/force---",
     "force",
+    "---@bruno00o/graph/layouts/chains---",
+    "chains",
     "---@bruno00o/graph/bundling---",
     "bundling",
     "---@bruno00o/graph/routing---",

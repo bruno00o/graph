@@ -73,6 +73,11 @@ export default defineConfig({
         find: '@bruno00o/graph/layouts/force',
         replacement: resolve(library, 'layouts/force/index.ts'),
       },
+      {
+        find: /^@bruno00o\/graph\/layouts\/chains$/,
+        replacement: resolve(library, 'layouts/chains/index.ts'),
+      },
+      { find: /^@bruno00o\/graph\/ways$/, replacement: resolve(library, 'ways/index.ts') },
       { find: /^@bruno00o\/graph\/layouts$/, replacement: resolve(library, 'layouts/index.ts') },
       {
         find: /^@bruno00o\/graph\/devtools\/react$/,

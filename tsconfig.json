@@ -24,6 +24,8 @@
       "@bruno00o/graph/cypher": ["./src/cypher/index.ts"],
       "@bruno00o/graph/layouts": ["./src/layouts/index.ts"],
       "@bruno00o/graph/layouts/force": ["./src/layouts/force/index.ts"],
+      "@bruno00o/graph/layouts/chains": ["./src/layouts/chains/index.ts"],
+      "@bruno00o/graph/ways": ["./src/ways/index.ts"],
       "@bruno00o/graph/devtools": ["./src/devtools/index.ts"],
       "@bruno00o/graph/devtools/react": ["./src/devtools/react.tsx"],
       "@bruno00o/graph/export": ["./src/export/index.ts"],

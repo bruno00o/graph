@@ -1,22 +1,61 @@
-import { defineGraph, edges, type GraphInstance, mountGraph, nodes, raw } from '@bruno00o/graph'
-import { placed } from '@bruno00o/graph/layouts'
+import {
+  createPathFinder,
+  defineGraph,
+  edges,
+  type GraphInstance,
+  type GraphPath,
+  type Key,
+  mountGraph,
+  nodes,
+  raw,
+} from '@bruno00o/graph'
+import { chains } from '@bruno00o/graph/layouts/chains'
+import { pair, ways } from '@bruno00o/graph/ways'
 import { messages } from './messages'
-import { findRings, ringLayout } from './rings'
 import { createChains, type Link, type Spot } from './sample'
-import { findWays, type Way } from './ways'
 import '../shared/overlays.css'
 
 const { spots, links } = createChains()
-const ways = findWays(spots, links)
-const rings = findRings(spots, links, ways.twoWays)
 const byId = new Map(spots.map((spot) => [spot.id, spot]))
+const exits = (spot: Spot) => spot.base
+
+const finder = createPathFinder({
+  marks: [
+    edges<Link>(links, { source: 'from', target: 'to' }),
+    nodes<Spot>(spots, { label: 'id' }),
+  ],
+})
+const found = ways(finder, { exits })
+const twoWays = new Set(found.two.map(String))
+const joins = new Map(found.one.map((one) => [String(one.key), String(one.through)]))
+const sharedEdges = new Set(found.chains.flatMap((chain) => chain.edges.map(String)))
+
+const linkMark = edges<Link>(links, {
+  name: 'links',
+  source: 'from',
+  target: 'to',
+  dash: (link) => (sharedEdges.has(link.id) ? 'solid' : 'dashed'),
+})
+const nodeMark = nodes<Spot>(spots, {
+  size: raw((spot) => (spot.base ? 22 : 16)),
+  fill: (spot) => colors[kindOf(spot)],
+  stroke: (spot) => (spot.base ? colors.base : 'var(--graph-cat-9)'),
+  strokeWidth: 1.5,
+  label: 'label',
+})
 
 const linked = new Set(
   links.flatMap((link) => [`${link.from}|${link.to}`, `${link.to}|${link.from}`]),
 )
-const closures: Link[] = rings
-  .filter((ring) => ring.from !== ring.to && !linked.has(`${ring.from}|${ring.to}`))
-  .map((ring) => ({ id: `${ring.from}~${ring.to}`, from: ring.from, to: ring.to }))
+const closures: Link[] = found.chains
+  .filter(
+    (chain) => chain.ends[0] !== chain.ends[1] && !linked.has(`${chain.ends[0]}|${chain.ends[1]}`),
+  )
+  .map((chain) => ({
+    id: `${String(chain.ends[0])}~${String(chain.ends[1])}`,
+    from: String(chain.ends[0]),
+    to: String(chain.ends[1]),
+  }))
 
 const colors = {
   base: 'var(--graph-cat-6)',
@@ -24,7 +63,7 @@ const colors = {
   one: 'color-mix(in srgb, var(--graph-cat-9) 35%, var(--graph-paper))',
 } as const
 const kindOf = (spot: Spot): keyof typeof colors =>
-  spot.base ? 'base' : ways.twoWays.has(spot.id) ? 'two' : 'one'
+  spot.base ? 'base' : twoWays.has(spot.id) ? 'two' : 'one'
 
 const way = (color: string) => ({
   nodes: { outline: color, outlineWidth: 3 },
@@ -40,19 +79,8 @@ const definition = defineGraph({
       dash: 'dotted',
       stroke: 'var(--graph-cat-6)',
     }),
-    edges<Link>(links, {
-      name: 'links',
-      source: 'from',
-      target: 'to',
-      dash: (link) => (ways.sharedEdges.has(link.id) ? 'solid' : 'dashed'),
-    }),
-    nodes<Spot>(spots, {
-      size: raw((spot) => (spot.base ? 22 : 16)),
-      fill: (spot) => colors[kindOf(spot)],
-      stroke: (spot) => (spot.base ? colors.base : 'var(--graph-cat-9)'),
-      strokeWidth: 1.5,
-      label: 'label',
-    }),
+    linkMark,
+    nodeMark,
   ],
   states: {
     route: { raise: true, label: 'always', others: { opacity: 0.2, label: false } },
@@ -60,18 +88,18 @@ const definition = defineGraph({
     second: way('var(--graph-cat-7)'),
     single: way('var(--graph-cat-2)'),
   },
-  layout: placed(ringLayout(spots, links, rings)),
+  layout: chains<Spot>({ exits }),
   view: { padding: { top: 64, right: 32, bottom: 64, left: 32 } },
 })
 
-const labelOf = (key: string) => byId.get(key)?.label ?? key
-const steps = (path: Way) => path.nodes.length - 1
-const ends = (path: Way) => labelOf(path.nodes[path.nodes.length - 1] as string)
+const labelOf = (key: Key) => byId.get(String(key))?.label ?? String(key)
+const steps = (path: GraphPath) => path.nodes.length - 1
+const ends = (path: GraphPath) => labelOf(path.nodes[path.nodes.length - 1] as Key)
 
 export function mount(container: HTMLElement): GraphInstance {
   const graph = mountGraph(container, {
     definition,
-    ariaLabel: messages.graphLabel(spots.length, rings.length),
+    ariaLabel: messages.graphLabel(spots.length, found.chains.length),
   })
 
   const legend = document.createElement('div')
@@ -97,7 +125,7 @@ export function mount(container: HTMLElement): GraphInstance {
   legend.append(dotted)
   container.append(legend)
 
-  const two = ways.twoWays.size
+  const two = found.two.length
   const summary = messages.summary(two, spots.filter((spot) => !spot.base).length - two)
   const status = document.createElement('output')
   status.className = 'example-status example-status-top'
@@ -114,15 +142,15 @@ export function mount(container: HTMLElement): GraphInstance {
     }
     const routeNodes: string[] = []
     const routeEdges: string[] = []
-    const mark = (name: 'first' | 'second' | 'single', path: Way) => {
+    const mark = (name: 'first' | 'second' | 'single', path: GraphPath) => {
       graph.states.set(name, { nodes: path.nodes, edges: path.edges })
-      routeNodes.push(...path.nodes)
-      routeEdges.push(...path.edges)
+      routeNodes.push(...path.nodes.map(String))
+      routeEdges.push(...path.edges.map(String))
     }
-    const pair = ways.pair(key)
-    const join = ways.joins.get(key)
-    if (pair) {
-      const [first, second] = pair
+    const twoWaysOut = pair(finder, key, { exits })
+    const join = joins.get(key)
+    if (twoWaysOut) {
+      const [first, second] = twoWaysOut
       mark('first', first)
       mark('second', second)
       status.textContent = messages.two(
@@ -132,10 +160,8 @@ export function mount(container: HTMLElement): GraphInstance {
       )
     } else if (join) {
       const single = graph.paths.shortest(key, join)
-      if (single) {
-        mark('single', { nodes: single.nodes.map(String), edges: single.edges.map(String) })
-      }
-      const after = ways.pair(join)
+      if (single) mark('single', single)
+      const after = pair(finder, join, { exits })
       if (after) {
         mark('first', after[0])
         mark('second', after[1])

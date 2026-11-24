@@ -128,6 +128,7 @@ import type {
   RadialOptions,
   RingsOptions,
 } from './layouts'
+import type { ChainsOptions } from './layouts/chains'
 import type { ForceOptions } from './layouts/force'
 import type {
   LegendEdgeSwatch,
@@ -198,6 +199,7 @@ interface Inputs {
   AnchorTarget: AnchorTarget<'muted'>
   AttributeDeclaration: AttributeDeclaration
   AutoPan: Exclude<InteractionOptions['autoPan'], boolean | undefined>
+  ChainsOptions: ChainsOptions<Item>
   BackgroundOptions: BackgroundOptions
   Badge: Badge
   BadgeImage: BadgeImage

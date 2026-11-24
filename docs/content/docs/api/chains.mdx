@@ -1,0 +1,33 @@
+---
+title: chains
+description: A layout that draws the chains between exits as arcs of circles, from `@bruno00o/graph/layouts/chains`.
+---
+
+```ts
+import { chains } from '@bruno00o/graph/layouts/chains'
+
+function chains<T = unknown>(options: ChainsOptions<T>): Layout<T>
+```
+
+Returns a frozen [`Layout`](/docs/api/define-graph#layout) named `'chains'`. Pass it as `layout` to `defineGraph`, or to `graph.layout.run` for a single run. See [Chains between exits](/docs/layout#chains-between-exits) for a walkthrough, and [Two ways out](/docs/paths#two-ways-out) for the analysis it runs.
+
+## Options
+
+<api-table path="layouts/chains/index.ts" name="ChainsOptions" />
+
+A negative or non-finite `spacing` falls back to the default.
+
+## Behavior
+
+- The analysis runs with `failure: 'node'`, on the live nodes of the graph: the same analysis as [`ways`](/docs/api/ways), reading the edges of the layout graph, so `ways` on the same graph finds the same chains.
+- Each covered chain becomes an arc of a circle through its two exits, `nodes + 1` steps long, a step being the largest diameter plus `spacing`, with its nodes at even steps, or a straight segment when the arc would be shorter than the chord. A chain that returns to its own exit becomes a circle through it.
+- The branches fan out from their node, radially from the center of the ring, each sibling getting an angle in proportion to its subtree; a branch with a single child per level moves one step per node, like a chain. The nodes left over, the meshed parts and the components without an exit, sit near their placed neighbors or on a spiral. The units of exits are packed in rows, with the exits of a row aligned, and a last pass keeps every node its radii plus a fraction of the step away from the next, small enough to leave the arcs and fans as drawn.
+- The layout ends at once, is not incremental, and its `turns` is `'none'`. It runs in one synchronous call, like `grid` and `radial`, on the main thread.
+- Nodes that are not movable never move: a fixed exit anchors its unit, and a chain with a fixed node is left to the rest. With `core`, the core layout runs first on the heart exits alone, the other nodes left out; its `stop` and its errors reach the listener of the `chains` run.
+
+## Exports
+
+| Export | Kind |
+| --- | --- |
+| `chains` | function |
+| `ChainsOptions` | type |

@@ -60,6 +60,10 @@
       "types": "./dist/layouts/force.d.ts",
       "import": "./dist/layouts/force.js"
     },
+    "./layouts/chains": {
+      "types": "./dist/layouts/chains.d.ts",
+      "import": "./dist/layouts/chains.js"
+    },
     "./devtools": {
       "types": "./dist/devtools.d.ts",
       "import": "./dist/devtools.js"

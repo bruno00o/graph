@@ -2,20 +2,20 @@
 
 Each chain of nodes runs from one base, in green, to another. It is not a cycle on its own: the two bases close it. When a chain ends on two different bases, every node on it has two ways out.
 
-To find these chains, the analysis adds a virtual node joined once to each base, so a chain between two bases becomes a cycle through it. One depth-first walk from the virtual node splits the graph into biconnected components (Hopcroft and Tarjan, 1973). A node in the component of the virtual node has two paths that share no node and end on two different bases (Menger's theorem). The rest hangs on a single node: light nodes and dashed edges.
+[`ways`](/docs/api/ways), from `@bruno00o/graph/ways`, finds these chains: it adds a virtual node joined once to each exit, so a chain between two exits becomes a cycle through it. One depth-first walk from the virtual node splits the graph into biconnected components (Hopcroft and Tarjan, 1973). A node in the component of the virtual node has two paths that share no node and end on two different exits (Menger's theorem). The rest hangs on a single node: light nodes and dashed edges. `pair` returns those two paths for a node, as a flow of two units from the node to the virtual node, every node split in two so that the ways share none (Suurballe and Tarjan, 1984).
 
-The placement follows from the analysis, not from a field of the data. A group of nodes with two ways out that forms a single chain from base to base is a ring:
+The [`chains`](/docs/api/chains) layout, from `@bruno00o/graph/layouts/chains`, places the graph from that analysis, not from a field of the data:
 
-- A ring with its own two bases is a circle with the bases at the top, linked (C and D) or not (A and B). The dotted line shows the pair that closes it.
-- Rings that share a base (E, F and G) sit side by side, as half circles under their bases.
-- Branches fan out from the node they hang on.
+- A chain between two exits becomes an arc of a circle through both, `nodes + 1` steps long, a step being the node diameter plus `spacing`; the dotted line shows the pair of exits that closes it. A chain that comes back to its own exit becomes a circle under it.
+- Exits that share a chain or a direct link form a unit: two exits sit 1.6 steps apart (A and B, C and D), more in a file on a line spaced so that each chain makes a half circle (E, F and G), and only a cycle or a fork in the exits, an exit linked to three others or more, makes a heart placed on a circle or by `core`.
+- Branches fan out from the node they hang on, each sibling getting an angle in proportion to its subtree (Eades, 1992; Lin and Yen, 2005); a branch with a single child per level moves one step per node, like a chain. The units sit in rows.
 
-`placed` runs that arrangement like any layout. Two traps in the data:
+Two traps in the data:
 
 - The second chain between C and D lacks one link: each half hangs on one base and is drawn as a branch above it.
 - The chain on H comes back to the base it left: it looks like a ring, but everything on it goes through H.
 
-On `click`, the two ways come from a flow of two units from the node to the virtual node, every node split in two so that the ways share none (Ford and Fulkerson). A node with one way out shows it with `graph.paths.shortest` up to the node it goes through, then the two ways of that node. The states `first`, `second` and `single` color the ways, and `route` fades everything else.
+On `click`, the two ways of a node come from `pair`, a node with one way out shows it with `graph.paths.shortest` up to the node it goes through, then the two ways of that node. The states `first`, `second` and `single` color the ways, and `route` fades everything else.
 
 ## Try it
 
