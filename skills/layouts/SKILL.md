@@ -26,6 +26,7 @@ sources:
   - src/layouts/radial.ts
   - src/layouts/geo.ts
   - src/layouts/placed.ts
+  - src/layouts/chains/index.ts
   - src/types.ts
   - src/host/graph-instance.ts
   - src/host/layout-session.ts
@@ -36,6 +37,7 @@ sources:
   - docs/content/docs/(guide)/positions.mdx
   - docs/content/docs/api/force.mdx
   - docs/content/docs/api/layouts.mdx
+  - docs/content/docs/api/chains.mdx
 requires:
   - core
 ---
@@ -55,8 +57,9 @@ Load the core skill first (`intent load @bruno00o/graph#core`): data, marks and 
 | Tree or distance from a root, drawn in rings           | `radial` | `@bruno00o/graph/layouts`        |
 | Places with longitude and latitude, no basemap         | `geo`    | `@bruno00o/graph/layouts`        |
 | Positions your own code computed                       | `placed` | `@bruno00o/graph/layouts`        |
+| Chains between exits drawn as arcs, branches in fans   | `chains` | `@bruno00o/graph/layouts/chains` |
 
-`force` lives in its own entry point so that a graph without it carries none of its code; the others share `@bruno00o/graph/layouts`. `force` animates while it settles, in a Web Worker, and handles hundreds of thousands of nodes. The others report their result at once, on the main thread, in milliseconds for thousands of nodes, and nodes glide to it.
+`force` and `chains` live in their own entry points so that a graph without them carries none of their code; the others share `@bruno00o/graph/layouts`. `chains`: [references/chains.md](references/chains.md). `force` animates while it settles, in a Web Worker, and handles hundreds of thousands of nodes. The others report their result at once, on the main thread, in milliseconds for thousands of nodes, and nodes glide to it.
 
 ## Setup
 
@@ -480,7 +483,7 @@ The task is done when:
 Every page has a Markdown version: add `.md` to its URL. The site documents the latest release.
 
 - Guides: [Layouts](https://bruno00o.github.io/graph/docs/layout), [Positions](https://bruno00o.github.io/graph/docs/positions), [Restore at mount](https://bruno00o.github.io/graph/docs/positions#restore-at-mount)
-- API: [force](https://bruno00o.github.io/graph/docs/api/force), [layers, grid, rings, radial, geo, placed](https://bruno00o.github.io/graph/docs/api/layouts)
+- API: [force](https://bruno00o.github.io/graph/docs/api/force), [layers, grid, rings, radial, geo, placed](https://bruno00o.github.io/graph/docs/api/layouts), [chains](https://bruno00o.github.io/graph/docs/api/chains)
 - Examples: [force layout](https://bruno00o.github.io/graph/examples/force-layout), [force parameters](https://bruno00o.github.io/graph/examples/force-parameters), [layer direction and spacing](https://bruno00o.github.io/graph/examples/layer-spacing), [sorted grid](https://bruno00o.github.io/graph/examples/sorted-grid), [rings](https://bruno00o.github.io/graph/examples/ranked-rings), [radial tree](https://bruno00o.github.io/graph/examples/radial-tree), [geo layout](https://bruno00o.github.io/graph/examples/geo-layout), [fixed and free nodes](https://bruno00o.github.io/graph/examples/fixed-and-free-nodes), [save positions](https://bruno00o.github.io/graph/examples/save-positions), [custom layout](https://bruno00o.github.io/graph/examples/custom-layout), [layers fixed by the data](https://bruno00o.github.io/graph/examples/ranked-layers), [positions computed by the app](https://bruno00o.github.io/graph/examples/computed-positions)
 - Groups in layouts: [how each layout keeps unfolded groups whole](https://bruno00o.github.io/graph/docs/layout#groups), [a layout per group](https://bruno00o.github.io/graph/docs/layout#a-layout-per-group), example [layouts per group](https://bruno00o.github.io/graph/examples/group-layouts)
 - Saving: [Save a whole arrangement](https://bruno00o.github.io/graph/docs/positions#save-a-whole-arrangement)

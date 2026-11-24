@@ -7,20 +7,24 @@ description: >
   node, keeping a search out of some nodes or edges, searching the graph as
   drawn with folded groups, highlighting the result with a state, framing it,
   or running path queries with no mounted graph on a server, in a worker or in
-  a test.
+  a test, or finding which nodes have two ways out to two exits, the chains
+  between exits and the weak points.
 metadata:
   purpose: >
     The path queries of @bruno00o/graph: shortest and reach on a mounted graph
     or on marks alone, their options (weight, direction, nodes, edges, visible,
-    maxCost), their results, and how to highlight a result, with the mistakes
-    that give no path, a thrown error or a wrong cost.
+    maxCost), their results, and how to highlight a result, the ways out to
+    exits of the ways subpath, with the mistakes that give no path, a thrown
+    error or a wrong cost.
   type: sub-skill
   library: '@bruno00o/graph'
 sources:
   - src/paths.ts
+  - src/ways/index.ts
   - src/types.ts
   - docs/content/docs/(guide)/paths.mdx
   - docs/content/docs/api/paths.mdx
+  - docs/content/docs/api/ways.mdx
 requires:
   - core
 ---
@@ -194,6 +198,41 @@ console.log(shown?.cost, everything?.cost)
 
 `createPathFinder({ marks })` runs the same queries on marks, with no element and no browser: on a server, in a worker, in a test. It reads arrays and subscribes to live sources (a TanStack DB collection) as soon as it is created, and applies their changes at the next query. `visible` has no effect there, since nothing is drawn. After `destroy()`, `shortest` returns `null` and `reach` returns the empty result. Call `destroy()` when you are done, to stop listening to live sources.
 
+### Find the nodes with two ways out
+
+`ways` and `pair`, from `@bruno00o/graph/ways`, take the graph (mounted, from `createGraph`, or a `PathFinder`) as first argument. They ignore edge direction and take the `nodes`, `edges` and `visible` options of the queries above. `exits` is a function of the node item and key, or a list of keys (keys of missing nodes are skipped).
+
+```ts
+import { createPathFinder, edges, nodes } from '@bruno00o/graph'
+import { pair, ways } from '@bruno00o/graph/ways'
+
+type Spot = { id: string; exit: boolean }
+type Link = { id: string; from: string; to: string; meters: number }
+
+declare const spots: Spot[]
+declare const links: Link[]
+
+const finder = createPathFinder({
+  marks: [nodes(spots), edges(links, { source: 'from', target: 'to' })],
+})
+const isExit = (spot: Spot) => spot.exit
+
+const found = ways(finder, { exits: isExit })
+for (const one of found.one) console.log(one.key, 'depends on', one.through)
+for (const chain of found.chains) console.log(chain.nodes, chain.ends, chain.covered)
+
+const two = pair(finder, 'n4', { exits: isExit, weight: 'meters' })
+if (two) console.log(two[0].nodes, two[1].nodes)
+finder.destroy()
+```
+
+- `two`: nodes with two ways out to two distinct exits, the exits excluded. `one`: `{ key, through }`, every path from `key` to an exit passes through `through`. `none`: nodes with no exit in reach.
+- `chains`: the chains of nodes between exits, `{ nodes, edges, ends, covered }`, covered first; `edges` has one more key than `nodes` (the two edges to the exits). A chain that comes back to its own exit has the same exit twice in `ends` and `covered: false`. Branches hanging on a chain do not hide it, and chains do not depend on `failure`.
+- `weak`: the articulation nodes and bridges whose loss cuts a node off from every exit.
+- `failure: 'edge'` counts ways out that may share nodes but no edge or exit, so more nodes land in `two`. Any other value throws a `TypeError`.
+- `pair(graph, from, options)` returns the two cheapest paths (`GraphPath`, as from `shortest`) to two distinct exits with no node in common (no edge or exit with `failure: 'edge'`), or `null`. `weight` works as in `shortest`.
+- The result is frozen and comes back as the same object while the data and the options do not change. Cost: 0.3 to 0.4 seconds on 500,000 nodes and 1,000,000 edges, `pair` about 12 milliseconds. To draw the chains, see the `chains` layout in the layouts skill.
+
 ## Common Mistakes
 
 ### HIGH Weights that are missing or negative
@@ -221,6 +260,18 @@ const finder = createPathFinder({
 
 finder.shortest('a', 'b', { direction: 'downstream' })
 ```
+
+### HIGH Importing `ways` from the main entry point
+
+`ways` and `pair` live only in `@bruno00o/graph/ways`, so that graphs without them carry none of the analysis.
+
+```ts expect-error=TS2305
+import { ways } from '@bruno00o/graph'
+```
+
+### MEDIUM A new `exits` function on every call
+
+`ways` keeps its result while the data and the options are the same, functions compared by identity, and never with `visible: true`. An inline `exits: (item) => item.exit` in an event handler or a render reruns the analysis each time. Declare the function once (outside a React component, or with `useCallback`), and call `ways` when the data changes, not on every frame.
 
 ### MEDIUM A weight field that does not exist
 
@@ -262,6 +313,7 @@ The task is done when:
 - a highlighted result goes through a declared state with `graph.states.set`, and is cleared when it no longer applies;
 - `visible: true` is used when the path must follow folds, time and zoom;
 - a finder without a graph is destroyed when finished;
+- `ways` and `pair` come from `@bruno00o/graph/ways`, with an `exits` function declared once, and `pair` handles `null`;
 - `tsc` accepts the code.
 
 ## References
@@ -269,4 +321,5 @@ The task is done when:
 Every page has a Markdown version: add `.md` to its URL.
 
 - [Paths guide](https://bruno00o.github.io/graph/docs/paths), [Paths API](https://bruno00o.github.io/graph/docs/api/paths)
+- [Two ways out](https://bruno00o.github.io/graph/docs/paths#two-ways-out), [ways and pair API](https://bruno00o.github.io/graph/docs/api/ways), example [rings and branches](https://bruno00o.github.io/graph/examples/rings-and-branches)
 - Examples: [path costs](https://bruno00o.github.io/graph/examples/weighted-path), [upstream and downstream](https://bruno00o.github.io/graph/examples/upstream-downstream), [detour around blocked nodes](https://bruno00o.github.io/graph/examples/detour), [neighborhood by hops](https://bruno00o.github.io/graph/examples/k-hop-neighborhood), [within a cost budget](https://bruno00o.github.io/graph/examples/cost-budget), [connected components](https://bruno00o.github.io/graph/examples/connected-components), [path through waypoints](https://bruno00o.github.io/graph/examples/waypoints)

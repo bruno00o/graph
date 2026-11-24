@@ -210,7 +210,7 @@ Scope decisions:
 
 #### Failure mode inventory
 
-##### layouts (11)
+##### layouts (15)
 
 | #   | Mistake                                              | Priority | Source                            | Cross-skill |
 | --- | ---------------------------------------------------- | -------- | --------------------------------- | ----------- |
@@ -225,6 +225,10 @@ Scope decisions:
 | 9   | Laying out a subset next to anchors                  | MEDIUM   | layout guide, graph API           | core        |
 | 10  | Expecting `layout.compute` to move nodes             | MEDIUM   | layout guide, `layout-session.ts` | core        |
 | 11  | A group layout with a new function option per render | MEDIUM   | layout guide, nodes API           | react       |
+| 12  | Expecting `layers` to draw an undirected graph well  | MEDIUM   | layouts API                       |             |
+| 13  | Awaiting `layout.run()` with nothing to run          | MEDIUM   | `layout-session.ts`               |             |
+| 14  | Importing `chains` from the layouts entry point      | HIGH     | chains API                        |             |
+| 15  | Expecting arcs from exits that do not link           | MEDIUM   | layout and paths guides           | paths       |
 
 ##### edges (12)
 
@@ -327,13 +331,13 @@ Gaps: `exportMapPng` is documented in `map` only; the `export` skill (batch D) s
 
 Written: `tanstack-db`, `tanstack-query`, `cypher`, `file-formats`, `paths`, all requiring `core`.
 
-| Skill          | Lines | Failure modes | Typechecked failures                            |
-| -------------- | ----- | ------------- | ----------------------------------------------- |
-| tanstack-db    | 473   | 10            | key option on a live mark, wrong field in where |
-| tanstack-query | 425   | 7             | types not inferred from a plain object          |
-| cypher         | 264   | 6             | untyped properties, edge mark without ends      |
-| file-formats   | 318   | 9             | color literal, a Response instead of text       |
-| paths          | 272   | 7             | unknown direction, misspelled weight            |
+| Skill          | Lines | Failure modes | Typechecked failures                                           |
+| -------------- | ----- | ------------- | -------------------------------------------------------------- |
+| tanstack-db    | 473   | 10            | key option on a live mark, wrong field in where                |
+| tanstack-query | 425   | 7             | types not inferred from a plain object                         |
+| cypher         | 264   | 6             | untyped properties, edge mark without ends                     |
+| file-formats   | 318   | 9             | color literal, a Response instead of text                      |
+| paths          | 319   | 9             | unknown direction, misspelled weight, ways from the main entry |
 
 Decisions:
 
