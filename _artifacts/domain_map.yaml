@@ -333,6 +333,7 @@ skills:
       - waitForData
       - rank of layers
       - placed
+      - chains
       - layout.compute and others
       - initialPositions
       - container.layout and arrangement at unfolding
@@ -452,6 +453,30 @@ skills:
           const byRank = (a: Item, b: Item) => a.rank - b.rank
           container: { layout: grid<Item>({ order: byRank }) }
         source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/api/nodes.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting layers to draw an undirected graph well
+        mechanism: "layers needs a direction: it turns around the edges that close cycles and puts the nodes without incoming edges first, so an undirected network gets arbitrary layers."
+        source: docs/content/docs/api/layouts.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: Awaiting layout.run() with nothing to run
+        mechanism: "run() without a layout in the definition or as an argument rejects with no layout to run."
+        source: src/host/layout-session.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Importing chains from the layouts entry point
+        mechanism: chains has its own entry point, like force, so that the layouts entry carries none of the analysis of ways.
+        wrong_pattern: |
+          import { chains } from '@bruno00o/graph/layouts'
+        correct_pattern: |
+          import { chains } from '@bruno00o/graph/layouts/chains'
+        source: docs/content/docs/api/chains.mdx
+        priority: HIGH
+        status: active
+      - mistake: Expecting arcs from exits that do not link
+        mechanism: "Only nodes on a path between two exits, or on a cycle back to one exit, form chains; trees hanging off the exits and components without an exit are drawn as fans."
+        source: docs/content/docs/(guide)/layout.mdx, docs/content/docs/(guide)/paths.mdx
         priority: MEDIUM
         status: active
   - name: edges
@@ -1801,12 +1826,15 @@ skills:
       - "direction"
       - "visible"
       - "highlighting"
+      - "ways"
+      - "pair"
     tasks:
       - "Find and highlight the shortest path between two nodes"
       - "Find every node within reach of a node"
       - "Keep a search to some nodes and edges"
       - "Search the graph as drawn"
       - "Search paths without mounting a graph"
+      - "Find the nodes with two ways out to two exits and the chains between exits"
     failure_modes:
       - mistake: "Weights that are missing or negative"
         mechanism: "An edge whose weight is missing, not a number or infinite cannot be crossed, so the path detours or is null, and a negative weight throws a RangeError."
@@ -1849,6 +1877,25 @@ skills:
       - mistake: "Forgetting destroy on a path finder"
         mechanism: "A finder subscribes to live sources when created."
         source: "src/paths.ts"
+        priority: MEDIUM
+        status: active
+      - mistake: "Importing ways from the main entry point"
+        mechanism: "ways and pair live only in the ways subpath, so that graphs without them carry none of the analysis."
+        wrong_pattern: |
+          import { ways } from '@bruno00o/graph'
+        correct_pattern: |
+          import { ways } from '@bruno00o/graph/ways'
+        source: "docs/content/docs/api/ways.mdx"
+        priority: HIGH
+        status: active
+      - mistake: "A new exits function on every call"
+        mechanism: "ways keeps its result while the data and the options are the same, functions compared by identity and never with visible, so an inline exits function reruns the whole analysis on each call."
+        wrong_pattern: |
+          graph.on('click', () => ways(graph, { exits: (item) => item.exit }))
+        correct_pattern: |
+          const isExit = (item: Item) => item.exit
+          graph.on('click', () => ways(graph, { exits: isExit }))
+        source: "src/ways/index.ts"
         priority: MEDIUM
         status: active
   - name: styling

@@ -135,6 +135,7 @@ skills:
       - src/layouts/radial.ts
       - src/layouts/geo.ts
       - src/layouts/placed.ts
+      - src/layouts/chains/index.ts
       - src/types.ts
       - src/host/graph-instance.ts
       - src/host/layout-session.ts
@@ -145,6 +146,7 @@ skills:
       - docs/content/docs/(guide)/positions.mdx
       - docs/content/docs/api/force.mdx
       - docs/content/docs/api/layouts.mdx
+      - docs/content/docs/api/chains.mdx
     requires:
       - core
     purpose: >
@@ -156,6 +158,7 @@ skills:
     references:
       - references/group-layouts.md
       - references/saving-arrangements.md
+      - references/chains.md
   - name: edges
     slug: edges
     domain: appearance
@@ -538,19 +541,23 @@ skills:
       one node, keeping a search out of some nodes or edges, searching the graph
       as drawn with folded groups, highlighting the result with a state, framing
       it, or running path queries with no mounted graph on a server, in a worker
-      or in a test.
+      or in a test, or finding which nodes have two ways out to two exits, the
+      chains between exits and the weak points.
     sources:
       - src/paths.ts
+      - src/ways/index.ts
       - src/types.ts
       - docs/content/docs/(guide)/paths.mdx
       - docs/content/docs/api/paths.mdx
+      - docs/content/docs/api/ways.mdx
     requires:
       - core
     purpose: >
       The path queries of @bruno00o/graph: shortest and reach on a mounted graph
       or on marks alone, their options (weight, direction, nodes, edges,
-      visible, maxCost), their results, and how to highlight a result, with the
-      mistakes that give no path, a thrown error or a wrong cost.
+      visible, maxCost), their results, and how to highlight a result, the ways
+      out to exits of the ways subpath, with the mistakes that give no path, a
+      thrown error or a wrong cost.
   - name: styling
     slug: styling
     domain: appearance
