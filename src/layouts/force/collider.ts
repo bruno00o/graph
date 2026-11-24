@@ -348,7 +348,7 @@ export function separate(
     let dx = (px[b] ?? 0) - (px[a] ?? 0)
     let dy = (py[b] ?? 0) - (py[a] ?? 0)
     let d2 = dx * dx + dy * dy
-    if (d2 >= reach * reach) return
+    if (d2 >= reach * reach * (1 - 1e-9)) return
     if (d2 === 0) {
       const turn = Math.min(a, b) * goldenTurn
       dx = Math.cos(turn) * 1e-3

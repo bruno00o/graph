@@ -57,6 +57,14 @@ export default defineConfig({
               replacement: resolve(import.meta.dirname, 'src/layouts/force/index.ts'),
             },
             {
+              find: /^@bruno00o\/graph\/layouts\/chains$/,
+              replacement: resolve(import.meta.dirname, 'src/layouts/chains/index.ts'),
+            },
+            {
+              find: /^@bruno00o\/graph\/ways$/,
+              replacement: resolve(import.meta.dirname, 'src/ways/index.ts'),
+            },
+            {
               find: /^@bruno00o\/graph\/layouts$/,
               replacement: resolve(import.meta.dirname, 'src/layouts/index.ts'),
             },

@@ -46,6 +46,7 @@ export default defineConfig({
     formats: 'src/formats/index.ts',
     layouts: 'src/layouts/index.ts',
     'layouts/force': 'src/layouts/force/index.ts',
+    'layouts/chains': 'src/layouts/chains/index.ts',
     devtools: 'src/devtools/index.ts',
     'devtools/react': 'src/devtools/react.tsx',
     export: 'src/export/index.ts',

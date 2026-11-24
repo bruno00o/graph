@@ -98,6 +98,26 @@ These layouts, and `layers`, are not incremental: when nodes arrive, every free 
 
 Examples: [grid sorted by a field](/examples/sorted-grid), [rings around a center](/examples/ranked-rings), and [radial tree from a root](/examples/radial-tree).
 
+## Chains between exits
+
+From the `@bruno00o/graph/layouts/chains` subpath, `chains` draws the chains that [`ways`](/docs/paths#two-ways-out) finds between the exits: each chain becomes an arc of a circle through its two exits, the branches fan out around it, and the units of exits sit in rows.
+
+```ts
+import { chains } from '@bruno00o/graph/layouts/chains'
+
+chains<Item>({ exits: (item) => item.exit === true })
+
+chains({ exits: ['exit-1', 'exit-2'], spacing: 12, core: force() })
+```
+
+- **`exits`** takes the same function of the node item and key, or list of keys, as [`ways`](/docs/paths#two-ways-out).
+- **`spacing`** is the gap between two nodes of a chain, from their borders, as in the other layouts here. It defaults to the largest diameter, and at least 24.
+- **`core`** is a layout for the heart, the exits linked to each other: it runs on those exits alone, the other nodes left out. Without it, fixed exits keep their place and the other heart exits sit on a circle around them.
+
+The analysis runs with `failure: 'node'`, on the live nodes of the graph. Exits joined by a shared chain or a direct edge form a unit: two exits sit 1.6 steps apart, a step being the largest diameter plus `spacing`, more in a file on a line spaced so that each chain makes a half circle, whatever links them; only a cycle or a fork in the exits, an exit linked to three others or more, makes a heart, which keeps its fixed exits or sits on a circle, placed by `core` when given. A chain that returns to its own exit becomes a circle under it. The nodes left over sit near their placed neighbors, or on a spiral. Like the other layouts here, `chains` is not incremental and ends at once; fixed nodes never move. See [`chains`](/docs/api/chains) for every option.
+
+Example: [rings and branches](/examples/rings-and-branches).
+
 ## Geography
 
 `geo` places nodes by their longitude and latitude, with the Web Mercator projection of [map mode](/docs/map), on a graph without a map. Unlike the `longitude` and `latitude` channels of `nodes()`, which pin a node to its place, it then moves apart the nodes that overlap, so every node can be read and clicked.
