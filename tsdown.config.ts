@@ -41,6 +41,7 @@ export default defineConfig({
     react: 'src/react/index.tsx',
     db: 'src/db/index.ts',
     query: 'src/query/index.ts',
+    ways: 'src/ways/index.ts',
     cypher: 'src/cypher/index.ts',
     formats: 'src/formats/index.ts',
     layouts: 'src/layouts/index.ts',

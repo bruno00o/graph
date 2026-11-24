@@ -1,0 +1,50 @@
+---
+title: ways and pair
+description: The nodes with two ways out to two exits, and the two cheapest disjoint paths from a node, from `@bruno00o/graph/ways`.
+---
+
+```ts
+import { ways, pair } from '@bruno00o/graph/ways'
+
+function ways<S extends string, M extends Mark>(
+  target: GraphCore<S, M> | PathFinder<M>,
+  options: WaysOptions<M>,
+): GraphWays
+
+function pair<S extends string, M extends Mark>(
+  target: GraphCore<S, M> | PathFinder<M>,
+  from: Key,
+  options: PairOptions<M>,
+): readonly [GraphPath, GraphPath] | null
+```
+
+`ways` and `pair` run on a graph made by [`mountGraph`](/docs/api/mount-graph) or [`createGraph`](/docs/api/create-graph), or on a `PathFinder` of [`createPathFinder`](/docs/api/paths#createpathfinder): the first argument is the graph or the finder. `M` is the union of the marks: it types the fields and the items that the options read. See [Two ways out](/docs/paths#two-ways-out).
+
+## ways options
+
+<api-table path="ways/index.ts" name="WaysOptions" />
+
+## pair options
+
+<api-table path="ways/index.ts" name="PairOptions" />
+
+## GraphWays
+
+<api-table path="ways/index.ts" name="GraphWays" />
+
+### OneWay
+
+<api-table path="ways/index.ts" name="OneWay" />
+
+### GraphChain
+
+<api-table path="ways/index.ts" name="GraphChain" />
+
+`GraphWays` is frozen, and `ways` returns the same object while the data and the options do not change. `pair` returns two [`GraphPath`](/docs/api/paths#graphpath) values, or `null`.
+
+## Errors
+
+- `TypeError` when the target is neither a graph of this package nor a path finder, or when `failure` is not `'node'` or `'edge'`.
+- `RangeError` when an edge weighs less than 0.
+
+On a destroyed graph or finder, `ways` returns the empty frozen result and `pair` `null`.

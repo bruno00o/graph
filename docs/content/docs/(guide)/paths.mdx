@@ -1,6 +1,6 @@
 ---
 title: Paths
-description: Find the shortest path between two nodes, or every node within reach, and highlight it.
+description: Find the shortest path between two nodes, every node within reach, and highlight them; from `@bruno00o/graph/ways`, the nodes with two ways out to exits.
 ---
 
 `graph.paths` answers two questions on the nodes and edges of the graph: which path joins two nodes at the lowest cost, and which nodes can be reached from one. It reads the same adjacency the graph draws from, so a query needs no copy of your data.
@@ -56,6 +56,32 @@ graph.states.set('near', near)
 `reach` lists the nodes the start leads to, by increasing cost, with the cost of each, and the edges between two reached nodes that the search may cross. Without `weight`, `maxCost` counts edges: `{ maxCost: 1 }` is the start and its neighbors. Without `maxCost`, `reach` returns the whole connected component of the start; with `direction: 'forward'`, every node it leads to, and with `'backward'`, every node that leads to it. A negative or `NaN` `maxCost` throws a `RangeError`. It takes the same options as `shortest`.
 
 Examples: [neighborhood by hops](/examples/k-hop-neighborhood), [within a cost budget](/examples/cost-budget) and [connected components](/examples/connected-components).
+
+## Two ways out
+
+```ts
+import { ways, pair } from '@bruno00o/graph/ways'
+
+const result = ways(graph, { exits: (datum) => datum.exit === true })
+
+const two = pair(graph, 'a', { exits: ['exit-1', 'exit-2'] })
+```
+
+From the `@bruno00o/graph/ways` subpath, `ways` and `pair` work on a mounted graph, on a graph without a page ([`createGraph`](/docs/api/create-graph)) and on a `PathFinder` of [`createPathFinder`](#createpathfinder): pass the graph or the finder as the first argument.
+
+`ways` tells which nodes have two ways out to two distinct exits, which have a single way out, and which none. It ignores the direction of the edges, and takes the same `nodes`, `edges` and `visible` options as the queries of `graph.paths`. `exits` is a function of the node item and key, or a list of keys; keys of missing nodes are skipped.
+
+- `result.two` lists the nodes with two ways out to two distinct exits, the exits excluded.
+- `result.one` lists `{ key, through }`: every path from `key` to an exit passes through `through`, an exit or a node of `two`.
+- `result.none` lists the nodes no exit is reachable from, the exits excluded.
+- `result.chains` lists the chains of nodes between two exits, `{ nodes, edges, ends, covered }`, the covered chains first. They are read from the biconnected blocks of the graph with the exits joined to a virtual node, so the branches hanging on a chain do not hide it, and they do not depend on `failure`. A chain that returns to its own exit is never covered: `ends` holds the same exit twice and `covered` is `false`.
+- `result.weak` lists the articulation nodes and bridges whose loss cuts at least one node off from every exit: `{ nodes, edges }`.
+
+`failure` says what may fail when counting the ways out: `'node'`, the default, any node or edge may fail, or `'edge'`, an edge or an exit only. With `'edge'`, more nodes are in `two`: the ones that still have two ways out when any single edge or exit is removed.
+
+`pair` returns the two cheapest paths from a node to two distinct exits, with no node in common, or no edge or exit in common with `failure: 'edge'`, or `null` when there is no such pair or the key is unknown. It takes the same options as `ways`, plus `weight`, which works as in `shortest`: without it, every edge costs 1.
+
+The result of `ways` is frozen, and the same object comes back while the data and the options do not change.
 
 ## Groups
 
@@ -126,7 +152,10 @@ Queries run on the adjacency of the graph, stored in typed arrays, and allocate 
 
 On 500,000 nodes and 1,000,000 edges, in the browser, a path between two far nodes takes about 1 millisecond without weights and 2 to 3 milliseconds with them, under 10 at worst. On a graph of communities linked in a tree, where paths cross few bridges, weighted searches take 5 to 30 milliseconds, and up to 100. A `reach` over the whole graph takes 0.1 to 0.8 seconds: bound it with `maxCost` in interactive code.
 
+`ways` reads the whole adjacency once, and `pair` only what it visits. On 100,000 nodes and 200,000 edges, `ways` takes 27 to 62 milliseconds, and 39 with `failure: 'edge'`; `pair` takes a median of 3.0 milliseconds, 7.5 at the 90th percentile. On 500,000 nodes and 1,000,000 edges, `ways` takes 0.31 to 0.43 seconds, and 0.32 with `failure: 'edge'`; `pair` takes 11.6 milliseconds, 14.3 at the 90th percentile. The cached result comes back in 0.1 millisecond while the data and the options do not change. For comparison, a full `reach` takes 28 milliseconds and 0.25 seconds on the same graphs.
+
 ## API
 
 - [`GraphPaths`](/docs/api/paths#graphpaths), on [`GraphInstance`](/docs/api/graph-instance)
 - [`createPathFinder`](/docs/api/paths#createpathfinder)
+- [`ways` and `pair`](/docs/api/ways), from `@bruno00o/graph/ways`

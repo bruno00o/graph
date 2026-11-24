@@ -6,6 +6,7 @@ import { cutOf, noEntries } from '../core/history'
 import type { ContainerSource } from '../core/hull-layer'
 import { checkLists, stringCheck } from '../core/key-list'
 import { createPathQueries } from '../core/path-query'
+import { type PathSource, registerPathSource } from '../core/path-registry'
 import {
   type PositionReader,
   Positions,
@@ -1378,7 +1379,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     },
   }
 
-  const paths = createPathQueries({
+  const pathSource: PathSource = {
     model,
     shown: () => {
       const seen = sight()
@@ -1389,6 +1390,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       }
     },
     prepare: flushPending,
+    stamp: () => sceneVersion,
     groups: () =>
       projection.active
         ? {
@@ -1398,7 +1400,9 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
             },
           }
         : null,
-  })
+    destroyed: () => destroyed,
+  }
+  const paths = createPathQueries(pathSource)
 
   function inspection(): GraphInspection {
     return {
@@ -1620,6 +1624,8 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     },
     { once: true, signal: lifetime.signal },
   )
+
+  registerPathSource(guarded, pathSource)
 
   const unregister = registerGraph({
     graph: guarded as GraphCore,
