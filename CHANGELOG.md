@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.36.0](https://github.com/bruno00o/graph/compare/0.35.0...0.36.0) (2026-11-24)
+
+
+### Features
+
+* find the nodes with two ways out to two exits ([#288](https://github.com/bruno00o/graph/issues/288)) ([94c71cd](https://github.com/bruno00o/graph/commit/94c71cd8edae07500a89a3fd1e0b8d192af2b449))
+* lay out chains between exits as rings ([#290](https://github.com/bruno00o/graph/issues/290)) ([c6fe1bd](https://github.com/bruno00o/graph/commit/c6fe1bd19c4c2895432f920555eeacb362533bdd))
+
 ## [0.35.0](https://github.com/bruno00o/graph/compare/0.34.0...0.35.0) (2026-11-22)
 
 
