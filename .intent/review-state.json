@@ -3,7 +3,7 @@
   "baseline": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
   "items": {
     "skill:skills/core/SKILL.md": {
-      "fingerprint": "e3113997d6cc45343a63bc0dc079ff4c0ae03e8cde0572e62ef35acae766d56b",
+      "fingerprint": "96edb09d7159cb3963707269b29c0506db57a437e63352b9664c32750d5dffe1",
       "snapshot": {
         "docs/content/docs/(guide)/browser-support.mdx": "39d77f111e55dce95fdd48b2e8bea5c8eab825ba2f2d663700df9aa8ac57033e",
         "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
@@ -28,18 +28,18 @@
         "src/host/data-reads.ts": "ef5b8583152930b6c8c3cc1fb92c833a0ba3152ec8aac29c0b886b895f9c805d",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
-        "src/host/graph-core.ts": "50d34b2a0c983edd46c14fd9d7de0f2f2a26e6c0ecf3d734ea993f43032eedc1",
+        "src/host/graph-core.ts": "9ffb3d0e0dea9c1dab49159ed06cee806dea06b6bdef02605a26e44e0a210d6c",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/render-host.ts": "6e77c815a2c219f9777f13e35246593ebaf730b7a0f155a4c5f26d83df25b3bb",
         "src/index.ts": "bd33a2d87186cb6316b6cd562804c4a986e5e714e304fdbca1f482b13a16bc2b",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
       "outcome": "no-change",
-      "reason": "define-graph.ts, types.ts, index.ts and graph-core.ts add interaction.drag: 'elastic', the LayoutFollower export and the host of the elastic drag (PR 284); events.ts only rewords the JSDoc of positionchange: the definition, the mount and the instance the skill teaches are unchanged, taught by interaction (references/elastic-drag.md).",
+      "reason": "graph-core.ts registers its path source for the ways subpath (PR 288): internal wiring, the definition, the mount and the instance the skill teaches are unchanged.",
       "evidence": [
-        "Diff of docs/content/docs/api/define-graph.mdx, src/define-graph.ts, src/host/events.ts, src/host/graph-core.ts, src/index.ts, src/types.ts since 0.34.0 read against skills/core/SKILL.md"
+        "Diff of src/host/graph-core.ts since 0.35.0 read against skills/core/SKILL.md"
       ]
     },
     "skill:skills/react/SKILL.md": {
@@ -67,11 +67,11 @@
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "df10ec2fd4b9fec6e840d97cc1cf5562015d479ad76d2cb26eb7bcea1aac8769",
+      "fingerprint": "4512095dedda692de273a14b0c99985077f13ddd95df9da51d0cabd296a562a5",
       "snapshot": {
-        "_artifacts/domain_map.yaml": "3b9a9c7783150019d89a72130930da9efb3ad3d2ff933f06e5e583d0c0bb8c77",
-        "_artifacts/skill_spec.md": "26c43d787fb2e64225a121d5aaf06c0639db8b4e728002f85ec41dfe15ba2f68",
-        "_artifacts/skill_tree.yaml": "6d49a5066c57f5765f6805d586cea76a8e7cc4abc2859ec74434fd3cb5603376",
+        "_artifacts/domain_map.yaml": "8d251180be882b0b43ac023524741969d4ec0d8e5ec3e01ba61df34551496f77",
+        "_artifacts/skill_spec.md": "342624a9d5826704baf6f17b32151f4e4661aed2ab3897982336b91f850b0761",
+        "_artifacts/skill_tree.yaml": "5bc2bcfc15fe9ce3cc1143eacbc96bc2e095fc9eec858f9ff3269fcf6323adb5",
         "docs/content/docs/(guide)/browser-support.mdx": "39d77f111e55dce95fdd48b2e8bea5c8eab825ba2f2d663700df9aa8ac57033e",
         "docs/content/docs/(guide)/bundling.mdx": "2e7ce5553a531b1f791438feb857d2a29b765ce34c965dfac7e305de5b22c8a8",
         "docs/content/docs/(guide)/cypher.mdx": "28358088adf95d4075fa90b91a9d44e62cc7fe17a057cbf87a4f7c9545871ca8",
@@ -86,13 +86,13 @@
         "docs/content/docs/(guide)/installation.mdx": "b5ad1722b7f08e9bd559b0de611bec1325bc64b7dcbc48a3c53b3307bb74949b",
         "docs/content/docs/(guide)/interaction.mdx": "13f2668a90b7c643a59b496bdf294ef7098a355d814b2ee74e015b97ad3d3218",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
-        "docs/content/docs/(guide)/layout.mdx": "eb26f8885731fd7e47915b0dd9b8207b77ab60a018458a93b965704db0521f74",
+        "docs/content/docs/(guide)/layout.mdx": "57e1f377cd27261bb2ee2a00f8a49fa4193265907a492903df5d5d0186d5cb84",
         "docs/content/docs/(guide)/lens.mdx": "175c2f78a9f174344d13cdc9b2383b50a40ecf65d00e189995182503676eaf5a",
         "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
         "docs/content/docs/(guide)/marks.mdx": "2628b8f641447a5cf7156b33d1acba7c2d9337c3495938b92623a8b287f3a6f9",
         "docs/content/docs/(guide)/minimap-and-legend.mdx": "00911429a72f29a998d41eaa92712c0a8a658bd52d9a8772312c724e3650cbf9",
         "docs/content/docs/(guide)/multilayer.mdx": "5d2b375c32c23813b510704e49675482ae450937219c8aaa5c1405b2de387c01",
-        "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
+        "docs/content/docs/(guide)/paths.mdx": "0e05d8771cde786f5d5fc701874879053a5d3666a858a3f34f3b2cd383a29362",
         "docs/content/docs/(guide)/positions.mdx": "7e4d6ad65ca5f1c27b9ca0a1b9270bb525e70fcba347cb0a62a7d065336bb003",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
         "docs/content/docs/(guide)/react.mdx": "8423bfc7ad4cb5e1d8ec5249b78891e4ad9e65193bad8544f9125c376b6a6441",
@@ -112,6 +112,7 @@
         "docs/content/docs/(guide)/zoom.mdx": "3ba61e43cda3aa11cb485a3da120469588ca9fc796f909f11ba607c76db69fca",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/bundling.mdx": "da6d79979c997144343299a7a5083996fd91f383d8949973c3caf4d3cafcddf7",
+        "docs/content/docs/api/chains.mdx": "bc326b7cb7c8f81bccdb39192c28dfd5c8d99d07855d055e76e9645ef1555bf5",
         "docs/content/docs/api/create-exploration.mdx": "3bd905d354f9ed09c3778a3475eb293e7202bc6d9e702a017174344a4a3c3f69",
         "docs/content/docs/api/create-graph.mdx": "66b0bf7cd06151d434494064d99a1891e965d2c2dafbad11412f3fc7c1c87070",
         "docs/content/docs/api/cypher-graph.mdx": "f78a2096a958c625e497769bb7d6d515bfc19928b63ee80223f9a180c26ae5c6",
@@ -149,6 +150,7 @@
         "docs/content/docs/api/support.mdx": "4289ed748764c7ac8ab7a04b7b577def3f58bcf1c13b6e9980d5f6e3c8f7c79e",
         "docs/content/docs/api/theme-tokens.mdx": "08d5697b13bf523987647ebde18b8e548f2839671063d02a411bd802a55deb36",
         "docs/content/docs/api/timeline.mdx": "9c6481a7005fe7c91fd50104295afcb4c8e6e21ffa0c0f5c29e43c77b213c98b",
+        "docs/content/docs/api/ways.mdx": "007616798973bb14dfa6f9a2acbf44b04b1d4589e8ed9318c87ddf66c97a1372",
         "skills/core/SKILL.md": "b5ee661b4db508f93b02282e19fe4010e9bbfecdfe5bf9b3b461e43a72838934",
         "skills/core/references/live-data.md": "93ea5f644e8bac16d887a869f5d9b9e9dd7bb04f35dee1d568e027df718cbb3f",
         "skills/core/references/rendering.md": "9d62574cfb660723ad8ad272519e42b24dbd3e17b5b9fa2c504cb7a1650dc800",
@@ -166,13 +168,14 @@
         "skills/interaction/SKILL.md": "ebe50756e372d3fcbcb4aa703b03f241195eed17706f7453d8737c58f7827dff",
         "skills/interaction/references/elastic-drag.md": "0b44c9207c5b6b347fa858aa705ee565d6c4430261731b9671157b699d3748d3",
         "skills/interaction/references/wheel-glide.md": "5ad5be31b578aa7090baf52da3ecfb29f49a076629c899ade4fe1684c522211b",
-        "skills/layouts/SKILL.md": "156b08d803cc0a0d319f1bf3805a047bdfc1c108f88b4082ee138c63b35d5cf6",
+        "skills/layouts/SKILL.md": "9e9efdf257d99ad3dd4373cdfd43d0e890534dd4713efbf96a0abec9ecf2b7f6",
+        "skills/layouts/references/chains.md": "96fa111fe631fb2e64f9dca1497d51b0471dff1a2147b9312378aa555f687956",
         "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
         "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
         "skills/map/SKILL.md": "ba05670d8fe8ddc321014b85dba2b4c21baed9ced5f8dee030aec16962a1dcd4",
         "skills/map/references/surfaces.md": "674dd4af13ae21a4e457ed34d1a657176b4874f8984478f70769385103ad830d",
         "skills/multilayer/SKILL.md": "a498eaa93f1be65d672e34568683e183fbddd0690f4b76689dda5078c9967342",
-        "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
+        "skills/paths/SKILL.md": "53304a26d6602e9d55867552b011c7465f9d849a1b0f58482acf5e70d135fddd",
         "skills/react/SKILL.md": "676e05a044a368885457241d1d4c06e0495610b16c7e0aa6a20aedfb80e847b0",
         "skills/shapes/SKILL.md": "c2d0ad9c97515ea267f184ab36854a20bd18f8430a88073176f643828bfd75ed",
         "skills/shapes/references/labels-and-pins.md": "c0e4ae66bda4895ea9ea52ad732a7b3f73d97f269bfeae33e2bac809ab83bb69",
@@ -250,7 +253,7 @@
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
         "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
         "src/host/folding.ts": "67312b45a1146b2b312fc2571d6ec3119791b08d7fadb6e40773abc81885e63b",
-        "src/host/graph-core.ts": "50d34b2a0c983edd46c14fd9d7de0f2f2a26e6c0ecf3d734ea993f43032eedc1",
+        "src/host/graph-core.ts": "9ffb3d0e0dea9c1dab49159ed06cee806dea06b6bdef02605a26e44e0a210d6c",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
@@ -267,6 +270,7 @@
         "src/host/wheel-glide.ts": "d1fe92a37e3703e3f134f775f56c1f7cd6afcca705acbc1db236c674015ff87a",
         "src/hulls.ts": "0d083a6b8c4374b8d1a5d1cba2796ed8e00206e9968a489227464bc7000cd2ca",
         "src/index.ts": "bd33a2d87186cb6316b6cd562804c4a986e5e714e304fdbca1f482b13a16bc2b",
+        "src/layouts/chains/index.ts": "88e65f7ec12caf7e0d0276c998c822a2b8ca4baeecaed294df47c5bd4d514578",
         "src/layouts/force/follow.ts": "3952fde1d1a2546477efc5b48f72c2c8749ab8e6d94d2c36c8a902ee4feca485",
         "src/layouts/force/index.ts": "f007711a166d8bcd9880732683175b9635ab98607f91eecb70d209ad79436879",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
@@ -285,7 +289,7 @@
         "src/map/react.tsx": "a1c0cf0e01a8c1a1687c246063264fa11a69b2fa700939eeef4456129fc77cff",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/minimap/index.ts": "98ab556c067a23e377a7655ffacfa2a15e120bef29e68fa8fdb44bd7b648a99e",
-        "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
+        "src/paths.ts": "3752269ca343c394695cf0b355230b212653f3c9882a8b87754832b1a489c9d0",
         "src/query/index.ts": "a9db94902b0883c71a3b354d27ee09552405c9057df38f9c1a1eb889d059eb4e",
         "src/react/context.ts": "51df2586df88b3345743f4060f286f909494df64776e7fd9368f37d0b0eb9ef4",
         "src/react/graph.tsx": "636adeaede36f1618c0b8b13517913a237cef6905c6752c0ed29c8ace1be9a9f",
@@ -304,14 +308,15 @@
         "src/timeline/index.ts": "080999a96307ef64453daf9d6be4da3e79af430ad5e6fc96132a6d88768f052d",
         "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3",
-        "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
+        "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163",
+        "src/ways/index.ts": "740483e9cd6b267b7fb32c11245ef9d8a8a5c9dc9aaae337c7f6deea11c95b1f"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
       "outcome": "updated",
-      "reason": "PR 284: interaction failure mode for drag: 'elastic' without a layout that follows in domain_map.yaml, skill_spec.md aligned, references/elastic-drag.md declared in skill_tree.yaml.",
+      "reason": "PR 291: failure modes for ways and chains in domain_map.yaml (plus two layouts modes the registry lacked), skill_spec.md aligned, sources and references/chains.md declared in skill_tree.yaml.",
       "evidence": [
         "intent maintainer status reports 0 files to sync and 0 authoring issues",
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 6e8a249: every fence typechecked, published copies under 500 lines"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 877fcd8: every fence typechecked, published copies under 500 lines"
       ]
     },
     "source:docs/content/docs/(guide)/agent-skills.mdx": {
@@ -485,19 +490,22 @@
       ]
     },
     "skill:skills/layouts/SKILL.md": {
-      "fingerprint": "3eaf0deb28c34c3134d15278a012e2e8c209ad15fb467e169177717d83f7c09a",
+      "fingerprint": "41d22e9f2725a6250480c056569ae6fc8a1ba0981507da11ac6cdd7f89a37813",
       "snapshot": {
-        "docs/content/docs/(guide)/layout.mdx": "eb26f8885731fd7e47915b0dd9b8207b77ab60a018458a93b965704db0521f74",
+        "docs/content/docs/(guide)/layout.mdx": "57e1f377cd27261bb2ee2a00f8a49fa4193265907a492903df5d5d0186d5cb84",
         "docs/content/docs/(guide)/positions.mdx": "7e4d6ad65ca5f1c27b9ca0a1b9270bb525e70fcba347cb0a62a7d065336bb003",
+        "docs/content/docs/api/chains.mdx": "bc326b7cb7c8f81bccdb39192c28dfd5c8d99d07855d055e76e9645ef1555bf5",
         "docs/content/docs/api/force.mdx": "1e6297d2b240a3a6b5107ed68dcfa329ae8c22d2981be2d0902d645aacb977d1",
         "docs/content/docs/api/layouts.mdx": "77216db768bdbea2cf776a877fe60d4af718d84ca72038d6969947efc5c90d9f",
-        "skills/layouts/SKILL.md": "156b08d803cc0a0d319f1bf3805a047bdfc1c108f88b4082ee138c63b35d5cf6",
+        "skills/layouts/SKILL.md": "9e9efdf257d99ad3dd4373cdfd43d0e890534dd4713efbf96a0abec9ecf2b7f6",
+        "skills/layouts/references/chains.md": "96fa111fe631fb2e64f9dca1497d51b0471dff1a2147b9312378aa555f687956",
         "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
         "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
         "src/host/layout-session.ts": "6a9469b69491a9570fa48ff734e3f9007c1bafcc254788879cf3209bf6bfe033",
+        "src/layouts/chains/index.ts": "88e65f7ec12caf7e0d0276c998c822a2b8ca4baeecaed294df47c5bd4d514578",
         "src/layouts/force/index.ts": "f007711a166d8bcd9880732683175b9635ab98607f91eecb70d209ad79436879",
         "src/layouts/geo.ts": "70e3cc9731eb73a7682d1fcbe50bbe13666825b83f2d285bb5c3c78abc29dc49",
         "src/layouts/grid.ts": "4c43b1fc14da84d51cfa4b67d2a84e154a9fc6fee7b93ceb0927582db935d956",
@@ -509,11 +517,13 @@
         "src/layouts/scopes.ts": "bb82987ae7fc0aa125f493cb21df782fa510cc181a6e74d0887b54a30cf7684f",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
-      "outcome": "no-change",
-      "reason": "force/index.ts and types.ts add the optional, experimental Layout.follow port that force() implements (PR 284), and layout.mdx, positions.mdx, force.mdx describe it: runs, options and custom layouts through start() are unchanged; follow for a layout of one's own is taught by interaction (references/elastic-drag.md).",
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "outcome": "updated",
+      "reason": "PR 290 adds chains() in @bruno00o/graph/layouts/chains; PR 291 adds it to the table of layouts and teaches it in references/chains.md (typed example, step, units, branches, fixed nodes), with failure modes for the /layouts import and exits that do not link.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/layout.mdx, docs/content/docs/(guide)/positions.mdx, docs/content/docs/api/force.mdx, src/layouts/force/index.ts, src/types.ts since 0.34.0 read against skills/layouts/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 877fcd8: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 291: skill changed after the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/layout.mdx, docs/content/docs/api/chains.mdx, src/layouts/chains/index.ts since 0.35.0 read against skills/layouts/SKILL.md"
       ]
     },
     "skill:skills/map/SKILL.md": {
@@ -564,19 +574,23 @@
       ]
     },
     "skill:skills/paths/SKILL.md": {
-      "fingerprint": "e18b279a5882db90f9e2f4a26d83dd2c3bfce264e6e2ada18be4ba44fd1adf36",
+      "fingerprint": "5227da773b850bf533416a68fbf212e967f4e76c23e1322e54d8058a6f4c1b2e",
       "snapshot": {
-        "docs/content/docs/(guide)/paths.mdx": "c4420f8d2f82dde70e2fde9d2e387f59eef3c707c379df48534cc0d8116596cf",
+        "docs/content/docs/(guide)/paths.mdx": "0e05d8771cde786f5d5fc701874879053a5d3666a858a3f34f3b2cd383a29362",
         "docs/content/docs/api/paths.mdx": "7fe14fdf790e48b4cb2a739cea8111297813e71f4199b9027af6a514681d36c1",
-        "skills/paths/SKILL.md": "8ad3594501af7d1b0e25aee4166093a5b3e289c7bb076e8ea8aa6a20e49ba412",
-        "src/paths.ts": "2658d088bfa2a71ea829e1ab6345bbccb6429c018fd146ae1f6174775739409e",
-        "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
+        "docs/content/docs/api/ways.mdx": "007616798973bb14dfa6f9a2acbf44b04b1d4589e8ed9318c87ddf66c97a1372",
+        "skills/paths/SKILL.md": "53304a26d6602e9d55867552b011c7465f9d849a1b0f58482acf5e70d135fddd",
+        "src/paths.ts": "3752269ca343c394695cf0b355230b212653f3c9882a8b87754832b1a489c9d0",
+        "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3",
+        "src/ways/index.ts": "740483e9cd6b267b7fb32c11245ef9d8a8a5c9dc9aaae337c7f6deea11c95b1f"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
-      "outcome": "no-change",
-      "reason": "types.ts adds interaction.drag: 'elastic' and the Layout.follow port (PR 284): path searches unchanged, taught by interaction (references/elastic-drag.md).",
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "outcome": "updated",
+      "reason": "PR 288 adds ways and pair in @bruno00o/graph/ways; PR 291 teaches them in a section of the paths skill (exits, two, one, none, chains, weak, failure, frozen result kept while data and options stay the same, costs), with failure modes for the main-entry import and an inline exits function.",
       "evidence": [
-        "Diff of src/types.ts since 0.34.0 read against skills/paths/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 877fcd8: every fence typechecked, published copies under 500 lines",
+        "Maintainer review of PR 291: skill changed after the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/paths.mdx, docs/content/docs/api/ways.mdx, src/paths.ts, src/ways/index.ts since 0.35.0 read against skills/paths/SKILL.md"
       ]
     },
     "skill:skills/styling/SKILL.md": {
@@ -1124,15 +1138,15 @@
       ]
     },
     "source:docs/content/docs/api/meta.json": {
-      "fingerprint": "28eca0b556b35e828069aebe35b7a2f861e19b602e0c181a47cfa214a5c82a18",
+      "fingerprint": "44ca519498009df05e0aa3c348f9790ec54c10d7f50713b957709755315c9c76",
       "snapshot": {
-        "docs/content/docs/api/meta.json": "33abcd8f504784b3d3e75bc648bd7c3a86f85dc47df1fb936e49c7336ebd36a0"
+        "docs/content/docs/api/meta.json": "a253d5e8117f5218e5065127648aab197f1c1dd8be71a6fb5d6cc5918c1d140e"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
       "outcome": "no-change",
-      "reason": "Order of the API pages (PRs 253 to 261); nothing to teach.",
+      "reason": "Adds the ways and chains API pages to the navigation (PR 288, 290); the skills link the pages.",
       "evidence": [
-        "Diff of docs/content/docs/api/meta.json since 0.32.0 read"
+        "Diff of docs/content/docs/api/meta.json since 0.35.0 read"
       ]
     },
     "source:src/core/hierarchy.ts": {
@@ -2273,7 +2287,7 @@
       ]
     },
     "skill:skills/headless/SKILL.md": {
-      "fingerprint": "1aa4dbff2a877591709a8ca27a484181567f13ddac2a341becd5bee178f2a335",
+      "fingerprint": "385d439ad1044855223d5300932d48f6a919c6d154006d3d90c674bcb3122a5e",
       "snapshot": {
         "docs/content/docs/(guide)/server-side-extracts.mdx": "b1eff300db342fe9e7654ad1d43d92865a0e12f3b09a2e3c4892bfe20f3c440b",
         "docs/content/docs/api/create-graph.mdx": "66b0bf7cd06151d434494064d99a1891e965d2c2dafbad11412f3fc7c1c87070",
@@ -2288,14 +2302,14 @@
         "src/headless/page.ts": "3bfb91c6cf3f20731c409335fe953a36cae5edb4cb4122fc690a981ab8a3a4f9",
         "src/headless/read-font.ts": "4ffffdb7317d1cc8708e7504df459a9b3235c30d3cfafc8c742b834f7c3c0cd0",
         "src/headless/text-estimate.ts": "5d4fc7b8aa1915c40b0f9b51c3d750d512a12b94ac5ead099c07a7f3bbe660cb",
-        "src/host/graph-core.ts": "50d34b2a0c983edd46c14fd9d7de0f2f2a26e6c0ecf3d734ea993f43032eedc1",
+        "src/host/graph-core.ts": "9ffb3d0e0dea9c1dab49159ed06cee806dea06b6bdef02605a26e44e0a210d6c",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
       "outcome": "no-change",
-      "reason": "graph-core.ts wires the host of the elastic drag (PR 284): a graph from createGraph has no pointer, so nothing follows; createGraph, settled() and the exports are unchanged.",
+      "reason": "graph-core.ts registers its path source for the ways subpath (PR 288): ways also runs on a graph from createGraph, taught by paths; createGraph, settled() and the exports are unchanged.",
       "evidence": [
-        "Diff of src/host/graph-core.ts since 0.34.0 read against skills/headless/SKILL.md"
+        "Diff of src/host/graph-core.ts since 0.35.0 read against skills/headless/SKILL.md"
       ]
     },
     "source:src/core/label-metrics.ts": {
@@ -2644,6 +2658,66 @@
       "reason": "Internal module of the force layout: crossing count, untangle pass in the worker and lazy chunk for the page fallback (PR 282); its public effect is taught by layouts.",
       "evidence": [
         "Diff of src/layouts/force/untangle.ts in PR 282 read"
+      ]
+    },
+    "source:src/core/path-query.ts": {
+      "fingerprint": "226836c06e5af56f72d78d5ba97b906fc5deb893d115c189d73c55d6e543ba3d",
+      "snapshot": {
+        "src/core/path-query.ts": "ad8ac12ed3b5a7ab1bc554bb38b7cf9ee663a346b85a0a5b725de95e0f8b37c9"
+      },
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "outcome": "no-change",
+      "reason": "createPathQueries takes the PathSource shared with the ways subpath (PR 288); shortest and reach unchanged, taught by paths.",
+      "evidence": [
+        "Diff of src/core/path-query.ts since 0.35.0 read"
+      ]
+    },
+    "source:src/core/path-registry.ts": {
+      "fingerprint": "0c8ed860a90a7a0b6186632d6bf9053b10744f9099d1f6df6708f528249d15f4",
+      "snapshot": {
+        "src/core/path-registry.ts": "94b33edec6bcc51df02b7fed39337ea6ac3bca7e34fd8be0789c9c702b5b737a"
+      },
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "outcome": "no-change",
+      "reason": "Internal registry from a graph or a finder to its path source, read by ways and pair (PR 288); their public effect is taught by paths.",
+      "evidence": [
+        "Diff of src/core/path-registry.ts since 0.35.0 read"
+      ]
+    },
+    "source:src/layouts/chains/place.ts": {
+      "fingerprint": "229a2a514dc42b0dc63ef7e553dfd97a623ecbe70b059d641ed5048e055536d1",
+      "snapshot": {
+        "src/layouts/chains/place.ts": "8e670af6c3ff9e162d3b49446660d94db7dd8cf801ad217b376af39c00a9d8a1"
+      },
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "outcome": "no-change",
+      "reason": "Internal placement of chains() (PR 290): units, arcs, fans, rows, final overlap pass; its behavior is taught by layouts (references/chains.md).",
+      "evidence": [
+        "Diff of src/layouts/chains/place.ts since 0.35.0 read"
+      ]
+    },
+    "source:src/layouts/force/collider.ts": {
+      "fingerprint": "dfc9201b3ec36848292538e4dc39e35cbcdf051ac8e2491b22e57cffe445670f",
+      "snapshot": {
+        "src/layouts/force/collider.ts": "bd1d94eb2562fdf3a7f04f2b3a01aa660a9a628ef337471cd2352fa63312b316"
+      },
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "outcome": "no-change",
+      "reason": "separate stops on pairs already at their distance, to within 1e-9 (PR 290); internal, used by chains and the end of GPU force runs, nothing to teach.",
+      "evidence": [
+        "Diff of src/layouts/force/collider.ts since 0.35.0 read"
+      ]
+    },
+    "source:src/ways/ways.ts": {
+      "fingerprint": "d029ffbd5b91a2f46e58cfca613b0a76628051a6c1f6e406f90f7503b986455c",
+      "snapshot": {
+        "src/ways/ways.ts": "8655905d9ea905def8e6411d945a4d39fa989abaabcd8fe720d49c8d1f93d15c"
+      },
+      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "outcome": "no-change",
+      "reason": "Internal analysis behind ways, pair and chains() (PR 288): blocks with the exits joined to a virtual node, two disjoint paths; taught by paths.",
+      "evidence": [
+        "Diff of src/ways/ways.ts since 0.35.0 read"
       ]
     }
   }
