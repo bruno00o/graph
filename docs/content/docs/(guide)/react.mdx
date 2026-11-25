@@ -201,3 +201,23 @@ const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 })
 ```
 
 With `view`, `onViewChange` receives the view requests of gestures, keys and `graph.view` calls, and only the `view` prop moves the graph. `<Graph>` renders the state set in `onViewChange` before the frame is drawn, so the view never lags behind the pointer. See [Controlled view](/docs/view#controlled-view) and the [controlled view](/examples/controlled-view) example.
+
+## TanStack Redact
+
+The React entry points run under [TanStack Redact](https://tanstack.com/redact/latest), the alternative React runtime, with no change on your side. They are tested with Redact 0.2.6 and 0.3.1, and the test suite runs under Redact on every change.
+
+```ts title="vite.config.ts"
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import { redact } from '@tanstack/redact/vite'
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [tanstackStart(), react(), redact()],
+  ssr: { noExternal: true },
+})
+```
+
+- With server rendering, `ssr.noExternal: true` is required: without it, the server render mixes React and Redact and fails.
+- In Vitest, a React package loaded by Node, such as `@tanstack/react-store`, keeps the real React. Inline it with `server.deps.inline` so that it uses Redact too.
+- Under Redact, `StrictMode` does not mount twice, so a test that relies on the double mount only checks it under React.

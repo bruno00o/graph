@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import { redact } from '@tanstack/redact/vite'
 import react from '@vitejs/plugin-react'
 import { fumadocsMdx } from 'fumadocs-mdx/vite'
 import { defineConfig, type Plugin } from 'vite'
@@ -11,6 +12,7 @@ const library = resolve(import.meta.dirname, '../src')
 const { DOCS_BASE: requestedBase = '/' } = process.env
 const base = `/${requestedBase.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
 const { DOCS_ORIGIN: requestedOrigin = 'https://bruno00o.github.io' } = process.env
+const { REDACT: underRedact } = process.env
 const origin = requestedOrigin.replace(/\/+$/, '')
 const content = resolve(import.meta.dirname, 'content/docs')
 
@@ -134,5 +136,7 @@ export default defineConfig({
       ],
     }),
     react(),
+    ...(underRedact ? [redact()] : []),
   ],
+  ...(underRedact ? { ssr: { noExternal: true } } : {}),
 })
