@@ -1627,14 +1627,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
 
   registerPathSource(guarded, pathSource)
 
-  const unregister = registerGraph({
-    graph: guarded as GraphCore,
-    label: () => page.title() ?? '',
-    inspect: inspection,
-    probe: (next) => {
-      probe = next
-    },
-  })
+  let unregister: () => void = () => {}
 
   exposeGraph(guarded, {
     ...parts,
@@ -1674,6 +1667,15 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
   surface.bind(driverOf(surface))
   if (startCamera && startView) surface.move(startView)
 
+  if (!destroyed)
+    unregister = registerGraph({
+      graph: guarded as GraphCore,
+      label: () => page.title() ?? '',
+      inspect: inspection,
+      probe: (next) => {
+        probe = next
+      },
+    })
   render.settled = true
   return guarded as unknown as GraphCore<S, M>
 }

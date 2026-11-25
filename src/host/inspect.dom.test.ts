@@ -4,6 +4,7 @@ import { edges, nodes } from '../marks'
 import { type FakeDom, fakeRenderer, installDom } from '../testing/dom'
 import type { GraphDefinition } from '../types'
 import { type GraphProbe, type InspectedGraph, watchGraphs } from './inspect'
+import { internalsOf } from './internals'
 import {
   createGraphHost,
   type GraphCore,
@@ -106,6 +107,36 @@ describe('graph inspection', () => {
     stop()
     second.destroy()
     expect(removed).toEqual([first])
+  })
+
+  it('registers a graph once its internals can be read', () => {
+    const read: number[] = []
+    const stop = watchGraphs({
+      added: (entry) => read.push(internalsOf(entry.graph, 'test').scene.nodes.capacity),
+      removed: () => {},
+    })
+    mount()
+    stop()
+    expect(read).toHaveLength(1)
+  })
+
+  it('reports a watcher that throws without breaking the mount', () => {
+    const reported: unknown[] = []
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error))
+    const stop = watchGraphs({
+      added: () => {
+        throw new Error('watcher failed')
+      },
+      removed: () => {
+        throw new Error('watcher failed')
+      },
+    })
+    const graph = mount()
+    graph.destroy()
+    stop()
+    vi.unstubAllGlobals()
+    expect(reported).toHaveLength(2)
+    expect(graph.store.state).toBeDefined()
   })
 
   it('reads no clock in a frame while no probe is attached', () => {
