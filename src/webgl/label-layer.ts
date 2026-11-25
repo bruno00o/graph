@@ -143,9 +143,18 @@ export interface PlacedLabel {
   readonly pixels: number
 }
 
+export type LabelRefusal =
+  | 'state'
+  | 'too-small'
+  | 'node-too-small'
+  | 'off-screen'
+  | 'overlap'
+  | 'edge-too-short'
+
 export interface LabelSink {
   node(index: number, label: PlacedLabel): void
   edge(index: number, label: PlacedLabel, anchor: Readonly<EdgeAnchor>): void
+  refuse?(kind: 'node' | 'edge', index: number, reason: LabelRefusal): void
   shape?(index: number, label: PlacedLabel, x: number, y: number): void
   hull?(shape: HullShape, label: PlacedLabel, x: number, y: number): void
 }
@@ -980,16 +989,25 @@ export class LabelLayer {
       const label = nodes.label[index]
       if (!label || nodes.alive[index] !== 1 || !nodeShown(nodes, index, sight)) return
       const shown = level(index)
-      if (shown === 0) return
+      if (shown === 0) {
+        sink?.refuse?.('node', index, 'state')
+        return
+      }
       const always = shown === labelAlways
       const screenUnits = nodes.screenUnits[index] === 1
       const size = nodes.labelSize[index] || nodeLabelSize
       const pixels = lifted(screenUnits ? size : size * shrink, size, shown, minimumPixels)
-      if (pixels < minimumPixels && !always) return
+      if (pixels < minimumPixels && !always) {
+        sink?.refuse?.('node', index, 'too-small')
+        return
+      }
       const zoom = globe ? globeScale(globe, positions.y(index)) : view.zoom
       const minimum = nodes.labelMinScreenSize[index] ?? 0
       const small = minimum > 0 && screenDiameter(nodes, index, zoom) < minimum
-      if (!force && !all && !always && small) return
+      if (!force && !all && !always && small) {
+        sink?.refuse?.('node', index, 'node-too-small')
+        return
+      }
       if (rank < 0 && globe) {
         if (globeScreen(globe, positions.x(index), positions.y(index), projected) < 0) return
       }
@@ -1056,8 +1074,14 @@ export class LabelLayer {
         scale,
       )
       const { left, right, top: boxTop, bottom: boxBottom } = edges
-      if (right < 0 || left > width || boxBottom < 0 || boxTop > height) return
-      if (!this.#claimBox(left, boxTop, right, boxBottom, force || all)) return
+      if (right < 0 || left > width || boxBottom < 0 || boxTop > height) {
+        sink?.refuse?.('node', index, 'off-screen')
+        return
+      }
+      if (!this.#claimBox(left, boxTop, right, boxBottom, force || all)) {
+        sink?.refuse?.('node', index, 'overlap')
+        return
+      }
       measured ??= measure()
       const block = measured
       const target = highlight ? this.highlight : this.main
@@ -1184,7 +1208,10 @@ export class LabelLayer {
       if (!label && !endLabels) return
       if (edges.alive[index] !== 1 || !edgeShown(nodes, edges, index, sight)) return
       const shown = edgeLevel(index)
-      if (shown === 0) return
+      if (shown === 0) {
+        if (label) sink?.refuse?.('edge', index, 'state')
+        return
+      }
       if (!edgeAnchor(frame, index, anchor)) return
       const room = anchor.room
       if (label) placeMiddle(index, highlight, label, shown)
@@ -1196,9 +1223,19 @@ export class LabelLayer {
     const placeMiddle = (index: number, highlight: boolean, label: string, shown: number): void => {
       const size = edges.labelSize[index] || edgeLabelSize
       const pixels = lifted(size * shrink, size, shown, minimumPixels)
-      if (pixels < minimumPixels && shown !== labelAlways) return
-      if (anchor.x < -cullMargin || anchor.x > width + cullMargin) return
-      if (anchor.y < -cullMargin || anchor.y > height + cullMargin) return
+      if (pixels < minimumPixels && shown !== labelAlways) {
+        sink?.refuse?.('edge', index, 'too-small')
+        return
+      }
+      const outside =
+        anchor.x < -cullMargin ||
+        anchor.x > width + cullMargin ||
+        anchor.y < -cullMargin ||
+        anchor.y > height + cullMargin
+      if (outside) {
+        sink?.refuse?.('edge', index, 'off-screen')
+        return
+      }
       const measure = (): TextBlock =>
         textBlock(
           atlas,
@@ -1218,14 +1255,20 @@ export class LabelLayer {
       const plated = background !== noColor
       const scale = pixels / atlasFontSize
       const half = (blockWidth / 2 + (plated ? padUnits : 0)) * scale
-      if (!all && half * 2 + edgeGap > anchor.room) return
+      if (!all && half * 2 + edgeGap > anchor.room) {
+        sink?.refuse?.('edge', index, 'edge-too-short')
+        return
+      }
       const total = blockHeight + plateDrop
       const top = plated ? -total / 2 : edgeDescent - blockHeight
       const stroke = strokeAt(index, edges.width[index] ?? 0)
       const above = plated ? 0 : Math.max(stroke, 0.5) / 2 + edgeLabelGap
       const low = plated ? (-total / 2) * scale : top * scale - above
       const high = plated ? (total / 2) * scale : (top + blockHeight) * scale - above
-      if (!this.#claim(anchor, half, low, high, (highlight && edgeForced(index)) || all)) return
+      if (!this.#claim(anchor, half, low, high, (highlight && edgeForced(index)) || all)) {
+        sink?.refuse?.('edge', index, 'overlap')
+        return
+      }
       measured ??= measure()
       const block = measured
       const target = highlight ? this.edgeHighlight : this.edgeMain

@@ -4,20 +4,20 @@
 
 ## Domains
 
-| Domain               | Description                                                                                            | Skills                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| graph-setup          | Data, keys, marks, definition, mounting, instance, states, events, updates                             | core, react                                       |
-| appearance           | How nodes, labels and edges look                                                                       | styling, edges                                    |
-| structure            | Groups, merged and hidden elements, layers, support, paths, free shapes                                | groups, multilayer, paths, shapes, editor         |
-| placement            | Layouts and positions                                                                                  | layouts                                           |
-| navigation-and-input | View, zoom ranges, selection, gestures, keyboard, advanced states                                      | view, interaction                                 |
-| geography-and-time   | Graphs in a MapLibre map, time windows and the timeline                                                | map, time                                         |
-| data-integrations    | TanStack DB, TanStack Query, Cypher results, graph files                                               | tanstack-db, tanstack-query, cypher, file-formats |
-| tools-and-output     | Minimap, legend, lens, anchors, hulls, grid, devtools, PNG, SVG, draw.io, Visio, graphs without a page | tools, export, headless                           |
+| Domain               | Description                                                                                                          | Skills                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| graph-setup          | Data, keys, marks, definition, mounting, instance, states, events, updates                                           | core, react                                       |
+| appearance           | How nodes, labels and edges look                                                                                     | styling, edges                                    |
+| structure            | Groups, merged and hidden elements, layers, support, paths, free shapes                                              | groups, multilayer, paths, shapes, editor         |
+| placement            | Layouts and positions                                                                                                | layouts                                           |
+| navigation-and-input | View, zoom ranges, selection, gestures, keyboard, advanced states                                                    | view, interaction                                 |
+| geography-and-time   | Graphs in a MapLibre map, time windows and the timeline                                                              | map, time                                         |
+| data-integrations    | TanStack DB, TanStack Query, Cypher results, graph files                                                             | tanstack-db, tanstack-query, cypher, file-formats |
+| tools-and-output     | Minimap, legend, lens, anchors, hulls, grid, devtools, PNG, SVG, draw.io, Visio, graphs without a page, agent bridge | tools, export, headless, agent                    |
 
 ## Skill plan
 
-Twenty-one skills. Every skill other than `core` requires `core` (`editor` also requires `shapes`); `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
+Twenty-two skills. Every skill other than `core` requires `core` (`editor` also requires `shapes`); `react` is the only framework skill. Whether a skill is written or planned lives in `skill_tree.yaml` (`status: planned`), not here. Batches own disjoint files; see [Batches](#batches).
 
 | Skill          | Type              | Domain               | Owner      |
 | -------------- | ----------------- | -------------------- | ---------- |
@@ -42,6 +42,7 @@ Twenty-one skills. Every skill other than `core` requires `core` (`editor` also 
 | shapes         | sub-skill         | structure            | shapes     |
 | editor         | sub-skill         | structure            | editor     |
 | headless       | sub-skill         | tools-and-output     | headless   |
+| agent          | sub-skill         | tools-and-output     | agent      |
 
 Boundaries chosen from developer tasks, not from entry points:
 
@@ -53,6 +54,7 @@ Boundaries chosen from developer tasks, not from entry points:
 - `paths` sits in batch C to balance the batches; it reads the same data as the integrations and has no file in common with them.
 - `shapes` owns the `shapes()` mark, its geometry, `pick`, its states by kind and everything that only concerns shapes; the other skills carry the sentences where a shape changes their rules (targets and selection in `interaction`, `fit` in `view`, the two tokens in `styling`) and point to it. Hulls and anchors stay in `tools`, group containers in `groups`.
 - `headless` owns `createGraph`, `readFont`, `settled` on a graph without a page, and the recipe that rasterizes the SVG with resvg on worker threads; the options of the exports stay in `export`, which it points to, and `core` introduces `GraphCore` and `settled()` and points to it.
+- `agent` owns the agent bridge (`/agent`, `/agent/dev`, `/agent/vite`, the `graph-agent` command) and the origin `'agent'` of `viewchange` and `positionchange`; it is written for the coding agent of the user, and points to `headless` for `createGraph`.
 - `editor` owns the shape editor (`/editor`, `/editor/react`), `applyShapeEdits`, and `persistShapes` and `showPresence` of `/db`. `tanstack-db` names them and points to it; `shapes`, `interaction` and `map` carry one sentence where an editor changes their gestures.
 
 ## Failure mode inventory
@@ -146,6 +148,23 @@ Boundaries chosen from developer tasks, not from entry points:
 | 11  | A size that is not above 0                    | MEDIUM   | createGraph API, `src/headless/page.ts` |             |
 | 12  | Measuring bold labels with the regular face   | MEDIUM   | readFont API                            |             |
 
+### agent (12)
+
+| #   | Mistake                                         | Priority | Source               | Cross-skill |
+| --- | ----------------------------------------------- | -------- | -------------------- | ----------- |
+| 1   | Calling the command without the plugin          | HIGH     | agent bridge guide   |             |
+| 2   | No page connected in a server-rendered app      | HIGH     | `src/agent/vite.ts`  | react       |
+| 3   | Importing the client in production code         | HIGH     | `src/agent/dev.ts`   |             |
+| 4   | Looking for an element in the snapshot only     | HIGH     | `src/agent/agent.ts` |             |
+| 5   | Acting on a label that names several nodes      | MEDIUM   | `src/agent/act.ts`   |             |
+| 6   | A duration in a step                            | MEDIUM   | `src/agent/act.ts`   | view        |
+| 7   | Setting a state the definition does not declare | MEDIUM   | `src/agent/act.ts`   | core        |
+| 8   | Looking for the members of a folded group       | MEDIUM   | `src/agent/query.ts` | groups      |
+| 9   | Taking a hidden label for a bug                 | MEDIUM   | `src/agent/read.ts`  | styling     |
+| 10  | Expecting the fields of the items               | MEDIUM   | `src/agent/agent.ts` |             |
+| 11  | Checking HTML in the image                      | MEDIUM   | agent bridge guide   | tools       |
+| 12  | A switch over the origins without `'agent'`     | MEDIUM   | `src/host/events.ts` | core        |
+
 ## Tensions
 
 | Tension                                       | Skills      | Agent implication                                                                              |
@@ -154,10 +173,11 @@ Boundaries chosen from developer tasks, not from entry points:
 
 ## Cross-references
 
-| From  | To    | Reason                                                          |
-| ----- | ----- | --------------------------------------------------------------- |
-| react | core  | Data, marks, states and the instance API are the same in React. |
-| core  | react | React apps render with `<Graph>` instead of `mountGraph`.       |
+| From  | To       | Reason                                                            |
+| ----- | -------- | ----------------------------------------------------------------- |
+| react | core     | Data, marks, states and the instance API are the same in React.   |
+| core  | react    | React apps render with `<Graph>` instead of `mountGraph`.         |
+| agent | headless | `createGraphAgent` reads a graph from `createGraph` the same way. |
 
 ## Remaining gaps
 
@@ -443,6 +463,10 @@ Layout API before 1.0: `root` of `radial` and `layers` takes any list of keys, `
 ### Aligned for 0.35.0, elastic drag
 
 Neighbors that follow a dragged node (`interaction.drag: 'elastic'`, the experimental port `Layout.follow` and `LayoutFollower`, `force().follow`). Failure modes added: `interaction` (one, 12 to 13: `drag: 'elastic'` without a layout that follows). `interaction` gained `references/elastic-drag.md` (what follows and what never moves, events and saving, reduced motion, a layout of its own), declared by hand in `skill_tree.yaml`, and one sentence in its options. No other skill changes.
+
+### Agent bridge, 0.37.0
+
+A coding agent reads and drives a graph in development (`/agent`, `/agent/dev`, `/agent/vite`, the `graph-agent` command). Written: `agent` (12 failure modes, requires `core`; the entry is written by hand in `skill_tree.yaml`, then `maintainer sync`; one `expect-error=TS2322` fence for a `switch` over `ViewOrigin` without `'agent'`, one `no-check` fence for the client line of a TanStack Start app, which reads `import.meta.env`). No other skill changes: the origin `'agent'` is covered by `agent`, which `core` does not need to name.
 
 ## Coverage and batch history
 

@@ -198,9 +198,10 @@ export interface GraphFoldEvent {
 
 /**
  * What moved the view: `'user'` for gestures, the wheel, the keyboard, edge scrolling and a map
- * moved by hand, `'api'` for `view` calls, `update({ view })` and automatic fits.
+ * moved by hand, `'api'` for `view` calls, `update({ view })` and automatic fits, `'agent'` for
+ * the actions of an agent bridge made by `createGraphAgent`.
  */
-export type ViewOrigin = 'user' | 'api'
+export type ViewOrigin = 'user' | 'api' | 'agent'
 
 /** Payload of `viewchange` and of the controlled `onViewChange` callback. */
 export interface GraphViewEvent {
@@ -278,9 +279,10 @@ export interface GraphZoomHintEvent {
 
 /**
  * What moved the nodes: a drag, with the nodes that followed it under `interaction.drag:
- * 'elastic'`, `positions.set`, or the end of a layout run.
+ * 'elastic'`, `positions.set`, the end of a layout run, or an action of an agent bridge made by
+ * `createGraphAgent`.
  */
-export type PositionOrigin = 'drag' | 'api' | 'layout'
+export type PositionOrigin = 'drag' | 'api' | 'layout' | 'agent'
 
 /** Payload of `positionchange`. Moves that come from your data do not emit it. */
 export interface GraphPositionEvent {

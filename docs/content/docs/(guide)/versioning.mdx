@@ -23,6 +23,9 @@ A port is a shape you implement yourself, to give the graph your own layout, edg
 | Edge bundling | `EdgeBundling`, `BundleGraph`, `BundlePaths`, `BundleListener`, `BundleRun` |
 | Edge routing | `EdgeRouting`, `RouteGraph` |
 | Live data | `LiveSource`, `SourceSubscription`, `SourceChange`, `StatusListen` |
+| Agent bridge | `createGraphAgent`, `graphAgent`, the `graph-agent` command and every type of `@bruno00o/graph/agent` and `@bruno00o/graph/agent/vite` |
+
+The agent bridge is no port: it is a tool for development, kept outside the promise the same way.
 
 A change of a port concerns the code that implements it or reads its fields. The layouts, bundling and routing of the package, such as `force()`, `grid()`, `densityBundling()` or `orthogonalRouting()`, follow it in the same version, and passing them to `defineGraph` stays covered by the promise.
 

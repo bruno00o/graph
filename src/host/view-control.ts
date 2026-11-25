@@ -20,7 +20,7 @@ import type { Emitter, ViewOrigin } from './events'
 import { progress } from './frame-cost'
 import type { FitOptions, GraphState } from './graph-instance'
 
-export type ViewCause = 'user' | 'api' | 'userFit' | 'apiFit' | 'limit'
+export type ViewCause = 'user' | 'api' | 'agent' | 'userFit' | 'apiFit' | 'agentFit' | 'limit'
 
 const glideLead = 16
 const frameMemory = 250
@@ -53,6 +53,7 @@ export interface FitRequest {
   readonly keys: FitKeys | null
   readonly options: FitOptions
   readonly automatic?: boolean
+  readonly cause?: ViewCause
 }
 
 export interface PendingBounds {
@@ -99,16 +100,17 @@ export function sameView(a: View, b: View): boolean {
 }
 
 export function originOf(cause: ViewCause): ViewOrigin {
-  return cause === 'user' || cause === 'userFit' ? 'user' : 'api'
+  if (cause === 'user' || cause === 'userFit') return 'user'
+  return cause === 'agent' || cause === 'agentFit' ? 'agent' : 'api'
 }
 
-export function fitRequest(options: FitOptions): FitRequest {
+export function fitRequest(options: FitOptions, agent = false): FitRequest {
   const { nodes, edges, shapes } = options
-  if (nodes === undefined && edges === undefined && shapes === undefined) {
-    return { keys: null, options }
-  }
-  const keys = { nodes: [...(nodes ?? [])], edges: [...(edges ?? [])], shapes: [...(shapes ?? [])] }
-  return { keys, options }
+  const keys =
+    nodes === undefined && edges === undefined && shapes === undefined
+      ? null
+      : { nodes: [...(nodes ?? [])], edges: [...(edges ?? [])], shapes: [...(shapes ?? [])] }
+  return agent ? { keys, options, cause: 'agentFit' } : { keys, options }
 }
 
 export class ViewControl {
@@ -219,7 +221,7 @@ export class ViewControl {
   }
 
   #claim(cause: ViewCause): void {
-    if (cause !== 'user' && cause !== 'api') return
+    if (cause !== 'user' && cause !== 'api' && cause !== 'agent') return
     if (!this.#framedOnce) {
       if (cause === 'user') this.skipFirstFit()
       return
@@ -468,7 +470,7 @@ export class ViewControl {
     if (this.#source.definition().view.autoFit === 'layouts' || this.stillFraming()) {
       this.frameTarget = fit
     }
-    this.pendingFit = this.settleFit(fit) ? null : fit
+    this.pendingFit = this.settleFit(fit, fit.cause) ? null : fit
   }
 
   settle(): void {
@@ -480,7 +482,7 @@ export class ViewControl {
     }
     const pendingFit = this.pendingFit
     if (!pendingFit || (pendingFit.automatic && this.#source.waiting())) return
-    if (this.settleFit(pendingFit)) this.pendingFit = null
+    if (this.settleFit(pendingFit, pendingFit.cause)) this.pendingFit = null
   }
 
   step(now: number): void {

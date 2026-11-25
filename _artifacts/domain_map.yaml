@@ -2779,6 +2779,138 @@ skills:
         source: docs/content/docs/api/read-font.mdx
         priority: MEDIUM
         status: active
+  - name: agent
+    slug: agent
+    domain: tools-and-output
+    type: sub-skill
+    description: Let a coding agent read what a graph draws in a running app and act on it, through the dev server of Vite or createGraphAgent.
+    covers:
+      - graphAgent Vite plugin and its relay
+      - the client of the dev server and the TanStack Start line
+      - the graph-agent command
+      - createGraphAgent
+      - snapshot, query, act and subscribe
+      - labels drawn and the reasons of hidden labels
+      - looks, states and degree of an element
+      - group keys of the bridge
+      - the origin 'agent' of viewchange and positionchange
+      - what the bridge sees and does not see
+      - security of the relay
+    tasks:
+      - Set up the bridge in a Vite or TanStack Start app
+      - Check that a change shows the nodes, labels and colors expected
+      - Find an element by label or neighborhood, then select, fit or set a state on it
+      - Take an image of the graph to look at the result
+      - Read a graph with createGraphAgent in a test or a script
+    failure_modes:
+      - mistake: Calling the command without the plugin
+        mechanism: graph-agent talks to the relay of the plugin on the dev server, so without graphAgent() in the config, with the server stopped or from a folder outside the project, it exits with 2.
+        wrong_pattern: |
+          export default defineConfig({ plugins: [] })
+        correct_pattern: |
+          export default defineConfig({ plugins: [graphAgent()] })
+        source: docs/content/docs/(guide)/agent.mdx
+        priority: HIGH
+        status: active
+      - mistake: No page connected in a server-rendered app
+        mechanism: The plugin adds the client to the entry points of the package the browser loads, so a page with no graph yet, or an app whose client entry it does not reach, connects nothing and commands fail after five seconds.
+        wrong_pattern: |
+          graphAgent()
+        correct_pattern: |
+          if (import.meta.env.DEV && !import.meta.env.SSR) import('@bruno00o/graph/agent/dev')
+        source: src/agent/vite.ts
+        priority: HIGH
+        status: active
+      - mistake: Importing the client in production code
+        mechanism: A bare import ships the client in the build, where it stays idle and warns, and evaluates it on the server for nothing.
+        wrong_pattern: |
+          import '@bruno00o/graph/agent/dev'
+        correct_pattern: |
+          if (import.meta.env.DEV && !import.meta.env.SSR) import('@bruno00o/graph/agent/dev')
+        source: src/agent/dev.ts
+        priority: HIGH
+        status: active
+      - mistake: Looking for an element in the snapshot only
+        mechanism: A snapshot lists 50 elements on screen by priority, so an element off screen, small or past the limit is left out without being missing.
+        wrong_pattern: |
+          graph-agent snapshot
+        correct_pattern: |
+          graph-agent query delta --within shown
+        source: src/agent/agent.ts
+        priority: HIGH
+        status: active
+      - mistake: Acting on a label that names several nodes
+        mechanism: A label target must name one node, so a step on a shared label fails with the keys as candidates.
+        wrong_pattern: |
+          graph-agent act select Server
+        correct_pattern: |
+          graph-agent act select node:n12
+        source: src/agent/act.ts
+        priority: MEDIUM
+        status: active
+      - mistake: A duration in a step
+        mechanism: A hidden tab runs no frames, so an animated step never ends and act comes back with settled false after its timeout.
+        wrong_pattern: |
+          graph-agent act fit selection duration=400
+        correct_pattern: |
+          graph-agent act fit selection
+        source: src/agent/act.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Setting a state the definition does not declare
+        mechanism: setState and path with state take a state of the definition, and another name fails with the declared names as candidates.
+        wrong_pattern: |
+          graph-agent act setState n12 name=highlight
+        correct_pattern: |
+          graph-agent act setState n12 name=path
+        source: src/agent/act.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Looking for the members of a folded group
+        mechanism: The bridge reads what the graph draws and a folded group hides its members, so query finds nothing until the group unfolds.
+        wrong_pattern: |
+          graph-agent query member-7
+        correct_pattern: |
+          graph-agent act unfold group:team=red then snapshot
+        source: src/agent/query.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Taking a hidden label for a bug
+        mechanism: Labels under 8 pixels, overlapping an earlier label or past the label limit are left out on purpose, and labelHidden tells which.
+        wrong_pattern: |
+          labelShown false read as a broken label
+        correct_pattern: |
+          labelHidden too-small, node-too-small, overlap, state or limit read before changing code
+        source: src/agent/read.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Expecting the fields of the items
+        mechanism: createGraphAgent tells nothing of the items without describe, and the client of the dev server tells six short fields.
+        wrong_pattern: |
+          createGraphAgent(graph).snapshot().elements[0]
+        correct_pattern: |
+          createGraphAgent(graph, { describe: (datum) => ({ team: (datum as Item).team }) })
+        source: src/agent/agent.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Checking HTML in the image
+        mechanism: The image is a PNG export of the graph alone, without anchors, panels, legends or the base map, which the snapshot does not see either.
+        wrong_pattern: |
+          graph-agent image to check a legend
+        correct_pattern: |
+          read the legend in the code, or ask for a screenshot
+        source: docs/content/docs/(guide)/agent.mdx
+        priority: MEDIUM
+        status: active
+      - mistake: A switch over the origins without 'agent'
+        mechanism: ViewOrigin and PositionOrigin have 'agent' for the moves of the bridge, so an exhaustive switch or a Record keyed by them no longer compiles.
+        wrong_pattern: |
+          const origins: Record<PositionOrigin, string> = { drag: 'dragged', api: 'by code', layout: 'by a layout' }
+        correct_pattern: |
+          const origins: Record<PositionOrigin, string> = { drag: 'dragged', api: 'by code', layout: 'by a layout', agent: 'by an agent' }
+        source: src/host/events.ts
+        priority: MEDIUM
+        status: active
 tensions:
   - name: Rebuilt definitions against stable identities
     skills:
@@ -2793,6 +2925,9 @@ cross_references:
   - from: core
     to: react
     reason: React apps render the graph with Graph instead of mountGraph.
+  - from: agent
+    to: headless
+    reason: createGraphAgent reads a graph from createGraph the same way, for tests and scripts.
 gaps:
   - skill: core
     question: Migration between versions (the upgrading page) has no skill yet.

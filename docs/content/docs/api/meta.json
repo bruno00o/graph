@@ -68,6 +68,10 @@
     "routing",
     "---@bruno00o/graph/devtools---",
     "devtools",
+    "---@bruno00o/graph/agent---",
+    "agent",
+    "---@bruno00o/graph/agent/vite---",
+    "agent-vite",
     "---@bruno00o/graph/theme.css---",
     "theme-tokens"
   ]

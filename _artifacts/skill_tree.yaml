@@ -760,3 +760,36 @@ skills:
       lacks, and the mistakes that leave labels missing or boxes too small.
     references:
       - references/extracts-at-scale.md
+  - name: agent
+    slug: agent
+    domain: tools-and-output
+    path: skills/agent/SKILL.md
+    description: >
+      Use when a coding agent needs to see or drive a @bruno00o/graph graph in a
+      running app: setting up the graphAgent() Vite plugin, the client line of a
+      TanStack Start app, running the graph-agent command (tabs, graphs,
+      snapshot, query, act, image, errors, changes), reading what a graph draws
+      (elements on screen, labels drawn and why others hide, looks, states,
+      degree), acting on it to check a change, and createGraphAgent in a test or
+      a script; and finding why no page is connected, an element is missing or a
+      step fails.
+    sources:
+      - src/agent/index.ts
+      - src/agent/types.ts
+      - src/agent/agent.ts
+      - src/agent/act.ts
+      - src/agent/query.ts
+      - src/agent/read.ts
+      - src/agent/dev.ts
+      - src/agent/vite.ts
+      - src/agent/cli.ts
+      - docs/content/docs/(guide)/agent.mdx
+      - docs/content/docs/api/agent.mdx
+      - docs/content/docs/api/agent-vite.mdx
+    requires:
+      - core
+    purpose: >
+      The agent bridge of @bruno00o/graph/agent: the Vite plugin and its relay,
+      the client of the dev server, the graph-agent command, snapshot, query, act
+      and subscribe, what the bridge sees and does not see, its security, and the
+      mistakes that leave an agent blind or acting on the wrong element.

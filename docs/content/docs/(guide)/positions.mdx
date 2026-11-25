@@ -179,7 +179,7 @@ function pruned(entries: [Key, Point][]) {
 
 ### Tell user moves from replayed ones
 
-`positionchange` says where a move comes from in its `origin`: `'drag'` for a node the user dragged, and for the nodes that followed it with [`drag: 'elastic'`](/docs/interaction#let-the-neighbors-follow), once they are calm, `'layout'` for a layout run that ended, and `'api'` for `positions.set` and `positions.reset`. Restoring through `initialPositions` emits nothing. Restoring through `set` emits `'api'`, as does any other call of yours, so a flag around your own replay keeps it from counting as an edit.
+`positionchange` says where a move comes from in its `origin`: `'drag'` for a node the user dragged, and for the nodes that followed it with [`drag: 'elastic'`](/docs/interaction#let-the-neighbors-follow), once they are calm, `'layout'` for a layout run that ended, `'api'` for `positions.set` and `positions.reset`, and `'agent'` for the moves of the [agent bridge](/docs/agent). Restoring through `initialPositions` emits nothing. Restoring through `set` emits `'api'`, as does any other call of yours, so a flag around your own replay keeps it from counting as an edit.
 
 ```ts
 let restoring = false
@@ -228,7 +228,7 @@ See [With and without a map](/docs/map#with-and-without-a-map) for nodes placed 
 
 ## Listen to moves
 
-`positionchange` fires when nodes are moved by a drag, by `positions.set`, or by a layout run that ended, with their target positions. Its `origin` is `'drag'`, `'api'` or `'layout'`. Moves that come from your data do not emit it, so writing the positions back to the data never loops.
+`positionchange` fires when nodes are moved by a drag, by `positions.set`, or by a layout run that ended, with their target positions. Its `origin` is `'drag'`, `'api'`, `'layout'` or `'agent'`. Moves that come from your data do not emit it, so writing the positions back to the data never loops.
 
 During a drag, it fires on every move of the pointer. To save once per drag, listen to `dragend` instead, or pace your writes.
 

@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react'
 import { fumadocsMdx } from 'fumadocs-mdx/vite'
 import { defineConfig, type Plugin } from 'vite'
 import { imagetools } from 'vite-imagetools'
+import { graphAgent } from '../src/agent/vite.ts'
 
 const library = resolve(import.meta.dirname, '../src')
 const { DOCS_BASE: requestedBase = '/' } = process.env
@@ -103,6 +104,8 @@ export default defineConfig({
       { find: /^@bruno00o\/graph\/timeline$/, replacement: resolve(library, 'timeline/index.ts') },
       { find: /^@bruno00o\/graph\/history$/, replacement: resolve(library, 'history/index.ts') },
       { find: /^@bruno00o\/graph\/headless$/, replacement: resolve(library, 'headless/index.ts') },
+      { find: /^@bruno00o\/graph\/agent\/dev$/, replacement: resolve(library, 'agent/dev.ts') },
+      { find: /^@bruno00o\/graph\/agent$/, replacement: resolve(library, 'agent/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(library, 'index.ts') },
     ],
     dedupe: [
@@ -134,5 +137,6 @@ export default defineConfig({
       ],
     }),
     react(),
+    graphAgent(),
   ],
 })

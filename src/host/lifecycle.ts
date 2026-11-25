@@ -227,6 +227,9 @@ export function coreStillborn<S extends string, M extends Mark, G extends object
     shape: () => null,
     globe: () => null,
     frames: stillFrames,
+    idle: () => true,
+    agent: (run) => run(),
+    indexOf: () => -1,
   })
   exposeSnapshot(graph, null, () => {
     throw destroyedError()

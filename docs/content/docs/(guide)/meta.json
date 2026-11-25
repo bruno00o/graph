@@ -47,6 +47,7 @@
     "cypher",
     "file-formats",
     "devtools",
+    "agent",
     "---Reference---",
     "versioning",
     "upgrading",

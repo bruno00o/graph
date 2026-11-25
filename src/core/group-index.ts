@@ -14,6 +14,27 @@ export function groupKey(name: string, value: Key, parent: Key | undefined): str
   return parent === undefined ? own : `${own}${mark}${tagged(parent)}`
 }
 
+export interface GroupKeyParts {
+  readonly name: string
+  readonly value: Key
+  readonly parent?: Key
+}
+
+function untagged(tag: string): Key {
+  return tag.startsWith('n') ? Number(tag.slice(1)) : tag.slice(1)
+}
+
+export function readGroupKey(key: unknown): GroupKeyParts | null {
+  if (typeof key !== 'string' || !key.startsWith(mark)) return null
+  const nameEnd = key.indexOf(mark, 1)
+  if (nameEnd < 0) return null
+  const name = key.slice(1, nameEnd)
+  const valueEnd = key.indexOf(mark, nameEnd + 1)
+  if (valueEnd < 0) return { name, value: untagged(key.slice(nameEnd + 1)) }
+  const value = untagged(key.slice(nameEnd + 1, valueEnd))
+  return { name, value, parent: untagged(key.slice(valueEnd + 1)) }
+}
+
 interface GroupEntry<T> {
   readonly key: string
   readonly value: Key

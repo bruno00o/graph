@@ -1,0 +1,121 @@
+---
+title: Agent bridge
+description: Let a coding agent read what a graph draws and act on it while you develop, through the dev server of Vite.
+---
+
+A coding agent edits your code but does not see the page. The agent bridge lets it ask the running app what a graph draws, as JSON: which nodes are on screen, which labels show and why the others do not, the view, the selection and the states. It can also act on the graph, select a node, fit the view, fold a group or run a layout, to check a change the way you would. It runs in development only, through the dev server of Vite.
+
+The bridge is experimental: a minor version may change it (see [Versioning](/docs/versioning#experimental-ports)).
+
+## Set up
+
+Add the plugin to the Vite config of your app. It needs Vite 7 or 8.
+
+```ts title="vite.config.ts"
+import { graphAgent } from '@bruno00o/graph/agent/vite'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [graphAgent()],
+})
+```
+
+Start the dev server and open the app in a browser. The plugin adds the client of the bridge to the entry points of the package while Vite serves them, so your code imports nothing. It only runs with `vite dev`: a build has no trace of it.
+
+The plugin writes the address of the server to `.graph-agent/server.json` and keeps the images it takes in the same folder. The folder ignores itself, and you can list it in your own `.gitignore` too:
+
+```txt title=".gitignore"
+.graph-agent/
+```
+
+### TanStack Start and other server-rendered apps
+
+When `graph-agent tabs` lists no page while the app is open, or with `graphAgent({ inject: false })`, import the client yourself from the entry point of the browser. In a TanStack Start app, that is `src/client.tsx`:
+
+```tsx title="src/client.tsx"
+if (import.meta.env.DEV && !import.meta.env.SSR) import('@bruno00o/graph/agent/dev')
+```
+
+The condition keeps the client out of the server and out of builds. The client also does nothing without `window`, and in a production build it only warns that its import should go. With this line, every page of the app connects, also the pages that show no graph yet.
+
+## Ask the page
+
+The package has a `graph-agent` command. It finds the dev server through `.graph-agent/server.json`, in the current folder or above, and prints JSON.
+
+```sh
+npx graph-agent snapshot
+```
+
+With pnpm, run `pnpm exec graph-agent snapshot`; the same goes for the commands below.
+
+| Command | What it prints |
+| --- | --- |
+| `tabs` | The pages connected to the server, with their address, and the one the commands go to |
+| `graphs` | The graphs mounted in the page, with their `ariaLabel` and counts |
+| `snapshot` | What the graph draws now, after it settles: view, selection, states, layers, time, layout, problems, and the first elements on screen |
+| `query [text]` | Elements by label or key, by kind, place or neighborhood, 50 at a time |
+| `act <step> [then <step>]...` | Runs steps in order, waits for the graph to settle and tells what changed |
+| `image` | A PNG of the graph, written to `.graph-agent/` |
+| `errors` | The last errors of the page |
+| `changes` | The changes of the graphs, from people, code and agents |
+
+Run `graph-agent help` for every option. A command goes to the visible and focused page, then to the last one connected; `--tab` picks another. It reads the last graph mounted in the page; `--graph` picks another by its number in `graphs`. The command exits with 1 when the page refuses, with the reason and close candidates in the JSON, and with 2 when no server answers.
+
+```sh
+npx graph-agent query delta --kind node
+npx graph-agent act select "Delta" then fit selection
+npx graph-agent act setState n12 name=path then path n12 n40 state=path
+npx graph-agent snapshot --limit 20 --no-labels
+```
+
+A target is a key, a label that names one node, `node:<key>`, `edge:<key>`, `shape:<key>`, `group:<name>=<value>` for a group made by `groups()`, `selection` or `all`. A step takes its other arguments as `name=value`.
+
+## What the bridge reads
+
+A snapshot reads the columns the graph draws from, not the pixels:
+
+- the graph, its size, whether it draws, and whether it has settled;
+- the view, with the counts of nodes and edges on screen and of labels drawn;
+- the selection, the focus, the hovered element and the members of each [state](/docs/states);
+- the hidden [layers](/docs/multilayer), the [time](/docs/time) window, the folded [groups](/docs/groups), the layout and its progress, the [problems](/docs/data#problems-in-the-data) in the data;
+- the first elements on screen, raised elements first, then the largest: key, label, whether the label is drawn and why not, position on screen, size, resolved colors and opacity, states, group and degree.
+
+A label can be hidden because a state hides it, because it is too small on screen or its node is under `minScreenSize`, because an earlier label holds the place, because it is longer than its edge, or because the view already holds its most labels. The degree is the one drawn: an edge merged with others counts once, and the edges of a folded group count on the group.
+
+The elements of the data stay out of what an agent reads unless you say otherwise: `describe` of [`createGraphAgent`](/docs/api/agent#creategraphagent) picks the fields to tell. The client of the dev server tells up to six fields of text, numbers or booleans of each element, cut at 60 characters, and only to the command on your machine.
+
+## What it does not see
+
+- What the page draws outside the canvas: [anchors](/docs/drawing-layers), panels, the base map of a [map](/docs/map). The image of `graph-agent image` is a [PNG export](/docs/export) of the graph alone.
+- The members of a folded group, which the graph does not draw: unfold it first.
+- The pixels themselves. A color is the one resolved for the element, before blending.
+- Anything while the page is closed or reloading: a command cut by a reload fails, and the next one waits up to five seconds for the page to connect.
+
+## Security
+
+The relay is part of the dev server and answers only on your machine. It refuses requests from another address, even when `server.host` opens the dev server to the network, and from host names other than `localhost`, `127.0.0.1` and `::1`. Commands need a header that pages of other sites cannot send without asking, and the stream the page listens to checks `Origin` and `Sec-Fetch-Site`. A program running on your machine can still drive the page, as it can open the dev server itself.
+
+## In your own code
+
+`createGraphAgent` from `@bruno00o/graph/agent` is the bridge without the dev server: a test, a script or a tool of your own can read a graph from `mountGraph` or from [`createGraph`](/docs/api/create-graph) the same way.
+
+```ts
+import { createGraphAgent } from '@bruno00o/graph/agent'
+import { createGraph } from '@bruno00o/graph/headless'
+
+const graph = createGraph({ definition })
+await graph.settled()
+const agent = createGraphAgent(graph, {
+  describe: (datum, key, kind) => (kind === 'node' ? { group: (datum as Item).group } : null),
+})
+
+const shot = agent.snapshot({ limit: 10 })
+const result = await agent.act({
+  steps: [
+    { action: 'select', target: 'Delta' },
+    { action: 'fit', target: 'selection' },
+  ],
+})
+```
+
+Moves made by `act` reach `viewchange` and `positionchange` with the origin `'agent'`. See [createGraphAgent](/docs/api/agent) for every option and field.

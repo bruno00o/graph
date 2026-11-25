@@ -13,7 +13,7 @@ graph.view.set({ x: 0, y: 0, zoom: 2 }, { duration: 300 })
 graph.on('viewchange', ({ view, origin }) => console.log(view.zoom, origin))
 ```
 
-`origin` tells who moved the view: `'user'` for gestures, the wheel, the keyboard and edge scrolling, `'api'` for `view` calls, `update({ view })` and automatic framing. A mouse wheel notch [glides](/docs/interaction#wheel-glide): `viewchange` fires on every frame of the glide, with origin `'user'`.
+`origin` tells who moved the view: `'user'` for gestures, the wheel, the keyboard and edge scrolling, `'api'` for `view` calls, `update({ view })` and automatic framing, `'agent'` for the actions of the [agent bridge](/docs/agent). A mouse wheel notch [glides](/docs/interaction#wheel-glide): `viewchange` fires on every frame of the glide, with origin `'user'`.
 
 The [view controls](/examples/view-controls) example calls each method of this page from buttons.
 

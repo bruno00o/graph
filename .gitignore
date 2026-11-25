@@ -7,6 +7,7 @@ dist-examples/
 !.intent/review-state.json
 bench-results*/
 browser-results*/
+.graph-agent/
 coverage/
 *.tsbuildinfo
 *.tgz
