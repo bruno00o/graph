@@ -1,6 +1,9 @@
 import { resolve } from 'node:path'
+import { redact } from '@tanstack/redact/vite'
 import type { Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
+
+const { REDACT: underRedact } = process.env
 
 const workerQuery = '?worker&inline'
 const noWorker = '\0no-worker'
@@ -42,8 +45,10 @@ export default defineConfig({
       },
       {
         extends: true,
+        plugins: underRedact ? [redact()] : [],
         test: {
           name: 'dom',
+          server: { deps: { inline: underRedact ? [/@tanstack\/react-store/] : [] } },
           include: ['src/**/*.dom.test.ts', 'src/**/*.dom.test.tsx'],
           environment: 'happy-dom',
         },
