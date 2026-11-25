@@ -1,6 +1,7 @@
 import type { AnyIssue } from '../core/issues'
 import type { PixelRatioOption } from '../types'
 import type { GraphCore } from './graph-instance'
+import { report } from './isolate'
 import type { RendererStats } from './renderer'
 
 export interface GraphProbe {
@@ -39,17 +40,25 @@ const watchers = new Set<GraphWatcher>()
 
 export function registerGraph(graph: InspectedGraph): () => void {
   mounted.add(graph)
-  for (const watcher of [...watchers]) watcher.added(graph)
+  for (const watcher of [...watchers]) tell(() => watcher.added(graph))
   return () => {
     if (!mounted.delete(graph)) return
-    for (const watcher of [...watchers]) watcher.removed(graph)
+    for (const watcher of [...watchers]) tell(() => watcher.removed(graph))
   }
 }
 
 export function watchGraphs(watcher: GraphWatcher): () => void {
   watchers.add(watcher)
-  for (const graph of [...mounted]) watcher.added(graph)
+  for (const graph of [...mounted]) tell(() => watcher.added(graph))
   return () => {
     watchers.delete(watcher)
+  }
+}
+
+function tell(call: () => void): void {
+  try {
+    call()
+  } catch (error) {
+    report(error)
   }
 }
