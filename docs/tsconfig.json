@@ -15,6 +15,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["vite/client", "mdx"],
     "paths": {
       "@bruno00o/graph": ["../src/index.ts"],
@@ -41,7 +42,10 @@
       "@bruno00o/graph/shapes": ["../src/shapes/index.ts"],
       "@bruno00o/graph/timeline": ["../src/timeline/index.ts"],
       "@bruno00o/graph/history": ["../src/history/index.ts"],
-      "@bruno00o/graph/headless": ["../src/headless/index.ts"]
+      "@bruno00o/graph/headless": ["../src/headless/index.ts"],
+      "@bruno00o/graph/agent": ["../src/agent/index.ts"],
+      "@bruno00o/graph/agent/dev": ["../src/agent/dev.ts"],
+      "@bruno00o/graph/agent/vite": ["../src/agent/vite.ts"]
     }
   },
   "include": ["src", "og", "source.config.ts", "vite.config.ts"]

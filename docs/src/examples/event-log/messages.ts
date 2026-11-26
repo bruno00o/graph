@@ -11,6 +11,7 @@ const origins: Record<PositionOrigin, string> = {
   drag: 'by a drag',
   api: 'from code',
   layout: 'by a layout',
+  agent: 'by an agent',
 }
 
 export const messages = {

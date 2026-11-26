@@ -60,6 +60,8 @@ export interface ExposureSource {
   draft(keys: readonly Key[], shifts?: readonly ShapeShift[]): void
   shape(key: Key): ShapeRecord | null
   title(): string | null
+  idle(): boolean
+  agent<T>(run: () => T): T
 }
 
 export function exposeGraph(graph: object, source: ExposureSource): void {
@@ -106,6 +108,10 @@ export function exposeGraph(graph: object, source: ExposureSource): void {
     shape: source.shape,
     globe: () => source.camera.sphere(),
     frames: source.frames,
+    idle: source.idle,
+    agent: source.agent,
+    indexOf: (kind, key) =>
+      kind === 'nodes' ? (projection.view.node?.(key)?.index ?? -1) : projection.edgeIndexOf(key),
   })
 
   exposeSnapshot(graph, source.surface().name !== 'none', () => {

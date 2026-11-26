@@ -45,6 +45,9 @@ export interface GraphInternals {
   shape(key: Key): ShapeRecord | null
   globe(): GlobeCamera | null
   readonly frames: FrameClock
+  idle(): boolean
+  agent<T>(run: () => T): T
+  indexOf(kind: 'nodes' | 'edges', key: Key): number
 }
 
 const exposed = new WeakMap<object, GraphInternals>()

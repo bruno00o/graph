@@ -63,6 +63,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium firefox webkit
       - if: steps.cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium firefox webkit
+      - run: pnpm test:agent
       - run: xvfb-run --auto-servernum pnpm test:browsers
       - if: failure()
         uses: actions/upload-artifact@v7.0.2

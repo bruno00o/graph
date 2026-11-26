@@ -5,6 +5,25 @@ description: What changes in your code from one version to the next.
 
 Versions before 1.0 may break the API in a minor release. Each change is listed here with what to do, and [Versioning](/docs/versioning) says what 1.0 promises. The full list of changes is in the [changelog](https://github.com/bruno00o/graph/blob/main/CHANGELOG.md).
 
+## 0.37.0
+
+### Moves made by an agent have the origin `'agent'`
+
+`ViewOrigin` and `PositionOrigin` have a new member, `'agent'`: `viewchange` and `positionchange` carry it for the moves made by [`act`](/docs/api/agent#act) of the agent bridge. A `switch` over an origin with no `default` branch, or a `Record` keyed by the origins, needs the new member.
+
+```ts
+// before
+const origins: Record<PositionOrigin, string> = { drag: 'dragged', api: 'by code', layout: 'by a layout' }
+
+// after
+const origins: Record<PositionOrigin, string> = {
+  drag: 'dragged',
+  api: 'by code',
+  layout: 'by a layout',
+  agent: 'by an agent',
+}
+```
+
 ## 0.34.0
 
 ### A definition only gives back its marks

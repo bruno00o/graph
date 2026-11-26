@@ -1,12 +1,13 @@
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { graphAgent } from './src/agent/vite.ts'
 
 const source = resolve(import.meta.dirname, 'src')
 
 export default defineConfig({
   root: resolve(import.meta.dirname, 'examples'),
-  plugins: [react()],
+  plugins: [react(), graphAgent()],
   resolve: {
     alias: [
       { find: '@bruno00o/graph/theme.css', replacement: resolve(source, 'theme/theme.css') },
@@ -43,6 +44,9 @@ export default defineConfig({
       { find: /^@bruno00o\/graph\/shapes$/, replacement: resolve(source, 'shapes/index.ts') },
       { find: /^@bruno00o\/graph\/timeline$/, replacement: resolve(source, 'timeline/index.ts') },
       { find: /^@bruno00o\/graph\/history$/, replacement: resolve(source, 'history/index.ts') },
+      { find: /^@bruno00o\/graph\/headless$/, replacement: resolve(source, 'headless/index.ts') },
+      { find: /^@bruno00o\/graph\/agent\/dev$/, replacement: resolve(source, 'agent/dev.ts') },
+      { find: /^@bruno00o\/graph\/agent$/, replacement: resolve(source, 'agent/index.ts') },
       { find: /^@bruno00o\/graph$/, replacement: resolve(source, 'index.ts') },
     ],
   },

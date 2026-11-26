@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Key, SourceChange } from '../types'
 import { toAccessor } from './accessor'
-import { GroupIndex, GroupSource, groupKey } from './group-index'
+import { GroupIndex, GroupSource, groupKey, readGroupKey } from './group-index'
 
 type Item = { id: string; zone: string | null; area?: string }
 
@@ -27,6 +27,17 @@ describe('GroupIndex', () => {
       ['south', 1, ['c']],
     ])
     expect(groupKey('zone', 1, undefined)).not.toBe(groupKey('zone', '1', undefined))
+  })
+
+  it('reads back the name, value and parent of a group key', () => {
+    const outer = groupKey('zone', 'north', undefined)
+    expect(readGroupKey(outer)).toEqual({ name: 'zone', value: 'north' })
+    expect(readGroupKey(groupKey('zone', 4, undefined))).toEqual({ name: 'zone', value: 4 })
+    expect(readGroupKey(groupKey('area', 'n', 7))).toEqual({ name: 'area', value: 'n', parent: 7 })
+    const nested = readGroupKey(groupKey('area', 'west', outer))
+    expect(nested).toEqual({ name: 'area', value: 'west', parent: outer })
+    expect(readGroupKey('north')).toBeNull()
+    expect(readGroupKey(12)).toBeNull()
   })
 
   it('moves the members of a group that reaches or leaves the minimum', () => {

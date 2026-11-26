@@ -1,0 +1,170 @@
+---
+title: createGraphAgent
+description: createGraphAgent, the bridge that reads what a graph draws and acts on it for a coding agent.
+---
+
+See [Agent bridge](/docs/agent) for the dev server, the command and what the bridge sees. Every type on this page is experimental: a minor version may change it.
+
+## createGraphAgent
+
+```ts
+import { createGraphAgent } from '@bruno00o/graph/agent'
+
+function createGraphAgent(graph: GraphCore, options?: GraphAgentOptions): GraphAgent
+```
+
+Takes a graph from `mountGraph`, `<Graph>`, `mountMapGraph` or [`createGraph`](/docs/api/create-graph). It reads the graph through its public API and its own internals, holds no copy of the data, and changes nothing until `act` is called. A bridge on a destroyed graph lists nothing and acts on nothing.
+
+<api-table path="agent/index.ts" name="GraphAgentOptions" />
+
+<api-table path="agent/index.ts" name="GraphAgent" />
+
+## snapshot
+
+<api-table path="agent/index.ts" name="AgentSnapshotOptions" />
+
+<api-table path="agent/index.ts" name="AgentSnapshot" />
+
+The elements are those on screen, raised elements first (selected, hovered, focused and states with `raise`), then nodes by size and edges by width. Past `limit`, the last item is `{ more }`, the number of elements left out.
+
+<api-table path="agent/index.ts" name="AgentMore" />
+
+<api-table path="agent/index.ts" name="AgentGraphInfo" />
+
+<api-table path="agent/index.ts" name="AgentView" />
+
+<api-table path="agent/index.ts" name="AgentCountPair" />
+
+<api-table path="agent/index.ts" name="AgentKeys" />
+
+<api-table path="agent/index.ts" name="AgentTarget" />
+
+<api-table path="agent/index.ts" name="AgentStateCount" />
+
+<api-table path="agent/index.ts" name="AgentLayers" />
+
+<api-table path="agent/index.ts" name="AgentTime" />
+
+<api-table path="agent/index.ts" name="AgentLayout" />
+
+<api-table path="agent/index.ts" name="AgentIssue" />
+
+## Elements
+
+```ts
+type AgentElement = AgentNode | AgentEdge | AgentShape
+type AgentElementKind = 'node' | 'edge' | 'shape'
+```
+
+<api-table path="agent/index.ts" name="AgentNode" />
+
+<api-table path="agent/index.ts" name="AgentNodeLook" />
+
+<api-table path="agent/index.ts" name="AgentEdge" />
+
+<api-table path="agent/index.ts" name="AgentEdgeLook" />
+
+<api-table path="agent/index.ts" name="AgentShape" />
+
+```ts
+type AgentLabelHidden =
+  | 'state'
+  | 'too-small'
+  | 'node-too-small'
+  | 'off-screen'
+  | 'overlap'
+  | 'edge-too-short'
+  | 'limit'
+```
+
+The reason a label is not drawn. `'overlap'` means an earlier label holds its place: a larger node, a raised element, or a label forced by a state. `'limit'` means the view already holds the most labels the selection draws.
+
+## Keys
+
+```ts
+type AgentKey = Key | AgentGroupKey
+```
+
+A group node made by [`groups()`](/docs/api/groups) has a key built by the graph. The bridge writes it as its parts and reads them back, so that an agent can pass it to `act`.
+
+<api-table path="agent/index.ts" name="AgentGroupKey" />
+
+<api-table path="agent/index.ts" name="AgentGroup" />
+
+## query
+
+<api-table path="agent/index.ts" name="AgentQueryOptions" />
+
+<api-table path="agent/index.ts" name="AgentQueryResult" />
+
+Text matches the labels and keys of the elements the graph draws, without case or accents: labels that start with it come first, then labels that contain it. Members of a folded group are not drawn, so they are not found. The labels are cached until the scene changes.
+
+## act
+
+<api-table path="agent/index.ts" name="AgentActRequest" />
+
+<api-table path="agent/index.ts" name="AgentStep" />
+
+```ts
+type AgentTargetInput =
+  | AgentKey
+  | AgentTarget
+  | 'selection'
+  | 'all'
+  | readonly (AgentKey | AgentTarget)[]
+```
+
+A key is looked up among nodes, then edges, then shapes, as written and, for a string of digits, as a number. A string that names no key is read as the label of one node, compared without case or accents.
+
+| Action | Target | Arguments |
+| --- | --- | --- |
+| `select`, `addToSelection` | Elements | |
+| `clearSelection` | | |
+| `focus` | One node, or `null` to remove the focus | |
+| `fit` | Elements, or nothing for the whole graph | `maxZoom` (defaults to 2), `padding`, `duration` |
+| `zoom` | | `by` (defaults to 2), `duration` |
+| `pan` | | `x`, `y` in pixels, `duration` |
+| `setView` | | `x`, `y`, `zoom`, `duration` |
+| `fold`, `unfold` | Groups, or nothing for all | |
+| `toggleFold` | Groups | |
+| `hideLayer`, `showLayer` | Names of layers, or nothing for all | |
+| `setTime` | | `start`, `end`: ISO 8601 dates, milliseconds, or `null` and `'open'` for an open end |
+| `clearTime` | | |
+| `setState` | Elements | `name` of a declared state |
+| `clearState` | | `name`, or nothing for every state |
+| `path` | Two nodes | `direction`, `weight` (a field), `visible`, `state` to hold the path |
+| `runLayout` | Nodes, or nothing for all | `fit`, `duration` |
+| `move` | One node | `x`, `y` in world units, or `dx`, `dy` in pixels, `duration` |
+| `resetPositions` | Nodes, or nothing for all | `duration` |
+
+`duration` defaults to 0: an animation never ends in a hidden tab, and the graph would not settle. `path` returns the keys and the cost it found, `runLayout` whether the run completed and its time, `move` the new position.
+
+<api-table path="agent/index.ts" name="AgentActResult" />
+
+<api-table path="agent/index.ts" name="AgentActError" />
+
+<api-table path="agent/index.ts" name="AgentStepResult" />
+
+<api-table path="agent/index.ts" name="AgentChanged" />
+
+<api-table path="agent/index.ts" name="AgentViewChange" />
+
+## subscribe
+
+```ts
+type AgentChangeType =
+  | 'selection'
+  | 'view'
+  | 'fold'
+  | 'layers'
+  | 'time'
+  | 'positions'
+  | 'layout'
+  | 'issues'
+
+type AgentOrigin = 'user' | 'api' | 'agent' | 'drag' | 'layout'
+```
+
+<api-table path="agent/index.ts" name="AgentChange" />
+
+A view change is told once the view stops moving for 150 ms, not at each frame. The graph listens to its events only while the bridge has a listener.

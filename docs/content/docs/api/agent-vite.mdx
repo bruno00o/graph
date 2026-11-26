@@ -1,0 +1,51 @@
+---
+title: graphAgent
+description: graphAgent, the Vite plugin of the agent bridge, its client and the graph-agent command.
+---
+
+See [Agent bridge](/docs/agent) for a walkthrough. The plugin, the client and the command are experimental: a minor version may change them.
+
+## graphAgent
+
+```ts
+import { graphAgent } from '@bruno00o/graph/agent/vite'
+
+function graphAgent(options?: GraphAgentPluginOptions): Plugin
+```
+
+Returns a Vite plugin, for Vite 7 and 8, that applies to `vite dev` only. It serves a relay under `/__graph/` on the dev server, between the `graph-agent` command and the open pages, and writes `.graph-agent/server.json` in the root of the project with the address of the server; the file goes when the server stops. Images go to the same folder, which holds a `.gitignore` of its own.
+
+<api-table path="agent/vite.ts" name="GraphAgentPluginOptions" />
+
+With `inject`, the plugin adds an import of the client to the entry points of the package: while Vite pre-bundles them, through a rolldown plugin with Vite 8 and an esbuild plugin with Vite 7, and when Vite serves them to the browser without pre-bundling. The server side of a server-rendered app never gets it.
+
+## The client
+
+```ts
+import '@bruno00o/graph/agent/dev'
+```
+
+The client of the bridge, which the plugin adds for you. It has no exports. In a page, during development, it connects to the relay, makes a bridge for every graph the page mounts, keeps the last changes and errors of the page, and answers the commands. It does nothing without `window`, and in a production build it warns once and stays idle: import it under `import.meta.env.DEV`, as in [TanStack Start and other server-rendered apps](/docs/agent#tanstack-start-and-other-server-rendered-apps).
+
+## graph-agent
+
+```sh
+graph-agent <command> [options]
+```
+
+| Command | Options |
+| --- | --- |
+| `tabs` | |
+| `graphs` | |
+| `snapshot` | `--limit <n>`, `--no-labels`, `--no-wait` |
+| `query [text]` | `--kind node\|edge\|shape\|group`, `--within <scope>`, `--near <key>`, `--depth <n>`, `--direction both\|forward\|backward`, `--from <n>` |
+| `act <step> [then <step>]...` | `--no-wait`, `--timeout <ms>` |
+| `image` | `--region view\|graph`, `--ratio <n>` |
+| `errors` | |
+| `changes` | `--since <n>` |
+
+Every command takes `--graph <n>` (a graph of the page, the last mounted by default), `--tab <id>` (a page, the visible one by default, then the last connected), `--url <url>` (the dev server, read from `.graph-agent/server.json` by default) and `--pretty`.
+
+A step is an action of [`act`](/docs/api/agent#act), its targets, then its arguments as `name=value`; `true`, `false`, `null` and numbers are read as such. A target is a key, a label, `node:<key>`, `edge:<key>`, `shape:<key>`, `group:<name>=<value>`, `selection` or `all`. `--within` takes `view`, `shown`, `selection`, the name of a state or a layer, or the key of a group.
+
+The output is JSON on one line. The command exits with 0 on success, 1 when the page refuses a command (the JSON has `error` and, for a target that matches nothing or several elements, `candidates`), and 2 when it finds no server or cannot reach it.

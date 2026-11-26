@@ -100,7 +100,7 @@ An edge drawn for several edges, between [folded groups](/docs/groups) or [merge
 - `point` is in screen pixels relative to the graph element, `world` in world units.
 - `pointermove` carries a `GraphPointerEvent`, at most once per frame, with the element under the pointer or `null` over empty space. During a drag, its target is the dragged node. The graph listens to the pointer for it only while a handler is subscribed.
 - `selection` is the whole selection after the change, in the order keys joined it. It has `shapes` only when the definition has a [shape mark](/docs/shapes#selecting-and-hovering).
-- `origin` is `'user'` when a gesture, the wheel, the keyboard or edge scrolling moved the view, and `'api'` when code did: `graph.view`, `update({ view })`, automatic framing or the keyboard focus set from code.
+- `origin` is `'user'` when a gesture, the wheel, the keyboard or edge scrolling moved the view, `'api'` when code did: `graph.view`, `update({ view })`, automatic framing or the keyboard focus set from code, and `'agent'` when the [agent bridge](/docs/agent) did.
 - `keys` lists every node moved by the drag: the whole selection when the dragged node is selected, and the nodes inside a dragged group.
 - `folded` lists the keys of every folded group after the change.
 - `contextmenu` does not prevent the menu of the browser. Call `originalEvent.preventDefault()` in the handler to show your own menu: `graph.on('contextmenu', ({ originalEvent }) => originalEvent.preventDefault())`.

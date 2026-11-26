@@ -305,6 +305,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
   let framing = false
   let sceneVersion = 0
   let probe: GraphProbe | null = null
+  let acting = 0
   let drafted: readonly Key[] = []
   let shifted: readonly ShapeShift[] = []
   const watchers = new Set<GraphWatcher>()
@@ -1262,7 +1263,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     set: (next, viewOptions = {}) => {
       checkView(next)
       checkDuration(viewOptions)
-      views.animateTo(next, viewOptions.duration, 'api')
+      views.animateTo(next, viewOptions.duration, acting > 0 ? 'agent' : 'api')
     },
     fit: (fitOptions?: FitOptions, ...rest: unknown[]) => {
       const iterable = typeof Object(fitOptions)[Symbol.iterator] === 'function'
@@ -1272,7 +1273,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       checkFit(fitOptions ?? {})
       checkLists(check, fitOptions, 'view.fit({ $ })')
       flushPending()
-      views.fit(fitRequest(fitOptions ?? {}))
+      views.fit(fitRequest(fitOptions ?? {}, acting > 0))
     },
     zoomBy: (factor, viewOptions = {}) => {
       checkFactor(factor)
@@ -1280,7 +1281,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       const size = views.viewport()
       const center = { x: size.width / 2, y: size.height / 2 }
       const zoomed = zoomAround(views.base(), size, center, factor, definition.view)
-      views.animateTo(zoomed, viewOptions.duration, 'api')
+      views.animateTo(zoomed, viewOptions.duration, acting > 0 ? 'agent' : 'api')
     },
     toScreen: (point) => camera.screenAt(point),
     toWorld: (point) => camera.worldAt(point, store.get().view),
@@ -1323,7 +1324,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       }
       motion.move(indices, to, positionOptions.duration ?? 0)
       if (moved.size > 0) {
-        emitter.emit('positionchange', positionEvent('api', moved, surface))
+        emitter.emit('positionchange', positionEvent(acting > 0 ? 'agent' : 'api', moved, surface))
       }
     },
     reset: (keys, resetOptions = {}) => {
@@ -1365,7 +1366,7 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
       motion.move(indices, to, resetOptions.duration ?? definition.transitions.positions)
       spread.settle(performance.now())
       if (moved.size > 0) {
-        emitter.emit('positionchange', positionEvent('api', moved, surface))
+        emitter.emit('positionchange', positionEvent(acting > 0 ? 'agent' : 'api', moved, surface))
       }
     },
     snapshot: (snapshotOptions = {}) => {
@@ -1662,6 +1663,19 @@ export function createGraphCore<S extends string = string, M extends Mark = Mark
     },
     title: () => page.title(),
     frames,
+    idle: () => {
+      if (destroyed) return true
+      flushPending()
+      return idle()
+    },
+    agent: (run) => {
+      acting++
+      try {
+        return run()
+      } finally {
+        acting--
+      }
+    },
   })
 
   surface.bind(driverOf(surface))
